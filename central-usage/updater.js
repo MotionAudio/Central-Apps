@@ -66,7 +66,9 @@ class Updater {
     try {
       const rel = await get(this.api + "/repos/" + this.cfg.repo + "/releases/latest", { json: true, timeout: 15000 });
       const assets = {}; (rel.assets || []).forEach((a) => { assets[a.name] = a.browser_download_url; });
-      this.latest = { version: String(rel.tag_name || rel.name || "").replace(/^v/i, ""), notes: rel.body || "", assets };
+      // one release carries every app; this app's own version is in its file name (central-usage-1.3.0-amd64.deb)
+      const mine = Object.keys(assets).map((n) => (n.match(new RegExp("^" + this.product + "-(\\d+(?:\\.\\d+)*)-")) || [])[1]).filter(Boolean)[0];
+      this.latest = { version: mine || String(rel.tag_name || rel.name || "").replace(/^v/i, ""), notes: rel.body || "", assets };
       this.error = null;
     } catch (e) { this.error = "Could not reach the update server (" + e.message + ")"; }
     this.cfg.lastCheck = Math.floor(Date.now() / 1000); this.save({});

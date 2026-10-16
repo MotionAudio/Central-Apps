@@ -18,7 +18,7 @@ OUT="release/$VER"; rm -rf "$OUT"; mkdir -p "$OUT"
 
 # the Pi update: the app sources in a central-control/ folder (no installers, no node_modules)
 TMP="$(mktemp -d)"; mkdir -p "$TMP/central-control"
-tar --exclude=./release --exclude='./*/dist' --exclude='*/node_modules' --exclude='./parts' --exclude='*.zip' --exclude='__pycache__' -cf - . | tar -xf - -C "$TMP/central-control"
+tar --exclude=./release --exclude=./.git --exclude=./.github --exclude=./central-control-desktop/src --exclude=./release-notes --exclude='./*/dist' --exclude='*/node_modules' --exclude='./parts' --exclude='*.zip' --exclude='__pycache__' -cf - . | tar -xf - -C "$TMP/central-control"
 (cd "$TMP" && zip -qr "$OLDPWD/$OUT/central-control-source.zip" central-control)
 rm -rf "$TMP"
 

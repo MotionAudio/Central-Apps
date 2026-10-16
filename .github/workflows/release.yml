@@ -1,0 +1,54 @@
+# Builds and publishes a release whenever main has a version that has no release yet.
+# The version comes from APP_VERSION in pedal-driver.py (tag v<version>); the PC apps' own versions come
+# from their package.json files. The apps' update checks read the newest release of this repository.
+name: Release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        id: v
+        run: |
+          VER=$(sed -nE 's/^APP_VERSION = "([^"]+)".*/\1/p' pedal-driver.py | head -1)
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VER" >/dev/null 2>&1; then echo "exists=1" >> "$GITHUB_OUTPUT"; else echo "exists=0" >> "$GITHUB_OUTPUT"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        if: steps.v.outputs.exists == '0'
+        with:
+          node-version: 20
+      - name: Build Central Usage
+        if: steps.v.outputs.exists == '0'
+        working-directory: central-usage
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder --linux deb AppImage --publish never
+      - name: Build Central Control for PC
+        if: steps.v.outputs.exists == '0'
+        run: |
+          bash central-control-desktop/prepare-src.sh
+          cd central-control-desktop
+          npm install --no-audit --no-fund
+          npx electron-builder --linux deb AppImage --publish never
+      - name: Make the release files
+        if: steps.v.outputs.exists == '0'
+        run: bash make-release.sh "${{ steps.v.outputs.version }}"
+      - name: Publish
+        if: steps.v.outputs.exists == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="${{ steps.v.outputs.version }}"
+          NOTES=release-notes/$VER.md; [ -f "$NOTES" ] || { echo "Central Control $VER" > /tmp/notes.md; NOTES=/tmp/notes.md; }
+          gh release create "v$VER" release/$VER/* --title "Central Control $VER" --notes-file "$NOTES" --target "$GITHUB_SHA"
