@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><link rel="stylesheet" href="/fonts/fonts.css">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central Control lyrics</title>
+<style>
+  :root { --size:7vh; --fg:#fff; --bg:#000; --dim:rgba(255,255,255,.42); }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; cursor:none; }
+  body.light { --fg:#000; --bg:#fff; --dim:rgba(0,0,0,.45); }
+  body.show-cursor { cursor:auto; }
+  .stage { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4vh 6vw; text-align:center; transition:opacity .35s; }
+  .stage.blank { opacity:0; }
+  .section { position:absolute; top:3vh; left:0; right:0; font-size:2.6vh; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); }
+  .lines { font-size:var(--size); line-height:1.25; font-weight:700; text-wrap:balance; }
+  .lines div { margin:.1em 0; }
+  .next { margin-top:4vh; font-size:calc(var(--size) * .55); line-height:1.25; color:var(--dim); }
+  .title { font-size:calc(var(--size) * .9); font-weight:800; }
+  .sub { color:var(--dim); font-size:3vh; margin-top:2vh; }
+  .status { position:fixed; right:1.2vh; bottom:1vh; font-size:1.6vh; color:var(--dim); opacity:.7; }
+  .left { text-align:left; align-items:flex-start; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"><div class="title">Central Control</div><div class="sub" id="sub">Waiting for the Central Control…</div></div>
+<div class="status" id="status"></div>
+<script src="common.js"></script>
+<script>
+(function () {
+  var C = window.PPCompanion, esc = C.esc, $ = function (s) { return document.querySelector(s); };
+  var lastKey = null;
+  document.addEventListener("mousemove", function () { document.body.classList.add("show-cursor"); clearTimeout(window.__cur); window.__cur = setTimeout(function () { document.body.classList.remove("show-cursor"); }, 2000); });
+  document.addEventListener("keydown", function (e) { if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") C.action("lyricsNext"); else if (e.key === "ArrowLeft" || e.key === "PageUp") C.action("lyricsPrev"); else if (e.key.toLowerCase() === "b") C.action("projectorBlank"); });
+  function render(st) {
+    var d = st.display, stage = $("#stage");
+    $("#status").textContent = st.connected ? "" : "reconnecting…";
+    if (!d) return;
+    var p = d.projector || {}, ls = d.lyrics || { lines: [], next: [], section: "" };
+    document.documentElement.style.setProperty("--size", (p.fontSize || 7) + "vh");
+    document.body.classList.toggle("light", p.theme === "light");
+    stage.classList.toggle("blank", !!p.blank);
+    stage.classList.toggle("left", p.align === "left");
+    var key = JSON.stringify([d.song && d.song.name, ls.lines, ls.next, ls.section, p.showNext, p.showSection]);
+    if (key === lastKey) return; lastKey = key;
+    if (!d.song) { stage.innerHTML = ""; return; }
+    if (!ls.lines.length) {
+      stage.innerHTML = (p.showSection !== false && ls.section ? '<div class="section">' + esc(ls.section) + "</div>" : "") + (d.playing || d.tracksMode ? "" : '<div class="title">' + esc(d.song.name) + "</div>");
+      return;
+    }
+    stage.innerHTML = (p.showSection !== false ? '<div class="section">' + esc(ls.section) + (ls.pages > 1 ? "  " + (ls.page + 1) + "/" + ls.pages : "") + "</div>" : "") +
+      '<div class="lines">' + ls.lines.map(function (l) { return "<div>" + esc(l) + "</div>"; }).join("") + "</div>" +
+      (p.showNext !== false && ls.next && ls.next.length ? '<div class="next">' + ls.next.map(function (l) { return "<div>" + esc(l) + "</div>"; }).join("") + "</div>" : "");
+  }
+  C.on(render);
+})();
+</script>
+</body>
+</html>

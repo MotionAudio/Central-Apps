@@ -1,0 +1,12 @@
+[Unit]
+Description=Pad Pedal OS: import the Wi-Fi written on the boot partition (pad-pedal-wifi.txt)
+After=NetworkManager.service
+Wants=NetworkManager.service
+ConditionPathExists=/boot/firmware/pad-pedal-wifi.txt
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pad-pedal-system wifi-import
+
+[Install]
+WantedBy=multi-user.target

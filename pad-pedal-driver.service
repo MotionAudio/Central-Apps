@@ -1,0 +1,20 @@
+[Unit]
+Description=Pad Pedal driver (buttons, knobs, 3.5" screen, MIDI, Link, app + companion web servers)
+After=local-fs.target network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/pad-pedal/pedal-driver.py
+# lgpio (the GPIO library) needs a writable working directory for its notify pipes
+RuntimeDirectory=pad-pedal
+WorkingDirectory=/run/pad-pedal
+Environment=LG_WD=/run/pad-pedal
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Restart=always
+RestartSec=2
+User=pi
+SupplementaryGroups=gpio i2c spi input video audio render plugdev
+
+[Install]
+WantedBy=multi-user.target

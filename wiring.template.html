@@ -1,0 +1,299 @@
+<title>Central Control Wiring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: one bench-reference column; each circuit is a figure with its own table, in build order. */
+:root {
+  --paper:#f2f5f3; --panel:#ffffff; --ink:#18221d; --muted:#5a6862; --rule:#cfd8d3; --copper:#a85a22;
+  --v33:#cf3f22; --v5:#7f1717; --gnd:#18221d; --i2c:#1f5fb4; --sw:#b07800; --led:#1c8247; --enc:#7444bd; --res:#b7c0bb; --free:#ffffff;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper:#0e1513; --panel:#151e1b; --ink:#e3ebe7; --muted:#97a69f; --rule:#2b3833; --copper:#e39258;
+  --v33:#ff7b5c; --v5:#ff5f5f; --gnd:#e3ebe7; --i2c:#6fa6f2; --sw:#f1b630; --led:#4fcd83; --enc:#ad8ff2; --res:#4a5752; --free:#0e1513; color-scheme:dark; } }
+:root[data-theme="dark"] {
+  --paper:#0e1513; --panel:#151e1b; --ink:#e3ebe7; --muted:#97a69f; --rule:#2b3833; --copper:#e39258;
+  --v33:#ff7b5c; --v5:#ff5f5f; --gnd:#e3ebe7; --i2c:#6fa6f2; --sw:#f1b630; --led:#4fcd83; --enc:#ad8ff2; --res:#4a5752; --free:#0e1513; color-scheme:dark; }
+* { box-sizing:border-box; }
+body { background:var(--paper); color:var(--ink); font:15px/1.55 var(--body); }
+.wrap { max-width:1060px; margin:0 auto; padding-inline:clamp(16px,4vw,40px); padding-block:28px 64px; display:grid; gap:44px; }
+header { display:grid; gap:10px; max-width:70ch; }
+.eyebrow { font:600 12px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--copper); }
+h1 { font:700 clamp(40px,7vw,64px)/.95 var(--display); letter-spacing:.01em; margin:0; text-wrap:balance; }
+h2 { font:700 30px/1 var(--display); margin:0; letter-spacing:.01em; text-wrap:balance; }
+h2 .no { color:var(--copper); margin-right:.35em; }
+h3 { font:600 15px var(--body); margin:0; }
+p { margin:0; max-width:70ch; }
+.lede { font-size:17px; color:var(--muted); }
+section { display:grid; gap:16px; min-width:0; }
+.rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+.rule { border:1.5px solid var(--v33); border-radius:8px; padding:12px 14px; background:var(--panel); display:grid; gap:4px; }
+.rule b { font:700 18px var(--display); letter-spacing:.02em; color:var(--v33); text-transform:uppercase; }
+.rule span { font-size:14px; }
+.fig { background:var(--panel); border:1px solid var(--rule); border-radius:10px; padding:14px; overflow-x:auto; }
+.fig svg { display:block; width:100%; min-width:640px; height:auto; }
+.fig svg.hdr { min-width:600px; max-width:760px; margin:0 auto; }
+.cap { font-size:13px; color:var(--muted); max-width:80ch; }
+.cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; align-items:start; }
+.tbl { overflow-x:auto; border:1px solid var(--rule); border-radius:10px; background:var(--panel); }
+table { border-collapse:collapse; width:100%; font-size:14px; }
+th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--rule); vertical-align:top; }
+tr:last-child td { border-bottom:0; }
+th { font:600 11px var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+td:first-child { font-weight:600; white-space:nowrap; }
+.pinno { font:500 12px var(--mono); color:var(--muted); margin-left:4px; white-space:nowrap; }
+code, kbd { font:500 13px var(--mono); background:color-mix(in srgb,var(--rule),transparent 55%); padding:1px 5px; border-radius:4px; }
+.legend { display:flex; flex-wrap:wrap; gap:8px; }
+.chip { font:600 13px var(--body); display:inline-flex; align-items:center; gap:7px; padding:6px 11px; border-radius:999px; border:1px solid var(--rule); background:var(--panel); color:var(--ink); cursor:pointer; }
+.chip i { width:11px; height:11px; border-radius:50%; background:var(--c); border:1.5px solid var(--c); }
+.chip[aria-pressed="true"] { border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink); }
+.chip:focus-visible, .copy:focus-visible { outline:2px solid var(--copper); outline-offset:2px; }
+.cmds { display:grid; gap:10px; }
+.cmd { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; align-items:center; background:var(--panel); border:1px solid var(--rule); border-radius:10px; padding:10px 12px; }
+.cmd pre { margin:0; font:500 13.5px var(--mono); overflow-x:auto; white-space:pre; }
+.cmd p { grid-column:1 / -1; font-size:13px; color:var(--muted); }
+.copy { font:600 12px var(--body); border:1px solid var(--rule); background:transparent; color:var(--ink); border-radius:6px; padding:5px 10px; cursor:pointer; }
+ul.bom { margin:0; padding-left:1.2em; display:grid; gap:4px; }
+/* SVG styling (all colours from the tokens, so both themes work) */
+.w { fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+.w.v33 { stroke:var(--v33); } .w.gnd { stroke:var(--gnd); } .w.i2c { stroke:var(--i2c); } .w.sw { stroke:var(--sw); } .w.led { stroke:var(--led); } .w.enc { stroke:var(--enc); } .w.sig { stroke:var(--copper); }
+.sym { fill:none; stroke:var(--ink); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.box { fill:var(--panel); stroke:var(--ink); stroke-width:1.5; }
+.boxsoft { fill:var(--paper); stroke:var(--rule); stroke-width:1.5; }
+.ledfill { fill:var(--led); stroke:var(--ink); stroke-width:1.5; }
+.term { fill:var(--panel); stroke:var(--ink); stroke-width:2; }
+.arrowhead { fill:var(--copper); }
+.lbl { fill:var(--ink); font:600 13px var(--body); }
+.big { fill:var(--ink); font:700 19px var(--display); letter-spacing:.02em; }
+.sm { fill:var(--muted); font:12px var(--body); }
+.mono { fill:var(--muted); font:500 11.5px var(--mono); }
+.c-v33 { fill:var(--v33); } .c-gnd { fill:var(--gnd); } .c-i2c { fill:var(--i2c); } .c-sw { fill:var(--sw); } .c-led { fill:var(--led); } .c-enc { fill:var(--enc); } .c-sig { fill:var(--copper); }
+.hdr-body { fill:var(--paper); stroke:var(--rule); stroke-width:1.5; }
+.hdr-cap { fill:var(--muted); font:11px var(--body); }
+.pin { stroke:var(--ink); stroke-width:1; }
+.pin.v33 { fill:var(--v33); } .pin.v5 { fill:var(--v5); } .pin.gnd { fill:var(--gnd); } .pin.i2c { fill:var(--i2c); } .pin.sw { fill:var(--sw); } .pin.led { fill:var(--led); } .pin.enc { fill:var(--enc); } .pin.res { fill:var(--res); stroke:var(--res); } .pin.free { fill:var(--free); stroke:var(--muted); }
+.pnum { font:700 8.5px var(--mono); fill:var(--paper); } .pnum.free, .pnum.res { fill:var(--muted); }
+.lead { stroke-width:2; } .lead.v33 { stroke:var(--v33); } .lead.v5 { stroke:var(--v5); } .lead.gnd { stroke:var(--gnd); } .lead.i2c { stroke:var(--i2c); } .lead.sw { stroke:var(--sw); } .lead.led { stroke:var(--led); } .lead.enc { stroke:var(--enc); } .lead.res, .lead.free { stroke:var(--rule); }
+.plab { font:600 12.5px var(--body); }
+.t-v33 { fill:var(--v33); } .t-v5 { fill:var(--v5); } .t-gnd { fill:var(--ink); } .t-i2c { fill:var(--i2c); } .t-sw { fill:var(--sw); } .t-led { fill:var(--led); } .t-enc { fill:var(--enc); } .t-res, .t-free { fill:var(--muted); font-weight:400; }
+.gpn { fill:var(--muted); font:500 11px var(--mono); }
+.prow { transition:opacity .15s; }
+.hdr[data-focus] .prow { opacity:.16; }
+.hdr[data-focus="sw"] .prow[data-role="sw"], .hdr[data-focus="led"] .prow[data-role="led"], .hdr[data-focus="enc"] .prow[data-role="enc"],
+.hdr[data-focus="i2c"] .prow[data-role="i2c"], .hdr[data-focus="v33"] .prow[data-role="v33"], .hdr[data-focus="gnd"] .prow[data-role="gnd"],
+.hdr[data-focus="res"] .prow[data-role="res"], .hdr[data-focus="res"] .prow[data-role="v5"] { opacity:1; }
+@media (prefers-reduced-motion: reduce) { .prow { transition:none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Pad Pedal · Raspberry Pi 4 control surface</div>
+    <h1>Pad Pedal Wiring</h1>
+    <p class="lede">Everything you solder to the Pi: 7 pad footswitches, Stop, Tap tempo and Next song switches, 7 pad LEDs, a rotary encoder, 4 knobs and an expression-pedal jack. These pin numbers are exactly what the Pad Pedal driver expects out of the box.</p>
+  </header>
+
+  <div class="rules" aria-label="Safety rules">
+    <div class="rule"><b>3.3 V only</b><span>Everything here runs from 3.3 V (pin 1 or 17). Never connect 5 V (pins 2, 4) to a GPIO, the encoder or the ADS1115 boards.</span></div>
+    <div class="rule"><b>Power off to wire</b><span>Unplug the Pi before connecting or moving any wire.</span></div>
+    <div class="rule"><b>Count from pin 1</b><span>Pin 1 has a square pad and sits at the end of the header furthest from the USB ports.</span></div>
+  </div>
+
+  <section>
+    <h2>System overview</h2>
+    <div class="fig">
+      <svg viewBox="0 0 720 300" role="img" aria-labelledby="ov-t"><title id="ov-t">Block diagram: switches, LEDs and encoder on GPIO; two ADS1115 boards on I2C; screen, audio and power on the Pi</title>
+        <path class="w sw" d="M200 52 H236 V150 H270"/><path class="w led" d="M200 122 H236"/><path class="w enc" d="M200 192 H236 V150"/>
+        <path class="w i2c" d="M520 62 H484 V150 H450"/><path class="w i2c" d="M520 142 H484"/>
+        <path class="w sig" d="M210 240 V222 H310 V200"/><path class="w sig" d="M420 240 V200"/><path class="w v33" d="M610 240 V222 H440 V200"/>
+        <rect class="box" x="270" y="100" width="180" height="100" rx="8"/>
+        <text class="big" x="360" y="140" text-anchor="middle">Raspberry Pi 4</text><text class="sm" x="360" y="160" text-anchor="middle">Pad Pedal OS</text>
+        <text class="mono" x="246" y="142" text-anchor="middle">GPIO</text><text class="mono" x="475" y="142" text-anchor="middle">I2C</text>
+        <rect class="boxsoft" x="20" y="30" width="180" height="44" rx="6"/><text class="lbl" x="34" y="57">10 footswitches</text>
+        <rect class="boxsoft" x="20" y="100" width="180" height="44" rx="6"/><text class="lbl" x="34" y="127">7 pad LEDs</text>
+        <rect class="boxsoft" x="20" y="170" width="180" height="44" rx="6"/><text class="lbl" x="34" y="197">Rotary encoder</text>
+        <rect class="boxsoft" x="520" y="34" width="180" height="56" rx="6"/><text class="lbl" x="534" y="58">ADS1115 #1 · 0x48</text><text class="sm" x="534" y="77">4 knobs</text>
+        <rect class="boxsoft" x="520" y="114" width="180" height="56" rx="6"/><text class="lbl" x="534" y="138">ADS1115 #2 · 0x49</text><text class="sm" x="534" y="157">expression pedal jack</text>
+        <rect class="boxsoft" x="120" y="240" width="180" height="44" rx="6"/><text class="lbl" x="134" y="267">Touchscreen</text>
+        <rect class="boxsoft" x="330" y="240" width="180" height="44" rx="6"/><text class="lbl" x="344" y="267">USB: audio, MIDI, sticks</text>
+        <rect class="boxsoft" x="520" y="240" width="180" height="44" rx="6"/><text class="lbl" x="534" y="267">5 V 3 A USB-C supply</text>
+      </svg>
+    </div>
+    <p class="cap">Screen: the official 7″ touchscreen (DSI ribbon) or any HDMI touchscreen. Audio: the 3.5 mm jack works, but a USB audio interface or an I2S DAC HAT sounds much cleaner. GPIO 18–21 are left free so a DAC HAT fits without moving anything.</p>
+  </section>
+
+  <section>
+    <h2>GPIO header map</h2>
+    <p>Hold the Pi with the USB ports pointing toward you; the header is on the right edge and pin 1 is at the top, as drawn. Tap a colour to pick out one group.</p>
+    <div class="legend" id="legend">
+      <button class="chip" style="--c:var(--sw)" data-role="sw" aria-pressed="false" id="lg-sw"><i></i>Footswitches</button>
+      <button class="chip" style="--c:var(--led)" data-role="led" aria-pressed="false" id="lg-led"><i></i>LEDs</button>
+      <button class="chip" style="--c:var(--enc)" data-role="enc" aria-pressed="false" id="lg-enc"><i></i>Encoder</button>
+      <button class="chip" style="--c:var(--i2c)" data-role="i2c" aria-pressed="false" id="lg-i2c"><i></i>I2C (both ADS1115)</button>
+      <button class="chip" style="--c:var(--v33)" data-role="v33" aria-pressed="false" id="lg-v33"><i></i>3.3 V</button>
+      <button class="chip" style="--c:var(--gnd)" data-role="gnd" aria-pressed="false" id="lg-gnd"><i></i>Ground</button>
+      <button class="chip" style="--c:var(--res)" data-role="res" aria-pressed="false" id="lg-res"><i></i>Don't use</button>
+    </div>
+    <div class="fig">{{HEADER_SVG}}</div>
+  </section>
+
+  <section>
+    <h2>Footswitches and pad LEDs</h2>
+    <div class="fig">
+      <svg viewBox="0 0 680 240" role="img" aria-labelledby="fs-t"><title id="fs-t">One pad channel: GPIO to footswitch to ground, and GPIO to 330 ohm resistor to LED to ground</title>
+        <rect class="box" x="16" y="50" width="150" height="42" rx="6"/><text class="lbl" x="91" y="68" text-anchor="middle">Pi GPIO 5</text><text class="mono" x="91" y="84" text-anchor="middle">pin 29</text>
+        <path class="w sw" d="M166 71 H254"/>
+        <circle class="term" cx="258" cy="71" r="4"/><circle class="term" cx="318" cy="71" r="4"/>
+        <path class="sym" d="M261 69 L314 52"/><path class="sym" d="M288 60 V40 M279 40 H297"/>
+        <text class="lbl" x="288" y="28" text-anchor="middle">Pad 1 footswitch</text><text class="sm" x="288" y="100" text-anchor="middle">momentary, normally open</text>
+        <path class="w gnd" d="M322 71 H420 V96"/><path class="sym" d="M405 96 H435 M410 102 H430 M415 108 H425"/><text class="mono" x="442" y="106">GND</text>
+        <text class="sm" x="490" y="56">No resistor needed:</text><text class="sm" x="490" y="72">the driver switches on the</text><text class="sm" x="490" y="88">Pi's internal pull-up.</text>
+
+        <rect class="box" x="16" y="150" width="150" height="42" rx="6"/><text class="lbl" x="91" y="168" text-anchor="middle">Pi GPIO 17</text><text class="mono" x="91" y="184" text-anchor="middle">pin 11</text>
+        <path class="w led" d="M166 171 H220"/>
+        <path class="sym" d="M220 171 L227 161 L239 181 L251 161 L263 181 L275 161 L287 181 L294 171 H300"/><text class="lbl" x="260" y="151" text-anchor="middle">330 Ω</text>
+        <path class="w led" d="M300 171 H350"/>
+        <path class="ledfill" d="M350 155 V187 L381 171 Z"/><path class="sym" d="M383 155 V187"/>
+        <path class="sym" d="M366 150 L376 138 M372 140 L376 138 L375 143 M378 153 L388 141 M384 143 L388 141 L387 146"/>
+        <text class="sm" x="346" y="228" text-anchor="end">long leg (+)</text><text class="sm" x="372" y="228">flat side (−)</text>
+        <path class="w gnd" d="M383 171 H420 V196"/><path class="sym" d="M405 196 H435 M410 202 H430 M415 208 H425"/><text class="mono" x="442" y="206">GND</text>
+        <text class="sm" x="490" y="156">Red, green, yellow LED: 330 Ω</text><text class="sm" x="490" y="172">Blue or white LED: 100 Ω</text><text class="sm" x="490" y="188">Lit footswitches: wire their</text><text class="sm" x="490" y="204">LED the same way.</text>
+      </svg>
+    </div>
+    <p class="cap">That is one pad channel. Wire all seven the same way using the table, then wire Stop, Tap tempo and Next song like a footswitch with no LED. Tap and Next use the serial-port pins (GPIO 14 and 15); they are free as long as you never turn on the serial console. One shared ground wire can run along the whole row of switches and LEDs.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Pad</th><th>Footswitch to</th><th>LED (through resistor) to</th></tr></thead>
+      <tbody>{{PAD_ROWS}}</tbody>
+    </table></div>
+    <p class="cap">What the switches do: a pad switch plays that pad (press it again to fade out). Hold one pad switch and press another to layer the two. Stop fades out; hold it 1 s to cut instantly. Tap sets the tempo; hold it 1 s to freeze the sound. Next song steps forward; hold it 1 s to go back. LEDs: every playing pad's LED stays lit; when nothing plays, the selected pad blinks every 1.5 s.</p>
+  </section>
+
+  <section>
+    <h2>Knobs (ADS1115 #1)</h2>
+    <div class="fig">
+      <svg viewBox="0 0 720 310" role="img" aria-labelledby="kn-t"><title id="kn-t">ADS1115 number 1 wired to the Pi I2C bus with four 10k potentiometers on inputs A0 to A3</title>
+        <rect class="box" x="240" y="36" width="130" height="254" rx="6"/>
+        <text class="big" x="305" y="60" text-anchor="middle">ADS1115 #1</text>
+        <g class="mono"><text x="250" y="94">VDD</text><text x="250" y="129">GND</text><text x="250" y="164">SCL</text><text x="250" y="199">SDA</text><text x="250" y="234">ADDR</text><text x="250" y="269">ALRT</text>
+          <text x="360" y="94" text-anchor="end">A0</text><text x="360" y="144" text-anchor="end">A1</text><text x="360" y="194" text-anchor="end">A2</text><text x="360" y="244" text-anchor="end">A3</text></g>
+        <path class="w v33" d="M240 90 H160"/><text class="lbl c-v33" x="152" y="94" text-anchor="end">Pi pin 1 · 3.3 V</text>
+        <path class="w gnd" d="M240 125 H160"/><text class="lbl" x="152" y="129" text-anchor="end">Pi pin 9 · GND</text>
+        <path class="w i2c" d="M240 160 H160"/><text class="lbl c-i2c" x="152" y="164" text-anchor="end">Pi pin 5 · SCL</text>
+        <path class="w i2c" d="M240 195 H160"/><text class="lbl c-i2c" x="152" y="199" text-anchor="end">Pi pin 3 · SDA</text>
+        <path class="w gnd" d="M240 230 H204 V246"/><path class="sym" d="M189 246 H219 M194 252 H214 M199 258 H209"/><text class="sm" x="186" y="234" text-anchor="end">ADDR to GND = 0x48</text>
+        <path class="w gnd" d="M240 265 H228"/><text class="sm" x="220" y="269" text-anchor="end">ALERT: leave empty</text>
+        <g id="pot0"><path class="w sig" d="M370 90 H515 V78"/><path class="arrowhead" d="M515 72 L509 82 H521 Z"/><rect class="sym" x="470" y="58" width="90" height="12" rx="1"/><path class="w gnd" d="M452 64 H470"/><path class="w v33" d="M560 64 H578"/><text class="mono" x="448" y="68" text-anchor="end">GND</text><text class="mono c-v33" x="583" y="68">3.3 V</text><text class="lbl" x="628" y="68">VOLUME</text></g>
+        <g><path class="w sig" d="M370 140 H515 V128"/><path class="arrowhead" d="M515 122 L509 132 H521 Z"/><rect class="sym" x="470" y="108" width="90" height="12" rx="1"/><path class="w gnd" d="M452 114 H470"/><path class="w v33" d="M560 114 H578"/><text class="mono" x="448" y="118" text-anchor="end">GND</text><text class="mono c-v33" x="583" y="118">3.3 V</text><text class="lbl" x="628" y="118">TONE</text></g>
+        <g><path class="w sig" d="M370 190 H515 V178"/><path class="arrowhead" d="M515 172 L509 182 H521 Z"/><rect class="sym" x="470" y="158" width="90" height="12" rx="1"/><path class="w gnd" d="M452 164 H470"/><path class="w v33" d="M560 164 H578"/><text class="mono" x="448" y="168" text-anchor="end">GND</text><text class="mono c-v33" x="583" y="168">3.3 V</text><text class="lbl" x="628" y="168">REVERB</text></g>
+        <g><path class="w sig" d="M370 240 H515 V228"/><path class="arrowhead" d="M515 222 L509 232 H521 Z"/><rect class="sym" x="470" y="208" width="90" height="12" rx="1"/><path class="w gnd" d="M452 214 H470"/><path class="w v33" d="M560 214 H578"/><text class="mono" x="448" y="218" text-anchor="end">GND</text><text class="mono c-v33" x="583" y="218">3.3 V</text><text class="lbl" x="628" y="218">FADE</text></g>
+        <text class="sm" x="470" y="276">Each knob: 10 kΩ linear (B10K) pot.</text><text class="sm" x="470" y="292">Middle lug (arrow) to the ADS input.</text>
+      </svg>
+    </div>
+    <p class="cap">Outer lugs go to GND and 3.3 V; the middle lug goes to the ADS input. If a knob works backwards, swap its two outer lugs (or add its name to <code>"invert"</code> in <code>hardware.json</code>). Take the pots' 3.3 V and GND from the ADS board's VDD/GND or from Pi pin 17 and any GND pin.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Control</th><th>Board</th><th>Input</th><th>What it does</th></tr></thead>
+      <tbody>{{ANALOG_ROWS}}</tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Expression pedal (ADS1115 #2)</h2>
+    <div class="fig">
+      <svg viewBox="0 0 700 250" role="img" aria-labelledby="ex-t"><title id="ex-t">ADS1115 number 2 at address 0x49 with a TRS jack: tip to A0, ring to 3.3 volts through 1k, sleeve to ground</title>
+        <rect class="box" x="240" y="30" width="130" height="190" rx="6"/>
+        <text class="big" x="305" y="54" text-anchor="middle">ADS1115 #2</text>
+        <g class="mono"><text x="250" y="74">VDD</text><text x="250" y="104">GND</text><text x="250" y="134">SCL</text><text x="250" y="164">SDA</text><text x="250" y="194">ADDR</text><text x="360" y="104" text-anchor="end">A0</text></g>
+        <path class="w v33" d="M240 70 H160"/><text class="lbl c-v33" x="152" y="74" text-anchor="end">same 3.3 V</text>
+        <path class="w gnd" d="M240 100 H160"/><text class="lbl" x="152" y="104" text-anchor="end">same GND</text>
+        <path class="w i2c" d="M240 130 H160"/><text class="lbl c-i2c" x="152" y="134" text-anchor="end">same SCL (shared)</text>
+        <path class="w i2c" d="M240 160 H160"/><text class="lbl c-i2c" x="152" y="164" text-anchor="end">same SDA (shared)</text>
+        <path class="w v33" d="M240 190 H160"/><text class="lbl c-v33" x="152" y="194" text-anchor="end">ADDR to 3.3 V = 0x49</text>
+        <path class="w sig" d="M370 100 H560"/>
+        <path class="w gnd" d="M420 100 V112"/><path class="sym" d="M408 112 H432 M408 118 H432"/><path class="w gnd" d="M420 118 V126"/><path class="sym" d="M405 126 H435 M410 132 H430 M415 138 H425"/>
+        <text class="sm" x="442" y="124">100 nF (optional)</text>
+        <text class="mono c-v33" x="446" y="154" text-anchor="end">3.3 V</text><path class="w v33" d="M450 150 H470"/>
+        <path class="sym" d="M470 150 L476 141 L486 159 L496 141 L506 159 L516 141 L526 159 L530 150"/><text class="lbl" x="500" y="176" text-anchor="middle">1 kΩ</text>
+        <path class="w v33" d="M530 150 H560"/>
+        <path class="w gnd" d="M560 196 H524 V206"/><path class="sym" d="M509 206 H539 M514 212 H534 M519 218 H529"/>
+        <rect class="box" x="560" y="62" width="122" height="156" rx="8"/>
+        <text class="lbl" x="621" y="84" text-anchor="middle">¼″ TRS jack</text>
+        <text class="lbl" x="576" y="104">Tip</text><text class="sm" x="612" y="104">wiper</text>
+        <text class="lbl" x="576" y="154">Ring</text><text class="sm" x="612" y="154">top</text>
+        <text class="lbl" x="576" y="200">Sleeve</text><text class="sm" x="630" y="200">GND</text>
+      </svg>
+    </div>
+    <p class="cap">Both ADS1115 boards share the same four wires (3.3 V, GND, SCL, SDA); only the ADDR pin differs. The 1 kΩ resistor protects the Pi from the brief short when a plug goes in. Use a TRS expression pedal with the tip as the wiper (Roland EV-5, Boss FV-500L, M-Audio EX-P on its "M-Audio" setting). The driver calibrates itself: rock the pedal heel-to-toe once after power-on. If it works upside down, add <code>"expression"</code> to <code>"invert"</code> in <code>hardware.json</code>.</p>
+  </section>
+
+  <section>
+    <h2>Rotary encoder</h2>
+    <div class="fig">
+      <svg viewBox="0 0 700 200" role="img" aria-labelledby="en-t"><title id="en-t">KY-040 rotary encoder module: CLK, DT and SW to GPIO 10, 9 and 11; plus to 3.3 volts; ground to ground</title>
+        <rect class="box" x="380" y="36" width="140" height="146" rx="8"/><circle class="boxsoft" cx="470" cy="109" r="30"/><circle class="sym" cx="470" cy="109" r="12"/>
+        <g class="mono"><text x="388" y="64">CLK</text><text x="388" y="89">DT</text><text x="388" y="114">SW</text><text x="388" y="139">+</text><text x="388" y="164">GND</text></g>
+        <path class="w enc" d="M380 60 H250"/><text class="lbl c-enc" x="244" y="64" text-anchor="end">{{ENC_A_T}}</text>
+        <path class="w enc" d="M380 85 H250"/><text class="lbl c-enc" x="244" y="89" text-anchor="end">{{ENC_B_T}}</text>
+        <path class="w enc" d="M380 110 H250"/><text class="lbl c-enc" x="244" y="114" text-anchor="end">{{ENC_SW_T}}</text>
+        <path class="w v33" d="M380 135 H250"/><text class="lbl c-v33" x="244" y="139" text-anchor="end">3.3 V · pin 17 (never 5 V)</text>
+        <path class="w gnd" d="M380 160 H250"/><text class="lbl" x="244" y="164" text-anchor="end">GND · pin 25</text>
+        <text class="lbl" x="450" y="28" text-anchor="middle">KY-040 encoder</text>
+        <text class="sm" x="540" y="64">Turn: key down / up</text><text class="sm" x="540" y="84">Press: play / fade the</text><text class="sm" x="540" y="100">selected pad</text><text class="sm" x="540" y="120">Hold 1 s: switch between</text><text class="sm" x="540" y="136">Perform and Edit</text>
+      </svg>
+    </div>
+    <p class="cap">A bare encoder (no little board) works too: connect its two outer pins to {{ENC_A}} and {{ENC_B}}, its middle pin to GND, and its push-switch between {{ENC_SW}} and GND. If turning goes the wrong way, swap the CLK and DT wires.</p>
+  </section>
+
+  <section>
+    <h2>Parts list</h2>
+    <div class="cols">
+      <div><h3>Core</h3><ul class="bom">
+        <li>Raspberry Pi 4 (2 GB or more) + official 5 V 3 A USB-C supply</li>
+        <li>microSD card, 16 GB or larger (Class 10 / A1)</li>
+        <li>Official Raspberry Pi 7″ touchscreen, or any HDMI touchscreen</li>
+        <li>Audio: USB audio interface or I2S DAC HAT (recommended), or the 3.5 mm jack. A USB audio interface with an input also lets you run guitar or keys through the effects</li><li>Optional: USB MIDI keyboard or MIDI foot controller; USB stick or USB SD-card reader for sounds</li>
+      </ul></div>
+      <div><h3>Control surface</h3><ul class="bom">
+        <li>10 × momentary soft-touch footswitches (SPST, normally open): 7 pads, Stop, Tap, Next song</li>
+        <li>7 × LEDs (3 or 5 mm) + 7 × 330 Ω resistors (100 Ω for blue/white)</li>
+        <li>1 × KY-040 rotary encoder module with knob</li>
+        <li>4 × 10 kΩ linear pots (B10K) + knobs</li>
+        <li>2 × ADS1115 16-bit ADC breakout boards</li>
+        <li>1 × ¼″ stereo (TRS) panel jack, 1 × 1 kΩ resistor, 1 × 100 nF capacitor</li>
+        <li>Hook-up wire (22–26 AWG), female Dupont jumpers or a 40-pin ribbon + breakout</li>
+        <li>An enclosure or pedal-board chassis</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Power-on checks</h2>
+    <p>Do these over SSH (<code>ssh pi@padpedal.local</code>) after the first boot with the hardware connected.</p>
+    <div class="cmds">
+      <div class="cmd"><pre id="c1">i2cdetect -y 1</pre><button class="copy" data-copy="c1" type="button">Copy</button><p>You should see <code>48</code> and <code>49</code> in the grid. Missing one? Check that board's SDA/SCL wires and its ADDR pin.</p></div>
+      <div class="cmd"><pre id="c2">journalctl -u pad-pedal-driver -f</pre><button class="copy" data-copy="c2" type="button">Copy</button><p>Live log. Every footswitch press, encoder turn and knob move prints a line. Press Ctrl+C to stop watching.</p></div>
+      <div class="cmd"><pre id="c3">sudo nano /etc/pad-pedal/hardware.json && sudo systemctl restart pad-pedal-driver</pre><button class="copy" data-copy="c3" type="button">Copy</button><p>Wired something to a different pin? Change the number here instead of re-soldering. Numbers are GPIO numbers, not pin numbers.</p></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var svg = document.querySelector("svg.hdr"), chips = document.querySelectorAll("#legend .chip");
+  chips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      var on = chip.getAttribute("aria-pressed") !== "true";
+      chips.forEach(function (c) { c.setAttribute("aria-pressed", "false"); });
+      chip.setAttribute("aria-pressed", on ? "true" : "false");
+      if (on) svg.setAttribute("data-focus", chip.dataset.role); else svg.removeAttribute("data-focus");
+    });
+  });
+  document.querySelectorAll(".copy").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var pre = document.getElementById(button.dataset.copy), text = pre.textContent;
+      function selectIt() { var r = document.createRange(); r.selectNodeContents(pre); var s = getSelection(); s.removeAllRanges(); s.addRange(r); button.textContent = "Selected"; }
+      try { navigator.clipboard.writeText(text).then(function () { button.textContent = "Copied"; }, selectIt); } catch (_) { selectIt(); }
+      setTimeout(function () { button.textContent = "Copy"; }, 1600);
+    });
+  });
+})();
+</script>

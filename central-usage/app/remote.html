@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08111d">
+<title>Lights remote</title>
+<style>
+  :root { --bg: #08111d; --panel: #101e31; --line: #294966; --text: #ecf7ff; --muted: #8fa6bd; --accent: #5de6b0; --danger: #ff5a6a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 17px; margin: 0; } .muted { color: var(--muted); font-size: 12px; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+  button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; touch-action: manipulation; }
+  button:active { transform: scale(.98); }
+  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+  .row .on { background: var(--accent); color: #032; border-color: var(--accent); } #blackout.on { background: var(--danger); color: #fff; border-color: var(--danger); }
+  .looks { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .look { text-align: left; min-height: 62px; position: relative; padding-left: 16px; } .look i { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; border-radius: 12px 0 0 12px; }
+  .look.live { outline: 2px solid var(--accent); } .look.flash { border-style: dashed; }
+  .faders { display: grid; gap: 10px; margin: 12px 0; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .faders label { display: grid; grid-template-columns: 110px 1fr 44px; gap: 8px; align-items: center; font-size: 13px; }
+  input[type=range] { width: 100%; height: 30px; accent-color: var(--accent); }
+  #login { max-width: 320px; margin: 18vh auto; text-align: center; } #login input { font: 32px system-ui; width: 160px; text-align: center; letter-spacing: .3em; padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="login"><h1>Lights remote</h1><p class="muted">Enter the 4-digit code shown in Central Usage → Lighting → Output → Phone remote.</p><input id="pin" inputmode="numeric" maxlength="4" autocomplete="off"><p class="muted" id="loginMsg"></p><button id="go">Connect</button></div>
+<main id="app" hidden>
+  <header><div><h1 id="title">Lights</h1><div class="muted" id="now">…</div></div><button id="logout" class="muted">⏏</button></header>
+  <div class="row"><button id="follow">▶ Follow show</button><button id="flash">Flash</button><button id="blackout">Blackout</button></div>
+  <div class="looks" id="looks"></div>
+  <div class="faders" id="faders"></div>
+</main>
+<script>
+(function () {
+  "use strict";
+  var pin = "", state = null, timer = 0, dragging = false;
+  try { pin = localStorage.getItem("cu-remote-pin") || ""; } catch (_) { }
+  function $(s) { return document.querySelector(s); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  async function api(path, body) {
+    var r = await fetch("/api/" + path + "?pin=" + encodeURIComponent(pin), body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store" });
+    if (r.status === 403 || r.status === 429) { var j = await r.json().catch(function () { return {}; }); throw Object.assign(new Error(j.error || "wrong code"), { auth: true }); }
+    return r.json();
+  }
+  function cmd(c) { return api("cmd", c).then(poll).catch(function () { }); }
+  function render() {
+    if (!state) return;
+    $("#title").textContent = state.song ? state.song : "Lights";
+    $("#now").textContent = state.now || "";
+    $("#follow").classList.toggle("on", !state.manual); $("#blackout").classList.toggle("on", !!state.blackout);
+    $("#looks").innerHTML = (state.looks || []).map(function (l) { return '<button class="look' + (l.live ? " live" : "") + (l.flash ? " flash" : "") + '" data-look="' + esc(l.id) + '"><i style="background:' + esc(l.swatch || "#888") + '"></i>' + esc(l.name) + "</button>"; }).join("");
+    if (!dragging) $("#faders").innerHTML = (state.faders || []).map(function (f) { return '<label>' + esc(f.name) + '<input type="range" min="0" max="100" value="' + Math.round(f.value * 100) + '" data-fader="' + esc(f.id) + '"><span>' + Math.round(f.value * 100) + "</span></label>"; }).join("");
+  }
+  async function poll() { try { state = await api("state"); render(); } catch (e) { if (e.auth) logout(e.message); } }
+  function start() { $("#login").hidden = true; $("#app").hidden = false; poll(); clearInterval(timer); timer = setInterval(poll, 700); }
+  function logout(msg) { clearInterval(timer); $("#app").hidden = true; $("#login").hidden = false; $("#loginMsg").textContent = msg || ""; }
+  $("#go").addEventListener("click", function () { pin = $("#pin").value.trim(); try { localStorage.setItem("cu-remote-pin", pin); } catch (_) { } api("state").then(function (s) { state = s; start(); }).catch(function (e) { $("#loginMsg").textContent = e.message || "Could not connect"; }); });
+  $("#logout").addEventListener("click", function () { try { localStorage.removeItem("cu-remote-pin"); } catch (_) { } logout(""); });
+  $("#follow").addEventListener("click", function () { cmd({ cmd: "follow" }); });
+  $("#blackout").addEventListener("click", function () { cmd({ cmd: "blackout" }); });
+  $("#flash").addEventListener("pointerdown", function () { cmd({ cmd: "flash", on: true }); });
+  $("#flash").addEventListener("pointerup", function () { cmd({ cmd: "flash", on: false }); });
+  $("#looks").addEventListener("click", function (e) { var b = e.target.closest("[data-look]"); if (b) cmd({ cmd: "look", id: b.dataset.look }); });
+  var ft = 0;
+  $("#faders").addEventListener("input", function (e) { var el = e.target; if (!el.dataset.fader) return; dragging = true; el.nextSibling.textContent = el.value; clearTimeout(ft); ft = setTimeout(function () { cmd({ cmd: "fader", id: el.dataset.fader, value: Number(el.value) / 100 }); }, 40); });
+  $("#faders").addEventListener("change", function () { setTimeout(function () { dragging = false; }, 400); });
+  if (pin) api("state").then(function (s) { state = s; start(); }).catch(function () { logout(""); });
+})();
+</script>
+</body>
+</html>

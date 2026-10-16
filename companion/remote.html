@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><link rel="stylesheet" href="/fonts/fonts.css">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Central Control remote</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .big { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .big button { min-height:64px; font-weight:800; }
+  .tab { display:flex; gap:6px; margin-bottom:10px; } .tab button { flex:1; }
+  .levels label { margin-bottom:8px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="title"><b id="song">Central Control</b><span id="meta"></span></div>
+  <div class="keybpm"><div><small>KEY</small><b class="key" id="key">–</b></div><div><small>BPM</small><b id="bpm">–</b></div></div>
+  <span class="badge" id="conn">connecting</span>
+  <button id="pair">Pair</button>
+</header>
+<div class="wrap">
+  <div class="tab"><button id="tPads" class="on">Pads</button><button id="tTracks">Tracks</button><button id="tSongs">Songs</button></div>
+  <section id="vPads">
+    <div class="grid" id="pads"></div>
+    <div class="big" style="margin-top:10px">
+      <button data-act="keyDown">KEY −</button><button data-act="tap">TAP</button><button data-act="keyUp">KEY +</button>
+      <button data-act="freeze" id="bFreeze">FREEZE</button><button data-act="layer" id="bLayer">LAYER</button><button data-act="morph">MORPH</button>
+      <button data-act="texture1" id="bTex1">TEXTURE 1</button><button data-act="texture2" id="bTex2">TEXTURE 2</button><button data-act="panic" class="danger">PANIC</button>
+    </div>
+  </section>
+  <section id="vTracks" class="hidden">
+    <div class="big">
+      <button data-act="startOver">⏮ START</button><button data-act="playPause" id="bPlay" class="primary">PLAY</button><button data-act="stopTracks">■ STOP</button>
+      <button data-act="prevSection">◀ SECTION</button><button data-act="restartSection">↺ AGAIN</button><button data-act="nextSection">SECTION ▶</button>
+      <button data-act="repeatSection" id="bLoop">⟲ REPEAT</button><button data-act="toggleClick" id="bClick">♩ CLICK</button><button data-act="toggleCues" id="bCues">VOICE CUES</button>
+      <button data-act="keyDown">KEY −</button><button data-act="toggleTracks" id="bTracks">TRACKS</button><button data-act="keyUp">KEY +</button>
+      <button data-act="prevSong">◀ SONG</button><button data-act="projectorBlank" id="bBlank">BLANK SCREEN</button><button data-act="nextSong">SONG ▶</button>
+      <button data-act="lyricsPrev">◀ LYRICS</button><button data-act="countIn">COUNT-IN</button><button data-act="lyricsNext">LYRICS ▶</button>
+    </div>
+    <div class="card" style="margin-top:10px"><h3>Sections</h3><div class="list" id="sections"></div></div>
+  </section>
+  <section id="vSongs" class="hidden"><div class="list" id="songs"></div></section>
+</div>
+<script src="common.js"></script>
+<script>
+(function () {
+  var C = window.PPCompanion, esc = C.esc, $ = function (s) { return document.querySelector(s); };
+  function show(v) { ["Pads", "Tracks", "Songs"].forEach(function (n) { $("#v" + n).classList.toggle("hidden", n !== v); $("#t" + n).classList.toggle("on", n === v); }); }
+  $("#tPads").addEventListener("click", function () { show("Pads"); }); $("#tTracks").addEventListener("click", function () { show("Tracks"); }); $("#tSongs").addEventListener("click", function () { show("Songs"); });
+  $("#pair").addEventListener("click", function () { C.askCode(); });
+  document.addEventListener("click", function (e) { var b = e.target.closest("[data-act]"); if (b) { C.action(b.dataset.act, b.dataset.index != null ? { index: Number(b.dataset.index) } : {}); if (navigator.vibrate) navigator.vibrate(10); } });
+  var lastPads = "";
+  C.on(function (st) {
+    $("#conn").textContent = st.connected ? (st.authed ? "paired" : "not paired") : "reconnecting"; $("#conn").classList.toggle("on", st.connected && st.authed);
+    $("#pair").classList.toggle("hidden", st.authed);
+    var d = st.display; if (!d) return;
+    $("#song").textContent = d.song ? (d.song.index + 1) + ". " + d.song.name : "No song"; $("#meta").textContent = d.section ? d.section.name + (d.tracksMode ? " · " + C.fmtTime(d.pos) : "") : (d.tracksMode ? C.fmtTime(d.pos) : "");
+    $("#key").textContent = C.keyName(d.key); $("#bpm").textContent = d.bpm;
+    var pads = (d.pads || []).map(function (p, i) { return '<button class="pad' + (p.playing ? " playing" : "") + (p.selected ? " selected" : "") + '" data-act="pad" data-index="' + i + '"><small>' + (i + 1) + "</small><b>" + esc(p.name) + "</b></button>"; }).join("") + '<button class="pad stop" data-act="stop"><b>STOP</b></button>';
+    if (pads !== lastPads) { lastPads = pads; $("#pads").innerHTML = pads; }
+    $("#bFreeze").classList.toggle("on", !!d.frozen); $("#bLayer").classList.toggle("on", !!(d.performance && d.performance.layerMode));
+    $("#bTex1").classList.toggle("on", !!(d.textures && d.textures[0] && d.textures[0].on)); $("#bTex2").classList.toggle("on", !!(d.textures && d.textures[1] && d.textures[1].on));
+    $("#bPlay").textContent = d.playing ? "PAUSE" : "PLAY"; $("#bLoop").classList.toggle("on", d.loop >= 0); $("#bTracks").classList.toggle("on", !!d.tracksMode); $("#bBlank").classList.toggle("on", !!(d.projector && d.projector.blank));
+    $("#sections").innerHTML = (d.sections || []).map(function (s, i) { return '<button data-act="goSection" data-index="' + i + '" class="' + (d.section && d.section.index === i ? "current" : "") + '"><span>' + esc(s.name) + "</span><small>" + C.fmtTime(s.start) + "</small></button>"; }).join("") || '<p class="muted">No sections.</p>';
+    $("#songs").innerHTML = (d.songs || []).map(function (s, i) { return '<button data-act="loadSong" data-index="' + i + '" class="' + (d.song && d.song.index === i ? "current" : "") + '"><span>' + (i + 1) + ". " + esc(s.name) + "</span><small>" + C.keyName(s.key) + (s.hasTracks ? " ♪" : "") + "</small></button>"; }).join("") || '<p class="muted">No songs in the setlist.</p>';
+  });
+})();
+</script>
+</body>
+</html>

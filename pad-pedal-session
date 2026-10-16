@@ -1,0 +1,235 @@
+#!/bin/bash
+# Central Control OS - the X session: one full-screen Chromium window per HDMI screen.
+#   HDMI 1: the Central Control app (or the big version of the 3.5" screen, lyrics, charts, stage)
+#   HDMI 2: lyrics for the projector (or charts, stage display, the app, nothing)
+# What goes where, and each screen's resolution / zoom / edge margin, is in /data/pad-pedal/displays.json
+# (Settings → Screens). Started by ~/.xinitrc; if it exits, ~/.bash_profile starts it again.
+#
+# Monitors are a moving target (a computer monitor can take 10 s to wake up, a projector gets plugged in
+# halfway through the service), so the layout is not worked out once: this script waits for a screen,
+# sets each one to its own native resolution (or the one picked in Settings), puts a window exactly on it,
+# and keeps watching - a screen that appears, changes or disappears gets the layout redone in place,
+# without restarting the app (the sound keeps playing).
+APP="${CC_APP:-/opt/pad-pedal}"
+DATA="${CC_DATA:-/data/pad-pedal}"; [ -d "$DATA" ] || DATA="$HOME/.local/share/pad-pedal"
+SCREENS="${CC_SCREENS:-/tmp/central-control-screens.json}"
+PROFILE=/data/chromium; [ -d "$PROFILE" ] && [ -w "$PROFILE" ] || PROFILE="$HOME/.config/pad-pedal"
+PROFILE2=/data/chromium-2; [ -d /data ] && [ -w /data ] || PROFILE2="$HOME/.config/pad-pedal-2"
+mkdir -p "$PROFILE/Default" "$PROFILE2/Default" 2>/dev/null
+LOG="${CC_LOG:-/tmp/pad-pedal-session.log}"
+exec >>"$LOG" 2>&1
+echo "=== session start $(date)"
+
+xset -dpms; xset s off; xset s noblank
+unclutter -idle 1 -root >/dev/null 2>&1 &
+xsetroot -solid '#08111d' 2>/dev/null
+
+# ---- audio: 4-channel output (music 1-2 on the jack / USB, click 3-4 on the I2S DAC)
+[ -n "${CC_NO_AUDIO:-}" ] || python3 "$APP/pad-pedal-audio-config" apply || echo "audio config failed (PipeWire not running?)"
+
+# ---- settings (Settings → Screens)
+read_cfg() {
+  eval "$(python3 - "$DATA/displays.json" <<'PY'
+import json, re, shlex, sys
+try: d = json.load(open(sys.argv[1]))
+except Exception: d = {}
+def mode(v):
+    v = str(v or "auto")
+    return v if re.fullmatch(r"\d{3,4}x\d{3,4}(@\d+(\.\d+)?)?", v) else "auto"
+def num(v, lo, hi, dflt):
+    try: return max(lo, min(hi, int(float(v))))
+    except Exception: return dflt
+scale = str(d.get("scale") or "auto")
+if scale != "auto":
+    try: scale = "%g" % max(0.5, min(3.0, float(scale)))
+    except Exception: scale = "auto"
+out = {"HDMI1": d.get("hdmi1") or "app", "HDMI2": d.get("hdmi2") or "lyrics", "CURSOR": d.get("cursor") or "auto",
+       "MODE1": mode(d.get("mode1")), "MODE2": mode(d.get("mode2")), "SCALE": scale,
+       "INSET1": num(d.get("inset1"), 0, 200, 0), "INSET2": num(d.get("inset2"), 0, 200, 0)}
+for k, v in out.items(): print("%s=%s" % (k, shlex.quote(str(v))))
+PY
+)"
+}
+read_cfg
+CODE="$(cat "$DATA/code" 2>/dev/null || true)"
+
+# ---- the HDMI ports as the kernel sees them (cheap to read, doesn't poke the monitor)
+DRM="${CC_DRM:-/sys/class/drm}"
+hdmi_sig() {
+  local s st
+  for s in "$DRM"/card*-HDMI-A-*; do
+    [ -r "$s/status" ] || continue; st="$(cat "$s/status")"
+    printf '%s=%s' "${s##*-HDMI-A-}" "$st"
+    [ "$st" = connected ] && printf ':%s' "$(md5sum < "$s/edid" 2>/dev/null | cut -c1-8)"
+    printf ' '
+  done
+}
+any_hdmi() { grep -qx connected "$DRM"/card*-HDMI-A-*/status 2>/dev/null; }
+have_hdmi_ports() { ls "$DRM"/card*-HDMI-A-*/status >/dev/null 2>&1; }
+
+# A computer monitor can take several seconds to wake up and say what it is. Starting before that
+# gives a 1024x768 guess - a blurry picture that doesn't fill the screen. So wait for it (up to 20 s).
+if have_hdmi_ports && ! any_hdmi; then
+  echo "waiting for a screen on HDMI…"
+  for _ in $(seq 1 40); do any_hdmi && break; sleep 0.5; done
+  any_hdmi || echo "no screen yet - starting anyway; the layout is redone as soon as one is plugged in"
+fi
+
+# ---- outputs: HDMI first (HDMI 1 = the first connected HDMI port); other outputs only when no HDMI is connected
+pick_outputs() {
+  local all; all="$(xrandr --query 2>/dev/null | awk '$2=="connected"{print $1}')"
+  if echo "$all" | grep -q '^HDMI'; then echo "$all" | grep '^HDMI'; else echo "$all" | grep -v '^$'; fi
+}
+modes_of() { xrandr --query 2>/dev/null | awk -v o="$1" '$1==o{f=1; next} f && /^[^ \t]/{f=0} f{print $1}'; }
+mode_args() {   # $1 output, $2 wanted mode ("auto" or WxH[@rate])
+  local want="$2" size rate
+  if [ "$want" != auto ]; then
+    size="${want%%@*}"; rate=""; [ "$want" != "$size" ] && rate="${want#*@}"
+    if modes_of "$1" | grep -qx "$size"; then
+      if [ -n "$rate" ]; then echo "--mode $size --rate $rate"; else echo "--mode $size"; fi
+      return
+    fi
+    echo "  $1 has no $size mode - using its own resolution" >&2
+  fi
+  echo "--auto"
+}
+geom() { xrandr --current 2>/dev/null | awk -v o="$1" '$1==o && $2=="connected" { for (i=3;i<=NF;i++) if ($i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+$/) { print $i; exit } }'; }
+root_geom() { xrandr --current 2>/dev/null | sed -nE '1s/.*current ([0-9]+) x ([0-9]+).*/\1x\2+0+0/p'; }
+
+PRI=""; SEC=""; G1=""; G2=""
+layout() {
+  local outs args o
+  mapfile -t outs < <(pick_outputs)
+  PRI="${outs[0]:-}"; SEC="${outs[1]:-}"
+  [ "$HDMI2" = off ] && SEC=""
+  args=()
+  if [ -n "$PRI" ]; then
+    # shellcheck disable=SC2207
+    args+=(--output "$PRI" $(mode_args "$PRI" "$MODE1") --pos 0x0 --rotate normal --primary)
+    [ -n "$SEC" ] && args+=(--output "$SEC" $(mode_args "$SEC" "$MODE2") --rotate normal --right-of "$PRI")
+    # screens X still drives but that are gone (an unplugged projector) or not used: off
+    for o in $(xrandr --query 2>/dev/null | awk '$2=="disconnected" && $3 ~ /^[0-9]+x[0-9]+\+/ {print $1}') "${outs[@]:1}"; do
+      [ "$o" = "$SEC" ] || args+=(--output "$o" --off)
+    done
+    xrandr "${args[@]}" || { echo "xrandr ${args[*]} failed - falling back to --auto"; xrandr --output "$PRI" --auto --primary ${SEC:+--output "$SEC" --auto --right-of "$PRI"} || true; }
+    sleep 0.4
+  fi
+  G1="$(geom "$PRI")"; [ -n "$G1" ] || G1="$(root_geom)"; [ -n "$G1" ] || G1="1280x720+0+0"
+  G2=""; [ -n "$SEC" ] && G2="$(geom "$SEC")"
+  echo "layout: ${PRI:-no screen} $G1${SEC:+ · $SEC $G2}"
+  write_screens
+}
+write_screens() {   # for Settings → Screens: the screens, their resolutions, which one is which
+  xrandr --query > "$SCREENS.xr" 2>/dev/null
+  python3 - "$PRI" "$SEC" "$G1" "$G2" "$SCREENS" <<'PY'
+import json, os, re, sys
+pri, sec, g1, g2, path = sys.argv[1:6]
+outs, cur = [], None
+for line in open(path + ".xr"):
+    m = re.match(r"^(\S+) (connected|disconnected)", line)
+    if m:
+        cur = {"name": m.group(1), "connected": m.group(2) == "connected", "modes": [], "preferred": None, "current": None}
+        outs.append(cur); continue
+    m = re.match(r"^\s+(\d+x\d+)\S*\s+(.*)$", line)
+    if m and cur is not None:
+        size, rates = m.group(1), m.group(2)
+        if size not in cur["modes"]: cur["modes"].append(size)
+        if "+" in rates and not cur["preferred"]: cur["preferred"] = size
+        if "*" in rates: cur["current"] = size
+for o in outs:
+    o["role"] = "hdmi1" if o["name"] == pri else "hdmi2" if sec and o["name"] == sec else None
+    o["geometry"] = g1 if o["role"] == "hdmi1" else g2 if o["role"] == "hdmi2" else None
+tmp = path + ".tmp"
+with open(tmp, "w") as f:
+    json.dump({"outputs": [o for o in outs if o["connected"] or o["role"]], "primary": pri or None, "second": sec or None}, f)
+os.replace(tmp, path)
+PY
+}
+
+# ---- what each window shows
+for _ in $(seq 1 40); do (echo >/dev/tcp/127.0.0.1/8766) 2>/dev/null && break; sleep 0.5; done
+url_for() {   # $1 what, $2 screen number
+  case "$1" in
+    app) echo "http://127.0.0.1:8766/app/?screen=$2#resume" ;;
+    mini) echo "http://127.0.0.1:8080/mini?code=$CODE&screen=$2" ;;
+    lyrics) echo "http://127.0.0.1:8080/lyrics?code=$CODE&screen=$2" ;;
+    charts) echo "http://127.0.0.1:8080/?code=$CODE&screen=$2" ;;
+    stage) echo "http://127.0.0.1:8080/stage?code=$CODE&screen=$2" ;;
+    *) echo "" ;;
+  esac
+}
+# If the driver is still starting, a small local page waits for it and then opens the real page
+# (rather than a half-working copy of the app from the file system).
+VERSION="$(cat /etc/pad-pedal/version 2>/dev/null || true)"
+wrap_url() { if (echo >/dev/tcp/127.0.0.1/8766) 2>/dev/null; then echo "$1"; else echo "file://$APP/starting.html?v=$VERSION#$1"; fi; }
+
+BROWSER="${CC_BROWSER:-$(command -v chromium || command -v chromium-browser)}"
+FLAGS=(--kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --no-first-run --disable-translate
+       --disable-features=Translate,TouchpadOverscrollHistoryNavigation --overscroll-history-navigation=0 --disable-pinch
+       --autoplay-policy=no-user-gesture-required --use-fake-ui-for-media-stream --password-store=basic --check-for-update-interval=31536000
+       --enable-features=OverlayScrollbar --touch-events=enabled ${CC_BROWSER_FLAGS:-})
+clean_profile() { sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' "$1/Default/Preferences" 2>/dev/null; }
+clean_profile "$PROFILE"; clean_profile "$PROFILE2"
+
+# window rectangle for a screen: its geometry WxH+X+Y minus the edge margin (for screens that cut the edges off)
+rect() {   # $1 geometry, $2 inset -> "x y w h"
+  local g="$1" i="$2" w h x y
+  w="${g%%x*}"; h="$(echo "$g" | sed -E 's/^[0-9]+x([0-9]+).*/\1/')"; x="$(echo "$g" | sed -E 's/^[0-9]+x[0-9]+\+([0-9]+)\+.*/\1/')"; y="${g##*+}"
+  echo "$((x + i)) $((y + i)) $((w - 2 * i)) $((h - 2 * i))"
+}
+zoom_for() {   # chosen in Settings, or from the screen's width (a 4K monitor gets 2x so the text isn't tiny)
+  local w="${1%%x*}"
+  if [ "$SCALE" != auto ]; then echo "$SCALE"; elif [ "${w:-0}" -ge 3200 ]; then echo 2; elif [ "${w:-0}" -ge 2400 ]; then echo 1.5; else echo 1; fi
+}
+PID1=""; PID2=""
+start_window() {   # $1 screen number
+  local n="$1" g inset what url prof X Y W H
+  if [ "$n" = 1 ]; then g="$G1"; inset="$INSET1"; what="$HDMI1"; prof="$PROFILE"; else g="$G2"; inset="$INSET2"; what="$HDMI2"; prof="$PROFILE2"; fi
+  url="$(url_for "$what" "$n")"; [ "$n" = 1 ] && [ -z "$url" ] && url="$(url_for app 1)"
+  [ -n "$url" ] && [ -n "$g" ] || return 0
+  read -r X Y W H <<<"$(rect "$g" "$inset")"
+  echo "screen $n: $what at ${W}x${H}+${X}+${Y}, zoom $(zoom_for "$g")"
+  "$BROWSER" "${FLAGS[@]}" --class="CentralControl$n" --user-data-dir="$prof" --force-device-scale-factor="$(zoom_for "$g")" \
+    --window-position="$X,$Y" --window-size="$W,$H" "$(wrap_url "$url")" &
+  if [ "$n" = 1 ]; then PID1=$!; else PID2=$!; fi
+}
+place_window() {   # move / resize a running window onto its screen (no restart, no gap in the sound)
+  local n="$1" g inset w X Y W H
+  if [ "$n" = 1 ]; then g="$G1"; inset="$INSET1"; else g="$G2"; inset="$INSET2"; fi
+  [ -n "$g" ] || return 0
+  read -r X Y W H <<<"$(rect "$g" "$inset")"
+  for w in $(xdotool search --class "CentralControl$n" 2>/dev/null); do
+    xdotool windowmove "$w" "$X" "$Y" windowsize "$w" "$W" "$H" 2>/dev/null
+  done
+  echo "screen $n moved to ${W}x${H}+${X}+${Y}"
+}
+
+layout
+start_window 1
+if [ -n "$SEC" ]; then sleep 2; start_window 2; fi
+# Chromium sometimes keeps its window a pixel short of the screen: once it is up, put it exactly in place
+( sleep 6; place_window 1; [ -n "$SEC" ] && place_window 2 ) &
+
+# ---- keep watching: screens plugged in / swapped / unplugged, and changes made in Settings → Screens
+LAST_HDMI="$(hdmi_sig)"; LAST_CFG="$(md5sum < "$DATA/displays.json" 2>/dev/null)"
+CONTENT="$HDMI1|$HDMI2|$SCALE|$CURSOR"
+while kill -0 "$PID1" 2>/dev/null; do
+  sleep "${CC_WATCH_EVERY:-2}"
+  NOW_HDMI="$(hdmi_sig)"; NOW_CFG="$(md5sum < "$DATA/displays.json" 2>/dev/null)"
+  [ "$NOW_HDMI" = "$LAST_HDMI" ] && [ "$NOW_CFG" = "$LAST_CFG" ] && continue
+  if [ "$NOW_CFG" != "$LAST_CFG" ]; then
+    read_cfg
+    if [ "$HDMI1|$HDMI2|$SCALE|$CURSOR" != "$CONTENT" ]; then echo "what the screens show changed - restarting the windows"; break; fi
+  else
+    echo "screens changed: $LAST_HDMI -> $NOW_HDMI"; sleep 1.5   # let the monitor finish waking up
+  fi
+  LAST_HDMI="$(hdmi_sig)"; LAST_CFG="$NOW_CFG"
+  command -v xdotool >/dev/null || { echo "no xdotool - restarting the windows instead"; break; }
+  layout
+  place_window 1
+  if [ -n "$SEC" ]; then
+    if [ -n "$PID2" ] && kill -0 "$PID2" 2>/dev/null; then place_window 2; else start_window 2; fi
+  fi
+done
+echo "=== session end $(date)"
+pkill -P $$ 2>/dev/null

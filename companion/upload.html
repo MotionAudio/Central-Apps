@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><link rel="stylesheet" href="/fonts/fonts.css">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Send to the Central Control</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="title"><b>Send songs to the Central Control</b><span id="host"></span></div><span class="badge" id="conn">connecting</span></header>
+<div class="wrap">
+  <div class="card">
+    <h2>1. Which song?</h2>
+    <div class="row"><select id="song" style="flex:1 1 220px"><option value="">— new song, named after the file —</option></select><input id="songName" placeholder="…or type a song name" style="flex:1 1 220px"></div>
+    <p class="muted" style="margin:8px 0 0">Tracks and charts go to this song. A chart alone also makes the song if it does not exist yet.</p>
+  </div>
+  <div class="card">
+    <h2>2. Tracks (stems or one mix)</h2>
+    <div class="dropzone" id="dzStems">Drop WAV / MP3 / FLAC / M4A files here, or <button id="pickStems">choose files</button><br><small>Several stems at once is fine ("click" and "guide" stems go to the in-ear output automatically). The Central Control finds the tempo, key, downbeat and big hits itself.</small></div>
+    <input type="file" id="fileStems" multiple accept=".wav,.mp3,.flac,.ogg,.oga,.m4a,.aac,.aif,.aiff,.opus,audio/*" hidden>
+  </div>
+  <div class="card">
+    <h2>3. Chord chart / lyrics</h2>
+    <div class="dropzone" id="dzChart">Drop a PDF, a photo of the chart, or a text / ChordPro file here, or <button id="pickChart">choose a file</button><br><small>Section names (Verse, Chorus, Bridge…) become sections; chord lines are dropped for the projector lyrics.</small></div>
+    <input type="file" id="fileChart" accept=".pdf,.png,.jpg,.jpeg,.txt,.cho,.chopro,.crd,.pro,.onsong,image/*,application/pdf,text/plain" hidden>
+    <details style="margin-top:10px"><summary class="muted">Or paste the chart text</summary><textarea id="chartText" rows="8" style="width:100%;margin-top:8px;background:#091727;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px" placeholder="[Verse 1]&#10;G        C&#10;Amazing grace…"></textarea><div class="row" style="margin-top:8px"><button class="primary" id="sendText">Send text chart</button></div></details>
+  </div>
+  <div class="card">
+    <h2>Pad sounds</h2>
+    <div class="dropzone" id="dzSounds">Drop WAV / MP3 pad sounds here, or <button id="pickSounds">choose files</button><br><small>They appear in Import Sound → "Uploaded over Wi-Fi" on the Central Control.</small></div>
+    <input type="file" id="fileSounds" multiple accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.aif,.aiff" hidden>
+  </div>
+  <div class="card">
+    <h2>Keys sounds (SoundFonts)</h2>
+    <div class="dropzone" id="dzSf2">Drop .sf2 / .sf3 SoundFont files here, or <button id="pickSf2">choose files</button><br><small>They appear under Instrument → Piano &amp; keys → Sounds, marked "yours". Free banks: FreePats, Salamander piano, Musical Artifacts…</small></div>
+    <input type="file" id="fileSf2" multiple accept=".sf2,.sf3" hidden>
+  </div>
+  <div class="card"><h2>Uploads</h2><div id="log"><p class="muted">Nothing sent yet.</p></div></div>
+</div>
+<script src="common.js"></script>
+<script>
+(function () {
+  var C = window.PPCompanion, esc = C.esc, $ = function (s) { return document.querySelector(s); };
+  $("#host").textContent = location.host;
+  function songName() { var n = $("#songName").value.trim(); if (n) return n; var s = $("#song").value; return s; }
+  function logRow(name) { var row = document.createElement("div"); row.className = "file"; row.innerHTML = "<span>" + esc(name) + '</span><span class="st">queued</span>'; var bar = document.createElement("div"); bar.className = "bar"; bar.innerHTML = "<i></i>"; var wrap = document.createElement("div"); wrap.appendChild(row); wrap.appendChild(bar); if ($("#log p")) $("#log").innerHTML = ""; $("#log").prepend(wrap); return { st: row.querySelector(".st"), bar: bar.querySelector("i") }; }
+  function upload(kind, file, song) {
+    return new Promise(function (resolve) {
+      var ui = logRow(file.name + (song ? " → " + song : "")), xhr = new XMLHttpRequest();
+      xhr.open("POST", C.api("/upload?kind=" + kind + "&name=" + encodeURIComponent(file.name) + "&song=" + encodeURIComponent(song || "")));
+      xhr.upload.onprogress = function (e) { if (e.lengthComputable) { ui.bar.style.width = Math.round(e.loaded / e.total * 100) + "%"; ui.st.textContent = Math.round(e.loaded / e.total * 100) + "%"; } };
+      xhr.onload = function () { var ok = xhr.status === 200; ui.bar.style.width = "100%"; var j = {}; try { j = JSON.parse(xhr.responseText); } catch (_) { } ui.st.textContent = ok ? (j.chart ? "chart: " + (j.chart.sections || []).length + " sections" + (j.chart.key ? ", key " + j.chart.key : "") : "sent ✓") : "failed (" + xhr.status + ")"; resolve(ok); };
+      xhr.onerror = function () { ui.st.textContent = "failed"; resolve(false); };
+      xhr.send(file);
+    });
+  }
+  async function sendAll(kind, files) { var song = songName(); for (var i = 0; i < files.length; i++) await upload(kind, files[i], song || (kind === "charts" ? "" : files[i].name.replace(/\.[^.]+$/, "").replace(/[-_ ]*(click|guide|drums|bass|keys|gtr|guitar|vox|vocals|pad|loop|perc|stem)\d*$/i, ""))); }
+  function wire(zone, input, kind) {
+    var dz = $(zone), inp = $(input);
+    ["dragenter", "dragover"].forEach(function (t) { dz.addEventListener(t, function (e) { e.preventDefault(); dz.classList.add("over"); }); });
+    ["dragleave", "drop"].forEach(function (t) { dz.addEventListener(t, function (e) { e.preventDefault(); dz.classList.remove("over"); }); });
+    dz.addEventListener("drop", function (e) { sendAll(kind, Array.from(e.dataTransfer.files || [])); });
+    inp.addEventListener("change", function () { sendAll(kind, Array.from(inp.files || [])); inp.value = ""; });
+  }
+  wire("#dzStems", "#fileStems", "stems"); wire("#dzChart", "#fileChart", "charts"); wire("#dzSounds", "#fileSounds", "sounds"); wire("#dzSf2", "#fileSf2", "sf2");
+  $("#pickStems").addEventListener("click", function () { $("#fileStems").click(); }); $("#pickChart").addEventListener("click", function () { $("#fileChart").click(); }); $("#pickSounds").addEventListener("click", function () { $("#fileSounds").click(); }); $("#pickSf2").addEventListener("click", function () { $("#fileSf2").click(); });
+  $("#sendText").addEventListener("click", function () { var text = $("#chartText").value.trim(); if (!text) return; var name = (songName() || (text.split("\n")[0] || "Chart").slice(0, 60)) + ".txt"; upload("charts", new File([text], name, { type: "text/plain" }), songName()).then(function (ok) { if (ok) $("#chartText").value = ""; }); });
+  C.on(function (st) {
+    $("#conn").textContent = st.connected ? "connected" : "reconnecting"; $("#conn").classList.toggle("on", st.connected);
+    var d = st.display; if (!d) return;
+    var songs = d.songs || [], sel = $("#song"), names = songs.map(function (s) { return s.name; }).join("|");
+    if (sel.dataset.names !== names) { sel.dataset.names = names; var cur = sel.value; sel.innerHTML = '<option value="">— new song, named after the file —</option>' + songs.map(function (s, i) { return '<option value="' + esc(s.name) + '">' + (i + 1) + ". " + esc(s.name) + (s.hasTracks ? " ♪" : "") + (s.chart ? " ▤" : "") + "</option>"; }).join(""); sel.value = cur; if (!sel.value && d.song) sel.value = d.song.name; }
+  });
+})();
+</script>
+</body>
+</html>

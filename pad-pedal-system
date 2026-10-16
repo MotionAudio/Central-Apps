@@ -1,0 +1,148 @@
+#!/bin/bash
+# Pad Pedal OS - the few things the app needs root for. The pad-pedal driver
+# (user pi) calls this through sudo (see pad-pedal.sudoers).
+#
+#   pad-pedal-system safe-mode on|off|status   power-cut safe mode (read-only system partition)
+#   pad-pedal-system tft <overlay>|none         the 3.5" SPI touch screen (waveshare35a, piscreen, ...)
+#   pad-pedal-system dac on|off                 the I2S DAC board (PCM5102A, "hifiberry-dac") for click / cues
+#   pad-pedal-system audio hdmi|nohdmi usbfirst|jackfirst   which cards join the combined output (applied at login)
+#   pad-pedal-system hostname <name>            rename the Pad Pedal (<name>.local)
+#   pad-pedal-system wifi-import                import /boot/firmware/pad-pedal-wifi.txt into NetworkManager
+#   pad-pedal-system update <zip>               install a central-control-source zip (from a USB stick) over /opt/pad-pedal
+#   pad-pedal-system restart-app                restart the driver and the screens (after an update)
+#   pad-pedal-system status
+set -euo pipefail
+BOOT=/boot/firmware; [ -f "$BOOT/config.txt" ] || BOOT=/boot
+CONFIG="$BOOT/config.txt"
+CMDLINE="$BOOT/cmdline.txt"
+DATA=/data/pad-pedal
+TFT_OVERLAYS="waveshare35a waveshare35b waveshare35c piscreen tft35a tinylcd35 pitft35-resistive"
+
+boot_rw() { mount -o remount,rw "$BOOT" 2>/dev/null || true; }
+set_config() {  # set_config key value  -> "key=value" in the [all] part of config.txt (replacing an older one)
+  local key="$1" value="$2"
+  boot_rw
+  if grep -qE "^#?$key=" "$CONFIG"; then sed -i -E "s|^#?$key=.*|$key=$value|" "$CONFIG"; else echo "$key=$value" >> "$CONFIG"; fi
+}
+remove_overlays() { boot_rw; for o in $TFT_OVERLAYS; do sed -i -E "/^dtoverlay=$o(:|$)/d" "$CONFIG"; done; }
+
+case "${1:-status}" in
+  safe-mode)
+    case "${2:-status}" in
+      status) echo "now=$(awk '$2=="/" {print ($3=="overlay" ? "on" : "off"); exit}' /proc/mounts) next=$(grep -q overlayroot=tmpfs "$CMDLINE" && echo on || echo off)" ;;
+      on)
+        mountpoint -q /data || { echo "Safe mode needs the /data partition (flash the Pad Pedal OS image)." >&2; exit 2; }
+        dpkg -s overlayroot >/dev/null 2>&1 || { echo "The overlayroot package is missing." >&2; exit 3; }
+        boot_rw; grep -q "overlayroot=" "$CMDLINE" || sed -i "1 s/\$/ overlayroot=tmpfs:recurse=0/" "$CMDLINE"; sync
+        echo "Safe mode will be ON after the next restart." ;;
+      off) boot_rw; sed -i -E 's/ ?overlayroot=[^ ]*//g' "$CMDLINE"; sync; echo "Safe mode will be OFF after the next restart." ;;
+      *) echo "usage: $0 safe-mode on|off|status" >&2; exit 1 ;;
+    esac ;;
+  tft)
+    overlay="${2:-none}"
+    remove_overlays
+    if [ "$overlay" != "none" ]; then
+      echo " $TFT_OVERLAYS " | grep -q " $overlay " || { echo "unknown screen overlay $overlay" >&2; exit 1; }
+      set_config dtparam=spi on
+      echo "dtoverlay=$overlay:rotate=90" >> "$CONFIG"
+    fi
+    sync; echo "3.5-inch screen: $overlay (takes effect after a restart)" ;;
+  dac)
+    boot_rw
+    sed -i -E '/^dtoverlay=hifiberry-dac$/d' "$CONFIG"
+    [ "${2:-on}" = "on" ] && echo "dtoverlay=hifiberry-dac" >> "$CONFIG"
+    sync; echo "I2S DAC: ${2:-on} (takes effect after a restart)" ;;
+  audio)
+    install -d -m 775 -o "$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)" "$DATA"
+    hdmi=false; [ "${2:-}" = "hdmi" ] && hdmi=true
+    usbfirst=false; [ "${3:-}" = "usbfirst" ] && usbfirst=true
+    printf '{"hdmi": %s, "usbFirst": %s}\n' "$hdmi" "$usbfirst" > "$DATA/audio.json"
+    chown "$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)" "$DATA/audio.json"
+    echo "audio outputs: hdmi=$hdmi usbFirst=$usbfirst (applied when the screens restart)" ;;
+  hostname)
+    name="$(echo "${2:-}" | tr -cd 'a-z0-9-' | cut -c1-32)"
+    [ -n "$name" ] || { echo "usage: $0 hostname <name>" >&2; exit 1; }
+    echo "$name" > /etc/hostname
+    sed -i -E "s/^127\.0\.1\.1.*/127.0.1.1\t$name/" /etc/hosts; grep -q '^127.0.1.1' /etc/hosts || printf '127.0.1.1\t%s\n' "$name" >> /etc/hosts
+    hostnamectl set-hostname "$name" 2>/dev/null || hostname "$name"
+    systemctl restart avahi-daemon 2>/dev/null || true
+    echo "hostname: $name ($name.local)" ;;
+  wifi-import)
+    f="$BOOT/pad-pedal-wifi.txt"
+    [ -f "$f" ] || exit 0
+    ssid="$(sed -n '1p' "$f")"; pass="$(sed -n '2p' "$f")"
+    if [ -n "$ssid" ] && command -v nmcli >/dev/null; then
+      for _ in 1 2 3 4 5 6 7 8 9 10; do nmcli general status >/dev/null 2>&1 && break; sleep 2; done
+      nmcli connection delete padpedal-wifi >/dev/null 2>&1 || true
+      if [ -n "$pass" ]; then
+        nmcli connection add type wifi con-name padpedal-wifi ifname wlan0 ssid "$ssid" connection.autoconnect yes connection.autoconnect-retries 0 connection.autoconnect-priority 10 wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$pass" >/dev/null
+      else
+        nmcli connection add type wifi con-name padpedal-wifi ifname wlan0 ssid "$ssid" connection.autoconnect yes connection.autoconnect-retries 0 >/dev/null
+      fi
+      (nmcli connection up padpedal-wifi >/dev/null 2>&1 || true) &
+      echo "Wi-Fi: imported '$ssid'"
+    fi
+    boot_rw; rm -f "$f"; sync ;;
+  update)
+    zip="${2:-}"
+    [ -f "$zip" ] || { echo "usage: $0 update <central-control-source.zip>" >&2; exit 1; }
+    tmp="$(mktemp -d /tmp/cc-update.XXXXXX)"; trap 'rm -rf "$tmp"' EXIT
+    python3 - "$zip" "$tmp" <<'PY'
+import os, sys, zipfile
+try:
+    zf = zipfile.ZipFile(sys.argv[1])
+except Exception as error:
+    sys.exit("not a zip file: %s" % error)
+dest = os.path.realpath(sys.argv[2])
+for m in zf.namelist():
+    target = os.path.realpath(os.path.join(dest, m))
+    if not target.startswith(dest + os.sep) or m.endswith("/"):
+        continue
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with zf.open(m) as src, open(target, "wb") as out:
+        out.write(src.read())
+PY
+    src="$(dirname "$(find "$tmp" -name pedal-driver.py -print -quit)")"
+    [ -n "$src" ] && [ -f "$src/index.html" ] && [ -f "$src/js/app.js" ] && [ -f "$src/pedal-driver.py" ] || { echo "That zip does not contain the Central Control app (index.html, js/app.js, pedal-driver.py)." >&2; exit 2; }
+    python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" "$src/pedal-driver.py" || { echo "pedal-driver.py in the zip does not parse - update refused." >&2; exit 3; }
+    install_into() {  # install_into <root>  (/ for the live system, /media/root-ro for the real partition under safe mode)
+      local R="$1"
+      install -d -m 755 "$R/opt/pad-pedal" "$R/opt/pad-pedal/css" "$R/opt/pad-pedal/js" "$R/opt/pad-pedal/js/vendor" "$R/opt/pad-pedal/companion" "$R/opt/pad-pedal/cues"
+      install -m 644 "$src/index.html" "$R/opt/pad-pedal/index.html"
+      [ -f "$src/starting.html" ] && install -m 644 "$src/starting.html" "$R/opt/pad-pedal/starting.html"
+      [ -d "$src/fonts" ] && install -d -m 755 "$R/opt/pad-pedal/fonts" && install -m 644 "$src"/fonts/* "$R/opt/pad-pedal/fonts/"
+      [ -f "$src/99-central-control-vc4.conf" ] && install -d -m 755 "$R/etc/X11/xorg.conf.d" && install -m 644 "$src/99-central-control-vc4.conf" "$R/etc/X11/xorg.conf.d/99-central-control-vc4.conf"
+      install -m 644 "$src"/css/*.css "$R/opt/pad-pedal/css/"
+      install -m 644 "$src"/js/*.js "$R/opt/pad-pedal/js/"
+      [ -d "$src/js/vendor" ] && install -m 644 "$src"/js/vendor/*.js "$R/opt/pad-pedal/js/vendor/"
+      install -m 644 "$src"/companion/* "$R/opt/pad-pedal/companion/"
+      [ -d "$src/cues" ] && install -m 644 "$src"/cues/*.wav "$R/opt/pad-pedal/cues/" 2>/dev/null || true
+      for f in wiring.html README.md instrument_host.py sources.py instrument-plugins.json; do [ -f "$src/$f" ] && install -m 644 "$src/$f" "$R/opt/pad-pedal/$f"; done
+      for f in pedal-driver.py get-sounds.sh pad-pedal-session pad-pedal-audio-config firstboot.sh; do [ -f "$src/$f" ] && install -m 755 "$src/$f" "$R/opt/pad-pedal/$f"; done
+      [ -f "$src/pad-pedal-system" ] && install -m 755 "$src/pad-pedal-system" "$R/usr/local/sbin/pad-pedal-system.new" && mv -f "$R/usr/local/sbin/pad-pedal-system.new" "$R/usr/local/sbin/pad-pedal-system"
+      [ -f "$src/pad-pedal-safe-mode" ] && install -m 755 "$src/pad-pedal-safe-mode" "$R/usr/local/sbin/pad-pedal-safe-mode"
+      [ -f "$src/xinitrc" ] && install -m 755 "$src/xinitrc" "$R/home/$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)/.xinitrc" 2>/dev/null || true
+      [ -f "$src/pad-pedal-driver.service" ] && install -m 644 "$src/pad-pedal-driver.service" "$R/etc/systemd/system/pad-pedal-driver.service"
+      sed -nE 's/^APP_VERSION = "([^"]+)".*/\1/p' "$src/pedal-driver.py" | head -1 > "$R/etc/pad-pedal/version" 2>/dev/null || true
+    }
+    install_into /
+    if [ "$(awk '$2=="/" {print $3; exit}' /proc/mounts)" = "overlay" ] && mountpoint -q /media/root-ro; then
+      mount -o remount,rw /media/root-ro
+      install_into /media/root-ro
+      sync; mount -o remount,ro /media/root-ro || true
+      echo "installed into the system partition too (safe mode is on)"
+    fi
+    systemctl daemon-reload 2>/dev/null || true
+    sync
+    echo "Central Control updated from $(basename "$zip"): $(ls "$src"/js/*.js | wc -l) app files, driver $(grep -m1 -oE 'server_version = "[^"]+"' "$src/pedal-driver.py" | cut -d'"' -f2)" ;;
+  restart-app)
+    systemctl restart pad-pedal-driver 2>/dev/null || true
+    # the screens: the app reloads itself when the driver comes back
+    echo "driver restarted" ;;
+  status)
+    "$0" safe-mode status
+    echo "tft=$(grep -oE '^dtoverlay=(waveshare35a|waveshare35b|waveshare35c|piscreen|tft35a|tinylcd35|pitft35-resistive)' "$CONFIG" | head -1 | cut -d= -f2)"
+    echo "dac=$(grep -q '^dtoverlay=hifiberry-dac' "$CONFIG" && echo on || echo off)"
+    cat "$DATA/audio.json" 2>/dev/null || true ;;
+  *) echo "usage: $0 safe-mode|tft|dac|audio|hostname|wifi-import|update|restart-app|status" >&2; exit 1 ;;
+esac

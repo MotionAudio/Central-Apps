@@ -1,0 +1,78 @@
+{
+  "name": "central-usage",
+  "productName": "Central Usage",
+  "version": "1.3.0",
+  "description": "Chord charts, lyrics and a lighting controller (DMX + MIDI) that follows your Central Control. A native desktop app.",
+  "main": "main.js",
+  "author": {
+    "name": "Central Control",
+    "email": "central-control@localhost"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --linux deb AppImage",
+    "dist:all": "electron-builder --linux deb AppImage --x64 --arm64"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "org.centralcontrol.usage",
+    "productName": "Central Usage",
+    "artifactName": "central-usage-${version}-${arch}.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "dmx.js",
+      "updater.js",
+      "app/**/*",
+      "build/icon.png"
+    ],
+    "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icon.png",
+      "synopsis": "Chord charts, lyrics and lights from Central Control",
+      "desktop": {
+        "Name": "Central Usage",
+        "Comment": "Chord charts, lyrics and light hits from Central Control",
+        "Categories": "AudioVideo;Audio;Music;"
+      },
+      "maintainer": "Central Control <central-control@localhost>"
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "libasound2"
+      ],
+      "afterInstall": "build/after-install.sh",
+      "afterRemove": "build/after-remove.sh"
+    },
+    "mac": {
+      "category": "public.app-category.music",
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "publish": null
+  },
+  "homepage": "http://padpedal.local:8080/"
+}

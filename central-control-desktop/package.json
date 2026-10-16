@@ -1,0 +1,91 @@
+{
+  "name": "central-control",
+  "productName": "Central Control",
+  "version": "7.1.0",
+  "description": "Central Control on a PC: worship pads, multitracks, the guitar / keys rig, click and chord charts. A native desktop app.",
+  "main": "main.js",
+  "author": {
+    "name": "Central Control",
+    "email": "central-control@localhost"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --linux deb AppImage"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "org.centralcontrol.app",
+    "productName": "Central Control",
+    "artifactName": "central-control-${version}-${arch}.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "updater.js",
+      "build/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "src",
+        "to": "app",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icon.png",
+      "synopsis": "Worship pads, multitracks, guitar and keys rig, click and chord charts",
+      "desktop": {
+        "Name": "Central Control",
+        "Comment": "Worship pads, multitracks, guitar and keys rig, click and chord charts",
+        "Categories": "AudioVideo;Audio;Music;"
+      },
+      "maintainer": "Central Control <central-control@localhost>"
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "libasound2",
+        "python3",
+        "python3-websockets",
+        "python3-gpiozero",
+        "python3-pil",
+        "python3-evdev"
+      ],
+      "recommends": [
+        "python3-mido",
+        "python3-rtmidi",
+        "poppler-utils",
+        "espeak-ng",
+        "pipewire",
+        "fluidsynth",
+        "fluid-soundfont-gm",
+        "guitarix-ladspa",
+        "caps",
+        "swh-plugins",
+        "tap-plugins"
+      ],
+      "afterInstall": "build/after-install.sh",
+      "afterRemove": "build/after-remove.sh"
+    },
+    "publish": null
+  },
+  "homepage": "http://padpedal.local:8080/"
+}

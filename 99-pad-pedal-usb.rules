@@ -1,0 +1,4 @@
+# Pad Pedal OS: auto-mount USB sticks at /media/usb-sda1 etc. so you can import
+# WAV/MP3 files from the app's "Import Pad Audio" button.
+ACTION=="add", SUBSYSTEMS=="usb", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", \
+  RUN{program}+="/usr/bin/systemd-mount --no-block --automount=yes --collect $devnode /media/usb-%k"

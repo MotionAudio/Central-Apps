@@ -1,0 +1,15 @@
+[Unit]
+Description=Pad Pedal OS first-boot setup (expand SD card, Wi-Fi, SSH keys)
+ConditionPathExists=!/var/lib/pad-pedal/firstboot-done
+After=local-fs.target
+Before=getty@tty1.service ssh.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/pad-pedal/firstboot.sh
+RemainAfterExit=yes
+# never hold up the app forever if first-boot setup hangs
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

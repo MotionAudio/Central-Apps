@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""
+Central Control OS - audio routing (runs at every login, before the screens start).
+
+Makes ONE multi-channel output device for the app out of every sound card:
+  headphone jack (2) + I2S DAC board (2) + USB interface (its outputs) [+ HDMI]
+= one PipeWire combine-stream sink "padpedal_out" with 4, 6 or 8 channels.
+The app routes its buses (tracks, pads, click + MD voice) to any channel, and the
+native instrument chain is linked straight to its channel. Default cables:
+  1 jack L = tracks   2 jack R = pads   3 DAC L = click + voice   4 DAC R = instrument
+
+/data/pad-pedal/audio.json: {"hdmi": false, "usbFirst": false}   (Settings → Output device)
+The channel list is written to /data/pad-pedal/audio-channels.json for the Settings tab.
+
+  pad-pedal-audio-config apply     write the PipeWire config, restart PipeWire, set the default sink
+  pad-pedal-audio-config show      print what would be used
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+DATA = "/data/pad-pedal"
+LAYOUTS = {2: ["FL", "FR"], 4: ["FL", "FR", "RL", "RR"], 6: ["FL", "FR", "FC", "LFE", "RL", "RR"], 8: ["FL", "FR", "FC", "LFE", "RL", "RR", "SL", "SR"]}
+CARD_PATTERNS = [
+    ("jack", r"alsa_output\.platform-bcm2835_audio\..*|alsa_output\.platform-.*headphones.*", "Headphone jack", 2),
+    ("i2s", r"alsa_output\.platform-soc_sound\..*|alsa_output\..*hifiberry.*|alsa_output\..*sndrpihifiberry.*|alsa_output\.platform-.*i2s.*", "I2S DAC board", 2),
+    ("usb", r"alsa_output\.usb-.*", "USB interface", None),
+    ("hdmi0", r"alsa_output\.platform-fef00700\.hdmi\..*|alsa_output\..*hdmi.*0.*", "HDMI 1", 2),
+    ("hdmi1", r"alsa_output\.platform-fef05700\.hdmi\..*|alsa_output\..*hdmi.*1.*", "HDMI 2", 2),
+]
+
+
+def settings():
+    cfg = {"hdmi": False, "usbFirst": False}
+    try:
+        with open(os.path.join(DATA, "audio.json")) as handle:
+            cfg.update(json.load(handle))
+    except Exception:
+        pass
+    return cfg
+
+
+def pw_sinks(env):
+    """[(node.name, description, channels)] from PipeWire (needs it running)."""
+    try:
+        out = subprocess.run(["pw-dump"], capture_output=True, text=True, timeout=10, env=env).stdout
+        sinks = []
+        for o in json.loads(out or "[]"):
+            if o.get("type") != "PipeWire:Interface:Node":
+                continue
+            props = (o.get("info") or {}).get("props") or {}
+            if props.get("media.class") == "Audio/Sink" and str(props.get("node.name", "")).startswith("alsa_output"):
+                ch = props.get("audio.channels")
+                if not ch:
+                    try:
+                        ch = len((o["info"].get("params") or {}).get("Format", [{}])[0].get("position") or [])
+                    except Exception:
+                        ch = 2
+                sinks.append((props["node.name"], props.get("node.description") or props["node.name"], int(ch or 2)))
+        return sinks
+    except Exception:
+        return []
+
+
+def plan(sinks, cfg):
+    """Which card gets which channels. Returns ([(kind, node.name, desc, nchannels, positions)], positions)"""
+    cards = []
+    for kind, pattern, label, fixed in CARD_PATTERNS:
+        for name, desc, ch in sinks:
+            if re.match(pattern, name) and not any(c[1] == name for c in cards):
+                cards.append([kind, name, label if kind != "usb" else desc, min(fixed or ch, 8)])
+                break
+    if not cfg.get("hdmi"):
+        cards = [c for c in cards if not c[0].startswith("hdmi")]
+    order = ["usb", "jack", "i2s", "hdmi0", "hdmi1"] if cfg.get("usbFirst") else ["jack", "i2s", "usb", "hdmi0", "hdmi1"]
+    cards.sort(key=lambda c: order.index(c[0]))
+    total = sum(c[3] for c in cards)
+    while total > 8 and cards:  # too many: trim the last card's channels, then drop cards
+        if cards[-1][3] > 2:
+            cards[-1][3] -= 2
+        else:
+            cards.pop()
+        total = sum(c[3] for c in cards)
+    size = 2 if total <= 2 else 4 if total <= 4 else 6 if total <= 6 else 8
+    positions = LAYOUTS[size]
+    out, i = [], 0
+    for kind, name, desc, ch in cards:
+        out.append((kind, name, desc, ch, positions[i:i + ch]))
+        i += ch
+    return out, positions
+
+
+def channel_names(planned, positions):
+    names = []
+    for pos in positions:
+        label = "unused"
+        for kind, name, desc, ch, poss in planned:
+            if pos in poss:
+                idx = poss.index(pos)
+                label = desc + " " + (["L", "R"][idx] if ch == 2 else str(idx + 1))
+        names.append(label)
+    return names
+
+
+def config_text(planned, positions):
+    rules = []
+    for kind, name, desc, ch, poss in planned:
+        card_pos = ["FL", "FR"] if ch == 2 else [("AUX%d" % i) for i in range(ch)]
+        rules.append('      { matches = [ { media.class = "Audio/Sink" node.name = "%s" } ]\n        actions = { create-stream = { combine.audio.position = [ %s ] audio.position = [ %s ] } } }' % (name, " ".join(poss), " ".join(card_pos)))
+    return """# Generated by pad-pedal-audio-config - do not edit (Settings > Output device)
+context.properties = {
+  default.clock.rate = 48000
+  default.clock.quantum = 256
+  default.clock.min-quantum = 64
+  default.clock.max-quantum = 2048
+}
+context.modules = [
+  { name = libpipewire-module-combine-stream
+    args = {
+      combine.mode = sink
+      node.name = "padpedal_out"
+      node.description = "Central Control (%(n)d channels)"
+      combine.latency-compensate = false
+      combine.props = { audio.position = [ %(positions)s ] priority.session = 3000 priority.driver = 3000 }
+      stream.props = { }
+      stream.rules = [
+%(rules)s
+      ]
+    }
+  }
+]
+""" % {"n": len(positions), "positions": " ".join(positions), "rules": "\n".join(rules)}
+
+
+def apply():
+    env = dict(os.environ)
+    env.setdefault("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
+    cfg = settings()
+    sinks = []
+    for _ in range(20):
+        sinks = pw_sinks(env)
+        if any(re.match(r"alsa_output\.platform-bcm2835_audio\..*", s[0]) for s in sinks) or len(sinks) >= 2:
+            break
+        time.sleep(0.5)
+    planned, positions = plan(sinks, cfg)
+    home = os.path.expanduser("~")
+    target = os.path.join(home, ".config", "pipewire", "pipewire.conf.d")
+    os.makedirs(target, exist_ok=True)
+    path = os.path.join(target, "padpedal.conf")
+    text = config_text(planned, positions)
+    old = ""
+    try:
+        with open(path) as handle:
+            old = handle.read()
+    except OSError:
+        pass
+    with open(path, "w") as handle:
+        handle.write(text)
+    os.makedirs(DATA, exist_ok=True)
+    with open(os.path.join(DATA, "audio-channels.json"), "w") as handle:
+        json.dump({"channels": channel_names(planned, positions), "cards": [{"kind": p[0], "name": p[1], "desc": p[2], "channels": p[3]} for p in planned]}, handle)
+    if old != text:
+        subprocess.run(["systemctl", "--user", "restart", "pipewire.service", "pipewire-pulse.service", "wireplumber.service"], env=env, timeout=30)
+    for _ in range(30):
+        result = subprocess.run(["pactl", "set-default-sink", "padpedal_out"], env=env, capture_output=True, text=True)
+        if result.returncode == 0:
+            break
+        time.sleep(0.5)
+    print("audio: %d channels: %s" % (len(positions), ", ".join("%d %s" % (i + 1, n) for i, n in enumerate(channel_names(planned, positions)))))
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["apply"]:
+        apply()
+    else:
+        env = dict(os.environ)
+        env.setdefault("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
+        sinks = pw_sinks(env)
+        planned, positions = plan(sinks, settings())
+        print("sinks:", sinks)
+        print("channels:", channel_names(planned, positions))
+        print(config_text(planned, positions))

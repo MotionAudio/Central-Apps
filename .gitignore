@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+parts/
+__pycache__/
+*.pyc
+*.img
+*.img.xz
+*.img.tmp
+.cache/
+sounds/
+wheels/
+central-control-source.zip

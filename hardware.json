@@ -1,0 +1,213 @@
+{
+  "ws_host": "127.0.0.1",
+  "ws_port": 8765,
+  "http_port": 8766,
+  "lan_port": 8080,
+  "lan_ws_port": 8081,
+  "app_root": "/opt/pad-pedal",
+  "data_root": "/data/pad-pedal",
+  "inputs": [
+    {
+      "id": "b1",
+      "name": "Button 1",
+      "kind": "button",
+      "gpio": 4
+    },
+    {
+      "id": "b2",
+      "name": "Button 2",
+      "kind": "button",
+      "gpio": 5
+    },
+    {
+      "id": "b3",
+      "name": "Button 3",
+      "kind": "button",
+      "gpio": 6
+    },
+    {
+      "id": "b4",
+      "name": "Button 4",
+      "kind": "button",
+      "gpio": 12
+    },
+    {
+      "id": "b5",
+      "name": "Button 5",
+      "kind": "button",
+      "gpio": 13
+    },
+    {
+      "id": "b6",
+      "name": "Button 6",
+      "kind": "button",
+      "gpio": 14
+    },
+    {
+      "id": "b7",
+      "name": "Button 7",
+      "kind": "button",
+      "gpio": 15
+    },
+    {
+      "id": "b8",
+      "name": "Button 8",
+      "kind": "button",
+      "gpio": 16
+    },
+    {
+      "id": "b9",
+      "name": "Button 9",
+      "kind": "button",
+      "gpio": 22
+    },
+    {
+      "id": "b10",
+      "name": "Button 10",
+      "kind": "button",
+      "gpio": 23
+    },
+    {
+      "id": "b11",
+      "name": "Button 11",
+      "kind": "button",
+      "gpio": 26
+    },
+    {
+      "id": "b12",
+      "name": "Button 12",
+      "kind": "button",
+      "gpio": 27
+    },
+    {
+      "id": "k1",
+      "name": "Knob 1",
+      "kind": "knob",
+      "adc": {
+        "address": "0x48",
+        "channel": 0
+      }
+    },
+    {
+      "id": "k2",
+      "name": "Knob 2",
+      "kind": "knob",
+      "adc": {
+        "address": "0x48",
+        "channel": 1
+      }
+    },
+    {
+      "id": "k3",
+      "name": "Knob 3",
+      "kind": "knob",
+      "adc": {
+        "address": "0x48",
+        "channel": 2
+      }
+    },
+    {
+      "id": "k4",
+      "name": "Knob 4",
+      "kind": "knob",
+      "adc": {
+        "address": "0x48",
+        "channel": 3
+      }
+    },
+    {
+      "id": "k5",
+      "name": "Knob 5",
+      "kind": "knob",
+      "adc": {
+        "address": "0x49",
+        "channel": 0
+      }
+    },
+    {
+      "id": "k6",
+      "name": "Knob 6",
+      "kind": "knob",
+      "adc": {
+        "address": "0x49",
+        "channel": 1
+      }
+    },
+    {
+      "id": "s1",
+      "name": "Slider 1",
+      "kind": "slider",
+      "adc": {
+        "address": "0x49",
+        "channel": 2
+      }
+    },
+    {
+      "id": "s2",
+      "name": "Slider 2",
+      "kind": "slider",
+      "adc": {
+        "address": "0x49",
+        "channel": 3
+      }
+    },
+    {
+      "id": "exp",
+      "name": "Expression pedal",
+      "kind": "expression",
+      "adc": {
+        "address": "0x4a",
+        "channel": 0
+      },
+      "auto_calibrate": true,
+      "optional": true
+    },
+    {
+      "id": "enc",
+      "name": "Encoder",
+      "kind": "encoder",
+      "gpio_a": 10,
+      "gpio_b": 9,
+      "gpio_button": 11,
+      "optional": true
+    }
+  ],
+  "leds": [],
+  "expander": null,
+  "debounce_s": 0.03,
+  "hold_s": 0.8,
+  "i2c_bus": 1,
+  "analog_min_raw": 120,
+  "analog_max_raw": 26300,
+  "analog_poll_hz": 40,
+  "analog_smoothing": 0.35,
+  "analog_deadband": 0.006,
+  "midi": true,
+  "midi_out": true,
+  "link": true,
+  "media_roots": [
+    "/media",
+    "/data/pad-pedal/sounds",
+    "/home/pi/Music"
+  ],
+  "mini_screen": {
+    "enabled": true,
+    "fb": "/dev/fb1",
+    "width": 480,
+    "height": 320,
+    "rotate": 0,
+    "touch": "ADS7846",
+    "calibration": {
+      "xmin": 200,
+      "xmax": 3900,
+      "ymin": 200,
+      "ymax": 3900,
+      "swap": true,
+      "flip_x": false,
+      "flip_y": true
+    }
+  },
+  "tft_overlay": "none",
+  "tft_overlay_choice": "waveshare35a",
+  "i2s_dac": true
+}

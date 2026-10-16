@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><link rel="stylesheet" href="/fonts/fonts.css">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#08111d">
+<title>Central Control charts</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="title"><b id="song">Waiting for the Central Control…</b><span id="meta"></span></div>
+  <div class="keybpm"><div><small>KEY</small><b class="key" id="key">–</b></div><div><small>BPM</small><b id="bpm">–</b></div></div>
+  <span class="badge" id="conn">connecting</span>
+  <button id="follow" class="on" title="Follow the Central Control's song and section">Follow</button>
+  <button id="menu">☰</button>
+</header>
+<div class="sections" id="sections"></div>
+<div id="settings" class="wrap hidden">
+  <div class="card">
+    <h2>This device</h2>
+    <div class="settings">
+      <label>Song (when not following)<select id="songPick"></select></label>
+      <label>Chart zoom<input id="zoom" type="range" min="60" max="160" value="100"></label>
+      <label>Lyrics size (text charts)<input id="lyr" type="range" min="13" max="30" value="17"></label>
+      <label class="muted" style="align-self:end"><span><input id="invert" type="checkbox"> Dark chart (invert PDF pages)</span></label>
+      <label class="muted" style="align-self:end"><span><input id="remote" type="checkbox"> Show remote buttons</span></label>
+    </div>
+    <p class="muted" style="margin:10px 0 0">Open <b id="lyricsLink">/lyrics</b> on a laptop at the projector for lyrics only, <b id="uploadLink">/upload</b> to send songs and charts here, <b id="remoteLink">/remote</b> for a full remote. Add this page to your home screen for a full-screen view.</p>
+  </div>
+</div>
+<main id="chart"><div class="empty">Connecting to the Central Control…</div></main>
+<nav class="dock hidden" id="dock">
+  <button data-act="prevSection">◀ Section</button>
+  <button data-act="playPause" id="playBtn">Play</button>
+  <button data-act="nextSection">Section ▶</button>
+  <button data-act="nextSong">Next song ▶▶</button>
+</nav>
+<script src="common.js"></script>
+<script>
+(function () {
+  var C = window.PPCompanion, esc = C.esc;
+  var $ = function (s) { return document.querySelector(s); };
+  var follow = true, pickedSong = -1, chartId = null, chartInfo = null, lastSectionKey = null, lastSongKey = null, prefs = {};
+  try { prefs = JSON.parse(localStorage.getItem("pp-charts") || "{}"); } catch (_) { }
+  if (prefs.zoom) $("#zoom").value = prefs.zoom; if (prefs.lyr) $("#lyr").value = prefs.lyr; $("#invert").checked = !!prefs.invert; $("#remote").checked = !!prefs.remote;
+  function savePrefs() { prefs = { zoom: $("#zoom").value, lyr: $("#lyr").value, invert: $("#invert").checked, remote: $("#remote").checked }; try { localStorage.setItem("pp-charts", JSON.stringify(prefs)); } catch (_) { } applyPrefs(); }
+  function applyPrefs() { $("#chart").style.setProperty("--zoom", $("#zoom").value); document.documentElement.style.setProperty("--lyr", $("#lyr").value + "px"); $("#chart").classList.toggle("invert", $("#invert").checked); $("#dock").classList.toggle("hidden", !$("#remote").checked); var p = $("#chart").querySelector(".pages"); if (p) p.style.maxWidth = (900 * $("#zoom").value / 100) + "px"; }
+  ["zoom", "lyr", "invert", "remote"].forEach(function (id) { $("#" + id).addEventListener("input", savePrefs); $("#" + id).addEventListener("change", savePrefs); });
+  $("#menu").addEventListener("click", function () { $("#settings").classList.toggle("hidden"); });
+  $("#follow").addEventListener("click", function () { follow = !follow; $("#follow").classList.toggle("on", follow); if (follow) { pickedSong = -1; render(C.state); } });
+  $("#dock").addEventListener("click", function (e) { var b = e.target.closest("[data-act]"); if (b) C.action(b.dataset.act); });
+  $("#songPick").addEventListener("change", function (e) { pickedSong = Number(e.target.value); follow = false; $("#follow").classList.remove("on"); render(C.state); });
+  $("#sections").addEventListener("click", function (e) { var b = e.target.closest("[data-sec]"); if (!b) return; if (C.hasCode() || confirm("Jump the Central Control to this section? (needs the pairing code)")) C.action("goSection", { index: Number(b.dataset.sec) }); });
+  ["lyricsLink", "uploadLink", "remoteLink"].forEach(function (id) { $("#" + id).textContent = location.origin + "/" + id.replace("Link", ""); });
+
+  async function loadChart(id) {
+    chartId = id; chartInfo = null; lastSectionKey = null;
+    if (!id) { $("#chart").innerHTML = '<div class="empty">This song has no chord chart yet.<br><small>Upload one at ' + esc(location.origin) + '/upload (PDF, text or a photo).</small></div>'; return; }
+    try { var r = await fetch(C.api("/charts/" + encodeURIComponent(id) + "/chart.json"), { cache: "no-store" }); chartInfo = await r.json(); } catch (_) { chartInfo = null; }
+    if (!chartInfo || chartId !== id) { $("#chart").innerHTML = '<div class="empty">Could not load the chart.</div>'; return; }
+    if (chartInfo.pageCount > 0) {
+      var html = '<div class="pages">';
+      for (var n = 1; n <= chartInfo.pageCount; n++) html += '<div class="pg" data-page="' + n + '"><img src="' + C.api("/charts/" + encodeURIComponent(id) + "/page-" + n + ".png") + '" alt="page ' + n + '"><small>' + n + " / " + chartInfo.pageCount + "</small></div>";
+      $("#chart").innerHTML = html + "</div>";
+    } else {
+      $("#chart").innerHTML = '<div class="textchart">' + (chartInfo.sections || []).map(function (s, i) { return '<section data-tsec="' + i + '"><h4>' + esc(s.name) + "</h4><p>" + esc((s.lines || []).join("\n")) + "</p></section>"; }).join("") + "</div>";
+    }
+    applyPrefs();
+    lastSectionKey = null;
+    if (C.state.display) render(C.state);
+  }
+  function render(st) {
+    var d = st.display;
+    $("#conn").textContent = st.connected ? (st.authed ? "paired" : "live") : "reconnecting"; $("#conn").classList.toggle("on", st.connected);
+    if (!d) return;
+    var songs = d.songs || [], idx = follow ? (d.song ? d.song.index : -1) : pickedSong, song = idx >= 0 ? songs[idx] : null;
+    var pick = $("#songPick"); if (pick.options.length !== songs.length + 1 || pick.dataset.names !== songs.map(function (s) { return s.name; }).join("|")) { pick.innerHTML = '<option value="-1">— follow the Central Control —</option>' + songs.map(function (s, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(s.name) + "</option>"; }).join(""); pick.dataset.names = songs.map(function (s) { return s.name; }).join("|"); }
+    pick.value = String(follow ? -1 : pickedSong);
+    if (follow && d.song) {
+      $("#song").textContent = (d.song.index + 1) + ". " + d.song.name; $("#meta").textContent = (d.section ? d.section.name + " · " : "") + (d.tracksMode ? (d.playing ? "▶ " : "❚❚ ") + C.fmtTime(d.pos) + (d.bar ? " · bar " + d.bar : "") : "pads");
+      $("#key").textContent = C.keyName(d.key || d.song.key); $("#bpm").textContent = d.bpm || d.song.bpm;
+      $("#playBtn").textContent = d.playing ? "Pause" : "Play";
+      var secs = d.sections || [], cur = d.section ? d.section.index : -1;
+      var skey = secs.map(function (s) { return s.name; }).join("|") + "#" + cur;
+      if ($("#sections").dataset.key !== skey) { $("#sections").dataset.key = skey; $("#sections").innerHTML = secs.map(function (s, i) { return '<button data-sec="' + i + '" class="' + (i === cur ? "current" : i === cur + 1 ? "next" : "") + '">' + esc(s.name) + "</button>"; }).join(""); var b = $("#sections .current"); if (b) b.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
+      var want = d.song.chart ? d.song.chart.id : null;
+      if (want !== chartId || lastSongKey !== d.song.name) { lastSongKey = d.song.name; loadChart(want); }
+      var page = d.chart ? d.chart.page : (d.section ? d.section.page : 0), sectionKey = cur + ":" + page;
+      if (sectionKey !== lastSectionKey) { lastSectionKey = sectionKey; scrollToSection(cur, page); }
+    } else if (!follow) {
+      $("#song").textContent = song ? (idx + 1) + ". " + song.name : "No song"; $("#meta").textContent = "not following"; $("#key").textContent = song ? C.keyName(song.key) : "–"; $("#bpm").textContent = "–";
+      $("#sections").innerHTML = ""; var cid = song ? song.chart : null; if (cid !== chartId || lastSongKey !== (song && song.name)) { lastSongKey = song && song.name; loadChart(cid); }
+    } else {
+      $("#song").textContent = songs.length ? "No song selected on the Central Control" : "No songs in the setlist yet"; $("#meta").textContent = ""; $("#sections").innerHTML = ""; if (chartId !== null || !$("#chart").innerHTML) { chartId = null; $("#chart").innerHTML = '<div class="empty">Pick a song on the Central Control (or turn Follow off and choose one here).</div>'; }
+    }
+  }
+  function scrollToSection(index, page) {
+    var el = null;
+    if (chartInfo && chartInfo.pageCount > 0) { var pages = document.querySelectorAll(".pg"); pages.forEach(function (p) { p.classList.remove("current"); }); el = document.querySelector('.pg[data-page="' + Math.max(1, page || 1) + '"]'); if (el) el.classList.add("current"); }
+    else { var secs = document.querySelectorAll("[data-tsec]"); secs.forEach(function (s) { s.classList.remove("current"); }); var name = C.state.display && C.state.display.section ? C.state.display.section.name : null; secs.forEach(function (s) { if (chartInfo && chartInfo.sections[s.dataset.tsec] && name && norm(chartInfo.sections[s.dataset.tsec].name) === norm(name)) { s.classList.add("current"); el = el || s; } }); }
+    if (el && follow) { var top = el.getBoundingClientRect().top + window.scrollY - 96; window.scrollTo({ top: top, behavior: "smooth" }); }
+  }
+  function norm(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+  applyPrefs();
+  C.on(render);
+})();
+</script>
+</body>
+</html>

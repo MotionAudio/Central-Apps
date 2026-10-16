@@ -1,0 +1,3 @@
+# Pad Pedal OS: the app (running as the kiosk user) may switch safe mode, screens
+# and audio, and power the Pi off / restart it, without a password.
+pi ALL=(root) NOPASSWD: /usr/local/sbin/pad-pedal-system, /usr/local/sbin/pad-pedal-safe-mode, /usr/sbin/shutdown

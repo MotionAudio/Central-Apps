@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><link rel="stylesheet" href="/fonts/fonts.css">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central Control mini</title>
+<style>
+  /* The same layout the 3.5" screen shows, scaled to any screen (HDMI 1 "big version" or a tablet). */
+  :root { --bg:#08111d; --bar:#101e31; --text:#ecf7ff; --muted:#9bb2c9; --accent:#5de6b0; --idle:#162a42; --sel:#1f446e; --play:#22805c; --stop:#60222e; --line:#294966; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; cursor:none; }
+  body.show-cursor { cursor:auto; }
+  .screen { position:fixed; inset:0; display:grid; grid-template-rows:14% 1fr; }
+  .bar { background:var(--bar); display:flex; align-items:center; padding:0 2vw; gap:3vw; }
+  .bar .song { flex:1; min-width:0; } .bar .song b { display:block; font-size:4.6vh; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .bar .song span { color:var(--muted); font-size:3vh; }
+  .bar .stat { display:grid; justify-items:center; line-height:1; } .bar .stat small { font-size:2.2vh; letter-spacing:.14em; color:var(--muted); } .bar .stat b { font-size:6.5vh; } .bar .key b { color:var(--accent); }
+  .dot { width:2.4vh; height:2.4vh; border-radius:50%; background:var(--accent); opacity:0; } .dot.on { opacity:1; animation:pulse 1.2s infinite; } @keyframes pulse { 50% { opacity:.3; } }
+  .body { display:grid; grid-template-columns:62% 1fr; gap:1.2vh; padding:1.2vh; min-height:0; }
+  .pads { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); gap:1.2vh; min-height:0; }
+  .pad { border:1px solid var(--line); border-radius:2vh; background:var(--idle); display:flex; flex-direction:column; justify-content:space-between; padding:1.4vh; text-align:left; color:var(--text); font-size:3.2vh; min-height:0; overflow:hidden; }
+  .pad small { color:var(--muted); font-size:2.6vh; } .pad b { font-size:3.4vh; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pad.selected { background:var(--sel); } .pad.playing { background:var(--play); border-color:var(--accent); } .pad.playing small { color:var(--accent); }
+  .pad.stop { background:var(--stop); border-color:#82414b; justify-content:center; align-items:center; font-weight:800; font-size:4vh; }
+  .btns { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(4,1fr); gap:1vh; min-height:0; }
+  .btns button { border:1px solid var(--line); border-radius:1.6vh; background:#152a43; color:var(--text); font-size:2.9vh; font-weight:700; min-height:0; padding:0 1vh; }
+  .btns button.on { background:var(--accent); color:#062218; }
+  button:active { transform:scale(.97); }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="bar">
+    <div class="song"><b id="song">Central Control</b><span id="sub"></span></div>
+    <div class="stat" id="timeBox"><small>TIME</small><b id="time">0:00</b></div>
+    <div class="stat key"><small>KEY</small><b id="key">C</b></div>
+    <div class="stat"><small>BPM</small><b id="bpm">72</b></div>
+    <i class="dot" id="dot"></i>
+  </div>
+  <div class="body">
+    <div class="pads" id="pads"></div>
+    <div class="btns" id="btns"></div>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+(function () {
+  var C = window.PPCompanion, esc = C.esc, $ = function (s) { return document.querySelector(s); };
+  document.addEventListener("mousemove", function () { document.body.classList.add("show-cursor"); clearTimeout(window.__cur); window.__cur = setTimeout(function () { document.body.classList.remove("show-cursor"); }, 2000); });
+  document.addEventListener("pointerdown", function (e) { var b = e.target.closest("[data-act]"); if (!b) return; e.preventDefault(); C.action(b.dataset.act, b.dataset.index != null ? { index: Number(b.dataset.index) } : {}); });
+  C.on(function (st) {
+    var d = st.display; if (!d) return;
+    var tracks = !!d.tracksMode, perf = d.performance || {};
+    $("#song").textContent = d.song ? d.song.name : "Central Control";
+    $("#sub").textContent = tracks ? ((d.countIn ? "Count-in " + d.countIn : (d.section ? d.section.name : "")) + (d.bar ? "  · bar " + d.bar : "") + (d.loop >= 0 ? "  ⟲" : "")) : ("Pads" + (perf.layerMode ? " · layer" : "") + (d.frozen ? " · frozen" : ""));
+    $("#key").textContent = C.keyName(d.key); $("#bpm").textContent = d.bpm || "";
+    $("#timeBox").style.visibility = tracks ? "visible" : "hidden"; $("#time").textContent = C.fmtTime(d.pos); $("#dot").classList.toggle("on", !!(tracks && d.playing));
+    $("#pads").innerHTML = (d.pads || []).slice(0, 8).map(function (p, i) { return '<button class="pad' + (p.playing ? " playing" : p.selected ? " selected" : "") + '" data-act="pad" data-index="' + i + '"><small>' + (i + 1) + "</small><b>" + esc(p.name) + "</b></button>"; }).join("") + '<button class="pad stop" data-act="stop">STOP</button>';
+    var buttons = tracks ? [[d.playing ? "‖ PAUSE" : "▶ PLAY", "playPause", d.playing], ["|◀ START", "startOver", false], ["SECTION ▶|", "nextSection", false], ["↻ REPEAT", "repeatSection", d.loop >= 0], ["KEY −", "keyDown", false], ["KEY +", "keyUp", false], ["CLICK", "toggleClick", d.click !== false], ["NEXT SONG", "nextSong", false]]
+      : [["TAP", "tap", false], ["FREEZE", "freeze", !!d.frozen], ["KEY −", "keyDown", false], ["KEY +", "keyUp", false], ["LAYER", "layer", !!perf.layerMode], ["NEXT SONG", "nextSong", false], ["PREV SONG", "prevSong", false], ["TRACKS", "toggleTracks", false]];
+    $("#btns").innerHTML = buttons.map(function (b) { return '<button data-act="' + b[1] + '" class="' + (b[2] ? "on" : "") + '">' + b[0] + "</button>"; }).join("");
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+#!/bin/bash
+# Pad Pedal OS - power-cut safe mode (kept for the README / older scripts; same as pad-pedal-system safe-mode)
+exec /usr/local/sbin/pad-pedal-system safe-mode "${1:-status}"
