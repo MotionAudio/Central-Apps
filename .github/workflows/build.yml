@@ -57,20 +57,20 @@ jobs:
       - name: Smoke test - the driver answers (system Python, as the .deb runs it)
         run: |
           pip install --quiet websockets==13.1 gpiozero==2.0.1 pillow
-          bash tools/smoke-driver.sh python3 pedal-driver.py
+          bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh python3 pedal-driver.py
       - name: Central Usage
         working-directory: central-usage
         run: |
           chmod +x native/build/cu-* || true
           CU_SKIP_NATIVE=1 bash prepare-shared.sh
           npm install --no-audit --no-fund
-          npx electron-builder --linux deb AppImage --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never
       - name: Central Control for PC
         run: |
           bash central-control-desktop/prepare-src.sh
           cd central-control-desktop
           npm install --no-audit --no-fund
-          npx electron-builder --linux deb AppImage --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: installers-linux
@@ -104,20 +104,20 @@ jobs:
           node central-usage/test-updater.mjs
       - name: Bundle the driver (PyInstaller) and smoke test it
         run: |
-          PYTHON=python bash tools/build-driver.sh central-control-desktop/driver-dist
-          bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver.exe
+          PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-control-desktop/driver-dist
+          bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver.exe
       - name: Central Usage
         working-directory: central-usage
         run: |
           CU_SKIP_NATIVE=1 bash prepare-shared.sh
           npm install --no-audit --no-fund
-          npx electron-builder --win nsis --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --win nsis --x64 --publish never
       - name: Central Control for PC
         run: |
           bash central-control-desktop/prepare-src.sh
           cd central-control-desktop
           npm install --no-audit --no-fund
-          npx electron-builder --win nsis --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --win nsis --x64 --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: installers-win
@@ -145,27 +145,27 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { name: sounds, path: central-usage/native/sounds }
       - name: Build the native helpers (this Mac's architecture)
-        run: make -C central-usage/native -j4 ARCH="-arch ${{ matrix.arch == 'x64' && 'x86_64' || 'arm64' }}"
+        run: bash tools/ci-run.sh "native build" make -C central-usage/native -j4 ARCH="-arch ${{ matrix.arch == 'x64' && 'x86_64' || 'arm64' }}"
       - name: Test the engine and the rig (macOS)
         run: |
-          node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
-          node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
+          bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
+          bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
       - name: Bundle the driver (PyInstaller) and smoke test it
         run: |
-          PYTHON=python bash tools/build-driver.sh central-control-desktop/driver-dist
-          bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver
+          PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-control-desktop/driver-dist
+          bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver
       - name: Central Usage
         working-directory: central-usage
         run: |
           CU_SKIP_NATIVE=1 bash prepare-shared.sh
           npm install --no-audit --no-fund
-          npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
       - name: Central Control for PC
         run: |
           bash central-control-desktop/prepare-src.sh
           cd central-control-desktop
           npm install --no-audit --no-fund
-          npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
       - name: Smoke test - the packed apps are signed (ad hoc) and their helpers run
         run: |
           for app in "central-usage/dist/mac"*/"Central Usage.app" "central-control-desktop/dist/mac"*/"Central Control.app"; do codesign --verify --deep "$app" && echo "signed: $app"; done
@@ -178,3 +178,19 @@ jobs:
           path: |
             central-usage/dist/*.dmg
             central-control-desktop/dist/*.dmg
+
+  ios:
+    name: iPhone / iPad project (simulator build, unsigned)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Prepare (Capacitor sync, CocoaPods)
+        run: bash central-usage-ios/prepare.sh
+      - name: Build for the simulator (proves the project compiles; the App Store build is in release.yml)
+        run: |
+          bash tools/ci-run.sh "iOS build" xcodebuild build -workspace central-usage-ios/ios/App/App.xcworkspace -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -quiet
+          echo "iOS project builds"
+

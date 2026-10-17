@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Central Apps Downloads</title>
+<meta name="description" content="Download Central Control and Central Usage for Windows, Mac, Linux, Raspberry Pi and iPhone / iPad.">
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #14181f; --muted: #5b6573; --line: #dfe3e8; --accent: #1f6feb; --accent-ink: #ffffff; --soft: #eef3fd; --ok: #1a7f37; --warn: #9a6700;
+    --radius: 14px; --shadow: 0 1px 2px rgba(20, 24, 31, .06), 0 4px 16px rgba(20, 24, 31, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #0d1117; --card: #161b22; --ink: #e6edf3; --muted: #9aa5b1; --line: #2b333d; --accent: #4493f8; --accent-ink: #0d1117; --soft: #172235; --ok: #3fb950; --warn: #d29922; --shadow: none; }
+  }
+  :root[data-theme="dark"] { --bg: #0d1117; --card: #161b22; --ink: #e6edf3; --muted: #9aa5b1; --line: #2b333d; --accent: #4493f8; --accent-ink: #0d1117; --soft: #172235; --ok: #3fb950; --warn: #d29922; --shadow: none; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 0 0 6px; letter-spacing: -.01em; }
+  h2 { font-size: 22px; margin: 0 0 4px; } h3 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 10px; } .muted { color: var(--muted); } small { font-size: 13px; }
+  a { color: var(--accent); }
+  .lead { color: var(--muted); max-width: 62ch; }
+  .ver { display: inline-block; margin-top: 10px; padding: 3px 10px; border-radius: 999px; background: var(--soft); font-size: 13px; }
+  .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 26px 0 34px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); text-decoration: none; font-weight: 600; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+  .btn small { font-weight: 400; opacity: .8; }
+  .hero .btn { width: 100%; margin-top: 10px; }
+  section { margin: 34px 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin-top: 14px; }
+  .plat { display: flex; flex-direction: column; gap: 8px; }
+  .plat .btn { width: 100%; }
+  .plat p { font-size: 14px; color: var(--muted); margin: 0 0 auto; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  ol { padding-left: 20px; margin: 10px 0 0; } li { margin: 4px 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; }
+  pre { background: var(--soft); padding: 12px; border-radius: 10px; overflow-x: auto; margin: 10px 0 0; white-space: pre; }
+  .note { border-left: 3px solid var(--warn); padding: 4px 0 4px 12px; color: var(--muted); font-size: 14px; }
+  footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 18px; }
+  @media (max-width: 720px) { .hero { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Central Apps</h1>
+    <p class="lead">Central Control runs the worship pads, multitracks and the guitar / keys rig. Central Usage runs lighting, mixing, in-ear mixes, slides, charts and lyrics.</p>
+    <span class="ver" id="ver">Finding the newest version…</span>
+  </header>
+
+  <div class="hero" id="hero">
+    <div class="card"><h2>Central Usage</h2><p class="muted" id="heroCuText">For this computer</p><a class="btn primary" id="heroCu" aria-disabled="true" href="#usage">Download</a></div>
+    <div class="card"><h2>Central Control</h2><p class="muted" id="heroCcText">For this computer</p><a class="btn primary" id="heroCc" aria-disabled="true" href="#control">Download</a></div>
+  </div>
+
+  <section id="usage">
+    <h2>Central Usage</h2>
+    <p class="muted">Every computer at the sound / lights / media desk, and every musician's laptop, tablet or phone.</p>
+    <div class="grid">
+      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-usage-*-win-x64.exe">Download <small>.exe</small></a></div>
+      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-usage-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-usage-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-usage-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-usage-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
+      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>No download - it comes from the Central Control</p><a class="btn" href="#ios">How to add it</a></div>
+    </div>
+  </section>
+
+  <section id="control">
+    <h2>Central Control</h2>
+    <p class="muted">The Raspberry Pi on stage. The computer versions are the same app, for trying it out or building setlists.</p>
+    <div class="grid">
+      <div class="card plat"><h3>Raspberry Pi</h3><p>Updates itself; new SD cards below</p><a class="btn" href="#pi">How to install</a></div>
+      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-control-*-win-x64.exe">Download <small>.exe</small></a></div>
+      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-control-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-control-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-control-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-control-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
+    </div>
+  </section>
+
+  <section id="first-run">
+    <h2>Opening it the first time</h2>
+    <p class="muted">The apps are free and not signed with a paid Apple / Microsoft certificate, so the computer asks once.</p>
+    <details open><summary>Windows: “Windows protected your PC”</summary>
+      <ol><li>Click <b>More info</b>.</li><li>Click <b>Run anyway</b>. It installs and opens by itself.</li></ol>
+    </details>
+    <details><summary>Mac: “can't be opened” / “Apple could not verify…”</summary>
+      <ol><li>Open the <code>.dmg</code> and drag the app into <b>Applications</b>.</li>
+        <li>Open the app once - the Mac refuses. Click <b>Done</b>.</li>
+        <li>Open <b>System Settings → Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b> next to the app's name, then confirm.</li>
+        <li>When it asks to use the microphone, allow it (the audio interface, the in-ears and the instrument need it).</li></ol>
+      <p class="note">If the Mac says the app “is damaged”, open Terminal and run (for Central Control, change the name):</p>
+      <pre>xattr -dr com.apple.quarantine "/Applications/Central Usage.app"</pre>
+    </details>
+    <details><summary>Linux</summary>
+      <ol><li><b>.deb</b>: <code>sudo apt install ./central-usage-…-amd64.deb</code> (the <code>./</code> matters).</li>
+        <li><b>AppImage</b>: right-click → Properties → Permissions → <b>Allow executing file as program</b>, then double-click.</li></ol>
+    </details>
+  </section>
+
+  <section id="ios">
+    <h2>iPhone &amp; iPad</h2>
+    <div class="card">
+      <ol><li>Join the same Wi-Fi as the Central Control.</li>
+        <li>In <b>Safari</b>, open <code>http://padpedal.local:8080/cu/</code> (or the address the Central Control shows for phones and tablets).</li>
+        <li>Tap <b>Share</b> → <b>Add to Home Screen</b>. It opens full screen like an app and always has the newest version.</li></ol>
+      <p class="muted"><small>Lyrics, charts for your instrument and your in-ear mix. An App Store version is planned.</small></p>
+    </div>
+  </section>
+
+  <section id="pi">
+    <h2>Raspberry Pi</h2>
+    <details open><summary>Already running Central Control</summary>
+      <p>Nothing to download: connect it to the internet, open <b>Settings</b>, and press <b>Install</b> when <b>Update ready</b> appears. Your songs and settings stay. No internet there? Put <a data-file="central-control-source.zip" class="inline">central-control-source.zip</a> on a USB stick and use <b>Settings → Update software from USB…</b>.</p>
+    </details>
+    <details><summary>A new SD card (built on an Ubuntu PC)</summary>
+      <pre>mkdir -p ~/Downloads/central &amp;&amp; cd ~/Downloads/central
+NEWEST=$(wget -qO- https://api.github.com/repos/MotionAudio/Central-Apps/releases/latest)
+wget -O central-control-source.zip "$(echo "$NEWEST" | grep -o 'https://github.com/[^"]*central-control-source\.zip')"
+rm -rf source &amp;&amp; unzip -q central-control-source.zip -d source &amp;&amp; cd source
+sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre>
+      <p class="muted"><small>Then flash the <code>.img</code> with Raspberry Pi Imager → Use custom (choose <b>No</b> for OS customisation). More in <a href="https://github.com/MotionAudio/Central-Apps/blob/main/INSTALL.md">INSTALL.md</a>.</small></p>
+    </details>
+  </section>
+
+  <footer>
+    <p>Installed apps update themselves from here. <a id="notes" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Release notes</a> · <a id="sums" href="https://github.com/MotionAudio/Central-Apps/releases/latest">SHA256SUMS</a> · <a href="https://github.com/MotionAudio/Central-Apps">Source (MIT)</a></p>
+  </footer>
+</main>
+<script>
+(function () {
+  "use strict";
+  var REPO = "MotionAudio/Central-Apps", RELEASES = "https://github.com/" + REPO + "/releases/latest";
+  var ua = navigator.userAgent, plat = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios" : /Android/.test(ua) ? "android" : /Windows/.test(ua) ? "win" : /Macintosh|Mac OS X/.test(ua) ? "mac" : /Linux|X11/.test(ua) ? "linux" : "other";
+  function match(names, pattern) { var re = new RegExp("^" + pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*") + "$"); return names.filter(function (n) { return re.test(n); })[0] || null; }
+  function setHero(id, textId, href, label, text) { var a = document.getElementById(id); a.href = href; a.removeAttribute("aria-disabled"); a.innerHTML = label; document.getElementById(textId).textContent = text; }
+  async function macArch() {   // Apple Silicon or Intel: the browser can tell through WebGL's renderer name (Safari / Chrome)
+    try { if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) { var h = await navigator.userAgentData.getHighEntropyValues(["architecture"]); if (h.architecture) return h.architecture === "arm" ? "arm64" : "x64"; } } catch (_) { }
+    try { var gl = document.createElement("canvas").getContext("webgl"), ext = gl && gl.getExtension("WEBGL_debug_renderer_info"), r = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ""; if (/Apple M\d|Apple GPU/i.test(r)) return "arm64"; if (/Intel|AMD|Radeon|NVIDIA/i.test(r)) return "x64"; } catch (_) { }
+    return "arm64";
+  }
+  fetch("https://api.github.com/repos/" + REPO + "/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(async function (rel) {
+      var urls = {}; (rel.assets || []).forEach(function (a) { urls[a.name] = a.browser_download_url; }); var names = Object.keys(urls);
+      var v = (rel.tag_name || "").replace(/^v/, ""), cu = (match(names, "central-usage-*-amd64.deb") || match(names, "central-usage-*-win-x64.exe") || "").replace(/^central-usage-([\d.]+)-.*$/, "$1");
+      document.getElementById("ver").textContent = "Central Control " + v + (cu ? " · Central Usage " + cu : "") + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
+      document.getElementById("notes").href = rel.html_url || RELEASES; if (urls.SHA256SUMS) document.getElementById("sums").href = urls.SHA256SUMS;
+      document.querySelectorAll("[data-file]").forEach(function (a) { var n = match(names, a.dataset.file); if (n) { a.href = urls[n]; a.title = n; } else { a.setAttribute("aria-disabled", "true"); a.title = "Not in this release yet"; } });
+      var arch = plat === "mac" ? await macArch() : "x64";
+      var pick = { win: ["*-win-x64.exe", "Download for Windows"], mac: ["*-mac-" + arch + ".dmg", "Download for Mac (" + (arch === "arm64" ? "Apple Silicon" : "Intel") + ")"], linux: ["*-amd64.deb", "Download for Linux (.deb)"] }[plat];
+      if (pick) {
+        ["central-usage", "central-control"].forEach(function (p) { var n = match(names, p + "-" + pick[0]); if (n) setHero(p === "central-usage" ? "heroCu" : "heroCc", p === "central-usage" ? "heroCuText" : "heroCcText", urls[n], pick[1], n); });
+      } else if (plat === "ios") {
+        setHero("heroCu", "heroCuText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "Through the Central Control on your Wi-Fi");
+        setHero("heroCc", "heroCcText", "#pi", "Raspberry Pi steps", "Central Control runs on the Raspberry Pi");
+      } else {
+        setHero("heroCu", "heroCuText", "#usage", "Choose a system", "Pick yours below"); setHero("heroCc", "heroCcText", "#control", "Choose a system", "Pick yours below");
+      }
+    })
+    .catch(function (e) {
+      document.getElementById("ver").textContent = "Couldn't reach GitHub (" + e.message + ") - every file is on the releases page";
+      document.querySelectorAll("[data-file]").forEach(function (a) { a.href = RELEASES; });
+      ["heroCu", "heroCc"].forEach(function (id) { var a = document.getElementById(id); a.href = RELEASES; a.removeAttribute("aria-disabled"); a.textContent = "Open the releases page"; });
+    });
+})();
+</script>
+</body>
+</html>
