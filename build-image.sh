@@ -59,14 +59,15 @@ say "Building Central Control OS $VER from $HERE"
 for old in "$HERE"/pad-pedal-os.img "$HERE"/pad-pedal-os.img.xz; do
   [ -e "$old" ] && printf '    note: %s is an image from an OLDER version (before 7.1) - delete it so it never gets flashed by mistake\n' "$(basename "$old")"
 done
-FILES=(setup-pi.sh index.html css/pad-pedal.css js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/shell.js
-       js/textures.js js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/io.js
+FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/shell.js
+       js/textures.js js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js
        instrument_host.py sources.py instrument-plugins.json get-sounds.sh
        companion/index.html companion/lyrics.html companion/stage.html companion/upload.html companion/remote.html companion/mini.html companion/slides.html companion/common.js companion/style.css
        pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session pad-pedal-audio-config
        xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf pad-pedal-safe-mode pad-pedal.sudoers
        starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2 fonts/inter-latin-ext.woff2 fonts/OFL.txt
-       README.md wiring.html)
+       README.md wiring.html
+       central-usage/app/app.js central-usage/app/chords.js central-usage/app/fixturelib.js central-usage/app/index.html central-usage/app/inear-client.js central-usage/app/inear-ui.js central-usage/app/inear.css central-usage/app/inears.js central-usage/app/instrument-shim.js central-usage/app/instrument-tab.js central-usage/app/instrument.html central-usage/app/io.js central-usage/app/lights-ai.js central-usage/app/lights.js central-usage/app/lyrics-listen.js central-usage/app/mix.js central-usage/app/mixer-model.js central-usage/app/mixlink.js central-usage/app/output.html central-usage/app/parts-tab.js central-usage/app/phone.html central-usage/app/remote.html central-usage/app/roles.js central-usage/app/settings.js central-usage/app/slides.js central-usage/app/style.css central-usage/app/timecode.js central-usage/app/updates.js central-usage/app/video.css central-usage/app/video.js  central-usage/build/icon.png)
 for f in "${FILES[@]}"; do
   [ -f "$HERE/$f" ] || die "missing $f - keep all the Central Control OS files in one folder"
 done
@@ -179,7 +180,7 @@ printf '#!/bin/sh\nexit 101\n' > "$MNT/usr/sbin/policy-rc.d"; chmod +x "$MNT/usr
 [ -f "$MNT/etc/ld.so.preload" ] && mv "$MNT/etc/ld.so.preload" "$MNT/etc/ld.so.preload.padpedal"
 [ "$ARCH" = "aarch64" ] || cp /usr/bin/qemu-aarch64-static "$MNT/usr/bin/" 2>/dev/null || true
 
-mkdir -p "$MNT/tmp/pad-pedal-src/js/vendor" "$MNT/tmp/pad-pedal-src/companion" "$MNT/tmp/pad-pedal-src/css" "$MNT/tmp/pad-pedal-src/fonts"
+mkdir -p "$MNT/tmp/pad-pedal-src/js/vendor" "$MNT/tmp/pad-pedal-src/companion" "$MNT/tmp/pad-pedal-src/css" "$MNT/tmp/pad-pedal-src/fonts" "$MNT/tmp/pad-pedal-src/central-usage/app" "$MNT/tmp/pad-pedal-src/central-usage/build"
 for f in "${FILES[@]}"; do cp "$HERE/$f" "$MNT/tmp/pad-pedal-src/$f"; done
 # pre-rendered spoken cue words, so the build works without espeak-ng too
 [ -d "$HERE/cues" ] && cp -r "$HERE/cues" "$MNT/tmp/pad-pedal-src/cues"

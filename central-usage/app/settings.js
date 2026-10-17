@@ -1,4 +1,4 @@
-/* Central Usage - Settings: this computer (its name, Admin or User), the lights' optional AI model,
+/* Central Usage - Settings: this computer (its name and role - roles.js - and, on the main admin, the People list), the lights' optional AI model,
  * updates and about. (Inputs, outputs and the audio host are on the I/O tab.) */
 (function () {
   "use strict";
@@ -26,11 +26,10 @@
     var root = $("#settingsRoot"); if (!root || !visible()) return;
     var c = CU.config() || {}, m = CU.mode();
     root.innerHTML = '<div class="io-grid">' +
-      '<section class="card"><h3>This computer</h3><label>Name <input data-st="name" value="' + esc(c.name || "") + '" placeholder="Sound desk / Lights / Sarah\'s laptop"></label>' +
-      '<div class="io-opts"><label class="io-opt' + (m === "admin" ? " on" : "") + '"><input type="radio" name="stMode" value="admin"' + (m === "admin" ? " checked" : "") + '><span><b>Admin</b><small>Lighting · track mixing · in-ear mixes · lyrics · slides</small></span></label><label class="io-opt' + (m === "user" ? " on" : "") + '"><input type="radio" name="stMode" value="user"' + (m === "user" ? " checked" : "") + "><span><b>User</b><small>Chord chart · instrument · lyrics · my in-ear mix</small></span></label></div>" +
-      '<p class="muted small">There can be several admins and many users. Only the Central Control plays, stops and skips the tracks.</p></section>' +
+      (window.CURoles ? window.CURoles.card() : "") +
       mixCard() +
       aiCard() +
+      (window.CULyricsListen ? window.CULyricsListen.card() : "") +
       '<section class="card"><h3>Updates</h3><p class="muted">Central Usage looks for a new version once a day and installs it only when you say so.</p><button data-st="updates">Check for updates…</button></section>' +
       '<section class="card"><h3>About</h3><p>Central Usage ' + esc(version && version.app || "") + '</p><p class="muted small">Companion app for Central Control: chord charts, lyrics, lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides.</p></section></div>';
   }
@@ -38,12 +37,13 @@
   root.addEventListener("change", async function (e) {
     var t = e.target;
     if (t.name === "stTrackOut" && window.CUMix) { var st = window.CUMix.state; window.CUMix.op({ op: "trackOut", value: t.value, first: st ? st.directFirst || 0 : 0 }); setTimeout(render, 300); return; }
-    if (t.name === "stMode") { await CU.setMode(t.value); if (window.CUMix) window.CUMix.choose(); render(); }
-    else if (t.dataset.st === "name") { var nm = t.value.trim(); CU.store.set("name", nm); var c = CU.config(); c.name = nm; if (NAT && NAT.config) CU.setConfig(await NAT.config.set({ name: nm })); else CU.setConfig(c); }
+    if (window.CURoles && await window.CURoles.onSettingsChange(t)) { if (window.CUMix) window.CUMix.choose(); return; }
+    if (t.dataset.st === "name") { var nm = t.value.trim(); CU.store.set("name", nm); var c = CU.config(); c.name = nm; if (NAT && NAT.config) CU.setConfig(await NAT.config.set({ name: nm })); else CU.setConfig(c); }
     else if (t.dataset.st === "ai-use") CU.store.set("aiUse", t.checked);
   });
   root.addEventListener("click", async function (e) {
     var b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.rl && window.CURoles) { await window.CURoles.onSettingsClick(b); if (window.CUMix) window.CUMix.choose(); return; }
     if (b.dataset.st === "updates" && window.CUUpdates) window.CUUpdates.open();
     else if (b.dataset.st === "ai-download") { NAT.ai.download().then(function (s) { ai = s; render(); }); setTimeout(function () { NAT.ai.status().then(function (s) { ai = s; render(); }); }, 300); }
     else if (b.dataset.st === "ai-remove") { ai = await NAT.ai.remove(); render(); }
@@ -52,5 +52,6 @@
   if (NAT && NAT.version) NAT.version().then(function (v) { version = v; });
   CU.on("tab", function (t) { if (t === "settings") { if (NAT && NAT.ai) NAT.ai.status().then(function (s) { ai = s; render(); }); render(); } });
   CU.on("mode", function () { if (visible()) render(); });
+  CU.on("connected", function () { if (visible()) render(); });
   window.CUSettings = { render: render };
 })();

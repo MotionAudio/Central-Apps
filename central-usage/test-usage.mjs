@@ -25,7 +25,7 @@ const r = await fetch("http://127.0.0.1:8080/api/upload?kind=charts&name=Test%20
 await pi.waitForFunction(() => PPTracks.song() && PPTracks.song().chart && PPTracks.data(PPTracks.song()).sections.length >= 2, null, { timeout: 8000 });
 await pi.evaluate(() => { PPTracks.sendDisplay(); PPFeatures.sendToDriver({ type: "system", action: "status" }); }); await pi.waitForFunction(() => PPFeatures.systemStatus() && PPFeatures.systemStatus().code, null, { timeout: 5000 }); code = await pi.evaluate(() => PPFeatures.systemStatus().code);
 // Central Usage renderer
-const cu = await ctx.newPage(); cu.on("pageerror", (e) => errs.push("cu:" + e)); cu.on("console", (m) => { if (m.type() === "error" && !/favicon|NAME_NOT_RESOLVED/.test(m.text())) errs.push("cu-console:" + m.text()); });
+const cu = await ctx.newPage(); cu.on("pageerror", (e) => errs.push("cu:" + e)); cu.on("console", (m) => { if (m.type() === "error" && !/favicon|NAME_NOT_RESOLVED|padpedal\.local/.test(m.text())) errs.push("cu-console:" + m.text()); });
 await cu.addInitScript(() => { if (!localStorage.getItem("cu-mode")) localStorage.setItem("cu-mode", JSON.stringify("user")); });   // a musician's computer first (chart, lyrics)
 await cu.goto("file://" + path.join(here, "app", "index.html") + ""); await cu.waitForFunction(() => window.CentralUsage);
 await cu.evaluate(() => { CentralUsage.connect("127.0.0.1"); });
@@ -217,6 +217,97 @@ await check("tell it the show (built-in engine): sections, groups, colours, leve
   const r = await cu.evaluate(() => CULights.show().cues.map((c) => c.kind + "@" + c.bar + "." + c.beat + ":" + (CULights.lookById(c.look) || {}).name));
   assert.ok(r.some((x) => /^look@1\.1:Said: Verse/.test(x)) && r.some((x) => /^look@5\.1:Said: Chorus/.test(x)) && r.filter((x) => /^flash/.test(x)).length === 2, r.join(" | "));
   const back = await cu.evaluate(() => { const l = CULights.rig().looks.find((x) => /Said: Verse/.test(x.name)); return l.g.back; }); assert.equal(back.color, "#1f4dff"); assert.ok(Math.abs(back.dim - 0.3) < 0.01);
+});
+await check("parts on the chart tab: pick Bass / Keys / Drums / Trumpet and the part for the Pi's song is drawn", async () => {
+  await cu.evaluate(() => CentralUsage.setMode("user")); await cu.click('[data-tab="chart"]');
+  await pi.evaluate(() => { PPHub.push(true); PPTracks.sendDisplay(); });
+  for (const inst of ["bass", "keys", "drums", "trumpet"]) {
+    await cu.selectOption("#partPick", inst);
+    await cu.waitForFunction(() => document.querySelector("#partView svg"), null, { timeout: 8000 });
+    assert.ok(await cu.evaluate(() => !document.querySelector("#partView").hidden && document.querySelector("#chart").hidden));
+  }
+  assert.match(await cu.textContent("#partView"), /Trumpet/);
+  await cu.selectOption("#partPick", "chart"); assert.ok(await cu.evaluate(() => document.querySelector("#partView").hidden && !document.querySelector("#chart").hidden));
+});
+// ---- roles: a main admin and a computer that joins, User 1 / User 2, the PIN, admin jobs
+async function cuPage(label) {
+  const c = await b.newContext({ viewport: { width: 1280, height: 800 } }); const p = await c.newPage();
+  p.on("pageerror", (e) => errs.push(label + ":" + e)); p.on("console", (m) => { if (m.type() === "error" && !/favicon|NAME_NOT_RESOLVED|ERR_CONNECTION_REFUSED|padpedal\.local/.test(m.text())) errs.push(label + "-console:" + m.text()); });
+  await p.goto("file://" + path.join(here, "app", "index.html")); await p.waitForFunction(() => window.CentralUsage && window.CURoles);
+  return p;
+}
+const tabsShown = (p) => p.evaluate(() => Array.from(document.querySelectorAll("#tabs [data-tab]")).filter((x) => !x.hidden).map((x) => x.dataset.tab).join(","));
+let mainP, userP, keys;
+await check("first launch asks Main admin or Join (no more 'pick admin or user')", async () => {
+  mainP = await cuPage("main");
+  assert.ok(await mainP.isVisible("#modePick [data-rp='main']") && await mainP.isVisible("#modePick [data-rp='join']"));
+  await mainP.evaluate((c) => { CentralUsage.prefs.code = c; CentralUsage.store.set("code", c); CentralUsage.connect("127.0.0.1"); }, code);
+  await mainP.waitForFunction(() => CentralUsage.state.connected, null, { timeout: 6000 });
+  await mainP.fill("#modePick [data-rp='name']", "Sound desk"); await mainP.click("#modePick [data-rp='main']");
+  await mainP.waitForSelector("#modePick .rp-done:not([hidden]) .io-code");
+  keys = await mainP.evaluate(() => CURoles.keys());
+  assert.match(await mainP.textContent("#modePick .rp-done"), new RegExp(keys.pin)); await mainP.click("#modePick [data-rp='close']");
+  await mainP.waitForFunction(() => CURoles.view() && CURoles.view().youAreMain, null, { timeout: 5000 });
+  assert.equal(await tabsShown(mainP), "lights,mix,inears,lyrics,slides,video,io,settings");
+});
+await check("another computer joins with the pairing code and starts as User 1 (it gets the Central Control's code)", async () => {
+  userP = await cuPage("user"); await userP.evaluate(() => CentralUsage.connect("127.0.0.1")); await userP.waitForFunction(() => CentralUsage.state.connected, null, { timeout: 6000 });
+  await userP.fill("#modePick [data-rp='name']", "Keys"); await userP.click("#modePick [data-rp='join']");
+  await userP.fill("#modePick [data-rp='pair']", "0000"); await userP.click("#modePick [data-rp='go']");
+  await userP.waitForFunction(() => /not right/.test(document.querySelector("#modePick .rp-msg").textContent), null, { timeout: 5000 });
+  await userP.fill("#modePick [data-rp='pair']", keys.pair); await userP.click("#modePick [data-rp='go']");
+  await userP.waitForFunction(() => CentralUsage.role() === "user1" && !document.getElementById("modePick"), null, { timeout: 6000 });
+  assert.equal(await userP.evaluate(() => CentralUsage.prefs.code), code);
+  assert.equal(await tabsShown(userP), "chart,instrument,inears,lyrics,io,settings");
+});
+await check("the user flips to User 2 from the top bar: lyrics, chart, in-ears, settings", async () => {
+  await userP.click("#roleChip [data-chip='user2']"); await userP.waitForFunction(() => CentralUsage.role() === "user2", null, { timeout: 5000 });
+  assert.equal(await tabsShown(userP), "chart,inears,lyrics,settings");
+});
+await check("becoming an admin needs the main admin's PIN (wrong PIN refused)", async () => {
+  await userP.click('[data-tab="settings"]'); await userP.waitForSelector("#settingsRoot input[name='rlRole'][value='admin']");
+  await userP.evaluate(() => { CentralUsage.askText = () => Promise.resolve("0000"); window.__alerts = []; window.alert = (t) => window.__alerts.push(t); });
+  await userP.click("#settingsRoot input[name='rlRole'][value='admin']");
+  await userP.waitForFunction(() => window.__alerts.length > 0, null, { timeout: 5000 });
+  assert.ok(/PIN/.test(await userP.evaluate(() => window.__alerts[0])) && await userP.evaluate(() => CentralUsage.role()) === "user2");
+  await userP.evaluate((pin) => { CentralUsage.askText = () => Promise.resolve(pin); }, keys.pin);
+  await userP.click("#settingsRoot input[name='rlRole'][value='admin']");
+  await userP.waitForFunction(() => CentralUsage.role() === "admin", null, { timeout: 5000 });
+});
+await check("the main admin sees it in People, gives it jobs (Lighting + Production) - it then shows only those tabs", async () => {
+  await mainP.click('[data-tab="settings"]'); await mainP.waitForSelector(".rl-people tr:has-text('Keys') [data-rl-job='lighting']", { timeout: 6000 });
+  assert.match(await mainP.textContent(".rl-people"), /Keys/);
+  await mainP.click(".rl-people tr:has-text('Keys') [data-rl-job='lighting']"); await mainP.waitForTimeout(400);
+  await mainP.click(".rl-people tr:has-text('Keys') [data-rl-job='production']");
+  try { await userP.waitForFunction(() => JSON.stringify(CentralUsage.jobs()) === '["lighting","production"]', null, { timeout: 5000 }); }
+  catch (e) { throw new Error("jobs " + await userP.evaluate(() => JSON.stringify([CentralUsage.jobs(), CentralUsage.role()])) + " main view " + await mainP.evaluate(() => JSON.stringify(CURoles.view().devices))); }
+  assert.equal(await tabsShown(userP), "lights,video,io,settings");
+});
+await check("the main admin moves it back to User 1 from its People list", async () => {
+  await mainP.selectOption(".rl-people tr:has-text('Keys') select", "user1");
+  await userP.waitForFunction(() => CentralUsage.role() === "user1", null, { timeout: 5000 });
+  assert.equal(await tabsShown(userP), "chart,instrument,inears,lyrics,io,settings");
+});
+await check("Forget role on the main admin goes back to the first-launch choice", async () => {
+  await mainP.evaluate(() => { window.confirm = () => true; }); await mainP.click("#settingsRoot [data-rl='forget']");
+  await mainP.waitForSelector("#modePick [data-rp='main']", { timeout: 5000 }); assert.equal(await mainP.evaluate(() => CentralUsage.role()), null);
+});
+await check("iPhone / iPad: Central Usage opens from the Central Control (http://pi:8080/cu/), joins as a user, shows the user tabs and the parts", async () => {
+  const c = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" });
+  const p = await c.newPage(); p.on("pageerror", (e) => errs.push("web:" + e)); p.on("console", (m) => { if (m.type() === "error" && !/favicon|icon\.png|404|ERR_CONNECTION_REFUSED/.test(m.text())) errs.push("web-console:" + m.text()); });
+  const r = await p.goto("http://127.0.0.1:8080/cu/"); assert.equal(r.status(), 200);
+  await p.waitForFunction(() => window.CentralUsage && window.CURoles && CentralUsage.web);
+  const man = await (await fetch("http://127.0.0.1:8080/cu/manifest.webmanifest")).json(); assert.equal(man.display, "standalone");
+  assert.ok(await p.isHidden("#modePick [data-rp='main']"), "no main admin on a phone");
+  await p.waitForFunction(() => CentralUsage.state.connected, null, { timeout: 8000 });
+  await p.fill("#modePick [data-rp='name']", "Sarah's iPhone"); await p.click("#modePick [data-rp='join']");
+  await p.fill("#modePick [data-rp='pair']", code); await p.click("#modePick [data-rp='go']");
+  await p.waitForFunction(() => CentralUsage.role() === "user1" && !document.getElementById("modePick"), null, { timeout: 6000 });
+  assert.equal(await p.evaluate(() => Array.from(document.querySelectorAll("#tabs [data-tab]")).filter((x) => !x.hidden).map((x) => x.dataset.tab).join(",")), "chart,inears,lyrics,settings");
+  await p.click('[data-tab="chart"]'); await p.selectOption("#partPick", "bass");
+  await p.waitForFunction(() => document.querySelector("#partView svg"), null, { timeout: 8000 });
+  const wide = await p.evaluate(() => document.documentElement.scrollWidth); assert.ok(wide <= 400, "no sideways scrolling of the page: " + wide);
+  await c.close();
 });
 await check("no page errors", () => assert.deepEqual(errs, []));
 await b.close(); drv.kill();

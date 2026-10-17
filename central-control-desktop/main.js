@@ -14,6 +14,7 @@ const APP_ROOT = app.isPackaged ? path.join(process.resourcesPath, "app") : path
 const DATA_DIR = path.join(app.getPath("userData"), "data");
 const PORT = 8766;
 let win = null, driver = null, driverLog = "";
+require("./asr").setupAsr({ ipcMain, app, getWin: () => win });   // lyrics from a vocal track (speech model on this PC)
 
 function python() { for (const p of ["python3", "python"]) { if (spawnSync(p, ["--version"]).status === 0) return p; } return null; }
 function portOpen(port) { return new Promise((resolve) => { const s = net.connect(port, "127.0.0.1"); s.once("connect", () => { s.destroy(); resolve(true); }); s.once("error", () => resolve(false)); }); }

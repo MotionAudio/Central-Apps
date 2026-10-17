@@ -39,13 +39,14 @@ step() { printf '\n==> %s\n' "$*"; }
 warn() { printf '    WARNING: %s\n' "$*" >&2; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)."; exit 1; }
-for f in index.html css/pad-pedal.css js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/shell.js js/textures.js \
-         js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/io.js \
+for f in index.html css/pad-pedal.css css/parts.css js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/shell.js js/textures.js \
+         js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js \
          instrument_host.py sources.py instrument-plugins.json get-sounds.sh companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
          companion/remote.html companion/mini.html companion/slides.html companion/common.js companion/style.css \
          pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session \
          pad-pedal-audio-config xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf \
-         pad-pedal-safe-mode pad-pedal.sudoers starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2; do
+         pad-pedal-safe-mode pad-pedal.sudoers starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2 \
+         central-usage/app/app.js central-usage/app/chords.js central-usage/app/fixturelib.js central-usage/app/index.html central-usage/app/inear-client.js central-usage/app/inear-ui.js central-usage/app/inear.css central-usage/app/inears.js central-usage/app/instrument-shim.js central-usage/app/instrument-tab.js central-usage/app/instrument.html central-usage/app/io.js central-usage/app/lights-ai.js central-usage/app/lights.js central-usage/app/lyrics-listen.js central-usage/app/mix.js central-usage/app/mixer-model.js central-usage/app/mixlink.js central-usage/app/output.html central-usage/app/parts-tab.js central-usage/app/phone.html central-usage/app/remote.html central-usage/app/roles.js central-usage/app/settings.js central-usage/app/slides.js central-usage/app/style.css central-usage/app/timecode.js central-usage/app/updates.js central-usage/app/video.css central-usage/app/video.js  central-usage/build/icon.png; do
   [ -f "$SRC/$f" ] || { echo "Missing $f next to setup-pi.sh"; exit 1; }
 done
 
@@ -125,6 +126,10 @@ install -m 644 "$SRC"/css/*.css        /opt/pad-pedal/css/
 install -m 644 "$SRC"/js/*.js          /opt/pad-pedal/js/
 install -m 644 "$SRC"/js/vendor/*.js   /opt/pad-pedal/js/vendor/
 install -m 644 "$SRC"/companion/*      /opt/pad-pedal/companion/
+# Central Usage for phones and tablets (iPhone / iPad: http://<this Pi>:8080/cu/, Add to Home Screen)
+install -d -m 755 /opt/pad-pedal/central-usage/app /opt/pad-pedal/central-usage/build
+install -m 644 "$SRC"/central-usage/app/*.js "$SRC"/central-usage/app/*.html "$SRC"/central-usage/app/*.css /opt/pad-pedal/central-usage/app/
+install -m 644 "$SRC/central-usage/build/icon.png" /opt/pad-pedal/central-usage/build/icon.png
 [ -f "$SRC/wiring.html" ] && install -m 644 "$SRC/wiring.html" /opt/pad-pedal/wiring.html
 [ -f "$SRC/README.md" ] && install -m 644 "$SRC/README.md" /opt/pad-pedal/README.md
 install -m 755 "$SRC/pedal-driver.py"        /opt/pad-pedal/pedal-driver.py

@@ -25,7 +25,9 @@
       "main.js",
       "preload.js",
       "updater.js",
-      "build/icon.png"
+      "build/icon.png",
+      "asr.js",
+      "!**/node_modules/onnxruntime-node/bin/napi-v3/*/*/libonnxruntime_providers_{cuda,tensorrt}.so"
     ],
     "extraResources": [
       {
@@ -49,7 +51,11 @@
         "Comment": "Worship pads, multitracks, guitar and keys rig, click and chord charts",
         "Categories": "AudioVideo;Audio;Music;"
       },
-      "maintainer": "Central Control <central-control@localhost>"
+      "maintainer": "Central Control <central-control@localhost>",
+      "files": [
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
+      ]
     },
     "deb": {
       "depends": [
@@ -85,7 +91,27 @@
       "afterInstall": "build/after-install.sh",
       "afterRemove": "build/after-remove.sh"
     },
-    "publish": null
+    "publish": null,
+    "asarUnpack": [
+      "**/node_modules/@img/**",
+      "**/node_modules/onnxruntime-node/**",
+      "**/node_modules/sharp/**"
+    ],
+    "win": {
+      "files": [
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
+      ]
+    },
+    "mac": {
+      "files": [
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**"
+      ]
+    }
   },
-  "homepage": "http://padpedal.local:8080/"
+  "homepage": "http://padpedal.local:8080/",
+  "dependencies": {
+    "@huggingface/transformers": "3.8.1"
+  }
 }

@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld("CU", {
     outputScreen: (opt) => ipcRenderer.invoke("output-screen", opt), outputNdi: (opt) => ipcRenderer.invoke("output-ndi", opt), outputs: () => ipcRenderer.invoke("outputs-status"), onOutputs: (fn) => ipcRenderer.on("outputs", (_e, st) => fn(st)) },
   inst: { start: () => ipcRenderer.invoke("inst-start"), send: (m) => ipcRenderer.send("inst-send", m), stop: () => ipcRenderer.invoke("inst-stop"), on: (fn) => ipcRenderer.on("inst-msg", (_e, m) => fn(m)) },
   ai: { status: () => ipcRenderer.invoke("ai-status"), download: () => ipcRenderer.invoke("ai-download"), remove: () => ipcRenderer.invoke("ai-remove"), ask: (system, user) => ipcRenderer.invoke("ai-ask", system, user), on: (fn) => ipcRenderer.on("ai-status", (_e, st) => fn(st)) },
+  asr: { status: () => ipcRenderer.invoke("asr-status"), config: (patch) => ipcRenderer.invoke("asr-config", patch), download: () => ipcRenderer.invoke("asr-download"), remove: () => ipcRenderer.invoke("asr-remove"), run: (job) => ipcRenderer.invoke("asr-run", job), on: (fn) => ipcRenderer.on("asr-event", (_e, m) => fn(m)) },
   saveFile: (name, text) => ipcRenderer.invoke("save-file", name, text),
   openFile: () => ipcRenderer.invoke("open-file")
 });

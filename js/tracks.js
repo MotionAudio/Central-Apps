@@ -167,7 +167,9 @@
       sections: sectionsOf(s).map(function (q) { return { name: q.sec.name, start: r3(q.start), end: r3(q.end), bar: q.sec.bar, type: C ? C.typeOf(q.sec.name) : null, color: C ? C.section(q.sec.name) : null, note: q.sec.note || "" }; }),
       grid: g ? { bpm: Math.round((s.bpm || 0) * 10) / 10, bpb: g.bpb, bars: g.bars.slice(0, 800).map(r3), barBeats: g.barBeats ? g.barBeats.slice(0, 800) : [] } : null,
       hits: (t.hits || []).slice(0, 600).map(r3), overview: out,
-      stems: t.stems.map(function (st) { return { name: st.name, role: st.role || "", file: st.file || null, gain: st.gain == null ? 1 : st.gain, pan: st.pan || 0, mute: !!st.mute, bus: st.bus || "music" }; }) };
+      stems: t.stems.map(function (st) { return { name: st.name, role: st.role || "", file: st.file || null, gain: st.gain == null ? 1 : st.gain, pan: st.pan || 0, mute: !!st.mute, bus: st.bus || "music" }; }),
+      // everything the parts for each instrument are made from (chords, sections, the tracks written down, the words' timing)
+      music: window.PPParts ? window.PPParts.contextOf(s, t, g, { chartText: t.chartText || "" }) : null };
   }
   async function addStemFile(s, file, progress) {
     var t = data(s), name = file.name.replace(/\.[^.]+$/, "");
@@ -925,7 +927,7 @@
       var msg = {
         type: "display", t: Date.now(),
         song: s ? { name: s.name, key: s.key, bpm: Math.round(s.bpm), index: p.songIndex, count: p.songs.length, chart: s.chart || null, hasTracks: !!t.stems.length } : null,
-        songs: p.songs.map(function (q) { return { name: q.name, key: q.key, chart: q.chart ? q.chart.id : null, hasTracks: !!(q.tracks && q.tracks.stems && q.tracks.stems.length) }; }),
+        songs: p.songs.map(function (q) { return { id: q.id, name: q.name, key: q.key, chart: q.chart ? q.chart.id : null, hasTracks: !!(q.tracks && q.tracks.stems && q.tracks.stems.length) }; }),
         tracksMode: !!p.tracksMode, playing: state.playing, pos: Math.round(state.pos * 100) / 100, duration: t ? t.duration : 0, countIn: state.countIn, loop: state.loop,
         bpm: s ? Math.round(s.bpm) : Math.round(p.tempo.bpm), key: PP.playKeyFor(PP.currentPad()), bar: bar.bar, beat: bar.beat, bpb: g ? g.bpb : 4, speed: t ? t.tempoPercent / 100 : 1,
         beatFrac: g ? Math.max(0, Math.min(.999, (bar.frac * g.bpb) % 1)) : 0, tab: window.PPShell ? window.PPShell.currentTab() : "pads",

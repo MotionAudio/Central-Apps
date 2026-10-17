@@ -44,12 +44,14 @@ import argparse
 import asyncio
 import copy
 import hashlib
+import hmac
 import json
 import logging
 import mimetypes
 import os
 import random
 import re
+import secrets
 import shutil
 import signal
 import socket
@@ -59,7 +61,9 @@ import subprocess
 import threading
 import zipfile
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 try:
@@ -1058,6 +1062,21 @@ class LocalServer:
                 query = urllib.parse.parse_qs(url.query)
                 path = (query.get("path") or [""])[0]
                 p = url.path
+                if p.startswith("/sync/"):
+                    sync = driver.sync
+                    if p == "/sync/status":
+                        return self.send_json(200, sync.status())
+                    if p == "/sync/setlists":
+                        return self.send_json(200, {"setlists": sync.setlists_listing()})
+                    if p == "/sync/songs":
+                        return self.send_json(200, {"songs": sync.songs_listing()})
+                    if p.startswith("/sync/song/"):
+                        song = sync.song_for_app(urllib.parse.unquote(p[len("/sync/song/"):]))
+                        return self.send_json(200, song) if song else self.send_json(404, {"error": "no such song"})
+                    if p.startswith("/sync/setlist/"):
+                        sl = sync.setlist_for_app(urllib.parse.unquote(p[len("/sync/setlist/"):]))
+                        return self.send_json(200, sl) if sl else self.send_json(404, {"error": "no such setlist"})
+                    return self.send_json(404, {"error": "unknown"})
                 if p in ("/", "/app"):
                     self.send_response(302)
                     self.send_header("Location", "/app/#perform")
@@ -1291,7 +1310,27 @@ class LocalServer:
                     with open(target + ".part", "wb") as handle:
                         handle.write(data)
                     os.replace(target + ".part", target)
+                    try:
+                        driver.sync.from_project(json.loads(data.decode()))
+                    except Exception as error:
+                        log.warning("sync: %s", error)
                     return self.send_json(200, {"ok": True, "size": len(data)})
+                if url.path.startswith("/sync/"):
+                    payload = self.json_body() or {}
+                    sync = driver.sync
+                    if url.path == "/sync/link":
+                        return self.send_json(200, sync.link(payload.get("address"), payload.get("port") or 8080, payload.get("code")))
+                    if url.path == "/sync/unlink":
+                        return self.send_json(200, sync.unlink())
+                    if url.path == "/sync/delete":
+                        return self.send_json(200, sync.delete(payload.get("kind"), payload.get("id"), payload.get("scope")))
+                    if url.path == "/sync/name":
+                        sync.rename(payload.get("name"))
+                        return self.send_json(200, sync.status())
+                    if url.path == "/sync/now":
+                        sync.wake.set()
+                        return self.send_json(200, {"ok": True})
+                    return self.send_json(404, {"error": "unknown"})
                 if url.path == "/upload":
                     return self.do_PUT()
                 self.body()
@@ -1352,6 +1391,46 @@ class CompanionServer:
                 pages = {"/": "index.html", "/index.html": "index.html", "/charts": "index.html", "/charts/": "index.html",
                          "/lyrics": "lyrics.html", "/lyrics/": "lyrics.html", "/upload": "upload.html", "/upload/": "upload.html",
                          "/remote": "remote.html", "/remote/": "remote.html", "/mini": "mini.html", "/mini/": "mini.html", "/stage": "stage.html", "/stage/": "stage.html", "/slides": "slides.html", "/slides/": "slides.html"}
+                if p == "/cu":
+                    self.send_response(302)
+                    self.send_header("Location", "/cu/")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                if p.startswith("/cu/"):   # Central Usage for iPhone / iPad (and any browser): User 1 / User 2, served from here
+                    app_root = driver.config["app_root"]
+                    rel = p[len("/cu/"):]
+                    if rel == "manifest.webmanifest":
+                        body = json.dumps({"name": "Central Usage", "short_name": "Central Usage", "start_url": "/cu/", "scope": "/cu/", "display": "standalone",
+                                           "background_color": "#08111d", "theme_color": "#08111d", "icons": [{"src": "/cu/icon.png", "sizes": "512x512", "type": "image/png"}]}).encode()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/manifest+json")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.end_headers()
+                        self.wfile.write(body)
+                        return
+                    if rel == "icon.png":
+                        return self.send_file(os.path.join(app_root, "central-usage", "build", "icon.png"), "image/png", cache=True)
+                    if rel.startswith("shared/"):
+                        name = rel[len("shared/"):]
+                        return self.serve_static(os.path.join(app_root, "css" if name.endswith(".css") else "js"), name)
+                    if rel.startswith("fonts/"):
+                        return self.serve_static(os.path.join(app_root, "fonts"), rel[len("fonts/"):])
+                    return self.serve_static(os.path.join(app_root, "central-usage", "app"), rel)
+                if p.startswith("/api/sync/"):   # another Central Control of the same group pulling songs
+                    sync = driver.sync
+                    if not sync.auth_ok(self.headers, p):
+                        return self.send_json(403, {"error": "not linked"})
+                    if p == "/api/sync/index":
+                        return self.send_json(200, sync.index())
+                    if p.startswith("/api/sync/song/") or p.startswith("/api/sync/setlist/"):
+                        kind = "song" if p.startswith("/api/sync/song/") else "setlist"
+                        rec = sync.record(kind, urllib.parse.unquote(p.rsplit("/", 1)[1]))
+                        return self.send_json(200, rec) if rec else self.send_json(404, {"error": "not here"})
+                    if p == "/api/sync/file":
+                        path = sync.path_for((urllib.parse.parse_qs(url.query).get("key") or [""])[0])
+                        return self.send_file(path, "application/octet-stream") if path else self.send_json(404, {"error": "no such file"})
+                    return self.send_json(404, {"error": "unknown"})
                 if p in pages:
                     return self.serve_static(root, pages[p])
                 if p.startswith("/fonts/"):
@@ -1405,6 +1484,18 @@ class CompanionServer:
             def do_POST(self):
                 url = urllib.parse.urlparse(self.path)
                 query = urllib.parse.parse_qs(url.query)
+                if url.path == "/api/sync/link":
+                    try:
+                        payload = json.loads(self.body(1 << 16).decode() or "{}")
+                    except Exception:
+                        payload = {}
+                    code_, reply = driver.sync.handle_link(payload)
+                    return self.send_json(code_, reply)
+                if url.path == "/api/sync/poke":
+                    if not driver.sync.auth_ok(self.headers, url.path):
+                        return self.send_json(403, {"error": "not linked"})
+                    driver.sync.wake.set()
+                    return self.send_json(200, {"ok": True})
                 if url.path == "/api/upload":
                     kind = (query.get("kind") or ["stems"])[0]
                     name = (query.get("name") or [self.headers.get("X-File-Name") or "upload"])[0]
@@ -2187,6 +2278,884 @@ def ip_interfaces():
     return found
 
 
+SYNC_PREFIXES = ("library/", "charts/", "lighting/")
+SYNC_PORT = 8094
+
+
+def _newer(a, b):
+    """(rev, ts, by) of a is newer than b (None is oldest)."""
+    if not b:
+        return bool(a)
+    if not a:
+        return False
+    return (int(a[0]), int(a[1]), str(a[2])) > (int(b[0]), int(b[1]), str(b[2]))
+
+
+class SongSync:
+    """Every Central Control (the Pi and Central Control on a PC) keeps the same songs and setlists.
+
+    Songs and setlists are records with a version (rev, a Lamport clock, then time, then device), so the
+    newest edit wins and an edit made after receiving another one always counts as newer. Devices find
+    each other on the network (a small UDP beacon) and are linked once with the other one's pairing code;
+    after that they pull each other's changes every few seconds. A song's files (its stems, its chart
+    pages, its light show) come along. A Raspberry Pi only downloads stems of songs that are in a
+    setlist (cards are small); a PC takes everything. Deleting asks: this setlist, this device, everywhere."""
+
+    def __init__(self, driver):
+        self.driver = driver
+        self.data_root = os.path.realpath(driver.config["data_root"])
+        self.root = os.path.join(self.data_root, "sync")
+        for sub in ("songs", "setlists"):
+            os.makedirs(os.path.join(self.root, sub), exist_ok=True)
+        self.state_path = os.path.join(self.root, "state.json")
+        st = read_json(self.state_path, {})
+        self.id = st.get("id") or ("cc-" + secrets.token_hex(6))
+        self.name = st.get("name") or driver.config.get("device_name") or socket.gethostname()
+        self.group = st.get("group") if isinstance(st.get("group"), dict) else None
+        self.clock = int(st.get("clock") or 0)
+        self.hidden = set(st.get("hidden") or [])        # songs deleted on this device only
+        self.known = st.get("known") or {}               # device id -> name (for "made on")
+        self.kind = "pc" if driver.config.get("simulated") or driver.config.get("sync_kind") == "pc" else "pi"
+        self.stems_mode = driver.config.get("sync_stems") or ("all" if self.kind == "pc" else "setlists")
+        self.lock = threading.RLock()
+        self.songs = self._load_all("songs")
+        self.setlists = self._load_all("setlists")
+        self.sha = {}                                     # key -> (mtime, size, sha1)
+        self.peers = {}                                   # id -> {name, address, port, group, seen, kind, lastSync, error}
+        for hostport in driver.config.get("sync_peers") or []:
+            host, _, port = str(hostport).rpartition(":")
+            self.peers["static:" + hostport] = {"name": hostport, "address": host or hostport, "port": int(port or 8080), "group": None, "seen": 0, "static": True}
+        self.activity = {"busy": False, "file": None, "done": 0, "total": 0, "warning": None}
+        self.wake = threading.Event()
+        self.stopping = False
+        self.save_state()
+
+    # ----- storage ---------------------------------------------------------
+    def save_state(self):
+        write_json(self.state_path, {"id": self.id, "name": self.name, "group": self.group, "clock": self.clock, "hidden": sorted(self.hidden), "known": self.known})
+
+    def _load_all(self, sub):
+        out = {}
+        d = os.path.join(self.root, sub)
+        for name in os.listdir(d):
+            if name.endswith(".json"):
+                j = read_json(os.path.join(d, name), None)
+                if j and j.get("id"):
+                    out[j["id"]] = j
+        return out
+
+    def _save(self, sub, rec):
+        (self.songs if sub == "songs" else self.setlists)[rec["id"]] = rec
+        write_json(os.path.join(self.root, sub, re.sub(r"[^A-Za-z0-9_-]", "", rec["id"])[:80] + ".json"), rec)
+
+    def tick(self, seen=0):
+        self.clock = max(self.clock, int(seen or 0)) + 1
+        return self.clock
+
+    @staticmethod
+    def safe_id(value):
+        return re.sub(r"[^A-Za-z0-9_-]", "", str(value or ""))[:80]
+
+    # ----- files that go with a song ---------------------------------------------
+    def key_for(self, path):
+        if not path:
+            return None
+        real = os.path.realpath(path)
+        if not real.startswith(self.data_root + os.sep):
+            return None
+        key = os.path.relpath(real, self.data_root).replace(os.sep, "/")
+        return key if key.startswith(SYNC_PREFIXES) and ".." not in key.split("/") else None
+
+    def path_for(self, key):
+        key = str(key or "")
+        if not key.startswith(SYNC_PREFIXES) or ".." in key.split("/") or key.startswith("/"):
+            return None
+        return os.path.join(self.data_root, *key.split("/"))
+
+    def meta(self, key):
+        path = self.path_for(key)
+        if not path or not os.path.isfile(path):
+            return None
+        stat = os.stat(path)
+        cached = self.sha.get(key)
+        if cached and cached[0] == stat.st_mtime and cached[1] == stat.st_size:
+            return {"key": key, "size": stat.st_size, "sha1": cached[2]}
+        h = hashlib.sha1()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1 << 20), b""):
+                h.update(chunk)
+        self.sha[key] = (stat.st_mtime, stat.st_size, h.hexdigest())
+        return {"key": key, "size": stat.st_size, "sha1": h.hexdigest()}
+
+    def portable(self, song):
+        """The song as it travels: stem files as data-relative keys instead of this device's paths."""
+        s = copy.deepcopy(song)
+        for st in ((s.get("tracks") or {}).get("stems") or []):
+            if st.get("file"):
+                key = self.key_for(st["file"])
+                if key:
+                    st["fileKey"] = key
+                st.pop("file", None)
+        return s
+
+    def localized(self, song):
+        s = copy.deepcopy(song)
+        for st in ((s.get("tracks") or {}).get("stems") or []):
+            if st.get("fileKey"):
+                st["file"] = self.path_for(st["fileKey"])
+                st.pop("fileKey", None)
+        return s
+
+    def asset_keys(self, song, stems=True):
+        keys = []
+        if stems:
+            for st in ((song.get("tracks") or {}).get("stems") or []):
+                if st.get("fileKey"):
+                    keys.append(st["fileKey"])
+        chart = song.get("chart") or {}
+        cid = self.safe_id(chart.get("id")) if isinstance(chart, dict) else ""
+        if cid:
+            d = os.path.join(self.data_root, "charts", cid)
+            if os.path.isdir(d):
+                keys += ["charts/%s/%s" % (cid, n) for n in sorted(os.listdir(d)) if os.path.isfile(os.path.join(d, n))]
+        sid = self.safe_id(song.get("id"))
+        if sid and os.path.isfile(os.path.join(self.data_root, "lighting", sid + ".json")):
+            keys.append("lighting/%s.json" % sid)
+        return keys
+
+    # ----- from this device's app ----------------------------------------------
+    def from_project(self, project):
+        """Called with every saved project: the open setlist and its songs become records."""
+        if not isinstance(project, dict):
+            return
+        changed = False
+        now = int(time.time() * 1000)
+        with self.lock:
+            ids = []
+            for song in project.get("songs") or []:
+                if not isinstance(song, dict) or not song.get("id"):
+                    continue
+                sid = self.safe_id(song["id"])
+                if not sid:
+                    continue
+                ids.append(sid)
+                portable = self.portable(song)
+                digest = hashlib.sha1(json.dumps(portable, sort_keys=True).encode()).hexdigest()
+                rec = self.songs.get(sid)
+                if sid in self.hidden:
+                    self.hidden.discard(sid)     # it was put in a setlist here again
+                    changed = True
+                if rec and rec.get("hash") == digest and not rec.get("deleted"):
+                    continue
+                self._save("songs", {"id": sid, "rev": self.tick(rec and rec.get("rev")), "ts": now, "by": self.id, "hash": digest, "deleted": False, "song": portable})
+                changed = True
+            slid = self.safe_id(project.get("setlistId"))
+            if slid:
+                body = {"name": str(project.get("name") or "Setlist")[:120], "songIds": ids}
+                rec = self.setlists.get(slid)
+                if not rec or rec.get("deleted") or rec.get("setlist") != body:
+                    self._save("setlists", {"id": slid, "rev": self.tick(rec and rec.get("rev")), "ts": now, "by": self.id, "deleted": False, "setlist": body})
+                    changed = True
+            if changed:
+                self.save_state()
+        if changed:
+            self.poke_peers()
+
+    # ----- listings for this device's app -------------------------------------------
+    def device_name(self, did):
+        if did == self.id:
+            return self.name
+        return self.known.get(did) or (self.peers.get(did) or {}).get("name") or "another Central Control"
+
+    def setlist_song_ids(self):
+        out = set()
+        for rec in self.setlists.values():
+            if not rec.get("deleted"):
+                out.update((rec.get("setlist") or {}).get("songIds") or [])
+        return out
+
+    def setlists_listing(self):
+        with self.lock:
+            out = []
+            for rec in self.setlists.values():
+                if rec.get("deleted"):
+                    continue
+                sl = rec.get("setlist") or {}
+                out.append({"id": rec["id"], "name": sl.get("name", ""), "count": len(sl.get("songIds") or []), "ts": rec.get("ts"), "by": self.device_name(rec.get("by"))})
+            return sorted(out, key=lambda x: -int(x["ts"] or 0))
+
+    def songs_listing(self):
+        with self.lock:
+            inlists = {}
+            for rec in self.setlists.values():
+                if not rec.get("deleted"):
+                    for sid in (rec.get("setlist") or {}).get("songIds") or []:
+                        inlists.setdefault(sid, []).append((rec.get("setlist") or {}).get("name", ""))
+            out = []
+            for rec in self.songs.values():
+                if rec.get("deleted"):
+                    continue
+                s = rec.get("song") or {}
+                missing = [k for k in rec.get("missing") or []]
+                out.append({"id": rec["id"], "name": s.get("name", ""), "key": s.get("key"), "bpm": s.get("bpm"), "stems": len(((s.get("tracks") or {}).get("stems") or [])),
+                            "setlists": inlists.get(rec["id"], []), "here": rec["id"] not in self.hidden, "stemsHere": not missing, "ts": rec.get("ts"), "by": self.device_name(rec.get("by"))})
+            return sorted(out, key=lambda x: x["name"].lower())
+
+    def song_for_app(self, sid):
+        rec = self.songs.get(self.safe_id(sid))
+        if not rec or rec.get("deleted"):
+            return None
+        return self.localized(rec["song"])
+
+    def setlist_for_app(self, slid):
+        rec = self.setlists.get(self.safe_id(slid))
+        if not rec or rec.get("deleted"):
+            return None
+        sl = rec.get("setlist") or {}
+        songs = [self.song_for_app(sid) for sid in sl.get("songIds") or []]
+        return {"id": rec["id"], "name": sl.get("name", ""), "songs": [s for s in songs if s], "missingStems": self.missing_count(sl.get("songIds") or [])}
+
+    def missing_count(self, ids):
+        return sum(1 for sid in ids if (self.songs.get(sid) or {}).get("missing"))
+
+    def delete(self, kind, rid, scope):
+        """kind song / setlist; scope "here" (this device only) or "everywhere"."""
+        rid = self.safe_id(rid)
+        with self.lock:
+            store = self.songs if kind == "song" else self.setlists
+            rec = store.get(rid)
+            if not rec:
+                return {"ok": False, "error": "not found"}
+            if scope == "everywhere":
+                rec = dict(rec, deleted=True, rev=self.tick(rec.get("rev")), ts=int(time.time() * 1000), by=self.id)
+                if kind == "song":
+                    self.drop_files(rec.get("song") or {})
+                    rec["song"] = {"id": rid, "name": (rec.get("song") or {}).get("name", "")}
+                self._save("songs" if kind == "song" else "setlists", rec)
+            elif kind == "song":
+                self.hidden.add(rid)
+                self.drop_files(rec.get("song") or {})
+                rec["missing"] = self.asset_keys(rec.get("song") or {})
+                self._save("songs", rec)
+            else:
+                return {"ok": False, "error": "a setlist is deleted everywhere"}
+            self.save_state()
+        self.poke_peers()
+        return {"ok": True}
+
+    def drop_files(self, song):
+        """Remove a song's stems here unless another song still uses them."""
+        used = set()
+        for rid, rec in self.songs.items():
+            if rid != song.get("id") and not rec.get("deleted") and rid not in self.hidden:
+                used.update(self.asset_keys(rec.get("song") or {}))
+        for key in self.asset_keys(song):
+            if key.startswith("library/") and key not in used:
+                path = self.path_for(key)
+                try:
+                    if path and os.path.isfile(path):
+                        os.remove(path)
+                except OSError:
+                    pass
+
+    # ----- what the other devices get -------------------------------------------------
+    def auth_ok(self, headers, path):
+        if not self.group:
+            return False
+        if headers.get("X-CC-Group") != self.group["id"]:
+            return False
+        want = hmac.new(self.group["key"].encode(), path.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(want, headers.get("X-CC-Sig") or "")
+
+    def sign(self, path):
+        return {"X-CC-Group": self.group["id"], "X-CC-Sig": hmac.new(self.group["key"].encode(), path.encode(), hashlib.sha256).hexdigest(), "X-CC-From": self.id}
+
+    def index(self):
+        with self.lock:
+            return {"id": self.id, "name": self.name, "kind": self.kind,
+                    "songs": {k: [r.get("rev", 0), r.get("ts", 0), r.get("by", ""), bool(r.get("deleted"))] for k, r in self.songs.items() if k not in self.hidden or r.get("deleted")},
+                    "setlists": {k: [r.get("rev", 0), r.get("ts", 0), r.get("by", ""), bool(r.get("deleted"))] for k, r in self.setlists.items()},
+                    "names": dict(self.known, **{self.id: self.name})}
+
+    def record(self, kind, rid):
+        with self.lock:
+            rec = (self.songs if kind == "song" else self.setlists).get(self.safe_id(rid))
+            if not rec or (kind == "song" and rec["id"] in self.hidden and not rec.get("deleted")):
+                return None
+            rec = copy.deepcopy(rec)
+        if kind == "song" and not rec.get("deleted"):
+            have = set(rec.get("missing") or [])
+            rec["assets"] = [m for m in (self.meta(k) for k in self.asset_keys(rec["song"]) if k not in have) if m]
+        rec.pop("missing", None)
+        return rec
+
+    def handle_link(self, payload):
+        """Another Central Control links with this one using this one's pairing code."""
+        if not self.driver.code_ok((payload or {}).get("code")):
+            return 403, {"error": "That code is not right - it is in this Central Control's Settings."}
+        theirs = payload.get("group") if isinstance(payload.get("group"), dict) else None
+        with self.lock:
+            if not self.group:
+                self.group = theirs if theirs and theirs.get("id") and theirs.get("key") else {"id": "g-" + secrets.token_hex(6), "key": secrets.token_hex(24)}
+            pid = self.safe_id(payload.get("id"))
+            if pid:
+                self.known[pid] = str(payload.get("name") or "")[:60]
+            self.save_state()
+        self.wake.set()
+        self.emit_status()
+        return 200, {"group": self.group, "id": self.id, "name": self.name, "kind": self.kind}
+
+    # ----- linking from here --------------------------------------------------------------
+    def link(self, address, port, code):
+        url = "http://%s:%d/api/sync/link" % (address, int(port or 8080))
+        body = json.dumps({"code": str(code or "").strip(), "id": self.id, "name": self.name, "kind": self.kind, "group": self.group}).encode()
+        try:
+            req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=6) as r:
+                j = json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            try:
+                return {"ok": False, "error": json.loads(e.read().decode()).get("error") or str(e)}
+            except Exception:
+                return {"ok": False, "error": str(e)}
+        except Exception as e:
+            return {"ok": False, "error": "Could not reach it (%s)." % e}
+        with self.lock:
+            self.group = j["group"]
+            self.known[j["id"]] = j.get("name", "")
+            p = self.peers.setdefault(j["id"], {"address": address, "port": int(port or 8080)})
+            p.update({"name": j.get("name", ""), "group": self.group["id"], "kind": j.get("kind"), "seen": time.time()})
+            self.save_state()
+        self.wake.set()
+        self.emit_status()
+        return {"ok": True, "name": j.get("name", "")}
+
+    def unlink(self):
+        with self.lock:
+            self.group = None
+            self.save_state()
+        self.emit_status()
+        return {"ok": True}
+
+    def rename(self, name):
+        with self.lock:
+            self.name = str(name or "").strip()[:60] or self.name
+            self.save_state()
+        self.emit_status()
+
+    # ----- status for the app -------------------------------------------------------------
+    def status(self):
+        now = time.time()
+        with self.lock:
+            peers = []
+            for pid, p in self.peers.items():
+                online = p.get("static") or now - p.get("seen", 0) < 15
+                peers.append({"id": pid, "name": p.get("name", ""), "address": p.get("address"), "port": p.get("port"), "kind": p.get("kind"), "online": bool(online),
+                              "linked": bool(self.group and p.get("group") == self.group["id"]), "lastSync": p.get("lastSync"), "error": p.get("error")})
+            return {"type": "sync", "event": "status", "id": self.id, "name": self.name, "kind": self.kind, "linked": bool(self.group), "stems": self.stems_mode,
+                    "peers": sorted(peers, key=lambda x: (not x["linked"], x["name"].lower())), "activity": dict(self.activity),
+                    "songs": sum(1 for r in self.songs.values() if not r.get("deleted")), "setlists": sum(1 for r in self.setlists.values() if not r.get("deleted"))}
+
+    def emit_status(self):
+        self.driver.emit(self.status())
+
+    # ----- finding the others ---------------------------------------------------------------
+    def poke_peers(self):
+        def go():
+            for p in list(self.peers.values()):
+                if self.group and p.get("group") == self.group["id"]:
+                    try:
+                        path = "/api/sync/poke"
+                        req = urllib.request.Request("http://%s:%d%s" % (p["address"], p["port"], path), data=b"{}", headers=dict(self.sign(path), **{"Content-Type": "application/json"}), method="POST")
+                        urllib.request.urlopen(req, timeout=2).close()
+                    except Exception:
+                        pass
+        threading.Thread(target=go, daemon=True).start()
+
+    def beacon(self):
+        return json.dumps({"cc": "central-control", "id": self.id, "name": self.name, "kind": self.kind, "port": int(self.driver.config["lan_port"]),
+                           "group": self.group["id"] if self.group else None, "v": APP_VERSION}).encode()
+
+    def udp_loop(self):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if hasattr(socket, "SO_REUSEPORT"):
+                try:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                except OSError:
+                    pass
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.bind(("", int(self.driver.config.get("sync_udp_port") or SYNC_PORT)))
+            sock.settimeout(1.0)
+        except OSError as e:
+            log.warning("sync: no UDP beacon (%s)", e)
+            return
+        last = 0
+        while not self.stopping:
+            if time.time() - last > 4:
+                last = time.time()
+                for target in ("255.255.255.255", "127.255.255.255"):
+                    try:
+                        sock.sendto(self.beacon(), (target, int(self.driver.config.get("sync_udp_port") or SYNC_PORT)))
+                    except OSError:
+                        pass
+            try:
+                data, addr = sock.recvfrom(2048)
+            except socket.timeout:
+                continue
+            except OSError:
+                time.sleep(1)
+                continue
+            try:
+                j = json.loads(data.decode())
+            except Exception:
+                continue
+            if j.get("cc") != "central-control" or not j.get("id") or j["id"] == self.id:
+                continue
+            with self.lock:
+                p = self.peers.setdefault(j["id"], {})
+                fresh = not p.get("seen")
+                p.update({"name": str(j.get("name") or "")[:60], "address": addr[0], "port": int(j.get("port") or 8080), "group": j.get("group"), "kind": j.get("kind"), "seen": time.time(), "version": j.get("v")})
+                if j.get("name"):
+                    self.known[j["id"]] = str(j["name"])[:60]
+            if fresh:
+                self.emit_status()
+                self.wake.set()
+
+    def start(self):
+        if self.driver.config.get("sync_udp", True):
+            threading.Thread(target=self.udp_loop, daemon=True, name="sync-udp").start()
+        threading.Thread(target=self.pull_loop, daemon=True, name="sync-pull").start()
+
+    # ----- pulling from the others ---------------------------------------------------------
+    def fetch(self, peer, path, raw=False, timeout=8):
+        req = urllib.request.Request("http://%s:%d%s" % (peer["address"], peer["port"], path), headers=self.sign(path.split("?")[0]))
+        r = urllib.request.urlopen(req, timeout=timeout)
+        if raw:
+            return r
+        with r:
+            return json.loads(r.read().decode())
+
+    def pull_loop(self):
+        while not self.stopping:
+            self.wake.wait(float(self.driver.config.get("sync_interval") or 8))
+            self.wake.clear()
+            if not self.group:
+                continue
+            for pid, peer in list(self.peers.items()):
+                if peer.get("static") and not peer.get("group"):
+                    peer["group"] = self.group["id"]
+                if peer.get("group") != self.group["id"]:
+                    continue
+                if not peer.get("static") and time.time() - peer.get("seen", 0) > 30:
+                    continue
+                try:
+                    self.pull(peer)
+                    peer["lastSync"] = int(time.time() * 1000)
+                    peer["error"] = None
+                except Exception as e:
+                    peer["error"] = str(e)[:200]
+                    log.info("sync from %s failed: %s", peer.get("name"), e)
+            self.fill_missing()
+            self.emit_status()
+
+    def pull(self, peer):
+        idx = self.fetch(peer, "/api/sync/index")
+        if idx.get("id") and peer.get("static"):
+            peer["name"] = idx.get("name") or peer["name"]
+            peer["kind"] = idx.get("kind")
+        with self.lock:
+            for did, nm in (idx.get("names") or {}).items():
+                if did != self.id and nm:
+                    self.known[did] = nm
+        # setlists first: on a Pi they decide which stems come over
+        for slid, ver in (idx.get("setlists") or {}).items():
+            mine = self.setlists.get(slid)
+            if _newer(ver, mine and [mine.get("rev", 0), mine.get("ts", 0), mine.get("by", "")]):
+                rec = self.fetch(peer, "/api/sync/setlist/" + urllib.parse.quote(slid))
+                if rec and rec.get("id") == slid:
+                    with self.lock:
+                        self.clock = max(self.clock, int(rec.get("rev") or 0))
+                        rec.pop("assets", None)
+                        self._save("setlists", rec)
+                    self.driver.emit({"type": "sync", "event": "setlist", "setlist": None if rec.get("deleted") else dict(rec["setlist"], id=slid), "id": slid, "deleted": bool(rec.get("deleted"))})
+        wanted = self.setlist_song_ids()
+        for sid, ver in (idx.get("songs") or {}).items():
+            mine = self.songs.get(sid)
+            if not _newer(ver, mine and [mine.get("rev", 0), mine.get("ts", 0), mine.get("by", "")]):
+                continue
+            rec = self.fetch(peer, "/api/sync/song/" + urllib.parse.quote(sid))
+            if not rec or rec.get("id") != sid:
+                continue
+            if rec.get("deleted"):
+                with self.lock:
+                    if mine:
+                        self.drop_files(mine.get("song") or {})
+                    self.clock = max(self.clock, int(rec.get("rev") or 0))
+                    rec.pop("assets", None)
+                    self._save("songs", rec)
+                self.driver.emit({"type": "sync", "event": "removed", "id": sid})
+                continue
+            stems = self.stems_mode == "all" or sid in wanted
+            if sid in self.hidden:
+                stems = False
+            missing = self.download(peer, rec.get("assets") or [], stems)
+            assets = rec.pop("assets", None)
+            with self.lock:
+                self.clock = max(self.clock, int(rec.get("rev") or 0))
+                rec["missing"] = missing
+                rec["hash"] = hashlib.sha1(json.dumps(rec.get("song") or {}, sort_keys=True).encode()).hexdigest()
+                self._save("songs", rec)
+            if sid not in self.hidden:
+                self.driver.emit({"type": "sync", "event": "song", "song": self.localized(rec["song"]), "missing": len(missing)})
+
+    def download(self, peer, assets, stems=True):
+        """Brings a song's files over (only what is new or different). Returns the keys left out."""
+        missing = []
+        for a in assets:
+            key = a.get("key")
+            path = self.path_for(key)
+            if not path:
+                continue
+            if key.startswith("library/") and not stems:
+                if not (os.path.isfile(path) and os.path.getsize(path) == a.get("size")):
+                    missing.append(key)
+                continue
+            have = self.meta(key)
+            if have and have["sha1"] == a.get("sha1"):
+                continue
+            free = shutil.disk_usage(self.data_root).free
+            if free - int(a.get("size") or 0) < int(self.driver.config.get("sync_reserve_mb") or 800) * 1048576:
+                self.activity["warning"] = "This device is nearly full - some stems were not copied. Remove songs here (Song library → Delete on this device)."
+                missing.append(key)
+                continue
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            part = path + ".sync-part"
+            self.activity.update({"busy": True, "file": key.split("/")[-1]})
+            self.emit_status()
+            h = hashlib.sha1()
+            try:
+                with self.fetch(peer, "/api/sync/file?key=" + urllib.parse.quote(key), raw=True, timeout=30) as r, open(part, "wb") as out:
+                    for chunk in iter(lambda: r.read(1 << 20), b""):
+                        out.write(chunk)
+                        h.update(chunk)
+                if a.get("sha1") and h.hexdigest() != a["sha1"]:
+                    raise IOError("checksum mismatch")
+                os.replace(part, path)
+                self.activity["done"] += 1
+            except Exception as e:
+                missing.append(key)
+                log.info("sync: %s not copied (%s)", key, e)
+                try:
+                    os.remove(part)
+                except OSError:
+                    pass
+            finally:
+                self.activity.update({"busy": False, "file": None})
+        return missing
+
+    def fill_missing(self):
+        """A song that joined a setlist on a Pi gets its stems now."""
+        if not self.group:
+            return
+        wanted = self.setlist_song_ids() if self.stems_mode != "all" else None
+        for sid, rec in list(self.songs.items()):
+            if not rec.get("missing") or rec.get("deleted") or sid in self.hidden:
+                continue
+            if wanted is not None and sid not in wanted:
+                continue
+            for peer in list(self.peers.values()):
+                if peer.get("group") != self.group["id"]:
+                    continue
+                try:
+                    theirs = self.fetch(peer, "/api/sync/song/" + urllib.parse.quote(sid))
+                except Exception:
+                    continue
+                if not theirs or theirs.get("deleted"):
+                    continue
+                left = self.download(peer, [a for a in theirs.get("assets") or [] if a.get("key") in rec["missing"]], True)
+                with self.lock:
+                    rec["missing"] = left
+                    self._save("songs", rec)
+                if not left:
+                    self.driver.emit({"type": "sync", "event": "song", "song": self.localized(rec["song"]), "missing": 0})
+                    break
+
+
+CU_ROLES = ("main", "admin", "user1", "user2")
+CU_ADMIN_TIER = ("main", "admin")
+CU_JOBS = ("general", "lighting", "production", "mix", "inears", "slides")
+
+
+def _salted(secret, salt):
+    return hashlib.sha256((salt + ":" + str(secret)).encode()).hexdigest()
+
+
+class CuRoles:
+    """Who is who among the Central Usage computers: one main admin, any number of admins and users.
+
+    The main admin chooses that role on its first launch and sends a secret token (so no one else can
+    pretend to be it), its 4-digit PIN and a pairing code. A new computer joins with the pairing code.
+    Users switch between User 1 and User 2 themselves; going between the user and the admin side
+    needs the main admin's PIN, or the main admin changes it from its own People list. Kept in
+    /data/pad-pedal/cu-roles.json so it survives restarts and is in the backup."""
+
+    LOCK_AFTER = 5
+    LOCK_SECONDS = 60
+
+    def __init__(self, driver, path):
+        self.driver = driver
+        self.path = path
+        j = read_json(path, {})
+        self.main = j.get("main") if isinstance(j.get("main"), dict) else None
+        self.devices = j.get("devices") if isinstance(j.get("devices"), dict) else {}
+        self.fails = {}     # device id -> [count, locked until]
+
+    def save(self):
+        write_json(self.path, {"main": self.main, "devices": self.devices})
+
+    # ----- who is connected -------------------------------------------------
+    def sockets(self, device_id=None):
+        out = []
+        for ws, info in list(self.driver.lan_clients.items()):
+            if info.get("cuId") and (device_id is None or info.get("cuId") == device_id):
+                out.append(ws)
+        return out
+
+    def online(self, device_id):
+        return bool(self.sockets(device_id))
+
+    def is_main(self, ws):
+        info = self.driver.lan_clients.get(ws) or {}
+        return bool(self.main and info.get("cuId") == self.main.get("id") and info.get("cuMain"))
+
+    def role_of(self, ws):
+        info = self.driver.lan_clients.get(ws) or {}
+        d = self.devices.get(info.get("cuId") or "")
+        return d.get("role") if d else None
+
+    def admin_ok(self, ws):
+        """Slides and the audio host are admin jobs - once there is a main admin."""
+        if not self.main:
+            return True
+        info = self.driver.lan_clients.get(ws) or {}
+        if not info.get("cuId"):
+            return True        # not a Central Usage (a phone page, an older app)
+        return self.role_of(ws) in CU_ADMIN_TIER
+
+    def claimants(self):
+        """Every device that says it is the main admin; the registered one first."""
+        out = []
+        if self.main:
+            out.append({"id": self.main["id"], "name": self.main.get("name", ""), "registered": True, "online": self.online(self.main["id"])})
+        for did, d in self.devices.items():
+            if d.get("claimsMain") and (not self.main or did != self.main["id"]):
+                out.append({"id": did, "name": d.get("name", ""), "registered": False, "online": self.online(did)})
+        return out
+
+    # ----- views ------------------------------------------------------------
+    def device_view(self, did):
+        d = self.devices.get(did) or {}
+        return {"id": did, "name": d.get("name", ""), "role": d.get("role"), "jobs": d.get("jobs") or ["general"], "paired": bool(d.get("paired")), "online": self.online(did),
+                "lastSeen": d.get("lastSeen", 0), "claimsMain": bool(d.get("claimsMain"))}
+
+    def view_for(self, ws):
+        info = self.driver.lan_clients.get(ws) or {}
+        did = info.get("cuId")
+        mains = self.claimants()
+        v = {"type": "cuRoles", "hasMain": bool(self.main), "mainName": self.main.get("name", "") if self.main else "",
+             "conflict": [m for m in mains] if len(mains) > 1 else [], "you": self.device_view(did) if did else None,
+             "youAreMain": self.is_main(ws)}
+        if v["youAreMain"]:
+            v["devices"] = sorted((self.device_view(k) for k in self.devices if k != did), key=lambda x: (not x["online"], x["name"].lower()))
+        codes = self.driver.audio_host_codes()
+        if did and codes:
+            role = (self.devices.get(did) or {}).get("role")
+            if role in CU_ADMIN_TIER:
+                v["hostCodes"] = {"admin": codes.get("adminCode"), "user": codes.get("userCode")}
+            elif role in ("user1", "user2"):
+                v["hostCodes"] = {"user": codes.get("userCode")}
+        return v
+
+    def push(self, only=None):
+        for ws in self.sockets():
+            info = self.driver.lan_clients.get(ws) or {}
+            if only and info.get("cuId") not in only and not self.is_main(ws):
+                continue
+            self.driver.send_to(ws, self.view_for(ws))
+
+    # ----- messages ---------------------------------------------------------
+    def locked(self, did):
+        c = self.fails.get(did)
+        return bool(c and c[1] > time.time())
+
+    def wrong(self, did):
+        c = self.fails.setdefault(did, [0, 0])
+        c[0] += 1
+        if c[0] >= self.LOCK_AFTER:
+            c[0] = 0
+            c[1] = time.time() + self.LOCK_SECONDS
+
+    def handle(self, ws, m):
+        """One {type: "cuRole", action: ...} message from a Central Usage computer; returns the reply."""
+        info = self.driver.lan_clients.setdefault(ws, {"auth": False, "app": None})
+        action = m.get("action")
+        did = re.sub(r"[^A-Za-z0-9_-]", "", str(m.get("id") or info.get("cuId") or ""))[:48]
+        if not did:
+            return {"type": "cuRoleReply", "ok": False, "error": "This computer has no id."}
+        name = str(m.get("name") or "").strip()[:40]
+        now = int(time.time() * 1000)
+
+        if action in ("hello", "join"):
+            info["cuId"] = did
+            info["app"] = "central-usage"
+            d = self.devices.get(did)
+            claim = m.get("role") if m.get("role") in CU_ROLES else None
+            if action == "join":
+                if self.main and not self.main.get("pairHash"):
+                    pass
+                elif self.main:
+                    if self.locked(did):
+                        return {"type": "cuRoleReply", "ok": False, "action": "join", "error": "Too many wrong codes - wait a minute."}
+                    if _salted(str(m.get("pair") or "").strip(), self.main.get("pairSalt", "")) != self.main.get("pairHash"):
+                        self.wrong(did)
+                        return {"type": "cuRoleReply", "ok": False, "action": "join", "error": "That pairing code is not right. It is in the main admin's Settings."}
+                elif not self.driver.code_ok(m.get("code")):
+                    return {"type": "cuRoleReply", "ok": False, "action": "join", "error": "There is no main admin yet - enter the Central Control's own code (its Settings)."}
+                d = self.devices.setdefault(did, {})
+                d.update({"name": name or d.get("name") or "Central Usage", "role": d.get("role") if d.get("role") in ("user1", "user2", "admin") and d.get("paired") else "user1", "paired": True, "lastSeen": now})
+                d.pop("claimsMain", None)
+                info["auth"] = True
+                self.save()
+                self.push()
+                return {"type": "cuRoleReply", "ok": True, "action": "join", "role": d["role"], "code": self.driver.code}
+
+            # hello: a computer says who it is and what role it has
+            if claim == "main":
+                token = str(m.get("token") or "")
+                if not self.main:
+                    if len(token) < 16:
+                        return {"type": "cuRoleReply", "ok": False, "action": "hello", "error": "missing token"}
+                    if not (info.get("auth") or self.driver.code_ok(m.get("code"))):
+                        return {"type": "cuRoleReply", "ok": False, "action": "hello", "needCode": True, "error": "Enter the Central Control's code once to become the main admin."}
+                    salt = secrets.token_hex(8)
+                    self.main = {"id": did, "name": name or "Main admin", "tokenSalt": salt, "tokenHash": _salted(token, salt), "since": now}
+                if self.main["id"] == did and _salted(token, self.main.get("tokenSalt", "")) == self.main.get("tokenHash"):
+                    info["cuMain"] = True
+                    self.main["name"] = name or self.main.get("name", "")
+                    for key, secret in (("pin", m.get("pin")), ("pair", m.get("pair"))):
+                        if secret is not None and re.match(r"^\d{4}$", str(secret)):
+                            salt = secrets.token_hex(8)
+                            self.main[key + "Salt"] = salt
+                            self.main[key + "Hash"] = _salted(str(secret), salt)
+                    d = self.devices.setdefault(did, {})
+                    d.update({"name": self.main["name"], "role": "main", "paired": True, "lastSeen": now})
+                    d.pop("claimsMain", None)
+                    info["auth"] = True
+                else:
+                    # a second computer that thinks it is the main admin: it works as an admin until one of them forgets the role
+                    d = self.devices.setdefault(did, {})
+                    d.update({"name": name or d.get("name") or "Central Usage", "role": "admin", "claimsMain": True, "lastSeen": now})
+            else:
+                if not d:
+                    # first time the Central Control sees this computer: once there is a main admin, a new one starts as a user
+                    role = claim or "user1"
+                    if self.main and role in CU_ADMIN_TIER:
+                        role = "user1"
+                    d = self.devices.setdefault(did, {"role": role, "paired": False})
+                if not self.main and claim in ("admin", "user1", "user2"):
+                    d["role"] = claim       # no main admin yet: every computer chooses its own role
+                if d.get("role") == "main" and (not self.main or self.main["id"] != did):
+                    d["role"] = "admin"     # it forgot being the main admin elsewhere
+                d.pop("claimsMain", None)
+                d["name"] = name or d.get("name") or "Central Usage"
+                d["lastSeen"] = now
+            self.save()
+            self.push()
+            return None
+
+        if did != info.get("cuId"):
+            return {"type": "cuRoleReply", "ok": False, "action": action, "error": "Say hello first."}
+        d = self.devices.get(did)
+        if not d:
+            return {"type": "cuRoleReply", "ok": False, "action": action, "error": "This computer is not known yet."}
+
+        if action == "set":   # this computer changes its own role
+            want = m.get("role")
+            if want not in ("admin", "user1", "user2"):
+                return {"type": "cuRoleReply", "ok": False, "action": "set", "error": "Pick Admin, User 1 or User 2."}
+            have = d.get("role")
+            if have == "main":
+                return {"type": "cuRoleReply", "ok": False, "action": "set", "error": "The main admin stays the main admin. To give it up use Forget role."}
+            same_side = (have in ("user1", "user2") and want in ("user1", "user2")) or (have == want)
+            if not same_side and self.main:
+                if self.locked(did):
+                    return {"type": "cuRoleReply", "ok": False, "action": "set", "error": "Too many wrong PINs - wait a minute."}
+                if not self.main.get("pinHash") or _salted(str(m.get("pin") or "").strip(), self.main.get("pinSalt", "")) != self.main["pinHash"]:
+                    self.wrong(did)
+                    return {"type": "cuRoleReply", "ok": False, "action": "set", "error": "Wrong PIN. The main admin's PIN is in its Settings."}
+            d["role"] = want
+            d.pop("claimsMain", None)
+            self.fails.pop(did, None)
+            self.save()
+            self.push()
+            return {"type": "cuRoleReply", "ok": True, "action": "set", "role": want}
+
+        if action == "forget":   # this computer gives up its role (back to the first-launch choice)
+            if self.main and self.main["id"] == did:
+                if _salted(str(m.get("token") or ""), self.main.get("tokenSalt", "")) != self.main.get("tokenHash"):
+                    return {"type": "cuRoleReply", "ok": False, "action": "forget", "error": "Only the main admin itself can give up the role."}
+                self.main = None
+                info.pop("cuMain", None)
+            self.devices.pop(did, None)
+            self.save()
+            self.push()
+            return {"type": "cuRoleReply", "ok": True, "action": "forget"}
+
+        if action in ("assign", "rename", "remove", "jobs"):   # the main admin, from its People list
+            if not self.is_main(ws):
+                return {"type": "cuRoleReply", "ok": False, "action": action, "error": "Only the main admin changes other computers."}
+            target = re.sub(r"[^A-Za-z0-9_-]", "", str(m.get("target") or ""))[:48]
+            t = self.devices.get(target)
+            if not t or target == did:
+                return {"type": "cuRoleReply", "ok": False, "action": action, "error": "No such computer."}
+            if action == "assign":
+                want = m.get("role")
+                if want not in ("admin", "user1", "user2"):
+                    return {"type": "cuRoleReply", "ok": False, "action": action, "error": "Pick Admin, User 1 or User 2."}
+                t["role"] = want
+                t.pop("claimsMain", None)
+                for tw in self.sockets(target):
+                    self.driver.send_to(tw, {"type": "cuRoleAssigned", "role": want, "by": self.main.get("name", "")})
+            elif action == "jobs":   # an admin's jobs: any of lighting / production / mix / in-ears / slides, or general (everything)
+                jobs = [j for j in (m.get("jobs") or []) if j in CU_JOBS]
+                t["jobs"] = ["general"] if not jobs or "general" in jobs else jobs
+                for tw in self.sockets(target):
+                    self.driver.send_to(tw, {"type": "cuRoleAssigned", "role": t.get("role"), "jobs": t["jobs"], "by": self.main.get("name", "")})
+            elif action == "rename":
+                t["name"] = str(m.get("newName") or "").strip()[:40] or t.get("name", "")
+                for tw in self.sockets(target):
+                    self.driver.send_to(tw, {"type": "cuRoleAssigned", "name": t["name"], "role": t.get("role"), "by": self.main.get("name", "")})
+            else:
+                self.devices.pop(target, None)
+                for tw in self.sockets(target):
+                    self.driver.send_to(tw, {"type": "cuRoleAssigned", "role": None, "removed": True, "by": self.main.get("name", "")})
+            self.save()
+            self.push()
+            return {"type": "cuRoleReply", "ok": True, "action": action}
+
+        return {"type": "cuRoleReply", "ok": False, "action": action, "error": "Unknown action."}
+
+    def gone(self, ws):
+        info = self.driver.lan_clients.get(ws) or {}
+        if info.get("cuId"):
+            d = self.devices.get(info["cuId"])
+            if d:
+                d["lastSeen"] = int(time.time() * 1000)
+                self.save()
+
+
 class NetAudio:
     """The tracks (each stem on its own channel), click, pads, the tracks mix and the instrument go to
     Central Usage over the network. The app renders the channels and sends them here as binary packets;
@@ -2445,6 +3414,8 @@ class PedalDriver:
         self.instrument = instrument_host.InstrumentHost(self, data_root, config["app_root"]) if instrument_host else None
         self.netaudio = NetAudio(self, os.path.join(data_root, "netaudio.json"))
         self.audio_host = None        # the Central Usage computer that makes the in-ear mixes: {name, address, port, ws}
+        self.cu_roles = CuRoles(self, os.path.join(data_root, "cu-roles.json"))
+        self.sync = SongSync(self)
         self.hub_dir = os.path.join(data_root, "hub")
         self.slides_dir = os.path.join(data_root, "slides")
         os.makedirs(self.hub_dir, exist_ok=True)
@@ -2610,6 +3581,22 @@ class PedalDriver:
                     self.lan_clients[ws]["app"] = str(message.get("app") or "")[:40]
                     self.lan_clients[ws]["mode"] = str(message.get("mode") or "")[:20]
                     self.lan_clients[ws]["name"] = str(message.get("name") or "")[:40]
+                elif kind == "songWords":   # words heard in a song's vocal track (Central Usage), with their times
+                    authed = self.lan_clients[ws]["auth"] or self.code_ok(message.get("code"))
+                    if not authed or not self.cu_roles.admin_ok(ws):
+                        await ws.send(json.dumps({"type": "refused", "for": kind, "error": "Only an admin computer with the code can send lyrics."}))
+                    else:
+                        words = []
+                        for w in (message.get("words") or [])[:6000]:
+                            try:
+                                words.append({"text": str(w.get("text") or "")[:60], "start": round(float(w.get("start") or 0), 3), "end": round(float(w.get("end") or w.get("start") or 0), 3)})
+                            except Exception:
+                                continue
+                        self.emit({"type": "songWords", "song": re.sub(r"[^A-Za-z0-9_-]", "", str(message.get("song") or ""))[:64], "words": words})
+                elif kind == "cuRole":
+                    reply = self.cu_roles.handle(ws, message)
+                    if reply:
+                        await ws.send(json.dumps(reply))
                 elif kind in ("audioSubscribe", "audioUnsubscribe", "audioHost", "slide"):
                     authed = self.lan_clients[ws]["auth"] or self.code_ok(message.get("code"))
                     if kind == "audioUnsubscribe":
@@ -2618,11 +3605,14 @@ class PedalDriver:
                         await ws.send(json.dumps({"type": "auth", "ok": False, "for": kind}))
                     elif kind == "audioSubscribe":
                         await ws.send(json.dumps(self.netaudio.subscribe(ws, message)))
+                    elif not self.cu_roles.admin_ok(ws):
+                        await ws.send(json.dumps({"type": "refused", "for": kind, "error": "Only an admin can do that - ask the main admin."}))
                     elif kind == "audioHost":
                         self.audio_host_message(ws, message)
                     else:
                         self.set_slide(message)
         finally:
+            self.cu_roles.gone(ws)
             self.lan_clients.pop(ws, None)
             self.netaudio.unsubscribe(ws)
             if self.audio_host and self.audio_host.get("ws") is ws:
@@ -2638,9 +3628,17 @@ class PedalDriver:
                 address = None
             address = str(message.get("address") or address or "")[:64]
             self.audio_host = {"name": str(message.get("name") or "Central Usage")[:40], "address": address, "port": int(message.get("port") or 8092), "since": int(time.time() * 1000), "ws": ws}
+            codes = {k: str(message[k])[:12] for k in ("userCode", "adminCode") if message.get(k)}
+            if codes:
+                self.audio_host["codes"] = codes
         elif message.get("action") == "unregister" and self.audio_host and self.audio_host.get("ws") is ws:
             self.audio_host = None
         self.emit({"type": "audioHost", "host": self.public_audio_host()}, lan=True)
+        self.cu_roles.push()
+
+    def audio_host_codes(self):
+        """The audio host's in-ear / admin codes - handed to each Central Usage by its role, never shown to phones."""
+        return (self.audio_host or {}).get("codes") or {}
 
     def set_slide(self, message):
         """Slides / lyrics from Central Usage for a screen on the Pi (HDMI 2 set to "Slides")."""
@@ -3501,6 +4499,7 @@ class PedalDriver:
         lan_server = None
         try:
             lan_server = await websockets.serve(self.handle_lan_client, "0.0.0.0", int(self.config["lan_ws_port"]))
+            self.sync.start()
             log.info("companion websocket on ws://0.0.0.0:%s (pairing code %s)", self.config["lan_ws_port"], self.code)
         except Exception as error:
             log.warning("companion websocket could not start (%s)", error)

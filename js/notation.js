@@ -27,7 +27,7 @@
   function layout(notes, opts) {
     var bpb = opts.beatsPerBar || 4, startBar = 0, totalBeats = 0;
     notes.forEach(function (n) { totalBeats = Math.max(totalBeats, n.start + n.dur); });
-    var bars = Math.max(1, Math.ceil((totalBeats + 1e-6) / bpb)), perLine = opts.barsPerLine || 4, beatW = opts.beatWidth || 34, pad = 16;
+    var bars = Math.max(1, opts.minBars || 1, Math.ceil((totalBeats - 1e-6) / bpb)), perLine = opts.barsPerLine || 4, beatW = opts.beatWidth || 34, pad = 16;
     var measures = [];
     for (var b = 0; b < bars; b++) {
       // events in this bar, split at the bar line with ties
@@ -75,7 +75,8 @@
     // staff position: steps above the bottom line (treble bottom line = E4 = step 0; bass bottom line = G2)
     var refStep = clef === "bass" ? 2 * 7 + 4 : 4 * 7 + 2; // octave*7 + letter index
     function stepOf(sp) { return sp.oct * 7 + sp.letter - refStep; }
-    var lineGap = S * 13, left = 10, out = [], width = opts.width || 760, y0 = (opts.title ? 30 : 8) + S * 3.9, clefW = S * 5, sigW = Math.abs(sig) * S * 1.1 + (sig ? S : 0), tsW = S * 3;
+    var off = opts.barOffset || 0, lyr = opts.lyrics || null;
+    var lineGap = S * (lyr ? 16 : 13), left = 10, out = [], width = opts.width || 760, y0 = (opts.title ? 30 : 8) + S * 3.9, clefW = S * 5, sigW = Math.abs(sig) * S * 1.1 + (sig ? S : 0), tsW = S * 3;
     var chordAt = opts.chords || null; // [{bar(1-based), beat(1-based), label}]
     L.lines.forEach(function (line, li) {
       var top = y0 + li * lineGap, x = left, lineW = clefW + sigW + tsW + line.reduce(function (a, m) { return a + m.width; }, 0);
@@ -86,12 +87,13 @@
       var order = sig > 0 ? SHARP_ORDER : FLAT_ORDER, treblePos = sig > 0 ? [8, 5, 9, 6, 3, 7, 4] : [4, 7, 3, 6, 2, 5, 1], bassPos = treblePos.map(function (p) { return p - 2; });
       for (var a = 0; a < Math.abs(sig); a++) { var step = (clef === "bass" ? bassPos : treblePos)[a], yy = top + 4 * S - step * S / 2; out.push(accidentalPath(sig > 0 ? 1 : -1, x + S * 0.5, yy, S)); x += S * 1.1; }
       if (sig) x += S;
-      if (li === 0) { out.push('<text class="n-ts" x="' + x + '" y="' + (top + 2 * S - 1) + '">' + L.bpb + '</text><text class="n-ts" x="' + x + '" y="' + (top + 4 * S - 1) + '">4</text>'); }
+      if (li === 0 && opts.showTime !== false) { out.push('<text class="n-ts" x="' + x + '" y="' + (top + 2 * S - 1) + '">' + L.bpb + '</text><text class="n-ts" x="' + x + '" y="' + (top + 4 * S - 1) + '">4</text>'); }
       x += tsW;
       line.forEach(function (m) {
         var mx = x, accState = Object.assign({}, accSig), beamGroups = {};
-        if (chordAt) chordAt.filter(function (c) { return c.bar === m.index + 1; }).forEach(function (c) { out.push('<text class="n-chord" x="' + (mx + L.pad / 2 + (c.beat - 1) * L.beatW) + '" y="' + (top - S * 3.9) + '">' + esc(C ? C.pretty(c.label) : c.label) + "</text>"); });
-        out.push('<text class="n-num" x="' + (mx + 2) + '" y="' + (top - S * 0.3) + '">' + (m.index + 1) + "</text>");
+        if (chordAt) chordAt.filter(function (c) { return c.bar === m.index + 1 + off; }).forEach(function (c) { out.push('<text class="n-chord" x="' + (mx + L.pad / 2 + (c.beat - 1) * L.beatW) + '" y="' + (top - S * 3.9) + '">' + esc(C ? C.pretty(c.label) : c.label) + "</text>"); });
+        out.push('<text class="n-num" x="' + (mx + 2) + '" y="' + (top - S * 0.3) + '">' + (m.index + 1 + off) + "</text>");
+        if (lyr) lyr.forEach(function (w) { var b0 = m.index * L.bpb; if (w.beat >= b0 - 1e-6 && w.beat < b0 + L.bpb - 1e-6) out.push('<text class="n-lyric" x="' + (mx + L.pad / 2 + (w.beat - b0) * L.beatW - 2) + '" y="' + (top + 4 * S + S * 4.2) + '">' + esc(w.text) + "</text>"); });
         var groupDir = {}; // one stem direction per beamed beat group
         m.items.forEach(function (it) { if (it.rest || it.dur >= 1) return; var k = Math.floor(it.at), sum = 0, n = 0; it.midis.forEach(function (mi) { sum += stepOf(spell(mi, sig)); n++; }); var g = groupDir[k] = groupDir[k] || { sum: 0, n: 0 }; g.sum += sum; g.n += n; });
         Object.keys(groupDir).forEach(function (k) { groupDir[k] = groupDir[k].sum / groupDir[k].n < 4; });

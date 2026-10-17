@@ -34,6 +34,12 @@ module.exports = function services(app, getWin) {
   try { const saved = JSON.parse(fs.readFileSync(cfgFile, "utf8")); cfg = Object.assign(cfg, saved, { host: Object.assign(cfg.host, saved.host || {}), piAudio: Object.assign(cfg.piAudio, saved.piAudio || {}) }); } catch (_) { }
   function saveCfg() { try { fs.mkdirSync(userData, { recursive: true }); fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 1)); } catch (_) { } }
   if (process.env.CU_MODE) cfg.mode = process.env.CU_MODE;   // tests
+  if (process.env.CU_ROLE) cfg.role = process.env.CU_ROLE;
+  if (!cfg.role && cfg.mode) cfg.role = cfg.mode === "admin" ? "admin" : "user1";   // set up before roles existed
+  // the main admin's secrets: a token that proves it is the main admin to the Central Control, the 4-digit PIN
+  // others need to move between the user and admin side, and the pairing code new computers join with
+  function mainKeys() { if (!cfg.mainKeys || !cfg.mainKeys.token) cfg.mainKeys = { token: require("node:crypto").randomBytes(24).toString("hex"), pin: code4(), pair: code4() }; return cfg.mainKeys; }
+  if (cfg.role === "main") mainKeys();
 
   // ------------------------------------------------------------------ the audio host
   const engine = new Engine({ dir: userData, bin: path.join(binDir, "cu-mixer") });
@@ -62,6 +68,14 @@ module.exports = function services(app, getWin) {
   ipcMain.handle("cu-config-set", (_e, patch) => {
     patch = patch || {};
     ["mode", "name", "analysis", "recordDir"].forEach((k) => { if (k in patch) cfg[k] = patch[k]; });
+    if ("role" in patch) {
+      cfg.role = ["main", "admin", "user1", "user2"].includes(patch.role) ? patch.role : null;
+      cfg.mode = cfg.role ? (cfg.role === "main" || cfg.role === "admin" ? "admin" : "user") : null;
+      if (cfg.role === "main") mainKeys(); else if (!cfg.role) delete cfg.mainKeys;
+    }
+    if (cfg.role === "main" && patch.newPin) mainKeys().pin = /^\d{4}$/.test(String(patch.newPin)) ? String(patch.newPin) : code4();
+    if (cfg.role === "main" && patch.newPair) mainKeys().pair = code4();
+    if (Array.isArray(patch.jobs)) cfg.jobs = patch.jobs.filter((j) => ["general", "lighting", "production", "mix", "inears", "slides"].includes(j));
     if (patch.host) Object.assign(cfg.host, patch.host);
     if (patch.newUserCode) cfg.host.userCode = code4(); if (patch.newAdminCode) cfg.host.adminCode = code4();
     if (patch.piAudio) Object.assign(cfg.piAudio, patch.piAudio);

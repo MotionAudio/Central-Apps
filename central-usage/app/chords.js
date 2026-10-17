@@ -182,7 +182,10 @@
     if (!mix) throw new Error("No audio to analyse.");
     var g = T.grid(s), key = t.originalKey || s.key, mode = t.originalMode || "major";
     var beats = [], phase = 0; for (var i = 0; i < g.times.length; i++) if (g.times[i] >= 0) { if (!beats.length) { for (var p = i; p < g.times.length; p++) if (g.down[p]) { phase = p - i; break; } } beats.push(g.times[i]); }
-    var res = await T.workerJob("chords", mix.mono, mix.rate, { beats: beats, beatsPerBar: g.bpb, phase: phase, key: key, mode: mode });
+    // the bass track on its own, when there is one: the bass note decides between chords that share their notes (Em7 / G6, Am / C6)
+    var bassStem = t.stems.filter(function (st) { return st.bus !== "click" && (st.role === "bass" || /\bbass\b|\bbs\b|sub ?bass/i.test(st.name || "")); })[0], bassMix = null;
+    if (bassStem) { if (progress) progress("Listening to the bass…"); try { bassMix = await T.mixdown(s, function (st) { return st.id === bassStem.id; }); } catch (_) { bassMix = null; } }
+    var res = await T.workerJob("chords", mix.mono, mix.rate, { beats: beats, beatsPerBar: g.bpb, phase: phase, key: key, mode: mode, bass: bassMix ? bassMix.mono : null, bassRate: bassMix ? bassMix.rate : null });
     res.chords.forEach(function (c) { var tb = T.timeToBar(s, c.start + 0.01); c.bar = tb.bar; c.beat = tb.beat; });
     t.chords = res.chords; t.chordsKey = key;
     var totalBars = Math.max(1, T.timeToBar(s, t.duration).bar);

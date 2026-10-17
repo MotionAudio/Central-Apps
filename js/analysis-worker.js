@@ -241,6 +241,9 @@ window.PP_ANALYSIS_WORKER = function () {
   function chordsOf(mono, rate, opts) {
     opts = opts || {};
     var R = 11025, x = resample(mono, rate, R), cf = chromaFrames(x, R, 4096, 1024), fps = cf.fps;
+    // the bass track on its own (when the song has one) names the bass note far better than the mix does
+    var bassOwn = false;
+    if (opts.bass && opts.bass.length) { var bx = resample(opts.bass, opts.bassRate || rate, R), bf = chromaFrames(bx, R, 4096, 1024); if (bf.frames.length) { cf.bass = cf.frames.map(function (_, i) { return bf.frames[Math.min(i, bf.frames.length - 1)]; }); bassOwn = true; } }
     var beats = opts.beats && opts.beats.length > 2 ? opts.beats.slice() : null;
     var duration = mono.length / rate;
     if (!beats) { var per = 60 / (opts.bpm || 100); beats = []; for (var t = 0; t < duration; t += per) beats.push(t); }
@@ -267,7 +270,7 @@ window.PP_ANALYSIS_WORKER = function () {
         if (tp.root < 0) score = silent ? 0.9 : 0.25;
         else {
           score = 0; for (k = 0; k < 12; k++) score += sg.c[k] * tp.v[k];
-          if (bpc === tp.root) score += 0.08; else if (bpc >= 0 && !(tp.v[bpc] > 0)) score -= 0.05;
+          if (bpc === tp.root) score += bassOwn ? 0.14 : 0.08; else if (bpc >= 0 && !(tp.v[bpc] > 0)) score -= bassOwn ? 0.09 : 0.05;
           if (scale) { var inKey = tp.type === "" || tp.type === "m" || tp.type === "7" || tp.type === "sus4" || tp.type === "sus2" ? scale[tp.root] : scale[tp.root]; score += inKey ? 0.07 : -0.06; }
           if (tp.size > 3) score -= 0.05; // prefer simple triads unless the 7th is really there
           if (tp.type === "sus2" || tp.type === "add9" || tp.type === "dim") score -= 0.02;
@@ -420,6 +423,55 @@ window.PP_ANALYSIS_WORKER = function () {
     return { mode: mode, notes: notes, lowest: notes.length ? lowest : 60, highest: notes.length ? highest : 72, grid: grid, beatsPerBar: opts.beatsPerBar || 4 };
   }
 
+  // ---------------------------------------------------------------- drums: kick / snare / hi-hat / crash from a drum track
+  // band-wise spectral flux (low 35-150 Hz, mid 150-2000, noise 2-6 kHz, top 7-16 kHz), peaks picked against a moving
+  // median; each hit is named by which bands jumped, quantized to the beat grid (16ths).
+  function drumsOf(mono, rate, opts) {
+    opts = opts || {};
+    var R = 22050, x = resample(mono, rate, R), frame = 1024, hop = 256, fps = R / hop, w = hann(frame), re = new Float32Array(frame), im = new Float32Array(frame);
+    var nF = Math.max(1, Math.floor((x.length - frame) / hop)), BANDS = [[35, 150], [150, 2000], [2000, 6000], [7000, 16000]], nb = BANDS.length;
+    var binBand = new Int8Array(frame >> 1); for (var k = 1; k < frame >> 1; k++) { var f = k * R / frame; binBand[k] = -1; for (var b = 0; b < nb; b++) if (f >= BANDS[b][0] && f < BANDS[b][1]) binBand[k] = b; }
+    var prev = new Float32Array(frame >> 1), flux = [], lev = [];
+    for (b = 0; b < nb; b++) { flux.push(new Float32Array(nF)); lev.push(new Float32Array(nF)); }
+    for (var fi = 0; fi < nF; fi++) {
+      var off = fi * hop; for (var i = 0; i < frame; i++) { re[i] = x[off + i] * w[i]; im[i] = 0; } fft(re, im);
+      for (k = 1; k < frame >> 1; k++) { var bb = binBand[k], mag = Math.log(1 + 100 * Math.sqrt(re[k] * re[k] + im[k] * im[k]) / frame); if (bb >= 0) { var d = mag - prev[k]; if (d > 0) flux[bb][fi] += d; lev[bb][fi] += mag; } prev[k] = mag; }
+    }
+    function peaks(arr, sens, minGap) {
+      var out = [], win = Math.round(fps * 0.4), mx = 0; for (var i2 = 0; i2 < arr.length; i2++) if (arr[i2] > mx) mx = arr[i2];
+      if (!mx) return out;
+      for (i2 = 2; i2 < arr.length - 2; i2++) {
+        if (!(arr[i2] >= arr[i2 - 1] && arr[i2] >= arr[i2 + 1] && arr[i2] > arr[i2 - 2])) continue;
+        var a = Math.max(0, i2 - win), z = Math.min(arr.length, i2 + win), loc = []; for (var j = a; j < z; j += 2) loc.push(arr[j]); loc.sort(function (p, q) { return p - q; });
+        var thr = loc[loc.length >> 1] * 1.5 + mx * sens;
+        if (arr[i2] > thr && (!out.length || i2 - out[out.length - 1] >= minGap)) out.push(i2);
+      }
+      return out;
+    }
+    // every hit once (the sum of the bands, each scaled to its own loud hits), then named by which bands jumped
+    function p95(arr) { var pk = []; for (var i4 = 1; i4 < arr.length - 1; i4++) if (arr[i4] > arr[i4 - 1] && arr[i4] >= arr[i4 + 1]) pk.push(arr[i4]); pk.sort(function (p, q2) { return p - q2; }); return pk.length ? pk[Math.floor(pk.length * 0.95)] || pk[pk.length - 1] : 1; }
+    var scale = flux.map(p95), sum = new Float32Array(nF);
+    for (fi = 0; fi < nF; fi++) for (b = 0; b < nb; b++) sum[fi] += flux[b][fi] / (scale[b] || 1);
+    var hitsAt = peaks(sum, 0.1, Math.round(fps * 0.05));
+    var grid = opts.grid && opts.grid.period ? opts.grid : { period: 60 / (opts.bpm || 100), first: 0 }, q = 0.25;
+    function beat(fr) { return Math.round(((fr * hop) / R - grid.first) / grid.period / q) * q; }
+    var out = { kick: [], snare: [], hat: [], crash: [] }, maxTop = 0;
+    hitsAt.forEach(function (fr) { if (lev[3][fr + 1] > maxTop) maxTop = lev[3][fr + 1]; });
+    hitsAt.forEach(function (fr) {
+      var v = []; for (b = 0; b < nb; b++) { var m2 = 0; for (var j = Math.max(0, fr - 1); j <= Math.min(nF - 1, fr + 2); j++) m2 = Math.max(m2, flux[b][j]); v.push(m2 / (scale[b] || 1)); }
+      var low = v[0], mid = v[1], noise = v[2], top = v[3], at = beat(fr), isSnare = mid >= 0.45 && noise >= 0.35 && mid >= low * 1.0 && mid >= top * 0.5;
+      if (low >= 0.45 && low >= mid * 0.85) out.kick.push(at);
+      if (isSnare) out.snare.push(at);
+      if (top >= 0.3 && (!isSnare || top > noise * 1.35)) {
+        var sustain = 0, n2 = 0; for (j = fr + Math.round(fps * 0.2); j < Math.min(nF, fr + Math.round(fps * 0.5)); j++) { sustain += lev[3][j]; n2++; }
+        sustain = n2 ? sustain / n2 : 0;
+        (sustain > lev[3][Math.min(nF - 1, fr + 1)] * 0.55 && top >= 0.6 ? out.crash : out.hat).push(at);
+      }
+    });
+    Object.keys(out).forEach(function (v) { var seen = {}; out[v] = out[v].filter(function (b2) { if (b2 < 0 || seen[b2]) return false; seen[b2] = 1; return true; }).sort(function (p, q2) { return p - q2; }); });
+    return out;
+  }
+
   function analyze(mono, rate, opts) {
     opts = opts || {};
     var R = 11025, x = resample(mono, rate, R), frame = 512, hop = 128, fps = R / hop;
@@ -459,6 +511,7 @@ window.PP_ANALYSIS_WORKER = function () {
       else if (m.cmd === "key") postMessage({ id: m.id, result: keyOnly(m.mono, m.rate) });
       else if (m.cmd === "chords") postMessage({ id: m.id, result: chordsOf(m.mono, m.rate, m.opts) });
       else if (m.cmd === "transcribe") postMessage({ id: m.id, result: transcribe(m.mono, m.rate, m.opts) });
+      else if (m.cmd === "drums") postMessage({ id: m.id, result: drumsOf(m.mono, m.rate, m.opts) });
     } catch (error) { postMessage({ id: m.id, error: String(error && error.message || error) }); }
   };
 };

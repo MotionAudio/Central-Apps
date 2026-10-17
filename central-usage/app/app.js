@@ -9,6 +9,10 @@
   function $(s) { return document.querySelector(s); }
   function esc(s) { return C.esc(s); }
   var store = { get: function (k, d) { try { var v = localStorage.getItem("cu-" + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: function (k, v) { try { localStorage.setItem("cu-" + k, JSON.stringify(v)); } catch (_) { } } };
+  // opened in a browser from the Central Control (http://<pi>:8080/cu/ - iPhone, iPad, any phone): users only, and it
+  // talks to the Central Control it came from. The app (window.CU) has everything.
+  var WEB = !window.CU && /^https?:$/.test(location.protocol);
+  if (WEB) { try { localStorage.setItem("cu-host", JSON.stringify(location.hostname)); } catch (_) { } document.documentElement.dataset.web = "1"; }
   var prefs = { host: store.get("host", "padpedal.local"), code: store.get("code", ""), instrument: store.get("instrument", "concert"), shapes: store.get("shapes", "auto"), nashville: store.get("nashville", false), chordsOnly: store.get("chordsOnly", false), fontSize: store.get("fontSize", 18), lyricsSize: store.get("lyricsSize", 44), lyricsNext: store.get("lyricsNext", true), midiOut: store.get("midiOut", ""), sendClock: store.get("sendClock", true), offsetMs: store.get("offsetMs", 0), follow: true, tab: store.get("tab", "chart") };
 
   // ------------------------------------------------------------- connection
@@ -17,33 +21,52 @@
   var bus = {};
   function on(type, fn) { (bus[type] = bus[type] || []).push(fn); }
   function fire(type, a, b) { (bus[type] || []).forEach(function (fn) { try { fn(a, b); } catch (e) { console.warn("listener", type, e); } }); }
-  // ---- Admin or User (a setting of this computer): which tabs it has
-  var MODES = { admin: ["lights", "mix", "inears", "lyrics", "slides", "io", "settings"], user: ["chart", "instrument", "lyrics", "inears", "io", "settings"] };
-  var cuCfg = { mode: store.get("mode", null), name: store.get("name", "") };
-  function mode() { return cuCfg.mode === "admin" ? "admin" : cuCfg.mode === "user" ? "user" : null; }
+  // ---- this computer's role: the main admin (one), admins, User 1 and User 2 - which tabs it has.
+  // mode() is the side (admin / user) the tab modules check; role() is the exact role.
+  var MODES = { main: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"],
+    user1: ["chart", "instrument", "lyrics", "inears", "io", "settings"], user2: ["lyrics", "chart", "inears", "settings"] };
+  // an admin's jobs (given by the main admin): only those tabs, or General = every admin tab
+  var JOB_TABS = { lighting: ["lights"], production: ["video"], mix: ["mix"], inears: ["inears"], slides: ["slides", "lyrics"] };
+  var JOB_NAMES = { general: "General", lighting: "Lighting", production: "Production (cameras)", mix: "Mix", inears: "In-ears", slides: "Slides & lyrics" };
+  function jobs() { var j = cuCfg.jobs; return Array.isArray(j) && j.length && j.indexOf("general") < 0 ? j.filter(function (x) { return JOB_TABS[x]; }) : ["general"]; }
+  function tabsFor(r) {
+    if (WEB) return MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io"; });   // a phone / tablet browser: the user side, no native parts
+    if (r !== "admin") return MODES[r];
+    var j = jobs(); if (j[0] === "general") return MODES.admin;
+    var want = {}; j.forEach(function (x) { JOB_TABS[x].forEach(function (t) { want[t] = 1; }); });
+    return MODES.admin.filter(function (t) { return want[t] || t === "io" || t === "settings"; });
+  }
+  var ROLE_NAMES = { main: "Main admin", admin: "Admin", user1: "User 1", user2: "User 2" };
+  var cuCfg = { mode: store.get("mode", null), role: store.get("role", null), jobs: store.get("jobs", null), name: store.get("name", "") };
+  function role() {
+    var r = cuCfg.role;
+    if (MODES[r]) return r;
+    return cuCfg.mode === "admin" ? "admin" : cuCfg.mode === "user" ? "user1" : null;   // a computer set up before roles
+  }
+  function mode() { var r = role(); return r === "main" || r === "admin" ? "admin" : r ? "user" : null; }
   function applyMode() {
-    var m = mode() || "user", allowed = MODES[m];
-    document.body.dataset.mode = m;
+    var r = role() || "user1", m = mode() || "user", allowed = tabsFor(r);
+    document.body.dataset.mode = m; document.body.dataset.role = r;
     document.querySelectorAll("#tabs [data-tab]").forEach(function (b) { b.hidden = allowed.indexOf(b.dataset.tab) < 0; });
     if (allowed.indexOf(prefs.tab) < 0) showTab(allowed[0]);
-    send({ type: "client", app: "central-usage", mode: m, name: cuCfg.name || "Central Usage" });
-    fire("mode", m);
+    send({ type: "client", app: "central-usage", mode: m, role: r, name: cuCfg.name || "Central Usage" });
+    fire("mode", m); fire("role", r);
   }
-  async function setMode(m) {
-    cuCfg.mode = m; store.set("mode", m);
-    if (window.CU && window.CU.config) { try { cuCfg = await window.CU.config.set({ mode: m }); } catch (_) { } }
-    var pick = document.getElementById("modePick"); if (pick) pick.remove();
+  async function setRole(r) {
+    if (!MODES[r] && r !== null) return;
+    cuCfg.role = r; cuCfg.mode = r ? (r === "main" || r === "admin" ? "admin" : "user") : null;
+    store.set("role", r); store.set("mode", cuCfg.mode);
+    if (window.CU && window.CU.config) { try { cuCfg = await window.CU.config.set({ role: r }); } catch (_) { } }
+    var pick = document.getElementById("modePick"); if (pick && r) pick.remove();
+    if (r) applyMode(); else askMode();
+  }
+  async function setJobs(j) {
+    cuCfg.jobs = j; store.set("jobs", j);
+    if (window.CU && window.CU.config) { try { cuCfg = await window.CU.config.set({ jobs: j }); } catch (_) { } }
     applyMode();
   }
-  function askMode() {
-    if (document.getElementById("modePick")) return;
-    var d = document.createElement("div"); d.id = "modePick"; d.className = "mode-pick";
-    d.innerHTML = '<div class="mode-box"><h2>How is this computer used?</h2><p class="muted">You can change it any time in Settings.</p><div class="mode-opts">' +
-      '<button data-set-mode="admin"><b>Admin</b><span>Lighting · track mixing · in-ear mixes · lyrics · slides</span><small>the sound / lights / media desk</small></button>' +
-      '<button data-set-mode="user"><b>User</b><span>Chord chart · instrument · lyrics · my in-ear mix</span><small>a musician on stage</small></button></div></div>';
-    document.body.appendChild(d);
-    d.addEventListener("click", function (e) { var b = e.target.closest("[data-set-mode]"); if (b) setMode(b.dataset.setMode); });
-  }
+  function setMode(m) { return setRole(m === "admin" ? "admin" : m === "user" ? "user1" : m); }
+  function askMode() { if (window.CURoles) window.CURoles.firstLaunch(); }
   var socket = null, retryTimer = 0, pingTimer = 0, httpBase = "";
   function api(p) { return httpBase + "/api" + p; }
   function setConn(txt, cls) { $("#connInfo").textContent = txt; $("#dot").className = "dot" + (cls ? " " + cls : ""); }
@@ -57,7 +80,7 @@
   }
   function open(host) {
     try { socket = new WebSocket("ws://" + host + ":" + state.wsPort); } catch (_) { retryTimer = setTimeout(function () { connect(); }, 3000); return; }
-    socket.onopen = function () { state.connected = true; setConn("connected to " + (state.hostname || host), ""); send({ type: "client", app: "central-usage", mode: mode() || "user", name: cuCfg.name || "Central Usage" }); if (prefs.code) send({ type: "auth", code: prefs.code }); clearInterval(pingTimer); pingTimer = setInterval(ping, 2000); ping(); fire("connected", true); };
+    socket.onopen = function () { state.connected = true; setConn("connected to " + (state.hostname || host), ""); send({ type: "client", app: "central-usage", mode: mode() || "user", role: role() || "user1", name: cuCfg.name || "Central Usage" }); if (prefs.code) send({ type: "auth", code: prefs.code }); clearInterval(pingTimer); pingTimer = setInterval(ping, 2000); ping(); fire("connected", true); };
     socket.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (_) { return; } onMessage(m); };
     socket.onclose = function () { state.connected = false; state.authed = false; setConn("lost " + host + " - retrying", "off"); clearInterval(pingTimer); retryTimer = setTimeout(function () { connect(); }, 2500); fire("connected", false); };
   }
@@ -102,7 +125,7 @@
   }
 
   // ------------------------------------------------------------- tabs
-  function showTab(name) { var m = mode(); if (m && MODES[m].indexOf(name) < 0) name = MODES[m][0]; prefs.tab = name; store.set("tab", name); fire("tab", name); document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); }); document.querySelectorAll(".view").forEach(function (v) { v.classList.toggle("active", v.id === "view-" + name); }); if (name === "lights") { initMidi(); if (window.CULights) window.CULights.renderAll(); } }
+  function showTab(name) { var r = role(); if (r && tabsFor(r).indexOf(name) < 0) name = tabsFor(r)[0]; prefs.tab = name; store.set("tab", name); fire("tab", name); document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); }); document.querySelectorAll(".view").forEach(function (v) { v.classList.toggle("active", v.id === "view-" + name); }); if (name === "lights") { initMidi(); if (window.CULights) window.CULights.renderAll(); } }
   $("#tabs").addEventListener("click", function (e) { var b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); });
 
   // ------------------------------------------------------------- chart
@@ -114,6 +137,7 @@
   function fillShapes() { var inst = C.instrument(prefs.instrument), sel = $("#shapes"); $("#shapesWrap").style.display = inst.capo ? "" : "none"; if (!inst.capo) return; sel.innerHTML = '<option value="auto">Auto (fewest capo frets)</option>' + inst.shapes.map(function (s) { return '<option value="' + s + '"' + (prefs.shapes === s ? " selected" : "") + ">" + esc(C.pretty(s)) + " shapes</option>"; }).join(""); }
   function currentSong() { var d = state.display; if (!d) return null; var songs = d.songs || []; if (prefs.follow) return d.song ? Object.assign({ index: d.song.index }, songs[d.song.index] || {}, d.song) : null; return state.pickedSong >= 0 ? Object.assign({ index: state.pickedSong }, songs[state.pickedSong]) : null; }
   function songKeyNow() { var d = state.display, s = currentSong(); if (!s) return "C"; return (prefs.follow && d && d.key) ? d.key : s.key || "C"; }
+  window.CentralUsageChartText = function () { return chartInfo && chartInfo.text || ""; };   // for the parts (parts-tab.js)
   async function loadChart(id) {
     chartId = id; chartInfo = null; parsed = null; lastSectionKey = null;
     if (!id) { $("#chart").innerHTML = '<div class="empty">This song has no chord chart yet.<br><small>In Central Control: song editor → "Listen &amp; write chord chart", or upload a text / PDF chart.</small></div>'; $("#written").textContent = ""; return; }
@@ -247,10 +271,10 @@
   }
   fillInstruments(); wire(); showTab(prefs.tab); connect(); initMidi();
   (async function () {   // this computer's settings live in the app (cu.json); in a plain browser: local storage
-    if (window.CU && window.CU.config) { try { var c = await window.CU.config.get(); if (c) { cuCfg = c; if (c.mode) store.set("mode", c.mode); } } catch (_) { } }
+    if (window.CU && window.CU.config) { try { var c = await window.CU.config.get(); if (c) { cuCfg = c; if (c.mode) store.set("mode", c.mode); if (c.role) store.set("role", c.role); if (c.jobs) store.set("jobs", c.jobs); } } catch (_) { } }
     if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Usage";
-    if (!mode()) askMode(); applyMode();
+    if (!role()) askMode(); applyMode(); fire("ready");
   })();
-  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, setMode: setMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
+  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, setRole: setRole, setMode: setMode, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
     midiSend: function (d, at) { midiSend(d, at); }, midiSysex: function (d) { if (midi && midi.sysexEnabled) midiSend(d); } };
 })();

@@ -36,7 +36,9 @@
       "piaudio.js",
       "recorder.js",
       "app/**/*",
-      "build/icon.png"
+      "build/icon.png",
+      "asr.js",
+      "!**/node_modules/onnxruntime-node/bin/napi-v3/*/*/libonnxruntime_providers_{cuda,tensorrt}.so"
     ],
     "linux": {
       "target": [
@@ -51,7 +53,11 @@
         "Comment": "Lights, the tracks mixer, in-ear mixes, slides, charts and lyrics with Central Control",
         "Categories": "AudioVideo;Audio;Music;"
       },
-      "maintainer": "Central Control <central-control@localhost>"
+      "maintainer": "Central Control <central-control@localhost>",
+      "files": [
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
+      ]
     },
     "deb": {
       "depends": [
@@ -78,11 +84,19 @@
       "category": "public.app-category.music",
       "target": [
         "dmg"
+      ],
+      "files": [
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**"
       ]
     },
     "win": {
       "target": [
         "nsis"
+      ],
+      "files": [
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
       ]
     },
     "publish": null,
@@ -107,10 +121,16 @@
         "from": "native/instrument-plugins.json",
         "to": "native/instrument-plugins.json"
       }
+    ],
+    "asarUnpack": [
+      "**/node_modules/onnxruntime-node/**",
+      "**/node_modules/sharp/**",
+      "**/node_modules/@img/**"
     ]
   },
   "homepage": "http://padpedal.local:8080/",
   "dependencies": {
-    "ws": "8.18.0"
+    "ws": "8.18.0",
+    "@huggingface/transformers": "3.8.1"
   }
 }

@@ -87,6 +87,7 @@
     @media (max-width:640px) { .pf-body { grid-template-columns:1fr; grid-template-rows:minmax(0,1.5fr) minmax(0,1fr); } .pf-pads { grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(4,1fr); } .pf-knobs { grid-template-columns:repeat(4,1fr); grid-template-rows:1fr; } .pf-hw { display:none; } .pf-pad { padding-top:28px; } .pf-pad b { font-size:17px; } }
   </style>
   <link rel="stylesheet" href="css/pad-pedal.css">
+  <link rel="stylesheet" href="css/parts.css">
 </head>
 <body>
   <nav class="topnav" id="topNav" aria-label="Main tabs">
@@ -281,7 +282,7 @@
   <input id="audioFile" class="hidden" type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aif,.aiff"><input id="folderFile" class="hidden" type="file" webkitdirectory multiple accept="audio/*,.mp3,.wav"><input id="projectFile" class="hidden" type="file" accept=".padpedal.json,application/json">
   <dialog id="setlistDialog"><div class="row spread"><div><h2>Setlist</h2><p class="muted">Each song sets the key (and tempo) for every pad. Step through songs with ◀ ▶, the NEXT footswitch or MIDI.</p></div><button data-close="setlistDialog">Close</button></div>
     <div class="setlist" id="setlistRows"></div>
-    <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="primary" id="songAdd">+ Add song</button><button id="songNone">Play without a song (pads use their own keys)</button></div></dialog>
+    <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="primary" id="songAdd">+ Add song</button><button id="syncOpen">Setlists · Song library · Devices…</button><button id="songNone">Play without a song (pads use their own keys)</button></div><p class="muted small" id="syncLine"></p></dialog>
   <dialog id="addDialog" class="add-dialog"><div class="row spread"><div><h2>Add songs</h2><p class="muted">From Planning Center, a MultiTracks.com / Loop Community pack, or your own files.</p></div><button data-close="addDialog">Close</button></div>
     <div class="add-tabs" id="addTabs"><button data-src="pco" class="on">Planning Center</button><button data-src="pack">Track pack (MultiTracks · Loop Community · zip)</button><button data-src="own">Own files</button></div>
     <div id="addBody" class="add-body"></div></dialog>
@@ -327,6 +328,9 @@
   <script src="js/configure.js"></script>
   <script src="js/chords.js"></script>
   <script src="js/notation.js"></script>
+  <script src="js/parts.js"></script>
+  <script src="js/lyrics-ai.js"></script>
+  <script src="js/parts-ui.js"></script>
   <script src="js/pedals.js"></script>
   <script src="js/plugin-ports.js"></script>
   <script src="js/looper.js"></script>
@@ -337,6 +341,7 @@
   <script src="js/integrations.js"></script>
   <script src="js/netsend.js"></script>
   <script src="js/hub.js"></script>
+  <script src="js/sync.js"></script>
   <script src="js/io.js"></script>
   <script src="js/shell.js"></script>
 </body>

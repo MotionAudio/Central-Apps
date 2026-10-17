@@ -115,7 +115,10 @@
     if (b.dataset.act === "use") { loadSong(i); return; }
     if (b.dataset.act === "pads") { if (p.songIndex !== i) loadSong(i); savePadsToSong(songs[i], true); return; }
     if (b.dataset.act === "padsOff") { savePadsToSong(songs[i], false); return; }
-    if (b.dataset.act === "del") { songs.splice(i, 1); if (p.songIndex >= songs.length) p.songIndex = songs.length - 1; }
+    if (b.dataset.act === "del") {
+      if (window.PPSync && window.PPSync.linked()) { window.PPSync.askDelete(songs[i], i); return; }
+      songs.splice(i, 1); if (p.songIndex >= songs.length) p.songIndex = songs.length - 1;
+    }
     if (b.dataset.act === "up" && i > 0) { songs.splice(i - 1, 0, songs.splice(i, 1)[0]); if (p.songIndex === i) p.songIndex--; }
     if (b.dataset.act === "down" && i < songs.length - 1) { songs.splice(i + 1, 0, songs.splice(i, 1)[0]); if (p.songIndex === i) p.songIndex++; }
     PP.persistSoon(); renderSetlist(); renderPerformExtras();
@@ -333,7 +336,7 @@
 
   // re-link a song's pad set after a reload (project.pads was saved while that song was active)
   (function () { var p = project(); if (p.usingSongPads) { var song = p.songs.filter(function (s) { return s.id === p.usingSongPads; })[0]; if (song && song.padSet) { song.padSet.pads = p.pads; song.padSet.normalized = true; } else { p.usingSongPads = null; if (p.globalPads) { p.pads = p.globalPads; p.globalPads = null; } } } })();
-  window.PPFeatures = { onSong: function (fn) { songHooks.push(fn); }, toggleLayerMode: toggleLayerMode, morphButton: morphButton, savePadsToSong: savePadsToSong, applyPadSet: applyPadSet, on: on, emit: emit, systemStatus: function () { return systemStatus; }, sendToDriver: sendToDriver, clockFollowing: clockFollowing, tempoSource: function () { return tempoSource; }, interceptPad: interceptPad, handleHardware: handleHardware, renderPerformExtras: renderPerformExtras, footswitchPad: footswitchPad, handleMidi: handleMidi, tap: tap, setTempo: setTempo, loadSong: loadSong, stepSong: stepSong, toggleFreeze: toggleFreeze, openUsb: openUsb, mediaAvailable: mediaAvailable, renderSystem: renderSystem };
+  window.PPFeatures = { renderSetlist: renderSetlist, openSetlist: openSetlist, onSong: function (fn) { songHooks.push(fn); }, toggleLayerMode: toggleLayerMode, morphButton: morphButton, savePadsToSong: savePadsToSong, applyPadSet: applyPadSet, on: on, emit: emit, systemStatus: function () { return systemStatus; }, sendToDriver: sendToDriver, clockFollowing: clockFollowing, tempoSource: function () { return tempoSource; }, interceptPad: interceptPad, handleHardware: handleHardware, renderPerformExtras: renderPerformExtras, footswitchPad: footswitchPad, handleMidi: handleMidi, tap: tap, setTempo: setTempo, loadSong: loadSong, stepSong: stepSong, toggleFreeze: toggleFreeze, openUsb: openUsb, mediaAvailable: mediaAvailable, renderSystem: renderSystem };
   renderPerformExtras();
   setTimeout(startWebMidi, 2500);
 })();

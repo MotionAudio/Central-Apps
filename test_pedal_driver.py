@@ -419,6 +419,97 @@ async def main():
         status, body = http("http://127.0.0.1:18080/slides")
         check("the Pi's slides page is served (for HDMI 2 set to Slides)", status == 200 or status == 404, status)
 
+        print("\nCentral Usage roles: one main admin, admins, User 1 / User 2:")
+
+        async def cu_open():
+            c = await websockets.connect("ws://127.0.0.1:18081")
+            await asyncio.wait_for(c.recv(), 2)
+            await asyncio.wait_for(c.recv(), 2)
+            return c
+
+        async def cu_wait(c, match, timeout=2.0):
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                try:
+                    raw = await asyncio.wait_for(c.recv(), deadline - time.monotonic())
+                except asyncio.TimeoutError:
+                    break
+                if isinstance(raw, (bytes, bytearray)):
+                    continue
+                m = json.loads(raw)
+                if match(m):
+                    return m
+            return None
+
+        main_c, b_c, c_c = await cu_open(), await cu_open(), await cu_open()
+        token = "main-secret-token-0123456789"
+        await main_c.send(json.dumps({"type": "cuRole", "action": "hello", "id": "pc-main", "name": "Sound desk", "role": "main", "token": token, "pin": "4321", "pair": "2468"}))
+        r = await cu_wait(main_c, lambda m: m.get("type") == "cuRoleReply")
+        check("becoming the main admin needs the Central Control's code once", r and not r["ok"] and r.get("needCode"), r)
+        await main_c.send(json.dumps({"type": "cuRole", "action": "hello", "id": "pc-main", "name": "Sound desk", "role": "main", "token": token, "pin": "4321", "pair": "2468", "code": hello["code"]}))
+        v = await cu_wait(main_c, lambda m: m.get("type") == "cuRoles" and m.get("youAreMain"))
+        check("...with it, the first main admin is registered (and kept in cu-roles.json)", v and v["hasMain"] and os.path.exists(os.path.join(root, "data", "cu-roles.json")), v)
+        saved = open(os.path.join(root, "data", "cu-roles.json")).read()
+        check("the PIN, pairing code and token are stored only as salted hashes", "4321" not in saved and "2468" not in saved and token not in saved)
+        await b_c.send(json.dumps({"type": "cuRole", "action": "join", "id": "pc-keys", "name": "Keys", "pair": "1111"}))
+        r = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleReply")
+        check("joining with a wrong pairing code is refused", r and not r["ok"], r)
+        await b_c.send(json.dumps({"type": "cuRole", "action": "join", "id": "pc-keys", "name": "Keys", "pair": "2468"}))
+        r = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleReply")
+        check("...the right one joins as User 1 and hands over the Central Control's code", r and r["ok"] and r["role"] == "user1" and r["code"] == hello["code"], r)
+        v = await cu_wait(main_c, lambda m: m.get("type") == "cuRoles" and any(d["id"] == "pc-keys" for d in m.get("devices", [])))
+        check("the main admin's People list shows the new computer, online", v and [d for d in v["devices"] if d["id"] == "pc-keys"][0]["online"], v and v.get("devices"))
+        await b_c.send(json.dumps({"type": "cuRole", "action": "set", "role": "user2"}))
+        r = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleReply")
+        check("a user switches User 1 -> User 2 by itself", r and r["ok"] and r["role"] == "user2", r)
+        await b_c.send(json.dumps({"type": "cuRole", "action": "set", "role": "admin", "pin": "0000"}))
+        r = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleReply")
+        check("...but becoming an admin with a wrong PIN is refused", r and not r["ok"] and "PIN" in r["error"], r)
+        await b_c.send(json.dumps({"type": "cuRole", "action": "set", "role": "admin", "pin": "4321"}))
+        r = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleReply")
+        check("...and with the main admin's PIN it becomes an admin", r and r["ok"] and r["role"] == "admin", r)
+        await b_c.send(json.dumps({"type": "cuRole", "action": "set", "role": "user1"}))
+        r = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleReply")
+        check("going back from admin to user needs the PIN too", r and not r["ok"], r)
+        await main_c.send(json.dumps({"type": "cuRole", "action": "assign", "target": "pc-keys", "role": "user1"}))
+        a = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleAssigned")
+        check("the main admin changes it from its own People list; the computer is told", a and a["role"] == "user1", a)
+        await main_c.send(json.dumps({"type": "cuRole", "action": "jobs", "target": "pc-keys", "jobs": ["lighting", "production", "bogus"]}))
+        a = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleAssigned" and m.get("jobs"))
+        check("the main admin gives a computer its jobs (unknown ones dropped)", a and a["jobs"] == ["lighting", "production"], a)
+        await main_c.send(json.dumps({"type": "cuRole", "action": "jobs", "target": "pc-keys", "jobs": []}))
+        a = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleAssigned" and m.get("jobs"))
+        check("...no job means General (everything)", a and a["jobs"] == ["general"], a)
+        await b_c.send(json.dumps({"type": "cuRole", "action": "jobs", "target": "pc-keys", "jobs": ["mix"]}))
+        r = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleReply")
+        check("...an admin can't change its own jobs", r and not r["ok"], r)
+        await b_c.send(json.dumps({"type": "cuRole", "action": "assign", "target": "pc-main", "role": "user2"}))
+        r = await cu_wait(b_c, lambda m: m.get("type") == "cuRoleReply")
+        check("only the main admin changes other computers", r and not r["ok"], r)
+        await c_c.send(json.dumps({"type": "cuRole", "action": "hello", "id": "pc-lights", "name": "Lights", "role": "main", "token": "another-token-0123456789"}))
+        v = await cu_wait(main_c, lambda m: m.get("type") == "cuRoles" and len(m.get("conflict") or []) == 2)
+        check("a second 'main admin' is flagged to both (it works as an admin meanwhile)", v and v["conflict"][0]["id"] == "pc-main" and driver.cu_roles.devices["pc-lights"]["role"] == "admin", v and v.get("conflict"))
+        await c_c.send(json.dumps({"type": "cuRole", "action": "forget"}))
+        r = await cu_wait(c_c, lambda m: m.get("type") == "cuRoleReply")
+        check("Forget role on the extra one clears the conflict", r and r["ok"] and "pc-lights" not in driver.cu_roles.devices and len(driver.cu_roles.claimants()) == 1, r)
+        await main_c.send(json.dumps({"type": "auth", "code": hello["code"]}))
+        await main_c.send(json.dumps({"type": "audioHost", "action": "register", "code": hello["code"], "port": 8092, "name": "Sound desk", "userCode": "5555", "adminCode": "7777"}))
+        v = await cu_wait(b_c, lambda m: m.get("type") == "cuRoles" and m.get("hostCodes"))
+        check("the audio host's codes reach each computer by role (a user gets only the in-ear code)", v and v["hostCodes"] == {"user": "5555"}, v and v.get("hostCodes"))
+        status, body = http("http://127.0.0.1:18080/api/info")
+        check("...and are never in /api/info", b"5555" not in body and b"7777" not in body)
+        await b_c.send(json.dumps({"type": "slide", "kind": "text", "text": "hi", "code": hello["code"]}))
+        r = await cu_wait(b_c, lambda m: m.get("type") == "refused")
+        check("a user computer can't put up slides once there is a main admin", r and "admin" in r["error"], r)
+        await main_c.send(json.dumps({"type": "cuRole", "action": "forget", "token": "wrong"}))
+        r = await cu_wait(main_c, lambda m: m.get("type") == "cuRoleReply")
+        check("the main admin role can only be given up with its own token", r and not r["ok"], r)
+        await main_c.send(json.dumps({"type": "cuRole", "action": "forget", "token": token}))
+        r = await cu_wait(main_c, lambda m: m.get("type") == "cuRoleReply")
+        check("...with it, Forget role leaves no main admin", r and r["ok"] and driver.cu_roles.main is None, r)
+        for c in (main_c, b_c, c_c):
+            await c.close()
+
         print("\nCharts:")
         text = "Great Is Thy Faithfulness\nKey: G   Tempo: 72   4/4\n\n[Verse 1]\nG        C/G    G\nGreat is Thy faithfulness, O God my Father\nD7                G\nThere is no shadow of turning with Thee\n\nChorus\nG   D  Em\nGreat is Thy faithfulness\nMorning by morning new mercies I see\n"
         status, body = http("http://127.0.0.1:18766/chart/text", data=json.dumps({"name": "Great Is Thy Faithfulness", "text": text}).encode())

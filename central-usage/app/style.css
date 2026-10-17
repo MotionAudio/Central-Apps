@@ -166,3 +166,25 @@ button.on { background: color-mix(in srgb, var(--accent), transparent 70%); bord
 .io-c > button, .io-c > .row { justify-self: start; }
 .lx-lgrid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); } .lx-ltn, .lx-ltn small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mx-detail select, .ia-info select, #settingsRoot select { width: auto; max-width: 100%; } .mx-dhead input:not([type=checkbox]):not([type=color]) { width: 180px; }
+/* roles: the User 1 / User 2 switch, the role badge, notices, the first-launch box, the People list */
+.role-chip { display: flex; gap: 4px; align-items: center; }
+.role-chip button { padding: 5px 10px; font-size: 12px; border-radius: 999px; } .role-chip button.on { background: var(--accent); color: var(--accentText); border-color: transparent; }
+.rl-badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.role-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; z-index: 60; box-shadow: 0 8px 30px rgba(0,0,0,.35); transition: opacity .6s; }
+.role-toast.out { opacity: 0; }
+.rp-name { display: grid; gap: 4px; margin-top: 12px; } .rp-name input { width: 100%; }
+.rp-join, .rp-done { margin-top: 14px; display: grid; gap: 10px; } .rp-join[hidden], .rp-done[hidden], .mode-opts[hidden], .rp-name[hidden] { display: none; }
+.rp-join label { display: grid; gap: 4px; max-width: 260px; } .rp-join .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mode-box .io-code, .rl-card .io-code { font-size: 20px; letter-spacing: .12em; }
+.rl-now { margin: 10px 0; } .rl-card .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.rl-people td { vertical-align: top; } .rl-people select { width: auto; }
+.rl-jobs { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; } .rl-jobs label.toggle { display: inline-flex; align-items: center; gap: 5px; width: auto; font-size: 12px; } .rl-jobs input { width: auto; }
+.rl-people .dot { display: inline-block; vertical-align: middle; }
+/* the Part picker on the Chord chart tab */
+.part-pick select { width: auto; } .part-views { display: inline-flex; gap: 4px; margin-left: 6px; } .part-views button { padding: 4px 10px; font-size: 12px; } .part-views button.on { background: var(--accent); color: var(--accentText); border-color: transparent; }
+.part-view { padding: 12px 16px 40px; overflow: auto; } .part-view[hidden] { display: none; } #chart[hidden] { display: none; }
+/* in a phone / tablet browser (served by the Central Control at /cu/) */
+html[data-web] .admin-only, html[data-web] #findBtn, html[data-web] #connectBtn, html[data-web] #host { display: none !important; }
+.mode-opts.web { grid-template-columns: 1fr; }
+@media (max-width: 720px) { header.top { flex-wrap: wrap; gap: 6px; } .tabs { overflow-x: auto; max-width: 100%; } .role-chip { order: 3; } }
+@media (max-width: 720px) { .bar label { max-width: 100%; min-width: 0; } .bar select, .bar input:not([type=checkbox]):not([type=range]) { max-width: calc(100vw - 120px); min-width: 0; } }

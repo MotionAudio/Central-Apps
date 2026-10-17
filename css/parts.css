@@ -1,0 +1,21 @@
+/* Parts and notation (js/parts.js): paper, notation, drums, chord diagrams. Shared with Central Usage. */
+svg.notation { display: block; max-width: 100%; height: auto; }
+svg.notation .n-line { stroke: #222; stroke-width: 1; } svg.notation .n-bar { stroke: #222; stroke-width: 1.2; } svg.notation .n-bar.thick { stroke-width: 3; }
+svg.notation .n-glyph { fill: #111; } svg.notation .n-glyphs { stroke: #111; } svg.notation .n-head-open { fill: none; stroke: #111; stroke-width: 1.6; }
+svg.notation .n-stem { stroke: #111; stroke-width: 1.4; } svg.notation .n-beam { stroke: #111; stroke-width: 3.4; } svg.notation .n-tie { fill: none; stroke: #111; stroke-width: 1.4; }
+svg.notation .n-acc { font: 13px serif; fill: #111; } svg.notation .n-ts { font: bold 13px serif; fill: #111; } svg.notation .n-num { font: 9px sans-serif; fill: #777; } svg.notation .n-chord { font: bold 12px sans-serif; fill: #1b4fa0; } svg.notation .n-title { font: bold 14px sans-serif; fill: #111; }
+svg.notation .n-tab { font: bold 11px sans-serif; fill: #111; } svg.notation .n-tabbg { fill: #fff; }
+svg.notation .n-lyric { font: 11px sans-serif; fill: #111; } svg.notation .n-mark { font: bold 11px sans-serif; fill: #1b4fa0; } svg.notation .n-x { stroke: #111; stroke-width: 1.6; fill: none; }
+.pt-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin: 6px 0; }
+.pt-src { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line, #294966); color: var(--muted, #9bb2c9); } .pt-src.stem { color: var(--accent, #5de6b0); border-color: var(--accent, #5de6b0); }
+.pt-warn { font-size: 12px; color: #ffcf6e; margin: 4px 0 8px; } .pt-note { font-size: 13px; color: var(--muted, #9bb2c9); margin: 4px 0; }
+.pt-paper { background: #fbfaf6; color: #111; border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
+.pt-paper .chart-view, .pt-paper .chart-view * { color: #111; } .pt-paper .chart-view .ch { color: #1b4fa0; }
+.pt-system { margin-bottom: 6px; } .pt-system.grand svg + svg { margin-top: -14px; }
+.pt-marks { display: flex; gap: 14px; font: bold 12px sans-serif; color: #1b4fa0; margin: 2px 0 -6px 4px; } .pt-marks small { font-weight: 400; color: #777; }
+.pt-diagrams { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+svg.chord-diagram .cd-name { font: bold 10px sans-serif; text-anchor: middle; fill: #111; } svg.chord-diagram .cd-l { stroke: #333; stroke-width: .8; } svg.chord-diagram .cd-nut { stroke: #111; stroke-width: 2.4; }
+svg.chord-diagram .cd-dot { fill: #111; } svg.chord-diagram .cd-o { fill: none; stroke: #111; stroke-width: 1; } svg.chord-diagram .cd-x { font: 8px sans-serif; text-anchor: middle; fill: #111; } svg.chord-diagram .cd-fr { font: 8px sans-serif; fill: #555; }
+.pt-key { margin: 0 0 6px; color: #555; }
+.parts-dialog { width: min(1180px, 97vw); } .parts-dialog .pt-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0; } .parts-dialog .pt-bar select { width: auto; }
+.parts-dialog .pt-body { max-height: 66vh; overflow: auto; } .parts-dialog .tabs { display: flex; gap: 4px; } .parts-dialog .tabs button { width: auto; }

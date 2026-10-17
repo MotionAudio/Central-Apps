@@ -5,16 +5,25 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Central Usage</title>
   <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Central Usage">
+  <link rel="apple-touch-icon" href="icon.png">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="inear.css">
+  <link rel="stylesheet" href="video.css">
+  <link rel="stylesheet" href="shared/parts.css">
 </head>
 <body>
   <header class="top">
     <div class="brand"><b>Central Usage</b><span id="connInfo">not connected</span></div>
     <nav class="tabs" id="tabs">
       <button class="tab" data-tab="chart">Chord chart</button><button class="tab" data-tab="instrument">Instrument</button><button class="tab" data-tab="lights">Lighting</button><button class="tab" data-tab="mix">Mix</button>
-      <button class="tab" data-tab="inears">In-ears</button><button class="tab" data-tab="lyrics">Lyrics</button><button class="tab" data-tab="slides">Slides</button><button class="tab" data-tab="io">I/O</button><button class="tab" data-tab="settings" title="Settings">⚙</button>
+      <button class="tab" data-tab="inears">In-ears</button><button class="tab" data-tab="lyrics">Lyrics</button><button class="tab" data-tab="slides">Slides</button><button class="tab" data-tab="video">Video</button><button class="tab" data-tab="io">I/O</button><button class="tab" data-tab="settings" title="Settings">⚙</button>
     </nav>
+    <div class="role-chip" id="roleChip"></div>
     <div class="song" id="songBox"><b id="songName">No song</b><span id="songMeta"></span></div>
     <div class="conn"><span class="dot off" id="dot"></span><input id="host" placeholder="padpedal.local" title="Central Control address"><button id="connectBtn">Connect</button><button id="findBtn" title="Find Central Controls on this network">Find</button><button id="codeBtn" title="Pairing code (Central Control → Settings)">Code</button></div>
   </header>
@@ -47,6 +56,7 @@
   <section class="view" id="view-slides"><div id="slidesRoot" class="pad-view"></div></section>
   <section class="view" id="view-mix"><div id="mixRoot" class="pad-view"></div></section>
   <section class="view" id="view-inears"><div id="inearsRoot" class="pad-view"></div></section>
+  <section class="view" id="view-video"><div id="videoRoot" class="pad-view"></div></section>
   <section class="view" id="view-io"><div id="ioRoot" class="pad-view"></div></section>
   <section class="view" id="view-settings"><div id="settingsRoot" class="pad-view"></div></section>
 
@@ -118,6 +128,9 @@
 
   <dialog id="findDialog"><h3>Central Controls on this network</h3><div id="findList" class="findlist"><p class="muted">Looking…</p></div><div class="row"><button id="findAgain">Scan again</button><button id="findClose">Close</button></div></dialog>
   <script src="chords.js"></script>
+  <script src="shared/notation.js"></script>
+  <script src="shared/parts.js"></script>
+  <script src="shared/lyrics-ai.js"></script>
   <script src="app.js"></script>
   <script src="mixer-model.js"></script>
   <script src="inear-client.js"></script>
@@ -132,7 +145,11 @@
   <script src="inears.js"></script>
   <script src="slides.js"></script>
   <script src="instrument-tab.js"></script>
+  <script src="video.js"></script>
   <script src="io.js"></script>
+  <script src="parts-tab.js"></script>
+  <script src="lyrics-listen.js"></script>
+  <script src="roles.js"></script>
   <script src="settings.js"></script>
   <dialog id="updDialog"><h2>Updates</h2><p class="muted" id="updInfo"></p>
     <label>Update source (GitHub owner/repo)<input id="updRepo" placeholder="owner/repo"></label>

@@ -35,7 +35,7 @@
         var cm=r.clickMode||"auto";d.clickFallback=cm==="mix"||cm==="split"||cm==="device"||cm==="off"?cm:"off";d.mainDevice=r.mainDevice||null;d.clickDevice=r.clickDevice||null;return d;}
       var out={mode:r.mode==="stereo"?"stereo":"mono4",buses:{},clickFallback:["off","mix","split","device"].indexOf(r.clickFallback)>-1?r.clickFallback:"off",mainDevice:r.mainDevice||null,clickDevice:r.clickDevice||null};
       Object.keys(d.buses).forEach(function(k){var b=r.buses&&r.buses[k];var ch=b&&isFinite(Number(b.ch))?Math.round(Number(b.ch)):d.buses[k].ch;out.buses[k]={ch:clamp(ch,0,32)};});return out;}
-    function defaultProject(){return {version:6,tracksMode:false,textures:[],routing:defaultRouting(),audio:{sampleRate:0,latency:"interactive"},instrument:{},midiOut:{},link:{enabled:false},mapping:{},projector:{},display:{},name:"My Central Control set",selected:0,theme:{bg:"#08111d",panel:"#101e31",text:"#ecf7ff",accent:"#5de6b0",blue:"#75adff",line:"#294966"},pads:Array.from({length:PAD_COUNT},function(_,i){return defaultPad(i);}),library:[],performance:defaultPerformance(),tempo:{bpm:72},songs:[],songIndex:-1,input:defaultInput(),midi:{channel:0,clock:true}};}
+    function defaultProject(){return {version:6,setlistId:id(),tracksMode:false,textures:[],routing:defaultRouting(),audio:{sampleRate:0,latency:"interactive"},instrument:{},midiOut:{},link:{enabled:false},mapping:{},projector:{},display:{},name:"My Central Control set",selected:0,theme:{bg:"#08111d",panel:"#101e31",text:"#ecf7ff",accent:"#5de6b0",blue:"#75adff",line:"#294966"},pads:Array.from({length:PAD_COUNT},function(_,i){return defaultPad(i);}),library:[],performance:defaultPerformance(),tempo:{bpm:72},songs:[],songIndex:-1,input:defaultInput(),midi:{channel:0,clock:true}};}
     function mergeInto(base,saved){
       if(!saved||typeof saved!=="object")return base;
       var fx=saved.effects||{},p=Object.assign(base,saved);
@@ -49,7 +49,7 @@
       return p;}
     function mergePad(saved,index){return mergeInto(defaultPad(index),saved);}
     function normalizeProject(value){var base=defaultProject();if(!value||!Array.isArray(value.pads))return base;
-      base.name=typeof value.name==="string"?value.name:base.name;base.selected=clamp(value.selected||0,0,PAD_COUNT-1);base.theme=Object.assign(base.theme,value.theme||{});
+      base.name=typeof value.name==="string"?value.name:base.name;base.setlistId=typeof value.setlistId==="string"&&value.setlistId?value.setlistId:id();base.selected=clamp(value.selected||0,0,PAD_COUNT-1);base.theme=Object.assign(base.theme,value.theme||{});
       var perf=value.performance||{};Object.keys(base.performance).forEach(function(k){if(typeof base.performance[k]==="number"){var v=Number(perf[k]);if(isFinite(v))base.performance[k]=clamp(v,0,1);}else if(perf[k]!==undefined)base.performance[k]=perf[k];});
       base.pads=Array.from({length:PAD_COUNT},function(_,i){return mergePad(value.pads[i],i);});
       base.library=Array.isArray(value.library)?value.library.filter(function(item){return item&&item.id&&item.name;}):[];

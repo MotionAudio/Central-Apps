@@ -159,6 +159,7 @@ ipcMain.handle("update-install", async () => {
 });
 
 const svc = require("./services")(app, () => win);
+require("./asr").setupAsr({ ipcMain, app, getWin: () => win });   // lyrics from a vocal track (speech model on this computer)
 app.on("before-quit", () => { try { dmx.blackout(); } catch (_) { } try { svc.stop(); } catch (_) { } });
 ipcMain.handle("version", () => ({ app: app.getVersion(), electron: process.versions.electron }));
 

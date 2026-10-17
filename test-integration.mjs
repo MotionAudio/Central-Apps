@@ -586,6 +586,49 @@ await check("the hub: the app's songs (tempo, sections, waveform) are on the dri
   const id = hub.songs.find((s) => s.name === "Test Song").id, d = await (await fetch("http://127.0.0.1:8080/api/hub/" + id)).json();
   assert.ok(d.sections.length >= 2 && d.overview.length > 100 && d.bpm > 0 && d.stems.length >= 1, JSON.stringify(d).slice(0, 200));
 });
+await check("parts: every instrument gets a part (bass, keys both hands, trumpet in its key, drums); listening to the tracks writes them down", async () => {
+  await page.evaluate(() => { const p = PP.project(); const i = p.songs.findIndex((s) => s.tracks && s.tracks.stems && s.tracks.stems.length); if (i >= 0 && i !== p.songIndex) PPFeatures.loadSong(i); });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => PPPartsUI.open("bass")); await page.waitForSelector("#partsDialog[open] #ptBody .pt-paper", { timeout: 5000 });
+  for (const inst of ["bass", "keys", "trumpet", "drums", "guitar"]) {
+    await page.selectOption("#ptInst", inst); await page.waitForTimeout(150);
+    const html = await page.innerHTML("#ptBody"); assert.ok(/<svg/.test(html) || /chart-view/.test(html), inst + ": " + html.slice(0, 200));
+  }
+  await page.click("#ptListen");
+  await page.waitForFunction(() => /written down|No tracks here|Stopped/.test(document.querySelector("#ptStatus").textContent), null, { timeout: 120000 });
+  const st = await page.textContent("#ptStatus"); assert.ok(!/Stopped/.test(st), st);
+  const heard = await page.evaluate(() => { const t = PPTracks.data(PPTracks.song()); return Object.keys(t.transcriptions || {}).length + (t.drums ? 1 : 0); });
+  const jobs = await page.evaluate(() => PPTracks.data(PPTracks.song()).stems.filter(PPPartsUI.jobFor).length);
+  assert.equal(heard >= jobs, true, heard + " of " + jobs);
+  const music = await page.evaluate(() => PPTracks.hubSong(PPTracks.song()).music); assert.ok(music && music.bpb && Array.isArray(music.stems), JSON.stringify(music).slice(0, 200));
+  await page.evaluate(() => document.querySelector("#partsDialog").close());
+});
+await check("setlists: the open setlist is kept by the driver; a new one starts empty and the old one opens again with its songs", async () => {
+  const before = await page.evaluate(() => ({ id: PP.project().setlistId, name: PP.project().name, n: PP.project().songs.length }));
+  assert.ok(before.id && before.n >= 1, JSON.stringify(before));
+  await page.evaluate(() => PP.persistNow());
+  const lists = await until(async () => { const j = await (await fetch("http://127.0.0.1:8766/sync/setlists")).json(); return j.setlists.some((x) => x.id === before.id && x.count === before.n) ? j.setlists : null; }, 8000);
+  await page.evaluate(() => document.querySelector("#syncOpen").click());
+  await page.waitForSelector("#syncDialog .sync-row.current", { timeout: 5000 });
+  assert.match(await page.textContent("#syncDialog .sync-row.current"), new RegExp(before.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  await page.click("#syncDialog [data-sync='new']"); await page.fill(".sync-ask [data-q]", "Wednesday Night"); await page.click(".sync-ask button[value='ok']");
+  await page.waitForFunction(() => PP.project().name === "Wednesday Night" && PP.project().songs.length === 0);
+  await page.evaluate(() => PP.persistNow());
+  await until(async () => { const j = await (await fetch("http://127.0.0.1:8766/sync/setlists")).json(); return j.setlists.some((x) => x.name === "Wednesday Night") ? 1 : null; }, 8000);
+  await page.evaluate(() => PPSync.open("songs")); await page.waitForSelector("#syncDialog [data-add]", { timeout: 5000 });
+  await page.click("#syncDialog [data-add]"); await page.waitForFunction(() => PP.project().songs.length === 1);
+  await page.evaluate(() => PPSync.open("setlists")); await page.waitForSelector("#syncDialog [data-open]");
+  await page.click(`#syncDialog [data-open="${before.id}"]`);
+  await page.waitForFunction((b) => PP.project().setlistId === b.id && PP.project().songs.length === b.n, before, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => document.querySelector("#projectName").value), before.name);
+});
+await check("setlists: a song changed on another Central Control updates the open setlist in place", async () => {
+  const s = await page.evaluate(() => JSON.parse(JSON.stringify(PP.project().songs[0])));
+  await page.evaluate((song) => PPFeatures.emit({ type: "sync", event: "song", song: Object.assign(song, { bpm: 77, notes: "changed on the PC" }) }), s);
+  assert.deepEqual(await page.evaluate(() => [PP.project().songs[0].bpm, PP.project().songs[0].notes]), [77, "changed on the PC"]);
+  await page.evaluate((id) => PPFeatures.emit({ type: "sync", event: "removed", id }), s.id);
+  assert.ok(await page.evaluate((id) => !PP.project().songs.some((x) => x.id === id), s.id));
+});
 await check("no page errors during the whole run", () => assert.deepEqual(errors.filter((e) => !/favicon/.test(e)), []));
 
 await browser.close();

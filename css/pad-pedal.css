@@ -303,3 +303,14 @@ dialog.pp-ask .row { display: flex; justify-content: flex-end; gap: 8px; margin-
 .io-opt { justify-content: flex-start; text-align: left; } .io-opt input { flex: 0 0 auto; width: auto; margin: 3px 0 0; } .io-opt span { flex: 1 1 auto; }
 #ioRoot .rt-mode label.toggle { display: inline-flex; align-items: center; gap: 8px; width: auto; flex: 0 1 auto; } #ioRoot .rt-mode input { width: auto; flex: 0 0 auto; margin: 0; }
 #ioRoot .io-checks label.toggle { display: inline-flex; align-items: center; gap: 6px; width: auto; } #ioRoot .io-checks input { width: auto; }
+/* setlists, song library, devices (js/sync.js) */
+.sync-dialog { width: min(920px, 96vw); } .sync-body { margin-top: 12px; display: grid; gap: 12px; max-height: 62vh; overflow: auto; }
+.sync-body .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } .sync-note { margin-left: auto; }
+.sync-list { display: grid; gap: 6px; } .sync-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel2, rgba(255,255,255,.03)); }
+.sync-row > div { flex: 1; min-width: 0; display: grid; gap: 2px; } .sync-row small { color: var(--muted); } .sync-row.current { border-color: var(--accent); } .sync-row[hidden] { display: none; }
+.sync-row button { width: auto; flex: 0 0 auto; } .sync-row .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); } .sync-row .dot.off { background: var(--muted); }
+.pill { font-size: 11px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; } .pill.ok { color: var(--accent); border-color: var(--accent); }
+.sync-t td { padding: 5px 10px 5px 0; vertical-align: middle; } .sync-t input { width: auto; min-width: 220px; } #syncFind { width: auto; min-width: 240px; }
+.sync-ask { max-width: 520px; } .sync-ask-opts { display: grid; gap: 8px; margin: 12px 0; } .sync-ask-opts button { display: grid; gap: 3px; text-align: left; padding: 12px 14px; width: 100%; } .sync-ask-opts small { color: var(--muted); font-weight: 400; }
+.sync-ask .row { display: flex; gap: 8px; justify-content: flex-end; } .sync-ask input { width: 100%; } button.danger { border-color: var(--danger, #ff7878); color: var(--danger, #ff7878); }
+#syncLine { margin-top: 8px; }

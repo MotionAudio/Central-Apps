@@ -6,7 +6,7 @@
   var PP = window.PP, F = window.PPFeatures; if (!PP || !F) return;
   var sent = {}, timer = 0;
   function bridge() { return window.__pedalBridge; }
-  function sig(r) { return JSON.stringify([r.name, r.key, r.bpm, r.bpb, r.duration, r.sections, r.hits.length, r.stems.length, r.overview.length, r.grid ? r.grid.bars.length : 0]); }
+  function sig(r) { return JSON.stringify([r.name, r.key, r.bpm, r.bpb, r.duration, r.sections, r.hits.length, r.stems.length, r.overview.length, r.grid ? r.grid.bars.length : 0, r.music ? [r.music.chords.length, Object.keys(r.music.transcriptions || {}).length, r.music.drums ? 1 : 0, r.music.words.length, (r.music.chartText || "").length] : 0]); }
   function push(all) {
     var b = bridge(), T = window.PPTracks; if (!b || !b.connected || !T || !T.hubSong) return;
     var songs = PP.project().songs || [], out = [], seen = {};
