@@ -110,7 +110,7 @@ kept in a library on the Pi · lighting in Central Usage.
    the Learn tab can move any button or knob to any pin without re-flashing.
    A guitar needs a USB audio interface, a keyboard a USB MIDI port - no wiring.
 
-5. **Central Usage** on a laptop: `sudo apt install ./central-usage/dist/central-usage-1.3.0-amd64.deb`
+5. **Central Usage** on a laptop: `sudo apt install ./central-usage/dist/central-usage-2.0.0-amd64.deb`
    (or run the AppImage), then **Find** → Connect. See `central-usage/README.md`.
    **Central Control on a PC** (no Pi, for trying it out or building setlists):
    `sudo apt install ./central-control-desktop/dist/central-control-8.0.0-amd64.deb`.
