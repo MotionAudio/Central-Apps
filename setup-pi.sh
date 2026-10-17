@@ -330,6 +330,10 @@ done
 sed -i '/[[:space:]]swap[[:space:]]/d' /etc/fstab 2>/dev/null || true
 rm -f /var/swap
 
+step "Faster start-up: no boot pause, full clock while booting, services the appliance never uses turned off"
+# the same step runs after every software update, so Pis set up earlier get it too (see pad-pedal-system)
+/usr/local/sbin/pad-pedal-system boot-tune || warn "start-up settings reported a problem"
+
 if [ "$IN_CHROOT" = "1" ]; then
   step "First boot will create the /data partition (instead of growing the system partition)"
   sed -i -E 's# ?init=/usr/lib/raspberrypi-sys-mods/firstboot##; s# resize( |$)#\1#' "$CMDLINE"

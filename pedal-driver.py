@@ -4585,12 +4585,13 @@ class PedalDriver:
     async def run(self, stop_event=None):
         import websockets
         self.loop = asyncio.get_running_loop()
-        self.start_gpio()
-        self.start_analog()
+        # the web servers first: at power-on the screen's start-up page opens the app the moment :8766 answers
         self.local = LocalServer(self, int(self.config["http_port"]))
         self.local.start()
         self.companion = CompanionServer(self, int(self.config["lan_port"]))
         self.companion.start()
+        self.start_gpio()
+        self.start_analog()
         tasks = []
         if self.config.get("midi", True):
             self.midi = Midi(self.emit, want_out=bool(self.config.get("midi_out", True)))
@@ -4602,6 +4603,9 @@ class PedalDriver:
         self.usb = UsbInputs(self)
         if self.usb.available:
             tasks.append(asyncio.create_task(self.usb.loop()))
+        server = await websockets.serve(self.handle_client, self.config["ws_host"], int(self.config["ws_port"]))
+        log.info("listening on ws://%s:%s", self.config["ws_host"], self.config["ws_port"])
+        # the 3.5" screen (fonts, first picture) after the app's socket is up; it draws whatever the app has sent by then
         mini_spec = self.config.get("mini_screen") or {}
         if mini_spec.get("enabled", True):
             self.mini = MiniScreen(self, mini_spec, self.fb_override)
@@ -4609,8 +4613,6 @@ class PedalDriver:
                 threading.Thread(target=self.mini.touch_loop, args=(self.usb,), daemon=True).start()
             if self.mini.available and self.mini.fb_present():
                 self.schedule_mini_render(force=True)
-        server = await websockets.serve(self.handle_client, self.config["ws_host"], int(self.config["ws_port"]))
-        log.info("listening on ws://%s:%s", self.config["ws_host"], self.config["ws_port"])
         lan_server = None
         try:
             lan_server = await websockets.serve(self.handle_lan_client, "0.0.0.0", int(self.config["lan_ws_port"]))

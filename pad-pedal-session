@@ -25,7 +25,12 @@ unclutter -idle 1 -root >/dev/null 2>&1 &
 xsetroot -solid '#08111d' 2>/dev/null
 
 # ---- audio: 4-channel output (music 1-2 on the jack / USB, click 3-4 on the I2S DAC)
-[ -n "${CC_NO_AUDIO:-}" ] || python3 "$APP/pad-pedal-audio-config" apply || echo "audio config failed (PipeWire not running?)"
+# Runs while the screens are being set up; Chromium starts only once it is done (it may restart PipeWire).
+AUDIO_PID=""
+if [ -z "${CC_NO_AUDIO:-}" ]; then
+  { python3 "$APP/pad-pedal-audio-config" apply || echo "audio config failed (PipeWire not running?)"; } &
+  AUDIO_PID=$!
+fi
 
 # ---- settings (Settings → Screens)
 read_cfg() {
@@ -51,7 +56,6 @@ PY
 )"
 }
 read_cfg
-CODE="$(cat "$DATA/code" 2>/dev/null || true)"
 
 # ---- the HDMI ports as the kernel sees them (cheap to read, doesn't poke the monitor)
 DRM="${CC_DRM:-/sys/class/drm}"
@@ -147,8 +151,15 @@ PY
 }
 
 # ---- what each window shows
-for _ in $(seq 1 40); do (echo >/dev/tcp/127.0.0.1/8766) 2>/dev/null && break; sleep 0.5; done
+# Chromium does not wait for the driver: it starts right away on the start-up page, which opens the app
+# the moment the driver answers (both start at the same time during boot).
+code_now() {   # the pairing code for the :8080 pages (the driver writes it the first time it ever starts)
+  local c=""
+  for _ in $(seq 1 40); do c="$(cat "$DATA/code" 2>/dev/null)"; [ -n "$c" ] && break; sleep 0.5; done
+  echo "$c"
+}
 url_for() {   # $1 what, $2 screen number
+  local CODE=""; case "$1" in mini|lyrics|charts|stage|slides) CODE="$(code_now)" ;; esac
   case "$1" in
     app) echo "http://127.0.0.1:8766/app/?screen=$2#resume" ;;
     mini) echo "http://127.0.0.1:8080/mini?code=$CODE&screen=$2" ;;
@@ -166,9 +177,14 @@ wrap_url() { if (echo >/dev/tcp/127.0.0.1/8766) 2>/dev/null; then echo "$1"; els
 
 BROWSER="${CC_BROWSER:-$(command -v chromium || command -v chromium-browser)}"
 FLAGS=(--kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --no-first-run --disable-translate
-       --disable-features=Translate,TouchpadOverscrollHistoryNavigation --overscroll-history-navigation=0 --disable-pinch
+       --disable-features=Translate,TouchpadOverscrollHistoryNavigation,MediaRouter,DialMediaRouteProvider,OptimizationHints,AutofillServerCommunication,CertificateTransparencyComponentUpdater
+       --overscroll-history-navigation=0 --disable-pinch
        --autoplay-policy=no-user-gesture-required --use-fake-ui-for-media-stream --password-store=basic --check-for-update-interval=31536000
-       --enable-features=OverlayScrollbar --touch-events=enabled ${CC_BROWSER_FLAGS:-})
+       --enable-features=OverlayScrollbar --touch-events=enabled
+       # quicker start, nothing else using the CPU / Wi-Fi meanwhile: none of Chromium's own downloads, sync, crash reports, cast
+       --disable-component-update --disable-background-networking --disable-sync --disable-default-apps --no-default-browser-check
+       --disable-breakpad --disable-domain-reliability --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages
+       ${CC_BROWSER_FLAGS:-})
 clean_profile() { sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' "$1/Default/Preferences" 2>/dev/null; }
 clean_profile "$PROFILE"; clean_profile "$PROFILE2"
 
@@ -206,6 +222,7 @@ place_window() {   # move / resize a running window onto its screen (no restart,
 }
 
 layout
+[ -z "$AUDIO_PID" ] || wait "$AUDIO_PID"
 start_window 1
 if [ -n "$SEC" ]; then sleep 2; start_window 2; fi
 # Chromium sometimes keeps its window a pixel short of the screen: once it is up, put it exactly in place
