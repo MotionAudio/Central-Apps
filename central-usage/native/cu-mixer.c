@@ -220,7 +220,7 @@ static struct {
   int active; uint64_t gap;              /* the audio thread's own */
   int n, width, prog; RecTrack t[RECMAXT];
   float *ring, *tmp; uint8_t *conv; uint64_t cap; _Atomic uint64_t w, r, frames, dropped;
-  uint64_t lastHdr, wantSince; int clean; char dir[1024], err[200];
+  uint64_t lastHdr, lastFlush, wantSince; int clean; char dir[1024], err[200];
 } REC;
 static void pan_gains(float g, float pan, float *L, float *R) { double a = (pan + 1) * M_PI / 4; *L = (float)(g * cos(a) * M_SQRT2); *R = (float)(g * sin(a) * M_SQRT2); if (*L > g) *L = g; if (*R > g) *R = g; }
 
@@ -815,6 +815,7 @@ static void *rec_writer(void *arg) {
     int closed = atomic_load(&REC.closed), want = atomic_load(&REC.want);
     if (closed || (!want && pl_now_ns() - REC.wantSince > 1500000000ull)) { rec_drain(); rec_finish(closed); continue; }   /* (no audio thread any more: finish anyway) */
     uint64_t now = pl_now_ns(); if (now - REC.lastHdr > 5000000000ull) { rec_headers(); REC.lastHdr = now; }
+    else if (now - REC.lastFlush > 500000000ull) { for (int k = 0; k < REC.n; k++) if (REC.t[k].f) fflush(REC.t[k].f); REC.lastFlush = now; }   /* a crash loses half a second at most */
     pl_sleep_ms(10);
   }
   return NULL;

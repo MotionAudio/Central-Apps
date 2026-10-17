@@ -191,6 +191,8 @@
   async function hubList() { try { var r = await fetch(CU.api("/hub"), { cache: "no-store" }); if (r.ok) { hub.list = (await r.json()).songs || []; renderSongsSoon(); } } catch (_) { } }
   async function hubSong(id, force) {
     if (!id) return null; if (hub.detail[id] && !force) return hub.detail[id]; if (hub.loading[id]) return hub.loading[id];
+    // only songs the Central Pedal has shared (asking for any other one is a 404)
+    if (!hub.list.some(function (q) { return q.id === id; })) { if (!hubSong.listAt || performance.now() - hubSong.listAt > 3000) { hubSong.listAt = performance.now(); await hubList(); } if (!hub.list.some(function (q) { return q.id === id; })) return null; }
     hub.loading[id] = fetch(CU.api("/hub/" + encodeURIComponent(id)), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (j) { delete hub.loading[id]; if (j) hub.detail[id] = j; return j; });
     return hub.loading[id];
   }

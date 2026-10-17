@@ -74,7 +74,7 @@
           '<td class="dv-health"><b class="dv-g ' + g[0] + '">' + g[1] + "</b> " + healthText(d.online ? d.health : null) + "</td>" +
           '<td class="muted small">' + (d.online ? "now" : ago(d.lastSeen)) + "</td>" +
           '<td class="dv-acts"><button data-dv="apply" data-id="' + esc(d.id) + '">Change role</button><button data-dv="' + (d.locked ? "unlock" : "lock") + '" data-id="' + esc(d.id) + '">' + (d.locked ? "Unlock" : "Lock") + '</button><button data-dv="rename" data-id="' + esc(d.id) + '">Rename</button><button class="danger" data-dv="remove" data-id="' + esc(d.id) + '">Remove</button></td></tr>';
-      }).join("") : '<tr><td colspan="6" class="muted">No other devices yet. On each one choose Admin, User 1 or User 2 and type the pairing PIN <b>' + esc(v.pairPin || "") + "</b>.</td></tr>") + "</tbody></table>";
+      }).join("") : '<tr><td colspan="6" class="muted">No other devices yet. On each one choose Admin, User 1 or User 2 and type the pairing PIN <b>' + esc(v.pairPin || ((R() && R().keys()) || {}).pair || "") + "</b>.</td></tr>") + "</tbody></table>";
     h += '<p class="muted small">Connection: good / fair / poor from the round trip to the pedal, the in-ear buffer, the CPU and the battery. Lock keeps the I/O tab, settings and set-up pages closed on that device during the service (it can still do its job). Each person can also lock their own device (🔓 at the top).</p></div>';
     root.innerHTML = h;
   }

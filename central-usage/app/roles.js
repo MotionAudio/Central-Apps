@@ -43,6 +43,7 @@
   // ------------------------------------------------------------- talking to the Central Pedal
   function hello() {
     var r = CU.role(); if (!r || !CU.state.connected) return;
+    var mp = document.getElementById("modePick"); if (r === "main" && ((mp && mp.dataset.keep === "1" && !mp.dataset.ready) || CU.store.get("mainSetupPending", false))) return;   // the main admin's setup: not before its PINs are picked
     var m = { type: "cuRole", action: "hello", id: devId(), name: name(), role: r };
     if (r === "main") { var k = keys() || {}; m.token = k.token; m.pin = k.pin; m.pair = k.pair; if (CU.prefs.code) m.code = CU.prefs.code; }
     CU.send(m);
@@ -154,7 +155,7 @@
       var b = e.target.closest("[data-rp]"); if (!b || b.tagName === "INPUT") return; e.preventDefault();
       var a = b.dataset.rp;
       if (a === "main") {
-        want = "main"; await saveName(); step("io");
+        want = "main"; await saveName(); d.dataset.keep = "1"; CU.store.set("mainSetupPending", true); await CU.setRole("main"); step("io");   // (main now, so the inputs and outputs can be set; it pairs once the PINs are picked)
         if (window.CUIO && window.CUIO.mountSetup) window.CUIO.mountSetup($("#rpIo", d)); else $("#rpIo", d).innerHTML = '<p class="muted">Set the audio interface later on the I/O tab.</p>';
       } else if (a === "admin" || a === "user1" || a === "user2") {
         want = a; await saveName(); step("join");
@@ -163,7 +164,7 @@
       } else if (a === "ioNext" || a === "ioSkip") {
         if (a === "ioSkip" && NAT && NAT.config) { var c0 = CU.config() || {}; if (c0.host && c0.host.enabled) CU.setConfig(await NAT.config.set({ host: { enabled: false } })); }
         step("pins"); $('[data-rp="pair"]', d).focus();
-      } else if (a === "back") { want = null; step(1); }
+      } else if (a === "back") { if (want === "main" && !d.dataset.ready) { delete d.dataset.keep; CU.store.set("mainSetupPending", false); await CU.setRole(null); document.body.appendChild(d); } want = null; step(1); }
       else if (a === "later") { await saveName(); await CU.setRole("user1"); d.remove(); }
       else if (a === "close") d.remove();
       else if (a === "pinsGo") {
@@ -171,7 +172,7 @@
         if (!four(pair)) return msg("The pairing PIN is 4 digits.");
         if (!four(pin)) return msg("The role PIN is 4 digits.");
         if (pin === pair) return msg("Use two different PINs: the pairing PIN is shared with everyone, the role PIN is only yours.");
-        d.dataset.keep = "1"; await CU.setRole("main");
+        d.dataset.keep = "1"; d.dataset.ready = "1"; CU.store.set("mainSetupPending", false); if (CU.role() !== "main") await CU.setRole("main");
         await setKeys({ newPair: pair, newPin: pin });
         CU.prefs.code = pair; CU.store.set("code", pair);
         if (await connectFirst()) {
@@ -304,7 +305,7 @@
     await CU.setRole(b.dataset.chip); chip();
   });
   CU.on("role", function () { chip(); hello(); });
-  CU.on("ready", function () { if (!CU.role()) firstLaunch(); chip(); });
+  CU.on("ready", function () { if (CU.role() === "main" && CU.store.get("mainSetupPending", false)) { CU.store.set("mainSetupPending", false); CU.setRole(null); return; } if (!CU.role()) firstLaunch(); chip(); });   // a main admin setup left half-way starts again
 
   window.CURoles = { firstLaunch: firstLaunch, card: card, jobText: jobText, toast: toast, devId: devId, view: function () { return view; }, onSettingsChange: onSettingsChange, onSettingsClick: onSettingsClick, request: request, keys: keys, hello: hello };
   if (!CU.role()) firstLaunch();

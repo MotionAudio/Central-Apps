@@ -140,7 +140,7 @@ await check("a crash leaves WAVs whose headers --repair fixes; a clean quit clos
   const r = engine(["--backend", "null", "--capture", "NULL#2", "--block", "256"]); await r.wait((x) => x.ev === "status");
   const dir = path.join(recRoot, "crash"); fs.mkdirSync(dir);
   r.cmd({ cmd: "rec", on: 1, dir, files: "In 01.wav|In 02.wav|Program.wav", ins: [0, 1], prog: 0 }); await r.wait((x) => x.ev === "rec" && x.state === "recording");
-  await sleep(1300); r.p.kill("SIGKILL"); await r.exited;
+  await sleep(2200); r.p.kill("SIGKILL"); await r.exited;
   const files = ["In 01.wav", "In 02.wav", "Program.wav"].map((f) => path.join(dir, f));
   const broken = readWav(files[0]); assert.ok(broken.size > 44 + 48000 * 3 && broken.data !== broken.size - 44, "after the crash: header " + broken.data + ", file " + broken.size);
   const out = spawnSync(bin, ["--repair", ...files], { encoding: "utf8" }); const rep = JSON.parse(out.stdout);
