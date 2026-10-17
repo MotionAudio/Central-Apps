@@ -743,6 +743,20 @@ await check("tuner: only on the Instrument tab - a footswitch brings that tab up
   await T(() => PPShell.showTab("instrument")); await wait(300);
   assert.equal(await T(() => document.querySelectorAll("#inTunerBtn").length), 1);
 });
+await check("pedal jobs: as a foot controller its buttons go to the track player; as an instrument rig the song buttons do nothing here; the instrument always stays local", async () => {
+  await T(() => { window.__fw = []; const orig = PPFeatures.sendToDriver; window.__origSend = orig; PPFeatures.sendToDriver = (m) => { if (m.type === "forwardAction") { window.__fw.push(m); return true; } return orig(m); }; PPPedalJob.set("controller"); });
+  assert.ok(await T(() => !!document.querySelector("#pedalJobBar") && /Foot controller/.test(document.querySelector("#pedalJobBar").textContent)));
+  const sec = await T(() => PPTracks.state.section);
+  await T(() => { PPActions.run("nextSection"); PPActions.run("tracksLevel", {}, { value: 0.3 }); });
+  assert.deepEqual(await T(() => window.__fw.map((m) => [m.name, m.value])), [["nextSection", undefined], ["tracksLevel", 0.3]]);
+  assert.equal(await T(() => PPTracks.state.section), sec, "nothing moved here");
+  await T(() => { window.__fw = []; PPActions.run("boardNext"); }); assert.equal(await T(() => window.__fw.length), 0, "instrument actions stay on this pedal");
+  await T(() => PPPedalJob.set("instrument")); await T(() => PPActions.run("playAll")); await wait(200);
+  assert.equal(await T(() => PPTracks.isPlaying() || window.__fw.length > 0), false);
+  assert.ok(await T(() => /Instrument rig/.test(document.querySelector("#pedalJobBar").textContent)));
+  await T(() => { PPPedalJob.set("player"); PPFeatures.sendToDriver = window.__origSend; });
+  assert.ok(await T(() => !document.querySelector("#pedalJobBar")));
+});
 await check("no page errors during the whole run", () => assert.deepEqual(errors.filter((e) => !/favicon/.test(e)), []));
 
 await browser.close();

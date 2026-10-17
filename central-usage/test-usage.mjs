@@ -3,7 +3,11 @@ import { chromium } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url"; const here = path.dirname(fileURLToPath(import.meta.url));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pp-cu-")); fs.mkdirSync(path.join(tmp, "media"), { recursive: true }); fs.writeFileSync(path.join(tmp, "code-chosen"), "1"); // the pairing PIN counts as picked (its own test is in test-integration)
-const drv = spawn("python3", [path.join(here, "..", "pedal-driver.py"), "--simulate", tmp, "--app-root", path.join(here, "..")], { stdio: ["pipe", "pipe", "pipe"] });
+// the center (normally inside the main admin's Central Control): here on its own, at 127.0.0.1:8095
+const ctrDir = fs.mkdtempSync(path.join(os.tmpdir(), "pp-center-"));
+const ctr = spawn(process.execPath, [path.join(here, "center.js"), "--port", "8095", "--data", ctrDir, "--no-beacon"], { stdio: ["ignore", "pipe", "pipe"] });
+let ctrLog = ""; ctr.stdout.on("data", (b) => { ctrLog += b; }); ctr.stderr.on("data", (b) => { ctrLog += b; });
+const drv = spawn("python3", [path.join(here, "..", "pedal-driver.py"), "--simulate", tmp, "--app-root", path.join(here, "..")], { stdio: ["pipe", "pipe", "pipe"], env: Object.assign({}, process.env, { CC_CENTER: "127.0.0.1:8095" }) });
 let log = ""; drv.stderr.on("data", (b) => { log += b; }); drv.stdout.on("data", (b) => { log += b; });
 await new Promise((r) => { const t = setInterval(() => { if (log.includes("USB/SD browser on")) { clearInterval(t); r(); } }, 100); setTimeout(r, 8000); });
 let code = null;
@@ -240,24 +244,22 @@ await check("parts on the chart tab: pick Bass / Keys / Drums / Trumpet and the 
 async function cuPage(label) {
   const c = await b.newContext({ viewport: { width: 1280, height: 800 } }); const p = await c.newPage();
   p.on("pageerror", (e) => errs.push(label + ":" + e)); p.on("console", (m) => { if (m.type() === "error" && !/favicon|NAME_NOT_RESOLVED|ERR_CONNECTION_REFUSED|padpedal\.local/.test(m.text())) errs.push(label + "-console:" + m.text()); });
+  await p.addInitScript(() => { if (!localStorage.getItem("cu-centerHost")) localStorage.setItem("cu-centerHost", JSON.stringify("127.0.0.1:8095")); });   // (the app finds the main admin by itself; a plain browser page is told)
   await p.goto("file://" + path.join(here, "app", "index.html")); await p.waitForFunction(() => window.CentralUsage && window.CURoles);
   return p;
 }
 const tabsShown = (p) => p.evaluate(() => Array.from(document.querySelectorAll("#tabs [data-tab]")).filter((x) => !x.hidden).map((x) => x.dataset.tab).join(","));
 let mainP, userP, keys;
-await check("first launch: Main admin / Admin / User 1 / User 2; the main admin's setup asks inputs & outputs, the pairing PIN (the pedal's) and its own role PIN", async () => {
+await check("first launch: Main admin / Admin / User 1 / User 2; the main admin's setup asks inputs & outputs, the pairing PIN and its own role PIN - no Central Pedal needed", async () => {
   mainP = await cuPage("main");
   for (const r of ["main", "admin", "user1", "user2"]) assert.ok(await mainP.isVisible(`#modePick [data-rp='${r}']`), r);
-  await mainP.evaluate(() => CentralUsage.connect("127.0.0.1"));
-  await mainP.waitForFunction(() => CentralUsage.state.connected, null, { timeout: 6000 });
   await mainP.fill("#modePick [data-rp='name']", "Sound desk"); await mainP.click("#modePick [data-rp='main']");
   await mainP.waitForSelector("#modePick [data-step='io']:not([hidden])"); await mainP.click("#modePick [data-rp='ioNext']");
   await mainP.fill("#modePick [data-rp='pair']", "1111"); await mainP.fill("#modePick [data-rp='pin']", "1111"); await mainP.click("#modePick [data-rp='pinsGo']");
   assert.match(await mainP.textContent("#modePick .rp-msg"), /different/);
-  const wrong = code === "1234" ? "4321" : "1234";
-  await mainP.fill("#modePick [data-rp='pair']", wrong); await mainP.fill("#modePick [data-rp='pin']", "9876"); await mainP.click("#modePick [data-rp='pinsGo']");
-  await mainP.waitForFunction(() => /already has a pairing PIN/.test(document.querySelector("#modePick .rp-msg").textContent), null, { timeout: 8000 });
-  await mainP.fill("#modePick [data-rp='pair']", code); await mainP.click("#modePick [data-rp='pinsGo']");
+  assert.equal(await mainP.evaluate(() => CentralUsage.state.connected), false, "not connected to the Central Pedal yet");
+  // the Central Pedal (its PIN is the one picked on it) pairs with the main admin by itself once the main admin uses the same PIN
+  await mainP.fill("#modePick [data-rp='pair']", code); await mainP.fill("#modePick [data-rp='pin']", "9876"); await mainP.click("#modePick [data-rp='pinsGo']");
   try { await mainP.waitForSelector("#modePick .rp-done:not([hidden]) .io-code", { timeout: 8000 }); }
   catch (e) { throw new Error("setup did not finish: " + await mainP.evaluate(() => JSON.stringify([document.querySelector("#modePick .rp-msg") && document.querySelector("#modePick .rp-msg").textContent, CentralUsage.role(), CURoles.keys(), CentralUsage.prefs.code, CURoles.view()]))); }
   keys = await mainP.evaluate(() => CURoles.keys());
@@ -266,14 +268,21 @@ await check("first launch: Main admin / Admin / User 1 / User 2; the main admin'
   await mainP.waitForFunction(() => CURoles.view() && CURoles.view().youAreMain, null, { timeout: 5000 });
   assert.equal(await tabsShown(mainP), "devices,service,lights,mix,inears,lyrics,slides,video,io,settings");
 });
+await check("the Central Pedal pairs with the main admin; the main admin is told where it is and connects to it (songs, charts, lyrics, tracks)", async () => {
+  try { await mainP.waitForFunction(() => CURoles.view() && CURoles.view().pedal && CURoles.view().pedal.online, null, { timeout: 15000 }); }
+  catch (e) { throw new Error("pedal not paired: " + log.split("\n").filter((l) => /center/.test(l)).slice(-5).join(" | ") + " " + ctrLog.slice(-300)); }
+  await mainP.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.authed, null, { timeout: 10000 });
+  await mainP.click('[data-tab="devices"]'); await mainP.waitForFunction(() => { const c = document.querySelector("#devicesRoot .dv-pedals"); return c && /Playing from/.test(c.textContent) && c.querySelector("select[data-dv-pjob]") && c.querySelector("select[data-dv-pjob]").value === "player"; }, null, { timeout: 6000 });
+});
 await check("another computer picks User 1 and pairs with the pairing PIN (wrong PIN refused)", async () => {
-  userP = await cuPage("user"); await userP.evaluate(() => CentralUsage.connect("127.0.0.1")); await userP.waitForFunction(() => CentralUsage.state.connected, null, { timeout: 6000 });
+  userP = await cuPage("user"); await userP.waitForFunction(() => window.CUCenter.connected(), null, { timeout: 6000 });
   await userP.fill("#modePick [data-rp='name']", "Keys"); await userP.click("#modePick [data-rp='user1']");
   await userP.fill("#modePick [data-rp='joinPin']", "0000"); await userP.click("#modePick [data-rp='go']");
   await userP.waitForFunction(() => /not right/.test(document.querySelector("#modePick .rp-msg").textContent), null, { timeout: 5000 });
   await userP.fill("#modePick [data-rp='joinPin']", keys.pair); await userP.click("#modePick [data-rp='go']");
   await userP.waitForFunction(() => CentralUsage.role() === "user1" && !document.getElementById("modePick"), null, { timeout: 6000 });
   assert.equal(await userP.evaluate(() => CentralUsage.prefs.code), code);
+  await userP.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.authed, null, { timeout: 10000 });   // found the Central Pedal through the main admin
   assert.equal(await tabsShown(userP), "chart,instrument,inears,lyrics,io,settings");
 });
 await check("the user flips to User 2 from the top bar: lyrics, chart, in-ears, settings", async () => {
@@ -306,7 +315,7 @@ await check("Devices tab: Change role moves it back to User 1", async () => {
   assert.equal(await tabsShown(userP), "chart,instrument,inears,lyrics,io,settings");
 });
 await check("a computer set up as Admin without the role PIN waits; the main admin allows it on the Devices tab", async () => {
-  const adminP = await cuPage("admin2"); await adminP.evaluate(() => CentralUsage.connect("127.0.0.1")); await adminP.waitForFunction(() => CentralUsage.state.connected, null, { timeout: 6000 });
+  const adminP = await cuPage("admin2"); await adminP.waitForFunction(() => window.CUCenter.connected(), null, { timeout: 6000 });
   await adminP.fill("#modePick [data-rp='name']", "Lights desk"); await adminP.click("#modePick [data-rp='admin']");
   await adminP.fill("#modePick [data-rp='joinPin']", keys.pair); await adminP.click("#modePick [data-rp='go']");
   await adminP.waitForFunction(() => CentralUsage.role() === "user1", null, { timeout: 6000 });
@@ -340,7 +349,8 @@ await check("Service tab: the main admin adds a service and starts it - the user
   await userP.waitForFunction(() => /▶ Welcome[\s\S]*Band: Song 1 in/.test(document.querySelector("#cdChip").textContent), null, { timeout: 6000 });
   await mainP.click("#serviceRoot [data-sv='next']");
   await userP.waitForFunction(() => /you're on/.test(document.querySelector("#cdChip").textContent), null, { timeout: 6000 });
-  const st = await (await fetch("http://127.0.0.1:8080/api/service")).json(); assert.equal(st.run.item, 1);
+  await new Promise((r) => setTimeout(r, 500));
+  const st = await (await fetch("http://127.0.0.1:8080/api/service")).json(); assert.equal(st.run && st.run.item, 1, "the Central Pedal's stage display follows the service");
   await mainP.evaluate(() => { window.confirm = () => true; }); await mainP.click("#serviceRoot [data-sv='stop']");
 });
 await check("Forget role on the main admin goes back to the first-launch choice", async () => {
@@ -367,5 +377,5 @@ await check("iPhone / iPad: Central Control opens from the Central Pedal (http:/
   await c.close();
 });
 await check("no page errors", () => assert.deepEqual(errs, []));
-await b.close(); drv.kill();
+await b.close(); drv.kill(); ctr.kill();
 console.log(failures ? "\n" + failures + " CHECK(S) FAILED" : "\nALL CENTRAL USAGE CHECKS PASSED"); process.exit(failures ? 1 : 0);

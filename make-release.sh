@@ -6,10 +6,10 @@
 #
 # What goes in a release (names matter - the updaters look for them):
 #   central-control-source.zip           the Raspberry Pi update (Settings → Software updates → Install)
-#   central-control-<v>-amd64.deb / -x86_64.AppImage   Central Control for a Linux PC
+#   central-control-<v>-amd64.deb / -x86_64.AppImage   Central Pedal for a Linux PC
 #   central-control-<v>-win-x64.exe                    ... for Windows
 #   central-control-<v>-mac-arm64.dmg / -mac-x64.dmg   ... for a Mac (Apple Silicon / Intel)
-#   central-usage-<v>-amd64.deb / -x86_64.AppImage / -win-x64.exe / -mac-arm64.dmg / -mac-x64.dmg   Central Usage
+#   central-usage-<v>-amd64.deb / -x86_64.AppImage / -win-x64.exe / -mac-arm64.dmg / -mac-x64.dmg   Central Control
 # (GitHub Actions builds the Windows and Mac installers - .github/workflows/build.yml - and puts them in the
 # dist folders before this runs; on a Linux PC this script packs whatever is there.)
 #   SHA256SUMS                           checked before anything is installed

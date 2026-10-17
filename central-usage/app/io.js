@@ -35,7 +35,7 @@
   }
   function hostCard() {
     var c = cfg(), admin = (CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main"), host = admin && c.host && c.host.enabled, srv = hs && hs.server || {};
-    if (!admin) return '<section class="card io-c"><h3>Audio host (in-ears)</h3><table class="io-t"><tr><td>Audio host</td><td>' + (X && X.hostAddress() ? "<b>" + esc(X.hostAddress()) + "</b>" : '<span class="muted">not found yet</span>') + '</td></tr><tr><td>Address</td><td><input data-io="hostAddr" value="' + esc(CU.store.get("hostAddr", "")) + '" placeholder="automatic (through the Central Pedal)"></td></tr><tr><td>In-ear code</td><td><input data-io="userCode" value="' + esc(CU.store.get("userCode", "")) + '" placeholder="from the sound desk" style="width:110px"></td></tr></table></section>';
+    if (!admin) return '<section class="card io-c"><h3>Audio host (in-ears)</h3><table class="io-t"><tr><td>Audio host</td><td>' + (X && X.hostAddress() ? "<b>" + esc(X.hostAddress()) + "</b>" : '<span class="muted">not found yet</span>') + '</td></tr><tr><td>Address</td><td><input data-io="hostAddr" value="' + esc(CU.store.get("hostAddr", "")) + '" placeholder="automatic (through the main admin)"></td></tr><tr><td>In-ear code</td><td><input data-io="userCode" value="' + esc(CU.store.get("userCode", "")) + '" placeholder="from the sound desk" style="width:110px"></td></tr></table></section>';
     return '<section class="card io-c"><h3>Audio host</h3><label class="toggle io-big"><input type="checkbox" data-io="host"' + (host ? " checked" : "") + (NAT && NAT.mixer ? "" : " disabled") + "> This computer is the audio host</label>" +
       '<p class="muted small">The audio host gets the tracks, runs the mixer and makes up to 64 stereo in-ear mixes (wired to transmitters and / or over the network). One per church; other admins mix from their own computer, users pick their mix.</p>' +
       (host ? '<table class="io-t"><tr><td>Server</td><td>' + (srv.running ? "port " + srv.port + " · " + (srv.addresses || []).map(esc).join(", ") : '<span class="warn">' + esc(srv.error || "starting…") + "</span>") + "</td></tr>" +
@@ -136,11 +136,12 @@
     var want = ifs.filter(function (i) { return i.kind === t; })[0], addr = t === "ethernet" || t === "wifi" ? (want ? want.address : CU.prefs.host) : "";   // (the Pi refuses with a clear message if that's the wrong connection)
     NAT.host.piTarget({ address: addr || "", code: CU.prefs.code || "" });
   }
-  // the audio host tells the Central Pedal where it is, so every other Central Control finds it
-  function registerHost() { var c = cfg(); if ((CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") && c.host && c.host.enabled && CU.state.connected && CU.prefs.code) CU.send({ type: "audioHost", action: "register", code: CU.prefs.code, port: c.host.port || 8092, name: c.name || "Central Control", userCode: c.host.userCode, adminCode: c.host.adminCode }); }   // the Central Pedal hands each computer the code for its role
+  // the audio host tells the main admin (and the Central Pedal, when there is one) where it is, so every other device finds it
+  function registerHost() { var c = cfg(); if ((CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") && c.host && c.host.enabled && (CU.state.connected || (window.CUCenter && window.CUCenter.connected()))) CU.send({ type: "audioHost", action: "register", code: CU.prefs.code, port: c.host.port || 8092, name: c.name || "Central Control", userCode: c.host.userCode, adminCode: c.host.adminCode }); }   // the Central Pedal hands each computer the code for its role
   CU.on("hello", function () { piTarget(); setTimeout(registerHost, 300); });
   CU.on("authed", function () { piTarget(); registerHost(); });
   CU.on("connected", function (on) { if (on) setTimeout(registerHost, 600); });
+  CU.on("center", function (on) { if (on) setTimeout(registerHost, 900); });
   var root = $("#ioRoot");
   async function onChange(e) {
     var t = e.target;

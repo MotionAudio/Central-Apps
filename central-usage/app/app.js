@@ -12,7 +12,8 @@
   // opened in a browser from the Central Pedal (http://<pi>:8080/cu/ - iPhone, iPad, any phone): users only, and it
   // talks to the Central Pedal it came from. The app (window.CU) has everything.
   var WEB = !window.CU && /^https?:$/.test(location.protocol);
-  if (WEB) { try { localStorage.setItem("cu-host", JSON.stringify(location.hostname)); } catch (_) { } document.documentElement.dataset.web = "1"; }
+  // (opened from the main admin's computer - :8095 - the Central Pedal's address comes from the center: center-link.js)
+  if (WEB) { if (!location.port || location.port === "8080") { try { localStorage.setItem("cu-host", JSON.stringify(location.hostname)); } catch (_) { } } document.documentElement.dataset.web = "1"; }
   var prefs = { host: store.get("host", "padpedal.local"), code: store.get("code", ""), instrument: store.get("instrument", "concert"), shapes: store.get("shapes", "auto"), nashville: store.get("nashville", false), chordsOnly: store.get("chordsOnly", false), fontSize: store.get("fontSize", 18), lyricsSize: store.get("lyricsSize", 44), lyricsNext: store.get("lyricsNext", true), midiOut: store.get("midiOut", ""), sendClock: store.get("sendClock", true), offsetMs: store.get("offsetMs", 0), follow: true, tab: store.get("tab", "chart") };
 
   // ------------------------------------------------------------- connection
@@ -84,9 +85,11 @@
   function open(host) {
     try { socket = new WebSocket("ws://" + host + ":" + state.wsPort); } catch (_) { retryTimer = setTimeout(function () { connect(); }, 3000); return; }
     socket.onopen = function () { state.connected = true; setConn("connected to " + (state.hostname || host), ""); send({ type: "client", app: "central-usage", mode: mode() || "user", role: role() || "user1", name: cuCfg.name || "Central Control" }); if (prefs.code) send({ type: "auth", code: prefs.code }); clearInterval(pingTimer); pingTimer = setInterval(ping, 2000); ping(); fire("connected", true); };
-    socket.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (_) { return; } onMessage(m); };
+    socket.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (_) { return; } if (window.CUCenter && (FROM_CENTER_ONLY[m.type] || (m.type === "audioHost" && CUCenter.connected()))) return; if (m.type === "hello" && window.CUCenter && CUCenter.connected()) m.audioHost = state.audioHost; onMessage(m); };
     socket.onclose = function () { state.connected = false; state.authed = false; setConn("lost " + host + " - retrying", "off"); clearInterval(pingTimer); retryTimer = setTimeout(function () { connect(); }, 2500); fire("connected", false); };
   }
+  // roles, devices, locks and services belong to the center (the main admin): an older Central Pedal's own copy is ignored
+  var FROM_CENTER_ONLY = { cuRoles: 1, cuRoleReply: 1, cuRoleAssigned: 1, services: 1, serviceReply: 1, pairCodeChanged: 1 };
   function send(m) { if (socket && socket.readyState === 1) { socket.send(JSON.stringify(m)); return true; } return false; }
   // Only the Central Pedal plays, stops and moves the tracks: from here only the lyrics can be paged
   function action(name, args) { if (["lyricsNext", "lyricsPrev"].indexOf(name) < 0) return; if (!state.authed && !prefs.code) { askCode(); if (!prefs.code) return; } send({ type: "action", name: name, args: args || {}, code: prefs.code }); }

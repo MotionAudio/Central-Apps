@@ -160,7 +160,7 @@ async def main():
     config = driver_mod.load_config(None)
     config.update({"ws_port": 18765, "http_port": 18766, "lan_port": 18080, "lan_ws_port": 18081, "debounce_s": None, "hold_s": 0.25,
                    "analog_smoothing": 1.0, "media_roots": [media_root], "midi": False, "link": False, "pco_base": "http://127.0.0.1:18099", "update_api": "http://127.0.0.1:18098",
-                   "app_root": app_root, "data_root": os.path.join(root, "data"), "tft_overlay": "none",
+                   "app_root": app_root, "data_root": os.path.join(root, "data"), "tft_overlay": "none", "center": False,
                    "leds": [{"id": "led1", "gpio": 20, "follows": "b1"}]})
     config["mini_screen"]["fb"] = os.path.join(root, "fb1")
     with open(config["mini_screen"]["fb"], "wb") as handle:
@@ -824,6 +824,47 @@ async def main():
         check("an IR .wav from the stick is copied into /data/pad-pedal/sounds/ir for the IR loader", status == 200 and os.path.exists(json.loads(body).get("file", "")), body[:200])
         status, body = jpost("/instrument/ir", {"path": "/etc/passwd"})
         check("...and nothing outside the USB / SD folders can be taken", status == 403, body[:200])
+
+        print("\nWhat this Central Pedal does (the main admin gives it a job):")
+        link = driver.center_link
+        check("on its own (not paired with a main admin) it plays the tracks", hello.get("pedalJob") == "player" and link.job_now() == "player", hello.get("pedalJob"))
+        got_actions, player_conns = [], []
+
+        async def fake_player(conn, *_):
+            player_conns.append(conn)
+            async for raw in conn:
+                m = json.loads(raw)
+                if m.get("type") == "action":
+                    got_actions.append(m)
+        player_srv = await websockets.serve(fake_player, "127.0.0.1", 18181)
+        stage = {"name": "Stage pedal", "address": "127.0.0.1", "wsPort": 18181, "online": True}
+        link.on_role({"type": "pedalRole", "job": "controller", "player": stage, "peers": []})
+        h = await next_message(lambda m: m["type"] == "hello" and m.get("pedalJob") == "controller", 3.0)
+        check("the main admin makes it a foot controller: the app hears it (hello pedalJob controller)", h is not None and h["center"]["player"]["name"] == "Stage pedal", h and h.get("center"))
+        for _ in range(40):
+            if link.remote is not None and player_conns:
+                break
+            await asyncio.sleep(0.1)
+        check("...it connects to the track player", link.remote is not None and len(player_conns) == 1)
+        await player_conns[0].send(json.dumps({"type": "display", "song": {"name": "Way Maker", "index": 1, "count": 5}, "section": {"name": "Chorus"}, "next": {"name": "Bridge"}, "playing": True, "bpm": 68}))
+        pdm = await next_message(lambda m: m["type"] == "playerDisplay", 3.0)
+        check("...and shows what the player is doing (song, section, next)", pdm and pdm["song"] == "Way Maker" and pdm["section"] == "Chorus" and pdm["next"] == "Bridge" and pdm["playing"], pdm)
+        await send({"type": "forwardAction", "name": "nextSection", "args": {}})
+        await send({"type": "forwardAction", "name": "tracksLevel", "args": {}, "value": 0.4})
+        for _ in range(30):
+            if len(got_actions) >= 2:
+                break
+            await asyncio.sleep(0.1)
+        check("its buttons drive the track player (with the pairing PIN), knob values too",
+              len(got_actions) >= 2 and got_actions[0]["name"] == "nextSection" and got_actions[0]["code"] == driver.code and got_actions[1].get("value") == 0.4, got_actions)
+        link.on_role({"type": "pedalRole", "job": "instrument", "player": stage, "peers": []})
+        h = await next_message(lambda m: m["type"] == "hello" and m.get("pedalJob") == "instrument", 3.0)
+        check("instrument rig: the app hears it, and the link to the player is closed", h is not None and link.remote_key == "")
+        link.on_role({"type": "pedalRole", "job": "player", "player": None, "peers": []})
+        h = await next_message(lambda m: m["type"] == "hello" and m.get("pedalJob") == "player", 3.0)
+        check("track player again", h is not None)
+        link.paired = False
+        player_srv.close()
 
         print("\nSystem:")
         await send({"type": "system", "action": "status"})

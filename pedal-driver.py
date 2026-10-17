@@ -85,7 +85,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.2.0"
+APP_VERSION = "8.3.0"
 CONFIG_CANDIDATES = ["/data/pad-pedal/hardware.json", "/etc/pad-pedal/hardware.json"]
 SYSTEM_SCRIPT = "/usr/local/sbin/pad-pedal-system"
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".oga", ".m4a", ".aac", ".aif", ".aiff", ".opus")
@@ -1467,7 +1467,7 @@ class CompanionServer:
                     return self.send_json(200, driver.service_plan.state())
                 if p == "/api/info":
                     return self.send_json(200, {"hostname": socket.gethostname(), "wsPort": driver.config["lan_ws_port"], "version": VERSION, "appVersion": APP_VERSION, "addresses": ip_addresses(),
-                                                "interfaces": ip_interfaces(), "netAudio": {"mode": driver.netaudio.cfg["mode"]}, "audioHost": driver.public_audio_host()})
+                                                "interfaces": ip_interfaces(), "netAudio": {"mode": driver.netaudio.cfg["mode"]}, "audioHost": driver.public_audio_host(), "center": driver.center_link.info() if driver.center_link.connected else None})
                 if p == "/api/hub":   # songs on the Central Pedal, for Central Control
                     return self.send_json(200, {"songs": driver.hub_listing()})
                 if p.startswith("/api/hub/"):
@@ -3382,10 +3382,33 @@ class ServicePlan:
                 self.driver.send_to(ws, st)
         self.driver.emit(st)
 
+    def mirror(self, m):
+        """The center (the main admin's Central Control) plans and runs the services; this Central Pedal keeps a copy
+        for its stage display, in its own clock."""
+        try:
+            offset = int(m.get("now") or 0) - int(time.time() * 1000)
+        except (TypeError, ValueError):
+            offset = 0
+        self.services = [self.clean(x) for x in (m.get("services") or [])][:self.MAX]
+        run = m.get("run") if isinstance(m.get("run"), dict) else None
+        if run:
+            run = dict(run)
+            for k in ("itemStart", "startedAt"):
+                try:
+                    run[k] = int(run.get(k) or 0) - offset
+                except (TypeError, ValueError):
+                    pass
+        self.run = run
+        self.mirrored = True
+        self.save()
+        self.broadcast()
+
     def handle(self, ws, m):
         action = m.get("action")
         if action == "get":
             return self.state()
+        if getattr(self, "mirrored", False) and self.driver.center_link and self.driver.center_link.paired:
+            return {"type": "serviceReply", "ok": False, "action": action, "error": "Services are planned on the main admin's computer now."}
         roles = self.driver.cu_roles
         if not roles.is_main(ws):
             return {"type": "serviceReply", "ok": False, "action": action, "error": "Only the main admin plans and runs services."}
@@ -3420,6 +3443,337 @@ class ServicePlan:
         self.save()
         self.broadcast()
         return {"type": "serviceReply", "ok": True, "action": action}
+
+
+CENTER_BEACON_PORT = 8097
+
+
+class CenterLink:
+    """Pairs this Central Pedal with the center - the MAIN ADMIN's Central Control - the same way every other device
+    does: with the pairing PIN. The center then tells every Central Control where this Central Pedal is (songs,
+    charts, lyrics and tracks come from here), shows its health on the main admin's Devices tab, and hands it the
+    services for the stage display. The center is found by its "here is the center" broadcast (UDP 8097) or at an
+    address set in /data/pad-pedal/center.json ({"address": "192.168.1.20", "port": 8095}) or CC_CENTER=host:port."""
+
+    def __init__(self, driver, path):
+        self.driver = driver
+        self.path = path
+        j = read_json(path, {})
+        self.id = re.sub(r"[^A-Za-z0-9_-]", "", str(j.get("id") or "")) or "pedal-" + secrets.token_hex(5)
+        self.address = str(j.get("address") or "").strip()
+        self.port = int(j.get("port") or 8095)
+        env = os.environ.get("CC_CENTER", "").strip()
+        if env:
+            host, _, port = env.partition(":")
+            self.address, self.port = host, int(port or 8095)
+        self.unpaired = bool(j.get("unpaired"))
+        self.heard = {}            # "host:port" -> {host, port, name, at}
+        self.ws = None
+        self.connected = False
+        self.paired = False
+        self.state = "searching"   # searching / connecting / paired / wrongPin / needPin / removed
+        self.error = ""
+        self.name = ""             # the main admin's name
+        self.target = None
+        self.job = str(j.get("job") or "player")   # player / controller / instrument / standby (the main admin picks it)
+        self.player = None         # the Central Pedal that plays (when it is not this one): {name, address, port, wsPort}
+        self.peers = []            # the other Central Pedals (their songs stay the same as ours)
+        self.linked = set()        # song-sync links made ("address:port")
+        self.remote = None         # controller: the socket to the player
+        self.remote_key = ""
+        self.player_display = None
+        self._save()
+
+    def _save(self):
+        write_json(self.path, {"id": self.id, "address": self.address if not os.environ.get("CC_CENTER") else "", "port": self.port, "unpaired": self.unpaired, "job": getattr(self, "job", "player")})
+
+    def info(self):
+        t = self.target or {}
+        p = self.player or {}
+        return {"state": self.state, "name": self.name, "address": t.get("host") if self.connected else None, "port": t.get("port") if self.connected else None,
+                "error": self.error, "configured": self.address or "", "job": self.job if self.paired else "player",
+                "player": {"name": p.get("name"), "address": p.get("address"), "online": bool(p.get("online"))} if p and self.paired else None,
+                "remote": bool(self.remote is not None)}
+
+    def job_now(self):
+        """What this Central Pedal does right now: on its own (not paired) it always plays."""
+        return self.job if self.paired else "player"
+
+    def set_state(self, state, error=""):
+        if state == self.state and error == self.error:
+            return
+        was = self.state
+        self.state, self.error = state, error
+        # the app hears about it when it matters (paired, a PIN problem, unpaired) - not every "looking / connecting"
+        quiet = ("searching", "connecting")
+        if self.driver.loop is not None and not (state in quiet and was in quiet):
+            self.driver.emit(self.driver.hello())
+
+    def listen(self):
+        """The center's broadcast every 2 s (in a thread)."""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if hasattr(socket, "SO_REUSEPORT"):
+                try:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                except OSError:
+                    pass
+            sock.bind(("", CENTER_BEACON_PORT))
+        except OSError as error:
+            log.info("center: cannot listen for the main admin on udp %s (%s)", CENTER_BEACON_PORT, error)
+            return
+        while True:
+            try:
+                data, addr = sock.recvfrom(2048)
+                j = json.loads(data.decode("utf-8", "replace"))
+                if j.get("app") == "central-control-center" and j.get("port"):
+                    self.heard["%s:%s" % (addr[0], j["port"])] = {"host": addr[0], "port": int(j["port"]), "name": str(j.get("name") or "")[:40], "at": time.time()}
+            except Exception:
+                time.sleep(0.5)
+
+    def pick(self):
+        if self.address:
+            return {"host": self.address, "port": self.port, "name": ""}
+        now = time.time()
+        fresh = [h for h in self.heard.values() if now - h["at"] < 8]
+        if not fresh:
+            self._loop_try = not getattr(self, "_loop_try", False)
+            return {"host": "127.0.0.1", "port": 8095, "name": "", "guess": True} if self._loop_try else None
+        fresh.sort(key=lambda h: (h["name"] != self.name, -h["at"]))
+        return fresh[0]
+
+    def hello_message(self, action="hello"):
+        d = self.driver
+        m = {"type": "cuRole", "action": action, "id": self.id, "role": "pedal", "name": socket.gethostname() or "Central Pedal", "code": d.code,
+             "pedal": {"addresses": ip_addresses(), "port": int(d.config["lan_port"]), "wsPort": int(d.config["lan_ws_port"]), "app": APP_VERSION}}
+        if action == "join":
+            m["pair"] = d.code
+        return m
+
+    def send(self, m):
+        ws, loop = self.ws, self.driver.loop
+        if ws is None or loop is None:
+            return
+        async def go():
+            try:
+                await ws.send(json.dumps(m))
+            except Exception:
+                pass
+        try:
+            in_loop = asyncio.get_running_loop() is loop
+        except RuntimeError:
+            in_loop = False
+        if in_loop:
+            asyncio.ensure_future(go())
+        else:
+            asyncio.run_coroutine_threadsafe(go(), loop)
+
+    def pin_changed(self):
+        """The person typed a (new) pairing PIN on this Central Pedal: pair again with it."""
+        self.unpaired = False
+        self._save()
+        if self.connected and not self.paired:
+            self.send(self.hello_message("join"))
+
+    async def loop(self):
+        import websockets
+        threading.Thread(target=self.listen, daemon=True).start()
+        while True:
+            target = self.pick()
+            if not target:
+                self.set_state("searching")
+                await asyncio.sleep(2)
+                continue
+            self.target = target
+            if not target.get("guess"):
+                self.set_state("connecting")
+            try:
+                ws = await asyncio.wait_for(websockets.connect("ws://%s:%s" % (target["host"], target["port"]), max_size=1 << 20), 5)
+            except Exception as error:
+                if not target.get("guess"):
+                    log.debug("center: %s:%s not reachable (%s)", target["host"], target["port"], error)
+                await asyncio.sleep(1 if target.get("guess") else 3)
+                continue
+            self.ws, self.connected = ws, True
+            health_task = asyncio.ensure_future(self.health_loop())
+            try:
+                await ws.send(json.dumps({"type": "auth", "code": self.driver.code}))
+                await ws.send(json.dumps(self.hello_message()))
+                async for raw in ws:
+                    try:
+                        m = json.loads(raw)
+                    except ValueError:
+                        continue
+                    self.on_message(m)
+            except Exception as error:
+                log.debug("center: link closed (%s)", error)
+            finally:
+                health_task.cancel()
+                self.ws, self.connected, self.paired = None, False, False
+                if self.state == "paired":
+                    self.set_state("connecting")
+                log.info("center: lost the main admin (%s:%s)", target["host"], target["port"])
+            await asyncio.sleep(2)
+
+    async def health_loop(self):
+        while True:
+            await asyncio.sleep(5)
+            if self.paired:
+                h = self.driver.pedal_health()
+                song = (self.driver.display or {}).get("song") or {}
+                if isinstance(song, dict) and song.get("name"):
+                    h["song"] = str(song.get("name"))[:50]
+                self.send({"type": "cuRole", "action": "health", "id": self.id, "health": h})
+
+    def on_role(self, m):
+        """The main admin says what this Central Pedal does, who plays, and which other pedals there are."""
+        job = m.get("job") if m.get("job") in ("player", "controller", "instrument", "standby") else "controller"
+        player = m.get("player") if isinstance(m.get("player"), dict) else None
+        peers = [p for p in (m.get("peers") or []) if isinstance(p, dict) and p.get("address")]
+        before = (self.job, (self.player or {}).get("address"), (self.player or {}).get("online"))
+        self.job, self.player, self.peers = job, player, peers
+        self.paired = True
+        if before != (self.job, (player or {}).get("address"), (player or {}).get("online")):
+            self._save()
+            log.info("center: this Central Pedal is now the %s%s", job, (" (player: %s)" % player.get("name")) if player else "")
+            self.driver.emit({"type": "pedalRole", "job": job, "player": player, "center": self.name})
+            self.driver.emit(self.driver.hello())
+        # songs: every pedal keeps the same library (linked once with the pairing PIN; the sync does the rest)
+        for p in peers:
+            key = "%s:%s" % (p["address"], p.get("port") or 8080)
+            if p.get("online") and key not in self.linked:
+                self.linked.add(key)
+                threading.Thread(target=self._link_songs, args=(p["address"], int(p.get("port") or 8080)), daemon=True).start()
+        self.follow_player()
+
+    def _link_songs(self, address, port):
+        try:
+            sync = self.driver.sync
+            if not any(q.get("address") == address and sync.group and q.get("group") == sync.group["id"] for q in sync.peers.values()):
+                sync.link(address, port, self.driver.code)
+                log.info("center: songs linked with %s:%s", address, port)
+        except Exception as error:
+            log.info("center: could not link songs with %s:%s (%s)", address, port, error)
+            self.linked.discard("%s:%s" % (address, port))
+
+    # ----- foot controller: this pedal's buttons drive the player
+    def follow_player(self):
+        p = self.player or {}
+        want = "%s:%s" % (p.get("address"), p.get("wsPort") or 8081) if self.job == "controller" and p.get("address") and p.get("online") else ""
+        if want == self.remote_key:
+            return
+        self.remote_key = want
+        old, self.remote = self.remote, None
+        if old is not None and self.driver.loop is not None:
+            asyncio.run_coroutine_threadsafe(old.close(), self.driver.loop) if not self._in_loop() else asyncio.ensure_future(old.close())
+        if want and self.driver.loop is not None:
+            coro = self.remote_loop(want)
+            asyncio.run_coroutine_threadsafe(coro, self.driver.loop) if not self._in_loop() else asyncio.ensure_future(coro)
+
+    def _in_loop(self):
+        try:
+            return asyncio.get_running_loop() is self.driver.loop
+        except RuntimeError:
+            return False
+
+    async def remote_loop(self, key):
+        import websockets
+        while self.remote_key == key:
+            try:
+                ws = await asyncio.wait_for(websockets.connect("ws://" + key, max_size=1 << 22), 5)
+            except Exception:
+                await asyncio.sleep(2)
+                continue
+            self.remote = ws
+            self.driver.emit(self.driver.hello())
+            try:
+                await ws.send(json.dumps({"type": "client", "app": "central-pedal", "mode": "controller", "name": socket.gethostname()}))
+                await ws.send(json.dumps({"type": "auth", "code": self.driver.code}))
+                async for raw in ws:
+                    if self.remote_key != key:
+                        break
+                    try:
+                        m = json.loads(raw)
+                    except ValueError:
+                        continue
+                    if m.get("type") == "display":   # what the player is doing, for this pedal's screen
+                        song = m.get("song") if isinstance(m.get("song"), dict) else {}
+                        sec = m.get("section") if isinstance(m.get("section"), dict) else {}
+                        nxt = m.get("next") if isinstance(m.get("next"), dict) else {}
+                        self.player_display = {"type": "playerDisplay", "song": str(song.get("name") or "")[:80], "section": str(sec.get("name") or "")[:40], "next": str(nxt.get("name") or "")[:40],
+                                               "playing": bool(m.get("playing")), "bpm": m.get("bpm"), "key": m.get("key"), "index": song.get("index"), "count": song.get("count")}
+                        self.driver.emit(self.player_display)
+            except Exception:
+                pass
+            finally:
+                if self.remote is ws:
+                    self.remote = None
+                    self.driver.emit(self.driver.hello())
+            await asyncio.sleep(1)
+
+    def forward(self, message):
+        """An action from this pedal's buttons, for the player (controller job)."""
+        ws = self.remote
+        if ws is None:
+            return False
+        out = {"type": "action", "name": str(message.get("name") or "")[:40], "args": message.get("args") or {}, "code": self.driver.code}
+        for k in ("value", "delta"):
+            if isinstance(message.get(k), (int, float)):
+                out[k] = message[k]
+        async def go():
+            try:
+                await ws.send(json.dumps(out))
+            except Exception:
+                pass
+        asyncio.ensure_future(go()) if self._in_loop() else asyncio.run_coroutine_threadsafe(go(), self.driver.loop)
+        return True
+
+    def on_message(self, m):
+        kind = m.get("type")
+        if kind == "cuRoleReply":
+            act = m.get("action")
+            if act == "hello" and m.get("needPair"):
+                if self.unpaired:
+                    self.set_state("removed", "The main admin unpaired this Central Pedal. Type the pairing PIN again to pair.")
+                elif not self.driver.code_chosen():
+                    self.set_state("needPin", "Type the main admin's pairing PIN.")
+                else:
+                    self.send(self.hello_message("join"))
+            elif act == "join":
+                if m.get("ok"):
+                    self.paired = True
+                    self.unpaired = False
+                    self._save()
+                    self.name = str(m.get("center") or self.name)[:40]
+                    self.set_state("paired")
+                    log.info("center: paired with the main admin %s", self.name)
+                else:
+                    self.set_state("wrongPin", str(m.get("error") or "The main admin did not accept the pairing PIN.")[:200])
+        elif kind == "cuRoles":
+            you = m.get("you") or {}
+            if you.get("role") == "pedal":
+                self.paired = True
+                self.name = str(m.get("centerName") or self.name)[:40]
+                self.set_state("paired")
+        elif kind == "services":
+            self.driver.service_plan.mirror(m)
+        elif kind == "pairReady":
+            if not self.paired and not self.unpaired and self.driver.code_chosen():
+                self.send(self.hello_message("join"))
+        elif kind == "pedalRole":
+            self.on_role(m)
+        elif kind == "pairCodeChanged":
+            code = str(m.get("code") or "")
+            if re.match(r"^\d{4}$", code) and code != self.driver.code:
+                self.driver.set_code(code, from_center=True)
+        elif kind == "cuRoleAssigned" and m.get("removed"):
+            self.player, self.peers = None, []
+            self.follow_player()
+            self.paired = False
+            self.unpaired = True
+            self._save()
+            self.set_state("removed", "The main admin unpaired this Central Pedal. Type the pairing PIN again to pair.")
 
 
 class NetAudio:
@@ -3684,6 +4038,7 @@ class PedalDriver:
         self.audio_host = None        # the Central Control computer that makes the in-ear mixes: {name, address, port, ws}
         self.cu_roles = CuRoles(self, os.path.join(data_root, "cu-roles.json"))
         self.service_plan = ServicePlan(self, os.path.join(data_root, "services.json"))
+        self.center_link = CenterLink(self, os.path.join(data_root, "center.json"))
         self.sync = SongSync(self)
         self.hub_dir = os.path.join(data_root, "hub")
         self.slides_dir = os.path.join(data_root, "slides")
@@ -3750,7 +4105,7 @@ class PedalDriver:
     def code_chosen(self):
         return os.path.exists(os.path.join(self.config["data_root"], "code-chosen"))
 
-    def set_code(self, pin):
+    def set_code(self, pin, from_center=False):
         """The person picks the 4-digit pairing PIN (asked the first time the Central Pedal starts; Settings can
         change it). It must differ from the main admin's PIN (that one changes roles in Central Control)."""
         pin = str(pin or "").strip()
@@ -3758,7 +4113,7 @@ class PedalDriver:
             return {"ok": False, "error": "The PIN is 4 digits."}
         roles = getattr(self, "cu_roles", None)
         main = roles.main if roles else None
-        if main and main.get("pinHash") and _salted(pin, main.get("pinSalt", "")) == main["pinHash"]:
+        if not from_center and main and main.get("pinHash") and _salted(pin, main.get("pinSalt", "")) == main["pinHash"]:
             return {"ok": False, "error": "Use a different PIN from the main admin's PIN (that one is for changing roles)."}
         root = self.config["data_root"]
         try:
@@ -3776,6 +4131,9 @@ class PedalDriver:
             for ws, info in list(self.lan_clients.items()):
                 if info.get("auth"):
                     self.send_to(ws, {"type": "pairCodeChanged", "code": pin})
+        link = getattr(self, "center_link", None)
+        if link and not from_center:
+            link.pin_changed()          # pair with the main admin using it
         if self.loop is not None:
             self.emit(self.hello())     # the pedal's own screen (its pairing question closes when the main admin set the PIN)
         return {"ok": True, "code": pin, "changed": changed}
@@ -3798,6 +4156,8 @@ class PedalDriver:
             "interfaces": ip_interfaces(),
             "code": self.code,
             "codeChosen": self.code_chosen(),
+            "center": self.center_link.info() if getattr(self, "center_link", None) else None,
+            "pedalJob": self.center_link.job_now() if getattr(self, "center_link", None) else "player",
             "hostname": socket.gethostname(),
             "midi": bool(self.midi and self.midi.available),
             "midiOut": bool(self.midi and self.midi.available and self.midi.want_out),
@@ -3898,7 +4258,12 @@ class PedalDriver:
                         await ws.send(json.dumps({"type": "refused", "action": message.get("name"), "error": "Only the Central Pedal plays, stops and skips the tracks."}))
                     else:
                         source = "central-usage" if self.lan_clients[ws].get("app") == "central-usage" else "companion"
-                        self.emit({"type": "action", "name": message.get("name"), "args": message.get("args") or {}, "from": source})
+                        source = "controller" if self.lan_clients[ws].get("app") == "central-pedal" else source
+                        act = {"type": "action", "name": message.get("name"), "args": message.get("args") or {}, "from": source}
+                        for k in ("value", "delta"):
+                            if isinstance(message.get(k), (int, float)):
+                                act[k] = message[k]
+                        self.emit(act)
                 elif kind == "ping":  # clock sync: the client's t comes back with the Pi's clock
                     await ws.send(json.dumps({"type": "pong", "t": message.get("t"), "serverT": int(time.monotonic() * 1000), "clock": getattr(self, "lan_clock", None)}))
                 elif kind == "client":   # who is this: {app: "central-usage", mode: admin / user, name}
@@ -4032,6 +4397,9 @@ class PedalDriver:
             if result.get("ok"):
                 log.info("pairing PIN set by the user")
                 self.emit(self.hello())
+        elif kind == "forwardAction":   # a foot controller's button, for the Central Pedal that plays
+            if not self.center_link.forward(message):
+                self.send_to(ws, {"type": "forwardFailed", "name": message.get("name"), "error": "Not connected to the Central Pedal that plays."})
         elif kind == "touchSelect":
             # what a touch-select knob holds right now (shown on the 3.5" screen)
             self.touch_select = {k: message.get(k) for k in ("knob", "label", "value", "pickup")} if message.get("label") else None
@@ -4854,6 +5222,11 @@ class PedalDriver:
         except Exception as error:
             log.warning("companion websocket could not start (%s)", error)
         tasks.append(asyncio.create_task(self.analog_loop()))
+        if self.config.get("center", True):
+            pin = os.environ.get("CC_PAIR_PIN", "").strip()   # opened from the main admin's Central Control: its pairing PIN
+            if re.match(r"^\d{4}$", pin) and (pin != self.code or not self.code_chosen()):
+                self.set_code(pin, from_center=True)
+            tasks.append(asyncio.create_task(self.center_link.loop()))   # pair with the main admin (the center)
         stop_event = stop_event or asyncio.Event()
         await stop_event.wait()
         for task in tasks:

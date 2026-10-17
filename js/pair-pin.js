@@ -1,5 +1,7 @@
-/* Central Pedal - the pairing PIN: 4 digits the person picks the first time the Central Pedal starts.
- * Every other device (Central Control, phones, the remote, other Central Pedals) pairs with it.
+/* Central Pedal - the pairing PIN: the main admin's 4 digits, typed the first time the Central Pedal starts.
+ * The main admin's Central Control is the center: every device pairs with it, this Central Pedal too (driver: CenterLink).
+ * Once paired, every Central Control is told where the Central Pedal is (songs, charts, lyrics, tracks) and connects
+ * to it with the same PIN.
  * It is not the main admin's PIN - that one (in Central Control) is for changing roles, and the two must differ.
  * Settings → Wi-Fi & devices can change it (devices already paired are asked for the new one). */
 (function () {
@@ -9,9 +11,9 @@
   function $(s, r) { return (r || document).querySelector(s); }
   function bridge() { return window.__pedalBridge; }
   function connected() { return !!(bridge() && bridge().connected); }
-  var info = null, waiting = null;
+  var info = null, waiting = null, shownErr = "";
 
-  function dialog(first) {
+  function dialog(first, err) {
     var d = $("#pinDialog");
     if (!d) {
       d = document.createElement("dialog"); d.id = "pinDialog"; d.className = "pin-dialog";
@@ -33,8 +35,9 @@
       d.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); submit(); } });
     }
     d.dataset.first = first ? "1" : "0";
-    d.innerHTML = '<h2>' + (first ? "Pair this Central Pedal" : "Change the pairing PIN") + '</h2>' +
-      (first ? '<p class="muted">Type your <b>main admin\'s pairing PIN</b> - the 4 digits picked when the main admin was set up (main admin → Settings → This computer). Every device joins with it.</p><p class="muted small">No main admin yet? Pick the PIN here; set the main admin up with the same 4 digits. If the main admin is set up first on this network, this screen closes by itself.</p>'
+    d.innerHTML = '<h2>' + (first ? "Pair this Central Pedal" : err ? "Pair with the main admin" : "Change the pairing PIN") + '</h2>' +
+      (first ? '<p class="muted">Type your <b>main admin\'s pairing PIN</b> - the 4 digits picked when the main admin was set up (main admin → Settings → This computer). This Central Pedal pairs with the main admin\'s computer, and every device gets its songs, charts, lyrics and tracks.</p><p class="muted small">No main admin yet? Pick the PIN here and set the main admin up with the same 4 digits.</p>'
+        : err ? '<p class="muted">' + esc(err) + '</p><p class="muted small">The pairing PIN is in Central Control on the main admin\'s computer: Settings → This computer.</p>'
         : '<p class="muted">4 digits. Devices paired now and online switch over by themselves; the others ask for it. It is <b>not</b> the main admin\'s role PIN - pick a different one.</p>') +
       '<input id="pinValue" class="pin-value" inputmode="numeric" autocomplete="off" maxlength="4" aria-label="Pairing PIN"><div class="pin-dots" id="pinDots"></div>' +
       '<div class="pin-pad">' + ["1", "2", "3", "4", "5", "6", "7", "8", "9", "del", "0", "ok"].map(function (k) { return '<button data-pk="' + k + '" class="' + (k === "ok" ? "primary" : "") + '">' + (k === "del" ? "⌫" : k === "ok" ? "Save" : k) + "</button>"; }).join("") + "</div>" +
@@ -62,13 +65,21 @@
   });
   F.on("hello", function (m) {
     info = m; render();
+    var c = m.center || {};
+    // the main admin refused the PIN (or unpaired this Central Pedal): ask for the right one
+    if (m.codeChosen !== false && (c.state === "wrongPin" || c.state === "removed") && c.error !== shownErr) { shownErr = c.error; var dd = $("#pinDialog"); if (!dd || !dd.open) dialog(false, c.error); return; }
+    if (c.state === "paired") { shownErr = ""; var dp = $("#pinDialog"); if (dp && dp.open && dp.dataset.first !== "1" && dp.querySelector("h2") && /main admin/.test(dp.querySelector("h2").textContent)) dp.close(); }
     if (m.codeChosen === false) dialog(true);
     else { var d = $("#pinDialog"); if (d && d.open && d.dataset.first === "1") { d.dataset.first = "0"; d.close(); PP.setStatus("Paired: the main admin set the pairing PIN (" + m.code + ")"); } }
   });
   function render() {
     var sec = $("#pinSection"); if (!sec) return;
-    var code = info && info.code;
-    sec.innerHTML = '<h3>Pairing PIN</h3>' + (connected() && code ? '<p>Devices pair with this Central Pedal using <b class="code">' + esc(code) + '</b>.</p><p class="muted">Different from the main admin\'s PIN in Central Control (that one changes roles).</p><button id="pinChange">Change the PIN…</button>' : '<p class="muted">Set on the Central Pedal itself.</p>');
+    var code = info && info.code, c = (info && info.center) || {};
+    var st = { paired: "✓ paired with the main admin" + (c.name ? " <b>" + esc(c.name) + "</b>" : "") + (c.address ? " (" + esc(c.address) + ")" : ""), connecting: "connecting to the main admin…", searching: "looking for the main admin's computer on this network…", wrongPin: "⚠ " + esc(c.error || "the main admin did not accept the PIN"), needPin: "type the main admin's pairing PIN", removed: "⚠ " + esc(c.error || "unpaired by the main admin") }[c.state] || "";
+    sec.innerHTML = '<h3>Pairing PIN</h3>' + (connected() && code ? '<p>Pairing PIN <b class="code">' + esc(code) + '</b>' + (c.state === "paired" ? ' <span class="muted small">(set on the main admin - it changes here by itself)</span>' : "") + '</p>' +
+      (st ? '<p class="small">Main admin: ' + st + "</p>" : "") +
+      (window.PPPedalJob ? window.PPPedalJob.section() : "") +
+      '<p class="muted">Different from the main admin\'s role PIN in Central Control (that one changes roles).</p><button id="pinChange">' + (c.state === "paired" ? "Type a different PIN…" : "Change the PIN…") + '</button>' : '<p class="muted">Set on the Central Pedal itself.</p>');
     var b = $("#pinChange"); if (b) b.addEventListener("click", function () { dialog(false); });
   }
   render();

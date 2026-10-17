@@ -42,13 +42,12 @@ carry on): Central Control is `Central Usage.app`, Central Pedal is `Central Con
 
 ## iPhone, iPad and Android phones / tablets
 
-Central Control runs in the browser, served by your Central Pedal - nothing to install from a store:
+Central Control runs in the browser, served by the main admin's computer (or by a Central Pedal) - nothing to install from a store:
 
-1. Join the same Wi-Fi as the Central Pedal.
-2. Open **http://padpedal.local:8080/cu/** in Safari (iPhone / iPad) or Chrome (Android).
-   If that name does not open, use the Central Pedal's address from its Settings, e.g. `http://192.168.1.40:8080/cu/`.
-3. Choose **Join** and type the pairing code from the main admin's Settings (before there is a main admin:
-   the Central Pedal's pairing PIN - the 4 digits you picked the first time it started; Settings → Wi-Fi & devices).
+1. Join the same Wi-Fi as the main admin's computer.
+2. Open **http://&lt;main admin's address&gt;:8095/cu/** in Safari (iPhone / iPad) or Chrome (Android) - the address is in
+   the main admin's Central Control → Settings → This computer. With a Central Pedal, **http://padpedal.local:8080/cu/** works too.
+3. Choose **User 1** or **User 2** and type the main admin's pairing PIN (main admin → Settings → This computer).
 4. iPhone / iPad: **Share → Add to Home Screen**. Android: **⋮ → Add to Home screen**. It now opens full screen like an app.
    (An App Store version is ready to switch on: IOS-APP-STORE.md.)
 
@@ -111,6 +110,17 @@ Download the `.AppImage` from the Releases page instead of the `.deb`, then righ
 **Properties → Permissions → Allow executing file as program**, and double-click it.
 
 ---
+
+## Setting up a team (8.3)
+
+1. **The main admin first** - Central Control on the sound desk computer: choose **Main admin**, its inputs and
+   outputs, a 4-digit **pairing PIN** and its own **role PIN**. That computer is the center: keep Central Control open
+   on it during the service.
+2. **Tracks, charts and lyrics:** on the main admin, Devices tab → **▶ Open the player on this computer** (the Central
+   Pedal app for PC / Mac, installed from the same download page) - or add a **Central Pedal**.
+3. **Every other computer, phone and tablet:** Admin, User 1 or User 2, and the pairing PIN.
+4. **Each Central Pedal:** type the main admin's pairing PIN on its screen. On the main admin's Devices tab pick what
+   it does: **Track player**, **Foot controller** or **Instrument rig**. Add as many as you like.
 
 ## The Raspberry Pi
 

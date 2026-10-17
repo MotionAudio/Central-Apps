@@ -25,7 +25,7 @@ const API = "http://127.0.0.1:" + gh.address().port;
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-app-"));
 
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
-const app = await electron.launch({ executablePath: exe, args: [path.join(here, "main.js"), "--no-sandbox", "--user-data-dir=" + userData], env: Object.assign({}, process.env, { CC_UPDATE_API: API }) });
+const app = await electron.launch({ executablePath: exe, args: [path.join(here, "main.js"), "--no-sandbox", "--user-data-dir=" + userData], env: Object.assign({}, process.env, { CC_UPDATE_API: API, CU_CENTER_PORT: "18095", CU_NO_BEACON: "1" }) });
 const win = await app.firstWindow();
 await win.waitForFunction(() => window.CULights && window.CU && window.CU.remote);
 
@@ -67,6 +67,17 @@ await check("the updater only accepts a download whose checksum is in SHA256SUMS
 await check("fixture library: the QLC+ library scan answers (empty when QLC+ is not installed) and reading is limited to scanned files", async () => {
   const r = await win.evaluate(async () => { const list = await CU.fixtures.scan(); const bad = await CU.fixtures.read("/etc/passwd"); return { n: list.length, bad }; });
   assert.ok(r.n >= 0); assert.equal(r.bad, null);
+});
+await check("the main admin's computer is the center: it starts when this computer becomes the main admin (devices pair with it, phones open /cu/ from it) and stops when it is not", async () => {
+  const st = await win.evaluate(async () => { await CentralUsage.setRole("main"); for (let i = 0; i < 40; i++) { const s = await CU.center.status(); if (s.on && s.running) return s; await new Promise((r) => setTimeout(r, 100)); } return CU.center.status(); });
+  assert.ok(st.on && st.port === 18095, JSON.stringify(st));
+  const info = await (await fetch("http://127.0.0.1:18095/api/center")).json(); assert.equal(info.app, "central-control-center");
+  const page = await fetch("http://127.0.0.1:18095/cu/"); assert.equal(page.status, 200);
+  await win.waitForFunction(() => window.CUCenter && window.CUCenter.connected(), null, { timeout: 8000 });
+  const pl = await win.evaluate(() => CU.player.status()); assert.ok("path" in pl);
+  const off = await win.evaluate(async () => { await CentralUsage.setRole("user1"); await new Promise((r) => setTimeout(r, 400)); return CU.center.status(); });
+  assert.equal(off.on, false);
+  await assert.rejects(() => fetch("http://127.0.0.1:18095/api/center"));
 });
 await app.close(); gh.close();
 console.log(failures ? "\n" + failures + " CHECK(S) FAILED" : "\nALL CENTRAL USAGE APP CHECKS PASSED"); process.exit(failures ? 1 : 0);

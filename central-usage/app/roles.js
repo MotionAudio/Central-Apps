@@ -5,8 +5,9 @@
  *   User 1      chart, instrument, lyrics, my in-ear mix, I/O
  *   User 2      lyrics, chart (any instrument), my in-ear mix
  * A user moves between User 1 and User 2 by itself; between the user and admin side it needs the main admin's
- * PIN (or the main admin changes it). The Central Pedal keeps the list (only hashes of the PIN and codes),
- * so a role holds while the main admin's computer is off. */
+ * PIN (or the main admin changes it). The main admin's computer is the center (center.js): it keeps the list
+ * (only hashes of the PIN and token) and every device pairs with it - the Central Pedal too. No Central Pedal is
+ * needed for any of this; it brings the songs, charts, lyrics and tracks when it is there. */
 (function () {
   "use strict";
   var CU = window.CentralUsage, NAT = window.CU; if (!CU) return;
@@ -40,9 +41,10 @@
   }
   function name() { return (CU.config() || {}).name || CU.store.get("name", "") || "Central Control"; }
 
-  // ------------------------------------------------------------- talking to the Central Pedal
+  // ------------------------------------------------------------- talking to the center (the main admin's computer)
+  function linked() { return window.CUCenter ? window.CUCenter.connected() : CU.state.connected; }
   function hello() {
-    var r = CU.role(); if (!r || !CU.state.connected) return;
+    var r = CU.role(); if (!r || !linked()) return;
     var mp = document.getElementById("modePick"); if (r === "main" && ((mp && mp.dataset.keep === "1" && !mp.dataset.ready) || CU.store.get("mainSetupPending", false))) return;   // the main admin's setup: not before its PINs are picked
     var m = { type: "cuRole", action: "hello", id: devId(), name: name(), role: r };
     if (r === "main") { var k = keys() || {}; m.token = k.token; m.pin = k.pin; m.pair = k.pair; if (CU.prefs.code) m.code = CU.prefs.code; }
@@ -50,18 +52,19 @@
   }
   function request(action, extra) {
     return new Promise(function (resolve) {
-      if (!CU.state.connected) return resolve({ ok: false, error: "Not connected to the Central Pedal - connect first (I/O tab or Find)." });
+      if (!linked()) return resolve({ ok: false, error: CU.role() === "main" ? "The center on this computer is not running yet - try again in a moment." : "Not connected to the main admin's computer. Is it on and on this network? (Settings → This computer → Main admin's address)" });
       var m = Object.assign({ type: "cuRole", action: action, id: devId(), name: name() }, extra || {});
       (waiting[action] = waiting[action] || []).push(resolve);
-      setTimeout(function () { var q = waiting[action] || [], i = q.indexOf(resolve); if (i >= 0) { q.splice(i, 1); resolve({ ok: false, error: "The Central Pedal did not answer." }); } }, 6000);
+      setTimeout(function () { var q = waiting[action] || [], i = q.indexOf(resolve); if (i >= 0) { q.splice(i, 1); resolve({ ok: false, error: "The main admin's computer did not answer." }); } }, 6000);
       CU.send(m);
     });
   }
-  CU.on("connected", function (on) { if (on) hello(); });
+  CU.on("center", function (on) { if (on) hello(); paint(); });
   CU.on("message", function (m) {
     if (m.type === "cuRoleReply") {
       var q = waiting[m.action]; if (q && q.length) q.shift()(m);
-      if (m.action === "hello" && m.needCode && !document.getElementById("modePick")) { notice = m.error || "Type the Central Pedal's pairing PIN."; askPair(); paint(); }
+      if (m.action === "hello" && m.needCode && !document.getElementById("modePick")) { notice = m.error || "Type the pairing PIN."; askPair(); paint(); }
+      if (m.action === "hello" && m.needPair && !document.getElementById("modePick")) { notice = m.error || "Pair this computer with the main admin."; pairBanner(true); paint(); }
       return;
     }
     if (m.type === "pairCodeChanged") {   // the main admin changed the pairing PIN while this computer was online
@@ -70,7 +73,7 @@
       return;
     }
     if (m.type === "cuRoles") {
-      view = m;
+      view = m; if (m.you) pairBanner(false);
       if (m.youAreMain) {
         var hq = waiting.hello; if (hq && hq.length) hq.shift()({ ok: true });
         var k1 = keys() || {}; if (m.pairPin && k1.pair !== m.pairPin) setKeys({ newPair: m.pairPin });   // the pedal's PIN is the pairing PIN
@@ -80,7 +83,7 @@
         if (m.hostCodes.user && m.hostCodes.user !== CU.store.get("userCode", "")) CU.store.set("userCode", m.hostCodes.user);
         if (m.hostCodes.admin && m.hostCodes.admin !== CU.store.get("adminCode", "")) { CU.store.set("adminCode", m.hostCodes.admin); if (window.CUMix && window.CUMix.refresh) window.CUMix.refresh(); }
       }
-      // the Central Pedal's list wins (the main admin may have changed it while this computer was off)
+      // the center's list wins (the main admin may have changed it while this computer was off)
       if (m.you && m.you.jobs && JSON.stringify(m.you.jobs) !== JSON.stringify(CU.jobs())) CU.setJobs(m.you.jobs);
       var mine = CU.role(), theirs = m.you && m.you.role;
       if (theirs && mine !== "main" && theirs !== mine && theirs !== "main") {
@@ -102,9 +105,34 @@
   });
 
   async function askPair() {
-    var v = await CU.askText("The Central Pedal already has a pairing PIN. Type it - it becomes your pairing PIN:", ""); if (v == null) return; v = v.trim();
+    var v = await CU.askText("Type the pairing PIN - it becomes your pairing PIN:", ""); if (v == null) return; v = v.trim();
     if (!/^\d{4}$/.test(v)) return alert("The PIN is 4 digits.");
     await setKeys({ newPair: v }); CU.prefs.code = v; CU.store.set("code", v); notice = ""; hello();
+  }
+  // this computer is not (or no longer) paired with the main admin - e.g. the main admin's computer was set up again:
+  // a small bar (never in the way during a service) with "Pair…"
+  function pairBanner(on) {
+    var el = document.getElementById("pairBanner");
+    if (!on) { if (el) el.remove(); return; }
+    if (el) return;
+    el = document.createElement("div"); el.id = "pairBanner"; el.className = "pair-banner";
+    el.innerHTML = '<span>Not paired with the main admin.</span><button class="primary" data-pb="go">Pair…</button><button data-pb="x" title="Later">✕</button>';
+    el.addEventListener("click", function (e) { var b = e.target.closest("[data-pb]"); if (!b) return; if (b.dataset.pb === "x") el.remove(); else repair(); });
+    document.body.appendChild(el);
+  }
+  var repairing = false;
+  async function repair() {
+    if (repairing) return; repairing = true;
+    try {
+      var r = CU.role(); if (!r || r === "main") return;
+      var v = await CU.askText("Pair with the main admin (" + ((window.CUCenter && window.CUCenter.view() || {}).centerName || "its computer") + "): type its 4-digit pairing PIN", ""); if (v == null) return; v = v.trim();
+      if (!/^\d{4}$/.test(v)) return alert("The PIN is 4 digits.");
+      var j = await request("join", { pair: v, code: v, role: r });
+      if (!j.ok) return alert(j.error || "Could not pair.");
+      CU.prefs.code = j.code || v; CU.store.set("code", CU.prefs.code); CU.send({ type: "auth", code: CU.prefs.code });
+      notice = ""; pairBanner(false); if (j.role && j.role !== CU.role()) await CU.setRole(j.role);
+      toast(j.pending ? "Paired as User 1 - the main admin is asked to make this computer an admin." : "Paired as " + CU.roleName(j.role || r) + ".");
+    } finally { repairing = false; }
   }
   function jobText(j) { return (j || ["general"]).map(function (x) { return CU.jobNames[x] || x; }).join(", "); }
   function toast(text) {
@@ -116,6 +144,7 @@
   // The main admin is set up first: its name, the inputs and outputs (when it is the sound desk), the 4-digit pairing
   // PIN every other device uses, and its own role PIN (for changing roles). Every other computer picks Admin, User 1
   // or User 2 and types the pairing PIN. (A Central Pedal - the Raspberry Pi - pairs the same way, on its own screen.)
+  // None of it needs a Central Pedal: the main admin's computer is the center.
   function firstLaunch() {
     if (document.getElementById("modePick")) return;
     var d = document.createElement("div"); d.id = "modePick"; d.className = "mode-pick";
@@ -132,9 +161,10 @@
       '<div class="rp-step" data-step="pins" hidden><h3>Your PINs</h3>' +
       '<label>Pairing PIN - every other device joins with it <input data-rp="pair" inputmode="numeric" maxlength="4" placeholder="e.g. 0915" autocomplete="off"></label>' +
       '<label>Role PIN - only you; it changes roles (user ↔ admin) <input data-rp="pin" inputmode="numeric" maxlength="4" placeholder="4 digits, not the same" autocomplete="off"></label>' +
-      '<p class="muted small">If your Central Pedal already has a pairing PIN, type that one.</p><div class="row"><button class="primary" data-rp="pinsGo">Finish</button><button data-rp="back">Back</button></div></div>' +
+      '<p class="muted small">Pair your Central Pedal (if you have one) with the same pairing PIN on its screen. Without one, everything but songs, charts, lyrics and tracks works.</p><div class="row"><button class="primary" data-rp="pinsGo">Finish</button><button data-rp="back">Back</button></div></div>' +
       // everyone else: the pairing PIN
       '<div class="rp-step" data-step="join" hidden><h3 data-rp-title></h3><label>Pairing PIN <input data-rp="joinPin" inputmode="numeric" maxlength="4" placeholder="the main admin\'s 4 digits" autocomplete="off"></label>' +
+      '<details class="rp-addr"><summary class="small">Main admin not found by itself?</summary><label>Its address <input data-rp="centerHost" placeholder="192.168.1.20" autocomplete="off"></label></details>' +
       '<label class="rp-adminpin" hidden>Main admin\'s role PIN <small class="muted">(optional - without it the main admin approves you)</small><input data-rp="rolePin" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
       '<div class="row"><button class="primary" data-rp="go">Pair</button><button data-rp="back">Back</button><a href="#" data-rp="later">Not now - start as User 1</a></div></div>' +
       '<p class="rp-msg warn"></p><div class="rp-done" hidden></div></div>';
@@ -143,12 +173,14 @@
     var msg = function (t) { $(".rp-msg", d).textContent = t || ""; };
     var step = function (n) { d.querySelectorAll(".rp-step").forEach(function (x) { x.hidden = x.dataset.step !== String(n); }); msg(""); };
     async function saveName() { var nm = $('[data-rp="name"]', d).value.trim(); if (!nm) return; CU.store.set("name", nm); if (NAT && NAT.config) CU.setConfig(await NAT.config.set({ name: nm })); else { var c = CU.config(); c.name = nm; } }
+    // the center: on the main admin it is this computer; everyone else looks for the main admin's computer
     async function connectFirst() {
-      if (CU.state.connected) return true;
-      msg("Looking for the Central Pedal…");
-      if (NAT && NAT.discover) { try { var f = await NAT.discover(); if (f && f.length) CU.connect(f[0].host); } catch (_) { } }
-      for (var i = 0; i < 30 && !CU.state.connected; i++) await new Promise(function (r) { setTimeout(r, 200); });
-      msg(""); return CU.state.connected;
+      if (linked()) return true;
+      var typed = ($('[data-rp="centerHost"]', d) || {}).value; if (typed && typed.trim() && window.CUCenter) window.CUCenter.setAddress(typed.trim());
+      msg(want === "main" ? "Starting the center on this computer…" : "Looking for the main admin's computer…");
+      if (window.CUCenter) window.CUCenter.reconnect();
+      for (var i = 0; i < 50 && !linked(); i++) await new Promise(function (r) { setTimeout(r, 200); });
+      msg(""); return linked();
     }
     var four = function (v) { return /^\d{4}$/.test(v); };
     d.addEventListener("click", async function (e) {
@@ -176,22 +208,22 @@
         await setKeys({ newPair: pair, newPin: pin });
         CU.prefs.code = pair; CU.store.set("code", pair);
         if (await connectFirst()) {
-          msg("Pairing with the Central Pedal…");
+          msg("Setting up…");
           waiting.hello = []; view = null;
           var r = await waitFor("hello", 6000);
           if (r && !r.ok && r.needCode && !(view && view.youAreMain)) { r = await waitFor("hello", 2500); }   // (an answer to an earlier try can come first)
-          if (!(view && view.youAreMain) && r && !r.ok) { msg(r.error || "The Central Pedal did not accept it."); return; }
-        }
+          if (!(view && view.youAreMain) && r && !r.ok) { msg(r.error || "Not accepted."); return; }
+        } else { msg("The center on this computer did not start (is another program using port 8095?). Restart Central Control and try again."); return; }
         var done = $(".rp-done", d); d.querySelectorAll(".rp-step").forEach(function (x) { x.hidden = true; }); done.hidden = false; msg("");
         done.innerHTML = '<p>This computer is the <b>main admin</b>.</p><table class="io-t"><tr><td>Pairing PIN</td><td><b class="io-code">' + esc(pair) + '</b> <span class="muted small">every other device joins with it</span></td></tr>' +
           '<tr><td>Role PIN</td><td><b class="io-code">' + esc(pin) + '</b> <span class="muted small">only you - changes roles</span></td></tr></table>' +
-          (CU.state.connected ? "" : '<p class="warn small">No Central Pedal found yet - it pairs as soon as it is on this network with the same PIN.</p>') +
+          (view && view.pedal ? '<p class="small">Central Pedal: <b>' + esc(view.pedal.name) + "</b> paired.</p>" : '<p class="muted small">No Central Pedal yet - everything but songs, charts, lyrics and tracks works now. When it is on this network, type the same pairing PIN on its screen.</p>') +
           '<p class="muted small">Both are in Settings → This computer. The Devices tab shows every device, its role and how its connection is doing.</p><button class="primary" data-rp="close">OK</button>';
         CU.showTab("devices");
       }
       else if (a === "go") {
         var code = $('[data-rp="joinPin"]', d).value.trim(); if (!four(code)) return msg("Type the 4-digit pairing PIN.");
-        if (!(await connectFirst())) return msg("The Central Pedal was not found on this network. Check the Wi-Fi, or use \"Not now\" and connect later (I/O tab).");
+        if (!(await connectFirst())) { $(".rp-addr", d).open = true; return msg("The main admin's computer was not found on this network. Is Central Control open on it (set up as the main admin)? Check the Wi-Fi, or type its address below."); }
         msg("Pairing…");
         var extra = { pair: code, code: code, role: want }; var rp = $('[data-rp="rolePin"]', d).value.trim(); if (want === "admin" && rp) extra.pin = rp;
         var r2 = await request("join", extra);
@@ -213,22 +245,34 @@
   function card() {
     var r = CU.role(), c = CU.config() || {}, k = r === "main" ? keys() || {} : null, v = view || {};
     var h = '<section class="card rl-card"><h3>This computer</h3><label>Name <input data-st="name" value="' + esc(c.name || "") + '" placeholder="Sound desk / Lights / Sarah\'s laptop"></label>' +
-      '<p class="rl-now">Role: <b>' + esc(CU.roleName(r)) + "</b>" + (v.hasMain && r !== "main" ? ' <span class="muted small">· main admin: ' + esc(v.mainName) + "</span>" : "") + (!CU.state.connected ? ' <span class="warn small">· not connected to the Central Pedal</span>' : "") + "</p>";
+      '<p class="rl-now">Role: <b>' + esc(CU.roleName(r)) + "</b>" + (v.hasMain && r !== "main" ? ' <span class="muted small">· main admin: ' + esc(v.mainName) + "</span>" : "") + (r !== "main" && !linked() ? ' <span class="warn small">· not connected to the main admin</span>' : "") + "</p>" +
+      '<p class="small muted">Central Pedal: ' + (CU.state.connected ? "connected" + (CU.state.hostname ? " (" + esc(CU.state.hostname) + ")" : "") : "not connected - songs, charts, lyrics and tracks come when it is") + "</p>";
     if (notice) h += '<p class="warn small">' + esc(notice) + "</p>";
     if (v.conflict && v.conflict.length > 1) h += '<p class="warn">Two computers say they are the main admin: ' + v.conflict.map(function (x) { return "<b>" + esc(x.name) + "</b>" + (x.registered ? " (the one in charge)" : ""); }).join(" and ") + '. On the one that should not be, use <b>Forget role</b> below.</p>';
     if (r === "main") {
       h += '<table class="io-t"><tr><td>Pairing PIN</td><td><b class="io-code">' + esc(k.pair) + '</b> <button data-rl="setPair">Change…</button> <span class="muted small">every device joins with it (the Central Pedal too)</span></td></tr>' +
         '<tr><td>Role PIN</td><td><b class="io-code" data-rl="pinShow">' + esc(k.pin) + '</b> <button data-rl="setPin">Change…</button> <span class="muted small">only you - it moves a computer between user and admin</span></td></tr></table>' +
-        '<p class="muted small">Every device, its role, its jobs and its connection are on the <button class="linkish" data-rl="devices">Devices</button> tab.</p>';
+        '<p class="muted small">Every device, its role, its jobs and its connection are on the <button class="linkish" data-rl="devices">Devices</button> tab. This computer is the center: every device (and the Central Pedal) pairs with it, so keep Central Control open here during the service.</p>' + centerLine();
     } else if (r === "admin") {
       h += '<p class="small">Jobs: <b>' + esc(jobText(CU.jobs())) + '</b> <span class="muted">(set by the main admin)</span></p>';
-      h += '<div class="io-opts">' + roleRadio("admin", r) + roleRadio("user1", r, true) + roleRadio("user2", r, true) + "</div>";
+      h += '<div class="io-opts">' + roleRadio("admin", r) + roleRadio("user1", r, true) + roleRadio("user2", r, true) + "</div>" + addrLine();
     } else {
       h += '<div class="io-opts">' + roleRadio("user1", r) + roleRadio("user2", r) + (CU.web ? "" : roleRadio("admin", r, !!v.hasMain)) + "</div>";
       if (CU.web) h += '<p class="muted small">On a phone or tablet: User 1 (chart, lyrics, my in-ear mix) or User 2. Lighting, mixing and slides are on a computer with Central Control.</p>';
+      if (!CU.web) h += addrLine();
     }
     h += '<div class="row"><button data-rl="forget">Forget role…</button><span class="muted small">Back to the first-launch choice. Use it if two computers were set up as the main admin.</span></div></section>';
     return h;
+  }
+  // where the main admin is (everyone else) / the center on this computer (the main admin)
+  function addrLine() {
+    var C = window.CUCenter, t = C && C.target();
+    return '<p class="small">Main admin: ' + (linked() ? '<span class="dv-ok">connected</span>' + (t ? " (" + esc(t.host) + ")" : "") + (C && C.rtt() != null ? " · " + C.rtt() + " ms" : "") : '<span class="warn">not found</span>') +
+      ' <button data-rl="centerAddr">' + (C && C.address() ? "Address: " + esc(C.address()) : "Type its address…") + "</button></p>";
+  }
+  function centerLine() {
+    var v = view || {}, p = v.pedal;
+    return '<p class="small">Center: ' + (linked() ? '<span class="dv-ok">running</span>' : '<span class="warn">starting…</span>') + " · Central Pedal: " + (p ? "<b>" + esc(p.name) + "</b> " + (p.online ? "paired, online" : "paired, offline") : '<span class="muted">none paired - on its screen, type the pairing PIN</span>') + "</p>";
   }
   function people() {
     var list = (view && view.devices) || [];
@@ -237,7 +281,7 @@
       var jb = d.role === "admin" ? '<div class="rl-jobs">' + Object.keys(CU.jobNames).map(function (x) { var on = (d.jobs || ["general"]).indexOf(x) >= 0; return '<label class="toggle"><input type="checkbox" data-rl-job="' + x + '" data-id="' + esc(d.id) + '"' + (on ? " checked" : "") + "> " + esc(CU.jobNames[x]) + "</label>"; }).join("") + "</div>" : "";
       return '<tr><td><span class="dot' + (d.online ? "" : " off") + '"></span> <b>' + esc(d.name) + "</b>" + (d.claimsMain ? ' <span class="warn small">says it is the main admin</span>' : "") + (d.paired ? "" : ' <span class="muted small">(not paired)</span>') + "</td><td>" + sel + jb + '</td><td><button data-rl="rename" data-id="' + esc(d.id) + '">Rename</button> <button data-rl="remove" data-id="' + esc(d.id) + '">Remove</button></td></tr>';
     }).join("");
-    return '<section class="card rl-people wide"><h3>People and devices</h3>' + (CU.state.connected ? "" : '<p class="warn small">Connect to the Central Pedal to see the other computers.</p>') +
+    return '<section class="card rl-people wide"><h3>People and devices</h3>' + (linked() ? "" : '<p class="warn small">Not connected to the main admin.</p>') +
       (rows ? '<table class="io-t">' + rows + "</table>" : '<p class="muted">No other computers yet. On each one choose <b>Join</b> and type the pairing code.</p>') + "</section>";
   }
   function paint() { if (window.CUSettings && CU.prefs.tab === "settings") window.CUSettings.render(); chip(); }
@@ -250,9 +294,9 @@
         var pin = await CU.askText(want === "admin" ? "The main admin's role PIN (or leave it empty to ask the main admin):" : "The main admin's role PIN (4 digits):", "");
         if (pin == null) { paint(); return true; } extra.pin = pin.trim(); if (!extra.pin && want === "admin") extra.ask = true;
       }
-      if (!CU.state.connected) {
+      if (!linked()) {
         if (same || !(view && view.hasMain)) { await CU.setRole(want); paint(); return true; }
-        alert("Connect to the Central Pedal first - it checks the PIN."); paint(); return true;
+        alert("Connect to the main admin's computer first - it checks the PIN."); paint(); return true;
       }
       var r = await request("set", extra);
       if (r.ok && r.pending) toast("Asked the main admin to make this computer an admin.");
@@ -280,10 +324,11 @@
       await setKeys({ newPair: np }); CU.prefs.code = np; CU.store.set("code", np); toast("Pairing PIN is now " + np + ".");
     }
     else if (a === "devices") CU.showTab("devices");
+    else if (a === "centerAddr") { var ad = await CU.askText("The main admin's address (empty = find it by itself):", window.CUCenter ? window.CUCenter.address() : ""); if (ad != null && window.CUCenter) window.CUCenter.setAddress(ad); }
     else if (a === "forget") {
       if (!confirm("Forget this computer's role? It goes back to the first-launch choice." + (CU.role() === "main" ? "\n\nThis computer stops being the main admin; another computer can then become it." : ""))) return true;
       var extra = CU.role() === "main" ? { token: (keys() || {}).token } : {};
-      if (CU.state.connected) { var r = await request("forget", extra); if (!r.ok) { alert(r.error || "Not changed."); return true; } }
+      if (linked()) { var r = await request("forget", extra); if (!r.ok) { alert(r.error || "Not changed."); return true; } }
       notice = ""; if (!(NAT && NAT.config)) CU.store.set("mainKeys", null);
       await CU.setRole(null);
     }
@@ -301,13 +346,13 @@
   }
   document.addEventListener("click", async function (e) {
     var b = e.target.closest("#roleChip [data-chip]"); if (!b || b.dataset.chip === CU.role()) return;
-    if (CU.state.connected) { var r = await request("set", { role: b.dataset.chip }); if (!r.ok) return alert(r.error); }
+    if (linked()) { var r = await request("set", { role: b.dataset.chip }); if (!r.ok) return alert(r.error); }
     await CU.setRole(b.dataset.chip); chip();
   });
   CU.on("role", function () { chip(); hello(); });
   CU.on("ready", function () { if (CU.role() === "main" && CU.store.get("mainSetupPending", false)) { CU.store.set("mainSetupPending", false); CU.setRole(null); return; } if (!CU.role()) firstLaunch(); chip(); });   // a main admin setup left half-way starts again
 
-  window.CURoles = { firstLaunch: firstLaunch, card: card, jobText: jobText, toast: toast, devId: devId, view: function () { return view; }, onSettingsChange: onSettingsChange, onSettingsClick: onSettingsClick, request: request, keys: keys, hello: hello };
+  window.CURoles = { linked: linked, firstLaunch: firstLaunch, card: card, jobText: jobText, toast: toast, devId: devId, view: function () { return view; }, onSettingsChange: onSettingsChange, onSettingsClick: onSettingsClick, request: request, keys: keys, hello: hello };
   if (!CU.role()) firstLaunch();
   chip();
 })();

@@ -31,7 +31,7 @@
   }
   function setManual(on) { manual = !!on; CU.store.set("manualLock", manual); apply(); toast(manual ? "Locked - nothing here changes. Hold 🔒 for 2 seconds to unlock." : "Unlocked."); }
 
-  // the service lock comes with the role view from the Central Pedal
+  // the service lock comes with the role view from the center (the main admin)
   CU.on("message", function (m) {
     if (m.type !== "cuRoles") return;
     var on = !!(m.you && m.you.locked) && CU.role() !== "main";

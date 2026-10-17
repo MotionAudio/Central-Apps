@@ -19,6 +19,8 @@ const { PiAudio } = require("./piaudio");
 const { Recorder } = require("./recorder");
 const { Talk, isDesk } = require("./talk");
 const { findFfmpeg } = require("./video-service");
+const { Center, BEACON_PORT } = require("./center");
+const dgram = require("node:dgram");
 
 function which(cmd) {
   try {
@@ -74,6 +76,86 @@ module.exports = function services(app, getWin) {
   pi.on("status", () => send("host-status", hostStatus()));
   host.onClients = () => send("host-status", hostStatus());
 
+  // ------------------------------------------------------------------ the center (only on the main admin's computer)
+  // Every device pairs with the main admin, not with the Central Pedal: roles, devices, health, locks and services live here,
+  // so the team works with no Central Pedal at all. The Central Pedal pairs with it too (songs, charts, lyrics, tracks).
+  const centerPort = Number(process.env.CU_CENTER_PORT) || 8095;
+  let center = null;
+  function centerStatus() { return center ? Object.assign({ on: true }, center.status()) : { on: false, port: centerPort }; }
+  async function applyCenter() {
+    const want = cfg.role === "main";
+    if (want && !center) {
+      center = new Center({ port: centerPort, dataDir: userData, appDir: path.join(__dirname, "app"), name: cfg.name || os.hostname(), beacon: !process.env.CU_NO_BEACON });
+      center.on((ev) => { if (ev.type === "status" || ev.type === "error") send("center-status", centerStatus()); });
+      await center.start();
+    } else if (!want) {   // no longer the main admin: its list goes (another computer can become the main admin)
+      if (center) { const c = center; center = null; await c.stop(); }
+      if (cfg.role !== undefined) { try { fs.unlinkSync(path.join(userData, "center.json")); } catch (_) { } }
+    }
+    send("center-status", centerStatus());
+  }
+  // centers heard on this network (the UDP "here is the center" every 2 s)
+  const heard = new Map();
+  try {
+    const ear = dgram.createSocket({ type: "udp4", reuseAddr: true });
+    ear.on("error", () => { });
+    ear.on("message", (buf, rinfo) => { try { const j = JSON.parse(String(buf)); if (j.app === "central-control-center" && j.port) heard.set(rinfo.address + ":" + j.port, { host: rinfo.address, port: Number(j.port), name: String(j.name || "").slice(0, 40), at: Date.now() }); } catch (_) { } });
+    ear.bind(BEACON_PORT, () => { try { ear.setBroadcast(true); } catch (_) { } });
+  } catch (_) { }
+  ipcMain.handle("center-status", () => centerStatus());
+  ipcMain.handle("center-heard", () => [...heard.values()].filter((h) => Date.now() - h.at < 8000));
+  ipcMain.handle("center-probe", (_e, host, port) => new Promise((resolve) => {
+    const req = http.get({ host: String(host), port: Number(port) || 8095, path: "/api/center", timeout: 1500 }, (res) => { let b = ""; res.setEncoding("utf8"); res.on("data", (c) => { b += c; if (b.length > 8192) req.destroy(); }); res.on("end", () => { try { const j = JSON.parse(b); resolve(j && j.app === "central-control-center" ? Object.assign(j, { host: String(host) }) : null); } catch (_) { resolve(null); } }); });
+    req.on("timeout", () => { req.destroy(); resolve(null); }); req.on("error", () => resolve(null));
+  }));
+
+  // ------------------------------------------------------------------ the player window: the Central Pedal app on this computer
+  // With no Central Pedal (or while none is the track player) the main admin's computer runs the tracks, charts and lyrics
+  // in the Central Pedal app. Opened from here it gets the center's address and the pairing PIN, so it pairs by itself.
+  function playerCandidates() {
+    const home = os.homedir(), out = [];
+    if (cfg.playerPath) out.push(cfg.playerPath);
+    if (process.platform === "win32") {
+      const la = process.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
+      out.push(path.join(la, "Programs", "central-control", "Central Control.exe"), path.join(process.env.ProgramFiles || "C:\\Program Files", "Central Control", "Central Control.exe"));
+    } else if (process.platform === "darwin") {
+      for (const base of ["/Applications", path.join(home, "Applications")]) out.push(path.join(base, "Central Control.app", "Contents", "MacOS", "Central Control"));
+    } else {
+      out.push("/opt/Central Control/central-control");
+      const w = which("central-control"); if (w) out.push(w);
+      for (const dir of [path.join(home, "Applications"), path.join(home, "Downloads"), path.join(home, "Desktop"), home]) {
+        try { for (const f of fs.readdirSync(dir).filter((x) => /^central-control-.*\.AppImage$/i.test(x)).sort().reverse()) out.push(path.join(dir, f)); } catch (_) { }
+      }
+    }
+    return out;
+  }
+  function findPlayer() { for (const f of playerCandidates()) { try { fs.accessSync(f, fs.constants.X_OK); return f; } catch (_) { try { if (process.platform === "win32" && fs.existsSync(f)) return f; } catch (__) { } } } return null; }
+  let playerProc = null;
+  function portOpen(port) { return new Promise((resolve) => { const s = require("node:net").connect({ host: "127.0.0.1", port }); s.once("connect", () => { s.destroy(); resolve(true); }); s.once("error", () => resolve(false)); setTimeout(() => { s.destroy(); resolve(false); }, 600); }); }
+  ipcMain.handle("player-open", async () => {
+    if (cfg.role !== "main") return { ok: false, error: "Only the main admin's computer runs the player window." };
+    const exe = findPlayer();
+    if (!exe) return { ok: false, missing: true };
+    const already = (playerProc && playerProc.exitCode == null) || await portOpen(8766);
+    const env = Object.assign({}, process.env, { CC_CENTER: "127.0.0.1:" + centerPort });
+    const pin = cfg.mainKeys && cfg.mainKeys.pair; if (/^\d{4}$/.test(String(pin || ""))) env.CC_PAIR_PIN = String(pin);
+    delete env.ELECTRON_RUN_AS_NODE; delete env.ELECTRON_NO_ATTACH_CONSOLE;
+    try {
+      // (already running: starting it again brings its window to the front)
+      playerProc = spawn(exe, [], { env, detached: true, stdio: "ignore", windowsHide: false });
+      playerProc.on("error", () => { }); playerProc.unref();
+      return { ok: true, already, path: exe };
+    } catch (e) { return { ok: false, error: "Could not start the player: " + e.message }; }
+  });
+  ipcMain.handle("player-status", () => ({ path: findPlayer() }));
+  ipcMain.handle("player-download", () => { shell.openExternal("https://motionaudio.github.io/Central-Apps/"); return true; });
+  ipcMain.handle("player-choose", async () => {
+    const r = await dialog.showOpenDialog(getWin(), { title: "Where is the Central Pedal app?", properties: ["openFile"] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    let f = r.filePaths[0]; if (process.platform === "darwin" && /\.app$/.test(f)) f = path.join(f, "Contents", "MacOS", path.basename(f, ".app"));
+    cfg.playerPath = f; saveCfg(); return f;
+  });
+
   ipcMain.handle("cu-config", () => cfg);
   ipcMain.handle("cu-config-set", (_e, patch) => {
     patch = patch || {};
@@ -89,7 +171,7 @@ module.exports = function services(app, getWin) {
     if (patch.host) Object.assign(cfg.host, patch.host);
     if (patch.newUserCode) cfg.host.userCode = code4(); if (patch.newAdminCode) cfg.host.adminCode = code4();
     if (patch.piAudio) Object.assign(cfg.piAudio, patch.piAudio);
-    saveCfg(); applyHost(); return cfg;
+    saveCfg(); applyHost(); if ("role" in patch) applyCenter(); return cfg;
   });
   ipcMain.handle("host-status", () => hostStatus());
   ipcMain.handle("pi-target", (_e, t) => { piTarget = Object.assign(piTarget, t || {}); applyHost(); return pi.status(); });
@@ -243,8 +325,8 @@ module.exports = function services(app, getWin) {
   });
 
   return {
-    start() { applyHost(); setTimeout(() => { try { recorder.repairAll(); } catch (_) { } }, 3000); },   // (a recording a crash cut short: its files repaired)
-    stop() { try { recorder.stop().catch(() => { }); } catch (_) { } talk.close(); host.stop(); engine.stop(); pi.close(); ndiStop(); if (inst) inst.kill(); if (ai.proc) ai.proc.kill(); if (outputs.screen && !outputs.screen.isDestroyed()) outputs.screen.close(); },
+    start() { applyHost(); applyCenter(); setTimeout(() => { try { recorder.repairAll(); } catch (_) { } }, 3000); },   // (a recording a crash cut short: its files repaired)
+    stop() { try { center && center.stop(); } catch (_) { } try { recorder.stop().catch(() => { }); } catch (_) { } talk.close(); host.stop(); engine.stop(); pi.close(); ndiStop(); if (inst) inst.kill(); if (ai.proc) ai.proc.kill(); if (outputs.screen && !outputs.screen.isDestroyed()) outputs.screen.close(); },
     cfg: () => cfg
   };
 };

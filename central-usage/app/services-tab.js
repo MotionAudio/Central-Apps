@@ -1,7 +1,8 @@
 /* Central Control - the main admin's Service tab: up to 4 services (e.g. Sunday 9:00, Sunday 11:00, Wednesday, Youth),
  * each with its weekday and time, the roles it uses, and a run order of items (songs from the Central Pedal's setlist,
  * prayer, announcements, sermon…) with minutes and the roles each item uses. Start / Back / Next / Stop run it;
- * every computer then counts down to its own next part (countdown.js). Kept on the Central Pedal. */
+ * every computer then counts down to its own next part (countdown.js). Kept on the main admin's computer (the center),
+ * so services run with or without a Central Pedal; a paired Central Pedal gets them for its stage display. */
 (function () {
   "use strict";
   var CU = window.CentralUsage; if (!CU) return;
@@ -21,18 +22,18 @@
   function fmt(sec) { sec = Math.round(sec); var neg = sec < 0; sec = Math.abs(sec); var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (neg ? "-" : "") + (h ? h + ":" + ("0" + m).slice(-2) : m) + ":" + ("0" + s).slice(-2); }
   function songs() { var d = CU.state.display; return (d && d.songs) || []; }
 
-  // ------------------------------------------------------------- state from the Central Pedal
+  // ------------------------------------------------------------- state from the center
   CU.on("message", function (m) {
     if (m.type === "services") {
       S.services = m.services || []; S.run = m.run || null; S.max = m.max || 4; S.offset = (m.now || Date.now()) - Date.now();
       if (!saveT) render(); CU.fire("services", S);
     } else if (m.type === "serviceReply" && !m.ok) alert(m.error || "Not done.");
   });
-  function ask() { if (CU.state.connected) CU.send({ type: "service", action: "get" }); }
-  CU.on("connected", function (on) { if (on) setTimeout(ask, 800); });
+  function ask() { CU.send({ type: "service", action: "get" }); }
+  CU.on("center", function (on) { if (on) setTimeout(ask, 800); });
   CU.on("role", function () { setTimeout(ask, 300); });
 
-  function saveSoon() { clearTimeout(saveT); saved = "saving…"; paintSaved(); saveT = setTimeout(function () { saveT = 0; CU.send({ type: "service", action: "save", services: S.services }); saved = "✓ saved on the Central Pedal"; paintSaved(); }, 700); }
+  function saveSoon() { clearTimeout(saveT); saved = "saving…"; paintSaved(); saveT = setTimeout(function () { saveT = 0; CU.send({ type: "service", action: "save", services: S.services }); saved = "✓ saved"; paintSaved(); }, 700); }
   function paintSaved() { var el = $("#svSaved"); if (el) el.textContent = saved; }
 
   // ------------------------------------------------------------- the tab
@@ -51,7 +52,8 @@
     // services list
     h += '<div class="sv-list">' + S.services.map(function (x) { var mins = x.items.reduce(function (t, i) { return t + i.minutes; }, 0); return '<button class="sv-pick' + (x.id === sel ? " on" : "") + '" data-sv-pick="' + esc(x.id) + '"><b>' + esc(x.name) + "</b><small>" + DAYS[x.day] + " " + esc(x.time) + " · " + x.items.length + " items · " + Math.round(mins) + " min</small></button>"; }).join("") +
       (S.services.length < S.max ? '<button class="sv-pick add" data-sv="add">+ Service <small>' + S.services.length + " of " + S.max + "</small></button>" : "") + '<span class="muted small" id="svSaved">' + esc(saved) + "</span></div>";
-    if (!CU.state.connected) h += '<p class="warn">Connect to the Central Pedal - the services are kept there.</p>';
+    if (window.CUCenter && !window.CUCenter.connected()) h += '<p class="warn">The center on this computer is not running - the services are kept there.</p>';
+    if (!songs().length) h += '<p class="muted small">No Central Pedal connected: songs can still be typed in as items; its setlist shows up here when it is on.</p>';
     if (sv) {
       var start = 0;
       h += '<div class="sv-edit card"><div class="row sv-head"><label>Name <input data-svf="name" value="' + esc(sv.name) + '"></label><label>Day <select data-svf="day">' + DAYS.map(function (d, i) { return '<option value="' + i + '"' + (sv.day === i ? " selected" : "") + ">" + d + "</option>"; }).join("") + '</select></label><label>Time <input type="time" data-svf="time" value="' + esc(sv.time) + '"></label>' +

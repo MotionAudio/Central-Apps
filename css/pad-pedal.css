@@ -333,3 +333,8 @@ dialog.pp-ask .row { display: flex; justify-content: flex-end; gap: 8px; margin-
 .pin-dots { display: flex; justify-content: center; gap: 12px; margin: 6px 0 12px; } .pin-dots i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); } .pin-dots i.on { background: var(--accent); border-color: var(--accent); }
 .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; } .pin-pad button { font-size: 22px; padding: 14px 0; }
 .upd-ask { max-width: 460px; } .upd-ask h2 { margin-top: 0; } .upd-ask .row { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* what this Central Pedal does when it is not the track player (pedal-job.js) */
+.pj-bar { position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 80; max-width: calc(100vw - 16px); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline;
+  padding: 6px 14px; border-radius: 0 0 12px 12px; background: rgba(20, 34, 56, .96); border: 1px solid rgba(117, 173, 255, .45); border-top: 0; color: #ecf7ff; font-size: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.pj-bar .pj-ok { color: #5de6b0; } .pj-bar .pj-warn { color: #ffcf6b; } .pj-bar .pj-song { font-weight: 600; } .pj-bar small, .pj-bar .pj-sub { opacity: .75; }

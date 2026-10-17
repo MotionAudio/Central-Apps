@@ -93,7 +93,12 @@ ipcMain.handle("update-install", async () => {
   catch (e) { updater.error = e.message; updateEvent(); return { ok: false, error: e.message }; }
 });
 
+// one Central Pedal per computer: opening it again (e.g. "Open the player" in the main admin's Central Control) shows the window
+const firstInstance = app.requestSingleInstanceLock();
+if (!firstInstance) app.quit();
+app.on("second-instance", () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } });
 app.whenReady().then(async () => {
+  if (!firstInstance) return;
   updater = new Updater({ product: "central-control", current: app.getVersion(), dir: app.getPath("userData") });
   // every time the app opens it looks for a newer release (a few seconds after start), then once a day while it runs
   setTimeout(async function loop(first) { try { if (updater.cfg.auto && (first || updater.due())) { await updater.check(); updateEvent(); } } catch (_) { } setTimeout(loop, 300 * 1000); }, 8000, true);

@@ -207,7 +207,7 @@
     emit(m);
     switch (m.type) {
       case "control": if (window.PPActions) window.PPActions.onControl(m); break;
-      case "action": if (window.PPActions) window.PPActions.run(m.name, m.args, { from: m.from || "satellite" }); break;
+      case "action": if (window.PPActions) window.PPActions.run(m.name, m.args, { from: m.from || "satellite", value: typeof m.value === "number" ? m.value : null, delta: typeof m.delta === "number" ? m.delta : 0 }); break;
       case "padRelease": held.delete(m.index); break;
       case "tap": tap(); break;
       case "tapHold": toggleFreeze(); break;

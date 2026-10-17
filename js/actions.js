@@ -172,6 +172,7 @@
   var held = {};
   function run(name, args, info) {
     var a = ACTIONS[name]; if (!a) return false;
+    if (window.PPPedalJob && window.PPPedalJob.intercept(a, args, info)) { sendLedsSoon(); return true; }   // a foot controller / instrument rig (pedal-job.js)
     try { a.run(args || {}, info && info.value != null ? info.value : (info && info.delta) || 0, info || {}); } catch (error) { console.warn("action failed", name, error); }
     sendLedsSoon();
     return true;

@@ -12,6 +12,14 @@ computer gets the chord chart, the instrument, the lyrics and the musician's
 own in-ear mix. Everything follows the Central Pedal, and only the Central
 Pedal plays, stops and skips the tracks.
 
+**New in version 8.3:**
+- **The main admin is the center:** pairing, roles, the Devices tab, locks, services and the in-ear host live in the
+  main admin's Central Control - so everything works **without a Raspberry Pi**.
+- **Tracks, charts and lyrics** come from the main admin's **player window** (the Central Pedal app on that
+  computer) - or from a **Central Pedal**: add as many as you like with the pairing PIN, and on the Devices tab
+  pick each one's job: **Track player**, **Foot controller** (drives the track player) or **Instrument rig**.
+  Every device follows the track player; songs are copied to every pedal.
+
 **New in version 8.2:**
 - **New names:** the Pi (and its PC version) is **Central Pedal**; the companion app (Central Usage until now) is
   **Central Control**. Settings, songs and updates carry on - the installer files keep their old names.
