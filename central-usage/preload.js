@@ -24,6 +24,13 @@ contextBridge.exposeInMainWorld("CU", {
     onOp: (fn) => ipcRenderer.on("mixer-op", (_e, op, by) => fn(op, by)), onState: (fn) => ipcRenderer.on("mixer-state", (_e, st) => fn(st)), onMeters: (fn) => ipcRenderer.on("mixer-meters", (_e, m) => fn(m)),
     onPi: (fn) => ipcRenderer.on("mixer-pi", (_e, names) => fn(names)), onAudio: (fn) => ipcRenderer.on("listen-audio", (_e, tap, frames, pcm) => fn(tap, frames, pcm))
   },
+  // multitrack recording on the audio host (recorder.js): start({ name, program, inputs }) / stop() -> { state } or { error, state };
+  // on(fn(state, event)) - events: starting, started, stopping, stopped, error, mp3, repaired, tick
+  recorder: { start: (opts) => ipcRenderer.invoke("rec-start", opts), stop: () => ipcRenderer.invoke("rec-stop"), state: () => ipcRenderer.invoke("rec-state"),
+    on: (fn) => ipcRenderer.on("rec-event", (_e, st, ev) => fn(st, ev)), chooseDir: () => ipcRenderer.invoke("rec-choose-dir"), open: (which) => ipcRenderer.invoke("rec-open", which) },
+  // talkback (talk.js) when this computer is the audio host: start({ kind, targets, dim, src, ch }), the mic's "TKA1" frames, stop()
+  talk: { start: (o) => ipcRenderer.invoke("talk-start", o), stop: () => ipcRenderer.invoke("talk-stop"), audio: (frame) => ipcRenderer.send("talk-audio", frame), state: () => ipcRenderer.invoke("talk-state"),
+    on: (fn) => ipcRenderer.on("talk-event", (_e, ev) => fn(ev)), onDesk: (fn) => ipcRenderer.on("talk-desk-audio", (_e, frames, rate, pcm, name) => fn(pcm, frames, rate, name)) },
   slides: { open: () => ipcRenderer.invoke("slides-open"), readFile: (f) => ipcRenderer.invoke("read-file", f), show: (slide) => ipcRenderer.send("slide", slide), screens: () => ipcRenderer.invoke("screens"),
     outputScreen: (opt) => ipcRenderer.invoke("output-screen", opt), outputNdi: (opt) => ipcRenderer.invoke("output-ndi", opt), outputs: () => ipcRenderer.invoke("outputs-status"), onOutputs: (fn) => ipcRenderer.on("outputs", (_e, st) => fn(st)) },
   inst: { start: () => ipcRenderer.invoke("inst-start"), send: (m) => ipcRenderer.send("inst-send", m), stop: () => ipcRenderer.invoke("inst-stop"), on: (fn) => ipcRenderer.on("inst-msg", (_e, m) => fn(m)) },

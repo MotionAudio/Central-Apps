@@ -96,10 +96,10 @@
       '<div class="io-cols"><div><h4>Inputs</h4>' + ((st.captureNames || []).length ? '<table class="io-t">' + st.captureNames.map(function (n, k) { return "<tr><td>In " + (k + 1) + '</td><td><span class="muted small">' + esc(n) + "</span> " + (used[k] ? "→ " + used[k].map(esc).join(", ") : "") + "</td></tr>"; }).join("") + "</table>" : '<p class="muted">none</p>') + "</div>" +
       '<div><h4>Outputs</h4>' + ((st.playbackNames || []).length ? '<table class="io-t">' + st.playbackNames.map(function (n, k) { return "<tr><td>Out " + (k + 1) + '</td><td><span class="muted small">' + esc(n) + "</span> " + (outs[k] ? "← " + outs[k].map(esc).join(", ") : "") + "</td></tr>"; }).join("") + "</table>" : '<p class="muted">none</p>') + "</div></div></section>";
   }
-  function listenCard() {
+  function listenCard() {   // (the record control: recorder.js)
     if (CU.mode() !== "admin") return "";
-    var c = cfg(), r = hs && hs.recorder || {};
-    return '<section class="card io-c"><h3>Listening &amp; recording</h3><label>Listen on <select data-io="sink"><option value="">This computer\'s output</option></select></label>' + (c.host && c.host.enabled ? '<p class="muted small">Recordings: ' + esc(c.recordDir || "") + " " + (r.recording ? '<b class="warn">● recording</b>' : "") + ' <button data-io="recs">Open</button></p>' : "") + '<p class="muted small">Listen / record from the Mix tab.</p></section>';
+    return '<section class="card io-c"><h3>Listening &amp; recording</h3><label>Listen on <select data-io="sink"><option value="">This computer\'s output</option></select></label>' +
+      '<div class="io-rec" data-rec-slot data-rec-folder></div><p class="muted small">Every input, the Central Control\'s tracks and the stereo program (WAV, 48 kHz / 24 bit, and an MP3 of the program). Listen from the Mix tab.</p></section>';
   }
   function videoCard() {
     if (CU.mode() !== "admin") return "";
@@ -125,6 +125,7 @@
       col("2", "This computer", "mixing, in-ears, listening", [hostCard(), ifaceCard(), listenCard(), instCard()]),
       col("3", "Out", "screens and lights", [videoCard(), lightsCard()])].filter(Boolean);
     root.innerHTML = '<div class="io-flow" style="--tpl:' + cols.map(function () { return "minmax(0, 1fr)"; }).join(" 28px ") + '">' + cols.join('<div class="io-arrow" aria-hidden="true"><i></i></div>') + "</div>";
+    if (window.CURecUI) window.CURecUI.fill(root);
     var sinkSel = $('[data-io="sink"]'); if (sinkSel && navigator.mediaDevices) navigator.mediaDevices.enumerateDevices().then(function (list) { list.filter(function (d) { return d.kind === "audiooutput" && d.deviceId !== "default"; }).forEach(function (d) { var o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || "Output " + d.deviceId.slice(0, 6); if (window.CUListen && d.deviceId === window.CUListen.sink()) o.selected = true; sinkSel.appendChild(o); }); }).catch(function () { });
   }
   async function setCfg(patch) { if (NAT && NAT.config) { var c = await NAT.config.set(patch); CU.setConfig(c); if (hs) hs.cfg = c; } if (X) X.choose(); render(); if (patch.newUserCode || patch.newAdminCode) registerHost(); }

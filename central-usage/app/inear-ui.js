@@ -2,6 +2,7 @@
  * Pick a free mix (1-64), then set your own levels of the channels the sound desk routed to you.
  *   Local: your mix comes back over Wi-Fi to this device (headphones here) - a little delay
  *   Cloud: your levels go to the audio host, your mix leaves its audio interface (a wireless pack) - no delay
+ * While someone at the desk talks into your mix (talkback), a small "🎙 <name> talking" note shows at the top.
  * CUInEarUI.mount(root, { url, code, name, id, sinkSelect: bool }) -> { destroy(), link } */
 (function (root) {
   "use strict";
@@ -9,7 +10,7 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function db(v) { return v <= -90 ? "-∞" : (v > 0 ? "+" : "") + v.toFixed(1); }
   function mount(el, opt) {
-    var view = null, link = null, player = null, listening = false, status = "connecting", refused = null, dragging = null, lastSent = {}, meters = null, structKey = "", latency = Number(store("lat", 90)), sink = store("sink", "");
+    var view = null, link = null, player = null, listening = false, status = "connecting", refused = null, dragging = null, lastSent = {}, meters = null, structKey = "", latency = Number(store("lat", 90)), sink = store("sink", ""), talking = [];
     function store(k, d) { try { var v = localStorage.getItem("cu-ie-" + k); return v == null ? d : v; } catch (_) { return d; } }
     function save(k, v) { try { localStorage.setItem("cu-ie-" + k, v); } catch (_) { } }
     function mine() { return view && view.mixes.filter(function (q) { return q.mine; })[0]; }
@@ -55,10 +56,18 @@
       link.on("view", function (st) { var before = mine(); view = st; var after = mine(); if (listening && (!after || (before && after.m !== before.m) || !after.local)) stopListening(); render(); });
       link.on("meters", function (m) { meters = m; drawMeters(); });
       link.on("refused", function (err) { refused = err; render(); });
+      link.on("talking", function (names) { talking = names || []; showTalk(); });
       link.on("audio", function (pcm, frames, ch, rate) { if (player && listening) player.push(pcm, frames, ch, rate); });
     }
+    function showTalk() {   // who is talking into my mix (talkback from the desk)
+      var n = el.querySelector(".ie-talk");
+      if (!talking.length) { if (n) n.remove(); return; }
+      if (!n) { n = document.createElement("div"); n.className = "ie-talk"; n.setAttribute("role", "status"); el.insertBefore(n, el.firstChild); }
+      n.textContent = "🎙 " + talking.join(", ") + " talking";
+    }
     function renderStatus() { var s = el.querySelector(".ie-status"); if (s) s.textContent = status === "connected" ? "" : status; }
-    function render() {
+    function render() { renderBody(); showTalk(); }
+    function renderBody() {
       if (refused && !view) { el.innerHTML = '<div class="ie-card"><p class="ie-bad">' + esc(refused) + '</p><button data-ie="retry">Try again</button></div>'; return; }
       if (!view) { el.innerHTML = '<div class="ie-card"><p class="muted">Connecting to the audio host…</p><span class="ie-status"></span></div>'; renderStatus(); return; }
       var me = mine(), key = JSON.stringify([me && me.m, me && me.local, me && me.wired, me && me.outL, me && me.outR, view.inputs.map(function (x) { return x.i + x.name; }), listening, view.mixes.map(function (q) { return q.owner + q.free; })]);
@@ -93,7 +102,7 @@
       var st = el.querySelector(".ie-stats"); if (st && player) { var s = player.stats(); st.textContent = s.bufferMs != null ? "buffer " + s.bufferMs + " ms" + (s.outputMs ? " + output " + s.outputMs + " ms" : "") + (s.underruns ? " · " + s.underruns + " gaps" : "") : ""; }
     }
     connect(); render();
-    return { destroy: function () { stopListening(); if (link) link.close(); el.innerHTML = ""; }, link: function () { return link; } };
+    return { destroy: function () { stopListening(); if (link) link.close(); el.innerHTML = ""; }, link: function () { return link; }, talking: function () { return talking.slice(); } };
   }
   root.CUInEarUI = { mount: mount };
 })(typeof window !== "undefined" ? window : this);

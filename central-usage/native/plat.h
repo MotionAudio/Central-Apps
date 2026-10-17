@@ -1,6 +1,6 @@
 /* plat.h - the few operating-system pieces the native helpers need, for Linux, macOS and Windows:
  * threads, a mutex + condition, monotonic time and sleeping, loading a shared library at run time,
- * and binary stdin / stdout. Header only. */
+ * binary stdin / stdout, and files with UTF-8 names and 64-bit sizes. Header only. */
 #ifndef CU_PLAT_H
 #define CU_PLAT_H
 #include <stdint.h>
@@ -46,6 +46,14 @@ static inline void *pl_dlsym(void *lib, const char *sym) { return (void *)(uintp
 static inline long pl_read(void *buf, size_t n) { return (long)_read(0, buf, (unsigned)n); }
 static inline void pl_binary_stdio(void) { _setmode(_fileno(stdin), _O_BINARY); _setmode(_fileno(stdout), _O_BINARY); }
 static inline void pl_ignore_sigpipe(void) { }
+/* files by UTF-8 name (recordings named after channels and services), 64-bit sizes */
+static inline FILE *pl_fopen(const char *path, const char *mode) {
+  wchar_t wp[2048], wm[16];
+  if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wp, 2048) || !MultiByteToWideChar(CP_UTF8, 0, mode, -1, wm, 16)) return NULL;
+  return _wfopen(wp, wm);
+}
+static inline int pl_fseek64(FILE *f, int64_t off, int whence) { return _fseeki64(f, off, whence); }
+static inline int64_t pl_ftell64(FILE *f) { return _ftelli64(f); }
 #if defined(__GNUC__)
 #define PL_THREAD_LOCAL __thread
 #else
@@ -85,6 +93,9 @@ static inline void *pl_dlsym(void *lib, const char *sym) { return dlsym(lib, sym
 static inline long pl_read(void *buf, size_t n) { for (;;) { ssize_t k = read(0, buf, n); if (k < 0 && errno == EINTR) continue; return (long)k; } }
 static inline void pl_binary_stdio(void) { }
 static inline void pl_ignore_sigpipe(void) { signal(SIGPIPE, SIG_IGN); }
+static inline FILE *pl_fopen(const char *path, const char *mode) { return fopen(path, mode); }
+static inline int pl_fseek64(FILE *f, int64_t off, int whence) { return fseeko(f, (off_t)off, whence); }
+static inline int64_t pl_ftell64(FILE *f) { return (int64_t)ftello(f); }
 #define PL_THREAD_LOCAL __thread
 #endif
 

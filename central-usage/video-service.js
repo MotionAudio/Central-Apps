@@ -41,6 +41,9 @@ function which(cmd) {
   } catch (_) { return null; }
 }
 const exe = (n) => n + (process.platform === "win32" ? ".exe" : "");
+// where ffmpeg is: CU_FFMPEG, the one bundled next to the native helpers, or the system's (the recorder's MP3 uses it too)
+function findFfmpeg(binDir) { return [process.env.CU_FFMPEG, path.join(binDir, exe("ffmpeg")), path.join(binDir, "video", exe("ffmpeg"))].find((p) => p && fs.existsSync(p)) || which("ffmpeg"); }
+module.exports.findFfmpeg = findFfmpeg;
 function lines(stream, fn) { let buf = ""; stream.on("data", (b) => { buf += b; let i; while ((i = buf.indexOf("\n")) >= 0) { const l = buf.slice(0, i).replace(/\r$/, ""); buf = buf.slice(i + 1); fn(l); } if (buf.length > 65536) buf = ""; }); }
 // framed reader: u8 type, u32 length, payload
 function frames(stream, fn) {
@@ -77,7 +80,7 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
   const save = () => { try { fs.mkdirSync(userData, { recursive: true }); fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 1)); } catch (_) { } };
 
   // ------------------------------------------------------------------ the programs
-  const ffmpeg = () => [process.env.CU_FFMPEG, path.join(binDir, exe("ffmpeg")), path.join(binDir, "video", exe("ffmpeg"))].find((p) => p && fs.existsSync(p)) || which("ffmpeg");
+  const ffmpeg = () => findFfmpeg(binDir);
   const cuVideo = () => [process.env.CU_VIDEO_BIN, path.join(binDir, exe("cu-video"))].find((p) => p && fs.existsSync(p)) || null;
   for (const f of [path.join(binDir, "cu-video")]) { try { fs.accessSync(f, fs.constants.X_OK); } catch (_) { try { fs.chmodSync(f, 0o755); } catch (__) { } } }
 
