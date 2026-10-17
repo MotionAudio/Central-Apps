@@ -37,3 +37,5 @@
 .vd-meter i.hot { background: var(--chord); } .vd-meter i.clip { background: var(--danger); }
 .spacer { flex: 1; }
 @media (max-width: 700px) { .vd-mons { grid-template-columns: 1fr 1fr; } .vd-ctl button { min-width: 0; padding: 9px 10px; } .vd-chips { margin-left: 0; } }
+.vd-grid .card > label:not(.toggle) { display: grid !important; gap: 4px; align-items: stretch; }
+.vd-grid .card > label:not(.toggle) > input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), .vd-grid .card > label:not(.toggle) > select { width: 100%; }

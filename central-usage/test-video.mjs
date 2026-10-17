@@ -171,8 +171,8 @@ await check("GO LIVE streams to RTMP and SRT at once, each live on its own", asy
 await check("RECORD writes the stream to a file at the same time", async () => { const st = await cu.evaluate(() => CUVideo.record(true)); assert.ok(st.record.on, JSON.stringify(st.record)); });
 await check("the stream keeps going with the window minimised (the outputs aren't throttled)", async () => {
   const a = await cu.evaluate(() => CUVideo.stats()); await sleep(2500); const b = await cu.evaluate(() => CUVideo.stats());
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].minimize()); await sleep(2500);
-  const c = await cu.evaluate(() => CUVideo.stats()); await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].restore());
+  const bw = await app.browserWindow(cu); await bw.evaluate((w) => w.minimize()); await sleep(2500);
+  const c = await cu.evaluate(() => CUVideo.stats()); await bw.evaluate((w) => w.restore());
   const shown = b.streamFrames - a.streamFrames, hidden = c.streamFrames - b.streamFrames;
   assert.ok(shown > 0 && hidden >= shown * 0.5, "frames shown " + shown + ", minimised " + hidden);
 });
