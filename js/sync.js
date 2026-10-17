@@ -148,14 +148,14 @@
     } else if (view === "songs") {
       var s = await get("/sync/songs"), songs = (s && s.songs || []).filter(function (x) { return x.here; }), inThis = {}; if (!mine()) return;
       p.songs.forEach(function (x) { inThis[x.id] = 1; });
-      body.innerHTML = '<div class="row"><input id="syncFind" placeholder="Find a song" value=""><span class="muted small">' + songs.length + " songs</span>" + linkedNote() + "</div>" +
+      body.innerHTML = '<div class="row"><input id="syncFind" placeholder="Find a song" value=""><span class="muted small">' + songs.length + " song" + (songs.length === 1 ? "" : "s") + "</span>" + linkedNote() + "</div>" +
         '<div class="sync-list" id="syncSongs">' + songs.map(function (x) {
           return '<div class="sync-row" data-name="' + esc(x.name.toLowerCase()) + '"><div><b>' + esc(x.name) + "</b><small>" + esc((x.key || "") + (x.bpm ? " · " + x.bpm + " BPM" : "")) + (x.stems ? " · " + x.stems + " tracks" + (x.stemsHere ? "" : ' <span class="warn">(tracks not on this device yet)</span>') : "") +
             (x.setlists.length ? " · in " + esc(x.setlists.join(", ")) : " · in no setlist") + " · from " + esc(x.by) + "</small></div>" +
             (inThis[x.id] ? '<span class="pill">in this setlist</span>' : '<button class="primary" data-add="' + esc(x.id) + '">+ Add</button>') + '<button data-del-song="' + esc(x.id) + '" data-name="' + esc(x.name) + '">Delete…</button></div>';
         }).join("") + "</div>";
     } else {
-      var st = status || await get("/sync/status") || {}; if (!mine()) return;
+      var st = await get("/sync/status") || status || {}; if (!mine()) return;
       status = st;
       var peers = st.peers || [];
       body.innerHTML = '<table class="sync-t"><tr><td>This Central Control</td><td><input id="syncName" value="' + esc(st.name || "") + '"> <span class="muted small">' + (st.kind === "pi" ? "Raspberry Pi - keeps the tracks of songs in a setlist" : "computer - keeps every song's tracks") + "</span></td></tr>" +

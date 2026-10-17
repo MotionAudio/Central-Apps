@@ -11,7 +11,7 @@ svg.notation .n-lyric { font: 11px sans-serif; fill: #111; } svg.notation .n-mar
 .pt-warn { font-size: 12px; color: #ffcf6e; margin: 4px 0 8px; } .pt-note { font-size: 13px; color: var(--muted, #9bb2c9); margin: 4px 0; }
 .pt-paper { background: #fbfaf6; color: #111; border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
 .pt-paper .chart-view, .pt-paper .chart-view * { color: #111; } .pt-paper .chart-view .ch { color: #1b4fa0; }
-.pt-system { margin-bottom: 6px; } .pt-system.grand svg + svg { margin-top: -14px; }
+.pt-system { margin-bottom: 6px; } .pt-system.grand svg + svg { margin-top: -34px; }
 .pt-marks { display: flex; gap: 14px; font: bold 12px sans-serif; color: #1b4fa0; margin: 2px 0 -6px 4px; } .pt-marks small { font-weight: 400; color: #777; }
 .pt-diagrams { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
 svg.chord-diagram .cd-name { font: bold 10px sans-serif; text-anchor: middle; fill: #111; } svg.chord-diagram .cd-l { stroke: #333; stroke-width: .8; } svg.chord-diagram .cd-nut { stroke: #111; stroke-width: 2.4; }

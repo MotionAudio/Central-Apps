@@ -313,4 +313,4 @@ dialog.pp-ask .row { display: flex; justify-content: flex-end; gap: 8px; margin-
 .sync-t td { padding: 5px 10px 5px 0; vertical-align: middle; } .sync-t input { width: auto; min-width: 220px; } #syncFind { width: auto; min-width: 240px; }
 .sync-ask { max-width: 520px; } .sync-ask-opts { display: grid; gap: 8px; margin: 12px 0; } .sync-ask-opts button { display: grid; gap: 3px; text-align: left; padding: 12px 14px; width: 100%; } .sync-ask-opts small { color: var(--muted); font-weight: 400; }
 .sync-ask .row { display: flex; gap: 8px; justify-content: flex-end; } .sync-ask input { width: 100%; } button.danger { border-color: var(--danger, #ff7878); color: var(--danger, #ff7878); }
-#syncLine { margin-top: 8px; }
+#syncLine { margin-top: 8px; } .sync-note a, #syncLine a { color: var(--accent); }

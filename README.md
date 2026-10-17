@@ -12,6 +12,30 @@ computer gets the chord chart, the instrument, the lyrics and the musician's
 own in-ear mix. Everything follows the Central Control, and only the Central
 Control plays, stops and skips the tracks.
 
+**New in version 8.1:**
+- **The same songs and setlists on every Central Control.** Link the Pi and
+  Central Control on your computers once (Setlist → *Setlists · Song library ·
+  Devices* → *Link…* with the other one's code). After that, a setlist made on the
+  PC shows up on the Pi to open, and every song with its stems, chart and light
+  show copies both ways by itself; the newest edit wins. The Pi keeps the tracks of
+  songs that are in a setlist (cards are small); computers keep everything.
+  Deleting asks: *from this setlist*, *on this device*, or *everywhere*.
+- **Parts for every instrument** (song editor → *Parts for every instrument*):
+  guitar (chart with capo and chord diagrams, or tab), bass, keys (both hands),
+  vocals (melody with words), trumpet / clarinet / alto and tenor sax / horn in F /
+  trombone in their keys, violin, cello and a drum chart, plus the chord chart and
+  Nashville numbers. *Listen to every track* writes down what each track plays
+  (drums too: kick, snare, hats, crash), so the parts are the real ones; songs
+  without tracks get parts written from the chords. The bass track also makes the
+  heard chord chart more accurate.
+- **Lyrics + chords from the vocal** (Central Control on a PC, and Central Usage):
+  an offline speech model hears the words in the vocal track and writes the lyric
+  chart with the chords on the right words.
+- **Central Usage roles**: one main admin with a PIN and a pairing code, admins
+  with jobs (lighting, production, mix, in-ears, slides), User 1 and User 2.
+- **iPhone and iPad**: Central Usage opens from the Central Control at
+  `http://padpedal.local:8080/cu/` (Add to Home Screen).
+
 **New in version 8:**
 - **The Central Control's audio goes to Central Usage.** Every track goes on its
   own channel, plus the click, pads, the tracks mix and the instrument. It travels
@@ -352,6 +376,52 @@ Every input and output of the Central Control on one page:
     stick (`central-control-source.zip` from this project), into the
     read-only system too when safe mode is on, and restarts the app. Your
     songs and settings are not touched.
+
+## Setlists on every Central Control
+
+Every Central Control - the Pi and Central Control on your computers - keeps the
+same **Song library** and **setlists**. Open **Setlist → Setlists · Song library ·
+Devices…**:
+
+* **Setlists**: every setlist from every device, newest first. **Open** one (the one
+  you had open is kept), or **+ New setlist**.
+* **Song library**: every song, with its key, tempo, tracks and the setlists it is
+  in. **+ Add** puts it in the open setlist. **Delete…** asks *on this device* or
+  *everywhere*.
+* **Devices**: the other Central Controls on the network. **Link…** once with the
+  other one's pairing code (its Settings); after that they copy each other's songs
+  and setlists every few seconds - songs, stems, charts, light shows - and the
+  newest edit wins. A Raspberry Pi keeps the tracks of songs that are in a setlist
+  and leaves the others on the computers until a setlist needs them (it warns when
+  the card is nearly full). Removing a song from the setlist asks: *from this
+  setlist only*, *delete on this Central Control*, or *delete everywhere*.
+
+Devices find each other with a small broadcast on the network (UDP port 8094); if
+your network blocks that, use **Link by address…**.
+
+## Parts for every instrument
+
+Song editor → **Charts & sheet music → Parts for every instrument** (also in
+Central Usage's chart tab). Pick the instrument: **chord chart**, **Nashville
+numbers**, **guitar** (chart with capo, a diagram for every shape, tab), **bass**,
+**keys** (both hands), **vocals** (melody with the words), **trumpet, clarinet, alto
+sax, tenor sax, horn in F, trombone** (each written in its own key), **violin**,
+**cello**, **drums**.
+
+* **♫ Listen to every track** writes down what each track plays - bass and vocal as
+  a single line, keys and guitar as chords, horns and strings, and the drum track as
+  kick / snare / hi-hat / crash - so each part is the real one. Click and guide
+  tracks are skipped.
+* With no track for an instrument, its part is **written from the chords**: bass on
+  the roots (held in verses, a pulse with approach notes in choruses), keys voiced
+  close over the roots, horns on guide tones in the big sections, strings
+  throughout, and a drum chart that follows the sections with fills and the song's
+  hits.
+* **✎ Lyrics + chords from the vocal** (Central Control on a PC; the speech model
+  runs there): hears the words in the vocal track and writes the lyric chart with
+  each chord on the word it lands on; the vocal part gets the words under its notes.
+* Charts written by listening use the bass track on its own when the song has one,
+  which decides between chords that share their notes (Em7 / G6, Am / C6).
 
 ## Audio: four mono outputs
 

@@ -1518,6 +1518,7 @@ class CompanionServer:
                     show["updated"] = int(time.time() * 1000)
                     show["by"] = str(message.get("by") or "")[:60]
                     write_json(os.path.join(driver.config["data_root"], "lighting", sid + ".json"), show)
+                    driver.sync.touch(sid)   # the light show travels with the song to the other Central Controls
                     driver.emit({"type": "lighting", "song": sid, "updated": show["updated"], "by": show["by"]}, lan=True)
                     return self.send_json(200, {"ok": True, "updated": show["updated"]})
                 if url.path == "/api/slides":   # a picture / video from Central Usage for the Pi's slides screen
@@ -2460,6 +2461,17 @@ class SongSync:
                 self.save_state()
         if changed:
             self.poke_peers()
+
+    def touch(self, sid):
+        """A file that belongs to a song changed (its light show): a new version, so the others fetch it."""
+        sid = self.safe_id(sid)
+        with self.lock:
+            rec = self.songs.get(sid)
+            if not rec or rec.get("deleted"):
+                return
+            rec = dict(rec, rev=self.tick(rec.get("rev")), ts=int(time.time() * 1000), by=self.id)
+            self._save("songs", rec)
+        self.poke_peers()
 
     # ----- listings for this device's app -------------------------------------------
     def device_name(self, did):

@@ -81,5 +81,10 @@ check("a chart with no heard chords: its chords are spread over the song's secti
   const e = P.chordsFromChart(c5); assert.deepEqual(e.chords.map((c) => c.label + "@" + c.bar + "." + c.beat), ["G@1.1", "D@2.1", "Em@3.1", "C@4.1", "G@5.1", "D@6.1", "Em@7.1", "C@8.1"]);
   const b = P.build(c5, "bass"); assert.equal(b.notes.length > 0, true); assert.ok(/estimated/.test(b.warn.join(" ")));
 });
+check("a chart in another key than the song: its chords move to the song's key (E chart, song in G)", () => {
+  const c6 = { key: "G", bpb: 4, bars: 4, chords: [], sections: [{ name: "Chorus", bar: 1 }], chartText: "{key: E}\n[Chorus]\n| E | B | C#m | A |\n" };
+  assert.deepEqual(P.chordsFromChart(c6).chords.map((c) => c.label), ["G", "D", "Em", "C"]);
+  assert.equal(P.build(c6, "trumpet").chords[0].label, "A");
+});
 check("every instrument builds and draws", () => { P.INSTRUMENTS.forEach((i) => { const p = P.build(ctx, i.id); const h = P.render(p, p.views[0], { ctx, width: 800 }); assert.ok(h.length > 100, i.id); }); });
 console.log(failures ? "\n" + failures + " CHECK(S) FAILED" : "\nALL PARTS CHECKS PASSED"); process.exit(failures ? 1 : 0);

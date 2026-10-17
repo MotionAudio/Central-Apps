@@ -84,7 +84,24 @@ More options for the image (screen, password, sounds) are in [README.md](README.
 
 ---
 
+## iPhone, iPad and Android phones / tablets
+
+Central Usage runs in the browser, served by your Central Control - nothing to install from a store:
+
+1. Join the same Wi-Fi as the Central Control.
+2. Open **http://padpedal.local:8080/cu/** in Safari (iPhone / iPad) or Chrome (Android).
+   If that name does not open, use the Central Control's address from its Settings, e.g. `http://192.168.1.40:8080/cu/`.
+3. Choose **Join** and type the pairing code from the main admin's Settings (before there is a main admin:
+   the Central Control's own 4-digit code).
+4. iPhone / iPad: **Share → Add to Home Screen**. Android: **⋮ → Add to Home screen**. It now opens full screen like an app.
+
+It is always the version your Central Control runs, so it updates with it. On a phone or tablet you are
+User 1 or User 2: the chord chart or any instrument's part, the lyrics, and your own in-ear mix.
+
+---
+
 ## Updating later
 * **Pi:** Settings → Install when *Update ready* appears.
 * **PC apps:** they check for updates themselves and ask before installing. Or run the
   commands above again.
+* **Phones and tablets:** nothing to do - they always open the Central Control's current version.

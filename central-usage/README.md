@@ -3,12 +3,28 @@
 The companion app for Central Control on the other computers in the room. It is
 a real desktop application (Electron), not a browser tab. Version 2.0.0.
 
-Each computer is set to one of two roles (Settings; it asks the first time):
+Each computer has a role. The first time it starts it asks: **Main admin** or **Join**.
 
-* **Admin** (the sound, lights or media desk): **Lighting · Mix · In-ears ·
-  Lyrics · Slides · I/O**
-* **User** (a musician on stage): **Chord chart · Instrument · Lyrics · In-ears
-  (my mix) · I/O**
+* **Main admin** (one, usually the sound desk): everything an admin has, plus a
+  4-digit **PIN** and a **pairing code** (Settings → This computer) and the
+  **People and devices** list, where it gives every other computer its role and,
+  for admins, their **jobs**.
+* **Admin**: **Lighting · Video · Mix · In-ears · Lyrics · Slides · I/O**, or only
+  the tabs for the jobs the main admin gives it (any mix of Lighting, Production
+  (cameras), Mix, In-ears, Slides & lyrics; *General* = all of them).
+* **User 1** (a musician): **Chord chart (or any instrument's part) · Instrument ·
+  Lyrics · In-ears (my mix) · I/O**
+* **User 2**: **Lyrics · Chord chart (any instrument) · In-ears (my mix)**
+
+A new computer chooses **Join** and types the main admin's pairing code; it starts
+as User 1 and gets the Central Control's code and its in-ear code by itself. Users
+switch between User 1 and User 2 any time (the buttons in the top bar). Moving
+between the user side and the admin side needs the main admin's PIN, or the main
+admin changes it in its People list. **Settings → Forget role** puts a computer
+back to the first question (use it if two were set up as the main admin; the
+Central Control shows a warning when that happens). The list lives on the Central
+Control (only hashes of the PIN and codes), so roles hold while the main admin's
+computer is off.
 
 You can have several admins and many users. **Only the Central Control plays,
 stops and skips the tracks**, and every computer follows it. From here you can
@@ -27,8 +43,9 @@ the current section.
 1. Put the computer on the same network as the Central Control (Ethernet or
    Wi-Fi).
 2. Use **File → Find**, or type `padpedal.local` or its IP, then **Connect**.
-3. Click **Code** and enter the 4-digit pairing code from Central Control →
-   Settings.
+3. The first time: **Join** with the main admin's pairing code (or, before there
+   is a main admin, the 4-digit code from Central Control → Settings). Later
+   computers find the Central Control by themselves.
 
 ## The audio host (Admin)
 
@@ -150,15 +167,46 @@ A light controller in the style of Lightkey that follows the song:
 * **Chord chart**: transposed for your instrument. This covers concert pitch,
   guitar with capo and chord shapes, B♭ / E♭ / F horns and Nashville numbers. It
   follows the song and the section.
+* **Part** (next to the instrument): instead of the chart, the part for **guitar**
+  (chart with capo and a diagram for every chord shape, or tab), **bass**
+  (notation / tab), **keys** (both hands), **vocals** (melody with the words under
+  the notes), **trumpet, clarinet, alto / tenor sax, horn in F, trombone** (in their
+  own keys), **violin, cello** and **drums** (a drum chart). When the Central Control
+  has listened to the song's tracks (its *Parts → Listen to every track*), the part
+  is what that track really plays; otherwise it is written from the chords: bass on
+  the roots, keys voiced close, horns and strings on guide tones, drums that follow
+  the sections with fills and the song's hits. Parts follow the key the Central
+  Control is playing in.
 * **Instrument**: the Central Control's guitar / bass / keys rig, running on this
   computer. It uses real LV2 / LADSPA pedals through PipeWire and FluidSynth for
   the keys, so it needs `python3`, `fluidsynth` and the LV2 plugins.
 * **Lyrics**: big, with what comes next.
 
+## Lyrics + chords from the vocal (Admin)
+
+**Lyrics tab → ♫ Lyrics + chords from the vocal** listens to the vocal track of the
+song the Central Control is on and writes a lyric chart: the sections, lines split
+where the singer breathes, and each chord on the word it lands on (chord bars where
+nobody sings). The chart and the words' timing go back to the Central Control, so
+every phone, the projector and the vocal part get them. It uses an offline speech
+model on this computer (**Settings → Lyrics from the vocal**: *Accurate*, about
+500 MB, or *Fast*, about 140 MB; downloaded once, nothing is sent anywhere).
+
+## Phones and tablets (iPhone, iPad, Android)
+
+Open **http://padpedal.local:8080/cu/** (or the Central Control's address) in Safari
+or Chrome, choose **Join** and type the pairing code. On an iPhone or iPad, **Share →
+Add to Home Screen** makes it an app icon that opens full screen. It is User 1 /
+User 2: the chord chart or any instrument's part, the lyrics and your own in-ear mix
+(the mix plays on the phone over Wi-Fi). It always runs the Central Control's
+current version. (An App Store version needs an Apple developer account - see
+`IOS-APP-STORE.md`.)
+
 ## Settings
 
-This is where you set this computer's name and role (Admin or User), the
-optional AI model for the lights, and updates (*Check for updates…*).
+This is where you set this computer's name and role (and, on the main admin, the
+PIN, the pairing code and the People list), the optional AI model for the lights,
+the speech model for lyrics, and updates (*Check for updates…*).
 
 Keys:
 * `F1`–`F9`: the tabs

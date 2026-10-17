@@ -132,6 +132,12 @@ async def main():
         pcs = jget(18866, "/sync/song/s1")
         check("...and the PC's copy still points at its own stem file", pcs and pcs["tracks"]["stems"][0]["file"] == os.path.realpath(kick_path), pcs)
 
+        # a light show saved for the song (by Central Usage) travels too
+        show = {"code": pi_code, "song": "s1", "show": {"cues": [{"bar": 1, "look": "verse"}]}}
+        http("http://127.0.0.1:18980/api/lighting", data=json.dumps(show).encode())
+        got = wait(lambda: os.path.isfile(os.path.join(pc_root, "data", "lighting", "s1.json")) and "verse" in open(os.path.join(pc_root, "data", "lighting", "s1.json")).read())
+        check("a light show saved on the Pi (from Central Usage) reaches the PC", got)
+
         # putting the spare song in a setlist on the Pi brings its stems over
         s3_pi = jget(18966, "/sync/song/s3")
         http("http://127.0.0.1:18966/project", data=json.dumps(project("sl1", "Sunday", [s1_pi, s3_pi])).encode())

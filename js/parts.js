@@ -222,6 +222,10 @@
         at += per;
       });
     });
+    // a chart written in another key than the song is played in: its chords move to the song's key
+    var chartKey = String(parsed.key || ctx.key || "C").replace(/m$/, ""), songKey = String(ctx.key || chartKey).replace(/m$/, "");
+    var shift = (C.noteIndex(songKey) - C.noteIndex(chartKey) + 12) % 12;
+    if (shift) { var flats = C.keyPrefersFlats(ctx.key || songKey); chords.forEach(function (c) { try { c.label = C.transpose(c.label, shift, flats); } catch (_) { } }); }
     var bars = Math.max(ctx.bars || 1, plan.reduce(function (a, p) { return Math.max(a, p.bar + p.bars - 1); }, 1));
     return Object.assign({}, ctx, { chords: chords, sections: songSecs.length ? ctx.sections : plan.map(function (p) { return { name: p.name, bar: p.bar }; }), bars: bars, estimated: true });
   }
