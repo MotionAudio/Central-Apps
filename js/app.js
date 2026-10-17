@@ -755,7 +755,8 @@
         socket.onclose = function () {
           if (bridge.connected) setStatus("Lost the Central Control service - retrying");
           bridge.connected = false; bridge.socket = null; bridge.showStatus();
-          setTimeout(function () { bridge.connect(); }, bridge.reconnectDelay);
+          // at power-on the page can be up a moment before the driver's socket: retry quickly for the first 20 s
+          setTimeout(function () { bridge.connect(); }, !bridge.info && performance.now() < 20000 ? 250 : bridge.reconnectDelay);
         };
       }
     };

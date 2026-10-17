@@ -21,15 +21,17 @@
   // opens the real page (the address after the #).
   var ver = (location.search.match(/[?&]v=([^&#]+)/) || [])[1]; if (ver) document.querySelector("h1").textContent = "Central Control " + decodeURIComponent(ver);
   var next = decodeURIComponent(location.hash.slice(1)) || "http://127.0.0.1:8766/app/#resume", tries = 0;
-  var probe = next.replace(/^(https?:\/\/[^/]+).*$/, "$1/");
+  var probe = next.replace(/^(https?:\/\/[^/]+).*$/, "$1/"), t0 = Date.now();
   function check() {
+    // asks every 0.2 s (a refused local connection costs nothing), so the app opens the moment the service is up
+    var s = (Date.now() - t0) / 1000;
     tries++;
-    if (tries === 20) document.getElementById("msg").textContent = "Still starting… (the first start after an update takes a little longer)";
-    if (tries === 90) document.getElementById("tip").textContent = "Taking too long? Turn the power off and on again. If it keeps happening, plug in a keyboard and press Ctrl+Alt+F2 to log in and run: journalctl -u pad-pedal-driver";
+    if (s >= 20) document.getElementById("msg").textContent = "Still starting… (the first start after an update takes a little longer)";
+    if (s >= 90) document.getElementById("tip").textContent = "Taking too long? Turn the power off and on again. If it keeps happening, plug in a keyboard and press Ctrl+Alt+F2 to log in and run: journalctl -u pad-pedal-driver";
     fetch(probe + "?t=" + Date.now(), { mode: "no-cors", cache: "no-store" })
       .then(function () { document.getElementById("msg").textContent = "Ready"; location.replace(next); })
-      .catch(function () { setTimeout(check, 1000); });
+      .catch(function () { setTimeout(check, 200); });
   }
-  setTimeout(check, 300);
+  check();
 </script>
 </body></html>

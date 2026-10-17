@@ -136,6 +136,20 @@ minute longer and restarts once; the screen then shows *Central Control* and its
 
 More options for the image (screen, password, sounds) are in [README.md](README.md).
 
+### Start-up time
+From power-on the app should be on the screen in roughly 15 seconds (a computer monitor that is
+slow to wake up can add a few). The start-up settings (no boot pause, quiet boot, services the
+Pi never needs turned off) are applied by the image and again after every software update;
+`sudo pad-pedal-system boot-tune` applies them by hand. To see where the time goes, log in over SSH:
+
+```bash
+systemd-analyze                          # firmware + kernel + system start
+systemd-analyze critical-chain getty@tty1.service   # what the screen session waited for
+systemd-analyze blame | head -20         # the slowest services
+journalctl -b -u pad-pedal-driver | head # when the driver started and was listening
+cat /tmp/pad-pedal-session.log           # the screen session (screens found, windows opened)
+```
+
 ---
 
 ## Updating later

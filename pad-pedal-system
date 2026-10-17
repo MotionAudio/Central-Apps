@@ -10,6 +10,7 @@
 #   pad-pedal-system wifi-import                import /boot/firmware/pad-pedal-wifi.txt into NetworkManager
 #   pad-pedal-system update <zip>               install a central-control-source zip (from a USB stick) over /opt/pad-pedal
 #   pad-pedal-system restart-app                restart the driver and the screens (after an update)
+#   pad-pedal-system boot-tune                  faster start-up (firmware / kernel settings, unneeded services off)
 #   pad-pedal-system status
 set -euo pipefail
 BOOT=/boot/firmware; [ -f "$BOOT/config.txt" ] || BOOT=/boot
@@ -25,6 +26,61 @@ set_config() {  # set_config key value  -> "key=value" in the [all] part of conf
   if grep -qE "^#?$key=" "$CONFIG"; then sed -i -E "s|^#?$key=.*|$key=$value|" "$CONFIG"; else echo "$key=$value" >> "$CONFIG"; fi
 }
 remove_overlays() { boot_rw; for o in $TFT_OVERLAYS; do sed -i -E "/^dtoverlay=$o(:|$)/d" "$CONFIG"; done; }
+
+# ---- boot-tune: what makes power-on -> app quicker. Safe to run any number of times; it only writes when
+# something is missing. Run by setup-pi.sh, after every software update and by restart-app.
+#   firmware: no 1 s pause before the kernel, full CPU clock until Linux takes over, no rainbow
+#   kernel:   no boot messages / logo on the screen
+#   services: ones this appliance never uses that hold up the start or compete with the app for the CPU.
+#             Wi-Fi comes up in the background, so nothing waits for "network online". Bluetooth is not used
+#             anywhere (only its services are off - the disable-bt overlay would take GPIO 14/15, two buttons).
+#             avahi (padpedal.local), NetworkManager, ssh, timesyncd, fsck of /data stay as they are.
+BOOT_TUNE_CONFIG="boot_delay=0 initial_turbo=30 disable_splash=1"
+BOOT_TUNE_CMDLINE="quiet loglevel=3 logo.nologo consoleblank=0"
+BOOT_TUNE_OFF="NetworkManager-wait-online.service systemd-networkd-wait-online.service apt-daily.timer apt-daily-upgrade.timer man-db.timer
+               e2scrub_reap.service ModemManager.service triggerhappy.service triggerhappy.socket hciuart.service bluetooth.service keyboard-setup.service"
+config_all() {  # config_all key value -> key=value for every Pi model (an existing key=... is replaced, else added under [all])
+  local key="$1" value="$2" last
+  grep -qE "^$key=$value\$" "$CONFIG" && return 0
+  boot_rw
+  if grep -qE "^$key=" "$CONFIG"; then
+    sed -i -E "s|^$key=.*|$key=$value|" "$CONFIG"
+  else
+    [ -z "$(tail -c1 "$CONFIG")" ] || echo >> "$CONFIG"
+    last="$(grep -E '^\[' "$CONFIG" | tail -1)"
+    [ -z "$last" ] || [ "$last" = "[all]" ] || echo "[all]" >> "$CONFIG"
+    echo "$key=$value" >> "$CONFIG"
+  fi
+  echo "  config.txt: $key=$value"
+}
+cmdline_arg() {  # cmdline_arg arg  (cmdline.txt is one line; key=value replaces an older value)
+  local arg="$1" key="${1%%=*}"
+  grep -qE "(^| )$arg( |\$)" "$CMDLINE" && return 0
+  boot_rw
+  if grep -qE "(^| )$key(=| |\$)" "$CMDLINE"; then sed -i -E "1 s/(^| )$key(=[^ ]*)?( |\$)/\1$arg\3/" "$CMDLINE"; else sed -i "1 s/\$/ $arg/" "$CMDLINE"; fi
+  echo "  cmdline.txt: $arg"
+}
+tune_wanted() {  # tune_wanted <root> -> the units / settings still to change there (nothing printed = done)
+  local R="$1" u
+  for u in $BOOT_TUNE_OFF; do
+    compgen -G "$R/etc/systemd/system/*.wants/$u" >/dev/null && echo "$u"
+  done
+  [ -d "$R/etc/cloud" ] && [ ! -e "$R/etc/cloud/cloud-init.disabled" ] && echo cloud-init
+  return 0
+}
+tune_root() {  # tune_root <root>  (/ = the running system; /media/root-ro = the real partition under safe mode)
+  local R="$1" u
+  for u in $(tune_wanted "$R"); do
+    if [ "$u" = cloud-init ]; then
+      touch "$R/etc/cloud/cloud-init.disabled"   # first-boot setup is done by firstboot.sh; cloud-init waits for the network
+    elif [ "$R" = / ]; then
+      systemctl disable --no-reload "$u" >/dev/null 2>&1 || true
+    else
+      systemctl --root="$R" disable "$u" >/dev/null 2>&1 || true
+    fi
+    if [ "$R" = / ]; then echo "  off: $u"; else echo "  off: $u (in $R)"; fi
+  done
+}
 
 case "${1:-status}" in
   safe-mode)
@@ -133,16 +189,30 @@ PY
       echo "installed into the system partition too (safe mode is on)"
     fi
     systemctl daemon-reload 2>/dev/null || true
+    /usr/local/sbin/pad-pedal-system boot-tune >/dev/null 2>&1 || true   # the helper just installed: its start-up settings
     sync
     echo "Central Control updated from $(basename "$zip"): $(ls "$src"/js/*.js | wc -l) app files, driver $(grep -m1 -oE 'server_version = "[^"]+"' "$src/pedal-driver.py" | cut -d'"' -f2)" ;;
   restart-app)
+    # first (restarting the driver also ends this script): start-up settings of the version just installed
+    timeout 20 "$0" boot-tune >/dev/null 2>&1 || true
     systemctl restart pad-pedal-driver 2>/dev/null || true
     # the screens: the app reloads itself when the driver comes back
     echo "driver restarted" ;;
+  boot-tune)
+    for kv in $BOOT_TUNE_CONFIG; do config_all "${kv%%=*}" "${kv#*=}"; done
+    for arg in $BOOT_TUNE_CMDLINE; do cmdline_arg "$arg"; done
+    tune_root /
+    # safe mode: the running system is a throw-away copy - make the change on the real partition too
+    if [ "$(awk '$2=="/" {print $3; exit}' /proc/mounts)" = "overlay" ] && mountpoint -q /media/root-ro && [ -n "$(tune_wanted /media/root-ro)" ]; then
+      mount -o remount,rw /media/root-ro
+      tune_root /media/root-ro
+      sync; mount -o remount,ro /media/root-ro || true
+    fi
+    sync; echo "start-up settings: done (take effect at the next restart)" ;;
   status)
     "$0" safe-mode status
     echo "tft=$(grep -oE '^dtoverlay=(waveshare35a|waveshare35b|waveshare35c|piscreen|tft35a|tinylcd35|pitft35-resistive)' "$CONFIG" | head -1 | cut -d= -f2)"
     echo "dac=$(grep -q '^dtoverlay=hifiberry-dac' "$CONFIG" && echo on || echo off)"
     cat "$DATA/audio.json" 2>/dev/null || true ;;
-  *) echo "usage: $0 safe-mode|tft|dac|audio|hostname|wifi-import|update|restart-app|status" >&2; exit 1 ;;
+  *) echo "usage: $0 safe-mode|tft|dac|audio|hostname|wifi-import|update|restart-app|boot-tune|status" >&2; exit 1 ;;
 esac

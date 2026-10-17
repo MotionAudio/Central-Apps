@@ -21,15 +21,17 @@ export DISPLAY="$D"
 CC_APP="$HERE" CC_DATA="$T/data" CC_SCREENS="$T/screens.json" CC_LOG="$T/log" CC_DRM="$T/drm" CC_NO_AUDIO=1 CC_BROWSER="$T/browser" \
   HOME="$T/home" CC_WATCH_EVERY=1 setsid bash "$HERE/pad-pedal-session" & SP=$!
 echo "Screen session:"
-sleep 23   # the session waits up to 20 s for the driver, then opens the start-up page
 win() { xdotool search --onlyvisible --class CentralControl1 2>/dev/null | head -1; }
+# the session doesn't wait for the driver: the start-up page opens right away (only Chromium's own start time)
+for _ in $(seq 1 30); do W="$(win)"; [ -n "$W" ] && xdotool getwindowname "$W" 2>/dev/null | grep -q starting && break; sleep 0.5; done
 W="$(win)"
 ok "a window opens even though the driver isn't running yet (the start-up page)" '[ -n "$W" ] && xdotool getwindowname "$W" | grep -q starting'
 python3 "$HERE/pedal-driver.py" --simulate "$T/sim" --app-root "$HERE" >"$T/driver.log" 2>&1 & DP=$!
 for _ in $(seq 1 30); do xdotool getwindowname "$W" 2>/dev/null | grep -q "^Central Control - " && ! xdotool getwindowname "$W" | grep -q starting && break; sleep 1; done
 ok "...and it hands over to the app as soon as the driver answers" 'xdotool getwindowname "$W" | grep -qv starting'
 geo() { xwininfo -id "$W" | awk '/Absolute upper-left X/{x=$4} /Absolute upper-left Y/{y=$4} /Width/{w=$2} /Height/{h=$2} END{print w"x"h"+"x"+"y}'; }
-sleep 3
+for _ in $(seq 1 20); do grep -q "screen 1 moved" "$T/log" && break; sleep 0.5; done   # the session's put-it-in-place pass, 6 s after the start
+sleep 1
 ok "the window covers the screen exactly (1600x1000)" '[ "$(geo)" = "1600x1000+0+0" ]'
 ok "the session reports the screen it found for Settings → Screens" 'grep -q "\"primary\": \"screen\"" "$T/screens.json"'
 echo '{"hdmi1":"app","hdmi2":"lyrics","inset1":40}' > "$T/data/displays.json"; sleep 4

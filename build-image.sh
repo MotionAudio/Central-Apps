@@ -235,6 +235,9 @@ grep -qE '^dtoverlay=vc4-kms-v3d' "$BOOTMNT/config.txt" || die "config.txt has n
 [ "$(cat "$MNT/etc/pad-pedal/version")" = "$VER" ] || die "the image says version $(cat "$MNT/etc/pad-pedal/version"), expected $VER"
 echo "Central Control OS $VER - built $(date -u +%Y-%m-%d)" > "$BOOTMNT/central-control-version.txt"
 grep -qw resize "$BOOTMNT/cmdline.txt" && die "cmdline.txt still grows the system partition (the /data partition needs that space)"
+grep -q '^boot_delay=0' "$BOOTMNT/config.txt" && grep -qw quiet "$BOOTMNT/cmdline.txt" \
+  && [ ! -e "$MNT/etc/systemd/system/network-online.target.wants/NetworkManager-wait-online.service" ] \
+  && echo "    fast start-up settings in place" || echo "    WARNING: the fast start-up settings are incomplete (boots slower) - see 'boot-tune' in pad-pedal-system"
 echo "    app, companion pages, driver, screens session, audio routing, cue words and services all present"
 
 say "Cleaning up"
