@@ -16,3 +16,10 @@ central-usage/app/shared/
 central-usage/native/build/
 central-usage/native/instrument_host.py
 central-usage/native/instrument-plugins.json
+central-usage/native/sounds/
+central-usage/native/build-*/
+central-control-desktop/driver-dist/
+central-control-desktop/native/
+central-usage-ios/node_modules/
+central-usage-ios/ios/App/App/public/
+.pyi-build/

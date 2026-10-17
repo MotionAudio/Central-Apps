@@ -30,3 +30,11 @@
   .ie-ch .ie-name { grid-area:name; } .ie-ch .ie-db { grid-area:db; } .ie-ch label { grid-area:on; } .ie-ch [data-ie-send] { grid-area:fader; } .ie-ch .ie-meter { grid-area:meter; } .ie-ch .ie-pan { grid-area:pan; width:90px; }
   .ie-master { grid-template-columns:auto 1fr auto; } .ie-modes { grid-template-columns:1fr; }
 }
+/* several audio devices / Dante (I/O tab) and wired / local mixes (In-ears tab) */
+.io-dev { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line, #2a3a4f); border-radius: 8px; margin: 4px 0; flex-wrap: wrap; }
+.io-dev b { font-weight: 600; } .io-dev .muted { margin-left: auto; }
+.io-tag { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: rgba(90, 160, 255, .18); color: inherit; }
+button.mini { padding: 2px 8px; min-height: 0; font-size: 12px; }
+.ia-wire { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; } .ia-wire input[type=number] { width: 64px; } .ia-wire select { width: auto; }
+.ia-dest { gap: 14px; align-items: center; flex-wrap: wrap; } .ia-dest select { width: auto; }
+.ie-mix small { display: block; font-size: 10px; opacity: .7; } .ie-wired { margin: 0 0 8px; }

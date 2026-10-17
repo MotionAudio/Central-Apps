@@ -2,7 +2,7 @@
 # Copies the files Central Usage shares with Central Control into this folder before a build (or `npm start`):
 #   app/shared/   the Instrument page (instrument.js, pedals.js, plugin-ports.js, pad-pedal.css) and the parts (notation.js, parts.js, parts.css)
 #   native/       the instrument host (instrument_host.py + instrument-plugins.json)
-# and builds the native helpers (the audio engine cu-mixer and the NDI sender cu-ndi).
+# and builds the native helpers (the audio engine cu-mixer, the NDI sender cu-ndi, the instrument rig cu-rig).
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 mkdir -p "$HERE/app/shared" "$HERE/app/fonts"
@@ -10,5 +10,5 @@ cp "$ROOT/js/instrument.js" "$ROOT/js/pedals.js" "$ROOT/js/plugin-ports.js" "$RO
 cp "$ROOT/css/pad-pedal.css" "$ROOT/css/parts.css" "$HERE/app/shared/"
 cp "$ROOT/instrument_host.py" "$ROOT/instrument-plugins.json" "$HERE/native/"
 [ -f "$HERE/app/fonts/fonts.css" ] || cp "$ROOT/fonts/"* "$HERE/app/fonts/" 2>/dev/null || true
-make -C "$HERE/native" >/dev/null
+[ -n "${CU_SKIP_NATIVE:-}" ] || make -C "$HERE/native" >/dev/null   # (CI builds the native helpers in their own job: CU_SKIP_NATIVE=1)
 echo "shared files copied, native helpers built"

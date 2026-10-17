@@ -2,9 +2,10 @@
  * and phones connect here.
  *   admins  (admin code)    see and change the whole mixer, listen to any mix, get the meters and the lights' bands
  *   users   (in-ear code)   pick a free mix, see only the channels routed to them, set their levels; their mix
- *                           comes back over Wi-Fi ("local") or leaves the audio interface for a pack ("cloud")
+ *                           comes back over the network ("local") and / or leaves the interface / Dante for an
+ *                           in-ear transmitter ("wired") - the sound desk sets that per mix
  *   phones                  http://<this computer>:8092/ - the same user page in the browser
- * Audio frames to a client: "IEA1", u8 tap (0 main, 1..48 mix), u8 channels, u16 frames, u32 rate, int16 data. */
+ * Audio frames to a client: "IEA1", u8 tap (0 main, 1..64 mix), u8 channels, u16 frames, u32 rate, int16 data. */
 "use strict";
 const http = require("node:http");
 const fs = require("node:fs");
@@ -73,7 +74,7 @@ class Host {
     }
     if (m.type === "listen") {   // { tap: "main" | mix index, on, rate: 48000 | 24000, mono }
       const tap = m.tap === "main" ? 0 : (Number(m.tap) | 0) + 1;
-      if (c.role === "user") { const q = this.engine.state.mixes[tap - 1]; if (!q || q.ownerId !== c.id) return this.sendJson(c.ws, { type: "refused", error: "Pick your mix first." }); }
+      if (c.role === "user" && m.on) { const q = this.engine.state.mixes[tap - 1]; if (!q || q.ownerId !== c.id) return this.sendJson(c.ws, { type: "refused", error: "Pick your mix first." }); if (!q.local) return this.sendJson(c.ws, { type: "refused", error: "This mix goes to a wired in-ear pack - the sound desk can also send it to your device." }); }
       if (m.on) this.listen(c, tap, { rate: m.rate === 24000 ? 24000 : 48000, mono: !!m.mono }); else this.unlisten(c, tap);
       this.emitClients(); return;
     }
@@ -99,7 +100,7 @@ class Host {
   broadcastOp(op, who) {
     this.clients.forEach((c) => { if (c.role === "admin") this.sendJson(c.ws, { type: "op", op, by: who && who.id }); });
     // a user's mix stopped being theirs: stop its audio
-    if (op.op === "release" || op.op === "claim") this.clients.forEach((c) => { if (c.role === "user") c.listening.forEach((fn, tap) => { if (tap >= 1) { const q = this.engine.state.mixes[tap - 1]; if (!q || q.ownerId !== c.id) this.unlisten(c, tap); } }); });
+    if (op.op === "release" || op.op === "claim" || op.op === "mix") this.clients.forEach((c) => { if (c.role === "user") c.listening.forEach((fn, tap) => { if (tap >= 1) { const q = this.engine.state.mixes[tap - 1]; if (!q || q.ownerId !== c.id || !q.local) this.unlisten(c, tap); } }); });
     this.viewsSoon();
   }
   viewsSoon() { clearTimeout(this.viewTimer); this.viewTimer = setTimeout(() => this.clients.forEach((c) => { if (c.role === "user") this.sendJson(c.ws, { type: "view", state: M.forUser(this.engine.state, c.id, this.live()) }); }), 80); }

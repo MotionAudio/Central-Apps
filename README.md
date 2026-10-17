@@ -106,7 +106,21 @@ kept in a library on the Pi · lighting in Central Usage.
 
 ## Quick start
 
-**Just want to install the apps from GitHub?** Copy-paste commands are in [INSTALL.md](INSTALL.md).
+**Just want to install the apps?** The download page **https://motionaudio.github.io/Central-Apps/**
+picks the right file for your computer; step-by-step help (and Linux commands) is in [INSTALL.md](INSTALL.md).
+
+| | Central Control | Central Usage |
+|---|---|---|
+| Raspberry Pi | ✓ (the stage device) | |
+| Windows 10 / 11 (x64) | ✓ | ✓ |
+| macOS 11+ (Apple Silicon, Intel) | ✓ | ✓ |
+| Linux (.deb, AppImage) | ✓ | ✓ |
+| iPhone / iPad | | ✓ web app from the Central Control ([App Store version](IOS-APP-STORE.md)) |
+
+Every release ships for all of them (GitHub Actions builds and tests each system), and every install updates
+itself from the newest release. On Windows and macOS the instrument plays through the built-in rig (built-in
+effects for every pedal, SoundFont keys) and the audio host works with any interface or Dante Virtual Soundcard.
+Releases can also be copied to Google Drive automatically ([DRIVE-SETUP.md](DRIVE-SETUP.md)).
 
 1. **Build the OS image** on your Ubuntu PC (40–60 minutes the first time, needs internet and ~15 GB free):
 
@@ -591,4 +605,10 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `99-pad-pedal-usb.rules`, `99-pad-pedal-touch.conf` | USB auto-mount; keeps the 3.5" touch panel away from X |
 | `wiring.html` (`make_wiring.py`, `wiring.template.html`) | Wiring guide with the header map, and its generator |
 | `test_pedal_driver.py`, `test-integration.mjs`, `test-headless.mjs`, `test_instrument_host.py` | Automated tests |
-| `central-control-desktop/` | Central Control as a native desktop app for a regular Linux PC (Electron; installers in `dist/`: `sudo apt install ./central-control-8.0.0-amd64.deb`) |
+| `central-control-desktop/` | Central Control as a desktop app for Windows, macOS and Linux (Electron; the driver bundled with PyInstaller on Windows / macOS - `tools/build-driver.sh`; installers in `dist/`) |
+| `native_rig.py` | The driver's bridge to the built-in instrument rig (cu-rig) where PipeWire isn't there (Windows, macOS) |
+| `central-usage/native/` | `cu-mixer` (audio engine: JACK, or Windows / macOS / Linux devices through miniaudio - several at once, Dante), `cu-ndi`, `cu-rig` (built-in instrument rig), `vendor/` (miniaudio, TinySoundFont, cJSON), unit tests |
+| `central-usage-ios/` | Central Usage for the App Store / TestFlight (Capacitor) - [IOS-APP-STORE.md](IOS-APP-STORE.md) |
+| `docs/` | The download page (GitHub Pages) |
+| `tools/` | Build helpers: the pedal map for the rig, the built-in sounds, the bundled driver, CI smoke tests, `netns-run.sh` (a test suite in its own network) |
+| `.github/workflows/` | `build.yml` (every system's installers, tested on each), `release.yml` (publishes them, Google Drive copy, App Store upload), `pages.yml` (the download page) |

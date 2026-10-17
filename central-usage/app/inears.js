@@ -1,7 +1,8 @@
 /* Central Usage - the In-ears tab.
- *  Admin: up to 128 channels (the audio interface's inputs and the Central Control's channels), named and
- *         routed; up to 48 mixes - who has each, local (back over Wi-Fi) or cloud (out of the interface to a
- *         pack), outputs, levels; listen to any mix on this computer.
+ *  Admin: up to 128 channels (the audio interface's / Dante's inputs and the Central Control's channels), named
+ *         and routed; 64 stereo mixes - who has each, and where each goes: wired (an output pair to an in-ear
+ *         transmitter in the rack, "Auto-assign pairs" fills them in) and / or local (back over the network to
+ *         the user's device or phone); levels; listen to any mix on this computer.
  *  User:  pick a free mix and set your own levels (inear-ui.js), on this computer's headphones or your pack. */
 (function () {
   "use strict";
@@ -11,6 +12,8 @@
   function db(v) { return v <= -90 ? "-∞" : (v > 0 ? "+" : "") + Number(v).toFixed(1); }
   var selMix = CU.store.get("iaMix", 0), allCh = false, dragging = null, structKey = "", userUi = null, userKey = "";
   function visible() { return CU.prefs.tab === "inears"; }
+  function isAdmin() { var m = CU.mode(); return m === "admin" || m === "main"; }
+  function dest(q) { var w = q.wired ? (q.outL >= 0 ? "Out " + (q.outL + 1) + (q.stereo && q.outR >= 0 ? "/" + (q.outR + 1) : "") : "wired · no output") : ""; return w && q.local ? w + " + local" : w || (q.local ? "local" : "nowhere"); }
   function S() { return X.state; }
   function live() { return X.live(); }
   function engineStatus() { return X.kind === "local" ? X.hostStatus && X.hostStatus.engine && X.hostStatus.engine.status : X.info && X.info.status; }
@@ -46,8 +49,9 @@
   }
   function mixesCard() {
     var s = S();
-    return '<div class="card ia-mixes"><h3>Mixes</h3><div class="ia-mgrid">' + s.mixes.map(function (q, m) {
-      var outs = q.mode === "local" ? "Wi-Fi" : (q.outL >= 0 ? "Out " + (q.outL + 1) + (q.stereo && q.outR >= 0 ? "/" + (q.outR + 1) : "") : "no output");
+    var nWired = s.mixes.filter(function (q) { return q.wired; }).length, firstOut = CU.store.get("iaFirstOut", 0);
+    return '<div class="card ia-mixes"><div class="row spread"><h3>Mixes</h3><span class="ia-wire"><label title="Mixes 1 to N go to wired in-ear transmitters">Wired mixes <input type="number" min="0" max="' + M.MAXMIX + '" data-ia="wiredCount" value="' + nWired + '"></label><label>from <select data-ia="firstOut">' + outOptions(firstOut).replace('<option value="-1" >—</option>', "") + '</select></label><button data-ia="autowire" title="Give every wired mix the next free output pair">Auto-assign pairs</button></span></div><div class="ia-mgrid">' + s.mixes.map(function (q, m) {
+      var outs = dest(q);
       return '<button class="ia-mix' + (m === selMix ? " sel" : "") + (q.ownerId ? " owned" : "") + (q.reserved ? " reserved" : "") + '" data-ia-mix="' + m + '"><b>' + (m + 1) + "</b><span>" + esc(q.owner || q.name) + '</span><small>' + esc(outs) + '</small><i class="ia-mm"></i></button>';
     }).join("") + "</div></div>";
   }
@@ -55,8 +59,9 @@
     var s = S(), q = s.mixes[selMix]; if (!q) return "";
     var ins = routed(), listening = window.CUListen && window.CUListen.tap() === selMix;
     return '<div class="card ia-mixed" data-m="' + selMix + '"><div class="ia-mhead"><h3>Mix ' + (selMix + 1) + '</h3><input data-iam="name" value="' + esc(q.name) + '"><span class="ia-owner">' + (q.ownerId ? "🎧 " + esc(q.owner) + ' <button data-ia="release">Free it</button>' : '<span class="muted">free</span>') + '</span><label class="toggle" title="Users can\'t take it"><input type="checkbox" data-iam="reserved"' + (q.reserved ? " checked" : "") + "> Reserved</label></div>" +
-      '<div class="row"><div class="ie-modes ia-modes"><button data-iam-mode="cloud" class="' + (q.mode !== "local" ? "on" : "") + '"><b>Cloud</b><small>out of the interface (a pack)</small></button><button data-iam-mode="local" class="' + (q.mode === "local" ? "on" : "") + '"><b>Local</b><small>back over Wi-Fi to the user\'s device</small></button></div>' +
-      (q.mode !== "local" ? '<label>Out L <select data-iam="outL">' + outOptions(q.outL) + '</select></label><label>Out R <select data-iam="outR">' + outOptions(q.outR) + "</select></label>" : "") + '<label class="toggle"><input type="checkbox" data-iam="stereo"' + (q.stereo ? " checked" : "") + "> Stereo</label></div>" +
+      '<div class="row ia-dest"><label class="toggle" title="Out of the interface / Dante to an in-ear transmitter in the rack"><input type="checkbox" data-iam="wired"' + (q.wired ? " checked" : "") + '> <b>Wired</b> <small class="muted">in-ear transmitter</small></label>' +
+      (q.wired ? '<label>Out L <select data-iam="outL">' + outOptions(q.outL) + '</select></label><label>Out R <select data-iam="outR">' + outOptions(q.outR) + "</select></label>" : "") +
+      '<label class="toggle" title="Back over the network to the user\'s Central Usage or phone"><input type="checkbox" data-iam="local"' + (q.local ? " checked" : "") + '> <b>Local</b> <small class="muted">to their device</small></label><label class="toggle"><input type="checkbox" data-iam="stereo"' + (q.stereo ? " checked" : "") + "> Stereo</label></div>" +
       '<div class="ie-master"><b>Level</b><input type="range" min="0" max="1" step="0.001" data-iam="level" value="' + M.dbToFader(q.level) + '"><span class="ia-mdb">' + db(q.level) + '</span><button data-ia="mute" class="' + (q.mute ? "danger on" : "") + '">' + (q.mute ? "Muted" : "Mute") + '</button><button data-ia="listen" class="' + (listening ? "on" : "") + '">' + (listening ? "■ Stop listening" : "🎧 Listen here") + '</button><div class="ie-mm"><i></i><i></i></div></div>' +
       (ins.length ? '<div class="ie-chs">' + ins.map(function (i) { var x = s.inputs[i], sd = q.sends[i] || { level: -90, pan: 0, on: true }; return '<div class="ie-ch" data-i="' + i + '"><span class="ie-name"' + (x.color ? ' style="border-color:' + esc(x.color) + '"' : "") + ">" + esc(x.name || "Input " + (i + 1)) + '</span><div class="ie-meter"><i></i></div><input type="range" min="0" max="1" step="0.001" data-ias="level" value="' + M.dbToFader(sd.level) + '"><span class="ie-db">' + db(sd.level) + '</span><input type="range" class="ie-pan" min="-1" max="1" step="0.05" data-ias="pan" value="' + (sd.pan || 0) + '"><label class="toggle"><input type="checkbox" data-ias="on"' + (sd.on !== false ? " checked" : "") + "></label></div>"; }).join("") + "</div>" : '<p class="muted">No channels with a source yet.</p>') +
       '<div class="row"><button data-ia="clear">All sends off</button><button data-ia="copy">Copy this mix to…</button></div></div>';
@@ -64,7 +69,7 @@
   function renderAdmin(root, force) {
     var s = S();
     if (!s) { root.innerHTML = '<div class="card"><h3>In-ears</h3><p>' + esc(X.error || "Connecting to the mixer…") + '</p><button data-ia-go="io">Open I/O</button></div>'; structKey = ""; return; }
-    var key = JSON.stringify([shownInputs().map(function (i) { return [s.inputs[i].name, srcValue(s.inputs[i]), s.inputs[i].group, s.inputs[i].show]; }), s.mixes.map(function (q) { return [q.name, q.owner, q.mode, q.outL, q.outR, q.reserved, q.stereo]; }), selMix, allCh, X.pi.length, inNames().length, outNames().length, X.kind, routed()]);
+    var key = JSON.stringify([shownInputs().map(function (i) { return [s.inputs[i].name, srcValue(s.inputs[i]), s.inputs[i].group, s.inputs[i].show]; }), s.mixes.map(function (q) { return [q.name, q.owner, q.wired, q.local, q.outL, q.outR, q.reserved, q.stereo]; }), selMix, allCh, X.pi.length, inNames().length, outNames().length, X.kind, routed()]);
     if (!force && key === structKey && root.querySelector(".ia-grid")) { updateAdmin(); return; }
     structKey = key;
     root.innerHTML = infoCard() + '<div class="ia-grid">' + channelsCard() + mixesCard() + "</div>" + mixCard();
@@ -77,7 +82,7 @@
   }
   function bar(v) { var d = v > 0 ? 20 * Math.log10(v) : -90; return Math.max(0, Math.min(100, (d + 60) / 60 * 100)); }
   X.on("meters", function (m) {
-    if (!visible() || CU.mode() !== "admin") return;
+    if (!visible() || !isAdmin()) return;
     document.querySelectorAll(".ia-row").forEach(function (r) { r.querySelector(".ia-meter i").style.width = bar(m.in ? m.in[Number(r.dataset.i)] || 0 : 0) + "%"; });
     document.querySelectorAll(".ia-mixed .ie-ch").forEach(function (r) { r.querySelector(".ie-meter i").style.width = bar(m.in ? m.in[Number(r.dataset.i)] || 0 : 0) + "%"; });
     document.querySelectorAll(".ia-mix").forEach(function (b) { var k = Number(b.dataset.iaMix), v = m.mix ? Math.max(m.mix[k * 2] || 0, m.mix[k * 2 + 1] || 0) : 0; b.querySelector(".ia-mm").style.width = bar(v) + "%"; });
@@ -103,7 +108,7 @@
 
   function render(force) {
     var root = $("#inearsRoot"); if (!root || !visible()) return;
-    if (CU.mode() === "admin") { if (userUi) { userUi.destroy(); userUi = null; userKey = ""; } renderAdmin(root, force); }
+    if (isAdmin()) { if (userUi) { userUi.destroy(); userUi = null; userKey = ""; } renderAdmin(root, force); }
     else renderUser(root);
   }
 
@@ -112,7 +117,7 @@
   root.addEventListener("pointerdown", function (e) { if (e.target.type === "range") dragging = e.target; });
   document.addEventListener("pointerup", function () { dragging = null; });
   root.addEventListener("input", function (e) {
-    var t = e.target, s = S(); if (!s || CU.mode() !== "admin") return;
+    var t = e.target, s = S(); if (!s || !isAdmin()) return;
     if (t.dataset.ias === "level") { var row = t.closest(".ie-ch"), i = Number(row.dataset.i), d = Math.round(M.faderToDb(Number(t.value)) * 10) / 10; row.querySelector(".ie-db").textContent = db(d); send("s" + selMix + ":" + i, { op: "send", m: selMix, i: i, patch: { level: d } }); }
     else if (t.dataset.ias === "pan") { var i2 = Number(t.closest(".ie-ch").dataset.i); send("p" + selMix + ":" + i2, { op: "send", m: selMix, i: i2, patch: { pan: Number(t.value) } }); }
     else if (t.dataset.iam === "level") { var d2 = Math.round(M.faderToDb(Number(t.value)) * 10) / 10; $(".ia-mdb").textContent = db(d2); send("m" + selMix, { op: "mix", m: selMix, patch: { level: d2 } }); }
@@ -123,12 +128,14 @@
     if (!s) return;
     var row = t.closest(".ia-row"), i = row ? Number(row.dataset.i) : -1;
     if (t.dataset.ia === "all") { allCh = t.checked; render(true); return; }
+    if (t.dataset.ia === "firstOut") { CU.store.set("iaFirstOut", Number(t.value) || 0); return; }
+    if (t.dataset.ia === "wiredCount") { X.op({ op: "autoWire", count: Number(t.value) || 0, first: CU.store.get("iaFirstOut", 0) }); return; }
     if (t.dataset.iac === "name") X.op({ op: "input", i: i, patch: { name: t.value } });
     else if (t.dataset.iac === "src") { var v = t.value, src = v === "none" ? { kind: "none" } : v.indexOf("pi:") === 0 ? { kind: "pi", key: v.slice(3) } : { kind: "in", ch: Number(v.slice(3)) }, patch = { src: src }; if (!s.inputs[i].name && src.kind !== "none") patch.name = t.options[t.selectedIndex].textContent.replace(/^Input \d+ · /, "").slice(0, 40); X.op({ op: "input", i: i, patch: patch }); }
     else if (t.dataset.iac === "group") X.op({ op: "input", i: i, patch: { group: t.value } });
     else if (t.dataset.iac === "show") X.op({ op: "input", i: i, patch: { show: t.checked } });
     else if (t.dataset.iam === "name") X.op({ op: "mix", m: selMix, patch: { name: t.value } });
-    else if (t.dataset.iam === "reserved" || t.dataset.iam === "stereo") { var pp = {}; pp[t.dataset.iam] = t.checked; X.op({ op: "mix", m: selMix, patch: pp }); }
+    else if (t.dataset.iam === "reserved" || t.dataset.iam === "stereo" || t.dataset.iam === "wired" || t.dataset.iam === "local") { var pp = {}; pp[t.dataset.iam] = t.checked; X.op({ op: "mix", m: selMix, patch: pp }); }
     else if (t.dataset.iam === "outL" || t.dataset.iam === "outR") { var po = {}; po[t.dataset.iam] = Number(t.value); if (t.dataset.iam === "outL" && s.mixes[selMix].stereo && s.mixes[selMix].outR < 0 && Number(t.value) >= 0) po.outR = Number(t.value) + 1; X.op({ op: "mix", m: selMix, patch: po }); }
     else if (t.dataset.ias === "on") X.op({ op: "send", m: selMix, i: Number(t.closest(".ie-ch").dataset.i), patch: { on: t.checked } });
   });
@@ -139,21 +146,21 @@
     if (b.dataset.iu === "change") { e.preventDefault(); CU.store.set("userCode", ""); userKey = ""; if (userUi) { userUi.destroy(); userUi = null; } render(); return; }
     if (!s) return;
     if (b.dataset.iaMix != null) { selMix = Number(b.dataset.iaMix); CU.store.set("iaMix", selMix); render(true); return; }
-    if (b.dataset.iamMode) { X.op({ op: "mix", m: selMix, patch: { mode: b.dataset.iamMode } }); return; }
     var a = b.dataset.ia;
+    if (a === "autowire") { X.op({ op: "autoWire", first: CU.store.get("iaFirstOut", 0) }); return; }
     if (a === "addch") { var free = s.inputs.findIndex(function (x) { return x.src.kind === "none" && !x.name; }); if (free < 0) return alert("All 128 channels are in use."); X.op({ op: "input", i: free, patch: { name: "Channel " + (free + 1) } }); setTimeout(function () { var el = document.querySelector('.ia-row[data-i="' + free + '"] [data-iac="name"]'); if (el) { el.focus(); el.select(); } }, 150); }
     else if (a === "release") X.op({ op: "release", m: selMix });
     else if (a === "mute") X.op({ op: "mix", m: selMix, patch: { mute: !s.mixes[selMix].mute } });
     else if (a === "clear") { if (confirm("Turn every send of Mix " + (selMix + 1) + " off?")) X.op({ op: "clearSends", m: selMix }); }
-    else if (a === "copy") { CU.askText("Copy Mix " + (selMix + 1) + "'s levels to which mix? (1-48)", "").then(function (v) { var to = Number(v) - 1; if (!(to >= 0 && to < 48) || to === selMix) return; X.op({ op: "clearSends", m: to }); var src = s.mixes[selMix].sends; Object.keys(src).forEach(function (i) { X.op({ op: "send", m: to, i: Number(i), patch: src[i] }); }); X.op({ op: "mix", m: to, patch: { level: s.mixes[selMix].level, stereo: s.mixes[selMix].stereo } }); }); }
+    else if (a === "copy") { CU.askText("Copy Mix " + (selMix + 1) + "'s levels to which mix? (1-" + M.MAXMIX + ")", "").then(function (v) { var to = Number(v) - 1; if (!(to >= 0 && to < M.MAXMIX) || to === selMix) return; X.op({ op: "clearSends", m: to }); var src = s.mixes[selMix].sends; Object.keys(src).forEach(function (i) { X.op({ op: "send", m: to, i: Number(i), patch: src[i] }); }); X.op({ op: "mix", m: to, patch: { level: s.mixes[selMix].level, stereo: s.mixes[selMix].stereo } }); }); }
     else if (a === "listen") { if (window.CUListen.tap() === selMix) window.CUListen.stop(); else window.CUListen.start(selMix); setTimeout(function () { render(true); }, 50); }
     else if (a === "newcode" && window.CU && window.CU.config) window.CU.config.set({ newUserCode: true }).then(function () { render(true); });
   });
   X.on("state", function () { render(true); });
-  X.on("op", function (op) { if (!visible() || CU.mode() !== "admin") return; if (op.op === "send" && op.m === selMix) updateAdmin(); else if (op.op === "mix" && op.m === selMix && op.patch && Object.keys(op.patch).every(function (k) { return k === "level" || k === "mute"; })) updateAdmin(); else render(); });
+  X.on("op", function (op) { if (!visible() || !isAdmin()) return; if (op.op === "send" && op.m === selMix) updateAdmin(); else if (op.op === "mix" && op.m === selMix && op.patch && Object.keys(op.patch).every(function (k) { return k === "level" || k === "mute"; })) updateAdmin(); else render(); });
   X.on("pi", function () { render(); });
-  X.on("status", function () { if (visible() && CU.mode() === "admin") render(); });
-  CU.on("audioHost", function () { if (visible() && CU.mode() === "user") render(); });
+  X.on("status", function () { if (visible() && isAdmin()) render(); });
+  CU.on("audioHost", function () { if (visible() && !isAdmin()) render(); });
   CU.on("mode", function () { if (visible()) render(true); });
   CU.on("tab", function (t) { if (t === "inears") setTimeout(function () { render(true); }, 0); });
   window.CUInEarsTab = { render: render };

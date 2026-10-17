@@ -70,7 +70,7 @@
   }
   function render(force) {
     var root = $("#mixRoot"); if (!root || !visible()) return;
-    if (CU.mode() !== "admin") { root.innerHTML = '<div class="card"><p>The Mix tab is on admin computers.</p></div>'; return; }
+    if (!(CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main")) { root.innerHTML = '<div class="card"><p>The Mix tab is on admin computers.</p></div>'; return; }
     var s = S();
     if (!s) { root.innerHTML = '<div class="card mx-empty"><h3>Mix</h3><p>' + esc(X.error || "Connecting to the mixer…") + '</p><p class="muted">One admin computer is the audio host: it gets the Central Control\'s tracks and makes the mixes. Set it up on the I/O tab.</p><button data-mx-go="io">Open I/O</button></div>'; structKey = ""; return; }
     var list = stripInputs(), key = JSON.stringify([list, s.trackOut, list.map(function (i) { return s.inputs[i].name + s.inputs[i].color + active(s.inputs[i]); }), sel, outNames().length, X.kind]);

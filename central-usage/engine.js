@@ -29,8 +29,9 @@ class Engine extends EventEmitter {
     if (!this.bin || !fs.existsSync(this.bin)) { this.error = "The audio engine (cu-mixer) is missing from this installation."; this.emit("status", this.info()); return; }
     const d = this.state.device, args = ["--name", "Central Usage", "--block", String(d.buffer || 256)];
     if (d.capture) args.push("--capture", d.capture); if (d.playback) args.push("--playback", d.playback);
-    if (d.backend === "internal") args.push("--backend", "internal");
-    const env = Object.assign({}, process.env), pwjack = d.backend !== "internal" && which("pw-jack");
+    if (d.backend && d.backend !== "auto") args.push("--backend", d.backend);   // internal | jack | miniaudio | null
+    if (d.exclusive) args.push("--exclusive");                                   // WASAPI / Core Audio exclusive mode: lower latency
+    const env = Object.assign({}, process.env), pwjack = process.platform === "linux" && (!d.backend || d.backend === "auto" || d.backend === "jack") && which("pw-jack");
     if (pwjack) env.PIPEWIRE_QUANTUM = (d.buffer || 256) + "/48000";
     const cmd = pwjack ? pwjack : this.bin, cargs = pwjack ? [this.bin].concat(args) : args;
     let p; try { p = spawn(cmd, cargs, { env, stdio: ["pipe", "pipe", "ignore"] }); } catch (e) { this.error = e.message; this.emit("status", this.info()); return; }
@@ -74,8 +75,8 @@ class Engine extends EventEmitter {
   }
   trackOrder() { const s = this.state, out = []; s.inputs.forEach((x, i) => { if (x.group === "tracks" && x.direct < 0 && (x.src.kind === "in" || (x.src.kind === "pi" && this.pi.live[x.src.key] != null))) out.push(i); }); return out; }
   mixCmd(m) {
-    const q = this.state.mixes[m], tapped = (this.taps.get(m + 1) || new Set()).size > 0, cloud = q.mode !== "local";
-    return { cmd: "mix", m, level: q.level, mute: q.mute ? 1 : 0, outL: cloud ? q.outL : -1, outR: cloud ? q.outR : -1, stereo: q.stereo ? 1 : 0, tap: tapped ? 1 : 0, used: (Object.keys(q.sends).length || tapped || (cloud && (q.outL >= 0 || q.outR >= 0))) ? 1 : 0 };
+    const q = this.state.mixes[m], tapped = (this.taps.get(m + 1) || new Set()).size > 0, wired = !!q.wired;
+    return { cmd: "mix", m, level: q.level, mute: q.mute ? 1 : 0, outL: wired ? q.outL : -1, outR: wired ? q.outR : -1, stereo: q.stereo ? 1 : 0, tap: tapped ? 1 : 0, used: (Object.keys(q.sends).length || tapped || (wired && (q.outL >= 0 || q.outR >= 0))) ? 1 : 0 };
   }
   mainCmd() { const s = this.state, b = s.main, tapped = (this.taps.get(0) || new Set()).size > 0, direct = s.trackOut === "direct"; return { cmd: "main", level: b.level, mute: b.mute ? 1 : 0, outL: direct ? -1 : b.outL, outR: direct ? -1 : b.outR, stereo: 1, tap: tapped ? 1 : 0, used: 1 }; }
   sendCmd(m, i) { const sd = this.state.mixes[m].sends[i]; return sd ? { cmd: "send", m, i, level: sd.level, pan: sd.pan, on: sd.on === false ? 0 : 1 } : { cmd: "send", m, i, level: -90, pan: 0, on: 0 }; }
@@ -102,6 +103,7 @@ class Engine extends EventEmitter {
     else if (op.op === "main") this.cmd(this.mainCmd());
     else if (op.op === "trackOut") { for (let i = 0; i < M.MAXIN; i++) this.cmd(this.inputCmd(i)); this.cmd(this.mainCmd()); }
     else if (op.op === "mix" || op.op === "claim" || op.op === "release") this.cmd(this.mixCmd(op.m));
+    else if (op.op === "autoWire") { for (let m = 0; m < M.MAXMIX; m++) this.cmd(this.mixCmd(m)); }
     else if (op.op === "send") { this.cmd(this.sendCmd(op.m, op.i)); this.cmd(this.mixCmd(op.m)); }
     else if (op.op === "clearSends") { this.cmd({ cmd: "clearSends", m: op.m }); this.cmd(this.mixCmd(op.m)); }
     else if (op.op === "device" && JSON.stringify(this.state.device) !== deviceBefore) this.restart();

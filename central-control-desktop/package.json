@@ -11,7 +11,9 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --linux deb AppImage"
+    "dist": "electron-builder --linux deb AppImage",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:mac": "electron-builder --mac dmg --arm64 --x64"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -36,6 +38,30 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "driver-dist",
+        "to": "driver",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "native",
+        "to": "native",
+        "filter": [
+          "cu-rig",
+          "cu-rig.exe",
+          "rig-map.json"
+        ]
+      },
+      {
+        "from": "sounds",
+        "to": "sounds",
+        "filter": [
+          "*.sf2",
+          "*.txt"
+        ]
       }
     ],
     "linux": {
@@ -52,9 +78,10 @@
         "Categories": "AudioVideo;Audio;Music;"
       },
       "maintainer": "Central Control <central-control@localhost>",
+      "artifactName": "central-control-${version}-${arch}.${ext}",
       "files": [
-        "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**",
-        "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**"
       ]
     },
     "deb": {
@@ -92,23 +119,63 @@
       "afterRemove": "build/after-remove.sh"
     },
     "publish": null,
-    "asarUnpack": [
-      "**/node_modules/@img/**",
-      "**/node_modules/onnxruntime-node/**",
-      "**/node_modules/sharp/**"
-    ],
-    "win": {
-      "files": [
-        "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
-        "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
-      ]
-    },
+    "afterPack": "build/after-pack.js",
     "mac": {
+      "category": "public.app-category.music",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "artifactName": "central-control-${version}-mac-${arch}.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Central Control plays your guitar and keys through the instrument rig and listens for the tuner.",
+        "NSLocalNetworkUsageDescription": "Central Control talks to phones, tablets and Central Usage computers on this network."
+      },
       "files": [
         "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
         "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**"
       ]
-    }
+    },
+    "dmg": {
+      "artifactName": "central-control-${version}-mac-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "central-control-${version}-win-x64.${ext}",
+      "files": [
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**"
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "central-control-${version}-win-x64.${ext}",
+      "shortcutName": "Central Control"
+    },
+    "asarUnpack": [
+      "**/node_modules/@img/**",
+      "**/node_modules/onnxruntime-node/**",
+      "**/node_modules/sharp/**"
+    ]
   },
   "homepage": "http://padpedal.local:8080/",
   "dependencies": {

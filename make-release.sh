@@ -6,8 +6,12 @@
 #
 # What goes in a release (names matter - the updaters look for them):
 #   central-control-source.zip           the Raspberry Pi update (Settings → Software updates → Install)
-#   central-control-<v>-amd64.deb / -x86_64.AppImage   Central Control for a PC
-#   central-usage-<v>-amd64.deb / -x86_64.AppImage     Central Usage
+#   central-control-<v>-amd64.deb / -x86_64.AppImage   Central Control for a Linux PC
+#   central-control-<v>-win-x64.exe                    ... for Windows
+#   central-control-<v>-mac-arm64.dmg / -mac-x64.dmg   ... for a Mac (Apple Silicon / Intel)
+#   central-usage-<v>-amd64.deb / -x86_64.AppImage / -win-x64.exe / -mac-arm64.dmg / -mac-x64.dmg   Central Usage
+# (GitHub Actions builds the Windows and Mac installers - .github/workflows/build.yml - and puts them in the
+# dist folders before this runs; on a Linux PC this script packs whatever is there.)
 #   SHA256SUMS                           checked before anything is installed
 # Set the same owner/repo as "Update source" on the Pi (Settings → Software updates) and in Central Usage
 # (Help → Check for updates…). A public repository needs no login to read.
@@ -18,7 +22,7 @@ OUT="release/$VER"; rm -rf "$OUT"; mkdir -p "$OUT"
 
 # the Pi update: the app sources in a central-control/ folder (no installers, no node_modules)
 TMP="$(mktemp -d)"; mkdir -p "$TMP/central-control"
-tar --exclude=./release --exclude=./.git --exclude=./.github --exclude=./central-control-desktop/src --exclude=./release-notes --exclude='./*/dist' --exclude='*/node_modules' --exclude='./parts' --exclude='*.zip' --exclude='__pycache__' -cf - . | tar -xf - -C "$TMP/central-control"
+tar --exclude=./release --exclude=./.git --exclude=./.github --exclude=./central-control-desktop/src --exclude=./release-notes --exclude='./*/dist' --exclude='*/node_modules' --exclude='./parts' --exclude='*.zip' --exclude='__pycache__' --exclude=./staging --exclude=./central-usage/native/sounds --exclude=./central-usage/native/build --exclude='./central-usage/native/build-*' --exclude=./central-control-desktop/driver-dist --exclude=./central-control-desktop/native --exclude=./central-control-desktop/sounds --exclude=./central-usage-ios --exclude=./docs -cf - . | tar -xf - -C "$TMP/central-control"
 (cd "$TMP" && zip -qr "$OLDPWD/$OUT/central-control-source.zip" central-control)
 rm -rf "$TMP"
 

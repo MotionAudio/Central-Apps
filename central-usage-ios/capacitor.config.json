@@ -1,0 +1,7 @@
+{
+  "appId": "org.centralcontrol.usage",
+  "appName": "Central Usage",
+  "webDir": "www",
+  "server": { "cleartext": true, "allowNavigation": ["*"] },
+  "ios": { "contentInset": "never", "scrollEnabled": false, "limitsNavigationsToAppBoundDomains": false }
+}

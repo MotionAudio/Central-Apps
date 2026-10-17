@@ -34,30 +34,65 @@
     return esc(pi.state || "off") + (pi.error ? ' <span class="warn">' + esc(pi.error) + "</span>" : "") + (pi.state === "receiving" ? " · " + pi.kbps + " kbit/s" + (pi.lost ? " · " + pi.lost + " lost" : "") + (net ? " · buffer " + Math.round(net.ms) + " ms" + (net.under ? " · " + net.under + " gaps" : "") : "") : "") + (pi.address ? ' <span class="muted small">from ' + esc(pi.address) + "</span>" : "");
   }
   function hostCard() {
-    var c = cfg(), admin = CU.mode() === "admin", host = admin && c.host && c.host.enabled, srv = hs && hs.server || {};
+    var c = cfg(), admin = (CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main"), host = admin && c.host && c.host.enabled, srv = hs && hs.server || {};
     if (!admin) return '<section class="card io-c"><h3>Audio host (in-ears)</h3><table class="io-t"><tr><td>Audio host</td><td>' + (X && X.hostAddress() ? "<b>" + esc(X.hostAddress()) + "</b>" : '<span class="muted">not found yet</span>') + '</td></tr><tr><td>Address</td><td><input data-io="hostAddr" value="' + esc(CU.store.get("hostAddr", "")) + '" placeholder="automatic (through the Central Control)"></td></tr><tr><td>In-ear code</td><td><input data-io="userCode" value="' + esc(CU.store.get("userCode", "")) + '" placeholder="from the sound desk" style="width:110px"></td></tr></table></section>';
     return '<section class="card io-c"><h3>Audio host</h3><label class="toggle io-big"><input type="checkbox" data-io="host"' + (host ? " checked" : "") + (NAT && NAT.mixer ? "" : " disabled") + "> This computer is the audio host</label>" +
-      '<p class="muted small">The audio host gets the tracks, runs the mixer and makes up to 48 in-ear mixes. One per church; other admins mix from their own computer, users pick their mix.</p>' +
+      '<p class="muted small">The audio host gets the tracks, runs the mixer and makes up to 64 stereo in-ear mixes (wired to transmitters and / or over the network). One per church; other admins mix from their own computer, users pick their mix.</p>' +
       (host ? '<table class="io-t"><tr><td>Server</td><td>' + (srv.running ? "port " + srv.port + " · " + (srv.addresses || []).map(esc).join(", ") : '<span class="warn">' + esc(srv.error || "starting…") + "</span>") + "</td></tr>" +
         '<tr><td>In-ear code</td><td><b class="io-code">' + esc(c.host.userCode) + '</b> <button data-io="newUser">New</button></td></tr><tr><td>Admin code</td><td><b class="io-code">' + esc(c.host.adminCode) + '</b> <button data-io="newAdmin">New</button></td></tr>' +
         "<tr><td>Connected</td><td>" + ((srv.clients || []).length ? srv.clients.map(function (k) { return esc(k.name) + " <small>(" + k.role + (k.mix != null ? " · mix " + (k.mix + 1) : "") + ")</small>"; }).join(", ") : '<span class="muted">nobody</span>') + "</td></tr></table>"
         : '<table class="io-t"><tr><td>Audio host</td><td>' + (X && X.hostAddress() ? "<b>" + esc(X.hostAddress()) + "</b>" : '<span class="muted">not found</span>') + '</td></tr><tr><td>Address</td><td><input data-io="hostAddr" value="' + esc(CU.store.get("hostAddr", "")) + '" placeholder="automatic"></td></tr><tr><td>Admin code</td><td><input data-io="adminCode" value="' + esc(CU.store.get("adminCode", "")) + '" placeholder="shown on the audio host" style="width:110px"> <span class="muted small">' + esc(X && X.error || (X && X.connected() ? "✓ connected" : "")) + "</span></td></tr></table>") + "</section>";
   }
   function clients(names) { var out = []; (names || []).forEach(function (n) { var c = n.split(":")[0]; if (out.indexOf(c) < 0) out.push(c); }); return out; }
+  var PLAT = /Windows/.test(navigator.userAgent) ? "win" : /Mac OS X|Macintosh/.test(navigator.userAgent) ? "mac" : "linux";
+  function devList(spec) { return String(spec || "").split("|").map(function (x) { return x.trim(); }).filter(Boolean); }
+  function backendLabel(st) {
+    if (st.backend === "jack") return "PipeWire / JACK";
+    if (st.backend === "miniaudio") return st.api === "WASAPI" ? "Windows audio (WASAPI)" : st.api === "Core Audio" ? "Core Audio" : st.api || "system audio";
+    if (st.backend === "null") return "test devices";
+    return "its own clock - no interface (network in-ears and recording still work)";
+  }
   function ifaceCard() {
-    var c = cfg(); if (CU.mode() !== "admin" || !(c.host && c.host.enabled)) return "";
-    var e = hs && hs.engine || {}, st = e.status || {}, d = (X && X.state && X.state.device) || c.device || {}, capC = clients(st.allCapture), playC = clients(st.allPlayback);
-    var opts = function (list, cur) { return '<option value="">Every physical input / output</option>' + list.map(function (n) { return '<option' + (n === cur ? " selected" : "") + ">" + esc(n) + "</option>"; }).join("") + (cur && list.indexOf(cur) < 0 ? '<option selected>' + esc(cur) + "</option>" : ""); };
+    var c = cfg(); if (!(CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") || !(c.host && c.host.enabled)) return "";
+    var e = hs && hs.engine || {}, st = e.status || {}, d = (X && X.state && X.state.device) || c.device || {};
+    // every device this computer has (with its channels), and the ones in use, in order (the first is the clock)
+    var avail = function (dir) {
+      var a = dir === "capture" ? st.availableCapture : st.availablePlayback;
+      if (a && a.length) return a;
+      return clients(dir === "capture" ? st.allCapture : st.allPlayback).map(function (n) { var k = (dir === "capture" ? st.allCapture : st.allPlayback).filter(function (x) { return x.split(":")[0] === n; }).length; return { name: n, channels: k, dante: /dante/i.test(n) }; });
+    };
+    var inUse = function (dir) { return (dir === "capture" ? st.captureDevices : st.playbackDevices) || []; };
+    var devCol = function (dir, label) {
+      var chosen = devList(d[dir]), av = avail(dir), used = inUse(dir), total = dir === "capture" ? st.inputs : st.outputs;
+      var rows = chosen.length ? chosen.map(function (n, k) {
+        var u = used.filter(function (x) { return x.name.toLowerCase().indexOf(n.replace(/#\d+$/, "").toLowerCase()) >= 0; })[0];
+        return '<div class="io-dev"><b>' + esc(n) + "</b>" + (/dante/i.test(n) ? ' <span class="io-tag">Dante</span>' : "") + (k === 0 ? ' <span class="io-tag" title="The other devices follow this one\'s clock (drift corrected)">clock</span>' : "") +
+          '<span class="muted small">' + (u ? (u.open ? u.channels + " ch · " + (dir === "capture" ? "in " : "out ") + (u.first + 1) + "–" + (u.first + u.channels) : "could not open") : "") + '</span>' +
+          (k > 0 ? '<button class="mini" data-io-devup="' + dir + ":" + k + '" title="Make it the clock">↑</button>' : "") + '<button class="mini" data-io-devdel="' + dir + ":" + k + '">✕</button></div>';
+      }).join("") : '<div class="io-dev muted">' + (st.backend === "jack" ? "Every physical " + (dir === "capture" ? "input" : "output") : "This computer's default device") + "</div>";
+      var addable = av.filter(function (x) { return chosen.indexOf(x.name) < 0; });
+      return '<div><h4>' + label + ' <small class="muted">' + (total || 0) + " channels</small></h4>" + rows +
+        (addable.length ? '<select data-io-devadd="' + dir + '"><option value="">+ Add a device…</option>' + addable.map(function (x) { return '<option value="' + esc(x.name) + '">' + esc(x.name) + (x.channels ? " · " + x.channels + " ch" : "") + (x.dante ? " (Dante)" : "") + "</option>"; }).join("") + "</select>" : "") + "</div>";
+    };
+    var anyDante = avail("capture").concat(avail("playback")).some(function (x) { return x.dante; }) || /dante/i.test((d.capture || "") + (d.playback || ""));
     var S = X && X.state, used = {}, outs = {};
     if (S) {
       S.inputs.forEach(function (x, i) { if (x.src.kind === "in") (used[x.src.ch] = used[x.src.ch] || []).push(x.name || "Input " + (i + 1)); });
       var add = function (o, what) { if (o >= 0) (outs[o] = outs[o] || []).push(what); };
       if (S.trackOut !== "direct") { add(S.main.outL, "Tracks L"); add(S.main.outR, "Tracks R"); }
       S.inputs.forEach(function (x, i) { if (x.direct >= 0) add(x.direct, (x.name || "Input " + (i + 1)) + " (direct)"); });
-      S.mixes.forEach(function (q, m) { if (q.mode !== "local") { add(q.outL, "Mix " + (m + 1) + (q.stereo ? " L" : "")); if (q.stereo) add(q.outR, "Mix " + (m + 1) + " R"); } });
+      S.mixes.forEach(function (q, m) { if (q.wired) { add(q.outL, "Mix " + (m + 1) + (q.stereo ? " L" : "")); if (q.stereo) add(q.outR, "Mix " + (m + 1) + " R"); } });
     }
-    return '<section class="card io-c wide"><h3>Audio interface</h3><table class="io-t"><tr><td>Engine</td><td>' + (e.running && st.backend ? esc(st.backend === "jack" ? "running (PipeWire / JACK)" : "running on its own clock - no interface (Wi-Fi in-ears and recording still work)") + " · " + st.rate + " Hz · " + st.block + " frames · " + st.inputs + " in · " + st.outputs + " out" : '<span class="warn">' + esc(e.error || "not running") + "</span>") + "</td></tr></table>" +
-      '<div class="row"><label>Inputs from <select data-io-dev="capture">' + opts(capC, d.capture) + '</select></label><label>Outputs to <select data-io-dev="playback">' + opts(playC, d.playback) + '</select></label><label>Buffer <select data-io-dev="buffer">' + [64, 128, 256, 512, 1024].map(function (b) { return '<option value="' + b + '"' + (Number(d.buffer) === b ? " selected" : "") + ">" + b + " (" + (b / 48).toFixed(1) + " ms)</option>"; }).join("") + '</select></label><label>Engine <select data-io-dev="backend"><option value="auto"' + (d.backend !== "internal" ? " selected" : "") + '>Audio interface (PipeWire / JACK)</option><option value="internal"' + (d.backend === "internal" ? " selected" : "") + ">No interface (network only)</option></select></label></div>" +
+    var engines = PLAT === "linux" ? [["auto", "Audio interface (PipeWire / JACK)"], ["miniaudio", "Audio interface (ALSA / PulseAudio)"], ["internal", "No interface (network only)"]]
+      : [["auto", PLAT === "win" ? "Audio interface / Dante (Windows audio)" : "Audio interface / Dante (Core Audio)"], ["internal", "No interface (network only)"]];
+    var under = e.meters && e.meters.deviceUnder;
+    return '<section class="card io-c wide"><h3>Audio interface / Dante</h3><table class="io-t"><tr><td>Engine</td><td>' + (e.running && st.backend ? "running on " + esc(backendLabel(st)) + " · " + st.rate + " Hz · " + st.block + " frames · " + st.inputs + " in · " + st.outputs + " out" + (under ? ' · <span class="warn">' + under + " clock gaps</span>" : "") : '<span class="warn">' + esc(e.error || "not running") + "</span>") + "</td></tr>" +
+      (st.deviceError ? '<tr><td></td><td class="warn">' + esc(st.deviceError) + "</td></tr>" : "") + "</table>" +
+      '<div class="row"><label>Engine <select data-io-dev="backend">' + engines.map(function (o) { return '<option value="' + o[0] + '"' + ((d.backend || "auto") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + '</select></label><label>Buffer <select data-io-dev="buffer">' + [64, 128, 256, 512, 1024].map(function (b) { return '<option value="' + b + '"' + (Number(d.buffer) === b ? " selected" : "") + ">" + b + " (" + (b / 48).toFixed(1) + " ms)</option>"; }).join("") + "</select></label>" +
+      (PLAT === "win" ? '<label class="toggle" title="WASAPI exclusive mode: lower latency; other programs can\'t use the device meanwhile"><input type="checkbox" data-io-excl' + (d.exclusive ? " checked" : "") + "> Exclusive</label>" : "") + "</div>" +
+      '<div class="io-cols">' + devCol("capture", "Inputs from") + devCol("playback", "Outputs to") + "</div>" +
+      '<p class="muted small">Several devices join into one set of up to 128 inputs and 128 outputs, one after the other (two 64-channel Dante Virtual Soundcards make 128). The first device is the clock; the others are kept in step automatically.' + (PLAT === "linux" ? " On Linux, PipeWire / JACK already joins every card; Dante works when a Dante card shows up as a normal sound card." : "") + "</p>" +
+      (anyDante || PLAT !== "linux" ? '<p class="muted small"><b>Dante:</b> Dante Virtual Soundcard (Audinate, needs its licence) or a Dante PCIe / USB card appears here like any interface - up to 64 × 64 channels each; set the channel count in DVS. Route the channels in Dante Controller. Primary + secondary redundancy is set up in Dante itself and needs nothing here.</p>' : "") +
       '<div class="io-cols"><div><h4>Inputs</h4>' + ((st.captureNames || []).length ? '<table class="io-t">' + st.captureNames.map(function (n, k) { return "<tr><td>In " + (k + 1) + '</td><td><span class="muted small">' + esc(n) + "</span> " + (used[k] ? "→ " + used[k].map(esc).join(", ") : "") + "</td></tr>"; }).join("") + "</table>" : '<p class="muted">none</p>') + "</div>" +
       '<div><h4>Outputs</h4>' + ((st.playbackNames || []).length ? '<table class="io-t">' + st.playbackNames.map(function (n, k) { return "<tr><td>Out " + (k + 1) + '</td><td><span class="muted small">' + esc(n) + "</span> " + (outs[k] ? "← " + outs[k].map(esc).join(", ") : "") + "</td></tr>"; }).join("") + "</table>" : '<p class="muted">none</p>') + "</div></div></section>";
   }
@@ -95,7 +130,7 @@
     NAT.host.piTarget({ address: addr || "", code: CU.prefs.code || "" });
   }
   // the audio host tells the Central Control where it is, so every other Central Usage finds it
-  function registerHost() { var c = cfg(); if (CU.mode() === "admin" && c.host && c.host.enabled && CU.state.connected && CU.prefs.code) CU.send({ type: "audioHost", action: "register", code: CU.prefs.code, port: c.host.port || 8092, name: c.name || "Central Usage" }); }
+  function registerHost() { var c = cfg(); if ((CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") && c.host && c.host.enabled && CU.state.connected && CU.prefs.code) CU.send({ type: "audioHost", action: "register", code: CU.prefs.code, port: c.host.port || 8092, name: c.name || "Central Usage" }); }
   CU.on("hello", function () { piTarget(); setTimeout(registerHost, 300); });
   CU.on("authed", function () { piTarget(); registerHost(); });
   CU.on("connected", function (on) { if (on) setTimeout(registerHost, 600); });
@@ -110,10 +145,13 @@
     if (t.dataset.io === "userCode") { CU.store.set("userCode", t.value.trim()); return; }
     if (t.dataset.io === "sink" && window.CUListen) { window.CUListen.setSink(t.value); return; }
     if (t.dataset.ioDev && X) { var p = {}; p[t.dataset.ioDev] = t.dataset.ioDev === "buffer" ? Number(t.value) : t.value; X.op({ op: "device", patch: p }); setTimeout(render, 1500); }
+    if (t.dataset.ioDevadd && X && t.value) { var dir = t.dataset.ioDevadd, cur = devList((X.state && X.state.device || {})[dir]); cur.push(t.value); var pa = {}; pa[dir] = cur.join("|"); X.op({ op: "device", patch: pa }); setTimeout(render, 1500); }
+    if (t.hasAttribute && t.hasAttribute("data-io-excl") && X) { X.op({ op: "device", patch: { exclusive: t.checked } }); setTimeout(render, 1500); }
   });
   root.addEventListener("input", function (e) { var t = e.target; if (t.dataset.io === "latency") { var o = t.parentNode.querySelector("output"); if (o) o.textContent = t.value + " ms"; } });
   root.addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;
+    if ((b.dataset.ioDevdel || b.dataset.ioDevup) && X) { var parts = (b.dataset.ioDevdel || b.dataset.ioDevup).split(":"), dir = parts[0], k = Number(parts[1]), list = devList((X.state && X.state.device || {})[dir]), it = list.splice(k, 1)[0]; if (b.dataset.ioDevup) list.unshift(it); var pd = {}; pd[dir] = list.join("|"); X.op({ op: "device", patch: pd }); setTimeout(render, 1500); return; }
     if (b.dataset.io === "code") CU.askCode();
     else if (b.dataset.io === "newUser") setCfg({ newUserCode: true });
     else if (b.dataset.io === "newAdmin") setCfg({ newAdminCode: true });

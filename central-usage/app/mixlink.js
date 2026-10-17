@@ -10,7 +10,7 @@
   var L = { kind: "none", state: null, pi: [], meters: null, info: null, hostStatus: null, link: null, error: null, remoteAddr: "" }, handlers = {};
   function emit(t, a, b, c, d) { (handlers[t] || []).forEach(function (fn) { try { fn(a, b, c, d); } catch (e) { console.warn("mixlink", t, e); } }); }
   function on(t, fn) { (handlers[t] = handlers[t] || []).push(fn); }
-  function isHost() { var c = CU.config(); return CU.mode() === "admin" && c && c.host && c.host.enabled && !!NATIVE; }
+  function isHost() { var c = CU.config(); return (CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") && c && c.host && c.host.enabled && !!NATIVE; }
   function hostAddress() {
     var manual = CU.store.get("hostAddr", ""); if (manual) return manual;
     var h = CU.state.audioHost; return h ? h.address + ":" + (h.port || 8092) : "";
@@ -49,7 +49,7 @@
     link.on("audio", function (pcm, frames, ch, rate, tap) { emit("audio", pcm, frames, ch, rate, tap); });
   }
   function useNone() { if (L.link) { L.link.close(); L.link = null; } L.kind = "none"; L.state = null; emit("state", null); }
-  function choose() { if (CU.mode() !== "admin") return useNone(); if (isHost()) { if (L.kind !== "local") useLocal(); } else useRemote(); }
+  function choose() { if (!(CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main")) return useNone(); if (isHost()) { if (L.kind !== "local") useLocal(); } else useRemote(); }
   CU.on("mode", choose); CU.on("audioHost", function () { if (L.kind !== "local") choose(); });
   function op(o) {
     if (L.kind === "local") return NATIVE.op(o);

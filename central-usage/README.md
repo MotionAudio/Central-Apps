@@ -31,7 +31,19 @@ stops and skips the tracks**, and every computer follows it. From here you can
 only page the lyrics, and while the tracks are playing that paging stays inside
 the current section.
 
-## Install on Linux
+## Install
+
+Download from https://motionaudio.github.io/Central-Apps/ (first-run help there and in ../INSTALL.md).
+
+* **Windows 10 / 11**: `central-usage-<v>-win-x64.exe` (More info → Run anyway the first time).
+* **macOS** (Apple Silicon or Intel): `central-usage-<v>-mac-arm64.dmg` / `-mac-x64.dmg`, drag to
+  Applications, then System Settings → Privacy & Security → Open Anyway the first time. Allow the microphone.
+* On Windows and macOS the audio host uses the system's audio devices (WASAPI / Core Audio) - any interface,
+  Dante Virtual Soundcard or a Dante card, several joined into one (I/O tab) - and the Instrument tab plays
+  through the built-in rig (built-in effects, SoundFont keys; your own `.sf2` banks go in the app's data folder
+  under `instrument/sounds/sf2`).
+
+### Linux
 
 * Ubuntu / Debian: `sudo apt install ./dist/central-usage-2.0.0-amd64.deb`, then
   open **Central Usage** from the app menu. The .deb recommends `pipewire-jack`

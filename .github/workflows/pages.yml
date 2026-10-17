@@ -1,0 +1,29 @@
+# The download page (docs/index.html) on GitHub Pages: https://motionaudio.github.io/Central-Apps/
+# It finds the newest release itself when it opens, so it only needs publishing when the page changes.
+# One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
+name: Download page
+on:
+  push:
+    branches: [main]
+    paths: [docs/**, .github/workflows/pages.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: docs }
+      - id: deployment
+        uses: actions/deploy-pages@v4

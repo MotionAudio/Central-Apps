@@ -5,18 +5,21 @@
  *  inputs[128]  name, source (Central Control channel by name / interface input / none), group (tracks | band),
  *               trim, polarity, high-pass, EQ, compressor, fader, pan, mute, direct output, shown to users
  *  main         the tracks mix: level, mute, outputs L / R          trackOut: "sum" (L/R) or "direct" (each track)
- *  mixes[48]    in-ear mixes: name, owner, mode (cloud: out of the interface · local: back over Wi-Fi to the
- *               owner's device), outputs, stereo, level, mute, sends { input index: { level dB, pan, on } } */
+ *  mixes[64]    stereo in-ear mixes: name, owner, where it goes - wired (an output pair of the interface / Dante,
+ *               to an in-ear transmitter in the rack) and / or local (back over the network to the owner's
+ *               device or phone) - outputs, stereo, level, mute, sends { input index: { level dB, pan, on } }
+ *  device       the audio host's devices: capture / playback ("A|B" joins several devices, e.g. two Dante
+ *               Virtual Soundcards), buffer, backend */
 (function (root, factory) { if (typeof module === "object" && module.exports) module.exports = factory(); else root.CUMixer = factory(); })(this, function () {
   "use strict";
-  var MAXIN = 128, MAXMIX = 48, MAXOUT = 128;
+  var MAXIN = 128, MAXMIX = 64, MAXOUT = 128;
   function clamp(v, a, b) { v = Number(v); if (!isFinite(v)) v = a; return v < a ? a : v > b ? b : v; }
   function defaultEq() { return { on: false, lf: 100, lg: 0, mf: 1000, mg: 0, mq: 1, hf: 8000, hg: 0 }; }
   function defaultComp() { return { on: false, thr: -18, ratio: 3, att: 10, rel: 120, makeup: 0 }; }
   function defaultInput(i) { return { name: "", src: { kind: "none" }, group: "band", color: "", trim: 0, phase: false, hpf: 0, eq: defaultEq(), comp: defaultComp(), fader: 0, mute: false, pan: 0, direct: -1, directPre: false, show: true }; }
-  function defaultMix(m) { return { name: "Mix " + (m + 1), owner: null, ownerId: null, mode: "cloud", outL: -1, outR: -1, stereo: true, level: 0, mute: false, reserved: false, sends: {} }; }
+  function defaultMix(m) { return { name: "Mix " + (m + 1), owner: null, ownerId: null, wired: false, local: true, outL: -1, outR: -1, stereo: true, level: 0, mute: false, reserved: false, sends: {} }; }
   function create() {
-    var s = { version: 1, inputs: [], main: { level: 0, mute: false, outL: -1, outR: -1 }, trackOut: "sum", directFirst: 0, mixes: [], device: { capture: "", playback: "", buffer: 256, backend: "auto" } };
+    var s = { version: 1, inputs: [], main: { level: 0, mute: false, outL: -1, outR: -1 }, trackOut: "sum", directFirst: 0, mixes: [], device: { capture: "", playback: "", buffer: 256, backend: "auto", exclusive: false } };
     for (var i = 0; i < MAXIN; i++) s.inputs.push(defaultInput(i));
     for (var m = 0; m < MAXMIX; m++) s.mixes.push(defaultMix(m));
     return s;
@@ -26,7 +29,13 @@
     s.inputs = Array.isArray(s.inputs) ? s.inputs : []; s.mixes = Array.isArray(s.mixes) ? s.mixes : [];
     for (var i = 0; i < MAXIN; i++) { var x = s.inputs[i] = Object.assign(defaultInput(i), s.inputs[i] || {}); x.eq = Object.assign(defaultEq(), x.eq || {}); x.comp = Object.assign(defaultComp(), x.comp || {}); if (!x.src || !x.src.kind) x.src = { kind: "none" }; }
     s.inputs.length = MAXIN;
-    for (var m = 0; m < MAXMIX; m++) { s.mixes[m] = Object.assign(defaultMix(m), s.mixes[m] || {}); if (!s.mixes[m].sends || typeof s.mixes[m].sends !== "object") s.mixes[m].sends = {}; }
+    for (var m = 0; m < MAXMIX; m++) {
+      var old = s.mixes[m] || {}, q = s.mixes[m] = Object.assign(defaultMix(m), old);
+      if (!q.sends || typeof q.sends !== "object") q.sends = {};
+      // older versions: one "mode" per mix - cloud (out of the interface) or local (over Wi-Fi)
+      if (old.mode && old.wired == null) { q.wired = old.mode === "cloud"; q.local = old.mode === "local"; }
+      delete q.mode; q.wired = !!q.wired; q.local = q.local !== false;
+    }
     s.mixes.length = MAXMIX;
     s.main = Object.assign(d.main, s.main || {}); s.device = Object.assign(d.device, s.device || {});
     if (s.trackOut !== "direct") s.trackOut = "sum";
@@ -35,13 +44,12 @@
   var INPUT_KEYS = { name: "s", group: "s", color: "s", trim: [-24, 24], phase: "b", hpf: [0, 400], fader: [-90, 10], mute: "b", pan: [-1, 1], direct: [-1, MAXOUT - 1], directPre: "b", show: "b" };
   var EQ_KEYS = { on: "b", lf: [20, 1000], lg: [-18, 18], mf: [100, 12000], mg: [-18, 18], mq: [0.2, 8], hf: [1000, 20000], hg: [-18, 18] };
   var COMP_KEYS = { on: "b", thr: [-60, 0], ratio: [1, 20], att: [0.1, 200], rel: [5, 2000], makeup: [0, 24] };
-  var MIX_KEYS = { name: "s", mode: "s", outL: [-1, MAXOUT - 1], outR: [-1, MAXOUT - 1], stereo: "b", level: [-90, 10], mute: "b", reserved: "b" };
+  var MIX_KEYS = { name: "s", wired: "b", local: "b", outL: [-1, MAXOUT - 1], outR: [-1, MAXOUT - 1], stereo: "b", level: [-90, 10], mute: "b", reserved: "b" };
   function put(target, keys, patch) {
     var changed = false;
     Object.keys(patch || {}).forEach(function (k) {
       var t = keys[k]; if (!t) return; var v = patch[k];
-      if (t === "s") v = String(v == null ? "" : v).slice(0, 40); else if (t === "b") v = !!v; else v = clamp(v, t[0], t[1]);
-      if (k === "mode" && v !== "local" && v !== "cloud") return;
+      if (t === "s") v = String(v == null ? "" : v).slice(0, 40); else if (t === "L") v = String(v == null ? "" : v).slice(0, 400); else if (t === "b") v = !!v; else v = clamp(v, t[0], t[1]);
       if (k === "group" && v !== "tracks" && v !== "band") return;
       if (target[k] !== v) { target[k] = v; changed = true; }
     });
@@ -63,12 +71,21 @@
     }
     if (op.op === "main") { if (!admin) return false; return put(s.main, { level: [-90, 10], mute: "b", outL: [-1, MAXOUT - 1], outR: [-1, MAXOUT - 1] }, op.patch); }
     if (op.op === "trackOut") { if (!admin) return false; var v = op.value === "direct" ? "direct" : "sum", f = clamp(op.first == null ? s.directFirst : op.first, 0, MAXOUT - 1) | 0; if (s.trackOut === v && s.directFirst === f) return false; s.trackOut = v; s.directFirst = f; return true; }
-    if (op.op === "device") { if (!admin) return false; return put(s.device, { capture: "s", playback: "s", buffer: [32, 2048], backend: "s" }, op.patch); }
+    if (op.op === "autoWire") {   // the wired mixes get output pairs one after the other, from output "first"
+      if (!admin) return false; var o = clamp(op.first == null ? 0 : op.first, 0, MAXOUT - 1) | 0, ch2 = false;
+      if (op.count != null) { var cnt = clamp(op.count, 0, MAXMIX) | 0; s.mixes.forEach(function (q, k) { var w = k < cnt; if (q.wired !== w) { q.wired = w; ch2 = true; } }); }
+      s.mixes.forEach(function (q) {
+        if (!q.wired) return; var need = q.stereo ? 2 : 1, L = o + need - 1 < MAXOUT ? o : -1, R = q.stereo && L >= 0 ? o + 1 : -1;
+        if (q.outL !== L || q.outR !== R) { q.outL = L; q.outR = R; ch2 = true; } if (L >= 0) o += need;
+      });
+      return ch2;
+    }
+    if (op.op === "device") { if (!admin) return false; var dp = Object.assign({}, op.patch || {}); ["capture", "playback"].forEach(function (k) { if (dp[k] != null) dp[k] = String(dp[k]).slice(0, 400); }); if (dp.backend != null && ["auto", "internal", "jack", "miniaudio", "null"].indexOf(dp.backend) < 0) return false; return put(s.device, { capture: "L", playback: "L", buffer: [32, 2048], backend: "s", exclusive: "b" }, dp); }
     var mix = s.mixes[op.m | 0]; if ((op.m | 0) !== op.m || !mix) return false;
     var owns = mix.ownerId && who.id && mix.ownerId === who.id;
     if (op.op === "mix") {
       var patch = op.patch || {};
-      if (!admin) { if (!owns) return false; patch = { level: patch.level, mute: patch.mute, mode: patch.mode, stereo: patch.stereo, name: patch.name }; Object.keys(patch).forEach(function (k) { if (patch[k] === undefined) delete patch[k]; }); }
+      if (!admin) { if (!owns) return false; patch = { level: patch.level, mute: patch.mute, name: patch.name }; Object.keys(patch).forEach(function (k) { if (patch[k] === undefined) delete patch[k]; }); }   // where it goes is the sound desk's choice
       return put(mix, MIX_KEYS, patch);
     }
     if (op.op === "send") {
@@ -87,7 +104,6 @@
       var id = admin && op.id ? String(op.id) : who.id; if (!id) return false;
       s.mixes.forEach(function (q) { if (q !== mix && q.ownerId === id) { q.owner = null; q.ownerId = null; } });   // one mix per person
       mix.ownerId = String(id).slice(0, 40); mix.owner = String(op.name || "").slice(0, 40) || "Someone";
-      if (op.mode === "local" || op.mode === "cloud") mix.mode = op.mode;
       return true;
     }
     if (op.op === "release") { if (!admin && !owns) return false; if (!mix.ownerId) return false; mix.owner = null; mix.ownerId = null; return true; }
@@ -100,7 +116,7 @@
   // what a user's copy holds: the inputs they may see (names only) and every mix's name / owner, their own mix in full
   function forUser(s, id, live) {
     var inputs = []; s.inputs.forEach(function (x, i) { if (visibleTo(s, i, live)) inputs.push({ i: i, name: x.name || "Input " + (i + 1), color: x.color, group: x.group }); });
-    return { inputs: inputs, mixes: s.mixes.map(function (q, m) { var mine = q.ownerId && q.ownerId === id; return { m: m, name: q.name, owner: q.owner, mine: !!mine, free: !q.ownerId && !q.reserved, mode: q.mode, level: mine ? q.level : undefined, mute: mine ? q.mute : undefined, stereo: q.stereo, hasOutput: q.outL >= 0 || q.outR >= 0, sends: mine ? q.sends : undefined }; }) };
+    return { inputs: inputs, mixes: s.mixes.map(function (q, m) { var mine = q.ownerId && q.ownerId === id; return { m: m, name: q.name, owner: q.owner, mine: !!mine, free: !q.ownerId && !q.reserved, wired: q.wired, local: q.local, outL: q.wired ? q.outL : -1, outR: q.wired ? q.outR : -1, level: mine ? q.level : undefined, mute: mine ? q.mute : undefined, stereo: q.stereo, hasOutput: q.wired && (q.outL >= 0 || q.outR >= 0), sends: mine ? q.sends : undefined }; }) };
   }
   function dbToLin(db) { return db <= -90 ? 0 : Math.pow(10, db / 20); }
   function linToDb(v) { return v <= 0.00003 ? -90 : 20 * Math.log10(v); }
