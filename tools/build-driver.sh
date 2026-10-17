@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT="${1:-central-usage/driver-dist}"
 PY="${PYTHON:-$(command -v python3 || command -v python)}"
-"$PY" -m pip install --quiet --disable-pip-version-check pyinstaller==6.11.1 websockets==13.1 gpiozero==2.0.1 pillow mido==1.3.3 python-rtmidi==1.5.8
+"$PY" -m pip install --quiet --disable-pip-version-check pyinstaller==6.11.1 websockets==13.1 gpiozero==2.0.1 pillow mido==1.3.3 python-rtmidi==1.5.8 backports.tarfile   # (backports: setuptools' pkg_resources needs it on Linux)
 WORK="$PWD/.pyi-build"; rm -rf "$WORK"; mkdir -p "$WORK"   # (inside the repo: on Windows PyInstaller needs it on the same drive)
 "$PY" -m PyInstaller --noconfirm --clean --onedir --name pedal-driver --distpath "$OUT" --workpath "$WORK/build" --specpath "$WORK" \
   --paths . --hidden-import instrument_host --hidden-import sources --hidden-import native_rig \
