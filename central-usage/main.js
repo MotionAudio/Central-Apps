@@ -20,7 +20,8 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, "app", "index.html"));
   win.on("closed", () => { win = null; });
-  win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
+  // the Video tab opens its Main output window itself (same renderer, so it can draw into it); other links open in the browser
+  win.webContents.setWindowOpenHandler((details) => { const v = videoSvc && videoSvc.windowOpen(details); if (v) return v; shell.openExternal(details.url); return { action: "deny" }; });
 }
 
 // Web MIDI, the microphone (tuner) and choosing a speaker are allowed without a prompt - this is our own page
@@ -159,6 +160,12 @@ ipcMain.handle("update-install", async () => {
 });
 
 const svc = require("./services")(app, () => win);
+// the Video tab: cameras in, Main / Stream out, streaming, NDI, stream audio
+const videoSvc = require("./video-service").setup({
+  ipcMain, getWin: () => win, userData: app.getPath("userData"), app, screen: require("electron").screen, BrowserWindow,
+  binDir: app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native", "build")
+});
+if (process.platform === "darwin") app.whenReady().then(() => { try { require("electron").systemPreferences.askForMediaAccess("camera"); } catch (_) { } });
 require("./asr").setupAsr({ ipcMain, app, getWin: () => win });   // lyrics from a vocal track (speech model on this computer)
 app.on("before-quit", () => { try { dmx.blackout(); } catch (_) { } try { svc.stop(); } catch (_) { } });
 ipcMain.handle("version", () => ({ app: app.getVersion(), electron: process.versions.electron }));

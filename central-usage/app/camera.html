@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Central Usage camera</title>
+<style>
+  :root { --bg: #08111d; --panel: #101e31; --line: #294966; --text: #ecf7ff; --muted: #9bb2c9; --accent: #5de6b0; --accentText: #062218; --danger: #ff7878; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; min-height: 100vh; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px; display: grid; gap: 12px; }
+  h1 { font-size: 20px; margin: 4px 0; }
+  label { display: grid; gap: 4px; color: var(--muted); font-size: 13px; }
+  input, select, button { font: inherit; color: var(--text); background: #091727; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  button { cursor: pointer; font-weight: 800; } button.go { background: var(--accent); color: var(--accentText); border: 0; } button.stop { background: var(--danger); color: #2a0606; border: 0; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; object-fit: cover; }
+  .live { position: relative; } .tally { position: absolute; top: 10px; left: 10px; padding: 3px 10px; border-radius: 6px; font-weight: 900; font-size: 13px; letter-spacing: .08em; background: #0009; }
+  .tally.on { background: #e5383b; } .tally.pvw { background: #2bb24c; }
+  .msg { color: var(--muted); font-size: 14px; min-height: 1.4em; } .bad { color: var(--danger); }
+  body.running form { display: none; } body:not(.running) .when-live { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Central Usage camera</h1>
+  <form id="f" onsubmit="return false">
+    <label>Camera name (shown on the multiview)<input id="name" maxlength="30" placeholder="Phone - balcony"></label>
+    <label>Camera code (on the Video tab → Phones)<input id="code" inputmode="numeric" maxlength="6" placeholder="4 digits"></label>
+    <div class="row">
+      <label>Camera<select id="facing"><option value="environment">Back</option><option value="user">Front (selfie)</option></select></label>
+      <label>Quality<select id="quality"><option value="720">720p (Wi-Fi friendly)</option><option value="1080">1080p</option></select></label>
+    </div>
+    <button class="go" id="start">Start sending</button>
+  </form>
+  <div class="live when-live"><video id="v" playsinline muted autoplay></video><span class="tally" id="tally">LIVE TO DESK</span></div>
+  <div class="row when-live"><button id="flip">Flip camera</button><button class="stop" id="stop">Stop</button></div>
+  <p class="msg" id="msg"></p>
+  <p class="msg">Keep this page open and the screen on. Plug the phone in for long services.</p>
+</main>
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var q = new URLSearchParams(location.search), store = window.localStorage;
+  $("#name").value = q.get("name") || (store && store.getItem("cam-name")) || "";
+  $("#code").value = q.get("code") || (store && store.getItem("cam-code")) || "";
+  $("#quality").value = (store && store.getItem("cam-quality")) || "720";
+  var ws = null, stream = null, encoder = null, timer = 0, running = false, wantKey = true, lastKey = 0, codec = "", W = 1280, H = 720, FPS = 30, canvas = null, ctx = null, wake = null, sent = 0;
+  function msg(t, bad) { var m = $("#msg"); m.textContent = t || ""; m.className = "msg" + (bad ? " bad" : ""); }
+  async function pickCodec(w, h) {
+    if (!window.VideoEncoder) return "jpeg";
+    var tries = h > 720 ? ["avc1.640028", "avc1.4D4028", "avc1.42E028"] : ["avc1.42E01F", "avc1.4D401F", "avc1.640020"];
+    for (var i = 0; i < tries.length; i++) {
+      try { var r = await VideoEncoder.isConfigSupported({ codec: tries[i], width: w, height: h, bitrate: h > 720 ? 5e6 : 2.5e6, framerate: FPS, avc: { format: "annexb" }, latencyMode: "realtime" }); if (r && r.supported) return tries[i]; } catch (_) { }
+    }
+    return "jpeg";
+  }
+  function packet(type, ts, data) {
+    var out = new Uint8Array(9 + data.byteLength); out[0] = type; new DataView(out.buffer).setFloat64(1, ts, true); out.set(new Uint8Array(data), 9); return out;
+  }
+  async function openCamera() {
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: $("#facing").value, width: { ideal: W }, height: { ideal: H }, frameRate: { ideal: FPS } } });
+    $("#v").srcObject = stream; await $("#v").play().catch(function () { });
+  }
+  async function start() {
+    if (!window.isSecureContext || !navigator.mediaDevices) { msg("This page needs the secure address (https) to use the camera. Open the start page and follow step 1.", true); return; }
+    var name = $("#name").value.trim() || "Phone", code = $("#code").value.trim();
+    if (store) { store.setItem("cam-name", name); store.setItem("cam-code", code); store.setItem("cam-quality", $("#quality").value); }
+    H = $("#quality").value === "1080" ? 1080 : 720; W = H === 1080 ? 1920 : 1280;
+    try { await openCamera(); } catch (e) { msg("The camera could not start: " + (e && e.message || e), true); return; }
+    codec = await pickCodec(W, H);
+    canvas = document.createElement("canvas"); canvas.width = W; canvas.height = H; ctx = canvas.getContext("2d");
+    ws = new WebSocket("wss://" + location.host + "/cam"); ws.binaryType = "arraybuffer";
+    ws.onopen = function () { ws.send(JSON.stringify({ type: "hello", name: name, code: code, codec: codec, width: W, height: H })); };
+    ws.onmessage = function (e) {
+      var m; try { m = JSON.parse(e.data); } catch (_) { return; }
+      if (m.type === "refused") { msg(m.error, true); stop(); }
+      else if (m.type === "welcome") { msg("Sending to the desk as \"" + m.source + "\" (" + (codec === "jpeg" ? "JPEG" : "H.264") + " " + H + "p)"); running = true; document.body.classList.add("running"); loop(); }
+      else if (m.type === "tally") { var t = $("#tally"); t.className = "tally" + (m.on ? " on" : m.pvw ? " pvw" : ""); t.textContent = m.on ? "ON AIR" : m.pvw ? "PREVIEW" : "LIVE TO DESK"; }
+    };
+    ws.onclose = function () { if (running) { msg("Lost the desk - reconnecting…", true); stop(true); setTimeout(start, 2000); } };
+    if (codec !== "jpeg") {
+      encoder = new VideoEncoder({ output: function (chunk) { var b = new ArrayBuffer(chunk.byteLength); chunk.copyTo(b); if (ws && ws.readyState === 1) ws.send(packet(chunk.type === "key" ? 0 : 1, chunk.timestamp, b)); }, error: function (e) { msg("Encoder: " + e.message, true); } });
+      encoder.configure({ codec: codec, width: W, height: H, bitrate: H > 720 ? 5e6 : 2.5e6, framerate: FPS, avc: { format: "annexb" }, latencyMode: "realtime" });
+    }
+    try { if (navigator.wakeLock) wake = await navigator.wakeLock.request("screen"); } catch (_) { }
+  }
+  function loop() {
+    clearInterval(timer); var t0 = performance.now(), jpegBusy = false;
+    timer = setInterval(function () {
+      if (!running || !ws || ws.readyState !== 1) return;
+      var v = $("#v"); if (v.readyState < 2) return;
+      ctx.drawImage(v, 0, 0, W, H);
+      var ts = Math.round((performance.now() - t0) * 1000);
+      if (codec === "jpeg") {
+        if (jpegBusy || ws.bufferedAmount > 1 << 20 || (sent++ % 2)) return;   // 15 fps
+        jpegBusy = true; canvas.toBlob(function (b) { jpegBusy = false; if (b && ws && ws.readyState === 1) b.arrayBuffer().then(function (ab) { ws.send(packet(2, ts, ab)); }); }, "image/jpeg", 0.72);
+        return;
+      }
+      if (ws.bufferedAmount > 1 << 20 || encoder.encodeQueueSize > 2) { wantKey = true; return; }   // a slow Wi-Fi: skip a picture (never a piece of one)
+      var f = new VideoFrame(canvas, { timestamp: ts }), key = wantKey || performance.now() - lastKey > 2000;
+      if (key) { lastKey = performance.now(); wantKey = false; }
+      encoder.encode(f, { keyFrame: key }); f.close();
+    }, 1000 / FPS);
+  }
+  function stop(keepWs) {
+    running = false; clearInterval(timer);
+    if (encoder) { try { encoder.close(); } catch (_) { } encoder = null; }
+    if (!keepWs && ws) { ws.onclose = null; try { ws.close(); } catch (_) { } } ws = keepWs ? ws : null;
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    if (wake) { try { wake.release(); } catch (_) { } wake = null; }
+    document.body.classList.remove("running");
+  }
+  $("#start").onclick = start;
+  $("#stop").onclick = function () { stop(); msg("Stopped."); };
+  $("#flip").onclick = async function () { $("#facing").value = $("#facing").value === "user" ? "environment" : "user"; try { await openCamera(); wantKey = true; } catch (e) { msg(e.message, true); } };
+  if (!window.isSecureContext) msg("Open this page with https:// (see the start page) - phones only share the camera with a secure page.", true);
+})();
+</script>
+</body>
+</html>

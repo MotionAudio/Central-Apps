@@ -37,6 +37,9 @@
       "host.js",
       "piaudio.js",
       "recorder.js",
+      "video-service.js",
+      "video-cert.js",
+      "preload-video.js",
       "app/**/*",
       "build/icon.png",
       "asr.js",
@@ -100,8 +103,9 @@
       "gatekeeperAssess": false,
       "artifactName": "central-usage-${version}-mac-${arch}.${ext}",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Central Usage records the audio interface's inputs for the mixer, the in-ears and the instrument.",
-        "NSLocalNetworkUsageDescription": "Central Usage talks to the Central Control and to the other Central Usage computers on this network."
+        "NSMicrophoneUsageDescription": "Central Usage records the audio interface's inputs for the mixer, the in-ears and the instrument. The stream's sound comes from your audio interface or Dante.",
+        "NSLocalNetworkUsageDescription": "Central Usage talks to the Central Control and to the other Central Usage computers on this network.",
+        "NSCameraUsageDescription": "Central Usage shows your cameras and capture cards in the Video switcher."
       },
       "files": [
         "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
@@ -136,7 +140,12 @@
           "cu-ndi.exe",
           "cu-rig",
           "cu-rig.exe",
-          "rig-map.json"
+          "rig-map.json",
+          "cu-video",
+          "cu-video.exe",
+          "ffmpeg",
+          "ffmpeg.exe",
+          "LICENSE.ffmpeg.txt"
         ]
       },
       {

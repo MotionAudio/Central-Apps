@@ -32,3 +32,4 @@ contextBridge.exposeInMainWorld("CU", {
   saveFile: (name, text) => ipcRenderer.invoke("save-file", name, text),
   openFile: () => ipcRenderer.invoke("open-file")
 });
+require("./preload-video")();   // window.CUVideo for the Video tab
