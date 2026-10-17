@@ -154,7 +154,7 @@ ipcMain.handle("update-status", () => updater.status());
 ipcMain.handle("update-config", (_e, cfg) => updater.save(cfg));
 ipcMain.handle("update-check", async () => { const st = await updater.check(); updateEvent(); return st; });
 ipcMain.handle("update-install", async () => {
-  try { const r = await updater.install(() => updateEvent()); updateEvent(); if (r === "restart") { app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : undefined); app.exit(0); } return { ok: true, result: r }; }
+  try { const r = await updater.install(() => updateEvent()); updateEvent(); if (r === "restart") { app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : undefined); app.exit(0); } else if (r === "quit") app.exit(0); return { ok: true, result: r }; }
   catch (e) { updater.error = e.message; updateEvent(); return { ok: false, error: e.message }; }
 });
 

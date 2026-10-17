@@ -1,8 +1,11 @@
 /* Desktop updater, shared by Central Usage and Central Control (PC). It looks at the Releases page of a
  * GitHub repository once a day, and only installs when the person says so:
- *  - running as an AppImage: the new AppImage replaces this one and the app restarts;
- *  - installed from the .deb: the new .deb is installed with the system's password prompt (pkexec apt-get),
- *    or, without pkexec, opened in the software installer.
+ *  - Linux, running as an AppImage: the new AppImage replaces this one and the app restarts;
+ *  - Linux, installed from the .deb: the new .deb is installed with the system's password prompt (pkexec
+ *    apt-get), or, without pkexec, opened in the software installer;
+ *  - Windows: the new installer (central-usage-<v>-win-x64.exe) runs silently and starts the app again;
+ *  - macOS: the new .dmg (arm64 or x64, for this Mac) is opened, its app replaces this one and the app
+ *    restarts; if this app's folder can't be written, the .dmg is shown so it can be dragged to Applications.
  * Every download is checked against the release's SHA256SUMS before anything is replaced. */
 "use strict";
 const fs = require("node:fs");
@@ -16,7 +19,7 @@ const { execFile, spawn } = require("node:child_process");
 function versionTuple(v) { const n = String(v || "").match(/\d+/g) || []; return [0, 1, 2].map((i) => Number(n[i] || 0)); }
 function newer(a, b) { const x = versionTuple(a), y = versionTuple(b); for (let i = 0; i < 3; i++) { if (x[i] !== y[i]) return x[i] > y[i]; } return false; }
 
-function get(url, { json = false, timeout = 30000, maxBytes = 400 * 1024 * 1024, onProgress } = {}, redirects = 0) {
+function get(url, { json = false, timeout = 30000, maxBytes = 900 * 1024 * 1024, onProgress } = {}, redirects = 0) {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith("https:") ? https : http;
     const req = mod.get(url, { headers: { "User-Agent": "CentralControl-updater", Accept: json ? "application/vnd.github+json" : "application/octet-stream" }, timeout }, (res) => {
@@ -48,10 +51,11 @@ class Updater {
     try { fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(this.file, JSON.stringify(this.cfg)); } catch (_) { }
     return this.status();
   }
-  kind() { return process.env.APPIMAGE ? "appimage" : process.platform === "linux" ? "deb" : "other"; }
+  kind() { return process.platform === "win32" ? "win" : process.platform === "darwin" ? "mac" : process.env.APPIMAGE ? "appimage" : "deb"; }
   asset() {
-    const a = (this.latest && this.latest.assets) || {}, names = Object.keys(a), want = this.kind() === "appimage" ? /\.AppImage$/ : /\.deb$/;
-    const arch = process.arch === "arm64" ? /arm64|aarch64/ : /amd64|x86_64|x64/;
+    const a = (this.latest && this.latest.assets) || {}, names = Object.keys(a), k = this.kind();
+    const want = k === "win" ? /-win-x64\.exe$/ : k === "mac" ? (process.arch === "arm64" ? /-mac-arm64\.dmg$/ : /-mac-x64\.dmg$/) : k === "appimage" ? /\.AppImage$/ : /\.deb$/;
+    const arch = k === "win" || k === "mac" ? /./ : process.arch === "arm64" ? /arm64|aarch64/ : /amd64|x86_64|x64/;
     const name = names.filter((n) => n.startsWith(this.product + "-") && want.test(n) && arch.test(n))[0] || null;
     return name ? { name, url: a[name] } : null;
   }
@@ -75,7 +79,7 @@ class Updater {
     return this.status();
   }
   async download(onProgress) {
-    const asset = this.asset(); if (!asset) throw new Error("this release has no " + (this.kind() === "appimage" ? "AppImage" : ".deb") + " for this computer");
+    const asset = this.asset(); if (!asset) throw new Error("this release has no " + ({ appimage: "AppImage", deb: ".deb", win: "Windows installer", mac: "Mac disk image" })[this.kind()] + " for this computer");
     const data = await get(asset.url, { timeout: 120000, onProgress });
     const sumsUrl = this.latest.assets.SHA256SUMS;
     if (!sumsUrl) throw new Error("the release has no SHA256SUMS - not installing an unchecked file");
@@ -87,11 +91,17 @@ class Updater {
     fs.writeFileSync(file, data);
     return file;
   }
-  /** returns "restart" when the app should relaunch itself, "opened" when an installer window took over */
+  /** returns "restart" when the app should relaunch itself, "quit" when it should close (the Windows installer
+   * starts it again), "opened" when an installer window took over */
   async install(onProgress) {
     this.busy = true; this.progress = 0;
     try {
       const file = await this.download((p) => { this.progress = p; if (onProgress) onProgress(p); });
+      if (this.kind() === "win") {   // NSIS: /S silent, --force-run starts the app when it is done
+        spawn(file, ["/S", "--force-run"], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+        return "quit";
+      }
+      if (this.kind() === "mac") return await this.installMac(file);
       if (this.kind() === "appimage") {
         const target = process.env.APPIMAGE, tmp = target + ".new";
         fs.copyFileSync(file, tmp); fs.chmodSync(tmp, 0o755); fs.renameSync(tmp, target);
@@ -107,5 +117,31 @@ class Updater {
     } finally { this.busy = false; }
   }
 }
+
+// macOS: mount the .dmg, put its app in place of this one (the old one is kept until the new one is in), unmount
+Updater.prototype.installMac = async function (dmg) {
+  const run = (cmd, args) => new Promise((resolve, reject) => execFile(cmd, args, { maxBuffer: 8 << 20 }, (err, out) => err ? reject(err) : resolve(String(out))));
+  const bundle = process.execPath.replace(/\/Contents\/MacOS\/[^/]+$/, "");   // .../Central Usage.app
+  let mount = null;
+  try {
+    if (!/\.app$/.test(bundle)) throw new Error("not running from an app bundle");
+    const out = await run("hdiutil", ["attach", "-nobrowse", "-noautoopen", "-readonly", dmg]);
+    mount = (out.split("\n").map((l) => l.split("\t").pop().trim()).filter((p) => p.startsWith("/Volumes/"))[0]) || null;
+    if (!mount) throw new Error("the disk image did not mount");
+    const app = fs.readdirSync(mount).filter((n) => n.endsWith(".app"))[0]; if (!app) throw new Error("no app in the disk image");
+    const fresh = bundle + ".new", old = bundle + ".old";
+    fs.rmSync(fresh, { recursive: true, force: true }); fs.rmSync(old, { recursive: true, force: true });
+    await run("ditto", [path.join(mount, app), fresh]);
+    try { await run("xattr", ["-dr", "com.apple.quarantine", fresh]); } catch (_) { }
+    fs.renameSync(bundle, old); fs.renameSync(fresh, bundle);
+    fs.rmSync(old, { recursive: true, force: true });
+    return "restart";
+  } catch (e) {
+    // can't write where the app is (or something else went wrong): show the disk image - drag the app to Applications
+    spawn("open", [dmg], { detached: true, stdio: "ignore" }).unref();
+    this.error = "Drag Central " + (this.product === "central-usage" ? "Usage" : "Control") + " from the window that opened into Applications (replace the old one). (" + e.message + ")";
+    return "opened";
+  } finally { if (mount) { try { await run("hdiutil", ["detach", "-quiet", mount]); } catch (_) { } } }
+};
 
 module.exports = { Updater, newer, versionTuple };

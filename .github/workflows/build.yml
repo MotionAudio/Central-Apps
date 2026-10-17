@@ -1,0 +1,180 @@
+# Builds every installer: Central Usage and Central Control for Linux, Windows and macOS (Apple Silicon and
+# Intel), with their native helpers, the bundled driver and the built-in sounds - and tests them on each system.
+# Used by release.yml (every release ships all of them); also runs by itself on the "platforms" branch and by hand.
+#
+# Adding a native helper for every system (e.g. a video program): build it in the "natives" job (Linux,
+# Windows cross-compiled) and in the macos jobs, put it in central-usage/native/build/, and list it in
+# central-usage/package.json -> build.extraResources[0].filter. Its libraries go next to it (Windows: .dll,
+# macOS: bundle them with the binary and fix their paths, Linux: depend on the distribution's packages).
+name: Build
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [platforms]
+permissions:
+  contents: read
+jobs:
+  natives:
+    name: Native helpers (Linux + Windows) and sounds
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Compilers
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 p7zip-full
+      - name: Build (Linux x64, Windows x64)
+        run: |
+          make -C central-usage/native -j4
+          make -C central-usage/native -j4 TARGET=win OUT=build-win
+      - name: Test the engine and the rig (Linux)
+        run: |
+          node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
+          node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
+          node central-usage/test-updater.mjs
+      - name: Built-in sounds
+        run: bash tools/fetch-builtin-sounds.sh central-usage/native/sounds
+      - uses: actions/upload-artifact@v4
+        with: { name: natives-linux-x64, path: central-usage/native/build/, retention-days: 7 }
+      - uses: actions/upload-artifact@v4
+        with: { name: natives-win-x64, path: central-usage/native/build-win/, retention-days: 7 }
+      - uses: actions/upload-artifact@v4
+        with: { name: sounds, path: central-usage/native/sounds/, retention-days: 7 }
+
+  linux:
+    name: Linux (deb + AppImage)
+    needs: natives
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/download-artifact@v4
+        with: { name: natives-linux-x64, path: central-usage/native/build }
+      - uses: actions/download-artifact@v4
+        with: { name: sounds, path: central-usage/native/sounds }
+      - name: Smoke test - the driver answers (system Python, as the .deb runs it)
+        run: |
+          pip install --quiet websockets==13.1 gpiozero==2.0.1 pillow
+          bash tools/smoke-driver.sh python3 pedal-driver.py
+      - name: Central Usage
+        working-directory: central-usage
+        run: |
+          chmod +x native/build/cu-* || true
+          CU_SKIP_NATIVE=1 bash prepare-shared.sh
+          npm install --no-audit --no-fund
+          npx electron-builder --linux deb AppImage --x64 --publish never
+      - name: Central Control for PC
+        run: |
+          bash central-control-desktop/prepare-src.sh
+          cd central-control-desktop
+          npm install --no-audit --no-fund
+          npx electron-builder --linux deb AppImage --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-linux
+          retention-days: 7
+          path: |
+            central-usage/dist/*.deb
+            central-usage/dist/*.AppImage
+            central-control-desktop/dist/*.deb
+            central-control-desktop/dist/*.AppImage
+
+  windows:
+    name: Windows (x64 installer)
+    needs: natives
+    runs-on: windows-latest
+    defaults:
+      run: { shell: bash }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - uses: actions/download-artifact@v4
+        with: { name: natives-win-x64, path: central-usage/native/build }
+      - uses: actions/download-artifact@v4
+        with: { name: sounds, path: central-usage/native/sounds }
+      - name: Test the engine and the rig (Windows)
+        run: |
+          node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer.exe
+          node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig.exe
+          node central-usage/test-updater.mjs
+      - name: Bundle the driver (PyInstaller) and smoke test it
+        run: |
+          PYTHON=python bash tools/build-driver.sh central-control-desktop/driver-dist
+          bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver.exe
+      - name: Central Usage
+        working-directory: central-usage
+        run: |
+          CU_SKIP_NATIVE=1 bash prepare-shared.sh
+          npm install --no-audit --no-fund
+          npx electron-builder --win nsis --x64 --publish never
+      - name: Central Control for PC
+        run: |
+          bash central-control-desktop/prepare-src.sh
+          cd central-control-desktop
+          npm install --no-audit --no-fund
+          npx electron-builder --win nsis --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-win
+          retention-days: 7
+          path: |
+            central-usage/dist/*.exe
+            central-control-desktop/dist/*.exe
+
+  macos:
+    name: macOS (${{ matrix.arch }})
+    needs: natives
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: arm64, runner: macos-15 }
+          - { arch: x64, runner: macos-15-intel }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - uses: actions/download-artifact@v4
+        with: { name: sounds, path: central-usage/native/sounds }
+      - name: Build the native helpers (this Mac's architecture)
+        run: make -C central-usage/native -j4 ARCH="-arch ${{ matrix.arch == 'x64' && 'x86_64' || 'arm64' }}"
+      - name: Test the engine and the rig (macOS)
+        run: |
+          node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
+          node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
+      - name: Bundle the driver (PyInstaller) and smoke test it
+        run: |
+          PYTHON=python bash tools/build-driver.sh central-control-desktop/driver-dist
+          bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver
+      - name: Central Usage
+        working-directory: central-usage
+        run: |
+          CU_SKIP_NATIVE=1 bash prepare-shared.sh
+          npm install --no-audit --no-fund
+          npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+      - name: Central Control for PC
+        run: |
+          bash central-control-desktop/prepare-src.sh
+          cd central-control-desktop
+          npm install --no-audit --no-fund
+          npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+      - name: Smoke test - the packed apps are signed (ad hoc) and their helpers run
+        run: |
+          for app in "central-usage/dist/mac"*/"Central Usage.app" "central-control-desktop/dist/mac"*/"Central Control.app"; do codesign --verify --deep "$app" && echo "signed: $app"; done
+          "central-usage/dist/mac"*/"Central Usage.app/Contents/Resources/native/cu-mixer" --version
+          "central-control-desktop/dist/mac"*/"Central Control.app/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "driver runs from the app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-mac-${{ matrix.arch }}
+          retention-days: 7
+          path: |
+            central-usage/dist/*.dmg
+            central-control-desktop/dist/*.dmg

@@ -286,7 +286,8 @@ class InstrumentHost:
         self.midi_router = None
         self.available = shutil.which("pw-cli") is not None and shutil.which("pw-dump") is not None
         env = dict(os.environ)
-        env.setdefault("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
+        if hasattr(os, "getuid"):
+            env.setdefault("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
         self.env = env
         self.pw = PW(env)
         self.last_status = 0

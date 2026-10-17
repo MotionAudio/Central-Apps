@@ -14,7 +14,9 @@
     "start": "electron .",
     "predist": "bash prepare-shared.sh",
     "dist": "electron-builder --linux deb AppImage",
-    "dist:all": "electron-builder --linux deb AppImage --x64 --arm64"
+    "dist:all": "electron-builder --linux deb AppImage --x64 --arm64",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:mac": "electron-builder --mac dmg --arm64 --x64"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -51,7 +53,8 @@
         "Comment": "Lights, the tracks mixer, in-ear mixes, slides, charts and lyrics with Central Control",
         "Categories": "AudioVideo;Audio;Music;"
       },
-      "maintainer": "Central Control <central-control@localhost>"
+      "maintainer": "Central Control <central-control@localhost>",
+      "artifactName": "central-usage-${version}-${arch}.${ext}"
     },
     "deb": {
       "depends": [
@@ -77,23 +80,50 @@
     "mac": {
       "category": "public.app-category.music",
       "target": [
-        "dmg"
-      ]
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "artifactName": "central-usage-${version}-mac-${arch}.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Central Usage records the audio interface's inputs for the mixer, the in-ears and the instrument.",
+        "NSLocalNetworkUsageDescription": "Central Usage talks to the Central Control and to the other Central Usage computers on this network."
+      }
     },
     "win": {
       "target": [
-        "nsis"
-      ]
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "central-usage-${version}-win-x64.${ext}"
     },
     "publish": null,
     "extraResources": [
       {
-        "from": "native/build/cu-mixer",
-        "to": "native/cu-mixer"
-      },
-      {
-        "from": "native/build/cu-ndi",
-        "to": "native/cu-ndi"
+        "from": "native/build",
+        "to": "native",
+        "filter": [
+          "cu-mixer",
+          "cu-mixer.exe",
+          "cu-ndi",
+          "cu-ndi.exe",
+          "cu-rig",
+          "cu-rig.exe",
+          "rig-map.json"
+        ]
       },
       {
         "from": "native/cu-instrument.py",
@@ -106,8 +136,27 @@
       {
         "from": "native/instrument-plugins.json",
         "to": "native/instrument-plugins.json"
+      },
+      {
+        "from": "native/sounds",
+        "to": "sounds",
+        "filter": [
+          "*.sf2",
+          "*.txt"
+        ]
       }
-    ]
+    ],
+    "afterPack": "build/after-pack.js",
+    "dmg": {
+      "artifactName": "central-usage-${version}-mac-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "central-usage-${version}-win-x64.${ext}",
+      "shortcutName": "Central Usage"
+    }
   },
   "homepage": "http://padpedal.local:8080/",
   "dependencies": {

@@ -69,6 +69,10 @@ except Exception as _error:  # the host is optional (needs PipeWire tools on the
     instrument_host = None
     logging.getLogger("pedal-driver").info("instrument host unavailable: %s", _error)
 try:
+    import native_rig  # the built-in instrument rig (cu-rig) on Windows / macOS
+except Exception:  # noqa: BLE001
+    native_rig = None
+try:
     import sources  # Planning Center + track packs (MultiTracks.com, Loop Community)
 except Exception as _error:
     sources = None
@@ -345,10 +349,32 @@ def safe_mode_configured():
     return safe_mode_active()
 
 
+def local_ipv4():
+    """This computer's IPv4 addresses without Linux tools (Windows / macOS): the host name's addresses and the
+    address a UDP socket would use to reach the network (nothing is sent)."""
+    found = []
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            found.append(info[4][0])
+    except OSError:
+        pass
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("10.255.255.255", 1))
+            found.insert(0, sock.getsockname()[0])
+    except OSError:
+        pass
+    out = []
+    for a in found:
+        if a not in out and not a.startswith("127.") and not a.startswith("169.254."):
+            out.append(a)
+    return out
+
+
 def ip_addresses():
-    code, out, _ = run(["hostname", "-I"], timeout=5)
+    code, out, _ = run(["hostname", "-I"], timeout=5) if sys.platform.startswith("linux") else (1, "", "")
     if code != 0:
-        return []
+        return local_ipv4()
     return [a for a in out.split() if re.match(r"^\d+\.\d+\.\d+\.\d+$", a) and not a.startswith("127.")]
 
 
@@ -2184,6 +2210,8 @@ def ip_interfaces():
             found.append({"iface": iface, "address": address, "kind": kind})
     except Exception:
         pass
+    if not found:   # Windows / macOS
+        found = [{"iface": "net%d" % i, "address": a, "kind": "other"} for i, a in enumerate(local_ipv4())]
     return found
 
 
@@ -2443,6 +2471,8 @@ class PedalDriver:
         self.propresenter = sources.ProPresenter(os.path.join(data_root, "propresenter.json")) if sources and hasattr(sources, "ProPresenter") else None
         self.pco = sources.PlanningCenter(os.path.join(data_root, "sources.json"), config.get("pco_base") or "https://api.planningcenteronline.com") if sources else None
         self.instrument = instrument_host.InstrumentHost(self, data_root, config["app_root"]) if instrument_host else None
+        if native_rig and (not self.instrument or not getattr(self.instrument, "available", False) or os.environ.get("CC_RIG") == "1") and native_rig.find_binary(config["app_root"]):
+            self.instrument = native_rig.NativeRig(self, data_root, config["app_root"])   # Windows / macOS: no PipeWire
         self.netaudio = NetAudio(self, os.path.join(data_root, "netaudio.json"))
         self.audio_host = None        # the Central Usage computer that makes the in-ear mixes: {name, address, port, ws}
         self.hub_dir = os.path.join(data_root, "hub")

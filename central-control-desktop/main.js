@@ -2,7 +2,7 @@
  * application window, no browser chrome. It starts the same driver the Raspberry
  * Pi runs (in simulation mode: no GPIO, but uploads, charts, companion pages on
  * port 8080 and the instrument host all work) and shows the app from it. */
-const { app, BrowserWindow, Menu, session, dialog, shell, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, session, dialog, shell, ipcMain, systemPreferences } = require("electron");
 const { Updater } = require("./updater");
 const { spawn, spawnSync } = require("node:child_process");
 const path = require("node:path");
@@ -16,16 +16,30 @@ const PORT = 8766;
 let win = null, driver = null, driverLog = "";
 
 function python() { for (const p of ["python3", "python"]) { if (spawnSync(p, ["--version"]).status === 0) return p; } return null; }
+const EXE = process.platform === "win32" ? ".exe" : "";
+const RES = app.isPackaged ? process.resourcesPath : __dirname;
+// Windows / macOS: the driver comes bundled (no Python needed); Linux: the system's python3 runs pedal-driver.py
+function bundledDriver() { const f = path.join(RES, app.isPackaged ? "driver" : "driver-dist", "pedal-driver", "pedal-driver" + EXE); return fs.existsSync(f) ? f : null; }
+// the built-in instrument rig (Windows / macOS; Linux uses PipeWire when it is there)
+function rigEnv() {
+  const native = path.join(RES, "native"), env = {};
+  if (fs.existsSync(path.join(native, "cu-rig" + EXE))) env.CC_RIG_BIN = path.join(native, "cu-rig" + EXE);
+  if (fs.existsSync(path.join(native, "rig-map.json"))) env.CC_RIG_MAP = path.join(native, "rig-map.json");
+  if (fs.existsSync(path.join(RES, "sounds"))) env.CC_RIG_SOUNDS = path.join(RES, "sounds");
+  return env;
+}
 function portOpen(port) { return new Promise((resolve) => { const s = net.connect(port, "127.0.0.1"); s.once("connect", () => { s.destroy(); resolve(true); }); s.once("error", () => resolve(false)); }); }
 async function waitFor(port, ms) { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await portOpen(port)) return true; await new Promise((r) => setTimeout(r, 200)); } return false; }
 
 async function startDriver() {
   if (await portOpen(PORT)) return true;  // one is running already (another window, or started by hand)
-  const py = python();
-  if (!py) { dialog.showErrorBox("Python 3 is needed", "Central Control runs its driver with Python 3 (sudo apt install python3 python3-websockets python3-gpiozero python3-pil python3-evdev)."); return false; }
+  const bundled = bundledDriver(), py = bundled ? null : python();
+  if (!bundled && !py) { dialog.showErrorBox("Python 3 is needed", "Central Control runs its driver with Python 3 (sudo apt install python3 python3-websockets python3-gpiozero python3-pil python3-evdev)."); return false; }
+  if (process.platform === "darwin") { try { await systemPreferences.askForMediaAccess("microphone"); } catch (_) { } }   // the instrument rig and the tuner hear the interface
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const log = fs.openSync(path.join(app.getPath("userData"), "driver.log"), "w");
-  driver = spawn(py, [path.join(APP_ROOT, "pedal-driver.py"), "--simulate", DATA_DIR, "--app-root", APP_ROOT], { stdio: ["ignore", log, log], detached: false });
+  const args = ["--simulate", DATA_DIR, "--app-root", APP_ROOT], env = Object.assign({}, process.env, rigEnv());
+  driver = bundled ? spawn(bundled, args, { stdio: ["ignore", log, log], env, windowsHide: true }) : spawn(py, [path.join(APP_ROOT, "pedal-driver.py")].concat(args), { stdio: ["ignore", log, log], env, detached: false });
   driver.on("exit", (code) => { driver = null; if (win && code) win.webContents.executeJavaScript('document.title="Central Control (driver stopped)"').catch(() => {}); });
   const ok = await waitFor(PORT, 20000);
   if (!ok) { try { driverLog = fs.readFileSync(path.join(app.getPath("userData"), "driver.log"), "utf8").slice(-1500); } catch (_) {} }
@@ -72,7 +86,7 @@ ipcMain.handle("update-status", () => updater.status());
 ipcMain.handle("update-config", (_e, cfg) => updater.save(cfg));
 ipcMain.handle("update-check", async () => { const st = await updater.check(); updateEvent(); return st; });
 ipcMain.handle("update-install", async () => {
-  try { const r = await updater.install(() => updateEvent()); updateEvent(); if (r === "restart") { if (driver) { try { driver.kill(); } catch (_) {} } app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : undefined); app.exit(0); } return { ok: true, result: r }; }
+  try { const r = await updater.install(() => updateEvent()); updateEvent(); if (r === "restart") { if (driver) { try { driver.kill(); } catch (_) {} } app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : undefined); app.exit(0); } else if (r === "quit") { if (driver) { try { driver.kill(); } catch (_) { } } app.exit(0); } return { ok: true, result: r }; }
   catch (e) { updater.error = e.message; updateEvent(); return { ok: false, error: e.message }; }
 });
 

@@ -1,6 +1,12 @@
 # Builds and publishes a release whenever main has a version that has no release yet.
 # The version comes from APP_VERSION in pedal-driver.py (tag v<version>); the PC apps' own versions come
-# from their package.json files. The apps' update checks read the newest release of this repository.
+# from their package.json files. The apps' update checks read the newest release of this repository, so
+# every install - Raspberry Pi, Linux, Windows, macOS - updates itself from it.
+#
+# Every release has: the Raspberry Pi update (central-control-source.zip), Central Control and Central Usage
+# for Linux (.deb, .AppImage), Windows (-win-x64.exe) and macOS (-mac-arm64.dmg, -mac-x64.dmg), SHA256SUMS.
+# (iPhone / iPad: the web app comes with the Central Control itself.)
+# Optional: a copy of every release in Google Drive - see DRIVE-SETUP.md (secret RCLONE_CONFIG).
 name: Release
 on:
   push:
@@ -12,43 +18,59 @@ concurrency:
   group: release
   cancel-in-progress: false
 jobs:
-  release:
+  version:
     runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      exists: ${{ steps.v.outputs.exists }}
     steps:
       - uses: actions/checkout@v4
-      - name: Version
-        id: v
+      - id: v
         run: |
           VER=$(sed -nE 's/^APP_VERSION = "([^"]+)".*/\1/p' pedal-driver.py | head -1)
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           if gh release view "v$VER" >/dev/null 2>&1; then echo "exists=1" >> "$GITHUB_OUTPUT"; else echo "exists=0" >> "$GITHUB_OUTPUT"; fi
         env:
           GH_TOKEN: ${{ github.token }}
-      - uses: actions/setup-node@v4
-        if: steps.v.outputs.exists == '0'
-        with:
-          node-version: 20
-      - name: Build Central Usage
-        if: steps.v.outputs.exists == '0'
-        working-directory: central-usage
-        run: |
-          npm install --no-audit --no-fund
-          npx electron-builder --linux deb AppImage --publish never
-      - name: Build Central Control for PC
-        if: steps.v.outputs.exists == '0'
-        run: |
-          bash central-control-desktop/prepare-src.sh
-          cd central-control-desktop
-          npm install --no-audit --no-fund
-          npx electron-builder --linux deb AppImage --publish never
+
+  build:
+    needs: version
+    if: needs.version.outputs.exists == '0'
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    needs: [version, build]
+    if: needs.version.outputs.exists == '0'
+    runs-on: ubuntu-22.04
+    env:
+      VER: ${{ needs.version.outputs.version }}
+      RCLONE_CONF: ${{ secrets.RCLONE_CONFIG }}
+      FOLDER: ${{ vars.GDRIVE_FOLDER || 'Central Apps' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: installers-*, path: staging, merge-multiple: true }
       - name: Make the release files
-        if: steps.v.outputs.exists == '0'
-        run: bash make-release.sh "${{ steps.v.outputs.version }}"
+        run: |
+          mkdir -p central-usage/dist central-control-desktop/dist
+          find staging -type f -name 'central-usage-*' -exec mv {} central-usage/dist/ \;
+          find staging -type f -name 'central-control-*' -exec mv {} central-control-desktop/dist/ \;
+          bash make-release.sh "$VER"
+          for want in "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" \
+                      "central-control-$VER-win-x64.exe" "central-control-$VER-mac-arm64.dmg" "central-control-$VER-mac-x64.dmg" "central-control-$VER-amd64.deb" "central-control-source.zip"; do
+            ls release/$VER/$want >/dev/null 2>&1 || { echo "missing from the release: $want"; exit 1; }
+          done
       - name: Publish
-        if: steps.v.outputs.exists == '0'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VER="${{ steps.v.outputs.version }}"
           NOTES=release-notes/$VER.md; [ -f "$NOTES" ] || { echo "Central Control $VER" > /tmp/notes.md; NOTES=/tmp/notes.md; }
           gh release create "v$VER" release/$VER/* --title "Central Control $VER" --notes-file "$NOTES" --target "$GITHUB_SHA"
+      - name: Copy to Google Drive (when set up - DRIVE-SETUP.md)
+        if: env.RCLONE_CONF != ''
+        run: |
+          curl -fsSL https://rclone.org/install.sh | sudo bash > /dev/null
+          mkdir -p ~/.config/rclone && printf '%s\n' "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
+          rclone copy "release/$VER" "gdrive:$FOLDER/$VER" --progress=false
+          rclone sync "release/$VER" "gdrive:$FOLDER/latest" --progress=false
+          echo "copied to Google Drive: $FOLDER/$VER and $FOLDER/latest"
