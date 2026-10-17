@@ -23,18 +23,21 @@
   function fire(type, a, b) { (bus[type] || []).forEach(function (fn) { try { fn(a, b); } catch (e) { console.warn("listener", type, e); } }); }
   // ---- this computer's role: the main admin (one), admins, User 1 and User 2 - which tabs it has.
   // mode() is the side (admin / user) the tab modules check; role() is the exact role.
-  var MODES = { main: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"],
+  var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"],
     user1: ["chart", "instrument", "lyrics", "inears", "io", "settings"], user2: ["lyrics", "chart", "inears", "settings"] };
   // an admin's jobs (given by the main admin): only those tabs, or General = every admin tab
   var JOB_TABS = { lighting: ["lights"], production: ["video"], mix: ["mix"], inears: ["inears"], slides: ["slides", "lyrics"] };
-  var JOB_NAMES = { general: "General", lighting: "Lighting", production: "Production (cameras)", mix: "Mix", inears: "In-ears", slides: "Slides & lyrics" };
+  var JOB_NAMES = { general: "Everything (production manager)", lighting: "Lighting", production: "Production (cameras)", mix: "Mix", inears: "In-ears", slides: "Slides & lyrics" };
   function jobs() { var j = cuCfg.jobs; return Array.isArray(j) && j.length && j.indexOf("general") < 0 ? j.filter(function (x) { return JOB_TABS[x]; }) : ["general"]; }
   function tabsFor(r) {
-    if (WEB) return MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io"; });   // a phone / tablet browser: the user side, no native parts
-    if (r !== "admin") return MODES[r];
-    var j = jobs(); if (j[0] === "general") return MODES.admin;
+    var hide = window.CULock && window.CULock.hiddenTabs ? window.CULock.hiddenTabs() : [];   // the main admin's service lock
+    var keep = function (list) { return hide.length ? list.filter(function (t) { return hide.indexOf(t) < 0; }) : list; };
+    if (WEB) return keep(MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io"; }));   // a phone / tablet browser: the user side, no native parts
+    if (r !== "admin" && r !== "main") return keep(MODES[r]);
+    // admins - and the main admin too - work by their jobs: everything (production manager), or only lighting, mix…
+    var j = jobs(); if (j[0] === "general") return keep(MODES[r]);
     var want = {}; j.forEach(function (x) { JOB_TABS[x].forEach(function (t) { want[t] = 1; }); });
-    return MODES.admin.filter(function (t) { return want[t] || t === "io" || t === "settings"; });
+    return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "settings" || t === "devices" || t === "service"; }));
   }
   var ROLE_NAMES = { main: "Main admin", admin: "Admin", user1: "User 1", user2: "User 2" };
   var cuCfg = { mode: store.get("mode", null), role: store.get("role", null), jobs: store.get("jobs", null), name: store.get("name", "") };
@@ -57,7 +60,7 @@
     cuCfg.role = r; cuCfg.mode = r ? (r === "main" || r === "admin" ? "admin" : "user") : null;
     store.set("role", r); store.set("mode", cuCfg.mode);
     if (window.CU && window.CU.config) { try { cuCfg = await window.CU.config.set({ role: r }); } catch (_) { } }
-    var pick = document.getElementById("modePick"); if (pick && r) pick.remove();
+    var pick = document.getElementById("modePick"); if (pick && r && !pick.dataset.keep) pick.remove();   // (the main admin's setup keeps going)
     if (r) applyMode(); else askMode();
   }
   async function setJobs(j) {
@@ -275,6 +278,6 @@
     if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Usage";
     if (!role()) askMode(); applyMode(); fire("ready");
   })();
-  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
+  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
     midiSend: function (d, at) { midiSend(d, at); }, midiSysex: function (d) { if (midi && midi.sysexEnabled) midiSend(d); } };
 })();

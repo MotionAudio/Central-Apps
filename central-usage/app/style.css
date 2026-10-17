@@ -220,3 +220,52 @@ html[data-web] .admin-only, html[data-web] #findBtn, html[data-web] #connectBtn,
 .io-arrow i { position: absolute; left: 50%; top: 13px; bottom: 0; width: 2px; transform: translateX(-50%); background: linear-gradient(var(--line), transparent); }
 .io-arrow::before { content: "›"; position: absolute; left: 50%; top: 0; transform: translateX(-50%); font-size: 26px; line-height: 26px; color: var(--accent); font-weight: 800; }
 @media (max-width: 1050px) { .io-flow { grid-template-columns: 1fr; } .io-arrow { min-height: 26px; } .io-arrow i { display: none; } .io-arrow::before { content: "⌄"; } }
+
+/* ---- setup wizard steps */
+.rp-step h3 { margin: 4px 0 8px; } .rp-step label { display: grid; gap: 4px; margin: 8px 0; } .rp-step input[inputmode=numeric] { font-size: 22px; letter-spacing: .3em; width: 140px; }
+.rp-roles { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); } .rp-io { max-height: 52vh; overflow: auto; margin: 8px 0; } .rp-io .io-col { display: grid; gap: 10px; }
+.linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; }
+
+/* ---- Devices tab (main admin) */
+.dv { display: grid; gap: 12px; }
+.dv-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; } .dv-sum { flex: 1; } .dv-sum b { font-size: 20px; } .dv-ok { color: var(--accent); }
+.dv-lockall { font-weight: 800; padding: 10px 16px; } .dv-lockall.on { background: #d92f35; border-color: #d92f35; color: #fff; }
+.dv-asks { display: grid; gap: 6px; } .dv-ask { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 10px; background: var(--panel); }
+.dv-jobs { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 6px; } .dv-jobs label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+.dv-table { width: 100%; border-collapse: collapse; } .dv-table th { text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px; border-bottom: 1px solid var(--line); }
+.dv-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; } .dv-table tr.off td { opacity: .55; }
+.dv-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #3b5574; margin-top: 4px; } .dv-dot.good { background: #2fd15a; box-shadow: 0 0 8px #2fd15a; } .dv-dot.warn { background: #f0b429; } .dv-dot.bad { background: #ff3b3b; }
+.dv-g { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; } .dv-g.good { color: #2fd15a; } .dv-g.warn { color: #f0b429; } .dv-g.bad { color: #ff3b3b; } .dv-g.off { color: var(--muted); }
+.dv-health { font-size: 12px; color: var(--muted); } .dv-acts { white-space: nowrap; } .dv-acts button { padding: 5px 9px; font-size: 12px; margin: 0 4px 4px 0; }
+.dv-tag { font-size: 11px; padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+
+/* ---- Service tab (main admin) */
+.sv { display: grid; gap: 12px; }
+.sv-run .row { gap: 10px; align-items: center; flex-wrap: wrap; } .sv-now { display: grid; gap: 2px; margin-bottom: 8px; } .sv-now small { color: var(--muted); letter-spacing: .06em; } .sv-now b { font-size: 24px; }
+.sv-left { font: 800 34px ui-monospace, monospace; color: var(--accent); } .sv-left.over { color: #ff3b3b; }
+.sv-list { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .sv-pick { display: grid; text-align: left; gap: 2px; padding: 8px 12px; } .sv-pick small { color: var(--muted); font-size: 11px; } .sv-pick.on { border-color: var(--accent); } .sv-pick.add { border-style: dashed; }
+.sv-head { gap: 12px; flex-wrap: wrap; align-items: end; } .sv-head label:not(.toggle) { display: grid; gap: 3px; }
+.sv-roles { display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; margin: 10px 0; } .sv-roles label { display: inline-flex; gap: 5px; align-items: center; }
+.sv-items { width: 100%; border-collapse: collapse; } .sv-items th { text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 4px; }
+.sv-items td { padding: 4px; border-top: 1px solid var(--line); vertical-align: top; } .sv-items tr.live td { background: color-mix(in srgb, var(--accent), transparent 85%); }
+.sv-items td input[data-itf="title"] { width: 100%; min-width: 140px; } .sv-items td select[data-itf="song"] { display: block; margin-top: 4px; max-width: 100%; }
+.sv-iroles { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 12px; } .sv-iroles label { display: inline-flex; gap: 3px; align-items: center; }
+.sv-iacts { white-space: nowrap; } .sv-adds { gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; } .sv-adds button { padding: 4px 9px; font-size: 12px; }
+
+/* ---- countdown chip (everyone) */
+.cd-chip { font-size: 12px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; white-space: nowrap; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; }
+.cd-chip b { font-family: ui-monospace, monospace; } .cd-chip b.over { color: #ff3b3b; } .cd-chip.soon { border-color: #f0b429; animation: cdpulse 1s ease-in-out infinite; } .cd-chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 80%); }
+.cd-you { color: var(--accent); font-weight: 800; }
+@keyframes cdpulse { 50% { background: rgba(240, 180, 41, .25); } }
+.cd-pop { position: fixed; top: 58px; right: 16px; z-index: 80; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.5); max-height: 70vh; overflow: auto; min-width: 320px; }
+.cd-pop table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13px; } .cd-pop td { padding: 4px 6px; border-top: 1px solid var(--line); } .cd-pop td:first-child { color: var(--muted); font-family: ui-monospace, monospace; }
+.cd-pop tr.mine td { color: var(--accent); font-weight: 700; } .cd-pop tr.now td { background: color-mix(in srgb, var(--accent), transparent 82%); }
+
+/* ---- locks */
+.ml-btn { font-size: 16px; padding: 5px 9px; } .ml-btn.on { background: #d92f35; border-color: #d92f35; } .ml-btn.holding { box-shadow: 0 0 0 3px #f0b429; transition: box-shadow 2s linear; }
+body.man-locked .view input, body.man-locked .view select, body.man-locked .view button, body.man-locked .view textarea { cursor: not-allowed; }
+body.svc-locked #tabs [data-tab="io"], body.svc-locked [data-lx="fixtures"], body.svc-locked [data-lx="output"],
+body.svc-locked [data-vview="sources"], body.svc-locked [data-vview="stream"], body.svc-locked [data-vview="audio"], body.svc-locked [data-vview="phones"] { display: none !important; }
+body.svc-locked #settingsRoot .io-grid > section:not(.rl-card) { display: none !important; }
+body.svc-locked #settingsRoot .rl-card .io-opts, body.svc-locked #settingsRoot .rl-card .row { display: none !important; }
+body.svc-locked #settingsRoot::before { content: "🔒 Locked for the service by the main admin - settings come back when it unlocks."; display: block; padding: 10px 14px; border: 1px solid #d92f35; border-radius: 10px; color: #ffb3b3; }

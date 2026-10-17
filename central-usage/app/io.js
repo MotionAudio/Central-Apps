@@ -117,6 +117,7 @@
   }
   function instCard() { if (CU.mode() !== "user") return ""; return '<section class="card io-c"><h3>Instrument</h3><p class="muted">Guitar / bass into this computer\'s audio input (an interface), keys on a USB MIDI keyboard. The sound comes out of this computer.</p><button data-io-go="instrument">Instrument</button></section>'; }
   function render() {
+    renderSetup();
     var root = $("#ioRoot"); if (!root || !visible()) return;
     if (root.contains(document.activeElement) && document.activeElement.tagName === "INPUT" && document.activeElement.type !== "checkbox" && document.activeElement.type !== "radio" && document.activeElement.type !== "range") return;
     // laid out as the signal flows: what comes in → what this computer does with it → where it goes out
@@ -140,7 +141,7 @@
   CU.on("authed", function () { piTarget(); registerHost(); });
   CU.on("connected", function (on) { if (on) setTimeout(registerHost, 600); });
   var root = $("#ioRoot");
-  root.addEventListener("change", async function (e) {
+  async function onChange(e) {
     var t = e.target;
     if (t.name === "ioPi") { await setCfg({ piAudio: { transport: t.value } }); piTarget(); return; }
     if (t.dataset.io === "latency") { await setCfg({ piAudio: { latency: Number(t.value) } }); return; }
@@ -152,9 +153,9 @@
     if (t.dataset.ioDev && X) { var p = {}; p[t.dataset.ioDev] = t.dataset.ioDev === "buffer" ? Number(t.value) : t.value; X.op({ op: "device", patch: p }); setTimeout(render, 1500); }
     if (t.dataset.ioDevadd && X && t.value) { var dir = t.dataset.ioDevadd, cur = devList((X.state && X.state.device || {})[dir]); cur.push(t.value); var pa = {}; pa[dir] = cur.join("|"); X.op({ op: "device", patch: pa }); setTimeout(render, 1500); }
     if (t.hasAttribute && t.hasAttribute("data-io-excl") && X) { X.op({ op: "device", patch: { exclusive: t.checked } }); setTimeout(render, 1500); }
-  });
-  root.addEventListener("input", function (e) { var t = e.target; if (t.dataset.io === "latency") { var o = t.parentNode.querySelector("output"); if (o) o.textContent = t.value + " ms"; } });
-  root.addEventListener("click", function (e) {
+  }
+  function onInput(e) { var t = e.target; if (t.dataset.io === "latency") { var o = t.parentNode.querySelector("output"); if (o) o.textContent = t.value + " ms"; } }
+  function onClick(e) {
     var b = e.target.closest("button"); if (!b) return;
     if ((b.dataset.ioDevdel || b.dataset.ioDevup) && X) { var parts = (b.dataset.ioDevdel || b.dataset.ioDevup).split(":"), dir = parts[0], k = Number(parts[1]), list = devList((X.state && X.state.device || {})[dir]), it = list.splice(k, 1)[0]; if (b.dataset.ioDevup) list.unshift(it); var pd = {}; pd[dir] = list.join("|"); X.op({ op: "device", patch: pd }); setTimeout(render, 1500); return; }
     if (b.dataset.io === "code") CU.askCode();
@@ -162,11 +163,24 @@
     else if (b.dataset.io === "newAdmin") setCfg({ newAdminCode: true });
     else if (b.dataset.io === "recs" && NAT && NAT.mixer) NAT.mixer.openRecordings();
     else if (b.dataset.ioGo) { CU.showTab(b.dataset.ioGo); if (b.dataset.ioLx && window.CULights) window.CULights.showSub(b.dataset.ioLx); }
-  });
+  }
+  root.addEventListener("change", onChange); root.addEventListener("input", onInput); root.addEventListener("click", onClick);
+  // the main admin's first-launch setup shows the audio host + interface cards too (same controls, same handlers)
+  var setupEl = null;
+  function renderSetup() {
+    if (!setupEl || !setupEl.isConnected) { setupEl = null; return; }
+    var a = document.activeElement; if (setupEl.contains(a) && a.tagName === "INPUT" && a.type !== "checkbox" && a.type !== "radio") return;
+    setupEl.innerHTML = '<div class="io-col">' + hostCard() + ifaceCard() + "</div>";
+  }
+  function mountSetup(el) {
+    setupEl = el; el.addEventListener("change", onChange); el.addEventListener("input", onInput); el.addEventListener("click", onClick);
+    if (NAT && NAT.config) { var c = cfg(); if (!(c.host && c.host.enabled) && NAT.mixer) setCfg({ host: { enabled: true } }).then(renderSetup); }   // the main admin is usually the sound desk
+    renderSetup();
+  }
   if (NAT && NAT.host) { NAT.host.status().then(function (s) { hs = s; render(); }); NAT.host.on(function (s) { var before = JSON.stringify([hs && hs.server && hs.server.clients, hs && hs.pi && hs.pi.state, hs && hs.engine && hs.engine.running, hs && hs.cfg]); hs = s; if (visible() && JSON.stringify([s.server && s.server.clients, s.pi && s.pi.state, s.engine && s.engine.running, s.cfg]) !== before) render(); }); }
   if (navigator.requestMIDIAccess) navigator.requestMIDIAccess({ sysex: false }).then(function (a) { function fill() { midiNames = { in: {}, out: {} }; a.inputs.forEach(function (p) { midiNames.in[p.id] = p.name; }); a.outputs.forEach(function (p) { midiNames.out[p.id] = p.name; }); if (visible()) render(); } a.onstatechange = fill; fill(); }).catch(function () { });
   CU.on("tab", function (t) { if (t === "io") render(); });
   CU.on("hello", function () { if (visible()) render(); }); CU.on("authed", function () { if (visible()) render(); }); CU.on("audioHost", function () { if (visible()) render(); }); CU.on("mode", function () { if (visible()) render(); });
   setInterval(function () { if (!visible()) return; var el = document.querySelector('#ioRoot [data-io-live="pi"]'); if (el) el.innerHTML = piStatus(); }, 2000);
-  window.CUIO = { render: render, piTarget: piTarget, registerHost: registerHost };
+  window.CUIO = { render: render, piTarget: piTarget, registerHost: registerHost, mountSetup: mountSetup };
 })();

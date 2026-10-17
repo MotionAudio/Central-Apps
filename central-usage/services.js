@@ -81,7 +81,7 @@ module.exports = function services(app, getWin) {
       if (cfg.role === "main") mainKeys(); else if (!cfg.role) delete cfg.mainKeys;
     }
     if (cfg.role === "main" && patch.newPin) mainKeys().pin = /^\d{4}$/.test(String(patch.newPin)) ? String(patch.newPin) : code4();
-    if (cfg.role === "main" && patch.newPair) mainKeys().pair = code4();
+    if (cfg.role === "main" && patch.newPair) mainKeys().pair = /^\d{4}$/.test(String(patch.newPair)) ? String(patch.newPair) : code4();
     if (Array.isArray(patch.jobs)) cfg.jobs = patch.jobs.filter((j) => ["general", "lighting", "production", "mix", "inears", "slides"].includes(j));
     if (patch.host) Object.assign(cfg.host, patch.host);
     if (patch.newUserCode) cfg.host.userCode = code4(); if (patch.newAdminCode) cfg.host.adminCode = code4();

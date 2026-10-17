@@ -820,7 +820,7 @@ class Library:
 
     # ----- backup / restore: a zip of everything on /data/pad-pedal -----------
     BACKUP_DIRS = ("library", "charts", "uploads", "sounds", "tts", "cues", "lighting", "setlists")
-    BACKUP_FILES = ("project.json", "hardware.json", "audio.json", "code", "code-chosen", "settings.json", "sources.json")
+    BACKUP_FILES = ("project.json", "hardware.json", "audio.json", "code", "code-chosen", "settings.json", "sources.json", "services.json")
 
     def backup(self, folder, progress=None):
         import zipfile
@@ -1463,6 +1463,8 @@ class CompanionServer:
                     return self.serve_static(os.path.join(driver.config["app_root"], "fonts"), p[len("/fonts/"):])
                 if p == "/api/display":
                     return self.send_json(200, driver.display)
+                if p == "/api/service":   # the run order and the countdown (stage display); no secrets in it
+                    return self.send_json(200, driver.service_plan.state())
                 if p == "/api/info":
                     return self.send_json(200, {"hostname": socket.gethostname(), "wsPort": driver.config["lan_ws_port"], "version": VERSION, "appVersion": APP_VERSION, "addresses": ip_addresses(),
                                                 "interfaces": ip_interfaces(), "netAudio": {"mode": driver.netaudio.cfg["mode"]}, "audioHost": driver.public_audio_host()})
@@ -2977,10 +2979,20 @@ class CuRoles:
         j = read_json(path, {})
         self.main = j.get("main") if isinstance(j.get("main"), dict) else None
         self.devices = j.get("devices") if isinstance(j.get("devices"), dict) else {}
+        lk = j.get("lock") if isinstance(j.get("lock"), dict) else {}
+        self.lock = {"all": bool(lk.get("all")), "devices": {k: True for k, v in (lk.get("devices") or {}).items() if v}}   # the main admin's service lock
         self.fails = {}     # device id -> [count, locked until]
+        self.health = {}    # device id -> {..., "at": ms} (what each computer reports every few seconds)
+        self._push_at = 0.0
 
     def save(self):
-        write_json(self.path, {"main": self.main, "devices": self.devices})
+        write_json(self.path, {"main": self.main, "devices": self.devices, "lock": self.lock})
+
+    def is_locked(self, did):
+        """The service lock: on every computer but the main admin (all), or on chosen ones."""
+        if self.main and did == self.main.get("id"):
+            return False
+        return bool(self.lock.get("all") or self.lock["devices"].get(did))
 
     # ----- who is connected -------------------------------------------------
     def sockets(self, device_id=None):
@@ -3024,8 +3036,11 @@ class CuRoles:
     # ----- views ------------------------------------------------------------
     def device_view(self, did):
         d = self.devices.get(did) or {}
+        h = self.health.get(did)
+        if h and time.time() * 1000 - h.get("at", 0) > 20000:
+            h = None
         return {"id": did, "name": d.get("name", ""), "role": d.get("role"), "jobs": d.get("jobs") or ["general"], "paired": bool(d.get("paired")), "online": self.online(did),
-                "lastSeen": d.get("lastSeen", 0), "claimsMain": bool(d.get("claimsMain"))}
+                "lastSeen": d.get("lastSeen", 0), "claimsMain": bool(d.get("claimsMain")), "locked": self.is_locked(did), "wantsAdmin": bool(d.get("wantsAdmin")), "health": h}
 
     def view_for(self, ws):
         info = self.driver.lan_clients.get(ws) or {}
@@ -3033,9 +3048,11 @@ class CuRoles:
         mains = self.claimants()
         v = {"type": "cuRoles", "hasMain": bool(self.main), "mainName": self.main.get("name", "") if self.main else "",
              "conflict": [m for m in mains] if len(mains) > 1 else [], "you": self.device_view(did) if did else None,
-             "youAreMain": self.is_main(ws)}
+             "youAreMain": self.is_main(ws), "lockAll": bool(self.lock.get("all"))}
         if v["youAreMain"]:
             v["devices"] = sorted((self.device_view(k) for k in self.devices if k != did), key=lambda x: (not x["online"], x["name"].lower()))
+            v["pairPin"] = self.driver.code        # the network's pairing PIN (the main admin shows it and can change it)
+            v["pedal"] = self.driver.pedal_health()
         codes = self.driver.audio_host_codes()
         if did and codes:
             role = (self.devices.get(did) or {}).get("role")
@@ -3044,6 +3061,16 @@ class CuRoles:
             elif role in ("user1", "user2"):
                 v["hostCodes"] = {"user": codes.get("userCode")}
         return v
+
+    def push_soon(self):
+        """Health reports come every few seconds from every computer: the main admin's view at most twice a second."""
+        now = time.time()
+        if now - self._push_at < 0.5:
+            return
+        self._push_at = now
+        for ws in self.sockets():
+            if self.is_main(ws):
+                self.driver.send_to(ws, self.view_for(ws))
 
     def push(self, only=None):
         for ws in self.sockets():
@@ -3080,23 +3107,30 @@ class CuRoles:
             d = self.devices.get(did)
             claim = m.get("role") if m.get("role") in CU_ROLES else None
             if action == "join":
-                if self.main and not self.main.get("pairHash"):
-                    pass
-                elif self.main:
-                    if self.locked(did):
-                        return {"type": "cuRoleReply", "ok": False, "action": "join", "error": "Too many wrong codes - wait a minute."}
-                    if _salted(str(m.get("pair") or "").strip(), self.main.get("pairSalt", "")) != self.main.get("pairHash"):
-                        self.wrong(did)
-                        return {"type": "cuRoleReply", "ok": False, "action": "join", "error": "That pairing code is not right. It is in the main admin's Settings."}
-                elif not self.driver.code_ok(m.get("code")):
-                    return {"type": "cuRoleReply", "ok": False, "action": "join", "error": "There is no main admin yet - enter the Central Control's own code (its Settings)."}
+                # every device pairs with the one 4-digit pairing PIN the main admin picked (it is also the pedal's)
+                if self.locked(did):
+                    return {"type": "cuRoleReply", "ok": False, "action": "join", "error": "Too many wrong PINs - wait a minute."}
+                if not self.driver.code_ok(m.get("pair") or m.get("code")):
+                    self.wrong(did)
+                    return {"type": "cuRoleReply", "ok": False, "action": "join", "error": "That pairing PIN is not right. It is the 4 digits the main admin picked (main admin → Settings → This computer)."}
+                want = claim if claim in ("admin", "user1", "user2") else "user1"
                 d = self.devices.setdefault(did, {})
-                d.update({"name": name or d.get("name") or "Central Usage", "role": d.get("role") if d.get("role") in ("user1", "user2", "admin") and d.get("paired") else "user1", "paired": True, "lastSeen": now})
+                pending = False
+                if want == "admin" and self.main and d.get("role") != "admin":
+                    pin_ok = bool(self.main.get("pinHash")) and _salted(str(m.get("pin") or "").strip(), self.main.get("pinSalt", "")) == self.main["pinHash"]
+                    if not pin_ok:
+                        want, pending = "user1", True      # the main admin allows it (Devices tab), or the computer types the role PIN later
+                d.update({"name": name or d.get("name") or "Central Usage", "role": want, "paired": True, "lastSeen": now})
+                if pending:
+                    d["wantsAdmin"] = True
+                else:
+                    d.pop("wantsAdmin", None)
                 d.pop("claimsMain", None)
                 info["auth"] = True
+                self.fails.pop(did, None)
                 self.save()
                 self.push()
-                return {"type": "cuRoleReply", "ok": True, "action": "join", "role": d["role"], "code": self.driver.code}
+                return {"type": "cuRoleReply", "ok": True, "action": "join", "role": d["role"], "pending": pending, "code": self.driver.code}
 
             # hello: a computer says who it is and what role it has
             if claim == "main":
@@ -3104,14 +3138,21 @@ class CuRoles:
                 if not self.main:
                     if len(token) < 16:
                         return {"type": "cuRoleReply", "ok": False, "action": "hello", "error": "missing token"}
-                    if not (info.get("auth") or self.driver.code_ok(m.get("code"))):
-                        return {"type": "cuRoleReply", "ok": False, "action": "hello", "needCode": True, "error": "Enter the Central Control's code once to become the main admin."}
+                    pair = str(m.get("pair") or "").strip()
+                    if not self.driver.code_chosen() and re.match(r"^\d{4}$", pair) and pair != str(m.get("pin") or ""):
+                        # the pedal has no pairing PIN yet: the main admin's becomes the network's
+                        res = self.driver.set_code(pair)
+                        if not res.get("ok"):
+                            return {"type": "cuRoleReply", "ok": False, "action": "hello", "error": res.get("error")}
+                        info["auth"] = True
+                    if not (info.get("auth") or self.driver.code_ok(pair) or self.driver.code_ok(m.get("code"))):
+                        return {"type": "cuRoleReply", "ok": False, "action": "hello", "needCode": True, "error": "This Central Pedal already has a pairing PIN. Type that PIN (on the pedal: Settings → Wi-Fi & devices) - it becomes your pairing PIN."}
                     salt = secrets.token_hex(8)
                     self.main = {"id": did, "name": name or "Main admin", "tokenSalt": salt, "tokenHash": _salted(token, salt), "since": now}
                 if self.main["id"] == did and _salted(token, self.main.get("tokenSalt", "")) == self.main.get("tokenHash"):
                     info["cuMain"] = True
                     self.main["name"] = name or self.main.get("name", "")
-                    for key, secret in (("pin", m.get("pin")), ("pair", m.get("pair"))):
+                    for key, secret in (("pin", m.get("pin")),):
                         if secret is not None and re.match(r"^\d{4}$", str(secret)):
                             salt = secrets.token_hex(8)
                             self.main[key + "Salt"] = salt
@@ -3159,9 +3200,14 @@ class CuRoles:
             if not same_side and self.main:
                 if self.locked(did):
                     return {"type": "cuRoleReply", "ok": False, "action": "set", "error": "Too many wrong PINs - wait a minute."}
+                if want == "admin" and m.get("ask"):
+                    d["wantsAdmin"] = True
+                    self.save()
+                    self.push()
+                    return {"type": "cuRoleReply", "ok": True, "action": "set", "role": have, "pending": True}
                 if not self.main.get("pinHash") or _salted(str(m.get("pin") or "").strip(), self.main.get("pinSalt", "")) != self.main["pinHash"]:
                     self.wrong(did)
-                    return {"type": "cuRoleReply", "ok": False, "action": "set", "error": "Wrong PIN. The main admin's PIN is in its Settings."}
+                    return {"type": "cuRoleReply", "ok": False, "action": "set", "error": "Wrong PIN. The main admin's role PIN is in its Settings."}
             d["role"] = want
             d.pop("claimsMain", None)
             self.fails.pop(did, None)
@@ -3180,19 +3226,77 @@ class CuRoles:
             self.push()
             return {"type": "cuRoleReply", "ok": True, "action": "forget"}
 
-        if action in ("assign", "rename", "remove", "jobs"):   # the main admin, from its People list
+        if action == "health":   # how this computer is doing (every few seconds), for the main admin's Devices tab
+            h = m.get("health") if isinstance(m.get("health"), dict) else {}
+            keep = {}
+            for k, v in h.items():
+                if isinstance(v, (int, float, bool)) or (isinstance(v, str) and len(v) < 60):
+                    keep[str(k)[:20]] = v
+                if len(keep) >= 16:
+                    break
+            keep["at"] = now
+            self.health[did] = keep
+            self.push_soon()
+            return None
+
+        if action == "myJobs":   # the main admin's own job(s): everything (production manager), or e.g. lighting when it has no cameras
+            if not self.is_main(ws):
+                return {"type": "cuRoleReply", "ok": False, "action": action, "error": "Only the main admin."}
+            jobs = [j for j in (m.get("jobs") or []) if j in CU_JOBS]
+            d["jobs"] = ["general"] if not jobs or "general" in jobs else jobs
+            self.save()
+            self.push()
+            return {"type": "cuRoleReply", "ok": True, "action": action, "jobs": d["jobs"]}
+
+        if action == "setPair":   # the main admin changes the network's pairing PIN; computers online now get it, the rest ask
+            if not self.is_main(ws):
+                return {"type": "cuRoleReply", "ok": False, "action": action, "error": "Only the main admin."}
+            res = self.driver.set_code(m.get("pair"))
+            if not res.get("ok"):
+                return {"type": "cuRoleReply", "ok": False, "action": action, "error": res.get("error")}
+            self.push()
+            return {"type": "cuRoleReply", "ok": True, "action": action, "pair": res["code"]}
+
+        if action == "lock":   # the main admin's service lock: everyone (target "all") or one computer
+            if not self.is_main(ws):
+                return {"type": "cuRoleReply", "ok": False, "action": action, "error": "Only the main admin locks."}
+            on = bool(m.get("on"))
+            target = re.sub(r"[^A-Za-z0-9_-]", "", str(m.get("target") or "all"))[:48]
+            if target == "all":
+                self.lock["all"] = on
+                if not on:
+                    self.lock["devices"] = {}
+            elif target in self.devices:
+                if on:
+                    self.lock["devices"][target] = True
+                else:
+                    self.lock["devices"].pop(target, None)
+            else:
+                return {"type": "cuRoleReply", "ok": False, "action": action, "error": "No such computer."}
+            self.save()
+            self.push()
+            return {"type": "cuRoleReply", "ok": True, "action": action}
+
+        if action in ("assign", "rename", "remove", "jobs", "approve"):   # the main admin, from its Devices tab
             if not self.is_main(ws):
                 return {"type": "cuRoleReply", "ok": False, "action": action, "error": "Only the main admin changes other computers."}
             target = re.sub(r"[^A-Za-z0-9_-]", "", str(m.get("target") or ""))[:48]
             t = self.devices.get(target)
             if not t or target == did:
                 return {"type": "cuRoleReply", "ok": False, "action": action, "error": "No such computer."}
-            if action == "assign":
+            if action == "approve":   # a computer set up as an admin waits for this
+                want = "admin" if m.get("allow") else "user1"
+                t["role"] = want
+                t.pop("wantsAdmin", None)
+                for tw in self.sockets(target):
+                    self.driver.send_to(tw, {"type": "cuRoleAssigned", "role": want, "by": self.main.get("name", ""), "approved": bool(m.get("allow"))})
+            elif action == "assign":
                 want = m.get("role")
                 if want not in ("admin", "user1", "user2"):
                     return {"type": "cuRoleReply", "ok": False, "action": action, "error": "Pick Admin, User 1 or User 2."}
                 t["role"] = want
                 t.pop("claimsMain", None)
+                t.pop("wantsAdmin", None)
                 for tw in self.sockets(target):
                     self.driver.send_to(tw, {"type": "cuRoleAssigned", "role": want, "by": self.main.get("name", "")})
             elif action == "jobs":   # an admin's jobs: any of lighting / production / mix / in-ears / slides, or general (everything)
@@ -3221,6 +3325,101 @@ class CuRoles:
             if d:
                 d["lastSeen"] = int(time.time() * 1000)
                 self.save()
+
+
+SERVICE_ROLES = ("lighting", "production", "slides", "lyrics", "mix", "inears", "band")
+SERVICE_KINDS = ("song", "prayer", "welcome", "announcements", "offering", "sermon", "communion", "video", "other")
+
+
+class ServicePlan:
+    """Up to 4 services (e.g. Sunday 9:00, Sunday 11:00, Wednesday, Youth), each a run order of items with
+    minutes and the roles each item uses (lighting, production/cameras, slides, lyrics, mix, in-ears, band).
+    The main admin edits them and runs one (Start / Next / Back / Stop). Every Central Usage shows a countdown
+    to the service and to its own next part; the stage display shows the service countdown.
+    Kept in /data/pad-pedal/services.json."""
+
+    MAX = 4
+
+    def __init__(self, driver, path):
+        self.driver = driver
+        self.path = path
+        j = read_json(path, {})
+        self.services = [self.clean(x) for x in (j.get("services") or [])][:self.MAX]
+        self.run = j.get("run") if isinstance(j.get("run"), dict) else None
+
+    @staticmethod
+    def clean(sv):
+        sv = sv if isinstance(sv, dict) else {}
+        out = {"id": re.sub(r"[^A-Za-z0-9_-]", "", str(sv.get("id") or "")) or "sv" + secrets.token_hex(4),
+               "name": str(sv.get("name") or "Service").strip()[:40] or "Service",
+               "day": max(0, min(6, int(sv.get("day", 0) or 0))) if str(sv.get("day", "0")).lstrip("-").isdigit() else 0,
+               "time": str(sv.get("time") or "09:00") if re.match(r"^\d{1,2}:\d{2}$", str(sv.get("time") or "")) else "09:00",
+               "roles": [r for r in (sv.get("roles") or list(SERVICE_ROLES)) if r in SERVICE_ROLES],
+               "record": bool(sv.get("record")), "items": []}
+        for it in (sv.get("items") or [])[:80]:
+            if not isinstance(it, dict):
+                continue
+            try:
+                mins = max(0.0, min(240.0, float(it.get("minutes", 5) or 0)))
+            except (TypeError, ValueError):
+                mins = 5.0
+            out["items"].append({"id": re.sub(r"[^A-Za-z0-9_-]", "", str(it.get("id") or "")) or "it" + secrets.token_hex(4),
+                                 "title": str(it.get("title") or "").strip()[:60] or "Item", "kind": it.get("kind") if it.get("kind") in SERVICE_KINDS else "other",
+                                 "minutes": round(mins, 2), "roles": [r for r in (it.get("roles") or []) if r in SERVICE_ROLES and r in out["roles"]],
+                                 "song": str(it.get("song") or "")[:64], "note": str(it.get("note") or "")[:120]})
+        return out
+
+    def save(self):
+        write_json(self.path, {"services": self.services, "run": self.run})
+
+    def state(self):
+        return {"type": "services", "services": self.services, "run": self.run, "now": int(time.time() * 1000), "roles": list(SERVICE_ROLES), "kinds": list(SERVICE_KINDS), "max": self.MAX}
+
+    def broadcast(self):
+        st = self.state()
+        for ws, info in list(self.driver.lan_clients.items()):
+            if info.get("cuId") or info.get("auth"):
+                self.driver.send_to(ws, st)
+        self.driver.emit(st)
+
+    def handle(self, ws, m):
+        action = m.get("action")
+        if action == "get":
+            return self.state()
+        roles = self.driver.cu_roles
+        if not roles.is_main(ws):
+            return {"type": "serviceReply", "ok": False, "action": action, "error": "Only the main admin plans and runs services."}
+        now = int(time.time() * 1000)
+        if action == "save":
+            lst = [self.clean(x) for x in (m.get("services") or [])]
+            if len(lst) > self.MAX:
+                return {"type": "serviceReply", "ok": False, "action": action, "error": "Up to %d services." % self.MAX}
+            self.services = lst
+            if self.run and not any(x["id"] == self.run.get("service") for x in lst):
+                self.run = None
+        elif action == "start":
+            sv = next((x for x in self.services if x["id"] == m.get("service")), None)
+            if not sv or not sv["items"]:
+                return {"type": "serviceReply", "ok": False, "action": action, "error": "Pick a service with items in it."}
+            self.run = {"service": sv["id"], "item": 0, "itemStart": now, "startedAt": now}
+        elif action in ("next", "prev", "goto"):
+            if not self.run:
+                return {"type": "serviceReply", "ok": False, "action": action, "error": "No service is running."}
+            sv = next((x for x in self.services if x["id"] == self.run.get("service")), None)
+            n = len(sv["items"]) if sv else 0
+            i = self.run["item"] + (1 if action == "next" else -1) if action != "goto" else int(m.get("item") or 0)
+            if i >= n:
+                self.run = None      # past the last item: the service is over
+            else:
+                self.run["item"] = max(0, i)
+                self.run["itemStart"] = now
+        elif action == "stop":
+            self.run = None
+        else:
+            return {"type": "serviceReply", "ok": False, "action": action, "error": "Unknown action."}
+        self.save()
+        self.broadcast()
+        return {"type": "serviceReply", "ok": True, "action": action}
 
 
 class NetAudio:
@@ -3484,6 +3683,7 @@ class PedalDriver:
         self.netaudio = NetAudio(self, os.path.join(data_root, "netaudio.json"))
         self.audio_host = None        # the Central Usage computer that makes the in-ear mixes: {name, address, port, ws}
         self.cu_roles = CuRoles(self, os.path.join(data_root, "cu-roles.json"))
+        self.service_plan = ServicePlan(self, os.path.join(data_root, "services.json"))
         self.sync = SongSync(self)
         self.hub_dir = os.path.join(data_root, "hub")
         self.slides_dir = os.path.join(data_root, "slides")
@@ -3528,6 +3728,25 @@ class PedalDriver:
     def code_ok(self, code):
         return str(code or "").strip() == self.code
 
+    def pedal_health(self):
+        """The pedal's own numbers for the main admin's Devices tab."""
+        out = {"app": APP_VERSION, "clients": len(self.lan_clients)}
+        try:
+            out["load"] = round(os.getloadavg()[0] / max(1, os.cpu_count() or 1) * 100)
+        except (OSError, AttributeError):
+            pass
+        try:
+            with open("/sys/class/thermal/thermal_zone0/temp") as fh:
+                out["tempC"] = round(int(fh.read().strip()) / 1000)
+        except (OSError, ValueError):
+            pass
+        try:
+            with open("/proc/uptime") as fh:
+                out["uptime"] = int(float(fh.read().split()[0]))
+        except (OSError, ValueError):
+            pass
+        return out
+
     def code_chosen(self):
         return os.path.exists(os.path.join(self.config["data_root"], "code-chosen"))
 
@@ -3552,6 +3771,13 @@ class PedalDriver:
             return {"ok": False, "error": "Could not save the PIN (%s)." % error}
         changed = pin != self.code
         self.code = pin
+        if changed and self.loop is not None:
+            # computers paired with the old PIN and online now keep working: they get the new one
+            for ws, info in list(self.lan_clients.items()):
+                if info.get("auth"):
+                    self.send_to(ws, {"type": "pairCodeChanged", "code": pin})
+        if self.loop is not None:
+            self.emit(self.hello())     # the pedal's own screen (its pairing question closes when the main admin set the PIN)
         return {"ok": True, "code": pin, "changed": changed}
 
     # ----- messaging ------------------------------------------------------
@@ -3695,6 +3921,13 @@ class PedalDriver:
                     reply = self.cu_roles.handle(ws, message)
                     if reply:
                         await ws.send(json.dumps(reply))
+                elif kind == "service":
+                    if not (self.lan_clients[ws].get("auth") or self.lan_clients[ws].get("cuId")):
+                        await ws.send(json.dumps({"type": "auth", "ok": False}))
+                    else:
+                        reply = self.service_plan.handle(ws, message)
+                        if reply:
+                            await ws.send(json.dumps(reply))
                 elif kind in ("audioSubscribe", "audioUnsubscribe", "audioHost", "slide"):
                     authed = self.lan_clients[ws]["auth"] or self.code_ok(message.get("code"))
                     if kind == "audioUnsubscribe":

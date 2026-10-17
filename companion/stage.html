@@ -31,11 +31,13 @@
   .idle { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:2vh; } .idle b { font-size:6vh; } .idle span { color:var(--dim); font-size:3vh; }
   .status { position:fixed; right:1.2vh; bottom:1vh; font-size:1.6vh; color:var(--dim); opacity:.7; }
   .stopped .section { color:var(--dim); }
+  .svc { position:fixed; top:1vh; right:2vw; font-size:2.6vh; color:var(--dim); font-variant-numeric:tabular-nums; z-index:5; } .svc b { color:var(--fg); } .svc .over { color:#ff6b6b; }
+  .idle .svcbig { font-size:9vh; font-weight:900; color:var(--warn); font-variant-numeric:tabular-nums; }
   [hidden] { display:none !important; }
 </style>
 </head>
 <body>
-<div class="idle" id="idle"><b>Central Control</b><span id="idleSub">Waiting for the Central Control…</span></div>
+<div class="idle" id="idle"><b>Central Control</b><span id="idleSub">Waiting for the Central Control…</span><div class="svcbig" id="svcBig" hidden></div></div>
 <div class="wrap" id="wrap" hidden>
   <div class="top"><div class="song" id="song"></div><div class="meta" id="meta"></div></div>
   <div class="mid">
@@ -45,6 +47,7 @@
   <div class="bottom"><div class="beats" id="beats"></div><div class="bar" id="bar"><i id="barFill"></i></div><div class="time" id="time"></div></div>
 </div>
 <div class="status" id="status"></div>
+<div class="svc" id="svc" hidden></div>
 <script src="common.js"></script>
 <script>
 (function () {
@@ -87,6 +90,27 @@
   }
   setInterval(tick, 50);
   C.on(render);
+  // the service countdown (the main admin's Service tab): before it starts, and the item running now
+  var svc = null, svcOff = 0;
+  function pollSvc() { fetch("/api/service", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j) { svc = j; svcOff = j.now - Date.now(); } }).catch(function () { }); }
+  function nextStart(sv, t) { var d = new Date(t), p = sv.time.split(":").map(Number), c = new Date(d.getFullYear(), d.getMonth(), d.getDate(), p[0], p[1], 0, 0); c.setDate(c.getDate() + (sv.day - d.getDay() + 7) % 7); if (c.getTime() < t - 60000) c.setDate(c.getDate() + 7); return c.getTime(); }
+  function hms(sec) { var neg = sec < 0; sec = Math.abs(Math.round(sec)); var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60; return (neg ? "-" : "") + (h ? h + ":" + ("0" + m).slice(-2) : m) + ":" + ("0" + x).slice(-2); }
+  function paintSvc() {
+    var el = $("#svc"), big = $("#svcBig"); if (!svc || !svc.services || !svc.services.length) { el.hidden = big.hidden = true; return; }
+    var t = Date.now() + svcOff;
+    if (svc.run) {
+      var sv = svc.services.filter(function (x) { return x.id === svc.run.service; })[0], it = sv && sv.items[svc.run.item], nx = sv && sv.items[svc.run.item + 1];
+      if (!it) { el.hidden = true; return; }
+      var left = it.minutes * 60 - (t - svc.run.itemStart) / 1000;
+      el.innerHTML = "▶ <b>" + esc(it.title) + '</b> <span class="' + (left < 0 ? "over" : "") + '">' + hms(left) + "</span>" + (nx ? " · next: " + esc(nx.title) : ""); el.hidden = false; big.hidden = true;
+    } else {
+      var best = null; svc.services.forEach(function (sv) { var at = nextStart(sv, t); if (!best || at < best.at) best = { sv: sv, at: at }; });
+      var secs = (best.at - t) / 1000;
+      el.innerHTML = esc(best.sv.name) + (secs < 86400 ? " in <b>" + hms(secs) + "</b>" : ""); el.hidden = secs > 86400;
+      big.textContent = secs < 7200 ? best.sv.name + " in " + hms(secs) : ""; big.hidden = secs >= 7200;
+    }
+  }
+  pollSvc(); setInterval(pollSvc, 3000); setInterval(paintSvc, 500);
 })();
 </script>
 </body>

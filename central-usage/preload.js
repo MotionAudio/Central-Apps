@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("CU", {
   discover: () => ipcRenderer.invoke("discover"),
   version: () => ipcRenderer.invoke("version"),
+  health: () => ipcRenderer.invoke("sys-health"),
   onMenu: (fn) => ipcRenderer.on("menu", (_e, name, arg) => fn(name, arg)),
   platform: process.platform,
   // DMX output (USB-DMX Pro, Art-Net, sACN) - the page renders the universes, the main process sends them

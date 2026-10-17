@@ -169,6 +169,13 @@ if (process.platform === "darwin") app.whenReady().then(() => { try { require("e
 require("./asr").setupAsr({ ipcMain, app, getWin: () => win });   // lyrics from a vocal track (speech model on this computer)
 app.on("before-quit", () => { try { dmx.blackout(); } catch (_) { } try { svc.stop(); } catch (_) { } });
 ipcMain.handle("version", () => ({ app: app.getVersion(), electron: process.versions.electron }));
+// how this computer is doing, for the main admin's Devices tab
+let lastCpu = null;
+ipcMain.handle("sys-health", () => {
+  const os = require("node:os"), cpus = os.cpus(), t = cpus.reduce((a, c) => { const x = c.times; a.idle += x.idle; a.all += x.user + x.nice + x.sys + x.idle + x.irq; return a; }, { idle: 0, all: 0 });
+  let cpu = null; if (lastCpu && t.all > lastCpu.all) cpu = Math.round(100 * (1 - (t.idle - lastCpu.idle) / (t.all - lastCpu.all))); lastCpu = t;
+  return { app: app.getVersion(), platform: process.platform, cpu, memFree: Math.round(os.freemem() / 1048576), memTotal: Math.round(os.totalmem() / 1048576), uptime: Math.round(os.uptime()) };
+});
 
 app.whenReady().then(() => {
   updater = new Updater({ product: "central-usage", current: app.getVersion(), dir: app.getPath("userData") });

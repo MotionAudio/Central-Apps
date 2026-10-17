@@ -43,6 +43,7 @@
     async function startListening() {
       var me = mine(); if (!me) return;
       if (!player) player = IE.player({ latency: latency, sinkId: sink });
+      window.CUInEarStats = function () { return player && listening ? player.stats() : null; };   // for the main admin's Devices tab
       await player.start(); listening = true;
       link.listen(me.m, true, { rate: opt.rate || 48000 }); render();
     }

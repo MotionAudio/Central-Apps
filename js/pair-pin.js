@@ -33,8 +33,9 @@
       d.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); submit(); } });
     }
     d.dataset.first = first ? "1" : "0";
-    d.innerHTML = '<h2>' + (first ? "Pick a pairing PIN" : "Change the pairing PIN") + '</h2>' +
-      '<p class="muted">4 digits. Central Usage, phones, the remote and your other Central Controls use it to pair with this one. ' + (first ? "" : "Devices already paired will ask for the new PIN. ") + 'It is <b>not</b> the main admin\'s PIN (that one changes roles) - pick a different one.</p>' +
+    d.innerHTML = '<h2>' + (first ? "Pair this Central Pedal" : "Change the pairing PIN") + '</h2>' +
+      (first ? '<p class="muted">Type your <b>main admin\'s pairing PIN</b> - the 4 digits picked when the main admin was set up (main admin → Settings → This computer). Every device joins with it.</p><p class="muted small">No main admin yet? Pick the PIN here; set the main admin up with the same 4 digits. If the main admin is set up first on this network, this screen closes by itself.</p>'
+        : '<p class="muted">4 digits. Devices paired now and online switch over by themselves; the others ask for it. It is <b>not</b> the main admin\'s role PIN - pick a different one.</p>') +
       '<input id="pinValue" class="pin-value" inputmode="numeric" autocomplete="off" maxlength="4" aria-label="Pairing PIN"><div class="pin-dots" id="pinDots"></div>' +
       '<div class="pin-pad">' + ["1", "2", "3", "4", "5", "6", "7", "8", "9", "del", "0", "ok"].map(function (k) { return '<button data-pk="' + k + '" class="' + (k === "ok" ? "primary" : "") + '">' + (k === "del" ? "⌫" : k === "ok" ? "Save" : k) + "</button>"; }).join("") + "</div>" +
       '<p class="warn" id="pinErr"></p>' + (first ? "" : '<div class="row"><button data-pk="cancel">Cancel</button></div>');
@@ -62,6 +63,7 @@
   F.on("hello", function (m) {
     info = m; render();
     if (m.codeChosen === false) dialog(true);
+    else { var d = $("#pinDialog"); if (d && d.open && d.dataset.first === "1") { d.dataset.first = "0"; d.close(); PP.setStatus("Paired: the main admin set the pairing PIN (" + m.code + ")"); } }
   });
   function render() {
     var sec = $("#pinSection"); if (!sec) return;
