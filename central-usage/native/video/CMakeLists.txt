@@ -1,0 +1,13 @@
+# cu-video for any platform (used for Windows / MSVC in CI):  cmake -S . -B out && cmake --build out --config Release
+cmake_minimum_required(VERSION 3.16)
+project(cu_video C)
+set(CMAKE_C_STANDARD 11)
+add_executable(cu-video cu-video.c)
+if(APPLE)
+  target_link_libraries(cu-video "-framework CoreFoundation" "-framework CoreAudio" "-framework AudioToolbox")
+elseif(UNIX)
+  target_link_libraries(cu-video m dl pthread)
+endif()
+if(MSVC)
+  target_compile_options(cu-video PRIVATE /O2 /wd4244 /wd4267 /wd4996)
+endif()

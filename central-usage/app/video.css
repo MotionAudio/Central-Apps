@@ -1,0 +1,39 @@
+/* Central Usage - the Video tab (uses the app's tokens from style.css) */
+.vd { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.vd-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vd-nav { display: flex; gap: 4px; flex-wrap: wrap; } .vd-nav button.on { background: var(--accent); color: var(--accentText); border-color: var(--accent); font-weight: 800; }
+.vd-chips { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.vd-chip { font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.vd-chip.on { color: var(--accent); border-color: var(--accent); } .vd-chip.live { background: #d92f35; border-color: #d92f35; color: #fff; } .vd-chip.warn { color: var(--chord); border-color: var(--chord); } .vd-chip.bad { color: var(--danger); border-color: var(--danger); }
+.vd-body { min-height: 0; }
+.vd-outs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 10px; }
+.vd-out { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 10px; display: grid; gap: 8px; }
+.vd-out header { display: flex; align-items: baseline; gap: 10px; } .vd-out header b { letter-spacing: .14em; font-size: 13px; }
+.vd-mons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vd-mons figure { margin: 0; display: grid; gap: 4px; } .vd-mons canvas { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; border: 3px solid #2fd15a; display: block; }
+.vd-mons figure.pgm canvas { border-color: #ff3b3b; }
+.vd-mons figcaption { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vd-ctl { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.vd-ctl button { font-weight: 900; letter-spacing: .08em; min-width: 64px; padding: 10px 12px; }
+.vd-ctl select { padding: 9px 8px; }
+.vd-cut { background: #3a1416; border-color: #ff3b3b; } .vd-auto { background: #12331f; border-color: #2fd15a; }
+.vd-tog.on { background: var(--accent); color: var(--accentText); border-color: var(--accent); }
+.vd-live.on { background: #d92f35; border-color: #d92f35; color: #fff; } .vd-rec.on { background: #d92f35; border-color: #d92f35; color: #fff; }
+.vd-mvbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.vd-seg { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); font-size: 12px; } .vd-seg button.on { background: var(--blue); color: #04122a; border-color: var(--blue); font-weight: 800; }
+.vd-pages { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.vd-mv { width: 100%; background: #050a12; border-radius: 10px; border: 1px solid var(--line); cursor: pointer; display: block; touch-action: manipulation; outline: none; }
+.vd-empty { text-align: center; }
+.vd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 12px; align-items: start; }
+.vd-grid .wide { grid-column: 1 / -1; }
+.vd-grid .card label { display: grid; gap: 4px; } .vd-grid .card label.toggle { display: inline-flex; gap: 6px; }
+.vd-adds { display: flex; flex-wrap: wrap; gap: 6px; } .vd-adds button { text-align: left; }
+.vd-srcs td, .vd-dests td { vertical-align: middle; padding: 5px 6px; } .vd-srcs input[data-sf="name"] { width: 100%; min-width: 120px; }
+.vd-srcs label.toggle { display: flex !important; font-size: 12px; } .vd-addr { word-break: break-all; }
+.vd-rowbtn { white-space: nowrap; } .vd-rowbtn button { padding: 5px 8px; }
+.vd-dests input { width: 100%; min-width: 90px; }
+.vd-asrc.on { border-color: var(--accent); }
+.vd-meter { height: 8px; background: #0a1626; border-radius: 4px; overflow: hidden; } .vd-meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .05s linear; }
+.vd-meter i.hot { background: var(--chord); } .vd-meter i.clip { background: var(--danger); }
+.spacer { flex: 1; }
+@media (max-width: 700px) { .vd-mons { grid-template-columns: 1fr 1fr; } .vd-ctl button { min-width: 0; padding: 9px 10px; } .vd-chips { margin-left: 0; } }
