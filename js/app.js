@@ -138,7 +138,39 @@
       "Harmonium":{layers:[["sawtooth",.12,-4],["sawtooth",.12,4],["square",.08,0],["sine",.2,1200]],unison:2,spread:6,tone:3300,attack:.2,air:.03,motion:.07,chord:"fifth",formants:[[700,5],[1800,6]]},
       "Night Choir":{layers:[["sawtooth",.18,-7],["sawtooth",.18,7],["sine",.2,-1200]],unison:3,spread:12,tone:2600,attack:1.2,air:.09,motion:.22,chord:"minor",formants:[[650,8],[1100,9],[2600,9]]},
       "Prayer Pad":{layers:[["sine",.42,-5],["sine",.4,4],["triangle",.14,1200]],unison:2,spread:7,tone:3100,attack:1.6,air:.06,motion:.12,chord:"fifth"},
-      "Big Build":{layers:[["sawtooth",.16,-12],["sawtooth",.16,12],["sawtooth",.1,-1200],["sine",.25,0],["square",.05,1200]],unison:3,spread:22,tone:4200,attack:3.5,air:.1,motion:.25,chord:"open"}
+      "Big Build":{layers:[["sawtooth",.16,-12],["sawtooth",.16,12],["sawtooth",.1,-1200],["sine",.25,0],["square",.05,1200]],unison:3,spread:22,tone:4200,attack:3.5,air:.1,motion:.25,chord:"open"},
+      "Sunrise Strings":{layers:[["sawtooth",.13,-6],["sawtooth",.13,6],["triangle",.22,1200]],unison:3,spread:14,tone:3400,attack:1.4,air:.04,motion:.16,chord:"open"},
+      "Cello Bed":{layers:[["sawtooth",.18,-4],["sawtooth",.16,4],["sine",.3,-1200]],unison:2,spread:9,tone:1500,attack:.8,air:.01,motion:.08,chord:"fifth"},
+      "Felt Keys Pad":{layers:[["triangle",.4,0],["sine",.26,1200],["sine",.1,1902]],unison:1,spread:3,tone:2600,attack:.06,air:.02,motion:.05,chord:"add9"},
+      "Rhodes Bed":{layers:[["sine",.42,0],["triangle",.18,1200],["sine",.1,2786]],unison:1,spread:4,tone:3200,attack:.04,air:.01,motion:.12,chord:"major"},
+      "Bowed Glass":{layers:[["sine",.3,0],["triangle",.22,1902],["sine",.12,2400]],unison:2,spread:6,tone:7400,attack:1.8,air:.14,motion:.3,chord:"sus2"},
+      "Wide Saw Pad":{layers:[["sawtooth",.15,-14],["sawtooth",.15,14],["sawtooth",.08,0]],unison:3,spread:26,tone:3800,attack:.6,air:.05,motion:.28,chord:"open"},
+      "Lush Supersaw":{layers:[["sawtooth",.12,-18],["sawtooth",.12,18],["sawtooth",.1,-7],["sawtooth",.1,7]],unison:3,spread:30,tone:5200,attack:.9,air:.08,motion:.3,chord:"open"},
+      "Soft Brass Pad":{layers:[["sawtooth",.2,-3],["square",.06,3],["triangle",.2,-1200]],unison:2,spread:8,tone:2000,attack:.5,air:.01,motion:.08,chord:"fifth"},
+      "Warm Low Strings":{layers:[["sawtooth",.18,-8],["sawtooth",.16,8],["sine",.32,-1200]],unison:2,spread:12,tone:1200,attack:1.1,air:.02,motion:.1,chord:"fifth"},
+      "Breath Pad":{layers:[["sine",.3,0],["triangle",.18,700]],unison:2,spread:10,tone:5400,attack:1.4,air:.45,motion:.35,chord:"sus2"},
+      "Heaven Choir":{layers:[["sawtooth",.2,-8],["sawtooth",.2,8],["triangle",.18,1200]],unison:3,spread:14,tone:3800,attack:1.3,air:.12,motion:.24,chord:"open",formants:[[800,7],[1200,8],[2800,9]]},
+      "Aah Choir":{layers:[["sawtooth",.22,-5],["sawtooth",.22,5]],unison:2,spread:9,tone:3000,attack:.7,air:.06,motion:.15,chord:"major",formants:[[730,8],[1090,9],[2440,9]]},
+      "Ooh Choir":{layers:[["sawtooth",.22,-5],["sawtooth",.22,5]],unison:2,spread:9,tone:2400,attack:.8,air:.05,motion:.14,chord:"fifth",formants:[[300,8],[870,9],[2240,9]]},
+      "Minor Mist":{layers:[["sine",.4,-9],["triangle",.28,0],["sine",.14,1200]],unison:2,spread:12,tone:2800,attack:1.2,air:.08,motion:.24,chord:"minor"},
+      "Sus Bloom":{layers:[["triangle",.34,-6],["sine",.32,6],["sine",.12,1902]],unison:2,spread:10,tone:4400,attack:.9,air:.07,motion:.2,chord:"sus4"},
+      "Add9 Glow":{layers:[["sine",.36,-7],["triangle",.28,7],["sine",.1,2400]],unison:2,spread:9,tone:4600,attack:.7,air:.06,motion:.18,chord:"add9"},
+      "Root Drone":{layers:[["sine",.55,0],["sine",.25,-1200],["triangle",.1,1200]],unison:1,spread:2,tone:1800,attack:2,air:.03,motion:.1,chord:"root"},
+      "Fifths Drone":{layers:[["sine",.45,0],["triangle",.2,-1200]],unison:1,spread:3,tone:2400,attack:2.4,air:.05,motion:.12,chord:"fifth"},
+      "Tape Pad":{layers:[["triangle",.32,-10],["sawtooth",.1,10],["sine",.24,0]],unison:2,spread:16,tone:2100,attack:.6,air:.06,motion:.45,chord:"fifth"},
+      "Vinyl Keys":{layers:[["triangle",.36,0],["sine",.2,1200]],unison:1,spread:5,tone:2300,attack:.03,air:.1,motion:.2,chord:"major"},
+      "Crystal Bells":{layers:[["sine",.3,0],["sine",.2,2400],["sine",.12,3486],["triangle",.08,1200]],unison:1,spread:4,tone:9000,attack:.01,air:.04,motion:.06,chord:"add9"},
+      "Music Box":{layers:[["triangle",.36,1200],["sine",.2,2400]],unison:1,spread:2,tone:8000,attack:.005,air:.02,motion:0,chord:"major"},
+      "Ocean Swell":{layers:[["sine",.36,-12],["triangle",.24,12],["sawtooth",.06,-1200]],unison:2,spread:22,tone:2200,attack:3,air:.25,motion:.5,chord:"open"},
+      "Starfield":{layers:[["sine",.26,0],["sine",.18,1902],["sine",.12,3102],["triangle",.08,2400]],unison:2,spread:14,tone:9500,attack:1.6,air:.3,motion:.4,chord:"sus2"},
+      "Dark Cathedral":{layers:[["sawtooth",.12,-10],["sine",.4,-1200],["sine",.2,0]],unison:2,spread:12,tone:1300,attack:2.2,air:.08,motion:.15,chord:"minor"},
+      "Grand Organ":{layers:[["sine",.3,0],["sine",.22,1200],["sine",.16,1902],["sine",.12,2400],["sine",.08,-1200]],unison:1,spread:2,tone:7000,attack:.12,air:.01,motion:.04,chord:"major"},
+      "Gospel Organ":{layers:[["sine",.34,0],["sine",.26,1200],["sine",.2,1902],["square",.04,2400]],unison:1,spread:3,tone:5200,attack:.05,air:.01,motion:.3,chord:"major"},
+      "Synth Strings 80s":{layers:[["sawtooth",.15,-8],["sawtooth",.15,8],["square",.05,0]],unison:3,spread:18,tone:4200,attack:.5,air:.03,motion:.3,chord:"open"},
+      "Warm Sub Bed":{layers:[["sine",.6,-1200],["triangle",.18,0]],unison:1,spread:2,tone:900,attack:1.4,air:0,motion:.06,chord:"root"},
+      "Evening Pad":{layers:[["triangle",.34,-6],["sine",.34,6],["sawtooth",.06,-1200]],unison:2,spread:11,tone:2500,attack:1.1,air:.05,motion:.18,chord:"fifth"},
+      "Hope Pad":{layers:[["sine",.38,-8],["triangle",.3,8],["sine",.12,1902]],unison:2,spread:12,tone:4800,attack:1.3,air:.08,motion:.22,chord:"add9"},
+      "Selah":{layers:[["sine",.42,-4],["sine",.36,4],["triangle",.1,2400]],unison:2,spread:8,tone:3600,attack:2.6,air:.12,motion:.2,chord:"sus2"}
     };
     STOCK_VOICES=Object.keys(PAD_LIBRARY);
     function noteIndex(key){return Math.max(0,KEYS.indexOf(key));}
@@ -597,7 +629,7 @@
     function updateKnobs(){if(!KNOBS)return;KNOBS.forEach(function(k){updateKnob(k.id);});}
     function setPerformance(id,value){if(!(id in project.performance))return;project.performance[id]=clamp(value,0,1);engine.applyPerformance();updateKnob(id);persistSoon();}
     function setExpression(value){if(engine.morph){project.performance.morph=clamp(value,0,1);engine.setMorph(value);if(window.PPFeatures)window.PPFeatures.renderPerformExtras();return;}engine.setSwell(value);var bar=document.querySelector("#pfExpr");if(bar)bar.style.width=Math.round(clamp(value,0,1)*100)+"%";}
-    function renderPerform(){if(window.PPScenes)window.PPScenes.layersChanged();var root=document.querySelector("#pfPads");if(!root||!project)return;var playingList=engine.playingIndexes();root.innerHTML=project.pads.map(function(pad,i){var src=pad.sampleId?((sampleFor(pad.sampleId)||{}).name||"Imported audio"):pad.voice;return '<button class="pf-pad'+(playingList.indexOf(i)>-1?" playing":"")+(i===selected?" selected":"")+'" data-pf-pad="'+i+'"><span class="n">'+(i+1)+"</span><b>"+escapeHtml(pad.name)+"</b><small>"+playKeyFor(pad).replace("#","♯")+" · "+escapeHtml(src)+"</small></button>";}).join("");var stopBtn=document.querySelector("#pfStop");if(stopBtn)stopBtn.querySelector("small").textContent=engine.active?"fade out":"again = cut";document.querySelector("#pfKey").textContent=playKeyFor(currentPad()).replace("#","♯");if(window.PPFeatures)window.PPFeatures.renderPerformExtras();document.querySelector("#pfProject").textContent=project.name;updateKnobs();}
+    function renderPerform(){if(window.PPScenes)window.PPScenes.layersChanged();var root=document.querySelector("#pfPads");if(!root||!project)return;var playingList=engine.playingIndexes();root.innerHTML=project.pads.map(function(pad,i){var src=pad.sampleId?((sampleFor(pad.sampleId)||{}).name||"Imported audio"):pad.voice;return '<button class="pf-pad'+(playingList.indexOf(i)>-1?" playing":"")+(i===selected?" selected":"")+'" style="--padc:'+(window.PPColors?window.PPColors.pad(i):"")+'" data-pf-pad="'+i+'"><span class="n">'+(i+1)+"</span><b>"+escapeHtml(pad.name)+"</b><small>"+playKeyFor(pad).replace("#","♯")+" · "+escapeHtml(src)+"</small></button>";}).join("");var stopBtn=document.querySelector("#pfStop");if(stopBtn)stopBtn.querySelector("small").textContent=engine.active?"fade out":"again = cut";document.querySelector("#pfKey").textContent=playKeyFor(currentPad()).replace("#","♯");if(window.PPFeatures)window.PPFeatures.renderPerformExtras();document.querySelector("#pfProject").textContent=project.name;updateKnobs();}
     // Tap a pad = play it (crossfading from whatever is playing). Tap the playing pad again = fade it out.
     function triggerPad(index,opts){index=clamp(index,0,PAD_COUNT-1);opts=opts||{};if(window.PPFeatures&&window.PPFeatures.interceptPad(index))return;var layer=opts.layer||project.performance.layerMode,playing=engine.voiceFor(index);
       if(layer){selected=index;editingInput=false;engine.playPad(index,null,{layer:true});return;}

@@ -49,8 +49,8 @@
     var out = []; for (var i = 1; i <= n; i++) out.push(list && list[i - 1] ? i + " · " + list[i - 1] : "Output " + i);
     return out;
   }
-  function renderRouting() {
-    var root = $("#routingMatrix"); if (!root) return;
+  function renderRouting(into) {
+    var root = into || $("#routingMatrix"); if (!root) return;
     var r = project().routing, names = channelNames(), live = engine.routing || {}, stereo = r.mode === "stereo";
     root.innerHTML = '<div class="rt-mode"><label class="toggle"><input type="radio" name="rtMode" value="mono4"' + (!stereo ? " checked" : "") + "> Four mono outputs (recommended)</label><label class=\"toggle\"><input type=\"radio\" name=\"rtMode\" value=\"stereo\"" + (stereo ? " checked" : "") + "> Stereo pairs (each bus on two outputs)</label></div>" +
       '<table class="rt-table"><thead><tr><th>Bus</th><th>Output' + (stereo ? "s" : "") + "</th><th>Now</th><th></th></tr></thead><tbody>" +
@@ -65,7 +65,7 @@
     if (el.name === "rtMode") { r.mode = el.value; }
     else if (el.dataset.rt) { r.buses[el.dataset.rt] = { ch: Number(el.value) || 0 }; }
     else return;
-    engine.routeOutput(); PP.persistSoon(); renderRouting();
+    engine.routeOutput(); PP.persistSoon(); renderRouting(); if (window.PPIO) window.PPIO.render();
     send({ type: "routing", routing: r }); // the Pi links the native instrument chain to its channel
   }
 
@@ -133,14 +133,14 @@
     if (j && j.ok) { PP.setStatus("Updated: " + (j.message || "") + " - restarting…"); setTimeout(function () { location.reload(); }, 6000); }
   }
 
-  function render() { renderPresets(); renderAudio(); renderRouting(); renderNav(); if (bk.mode) bkShow(bk.mode); }
+  function render() { renderPresets(); renderAudio(); renderRouting(); renderNav(); if (window.PPColors) window.PPColors.render(); if (bk.mode) bkShow(bk.mode); }
   function wire() {
     var root = $("#tabSettings"); if (!root) return;
     root.addEventListener("click", function (e) {
       var b = e.target.closest("[data-preset],[data-rt-test],[data-st-group],#audioApply,#bkBackup,#bkRestore,#bkUpdate,#bkRefresh,[data-bk-to],[data-bk-restore],[data-bk-update]"); if (!b) return;
       if (b.id === "bkBackup") bkShow("backup"); else if (b.id === "bkRestore") bkShow("restore"); else if (b.id === "bkUpdate") bkShow("update"); else if (b.id === "bkRefresh") bkShow(bk.mode || "backup");
       else if (b.dataset.bkTo) bkBackupTo(b.dataset.bkTo); else if (b.dataset.bkRestore) bkRestoreFrom(b.dataset.bkRestore); else if (b.dataset.bkUpdate) bkUpdateFrom(b.dataset.bkUpdate);
-      else if (b.dataset.preset != null) { Object.assign(project().theme, PRESETS[Number(b.dataset.preset)].theme); PP.applyTheme(); PP.persistSoon(); renderPresets(); }
+      else if (b.dataset.preset != null) { Object.assign(project().theme, PRESETS[Number(b.dataset.preset)].theme); PP.applyTheme(); PP.persistSoon(); renderPresets(); if (window.PPColors) window.PPColors.render(); }
       else if (b.dataset.rtTest) engine.testBus(b.dataset.rtTest);
       else if (b.dataset.stGroup) { group = b.dataset.stGroup; renderNav(); }
       else if (b.id === "audioApply") { PP.persistNow(); PP.setStatus("Restarting the audio engine…"); setTimeout(function () { location.reload(); }, 150); }
@@ -157,5 +157,5 @@
   }
   wire(); applyScale();
   F.on("update", function (m) { if (m.state === "failed") PP.setStatus("Update failed: " + (m.message || "")); });
-  window.PPSettings = { render: render, presets: PRESETS, renderRouting: renderRouting, backup: bkShow };
+  window.PPSettings = { render: render, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
 })();

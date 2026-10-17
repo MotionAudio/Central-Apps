@@ -1,7 +1,7 @@
 /* Pad Pedal - actions: one list of everything a button, knob, slider, pedal,
  * encoder, USB pedal, MIDI controller, companion device or the 3.5" screen can
- * do. The Configure tab maps inputs to these, separately for Pad mode and
- * Tracks mode. Also computes the button LED states for the driver. */
+ * do. The Configure tab maps every input to one of these - one layout for
+ * everything. Also computes the button LED states for the driver. */
 (function () {
   "use strict";
   var PP = window.PP, F = window.PPFeatures; if (!PP || !F) return;
@@ -14,6 +14,19 @@
   function def(id, label, group, kind, run, extra) { ACTIONS[id] = Object.assign({ id: id, label: label, group: group, kind: kind, run: run }, extra || {}); }
   // ---- triggers (buttons, pedals, MIDI notes, companion buttons)
   def("none", "— nothing —", "General", "trigger", function () { });
+  function hasTracks() { var t = T(); if (!t) return false; var s = t.song(); return !!(s && t.data(s).stems && t.data(s).stems.length); }
+  function anythingPlaying() { return (T() && T().isPlaying()) || engine.voices().length > 0; }
+  def("playAll", "Play all: tracks (pads follow) - or the song's pad when there are no tracks", "Transport", "trigger", function () {
+    if (hasTracks()) { if (!T().isPlaying()) T().play(); } else if (!engine.voices().length) PP.toggleSelected();
+  }, { led: function () { return anythingPlaying() ? "on" : "off"; } });
+  def("playPauseAll", "Play / pause all", "Transport", "trigger", function () {
+    if (hasTracks()) T().togglePlay(); else PP.toggleSelected();
+  }, { led: function () { return anythingPlaying() ? "on" : "off"; } });
+  def("stopAll", "Stop all: tracks, pads (fade) and the looper", "Transport", "trigger", function () {
+    if (T() && T().isPlaying()) T().stop(false); engine.stop(); var L2 = window.PPLooper; if (L2 && L2.state().state !== "empty") L2.stop();
+  });
+  def("nextSongStop", "Skip to the next song (stops what's playing)", "Transport", "trigger", function () { if (T() && T().isPlaying()) T().stop(false); F.stepSong(1); });
+  def("prevSongStop", "Back to the previous song (stops what's playing)", "Transport", "trigger", function () { if (T() && T().isPlaying()) T().stop(false); F.stepSong(-1); });
   def("pad", "Play pad", "Pads", "trigger", function (a) { PP.triggerPad(Number(a && a.index) || 0); }, { arg: "pad", led: function (a) { var i = Number(a && a.index) || 0; return engine.playingIndexes().indexOf(i) > -1 ? "on" : i === PP.selected() && !engine.voices().length ? "blink" : "off"; } });
   def("padLayer", "Layer pad (stack)", "Pads", "trigger", function (a) { PP.triggerPad(Number(a && a.index) || 0, { layer: true }); }, { arg: "pad", led: function (a) { return engine.playingIndexes().indexOf(Number(a && a.index) || 0) > -1 ? "on" : "off"; } });
   def("padHold", "Pad while held", "Pads", "trigger", function (a) { var i = Number(a && a.index) || 0; if (engine.playingIndexes().indexOf(i) < 0) PP.triggerPad(i, { layer: engine.voices().length > 0 }); }, { arg: "pad", release: function (a) { var i = Number(a && a.index) || 0; if (engine.voiceFor(i)) engine.playPad(i, null, { layer: true }); }, led: function (a) { return engine.playingIndexes().indexOf(Number(a && a.index) || 0) > -1 ? "on" : "off"; } });
@@ -52,8 +65,9 @@
   def("toggleCues", "Voice cues on / off", "Tracks", "trigger", function () { if (T()) T().toggleCues(); }, { led: function () { var s = T() && T().song(); return s && T().data(s).cues.on ? "on" : "off"; } });
   def("countIn", "Count-in: off / 1 bar / 2 bars", "Tracks", "trigger", function () { if (T()) T().cycleCountIn(); });
   def("tempoReset", "Tracks: tempo back to 100%", "Tracks", "trigger", function () { if (T()) T().setTempoPercent(100); });
-  def("lyricsNext", "Lyrics: next page", "Screens", "trigger", function () { if (T()) T().lyricsStep(1); });
-  def("lyricsPrev", "Lyrics: previous page", "Screens", "trigger", function () { if (T()) T().lyricsStep(-1); });
+  // from Central Usage the lyrics page only inside the section while tracks play: moving the tracks is the Central Control's job
+  def("lyricsNext", "Lyrics: next page", "Screens", "trigger", function (a, v, info) { if (T()) T().lyricsStep(1, { stay: info && info.from === "central-usage" }); });
+  def("lyricsPrev", "Lyrics: previous page", "Screens", "trigger", function (a, v, info) { if (T()) T().lyricsStep(-1, { stay: info && info.from === "central-usage" }); });
   def("projectorBlank", "Projector: blank on / off", "Screens", "trigger", function () { var p = project(); p.projector = p.projector || {}; p.projector.blank = !p.projector.blank; PP.persistSoon(); if (T()) T().sendDisplay(); }, { led: function () { return project().projector && project().projector.blank ? "on" : "off"; } });
   def("texture1", "Texture 1 on / off", "Textures", "trigger", function () { if (X()) X().toggle(0); }, { led: function () { return X() && X().channels()[0].enabled ? "on" : "off"; } });
   def("texture2", "Texture 2 on / off", "Textures", "trigger", function () { if (X()) X().toggle(1); }, { led: function () { return X() && X().channels()[1].enabled ? "on" : "off"; } });
@@ -85,7 +99,7 @@
   def("patchNext", "Keys: next sound", "Instrument", "trigger", function () { if (I()) I().stepPatch(1); });
   def("patchPrev", "Keys: previous sound", "Instrument", "trigger", function () { if (I()) I().stepPatch(-1); });
   def("tuner", "Instrument: tuner on / off", "Instrument", "trigger", function () { if (I()) I().tunerToggle(); }, { led: function () { return I() && I().state().tuner ? "on" : "off"; } });
-  def("instrumentKind", "Instrument: switch electric / acoustic / keys / off", "Instrument", "trigger", function () { if (!I()) return; var order = ["electric", "acoustic", "keys", "off"], k = I().state().kind; I().setKind(order[(order.indexOf(k) + 1) % order.length]); });
+  def("instrumentKind", "Instrument: switch electric / acoustic / bass / keys / off", "Instrument", "trigger", function () { if (!I()) return; var order = ["electric", "acoustic", "bass", "keys", "off"], k = I().state().kind; I().setKind(order[(order.indexOf(k) + 1) % order.length]); });
   def("instrumentAuto", "Instrument: Auto set-up", "Instrument", "trigger", function () { if (I()) I().autoSetup(); });
   def("instrumentExpression", "Instrument: expression (wah / volume pedal)", "Instrument", "continuous", function (a, v) { if (I()) I().expression(v); });
   def("instrumentLevel", "Instrument: output level", "Instrument", "continuous", function (a, v) { if (!I()) return; var s = I().state(); s.levelDb = Math.round((-30 + v * 42) * 2) / 2; PP.persistSoon(); if (window.__pedalBridge && window.__pedalBridge.send) window.__pedalBridge.send({ type: "instrument", action: "level", levelDb: s.levelDb }); });
@@ -103,6 +117,12 @@
   def("sceneNext", "Scene: next scene of this song", "Scenes", "trigger", function () { if (S()) S().step(1); });
   def("scenePrev", "Scene: previous scene of this song", "Scenes", "trigger", function () { if (S()) S().step(-1); });
   def("sceneN", "Scene: recall scene N", "Scenes", "trigger", function (a) { if (S()) S().recallIndex(Number(a && a.index) || 0); }, { arg: "scene", led: function (a) { return S() && S().activeIndex() === (Number(a && a.index) || 0) ? "on" : "off"; } });
+  def("abA", "Rehearse: set loop point A here", "Rehearse", "trigger", function () { if (T()) T().abSet("a"); });
+  def("abB", "Rehearse: set loop point B here (starts the A–B loop)", "Rehearse", "trigger", function () { if (T()) T().abSet("b"); });
+  def("abLoop", "Rehearse: A–B loop on / off", "Rehearse", "trigger", function () { if (T()) T().abToggle(); }, { led: function () { return T() && T().state.loop === -2 ? "on" : "off"; } });
+  def("abClear", "Rehearse: clear A and B", "Rehearse", "trigger", function () { if (T()) T().abClear(); });
+  def("slower", "Rehearse: 5% slower (same pitch)", "Rehearse", "trigger", function () { if (T()) T().nudgeTempo(-5); });
+  def("faster", "Rehearse: 5% faster (same pitch)", "Rehearse", "trigger", function () { if (T()) T().nudgeTempo(5); });
   def("showMixer", "Show the mixer", "Tracks", "trigger", function () { if (T()) T().openMixer(); });
   def("segueNow", "Setlist: go into the next song now (segue)", "Setlist", "trigger", function () { if (T()) { T().preloadNext(); setTimeout(function () { if (!T().startSegue()) T().stepSongAndPlay(1); }, 200); } });
   def("padLayerLevel", "Pad layer N level", "Pads", "continuous", function (a, v) { var ls = engine.layerState(), l = ls[Number(a && a.index) || 0]; if (l) engine.setLayerLevel(l.pad, v * 1.2); }, { arg: "layer" });
@@ -115,34 +135,39 @@
   def("stepPad", "Encoder: select pad", "Pads", "step", function (a, d) { PP.setSelectedPad((PP.selected() + d + PP.PAD_COUNT) % PP.PAD_COUNT, false); });
   def("stepVolume", "Encoder: master volume", "Pads", "step", function (a, d) { PP.setPerformance("volume", project().performance.volume + d * .03); });
 
-  // ---- default mappings
-  function defaults(mode) {
+  // ---- default mapping: ONE layout for everything (12 buttons, 6 knobs, 2 sliders, expression, encoder).
+  // Pads follow the tracks when a song has tracks, so there is no separate pad / tracks layout any more.
+  function defaults() {
     var m = {};
-    if (mode === "tracks") {
-      m.b1 = { action: "playPause" }; m.b2 = { action: "stopTracks", hold: { action: "startOver" } }; m.b3 = { action: "restartSection" }; m.b4 = { action: "repeatSection" };
-      m.b5 = { action: "prevSection" }; m.b6 = { action: "nextSection" }; m.b7 = { action: "keyDown" }; m.b8 = { action: "keyUp" };
-      m.b9 = { action: "startOver", hold: { action: "panic" } }; m.b10 = { action: "tap", hold: { action: "freeze" } }; m.b11 = { action: "prevSong" }; m.b12 = { action: "nextSong", hold: { action: "nextSongPlay" } };
-      m.k1 = { action: "volume" }; m.k2 = { action: "tone" }; m.k3 = { action: "reverb" }; m.k4 = { action: "fade" }; m.k5 = { action: "tracksLevel" }; m.k6 = { action: "clickLevel" };
-      m.s1 = { action: "expression" }; m.s2 = { action: "balance" }; m.exp = { action: "expression" };
-      m.enc = { action: "stepSection", press: { action: "playPause" }, hold: { action: "performEdit" } };
-    } else {
-      for (var i = 0; i < 8; i++) m["b" + (i + 1)] = { action: "pad", args: { index: i } };
-      m.b9 = { action: "stop", hold: { action: "panic" } }; m.b10 = { action: "tap", hold: { action: "freeze" } }; m.b11 = { action: "prevSong" }; m.b12 = { action: "nextSong" };
-      m.k1 = { action: "volume" }; m.k2 = { action: "tone" }; m.k3 = { action: "reverb" }; m.k4 = { action: "fade" }; m.k5 = { action: "texture1Level" }; m.k6 = { action: "texture2Level" };
-      m.s1 = { action: "expression" }; m.s2 = { action: "morphPos" }; m.exp = { action: "expression" };
-      m.enc = { action: "stepKey", press: { action: "playSelected" }, hold: { action: "performEdit" } };
-    }
+    m.b1 = { action: "playAll" }; m.b2 = { action: "stopAll", hold: { action: "panic" } };
+    m.b3 = { action: "prevSection" }; m.b4 = { action: "nextSection" };
+    m.b5 = { action: "repeatSection" }; m.b6 = { action: "restartSection", hold: { action: "startOver" } };
+    m.b7 = { action: "prevSong" }; m.b8 = { action: "nextSong", hold: { action: "nextSongPlay" } };
+    m.b9 = { action: "keyDown" }; m.b10 = { action: "keyUp" };
+    m.b11 = { action: "tap", hold: { action: "freeze" } }; m.b12 = { action: "playSelected", hold: { action: "layer" } };
+    m.k1 = { action: "volume" }; m.k2 = { action: "tracksLevel" }; m.k3 = { action: "clickLevel" };
+    m.k4 = { action: "reverb" }; m.k5 = { action: "tone" }; m.k6 = { action: "instrumentLevel" };
+    m.s1 = { action: "expression" }; m.s2 = { action: "balance" }; m.exp = { action: "expression" };
+    m.enc = { action: "stepSection", press: { action: "playPauseAll" }, hold: { action: "performEdit" } };
     return m;
   }
-  function mapping(mode) { var p = project(); p.mapping = p.mapping || {}; if (!p.mapping[mode]) p.mapping[mode] = defaults(mode); return p.mapping[mode]; }
-  function mode() { return project().tracksMode ? "tracks" : "pad"; }
-  function entryFor(id) { var m = mapping(mode()); return m[id] || mapping("pad")[id] || null; }
+  function mapping() {
+    var p = project(); p.mapping = p.mapping || {};
+    if (!p.mapping.all) {
+      p.mapping.all = defaults();
+      // keep what was set up for added USB / MIDI controls in the old pad / tracks layouts
+      ["tracks", "pad"].forEach(function (old) { var m = p.mapping[old]; if (!m) return; Object.keys(m).forEach(function (id) { if (/^[um]/.test(id) && !p.mapping.all[id]) p.mapping.all[id] = m[id]; }); });
+    }
+    return p.mapping.all;
+  }
+  function mode() { return "all"; }
+  function entryFor(id) { return mapping()[id] || null; }
 
   // ---- running
   var held = {};
   function run(name, args, info) {
     var a = ACTIONS[name]; if (!a) return false;
-    try { a.run(args || {}, info && info.value != null ? info.value : (info && info.delta) || 0); } catch (error) { console.warn("action failed", name, error); }
+    try { a.run(args || {}, info && info.value != null ? info.value : (info && info.delta) || 0, info || {}); } catch (error) { console.warn("action failed", name, error); }
     sendLedsSoon();
     return true;
   }
@@ -175,7 +200,7 @@
   // ---- LEDs
   var ledTimer = 0, lastLeds = "";
   function ledStates() {
-    var m = mapping(mode()), states = {};
+    var m = mapping(), states = {};
     Object.keys(m).forEach(function (id) { var e = m[id], a = ACTIONS[e.action]; states[id] = a && a.led ? a.led(e.args || {}) : "off"; });
     return states;
   }

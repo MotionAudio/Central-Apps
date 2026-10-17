@@ -40,9 +40,9 @@ warn() { printf '    WARNING: %s\n' "$*" >&2; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)."; exit 1; }
 for f in index.html css/pad-pedal.css js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/shell.js js/textures.js \
-         js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js \
+         js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/io.js \
          instrument_host.py sources.py instrument-plugins.json get-sounds.sh companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
-         companion/remote.html companion/mini.html companion/common.js companion/style.css \
+         companion/remote.html companion/mini.html companion/slides.html companion/common.js companion/style.css \
          pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session \
          pad-pedal-audio-config xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf \
          pad-pedal-safe-mode pad-pedal.sudoers starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2; do
@@ -65,7 +65,7 @@ apt-get install -y --no-install-recommends \
   i2c-tools alsa-utils poppler-utils espeak-ng fonts-dejavu-core avahi-daemon cloud-guest-utils rfkill
 apt-get install -y --no-install-recommends chromium \
   || apt-get install -y --no-install-recommends chromium-browser
-for optional in fonts-noto-color-emoji python3-lgpio python3-smbus python3-smbus2 python3-rpi-lgpio python3-mido python3-rtmidi overlayroot dbus-user-session; do
+for optional in fonts-noto-color-emoji musescore-general-soundfont-small python3-lgpio python3-smbus python3-smbus2 python3-rpi-lgpio python3-mido python3-rtmidi overlayroot dbus-user-session; do
   apt-get install -y --no-install-recommends "$optional" >/dev/null 2>&1 \
     && echo "    + $optional" || echo "    (skipped $optional - not in this release)"
 done

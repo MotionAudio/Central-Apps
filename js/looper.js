@@ -125,6 +125,7 @@
     return { at: Math.round((now + wait) * rate), len: Math.round(barSec * clamp(c.bars, 1, 16) * rate) };
   }
   async function main() {  // record → play → overdub → play …
+    if (cfg().enabled === false) { PP.setStatus("The looper is off (Instrument tab → Looper on)."); return st.state; }
     if (!armedFlag) { var ok = await arm(true); if (!ok && !src) return st.state; }
     await ensure();
     if (st.state === "empty") { var tm = timing(); node.port.postMessage({ cmd: "rec", at: tm.at, len: tm.len }); PP.setStatus(cfg().sync ? "Looper: recording " + cfg().bars + " bar" + (cfg().bars === 1 ? "" : "s") + " from the next bar" : "Looper: recording - tap again to close the loop"); }
@@ -144,7 +145,9 @@
   var LABEL = { empty: "REC", armed: "WAIT…", recording: "● REC", playing: "▶ PLAY", dubbing: "● DUB", stopped: "■ STOP" };
   function html() {
     var c = cfg(), secs = st.len && PP.engine.ctx ? (st.len / PP.engine.ctx.sampleRate).toFixed(1) + " s" : "";
-    return '<section class="looper" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">' + (armedFlag ? "ready · " : "") + esc(st.state === "empty" ? "empty" : st.state + (secs ? " · " + secs : "")) + '</small></h3>' +
+    var onOff = '<label class="toggle lp-onoff"><input type="checkbox" id="lpEnabled"' + (c.enabled !== false ? " checked" : "") + '> Looper on</label>';
+    if (c.enabled === false) return '<section class="looper off" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">off</small></h3>' + onOff + '</div><p class="muted small">Turn it on to loop your guitar / keys live: record a phrase, it plays back, play over it (overdub), undo, clear - in time with the song or free.</p></section>';
+    return '<section class="looper" id="looperBox"><div class="row spread"><h3>Looper ' + onOff + ' <small class="muted">' + (armedFlag ? "ready · " : "") + esc(st.state === "empty" ? "empty" : st.state + (secs ? " · " + secs : "")) + '</small></h3>' +
       '<div class="se-row"><label class="toggle"><input type="checkbox" id="lpSync"' + (c.sync ? " checked" : "") + '> In time with the song</label><label>Length<select id="lpBars"' + (c.sync ? "" : " disabled") + ">" + [1, 2, 4, 8, 16].map(function (b) { return '<option value="' + b + '"' + (c.bars === b ? " selected" : "") + ">" + b + " bar" + (b === 1 ? "" : "s") + "</option>"; }).join("") + '</select></label><label>Level<span class="control-line"><input type="range" id="lpLevel" min="0" max="140" value="' + Math.round(c.level * 100) + '"><output>' + Math.round(c.level * 100) + "</output></span></label></div></div>" +
       '<div class="lp-btns"><button class="pf-btn lp-main st-' + st.state + '" id="lpMain"><small>REC / PLAY / DUB</small><b>' + LABEL[st.state] + '</b></button><button class="pf-btn" id="lpStop"' + (st.len ? "" : " disabled") + '><small>LOOP</small><b>STOP</b></button><button class="pf-btn" id="lpUndo"' + (st.undo ? "" : " disabled") + '><small>LAST DUB</small><b>UNDO</b></button><button class="pf-btn" id="lpClear"><small>LOOP</small><b>CLEAR</b></button></div>' +
       '<p class="muted small">Footswitches: Configure → "Looper: record / play / overdub", "Looper: stop", "Looper: undo", "Looper: clear". The loop plays on the instrument output.</p></section>';
@@ -156,6 +159,7 @@
   });
   document.addEventListener("change", function (e) {
     var el = e.target; if (!el.closest || !el.closest("#looperBox")) return; var c = cfg();
+    if (el.id === "lpEnabled") { c.enabled = el.checked; PP.persistSoon(); if (!c.enabled) { clear(); if (armedFlag) arm(false); } render(); return; }
     if (el.id === "lpSync") { c.sync = el.checked; PP.persistSoon(); render(); } else if (el.id === "lpBars") { c.bars = Number(el.value); PP.persistSoon(); }
   });
   document.addEventListener("input", function (e) { var el = e.target; if (el.id !== "lpLevel") return; setLevel(Number(el.value) / 100); var o = el.parentNode.querySelector("output"); if (o) o.textContent = el.value; });

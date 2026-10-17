@@ -340,6 +340,85 @@ async def main():
         action = await next_message(lambda m: m["type"] == "action")
         check("HTTP remote action with the code -> app gets {action tap}", status == 200 and action and action["name"] == "tap", action)
 
+        print("\nCentral Usage: network audio, the audio host, the hub, slides:")
+        async with websockets.connect("ws://127.0.0.1:18081") as cu:
+            await asyncio.wait_for(cu.recv(), 2)
+            await asyncio.wait_for(cu.recv(), 2)  # hello + display
+
+            async def cu_next(match, timeout=2.0, binary=False):
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    try:
+                        raw = await asyncio.wait_for(cu.recv(), deadline - time.monotonic())
+                    except asyncio.TimeoutError:
+                        break
+                    if isinstance(raw, (bytes, bytearray)):
+                        if binary:
+                            return bytes(raw)
+                        continue
+                    m = json.loads(raw)
+                    if not binary and match(m):
+                        return m
+                return None
+            await cu.send(json.dumps({"type": "client", "app": "central-usage", "mode": "admin", "name": "Desk"}))
+            await cu.send(json.dumps({"type": "audioSubscribe", "code": hello["code"], "sources": [0], "name": "Desk"}))
+            refused = await cu_next(lambda m: m.get("type") == "audioSubscribed")
+            check("network audio is off at first: a subscription is refused, with the reason", refused and not refused["ok"] and "off" in refused["error"], refused)
+            await send({"type": "netAudio", "action": "config", "config": {"mode": "ethernet"}})
+            st = await next_message(lambda m: m.get("type") == "netAudio")
+            check("I/O → Ethernet is kept (netaudio.json)", st and st["config"]["mode"] == "ethernet" and os.path.exists(os.path.join(root, "data", "netaudio.json")), st and st["config"])
+            await cu.send(json.dumps({"type": "audioSubscribe", "code": hello["code"], "sources": [0], "name": "Desk"}))
+            ok = await cu_next(lambda m: m.get("type") == "audioSubscribed")
+            check("with Ethernet on, Central Usage subscribes with the pairing code", ok and ok["ok"], ok)
+            sending = await next_message(lambda m: m.get("type") == "netAudio" and m.get("sending"))
+            check("...and the app is told to start sending (the listener is named)", sending is not None and sending["listeners"][0]["name"] == "Desk", sending)
+            await send({"type": "netAudio", "action": "info", "channels": ["Drums", "Bass"], "rate": 48000})
+            info = await cu_next(lambda m: m.get("type") == "audioStream")
+            check("the channel names reach Central Usage", info and info["sources"]["0"]["channels"] == ["Drums", "Bass"], info)
+            pkt = struct.pack("<4sBBHId", b"CCA1", 0, 2, 4, 1, 12.5) + struct.pack("<8h", 1, -2, 3, -4, 5, -6, 7, -8)
+            await ws.send(pkt)
+            got = await cu_next(None, binary=True)
+            check("an audio packet from the app is passed on to Central Usage byte for byte", got == pkt, got and got[:24])
+            await cu.send(json.dumps({"type": "action", "name": "nextSection", "code": hello["code"]}))
+            r = await cu_next(lambda m: m.get("type") == "refused")
+            check("Central Usage can't move the tracks: its nextSection is refused", r and "Only the Central Control" in r["error"], r)
+            await cu.send(json.dumps({"type": "action", "name": "lyricsNext", "code": hello["code"]}))
+            act = await next_message(lambda m: m["type"] == "action")
+            check("...it can page the lyrics (marked as coming from Central Usage)", act == {"type": "action", "name": "lyricsNext", "args": {}, "from": "central-usage"}, act)
+            await cu.send(json.dumps({"type": "audioHost", "action": "register", "code": hello["code"], "port": 8092, "name": "Desk"}))
+            h = await cu_next(lambda m: m.get("type") == "audioHost")
+            check("an admin computer registers as the audio host and every Central Usage is told", h and h["host"]["name"] == "Desk" and h["host"]["port"] == 8092, h)
+            status, body = http("http://127.0.0.1:18080/api/info")
+            j = json.loads(body)
+            check("/api/info names the audio host and the Pi's network connections", status == 200 and j["audioHost"]["name"] == "Desk" and isinstance(j["interfaces"], list), j)
+            if not any(i["kind"] == "wifi" for i in driver_mod.ip_interfaces()):
+                await send({"type": "netAudio", "action": "config", "config": {"mode": "wifi"}})
+                gone = await cu_next(lambda m: m.get("type") == "audioSubscribed")
+                await cu.send(json.dumps({"type": "audioSubscribe", "code": hello["code"], "sources": [0]}))
+                wifi = await cu_next(lambda m: m.get("type") == "audioSubscribed")
+                check("switching to Wi-Fi ends the Ethernet listeners; with no Wi-Fi connection a subscription is refused", gone and not gone["ok"] and wifi and not wifi["ok"] and "Wi-Fi" in wifi["error"], (gone, wifi))
+                await send({"type": "netAudio", "action": "config", "config": {"mode": "off"}})
+        await asyncio.sleep(0.3)
+        check("when the audio host's computer goes away it is forgotten", driver.audio_host is None, driver.audio_host)
+        await send({"type": "hub", "songs": [{"id": "s1", "name": "Way Maker", "bpm": 68, "key": "E", "duration": 300, "hasTracks": True, "overview": [0.1, 0.5, 0.9], "sections": [{"name": "Verse 1", "start": 0, "end": 30}]}]})
+        await asyncio.sleep(0.3)
+        status, body = http("http://127.0.0.1:18080/api/hub")
+        check("the app's songs are listed in the hub for Central Usage", status == 200 and json.loads(body)["songs"][0]["name"] == "Way Maker", body[:200])
+        await send({"type": "hub", "songs": [{"id": "s1", "name": "Way Maker", "bpm": 70, "key": "E", "duration": 300, "hasTracks": True, "sections": []}]})
+        await asyncio.sleep(0.3)
+        status, body = http("http://127.0.0.1:18080/api/hub/s1")
+        j = json.loads(body)
+        check("a song's details (tempo, sections, waveform) - the waveform is kept when an update has none", j["bpm"] == 70 and j["overview"] == [0.1, 0.5, 0.9], j)
+        png = b"\x89PNG\r\n\x1a\nslide-bytes-0123456789"
+        status, body = http("http://127.0.0.1:18080/api/slides?code=%s&name=Welcome.png" % hello["code"], data=png)
+        check("Central Usage sends a picture for the slides screen (with the code)", status == 200 and json.loads(body)["file"] == "Welcome.png", body)
+        status, _ = http("http://127.0.0.1:18080/api/slides?code=0000x&name=X.png", data=png)
+        check("...a wrong code is refused", status == 403)
+        status, body = http("http://127.0.0.1:18080/api/slides/Welcome.png", headers={"Range": "bytes=2-5"})
+        check("slides are served with Range requests (videos seek)", status == 206 and body == png[2:6], (status, body))
+        status, body = http("http://127.0.0.1:18080/slides")
+        check("the Pi's slides page is served (for HDMI 2 set to Slides)", status == 200 or status == 404, status)
+
         print("\nCharts:")
         text = "Great Is Thy Faithfulness\nKey: G   Tempo: 72   4/4\n\n[Verse 1]\nG        C/G    G\nGreat is Thy faithfulness, O God my Father\nD7                G\nThere is no shadow of turning with Thee\n\nChorus\nG   D  Em\nGreat is Thy faithfulness\nMorning by morning new mercies I see\n"
         status, body = http("http://127.0.0.1:18766/chart/text", data=json.dumps({"name": "Great Is Thy Faithfulness", "text": text}).encode())
@@ -528,7 +607,7 @@ async def main():
                 if self.path.startswith("/v1/"):
                     return self.reply(None, raw=b"")
                 if self.path == "/repos/church/cc/releases/latest":
-                    return self.reply({"tag_name": "v7.9.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
+                    return self.reply({"tag_name": "v8.9.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
                                        "assets": [{"name": "central-control-source.zip", "browser_download_url": "http://127.0.0.1:18098/dl/central-control-source.zip"},
                                                   {"name": "SHA256SUMS", "browser_download_url": "http://127.0.0.1:18098/dl/SHA256SUMS"}]})
                 if self.path == "/dl/central-control-source.zip":
@@ -562,7 +641,7 @@ async def main():
         check("update source accepts a GitHub URL and keeps owner/repo", cfgm and cfgm["repo"] == "church/cc" and cfgm["current"] == driver_mod.APP_VERSION, cfgm)
         await send({"type": "updates", "action": "check"})
         upm = await next_message(lambda m: m["type"] == "updateStatus" and m.get("latest"), 5.0)
-        check("the daily check finds a newer release (7.9.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "7.9.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
+        check("the daily check finds a newer release (8.9.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "8.9.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
         path_ok = driver.updater.download()
         check("the download is checked against SHA256SUMS and kept in /data", os.path.exists(path_ok) and open(path_ok, "rb").read() == rel_state["zip"], path_ok)
         rel_state["zip"] = rel_state["zip"] + b"tampered"

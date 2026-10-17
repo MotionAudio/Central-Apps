@@ -17,8 +17,8 @@
   function onTab() { return window.PPShell && window.PPShell.currentTab() === "instrument"; }
 
   // ------------------------------------------------------------- state
-  var KINDS = [["electric", "Electric guitar", "¼″ jack on the USB interface"], ["acoustic", "Acoustic guitar", "¼″ jack on the USB interface"], ["keys", "Piano & keys", "USB MIDI keyboard"], ["off", "Off", "instrument output silent"]];
-  var DEFAULT_BOARD = { electric: "clean-worship", acoustic: "acoustic-natural", keys: "keys-stage" };
+  var KINDS = [["electric", "Electric guitar", "¼″ jack on the USB interface"], ["acoustic", "Acoustic guitar", "¼″ jack on the USB interface"], ["bass", "Bass guitar", "¼″ jack on the USB interface"], ["keys", "Piano & keys", "USB MIDI keyboard"], ["off", "Off", "instrument output silent"]];
+  var DEFAULT_BOARD = { electric: "clean-worship", acoustic: "acoustic-natural", bass: "bass-di", keys: "keys-stage" };
   function defaults() { return { kind: "off", input: { device: "auto", channel: "L", gain: 0, gate: -70 }, output: { level: 0 }, chains: {}, boards: {}, keys: { patch: null, transpose: 0, velocity: "normal", sustain: true, midi: "auto", reverb: 20, chorus: 0 }, expression: null, custom: [] }; }
   function cfg() { var p = project(); if (!p.instrument || !p.instrument.chains) p.instrument = Object.assign(defaults(), p.instrument || {}); var c = p.instrument, d = defaults(); ["chains", "boards", "keys", "input", "output", "custom"].forEach(function (k) { if (!c[k]) c[k] = d[k]; }); return c; }
   function kind() { return cfg().kind; }
@@ -113,7 +113,7 @@
           '<label>Input gain <span class="control-line"><input type="range" id="inGain" min="-20" max="40" step="1" value="' + c.input.gain + '"><output>' + c.input.gain + ' dB</output></span></label><label>Noise gate <span class="control-line"><input type="range" id="inGate" min="-90" max="-20" step="1" value="' + c.input.gate + '"><output>' + c.input.gate + " dB</output></span></label>" :
           '<label>MIDI keyboard<select id="inMidi"><option value="auto">Auto (any USB MIDI)</option>' + catalog.midi.map(function (m) { return '<option value="' + esc(m) + '"' + (c.keys.midi === m ? " selected" : "") + ">" + esc(m) + "</option>"; }).join("") + '</select></label><label>Transpose <span class="control-line"><input type="range" id="inTranspose" min="-12" max="12" step="1" value="' + (c.keys.transpose || 0) + '"><output>' + (c.keys.transpose || 0) + '</output></span></label><label>Velocity<select id="inVel">' + [["soft", "Soft touch"], ["normal", "Normal"], ["hard", "Hard"], ["fixed", "Fixed (organ)"]].map(function (o) { return '<option value="' + o[0] + '"' + (c.keys.velocity === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>") +
         '<label>Output level <span class="control-line"><input type="range" id="inOut" min="-40" max="12" step="1" value="' + c.output.level + '"><output>' + c.output.level + ' dB</output></span></label>' +
-        '<div class="in-meter"><small>IN</small><div class="vu-bar"><i id="inVu" style="width:100%"></i></div><b id="inTuner">–</b></div><button class="pf-btn" id="inAuto" title="Sets input gain and gate from what you play and detects the instrument"><small>SET UP</small><b>AUTO</b></button><button class="pf-btn' + (tunerOn ? " on" : "") + '" id="inTunerBtn"><small>MUTE &amp;</small><b>TUNE</b></button></div>' +
+        '<div class="in-meter"><small>IN</small><div class="vu-bar"><i id="inVu" style="width:100%"></i></div><b id="inTuner">–</b></div><button class="pf-btn" id="inTunerBtn" title="Full-screen tuner (mutes the instrument)"><small>TUNE</small><b>TUNER</b></button><button class="pf-btn" id="inAuto" title="Sets input gain and gate from what you play and detects the instrument"><small>SET UP</small><b>AUTO</b></button><button class="pf-btn' + (tunerOn ? " on" : "") + '" id="inTunerBtn"><small>MUTE &amp;</small><b>TUNE</b></button></div>' +
         (k === "keys" ? keysPanel(c) : "") +
         '<div class="in-boardwrap"><div class="pb-chain" id="pbChain">' + chain.map(function (item, i) { var pedal = PED.byId(item.pedal); return pedal ? '<div class="pb-slot" data-slot="' + item.uid + '">' + pedalSvg(item, pedal, i, selected === item.uid) + '<div class="pb-tools"><button data-move="' + item.uid + ':-1" title="Move left">◀</button><button data-del="' + item.uid + '" title="Remove">✕</button><button data-move="' + item.uid + ':1" title="Move right">▶</button></div></div>' : ""; }).join("") + '<button class="pb-add" id="pbAdd">＋<small>Add pedal</small></button></div></div>' +
         (selected ? detailPanel(chain.filter(function (i) { return i.uid === selected; })[0]) : '<p class="muted">Tap a pedal to edit its knobs; tap its footswitch to bypass it. Footswitches on the board can do the same (Configure tab → "Pedal 1…8 on / off").</p>') +
@@ -218,14 +218,15 @@
   function stopMeter() { cancelAnimationFrame(meterRaf); if (meterStream) { meterStream.getTracks().forEach(function (t) { t.stop(); }); meterStream = null; analyser = null; } }
   function meterLoop() {
     meterRaf = requestAnimationFrame(meterLoop);
-    var vu = $("#inVu"), tn = $("#inTuner"); if (!analyser || !vu) return;
+    var vu = $("#inVu"), tn = $("#inTuner"), big = tunerOn ? tunerBox() : null; if (!analyser || (!vu && !big)) return;
     analyser.getFloatTimeDomainData(meterData); var s = 0, pk = 0; for (var i = 0; i < meterData.length; i++) { var a = Math.abs(meterData[i]); s += a * a; if (a > pk) pk = a; }
-    var db = 20 * Math.log10(Math.sqrt(s / meterData.length) + 1e-7); vu.style.width = (100 - clamp((db + 60) / 60 * 100, 0, 100)) + "%"; lastLevel = db; lastPeak = pk;
+    var db = 20 * Math.log10(Math.sqrt(s / meterData.length) + 1e-7); if (vu) vu.style.width = (100 - clamp((db + 60) / 60 * 100, 0, 100)) + "%"; lastLevel = db; lastPeak = pk;
+    if (big && performance.now() - lastTune > 90) { var f2 = detectPitch(meterData, meterCtx.sampleRate); tunerShow(f2); }
     if (tunerOn && tn && performance.now() - lastTune > 120) { lastTune = performance.now(); var f = detectPitch(meterData, meterCtx.sampleRate); if (f) { var midi = 69 + 12 * Math.log2(f / 440), n = Math.round(midi), cents = Math.round((midi - n) * 100), names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"]; tn.innerHTML = names[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1) + ' <span class="' + (Math.abs(cents) < 5 ? "ok" : cents < 0 ? "flat" : "sharp") + '">' + (cents > 0 ? "+" : "") + cents + "¢</span>"; } else tn.textContent = "–"; }
   }
   function detectPitch(buf, rate) { // normalised autocorrelation
     var n = Math.min(buf.length, 2048), e = 0; for (var i = 0; i < n; i++) e += buf[i] * buf[i]; if (Math.sqrt(e / n) < 0.004) return null;
-    var maxLag = Math.floor(rate / 60), minLag = Math.floor(rate / 1200), best = -1, bestV = 0;
+    var maxLag = Math.floor(rate / 28), minLag = Math.floor(rate / 1200), best = -1, bestV = 0;
     for (var lag = minLag; lag <= maxLag; lag++) { var sum = 0; for (i = 0; i < n - lag; i++) sum += buf[i] * buf[i + lag]; var v = sum / e; if (v > bestV) { bestV = v; best = lag; } }
     if (bestV < 0.5 || best <= minLag) return null;
     var y0 = 0, y2 = 0; for (i = 0; i < n - best - 1; i++) { y0 += buf[i] * buf[i + best - 1]; y2 += buf[i] * buf[i + best + 1]; } var y1 = bestV * e, den = y0 - 2 * y1 + y2, shift = den ? 0.5 * (y0 - y2) / den : 0;
@@ -244,8 +245,8 @@
     c.input.gain = clamp(Math.round(c.input.gain + (-12 - peakDb)), -20, 40); c.input.gate = clamp(Math.round(Math.max(noise + 8, -85)), -90, -20);
     var freq = new Float32Array(analyser.frequencyBinCount); analyser.getFloatFrequencyData(freq); var binHz = meterCtx.sampleRate / analyser.fftSize, lo = 0, hi = 0;
     for (var k = 0; k < freq.length; k++) { var f = k * binHz, v = Math.pow(10, freq[k] / 20); if (f > 200 && f < 800) lo += v; else if (f > 4000 && f < 9000) hi += v; }
-    var guess = hi / (lo + 1e-9) > 0.12 ? "acoustic" : "electric";
-    if (p90 < -55) PP.setStatus("AUTO: I heard almost nothing - check the cable and the interface's input knob."); else PP.setStatus("AUTO: gain " + (c.input.gain >= 0 ? "+" : "") + c.input.gain + " dB, gate " + c.input.gate + " dB, sounds like an " + guess + " guitar" + (guess !== kind() ? " (switched)" : "") + ".");
+    var guess = kind() === "bass" ? "bass" : hi / (lo + 1e-9) > 0.12 ? "acoustic" : "electric";
+    if (p90 < -55) PP.setStatus("AUTO: I heard almost nothing - check the cable and the interface's input knob."); else PP.setStatus("AUTO: gain " + (c.input.gain >= 0 ? "+" : "") + c.input.gain + " dB, gate " + c.input.gate + " dB, sounds like " + (guess === "acoustic" ? "an acoustic" : guess === "bass" ? "a bass" : "an electric") + " guitar" + (guess !== kind() ? " (switched)" : "") + ".");
     if (guess !== kind()) { c.kind = guess; selected = null; }
     apply("auto"); render();
   }
@@ -276,6 +277,7 @@
       if (b.dataset.kldel != null) { var ls4 = layers(c); ls4.splice(Number(b.dataset.kldel), 1); layerSel = 0; keysLive(); render(); return; }
       if (b.dataset.iradd) { addIr(b.dataset.iradd); return; }
       if (b.id === "inAuto") { autoSetup(); return; }
+      if (b.id === "inTunerBtn") { toggleTuner(); return; }
       if (b.id === "keysAdd") { addSounds(); return; }
       if (b.id === "inTunerBtn") { toggleTuner(); return; }
     });
@@ -369,9 +371,37 @@
     }, { kind: "ir" });
   }
   function stepPatch(delta) { var c = cfg(); if (!catalog.keys.length) return; var i = c.keys.patch ? catalog.keys.findIndex(function (p) { return p.id === c.keys.patch.id; }) : -1, j = (i + delta + catalog.keys.length) % catalog.keys.length, p = catalog.keys[j]; c.keys.patch = { id: p.id, file: p.file, bank: p.bank, prog: p.prog, name: p.name }; send({ type: "instrument", action: "keys", keys: hostConfig().keys }); PP.persistSoon(); PP.setStatus("Sound: " + p.name); if (onTab()) render(); }
-  function stepKind(delta) { var order = ["electric", "acoustic", "keys", "off"], c = cfg(), j = (order.indexOf(c.kind) + delta + 4) % 4; c.kind = order[j]; selected = null; apply("kind"); PP.setStatus("Instrument: " + KINDS[j][1]); if (onTab()) render(); }
+  function stepKind(delta) { var order = ["electric", "acoustic", "bass", "keys", "off"], c = cfg(), j = (order.indexOf(c.kind) + delta + order.length) % order.length; c.kind = order[j]; selected = null; apply("kind"); PP.setStatus("Instrument: " + KINDS[j][1]); if (onTab()) render(); }
   function expression(value) { var c = cfg(); if (!c.expression) return; var it = chainFor(kind()).filter(function (q) { return q.uid === c.expression; })[0], pedal = it && PED.byId(it.pedal); if (!pedal) return; var ctl = expressionCtl(pedal); if (!ctl) return; var v = denorm(ctl, value); it.values[ctl.sym] = v; send({ type: "instrument", action: "set", uid: it.uid, sym: ctl.sym, value: v }); }
-  function toggleTuner() { tunerOn = !tunerOn; send({ type: "instrument", action: "level", levelDb: tunerOn ? -120 : (cfg().output.level || 0) }); if (onTab()) render(); return tunerOn; }
+  // the big tuner: full screen over everything (footswitch or the Tuner button); the instrument is muted while it is up
+  var NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"], tunerSmooth = null;
+  function tunerBox() {
+    var el = document.getElementById("tunerOverlay"); if (el) return el;
+    el = document.createElement("div"); el.id = "tunerOverlay"; el.className = "tuner-overlay";
+    el.innerHTML = '<div class="tn-card"><small>TUNER · instrument muted</small><b class="tn-note">–</b><div class="tn-scale"><i class="tn-needle"></i><span class="tn-mid"></span></div><div class="tn-cents">play one string</div><div class="tn-ref"><span>A4 =</span> <input id="tnRef" type="number" min="425" max="455" step="1"> Hz</div><button class="primary" id="tnClose">Done (tuner off)</button></div>';
+    document.body.appendChild(el);
+    el.querySelector("#tnRef").value = cfg().tunerRef || 440;
+    el.addEventListener("click", function (e) { if (e.target.id === "tnClose") toggleTuner(); });
+    el.addEventListener("change", function (e) { if (e.target.id === "tnRef") { cfg().tunerRef = clamp(Number(e.target.value) || 440, 425, 455); PP.persistSoon(); } });
+    return el;
+  }
+  function tunerShow(f) {
+    var el = tunerBox(), note = el.querySelector(".tn-note"), needle = el.querySelector(".tn-needle"), cl = el.querySelector(".tn-cents");
+    if (!f) { el.classList.remove("intune"); return; }
+    var ref = cfg().tunerRef || 440, midi = 69 + 12 * Math.log2(f / ref);
+    tunerSmooth = tunerSmooth == null || Math.abs(tunerSmooth - midi) > 0.6 ? midi : tunerSmooth * 0.7 + midi * 0.3;
+    var n = Math.round(tunerSmooth), cents = Math.round((tunerSmooth - n) * 100);
+    note.textContent = NOTE_NAMES[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1);
+    needle.style.left = (50 + clamp(cents, -50, 50)) + "%";
+    cl.textContent = Math.abs(cents) < 3 ? "in tune" : (cents > 0 ? "+" + cents + "¢ sharp - tune down" : cents + "¢ flat - tune up");
+    el.classList.toggle("intune", Math.abs(cents) < 3); el.classList.toggle("sharp", cents >= 3); el.classList.toggle("flat", cents <= -3);
+  }
+  function toggleTuner() {
+    tunerOn = !tunerOn; send({ type: "instrument", action: "level", levelDb: tunerOn ? -120 : (cfg().output.level || 0) });
+    var box = tunerBox(); box.classList.toggle("on", tunerOn); tunerSmooth = null;
+    if (tunerOn) startMeter(); else if (!onTab()) stopMeter();
+    if (onTab()) render(); if (window.PPActions) window.PPActions.sendLeds(); return tunerOn;
+  }
   wire();
   function pedalNames() { return chainFor(kind()).map(function (it, i) { var p = PED.byId(it.pedal); return { index: i, name: p ? p.name : it.pedal, on: it.on !== false }; }); }
   function state() { var c = cfg(); return { kind: c.kind, tuner: tunerOn, board: c.boards[c.kind], patch: c.keys.patch, get levelDb() { return c.output.level || 0; }, set levelDb(v) { c.output.level = v; if (onTab()) { var el = $("#inOut"); if (el) { el.value = v; var o = el.parentNode.querySelector("output"); if (o) o.textContent = v + " dB"; } } } }; }

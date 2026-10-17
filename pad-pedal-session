@@ -155,6 +155,7 @@ url_for() {   # $1 what, $2 screen number
     lyrics) echo "http://127.0.0.1:8080/lyrics?code=$CODE&screen=$2" ;;
     charts) echo "http://127.0.0.1:8080/?code=$CODE&screen=$2" ;;
     stage) echo "http://127.0.0.1:8080/stage?code=$CODE&screen=$2" ;;
+    slides) echo "http://127.0.0.1:8080/slides?code=$CODE&screen=$2" ;;
     *) echo "" ;;
   esac
 }

@@ -22,6 +22,7 @@
       var m; try { m = JSON.parse(e.data); } catch (_) { return; }
       if (m.type === "display") { state.display = m; notify(); }
       else if (m.type === "hello") { state.hostname = m.hostname || ""; notify(); }
+      else if (m.type === "slide") { state.slide = m; notify(); }
       else if (m.type === "auth") { state.authed = !!m.ok; if (!m.ok && code) { try { localStorage.removeItem("pp-code"); } catch (_) { } code = ""; } notify(); }
     };
     socket.onclose = function () { state.connected = false; state.authed = false; notify(); clearInterval(pingTimer); setTimeout(connect, retry); };
@@ -42,5 +43,5 @@
   }
   fetch("http://" + host + ":" + (location.port || 8080) + "/api/info", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j.wsPort) state.wsPort = j.wsPort; state.hostname = j.hostname || state.hostname; connect(); }).catch(function () { connect(); });
 
-  window.PPCompanion = { state: state, on: function (fn) { listeners.push(fn); if (state.display) fn(state); }, action: action, askCode: askCode, esc: esc, keyName: keyName, fmtTime: fmtTime, api: function (p) { return "http://" + host + ":" + (location.port || 8080) + "/api" + p; }, hasCode: function () { return !!code; } };
+  window.PPCompanion = { state: state, on: function (fn) { listeners.push(fn); if (state.display || state.slide) fn(state); }, action: action, askCode: askCode, esc: esc, keyName: keyName, fmtTime: fmtTime, api: function (p) { return "http://" + host + ":" + (location.port || 8080) + "/api" + p; }, hasCode: function () { return !!code; } };
 })();

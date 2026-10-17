@@ -60,9 +60,9 @@ for old in "$HERE"/pad-pedal-os.img "$HERE"/pad-pedal-os.img.xz; do
   [ -e "$old" ] && printf '    note: %s is an image from an OLDER version (before 7.1) - delete it so it never gets flashed by mistake\n' "$(basename "$old")"
 done
 FILES=(setup-pi.sh index.html css/pad-pedal.css js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/shell.js
-       js/textures.js js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js
+       js/textures.js js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/io.js
        instrument_host.py sources.py instrument-plugins.json get-sounds.sh
-       companion/index.html companion/lyrics.html companion/stage.html companion/upload.html companion/remote.html companion/mini.html companion/common.js companion/style.css
+       companion/index.html companion/lyrics.html companion/stage.html companion/upload.html companion/remote.html companion/mini.html companion/slides.html companion/common.js companion/style.css
        pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session pad-pedal-audio-config
        xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf pad-pedal-safe-mode pad-pedal.sudoers
        starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2 fonts/inter-latin-ext.woff2 fonts/OFL.txt

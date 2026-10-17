@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><link rel="stylesheet" href="/fonts/fonts.css">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central Control slides</title>
+<style>
+  html,body { margin:0; height:100%; background:#000; color:#fff; font-family:Inter,ui-sans-serif,system-ui,sans-serif; overflow:hidden; cursor:none; }
+  .layer { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .45s; }
+  .layer.on { opacity:1; }
+  .layer img, .layer video { width:100%; height:100%; object-fit:contain; }
+  .layer.cover img, .layer.cover video { object-fit:cover; }
+  .layer .bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.55; }
+  .text { position:relative; padding:5vh 7vw; text-align:center; font-weight:700; font-size:var(--size,7vh); line-height:1.25; text-wrap:balance; white-space:pre-line; text-shadow:0 2px 12px rgba(0,0,0,.6); }
+  .text small { display:block; font-size:2.6vh; letter-spacing:.2em; text-transform:uppercase; opacity:.5; margin-bottom:3vh; font-weight:600; }
+  .status { position:fixed; right:1.2vh; bottom:1vh; font-size:1.6vh; opacity:.4; }
+</style>
+</head>
+<body>
+<div class="layer" id="a"></div><div class="layer" id="b"></div>
+<div class="status" id="status"></div>
+<script src="common.js"></script>
+<script>
+// The Pi's slides screen: pictures, videos and lyrics sent by Central Usage (Slides tab). Cross-fades
+// between two layers; video plays muted unless Central Usage asks for sound.
+(function () {
+  var C = window.PPCompanion, esc = C.esc, cur = "a", lastT = null;
+  function html(s) {
+    if (s.kind === "image") return '<img src="' + C.api("/slides/" + encodeURIComponent(s.file)) + '" alt="">';
+    if (s.kind === "video") return '<video src="' + C.api("/slides/" + encodeURIComponent(s.file)) + '" autoplay playsinline' + (s.loop !== false ? " loop" : "") + (s.muted === false ? "" : " muted") + "></video>";
+    var bg = s.bgFile ? (/\.(mp4|webm|mov|m4v|ogv)$/i.test(s.bgFile) ? '<video class="bg" src="' + C.api("/slides/" + encodeURIComponent(s.bgFile)) + '" autoplay muted loop playsinline></video>' : '<img class="bg" src="' + C.api("/slides/" + encodeURIComponent(s.bgFile)) + '" alt="">') : "";
+    if (s.kind === "text" || s.kind === "lyrics") return bg + '<div class="text" style="--size:' + (Number(s.size) || 7) + 'vh;color:' + esc(s.color || "#fff") + ';text-align:' + esc(s.align || "center") + '">' + (s.title ? "<small>" + esc(s.title) + "</small>" : "") + esc(s.text || "") + "</div>";
+    return "";
+  }
+  C.on(function (st) {
+    document.getElementById("status").textContent = st.connected ? "" : "reconnecting…";
+    var s = st.slide; if (!s || s.t === lastT) return; lastT = s.t;
+    var next = cur === "a" ? "b" : "a", el = document.getElementById(next), old = document.getElementById(cur);
+    el.className = "layer" + (s.fit === "cover" ? " cover" : ""); el.style.background = s.background || "#000"; el.innerHTML = html(s);
+    requestAnimationFrame(function () { el.classList.add("on"); old.classList.remove("on"); setTimeout(function () { if (!old.classList.contains("on")) { var v = old.querySelector("video"); if (v) v.pause(); old.innerHTML = ""; } }, 600); });
+    cur = next;
+  });
+})();
+</script>
+</body>
+</html>

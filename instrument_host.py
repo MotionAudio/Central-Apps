@@ -26,7 +26,7 @@ import time
 
 log = logging.getLogger("instrument")
 
-SF2_DIRS = ["/opt/pad-pedal/sounds", "/usr/share/sounds/sf2", "/usr/share/soundfonts"]
+SF2_DIRS = ["/opt/pad-pedal/sounds", "/usr/share/sounds/sf2", "/usr/share/sounds/sf3", "/usr/share/soundfonts"]
 FLUID_PORT = 9800
 CONVOLVER_URI = "builtin:convolver"
 MAX_KEY_LAYERS = 8
@@ -351,9 +351,10 @@ class InstrumentHost:
                 if not fn.lower().endswith((".sf2", ".sf3")):
                     continue
                 path = os.path.join(d, fn)
-                if path in seen:
+                real = os.path.realpath(path)
+                if path in seen or real in seen:
                     continue
-                seen.add(path)
+                seen.add(path); seen.add(real)
                 presets = sf2_presets(path)
                 if presets:
                     base = os.path.splitext(fn)[0]
@@ -361,6 +362,8 @@ class InstrumentHost:
                     bank_name = re.sub(r"\s+", " ", bank_name)
                     if bank_name.lower() in ("fluidr3 gm", "default gm"):
                         bank_name = "General MIDI (FluidR3)"
+                    elif "musescore" in bank_name.lower():
+                        bank_name = "MuseScore General (pianos, EPs, basses, strings)"
                     for pr in presets:
                         if pr["name"].strip().lower() in ("instrument", "preset", "untitled", "new preset", "default"):
                             pr["name"] = bank_name
@@ -731,7 +734,7 @@ context.modules = [
         self.probe_lv2()
         inp = self.config.get("input") or {}
         chain = self.config.get("chain") or []
-        if kind in ("electric", "acoustic"):
+        if kind in ("electric", "acoustic", "bass"):
             self.stop_keys()
             stereo = inp.get("channel") == "stereo"
             conf = self.chain_conf("guitar", chain, 2 if stereo else 1, inp.get("gainDb", 0), {"on": inp.get("gateOn", True), "db": inp.get("gateDb", -65)}, self.config.get("levelDb", 0))

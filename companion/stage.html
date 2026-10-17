@@ -14,6 +14,7 @@
   .meta { font-size:3vh; color:var(--dim); white-space:nowrap; } .meta b { color:var(--fg); }
   .mid { display:grid; grid-template-columns:1.3fr 1fr; gap:4vw; align-items:center; min-height:0; }
   .now { display:grid; gap:1.5vh; }
+  .note { font-size:3.4vh; font-weight:700; color:#ffd765; min-height:1em; }
   .label { font-size:2.4vh; letter-spacing:.25em; text-transform:uppercase; color:var(--dim); }
   .section { font-size:12vh; font-weight:900; line-height:1; letter-spacing:-.02em; }
   .count { font-size:6vh; color:var(--dim); font-variant-numeric:tabular-nums; } .count b { color:var(--warn); font-size:9vh; font-weight:900; }
@@ -38,8 +39,8 @@
 <div class="wrap" id="wrap" hidden>
   <div class="top"><div class="song" id="song"></div><div class="meta" id="meta"></div></div>
   <div class="mid">
-    <div class="now"><div class="label">Now</div><div class="section" id="section">—</div><div class="count" id="count"></div><div class="lyrics" id="lyrics"></div></div>
-    <div class="next"><div class="label">Next</div><div class="name" id="nextName">—</div><div class="in" id="nextIn"></div><div class="flow" id="flow"></div></div>
+    <div class="now"><div class="label">Now</div><div class="section" id="section">—</div><div class="note" id="secNote"></div><div class="count" id="count"></div><div class="lyrics" id="lyrics"></div></div>
+    <div class="next"><div class="label">Next</div><div class="name" id="nextName">—</div><div class="note" id="nextNote"></div><div class="in" id="nextIn"></div><div class="flow" id="flow"></div></div>
   </div>
   <div class="bottom"><div class="beats" id="beats"></div><div class="bar" id="bar"><i id="barFill"></i></div><div class="time" id="time"></div></div>
 </div>
@@ -63,6 +64,9 @@
     var ls = d.lyrics || { lines: [], next: [] };
     $("#lyrics").innerHTML = (ls.lines || []).slice(0, 3).map(function (l) { return '<div class="cur">' + esc(l) + "</div>"; }).join("") + (ls.next || []).slice(0, 2).map(function (l) { return "<div>" + esc(l) + "</div>"; }).join("");
     $("#nextName").textContent = d.next ? d.next.name : (d.section ? "end of song" : "—");
+    var secs0 = d.sections || [], nowS = d.section ? secs0[d.section.index] : null, nextS = d.next && d.section ? secs0[d.section.index + 1] : null;
+    $("#secNote").textContent = d.section && d.section.note ? d.section.note : ""; $("#nextNote").textContent = nextS && nextS.note ? nextS.note : "";
+    $("#section").style.color = d.section && d.section.color ? d.section.color : ""; $("#nextName").style.color = nextS && nextS.color ? nextS.color : "";
     var fl = d.flow, secs = d.sections || [];
     $("#flow").innerHTML = fl ? fl.entries.map(function (si, i) { var s = secs[si]; return '<span class="' + (i === fl.index ? "cur" : i < fl.index ? "past" : "") + '">' + esc(s ? s.name : "?") + "</span>"; }).join("") : secs.map(function (s, i) { return '<span class="' + (d.section && d.section.index === i ? "cur" : d.section && i < d.section.index ? "past" : "") + '">' + esc(s.name) + "</span>"; }).join("");
     var bpb = d.bpb || 4, beats = $("#beats");

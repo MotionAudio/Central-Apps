@@ -50,5 +50,19 @@ await check("USB-DMX: frames are written to the interface's port in ENTTEC Pro f
   assert.equal(dmx.status().frames, 1);
   dmx.configure({ mode: "off" });
 });
+await check("one output per universe: universe 1 over Art-Net to one node, universe 2 over sACN to another, at the same time", async () => {
+  const a = dgram.createSocket("udp4"), b = dgram.createSocket("udp4"); await new Promise((r) => a.bind(0, "127.0.0.1", r)); await new Promise((r) => b.bind(0, "127.0.0.1", r));
+  const gotA = [], gotB = []; a.on("message", (m) => gotA.push(m)); b.on("message", (m) => gotB.push(m));
+  const st = dmx.configure({ outputs: [{ universe: 1, mode: "artnet", host: "127.0.0.1", port: a.address().port }, { universe: 2, mode: "sacn", host: "127.0.0.1", port: b.address().port }, { universe: 3, mode: "off" }] });
+  assert.equal(st.outputs.length, 2);
+  await new Promise((r) => setTimeout(r, 100));
+  const u1 = new Uint8Array(512), u2 = new Uint8Array(512); u1[0] = 11; u2[0] = 22;
+  dmx.sendFrame({ universes: { "1": Array.from(u1), "2": Array.from(u2), "3": Array.from(u1) } });
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(gotA.length, 1); assert.equal(gotA[0][18], 11); assert.equal(gotA[0].readUInt16LE(14), 0);
+  assert.equal(gotB.length, 1); assert.equal(gotB[0][126], 22); assert.equal(gotB[0].readUInt16BE(113), 2);
+  const s2 = dmx.status(); assert.ok(s2.outputs.every((o) => o.frames === 1), JSON.stringify(s2.outputs));
+  a.close(); b.close(); dmx.configure({ outputs: [] });
+});
 await check("the port list finds serial interfaces (or is simply empty)", () => { assert.ok(Array.isArray(dmx.listPorts())); });
 console.log(failures ? "\n" + failures + " DMX CHECK(S) FAILED" : "\nALL DMX CHECKS PASSED"); process.exit(failures ? 1 : 0);

@@ -81,17 +81,17 @@ const T = (fn, arg) => page.evaluate(fn, arg);
 async function sim(m) { await T((m) => window.__pedalBridge.send(Object.assign({ type: "sim" }, m)), m); }
 
 console.log("\nConnection and the Learn tab:");
-await check("the app is served by the driver and connects to it", async () => { await until(() => T(() => window.__pedalBridge.connected)); assert.match(await T(() => document.querySelector("#pfHw").textContent), /^Central Control 7\./); });
+await check("the app is served by the driver and connects to it", async () => { await until(() => T(() => window.__pedalBridge.connected)); assert.match(await T(() => document.querySelector("#pfHw").textContent), /^Central Control 8\./); });
 await check("the driver's inputs show in the Learn tab with their pins", async () => { await T(() => PPShell.showTab("learn")); await wait(200); const txt = await T(() => document.querySelector('[data-learn="b1"] small').textContent); assert.match(txt, /GPIO 4/); assert.equal(await T(() => document.querySelectorAll("#lnBoard .ln-row").length), 22); });
 
 console.log("\nButtons and knobs drive the pads:");
-await check("pressing button 1 on the board plays pad 1 (default Pad layout)", async () => { await T(() => PPShell.showTab("pads")); await sim({ sim: "press", id: "b1" }); await until(() => T(() => __test.playingIndex() === 0)); await sim({ sim: "release", id: "b1" }); });
-await check("pressing button 9 stops it", async () => { await sim({ sim: "press", id: "b9" }); await until(() => T(() => PP.engine.voices().length === 0)); await sim({ sim: "release", id: "b9" }); });
+await check("one layout: button 1 (Play all) plays the song's pad when the song has no tracks", async () => { await T(() => PPShell.showTab("pads")); await sim({ sim: "press", id: "b1" }); await until(() => T(() => __test.playingIndex() === 0)); await sim({ sim: "release", id: "b1" }); });
+await check("button 2 (Stop all) stops it", async () => { await sim({ sim: "press", id: "b2" }); await until(() => T(() => PP.engine.voices().length === 0)); await sim({ sim: "release", id: "b2" }); });
 await check("knob 1 sets the master volume", async () => { await sim({ sim: "knob", id: "k1", value: 0.9 }); await until(() => T(() => Math.abs(PP.project().performance.volume - 0.9) < 0.03)); });
 await check("slider 1 is the expression / swell", async () => { await sim({ sim: "knob", id: "s1", value: 0.25 }); await until(() => T(() => Math.abs(parseFloat(document.querySelector("#pfExpr").style.width) - 25) < 4)); });
-await check("knob 5 sets texture 1's level", async () => { await sim({ sim: "knob", id: "k5", value: 0.6 }); await until(() => T(() => Math.abs(PP.project().textures[0].level - 60) < 4)); });
-await check("holding button 10 freezes (hold action)", async () => { await sim({ sim: "press", id: "b1" }); await until(() => T(() => __test.playingIndex() === 0)); await sim({ sim: "release", id: "b1" }); await sim({ sim: "press", id: "b10" }); await until(() => T(() => !!PP.engine.frozen), 4000); await sim({ sim: "release", id: "b10" }); await T(() => { PPFeatures.toggleFreeze(); PP.engine.panic(); }); });
-await check("the encoder changes the key", async () => { const before = await T(() => PP.currentPad().key); await sim({ sim: "encoder", id: "enc", delta: 1 }); await until(() => T((b) => PP.currentPad().key !== b, before)); });
+await check("knob 5 sets the tone", async () => { await sim({ sim: "knob", id: "k5", value: 0.6 }); await until(() => T(() => Math.abs(PP.project().performance.tone - 0.6) < 0.03)); });
+await check("holding button 11 freezes (hold action)", async () => { await sim({ sim: "press", id: "b1" }); await until(() => T(() => __test.playingIndex() === 0)); await sim({ sim: "release", id: "b1" }); await sim({ sim: "press", id: "b11" }); await until(() => T(() => !!PP.engine.frozen), 4000); await sim({ sim: "release", id: "b11" }); await T(() => { PPFeatures.toggleFreeze(); PP.engine.panic(); }); });
+await check("button 10 is key up", async () => { const before = await T(() => PP.currentPad().key); await sim({ sim: "press", id: "b10" }); await sim({ sim: "release", id: "b10" }); await until(() => T((b) => PP.currentPad().key !== b, before)); await T(() => PP.changeKey(-1)); });
 
 console.log("\nLearn:");
 await check("Learn on Button 3, press a switch on GPIO 17 -> Button 3 is now GPIO 17", async () => {
@@ -101,13 +101,13 @@ await check("Learn on Button 3, press a switch on GPIO 17 -> Button 3 is now GPI
   await until(() => T(() => /GPIO 17/.test(document.querySelector('[data-learn="b3"] small').textContent)));
   await until(() => /GPIO ready/.test(driverLog.split("learning b3").pop() || ""), 4000, 100);
 });
-await check("...and the driver now reports presses on GPIO 17 as Button 3", async () => { await T(() => PPShell.showTab("pads")); await sim({ sim: "gpio", pin: 17, low: true }); await until(() => T(() => __test.playingIndex() === 2)); await sim({ sim: "gpio", pin: 17, low: false }); await T(() => PP.engine.panic()); });
+await check("...and the driver now reports presses on GPIO 17 as Button 3", async () => { await T(() => { PPShell.showTab("pads"); PPActions.mapping().b3 = { action: "pad", args: { index: 2 } }; PPActions.modeChanged(); }); await sim({ sim: "gpio", pin: 17, low: true }); await until(() => T(() => __test.playingIndex() === 2)); await sim({ sim: "gpio", pin: 17, low: false }); await T(() => PP.engine.panic()); });
 await check("Configure: button 2 remapped to 'Tap tempo' works", async () => {
-  await T(() => { PPActions.mapping("pad").b2 = { action: "tap" }; PPActions.modeChanged(); window.__taps = 0; const orig = PPActions.ACTIONS.tap.run; PPActions.ACTIONS.tap.run = function () { window.__taps++; return orig.apply(this, arguments); }; });
+  await T(() => { PPActions.mapping().b2 = { action: "tap" }; PPActions.modeChanged(); window.__taps = 0; const orig = PPActions.ACTIONS.tap.run; PPActions.ACTIONS.tap.run = function () { window.__taps++; return orig.apply(this, arguments); }; });
   for (let i = 0; i < 4; i++) { await sim({ sim: "press", id: "b2" }); await wait(30); await sim({ sim: "release", id: "b2" }); await wait(470); }
   const taps = await T(() => window.__taps); assert.equal(taps, 4, "tap action fired " + taps + " times");
   const bpm = await T(() => PP.project().tempo.bpm); assert.ok(bpm > 60 && bpm < 240, "bpm " + bpm + " (taps are timed by this machine, so only a sane range is checked)");
-  await T(() => { PPActions.mapping("pad").b2 = { action: "pad", args: { index: 1 } }; PPActions.modeChanged(); });
+  await T(() => { PPActions.mapping().b2 = { action: "stopAll", hold: { action: "panic" } }; PPActions.mapping().b3 = { action: "prevSection" }; PPActions.modeChanged(); });
 });
 
 console.log("\nTracks:");
@@ -218,17 +218,17 @@ await check("USE TRACKS on + play: the transport runs, the click bus makes sound
   const d = await (await fetch("http://127.0.0.1:8080/api/display")).json();
   assert.equal(d.song.name, "Test Song"); assert.equal(d.playing, true); assert.ok(d.sections.length >= 2);
 });
-await check("in Tracks mode button 1 is play/pause and button 6 is next section", async () => {
+await check("with tracks: button 2 stops all, button 1 plays all, button 4 is next section", async () => {
   async function dbg(step) { const d = await T(() => ({ playing: PPTracks.state.playing, section: PPTracks.state.section, pos: PPTracks.state.pos, loop: PPTracks.state.loop, tracksMode: PP.project().tracksMode, entry: PPActions.entryFor("b1") })); return step + ": " + JSON.stringify(d); }
   if (!(await T(() => PPTracks.state.playing))) await T(async () => { await PPTracks.play({ countIn: false }); });
   await until(() => T(() => PPTracks.state.playing), 5000);
-  try { await sim({ sim: "press", id: "b1" }); await until(() => T(() => !PPTracks.state.playing), 5000); await sim({ sim: "release", id: "b1" }); } catch (e) { throw new Error(await dbg("b1 should pause")); }
+  try { await sim({ sim: "press", id: "b2" }); await until(() => T(() => !PPTracks.state.playing), 5000); await sim({ sim: "release", id: "b2" }); } catch (e) { throw new Error(await dbg("b2 should stop")); }
   await wait(300);
   try { await sim({ sim: "press", id: "b1" }); await until(() => T(() => PPTracks.state.playing), 5000); await sim({ sim: "release", id: "b1" }); } catch (e) { throw new Error(await dbg("b1 should play again")); }
   try { await T(() => PPTracks.goSection(0, { immediate: true })); await until(() => T(() => PPTracks.state.section === 0), 5000); } catch (e) { throw new Error(await dbg("goSection 0")); }
   await wait(300);
-  await sim({ sim: "press", id: "b6" }); await sim({ sim: "release", id: "b6" });
-  try { await until(() => T(() => PPTracks.state.section === 1), 8000); } catch (e) { throw new Error(await dbg("b6 next section")); }
+  await sim({ sim: "press", id: "b4" }); await sim({ sim: "release", id: "b4" });
+  try { await until(() => T(() => PPTracks.state.section === 1), 8000); } catch (e) { throw new Error(await dbg("b4 next section")); }
 });
 await check("key up shifts the tracks (+1) and the pads follow the song key", async () => { await T(() => PPTracks.shiftKey(1)); const r = await T(() => ({ key: PPTracks.song().key, shift: PPTracks.data(PPTracks.song()).keyShift, padKey: PP.playKeyFor(PP.currentPad()) })); assert.equal(r.key, "G#"); assert.equal(r.shift, 1); assert.equal(r.padKey, "G#"); await T(() => PPTracks.shiftKey(-1)); });
 await check("repeat section loops back", async () => { await T(() => { PPTracks.goSection(0, { immediate: true }); PPTracks.setLoop(0); }); const end = await T(() => PPTracks.sectionsOf(PPTracks.song())[0].end); await until(() => T(() => PPTracks.state.pos > 0.2), 3000); await until(() => T((end) => PPTracks.state.loop === 0 && PPTracks.state.pos < end, end), 2000); await T(() => PPTracks.setLoop(-1)); });
@@ -491,7 +491,9 @@ await check("looper: records a loop from the instrument, closes it, plays it, ov
   assert.deepEqual(r.states, [true, true, true, true, true, true]); assert.ok(r.len > r.rate * 0.3 && r.len < r.rate * 1.5, "loop length " + r.len); assert.ok(r.undone);
 });
 await check("updates: a newer release shows 'Update ready'; Install waits until nothing is playing", async () => {
-  await T(() => { PPShell.showTab("pads"); PP.engine.triggerPad ? 0 : 0; PP.triggerPad(0); PPFeatures.handleHardware({ type: "updateStatus", current: "7.0.0", latest: "7.1.0", available: true, notes: "Better", repo: "church/cc", auto: true }); });
+  await T(() => { PPTracks.stop(true); PP.engine.stop(); }); await wait(300);
+  await T(() => { PPShell.showTab("pads"); PP.triggerPad(0); }); await until(() => T(() => PP.engine.voices().length > 0), 5000);
+  await T(() => { PPFeatures.handleHardware({ type: "updateStatus", current: "7.0.0", latest: "7.1.0", available: true, notes: "Better", repo: "church/cc", auto: true }); });
   await until(() => T(() => !document.querySelector("#updBanner").classList.contains("hidden")));
   assert.ok(await T(() => document.querySelector('#updBanner [data-upd="install"]').disabled), "disabled while pads play");
   await T(() => PP.engine.panic ? PP.engine.panic() : PP.engine.stop()); await wait(3600);
@@ -555,6 +557,34 @@ await check("...and Learn → + Add MIDI button asks for the name and adds it", 
   await page.waitForSelector("dialog.pp-ask[open] input"); await page.fill("dialog.pp-ask input", "Next song footswitch"); await page.click("dialog.pp-ask button.primary");
   await until(() => T(() => (PP.project().inputs || []).some((i) => i.name === "Next song footswitch" && i.midi)));
   await page.keyboard.press("Escape"); await T(() => { document.querySelectorAll("dialog[open]").forEach((d) => d.close()); PPShell.showTab("tracks"); });
+});
+console.log("\nCentral Usage link:");
+await check("I/O tab: every input and output - network audio, outputs, inputs, MIDI, screens, control surface, devices", async () => {
+  await T(() => PPShell.showTab("io")); await until(() => T(() => document.querySelectorAll("#ioRoot .io-card").length >= 6), 5000);
+  const t = await T(() => document.querySelector("#ioRoot").textContent);
+  assert.ok(/Audio to Central Usage/.test(t) && /Audio outputs/.test(t) && /Audio inputs/.test(t) && /MIDI/.test(t) && /HDMI 2 shows/.test(t) && /Control surface/.test(t), t.slice(0, 300));
+});
+await check("network audio: set to Wi-Fi on the I/O tab, a Central Usage subscribes and gets every track on its own channel + click, pads, tracks mix", async () => {
+  await T(() => { const r = document.querySelector('#ioRoot input[name="ioNet"][value="wifi"]'); r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); });
+  await until(() => T(() => PPNetSend.status() && PPNetSend.status().config.mode === "wifi"), 5000);
+  const ws = new WebSocket("ws://127.0.0.1:8081"); ws.binaryType = "arraybuffer"; const packets = [], msgs = [];
+  ws.onmessage = (e) => { if (typeof e.data === "string") msgs.push(JSON.parse(e.data)); else packets.push(e.data); };
+  await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
+  ws.send(JSON.stringify({ type: "client", app: "central-usage", mode: "admin", name: "Test desk" }));
+  ws.send(JSON.stringify({ type: "audioSubscribe", code, sources: [0], name: "Test desk" }));
+  await T(() => { PPTracks.goSection(0, { immediate: true }); PPTracks.play({ countIn: false }); });
+  await until(() => packets.length > 10, 8000);
+  const info = msgs.filter((m) => m.type === "audioStream").pop(), names = info.sources["0"].channels;
+  assert.ok(names.includes("Click + cues") && names.includes("Tracks mix L") && names.length >= 6, names.join(","));
+  const v = new DataView(packets[packets.length - 1]); assert.equal(String.fromCharCode(v.getUint8(0), v.getUint8(1), v.getUint8(2), v.getUint8(3)), "CCA1"); assert.equal(v.getUint8(5), names.length);
+  const listening = await until(() => T(() => /Test desk/.test(document.querySelector("#ioRoot").textContent)), 5000); assert.ok(listening);
+  ws.close(); await T(() => { PPTracks.stop(true); PPNetSend.configure({ mode: "off" }); });
+});
+await check("the hub: the app's songs (tempo, sections, waveform) are on the driver for Central Usage", async () => {
+  await T(() => PPHub.push(true));
+  const hub = await until(async () => { const j = await (await fetch("http://127.0.0.1:8080/api/hub")).json(); return j.songs.some((s) => s.name === "Test Song") ? j : null; }, 8000);
+  const id = hub.songs.find((s) => s.name === "Test Song").id, d = await (await fetch("http://127.0.0.1:8080/api/hub/" + id)).json();
+  assert.ok(d.sections.length >= 2 && d.overview.length > 100 && d.bpm > 0 && d.stems.length >= 1, JSON.stringify(d).slice(0, 200));
 });
 await check("no page errors during the whole run", () => assert.deepEqual(errors.filter((e) => !/favicon/.test(e)), []));
 

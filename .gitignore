@@ -12,3 +12,7 @@ sounds/
 wheels/
 central-control-source.zip
 central-control-desktop/src/
+central-usage/app/shared/
+central-usage/native/build/
+central-usage/native/instrument_host.py
+central-usage/native/instrument-plugins.json

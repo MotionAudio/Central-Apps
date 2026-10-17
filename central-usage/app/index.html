@@ -6,16 +6,20 @@
   <title>Central Usage</title>
   <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="inear.css">
 </head>
 <body>
   <header class="top">
     <div class="brand"><b>Central Usage</b><span id="connInfo">not connected</span></div>
-    <nav class="tabs" id="tabs"><button class="tab active" data-tab="chart">Chord chart</button><button class="tab" data-tab="lyrics">Lyrics</button><button class="tab" data-tab="lights">Lighting</button></nav>
+    <nav class="tabs" id="tabs">
+      <button class="tab" data-tab="chart">Chord chart</button><button class="tab" data-tab="instrument">Instrument</button><button class="tab" data-tab="lights">Lighting</button><button class="tab" data-tab="mix">Mix</button>
+      <button class="tab" data-tab="inears">In-ears</button><button class="tab" data-tab="lyrics">Lyrics</button><button class="tab" data-tab="slides">Slides</button><button class="tab" data-tab="io">I/O</button><button class="tab" data-tab="settings" title="Settings">⚙</button>
+    </nav>
     <div class="song" id="songBox"><b id="songName">No song</b><span id="songMeta"></span></div>
-    <div class="conn"><span class="dot off" id="dot"></span><input id="host" placeholder="padpedal.local" title="Central Control address"><button id="connectBtn">Connect</button><button id="findBtn" title="Find Central Controls on this Wi-Fi">Find</button><button id="codeBtn" title="Pairing code (to control the Pi)">Code</button></div>
+    <div class="conn"><span class="dot off" id="dot"></span><input id="host" placeholder="padpedal.local" title="Central Control address"><button id="connectBtn">Connect</button><button id="findBtn" title="Find Central Controls on this network">Find</button><button id="codeBtn" title="Pairing code (Central Control → Settings)">Code</button></div>
   </header>
 
-  <section class="view active" id="view-chart">
+  <section class="view" id="view-chart">
     <div class="bar">
       <label class="toggle"><input type="checkbox" id="follow" checked> Follow the Central Control</label>
       <select id="songPick" title="Song"></select>
@@ -30,13 +34,24 @@
     <div class="chart" id="chart"><div class="empty">Connect to a Central Control to see its chord charts.</div></div>
   </section>
 
+  <section class="view" id="view-instrument">
+    <div class="inst-wrap"><iframe id="instFrame" title="Instrument" data-src="instrument.html"></iframe></div>
+  </section>
+
   <section class="view" id="view-lyrics">
-    <div class="bar"><label>Size <input type="range" id="lyricsSize" min="20" max="96" value="44"></label><label class="toggle"><input type="checkbox" id="lyricsNext" checked> Show what comes next</label><button id="lyricsPrev">◀ Previous</button><button id="lyricsNextBtn">Next ▶</button></div>
+    <div class="bar"><label>Size <input type="range" id="lyricsSize" min="20" max="96" value="44"></label><label class="toggle"><input type="checkbox" id="lyricsNext" checked> Show what comes next</label><button id="lyricsPrev">◀ Previous</button><button id="lyricsNextBtn">Next ▶</button>
+      <span class="admin-only lyr-out"><label class="toggle"><input type="checkbox" id="lyricsLive"> Lyrics to the outputs</label><span class="muted small" id="lyricsOutInfo"></span></span></div>
     <div class="lyrics" id="lyrics"><div class="empty">Lyrics follow the Central Control's song and section.</div></div>
   </section>
 
+  <section class="view" id="view-slides"><div id="slidesRoot" class="pad-view"></div></section>
+  <section class="view" id="view-mix"><div id="mixRoot" class="pad-view"></div></section>
+  <section class="view" id="view-inears"><div id="inearsRoot" class="pad-view"></div></section>
+  <section class="view" id="view-io"><div id="ioRoot" class="pad-view"></div></section>
+  <section class="view" id="view-settings"><div id="settingsRoot" class="pad-view"></div></section>
+
   <section class="view" id="view-lights">
-    <div class="bar lx-bar"><nav class="lx-nav" id="lxNav"><button data-lx="show">Show</button><button data-lx="looks">Looks</button><button data-lx="fixtures">Fixtures</button><button data-lx="output">Output (DMX · MIDI)</button></nav><span class="muted" id="lxNow"></span>
+    <div class="bar lx-bar"><nav class="lx-nav" id="lxNav"><button data-lx="show">Show</button><button data-lx="songs">Songs</button><button data-lx="looks">Presets</button><button data-lx="fixtures">Fixtures</button><button data-lx="output">Output</button></nav><span class="muted" id="lxNow"></span>
       <span class="lx-live"><div class="beat" id="beatLight"></div><b id="liveBpm">–</b><small>BPM</small><b id="liveBar">–</b><small>bar</small><b id="liveSync">–</b><small>sync</small><div class="hit" id="hitLight">HIT</div></span></div>
 
     <div class="lx-view lx-showview" data-lxv="show">
@@ -48,17 +63,24 @@
           <div class="lx-faders" id="lxFaders"></div>
         </div>
       </div>
-      <div class="lx-showbar"><span id="lxShowInfo" class="muted"></span><span class="muted small" id="lxSaveState"></span><span class="spacer"></span><label>Snap <select id="lxSnap"><option value="bar">bar</option><option value="beat">beat</option><option value="half">½ beat</option></select></label><label>When stopped <select id="lxStopped"></select></label><button id="lxRec" title="While the song plays, every Flash press (or the H key) adds a hit cue there">● Record hits</button><button id="lxAuto" title="Make the cues from the sections and the hits">✨ Auto show</button><button id="lxClear">Clear</button></div>
+      <div class="lx-showbar"><label>Mode <select id="lxMode" title="Auto: the hits and the music run the lights. Semi-auto: the same plus your own cues. Manual: only your cues."><option value="auto">Auto (hits + audio)</option><option value="semi">Semi-auto (+ your cues)</option><option value="manual">Manual (your cues)</option></select></label>
+        <span id="lxShowInfo" class="muted"></span><span class="muted small" id="lxSaveState"></span><span class="spacer"></span>
+        <label>Snap <select id="lxSnap"><option value="bar">bar</option><option value="beat">beat</option><option value="half">½ beat</option><option value="quarter">¼ beat</option></select></label><label>When stopped <select id="lxStopped"></select></label>
+        <button id="lxPreview" title="Play the song here (not on the Central Control) to program along">▶ Preview here</button><button id="lxRec" title="While the song plays, everything you press (presets, flashes, light colours) is recorded on the timeline. Record again over any part to replace it.">● Record</button><button id="lxAuto" title="Make the cues from the sections and the hits">✨ Auto show</button><button id="lxClear">Clear</button></div>
       <canvas id="lxTimeline" class="lx-timeline"></canvas>
+      <div class="lx-chat"><input id="lxChatIn" placeholder='Tell it the show: "dimmers blue 20%, red and shimmers 30% blue for the verse, then chorus full white, strobes on the hits"'><button id="lxChatGo" class="primary">Make it</button><span class="muted small" id="lxChatOut"></span></div>
       <div class="lx-cue" id="lxCue"></div>
+      <div class="lx-lights" id="lxLights"></div>
     </div>
+
+    <div class="lx-view" data-lxv="songs" hidden><div class="lx-songs" id="lxSongs"></div></div>
 
     <div class="lx-view" data-lxv="looks" hidden>
       <div class="lx-looks"><div class="lx-palette" id="lxLookList"></div><div class="lx-lookedit" id="lxLookEdit"></div></div>
     </div>
 
     <div class="lx-view" data-lxv="fixtures" hidden>
-      <div class="card"><h3>Add fixtures</h3><div class="row"><label>Type <select id="lxAddProfile"></select></label><label>How many <input id="lxAddCount" type="number" min="1" max="48" value="1" style="width:70px"></label><label>Name <input id="lxAddName" placeholder="Back wash"></label><label>Group <select id="lxAddGroup"></select></label><label>First address <input id="lxAddAddr" type="number" min="1" max="512" value="1" style="width:80px"></label><button class="primary" id="lxAddBtn">Add</button></div>
+      <div class="card"><h3>Add fixtures</h3><div class="row"><label>Type <select id="lxAddProfile"></select></label><label>How many <input id="lxAddCount" type="number" min="1" max="48" value="1" style="width:70px"></label><label>Name <input id="lxAddName" placeholder="Back wash"></label><label>Group <select id="lxAddGroup"></select></label><label>Universe <input id="lxAddUni" type="number" min="1" max="64" value="1" style="width:70px"></label><label>First address <input id="lxAddAddr" type="number" min="1" max="512" value="1" style="width:80px"></label><button class="primary" id="lxAddBtn">Add</button></div>
         <p class="muted small">Set the same DMX address (and mode / channel count) on each fixture's display. Drag fixtures on the Show tab's stage plot to where they hang. "Find" flashes one fixture.</p></div>
       <div class="card"><h3>Fixture library</h3><div id="lxLib"></div></div>
       <div id="lxFixTable"></div>
@@ -68,17 +90,16 @@
     <div class="lx-view" data-lxv="output" hidden>
       <div class="lights">
         <div class="card">
-          <h3>DMX output (lights straight from this computer)</h3>
-          <div class="lx-modes"><label class="toggle"><input type="radio" name="lxOut" value="off"> Off</label><label class="toggle"><input type="radio" name="lxOut" value="usb"> USB-DMX interface</label><label class="toggle"><input type="radio" name="lxOut" value="artnet"> Art-Net</label><label class="toggle"><input type="radio" name="lxOut" value="sacn"> sACN (E1.31)</label></div>
-          <div class="row" id="lxUsbRow"><label>Interface <select id="lxPort"></select></label><button id="lxRescan">Look again</button></div>
-          <p class="muted small" id="lxUsbHelp" hidden>USB-DMX: ENTTEC DMX USB Pro and compatibles (DMXking ultraDMX Pro / Micro, Eurolite USB-DMX512 PRO, …). Plug it in and pick it; universe 1 goes out of it.</p>
-          <div class="row" id="lxNetRow"><label id="lxHostLabel">Node IP (empty = broadcast) <input id="lxHost" placeholder="2.0.0.10"></label><label>Universe offset <input id="lxUniOffset" type="number" min="-1" max="32767" value="0" style="width:80px"></label></div>
+          <h3>DMX outputs (lights straight from this computer)</h3>
+          <p class="muted small">Every universe can go out its own way: a USB-DMX interface, Art-Net or sACN. Fixtures are patched to a universe on the Fixtures tab.</p>
+          <div id="lxOutputs"></div>
+          <div class="row"><button id="lxAddOutput">+ Another universe</button><button id="lxRescan">Look for USB-DMX again</button></div>
           <p class="muted" id="lxOutState">DMX output is off.</p>
-          <h3>Universe 1</h3><div class="lx-monitor" id="lxMonitor"></div>
+          <div class="row"><b>Universe</b><select id="lxMonUni"></select></div><div class="lx-monitor" id="lxMonitor"></div>
         </div>
         <div class="card">
           <h3>MIDI output (Lightkey, QLC+, a console)</h3>
-          <p class="muted">The Central Control's light hits, section notes and program changes arrive over Wi-Fi, lined up with its tracks, and leave here on this port - use it with or instead of the DMX output.</p>
+          <p class="muted">The Central Control's light hits, section notes and program changes arrive over the network, lined up with its tracks, and leave here on this port - use it with or instead of the DMX output.</p>
           <label>MIDI output <select id="midiOut"><option value="">— choose a port —</option></select></label>
           <label class="toggle"><input type="checkbox" id="sendClock" checked> Send MIDI clock (24 ppq) + start / stop</label>
           <label>Timing offset <span class="inline"><input type="range" id="offsetMs" min="-300" max="300" step="5" value="0"><output id="offsetOut">0 ms</output></span></label>
@@ -87,19 +108,32 @@
           <ol class="muted small"><li>Lightkey → Preferences → MIDI: enable the port above (or a USB MIDI interface / virtual port).</li><li>Map note 48 (ch 1) to your "big hit" cue; notes 60 and up are section starts (Central Control → Settings → MIDI out).</li><li>Channel 2 carries program changes per song and notes per section.</li></ol>
           <div class="log" id="log"></div>
         </div>
+        <div class="card"><h3>Click</h3><div id="lxClick"></div></div>
+        <div class="card"><h3>Lights and the music</h3><div id="lxAudio"></div></div>
         <div class="card"><h3>Timecode out (MTC · LTC)</h3><div id="lxTimecode"></div></div>
         <div class="card"><h3>Phone remote</h3><div id="lxRemote"></div></div>
       </div>
     </div>
   </section>
 
-  <dialog id="findDialog"><h3>Central Controls on this Wi-Fi</h3><div id="findList" class="findlist"><p class="muted">Looking…</p></div><div class="row"><button id="findAgain">Scan again</button><button id="findClose">Close</button></div></dialog>
+  <dialog id="findDialog"><h3>Central Controls on this network</h3><div id="findList" class="findlist"><p class="muted">Looking…</p></div><div class="row"><button id="findAgain">Scan again</button><button id="findClose">Close</button></div></dialog>
   <script src="chords.js"></script>
   <script src="app.js"></script>
+  <script src="mixer-model.js"></script>
+  <script src="inear-client.js"></script>
+  <script src="inear-ui.js"></script>
+  <script src="mixlink.js"></script>
   <script src="fixturelib.js"></script>
+  <script src="lights-ai.js"></script>
   <script src="lights.js"></script>
   <script src="timecode.js"></script>
   <script src="updates.js"></script>
+  <script src="mix.js"></script>
+  <script src="inears.js"></script>
+  <script src="slides.js"></script>
+  <script src="instrument-tab.js"></script>
+  <script src="io.js"></script>
+  <script src="settings.js"></script>
   <dialog id="updDialog"><h2>Updates</h2><p class="muted" id="updInfo"></p>
     <label>Update source (GitHub owner/repo)<input id="updRepo" placeholder="owner/repo"></label>
     <label class="toggle"><input type="checkbox" id="updAuto" checked> Check once a day</label>

@@ -6,9 +6,51 @@ multitrack player (stems, click, spoken cues, chord charts, lyrics) and a
 guitar / keys rig, with a touch screen, 12 footswitches, 6 knobs, 2 sliders,
 an expression pedal, MIDI in/out, Ableton Link, four separate audio outputs
 and a projector output. **Central Usage** (`central-usage/`) is the companion
-app for a laptop: chord charts for any instrument, lyrics, and a full
-lighting controller (fixtures, looks, a cue timeline, USB-DMX / Art-Net /
-sACN) that follows the song over Wi-Fi.
+app for the other computers in the room. An **Admin** computer gets the lighting
+controller, the tracks mixer, up to 48 in-ear mixes, lyrics and slides. A **User**
+computer gets the chord chart, the instrument, the lyrics and the musician's
+own in-ear mix. Everything follows the Central Control, and only the Central
+Control plays, stops and skips the tracks.
+
+**New in version 8:**
+- **The Central Control's audio goes to Central Usage.** Every track goes on its
+  own channel, plus the click, pads, the tracks mix and the instrument. It travels
+  over **Ethernet** or **Wi-Fi**, or through the **audio interface**; you pick which
+  on the new **I/O tab**, which lists every input and output.
+- **Learn has one layout.** It covers 12 buttons, 6 knobs and 2 sliders, and every
+  function can go on any of them: play all, stop all, the next song, sections,
+  rehearsal and more.
+- **Pads follow the tracks.** They follow the song's key and tempo, start and stop
+  with the tracks, swell by section, and each song can have its own pad.
+- **The Tracks tab has a mixer** right on the page. It also shows **one combined
+  waveform** with every section in its standard colour.
+- **Settings → Colours of everything:** the screen, the section colours and the pad
+  colours.
+- **Rehearsal tools:** A–B loop, loop a section, back or next section, and slow down.
+- A big **guitar tuner**, and song notes and cues on the stage display.
+- **More sounds:** 81 pads, 59 more pedals, a bass board, a piano bank, and an
+  on / off **live looper** under the instrument.
+- **Slides on HDMI 2:** pictures, videos and lyrics sent from Central Usage.
+
+**In Central Usage 2.0:**
+- **The Mix tab** gives every track its fader, pan, mute, high-pass, 3-band EQ and
+  compressor. The tracks go out of the USB interface summed (L/R) or each on its
+  own output.
+- **The In-ears tab** handles up to 128 channels and 48 mixes. People on stage pick
+  a free mix and set their own levels from Central Usage or a phone. Their mix
+  plays on that device over Wi-Fi (local), or leaves the audio host's interface for
+  a pack (cloud).
+- On the audio host you can **listen to any mix** and **record the service**.
+- **Lighting** runs in Auto, Semi-auto or Manual mode. It shows the waveform with
+  the hit lines, takes plain-word orders ("back blue 30% for the verse…"), and
+  records what you press so you can record over any part later. You can change
+  every light's colour in a list, edit presets, keep songs with any number of
+  scenes (with or without tracks) that follow any tempo, use more than one
+  universe, and run a click that you can hear, that the lights follow, and that
+  can go to an audio output. The lights also react to the music.
+- **Slides:** pictures, video and lyrics go to a second screen, the Central
+  Control's HDMI 2 and NDI.
+- **The Instrument tab** is the same guitar / bass / keys rig as on the Pi.
 
 **New in version 7.1:** the HDMI picture is right on any monitor - its own
 native resolution (sharp, not stretched), the whole app on screen, a monitor
@@ -45,7 +87,7 @@ kept in a library on the Pi · lighting in Central Usage.
    ```bash
    sudo WIFI_SSID="Church WiFi" WIFI_PASS="password" bash build-image.sh
    ```
-   You get `central-control-os-7.1.0.img` (the version is in the name - an
+   You get `central-control-os-8.0.0.img` (the version is in the name - an
    older `pad-pedal-os.img` lying in the folder is a previous version: delete
    it so it can't be flashed by mistake). Always build from the folder you
    unzipped the newest `central-control-source.zip` into. Options: `PI_PASS=...`, `PI_HOSTNAME=...`,
@@ -61,7 +103,7 @@ kept in a library on the Pi · lighting in Central Usage.
 3. **Boot.** The first boot takes about a minute longer and restarts once
    (it creates the `/data` partition and turns on safe mode). After that every
    boot goes straight to the Central Control screen. The start-up screen says
-   "Central Control 7.1.0" and the top-right of the app shows the same - if it
+   "Central Control 8.0.0" and the top-right of the app shows the same - if it
    doesn't, the card has an older image on it.
 
 4. **Wire the control surface** with `wiring.html`. Every part is optional;
@@ -71,7 +113,7 @@ kept in a library on the Pi · lighting in Central Usage.
 5. **Central Usage** on a laptop: `sudo apt install ./central-usage/dist/central-usage-1.3.0-amd64.deb`
    (or run the AppImage), then **Find** → Connect. See `central-usage/README.md`.
    **Central Control on a PC** (no Pi, for trying it out or building setlists):
-   `sudo apt install ./central-control-desktop/dist/central-control-7.1.0-amd64.deb`.
+   `sudo apt install ./central-control-desktop/dist/central-control-8.0.0-amd64.deb`.
 
 Maintenance login: `ssh pi@padpedal.local`, password `padpedal`.
 
@@ -80,10 +122,10 @@ the small `bootfs` partition of the card with the network name on line 1 and
 the password on line 2; it is imported (and deleted) at the next boot. Or use
 Settings → Wi-Fi on the screen itself (scan, pick, type the password).
 
-## The six tabs
+## The seven tabs
 
-`F1`–`F6`, or a button mapped to *Show tab*: **Pad · Tracks · Instrument ·
-Configure · Learn · Settings**.
+`F1`–`F7`, or a button mapped to *Show tab*: **Pad · Tracks · Instrument ·
+Configure · Learn · I/O · Settings**.
 
 ### Pad
 The pad instrument. 8 pads per song (tap to crossfade, tap again to fade
@@ -260,6 +302,24 @@ LEDs follow the mapping (on / off / blink on the beat).
   scans every usable GPIO and ADS1115 input for the one you move. Starts
   from the defaults in `wiring.html`; *Reset* puts them back.
 
+### I/O
+Every input and output of the Central Control on one page:
+- **Audio to Central Usage**: *Off*, *Ethernet* (a cable to the network or
+  straight to the computer; the best), *Wi-Fi* (anywhere on the Wi-Fi, a
+  little more delay) or *Audio interface* (the outputs cabled into the other
+  computer's interface). On the network, every track goes on its own
+  channel, raw (Central Usage mixes it), together with *Click + cues*, *Pads
+  L/R*, *Tracks mix L/R* and the instrument. Each channel is 48 kHz, or
+  24 kHz with *Saver* for a busy Wi-Fi. The page shows who is listening and
+  what is being sent. The Pi only serves computers that reach it over the
+  chosen connection.
+- **Audio outputs**: the routing of the four buses and the per-track direct
+  outputs.
+- **Audio inputs**, **MIDI** (ports, notes for the lights), **Screens & video**
+  (what HDMI 1 and 2 show, including *Slides from Central Usage*), the
+  **control surface**, and the devices on the network (the Central Usage
+  computers, the audio host, the pairing code).
+
 ### Settings
 - **Appearance**: colour presets (Midnight, Worship warm, Stage black,
   Forest, Royal, Daylight, High contrast) or your own colours; interface size.
@@ -427,7 +487,7 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
   `node test-dmx.mjs` — the USB-DMX, Art-Net and sACN packets;
   `xvfb-run -a node test-app.mjs` — the real Electron app: the phone remote's
   server, the update check and its checksum guard.
-- `bash make-release.sh 7.1.0 owner/repo` (with `GITHUB_TOKEN`) — packs and
+- `bash make-release.sh 8.0.0 owner/repo` (with `GITHUB_TOKEN`) — packs and
   publishes a release the update checks find (see the script's header).
 
 ## Files
@@ -439,10 +499,11 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `js/pedals.js`, `js/plugin-ports.js`, `instrument-plugins.json` | The pedal catalogue and board presets; the plugin ports found in the image |
 | `js/instrument.js`, `instrument_host.py` | The Instrument tab and the native PipeWire pedal chain / FluidSynth keys host behind it |
 | `js/scenes.js`, `js/looper.js`, `js/integrations.js` | Scenes and pad layers; the looper; ProPresenter and update checks (page side) |
+| `js/io.js`, `js/netsend.js`, `js/hub.js`, `js/colors.js` | The I/O tab; the audio to Central Usage (every track on its own channel); the songs for Central Usage; the colours of everything |
 | `make-release.sh` | Builds a release (Pi zip, PC installers, SHA256SUMS) and publishes it to GitHub |
 | `js/sources.js`, `sources.py` | *Add songs*: Planning Center, track packs, own files (page and driver side) |
-| `companion/` | The pages phones, tablets and the projector open: charts, lyrics, remote, upload, mini, stage |
-| `central-usage/` | The Central Usage desktop app (Electron) and its installers in `dist/` |
+| `companion/` | The pages phones, tablets and the projector open: charts, lyrics, remote, upload, mini, stage, slides |
+| `central-usage/` | The Central Usage desktop app (Electron; its audio engine and NDI sender in `native/`) and its installers in `dist/` |
 | `cues/` | Pre-rendered spoken cue words |
 | `pedal-driver.py`, `hardware.json`, `pad-pedal-driver.service` | Hardware, USB, MIDI, Link, 3.5" screen, file, companion and Wi-Fi server; its default pin map; its service |
 | `pad-pedal-session`, `xinitrc`, `bash_profile` | The kiosk session: audio, HDMI 1 / HDMI 2 (native resolution, zoom, edges, hot-plug), cursor, the full-screen app |
@@ -458,4 +519,4 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `99-pad-pedal-usb.rules`, `99-pad-pedal-touch.conf` | USB auto-mount; keeps the 3.5" touch panel away from X |
 | `wiring.html` (`make_wiring.py`, `wiring.template.html`) | Wiring guide with the header map, and its generator |
 | `test_pedal_driver.py`, `test-integration.mjs`, `test-headless.mjs`, `test_instrument_host.py` | Automated tests |
-| `central-control-desktop/` | Central Control as a native desktop app for a regular Linux PC (Electron; installers in `dist/`: `sudo apt install ./central-control-7.1.0-amd64.deb`) |
+| `central-control-desktop/` | Central Control as a native desktop app for a regular Linux PC (Electron; installers in `dist/`: `sudo apt install ./central-control-8.0.0-amd64.deb`) |

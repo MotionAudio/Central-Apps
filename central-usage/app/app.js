@@ -12,7 +12,38 @@
   var prefs = { host: store.get("host", "padpedal.local"), code: store.get("code", ""), instrument: store.get("instrument", "concert"), shapes: store.get("shapes", "auto"), nashville: store.get("nashville", false), chordsOnly: store.get("chordsOnly", false), fontSize: store.get("fontSize", 18), lyricsSize: store.get("lyricsSize", 44), lyricsNext: store.get("lyricsNext", true), midiOut: store.get("midiOut", ""), sendClock: store.get("sendClock", true), offsetMs: store.get("offsetMs", 0), follow: true, tab: store.get("tab", "chart") };
 
   // ------------------------------------------------------------- connection
-  var state = { connected: false, authed: false, hostname: "", display: null, wsPort: 8081, offset: null, rtt: null, clock: null, pickedSong: -1 };
+  var state = { connected: false, authed: false, hostname: "", display: null, wsPort: 8081, offset: null, rtt: null, clock: null, pickedSong: -1, interfaces: [], audioHost: null, netAudio: null, appVersion: "" };
+  // ---- a tiny event bus for the tab modules (mix, in-ears, slides, lights, I/O, settings)
+  var bus = {};
+  function on(type, fn) { (bus[type] = bus[type] || []).push(fn); }
+  function fire(type, a, b) { (bus[type] || []).forEach(function (fn) { try { fn(a, b); } catch (e) { console.warn("listener", type, e); } }); }
+  // ---- Admin or User (a setting of this computer): which tabs it has
+  var MODES = { admin: ["lights", "mix", "inears", "lyrics", "slides", "io", "settings"], user: ["chart", "instrument", "lyrics", "inears", "io", "settings"] };
+  var cuCfg = { mode: store.get("mode", null), name: store.get("name", "") };
+  function mode() { return cuCfg.mode === "admin" ? "admin" : cuCfg.mode === "user" ? "user" : null; }
+  function applyMode() {
+    var m = mode() || "user", allowed = MODES[m];
+    document.body.dataset.mode = m;
+    document.querySelectorAll("#tabs [data-tab]").forEach(function (b) { b.hidden = allowed.indexOf(b.dataset.tab) < 0; });
+    if (allowed.indexOf(prefs.tab) < 0) showTab(allowed[0]);
+    send({ type: "client", app: "central-usage", mode: m, name: cuCfg.name || "Central Usage" });
+    fire("mode", m);
+  }
+  async function setMode(m) {
+    cuCfg.mode = m; store.set("mode", m);
+    if (window.CU && window.CU.config) { try { cuCfg = await window.CU.config.set({ mode: m }); } catch (_) { } }
+    var pick = document.getElementById("modePick"); if (pick) pick.remove();
+    applyMode();
+  }
+  function askMode() {
+    if (document.getElementById("modePick")) return;
+    var d = document.createElement("div"); d.id = "modePick"; d.className = "mode-pick";
+    d.innerHTML = '<div class="mode-box"><h2>How is this computer used?</h2><p class="muted">You can change it any time in Settings.</p><div class="mode-opts">' +
+      '<button data-set-mode="admin"><b>Admin</b><span>Lighting · track mixing · in-ear mixes · lyrics · slides</span><small>the sound / lights / media desk</small></button>' +
+      '<button data-set-mode="user"><b>User</b><span>Chord chart · instrument · lyrics · my in-ear mix</span><small>a musician on stage</small></button></div></div>';
+    document.body.appendChild(d);
+    d.addEventListener("click", function (e) { var b = e.target.closest("[data-set-mode]"); if (b) setMode(b.dataset.setMode); });
+  }
   var socket = null, retryTimer = 0, pingTimer = 0, httpBase = "";
   function api(p) { return httpBase + "/api" + p; }
   function setConn(txt, cls) { $("#connInfo").textContent = txt; $("#dot").className = "dot" + (cls ? " " + cls : ""); }
@@ -26,12 +57,13 @@
   }
   function open(host) {
     try { socket = new WebSocket("ws://" + host + ":" + state.wsPort); } catch (_) { retryTimer = setTimeout(function () { connect(); }, 3000); return; }
-    socket.onopen = function () { state.connected = true; setConn("connected to " + (state.hostname || host), ""); if (prefs.code) send({ type: "auth", code: prefs.code }); clearInterval(pingTimer); pingTimer = setInterval(ping, 2000); ping(); };
+    socket.onopen = function () { state.connected = true; setConn("connected to " + (state.hostname || host), ""); send({ type: "client", app: "central-usage", mode: mode() || "user", name: cuCfg.name || "Central Usage" }); if (prefs.code) send({ type: "auth", code: prefs.code }); clearInterval(pingTimer); pingTimer = setInterval(ping, 2000); ping(); fire("connected", true); };
     socket.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (_) { return; } onMessage(m); };
-    socket.onclose = function () { state.connected = false; state.authed = false; setConn("lost " + host + " - retrying", "off"); clearInterval(pingTimer); retryTimer = setTimeout(function () { connect(); }, 2500); };
+    socket.onclose = function () { state.connected = false; state.authed = false; setConn("lost " + host + " - retrying", "off"); clearInterval(pingTimer); retryTimer = setTimeout(function () { connect(); }, 2500); fire("connected", false); };
   }
   function send(m) { if (socket && socket.readyState === 1) { socket.send(JSON.stringify(m)); return true; } return false; }
-  function action(name, args) { if (!state.authed && !prefs.code) { askCode(); if (!prefs.code) return; } send({ type: "action", name: name, args: args || {}, code: prefs.code }); }
+  // Only the Central Control plays, stops and moves the tracks: from here only the lyrics can be paged
+  function action(name, args) { if (["lyricsNext", "lyricsPrev"].indexOf(name) < 0) return; if (!state.authed && !prefs.code) { askCode(); if (!prefs.code) return; } send({ type: "action", name: name, args: args || {}, code: prefs.code }); }
   // a small text question in the page (Electron has no window.prompt)
   function askText(label, value) {
     return new Promise(function (resolve) {
@@ -55,18 +87,22 @@
   function piToLocal(piMs) { return state.offset == null ? performance.now() : piMs - state.offset; }
 
   function onMessage(m) {
-    if (m.type === "hello") { state.hostname = m.hostname || state.hostname; setConn("connected to " + state.hostname, ""); }
-    else if (m.type === "auth") { state.authed = !!m.ok; if (!m.ok && prefs.code) { prefs.code = ""; store.set("code", ""); alert("That pairing code was refused. Check it in Central Control → Settings."); } }
+    if (m.type === "hello") { state.hostname = m.hostname || state.hostname; state.interfaces = m.interfaces || []; state.audioHost = m.audioHost || null; state.netAudio = m.netAudio || null; state.appVersion = m.appVersion || ""; setConn("connected to " + state.hostname, ""); fire("hello", m); fire("audioHost", state.audioHost); }
+    else if (m.type === "auth") { var was = state.authed; state.authed = !!m.ok; if (!m.ok && prefs.code && !m.for) { prefs.code = ""; store.set("code", ""); alert("That pairing code was refused. Check it in Central Control → Settings."); } if (state.authed && !was) fire("authed", true); }
+    else if (m.type === "audioHost") { state.audioHost = m.host || null; fire("audioHost", state.audioHost); }
+    else if (m.type === "hub") fire("hub", m);
+    else if (m.type === "refused") fire("refused", m);
     else if (m.type === "display") { state.display = m; render(); }
     else if (m.type === "pong") onPong(m);
     else if (m.type === "midi") onMidi(m);
     else if (m.type === "clock") onClock(m);
     if (window.CULights) window.CULights.onMessage(m);
+    fire("message", m);
     if (m.type === "display" && m.song && window.CUTimecode) window.CUTimecode.setSong(m.song.index);
   }
 
   // ------------------------------------------------------------- tabs
-  function showTab(name) { prefs.tab = name; store.set("tab", name); document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); }); document.querySelectorAll(".view").forEach(function (v) { v.classList.toggle("active", v.id === "view-" + name); }); if (name === "lights") { initMidi(); if (window.CULights) window.CULights.renderAll(); } }
+  function showTab(name) { var m = mode(); if (m && MODES[m].indexOf(name) < 0) name = MODES[m][0]; prefs.tab = name; store.set("tab", name); fire("tab", name); document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); }); document.querySelectorAll(".view").forEach(function (v) { v.classList.toggle("active", v.id === "view-" + name); }); if (name === "lights") { initMidi(); if (window.CULights) window.CULights.renderAll(); } }
   $("#tabs").addEventListener("click", function (e) { var b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); });
 
   // ------------------------------------------------------------- chart
@@ -199,17 +235,22 @@
     $("#lyricsSize").addEventListener("input", function (e) { prefs.lyricsSize = Number(e.target.value); store.set("lyricsSize", prefs.lyricsSize); document.documentElement.style.setProperty("--lyrics-size", prefs.lyricsSize + "px"); });
     $("#lyricsNext").addEventListener("change", function (e) { prefs.lyricsNext = e.target.checked; store.set("lyricsNext", prefs.lyricsNext); renderLyrics(); });
     $("#lyricsPrev").addEventListener("click", function () { action("lyricsPrev"); }); $("#lyricsNextBtn").addEventListener("click", function () { action("lyricsNext"); });
-    $("#sections").addEventListener("click", function (e) { var b = e.target.closest("[data-sec]"); if (b) action("goSection", { index: Number(b.dataset.sec) }); });
+    // the section buttons show where the song is; they don't move it (only the Central Control does)
     $("#midiOut").addEventListener("change", function (e) { prefs.midiOut = e.target.value; store.set("midiOut", prefs.midiOut); fillPorts(); if (clock.running) startClock(); });
     $("#sendClock").addEventListener("change", function (e) { prefs.sendClock = e.target.checked; store.set("sendClock", prefs.sendClock); if (!prefs.sendClock) stopClock(); else if (clock.running) startClock(); });
     $("#offsetMs").addEventListener("input", function (e) { prefs.offsetMs = Number(e.target.value); store.set("offsetMs", prefs.offsetMs); $("#offsetOut").textContent = prefs.offsetMs + " ms"; });
     $("#testHit").addEventListener("click", function () { midiSend([0x90, 48, 127]); setTimeout(function () { midiSend([0x80, 48, 0]); }, 120); flash("hit"); log("test hit"); });
     $("#testSection").addEventListener("click", function () { midiSend([0x90, 60, 100]); setTimeout(function () { midiSend([0x80, 60, 0]); }, 120); flash("note"); log("test section note 60"); });
     $("#panic").addEventListener("click", function () { for (var ch = 0; ch < 16; ch++) midiSend([0xB0 | ch, 123, 0]); log("all notes off"); });
-    document.addEventListener("keydown", function (e) { if (e.target.matches("input,select,textarea")) return; if (e.key === "F1") showTab("chart"); else if (e.key === "F2") showTab("lyrics"); else if (e.key === "F3") showTab("lights"); else if (e.key === "ArrowRight" || e.key === "PageDown") { if (prefs.tab === "lyrics") action("lyricsNext"); else action("nextSection"); } else if (e.key === "ArrowLeft" || e.key === "PageUp") { if (prefs.tab === "lyrics") action("lyricsPrev"); else action("prevSection"); } else if (e.key === " ") { e.preventDefault(); action("playPause"); } });
+    document.addEventListener("keydown", function (e) { if (e.target.matches("input,select,textarea")) return; if (e.key === "F1") showTab("chart"); else if (e.key === "F2") showTab("lyrics"); else if (e.key === "F3") showTab("lights"); else if (e.key === "ArrowRight" || e.key === "PageDown") { if (prefs.tab === "lyrics") action("lyricsNext"); } else if (e.key === "ArrowLeft" || e.key === "PageUp") { if (prefs.tab === "lyrics") action("lyricsPrev"); } });
     if (window.CU && window.CU.onMenu) window.CU.onMenu(function (name, arg) { if (name === "connect") { askText("Central Control address (padpedal.local or its IP):", prefs.host).then(function (h) { if (h) connect(h.trim()); }); } else if (name === "discover") discover(); else if (name === "code") askCode(); else if (name === "updates" && window.CUUpdates) window.CUUpdates.open(); else if (name === "tab") showTab(arg); else if (name === "font") { var el = prefs.tab === "lyrics" ? $("#lyricsSize") : $("#fontSize"); el.value = Number(el.value) + arg * 2; el.dispatchEvent(new Event("input")); } });
   }
   fillInstruments(); wire(); showTab(prefs.tab); connect(); initMidi();
-  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode,
+  (async function () {   // this computer's settings live in the app (cu.json); in a plain browser: local storage
+    if (window.CU && window.CU.config) { try { var c = await window.CU.config.get(); if (c) { cuCfg = c; if (c.mode) store.set("mode", c.mode); } } catch (_) { } }
+    if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Usage";
+    if (!mode()) askMode(); applyMode();
+  })();
+  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, setMode: setMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
     midiSend: function (d, at) { midiSend(d, at); }, midiSysex: function (d) { if (midi && midi.sysexEnabled) midiSend(d); } };
 })();

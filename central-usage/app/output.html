@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><title>Central Usage output</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  html,body { margin:0; height:100%; background:#000; color:#fff; font-family:Inter,ui-sans-serif,system-ui,sans-serif; overflow:hidden; cursor:none; }
+  .layer { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity var(--fade,.45s); }
+  .layer.on { opacity:1; }
+  .layer img, .layer video { width:100%; height:100%; object-fit:contain; }
+  .layer.cover img, .layer.cover video { object-fit:cover; }
+  .text { padding:5vh 7vw; font-weight:700; font-size:var(--size,7vh); line-height:1.25; text-wrap:balance; white-space:pre-line; text-shadow:0 2px 12px rgba(0,0,0,.6); }
+  .text small { display:block; font-size:2.6vh; letter-spacing:.2em; text-transform:uppercase; opacity:.5; margin-bottom:3vh; font-weight:600; }
+  .over { position:fixed; inset:0; display:flex; align-items:flex-end; justify-content:center; padding-bottom:8vh; pointer-events:none; }
+</style>
+</head>
+<body>
+<div class="layer" id="a"></div><div class="layer" id="b"></div>
+<script>
+// Central Usage's slides / lyrics output: a second screen, or the off-screen page NDI sends.
+(function () {
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function fileUrl(p) { return /^(https?|file|data):/.test(p) ? p : "file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F"); }
+  var cur = "a";
+  function html(s) {
+    var text = (s.kind === "text" || s.kind === "lyrics") && (s.text || s.title) ? '<div class="text" style="--size:' + (Number(s.size) || 7) + 'vh;color:' + esc(s.color || "#fff") + ';text-align:' + esc(s.align || "center") + '">' + (s.title ? "<small>" + esc(s.title) + "</small>" : "") + esc(s.text || "") + "</div>" : "";
+    var bg = s.bgPath ? (/\.(mp4|webm|mov|m4v|ogv)$/i.test(s.bgPath) ? '<video src="' + fileUrl(s.bgPath) + '" autoplay muted loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55"></video>' : '<img src="' + fileUrl(s.bgPath) + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55">') : "";
+    if (s.kind === "image") return '<img src="' + fileUrl(s.path) + '" alt="">';
+    if (s.kind === "video") return '<video src="' + fileUrl(s.path) + '" autoplay playsinline' + (s.loop !== false ? " loop" : "") + (s.muted === false ? "" : " muted") + "></video>";
+    return bg + (text ? '<div style="position:relative">' + text + "</div>" : "");
+  }
+  function show(s) {
+    var next = cur === "a" ? "b" : "a", el = document.getElementById(next), old = document.getElementById(cur);
+    el.className = "layer" + (s.fit === "cover" ? " cover" : ""); el.style.background = s.background || "#000"; el.style.setProperty("--fade", (s.fade == null ? 0.45 : s.fade) + "s"); el.innerHTML = s.kind === "none" || s.kind === "black" ? "" : html(s);
+    requestAnimationFrame(function () { el.classList.add("on"); old.classList.remove("on"); setTimeout(function () { if (!old.classList.contains("on")) { var v = old.querySelector("video"); if (v) v.pause(); old.innerHTML = ""; } }, 700); });
+    cur = next;
+  }
+  if (window.CUOut) window.CUOut.onSlide(show);
+  window.showSlide = show;
+})();
+</script>
+</body>
+</html>

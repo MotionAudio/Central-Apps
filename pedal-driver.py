@@ -77,7 +77,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "7.1.0"
+APP_VERSION = "8.0.0"
 CONFIG_CANDIDATES = ["/data/pad-pedal/hardware.json", "/etc/pad-pedal/hardware.json"]
 SYSTEM_SCRIPT = "/usr/local/sbin/pad-pedal-system"
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".oga", ".m4a", ".aac", ".aif", ".aiff", ".opus")
@@ -405,6 +405,9 @@ def sound_cards():
     return cards
 
 
+# what a Central Usage computer may ask the Central Control to do: page the lyrics. Starting, stopping and
+# moving the tracks is only done on the Central Control.
+CU_ACTIONS = ("lyricsNext", "lyricsPrev")
 DISPLAY_KEYS = ("hdmi1", "hdmi2", "cursor", "mode1", "mode2", "scale", "inset1", "inset2")
 
 
@@ -921,17 +924,41 @@ class HttpBase(BaseHTTPRequestHandler):
         ctype = content_type or mimetypes.guess_type(path)[0] or "application/octet-stream"
         if path.endswith(".js"):
             ctype = "text/javascript"
-        self.send_response(200)
+        start, end = 0, size - 1
+        m = re.match(r"^bytes=(\d*)-(\d*)$", self.headers.get("Range") or "")
+        if m and size and (m.group(1) or m.group(2)):   # videos seek with Range requests
+            if m.group(1):
+                start = int(m.group(1))
+                end = min(size - 1, int(m.group(2))) if m.group(2) else size - 1
+            else:
+                start = max(0, size - int(m.group(2)))
+            if start > end:
+                self.send_response(416)
+                self.send_header("Content-Range", "bytes */%d" % size)
+                self.end_headers()
+                return None
+            self.send_response(206)
+            self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, size))
+        else:
+            self.send_response(200)
         self.cors()
         self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(size))
+        self.send_header("Content-Length", str(end - start + 1))
+        self.send_header("Accept-Ranges", "bytes")
         if cache:
             self.send_header("Cache-Control", "max-age=3600")
         self.end_headers()
         if self.command == "HEAD":
             return None
         with open(path, "rb") as handle:
-            shutil.copyfileobj(handle, self.wfile, 1 << 16)
+            handle.seek(start)
+            left = end - start + 1
+            while left > 0:
+                chunk = handle.read(min(1 << 16, left))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                left -= len(chunk)
         return None
 
     def body(self, limit=700 * 1024 * 1024):
@@ -1324,7 +1351,7 @@ class CompanionServer:
                 root = os.path.join(driver.config["app_root"], "companion")
                 pages = {"/": "index.html", "/index.html": "index.html", "/charts": "index.html", "/charts/": "index.html",
                          "/lyrics": "lyrics.html", "/lyrics/": "lyrics.html", "/upload": "upload.html", "/upload/": "upload.html",
-                         "/remote": "remote.html", "/remote/": "remote.html", "/mini": "mini.html", "/mini/": "mini.html", "/stage": "stage.html", "/stage/": "stage.html"}
+                         "/remote": "remote.html", "/remote/": "remote.html", "/mini": "mini.html", "/mini/": "mini.html", "/stage": "stage.html", "/stage/": "stage.html", "/slides": "slides.html", "/slides/": "slides.html"}
                 if p in pages:
                     return self.serve_static(root, pages[p])
                 if p.startswith("/fonts/"):
@@ -1332,7 +1359,30 @@ class CompanionServer:
                 if p == "/api/display":
                     return self.send_json(200, driver.display)
                 if p == "/api/info":
-                    return self.send_json(200, {"hostname": socket.gethostname(), "wsPort": driver.config["lan_ws_port"], "version": VERSION, "addresses": ip_addresses()})
+                    return self.send_json(200, {"hostname": socket.gethostname(), "wsPort": driver.config["lan_ws_port"], "version": VERSION, "appVersion": APP_VERSION, "addresses": ip_addresses(),
+                                                "interfaces": ip_interfaces(), "netAudio": {"mode": driver.netaudio.cfg["mode"]}, "audioHost": driver.public_audio_host()})
+                if p == "/api/hub":   # songs on the Central Control, for Central Usage
+                    return self.send_json(200, {"songs": driver.hub_listing()})
+                if p.startswith("/api/hub/"):
+                    sid = re.sub(r"[^A-Za-z0-9_-]", "", p[len("/api/hub/"):])[:64]
+                    j = read_json(os.path.join(driver.hub_dir, sid + ".json"), None) if sid else None
+                    return self.send_json(200, j) if j else self.send_json(404, {"error": "no such song"})
+                if p == "/api/hub-file":   # a song's audio file from the library (pairing code needed)
+                    q = urllib.parse.parse_qs(url.query)
+                    if not driver.code_ok((q.get("code") or [""])[0]):
+                        return self.send_json(403, {"error": "wrong code"})
+                    path = (q.get("path") or [""])[0]
+                    if not driver.library.inside(path):
+                        return self.send_json(404, {"error": "not in the library"})
+                    return self.send_file(os.path.realpath(path), mimetypes.guess_type(path)[0] or "application/octet-stream", cache=True)
+                if p.startswith("/api/slides/"):
+                    name = safe_name(urllib.parse.unquote(p[len("/api/slides/"):]))
+                    path = os.path.join(driver.slides_dir, name)
+                    if not name or not os.path.isfile(path):
+                        return self.send_json(404, {"error": "no such slide"})
+                    return self.send_file(path, mimetypes.guess_type(path)[0] or "application/octet-stream", cache=True)
+                if p == "/api/slide":
+                    return self.send_json(200, driver.slide)
                 if p == "/api/lighting":  # the light show (cues) of one song, written by Central Usage
                     sid = re.sub(r"[^A-Za-z0-9_-]", "", (urllib.parse.parse_qs(url.query).get("song") or [""])[0])[:64]
                     path = os.path.join(driver.config["data_root"], "lighting", sid + ".json")
@@ -1379,6 +1429,20 @@ class CompanionServer:
                     write_json(os.path.join(driver.config["data_root"], "lighting", sid + ".json"), show)
                     driver.emit({"type": "lighting", "song": sid, "updated": show["updated"], "by": show["by"]}, lan=True)
                     return self.send_json(200, {"ok": True, "updated": show["updated"]})
+                if url.path == "/api/slides":   # a picture / video from Central Usage for the Pi's slides screen
+                    if not driver.code_ok((query.get("code") or [""])[0]):
+                        self.body()
+                        return self.send_json(403, {"error": "wrong code"})
+                    name = safe_name((query.get("name") or ["slide"])[0])
+                    if not re.search(r"\.(png|jpe?g|gif|webp|bmp|svg|mp4|webm|mov|m4v|ogv)$", name, re.I):
+                        self.body()
+                        return self.send_json(400, {"error": "pictures and videos only"})
+                    data = self.body(1 << 30)
+                    if not data:
+                        return self.send_json(400, {"error": "empty upload"})
+                    with open(os.path.join(driver.slides_dir, name), "wb") as handle:
+                        handle.write(data)
+                    return self.send_json(200, {"ok": True, "file": name, "url": "/api/slides/" + urllib.parse.quote(name)})
                 if url.path == "/api/action":
                     try:
                         message = json.loads(self.body(1 << 16).decode() or "{}")
@@ -2087,6 +2151,259 @@ class _ExpanderLed:
 
 
 # ---------------------------------------------------------------------------
+# Network audio: Central Control -> Central Usage computers (Ethernet or Wi-Fi)
+# ---------------------------------------------------------------------------
+def ip_interfaces():
+    """[{iface, address, kind}] for every IPv4 address; kind is ethernet / wifi / other."""
+    found = []
+    code, out, _ = run(["ip", "-o", "-4", "addr", "show"], timeout=5)
+    if code == 0:
+        for line in out.splitlines():
+            m = re.match(r"^\d+:\s+(\S+)\s+inet\s+(\d+\.\d+\.\d+\.\d+)/", line)
+            if not m or m.group(2).startswith("127."):
+                continue
+            iface = m.group(1).split("@")[0]
+            wireless = os.path.isdir("/sys/class/net/%s/wireless" % iface) or iface.startswith("wl")
+            kind = "wifi" if wireless else "ethernet" if re.match(r"^(eth|en|usb)", iface) else "other"
+            found.append({"iface": iface, "address": m.group(2), "kind": kind})
+        return found
+    # no `ip` command: ask the kernel for each interface's address
+    try:
+        import fcntl
+        for iface in sorted(os.listdir("/sys/class/net")):
+            if iface == "lo":
+                continue
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                    packed = fcntl.ioctl(sock.fileno(), 0x8915, struct.pack("256s", iface[:15].encode()))   # SIOCGIFADDR
+                address = socket.inet_ntoa(packed[20:24])
+            except OSError:
+                continue
+            wireless = os.path.isdir("/sys/class/net/%s/wireless" % iface) or iface.startswith("wl")
+            kind = "wifi" if wireless else "ethernet" if re.match(r"^(eth|en|usb)", iface) else "other"
+            found.append({"iface": iface, "address": address, "kind": kind})
+    except Exception:
+        pass
+    return found
+
+
+class NetAudio:
+    """The tracks (each stem on its own channel), click, pads, the tracks mix and the instrument go to
+    Central Usage over the network. The app renders the channels and sends them here as binary packets;
+    the Pi adds the instrument channel, captured from its output with pw-record. Every Central Usage
+    that subscribed (with the pairing code) gets the packets. "ethernet" / "wifi" only serve computers
+    that reach the Pi over that kind of connection; "interface" means the outputs are cabled into the
+    other computer's audio interface (nothing goes over the network); "off" sends nothing.
+
+    Packet: b"CCA1", u8 source (0 app, 1 instrument), u8 channels, u16 frames, u32 seq, f64 Pi ms,
+    then frames x channels int16 little endian (interleaved)."""
+    MODES = ("off", "ethernet", "wifi", "interface")
+    HEADER = struct.Struct("<4sBBHId")
+
+    def __init__(self, driver, path):
+        self.driver = driver
+        self.path = path
+        self.cfg = {"mode": "off", "rate": 48000, "instrument": True, "quality": "full"}
+        saved = read_json(path, {})
+        if isinstance(saved, dict):
+            self.cfg.update({k: v for k, v in saved.items() if k in self.cfg})
+        self.subs = {}          # ws -> {"sources": set(), "name": str, "address": str, "dropped": int}
+        self.sources = {}       # source id -> {"channels": [...], "rate": int}
+        self.packets = 0
+        self.bytes = 0
+        self.inst = None        # pw-record process
+        self.inst_error = None
+        self.inst_seq = 0
+        self.lock = threading.Lock()
+
+    # ----- settings / status
+    def configure(self, cfg):
+        if isinstance(cfg, dict):
+            if cfg.get("mode") in self.MODES:
+                self.cfg["mode"] = cfg["mode"]
+            if cfg.get("quality") in ("full", "saver"):
+                self.cfg["quality"] = cfg["quality"]
+            if "instrument" in cfg:
+                self.cfg["instrument"] = bool(cfg["instrument"])
+            write_json(self.path, self.cfg)
+        for ws in list(self.subs):   # listeners that the new setting no longer serves are told why
+            error = self.allowed(ws)
+            if error:
+                self.driver.send_to(ws, {"type": "audioSubscribed", "ok": False, "error": error})
+                self.subs.pop(ws, None)
+        self.update()
+        return self.status()
+
+    def refusal(self):
+        mode = self.cfg["mode"]
+        if mode == "off":
+            return "Network audio is off on the Central Control (I/O tab)."
+        if mode == "interface":
+            return "The Central Control sends its audio through the audio interface (I/O tab), not the network."
+        return None
+
+    def status(self):
+        ifaces = ip_interfaces()
+        want = self.cfg["mode"]
+        address = next((i["address"] for i in ifaces if i["kind"] == want), None)
+        return {"type": "netAudio", "config": dict(self.cfg), "sending": self.sending(), "listeners": [{"name": v["name"], "address": v["address"], "dropped": v["dropped"]} for v in self.subs.values()],
+                "interfaces": ifaces, "address": address, "sources": self.sources, "packets": self.packets, "bytes": self.bytes,
+                "instrument": {"capturing": bool(self.inst), "error": self.inst_error}}
+
+    def sending(self):
+        return self.cfg["mode"] in ("ethernet", "wifi") and any(0 in v["sources"] for v in self.subs.values())
+
+    def update(self):
+        """Tell the app whether to send, start / stop the instrument capture."""
+        self.driver.emit(self.status())
+        want_inst = self.cfg["mode"] in ("ethernet", "wifi") and self.cfg["instrument"] and any(1 in v["sources"] for v in self.subs.values())
+        if want_inst and not self.inst:
+            self.start_instrument()
+        elif not want_inst and self.inst:
+            self.stop_instrument()
+
+    # ----- who may listen
+    def allowed(self, ws):
+        mode = self.cfg["mode"]
+        if mode not in ("ethernet", "wifi"):
+            return self.refusal()
+        if self.driver.config.get("simulated"):
+            return None
+        try:
+            local = ws.local_address[0] if hasattr(ws, "local_address") else ws.transport.get_extra_info("sockname")[0]
+        except Exception:
+            local = None
+        kinds = {i["address"]: i["kind"] for i in ip_interfaces()}
+        if not any(k == mode for k in kinds.values()):
+            return "The Central Control has no %s connection right now." % ("Ethernet" if mode == "ethernet" else "Wi-Fi")
+        if local in kinds and kinds[local] != mode:
+            return "Audio goes over %s only: connect to the Central Control's %s address." % (("Ethernet", "Ethernet") if mode == "ethernet" else ("Wi-Fi", "Wi-Fi"))
+        return None
+
+    def subscribe(self, ws, message):
+        error = self.allowed(ws)
+        if error:
+            return {"type": "audioSubscribed", "ok": False, "error": error}
+        try:
+            peer = ws.remote_address[0]
+        except Exception:
+            peer = "?"
+        sources = set(int(x) for x in (message.get("sources") or [0, 1]) if str(x).isdigit())
+        self.subs[ws] = {"sources": sources, "name": str(message.get("name") or "Central Usage")[:40], "address": peer, "dropped": 0}
+        self.update()
+        return {"type": "audioSubscribed", "ok": True, "sources": self.sources, "mode": self.cfg["mode"]}
+
+    def unsubscribe(self, ws):
+        if self.subs.pop(ws, None) is not None:
+            self.update()
+
+    # ----- the packets
+    def set_info(self, message):
+        names = [str(n)[:40] for n in (message.get("channels") or [])][:64]
+        self.sources[0] = {"channels": names, "rate": int(message.get("rate") or 48000)}
+        self.broadcast_info()
+
+    def broadcast_info(self):
+        for ws in list(self.subs):
+            self.driver.send_to(ws, {"type": "audioStream", "sources": self.sources})
+
+    async def relay(self, data, source=0):
+        if len(data) < self.HEADER.size or data[:4] != b"CCA1":
+            return
+        self.packets += 1
+        for ws, sub in list(self.subs.items()):
+            if source not in sub["sources"]:
+                continue
+            try:
+                transport = getattr(ws, "transport", None)
+                if transport is not None and transport.get_write_buffer_size() > 768 * 1024:
+                    sub["dropped"] += 1      # this listener's network can't keep up: drop rather than lag behind
+                    continue
+                await ws.send(data)
+                self.bytes += len(data)
+            except Exception:
+                self.subs.pop(ws, None)
+
+    # ----- the instrument: captured from the Pi's output (the channel the instrument is routed to)
+    def instrument_channel(self):
+        routing = getattr(self.driver, "routing", None) or {}
+        bus = (routing.get("buses") or {}).get("instrument") or {}
+        return int(bus.get("ch") or 4)
+
+    def start_instrument(self):
+        if not shutil.which("pw-record"):
+            self.inst_error = "pw-record not found (PipeWire tools)"
+            return
+        audio = self.driver.audio_config() if hasattr(self.driver, "audio_config") else {}
+        chans = len((audio or {}).get("channels") or []) or 4
+        ch = self.instrument_channel()
+        if ch < 1 or ch > chans:
+            self.inst_error = "the instrument is not routed to an output"
+            return
+        env = dict(os.environ)
+        env.setdefault("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
+        try:
+            proc = subprocess.Popen(["pw-record", "--target", "padpedal_out", "--rate", "48000", "--channels", str(chans), "--format", "s16", "-"],
+                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env)
+        except OSError as error:
+            self.inst_error = str(error)
+            return
+        self.inst = proc
+        self.inst_error = None
+        self.sources[1] = {"channels": ["Instrument"], "rate": 48000}
+        self.broadcast_info()
+        threading.Thread(target=self.instrument_reader, args=(proc, chans, ch - 1), daemon=True).start()
+
+    def stop_instrument(self):
+        proc, self.inst = self.inst, None
+        self.sources.pop(1, None)
+        if proc:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+
+    def instrument_reader(self, proc, chans, index):
+        frame_bytes = chans * 2
+        head = b""
+        while len(head) < 12:  # pw-record writes a WAV header when the output is a pipe: skip to the data
+            chunk = proc.stdout.read(12 - len(head))
+            if not chunk:
+                return
+            head += chunk
+        if head[:4] == b"RIFF":
+            buf = b""
+            while b"data" not in buf and len(buf) < 8192:
+                chunk = proc.stdout.read(64)
+                if not chunk:
+                    return
+                buf += chunk
+            i = buf.find(b"data")
+            if i < 0:
+                return
+            rest = buf[i + 8:]
+        else:
+            rest = head
+        block = 1024 * frame_bytes
+        pending = rest
+        while self.inst is proc:
+            while len(pending) < block:
+                chunk = proc.stdout.read(block - len(pending))
+                if not chunk:
+                    self.inst_error = "the capture stopped"
+                    return
+                pending += chunk
+            raw, pending = pending[:block], pending[block:]
+            mono = bytearray(1024 * 2)   # one channel out of the interleaved frames
+            mono[0::2] = raw[index * 2::frame_bytes]
+            mono[1::2] = raw[index * 2 + 1::frame_bytes]
+            self.inst_seq += 1
+            packet = self.HEADER.pack(b"CCA1", 1, 1, 1024, self.inst_seq & 0xFFFFFFFF, time.monotonic() * 1000) + bytes(mono)
+            if self.driver.loop:
+                asyncio.run_coroutine_threadsafe(self.relay(packet, 1), self.driver.loop)
+
+
+# ---------------------------------------------------------------------------
 # The driver
 # ---------------------------------------------------------------------------
 class PedalDriver:
@@ -2126,6 +2443,13 @@ class PedalDriver:
         self.propresenter = sources.ProPresenter(os.path.join(data_root, "propresenter.json")) if sources and hasattr(sources, "ProPresenter") else None
         self.pco = sources.PlanningCenter(os.path.join(data_root, "sources.json"), config.get("pco_base") or "https://api.planningcenteronline.com") if sources else None
         self.instrument = instrument_host.InstrumentHost(self, data_root, config["app_root"]) if instrument_host else None
+        self.netaudio = NetAudio(self, os.path.join(data_root, "netaudio.json"))
+        self.audio_host = None        # the Central Usage computer that makes the in-ear mixes: {name, address, port, ws}
+        self.hub_dir = os.path.join(data_root, "hub")
+        self.slides_dir = os.path.join(data_root, "slides")
+        os.makedirs(self.hub_dir, exist_ok=True)
+        os.makedirs(self.slides_dir, exist_ok=True)
+        self.slide = {"type": "slide", "kind": "none"}
         self.state = {"playing": [], "selected": 0}
         self.display = {}
         self.learn = None
@@ -2177,6 +2501,7 @@ class PedalDriver:
             "mouse": self.usb.pointer["mouse"] if self.usb else False,
             "keyboard": self.usb.pointer["keyboard"] if self.usb else False,
             "addresses": ip_addresses(),
+            "interfaces": ip_interfaces(),
             "code": self.code,
             "hostname": socket.gethostname(),
             "midi": bool(self.midi and self.midi.available),
@@ -2231,6 +2556,9 @@ class PedalDriver:
             if self.usb:
                 self.devices_dirty = True
             async for raw in ws:
+                if isinstance(raw, (bytes, bytearray)):   # network audio from the app -> Central Usage
+                    await self.netaudio.relay(bytes(raw), 0)
+                    continue
                 try:
                     self.handle_app_message(json.loads(raw), ws)
                 except Exception as error:
@@ -2239,10 +2567,20 @@ class PedalDriver:
             self.clients.discard(ws)
             log.info("app disconnected")
 
+    def public_audio_host(self):
+        h = self.audio_host
+        return {k: h[k] for k in ("name", "address", "port", "since")} if h else None
+
+    def lan_hello(self):
+        return {"type": "hello", "hostname": socket.gethostname(), "version": VERSION, "appVersion": APP_VERSION, "needsCode": True,
+                "interfaces": ip_interfaces(), "netAudio": {"mode": self.netaudio.cfg["mode"], "sources": self.netaudio.sources}, "audioHost": self.public_audio_host()}
+
     async def handle_lan_client(self, ws, *_):
-        self.lan_clients[ws] = {"auth": False}
+        self.lan_clients[ws] = {"auth": False, "app": None}
         try:
-            await ws.send(json.dumps({"type": "hello", "hostname": socket.gethostname(), "version": VERSION, "appVersion": APP_VERSION, "needsCode": True}))
+            await ws.send(json.dumps(self.lan_hello()))
+            if self.slide.get("kind") != "none":
+                await ws.send(json.dumps(self.slide))
             await ws.send(json.dumps(dict(self.display, type="display")) if self.display else json.dumps({"type": "display", "song": None}))
             if getattr(self, "lan_clock", None):
                 await ws.send(json.dumps(dict(self.lan_clock, type="clock")))
@@ -2257,14 +2595,95 @@ class PedalDriver:
                     self.lan_clients[ws]["auth"] = ok
                     await ws.send(json.dumps({"type": "auth", "ok": ok}))
                 elif kind == "action":
-                    if self.lan_clients[ws]["auth"] or self.code_ok(message.get("code")):
-                        self.emit({"type": "action", "name": message.get("name"), "args": message.get("args") or {}, "from": "companion"})
-                    else:
+                    authed = self.lan_clients[ws]["auth"] or self.code_ok(message.get("code"))
+                    if not authed:
                         await ws.send(json.dumps({"type": "auth", "ok": False}))
+                    elif self.lan_clients[ws].get("app") == "central-usage" and message.get("name") not in CU_ACTIONS:
+                        # only the Central Control itself starts, stops and moves the tracks
+                        await ws.send(json.dumps({"type": "refused", "action": message.get("name"), "error": "Only the Central Control plays, stops and skips the tracks."}))
+                    else:
+                        source = "central-usage" if self.lan_clients[ws].get("app") == "central-usage" else "companion"
+                        self.emit({"type": "action", "name": message.get("name"), "args": message.get("args") or {}, "from": source})
                 elif kind == "ping":  # clock sync: the client's t comes back with the Pi's clock
                     await ws.send(json.dumps({"type": "pong", "t": message.get("t"), "serverT": int(time.monotonic() * 1000), "clock": getattr(self, "lan_clock", None)}))
+                elif kind == "client":   # who is this: {app: "central-usage", mode: admin / user, name}
+                    self.lan_clients[ws]["app"] = str(message.get("app") or "")[:40]
+                    self.lan_clients[ws]["mode"] = str(message.get("mode") or "")[:20]
+                    self.lan_clients[ws]["name"] = str(message.get("name") or "")[:40]
+                elif kind in ("audioSubscribe", "audioUnsubscribe", "audioHost", "slide"):
+                    authed = self.lan_clients[ws]["auth"] or self.code_ok(message.get("code"))
+                    if kind == "audioUnsubscribe":
+                        self.netaudio.unsubscribe(ws)
+                    elif not authed:
+                        await ws.send(json.dumps({"type": "auth", "ok": False, "for": kind}))
+                    elif kind == "audioSubscribe":
+                        await ws.send(json.dumps(self.netaudio.subscribe(ws, message)))
+                    elif kind == "audioHost":
+                        self.audio_host_message(ws, message)
+                    else:
+                        self.set_slide(message)
         finally:
             self.lan_clients.pop(ws, None)
+            self.netaudio.unsubscribe(ws)
+            if self.audio_host and self.audio_host.get("ws") is ws:
+                self.audio_host = None
+                self.emit({"type": "audioHost", "host": None}, lan=True)
+
+    def audio_host_message(self, ws, message):
+        """One Central Usage computer makes the in-ear mixes (the audio host); every other one finds it here."""
+        if message.get("action") == "register":
+            try:
+                address = ws.remote_address[0]
+            except Exception:
+                address = None
+            address = str(message.get("address") or address or "")[:64]
+            self.audio_host = {"name": str(message.get("name") or "Central Usage")[:40], "address": address, "port": int(message.get("port") or 8092), "since": int(time.time() * 1000), "ws": ws}
+        elif message.get("action") == "unregister" and self.audio_host and self.audio_host.get("ws") is ws:
+            self.audio_host = None
+        self.emit({"type": "audioHost", "host": self.public_audio_host()}, lan=True)
+
+    def set_slide(self, message):
+        """Slides / lyrics from Central Usage for a screen on the Pi (HDMI 2 set to "Slides")."""
+        slide = {"type": "slide", "kind": message.get("kind") if message.get("kind") in ("none", "image", "video", "text", "lyrics", "black") else "none"}
+        for key in ("file", "bgFile", "text", "title", "fit", "loop", "background", "color", "size", "align", "muted"):
+            if key in message:
+                slide[key] = message[key] if not isinstance(message[key], str) else message[key][:4000]
+        for key in ("file", "bgFile"):
+            if slide.get(key):
+                slide[key] = safe_name(str(slide[key]))
+        slide["t"] = int(time.time() * 1000)
+        self.slide = slide
+        self.emit(slide, lan=True)
+
+    def hub_store(self, songs):
+        """Songs with tracks on the Central Control, for Central Usage (lighting songs, waveform, sections, hits)."""
+        changed = []
+        for song in songs if isinstance(songs, list) else []:
+            sid = re.sub(r"[^A-Za-z0-9_-]", "", str(song.get("id") or ""))[:64]
+            if not sid:
+                continue
+            path = os.path.join(self.hub_dir, sid + ".json")
+            old = read_json(path, {})
+            if not song.get("overview") and old.get("overview"):
+                song["overview"] = old["overview"]
+            song["id"] = sid
+            song["updated"] = int(time.time() * 1000)
+            keep = {k: v for k, v in song.items() if k != "updated"}
+            if {k: v for k, v in old.items() if k != "updated"} != keep:
+                write_json(path, song)
+                changed.append(sid)
+        if changed:
+            self.emit({"type": "hub", "changed": changed}, lan=True)
+        return changed
+
+    def hub_listing(self):
+        out = []
+        for name in sorted(os.listdir(self.hub_dir)):
+            if name.endswith(".json"):
+                j = read_json(os.path.join(self.hub_dir, name), {})
+                if j.get("id"):
+                    out.append({k: j.get(k) for k in ("id", "name", "key", "bpm", "bpb", "duration", "updated", "hasTracks")})
+        return out
 
     def handle_app_message(self, message, ws=None):
         kind = message.get("type")
@@ -2311,6 +2730,21 @@ class PedalDriver:
             if self.link:
                 self.link.configure(bool(message.get("enabled")), message.get("bpm"), message.get("playing"))
                 self.emit(dict(self.link.status(), type="linkStatus"))
+        elif kind == "netAudio":
+            action = message.get("action")
+            if action == "info":
+                self.netaudio.set_info(message)
+            elif action == "config":
+                self.send_to(ws, self.netaudio.configure(message.get("config")))
+            else:
+                self.send_to(ws, self.netaudio.status())
+        elif kind == "hub":
+            self.hub_store(message.get("songs"))
+            if message.get("remove"):
+                for sid in message["remove"]:
+                    sid = re.sub(r"[^A-Za-z0-9_-]", "", str(sid))[:64]
+                    if sid and os.path.exists(os.path.join(self.hub_dir, sid + ".json")):
+                        os.remove(os.path.join(self.hub_dir, sid + ".json"))
         elif kind == "midiClock":
             if self.midi:
                 self.midi.set_clock(message.get("bpm"), message.get("running"))
@@ -2570,6 +3004,10 @@ class PedalDriver:
             "companion": "http://%s.local:%s/" % (socket.gethostname(), self.config["lan_port"]),
             "charts": shutil.which("pdftoppm") is not None,
             "tts": shutil.which("espeak-ng") is not None,
+            "interfaces": ip_interfaces(),
+            "netAudio": self.netaudio.status(),
+            "audioHost": self.public_audio_host(),
+            "centralUsage": [{"name": v.get("name") or "Central Usage", "mode": v.get("mode") or ""} for v in self.lan_clients.values() if v.get("app") == "central-usage"],
         }
 
     def system_action(self, message, ws):
@@ -3177,6 +3615,7 @@ def main():
         Device.pin_factory = factory
         bus = _SimBus([0x48, 0x49])
         config["data_root"] = os.path.abspath(args.simulate)
+        config["simulated"] = True
         config["app_root"] = os.path.abspath(args.app_root or os.path.dirname(os.path.abspath(__file__)))
         config["media_roots"] = [os.path.join(config["data_root"], "media")]
         if os.environ.get("CC_PCO_BASE"):  # tests point Planning Center at a stand-in

@@ -65,9 +65,7 @@
   }
   function renderConfigure() {
     var root = $("#cfRows"); if (!root) return;
-    var mode = cfMode, map = A.mapping(mode), list = inputs();
-    $("#cfModePad").classList.toggle("on", mode === "pad"); $("#cfModeTracks").classList.toggle("on", mode === "tracks");
-    $("#cfNow").textContent = "Right now the " + (project().tracksMode ? "Tracks" : "Pad") + " layout is active (the USE TRACKS switch on the Tracks tab changes it).";
+    var map = A.mapping(), list = inputs();
     root.innerHTML = list.map(function (i) {
       var e = map[i.id] || (map[i.id] = { action: "none" }), kind = i.kind === "button" ? "trigger" : i.kind === "encoder" ? "step" : "continuous";
       var html = '<div class="cf-row" data-input-id="' + i.id + '" data-input="' + i.id + '"><div class="cf-id"><i class="dot' + (i.active === false ? " off" : "") + '"></i><input data-cf="name" value="' + esc(i.name) + '"><small>' + esc(wiringText(i)) + "</small></div>";
@@ -78,10 +76,9 @@
       return html + "</div>";
     }).join("");
   }
-  var cfMode = "pad";
   function onConfigure(e) {
     var row = e.target.closest("[data-input]"), f = e.target.dataset.cf; if (!row || !f) return;
-    var id = row.dataset.input, map = A.mapping(cfMode), entry = map[id] || (map[id] = { action: "none" }), spec = byId(id);
+    var id = row.dataset.input, map = A.mapping(), entry = map[id] || (map[id] = { action: "none" }), spec = byId(id);
     if (f === "name") { if (spec) { spec.name = e.target.value; saveInputs(); } return; }
     if (f === "invert") { if (spec) { spec.invert = e.target.checked; saveInputs(); } return; }
     if (f === "action") { entry.action = e.target.value; entry.args = {}; if (A.ACTIONS[entry.action] && A.ACTIONS[entry.action].arg === "pad") entry.args.index = 0; }
@@ -162,14 +159,14 @@
     var name = await PP.ask(kind === "button" ? "Name for the new button (e.g. Next section)" : "Name for the new USB knob / pedal", kind === "button" ? "USB pedal " + (inputs().filter(function (i) { return i.usb; }).length + 1) : "USB knob");
     if (name === null) return;
     var id = "u" + Date.now().toString(36), spec = { id: id, name: name || id, kind: kind, usb: { vendor: 0, product: 0, name: "", code: 0 } };
-    inputs().push(spec); A.mapping("pad")[id] = { action: "none" }; A.mapping("tracks")[id] = { action: "none" };
+    inputs().push(spec); A.mapping()[id] = { action: "none" };
     PP.persistSoon(); renderLearn(); startLearn(id, kind);
   }
   async function addMidi(kind) {
     var name = await PP.ask(kind === "button" ? "Name for the new MIDI button" : "Name for the new MIDI knob / pedal", kind === "button" ? "MIDI button" : "MIDI knob");
     if (name === null) return;
     var id = "m" + Date.now().toString(36), spec = { id: id, name: name || id, kind: kind, midi: { type: kind === "button" ? "note" : "cc", number: 0, channel: 0 } };
-    inputs().push(spec); project().midiInputs = (project().midiInputs || []).concat([spec]); A.mapping("pad")[id] = { action: "none" }; A.mapping("tracks")[id] = { action: "none" };
+    inputs().push(spec); project().midiInputs = (project().midiInputs || []).concat([spec]); A.mapping()[id] = { action: "none" };
     PP.persistSoon(); renderLearn(); startMidiLearn(id);
   }
   function startMidiLearn(id) { if (midiLearn && midiLearn.target === id) { midiLearn = null; renderLearn(); return; } midiLearn = { target: id }; PP.setStatus("Press / move the MIDI control now"); renderLearn(); }
@@ -186,17 +183,14 @@
   function wire() {
     if (!$("#cfRows")) return;
     $("#cfRows").addEventListener("change", onConfigure);
-    $("#cfModePad").addEventListener("click", function () { cfMode = "pad"; renderConfigure(); });
-    $("#cfModeTracks").addEventListener("click", function () { cfMode = "tracks"; renderConfigure(); });
-    $("#cfReset").addEventListener("click", function () { if (!confirm("Reset the " + cfMode + " layout to the defaults?")) return; project().mapping[cfMode] = A.defaults(cfMode); PP.persistSoon(); A.modeChanged(); renderConfigure(); });
-    $("#cfCopy").addEventListener("click", function () { var from = cfMode === "pad" ? "tracks" : "pad"; project().mapping[cfMode] = JSON.parse(JSON.stringify(A.mapping(from))); PP.persistSoon(); A.modeChanged(); renderConfigure(); });
+    $("#cfReset").addEventListener("click", function () { if (!confirm("Put every button, knob and slider back to the default layout?")) return; project().mapping.all = A.defaults(); PP.persistSoon(); A.modeChanged(); renderConfigure(); });
     $("#lnBoard").addEventListener("click", function (e) { var b = e.target.closest("[data-ln]"), row = e.target.closest("[data-learn]"); if (b && row && b.dataset.ln === "learn") startLearn(row.dataset.learn); });
     $("#lnUsb").addEventListener("click", function (e) {
       var b = e.target.closest("[data-ln]"), row = e.target.closest("[data-learn]"); if (!b || !row) return;
       var id = row.dataset.learn, spec = byId(id);
       if (b.dataset.ln === "learn") startLearn(id, spec.kind);
       else if (b.dataset.ln === "midilearn") startMidiLearn(id);
-      else if (b.dataset.ln === "del") { project().inputs = inputs().filter(function (i) { return i.id !== id; }); project().midiInputs = inputs().filter(function (i) { return i.midi; }); delete A.mapping("pad")[id]; delete A.mapping("tracks")[id]; saveInputs(); renderLearn(); renderConfigure(); }
+      else if (b.dataset.ln === "del") { project().inputs = inputs().filter(function (i) { return i.id !== id; }); project().midiInputs = inputs().filter(function (i) { return i.midi; }); delete A.mapping()[id]; saveInputs(); renderLearn(); renderConfigure(); }
     });
     $("#lnUsb").addEventListener("change", function (e) { var row = e.target.closest("[data-learn]"); if (row && e.target.dataset.ln === "name") { var spec = byId(row.dataset.learn); if (spec) { spec.name = e.target.value; saveInputs(); renderConfigure(); } } });
     $("#lnAddUsbButton").addEventListener("click", function () { addUsb("button"); });

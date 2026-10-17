@@ -15,6 +15,19 @@ contextBridge.exposeInMainWorld("CU", {
   fixtures: { scan: () => ipcRenderer.invoke("fixtures-scan"), read: (file) => ipcRenderer.invoke("fixtures-read", file), open: () => ipcRenderer.invoke("fixtures-open") },
   remote: { config: (cfg) => ipcRenderer.invoke("remote-config", cfg), status: () => ipcRenderer.invoke("remote-status"), state: (st) => ipcRenderer.send("remote-state", st), onCommand: (fn) => ipcRenderer.on("remote-cmd", (_e, cmd) => fn(cmd)) },
   updates: { status: () => ipcRenderer.invoke("update-status"), config: (cfg) => ipcRenderer.invoke("update-config", cfg), check: () => ipcRenderer.invoke("update-check"), install: () => ipcRenderer.invoke("update-install"), on: (fn) => ipcRenderer.on("update", (_e, st) => fn(st)) },
+  config: { get: () => ipcRenderer.invoke("cu-config"), set: (patch) => ipcRenderer.invoke("cu-config-set", patch) },
+  host: { status: () => ipcRenderer.invoke("host-status"), on: (fn) => ipcRenderer.on("host-status", (_e, st) => fn(st)), piTarget: (t) => ipcRenderer.invoke("pi-target", t) },
+  mixer: {
+    get: () => ipcRenderer.invoke("mixer-get"), op: (op) => ipcRenderer.invoke("mixer-op", op), replace: (st) => ipcRenderer.invoke("mixer-replace", st),
+    listen: (tap, on) => ipcRenderer.invoke("mixer-listen", tap, on), record: (opt) => ipcRenderer.invoke("mixer-record", opt), openRecordings: () => ipcRenderer.invoke("open-recordings"),
+    exportFile: () => ipcRenderer.invoke("mixer-export"), importFile: () => ipcRenderer.invoke("mixer-import"),
+    onOp: (fn) => ipcRenderer.on("mixer-op", (_e, op, by) => fn(op, by)), onState: (fn) => ipcRenderer.on("mixer-state", (_e, st) => fn(st)), onMeters: (fn) => ipcRenderer.on("mixer-meters", (_e, m) => fn(m)),
+    onPi: (fn) => ipcRenderer.on("mixer-pi", (_e, names) => fn(names)), onAudio: (fn) => ipcRenderer.on("listen-audio", (_e, tap, frames, pcm) => fn(tap, frames, pcm))
+  },
+  slides: { open: () => ipcRenderer.invoke("slides-open"), readFile: (f) => ipcRenderer.invoke("read-file", f), show: (slide) => ipcRenderer.send("slide", slide), screens: () => ipcRenderer.invoke("screens"),
+    outputScreen: (opt) => ipcRenderer.invoke("output-screen", opt), outputNdi: (opt) => ipcRenderer.invoke("output-ndi", opt), outputs: () => ipcRenderer.invoke("outputs-status"), onOutputs: (fn) => ipcRenderer.on("outputs", (_e, st) => fn(st)) },
+  inst: { start: () => ipcRenderer.invoke("inst-start"), send: (m) => ipcRenderer.send("inst-send", m), stop: () => ipcRenderer.invoke("inst-stop"), on: (fn) => ipcRenderer.on("inst-msg", (_e, m) => fn(m)) },
+  ai: { status: () => ipcRenderer.invoke("ai-status"), download: () => ipcRenderer.invoke("ai-download"), remove: () => ipcRenderer.invoke("ai-remove"), ask: (system, user) => ipcRenderer.invoke("ai-ask", system, user), on: (fn) => ipcRenderer.on("ai-status", (_e, st) => fn(st)) },
   saveFile: (name, text) => ipcRenderer.invoke("save-file", name, text),
   openFile: () => ipcRenderer.invoke("open-file")
 });

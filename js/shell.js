@@ -14,23 +14,24 @@
   // ------------------------------------------------------------- tabs
   var current = "pads", performBefore = null;
   function showTab(name) {
-    if (["pads", "tracks", "instrument", "configure", "learn", "settings"].indexOf(name) < 0) name = "pads";
+    if (["pads", "tracks", "instrument", "configure", "learn", "io", "settings"].indexOf(name) < 0) name = "pads";
     if (current === "pads" && name !== "pads") performBefore = PP.isPerforming();
     current = name;
     document.querySelectorAll("[data-tab]").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); });
     document.body.classList.toggle("tab-pads", name === "pads"); document.body.dataset.tab = name;
-    [["tabTracks", "tracks"], ["tabInstrument", "instrument"], ["tabConfigure", "configure"], ["tabLearn", "learn"], ["tabSettings", "settings"]].forEach(function (t) { var el = $("#" + t[0]); if (el) el.classList.toggle("hidden", name !== t[1]); });
+    [["tabTracks", "tracks"], ["tabInstrument", "instrument"], ["tabConfigure", "configure"], ["tabLearn", "learn"], ["tabIO", "io"], ["tabSettings", "settings"]].forEach(function (t) { var el = $("#" + t[0]); if (el) el.classList.toggle("hidden", name !== t[1]); });
     if (name === "pads") { document.querySelector("main.app").classList.remove("hidden"); if (performBefore != null) PP.setPerformMode(performBefore); else PP.setPerformMode(PP.isPerforming()); }
     else { document.querySelector("main.app").classList.add("hidden"); $("#perform").classList.add("hidden"); document.body.classList.remove("performing"); }
     if (name === "tracks" && window.PPTracks) window.PPTracks.render();
     if ((name === "configure" || name === "learn") && window.PPConfigure) window.PPConfigure.render();
     if (name === "instrument" && window.PPInstrument) window.PPInstrument.show();
+    if (name === "io" && window.PPIO) { window.PPIO.render(); send({ type: "system", action: "status" }); send({ type: "netAudio", action: "status" }); }
     if (name === "settings") { enumerateOutputs().then(renderSystemExtras); if (window.PPSettings) window.PPSettings.render(); send({ type: "system", action: "status" }); send({ type: "system", action: "wifi" }); }
     try { localStorage.setItem("pad-pedal-tab", name); } catch (_) { }
     if (window.PPTracks) window.PPTracks.sendDisplay();
   }
   document.querySelectorAll("[data-tab]").forEach(function (b) { b.addEventListener("click", function () { showTab(b.dataset.tab); }); });
-  document.addEventListener("keydown", function (e) { if (e.target.matches && e.target.matches("input,select,textarea")) return; var m = { F1: "pads", F2: "tracks", F3: "instrument", F4: "configure", F5: "learn", F6: "settings" }[e.key]; if (m) { e.preventDefault(); showTab(m); } });
+  document.addEventListener("keydown", function (e) { if (e.target.matches && e.target.matches("input,select,textarea")) return; var m = { F1: "pads", F2: "tracks", F3: "instrument", F4: "configure", F5: "learn", F6: "settings", F7: "io" }[e.key]; if (m) { e.preventDefault(); showTab(m); } });
 
   // ------------------------------------------------------------- cursor
   var status = null;
@@ -80,8 +81,8 @@
       var role = "hdmi" + n, o = outs.filter(function (x) { return x.role === role; })[0], mode = displays["mode" + n] || "auto", inset = Number(displays["inset" + n]) || 0;
       var modes = o ? o.modes : [], list = [["auto", "Automatic" + (o && o.preferred ? " - " + o.preferred + " (the screen's own)" : " (the screen's own)")]].concat(modes.map(function (m) { return [m, m.replace("x", " × ") + (o.preferred === m ? " (native)" : "")]; }));
       if (mode !== "auto" && modes.indexOf(mode) < 0) list.push([mode, mode + " (not offered by this screen)"]);
-      var shows = n === 1 ? [["app", "Central Control (default)"], ["mini", "Big version of the 3.5-inch screen"], ["lyrics", "Lyrics (projector)"], ["charts", "Chord charts"], ["stage", "Stage display (section · next · beat · countdown)"]]
-                          : [["lyrics", "Lyrics only, for the projector (default)"], ["stage", "Stage display for the band (section · next · beat · countdown)"], ["charts", "Chord charts"], ["mini", "Big version of the 3.5-inch screen"], ["app", "Central Control"], ["off", "Nothing"]];
+      var shows = n === 1 ? [["app", "Central Control (default)"], ["mini", "Big version of the 3.5-inch screen"], ["lyrics", "Lyrics (projector)"], ["charts", "Chord charts"], ["stage", "Stage display (section · next · beat · countdown)"], ["slides", "Slides from Central Usage"]]
+                          : [["lyrics", "Lyrics only, for the projector (default)"], ["stage", "Stage display for the band (section · next · beat · countdown)"], ["charts", "Chord charts"], ["slides", "Slides & lyrics from Central Usage (pictures, video)"], ["mini", "Big version of the 3.5-inch screen"], ["app", "Central Control"], ["off", "Nothing"]];
       return '<div class="scr-card"><h4>HDMI ' + n + (o ? ' <small>' + esc(o.name) + (o.current ? " · " + esc(o.current) : "") + "</small>" : ' <small>' + (sc ? "not connected" : "") + "</small>") + "</h4>" +
         '<label>Shows<select data-sys="hdmi' + n + '">' + opts(shows, displays["hdmi" + n] || (n === 1 ? "app" : "lyrics")) + "</select></label>" +
         '<label>Resolution<select data-sys="mode' + n + '">' + opts(list, mode) + "</select></label>" +
@@ -137,8 +138,9 @@
   wire(); renderSystemExtras();
   var start = "pads"; try { start = localStorage.getItem("pad-pedal-tab") || "pads"; } catch (_) { }
   var h = location.hash.replace("#", ""); if (h === "perform") start = "pads";
-  else if (h === "resume") { var saved = null; try { saved = localStorage.getItem("pad-pedal-tab"); } catch (_) { } start = saved || "tracks"; }   // the screens at boot: where you left off (first start: Tracks) else if (["pads", "tracks", "instrument", "configure", "learn", "settings"].indexOf(h) > -1) start = h;
+  else if (h === "resume") { var saved = null; try { saved = localStorage.getItem("pad-pedal-tab"); } catch (_) { } start = saved || "tracks"; }   // the screens at boot: where you left off (first start: Tracks)
+  else if (["pads", "tracks", "instrument", "configure", "learn", "io", "settings"].indexOf(h) > -1) start = h;
   showTab(start);
   setPointer(false);
-  window.PPShell = { showTab: showTab, setPointer: setPointer, renderSystemExtras: renderSystemExtras, currentTab: function () { return current; } };
+  window.PPShell = { showTab: showTab, setPointer: setPointer, renderSystemExtras: renderSystemExtras, currentTab: function () { return current; }, onSys: onSys, onSysClick: onSysClick, screensHtml: screensHtml, enumerateOutputs: enumerateOutputs };
 })();

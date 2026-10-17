@@ -8,12 +8,12 @@ const here = path.dirname(fileURLToPath(import.meta.url)), require = createRequi
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 6).join("\n      ")); } }
 
 // a stand-in for api.github.com + its download host
-const deb = Buffer.from("!<arch>\nfake central-usage 1.4.0 package\n"), appimg = Buffer.from("\x7fELF fake appimage");
-const sums = ["central-usage-1.4.0-amd64.deb", "central-usage-1.4.0-x86_64.AppImage"].map((n, i) => crypto.createHash("sha256").update(i ? appimg : deb).digest("hex") + "  " + n).join("\n") + "\n";
+const deb = Buffer.from("!<arch>\nfake central-usage 2.4.0 package\n"), appimg = Buffer.from("\x7fELF fake appimage");
+const sums = ["central-usage-2.4.0-amd64.deb", "central-usage-2.4.0-x86_64.AppImage"].map((n, i) => crypto.createHash("sha256").update(i ? appimg : deb).digest("hex") + "  " + n).join("\n") + "\n";
 const gh = http.createServer((req, res) => {
   const base = "http://127.0.0.1:" + gh.address().port, send = (b, type) => { res.writeHead(200, { "Content-Type": type || "application/json" }); res.end(b); };
-  if (req.url === "/repos/church/cc/releases/latest") return send(JSON.stringify({ tag_name: "v1.4.0", body: "Lighting remote fixes", assets: [
-    { name: "central-usage-1.4.0-amd64.deb", browser_download_url: base + "/dl/deb" }, { name: "central-usage-1.4.0-x86_64.AppImage", browser_download_url: base + "/dl/appimage" },
+  if (req.url === "/repos/church/cc/releases/latest") return send(JSON.stringify({ tag_name: "v2.4.0", body: "Lighting remote fixes", assets: [
+    { name: "central-usage-2.4.0-amd64.deb", browser_download_url: base + "/dl/deb" }, { name: "central-usage-2.4.0-x86_64.AppImage", browser_download_url: base + "/dl/appimage" },
     { name: "central-control-source.zip", browser_download_url: base + "/dl/zip" }, { name: "SHA256SUMS", browser_download_url: base + "/dl/sums" }] }));
   if (req.url === "/dl/deb") { res.writeHead(302, { Location: base + "/dl/deb2" }); return res.end(); }   // GitHub redirects downloads
   if (req.url === "/dl/deb2") return send(deb, "application/octet-stream");
@@ -45,7 +45,7 @@ await check("the phone remote: switched on in Lighting → Output, it serves its
 });
 await check("updates: with the update source set, a newer Central Usage on the release page is found (and which file fits this computer)", async () => {
   const st = await win.evaluate(async () => { await CU.updates.config({ repo: "https://github.com/church/cc", auto: true }); return CU.updates.check(); });
-  assert.equal(st.repo, "church/cc"); assert.equal(st.latest, "1.4.0"); assert.equal(st.available, true, JSON.stringify(st)); assert.equal(st.kind, "deb");
+  assert.equal(st.repo, "church/cc"); assert.equal(st.latest, "2.4.0"); assert.equal(st.available, true, JSON.stringify(st)); assert.equal(st.kind, "deb");
   await win.waitForFunction(() => !document.querySelector("#updBanner").hidden, null, { timeout: 3000 });
 });
 await check("the updater only accepts a download whose checksum is in SHA256SUMS (redirects followed)", async () => {

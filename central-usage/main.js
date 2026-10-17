@@ -1,7 +1,9 @@
 /* Central Usage - the desktop app (Electron main process). A real application
  * window: no browser chrome, its own menu, launcher entry and installer.
  * It finds the Central Control (Raspberry Pi) on the Wi-Fi, gives the page Web MIDI
- * (Lightkey / consoles / USB MIDI) and drives DMX itself (USB-DMX, Art-Net, sACN). */
+ * (Lightkey / consoles / USB MIDI) and drives DMX itself (USB-DMX, Art-Net, sACN).
+ * services.js: Admin / User mode, the audio host (mixer engine, in-ears, recording), slides outputs
+ * (second screen, NDI), the Instrument tab's audio and the lights' optional AI model. */
 const { app, BrowserWindow, Menu, ipcMain, shell, session, dialog } = require("electron");
 const path = require("node:path");
 const os = require("node:os");
@@ -21,9 +23,9 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
 }
 
-// Web MIDI (and the microphone, for a future tuner) are allowed without a prompt - this is our own page
+// Web MIDI, the microphone (tuner) and choosing a speaker are allowed without a prompt - this is our own page
 function allowPermissions() {
-  const ok = (p) => ["midi", "midiSysex", "media", "notifications", "fullscreen"].includes(p);
+  const ok = (p) => ["midi", "midiSysex", "media", "notifications", "fullscreen", "speaker-selection", "audioCapture"].includes(p);
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(ok(permission)));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => ok(permission));
 }
@@ -40,10 +42,12 @@ function menu() {
       { type: "separator" }, { role: "quit", label: "Quit Central Usage" } ] },
     { label: "View", submenu: [
       { label: "Chord chart", accelerator: "F1", click: () => send("tab", "chart") }, { label: "Lyrics", accelerator: "F2", click: () => send("tab", "lyrics") }, { label: "Lighting", accelerator: "F3", click: () => send("tab", "lights") },
+      { label: "Mix", accelerator: "F4", click: () => send("tab", "mix") }, { label: "In-ears", accelerator: "F5", click: () => send("tab", "inears") }, { label: "Slides", accelerator: "F6", click: () => send("tab", "slides") },
+      { label: "Instrument", accelerator: "F7", click: () => send("tab", "instrument") }, { label: "I/O", accelerator: "F8", click: () => send("tab", "io") }, { label: "Settings", accelerator: "F9", click: () => send("tab", "settings") },
       { type: "separator" }, { label: "Bigger text", accelerator: "CmdOrCtrl+=", click: () => send("font", 1) }, { label: "Smaller text", accelerator: "CmdOrCtrl+-", click: () => send("font", -1) },
       { type: "separator" }, { role: "reload" }, { role: "toggleDevTools", label: "Developer tools" } ] },
     { label: "Help", submenu: [
-      { label: "How it works", click: () => dialog.showMessageBox(win, { type: "info", title: "Central Usage", message: "Central Usage shows what the Central Control is doing.", detail: "1. Put this computer on the same Wi-Fi as the Central Control.\n2. File → Find (or type padpedal.local) and connect.\n3. Chord chart: pick your instrument - guitar with capo and shapes, B♭ / E♭ / F horns, Nashville numbers; it follows the song and the section.\n4. Lyrics: words only, big.\n5. Lighting: pick the MIDI output that your lighting software or console listens to (Lightkey: a MIDI port in MIDI mode). The Pi's hits, section notes and clock arrive over Wi-Fi, lined up with the tracks, and go out that port.\n\nControlling the Pi (jump to a section, play / pause) needs the 4-digit pairing code shown in its Settings." }) },
+      { label: "How it works", click: () => dialog.showMessageBox(win, { type: "info", title: "Central Usage", message: "Central Usage shows what the Central Control is doing.", detail: "1. Put this computer on the same network as the Central Control (Ethernet or Wi-Fi).\n2. File → Find (or type padpedal.local) and connect, then enter the pairing code (Central Control → Settings).\n3. Settings → This computer: Admin (lights, track mixing, in-ears, lyrics, slides) or User (chart, instrument, lyrics, my in-ear mix).\n4. One admin computer is the audio host: it gets the Central Control's tracks (Ethernet, Wi-Fi or the audio interface - I/O tab), mixes them, makes up to 48 in-ear mixes and records the service.\n5. Only the Central Control plays, stops and skips the tracks; everything here follows it." }) },
       { label: "Check for updates…", click: () => send("updates") },
       { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Usage " + app.getVersion(), detail: "Companion app for Central Control. Electron " + process.versions.electron + " · Chromium " + process.versions.chrome }) } ] }
   ];
@@ -154,12 +158,13 @@ ipcMain.handle("update-install", async () => {
   catch (e) { updater.error = e.message; updateEvent(); return { ok: false, error: e.message }; }
 });
 
-app.on("before-quit", () => { try { dmx.blackout(); } catch (_) { } });
+const svc = require("./services")(app, () => win);
+app.on("before-quit", () => { try { dmx.blackout(); } catch (_) { } try { svc.stop(); } catch (_) { } });
 ipcMain.handle("version", () => ({ app: app.getVersion(), electron: process.versions.electron }));
 
 app.whenReady().then(() => {
   updater = new Updater({ product: "central-usage", current: app.getVersion(), dir: app.getPath("userData") });
   setTimeout(async function loop() { try { if (updater.due()) { await updater.check(); updateEvent(); } } catch (_) { } setTimeout(loop, 3600 * 1000); }, 60 * 1000);
   try { if (JSON.parse(fs.readFileSync(remoteFile(), "utf8")).on) startRemote(); } catch (_) { }
-  allowPermissions(); menu(); createWindow(); app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
+  allowPermissions(); menu(); createWindow(); svc.start(); app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
 app.on("window-all-closed", () => { app.quit(); });

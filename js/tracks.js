@@ -142,17 +142,44 @@
     for (var b = 0; b < bins; b++) { var m = 0, s = b * per, e = Math.min(buffer.length, s + per); for (var i = s; i < e; i += 4) { var v = Math.abs(d[i]); if (v > m) m = v; } out[b] = Math.round(m * 100) / 100; }
     return out;
   }
+  // one waveform for the whole song: every track (not the click / guide) mixed together
+  function combinedOverview(t) {
+    var bins = 960, acc = new Float32Array(bins), used = 0;
+    t.stems.forEach(function (st) {
+      if (!st.overview || !st.overview.length || st.role === "click" || st.role === "guide" || st.mute) return;
+      var ov = st.overview, g = st.gain == null ? 1 : st.gain; used++;
+      for (var b = 0; b < bins; b++) { var v = ov[Math.min(ov.length - 1, Math.floor(b * ov.length / bins))] * g; acc[b] += v * v; }
+    });
+    if (!used) return t.overview || [];
+    var max = 0, out = new Array(bins); for (var i = 0; i < bins; i++) { out[i] = Math.sqrt(acc[i]); if (out[i] > max) max = out[i]; }
+    for (var j = 0; j < bins; j++) out[j] = max ? Math.round(out[j] / max * 100) / 100 : 0;
+    return out;
+  }
+  function refreshOverview(t) { t.overview = combinedOverview(t); t.overviewMix = 2; }
+  // what Central Usage gets for a song (lighting songs, waveform, sections, hits): see hub.js
+  function hubSong(s) {
+    var t = data(s); if (!s || !t) return null;
+    if (t.stems.length && (t.overviewMix !== 2 || !t.overview || !t.overview.length)) refreshOverview(t);
+    var g = t.stems.length ? grid(s) : null, ov = t.overview || [], bins = 480, out = [], C = window.PPColors;
+    if (ov.length) for (var i = 0; i < bins; i++) { var a = Math.floor(i * ov.length / bins), b = Math.max(a + 1, Math.floor((i + 1) * ov.length / bins)), m = 0; for (var k = a; k < b; k++) m = Math.max(m, Math.abs(ov[k] || 0)); out.push(Math.round(m * 1000) / 1000); }
+    var r3 = function (x) { return Math.round((x || 0) * 1000) / 1000; };
+    return { id: s.id, name: s.name, key: s.key || "", bpm: Math.round((s.bpm || 0) * 10) / 10, bpb: g ? g.bpb : 4, duration: r3(t.duration), hasTracks: !!t.stems.length,
+      sections: sectionsOf(s).map(function (q) { return { name: q.sec.name, start: r3(q.start), end: r3(q.end), bar: q.sec.bar, type: C ? C.typeOf(q.sec.name) : null, color: C ? C.section(q.sec.name) : null, note: q.sec.note || "" }; }),
+      grid: g ? { bpm: Math.round((s.bpm || 0) * 10) / 10, bpb: g.bpb, bars: g.bars.slice(0, 800).map(r3), barBeats: g.barBeats ? g.barBeats.slice(0, 800) : [] } : null,
+      hits: (t.hits || []).slice(0, 600).map(r3), overview: out,
+      stems: t.stems.map(function (st) { return { name: st.name, role: st.role || "", file: st.file || null, gain: st.gain == null ? 1 : st.gain, pan: st.pan || 0, mute: !!st.mute, bus: st.bus || "music" }; }) };
+  }
   async function addStemFile(s, file, progress) {
     var t = data(s), name = file.name.replace(/\.[^.]+$/, "");
     if (progress) progress("Decoding " + name + "…");
     var buffer = await decodeFile(file), pcm = toPcm(buffer), id = PP.id();
     await putStem(id, pcm);
     var role = file._role || guessRole(name);
-    var rec = { id: id, name: name, role: role, gain: 1, pan: 0, mute: false, solo: false, bus: role === "click" ? "click" : "music", length: pcm.length, overview: overview(buffer, 240) };
+    var rec = { id: id, name: name, role: role, gain: 1, pan: 0, mute: false, solo: false, bus: role === "click" ? "click" : "music", length: pcm.length, overview: overview(buffer, 960) };
     t.stems.push(rec);
     keepInLibrary(s, file, rec);
     t.duration = Math.max(t.duration, buffer.duration);
-    if (!t.overview || t.stems.length === 1) t.overview = overview(buffer, 480);
+    refreshOverview(t);
     PP.persistSoon();
     return { stem: t.stems[t.stems.length - 1], buffer: buffer };
   }
@@ -267,7 +294,7 @@
 
   // ------------------------------------------------------------- worklet
   // per-stem direct outputs (only offered when a USB interface gives more than the four built-in channels)
-  var DIRECT_SLOTS = 8, directGains = [];
+  var DIRECT_SLOTS = 8, NET_SLOTS = 24, directGains = [];
   function outputChannels() { var st = F.systemStatus && F.systemStatus(); var names = st && st.audio && st.audio.channels ? st.audio.channels : null; if (names && names.length) return names; var c = engine.ctx; return c ? Array.from({ length: Math.max(2, c.destination.maxChannelCount || 2) }, function (_, i) { return "Output " + (i + 1); }) : []; }
   function directOutsAvailable() { var st = F.systemStatus && F.systemStatus(); if (st && st.audio && st.audio.channels) return st.audio.channels.length > 4 && st.audio.channels.some(function (n) { return /usb/i.test(n); }); var c = engine.ctx; return !!(c && (c.destination.maxChannelCount || 2) > 4); }
   function applyDirectOuts() {  // the song's stems with an output -> engine.directOuts slots -> routeOutput
@@ -292,7 +319,7 @@
       directGains = [];
       for (var di = 0; di < DIRECT_SLOTS; di++) { var g = engine.ctx.createGain(); g.channelCount = 1; g.channelCountMode = "explicit"; directGains.push(g); }
       decks = [0, 1].map(function (n) {
-        var d = { n: n, songId: null, node: new AudioWorkletNode(engine.ctx, "pp-multitrack", { numberOfInputs: 0, numberOfOutputs: 3, outputChannelCount: [2, 2, DIRECT_SLOTS] }), music: engine.ctx.createGain(), click: engine.ctx.createGain() };
+        var d = { n: n, songId: null, node: new AudioWorkletNode(engine.ctx, "pp-multitrack", { numberOfInputs: 0, numberOfOutputs: 4, outputChannelCount: [2, 2, DIRECT_SLOTS, NET_SLOTS] }), music: engine.ctx.createGain(), click: engine.ctx.createGain() };
         d.node.connect(d.music, 0); d.music.connect(engine.tracksBus); d.node.connect(d.click, 1); d.click.connect(engine.clickBus);
         var split = engine.ctx.createChannelSplitter(DIRECT_SLOTS); d.node.connect(split, 2);
         directGains.forEach(function (gn, i) { split.connect(gn, i); });
@@ -313,7 +340,7 @@
   var decks = [], deck = null;
   function otherDeck() { return decks[0] === deck ? decks[1] : decks[0]; }
   function onOtherDeck(d, m) { /* the outgoing song during a crossfade, or the preloaded one: nothing to show */ }
-  function swapDeck() { var od = otherDeck(); if (!od) return; deck = od; node = od.node; loadedSongId = od.songId; }
+  function swapDeck() { var od = otherDeck(); if (!od) return; deck = od; node = od.node; loadedSongId = od.songId; document.dispatchEvent(new CustomEvent("pp-stems")); }
   async function stemsFor(s) {
     var t = data(s), stems = [], transfer = [], length = 0;
     for (var i = 0; i < t.stems.length; i++) {
@@ -324,7 +351,7 @@
       transfer.push(L); if (R) transfer.push(R);
       length = Math.max(length, rec.length); st.missing = false;
     }
-    return { stems: stems, transfer: transfer, length: length };
+    return { stems: stems, transfer: transfer, length: length, names: stems.map(function (q) { var st = t.stems.filter(function (x) { return x.id === q.id; })[0]; return st ? st.name : "Track"; }) };
   }
 
   // ------------------------------------------------------------- segues: what happens when a song ends
@@ -344,7 +371,7 @@
     segue.loading = true;
     try {
       var r = await stemsFor(n); if (otherDeck() !== d || segue.running) return;
-      d.node.port.postMessage({ cmd: "pause" }); d.node.port.postMessage({ cmd: "load", stems: r.stems, length: r.length }, r.transfer);
+      d.node.port.postMessage({ cmd: "pause" }); d.node.port.postMessage({ cmd: "load", stems: r.stems, length: r.length }, r.transfer); d.netNames = r.names;
       var tn = data(n), g = grid(n);
       d.node.port.postMessage({ cmd: "stop", to: 0 });
       d.node.port.postMessage({ cmd: "beats", times: Float64Array.from(g.times.map(function (x) { return x * engine.ctx.sampleRate; })), downbeats: Uint8Array.from(g.down) });
@@ -412,8 +439,9 @@
     // already waiting on the other deck (preloaded for a segue): just swap
     var od = otherDeck(); if (od && od.songId === s.id && !segue.running) { swapDeck(); pushAll(s); applyDirectOuts(); state.playing = false; state.pos = 0; state.countIn = 0; state.loop = -1; state.section = -1; state.ended = false; state.flowIndex = 0; render(); return; }
     var r = await stemsFor(s), stems = r.stems, transfer = r.transfer, length = r.length;
-    loadedSongId = s.id; deck.songId = s.id;
+    loadedSongId = s.id; deck.songId = s.id; deck.netNames = r.names;
     post({ cmd: "load", stems: stems, length: length }, transfer);
+    document.dispatchEvent(new CustomEvent("pp-stems"));
     applyDirectOuts();
     state.playing = false; state.pos = 0; state.countIn = 0; state.loop = -1; state.section = -1; state.ended = false; state.flowIndex = 0;
     pushAll(s);
@@ -659,6 +687,31 @@
     else { state.loop = index; post({ cmd: "loop", start: secs[index].start, end: secs[index].end }); }
     renderSections(); renderTransport(); sendDisplay();
   }
+  // ---- rehearsal: loop any A–B part (snapped to the beat), slow down / speed up without changing the pitch
+  var ab = { a: null, b: null, on: false };
+  function snapBeat(s, tm) { var g = grid(s); if (!g || !g.beats || !g.beats.length) return tm; var best = tm, d = 1e9; for (var i = 0; i < g.beats.length; i++) { var dd = Math.abs(g.beats[i] - tm); if (dd < d) { d = dd; best = g.beats[i]; } if (g.beats[i] > tm + 2) break; } return best; }
+  function abApply() { if (ab.on && ab.a != null && ab.b != null && ab.b > ab.a + .2) { state.loop = -2; post({ cmd: "loop", start: ab.a, end: ab.b }); } else if (state.loop === -2) { state.loop = -1; post({ cmd: "loop" }); } renderRehearse(); drawTimeline(); }
+  function abSet(which) { var s = song(); if (!s) return; var tm = snapBeat(s, state.pos); ab[which] = tm; if (ab.a != null && ab.b != null && ab.b < ab.a) { var x = ab.a; ab.a = ab.b; ab.b = x; } if (which === "b" && ab.a != null) ab.on = true; PP.setStatus("Loop point " + which.toUpperCase() + " at " + fmtTime(tm)); abApply(); }
+  function abToggle() { if (ab.a == null || ab.b == null) { PP.setStatus("Set A and B first (at the start and the end of the part to practise)"); return; } ab.on = !ab.on; if (ab.on && (state.pos < ab.a || state.pos > ab.b)) seek(ab.a); abApply(); }
+  function abClear() { ab = { a: null, b: null, on: false }; abApply(); }
+  function nudgeTempo(d) { var s = song(); if (!s) return; setTempoPercent((data(s).tempoPercent || 100) + d); renderRehearse(); }
+  function renderRehearse() {
+    var root = $("#trRehearse"), s = song(); if (!root) return; if (!s || !data(s).stems.length) { root.innerHTML = ""; return; }
+    var t = data(s), pct = t.tempoPercent || 100;
+    root.innerHTML = '<span class="muted">Rehearse</span>' +
+      '<button class="pf-btn" data-rh="secPrev"><small>SECTION</small><b>◀ BACK</b></button><button class="pf-btn' + (state.loop >= 0 ? " on" : "") + '" data-rh="secLoop"><small>LOOP</small><b>SECTION</b></button><button class="pf-btn" data-rh="secNext"><small>SECTION</small><b>NEXT ▶</b></button>' +
+      '<span class="rh-sep"></span><button class="pf-btn' + (ab.a != null ? " set" : "") + '" data-rh="a"><small>LOOP FROM</small><b>A ' + (ab.a != null ? fmt(ab.a) : "") + '</b></button><button class="pf-btn' + (ab.b != null ? " set" : "") + '" data-rh="b"><small>LOOP TO</small><b>B ' + (ab.b != null ? fmt(ab.b) : "") + '</b></button><button class="pf-btn' + (ab.on ? " on" : "") + '" data-rh="ab"><small>A–B</small><b>' + (ab.on ? "LOOPING" : "LOOP") + '</b></button><button data-rh="abClear" title="Clear A and B">✕</button>' +
+      '<span class="rh-sep"></span><span class="muted">Speed (same pitch)</span>' + [60, 75, 90, 100].map(function (v) { return '<button class="rh-speed' + (pct === v ? " on" : "") + '" data-rh-speed="' + v + '">' + v + '%</button>'; }).join("") + '<button data-rh="slower">−5%</button><b class="rh-pct">' + pct + '%</b><button data-rh="faster">+5%</button>';
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-rh],[data-rh-speed]"); if (!b) return;
+    if (b.dataset.rhSpeed) { setTempoPercent(Number(b.dataset.rhSpeed)); renderRehearse(); return; }
+    var k = b.dataset.rh;
+    if (k === "secPrev") prevSection(); else if (k === "secNext") nextSection(); else if (k === "secLoop") toggleLoop();
+    else if (k === "a" || k === "b") abSet(k); else if (k === "ab") abToggle(); else if (k === "abClear") abClear();
+    else if (k === "slower") nudgeTempo(-5); else if (k === "faster") nudgeTempo(5);
+    renderRehearse();
+  });
   function toggleLoop() { var i = currentSectionIndex(); if (state.loop === i || i < 0) { setLoop(-1); PP.setStatus("Repeat off"); } else { setLoop(i); PP.setStatus("Repeating " + sectionsOf(song())[i].sec.name); } }
   function shiftKey(delta) {
     var s = song(); if (!s) { PP.changeKey(delta); return; }
@@ -678,7 +731,29 @@
   function stepSongAndPlay(delta, gap) { F.stepSong(delta); setTimeout(function () { if (song() && data(song()).stems.length) play({ countIn: false }); }, 300 + (gap || 0) * 1000); }
 
   // ------------------------------------------------------------- what happens while playing
+  // ---- the pads follow the tracks: start / stop with them, swell with the sections, the song's own pad
+  var SWELL = [[/intro/i, 70], [/pre[- ]?chorus|build|lift/i, 80], [/chorus|refrain|hook/i, 100], [/bridge/i, 85], [/break|drop|quiet/i, 45], [/tag|vamp/i, 90], [/instrumental|interlude|solo|turn/i, 75], [/outro|ending|end/i, 55], [/verse/i, 62]];
+  function follow(t) { var f = (t && t.padFollow) || {}; return { start: f.start !== false, stop: f.stop !== false, swell: f.swell !== false }; }
+  function songPad(s) { return s && s.pad >= 0 && s.pad < PP.PAD_COUNT ? s.pad : PP.selected(); }
+  function sectionSwell(sec) { if (sec.padLevel != null && sec.padLevel !== "" && sec.padLevel >= 0) return clamp(Number(sec.padLevel) / 100, 0, 1.2); for (var i = 0; i < SWELL.length; i++) if (SWELL[i][0].test(sec.name || "")) return SWELL[i][1] / 100; return .8; }
+  var wasPlaying = false, swellNow = 1;
+  function padsFollowTransport() {
+    var s = song(), t = s && data(s); if (!t || !t.stems.length) { wasPlaying = state.playing; return; }
+    var f = follow(t), seconds = clamp(t.transition.seconds || 3, .3, 20);
+    if (state.playing && !wasPlaying && f.start && !engine.voices().length) {
+      var pad = songPad(s), x = sectionAt(s, Math.max(0, state.pos)), lvl = f.swell && x ? sectionSwell(x.sec) : 1;
+      PP.setSelectedPad(pad, false); engine.playPad(pad, null, { fade: seconds, level: lvl }); swellNow = lvl;
+    } else if (!state.playing && wasPlaying && f.stop && !segue.running && !state.ended && engine.voices().length) engine.stop();
+    wasPlaying = state.playing;
+  }
+  function padsFollowSection(x) {
+    var s = song(), t = data(s), f = follow(t); if (!f.swell || x.sec.pad === -2) return;
+    var lvl = sectionSwell(x.sec); if (Math.abs(lvl - swellNow) < .01) return; swellNow = lvl;
+    var secs = clamp(t.transition.seconds || 3, .3, 12);
+    engine.playingIndexes().forEach(function (i) { engine.setLayerLevel(i, lvl, secs); });
+  }
   function onTransport() {
+    padsFollowTransport();
     var s = song(), t = s && data(s), mo = project().midiOut || {};
     if (mo.clockOut !== false) send({ type: "midiClock", bpm: s ? s.bpm : project().tempo.bpm, running: state.playing });
     if (project().link && project().link.enabled) send({ type: "link", enabled: true, bpm: s ? s.bpm : project().tempo.bpm, playing: state.playing });
@@ -701,6 +776,7 @@
     var s = song(), t = data(s), sec = x.sec;
     if (window.PPScenes) window.PPScenes.onSection(x);
     if (sec.slide != null && sec.slide !== "" && prevIndex !== x.index) send({ type: "propresenter", action: "section", slide: sec.slide, presentation: s.presentation || "", song: s.name, section: sec.name });
+    padsFollowSection(x);
     if (sec.pad === -2) { if (engine.voices().length) engine.stop(); }
     else if (sec.pad >= 0) {
       var playing = engine.playingIndexes(), type = sec.transition === "inherit" ? t.transition.type : sec.transition, seconds = sec.transitionSeconds != null && sec.transition !== "inherit" ? sec.transitionSeconds : t.transition.seconds;
@@ -835,7 +911,7 @@
     var secs = sectionsOf(s), nxt = page < pages.length - 1 ? pages[page + 1] : (x.index + 1 < secs.length ? lyricsPages(secs[x.index + 1].sec, per)[0] || [] : []);
     return { lines: pages[page] || [], page: page, pages: pages.length, next: nxt, section: x.sec.name, nextSection: x.index + 1 < secs.length ? secs[x.index + 1].sec.name : "" };
   }
-  function lyricsStep(delta) { var ls = lyricsState(); if (!ls.pages) { if (delta > 0) nextSection(); else prevSection(); return; } var p = ls.page + delta; if (p >= ls.pages) { nextSection(); return; } if (p < 0) { prevSection(); return; } state.lyricsManual = p; sendDisplay(); renderPosition(); }
+  function lyricsStep(delta, opts) { var ls = lyricsState(), stay = opts && opts.stay && state.playing; if (!ls.pages) { if (stay) return; if (delta > 0) nextSection(); else prevSection(); return; } var p = ls.page + delta; if (p >= ls.pages) { if (!stay) nextSection(); return; } if (p < 0) { if (!stay) prevSection(); return; } state.lyricsManual = p; sendDisplay(); renderPosition(); }
 
   // ------------------------------------------------------------- display state (satellites)
   var displayTimer = 0, lastDisplayAt = 0;
@@ -853,8 +929,8 @@
         tracksMode: !!p.tracksMode, playing: state.playing, pos: Math.round(state.pos * 100) / 100, duration: t ? t.duration : 0, countIn: state.countIn, loop: state.loop,
         bpm: s ? Math.round(s.bpm) : Math.round(p.tempo.bpm), key: PP.playKeyFor(PP.currentPad()), bar: bar.bar, beat: bar.beat, bpb: g ? g.bpb : 4, speed: t ? t.tempoPercent / 100 : 1,
         beatFrac: g ? Math.max(0, Math.min(.999, (bar.frac * g.bpb) % 1)) : 0, tab: window.PPShell ? window.PPShell.currentTab() : "pads",
-        section: x ? { index: x.index, name: x.sec.name, start: x.start, end: x.end, page: x.sec.page || 0 } : null,
-        sections: secs.map(function (q) { return { name: q.sec.name, start: Math.round(q.start * 100) / 100, end: Math.round(q.end * 100) / 100, page: q.sec.page || 0, pad: q.sec.pad, bar: q.sec.bar }; }),
+        section: x ? { index: x.index, name: x.sec.name, start: x.start, end: x.end, page: x.sec.page || 0, note: x.sec.note || "", color: window.PPColors ? window.PPColors.section(x.sec.name) : null } : null,
+        sections: secs.map(function (q) { return { color: window.PPColors ? window.PPColors.section(q.sec.name) : null, type: window.PPColors ? window.PPColors.typeOf(q.sec.name) : null, note: q.sec.note || "", name: q.sec.name, start: Math.round(q.start * 100) / 100, end: Math.round(q.end * 100) / 100, page: q.sec.page || 0, pad: q.sec.pad, bar: q.sec.bar }; }),
         // the flow (live arrangement) and what the lights need: beat grid, detected hits, the next section
         flow: s && flowActive(s) ? { index: state.flowIndex || 0, entries: flowEntries(s).map(function (q) { return q.index; }) } : null,
         next: (function () { if (!s) return null; var fl = flowActive(s) ? flowEntries(s) : secs, i = flowActive(s) ? (state.flowIndex || 0) + 1 : (x ? x.index + 1 : 0); return fl[i] ? { name: fl[i].sec.name, start: Math.round(fl[i].start * 100) / 100, index: fl[i].index } : null; })(),
@@ -894,6 +970,7 @@
   // ------------------------------------------------------------- UI: Tracks tab
   var tl = { drag: null };
   function render() {
+    renderRehearse();
     var s = song(), t = s && data(s), p = project();
     var use = $("#trUseTracks"); if (use) { use.classList.toggle("on", !!p.tracksMode); use.querySelector("b").textContent = p.tracksMode ? "ON" : "OFF"; }
     var name = $("#trSongName"); if (!name) return;
@@ -926,7 +1003,7 @@
       html = t.stems.map(function (st) { return stripHtml(st, anySolo, direct, chans); }).join("");
     }
     roots.forEach(function (root) {
-      root.innerHTML = html + (root.id === "mixStrips" ? '<div class="mix-sep"></div>' + busStrip("tracks", "TRACKS", "out 1") + busStrip("click", "CLICK", "out 3") + busStrip("cue", "CUES", "voice") : "");
+      root.innerHTML = html + (root.id === "mixStrips" || (root.id === "trStems" && t && t.stems.length) ? '<div class="mix-sep"></div>' + busStrip("tracks", "TRACKS", "out 1") + busStrip("click", "CLICK", "out 3") + busStrip("cue", "CUES", "voice") : "");
     });
     var mt = $("#mixTitle"); if (mt) mt.textContent = s ? s.name + " · " + (t.stems.length) + " track" + (t.stems.length === 1 ? "" : "s") : "No song";
     if (window.PPScenes) window.PPScenes.renderMixerBar();
@@ -953,7 +1030,7 @@
     if (!secs.length) { root.innerHTML = '<p class="muted">' + (s && data(s).stems.length ? '<button class="link" data-tr="autoSections">Create sections automatically</button> or mark them in the song editor.' : "Sections appear here once the song has tracks.") + "</p>"; return; }
     root.innerHTML = secs.map(function (x) {
       var padTxt = x.sec.pad === -2 ? "pads stop" : x.sec.pad >= 0 ? "pad " + (x.sec.pad + 1) : "";
-      return '<button class="sec' + (x.index === cur ? " current" : "") + (state.loop === x.index ? " looping" : "") + (pendingJump && Math.abs(pendingJump.time - x.start) < .01 ? " pending" : "") + '" data-sec="' + x.index + '"><b>' + esc(x.sec.name) + "</b><small>bar " + x.sec.bar + (padTxt ? " · " + padTxt : "") + "</small></button>";
+      return '<button class="sec' + (x.index === cur ? " current" : "") + (state.loop === x.index ? " looping" : "") + (pendingJump && Math.abs(pendingJump.time - x.start) < .01 ? " pending" : "") + '" style="--secc:' + (window.PPColors ? window.PPColors.section(x.sec.name) : "") + '" data-sec="' + x.index + '"><b>' + esc(x.sec.name) + "</b><small>bar " + x.sec.bar + (padTxt ? " · " + padTxt : "") + "</small></button>";
     }).join("");
     renderFlow();
     var cs = root.querySelector(".sec.current"); if (cs && cs.scrollIntoView) { try { cs.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" }); } catch (_) { } }
@@ -982,24 +1059,34 @@
     var g = PP.graphGeometry(c), ctx = g.ctx, W = g.width, H = g.height; ctx.clearRect(0, 0, W, H);
     if (!t || !t.duration) { ctx.fillStyle = "rgba(155,178,201,.5)"; ctx.font = "13px system-ui"; ctx.fillText(s ? "No tracks yet" : "No song", 12, H / 2); return; }
     var dur = t.duration, x = function (tm) { return tm / dur * W; };
-    // sections
-    var secs = sectionsOf(s), colors = ["#2a4a6b", "#2f5a4a", "#5a3f6b", "#6b4a2a", "#2a5a6b", "#4a5a2a"];
-    secs.forEach(function (q, i) { ctx.fillStyle = colors[i % colors.length] + (i === state.section ? "" : "99"); ctx.fillRect(x(q.start), 0, Math.max(1, x(q.end) - x(q.start)), H); });
-    // waveform overview
-    var ov = t.overview || [], n = ov.length; ctx.fillStyle = "rgba(236,247,255,.55)";
-    for (var i = 0; i < n; i++) { var h = ov[i] * (H * .8); ctx.fillRect(i / n * W, H / 2 - h / 2, Math.max(1, W / n - .5), Math.max(1, h)); }
+    // sections (the standard colours, Settings → Appearance) and the whole-song waveform in each section's colour
+    var sig = t.stems.map(function (q) { return q.id + q.role + (q.mute ? 1 : 0) + (q.gain == null ? 1 : Math.round(q.gain * 20)); }).join("|");
+    if ((t.overviewMix !== 2 || t._ovSig !== sig) && t.stems.length) { refreshOverview(t); t._ovSig = sig; }
+    var secs = sectionsOf(s), C = window.PPColors, col = function (q) { return C ? C.section(q.sec.name) : "#5a7896"; };
+    secs.forEach(function (q, i) { ctx.fillStyle = col(q) + (i === state.section ? "40" : "26"); ctx.fillRect(x(q.start), 0, Math.max(1, x(q.end) - x(q.start)), H); ctx.fillStyle = col(q); ctx.fillRect(x(q.start), 0, Math.max(1, x(q.end) - x(q.start)), 3); });
+    var ov = t.overview || [], n = ov.length, mid = H / 2 + 6, si = 0, playedX = x(state.pos), waveC = getComputedStyle(document.documentElement).getPropertyValue("--wave").trim() || "#ecf7ff";
+    for (var i = 0; i < n; i++) {
+      var tm = i / n * dur; while (si < secs.length - 1 && tm >= secs[si].end) si++;
+      var bx = i / n * W, h = Math.max(1, ov[i] * (H - 20) * .92), q = secs[si];
+      ctx.fillStyle = q && tm >= q.start ? col(q) : waveC; ctx.globalAlpha = bx < playedX ? 1 : .62;
+      ctx.fillRect(bx, mid - h / 2, Math.max(1, W / n - .4), h);
+    }
+    ctx.globalAlpha = 1;
     // bars
     var gr = grid(s); ctx.strokeStyle = "rgba(255,255,255,.18)"; ctx.lineWidth = 1;
     if (gr) { var every = gr.bars.length > 200 ? 4 : 1; for (var b = 0; b < gr.bars.length; b += every) { var bx = x(gr.bars[b]); if (bx > W) break; ctx.beginPath(); ctx.moveTo(bx, 0); ctx.lineTo(bx, H * .18); ctx.stroke(); } }
     // hits
-    ctx.fillStyle = "#ffd765"; t.hits.forEach(function (h) { ctx.fillRect(x(h) - 1, H - 6, 2, 6); });
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--hit").trim() || "#ffd765"; t.hits.forEach(function (h) { ctx.fillRect(x(h) - 1, H - 6, 2, 6); });
     // loop
     if (state.loop >= 0 && secs[state.loop]) { var q2 = secs[state.loop]; ctx.strokeStyle = "#5de6b0"; ctx.lineWidth = 2; ctx.strokeRect(x(q2.start) + 1, 1, x(q2.end) - x(q2.start) - 2, H - 2); }
+    if (ab.a != null) { ctx.fillStyle = "rgba(255,215,101,.9)"; ctx.fillRect(x(ab.a) - 1, 0, 2, H); }
+    if (ab.b != null) { ctx.fillStyle = "rgba(255,215,101,.9)"; ctx.fillRect(x(ab.b) - 1, 0, 2, H); }
+    if (ab.on && ab.a != null && ab.b != null) { ctx.fillStyle = "rgba(255,215,101,.14)"; ctx.fillRect(x(ab.a), 0, x(ab.b) - x(ab.a), H); }
     // section names
     ctx.fillStyle = "rgba(236,247,255,.9)"; ctx.font = "bold 11px system-ui";
     secs.forEach(function (q) { var w = x(q.end) - x(q.start); if (w > 34) ctx.fillText(q.sec.name.slice(0, Math.floor(w / 7)), x(q.start) + 4, 13); });
     // playhead
-    var px = x(state.pos); ctx.fillStyle = "#fff"; ctx.fillRect(px - 1, 0, 2, H); ctx.beginPath(); ctx.moveTo(px - 6, 0); ctx.lineTo(px + 6, 0); ctx.lineTo(px, 7); ctx.fill();
+    var px = x(state.pos); ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--playhead").trim() || "#fff"; ctx.fillRect(px - 1, 0, 2, H); ctx.beginPath(); ctx.moveTo(px - 6, 0); ctx.lineTo(px + 6, 0); ctx.lineTo(px, 7); ctx.fill();
     if (pendingJump) { var jx = x(pendingJump.time); ctx.fillStyle = "#ffd765"; ctx.fillRect(jx - 1, 0, 2, H); }
   }
   function timelinePointer(e) {
@@ -1029,13 +1116,14 @@
     renderTempoMap(s, t); renderFlowEditor(s, t);
     $("#seBpm").value = Math.round(t.grid.bpm * 10) / 10; $("#seFirst").value = Math.round((t.grid.first || 0) * 1000) / 1000; $("#seBpb").value = t.grid.bpb || 4; $("#seGridMode").value = t.grid.mode === "detected" ? "detected" : "fitted";
     $("#seCountIn").value = t.countIn; $("#seClickSound").value = t.click.sound; $("#seClickSub").value = t.click.sub; $("#seClickLevel").value = t.click.level; $("#seCueLevel").value = t.cues.level; $("#seCueLead").value = t.cues.leadBars; $("#seCountVoice").checked = !!t.cues.countVoice; $("#seClickStems").checked = t.click.stems !== false;
+    var fl = follow(t); $("#seSongPad").innerHTML = '<option value="-1">the selected pad</option>' + project().pads.map(function (pd, i) { return '<option value="' + i + '"' + (s.pad === i ? " selected" : "") + ">" + (i + 1) + " · " + esc(pd.name) + "</option>"; }).join(""); $("#seFollowStart").checked = fl.start; $("#seFollowStop").checked = fl.stop; $("#seFollowSwell").checked = fl.swell;
     $("#seTransition").value = t.transition.type; $("#seTransitionSec").value = t.transition.seconds; $("#seJump").value = t.jump; $("#seLyricsLines").value = t.lyricsLines; $("#seAutoHits").checked = !!t.autoHits; $("#sePresentation").value = s.presentation || ""; $("#seAfter").value = afterMode(t); $("#seGap").value = t.gap; $("#seOverlap").value = t.overlap; $("#seGap").parentNode.hidden = afterMode(t) !== "play"; $("#seOverlap").parentNode.hidden = afterMode(t) !== "segue"; $("#seProgram").value = s.midiProgram == null ? "" : s.midiProgram;
     renderGuesses(s, t);
     $("#seAnalysis").textContent = t.analysis ? "Detected: " + Math.round(t.analysis.bpm * 10) / 10 + " BPM · " + keyName(t.analysis.key) + " " + t.analysis.mode + " (" + Math.round(t.analysis.keyConfidence * 100) + "% sure) · grid " + (t.analysis.grid && t.analysis.grid.steady ? "steady (±" + t.analysis.grid.residualMs + " ms)" : "varies, following the drums") + " · " + t.hits.length + " big hits" : "Not analyzed yet.";
     $("#seStems").innerHTML = t.stems.length ? t.stems.map(function (st) { return '<div class="se-stem" data-stem="' + st.id + '"><input data-sef="name" value="' + esc(st.name) + '"><select data-sef="role">' + ["music", "drums", "bass", "keys", "guitar", "vocals", "guide", "click"].map(function (r) { return '<option' + (r === st.role ? " selected" : "") + ">" + r + "</option>"; }).join("") + '</select><select data-sef="bus"><option value="music"' + (st.bus !== "click" ? " selected" : "") + '>main out</option><option value="click"' + (st.bus === "click" ? " selected" : "") + '>click out</option></select><button data-sef="del" class="danger">✕</button></div>'; }).join("") : '<p class="muted">No tracks yet.</p>';
     var secs = t.sections.slice().sort(function (a, b) { return a.bar - b.bar; });
     $("#seSections").innerHTML = secs.length ? secs.map(function (sec) {
-      return '<div class="se-sec" data-secid="' + sec.id + '"><div class="se-sec-head"><input data-secf="name" value="' + esc(sec.name) + '" aria-label="Section name"><label>bar <input data-secf="bar" type="number" min="1" step="1" value="' + sec.bar + '"></label><label>pad <select data-secf="pad">' + padOptions(sec.pad) + '</select></label><label>in <select data-secf="transition"><option value="inherit"' + (sec.transition === "inherit" ? " selected" : "") + '>song default</option><option value="swell"' + (sec.transition === "swell" ? " selected" : "") + '>swell</option><option value="crossfade"' + (sec.transition === "crossfade" ? " selected" : "") + '>crossfade</option><option value="cut"' + (sec.transition === "cut" ? " selected" : "") + '>cut</option></select></label><label>cue <select data-secf="cue">' + cueOptions(sec.cue) + '</select></label>' + (sec.cue && sec.cue.indexOf("say:") === 0 ? '<input data-secf="cueText" value="' + esc(sec.cue.slice(4)) + '" placeholder="words to say">' : "") + '<label>page <input data-secf="page" type="number" min="0" step="1" value="' + (sec.page || 0) + '" title="chart page (0 = auto)"></label><label>scene <select data-secf="scene"><option value="">—</option>' + (s.scenes || []).map(function (sc) { return '<option value="' + sc.id + '"' + (sec.scene === sc.id ? " selected" : "") + ">" + esc(sc.name) + "</option>"; }).join("") + '</select></label><label title="ProPresenter: slide number to show when this section starts (or next)">slide <input data-secf="slide" value="' + esc(sec.slide == null ? "" : String(sec.slide)) + '" placeholder="—" style="width:56px"></label><button data-secf="go" title="Jump here">▶</button><button data-secf="here" title="Set the start to the playhead">⌖</button><button data-secf="del" class="danger">✕</button></div><textarea data-secf="lyrics" rows="2" placeholder="Lyrics for this section (one line per line)">' + esc(sec.lyrics || "") + "</textarea></div>";
+      return '<div class="se-sec" data-secid="' + sec.id + '"><div class="se-sec-head"><input data-secf="name" value="' + esc(sec.name) + '" aria-label="Section name"><label>bar <input data-secf="bar" type="number" min="1" step="1" value="' + sec.bar + '"></label><label class="se-note" title="Shown on the stage display and in Central Usage (e.g. drums out, key change, all in)">note <input data-secf="note" value="' + esc(sec.note || "") + '" placeholder="drums out, build…"></label><label>pad <select data-secf="pad">' + padOptions(sec.pad) + '</select></label><label title="How loud the pads are in this section (auto: from the name - verse softer, chorus full)">pad level <select data-secf="padLevel">' + ['', 0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110].map(function (v) { return '<option value="' + v + '"' + (String(sec.padLevel == null ? "" : sec.padLevel) === String(v) ? " selected" : "") + ">" + (v === "" ? "auto (" + Math.round(sectionSwell(Object.assign({}, sec, { padLevel: null })) * 100) + "%)" : v + "%") + "</option>"; }).join("") + '</select></label><label>in <select data-secf="transition"><option value="inherit"' + (sec.transition === "inherit" ? " selected" : "") + '>song default</option><option value="swell"' + (sec.transition === "swell" ? " selected" : "") + '>swell</option><option value="crossfade"' + (sec.transition === "crossfade" ? " selected" : "") + '>crossfade</option><option value="cut"' + (sec.transition === "cut" ? " selected" : "") + '>cut</option></select></label><label>cue <select data-secf="cue">' + cueOptions(sec.cue) + '</select></label>' + (sec.cue && sec.cue.indexOf("say:") === 0 ? '<input data-secf="cueText" value="' + esc(sec.cue.slice(4)) + '" placeholder="words to say">' : "") + '<label>page <input data-secf="page" type="number" min="0" step="1" value="' + (sec.page || 0) + '" title="chart page (0 = auto)"></label><label>scene <select data-secf="scene"><option value="">—</option>' + (s.scenes || []).map(function (sc) { return '<option value="' + sc.id + '"' + (sec.scene === sc.id ? " selected" : "") + ">" + esc(sc.name) + "</option>"; }).join("") + '</select></label><label title="ProPresenter: slide number to show when this section starts (or next)">slide <input data-secf="slide" value="' + esc(sec.slide == null ? "" : String(sec.slide)) + '" placeholder="—" style="width:56px"></label><button data-secf="go" title="Jump here">▶</button><button data-secf="here" title="Set the start to the playhead">⌖</button><button data-secf="del" class="danger">✕</button></div><textarea data-secf="lyrics" rows="2" placeholder="Lyrics for this section (one line per line)">' + esc(sec.lyrics || "") + "</textarea></div>";
     }).join("") : '<p class="muted">No sections. Add them, create them automatically, or import a chord chart.</p>';
     $("#seChart").innerHTML = '<option value="">— none —</option>' + charts.map(function (c) { return '<option value="' + c.id + '"' + (s.chart && s.chart.id === c.id ? " selected" : "") + ">" + esc(c.name) + " (" + c.pageCount + " p)</option>"; }).join("");
     $("#seHits").textContent = t.hits.length + " hit" + (t.hits.length === 1 ? "" : "s") + (t.autoHits ? " (automatic)" : " (yours)");
@@ -1056,6 +1144,8 @@
     else if (f === "transition") t.transition.type = el.value; else if (f === "transitionSec") t.transition.seconds = clamp(Number(el.value) || 2, .2, 20);
     else if (f === "jump") t.jump = el.value; else if (f === "lyricsLines") t.lyricsLines = clamp(Number(el.value) || 4, 1, 12); else if (f === "autoHits") { t.autoHits = el.checked; if (t.autoHits && t.analysis) t.hits = t.analysis.hits.slice(); }
     else if (f === "presentation") s.presentation = el.value.trim(); else if (f === "after") { t.after = el.value; t.autoNext = el.value === "play"; $("#seGap").parentNode.hidden = el.value !== "play"; $("#seOverlap").parentNode.hidden = el.value !== "segue"; } else if (f === "gap") t.gap = clamp(Number(el.value) || 0, 0, 30); else if (f === "overlap") t.overlap = clamp(Number(el.value) || 0, 0, 30); else if (f === "program") s.midiProgram = el.value === "" ? null : clamp(Number(el.value), 0, 127);
+    else if (f === "songPad") s.pad = Number(el.value);
+    else if (f === "followStart" || f === "followStop" || f === "followSwell") { t.padFollow = t.padFollow || {}; t.padFollow[f.slice(6).toLowerCase()] = el.checked; }
     else if (f === "chart") { var c = charts.filter(function (q) { return q.id === el.value; })[0]; if (c) chartInfo(c.id).then(function (info) { if (info) applyChart(s, info); }); else s.chart = null; }
     gridCache.key = null;
     if (song() === s) pushAll(s);
@@ -1073,7 +1163,7 @@
     } else {
       if (f === "scene") { sec.scene = e.target.value; PP.persistSoon(); return; }
       if (f === "slide") { var sv = e.target.value.trim(); sec.slide = sv === "" ? null : (/^next$/i.test(sv) ? "next" : Math.max(1, Math.round(Number(sv)) || 1)); PP.persistSoon(); return; }
-      if (f === "name") sec.name = e.target.value; else if (f === "bar") sec.bar = Math.max(1, Math.round(Number(e.target.value) || 1)); else if (f === "pad") sec.pad = Number(e.target.value);
+      if (f === "name") sec.name = e.target.value; else if (f === "bar") sec.bar = Math.max(1, Math.round(Number(e.target.value) || 1)); else if (f === "pad") sec.pad = Number(e.target.value); else if (f === "note") sec.note = e.target.value.slice(0, 80); else if (f === "padLevel") sec.padLevel = e.target.value === "" ? null : Number(e.target.value);
       else if (f === "transition") sec.transition = e.target.value; else if (f === "cue") { sec.cue = e.target.value; } else if (f === "cueText") sec.cue = "say:" + e.target.value; else if (f === "page") sec.page = Math.max(0, Math.round(Number(e.target.value) || 0)); else if (f === "lyrics") sec.lyrics = e.target.value;
       if (f === "lyrics" || f === "name" || f === "cueText") { PP.persistSoon(); if (f !== "lyrics") pushCues(s); sendDisplay(); return; }
     }
@@ -1219,7 +1309,7 @@
     // editor dialog
     var d = $("#songDialog");
     d.addEventListener("change", function (e) { if (e.target.dataset.se) editorField(e); else if (e.target.dataset.secf) editorSection(e); else if (e.target.dataset.sef) editorStem(e); });
-    d.addEventListener("input", function (e) { if (e.target.dataset.secf === "lyrics" || e.target.dataset.secf === "name") editorSection(e); });
+    d.addEventListener("input", function (e) { if (e.target.dataset.secf === "lyrics" || e.target.dataset.secf === "name" || e.target.dataset.secf === "note") editorSection(e); });
     d.addEventListener("click", function (e) { if (e.target.dataset.secf) editorSection(e); else if (e.target.dataset.sef === "del") editorStem(e); });
     $("#seAddSection").addEventListener("click", function () { var s = song(), t = data(s); t.sections.push({ id: PP.id(), name: "Section " + (t.sections.length + 1), bar: timeToBar(s, state.pos).bar, pad: -1, transition: "inherit", cue: "auto", lyrics: "", page: 0 }); gridCache.key = null; pushAll(s); PP.persistSoon(); renderEditor(); render(); });
     $("#seAutoSections").addEventListener("click", function () { autoSections(song()); pushAll(song()); renderEditor(); render(); });
@@ -1286,7 +1376,8 @@
     sendDisplay: sendDisplay, render: render, setStem: setStem, toggleClick: function () { var t = tdata(); if (t) { t.click.on = !t.click.on; pushAll(song()); PP.persistSoon(); renderTransport(); } }, toggleCues: function () { var t = tdata(); if (t) { t.cues.on = !t.cues.on; pushAll(song()); PP.persistSoon(); renderTransport(); } },
     cycleCountIn: function () { var t = tdata(); if (t) { t.countIn = (t.countIn + 1) % 3; PP.persistSoon(); renderTransport(); } }, stepSongAndPlay: stepSongAndPlay, uploadChart: uploadChart, refreshCharts: refreshCharts, charts: function () { return charts; }, applyLevels: applyLevels,
     findSongByName: findSongByName, fileFromMedia: fileFromMedia, workerJob: workerJob, mixdown: mixdown, getStem: getStem, forgetStem: function (id) { stemMemory.delete(id); }, analyzeSong: analyzeSong, applyChart: applyChart, renderEditor: renderEditor, keyName: keyName, fmtTime: fmtTime, pendingJump: function () { return pendingJump; },
-    applyMix: applyMix, captureMix: captureMix, openMixer: openMixer, renderStems: renderStems, startSegue: startSegue, preloadNext: preloadNext, segueState: function () { return { loading: segue.loading, running: segue.running, deck: deck ? deck.n : -1, other: otherDeck() ? otherDeck().songId : null }; }, meters: function () { return meters; }, afterMode: afterMode, currentSection: function () { return state.section; }
+    hubSong: hubSong, netDecks: function () { return decks; }, netNames: function () { return deck && deck.netNames || []; }, ensureWorklet: ensureWorklet, NET_SLOTS: NET_SLOTS,
+    abSet: abSet, abToggle: abToggle, abClear: abClear, nudgeTempo: nudgeTempo, applyMix: applyMix, captureMix: captureMix, openMixer: openMixer, renderStems: renderStems, startSegue: startSegue, preloadNext: preloadNext, segueState: function () { return { loading: segue.loading, running: segue.running, deck: deck ? deck.n : -1, other: otherDeck() ? otherDeck().songId : null }; }, meters: function () { return meters; }, afterMode: afterMode, currentSection: function () { return state.section; }
   };
   engine.hooks.push(function () { applyLevels(); });
   wire();

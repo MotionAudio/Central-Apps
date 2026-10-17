@@ -8,6 +8,7 @@
  * on the stereo mix, so it costs the same for 1 stem or 12).
  *
  * Output 0 = music (L, R)      Output 1 = click + cues (L, R)
+ * Output 2 = direct outs (one stem per channel)   Output 3 = network send to Central Usage (every stem, raw)
  */
 window.PP_MULTITRACK_WORKLET = function () {
   var N = 2048, HS = 1024, SEARCH = 288, SEARCH_STEP = 4, CORR = 512;
@@ -95,7 +96,8 @@ window.PP_MULTITRACK_WORKLET = function () {
         case "pause": this.playing = false; this.countIn.active = false; this.post({ type: "pos", pos: this.pos / this.rate, playing: false }); break;
         case "stop": this.playing = false; this.countIn.active = false; this.seekTo(m.to != null ? m.to * this.rate : 0); break;
         case "seek": this.seekTo(m.time * this.rate); break;
-        case "fold": this.fold = !!m.on; break;   // direct outs folded back into the mix (no multi-channel output available)
+        case "fold": this.fold = !!m.on; break;
+        case "net": this.netOn = !!m.on; break;   // every stem on its own channel of output 4, at unity (Central Usage mixes them)   // direct outs folded back into the mix (no multi-channel output available)
         case "loop": this.loop = m.start != null && m.end != null && m.end > m.start ? { start: m.start * this.rate, end: m.end * this.rate } : null; break;
         // the flow (live arrangement): when the playhead reaches `at`, carry on at `to` (gapless), or stop there (to < 0)
         case "jump": this.jump = m.at != null && m.at > 0 ? { at: m.at * this.rate, to: m.to != null && m.to >= 0 ? m.to * this.rate : -1, id: m.id || 0 } : null; break;
@@ -267,6 +269,13 @@ window.PP_MULTITRACK_WORKLET = function () {
         for (var i2 = from; i2 < to; i2++) { var k = s0 + i2; out[i2] += (L[k] * gL + R[k] * gR) * lvl; }
       }
     }
+    readNet(start, count, net) {  // every stem, mono (L+R)/2, raw (the Pi's faders don't apply), one per channel
+      var stems = this.stems, len = this.length, s0 = Math.floor(start), k0 = this.fadeGain * (0.5 / 32768);
+      for (var s = 0; s < stems.length && s < net.length; s++) {
+        var st = stems[s], out = net[s], L = st.L, R = st.R, from = Math.max(0, -s0), to = Math.min(count, len - s0);
+        for (var i2 = from; i2 < to; i2++) { var k = s0 + i2; out[i2] = (L[k] + R[k]) * k0; }
+      }
+    }
     readMono(start, count, out) {
       var stems = this.stems, len = this.length, s0 = Math.floor(start);
       for (var i = 0; i < count; i++) out[i] = 0;
@@ -278,10 +287,11 @@ window.PP_MULTITRACK_WORKLET = function () {
     }
 
     process(inputs, outputs) {
-      var music = outputs[0], clickOut = outputs[1], direct = outputs[2] || [], mL = music[0], mR = music[1], cL = clickOut[0], cR = clickOut[1];
+      var music = outputs[0], clickOut = outputs[1], direct = outputs[2] || [], net = this.netOn ? outputs[3] || [] : [], mL = music[0], mR = music[1], cL = clickOut[0], cR = clickOut[1];
       var n = mL.length, rate = this.rate;
       for (var i = 0; i < n; i++) { mL[i] = 0; mR[i] = 0; cL[i] = 0; cR[i] = 0; }
       for (var d = 0; d < direct.length; d++) { var dch = direct[d]; for (var di = 0; di < n; di++) dch[di] = 0; }
+      for (var nd = 0; nd < net.length; nd++) { var nch = net[nd]; for (var ni = 0; ni < n; ni++) nch[ni] = 0; }
       this.glideGains();
       if (this.playing && this.stems.length) {
         var s = this.speed, p = this.pitch, shifting = Math.abs(s - 1) > 0.0005 || Math.abs(p - 1) > 0.0005;
@@ -312,6 +322,7 @@ window.PP_MULTITRACK_WORKLET = function () {
         }
         if (!inCount && !shifting && this.clickStemsOn !== false) { this.readMix(startPos, n, cL, cR, "click", true); }
         if (!inCount && !this.folding) this.readDirect(startPos, n, direct);
+        if (!inCount && !shifting && net.length) this.readNet(startPos, n, net);
         // advance the song position; handle loop / count-in / end
         var endPos = startPos + n * s;
         if (inCount) {

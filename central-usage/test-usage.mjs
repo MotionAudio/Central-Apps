@@ -26,6 +26,7 @@ await pi.waitForFunction(() => PPTracks.song() && PPTracks.song().chart && PPTra
 await pi.evaluate(() => { PPTracks.sendDisplay(); PPFeatures.sendToDriver({ type: "system", action: "status" }); }); await pi.waitForFunction(() => PPFeatures.systemStatus() && PPFeatures.systemStatus().code, null, { timeout: 5000 }); code = await pi.evaluate(() => PPFeatures.systemStatus().code);
 // Central Usage renderer
 const cu = await ctx.newPage(); cu.on("pageerror", (e) => errs.push("cu:" + e)); cu.on("console", (m) => { if (m.type() === "error" && !/favicon|NAME_NOT_RESOLVED/.test(m.text())) errs.push("cu-console:" + m.text()); });
+await cu.addInitScript(() => { if (!localStorage.getItem("cu-mode")) localStorage.setItem("cu-mode", JSON.stringify("user")); });   // a musician's computer first (chart, lyrics)
 await cu.goto("file://" + path.join(here, "app", "index.html") + ""); await cu.waitForFunction(() => window.CentralUsage);
 await cu.evaluate(() => { CentralUsage.connect("127.0.0.1"); });
 await check("connects to the Central Control and shows its song", async () => { await cu.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.display && CentralUsage.state.display.song, null, { timeout: 8000 }); assert.match(await cu.textContent("#songName"), /Test Song/); });
@@ -43,11 +44,15 @@ await check("the lyrics tab shows the current section's words without chords", a
   await cu.evaluate(() => document.querySelector('[data-tab="lyrics"]').click());
   await cu.waitForFunction(() => /first verse line|Verse/.test(document.querySelector("#lyrics").textContent), null, { timeout: 6000 }); const t = await cu.textContent("#lyrics"); assert.ok(!/\bG\s+D\b/.test(t), "no chord line in lyrics: " + t);
 });
-await check("a remote action with the pairing code jumps the Pi to the next section", async () => {
-  await cu.evaluate((c) => { CentralUsage.prefs.code = c; CentralUsage.onMessage({ type: "auth", ok: true }); CentralUsage.state.authed = true; }, code);
-  await cu.evaluate(() => document.querySelector('[data-tab="chart"]').click()); await cu.waitForSelector("#sections [data-sec='1']", { timeout: 5000 }); const r1 = await cu.evaluate(() => CentralUsage.send({ type: "ping", t: 1 })); console.log("    socket open:", r1); await cu.click("#sections [data-sec='1']"); await cu.waitForTimeout(300); console.log("    drv log tail:", log.split("\n").slice(-4).join(" | ").slice(0, 400));
-  try { await pi.waitForFunction(() => PPTracks.state.section === 1, null, { timeout: 6000 }); }
-  catch (e) { const dbg = await pi.evaluate(() => ({ section: PPTracks.state.section, tracks: PP.project().tracksMode, secs: PPTracks.sectionsOf(PPTracks.song()).length, stems: PPTracks.data(PPTracks.song()).stems.length })); const cud = await cu.evaluate(() => ({ authed: CentralUsage.state.authed, code: CentralUsage.prefs.code, secBtns: document.querySelectorAll("#sections button").length })); throw new Error("pi " + JSON.stringify(dbg) + " cu " + JSON.stringify(cud) + " drvlog: " + log.split("\n").filter((l) => /action|auth/.test(l)).slice(-3).join(" | ")); }
+await check("only the Central Control moves the tracks: the section buttons show where it is, a jump request is refused; the lyrics can be paged", async () => {
+  await cu.evaluate((c) => { CentralUsage.prefs.code = c; CentralUsage.send({ type: "auth", code: c }); }, code);
+  await cu.evaluate(() => document.querySelector('[data-tab="chart"]').click()); await cu.waitForSelector("#sections [data-sec='1']", { timeout: 5000 });
+  const before = await pi.evaluate(() => PPTracks.state.section);
+  await cu.click("#sections [data-sec='1']"); await cu.evaluate((c) => CentralUsage.send({ type: "action", name: "nextSection", code: c }), code); await cu.waitForTimeout(700);
+  assert.equal(await pi.evaluate(() => PPTracks.state.section), before, "the Pi did not move");
+  const refused = await cu.evaluate(() => new Promise((res) => { CentralUsage.on("refused", (m) => res(m)); CentralUsage.send({ type: "action", name: "playPause", code: CentralUsage.prefs.code }); setTimeout(() => res(null), 2000); }));
+  assert.ok(refused && /Only the Central Control/.test(refused.error), JSON.stringify(refused));
+  const page = await pi.evaluate(() => JSON.stringify([PPTracks.state.lyricsPage, PPTracks.state.section, PPTracks.state.lyricsManual])); await cu.evaluate(() => CentralUsage.action("lyricsNext")); await pi.waitForFunction((p) => JSON.stringify([PPTracks.state.lyricsPage, PPTracks.state.section, PPTracks.state.lyricsManual]) !== p, page, { timeout: 4000 });
 });
 await check("MIDI relay: the Pi's hit notes arrive with its clock and are scheduled on a local output", async () => {
   const sent = await cu.evaluate(async () => {
@@ -60,9 +65,10 @@ await check("MIDI relay: the Pi's hit notes arrive with its clock and are schedu
   assert.ok(ok, "hit logged with ~250 ms lookahead");
 });
 await check("lighting: the example rig is on the stage plot and the auto show is built from the song's sections", async () => {
+  await cu.evaluate(() => CentralUsage.setMode("admin"));   // the lights are on admin computers
   await cu.click('[data-tab="lights"]'); await cu.click('[data-lx="show"]');
-  await cu.waitForFunction(() => document.querySelectorAll("#lxPlot .lx-fix").length === 11 && CULights.show().cues.length >= 3, null, { timeout: 8000 });
-  const cues = await cu.evaluate(() => CULights.show().cues.filter((c) => c.kind === "look").map((c) => c.look + "@" + c.bar));
+  await cu.waitForFunction(() => document.querySelectorAll("#lxPlot .lx-fix").length === 11 && CULights.cuesNow().length >= 3, null, { timeout: 8000 });
+  const cues = await cu.evaluate(() => CULights.cuesNow().filter((c) => c.kind === "look").map((c) => c.look + "@" + c.bar));
   assert.ok(cues[0] === "verse@1" && cues.some((c) => /^chorus@/.test(c)) && /^blackout@/.test(cues[cues.length - 1]), cues.join(" "));
   assert.ok(await cu.evaluate(() => document.querySelectorAll("#lxPalette .lx-look").length >= 12));
 });
@@ -82,14 +88,14 @@ await check("lighting: a look becomes the right DMX values (dimmer + RGBW pars, 
 });
 await check("lighting: following the song - at the chorus the chorus look is up, a hit cue flashes white", async () => {
   const r = await cu.evaluate(() => {
-    const S = CULights.song, sh = CULights.show(), chorus = sh.cues.find((c) => c.look === "chorus");
+    const S = CULights.song, sh = CULights.show(), chorus = CULights.cuesNow().find((c) => c.look === "chorus");
     const t = CULights.timeOf(chorus.bar, 1) + 1.5;
     S.playing = true; S.pos = t; S.at = performance.now();
     const a = Array.from(CULights.render()["1"].slice(10, 15));
-    sh.cues.push({ id: "h", bar: chorus.bar, beat: 3, look: "hit", kind: "flash", dur: 1 });
+    sh.cues.push({ id: "h", bar: chorus.bar, beat: 3, look: "hit", kind: "flash", dur: 1 }); CULights.dirty();
     S.pos = CULights.timeOf(chorus.bar, 3) + 0.01; S.at = performance.now();
     const f = Array.from(CULights.render()["1"].slice(10, 15));
-    sh.cues = sh.cues.filter((c) => c.id !== "h"); S.playing = false;
+    sh.cues = sh.cues.filter((c) => c.id !== "h"); CULights.dirty(); S.playing = false;
     return { a, f };
   });
   assert.deepEqual(r.a, [255, 122, 43, 255, 0], "chorus back " + r.a);
@@ -103,7 +109,7 @@ await check("lighting: a cue added on the timeline is saved on the Central Contr
   await cu.waitForFunction((n) => CULights.show().cues.length === n + 1 && CULights.show().saved, before, { timeout: 6000 });
   const sid = await cu.evaluate(() => CULights.show().song);
   const got = await (await fetch("http://127.0.0.1:8080/api/lighting?song=" + encodeURIComponent(sid))).json();
-  assert.equal(got.cues.length, before + 1); assert.ok(got.auto === false);
+  assert.equal(got.cues.length, before + 1); assert.equal(got.mode, "semi");
   const bad = await fetch("http://127.0.0.1:8080/api/lighting", { method: "POST", body: JSON.stringify({ song: sid, code: "0000", show: { cues: [] } }) });
   assert.equal(bad.status, 403);
 });
@@ -167,6 +173,50 @@ await check("timecode: MTC quarter frames carry the song position (01:00:00:00 +
   assert.deepEqual(r.qf, [0x0D, 0x10, 0x22, 0x30, 0x41, 0x50, 0x61, 0x72]); assert.equal(r.txt, "01:01:02:13");
   await cu.evaluate(() => { document.querySelector('[data-tab="lights"]').click(); CULights.showSub("output"); });
   await cu.waitForSelector("#lxTimecode [data-tc=mtc]", { timeout: 4000 }); await cu.waitForSelector("#lxRemote", { timeout: 4000 });
+});
+await check("lighting modes: Auto runs the automatic cues only, Manual only yours, Semi-auto both", async () => {
+  const r = await cu.evaluate(() => { const sh = CULights.show(), keep = sh.cues.slice(); sh.cues = [{ id: "mine", bar: 2, beat: 1, look: "bridge", kind: "look", fade: 0 }]; const out = {};
+    ["auto", "manual", "semi"].forEach((m) => { sh.mode = m; CULights.dirty(); out[m] = CULights.cuesNow().map((c) => c.look + (c.auto ? "*" : "")); });
+    sh.cues = keep; sh.mode = "semi"; CULights.dirty(); return out; });
+  assert.ok(r.auto.length >= 2 && !r.auto.includes("bridge"), "auto " + r.auto); assert.deepEqual(r.manual, ["bridge"]); assert.ok(r.semi.includes("bridge") && r.semi.length === r.auto.length + 1, "semi " + r.semi);
+});
+await check("songs: a song of your own (no tracks) with scenes on bars - programmed at 93 BPM, at 112 BPM every scene moves with it", async () => {
+  await cu.evaluate(() => { const rig = CULights.rig(); rig.localSongs.push({ id: "cu-test", name: "Spontaneous", bpm: 93, bpb: 4 }); CULights.showSub("songs"); });
+  await cu.click('[data-ls-pick="cu-test"]'); await cu.waitForSelector('[data-ls="scene"]', { timeout: 5000 });
+  await cu.click('[data-ls="scene"]'); await cu.click('[data-ls="scene"]');
+  await cu.waitForFunction(() => document.querySelectorAll(".lx-scenes tbody tr").length === 2);
+  await cu.evaluate(() => { const i = document.querySelector('.lx-scenes tbody tr:nth-child(2) [data-scf="bar"]'); i.value = "5"; i.dispatchEvent(new Event("change", { bubbles: true })); });
+  await cu.click('[data-ls="program"]');
+  const t = await cu.evaluate(() => { const S = CULights.song; const a = CULights.timeOf(5, 1); S.bpm = 112; const b = CULights.timeOf(5, 1); return { id: S.id, local: S.local, a, b, scenes: CULights.show().cues.length }; });
+  assert.equal(t.id, "cu-test"); assert.ok(t.local); assert.ok(Math.abs(t.a - 16 * 60 / 93) < 0.01 && Math.abs(t.b - 16 * 60 / 112) < 0.01, JSON.stringify(t));
+  await cu.waitForFunction(() => CULights.show().cues.filter((c) => c.kind === "look").length === 2, null, { timeout: 5000 });
+});
+await check("record: presets pressed while the song plays land on its timeline; recording again over a part replaces only that part", async () => {
+  const r = await cu.evaluate(async () => {
+    const S = CULights.song, sh = CULights.show(), at = (bar) => { S.pos = CULights.timeOf(bar, 1) + 0.01; S.at = performance.now(); };
+    sh.cues = []; sh.mode = "manual"; CULights.dirty(); S.playing = true; at(2); CULights.record(true);
+    at(3); CULights.goLook("chorus"); at(6); CULights.goLook("bridge"); at(8); CULights.record(false);
+    const first = CULights.show().cues.map((c) => c.look + "@" + c.bar);
+    at(3); CULights.record(true); at(3); CULights.goLook("verse"); at(4); CULights.record(false); S.playing = false;
+    return { first, second: CULights.show().cues.map((c) => c.look + "@" + c.bar) };
+  });
+  assert.deepEqual(r.first, ["chorus@3", "bridge@6"]); assert.deepEqual(r.second, ["verse@3", "bridge@6"]);
+});
+await check("every light's colour: one light changed in the list takes over live, and '+ Cue with these colours' puts it on the timeline", async () => {
+  await cu.evaluate(() => CULights.showSub("show")); await cu.waitForSelector("#lxLights .lx-lt");
+  const id = await cu.evaluate(() => CULights.rig().fixtures[2].id);
+  await cu.evaluate((id) => { const el = document.querySelector('#lxLights [data-lt-id="' + id + '"] [data-lt="color"]'); el.value = "#ff0000"; el.dispatchEvent(new Event("input", { bubbles: true })); }, id);
+  const st = await cu.evaluate((id) => { CULights.render(); return CULights.live.fixtureColor[id]; }, id); assert.ok(st.r > 0.9 && st.g < 0.1 && st.b < 0.1 && st.dim > 0.02, JSON.stringify(st));
+  const before = await cu.evaluate(() => CULights.show().cues.length); await cu.click('[data-lt="cue"]');
+  const c = await cu.evaluate(() => CULights.show().cues.filter((x) => x.kind === "fixture").pop()); assert.ok(c && c.fixtures[id].color === "#ff0000"); assert.equal(await cu.evaluate(() => CULights.show().cues.length), before + 1);
+});
+await check("tell it the show (built-in engine): sections, groups, colours, levels and the hits become presets and cues", async () => {
+  await cu.evaluate(() => { CULights.show().cues = []; CULights.dirty(); const S = CULights.song; S.sections = [{ name: "Verse 1", start: 0, end: 8, bar: 1 }, { name: "Chorus", start: 8, end: 16, bar: 5 }]; S.hits = [9, 12]; });
+  await cu.fill("#lxChatIn", "back blue 30% for the verse, then chorus full white with strobes on the hits"); await cu.click("#lxChatGo");
+  await cu.waitForFunction(() => /✓/.test(document.querySelector("#lxChatOut").textContent), null, { timeout: 5000 });
+  const r = await cu.evaluate(() => CULights.show().cues.map((c) => c.kind + "@" + c.bar + "." + c.beat + ":" + (CULights.lookById(c.look) || {}).name));
+  assert.ok(r.some((x) => /^look@1\.1:Said: Verse/.test(x)) && r.some((x) => /^look@5\.1:Said: Chorus/.test(x)) && r.filter((x) => /^flash/.test(x)).length === 2, r.join(" | "));
+  const back = await cu.evaluate(() => { const l = CULights.rig().looks.find((x) => /Said: Verse/.test(x.name)); return l.g.back; }); assert.equal(back.color, "#1f4dff"); assert.ok(Math.abs(back.dim - 0.3) < 0.01);
 });
 await check("no page errors", () => assert.deepEqual(errs, []));
 await b.close(); drv.kill();
