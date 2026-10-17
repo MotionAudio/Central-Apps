@@ -39,11 +39,11 @@ class Engine extends EventEmitter {
     p.stdout.on("data", (chunk) => this.onData(chunk));
     p.stdin.on("error", () => { });
     p.on("exit", (code) => {
-      this.proc = null; this.status = null;
+      this.proc = null; this.status = null; this.emit("exit", code);
       if (this.wanted) { this.restarts++; this.error = "The audio engine stopped (" + code + ") - restarting"; this.emit("status", this.info()); setTimeout(() => { if (this.wanted && !this.proc) this.start(); }, Math.min(10000, 1000 * this.restarts)); }
     });
   }
-  stop() { this.wanted = false; if (this.proc) { try { this.cmd({ cmd: "quit" }); } catch (_) { } const p = this.proc; setTimeout(() => { try { p.kill(); } catch (_) { } }, 500); } this.proc = null; this.status = null; this.emit("status", this.info()); }
+  stop() { this.wanted = false; if (this.proc) { try { this.cmd({ cmd: "quit" }); } catch (_) { } const p = this.proc; setTimeout(() => { try { p.kill(); } catch (_) { } }, this.recording ? 4000 : 500); } this.proc = null; this.status = null; this.emit("status", this.info()); }   // (a recording closes its files on quit)
   restart() { const was = this.wanted; this.stop(); if (was) setTimeout(() => this.start(), 700); }
   info() { return { running: !!this.proc, status: this.status, error: this.error, pi: { names: this.pi.names, live: Object.keys(this.pi.live) }, taps: [...this.taps.keys()] }; }
   write(type, payload) { if (!this.proc || !this.proc.stdin.writable) return false; const h = Buffer.alloc(5); h[0] = type.charCodeAt(0); h.writeUInt32LE(payload.length, 1); this.proc.stdin.write(Buffer.concat([h, payload])); return true; }
@@ -61,6 +61,7 @@ class Engine extends EventEmitter {
     if (e.ev === "status") { this.status = e; this.restarts = 0; this.pushAll(); this.emit("status", this.info()); }
     else if (e.ev === "meters") { this.meters = e; this.emit("meters", e); }
     else if (e.ev === "error") { this.error = e.error; this.emit("status", this.info()); }
+    else if (e.ev === "rec") this.emit("rec", e);   // recording (recorder.js)
   }
   // ---------------------------------------------------------------- state -> engine
   inputCmd(i) {
@@ -80,7 +81,7 @@ class Engine extends EventEmitter {
   }
   mainCmd() { const s = this.state, b = s.main, tapped = (this.taps.get(0) || new Set()).size > 0, direct = s.trackOut === "direct"; return { cmd: "main", level: b.level, mute: b.mute ? 1 : 0, outL: direct ? -1 : b.outL, outR: direct ? -1 : b.outR, stereo: 1, tap: tapped ? 1 : 0, used: 1 }; }
   sendCmd(m, i) { const sd = this.state.mixes[m].sends[i]; return sd ? { cmd: "send", m, i, level: sd.level, pan: sd.pan, on: sd.on === false ? 0 : 1 } : { cmd: "send", m, i, level: -90, pan: 0, on: 0 }; }
-  pushNet() { Object.keys(this.pi.sources).forEach((k) => { const src = this.pi.sources[k]; this.cmd({ cmd: "net", src: Number(k), channels: Math.min(NETCH, (src.channels || []).length), rate: src.rate || 48000, latency: this.latency || 60 }); }); }
+  pushNet() { Object.keys(this.pi.sources).filter((k) => Number(k) < 4).forEach((k) => { const src = this.pi.sources[k]; this.cmd({ cmd: "net", src: Number(k), channels: Math.min(NETCH, (src.channels || []).length), rate: src.rate || 48000, latency: this.latency || 60 }); }); }
   pushAll() {
     if (!this.proc) return;
     this.pushNet();
@@ -88,6 +89,7 @@ class Engine extends EventEmitter {
     this.cmd(this.mainCmd());
     for (let m = 0; m < M.MAXMIX; m++) { this.cmd(this.mixCmd(m)); Object.keys(this.state.mixes[m].sends).forEach((i) => this.cmd(this.sendCmd(m, Number(i)))); }
     this.cmd({ cmd: "analysis", src: this.analysis === "main" ? 1 : 0 });
+    this.emit("pushed");   // (talkback sets its slots up again)
   }
   // ---------------------------------------------------------------- ops
   apply(op, who) {

@@ -38,3 +38,6 @@ button.mini { padding: 2px 8px; min-height: 0; font-size: 12px; }
 .ia-wire { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; } .ia-wire input[type=number] { width: 64px; } .ia-wire select { width: auto; }
 .ia-dest { gap: 14px; align-items: center; flex-wrap: wrap; } .ia-dest select { width: auto; }
 .ie-mix small { display: block; font-size: 10px; opacity: .7; } .ie-wired { margin: 0 0 8px; }
+/* talkback: someone at the desk is talking into this mix */
+.ie-talk { position: sticky; top: 0; z-index: 5; margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: #7a1d1d; border: 1px solid #ff7878; color: #fff; font-weight: 700; animation: ie-talk 1.2s ease-in-out infinite alternate; }
+@keyframes ie-talk { from { box-shadow: 0 0 0 rgba(255, 120, 120, 0); } to { box-shadow: 0 0 14px rgba(255, 120, 120, .55); } }

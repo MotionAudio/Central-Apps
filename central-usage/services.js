@@ -1,7 +1,7 @@
 /* Central Usage - the services of the desktop app (main process):
  *   this computer's settings (Admin or User, its name, audio host or not, codes)          cu.json
  *   the audio host: engine (cu-mixer), the server for users / admins / phones, the Central Control's audio
- *     over the network, recording, listening on this computer
+ *     over the network, multitrack recording (recorder.js), talkback (talk.js), listening on this computer
  *   slides & lyrics outputs: a second screen, NDI (cu-ndi + an off-screen window)
  *   the Instrument tab's audio host (the Central Control's instrument host, run here)
  *   the lights' optional local AI model (llama.cpp's llama-server + a small downloaded model) */
@@ -17,6 +17,8 @@ const { Engine } = require("./engine");
 const { Host } = require("./host");
 const { PiAudio } = require("./piaudio");
 const { Recorder } = require("./recorder");
+const { Talk, isDesk } = require("./talk");
+const { findFfmpeg } = require("./video-service");
 
 function which(cmd) {
   try {
@@ -37,7 +39,7 @@ module.exports = function services(app, getWin) {
 
   // ------------------------------------------------------------------ this computer's settings
   const cfgFile = path.join(userData, "cu.json");
-  let cfg = { mode: null, name: os.hostname().replace(/\.local$/, ""), host: { enabled: false, port: 8092, userCode: code4(), adminCode: code4() }, piAudio: { transport: "off", latency: 60 }, analysis: "pi", recordDir: path.join(app.getPath("music") || os.homedir(), "Central Usage") };
+  let cfg = { mode: null, name: os.hostname().replace(/\.local$/, ""), host: { enabled: false, port: 8092, userCode: code4(), adminCode: code4() }, piAudio: { transport: "off", latency: 60 }, analysis: "pi", recordDir: path.join(app.getPath("music") || os.homedir(), "Central Usage Recordings") };
   try { const saved = JSON.parse(fs.readFileSync(cfgFile, "utf8")); cfg = Object.assign(cfg, saved, { host: Object.assign(cfg.host, saved.host || {}), piAudio: Object.assign(cfg.piAudio, saved.piAudio || {}) }); } catch (_) { }
   function saveCfg() { try { fs.mkdirSync(userData, { recursive: true }); fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 1)); } catch (_) { } }
   if (process.env.CU_MODE) cfg.mode = process.env.CU_MODE;   // tests
@@ -50,11 +52,12 @@ module.exports = function services(app, getWin) {
 
   // ------------------------------------------------------------------ the audio host
   const engine = new Engine({ dir: userData, bin: path.join(binDir, "cu-mixer" + EXE) });
-  const host = new Host({ engine, appDir: path.join(__dirname, "app"), cfg: () => ({ name: cfg.name, userCode: cfg.host.userCode, adminCode: cfg.host.adminCode }), extra: () => ({}) });
+  const talk = new Talk({ engine });
+  const recorder = new Recorder({ engine, bin: path.join(binDir, "cu-mixer" + EXE), ffmpeg: () => findFfmpeg(binDir), dir: () => cfg.recordDir });
+  const host = new Host({ engine, talk, recorder, appDir: path.join(__dirname, "app"), cfg: () => ({ name: cfg.name, userCode: cfg.host.userCode, adminCode: cfg.host.adminCode }), extra: () => ({}) });
   const pi = new PiAudio(engine);
-  const recorder = new Recorder();
-  let piTarget = { address: "", code: "" }, recFn = null;
-  function hostStatus() { return { cfg, engine: engine.info(), server: host.status(), pi: pi.status(), recorder: recorder.status() }; }
+  let piTarget = { address: "", code: "" };
+  function hostStatus() { return { cfg, engine: engine.info(), server: host.status(), pi: pi.status(), recorder: recorder.state() }; }
   function applyHost() {
     const on = (cfg.mode === "admin" || cfg.mode === "main") && cfg.host.enabled;
     if (on) { engine.start(); if (!host.server || host.port !== cfg.host.port) host.start(cfg.host.port); }
@@ -99,15 +102,44 @@ module.exports = function services(app, getWin) {
     if (on) { const fn = (pcm, frames) => send("listen-audio", tap, frames, pcm); listeners.set(tap, fn); engine.tap(tap, fn, true); }
     return [...listeners.keys()];
   });
-  ipcMain.handle("mixer-record", (_e, opt) => {
+  // ---- recording (recorder.js): window.CU.recorder in the page; also the admins on other computers (host.js)
+  recorder.on("state", (st, ev) => { send("rec-event", st, ev); host.admins({ type: "recState", state: st, event: ev }); if (ev !== "tick") send("host-status", hostStatus()); });
+  const recErr = (e) => ({ error: e.message, state: recorder.state() });
+  ipcMain.handle("rec-start", async (_e, opts) => { try { return { state: await recorder.start(opts || {}) }; } catch (e) { return recErr(e); } });
+  ipcMain.handle("rec-stop", async () => { try { return { state: await recorder.stop() }; } catch (e) { return recErr(e); } });
+  ipcMain.handle("rec-state", () => recorder.state());
+  ipcMain.handle("rec-choose-dir", async () => {
+    const r = await dialog.showOpenDialog(getWin(), { title: "Folder for the recordings", defaultPath: cfg.recordDir, properties: ["openDirectory", "createDirectory"] });
+    if (r.canceled || !r.filePaths[0]) return recorder.state();
+    cfg.recordDir = r.filePaths[0]; saveCfg(); send("host-status", hostStatus()); return recorder.state();
+  });
+  ipcMain.handle("rec-open", (_e, which) => { const st = recorder.state(), p = which === "last" && st.last && st.last.folder ? st.last.folder : which === "current" && st.folder ? st.folder : cfg.recordDir; fs.mkdirSync(p, { recursive: true }); shell.openPath(p); return true; });
+  // the older record call (Mix tab of earlier versions, tests): { on, tap: 0 main | 1..64 mix } -> the multitrack recorder
+  ipcMain.handle("mixer-record", async (_e, opt) => {
     opt = opt || {};
-    if (recFn) { engine.tap(recFn.tap, recFn.fn, false); recFn = null; }
-    if (!opt.on) { const st = recorder.stop(); send("host-status", hostStatus()); return st; }
-    const tap = opt.tap == null ? 0 : opt.tap; recorder.start(cfg.recordDir, opt.label || "");
-    recFn = { tap, fn: (pcm) => recorder.write(pcm) }; engine.tap(tap, recFn.fn, true);
-    send("host-status", hostStatus()); return recorder.status();
+    try {
+      if (!opt.on) { const st = await recorder.stop(); return Object.assign({}, st, { saved: st.last && st.last.program }); }
+      const tap = Number(opt.tap) || 0; return await recorder.start({ name: opt.label || "", program: tap ? tap - 1 : "main" });
+    } catch (e) { return recErr(e); }
   });
   ipcMain.handle("open-recordings", () => { fs.mkdirSync(cfg.recordDir, { recursive: true }); shell.openPath(cfg.recordDir); return true; });
+
+  // ---- talkback (talk.js): this computer's own talk (as the audio host) goes straight in; the users' talkback
+  // to the desk plays here when this computer is the desk (the main admin, or an admin with the Mix job)
+  const localDesk = () => isDesk(cfg.role, cfg.jobs);
+  host.localDesk = localDesk;
+  const hostOn = () => (cfg.mode === "admin" || cfg.mode === "main") && cfg.host.enabled && !!engine.proc;
+  talk.on("talkers", (list) => send("talk-event", { talkers: list }));
+  talk.on("desk", (d) => { if (d.key !== "local" && localDesk()) send("talk-desk-audio", d.frames, d.rate, d.pcm, d.name); });
+  ipcMain.handle("talk-start", (_e, o) => {
+    if (!hostOn()) return { ok: false, error: "This computer is not the audio host." };
+    const r = talk.start("local", o || {}, { role: cfg.role === "main" || cfg.role === "admin" ? "admin" : "user", name: (o && o.name) || cfg.name || "Sound desk" });
+    if (r.ok && r.talker.kind === "desk") r.receivers = host.deskCount(null) - (localDesk() ? 1 : 0);
+    return r;
+  });
+  ipcMain.handle("talk-stop", () => talk.stop("local"));
+  ipcMain.on("talk-audio", (_e, buf) => { if (buf) talk.audio("local", Buffer.from(buf.buffer ? Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength) : buf)); });
+  ipcMain.handle("talk-state", () => ({ talkers: talk.list(), host: hostOn(), desk: localDesk() }));
   ipcMain.handle("mixer-export", async () => { const r = await dialog.showSaveDialog(getWin(), { defaultPath: "mixer.json", filters: [{ name: "Central Usage mixer", extensions: ["json"] }] }); if (r.canceled || !r.filePath) return null; fs.writeFileSync(r.filePath, JSON.stringify({ format: "central-usage-mixer", version: 1, state: engine.state }, null, 1)); return r.filePath; });
   ipcMain.handle("mixer-import", async () => { const r = await dialog.showOpenDialog(getWin(), { properties: ["openFile"], filters: [{ name: "Central Usage mixer", extensions: ["json"] }] }); if (r.canceled || !r.filePaths[0]) return null; const j = JSON.parse(fs.readFileSync(r.filePaths[0], "utf8")); if (j.format !== "central-usage-mixer") throw new Error("not a Central Usage mixer file"); engine.replaceState(j.state); return true; });
 
@@ -211,8 +243,8 @@ module.exports = function services(app, getWin) {
   });
 
   return {
-    start() { applyHost(); },
-    stop() { try { recorder.stop(); } catch (_) { } host.stop(); engine.stop(); pi.close(); ndiStop(); if (inst) inst.kill(); if (ai.proc) ai.proc.kill(); if (outputs.screen && !outputs.screen.isDestroyed()) outputs.screen.close(); },
+    start() { applyHost(); setTimeout(() => { try { recorder.repairAll(); } catch (_) { } }, 3000); },   // (a recording a crash cut short: its files repaired)
+    stop() { try { recorder.stop().catch(() => { }); } catch (_) { } talk.close(); host.stop(); engine.stop(); pi.close(); ndiStop(); if (inst) inst.kill(); if (ai.proc) ai.proc.kill(); if (outputs.screen && !outputs.screen.isDestroyed()) outputs.screen.close(); },
     cfg: () => cfg
   };
 };

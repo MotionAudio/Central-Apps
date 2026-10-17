@@ -1,7 +1,8 @@
 /* Central Usage - the Mix tab (admin): the Central Control's tracks, each on its own channel, mixed here.
  * Faders, pan, mute, high-pass, 3-band EQ, compressor per track; out of the audio interface summed (main
- * L/R) or each track on its own output (Settings on this tab). Listen on this computer, record the service,
- * and a live waveform of what is going out. */
+ * L/R) or each track on its own output (Settings on this tab). Listen on this computer, record the service
+ * (recorder.js fills the record control) and a live waveform of what is going out. The TALK panel above the strips
+ * comes from talkback.js. */
 (function () {
   "use strict";
   var CU = window.CentralUsage, M = window.CUMixer, X = window.CUMix, IE = window.CUInEar; if (!CU || !M || !X) return;
@@ -37,17 +38,15 @@
     var link = X.kind === "local" ? "This computer is the audio host" + (hs.engine && hs.engine.status ? " · " + hs.engine.status.backend + " · " + hs.engine.status.rate + " Hz · " + hs.engine.status.block + " frames" : hs.engine && hs.engine.error ? " · ⚠ " + esc(hs.engine.error) : " · starting the engine…") : "Mixing on the audio host " + esc(X.hostAddress());
     var piLine = X.kind === "local" ? (pi.state === "receiving" ? "Central Control audio: " + (X.pi.length) + " channels · " + pi.kbps + " kbit/s" + (pi.lost ? " · " + pi.lost + " packets lost" : "") : (hs.cfg && hs.cfg.piAudio && hs.cfg.piAudio.transport === "interface") ? "Central Control audio: through the interface inputs" : "Central Control audio: " + esc(pi.state || "off") + (pi.error ? " - " + esc(pi.error) : "") + ' <button data-mx-go="io">I/O</button>') : "";
     var listenTaps = '<option value="main"' + (listen.tap === "main" ? " selected" : "") + ">Main mix</option>" + s.mixes.map(function (q, k) { return '<option value="' + k + '"' + (listen.tap === k ? " selected" : "") + ">Mix " + (k + 1) + " · " + esc(q.owner || q.name) + "</option>"; }).join("");
-    var recSt = hs.recorder || {};
     return '<div class="card mx-head"><div class="mx-line"><b>' + link + '</b><span class="muted small">' + piLine + "</span></div>" +
       '<div class="mx-row"><div class="mx-grp"><b>Tracks out</b><label class="toggle"><input type="radio" name="mxOut" value="sum"' + (s.trackOut !== "direct" ? " checked" : "") + '> Summed (L / R)</label><label class="toggle"><input type="radio" name="mxOut" value="direct"' + (s.trackOut === "direct" ? " checked" : "") + "> Each track on its own output</label>" +
       (s.trackOut === "direct" ? '<label>starting at <select data-mx-main="directFirst">' + outOptions(s.directFirst).replace('<option value="-1"', '<option value="-1" disabled') + "</select></label>" : '<label>L <select data-mx-main="outL">' + outOptions(m.outL) + '</select></label><label>R <select data-mx-main="outR">' + outOptions(m.outR) + "</select></label>") + "</div>" +
       '<div class="mx-grp mx-mainf"><b>Main</b><input type="range" min="0" max="1" step="0.001" data-mx-main="level" value="' + M.dbToFader(m.level) + '"><span class="mx-mdb">' + db(m.level) + '</span><button data-mx-main="mute" class="' + (m.mute ? "danger on" : "") + '">' + (m.mute ? "Muted" : "Mute") + "</button></div></div>" +
       '<div class="mx-row"><div class="mx-grp"><b>Listen here</b><select data-mx-listen="tap">' + listenTaps + '</select><button data-mx-listen="go" class="' + (listen.tap != null ? "on" : "") + '">' + (listen.tap != null ? "■ Stop" : "🎧 Listen") + '</button><select data-mx-listen="sink"><option value="">This computer\'s output</option></select></div>' +
-      (X.kind === "local" ? '<div class="mx-grp"><b>Record the service</b><button data-mx-rec="go" class="' + (recSt.recording ? "rec" : "") + '">' + (recSt.recording ? "■ Stop · " + fmtT(recSt.seconds) : "● Record") + '</button><button data-mx-rec="folder">Recordings</button><span class="muted small">' + (recSt.saved ? "saved " + esc(String(recSt.saved).split("/").pop()) : recSt.file && !recSt.recording ? esc(String(recSt.file).split("/").pop()) : "") + "</span></div>" : '<div class="mx-grp muted small">Recording happens on the audio host.</div>') +
+      '<div class="mx-grp mx-rec"><b>Record the service</b><div data-rec-slot></div></div>' +
       '<div class="mx-grp"><label class="toggle"><input type="checkbox" data-mx-all' + (showAll ? " checked" : "") + "> Show every channel (band too)</label>" + (X.kind === "local" ? '<button data-mx-file="export">Save mixer…</button><button data-mx-file="import">Open mixer…</button>' : "") + "</div></div></div>" +
       '<canvas class="mx-wave" id="mxWave" title="What goes out (main mix), last minute"></canvas>';
   }
-  function fmtT(s) { s = s || 0; var h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ":" : "") + (h && m < 10 ? "0" : "") + m + ":" + (x < 10 ? "0" : "") + x; }
   function strip(i) {
     var x = S().inputs[i], direct = S().trackOut === "direct" || x.direct >= 0;
     return '<div class="mx-strip' + (i === sel ? " sel" : "") + (active(x) ? "" : " idle") + '" data-i="' + i + '"' + (x.color ? ' style="--c:' + esc(x.color) + '"' : "") + '>' +
@@ -77,7 +76,7 @@
     if (!force && key === structKey && root.querySelector(".mx-strips")) { update(); return; }
     structKey = key;
     root.innerHTML = head() + '<div class="mx-strips">' + (list.length ? list.map(strip).join("") : '<p class="muted mx-none">No tracks yet. When the Central Control sends its audio (I/O tab), every track appears here on its own channel. With the audio interface, name the inputs on the In-ears tab and set them to "Tracks".</p>') + "</div>" + '<div class="card mx-detail" id="mxDetail">' + detail() + "</div>";
-    fillSinks(); drawCurve();
+    fillSinks(); drawCurve(); if (window.CURecUI) window.CURecUI.fill(root);
   }
   function fillSinks() {
     var sinkSel = $('[data-mx-listen="sink"]'); if (!sinkSel || !navigator.mediaDevices) return;
@@ -178,17 +177,12 @@
     if (b.dataset.mxd === "close") { sel = -1; CU.store.set("mxSel", sel); render(true); return; }
     if (b.dataset.mxd === "eqflat") { X.op({ op: "input", i: sel, patch: { hpf: 0, eq: { on: false, lg: 0, mg: 0, hg: 0, lf: 100, mf: 1000, mq: 1, hf: 8000 } } }); return; }
     if (b.dataset.mxListen === "go") { if (listen.tap != null) { stopListen(); render(true); } else { var tv = $('[data-mx-listen="tap"]').value; startListen(tv === "main" ? "main" : Number(tv)); } return; }
-    if (b.dataset.mxRec === "go" && window.CU && window.CU.mixer) { var on = !((X.hostStatus || {}).recorder || {}).recording; window.CU.mixer.record({ on: on, tap: 0 }); return; }
-    if (b.dataset.mxRec === "folder" && window.CU && window.CU.mixer) { window.CU.mixer.openRecordings(); return; }
     if (b.dataset.mxFile === "export") { window.CU.mixer.exportFile(); return; }
     if (b.dataset.mxFile === "import") { window.CU.mixer.importFile().catch(function (err) { alert(err.message); }); return; }
   });
   X.on("state", function () { render(true); });
   X.on("op", function (op) { if (!visible()) return; if (op.op === "input" && op.patch && (op.patch.name != null || op.patch.group || op.patch.src || op.patch.color != null || op.patch.direct != null)) render(); else if (op.op === "trackOut") render(true); else update(); });
   X.on("pi", function () { render(); });
-  var lastRec = null;
-  X.on("status", function (st) { if (!visible()) return; var r = st && st.recorder ? JSON.stringify([st.recorder.recording, st.recorder.saved]) : null; if (r !== lastRec) { lastRec = r; render(true); } });
-  setInterval(function () { var b = $('[data-mx-rec="go"]'); var r = X.hostStatus && X.hostStatus.recorder; if (b && r && r.recording) { r.seconds = (r.seconds || 0) + 1; b.textContent = "■ Stop · " + fmtT(r.seconds); } }, 1000);
   CU.on("tab", function (t) { if (t === "mix") setTimeout(function () { render(true); }, 0); });
   window.CUMixTab = { render: render };
 })();

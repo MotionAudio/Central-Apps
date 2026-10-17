@@ -11,6 +11,17 @@
  *  back to Central Usage (network in-ears, listening on the laptop, recording, the live waveform).
  *  Meters, 3-band levels and onsets (the lights react to the music) come back 20 times a second.
  *
+ *  Talkback: 4 talk slots. Each takes a microphone - an interface / Dante input, or a network stream (network
+ *  source 4 + slot: a computer's own mic, mono) - and mixes it into the chosen in-ear mixes (all of them, or a
+ *  list), after the mix's sends and before its level / limiter, so it reaches the wired outputs and the taps.
+ *  While a slot talks, the music in its mixes can be dimmed (dB).
+ *
+ *  Recording: every interface input, the network channels (the Central Control's tracks as received) and a
+ *  stereo program (the main mix or a mix) as WAV files (48 kHz, 24 bit, one mono / stereo file per source).
+ *  The audio thread only copies samples into a lock-free ring; a writer thread converts and writes them, and
+ *  rewrites the WAV headers every 5 s and at the end. "cu-mixer --repair a.wav b.wav ..." fixes the headers
+ *  of files left by a crash (their sizes follow the data that is there).
+ *
  *  Audio backends:
  *    jack      Linux: JACK (PipeWire's JACK: start the engine with pw-jack). JACK already joins several cards.
  *    miniaudio Windows (WASAPI), macOS (Core Audio), Linux (ALSA / PulseAudio) - several devices at once:
@@ -24,7 +35,11 @@
  *
  *  stdin / stdout carry framed messages: u8 type, u32 length (little endian), payload.
  *    in : 'J' a JSON command (one object)        'N' network audio: u8 source, u8 channels, u16 frames, int16 data
- *    out: 'J' a JSON event (status, meters)      'A' tap audio: u8 tap (0 main, 1..64 mixes), u16 frames, int16 stereo
+ *    out: 'J' a JSON event (status, meters, rec) 'A' tap audio: u8 tap (0 main, 1..64 mixes), u16 frames, int16 stereo
+ *  Commands (besides input / send / mix / main / net / analysis / testgen / quit):
+ *    {"cmd":"talk","slot":0,"on":1,"src":2,"ch":0,"gain":0,"dim":-12,"all":0,"mixes":[2,5]}   src 1 interface ch, 2 network
+ *    {"cmd":"rec","on":1,"dir":"/x/2026-10-17 10.30","files":"In 01.wav|Track 01.wav|Program.wav","ins":[0],"net":[0],"prog":0}
+ *    {"cmd":"rec","on":0}       -> {"ev":"rec","state":"recording"|"stopped"|"error", ...}
  *
  *  Linux / macOS: cc -O2 -o cu-mixer cu-mixer.c -lm -ldl -lpthread   (macOS: + -framework CoreAudio ...)
  *  Windows:       x86_64-w64-mingw32-gcc -O2 -o cu-mixer.exe cu-mixer.c -lole32 -lwinmm
@@ -63,7 +78,10 @@
 #define MAXIN 128
 #define MAXMIX 64
 #define MAXOUT 128
-#define MAXNET 4
+#define MAXNET 8               /* network sources: 0..3 the Central Control's audio, 4..7 the talk slots' mics */
+#define PINET 4
+#define TALKS 4
+#define TALKNET 4              /* talk slot k hears network source TALKNET + k */
 #define MAXNETCH 40
 #define NETRING 32768          /* frames per network channel (0.68 s at 48 kHz) */
 #define MAXBLOCK 4096
@@ -162,7 +180,7 @@ static unsigned meterEvery, meterCount;
 static float limCeil = 0.89f;          /* -1 dBFS */
 
 /* ------------------------------------------------------------------ rings */
-typedef struct { int kind, a, b; float f[24]; Input input; float *ptr; } Cmd;
+typedef struct { int kind, a, b; float f[24]; uint64_t mask; Input input; float *ptr; } Cmd;
 static Cmd cmds[CMDRING]; static _Atomic unsigned cmdW, cmdR;
 static uint8_t *outRing; static _Atomic uint64_t outW, outR;
 static pl_mutex outLock; static pl_cond outCond;
@@ -187,9 +205,23 @@ static int jarr(const char *js, const char *key, float *out, int max) { const ch
 static int jstr(const char *js, const char *key, char *out, int max) { const char *p = jkey(js, key); if (!p || *p != '"') return 0; p++; int n = 0; while (*p && *p != '"' && n < max - 1) { if (*p == '\\' && p[1]) p++; out[n++] = *p++; } out[n] = 0; return 1; }
 static float db2lin(double db) { return db <= -90 ? 0 : (float)pow(10, db / 20); }
 
-enum { C_INPUT = 1, C_SEND, C_MIX, C_MAIN, C_NET, C_ANALYSIS, C_CLEARSENDS, C_TESTGEN };
+enum { C_INPUT = 1, C_SEND, C_MIX, C_MAIN, C_NET, C_ANALYSIS, C_CLEARSENDS, C_TESTGEN, C_TALK };
 /* a test tone on an interface input (the test suite checks how several devices' channels are combined) */
-static struct { float freq, level; double ph; } tg[MAXIN]; static float tgbuf[MAXBLOCK];
+static struct { float freq, level; double ph; } tg[MAXIN]; static float tgch[MAXIN][MAXBLOCK];
+/* talkback: a mic into chosen mixes; the music in those mixes dims while it talks */
+typedef struct { int on, src, ch, all; uint64_t mask; float gain, dim, cg, peak; Biquad hpf; } Talk;
+static Talk talk[TALKS]; static float talkbuf[TALKS][MAXBLOCK], dimCur[MAXMIX];
+static void rec_command(const char *js);
+/* recording: what is recorded (set up by the command thread before "want"), the ring the audio thread fills */
+#define RECMAXT 256
+typedef struct { int kind, idx, chans; FILE *f; uint64_t bytes; int failed; char path[1100]; } RecTrack;   /* kind 0 interface input, 1 network channel, 2 program */
+static struct {
+  _Atomic int want, closed, busy;        /* want: the command thread asks; closed: the audio thread let go; busy: files open */
+  int active; uint64_t gap;              /* the audio thread's own */
+  int n, width, prog; RecTrack t[RECMAXT];
+  float *ring, *tmp; uint8_t *conv; uint64_t cap; _Atomic uint64_t w, r, frames, dropped;
+  uint64_t lastHdr, wantSince; int clean; char dir[1024], err[200];
+} REC;
 static void pan_gains(float g, float pan, float *L, float *R) { double a = (pan + 1) * M_PI / 4; *L = (float)(g * cos(a) * M_SQRT2); *R = (float)(g * sin(a) * M_SQRT2); if (*L > g) *L = g; if (*R > g) *R = g; }
 
 static void command(const char *js) {
@@ -223,6 +255,11 @@ static void command(const char *js) {
     if (c.b > 0 && !net[s].ring) c.ptr = calloc((size_t)MAXNETCH * NETRING, sizeof(float));   /* allocated here, not on the audio thread */
   } else if (!strcmp(cmd, "analysis")) { c.kind = C_ANALYSIS; c.a = (int)jnum(js, "src", 0);
   } else if (!strcmp(cmd, "testgen")) { c.kind = C_TESTGEN; c.a = (int)jnum(js, "ch", -1); if (c.a < 0 || c.a >= MAXIN) return; c.f[0] = (float)jnum(js, "freq", 440); c.f[1] = (float)jnum(js, "level", 0);
+  } else if (!strcmp(cmd, "talk")) {
+    c.kind = C_TALK; c.a = (int)jnum(js, "slot", -1); if (c.a < 0 || c.a >= TALKS) return;
+    c.b = (int)jnum(js, "src", 2); c.f[0] = (float)jnum(js, "ch", 0); c.f[1] = db2lin(jnum(js, "gain", 0)); c.f[2] = db2lin(jnum(js, "dim", 0)); c.f[3] = (float)jnum(js, "on", 0); c.f[4] = (float)jnum(js, "all", 0);
+    float mx[MAXMIX]; int n = jarr(js, "mixes", mx, MAXMIX); for (int k = 0; k < n; k++) if (mx[k] >= 0 && mx[k] < MAXMIX) c.mask |= 1ULL << (int)mx[k];
+  } else if (!strcmp(cmd, "rec")) { rec_command(js); return;   /* set up here (files, buffers); the audio thread only sees a flag */
   } else if (!strcmp(cmd, "quit")) { running = 0; return;
   } else return;
   push_cmd(&c);
@@ -253,6 +290,7 @@ static void apply_cmds(void) {
       n->primed = 0; n->ratio = n->rate / FS;
     } else if (c->kind == C_ANALYSIS) analysisSrc = c->a;
     else if (c->kind == C_TESTGEN) { tg[c->a].freq = c->f[0]; tg[c->a].level = c->f[1]; }
+    else if (c->kind == C_TALK) { Talk *t = &talk[c->a]; t->on = c->f[3] != 0; t->src = c->b; t->ch = (int)c->f[0]; t->gain = c->f[1]; t->dim = c->f[2]; t->all = c->f[4] != 0; t->mask = c->mask; }
     r++;
   }
   atomic_store(&cmdR, r);
@@ -267,8 +305,8 @@ static void net_write(int s, int ch, int frames, const int16_t *data) {
 }
 static void net_read(int s, int frames) {   /* resample to the engine rate, keeping the buffer near its target (clock drift) */
   Net *n = &net[s];
-  for (int c = 0; c < MAXNETCH; c++) memset(netbuf[s][c], 0, sizeof(float) * frames);
-  if (!n->used || !n->ring) return;
+  if (!n->used || !n->ring) return;   /* (nothing reads an unused source's buffers) */
+  for (int c = 0; c < n->channels && c < MAXNETCH; c++) memset(netbuf[s][c], 0, sizeof(float) * frames);
   double w = (double)atomic_load(&n->w), level = w - n->rpos;
   if (!n->primed) { if (level >= n->target) { n->rpos = w - n->target; n->primed = 1; n->level = n->target; } else return; }
   level = w - n->rpos; n->level = n->level * 0.995 + level * 0.005;
@@ -295,20 +333,27 @@ static void tap_add(int t, const float *L, const float *R, int frames) {
   }
 }
 static void meters_out(void);
+static void rec_capture(int frames, float **ins);
 
-static void process(int frames, float **ins, float **outs) {
+static void process(int frames, float **insDev, float **outs) {
   apply_cmds();
   for (int s = 0; s < MAXNET; s++) net_read(s, frames);
   for (int o = 0; o < nOut; o++) memset(outs[o], 0, sizeof(float) * frames);
   memset(mainL, 0, sizeof(float) * frames); memset(mainR, 0, sizeof(float) * frames);
   for (int m = 0; m < MAXMIX; m++) if (mix[m].used) { memset(mixL[m], 0, sizeof(float) * frames); memset(mixR[m], 0, sizeof(float) * frames); }
-  const float gstep = 1.0f / 256;   /* gain glide per sample */
+  const float gstep = 1.0f / 256, dstep = 1.0f / 2400;   /* gain glide per sample; the talkback dim (~50 ms) */
+  /* the interface's inputs (with a test tone added where one is on) - mixed, talked into and recorded the same */
+  float *insT[MAXIN], **ins = NULL;
+  if (insDev) {
+    ins = insT;
+    for (int c = 0; c < nIn; c++) {
+      insT[c] = insDev[c];
+      if (tg[c].level > 0) { double w = 2 * M_PI * tg[c].freq / FS; for (int f = 0; f < frames; f++) { tgch[c][f] = insDev[c][f] + tg[c].level * (float)sin(tg[c].ph); tg[c].ph += w; } if (tg[c].ph > 1e6) tg[c].ph = fmod(tg[c].ph, 2 * M_PI); insT[c] = tgch[c]; }
+    }
+  }
   for (int i = 0; i < MAXIN; i++) {
     Input *x = &in[i]; const float *src = NULL;
-    if (x->src == 1 && x->ch >= 0 && x->ch < nIn && ins) {
-      src = ins[x->ch];
-      if (tg[x->ch].level > 0) { double w = 2 * M_PI * tg[x->ch].freq / FS; for (int f = 0; f < frames; f++) { tgbuf[f] = src[f] + tg[x->ch].level * (float)sin(tg[x->ch].ph); tg[x->ch].ph += w; } if (tg[x->ch].ph > 1e6) tg[x->ch].ph = fmod(tg[x->ch].ph, 2 * M_PI); src = tgbuf; }
-    }
+    if (x->src == 1 && x->ch >= 0 && x->ch < nIn && ins) src = ins[x->ch];
     else if (x->src == 2) { int s = x->ch / MAXNETCH, c = x->ch % MAXNETCH; if (s < MAXNET && net[s].used && c < net[s].channels) src = netbuf[s][c]; }
     if (!src) { x->peak *= 0.9f; continue; }
     float pk = x->peak, grMax = 0;
@@ -339,12 +384,29 @@ static void process(int frames, float **ins, float **outs) {
       if (s->gL == 0 && s->gR == 0 && fabsf(s->cL) < 1e-5f && fabsf(s->cR) < 1e-5f) { sends[i][k] = sends[i][--nsends[i]]; k--; }
     }
   }
-  /* mix masters: level, mute, limiter, outputs, taps */
+  /* talkback: each slot's mic (high-passed, faded in / out) */
+  int talkLive[TALKS];
+  for (int k = 0; k < TALKS; k++) {
+    Talk *t = &talk[k]; float target = t->on ? t->gain : 0; talkLive[k] = 0;
+    if (!t->on && t->cg < 1e-5f) { t->cg = 0; t->peak *= 0.9f; continue; }
+    const float *src = NULL;
+    if (t->src == 1 && t->ch >= 0 && t->ch < nIn && ins) src = ins[t->ch];
+    else if (t->src == 2) { Net *n = &net[TALKNET + k]; if (n->used && n->ring && n->channels > 0) src = netbuf[TALKNET + k][0]; }
+    float pk = t->peak;
+    for (int f = 0; f < frames; f++) { t->cg += (target - t->cg) * gstep; float v = src ? bq(&t->hpf, src[f]) * t->cg : 0; talkbuf[k][f] = v; if (fabsf(v) > pk) pk = fabsf(v); }
+    t->peak = pk; talkLive[k] = 1;
+  }
+  /* mix masters: (music, dimmed while talkback talks to it) + talkback, level, mute, limiter, outputs, taps */
   for (int m = -1; m < MAXMIX; m++) {
     Mix *b = m < 0 ? &mainb : &mix[m]; if (m >= 0 && !b->used) continue;
     float *L = m < 0 ? mainL : mixL[m], *R = m < 0 ? mainR : mixR[m], target = b->mute ? 0 : b->level, pl = b->peakL, pr = b->peakR;
+    int tl[TALKS], ntl = 0; float dimT = 1;
+    if (m >= 0) for (int k = 0; k < TALKS; k++) if (talkLive[k] && (talk[k].all || (talk[k].mask >> m & 1))) { tl[ntl++] = k; if (talk[k].on && talk[k].dim < dimT) dimT = talk[k].dim; }
+    if (m >= 0 && !ntl && dimCur[m] > 0.9999f) dimCur[m] = 1;
     for (int f = 0; f < frames; f++) {
-      b->cur += (target - b->cur) * gstep; float l = L[f] * b->cur, r = R[f] * b->cur;
+      float dm = 1, tk = 0;
+      if (m >= 0 && (ntl || dimCur[m] < 1)) { dimCur[m] += (dimT - dimCur[m]) * dstep; dm = dimCur[m]; for (int k = 0; k < ntl; k++) tk += talkbuf[tl[k]][f]; }
+      b->cur += (target - b->cur) * gstep; float l = (L[f] * dm + tk) * b->cur, r = (R[f] * dm + tk) * b->cur;
       if (!b->stereo) { l = r = (l + r) * 0.5f; }
       float pk = fabsf(l) > fabsf(r) ? fabsf(l) : fabsf(r), g = pk > limCeil ? limCeil / pk : 1;   /* limiter: instant attack, ~200 ms release */
       if (g < b->lim || b->lim == 0) b->lim = g; else b->lim += (1 - b->lim) * 0.0001f; if (b->lim > 1) b->lim = 1;
@@ -370,13 +432,16 @@ static void process(int frames, float **ins, float **outs) {
     if (onsetHold > 0) onsetHold -= 1;
     else if (bandEnv[0] > 0.02f && bandEnv[0] > bandSlow * 1.8f) { onsets++; onsetHold = (float)(FS * 0.12); }
   }
+  rec_capture(frames, ins);
   meterCount += frames; if (meterCount >= meterEvery) { meterCount = 0; meters_out(); }
 }
 
 /* meters: packed binary for the writer thread (which turns them into JSON) */
-typedef struct { float in[MAXIN], gr[MAXIN], mix[MAXMIX][2], main[2], net[MAXNET][MAXNETCH], bands[3], netLevel[MAXNET]; unsigned onsets, xruns, under[MAXNET]; int netUsed[MAXNET], netCh[MAXNET]; } Meters;
+typedef struct { float in[MAXIN], gr[MAXIN], mix[MAXMIX][2], main[2], net[MAXNET][MAXNETCH], bands[3], netLevel[MAXNET], talk[TALKS]; unsigned onsets, xruns, under[MAXNET]; int netUsed[MAXNET], netCh[MAXNET], recOn; uint64_t recFrames, recDropped; } Meters;
 static Meters mt;
 static void meters_out(void) {
+  for (int k = 0; k < TALKS; k++) { mt.talk[k] = talk[k].peak; talk[k].peak = 0; }
+  mt.recOn = REC.active; mt.recFrames = atomic_load(&REC.frames); mt.recDropped = atomic_load(&REC.dropped);
   for (int i = 0; i < MAXIN; i++) { mt.in[i] = in[i].peak; mt.gr[i] = in[i].gr; in[i].peak = 0; }
   for (int m = 0; m < MAXMIX; m++) { mt.mix[m][0] = mix[m].peakL; mt.mix[m][1] = mix[m].peakR; mix[m].peakL = mix[m].peakR = 0; }
   mt.main[0] = mainb.peakL; mt.main[1] = mainb.peakR; mainb.peakL = mainb.peakR = 0;
@@ -631,8 +696,11 @@ static void meters_json(const Meters *m) {
   jcat(&L, "],\"gr\":["); for (int i = 0; i < MAXIN; i++) jcat(&L, "%s%.1f", i ? "," : "", m->gr[i]);
   jcat(&L, "],\"mix\":["); for (int k = 0; k < MAXMIX; k++) jcat(&L, "%s%.4f,%.4f", k ? "," : "", m->mix[k][0], m->mix[k][1]);
   jcat(&L, "],\"main\":[%.4f,%.4f],\"net\":[", m->main[0], m->main[1]);
-  for (int s = 0; s < MAXNET; s++) { jcat(&L, "%s{\"on\":%d,\"ch\":%d,\"ms\":%.1f,\"under\":%u,\"peak\":[", s ? "," : "", m->netUsed[s], m->netCh[s], m->netLevel[s], m->under[s]); for (int c = 0; c < m->netCh[s] && c < MAXNETCH; c++) jcat(&L, "%s%.4f", c ? "," : "", m->net[s][c]); jcat(&L, "]}"); }
-  jcat(&L, "],\"bands\":[%.4f,%.4f,%.4f],\"onsets\":%u,\"xruns\":%u,\"deviceUnder\":%u,\"cpu\":%.1f}", m->bands[0], m->bands[1], m->bands[2], m->onsets, m->xruns, bridgeUnder(), client ? J.cpu_load(client) : cpuLoad);
+  for (int s = 0; s < PINET; s++) { jcat(&L, "%s{\"on\":%d,\"ch\":%d,\"ms\":%.1f,\"under\":%u,\"peak\":[", s ? "," : "", m->netUsed[s], m->netCh[s], m->netLevel[s], m->under[s]); for (int c = 0; c < m->netCh[s] && c < MAXNETCH; c++) jcat(&L, "%s%.4f", c ? "," : "", m->net[s][c]); jcat(&L, "]}"); }
+  jcat(&L, "],\"talk\":["); for (int k = 0; k < TALKS; k++) jcat(&L, "%s%.4f", k ? "," : "", m->talk[k]);
+  jcat(&L, "],\"talkUnder\":["); for (int k = 0; k < TALKS; k++) jcat(&L, "%s%u", k ? "," : "", m->under[TALKNET + k]);
+  jcat(&L, "],\"rec\":{\"on\":%d,\"frames\":%llu,\"dropped\":%llu}", m->recOn, (unsigned long long)m->recFrames, (unsigned long long)m->recDropped);
+  jcat(&L, ",\"bands\":[%.4f,%.4f,%.4f],\"onsets\":%u,\"xruns\":%u,\"deviceUnder\":%u,\"cpu\":%.1f}", m->bands[0], m->bands[1], m->bands[2], m->onsets, m->xruns, bridgeUnder(), client ? J.cpu_load(client) : cpuLoad);
   put(stdout, 'J', jbuf, (uint32_t)L);
 }
 static void *writer(void *arg) {
@@ -666,6 +734,156 @@ static void *reader(void *arg) {
   running = 0; free(buf); return NULL;   /* the app went away */
 }
 
+/* ------------------------------------------------------------------ recording: WAV files, 48 kHz (the engine's rate), 24 bit */
+static void json_esc(char *out, size_t max, const char *s) {
+  size_t k = 0; for (; s && *s && k + 3 < max; s++) { unsigned char c = (unsigned char)*s; if (c == '"' || c == '\\') { out[k++] = '\\'; out[k++] = (char)c; } else out[k++] = c < 32 ? ' ' : (char)c; } out[k] = 0;
+}
+static void rec_event(const char *state, const char *error) {
+  char d[2200], e[500] = "", b[3000]; json_esc(d, sizeof d, REC.dir); if (error) json_esc(e, sizeof e, error);
+  snprintf(b, sizeof b, "{\"ev\":\"rec\",\"state\":\"%s\",\"dir\":\"%s\",\"tracks\":%d,\"frames\":%llu,\"dropped\":%llu,\"rate\":%.0f%s%s%s}", state, d, REC.n,
+           (unsigned long long)atomic_load(&REC.frames), (unsigned long long)atomic_load(&REC.dropped), FS, error ? ",\"error\":\"" : "", e, error ? "\"" : "");
+  put_json(b);
+}
+static void put16le(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void put32le(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }
+static uint32_t get32le(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
+#define WAVMAX (0xFFFFFFFFull - 36)   /* a WAV's sizes are 32 bit (about 4 GB: 4 h of the stereo program) */
+static void wav_header(uint8_t *h, int chans, uint64_t data) {
+  uint32_t rate = (uint32_t)FS, align = (uint32_t)chans * 3; if (data > WAVMAX) data = WAVMAX - WAVMAX % align;
+  memcpy(h, "RIFF", 4); put32le(h + 4, (uint32_t)(36 + data)); memcpy(h + 8, "WAVE", 4); memcpy(h + 12, "fmt ", 4); put32le(h + 16, 16); put16le(h + 20, 1); put16le(h + 22, (uint32_t)chans);
+  put32le(h + 24, rate); put32le(h + 28, rate * align); put16le(h + 32, align); put16le(h + 34, 24); memcpy(h + 36, "data", 4); put32le(h + 40, (uint32_t)data);
+}
+static void rec_headers(void) {   /* (the writer thread) every 5 s and at the end: a crash leaves files that play up to there */
+  for (int k = 0; k < REC.n; k++) {
+    RecTrack *t = &REC.t[k]; if (!t->f) continue; uint8_t h[44]; wav_header(h, t->chans, t->bytes);
+    fflush(t->f); if (pl_fseek64(t->f, 0, SEEK_SET) == 0) fwrite(h, 1, 44, t->f); pl_fseek64(t->f, 0, SEEK_END); fflush(t->f);
+  }
+}
+/* the audio thread: one block of every recorded source into the ring (or, when the ring is full, count the gap) */
+static void rec_capture(int frames, float **ins) {
+  if (!REC.active) { if (atomic_load(&REC.want) != 1) return; REC.active = 1; REC.gap = 0; }
+  if (atomic_load(&REC.want) != 1) { REC.active = 0; atomic_store(&REC.closed, 1); return; }
+  const float *col[RECMAXT * 2]; int nc = 0;
+  for (int k = 0; k < REC.n; k++) {
+    RecTrack *t = &REC.t[k];
+    if (t->kind == 0) col[nc++] = ins && t->idx < nIn ? ins[t->idx] : NULL;
+    else if (t->kind == 1) { int s = t->idx / MAXNETCH, c = t->idx % MAXNETCH; col[nc++] = net[s].used && net[s].ring && c < net[s].channels ? netbuf[s][c] : NULL; }
+    else { int m = t->idx - 1, ok = m < 0 || mix[m].used; col[nc++] = !ok ? NULL : m < 0 ? mainL : mixL[m]; col[nc++] = !ok ? NULL : m < 0 ? mainR : mixR[m]; }
+  }
+  uint64_t need = 2 + (uint64_t)frames * (uint64_t)nc, w = atomic_load(&REC.w), r = atomic_load(&REC.r);
+  if (REC.cap - (w - r) < need) { REC.gap += (uint64_t)frames; atomic_fetch_add(&REC.dropped, (uint64_t)frames); atomic_fetch_add(&REC.frames, (uint64_t)frames); return; }   /* the disk is behind: never wait here (the files get silence there, so they keep time) */
+  float *ring = REC.ring; uint64_t cap = REC.cap, pos = w % cap;
+  ring[pos] = (float)frames; if (++pos == cap) pos = 0;
+  ring[pos] = (float)(REC.gap > 16777216u ? 16777216u : REC.gap); if (++pos == cap) pos = 0;   /* (silence the writer puts back, so the files keep time) */
+  for (int f = 0; f < frames; f++) for (int c = 0; c < nc; c++) { ring[pos] = col[c] ? col[c][f] : 0; if (++pos == cap) pos = 0; }
+  atomic_store(&REC.w, w + need); REC.gap = 0; atomic_fetch_add(&REC.frames, (uint64_t)frames);
+}
+static void rec_write(RecTrack *t, const uint8_t *p, size_t n) {
+  if (t->failed || !t->f || !n) return;
+  if (fwrite(p, 1, n, t->f) != n) { t->failed = 1; if (!REC.err[0]) { const char *b = strrchr(t->path, '/'); snprintf(REC.err, sizeof REC.err, "could not write %s (is the disk full?)", b ? b + 1 : t->path); rec_event("error", REC.err); } }
+  else t->bytes += n;
+}
+static inline void put24(uint8_t *p, float v) { if (v > 1) v = 1; else if (v < -1) v = -1; int32_t s = (int32_t)lrintf(v * 8388607.0f); p[0] = (uint8_t)s; p[1] = (uint8_t)(s >> 8); p[2] = (uint8_t)(s >> 16); }
+static void rec_drain(void) {   /* the writer thread: ring -> 24-bit samples -> each file */
+  for (;;) {
+    uint64_t r = atomic_load(&REC.r), w = atomic_load(&REC.w); if (w - r < 2) return;
+    uint64_t cap = REC.cap, pos = r % cap; float *ring = REC.ring; int W = REC.width;
+    int frames = (int)ring[pos]; if (++pos == cap) pos = 0; uint64_t gap = (uint64_t)ring[pos]; if (++pos == cap) pos = 0;
+    uint64_t len = (uint64_t)frames * (uint64_t)W;
+    for (uint64_t i = 0; i < len; i++) { REC.tmp[i] = ring[pos]; if (++pos == cap) pos = 0; }
+    atomic_store(&REC.r, r + 2 + len);
+    if (gap) { memset(REC.conv, 0, (size_t)MAXBLOCK * 6); for (int k = 0; k < REC.n; k++) { uint64_t left = gap; while (left) { uint64_t n = left > MAXBLOCK ? MAXBLOCK : left; rec_write(&REC.t[k], REC.conv, (size_t)n * (size_t)REC.t[k].chans * 3); left -= n; } } }
+    for (int k = 0, co = 0; k < REC.n; k++) {
+      RecTrack *t = &REC.t[k]; uint8_t *p = REC.conv;
+      for (int f = 0; f < frames; f++) for (int c = 0; c < t->chans; c++) { put24(p, REC.tmp[(size_t)f * (size_t)W + (size_t)(co + c)]); p += 3; }
+      rec_write(t, REC.conv, (size_t)frames * (size_t)t->chans * 3); co += t->chans;
+    }
+  }
+}
+static void rec_finish(int clean) {
+  rec_headers();
+  for (int k = 0; k < REC.n; k++) if (REC.t[k].f) { fclose(REC.t[k].f); REC.t[k].f = NULL; }
+  REC.clean = clean;   /* the audio thread let go of the ring: it can be freed next time */
+  rec_event("stopped", REC.err[0] ? REC.err : NULL);
+  atomic_store(&REC.want, 0); atomic_store(&REC.busy, 0);
+}
+static void *rec_writer(void *arg) {
+  (void)arg;
+  for (;;) {
+    if (!atomic_load(&REC.busy)) { if (!running) break; pl_sleep_ms(20); continue; }
+    rec_drain();
+    int closed = atomic_load(&REC.closed), want = atomic_load(&REC.want);
+    if (closed || (!want && pl_now_ns() - REC.wantSince > 1500000000ull)) { rec_drain(); rec_finish(closed); continue; }   /* (no audio thread any more: finish anyway) */
+    uint64_t now = pl_now_ns(); if (now - REC.lastHdr > 5000000000ull) { rec_headers(); REC.lastHdr = now; }
+    pl_sleep_ms(10);
+  }
+  return NULL;
+}
+/* the command thread: open the files, make the ring, then let the audio thread start (at its next block) */
+static void rec_fail(const char *why) { for (int k = 0; k < REC.n; k++) if (REC.t[k].f) { fclose(REC.t[k].f); REC.t[k].f = NULL; } REC.n = 0; rec_event("error", why); }
+static void rec_command(const char *js) {
+  if (!jnum(js, "on", 0)) {
+    if (atomic_load(&REC.busy)) { if (atomic_load(&REC.want)) { REC.wantSince = pl_now_ns(); atomic_store(&REC.want, 0); } }
+    else rec_event("idle", NULL);
+    return;
+  }
+  if (atomic_load(&REC.busy)) { put_json("{\"ev\":\"rec\",\"state\":\"error\",\"error\":\"already recording (or still closing the last recording)\"}"); return; }
+  static char files[1 << 18]; static float a[MAXIN], b[PINET * MAXNETCH];
+  REC.n = 0; REC.width = 0; REC.err[0] = 0; REC.dir[0] = 0; atomic_store(&REC.frames, 0); atomic_store(&REC.dropped, 0);
+  jstr(js, "dir", REC.dir, sizeof REC.dir); if (!jstr(js, "files", files, sizeof files)) files[0] = 0;
+  if (!REC.dir[0]) { rec_fail("no folder"); return; }
+  int ni = jarr(js, "ins", a, MAXIN), nn = jarr(js, "net", b, PINET * MAXNETCH), prog = (int)jnum(js, "prog", -1);
+  for (int k = 0; k < ni && REC.n < RECMAXT; k++) if (a[k] >= 0 && a[k] < MAXIN) { RecTrack *t = &REC.t[REC.n++]; memset(t, 0, sizeof *t); t->kind = 0; t->idx = (int)a[k]; t->chans = 1; }
+  for (int k = 0; k < nn && REC.n < RECMAXT; k++) if (b[k] >= 0 && b[k] < PINET * MAXNETCH) { RecTrack *t = &REC.t[REC.n++]; memset(t, 0, sizeof *t); t->kind = 1; t->idx = (int)b[k]; t->chans = 1; }
+  if (prog >= 0 && prog <= MAXMIX && REC.n < RECMAXT) { RecTrack *t = &REC.t[REC.n++]; memset(t, 0, sizeof *t); t->kind = 2; t->idx = prog; t->chans = 2; }
+  if (!REC.n) { rec_fail("nothing to record"); return; }
+  /* file names: "a.wav|b.wav|..." in the same order (or made up) */
+  const char *p = files; size_t dl = strlen(REC.dir); int sep = dl && (REC.dir[dl - 1] == '/' || REC.dir[dl - 1] == '\\');
+  for (int k = 0; k < REC.n; k++) {
+    RecTrack *t = &REC.t[k]; char nm[512] = ""; const char *e = p && *p ? strchr(p, '|') : NULL; size_t len = p && *p ? (e ? (size_t)(e - p) : strlen(p)) : 0;
+    if (len && len < sizeof nm) { memcpy(nm, p, len); nm[len] = 0; }
+    if (!nm[0]) { if (t->kind == 0) snprintf(nm, sizeof nm, "in-%03d.wav", t->idx + 1); else if (t->kind == 1) snprintf(nm, sizeof nm, "net-%d-%02d.wav", t->idx / MAXNETCH, t->idx % MAXNETCH + 1); else snprintf(nm, sizeof nm, "program.wav"); }
+    p = e ? e + 1 : NULL;
+    snprintf(t->path, sizeof t->path, "%s%s%s", REC.dir, sep ? "" : "/", nm);
+    t->f = pl_fopen(t->path, "wb");
+    if (!t->f) { char why[700]; snprintf(why, sizeof why, "could not create %s", nm); rec_fail(why); return; }
+    setvbuf(t->f, NULL, _IOFBF, 1 << 16);
+    uint8_t h[44]; wav_header(h, t->chans, 0); if (fwrite(h, 1, 44, t->f) != 44) { rec_fail("could not write to the recordings folder"); return; }
+    REC.width += t->chans;
+  }
+  /* the ring: about 4 s of everything (at most 64 MB; a disk that stalls longer leaves a counted gap, never a glitch) */
+  uint64_t cap = (uint64_t)REC.width * (uint64_t)(FS * 4), minCap = 8 * (2 + (uint64_t)MAXBLOCK * (uint64_t)REC.width);
+  if (cap > (16u << 20)) cap = 16u << 20; if (cap < minCap) cap = minCap;
+  if (REC.ring && REC.clean) { free(REC.ring); REC.ring = NULL; }   /* (after a stop the audio thread never confirmed, the old ring is left alone) */
+  free(REC.tmp); REC.tmp = malloc(sizeof(float) * (size_t)MAXBLOCK * (size_t)REC.width); if (!REC.conv) REC.conv = malloc((size_t)MAXBLOCK * 6);
+  REC.ring = malloc(sizeof(float) * (size_t)cap);
+  if (!REC.ring || !REC.tmp || !REC.conv) { rec_fail("out of memory"); return; }
+  REC.cap = cap; atomic_store(&REC.w, 0); atomic_store(&REC.r, 0); atomic_store(&REC.closed, 0); REC.lastHdr = pl_now_ns(); REC.clean = 0;
+  atomic_store(&REC.busy, 1); atomic_store(&REC.want, 1);
+  rec_event("recording", NULL);
+}
+/* cu-mixer --repair a.wav b.wav ... (or the paths on stdin, one per line, UTF-8 - Windows' argv can't carry every
+ * name): a crash leaves the sizes in the headers behind the data; set them from the file */
+static void repair_file(const char *path, int first) {
+  char nm[2200]; json_esc(nm, sizeof nm, path); printf("%s{\"file\":\"%s\"", first ? "" : ",", nm);
+  FILE *f = pl_fopen(path, "r+b"); uint8_t h[44];
+  if (!f) { printf(",\"ok\":0,\"error\":\"could not open\"}"); return; }
+  if (fread(h, 1, 44, f) != 44 || memcmp(h, "RIFF", 4) || memcmp(h + 8, "WAVE", 4) || memcmp(h + 12, "fmt ", 4) || memcmp(h + 36, "data", 4) || !(h[32] | h[33] << 8)) { fclose(f); printf(",\"ok\":0,\"error\":\"not a recording\"}"); return; }
+  uint32_t align = h[32] | h[33] << 8; pl_fseek64(f, 0, SEEK_END); int64_t size = pl_ftell64(f);
+  uint64_t data = size > 44 ? (uint64_t)(size - 44) : 0; data -= data % align; if (data > WAVMAX) data = WAVMAX - WAVMAX % align;
+  int fixed = get32le(h + 40) != (uint32_t)data || get32le(h + 4) != (uint32_t)(data + 36);
+  if (fixed) { uint8_t s[4]; put32le(s, (uint32_t)(data + 36)); pl_fseek64(f, 4, SEEK_SET); fwrite(s, 1, 4, f); put32le(s, (uint32_t)data); pl_fseek64(f, 40, SEEK_SET); fwrite(s, 1, 4, f); }
+  fclose(f);
+  printf(",\"ok\":1,\"fixed\":%d,\"frames\":%llu}", fixed, (unsigned long long)(data / align));
+}
+static int repair_main(int argc, char **argv) {
+  printf("{\"ev\":\"repaired\",\"files\":[");
+  int n = 0;
+  if (argc > 2) for (int i = 2; i < argc; i++) repair_file(argv[i], !n++);
+  else { static char line[4096]; while (fgets(line, sizeof line, stdin)) { size_t L = strlen(line); while (L && (line[L - 1] == '\n' || line[L - 1] == '\r')) line[--L] = 0; if (L) repair_file(line, !n++); } }
+  printf("]}\n"); return 0;
+}
+
 static void dev_list_json(size_t *L, const char *key, Dev *devs, int n) {
   jcat(L, ",\"%s\":[", key);
   int k = 0; for (int i = 0; i < n; i++) { Dev *d = &devs[i]; jcat(L, "%s{\"name\":", k++ ? "," : ""); jstr_out(L, d->name); jcat(L, ",\"channels\":%d,\"first\":%d,\"open\":%d,\"clock\":%d,\"dante\":%d}", d->open ? d->channels : 0, d->first, d->open, d->master, d->dante); }
@@ -695,6 +913,7 @@ static void status_json(const char *backend) {
 
 int main(int argc, char **argv) {
   const char *backend = "auto";
+  if (argc > 1 && !strcmp(argv[1], "--repair")) return repair_main(argc, argv);
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--backend") && i + 1 < argc) backend = argv[++i];
     else if (!strcmp(argv[i], "--capture") && i + 1 < argc) snprintf(capName, sizeof capName, "%s", argv[++i]);
@@ -715,6 +934,8 @@ int main(int argc, char **argv) {
   mainb.level = 1; mainb.stereo = 1; mainb.used = 1; mainb.outL = mainb.outR = -1;
   for (int m = 0; m < MAXMIX; m++) { mix[m].level = 1; mix[m].stereo = 1; mix[m].outL = mix[m].outR = -1; }
   for (int i = 0; i < MAXIN; i++) { in[i].direct = -1; in[i].trim = 1; }
+  for (int m = 0; m < MAXMIX; m++) dimCur[m] = 1;
+  for (int k = 0; k < TALKS; k++) bq_set(&talk[k].hpf, 0, FS > 0 ? FS : 48000, 90, 0, 0.707);   /* talkback: no rumble / handling noise */
   meterEvery = (unsigned)(FS / 20);
   const char *used = "internal";
 #ifdef __linux__
@@ -731,7 +952,7 @@ int main(int argc, char **argv) {
     else if (strcmp(backend, "internal") && strcmp(backend, "auto")) put_json("{\"ev\":\"error\",\"error\":\"The audio device could not be opened - running on the engine's own clock\"}");
   }
   meterEvery = (unsigned)(FS / 20);
-  pl_thread tw, tr, ti; pl_thread_start(&tw, writer, NULL);
+  pl_thread tw, tr, ti, trec; pl_thread_start(&tw, writer, NULL); pl_thread_start(&trec, rec_writer, NULL);
   status_json(used);
   pl_thread_start(&tr, reader, NULL);
   if (!strcmp(used, "internal")) { internal = 1; nIn = 0; nOut = 0; pl_thread_start(&ti, internal_loop, NULL); }
@@ -739,6 +960,9 @@ int main(int argc, char **argv) {
   if (client) J.client_close(client);
   stop_miniaudio();
   if (internal) pl_thread_join(ti);
+  /* no audio thread now: a recording still running is written out and closed properly */
+  if (atomic_load(&REC.busy)) { atomic_store(&REC.want, 0); atomic_store(&REC.closed, 1); }
+  pl_thread_join(trec);
   wake_writer(); pl_thread_join(tw);
   return 0;
 }

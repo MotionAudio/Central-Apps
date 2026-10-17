@@ -95,10 +95,35 @@ code** shown on the audio host's I/O tab.
   channels are matched by name. "Drums" stays "Drums".
 * **Listen here** plays the main mix or any in-ear mix on this computer's
   headphones (pick the output).
-* **Record the service** writes a 48 kHz WAV of the main mix to
-  `~/Music/Central Usage`.
+* **Record the service** (also in the I/O tab's *Listening & recording* card)
+  records every input of the interface / Dante (up to 128), the Central
+  Control's tracks as they arrive, and a stereo **program** (the main mix): one
+  WAV per source, 48 kHz / 24 bit, in a folder per recording named with the date,
+  time and the service name you type, under `~/Music/Central Usage Recordings`
+  (change it in the I/O tab). After the stop the program also becomes
+  `Program.mp3` for the sermon podcast. The button shows the time and the free
+  disk space (a warning under 10 GB). The engine writes on its own thread, so a
+  slow disk never touches the sound; the WAV headers are updated every 5 s, and a
+  recording a crash cut short is repaired the next time the app starts. An admin
+  on another computer can start and stop it too. For other features (services):
+  `window.CU.recorder.start({ name })`, `.stop()`, `.state()`, `.on(fn)`.
 * The live waveform shows what is going out.
 * **Save mixer… / Open mixer…** save the whole set-up to a file and load it back.
+
+## Talkback
+
+* **TALK** (the main admin, and admins with the Mix, In-ears or General job): on
+  the In-ears and Mix tabs and in the top bar. **Hold to talk**; a **quick tap**
+  keeps it on (tap again to stop). Choose who hears it: **All**, or tick the
+  mixes (shown by who has them) - remembered on this computer. **Dim the music
+  in their ears** while you talk (-12 dB unless changed). The mic: on the audio
+  host, any input of the interface / Dante or this computer's mic; on another
+  admin computer, its own mic, sent to the audio host over the network. The
+  talkback reaches both the wired packs and the phones / computers.
+* **Talk to the sound desk** (User 1 / User 2): only the desk's headphones hear
+  it (the listen output of the main admin and the Mix admins), never the in-ears.
+* The talker's screen shows a red **ON AIR**; the people hearing it see
+  "🎙 *name* talking" on their in-ear screen.
 
 ## In-ears
 
@@ -253,5 +278,11 @@ are loaded at run time.
   maps them, mixes them and records them. A phone takes a mix, sets its own
   levels and hears it over Wi-Fi. It also checks that users can't change other
   mixes, and that the lights get the waveform and the music's level.
+* `xvfb-run -a node test-talkback.mjs` covers talkback (latch, hold, who hears
+  it, ON AIR, another admin's mic over the network, a user talking to the desk,
+  the note on a phone) and recording (the Mix tab's control, the files, the MP3,
+  `CU.recorder`, an admin elsewhere starting it, the repair after a crash).
+* `node native/test-mixer.mjs` covers the engine alone, including the talkback
+  mix-in and dim, the recorded WAVs and `cu-mixer --repair`.
 * `xvfb-run -a node test-app.mjs` covers the phone remote and the updater.
 * `node test-dmx.mjs` covers the packets and one output per universe.

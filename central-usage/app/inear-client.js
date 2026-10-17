@@ -1,7 +1,10 @@
 /* Central Usage - in-ear client: the connection to the audio host (users, remote admins, phones) and the
  * player for a mix that comes back over Wi-Fi. Runs in the app and in a phone's browser.
- *   CUInEar.link({ url, role, code, id, name })  -> { send(op), listen(tap, on, opt), close(), on(event, fn) }
+ *   CUInEar.link({ url, role, code, id, name, hello: { more fields for the hello } })
+ *       -> { op(op), listen(tap, on, opt), send(json), sendBinary(buf), close(), on(event, fn) }
  *       events: welcome(state, info) · view(state) · op(op) · state(state) · meters(m) · refused(error) · status(text) · audio(frames, ch, rate, int16)
+ *               talking(names) · talkers(list) · talkAck(m) · talkAudio(int16, frames, rate) · recState(state, m)
+ *   CUInEar.talkFrame(int16, rate) -> ArrayBuffer   the talkback mic's frame ("TKA1", the in-ear frame's layout, mono)
  *   CUInEar.player({ latency, sinkId }) -> { start(), stop(), push(int16, frames, ch, rate), setSink(id), setLatency(ms), stats() }
  * The player keeps a small buffer (Wi-Fi jitter) and speeds up / slows down by a hair to stay on it. */
 (function (root) {
@@ -80,6 +83,12 @@
     var tap = v.getUint8(4), ch = v.getUint8(5), frames = v.getUint16(6, true), rate = v.getUint32(8, true);
     return { tap: tap, ch: ch, frames: frames, rate: rate, pcm: new Int16Array(buf.slice(12, 12 + frames * ch * 2)) };
   }
+  function talkFrame(pcm, rate) {   // "TKA1", u8 channels (1), u8 0, u16 frames, u32 rate, int16
+    var buf = new ArrayBuffer(12 + pcm.length * 2), v = new DataView(buf);
+    v.setUint8(0, 84); v.setUint8(1, 75); v.setUint8(2, 65); v.setUint8(3, 49); v.setUint8(4, 1); v.setUint16(6, pcm.length, true); v.setUint32(8, rate || 48000, true);
+    new Int16Array(buf, 12).set(pcm); return buf;
+  }
+  function parseTalk(buf) { var v = new DataView(buf); if (buf.byteLength < 12 || v.getUint8(0) !== 84 || v.getUint8(1) !== 75 || v.getUint8(2) !== 65) return null; var frames = v.getUint16(6, true); return { frames: frames, rate: v.getUint32(8, true), pcm: new Int16Array(buf.slice(12, 12 + frames * 2)) }; }
   function link(opt) {
     var handlers = {}, ws = null, closed = false, retry = 0, welcomed = false;
     function emit(ev) { var args = Array.prototype.slice.call(arguments, 1); (handlers[ev] || []).forEach(function (fn) { try { fn.apply(null, args); } catch (e) { console.warn(e); } }); }
@@ -87,9 +96,9 @@
       emit("status", "connecting");
       try { ws = new WebSocket(opt.url); } catch (e) { emit("status", "error: " + e.message); return later(); }
       ws.binaryType = "arraybuffer";
-      ws.onopen = function () { retry = 0; ws.send(JSON.stringify({ type: "hello", role: opt.role, code: opt.code, id: opt.id, name: opt.name })); };
+      ws.onopen = function () { retry = 0; var h = { type: "hello", role: opt.role, code: opt.code, id: opt.id, name: opt.name }, more = typeof opt.hello === "function" ? opt.hello() : opt.hello; if (more) Object.keys(more).forEach(function (k) { h[k] = more[k]; }); ws.send(JSON.stringify(h)); };
       ws.onmessage = function (e) {
-        if (typeof e.data !== "string") { var a = parseAudio(e.data); if (a) emit("audio", a.pcm, a.frames, a.ch, a.rate, a.tap); return; }
+        if (typeof e.data !== "string") { var a = parseAudio(e.data); if (a) emit("audio", a.pcm, a.frames, a.ch, a.rate, a.tap); else { var t = parseTalk(e.data); if (t) emit("talkAudio", t.pcm, t.frames, t.rate); } return; }
         var m; try { m = JSON.parse(e.data); } catch (_) { return; }
         if (m.type === "welcome") { welcomed = true; emit("status", "connected"); emit("welcome", m.state, m); (opt.relisten || []).forEach(function (l) { send({ type: "listen", tap: l.tap, on: true, rate: l.rate, mono: l.mono }); }); }
         else if (m.type === "view") emit("view", m.state);
@@ -97,6 +106,10 @@
         else if (m.type === "state") emit("state", m.state);
         else if (m.type === "pi") emit("pi", m.names);
         else if (m.type === "meters") emit("meters", m);
+        else if (m.type === "talking") emit("talking", m.names || []);
+        else if (m.type === "talkers") emit("talkers", m.talkers || []);
+        else if (m.type === "talkAck") emit("talkAck", m);
+        else if (m.type === "recState") emit("recState", m.state, m);
         else if (m.type === "refused") { emit("refused", m.error, m); if (!welcomed) { closed = true; try { ws.close(); } catch (_) { } emit("status", "refused"); } }
       };
       ws.onclose = function () { ws = null; if (!closed) { emit("status", "lost - reconnecting"); welcomed = false; later(); } };
@@ -108,10 +121,12 @@
       on: function (ev, fn) { (handlers[ev] = handlers[ev] || []).push(fn); return this; },
       op: function (op) { return send({ type: "op", op: op }); },
       listen: function (tap, on, o) { o = o || {}; opt.relisten = (opt.relisten || []).filter(function (l) { return l.tap !== tap; }); if (on) opt.relisten.push({ tap: tap, rate: o.rate, mono: o.mono }); return send({ type: "listen", tap: tap, on: !!on, rate: o.rate, mono: o.mono }); },
+      send: send,
+      sendBinary: function (buf) { if (ws && ws.readyState === 1 && welcomed && ws.bufferedAmount < 64 * 1024) { ws.send(buf); return true; } return false; },
       close: function () { closed = true; if (ws) try { ws.close(); } catch (_) { } },
       connected: function () { return !!(ws && ws.readyState === 1 && welcomed); }
     };
   }
   function deviceId() { try { var id = localStorage.getItem("cu-device-id"); if (!id) { id = "d" + Math.random().toString(36).slice(2, 12); localStorage.setItem("cu-device-id", id); } return id; } catch (_) { return "d" + Math.random().toString(36).slice(2, 12); } }
-  root.CUInEar = { link: link, player: player, parseAudio: parseAudio, deviceId: deviceId, Core: Core };
+  root.CUInEar = { link: link, player: player, parseAudio: parseAudio, talkFrame: talkFrame, parseTalk: parseTalk, deviceId: deviceId, Core: Core };
 })(typeof window !== "undefined" ? window : this);
