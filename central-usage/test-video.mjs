@@ -19,9 +19,13 @@ for (const f of fs.readdirSync(here)) if (!["node_modules", "dist", "release"].i
 fs.symlinkSync(path.join(here, "node_modules"), path.join(app0, "node_modules"), "dir");
 spawnSync("make", ["-C", path.join(app0, "native", "video")], { stdio: "ignore" });
 function patch(file, from, to) { const p = path.join(app0, file); let s = fs.readFileSync(p, "utf8"); if (s.includes(to)) return; if (!s.includes(from)) throw new Error("integration: can't find in " + file + ": " + from.slice(0, 60)); fs.writeFileSync(p, s.replace(from, to)); }
+// (the app is wired for the Video tab now - the steps below only run on a copy that isn't)
+const wired = fs.readFileSync(path.join(app0, "main.js"), "utf8").includes('require("./video-service")');
+if (!wired) {
 patch("main.js", 'const svc = require("./services")(app, () => win);', 'const svc = require("./services")(app, () => win);\nconst { screen } = require("electron");\nconst videoSvc = require("./video-service").setup({ ipcMain, getWin: () => win, userData: app.getPath("userData"), app, screen, BrowserWindow, binDir: app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native", "build") });');
 patch("main.js", 'win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });', 'win.webContents.setWindowOpenHandler((details) => { const v = videoSvc.windowOpen(details); if (v) return v; shell.openExternal(details.url); return { action: "deny" }; });');
 fs.appendFileSync(path.join(app0, "preload.js"), '\nrequire("./preload-video")();\n');
+}
 const idx = path.join(app0, "app", "index.html"); let html = fs.readFileSync(idx, "utf8");
 if (!html.includes('data-tab="video"')) {
   html = html.replace('<button class="tab" data-tab="slides">Slides</button>', '<button class="tab" data-tab="slides">Slides</button><button class="tab" data-tab="video">Video</button>')

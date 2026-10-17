@@ -13,6 +13,13 @@ own in-ear mix. Everything follows the Central Control, and only the Central
 Control plays, stops and skips the tracks.
 
 **New in version 8.1:**
+- **More sounds:** 40 more pads (121), 30 more pedals (239) and 17 more keys
+  banks: an old piano, a bright upright, synth brass, synth and electric basses,
+  harp, clarinet, tenor sax, recorder, glass, hang, xylophone, kalimba. Every
+  pedal's knobs were checked against its plugin: 85 pedals had knobs pointing at
+  controls the plugin doesn't have (they showed up only under *more*) and the
+  board presets that used them (Clean Worship, Edge Dotted-Eighth, Modern High
+  Gain) didn't set their delay; all fixed.
 - **The same songs and setlists on every Central Control.** Link the Pi and
   Central Control on your computers once (Setlist → *Setlists · Song library ·
   Devices* → *Link…* with the other one's code). After that, a setlist made on the
@@ -291,7 +298,7 @@ the Central Control is the rig. Its sound leaves on **output 4**, never in
 the way of the pads or tracks.
 - **Electric / Acoustic guitar**: the input (any class-compliant USB
   interface, left / right / stereo channel), gain and noise gate, then a
-  **pedalboard** drawn on screen: 149 pedals (boost, overdrive, distortion,
+  **pedalboard** drawn on screen: 239 pedals (boost, overdrive, distortion,
   fuzz, compressors, EQ, wah, chorus, flanger, phaser, tremolo, pitch,
   delays, reverbs, amps and cabinets, acoustic tools) built from the free
   LV2 / LADSPA plugins installed in the image (Guitarix, Calf, Invada, TAP,
@@ -302,9 +309,11 @@ the way of the pads or tracks.
   Acoustic Natural / Shimmer / DI, Keys: Stage / Ambient Pad / EP Tremolo /
   Organ Leslie) and your own boards.
 - **Piano & keys**: a USB MIDI keyboard plays SoundFont sounds through
-  FluidSynth: grand and upright pianos (Salamander, YDP, Upright KW),
-  electric pianos, organs, pads, strings, leads, bells and a full General
-  MIDI bank, then the same pedal chain (compressor, EQ, reverb, delay…).
+  FluidSynth: grand, upright and old pianos (Salamander, YDP, Upright KW and
+  KW Bright, Piano FB), electric pianos, organs, pads, strings, synth brass,
+  leads, synth and electric basses (finger / picked), harp, clarinet, tenor
+  sax, recorder, bells, glass, hang, xylophone, kalimba and a full General
+  MIDI bank (37 free banks), then the same pedal chain (compressor, EQ, reverb, delay…).
   Transpose, velocity curve, sustain. **Add your own sounds**: an `.sf2`
   SoundFont or a folder of WAV samples named by note (`C4.wav`, `F#3.wav`,
   `60.wav`…) from a USB stick (*Sounds → Add sounds…*), or send an `.sf2`

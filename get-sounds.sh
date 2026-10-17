@@ -37,6 +37,24 @@ BANKS=(
   "https://github.com/freepats/synth-square/releases/download/2020-05-12/SynthSquare-SF2-20200512.7z|CC0|Synth Lead Square"
   "https://github.com/freepats/synth-calliope/releases/download/2020-05-12/SynthCalliope-SF2-20200512.7z|CC0|Synth Lead Calliope"
   "https://github.com/freepats/tubular-bells1/releases/download/2024-11-30/TubularBells-SF2-20241130.7z|CC0|Tubular Bells"
+  # v8.1: more keys, basses, brass, mallets and winds (all CC0, FreePats)
+  "https://github.com/freepats/old-piano-FB/releases/download/2020-04-01/PianoFB-SF2-20200401.7z|CC0|Old Piano FB"
+  "https://freepats.zenvoid.org/Piano/UprightPianoKW/UprightPianoKW-small-bright-SF2-20190703.7z|CC0|Upright Piano KW Bright"
+  "https://github.com/freepats/synth-brass-1/releases/download/2021-04-26/SynthBrass1-SF2-20210426.7z|CC0|Synth Brass 1"
+  "https://github.com/freepats/synth-brass-2/releases/download/2024-06-10/SynthBrass2-SF2-20240610.7z|CC0|Synth Brass 2"
+  "https://github.com/freepats/synth-bass-1/releases/download/2019-07-23/SynthBass1-SF2-20190723.7z|CC0|Synth Bass 1"
+  "https://github.com/freepats/synth-bass-2/releases/download/2021-04-05/SynthBass2-SF2-20210405.7z|CC0|Synth Bass 2"
+  "https://github.com/freepats/lately-bass/releases/download/2024-04-09/LatelyBass-SF2-20240409.7z|CC0|Lately Bass"
+  "https://github.com/freepats/electric-bass-YR/releases/download/2019-09-30/FingerBassYR-SF2-20190930.7z|CC0|Finger Bass YR"
+  "https://github.com/freepats/electric-bass-YR/releases/download/2019-09-30/PickedBassYR-SF2-20190930.7z|CC0|Picked Bass YR"
+  "https://freepats.zenvoid.org/OrchestralStrings/ConcertHarp/ConcertHarp-small-SF2-20200702.tar.xz|CC0|Concert Harp"
+  "https://freepats.zenvoid.org/ChromaticPercussion/Glass/Glass-SF2-20191227.7z|CC0|Glass"
+  "https://github.com/freepats/hang-D-minor/releases/download/2022-03-30/Hang-D-minor-SF2-20220330.7z|CC0|Hang (D minor)"
+  "https://freepats.zenvoid.org/ChromaticPercussion/Xylophone1/Xylophone-MediumMallets-SF2-20200706.tar.xz|CC0|Xylophone"
+  "https://freepats.zenvoid.org/Ethnic/Kalimba/Kalimba-SF2-20190723.tar.xz|CC0|Kalimba"
+  "https://freepats.zenvoid.org/Reed/Clarinet1/Clarinet-SF2-20190818.tar.xz|CC0|Clarinet"
+  "https://freepats.zenvoid.org/Reed/TenorSaxophone/TenorSaxophone-small-SF2-20200717.tar.bz2|CC0|Tenor Saxophone"
+  "https://freepats.zenvoid.org/Wind/Recorder1/Recorder-SF2-20201205.7z|CC0|Recorder"
 )
 
 extract() {  # extract <archive> <into>
