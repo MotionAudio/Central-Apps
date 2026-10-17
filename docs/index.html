@@ -49,7 +49,7 @@
 <main>
   <header>
     <h1>Central Apps</h1>
-    <p class="lead">Central Pedal runs the worship pads, multitracks and the guitar / keys rig. Central Control runs lighting, mixing, in-ear mixes, slides, charts and lyrics.</p>
+    <p class="lead">Central Control runs the team from the main admin's computer: lighting, mixing, in-ear mixes, slides, charts and lyrics - no Raspberry Pi needed. Central Pedal plays the pads, multitracks and the guitar / keys rig: on that same computer as the player window, or on Raspberry Pi pedals (track player, foot controller or instrument rig).</p>
     <span class="ver" id="ver">Finding the newest version…</span>
   </header>
 
@@ -66,7 +66,7 @@
       <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-usage-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
       <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-usage-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
       <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-usage-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-usage-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
-      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>No download - it comes from the Central Pedal</p><a class="btn" href="#ios">How to add it</a></div>
+      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>No download - it comes from the main admin's computer</p><a class="btn" href="#ios">How to add it</a></div>
     </div>
   </section>
 
@@ -105,8 +105,9 @@
   <section id="ios">
     <h2>iPhone &amp; iPad</h2>
     <div class="card">
-      <ol><li>Join the same Wi-Fi as the Central Pedal.</li>
-        <li>In <b>Safari</b>, open <code>http://padpedal.local:8080/cu/</code> (or the address the Central Pedal shows for phones and tablets).</li>
+      <ol><li>Join the same Wi-Fi as the main admin's computer.</li>
+        <li>In <b>Safari</b>, open <code>http://&lt;main admin&gt;:8095/cu/</code> - the address is in the main admin's Central Control → Settings → This computer (with a Central Pedal, <code>http://padpedal.local:8080/cu/</code> works too).</li>
+        <li>Pick <b>User 1</b> or <b>User 2</b> and type the main admin's pairing PIN.</li>
         <li>Tap <b>Share</b> → <b>Add to Home Screen</b>. It opens full screen like an app and always has the newest version.</li></ol>
       <p class="muted"><small>Lyrics, charts for your instrument and your in-ear mix. An App Store version is planned.</small></p>
     </div>
@@ -156,7 +157,7 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre
       if (pick) {
         ["central-usage", "central-control"].forEach(function (p) { var n = match(names, p + "-" + pick[0]); if (n) setHero(p === "central-usage" ? "heroCu" : "heroCc", p === "central-usage" ? "heroCuText" : "heroCcText", urls[n], pick[1], n); });
       } else if (plat === "ios") {
-        setHero("heroCu", "heroCuText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "Through the Central Pedal on your Wi-Fi");
+        setHero("heroCu", "heroCuText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "From the main admin's computer on your Wi-Fi");
         setHero("heroCc", "heroCcText", "#pi", "Raspberry Pi steps", "Central Pedal runs on the Raspberry Pi");
       } else {
         setHero("heroCu", "heroCuText", "#usage", "Choose a system", "Pick yours below"); setHero("heroCc", "heroCcText", "#control", "Choose a system", "Pick yours below");

@@ -102,7 +102,9 @@
   }
   CU.on("connected", function (on) { if (!on) pedalTried = ""; if (on && !connected()) connect(); if (!on && lastView) setTimeout(function () { if (!CU.state.connected && lastView) { following = ""; onView(lastView); } }, 3000); });
   CU.on("role", function () { if (CU.role() === "main" && target && target.host !== "127.0.0.1") reconnect(); else if (!connected()) connect(); });
-  if (NAT && NAT.center && NAT.center.on) NAT.center.on(function (st) { if (CU.role() === "main" && st && st.on && !connected()) connect(); });
+  var localStatus = null;   // the center on this computer (main admin): its addresses, for phones and tablets
+  if (NAT && NAT.center && NAT.center.on) NAT.center.on(function (st) { localStatus = st; if (CU.role() === "main" && st && st.on && !connected()) connect(); });
+  if (NAT && NAT.center) NAT.center.status().then(function (st) { localStatus = st; }).catch(function () { });
 
   // Settings: the main admin's address, when it is not found by itself (another network segment, a VPN…)
   function setAddress(a) { a = String(a || "").trim(); CU.store.set("centerHost", a); reconnect(); }
@@ -110,6 +112,8 @@
   window.CUCenter = {
     connected: connected, send: send, reconnect: reconnect, setAddress: setAddress,
     address: function () { return CU.store.get("centerHost", ""); },
+    local: function () { return localStatus; },
+    phoneUrls: function () { var st = localStatus; return st && st.on ? (st.addresses || []).map(function (a) { return "http://" + a + ":" + st.port + "/cu/"; }) : []; },
     target: function () { return target; }, player: function () { return lastView && lastView.pedal; }, rtt: function () { return rtt == null ? null : Math.round(rtt); }, view: function () { return lastView; }
   };
   setTimeout(connect, 50);

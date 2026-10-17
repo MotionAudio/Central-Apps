@@ -272,7 +272,9 @@
   }
   function centerLine() {
     var v = view || {}, p = v.pedal;
-    return '<p class="small">Center: ' + (linked() ? '<span class="dv-ok">running</span>' : '<span class="warn">starting…</span>') + " · Central Pedal: " + (p ? "<b>" + esc(p.name) + "</b> " + (p.online ? "paired, online" : "paired, offline") : '<span class="muted">none paired - on its screen, type the pairing PIN</span>') + "</p>";
+    var urls = window.CUCenter && window.CUCenter.phoneUrls ? window.CUCenter.phoneUrls() : [];
+    return (urls.length ? '<p class="small">Phones and tablets open <b>' + urls.map(esc).join("</b> or <b>") + "</b> (same Wi-Fi)</p>" : "") +
+      '<p class="small">Center: ' + (linked() ? '<span class="dv-ok">running</span>' : '<span class="warn">starting…</span>') + " · Track player: " + (p ? "<b>" + esc(p.local ? "this computer (player window)" : p.name) + "</b> " + (p.online ? "online" : "offline") : '<span class="muted">none yet - Devices tab → Open the player, or pair a Central Pedal</span>') + "</p>";
   }
   function people() {
     var list = (view && view.devices) || [];
