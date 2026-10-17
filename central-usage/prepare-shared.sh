@@ -11,4 +11,5 @@ cp "$ROOT/css/pad-pedal.css" "$ROOT/css/parts.css" "$HERE/app/shared/"
 cp "$ROOT/instrument_host.py" "$ROOT/instrument-plugins.json" "$HERE/native/"
 [ -f "$HERE/app/fonts/fonts.css" ] || cp "$ROOT/fonts/"* "$HERE/app/fonts/" 2>/dev/null || true
 [ -n "${CU_SKIP_NATIVE:-}" ] || make -C "$HERE/native" >/dev/null   # (CI builds the native helpers in their own job: CU_SKIP_NATIVE=1)
+[ -n "${CU_SKIP_NATIVE:-}" ] || make -C "$HERE/native/video" >/dev/null 2>&1 || echo "cu-video (the Video tab helper) was not built here"
 echo "shared files copied, native helpers built"
