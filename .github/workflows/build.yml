@@ -211,3 +211,21 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -quiet
           echo "iOS project builds"
 
+
+  names:
+    name: Every installer is there, with the names the updaters look for
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: installers-*, path: staging, merge-multiple: true }
+      - run: |
+          CU=$(node -p "require('./central-usage/package.json').version"); CC=$(node -p "require('./central-control-desktop/package.json').version")
+          ls -la staging/*/dist/ 2>/dev/null || find staging -type f | sort
+          missing=0
+          for f in central-usage-$CU-win-x64.exe central-usage-$CU-mac-arm64.dmg central-usage-$CU-mac-x64.dmg central-usage-$CU-amd64.deb central-usage-$CU-x86_64.AppImage \
+                   central-control-$CC-win-x64.exe central-control-$CC-mac-arm64.dmg central-control-$CC-mac-x64.dmg central-control-$CC-amd64.deb central-control-$CC-x86_64.AppImage; do
+            if [ -n "$(find staging -type f -name "$f")" ]; then echo "ok  $f"; else echo "::error::missing $f"; missing=1; fi
+          done
+          exit $missing
