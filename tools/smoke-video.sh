@@ -3,6 +3,7 @@
 # devices, and the bundled ffmpeg encodes H.264 (libx264) and has SRT and TLS.
 #   bash tools/smoke-video.sh <folder with cu-video[.exe] and ffmpeg[.exe]>
 set -uo pipefail
+export LC_ALL=C   # cu-video answers in binary frames: read them byte-wise (macOS tr / grep)
 D="${1:?folder}"; EXE=""; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) EXE=".exe" ;; esac
 tmo() { if command -v timeout >/dev/null; then timeout "$@"; else perl -e 'alarm shift; exec @ARGV' "$@"; fi; }
 fail() { echo "::error title=video smoke test::$*"; exit 1; }
