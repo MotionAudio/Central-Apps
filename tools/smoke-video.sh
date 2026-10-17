@@ -9,7 +9,7 @@ fail() { echo "::error title=video smoke test::$*"; exit 1; }
 v=$("$D/cu-video$EXE" version) || fail "cu-video version did not run"
 [ "$(echo "$v" | tr -d '\r')" = "cu-video 1" ] || fail "cu-video version printed: $v"
 echo "ok  $v"
-out=$(printf '{"cmd":"list"}\n{"cmd":"quit"}\n' | tmo 20 "$D/cu-video$EXE" audio | tr -d '\0' | head -c 20000)
+out=$(printf '{"cmd":"list"}\n{"cmd":"quit"}\n' | tmo 20 "$D/cu-video$EXE" audio | LC_ALL=C tr -d '\0' | head -c 20000)
 echo "$out" | grep -aq '"ev":"devices"' || fail "cu-video audio did not list devices: $(echo "$out" | head -c 300)"
 echo "ok  cu-video audio lists its devices"
 "$D/ffmpeg$EXE" -hide_banner -loglevel error -f lavfi -i testsrc2=size=320x180:rate=30 -frames:v 30 -c:v libx264 -f null - || fail "ffmpeg could not encode with libx264"
