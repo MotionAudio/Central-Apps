@@ -61,10 +61,11 @@
   <section class="view" id="view-settings"><div id="settingsRoot" class="pad-view"></div></section>
 
   <section class="view" id="view-lights">
-    <div class="bar lx-bar"><nav class="lx-nav" id="lxNav"><button data-lx="show">Show</button><button data-lx="songs">Songs</button><button data-lx="looks">Presets</button><button data-lx="fixtures">Fixtures</button><button data-lx="output">Output</button></nav><span class="muted" id="lxNow"></span>
+    <div class="bar lx-bar"><nav class="lx-nav" id="lxNav"><button data-lx="show">Show</button><button data-lx="fixtures">Fixtures</button><button data-lx="output">Output</button></nav><span class="muted" id="lxNow"></span>
       <span class="lx-live"><div class="beat" id="beatLight"></div><b id="liveBpm">–</b><small>BPM</small><b id="liveBar">–</b><small>bar</small><b id="liveSync">–</b><small>sync</small><div class="hit" id="hitLight">HIT</div></span></div>
 
     <div class="lx-view lx-showview" data-lxv="show">
+     <div class="lx-showmain">
       <div class="lx-top">
         <svg id="lxPlot" class="lx-plot" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="lx-side">
@@ -78,15 +79,24 @@
         <label>Snap <select id="lxSnap"><option value="bar">bar</option><option value="beat">beat</option><option value="half">½ beat</option><option value="quarter">¼ beat</option></select></label><label>When stopped <select id="lxStopped"></select></label>
         <button id="lxPreview" title="Play the song here (not on the Central Control) to program along">▶ Preview here</button><button id="lxRec" title="While the song plays, everything you press (presets, flashes, light colours) is recorded on the timeline. Record again over any part to replace it.">● Record</button><button id="lxAuto" title="Make the cues from the sections and the hits">✨ Auto show</button><button id="lxClear">Clear</button></div>
       <canvas id="lxTimeline" class="lx-timeline"></canvas>
-      <div class="lx-chat"><input id="lxChatIn" placeholder='Tell it the show: "dimmers blue 20%, red and shimmers 30% blue for the verse, then chorus full white, strobes on the hits"'><button id="lxChatGo" class="primary">Make it</button><span class="muted small" id="lxChatOut"></span></div>
       <div class="lx-cue" id="lxCue"></div>
       <div class="lx-lights" id="lxLights"></div>
+     </div>
+     <!-- right side of the Show tab: songs and presets, scrolling on their own -->
+     <aside class="lx-rightpanel" id="lxRight">
+      <nav class="lx-rnav"><button data-lxr="songs">Songs</button><button data-lxr="looks">Presets</button><button id="lxRightHide" title="Hide this panel">⇥</button></nav>
+      <section class="lx-rsec" id="lxRSongs"><div class="lx-songs" id="lxSongs"></div></section>
+      <section class="lx-rsec" id="lxRLooks"><h3>Presets</h3><div class="lx-looks"><div class="lx-palette" id="lxLookList"></div><div class="lx-lookedit" id="lxLookEdit"></div></div></section>
+     </aside>
+     <button class="lx-rightshow" id="lxRightShow" hidden title="Show songs and presets">⇤ Songs &amp; presets</button>
     </div>
-
-    <div class="lx-view" data-lxv="songs" hidden><div class="lx-songs" id="lxSongs"></div></div>
-
-    <div class="lx-view" data-lxv="looks" hidden>
-      <div class="lx-looks"><div class="lx-palette" id="lxLookList"></div><div class="lx-lookedit" id="lxLookEdit"></div></div>
+    <!-- "tell it the show": a small chat window on the right -->
+    <button class="lx-chatfab" id="lxChatOpen" title="Tell it the show in plain words">💬 Tell it</button>
+    <div class="lx-chatwin" id="lxChatWin" hidden>
+      <div class="lx-chathead"><b>Tell it the show</b><button id="lxChatClose" title="Close">✕</button></div>
+      <div class="lx-chatlog" id="lxChatLog"><div class="lx-msg bot">Say what the lights should do, e.g. "dimmers blue 20%, red and shimmers 30% blue for the verse, then chorus full white, strobes on the hits".</div></div>
+      <div class="lx-chatin"><textarea id="lxChatIn" rows="2" placeholder="Tell it the show…"></textarea><button id="lxChatGo" class="primary">Send</button></div>
+      <span class="muted small" id="lxChatOut"></span>
     </div>
 
     <div class="lx-view" data-lxv="fixtures" hidden>
@@ -152,10 +162,11 @@
   <script src="roles.js"></script>
   <script src="settings.js"></script>
   <dialog id="updDialog"><h2>Updates</h2><p class="muted" id="updInfo"></p>
-    <label>Update source (GitHub owner/repo)<input id="updRepo" placeholder="owner/repo"></label>
-    <label class="toggle"><input type="checkbox" id="updAuto" checked> Check once a day</label>
+    <label>Update source (GitHub owner/repo)<input id="updRepo" placeholder="MotionAudio/Central-Apps"></label>
+    <label class="toggle"><input type="checkbox" id="updAuto" checked> Look for updates every time the app opens (and once a day) and ask me</label>
     <p id="updState"></p>
     <div class="row"><button id="updCheck">Check now</button><button class="primary" id="updInstall" hidden>Install update</button><button id="updClose">Close</button></div></dialog>
   <div class="upd-banner" id="updBanner" hidden></div>
+  <dialog id="updAsk" class="upd-ask"></dialog>
 </body>
 </html>

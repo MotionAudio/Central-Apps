@@ -414,6 +414,92 @@ def version_tuple(v):
     return tuple(int(n) for n in nums) + (0,) * (3 - len(nums)) if nums else (0, 0, 0)
 
 
+# ---------------------------------------------------------------- name lookups when the system's DNS is broken
+# "[Errno -3] Temporary failure in name resolution": the Pi has a network but its DNS server does not answer
+# (a router without DNS, a stale resolv.conf, a captive network). The updater then asks public DNS servers itself.
+PUBLIC_DNS = ("1.1.1.1", "8.8.8.8", "9.9.9.9")
+
+
+def dns_query_a(host, server, timeout=3.0):
+    """One DNS A-record query over UDP. Returns a list of IPv4 addresses (follows the answer's CNAMEs)."""
+    import random
+    import socket
+    import struct
+    qid = random.randint(0, 0xFFFF)
+    q = struct.pack(">HHHHHH", qid, 0x0100, 1, 0, 0, 0) + b"".join(bytes([len(p)]) + p.encode("idna") for p in host.rstrip(".").split(".")) + b"\x00" + struct.pack(">HH", 1, 1)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    try:
+        sock.sendto(q, (server, 53))
+        data, _ = sock.recvfrom(4096)
+    finally:
+        sock.close()
+    rid, flags, qd, an = struct.unpack(">HHHH", data[:8])
+    if rid != qid or flags & 0x000F:
+        return []
+
+    def skip_name(i):
+        while True:
+            n = data[i]
+            if n == 0:
+                return i + 1
+            if n & 0xC0 == 0xC0:
+                return i + 2
+            i += n + 1
+    i = 12
+    for _ in range(qd):
+        i = skip_name(i) + 4
+    out = []
+    for _ in range(an):
+        i = skip_name(i)
+        rtype, _cls, _ttl, rdlen = struct.unpack(">HHIH", data[i:i + 10])
+        i += 10
+        if rtype == 1 and rdlen == 4:
+            out.append(".".join(str(b) for b in data[i:i + 4]))
+        i += rdlen
+    return out
+
+
+class _PublicDns:
+    """While active, a host the system can't look up is looked up at the public DNS servers instead."""
+    def __enter__(self):
+        import socket
+        self.socket, self.orig = socket, socket.getaddrinfo
+        orig = self.orig
+
+        def getaddrinfo(host, port, *args, **kwargs):
+            try:
+                return orig(host, port, *args, **kwargs)
+            except socket.gaierror:
+                if not host or re.match(r"^[\d.]+$", str(host)):
+                    raise
+                for server in PUBLIC_DNS:
+                    try:
+                        ips = dns_query_a(str(host), server)
+                    except OSError:
+                        continue
+                    if ips:
+                        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, int(port or 443))) for ip in ips]
+                raise
+        socket.getaddrinfo = getaddrinfo
+        return self
+
+    def __exit__(self, *exc):
+        self.socket.getaddrinfo = self.orig
+        return False
+
+
+def explain_network_error(error):
+    text = str(error)
+    if "Errno -3" in text or "Errno -2" in text or "Name or service not known" in text or "name resolution" in text:
+        return "no internet here: the Central Control could not find github.com (DNS). Connect it to a Wi-Fi or network with internet (Settings → Wi-Fi), then Check now - or update from a USB stick"
+    if "Errno 101" in text or "unreachable" in text:
+        return "no internet here (network unreachable). Connect it to a Wi-Fi or network with internet, then Check now - or update from a USB stick"
+    if "timed out" in text:
+        return "the update server did not answer in time (slow or no internet) - it tries again by itself"
+    return "could not reach the update server (%s)" % text[:120]
+
+
 class Updater:
     """Looks for a newer release on GitHub (Releases of the repository set in Settings → Software updates).
     A release carries:  central-control-source.zip  (this Pi),  central-control-<v>-amd64.deb / .AppImage and
@@ -444,7 +530,7 @@ class Updater:
         for k in ("auto", "repo"):
             if k in cfg:
                 self.cfg[k] = cfg[k]
-        self.cfg["repo"] = re.sub(r"^https?://github\.com/", "", str(self.cfg.get("repo") or "").strip()).strip("/")
+        self.cfg["repo"] = re.sub(r"^https?://github\.com/", "", str(self.cfg.get("repo") or "").strip()).strip("/") or self.DEFAULT_REPO   # empty = the official releases
         self._write()
         return self.status()
 
@@ -462,8 +548,9 @@ class Updater:
 
     def _get(self, url, timeout=20, raw=False):
         req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json" if not raw else "application/octet-stream", "User-Agent": "CentralControl-updater"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.read() if raw else json.loads(resp.read().decode() or "null")
+        with _PublicDns():   # the system's DNS first; the public DNS servers when it fails
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read() if raw else json.loads(resp.read().decode() or "null")
 
     def check(self):
         repo = self.cfg.get("repo")
@@ -477,7 +564,7 @@ class Updater:
                            "zip": assets.get("central-control-source.zip"), "sums": assets.get("SHA256SUMS"), "assets": assets}
             self.error = None
         except Exception as error:
-            self.error = "could not reach the update server (%s)" % (str(error)[:120])
+            self.error = explain_network_error(error)
         self.cfg["lastCheck"] = int(time.time())
         try:
             self._write()
@@ -486,7 +573,9 @@ class Updater:
         return self.status()
 
     def due(self):
-        return bool(self.cfg.get("auto")) and bool(self.cfg.get("repo")) and time.time() - (self.cfg.get("lastCheck") or 0) > 20 * 3600
+        # once a day; after a failed look (no internet yet - the Wi-Fi comes up after the app) again in 10 minutes
+        wait = 600 if self.error else 20 * 3600
+        return bool(self.cfg.get("auto")) and bool(self.cfg.get("repo")) and time.time() - (self.cfg.get("lastCheck") or 0) > wait
 
     def download(self):
         """Fetch central-control-source.zip of the latest release and check it against SHA256SUMS. Returns the path."""

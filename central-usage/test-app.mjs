@@ -46,7 +46,16 @@ await check("the phone remote: switched on in Lighting → Output, it serves its
 await check("updates: with the update source set, a newer Central Usage on the release page is found (and which file fits this computer)", async () => {
   const st = await win.evaluate(async () => { await CU.updates.config({ repo: "https://github.com/church/cc", auto: true }); return CU.updates.check(); });
   assert.equal(st.repo, "church/cc"); assert.equal(st.latest, "2.4.0"); assert.equal(st.available, true, JSON.stringify(st)); assert.equal(st.kind, "deb");
-  await win.waitForFunction(() => !document.querySelector("#updBanner").hidden, null, { timeout: 3000 });
+  await win.waitForFunction(() => document.querySelector("#updAsk").open, null, { timeout: 3000 });
+  assert.match(await win.evaluate(() => document.querySelector("#updAsk").textContent), /Central Usage 2\.4\.0[\s\S]*Want to update now\?/);
+  assert.ok(await win.evaluate(() => document.querySelector("#updBanner").hidden), "no banner under the question");
+  await win.click('#updAsk [data-ask="no"]');
+  await win.waitForFunction(() => !document.querySelector("#updAsk").open && document.querySelector("#updBanner").hidden, null, { timeout: 3000 });
+});
+await check("updates: an empty update source means the official releases (MotionAudio/Central-Apps)", async () => {
+  const { Updater } = require("./updater.js");
+  const u = new Updater({ product: "central-usage", current: "1.2.0", dir: fs.mkdtempSync(path.join(os.tmpdir(), "cu-upd-")), api: API });
+  assert.equal(u.save({ repo: "" }).repo, process.env.CC_UPDATE_REPO || "MotionAudio/Central-Apps");
 });
 await check("the updater only accepts a download whose checksum is in SHA256SUMS (redirects followed)", async () => {
   const { Updater } = require("./updater.js");

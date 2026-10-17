@@ -1,7 +1,7 @@
 {
   "name": "central-control",
   "productName": "Central Control",
-  "version": "8.1.0",
+  "version": "8.1.1",
   "description": "Central Control on a PC: worship pads, multitracks, the guitar / keys rig, click and chord charts. A native desktop app.",
   "main": "main.js",
   "author": {

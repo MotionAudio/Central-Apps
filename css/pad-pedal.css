@@ -332,3 +332,4 @@ dialog.pp-ask .row { display: flex; justify-content: flex-end; gap: 8px; margin-
 .pin-dialog { max-width: 420px; text-align: center; } .pin-dialog .pin-value { font-size: 30px; letter-spacing: 14px; text-align: center; width: 190px; margin: 6px auto; display: block; }
 .pin-dots { display: flex; justify-content: center; gap: 12px; margin: 6px 0 12px; } .pin-dots i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); } .pin-dots i.on { background: var(--accent); border-color: var(--accent); }
 .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; } .pin-pad button { font-size: 22px; padding: 14px 0; }
+.upd-ask { max-width: 460px; } .upd-ask h2 { margin-top: 0; } .upd-ask .row { display: flex; gap: 10px; justify-content: flex-end; }

@@ -521,16 +521,21 @@ await check("looper: records a loop from the instrument, closes it, plays it, ov
   });
   assert.deepEqual(r.states, [true, true, true, true, true, true]); assert.ok(r.len > r.rate * 0.3 && r.len < r.rate * 1.5, "loop length " + r.len); assert.ok(r.undone);
 });
-await check("updates: a newer release shows 'Update ready'; Install waits until nothing is playing", async () => {
+await check("updates: a newer release asks 'Update available - update now?'; Yes waits until nothing is playing; No closes it", async () => {
   await T(() => { PPTracks.stop(true); PP.engine.stop(); }); await wait(300);
   await T(() => { PPShell.showTab("pads"); PP.triggerPad(0); }); await until(() => T(() => PP.engine.voices().length > 0), 5000);
   await T(() => { PPFeatures.handleHardware({ type: "updateStatus", current: "7.0.0", latest: "7.1.0", available: true, notes: "Better", repo: "church/cc", auto: true }); });
-  await until(() => T(() => !document.querySelector("#updBanner").classList.contains("hidden")));
-  assert.ok(await T(() => document.querySelector('#updBanner [data-upd="install"]').disabled), "disabled while pads play");
+  await until(() => T(() => document.querySelector("#updAsk") && document.querySelector("#updAsk").open));
+  assert.match(await T(() => document.querySelector("#updAsk").textContent), /7\.1\.0[\s\S]*Stop the pads/);
+  assert.ok(await T(() => document.querySelector('#updAsk [data-ask="yes"]').disabled), "Yes waits while pads play");
+  assert.ok(await T(() => document.querySelector("#updBanner").classList.contains("hidden")), "no banner under the question");
   await T(() => PP.engine.panic ? PP.engine.panic() : PP.engine.stop()); await wait(3600);
-  assert.equal(await T(() => document.querySelector('#updBanner [data-upd="install"]').disabled), false);
-  await T(() => document.querySelector('#updBanner [data-upd="later"]').click());
-  assert.ok(await T(() => document.querySelector("#updBanner").classList.contains("hidden")));
+  assert.equal(await T(() => document.querySelector('#updAsk [data-ask="yes"]').disabled), false);
+  assert.match(await T(() => document.querySelector("#updAsk").textContent), /Want to update now\?/);
+  await page.click('#updAsk [data-ask="no"]');
+  assert.ok(await T(() => !document.querySelector("#updAsk").open && document.querySelector("#updBanner").classList.contains("hidden")));
+  await T(() => { PPFeatures.handleHardware({ type: "updateStatus", current: "7.0.0", latest: "7.1.0", available: true, notes: "Better", repo: "church/cc", auto: true }); }); await wait(300);
+  assert.ok(await T(() => !document.querySelector("#updAsk").open), "No: not asked again until the app opens again");
 });
 
 // back to the state the companion checks expect: Test Song chosen and stopped, pads in normal mode

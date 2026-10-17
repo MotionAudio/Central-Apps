@@ -182,6 +182,8 @@ await check("lighting modes: Auto runs the automatic cues only, Manual only your
 });
 await check("songs: a song of your own (no tracks) with scenes on bars - programmed at 93 BPM, at 112 BPM every scene moves with it", async () => {
   await cu.evaluate(() => { const rig = CULights.rig(); rig.localSongs.push({ id: "cu-test", name: "Spontaneous", bpm: 93, bpb: 4 }); CULights.showSub("songs"); });
+  assert.deepEqual(await cu.evaluate(() => [...document.querySelectorAll("#lxNav [data-lx]")].map((b) => b.textContent)), ["Show", "Fixtures", "Output"]);
+  assert.ok(await cu.evaluate(() => !document.querySelector('[data-lxv="show"]').hidden && !!document.querySelector('#lxRight #lxSongs') && !!document.querySelector('#lxRight #lxLookList') && document.querySelector('#lxLookList').children.length >= 10), "songs and presets are on the right of the Show view");
   await cu.click('[data-ls-pick="cu-test"]'); await cu.waitForSelector('[data-ls="scene"]', { timeout: 5000 });
   await cu.click('[data-ls="scene"]'); await cu.click('[data-ls="scene"]');
   await cu.waitForFunction(() => document.querySelectorAll(".lx-scenes tbody tr").length === 2);
@@ -212,8 +214,13 @@ await check("every light's colour: one light changed in the list takes over live
 });
 await check("tell it the show (built-in engine): sections, groups, colours, levels and the hits become presets and cues", async () => {
   await cu.evaluate(() => { CULights.show().cues = []; CULights.dirty(); const S = CULights.song; S.sections = [{ name: "Verse 1", start: 0, end: 8, bar: 1 }, { name: "Chorus", start: 8, end: 16, bar: 5 }]; S.hits = [9, 12]; });
+  await cu.evaluate(() => CULights.showSub("show"));
+  assert.ok(await cu.evaluate(() => document.querySelector("#lxChatWin").hidden), "the chat is a closed window until opened");
+  await cu.click("#lxChatOpen"); await cu.waitForSelector("#lxChatWin:not([hidden])");
   await cu.fill("#lxChatIn", "back blue 30% for the verse, then chorus full white with strobes on the hits"); await cu.click("#lxChatGo");
   await cu.waitForFunction(() => /✓/.test(document.querySelector("#lxChatOut").textContent), null, { timeout: 5000 });
+  await cu.waitForFunction(() => document.querySelectorAll("#lxChatLog .lx-msg.me").length === 1 && /✓/.test([...document.querySelectorAll("#lxChatLog .lx-msg.bot")].pop().textContent), null, { timeout: 5000 });
+  await cu.click("#lxChatClose"); assert.ok(await cu.evaluate(() => document.querySelector("#lxChatWin").hidden));
   const r = await cu.evaluate(() => CULights.show().cues.map((c) => c.kind + "@" + c.bar + "." + c.beat + ":" + (CULights.lookById(c.look) || {}).name));
   assert.ok(r.some((x) => /^look@1\.1:Said: Verse/.test(x)) && r.some((x) => /^look@5\.1:Said: Chorus/.test(x)) && r.filter((x) => /^flash/.test(x)).length === 2, r.join(" | "));
   const back = await cu.evaluate(() => { const l = CULights.rig().looks.find((x) => /Said: Verse/.test(x.name)); return l.g.back; }); assert.equal(back.color, "#1f4dff"); assert.ok(Math.abs(back.dim - 0.3) < 0.01);

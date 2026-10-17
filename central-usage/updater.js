@@ -19,10 +19,31 @@ const { execFile, spawn } = require("node:child_process");
 function versionTuple(v) { const n = String(v || "").match(/\d+/g) || []; return [0, 1, 2].map((i) => Number(n[i] || 0)); }
 function newer(a, b) { const x = versionTuple(a), y = versionTuple(b); for (let i = 0; i < 3; i++) { if (x[i] !== y[i]) return x[i] > y[i]; } return false; }
 
+// the system's DNS first; when it can't find the server (a router without DNS, a captive network), public DNS servers
+const dns = require("node:dns");
+const publicDns = new dns.Resolver(); publicDns.setServers(["1.1.1.1", "8.8.8.8", "9.9.9.9"]);
+function lookup(host, opts, cb) {
+  if (typeof opts === "function") { cb = opts; opts = {}; }
+  dns.lookup(host, opts, (err, addr, fam) => {
+    if (!err) return cb(null, addr, fam);
+    publicDns.resolve4(host, (e2, ips) => {
+      if (e2 || !ips || !ips.length) return cb(err);
+      if (opts && opts.all) return cb(null, ips.map((a) => ({ address: a, family: 4 })));
+      cb(null, ips[0], 4);
+    });
+  });
+}
+function explain(e) {
+  const m = String(e && e.message || e);
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/.test(m)) return "no internet here: could not find github.com (DNS) - connect this computer to the internet, then Check now";
+  if (/ENETUNREACH|EHOSTUNREACH/.test(m)) return "no internet here (network unreachable)";
+  if (/timed out|ETIMEDOUT/.test(m)) return "the update server did not answer in time (slow or no internet) - it tries again by itself";
+  return "could not reach the update server (" + m + ")";
+}
 function get(url, { json = false, timeout = 30000, maxBytes = 900 * 1024 * 1024, onProgress } = {}, redirects = 0) {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith("https:") ? https : http;
-    const req = mod.get(url, { headers: { "User-Agent": "CentralControl-updater", Accept: json ? "application/vnd.github+json" : "application/octet-stream" }, timeout }, (res) => {
+    const req = mod.get(url, { lookup, headers: { "User-Agent": "CentralControl-updater", Accept: json ? "application/vnd.github+json" : "application/octet-stream" }, timeout }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects < 6) { res.resume(); return resolve(get(new URL(res.headers.location, url).toString(), { json, timeout, maxBytes, onProgress }, redirects + 1)); }
       if (res.statusCode !== 200) { res.resume(); return reject(new Error("HTTP " + res.statusCode + " from " + new URL(url).host)); }
       const total = Number(res.headers["content-length"]) || 0, chunks = []; let n = 0;
@@ -46,7 +67,7 @@ class Updater {
     this.latest = null; this.error = null; this.busy = false; this.progress = 0;
   }
   save(cfg) {
-    if (cfg && "repo" in cfg) this.cfg.repo = String(cfg.repo || "").trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "");
+    if (cfg && "repo" in cfg) this.cfg.repo = String(cfg.repo || "").trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "") || (process.env.CC_UPDATE_REPO || "MotionAudio/Central-Apps");   // empty = the official releases
     if (cfg && "auto" in cfg) this.cfg.auto = !!cfg.auto;
     try { fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(this.file, JSON.stringify(this.cfg)); } catch (_) { }
     return this.status();
@@ -64,7 +85,8 @@ class Updater {
     return { current: this.current, repo: this.cfg.repo, auto: this.cfg.auto, lastCheck: this.cfg.lastCheck, latest: lt.version || null, notes: (lt.notes || "").slice(0, 2000),
       available: !!(lt.version && newer(lt.version, this.current) && this.asset()), error: this.error, busy: this.busy, progress: this.progress, kind: this.kind() };
   }
-  due() { return this.cfg.auto && this.cfg.repo && Date.now() / 1000 - (this.cfg.lastCheck || 0) > 20 * 3600; }
+  // once a day; after a failed look (no internet yet) again in 10 minutes
+  due() { return this.cfg.auto && this.cfg.repo && Date.now() / 1000 - (this.cfg.lastCheck || 0) > (this.error ? 600 : 20 * 3600); }
   async check() {
     if (!/^[^/\s]+\/[^/\s]+$/.test(this.cfg.repo || "")) { this.error = "Set the update source first (owner/repo on GitHub)."; return this.status(); }
     try {
@@ -74,7 +96,7 @@ class Updater {
       const mine = Object.keys(assets).map((n) => (n.match(new RegExp("^" + this.product + "-(\\d+(?:\\.\\d+)*)-")) || [])[1]).filter(Boolean)[0];
       this.latest = { version: mine || String(rel.tag_name || rel.name || "").replace(/^v/i, ""), notes: rel.body || "", assets };
       this.error = null;
-    } catch (e) { this.error = "Could not reach the update server (" + e.message + ")"; }
+    } catch (e) { this.error = explain(e); }
     this.cfg.lastCheck = Math.floor(Date.now() / 1000); this.save({});
     return this.status();
   }

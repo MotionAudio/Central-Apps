@@ -446,8 +446,15 @@
   var view = store.get("lxView", "show"), selectedCue = null, selectedLook = store.get("lxLook", "worship"), drag = null, nowText = "", nowAt = 0;
   function visible() { return CU.prefs.tab === "lights"; }
   function setNow(t) { nowText = t; nowAt = performance.now(); }
-  function showSub(v) { view = v; store.set("lxView", v); $$("#lxNav [data-lx]").forEach(function (b) { b.classList.toggle("on", b.dataset.lx === v); }); $$(".lx-view").forEach(function (el) { el.hidden = el.dataset.lxv !== v; }); renderAll(); }
-  function renderAll() { if (view === "show") { renderPalette(); renderShowPanel(); renderFaders(); renderLights(); } else if (view === "songs") { hubList(); renderSongs(); } else if (view === "looks") renderLooks(); else if (view === "fixtures") renderFixtures(); else if (view === "output") { renderOutput(); renderClick(); renderAudio(); renderRemote(); if (window.CUTimecode) window.CUTimecode.render(); } }
+  // Show is the main view: its right side holds the songs and the presets (the old Songs / Presets tabs)
+  function showSub(v) {
+    var part = v === "songs" || v === "looks" ? v : null; if (part || ["show", "fixtures", "output"].indexOf(v) < 0) v = "show";
+    showSubOnly(v);
+    if (part) { rightPanel(true); var sec = $(part === "songs" ? "#lxRSongs" : "#lxRLooks"); if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: "start" }); }
+  }
+  function rightPanel(on) { if (on != null) store.set("lxRight", !!on); var open = store.get("lxRight", true) !== false; var sv = $(".lx-showview"); if (sv) sv.classList.toggle("noright", !open); var b = $("#lxRightShow"); if (b) b.hidden = open; }
+  function showSubOnly(v) { view = v; store.set("lxView", v); var fab = $("#lxChatOpen"); if (fab) fab.hidden = v !== "show"; if (v !== "show") chatOpen(false); $$("#lxNav [data-lx]").forEach(function (b) { b.classList.toggle("on", b.dataset.lx === v); }); $$(".lx-view").forEach(function (el) { el.hidden = el.dataset.lxv !== v; }); renderAll(); }
+  function renderAll() { if (view === "show") { renderPalette(); renderShowPanel(); renderFaders(); renderLights(); hubList(); renderSongs(); renderLooks(); rightPanel(); } else if (view === "fixtures") renderFixtures(); else if (view === "output") { renderOutput(); renderClick(); renderAudio(); renderRemote(); if (window.CUTimecode) window.CUTimecode.render(); } }
 
   // ---- show view: stage plot, preset palette, faders, timeline, lights list
   function renderPalette() {
@@ -564,7 +571,7 @@
 
   // ---- songs: the Central Control's (with or without tracks) and your own; scenes on bars and beats
   var songSel = store.get("lxSong", null), songEdit = null, songsTimer = 0;
-  function renderSongsSoon() { clearTimeout(songsTimer); songsTimer = setTimeout(function () { if (visible() && view === "songs") renderSongs(); }, 150); }
+  function renderSongsSoon() { clearTimeout(songsTimer); songsTimer = setTimeout(function () { if (visible() && view === "show") renderSongs(); }, 150); }
   function allSongs() { var list = hub.list.map(function (s) { return Object.assign({ from: "cc" }, s); }); rig.localSongs.forEach(function (s) { list.push(Object.assign({ from: "local", hasTracks: false }, s)); }); return list; }
   async function loadEdit(id) {
     if (show.song === id) { songEdit = { id: id, live: true }; renderSongs(); return; }
@@ -719,6 +726,16 @@
       '<p class="muted small">' + (has ? "✓ hearing the music" : "No audio here yet: it needs the audio host (I/O tab) and the Central Control's audio over the network.") + "</p>";
   }
 
+  // ------------------------------------------------------------- the chat window (opens on the right of the Show view)
+  function chatOpen(on) { var w = $("#lxChatWin"), fab = $("#lxChatOpen"); if (!w) return; w.hidden = !on; if (fab) fab.classList.toggle("on", !!on); if (on) setTimeout(function () { $("#lxChatIn").focus(); }, 30); }
+  function chatMsg(who, text) { var log = $("#lxChatLog"); if (!log || !text) return; var d = document.createElement("div"); d.className = "lx-msg " + who; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; }
+  var chatBusy = false;
+  async function sendChat() {
+    var inp = $("#lxChatIn"), text = inp.value.trim(); if (!text || chatBusy) return;
+    chatBusy = true; chatMsg("me", text); inp.value = ""; $("#lxChatOut").textContent = "";
+    try { await chat(text); } finally { chatBusy = false; }
+    chatMsg("bot", $("#lxChatOut").textContent || "Done.");
+  }
   // ------------------------------------------------------------- the chat box: plain words -> cues
   async function chat(text) {
     var A = window.CULightsAI, out = $("#lxChatOut"); if (!A || !text.trim()) return;
@@ -766,8 +783,13 @@
     $("#lxClear").addEventListener("click", function () { if (!confirm("Remove every cue of yours from this song?")) return; show.cues = []; selectedCue = null; changed(); });
     $("#lxSnap").value = rig.snap || "beat"; $("#lxSnap").addEventListener("change", function () { rig.snap = this.value; saveRig(); renderShowPanel(); });
     $("#lxStopped").innerHTML = rig.looks.map(function (l) { return '<option value="' + esc(l.id) + '"' + (l.id === rig.stopped ? " selected" : "") + ">" + esc(l.name) + "</option>"; }).join(""); $("#lxStopped").addEventListener("change", function () { rig.stopped = this.value; saveRig(); });
-    $("#lxChatGo").addEventListener("click", function () { chat($("#lxChatIn").value); });
-    $("#lxChatIn").addEventListener("keydown", function (e) { if (e.key === "Enter") chat(this.value); });
+    $("#lxChatGo").addEventListener("click", function () { sendChat(); });
+    $("#lxChatIn").addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
+    $("#lxChatOpen").addEventListener("click", function () { chatOpen(true); });
+    $("#lxChatClose").addEventListener("click", function () { chatOpen(false); });
+    $("#lxRight").addEventListener("click", function (e) { var b = e.target.closest("[data-lxr]"); if (b) { var sec = $(b.dataset.lxr === "songs" ? "#lxRSongs" : "#lxRLooks"); if (sec) sec.scrollIntoView({ block: "start", behavior: "smooth" }); } });
+    $("#lxRightHide").addEventListener("click", function () { rightPanel(false); });
+    $("#lxRightShow").addEventListener("click", function () { rightPanel(true); });
     var cv = $("#lxTimeline");
     cv.addEventListener("pointerdown", function (e) {
       var r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, c = cueAtPx(px, py);

@@ -119,7 +119,12 @@
   function render() {
     var root = $("#ioRoot"); if (!root || !visible()) return;
     if (root.contains(document.activeElement) && document.activeElement.tagName === "INPUT" && document.activeElement.type !== "checkbox" && document.activeElement.type !== "radio" && document.activeElement.type !== "range") return;
-    root.innerHTML = '<div class="io-grid">' + piCard() + piAudioCard() + hostCard() + ifaceCard() + listenCard() + videoCard() + lightsCard() + instCard() + midiCard() + "</div>";
+    // laid out as the signal flows: what comes in → what this computer does with it → where it goes out
+    function col(n, title, sub, cards) { cards = cards.filter(Boolean).join(""); return cards ? '<div class="io-col"><div class="io-colh"><b>' + n + "</b><span>" + title + "</span><small>" + sub + "</small></div>" + cards + "</div>" : ""; }
+    var cols = [col("1", "In", "from the Central Control and devices", [piCard(), piAudioCard(), midiCard()]),
+      col("2", "This computer", "mixing, in-ears, listening", [hostCard(), ifaceCard(), listenCard(), instCard()]),
+      col("3", "Out", "screens and lights", [videoCard(), lightsCard()])].filter(Boolean);
+    root.innerHTML = '<div class="io-flow" style="--tpl:' + cols.map(function () { return "minmax(0, 1fr)"; }).join(" 28px ") + '">' + cols.join('<div class="io-arrow" aria-hidden="true"><i></i></div>') + "</div>";
     var sinkSel = $('[data-io="sink"]'); if (sinkSel && navigator.mediaDevices) navigator.mediaDevices.enumerateDevices().then(function (list) { list.filter(function (d) { return d.kind === "audiooutput" && d.deviceId !== "default"; }).forEach(function (d) { var o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || "Output " + d.deviceId.slice(0, 6); if (window.CUListen && d.deviceId === window.CUListen.sink()) o.selected = true; sinkSel.appendChild(o); }); }).catch(function () { });
   }
   async function setCfg(patch) { if (NAT && NAT.config) { var c = await NAT.config.set(patch); CU.setConfig(c); if (hs) hs.cfg = c; } if (X) X.choose(); render(); if (patch.newUserCode || patch.newAdminCode) registerHost(); }

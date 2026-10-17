@@ -85,7 +85,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.1.0"
+APP_VERSION = "8.1.1"
 CONFIG_CANDIDATES = ["/data/pad-pedal/hardware.json", "/etc/pad-pedal/hardware.json"]
 SYSTEM_SCRIPT = "/usr/local/sbin/pad-pedal-system"
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".oga", ".m4a", ".aac", ".aif", ".aiff", ".opus")
@@ -3874,7 +3874,10 @@ class PedalDriver:
                 self.send_to(ws, {"type": "updateStatus", "error": "not available"})
             elif action == "config":
                 self.send_to(ws, up.save(message.get("config") or {}))
-            elif action == "check":
+            elif action in ("check", "opened"):
+                if action == "opened" and not up.cfg.get("auto"):
+                    self.send_to(ws, up.status())
+                    return
                 def job():
                     up.busy = True
                     st = up.check()
@@ -4048,7 +4051,8 @@ class PedalDriver:
         raise ValueError("unknown")
 
     def update_loop(self):
-        """Once a day (and a minute after start-up): look for a newer release. Only looks - the app asks first."""
+        """Once a day: look for a newer release (the app also asks for a look every time it opens). Only looks -
+        the app asks "Update now?" and installs only on Yes."""
         time.sleep(60 if not self.sim else 5)
         while True:
             try:
@@ -4059,7 +4063,7 @@ class PedalDriver:
                     self.emit(st)
             except Exception as error:
                 log.debug("update check: %s", error)
-            time.sleep(3600)
+            time.sleep(300)   # due() decides: once a day, or 10 minutes after a failed look
 
     def software_update(self, zip_path):
         """Install a central-control-source zip from a USB stick: the root helper copies the files

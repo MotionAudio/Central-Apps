@@ -93,7 +93,8 @@ ipcMain.handle("update-install", async () => {
 
 app.whenReady().then(async () => {
   updater = new Updater({ product: "central-control", current: app.getVersion(), dir: app.getPath("userData") });
-  setTimeout(async function loop() { try { if (updater.due()) { await updater.check(); updateEvent(); } } catch (_) {} setTimeout(loop, 3600 * 1000); }, 60 * 1000);
+  // every time the app opens it looks for a newer release (a few seconds after start), then once a day while it runs
+  setTimeout(async function loop(first) { try { if (updater.cfg.auto && (first || updater.due())) { await updater.check(); updateEvent(); } } catch (_) { } setTimeout(loop, 300 * 1000); }, 8000, true);
   allowPermissions(); menu();
   const ok = await startDriver();
   createWindow(ok ? "http://127.0.0.1:" + PORT + "/app/#resume" : "file://" + path.join(APP_ROOT, "index.html") + "#resume");

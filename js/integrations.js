@@ -41,14 +41,34 @@
     var info = $("#updInfo"); if (info) info.textContent = "This Central Control: version " + (up.current || "?") + (up.lastCheck ? " · last checked " + new Date(up.lastCheck * 1000).toLocaleString() : "") + ".";
     var st = $("#updState"); if (st) st.textContent = up.busy ? "Working…" : up.error ? up.error : up.available ? "Version " + up.latest + " is available." + (up.notes ? " " + up.notes.split("\n")[0].slice(0, 160) : "") : up.latest ? "Up to date." : "";
     var ib = $("#updInstall"); if (ib) { ib.classList.toggle("hidden", !up.available); ib.disabled = !!up.busy; }
-    var b = banner(); b.classList.toggle("hidden", !(up.available && !up.dismissed));
+    askIfNew();
+    var b = banner(); b.classList.toggle("hidden", !(up.available && !up.dismissed && !(askEl && askEl.open)));
     b.innerHTML = '<b>Update ' + esc(up.latest || "") + ' is ready</b><span>' + (busyPlaying() ? "Install it after the service (stop the pads and tracks first)." : "Installs in about a minute; your songs and settings stay.") + '</span><button class="primary" data-upd="install"' + (up.busy || busyPlaying() ? " disabled" : "") + '>' + (up.busy ? "Installing…" : "Install") + '</button><button data-upd="later">Later</button>';
+  }
+  // "Update available - update now?" Yes installs, No asks again the next time the app opens
+  var askEl = null, asked = null;
+  function askIfNew() {
+    if (!up.available || up.busy || up.auto === false || up.dismissed || asked === up.latest) { if (askEl && askEl.open) paintAsk(); return; }
+    asked = up.latest;
+    if (!askEl) {
+      askEl = document.createElement("dialog"); askEl.id = "updAsk"; askEl.className = "upd-ask"; document.body.appendChild(askEl);
+      askEl.addEventListener("click", function (e) { var b = e.target.closest("[data-ask]"); if (!b) return; if (b.dataset.ask === "yes") { askEl.close(); install(true); } else { askEl.close(); up.dismissed = true; renderUpd(); } });
+      askEl.addEventListener("cancel", function () { up.dismissed = true; setTimeout(renderUpd, 0); });
+    }
+    paintAsk(); if (!askEl.open) askEl.showModal();
+  }
+  function paintAsk() {
+    var playing = busyPlaying();
+    askEl.innerHTML = '<h2>Update available</h2><p><b>Central Control ' + esc(up.latest || "") + '</b> is ready (this one is ' + esc(up.current || "?") + ').</p>' +
+      (up.notes ? '<p class="muted small">' + esc(up.notes.replace(/[#*]/g, "").split("\n").filter(Boolean).slice(0, 3).join(" · ").slice(0, 260)) + "</p>" : "") +
+      "<p>" + (playing ? "Stop the pads and tracks first - updates never install while something plays." : "Want to update now? It takes about a minute; your songs and settings stay.") + "</p>" +
+      '<div class="row"><button class="primary" data-ask="yes"' + (playing ? " disabled" : "") + '>Yes, update</button><button data-ask="no">No</button></div>';
   }
   var bannerEl = null;
   function banner() { if (!bannerEl) { bannerEl = document.createElement("div"); bannerEl.className = "upd-banner hidden"; bannerEl.id = "updBanner"; document.body.appendChild(bannerEl); } return bannerEl; }
-  function install() {
+  function install(already) {
     if (busyPlaying()) { PP.setStatus("Stop the pads and tracks first - updates never install while something plays."); return; }
-    if (!confirm("Install Central Control " + up.latest + " now? The app restarts; songs and settings are kept.")) return;
+    if (already !== true && !confirm("Install Central Control " + up.latest + " now? The app restarts; songs and settings are kept.")) return;
     up.busy = true; renderUpd(); upSend("install"); PP.setStatus("Downloading the update…");
   }
   F.on("updateStatus", function (m) { if (DESK) return; var dismissed = up.dismissed && up.latest === m.latest; Object.assign(up, m); up.dismissed = dismissed; renderUpd(); });
@@ -60,7 +80,12 @@
     else if (b.dataset.upd === "later") { up.dismissed = true; renderUpd(); }
   });
   document.addEventListener("change", function (e) { if (e.target.id === "updAuto" || e.target.id === "updRepo") upSend("config", { repo: $("#updRepo").value.trim(), auto: $("#updAuto").checked }); });
-  setInterval(function () { if (up.available) renderUpd(); }, 3000);   // the Install button wakes up once the music stops
+  setInterval(function () { if (up.available) renderUpd(); }, 3000);
+  // the app just opened: the Central Control (Pi) looks for a newer release now; on a PC the app itself already does
+  var openedSent = false;
+  function opened() { if (openedSent || DESK) return; var b = window.__pedalBridge; if (!b || !b.connected) return; openedSent = true; send({ type: "updates", action: "opened" }); }
+  F.on("hello", function () { setTimeout(opened, 1500); });
+  setTimeout(opened, 3000);   // the Install button wakes up once the music stops
 
   window.PPIntegrations = { propresenter: function () { return pp; }, updates: function () { return up; }, install: install };
   setTimeout(function () { renderPP(); renderUpd(); if (DESK) upSend("status"); }, 400);

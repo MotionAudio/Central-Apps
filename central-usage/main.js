@@ -172,7 +172,8 @@ ipcMain.handle("version", () => ({ app: app.getVersion(), electron: process.vers
 
 app.whenReady().then(() => {
   updater = new Updater({ product: "central-usage", current: app.getVersion(), dir: app.getPath("userData") });
-  setTimeout(async function loop() { try { if (updater.due()) { await updater.check(); updateEvent(); } } catch (_) { } setTimeout(loop, 3600 * 1000); }, 60 * 1000);
+  // every time the app opens it looks for a newer release (a few seconds after start), then once a day while it runs
+  setTimeout(async function loop(first) { try { if (updater.cfg.auto && (first || updater.due())) { await updater.check(); updateEvent(); } } catch (_) { } setTimeout(loop, 300 * 1000); }, 8000, true);
   try { if (JSON.parse(fs.readFileSync(remoteFile(), "utf8")).on) startRemote(); } catch (_) { }
   allowPermissions(); menu(); createWindow(); svc.start(); app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
 app.on("window-all-closed", () => { app.quit(); });

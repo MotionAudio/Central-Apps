@@ -1,11 +1,21 @@
 /* Central Usage - the Video tab (uses the app's tokens from style.css) */
-.vd { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.vd { display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: 1; }
 .vd-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .vd-nav { display: flex; gap: 4px; flex-wrap: wrap; } .vd-nav button.on { background: var(--accent); color: var(--accentText); border-color: var(--accent); font-weight: 800; }
 .vd-chips { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 .vd-chip { font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
 .vd-chip.on { color: var(--accent); border-color: var(--accent); } .vd-chip.live { background: #d92f35; border-color: #d92f35; color: #fff; } .vd-chip.warn { color: var(--chord); border-color: var(--chord); } .vd-chip.bad { color: var(--danger); border-color: var(--danger); }
 .vd-body { min-height: 0; }
+/* the Switcher fits one screen: the two outputs on top (small), every camera below */
+.vd-body.sw { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.vd-body.sw .vd-outs { grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: 8px; }
+.vd-body.sw .vd-out { padding: 8px; gap: 6px; }
+.vd-body.sw .vd-mons { display: flex; gap: 8px; }
+.vd-body.sw .vd-mons figure { flex: 0 1 auto; min-width: 0; }
+.vd-body.sw .vd-mons canvas { height: clamp(72px, 16vh, 180px); width: auto; max-width: 100%; border-width: 2px; }
+.vd-body.sw .vd-ctl button { min-width: 0; padding: 6px 10px; font-size: 12px; } .vd-body.sw .vd-ctl select { padding: 5px 6px; font-size: 12px; }
+.vd-mvwrap { flex: 1; min-height: 140px; display: flex; justify-content: center; align-items: flex-start; overflow: hidden; }
+.vd-mvwrap .vd-mv { width: auto; }
 .vd-outs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 10px; }
 .vd-out { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 10px; display: grid; gap: 8px; }
 .vd-out header { display: flex; align-items: baseline; gap: 10px; } .vd-out header b { letter-spacing: .14em; font-size: 13px; }

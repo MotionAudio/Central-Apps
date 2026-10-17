@@ -317,7 +317,13 @@
   var wantKey = "", wantTimer = 0;
   function changed() { clearTimeout(wantTimer); wantTimer = setTimeout(applyWants, 60); paintControls(); }
   function mvSources() { return cfgSources().filter(function (s) { return s.mv !== false; }).concat(S.cfg.multiview.slides !== false ? [{ id: S.init.slidesId, name: "Slides", kind: "slides" }] : []); }
-  function grid(n) { var g = S.cfg.multiview.grid; if (g && g !== "auto") { var p = g.split("x").map(Number); return { c: p[0], r: p[1] }; } var c = n <= 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : n <= 25 ? 5 : n <= 36 ? 6 : 8; return { c: c, r: c === 8 ? 6 : c }; }
+  function grid(n) { var g = S.cfg.multiview.grid; if (g && g !== "auto") { var p = g.split("x").map(Number); return { c: p[0], r: p[1] }; } return fitGrid(n); }
+  // Auto: every camera on one screen (up to 48 + the slides), in the columns × rows that make the tiles biggest in the space there is
+  function fitGrid(n) {
+    n = Math.max(1, n); var b = S.mvBox || { w: 1200, h: 520 }, best = { c: 1, r: n, t: 0 };
+    for (var c = 1; c <= Math.min(n, 12); c++) { var r = Math.ceil(n / c), t = Math.min(b.w / c, b.h / r * 16 / 9); if (t > best.t + 0.5) best = { c: c, r: r, t: t }; }
+    return { c: best.c, r: best.r };
+  }
   function pageItems() { var all = mvSources(), g = grid(all.length), per = g.c * g.r, pages = Math.max(1, Math.ceil(all.length / per)); S.page = clamp(S.page, 0, pages - 1); return { items: all.slice(S.page * per, S.page * per + per), g: g, pages: pages }; }
   function applyWants() {
     var map = {}, t = tally(), onPage = {};
@@ -388,10 +394,12 @@
   }
   function drawMultiview() {
     var cv = $(".vd-mv"); if (!cv) return;
-    var pi = pageItems(), g = pi.g, cw = cv.clientWidth || 960, W = Math.min(1920, Math.round(cw * (window.devicePixelRatio || 1))), tw = Math.floor(W / g.c), th = Math.round(tw * 9 / 16), H = Math.min(1080 - 280, th * g.r);
-    if (th * g.r > H) { th = Math.floor(H / g.r); tw = Math.round(th * 16 / 9); }
-    W = tw * g.c; H = th * g.r;
-    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; cv.style.aspectRatio = W + " / " + H; }
+    // the multiview fits the space under the outputs: no scrolling to reach a camera
+    var wrap = cv.parentNode, bw = Math.max(200, wrap.clientWidth || 960), bh = Math.max(120, wrap.clientHeight || 500); S.mvBox = { w: bw, h: bh };
+    var pi = pageItems(), g = pi.g, cssT = Math.min(bw / g.c, bh / g.r * 16 / 9), cssW = Math.floor(cssT * g.c), cssH = Math.floor(cssT * 9 / 16 * g.r);
+    var tw = Math.max(32, Math.floor(Math.min(cssT * (window.devicePixelRatio || 1), 1920 / g.c, (1080 - 280) / g.r * 16 / 9))), th = Math.round(tw * 9 / 16), W = tw * g.c, H = th * g.r;
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    if (cv.style.width !== cssW + "px") { cv.style.width = cssW + "px"; cv.style.height = cssH + "px"; }
     var gl = G.gl; bindTargetCached = bindTarget(null);
     var oy = 280;   // below the monitors' strip
     gl.enable(gl.SCISSOR_TEST); gl.scissor(0, G.H - oy - H, W, H); gl.clearColor(0.03, 0.06, 0.1, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.SCISSOR_TEST);
@@ -429,7 +437,7 @@
   }
   function paintView() {
     $$("[data-vview]").forEach(function (b) { b.classList.toggle("on", b.dataset.vview === S.view); });
-    var body = $("#vdBody"); if (!body) return;
+    var body = $("#vdBody"); if (!body) return; body.classList.toggle("sw", S.view === "switch");
     if (S.error) { body.innerHTML = '<div class="card"><p class="bad">' + esc(S.error) + "</p></div>"; return; }
     if (!S.cfg || !S.init) { body.innerHTML = '<p class="muted">Starting the video switcher…</p>'; return; }
     body.innerHTML = S.view === "switch" ? switcherHtml() : S.view === "sources" ? sourcesHtml() : S.view === "stream" ? streamHtml() : S.view === "audio" ? audioHtml() : S.view === "overlays" ? overlaysHtml() : phonesHtml();
@@ -451,9 +459,9 @@
       '<div class="vd-mvbar"><span class="vd-seg">Click a camera for <button data-bus="main">Main</button><button data-bus="stream">Stream</button><button data-bus="both">Both</button></span>' +
       '<label>Transition <select data-tr="type"><option value="fade">Fade</option><option value="dip">Dip to black</option><option value="wipe">Wipe</option><option value="cut">Cut</option></select></label>' +
       '<label><input type="number" data-tr="ms" min="0" max="5000" step="100" value="' + (tr.ms || 600) + '" style="width:76px"> ms</label>' +
-      '<label>Grid <select data-mv="grid">' + ["auto", "2x2", "3x3", "4x4", "5x5", "6x6", "8x6"].map(function (g) { return '<option value="' + g + '"' + ((S.cfg.multiview.grid || "auto") === g ? " selected" : "") + ">" + (g === "auto" ? "Auto" : g.replace("x", " × ")) + "</option>"; }).join("") + "</select></label>" +
+      '<label>Grid <select data-mv="grid">' + ["auto", "2x2", "3x3", "4x4", "5x5", "6x6", "8x6"].map(function (g) { return '<option value="' + g + '"' + ((S.cfg.multiview.grid || "auto") === g ? " selected" : "") + ">" + (g === "auto" ? "All on one screen" : g.replace("x", " × ") + " (pages)") + "</option>"; }).join("") + "</select></label>" +
       '<span class="vd-pages" id="vdPages"></span><span class="muted small">Click = preview · double-click = take · Space = cut · Enter = auto</span></div>' +
-      '<canvas class="vd-mv" tabindex="0"></canvas>' + (cfgSources().length ? "" : '<p class="muted vd-empty">No cameras yet - add them on <a href="#" data-vview="sources">Sources</a>.</p>');
+      '<div class="vd-mvwrap"><canvas class="vd-mv" tabindex="0"></canvas></div>' + (cfgSources().length ? "" : '<p class="muted vd-empty">No cameras yet - add them on <a href="#" data-vview="sources">Sources</a>.</p>');
   }
   function paintControls() {
     if (!S.ready || S.view !== "switch") return;
