@@ -1,4 +1,4 @@
-/* Central Usage - talkback: the TALK button.
+/* Central Control - talkback: the TALK button.
  *  Admins (the main admin, and admins with the Mix, In-ears or General job): TALK on the In-ears and Mix tabs and a
  *    compact one in the top bar. Hold to talk; a quick tap latches it on (tap again: off). Who hears it: All, or
  *    chosen in-ear mixes (by their names / who has them), remembered on this computer; optionally the music in
@@ -95,7 +95,7 @@
     if (mic.ctx) return;
     if (mic.opening) return mic.opening;
     mic.opening = (async function () {
-      if (!micAllowed()) throw new Error("This page can't use the microphone (it needs the Central Usage app).");
+      if (!micAllowed()) throw new Error("This page can't use the microphone (it needs the Central Control app).");
       var a = { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }; if (prefs.micDev) a.deviceId = { exact: prefs.micDev };
       var stream; try { stream = await navigator.mediaDevices.getUserMedia({ audio: a }); } catch (e) { if (prefs.micDev) stream = await navigator.mediaDevices.getUserMedia({ audio: true }); else throw e; }
       var ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: RATE, latencyHint: "interactive" });
@@ -214,7 +214,7 @@
   }
   function userPanel() {
     return '<div class="tb-row"><button class="tb-talk tb-desk" data-tb-talk="desk" title="Hold to talk · a quick tap keeps it on"' + (micAllowed() ? "" : " disabled") + '>🎙 Talk to the sound desk</button><div class="tb-side"><span class="tb-msg"></span><span class="tb-level" title="Mic level"><i></i></span>' +
-      '<span class="muted small">Only the sound desk hears it' + (micAllowed() ? "" : " (on this phone the microphone needs the Central Usage app)") + ".</span></div></div>";
+      '<span class="muted small">Only the sound desk hears it' + (micAllowed() ? "" : " (on this phone the microphone needs the Central Control app)") + ".</span></div></div>";
   }
   var panelOpen = false, structKey = "";
   function render() {

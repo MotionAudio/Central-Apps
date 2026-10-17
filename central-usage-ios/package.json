@@ -2,7 +2,7 @@
   "name": "central-usage-ios",
   "private": true,
   "version": "2.0.0",
-  "description": "Central Usage for iPhone / iPad (App Store / TestFlight): a small app that finds the Central Control on the Wi-Fi and opens its Central Usage web app.",
+  "description": "Central Control for iPhone / iPad (App Store / TestFlight): a small app that finds the Central Pedal on the Wi-Fi and opens its Central Control web app.",
   "license": "MIT",
   "scripts": {
     "sync": "cap sync ios"

@@ -111,7 +111,7 @@ await check("app reports playing pad back to the driver (for the LEDs)", async (
   assert.deepEqual(last, { type: "state", playing: 1, playingAll: [1], selected: 1 });
   await T(() => { __pedalBridge.socket = null; });
 });
-await check("hello from the driver -> the 'Central Control' connected badge", async () => {
+await check("hello from the driver -> the 'Central Pedal' connected badge", async () => {
   await hw({ type: "hello", pads: 7, knobs: ["volume"], expression: true, encoder: true });
   assert.equal(await T(() => document.querySelector("#pfHw").classList.contains("on")), true);
 });
@@ -323,7 +323,7 @@ console.log("\nSystem menu:");
 await check("Settings tab opens and explains safe mode needs the Pi", async () => {
   await page.click("#systemButton"); await wait(150);
   assert.ok(!(await page.$eval("#tabSettings", (e) => e.classList.contains("hidden"))), "settings tab shown");
-  assert.match(await page.textContent("#safeText"), /Central Control \(Raspberry Pi\) itself/);
+  assert.match(await page.textContent("#safeText"), /Central Pedal \(Raspberry Pi\) itself/);
   const rows = await page.$$eval("#routingMatrix select[data-rt]", (l) => l.map((s) => s.dataset.rt));
   assert.deepEqual(rows, ["tracks", "pad", "click", "instrument"]);
   await page.click('[data-tab="pads"]');

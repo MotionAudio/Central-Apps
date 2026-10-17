@@ -1,4 +1,4 @@
-/* Central Control - the Settings tab: appearance (colour presets, size), the
+/* Central Pedal - the Settings tab: appearance (colour presets, size), the
  * audio engine (sample rate, latency), the output routing matrix (four mono
  * buses -> any output channel), and the sub-navigation of the settings groups.
  * The Pi-only sections (Wi-Fi, screens, OS audio, MIDI out...) are rendered by shell.js. */
@@ -58,7 +58,7 @@
         var ch = r.buses[b[0]] ? r.buses[b[0]].ch : 0, now = b[0] === "instrument" ? (connected() ? (ch > 0 ? "channel " + ch + (stereo ? "-" + (ch + 1) : "") : "off") : "on the Pi only") : (live.buses && live.buses[b[0]] ? (live.buses[b[0]] === "off" ? "off" : "channel " + live.buses[b[0]]) : "—");
         return '<tr><td><b>' + b[1] + '</b><br><small>' + b[2] + '</small></td><td><select data-rt="' + b[0] + '"><option value="0"' + (ch === 0 ? " selected" : "") + ">Off</option>" + names.map(function (n, i) { var c = i + 1; if (stereo && c + 1 > names.length) return ""; return '<option value="' + c + '"' + (ch === c ? " selected" : "") + ">" + esc(stereo ? c + "-" + (c + 1) + " · " + n.replace(/^\d+ · /, "") : n) + "</option>"; }).join("") + "</select></td><td><small>" + esc(now) + "</small></td><td>" + (b[0] === "instrument" ? "" : '<button data-rt-test="' + b[0] + '" title="Half a second of tone on this bus">♪ Test</button>') + "</td></tr>";
       }).join("") + "</tbody></table>" +
-      '<p class="muted">' + (live.mode === "stereo2" ? "This device only has 2 outputs: tracks and pads share them; the click uses the fallback chosen under Output device. On the Central Control the jack + DAC (+ USB interface) give 4 or more." : "Default cables: 1 = headphone jack left (tracks), 2 = jack right (pads), 3 = DAC left (click + voice to the in-ear mix), 4 = DAC right (instrument). A USB interface adds channels 5 and up.") + "</p>";
+      '<p class="muted">' + (live.mode === "stereo2" ? "This device only has 2 outputs: tracks and pads share them; the click uses the fallback chosen under Output device. On the Central Pedal the jack + DAC (+ USB interface) give 4 or more." : "Default cables: 1 = headphone jack left (tracks), 2 = jack right (pads), 3 = DAC left (click + voice to the in-ear mix), 4 = DAC right (instrument). A USB interface adds channels 5 and up.") + "</p>";
   }
   function onRouting(e) {
     var el = e.target, r = project().routing;
@@ -85,7 +85,7 @@
   async function bkShow(mode) {
     var list = $("#bkList"); if (!list) return;
     bk.mode = mode;
-    if (!connected()) { list.innerHTML = '<p class="muted">Backups work on the Central Control itself (the files live on its /data partition).</p>'; return; }
+    if (!connected()) { list.innerHTML = '<p class="muted">Backups work on the Central Pedal itself (the files live on its /data partition).</p>'; return; }
     list.innerHTML = '<p class="muted">Looking at the USB stick…</p>';
     if (mode === "backup") {
       var drives = await bkDrives();
@@ -95,7 +95,7 @@
     try {
       var r = await (await fetch(MEDIA + (mode === "restore" ? "/backups" : "/updates"), { cache: "no-store" })).json(), rows = [];
       (r.drives || []).forEach(function (d) { (d.files || []).forEach(function (f) { rows.push('<button data-bk-' + mode + '="' + esc(f.path) + '"><b>' + esc(f.name) + "</b><small>" + esc(d.drive) + " · " + fmtSize(f.size) + " · " + esc(f.date) + "</small></button>"); }); });
-      list.innerHTML = rows.length ? '<p class="muted">' + (mode === "restore" ? "Restore which backup? Songs, tracks, charts, sounds and settings on this Central Control are replaced by the backup's." : "Install which version? The app and driver are replaced; your songs and settings stay.") + "</p>" + rows.join("")
+      list.innerHTML = rows.length ? '<p class="muted">' + (mode === "restore" ? "Restore which backup? Songs, tracks, charts, sounds and settings on this Central Pedal are replaced by the backup's." : "Install which version? The app and driver are replaced; your songs and settings stay.") + "</p>" + rows.join("")
         : '<p class="muted">' + (mode === "restore" ? "No central-control-backup-*.zip on the USB stick." : "No central-control-source zip on the USB stick (put the zip in its top folder or in a \"Central Control\" folder).") + "</p>";
     } catch (e) { list.innerHTML = '<p class="muted">Could not read the USB stick: ' + esc(e.message) + "</p>"; }
   }
@@ -112,7 +112,7 @@
     if (j) { $("#bkList").innerHTML = '<p class="muted">✓ Backup written: <b>' + esc(j.file.split("/").pop()) + "</b> (" + fmtSize(j.size) + "). Safe to unplug after a few seconds.</p>"; PP.setStatus("Backup written to the USB stick."); }
   }
   async function bkRestoreFrom(path) {
-    if (!confirm("Restore " + path.split("/").pop() + "?\n\nThe songs, tracks, charts, sounds and settings on this Central Control are replaced by the backup. The screen restarts afterwards.")) return;
+    if (!confirm("Restore " + path.split("/").pop() + "?\n\nThe songs, tracks, charts, sounds and settings on this Central Pedal are replaced by the backup. The screen restarts afterwards.")) return;
     $("#bkList").innerHTML = '<p class="muted">Restoring…</p>';
     var j = await bkRun("/restore", { file: path }, "Restore");
     if (!j) return;

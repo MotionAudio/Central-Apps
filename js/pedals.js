@@ -1,4 +1,4 @@
-/* Central Control - the pedal catalogue: 100+ stompboxes, amps, cabs and studio
+/* Central Pedal - the pedal catalogue: 100+ stompboxes, amps, cabs and studio
  * effects, each one a real free LV2 / LADSPA plugin that runs natively on the Pi
  * (Guitarix, Calf, LSP, x42, Zam, Dragonfly, mda, swh, TAP, CAPS, Invada...).
  * `knobs` map a friendly label to the plugin's control symbol; ranges and

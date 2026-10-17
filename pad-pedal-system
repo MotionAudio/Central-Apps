@@ -159,7 +159,7 @@ for m in zf.namelist():
         out.write(src.read())
 PY
     src="$(dirname "$(find "$tmp" -name pedal-driver.py -print -quit)")"
-    [ -n "$src" ] && [ -f "$src/index.html" ] && [ -f "$src/js/app.js" ] && [ -f "$src/pedal-driver.py" ] || { echo "That zip does not contain the Central Control app (index.html, js/app.js, pedal-driver.py)." >&2; exit 2; }
+    [ -n "$src" ] && [ -f "$src/index.html" ] && [ -f "$src/js/app.js" ] && [ -f "$src/pedal-driver.py" ] || { echo "That zip does not contain the Central Pedal app (index.html, js/app.js, pedal-driver.py)." >&2; exit 2; }
     python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" "$src/pedal-driver.py" || { echo "pedal-driver.py in the zip does not parse - update refused." >&2; exit 3; }
     install_into() {  # install_into <root>  (/ for the live system, /media/root-ro for the real partition under safe mode)
       local R="$1"
@@ -191,7 +191,7 @@ PY
     systemctl daemon-reload 2>/dev/null || true
     /usr/local/sbin/pad-pedal-system boot-tune >/dev/null 2>&1 || true   # the helper just installed: its start-up settings
     sync
-    echo "Central Control updated from $(basename "$zip"): $(ls "$src"/js/*.js | wc -l) app files, driver $(grep -m1 -oE 'server_version = "[^"]+"' "$src/pedal-driver.py" | cut -d'"' -f2)" ;;
+    echo "Central Pedal updated from $(basename "$zip"): $(ls "$src"/js/*.js | wc -l) app files, driver $(grep -m1 -oE 'server_version = "[^"]+"' "$src/pedal-driver.py" | cut -d'"' -f2)" ;;
   restart-app)
     # first (restarting the driver also ends this script): start-up settings of the version just installed
     timeout 20 "$0" boot-tune >/dev/null 2>&1 || true

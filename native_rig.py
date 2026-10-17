@@ -1,8 +1,8 @@
-"""Central Control - the Instrument tab's audio on Windows and macOS (and Linux without PipeWire).
+"""Central Pedal - the Instrument tab's audio on Windows and macOS (and Linux without PipeWire).
 
 The Raspberry Pi (and a Linux PC with PipeWire) runs the instrument through instrument_host.py: real LV2 /
 LADSPA pedals and FluidSynth. Where that isn't available, the driver runs cu-rig instead - the built-in rig
-from Central Usage (built-in effects for every pedal of the catalogue, SoundFont keys) - and passes the
+from Central Control (built-in effects for every pedal of the catalogue, SoundFont keys) - and passes the
 Instrument tab's messages to it unchanged. MIDI keyboards are read here (mido + python-rtmidi) and passed on.
 
 The program is found through CC_RIG_BIN, or next to the app (native/cu-rig[.exe]); its sounds through

@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # Turn a Raspberry Pi that is ALREADY running Raspberry Pi OS Lite (64-bit)
-# into Central Control OS. Run on the Pi, from the folder holding these files:
+# into Central Pedal OS. Run on the Pi, from the folder holding these files:
 #
 #   sudo bash install-kiosk.sh
 #   sudo reboot
@@ -17,4 +17,4 @@ if [ "${SOUNDS:-full}" != "none" ]; then SMALL=$([ "${SOUNDS:-full}" = "small" ]
 KIOSK_USER="${KIOSK_USER:-${SUDO_USER:-pi}}" bash "$HERE/setup-pi.sh"
 echo
 echo "Done. Reboot with:  sudo reboot"
-echo "The Pi will boot straight into the Central Control Pad screen."
+echo "The Pi will boot straight into the Central Pedal Pad screen."

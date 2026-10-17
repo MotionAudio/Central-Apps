@@ -1,4 +1,4 @@
-/* cu-ndi - sends Central Usage's slides / lyrics output as an NDI video source on the network.
+/* cu-ndi - sends Central Control's slides / lyrics output as an NDI video source on the network.
  * Needs the NDI runtime, free from ndi.video: Linux libndi.so.6 / .5 ("NDI SDK for Linux"), Windows
  * Processing.NDI.Lib.x64.dll ("NDI Tools" / "NDI Runtime"), macOS libndi.dylib ("NDI Tools" / the SDK).
  * It is loaded at run time, so this program builds without it and says so when it is missing.
@@ -60,7 +60,7 @@ static void *load(void) {
   return h;
 }
 int main(int argc, char **argv) {
-  const char *name = argc > 1 ? argv[1] : "Central Usage";
+  const char *name = argc > 1 ? argv[1] : "Central Control";
   pl_binary_stdio();
   void *lib = load();
   if (!lib) { say("{\"ev\":\"status\",\"ok\":false,\"error\":\"The NDI runtime is not installed (" NDI_LIB " - get NDI Tools from ndi.video).\"}\n"); return 2; }

@@ -1,4 +1,4 @@
-"""Central Control - where songs come from.
+"""Central Pedal - where songs come from.
 
 * Planning Center Services (api.planningcenteronline.com): upcoming plans, their songs with
   key, BPM, meter, arrangement sequence, lyrics, the chord chart, and the arrangement's
@@ -209,7 +209,7 @@ class PlanningCenter:
                 raise ValueError("Planning Center refused the token (check the app id and secret)")
             raise ValueError("Planning Center: HTTP %d" % error.code)
         except urllib.error.URLError as error:
-            raise ValueError("Planning Center is not reachable (%s) - is the Central Control online?" % getattr(error, "reason", error))
+            raise ValueError("Planning Center is not reachable (%s) - is the Central Pedal online?" % getattr(error, "reason", error))
         return body if raw else json.loads(body.decode() or "{}")
 
     def get_all(self, path, params=None, limit=200):
@@ -492,7 +492,7 @@ class _PublicDns:
 def explain_network_error(error):
     text = str(error)
     if "Errno -3" in text or "Errno -2" in text or "Name or service not known" in text or "name resolution" in text:
-        return "no internet here: the Central Control could not find github.com (DNS). Connect it to a Wi-Fi or network with internet (Settings → Wi-Fi), then Check now - or update from a USB stick"
+        return "no internet here: the Central Pedal could not find github.com (DNS). Connect it to a Wi-Fi or network with internet (Settings → Wi-Fi), then Check now - or update from a USB stick"
     if "Errno 101" in text or "unreachable" in text:
         return "no internet here (network unreachable). Connect it to a Wi-Fi or network with internet, then Check now - or update from a USB stick"
     if "timed out" in text:

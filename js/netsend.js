@@ -1,8 +1,8 @@
-/* Central Control - audio to Central Usage over the network (Ethernet or Wi-Fi).
+/* Central Pedal - audio to Central Control over the network (Ethernet or Wi-Fi).
  *
- * When a Central Usage computer subscribes (and I/O → Network audio is Ethernet or Wi-Fi), every channel
+ * When a Central Control computer subscribes (and I/O → Network audio is Ethernet or Wi-Fi), every channel
  * goes to the driver as binary packets and the driver passes them on:
- *   each track (stem) on its own channel, raw - Central Usage mixes them (the Pi's faders don't apply)
+ *   each track (stem) on its own channel, raw - Central Control mixes them (the Pi's faders don't apply)
  *   Click + cues · Pads L/R · Tracks mix L/R (what the Pi plays, after its faders)
  * The driver adds the instrument (captured from the Pi's output). 1024 frames per packet, 16 bit.
  * Packet: "CCA1", u8 source (0), u8 channels, u16 frames, u32 seq, f64 ms, then int16 interleaved. */
@@ -104,6 +104,6 @@
   document.addEventListener("pp-routing", function () { if (st.on || wanted()) rebuildSoon(); });   // routing re-wires the buses
   document.addEventListener("pp-stems", function () { if (st.on || wanted()) rebuildSoon(); });
 
-  function configure(cfg) { var b = bridge(); if (!b || !b.connected) { PP.setStatus("Network audio is set on the Central Control (the driver isn't connected)."); return false; } return b.send({ type: "netAudio", action: "config", config: cfg }); }
+  function configure(cfg) { var b = bridge(); if (!b || !b.connected) { PP.setStatus("Network audio is set on the Central Pedal (the driver isn't connected)."); return false; } return b.send({ type: "netAudio", action: "config", config: cfg }); }
   window.PPNetSend = { configure: configure, status: function () { return st.status; }, sending: function () { return st.on; }, channels: function () { return st.names.slice(); }, stats: function () { return { packets: st.packets, dropped: st.dropped, rate: st.rate }; }, rebuild: build };
 })();

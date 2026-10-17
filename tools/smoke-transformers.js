@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Smoke test of the offline speech model's runtime inside a packed app (Central Usage / Central Control):
+// Smoke test of the offline speech model's runtime inside a packed app (Central Control / Central Pedal):
 //  1. the app carries only its own onnxruntime-node binary (no other OS / CPU, no CUDA / TensorRT)
 //  2. @huggingface/transformers loads in the app's own Electron, as its main process does (asr.js's import(),
 //     and require), which also loads onnxruntime-node's native binding and sharp

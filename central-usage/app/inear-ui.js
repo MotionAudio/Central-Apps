@@ -1,4 +1,4 @@
-/* Central Usage - the in-ear page for the people on stage (Central Usage in User mode, and phones).
+/* Central Control - the in-ear page for the people on stage (Central Control in User mode, and phones).
  * Pick a free mix (1-64), then set your own levels of the channels the sound desk routed to you.
  *   Local: your mix comes back over Wi-Fi to this device (headphones here) - a little delay
  *   Cloud: your levels go to the audio host, your mix leaves its audio interface (a wireless pack) - no delay

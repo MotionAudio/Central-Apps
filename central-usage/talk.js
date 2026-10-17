@@ -1,4 +1,4 @@
-/* Central Usage - talkback on the audio host (main process).
+/* Central Control - talkback on the audio host (main process).
  *   In-ears: the main admin and the admins with the Mix, In-ears or General job talk into the in-ear mixes - all of
  *     them or chosen ones - and the music in those mixes can dim meanwhile. The mic: on the audio host an input of
  *     the interface / Dante (no delay) or this computer's own mic; on another admin computer its own mic, sent here

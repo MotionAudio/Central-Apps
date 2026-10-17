@@ -1,5 +1,5 @@
-/* Central Control - the hub: every song (with or without tracks) goes to the driver, which keeps a copy for
- * Central Usage - its lighting Songs tab, the waveform with the sections in their colours, the hits, the
+/* Central Pedal - the hub: every song (with or without tracks) goes to the driver, which keeps a copy for
+ * Central Control - its lighting Songs tab, the waveform with the sections in their colours, the hits, the
  * tempo. Changed songs are sent within a few seconds; removed songs are removed there too. */
 (function () {
   "use strict";

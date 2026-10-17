@@ -1,4 +1,4 @@
-/* Central Usage - talkback (talkback.js) and the recording control (recorder.js) */
+/* Central Pedal - talkback (talkback.js) and the recording control (recorder.js) */
 .tb-top { display: flex; align-items: center; }
 .tb-panel { border-bottom: 1px solid var(--line); padding: 8px 12px; display: grid; gap: 8px; background: color-mix(in srgb, var(--panel), transparent 30%); }
 .tb-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }

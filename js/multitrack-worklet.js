@@ -8,7 +8,7 @@
  * on the stereo mix, so it costs the same for 1 stem or 12).
  *
  * Output 0 = music (L, R)      Output 1 = click + cues (L, R)
- * Output 2 = direct outs (one stem per channel)   Output 3 = network send to Central Usage (every stem, raw)
+ * Output 2 = direct outs (one stem per channel)   Output 3 = network send to Central Control (every stem, raw)
  */
 window.PP_MULTITRACK_WORKLET = function () {
   var N = 2048, HS = 1024, SEARCH = 288, SEARCH_STEP = 4, CORR = 512;
@@ -97,7 +97,7 @@ window.PP_MULTITRACK_WORKLET = function () {
         case "stop": this.playing = false; this.countIn.active = false; this.seekTo(m.to != null ? m.to * this.rate : 0); break;
         case "seek": this.seekTo(m.time * this.rate); break;
         case "fold": this.fold = !!m.on; break;
-        case "net": this.netOn = !!m.on; break;   // every stem on its own channel of output 4, at unity (Central Usage mixes them)   // direct outs folded back into the mix (no multi-channel output available)
+        case "net": this.netOn = !!m.on; break;   // every stem on its own channel of output 4, at unity (Central Control mixes them)   // direct outs folded back into the mix (no multi-channel output available)
         case "loop": this.loop = m.start != null && m.end != null && m.end > m.start ? { start: m.start * this.rate, end: m.end * this.rate } : null; break;
         // the flow (live arrangement): when the playhead reaches `at`, carry on at `to` (gapless), or stop there (to < 0)
         case "jump": this.jump = m.at != null && m.at > 0 ? { at: m.at * this.rate, to: m.to != null && m.to >= 0 ? m.to * this.rate : -1, id: m.id || 0 } : null; break;

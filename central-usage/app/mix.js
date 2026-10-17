@@ -1,4 +1,4 @@
-/* Central Usage - the Mix tab (admin): the Central Control's tracks, each on its own channel, mixed here.
+/* Central Control - the Mix tab (admin): the Central Pedal's tracks, each on its own channel, mixed here.
  * Faders, pan, mute, high-pass, 3-band EQ, compressor per track; out of the audio interface summed (main
  * L/R) or each track on its own output (Settings on this tab). Listen on this computer, record the service
  * (recorder.js fills the record control) and a live waveform of what is going out. The TALK panel above the strips
@@ -17,7 +17,7 @@
   function stripInputs() { var s = S(); if (!s) return []; var out = []; s.inputs.forEach(function (x, i) { if (x.src.kind === "none") return; if (!showAll && (x.group !== "tracks" || !active(x))) return; out.push(i); }); return out; }
   function outNames() { var st = X.kind === "local" ? (X.hostStatus && X.hostStatus.engine && X.hostStatus.engine.status) : (X.info && X.info.status); var n = st && st.playbackNames || []; return n; }
   function outOptions(cur, none) { var names = outNames(), h = '<option value="-1"' + (cur < 0 ? " selected" : "") + ">" + (none || "—") + "</option>"; for (var o = 0; o < Math.max(names.length, cur + 1); o++) h += '<option value="' + o + '"' + (o === cur ? " selected" : "") + ">Out " + (o + 1) + (names[o] ? " · " + esc(names[o].replace(/^.*:/, "")) : "") + "</option>"; return h; }
-  function srcLabel(x) { if (x.src.kind === "pi") return "Central Control" + (live()[x.src.key] ? "" : " (not in this song)"); if (x.src.kind === "in") return "Interface in " + (x.src.ch + 1); return "—"; }
+  function srcLabel(x) { if (x.src.kind === "pi") return "Central Pedal" + (live()[x.src.key] ? "" : " (not in this song)"); if (x.src.kind === "in") return "Interface in " + (x.src.ch + 1); return "—"; }
   var timers = {};
   function send(key, op) { var t = timers[key]; if (t && Date.now() - t.at < 35) { clearTimeout(t.id); t.id = setTimeout(function () { t.at = Date.now(); X.op(op); }, 35); return; } timers[key] = { at: Date.now() }; X.op(op); }
 
@@ -36,7 +36,7 @@
   function head() {
     var s = S(), hs = X.hostStatus || {}, pi = hs.pi || {}, m = s.main;
     var link = X.kind === "local" ? "This computer is the audio host" + (hs.engine && hs.engine.status ? " · " + hs.engine.status.backend + " · " + hs.engine.status.rate + " Hz · " + hs.engine.status.block + " frames" : hs.engine && hs.engine.error ? " · ⚠ " + esc(hs.engine.error) : " · starting the engine…") : "Mixing on the audio host " + esc(X.hostAddress());
-    var piLine = X.kind === "local" ? (pi.state === "receiving" ? "Central Control audio: " + (X.pi.length) + " channels · " + pi.kbps + " kbit/s" + (pi.lost ? " · " + pi.lost + " packets lost" : "") : (hs.cfg && hs.cfg.piAudio && hs.cfg.piAudio.transport === "interface") ? "Central Control audio: through the interface inputs" : "Central Control audio: " + esc(pi.state || "off") + (pi.error ? " - " + esc(pi.error) : "") + ' <button data-mx-go="io">I/O</button>') : "";
+    var piLine = X.kind === "local" ? (pi.state === "receiving" ? "Central Pedal audio: " + (X.pi.length) + " channels · " + pi.kbps + " kbit/s" + (pi.lost ? " · " + pi.lost + " packets lost" : "") : (hs.cfg && hs.cfg.piAudio && hs.cfg.piAudio.transport === "interface") ? "Central Pedal audio: through the interface inputs" : "Central Pedal audio: " + esc(pi.state || "off") + (pi.error ? " - " + esc(pi.error) : "") + ' <button data-mx-go="io">I/O</button>') : "";
     var listenTaps = '<option value="main"' + (listen.tap === "main" ? " selected" : "") + ">Main mix</option>" + s.mixes.map(function (q, k) { return '<option value="' + k + '"' + (listen.tap === k ? " selected" : "") + ">Mix " + (k + 1) + " · " + esc(q.owner || q.name) + "</option>"; }).join("");
     return '<div class="card mx-head"><div class="mx-line"><b>' + link + '</b><span class="muted small">' + piLine + "</span></div>" +
       '<div class="mx-row"><div class="mx-grp"><b>Tracks out</b><label class="toggle"><input type="radio" name="mxOut" value="sum"' + (s.trackOut !== "direct" ? " checked" : "") + '> Summed (L / R)</label><label class="toggle"><input type="radio" name="mxOut" value="direct"' + (s.trackOut === "direct" ? " checked" : "") + "> Each track on its own output</label>" +
@@ -71,11 +71,11 @@
     var root = $("#mixRoot"); if (!root || !visible()) return;
     if (!(CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main")) { root.innerHTML = '<div class="card"><p>The Mix tab is on admin computers.</p></div>'; return; }
     var s = S();
-    if (!s) { root.innerHTML = '<div class="card mx-empty"><h3>Mix</h3><p>' + esc(X.error || "Connecting to the mixer…") + '</p><p class="muted">One admin computer is the audio host: it gets the Central Control\'s tracks and makes the mixes. Set it up on the I/O tab.</p><button data-mx-go="io">Open I/O</button></div>'; structKey = ""; return; }
+    if (!s) { root.innerHTML = '<div class="card mx-empty"><h3>Mix</h3><p>' + esc(X.error || "Connecting to the mixer…") + '</p><p class="muted">One admin computer is the audio host: it gets the Central Pedal\'s tracks and makes the mixes. Set it up on the I/O tab.</p><button data-mx-go="io">Open I/O</button></div>'; structKey = ""; return; }
     var list = stripInputs(), key = JSON.stringify([list, s.trackOut, list.map(function (i) { return s.inputs[i].name + s.inputs[i].color + active(s.inputs[i]); }), sel, outNames().length, X.kind]);
     if (!force && key === structKey && root.querySelector(".mx-strips")) { update(); return; }
     structKey = key;
-    root.innerHTML = head() + '<div class="mx-strips">' + (list.length ? list.map(strip).join("") : '<p class="muted mx-none">No tracks yet. When the Central Control sends its audio (I/O tab), every track appears here on its own channel. With the audio interface, name the inputs on the In-ears tab and set them to "Tracks".</p>') + "</div>" + '<div class="card mx-detail" id="mxDetail">' + detail() + "</div>";
+    root.innerHTML = head() + '<div class="mx-strips">' + (list.length ? list.map(strip).join("") : '<p class="muted mx-none">No tracks yet. When the Central Pedal sends its audio (I/O tab), every track appears here on its own channel. With the audio interface, name the inputs on the In-ears tab and set them to "Tracks".</p>') + "</div>" + '<div class="card mx-detail" id="mxDetail">' + detail() + "</div>";
     fillSinks(); drawCurve(); if (window.CURecUI) window.CURecUI.fill(root);
   }
   function fillSinks() {

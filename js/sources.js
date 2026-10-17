@@ -1,4 +1,4 @@
-/* Central Control - "Add songs": Planning Center Services, track packs (MultiTracks.com,
+/* Central Pedal - "Add songs": Planning Center Services, track packs (MultiTracks.com,
  * Loop Community, any zip or folder of stems on a USB stick) and your own files.
  * The driver does the downloading / unpacking (sources.py); this builds the songs:
  * key, tempo, meter, the arrangement (sections in service order with their lyrics),
@@ -113,9 +113,9 @@
   }
   function renderPco() {
     var p = st.pco;
-    if (!connected()) return '<p class="muted">Planning Center import runs on the Central Control (it needs the Wi-Fi to reach planningcenteronline.com).</p>';
+    if (!connected()) return '<p class="muted">Planning Center import runs on the Central Pedal (it needs the Wi-Fi to reach planningcenteronline.com).</p>';
     if (p.configured === null) return '<p class="muted">Checking…</p>';
-    if (!p.configured) return '<p>Connect once with a <b>Personal Access Token</b>: on a computer go to <b>api.planningcenteronline.com/oauth/applications</b> → <i>Personal Access Tokens</i> → <i>New</i>, then copy the Application ID and the Secret here. They are kept on this Central Control only.</p>' +
+    if (!p.configured) return '<p>Connect once with a <b>Personal Access Token</b>: on a computer go to <b>api.planningcenteronline.com/oauth/applications</b> → <i>Personal Access Tokens</i> → <i>New</i>, then copy the Application ID and the Secret here. They are kept on this Central Pedal only.</p>' +
       '<div class="form"><label>Application ID<input id="pcoApp" autocomplete="off" spellcheck="false"></label><label>Secret<input id="pcoSecret" type="password" autocomplete="off" spellcheck="false"></label><button class="primary" data-a="pco-connect">Connect</button></div><p class="add-progress">' + esc(p.log) + "</p>";
     var types = p.types.map(function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === p.type ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("");
     var plans = p.plans.length ? p.plans.map(function (pl) { return '<button data-plan="' + esc(pl.id) + '" class="' + (pl.id === p.plan ? "on" : "") + '"><b>' + esc(pl.dates || "") + "</b>" + (pl.title ? " · " + esc(pl.title) : "") + "</button>"; }).join("") : '<span class="muted">No upcoming plans.</span>';
@@ -158,7 +158,7 @@
     st.packBusy = false; render();
   }
   function renderPack() {
-    if (!connected()) return '<p class="muted">Pack import runs on the Central Control (it unpacks the stems onto its card).</p>';
+    if (!connected()) return '<p class="muted">Pack import runs on the Central Pedal (it unpacks the stems onto its card).</p>';
     var pk = st.pack, head = '<p>Download the song from <b>MultiTracks.com</b> (Playback / "Download stems") or <b>Loop Community</b> (Prime / stem pack), put the <b>zip</b> (or the unzipped folder) on a USB stick or send it with the Upload page, then choose it here. The stems\' roles, the key and the tempo come from the file names; the full mix is left out when there are stems.</p><div class="row"><button class="primary" data-a="pack-pick"' + (st.packBusy ? " disabled" : "") + ">📦 Choose a zip or folder…</button></div>";
     if (st.packBusy && !pk) return head + '<p class="muted">Reading the pack…</p>';
     if (!pk) return head;
@@ -193,7 +193,7 @@
       if (b.dataset.plan) { pcoItems(b.dataset.plan); return; }
       var a = b.dataset.a;
       if (a === "pco-connect") pcoConnect(); else if (a === "pco-import") pcoImport();
-      else if (a === "pco-forget") { if (confirm("Disconnect Planning Center? The token is removed from this Central Control.")) postJ("/pco/forget").then(function () { st.pco = { configured: false, org: "", types: [], type: null, plans: [], plan: null, items: [], sel: {}, audio: true, top: true, busy: false, log: "" }; render(); }); }
+      else if (a === "pco-forget") { if (confirm("Disconnect Planning Center? The token is removed from this Central Pedal.")) postJ("/pco/forget").then(function () { st.pco = { configured: false, org: "", types: [], type: null, plans: [], plan: null, items: [], sel: {}, audio: true, top: true, busy: false, log: "" }; render(); }); }
       else if (a === "pack-pick") packPick(); else if (a === "pack-import") packImport();
       else if (a === "own-create") { var name = ($("#ownName").value || "").trim() || "New song"; T.newSong(name); F.loadSong(PP.project().songs.length - 1); $("#addDialog").close(); T.openEditor(); }
     });

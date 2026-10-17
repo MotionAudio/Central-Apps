@@ -1,5 +1,5 @@
 #!/bin/bash
-# The keys sounds that come with Central Usage and Central Control on Windows / macOS (the built-in rig):
+# The keys sounds that come with Central Control and Central Pedal on Windows / macOS (the built-in rig):
 # eleven free SoundFont banks from FreePats, all CC0 (public domain). About 175 MB.
 #   bash tools/fetch-builtin-sounds.sh <target folder>        (needs curl, and 7z or bsdtar)
 set -euo pipefail

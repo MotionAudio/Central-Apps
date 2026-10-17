@@ -1,7 +1,7 @@
-/* Central Usage - the link to the mixer, the same for every admin screen:
+/* Central Control - the link to the mixer, the same for every admin screen:
  *   local   this computer is the audio host: the engine in this app (IPC)
  *   remote  another admin computer is the host: its server (ws://host:8092/ws, admin code)
- * CUMix.state (the mixer model), .pi (the Central Control's channels), .meters, .op(op), .listen(tap, on),
+ * CUMix.state (the mixer model), .pi (the Central Pedal's channels), .meters, .op(op), .listen(tap, on),
  * .on("state" | "op" | "meters" | "pi" | "status" | "audio", fn), .kind, .connected()
  * Remote: .link() is the connection to the host (talkback sends its mic over it); its talkers / talkAck / talkAudio /
  * recState events come through as the same .on() events. */

@@ -1,4 +1,4 @@
-/* Central Control (PC) / Central Usage - lyrics heard in the vocal track, and the lyric chart they make.
+/* Central Pedal (PC) / Central Control - lyrics heard in the vocal track, and the lyric chart they make.
  *   PPLyricsAI.available()                   true on a PC app (the speech model runs there, not on the Pi)
  *   PPLyricsAI.listen(mono, rate, progress)  -> [{ text, start, end }] (seconds): only the stretches where
  *                                           someone sings are sent to the model (vocal tracks are mostly quiet)
@@ -35,7 +35,7 @@
     return out;
   }
   async function listen(mono, rate, progress) {
-    var A = api(); if (!A) throw new Error("Lyrics are heard on a computer (Central Usage or Central Control on a PC).");
+    var A = api(); if (!A) throw new Error("Lyrics are heard on a computer (Central Control or Central Pedal on a PC).");
     var x = to16k(mono, rate), parts = voiced(x, 16000), words = [];
     if (!parts.length) return words;
     var total = parts.reduce(function (a, p) { return a + p.end - p.start; }, 0), done = 0;

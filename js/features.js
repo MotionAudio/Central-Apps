@@ -243,7 +243,7 @@
       list.innerHTML = rows.length ? rows.join("") : '<p class="muted">' + (path ? (sf2 ? "No folders, .sf2 SoundFonts or WAV files here." : "No folders or sounds (WAV, MP3, FLAC, OGG, M4A, AIFF) here.") : "No USB stick or SD card found. Plug one in and press Refresh.") + "</p>";
       $("#usbAll").disabled = sf2 ? !(path && wavs) : pack ? !path : irk ? true : !usbFiles.length; $("#usbUp").disabled = !path;
     } catch (_) {
-      list.innerHTML = '<p class="muted">The USB / SD browser works on the Central Control itself. On a computer, use the file picker.</p>';
+      list.innerHTML = '<p class="muted">The USB / SD browser works on the Central Pedal itself. On a computer, use the file picker.</p>';
     }
   }
   async function importFromUsb(path, makeActive) {
@@ -284,9 +284,9 @@
   var systemStatus = null;
   function renderSystem() {
     var s = systemStatus, connected = bridge() && bridge().connected;
-    $("#sysInfo").textContent = connected ? "Central Control OS" + (s && s.hostname ? " · " + s.hostname : "") : "Running in a browser (not on the Central Control hardware)";
+    $("#sysInfo").textContent = connected ? "Central Pedal OS" + (s && s.hostname ? " · " + s.hostname : "") : "Running in a browser (not on the Central Pedal hardware)";
     var safe = $("#safeToggle"), text = $("#safeText");
-    if (!connected || !s) { text.textContent = "Only available on the Central Control (Raspberry Pi) itself."; safe.disabled = true; safe.textContent = "Safe mode"; }
+    if (!connected || !s) { text.textContent = "Only available on the Central Pedal (Raspberry Pi) itself."; safe.disabled = true; safe.textContent = "Safe mode"; }
     else {
       safe.disabled = !s.safeModeAvailable;
       text.textContent = !s.safeModeAvailable ? "Not available on this system." : s.safeModePending ? "Change saved. It takes effect after a restart." : s.safeMode ? "ON: the system can't be damaged by pulling the plug. Your pads, songs and sounds still save normally." : "OFF: shut down before unplugging, or turn safe mode on.";

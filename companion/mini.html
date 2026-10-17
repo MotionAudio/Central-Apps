@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><link rel="stylesheet" href="/fonts/fonts.css">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Central Control mini</title>
+<title>Central Pedal mini</title>
 <style>
   /* The same layout the 3.5" screen shows, scaled to any screen (HDMI 1 "big version" or a tablet). */
   :root { --bg:#08111d; --bar:#101e31; --text:#ecf7ff; --muted:#9bb2c9; --accent:#5de6b0; --idle:#162a42; --sel:#1f446e; --play:#22805c; --stop:#60222e; --line:#294966; }
@@ -29,7 +29,7 @@
 <body>
 <div class="screen">
   <div class="bar">
-    <div class="song"><b id="song">Central Control</b><span id="sub"></span></div>
+    <div class="song"><b id="song">Central Pedal</b><span id="sub"></span></div>
     <div class="stat" id="timeBox"><small>TIME</small><b id="time">0:00</b></div>
     <div class="stat key"><small>KEY</small><b id="key">C</b></div>
     <div class="stat"><small>BPM</small><b id="bpm">72</b></div>
@@ -49,7 +49,7 @@
   C.on(function (st) {
     var d = st.display; if (!d) return;
     var tracks = !!d.tracksMode, perf = d.performance || {};
-    $("#song").textContent = d.song ? d.song.name : "Central Control";
+    $("#song").textContent = d.song ? d.song.name : "Central Pedal";
     $("#sub").textContent = tracks ? ((d.countIn ? "Count-in " + d.countIn : (d.section ? d.section.name : "")) + (d.bar ? "  · bar " + d.bar : "") + (d.loop >= 0 ? "  ⟲" : "")) : ("Pads" + (perf.layerMode ? " · layer" : "") + (d.frozen ? " · frozen" : ""));
     $("#key").textContent = C.keyName(d.key); $("#bpm").textContent = d.bpm || "";
     $("#timeBox").style.visibility = tracks ? "visible" : "hidden"; $("#time").textContent = C.fmtTime(d.pos); $("#dot").classList.toggle("on", !!(tracks && d.playing));

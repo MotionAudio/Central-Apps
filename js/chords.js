@@ -1,5 +1,5 @@
-/* Central Control / Central Usage - chord symbols, chart text, transposition,
- * capo + transposing instruments, Nashville numbers, and (in Central Control)
+/* Central Pedal / Central Control - chord symbols, chart text, transposition,
+ * capo + transposing instruments, Nashville numbers, and (in Central Pedal)
  * "listen and write the chord chart" from the song's audio.
  * The core (PPChords.*) has no app dependencies so the companion apps share it. */
 (function (global) {
@@ -171,10 +171,10 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   global.PPChords = Object.assign(global.PPChords || {}, api);
 
-  // ================================================================ Central Control integration
+  // ================================================================ Central Pedal integration
   var PP = global.PP, T = global.PPTracks; if (!PP || !T) return;
   var MEDIA = "http://127.0.0.1:8766";
-  // listen to the song and write its chart (saved on the Pi as a text chart -> phones, projector, Central Usage)
+  // listen to the song and write its chart (saved on the Pi as a text chart -> phones, projector, Central Control)
   async function generateChart(s, progress) {
     var t = T.data(s); if (!t || !t.stems.length) throw new Error("This song has no tracks yet.");
     if (progress) progress("Listening to the tracks…");

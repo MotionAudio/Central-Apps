@@ -1,4 +1,4 @@
-/* Central Control desktop - what the page gets from the app: updates of this PC app, and the speech model
+/* Central Pedal desktop - what the page gets from the app: updates of this PC app, and the speech model
  * that hears lyrics in a vocal track (asr.js; a PC only - the Raspberry Pi has none). */
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("CCDesktop", {

@@ -1,4 +1,4 @@
-<title>Central Control Wiring</title>
+<title>Central Pedal Wiring</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
@@ -87,8 +87,8 @@ ul.bom { margin:0; padding-left:1.2em; display:grid; gap:4px; }
 </style>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Central Control · Raspberry Pi 4 control surface</div>
-    <h1>Central Control Wiring</h1>
+    <div class="eyebrow">Central Pedal · Raspberry Pi 4 control surface</div>
+    <h1>Central Pedal Wiring</h1>
     <p class="lede">Everything you connect to the Pi: 12 buttons, 6 knobs, 2 sliders, an optional expression pedal, the PCM5102A I2S DAC board for the click / cue (in-ear) output, and the optional 3.5″ SPI touch screen. These pins are exactly what the driver expects out of the box; the Learn tab can move any of them without re-flashing.</p>
   </header>
 
@@ -106,7 +106,7 @@ ul.bom { margin:0; padding-left:1.2em; display:grid; gap:4px; }
         <path class="w i2c" d="M540 62 H484 V150 H450"/><path class="w i2c" d="M540 142 H484"/><path class="w dac" d="M540 222 H484 V150"/>
         <path class="w sig" d="M110 270 V250 H310 V200"/><path class="w sig" d="M330 270 V200"/><path class="w sig" d="M430 270 V200"/><path class="w v33" d="M640 270 V250 H440 V200"/>
         <rect class="box" x="270" y="100" width="180" height="100" rx="8"/>
-        <text class="big" x="360" y="140" text-anchor="middle">Raspberry Pi 4</text><text class="sm" x="360" y="160" text-anchor="middle">Central Control</text>
+        <text class="big" x="360" y="140" text-anchor="middle">Raspberry Pi 4</text><text class="sm" x="360" y="160" text-anchor="middle">Central Pedal</text>
         <text class="mono" x="246" y="142" text-anchor="middle">GPIO</text><text class="mono" x="482" y="134" text-anchor="middle">I2C</text><text class="mono" x="482" y="206" text-anchor="middle">I2S</text>
         <rect class="boxsoft" x="20" y="30" width="180" height="44" rx="6"/><text class="lbl" x="34" y="57">12 buttons (footswitches)</text>
         <rect class="boxsoft" x="20" y="100" width="180" height="44" rx="6"/><text class="lbl" x="34" y="127">3.5″ SPI touch screen</text>
@@ -120,7 +120,7 @@ ul.bom { margin:0; padding-left:1.2em; display:grid; gap:4px; }
         <rect class="boxsoft" x="600" y="270" width="140" height="44" rx="6"/><text class="lbl" x="614" y="297">5 V 3 A USB-C</text>
       </svg>
     </div>
-    <p class="cap">Sound: four mono outputs by default - <b>1</b> tracks, <b>2</b> pads, <b>3</b> click + MD voice, <b>4</b> guitar / keys - spread over the Pi's 3.5 mm jack (channels 1-2), the PCM5102A board (3-4) and any USB audio interface (its outputs come next). Settings → Output routing moves any of them, or switches to stereo pairs. Phones, tablets and the Central Usage app on the Wi-Fi open the chord charts; a projector on HDMI 2 shows lyrics.</p>
+    <p class="cap">Sound: four mono outputs by default - <b>1</b> tracks, <b>2</b> pads, <b>3</b> click + MD voice, <b>4</b> guitar / keys - spread over the Pi's 3.5 mm jack (channels 1-2), the PCM5102A board (3-4) and any USB audio interface (its outputs come next). Settings → Output routing moves any of them, or switches to stereo pairs. Phones, tablets and the Central Control app on the Wi-Fi open the chord charts; a projector on HDMI 2 shows lyrics.</p>
   </section>
 
   <section>
@@ -135,7 +135,7 @@ ul.bom { margin:0; padding-left:1.2em; display:grid; gap:4px; }
       <button class="chip" style="--c:var(--gnd)" data-role="gnd" aria-pressed="false"><i></i>Ground</button>
       <button class="chip" style="--c:var(--res)" data-role="res" aria-pressed="false"><i></i>Keep free</button>
     </div>
-    <div class="fig"><svg class="hdr" viewBox="0 0 700 604" role="img" aria-labelledby="hdr-t"><title id="hdr-t">Raspberry Pi 4 40-pin header with Central Control connections</title>
+    <div class="fig"><svg class="hdr" viewBox="0 0 700 604" role="img" aria-labelledby="hdr-t"><title id="hdr-t">Raspberry Pi 4 40-pin header with Central Pedal connections</title>
 <rect class="hdr-body" x="314" y="20" width="72" height="550" rx="6"/>
 <text class="hdr-cap" x="350" y="14" text-anchor="middle">board edge &#8594;</text>
 <g class="prow" data-role="v33"><line class="lead v33" x1="316" y1="38" x2="322" y2="38"/><rect class="pin v33" x="323" y="29" width="18" height="18" rx="2"/><text class="pnum v33" x="332" y="41" text-anchor="middle">1</text><text class="plab" x="314" y="42" text-anchor="end"><tspan class="t-v33">3.3 V power</tspan><tspan class="gpn" dx="8">3V3</tspan></text></g>
@@ -280,7 +280,7 @@ ul.bom { margin:0; padding-left:1.2em; display:grid; gap:4px; }
 
   <section>
     <h2>3.5″ SPI touch screen (optional)</h2>
-    <p>A Waveshare / Kuman / "LCD35" style 480×320 screen plugs straight onto the 40-pin header (pin 1 to pin 1). Turn it on in <em>Settings → 3.5-inch touch screen</em> (choose the type: waveshare35a is the common one) and the Central Control restarts with it. It shows the pads and the tracks transport as a touch remote; HDMI 1 keeps showing the full app (or a big copy of the small screen, if you prefer, in Settings → Screens). It uses GPIO 7, 8, 9, 10, 11, 17, 24, 25, so those pins are reserved while it is on; the encoder is only available with the screen off.</p>
+    <p>A Waveshare / Kuman / "LCD35" style 480×320 screen plugs straight onto the 40-pin header (pin 1 to pin 1). Turn it on in <em>Settings → 3.5-inch touch screen</em> (choose the type: waveshare35a is the common one) and the Central Pedal restarts with it. It shows the pads and the tracks transport as a touch remote; HDMI 1 keeps showing the full app (or a big copy of the small screen, if you prefer, in Settings → Screens). It uses GPIO 7, 8, 9, 10, 11, 17, 24, 25, so those pins are reserved while it is on; the encoder is only available with the screen off.</p>
   </section>
 
   <section>
@@ -331,7 +331,7 @@ ul.bom { margin:0; padding-left:1.2em; display:grid; gap:4px; }
       <li><b>Latency</b>: 128 samples at 48 kHz (under 3 ms in the Pi) plus the interface's own; keep the interface on the Pi's blue USB 3 ports and use a powered hub if several USB devices share it.</li>
       <li><b>Acoustic guitar</b> with a piezo pickup: use the interface's instrument (Hi-Z) switch; the Instrument tab's <em>Auto</em> button sets the input gain and noise gate from what it hears.</li>
       <li><b>Keys sounds</b>: free SoundFonts are installed (pianos, electric pianos, organs, pads, strings, leads, bells). Add your own <code>.sf2</code> files or a folder of WAV samples named by note (<code>C4.wav</code>, <code>F#3.wav</code>…) from a USB stick (Instrument → Sounds → Add sounds…), or send an <code>.sf2</code> from a phone or computer with the Upload page.</li>
-      <li><b>Lights</b>: a USB MIDI interface (or the Central Usage app on a laptop over Wi-Fi) carries the hits, section notes and MIDI clock to Lightkey, QLC+ or a console.</li>
+      <li><b>Lights</b>: a USB MIDI interface (or the Central Control app on a laptop over Wi-Fi) carries the hits, section notes and MIDI clock to Lightkey, QLC+ or a console.</li>
     </ul>
   </section>
 

@@ -1,13 +1,13 @@
-/* Central Usage - Lighting: a Lightkey-style controller that follows the Central Control.
+/* Central Control - Lighting: a Lightkey-style controller that follows the Central Pedal.
  *
- *  Show      the song's timeline: waveform (from the Central Control's tracks), the sections in their
+ *  Show      the song's timeline: waveform (from the Central Pedal's tracks), the sections in their
  *            colours, the hits as lines, and the cues. Three modes per song:
  *              Auto       the sections and the hits (MIDI hits from the pedal) + the music (the streamed audio)
  *              Semi-auto  the same, plus your own cues on top
  *              Manual     only your cues (program them on the waveform, the hit lines show where to land)
  *            Tell it the show in plain words (lights-ai.js), record what you press while the song plays and
  *            record over any part again, change every light's colour in the list under the stage plot.
- *  Songs     every song on the Central Control (with or without tracks) plus your own songs; any number of
+ *  Songs     every song on the Central Pedal (with or without tracks) plus your own songs; any number of
  *            scenes per song, set to the bar and beat - programmed at one tempo, they follow any other.
  *  Presets   every preset's colours, levels, motion (effects, movers) and timing (speed, fade).
  *  Fixtures  the rig: profile, universe, DMX address, group, place on the stage plot.
@@ -97,7 +97,7 @@
   function saveRig() { store.set("rig", rig); }
   function lookById(id) { return rig.looks.filter(function (l) { return l.id === id; })[0] || rig.looks[0]; }
 
-  // ------------------------------------------------------------- song position (follows the Central Control, or the preview here)
+  // ------------------------------------------------------------- song position (follows the Central Pedal, or the preview here)
   var song = { id: null, name: "", pos: 0, at: 0, playing: false, speed: 1, bpm: 120, bpb: 4, bars: [], barBeats: [], hits: [], sections: [], duration: 0, overview: [], hasTracks: false, local: false };
   var preview = null;   // { ctx, sources, startAt, offset, click } when "Preview here" plays
   function posNow() {
@@ -121,7 +121,7 @@
   var freeBeat = { at: performance.now(), beats: 0 };
   function beatClock() { var now = performance.now(); if (playingNow()) { var b = beatsAt(posNow()); freeBeat = { at: now, beats: b }; return b; } return freeBeat.beats + (now - freeBeat.at) / 1000 * (song.bpm || 100) / 60; }
 
-  // ------------------------------------------------------------- the show of the current song (cues kept on the Central Control, per song)
+  // ------------------------------------------------------------- the show of the current song (cues kept on the Central Pedal, per song)
   // show.cues are YOUR cues; the automatic ones (sections + hits) are made live in Auto and Semi-auto.
   var show = { song: null, cues: [], mode: rig.defaultMode, bpm: null, saved: true, loading: false, by: "" }, saveTimer = 0, effective = null;
   var SECTION_RULES = [[/^intro|^walk|^instrumental/i, "worship"], [/^verse/i, "verse"], [/^pre/i, "build"], [/^chorus|^refrain|^hook/i, "chorus"], [/^bridge/i, "bridge"], [/^break|^down|^interlude/i, "breakdown"], [/^tag|^vamp/i, "chorus"], [/^outro|^end|^coda/i, "ending"], [/^build/i, "build"], [/^turn/i, "worship"]];
@@ -174,11 +174,11 @@
   async function saveShow() {
     if (!show.song) return;
     var code = CU.prefs.code;
-    if (!code) { $("#lxSaveState").textContent = "not saved - enter the pairing code (Code) to keep cues on the Central Control"; return; }
+    if (!code) { $("#lxSaveState").textContent = "not saved - enter the pairing code (Code) to keep cues on the Central Pedal"; return; }
     var used = {}; show.cues.forEach(function (c) { if (c.look) used[c.look] = true; });
     var looks = rig.looks.filter(function (l) { return used[l.id] && !l.builtIn; });
     try {
-      var r = await fetch(CU.api("/lighting"), { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ song: show.song, code: code, by: "Central Usage-" + selfId, show: { cues: show.cues, mode: show.mode, bpm: show.bpm || song.bpm, song: song.name, looks: looks } }) });
+      var r = await fetch(CU.api("/lighting"), { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ song: show.song, code: code, by: "Central Control-" + selfId, show: { cues: show.cues, mode: show.mode, bpm: show.bpm || song.bpm, song: song.name, looks: looks } }) });
       var j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
       show.saved = true; show.updated = j.updated;
     } catch (e) { $("#lxSaveState").textContent = "could not save: " + e.message; return; }
@@ -186,7 +186,7 @@
   }
   var selfId = uid();
 
-  // ------------------------------------------------------------- the hub: the Central Control's songs (waveform, sections, hits, tempo)
+  // ------------------------------------------------------------- the hub: the Central Pedal's songs (waveform, sections, hits, tempo)
   var hub = { list: [], detail: {}, loading: {} };
   async function hubList() { try { var r = await fetch(CU.api("/hub"), { cache: "no-store" }); if (r.ok) { hub.list = (await r.json()).songs || []; renderSongsSoon(); } } catch (_) { } }
   async function hubSong(id, force) {
@@ -267,7 +267,7 @@
     }
     return out;
   }
-  // the music: the 3 bands and the onsets of the Central Control's audio (from the audio host's engine)
+  // the music: the 3 bands and the onsets of the Central Pedal's audio (from the audio host's engine)
   function audioLevel() {
     var X = window.CUMix, m = X && X.meters; if (!m || !m.bands || !rig.audio.react || show.mode === "manual") return null;
     var e = m.bands[0] * 0.6 + m.bands[1] * 0.4, a = live.audio;
@@ -332,7 +332,7 @@
   }
   setInterval(tick, 25);
 
-  // ------------------------------------------------------------- from the Central Control
+  // ------------------------------------------------------------- from the Central Pedal
   function setSong(sid, name, secs, local) {
     song.id = sid; song.name = name || ""; song.sections = secs || []; song.secKey = JSON.stringify(song.sections.map(function (s) { return [s.name, s.start]; })); song.local = !!local; song.overview = []; dirty();
     if (sid) { loadShow(sid); if (!local || hub.list.some(function (x) { return x.id === sid; })) hubSong(sid).then(function (h) { if (h) { applyHub(h); renderShowPanel(); } }); }
@@ -341,7 +341,7 @@
   function onMessage(m) {
     if (m.type === "display") {
       var d = m, sid = d.songId || (d.song ? d.song.name : null);
-      if (preview && (d.playing || sid !== song.id) && !song.local) stopPreview();   // the Central Control takes over
+      if (preview && (d.playing || sid !== song.id) && !song.local) stopPreview();   // the Central Pedal takes over
       if (song.local && sid && d.playing) { stopPreview(); song.local = false; song.id = null; }   // it plays: back to its song
       if (song.local) return;
       if (localRun && !d.playing && sid === song.id) return;   // the click here runs the timeline
@@ -354,7 +354,7 @@
       var secs = (d.sections || []).map(function (s) { return { name: s.name, start: s.start, end: s.end, bar: s.bar, color: s.color, type: s.type }; }), sk = JSON.stringify(secs.map(function (s) { return [s.name, s.start]; }));
       if (sid !== song.id) { if (!d.grid) { song.bars = []; song.barBeats = []; song.hits = []; } song.duration = d.duration || 0; setSong(sid, song.name, secs, false); }
       else if (sk !== song.secKey) { song.sections = secs; song.secKey = sk; dirty(); renderShowPanel(); }
-    } else if (m.type === "lighting" && m.song === show.song && m.by !== "Central Usage-" + selfId) {
+    } else if (m.type === "lighting" && m.song === show.song && m.by !== "Central Control-" + selfId) {
       if (show.saved) loadShow(show.song);
     } else if (m.type === "hub") {
       hubList(); (m.changed || []).forEach(function (id) { delete hub.detail[id]; if (id === song.id) hubSong(id, true).then(function (h) { applyHub(h); renderShowPanel(); }); });
@@ -367,7 +367,7 @@
       (m.messages || []).forEach(function (msg) { var d0 = msg.data || []; if ((d0[0] & 0xF0) === 0x90 && d0[2] > 0 && (d0[0] & 0x0F) === 0 && d0[1] < 60) setTimeout(function () { live.flash = { look: "hit", until: performance.now() + 220, len: 220 }; recordFlash("hit"); }, Math.max(0, base + (msg.at || 0) - performance.now())); });
     }
   }
-  // songs without tracks: the Central Control's clock (its tempo, start / stop) runs the timeline
+  // songs without tracks: the Central Pedal's clock (its tempo, start / stop) runs the timeline
   var clockRun = { running: false, startedAt: 0, bpm: 0, pos: function () { return this.running ? (performance.now() - this.startedAt) / 1000 : 0; },
     onClock: function (c) { var was = this.running; this.running = !!c.running; if (c.bpm) this.bpm = c.bpm; if (this.running && !was) this.startedAt = CU.piToLocal(c.t || 0) || performance.now(); if (!song.hasTracks && !song.local && song.id) { song.playing = this.running; song.pos = this.pos(); song.at = performance.now(); if (c.bpm && !song.bars.length) song.bpm = c.bpm; } } };
 
@@ -400,7 +400,7 @@
     renderShowPanel();
   }
 
-  // ------------------------------------------------------------- "Preview here": the song plays on this computer (to program along), not on the Central Control
+  // ------------------------------------------------------------- "Preview here": the song plays on this computer (to program along), not on the Central Pedal
   async function startPreview(from) {
     stopPreview();
     var sid = song.id; if (!sid) return;
@@ -411,7 +411,7 @@
     var buffers = await Promise.all(files.map(function (s) { return fetch(CU.api("/hub-file?code=" + encodeURIComponent(code) + "&path=" + encodeURIComponent(s.file))).then(function (r) { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(function (ab) { return c.decodeAudioData(ab); }).then(function (buf) { return { buf: buf, gain: s.gain == null ? 1 : s.gain, pan: s.pan || 0 }; }).catch(function () { return null; }); }));
     buffers = buffers.filter(Boolean);
     if (song.id !== sid) return;
-    if (!buffers.length && files.length) setNow("Could not load the tracks from the Central Control - the click runs instead.");
+    if (!buffers.length && files.length) setNow("Could not load the tracks from the Central Pedal - the click runs instead.");
     var p = { ctx: c, sources: [], startAt: c.currentTime + 0.1, offset: offset };
     buffers.forEach(function (b) { var src = c.createBufferSource(), g = c.createGain(), pn = c.createStereoPanner ? c.createStereoPanner() : null; src.buffer = b.buf; g.gain.value = b.gain * 0.8; src.connect(g); if (pn) { pn.pan.value = b.pan; g.connect(pn); pn.connect(c.destination); } else g.connect(c.destination); src.start(p.startAt, offset); p.sources.push(src); });
     if (!song.duration && buffers.length) song.duration = Math.max.apply(null, buffers.map(function (b) { return b.buf.duration; }));
@@ -505,10 +505,10 @@
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     var ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); tl.w = W; tl.h = H;
     var D = dur();
-    // waveform (the Central Control's tracks, all of them together)
+    // waveform (the Central Pedal's tracks, all of them together)
     var ov = song.overview || [], mid = 20 + (H - 20 - 26) / 2, amp = (H - 20 - 26) / 2 - 2;
     if (ov.length) { var played = tlX(posNow()); for (var i = 0; i < ov.length; i++) { var x = i / ov.length * W, w = Math.max(1, W / ov.length - 0.4), v = Math.min(1, ov[i] * 1.1) * amp; ctx.fillStyle = x < played && playingNow() ? "rgba(93,230,176,.55)" : "rgba(200,220,240,.28)"; ctx.fillRect(x, mid - v, w, Math.max(1, v * 2)); } }
-    else { ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.font = "12px sans-serif"; ctx.fillText(song.id ? (song.hasTracks === false ? "No tracks: the timeline runs on the Central Control's click (or the click here)" : "Waveform: comes with the Central Control's tracks") : "No song", 10, mid + 4); }
+    else { ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.font = "12px sans-serif"; ctx.fillText(song.id ? (song.hasTracks === false ? "No tracks: the timeline runs on the Central Pedal's click (or the click here)" : "Waveform: comes with the Central Pedal's tracks") : "No song", 10, mid + 4); }
     // bars
     ctx.fillStyle = "rgba(255,255,255,.06)"; var bars = song.bars.length ? song.bars : null, nb = bars ? bars.length : Math.ceil(D / (60 / song.bpm * song.bpb));
     for (var b = 0; b < nb; b++) { var bx = tlX(bars ? bars[b] : b * 60 / song.bpm * song.bpb); ctx.fillRect(bx, 20, 1, H - 20); if (b % 4 === 0 && W / nb * 4 > 26) { ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.font = "10px sans-serif"; ctx.fillText(String(b + 1), bx + 2, H - 3); ctx.fillStyle = "rgba(255,255,255,.06)"; } }
@@ -545,7 +545,7 @@
     var mode = show.mode, mine = show.cues.length;
     $("#lxMode").value = mode;
     info.textContent = !show.song ? "No song." : show.loading ? "Loading the light show…" : (mode === "auto" ? "Automatic: the sections, the hits and the music" : mode === "semi" ? "Automatic + " + mine + " cue" + (mine === 1 ? "" : "s") + " of yours" : mine + " cue" + (mine === 1 ? "" : "s")) + " · " + (song.name || "") + (show.bpm && Math.abs(show.bpm - song.bpm) > 0.5 ? " · programmed at " + Math.round(show.bpm) + " BPM, playing at " + Math.round(song.bpm) + " - the cues follow the tempo" : "");
-    $("#lxSaveState").textContent = show.saved ? (show.cues.length ? "saved on the Central Control" : "") : "saving…";
+    $("#lxSaveState").textContent = show.saved ? (show.cues.length ? "saved on the Central Pedal" : "") : "saving…";
     $("#lxPreview").textContent = preview ? "■ Stop preview" : (song.hasTracks === false || (!song.overview.length && !song.hasTracks) ? "▶ Run the click here" : "▶ Preview here"); $("#lxPreview").classList.toggle("on", !!preview || click.running);
     var rb = $("#lxRec"); rb.classList.toggle("rec", !!live.rec); rb.textContent = live.rec ? (rec ? "■ Stop recording" : "● Armed - play the song") : "● Record";
     var ins = $("#lxCue");
@@ -569,7 +569,7 @@
   }
   function drawLights() { $$("#lxLights .lx-lt").forEach(function (el) { var f = rig.fixtures.filter(function (x) { return x.id === el.dataset.ltId; })[0], st = f && live.fixtureColor[f.id]; if (st) el.querySelector(".lx-sw").style.background = lensColor(f, st).css; }); }
 
-  // ---- songs: the Central Control's (with or without tracks) and your own; scenes on bars and beats
+  // ---- songs: the Central Pedal's (with or without tracks) and your own; scenes on bars and beats
   var songSel = store.get("lxSong", null), songEdit = null, songsTimer = 0;
   function renderSongsSoon() { clearTimeout(songsTimer); songsTimer = setTimeout(function () { if (visible() && view === "show") renderSongs(); }, 150); }
   function allSongs() { var list = hub.list.map(function (s) { return Object.assign({ from: "cc" }, s); }); rig.localSongs.forEach(function (s) { list.push(Object.assign({ from: "local", hasTracks: false }, s)); }); return list; }
@@ -584,7 +584,7 @@
     var e = songEdit; if (!e || e.live) { changed(); return; }
     var code = CU.prefs.code; if (!code) { CU.askCode(); return; }
     var info = allSongs().filter(function (s) { return s.id === e.id; })[0] || {};
-    try { await fetch(CU.api("/lighting"), { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ song: e.id, code: code, by: "Central Usage-" + selfId, show: { cues: e.cues, mode: e.mode, bpm: e.bpm || info.bpm, song: info.name } }) }); e.saved = true; } catch (_) { }
+    try { await fetch(CU.api("/lighting"), { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ song: e.id, code: code, by: "Central Control-" + selfId, show: { cues: e.cues, mode: e.mode, bpm: e.bpm || info.bpm, song: info.name } }) }); e.saved = true; } catch (_) { }
   }
   function renderSongs() {
     var root = $("#lxSongs"); if (!root) return;
@@ -593,7 +593,7 @@
     if (s && (!songEdit || songEdit.id !== s.id)) { loadEdit(s.id); return; }
     var e = editTarget();
     root.innerHTML = '<div class="lx-slist"><div class="row spread"><b>Songs</b><button data-ls="new">+ Song</button></div>' +
-      '<p class="muted small">On the Central Control</p>' + (hub.list.length ? hub.list.map(function (x) { return '<button class="lx-sitem' + (x.id === songSel ? " sel" : "") + (x.id === show.song ? " live" : "") + '" data-ls-pick="' + esc(x.id) + '"><b>' + esc(x.name) + "</b><small>" + (x.hasTracks ? "tracks · " : "no tracks · ") + Math.round(x.bpm || 0) + " BPM" + (x.key ? " · " + esc(x.key) : "") + "</small></button>"; }).join("") : '<p class="muted small">' + (CU.state.connected ? "No songs yet." : "Connect to the Central Control.") + "</p>") +
+      '<p class="muted small">On the Central Pedal</p>' + (hub.list.length ? hub.list.map(function (x) { return '<button class="lx-sitem' + (x.id === songSel ? " sel" : "") + (x.id === show.song ? " live" : "") + '" data-ls-pick="' + esc(x.id) + '"><b>' + esc(x.name) + "</b><small>" + (x.hasTracks ? "tracks · " : "no tracks · ") + Math.round(x.bpm || 0) + " BPM" + (x.key ? " · " + esc(x.key) : "") + "</small></button>"; }).join("") : '<p class="muted small">' + (CU.state.connected ? "No songs yet." : "Connect to the Central Pedal.") + "</p>") +
       '<p class="muted small">Yours (no tracks)</p>' + (rig.localSongs.length ? rig.localSongs.map(function (x) { return '<button class="lx-sitem' + (x.id === songSel ? " sel" : "") + '" data-ls-pick="' + esc(x.id) + '"><b>' + esc(x.name) + "</b><small>" + Math.round(x.bpm || 0) + " BPM · " + (x.bpb || 4) + "/4</small></button>"; }).join("") : '<p class="muted small">Add a song with + Song.</p>') + "</div>" +
       '<div class="lx-sedit">' + (!s ? '<p class="muted">Pick a song.</p>' : songEditor(s, e)) + "</div>";
   }
@@ -601,13 +601,13 @@
     if (!e || e.loading) return '<p class="muted">Loading…</p>';
     var scenes = e.cues.filter(function (c) { return c.kind === "look" || c.kind == null; }), info = hub.detail[s.id];
     var secOpts = function (c) { var secs = info && info.sections || []; return '<option value="">bar ' + c.bar + "</option>" + secs.map(function (q, k) { return '<option value="' + k + '"' + (q.bar === c.bar && (c.beat || 1) === 1 ? " selected" : "") + ">" + esc(q.name) + " (bar " + q.bar + ")</option>"; }).join(""); };
-    return '<div class="row"><h3>' + esc(s.name) + "</h3>" + (s.from === "local" ? '<label>Name <input data-ls="name" value="' + esc(s.name) + '"></label><label>BPM <input type="number" min="30" max="300" step="0.5" data-ls="bpm" value="' + (s.bpm || 120) + '" style="width:80px"></label><label>Beats per bar <input type="number" min="2" max="12" data-ls="bpb" value="' + (s.bpb || 4) + '" style="width:60px"></label><button data-ls="del" class="danger">Delete song</button>' : '<span class="muted">' + Math.round(s.bpm || 0) + " BPM" + (s.key ? " · " + esc(s.key) : "") + (s.hasTracks ? " · with tracks" : " · no tracks (follows the Central Control's click)") + "</span>") + "</div>" +
+    return '<div class="row"><h3>' + esc(s.name) + "</h3>" + (s.from === "local" ? '<label>Name <input data-ls="name" value="' + esc(s.name) + '"></label><label>BPM <input type="number" min="30" max="300" step="0.5" data-ls="bpm" value="' + (s.bpm || 120) + '" style="width:80px"></label><label>Beats per bar <input type="number" min="2" max="12" data-ls="bpb" value="' + (s.bpb || 4) + '" style="width:60px"></label><button data-ls="del" class="danger">Delete song</button>' : '<span class="muted">' + Math.round(s.bpm || 0) + " BPM" + (s.key ? " · " + esc(s.key) : "") + (s.hasTracks ? " · with tracks" : " · no tracks (follows the Central Pedal's click)") + "</span>") + "</div>" +
       '<div class="row"><label>Mode <select data-ls="mode"><option value="auto"' + (e.mode === "auto" ? " selected" : "") + '>Auto - from the pedal\'s MIDI hits and the music</option><option value="semi"' + (e.mode === "semi" ? " selected" : "") + '>Semi-auto - automatic + these scenes</option><option value="manual"' + (e.mode === "manual" ? " selected" : "") + ">Scenes only</option></select></label>" +
       '<span class="muted small">' + (e.bpm && s.bpm && Math.abs(e.bpm - s.bpm) > 0.5 ? "Programmed at " + Math.round(e.bpm) + " BPM - played at " + Math.round(s.bpm) + ": every scene stays on its bar and beat." : "Scenes sit on bars and beats: at another tempo they move with it.") + "</span></div>" +
       '<table class="lx-table lx-scenes"><thead><tr><th>#</th><th>Starts</th><th>Bar</th><th>Beat</th><th>Preset</th><th>Fade (beats)</th><th>Name</th><th></th></tr></thead><tbody>' + scenes.map(function (c, k) { return '<tr data-sc="' + k + '"><td>' + (k + 1) + '</td><td><select data-scf="at">' + secOpts(c) + '</select></td><td><input type="number" min="1" data-scf="bar" value="' + c.bar + '" style="width:70px"></td><td><input type="number" min="1" max="12" step="0.25" data-scf="beat" value="' + (c.beat || 1) + '" style="width:64px"></td><td><select data-scf="look">' + rig.looks.filter(function (l) { return !l.flash; }).map(function (l) { return '<option value="' + esc(l.id) + '"' + (l.id === c.look ? " selected" : "") + ">" + esc(l.name) + "</option>"; }).join("") + '</select></td><td><input type="number" min="0" max="64" step="0.5" data-scf="fade" value="' + (c.fade || 0) + '" style="width:64px"></td><td><input data-scf="label" value="' + esc(c.label || "") + '" placeholder="Verse lights"></td><td><button data-sc-del="' + k + '">✕</button></td></tr>'; }).join("") + "</tbody></table>" +
-      '<div class="row"><button data-ls="scene" class="primary">+ Scene</button>' + (s.id === show.song ? '<button data-ls="open">Open in the Show tab</button>' : '<button data-ls="program" title="Program it on the Show tab (with the preview / the click here) while the Central Control is on another song">Program it on the Show tab</button>') + '<span class="muted small">' + (e.cues.length - scenes.length ? (e.cues.length - scenes.length) + " flashes / light cues too (Show tab)" : "") + "</span></div>";
+      '<div class="row"><button data-ls="scene" class="primary">+ Scene</button>' + (s.id === show.song ? '<button data-ls="open">Open in the Show tab</button>' : '<button data-ls="program" title="Program it on the Show tab (with the preview / the click here) while the Central Pedal is on another song">Program it on the Show tab</button>') + '<span class="muted small">' + (e.cues.length - scenes.length ? (e.cues.length - scenes.length) + " flashes / light cues too (Show tab)" : "") + "</span></div>";
   }
-  function programSong(id) {   // the Show tab works on this song (lights follow it) until the Central Control plays
+  function programSong(id) {   // the Show tab works on this song (lights follow it) until the Central Pedal plays
     stopPreview(); var s = allSongs().filter(function (x) { return x.id === id; })[0]; if (!s) return;
     song.local = true; song.playing = false; song.pos = 0; song.bars = []; song.barBeats = []; song.hits = []; song.bpm = s.bpm || 120; song.bpb = s.bpb || 4; song.duration = s.duration || 0; song.hasTracks = !!s.hasTracks;
     setSong(id, s.name, [], true); showSub("show");
@@ -660,7 +660,7 @@
     var root = $("#lxLib"); if (!root) return;
     root.addEventListener("click", async function (e) {
       var b = e.target.closest("button"); if (!b) return; var FL = window.CU && window.CU.fixtures;
-      if (b.id === "lxLibImport") { if (!FL) return alert("Importing fixtures works in the Central Usage app."); var files = await FL.open(), n = 0, errs = []; files.forEach(function (f) { try { n += addToLibrary(window.CUFixtureLib.parse(f.name, f.text)); } catch (err) { errs.push(f.name + ": " + err.message); } }); if (errs.length) alert("Some files could not be read:\n" + errs.join("\n")); return; }
+      if (b.id === "lxLibImport") { if (!FL) return alert("Importing fixtures works in the Central Control app."); var files = await FL.open(), n = 0, errs = []; files.forEach(function (f) { try { n += addToLibrary(window.CUFixtureLib.parse(f.name, f.text)); } catch (err) { errs.push(f.name + ": " + err.message); } }); if (errs.length) alert("Some files could not be read:\n" + errs.join("\n")); return; }
       if (b.id === "lxLibScan") { if (!FL) return; b.disabled = true; libScan = await FL.scan(); b.disabled = false; renderLibrary(); var qi = $("#lxLibQ"); if (qi) qi.focus(); if (!libScan.length) alert("No QLC+ fixture library found on this computer (sudo apt install qlcplus adds it), or import files instead."); return; }
       if (b.dataset.libfile) { var text = await FL.read(b.dataset.libfile); if (!text) return; try { var es = window.CUFixtureLib.parseQxf(text), n2 = addToLibrary(es); b.classList.add("added"); b.title = n2 + " mode(s) added"; } catch (err) { alert(err.message); } return; }
       if (b.dataset.libdel) { if (rig.fixtures.some(function (f) { return f.profile === b.dataset.libdel; }) && !confirm("Fixtures use this type. Remove it anyway? (they turn into 1-channel dimmers)")) return; rig.library = (rig.library || []).filter(function (x) { return x.id !== b.dataset.libdel; }); saveRig(); fillAddProfiles(); renderLibrary(); renderFixtures(); }
@@ -700,7 +700,7 @@
         (o.mode === "artnet" || o.mode === "sacn" ? '<input data-o="host" placeholder="' + (o.mode === "sacn" ? "node IP (empty = multicast)" : "node IP (empty = broadcast)") + '" value="' + esc(o.host || "") + '">' + (o.mode === "artnet" ? '<label title="Art-Net counts universes from 0: universe 1 goes out as Art-Net universe 0 + this">Art-Net offset <input type="number" min="-1" max="32767" data-o="offset" value="' + (o.offset || 0) + '" style="width:70px"></label>' : "") : "") +
         '<span class="muted small">' + (o.mode === "off" ? "off" : st ? (st.error ? "⚠ " + esc(st.error) : "→ " + esc(st.target || "") + " · " + st.frames + " frames") : DMX ? "" : "works in the app") + '</span><button data-o="del" title="Remove">✕</button></div>';
     }).join("");
-    $("#lxOutState").textContent = !DMX ? "DMX output works in the Central Usage app (not in a browser)." : outputsOn() ? rig.fixtures.length + " fixtures on " + universes().length + " universe" + (universes().length === 1 ? "" : "s") : "DMX output is off.";
+    $("#lxOutState").textContent = !DMX ? "DMX output works in the Central Control app (not in a browser)." : outputsOn() ? rig.fixtures.length + " fixtures on " + universes().length + " universe" + (universes().length === 1 ? "" : "s") : "DMX output is off.";
     var mu = $("#lxMonUni"), cur = Number(mu.value) || universes()[0] || 1; mu.innerHTML = universes().map(function (u) { return '<option value="' + u + '"' + (u === cur ? " selected" : "") + ">" + u + "</option>"; }).join("");
   }
   async function applyOutput() { saveRig(); if (DMX) { await DMX.configure({ outputs: rig.outputs }); lastSent = ""; } renderOutput(); }
@@ -714,16 +714,16 @@
     var root = $("#lxClick"); if (!root) return; var c = rig.click;
     root.innerHTML = '<label class="toggle"><input type="checkbox" data-ck="hear"' + (c.hear ? " checked" : "") + '> Hear a click while programming (Preview here, the click here)</label>' +
       '<label class="toggle"><input type="checkbox" data-ck="follow"' + (c.follow ? " checked" : "") + '> The lights follow the click (songs without tracks, the click here)</label>' +
-      '<label class="toggle"><input type="checkbox" data-ck="output"' + (c.output ? " checked" : "") + '> The click as an audio output (follows the Central Control while it plays)</label>' +
+      '<label class="toggle"><input type="checkbox" data-ck="output"' + (c.output ? " checked" : "") + '> The click as an audio output (follows the Central Pedal while it plays)</label>' +
       '<div class="row"><label>Output <select data-ck="device"><option value="">This computer\'s output</option></select></label><label>Level <input type="range" min="0" max="1" step="0.05" data-ck="level" value="' + c.level + '"></label><label class="toggle"><input type="checkbox" data-ck="accent"' + (c.accent ? " checked" : "") + "> Accent the first beat</label></div>" +
       '<button data-ck="run">' + (click.running ? "■ Stop the click" : "▶ Run the click now (" + Math.round(song.bpm || 120) + " BPM)") + "</button>";
     var sel = root.querySelector('[data-ck="device"]'); if (navigator.mediaDevices) navigator.mediaDevices.enumerateDevices().then(function (list) { list.filter(function (d) { return d.kind === "audiooutput" && d.deviceId !== "default"; }).forEach(function (d) { var o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || "Output " + d.deviceId.slice(0, 6); if (d.deviceId === c.device) o.selected = true; sel.appendChild(o); }); }).catch(function () { });
   }
   function renderAudio() {
     var root = $("#lxAudio"); if (!root) return; var a = rig.audio, X = window.CUMix, has = !!(X && X.meters && X.meters.bands);
-    root.innerHTML = '<p class="muted small">In Auto and Semi-auto the lights breathe with the music (its level) and, in songs without detected hits, flash on the strong beats. The music is the Central Control\'s audio on the audio host.</p>' +
+    root.innerHTML = '<p class="muted small">In Auto and Semi-auto the lights breathe with the music (its level) and, in songs without detected hits, flash on the strong beats. The music is the Central Pedal\'s audio on the audio host.</p>' +
       '<label class="toggle"><input type="checkbox" data-au="react"' + (a.react ? " checked" : "") + '> React to the music</label><label>How much <input type="range" min="0" max="1" step="0.05" data-au="amount" value="' + a.amount + '"></label><label class="toggle"><input type="checkbox" data-au="onsets"' + (a.onsets ? " checked" : "") + "> Flash on the strong beats (when there are no hits)</label>" +
-      '<p class="muted small">' + (has ? "✓ hearing the music" : "No audio here yet: it needs the audio host (I/O tab) and the Central Control's audio over the network.") + "</p>";
+      '<p class="muted small">' + (has ? "✓ hearing the music" : "No audio here yet: it needs the audio host (I/O tab) and the Central Pedal's audio over the network.") + "</p>";
   }
 
   // ------------------------------------------------------------- the chat window (opens on the right of the Show view)
@@ -739,7 +739,7 @@
   // ------------------------------------------------------------- the chat box: plain words -> cues
   async function chat(text) {
     var A = window.CULightsAI, out = $("#lxChatOut"); if (!A || !text.trim()) return;
-    if (!show.song) { out.textContent = "Pick a song first (the Central Control's, or one on the Songs tab)."; return; }
+    if (!show.song) { out.textContent = "Pick a song first (the Central Pedal's, or one on the Songs tab)."; return; }
     var ctx = { groups: GROUPS.filter(function (g) { return rig.fixtures.some(function (f) { return f.group === g[0]; }); }), fixtures: rig.fixtures.map(function (f) { return { id: f.id, name: f.name, group: f.group, profileName: profileOf(f).name }; }), sections: song.sections.map(function (s) { return { name: s.name, start: s.start, end: s.end, bar: s.bar || barBeatAt(s.start).bar, type: s.type || secType(s.name) }; }), hits: song.hits || [], bpb: song.bpb, bpm: song.bpm, duration: dur(), barBeatAt: barBeatAt };
     var res = A.parse(text, ctx), steps = res.steps, how = "";
     var AI = window.CU && window.CU.ai;
@@ -891,7 +891,7 @@
       else if (k === "identify") { live.identify = { id: f.id, until: performance.now() + 2500 }; }
     });
     $("#lxRigSave").addEventListener("click", function () { var text = JSON.stringify({ format: "central-usage-rig", version: 2, fixtures: rig.fixtures, looks: rig.looks, outputs: rig.outputs, library: rig.library || [] }, null, 1); if (window.CU && window.CU.saveFile) window.CU.saveFile("lighting-rig.json", text); else { var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = "lighting-rig.json"; a.click(); } });
-    $("#lxRigOpen").addEventListener("click", async function () { var text = window.CU && window.CU.openFile ? await window.CU.openFile() : null; if (!text) return; try { var j = JSON.parse(text); if (j.format !== "central-usage-rig") throw new Error("not a Central Usage rig"); rig.fixtures = j.fixtures || []; rig.looks = j.looks && j.looks.length ? j.looks : BUILTIN(); if (Array.isArray(j.outputs)) rig.outputs = j.outputs; else if (j.output) rig.outputs = [Object.assign({ universe: 1 }, j.output)]; if (j.library) rig.library = j.library; saveRig(); applyOutput(); renderAll(); } catch (err) { alert("Could not open it: " + err.message); } });
+    $("#lxRigOpen").addEventListener("click", async function () { var text = window.CU && window.CU.openFile ? await window.CU.openFile() : null; if (!text) return; try { var j = JSON.parse(text); if (j.format !== "central-usage-rig") throw new Error("not a Central Control rig"); rig.fixtures = j.fixtures || []; rig.looks = j.looks && j.looks.length ? j.looks : BUILTIN(); if (Array.isArray(j.outputs)) rig.outputs = j.outputs; else if (j.output) rig.outputs = [Object.assign({ universe: 1 }, j.output)]; if (j.library) rig.library = j.library; saveRig(); applyOutput(); renderAll(); } catch (err) { alert("Could not open it: " + err.message); } });
     $("#lxRigReset").addEventListener("click", function () { if (!confirm("Start again with the example rig (10 fixtures)?")) return; var keep = rig.outputs, ck = rig.click, au = rig.audio, songs = rig.localSongs; rig = defaultRig(); rig.outputs = keep; rig.click = ck; rig.audio = au; rig.localSongs = songs; saveRig(); renderAll(); });
     // outputs
     var outs = $("#lxOutputs");
@@ -905,7 +905,7 @@
     $("#lxAudio").addEventListener("change", function (e) { var k = e.target.dataset.au; if (!k) return; rig.audio[k] = e.target.type === "checkbox" ? e.target.checked : Number(e.target.value); saveRig(); });
     setInterval(function () { if (visible() && view === "output" && DMX) DMX.status().then(function (s) { outStatus = s; $$("#lxOutputs [data-out]").forEach(function (row) { var o = rig.outputs[Number(row.dataset.out)], st = s.outputs ? s.outputs.filter(function (x) { return x.universe === o.universe; })[0] : null, span = row.querySelector("span.muted"); if (span && o.mode !== "off" && st) span.textContent = st.error ? "⚠ " + st.error : "→ " + (st.target || "") + " · " + st.frames + " frames"; }); }); }, 1500);
   }
-  // songs without tracks: the click here is the transport while the Central Control isn't playing
+  // songs without tracks: the click here is the transport while the Central Pedal isn't playing
   var localRun = false;
   function clockLocal() { localRun = true; song.pos = 0; song.at = performance.now(); song.playing = true; song.speed = 1; }
   setInterval(function () { if (localRun && !click.running) { song.pos = posNow(); song.playing = false; localRun = false; finishRecording(); renderShowPanel(); } }, 200);
@@ -929,7 +929,7 @@
   }
   async function renderRemote() {
     var el = $("#lxRemote"); if (!el) return;
-    if (!RM) { el.innerHTML = '<p class="muted">The phone remote works in the Central Usage app.</p>'; return; }
+    if (!RM) { el.innerHTML = '<p class="muted">The phone remote works in the Central Control app.</p>'; return; }
     var st = await RM.status(); remoteOn = st.enabled;
     el.innerHTML = '<label class="toggle"><input type="checkbox" id="lxRmOn"' + (st.enabled ? " checked" : "") + '> Allow a phone on this Wi-Fi to run the lights</label><div class="row"><label>Port <input id="lxRmPort" type="number" min="1024" max="65535" value="' + st.port + '" style="width:90px"></label><span>Code <b class="lx-pin">' + esc(st.pin) + '</b></span><button id="lxRmPin">New code</button></div>' +
       (st.enabled ? '<p class="muted">On the phone, open ' + st.urls.map(function (u) { return "<b>" + esc(u) + "</b>"; }).join(" or ") + " and enter the code. Presets, Follow, Flash, Blackout and the faders.</p>" : "");

@@ -1,5 +1,5 @@
-/* Central Usage - the I/O tab: every input and output of this computer in one place.
- *   The Central Control (connection, pairing) · its audio (Ethernet / Wi-Fi / the audio interface)
+/* Central Control - the I/O tab: every input and output of this computer in one place.
+ *   The Central Pedal (connection, pairing) · its audio (Ethernet / Wi-Fi / the audio interface)
  *   The audio host (this computer or another) · the audio interface (device, buffer, what each input and
  *   output carries) · listening & recording · video outputs · lights (DMX, MIDI) · MIDI devices */
 (function () {
@@ -13,20 +13,20 @@
   function radio(name, v, cur, label, sub, dis) { return '<label class="io-opt' + (v === cur ? " on" : "") + (dis ? " dis" : "") + '"><input type="radio" name="' + name + '" value="' + v + '"' + (v === cur ? " checked" : "") + (dis ? " disabled" : "") + "><span><b>" + label + "</b>" + (sub ? "<small>" + sub + "</small>" : "") + "</span></label>"; }
   function piCard() {
     var s = CU.state, ifs = s.interfaces || [];
-    return '<section class="card io-c"><h3>Central Control</h3><table class="io-t"><tr><td>Connection</td><td>' + (s.connected ? "connected to <b>" + esc(s.hostname || CU.prefs.host) + "</b>" + (s.appVersion ? " · Central Control " + esc(s.appVersion) : "") : '<span class="muted">not connected - type its address (top right) or Find</span>') + "</td></tr>" +
-      "<tr><td>Pairing code</td><td>" + (s.authed ? "✓ accepted" : CU.prefs.code ? "checking…" : '<button data-io="code">Enter the code</button> <span class="muted small">(Central Control → Settings)</span>') + "</td></tr>" +
+    return '<section class="card io-c"><h3>Central Pedal</h3><table class="io-t"><tr><td>Connection</td><td>' + (s.connected ? "connected to <b>" + esc(s.hostname || CU.prefs.host) + "</b>" + (s.appVersion ? " · Central Pedal " + esc(s.appVersion) : "") : '<span class="muted">not connected - type its address (top right) or Find</span>') + "</td></tr>" +
+      "<tr><td>Pairing code</td><td>" + (s.authed ? "✓ accepted" : CU.prefs.code ? "checking…" : '<button data-io="code">Enter the code</button> <span class="muted small">(Central Pedal → Settings)</span>') + "</td></tr>" +
       "<tr><td>Its network</td><td>" + (ifs.length ? ifs.map(function (i) { return (i.kind === "ethernet" ? "Ethernet" : i.kind === "wifi" ? "Wi-Fi" : esc(i.iface)) + " <b>" + esc(i.address) + "</b>"; }).join(" · ") : '<span class="muted">-</span>') + "</td></tr></table></section>";
   }
   function piAudioCard() {
     var c = cfg(), host = CU.mode() === "admin" && c.host && c.host.enabled, t = (c.piAudio || {}).transport || "off", pi = hs && hs.pi || {}, m = X && X.meters, net = m && m.net && m.net[0], piMode = CU.state.netAudio && CU.state.netAudio.mode;
     var ifs = CU.state.interfaces || [], hasEth = ifs.some(function (i) { return i.kind === "ethernet"; }), hasWifi = ifs.some(function (i) { return i.kind === "wifi"; });
-    var warn = host && (t === "ethernet" || t === "wifi") && piMode && piMode !== t ? '<p class="warn">The Central Control is set to "' + esc(piMode) + '" - set its I/O tab → Audio to Central Usage to ' + (t === "ethernet" ? "Ethernet" : "Wi-Fi") + ".</p>" : "";
+    var warn = host && (t === "ethernet" || t === "wifi") && piMode && piMode !== t ? '<p class="warn">The Central Pedal is set to "' + esc(piMode) + '" - set its I/O tab → Audio to Central Control to ' + (t === "ethernet" ? "Ethernet" : "Wi-Fi") + ".</p>" : "";
     if (CU.mode() !== "admin") return "";
-    if (!host) return '<section class="card io-c"><h3>Audio from the Central Control</h3><p class="muted">Only the audio host gets the Central Control\'s tracks (it mixes them and makes the in-ear mixes). ' + (X && X.hostAddress() ? "The audio host is <b>" + esc(X.hostAddress()) + "</b>." : "No audio host yet - turn it on below on the computer at the sound desk.") + "</p></section>";
-    return '<section class="card io-c wide"><h3>Audio from the Central Control</h3><div class="io-opts">' +
-      radio("ioPi", "off", t, "Off", "no tracks here") + radio("ioPi", "ethernet", t, "Ethernet", hasEth || !CU.state.connected ? "a cable - the best" : "the Central Control has no Ethernet now") + radio("ioPi", "wifi", t, "Wi-Fi", hasWifi || !CU.state.connected ? "anywhere on the Wi-Fi, a little more delay" : "the Central Control has no Wi-Fi now") + radio("ioPi", "interface", t, "Audio interface", "its outputs cabled into this computer's interface") + "</div>" + warn +
+    if (!host) return '<section class="card io-c"><h3>Audio from the Central Pedal</h3><p class="muted">Only the audio host gets the Central Pedal\'s tracks (it mixes them and makes the in-ear mixes). ' + (X && X.hostAddress() ? "The audio host is <b>" + esc(X.hostAddress()) + "</b>." : "No audio host yet - turn it on below on the computer at the sound desk.") + "</p></section>";
+    return '<section class="card io-c wide"><h3>Audio from the Central Pedal</h3><div class="io-opts">' +
+      radio("ioPi", "off", t, "Off", "no tracks here") + radio("ioPi", "ethernet", t, "Ethernet", hasEth || !CU.state.connected ? "a cable - the best" : "the Central Pedal has no Ethernet now") + radio("ioPi", "wifi", t, "Wi-Fi", hasWifi || !CU.state.connected ? "anywhere on the Wi-Fi, a little more delay" : "the Central Pedal has no Wi-Fi now") + radio("ioPi", "interface", t, "Audio interface", "its outputs cabled into this computer's interface") + "</div>" + warn +
       (t === "ethernet" || t === "wifi" ? '<div class="row"><label>Buffer <input type="range" min="20" max="300" step="10" data-io="latency" value="' + ((c.piAudio || {}).latency || 60) + '"><output>' + ((c.piAudio || {}).latency || 60) + ' ms</output></label><span class="muted small">smaller = less delay; raise it if you hear gaps</span></div>' +
-        '<table class="io-t"><tr><td>Status</td><td data-io-live="pi">' + piStatus() + "</td></tr>" + "<tr><td>Channels</td><td>" + (X && X.pi.length ? X.pi.map(function (n) { return esc(n.name); }).join(" · ") : '<span class="muted">none yet - they arrive when the Central Control has a song loaded</span>') + "</td></tr></table>" : "") +
+        '<table class="io-t"><tr><td>Status</td><td data-io-live="pi">' + piStatus() + "</td></tr>" + "<tr><td>Channels</td><td>" + (X && X.pi.length ? X.pi.map(function (n) { return esc(n.name); }).join(" · ") : '<span class="muted">none yet - they arrive when the Central Pedal has a song loaded</span>') + "</td></tr></table>" : "") +
       (t === "interface" ? '<p class="muted">Pick the interface\'s inputs on the In-ears tab (Channels: source "Input n") and set them to "Tracks" to mix them on the Mix tab.</p>' : "") + "</section>";
   }
   function piStatus() {   // the live line (updated in place every 2 s, so the controls around it stay put)
@@ -35,7 +35,7 @@
   }
   function hostCard() {
     var c = cfg(), admin = (CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main"), host = admin && c.host && c.host.enabled, srv = hs && hs.server || {};
-    if (!admin) return '<section class="card io-c"><h3>Audio host (in-ears)</h3><table class="io-t"><tr><td>Audio host</td><td>' + (X && X.hostAddress() ? "<b>" + esc(X.hostAddress()) + "</b>" : '<span class="muted">not found yet</span>') + '</td></tr><tr><td>Address</td><td><input data-io="hostAddr" value="' + esc(CU.store.get("hostAddr", "")) + '" placeholder="automatic (through the Central Control)"></td></tr><tr><td>In-ear code</td><td><input data-io="userCode" value="' + esc(CU.store.get("userCode", "")) + '" placeholder="from the sound desk" style="width:110px"></td></tr></table></section>';
+    if (!admin) return '<section class="card io-c"><h3>Audio host (in-ears)</h3><table class="io-t"><tr><td>Audio host</td><td>' + (X && X.hostAddress() ? "<b>" + esc(X.hostAddress()) + "</b>" : '<span class="muted">not found yet</span>') + '</td></tr><tr><td>Address</td><td><input data-io="hostAddr" value="' + esc(CU.store.get("hostAddr", "")) + '" placeholder="automatic (through the Central Pedal)"></td></tr><tr><td>In-ear code</td><td><input data-io="userCode" value="' + esc(CU.store.get("userCode", "")) + '" placeholder="from the sound desk" style="width:110px"></td></tr></table></section>';
     return '<section class="card io-c"><h3>Audio host</h3><label class="toggle io-big"><input type="checkbox" data-io="host"' + (host ? " checked" : "") + (NAT && NAT.mixer ? "" : " disabled") + "> This computer is the audio host</label>" +
       '<p class="muted small">The audio host gets the tracks, runs the mixer and makes up to 64 stereo in-ear mixes (wired to transmitters and / or over the network). One per church; other admins mix from their own computer, users pick their mix.</p>' +
       (host ? '<table class="io-t"><tr><td>Server</td><td>' + (srv.running ? "port " + srv.port + " · " + (srv.addresses || []).map(esc).join(", ") : '<span class="warn">' + esc(srv.error || "starting…") + "</span>") + "</td></tr>" +
@@ -99,11 +99,11 @@
   function listenCard() {   // (the record control: recorder.js)
     if (CU.mode() !== "admin") return "";
     return '<section class="card io-c"><h3>Listening &amp; recording</h3><label>Listen on <select data-io="sink"><option value="">This computer\'s output</option></select></label>' +
-      '<div class="io-rec" data-rec-slot data-rec-folder></div><p class="muted small">Every input, the Central Control\'s tracks and the stereo program (WAV, 48 kHz / 24 bit, and an MP3 of the program). Listen from the Mix tab.</p></section>';
+      '<div class="io-rec" data-rec-slot data-rec-folder></div><p class="muted small">Every input, the Central Pedal\'s tracks and the stereo program (WAV, 48 kHz / 24 bit, and an MP3 of the program). Listen from the Mix tab.</p></section>';
   }
   function videoCard() {
     if (CU.mode() !== "admin") return "";
-    var S = window.CUSlides; return '<section class="card io-c"><h3>Video (slides &amp; lyrics)</h3><p>' + esc(S ? S.outputsText() : "") + '</p><p class="muted small">Second screen, the Central Control\'s HDMI 2 (set to "Slides" on its I/O tab) and NDI.</p><button data-io-go="slides">Slides</button></section>';
+    var S = window.CUSlides; return '<section class="card io-c"><h3>Video (slides &amp; lyrics)</h3><p>' + esc(S ? S.outputsText() : "") + '</p><p class="muted small">Second screen, the Central Pedal\'s HDMI 2 (set to "Slides" on its I/O tab) and NDI.</p><button data-io-go="slides">Slides</button></section>';
   }
   function lightsCard() {
     if (CU.mode() !== "admin") return "";
@@ -122,7 +122,7 @@
     if (root.contains(document.activeElement) && document.activeElement.tagName === "INPUT" && document.activeElement.type !== "checkbox" && document.activeElement.type !== "radio" && document.activeElement.type !== "range") return;
     // laid out as the signal flows: what comes in → what this computer does with it → where it goes out
     function col(n, title, sub, cards) { cards = cards.filter(Boolean).join(""); return cards ? '<div class="io-col"><div class="io-colh"><b>' + n + "</b><span>" + title + "</span><small>" + sub + "</small></div>" + cards + "</div>" : ""; }
-    var cols = [col("1", "In", "from the Central Control and devices", [piCard(), piAudioCard(), midiCard()]),
+    var cols = [col("1", "In", "from the Central Pedal and devices", [piCard(), piAudioCard(), midiCard()]),
       col("2", "This computer", "mixing, in-ears, listening", [hostCard(), ifaceCard(), listenCard(), instCard()]),
       col("3", "Out", "screens and lights", [videoCard(), lightsCard()])].filter(Boolean);
     root.innerHTML = '<div class="io-flow" style="--tpl:' + cols.map(function () { return "minmax(0, 1fr)"; }).join(" 28px ") + '">' + cols.join('<div class="io-arrow" aria-hidden="true"><i></i></div>') + "</div>";
@@ -130,14 +130,14 @@
     var sinkSel = $('[data-io="sink"]'); if (sinkSel && navigator.mediaDevices) navigator.mediaDevices.enumerateDevices().then(function (list) { list.filter(function (d) { return d.kind === "audiooutput" && d.deviceId !== "default"; }).forEach(function (d) { var o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || "Output " + d.deviceId.slice(0, 6); if (window.CUListen && d.deviceId === window.CUListen.sink()) o.selected = true; sinkSel.appendChild(o); }); }).catch(function () { });
   }
   async function setCfg(patch) { if (NAT && NAT.config) { var c = await NAT.config.set(patch); CU.setConfig(c); if (hs) hs.cfg = c; } if (X) X.choose(); render(); if (patch.newUserCode || patch.newAdminCode) registerHost(); }
-  // the Central Control's address for the audio: its Ethernet or Wi-Fi address (whichever was chosen)
+  // the Central Pedal's address for the audio: its Ethernet or Wi-Fi address (whichever was chosen)
   function piTarget() {
     if (!NAT || !NAT.host) return; var c = cfg(), t = (c.piAudio || {}).transport, ifs = CU.state.interfaces || [];
     var want = ifs.filter(function (i) { return i.kind === t; })[0], addr = t === "ethernet" || t === "wifi" ? (want ? want.address : CU.prefs.host) : "";   // (the Pi refuses with a clear message if that's the wrong connection)
     NAT.host.piTarget({ address: addr || "", code: CU.prefs.code || "" });
   }
-  // the audio host tells the Central Control where it is, so every other Central Usage finds it
-  function registerHost() { var c = cfg(); if ((CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") && c.host && c.host.enabled && CU.state.connected && CU.prefs.code) CU.send({ type: "audioHost", action: "register", code: CU.prefs.code, port: c.host.port || 8092, name: c.name || "Central Usage", userCode: c.host.userCode, adminCode: c.host.adminCode }); }   // the Central Control hands each computer the code for its role
+  // the audio host tells the Central Pedal where it is, so every other Central Control finds it
+  function registerHost() { var c = cfg(); if ((CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") && c.host && c.host.enabled && CU.state.connected && CU.prefs.code) CU.send({ type: "audioHost", action: "register", code: CU.prefs.code, port: c.host.port || 8092, name: c.name || "Central Control", userCode: c.host.userCode, adminCode: c.host.adminCode }); }   // the Central Pedal hands each computer the code for its role
   CU.on("hello", function () { piTarget(); setTimeout(registerHost, 300); });
   CU.on("authed", function () { piTarget(); registerHost(); });
   CU.on("connected", function (on) { if (on) setTimeout(registerHost, 600); });

@@ -1,9 +1,9 @@
-/* Central Control - the same songs and setlists on every Central Control (the Pi and Central Control on a PC).
+/* Central Pedal - the same songs and setlists on every Central Pedal (the Pi and Central Pedal on a PC).
  * The driver does the copying (pedal-driver.py SongSync); this file is the app's side:
  *   - songs and setlists that arrive are put into the open setlist (an edit on another device shows up here)
  *   - "Setlists": every setlist from every device, Open one; New setlist
  *   - "Song library": every song, add it to this setlist; delete on this device or everywhere
- *   - "Devices": find the other Central Controls on the network and link once with their code */
+ *   - "Devices": find the other Central Pedals on the network and link once with their code */
 (function () {
   "use strict";
   var PP = window.PP, F = window.PPFeatures; if (!PP || !F) return;
@@ -38,15 +38,15 @@
       if (window.PPTracks && window.PPTracks.forgetStem) (m.song.tracks && m.song.tracks.stems || []).forEach(function (st) { window.PPTracks.forgetStem(st.id); });
       PP.persistSoon(); F.renderSetlist(); F.renderPerformExtras();
       if (i === p.songIndex) F.loadSong(i);
-      PP.setStatus("\"" + m.song.name + "\" was changed on another Central Control");
+      PP.setStatus("\"" + m.song.name + "\" was changed on another Central Pedal");
     }
     if (m.event === "setlist" && m.id === p.setlistId) {
-      if (m.deleted || !m.setlist) { PP.setStatus("This setlist was deleted on another Central Control (it stays open here until you open another)."); return; }
+      if (m.deleted || !m.setlist) { PP.setStatus("This setlist was deleted on another Central Pedal (it stays open here until you open another)."); return; }
       applySetlist(m.setlist);
     }
     if (m.event === "removed") {
       var j = p.songs.findIndex(function (s) { return s.id === m.id; });
-      if (j >= 0) { var nm = p.songs[j].name; p.songs.splice(j, 1); if (p.songIndex >= p.songs.length) p.songIndex = p.songs.length - 1; PP.persistSoon(); F.renderSetlist(); F.renderPerformExtras(); PP.setStatus("\"" + nm + "\" was deleted on another Central Control"); }
+      if (j >= 0) { var nm = p.songs[j].name; p.songs.splice(j, 1); if (p.songIndex >= p.songs.length) p.songIndex = p.songs.length - 1; PP.persistSoon(); F.renderSetlist(); F.renderPerformExtras(); PP.setStatus("\"" + nm + "\" was deleted on another Central Pedal"); }
     }
     if (isOpen()) paint();
   });
@@ -97,8 +97,8 @@
     var d = document.createElement("dialog"); d.className = "sync-ask";
     d.innerHTML = '<h3>Remove "' + esc(song.name) + '"?</h3><div class="sync-ask-opts">' +
       '<button data-del="list" class="primary">From this setlist only<small>the song stays in the Song library on every device</small></button>' +
-      '<button data-del="here">Delete on this Central Control<small>its tracks are removed here; the other devices keep it</small></button>' +
-      '<button data-del="everywhere" class="danger">Delete everywhere<small>from every linked Central Control</small></button></div><div class="row"><button data-del="cancel">Cancel</button></div>';
+      '<button data-del="here">Delete on this Central Pedal<small>its tracks are removed here; the other devices keep it</small></button>' +
+      '<button data-del="everywhere" class="danger">Delete everywhere<small>from every linked Central Pedal</small></button></div><div class="row"><button data-del="cancel">Cancel</button></div>';
     document.body.appendChild(d); d.showModal();
     d.addEventListener("close", function () { d.remove(); });
     d.addEventListener("click", async function (e) {
@@ -108,7 +108,7 @@
       if (i >= 0) { p.songs.splice(i, 1); if (p.songIndex >= p.songs.length) p.songIndex = p.songs.length - 1; PP.persistNow(); F.renderSetlist(); F.renderPerformExtras(); }
       if (what !== "list") {
         var r = await post("/sync/delete", { kind: "song", id: song.id, scope: what });
-        PP.setStatus(r.ok ? "\"" + song.name + "\" deleted " + (what === "here" ? "on this Central Control" : "everywhere") : "Not deleted: " + (r.error || ""));
+        PP.setStatus(r.ok ? "\"" + song.name + "\" deleted " + (what === "here" ? "on this Central Pedal" : "everywhere") : "Not deleted: " + (r.error || ""));
       }
       if (isOpen()) paint();
     });
@@ -121,7 +121,7 @@
     var d = $("#syncDialog");
     if (!d) {
       d = document.createElement("dialog"); d.id = "syncDialog"; d.className = "sync-dialog";
-      d.innerHTML = '<div class="row spread"><div><h2>Setlists, songs and devices</h2><p class="muted">The same songs and setlists on every linked Central Control - the Pi and Central Control on your computers.</p></div><button data-sync="close">Close</button></div>' +
+      d.innerHTML = '<div class="row spread"><div><h2>Setlists, songs and devices</h2><p class="muted">The same songs and setlists on every linked Central Pedal - the Pi and Central Pedal on your computers.</p></div><button data-sync="close">Close</button></div>' +
         '<div class="add-tabs" id="syncTabs"><button data-view="setlists">Setlists</button><button data-view="songs">Song library</button><button data-view="devices">Devices</button></div><div id="syncBody" class="sync-body"></div>';
       document.body.appendChild(d);
       d.addEventListener("click", onClick);
@@ -135,7 +135,7 @@
     var seq = ++paintSeq, mine = function () { return seq === paintSeq; };   // a newer paint replaces an older one still waiting
     d.querySelectorAll("#syncTabs [data-view]").forEach(function (b) { b.classList.toggle("on", b.dataset.view === view); });
     var body = $("#syncBody", d);
-    if (!driverOn()) { body.innerHTML = '<p class="muted">Needs the Central Control service (it is running on the Pi and in Central Control on a PC).</p>'; return; }
+    if (!driverOn()) { body.innerHTML = '<p class="muted">Needs the Central Pedal service (it is running on the Pi and in Central Pedal on a PC).</p>'; return; }
     var p = PP.project();
     if (view === "setlists") {
       var j = await get("/sync/setlists"), lists = j && j.setlists || []; if (!mine()) return;
@@ -158,10 +158,10 @@
       var st = await get("/sync/status") || status || {}; if (!mine()) return;
       status = st;
       var peers = st.peers || [];
-      body.innerHTML = '<table class="sync-t"><tr><td>This Central Control</td><td><input id="syncName" value="' + esc(st.name || "") + '"> <span class="muted small">' + (st.kind === "pi" ? "Raspberry Pi - keeps the tracks of songs in a setlist" : "computer - keeps every song's tracks") + "</span></td></tr>" +
+      body.innerHTML = '<table class="sync-t"><tr><td>This Central Pedal</td><td><input id="syncName" value="' + esc(st.name || "") + '"> <span class="muted small">' + (st.kind === "pi" ? "Raspberry Pi - keeps the tracks of songs in a setlist" : "computer - keeps every song's tracks") + "</span></td></tr>" +
         "<tr><td>Songs / setlists</td><td>" + (st.songs || 0) + " / " + (st.setlists || 0) + (st.activity && st.activity.busy ? ' · <span class="ok">copying ' + esc(st.activity.file || "") + "…</span>" : "") + "</td></tr>" +
         (st.activity && st.activity.warning ? '<tr><td></td><td class="warn">' + esc(st.activity.warning) + "</td></tr>" : "") + "</table>" +
-        "<h3>Other Central Controls on this network</h3>" +
+        "<h3>Other Central Pedals on this network</h3>" +
         (peers.length ? '<div class="sync-list">' + peers.map(function (x) {
           return '<div class="sync-row"><div><span class="dot' + (x.online ? "" : " off") + '"></span> <b>' + esc(x.name || x.address) + "</b><small>" + esc(x.address || "") + (x.kind ? " · " + (x.kind === "pi" ? "Raspberry Pi" : "computer") : "") + (x.linked ? " · linked" + (x.lastSync ? ", synced " + ago(x.lastSync) : "") : "") + (x.error ? ' · <span class="warn">' + esc(x.error) + "</span>" : "") + "</small></div>" +
             (x.linked ? '<span class="pill ok">linked</span>' : '<button class="primary" data-link="' + esc(x.address) + '" data-port="' + esc(x.port || 8080) + '" data-name="' + esc(x.name || "") + '">Link…</button>') + "</div>";
@@ -173,7 +173,7 @@
   function linkedNote() {
     var st = status; if (!st) return "";
     var n = (st.peers || []).filter(function (x) { return x.linked; }).length;
-    return '<span class="muted small sync-note">' + (st.linked ? "Shared with " + n + " other Central Control" + (n === 1 ? "" : "s") : 'Only on this device - <a href="#" data-view="devices">link another</a>') + "</span>";
+    return '<span class="muted small sync-note">' + (st.linked ? "Shared with " + n + " other Central Pedal" + (n === 1 ? "" : "s") : 'Only on this device - <a href="#" data-view="devices">link another</a>') + "</span>";
   }
   async function onClick(e) {
     var b = e.target.closest("button,a"); if (!b) return;
@@ -182,24 +182,24 @@
     if (b.dataset.sync === "new") return newSetlist();
     if (b.dataset.open) return openSetlist(b.dataset.open);
     if (b.dataset.add) return addSong(b.dataset.add);
-    if (b.dataset.delList) { if (confirm("Delete this setlist on every Central Control? Its songs stay in the Song library.")) { await post("/sync/delete", { kind: "setlist", id: b.dataset.delList, scope: "everywhere" }); paint(); } return; }
+    if (b.dataset.delList) { if (confirm("Delete this setlist on every Central Pedal? Its songs stay in the Song library.")) { await post("/sync/delete", { kind: "setlist", id: b.dataset.delList, scope: "everywhere" }); paint(); } return; }
     if (b.dataset.delSong) {
       var p = PP.project(), inList = p.songs.find(function (s) { return s.id === b.dataset.delSong; });
       if (inList) return askDelete(inList);
-      var where = confirm("Delete \"" + b.dataset.name + "\" on EVERY Central Control?\n\nOK = everywhere · Cancel = choose this device only") ? "everywhere" : (confirm("Delete it on this Central Control only?") ? "here" : null);
+      var where = confirm("Delete \"" + b.dataset.name + "\" on EVERY Central Pedal?\n\nOK = everywhere · Cancel = choose this device only") ? "everywhere" : (confirm("Delete it on this Central Pedal only?") ? "here" : null);
       if (where) { await post("/sync/delete", { kind: "song", id: b.dataset.delSong, scope: where }); paint(); }
       return;
     }
     if (b.dataset.link || b.dataset.sync === "manual") {
       var addr = b.dataset.link, port = Number(b.dataset.port || 8080);
-      if (!addr) { var a = await ask("Address of the other Central Control (e.g. padpedal.local or 192.168.1.40):", ""); if (!a) return; var hp = a.trim().split(":"); addr = hp[0]; port = Number(hp[1] || 8080); }
+      if (!addr) { var a = await ask("Address of the other Central Pedal (e.g. padpedal.local or 192.168.1.40):", ""); if (!a) return; var hp = a.trim().split(":"); addr = hp[0]; port = Number(hp[1] || 8080); }
       var code = await ask("Pairing code of " + (b.dataset.name || addr) + " (4 digits, in its Settings):", ""); if (!code) return;
       var r = await post("/sync/link", { address: addr, port: port, code: code.trim() });
       PP.setStatus(r.ok ? "Linked with " + (r.name || addr) + " - songs and setlists are copying" : "Not linked: " + (r.error || ""));
       status = await get("/sync/status"); return paint();
     }
     if (b.dataset.sync === "now") { await post("/sync/now"); PP.setStatus("Syncing…"); return; }
-    if (b.dataset.sync === "unlink") { if (confirm("Unlink this Central Control? Its songs stay here; nothing copies any more until you link again.")) { await post("/sync/unlink"); status = await get("/sync/status"); paint(); } }
+    if (b.dataset.sync === "unlink") { if (confirm("Unlink this Central Pedal? Its songs stay here; nothing copies any more until you link again.")) { await post("/sync/unlink"); status = await get("/sync/status"); paint(); } }
   }
   async function onChange(e) {
     if (e.target.id === "syncName") { status = await post("/sync/name", { name: e.target.value }); }
@@ -214,7 +214,7 @@
     var el = $("#syncLine"); if (!el) return; var st = status;
     if (!st) { el.textContent = ""; return; }
     var linked = (st.peers || []).filter(function (x) { return x.linked; }), on = linked.filter(function (x) { return x.online; });
-    el.innerHTML = st.linked ? "Shared with " + linked.map(function (x) { return esc(x.name) + (x.online ? "" : " (off)"); }).join(", ") + (st.activity && st.activity.busy ? " · copying tracks…" : on.length ? " · up to date" : "") : "Only on this Central Control · Setlists… → Devices to link another";
+    el.innerHTML = st.linked ? "Shared with " + linked.map(function (x) { return esc(x.name) + (x.online ? "" : " (off)"); }).join(", ") + (st.activity && st.activity.busy ? " · copying tracks…" : on.length ? " · up to date" : "") : "Only on this Central Pedal · Setlists… → Devices to link another";
   }
   document.addEventListener("click", function (e) { if (e.target.closest("#syncOpen")) { e.preventDefault(); open("setlists"); } });
   F.on("hello", function () { setTimeout(function () { get("/sync/status").then(function (s) { if (s) { status = s; line(); } }); PP.persistSoon(); }, 1200); });

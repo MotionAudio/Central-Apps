@@ -1,4 +1,4 @@
-/* Parts and notation (js/parts.js): paper, notation, drums, chord diagrams. Shared with Central Usage. */
+/* Parts and notation (js/parts.js): paper, notation, drums, chord diagrams. Shared with Central Control. */
 svg.notation { display: block; max-width: 100%; height: auto; }
 svg.notation .n-line { stroke: #222; stroke-width: 1; } svg.notation .n-bar { stroke: #222; stroke-width: 1.2; } svg.notation .n-bar.thick { stroke-width: 3; }
 svg.notation .n-glyph { fill: #111; } svg.notation .n-glyphs { stroke: #111; } svg.notation .n-head-open { fill: none; stroke: #111; stroke-width: 1.6; }

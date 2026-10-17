@@ -60,9 +60,9 @@ Production admins. Gating is the parent's job.
   - Linux / macOS: `{ "from": "native/build/cu-video", "to": "native/cu-video" }` and `{ "from": "native/build/ffmpeg", "to": "native/ffmpeg" }`
   - Windows: `{ "from": "native/build/cu-video.exe", "to": "native/cu-video.exe" }` and `{ "from": "native/build/ffmpeg.exe", "to": "native/ffmpeg.exe" }`
 - macOS `build.mac.extendInfo`:
-  - `"NSCameraUsageDescription": "Central Usage shows your cameras and capture cards in the Video switcher."`
+  - `"NSCameraUsageDescription": "Central Control shows your cameras and capture cards in the Video switcher."`
   - `"NSMicrophoneUsageDescription": "The stream's sound comes from your audio interface or Dante."`
-  - `"NSLocalNetworkUsageDescription": "Central Usage finds NDI cameras, phones and the Central Control on your network."`
+  - `"NSLocalNetworkUsageDescription": "Central Control finds NDI cameras, phones and the Central Pedal on your network."`
 - No new npm dependencies: `ws` is already there, and the certificate code uses only `node:crypto`.
 
 ### `central-usage/native/Makefile` / `prepare-shared.sh`

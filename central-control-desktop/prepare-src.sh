@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copies the Central Control app (the same files the Raspberry Pi runs) into central-control-desktop/src,
+# Copies the Central Pedal app (the same files the Raspberry Pi runs) into central-control-desktop/src,
 # which electron-builder packs into the PC app; and, when they have been built, the built-in instrument rig
 # (central-usage/native/build/cu-rig + rig-map.json -> native/) and its sounds (-> sounds/).
 # The bundled driver for Windows / macOS (driver-dist/) comes from tools/build-driver.sh.

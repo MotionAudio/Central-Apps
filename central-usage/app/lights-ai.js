@@ -1,4 +1,4 @@
-/* Central Usage - "Tell it the show": plain words -> light cues on the song's timeline.
+/* Central Control - "Tell it the show": plain words -> light cues on the song's timeline.
  *   "dimmers blue 20% red and shimmers 30% blue for the verse, then chorus full white, strobes on the hits"
  * Built-in engine (no internet, no model): finds the sections, the lights / groups, colours, levels,
  * effects, speeds, fades and "on the hits", and builds presets + cues from them.
@@ -161,7 +161,7 @@
           hitsIn.forEach(function (h) { var bb = ctx.barBeatAt ? ctx.barBeatAt(h) : { bar: 1, beat: 1 }; cues.push({ id: uid(), bar: bb.bar, beat: Math.max(1, Math.round(bb.beat * 2) / 2), look: hl.id, kind: "flash", dur: 0.5, label: "Hit", said: true }); });
         }
       });
-      if (hl && !hitCount) notes.push("The " + label + " has no hits detected (they come from the Central Control's analysis of the tracks).");
+      if (hl && !hitCount) notes.push("The " + label + " has no hits detected (they come from the Central Pedal's analysis of the tracks).");
     });
     return { looks: looks, cues: cues, notes: notes, summary: steps.length ? steps.map(function (s) { return (s.label || s.section) + ": " + (s.targets || []).map(function (t) { return t.target.name + (t.colors.length ? " " + t.colors.length + " colour" + (t.colors.length > 1 ? "s" : "") : "") + (t.level != null ? " " + Math.round(t.level * 100) + "%" : "") + (t.effect ? " " + t.effect : ""); }).join(", ") + (s.hits ? " + hits" : ""); }).join(" · ") : "" };
   }

@@ -93,13 +93,13 @@
   function renderLearn() {
     var root = $("#lnBoard"); if (!root) return;
     var list = inputs(), reserved = hello ? hello.reservedPins || [] : [];
-    $("#lnStatus").textContent = connected() ? "Control board connected" + (hello && hello.screen35 ? " · 3.5-inch screen on (GPIO " + SCREEN_PINS.join(", ") + " reserved)" : "") + (hello && hello.soundCards && hello.soundCards.some(function (c) { return /hifiberry/i.test(c); }) ? " · I2S DAC found" : "") : "Not connected to the Central Control (learning works on the Central Control itself).";
+    $("#lnStatus").textContent = connected() ? "Control board connected" + (hello && hello.screen35 ? " · 3.5-inch screen on (GPIO " + SCREEN_PINS.join(", ") + " reserved)" : "") + (hello && hello.soundCards && hello.soundCards.some(function (c) { return /hifiberry/i.test(c); }) ? " · I2S DAC found" : "") : "Not connected to the Central Pedal (learning works on the Central Pedal itself).";
     root.innerHTML = list.filter(function (i) { return !i.usb && !i.midi; }).map(function (i) {
       var lrn = learning && learning.target === i.id;
       return '<div class="ln-row' + (lrn ? " learning" : "") + '" data-input-id="' + i.id + '" data-learn="' + i.id + '"><i class="dot' + (i.active === false ? " off" : "") + '"></i><b>' + esc(i.name) + '</b><small>' + esc(wiringText(i)) + (i.gpio != null && reserved.indexOf(i.gpio) > -1 ? " · pin taken by the screen / DAC" : "") + '</small><button data-ln="learn"' + (!connected() ? " disabled" : "") + ">" + (lrn ? "Press / turn it now… (cancel)" : "Learn") + "</button></div>";
     }).join("");
     var usb = $("#lnUsb");
-    usb.innerHTML = (devices.usb.length ? "<p class=\"muted\">Plugged in: " + devices.usb.map(function (d) { return esc(d.name) + (d.pedal ? " (pedal)" : d.keyboard ? " (keyboard)" : d.mouse ? " (mouse)" : ""); }).join(", ") + "</p>" : '<p class="muted">' + (connected() ? "No USB pedals or controllers found. Plug one into the Pi." : "Shows USB devices when connected to the Central Control.") + "</p>") +
+    usb.innerHTML = (devices.usb.length ? "<p class=\"muted\">Plugged in: " + devices.usb.map(function (d) { return esc(d.name) + (d.pedal ? " (pedal)" : d.keyboard ? " (keyboard)" : d.mouse ? " (mouse)" : ""); }).join(", ") + "</p>" : '<p class="muted">' + (connected() ? "No USB pedals or controllers found. Plug one into the Pi." : "Shows USB devices when connected to the Central Pedal.") + "</p>") +
       list.filter(function (i) { return i.usb || i.midi; }).map(function (i) {
         var lrn = learning && learning.target === i.id, ml = midiLearn && midiLearn.target === i.id;
         return '<div class="ln-row' + (lrn || ml ? " learning" : "") + '" data-input-id="' + i.id + '" data-learn="' + i.id + '"><i class="dot"></i><input data-ln="name" value="' + esc(i.name) + '"><small>' + esc(wiringText(i)) + '</small><button data-ln="' + (i.midi ? "midilearn" : "learn") + '">' + (lrn || ml ? "Press it now… (cancel)" : "Learn") + '</button><button data-ln="del" class="danger">✕</button></div>';

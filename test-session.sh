@@ -27,7 +27,7 @@ for _ in $(seq 1 30); do W="$(win)"; [ -n "$W" ] && xdotool getwindowname "$W" 2
 W="$(win)"
 ok "a window opens even though the driver isn't running yet (the start-up page)" '[ -n "$W" ] && xdotool getwindowname "$W" | grep -q starting'
 python3 "$HERE/pedal-driver.py" --simulate "$T/sim" --app-root "$HERE" >"$T/driver.log" 2>&1 & DP=$!
-for _ in $(seq 1 30); do xdotool getwindowname "$W" 2>/dev/null | grep -q "^Central Control - " && ! xdotool getwindowname "$W" | grep -q starting && break; sleep 1; done
+for _ in $(seq 1 30); do xdotool getwindowname "$W" 2>/dev/null | grep -q "^Central Pedal - " && ! xdotool getwindowname "$W" | grep -q starting && break; sleep 1; done
 ok "...and it hands over to the app as soon as the driver answers" 'xdotool getwindowname "$W" | grep -qv starting'
 geo() { xwininfo -id "$W" | awk '/Absolute upper-left X/{x=$4} /Absolute upper-left Y/{y=$4} /Width/{w=$2} /Height/{h=$2} END{print w"x"h"+"x"+"y}'; }
 for _ in $(seq 1 20); do grep -q "screen 1 moved" "$T/log" && break; sleep 0.5; done   # the session's put-it-in-place pass, 6 s after the start

@@ -1,4 +1,4 @@
-// The Video tab end to end: a temporary copy of Central Usage with the integration steps of docs/VIDEO-INTEGRATION.md
+// The Video tab end to end: a temporary copy of Central Control with the integration steps of docs/VIDEO-INTEGRATION.md
 // applied, run in Electron with a fake camera; a test-pattern "IP camera" through ffmpeg; the multiview, preview,
 // cut and fade; the lyrics lower third and the slides; the Main window; streaming to a local RTMP and a local SRT
 // server at once; recording; the stream's audio helper; a phone camera from Chromium over HTTPS; NDI's absence.
@@ -44,7 +44,7 @@ function listen(args) { const p = spawn(FF, ["-hide_banner", "-loglevel", "error
 const rtmpSrv = listen(["-listen", "1", "-timeout", "60", "-i", "rtmp://127.0.0.1:" + (BASE + 5) + "/live/key123", "-c", "copy", "-f", "flv", rtmpOut]);
 const srtSrv = listen(["-i", "srt://127.0.0.1:" + (BASE + 6) + "?mode=listener&latency=50000", "-c", "copy", "-f", "mpegts", srtOut]);
 
-// ---- Central Usage
+// ---- Central Control
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-video-ud-"));
 fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", role: "admin", name: "Video desk" }));
 fs.writeFileSync(path.join(userData, "video.json"), JSON.stringify({ record: { dir: recDir }, stream: { preset: "720p30", bitrate: 2500, encoder: "auto" } }));

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Smoke test of the Central Control driver: starts it simulated, asks http://127.0.0.1:8080/api/info, stops it.
+# Smoke test of the Central Pedal driver: starts it simulated, asks http://127.0.0.1:8080/api/info, stops it.
 #   bash tools/smoke-driver.sh <driver command...>      e.g.  python3 pedal-driver.py   or   driver-dist/pedal-driver/pedal-driver
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; D="$(mktemp -d)"

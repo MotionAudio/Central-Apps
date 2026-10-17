@@ -1,7 +1,7 @@
-/* Central Usage - the Instrument tab: the Central Control's Instrument page (guitar, bass and keys through
+/* Central Control - the Instrument tab: the Central Pedal's Instrument page (guitar, bass and keys through
  * real pedals and sounds) running on this computer. The page lives in a frame (instrument.html, with the
- * Central Control's own files); its audio runs in the instrument host the app starts (services.js): the
- * Central Control's own host on Linux, or the built-in rig (cu-rig) on Windows / macOS - for that one this
+ * Central Pedal's own files); its audio runs in the instrument host the app starts (services.js): the
+ * Central Pedal's own host on Linux, or the built-in rig (cu-rig) on Windows / macOS - for that one this
  * tab also passes the MIDI keyboards through (Web MIDI), since the rig has no MIDI of its own. */
 (function () {
   "use strict";
@@ -10,7 +10,7 @@
   function post(m) { if (frame && frame.contentWindow) frame.contentWindow.postMessage({ cu: "inst", msg: m }, "*"); }
   window.addEventListener("message", function (e) {
     var d = e.data; if (!d || d.cu !== "inst-out") return;
-    if (NAT) NAT.send(d.msg); else post({ type: "instrumentStatus", available: false, error: "The instrument plays in the Central Usage app (not in a browser).", inputs: [], midiInputs: [], keysCatalog: [] });
+    if (NAT) NAT.send(d.msg); else post({ type: "instrumentStatus", available: false, error: "The instrument plays in the Central Control app (not in a browser).", inputs: [], midiInputs: [], keysCatalog: [] });
   });
   // MIDI keyboards for the built-in rig: the app hears them (Web MIDI) and passes the notes on
   var midi = null, midiWant = "auto", rig = false;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Central Usage - the Instrument tab's audio: the same native instrument host the Central Control runs
+"""Central Control - the Instrument tab's audio: the same native instrument host the Central Pedal runs
 (guitar / bass through real LV2 / LADSPA pedals in PipeWire, keys on FluidSynth), on this computer.
 JSON lines: one message per line on stdin (the Instrument tab's messages), replies and status on stdout."""
 import json

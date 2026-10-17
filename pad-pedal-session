@@ -1,6 +1,6 @@
 #!/bin/bash
-# Central Control OS - the X session: one full-screen Chromium window per HDMI screen.
-#   HDMI 1: the Central Control app (or the big version of the 3.5" screen, lyrics, charts, stage)
+# Central Pedal OS - the X session: one full-screen Chromium window per HDMI screen.
+#   HDMI 1: the Central Pedal app (or the big version of the 3.5" screen, lyrics, charts, stage)
 #   HDMI 2: lyrics for the projector (or charts, stage display, the app, nothing)
 # What goes where, and each screen's resolution / zoom / edge margin, is in /data/pad-pedal/displays.json
 # (Settings → Screens). Started by ~/.xinitrc; if it exits, ~/.bash_profile starts it again.

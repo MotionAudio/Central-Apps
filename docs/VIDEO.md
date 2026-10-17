@@ -1,4 +1,4 @@
-# Central Usage – the Video switcher (design note)
+# Central Control – the Video switcher (design note)
 
 ## What it does
 - **Cameras in:** up to 48 cameras, from four kinds of source:
@@ -11,10 +11,10 @@
 - **Multiview:** pick the cameras on it, the grid size and the page. Tally shows red for program and green for preview, with which output each is on.
 - **Two outputs, each with its own Preview / Program:**
   - **MAIN** goes full screen on a display of this computer.
-  - **STREAM** goes to several RTMP(S) / SRT destinations at once, to a recording, and to NDI ("Central Usage Stream" / "Central Usage Main") for OBS / vMix / Streamlabs.
+  - **STREAM** goes to several RTMP(S) / SRT destinations at once, to a recording, and to NDI ("Central Control Stream" / "Central Control Main") for OBS / vMix / Streamlabs.
 - **Per output:**
   - Cut, and Auto with fade, dip to black or wipe.
-  - **Lyrics** lower third from the Central Control. Lines cross-fade; a new section dips out and in.
+  - **Lyrics** lower third from the Central Pedal. Lines cross-fade; a new section dips out and in.
   - **Slides**: full screen, or keyed over the camera.
   - Fade to black.
 - **Stream audio:** two sources, A and B, each a device plus a channel pair on an interface or Dante. One is chosen, with gain, meters and a delay. The in-house audio is untouched.
@@ -24,7 +24,7 @@
 
 | Job | Where | Why |
 |---|---|---|
-| Compositing (sources → outputs, transitions, keys, lyrics) | WebGL2 in the Central Usage page, on one off-screen canvas | It is the GPU on every OS with no native graphics code. Every source is a texture; each output renders into its own framebuffer. |
+| Compositing (sources → outputs, transitions, keys, lyrics) | WebGL2 in the Central Control page, on one off-screen canvas | It is the GPU on every OS with no native graphics code. Every source is a texture; each output renders into its own framebuffer. |
 | USB / HDMI capture, webcams | `getUserMedia` in the page | Cross-platform capture with device names, at full frame rate, straight into textures. |
 | IP cameras (SRT / RTMP / RTSP / HTTP), media files | one `ffmpeg` per source (`video-service.js`) → raw I420 → the page | ffmpeg handles every protocol and codec, and uses hardware decoding when present. |
 | NDI cameras | `cu-video ndi-recv` (the NDI runtime is loaded at run time) → I420 → the page | NDI's own SDK; the runtime is free, but its licence keeps it out of the bundle. |

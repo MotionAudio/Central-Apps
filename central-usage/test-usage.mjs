@@ -1,4 +1,4 @@
-// Central Usage renderer against the simulated driver: chart transposition, sections, lyrics, MIDI relay timing
+// Central Control renderer against the simulated driver: chart transposition, sections, lyrics, MIDI relay timing
 import { chromium } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url"; const here = path.dirname(fileURLToPath(import.meta.url));
@@ -24,12 +24,12 @@ await pi.evaluate(async () => { PPTracks.newSong("Test Song"); PPFeatures.loadSo
 const r = await fetch("http://127.0.0.1:8080/api/upload?kind=charts&name=Test%20Song.txt&song=Test%20Song", { method: "POST", body: text }); assert.equal(r.status, 200);
 await pi.waitForFunction(() => PPTracks.song() && PPTracks.song().chart && PPTracks.data(PPTracks.song()).sections.length >= 2, null, { timeout: 8000 });
 await pi.evaluate(() => { PPTracks.sendDisplay(); PPFeatures.sendToDriver({ type: "system", action: "status" }); }); await pi.waitForFunction(() => PPFeatures.systemStatus() && PPFeatures.systemStatus().code, null, { timeout: 5000 }); code = await pi.evaluate(() => PPFeatures.systemStatus().code);
-// Central Usage renderer
+// Central Control renderer
 const cu = await ctx.newPage(); cu.on("pageerror", (e) => errs.push("cu:" + e)); cu.on("console", (m) => { if (m.type() === "error" && !/favicon|NAME_NOT_RESOLVED|padpedal\.local/.test(m.text())) errs.push("cu-console:" + m.text()); });
 await cu.addInitScript(() => { if (!localStorage.getItem("cu-mode")) localStorage.setItem("cu-mode", JSON.stringify("user")); });   // a musician's computer first (chart, lyrics)
 await cu.goto("file://" + path.join(here, "app", "index.html") + ""); await cu.waitForFunction(() => window.CentralUsage);
 await cu.evaluate(() => { CentralUsage.connect("127.0.0.1"); });
-await check("connects to the Central Control and shows its song", async () => { await cu.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.display && CentralUsage.state.display.song, null, { timeout: 8000 }); assert.match(await cu.textContent("#songName"), /Test Song/); });
+await check("connects to the Central Pedal and shows its song", async () => { await cu.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.display && CentralUsage.state.display.song, null, { timeout: 8000 }); assert.match(await cu.textContent("#songName"), /Test Song/); });
 await check("the chart loads with chords over lyrics, in the song key", async () => { await cu.waitForFunction(() => document.querySelectorAll("#chart .csec").length >= 2, null, { timeout: 8000 }); const t = await cu.textContent("#chart"); assert.match(t, /first\s+verse\s+line/); assert.ok((await cu.$$eval("#chart .ch", (l) => l.map((e) => e.textContent))).includes("G"), "G chord shown"); });
 await check("guitar with G shapes when the song is in A shows capo 2 and A->G", async () => {
   await pi.evaluate(() => { PPTracks.song().key = "A"; PPTracks.sendDisplay(); });
@@ -44,14 +44,14 @@ await check("the lyrics tab shows the current section's words without chords", a
   await cu.evaluate(() => document.querySelector('[data-tab="lyrics"]').click());
   await cu.waitForFunction(() => /first verse line|Verse/.test(document.querySelector("#lyrics").textContent), null, { timeout: 6000 }); const t = await cu.textContent("#lyrics"); assert.ok(!/\bG\s+D\b/.test(t), "no chord line in lyrics: " + t);
 });
-await check("only the Central Control moves the tracks: the section buttons show where it is, a jump request is refused; the lyrics can be paged", async () => {
+await check("only the Central Pedal moves the tracks: the section buttons show where it is, a jump request is refused; the lyrics can be paged", async () => {
   await cu.evaluate((c) => { CentralUsage.prefs.code = c; CentralUsage.send({ type: "auth", code: c }); }, code);
   await cu.evaluate(() => document.querySelector('[data-tab="chart"]').click()); await cu.waitForSelector("#sections [data-sec='1']", { timeout: 5000 });
   const before = await pi.evaluate(() => PPTracks.state.section);
   await cu.click("#sections [data-sec='1']"); await cu.evaluate((c) => CentralUsage.send({ type: "action", name: "nextSection", code: c }), code); await cu.waitForTimeout(700);
   assert.equal(await pi.evaluate(() => PPTracks.state.section), before, "the Pi did not move");
   const refused = await cu.evaluate(() => new Promise((res) => { CentralUsage.on("refused", (m) => res(m)); CentralUsage.send({ type: "action", name: "playPause", code: CentralUsage.prefs.code }); setTimeout(() => res(null), 2000); }));
-  assert.ok(refused && /Only the Central Control/.test(refused.error), JSON.stringify(refused));
+  assert.ok(refused && /Only the Central Pedal/.test(refused.error), JSON.stringify(refused));
   const page = await pi.evaluate(() => JSON.stringify([PPTracks.state.lyricsPage, PPTracks.state.section, PPTracks.state.lyricsManual])); await cu.evaluate(() => CentralUsage.action("lyricsNext")); await pi.waitForFunction((p) => JSON.stringify([PPTracks.state.lyricsPage, PPTracks.state.section, PPTracks.state.lyricsManual]) !== p, page, { timeout: 4000 });
 });
 await check("MIDI relay: the Pi's hit notes arrive with its clock and are scheduled on a local output", async () => {
@@ -101,7 +101,7 @@ await check("lighting: following the song - at the chorus the chorus look is up,
   assert.deepEqual(r.a, [255, 122, 43, 255, 0], "chorus back " + r.a);
   assert.ok(r.f[1] > 200 && r.f[2] > 200 && r.f[4] > 200, "flash white " + r.f);
 });
-await check("lighting: a cue added on the timeline is saved on the Central Control (with the pairing code) and read back", async () => {
+await check("lighting: a cue added on the timeline is saved on the Central Pedal (with the pairing code) and read back", async () => {
   await cu.evaluate((c) => { CentralUsage.prefs.code = c; }, code);
   const box = await cu.$("#lxTimeline"); const bb = await box.boundingBox();
   const before = await cu.evaluate(() => CULights.show().cues.length);
@@ -348,7 +348,7 @@ await check("Forget role on the main admin goes back to the first-launch choice"
   await mainP.evaluate(() => { window.confirm = () => true; }); await mainP.click("#settingsRoot [data-rl='forget']");
   await mainP.waitForSelector("#modePick [data-rp='main']", { timeout: 5000 }); assert.equal(await mainP.evaluate(() => CentralUsage.role()), null);
 });
-await check("iPhone / iPad: Central Usage opens from the Central Control (http://pi:8080/cu/), joins as a user, shows the user tabs and the parts", async () => {
+await check("iPhone / iPad: Central Control opens from the Central Pedal (http://pi:8080/cu/), joins as a user, shows the user tabs and the parts", async () => {
   const c = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" });
   const p = await c.newPage(); p.on("pageerror", (e) => errs.push("web:" + e)); p.on("console", (m) => { if (m.type() === "error" && !/favicon|icon\.png|404|ERR_CONNECTION_REFUSED/.test(m.text())) errs.push("web-console:" + m.text()); });
   const r = await p.goto("http://127.0.0.1:8080/cu/"); assert.equal(r.status(), 200);

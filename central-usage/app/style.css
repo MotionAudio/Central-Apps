@@ -203,7 +203,7 @@ button.on { background: color-mix(in srgb, var(--accent), transparent 70%); bord
 /* the Part picker on the Chord chart tab */
 .part-pick select { width: auto; } .part-views { display: inline-flex; gap: 4px; margin-left: 6px; } .part-views button { padding: 4px 10px; font-size: 12px; } .part-views button.on { background: var(--accent); color: var(--accentText); border-color: transparent; }
 .part-view { padding: 12px 16px 40px; overflow: auto; } .part-view[hidden] { display: none; } #chart[hidden] { display: none; }
-/* in a phone / tablet browser (served by the Central Control at /cu/) */
+/* in a phone / tablet browser (served by the Central Pedal at /cu/) */
 html[data-web] .admin-only, html[data-web] #findBtn, html[data-web] #connectBtn, html[data-web] #host { display: none !important; }
 .mode-opts.web { grid-template-columns: 1fr; }
 @media (max-width: 720px) { header.top { flex-wrap: wrap; gap: 6px; } .tabs { overflow-x: auto; max-width: 100%; } .role-chip { order: 3; } }

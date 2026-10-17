@@ -1,10 +1,10 @@
 #!/bin/bash
 # ==============================================================================
-# Central Control OS - system setup
+# Central Pedal OS - system setup
 #
 # Turns a Raspberry Pi OS Lite (64-bit, Bookworm or Trixie) root filesystem
-# into an appliance that boots straight into Central Control and nothing else:
-#   power on -> Central Control on HDMI 1, lyrics for the projector on HDMI 2,
+# into an appliance that boots straight into Central Pedal and nothing else:
+#   power on -> Central Pedal on HDMI 1, lyrics for the projector on HDMI 2,
 #   pads / tracks on the 3.5" touch screen, charts on every phone on the Wi-Fi.
 #
 # Used two ways (you normally don't run it by hand):
@@ -115,7 +115,7 @@ if [ "$DISABLE_FIRSTBOOT_WIZARD" = "1" ]; then
 fi
 
 # ------------------------------------------------------------------------------
-step "Installing the Central Control app, companion pages and the driver"
+step "Installing the Central Pedal app, companion pages and the driver"
 install -d -m 755 /opt/pad-pedal /opt/pad-pedal/css /opt/pad-pedal/js /opt/pad-pedal/js/vendor /opt/pad-pedal/companion /opt/pad-pedal/cues /etc/pad-pedal
 install -m 644 "$SRC/index.html"       /opt/pad-pedal/index.html
 install -m 644 "$SRC/starting.html"    /opt/pad-pedal/starting.html
@@ -126,7 +126,7 @@ install -m 644 "$SRC"/css/*.css        /opt/pad-pedal/css/
 install -m 644 "$SRC"/js/*.js          /opt/pad-pedal/js/
 install -m 644 "$SRC"/js/vendor/*.js   /opt/pad-pedal/js/vendor/
 install -m 644 "$SRC"/companion/*      /opt/pad-pedal/companion/
-# Central Usage for phones and tablets (iPhone / iPad: http://<this Pi>:8080/cu/, Add to Home Screen)
+# Central Control for phones and tablets (iPhone / iPad: http://<this Pi>:8080/cu/, Add to Home Screen)
 install -d -m 755 /opt/pad-pedal/central-usage/app /opt/pad-pedal/central-usage/build
 install -m 644 "$SRC"/central-usage/app/*.js "$SRC"/central-usage/app/*.html "$SRC"/central-usage/app/*.css /opt/pad-pedal/central-usage/app/
 install -m 644 "$SRC/central-usage/build/icon.png" /opt/pad-pedal/central-usage/build/icon.png
@@ -343,7 +343,7 @@ if [ "$IN_CHROOT" = "1" ]; then
     update-initramfs -u -k all >/dev/null 2>&1 || update-initramfs -c -k all >/dev/null 2>&1 || warn "initramfs update failed - safe mode may not work"
   fi
 else
-  step "Setting up /data on this card (safe mode needs the Central Control OS image)"
+  step "Setting up /data on this card (safe mode needs the Central Pedal OS image)"
   touch /etc/pad-pedal/no-data-partition
   systemctl daemon-reload
   bash /opt/pad-pedal/firstboot.sh || warn "first-boot setup reported a problem"
@@ -352,4 +352,4 @@ else
 fi
 
 apt-get clean
-step "Central Control OS setup complete"
+step "Central Pedal OS setup complete"

@@ -1,5 +1,5 @@
-/* Central Control - colours of everything: a standard colour for each kind of section (the same on the
- * waveform, the section buttons, the stage display and Central Usage), a colour per pad, and every
+/* Central Pedal - colours of everything: a standard colour for each kind of section (the same on the
+ * waveform, the section buttons, the stage display and Central Control), a colour per pad, and every
  * screen colour - all changeable in Settings → Appearance → Colours of everything. */
 (function () {
   "use strict";
@@ -46,7 +46,7 @@
     function input(attr, key, value, label) { return '<label class="clr"><input type="color" ' + attr + '="' + key + '" value="' + esc(value) + '"><span>' + esc(label) + "</span></label>"; }
     root.innerHTML =
       '<h4>Screen</h4><div class="clr-grid">' + SCREEN.map(function (s) { return input("data-clr-screen", s[0], screen(s[0]), s[1]); }).join("") + "</div>" +
-      '<h4>Sections <small>(waveform, section buttons, stage display, Central Usage)</small></h4><div class="clr-grid">' + SECTIONS.map(function (s) { return input("data-clr-sec", s[0], store().sections[s[0]] || s[3], s[1]); }).join("") + "</div>" +
+      '<h4>Sections <small>(waveform, section buttons, stage display, Central Control)</small></h4><div class="clr-grid">' + SECTIONS.map(function (s) { return input("data-clr-sec", s[0], store().sections[s[0]] || s[3], s[1]); }).join("") + "</div>" +
       '<h4>Pads</h4><div class="clr-grid">' + project().pads.map(function (pd, i) { return input("data-clr-pad", String(i), padColor(i), (i + 1) + " · " + pd.name); }).join("") + "</div>" +
       '<div class="row"><button data-clr-reset="sections">Standard section colours</button><button data-clr-reset="pads">Standard pad colours</button></div>';
   }

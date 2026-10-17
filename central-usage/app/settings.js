@@ -1,4 +1,4 @@
-/* Central Usage - Settings: this computer (its name and role - roles.js - and, on the main admin, the People list), the lights' optional AI model,
+/* Central Control - Settings: this computer (its name and role - roles.js - and, on the main admin, the People list), the lights' optional AI model,
  * updates and about. (Inputs, outputs and the audio host are on the I/O tab.) */
 (function () {
   "use strict";
@@ -9,7 +9,7 @@
   function visible() { return CU.prefs.tab === "settings"; }
   function mb(n) { return Math.round((n || 0) / 1048576); }
   function aiCard() {
-    if (!NAT || !NAT.ai) return '<section class="card"><h3>Lights: AI model (optional)</h3><p class="muted">Works in the Central Usage app.</p></section>';
+    if (!NAT || !NAT.ai) return '<section class="card"><h3>Lights: AI model (optional)</h3><p class="muted">Works in the Central Control app.</p></section>';
     var a = ai || {}, d = a.download || {};
     return '<section class="card"><h3>Lights: AI model (optional)</h3><p class="muted">The Lighting tab\'s "Tell it the show" box understands plain words by itself (colours, levels, the groups and lights, sections, effects, the hits). A small local AI model can also read freer sentences - it runs on this computer, nothing goes to the internet.</p>' +
       '<table class="io-t"><tr><td>Model</td><td>' + esc(a.model || "") + " - " + (a.downloaded ? "✓ downloaded" : d.active ? "downloading… " + mb(d.got) + (d.total ? " / " + mb(d.total) : "") + " MB" : "not downloaded") + "</td></tr>" +
@@ -30,8 +30,8 @@
       mixCard() +
       aiCard() +
       (window.CULyricsListen ? window.CULyricsListen.card() : "") +
-      '<section class="card"><h3>Updates</h3><p class="muted">Central Usage looks for a new version once a day and installs it only when you say so.</p><button data-st="updates">Check for updates…</button></section>' +
-      '<section class="card"><h3>About</h3><p>Central Usage ' + esc(version && version.app || "") + '</p><p class="muted small">Companion app for Central Control: chord charts, lyrics, lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides.</p></section></div>';
+      '<section class="card"><h3>Updates</h3><p class="muted">Central Control looks for a new version once a day and installs it only when you say so.</p><button data-st="updates">Check for updates…</button></section>' +
+      '<section class="card"><h3>About</h3><p>Central Control ' + esc(version && version.app || "") + '</p><p class="muted small">Companion app for Central Pedal: chord charts, lyrics, lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides.</p></section></div>';
   }
   var root = $("#settingsRoot");
   root.addEventListener("change", async function (e) {

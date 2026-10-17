@@ -85,7 +85,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.1.1"
+APP_VERSION = "8.2.0"
 CONFIG_CANDIDATES = ["/data/pad-pedal/hardware.json", "/etc/pad-pedal/hardware.json"]
 SYSTEM_SCRIPT = "/usr/local/sbin/pad-pedal-system"
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".oga", ".m4a", ".aac", ".aif", ".aiff", ".opus")
@@ -435,8 +435,8 @@ def sound_cards():
     return cards
 
 
-# what a Central Usage computer may ask the Central Control to do: page the lyrics. Starting, stopping and
-# moving the tracks is only done on the Central Control.
+# what a Central Control computer may ask the Central Pedal to do: page the lyrics. Starting, stopping and
+# moving the tracks is only done on the Central Pedal.
 CU_ACTIONS = ("lyricsNext", "lyricsPrev")
 DISPLAY_KEYS = ("hdmi1", "hdmi2", "cursor", "mode1", "mode2", "scale", "inset1", "inset2")
 
@@ -876,7 +876,7 @@ class Library:
         with zipfile.ZipFile(path) as zf:
             names = zf.namelist()
             if "central-control-backup.json" not in names:
-                raise ValueError("not a Central Control backup")
+                raise ValueError("not a Central Pedal backup")
             root = os.path.realpath(self.data_root)
             n = 0
             for member in names:
@@ -1423,11 +1423,11 @@ class CompanionServer:
                     self.send_header("Content-Length", "0")
                     self.end_headers()
                     return
-                if p.startswith("/cu/"):   # Central Usage for iPhone / iPad (and any browser): User 1 / User 2, served from here
+                if p.startswith("/cu/"):   # Central Control for iPhone / iPad (and any browser): User 1 / User 2, served from here
                     app_root = driver.config["app_root"]
                     rel = p[len("/cu/"):]
                     if rel == "manifest.webmanifest":
-                        body = json.dumps({"name": "Central Usage", "short_name": "Central Usage", "start_url": "/cu/", "scope": "/cu/", "display": "standalone",
+                        body = json.dumps({"name": "Central Control", "short_name": "Central Control", "start_url": "/cu/", "scope": "/cu/", "display": "standalone",
                                            "background_color": "#08111d", "theme_color": "#08111d", "icons": [{"src": "/cu/icon.png", "sizes": "512x512", "type": "image/png"}]}).encode()
                         self.send_response(200)
                         self.send_header("Content-Type", "application/manifest+json")
@@ -1443,7 +1443,7 @@ class CompanionServer:
                     if rel.startswith("fonts/"):
                         return self.serve_static(os.path.join(app_root, "fonts"), rel[len("fonts/"):])
                     return self.serve_static(os.path.join(app_root, "central-usage", "app"), rel)
-                if p.startswith("/api/sync/"):   # another Central Control of the same group pulling songs
+                if p.startswith("/api/sync/"):   # another Central Pedal of the same group pulling songs
                     sync = driver.sync
                     if not sync.auth_ok(self.headers, p):
                         return self.send_json(403, {"error": "not linked"})
@@ -1468,7 +1468,7 @@ class CompanionServer:
                 if p == "/api/info":
                     return self.send_json(200, {"hostname": socket.gethostname(), "wsPort": driver.config["lan_ws_port"], "version": VERSION, "appVersion": APP_VERSION, "addresses": ip_addresses(),
                                                 "interfaces": ip_interfaces(), "netAudio": {"mode": driver.netaudio.cfg["mode"]}, "audioHost": driver.public_audio_host()})
-                if p == "/api/hub":   # songs on the Central Control, for Central Usage
+                if p == "/api/hub":   # songs on the Central Pedal, for Central Control
                     return self.send_json(200, {"songs": driver.hub_listing()})
                 if p.startswith("/api/hub/"):
                     sid = re.sub(r"[^A-Za-z0-9_-]", "", p[len("/api/hub/"):])[:64]
@@ -1490,7 +1490,7 @@ class CompanionServer:
                     return self.send_file(path, mimetypes.guess_type(path)[0] or "application/octet-stream", cache=True)
                 if p == "/api/slide":
                     return self.send_json(200, driver.slide)
-                if p == "/api/lighting":  # the light show (cues) of one song, written by Central Usage
+                if p == "/api/lighting":  # the light show (cues) of one song, written by Central Control
                     sid = re.sub(r"[^A-Za-z0-9_-]", "", (urllib.parse.parse_qs(url.query).get("song") or [""])[0])[:64]
                     path = os.path.join(driver.config["data_root"], "lighting", sid + ".json")
                     return self.send_json(200, read_json(path, {}) if sid else {})
@@ -1546,10 +1546,10 @@ class CompanionServer:
                     show["updated"] = int(time.time() * 1000)
                     show["by"] = str(message.get("by") or "")[:60]
                     write_json(os.path.join(driver.config["data_root"], "lighting", sid + ".json"), show)
-                    driver.sync.touch(sid)   # the light show travels with the song to the other Central Controls
+                    driver.sync.touch(sid)   # the light show travels with the song to the other Central Pedals
                     driver.emit({"type": "lighting", "song": sid, "updated": show["updated"], "by": show["by"]}, lan=True)
                     return self.send_json(200, {"ok": True, "updated": show["updated"]})
-                if url.path == "/api/slides":   # a picture / video from Central Usage for the Pi's slides screen
+                if url.path == "/api/slides":   # a picture / video from Central Control for the Pi's slides screen
                     if not driver.code_ok((query.get("code") or [""])[0]):
                         self.body()
                         return self.send_json(403, {"error": "wrong code"})
@@ -2298,7 +2298,7 @@ class _ExpanderLed:
 
 
 # ---------------------------------------------------------------------------
-# Network audio: Central Control -> Central Usage computers (Ethernet or Wi-Fi)
+# Network audio: Central Pedal -> Central Control computers (Ethernet or Wi-Fi)
 # ---------------------------------------------------------------------------
 def ip_interfaces():
     """[{iface, address, kind}] for every IPv4 address; kind is ethernet / wifi / other."""
@@ -2350,7 +2350,7 @@ def _newer(a, b):
 
 
 class SongSync:
-    """Every Central Control (the Pi and Central Control on a PC) keeps the same songs and setlists.
+    """Every Central Pedal (the Pi and Central Pedal on a PC) keeps the same songs and setlists.
 
     Songs and setlists are records with a version (rev, a Lamport clock, then time, then device), so the
     newest edit wins and an edit made after receiving another one always counts as newer. Devices find
@@ -2534,7 +2534,7 @@ class SongSync:
     def device_name(self, did):
         if did == self.id:
             return self.name
-        return self.known.get(did) or (self.peers.get(did) or {}).get("name") or "another Central Control"
+        return self.known.get(did) or (self.peers.get(did) or {}).get("name") or "another Central Pedal"
 
     def setlist_song_ids(self):
         out = set()
@@ -2659,9 +2659,9 @@ class SongSync:
         return rec
 
     def handle_link(self, payload):
-        """Another Central Control links with this one using this one's pairing code."""
+        """Another Central Pedal links with this one using this one's pairing code."""
         if not self.driver.code_ok((payload or {}).get("code")):
-            return 403, {"error": "That code is not right - it is in this Central Control's Settings."}
+            return 403, {"error": "That code is not right - it is in this Central Pedal's Settings."}
         theirs = payload.get("group") if isinstance(payload.get("group"), dict) else None
         with self.lock:
             if not self.group:
@@ -2962,7 +2962,7 @@ def _salted(secret, salt):
 
 
 class CuRoles:
-    """Who is who among the Central Usage computers: one main admin, any number of admins and users.
+    """Who is who among the Central Control computers: one main admin, any number of admins and users.
 
     The main admin chooses that role on its first launch and sends a secret token (so no one else can
     pretend to be it), its 4-digit PIN and a pairing code. A new computer joins with the pairing code.
@@ -3020,7 +3020,7 @@ class CuRoles:
             return True
         info = self.driver.lan_clients.get(ws) or {}
         if not info.get("cuId"):
-            return True        # not a Central Usage (a phone page, an older app)
+            return True        # not a Central Control (a phone page, an older app)
         return self.role_of(ws) in CU_ADMIN_TIER
 
     def claimants(self):
@@ -3092,7 +3092,7 @@ class CuRoles:
             c[1] = time.time() + self.LOCK_SECONDS
 
     def handle(self, ws, m):
-        """One {type: "cuRole", action: ...} message from a Central Usage computer; returns the reply."""
+        """One {type: "cuRole", action: ...} message from a Central Control computer; returns the reply."""
         info = self.driver.lan_clients.setdefault(ws, {"auth": False, "app": None})
         action = m.get("action")
         did = re.sub(r"[^A-Za-z0-9_-]", "", str(m.get("id") or info.get("cuId") or ""))[:48]
@@ -3120,7 +3120,7 @@ class CuRoles:
                     pin_ok = bool(self.main.get("pinHash")) and _salted(str(m.get("pin") or "").strip(), self.main.get("pinSalt", "")) == self.main["pinHash"]
                     if not pin_ok:
                         want, pending = "user1", True      # the main admin allows it (Devices tab), or the computer types the role PIN later
-                d.update({"name": name or d.get("name") or "Central Usage", "role": want, "paired": True, "lastSeen": now})
+                d.update({"name": name or d.get("name") or "Central Control", "role": want, "paired": True, "lastSeen": now})
                 if pending:
                     d["wantsAdmin"] = True
                 else:
@@ -3164,10 +3164,10 @@ class CuRoles:
                 else:
                     # a second computer that thinks it is the main admin: it works as an admin until one of them forgets the role
                     d = self.devices.setdefault(did, {})
-                    d.update({"name": name or d.get("name") or "Central Usage", "role": "admin", "claimsMain": True, "lastSeen": now})
+                    d.update({"name": name or d.get("name") or "Central Control", "role": "admin", "claimsMain": True, "lastSeen": now})
             else:
                 if not d:
-                    # first time the Central Control sees this computer: once there is a main admin, a new one starts as a user
+                    # first time the Central Pedal sees this computer: once there is a main admin, a new one starts as a user
                     role = claim or "user1"
                     if self.main and role in CU_ADMIN_TIER:
                         role = "user1"
@@ -3177,7 +3177,7 @@ class CuRoles:
                 if d.get("role") == "main" and (not self.main or self.main["id"] != did):
                     d["role"] = "admin"     # it forgot being the main admin elsewhere
                 d.pop("claimsMain", None)
-                d["name"] = name or d.get("name") or "Central Usage"
+                d["name"] = name or d.get("name") or "Central Control"
                 d["lastSeen"] = now
             self.save()
             self.push()
@@ -3334,7 +3334,7 @@ SERVICE_KINDS = ("song", "prayer", "welcome", "announcements", "offering", "serm
 class ServicePlan:
     """Up to 4 services (e.g. Sunday 9:00, Sunday 11:00, Wednesday, Youth), each a run order of items with
     minutes and the roles each item uses (lighting, production/cameras, slides, lyrics, mix, in-ears, band).
-    The main admin edits them and runs one (Start / Next / Back / Stop). Every Central Usage shows a countdown
+    The main admin edits them and runs one (Start / Next / Back / Stop). Every Central Control shows a countdown
     to the service and to its own next part; the stage display shows the service countdown.
     Kept in /data/pad-pedal/services.json."""
 
@@ -3424,8 +3424,8 @@ class ServicePlan:
 
 class NetAudio:
     """The tracks (each stem on its own channel), click, pads, the tracks mix and the instrument go to
-    Central Usage over the network. The app renders the channels and sends them here as binary packets;
-    the Pi adds the instrument channel, captured from its output with pw-record. Every Central Usage
+    Central Control over the network. The app renders the channels and sends them here as binary packets;
+    the Pi adds the instrument channel, captured from its output with pw-record. Every Central Control
     that subscribed (with the pairing code) gets the packets. "ethernet" / "wifi" only serve computers
     that reach the Pi over that kind of connection; "interface" means the outputs are cabled into the
     other computer's audio interface (nothing goes over the network); "off" sends nothing.
@@ -3472,9 +3472,9 @@ class NetAudio:
     def refusal(self):
         mode = self.cfg["mode"]
         if mode == "off":
-            return "Network audio is off on the Central Control (I/O tab)."
+            return "Network audio is off on the Central Pedal (I/O tab)."
         if mode == "interface":
-            return "The Central Control sends its audio through the audio interface (I/O tab), not the network."
+            return "The Central Pedal sends its audio through the audio interface (I/O tab), not the network."
         return None
 
     def status(self):
@@ -3510,9 +3510,9 @@ class NetAudio:
             local = None
         kinds = {i["address"]: i["kind"] for i in ip_interfaces()}
         if not any(k == mode for k in kinds.values()):
-            return "The Central Control has no %s connection right now." % ("Ethernet" if mode == "ethernet" else "Wi-Fi")
+            return "The Central Pedal has no %s connection right now." % ("Ethernet" if mode == "ethernet" else "Wi-Fi")
         if local in kinds and kinds[local] != mode:
-            return "Audio goes over %s only: connect to the Central Control's %s address." % (("Ethernet", "Ethernet") if mode == "ethernet" else ("Wi-Fi", "Wi-Fi"))
+            return "Audio goes over %s only: connect to the Central Pedal's %s address." % (("Ethernet", "Ethernet") if mode == "ethernet" else ("Wi-Fi", "Wi-Fi"))
         return None
 
     def subscribe(self, ws, message):
@@ -3524,7 +3524,7 @@ class NetAudio:
         except Exception:
             peer = "?"
         sources = set(int(x) for x in (message.get("sources") or [0, 1]) if str(x).isdigit())
-        self.subs[ws] = {"sources": sources, "name": str(message.get("name") or "Central Usage")[:40], "address": peer, "dropped": 0}
+        self.subs[ws] = {"sources": sources, "name": str(message.get("name") or "Central Control")[:40], "address": peer, "dropped": 0}
         self.update()
         return {"type": "audioSubscribed", "ok": True, "sources": self.sources, "mode": self.cfg["mode"]}
 
@@ -3681,7 +3681,7 @@ class PedalDriver:
         if native_rig and (not self.instrument or not getattr(self.instrument, "available", False) or os.environ.get("CC_RIG") == "1") and native_rig.find_binary(config["app_root"]):
             self.instrument = native_rig.NativeRig(self, data_root, config["app_root"])   # Windows / macOS: no PipeWire
         self.netaudio = NetAudio(self, os.path.join(data_root, "netaudio.json"))
-        self.audio_host = None        # the Central Usage computer that makes the in-ear mixes: {name, address, port, ws}
+        self.audio_host = None        # the Central Control computer that makes the in-ear mixes: {name, address, port, ws}
         self.cu_roles = CuRoles(self, os.path.join(data_root, "cu-roles.json"))
         self.service_plan = ServicePlan(self, os.path.join(data_root, "services.json"))
         self.sync = SongSync(self)
@@ -3751,8 +3751,8 @@ class PedalDriver:
         return os.path.exists(os.path.join(self.config["data_root"], "code-chosen"))
 
     def set_code(self, pin):
-        """The person picks the 4-digit pairing PIN (asked the first time the Central Control starts; Settings can
-        change it). It must differ from the main admin's PIN (that one changes roles in Central Usage)."""
+        """The person picks the 4-digit pairing PIN (asked the first time the Central Pedal starts; Settings can
+        change it). It must differ from the main admin's PIN (that one changes roles in Central Control)."""
         pin = str(pin or "").strip()
         if not re.match(r"^\d{4}$", pin):
             return {"ok": False, "error": "The PIN is 4 digits."}
@@ -3851,7 +3851,7 @@ class PedalDriver:
             if self.usb:
                 self.devices_dirty = True
             async for raw in ws:
-                if isinstance(raw, (bytes, bytearray)):   # network audio from the app -> Central Usage
+                if isinstance(raw, (bytes, bytearray)):   # network audio from the app -> Central Control
                     await self.netaudio.relay(bytes(raw), 0)
                     continue
                 try:
@@ -3894,8 +3894,8 @@ class PedalDriver:
                     if not authed:
                         await ws.send(json.dumps({"type": "auth", "ok": False}))
                     elif self.lan_clients[ws].get("app") == "central-usage" and message.get("name") not in CU_ACTIONS:
-                        # only the Central Control itself starts, stops and moves the tracks
-                        await ws.send(json.dumps({"type": "refused", "action": message.get("name"), "error": "Only the Central Control plays, stops and skips the tracks."}))
+                        # only the Central Pedal itself starts, stops and moves the tracks
+                        await ws.send(json.dumps({"type": "refused", "action": message.get("name"), "error": "Only the Central Pedal plays, stops and skips the tracks."}))
                     else:
                         source = "central-usage" if self.lan_clients[ws].get("app") == "central-usage" else "companion"
                         self.emit({"type": "action", "name": message.get("name"), "args": message.get("args") or {}, "from": source})
@@ -3905,7 +3905,7 @@ class PedalDriver:
                     self.lan_clients[ws]["app"] = str(message.get("app") or "")[:40]
                     self.lan_clients[ws]["mode"] = str(message.get("mode") or "")[:20]
                     self.lan_clients[ws]["name"] = str(message.get("name") or "")[:40]
-                elif kind == "songWords":   # words heard in a song's vocal track (Central Usage), with their times
+                elif kind == "songWords":   # words heard in a song's vocal track (Central Control), with their times
                     authed = self.lan_clients[ws]["auth"] or self.code_ok(message.get("code"))
                     if not authed or not self.cu_roles.admin_ok(ws):
                         await ws.send(json.dumps({"type": "refused", "for": kind, "error": "Only an admin computer with the code can send lyrics."}))
@@ -3951,14 +3951,14 @@ class PedalDriver:
                 self.emit({"type": "audioHost", "host": None}, lan=True)
 
     def audio_host_message(self, ws, message):
-        """One Central Usage computer makes the in-ear mixes (the audio host); every other one finds it here."""
+        """One Central Control computer makes the in-ear mixes (the audio host); every other one finds it here."""
         if message.get("action") == "register":
             try:
                 address = ws.remote_address[0]
             except Exception:
                 address = None
             address = str(message.get("address") or address or "")[:64]
-            self.audio_host = {"name": str(message.get("name") or "Central Usage")[:40], "address": address, "port": int(message.get("port") or 8092), "since": int(time.time() * 1000), "ws": ws}
+            self.audio_host = {"name": str(message.get("name") or "Central Control")[:40], "address": address, "port": int(message.get("port") or 8092), "since": int(time.time() * 1000), "ws": ws}
             codes = {k: str(message[k])[:12] for k in ("userCode", "adminCode") if message.get(k)}
             if codes:
                 self.audio_host["codes"] = codes
@@ -3968,11 +3968,11 @@ class PedalDriver:
         self.cu_roles.push()
 
     def audio_host_codes(self):
-        """The audio host's in-ear / admin codes - handed to each Central Usage by its role, never shown to phones."""
+        """The audio host's in-ear / admin codes - handed to each Central Control by its role, never shown to phones."""
         return (self.audio_host or {}).get("codes") or {}
 
     def set_slide(self, message):
-        """Slides / lyrics from Central Usage for a screen on the Pi (HDMI 2 set to "Slides")."""
+        """Slides / lyrics from Central Control for a screen on the Pi (HDMI 2 set to "Slides")."""
         slide = {"type": "slide", "kind": message.get("kind") if message.get("kind") in ("none", "image", "video", "text", "lyrics", "black") else "none"}
         for key in ("file", "bgFile", "text", "title", "fit", "loop", "background", "color", "size", "align", "muted"):
             if key in message:
@@ -3985,7 +3985,7 @@ class PedalDriver:
         self.emit(slide, lan=True)
 
     def hub_store(self, songs):
-        """Songs with tracks on the Central Control, for Central Usage (lighting songs, waveform, sections, hits)."""
+        """Songs with tracks on the Central Pedal, for Central Control (lighting songs, waveform, sections, hits)."""
         changed = []
         for song in songs if isinstance(songs, list) else []:
             sid = re.sub(r"[^A-Za-z0-9_-]", "", str(song.get("id") or ""))[:64]
@@ -4090,13 +4090,13 @@ class PedalDriver:
         elif kind == "midiClock":
             if self.midi:
                 self.midi.set_clock(message.get("bpm"), message.get("running"))
-            # Central Usage (lighting computers) generate their own MIDI clock from this
+            # Central Control (lighting computers) generate their own MIDI clock from this
             self.lan_clock = {"bpm": message.get("bpm"), "running": bool(message.get("running")), "t": int(time.monotonic() * 1000)}
             self.emit(dict(self.lan_clock, type="clock"), lan=True)
         elif kind == "midiOut":
             if self.midi:
                 self.midi.send_messages(message.get("messages") or [])
-            # the same notes (hits for the lights, section notes, program changes) go to Central Usage
+            # the same notes (hits for the lights, section notes, program changes) go to Central Control
             # with the Pi's clock so they can be lined up on the other computer: `at` is ms from `t`
             if self.lan_clients:
                 self.emit({"type": "midi", "messages": message.get("messages") or [], "t": int(time.monotonic() * 1000)}, lan=True)
@@ -4303,7 +4303,7 @@ class PedalDriver:
         into /opt/pad-pedal (and into the read-only system partition when safe mode is on), then the
         driver restarts itself and the app reloads. On a PC (simulation) it only reports what it would do."""
         if self.sim or not os.path.exists("/usr/local/sbin/pad-pedal-system") or not os.path.isdir("/etc/pad-pedal"):
-            return {"ok": False, "error": "software updates from USB work on the Central Control itself"}
+            return {"ok": False, "error": "software updates from USB work on the Central Pedal itself"}
         self.emit({"type": "update", "state": "installing"})
         code, out, err = run(["sudo", "-n", "/usr/local/sbin/pad-pedal-system", "update", zip_path], timeout=600)
         if code != 0:
@@ -4353,7 +4353,7 @@ class PedalDriver:
             "interfaces": ip_interfaces(),
             "netAudio": self.netaudio.status(),
             "audioHost": self.public_audio_host(),
-            "centralUsage": [{"name": v.get("name") or "Central Usage", "mode": v.get("mode") or ""} for v in self.lan_clients.values() if v.get("app") == "central-usage"],
+            "centralUsage": [{"name": v.get("name") or "Central Control", "mode": v.get("mode") or ""} for v in self.lan_clients.values() if v.get("app") == "central-usage"],
         }
 
     def system_action(self, message, ws):

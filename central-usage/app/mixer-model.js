@@ -1,8 +1,8 @@
-/* Central Usage - the mixer model, shared by the audio host (main process), the admin and user screens and
+/* Central Control - the mixer model, shared by the audio host (main process), the admin and user screens and
  * the phone page. One reducer: every change is an "op"; the host applies it, passes it to the engine and
  * sends the same op to everyone, who apply it to their copy.
  *
- *  inputs[128]  name, source (Central Control channel by name / interface input / none), group (tracks | band),
+ *  inputs[128]  name, source (Central Pedal channel by name / interface input / none), group (tracks | band),
  *               trim, polarity, high-pass, EQ, compressor, fader, pan, mute, direct output, shown to users
  *  main         the tracks mix: level, mute, outputs L / R          trackOut: "sum" (L/R) or "direct" (each track)
  *  mixes[64]    stereo in-ear mixes: name, owner, where it goes - wired (an output pair of the interface / Dante,
@@ -110,7 +110,7 @@
     if (op.op === "clearSends") { if (!admin && !owns) return false; mix.sends = {}; return true; }
     return false;
   }
-  // which inputs a user sees: shown, with a source, and (Central Control channels) present right now
+  // which inputs a user sees: shown, with a source, and (Central Pedal channels) present right now
   function visibleTo(s, i, live) { var x = s.inputs[i]; if (!x || x.show === false || !x.src || x.src.kind === "none") return false; if (x.src.kind === "pi" && live && live[x.src.key] == null) return false; return true; }
   function activeInputs(s, live) { var out = []; s.inputs.forEach(function (x, i) { if (x.src && x.src.kind !== "none" && (x.src.kind !== "pi" || !live || live[x.src.key] != null)) out.push(i); }); return out; }
   // what a user's copy holds: the inputs they may see (names only) and every mix's name / owner, their own mix in full

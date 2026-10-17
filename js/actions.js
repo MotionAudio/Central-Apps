@@ -65,7 +65,7 @@
   def("toggleCues", "Voice cues on / off", "Tracks", "trigger", function () { if (T()) T().toggleCues(); }, { led: function () { var s = T() && T().song(); return s && T().data(s).cues.on ? "on" : "off"; } });
   def("countIn", "Count-in: off / 1 bar / 2 bars", "Tracks", "trigger", function () { if (T()) T().cycleCountIn(); });
   def("tempoReset", "Tracks: tempo back to 100%", "Tracks", "trigger", function () { if (T()) T().setTempoPercent(100); });
-  // from Central Usage the lyrics page only inside the section while tracks play: moving the tracks is the Central Control's job
+  // from Central Control the lyrics page only inside the section while tracks play: moving the tracks is the Central Pedal's job
   def("lyricsNext", "Lyrics: next page", "Screens", "trigger", function (a, v, info) { if (T()) T().lyricsStep(1, { stay: info && info.from === "central-usage" }); });
   def("lyricsPrev", "Lyrics: previous page", "Screens", "trigger", function (a, v, info) { if (T()) T().lyricsStep(-1, { stay: info && info.from === "central-usage" }); });
   def("projectorBlank", "Projector: blank on / off", "Screens", "trigger", function () { var p = project(); p.projector = p.projector || {}; p.projector.blank = !p.projector.blank; PP.persistSoon(); if (T()) T().sendDisplay(); }, { led: function () { return project().projector && project().projector.blank ? "on" : "off"; } });

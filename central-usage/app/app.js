@@ -1,4 +1,4 @@
-/* Central Usage - the page inside the app window: connection to the Central
+/* Central Control - the page inside the app window: connection to the Central
  * Control (WebSocket + its small HTTP API), the chord chart with instrument
  * transposition / capo / Nashville, lyrics, and the lighting tab that turns
  * the Pi's MIDI events (hits, section notes, clock) into local MIDI output,
@@ -9,8 +9,8 @@
   function $(s) { return document.querySelector(s); }
   function esc(s) { return C.esc(s); }
   var store = { get: function (k, d) { try { var v = localStorage.getItem("cu-" + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: function (k, v) { try { localStorage.setItem("cu-" + k, JSON.stringify(v)); } catch (_) { } } };
-  // opened in a browser from the Central Control (http://<pi>:8080/cu/ - iPhone, iPad, any phone): users only, and it
-  // talks to the Central Control it came from. The app (window.CU) has everything.
+  // opened in a browser from the Central Pedal (http://<pi>:8080/cu/ - iPhone, iPad, any phone): users only, and it
+  // talks to the Central Pedal it came from. The app (window.CU) has everything.
   var WEB = !window.CU && /^https?:$/.test(location.protocol);
   if (WEB) { try { localStorage.setItem("cu-host", JSON.stringify(location.hostname)); } catch (_) { } document.documentElement.dataset.web = "1"; }
   var prefs = { host: store.get("host", "padpedal.local"), code: store.get("code", ""), instrument: store.get("instrument", "concert"), shapes: store.get("shapes", "auto"), nashville: store.get("nashville", false), chordsOnly: store.get("chordsOnly", false), fontSize: store.get("fontSize", 18), lyricsSize: store.get("lyricsSize", 44), lyricsNext: store.get("lyricsNext", true), midiOut: store.get("midiOut", ""), sendClock: store.get("sendClock", true), offsetMs: store.get("offsetMs", 0), follow: true, tab: store.get("tab", "chart") };
@@ -52,7 +52,7 @@
     document.body.dataset.mode = m; document.body.dataset.role = r;
     document.querySelectorAll("#tabs [data-tab]").forEach(function (b) { b.hidden = allowed.indexOf(b.dataset.tab) < 0; });
     if (allowed.indexOf(prefs.tab) < 0) showTab(allowed[0]);
-    send({ type: "client", app: "central-usage", mode: m, role: r, name: cuCfg.name || "Central Usage" });
+    send({ type: "client", app: "central-usage", mode: m, role: r, name: cuCfg.name || "Central Control" });
     fire("mode", m); fire("role", r);
   }
   async function setRole(r) {
@@ -83,12 +83,12 @@
   }
   function open(host) {
     try { socket = new WebSocket("ws://" + host + ":" + state.wsPort); } catch (_) { retryTimer = setTimeout(function () { connect(); }, 3000); return; }
-    socket.onopen = function () { state.connected = true; setConn("connected to " + (state.hostname || host), ""); send({ type: "client", app: "central-usage", mode: mode() || "user", role: role() || "user1", name: cuCfg.name || "Central Usage" }); if (prefs.code) send({ type: "auth", code: prefs.code }); clearInterval(pingTimer); pingTimer = setInterval(ping, 2000); ping(); fire("connected", true); };
+    socket.onopen = function () { state.connected = true; setConn("connected to " + (state.hostname || host), ""); send({ type: "client", app: "central-usage", mode: mode() || "user", role: role() || "user1", name: cuCfg.name || "Central Control" }); if (prefs.code) send({ type: "auth", code: prefs.code }); clearInterval(pingTimer); pingTimer = setInterval(ping, 2000); ping(); fire("connected", true); };
     socket.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (_) { return; } onMessage(m); };
     socket.onclose = function () { state.connected = false; state.authed = false; setConn("lost " + host + " - retrying", "off"); clearInterval(pingTimer); retryTimer = setTimeout(function () { connect(); }, 2500); fire("connected", false); };
   }
   function send(m) { if (socket && socket.readyState === 1) { socket.send(JSON.stringify(m)); return true; } return false; }
-  // Only the Central Control plays, stops and moves the tracks: from here only the lyrics can be paged
+  // Only the Central Pedal plays, stops and moves the tracks: from here only the lyrics can be paged
   function action(name, args) { if (["lyricsNext", "lyricsPrev"].indexOf(name) < 0) return; if (!state.authed && !prefs.code) { askCode(); if (!prefs.code) return; } send({ type: "action", name: name, args: args || {}, code: prefs.code }); }
   // a small text question in the page (Electron has no window.prompt)
   function askText(label, value) {
@@ -101,7 +101,7 @@
       d.showModal(); inp.focus(); inp.select();
     });
   }
-  async function askCode() { var v = await askText("Pairing PIN of the Central Control (the 4 digits picked on it - shown in its Settings → Wi-Fi & devices):", prefs.code || ""); if (v == null) return; prefs.code = v.trim(); store.set("code", prefs.code); if (prefs.code) send({ type: "auth", code: prefs.code }); }
+  async function askCode() { var v = await askText("Pairing PIN of the Central Pedal (the 4 digits picked on it - shown in its Settings → Wi-Fi & devices):", prefs.code || ""); if (v == null) return; prefs.code = v.trim(); store.set("code", prefs.code); if (prefs.code) send({ type: "auth", code: prefs.code }); }
   // clock sync: NTP-style; keep the lowest-latency sample
   function ping() { send({ type: "ping", t: performance.now() }); }
   function onPong(m) {
@@ -114,7 +114,7 @@
 
   function onMessage(m) {
     if (m.type === "hello") { state.hostname = m.hostname || state.hostname; state.interfaces = m.interfaces || []; state.audioHost = m.audioHost || null; state.netAudio = m.netAudio || null; state.appVersion = m.appVersion || ""; setConn("connected to " + state.hostname, ""); fire("hello", m); fire("audioHost", state.audioHost); }
-    else if (m.type === "auth") { var was = state.authed; state.authed = !!m.ok; if (!m.ok && prefs.code && !m.for) { prefs.code = ""; store.set("code", ""); alert("That pairing code was refused. Check it in Central Control → Settings."); } if (state.authed && !was) fire("authed", true); }
+    else if (m.type === "auth") { var was = state.authed; state.authed = !!m.ok; if (!m.ok && prefs.code && !m.for) { prefs.code = ""; store.set("code", ""); alert("That pairing code was refused. Check it in Central Pedal → Settings."); } if (state.authed && !was) fire("authed", true); }
     else if (m.type === "audioHost") { state.audioHost = m.host || null; fire("audioHost", state.audioHost); }
     else if (m.type === "hub") fire("hub", m);
     else if (m.type === "refused") fire("refused", m);
@@ -143,7 +143,7 @@
   window.CentralUsageChartText = function () { return chartInfo && chartInfo.text || ""; };   // for the parts (parts-tab.js)
   async function loadChart(id) {
     chartId = id; chartInfo = null; parsed = null; lastSectionKey = null;
-    if (!id) { $("#chart").innerHTML = '<div class="empty">This song has no chord chart yet.<br><small>In Central Control: song editor → "Listen &amp; write chord chart", or upload a text / PDF chart.</small></div>'; $("#written").textContent = ""; return; }
+    if (!id) { $("#chart").innerHTML = '<div class="empty">This song has no chord chart yet.<br><small>In Central Pedal: song editor → "Listen &amp; write chord chart", or upload a text / PDF chart.</small></div>'; $("#written").textContent = ""; return; }
     try { var r = await fetch(api("/charts/" + encodeURIComponent(id) + "/chart.json"), { cache: "no-store" }); chartInfo = await r.json(); } catch (_) { chartInfo = null; }
     if (!chartInfo || chartId !== id) { $("#chart").innerHTML = '<div class="empty">Could not load the chart.</div>'; return; }
     if (chartInfo.text) parsed = C.parseChart(chartInfo.text);
@@ -177,7 +177,7 @@
     var songs = d.songs || [], s = currentSong();
     $("#songName").textContent = s ? (s.index + 1) + ". " + s.name : (songs.length ? "No song selected" : "No songs yet");
     $("#songMeta").textContent = s ? C.pretty(songKeyNow()) + " · " + (d.bpm || s.bpm || "–") + " BPM" + (d.section && prefs.follow ? " · " + d.section.name : "") + (d.tracksMode ? (d.playing ? " · ▶ " : " · ❚❚ ") + fmtTime(d.pos) : "") : "";
-    var pick = $("#songPick"), names = songs.map(function (q) { return q.name; }).join("|"); if (pick.dataset.names !== names) { pick.dataset.names = names; pick.innerHTML = '<option value="-1">— follow the Central Control —</option>' + songs.map(function (q, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(q.name) + "</option>"; }).join(""); } pick.value = String(prefs.follow ? -1 : state.pickedSong);
+    var pick = $("#songPick"), names = songs.map(function (q) { return q.name; }).join("|"); if (pick.dataset.names !== names) { pick.dataset.names = names; pick.innerHTML = '<option value="-1">— follow the Central Pedal —</option>' + songs.map(function (q, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(q.name) + "</option>"; }).join(""); } pick.value = String(prefs.follow ? -1 : state.pickedSong);
     var secs = prefs.follow ? (d.sections || []) : [], cur = d.section ? d.section.index : -1, skey = secs.map(function (q) { return q.name; }).join("|") + "#" + cur;
     if ($("#sections").dataset.key !== skey) { $("#sections").dataset.key = skey; $("#sections").innerHTML = secs.map(function (q, i) { return '<button data-sec="' + i + '" class="' + (i === cur ? "current" : i === cur + 1 ? "next" : "") + '">' + esc(q.name) + "</button>"; }).join(""); var cb = $("#sections .current"); if (cb) cb.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
     var want = s && s.chart ? (s.chart.id || s.chart) : null; if (typeof want === "object" && want) want = want.id;
@@ -192,7 +192,7 @@
     var d = state.display, root = $("#lyrics"); if (!d) return;
     var ls = d.lyrics || { lines: [], next: [], section: "" }, lines = ls.lines || [], next = prefs.lyricsNext ? (ls.next || []) : [];
     if (!lines.length && parsed && d.section) { var sec = C.lyricsOf(parsed).filter(function (q) { return norm(q.name) === norm(d.section.name); })[0]; if (sec) lines = sec.lines.slice(0, 6); }
-    if (!lines.length && !ls.section) { root.innerHTML = '<div class="empty">' + (d.song ? "No lyrics for this part." : "Pick a song on the Central Control.") + "</div>"; return; }
+    if (!lines.length && !ls.section) { root.innerHTML = '<div class="empty">' + (d.song ? "No lyrics for this part." : "Pick a song on the Central Pedal.") + "</div>"; return; }
     root.innerHTML = '<div class="sec">' + esc(ls.section || (d.section ? d.section.name : "")) + "</div>" + lines.map(function (l) { return '<div class="line">' + esc(l) + "</div>"; }).join("") + (next.length ? '<div class="next">' + next.map(esc).join("<br>") + "</div>" : "");
   }
 
@@ -242,7 +242,7 @@
   async function discover() {
     var d = $("#findDialog"), list = $("#findList"); list.innerHTML = '<p class="muted">Looking on this Wi-Fi… (a few seconds)</p>'; if (!d.open) d.showModal();
     var found = window.CU ? await window.CU.discover() : [];
-    list.innerHTML = found.length ? found.map(function (f) { return '<button data-host="' + esc(f.host) + '"><b>' + esc(f.hostname) + "</b><small>" + esc(f.host) + (f.ip ? " (" + esc(f.ip) + ")" : "") + " · Central Control v" + esc(f.version || "?") + "</small></button>"; }).join("") : '<p class="muted">None found. Is this computer on the same Wi-Fi as the Central Control? You can also type its address (padpedal.local or its IP, shown in Central Control → Settings → Wi-Fi).</p>';
+    list.innerHTML = found.length ? found.map(function (f) { return '<button data-host="' + esc(f.host) + '"><b>' + esc(f.hostname) + "</b><small>" + esc(f.host) + (f.ip ? " (" + esc(f.ip) + ")" : "") + " · Central Pedal v" + esc(f.version || "?") + "</small></button>"; }).join("") : '<p class="muted">None found. Is this computer on the same Wi-Fi as the Central Pedal? You can also type its address (padpedal.local or its IP, shown in Central Pedal → Settings → Wi-Fi).</p>';
   }
 
   // ------------------------------------------------------------- wiring
@@ -262,7 +262,7 @@
     $("#lyricsSize").addEventListener("input", function (e) { prefs.lyricsSize = Number(e.target.value); store.set("lyricsSize", prefs.lyricsSize); document.documentElement.style.setProperty("--lyrics-size", prefs.lyricsSize + "px"); });
     $("#lyricsNext").addEventListener("change", function (e) { prefs.lyricsNext = e.target.checked; store.set("lyricsNext", prefs.lyricsNext); renderLyrics(); });
     $("#lyricsPrev").addEventListener("click", function () { action("lyricsPrev"); }); $("#lyricsNextBtn").addEventListener("click", function () { action("lyricsNext"); });
-    // the section buttons show where the song is; they don't move it (only the Central Control does)
+    // the section buttons show where the song is; they don't move it (only the Central Pedal does)
     $("#midiOut").addEventListener("change", function (e) { prefs.midiOut = e.target.value; store.set("midiOut", prefs.midiOut); fillPorts(); if (clock.running) startClock(); });
     $("#sendClock").addEventListener("change", function (e) { prefs.sendClock = e.target.checked; store.set("sendClock", prefs.sendClock); if (!prefs.sendClock) stopClock(); else if (clock.running) startClock(); });
     $("#offsetMs").addEventListener("input", function (e) { prefs.offsetMs = Number(e.target.value); store.set("offsetMs", prefs.offsetMs); $("#offsetOut").textContent = prefs.offsetMs + " ms"; });
@@ -270,12 +270,12 @@
     $("#testSection").addEventListener("click", function () { midiSend([0x90, 60, 100]); setTimeout(function () { midiSend([0x80, 60, 0]); }, 120); flash("note"); log("test section note 60"); });
     $("#panic").addEventListener("click", function () { for (var ch = 0; ch < 16; ch++) midiSend([0xB0 | ch, 123, 0]); log("all notes off"); });
     document.addEventListener("keydown", function (e) { if (e.target.matches("input,select,textarea")) return; if (e.key === "F1") showTab("chart"); else if (e.key === "F2") showTab("lyrics"); else if (e.key === "F3") showTab("lights"); else if (e.key === "ArrowRight" || e.key === "PageDown") { if (prefs.tab === "lyrics") action("lyricsNext"); } else if (e.key === "ArrowLeft" || e.key === "PageUp") { if (prefs.tab === "lyrics") action("lyricsPrev"); } });
-    if (window.CU && window.CU.onMenu) window.CU.onMenu(function (name, arg) { if (name === "connect") { askText("Central Control address (padpedal.local or its IP):", prefs.host).then(function (h) { if (h) connect(h.trim()); }); } else if (name === "discover") discover(); else if (name === "code") askCode(); else if (name === "updates" && window.CUUpdates) window.CUUpdates.open(); else if (name === "tab") showTab(arg); else if (name === "font") { var el = prefs.tab === "lyrics" ? $("#lyricsSize") : $("#fontSize"); el.value = Number(el.value) + arg * 2; el.dispatchEvent(new Event("input")); } });
+    if (window.CU && window.CU.onMenu) window.CU.onMenu(function (name, arg) { if (name === "connect") { askText("Central Pedal address (padpedal.local or its IP):", prefs.host).then(function (h) { if (h) connect(h.trim()); }); } else if (name === "discover") discover(); else if (name === "code") askCode(); else if (name === "updates" && window.CUUpdates) window.CUUpdates.open(); else if (name === "tab") showTab(arg); else if (name === "font") { var el = prefs.tab === "lyrics" ? $("#lyricsSize") : $("#fontSize"); el.value = Number(el.value) + arg * 2; el.dispatchEvent(new Event("input")); } });
   }
   fillInstruments(); wire(); showTab(prefs.tab); connect(); initMidi();
   (async function () {   // this computer's settings live in the app (cu.json); in a plain browser: local storage
     if (window.CU && window.CU.config) { try { var c = await window.CU.config.get(); if (c) { cuCfg = c; if (c.mode) store.set("mode", c.mode); if (c.role) store.set("role", c.role); if (c.jobs) store.set("jobs", c.jobs); } } catch (_) { } }
-    if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Usage";
+    if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Control";
     if (!role()) askMode(); applyMode(); fire("ready");
   })();
   window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,

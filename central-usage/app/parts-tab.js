@@ -1,6 +1,6 @@
-/* Central Usage - the Chord chart tab can show any instrument's part instead of the chart:
+/* Central Control - the Chord chart tab can show any instrument's part instead of the chart:
  * guitar (chart with capo + chord diagrams, tab), bass, keys (both hands), vocals (melody + words),
- * horns in their own key, strings, drums. Made by PPParts from what the Central Control knows about
+ * horns in their own key, strings, drums. Made by PPParts from what the Central Pedal knows about
  * the song (its chords, sections, the tracks written down) - follows the song the Pi is on. */
 (function () {
   "use strict";
@@ -22,7 +22,7 @@
     if (!s) return null;
     var key = s.id || s.name; if (cache[key]) return cache[key];
     try {
-      // only songs the Central Control has shared (asking for any other one is a 404)
+      // only songs the Central Pedal has shared (asking for any other one is a 404)
       var list = await (await fetch(CU.api("/hub"), { cache: "no-store" })).json(), hit = (list.songs || []).filter(function (q) { return s.id ? q.id === s.id : q.name === s.name; })[0], id = hit && hit.id;
       if (!id) return null;
       var j = await (await fetch(CU.api("/hub/" + encodeURIComponent(id)), { cache: "no-store" })).json();
@@ -35,18 +35,18 @@
     var on = part !== "chart"; box.hidden = !on; chart.hidden = on; $("#partViews").innerHTML = "";
     var shapes = $("#shapesWrap"), inst = $("#instrument"); if (inst) inst.closest("label").hidden = on; if (shapes && on) shapes.hidden = true;
     if (!on) { shown = ""; return; }
-    var s = song(); if (!s) { box.innerHTML = '<div class="empty">No song on the Central Control yet.</div>'; return; }
+    var s = song(); if (!s) { box.innerHTML = '<div class="empty">No song on the Central Pedal yet.</div>'; return; }
     var key = (s.id || s.name) + "|" + part + "|" + view; if (!force && key === shown) return;
     var my = loading = {}; box.innerHTML = box.innerHTML || '<div class="empty">Writing the part…</div>';
     var ctx = await music(s); if (loading !== my) return;
-    if (!ctx) { box.innerHTML = '<div class="empty">The Central Control has not shared this song\'s music yet (it does a few seconds after the song changes). Charts made there, and tracks it has listened to, become the parts here.</div>'; shown = ""; return; }
+    if (!ctx) { box.innerHTML = '<div class="empty">The Central Pedal has not shared this song\'s music yet (it does a few seconds after the song changes). Charts made there, and tracks it has listened to, become the parts here.</div>'; shown = ""; return; }
     var dk = CU.state.display && CU.state.display.key; if (dk && dk !== ctx.key) ctx = Object.assign({}, ctx, { key: dk, chords: transposeChords(ctx.chords, ctx.key, dk) });
     var p = P.build(ctx, part), v = view && p.views.indexOf(view) >= 0 ? view : p.views[0];
     $("#partViews").innerHTML = p.views.length > 1 ? p.views.map(function (x) { return '<button class="' + (x === v ? "on" : "") + '" data-pv="' + x + '">' + ({ chart: "Chart", notation: "Notation", tab: "Tab", drums: "Drums" }[x] || x) + "</button>"; }).join("") : "";
     box.innerHTML = P.render(p, v, { ctx: ctx, width: Math.max(560, box.clientWidth || chart.clientWidth || 900) - 30, shape: CU.prefs.shapes });
     shown = key;
   }
-  // the Central Control can play the song in another key (key up / down): the parts follow it
+  // the Central Pedal can play the song in another key (key up / down): the parts follow it
   function transposeChords(chords, from, to) {
     var C = window.PPChords; if (!C || !chords) return chords;
     var shift = (C.noteIndex(to) - C.noteIndex(from) + 12) % 12; if (!shift) return chords;

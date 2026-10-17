@@ -1,7 +1,7 @@
-/* Central Usage - the Slides tab (admin): pictures, videos and text slides, and the lyrics, for the screens.
- * Outputs (any or all): this computer's second screen, the Central Control's HDMI 2 (set to "Slides" there),
+/* Central Control - the Slides tab (admin): pictures, videos and text slides, and the lyrics, for the screens.
+ * Outputs (any or all): this computer's second screen, the Central Pedal's HDMI 2 (set to "Slides" there),
  * and NDI on the network (for a video mixer / streaming computer). Click a slide to preview it, double-click
- * (or Go live) to show it. "Lyrics follow the Central Control" puts the current lyrics up by themselves. */
+ * (or Go live) to show it. "Lyrics follow the Central Pedal" puts the current lyrics up by themselves. */
 (function () {
   "use strict";
   var CU = window.CentralUsage, NAT = window.CU && window.CU.slides; if (!CU) return;
@@ -45,7 +45,7 @@
     try {
       if ((slide.kind === "image" || slide.kind === "video") && slide.path) msg.file = await upload(slide.path);
       if (slide.bgPath) msg.bgFile = await upload(slide.bgPath);
-    } catch (e) { setInfo("Could not send it to the Central Control: " + e.message); return; }
+    } catch (e) { setInfo("Could not send it to the Central Pedal: " + e.message); return; }
     CU.send(msg);
   }
   function show(slide, id) {
@@ -56,7 +56,7 @@
   }
   function goLive(id) { var it = item(id); if (!it) return; lyricsLive = false; syncLyricsBox(); show(slideFor(it), id); }
   function black() { lyricsLive = false; syncLyricsBox(); show({ kind: "black" }, null); }
-  // the lyrics, as the Central Control moves through the song
+  // the lyrics, as the Central Pedal moves through the song
   function lyricsSlide() {
     var d = CU.state.display, ls = d && d.lyrics || {}, lines = ls.lines || [];
     return { kind: "lyrics", text: lines.join("\n"), title: st.lyrics.showSection ? (ls.section || (d && d.section ? d.section.name : "")) : "", size: st.lyrics.size, color: st.lyrics.color, align: st.lyrics.align, bgPath: st.lyricsBg, fade: 0.3 };
@@ -67,7 +67,7 @@
   }
   function setLyricsLive(on) { lyricsLive = !!on; lastLyricsKey = null; if (on) pushLyrics(true); syncLyricsBox(); renderHead(); }
   function syncLyricsBox() { var b = $("#lyricsLive"); if (b) b.checked = lyricsLive; var i = $("#lyricsOutInfo"); if (i) i.textContent = outputsText(); }
-  function outputsText() { var o = []; if (outStatus.screen) o.push("second screen"); if (st.outputs.pi.on) o.push("Central Control HDMI 2"); if (outStatus.ndi && outStatus.ndi.on) o.push("NDI"); return o.length ? "→ " + o.join(" · ") : "no output is on (Slides tab)"; }
+  function outputsText() { var o = []; if (outStatus.screen) o.push("second screen"); if (st.outputs.pi.on) o.push("Central Pedal HDMI 2"); if (outStatus.ndi && outStatus.ndi.on) o.push("NDI"); return o.length ? "→ " + o.join(" · ") : "no output is on (Slides tab)"; }
   CU.on("message", function (m) { if (m.type === "display") pushLyrics(false); });
 
   // ---------------------------------------------------------------- rendering
@@ -77,9 +77,9 @@
     var el = $("#slHead"); if (!el) return; var o = st.outputs;
     el.innerHTML = '<div class="sl-outs"><b>Outputs</b>' +
       '<label class="toggle"><input type="checkbox" data-sl-out="screen"' + (outStatus.screen ? " checked" : "") + (NAT ? "" : " disabled") + '> Second screen</label><select data-sl="display">' + screens.map(function (d) { return '<option value="' + d.id + '"' + (String(d.id) === String(o.screen.displayId) ? " selected" : "") + ">" + esc(d.label) + " · " + d.size.width + "×" + d.size.height + (d.primary ? " (this one)" : "") + "</option>"; }).join("") + "</select>" +
-      '<label class="toggle" title="Set the Central Control\'s HDMI 2 to show Slides (its I/O tab)"><input type="checkbox" data-sl-out="pi"' + (o.pi.on ? " checked" : "") + "> Central Control HDMI 2</label>" +
-      '<label class="toggle"><input type="checkbox" data-sl-out="ndi"' + (outStatus.ndi && outStatus.ndi.on ? " checked" : "") + (NAT ? "" : " disabled") + '> NDI</label><span class="muted small">' + esc(outStatus.ndi && outStatus.ndi.error ? "⚠ " + outStatus.ndi.error : outStatus.ndi && outStatus.ndi.on ? "on the network as \"" + (outStatus.ndi.name || "Central Usage") + "\"" + (outStatus.ndi.receivers ? " · " + outStatus.ndi.receivers + " watching" : "") : "") + "</span></div>" +
-      '<div class="sl-ctl"><button data-sl="black" class="danger">Black</button><label class="toggle sl-lyr"><input type="checkbox" data-sl="lyrics"' + (lyricsLive ? " checked" : "") + '> Lyrics follow the Central Control</label><span class="muted small" id="slInfo">' + esc(infoText) + "</span></div>";
+      '<label class="toggle" title="Set the Central Pedal\'s HDMI 2 to show Slides (its I/O tab)"><input type="checkbox" data-sl-out="pi"' + (o.pi.on ? " checked" : "") + "> Central Pedal HDMI 2</label>" +
+      '<label class="toggle"><input type="checkbox" data-sl-out="ndi"' + (outStatus.ndi && outStatus.ndi.on ? " checked" : "") + (NAT ? "" : " disabled") + '> NDI</label><span class="muted small">' + esc(outStatus.ndi && outStatus.ndi.error ? "⚠ " + outStatus.ndi.error : outStatus.ndi && outStatus.ndi.on ? "on the network as \"" + (outStatus.ndi.name || "Central Control") + "\"" + (outStatus.ndi.receivers ? " · " + outStatus.ndi.receivers + " watching" : "") : "") + "</span></div>" +
+      '<div class="sl-ctl"><button data-sl="black" class="danger">Black</button><label class="toggle sl-lyr"><input type="checkbox" data-sl="lyrics"' + (lyricsLive ? " checked" : "") + '> Lyrics follow the Central Pedal</label><span class="muted small" id="slInfo">' + esc(infoText) + "</span></div>";
   }
   function thumb(it) { return it.kind === "text" ? '<div class="sl-th sl-tht">' + esc((it.title ? it.title + " · " : "") + (it.text || "Text")).slice(0, 80) + "</div>" : '<div class="sl-th">' + (it.kind === "video" ? '<video src="' + fileUrl(it.path) + '#t=1" muted preload="metadata"></video><b class="sl-vid">▶</b>' : '<img src="' + fileUrl(it.path) + '" loading="lazy">') + "</div>"; }
   function renderList() {
@@ -98,14 +98,14 @@
         : '<div class="row"><label>Fit <select data-sli="fit"><option value="contain"' + (it.fit !== "cover" ? " selected" : "") + '>Whole picture</option><option value="cover"' + (it.fit === "cover" ? " selected" : "") + ">Fill the screen</option></select></label>" + (it.kind === "video" ? '<label class="toggle"><input type="checkbox" data-sli="loop"' + (it.loop !== false ? " checked" : "") + '> Loop</label><label class="toggle"><input type="checkbox" data-sli="sound"' + (it.muted === false ? " checked" : "") + "> Sound</label>" : "") + "</div>") +
       '<div class="row"><label>Fade (s) <input type="number" min="0" max="5" step="0.1" data-sli="fade" value="' + (it.fade == null ? 0.45 : it.fade) + '" style="width:70px"></label><button class="primary" data-sl-go="' + it.id + '">▶ Go live</button></div>';
   }
-  function renderLive() { var el = $("#slLive"); if (!el) return; el.innerHTML = '<div class="sl-screen live">' + slideHtml(live.slide) + '</div><p class="muted small">' + (live.id === "lyrics" ? "Lyrics (following the Central Control)" : live.id ? esc((item(live.id) || {}).name || "Text slide") : live.slide && live.slide.kind === "black" ? "Black" : "Nothing yet") + "</p>"; }
+  function renderLive() { var el = $("#slLive"); if (!el) return; el.innerHTML = '<div class="sl-screen live">' + slideHtml(live.slide) + '</div><p class="muted small">' + (live.id === "lyrics" ? "Lyrics (following the Central Pedal)" : live.id ? esc((item(live.id) || {}).name || "Text slide") : live.slide && live.slide.kind === "black" ? "Black" : "Nothing yet") + "</p>"; }
   function renderLook() {
     var el = $("#slLook"); if (!el) return; var l = st.lyrics;
     el.innerHTML = '<h3>Lyrics look</h3><div class="row"><label>Size <input type="range" min="3" max="14" step="0.5" data-sll="size" value="' + l.size + '"></label><label>Colour <input type="color" data-sll="color" value="' + esc(l.color) + '"></label><label>Align <select data-sll="align">' + ["center", "left", "right"].map(function (a) { return '<option' + (l.align === a ? " selected" : "") + ">" + a + "</option>"; }).join("") + '</select></label><label class="toggle"><input type="checkbox" data-sll="showSection"' + (l.showSection ? " checked" : "") + '> Section name</label><label>Background <select data-sll="bg"><option value="">none (black)</option>' + st.items.filter(function (x) { return x.kind !== "text"; }).map(function (x) { return '<option value="' + esc(x.path) + '"' + (x.path === st.lyricsBg ? " selected" : "") + ">" + esc(x.name) + "</option>"; }).join("") + "</select></label></div>";
   }
   function render() {
     var root = $("#slidesRoot"); if (!root || !visible()) return;
-    if (!root.querySelector("#slHead")) root.innerHTML = '<div class="card" id="slHead"></div><div class="sl-grid"><div class="card sl-listcard"><div class="row"><button data-sl="add" class="primary">+ Pictures / videos</button><button data-sl="text">+ Text slide</button></div><div class="sl-list" id="slList"></div></div><div class="card"><h3>Preview</h3><div id="slPreview"></div></div><div class="card"><h3>Live</h3><div id="slLive"></div></div></div><div class="card" id="slLook"></div>' + (NAT ? "" : '<p class="muted">Second screen and NDI work in the Central Usage app.</p>');
+    if (!root.querySelector("#slHead")) root.innerHTML = '<div class="card" id="slHead"></div><div class="sl-grid"><div class="card sl-listcard"><div class="row"><button data-sl="add" class="primary">+ Pictures / videos</button><button data-sl="text">+ Text slide</button></div><div class="sl-list" id="slList"></div></div><div class="card"><h3>Preview</h3><div id="slPreview"></div></div><div class="card"><h3>Live</h3><div id="slLive"></div></div></div><div class="card" id="slLook"></div>' + (NAT ? "" : '<p class="muted">Second screen and NDI work in the Central Control app.</p>');
     renderHead(); renderList(); renderPreview(); renderLive(); renderLook();
   }
   // ---------------------------------------------------------------- events
@@ -116,7 +116,7 @@
     if (b.dataset.slDel) { st.items = st.items.filter(function (x) { return x.id !== b.dataset.slDel; }); if (previewId === b.dataset.slDel) previewId = null; save(); renderList(); renderPreview(); renderLook(); return; }
     if (b.classList.contains("sl-item")) { previewId = b.dataset.id; markList(); renderPreview(); return; }
     var a = b.dataset.sl;
-    if (a === "add") { if (!NAT) return alert("Adding files works in the Central Usage app."); var files = await NAT.open(); files.forEach(function (f) { st.items.push({ id: uid(), kind: VIDEO.test(f.name) ? "video" : "image", path: f.path, name: f.name, size: f.size, fit: "contain" }); }); save(); renderList(); renderLook(); }
+    if (a === "add") { if (!NAT) return alert("Adding files works in the Central Control app."); var files = await NAT.open(); files.forEach(function (f) { st.items.push({ id: uid(), kind: VIDEO.test(f.name) ? "video" : "image", path: f.path, name: f.name, size: f.size, fit: "contain" }); }); save(); renderList(); renderLook(); }
     else if (a === "text") { var it = { id: uid(), kind: "text", title: "", text: "Welcome" }; st.items.push(it); previewId = it.id; save(); renderList(); renderPreview(); }
     else if (a === "black") black();
   });

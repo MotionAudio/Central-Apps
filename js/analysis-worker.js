@@ -1,4 +1,4 @@
-/* Central Control - offline audio analysis (runs in a Web Worker, loaded from a data: URL).
+/* Central Pedal - offline audio analysis (runs in a Web Worker, loaded from a data: URL).
  * Tempo + beat grid + downbeats (spectral-flux onsets, autocorrelation tempo
  * with a log-normal prior, dynamic-programming beat tracking as in Ellis 2007),
  * musical key (chromagram against Krumhansl-Kessler profiles), and "big hits"

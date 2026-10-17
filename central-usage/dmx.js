@@ -1,4 +1,4 @@
-/* Central Usage - DMX output (main process). One output per universe, any mix of:
+/* Central Control - DMX output (main process). One output per universe, any mix of:
  *  - USB-DMX: ENTTEC DMX USB Pro protocol (also DMXking ultraDMX Pro / Micro, Eurolite USB-DMX512 PRO,
  *    and most "Pro compatible" boxes). They appear as a serial port (/dev/ttyUSB*, /dev/serial/by-id/...).
  *    One interface = one universe.
@@ -38,7 +38,7 @@ function openSerial(o) {
   o.serial = { fd: null, busy: false };
   execFile("stty", ["-F", o.path, "raw", "-echo", "-echoe", "-echok", "115200"], () => { });   // raw 8N1 (the Pro makes the DMX timing itself)
   try { o.serial.fd = fs.openSync(o.path, fs.constants.O_WRONLY | fs.constants.O_NOCTTY | (fs.constants.O_NONBLOCK || 0)); o.error = null; }
-  catch (e) { o.error = e.code === "EACCES" ? "No permission for " + o.path + " - reinstall Central Usage (it adds a udev rule) or add yourself to the 'dialout' group, then log out and in." : e.message; }
+  catch (e) { o.error = e.code === "EACCES" ? "No permission for " + o.path + " - reinstall Central Control (it adds a udev rule) or add yourself to the 'dialout' group, then log out and in." : e.message; }
 }
 
 function enttecPacket(data) {  // label 6 = Output Only Send DMX Packet Request

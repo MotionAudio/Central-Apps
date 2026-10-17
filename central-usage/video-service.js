@@ -1,4 +1,4 @@
-/* Central Usage - the Video tab's main-process side.
+/* Central Control - the Video tab's main-process side.
  *
  *   sources     IP / SRT / RTMP / RTSP cameras and media files: one ffmpeg each, decoding to small frames for the
  *               multiview ("lo") or full frames when on air or in preview ("hi"); NDI cameras: cu-video ndi-recv;
@@ -11,7 +11,7 @@
  *               MPEG-TS stream; each destination (YouTube, Facebook, any RTMP(S) / SRT) and the recording is a light
  *               copy of it, so one can fail, stop or reconnect without touching the others.
  *   audio       the stream's sound: cu-video audio (two device + channel-pair sources, one chosen, gain, delay).
- *   NDI out     "Central Usage Stream" / "Central Usage Main" for OBS / vMix / Streamlabs on this computer.
+ *   NDI out     "Central Control Stream" / "Central Control Main" for OBS / vMix / Streamlabs on this computer.
  *
  * Media between here and the page: a WebSocket on 127.0.0.1 (random port + token). Control: ipcMain "video-*". */
 "use strict";
@@ -276,9 +276,9 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
       if (u.pathname === "/ca.crt") { res.writeHead(200, { "Content-Type": "application/x-x509-ca-cert", "Content-Disposition": "attachment; filename=CentralUsage-CA.crt" }); return res.end(tls.ca); }
       const host = (req.headers.host || "").split(":")[0];
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Central Usage camera</title><body style="font:17px/1.5 system-ui;background:#08111d;color:#ecf7ff;padding:20px;max-width:560px;margin:auto">' +
+      res.end('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Central Control camera</title><body style="font:17px/1.5 system-ui;background:#08111d;color:#ecf7ff;padding:20px;max-width:560px;margin:auto">' +
         "<h2>Use this phone as a camera</h2><p>Phones only share the camera with a secure page. Once per phone:</p><ol>" +
-        '<li><a style="color:#5de6b0" href="/ca.crt">Download the certificate</a>.<br><small>iPhone / iPad: Settings → <b>Profile Downloaded</b> → Install. Then Settings → General → About → <b>Certificate Trust Settings</b> → turn on "Central Usage local CA". Android: open the file, or Settings → Security → Install a certificate → CA certificate.</small></li>' +
+        '<li><a style="color:#5de6b0" href="/ca.crt">Download the certificate</a>.<br><small>iPhone / iPad: Settings → <b>Profile Downloaded</b> → Install. Then Settings → General → About → <b>Certificate Trust Settings</b> → turn on "Central Control local CA". Android: open the file, or Settings → Security → Install a certificate → CA certificate.</small></li>' +
         '<li><a style="color:#5de6b0" href="https://' + host + ":" + cfg.phones.port + '/">Open the camera page</a></li></ol>' +
         '<p style="color:#9bb2c9;font-size:14px">Skipping step 1 also works on most phones: on the warning page choose "Show details → visit this website" (Safari) or "Advanced → Proceed" (Chrome).</p></body>');
     });
@@ -449,7 +449,7 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
     if (!on) { if (o.proc) { try { const q = Buffer.alloc(5); q[0] = 81; o.proc.stdin.write(q); o.proc.kill(); } catch (_) { } } o.proc = null; o.status = { on: false }; sendStream(); return; }
     if (o.proc) return;
     const bin = cuVideo(); if (!bin) { o.status = { on: false, error: "cu-video is missing" }; sendStream(); return; }
-    const proc = spawn(bin, ["ndi-send", which === "stream" ? "Central Usage Stream" : "Central Usage Main"], { stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
+    const proc = spawn(bin, ["ndi-send", which === "stream" ? "Central Control Stream" : "Central Control Main"], { stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
     o.proc = proc; o.status = { on: true, starting: true }; proc.stdin.on("error", () => { });
     frames(proc.stdout, (t, p) => { if (t !== "J") return; try { const m = JSON.parse(p.toString("utf8")); if (m.ev === "status") o.status = m.ok ? { on: true, name: m.name } : { on: false, error: m.error }; else if (m.ev === "stats") o.status.receivers = m.receivers; sendStream(); } catch (_) { } });
     proc.on("exit", () => { if (o.proc === proc) { o.proc = null; if (o.status.on) o.status = { on: false, error: o.status.error || "stopped" }; sendStream(); } });
@@ -477,7 +477,7 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
   function windowOpen(details) {
     if (!details || details.frameName !== "cu-video-main") return null;
     const d = display(cfg.main.displayId);
-    return { action: "allow", overrideBrowserWindowOptions: { x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, frame: false, fullscreen: true, backgroundColor: "#000000", title: "Central Usage - Main", autoHideMenuBar: true, skipTaskbar: false, webPreferences: { backgroundThrottling: false } } };
+    return { action: "allow", overrideBrowserWindowOptions: { x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, frame: false, fullscreen: true, backgroundColor: "#000000", title: "Central Control - Main", autoHideMenuBar: true, skipTaskbar: false, webPreferences: { backgroundThrottling: false } } };
   }
 
   // ------------------------------------------------------------------ ipc

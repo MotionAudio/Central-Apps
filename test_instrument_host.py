@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Central Control - tests for the native instrument host against a real PipeWire.
+"""Central Pedal - tests for the native instrument host against a real PipeWire.
 
 Needs a running PipeWire (XDG_RUNTIME_DIR set) with a 4-channel sink named
 "padpedal_out" and a 2-channel source whose name starts with "alsa_input" (the
@@ -170,7 +170,7 @@ def main():
         assert any("padpedal-guitar-out" in l and "padpedal-loop-in" in l for l in ls), ls
         host.handle({"action": "looper", "on": False}, lambda m: None)
         time.sleep(1)
-    check("looper tap: the instrument also feeds a 'Central Control loop' source the app records from", t_loop)
+    check("looper tap: the instrument also feeds a 'Central Pedal loop' source the app records from", t_loop)
 
     def t_relink():
         host.config["routing"] = {"mode": "mono4", "buses": {"instrument": {"ch": 2}}}

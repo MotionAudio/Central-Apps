@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><title>Central Usage output</title>
+<meta charset="utf-8"><title>Central Control output</title>
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
   html,body { margin:0; height:100%; background:#000; color:#fff; font-family:Inter,ui-sans-serif,system-ui,sans-serif; overflow:hidden; cursor:none; }
@@ -17,7 +17,7 @@
 <body>
 <div class="layer" id="a"></div><div class="layer" id="b"></div>
 <script>
-// Central Usage's slides / lyrics output: a second screen, or the off-screen page NDI sends.
+// Central Control's slides / lyrics output: a second screen, or the off-screen page NDI sends.
 (function () {
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function fileUrl(p) { return /^(https?|file|data):/.test(p) ? p : "file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F"); }

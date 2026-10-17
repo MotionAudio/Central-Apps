@@ -1,5 +1,5 @@
 """
-Central Control - the native instrument host (imported by pedal-driver.py).
+Central Pedal - the native instrument host (imported by pedal-driver.py).
 
 Guitar: a PipeWire filter-chain (real LV2 / LADSPA plugins, each wrapped in a
 bypass mixer) running as its own `pipewire -c` client process, fed from the USB
@@ -39,7 +39,7 @@ def mix_gains(on, mix, level_db):
     if not on:
         return 0.0, 1.0
     return mix * level, (1.0 - mix) * level
-KEYS_PORT_NAME = "Central Control Keys"
+KEYS_PORT_NAME = "Central Pedal Keys"
 
 
 def db_to_lin(db):
@@ -193,7 +193,7 @@ def build_sf2_from_wavs(folder, out_path, name=None):
         body = ltype + b"".join(chunks)
         return b"LIST" + struct.pack("<I", len(body)) + body
 
-    info = lst(b"INFO", chunk(b"ifil", struct.pack("<HH", 2, 1)), chunk(b"isng", b"EMU8000\0"), chunk(b"INAM", (name + "\0").encode("latin-1", "replace")), chunk(b"IENG", b"Central Control\0"))
+    info = lst(b"INFO", chunk(b"ifil", struct.pack("<HH", 2, 1)), chunk(b"isng", b"EMU8000\0"), chunk(b"INAM", (name + "\0").encode("latin-1", "replace")), chunk(b"IENG", b"Central Pedal\0"))
     sdta = lst(b"sdta", chunk(b"smpl", bytes(smpl)))
     pdta = lst(b"pdta", chunk(b"phdr", phdr), chunk(b"pbag", pbag), chunk(b"pmod", pmod), chunk(b"pgen", pgen + struct.pack("<HH", 0, 0)),
                chunk(b"inst", inst), chunk(b"ibag", bytes(ibag)), chunk(b"imod", imod), chunk(b"igen", bytes(igen) + struct.pack("<HH", 0, 0)), chunk(b"shdr", shdr_bytes))
@@ -515,7 +515,7 @@ class InstrumentHost:
             except Exception as error:
                 log.warning("relink failed: %s", error)
 
-    # ----- the looper tap: a virtual microphone ("Central Control loop") that carries the instrument's sound
+    # ----- the looper tap: a virtual microphone ("Central Pedal loop") that carries the instrument's sound
     # to the app, where the looper records it in time with the song and plays it back on the instrument output
     LOOP_CONF = """context.properties = { log.level = 2 }
 context.spa-libs = { audio.convert.* = audioconvert/libspa-audioconvert support.* = support/libspa-support }
@@ -525,9 +525,9 @@ context.modules = [
   { name = libpipewire-module-adapter }
   { name = libpipewire-module-loopback
     args = {
-      node.description = "Central Control loop"
+      node.description = "Central Pedal loop"
       capture.props = { node.name = "padpedal-loop-in" media.class = Audio/Sink audio.channels = 2 audio.position = [ FL FR ] node.autoconnect = false }
-      playback.props = { node.name = "padpedal-loop-src" node.description = "Central Control loop" media.class = Audio/Source audio.channels = 2 audio.position = [ FL FR ] }
+      playback.props = { node.name = "padpedal-loop-src" node.description = "Central Pedal loop" media.class = Audio/Source audio.channels = 2 audio.position = [ FL FR ] }
     }
   }
 ]
@@ -658,8 +658,8 @@ context.modules = [
   { name = libpipewire-module-adapter }
   { name = libpipewire-module-filter-chain
     args = {
-      node.description = "Central Control %(name)s"
-      media.name = "Central Control %(name)s"
+      node.description = "Central Pedal %(name)s"
+      media.name = "Central Pedal %(name)s"
       node.latency = 128/48000
       filter.graph = {
         nodes = [
@@ -814,7 +814,7 @@ context.modules = [
             if n["name"] == "padpedal_out":
                 sink = n
                 break
-        if not sink:  # no combined sink (not the Central Control OS): use the default sink
+        if not sink:  # no combined sink (not the Central Pedal OS): use the default sink
             for n in self.pw.nodes(objs):
                 if n["class"] == "Audio/Sink":
                     sink = n
@@ -937,7 +937,7 @@ context.modules = [
         env = dict(self.env)
         env["PIPEWIRE_PROPS"] = '{ node.name = "padpedal-keys-synth" node.autoconnect = false media.role = Music }'
         logf = open(os.path.join(self.dir, "fluidsynth.log"), "w")
-        cmd = ["fluidsynth", "-a", "pipewire", "-m", "alsa_seq", "-i", "-s", "-o", "shell.port=%d" % FLUID_PORT, "-o", "midi.portname=Central Control Synth",
+        cmd = ["fluidsynth", "-a", "pipewire", "-m", "alsa_seq", "-i", "-s", "-o", "shell.port=%d" % FLUID_PORT, "-o", "midi.portname=Central Pedal Synth",
                "-o", "audio.period-size=128", "-o", "audio.periods=3", "-o", "synth.gain=0.8", "-o", "synth.reverb.active=no", "-o", "synth.chorus.active=no", "-o", "synth.polyphony=128"]
         # stdin stays open (a pipe we never write to): with -s fluidsynth still reads the shell and quits on EOF
         self.procs["fluid"] = subprocess.Popen(cmd, env=env, stdout=logf, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
@@ -1149,7 +1149,7 @@ class MidiRouter:
             try:
                 r = run(["aconnect", "-l"])
                 mine = re.search(r"client (\d+): '%s" % re.escape(KEYS_PORT_NAME), r.stdout)
-                fluid = re.search(r"client (\d+): '[^']*(FLUID|Central Control Synth)[^']*'", r.stdout)
+                fluid = re.search(r"client (\d+): '[^']*(FLUID|Central Pedal Synth)[^']*'", r.stdout)
                 if mine and fluid:
                     run(["aconnect", "%s:0" % mine.group(1), "%s:0" % fluid.group(1)])
                     return

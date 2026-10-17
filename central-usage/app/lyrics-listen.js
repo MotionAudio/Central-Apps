@@ -1,6 +1,6 @@
-/* Central Usage - "Write lyrics + chords from the vocal": the vocal track of the song the Central Control is on
+/* Central Control - "Write lyrics + chords from the vocal": the vocal track of the song the Central Pedal is on
  * is fetched, the speech model on this computer hears the words (with their times), a lyric chart is written
- * with the chords on the words they land on, and both go back to the Central Control (the chart, and the
+ * with the chords on the words they land on, and both go back to the Central Pedal (the chart, and the
  * words' timing for the vocal part). Also the Settings card for the speech model. */
 (function () {
   "use strict";
@@ -26,7 +26,7 @@
   }
   async function run() {
     if (busy) return;
-    var d = CU.state.display, s = d && d.song && (d.songs || [])[d.song.index]; if (!s || !s.id) { info("No song on the Central Control."); return; }
+    var d = CU.state.display, s = d && d.song && (d.songs || [])[d.song.index]; if (!s || !s.id) { info("No song on the Central Pedal."); return; }
     if (!CU.prefs.code) { await CU.askCode(); if (!CU.prefs.code) return; }
     busy = true; $("#lyrListen").disabled = true;
     try {
@@ -34,7 +34,7 @@
       var hub = await (await fetch(CU.api("/hub/" + encodeURIComponent(s.id)), { cache: "no-store" })).json();
       var voc = vocalOf(hub.stems); if (!voc) throw new Error("this song has no vocal track (name one Vocal / Lead / Vox)");
       info("Loading the " + voc.name + " track…");
-      var r = await fetch(CU.api("/hub-file?code=" + encodeURIComponent(CU.prefs.code) + "&path=" + encodeURIComponent(voc.file))); if (!r.ok) throw new Error("the Central Control did not send the track (" + r.status + ")");
+      var r = await fetch(CU.api("/hub-file?code=" + encodeURIComponent(CU.prefs.code) + "&path=" + encodeURIComponent(voc.file))); if (!r.ok) throw new Error("the Central Pedal did not send the track (" + r.status + ")");
       var ac = new (window.AudioContext || window.webkitAudioContext)(), buf = await ac.decodeAudioData(await r.arrayBuffer()); try { ac.close(); } catch (_) { }
       var mono = new Float32Array(buf.length); for (var c = 0; c < buf.numberOfChannels; c++) { var ch = buf.getChannelData(c); for (var i = 0; i < ch.length; i++) mono[i] += ch[i] / buf.numberOfChannels; }
       var words = await L.listen(mono, buf.sampleRate, function (t) { info(t + " (" + voc.name + ")"); });
@@ -42,11 +42,11 @@
       var m = hub.music || {}, g = hub.grid || {}, period = 60 / (g.bpm || hub.bpm || 100), bars = g.bars || [];
       var chords = (m.chords || []).map(function (c2) { var t0 = bars[c2.bar - 1]; if (t0 == null) t0 = (bars[0] || 0) + (c2.bar - 1) * (hub.bpb || 4) * period; return { start: t0 + (c2.beat - 1) * period, label: c2.label, bass: c2.bass }; });
       var text = L.chartFromWords(words, { title: hub.name || s.name, key: (d && d.key) || hub.key, chords: chords, sections: (hub.sections || []).map(function (q) { return { name: q.name, start: q.start }; }) });
-      info("Sending the chart to the Central Control…");
+      info("Sending the chart to the Central Pedal…");
       var up = await fetch(CU.api("/upload?kind=charts&code=" + encodeURIComponent(CU.prefs.code) + "&song=" + encodeURIComponent(hub.name || s.name) + "&name=" + encodeURIComponent((hub.name || s.name) + " (lyrics + chords).txt")), { method: "POST", body: text });
       if (!up.ok) throw new Error("the chart was not saved (" + up.status + ")");
       CU.send({ type: "songWords", code: CU.prefs.code, song: s.id, words: words.map(function (w) { return { text: w.text, start: w.start, end: w.end }; }) });
-      info("✓ " + words.length + " words heard - the lyric chart is on the Central Control (" + text.split("\n").filter(function (l) { return l && !/^[{\[|]/.test(l); }).length + " lines)");
+      info("✓ " + words.length + " words heard - the lyric chart is on the Central Pedal (" + text.split("\n").filter(function (l) { return l && !/^[{\[|]/.test(l); }).length + " lines)");
     } catch (e) { info("Not written: " + (e && e.message || e)); }
     busy = false; var b = $("#lyrListen"); if (b) b.disabled = false;
   }

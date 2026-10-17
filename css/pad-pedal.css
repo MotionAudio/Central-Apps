@@ -1,4 +1,4 @@
-/* Central Control v5 - shell, Tracks, Instrument, Configure, Learn, Settings, textures, song editor */
+/* Central Pedal v5 - shell, Tracks, Instrument, Configure, Learn, Settings, textures, song editor */
 body.no-cursor, body.no-cursor * { cursor: none !important; }
 .topnav { position: sticky; top: 0; z-index: 60; display: flex; align-items: stretch; gap: 6px; padding: 6px 10px; background: color-mix(in srgb, var(--bg), #000 20%); border-bottom: 1px solid var(--line); min-height: 52px; }
 .topnav .nav-tab { flex: 1 1 0; min-width: 0; font-weight: 800; letter-spacing: .06em; font-size: clamp(12px, 1.9vh, 16px); border-radius: 10px; padding: 8px 6px; }

@@ -1,6 +1,6 @@
-/* Central Control - the pairing PIN: 4 digits the person picks the first time the Central Control starts.
- * Every other device (Central Usage, phones, the remote, other Central Controls) pairs with it.
- * It is not the main admin's PIN - that one (in Central Usage) is for changing roles, and the two must differ.
+/* Central Pedal - the pairing PIN: 4 digits the person picks the first time the Central Pedal starts.
+ * Every other device (Central Control, phones, the remote, other Central Pedals) pairs with it.
+ * It is not the main admin's PIN - that one (in Central Control) is for changing roles, and the two must differ.
  * Settings → Wi-Fi & devices can change it (devices already paired are asked for the new one). */
 (function () {
   "use strict";
@@ -49,7 +49,7 @@
     var d = $("#pinDialog"); if (!d) return;
     var pin = $("#pinValue", d).value;
     if (!/^\d{4}$/.test(pin)) { $("#pinErr", d).textContent = "The PIN is 4 digits."; return; }
-    if (!connected()) { $("#pinErr", d).textContent = "Not connected to the Central Control."; return; }
+    if (!connected()) { $("#pinErr", d).textContent = "Not connected to the Central Pedal."; return; }
     waiting = pin; bridge().send({ type: "pairCode", pin: pin });
   }
   F.on("pairCodeReply", function (m) {
@@ -68,7 +68,7 @@
   function render() {
     var sec = $("#pinSection"); if (!sec) return;
     var code = info && info.code;
-    sec.innerHTML = '<h3>Pairing PIN</h3>' + (connected() && code ? '<p>Devices pair with this Central Control using <b class="code">' + esc(code) + '</b>.</p><p class="muted">Different from the main admin\'s PIN in Central Usage (that one changes roles).</p><button id="pinChange">Change the PIN…</button>' : '<p class="muted">Set on the Central Control itself.</p>');
+    sec.innerHTML = '<h3>Pairing PIN</h3>' + (connected() && code ? '<p>Devices pair with this Central Pedal using <b class="code">' + esc(code) + '</b>.</p><p class="muted">Different from the main admin\'s PIN in Central Control (that one changes roles).</p><button id="pinChange">Change the PIN…</button>' : '<p class="muted">Set on the Central Pedal itself.</p>');
     var b = $("#pinChange"); if (b) b.addEventListener("click", function () { dialog(false); });
   }
   render();

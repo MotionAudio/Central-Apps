@@ -1,4 +1,4 @@
-// Central Usage as the real Electron app: the phone remote's web server, the update check against a
+// Central Control as the real Electron app: the phone remote's web server, the update check against a
 // stand-in GitHub, the checksum guard of the updater, and the fixture library IPC.
 //   npm install && xvfb-run -a node test-app.mjs      (needs a display: Xvfb is fine)
 import { _electron as electron } from "playwright";
@@ -43,11 +43,11 @@ await check("the phone remote: switched on in Lighting → Output, it serves its
   assert.equal(r.status, 200);
   await win.waitForFunction(() => CULights.live.manual && CULights.live.manual.id === "bridge", null, { timeout: 3000 });
 });
-await check("updates: with the update source set, a newer Central Usage on the release page is found (and which file fits this computer)", async () => {
+await check("updates: with the update source set, a newer Central Control on the release page is found (and which file fits this computer)", async () => {
   const st = await win.evaluate(async () => { await CU.updates.config({ repo: "https://github.com/church/cc", auto: true }); return CU.updates.check(); });
   assert.equal(st.repo, "church/cc"); assert.equal(st.latest, "2.4.0"); assert.equal(st.available, true, JSON.stringify(st)); assert.equal(st.kind, "deb");
   await win.waitForFunction(() => document.querySelector("#updAsk").open, null, { timeout: 3000 });
-  assert.match(await win.evaluate(() => document.querySelector("#updAsk").textContent), /Central Usage 2\.4\.0[\s\S]*Want to update now\?/);
+  assert.match(await win.evaluate(() => document.querySelector("#updAsk").textContent), /Central Control 2\.4\.0[\s\S]*Want to update now\?/);
   assert.ok(await win.evaluate(() => document.querySelector("#updBanner").hidden), "no banner under the question");
   await win.click('#updAsk [data-ask="no"]');
   await win.waitForFunction(() => !document.querySelector("#updAsk").open && document.querySelector("#updBanner").hidden, null, { timeout: 3000 });

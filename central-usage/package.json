@@ -1,11 +1,11 @@
 {
   "name": "central-usage",
   "productName": "Central Usage",
-  "version": "2.1.1",
-  "description": "Lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides, chord charts, lyrics and the instrument - the companion of Central Control. A native desktop app.",
+  "version": "2.2.0",
+  "description": "Lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides, chord charts, lyrics and the instrument - the companion of Central Pedal. A native desktop app.",
   "main": "main.js",
   "author": {
-    "name": "Central Control",
+    "name": "MotionAudio",
     "email": "central-control@localhost"
   },
   "license": "MIT",
@@ -53,10 +53,10 @@
       ],
       "category": "AudioVideo",
       "icon": "build/icon.png",
-      "synopsis": "Lights, mixing, in-ears, slides, charts and lyrics with Central Control",
+      "synopsis": "Lights, mixing, in-ears, slides, charts and lyrics with Central Pedal",
       "desktop": {
-        "Name": "Central Usage",
-        "Comment": "Lights, the tracks mixer, in-ear mixes, slides, charts and lyrics with Central Control",
+        "Name": "Central Control",
+        "Comment": "Lights, the tracks mixer, in-ear mixes, slides, charts and lyrics with Central Pedal",
         "Categories": "AudioVideo;Audio;Music;"
       },
       "maintainer": "Central Control <central-control@localhost>",
@@ -104,9 +104,11 @@
       "gatekeeperAssess": false,
       "artifactName": "central-usage-${version}-mac-${arch}.${ext}",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Central Usage records the audio interface's inputs for the mixer, the in-ears and the instrument. The stream's sound comes from your audio interface or Dante.",
-        "NSLocalNetworkUsageDescription": "Central Usage talks to the Central Control and to the other Central Usage computers on this network.",
-        "NSCameraUsageDescription": "Central Usage shows your cameras and capture cards in the Video switcher."
+        "NSMicrophoneUsageDescription": "Central Control records the audio interface's inputs for the mixer, the in-ears and the instrument. The stream's sound comes from your audio interface or Dante.",
+        "NSLocalNetworkUsageDescription": "Central Control talks to the Central Pedal and to the other Central Control computers on this network.",
+        "NSCameraUsageDescription": "Central Control shows your cameras and capture cards in the Video switcher.",
+        "CFBundleDisplayName": "Central Control",
+        "CFBundleName": "Central Control"
       },
       "files": [
         "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
@@ -179,7 +181,8 @@
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
       "artifactName": "central-usage-${version}-win-x64.${ext}",
-      "shortcutName": "Central Usage"
+      "shortcutName": "Central Control",
+      "uninstallDisplayName": "Central Control"
     },
     "asarUnpack": [
       "**/node_modules/@img/**",

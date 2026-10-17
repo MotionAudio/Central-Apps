@@ -1,4 +1,4 @@
-/* Central Usage - a local certificate authority and a server certificate for the phone-camera page.
+/* Central Control - a local certificate authority and a server certificate for the phone-camera page.
  * Phones only give a web page their camera over HTTPS. A certificate from the internet can't name a computer on the
  * church Wi-Fi, so this computer makes its own: a small CA (installed once on a phone, it removes the warning) and a
  * server certificate signed by it for this computer's names and addresses. Written with node:crypto alone
@@ -80,7 +80,7 @@ function ensure(dir) {
   try { caKey = crypto.createPrivateKey(fs.readFileSync(f("ca-key.pem"))); caCert = fs.readFileSync(f("ca.crt")); } catch (_) { caKey = null; }
   if (!caKey) {
     const kp = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-    const spki = kp.publicKey.export({ type: "spki", format: "der" }), nm = name("Central Usage local CA (" + os.hostname() + ")");
+    const spki = kp.publicKey.export({ type: "spki", format: "der" }), nm = name("Central Control local CA (" + os.hostname() + ")");
     caCert = Buffer.from(pem(certificate({ subject: nm, issuer: nm, spki, signKey: kp.privateKey, days: 3650, ca: true }), "CERTIFICATE"));
     fs.writeFileSync(f("ca-key.pem"), kp.privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
     fs.writeFileSync(f("ca.crt"), caCert); caKey = kp.privateKey;

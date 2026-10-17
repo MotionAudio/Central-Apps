@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Central Usage</title>
+<title>Central Control</title>
 <style>
   :root { --bg: #08111d; --card: #0f1b2b; --ink: #e8eef6; --muted: #93a3b8; --line: #22324a; --accent: #4fd1a5; --accent-ink: #062018; --bad: #ff8f8f; }
   @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f4f6f9; --card: #ffffff; --ink: #121821; --muted: #5b6677; --line: #dde3ea; --accent: #13a67a; --accent-ink: #ffffff; --bad: #c62828; } }
@@ -21,9 +21,9 @@
 </head>
 <body>
 <div class="card">
-  <h1>Central Usage</h1>
-  <p>Lyrics, your chart and your in-ear mix, from the Central Control on this Wi-Fi.</p>
-  <button id="find">Find the Central Control</button>
+  <h1>Central Control</h1>
+  <p>Lyrics, your chart and your in-ear mix, from the Central Pedal on this Wi-Fi.</p>
+  <button id="find">Find the Central Pedal</button>
   <label for="host">Or its address</label>
   <input id="host" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="padpedal.local or 192.168.1.20">
   <button class="ghost" id="go">Connect</button>
@@ -32,7 +32,7 @@
 <script>
 (function () {
   "use strict";
-  // The Central Control serves the Central Usage web app (phones and tablets) at http://<it>:8080/cu/
+  // The Central Pedal serves the Central Control web app (phones and tablets) at http://<it>:8080/cu/
   var PORT = 8080, PATH = "/cu/", KEY = "cu-host";
   var $ = function (id) { return document.getElementById(id); };
   function saved() { try { return localStorage.getItem(KEY) || ""; } catch (_) { return ""; } }
@@ -51,9 +51,9 @@
     // the first one that answers wins
     Promise.any ? Promise.any(tries.map(probe)).then(open).catch(fail) : tries.reduce(function (p, h) { return p.catch(function () { return probe(h); }); }, Promise.reject()).then(open).catch(fail);
   }
-  function fail() { say("Not found. Check you're on the same Wi-Fi as the Central Control, or type its address (Central Control → Settings shows it).", true); }
+  function fail() { say("Not found. Check you're on the same Wi-Fi as the Central Pedal, or type its address (Central Pedal → Settings shows it).", true); }
   $("find").addEventListener("click", find);
-  $("go").addEventListener("click", function () { var h = $("host").value.trim(); if (!h) return; say("Connecting…"); probe(h).then(open).catch(function () { say("No Central Control at " + h + ".", true); }); });
+  $("go").addEventListener("click", function () { var h = $("host").value.trim(); if (!h) return; say("Connecting…"); probe(h).then(open).catch(function () { say("No Central Pedal at " + h + ".", true); }); });
   $("host").addEventListener("keydown", function (e) { if (e.key === "Enter") $("go").click(); });
   $("host").value = saved();
   if (saved()) { say("Connecting to " + saved() + "…"); probe(saved()).then(open).catch(function () { say(""); }); }

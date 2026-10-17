@@ -1,4 +1,4 @@
-/* Central Usage - the Video tab's bridge to the main process (video-service.js). Called from preload.js:
+/* Central Control - the Video tab's bridge to the main process (video-service.js). Called from preload.js:
  *   require("./preload-video")();                                                                       */
 "use strict";
 const { contextBridge, ipcRenderer } = require("electron");

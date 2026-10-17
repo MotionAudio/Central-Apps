@@ -1,16 +1,35 @@
-# Central Control
+# Central Pedal
 
-A Raspberry Pi 4 that boots straight into Central Control and nothing else
+A Raspberry Pi 4 that boots straight into Central Pedal and nothing else
 (a full-screen app, not a browser): an ambient / worship pad instrument, a
 multitrack player (stems, click, spoken cues, chord charts, lyrics) and a
 guitar / keys rig, with a touch screen, 12 footswitches, 6 knobs, 2 sliders,
 an expression pedal, MIDI in/out, Ableton Link, four separate audio outputs
-and a projector output. **Central Usage** (`central-usage/`) is the companion
+and a projector output. **Central Control** (`central-usage/`) is the companion
 app for the other computers in the room. An **Admin** computer gets the lighting
 controller, the video switcher, the tracks mixer, up to 64 in-ear mixes, lyrics and slides. A **User**
 computer gets the chord chart, the instrument, the lyrics and the musician's
-own in-ear mix. Everything follows the Central Control, and only the Central
-Control plays, stops and skips the tracks.
+own in-ear mix. Everything follows the Central Pedal, and only the Central
+Pedal plays, stops and skips the tracks.
+
+**New in version 8.2:**
+- **New names:** the Pi (and its PC version) is **Central Pedal**; the companion app (Central Usage until now) is
+  **Central Control**. Settings, songs and updates carry on - the installer files keep their old names.
+- **Pairing:** the main admin is set up first (its inputs and outputs, a 4-digit **pairing PIN**, and its own
+  **role PIN**). Every other device - Admin, User 1, User 2, and the Central Pedal on its own screen - pairs with
+  that one pairing PIN. An admin without the role PIN waits for the main admin to allow it.
+- **Devices tab** (main admin): every device, its role and jobs, and how its connection is doing (round trip,
+  in-ear buffer and dropouts, CPU, battery, version), with Change role, Jobs, Lock / Unlock, Rename, Remove.
+  The main admin picks its own job too (everything = production manager, or e.g. lighting).
+- **Locks:** the main admin's **service lock** (everyone, or one device) closes the I/O tab, settings and set-up
+  pages during the service; anyone can **manual-lock** their own computer (hold 🔒 for 2 seconds to unlock).
+- **Services:** up to 4 (day, time, run order with minutes, the roles each item uses). Every computer counts down
+  to **its own next part**; the stage display shows the service countdown.
+- **Talkback:** admins talk into everyone's in-ears or chosen ones (hold, or tap to latch; music dims);
+  musicians can talk to the sound desk.
+- **Recording:** every input, the tracks and a stereo program mix (plus an MP3 for the podcast) on the audio
+  host - by hand, or automatically with a service.
+- **Faster boot** on the Raspberry Pi.
 
 **New in version 8.1:**
 - **More sounds:** 40 more pads (121), 30 more pedals (239) and 17 more keys
@@ -20,8 +39,8 @@ Control plays, stops and skips the tracks.
   controls the plugin doesn't have (they showed up only under *more*) and the
   board presets that used them (Clean Worship, Edge Dotted-Eighth, Modern High
   Gain) didn't set their delay; all fixed.
-- **The same songs and setlists on every Central Control.** Link the Pi and
-  Central Control on your computers once (Setlist → *Setlists · Song library ·
+- **The same songs and setlists on every Central Pedal.** Link the Pi and
+  Central Pedal on your computers once (Setlist → *Setlists · Song library ·
   Devices* → *Link…* with the other one's code). After that, a setlist made on the
   PC shows up on the Pi to open, and every song with its stems, chart and light
   show copies both ways by itself; the newest edit wins. The Pi keeps the tracks of
@@ -35,10 +54,10 @@ Control plays, stops and skips the tracks.
   (drums too: kick, snare, hats, crash), so the parts are the real ones; songs
   without tracks get parts written from the chords. The bass track also makes the
   heard chord chart more accurate.
-- **Lyrics + chords from the vocal** (Central Control on a PC, and Central Usage):
+- **Lyrics + chords from the vocal** (Central Pedal on a PC, and Central Control):
   an offline speech model hears the words in the vocal track and writes the lyric
   chart with the chords on the right words.
-- **Central Usage roles**: one main admin with a PIN and a pairing code, admins
+- **Central Control roles**: one main admin with a PIN and a pairing code, admins
   with jobs (lighting, production, mix, in-ears, slides), User 1 and User 2.
 - **Touch select**: give any knob, slider or the encoder the *Touch select* job
   (Configure). Tap any setting on the screen - a pedal's knob, a fader, the pad
@@ -50,16 +69,16 @@ Control plays, stops and skips the tracks.
   look under a name ("Sunday", "Youth night") and bring them back with one tap;
   each song can have its own setup. Setups stay on that device - songs, tracks
   and setlists are what sync.
-- **Pairing PIN**: the first time a Central Control starts, you pick its 4-digit
+- **Pairing PIN**: the first time a Central Pedal starts, you pick its 4-digit
   pairing PIN (Settings → Wi-Fi & devices changes it). It is separate from the
-  main admin's PIN in Central Usage.
+  main admin's PIN in Central Control.
 - **Tuner** on the Instrument tab: one button (or a footswitch, which opens the
   tab), mute or keep playing while tuning, and it shows on the 3.5-inch screen.
-- **iPhone and iPad**: Central Usage opens from the Central Control at
+- **iPhone and iPad**: Central Control opens from the Central Pedal at
   `http://padpedal.local:8080/cu/` (Add to Home Screen).
 
 **New in version 8:**
-- **The Central Control's audio goes to Central Usage.** Every track goes on its
+- **The Central Pedal's audio goes to Central Control.** Every track goes on its
   own channel, plus the click, pads, the tracks mix and the instrument. It travels
   over **Ethernet** or **Wi-Fi**, or through the **audio interface**; you pick which
   on the new **I/O tab**, which lists every input and output.
@@ -76,14 +95,14 @@ Control plays, stops and skips the tracks.
 - A big **guitar tuner**, and song notes and cues on the stage display.
 - **More sounds:** 81 pads, 59 more pedals, a bass board, a piano bank, and an
   on / off **live looper** under the instrument.
-- **Slides on HDMI 2:** pictures, videos and lyrics sent from Central Usage.
+- **Slides on HDMI 2:** pictures, videos and lyrics sent from Central Control.
 
-**In Central Usage 2.0:**
+**In Central Control 2.0:**
 - **The Mix tab** gives every track its fader, pan, mute, high-pass, 3-band EQ and
   compressor. The tracks go out of the USB interface summed (L/R) or each on its
   own output.
 - **The In-ears tab** handles up to 128 channels and 64 mixes (48 in 8.0). People on stage pick
-  a free mix and set their own levels from Central Usage or a phone. Their mix
+  a free mix and set their own levels from Central Control or a phone. Their mix
   plays on that device over Wi-Fi (local), or leaves the audio host's interface for
   a pack (cloud).
 - On the audio host you can **listen to any mix** and **record the service**.
@@ -95,7 +114,7 @@ Control plays, stops and skips the tracks.
   universe, and run a click that you can hear, that the lights follow, and that
   can go to an audio output. The lights also react to the music.
 - **Slides:** pictures, video and lyrics go to a second screen, the Central
-  Control's HDMI 2 and NDI.
+  Pedal's HDMI 2 and NDI.
 - **The Instrument tab** is the same guitar / bass / keys rig as on the Pi.
 
 **New in version 7.1:** the HDMI picture is right on any monitor - its own
@@ -115,7 +134,7 @@ their levels, the track mix, the instrument rig) recalled automatically, from a
 footswitch or by MIDI · **segues** between songs (gapless or crossfaded) ·
 **ProPresenter** slides that follow the sections · **Mix and Level on every
 pedal** · **8 keys layers** with splits · an **IR loader** · a **looper** ·
-**update checks** that ask before installing · in Central Usage: the **fixture
+**update checks** that ask before installing · in Central Control: the **fixture
 library** (QLC+ / Open Fixture Library), **moving-head positions and shapes**,
 a **phone remote** for the lights and **timecode** (MTC / LTC) out.
 
@@ -124,20 +143,20 @@ Community track packs or your own files · tempo and time-signature changes
 inside a song · live arrangement (flow) with gapless jumps · per-stem outputs
 on a USB interface · your own recorded cue words · a stage display ·
 backup, restore and software update from a USB stick · every imported file
-kept in a library on the Pi · lighting in Central Usage.
+kept in a library on the Pi · lighting in Central Control.
 
 ## Quick start
 
 **Just want to install the apps?** The download page **https://motionaudio.github.io/Central-Apps/**
 picks the right file for your computer; step-by-step help (and Linux commands) is in [INSTALL.md](INSTALL.md).
 
-| | Central Control | Central Usage |
+| | Central Pedal | Central Control |
 |---|---|---|
 | Raspberry Pi | ✓ (the stage device) | |
 | Windows 10 / 11 (x64) | ✓ | ✓ |
 | macOS 11+ (Apple Silicon, Intel) | ✓ | ✓ |
 | Linux (.deb, AppImage) | ✓ | ✓ |
-| iPhone / iPad | | ✓ web app from the Central Control ([App Store version](IOS-APP-STORE.md)) |
+| iPhone / iPad | | ✓ web app from the Central Pedal ([App Store version](IOS-APP-STORE.md)) |
 
 Every release ships for all of them (GitHub Actions builds and tests each system), and every install updates
 itself from the newest release. On Windows and macOS the instrument plays through the built-in rig (built-in
@@ -164,17 +183,17 @@ Releases can also be copied to Google Drive automatically ([DRIVE-SETUP.md](DRIV
 
 3. **Boot.** The first boot takes about a minute longer and restarts once
    (it creates the `/data` partition and turns on safe mode). After that every
-   boot goes straight to the Central Control screen. The start-up screen says
-   "Central Control 8.1.0" and the top-right of the app shows the same - if it
+   boot goes straight to the Central Pedal screen. The start-up screen says
+   "Central Pedal 8.1.0" and the top-right of the app shows the same - if it
    doesn't, the card has an older image on it.
 
 4. **Wire the control surface** with `wiring.html`. Every part is optional;
    the Learn tab can move any button or knob to any pin without re-flashing.
    A guitar needs a USB audio interface, a keyboard a USB MIDI port - no wiring.
 
-5. **Central Usage** on a laptop: `sudo apt install ./central-usage/dist/central-usage-2.1.0-amd64.deb`
+5. **Central Control** (the companion app) on a laptop: `sudo apt install ./central-usage/dist/central-usage-2.1.0-amd64.deb`
    (or run the AppImage), then **Find** → Connect. See `central-usage/README.md`.
-   **Central Control on a PC** (no Pi, for trying it out or building setlists):
+   **Central Pedal on a PC** (no Pi, for trying it out or building setlists):
    `sudo apt install ./central-control-desktop/dist/central-control-8.1.0-amd64.deb`.
 
 Maintenance login: `ssh pi@padpedal.local`, password `padpedal`.
@@ -291,10 +310,10 @@ A multitrack player built in; nothing else to install.
   trimmed) and it can be used on any section like the built-in ones.
 - **Chord charts**: upload a PDF or text chart (ChordPro, chords-over-lyrics
   or `| G | C |` bars), or press **Listen & write chord chart** and the
-  Central Control writes one by listening to the stems (beat-synchronous chord
+  Central Pedal writes one by listening to the stems (beat-synchronous chord
   recognition with slash chords, lined up with the sections). The current
   chord is shown on the transport while the song plays. Charts are shared
-  with phones, the projector and Central Usage.
+  with phones, the projector and Central Control.
 - **Sheet music**: *Sheet music…* in the song editor listens to one stem
   (bass, keys, lead…) and writes what it plays as standard notation,
   guitar / bass tab, a piano roll that follows the playhead, Nashville
@@ -304,12 +323,12 @@ A multitrack player built in; nothing else to install.
 - **MIDI out**: channel 1 (or whichever you pick) sends *hits* for lights
   (a note on every accent / section start, nothing else); channel 2 sends
   general MIDI (program change per song, notes per section, clock).
-  The same hits and clock go over Wi-Fi to Central Usage.
+  The same hits and clock go over Wi-Fi to Central Control.
   **Ableton Link** and **MIDI clock** sync are in Settings.
 
 ### Instrument
 Plug a guitar into a USB audio interface, or a keyboard into a USB port, and
-the Central Control is the rig. Its sound leaves on **output 4**, never in
+the Central Pedal is the rig. Its sound leaves on **output 4**, never in
 the way of the pads or tracks.
 - **Electric / Acoustic guitar**: the input (any class-compliant USB
   interface, left / right / stereo channel), gain and noise gate, then a
@@ -367,12 +386,12 @@ LEDs follow the mapping (on / off / blink on the beat).
   from the defaults in `wiring.html`; *Reset* puts them back.
 
 ### I/O
-Every input and output of the Central Control on one page:
-- **Audio to Central Usage**: *Off*, *Ethernet* (a cable to the network or
+Every input and output of the Central Pedal on one page:
+- **Audio to Central Control**: *Off*, *Ethernet* (a cable to the network or
   straight to the computer; the best), *Wi-Fi* (anywhere on the Wi-Fi, a
   little more delay) or *Audio interface* (the outputs cabled into the other
   computer's interface). On the network, every track goes on its own
-  channel, raw (Central Usage mixes it), together with *Click + cues*, *Pads
+  channel, raw (Central Control mixes it), together with *Click + cues*, *Pads
   L/R*, *Tracks mix L/R* and the instrument. Each channel is 48 kHz, or
   24 kHz with *Saver* for a busy Wi-Fi. The page shows who is listening and
   what is being sent. The Pi only serves computers that reach it over the
@@ -380,8 +399,8 @@ Every input and output of the Central Control on one page:
 - **Audio outputs**: the routing of the four buses and the per-track direct
   outputs.
 - **Audio inputs**, **MIDI** (ports, notes for the lights), **Screens & video**
-  (what HDMI 1 and 2 show, including *Slides from Central Usage*), the
-  **control surface**, and the devices on the network (the Central Usage
+  (what HDMI 1 and 2 show, including *Slides from Central Control*), the
+  **control surface**, and the devices on the network (the Central Control
   computers, the audio host, the pairing code).
 
 ### Settings
@@ -399,7 +418,7 @@ Every input and output of the Central Control on one page:
   brings up its presentation from the library (*ProPresenter presentation*
   in the song editor, the song name by default).
 - **Software updates**: set the *Update source* (the GitHub repository the
-  releases are published to). The Central Control looks once a day; when a
+  releases are published to). The Central Pedal looks once a day; when a
   newer version is out, *Update ready* appears with *Install* - which waits
   until nothing is playing. The download is checked against the release's
   SHA256SUMS before anything is installed; your songs and settings stay.
@@ -410,14 +429,14 @@ Every input and output of the Central Control on one page:
     audio and app settings.
   - *Restore from USB…* lists the backups on the stick and puts one back (the app
     restarts).
-  - *Update software from USB…* installs a newer Central Control from a zip on the
+  - *Update software from USB…* installs a newer Central Pedal from a zip on the
     stick (`central-control-source.zip` from this project), into the
     read-only system too when safe mode is on, and restarts the app. Your
     songs and settings are not touched.
 
-## Setlists on every Central Control
+## Setlists on every Central Pedal
 
-Every Central Control - the Pi and Central Control on your computers - keeps the
+Every Central Pedal - the Pi and Central Pedal on your computers - keeps the
 same **Song library** and **setlists**. Open **Setlist → Setlists · Song library ·
 Devices…**:
 
@@ -426,13 +445,13 @@ Devices…**:
 * **Song library**: every song, with its key, tempo, tracks and the setlists it is
   in. **+ Add** puts it in the open setlist. **Delete…** asks *on this device* or
   *everywhere*.
-* **Devices**: the other Central Controls on the network. **Link…** once with the
+* **Devices**: the other Central Pedals on the network. **Link…** once with the
   other one's pairing code (its Settings); after that they copy each other's songs
   and setlists every few seconds - songs, stems, charts, light shows - and the
   newest edit wins. A Raspberry Pi keeps the tracks of songs that are in a setlist
   and leaves the others on the computers until a setlist needs them (it warns when
   the card is nearly full). Removing a song from the setlist asks: *from this
-  setlist only*, *delete on this Central Control*, or *delete everywhere*.
+  setlist only*, *delete on this Central Pedal*, or *delete everywhere*.
 
 Devices find each other with a small broadcast on the network (UDP port 8094); if
 your network blocks that, use **Link by address…**.
@@ -440,7 +459,7 @@ your network blocks that, use **Link by address…**.
 ## Parts for every instrument
 
 Song editor → **Charts & sheet music → Parts for every instrument** (also in
-Central Usage's chart tab). Pick the instrument: **chord chart**, **Nashville
+Central Control's chart tab). Pick the instrument: **chord chart**, **Nashville
 numbers**, **guitar** (chart with capo, a diagram for every shape, tab), **bass**,
 **keys** (both hands), **vocals** (melody with the words), **trumpet, clarinet, alto
 sax, tenor sax, horn in F, trombone** (each written in its own key), **violin**,
@@ -455,7 +474,7 @@ sax, tenor sax, horn in F, trombone** (each written in its own key), **violin**,
   close over the roots, horns on guide tones in the big sections, strings
   throughout, and a drum chart that follows the sections with fills and the song's
   hits.
-* **✎ Lyrics + chords from the vocal** (Central Control on a PC; the speech model
+* **✎ Lyrics + chords from the vocal** (Central Pedal on a PC; the speech model
   runs there): hears the words in the vocal track and writes the lyric chart with
   each chord on the word it lands on; the vocal part gets the words under its notes.
 * Charts written by listening use the bass track on its own when the song has one,
@@ -505,8 +524,8 @@ The pin map lives in `/data/pad-pedal/hardware.json` (the Learn tab writes it);
 - **Phones, tablets, Macs** on the same Wi-Fi: open `http://padpedal.local:8080`
   (or scan the QR code in Settings). Pages: chord charts (follows the song),
   lyrics, remote, upload. The 4-digit pairing PIN (picked the first time the
-  Central Control starts, shown in Settings) is needed to control anything; viewing is free.
-- **Central Usage** (Linux desktop app, `central-usage/`): chord chart
+  Central Pedal starts, shown in Settings) is needed to control anything; viewing is free.
+- **Central Control** (Linux desktop app, `central-usage/`): chord chart
   transposed for the player's instrument (guitar shapes + capo, B♭ / E♭ / F
   horns, Nashville numbers), lyrics, and **lighting**: a built-in light
   controller (patch your fixtures and their channels, looks, a cue timeline
@@ -591,7 +610,7 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 - `python3 test_instrument_host.py` — the native pedal / keys host against a
   real PipeWire graph: pedal Mix / Level, the IR convolver, the looper tap,
   8 keys layers (13 checks; needs `pipewire`, `wireplumber`, `fluidsynth`).
-- `cd central-usage && node test-usage.mjs` — Central Usage: transposition,
+- `cd central-usage && node test-usage.mjs` — Central Control: transposition,
   capo, horns, Nashville, lyrics, remote, MIDI relay timing, the lighting
   controller, fixture library, movers, phone remote, timecode (18 checks);
   `node test-dmx.mjs` — the USB-DMX, Art-Net and sACN packets;
@@ -605,34 +624,34 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 |---|---|
 | `index.html`, `css/`, `js/` | The app: pads, tracks, instrument, configure, learn, settings, engine, effects, graphics |
 | `js/multitrack-worklet.js`, `js/analysis-worker.js` | Multitrack audio engine (key / tempo change, click, cues) and the BPM / key / section / chord / note analysis |
-| `js/chords.js`, `js/notation.js` | Chord-chart parsing, transposition and instrument views (shared with Central Usage); sheet music, tab and piano roll |
+| `js/chords.js`, `js/notation.js` | Chord-chart parsing, transposition and instrument views (shared with Central Control); sheet music, tab and piano roll |
 | `js/pedals.js`, `js/plugin-ports.js`, `instrument-plugins.json` | The pedal catalogue and board presets; the plugin ports found in the image |
 | `js/instrument.js`, `instrument_host.py` | The Instrument tab and the native PipeWire pedal chain / FluidSynth keys host behind it |
 | `js/scenes.js`, `js/looper.js`, `js/integrations.js` | Scenes and pad layers; the looper; ProPresenter and update checks (page side) |
-| `js/io.js`, `js/netsend.js`, `js/hub.js`, `js/colors.js` | The I/O tab; the audio to Central Usage (every track on its own channel); the songs for Central Usage; the colours of everything |
+| `js/io.js`, `js/netsend.js`, `js/hub.js`, `js/colors.js` | The I/O tab; the audio to Central Control (every track on its own channel); the songs for Central Control; the colours of everything |
 | `make-release.sh` | Builds a release (Pi zip, PC installers, SHA256SUMS) and publishes it to GitHub |
 | `js/sources.js`, `sources.py` | *Add songs*: Planning Center, track packs, own files (page and driver side) |
 | `companion/` | The pages phones, tablets and the projector open: charts, lyrics, remote, upload, mini, stage, slides |
-| `central-usage/` | The Central Usage desktop app (Electron; its audio engine and NDI sender in `native/`) and its installers in `dist/` |
+| `central-usage/` | The Central Control desktop app (Electron; its audio engine and NDI sender in `native/`) and its installers in `dist/` |
 | `cues/` | Pre-rendered spoken cue words |
 | `pedal-driver.py`, `hardware.json`, `pad-pedal-driver.service` | Hardware, USB, MIDI, Link, 3.5" screen, file, companion and Wi-Fi server; its default pin map; its service |
 | `pad-pedal-session`, `xinitrc`, `bash_profile` | The kiosk session: audio, HDMI 1 / HDMI 2 (native resolution, zoom, edges, hot-plug), cursor, the full-screen app |
 | `starting.html`, `99-central-control-vc4.conf` | The start-up screen shown until the service answers; the X setting that uses the Pi's own display driver |
-| `fonts/` | Inter (SIL Open Font License), used by the app, the companion pages and Central Usage |
+| `fonts/` | Inter (SIL Open Font License), used by the app, the companion pages and Central Control |
 | `pad-pedal-audio-config` | Builds the multi-channel output (jack + DAC + USB) in PipeWire |
 | `pad-pedal-system`, `pad-pedal-safe-mode`, `pad-pedal.sudoers` | Root helper for Settings (safe mode, screen, DAC, audio, Wi-Fi, hostname) |
 | `build-image.sh` | Builds the SD card image on an Ubuntu / Debian PC |
 | `setup-pi.sh` | The OS setup used by both the image builder and `install-kiosk.sh` |
 | `get-sounds.sh` | Downloads the free keys sound banks (FreePats, Salamander…) for the image |
-| `install-kiosk.sh` | Turns an existing Pi OS Lite install into Central Control |
+| `install-kiosk.sh` | Turns an existing Pi OS Lite install into Central Pedal |
 | `firstboot.sh`, `pad-pedal-firstboot.service`, `pad-pedal-wifi-import.service` | First boot: /data partition, safe mode, Wi-Fi import |
 | `99-pad-pedal-usb.rules`, `99-pad-pedal-touch.conf` | USB auto-mount; keeps the 3.5" touch panel away from X |
 | `wiring.html` (`make_wiring.py`, `wiring.template.html`) | Wiring guide with the header map, and its generator |
 | `test_pedal_driver.py`, `test-integration.mjs`, `test-headless.mjs`, `test_instrument_host.py` | Automated tests |
-| `central-control-desktop/` | Central Control as a desktop app for Windows, macOS and Linux (Electron; the driver bundled with PyInstaller on Windows / macOS - `tools/build-driver.sh`; installers in `dist/`) |
+| `central-control-desktop/` | Central Pedal as a desktop app for Windows, macOS and Linux (Electron; the driver bundled with PyInstaller on Windows / macOS - `tools/build-driver.sh`; installers in `dist/`) |
 | `native_rig.py` | The driver's bridge to the built-in instrument rig (cu-rig) where PipeWire isn't there (Windows, macOS) |
 | `central-usage/native/` | `cu-mixer` (audio engine: JACK, or Windows / macOS / Linux devices through miniaudio - several at once, Dante), `cu-ndi`, `cu-rig` (built-in instrument rig), `vendor/` (miniaudio, TinySoundFont, cJSON), unit tests |
-| `central-usage-ios/` | Central Usage for the App Store / TestFlight (Capacitor) - [IOS-APP-STORE.md](IOS-APP-STORE.md) |
+| `central-usage-ios/` | Central Control (the companion app) for the App Store / TestFlight (Capacitor) - [IOS-APP-STORE.md](IOS-APP-STORE.md) |
 | `docs/` | The download page (GitHub Pages) |
 | `tools/` | Build helpers: the pedal map for the rig, the built-in sounds, the bundled driver, CI smoke tests, `netns-run.sh` (a test suite in its own network) |
 | `.github/workflows/` | `build.yml` (every system's installers, tested on each), `release.yml` (publishes them, Google Drive copy, App Store upload), `pages.yml` (the download page) |

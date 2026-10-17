@@ -1,5 +1,5 @@
-/* Central Usage - records the service on the audio host.
- *   Every input of the audio interface / Dante (up to 128), the Central Control's tracks as they arrive over the
+/* Central Control - records the service on the audio host.
+ *   Every input of the audio interface / Dante (up to 128), the Central Pedal's tracks as they arrive over the
  *   network, and a stereo program (the main mix, or any mix) for the sermon podcast: one WAV per source, 48 kHz,
  *   24 bit, in a folder per recording - "2026-10-17 10.30 - Sunday morning" - under the recordings folder.
  *   The engine (cu-mixer) writes the files on its own thread: the audio thread only copies into a lock-free ring,

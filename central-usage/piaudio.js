@@ -1,4 +1,4 @@
-/* Central Usage - the Central Control's audio over the network (audio host only): connects to the Pi's
+/* Central Control - the Central Pedal's audio over the network (audio host only): connects to the Pi's
  * companion socket on the address of the chosen connection (its Ethernet or its Wi-Fi address), subscribes
  * with the pairing code and feeds every packet to the engine. Packets: "CCA1", u8 source, u8 channels,
  * u16 frames, u32 seq, f64 ms, int16 interleaved. */
@@ -35,7 +35,7 @@ class PiAudio extends EventEmitter {
       let m; try { m = JSON.parse(data.toString()); } catch (_) { return; }
       if (m.type === "audioSubscribed") { if (m.ok) { this.set("receiving", null); if (m.sources) this.stream(m.sources); } else this.set("refused", m.error || "refused"); }
       else if (m.type === "audioStream") this.stream(m.sources);
-      else if (m.type === "auth" && m.ok === false) this.set("refused", "The pairing code was refused (Central Control → Settings shows it).");
+      else if (m.type === "auth" && m.ok === false) this.set("refused", "The pairing code was refused (Central Pedal → Settings shows it).");
     });
     ws.on("close", () => { if (this.ws === ws) { this.ws = null; if (this.st.state !== "refused") this.set("lost", "connection lost - retrying"); this.retry(); } });
     ws.on("error", (e) => { if (this.st.state === "connecting") this.st.error = e.message; });

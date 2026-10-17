@@ -1,6 +1,6 @@
 #!/bin/bash
-# Bundles the Central Control driver (pedal-driver.py + sources.py + instrument_host.py + native_rig.py and the
-# Python packages it uses) into one folder with PyInstaller, so Central Control on Windows / macOS needs no Python.
+# Bundles the Central Pedal driver (pedal-driver.py + sources.py + instrument_host.py + native_rig.py and the
+# Python packages it uses) into one folder with PyInstaller, so Central Pedal on Windows / macOS needs no Python.
 #   bash tools/build-driver.sh [out folder]         (default: central-control-desktop/driver-dist)
 # Output: <out>/pedal-driver/pedal-driver[.exe] plus its files. Run on the system you build for.
 set -euo pipefail

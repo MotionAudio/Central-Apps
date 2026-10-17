@@ -349,7 +349,7 @@ async def main():
         action = await next_message(lambda m: m["type"] == "action")
         check("HTTP remote action with the code -> app gets {action tap}", status == 200 and action and action["name"] == "tap", action)
 
-        print("\nCentral Usage: network audio, the audio host, the hub, slides:")
+        print("\nCentral Control: network audio, the audio host, the hub, slides:")
         async with websockets.connect("ws://127.0.0.1:18081") as cu:
             await asyncio.wait_for(cu.recv(), 2)
             await asyncio.wait_for(cu.recv(), 2)  # hello + display
@@ -378,25 +378,25 @@ async def main():
             check("I/O → Ethernet is kept (netaudio.json)", st and st["config"]["mode"] == "ethernet" and os.path.exists(os.path.join(root, "data", "netaudio.json")), st and st["config"])
             await cu.send(json.dumps({"type": "audioSubscribe", "code": hello["code"], "sources": [0], "name": "Desk"}))
             ok = await cu_next(lambda m: m.get("type") == "audioSubscribed")
-            check("with Ethernet on, Central Usage subscribes with the pairing code", ok and ok["ok"], ok)
+            check("with Ethernet on, Central Control subscribes with the pairing code", ok and ok["ok"], ok)
             sending = await next_message(lambda m: m.get("type") == "netAudio" and m.get("sending"))
             check("...and the app is told to start sending (the listener is named)", sending is not None and sending["listeners"][0]["name"] == "Desk", sending)
             await send({"type": "netAudio", "action": "info", "channels": ["Drums", "Bass"], "rate": 48000})
             info = await cu_next(lambda m: m.get("type") == "audioStream")
-            check("the channel names reach Central Usage", info and info["sources"]["0"]["channels"] == ["Drums", "Bass"], info)
+            check("the channel names reach Central Control", info and info["sources"]["0"]["channels"] == ["Drums", "Bass"], info)
             pkt = struct.pack("<4sBBHId", b"CCA1", 0, 2, 4, 1, 12.5) + struct.pack("<8h", 1, -2, 3, -4, 5, -6, 7, -8)
             await ws.send(pkt)
             got = await cu_next(None, binary=True)
-            check("an audio packet from the app is passed on to Central Usage byte for byte", got == pkt, got and got[:24])
+            check("an audio packet from the app is passed on to Central Control byte for byte", got == pkt, got and got[:24])
             await cu.send(json.dumps({"type": "action", "name": "nextSection", "code": hello["code"]}))
             r = await cu_next(lambda m: m.get("type") == "refused")
-            check("Central Usage can't move the tracks: its nextSection is refused", r and "Only the Central Control" in r["error"], r)
+            check("Central Control can't move the tracks: its nextSection is refused", r and "Only the Central Pedal" in r["error"], r)
             await cu.send(json.dumps({"type": "action", "name": "lyricsNext", "code": hello["code"]}))
             act = await next_message(lambda m: m["type"] == "action")
-            check("...it can page the lyrics (marked as coming from Central Usage)", act == {"type": "action", "name": "lyricsNext", "args": {}, "from": "central-usage"}, act)
+            check("...it can page the lyrics (marked as coming from Central Control)", act == {"type": "action", "name": "lyricsNext", "args": {}, "from": "central-usage"}, act)
             await cu.send(json.dumps({"type": "audioHost", "action": "register", "code": hello["code"], "port": 8092, "name": "Desk"}))
             h = await cu_next(lambda m: m.get("type") == "audioHost")
-            check("an admin computer registers as the audio host and every Central Usage is told", h and h["host"]["name"] == "Desk" and h["host"]["port"] == 8092, h)
+            check("an admin computer registers as the audio host and every Central Control is told", h and h["host"]["name"] == "Desk" and h["host"]["port"] == 8092, h)
             status, body = http("http://127.0.0.1:18080/api/info")
             j = json.loads(body)
             check("/api/info names the audio host and the Pi's network connections", status == 200 and j["audioHost"]["name"] == "Desk" and isinstance(j["interfaces"], list), j)
@@ -412,7 +412,7 @@ async def main():
         await send({"type": "hub", "songs": [{"id": "s1", "name": "Way Maker", "bpm": 68, "key": "E", "duration": 300, "hasTracks": True, "overview": [0.1, 0.5, 0.9], "sections": [{"name": "Verse 1", "start": 0, "end": 30}]}]})
         await asyncio.sleep(0.3)
         status, body = http("http://127.0.0.1:18080/api/hub")
-        check("the app's songs are listed in the hub for Central Usage", status == 200 and json.loads(body)["songs"][0]["name"] == "Way Maker", body[:200])
+        check("the app's songs are listed in the hub for Central Control", status == 200 and json.loads(body)["songs"][0]["name"] == "Way Maker", body[:200])
         await send({"type": "hub", "songs": [{"id": "s1", "name": "Way Maker", "bpm": 70, "key": "E", "duration": 300, "hasTracks": True, "sections": []}]})
         await asyncio.sleep(0.3)
         status, body = http("http://127.0.0.1:18080/api/hub/s1")
@@ -420,7 +420,7 @@ async def main():
         check("a song's details (tempo, sections, waveform) - the waveform is kept when an update has none", j["bpm"] == 70 and j["overview"] == [0.1, 0.5, 0.9], j)
         png = b"\x89PNG\r\n\x1a\nslide-bytes-0123456789"
         status, body = http("http://127.0.0.1:18080/api/slides?code=%s&name=Welcome.png" % hello["code"], data=png)
-        check("Central Usage sends a picture for the slides screen (with the code)", status == 200 and json.loads(body)["file"] == "Welcome.png", body)
+        check("Central Control sends a picture for the slides screen (with the code)", status == 200 and json.loads(body)["file"] == "Welcome.png", body)
         status, _ = http("http://127.0.0.1:18080/api/slides?code=0000x&name=X.png", data=png)
         check("...a wrong code is refused", status == 403)
         status, body = http("http://127.0.0.1:18080/api/slides/Welcome.png", headers={"Range": "bytes=2-5"})
@@ -428,7 +428,7 @@ async def main():
         status, body = http("http://127.0.0.1:18080/slides")
         check("the Pi's slides page is served (for HDMI 2 set to Slides)", status == 200 or status == 404, status)
 
-        print("\nCentral Usage roles: one main admin, admins, User 1 / User 2:")
+        print("\nCentral Control roles: one main admin, admins, User 1 / User 2:")
 
         async def cu_open():
             c = await websockets.connect("ws://127.0.0.1:18081")
@@ -730,7 +730,7 @@ async def main():
         ups = [f["name"] for d in json.loads(body)["drives"] for f in d["files"]] if status == 200 else []
         check("GET /updates finds a source zip on the stick (and ignores backups)", status == 200 and ups == ["central-control-source.zip"], ups)
         status, body = http("http://127.0.0.1:18766/update", data=json.dumps({"file": fake}).encode(), headers={"Content-Type": "application/json"})
-        check("POST /update is refused politely on a PC (it needs the Pi's root helper)", status == 200 and json.loads(body).get("ok") is False and "Central Control itself" in json.loads(body).get("error", ""), body[:200])
+        check("POST /update is refused politely on a PC (it needs the Pi's root helper)", status == 200 and json.loads(body).get("ok") is False and "Central Pedal itself" in json.loads(body).get("error", ""), body[:200])
         status, body = http("http://127.0.0.1:18766/app/index.html")
         check("the app itself is served at /app/", status == 200 and b"app" in body)
 
@@ -800,7 +800,7 @@ async def main():
         await next_message(lambda m: m["type"] == "updateStatus", 3.0)
         await send({"type": "updates", "action": "opened"})
         upm = await next_message(lambda m: m["type"] == "updateStatus" and m.get("latest"), 5.0)
-        check("opening the app makes the Central Control look for a newer release right away", upm and upm["available"], upm)
+        check("opening the app makes the Central Pedal look for a newer release right away", upm and upm["available"], upm)
         await send({"type": "updates", "action": "check"})
         upm = await next_message(lambda m: m["type"] == "updateStatus" and m.get("latest"), 5.0)
         check("the daily check finds a newer release (8.9.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "8.9.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
@@ -815,7 +815,7 @@ async def main():
         check("a damaged or changed download is refused (checksum mismatch), nothing installed", bad and "checksum" in bad, bad)
         await send({"type": "updates", "action": "install"})
         inst = await next_message(lambda m: m["type"] == "updateStatus" and not m.get("busy") and m.get("error"), 6.0)
-        check("Install on a PC stops safely after the checks (it needs the Pi's root helper)", inst and ("checksum" in inst["error"] or "Central Control itself" in inst["error"]), inst)
+        check("Install on a PC stops safely after the checks (it needs the Pi's root helper)", inst and ("checksum" in inst["error"] or "Central Pedal itself" in inst["error"]), inst)
 
         ir_src = os.path.join(media_root, "Celestion V30.wav")
         with open(ir_src, "wb") as handle:

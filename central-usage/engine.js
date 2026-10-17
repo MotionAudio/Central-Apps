@@ -1,5 +1,5 @@
-/* Central Usage - the audio host's engine (main process): runs cu-mixer, keeps the mixer state (saved in
- * mixer.json), turns every change into engine commands, maps the Central Control's channels (by name, so
+/* Central Control - the audio host's engine (main process): runs cu-mixer, keeps the mixer state (saved in
+ * mixer.json), turns every change into engine commands, maps the Central Pedal's channels (by name, so
  * "Drums" keeps its EQ and fader from song to song) and hands out the taps (Wi-Fi in-ears, listening,
  * recording). */
 "use strict";
@@ -113,7 +113,7 @@ class Engine extends EventEmitter {
   saveSoon() { clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => this.save(), 800); }
   save() { try { fs.mkdirSync(this.dir, { recursive: true }); fs.writeFileSync(this.file + ".tmp", JSON.stringify(this.state)); fs.renameSync(this.file + ".tmp", this.file); } catch (_) { } }
   replaceState(next) { this.state = M.normalize(next); this.save(); this.pushAll(); this.emit("state", this.state); }
-  // ---------------------------------------------------------------- the Central Control's channels
+  // ---------------------------------------------------------------- the Central Pedal's channels
   setPiStream(sources) {
     this.pi.sources = {}; const live = {}, names = [], seen = {};
     Object.keys(sources || {}).forEach((k) => {

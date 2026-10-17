@@ -81,7 +81,7 @@ const T = (fn, arg) => page.evaluate(fn, arg);
 async function sim(m) { await T((m) => window.__pedalBridge.send(Object.assign({ type: "sim" }, m)), m); }
 
 console.log("\nConnection and the Learn tab:");
-await check("the app is served by the driver and connects to it", async () => { await until(() => T(() => window.__pedalBridge.connected)); assert.match(await T(() => document.querySelector("#pfHw").textContent), /^Central Control 8\./); });
+await check("the app is served by the driver and connects to it", async () => { await until(() => T(() => window.__pedalBridge.connected)); assert.match(await T(() => document.querySelector("#pfHw").textContent), /^Central Pedal 8\./); });
 await check("the driver's inputs show in the Learn tab with their pins", async () => { await T(() => PPShell.showTab("learn")); await wait(200); const txt = await T(() => document.querySelector('[data-learn="b1"] small').textContent); assert.match(txt, /GPIO 4/); assert.equal(await T(() => document.querySelectorAll("#lnBoard .ln-row").length), 22); });
 
 console.log("\nPairing PIN:");
@@ -95,7 +95,7 @@ await check("a PIN that is not 4 digits is refused", async () => {
   assert.match(await page.textContent("#pinErr"), /4 digits/);
   await page.click('#pinDialog [data-pk="del"]'); await page.click('#pinDialog [data-pk="del"]');
 });
-await check("the PIN picked on the screen is saved on the Central Control; devices pair with it", async () => {
+await check("the PIN picked on the screen is saved on the Central Pedal; devices pair with it", async () => {
   for (const k of ["4", "8", "2", "6"]) await page.click(`#pinDialog [data-pk="${k}"]`);
   await page.click('#pinDialog [data-pk="ok"]');
   await page.waitForFunction(() => !document.querySelector("#pinDialog").open, null, { timeout: 5000 });
@@ -594,13 +594,13 @@ await check("...and Learn → + Add MIDI button asks for the name and adds it", 
   await until(() => T(() => (PP.project().inputs || []).some((i) => i.name === "Next song footswitch" && i.midi)));
   await page.keyboard.press("Escape"); await T(() => { document.querySelectorAll("dialog[open]").forEach((d) => d.close()); PPShell.showTab("tracks"); });
 });
-console.log("\nCentral Usage link:");
+console.log("\nCentral Control link:");
 await check("I/O tab: every input and output - network audio, outputs, inputs, MIDI, screens, control surface, devices", async () => {
   await T(() => PPShell.showTab("io")); await until(() => T(() => document.querySelectorAll("#ioRoot .io-card").length >= 6), 5000);
   const t = await T(() => document.querySelector("#ioRoot").textContent);
-  assert.ok(/Audio to Central Usage/.test(t) && /Audio outputs/.test(t) && /Audio inputs/.test(t) && /MIDI/.test(t) && /HDMI 2 shows/.test(t) && /Control surface/.test(t), t.slice(0, 300));
+  assert.ok(/Audio to Central Control/.test(t) && /Audio outputs/.test(t) && /Audio inputs/.test(t) && /MIDI/.test(t) && /HDMI 2 shows/.test(t) && /Control surface/.test(t), t.slice(0, 300));
 });
-await check("network audio: set to Wi-Fi on the I/O tab, a Central Usage subscribes and gets every track on its own channel + click, pads, tracks mix", async () => {
+await check("network audio: set to Wi-Fi on the I/O tab, a Central Control subscribes and gets every track on its own channel + click, pads, tracks mix", async () => {
   await T(() => { const r = document.querySelector('#ioRoot input[name="ioNet"][value="wifi"]'); r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); });
   await until(() => T(() => PPNetSend.status() && PPNetSend.status().config.mode === "wifi"), 5000);
   const ws = new WebSocket("ws://127.0.0.1:8081"); ws.binaryType = "arraybuffer"; const packets = [], msgs = [];
@@ -616,7 +616,7 @@ await check("network audio: set to Wi-Fi on the I/O tab, a Central Usage subscri
   const listening = await until(() => T(() => /Test desk/.test(document.querySelector("#ioRoot").textContent)), 5000); assert.ok(listening);
   ws.close(); await T(() => { PPTracks.stop(true); PPNetSend.configure({ mode: "off" }); });
 });
-await check("the hub: the app's songs (tempo, sections, waveform) are on the driver for Central Usage", async () => {
+await check("the hub: the app's songs (tempo, sections, waveform) are on the driver for Central Control", async () => {
   await T(() => PPHub.push(true));
   const hub = await until(async () => { const j = await (await fetch("http://127.0.0.1:8080/api/hub")).json(); return j.songs.some((s) => s.name === "Test Song") ? j : null; }, 8000);
   const id = hub.songs.find((s) => s.name === "Test Song").id, d = await (await fetch("http://127.0.0.1:8080/api/hub/" + id)).json();
@@ -658,7 +658,7 @@ await check("setlists: the open setlist is kept by the driver; a new one starts 
   await page.waitForFunction((b) => PP.project().setlistId === b.id && PP.project().songs.length === b.n, before, { timeout: 5000 });
   assert.equal(await page.evaluate(() => document.querySelector("#projectName").value), before.name);
 });
-await check("setlists: a song changed on another Central Control updates the open setlist in place", async () => {
+await check("setlists: a song changed on another Central Pedal updates the open setlist in place", async () => {
   const s = await page.evaluate(() => JSON.parse(JSON.stringify(PP.project().songs[0])));
   await page.evaluate((song) => PPFeatures.emit({ type: "sync", event: "song", song: Object.assign(song, { bpm: 77, notes: "changed on the PC" }) }), s);
   assert.deepEqual(await page.evaluate(() => [PP.project().songs[0].bpm, PP.project().songs[0].notes]), [77, "changed on the PC"]);

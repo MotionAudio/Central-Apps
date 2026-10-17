@@ -1,6 +1,6 @@
-/* Central Control - looper for the guitar / keys (Instrument tab).
+/* Central Pedal - looper for the guitar / keys (Instrument tab).
  *
- * The native instrument chain on the Pi also feeds a virtual microphone ("Central Control loop", made by
+ * The native instrument chain on the Pi also feeds a virtual microphone ("Central Pedal loop", made by
  * instrument_host.py when the looper is armed). The app records it here in an AudioWorklet, in time with
  * the song (a loop of 1, 2, 4 or 8 bars that starts on the next bar line) or free (tap to start, tap to
  * close the loop), and plays it back on the instrument output (channel 4 by default).
@@ -83,7 +83,7 @@
     ready.catch(function (e) { console.warn("looper failed", e); ready = null; });
     return ready;
   }
-  // the input: the Pi's "Central Control loop" virtual microphone (or, on a computer, whatever input was given)
+  // the input: the Pi's "Central Pedal loop" virtual microphone (or, on a computer, whatever input was given)
   async function connectInput() {
     if (src) return true;
     var ctx = PP.engine.ctx;
@@ -106,7 +106,7 @@
     if (!armedFlag) { if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; if (src) { try { src.disconnect(); } catch (_) { } } src = null; render(); return true; }
     await ensure();
     var ok = false; for (var i = 0; i < 12 && !ok; i++) { ok = await connectInput(); if (!ok) await new Promise(function (r) { setTimeout(r, 500); }); }
-    if (!ok) PP.setStatus("Looper: the instrument's loop input did not appear (it works on the Central Control with the Instrument on).");
+    if (!ok) PP.setStatus("Looper: the instrument's loop input did not appear (it works on the Central Pedal with the Instrument on).");
     render(); return ok;
   }
   // a node to record from instead (tests, or a computer without the Pi)

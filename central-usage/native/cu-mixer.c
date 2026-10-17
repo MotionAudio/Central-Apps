@@ -1,6 +1,6 @@
-/* cu-mixer - the audio engine of Central Usage (the audio host computer).
+/* cu-mixer - the audio engine of Central Control (the audio host computer).
  *
- *  Inputs (up to 128): the audio interface's (or Dante's) inputs, and the Central Control's channels that
+ *  Inputs (up to 128): the audio interface's (or Dante's) inputs, and the Central Pedal's channels that
  *  arrive over the network (each track on its own channel, click, pads, instrument).
  *  Each input: trim, polarity, high-pass, 3-band EQ (low shelf, bell, high shelf), compressor, then
  *    - the main mix (fader, pan, mute)          -> two outputs (the tracks summed out over USB)
@@ -8,7 +8,7 @@
  *    - 64 stereo in-ear mixes (level, pan)      -> a wired output pair (in-ear transmitters in the rack)
  *                                                  and / or back over the network ("local")
  *  Every mix has a level, mute and a limiter; any mix (and the main mix) can be "tapped": its audio comes
- *  back to Central Usage (network in-ears, listening on the laptop, recording, the live waveform).
+ *  back to Central Control (network in-ears, listening on the laptop, recording, the live waveform).
  *  Meters, 3-band levels and onsets (the lights react to the music) come back 20 times a second.
  *
  *  Talkback: 4 talk slots. Each takes a microphone - an interface / Dante input, or a network stream (network
@@ -16,7 +16,7 @@
  *  list), after the mix's sends and before its level / limiter, so it reaches the wired outputs and the taps.
  *  While a slot talks, the music in its mixes can be dimmed (dB).
  *
- *  Recording: every interface input, the network channels (the Central Control's tracks as received) and a
+ *  Recording: every interface input, the network channels (the Central Pedal's tracks as received) and a
  *  stereo program (the main mix or a mix) as WAV files (48 kHz, 24 bit, one mono / stereo file per source).
  *  The audio thread only copies samples into a lock-free ring; a writer thread converts and writes them, and
  *  rewrites the WAV headers every 5 s and at the end. "cu-mixer --repair a.wav b.wav ..." fixes the headers
@@ -78,7 +78,7 @@
 #define MAXIN 128
 #define MAXMIX 64
 #define MAXOUT 128
-#define MAXNET 8               /* network sources: 0..3 the Central Control's audio, 4..7 the talk slots' mics */
+#define MAXNET 8               /* network sources: 0..3 the Central Pedal's audio, 4..7 the talk slots' mics */
 #define PINET 4
 #define TALKS 4
 #define TALKNET 4              /* talk slot k hears network source TALKNET + k */
@@ -174,7 +174,7 @@ static jack_port_t *inPorts[MAXIN], *outPorts[MAXOUT];
 static float *zero, *scratch[MAXOUT], netbuf[MAXNET][MAXNETCH][MAXBLOCK], mixL[MAXMIX][MAXBLOCK], mixR[MAXMIX][MAXBLOCK], mainL[MAXBLOCK], mainR[MAXBLOCK], strip[MAXBLOCK];
 static volatile int running = 1, internal = 0;
 static _Atomic unsigned xruns;
-static int analysisSrc = 0;            /* 0: every network channel of source 0 (the Central Control), 1: the main mix */
+static int analysisSrc = 0;            /* 0: every network channel of source 0 (the Central Pedal), 1: the main mix */
 static float bandEnv[3], bandLp1, bandLp2, bandHp, bandSlow, onsetHold; static unsigned onsets;
 static unsigned meterEvery, meterCount;
 static float limCeil = 0.89f;          /* -1 dBFS */
@@ -418,7 +418,7 @@ static void process(int frames, float **insDev, float **outs) {
     if (b->outR >= 0 && b->outR < nOut && b->outR != b->outL) { float *o = outs[b->outR]; for (int f = 0; f < frames; f++) o[f] += R[f]; }
     if (b->tap) tap_add(m < 0 ? 0 : m + 1, L, R, frames);
   }
-  /* what the lights hear: 3 bands + onsets, from the Central Control's channels (or the main mix) */
+  /* what the lights hear: 3 bands + onsets, from the Central Pedal's channels (or the main mix) */
   for (int f = 0; f < frames; f++) {
     float v = 0;
     if (analysisSrc == 1) v = (mainL[f] + mainR[f]) * 0.5f;
@@ -513,7 +513,7 @@ static int jack_cb(jack_nframes_t n, void *arg) {
 static int jack_xrun(void *arg) { (void)arg; atomic_fetch_add(&xruns, 1); return 0; }
 static void jack_gone(void *arg) { (void)arg; running = 0; }
 
-static char capName[1024] = "", playName[1024] = "", clientName[64] = "Central Usage";
+static char capName[1024] = "", playName[1024] = "", clientName[64] = "Central Control";
 static int maxIn = MAXIN, maxOut = MAXOUT, exclusive = 0;
 static const char **capPorts, **playPorts;
 static char *capList[MAXIN], *playList[MAXOUT];

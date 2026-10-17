@@ -35,7 +35,7 @@
         var cm=r.clickMode||"auto";d.clickFallback=cm==="mix"||cm==="split"||cm==="device"||cm==="off"?cm:"off";d.mainDevice=r.mainDevice||null;d.clickDevice=r.clickDevice||null;return d;}
       var out={mode:r.mode==="stereo"?"stereo":"mono4",buses:{},clickFallback:["off","mix","split","device"].indexOf(r.clickFallback)>-1?r.clickFallback:"off",mainDevice:r.mainDevice||null,clickDevice:r.clickDevice||null};
       Object.keys(d.buses).forEach(function(k){var b=r.buses&&r.buses[k];var ch=b&&isFinite(Number(b.ch))?Math.round(Number(b.ch)):d.buses[k].ch;out.buses[k]={ch:clamp(ch,0,32)};});return out;}
-    function defaultProject(){return {version:6,setlistId:id(),tracksMode:false,textures:[],routing:defaultRouting(),audio:{sampleRate:0,latency:"interactive"},instrument:{},midiOut:{},link:{enabled:false},mapping:{},projector:{},display:{},name:"My Central Control set",selected:0,theme:{bg:"#08111d",panel:"#101e31",text:"#ecf7ff",accent:"#5de6b0",blue:"#75adff",line:"#294966"},pads:Array.from({length:PAD_COUNT},function(_,i){return defaultPad(i);}),library:[],performance:defaultPerformance(),tempo:{bpm:72},songs:[],songIndex:-1,input:defaultInput(),midi:{channel:0,clock:true}};}
+    function defaultProject(){return {version:6,setlistId:id(),tracksMode:false,textures:[],routing:defaultRouting(),audio:{sampleRate:0,latency:"interactive"},instrument:{},midiOut:{},link:{enabled:false},mapping:{},projector:{},display:{},name:"My Central Pedal set",selected:0,theme:{bg:"#08111d",panel:"#101e31",text:"#ecf7ff",accent:"#5de6b0",blue:"#75adff",line:"#294966"},pads:Array.from({length:PAD_COUNT},function(_,i){return defaultPad(i);}),library:[],performance:defaultPerformance(),tempo:{bpm:72},songs:[],songIndex:-1,input:defaultInput(),midi:{channel:0,clock:true}};}
     function mergeInto(base,saved){
       if(!saved||typeof saved!=="object")return base;
       var fx=saved.effects||{},p=Object.assign(base,saved);
@@ -288,7 +288,7 @@
       this.swell=c.createGain();this.swell.gain.value=swellGain(expressionValue);
       this.tone=c.createBiquadFilter();this.tone.type="lowpass";this.tone.Q.value=.5;this.tone.frequency.value=toneHz(project.performance.tone);
       this.limiter=c.createDynamicsCompressor();this.limiter.threshold.value=-3;this.limiter.knee.value=0;this.limiter.ratio.value=20;this.limiter.attack.value=.003;this.limiter.release.value=.12;
-      // Buses: pad (pads + textures + audio input), tracks, click (+ MD voice). The instrument bus is native (PipeWire) on the Central Control OS.
+      // Buses: pad (pads + textures + audio input), tracks, click (+ MD voice). The instrument bus is native (PipeWire) on the Central Pedal OS.
       this.mainMix=c.createGain();this.tracksBus=c.createGain();this.texturesBus=c.createGain();this.clickBus=c.createGain();this.outGain=c.createGain();
       this.tracksLimiter=c.createDynamicsCompressor();this.tracksLimiter.threshold.value=-1;this.tracksLimiter.knee.value=0;this.tracksLimiter.ratio.value=20;this.tracksLimiter.attack.value=.002;this.tracksLimiter.release.value=.1;this.tracksOut=c.createGain();
       this.master.connect(this.swell).connect(this.tone).connect(this.mainMix);this.texturesBus.connect(this.mainMix);this.mainMix.connect(this.limiter).connect(this.outGain);
@@ -717,7 +717,7 @@
           case "hello":
             this.connected = true; this.info = message; this.showStatus(); adoptDriverProject(); mirrorSoon();
             if (!this.roleSent && this.socket && this.socket.readyState === 1) { this.roleSent = true; try { this.socket.send(JSON.stringify({ type: "role", role: "app" })); } catch (_) {} }
-            else { this.sendState(); setStatus("Connected to the Central Control"); }
+            else { this.sendState(); setStatus("Connected to the Central Pedal"); }
             if (window.PPFeatures) window.PPFeatures.handleHardware(message);
             break;
           case "pad": if (Number.isInteger(message.index)) { if (window.PPFeatures) window.PPFeatures.footswitchPad(message.index); else triggerPad(message.index); } break;
@@ -743,7 +743,7 @@
       showStatus: function () {
         var el = document.querySelector("#pfHw"); if (!el) return;
         el.classList.toggle("on", this.connected);
-        el.textContent = this.connected ? "Central Control" + (this.info && this.info.appVersion ? " " + this.info.appVersion : "") : "Not connected"; el.title = this.connected ? "Connected to the Central Control hardware" + (this.info && this.info.hostname ? " (" + this.info.hostname + ")" : "") : "The pedal board / Central Control service is not running - retrying";
+        el.textContent = this.connected ? "Central Pedal" + (this.info && this.info.appVersion ? " " + this.info.appVersion : "") : "Not connected"; el.title = this.connected ? "Connected to the Central Pedal hardware" + (this.info && this.info.hostname ? " (" + this.info.hostname + ")" : "") : "The pedal board / Central Pedal service is not running - retrying";
       },
       connect: function () {
         var bridge = this, socket;
@@ -753,7 +753,7 @@
         this.roleSent = false;
         socket.onmessage = function (event) { try { bridge.handleMessage(JSON.parse(event.data)); } catch (error) { console.warn("bridge message failed", error); } };
         socket.onclose = function () {
-          if (bridge.connected) setStatus("Lost the Central Control service - retrying");
+          if (bridge.connected) setStatus("Lost the Central Pedal service - retrying");
           bridge.connected = false; bridge.socket = null; bridge.showStatus();
           // at power-on the page can be up a moment before the driver's socket: retry quickly for the first 20 s
           setTimeout(function () { bridge.connect(); }, !bridge.info && performance.now() < 20000 ? 250 : bridge.reconnectDelay);

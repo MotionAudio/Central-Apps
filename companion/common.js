@@ -34,7 +34,7 @@
     return true;
   }
   function askCode() {
-    var entered = prompt("Enter the 4-digit pairing code shown on the Central Control under Settings → Companion devices:", "");
+    var entered = prompt("Enter the 4-digit pairing code shown on the Central Pedal under Settings → Companion devices:", "");
     if (!entered) return false;
     code = entered.trim(); try { localStorage.setItem("pp-code", code); } catch (_) { }
     if (socket && socket.readyState === 1) socket.send(JSON.stringify({ type: "auth", code: code }));

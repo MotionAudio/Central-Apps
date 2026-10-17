@@ -1,7 +1,7 @@
 /* cu-rig - the instrument rig on Windows, macOS (and Linux without PipeWire / FluidSynth): the guitar /
  * bass / acoustic pedal board and the keys, with built-in effects and SoundFont keys, in one program.
  *
- * It speaks the same JSON messages as the Central Control's instrument host (instrument_host.py), one per
+ * It speaks the same JSON messages as the Central Pedal's instrument host (instrument_host.py), one per
  * line on stdin, and answers with {"type":"instrumentStatus",...} lines on stdout:
  *   {"action":"status"} {"action":"apply","config":{kind, input, chain, keys, levelDb, routing}}
  *   {"action":"set",uid,sym,value} {"action":"bypass",uid,on} {"action":"pedalmix",uid,on,mix,levelDb}

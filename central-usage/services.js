@@ -1,9 +1,9 @@
-/* Central Usage - the services of the desktop app (main process):
+/* Central Control - the services of the desktop app (main process):
  *   this computer's settings (Admin or User, its name, audio host or not, codes)          cu.json
- *   the audio host: engine (cu-mixer), the server for users / admins / phones, the Central Control's audio
+ *   the audio host: engine (cu-mixer), the server for users / admins / phones, the Central Pedal's audio
  *     over the network, multitrack recording (recorder.js), talkback (talk.js), listening on this computer
  *   slides & lyrics outputs: a second screen, NDI (cu-ndi + an off-screen window)
- *   the Instrument tab's audio host (the Central Control's instrument host, run here)
+ *   the Instrument tab's audio host (the Central Pedal's instrument host, run here)
  *   the lights' optional local AI model (llama.cpp's llama-server + a small downloaded model) */
 "use strict";
 const { BrowserWindow, ipcMain, screen, dialog, shell } = require("electron");
@@ -45,7 +45,7 @@ module.exports = function services(app, getWin) {
   if (process.env.CU_MODE) cfg.mode = process.env.CU_MODE;   // tests
   if (process.env.CU_ROLE) cfg.role = process.env.CU_ROLE;
   if (!cfg.role && cfg.mode) cfg.role = cfg.mode === "admin" ? "admin" : "user1";   // set up before roles existed
-  // the main admin's secrets: a token that proves it is the main admin to the Central Control, the 4-digit PIN
+  // the main admin's secrets: a token that proves it is the main admin to the Central Pedal, the 4-digit PIN
   // others need to move between the user and admin side, and the pairing code new computers join with
   function mainKeys() { if (!cfg.mainKeys || !cfg.mainKeys.token) cfg.mainKeys = { token: require("node:crypto").randomBytes(24).toString("hex"), pin: code4(), pair: code4() }; return cfg.mainKeys; }
   if (cfg.role === "main") mainKeys();
@@ -140,8 +140,8 @@ module.exports = function services(app, getWin) {
   ipcMain.handle("talk-stop", () => talk.stop("local"));
   ipcMain.on("talk-audio", (_e, buf) => { if (buf) talk.audio("local", Buffer.from(buf.buffer ? Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength) : buf)); });
   ipcMain.handle("talk-state", () => ({ talkers: talk.list(), host: hostOn(), desk: localDesk() }));
-  ipcMain.handle("mixer-export", async () => { const r = await dialog.showSaveDialog(getWin(), { defaultPath: "mixer.json", filters: [{ name: "Central Usage mixer", extensions: ["json"] }] }); if (r.canceled || !r.filePath) return null; fs.writeFileSync(r.filePath, JSON.stringify({ format: "central-usage-mixer", version: 1, state: engine.state }, null, 1)); return r.filePath; });
-  ipcMain.handle("mixer-import", async () => { const r = await dialog.showOpenDialog(getWin(), { properties: ["openFile"], filters: [{ name: "Central Usage mixer", extensions: ["json"] }] }); if (r.canceled || !r.filePaths[0]) return null; const j = JSON.parse(fs.readFileSync(r.filePaths[0], "utf8")); if (j.format !== "central-usage-mixer") throw new Error("not a Central Usage mixer file"); engine.replaceState(j.state); return true; });
+  ipcMain.handle("mixer-export", async () => { const r = await dialog.showSaveDialog(getWin(), { defaultPath: "mixer.json", filters: [{ name: "Central Control mixer", extensions: ["json"] }] }); if (r.canceled || !r.filePath) return null; fs.writeFileSync(r.filePath, JSON.stringify({ format: "central-usage-mixer", version: 1, state: engine.state }, null, 1)); return r.filePath; });
+  ipcMain.handle("mixer-import", async () => { const r = await dialog.showOpenDialog(getWin(), { properties: ["openFile"], filters: [{ name: "Central Control mixer", extensions: ["json"] }] }); if (r.canceled || !r.filePaths[0]) return null; const j = JSON.parse(fs.readFileSync(r.filePaths[0], "utf8")); if (j.format !== "central-usage-mixer") throw new Error("not a Central Control mixer file"); engine.replaceState(j.state); return true; });
 
   // ------------------------------------------------------------------ slides & lyrics outputs
   const outputs = { screen: null, ndi: null, ndiProc: null, ndiStatus: null, last: null };
@@ -152,7 +152,7 @@ module.exports = function services(app, getWin) {
     if (!opt.on) { if (outputs.screen && !outputs.screen.isDestroyed()) outputs.screen.close(); outputs.screen = null; return { on: false }; }
     const d = screen.getAllDisplays().find((x) => x.id === opt.displayId) || screen.getAllDisplays().find((x) => x.id !== screen.getPrimaryDisplay().id) || screen.getPrimaryDisplay();
     if (!outputs.screen || outputs.screen.isDestroyed()) {
-      outputs.screen = new BrowserWindow({ x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, frame: false, fullscreen: true, backgroundColor: "#000000", title: "Central Usage output", autoHideMenuBar: true, skipTaskbar: true, webPreferences: { preload: path.join(__dirname, "preload-output.js"), contextIsolation: true, sandbox: false } });
+      outputs.screen = new BrowserWindow({ x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, frame: false, fullscreen: true, backgroundColor: "#000000", title: "Central Control output", autoHideMenuBar: true, skipTaskbar: true, webPreferences: { preload: path.join(__dirname, "preload-output.js"), contextIsolation: true, sandbox: false } });
       outputPage(outputs.screen); outputs.screen.on("closed", () => { outputs.screen = null; send("outputs", { screen: false }); });
     } else { outputs.screen.setFullScreen(false); outputs.screen.setBounds(d.bounds); outputs.screen.setFullScreen(true); }
     return { on: true, display: d.id };
@@ -163,7 +163,7 @@ module.exports = function services(app, getWin) {
     if (!opt.on) { outputs.ndiStatus = { on: false }; return outputs.ndiStatus; }
     const bin = path.join(binDir, "cu-ndi" + EXE); if (!fs.existsSync(bin)) return (outputs.ndiStatus = { on: false, error: "The NDI sender (cu-ndi) is missing from this installation." });
     const w = Number(opt.width) || 1920, h = Number(opt.height) || 1080, fps = Number(opt.fps) || 30;
-    const proc = spawn(bin, [opt.name || "Central Usage " + (cfg.name || "")], { stdio: ["pipe", "pipe", "ignore"] }); outputs.ndiProc = proc; outputs.ndiStatus = { on: true, starting: true };
+    const proc = spawn(bin, [opt.name || "Central Control " + (cfg.name || "")], { stdio: ["pipe", "pipe", "ignore"] }); outputs.ndiProc = proc; outputs.ndiStatus = { on: true, starting: true };
     proc.stdin.on("error", () => { });
     proc.stdout.on("data", (b) => { String(b).split("\n").filter(Boolean).forEach((line) => { try { const m = JSON.parse(line); if (m.ev === "status") outputs.ndiStatus = m.ok ? { on: true, name: m.name } : { on: false, error: m.error }; else if (m.ev === "stats") outputs.ndiStatus.receivers = m.receivers; send("outputs", { ndi: outputs.ndiStatus }); } catch (_) { } }); });
     proc.on("exit", () => { if (outputs.ndiProc === proc) { outputs.ndiProc = null; if (outputs.ndi && !outputs.ndi.isDestroyed()) outputs.ndi.close(); outputs.ndi = null; if (outputs.ndiStatus && outputs.ndiStatus.on) outputs.ndiStatus = { on: false, error: outputs.ndiStatus.error || "the NDI sender stopped" }; send("outputs", { ndi: outputs.ndiStatus }); } });
@@ -182,11 +182,11 @@ module.exports = function services(app, getWin) {
   ipcMain.handle("slides-open", async () => { const r = await dialog.showOpenDialog(getWin(), { title: "Add pictures or videos", properties: ["openFile", "multiSelections"], filters: [{ name: "Pictures and videos", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "mp4", "webm", "mov", "m4v", "ogv"] }] }); if (r.canceled) return []; return r.filePaths.map((f) => ({ path: f, name: path.basename(f), size: fs.statSync(f).size })); });
   ipcMain.handle("read-file", (_e, f) => { try { return fs.readFileSync(f); } catch (_) { return null; } });
 
-  // ------------------------------------------------------------------ the Instrument tab (runs the Central Control's instrument host here)
+  // ------------------------------------------------------------------ the Instrument tab (runs the Central Pedal's instrument host here)
   let inst = null, instBuf = "";
   function instStart() {
     if (inst) return true;
-    // Linux with PipeWire: the Central Control's own instrument host (real LV2 / LADSPA pedals, FluidSynth);
+    // Linux with PipeWire: the Central Pedal's own instrument host (real LV2 / LADSPA pedals, FluidSynth);
     // Windows, macOS (or Linux without PipeWire): the built-in rig cu-rig (built-in effects, SoundFont keys)
     const py = process.platform === "linux" && which("python3"), script = path.join(nativeDir, "cu-instrument.py");
     const rigBin = path.join(binDir, "cu-rig" + EXE), map = [path.join(nativeDir, "rig-map.json"), path.join(binDir, "rig-map.json")].filter((f) => fs.existsSync(f))[0];

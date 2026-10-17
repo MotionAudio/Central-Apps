@@ -1,4 +1,4 @@
-/* Central Control - the Instrument tab: acoustic guitar, electric guitar or
+/* Central Pedal - the Instrument tab: acoustic guitar, electric guitar or
  * piano / keys through a native, low-latency plugin chain on the Pi (PipeWire +
  * LV2 / LADSPA: Guitarix, Calf, Dragonfly, Zam, mda, swh, TAP, CAPS...) and
  * FluidSynth / free sample banks for keys. This file is the control surface:
@@ -118,7 +118,7 @@
         '<div class="in-boardwrap"><div class="pb-chain" id="pbChain">' + chain.map(function (item, i) { var pedal = PED.byId(item.pedal); return pedal ? '<div class="pb-slot" data-slot="' + item.uid + '">' + pedalSvg(item, pedal, i, selected === item.uid) + '<div class="pb-tools"><button data-move="' + item.uid + ':-1" title="Move left">◀</button><button data-del="' + item.uid + '" title="Remove">✕</button><button data-move="' + item.uid + ':1" title="Move right">▶</button></div></div>' : ""; }).join("") + '<button class="pb-add" id="pbAdd">＋<small>Add pedal</small></button></div></div>' +
         (selected ? detailPanel(chain.filter(function (i) { return i.uid === selected; })[0]) : '<p class="muted">Tap a pedal to edit its knobs; tap its footswitch to bypass it. Footswitches on the board can do the same (Configure tab → "Pedal 1…8 on / off").</p>') +
         (showAdd ? addPanel() : "") + (window.PPLooper ? window.PPLooper.html() : "") +
-        '<div class="in-foot muted">' + (connected() ? (status.pluginCount ? status.pluginCount + " plugins installed on this Pi · " : "") + (status.latencyMs != null ? "about " + status.latencyMs + " ms in to out · " : "") + (status.error ? '<b class="warn">' + esc(status.error) + "</b>" : "native chain " + (status.running ? "running" : "idle")) : "On the Central Control itself the chain runs natively on the Pi; on a computer this is a preview of the board.") + "</div>");
+        '<div class="in-foot muted">' + (connected() ? (status.pluginCount ? status.pluginCount + " plugins installed on this Pi · " : "") + (status.latencyMs != null ? "about " + status.latencyMs + " ms in to out · " : "") + (status.error ? '<b class="warn">' + esc(status.error) + "</b>" : "native chain " + (status.running ? "running" : "idle")) : "On the Central Pedal itself the chain runs natively on the Pi; on a computer this is a preview of the board.") + "</div>");
     if (k !== "off" && k !== "keys") startMeter(); else stopMeter();
   }
   function statusLine() {
@@ -335,7 +335,7 @@
   // Keys sounds from a USB stick / SD card: an .sf2 file is copied into the Pi's sound folder, a folder of WAVs
   // named by note is turned into a SoundFont by the Pi. Either way the sound list refreshes and the new sound is picked.
   function addSounds() {
-    if (!connected()) { PP.setStatus("Adding sounds works on the Central Control itself (or send an .sf2 to it over Wi-Fi)."); return; }
+    if (!connected()) { PP.setStatus("Adding sounds works on the Central Pedal itself (or send an .sf2 to it over Wi-Fi)."); return; }
     var F = window.PPFeatures;
     if (!F || !F.openUsb) return;
     F.openUsb(async function (picked) {
@@ -359,7 +359,7 @@
   var pendingPatchFile = null;
   // IRs from a USB stick: the Pi copies the .wav into /data/pad-pedal/sounds/ir
   function addIr(itemUid) {
-    if (!connected()) { PP.setStatus("Adding IRs works on the Central Control itself."); return; }
+    if (!connected()) { PP.setStatus("Adding IRs works on the Central Pedal itself."); return; }
     var F2 = window.PPFeatures; if (!F2 || !F2.openUsb) return;
     F2.openUsb(async function (picked) {
       var last = null;

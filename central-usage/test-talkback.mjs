@@ -1,4 +1,4 @@
-// Talkback and recording, end to end: Central Usage (the real Electron app) as the main admin and audio host
+// Talkback and recording, end to end: Central Control (the real Electron app) as the main admin and audio host
 // (null test devices: 4 inputs, 4 outputs); another admin computer and a user computer (the app's page in Chromium,
 // a fake microphone each); a phone with an in-ear mix.
 //   TALK: top bar + In-ears + Mix tabs, a quick tap latches (tap again: off), hold to talk, who hears it (All or
@@ -28,7 +28,7 @@ const crashed = path.join(recDir, "2026-01-04 09.30 - Crashed"); fs.mkdirSync(cr
 { const h = Buffer.alloc(44); h.write("RIFF", 0, "latin1"); h.write("WAVE", 8, "latin1"); h.write("fmt ", 12, "latin1"); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(48000, 24); h.writeUInt32LE(144000, 28); h.writeUInt16LE(3, 32); h.writeUInt16LE(24, 34); h.write("data", 36, "latin1");
   fs.writeFileSync(path.join(crashed, "In 01.wav"), Buffer.concat([h, Buffer.alloc(48000 * 3, 7)])); fs.writeFileSync(path.join(crashed, ".recording"), "{}"); }
 
-// ---- Central Usage: the main admin, the audio host
+// ---- Central Control: the main admin, the audio host
 fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", role: "main", name: "Desk", host: { enabled: true, port: PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "off" }, recordDir: recDir }));
 fs.writeFileSync(path.join(userData, "mixer.json"), JSON.stringify({ device: { backend: "null", capture: "NULL#4", playback: "NULL#4", buffer: 256 } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];

@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#08111d">
-<title>Central Control charts</title>
+<title>Central Pedal charts</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="top">
-  <div class="title"><b id="song">Waiting for the Central Control…</b><span id="meta"></span></div>
+  <div class="title"><b id="song">Waiting for the Central Pedal…</b><span id="meta"></span></div>
   <div class="keybpm"><div><small>KEY</small><b class="key" id="key">–</b></div><div><small>BPM</small><b id="bpm">–</b></div></div>
   <span class="badge" id="conn">connecting</span>
-  <button id="follow" class="on" title="Follow the Central Control's song and section">Follow</button>
+  <button id="follow" class="on" title="Follow the Central Pedal's song and section">Follow</button>
   <button id="menu">☰</button>
 </header>
 <div class="sections" id="sections"></div>
@@ -30,7 +30,7 @@
     <p class="muted" style="margin:10px 0 0">Open <b id="lyricsLink">/lyrics</b> on a laptop at the projector for lyrics only, <b id="uploadLink">/upload</b> to send songs and charts here, <b id="remoteLink">/remote</b> for a full remote. Add this page to your home screen for a full-screen view.</p>
   </div>
 </div>
-<main id="chart"><div class="empty">Connecting to the Central Control…</div></main>
+<main id="chart"><div class="empty">Connecting to the Central Pedal…</div></main>
 <nav class="dock hidden" id="dock">
   <button data-act="prevSection">◀ Section</button>
   <button data-act="playPause" id="playBtn">Play</button>
@@ -52,7 +52,7 @@
   $("#follow").addEventListener("click", function () { follow = !follow; $("#follow").classList.toggle("on", follow); if (follow) { pickedSong = -1; render(C.state); } });
   $("#dock").addEventListener("click", function (e) { var b = e.target.closest("[data-act]"); if (b) C.action(b.dataset.act); });
   $("#songPick").addEventListener("change", function (e) { pickedSong = Number(e.target.value); follow = false; $("#follow").classList.remove("on"); render(C.state); });
-  $("#sections").addEventListener("click", function (e) { var b = e.target.closest("[data-sec]"); if (!b) return; if (C.hasCode() || confirm("Jump the Central Control to this section? (needs the pairing code)")) C.action("goSection", { index: Number(b.dataset.sec) }); });
+  $("#sections").addEventListener("click", function (e) { var b = e.target.closest("[data-sec]"); if (!b) return; if (C.hasCode() || confirm("Jump the Central Pedal to this section? (needs the pairing code)")) C.action("goSection", { index: Number(b.dataset.sec) }); });
   ["lyricsLink", "uploadLink", "remoteLink"].forEach(function (id) { $("#" + id).textContent = location.origin + "/" + id.replace("Link", ""); });
 
   async function loadChart(id) {
@@ -76,7 +76,7 @@
     $("#conn").textContent = st.connected ? (st.authed ? "paired" : "live") : "reconnecting"; $("#conn").classList.toggle("on", st.connected);
     if (!d) return;
     var songs = d.songs || [], idx = follow ? (d.song ? d.song.index : -1) : pickedSong, song = idx >= 0 ? songs[idx] : null;
-    var pick = $("#songPick"); if (pick.options.length !== songs.length + 1 || pick.dataset.names !== songs.map(function (s) { return s.name; }).join("|")) { pick.innerHTML = '<option value="-1">— follow the Central Control —</option>' + songs.map(function (s, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(s.name) + "</option>"; }).join(""); pick.dataset.names = songs.map(function (s) { return s.name; }).join("|"); }
+    var pick = $("#songPick"); if (pick.options.length !== songs.length + 1 || pick.dataset.names !== songs.map(function (s) { return s.name; }).join("|")) { pick.innerHTML = '<option value="-1">— follow the Central Pedal —</option>' + songs.map(function (s, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(s.name) + "</option>"; }).join(""); pick.dataset.names = songs.map(function (s) { return s.name; }).join("|"); }
     pick.value = String(follow ? -1 : pickedSong);
     if (follow && d.song) {
       $("#song").textContent = (d.song.index + 1) + ". " + d.song.name; $("#meta").textContent = (d.section ? d.section.name + " · " : "") + (d.tracksMode ? (d.playing ? "▶ " : "❚❚ ") + C.fmtTime(d.pos) + (d.bar ? " · bar " + d.bar : "") : "pads");
@@ -93,7 +93,7 @@
       $("#song").textContent = song ? (idx + 1) + ". " + song.name : "No song"; $("#meta").textContent = "not following"; $("#key").textContent = song ? C.keyName(song.key) : "–"; $("#bpm").textContent = "–";
       $("#sections").innerHTML = ""; var cid = song ? song.chart : null; if (cid !== chartId || lastSongKey !== (song && song.name)) { lastSongKey = song && song.name; loadChart(cid); }
     } else {
-      $("#song").textContent = songs.length ? "No song selected on the Central Control" : "No songs in the setlist yet"; $("#meta").textContent = ""; $("#sections").innerHTML = ""; if (chartId !== null || !$("#chart").innerHTML) { chartId = null; $("#chart").innerHTML = '<div class="empty">Pick a song on the Central Control (or turn Follow off and choose one here).</div>'; }
+      $("#song").textContent = songs.length ? "No song selected on the Central Pedal" : "No songs in the setlist yet"; $("#meta").textContent = ""; $("#sections").innerHTML = ""; if (chartId !== null || !$("#chart").innerHTML) { chartId = null; $("#chart").innerHTML = '<div class="empty">Pick a song on the Central Pedal (or turn Follow off and choose one here).</div>'; }
     }
   }
   function scrollToSection(index, page) {

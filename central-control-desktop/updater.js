@@ -1,4 +1,4 @@
-/* Desktop updater, shared by Central Usage and Central Control (PC). It looks at the Releases page of a
+/* Desktop updater, shared by Central Control and Central Pedal (PC). It looks at the Releases page of a
  * GitHub repository once a day, and only installs when the person says so:
  *  - Linux, running as an AppImage: the new AppImage replaces this one and the app restarts;
  *  - Linux, installed from the .deb: the new .deb is installed with the system's password prompt (pkexec

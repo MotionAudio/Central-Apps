@@ -1,4 +1,4 @@
-/* Central Control - touch select: a knob, slider or the encoder given the "Touch select" job (Configure tab)
+/* Central Pedal - touch select: a knob, slider or the encoder given the "Touch select" job (Configure tab)
  * changes whatever setting was last tapped on the screen - any slider, number, list or switch on any tab
  * (pad sound, a pedal's knobs, a track fader, the lyrics size...).
  *  - tap a setting: the touch-select knob takes it (a quick tap on a slider does not move the slider itself)

@@ -1,4 +1,4 @@
-/* Central Control - scenes: everything saved per song, recalled smoothly.
+/* Central Pedal - scenes: everything saved per song, recalled smoothly.
  *
  * A scene is a snapshot of any of:
  *   pads  - up to 4 pads playing at once, each at its own level (the pad layers)

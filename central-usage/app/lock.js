@@ -1,4 +1,4 @@
-/* Central Usage - locks.
+/* Central Control - locks.
  *  Service lock: the main admin locks every computer (or chosen ones) from its Devices tab before the service.
  *    Locked: the I/O tab, Settings (except this computer's name and role), Lighting → Fixtures / Output,
  *    Video → Sources / Stream / Audio / Phones. Everything used during the service keeps working.

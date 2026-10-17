@@ -1,15 +1,15 @@
 #!/bin/bash
 # ==============================================================================
-# Central Control OS - image builder (run on your Ubuntu / Debian PC)
+# Central Pedal OS - image builder (run on your Ubuntu / Debian PC)
 #
-# Downloads the official Raspberry Pi OS Lite (64-bit), installs Central Control
+# Downloads the official Raspberry Pi OS Lite (64-bit), installs Central Pedal
 # into it, and writes a ready-to-flash SD card image:
 #
 #     sudo ./build-image.sh
 #     -> central-control-os-<version>.img   (flash with Raspberry Pi Imager: "Use custom")
 #
 # Flash it, put the card in a Raspberry Pi 4, power on: it boots straight
-# into Central Control. Nothing else ever appears.
+# into Central Pedal. Nothing else ever appears.
 #
 # Optional settings (put them before the command):
 #   PI_USER=pi PI_PASS=padpedal     login for SSH / maintenance
@@ -55,7 +55,7 @@ say()  { printf '\n\033[1;32m==> %s\033[0m\n' "$*"; }
 die()  { printf '\n\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || die "Run with sudo:  sudo ./build-image.sh"
-say "Building Central Control OS $VER from $HERE"
+say "Building Central Pedal OS $VER from $HERE"
 for old in "$HERE"/pad-pedal-os.img "$HERE"/pad-pedal-os.img.xz; do
   [ -e "$old" ] && printf '    note: %s is an image from an OLDER version (before 7.1) - delete it so it never gets flashed by mistake\n' "$(basename "$old")"
 done
@@ -69,7 +69,7 @@ FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css js/app.js js/graph
        README.md wiring.html
        central-usage/app/app.js central-usage/app/chords.js central-usage/app/fixturelib.js central-usage/app/index.html central-usage/app/inear-client.js central-usage/app/inear-ui.js central-usage/app/inear.css central-usage/app/inears.js central-usage/app/instrument-shim.js central-usage/app/instrument-tab.js central-usage/app/instrument.html central-usage/app/io.js central-usage/app/lights-ai.js central-usage/app/lights.js central-usage/app/lyrics-listen.js central-usage/app/mix.js central-usage/app/mixer-model.js central-usage/app/mixlink.js central-usage/app/output.html central-usage/app/parts-tab.js central-usage/app/phone.html central-usage/app/remote.html central-usage/app/roles.js central-usage/app/settings.js central-usage/app/slides.js central-usage/app/style.css central-usage/app/timecode.js central-usage/app/updates.js central-usage/app/video.css central-usage/app/video.js  central-usage/build/icon.png)
 for f in "${FILES[@]}"; do
-  [ -f "$HERE/$f" ] || die "missing $f - keep all the Central Control OS files in one folder"
+  [ -f "$HERE/$f" ] || die "missing $f - keep all the Central Pedal OS files in one folder"
 done
 
 # ------------------------------------------------------------------------------
@@ -198,7 +198,7 @@ if command -v pip3 >/dev/null || command -v pip >/dev/null; then
      -d "$MNT/tmp/pad-pedal-src/wheels" >/dev/null 2>&1 && echo "    Ableton Link wheel for Python $PYVER downloaded" || echo "    (no Ableton Link wheel for Python $PYVER on this PC - the image will try PyPI itself)")
 fi
 
-say "Installing Central Control inside the image (the slow part)"
+say "Installing Central Pedal inside the image (the slow part)"
 chroot "$MNT" /usr/bin/env -i HOME=/root TERM=xterm LANG=C.UTF-8 \
   PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
   IN_CHROOT=1 DISABLE_FIRSTBOOT_WIZARD=1 \
@@ -233,7 +233,7 @@ done
 chroot "$MNT" /bin/sh -c 'command -v xdotool && command -v xrandr' >/dev/null || die "screen tools (xdotool / xrandr) did not install"
 grep -qE '^dtoverlay=vc4-kms-v3d' "$BOOTMNT/config.txt" || die "config.txt has no KMS display driver"
 [ "$(cat "$MNT/etc/pad-pedal/version")" = "$VER" ] || die "the image says version $(cat "$MNT/etc/pad-pedal/version"), expected $VER"
-echo "Central Control OS $VER - built $(date -u +%Y-%m-%d)" > "$BOOTMNT/central-control-version.txt"
+echo "Central Pedal OS $VER - built $(date -u +%Y-%m-%d)" > "$BOOTMNT/central-control-version.txt"
 grep -qw resize "$BOOTMNT/cmdline.txt" && die "cmdline.txt still grows the system partition (the /data partition needs that space)"
 grep -q '^boot_delay=0' "$BOOTMNT/config.txt" && grep -qw quiet "$BOOTMNT/cmdline.txt" \
   && [ ! -e "$MNT/etc/systemd/system/network-online.target.wants/NetworkManager-wait-online.service" ] \
@@ -264,7 +264,7 @@ if [ "$COMPRESS" = "1" ]; then
   [ -n "${SUDO_USER:-}" ] && chown "$SUDO_USER": "$OUT.xz"
 fi
 
-say "Done: Central Control OS $VER -> $OUT"
+say "Done: Central Pedal OS $VER -> $OUT"
 cat <<EOF
 
   Flash it:  Raspberry Pi Imager -> Choose OS -> "Use custom" -> pick this file
@@ -274,7 +274,7 @@ cat <<EOF
 
   First boot takes about a minute longer and restarts once: it turns the
   rest of the card into the /data partition and switches on power-cut safe
-  mode. After that, every boot goes straight into Central Control, on the tab
+  mode. After that, every boot goes straight into Central Pedal, on the tab
   you used last (the very first time: Tracks).
   The start-up screen and the top-right corner of the app show the version ($VER);
   the card's boot partition has central-control-version.txt too.

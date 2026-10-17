@@ -1,5 +1,5 @@
-/* Central Control - the I/O tab: every input and output in one place.
- *   Audio to Central Usage (network: Ethernet / Wi-Fi, or cabled through the audio interface)
+/* Central Pedal - the I/O tab: every input and output in one place.
+ *   Audio to Central Control (network: Ethernet / Wi-Fi, or cabled through the audio interface)
  *   Audio outputs (the four buses -> output channels, per-track direct outputs)
  *   Audio inputs (instrument input, the audio input pad)
  *   MIDI (ports, notes for the lights)  ·  Screens & video (HDMI 1 / 2)  ·  Control surface  ·  Devices on the network */
@@ -21,16 +21,16 @@
     var addr = function (l) { return l.length ? l.map(function (i) { return esc(i.address) + " <small>(" + esc(i.iface) + ")</small>"; }).join(", ") : '<span class="muted">not connected</span>'; };
     var NS = window.PPNetSend, chans = NS && NS.sending() ? NS.channels() : [], stats = NS ? NS.stats() : { packets: 0, dropped: 0 };
     var listeners = s && s.listeners ? s.listeners : [];
-    return '<section class="io-card wide"><h3>Audio to Central Usage</h3>' +
-      '<p class="muted">Every track on its own channel (Central Usage mixes them, makes the in-ear mixes, records the service and lets the lights react), plus click, pads, the tracks mix and the instrument.</p>' +
+    return '<section class="io-card wide"><h3>Audio to Central Control</h3>' +
+      '<p class="muted">Every track on its own channel (Central Control mixes them, makes the in-ear mixes, records the service and lets the lights react), plus click, pads, the tracks mix and the instrument.</p>' +
       '<div class="io-opts">' + radio("ioNet", "off", mode, "Off", "nothing is sent") + radio("ioNet", "ethernet", mode, "Ethernet", "a cable to the network or straight to the computer - best") + radio("ioNet", "wifi", mode, "Wi-Fi", "works anywhere on the Wi-Fi; a little more delay") + radio("ioNet", "interface", mode, "Audio interface", "cables from the outputs here into the other computer's interface") + "</div>" +
       (mode === "ethernet" || mode === "wifi" ? '<div class="row"><label>Quality <select data-io="quality"><option value="full"' + (cfg.quality !== "saver" ? " selected" : "") + '>Full (48 kHz)</option><option value="saver"' + (cfg.quality === "saver" ? " selected" : "") + ">Saver (24 kHz, half the data - busy Wi-Fi)</option></select></label>" +
         '<label class="toggle"><input type="checkbox" data-io="instrument"' + (cfg.instrument !== false ? " checked" : "") + "> Include the instrument</label></div>" : "") +
       '<table class="io-table"><tr><td>Ethernet</td><td>' + addr(eth) + '</td></tr><tr><td>Wi-Fi</td><td>' + addr(wifi) + "</td></tr>" +
-      (mode === "ethernet" || mode === "wifi" ? "<tr><td>Listening</td><td>" + (listeners.length ? listeners.map(function (l) { return esc(l.name) + " <small>" + esc(l.address) + (l.dropped ? " · " + l.dropped + " late packets dropped" : "") + "</small>"; }).join("<br>") : '<span class="muted">no Central Usage is listening yet - it starts when one connects (Central Usage → I/O → From the Central Control)</span>') + "</td></tr>" +
+      (mode === "ethernet" || mode === "wifi" ? "<tr><td>Listening</td><td>" + (listeners.length ? listeners.map(function (l) { return esc(l.name) + " <small>" + esc(l.address) + (l.dropped ? " · " + l.dropped + " late packets dropped" : "") + "</small>"; }).join("<br>") : '<span class="muted">no Central Control is listening yet - it starts when one connects (Central Control → I/O → From the Central Pedal)</span>') + "</td></tr>" +
         "<tr><td>Sending</td><td>" + (chans.length ? chans.length + " channels: " + chans.map(esc).join(" · ") + ' <small class="muted">· ' + stats.packets + " packets" + (stats.dropped ? " · " + stats.dropped + " dropped" : "") + "</small>" : '<span class="muted">-</span>') + "</td></tr>" : "") +
-      (mode === "interface" ? '<tr><td>Cabling</td><td>Give each track its own output in the Tracks mixer (needs a USB interface with more outputs), and route the buses below. Plug those outputs into the Central Usage computer\'s interface inputs and pick them there (I/O → Audio inputs).</td></tr>' : "") +
-      "</table>" + (connected() ? "" : '<p class="muted">Network audio is set on the Central Control itself (the driver is not connected).</p>') + "</section>";
+      (mode === "interface" ? '<tr><td>Cabling</td><td>Give each track its own output in the Tracks mixer (needs a USB interface with more outputs), and route the buses below. Plug those outputs into the Central Control computer\'s interface inputs and pick them there (I/O → Audio inputs).</td></tr>' : "") +
+      "</table>" + (connected() ? "" : '<p class="muted">Network audio is set on the Central Pedal itself (the driver is not connected).</p>') + "</section>";
   }
   function outputsCard() {
     var T = window.PPTracks, s = T && T.song(), t = s && T.data(s), direct = (t && t.stems || []).filter(function (st) { return st.out > 0; });
@@ -48,13 +48,13 @@
     var st = F.systemStatus() || {}, ports = st.midiPorts || {}, ins = Array.isArray(ports) ? ports : ports.inputs || [], outs = Array.isArray(ports) ? [] : ports.outputs || [], mo = project().midiOut || {};
     var chk = function (k, label) { return '<label class="toggle"><input type="checkbox" data-sys="' + k + '"' + (mo[k] ? " checked" : "") + "> " + label + "</label>"; };
     return '<section class="io-card"><h3>MIDI</h3><table class="io-table"><tr><td>In</td><td>' + (ins.length ? ins.map(esc).join("<br>") : '<span class="muted">none</span>') + "</td></tr><tr><td>Out</td><td>" + (outs.length ? outs.map(esc).join("<br>") : '<span class="muted">none</span>') + "</td></tr></table>" +
-      '<div class="io-checks">' + chk("lightsHits", "Hits as notes (lights)") + chk("lightsSections", "Section notes") + chk("pcOnSong", "Program change per song") + chk("clockOut", "MIDI clock out") + '</div><p class="muted small">These also reach Central Usage over the network, lined up with the tracks.</p></section>';
+      '<div class="io-checks">' + chk("lightsHits", "Hits as notes (lights)") + chk("lightsSections", "Section notes") + chk("pcOnSong", "Program change per song") + chk("clockOut", "MIDI clock out") + '</div><p class="muted small">These also reach Central Control over the network, lined up with the tracks.</p></section>';
   }
   function screensCard() {
     var st = F.systemStatus() || {}, d = st.displays || project().display || {};
     var opts = function (list, cur) { return list.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join(""); };
-    var one = [["app", "Central Control"], ["mini", "Big 3.5-inch screen"], ["lyrics", "Lyrics"], ["charts", "Chord charts"], ["stage", "Stage display"], ["slides", "Slides from Central Usage"]];
-    var two = [["lyrics", "Lyrics (projector)"], ["slides", "Slides & lyrics from Central Usage"], ["stage", "Stage display"], ["charts", "Chord charts"], ["mini", "Big 3.5-inch screen"], ["app", "Central Control"], ["off", "Nothing"]];
+    var one = [["app", "Central Pedal"], ["mini", "Big 3.5-inch screen"], ["lyrics", "Lyrics"], ["charts", "Chord charts"], ["stage", "Stage display"], ["slides", "Slides from Central Control"]];
+    var two = [["lyrics", "Lyrics (projector)"], ["slides", "Slides & lyrics from Central Control"], ["stage", "Stage display"], ["charts", "Chord charts"], ["mini", "Big 3.5-inch screen"], ["app", "Central Pedal"], ["off", "Nothing"]];
     return '<section class="io-card"><h3>Screens &amp; video</h3><label>HDMI 1 shows<select data-sys="hdmi1">' + opts(one, d.hdmi1 || "app") + '</select></label><label>HDMI 2 shows<select data-sys="hdmi2">' + opts(two, d.hdmi2 || "lyrics") + "</select></label>" +
       '<p class="muted small">Changing what a screen shows restarts the screens. Resolution, zoom and edges: Settings → Screens.</p></section>';
   }
@@ -65,8 +65,8 @@
   }
   function devicesCard() {
     var st = F.systemStatus() || {}, cus = st.centralUsage || [], host = st.audioHost;
-    return '<section class="io-card"><h3>On the network</h3><table class="io-table"><tr><td>Central Usage</td><td>' + (cus.length ? cus.map(function (c) { return esc(c.name) + (c.mode ? " <small>(" + esc(c.mode) + ")</small>" : ""); }).join("<br>") : '<span class="muted">none connected</span>') + "</td></tr>" +
-      "<tr><td>Audio host</td><td>" + (host ? esc(host.name) + " <small>" + esc(host.address) + ":" + host.port + "</small>" : '<span class="muted">none - one Central Usage admin computer makes the in-ear mixes</span>') + "</td></tr>" +
+    return '<section class="io-card"><h3>On the network</h3><table class="io-table"><tr><td>Central Control</td><td>' + (cus.length ? cus.map(function (c) { return esc(c.name) + (c.mode ? " <small>(" + esc(c.mode) + ")</small>" : ""); }).join("<br>") : '<span class="muted">none connected</span>') + "</td></tr>" +
+      "<tr><td>Audio host</td><td>" + (host ? esc(host.name) + " <small>" + esc(host.address) + ":" + host.port + "</small>" : '<span class="muted">none - one Central Control admin computer makes the in-ear mixes</span>') + "</td></tr>" +
       "<tr><td>Phones &amp; tablets</td><td>" + (st.companion ? esc(st.companion) : '<span class="muted">-</span>') + ' <small class="muted">charts · lyrics · stage · remote</small></td></tr><tr><td>Pairing code</td><td><b>' + esc(st.code || (bridge() && bridge().info && bridge().info.code) || "-") + "</b></td></tr></table></section>";
   }
   function render() {

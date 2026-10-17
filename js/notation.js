@@ -1,7 +1,7 @@
-/* Central Control - sheet music from a stem: standard notation (SVG), guitar /
+/* Central Pedal - sheet music from a stem: standard notation (SVG), guitar /
  * bass tab (SVG), piano roll (canvas, follows the playhead) and Nashville
  * numbers, plus the "Sheet music" dialog that transcribes a stem and shows them.
- * The renderers (PPNotation.*) only need the note list, so Central Usage can reuse them. */
+ * The renderers (PPNotation.*) only need the note list, so Central Control can reuse them. */
 (function (global) {
   "use strict";
   var C = global.PPChords;
@@ -193,7 +193,7 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   global.PPNotation = Object.assign(global.PPNotation || {}, api);
 
-  // ================================================================ Central Control: the Sheet music dialog + song-editor buttons
+  // ================================================================ Central Pedal: the Sheet music dialog + song-editor buttons
   var PP = global.PP, T = global.PPTracks; if (!PP || !T || typeof document === "undefined") return;
   var MEDIA = "http://127.0.0.1:8766";
   function $(s) { return document.querySelector(s); }
@@ -271,20 +271,20 @@
   async function exportSvg(toUsb) {
     var svg = $("#shBody svg"), s = T.song(); if (!svg || !s) { PP.setStatus("Nothing to save yet."); return; }
     var text = '<?xml version="1.0" encoding="UTF-8"?>\n' + svg.outerHTML.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" style="background:#fff;color:#000" ').replace(/class="n-/g, 'fill="#000" class="n-'), name = s.name.replace(/[^\w\- ]+/g, "") + " - " + ui.view + ".svg";
-    if (toUsb) { try { var r = await fetch(MEDIA + "/export?name=" + encodeURIComponent(name), { method: "PUT", body: text }); var j = await r.json(); PP.setStatus(j.path ? "Saved " + j.path : (j.error || "No USB stick found")); } catch (_) { PP.setStatus("Only on the Central Control (USB)."); } return; }
+    if (toUsb) { try { var r = await fetch(MEDIA + "/export?name=" + encodeURIComponent(name), { method: "PUT", body: text }); var j = await r.json(); PP.setStatus(j.path ? "Saved " + j.path : (j.error || "No USB stick found")); } catch (_) { PP.setStatus("Only on the Central Pedal (USB)."); } return; }
     var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
   // Song editor: the "Charts & sheet music" section
   function wireEditor() {
     var d = $("#songDialog"); if (!d || $("#seSheetSection")) return;
     var sec = document.createElement("section"); sec.id = "seSheetSection";
-    sec.innerHTML = '<h3>Charts &amp; sheet music</h3><p class="muted" id="seChordInfo">Listen to the tracks and write the chord chart (sent to phones, the projector and Central Usage), or transcribe one track to notation, tab or a piano roll.</p><div class="se-row"><button class="primary" id="seMakeChart">♫ Listen &amp; write chord chart</button><button id="seSheet">𝄞 Sheet music…</button></div>';
+    sec.innerHTML = '<h3>Charts &amp; sheet music</h3><p class="muted" id="seChordInfo">Listen to the tracks and write the chord chart (sent to phones, the projector and Central Control), or transcribe one track to notation, tab or a piano roll.</p><div class="se-row"><button class="primary" id="seMakeChart">♫ Listen &amp; write chord chart</button><button id="seSheet">𝄞 Sheet music…</button></div>';
     var grid = d.querySelector(".se-grid"); if (grid) grid.appendChild(sec);
     sec.addEventListener("click", async function (e) {
       if (e.target.id === "seSheet") open();
       else if (e.target.id === "seMakeChart") {
         var s = T.song(); if (!s) return; var info = $("#seChordInfo"), btn = e.target; btn.disabled = true;
-        try { var res = await window.PPChords.generateChart(s, function (m) { info.textContent = m; }); info.textContent = res.chords.length + " chord changes written" + (res.saved ? " and saved on the Central Control (phones and Central Usage get it now)." : " (saved in this project)."); T.renderEditor(); }
+        try { var res = await window.PPChords.generateChart(s, function (m) { info.textContent = m; }); info.textContent = res.chords.length + " chord changes written" + (res.saved ? " and saved on the Central Pedal (phones and Central Control get it now)." : " (saved in this project)."); T.renderEditor(); }
         catch (error) { info.textContent = "Could not write the chart: " + error.message; }
         btn.disabled = false;
       }

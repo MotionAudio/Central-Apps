@@ -1,4 +1,4 @@
-/* Central Control - outside connections: ProPresenter (slides follow the sections) and software updates
+/* Central Pedal - outside connections: ProPresenter (slides follow the sections) and software updates
  * (a daily look at the release page; installing is always your tap, and never while anything is playing). */
 (function () {
   "use strict";
@@ -15,7 +15,7 @@
   function renderPP() {
     if (!$("#ppOn")) return;
     $("#ppOn").checked = !!pp.enabled; $("#ppHost").value = pp.host || ""; $("#ppPort").value = pp.port || 1025; $("#ppOpenSong").checked = pp.openSong !== false;
-    $("#ppState").textContent = !connected() ? "ProPresenter control runs on the Central Control." : !pp.enabled ? "Off." : pp.ok === true ? "Connected" + (pp.version ? " · " + pp.version : "") + "." : pp.ok === false ? "Not reachable: " + (pp.error || "") : "Not tested yet.";
+    $("#ppState").textContent = !connected() ? "ProPresenter control runs on the Central Pedal." : !pp.enabled ? "Off." : pp.ok === true ? "Connected" + (pp.version ? " · " + pp.version : "") + "." : pp.ok === false ? "Not reachable: " + (pp.error || "") : "Not tested yet.";
   }
   F.on("propresenterStatus", function (m) { Object.assign(pp, m); renderPP(); });
   F.on("hello", function () { send({ type: "propresenter", action: "status" }); upSend("status"); });
@@ -38,7 +38,7 @@
   function renderUpd() {
     if ($("#updRepo") && document.activeElement !== $("#updRepo")) $("#updRepo").value = up.repo || "";
     if ($("#updAuto")) $("#updAuto").checked = up.auto !== false;
-    var info = $("#updInfo"); if (info) info.textContent = "This Central Control: version " + (up.current || "?") + (up.lastCheck ? " · last checked " + new Date(up.lastCheck * 1000).toLocaleString() : "") + ".";
+    var info = $("#updInfo"); if (info) info.textContent = "This Central Pedal: version " + (up.current || "?") + (up.lastCheck ? " · last checked " + new Date(up.lastCheck * 1000).toLocaleString() : "") + ".";
     var st = $("#updState"); if (st) st.textContent = up.busy ? "Working…" : up.error ? up.error : up.available ? "Version " + up.latest + " is available." + (up.notes ? " " + up.notes.split("\n")[0].slice(0, 160) : "") : up.latest ? "Up to date." : "";
     var ib = $("#updInstall"); if (ib) { ib.classList.toggle("hidden", !up.available); ib.disabled = !!up.busy; }
     askIfNew();
@@ -59,7 +59,7 @@
   }
   function paintAsk() {
     var playing = busyPlaying();
-    askEl.innerHTML = '<h2>Update available</h2><p><b>Central Control ' + esc(up.latest || "") + '</b> is ready (this one is ' + esc(up.current || "?") + ').</p>' +
+    askEl.innerHTML = '<h2>Update available</h2><p><b>Central Pedal ' + esc(up.latest || "") + '</b> is ready (this one is ' + esc(up.current || "?") + ').</p>' +
       (up.notes ? '<p class="muted small">' + esc(up.notes.replace(/[#*]/g, "").split("\n").filter(Boolean).slice(0, 3).join(" · ").slice(0, 260)) + "</p>" : "") +
       "<p>" + (playing ? "Stop the pads and tracks first - updates never install while something plays." : "Want to update now? It takes about a minute; your songs and settings stay.") + "</p>" +
       '<div class="row"><button class="primary" data-ask="yes"' + (playing ? " disabled" : "") + '>Yes, update</button><button data-ask="no">No</button></div>';
@@ -68,7 +68,7 @@
   function banner() { if (!bannerEl) { bannerEl = document.createElement("div"); bannerEl.className = "upd-banner hidden"; bannerEl.id = "updBanner"; document.body.appendChild(bannerEl); } return bannerEl; }
   function install(already) {
     if (busyPlaying()) { PP.setStatus("Stop the pads and tracks first - updates never install while something plays."); return; }
-    if (already !== true && !confirm("Install Central Control " + up.latest + " now? The app restarts; songs and settings are kept.")) return;
+    if (already !== true && !confirm("Install Central Pedal " + up.latest + " now? The app restarts; songs and settings are kept.")) return;
     up.busy = true; renderUpd(); upSend("install"); PP.setStatus("Downloading the update…");
   }
   F.on("updateStatus", function (m) { if (DESK) return; var dismissed = up.dismissed && up.latest === m.latest; Object.assign(up, m); up.dismissed = dismissed; renderUpd(); });
@@ -81,7 +81,7 @@
   });
   document.addEventListener("change", function (e) { if (e.target.id === "updAuto" || e.target.id === "updRepo") upSend("config", { repo: $("#updRepo").value.trim(), auto: $("#updAuto").checked }); });
   setInterval(function () { if (up.available) renderUpd(); }, 3000);
-  // the app just opened: the Central Control (Pi) looks for a newer release now; on a PC the app itself already does
+  // the app just opened: the Central Pedal (Pi) looks for a newer release now; on a PC the app itself already does
   var openedSent = false;
   function opened() { if (openedSent || DESK) return; var b = window.__pedalBridge; if (!b || !b.connected) return; openedSent = true; send({ type: "updates", action: "opened" }); }
   F.on("hello", function () { setTimeout(opened, 1500); });

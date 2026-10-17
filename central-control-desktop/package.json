@@ -1,11 +1,11 @@
 {
   "name": "central-control",
   "productName": "Central Control",
-  "version": "8.1.1",
-  "description": "Central Control on a PC: worship pads, multitracks, the guitar / keys rig, click and chord charts. A native desktop app.",
+  "version": "8.2.0",
+  "description": "Central Pedal on a PC: worship pads, multitracks, the guitar / keys rig, click and chord charts. A native desktop app.",
   "main": "main.js",
   "author": {
-    "name": "Central Control",
+    "name": "MotionAudio",
     "email": "central-control@localhost"
   },
   "license": "MIT",
@@ -73,7 +73,7 @@
       "icon": "build/icon.png",
       "synopsis": "Worship pads, multitracks, guitar and keys rig, click and chord charts",
       "desktop": {
-        "Name": "Central Control",
+        "Name": "Central Pedal",
         "Comment": "Worship pads, multitracks, guitar and keys rig, click and chord charts",
         "Categories": "AudioVideo;Audio;Music;"
       },
@@ -137,8 +137,10 @@
       "gatekeeperAssess": false,
       "artifactName": "central-control-${version}-mac-${arch}.${ext}",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Central Control plays your guitar and keys through the instrument rig and listens for the tuner.",
-        "NSLocalNetworkUsageDescription": "Central Control talks to phones, tablets and Central Usage computers on this network."
+        "NSMicrophoneUsageDescription": "Central Pedal plays your guitar and keys through the instrument rig and listens for the tuner.",
+        "NSLocalNetworkUsageDescription": "Central Pedal talks to phones, tablets and Central Control computers on this network.",
+        "CFBundleDisplayName": "Central Pedal",
+        "CFBundleName": "Central Pedal"
       },
       "files": [
         "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
@@ -169,7 +171,8 @@
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
       "artifactName": "central-control-${version}-win-x64.${ext}",
-      "shortcutName": "Central Control"
+      "shortcutName": "Central Pedal",
+      "uninstallDisplayName": "Central Pedal"
     },
     "asarUnpack": [
       "**/node_modules/@img/**",

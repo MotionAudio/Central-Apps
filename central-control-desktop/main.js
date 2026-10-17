@@ -1,4 +1,4 @@
-/* Central Control - the desktop app for a PC (Electron main process). One real
+/* Central Pedal - the desktop app for a PC (Electron main process). One real
  * application window, no browser chrome. It starts the same driver the Raspberry
  * Pi runs (in simulation mode: no GPIO, but uploads, charts, companion pages on
  * port 8080 and the instrument host all work) and shows the app from it. */
@@ -9,7 +9,9 @@ const path = require("node:path");
 const fs = require("node:fs");
 const net = require("node:net");
 
-app.setName("Central Control");
+// Shown as "Central Pedal" (renamed from Central Control in 8.2); its settings and songs stay in the same folder as before
+if (!app.commandLine.hasSwitch("user-data-dir")) app.setPath("userData", path.join(app.getPath("appData"), "Central Control"));
+app.setName("Central Pedal");
 const APP_ROOT = app.isPackaged ? path.join(process.resourcesPath, "app") : path.join(__dirname, "src");
 const DATA_DIR = path.join(app.getPath("userData"), "data");
 const PORT = 8766;
@@ -35,13 +37,13 @@ async function waitFor(port, ms) { const t0 = Date.now(); while (Date.now() - t0
 async function startDriver() {
   if (await portOpen(PORT)) return true;  // one is running already (another window, or started by hand)
   const bundled = bundledDriver(), py = bundled ? null : python();
-  if (!bundled && !py) { dialog.showErrorBox("Python 3 is needed", "Central Control runs its driver with Python 3 (sudo apt install python3 python3-websockets python3-gpiozero python3-pil python3-evdev)."); return false; }
+  if (!bundled && !py) { dialog.showErrorBox("Python 3 is needed", "Central Pedal runs its driver with Python 3 (sudo apt install python3 python3-websockets python3-gpiozero python3-pil python3-evdev)."); return false; }
   if (process.platform === "darwin") { try { await systemPreferences.askForMediaAccess("microphone"); } catch (_) { } }   // the instrument rig and the tuner hear the interface
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const log = fs.openSync(path.join(app.getPath("userData"), "driver.log"), "w");
   const args = ["--simulate", DATA_DIR, "--app-root", APP_ROOT], env = Object.assign({}, process.env, rigEnv());
   driver = bundled ? spawn(bundled, args, { stdio: ["ignore", log, log], env, windowsHide: true }) : spawn(py, [path.join(APP_ROOT, "pedal-driver.py")].concat(args), { stdio: ["ignore", log, log], env, detached: false });
-  driver.on("exit", (code) => { driver = null; if (win && code) win.webContents.executeJavaScript('document.title="Central Control (driver stopped)"').catch(() => {}); });
+  driver.on("exit", (code) => { driver = null; if (win && code) win.webContents.executeJavaScript('document.title="Central Pedal (driver stopped)"').catch(() => {}); });
   const ok = await waitFor(PORT, 20000);
   if (!ok) { try { driverLog = fs.readFileSync(path.join(app.getPath("userData"), "driver.log"), "utf8").slice(-1500); } catch (_) {} }
   return ok;
@@ -49,7 +51,7 @@ async function startDriver() {
 
 function createWindow(url) {
   win = new BrowserWindow({
-    width: 1280, height: 800, minWidth: 900, minHeight: 600, title: "Central Control", backgroundColor: "#08111d", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: true,
+    width: 1280, height: 800, minWidth: 900, minHeight: 600, title: "Central Pedal", backgroundColor: "#08111d", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, backgroundThrottling: false }
   });
   win.loadURL(url);
@@ -70,13 +72,13 @@ function menu() {
       { label: "Open the phone / projector pages (port 8080) in a browser", click: () => shell.openExternal("http://127.0.0.1:8080/") },
       { label: "Open the data folder", click: () => shell.openPath(app.getPath("userData")) },
       { type: "separator" }, { label: "Full screen", accelerator: "F11", click: () => { if (win) win.setFullScreen(!win.isFullScreen()); } },
-      { type: "separator" }, { role: "quit", label: "Quit Central Control" } ] },
+      { type: "separator" }, { role: "quit", label: "Quit Central Pedal" } ] },
     { label: "View", submenu: [
       { label: "Pad", accelerator: "F1", click: () => go("pads") }, { label: "Tracks", accelerator: "F2", click: () => go("tracks") }, { label: "Instrument", accelerator: "F3", click: () => go("instrument") },
       { label: "Configure", accelerator: "F4", click: () => go("configure") }, { label: "Learn", accelerator: "F5", click: () => go("learn") }, { label: "Settings", accelerator: "F6", click: () => go("settings") },
       { type: "separator" }, { role: "reload" }, { role: "toggleDevTools", label: "Developer tools" } ] },
     { label: "Help", submenu: [
-      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Control " + app.getVersion() + " (desktop)", detail: "The same app the Raspberry Pi runs, without the control surface: a simulated board (type 'press b1' in the terminal if you start the driver by hand), USB / MIDI pedals, uploads, charts, companion pages on port 8080, and the Instrument tab when PipeWire is running.\nElectron " + process.versions.electron }) } ] }
+      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Pedal " + app.getVersion() + " (desktop)", detail: "The same app the Raspberry Pi runs, without the control surface: a simulated board (type 'press b1' in the terminal if you start the driver by hand), USB / MIDI pedals, uploads, charts, companion pages on port 8080, and the Instrument tab when PipeWire is running.\nElectron " + process.versions.electron }) } ] }
   ]));
 }
 

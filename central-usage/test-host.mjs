@@ -1,9 +1,9 @@
-// Central Usage as the audio host, end to end: the simulated Central Control (driver + app with a song of
-// two tracks) sends its audio over the network; Central Usage (the real Electron app, admin, audio host,
+// Central Control as the audio host, end to end: the simulated Central Pedal (driver + app with a song of
+// two tracks) sends its audio over the network; Central Control (the real Electron app, admin, audio host,
 // engine on its own clock) receives it, maps the tracks, mixes, records; a phone takes an in-ear mix and
 // hears it over Wi-Fi; the lights get the song's waveform and the music's level.
-//   npm install && (cd native && make) && xvfb-run -a node test-host.mjs      (CC_ROOT = the Central Control folder)
-// Ports: the audio host listens on CU_TEST_HOST_PORT (default 18092); the simulated Central Control uses its
+//   npm install && (cd native && make) && xvfb-run -a node test-host.mjs      (CC_ROOT = the Central Pedal folder)
+// Ports: the audio host listens on CU_TEST_HOST_PORT (default 18092); the simulated Central Pedal uses its
 // usual ports (8765/8766/8080/8081). To run beside another copy on the same machine, give the whole run its
 // own network:  sudo bash ../tools/netns-run.sh xvfb-run -a node test-host.mjs
 import { _electron as electron, chromium } from "playwright";
@@ -14,7 +14,7 @@ const HOST_PORT = Number(process.env.CU_TEST_HOST_PORT || 18092);
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 6).join("\n      ")); } }
 const until = async (fn, ms = 10000, step = 150) => { const t0 = Date.now(); let last; while (Date.now() - t0 < ms) { try { last = await fn(); if (last) return last; } catch (_) { } await new Promise((r) => setTimeout(r, step)); } throw new Error("timed out waiting for: " + String(fn).slice(6, 160)); };
 
-// ---- the Central Control
+// ---- the Central Pedal
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cu-host-")); fs.mkdirSync(path.join(tmp, "media")); fs.writeFileSync(path.join(tmp, "code-chosen"), "1"); // the pairing PIN counts as picked (its own test is in test-integration)
 const drv = spawn("python3", [path.join(root, "pedal-driver.py"), "--simulate", tmp, "--app-root", root], { stdio: ["pipe", "pipe", "pipe"] });
 let dlog = ""; drv.stderr.on("data", (b) => { dlog += b; }); drv.stdout.on("data", (b) => { dlog += b; });
@@ -31,7 +31,7 @@ const code = await pi.evaluate(() => __pedalBridge.info.code);
 await pi.evaluate(() => PPNetSend.configure({ mode: "ethernet" }));
 await pi.evaluate(() => { PPTracks.goSection(0, { immediate: true }); PPTracks.play({ countIn: false }); });
 
-// ---- Central Usage: admin, audio host
+// ---- Central Control: admin, audio host
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-host-ud-"));
 fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", name: "Desk", host: { enabled: true, port: HOST_PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "ethernet", latency: 80 }, recordDir: path.join(userData, "rec") }));
 fs.writeFileSync(path.join(userData, "mixer.json"), JSON.stringify({ device: { backend: "internal", buffer: 256 } }));
@@ -42,12 +42,12 @@ await cu.waitForFunction(() => window.CentralUsage && window.CUMix && window.CU 
 await cu.evaluate((c) => { CentralUsage.prefs.code = c; CentralUsage.store.set("code", c); CentralUsage.connect("127.0.0.1"); }, code);
 
 console.log("Audio host:");
-await check("Central Usage connects to the Central Control and, as the audio host, registers itself there", async () => {
+await check("Central Control connects to the Central Pedal and, as the audio host, registers itself there", async () => {
   await until(() => cu.evaluate(() => CentralUsage.state.connected && CentralUsage.state.authed), 10000);
   const info = await until(async () => { const j = await (await fetch("http://127.0.0.1:8080/api/info")).json(); return j.audioHost && j.audioHost.name === "Desk" ? j : null; }, 10000);
   assert.equal(info.audioHost.port, HOST_PORT);
 });
-await check("the Central Control's audio arrives over the network: each track on its own channel, mapped to inputs by name", async () => {
+await check("the Central Pedal's audio arrives over the network: each track on its own channel, mapped to inputs by name", async () => {
   const st = await until(() => cu.evaluate(async () => { const s = await CU.host.status(); return s.pi && s.pi.state === "receiving" && CUMix.pi.length >= 5 ? { pi: s.pi, names: CUMix.pi.map((n) => n.name) } : null; }), 20000);
   assert.ok(st.names.includes("Kick") && st.names.includes("Keys") && st.names.includes("Tracks mix L"), st.names.join(","));
   const inputs = await cu.evaluate(() => CUMix.state.inputs.filter((x) => x.src.kind === "pi").map((x) => x.name + ":" + x.group));
@@ -142,7 +142,7 @@ await check("tell it the show: words become presets and cues on the timeline", a
   const r = await cu.evaluate(() => ({ cues: CULights.show().cues.length, out: document.querySelector("#lxChatOut").textContent }));
   assert.ok(r.cues >= 1 && /✓/.test(r.out), JSON.stringify(r));
 });
-await check("only the Central Control plays the tracks: Central Usage's requests to move them are refused by the Pi", async () => {
+await check("only the Central Pedal plays the tracks: Central Control's requests to move them are refused by the Pi", async () => {
   const before = await pi.evaluate(() => PPTracks.state.section);
   await cu.evaluate((c) => CentralUsage.send({ type: "action", name: "nextSection", code: c }), code); await new Promise((r) => setTimeout(r, 600));
   assert.equal(await pi.evaluate(() => PPTracks.state.section), before);

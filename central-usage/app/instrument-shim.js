@@ -1,4 +1,4 @@
-/* Central Usage - what the Central Control's Instrument page expects around it (PP, PPFeatures, the driver
+/* Central Control - what the Central Pedal's Instrument page expects around it (PP, PPFeatures, the driver
  * bridge), here inside the Instrument frame. Messages to the instrument host go to the app (parent window). */
 (function () {
   "use strict";

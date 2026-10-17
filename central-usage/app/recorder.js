@@ -1,7 +1,7 @@
-/* Central Usage - the recording control: Start / Stop, the time, the free disk space (a warning under 10 GB), where
+/* Central Control - the recording control: Start / Stop, the time, the free disk space (a warning under 10 GB), where
  * it goes and what was saved. On the Mix tab and in the I/O tab's "Listening & recording" card: any element with
  * data-rec-slot gets the control (data-rec-folder adds the folder row). The audio host records (recorder.js in
- * the main process: every input, the Central Control's tracks and the stereo program, then the program's MP3); an
+ * the main process: every input, the Central Pedal's tracks and the stereo program, then the program's MP3); an
  * admin on another computer starts / stops it over the link to the audio host.
  * window.CURecUI: fill(root), state(), start(name), stop(). The API for other features: window.CU.recorder. */
 (function () {

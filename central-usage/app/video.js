@@ -1,4 +1,4 @@
-/* Central Usage - the Video tab: a switcher for up to 48 cameras with two outputs.
+/* Central Control - the Video tab: a switcher for up to 48 cameras with two outputs.
  *   MAIN    full screen on a display of this computer (the room's screens)
  *   STREAM  the live stream (YouTube / Facebook / RTMP / SRT, several at once), a recording, and NDI for OBS / vMix
  * Each output has its own Preview and Program, Cut and Auto (fade, dip to black, wipe), the lyrics as a lower third
@@ -17,7 +17,7 @@
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   var visible = function () { return CU.prefs.tab === "video"; };
   if (!V) {
-    root.innerHTML = '<div class="card"><h3>Video</h3><p class="muted">The video switcher works in the Central Usage app on a computer (it needs the cameras, the encoder and the outputs of the computer).</p></div>';
+    root.innerHTML = '<div class="card"><h3>Video</h3><p class="muted">The video switcher works in the Central Control app on a computer (it needs the cameras, the encoder and the outputs of the computer).</p></div>';
     return;
   }
 
@@ -344,9 +344,9 @@
     if (!on) { if (MW.win && !MW.win.closed) MW.win.close(); MW.win = null; paintControls(); return; }
     if (MW.win && !MW.win.closed) return;
     var w = window.open("", "cu-video-main");
-    if (!w) { alert("The Main output window could not open (this version of Central Usage is missing its window hook)."); return; }
+    if (!w) { alert("The Main output window could not open (this version of Central Control is missing its window hook)."); return; }
     MW.win = w; var d = w.document;
-    d.title = "Central Usage - Main"; d.body.style.cssText = "margin:0;background:#000;overflow:hidden;cursor:none";
+    d.title = "Central Control - Main"; d.body.style.cssText = "margin:0;background:#000;overflow:hidden;cursor:none";
     MW.canvas = d.createElement("canvas"); MW.canvas.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain;background:#000";
     d.body.appendChild(MW.canvas); MW.ctx = MW.canvas.getContext("2d", { alpha: false });
     w.addEventListener("keydown", function (e) { if (e.key === "Escape") mainOpen(false); });
@@ -529,7 +529,7 @@
       '<label>Encoder <select data-sc="encoder"><option value="auto">Automatic' + (enc.best ? " (" + esc(enc.best) + ")" : "") + "</option>" + enc.list.map(function (e) { return '<option value="' + e + '"' + (c.encoder === e ? " selected" : "") + ">" + e + "</option>"; }).join("") + "</select></label>" +
       '<p class="muted small">' + (enc.list.length ? "Found: " + esc(enc.list.join(", ")) + ". A graphics card's encoder (NVENC, Quick Sync, VideoToolbox, AMF, VAAPI) leaves the processor free." : S.encoders ? "No H.264 encoder found." : "Checking the encoders…") + "</p></section>" +
       '<section class="card"><h3>Recording</h3><p class="muted small">Records the stream output (picture and its sound) as MP4. It plays even if the computer stops in the middle.</p><div class="row"><button data-da="rec">● Record</button><button data-da="folder">Open the folder</button></div><p class="small" data-recstat></p></section>' +
-      '<section class="card"><h3>To OBS / vMix / Streamlabs on this computer</h3><label class="toggle"><input type="checkbox" data-ndiout="stream"' + (S.cfg.stream.ndi ? " checked" : "") + '> NDI source "Central Usage Stream"</label><label class="toggle"><input type="checkbox" data-ndiout="main"' + (S.cfg.main.ndi ? " checked" : "") + '> NDI source "Central Usage Main"</label><p class="small" data-ndistat></p>' +
+      '<section class="card"><h3>To OBS / vMix / Streamlabs on this computer</h3><label class="toggle"><input type="checkbox" data-ndiout="stream"' + (S.cfg.stream.ndi ? " checked" : "") + '> NDI source "Central Control Stream"</label><label class="toggle"><input type="checkbox" data-ndiout="main"' + (S.cfg.main.ndi ? " checked" : "") + '> NDI source "Central Control Main"</label><p class="small" data-ndistat></p>' +
       '<p class="muted small">In OBS add an NDI Source (the free DistroAV plugin) and pick it; the sound comes in through OBS as usual. Needs NDI Tools.</p></section></div>';
   }
   function paintDestStatus() {
@@ -562,7 +562,7 @@
   // ---- Lyrics & slides
   function overlaysHtml() {
     var l = S.cfg.lyrics;
-    return '<div class="vd-grid"><section class="card"><h3>Lyrics lower third</h3><p class="muted small">The words come from the Central Control as it moves through the song. Press LYRICS on Main or Stream to show them; lines cross-fade, a new section fades out and in.</p>' +
+    return '<div class="vd-grid"><section class="card"><h3>Lyrics lower third</h3><p class="muted small">The words come from the Central Pedal as it moves through the song. Press LYRICS on Main or Stream to show them; lines cross-fade, a new section fades out and in.</p>' +
       '<label>Font <select data-ly="font">' + ["Inter", "Arial", "Helvetica", "Georgia", "Verdana", "Trebuchet MS", "Montserrat", "Open Sans"].map(function (f) { return "<option" + (l.font === f ? " selected" : "") + ">" + f + "</option>"; }).join("") + "</select></label>" +
       '<label>Size <input type="range" data-ly="size" min="2.5" max="10" step="0.25" value="' + l.size + '"><output>' + l.size + '% of the height</output></label>' +
       '<label>Text colour <input type="color" data-ly="color" value="' + esc(l.color) + '"></label>' +
@@ -570,7 +570,7 @@
       '<div class="row"><label>Box colour <input type="color" data-ly="boxColor" value="' + esc(l.boxColor) + '"></label><label>Opacity <input type="range" data-ly="boxOpacity" min="0" max="1" step="0.05" value="' + l.boxOpacity + '"></label></div>' +
       '<div class="row"><label>Position <select data-ly="position"><option value="bottom"' + (l.position === "bottom" ? " selected" : "") + '>Bottom</option><option value="middle"' + (l.position === "middle" ? " selected" : "") + '>Middle</option><option value="top"' + (l.position === "top" ? " selected" : "") + '>Top</option></select></label><label>Lines <select data-ly="lines">' + [1, 2, 3, 4].map(function (n) { return "<option" + ((l.lines | 0) === n ? " selected" : "") + ">" + n + "</option>"; }).join("") + "</select></label></div>" +
       '<div class="row"><label class="toggle"><input type="checkbox" data-ly="shadow"' + (l.shadow ? " checked" : "") + '> Shadow</label><label class="toggle"><input type="checkbox" data-ly="upper"' + (l.upper ? " checked" : "") + '> CAPITALS</label><label>Fade <input type="number" data-ly="fade" min="0" max="3" step="0.1" value="' + l.fade + '" style="width:64px"> s</label></div>' +
-      '<p class="muted small">Now: ' + (S.lyr.lines.length ? esc(S.lyr.lines.join(" / ")) : "no lyrics on the Central Control right now") + "</p></section>" +
+      '<p class="muted small">Now: ' + (S.lyr.lines.length ? esc(S.lyr.lines.join(" / ")) : "no lyrics on the Central Pedal right now") + "</p></section>" +
       '<section class="card"><h3>Slides on the outputs</h3><p class="muted small">Whatever is on the Slides tab can go on Main and / or the Stream (the Slides menu on each output): full screen, or over the camera - "over the camera" keys out the black, so text slides and lower thirds sit on the picture. Slides is also a tile on the multiview to cut to like a camera.</p>' +
       '<label class="toggle"><input type="checkbox" data-mvslides' + (S.cfg.multiview.slides !== false ? " checked" : "") + '> Show Slides on the multiview</label>' +
       '<label>Keying: black below <input type="range" data-ly="keyLo" min="0" max="0.4" step="0.01" value="' + (l.keyLo == null ? 0.04 : l.keyLo) + '"></label><label>fully shown above <input type="range" data-ly="keyHi" min="0.02" max="0.6" step="0.01" value="' + (l.keyHi == null ? 0.16 : l.keyHi) + '"></label></section></div>';
@@ -583,7 +583,7 @@
       (p.error ? '<p class="bad small">' + esc(p.error) + "</p>" : "") +
       '<table class="io-t"><tr><td>Camera code</td><td><b class="io-code">' + esc(p.code || "") + '</b> <button data-ph="newcode">New code</button></td></tr>' +
       "<tr><td>On the phone, open</td><td>" + (p.start || []).map(function (u) { return "<b>" + esc(u) + "</b>"; }).join("<br>") + "</td></tr></table>" +
-      '<ol class="small"><li>On the phone (same Wi-Fi) open the address above.</li><li>Once per phone: install the certificate it offers. iPhone / iPad: Settings → <b>Profile Downloaded</b> → Install, then Settings → General → About → <b>Certificate Trust Settings</b> → turn on "Central Usage local CA".</li><li>Tap <b>Open the camera page</b>, give it a name and the camera code, Start. It appears here as a camera.</li></ol>' +
+      '<ol class="small"><li>On the phone (same Wi-Fi) open the address above.</li><li>Once per phone: install the certificate it offers. iPhone / iPad: Settings → <b>Profile Downloaded</b> → Install, then Settings → General → About → <b>Certificate Trust Settings</b> → turn on "Central Control local CA".</li><li>Tap <b>Open the camera page</b>, give it a name and the camera code, Start. It appears here as a camera.</li></ol>' +
       '<p class="muted small">Phones send H.264 (or JPEG on older phones) at 720p or 1080p. Keep the phone plugged in; the page keeps the screen awake. The phone shows a red ON AIR light when it is live.</p></section>' +
       '<section class="card"><h3>Connected</h3>' + ((p.connected || []).length ? (p.connected || []).map(function (c) { return "<p>● " + esc(c.name) + "</p>"; }).join("") : '<p class="muted">No phones right now.</p>') + "</section></div>";
   }
@@ -672,7 +672,7 @@
     else if (ev.type === "phones") { S.phones = ev.info; if (S.view === "phones") paintView(); }
     else if (ev.type === "config") { S.cfg = ev.cfg; changed(); if (S.view === "sources") paintView(); }
   });
-  // the lyrics from the Central Control
+  // the lyrics from the Central Pedal
   CU.on("message", function (m) {
     if (m.type !== "display") return;
     var ls = m.lyrics || {}, lines = (ls.lines || []).filter(function (x) { return String(x).trim(); });

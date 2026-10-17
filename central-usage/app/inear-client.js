@@ -1,4 +1,4 @@
-/* Central Usage - in-ear client: the connection to the audio host (users, remote admins, phones) and the
+/* Central Control - in-ear client: the connection to the audio host (users, remote admins, phones) and the
  * player for a mix that comes back over Wi-Fi. Runs in the app and in a phone's browser.
  *   CUInEar.link({ url, role, code, id, name, hello: { more fields for the hello } })
  *       -> { op(op), listen(tap, on, opt), send(json), sendBinary(buf), close(), on(event, fn) }

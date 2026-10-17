@@ -1,5 +1,5 @@
 #!/bin/bash
-# The ffmpeg that comes with Central Usage (the Video tab's encoder: libx264, SRT, TLS / RTMPS, hardware
+# The ffmpeg that comes with Central Control (the Video tab's encoder: libx264, SRT, TLS / RTMPS, hardware
 # encoders). Pinned builds, checked against their SHA-256 before use:
 #   Linux x64, Windows x64: BtbN/FFmpeg-Builds, GPL static, n9.0.2 (month-end build, kept long-term)
 #   macOS arm64 / x64:      ffmpeg.martin-riedl.de, static release 9.0.2
@@ -28,7 +28,7 @@ case "$URL" in *.tar.xz) tar -xf "$TMP/pkg" -C "$TMP/x" ;; *.zip) (cd "$TMP/x" &
 F="$(find "$TMP/x" -type f -name "$BIN" | head -1)"; [ -n "$F" ] || { echo "no $BIN in $URL" >&2; exit 1; }
 cp "$F" "$DEST/$BIN"; chmod +x "$DEST/$BIN"
 {
-  echo "ffmpeg (https://ffmpeg.org) - included with Central Usage as a separate program for the Video tab."
+  echo "ffmpeg (https://ffmpeg.org) - included with Central Control as a separate program for the Video tab."
   echo
   echo "This build: $FROM"
   echo "Downloaded from: $URL"

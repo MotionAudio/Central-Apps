@@ -1,4 +1,4 @@
-/* Lyrics from a vocal track, heard on this computer (Central Usage and Central Control on a PC - never the Pi).
+/* Lyrics from a vocal track, heard on this computer (Central Control and Central Pedal on a PC - never the Pi).
  * An offline speech model (OpenAI Whisper, ONNX build, via transformers.js) runs in the app's main process;
  * the page sends 16 kHz mono audio of the parts where someone sings and gets the words with their times.
  * The model is downloaded once (Settings) into the app's folder; nothing is sent anywhere.

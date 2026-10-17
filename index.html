@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Central Control</title>
+  <title>Central Pedal</title>
   <link rel="stylesheet" href="fonts/fonts.css">
   <style>
     :root { --bg:#08111d; --panel:#101e31; --panel2:#152a43; --line:#294966; --text:#ecf7ff; --muted:#9bb2c9; --accent:#5de6b0; --accentText:#062218; --blue:#75adff; --danger:#ff7878; --shadow:rgba(0,0,0,.28); }
@@ -102,7 +102,7 @@
   </nav>
   <main class="app">
     <header class="topbar">
-      <div class="brand"><h1>Central Control</h1><p>Pads · tracks · instrument · eight saved pad channels · 81 built-in pads · 106 textures · real-time effects</p></div>
+      <div class="brand"><h1>Central Pedal</h1><p>Pads · tracks · instrument · eight saved pad channels · 81 built-in pads · 106 textures · real-time effects</p></div>
       <div class="top-actions"><input class="project-name" id="projectName" aria-label="Project name" value="My Pad Project"><button class="primary" id="performButton" title="Big-button performance screen (P)">▶ Perform</button><button id="setlistButton">♫ Setlist</button><button id="systemButton">⚙ Settings</button><button id="openProject">Open Project</button><button class="primary" id="saveProject">Save Project</button></div>
     </header>
     <section class="layout">
@@ -172,7 +172,7 @@
       <aside class="card side"><h2>Output</h2>
         <div class="out-meters"><div class="vu"><span>L</span><div class="vu-bar"><i id="vuL"></i><b id="pkL"></b></div></div><div class="vu"><span>R</span><div class="vu-bar"><i id="vuR"></i><b id="pkR"></b></div></div><button class="clip" id="clipLight" title="Tap to reset">OK</button></div>
         <canvas id="spectrum" class="fxgraph small" aria-label="Output spectrum"></canvas>
-        <hr><h3>Texture channels</h3><p class="muted" style="margin-top:4px">Two always-on layers under the pads: rain, vinyl, wind, drones that follow the key, pulses that follow the tempo…</p><div id="textureChannels"></div><hr><h3>Signal chain</h3><p class="muted" style="margin-top:4px">Lit = on for this pad.</p><div class="chain" id="chainList"></div><hr><h3>Imported Voices</h3><div class="library" id="library"><small>No imported audio yet.</small></div><p class="footer-note">Project files include all settings and imported audio so a project can be opened later in Central Control.</p></aside>
+        <hr><h3>Texture channels</h3><p class="muted" style="margin-top:4px">Two always-on layers under the pads: rain, vinyl, wind, drones that follow the key, pulses that follow the tempo…</p><div id="textureChannels"></div><hr><h3>Signal chain</h3><p class="muted" style="margin-top:4px">Lit = on for this pad.</p><div class="chain" id="chainList"></div><hr><h3>Imported Voices</h3><div class="library" id="library"><small>No imported audio yet.</small></div><p class="footer-note">Project files include all settings and imported audio so a project can be opened later in Central Pedal.</p></aside>
     </section>
   </main>
   <section id="perform" class="perform hidden" aria-label="Performance view">
@@ -256,7 +256,7 @@
     <div class="cf-head"><h2>Learn</h2><p class="muted" id="lnStatus"></p></div>
     <div class="ln-grid">
       <div>
-        <h3>Control board inputs</h3><p class="muted">Wire a button, knob or slider to any usable pin, press Learn, then press or turn it: the Central Control finds the pin or ADS1115 channel by itself. The defaults below match the wiring diagram.</p>
+        <h3>Control board inputs</h3><p class="muted">Wire a button, knob or slider to any usable pin, press Learn, then press or turn it: the Central Pedal finds the pin or ADS1115 channel by itself. The defaults below match the wiring diagram.</p>
         <div id="lnBoard"></div>
         <div class="se-row"><button id="lnResetBoard">Reset to default pins</button><span class="muted" id="lnMouse"></span></div>
         <h3 style="margin-top:14px">USB pedals, controllers and MIDI</h3><p class="muted">Plug a USB foot pedal, game pad or MIDI foot controller into the Pi, add a button, press Learn and hit it. Then give it a job on the Configure tab.</p>
@@ -294,13 +294,13 @@
     <div class="usb-list" id="usbList"></div>
     <div class="row" style="margin-top:12px;flex-wrap:wrap"><button id="usbUp">⬆ Up</button><button id="usbRefresh">⟳ Refresh</button><button id="usbAll">Add every sound in this folder to Voices</button><button id="usbNative">Choose with the file picker instead</button></div></dialog>
   <section id="tabIO" class="toptab hidden" aria-label="Inputs and outputs">
-    <div class="cf-head"><h2>Inputs &amp; outputs</h2><p class="muted">Every input and output of the Central Control: audio to Central Usage, output channels, inputs, MIDI, screens, the control surface and the devices on the network.</p></div>
+    <div class="cf-head"><h2>Inputs &amp; outputs</h2><p class="muted">Every input and output of the Central Pedal: audio to Central Control, output channels, inputs, MIDI, screens, the control surface and the devices on the network.</p></div>
     <div id="ioRoot"></div>
   </section>
   <section id="tabSettings" class="toptab hidden" aria-label="Settings">
-    <div class="cf-head"><h2>Settings</h2><p class="muted" id="sysInfo">Central Control</p><span style="flex:1"></span><div class="st-nav" id="stNav"></div></div>
+    <div class="cf-head"><h2>Settings</h2><p class="muted" id="sysInfo">Central Pedal</p><span style="flex:1"></span><div class="st-nav" id="stNav"></div></div>
     <div class="sys-grid" id="systemDialog">
-      <section data-st="look"><h3>Appearance</h3><p class="muted">Colour presets, or pick your own. Saved with the project.</p><div class="theme-presets" id="themePresets"></div><div class="theme-grid"><label>Background<input data-theme="bg" type="color"></label><label>Panels<input data-theme="panel" type="color"></label><label>Text<input data-theme="text" type="color"></label><label>Accent<input data-theme="accent" type="color"></label><label>Blue accent<input data-theme="blue" type="color"></label><label>Lines<input data-theme="line" type="color"></label></div><label>Interface size<select id="uiScale"><option value="0.9">Small</option><option value="1" selected>Normal</option><option value="1.12">Large</option><option value="1.25">Extra large (touch)</option></select></label></section><section data-st="look" class="wide"><h3>Colours of everything</h3><p class="muted">Every screen colour, the standard section colours (used on the waveform, the section buttons, the stage display and in Central Usage) and a colour for each pad.</p><div id="colorsAll"></div></section>
+      <section data-st="look"><h3>Appearance</h3><p class="muted">Colour presets, or pick your own. Saved with the project.</p><div class="theme-presets" id="themePresets"></div><div class="theme-grid"><label>Background<input data-theme="bg" type="color"></label><label>Panels<input data-theme="panel" type="color"></label><label>Text<input data-theme="text" type="color"></label><label>Accent<input data-theme="accent" type="color"></label><label>Blue accent<input data-theme="blue" type="color"></label><label>Lines<input data-theme="line" type="color"></label></div><label>Interface size<select id="uiScale"><option value="0.9">Small</option><option value="1" selected>Normal</option><option value="1.12">Large</option><option value="1.25">Extra large (touch)</option></select></label></section><section data-st="look" class="wide"><h3>Colours of everything</h3><p class="muted">Every screen colour, the standard section colours (used on the waveform, the section buttons, the stage display and in Central Control) and a colour for each pad.</p><div id="colorsAll"></div></section>
       <section data-st="setups" class="wide" id="setupsSection"></section>
       <section data-st="network" id="pinSection"></section>
       <section data-st="audio"><h3>Audio engine</h3><label>Sample rate<select id="audioRate"><option value="0">Device default</option><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option><option value="96000">96 kHz</option></select></label><label>Latency<select id="audioLatency"><option value="interactive">Lowest (live playing)</option><option value="balanced">Balanced</option><option value="playback">Safest (long buffers)</option></select></label><p class="muted" id="audioInfo">—</p><p class="muted">Sample rate and latency apply when the audio engine next starts (press Apply to restart it now).</p><button id="audioApply">Apply and restart the audio engine</button></section>

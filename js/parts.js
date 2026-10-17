@@ -1,4 +1,4 @@
-/* Central Control / Central Usage - a part for every instrument.
+/* Central Pedal / Central Control - a part for every instrument.
  * From what the song already knows - its chords (from the chart or heard in the tracks), sections, key,
  * tempo, the hits, the lyrics with their timing - and from the tracks themselves when the song has
  * one for that instrument: what that track really plays (transcribed) comes first; with no track
@@ -242,8 +242,8 @@
     var part = { id: inst.id, name: inst.name, views: inst.views.slice(), source: "chart", bpb: bpb, bars: ctx.bars || 1, key: ctx.key || "C", shift: shift, clef: inst.clef || "auto", marks: marks(ctx), warn: [] };
     part.writtenKey = shift && C ? C.noteName(C.noteIndex(ctx.key || "C") + shift, C.keyPrefersFlats(C.noteName(C.noteIndex(ctx.key || "C") + shift, true))) + (/m$/.test(ctx.key || "") ? "m" : "") : (ctx.key || "C");
     part.chords = (ctx.chords || []).filter(function (c) { return c.label && c.label !== "N"; }).map(function (c) { return { bar: c.bar, beat: c.beat || 1, label: transposeLabel(c.label + (c.bass && String(c.label).indexOf("/") < 0 ? "/" + c.bass : ""), shift, ctx.key) }; });
-    if (ctx.estimated && inst.id !== "chords" && inst.id !== "nashville") part.warn.push("Bars estimated from the chart - when the Central Control has listened to the tracks the chords land exactly.");
-    if (inst.id === "chords" || inst.id === "nashville") { part.kind = "chart"; part.nashville = inst.id === "nashville"; if (!ctx.chartText && !(ctx.chords || []).length) part.warn.push("No chart yet: upload one, or let the Central Control listen to the tracks and write it."); return part; }
+    if (ctx.estimated && inst.id !== "chords" && inst.id !== "nashville") part.warn.push("Bars estimated from the chart - when the Central Pedal has listened to the tracks the chords land exactly.");
+    if (inst.id === "chords" || inst.id === "nashville") { part.kind = "chart"; part.nashville = inst.id === "nashville"; if (!ctx.chartText && !(ctx.chords || []).length) part.warn.push("No chart yet: upload one, or let the Central Pedal listen to the tracks and write it."); return part; }
     var found = inst.id === "drums" || inst.views[0] === "notation" || inst.id === "guitar" ? findStem(ctx, inst) : { stem: null };
     if (inst.id === "drums") {
       part.kind = "drums";
@@ -402,7 +402,7 @@
     return head + '<div class="pt-paper">' + (body || '<p class="muted">Nothing to show.</p>') + "</div>";
   }
 
-  // ---------------------------------------------------------------- the song's context (Central Control side)
+  // ---------------------------------------------------------------- the song's context (Central Pedal side)
   function contextOf(s, t, g, extra) {
     extra = extra || {}; if (!s) return null;
     var bpb = (g && g.bpb) || (t && t.grid && t.grid.bpb) || 4, bars = 1;

@@ -1,7 +1,7 @@
-/* Central Control - the Parts screen: pick an instrument, read its part (chart, notation, tab, drums).
+/* Central Pedal - the Parts screen: pick an instrument, read its part (chart, notation, tab, drums).
  * "Listen to every track" writes down what each track really plays (bass, keys, guitar, vocal, horns,
  * strings: notes; the drum track: kick / snare / hats / crash), so the parts come from the tracks;
- * songs without tracks get parts written from the chords. The parts go to Central Usage with the song. */
+ * songs without tracks get parts written from the chords. The parts go to Central Control with the song. */
 (function () {
   "use strict";
   var PP = window.PP, T = window.PPTracks, P = window.PPParts; if (!PP || !T || !P) return;
@@ -106,7 +106,7 @@
     } catch (e) { status.textContent = "Not written: " + (e && e.message || e); }
     busy = false; $("#ptLyrics").disabled = false; paint();
   }
-  // words heard by Central Usage for a song here
+  // words heard by Central Control for a song here
   if (window.PPFeatures) window.PPFeatures.on("songWords", function (m) {
     var song = (PP.project().songs || []).filter(function (x) { return x.id === m.song; })[0]; if (!song || !Array.isArray(m.words)) return;
     var t = T.data(song); t.words = m.words; PP.persistSoon(); if (window.PPHub) window.PPHub.push(false);

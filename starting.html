@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Central Control - starting</title>
+<title>Central Pedal - starting</title>
 <style>
   html, body { margin: 0; height: 100%; background: #08111d; color: #e8f1fb; font: 16px/1.4 Inter, ui-sans-serif, system-ui, "DejaVu Sans", sans-serif; }
   body { display: grid; place-items: center; text-align: center; }
@@ -12,14 +12,14 @@
 </style></head>
 <body><div>
   <div class="ring"></div>
-  <h1>Central Control</h1>
+  <h1>Central Pedal</h1>
   <p id="msg">Starting up…</p>
   <small id="tip"></small>
 </div>
 <script>
-  // Opened by the screen session while the Central Control service is still starting: waits for it, then
+  // Opened by the screen session while the Central Pedal service is still starting: waits for it, then
   // opens the real page (the address after the #).
-  var ver = (location.search.match(/[?&]v=([^&#]+)/) || [])[1]; if (ver) document.querySelector("h1").textContent = "Central Control " + decodeURIComponent(ver);
+  var ver = (location.search.match(/[?&]v=([^&#]+)/) || [])[1]; if (ver) document.querySelector("h1").textContent = "Central Pedal " + decodeURIComponent(ver);
   var next = decodeURIComponent(location.hash.slice(1)) || "http://127.0.0.1:8766/app/#resume", tries = 0;
   var probe = next.replace(/^(https?:\/\/[^/]+).*$/, "$1/"), t0 = Date.now();
   function check() {

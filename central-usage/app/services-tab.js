@@ -1,4 +1,4 @@
-/* Central Usage - the main admin's Service tab: up to 4 services (e.g. Sunday 9:00, Sunday 11:00, Wednesday, Youth),
+/* Central Control - the main admin's Service tab: up to 4 services (e.g. Sunday 9:00, Sunday 11:00, Wednesday, Youth),
  * each with its weekday and time, the roles it uses, and a run order of items (songs from the Central Pedal's setlist,
  * prayer, announcements, sermon…) with minutes and the roles each item uses. Start / Back / Next / Stop run it;
  * every computer then counts down to its own next part (countdown.js). Kept on the Central Pedal. */

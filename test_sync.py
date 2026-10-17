@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Two Central Controls keep the same songs and setlists: a PC (takes every stem) and a Pi-like device
+"""Two Central Pedals keep the same songs and setlists: a PC (takes every stem) and a Pi-like device
 (takes stems only for songs in a setlist). Run: python3 test_sync.py"""
 import asyncio
 import json
@@ -75,7 +75,7 @@ async def main():
     pi_root, pi = start("Stage Pi", (18965, 18966, 18980, 18981), {"sync_peers": ["127.0.0.1:18880"], "sync_kind": "pi", "sync_stems": "setlists"})
     try:
         ok = wait(lambda: jget(18866, "/sync/status") and jget(18966, "/sync/status"))
-        check("two Central Controls start (a PC and a Pi)", ok, open(os.path.join(pc_root, "log.txt")).read()[-800:])
+        check("two Central Pedals start (a PC and a Pi)", ok, open(os.path.join(pc_root, "log.txt")).read()[-800:])
         st = jget(18966, "/sync/status")
         check("the Pi-like one keeps stems of setlist songs only, the PC everything", st["stems"] == "setlists" and jget(18866, "/sync/status")["stems"] == "all", st)
 
@@ -132,11 +132,11 @@ async def main():
         pcs = jget(18866, "/sync/song/s1")
         check("...and the PC's copy still points at its own stem file", pcs and pcs["tracks"]["stems"][0]["file"] == os.path.realpath(kick_path), pcs)
 
-        # a light show saved for the song (by Central Usage) travels too
+        # a light show saved for the song (by Central Control) travels too
         show = {"code": pi_code, "song": "s1", "show": {"cues": [{"bar": 1, "look": "verse"}]}}
         http("http://127.0.0.1:18980/api/lighting", data=json.dumps(show).encode())
         got = wait(lambda: os.path.isfile(os.path.join(pc_root, "data", "lighting", "s1.json")) and "verse" in open(os.path.join(pc_root, "data", "lighting", "s1.json")).read())
-        check("a light show saved on the Pi (from Central Usage) reaches the PC", got)
+        check("a light show saved on the Pi (from Central Control) reaches the PC", got)
 
         # putting the spare song in a setlist on the Pi brings its stems over
         s3_pi = jget(18966, "/sync/song/s3")

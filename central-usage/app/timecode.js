@@ -1,4 +1,4 @@
-/* Central Usage - timecode that follows the Central Control's song, for show software, consoles and
+/* Central Control - timecode that follows the Central Pedal's song, for show software, consoles and
  * video servers:
  *  - MTC (MIDI Time Code) quarter frames on the MIDI output chosen above (+ a full-frame message on every jump)
  *  - LTC (SMPTE linear timecode) as audio on any sound output of this computer (a jack into the console)
@@ -106,7 +106,7 @@
     var outs = []; try { outs = (await navigator.mediaDevices.enumerateDevices()).filter(function (d) { return d.kind === "audiooutput"; }); } catch (_) { }
     el.innerHTML = '<div class="row"><label class="toggle"><input type="checkbox" data-tc="mtc"' + (cfg.mtc ? " checked" : "") + '> MTC on the MIDI output</label><label class="toggle"><input type="checkbox" data-tc="ltc"' + (cfg.ltc ? " checked" : "") + '> LTC audio</label><label>Frames<select data-tc="fps">' + [24, 25, 30].map(function (f) { return '<option value="' + f + '"' + (cfg.fps === f ? " selected" : "") + ">" + f + " fps</option>"; }).join("") + '</select></label><label>Start at<input data-tc="offset" value="' + cfg.offset + '" style="width:110px" placeholder="01:00:00:00"></label><label class="toggle"><input type="checkbox" data-tc="hourPerSong"' + (cfg.hourPerSong ? " checked" : "") + '> Hour = song number</label></div>' +
       '<div class="row"><label>LTC goes out of<select data-tc="ltcDevice"><option value="">Default sound output</option>' + outs.filter(function (d) { return d.deviceId !== "default"; }).map(function (d) { return '<option value="' + d.deviceId + '"' + (cfg.ltcDevice === d.deviceId ? " selected" : "") + ">" + (d.label || "Output " + d.deviceId.slice(0, 6)) + "</option>"; }).join("") + '</select></label><label>LTC level <input type="range" min="0.05" max="1" step="0.05" data-tc="ltcLevel" value="' + cfg.ltcLevel + '"></label><span class="lx-tc" id="lxTcNow">--:--:--:--</span></div>' +
-      '<p class="muted small">Runs while the Central Control plays a song. Plug the LTC output into the console / video server timecode input (use a separate output from the band\'s audio).</p>';
+      '<p class="muted small">Runs while the Central Pedal plays a song. Plug the LTC output into the console / video server timecode input (use a separate output from the band\'s audio).</p>';
   }
   document.addEventListener("change", async function (e) {
     var k = e.target.dataset && e.target.dataset.tc; if (!k) return;

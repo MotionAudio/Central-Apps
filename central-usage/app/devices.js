@@ -1,4 +1,4 @@
-/* Central Usage - the main admin's Devices tab: every device paired with the Central Pedal, its role and jobs,
+/* Central Control - the main admin's Devices tab: every device paired with the Central Pedal, its role and jobs,
  * and how its connection is doing (round trip to the pedal, in-ear buffer and dropouts, CPU, battery, version),
  * with Change role / Jobs / Lock / Rename / Remove next to each one; computers asking to be an admin; the service
  * lock for everyone; and the main admin's own job.

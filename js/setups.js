@@ -1,10 +1,10 @@
-/* Central Control - saved setups: everything personal to this device, saved under a name ("Sunday",
+/* Central Pedal - saved setups: everything personal to this device, saved under a name ("Sunday",
  * "Youth night", "Acoustic set") and brought back with one tap - what every button / knob / slider does,
  * the performance knobs (volume, tone, reverb, fade), the instrument (boards, pedals, keys sounds, input /
  * output), the textures, the colours and the projector look.
  * A song can have its own setup: picking the song brings its setup back (songs without one keep what is up,
  * or go back to a chosen setup).
- * Setups stay on this device. Songs, tracks, charts and setlists are what travel between Central Controls;
+ * Setups stay on this device. Songs, tracks, charts and setlists are what travel between Central Pedals;
  * a setup never does (it is saved in this device's project, which sync does not carry). */
 (function () {
   "use strict";
@@ -89,7 +89,7 @@
   }
   function section() {
     var p = project(), songs = p.songs || [], rows = list();
-    return '<h3>Saved setups</h3><p class="muted">Save everything personal to this Central Control under a name and bring it back with one tap: what every button, knob and slider does, the volume / tone / reverb / fade knobs, the instrument (boards, pedals, keys sounds), textures, colours and the projector look. Setups stay on this device - songs, tracks and setlists are what go to your other devices.</p>' +
+    return '<h3>Saved setups</h3><p class="muted">Save everything personal to this Central Pedal under a name and bring it back with one tap: what every button, knob and slider does, the volume / tone / reverb / fade knobs, the instrument (boards, pedals, keys sounds), textures, colours and the projector look. Setups stay on this device - songs, tracks and setlists are what go to your other devices.</p>' +
       bar() +
       (rows.length ? '<table class="su-table"><tr><th>Setup</th><th>Saved</th><th>Songs using it</th><th></th></tr>' + rows.map(function (s) {
         var users = songs.filter(function (q) { return songMap()[q.id] === s.id; }).map(function (q) { return esc(q.name); });

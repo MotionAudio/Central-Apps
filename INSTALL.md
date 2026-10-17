@@ -1,19 +1,24 @@
-# Installing Central Control and Central Usage
+# Installing Central Pedal and Central Control
 
 **The easy way: the download page - https://motionaudio.github.io/Central-Apps/** - picks the right file
 for the computer you open it on. Every release is also on the
 [Releases page](https://github.com/MotionAudio/Central-Apps/releases).
 
-| | Central Control | Central Usage |
+| | Central Pedal | Central Control |
 |---|---|---|
 | Raspberry Pi | the main device (below) | - |
 | Windows 10 / 11 | `central-control-<v>-win-x64.exe` | `central-usage-<v>-win-x64.exe` |
 | Mac, Apple Silicon (M1 and newer) | `central-control-<v>-mac-arm64.dmg` | `central-usage-<v>-mac-arm64.dmg` |
 | Mac, Intel | `central-control-<v>-mac-x64.dmg` | `central-usage-<v>-mac-x64.dmg` |
 | Linux | `.deb` / `.AppImage` (below) | `.deb` / `.AppImage` (below) |
-| iPhone / iPad / Android | - | web app from the Central Control (below) |
+| iPhone / iPad / Android | - | web app from the Central Pedal (below) |
 
-Everything you install updates itself: each app looks for a new release once a day and asks before installing.
+**New names in 8.2:** the Raspberry Pi app is now **Central Pedal** (it was Central Control), and the companion app
+is now **Central Control** (it was Central Usage). The installer files keep their old names so every install keeps
+updating itself: `central-control-…` is Central Pedal, `central-usage-…` is Central Control.
+
+Everything you install updates itself: each app looks for a new release every time it opens (and once a day) and asks
+"Update now?" - Yes or No.
 
 ---
 
@@ -31,22 +36,23 @@ Everything you install updates itself: each app looks for a new release once a d
 3. **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to the app, confirm.
 4. Allow the microphone when asked (the audio interface, in-ears and instrument need it).
 
-If the Mac says the app *"is damaged"*, run this in Terminal (use the app's name):
+If the Mac says the app *"is damaged"*, run this in Terminal. The app files keep their old names (so updates and settings
+carry on): Central Control is `Central Usage.app`, Central Pedal is `Central Control.app`:
 `xattr -dr com.apple.quarantine "/Applications/Central Usage.app"`
 
 ## iPhone, iPad and Android phones / tablets
 
-Central Usage runs in the browser, served by your Central Control - nothing to install from a store:
+Central Control runs in the browser, served by your Central Pedal - nothing to install from a store:
 
-1. Join the same Wi-Fi as the Central Control.
+1. Join the same Wi-Fi as the Central Pedal.
 2. Open **http://padpedal.local:8080/cu/** in Safari (iPhone / iPad) or Chrome (Android).
-   If that name does not open, use the Central Control's address from its Settings, e.g. `http://192.168.1.40:8080/cu/`.
+   If that name does not open, use the Central Pedal's address from its Settings, e.g. `http://192.168.1.40:8080/cu/`.
 3. Choose **Join** and type the pairing code from the main admin's Settings (before there is a main admin:
-   the Central Control's pairing PIN - the 4 digits you picked the first time it started; Settings → Wi-Fi & devices).
+   the Central Pedal's pairing PIN - the 4 digits you picked the first time it started; Settings → Wi-Fi & devices).
 4. iPhone / iPad: **Share → Add to Home Screen**. Android: **⋮ → Add to Home screen**. It now opens full screen like an app.
    (An App Store version is ready to switch on: IOS-APP-STORE.md.)
 
-It is always the version your Central Control runs, so it updates with it. On a phone or tablet you are
+It is always the version your Central Pedal runs, so it updates with it. On a phone or tablet you are
 User 1 or User 2: the chord chart or any instrument's part, the lyrics, and your own in-ear mix.
 
 ---
@@ -61,7 +67,7 @@ versions come out. Copy them into a terminal (Ctrl + Alt + T on Ubuntu) one bloc
 
 ---
 
-### Central Usage (Ubuntu / Debian PC or laptop)
+### Central Control (Ubuntu / Debian PC or laptop)
 
 ```bash
 mkdir -p ~/Downloads/central && cd ~/Downloads/central
@@ -71,14 +77,14 @@ sudo apt install ./central-usage.deb
 sudo apt install pipewire-jack
 ```
 
-Open **Central Usage** from the app menu, then **Find** → Connect to reach the Central Control.
+Open **Central Control** from the app menu, then **Find** → Connect to reach the Central Pedal.
 
 `pipewire-jack` lets the Mix, In-ears and recording reach your audio interface. It is
 normally installed with the app; running the line again does no harm.
 
 ### Optional extras
 * **Slides over NDI** – install the free *NDI Runtime* from ndi.video (NDI Tools for Linux, Windows or
-  Mac). The second screen and the Central Control's HDMI 2 work without it.
+  Mac). The second screen and the Central Pedal's HDMI 2 work without it.
 * **Dante** (audio host) – Audinate's Dante Virtual Soundcard (Windows / Mac, needs its licence) or a
   Dante PCIe / USB card shows up like any interface on the I/O tab; two can be joined for 128 channels.
 * **The lighting chat's optional AI model** – install `llama-server` (from the llama.cpp
@@ -86,7 +92,7 @@ normally installed with the app; running the line again does no harm.
 
 ---
 
-### Central Control on a PC (optional)
+### Central Pedal on a PC (optional)
 
 The same app as on the Pi, for trying it out or building setlists on a computer.
 
@@ -108,7 +114,7 @@ Download the `.AppImage` from the Releases page instead of the `.deb`, then righ
 
 ## The Raspberry Pi
 
-### Already running Central Control 7 or newer
+### Already running Central Pedal 7 or newer
 Nothing to download. Connect the Pi to the internet, open **Settings**, and when
 **Update ready** appears press **Install**. The download is checked before it installs;
 your songs and settings stay.
@@ -132,7 +138,7 @@ Type your own Wi-Fi name and password in place of `your network` / `your passwor
 
 Flash it with **Raspberry Pi Imager** → Choose OS → **Use custom** → the `.img` → your SD
 card. When it asks about *OS customisation*, choose **No**. The first boot takes about a
-minute longer and restarts once; the screen then shows *Central Control* and its version.
+minute longer and restarts once; the screen then shows *Central Pedal* and its version.
 
 More options for the image (screen, password, sounds) are in [README.md](README.md).
 
@@ -157,4 +163,4 @@ cat /tmp/pad-pedal-session.log           # the screen session (screens found, wi
 * **Windows / Mac / Linux apps:** they check for updates themselves and ask before installing
   (Windows: the new installer runs by itself; Mac: the app is replaced and restarts; Linux: the new
   .deb or AppImage). Or download the newest from the download page again.
-* **iPhone / iPad:** the web app always has the Central Control's version - nothing to do.
+* **iPhone / iPad:** the web app always has the Central Pedal's version - nothing to do.

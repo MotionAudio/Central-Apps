@@ -1,4 +1,4 @@
-/* Central Usage - the in-ear page (User mode and phones) */
+/* Central Pedal - the in-ear page (User mode and phones) */
 .ie-root { display:flex; flex-direction:column; gap:12px; max-width:900px; margin:0 auto; }
 .ie-card { background:var(--panel, #101e31); border:1px solid var(--line, #294966); border-radius:14px; padding:14px; }
 .ie-card h3 { margin:0 0 6px; }

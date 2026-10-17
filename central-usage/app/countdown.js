@@ -1,4 +1,4 @@
-/* Central Usage - the countdown in the top bar, on every computer, personal to its role:
+/* Central Control - the countdown in the top bar, on every computer, personal to its role:
  *   before a service: "Sunday morning in 12:30 · Lights: Welcome at +0:00"
  *   during it:        "▶ Song 2 · 3:12 left · Lights: Sermon in 8:40" (or "you're on")
  * Its role's parts come from the Service tab (each item ticks the roles it uses): lighting, cameras, slides,

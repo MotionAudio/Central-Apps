@@ -1,4 +1,4 @@
-/* Central Usage - fixture definitions from the big public libraries, turned into the channel lists the
+/* Central Control - fixture definitions from the big public libraries, turned into the channel lists the
  * lighting engine uses (dim, r, g, b, w, a, uv, strobe, pan, panf, tilt, tiltf, speed, wheel, gobo, prism,
  * focus, haze, fan, zero). Reads:
  *   - QLC+ fixture files (.qxf, XML) - QLC+ ships thousands in /usr/share/qlcplus/fixtures

@@ -1,6 +1,6 @@
-/* Central Usage - the desktop app (Electron main process). A real application
+/* Central Control - the desktop app (Electron main process). A real application
  * window: no browser chrome, its own menu, launcher entry and installer.
- * It finds the Central Control (Raspberry Pi) on the Wi-Fi, gives the page Web MIDI
+ * It finds the Central Pedal (Raspberry Pi) on the Wi-Fi, gives the page Web MIDI
  * (Lightkey / consoles / USB MIDI) and drives DMX itself (USB-DMX, Art-Net, sACN).
  * services.js: Admin / User mode, the audio host (mixer engine, in-ears, recording), slides outputs
  * (second screen, NDI), the Instrument tab's audio and the lights' optional AI model. */
@@ -11,11 +11,13 @@ const http = require("node:http");
 const dns = require("node:dns");
 
 let win = null;
-app.setName("Central Usage");
+// Shown as "Central Control" (renamed from Central Usage in 8.2); its settings stay in the same folder as before
+if (!app.commandLine.hasSwitch("user-data-dir")) app.setPath("userData", path.join(app.getPath("appData"), "Central Usage"));
+app.setName("Central Control");
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1180, height: 780, minWidth: 720, minHeight: 480, title: "Central Usage", backgroundColor: "#08111d", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: false,
+    width: 1180, height: 780, minWidth: 720, minHeight: 480, title: "Central Control", backgroundColor: "#08111d", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: false,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false }
   });
   win.loadFile(path.join(__dirname, "app", "index.html"));
@@ -35,12 +37,12 @@ function menu() {
   const send = (name, arg) => { if (win) win.webContents.send("menu", name, arg); };
   const template = [
     { label: "File", submenu: [
-      { label: "Connect to a Central Control…", accelerator: "CmdOrCtrl+K", click: () => send("connect") },
-      { label: "Find Central Controls on this network", accelerator: "CmdOrCtrl+F", click: () => send("discover") },
+      { label: "Connect to a Central Pedal…", accelerator: "CmdOrCtrl+K", click: () => send("connect") },
+      { label: "Find Central Pedals on this network", accelerator: "CmdOrCtrl+F", click: () => send("discover") },
       { label: "Enter pairing code…", click: () => send("code") },
       { type: "separator" },
       { label: "Full screen", accelerator: "F11", click: () => { if (win) win.setFullScreen(!win.isFullScreen()); } },
-      { type: "separator" }, { role: "quit", label: "Quit Central Usage" } ] },
+      { type: "separator" }, { role: "quit", label: "Quit Central Control" } ] },
     { label: "View", submenu: [
       { label: "Chord chart", accelerator: "F1", click: () => send("tab", "chart") }, { label: "Lyrics", accelerator: "F2", click: () => send("tab", "lyrics") }, { label: "Lighting", accelerator: "F3", click: () => send("tab", "lights") },
       { label: "Mix", accelerator: "F4", click: () => send("tab", "mix") }, { label: "In-ears", accelerator: "F5", click: () => send("tab", "inears") }, { label: "Slides", accelerator: "F6", click: () => send("tab", "slides") },
@@ -48,9 +50,9 @@ function menu() {
       { type: "separator" }, { label: "Bigger text", accelerator: "CmdOrCtrl+=", click: () => send("font", 1) }, { label: "Smaller text", accelerator: "CmdOrCtrl+-", click: () => send("font", -1) },
       { type: "separator" }, { role: "reload" }, { role: "toggleDevTools", label: "Developer tools" } ] },
     { label: "Help", submenu: [
-      { label: "How it works", click: () => dialog.showMessageBox(win, { type: "info", title: "Central Usage", message: "Central Usage shows what the Central Control is doing.", detail: "1. Put this computer on the same network as the Central Control (Ethernet or Wi-Fi).\n2. File → Find (or type padpedal.local) and connect, then enter the pairing code (Central Control → Settings).\n3. Settings → This computer: Admin (lights, track mixing, in-ears, lyrics, slides) or User (chart, instrument, lyrics, my in-ear mix).\n4. One admin computer is the audio host: it gets the Central Control's tracks (Ethernet, Wi-Fi or the audio interface - I/O tab), mixes them, makes up to 48 in-ear mixes and records the service.\n5. Only the Central Control plays, stops and skips the tracks; everything here follows it." }) },
+      { label: "How it works", click: () => dialog.showMessageBox(win, { type: "info", title: "Central Control", message: "Central Control shows what the Central Pedal is doing.", detail: "1. Put this computer on the same network as the Central Pedal (Ethernet or Wi-Fi).\n2. File → Find (or type padpedal.local) and connect, then enter the pairing code (Central Pedal → Settings).\n3. Settings → This computer: Admin (lights, track mixing, in-ears, lyrics, slides) or User (chart, instrument, lyrics, my in-ear mix).\n4. One admin computer is the audio host: it gets the Central Pedal's tracks (Ethernet, Wi-Fi or the audio interface - I/O tab), mixes them, makes up to 48 in-ear mixes and records the service.\n5. Only the Central Pedal plays, stops and skips the tracks; everything here follows it." }) },
       { label: "Check for updates…", click: () => send("updates") },
-      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Usage " + app.getVersion(), detail: "Companion app for Central Control. Electron " + process.versions.electron + " · Chromium " + process.versions.chrome }) } ] }
+      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Control " + app.getVersion(), detail: "Companion app for Central Pedal. Electron " + process.versions.electron + " · Chromium " + process.versions.chrome }) } ] }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -86,8 +88,8 @@ ipcMain.handle("dmx-status", () => dmx.status());
 ipcMain.handle("dmx-blackout", () => { dmx.blackout(); return true; });
 ipcMain.on("dmx-frame", (_e, frame) => dmx.sendFrame(frame));
 // rig files (fixtures + looks) to share between computers
-ipcMain.handle("save-file", async (_e, name, text) => { const r = await dialog.showSaveDialog(win, { defaultPath: name, filters: [{ name: "Central Usage rig", extensions: ["json"] }] }); if (r.canceled || !r.filePath) return null; require("node:fs").writeFileSync(r.filePath, text); return r.filePath; });
-ipcMain.handle("open-file", async () => { const r = await dialog.showOpenDialog(win, { properties: ["openFile"], filters: [{ name: "Central Usage rig", extensions: ["json"] }] }); if (r.canceled || !r.filePaths[0]) return null; return require("node:fs").readFileSync(r.filePaths[0], "utf8"); });
+ipcMain.handle("save-file", async (_e, name, text) => { const r = await dialog.showSaveDialog(win, { defaultPath: name, filters: [{ name: "Central Control rig", extensions: ["json"] }] }); if (r.canceled || !r.filePath) return null; require("node:fs").writeFileSync(r.filePath, text); return r.filePath; });
+ipcMain.handle("open-file", async () => { const r = await dialog.showOpenDialog(win, { properties: ["openFile"], filters: [{ name: "Central Control rig", extensions: ["json"] }] }); if (r.canceled || !r.filePaths[0]) return null; return require("node:fs").readFileSync(r.filePaths[0], "utf8"); });
 // ---- fixture library: QLC+ fixture definitions on this computer (if QLC+ is installed) and files you pick
 const fs = require("node:fs");
 const FIXTURE_DIRS = ["/usr/share/qlcplus/fixtures", "/usr/local/share/qlcplus/fixtures", path.join(os.homedir(), ".qlcplus", "fixtures"), path.join(os.homedir(), ".local", "share", "qlcplus", "fixtures")];

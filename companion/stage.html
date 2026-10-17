@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><link rel="stylesheet" href="/fonts/fonts.css">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Central Control stage</title>
+<title>Central Pedal stage</title>
 <style>
   :root { --fg:#fff; --bg:#000; --dim:rgba(255,255,255,.45); --accent:#5de6b0; --blue:#75adff; --warn:#ffd765; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; cursor:none; }
@@ -37,7 +37,7 @@
 </style>
 </head>
 <body>
-<div class="idle" id="idle"><b>Central Control</b><span id="idleSub">Waiting for the Central Control…</span><div class="svcbig" id="svcBig" hidden></div></div>
+<div class="idle" id="idle"><b>Central Pedal</b><span id="idleSub">Waiting for the Central Pedal…</span><div class="svcbig" id="svcBig" hidden></div></div>
 <div class="wrap" id="wrap" hidden>
   <div class="top"><div class="song" id="song"></div><div class="meta" id="meta"></div></div>
   <div class="mid">
@@ -58,7 +58,7 @@
   function fmt(t) { t = Math.max(0, Math.round(t)); return Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2); }
   function render(st) {
     var d = st.display; $("#status").textContent = st.connected ? "" : "reconnecting…";
-    if (!d || !d.song) { $("#idle").hidden = false; $("#wrap").hidden = true; $("#idleSub").textContent = d ? "No song selected" : "Waiting for the Central Control…"; return; }
+    if (!d || !d.song) { $("#idle").hidden = false; $("#wrap").hidden = true; $("#idleSub").textContent = d ? "No song selected" : "Waiting for the Central Pedal…"; return; }
     $("#idle").hidden = true; $("#wrap").hidden = false; last = d; lastAt = performance.now();
     document.body.classList.toggle("stopped", !d.playing);
     $("#song").textContent = (d.song.index + 1) + ". " + d.song.name;

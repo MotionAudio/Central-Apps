@@ -1,4 +1,4 @@
-/* Central Usage - the audio host's server (port 8092): the other Central Usage computers (admins and users)
+/* Central Control - the audio host's server (port 8092): the other Central Control computers (admins and users)
  * and phones connect here.
  *   admins  (admin code)    see and change the whole mixer, listen to any mix, get the meters and the lights' bands
  *   users   (in-ear code)   pick a free mix, see only the channels routed to them, set their levels; their mix

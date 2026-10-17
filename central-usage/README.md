@@ -1,6 +1,6 @@
-# Central Usage
+# Central Control
 
-The companion app for Central Control on the other computers in the room. It is
+The companion app for Central Pedal on the other computers in the room. It is
 a real desktop application (Electron), not a browser tab. Version 2.1.0.
 
 Each computer has a role. The first time it starts it asks: **Main admin** or **Join**.
@@ -17,16 +17,16 @@ Each computer has a role. The first time it starts it asks: **Main admin** or **
 * **User 2**: **Lyrics · Chord chart (any instrument) · In-ears (my mix)**
 
 A new computer chooses **Join** and types the main admin's pairing code; it starts
-as User 1 and gets the Central Control's code and its in-ear code by itself. Users
+as User 1 and gets the Central Pedal's code and its in-ear code by itself. Users
 switch between User 1 and User 2 any time (the buttons in the top bar). Moving
 between the user side and the admin side needs the main admin's PIN, or the main
 admin changes it in its People list. **Settings → Forget role** puts a computer
 back to the first question (use it if two were set up as the main admin; the
-Central Control shows a warning when that happens). The list lives on the Central
-Control (only hashes of the PIN and codes), so roles hold while the main admin's
+Central Pedal shows a warning when that happens). The list lives on the Central
+Pedal (only hashes of the PIN and codes), so roles hold while the main admin's
 computer is off.
 
-You can have several admins and many users. **Only the Central Control plays,
+You can have several admins and many users. **Only the Central Pedal plays,
 stops and skips the tracks**, and every computer follows it. From here you can
 only page the lyrics, and while the tracks are playing that paging stays inside
 the current section.
@@ -46,27 +46,27 @@ Download from https://motionaudio.github.io/Central-Apps/ (first-run help there 
 ### Linux
 
 * Ubuntu / Debian: `sudo apt install ./dist/central-usage-2.1.0-amd64.deb`, then
-  open **Central Usage** from the app menu. The .deb recommends `pipewire-jack`
+  open **Central Control** from the app menu. The .deb recommends `pipewire-jack`
   (the audio interface for the mixer), `python3` and `fluidsynth` (the instrument).
 * Any Linux: `chmod +x dist/central-usage-2.1.0-x86_64.AppImage` and run it.
 
 ## Connect
 
-1. Put the computer on the same network as the Central Control (Ethernet or
+1. Put the computer on the same network as the Central Pedal (Ethernet or
    Wi-Fi).
 2. Use **File → Find**, or type `padpedal.local` or its IP, then **Connect**.
 3. The first time: **Join** with the main admin's pairing code (or, before there
-   is a main admin, the Central Control's pairing PIN from Central Control → Settings). Later
-   computers find the Central Control by themselves.
+   is a main admin, the Central Pedal's pairing PIN from Central Pedal → Settings). Later
+   computers find the Central Pedal by themselves.
 
 ## The audio host (Admin)
 
 One admin computer is the **audio host**. To set it up, go to **I/O → This
 computer is the audio host**. The audio host:
 
-* **Gets the Central Control's audio.** Every track arrives on its own channel,
+* **Gets the Central Pedal's audio.** Every track arrives on its own channel,
   together with the click, the pads, the tracks mix and the instrument. Under
-  *Audio from the Central Control*, pick the same transport the Central Control
+  *Audio from the Central Pedal*, pick the same transport the Central Pedal
   uses (its I/O tab):
   * **Ethernet**: the best.
   * **Wi-Fi**: a little more delay. Use the *Buffer* slider to set how much.
@@ -76,7 +76,7 @@ computer is the audio host**. The audio host:
   **I/O → Audio interface**, pick the device, the buffer size, and see what every
   input and output carries. With no interface (*No interface*), the network
   channels are still mixed, recorded and streamed to the in-ears.
-* **Registers with the Central Control**, so every other Central Usage finds it
+* **Registers with the Central Pedal**, so every other Central Control finds it
   by itself.
 * **Serves the in-ear page for phones** at `http://<this computer>:8092/`.
 
@@ -91,13 +91,13 @@ code** shown on the audio host's I/O tab.
 * **Tracks out** sets where the tracks go: **summed** to two interface outputs
   (L / R), or **each track on its own output**, starting at the output you
   choose. A single track can also have its own direct output.
-* A track keeps its settings from song to song, because the Central Control's
+* A track keeps its settings from song to song, because the Central Pedal's
   channels are matched by name. "Drums" stays "Drums".
 * **Listen here** plays the main mix or any in-ear mix on this computer's
   headphones (pick the output).
 * **Record the service** (also in the I/O tab's *Listening & recording* card)
   records every input of the interface / Dante (up to 128), the Central
-  Control's tracks as they arrive, and a stereo **program** (the main mix): one
+  Pedal's tracks as they arrive, and a stereo **program** (the main mix): one
   WAV per source, 48 kHz / 24 bit, in a folder per recording named with the date,
   time and the service name you type, under `~/Music/Central Usage Recordings`
   (change it in the I/O tab). After the stop the program also becomes
@@ -129,13 +129,13 @@ code** shown on the audio host's I/O tab.
 
 **Admin.** The tab has three parts:
 
-* **Channels** (up to 128): each one is the Central Control's channel or an
+* **Channels** (up to 128): each one is the Central Pedal's channel or an
   interface input, with a name, *Tracks* or *Band*, and whether the users see it.
 * **Mixes** (up to 64, stereo): each has a name, its owner, *reserved*, and where it goes - one,
   the other, or both:
   * **Wired**: out of the audio interface or Dante on the output pair you pick, to the in-rack
     in-ear transmitters. No delay. **Auto-assign pairs** numbers them in order.
-  * **Local**: back over Wi-Fi to the owner's Central Usage or phone.
+  * **Local**: back over Wi-Fi to the owner's Central Control or phone.
 * **The selected mix's send levels.** Here you can also **listen to any mix**,
   copy a mix, or free it. The in-ear code and the phone address are shown at the
   top.
@@ -150,7 +150,7 @@ from the sound desk. You can only change your own mix.
 A light controller in the style of Lightkey that follows the song:
 
 * **Show**: the stage plot, the presets, the faders and the song's timeline. The
-  timeline shows the waveform (from the Central Control's tracks), the sections
+  timeline shows the waveform (from the Central Pedal's tracks), the sections
   in their colours, the hits as yellow lines, and the cues. Each song has a mode:
   * **Auto**: the sections and the hits run the lights, and the lights move with
     the music.
@@ -162,18 +162,18 @@ A light controller in the style of Lightkey that follows the song:
     shimmers 30% blue for the verse, then chorus full white, strobes on the
     hits"* and it makes the presets and the cues. Optionally, a small local AI
     model reads freer sentences (Settings).
-  * **● Record**: while the song plays (on the Central Control, or
+  * **● Record**: while the song plays (on the Central Pedal, or
     **▶ Preview here**), everything you press goes on the timeline: presets,
     flashes, each light's colour. Record again over any part to replace just
     that part.
   * **Lights**: a list of every light under the plot. Change one light's colour
     and level live, then use *+ Cue with these colours* to put them on the
     timeline.
-* **Songs**: every song on the Central Control (it uploads them by itself),
+* **Songs**: every song on the Central Pedal (it uploads them by itself),
   with or without tracks, plus your own songs. A song can have any number of
   **scenes**, each on a bar and beat or at a section. A scene programmed at 93
   BPM stays on its bar and beat when the song plays at 112. A song without
-  tracks follows the Central Control's click, or the click here.
+  tracks follows the Central Pedal's click, or the click here.
 * **Presets**: each preset's colour, second colour, white, amber, UV, strobe,
   motion (effects, mover position, fan, phase) and timing (how often, depth,
   fade in).
@@ -193,9 +193,9 @@ A light controller in the style of Lightkey that follows the song:
 
 * **Slides**: add pictures, videos and text slides. Click one to preview it, and
   double-click it (or **Go live**) to show it. The **outputs** are this
-  computer's second screen, the Central Control's **HDMI 2** (set it to
+  computer's second screen, the Central Pedal's **HDMI 2** (set it to
   *Slides* on its I/O tab) and **NDI** on the network.
-* **Lyrics follow the Central Control**: the current lyrics go to the same
+* **Lyrics follow the Central Pedal**: the current lyrics go to the same
   outputs. You can set the size, colour, alignment and a picture or video
   background.
 * NDI needs the free NDI runtime (`libndi.so.6`, from ndi.video).
@@ -209,13 +209,13 @@ A light controller in the style of Lightkey that follows the song:
   (chart with capo and a diagram for every chord shape, or tab), **bass**
   (notation / tab), **keys** (both hands), **vocals** (melody with the words under
   the notes), **trumpet, clarinet, alto / tenor sax, horn in F, trombone** (in their
-  own keys), **violin, cello** and **drums** (a drum chart). When the Central Control
+  own keys), **violin, cello** and **drums** (a drum chart). When the Central Pedal
   has listened to the song's tracks (its *Parts → Listen to every track*), the part
   is what that track really plays; otherwise it is written from the chords: bass on
   the roots, keys voiced close, horns and strings on guide tones, drums that follow
   the sections with fills and the song's hits. Parts follow the key the Central
-  Control is playing in.
-* **Instrument**: the Central Control's guitar / bass / keys rig, running on this
+  Pedal is playing in.
+* **Instrument**: the Central Pedal's guitar / bass / keys rig, running on this
   computer. It uses real LV2 / LADSPA pedals through PipeWire and FluidSynth for
   the keys, so it needs `python3`, `fluidsynth` and the LV2 plugins.
 * **Lyrics**: big, with what comes next.
@@ -223,20 +223,20 @@ A light controller in the style of Lightkey that follows the song:
 ## Lyrics + chords from the vocal (Admin)
 
 **Lyrics tab → ♫ Lyrics + chords from the vocal** listens to the vocal track of the
-song the Central Control is on and writes a lyric chart: the sections, lines split
+song the Central Pedal is on and writes a lyric chart: the sections, lines split
 where the singer breathes, and each chord on the word it lands on (chord bars where
-nobody sings). The chart and the words' timing go back to the Central Control, so
+nobody sings). The chart and the words' timing go back to the Central Pedal, so
 every phone, the projector and the vocal part get them. It uses an offline speech
 model on this computer (**Settings → Lyrics from the vocal**: *Accurate*, about
 500 MB, or *Fast*, about 140 MB; downloaded once, nothing is sent anywhere).
 
 ## Phones and tablets (iPhone, iPad, Android)
 
-Open **http://padpedal.local:8080/cu/** (or the Central Control's address) in Safari
+Open **http://padpedal.local:8080/cu/** (or the Central Pedal's address) in Safari
 or Chrome, choose **Join** and type the pairing code. On an iPhone or iPad, **Share →
 Add to Home Screen** makes it an app icon that opens full screen. It is User 1 /
 User 2: the chord chart or any instrument's part, the lyrics and your own in-ear mix
-(the mix plays on the phone over Wi-Fi). It always runs the Central Control's
+(the mix plays on the phone over Wi-Fi). It always runs the Central Pedal's
 current version. (An App Store version needs an Apple developer account - see
 `IOS-APP-STORE.md`.)
 
@@ -258,23 +258,23 @@ Keys:
 ```bash
 cd central-usage
 npm install
-npm start              # copies the shared files from the Central Control folder, builds native/, runs it
+npm start              # copies the shared files from the Central Pedal folder, builds native/, runs it
 npm run dist           # .deb + AppImage into dist/
 ```
 `prepare-shared.sh` copies the Instrument page and the instrument host from the
-Central Control folder. It also builds `native/` (the engine `cu-mixer` and the
+Central Pedal folder. It also builds `native/` (the engine `cu-mixer` and the
 NDI sender `cu-ndi`). These need only a C compiler, because libjack and libndi
 are loaded at run time.
 
 ## Test
 
-* `node test-usage.mjs` runs the page against the simulated Central Control. It
-  covers the chart, the lyrics, the rule that only the Central Control moves the
+* `node test-usage.mjs` runs the page against the simulated Central Pedal. It
+  covers the chart, the lyrics, the rule that only the Central Pedal moves the
   tracks, the MIDI relay, and the lighting: modes, songs and scenes at another
   tempo, recording and recording over, every light's colour, the chat box, DMX
   values, the fixture library, movers, the phone remote and timecode.
 * `xvfb-run -a node test-host.mjs` covers the audio host end to end. The
-  simulated Central Control sends its tracks over the network, and the real app
+  simulated Central Pedal sends its tracks over the network, and the real app
   maps them, mixes them and records them. A phone takes a mix, sets its own
   levels and hears it over Wi-Fi. It also checks that users can't change other
   mixes, and that the lights get the waveform and the music's level.

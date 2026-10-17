@@ -1,4 +1,4 @@
-// QA sweep: the real Central Usage (Electron) connected to a simulated Central Control with a song.
+// QA sweep: the real Central Control (Electron) connected to a simulated Central Pedal with a song.
 // Clicks every visible control in every view, records errors, dialogs, and controls that change nothing.
 import { chromium, _electron as electron } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path";
@@ -77,7 +77,7 @@ const tab = (t) => async () => { await win.evaluate((t) => { document.querySelec
 const lx = (v) => async () => { await tab("lights")(); await win.evaluate((v) => CULights.showSub(v), v); };
 for (const size of [[1366, 768]]) {
   await app.evaluate(({ BrowserWindow }, s) => BrowserWindow.getAllWindows()[0].setSize(s[0], s[1]), size);
-  await win.waitForFunction(() => window.CUMix && CUMix.state && CUMix.pi.length > 0, null, { timeout: 15000 }).catch(() => report.errors.push({ where: "setup", err: "no Central Control audio" }));
+  await win.waitForFunction(() => window.CUMix && CUMix.state && CUMix.pi.length > 0, null, { timeout: 15000 }).catch(() => report.errors.push({ where: "setup", err: "no Central Pedal audio" }));
   await pi.evaluate(() => PPTracks.play({ countIn: false }));
   await sweep("admin-mix", tab("mix"));
   await sweep("admin-inears", tab("inears"));
