@@ -33,7 +33,8 @@ const next = (t, ms = 6000) => new Promise((r, j) => { waiters.push({ t, r }); s
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function meters() { send({ action: "meters" }); await sleep(300); send({ action: "meters" }); return next((m) => m.type === "instrumentMeters"); }
 let failures = 0;
-async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + (e && e.message || e)); } }
+const watchdog = setTimeout(() => { console.error("\nRIG TEST TIMED OUT (" + (globalThis.__step || "start") + ")"); process.exit(2); }, 300000); watchdog.unref && watchdog.unref();
+async function check(label, fn) { globalThis.__step = label; try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + (e && e.message || e)); } }
 
 function item(id, values, extra) { const ped = P.byId(id); assert.ok(ped, "pedal " + id); return Object.assign({ uid: "u" + id.replace(/[^a-z0-9]/gi, "").slice(0, 8), id, uri: ped.uri, on: true, values: values || {}, mix: 1, levelDb: 0 }, extra || {}); }
 

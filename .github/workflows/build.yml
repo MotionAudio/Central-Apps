@@ -104,11 +104,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { name: sounds, path: central-usage/native/sounds }
       - name: Test the engine and the rig (Windows)
+        timeout-minutes: 12
         run: |
-          node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer.exe
-          node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig.exe
-          node central-usage/test-updater.mjs
+          bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer.exe
+          bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig.exe
+          bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
       - name: Bundle the driver (PyInstaller) and smoke test it
+        timeout-minutes: 20
         run: |
           PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-control-desktop/driver-dist
           bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver.exe
@@ -160,10 +162,12 @@ jobs:
       - name: Build the native helpers (this Mac's architecture)
         run: bash tools/ci-run.sh "native build" make -C central-usage/native -j4 ARCH="-arch ${{ matrix.arch == 'x64' && 'x86_64' || 'arm64' }}"
       - name: Test the engine and the rig (macOS)
+        timeout-minutes: 12
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
       - name: Bundle the driver (PyInstaller) and smoke test it
+        timeout-minutes: 20
         run: |
           PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-control-desktop/driver-dist
           bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver

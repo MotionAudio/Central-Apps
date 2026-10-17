@@ -26,7 +26,8 @@ function engine(args) {
   return { p, cmd, wait, meters, taps, quit: () => { cmd({ cmd: "quit" }); setTimeout(() => p.kill(), 800); } };
 }
 let failures = 0;
-async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + (e && e.message || e)); } }
+const watchdog = setTimeout(() => { console.error("\nMIXER TEST TIMED OUT (" + (globalThis.__step || "start") + ")"); process.exit(2); }, 300000); watchdog.unref && watchdog.unref();
+async function check(label, fn) { globalThis.__step = label; try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + (e && e.message || e)); } }
 
 const e = engine(["--backend", "null", "--capture", "NULL#8|NULL#4", "--playback", "NULL#16|NULL#16", "--block", "256"]);
 let st;
