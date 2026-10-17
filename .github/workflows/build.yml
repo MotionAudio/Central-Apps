@@ -71,6 +71,12 @@ jobs:
           cd central-control-desktop
           npm install --no-audit --no-fund
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never
+      - name: Smoke test - the packed apps carry their helpers and sounds
+        run: |
+          R=central-usage/dist/linux-unpacked/resources; C=central-control-desktop/dist/linux-unpacked/resources
+          "$R/native/cu-mixer" --version && "$R/native/cu-rig" --version && ls "$R/native/rig-map.json" "$R/sounds/"*.sf2 > /dev/null
+          ls "$C/native/cu-rig" "$C/app/pedal-driver.py" "$C/app/native_rig.py" > /dev/null && echo ok
+          ls -la central-usage/dist/ central-control-desktop/dist/ | grep -E "deb|AppImage"
       - uses: actions/upload-artifact@v4
         with:
           name: installers-linux
@@ -118,6 +124,13 @@ jobs:
           cd central-control-desktop
           npm install --no-audit --no-fund
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --win nsis --x64 --publish never
+      - name: Smoke test - the packed apps carry their helpers, driver and sounds
+        run: |
+          R=central-usage/dist/win-unpacked/resources; C=central-control-desktop/dist/win-unpacked/resources
+          "$R/native/cu-mixer.exe" --version && "$R/native/cu-rig.exe" --version && ls "$R/native/cu-ndi.exe" "$R/native/rig-map.json"
+          ls "$R/sounds/"*.sf2 | head -3 && ls "$C/native/cu-rig.exe" "$C/sounds/"*.sf2 > /dev/null
+          "$C/driver/pedal-driver/pedal-driver.exe" --help > /dev/null && echo "driver runs from the app"
+          ls -la central-usage/dist/*.exe central-control-desktop/dist/*.exe
       - uses: actions/upload-artifact@v4
         with:
           name: installers-win
