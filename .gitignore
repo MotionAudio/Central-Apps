@@ -23,3 +23,5 @@ central-control-desktop/native/
 central-usage-ios/node_modules/
 central-usage-ios/ios/App/App/public/
 .pyi-build/
+central-usage/player-src/
+central-usage/driver-dist/

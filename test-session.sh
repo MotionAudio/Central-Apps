@@ -40,6 +40,16 @@ echo monitorB > "$T/drm/card1-HDMI-A-1/edid"; sleep 5
 ok "a different monitor on the port redoes the layout without restarting" 'grep -q "screens changed" "$T/log" && [ "$(win)" = "$W" ]'
 echo '{"hdmi1":"lyrics","hdmi2":"lyrics","inset1":40}' > "$T/data/displays.json"; sleep 4
 ok "changing what HDMI 1 shows restarts the windows (the session ends; .bash_profile starts it again)" '! kill -0 $SP 2>/dev/null'
+pkill -P $SP 2>/dev/null; sleep 1
+# a touch screen on the GPIO pins: HDMI 1 shows a copy of it, and the app (it plays the sound) runs off screen
+echo '{"touchKind":"spi","hdmi2":"lyrics"}' > "$T/data/displays.json"
+CC_APP="$HERE" CC_DATA="$T/data" CC_SCREENS="$T/screens.json" CC_LOG="$T/log2" CC_DRM="$T/drm" CC_NO_AUDIO=1 CC_BROWSER="$T/browser" \
+  HOME="$T/home" CC_WATCH_EVERY=1 setsid bash "$HERE/pad-pedal-session" & SP=$!
+eng() { xdotool search --class CentralControl0 2>/dev/null | head -1; }
+for _ in $(seq 1 30); do [ -n "$(eng)" ] && [ -n "$(win)" ] && break; sleep 0.5; done
+ok "...and the app runs off screen, so the sound keeps playing" '[ -n "$(eng)" ] && grep -q "no screen shows the app" "$T/log2"'
+for _ in $(seq 1 30); do xdotool getwindowname "$(win)" 2>/dev/null | grep -qi "mini" && break; sleep 1; done
+ok "touch screen on the pins: HDMI 1 shows a copy of it (the /mini page)" 'grep -q "screen 1: touch" "$T/log2" && xdotool getwindowname "$(win)" | grep -qi "mini"'
 kill $DP $XP 2>/dev/null; pkill -P $SP 2>/dev/null
 [ "$FAIL" = 0 ] && echo "ALL SESSION CHECKS PASSED" || { echo "$FAIL CHECK(S) FAILED - log: $T/log"; exit 1; }
 rm -rf "$T"

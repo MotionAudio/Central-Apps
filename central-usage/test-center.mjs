@@ -20,7 +20,7 @@ ok(port > 0, "center listens (" + port + ")");
 function client(host) {
   return new Promise((resolve) => {
     const ws = new WebSocket("ws://" + (host || "127.0.0.1") + ":" + port), q = [], waiters = [];
-    ws.on("message", (raw) => { const m = JSON.parse(String(raw)); const i = waiters.findIndex((w) => w.f(m)); if (i >= 0) { const w = waiters.splice(i, 1)[0]; w.r(m); } else q.push(m); });
+    ws.on("message", (raw, isBin) => { const m = isBin ? { type: "__bin", buf: Buffer.from(raw) } : JSON.parse(String(raw)); const i = waiters.findIndex((w) => w.f(m)); if (i >= 0) { const w = waiters.splice(i, 1)[0]; w.r(m); } else q.push(m); });
     ws.on("open", () => resolve({
       ws, q,
       send: (m) => ws.send(JSON.stringify(m)),
@@ -63,6 +63,35 @@ ok(as && as.role === "admin", "the main admin approves: Admin");
 main.send({ type: "cuRole", action: "jobs", id: "dMain", target: "dAdmin", jobs: ["lighting"] });
 const aj = await a.wait((m) => m.type === "cuRoleAssigned" && m.jobs);
 ok(aj && aj.jobs[0] === "lighting", "jobs reach the admin");
+
+// talkback: users are in the Band, admins in Production; the main admin talks to a group, everyone else to the main admin
+v = await main.wait((m) => m.type === "cuRoles" && (m.devices || []).some((d) => d.id === "dUser" && d.talkGroup === "band") && (m.devices || []).some((d) => d.id === "dAdmin" && d.talkGroup === "production"));
+ok(!!v, "talk groups: users start in the Band, admins in Production");
+const mic = Buffer.concat([Buffer.from("TKA1", "latin1"), Buffer.from([1, 0]), Buffer.from([4, 0]), Buffer.from([0x80, 0xbb, 0, 0]), Buffer.alloc(8, 7)]);
+main.send({ type: "talk", on: true, to: "group", group: "production", devices: ["dAdmin", "dUser"], name: "Sound desk", seq: 1 });
+r = await main.wait((m) => m.type === "talkReply" && m.seq === 1);
+ok(r && r.ok && r.receivers === 1, "Production talk reaches the production devices only (" + (r && r.receivers) + ")");
+ok(!!(await a.wait((m) => m.type === "talkFrom" && m.on && m.group === "production")), "...the admin is told who is talking");
+main.ws.send(mic);
+const gotMic = await a.wait((m) => m.type === "__bin");
+ok(gotMic && gotMic.buf.toString("latin1", 0, 4) === "TKC1" && gotMic.buf.subarray(5 + gotMic.buf[4]).equals(mic), "...and gets the mic frames");
+main.send({ type: "talk", on: false, seq: 2 }); await a.wait((m) => m.type === "talkFrom" && !m.on);
+u.q.length = 0;
+a.send({ type: "talk", on: true, to: "group", group: "band", devices: ["dUser"], seq: 3 });
+r = await a.wait((m) => m.type === "talkReply" && m.seq === 3);
+ok(r && !r.ok, "only the main admin talks to a group");
+a.send({ type: "talk", on: true, to: "main", name: "Lights", seq: 4 });
+r = await a.wait((m) => m.type === "talkReply" && m.seq === 4);
+ok(r && r.ok && r.receivers === 1, "the lighting admin's talkback goes to the main admin");
+a.ws.send(mic);
+const gm = await main.wait((m) => m.type === "__bin");
+ok(gm && gm.buf.subarray(5, 5 + gm.buf[4]).toString() === "dAdmin", "...it arrives at the main admin, from the lighting admin");
+ok(!u.q.some((m) => m.type === "__bin"), "...and nobody else hears it");
+a.send({ type: "talk", on: false, seq: 5 });
+main.send({ type: "cuRole", action: "talkGroup", id: "dMain", target: "dUser", group: "production" });
+v = await main.wait((m) => m.type === "cuRoles" && (m.devices || []).some((d) => d.id === "dUser" && d.talkGroup === "production"));
+ok(!!v, "the main admin moves a device to Production");
+main.send({ type: "cuRole", action: "talkGroup", id: "dMain", target: "dUser", group: "band" });
 
 // a second "main admin" from another address is refused (only the computer the center runs on)
 const other = new Center({ port: 0, dataDir: fs.mkdtempSync(path.join(os.tmpdir(), "center-")), beacon: false });

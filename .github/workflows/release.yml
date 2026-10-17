@@ -3,9 +3,9 @@
 # from their package.json files. The apps' update checks read the newest release of this repository, so
 # every install - Raspberry Pi, Linux, Windows, macOS - updates itself from it.
 #
-# Every release has: the Raspberry Pi update (central-control-source.zip), Central Control and Central Usage
-# for Linux (.deb, .AppImage), Windows (-win-x64.exe) and macOS (-mac-arm64.dmg, -mac-x64.dmg), SHA256SUMS.
-# (iPhone / iPad: the web app comes with the Central Control itself.)
+# Every release has: the Raspberry Pi update for Central Pedal (central-control-source.zip), Central Control
+# (central-usage-* files) for Linux (.deb, .AppImage), Windows (-win-x64.exe) and macOS (-mac-arm64.dmg,
+# -mac-x64.dmg), SHA256SUMS. (iPhone / iPad: Central Control's user side opens from the main admin's computer.)
 # Optional: a copy of every release in Google Drive - see DRIVE-SETUP.md (secret RCLONE_CONFIG).
 name: Release
 on:
@@ -52,12 +52,10 @@ jobs:
         with: { pattern: installers-*, path: staging, merge-multiple: true }
       - name: Make the release files
         run: |
-          mkdir -p central-usage/dist central-control-desktop/dist
+          mkdir -p central-usage/dist
           find staging -type f -name 'central-usage-*' -exec mv {} central-usage/dist/ \;
-          find staging -type f -name 'central-control-*' -exec mv {} central-control-desktop/dist/ \;
           bash make-release.sh "$VER"
-          for want in "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" \
-                      "central-control-$VER-win-x64.exe" "central-control-$VER-mac-arm64.dmg" "central-control-$VER-mac-x64.dmg" "central-control-$VER-amd64.deb" "central-control-source.zip"; do
+          for want in "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" "central-usage-*-x86_64.AppImage" "central-control-source.zip"; do
             ls release/$VER/$want >/dev/null 2>&1 || { echo "missing from the release: $want"; exit 1; }
           done
       - name: Publish

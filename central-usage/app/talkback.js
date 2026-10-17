@@ -1,16 +1,14 @@
-/* Central Control - talkback: the TALK button.
- *  Admins (the main admin, and admins with the Mix, In-ears or General job): TALK on the In-ears and Mix tabs and a
- *    compact one in the top bar. Hold to talk; a quick tap latches it on (tap again: off). Who hears it: All, or
- *    chosen in-ear mixes (by their names / who has them), remembered on this computer; optionally the music in
- *    their ears dims while you talk (-12 dB unless changed).
- *    The mic: on the audio host an input of the interface / Dante, or this computer's own mic (the Mic setting);
- *    on another admin computer its own mic, sent to the audio host over the network (48 kHz mono, 10 ms frames).
- *  Users (User 1 / User 2): "Talk to the sound desk" - only the desk's headphones hear it (the main admin's and the
- *    Mix admins' listen output), never anyone's in-ears.
- *  While talking this screen shows a red ON AIR; the receivers' in-ear screens show "🎙 <name> talking".
- *  The desk (this computer, if it is the main admin or has the Mix / General job) plays the users' talkback on its
- *  listen output (the Mix tab's "Listen here" device).
- * window.CUTalk: state(), on(kind), off(), targets(), setTargets({ all, mixes }), setDim({ on, db }), render() */
+/* Central Control - talkback.
+ *  The main admin has two groups to talk to, picked next to its TALK button:
+ *    🎸 Band        every device in the Band (users start there)
+ *    🎬 Production  every device in Production (admins start there: lighting, cameras, slides, mix…)
+ *  The main admin puts each device in one of them on the Devices tab. A device with an in-ear mix of its own hears
+ *  the main admin in that mix (the audio host mixes it in, the music can dim); any other device of the group plays
+ *  it on its headphones (the "Listen here" output), sent through the main admin's computer (the center).
+ *  Everyone else - the lighting admin's mic, another admin, a musician - talks to the main admin's headphones only.
+ *  Hold to talk; a quick tap latches it on (tap again: off). While talking this screen shows a red ON AIR.
+ * window.CUTalk: state(), on(kind), off(), group(), setGroup(g), targets(), setTargets({ all, mixes }) (a custom set
+ *   of in-ear mixes instead of a group), setDim({ on, db }), setMic(m), render() */
 (function () {
   "use strict";
   var CU = window.CentralUsage, IE = window.CUInEar, NAT = window.CU, X = window.CUMix; if (!CU || !IE) return;
@@ -20,19 +18,50 @@
 
   // ------------------------------------------------------------------ who may talk
   function jobs() { return CU.jobs ? CU.jobs() : ["general"]; }
-  function canTalk() { var r = CU.role(); if (r === "main") return true; if (r !== "admin") return false; var j = jobs(); return j.indexOf("general") >= 0 || j.indexOf("mix") >= 0 || j.indexOf("inears") >= 0; }
+  function canTalk() { return CU.role() === "main"; }   // to the Band / Production: the main admin only
   function isUser() { var r = CU.role(); return r === "user1" || r === "user2"; }
-  function isDesk() { var r = CU.role(); if (r === "main") return true; if (r !== "admin") return false; var j = jobs(); return j.indexOf("general") >= 0 || j.indexOf("mix") >= 0; }
-  function kindHere() { return canTalk() ? "inears" : isUser() ? "desk" : null; }
+  function isDesk() { return CU.role() === "main"; }     // everyone's talkback ends up in the main admin's headphones
+  function kindHere() { var r = CU.role(); return r === "main" ? "group" : r ? "main" : null; }
+  var GROUPS = { band: "Band", production: "Production" }, GICON = { band: "🎸", production: "🎬" };
+  function mainName() { var v = window.CURoles && window.CURoles.view(); return (v && v.mainName) || "the main admin"; }
   function myName() { return (CU.config() || {}).name || CU.store.get("name", "") || (isUser() ? "Someone" : "Sound desk"); }
   function micAllowed() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && window.isSecureContext !== false; }
 
   // ------------------------------------------------------------------ settings (this computer)
-  var prefs = { targets: CU.store.get("tbTargets", { all: true, mixes: [] }), dim: CU.store.get("tbDim", { on: true, db: -12 }), mic: CU.store.get("tbMic", "mic"), micDev: CU.store.get("tbMicDev", "") };
-  function save() { CU.store.set("tbTargets", prefs.targets); CU.store.set("tbDim", prefs.dim); CU.store.set("tbMic", prefs.mic); CU.store.set("tbMicDev", prefs.micDev); }
+  var prefs = { group: CU.store.get("tbGroup", "band"), targets: CU.store.get("tbTargets", { all: true, mixes: [] }), dim: CU.store.get("tbDim", { on: true, db: -12 }), mic: CU.store.get("tbMic", "mic"), micDev: CU.store.get("tbMicDev", "") };
+  function save() { CU.store.set("tbGroup", prefs.group); CU.store.set("tbTargets", prefs.targets); CU.store.set("tbDim", prefs.dim); CU.store.set("tbMic", prefs.mic); CU.store.set("tbMicDev", prefs.micDev); }
   function targets() { return prefs.targets.all ? { all: true, mixes: [] } : { all: false, mixes: (prefs.targets.mixes || []).slice() }; }
   function mixLabel(m) { var s = X && X.state, q = s && s.mixes[m]; return "Mix " + (m + 1) + (q ? " · " + (q.owner || q.name) : ""); }
-  function targetText() { var t = targets(); if (t.all) return "everyone"; if (!t.mixes.length) return "nobody yet - pick mixes"; return t.mixes.map(mixLabel).join(", "); }
+  function targetText() { if (prefs.group !== "custom") return "the " + GROUPS[prefs.group]; var t = targets(); if (t.all) return "every in-ear mix"; if (!t.mixes.length) return "nobody yet - pick mixes"; return t.mixes.map(mixLabel).join(", "); }
+  // who is in a group now: those with an in-ear mix of their own hear it in that mix, the others on their headphones
+  function groupPlan(g) {
+    var v = (window.CURoles && window.CURoles.view()) || {}, members = (v.devices || []).filter(function (d) { return d.online && d.role !== "pedal" && d.talkGroup === g; });
+    var mixes = (X && X.state && X.state.mixes) || [], plan = { mixes: [], owners: [], play: [], names: [] };
+    members.forEach(function (d) {
+      plan.names.push(d.name);
+      var m = -1; mixes.forEach(function (q, k) { if (m < 0 && q.ownerId === d.id) m = k; });
+      if (m >= 0) { plan.mixes.push(m); plan.owners.push(d.id); } else plan.play.push(d.id);
+    });
+    return plan;
+  }
+  // the center (the main admin's computer) carries talkback that is not mixed into in-ears
+  var cseq = 0, cwait = {};
+  CU.on("message", function (m) { if (m.type === "talkReply" && cwait[m.seq]) { var f = cwait[m.seq]; delete cwait[m.seq]; f(m); } });
+  function centerWay(o) {
+    var C = window.CUCenter;
+    return {
+      center: true,
+      start: function () {
+        return new Promise(function (resolve) {
+          if (!C || !C.connected()) return resolve({ ok: false, error: "Not connected to the main admin's computer." });
+          var s2 = ++cseq; cwait[s2] = resolve; C.send(Object.assign({ type: "talk", on: true, seq: s2, name: myName() }, o));
+          setTimeout(function () { if (cwait[s2]) { delete cwait[s2]; resolve({ ok: false, error: "The main admin's computer did not answer." }); } }, 4000);
+        });
+      },
+      audio: function (pcm) { C && C.sendBinary(IE.talkFrame(pcm, RATE)); },
+      stop: function () { if (C) C.send({ type: "talk", on: false }); }
+    };
+  }
 
   // ------------------------------------------------------------------ the way to the audio host
   var acks = {}, seq = 0;
@@ -89,7 +118,7 @@
     }
     registerProcessor("cu-talk-cap", TalkCap);
   }.toString() + ")(" + CHUNK + ");";
-  function onMicFrame(pcm, peak) { mic.level = Math.max(peak, mic.level * 0.8); mic.frames++; if (mic.sending && T.way) T.way.audio(pcm); }
+  function onMicFrame(pcm, peak) { mic.level = Math.max(peak, mic.level * 0.8); mic.frames++; if (mic.sending && T.ways.length) sendFrame(pcm); }
   async function micOpen() {
     clearTimeout(mic.closeTimer);
     if (mic.ctx) return;
@@ -123,31 +152,49 @@
   function micCloseSoon() { clearTimeout(mic.closeTimer); mic.closeTimer = setTimeout(function () { if (!T.on) micClose(); }, 15000); }   // (warm for a quick second press)
 
   // ------------------------------------------------------------------ talking
-  var T = { on: false, latched: false, kind: null, way: null, err: "", note: "", key: null, since: 0, receivers: null };
+  var T = { on: false, latched: false, kind: null, ways: [], err: "", note: "", key: null, since: 0, receivers: null, to: "" };
   async function talkOn(kind) {
     if (T.on || !kind) return;
-    T.on = true; T.latched = false; T.kind = kind; T.err = ""; T.note = ""; T.since = Date.now(); T.receivers = null; paint();
-    var w = way(kind);
-    if (!w) return fail(kind === "desk" ? "The audio host isn't found yet - set up your in-ear mix (In-ears tab) first." : X && X.error ? X.error : "Not connected to the audio host.");
-    var input = useInput(kind);
+    T.on = true; T.latched = false; T.kind = kind; T.err = ""; T.note = ""; T.since = Date.now(); T.receivers = null; T.ways = []; T.key = null; paint();
+    var plan = [], dim = prefs.dim.on ? Number(prefs.dim.db) || -12 : 0;
+    if (kind === "main") {
+      plan.push({ w: centerWay({ to: "main" }) }); T.to = mainName();
+    } else if (kind === "group" && prefs.group === "custom") {   // (chosen in-ear mixes)
+      var wc = way("inears"); if (!wc) return fail(X && X.error ? X.error : "Not connected to the audio host.");
+      plan.push({ w: wc, o: { kind: "inears", targets: targets(), dim: dim } }); T.to = targetText();
+    } else {
+      var g = prefs.group === "production" ? "production" : "band", gp = groupPlan(g), wi = gp.mixes.length ? way("inears") : null;
+      if (gp.mixes.length && !wi) gp.play = gp.play.concat(gp.owners);   // (no audio host: everyone through the center)
+      if (wi && gp.mixes.length) plan.push({ w: wi, o: { kind: "inears", targets: { all: false, mixes: gp.mixes }, dim: dim } });
+      if (gp.play.length) plan.push({ w: centerWay({ to: "group", group: g, devices: gp.play }) });
+      T.to = "the " + GROUPS[g] + (gp.names.length ? " (" + gp.names.join(", ") + ")" : "");
+      if (!plan.length) return fail("Nobody in the " + GROUPS[g] + " is online. Put devices in it on the Devices tab.");
+    }
+    var input = plan.length === 1 && !plan[0].w.center && useInput("inears");
     if (!input) { try { await micOpen(); } catch (e) { return fail("Microphone: " + (e && e.message || e)); } }
     if (!T.on) return;   // (let go while the mic opened)
-    var r;
-    try { r = await w.start({ kind: kind, targets: kind === "inears" ? targets() : undefined, dim: prefs.dim.on ? Number(prefs.dim.db) || -12 : 0, src: input ? "input" : "net", ch: input ? Number(prefs.mic.slice(3)) : 0, name: myName() }); }
-    catch (e) { r = { ok: false, error: e.message }; }
-    if (!T.on) { try { w.stop(); } catch (_) { } return; }
-    if (!r || !r.ok) return fail((r && r.error) || "The audio host refused.");
-    T.way = w; T.key = r.talker && r.talker.key; T.receivers = r.receivers == null ? null : r.receivers; mic.sending = !input;
-    if (kind === "desk" && T.receivers === 0) T.note = "Nobody at the desk is connected right now.";
+    var started = [], errors = [], rec = 0;
+    for (var k = 0; k < plan.length; k++) {
+      var p = plan[k], r;
+      try { r = await p.w.start(p.o ? Object.assign({ src: input ? "input" : "net", ch: input ? Number(prefs.mic.slice(3)) : 0, name: myName() }, p.o) : undefined); } catch (e) { r = { ok: false, error: e.message }; }
+      if (r && r.ok) { started.push(p.w); if (!p.w.center && r.talker) T.key = r.talker.key; if (r.receivers != null) rec += r.receivers; else if (!p.w.center) rec += p.o.targets.all ? 1 : p.o.targets.mixes.length; }
+      else errors.push((r && r.error) || "refused");
+    }
+    if (!T.on) { started.forEach(function (w) { try { w.stop(); } catch (_) { } }); return; }
+    if (!started.length) return fail(errors[0] || "Nobody could be reached.");
+    T.ways = started; T.receivers = rec; mic.sending = !input;
+    if (errors.length) T.note = "Not everyone: " + errors[0];
+    else if (kind === "main" && rec === 0) T.note = mainName() + " is not connected right now.";
     paint();
   }
+  function sendFrame(pcm) { T.ways.forEach(function (w) { try { w.audio(pcm); } catch (_) { } }); }
   function talkOff() {
     if (!T.on) return;
-    var w = T.way; T.on = false; T.latched = false; T.way = null; mic.sending = false;
-    if (w) { try { w.stop(); } catch (_) { } }
+    var ws = T.ways; T.on = false; T.latched = false; T.ways = []; mic.sending = false;
+    ws.forEach(function (w) { try { w.stop(); } catch (_) { } });
     micCloseSoon(); paint();
   }
-  function fail(msg) { var w = T.way; T.on = false; T.latched = false; T.way = null; mic.sending = false; T.err = msg; if (w) { try { w.stop(); } catch (_) { } } micCloseSoon(); paint(); }
+  function fail(msg) { var ws = T.ways; T.on = false; T.latched = false; T.ways = []; mic.sending = false; T.err = msg; ws.forEach(function (w) { try { w.stop(); } catch (_) { } }); micCloseSoon(); paint(); }
 
   // ------------------------------------------------------------------ hold to talk, a quick tap latches
   var press = { active: false, t0: 0, unlatch: false };
@@ -175,7 +222,7 @@
   function setTalkers(list) {
     talkers = list || [];
     // the audio host let go of this computer's talkback (no mic sound arrived for a while): not on air any more
-    if (T.on && T.way && T.key && !talkers.some(function (t) { return t.key === T.key; })) return fail("The audio host stopped the talkback (no sound from the mic arrived).");
+    if (T.on && T.ways.length && T.key && !talkers.some(function (t) { return t.key === T.key; })) return fail("The audio host stopped the talkback (no sound from the mic arrived).");
     paint();
   }
   if (NAT && NAT.talk) { NAT.talk.on(function (ev) { if (X && X.kind === "local") setTalkers(ev.talkers); }); }
@@ -189,6 +236,24 @@
     clearTimeout(desk.timer); desk.timer = setTimeout(function () { if (desk.player) desk.player.stop(); desk.player = null; paint(); }, 1500);
   }
   if (NAT && NAT.talk) NAT.talk.onDesk(function (pcm, frames, rate, name) { deskAudio(new Int16Array(new Uint8Array(pcm).buffer), frames, rate, name); });
+  // talkback through the center: to the main admin (from anyone), or from the main admin to this device's group
+  var incoming = {}, heard = { frames: 0 };
+  CU.on("message", function (m) {
+    if (m.type !== "talkFrom") return;
+    if (m.on) incoming[m.id] = { name: m.name, group: m.group, kind: m.kind, player: (incoming[m.id] || {}).player || null, timer: 0 };
+    else if (incoming[m.id]) { var x = incoming[m.id]; if (x.player) x.player.stop(); clearTimeout(x.timer); delete incoming[m.id]; }
+    paint();
+  });
+  CU.on("centerTalk", function (a) {
+    var x = incoming[a.id] || (incoming[a.id] = { name: "Someone", player: null, timer: 0 });
+    heard.frames += a.frames;
+    if (!x.player) { x.player = IE.player({ latency: 60, sinkId: window.CUListen ? window.CUListen.sink() : "" }); x.player.start(); paint(); }
+    x.player.push(a.pcm, a.frames, 1, a.rate || RATE);
+    clearTimeout(x.timer); x.timer = setTimeout(function () { if (x.player) x.player.stop(); x.player = null; paint(); }, 1500);
+  });
+  function incomingText() {
+    return Object.keys(incoming).filter(function (k) { return incoming[k].player || incoming[k].kind; }).map(function (k) { var x = incoming[k]; return "🔊 " + esc(x.name) + (x.kind === "group" ? " → the " + esc(GROUPS[x.group] || "group") : " talking to you"); }).join(" · ");
+  }
   if (X) X.on("talkAudio", function (pcm, frames, rate) { if (X.kind === "remote") deskAudio(pcm, frames, rate); });
   function othersText() {
     return talkers.filter(function (t) { return !(T.on && T.key && t.key === T.key); }).map(function (t) { return "🎙 " + esc(t.name) + " → " + (t.kind === "desk" ? "the desk" : t.all ? "everyone" : t.mixes.map(function (m) { return "Mix " + (m + 1); }).join(", ")); }).join(" · ");
@@ -203,23 +268,30 @@
     }
     return h;
   }
+  function groupButtons(mini) {
+    return '<span class="tb-groups' + (mini ? " mini" : "") + '" role="radiogroup" aria-label="Talk to">' + ["band", "production"].map(function (g) {
+      var n = groupPlan(g).names.length;
+      return '<button data-tb-group="' + g + '" role="radio" aria-checked="' + (prefs.group === g) + '" class="' + (prefs.group === g ? "on" : "") + '">' + GICON[g] + " " + GROUPS[g] + (mini ? "" : ' <small>' + n + " online</small>") + "</button>";
+    }).join("") + "</span>";
+  }
   function adminPanel() {
-    var s = X && X.state, t = targets(), mixes = s ? s.mixes : [];
-    return '<div class="tb-row"><button class="tb-talk" data-tb-talk="inears" title="Hold to talk · a quick tap keeps it on (tap again to stop)">🎙 TALK</button>' +
-      '<div class="tb-side"><div class="tb-line"><b>To</b><label class="toggle"><input type="checkbox" data-tb="all"' + (t.all ? " checked" : "") + '> All</label><button data-tb="pick" class="' + (t.all ? "" : "on") + '">' + (t.all ? "Choose…" : t.mixes.length + " chosen") + '</button><span class="tb-to muted small"></span></div>' +
-      '<div class="tb-line"><label class="toggle"><input type="checkbox" data-tb="dim"' + (prefs.dim.on ? " checked" : "") + '> Dim the music in their ears</label><select data-tb="dimdb">' + [-6, -12, -18, -24].map(function (d) { return '<option value="' + d + '"' + (Number(prefs.dim.db) === d ? " selected" : "") + ">" + d + " dB</option>"; }).join("") + "</select>" +
+    var gp = groupPlan(prefs.group === "production" ? "production" : "band");
+    return '<div class="tb-row"><button class="tb-talk" data-tb-talk="group" title="Hold to talk · a quick tap keeps it on (tap again to stop)">🎙 TALK</button>' +
+      '<div class="tb-side"><div class="tb-line"><b>To</b>' + groupButtons(false) + '<span class="tb-to muted small"></span></div>' +
+      '<div class="tb-line muted small">' + (gp.names.length ? esc(gp.names.join(", ")) + (gp.mixes.length ? " · " + gp.mixes.length + " hear it in their in-ear mix" : "") + (gp.play.length ? " · " + gp.play.length + " on their headphones" : "") : "Nobody in this group is online - put devices in it on the Devices tab.") + "</div>" +
+      '<div class="tb-line"><label class="toggle"><input type="checkbox" data-tb="dim"' + (prefs.dim.on ? " checked" : "") + '> Dim the music in their in-ears</label><select data-tb="dimdb">' + [-6, -12, -18, -24].map(function (d) { return '<option value="' + d + '"' + (Number(prefs.dim.db) === d ? " selected" : "") + ">" + d + " dB</option>"; }).join("") + "</select>" +
       '<label>Mic <select data-tb="mic">' + micOptions() + '</select></label><select data-tb="micdev" title="Which microphone of this computer"' + (prefs.mic !== "mic" ? " hidden" : "") + '><option value="">Default microphone</option></select><span class="tb-level" title="Mic level"><i></i></span></div>' +
-      '<div class="tb-line"><span class="tb-msg"></span><span class="tb-others muted small"></span></div></div></div>' +
-      '<div class="tb-mixes"' + (t.all || !panelOpen ? " hidden" : "") + ">" + (mixes.length ? mixes.map(function (q, m) { var on = t.mixes.indexOf(m) >= 0; return '<label class="tb-mix' + (q.ownerId ? " owned" : "") + '"><input type="checkbox" data-tb-mix="' + m + '"' + (on ? " checked" : "") + "><b>" + (m + 1) + "</b><span>" + esc(q.owner || q.name) + "</span></label>"; }).join("") : '<span class="muted">No mixer yet.</span>') + "</div>";
+      '<div class="tb-line"><span class="tb-msg"></span><span class="tb-others muted small"></span></div></div></div>';
   }
   function userPanel() {
-    return '<div class="tb-row"><button class="tb-talk tb-desk" data-tb-talk="desk" title="Hold to talk · a quick tap keeps it on"' + (micAllowed() ? "" : " disabled") + '>🎙 Talk to the sound desk</button><div class="tb-side"><span class="tb-msg"></span><span class="tb-level" title="Mic level"><i></i></span>' +
-      '<span class="muted small">Only the sound desk hears it' + (micAllowed() ? "" : " (on this phone the microphone needs the Central Control app)") + ".</span></div></div>";
+    return '<div class="tb-row"><button class="tb-talk tb-desk" data-tb-talk="main" title="Hold to talk · a quick tap keeps it on"' + (micAllowed() ? "" : " disabled") + '>🎙 Talk to ' + esc(mainName()) + '</button><div class="tb-side"><span class="tb-msg"></span><span class="tb-level" title="Mic level"><i></i></span>' +
+      '<span class="muted small">Only the main admin hears it, in their headphones' + (micAllowed() ? "" : " (on this phone the microphone needs the Central Control app)") + '.</span><span class="tb-others muted small"></span></div></div>';
   }
   var panelOpen = false, structKey = "";
   function render() {
     var kind = kindHere(), s = X && X.state;
-    var key = JSON.stringify([kind, s ? s.mixes.map(function (q) { return q.owner || q.name; }) : null, panelOpen, prefs.targets.all, X && X.kind, ((X && X.hostStatus && X.hostStatus.engine && X.hostStatus.engine.status) || {}).inputs, prefs.mic]);
+    var gb = kind === "group" ? ["band", "production"].map(function (g) { return groupPlan(g).names.join(","); }) : null;
+    var key = JSON.stringify([kind, s ? s.mixes.map(function (q) { return (q.owner || q.name) + (q.ownerId || ""); }) : null, panelOpen, prefs.group, X && X.kind, ((X && X.hostStatus && X.hostStatus.engine && X.hostStatus.engine.status) || {}).inputs, prefs.mic, gb, mainName()]);
     if (key !== structKey) {
       structKey = key;
       // the top bar
@@ -227,15 +299,15 @@
       if (!kind) { if (top) top.remove(); }
       else {
         if (!top) { top = document.createElement("div"); top.id = "tbTop"; top.className = "tb-top"; var hdr = document.querySelector("header.top"), song = document.getElementById("songBox"); if (hdr) hdr.insertBefore(top, song || null); }
-        top.innerHTML = '<button class="tb-talk tb-mini" data-tb-talk="' + kind + '" title="' + (kind === "desk" ? "Talk to the sound desk" : "Talkback") + ' - hold to talk, a quick tap keeps it on"' + (kind === "desk" && !micAllowed() ? " disabled" : "") + ">🎙 " + (kind === "desk" ? "Desk" : "TALK") + "</button>";
+        top.innerHTML = (kind === "group" ? groupButtons(true) : "") + '<button class="tb-talk tb-mini" data-tb-talk="' + kind + '" title="' + (kind === "main" ? "Talk to " + esc(mainName()) : "Talk to the " + (GROUPS[prefs.group] || "chosen mixes")) + ' - hold to talk, a quick tap keeps it on"' + (kind === "main" && !micAllowed() ? " disabled" : "") + ">🎙 " + (kind === "main" ? "Main admin" : "TALK") + "</button>";
       }
       // the panels: In-ears (admins and users), Mix (admins)
       [["view-inears", "inearsRoot"], ["view-mix", "mixRoot"]].forEach(function (v) {
         var view = document.getElementById(v[0]), root = document.getElementById(v[1]); if (!view || !root) return;
-        var p = view.querySelector(".tb-panel"), want = kind === "inears" || (kind === "desk" && v[0] === "view-inears");
+        var p = view.querySelector(".tb-panel"), want = kind === "group" || (kind === "main" && v[0] === "view-inears");
         if (!want) { if (p) p.remove(); return; }
         if (!p) { p = document.createElement("div"); p.className = "tb-panel"; view.insertBefore(p, root); }
-        p.classList.toggle("tb-user", kind === "desk"); p.innerHTML = kind === "desk" ? userPanel() : adminPanel();
+        p.classList.toggle("tb-user", kind === "main"); p.innerHTML = kind === "main" ? userPanel() : adminPanel();
       });
       fillMicDevices();
     }
@@ -254,7 +326,7 @@
     var on = T.on, kind = T.kind || kindHere();
     document.querySelectorAll("[data-tb-talk]").forEach(function (b) {
       b.classList.toggle("onair", on); b.classList.toggle("latched", on && T.latched);
-      var base = b.classList.contains("tb-mini") ? (b.dataset.tbTalk === "desk" ? "🎙 Desk" : "🎙 TALK") : b.dataset.tbTalk === "desk" ? "🎙 Talk to the sound desk" : "🎙 TALK";
+      var base = b.classList.contains("tb-mini") ? (b.dataset.tbTalk === "main" ? "🎙 Main admin" : "🎙 TALK") : b.dataset.tbTalk === "main" ? "🎙 Talk to " + mainName() : "🎙 TALK";
       b.textContent = on ? (b.classList.contains("tb-mini") ? "● ON AIR" : "● ON AIR" + (T.latched ? " · tap to stop" : "")) : base;
       b.setAttribute("aria-pressed", on ? "true" : "false");
     });
@@ -262,20 +334,21 @@
     var banner = document.getElementById("tbOnAir");
     if (on) {
       if (!banner) { banner = document.createElement("div"); banner.id = "tbOnAir"; banner.className = "tb-banner"; banner.setAttribute("role", "status"); document.body.appendChild(banner); }
-      banner.innerHTML = "<b>● ON AIR</b> <span>" + (kind === "desk" ? "talking to the sound desk" : "talking to " + esc(targetText()) + (prefs.dim.on ? " · their music " + Number(prefs.dim.db) + " dB" : "")) + (T.latched ? " · tap TALK to stop" : "") + "</span>";
+      banner.innerHTML = "<b>● ON AIR</b> <span>" + (kind === "main" ? "talking to " + esc(mainName()) : "talking to " + esc(T.to || targetText())) + (T.latched ? " · tap TALK to stop" : "") + "</span>";
     } else if (banner) banner.remove();
-    var msg = T.err ? '<span class="bad">' + esc(T.err) + "</span>" : T.note ? '<span class="warn">' + esc(T.note) + "</span>" : on && !T.way ? '<span class="muted">connecting…</span>' : "";
+    var msg = T.err ? '<span class="bad">' + esc(T.err) + "</span>" : T.note ? '<span class="warn">' + esc(T.note) + "</span>" : on && !T.ways.length ? '<span class="muted">connecting…</span>' : "";
     document.querySelectorAll(".tb-msg").forEach(function (el) { el.innerHTML = msg; });
-    var others = othersText() + (desk.player ? (othersText() ? " · " : "") + "🔊 playing " + esc(desk.from || "a user") + "'s talkback here" : "");
+    var others = [othersText(), desk.player ? "🔊 playing " + esc(desk.from || "a user") + "'s talkback here" : "", incomingText()].filter(Boolean).join(" · ");
+    var hb = document.getElementById("tbHeard"), inc = incomingText();
+    if (inc && !on) { if (!hb) { hb = document.createElement("div"); hb.id = "tbHeard"; hb.className = "tb-banner tb-heard"; hb.setAttribute("role", "status"); document.body.appendChild(hb); } hb.innerHTML = inc; }
+    else if (hb) hb.remove();
     document.querySelectorAll(".tb-others").forEach(function (el) { el.innerHTML = others; });
-    document.querySelectorAll(".tb-to").forEach(function (el) { el.textContent = targets().all ? "every in-ear mix" : targetText(); });
+    document.querySelectorAll(".tb-to").forEach(function (el) { el.textContent = ""; });
+    document.querySelectorAll("[data-tb-group]").forEach(function (b) { var on2 = b.dataset.tbGroup === prefs.group; b.classList.toggle("on", on2); b.setAttribute("aria-checked", on2 ? "true" : "false"); });
     // the panels' controls follow the settings (changed on the other tab's panel, or through CUTalk)
     var t = targets();
     document.querySelectorAll(".tb-panel").forEach(function (p) {
-      var all = p.querySelector('[data-tb="all"]'); if (!all) return;
-      all.checked = t.all;
-      var pick = p.querySelector('[data-tb="pick"]'); pick.textContent = t.all ? "Choose…" : t.mixes.length + " chosen"; pick.classList.toggle("on", !t.all);
-      p.querySelectorAll("[data-tb-mix]").forEach(function (c) { c.checked = !t.all && t.mixes.indexOf(Number(c.dataset.tbMix)) >= 0; });
+      if (!p.querySelector('[data-tb="dim"]')) return;
       p.querySelector('[data-tb="dim"]').checked = !!prefs.dim.on; p.querySelector('[data-tb="dimdb"]').value = String(prefs.dim.db);
       var ms = p.querySelector('[data-tb="mic"]'); if (ms.value !== prefs.mic) ms.value = prefs.mic;
       var md = p.querySelector('[data-tb="micdev"]'); md.hidden = prefs.mic !== "mic";
@@ -295,20 +368,23 @@
     else return;
     save(); render(); restartIfOn();
   });
-  document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest('.tb-panel [data-tb="pick"]'); if (!b) return; panelOpen = !panelOpen; if (panelOpen && prefs.targets.all) { prefs.targets.all = false; save(); } render(); });
-  function restartIfOn() { if (T.on && T.way && T.kind === "inears") { var latched = T.latched; T.way.start({ kind: "inears", targets: targets(), dim: prefs.dim.on ? Number(prefs.dim.db) || -12 : 0, src: useInput("inears") ? "input" : "net", ch: useInput("inears") ? Number(prefs.mic.slice(3)) : 0, name: myName() }); T.latched = latched; } }   // (who hears it changed mid-talk)
+  document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("[data-tb-group]"); if (!b) return; setGroup(b.dataset.tbGroup); });
+  function setGroup(g) { if (!GROUPS[g] && g !== "custom") return; if (prefs.group === g) return; prefs.group = g; save(); structKey = ""; render(); restartIfOn(); }
+  function restartIfOn() { if (T.on && T.kind === "group") { var latched = T.latched; talkOff(); talkOn("group").then(function () { T.latched = latched; paint(); }); } }   // (who hears it changed mid-talk)
 
   // ------------------------------------------------------------------ keep in step with the role, the tabs and the mixer
   CU.on("role", function () { if (T.on && !kindHere()) talkOff(); render(); });
+  CU.on("message", function (m) { if (m.type === "cuRoles") render(); });
   CU.on("mode", function () { render(); });
   CU.on("tab", function () { setTimeout(render, 0); });
   CU.on("audioHost", function () { render(); });
   if (X) { X.on("op", function (op) { if (op && (op.op === "claim" || op.op === "release" || (op.op === "mix" && op.patch && op.patch.name != null))) render(); }); X.on("status", function () { render(); }); }
   setTimeout(render, 0);
   window.CUTalk = {
-    state: function () { return { on: T.on, latched: T.latched, kind: T.kind, error: T.err, note: T.note, receivers: T.receivers, sending: mic.sending, micFrames: mic.frames, talkers: talkers.slice(), deskFrames: desk.frames, deskPlaying: !!desk.player, canTalk: canTalk(), isDesk: isDesk(), kindHere: kindHere() }; },
+    state: function () { return { on: T.on, latched: T.latched, kind: T.kind, error: T.err, note: T.note, receivers: T.receivers, sending: mic.sending, micFrames: mic.frames, talkers: talkers.slice(), heardFrames: heard.frames, incoming: Object.keys(incoming).map(function (k) { return { id: k, name: incoming[k].name, kind: incoming[k].kind, group: incoming[k].group, playing: !!incoming[k].player }; }), to: T.to, deskFrames: desk.frames, deskPlaying: !!desk.player, canTalk: canTalk(), isDesk: isDesk(), kindHere: kindHere() }; },
     on: function (kind) { return talkOn(kind || kindHere()); }, off: talkOff,
-    targets: targets, setTargets: function (t) { prefs.targets = { all: !!t.all, mixes: (t.mixes || []).slice() }; save(); render(); restartIfOn(); },
+    group: function () { return prefs.group; }, setGroup: setGroup,
+    targets: targets, setTargets: function (t) { prefs.targets = { all: !!t.all, mixes: (t.mixes || []).slice() }; prefs.group = "custom"; save(); render(); restartIfOn(); },
     setDim: function (d) { prefs.dim = { on: !!d.on, db: d.db == null ? -12 : Number(d.db) }; save(); render(); },
     setMic: function (m) { prefs.mic = m; save(); render(); }, render: render
   };

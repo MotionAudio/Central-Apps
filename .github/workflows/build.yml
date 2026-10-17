@@ -1,6 +1,7 @@
-# Builds every installer: Central Usage and Central Control for Linux, Windows and macOS (Apple Silicon and
-# Intel), with their native helpers (cu-mixer, cu-ndi, cu-rig, cu-video), the pinned ffmpeg, the bundled
-# driver, the built-in sounds and the offline speech model's runtime - and tests them on each system.
+# Builds every installer: Central Control for Linux, Windows and macOS (Apple Silicon and Intel), with its
+# native helpers (cu-mixer, cu-ndi, cu-rig, cu-video), the pinned ffmpeg, the player window (the Central Pedal
+# app and its driver, bundled), the built-in sounds and the offline speech model's runtime - and tests them on
+# each system. (Central Pedal itself runs only on the Raspberry Pi: its update is central-control-source.zip.)
 # Used by release.yml (every release ships all of them); also runs by itself on the work branches and by hand.
 #
 # Adding a native helper for every system: build it in the "natives" job (Linux, Windows cross-compiled) and in
@@ -65,36 +66,34 @@ jobs:
         with: { name: natives-linux-x64, path: central-usage/native/build }
       - uses: actions/download-artifact@v4
         with: { name: sounds, path: central-usage/native/sounds }
-      - name: Smoke test - the driver answers (system Python, as the .deb runs it)
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Smoke test - the driver answers (Python), then bundle it for the player window (PyInstaller)
+        timeout-minutes: 20
         run: |
           pip install --quiet websockets==13.1 gpiozero==2.0.1 pillow
-          bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh python3 pedal-driver.py
-      - name: Central Usage
+          bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh python pedal-driver.py
+          PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-usage/driver-dist
+          bash tools/ci-run.sh "bundled driver smoke test" bash tools/smoke-driver.sh central-usage/driver-dist/pedal-driver/pedal-driver
+      - name: Central Control
         working-directory: central-usage
         run: |
           chmod +x native/build/cu-* native/build/ffmpeg || true
           node ../tools/make-rig-map.js native/build/rig-map.json
           CU_SKIP_NATIVE=1 bash prepare-shared.sh
+          bash prepare-player.sh
           npm install --no-audit --no-fund
           bash ../tools/ci-run.sh "center test" node test-center.mjs
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never
-      - name: Central Control for PC
+      - name: Smoke test - the packed app (helpers, video, sounds, the player, the speech model's runtime)
         run: |
-          bash central-control-desktop/prepare-src.sh
-          cd central-control-desktop
-          npm install --no-audit --no-fund
-          node ../tools/prune-onnx.js .
-          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never
-      - name: Smoke test - the packed apps (helpers, video, sounds, the speech model's runtime)
-        run: |
-          R=central-usage/dist/linux-unpacked/resources; C=central-control-desktop/dist/linux-unpacked/resources
+          R=central-usage/dist/linux-unpacked/resources
           "$R/native/cu-mixer" --version && "$R/native/cu-rig" --version && ls "$R/native/rig-map.json" "$R/sounds/"*.sf2 > /dev/null
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$R/native"
-          ls "$C/native/cu-rig" "$C/app/pedal-driver.py" "$C/app/native_rig.py" > /dev/null && echo ok
-          bash tools/ci-run.sh "transformers (Central Usage)" node tools/smoke-transformers.js central-usage/dist/linux-unpacked/central-usage "$R"
-          bash tools/ci-run.sh "transformers (Central Control)" node tools/smoke-transformers.js central-control-desktop/dist/linux-unpacked/central-control "$C"
-          ls -la central-usage/dist/ central-control-desktop/dist/ | grep -E "deb|AppImage"
+          ls "$R/player/pedal-driver.py" "$R/player/index.html" "$R/player/screens.json" > /dev/null && "$R/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "the player is in the app"
+          bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js central-usage/dist/linux-unpacked/central-usage "$R"
+          ls -la central-usage/dist/ | grep -E "deb|AppImage"
       - uses: actions/upload-artifact@v4
         with:
           name: installers-linux
@@ -102,8 +101,6 @@ jobs:
           path: |
             central-usage/dist/*.deb
             central-usage/dist/*.AppImage
-            central-control-desktop/dist/*.deb
-            central-control-desktop/dist/*.AppImage
 
   windows:
     name: Windows (x64 installer)
@@ -128,45 +125,37 @@ jobs:
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig.exe
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
-      - name: Bundle the driver (PyInstaller) and smoke test it
+      - name: Bundle the driver for the player window (PyInstaller) and smoke test it
         timeout-minutes: 20
         run: |
-          PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-control-desktop/driver-dist
-          bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver.exe
-      - name: Central Usage
+          PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-usage/driver-dist
+          bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-usage/driver-dist/pedal-driver/pedal-driver.exe
+      - name: Central Control
         working-directory: central-usage
         run: |
           node ../tools/make-rig-map.js native/build/rig-map.json
           CU_SKIP_NATIVE=1 bash prepare-shared.sh
+          bash prepare-player.sh
           npm install --no-audit --no-fund
           bash ../tools/ci-run.sh "center test" node test-center.mjs
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --win nsis --x64 --publish never
-      - name: Central Control for PC
-        run: |
-          bash central-control-desktop/prepare-src.sh
-          cd central-control-desktop
-          npm install --no-audit --no-fund
-          node ../tools/prune-onnx.js .
-          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --win nsis --x64 --publish never
-      - name: Smoke test - the packed apps (helpers, video, driver, sounds, the speech model's runtime)
+      - name: Smoke test - the packed app (helpers, video, the player, sounds, the speech model's runtime)
         timeout-minutes: 10
         run: |
-          R=central-usage/dist/win-unpacked/resources; C=central-control-desktop/dist/win-unpacked/resources
+          R=central-usage/dist/win-unpacked/resources
           "$R/native/cu-mixer.exe" --version && "$R/native/cu-rig.exe" --version && ls "$R/native/cu-ndi.exe" "$R/native/rig-map.json"
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$R/native"
-          ls "$R/sounds/"*.sf2 | head -3 && ls "$C/native/cu-rig.exe" "$C/sounds/"*.sf2 > /dev/null
-          "$C/driver/pedal-driver/pedal-driver.exe" --help > /dev/null && echo "driver runs from the app"
-          bash tools/ci-run.sh "transformers (Central Usage)" node tools/smoke-transformers.js "central-usage/dist/win-unpacked/Central Usage.exe" "$R"
-          bash tools/ci-run.sh "transformers (Central Control)" node tools/smoke-transformers.js "central-control-desktop/dist/win-unpacked/Central Control.exe" "$C"
-          ls -la central-usage/dist/*.exe central-control-desktop/dist/*.exe
+          ls "$R/sounds/"*.sf2 | head -3
+          ls "$R/player/pedal-driver.py" > /dev/null && "$R/driver/pedal-driver/pedal-driver.exe" --help > /dev/null && echo "the player is in the app"
+          bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "central-usage/dist/win-unpacked/Central Usage.exe" "$R"
+          ls -la central-usage/dist/*.exe
       - uses: actions/upload-artifact@v4
         with:
           name: installers-win
           retention-days: 7
           path: |
             central-usage/dist/*.exe
-            central-control-desktop/dist/*.exe
 
   macos:
     name: macOS (${{ matrix.arch }})
@@ -197,43 +186,35 @@ jobs:
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
-      - name: Bundle the driver (PyInstaller) and smoke test it
+      - name: Bundle the driver for the player window (PyInstaller) and smoke test it
         timeout-minutes: 20
         run: |
-          PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-control-desktop/driver-dist
-          bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-control-desktop/driver-dist/pedal-driver/pedal-driver
-      - name: Central Usage
+          PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-usage/driver-dist
+          bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-usage/driver-dist/pedal-driver/pedal-driver
+      - name: Central Control
         working-directory: central-usage
         run: |
           CU_SKIP_NATIVE=1 bash prepare-shared.sh
+          bash prepare-player.sh
           npm install --no-audit --no-fund
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
-      - name: Central Control for PC
-        run: |
-          bash central-control-desktop/prepare-src.sh
-          cd central-control-desktop
-          npm install --no-audit --no-fund
-          node ../tools/prune-onnx.js .
-          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
-      - name: Smoke test - the packed apps (signed, helpers, video, driver, the speech model's runtime)
+      - name: Smoke test - the packed app (signed, helpers, video, the player, the speech model's runtime)
         timeout-minutes: 10
         run: |
-          U=$(ls -d central-usage/dist/mac*/"Central Usage.app"); K=$(ls -d central-control-desktop/dist/mac*/"Central Control.app")
-          for app in "$U" "$K"; do codesign --verify --deep "$app" && echo "signed: $app"; done
+          U=$(ls -d central-usage/dist/mac*/"Central Usage.app")
+          codesign --verify --deep "$U" && echo "signed: $U"
           "$U/Contents/Resources/native/cu-mixer" --version
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$U/Contents/Resources/native"
-          "$K/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "driver runs from the app"
-          bash tools/ci-run.sh "transformers (Central Usage)" node tools/smoke-transformers.js "$U/Contents/MacOS/Central Usage" "$U/Contents/Resources"
-          bash tools/ci-run.sh "transformers (Central Control)" node tools/smoke-transformers.js "$K/Contents/MacOS/Central Control" "$K/Contents/Resources"
-          ls -la central-usage/dist/*.dmg central-control-desktop/dist/*.dmg
+          ls "$U/Contents/Resources/player/pedal-driver.py" > /dev/null && "$U/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "the player is in the app"
+          bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "$U/Contents/MacOS/Central Usage" "$U/Contents/Resources"
+          ls -la central-usage/dist/*.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: installers-mac-${{ matrix.arch }}
           retention-days: 7
           path: |
             central-usage/dist/*.dmg
-            central-control-desktop/dist/*.dmg
 
   ios:
     name: iPhone / iPad project (simulator build, unsigned)
@@ -259,10 +240,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { pattern: installers-*, path: staging, merge-multiple: true }
       - run: |
-          CU=$(node -p "require('./central-usage/package.json').version"); CC=$(node -p "require('./central-control-desktop/package.json').version")
+          CU=$(node -p "require('./central-usage/package.json').version")
           missing=0; sizes=""
-          for f in central-usage-$CU-win-x64.exe central-usage-$CU-mac-arm64.dmg central-usage-$CU-mac-x64.dmg central-usage-$CU-amd64.deb central-usage-$CU-x86_64.AppImage \
-                   central-control-$CC-win-x64.exe central-control-$CC-mac-arm64.dmg central-control-$CC-mac-x64.dmg central-control-$CC-amd64.deb central-control-$CC-x86_64.AppImage; do
+          for f in central-usage-$CU-win-x64.exe central-usage-$CU-mac-arm64.dmg central-usage-$CU-mac-x64.dmg central-usage-$CU-amd64.deb central-usage-$CU-x86_64.AppImage; do
             p=$(find staging -type f -name "$f" | head -1)
             if [ -n "$p" ]; then s=$(( $(stat -c %s "$p") / 1048576 )); echo "ok  $f  ${s} MB"; sizes="$sizes$f ${s} MB%0A"; echo "| $f | ${s} MB |" >> sizes.md; else echo "::error::missing $f"; missing=1; fi
           done

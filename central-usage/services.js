@@ -90,6 +90,7 @@ module.exports = function services(app, getWin) {
       await center.start();
     } else if (!want) {   // no longer the main admin: its list goes (another computer can become the main admin)
       if (center) { const c = center; center = null; await c.stop(); }
+      try { player.stop(); } catch (_) { }
       if (cfg.role !== undefined) { try { fs.unlinkSync(path.join(userData, "center.json")); } catch (_) { } }
     }
     send("center-status", centerStatus());
@@ -109,52 +110,9 @@ module.exports = function services(app, getWin) {
     req.on("timeout", () => { req.destroy(); resolve(null); }); req.on("error", () => resolve(null));
   }));
 
-  // ------------------------------------------------------------------ the player window: the Central Pedal app on this computer
-  // With no Central Pedal (or while none is the track player) the main admin's computer runs the tracks, charts and lyrics
-  // in the Central Pedal app. Opened from here it gets the center's address and the pairing PIN, so it pairs by itself.
-  function playerCandidates() {
-    const home = os.homedir(), out = [];
-    if (cfg.playerPath) out.push(cfg.playerPath);
-    if (process.platform === "win32") {
-      const la = process.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
-      out.push(path.join(la, "Programs", "central-control", "Central Control.exe"), path.join(process.env.ProgramFiles || "C:\\Program Files", "Central Control", "Central Control.exe"));
-    } else if (process.platform === "darwin") {
-      for (const base of ["/Applications", path.join(home, "Applications")]) out.push(path.join(base, "Central Control.app", "Contents", "MacOS", "Central Control"));
-    } else {
-      out.push("/opt/Central Control/central-control");
-      const w = which("central-control"); if (w) out.push(w);
-      for (const dir of [path.join(home, "Applications"), path.join(home, "Downloads"), path.join(home, "Desktop"), home]) {
-        try { for (const f of fs.readdirSync(dir).filter((x) => /^central-control-.*\.AppImage$/i.test(x)).sort().reverse()) out.push(path.join(dir, f)); } catch (_) { }
-      }
-    }
-    return out;
-  }
-  function findPlayer() { for (const f of playerCandidates()) { try { fs.accessSync(f, fs.constants.X_OK); return f; } catch (_) { try { if (process.platform === "win32" && fs.existsSync(f)) return f; } catch (__) { } } } return null; }
-  let playerProc = null;
-  function portOpen(port) { return new Promise((resolve) => { const s = require("node:net").connect({ host: "127.0.0.1", port }); s.once("connect", () => { s.destroy(); resolve(true); }); s.once("error", () => resolve(false)); setTimeout(() => { s.destroy(); resolve(false); }, 600); }); }
-  ipcMain.handle("player-open", async () => {
-    if (cfg.role !== "main") return { ok: false, error: "Only the main admin's computer runs the player window." };
-    const exe = findPlayer();
-    if (!exe) return { ok: false, missing: true };
-    const already = (playerProc && playerProc.exitCode == null) || await portOpen(8766);
-    const env = Object.assign({}, process.env, { CC_CENTER: "127.0.0.1:" + centerPort });
-    const pin = cfg.mainKeys && cfg.mainKeys.pair; if (/^\d{4}$/.test(String(pin || ""))) env.CC_PAIR_PIN = String(pin);
-    delete env.ELECTRON_RUN_AS_NODE; delete env.ELECTRON_NO_ATTACH_CONSOLE;
-    try {
-      // (already running: starting it again brings its window to the front)
-      playerProc = spawn(exe, [], { env, detached: true, stdio: "ignore", windowsHide: false });
-      playerProc.on("error", () => { }); playerProc.unref();
-      return { ok: true, already, path: exe };
-    } catch (e) { return { ok: false, error: "Could not start the player: " + e.message }; }
-  });
-  ipcMain.handle("player-status", () => ({ path: findPlayer() }));
-  ipcMain.handle("player-download", () => { shell.openExternal("https://motionaudio.github.io/Central-Apps/"); return true; });
-  ipcMain.handle("player-choose", async () => {
-    const r = await dialog.showOpenDialog(getWin(), { title: "Where is the Central Pedal app?", properties: ["openFile"] });
-    if (r.canceled || !r.filePaths[0]) return null;
-    let f = r.filePaths[0]; if (process.platform === "darwin" && /\.app$/.test(f)) f = path.join(f, "Contents", "MacOS", path.basename(f, ".app"));
-    cfg.playerPath = f; saveCfg(); return f;
-  });
+  // ------------------------------------------------------------------ the player window (player.js): the Central Pedal app built in,
+  // for the main admin's computer to run the tracks, charts and lyrics when no Central Pedal plays them
+  const player = require("./player").setup({ app, ipcMain, getMainWin: getWin, center: { isMain: () => cfg.role === "main", port: () => centerPort, pin: () => (cfg.role === "main" && cfg.mainKeys ? cfg.mainKeys.pair : "") } });
 
   ipcMain.handle("cu-config", () => cfg);
   ipcMain.handle("cu-config-set", (_e, patch) => {

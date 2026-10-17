@@ -12,7 +12,7 @@ let log = ""; drv.stderr.on("data", (b) => { log += b; }); drv.stdout.on("data",
 await new Promise((r) => { const t = setInterval(() => { if (log.includes("USB/SD browser on")) { clearInterval(t); r(); } }, 100); setTimeout(r, 8000); });
 let code = null;
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 6).join("\n      ")); } }
-const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required"] });
+const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
 const ctx = await b.newContext({ viewport: { width: 1200, height: 800 } });
 // the Pi app (so the driver has a song + chart + display state)
 const pi = await ctx.newPage(); const errs = []; pi.on("pageerror", (e) => errs.push("pi:" + e));
@@ -352,6 +352,28 @@ await check("Service tab: the main admin adds a service and starts it - the user
   await new Promise((r) => setTimeout(r, 500));
   const st = await (await fetch("http://127.0.0.1:8080/api/service")).json(); assert.equal(st.run && st.run.item, 1, "the Central Pedal's stage display follows the service");
   await mainP.evaluate(() => { window.confirm = () => true; }); await mainP.click("#serviceRoot [data-sv='stop']");
+});
+await check("talkback: the main admin talks to the Band (the user's computer plays it); the user's talkback reaches only the main admin; a device moved to Production stops hearing Band talk", async () => {
+  await mainP.waitForFunction(() => (CURoles.view().devices || []).some((d) => d.name === "Keys" && d.online && d.talkGroup === "band"), null, { timeout: 6000 });
+  await mainP.evaluate(() => CUTalk.setGroup("band"));
+  assert.ok(await mainP.evaluate(() => !!document.querySelector('#tbTop [data-tb-group="band"].on') && !!document.querySelector('#tbTop [data-tb-group="production"]')), "Band / Production next to TALK");
+  await mainP.evaluate(() => CUTalk.on());
+  try { await mainP.waitForFunction(() => CUTalk.state().on && CUTalk.state().sending && CUTalk.state().receivers === 1, null, { timeout: 8000 }); }
+  catch (e) { throw new Error("main talk: " + await mainP.evaluate(() => JSON.stringify(CUTalk.state()))); }
+  await userP.waitForFunction(() => CUTalk.state().heardFrames > 48000 * 0.3 && CUTalk.state().incoming.some((x) => x.group === "band"), null, { timeout: 8000 });
+  assert.ok(await userP.evaluate(() => /Band/.test((document.getElementById("tbHeard") || {}).textContent || "")), "the user sees who is talking");
+  await mainP.evaluate(() => CUTalk.off());
+  assert.equal(await userP.evaluate(() => CUTalk.state().kindHere), "main", "a user talks to the main admin");
+  const before = await mainP.evaluate(() => CUTalk.state().heardFrames);
+  await userP.evaluate(() => CUTalk.on());
+  await mainP.waitForFunction((n) => CUTalk.state().heardFrames > n + 48000 * 0.3 && CUTalk.state().incoming.some((x) => x.name === "Keys" && x.kind === "main"), before, { timeout: 8000 });
+  await userP.evaluate(() => CUTalk.off());
+  await mainP.click('[data-tab="devices"]'); await mainP.waitForSelector("#devicesRoot select[data-dv-tg]");
+  await mainP.evaluate(() => { const tr = [...document.querySelectorAll("#devicesRoot tr")].find((x) => /Keys/.test(x.textContent)); const sel = tr.querySelector("select[data-dv-tg]"); sel.value = "production"; sel.dispatchEvent(new Event("change", { bubbles: true })); });
+  await mainP.waitForFunction(() => (CURoles.view().devices || []).some((d) => d.name === "Keys" && d.talkGroup === "production"), null, { timeout: 5000 });
+  await mainP.evaluate(() => CUTalk.on());
+  await mainP.waitForFunction(() => !CUTalk.state().on && /Nobody in the Band/.test(CUTalk.state().error), null, { timeout: 5000 });
+  await mainP.evaluate(() => { const tr = [...document.querySelectorAll("#devicesRoot tr")].find((x) => /Keys/.test(x.textContent)); const sel = tr.querySelector("select[data-dv-tg]"); sel.value = "band"; sel.dispatchEvent(new Event("change", { bubbles: true })); });
 });
 await check("Forget role on the main admin goes back to the first-launch choice", async () => {
   await mainP.click('[data-tab="settings"]'); await mainP.waitForSelector("#settingsRoot [data-rl='forget']");

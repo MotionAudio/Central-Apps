@@ -16,7 +16,7 @@ contextBridge.exposeInMainWorld("CU", {
   fixtures: { scan: () => ipcRenderer.invoke("fixtures-scan"), read: (file) => ipcRenderer.invoke("fixtures-read", file), open: () => ipcRenderer.invoke("fixtures-open") },
   remote: { config: (cfg) => ipcRenderer.invoke("remote-config", cfg), status: () => ipcRenderer.invoke("remote-status"), state: (st) => ipcRenderer.send("remote-state", st), onCommand: (fn) => ipcRenderer.on("remote-cmd", (_e, cmd) => fn(cmd)) },
   updates: { status: () => ipcRenderer.invoke("update-status"), config: (cfg) => ipcRenderer.invoke("update-config", cfg), check: () => ipcRenderer.invoke("update-check"), install: () => ipcRenderer.invoke("update-install"), on: (fn) => ipcRenderer.on("update", (_e, st) => fn(st)) },
-  player: { open: () => ipcRenderer.invoke("player-open"), status: () => ipcRenderer.invoke("player-status"), download: () => ipcRenderer.invoke("player-download"), choose: () => ipcRenderer.invoke("player-choose") },
+  player: { open: () => ipcRenderer.invoke("player-open"), status: () => ipcRenderer.invoke("player-status"), stop: () => ipcRenderer.invoke("player-stop"), on: (fn) => ipcRenderer.on("player-status", (_e, st) => fn(st)) },
   center: { status: () => ipcRenderer.invoke("center-status"), heard: () => ipcRenderer.invoke("center-heard"), probe: (host, port) => ipcRenderer.invoke("center-probe", host, port), on: (fn) => ipcRenderer.on("center-status", (_e, st) => fn(st)) },
   config: { get: () => ipcRenderer.invoke("cu-config"), set: (patch) => ipcRenderer.invoke("cu-config-set", patch) },
   host: { status: () => ipcRenderer.invoke("host-status"), on: (fn) => ipcRenderer.on("host-status", (_e, st) => fn(st)), piTarget: (t) => ipcRenderer.invoke("pi-target", t) },

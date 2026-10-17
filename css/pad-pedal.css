@@ -338,3 +338,10 @@ dialog.pp-ask .row { display: flex; justify-content: flex-end; gap: 8px; margin-
 .pj-bar { position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 80; max-width: calc(100vw - 16px); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline;
   padding: 6px 14px; border-radius: 0 0 12px 12px; background: rgba(20, 34, 56, .96); border: 1px solid rgba(117, 173, 255, .45); border-top: 0; color: #ecf7ff; font-size: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
 .pj-bar .pj-ok { color: #5de6b0; } .pj-bar .pj-warn { color: #ffcf6b; } .pj-bar .pj-song { font-weight: 600; } .pj-bar small, .pj-bar .pj-sub { opacity: .75; }
+
+/* Settings: touch screen and Wi-Fi (touch-wifi.js) */
+.ts select { max-width: 100%; } .ts-info { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 4px; margin: 4px 0; }
+.ts-kind { color: var(--muted); font-size: 13px; margin-left: 6px; }
+.wf-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; } .wf-bars i { width: 3px; background: var(--line); border-radius: 1px; }
+.wf-bars i:nth-child(1) { height: 4px; } .wf-bars i:nth-child(2) { height: 7px; } .wf-bars i:nth-child(3) { height: 10px; } .wf-bars i:nth-child(4) { height: 12px; } .wf-bars i.on { background: var(--accent); }
+.wf .row { flex-wrap: wrap; align-items: end; } .wf-cc { display: inline-grid; gap: 2px; }

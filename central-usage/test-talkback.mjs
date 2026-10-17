@@ -50,29 +50,28 @@ const meter = (m) => cu.evaluate((m) => { const x = CUMix.meters; return x ? Mat
 async function maxMeter(m, ms) { let best = 0; const t0 = Date.now(); while (Date.now() - t0 < ms) { best = Math.max(best, await meter(m)); await sleep(60); } return best; }
 const hostTalkers = () => cu.evaluate(() => CU.talk.state().then((s) => s.talkers));
 
-console.log("Talkback (the desk):");
+console.log("Talkback (the main admin):");
 const phone = await browser.newPage(); phone.on("pageerror", (e) => errs.push("phone: " + e));
-await check("the main admin has TALK in the top bar, on the In-ears tab and on the Mix tab", async () => {
-  await cu.waitForSelector("#tbTop [data-tb-talk='inears']", { timeout: 5000 });
-  await cu.evaluate(() => CentralUsage.showTab("inears")); await cu.waitForSelector("#view-inears .tb-panel [data-tb-talk='inears']", { timeout: 5000 });
-  await cu.evaluate(() => CentralUsage.showTab("mix")); await cu.waitForSelector("#view-mix .tb-panel [data-tb-talk='inears']", { timeout: 5000 });
+await check("the main admin has Band / Production and TALK in the top bar, on the In-ears tab and on the Mix tab", async () => {
+  await cu.waitForSelector("#tbTop [data-tb-talk='group']", { timeout: 5000 });
+  assert.ok(await cu.evaluate(() => !!document.querySelector('#tbTop [data-tb-group="band"]') && !!document.querySelector('#tbTop [data-tb-group="production"]')));
+  await cu.evaluate(() => CentralUsage.showTab("inears")); await cu.waitForSelector("#view-inears .tb-panel [data-tb-talk='group']", { timeout: 5000 });
+  await cu.evaluate(() => CentralUsage.showTab("mix")); await cu.waitForSelector("#view-mix .tb-panel [data-tb-talk='group']", { timeout: 5000 });
   await cu.evaluate(() => CentralUsage.showTab("inears"));
+  await cu.click('#view-inears [data-tb-group="production"]'); assert.equal(await cu.evaluate(() => CUTalk.group()), "production");
+  assert.equal(await cu.evaluate(() => JSON.parse(localStorage.getItem("cu-tbGroup"))), "production", "remembered on this computer");
+  await cu.click('#view-inears [data-tb-group="band"]');
 });
-await check("who hears it: untick All, tick Mix 3 - remembered on this computer", async () => {
+await check("nobody in the Band online yet: TALK says so (devices join groups on the Devices tab)", async () => {
+  await cu.evaluate(() => CUTalk.on()); await until(() => cu.evaluate(() => !CUTalk.state().on && /Nobody in the Band/.test(CUTalk.state().error)), 4000);
+});
+await check("chosen in-ear mixes (Mix 3): only Mix 3 hears the mic (Mix 5 doesn't), Sam's phone says who is talking; a quick tap latched it", async () => {
   await phone.goto("http://" + ADDR + "/?name=Sam&code=1111"); await phone.waitForSelector("[data-ie-claim]", { timeout: 8000 }); await phone.click('[data-ie-claim="2"]');
   await until(() => cu.evaluate(() => CUMix.state.mixes[2].owner === "Sam"), 5000);
-  await shot(cu, "0-desk-inears");
-  await cu.uncheck("#view-inears .tb-panel [data-tb='all']");
-  await cu.waitForSelector('#view-inears .tb-mixes:not([hidden]) [data-tb-mix="2"]', { timeout: 4000 });
-  assert.match(await cu.textContent('#view-inears .tb-mix:has([data-tb-mix="2"])'), /Sam/, "the list shows who has each mix");
-  await cu.check('#view-inears [data-tb-mix="2"]');
-  assert.deepEqual(await cu.evaluate(() => JSON.parse(localStorage.getItem("cu-tbTargets"))), { all: false, mixes: [2] });
-  assert.deepEqual(await cu.evaluate(() => CUTalk.targets()), { all: false, mixes: [2] });
-});
-await check("a quick tap latches it: ON AIR here, only Mix 3 hears the mic (Mix 5 doesn't), Sam's phone says who is talking", async () => {
+  await cu.evaluate(() => CUTalk.setTargets({ all: false, mixes: [2] }));
   await cu.click("#view-inears .tb-panel [data-tb-talk]");
   const st = await until(() => cu.evaluate(() => { const s = CUTalk.state(); return s.on && s.latched && s.sending && s.micFrames > 20 ? s : null; }), 8000);
-  assert.equal(st.kind, "inears");
+  assert.equal(st.kind, "group");
   assert.match(await cu.textContent("#view-inears .tb-panel [data-tb-talk]"), /ON AIR/); assert.match(await cu.textContent("#tbTop [data-tb-talk]"), /ON AIR/);
   assert.match(await cu.textContent("#tbOnAir"), /ON AIR.*Mix 3/);
   const t = await until(async () => { const l = await hostTalkers(); return l.length === 1 ? l[0] : null; }, 4000);
@@ -88,7 +87,6 @@ await check("tap again: off - ON AIR gone here, the host lets go, the phone's no
   await until(() => cu.evaluate(() => !CUTalk.state().on && !document.getElementById("tbOnAir") && !document.body.classList.contains("tb-onair")), 4000);
   await until(async () => (await hostTalkers()).length === 0, 4000);
   await phone.waitForFunction(() => !document.querySelector(".ie-talk"), null, { timeout: 5000 });
-  assert.doesNotMatch(await cu.textContent("#view-inears .tb-panel [data-tb-talk]"), /ON AIR/);
 });
 await check("hold to talk (top bar button): on while held, not latched, off on release", async () => {
   const b = await cu.$("#tbTop [data-tb-talk]"), bb = await b.boundingBox();
@@ -105,50 +103,21 @@ await check("the mic can be an input of the interface (on the audio host): no ne
   await cu.evaluate(() => CUTalk.on());
   const t = await until(async () => { const l = await hostTalkers(); return l.length === 1 ? l[0] : null; }, 4000);
   assert.deepEqual([t.src, t.all, t.dim], ["input", true, 0]); assert.equal(await cu.evaluate(() => CUTalk.state().sending), false);
-  assert.match(await cu.textContent("#tbOnAir"), /everyone/);
   await cu.evaluate(() => CUTalk.off()); await until(async () => (await hostTalkers()).length === 0, 3000);
-  await cu.evaluate(() => { CUTalk.setMic("mic"); CUTalk.setTargets({ all: false, mixes: [2] }); CUTalk.setDim({ on: true, db: -12 }); });
+  await cu.evaluate(() => { CUTalk.setMic("mic"); CUTalk.setDim({ on: true, db: -12 }); CUTalk.setGroup("band"); });
 });
 
 console.log("Talkback (another admin, a user):");
 let booth, keys;
-await check("another admin computer (In-ears job) talks with its own mic over the network into Mix 5", async () => {
-  booth = await cuPage("booth", { role: "admin", mode: "admin", jobs: ["inears"], name: "Booth", hostAddr: ADDR, adminCode: "2222", tbTargets: { all: false, mixes: [4] } });
-  await booth.waitForFunction(() => CUMix.kind === "remote" && CUMix.connected() && CUMix.state, null, { timeout: 8000 });
-  await booth.waitForSelector("#tbTop [data-tb-talk='inears']", { timeout: 4000 });
-  const b = await booth.$("#tbTop [data-tb-talk]"), bb = await b.boundingBox();
-  await booth.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await booth.mouse.down();
-  const t = await until(async () => { const l = await hostTalkers(); return l.find((x) => x.name === "Booth"); }, 6000);
-  assert.deepEqual([t.kind, t.mixes, t.src], ["inears", [4], "net"]);
-  const heard = await until(async () => { const v = await maxMeter(4, 1500); return v > 0.005 ? v : null; }, 10000); assert.ok(heard > 0.005);
-  assert.match(await booth.textContent("#tbOnAir"), /ON AIR/);
-  assert.match(await cu.evaluate(() => document.querySelector("#view-inears .tb-others").textContent), /Booth → Mix 5/, "the desk sees who else is talking");
-  await booth.mouse.up();
-  await until(async () => !(await hostTalkers()).some((x) => x.name === "Booth"), 4000);
-});
-await check("an admin with only the Lighting job has no TALK button", async () => {
-  await booth.evaluate(() => CentralUsage.setJobs(["lighting"])); await booth.waitForFunction(() => !document.querySelector("[data-tb-talk]"), null, { timeout: 3000 });
-  await booth.evaluate(() => CentralUsage.setJobs(["inears"])); await booth.waitForSelector("#tbTop [data-tb-talk]", { timeout: 3000 });
-});
-await check("a user's 'Talk to the sound desk' reaches only the desk's headphones - not the in-ears", async () => {
+await check("another admin (any job) and a user talk to the main admin only - their button says so", async () => {
+  booth = await cuPage("booth", { role: "admin", mode: "admin", jobs: ["lighting"], name: "Booth", hostAddr: ADDR, adminCode: "2222" });
+  await booth.waitForSelector("#tbTop [data-tb-talk='main']", { timeout: 4000 });
+  assert.equal(await booth.evaluate(() => CUTalk.state().kindHere), "main");
+  assert.equal(await booth.evaluate(() => !!document.querySelector("[data-tb-group]")), false, "no Band / Production for other admins");
   keys = await cuPage("keys", { role: "user1", mode: "user", name: "Keys", hostAddr: ADDR, userCode: "1111" });
-  await keys.waitForSelector("#tbTop [data-tb-talk='desk']", { timeout: 4000 });
-  await keys.evaluate(() => CentralUsage.showTab("inears")); await keys.waitForSelector("#view-inears .tb-panel [data-tb-talk='desk']", { timeout: 4000 });
-  assert.equal(await keys.evaluate(() => !!document.querySelector("#view-mix .tb-panel")), false);
-  const before = await cu.evaluate(() => CUTalk.state().deskFrames);
-  const b = await keys.$("#view-inears .tb-panel [data-tb-talk]"), bb = await b.boundingBox();
-  await keys.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await keys.mouse.down();
-  await until(() => keys.evaluate(() => CUTalk.state().on && CUTalk.state().sending), 6000);
-  const t = await until(async () => (await hostTalkers()).find((x) => x.name === "Keys"), 5000); assert.equal(t.kind, "desk");
-  await until(() => cu.evaluate((n) => CUTalk.state().deskFrames > n + 48000 * 0.5 && CUTalk.state().deskPlaying, before), 6000);
-  assert.ok(await keys.evaluate(() => CUTalk.state().receivers >= 1), "the ack counts the desk");
-  assert.match(await cu.textContent("#view-inears .tb-others"), /Keys → the desk.*playing Keys's talkback here/);
-  assert.ok(await maxMeter(2, 1200) < 0.0005 && await maxMeter(4, 600) < 0.0005, "no in-ear mix hears the user");
-  assert.equal(await phone.evaluate(() => !!document.querySelector(".ie-talk")), false);
-  assert.match(await keys.textContent("#tbOnAir"), /sound desk/);
-  await shot(keys, "3-user-onair"); await shot(cu, "4-desk-hears-user");
-  await keys.mouse.up(); await until(async () => !(await hostTalkers()).some((x) => x.name === "Keys"), 4000);
-  assert.ok(await booth.evaluate(() => CUTalk.state().isDesk) === false, "an In-ears admin is not the desk");
+  await keys.waitForSelector("#tbTop [data-tb-talk='main']", { timeout: 4000 });
+  await keys.evaluate(() => CentralUsage.showTab("inears")); await keys.waitForSelector("#view-inears .tb-panel [data-tb-talk='main']", { timeout: 4000 });
+  assert.match(await keys.textContent("#view-inears .tb-panel"), /Only the main admin hears it/);
 });
 await check("a user can't talk into the in-ears (the host refuses)", async () => {
   const r = await keys.evaluate((addr) => new Promise((res) => { const ws = new WebSocket("ws://" + addr + "/ws"); ws.onopen = () => ws.send(JSON.stringify({ type: "hello", role: "user", code: "1111", id: "x", name: "X", talkOnly: true })); ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.type === "welcome") ws.send(JSON.stringify({ type: "talk", on: true, kind: "inears", targets: { all: true }, seq: 1 })); if (m.type === "talkAck") { res(m); ws.close(); } }; setTimeout(() => res(null), 3000); }), ADDR);

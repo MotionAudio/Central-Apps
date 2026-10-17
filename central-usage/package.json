@@ -45,6 +45,7 @@
       "build/icon.png",
       "asr.js",
       "center.js",
+      "player.js",
       "!**/node_modules/onnxruntime-node/bin/napi-v3/*/*/libonnxruntime_providers_{cuda,tensorrt}.so"
     ],
     "linux": {
@@ -170,6 +171,20 @@
         "filter": [
           "*.sf2",
           "*.txt"
+        ]
+      },
+      {
+        "from": "player-src",
+        "to": "player",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "driver-dist",
+        "to": "driver",
+        "filter": [
+          "**/*"
         ]
       }
     ],

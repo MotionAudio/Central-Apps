@@ -1,8 +1,8 @@
-/* Lyrics from a vocal track, heard on this computer (Central Control and Central Pedal on a PC - never the Pi).
+/* Lyrics from a vocal track, heard on this computer (Central Control - never the Pi).
  * An offline speech model (OpenAI Whisper, ONNX build, via transformers.js) runs in the app's main process;
  * the page sends 16 kHz mono audio of the parts where someone sings and gets the words with their times.
  * The model is downloaded once (Settings) into the app's folder; nothing is sent anywhere.
- * The same file is used by both apps (central-usage/asr.js, central-control-desktop/asr.js). */
+ * (Central Control on a computer only.) */
 "use strict";
 const fs = require("node:fs");
 const path = require("node:path");

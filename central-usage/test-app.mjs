@@ -74,7 +74,16 @@ await check("the main admin's computer is the center: it starts when this comput
   const info = await (await fetch("http://127.0.0.1:18095/api/center")).json(); assert.equal(info.app, "central-control-center");
   const page = await fetch("http://127.0.0.1:18095/cu/"); assert.equal(page.status, 200);
   await win.waitForFunction(() => window.CUCenter && window.CUCenter.connected(), null, { timeout: 8000 });
-  const pl = await win.evaluate(() => CU.player.status()); assert.ok("path" in pl);
+  const pl = await win.evaluate(() => CU.player.status()); assert.ok(pl.available, "the player is part of Central Control: " + JSON.stringify(pl));
+  // the player window: the Central Pedal app built in - it starts, pairs with this computer's center and is the track player
+  const op = await win.evaluate(() => CU.player.open()); assert.ok(op.ok, JSON.stringify(op));
+  try { await win.waitForFunction(() => { const v = CURoles.view(); return v && v.pedals && v.pedals.some((p) => p.local && p.online && p.job === "player"); }, null, { timeout: 30000 }); }
+  catch (e) { throw new Error("the player did not pair: " + await win.evaluate(() => JSON.stringify(CURoles.view() && CURoles.view().pedals)) + " " + require("node:fs").readFileSync(require("node:path").join(userData, "player-driver.log"), "utf8").slice(-800)); }
+  let wins = [];
+  for (let i = 0; i < 40; i++) { wins = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => w.webContents.getURL())); if (wins.some((u) => /8766/.test(u))) break; await new Promise((r) => setTimeout(r, 500)); }
+  assert.ok(wins.some((u) => /127\.0\.0\.1:8766\/app\//.test(u)), "the player window is open: " + wins.join(", "));
+  await win.waitForFunction(() => CentralUsage.state.connected, null, { timeout: 15000 });   // and this computer follows it (songs, charts, lyrics)
+  await win.evaluate(() => CU.player.stop());
   const off = await win.evaluate(async () => { await CentralUsage.setRole("user1"); await new Promise((r) => setTimeout(r, 400)); return CU.center.status(); });
   assert.equal(off.on, false);
   await assert.rejects(() => fetch("http://127.0.0.1:18095/api/center"));

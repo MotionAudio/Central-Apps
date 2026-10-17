@@ -55,12 +55,12 @@
 
   <div class="hero" id="hero">
     <div class="card"><h2>Central Control</h2><p class="muted" id="heroCuText">For this computer</p><a class="btn primary" id="heroCu" aria-disabled="true" href="#usage">Download</a></div>
-    <div class="card"><h2>Central Pedal</h2><p class="muted" id="heroCcText">For this computer</p><a class="btn primary" id="heroCc" aria-disabled="true" href="#control">Download</a></div>
+    <div class="card"><h2>Central Pedal</h2><p class="muted" id="heroCcText">The Raspberry Pi on stage</p><a class="btn primary" id="heroCc" href="#pi">Raspberry Pi steps</a></div>
   </div>
 
   <section id="usage">
     <h2>Central Control</h2>
-    <p class="muted">Every computer at the sound / lights / media desk, and every musician's laptop, tablet or phone.</p>
+    <p class="muted">Every computer at the sound / lights / media desk, and every musician's laptop. The main admin's copy also runs the tracks, charts and lyrics in its player window when there is no Central Pedal. Phones and tablets (iPhone, iPad) open the user side from the main admin's computer.</p>
     <div class="grid">
       <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-usage-*-win-x64.exe">Download <small>.exe</small></a></div>
       <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-usage-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
@@ -72,13 +72,9 @@
 
   <section id="control">
     <h2>Central Pedal</h2>
-    <p class="muted">The Raspberry Pi on stage. The computer versions are the same app, for trying it out or building setlists.</p>
+    <p class="muted">Runs on the Raspberry Pi only - the pedal on stage (track player, foot controller or instrument rig). On a computer, Central Control's player window does the same job.</p>
     <div class="grid">
       <div class="card plat"><h3>Raspberry Pi</h3><p>Updates itself; new SD cards below</p><a class="btn" href="#pi">How to install</a></div>
-      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-control-*-win-x64.exe">Download <small>.exe</small></a></div>
-      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-control-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-control-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-control-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-control-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
     </div>
   </section>
 
@@ -93,7 +89,7 @@
         <li>Open the app once - the Mac refuses. Click <b>Done</b>.</li>
         <li>Open <b>System Settings → Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b> next to the app's name, then confirm.</li>
         <li>When it asks to use the microphone, allow it (the audio interface, the in-ears and the instrument need it).</li></ol>
-      <p class="note">If the Mac says the app “is damaged”, open Terminal and run (for Central Pedal, change the name):</p>
+      <p class="note">If the Mac says the app “is damaged”, open Terminal and run:</p>
       <pre>xattr -dr com.apple.quarantine "/Applications/Central Usage.app"</pre>
     </details>
     <details><summary>Linux</summary>
@@ -155,18 +151,17 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre
       var arch = plat === "mac" ? await macArch() : "x64";
       var pick = { win: ["*-win-x64.exe", "Download for Windows"], mac: ["*-mac-" + arch + ".dmg", "Download for Mac (" + (arch === "arm64" ? "Apple Silicon" : "Intel") + ")"], linux: ["*-amd64.deb", "Download for Linux (.deb)"] }[plat];
       if (pick) {
-        ["central-usage", "central-control"].forEach(function (p) { var n = match(names, p + "-" + pick[0]); if (n) setHero(p === "central-usage" ? "heroCu" : "heroCc", p === "central-usage" ? "heroCuText" : "heroCcText", urls[n], pick[1], n); });
+        var n0 = match(names, "central-usage-" + pick[0]); if (n0) setHero("heroCu", "heroCuText", urls[n0], pick[1], n0);
       } else if (plat === "ios") {
         setHero("heroCu", "heroCuText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "From the main admin's computer on your Wi-Fi");
-        setHero("heroCc", "heroCcText", "#pi", "Raspberry Pi steps", "Central Pedal runs on the Raspberry Pi");
       } else {
-        setHero("heroCu", "heroCuText", "#usage", "Choose a system", "Pick yours below"); setHero("heroCc", "heroCcText", "#control", "Choose a system", "Pick yours below");
+        setHero("heroCu", "heroCuText", "#usage", "Choose a system", "Pick yours below");
       }
     })
     .catch(function (e) {
       document.getElementById("ver").textContent = "Couldn't reach GitHub (" + e.message + ") - every file is on the releases page";
       document.querySelectorAll("[data-file]").forEach(function (a) { a.href = RELEASES; });
-      ["heroCu", "heroCc"].forEach(function (id) { var a = document.getElementById(id); a.href = RELEASES; a.removeAttribute("aria-disabled"); a.textContent = "Open the releases page"; });
+      ["heroCu"].forEach(function (id) { var a = document.getElementById(id); a.href = RELEASES; a.removeAttribute("aria-disabled"); a.textContent = "Open the releases page"; });
     });
 })();
 </script>

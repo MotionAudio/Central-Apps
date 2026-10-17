@@ -15,10 +15,18 @@ Pedal plays, stops and skips the tracks.
 **New in version 8.3:**
 - **The main admin is the center:** pairing, roles, the Devices tab, locks, services and the in-ear host live in the
   main admin's Central Control - so everything works **without a Raspberry Pi**.
-- **Tracks, charts and lyrics** come from the main admin's **player window** (the Central Pedal app on that
+- **Tracks, charts and lyrics** come from the main admin's **player window** (the Central Pedal app, built into Central Control on that
   computer) - or from a **Central Pedal**: add as many as you like with the pairing PIN, and on the Devices tab
   pick each one's job: **Track player**, **Foot controller** (drives the track player) or **Instrument rig**.
   Every device follows the track player; songs are copied to every pedal.
+- **Talkback groups:** the main admin talks to the **Band** or to **Production** (each device's group is set on the
+  Devices tab); everyone else's talkback goes only to the main admin's headphones.
+- **Central Pedal is Raspberry Pi only**; Central Control runs on Windows, Mac (Apple Silicon / Intel) and Linux,
+  with the user side on iPhone and iPad.
+- **Raspberry Pi:** Wi-Fi fixed (hidden networks, WPA3, the country, clear errors); **touch screens by size** (2.2" -
+  10.1": GPIO, HDMI and ribbon-cable screens, the maker's driver downloaded when needed); HDMI 1 shows a copy of the
+  touch screen (or lyrics / chord charts / the app), HDMI 2 lyrics or chord charts; the touch panel no longer
+  moves the mouse.
 
 **New in version 8.2:**
 - **New names:** the Pi (and its PC version) is **Central Pedal**; the companion app (Central Usage until now) is
@@ -201,8 +209,7 @@ Releases can also be copied to Google Drive automatically ([DRIVE-SETUP.md](DRIV
 
 5. **Central Control** (the companion app) on a laptop: `sudo apt install ./central-usage/dist/central-usage-2.1.0-amd64.deb`
    (or run the AppImage), then **Find** → Connect. See `central-usage/README.md`.
-   **Central Pedal on a PC** (no Pi, for trying it out or building setlists):
-   `sudo apt install ./central-control-desktop/dist/central-control-8.1.0-amd64.deb`.
+   No Pi? The main admin's Central Control runs the tracks, charts and lyrics in its player window (Devices tab).
 
 Maintenance login: `ssh pi@padpedal.local`, password `padpedal`.
 
@@ -656,7 +663,7 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `99-pad-pedal-usb.rules`, `99-pad-pedal-touch.conf` | USB auto-mount; keeps the 3.5" touch panel away from X |
 | `wiring.html` (`make_wiring.py`, `wiring.template.html`) | Wiring guide with the header map, and its generator |
 | `test_pedal_driver.py`, `test-integration.mjs`, `test-headless.mjs`, `test_instrument_host.py` | Automated tests |
-| `central-control-desktop/` | Central Pedal as a desktop app for Windows, macOS and Linux (Electron; the driver bundled with PyInstaller on Windows / macOS - `tools/build-driver.sh`; installers in `dist/`) |
+| `central-usage/player.js`, `prepare-player.sh` | The player window in Central Control: the Central Pedal app and its driver (bundled with PyInstaller - `tools/build-driver.sh`), for the main admin's computer when no Central Pedal plays the tracks |
 | `native_rig.py` | The driver's bridge to the built-in instrument rig (cu-rig) where PipeWire isn't there (Windows, macOS) |
 | `central-usage/native/` | `cu-mixer` (audio engine: JACK, or Windows / macOS / Linux devices through miniaudio - several at once, Dante), `cu-ndi`, `cu-rig` (built-in instrument rig), `vendor/` (miniaudio, TinySoundFont, cJSON), unit tests |
 | `central-usage-ios/` | Central Control (the companion app) for the App Store / TestFlight (Capacitor) - [IOS-APP-STORE.md](IOS-APP-STORE.md) |

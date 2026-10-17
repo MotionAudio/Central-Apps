@@ -58,7 +58,7 @@
   function open(t) {
     target = t;
     try { sock = new WebSocket("ws://" + t.host + ":" + t.port); } catch (_) { sock = null; retry = setTimeout(connect, 2500); return; }
-    var s = sock;
+    var s = sock; s.binaryType = "arraybuffer";
     s.onopen = function () {
       if (s !== sock) return;
       if (CU.prefs.code) send({ type: "auth", code: CU.prefs.code });
@@ -67,6 +67,7 @@
     };
     s.onmessage = function (e) {
       if (s !== sock) return;
+      if (e.data instanceof ArrayBuffer) { onBinary(e.data); return; }
       var m; try { m = JSON.parse(e.data); } catch (_) { return; }
       if (m.type === "centerPong") { var now = performance.now(), r = now - (m.t || now); rtt = rtt == null ? r : rtt * 0.7 + r * 0.3; return; }
       if (m.type === "auth") return;                   // (the center's answer to the pairing PIN; roles.js does the pairing)
@@ -81,6 +82,13 @@
     s.onerror = function () { };
   }
   function ping() { send({ type: "ping", t: performance.now() }); }
+  // talkback relayed by the center: "TKC1", u8 id length, the talker's id, then the mic frame ("TKA1")
+  function onBinary(buf) {
+    var v = new DataView(buf); if (buf.byteLength < 18 || v.getUint8(0) !== 84 || v.getUint8(1) !== 75 || v.getUint8(2) !== 67) return;
+    var n = v.getUint8(4), id = ""; for (var i = 0; i < n; i++) id += String.fromCharCode(v.getUint8(5 + i));
+    var a = window.CUInEar && window.CUInEar.parseTalk(buf.slice(5 + n)); if (a) CU.fire("centerTalk", Object.assign({ id: id }, a));
+  }
+  function sendBinary(buf) { if (connected() && sock.bufferedAmount < 1 << 18) { sock.send(buf); return true; } return false; }
   function reconnect() { clearTimeout(retry); if (sock) { var s = sock; sock = null; try { s.close(); } catch (_) { } clearInterval(pinger); CU.fire("center", false); } connect(); }
 
   // the center says where the Central Pedal is: connect to it (songs, charts, lyrics, tracks) with the pairing PIN
@@ -110,7 +118,7 @@
   function setAddress(a) { a = String(a || "").trim(); CU.store.set("centerHost", a); reconnect(); }
 
   window.CUCenter = {
-    connected: connected, send: send, reconnect: reconnect, setAddress: setAddress,
+    connected: connected, send: send, sendBinary: sendBinary, reconnect: reconnect, setAddress: setAddress,
     address: function () { return CU.store.get("centerHost", ""); },
     local: function () { return localStatus; },
     phoneUrls: function () { var st = localStatus; return st && st.on ? (st.addresses || []).map(function (a) { return "http://" + a + ":" + st.port + "/cu/"; }) : []; },

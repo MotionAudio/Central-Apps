@@ -866,6 +866,48 @@ async def main():
         link.paired = False
         player_srv.close()
 
+        print("\nTouch screens and Wi-Fi:")
+        app_dir = os.path.dirname(os.path.abspath(driver_mod.__file__))
+        driver.config["app_root"], driver.config["simulated"] = app_dir, True
+        real_helper, driver_mod.SYSTEM_SCRIPT = driver_mod.SYSTEM_SCRIPT, os.path.join(root, "no-helper")   # (a PC: no root helper)
+        cat = driver_mod.screens_catalog(app_dir)
+        ids = [x["id"] for x in cat["screens"]]
+        check("the screen list covers the small GPIO screens, HDMI and ribbon-cable touch screens (%d screens)" % len(ids),
+              len(ids) >= 25 and {"spi", "hdmi", "dsi"} <= {x["kind"] for x in cat["screens"]} and "rpi35-xpt2046" in ids, ids)
+        blue = driver_mod.screen_by_id(app_dir, "rpi35-xpt2046")
+        check("the blue 3.5\" RPi Display (XPT2046) uses the Pi's built-in driver (no download)", blue and not blue.get("driver") and any("piscreen" in l for l in blue["config"]), blue)
+        bad = [x["id"] for x in cat["screens"] if x.get("driver") and not x["driver"]["url"].startswith("https://raw.githubusercontent.com/waveshare/")]
+        check("maker drivers come only from the maker's own repository", not bad, bad)
+        r = driver.set_touch_screen("rpi35-xpt2046")
+        disp = driver.displays_config()
+        check("picking it: the small screen is on, its touch panel is read by the driver, HDMI 1 shows a copy of it",
+              r["ok"] and driver_mod.screen_on(driver.config) and driver.config["mini_screen"]["touch"] == "ADS7846" and disp["hdmi1"] == "touch" and disp["touchKind"] == "spi", (r, disp))
+        check("...and its pins are kept free of buttons", set(blue["pins"]) <= set(driver_mod.reserved_pins(driver.config)))
+        r = driver.set_touch_screen("hdmi-7-1024")
+        disp = driver.displays_config()
+        check("an HDMI touch screen: no small screen, HDMI 1 is the touch screen and shows the app", r["ok"] and not driver_mod.screen_on(driver.config) and disp["hdmi1"] == "app" and disp["touchKind"] == "hdmi", disp)
+        check("an unknown screen is refused", not driver.set_touch_screen("nope")["ok"])
+        driver.set_touch_screen("off")
+        check("the errors people see are plain words", "Wrong password" in driver_mod.wifi_error("Error: Connection activation failed: Secrets were required, but not provided.")
+              and "not found" in driver_mod.wifi_error("Error: No network with SSID 'Church' found."))
+        fake = os.path.join(root, "bin")
+        os.makedirs(fake, exist_ok=True)
+        with open(os.path.join(fake, "nmcli"), "w") as fh:
+            fh.write("#!/bin/sh\nprintf 'yes:Church WiFi:78:WPA2\\nno:Guest:40:\\nno:Church WiFi:30:WPA2\\nno:Cafe\\\\:5G:55:WPA3\\n'\n")
+        os.chmod(os.path.join(fake, "nmcli"), 0o755)
+        old_path = os.environ["PATH"]
+        os.environ["PATH"] = fake + os.pathsep + old_path
+        try:
+            ws_ = driver_mod.wifi_status(scan=True)
+        finally:
+            os.environ["PATH"] = old_path
+        names = [n["ssid"] for n in ws_["networks"]]
+        check("Wi-Fi list: connected first, one entry per network (its strongest), open networks marked, names with ':' kept",
+              ws_["connected"] == "Church WiFi" and names[0] == "Church WiFi" and names.count("Church WiFi") == 1 and "Cafe:5G" in names
+              and [n for n in ws_["networks"] if n["ssid"] == "Guest"][0]["security"] == "", ws_)
+        driver.config["simulated"] = False
+        driver_mod.SYSTEM_SCRIPT = real_helper
+
         print("\nSystem:")
         await send({"type": "system", "action": "status"})
         status_msg = await next_message(lambda m: m["type"] == "systemStatus", 4.0)

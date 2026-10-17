@@ -1,0 +1,102 @@
+/* Central Pedal - Settings: the touch screen (by size: small screens on the GPIO pins, HDMI touch screens, ribbon-cable
+ * screens - screens.json) and the Wi-Fi (networks, password, hidden networks, the country, forget).
+ * The Pi does the work through its root helper (pad-pedal-system screen / wifi); a screen change takes effect after
+ * a restart (the button is right there). */
+(function () {
+  "use strict";
+  var PP = window.PP, F = window.PPFeatures; if (!PP || !F) return;
+  var esc = PP.escapeHtml;
+  function bridge() { return window.__pedalBridge; }
+  function connected() { return !!(bridge() && bridge().connected); }
+  function send(m) { return F.sendToDriver(m); }
+  function rerender() { if (window.PPShell) window.PPShell.renderSystemExtras(); }
+  var KIND = { spi: "On the GPIO pins", hdmi: "HDMI touch", dsi: "Ribbon cable (DSI)" };
+  var picked = null, tsMsg = "", wfMsg = "", wfBusy = false, lastStatus = null;
+
+  // ------------------------------------------------------------- touch screen
+  function screenLabel(s) { return (s.size ? s.size + "\" · " : "") + s.name.replace(/^[\d.]+" ?/, ""); }
+  function touchHtml(status) {
+    lastStatus = status || lastStatus;
+    var st = lastStatus || {}, cat = st.touchScreens || { groups: [], screens: [] }, cur = st.touchScreen || "off", sel = picked || cur;
+    if (!connected()) return '<section data-st="screens"><h3>Touch screen</h3><p class="muted">Set on the Central Pedal itself.</p></section>';
+    var groups = (cat.groups || []).map(function (g) {
+      var list = (cat.screens || []).filter(function (s) { return s.kind === g.id; }).sort(function (a, b) { return (b.size || 0) - (a.size || 0) || a.name.localeCompare(b.name); });
+      return '<optgroup label="' + esc(g.name) + '">' + list.map(function (s) { return '<option value="' + esc(s.id) + '"' + (s.id === sel ? " selected" : "") + ">" + esc(screenLabel(s)) + (s.id === cur ? "  ✓ now" : "") + "</option>"; }).join("") + "</optgroup>";
+    }).join("");
+    var s = (cat.screens || []).filter(function (x) { return x.id === sel; })[0], now = (cat.screens || []).filter(function (x) { return x.id === cur; })[0];
+    var info = s ? '<div class="ts-info"><b>' + esc(s.name) + '</b> <span class="ts-kind">' + esc(KIND[s.kind] || "") + (s.res ? " · " + s.res[0] + "×" + s.res[1] : "") + "</span>" +
+      (s.also ? '<div class="muted small">' + esc(s.also) + "</div>" : "") +
+      '<div class="small">' + (s.driver ? "⬇ Downloads the maker's driver when you apply it (the Central Pedal needs the internet once)." : "✓ Its driver is built into the Central Pedal.") +
+      (s.kind === "spi" ? " Central Pedal draws its own remote on it; HDMI 1 can show a copy." : " It shows the Central Pedal app; the other HDMI port shows lyrics or chord charts.") + "</div></div>"
+      : (sel === "off" ? '<div class="ts-info muted small">No touch screen: HDMI 1 shows the Central Pedal app.</div>' : "");
+    var pending = st.touchScreenPending;
+    return '<section data-st="screens" class="ts"><h3>Touch screen</h3>' +
+      '<p class="muted small">Now: <b>' + esc(now ? now.name : "none") + "</b>" + (pending ? ' <span class="warn">- restart to use the new screen</span>' : "") + "</p>" +
+      '<label>Screen<select data-ts="pick"><option value="off"' + (sel === "off" ? " selected" : "") + ">No touch screen" + (cur === "off" ? "  ✓ now" : "") + "</option>" + groups + "</select></label>" + info +
+      '<div class="row"><button class="primary" data-ts="apply"' + (sel === cur && !pending ? " disabled" : "") + ">Use this screen</button>" +
+      (pending ? '<button data-ts="restart">Restart now</button>' : "") +
+      (now && now.kind === "spi" ? '<button data-ts="calibrate"' + (st.miniScreen ? "" : " disabled") + ">Calibrate its touch</button>" : "") + "</div>" +
+      (tsMsg ? '<p class="small ' + (/^✓/.test(tsMsg) ? "" : "warn") + '">' + esc(tsMsg) + "</p>" : "") +
+      '<p class="muted small">Not sure which one? The blue 3.5" board with "XPT2046 Touch Controller" printed on the back is the first one (3.5" RPi Display). Something wrong after the restart? Plug in an HDMI monitor and pick another screen, or "No touch screen".</p></section>';
+  }
+  F.on("touchScreenResult", function (m) {
+    tsMsg = m.ok ? "✓ " + (m.name || "Saved") + " - restart the Central Pedal to use it." : (m.error || "Not changed.");
+    if (m.ok) { picked = null; if (lastStatus) { lastStatus.touchScreen = m.screen; lastStatus.touchKind = m.kind; lastStatus.touchScreenPending = true; } }
+    PP.setStatus(tsMsg); rerender(); send({ type: "system", action: "status" });
+  });
+
+  // ------------------------------------------------------------- Wi-Fi
+  var COUNTRIES = [["US", "United States"], ["CA", "Canada"], ["MX", "Mexico"], ["GB", "United Kingdom"], ["IE", "Ireland"], ["AU", "Australia"], ["NZ", "New Zealand"], ["DE", "Germany"], ["FR", "France"], ["ES", "Spain"], ["IT", "Italy"], ["NL", "Netherlands"], ["BR", "Brazil"], ["ZA", "South Africa"], ["NG", "Nigeria"], ["KE", "Kenya"], ["IN", "India"], ["PH", "Philippines"], ["KR", "South Korea"], ["JP", "Japan"]];
+  function bars(sig) { var n = sig >= 75 ? 4 : sig >= 50 ? 3 : sig >= 25 ? 2 : 1; return '<span class="wf-bars" title="' + sig + '%">' + [1, 2, 3, 4].map(function (i) { return '<i class="' + (i <= n ? "on" : "") + '"></i>'; }).join("") + "</span>"; }
+  function wifiHtml(status, wifi) {
+    if (!connected()) return '<section data-st="network"><h3>Wi-Fi</h3><p class="muted">Available on the Central Pedal itself.</p></section>';
+    var w = wifi || {}, cc = w.country || "US";
+    var list = (w.networks || []).map(function (n) {
+      return '<button data-wf="net" data-ssid="' + esc(n.ssid) + '" data-open="' + (n.security ? "" : "1") + '"' + (n.active ? ' class="on"' : "") + ">" + bars(n.signal) + " " + esc(n.ssid) + (n.security ? ' <small title="' + esc(n.security) + '">🔒</small>' : ' <small>open</small>') + (n.active ? " <small>✓ connected</small>" : "") + "</button>";
+    }).join("");
+    return '<section data-st="network" class="wf"><h3>Wi-Fi</h3>' +
+      '<p class="' + (w.connected ? "" : "muted") + '">' + (wifi ? (w.connected ? "✓ Connected to <b>" + esc(w.connected) + "</b>" + (w.signal != null ? " (" + w.signal + "%)" : "") : "Not connected to Wi-Fi") + (w.addresses && w.addresses.length ? ' <span class="muted small">· ' + w.addresses.map(esc).join(", ") + "</span>" : "") : "Checking…") + "</p>" +
+      (w.error ? '<p class="warn small">' + esc(w.error) + "</p>" : "") +
+      (wfMsg ? '<p class="small ' + (/^✓|^Connecting/.test(wfMsg) ? "" : "warn") + '">' + (wfBusy ? "⏳ " : "") + esc(wfMsg) + "</p>" : "") +
+      '<div class="wifi-list">' + (list || (wifi ? '<span class="muted small">No networks found yet - Scan again.</span>' : "")) + "</div>" +
+      '<div class="row"><button data-wf="scan">Scan again</button><button data-wf="other">Other network…</button>' + (w.connected ? '<button data-wf="forget">Forget this network</button>' : "") +
+      '<label class="wf-cc">Country<select data-wf="country">' + COUNTRIES.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === cc ? " selected" : "") + ">" + c[1] + "</option>"; }).join("") + (COUNTRIES.some(function (c) { return c[0] === cc; }) ? "" : '<option value="' + esc(cc) + '" selected>' + esc(cc) + "</option>") + "</select></label></div>" +
+      '<p class="muted small">The Wi-Fi radio follows the country\'s rules - set yours, or some networks (5 GHz channels) stay hidden. A cable in the Ethernet port works too.</p></section>';
+  }
+  function connect(ssid, pw, hidden) { wfBusy = true; wfMsg = "Connecting to " + ssid + "…"; rerender(); send({ type: "system", action: "wifi", ssid: ssid, password: pw || "", hidden: !!hidden }); PP.setStatus(wfMsg); }
+  F.on("wifiResult", function (m) {
+    wfBusy = !!m.busy; wfMsg = m.busy ? m.message : (m.ok ? "✓ " : "") + (m.message || (m.ok ? "Done" : "Could not connect."));
+    PP.setStatus(wfMsg); rerender();
+  });
+
+  // ------------------------------------------------------------- clicks
+  document.addEventListener("change", function (e) {
+    var t = e.target; if (!t.dataset) return;
+    if (t.dataset.ts === "pick") { picked = t.value; tsMsg = ""; rerender(); }
+    else if (t.dataset.wf === "country") { send({ type: "system", action: "wifiCountry", value: t.value }); wfMsg = "Setting the Wi-Fi country…"; rerender(); }
+  });
+  document.addEventListener("click", async function (e) {
+    var b = e.target.closest && e.target.closest("[data-ts],[data-wf]"); if (!b || b.tagName === "SELECT") return;
+    var a = b.dataset.ts || b.dataset.wf;
+    if (b.dataset.ts === "apply") {
+      var id = picked || (lastStatus && lastStatus.touchScreen) || "off";
+      tsMsg = "Setting up the screen…"; rerender(); send({ type: "system", action: "touchScreen", value: id });
+    } else if (b.dataset.ts === "restart") {
+      if (window.PPTracks && window.PPTracks.isPlaying && window.PPTracks.isPlaying() && !confirm("Something is playing. Restart the Central Pedal now?")) return;
+      PP.persistNow(); send({ type: "system", action: "reboot" }); PP.setStatus("Restarting…");
+    } else if (b.dataset.ts === "calibrate") { send({ type: "hardware", action: "calibrateTouch" }); PP.setStatus("Touch the two crosses on the small screen"); }
+    else if (a === "scan") { wfMsg = "Scanning…"; wfBusy = true; rerender(); send({ type: "system", action: "wifi" }); setTimeout(function () { if (wfMsg === "Scanning…") { wfMsg = ""; wfBusy = false; rerender(); } }, 20000); }
+    else if (a === "net") {
+      var ssid = b.dataset.ssid;
+      if (b.dataset.open === "1") return connect(ssid, "");
+      var pw = await PP.ask("Password for " + ssid, { password: true, ok: "Connect" }); if (pw === null) return;
+      connect(ssid, pw);
+    } else if (a === "other") {
+      var name = await PP.ask("Network name (exactly as it is, for a hidden network)", { ok: "Next" }); if (!name) return;
+      var pw2 = await PP.ask("Password for " + name + " (leave empty if it has none)", { password: true, ok: "Connect" }); if (pw2 === null) return;
+      connect(name.trim(), pw2, true);
+    } else if (a === "forget") { if (confirm("Forget this Wi-Fi network? The Central Pedal disconnects from it.")) send({ type: "system", action: "wifiForget" }); }
+  });
+  F.on("systemStatus", function (m) { lastStatus = m; if (!m.busy && wfMsg === "Scanning…") { wfMsg = ""; wfBusy = false; } });
+  window.PPTouchWifi = { touchHtml: touchHtml, wifiHtml: wifiHtml };
+})();

@@ -1,7 +1,11 @@
 #!/bin/bash
 # Central Pedal OS - the X session: one full-screen Chromium window per HDMI screen.
-#   HDMI 1: the Central Pedal app (or the big version of the 3.5" screen, lyrics, charts, stage)
-#   HDMI 2: lyrics for the projector (or charts, stage display, the app, nothing)
+#   touch screen on the GPIO pins (spi): Central Pedal draws its own remote on it; HDMI 1 shows a copy of it
+#     (or the app, lyrics, chord charts, stage display), HDMI 2 lyrics or chord charts
+#   touch screen on HDMI or the ribbon port (hdmi / dsi): it is screen 1 and shows the app; the other HDMI port
+#     shows lyrics or chord charts
+#   no touch screen: HDMI 1 the app (or lyrics, charts…), HDMI 2 lyrics for the projector
+# The app (it plays the tracks) always runs: when no screen shows it, it runs in a window off the screen.
 # What goes where, and each screen's resolution / zoom / edge margin, is in /data/pad-pedal/displays.json
 # (Settings → Screens). Started by ~/.xinitrc; if it exits, ~/.bash_profile starts it again.
 #
@@ -15,7 +19,8 @@ DATA="${CC_DATA:-/data/pad-pedal}"; [ -d "$DATA" ] || DATA="$HOME/.local/share/p
 SCREENS="${CC_SCREENS:-/tmp/central-control-screens.json}"
 PROFILE=/data/chromium; [ -d "$PROFILE" ] && [ -w "$PROFILE" ] || PROFILE="$HOME/.config/pad-pedal"
 PROFILE2=/data/chromium-2; [ -d /data ] && [ -w /data ] || PROFILE2="$HOME/.config/pad-pedal-2"
-mkdir -p "$PROFILE/Default" "$PROFILE2/Default" 2>/dev/null
+PROFILE3=/data/chromium-3; [ -d /data ] && [ -w /data ] || PROFILE3="$HOME/.config/pad-pedal-3"
+mkdir -p "$PROFILE/Default" "$PROFILE2/Default" "$PROFILE3/Default" 2>/dev/null
 LOG="${CC_LOG:-/tmp/pad-pedal-session.log}"
 exec >>"$LOG" 2>&1
 echo "=== session start $(date)"
@@ -48,7 +53,11 @@ scale = str(d.get("scale") or "auto")
 if scale != "auto":
     try: scale = "%g" % max(0.5, min(3.0, float(scale)))
     except Exception: scale = "auto"
-out = {"HDMI1": d.get("hdmi1") or "app", "HDMI2": d.get("hdmi2") or "lyrics", "CURSOR": d.get("cursor") or "auto",
+touch = d.get("touchKind") if d.get("touchKind") in ("spi", "hdmi", "dsi") else "off"
+h1 = d.get("hdmi1") or ("touch" if touch == "spi" else "app")
+if touch in ("hdmi", "dsi"): h1 = "app"          # the touch screen is screen 1: it shows the app
+if h1 == "touch" and touch != "spi": h1 = "app"
+out = {"HDMI1": h1, "HDMI2": d.get("hdmi2") or "lyrics", "TOUCHKIND": touch, "CURSOR": d.get("cursor") or "auto",
        "MODE1": mode(d.get("mode1")), "MODE2": mode(d.get("mode2")), "SCALE": scale,
        "INSET1": num(d.get("inset1"), 0, 200, 0), "INSET2": num(d.get("inset2"), 0, 200, 0)}
 for k, v in out.items(): print("%s=%s" % (k, shlex.quote(str(v))))
@@ -73,16 +82,28 @@ have_hdmi_ports() { ls "$DRM"/card*-HDMI-A-*/status >/dev/null 2>&1; }
 
 # A computer monitor can take several seconds to wake up and say what it is. Starting before that
 # gives a 1024x768 guess - a blurry picture that doesn't fill the screen. So wait for it (up to 20 s).
-if have_hdmi_ports && ! any_hdmi; then
+if [ "$TOUCHKIND" != dsi ] && have_hdmi_ports && ! any_hdmi; then
   echo "waiting for a screen on HDMI…"
   for _ in $(seq 1 40); do any_hdmi && break; sleep 0.5; done
   any_hdmi || echo "no screen yet - starting anyway; the layout is redone as soon as one is plugged in"
 fi
 
 # ---- outputs: HDMI first (HDMI 1 = the first connected HDMI port); other outputs only when no HDMI is connected
+# (a ribbon-cable touch screen is screen 1, the HDMI port screen 2)
 pick_outputs() {
   local all; all="$(xrandr --query 2>/dev/null | awk '$2=="connected"{print $1}')"
+  if [ "$TOUCHKIND" = dsi ] && echo "$all" | grep -qE '^(DSI|DPI)'; then echo "$all" | grep -E '^(DSI|DPI)' | head -1; echo "$all" | grep '^HDMI'; return; fi
   if echo "$all" | grep -q '^HDMI'; then echo "$all" | grep '^HDMI'; else echo "$all" | grep -v '^$'; fi
+}
+# touch screens on HDMI / the ribbon port work on their own screen only (else a touch lands on the wrong one, or
+# the pointer jumps between screens); the small screen's panel is not X's (99-pad-pedal-touch.conf)
+map_touch() {
+  command -v xinput >/dev/null && [ -n "$PRI" ] || return 0
+  local id
+  for id in $(xinput list --id-only 2>/dev/null); do
+    xinput list --long "$id" 2>/dev/null | grep -q "XITouchClass" || continue
+    xinput map-to-output "$id" "$PRI" 2>/dev/null && echo "touch input $id ($(xinput list --name-only "$id" 2>/dev/null)) -> $PRI"
+  done
 }
 modes_of() { xrandr --query 2>/dev/null | awk -v o="$1" '$1==o{f=1; next} f && /^[^ \t]/{f=0} f{print $1}'; }
 mode_args() {   # $1 output, $2 wanted mode ("auto" or WxH[@rate])
@@ -121,6 +142,7 @@ layout() {
   G1="$(geom "$PRI")"; [ -n "$G1" ] || G1="$(root_geom)"; [ -n "$G1" ] || G1="1280x720+0+0"
   G2=""; [ -n "$SEC" ] && G2="$(geom "$SEC")"
   echo "layout: ${PRI:-no screen} $G1${SEC:+ · $SEC $G2}"
+  map_touch
   write_screens
 }
 write_screens() {   # for Settings → Screens: the screens, their resolutions, which one is which
@@ -159,8 +181,10 @@ code_now() {   # the pairing code for the :8080 pages (the driver writes it the 
   echo "$c"
 }
 url_for() {   # $1 what, $2 screen number
-  local CODE=""; case "$1" in mini|lyrics|charts|stage|slides) CODE="$(code_now)" ;; esac
-  case "$1" in
+  local CODE="" what="$1"
+  [ "$what" = touch ] && what=mini   # a copy of the small touch screen
+  case "$what" in mini|lyrics|charts|stage|slides) CODE="$(code_now)" ;; esac
+  case "$what" in
     app) echo "http://127.0.0.1:8766/app/?screen=$2#resume" ;;
     mini) echo "http://127.0.0.1:8080/mini?code=$CODE&screen=$2" ;;
     lyrics) echo "http://127.0.0.1:8080/lyrics?code=$CODE&screen=$2" ;;
@@ -198,10 +222,13 @@ zoom_for() {   # chosen in Settings, or from the screen's width (a 4K monitor ge
   local w="${1%%x*}"
   if [ "$SCALE" != auto ]; then echo "$SCALE"; elif [ "${w:-0}" -ge 3200 ]; then echo 2; elif [ "${w:-0}" -ge 2400 ]; then echo 1.5; else echo 1; fi
 }
-PID1=""; PID2=""
+PID0=""; PID1=""; PID2=""
+shows_app() { [ "$HDMI1" = app ] || { [ -n "$SEC" ] && [ "$HDMI2" = app ]; }; }
 start_window() {   # $1 screen number
   local n="$1" g inset what url prof X Y W H
   if [ "$n" = 1 ]; then g="$G1"; inset="$INSET1"; what="$HDMI1"; prof="$PROFILE"; else g="$G2"; inset="$INSET2"; what="$HDMI2"; prof="$PROFILE2"; fi
+  if [ "$what" != app ] && ! shows_app; then [ "$n" = 1 ] && prof="$PROFILE3"; fi   # (the app keeps its own profile, off screen)
+  if [ "$n" = 2 ] && [ "$what" = app ] && [ "$HDMI1" != app ]; then prof="$PROFILE"; fi
   url="$(url_for "$what" "$n")"; [ "$n" = 1 ] && [ -z "$url" ] && url="$(url_for app 1)"
   [ -n "$url" ] && [ -n "$g" ] || return 0
   read -r X Y W H <<<"$(rect "$g" "$inset")"
@@ -221,8 +248,19 @@ place_window() {   # move / resize a running window onto its screen (no restart,
   echo "screen $n moved to ${W}x${H}+${X}+${Y}"
 }
 
+# the app plays the tracks and pads: when no screen shows it, it still runs - in a small window off the screen
+start_engine() {
+  shows_app && return 0
+  echo "no screen shows the app - running it off screen (it plays the sound)"
+  "$BROWSER" "${FLAGS[@]}" --class="CentralControl0" --user-data-dir="$PROFILE" --window-position=-2400,-2400 --window-size=800,600 \
+    --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling \
+    "$(wrap_url "$(url_for app 0)")" &
+  PID0=$!
+}
+
 layout
 [ -z "$AUDIO_PID" ] || wait "$AUDIO_PID"
+start_engine
 start_window 1
 if [ -n "$SEC" ]; then sleep 2; start_window 2; fi
 # Chromium sometimes keeps its window a pixel short of the screen: once it is up, put it exactly in place
@@ -230,14 +268,14 @@ if [ -n "$SEC" ]; then sleep 2; start_window 2; fi
 
 # ---- keep watching: screens plugged in / swapped / unplugged, and changes made in Settings → Screens
 LAST_HDMI="$(hdmi_sig)"; LAST_CFG="$(md5sum < "$DATA/displays.json" 2>/dev/null)"
-CONTENT="$HDMI1|$HDMI2|$SCALE|$CURSOR"
+CONTENT="$HDMI1|$HDMI2|$SCALE|$CURSOR|$TOUCHKIND"
 while kill -0 "$PID1" 2>/dev/null; do
   sleep "${CC_WATCH_EVERY:-2}"
   NOW_HDMI="$(hdmi_sig)"; NOW_CFG="$(md5sum < "$DATA/displays.json" 2>/dev/null)"
   [ "$NOW_HDMI" = "$LAST_HDMI" ] && [ "$NOW_CFG" = "$LAST_CFG" ] && continue
   if [ "$NOW_CFG" != "$LAST_CFG" ]; then
     read_cfg
-    if [ "$HDMI1|$HDMI2|$SCALE|$CURSOR" != "$CONTENT" ]; then echo "what the screens show changed - restarting the windows"; break; fi
+    if [ "$HDMI1|$HDMI2|$SCALE|$CURSOR|$TOUCHKIND" != "$CONTENT" ]; then echo "what the screens show changed - restarting the windows"; break; fi
   else
     echo "screens changed: $LAST_HDMI -> $NOW_HDMI"; sleep 1.5   # let the monitor finish waking up
   fi

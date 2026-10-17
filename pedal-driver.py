@@ -152,6 +152,7 @@ DEFAULT_CONFIG = {
     },
     "tft_overlay": "none",          # none | waveshare35a | ... (System menu switches it)
     "tft_overlay_choice": "waveshare35a",
+    "touch_screen": "",             # an id from screens.json (Settings → Touch screen); "" = from tft_overlay (older versions)
     "i2s_dac": True,
 }
 
@@ -184,13 +185,63 @@ def parse_address(value):
 
 
 def screen_on(config):
+    """A small touch screen on the GPIO pins is on (the driver draws on it)."""
     return (config.get("tft_overlay") or "none") != "none"
+
+
+# ----- touch screens: screens.json (sizes, kinds, config.txt lines, the maker's driver)
+_SCREENS = {}
+LEGACY_SCREEN = {"waveshare35a": "waveshare35a", "waveshare35b": "waveshare35b", "waveshare35c": "waveshare35c", "piscreen": "rpi35-xpt2046",
+                 "tft35a": "rpi35-xpt2046", "tinylcd35": "tinylcd35", "pitft35-resistive": "pitft35"}
+
+
+def boot_id():
+    try:
+        with open("/proc/sys/kernel/random/boot_id") as fh:
+            return fh.read().strip()
+    except OSError:
+        return "boot"
+
+
+def screens_catalog(app_root):
+    path = os.path.join(app_root or os.path.dirname(os.path.abspath(__file__)), "screens.json")
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return {"groups": [], "screens": []}
+    if _SCREENS.get("mtime") != mtime:
+        data = read_json(path, {"groups": [], "screens": []})
+        _SCREENS.clear()
+        _SCREENS.update({"mtime": mtime, "data": {"groups": data.get("groups") or [], "screens": data.get("screens") or []}})
+    return _SCREENS["data"]
+
+
+def screen_by_id(app_root, sid):
+    return next((x for x in screens_catalog(app_root)["screens"] if x.get("id") == sid), None)
+
+
+def touch_screen_id(config):
+    """The touch screen picked (Settings → Touch screen), or what an older version had set ("off" = none)."""
+    sid = config.get("touch_screen")
+    if sid:
+        return sid
+    tft = config.get("tft_overlay") or "none"
+    return LEGACY_SCREEN.get(tft, "rpi35-xpt2046") if tft != "none" else "off"
+
+
+def touch_kind(config):
+    sid = touch_screen_id(config)
+    if sid == "off":
+        return "off"
+    s = screen_by_id(config.get("app_root"), sid)
+    return (s or {}).get("kind", "spi")
 
 
 def reserved_pins(config):
     pins = set(RESERVED_ALWAYS)
     if screen_on(config):
-        pins.update(RESERVED_TFT)
+        s = screen_by_id(config.get("app_root"), touch_screen_id(config))
+        pins.update((s or {}).get("pins") or RESERVED_TFT)
     return sorted(pins)
 
 
@@ -382,44 +433,83 @@ def ip_addresses():
     return [a for a in out.split() if re.match(r"^\d+\.\d+\.\d+\.\d+$", a) and not a.startswith("127.")]
 
 
+def _wifi_helper():
+    """The Wi-Fi goes through the root helper on the Central Pedal (NetworkManager does not let a background
+    service change it); on a PC or without the helper, nmcli directly."""
+    return os.path.exists(SYSTEM_SCRIPT) and sys.platform.startswith("linux")
+
+
 def wifi_status(scan=False):
-    status = {"connected": None, "signal": None, "addresses": ip_addresses(), "networks": [], "available": shutil.which("nmcli") is not None}
+    status = {"connected": None, "signal": None, "addresses": ip_addresses(), "networks": [], "available": shutil.which("nmcli") is not None,
+              "country": (open("/etc/pad-pedal/wifi-country").read().strip() if os.path.exists("/etc/pad-pedal/wifi-country") else "US"), "error": None}
     if not status["available"]:
+        status["error"] = "NetworkManager is not installed."
         return status
-    code, out, _ = run(["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "yes" if scan else "no"], timeout=30 if scan else 8)
+    if _wifi_helper():
+        code, out, err = run(["sudo", "-n", SYSTEM_SCRIPT, "wifi", "scan" if scan else "status"], timeout=40 if scan else 15)
+    else:
+        code, out, err = run(["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "yes" if scan else "no"], timeout=30 if scan else 8)
+    if code != 0:
+        status["error"] = wifi_error(err or out)
     seen = {}
-    if code == 0:
-        for line in out.splitlines():
-            parts = line.replace("\\:", "\u0000").split(":")
-            if len(parts) < 4:
-                continue
-            active, ssid, signal, security = parts[0] == "yes", parts[1].replace("\u0000", ":"), int(parts[2] or 0), parts[3]
-            if not ssid:
-                continue
-            if active:
-                status["connected"], status["signal"] = ssid, signal
-            if ssid in seen and seen[ssid]["signal"] >= signal and not active:
-                continue
-            seen[ssid] = {"ssid": ssid, "signal": signal, "security": security, "active": active}
+    for line in out.splitlines() if code == 0 else []:
+        parts = line.replace("\\:", "\u0000").split(":")
+        if len(parts) < 4:
+            continue
+        try:
+            sig = int(parts[2] or 0)
+        except ValueError:
+            continue
+        active, ssid, security = parts[0] == "yes", parts[1].replace("\u0000", ":"), parts[3]
+        if not ssid:
+            continue
+        if active:
+            status["connected"], status["signal"] = ssid, sig
+        if ssid in seen and seen[ssid]["signal"] >= sig and not active:
+            continue
+        seen[ssid] = {"ssid": ssid, "signal": sig, "security": security if security not in ("", "--") else "", "active": active}
     status["networks"] = sorted(seen.values(), key=lambda n: (-int(n["active"]), -n["signal"]))
     return status
+
+
+def wifi_error(text):
+    """nmcli's words into something a person can act on."""
+    t = (text or "").strip()
+    low = t.lower()
+    if "secrets were required" in low or "802-1x" in low or "psk: property is invalid" in low or "invalid passphrase" in low or "wrong password" in low:
+        return "Wrong password - check it (it is case-sensitive) and try again."
+    if "no network with ssid" in low:
+        return "That network was not found. Is it in range? (For a hidden network use \"Other network…\".)"
+    if "not authorized" in low or "insufficient privileges" in low or "permission" in low:
+        return "Not allowed to change the Wi-Fi - update Central Pedal (the Wi-Fi helper comes with the update)."
+    if "rfkill" in low or "radio" in low and "disabled" in low:
+        return "The Wi-Fi radio is switched off. Set the Wi-Fi country in Settings → Wi-Fi and try again."
+    if "timeout" in low or "timed out" in low:
+        return "The network did not answer in time - move closer to the router, or check the password."
+    if "ip configuration could not be reserved" in low or "dhcp" in low:
+        return "Connected, but the network gave no address (DHCP). Check the router."
+    return t.splitlines()[-1] if t else "Could not connect."
 
 
 def wifi_connect(ssid, password, hidden=False):
     if not shutil.which("nmcli"):
         return False, "NetworkManager is not available"
+    if _wifi_helper():
+        args = ["sudo", "-n", SYSTEM_SCRIPT, "wifi", "connect"] + (["hidden"] if hidden else [])
+        code, out, err = run(args, timeout=75, input="%s\n%s\n" % (ssid.replace("\n", " "), (password or "").replace("\n", "")))
+        return (True, "Connected to %s" % ssid) if code == 0 else (False, wifi_error(err or out))
     run(["nmcli", "connection", "delete", "padpedal-wifi"], timeout=10)
-    cmd = ["nmcli", "connection", "add", "type", "wifi", "con-name", "padpedal-wifi", "ifname", "wlan0", "ssid", ssid,
-           "connection.autoconnect", "yes", "connection.autoconnect-retries", "0", "connection.autoconnect-priority", "10"]
+    cmd = ["nmcli", "--wait", "45", "device", "wifi", "connect", ssid, "name", "padpedal-wifi"]
     if password:
-        cmd += ["wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password]
+        cmd += ["password", password]
     if hidden:
-        cmd += ["802-11-wireless.hidden", "yes"]
-    code, out, err = run(cmd, timeout=20)
+        cmd += ["hidden", "yes"]
+    code, out, err = run(cmd, timeout=60)
     if code != 0:
-        return False, (err or out).strip()
-    code, out, err = run(["nmcli", "connection", "up", "padpedal-wifi"], timeout=60)
-    return code == 0, (err or out).strip()
+        run(["nmcli", "connection", "delete", "padpedal-wifi"], timeout=10)
+        return False, wifi_error(err or out)
+    run(["nmcli", "connection", "modify", "padpedal-wifi", "connection.autoconnect", "yes", "connection.autoconnect-priority", "10"], timeout=10)
+    return True, "Connected to %s" % ssid
 
 
 def sound_cards():
@@ -438,7 +528,7 @@ def sound_cards():
 # what a Central Control computer may ask the Central Pedal to do: page the lyrics. Starting, stopping and
 # moving the tracks is only done on the Central Pedal.
 CU_ACTIONS = ("lyricsNext", "lyricsPrev")
-DISPLAY_KEYS = ("hdmi1", "hdmi2", "cursor", "mode1", "mode2", "scale", "inset1", "inset2")
+DISPLAY_KEYS = ("hdmi1", "hdmi2", "cursor", "mode1", "mode2", "scale", "inset1", "inset2", "touchKind")
 
 
 def connected_displays():
@@ -2179,6 +2269,9 @@ class MiniScreen:
         img = self.image
         if self.spec.get("rotate"):
             img = img.rotate(int(self.spec["rotate"]), expand=True)
+        size = self.fb_size()
+        if size and tuple(size) != img.size:   # a 320×240 screen: the same picture, scaled
+            img = img.resize(tuple(size), getattr(self.Image, "LANCZOS", 1))
         try:
             with open(self.fb, "r+b") as handle:
                 handle.write(self.to_rgb565(img))
@@ -2186,6 +2279,22 @@ class MiniScreen:
         except Exception as error:
             log.debug("framebuffer write failed (%s)", error)
             return False
+
+    def fb_size(self):
+        """The framebuffer's own size (/sys/class/graphics/fbN/virtual_size), else the picked screen's."""
+        if getattr(self, "_fb_size", None) is None:
+            size = None
+            try:
+                with open("/sys/class/graphics/%s/virtual_size" % os.path.basename(self.fb)) as fh:
+                    w, h = (int(x) for x in fh.read().strip().split(",")[:2])
+                    if w and h:
+                        size = (w, h)
+            except (OSError, ValueError):
+                pass
+            if not size and self.spec.get("fb_size"):
+                size = tuple(int(x) for x in self.spec["fb_size"][:2])
+            self._fb_size = size or (self.w, self.h)
+        return self._fb_size
 
     @staticmethod
     def to_rgb565(img):
@@ -2224,13 +2333,15 @@ class MiniScreen:
         if not usb.available:
             return
         ev = usb.evdev
-        want = (self.spec.get("touch") or "ADS7846").lower()
+        want = [w.strip().lower() for w in str(self.spec.get("touch") if self.spec.get("touch") is not None else "ADS7846").split("|") if w.strip()]
+        if not want:
+            return   # a screen without touch
         while not usb.stop_flag.is_set():
             dev = None
             try:
                 for path in ev.list_devices():
                     d = ev.InputDevice(path)
-                    if want in d.name.lower():
+                    if any(w in d.name.lower() for w in want):
                         dev = d
                         break
                     d.close()
@@ -4028,7 +4139,8 @@ class PedalDriver:
         self.charts = Charts(os.path.join(data_root, "charts"))
         self.cues = Cues(config["app_root"], data_root)
         self.library = Library(data_root)
-        self.updater = sources.Updater(os.path.join(data_root, "updates.json"), APP_VERSION, os.path.join(data_root, "updates"), api=config.get("update_api")) if sources and hasattr(sources, "Updater") else None
+        # (the player window inside Central Control updates with Central Control - it does not look for Pi updates)
+        self.updater = sources.Updater(os.path.join(data_root, "updates.json"), APP_VERSION, os.path.join(data_root, "updates"), api=config.get("update_api")) if sources and hasattr(sources, "Updater") and os.environ.get("CC_PLAYER") != "1" else None
         self.propresenter = sources.ProPresenter(os.path.join(data_root, "propresenter.json")) if sources and hasattr(sources, "ProPresenter") else None
         self.pco = sources.PlanningCenter(os.path.join(data_root, "sources.json"), config.get("pco_base") or "https://api.planningcenteronline.com") if sources else None
         self.instrument = instrument_host.InstrumentHost(self, data_root, config["app_root"]) if instrument_host else None
@@ -4149,6 +4261,8 @@ class PedalDriver:
             "screen35": screen_on(self.config),
             "screenAvailable": os.path.exists(SYSTEM_SCRIPT) or self.fb_override is not None,
             "screenOverlay": self.config.get("tft_overlay_choice") or "waveshare35a",
+            "touchScreen": touch_screen_id(self.config),
+            "touchKind": touch_kind(self.config),
             "soundCards": sound_cards(),
             "mouse": self.usb.pointer["mouse"] if self.usb else False,
             "keyboard": self.usb.pointer["keyboard"] if self.usb else False,
@@ -4688,8 +4802,55 @@ class PedalDriver:
         cfg["cards"] = chans.get("cards") or []
         return cfg
 
+    def set_touch_screen(self, sid):
+        """Settings → Touch screen: the screen's config.txt lines (and the maker's driver, downloaded), its touch panel,
+        and what HDMI 1 shows. Takes effect after a restart."""
+        s = screen_by_id(self.config.get("app_root"), sid) if sid != "off" else None
+        if sid != "off" and not s:
+            return {"ok": False, "error": "Unknown screen."}
+        if os.path.exists(SYSTEM_SCRIPT):
+            code, out, err = run(["sudo", "-n", SYSTEM_SCRIPT, "screen", sid], timeout=120)
+            if code != 0:
+                text = (err or out).strip().splitlines()
+                msg = text[-1] if text else "The screen could not be set."
+                if code == 4:
+                    msg = "Could not download this screen's driver - connect the Central Pedal to the internet (Wi-Fi or a cable) and try again."
+                return {"ok": False, "error": msg}
+        elif not self.config.get("simulated"):
+            return {"ok": False, "error": "Touch screens are set on the Central Pedal (Raspberry Pi) itself."}
+        kind = (s or {}).get("kind", "off")
+        self.config["touch_screen"] = sid
+        if sid != "off":
+            self.config["touch_screen_last"] = sid
+        if kind == "spi":
+            self.config["tft_overlay"] = sid
+            mini = dict(self.config.get("mini_screen") or {})
+            mini["touch"] = s.get("touch") or ""
+            if s.get("calibration"):
+                mini["calibration"] = s["calibration"]
+            mini["fb_size"] = s.get("res") or [480, 320]
+            self.config["mini_screen"] = mini
+        else:
+            self.config["tft_overlay"] = "none"
+        self.config["touch_screen_pending"] = boot_id()
+        self.save_config()
+        # the screens: HDMI 1 shows a copy of a small touch screen; an HDMI / ribbon touch screen is screen 1 itself
+        cfg = self.displays_config()
+        cfg["touchKind"] = kind
+        if kind == "spi" and cfg.get("hdmi1", "app") in ("app", "mini"):
+            cfg["hdmi1"] = "touch"
+        elif kind != "spi" and cfg.get("hdmi1") in ("touch", "mini"):
+            cfg["hdmi1"] = "app"
+        write_json(os.path.join(self.config["data_root"], "displays.json"), cfg)
+        log.info("touch screen: %s (%s) - after a restart", sid, kind)
+        return {"ok": True, "screen": sid, "kind": kind, "name": (s or {}).get("name", "No touch screen"), "restart": True}
+
     def displays_config(self):
-        return read_json(os.path.join(self.config["data_root"], "displays.json"), {"hdmi1": "app", "hdmi2": "lyrics", "cursor": "auto"})
+        d = read_json(os.path.join(self.config["data_root"], "displays.json"), {"hdmi2": "lyrics", "cursor": "auto"})
+        if not d.get("hdmi1"):
+            d["hdmi1"] = "touch" if touch_kind(self.config) == "spi" else "app"
+        d.setdefault("touchKind", touch_kind(self.config))
+        return d
 
     def system_status(self):
         return {
@@ -4707,6 +4868,10 @@ class PedalDriver:
             "screen35": screen_on(self.config),
             "screenAvailable": os.path.exists(SYSTEM_SCRIPT),
             "screenOverlay": self.config.get("tft_overlay_choice") or "waveshare35a",
+            "touchScreen": touch_screen_id(self.config),
+            "touchKind": touch_kind(self.config),
+            "touchScreens": screens_catalog(self.config.get("app_root")),
+            "touchScreenPending": bool(self.config.get("touch_screen_pending")) and self.config.get("touch_screen_pending") == boot_id(),
             "miniScreen": bool(self.mini and self.mini.available and self.mini.fb_present()),
             "audio": self.audio_config(),
             "soundCards": sound_cards(),
@@ -4741,10 +4906,23 @@ class PedalDriver:
                 status["wifi"] = wifi_status(scan=False)
                 self.send_to(ws, status)
                 return
-            if action == "wifi":
-                if message.get("ssid"):
-                    ok, text = wifi_connect(message["ssid"], message.get("password") or "", bool(message.get("hidden")))
-                    self.emit({"type": "wifiResult", "ok": ok, "message": text, "ssid": message["ssid"]})
+            if action == "wifiCountry":
+                cc = re.sub(r"[^A-Za-z]", "", str(value or ""))[:2].upper()
+                ok = len(cc) == 2 and _wifi_helper() and run_privileged(SYSTEM_SCRIPT, "wifi", "country", cc)
+                self.emit({"type": "wifiResult", "ok": bool(ok), "message": ("Wi-Fi country: " + cc) if ok else "Could not set the Wi-Fi country.", "country": True})
+            if action == "wifiForget":
+                if _wifi_helper():
+                    run_privileged(SYSTEM_SCRIPT, "wifi", "forget")
+                else:
+                    run(["nmcli", "connection", "delete", "padpedal-wifi"], timeout=10)
+                self.emit({"type": "wifiResult", "ok": True, "message": "Forgot the Wi-Fi network.", "forgot": True})
+            if action in ("wifi", "wifiCountry", "wifiForget"):
+                if message.get("ssid") and action == "wifi":
+                    ssid = str(message["ssid"])[:64]
+                    self.emit({"type": "wifiResult", "busy": True, "message": "Connecting to %s…" % ssid, "ssid": ssid})
+                    ok, text = wifi_connect(ssid, str(message.get("password") or "")[:128], bool(message.get("hidden")))
+                    log.info("wifi: %s %s", ssid, "connected" if ok else "failed: " + text)
+                    self.emit({"type": "wifiResult", "ok": ok, "message": text, "ssid": ssid})
                 status = self.system_status()
                 status["wifi"] = wifi_status(scan=True)
                 self.emit(status)
@@ -4761,6 +4939,12 @@ class PedalDriver:
                 cfg = {"hdmi": bool(message.get("hdmi")), "usbFirst": bool(message.get("usbFirst"))}
                 write_json(os.path.join(self.config["data_root"], "audio.json"), cfg)
                 run_privileged(SYSTEM_SCRIPT, "audio", "hdmi" if cfg["hdmi"] else "nohdmi", "usbfirst" if cfg["usbFirst"] else "jackfirst")
+            elif action == "touchScreen":
+                result = self.set_touch_screen(str(value or "off"))
+                self.emit(dict(result, type="touchScreenResult"))
+            elif action == "screen" and value in ("on", "off") and self.config.get("touch_screen"):
+                result = self.set_touch_screen(self.config.get("touch_screen_last") or "rpi35-xpt2046" if value == "on" else "off")
+                self.emit(dict(result, type="touchScreenResult"))
             elif action == "screen":
                 overlay = self.config.get("tft_overlay_choice") or "waveshare35a"
                 if value == "on":

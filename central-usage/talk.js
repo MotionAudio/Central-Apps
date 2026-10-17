@@ -4,8 +4,9 @@
  *     the interface / Dante (no delay) or this computer's own mic; on another admin computer its own mic, sent here
  *     over the network (48 kHz mono, 10 ms packets - the in-ear stream the other way round). The engine mixes it
  *     into the chosen mixes, so it reaches the wired packs and the phones / computers alike.
- *   Desk: a user (User 1 / User 2) talks to the sound desk. Their voice goes only to the desk's headphones (the
- *     listen output of the main admin and of the admins with the Mix / General job), never into anyone's in-ears.
+ *   Desk: (older Central Controls) a user talks to the main admin's headphones, never into anyone's in-ears.
+ *   From 8.3 the main admin talks to the Band / Production (talkback.js) and everyone else talks to the main admin
+ *   through the center (center.js); this file still mixes the main admin's talk into the in-ear mixes.
  * The engine has 4 talk slots (network sources 4..7); a talker holds one while talking.
  * Audio frames: "TKA1", u8 channels (1), u8 0, u16 frames, u32 rate, int16 data. */
 "use strict";
@@ -89,6 +90,7 @@ class Talk extends EventEmitter {
   changed() { this.emit("talkers", this.list()); }
   close() { clearInterval(this.watch); }
 }
-/* the desk: the main admin, and admins with the Mix (or General) job, hear the users' talkback */
-function isDesk(role, jobs) { if (role === "main") return true; if (role !== "admin") return false; const j = Array.isArray(jobs) && jobs.length ? jobs : ["general"]; return j.indexOf("mix") >= 0 || j.indexOf("general") >= 0; }
+/* the desk: only the main admin hears other people's talkback (8.3; it now goes through the center - this is for
+ * older Central Controls that still talk to the audio host) */
+function isDesk(role) { return role === "main"; }
 module.exports = { Talk, frame, parse, isDesk, SLOTS };

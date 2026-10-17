@@ -6,16 +6,19 @@ for the computer you open it on. Every release is also on the
 
 | | Central Pedal | Central Control |
 |---|---|---|
-| Raspberry Pi | the main device (below) | - |
-| Windows 10 / 11 | `central-control-<v>-win-x64.exe` | `central-usage-<v>-win-x64.exe` |
-| Mac, Apple Silicon (M1 and newer) | `central-control-<v>-mac-arm64.dmg` | `central-usage-<v>-mac-arm64.dmg` |
-| Mac, Intel | `central-control-<v>-mac-x64.dmg` | `central-usage-<v>-mac-x64.dmg` |
-| Linux | `.deb` / `.AppImage` (below) | `.deb` / `.AppImage` (below) |
-| iPhone / iPad / Android | - | web app from the Central Pedal (below) |
+| Raspberry Pi | the pedal on stage (below) | - |
+| Windows 10 / 11 | - (the player window in Central Control) | `central-usage-<v>-win-x64.exe` |
+| Mac, Apple Silicon (M1 and newer) | - | `central-usage-<v>-mac-arm64.dmg` |
+| Mac, Intel | - | `central-usage-<v>-mac-x64.dmg` |
+| Linux | - | `.deb` / `.AppImage` (below) |
+| iPhone / iPad | - | the user side (User 1 / User 2), opened from the main admin's computer (below) |
 
-**New names in 8.2:** the Raspberry Pi app is now **Central Pedal** (it was Central Control), and the companion app
-is now **Central Control** (it was Central Usage). The installer files keep their old names so every install keeps
-updating itself: `central-control-…` is Central Pedal, `central-usage-…` is Central Control.
+**Central Pedal runs only on the Raspberry Pi** (from 8.3). On a computer, the main admin's Central Control runs the
+tracks, charts and lyrics in its **player window** (Devices tab → Open the player) - the same app, built in. The
+Central Pedal for PC / Mac installs of earlier versions are no longer updated; uninstall them and use Central Control.
+
+**Names:** the installer files keep their old names so every install keeps updating itself: `central-usage-…` is
+Central Control, `central-control-source.zip` is the Central Pedal (Raspberry Pi) update.
 
 Everything you install updates itself: each app looks for a new release every time it opens (and once a day) and asks
 "Update now?" - Yes or No.
@@ -36,8 +39,8 @@ Everything you install updates itself: each app looks for a new release every ti
 3. **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to the app, confirm.
 4. Allow the microphone when asked (the audio interface, in-ears and instrument need it).
 
-If the Mac says the app *"is damaged"*, run this in Terminal. The app files keep their old names (so updates and settings
-carry on): Central Control is `Central Usage.app`, Central Pedal is `Central Control.app`:
+If the Mac says the app *"is damaged"*, run this in Terminal. The app file keeps its old name (so updates and settings
+carry on): Central Control is `Central Usage.app`:
 `xattr -dr com.apple.quarantine "/Applications/Central Usage.app"`
 
 ## iPhone, iPad and Android phones / tablets
@@ -91,19 +94,6 @@ normally installed with the app; running the line again does no harm.
 
 ---
 
-### Central Pedal on a PC (optional)
-
-The same app as on the Pi, for trying it out or building setlists on a computer.
-
-```bash
-mkdir -p ~/Downloads/central && cd ~/Downloads/central
-NEWEST=$(wget -qO- https://api.github.com/repos/MotionAudio/Central-Apps/releases/latest)
-wget -O central-control.deb "$(echo "$NEWEST" | grep -o 'https://github.com/[^"]*central-control-[0-9][^"]*amd64\.deb')"
-sudo apt install ./central-control.deb
-```
-
----
-
 ### No install: the AppImage
 
 Download the `.AppImage` from the Releases page instead of the `.deb`, then right-click it →
@@ -116,8 +106,8 @@ Download the `.AppImage` from the Releases page instead of the `.deb`, then righ
 1. **The main admin first** - Central Control on the sound desk computer: choose **Main admin**, its inputs and
    outputs, a 4-digit **pairing PIN** and its own **role PIN**. That computer is the center: keep Central Control open
    on it during the service.
-2. **Tracks, charts and lyrics:** on the main admin, Devices tab → **▶ Open the player on this computer** (the Central
-   Pedal app for PC / Mac, installed from the same download page) - or add a **Central Pedal**.
+2. **Tracks, charts and lyrics:** on the main admin, Devices tab → **▶ Open the player on this computer** (built into
+   Central Control - nothing else to install) - or add a **Central Pedal** (Raspberry Pi).
 3. **Every other computer, phone and tablet:** Admin, User 1 or User 2, and the pairing PIN.
 4. **Each Central Pedal:** type the main admin's pairing PIN on its screen. On the main admin's Devices tab pick what
    it does: **Track player**, **Foot controller** or **Instrument rig**. Add as many as you like.

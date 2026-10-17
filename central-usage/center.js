@@ -11,6 +11,9 @@
  *   http://<main admin>:8095/cu/      Central Control for phones and tablets (User 1 / User 2)
  *   http://<main admin>:8095/api/service   the run order + countdown (stage displays)
  *   UDP broadcast on 8097             "here is the center" every 2 s, so devices find it by themselves
+ *   talkback (binary "TKA1" mic frames after {type:"talk", on:true, to:"main"|"group"}): everyone talks to the main
+ *     admin's headphones; the main admin talks to the Band or the Production group (each device is in one - the
+ *     Devices tab). Relayed as "TKC1" + u8 id length + talker id + the TKA1 frame.
  *
  * Runs inside the Electron app (main.js starts it when this computer is the main admin) or on its own:
  *   node center.js --port 8095 --data <folder>      (tests) */
@@ -32,6 +35,7 @@ const JOBS = ["general", "lighting", "production", "mix", "inears", "slides"];
 //   instrument  only its own instrument rig (boards, pedals, keys sounds) - no tracks
 //   standby     keeps the song library, does not play (e.g. the main admin's player window when a pedal plays)
 const PEDAL_JOBS = ["player", "controller", "instrument", "standby"];
+const TALK_GROUPS = ["band", "production"];
 const SERVICE_ROLES = ["lighting", "production", "slides", "lyrics", "mix", "inears", "band"];
 const SERVICE_KINDS = ["song", "prayer", "welcome", "announcements", "offering", "sermon", "communion", "video", "other"];
 const BEACON_PORT = 8097;
@@ -133,7 +137,8 @@ class Center {
     const ip = String(req.socket.remoteAddress || "").replace(/^::ffff:/, "");
     const info = { id: null, auth: false, main: false, ip, loopback: ip === "127.0.0.1" || ip === "::1" };
     this.clients.set(ws, info);
-    ws.on("message", (raw) => {
+    ws.on("message", (raw, isBinary) => {
+      if (isBinary) { this.talkAudio(ws, info, raw); return; }
       let m; try { m = JSON.parse(String(raw)); } catch (_) { return; }
       let reply = null;
       try {
@@ -142,10 +147,11 @@ class Center {
         else if (m.type === "cuRole") reply = this.handle(ws, info, m);
         else if (m.type === "service") reply = this.handleService(ws, info, m);
         else if (m.type === "audioHost") reply = this.handleAudioHost(ws, info, m);
+        else if (m.type === "talk") reply = this.handleTalk(ws, info, m);
       } catch (e) { reply = { type: "cuRoleReply", ok: false, action: m.action, error: "center: " + e.message }; }
       if (reply) this.sendTo(ws, reply);
     });
-    ws.on("close", () => { if (this.audioHost && this.audioHost.ws === ws) { this.audioHost = null; this.broadcastAudioHost(); } if (info.id && this.devices[info.id]) { this.devices[info.id].lastSeen = Date.now(); this.save(); } this.clients.delete(ws); this.push(); });
+    ws.on("close", () => { if (info.talk) this.talkEnd(ws, info); if (this.audioHost && this.audioHost.ws === ws) { this.audioHost = null; this.broadcastAudioHost(); } if (info.id && this.devices[info.id]) { this.devices[info.id].lastSeen = Date.now(); this.save(); } this.clients.delete(ws); this.push(); });
     ws.on("error", () => { });
   }
   sendTo(ws, m) { try { if (ws.readyState === 1) ws.send(JSON.stringify(m)); } catch (_) { } }
@@ -204,8 +210,10 @@ class Center {
   deviceView(id) {
     const d = this.devices[id] || {}; let h = this.health[id] || null; if (h && Date.now() - h.at > 20000) h = null;
     return { id, name: d.name || "", role: d.role || null, jobs: d.jobs || ["general"], paired: !!d.paired, online: this.online(id), lastSeen: d.lastSeen || 0,
-      claimsMain: !!d.claimsMain, locked: this.isLocked(id), wantsAdmin: !!d.wantsAdmin, health: h };
+      claimsMain: !!d.claimsMain, locked: this.isLocked(id), wantsAdmin: !!d.wantsAdmin, health: h, talkGroup: this.talkGroup(id) };
   }
+  // the main admin's talkback groups: users are in the Band, admins in Production, unless the main admin moved them
+  talkGroup(id) { const d = this.devices[id] || {}; return TALK_GROUPS.includes(d.talkGroup) ? d.talkGroup : (d.role === "user1" || d.role === "user2" ? "band" : "production"); }
   claimants() {
     const out = []; if (this.main) out.push({ id: this.main.id, name: this.main.name || "", registered: true, online: this.online(this.main.id) });
     for (const [k, d] of Object.entries(this.devices)) if (d.claimsMain && (!this.main || k !== this.main.id)) out.push({ id: k, name: d.name || "", registered: false, online: this.online(k) });
@@ -228,7 +236,11 @@ class Center {
   }
   push() { for (const [ws, info] of this.clients) if (info.id) this.sendTo(ws, this.viewFor(info)); this.tellPedals(); this.emit({ type: "status" }); }
   pushMainSoon() { const now = Date.now(); if (now - this.pushAt < 500) return; this.pushAt = now; for (const [ws, info] of this.clients) if (this.isMain(info)) this.sendTo(ws, this.viewFor(info)); }
-  tick() { this.pushMainSoon(); }
+  tick() {
+    this.pushMainSoon();
+    const now = Date.now();
+    for (const [ws, c] of this.clients) if (c.talk && now - c.talk.last > 6000) this.talkEnd(ws, c);   // (a computer that went quiet mid-talk)
+  }
   locked(id) { const c = this.fails[id]; return !!(c && c[1] > Date.now()); }
   wrong(id) { const c = this.fails[id] || (this.fails[id] = [0, 0]); c[0]++; if (c[0] >= 5) { c[0] = 0; c[1] = Date.now() + 60000; } }
   setPair(pin) {
@@ -350,6 +362,11 @@ class Center {
       else return R({ ok: false, error: "No such device." });
       this.save(); this.push(); return R({ ok: true });
     }
+    if (action === "talkGroup") {
+      if (!main) return R({ ok: false, error: "Only the main admin puts devices in the Band or Production." });
+      const t = this.devices[idOf(m.target)]; if (!t || !TALK_GROUPS.includes(m.group)) return R({ ok: false, error: "No such device, or no such group." });
+      t.talkGroup = m.group; this.save(); this.push(); return R({ ok: true });
+    }
     if (action === "pedalJob") {
       if (!main) return R({ ok: false, error: "Only the main admin gives the Central Pedals their jobs." });
       if (!this.setPedalJob(idOf(m.target), m.job)) return R({ ok: false, error: "No such Central Pedal, or no such job." });
@@ -377,6 +394,47 @@ class Center {
   pedalFields(m, info) {
     const p = m.pedal || {};
     return { address: info.ip && !info.loopback ? info.ip : (p.address || info.ip), local: !!info.loopback, addresses: (p.addresses || []).slice(0, 8).map(String), port: Number(p.port) || 8080, wsPort: Number(p.wsPort) || 8081, app: clean(p.app, 20) };
+  }
+
+  // ----------------------------------------------------------------------------- talkback
+  // to:"main" - any device talks to the main admin's headphones; to:"group" - only the main admin, to the devices of
+  // the Band or Production it names (the ones without an in-ear mix of their own - the others hear it in their mix)
+  handleTalk(ws, info, m) {
+    const R = (extra) => Object.assign({ type: "talkReply", seq: m.seq }, extra);
+    if (!info.id || !this.devices[info.id]) return R({ ok: false, error: "Pair with the main admin first." });
+    if (!m.on) { this.talkEnd(ws, info); return R({ ok: true, on: false }); }
+    const name = clean(m.name) || this.devices[info.id].name || "Someone";
+    let to = [], group = null;
+    if (m.to === "group") {
+      if (!this.isMain(info)) return R({ ok: false, error: "Only the main admin talks to the Band or Production." });
+      group = TALK_GROUPS.includes(m.group) ? m.group : null; if (!group) return R({ ok: false, error: "Band or Production?" });
+      const want = new Set((Array.isArray(m.devices) ? m.devices : []).map(idOf));
+      to = Object.keys(this.devices).filter((k) => want.has(k) && k !== info.id && this.devices[k].role !== "pedal" && this.talkGroup(k) === group);
+    } else {
+      if (!this.main) return R({ ok: false, error: "There is no main admin yet." });
+      if (this.isMain(info)) return R({ ok: false, error: "That is you." });
+      to = [this.main.id];
+    }
+    if (info.talk) this.talkEnd(ws, info, true);
+    info.talk = { to, group, name, kind: m.to === "group" ? "group" : "main", since: Date.now(), last: Date.now() };
+    const online = to.filter((k) => this.online(k));
+    const note = { type: "talkFrom", on: true, id: info.id, name, group, kind: info.talk.kind };
+    for (const k of online) for (const w of this.socketsOf(k)) this.sendTo(w, note);
+    return R({ ok: true, on: true, receivers: online.length });
+  }
+  talkAudio(ws, info, raw) {
+    const t = info.talk; if (!t) return;
+    const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+    if (buf.length < 12 || buf.length > 8192 || buf.toString("latin1", 0, 4) !== "TKA1") return;
+    t.last = Date.now();
+    const id = Buffer.from(String(info.id).slice(0, 48), "latin1"), out = Buffer.concat([Buffer.from("TKC1", "latin1"), Buffer.from([id.length]), id, buf]);
+    for (const k of t.to) for (const w of this.socketsOf(k)) { try { if (w.readyState === 1 && w.bufferedAmount < 1 << 18) w.send(out, { binary: true }); } catch (_) { } }
+  }
+  talkEnd(ws, info, quiet) {
+    const t = info.talk; if (!t) return; info.talk = null;
+    if (quiet) return;
+    const note = { type: "talkFrom", on: false, id: info.id, name: t.name, group: t.group, kind: t.kind };
+    for (const k of t.to) for (const w of this.socketsOf(k)) this.sendTo(w, note);
   }
 
   // ----------------------------------------------------------------------------- the audio host (in-ears): one computer makes the mixes, every other one finds it here
@@ -434,7 +492,7 @@ class Center {
   }
 }
 
-module.exports = { Center, BEACON_PORT, PEDAL_JOBS };
+module.exports = { Center, BEACON_PORT, PEDAL_JOBS, TALK_GROUPS };
 
 // on its own: node center.js --port 8095 --data <folder> [--app <folder>] [--no-beacon]
 if (require.main === module) {

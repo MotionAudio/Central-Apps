@@ -580,6 +580,26 @@ await check("Settings → Screens: per-screen resolution (with the modes the scr
   await until(async () => { const st = JSON.parse(fs.readFileSync(path.join(tmp, "displays.json"), "utf8")); return st.inset1 === 32 && st.hdmi2 === "lyrics"; }, 4000);
   await T(() => PPShell.showTab("tracks"));
 });
+await check("Settings → Touch screen: screens by size (GPIO, HDMI, ribbon cable); picking the blue 3.5\" XPT2046 board sets it up and HDMI 1 then shows a copy of it", async () => {
+  await T(() => PPShell.showTab("settings")); await until(() => T(() => !!document.querySelector('[data-ts="pick"]')), 6000);
+  const groups = await T(() => [...document.querySelectorAll('[data-ts="pick"] optgroup')].map((g) => g.label + ":" + g.children.length));
+  assert.equal(groups.length, 3, groups.join(" | "));
+  await T(() => { const s = document.querySelector('[data-ts="pick"]'); s.value = "rpi35-xpt2046"; s.dispatchEvent(new Event("change", { bubbles: true })); });
+  assert.match(await T(() => document.querySelector(".ts-info").textContent), /built into/);
+  await T(() => document.querySelector('[data-ts="apply"]').click());
+  await until(() => T(() => /restart/i.test(document.querySelector(".ts").textContent) && !!document.querySelector('[data-ts="restart"]')), 6000);
+  await until(async () => { const st = JSON.parse(fs.readFileSync(path.join(tmp, "displays.json"), "utf8")); return st.hdmi1 === "touch" && st.touchKind === "spi"; }, 4000);
+  await until(() => T(() => document.querySelector('[data-sys="hdmi1"]') && document.querySelector('[data-sys="hdmi1"]').value === "touch"), 6000);
+  assert.ok(await T(() => [...document.querySelector('[data-sys="hdmi2"]').options].slice(0, 2).map((o) => o.value).join() === "lyrics,charts"));
+  await T(() => { const s = document.querySelector('[data-ts="pick"]'); s.value = "off"; s.dispatchEvent(new Event("change", { bubbles: true })); document.querySelector('[data-ts="apply"]').click(); });
+  await until(async () => JSON.parse(fs.readFileSync(path.join(tmp, "displays.json"), "utf8")).touchKind === "off", 4000);
+});
+await check("Settings → Wi-Fi: a failed connection says why (here: no NetworkManager on this PC), with Other network… and the country", async () => {
+  await until(() => T(() => !!document.querySelector('[data-wf="other"]') && !!document.querySelector('[data-wf="country"]')), 6000);
+  await T(() => PPFeatures.handleHardware({ type: "wifiResult", ok: false, message: "Wrong password - check it (it is case-sensitive) and try again." }));
+  await until(() => T(() => /Wrong password/.test(document.querySelector(".wf").textContent)), 3000);
+  await T(() => PPShell.showTab("tracks"));
+});
 await check("the app's own text box (the PC app has no prompt()): a pasted chord chart keeps its lines, Esc cancels", async () => {
   const text = "[Verse 1]\nA        E\nI love You Lord\n\n[Chorus]\nD         A\nAll my life You have been faithful";
   const p = T((t) => PP.ask("chart", { multiline: true }), null);
