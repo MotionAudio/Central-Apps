@@ -56,7 +56,7 @@ Download from https://motionaudio.github.io/Central-Apps/ (first-run help there 
    Wi-Fi).
 2. Use **File → Find**, or type `padpedal.local` or its IP, then **Connect**.
 3. The first time: **Join** with the main admin's pairing code (or, before there
-   is a main admin, the 4-digit code from Central Control → Settings). Later
+   is a main admin, the Central Control's pairing PIN from Central Control → Settings). Later
    computers find the Central Control by themselves.
 
 ## The audio host (Admin)

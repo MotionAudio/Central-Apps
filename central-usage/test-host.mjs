@@ -15,7 +15,7 @@ let failures = 0; async function check(label, fn) { try { await fn(); console.lo
 const until = async (fn, ms = 10000, step = 150) => { const t0 = Date.now(); let last; while (Date.now() - t0 < ms) { try { last = await fn(); if (last) return last; } catch (_) { } await new Promise((r) => setTimeout(r, step)); } throw new Error("timed out waiting for: " + String(fn).slice(6, 160)); };
 
 // ---- the Central Control
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cu-host-")); fs.mkdirSync(path.join(tmp, "media"));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cu-host-")); fs.mkdirSync(path.join(tmp, "media")); fs.writeFileSync(path.join(tmp, "code-chosen"), "1"); // the pairing PIN counts as picked (its own test is in test-integration)
 const drv = spawn("python3", [path.join(root, "pedal-driver.py"), "--simulate", tmp, "--app-root", root], { stdio: ["pipe", "pipe", "pipe"] });
 let dlog = ""; drv.stderr.on("data", (b) => { dlog += b; }); drv.stdout.on("data", (b) => { dlog += b; });
 await until(() => dlog.includes("USB/SD browser on"), 15000);

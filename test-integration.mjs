@@ -67,7 +67,7 @@ const driver = spawn("python3", [path.join(here, "pedal-driver.py"), "--simulate
 let driverLog = "";
 driver.stdout.on("data", (d) => { driverLog += d; }); driver.stderr.on("data", (d) => { driverLog += d; });
 await until(() => /listening on ws/.test(driverLog), 15000, 100);
-const code = fs.readFileSync(path.join(tmp, "code"), "utf8").trim();
+let code = fs.readFileSync(path.join(tmp, "code"), "utf8").trim();
 
 const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 820 } });
@@ -83,6 +83,37 @@ async function sim(m) { await T((m) => window.__pedalBridge.send(Object.assign({
 console.log("\nConnection and the Learn tab:");
 await check("the app is served by the driver and connects to it", async () => { await until(() => T(() => window.__pedalBridge.connected)); assert.match(await T(() => document.querySelector("#pfHw").textContent), /^Central Control 8\./); });
 await check("the driver's inputs show in the Learn tab with their pins", async () => { await T(() => PPShell.showTab("learn")); await wait(200); const txt = await T(() => document.querySelector('[data-learn="b1"] small').textContent); assert.match(txt, /GPIO 4/); assert.equal(await T(() => document.querySelectorAll("#lnBoard .ln-row").length), 22); });
+
+console.log("\nPairing PIN:");
+await check("the first start asks for a 4-digit pairing PIN, and the question cannot be closed without one", async () => {
+  await page.waitForSelector("#pinDialog[open]", { timeout: 8000 });
+  await page.keyboard.press("Escape"); await wait(200);
+  assert.ok(await T(() => document.querySelector("#pinDialog").open));
+});
+await check("a PIN that is not 4 digits is refused", async () => {
+  await page.click('#pinDialog [data-pk="1"]'); await page.click('#pinDialog [data-pk="2"]'); await page.click('#pinDialog [data-pk="ok"]');
+  assert.match(await page.textContent("#pinErr"), /4 digits/);
+  await page.click('#pinDialog [data-pk="del"]'); await page.click('#pinDialog [data-pk="del"]');
+});
+await check("the PIN picked on the screen is saved on the Central Control; devices pair with it", async () => {
+  for (const k of ["4", "8", "2", "6"]) await page.click(`#pinDialog [data-pk="${k}"]`);
+  await page.click('#pinDialog [data-pk="ok"]');
+  await page.waitForFunction(() => !document.querySelector("#pinDialog").open, null, { timeout: 5000 });
+  assert.equal(fs.readFileSync(path.join(tmp, "code"), "utf8").trim(), "4826");
+  assert.ok(fs.existsSync(path.join(tmp, "code-chosen")));
+  code = "4826";
+  const ok = await fetch("http://127.0.0.1:8080/api/action", { method: "POST", body: JSON.stringify({ name: "none", code }) }); assert.equal(ok.status, 200);
+});
+await check("Settings shows the pairing PIN and can change it", async () => {
+  await T(() => PPShell.showTab("settings")); await page.waitForSelector("#pinChange");
+  assert.match(await page.textContent("#pinSection"), /4826/);
+  await page.click("#pinChange"); await page.waitForSelector("#pinDialog[open]");
+  for (const k of ["4", "8", "2", "7"]) await page.click(`#pinDialog [data-pk="${k}"]`);
+  await page.click('#pinDialog [data-pk="ok"]'); await page.waitForFunction(() => !document.querySelector("#pinDialog").open);
+  assert.equal(fs.readFileSync(path.join(tmp, "code"), "utf8").trim(), "4827"); code = "4827";
+  assert.match(await page.textContent("#pinSection"), /4827/);
+  await T(() => PPShell.showTab("pads"));
+});
 
 console.log("\nButtons and knobs drive the pads:");
 await check("one layout: button 1 (Play all) plays the song's pad when the song has no tracks", async () => { await T(() => PPShell.showTab("pads")); await sim({ sim: "press", id: "b1" }); await until(() => T(() => __test.playingIndex() === 0)); await sim({ sim: "release", id: "b1" }); });
@@ -628,6 +659,84 @@ await check("setlists: a song changed on another Central Control updates the ope
   assert.deepEqual(await page.evaluate(() => [PP.project().songs[0].bpm, PP.project().songs[0].notes]), [77, "changed on the PC"]);
   await page.evaluate((id) => PPFeatures.emit({ type: "sync", event: "removed", id }), s.id);
   assert.ok(await page.evaluate((id) => !PP.project().songs.some((x) => x.id === id), s.id));
+});
+console.log("\nTouch select, saved setups, tuner:");
+await check("touch select: knob 3 given the job, a tap on a slider hands it to knob 3 (the tap does not move the slider)", async () => {
+  await T(() => { PPShell.showTab("pads"); PP.setPerformMode(false); PP.setSelectedPad(0, false); PPActions.mapping().k3 = { action: "touchSelect" }; PPActions.modeChanged(); const el = document.querySelector("#level"); el.value = "70"; el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); });
+  await page.waitForFunction(() => PP.currentPad().level === 70);
+  await page.click("#level", { position: { x: 8, y: 8 } });
+  await page.waitForFunction(() => PPTouchSelect.held().k3, null, { timeout: 3000 });
+  const h = await T(() => PPTouchSelect.held().k3); assert.match(h.label, /Output volume/i);
+  assert.equal(await T(() => document.querySelector("#level").value), "70");
+  assert.ok(await T(() => document.querySelector("#level").classList.contains("ts-target")));
+  assert.match(await page.textContent("#tsChip"), /Knob 3[\s\S]*Output volume/);
+});
+await check("touch select: pick-up - the knob far below the setting only shows an arrow; once it reaches the setting it takes over", async () => {
+  await sim({ sim: "knob", id: "k3", value: 0.1 });
+  await until(() => T(() => PPTouchSelect.held().k3.dir === "up"));
+  assert.equal(await T(() => PP.currentPad().level), 70);
+  assert.match(await page.textContent("#tsChip"), /turn up/);
+  await sim({ sim: "knob", id: "k3", value: 0.7 });
+  await until(() => T(() => PPTouchSelect.held().k3.caught));
+  await sim({ sim: "knob", id: "k3", value: 0.3 });
+  await until(() => T(() => Math.abs(PP.currentPad().level - 30) <= 1));   // the knob reading is smoothed: within a step
+  assert.equal(await T(() => Number(document.querySelector("#level").value)), await T(() => PP.currentPad().level));
+});
+await check("touch select: it stays until another setting is tapped; tapping that one again lets it go", async () => {
+  await sim({ sim: "knob", id: "k3", value: 0.45 }); await until(() => T(() => Math.abs(PP.currentPad().level - 45) <= 1));
+  const lv = await T(() => PP.currentPad().level);
+  await page.click("#crossfade", { position: { x: 8, y: 8 } });
+  await until(() => T(() => /Crossfade/i.test((PPTouchSelect.held().k3 || {}).label || "")));
+  assert.equal(await T(() => PPTouchSelect.held().k3.caught), false);
+  assert.equal(await T(() => PP.currentPad().level), lv);
+  await page.click("#crossfade", { position: { x: 8, y: 8 } });
+  await until(() => T(() => !PPTouchSelect.held().k3));
+  assert.ok(await T(() => document.querySelector("#tsChip").hidden));
+});
+await check("touch select on the encoder: with two touch controls, the one turned next takes the tapped setting; the encoder steps it", async () => {
+  await T(() => { PPActions.mapping().enc = { action: "touchSelectStep", press: { action: "playPauseAll" } }; PPActions.modeChanged(); });
+  const before = await T(() => PP.currentPad().level);
+  await page.click("#level", { position: { x: 8, y: 8 } });
+  await until(() => T(() => PPTouchSelect.pending()));
+  await T(() => PPActions.onControl({ id: "enc", delta: 1 }));
+  await until(() => T((b) => PP.currentPad().level === b + 1, before));
+  assert.ok(await T(() => !!PPTouchSelect.held().enc && !PPTouchSelect.held().k3));
+  await T(() => { PPTouchSelect.release(); const m = PPActions.mapping(), d = PPActions.defaults(); m.k3 = d.k3; m.enc = d.enc; PPActions.modeChanged(); });
+});
+await check("touch select is a choice for knobs, sliders and the encoder on the Configure tab", async () => {
+  await T(() => PPShell.showTab("configure")); await page.waitForSelector('#cfRows [data-input="k1"]');
+  assert.ok(await T(() => !!document.querySelector('#cfRows [data-input="k1"] select[data-cf="action"] option[value="touchSelect"]')));
+  assert.ok(await T(() => !!document.querySelector('#cfRows [data-input="enc"] select[data-cf="action"] option[value="touchSelectStep"]')));
+  assert.ok(await T(() => !document.querySelector('#cfRows [data-input="b1"] select[data-cf="action"] option[value="touchSelect"]')));
+});
+await check("saved setups: save one, change things, bring it back with one tap", async () => {
+  await T(() => { PP.setPerformance("volume", 0.8); PPSetups.save("Sunday"); PP.setPerformance("volume", 0.2); PPActions.mapping().k1 = { action: "tone" }; PPActions.modeChanged(); PPShell.showTab("settings"); });
+  await page.waitForSelector("#setupsSection [data-su-row] [data-su='apply']");
+  await page.click("#setupsSection [data-su-row] [data-su='apply']");
+  await until(() => T(() => Math.abs(PP.project().performance.volume - 0.8) < 0.01 && PPActions.mapping().k1.action === "volume"));
+});
+await check("saved setups: a song can have its own setup - picking the song brings it back; others fall back to a chosen one", async () => {
+  await T(() => { const p = PP.project(); if (p.songs.length < 2) { p.songs.push({ id: "su_a", name: "Setup song A", key: "G", bpm: 80, pad: -1, notes: "" }, { id: "su_b", name: "Setup song B", key: "D", bpm: 90, pad: -1, notes: "" }); } PPFeatures.loadSong(0); PP.setPerformance("volume", 0.3); PPSetups.save("Acoustic"); PPSetups.render(); });
+  const ids = await T(() => PP.project().songs.slice(0, 2).map((s) => s.id));
+  await page.selectOption(`#setupsSection select[data-su="song"][data-song="${ids[0]}"]`, { label: "Sunday" });
+  await page.selectOption('#setupsSection select[data-su="default"]', { label: "Acoustic" });
+  await T(() => PPFeatures.loadSong(1)); await until(() => T(() => Math.abs(PP.project().performance.volume - 0.3) < 0.01));
+  await T(() => PPFeatures.loadSong(0)); await until(() => T(() => Math.abs(PP.project().performance.volume - 0.8) < 0.01));
+  assert.match(await page.textContent("#setupsSection"), /Sunday[\s\S]*Setup song A|Sunday/);
+});
+await check("saved setups stay on this device: they are not part of the songs or setlists that sync", async () => {
+  await T(() => PP.persistNow());
+  const songs = await T(() => PP.project().songs.map((s) => Object.keys(s).join(",")).join("|")); assert.ok(!/setup/i.test(songs), songs);
+  const j = await (await fetch("http://127.0.0.1:8766/sync/setlists")).json(); assert.ok(!/Sunday|Acoustic/.test(JSON.stringify(j)));
+  await T(() => { PP.project().setupDefault = ""; });
+});
+await check("tuner: only on the Instrument tab - a footswitch brings that tab up; leaving the tab turns it off", async () => {
+  await T(() => { if (PPInstrument.kind() === "off" || PPInstrument.kind() === "keys") PPInstrument.setKind("electric"); PPShell.showTab("pads"); }); await T(() => PPActions.run("tuner"));
+  await until(() => T(() => PPShell.currentTab() === "instrument" && PPInstrument.tunerOn() && document.querySelector("#tunerOverlay").classList.contains("on")));
+  assert.ok(await T(() => !!document.querySelector("#tnMute")));
+  await T(() => PPShell.showTab("pads")); await until(() => T(() => !PPInstrument.tunerOn() && !document.querySelector("#tunerOverlay").classList.contains("on")));
+  await T(() => PPShell.showTab("instrument")); await wait(300);
+  assert.equal(await T(() => document.querySelectorAll("#inTunerBtn").length), 1);
 });
 await check("no page errors during the whole run", () => assert.deepEqual(errors.filter((e) => !/favicon/.test(e)), []));
 

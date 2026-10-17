@@ -299,6 +299,7 @@ fs.mkdirSync(path.join(mediaDir, "media", "usb-sda1", "Pads"), { recursive: true
   h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write("data", 36); h.writeUInt32LE(data.length, 40);
   fs.writeFileSync(path.join(mediaDir, "media", "usb-sda1", "Pads", "Test Pad D.wav"), Buffer.concat([h, data]));
 }
+fs.writeFileSync(path.join(mediaDir, "code-chosen"), "1");
 const py = spawn("python3", [driverPath, "--simulate", mediaDir, "--app-root", path.dirname(pagePath)], { stdio: ["pipe", "pipe", "pipe"] });
 await new Promise((resolve) => { const up = (b) => { if (String(b).includes("USB/SD browser on")) resolve(); }; py.stdout.on("data", up); py.stderr.on("data", up); setTimeout(resolve, 8000); });
 await wait(300);

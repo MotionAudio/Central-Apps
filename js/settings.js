@@ -70,7 +70,7 @@
   }
 
   // ------------------------------------------------------------- sub-navigation
-  var GROUPS = [["all", "All"], ["look", "Appearance"], ["audio", "Audio"], ["midi", "MIDI & tempo"], ["screens", "Screens"], ["network", "Wi-Fi & devices"], ["system", "System"]];
+  var GROUPS = [["all", "All"], ["look", "Appearance"], ["setups", "Saved setups"], ["audio", "Audio"], ["midi", "MIDI & tempo"], ["screens", "Screens"], ["network", "Wi-Fi & devices"], ["system", "System"]];
   var group = "all";
   function renderNav() {
     var nav = $("#stNav"); if (!nav) return;

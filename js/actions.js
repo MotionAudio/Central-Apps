@@ -128,6 +128,11 @@
   def("padLayerLevel", "Pad layer N level", "Pads", "continuous", function (a, v) { var ls = engine.layerState(), l = ls[Number(a && a.index) || 0]; if (l) engine.setLayerLevel(l.pad, v * 1.2); }, { arg: "layer" });
   def("keysLayerLevel", "Keys: layer N volume", "Instrument", "continuous", function (a, v) { var I2 = window.PPInstrument; if (!I2) return; var ls = I2.layers(), l = ls[Number(a && a.index) || 0]; if (l) { l.volume = v; window.__pedalBridge && window.__pedalBridge.send({ type: "instrument", action: "keys", keys: I2.hostConfig().keys }); PP.persistSoon(); } }, { arg: "layer" });
   def("keysLayerToggle", "Keys: layer N on / off", "Instrument", "trigger", function (a) { var I2 = window.PPInstrument; if (!I2) return; var l = I2.layers()[Number(a && a.index) || 0]; if (l) { l.on = l.on === false; window.__pedalBridge && window.__pedalBridge.send({ type: "instrument", action: "keys", keys: I2.hostConfig().keys }); PP.persistSoon(); if (window.PPShell && window.PPShell.currentTab() === "instrument") I2.render(); } }, { arg: "layer", led: function (a) { var I2 = window.PPInstrument, l = I2 && I2.layers()[Number(a && a.index) || 0]; return l && l.on !== false ? "on" : "off"; } });
+  // ---- touch select: the knob changes whatever setting was last tapped on the screen (touch-select.js)
+  function TS() { return window.PPTouchSelect; }
+  def("touchSelect", "Touch select: tap a setting on the screen, this knob changes it", "Touch select", "continuous", function (a, v, info) { if (TS() && info && info.id) TS().knob(info.id, v); });
+  def("touchSelectStep", "Encoder: touch select (tap a setting, turn to change it)", "Touch select", "step", function (a, d, info) { if (TS() && info && info.id) TS().step(info.id, d); });
+  def("touchSelectRelease", "Touch select: let go of the tapped setting", "Touch select", "trigger", function () { if (TS()) TS().release(); });
   // ---- steps (encoder turns)
   def("stepKey", "Encoder: change key", "Key", "step", function (a, d) { if (T() && T().isActive()) T().shiftKey(d); else PP.changeKey(d); });
   def("stepSong", "Encoder: change song", "Setlist", "step", function (a, d) { F.stepSong(d); });
@@ -176,8 +181,8 @@
     if (m.event === "press") { held[m.id] = { fired: false }; if (ACTIONS[e.action] && ACTIONS[e.action].kind === "trigger") run(e.action, e.args); else if (e.press) run(e.press.action, e.press.args); }
     else if (m.event === "hold") { if (e.hold) { held[m.id] = { fired: true }; run(e.hold.action, e.hold.args); } }
     else if (m.event === "release") { var a = ACTIONS[e.action]; if (a && a.release) { try { a.release(e.args || {}); } catch (_) { } } delete held[m.id]; sendLedsSoon(); }
-    else if (typeof m.value === "number") { var c = ACTIONS[e.action]; if (c && c.kind === "continuous") run(e.action, e.args, { value: clamp(m.value, 0, 1) }); }
-    else if (typeof m.delta === "number") { var s = ACTIONS[e.action]; if (s && s.kind === "step") run(e.action, e.args, { delta: m.delta < 0 ? -1 : 1 }); }
+    else if (typeof m.value === "number") { var c = ACTIONS[e.action]; if (c && c.kind === "continuous") run(e.action, e.args, { value: clamp(m.value, 0, 1), id: m.id }); }
+    else if (typeof m.delta === "number") { var s = ACTIONS[e.action]; if (s && s.kind === "step") run(e.action, e.args, { delta: m.delta < 0 ? -1 : 1, id: m.id }); }
     flash(m.id);
   }
   var flashTimers = {};

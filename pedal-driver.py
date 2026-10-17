@@ -820,7 +820,7 @@ class Library:
 
     # ----- backup / restore: a zip of everything on /data/pad-pedal -----------
     BACKUP_DIRS = ("library", "charts", "uploads", "sounds", "tts", "cues", "lighting", "setlists")
-    BACKUP_FILES = ("project.json", "hardware.json", "audio.json", "code", "settings.json", "sources.json")
+    BACKUP_FILES = ("project.json", "hardware.json", "audio.json", "code", "code-chosen", "settings.json", "sources.json")
 
     def backup(self, folder, progress=None):
         import zipfile
@@ -2139,6 +2139,33 @@ class MiniScreen:
             g.rounded_rectangle(box, 7, fill=C["on"] if on else (21, 42, 67), outline=C["line"])
             g.text((x0 + 6, y0 + bh / 2 - 8), label, font=self.small, fill=(6, 34, 24) if on else C["text"])
             hits.append((box, action))
+        ts = getattr(self.driver, "touch_select", None)
+        if ts and ts.get("label"):
+            # the touch-select knob: which setting it holds, and which way to turn to pick it up
+            g.rectangle([0, H - 42, W, H], fill=(10, 40, 30))
+            g.line([0, H - 42, W, H - 42], fill=C["accent"], width=2)
+            g.text((8, H - 38), self.clip("%s → %s" % (ts.get("knob") or "Knob", ts.get("label")), 40), font=self.font, fill=C["text"])
+            pick = ts.get("pickup")
+            sub = ("turn UP ▲ to pick it up" if pick == "up" else "turn DOWN ▼ to pick it up" if pick == "down" else str(ts.get("value") or ""))
+            g.text((8, H - 19), self.clip(sub, 48), font=self.small, fill=(255, 210, 120) if pick else C["accent"])
+        tv = getattr(self.driver, "tuner_view", None)
+        if tv and tv.get("on"):
+            # the tuner (from the Instrument tab) takes the whole small screen
+            g.rectangle([0, 0, W, H], fill=(4, 9, 16))
+            cents = tv.get("cents")
+            ok = cents is not None and abs(int(cents)) < 3
+            g.text((10, 8), "TUNER", font=self.small, fill=C["muted"])
+            g.text((W / 2 - 40, 60), str(tv.get("note") or "–"), font=self.big, fill=C["accent"] if ok else C["text"])
+            g.rectangle([30, 150, W - 30, 158], fill=C["line"])
+            g.rectangle([W / 2 - 1, 140, W / 2 + 1, 168], fill=C["muted"])
+            if cents is not None:
+                x = W / 2 + max(-50, min(50, int(cents))) / 50.0 * (W / 2 - 30)
+                g.rectangle([x - 4, 136, x + 4, 172], fill=C["accent"] if ok else (255, 180, 80))
+                g.text((W / 2 - 60, 190), "in tune" if ok else ("%+d¢ %s" % (int(cents), "sharp" if cents > 0 else "flat")), font=self.font, fill=C["accent"] if ok else (255, 210, 120))
+            box = [W - 110, H - 50, W - 10, H - 10]
+            g.rounded_rectangle(box, 8, fill=(21, 42, 67), outline=C["line"])
+            g.text((W - 98, H - 38), "DONE", font=self.font, fill=C["text"])
+            hits = [(box, {"name": "tuner"})]
         with self.lock:
             self.image = img
             self.hits = hits
@@ -3476,6 +3503,8 @@ class PedalDriver:
         self.led_bpm = 120.0
         self.sim = None
         self.code = self.load_code()
+        self.touch_select = None
+        self.tuner_view = None
 
     # ----- pairing code ----------------------------------------------------
     def load_code(self):
@@ -3499,6 +3528,32 @@ class PedalDriver:
     def code_ok(self, code):
         return str(code or "").strip() == self.code
 
+    def code_chosen(self):
+        return os.path.exists(os.path.join(self.config["data_root"], "code-chosen"))
+
+    def set_code(self, pin):
+        """The person picks the 4-digit pairing PIN (asked the first time the Central Control starts; Settings can
+        change it). It must differ from the main admin's PIN (that one changes roles in Central Usage)."""
+        pin = str(pin or "").strip()
+        if not re.match(r"^\d{4}$", pin):
+            return {"ok": False, "error": "The PIN is 4 digits."}
+        roles = getattr(self, "cu_roles", None)
+        main = roles.main if roles else None
+        if main and main.get("pinHash") and _salted(pin, main.get("pinSalt", "")) == main["pinHash"]:
+            return {"ok": False, "error": "Use a different PIN from the main admin's PIN (that one is for changing roles)."}
+        root = self.config["data_root"]
+        try:
+            os.makedirs(root, exist_ok=True)
+            with open(os.path.join(root, "code"), "w") as handle:
+                handle.write(pin)
+            with open(os.path.join(root, "code-chosen"), "w") as handle:
+                handle.write("1")
+        except OSError as error:
+            return {"ok": False, "error": "Could not save the PIN (%s)." % error}
+        changed = pin != self.code
+        self.code = pin
+        return {"ok": True, "code": pin, "changed": changed}
+
     # ----- messaging ------------------------------------------------------
     def hello(self):
         return {
@@ -3516,6 +3571,7 @@ class PedalDriver:
             "addresses": ip_addresses(),
             "interfaces": ip_interfaces(),
             "code": self.code,
+            "codeChosen": self.code_chosen(),
             "hostname": socket.gethostname(),
             "midi": bool(self.midi and self.midi.available),
             "midiOut": bool(self.midi and self.midi.available and self.midi.want_out),
@@ -3737,6 +3793,19 @@ class PedalDriver:
                 playing = [] if not isinstance(p, int) or p < 0 else [p]
             self.state["playing"] = [int(i) for i in playing]
             self.state["selected"] = int(message.get("selected", 0))
+        elif kind == "pairCode":
+            result = self.set_code(message.get("pin"))
+            self.send_to(ws, dict(result, type="pairCodeReply"))
+            if result.get("ok"):
+                log.info("pairing PIN set by the user")
+                self.emit(self.hello())
+        elif kind == "touchSelect":
+            # what a touch-select knob holds right now (shown on the 3.5" screen)
+            self.touch_select = {k: message.get(k) for k in ("knob", "label", "value", "pickup")} if message.get("label") else None
+            self.schedule_mini_render()
+        elif kind == "tunerView":
+            self.tuner_view = {k: message.get(k) for k in ("note", "cents", "on")} if message.get("on") else None
+            self.schedule_mini_render()
         elif kind == "display":
             # the heavy parts (beat grid, hits) only travel when they change; keep the last ones for late joiners
             prev = self.display or {}

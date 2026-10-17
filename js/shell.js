@@ -15,6 +15,7 @@
   var current = "pads", performBefore = null;
   function showTab(name) {
     if (["pads", "tracks", "instrument", "configure", "learn", "io", "settings"].indexOf(name) < 0) name = "pads";
+    if (current === "instrument" && name !== "instrument" && window.PPInstrument) window.PPInstrument.hide();
     if (current === "pads" && name !== "pads") performBefore = PP.isPerforming();
     current = name;
     document.querySelectorAll("[data-tab]").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); });

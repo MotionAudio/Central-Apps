@@ -98,7 +98,7 @@
       d.showModal(); inp.focus(); inp.select();
     });
   }
-  async function askCode() { var v = await askText("Pairing code (4 digits, shown in Central Control → Settings → Companion devices):", prefs.code || ""); if (v == null) return; prefs.code = v.trim(); store.set("code", prefs.code); if (prefs.code) send({ type: "auth", code: prefs.code }); }
+  async function askCode() { var v = await askText("Pairing PIN of the Central Control (the 4 digits picked on it - shown in its Settings → Wi-Fi & devices):", prefs.code || ""); if (v == null) return; prefs.code = v.trim(); store.set("code", prefs.code); if (prefs.code) send({ type: "auth", code: prefs.code }); }
   // clock sync: NTP-style; keep the lowest-latency sample
   function ping() { send({ type: "ping", t: performance.now() }); }
   function onPong(m) {

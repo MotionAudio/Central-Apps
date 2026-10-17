@@ -60,7 +60,7 @@
   CU.on("message", function (m) {
     if (m.type === "cuRoleReply") {
       var q = waiting[m.action]; if (q && q.length) q.shift()(m);
-      if (m.action === "hello" && m.needCode) { notice = "To become the main admin, enter the Central Control's code once (its Settings)."; CU.askCode().then(hello); paint(); }
+      if (m.action === "hello" && m.needCode) { notice = "To become the main admin, enter the Central Control's pairing PIN once (the 4 digits picked on it; its Settings)."; CU.askCode().then(hello); paint(); }
       return;
     }
     if (m.type === "cuRoles") {

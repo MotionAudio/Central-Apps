@@ -246,8 +246,9 @@
   </section>
   <section id="tabInstrument" class="toptab hidden" aria-label="Instrument"><div id="instrumentRoot"></div></section>
   <section id="tabConfigure" class="toptab hidden" aria-label="Configure">
-    <div class="cf-head"><h2>Configure</h2><p class="muted">What each button, knob, slider and pedal does. Two layouts: one for Pad mode, one when USE TRACKS is on.</p></div>
+    <div class="cf-head"><h2>Configure</h2><p class="muted">What each button, knob, slider and pedal does. Give a knob, slider or the encoder the <b>Touch select</b> job, then tap any setting on the screen and that knob changes it.</p></div>
     <div class="cf-head"><span class="muted" id="cfNow">One layout for everything: each button, knob and slider does the same thing whether a song has tracks or not (the pads follow the tracks). A button can also do something else when held.</span><span style="flex:1"></span><button id="cfReset">Reset to the default layout</button></div>
+    <div class="cf-head" id="cfSetup"></div>
     <div class="cf-rows" id="cfRows"></div>
     <p class="muted">Buttons: the first action happens on press, the hold action after holding for a second. Knobs / sliders / expression: pick a continuous control. Encoder: a step action for turning, plus press and hold actions. Learned USB and MIDI inputs appear here too.</p>
   </section>
@@ -300,6 +301,8 @@
     <div class="cf-head"><h2>Settings</h2><p class="muted" id="sysInfo">Central Control</p><span style="flex:1"></span><div class="st-nav" id="stNav"></div></div>
     <div class="sys-grid" id="systemDialog">
       <section data-st="look"><h3>Appearance</h3><p class="muted">Colour presets, or pick your own. Saved with the project.</p><div class="theme-presets" id="themePresets"></div><div class="theme-grid"><label>Background<input data-theme="bg" type="color"></label><label>Panels<input data-theme="panel" type="color"></label><label>Text<input data-theme="text" type="color"></label><label>Accent<input data-theme="accent" type="color"></label><label>Blue accent<input data-theme="blue" type="color"></label><label>Lines<input data-theme="line" type="color"></label></div><label>Interface size<select id="uiScale"><option value="0.9">Small</option><option value="1" selected>Normal</option><option value="1.12">Large</option><option value="1.25">Extra large (touch)</option></select></label></section><section data-st="look" class="wide"><h3>Colours of everything</h3><p class="muted">Every screen colour, the standard section colours (used on the waveform, the section buttons, the stage display and in Central Usage) and a colour for each pad.</p><div id="colorsAll"></div></section>
+      <section data-st="setups" class="wide" id="setupsSection"></section>
+      <section data-st="network" id="pinSection"></section>
       <section data-st="audio"><h3>Audio engine</h3><label>Sample rate<select id="audioRate"><option value="0">Device default</option><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option><option value="96000">96 kHz</option></select></label><label>Latency<select id="audioLatency"><option value="interactive">Lowest (live playing)</option><option value="balanced">Balanced</option><option value="playback">Safest (long buffers)</option></select></label><p class="muted" id="audioInfo">—</p><p class="muted">Sample rate and latency apply when the audio engine next starts (press Apply to restart it now).</p><button id="audioApply">Apply and restart the audio engine</button></section>
       <section data-st="audio" class="wide"><h3>Output routing</h3><p class="muted">Four mono outputs by default: 1 tracks · 2 pads · 3 click + MD voice · 4 instrument. Pick any output channel for each; stereo pairs are also possible.</p><div id="routingMatrix"></div></section>
       <section data-st="system" class="wide" id="ppSection"><h3>ProPresenter</h3><p class="muted">Lyrics slides follow the music: each section can show a slide (song editor → Sections → <b>slide</b>: a number, or "next"), and choosing a song can bring up its presentation from the ProPresenter library. In ProPresenter 7: Settings → Network → Enable network; use that computer's IP address and port here.</p>
@@ -326,6 +329,9 @@
   <script src="js/tracks.js"></script>
   <script src="js/actions.js"></script>
   <script src="js/configure.js"></script>
+  <script src="js/touch-select.js"></script>
+  <script src="js/setups.js"></script>
+  <script src="js/pair-pin.js"></script>
   <script src="js/chords.js"></script>
   <script src="js/notation.js"></script>
   <script src="js/parts.js"></script>

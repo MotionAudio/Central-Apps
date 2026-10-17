@@ -314,3 +314,21 @@ dialog.pp-ask .row { display: flex; justify-content: flex-end; gap: 8px; margin-
 .sync-ask { max-width: 520px; } .sync-ask-opts { display: grid; gap: 8px; margin: 12px 0; } .sync-ask-opts button { display: grid; gap: 3px; text-align: left; padding: 12px 14px; width: 100%; } .sync-ask-opts small { color: var(--muted); font-weight: 400; }
 .sync-ask .row { display: flex; gap: 8px; justify-content: flex-end; } .sync-ask input { width: 100%; } button.danger { border-color: var(--danger, #ff7878); color: var(--danger, #ff7878); }
 #syncLine { margin-top: 8px; } .sync-note a, #syncLine a { color: var(--accent); }
+
+/* ---- v8.1: touch select, saved setups, pairing PIN */
+.ts-target { outline: 3px solid var(--accent) !important; outline-offset: 3px; border-radius: 6px; box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 25%, transparent); }
+.ts-chip { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 190; display: grid; gap: 6px; max-width: min(720px, calc(100vw - 24px)); }
+.ts-chip[hidden] { display: none; }
+.ts-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; background: var(--panel); border: 2px solid var(--accent); box-shadow: 0 8px 26px rgba(0, 0, 0, .45); }
+.ts-row small { color: var(--accent); font-weight: 700; white-space: nowrap; }
+.ts-row b { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-row .ts-sub { color: var(--muted, #9bb2c9); white-space: nowrap; margin-left: auto; }
+.ts-row.pick { border-color: var(--meterMid, #ffb45c); } .ts-row.pick .ts-sub { color: var(--meterMid, #ffb45c); font-weight: 700; }
+.ts-row button { padding: 4px 10px; }
+.su-bar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 8px 0; }
+.su-bar label { display: grid; gap: 3px; } .su-bar select { min-width: 180px; }
+.su-table { width: 100%; border-collapse: collapse; margin: 8px 0; } .su-table td, .su-table th { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+.su-table tr.on td:first-child input { border-color: var(--accent); } .su-songs { margin-top: 8px; }
+.pin-dialog { max-width: 420px; text-align: center; } .pin-dialog .pin-value { font-size: 30px; letter-spacing: 14px; text-align: center; width: 190px; margin: 6px auto; display: block; }
+.pin-dots { display: flex; justify-content: center; gap: 12px; margin: 6px 0 12px; } .pin-dots i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); } .pin-dots i.on { background: var(--accent); border-color: var(--accent); }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; } .pin-pad button { font-size: 22px; padding: 14px 0; }

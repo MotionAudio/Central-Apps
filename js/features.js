@@ -75,6 +75,7 @@
     var p = project(); index = clamp(index, -1, p.songs.length - 1); p.songIndex = index;
     var song = p.songs[index], playing = engine.playingIndexes();
     applyPadSet(song);
+    if (window.PPSetups) window.PPSetups.onSong(song);
     if (song && !clockFollowing()) setTempo(song.bpm, "song");
     if (song && song.pad >= 0) PP.setSelectedPad(song.pad, playing.length > 0);
     else if (playing.length) engine.playPad(playing[0]); // same pad, crossfades into the song's key

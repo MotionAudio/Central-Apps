@@ -40,6 +40,21 @@ Control plays, stops and skips the tracks.
   chart with the chords on the right words.
 - **Central Usage roles**: one main admin with a PIN and a pairing code, admins
   with jobs (lighting, production, mix, in-ears, slides), User 1 and User 2.
+- **Touch select**: give any knob, slider or the encoder the *Touch select* job
+  (Configure). Tap any setting on the screen - a pedal's knob, a fader, the pad
+  sound - and that knob changes it. It picks up from where the setting is (an
+  arrow says which way to turn), stays until you tap something else, and the
+  3.5-inch screen shows what it holds.
+- **Saved setups**: save the buttons / knobs jobs, volume / tone / reverb /
+  fade, the instrument (boards, pedals, keys), textures, colours and projector
+  look under a name ("Sunday", "Youth night") and bring them back with one tap;
+  each song can have its own setup. Setups stay on that device - songs, tracks
+  and setlists are what sync.
+- **Pairing PIN**: the first time a Central Control starts, you pick its 4-digit
+  pairing PIN (Settings → Wi-Fi & devices changes it). It is separate from the
+  main admin's PIN in Central Usage.
+- **Tuner** on the Instrument tab: one button (or a footswitch, which opens the
+  tab), mute or keep playing while tuning, and it shows on the 3.5-inch screen.
 - **iPhone and iPad**: Central Usage opens from the Central Control at
   `http://padpedal.local:8080/cu/` (Add to Home Screen).
 
@@ -489,8 +504,8 @@ The pin map lives in `/data/pad-pedal/hardware.json` (the Learn tab writes it);
   then *Calibrate touch*.
 - **Phones, tablets, Macs** on the same Wi-Fi: open `http://padpedal.local:8080`
   (or scan the QR code in Settings). Pages: chord charts (follows the song),
-  lyrics, remote, upload. The 4-digit pairing code shown in Settings is needed
-  to control anything; viewing is free.
+  lyrics, remote, upload. The 4-digit pairing PIN (picked the first time the
+  Central Control starts, shown in Settings) is needed to control anything; viewing is free.
 - **Central Usage** (Linux desktop app, `central-usage/`): chord chart
   transposed for the player's instrument (guitar shapes + capo, B♭ / E♭ / F
   horns, Nashville numbers), lyrics, and **lighting**: a built-in light

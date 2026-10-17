@@ -113,7 +113,7 @@
           '<label>Input gain <span class="control-line"><input type="range" id="inGain" min="-20" max="40" step="1" value="' + c.input.gain + '"><output>' + c.input.gain + ' dB</output></span></label><label>Noise gate <span class="control-line"><input type="range" id="inGate" min="-90" max="-20" step="1" value="' + c.input.gate + '"><output>' + c.input.gate + " dB</output></span></label>" :
           '<label>MIDI keyboard<select id="inMidi"><option value="auto">Auto (any USB MIDI)</option>' + catalog.midi.map(function (m) { return '<option value="' + esc(m) + '"' + (c.keys.midi === m ? " selected" : "") + ">" + esc(m) + "</option>"; }).join("") + '</select></label><label>Transpose <span class="control-line"><input type="range" id="inTranspose" min="-12" max="12" step="1" value="' + (c.keys.transpose || 0) + '"><output>' + (c.keys.transpose || 0) + '</output></span></label><label>Velocity<select id="inVel">' + [["soft", "Soft touch"], ["normal", "Normal"], ["hard", "Hard"], ["fixed", "Fixed (organ)"]].map(function (o) { return '<option value="' + o[0] + '"' + (c.keys.velocity === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>") +
         '<label>Output level <span class="control-line"><input type="range" id="inOut" min="-40" max="12" step="1" value="' + c.output.level + '"><output>' + c.output.level + ' dB</output></span></label>' +
-        '<div class="in-meter"><small>IN</small><div class="vu-bar"><i id="inVu" style="width:100%"></i></div><b id="inTuner">–</b></div><button class="pf-btn" id="inTunerBtn" title="Full-screen tuner (mutes the instrument)"><small>TUNE</small><b>TUNER</b></button><button class="pf-btn" id="inAuto" title="Sets input gain and gate from what you play and detects the instrument"><small>SET UP</small><b>AUTO</b></button><button class="pf-btn' + (tunerOn ? " on" : "") + '" id="inTunerBtn"><small>MUTE &amp;</small><b>TUNE</b></button></div>' +
+        '<div class="in-meter"><small>IN</small><div class="vu-bar"><i id="inVu" style="width:100%"></i></div><b id="inTuner">–</b></div><button class="pf-btn" id="inAuto" title="Sets input gain and gate from what you play and detects the instrument"><small>SET UP</small><b>AUTO</b></button><button class="pf-btn' + (tunerOn ? " on" : "") + '" id="inTunerBtn" title="Full-screen tuner for the instrument input"><small>' + (cfg().tunerMute === false ? "LIVE" : "MUTE &amp;") + '</small><b>TUNE</b></button></div>' +
         (k === "keys" ? keysPanel(c) : "") +
         '<div class="in-boardwrap"><div class="pb-chain" id="pbChain">' + chain.map(function (item, i) { var pedal = PED.byId(item.pedal); return pedal ? '<div class="pb-slot" data-slot="' + item.uid + '">' + pedalSvg(item, pedal, i, selected === item.uid) + '<div class="pb-tools"><button data-move="' + item.uid + ':-1" title="Move left">◀</button><button data-del="' + item.uid + '" title="Remove">✕</button><button data-move="' + item.uid + ':1" title="Move right">▶</button></div></div>' : ""; }).join("") + '<button class="pb-add" id="pbAdd">＋<small>Add pedal</small></button></div></div>' +
         (selected ? detailPanel(chain.filter(function (i) { return i.uid === selected; })[0]) : '<p class="muted">Tap a pedal to edit its knobs; tap its footswitch to bypass it. Footswitches on the board can do the same (Configure tab → "Pedal 1…8 on / off").</p>') +
@@ -279,7 +279,6 @@
       if (b.id === "inAuto") { autoSetup(); return; }
       if (b.id === "inTunerBtn") { toggleTuner(); return; }
       if (b.id === "keysAdd") { addSounds(); return; }
-      if (b.id === "inTunerBtn") { toggleTuner(); return; }
     });
     root.addEventListener("input", function (e) {
       var el = e.target, c = cfg(), k = kind(), out = el.parentNode && el.parentNode.querySelector("output");
@@ -328,7 +327,7 @@
     F.on("hello", function () { send({ type: "instrument", action: "status" }); setTimeout(function () { if (kind() !== "off") apply("connect"); }, 600); });
   }
   function show() { send({ type: "instrument", action: "status" }); render(); }
-  function hide() { stopMeter(); }
+  function hide() { if (tunerOn) toggleTuner(false); stopMeter(); }
   // ---- control-surface actions (Configure tab)
   function togglePedal(index) { var it = chainFor(kind())[index]; if (!it) return false; it.on = it.on === false; send({ type: "instrument", action: "bypass", uid: it.uid, on: it.on }); PP.persistSoon(); if (onTab()) render(); return true; }
   function pedalOn(index) { var it = chainFor(kind())[index]; return it ? it.on !== false : false; }
@@ -378,16 +377,20 @@
   function tunerBox() {
     var el = document.getElementById("tunerOverlay"); if (el) return el;
     el = document.createElement("div"); el.id = "tunerOverlay"; el.className = "tuner-overlay";
-    el.innerHTML = '<div class="tn-card"><small>TUNER · instrument muted</small><b class="tn-note">–</b><div class="tn-scale"><i class="tn-needle"></i><span class="tn-mid"></span></div><div class="tn-cents">play one string</div><div class="tn-ref"><span>A4 =</span> <input id="tnRef" type="number" min="425" max="455" step="1"> Hz</div><button class="primary" id="tnClose">Done (tuner off)</button></div>';
+    el.innerHTML = '<div class="tn-card"><small>TUNER · instrument muted</small><b class="tn-note">–</b><div class="tn-scale"><i class="tn-needle"></i><span class="tn-mid"></span></div><div class="tn-cents">play one string</div><div class="tn-ref"><span>A4 =</span> <input id="tnRef" type="number" min="425" max="455" step="1"> Hz</div><label class="toggle tn-mute"><input type="checkbox" id="tnMute"> Mute the instrument while tuning</label><button class="primary" id="tnClose">Done (tuner off)</button></div>';
     document.body.appendChild(el);
     el.querySelector("#tnRef").value = cfg().tunerRef || 440;
+    el.querySelector("#tnMute").checked = cfg().tunerMute !== false;
     el.addEventListener("click", function (e) { if (e.target.id === "tnClose") toggleTuner(); });
-    el.addEventListener("change", function (e) { if (e.target.id === "tnRef") { cfg().tunerRef = clamp(Number(e.target.value) || 440, 425, 455); PP.persistSoon(); } });
+    el.addEventListener("change", function (e) {
+      if (e.target.id === "tnRef") { cfg().tunerRef = clamp(Number(e.target.value) || 440, 425, 455); PP.persistSoon(); }
+      if (e.target.id === "tnMute") { cfg().tunerMute = e.target.checked; PP.persistSoon(); if (tunerOn) send({ type: "instrument", action: "level", levelDb: e.target.checked ? -120 : (cfg().output.level || 0) }); el.querySelector("small").textContent = e.target.checked ? "TUNER · instrument muted" : "TUNER · instrument still playing"; }
+    });
     return el;
   }
   function tunerShow(f) {
     var el = tunerBox(), note = el.querySelector(".tn-note"), needle = el.querySelector(".tn-needle"), cl = el.querySelector(".tn-cents");
-    if (!f) { el.classList.remove("intune"); return; }
+    if (!f) { el.classList.remove("intune"); miniTuner(null); return; }
     var ref = cfg().tunerRef || 440, midi = 69 + 12 * Math.log2(f / ref);
     tunerSmooth = tunerSmooth == null || Math.abs(tunerSmooth - midi) > 0.6 ? midi : tunerSmooth * 0.7 + midi * 0.3;
     var n = Math.round(tunerSmooth), cents = Math.round((tunerSmooth - n) * 100);
@@ -395,10 +398,20 @@
     needle.style.left = (50 + clamp(cents, -50, 50)) + "%";
     cl.textContent = Math.abs(cents) < 3 ? "in tune" : (cents > 0 ? "+" + cents + "¢ sharp - tune down" : cents + "¢ flat - tune up");
     el.classList.toggle("intune", Math.abs(cents) < 3); el.classList.toggle("sharp", cents >= 3); el.classList.toggle("flat", cents <= -3);
+    miniTuner(note.textContent, cents);
   }
-  function toggleTuner() {
-    tunerOn = !tunerOn; send({ type: "instrument", action: "level", levelDb: tunerOn ? -120 : (cfg().output.level || 0) });
+  // the 3.5" screen shows the tuner too while it is up (a few times a second)
+  var miniAt = 0;
+  function miniTuner(note, cents) { var now = performance.now(); if (now - miniAt < 200) return; miniAt = now; send({ type: "tunerView", on: tunerOn, note: note || "–", cents: note ? cents : null }); }
+  // the tuner lives on the Instrument tab: a footswitch brings that tab up; leaving the tab turns the tuner off
+  function toggleTuner(force) {
+    var want = typeof force === "boolean" ? force : !tunerOn; if (want === tunerOn) return tunerOn;
+    if (want && window.PPShell && window.PPShell.currentTab() !== "instrument") window.PPShell.showTab("instrument");
+    tunerOn = want;
+    if (cfg().tunerMute !== false || !tunerOn) send({ type: "instrument", action: "level", levelDb: tunerOn ? -120 : (cfg().output.level || 0) });
     var box = tunerBox(); box.classList.toggle("on", tunerOn); tunerSmooth = null;
+    box.querySelector("small").textContent = cfg().tunerMute !== false ? "TUNER · instrument muted" : "TUNER · instrument still playing";
+    miniAt = 0; send({ type: "tunerView", on: tunerOn, note: "–", cents: null });
     if (tunerOn) startMeter(); else if (!onTab()) stopMeter();
     if (onTab()) render(); if (window.PPActions) window.PPActions.sendLeds(); return tunerOn;
   }
