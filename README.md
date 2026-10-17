@@ -82,6 +82,8 @@ kept in a library on the Pi · lighting in Central Usage.
 
 ## Quick start
 
+**Just want to install the apps from GitHub?** Copy-paste commands are in [INSTALL.md](INSTALL.md).
+
 1. **Build the OS image** on your Ubuntu PC (40–60 minutes the first time, needs internet and ~15 GB free):
 
    ```bash
