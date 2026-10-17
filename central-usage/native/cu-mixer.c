@@ -1,40 +1,67 @@
 /* cu-mixer - the audio engine of Central Usage (the audio host computer).
  *
- *  Inputs (up to 128): the audio interface's inputs, and the Central Control's channels that arrive over
- *  the network (each track on its own channel, click, pads, instrument).
+ *  Inputs (up to 128): the audio interface's (or Dante's) inputs, and the Central Control's channels that
+ *  arrive over the network (each track on its own channel, click, pads, instrument).
  *  Each input: trim, polarity, high-pass, 3-band EQ (low shelf, bell, high shelf), compressor, then
- *    - the main mix (fader, pan, mute)          -> two interface outputs (the tracks summed out over USB)
- *    - a direct output (pre or post fader)      -> any interface output (each track on its own USB output)
- *    - 48 in-ear mixes (level and pan per mix)  -> interface outputs (packs), or back over Wi-Fi
+ *    - the main mix (fader, pan, mute)          -> two outputs (the tracks summed out over USB)
+ *    - a direct output (pre or post fader)      -> any output (each track on its own USB output)
+ *    - 64 stereo in-ear mixes (level, pan)      -> a wired output pair (in-ear transmitters in the rack)
+ *                                                  and / or back over the network ("local")
  *  Every mix has a level, mute and a limiter; any mix (and the main mix) can be "tapped": its audio comes
- *  back to Central Usage (Wi-Fi in-ears, listening on the laptop, recording, the live waveform).
+ *  back to Central Usage (network in-ears, listening on the laptop, recording, the live waveform).
  *  Meters, 3-band levels and onsets (the lights react to the music) come back 20 times a second.
  *
- *  Audio runs through JACK (PipeWire's JACK on current Linux: start it with pw-jack). With no JACK it runs
- *  on its own clock: the network channels still mix, tap and meter (Wi-Fi in-ears work without an interface).
+ *  Audio backends:
+ *    jack      Linux: JACK (PipeWire's JACK: start the engine with pw-jack). JACK already joins several cards.
+ *    miniaudio Windows (WASAPI), macOS (Core Audio), Linux (ALSA / PulseAudio) - several devices at once:
+ *              --capture "Dante Virtual Soundcard|Focusrite" puts both devices' inputs one after the other
+ *              into the 128 inputs (the same for --playback). The first device is the clock; every other
+ *              one goes through a buffer with drift correction (like the network channels).
+ *              "name#16" asks a device for 16 channels.
+ *    null      miniaudio's null devices (no sound card; for tests)
+ *    internal  no device at all: its own clock (network channels still mix, tap and meter)
+ *  --backend auto: jack, then internal on Linux; miniaudio, then internal on Windows / macOS.
  *
  *  stdin / stdout carry framed messages: u8 type, u32 length (little endian), payload.
  *    in : 'J' a JSON command (one object)        'N' network audio: u8 source, u8 channels, u16 frames, int16 data
- *    out: 'J' a JSON event (status, meters)      'A' tap audio: u8 tap (0 main, 1..48 mixes), u16 frames, int16 stereo
+ *    out: 'J' a JSON event (status, meters)      'A' tap audio: u8 tap (0 main, 1..64 mixes), u16 frames, int16 stereo
  *
- *  cc -O2 -o cu-mixer cu-mixer.c -lm -ldl -lpthread           (no JACK headers needed: libjack is loaded at run time)
+ *  Linux / macOS: cc -O2 -o cu-mixer cu-mixer.c -lm -ldl -lpthread   (macOS: + -framework CoreAudio ...)
+ *  Windows:       x86_64-w64-mingw32-gcc -O2 -o cu-mixer.exe cu-mixer.c -lole32 -lwinmm
+ *  (No JACK headers needed: libjack is loaded at run time.)
  */
+#ifndef _WIN32
 #define _GNU_SOURCE
-#include <dlfcn.h>
-#include <errno.h>
+#endif
+#define _USE_MATH_DEFINES
 #include <math.h>
-#include <pthread.h>
-#include <signal.h>
 #include <stdatomic.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <unistd.h>
+#include <ctype.h>
+#include "plat.h"
+
+#define MA_NO_DECODING
+#define MA_NO_ENCODING
+#define MA_NO_GENERATION
+#define MA_NO_RESOURCE_MANAGER
+#define MA_NO_NODE_GRAPH
+#define MA_NO_ENGINE
+#define MINIAUDIO_IMPLEMENTATION
+#include "vendor/miniaudio.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+#ifndef M_SQRT2
+#define M_SQRT2 1.41421356237309504880
+#endif
 
 #define MAXIN 128
-#define MAXMIX 48
+#define MAXMIX 64
 #define MAXOUT 128
 #define MAXNET 4
 #define MAXNETCH 40
@@ -43,6 +70,7 @@
 #define TAPFRAMES 960          /* 20 ms at 48 kHz per tap message */
 #define CMDRING 4096
 #define OUTRING (8 << 20)
+#define MAXDEV 8               /* devices per direction */
 
 /* ------------------------------------------------------------------ JACK, loaded at run time */
 typedef uint32_t jack_nframes_t;
@@ -70,10 +98,16 @@ static struct {
 } J;
 static void *jlib;
 static int load_jack(void) {
+#ifdef _WIN32
+  const char *names[] = { "libjack64.dll", NULL };
+#elif defined(__APPLE__)
+  const char *names[] = { "/usr/local/lib/libjack.0.dylib", "/opt/homebrew/lib/libjack.0.dylib", "libjack.0.dylib", NULL };
+#else
   const char *names[] = { "libjack.so.0", "libjack.so", NULL };
-  for (int i = 0; names[i] && !jlib; i++) jlib = dlopen(names[i], RTLD_NOW | RTLD_LOCAL);
+#endif
+  for (int i = 0; names[i] && !jlib; i++) jlib = pl_dlopen(names[i]);
   if (!jlib) return 0;
-#define SYM(f, n) if (!(*(void **)&J.f = dlsym(jlib, n))) return 0
+#define SYM(f, n) if (!(*(void **)&J.f = pl_dlsym(jlib, n))) return 0
   SYM(client_open, "jack_client_open"); SYM(client_close, "jack_client_close"); SYM(set_process_callback, "jack_set_process_callback");
   SYM(on_shutdown, "jack_on_shutdown"); SYM(set_xrun_callback, "jack_set_xrun_callback"); SYM(activate, "jack_activate");
   SYM(port_register, "jack_port_register"); SYM(port_get_buffer, "jack_port_get_buffer"); SYM(get_ports, "jack_get_ports");
@@ -131,7 +165,7 @@ static float limCeil = 0.89f;          /* -1 dBFS */
 typedef struct { int kind, a, b; float f[24]; Input input; float *ptr; } Cmd;
 static Cmd cmds[CMDRING]; static _Atomic unsigned cmdW, cmdR;
 static uint8_t *outRing; static _Atomic uint64_t outW, outR;
-static pthread_mutex_t outLock = PTHREAD_MUTEX_INITIALIZER; static pthread_cond_t outCond = PTHREAD_COND_INITIALIZER;
+static pl_mutex outLock; static pl_cond outCond;
 
 static int push_cmd(Cmd *c) { unsigned w = atomic_load(&cmdW), r = atomic_load(&cmdR); if (w - r >= CMDRING) return 0; cmds[w % CMDRING] = *c; atomic_store(&cmdW, w + 1); return 1; }
 static void out_write(const void *data, size_t n) {   /* real-time side: drops when the ring is full */
@@ -144,7 +178,7 @@ static void out_msg(uint8_t type, const void *a, uint32_t na, const void *b, uin
   uint64_t w = atomic_load(&outW), r = atomic_load(&outR); if (w - r + 5 + na + nb > OUTRING) return;
   out_write(h, 5); if (na) out_write(a, na); if (nb) out_write(b, nb);
 }
-static void wake_writer(void) { pthread_cond_signal(&outCond); }
+static void wake_writer(void) { pl_cond_signal(&outCond); }
 
 /* ------------------------------------------------------------------ JSON in (flat objects, numbers, number arrays, strings) */
 static const char *jkey(const char *js, const char *key) { char pat[64]; snprintf(pat, sizeof pat, "\"%s\"", key); const char *p = strstr(js, pat); if (!p) return NULL; p += strlen(pat); while (*p == ' ' || *p == ':') p++; return p; }
@@ -153,7 +187,9 @@ static int jarr(const char *js, const char *key, float *out, int max) { const ch
 static int jstr(const char *js, const char *key, char *out, int max) { const char *p = jkey(js, key); if (!p || *p != '"') return 0; p++; int n = 0; while (*p && *p != '"' && n < max - 1) { if (*p == '\\' && p[1]) p++; out[n++] = *p++; } out[n] = 0; return 1; }
 static float db2lin(double db) { return db <= -90 ? 0 : (float)pow(10, db / 20); }
 
-enum { C_INPUT = 1, C_SEND, C_MIX, C_MAIN, C_NET, C_ANALYSIS, C_CLEARSENDS };
+enum { C_INPUT = 1, C_SEND, C_MIX, C_MAIN, C_NET, C_ANALYSIS, C_CLEARSENDS, C_TESTGEN };
+/* a test tone on an interface input (the test suite checks how several devices' channels are combined) */
+static struct { float freq, level; double ph; } tg[MAXIN]; static float tgbuf[MAXBLOCK];
 static void pan_gains(float g, float pan, float *L, float *R) { double a = (pan + 1) * M_PI / 4; *L = (float)(g * cos(a) * M_SQRT2); *R = (float)(g * sin(a) * M_SQRT2); if (*L > g) *L = g; if (*R > g) *R = g; }
 
 static void command(const char *js) {
@@ -186,6 +222,7 @@ static void command(const char *js) {
     c.f[0] = (float)jnum(js, "rate", 48000); c.f[1] = (float)jnum(js, "latency", 60);
     if (c.b > 0 && !net[s].ring) c.ptr = calloc((size_t)MAXNETCH * NETRING, sizeof(float));   /* allocated here, not on the audio thread */
   } else if (!strcmp(cmd, "analysis")) { c.kind = C_ANALYSIS; c.a = (int)jnum(js, "src", 0);
+  } else if (!strcmp(cmd, "testgen")) { c.kind = C_TESTGEN; c.a = (int)jnum(js, "ch", -1); if (c.a < 0 || c.a >= MAXIN) return; c.f[0] = (float)jnum(js, "freq", 440); c.f[1] = (float)jnum(js, "level", 0);
   } else if (!strcmp(cmd, "quit")) { running = 0; return;
   } else return;
   push_cmd(&c);
@@ -215,6 +252,7 @@ static void apply_cmds(void) {
       n->channels = c->b; n->rate = c->f[0] > 1000 ? c->f[0] : 48000; n->target = c->f[1] * n->rate / 1000; n->used = c->b > 0 && n->ring;
       n->primed = 0; n->ratio = n->rate / FS;
     } else if (c->kind == C_ANALYSIS) analysisSrc = c->a;
+    else if (c->kind == C_TESTGEN) { tg[c->a].freq = c->f[0]; tg[c->a].level = c->f[1]; }
     r++;
   }
   atomic_store(&cmdR, r);
@@ -267,7 +305,10 @@ static void process(int frames, float **ins, float **outs) {
   const float gstep = 1.0f / 256;   /* gain glide per sample */
   for (int i = 0; i < MAXIN; i++) {
     Input *x = &in[i]; const float *src = NULL;
-    if (x->src == 1 && x->ch >= 0 && x->ch < nIn && ins) src = ins[x->ch];
+    if (x->src == 1 && x->ch >= 0 && x->ch < nIn && ins) {
+      src = ins[x->ch];
+      if (tg[x->ch].level > 0) { double w = 2 * M_PI * tg[x->ch].freq / FS; for (int f = 0; f < frames; f++) { tgbuf[f] = src[f] + tg[x->ch].level * (float)sin(tg[x->ch].ph); tg[x->ch].ph += w; } if (tg[x->ch].ph > 1e6) tg[x->ch].ph = fmod(tg[x->ch].ph, 2 * M_PI); src = tgbuf; }
+    }
     else if (x->src == 2) { int s = x->ch / MAXNETCH, c = x->ch % MAXNETCH; if (s < MAXNET && net[s].used && c < net[s].channels) src = netbuf[s][c]; }
     if (!src) { x->peak *= 0.9f; continue; }
     float pk = x->peak, grMax = 0;
@@ -345,6 +386,58 @@ static void meters_out(void) {
   out_msg('M', &mt, sizeof mt, NULL, 0); wake_writer();
 }
 
+/* ------------------------------------------------------------------ device names: "A|B#16" -> up to MAXDEV wanted names */
+typedef struct { char name[256]; int channels; } Want;
+static int parse_wants(const char *spec, Want *out) {
+  int n = 0; const char *p = spec;
+  while (p && *p && n < MAXDEV) {
+    const char *e = strchr(p, '|'); size_t len = e ? (size_t)(e - p) : strlen(p);
+    char item[256]; if (len >= sizeof item) len = sizeof item - 1; memcpy(item, p, len); item[len] = 0;
+    char *h = strrchr(item, '#'); int ch = 0; if (h && h[1] && isdigit((unsigned char)h[1])) { ch = atoi(h + 1); *h = 0; }
+    char *s = item; while (*s == ' ') s++; size_t L = strlen(s); while (L && s[L - 1] == ' ') s[--L] = 0;
+    snprintf(out[n].name, sizeof out[n].name, "%s", s); out[n].channels = ch; n++;
+    p = e ? e + 1 : NULL;
+  }
+  return n;
+}
+static void clean_name(const char *in, char *out, size_t max) {   /* ':' separates device and channel in the names we report */
+  size_t k = 0; for (const char *p = in; *p && k + 1 < max; p++) { char c = *p; if (c == ':' || c == '|' || c == '#' || c == '"' || c == '\\') c = '-'; out[k++] = c; } out[k] = 0;
+}
+static int contains_ci(const char *hay, const char *needle) {
+  if (!needle[0]) return 1; size_t n = strlen(needle);
+  for (const char *p = hay; *p; p++) { size_t i = 0; while (i < n && p[i] && tolower((unsigned char)p[i]) == tolower((unsigned char)needle[i])) i++; if (i == n) return 1; }
+  return 0;
+}
+
+/* ------------------------------------------------------------------ bridges: a second device on its own clock (drift corrected) */
+#define BRRING 16384
+typedef struct { int ch, used, primed; float *ring; _Atomic uint64_t w; double rpos, target, level; unsigned under, over; } Bridge;
+static void br_init(Bridge *b, int ch, double target) {
+  b->ch = ch; b->ring = calloc((size_t)ch * BRRING, sizeof(float)); b->used = b->ring != NULL; b->primed = 0; atomic_store(&b->w, 0); b->rpos = 0; b->target = target; b->level = target;
+}
+static void br_write(Bridge *b, const float *inter, float *const *planar, int frames) {
+  if (!b->used) return; uint64_t w = atomic_load(&b->w);
+  for (int f = 0; f < frames; f++) { size_t pos = (size_t)((w + f) % BRRING) * b->ch; for (int c = 0; c < b->ch; c++) b->ring[pos + c] = inter ? inter[f * b->ch + c] : planar[c][f]; }
+  atomic_store(&b->w, w + frames);
+}
+static void br_read(Bridge *b, int frames, float *inter, float *const *planar) {   /* the reader's clock; keeps the buffer near its target */
+  if (inter) memset(inter, 0, sizeof(float) * frames * b->ch); else for (int c = 0; c < b->ch; c++) memset(planar[c], 0, sizeof(float) * frames);
+  if (!b->used) return;
+  double w = (double)atomic_load(&b->w), level;
+  if (!b->primed) { if (w - b->rpos >= b->target || (b->rpos == 0 && w >= b->target)) { b->rpos = w - b->target; b->primed = 1; b->level = b->target; } else return; }
+  level = w - b->rpos; b->level = b->level * 0.995 + level * 0.005;
+  if (level < frames + 2) { b->under++; b->primed = 0; return; }
+  if (level > BRRING - MAXBLOCK * 2) { b->over++; b->rpos = w - b->target; }
+  double err = (b->level - b->target) / (b->target > 1 ? b->target : 1), adj = err * 0.002; if (adj > 0.005) adj = 0.005; if (adj < -0.005) adj = -0.005;
+  double step = 1 + adj, r = b->rpos;
+  for (int f = 0; f < frames; f++) {
+    uint64_t i0 = (uint64_t)r; float fr = (float)(r - (double)i0); size_t a = (size_t)(i0 % BRRING) * b->ch, c1 = (size_t)((i0 + 1) % BRRING) * b->ch;
+    for (int c = 0; c < b->ch; c++) { float v = b->ring[a + c] + (b->ring[c1 + c] - b->ring[a + c]) * fr; if (inter) inter[f * b->ch + c] = v; else planar[c][f] = v; }
+    r += step;
+  }
+  b->rpos = r;
+}
+
 /* ------------------------------------------------------------------ JACK backend */
 static int jack_cb(jack_nframes_t n, void *arg) {
   (void)arg; float *ins[MAXIN], *outs[MAXOUT]; if (n > MAXBLOCK) return 0;
@@ -355,13 +448,16 @@ static int jack_cb(jack_nframes_t n, void *arg) {
 static int jack_xrun(void *arg) { (void)arg; atomic_fetch_add(&xruns, 1); return 0; }
 static void jack_gone(void *arg) { (void)arg; running = 0; }
 
-static char capName[128] = "", playName[128] = "", clientName[64] = "Central Usage";
-static int maxIn = MAXIN, maxOut = MAXOUT;
+static char capName[1024] = "", playName[1024] = "", clientName[64] = "Central Usage";
+static int maxIn = MAXIN, maxOut = MAXOUT, exclusive = 0;
 static const char **capPorts, **playPorts;
-static int filter_ports(const char **all, const char *want, const char **out, int max) {
-  int n = 0; for (int i = 0; all && all[i] && n < max; i++) { if (!want[0] || strstr(all[i], want)) out[n++] = all[i]; } return n;
+static char *capList[MAXIN], *playList[MAXOUT];
+static int jack_filter(const char **all, const char *spec, char **out, int max) {   /* every name in the spec, in that order */
+  Want w[MAXDEV]; int nw = parse_wants(spec, w), n = 0;
+  if (!nw) { for (int i = 0; all && all[i] && n < max; i++) out[n++] = strdup(all[i]); return n; }
+  for (int k = 0; k < nw; k++) { int got = 0; for (int i = 0; all && all[i] && n < max; i++) if (contains_ci(all[i], w[k].name) && (!w[k].channels || got < w[k].channels)) { out[n++] = strdup(all[i]); got++; } }
+  return n;
 }
-static const char *capList[MAXIN], *playList[MAXOUT];
 static int start_jack(void) {
   if (!load_jack()) return 0;
   int status = 0; client = J.client_open(clientName, JackNoStartServer, &status);
@@ -369,10 +465,10 @@ static int start_jack(void) {
   FS = J.get_sample_rate(client); BLOCK = (int)J.get_buffer_size(client);
   capPorts = J.get_ports(client, NULL, JACK_AUDIO, JackPortIsOutput | JackPortIsPhysical);
   playPorts = J.get_ports(client, NULL, JACK_AUDIO, JackPortIsInput | JackPortIsPhysical);
-  nIn = filter_ports(capPorts, capName, capList, maxIn); nOut = filter_ports(playPorts, playName, playList, maxOut);
+  nIn = jack_filter(capPorts, capName, capList, maxIn); nOut = jack_filter(playPorts, playName, playList, maxOut);
   /* a named device that isn't a physical card (a virtual or network device): its ports by name */
-  if (capName[0] && !nIn) { const char **all = J.get_ports(client, capName, JACK_AUDIO, JackPortIsOutput); for (int i = 0; all && all[i] && nIn < maxIn; i++) if (!strstr(all[i], clientName)) capList[nIn++] = all[i]; }
-  if (playName[0] && !nOut) { const char **all = J.get_ports(client, playName, JACK_AUDIO, JackPortIsInput); for (int i = 0; all && all[i] && nOut < maxOut; i++) if (!strstr(all[i], clientName)) playList[nOut++] = all[i]; }
+  if (capName[0] && !nIn) { const char **all = J.get_ports(client, NULL, JACK_AUDIO, JackPortIsOutput); char *tmp[MAXIN]; int k = jack_filter(all, capName, tmp, maxIn); for (int i = 0; i < k; i++) { if (!strstr(tmp[i], clientName)) capList[nIn++] = tmp[i]; else free(tmp[i]); } }
+  if (playName[0] && !nOut) { const char **all = J.get_ports(client, NULL, JACK_AUDIO, JackPortIsInput); char *tmp[MAXOUT]; int k = jack_filter(all, playName, tmp, maxOut); for (int i = 0; i < k; i++) { if (!strstr(tmp[i], clientName)) playList[nOut++] = tmp[i]; else free(tmp[i]); } }
   for (int i = 0; i < nIn; i++) { char nm[32]; snprintf(nm, sizeof nm, "in_%d", i + 1); inPorts[i] = J.port_register(client, nm, JACK_AUDIO, JackPortIsInput, 0); }
   for (int o = 0; o < nOut; o++) { char nm[32]; snprintf(nm, sizeof nm, "out_%d", o + 1); outPorts[o] = J.port_register(client, nm, JACK_AUDIO, JackPortIsOutput, 0); }
   J.set_process_callback(client, jack_cb, NULL); J.set_xrun_callback(client, jack_xrun, NULL); J.on_shutdown(client, jack_gone, NULL);
@@ -382,26 +478,153 @@ static int start_jack(void) {
   return 1;
 }
 
+/* ------------------------------------------------------------------ miniaudio backend: one or more devices per direction */
+typedef struct { char name[256]; int channels, first, dante, master, open, failed; ma_device_id id; ma_device dev; Bridge br; char error[160]; } Dev;
+static Dev capDev[MAXDEV], playDev[MAXDEV]; static int nCapDev, nPlayDev;
+static ma_context ctx; static int ctxOk; static ma_device mdev; static int mdevOpen; static char maApi[32] = "";
+static float *capPlanar[MAXIN], *outPlanar[MAXOUT];
+static double cpuLoad; static char devError[400] = "";
+typedef struct { char name[256]; int channels; int dante; } Avail;
+static Avail availCap[64], availPlay[64]; static int nAvailCap, nAvailPlay;
+
+static void master_cb(ma_device *d, void *out, const void *in, ma_uint32 n) {
+  (void)d; uint64_t t0 = pl_now_ns(); const float *fin = in; float *fout = out; ma_uint32 done = 0;
+  while (done < n) {
+    int k = (int)(n - done > MAXBLOCK ? MAXBLOCK : n - done);
+    for (int i = 0; i < nCapDev; i++) {
+      Dev *c = &capDev[i]; if (!c->open) continue;
+      if (c->master) { if (fin) { int C = c->channels; for (int f = 0; f < k; f++) for (int ch = 0; ch < C && c->first + ch < nIn; ch++) capPlanar[c->first + ch][f] = fin[(done + f) * C + ch]; } }
+      else br_read(&c->br, k, NULL, &capPlanar[c->first]);
+    }
+    process(k, capPlanar, outPlanar);
+    for (int i = 0; i < nPlayDev; i++) {
+      Dev *p = &playDev[i]; if (!p->open) continue;
+      if (p->master) { if (fout) { int C = p->channels; for (int f = 0; f < k; f++) for (int ch = 0; ch < C; ch++) fout[(done + f) * C + ch] = p->first + ch < nOut ? outPlanar[p->first + ch][f] : 0; } }
+      else br_write(&p->br, NULL, &outPlanar[p->first], k);
+    }
+    done += (ma_uint32)k;
+  }
+  double busy = (double)(pl_now_ns() - t0) / 1e9, period = n / FS; cpuLoad = cpuLoad * 0.9 + (period > 0 ? busy / period * 100 : 0) * 0.1;
+}
+static void slave_cap_cb(ma_device *d, void *out, const void *in, ma_uint32 n) { (void)out; Dev *c = d->pUserData; if (in) br_write(&c->br, in, NULL, (int)n); }
+static void slave_play_cb(ma_device *d, void *out, const void *in, ma_uint32 n) { (void)in; Dev *p = d->pUserData; if (out) br_read(&p->br, (int)n, out, NULL); }
+static void dev_stopped(ma_device *d) { (void)d; }
+
+static int native_channels(ma_device_type type, const ma_device_id *id) {
+  ma_device_info info; if (ma_context_get_device_info(&ctx, type, id, &info) != MA_SUCCESS) return 0;
+  int best = 0; for (ma_uint32 k = 0; k < info.nativeDataFormatCount; k++) if ((int)info.nativeDataFormats[k].channels > best) best = (int)info.nativeDataFormats[k].channels;
+  return best;
+}
+static int resolve(ma_device_info *infos, ma_uint32 count, ma_device_type type, const char *spec, Dev *out, int maxDev, Avail *avail, int *nAvail) {
+  *nAvail = 0;
+  for (ma_uint32 i = 0; i < count && *nAvail < 64; i++) { Avail *a = &avail[(*nAvail)++]; clean_name(infos[i].name, a->name, sizeof a->name); a->channels = native_channels(type, &infos[i].id); a->dante = contains_ci(a->name, "dante"); }
+  Want w[MAXDEV]; int nw = parse_wants(spec, w), n = 0;
+  if (!nw) {   /* nothing chosen: the default device */
+    for (ma_uint32 i = 0; i < count; i++) if (infos[i].isDefault) { Dev *d = &out[n++]; memset(d, 0, sizeof *d); clean_name(infos[i].name, d->name, sizeof d->name); d->id = infos[i].id; d->dante = contains_ci(d->name, "dante"); break; }
+    if (!n && count) { Dev *d = &out[n++]; memset(d, 0, sizeof *d); clean_name(infos[0].name, d->name, sizeof d->name); d->id = infos[0].id; d->dante = contains_ci(d->name, "dante"); }
+    return n;
+  }
+  for (int k = 0; k < nw && n < maxDev; k++) {
+    int found = -1; for (ma_uint32 i = 0; i < count; i++) { char nm[256]; clean_name(infos[i].name, nm, sizeof nm); if (contains_ci(nm, w[k].name)) { found = (int)i; break; } }
+    if (found < 0) { size_t L = strlen(devError); snprintf(devError + L, sizeof devError - L, "%s'%s' not found. ", L ? "" : "", w[k].name); continue; }
+    Dev *d = &out[n++]; memset(d, 0, sizeof *d); clean_name(infos[found].name, d->name, sizeof d->name); d->id = infos[found].id; d->channels = w[k].channels; d->dante = contains_ci(d->name, "dante");
+  }
+  return n;
+}
+static int open_slave(Dev *d, ma_device_type type, int first) {
+  ma_device_config cfg = ma_device_config_init(type);
+  cfg.sampleRate = (ma_uint32)FS; cfg.periodSizeInFrames = (ma_uint32)BLOCK; cfg.performanceProfile = ma_performance_profile_low_latency; cfg.noClip = MA_TRUE; cfg.pUserData = d;
+  if (type == ma_device_type_capture) { cfg.capture.pDeviceID = &d->id; cfg.capture.format = ma_format_f32; cfg.capture.channels = (ma_uint32)d->channels; cfg.capture.shareMode = exclusive ? ma_share_mode_exclusive : ma_share_mode_shared; cfg.dataCallback = slave_cap_cb; }
+  else { cfg.playback.pDeviceID = &d->id; cfg.playback.format = ma_format_f32; cfg.playback.channels = (ma_uint32)d->channels; cfg.playback.shareMode = exclusive ? ma_share_mode_exclusive : ma_share_mode_shared; cfg.dataCallback = slave_play_cb; }
+  if (ma_device_init(&ctx, &cfg, &d->dev) != MA_SUCCESS) { d->failed = 1; snprintf(d->error, sizeof d->error, "could not open"); return 0; }
+  d->channels = (int)(type == ma_device_type_capture ? d->dev.capture.channels : d->dev.playback.channels);
+  d->first = first; d->open = 1;
+  br_init(&d->br, d->channels, BLOCK * 3 + 256);
+  return 1;
+}
+static int start_miniaudio(int nullOnly) {
+  ma_context_config cc = ma_context_config_init();
+  ma_backend nullb[] = { ma_backend_null };
+#ifdef _WIN32
+  ma_backend list[] = { ma_backend_wasapi };
+#elif defined(__APPLE__)
+  ma_backend list[] = { ma_backend_coreaudio };
+#else
+  ma_backend list[] = { ma_backend_pulseaudio, ma_backend_alsa };
+#endif
+  if (ma_context_init(nullOnly ? nullb : list, nullOnly ? 1 : (ma_uint32)(sizeof list / sizeof list[0]), &cc, &ctx) != MA_SUCCESS) return 0;
+  ctxOk = 1; snprintf(maApi, sizeof maApi, "%s", ma_get_backend_name(ctx.backend));
+  ma_device_info *pi, *ci; ma_uint32 np = 0, nc = 0;
+  if (ma_context_get_devices(&ctx, &pi, &np, &ci, &nc) != MA_SUCCESS) return 0;
+  nCapDev = maxIn > 0 ? resolve(ci, nc, ma_device_type_capture, capName, capDev, MAXDEV, availCap, &nAvailCap) : 0;
+  nPlayDev = maxOut > 0 ? resolve(pi, np, ma_device_type_playback, playName, playDev, MAXDEV, availPlay, &nAvailPlay) : 0;
+  if (!nCapDev && !nPlayDev) return 0;
+  /* the clock: the first playback device (with the first capture device as one duplex device), else the first capture device */
+  ma_device_type mt = nCapDev && nPlayDev ? ma_device_type_duplex : nPlayDev ? ma_device_type_playback : ma_device_type_capture;
+  ma_device_config cfg = ma_device_config_init(mt);
+  cfg.sampleRate = FS > 0 && FS != 48000 ? (ma_uint32)FS : 0; cfg.periodSizeInFrames = (ma_uint32)BLOCK; cfg.performanceProfile = ma_performance_profile_low_latency; cfg.noClip = MA_TRUE; cfg.dataCallback = master_cb; cfg.stopCallback = dev_stopped;
+  if (nCapDev) { cfg.capture.pDeviceID = &capDev[0].id; cfg.capture.format = ma_format_f32; cfg.capture.channels = (ma_uint32)capDev[0].channels; cfg.capture.shareMode = exclusive ? ma_share_mode_exclusive : ma_share_mode_shared; }
+  if (nPlayDev) { cfg.playback.pDeviceID = &playDev[0].id; cfg.playback.format = ma_format_f32; cfg.playback.channels = (ma_uint32)playDev[0].channels; cfg.playback.shareMode = exclusive ? ma_share_mode_exclusive : ma_share_mode_shared; }
+  if (ma_device_init(&ctx, &cfg, &mdev) != MA_SUCCESS) {
+    /* a duplex pair that won't open together: try the playback device alone as the clock */
+    if (mt != ma_device_type_duplex) return 0;
+    cfg = ma_device_config_init(ma_device_type_playback); cfg.periodSizeInFrames = (ma_uint32)BLOCK; cfg.performanceProfile = ma_performance_profile_low_latency; cfg.noClip = MA_TRUE; cfg.dataCallback = master_cb;
+    cfg.playback.pDeviceID = &playDev[0].id; cfg.playback.format = ma_format_f32; cfg.playback.channels = (ma_uint32)playDev[0].channels;
+    if (ma_device_init(&ctx, &cfg, &mdev) != MA_SUCCESS) return 0;
+    mt = ma_device_type_playback;
+  }
+  mdevOpen = 1; FS = mdev.sampleRate; BLOCK = (int)(mdev.playback.internalPeriodSizeInFrames ? mdev.playback.internalPeriodSizeInFrames : mdev.capture.internalPeriodSizeInFrames ? mdev.capture.internalPeriodSizeInFrames : (ma_uint32)BLOCK);
+  if (BLOCK > MAXBLOCK) BLOCK = MAXBLOCK; if (BLOCK < 16) BLOCK = 16;
+  nIn = 0; nOut = 0;
+  for (int i = 0; i < nCapDev; i++) {
+    Dev *d = &capDev[i];
+    if (i == 0 && (mt == ma_device_type_duplex || mt == ma_device_type_capture)) { d->master = 1; d->open = 1; d->channels = (int)mdev.capture.channels; d->first = nIn; }
+    else if (!open_slave(d, ma_device_type_capture, nIn)) continue;
+    if (nIn + d->channels > maxIn) d->channels = maxIn - nIn;
+    nIn += d->channels;
+  }
+  for (int i = 0; i < nPlayDev; i++) {
+    Dev *d = &playDev[i];
+    if (i == 0) { d->master = 1; d->open = 1; d->channels = (int)mdev.playback.channels; d->first = nOut; }
+    else if (!open_slave(d, ma_device_type_playback, nOut)) continue;
+    if (nOut + d->channels > maxOut) { /* (the device keeps its channels; the extra ones stay silent) */ }
+    nOut += d->channels; if (nOut > maxOut) nOut = maxOut;
+  }
+  for (int i = 0; i < MAXIN; i++) capPlanar[i] = calloc(MAXBLOCK, sizeof(float));
+  for (int o = 0; o < MAXOUT; o++) outPlanar[o] = calloc(MAXBLOCK, sizeof(float));
+  /* names: "Device:in_3", like JACK's "client:port" */
+  for (int i = 0; i < nCapDev; i++) { Dev *d = &capDev[i]; if (!d->open) continue; for (int c = 0; c < d->channels && d->first + c < MAXIN; c++) { char nm[300]; snprintf(nm, sizeof nm, "%s:in_%d", d->name, c + 1); capList[d->first + c] = strdup(nm); } }
+  for (int i = 0; i < nPlayDev; i++) { Dev *d = &playDev[i]; if (!d->open) continue; for (int c = 0; c < d->channels && d->first + c < MAXOUT; c++) { char nm[300]; snprintf(nm, sizeof nm, "%s:out_%d", d->name, c + 1); playList[d->first + c] = strdup(nm); } }
+  meterEvery = (unsigned)(FS / 20);
+  for (int i = 0; i < nCapDev; i++) if (capDev[i].open && !capDev[i].master) ma_device_start(&capDev[i].dev);
+  for (int i = 0; i < nPlayDev; i++) if (playDev[i].open && !playDev[i].master) ma_device_start(&playDev[i].dev);
+  if (ma_device_start(&mdev) != MA_SUCCESS) return 0;
+  return 1;
+}
+static void stop_miniaudio(void) {
+  if (mdevOpen) ma_device_uninit(&mdev);
+  for (int i = 0; i < nCapDev; i++) if (capDev[i].open && !capDev[i].master) ma_device_uninit(&capDev[i].dev);
+  for (int i = 0; i < nPlayDev; i++) if (playDev[i].open && !playDev[i].master) ma_device_uninit(&playDev[i].dev);
+  if (ctxOk) ma_context_uninit(&ctx);
+}
+
 /* ------------------------------------------------------------------ internal clock backend (no interface) */
 static void *internal_loop(void *arg) {
-  (void)arg; struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); long ns = (long)(1e9 * BLOCK / FS);
-  while (running) {
-    t.tv_nsec += ns; while (t.tv_nsec >= 1000000000L) { t.tv_nsec -= 1000000000L; t.tv_sec++; }
-    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t, NULL);
-    process(BLOCK, NULL, scratch);
-  }
+  (void)arg; uint64_t t = pl_now_ns(), ns = (uint64_t)(1e9 * BLOCK / FS);
+  while (running) { t += ns; pl_sleep_until_ns(t); process(BLOCK, NULL, scratch); }
   return NULL;
 }
 
 /* ------------------------------------------------------------------ stdout writer + stdin reader */
-static pthread_mutex_t stdoutLock = PTHREAD_MUTEX_INITIALIZER;
-static void put(FILE *f, uint8_t type, const void *p, uint32_t n) { uint8_t h[5] = { type, (uint8_t)n, (uint8_t)(n >> 8), (uint8_t)(n >> 16), (uint8_t)(n >> 24) }; pthread_mutex_lock(&stdoutLock); fwrite(h, 1, 5, f); if (n) fwrite(p, 1, n, f); pthread_mutex_unlock(&stdoutLock); }
-static void put_json(const char *s) { put(stdout, 'J', s, (uint32_t)strlen(s)); pthread_mutex_lock(&stdoutLock); fflush(stdout); pthread_mutex_unlock(&stdoutLock); }
+static pl_mutex stdoutLock;
+static void put(FILE *f, uint8_t type, const void *p, uint32_t n) { uint8_t h[5] = { type, (uint8_t)n, (uint8_t)(n >> 8), (uint8_t)(n >> 16), (uint8_t)(n >> 24) }; pl_mutex_lock(&stdoutLock); fwrite(h, 1, 5, f); if (n) fwrite(p, 1, n, f); pl_mutex_unlock(&stdoutLock); }
+static void flush_out(void) { pl_mutex_lock(&stdoutLock); fflush(stdout); pl_mutex_unlock(&stdoutLock); }
+static void put_json(const char *s) { put(stdout, 'J', s, (uint32_t)strlen(s)); flush_out(); }
 static char *jbuf; static size_t jcap = 1 << 20;
-static void jcat(size_t *len, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
-#include <stdarg.h>
-static __thread char *jt;
+static PL_THREAD_LOCAL char *jt;
 static void jcat(size_t *len, const char *fmt, ...) { va_list ap; va_start(ap, fmt); char *b = jt ? jt : jbuf; int n = vsnprintf(b + *len, jcap - *len, fmt, ap); va_end(ap); if (n > 0 && *len + (size_t)n < jcap) *len += (size_t)n; }
+static void jstr_out(size_t *L, const char *s) { jcat(L, "\""); for (const char *p = s; p && *p; p++) { if (*p == '"' || *p == '\\') jcat(L, "\\%c", *p); else if ((unsigned char)*p < 32) jcat(L, " "); else jcat(L, "%c", *p); } jcat(L, "\""); }
+static unsigned bridgeUnder(void) { unsigned u = 0; for (int i = 0; i < nCapDev; i++) u += capDev[i].br.under; for (int i = 0; i < nPlayDev; i++) u += playDev[i].br.under; return u; }
 static void meters_json(const Meters *m) {
   size_t L = 0; jcat(&L, "{\"ev\":\"meters\",\"in\":[");
   for (int i = 0; i < MAXIN; i++) jcat(&L, "%s%.4f", i ? "," : "", m->in[i]);
@@ -409,15 +632,15 @@ static void meters_json(const Meters *m) {
   jcat(&L, "],\"mix\":["); for (int k = 0; k < MAXMIX; k++) jcat(&L, "%s%.4f,%.4f", k ? "," : "", m->mix[k][0], m->mix[k][1]);
   jcat(&L, "],\"main\":[%.4f,%.4f],\"net\":[", m->main[0], m->main[1]);
   for (int s = 0; s < MAXNET; s++) { jcat(&L, "%s{\"on\":%d,\"ch\":%d,\"ms\":%.1f,\"under\":%u,\"peak\":[", s ? "," : "", m->netUsed[s], m->netCh[s], m->netLevel[s], m->under[s]); for (int c = 0; c < m->netCh[s] && c < MAXNETCH; c++) jcat(&L, "%s%.4f", c ? "," : "", m->net[s][c]); jcat(&L, "]}"); }
-  jcat(&L, "],\"bands\":[%.4f,%.4f,%.4f],\"onsets\":%u,\"xruns\":%u,\"cpu\":%.1f}", m->bands[0], m->bands[1], m->bands[2], m->onsets, m->xruns, client ? J.cpu_load(client) : 0.0f);
+  jcat(&L, "],\"bands\":[%.4f,%.4f,%.4f],\"onsets\":%u,\"xruns\":%u,\"deviceUnder\":%u,\"cpu\":%.1f}", m->bands[0], m->bands[1], m->bands[2], m->onsets, m->xruns, bridgeUnder(), client ? J.cpu_load(client) : cpuLoad);
   put(stdout, 'J', jbuf, (uint32_t)L);
 }
 static void *writer(void *arg) {
   (void)arg; uint8_t *msg = malloc(OUTRING);
   while (running) {
-    pthread_mutex_lock(&outLock);
-    if (atomic_load(&outW) == atomic_load(&outR)) { struct timespec t; clock_gettime(CLOCK_REALTIME, &t); t.tv_nsec += 20000000; if (t.tv_nsec >= 1000000000L) { t.tv_nsec -= 1000000000L; t.tv_sec++; } pthread_cond_timedwait(&outCond, &outLock, &t); }
-    pthread_mutex_unlock(&outLock);
+    pl_mutex_lock(&outLock);
+    if (atomic_load(&outW) == atomic_load(&outR)) pl_cond_wait_ms(&outCond, &outLock, 20);
+    pl_mutex_unlock(&outLock);
     for (;;) {
       uint64_t r = atomic_load(&outR), w = atomic_load(&outW); if (w - r < 5) break;
       uint8_t h[5]; for (int i = 0; i < 5; i++) h[i] = outRing[(r + i) % OUTRING];
@@ -426,11 +649,11 @@ static void *writer(void *arg) {
       atomic_store(&outR, r + 5 + n);
       if (h[0] == 'M') meters_json((Meters *)msg); else put(stdout, h[0], msg, n);
     }
-    pthread_mutex_lock(&stdoutLock); fflush(stdout); pthread_mutex_unlock(&stdoutLock);
+    flush_out();
   }
   free(msg); return NULL;
 }
-static int read_full(void *p, size_t n) { uint8_t *b = p; while (n) { ssize_t k = read(0, b, n); if (k <= 0) { if (k < 0 && errno == EINTR) continue; return 0; } b += k; n -= (size_t)k; } return 1; }
+static int read_full(void *p, size_t n) { uint8_t *b = p; while (n) { long k = pl_read(b, n); if (k <= 0) return 0; b += k; n -= (size_t)k; } return 1; }
 static void *reader(void *arg) {
   (void)arg; uint8_t *buf = malloc(4 << 20);
   for (;;) {
@@ -443,16 +666,31 @@ static void *reader(void *arg) {
   running = 0; free(buf); return NULL;   /* the app went away */
 }
 
+static void dev_list_json(size_t *L, const char *key, Dev *devs, int n) {
+  jcat(L, ",\"%s\":[", key);
+  int k = 0; for (int i = 0; i < n; i++) { Dev *d = &devs[i]; jcat(L, "%s{\"name\":", k++ ? "," : ""); jstr_out(L, d->name); jcat(L, ",\"channels\":%d,\"first\":%d,\"open\":%d,\"clock\":%d,\"dante\":%d}", d->open ? d->channels : 0, d->first, d->open, d->master, d->dante); }
+  jcat(L, "]");
+}
+static void avail_json(size_t *L, const char *key, Avail *a, int n) {
+  jcat(L, ",\"%s\":[", key); for (int i = 0; i < n; i++) { jcat(L, "%s{\"name\":", i ? "," : ""); jstr_out(L, a[i].name); jcat(L, ",\"channels\":%d,\"dante\":%d}", a[i].channels, a[i].dante); } jcat(L, "]");
+}
 static void status_json(const char *backend) {
-  jt = malloc(jcap); size_t L = 0; jcat(&L, "{\"ev\":\"status\",\"backend\":\"%s\",\"rate\":%.0f,\"block\":%d,\"inputs\":%d,\"outputs\":%d,\"captureNames\":[", backend, FS, BLOCK, nIn, nOut);
-  for (int i = 0; i < nIn; i++) { jcat(&L, "%s\"", i ? "," : ""); for (const char *p = capList[i]; *p; p++) jcat(&L, *p == '"' || *p == '\\' ? "\\%c" : "%c", *p); jcat(&L, "\""); }
+  jt = malloc(jcap); size_t L = 0; jcat(&L, "{\"ev\":\"status\",\"backend\":\"%s\",\"api\":\"%s\",\"rate\":%.0f,\"block\":%d,\"inputs\":%d,\"outputs\":%d,\"captureNames\":[", backend, maApi, FS, BLOCK, nIn, nOut);
+  for (int i = 0; i < nIn; i++) { jcat(&L, "%s", i ? "," : ""); jstr_out(&L, capList[i] ? capList[i] : ""); }
   jcat(&L, "],\"playbackNames\":[");
-  for (int o = 0; o < nOut; o++) { jcat(&L, "%s\"", o ? "," : ""); for (const char *p = playList[o]; *p; p++) jcat(&L, *p == '"' || *p == '\\' ? "\\%c" : "%c", *p); jcat(&L, "\""); }
-  jcat(&L, "],\"allCapture\":["); int k = 0; for (int i = 0; capPorts && capPorts[i] && i < 512; i++, k++) { jcat(&L, "%s\"", i ? "," : ""); for (const char *p = capPorts[i]; *p; p++) jcat(&L, *p == '"' || *p == '\\' ? "\\%c" : "%c", *p); jcat(&L, "\""); }
-  jcat(&L, "],\"allPlayback\":["); for (int i = 0; playPorts && playPorts[i] && i < 512; i++) { jcat(&L, "%s\"", i ? "," : ""); for (const char *p = playPorts[i]; *p; p++) jcat(&L, *p == '"' || *p == '\\' ? "\\%c" : "%c", *p); jcat(&L, "\""); }
-  jcat(&L, "],\"max\":{\"inputs\":%d,\"mixes\":%d,\"outputs\":%d,\"netChannels\":%d}}", MAXIN, MAXMIX, MAXOUT, MAXNETCH);
-  pthread_mutex_lock(&stdoutLock); fflush(stdout); pthread_mutex_unlock(&stdoutLock);
-  put(stdout, 'J', jt, (uint32_t)L); pthread_mutex_lock(&stdoutLock); fflush(stdout); pthread_mutex_unlock(&stdoutLock); free(jt); jt = NULL;
+  for (int o = 0; o < nOut; o++) { jcat(&L, "%s", o ? "," : ""); jstr_out(&L, playList[o] ? playList[o] : ""); }
+  jcat(&L, "],\"allCapture\":[");
+  if (client) { for (int i = 0; capPorts && capPorts[i] && i < 512; i++) { jcat(&L, "%s", i ? "," : ""); jstr_out(&L, capPorts[i]); } }
+  else for (int i = 0; i < nAvailCap; i++) { char nm[300]; snprintf(nm, sizeof nm, "%s:in_1", availCap[i].name); jcat(&L, "%s", i ? "," : ""); jstr_out(&L, nm); }
+  jcat(&L, "],\"allPlayback\":[");
+  if (client) { for (int i = 0; playPorts && playPorts[i] && i < 512; i++) { jcat(&L, "%s", i ? "," : ""); jstr_out(&L, playPorts[i]); } }
+  else for (int i = 0; i < nAvailPlay; i++) { char nm[300]; snprintf(nm, sizeof nm, "%s:out_1", availPlay[i].name); jcat(&L, "%s", i ? "," : ""); jstr_out(&L, nm); }
+  jcat(&L, "]");
+  dev_list_json(&L, "captureDevices", capDev, nCapDev); dev_list_json(&L, "playbackDevices", playDev, nPlayDev);
+  avail_json(&L, "availableCapture", availCap, nAvailCap); avail_json(&L, "availablePlayback", availPlay, nAvailPlay);
+  if (devError[0]) { jcat(&L, ",\"deviceError\":"); jstr_out(&L, devError); }
+  jcat(&L, ",\"max\":{\"inputs\":%d,\"mixes\":%d,\"outputs\":%d,\"netChannels\":%d,\"devices\":%d}}", MAXIN, MAXMIX, MAXOUT, MAXNETCH, MAXDEV);
+  flush_out(); put(stdout, 'J', jt, (uint32_t)L); flush_out(); free(jt); jt = NULL;
 }
 
 int main(int argc, char **argv) {
@@ -466,26 +704,41 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--block") && i + 1 < argc) BLOCK = atoi(argv[++i]);
     else if (!strcmp(argv[i], "--max-in") && i + 1 < argc) maxIn = atoi(argv[++i]);
     else if (!strcmp(argv[i], "--max-out") && i + 1 < argc) maxOut = atoi(argv[++i]);
-    else if (!strcmp(argv[i], "--version")) { puts("cu-mixer 1"); return 0; }
+    else if (!strcmp(argv[i], "--exclusive")) exclusive = 1;
+    else if (!strcmp(argv[i], "--version")) { puts("cu-mixer 2"); return 0; }
   }
   if (maxIn > MAXIN) maxIn = MAXIN; if (maxOut > MAXOUT) maxOut = MAXOUT; if (BLOCK < 16) BLOCK = 16; if (BLOCK > MAXBLOCK) BLOCK = MAXBLOCK;
-  signal(SIGPIPE, SIG_IGN);
+  pl_ignore_sigpipe(); pl_binary_stdio();
+  pl_mutex_init(&outLock); pl_cond_init(&outCond); pl_mutex_init(&stdoutLock);
   outRing = malloc(OUTRING); jbuf = malloc(jcap); zero = calloc(MAXBLOCK, sizeof(float));
   for (int o = 0; o < MAXOUT; o++) scratch[o] = calloc(MAXBLOCK, sizeof(float));
   mainb.level = 1; mainb.stereo = 1; mainb.used = 1; mainb.outL = mainb.outR = -1;
   for (int m = 0; m < MAXMIX; m++) { mix[m].level = 1; mix[m].stereo = 1; mix[m].outL = mix[m].outR = -1; }
   for (int i = 0; i < MAXIN; i++) { in[i].direct = -1; in[i].trim = 1; }
-  int ok = 0;
-  if (strcmp(backend, "internal")) ok = start_jack();
-  if (!ok && !strcmp(backend, "jack")) { put_json("{\"ev\":\"error\",\"error\":\"JACK is not running (start the engine with pw-jack, or install pipewire-jack)\"}"); }
   meterEvery = (unsigned)(FS / 20);
-  pthread_t tw, tr, ti; pthread_create(&tw, NULL, writer, NULL);
-  status_json(ok ? "jack" : "internal");
-  pthread_create(&tr, NULL, reader, NULL);
-  if (!ok) { internal = 1; nIn = 0; nOut = 0; pthread_create(&ti, NULL, internal_loop, NULL); }
-  while (running) usleep(50000);
+  const char *used = "internal";
+#ifdef __linux__
+  int tryJack = !strcmp(backend, "auto") || !strcmp(backend, "jack"), tryMa = !strcmp(backend, "miniaudio");
+#else
+  int tryJack = !strcmp(backend, "jack"), tryMa = !strcmp(backend, "auto") || !strcmp(backend, "miniaudio");
+#endif
+  if (tryJack && start_jack()) used = "jack";
+  else if (!strcmp(backend, "null") && start_miniaudio(1)) used = "null";
+  else if (tryMa && start_miniaudio(0)) used = "miniaudio";
+  else {
+    if (mdevOpen || ctxOk) { stop_miniaudio(); mdevOpen = 0; ctxOk = 0; nCapDev = nPlayDev = 0; }
+    if (!strcmp(backend, "jack")) put_json("{\"ev\":\"error\",\"error\":\"JACK is not running (start the engine with pw-jack, or install pipewire-jack)\"}");
+    else if (strcmp(backend, "internal") && strcmp(backend, "auto")) put_json("{\"ev\":\"error\",\"error\":\"The audio device could not be opened - running on the engine's own clock\"}");
+  }
+  meterEvery = (unsigned)(FS / 20);
+  pl_thread tw, tr, ti; pl_thread_start(&tw, writer, NULL);
+  status_json(used);
+  pl_thread_start(&tr, reader, NULL);
+  if (!strcmp(used, "internal")) { internal = 1; nIn = 0; nOut = 0; pl_thread_start(&ti, internal_loop, NULL); }
+  while (running) pl_sleep_ms(50);
   if (client) J.client_close(client);
-  if (internal) pthread_join(ti, NULL);
-  wake_writer(); pthread_join(tw, NULL);
+  stop_miniaudio();
+  if (internal) pl_thread_join(ti);
+  wake_writer(); pl_thread_join(tw);
   return 0;
 }

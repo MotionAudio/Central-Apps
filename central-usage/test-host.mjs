@@ -3,10 +3,14 @@
 // engine on its own clock) receives it, maps the tracks, mixes, records; a phone takes an in-ear mix and
 // hears it over Wi-Fi; the lights get the song's waveform and the music's level.
 //   npm install && (cd native && make) && xvfb-run -a node test-host.mjs      (CC_ROOT = the Central Control folder)
+// Ports: the audio host listens on CU_TEST_HOST_PORT (default 18092); the simulated Central Control uses its
+// usual ports (8765/8766/8080/8081). To run beside another copy on the same machine, give the whole run its
+// own network:  sudo bash ../tools/netns-run.sh xvfb-run -a node test-host.mjs
 import { _electron as electron, chromium } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url)), root = process.env.CC_ROOT || path.join(here, "..");
+const HOST_PORT = Number(process.env.CU_TEST_HOST_PORT || 18092);
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 6).join("\n      ")); } }
 const until = async (fn, ms = 10000, step = 150) => { const t0 = Date.now(); let last; while (Date.now() - t0 < ms) { try { last = await fn(); if (last) return last; } catch (_) { } await new Promise((r) => setTimeout(r, step)); } throw new Error("timed out waiting for: " + String(fn).slice(6, 160)); };
 
@@ -29,7 +33,7 @@ await pi.evaluate(() => { PPTracks.goSection(0, { immediate: true }); PPTracks.p
 
 // ---- Central Usage: admin, audio host
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-host-ud-"));
-fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", name: "Desk", host: { enabled: true, port: 18092, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "ethernet", latency: 80 }, recordDir: path.join(userData, "rec") }));
+fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", name: "Desk", host: { enabled: true, port: HOST_PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "ethernet", latency: 80 }, recordDir: path.join(userData, "rec") }));
 fs.writeFileSync(path.join(userData, "mixer.json"), JSON.stringify({ device: { backend: "internal", buffer: 256 } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
 const app = await electron.launch({ executablePath: exe, args: [path.join(here, "main.js"), "--no-sandbox", "--user-data-dir=" + userData], env: Object.assign({}, process.env, { CC_UPDATE_API: "http://127.0.0.1:9" }) });
@@ -41,7 +45,7 @@ console.log("Audio host:");
 await check("Central Usage connects to the Central Control and, as the audio host, registers itself there", async () => {
   await until(() => cu.evaluate(() => CentralUsage.state.connected && CentralUsage.state.authed), 10000);
   const info = await until(async () => { const j = await (await fetch("http://127.0.0.1:8080/api/info")).json(); return j.audioHost && j.audioHost.name === "Desk" ? j : null; }, 10000);
-  assert.equal(info.audioHost.port, 18092);
+  assert.equal(info.audioHost.port, HOST_PORT);
 });
 await check("the Central Control's audio arrives over the network: each track on its own channel, mapped to inputs by name", async () => {
   const st = await until(() => cu.evaluate(async () => { const s = await CU.host.status(); return s.pi && s.pi.state === "receiving" && CUMix.pi.length >= 5 ? { pi: s.pi, names: CUMix.pi.map((n) => n.name) } : null; }), 20000);
@@ -71,7 +75,7 @@ await check("tracks out: each track on its own output (direct) is chosen on the 
 console.log("In-ears:");
 const phone = await browser.newPage(); phone.on("pageerror", (e) => errs.push("phone: " + e));
 await check("a phone opens the audio host's page, picks a free mix and gets only the routed channels", async () => {
-  await phone.goto("http://127.0.0.1:18092/?name=Sam&code=1111");
+  await phone.goto("http://127.0.0.1:" + HOST_PORT + "/?name=Sam&code=1111");
   await phone.waitForSelector("[data-ie-claim]", { timeout: 8000 });
   await phone.click('[data-ie-claim="2"]');
   try { await phone.waitForFunction(() => /Mix 3/.test(document.body.textContent) && document.querySelectorAll(".ie-ch").length >= 2, null, { timeout: 5000 }); }
@@ -94,6 +98,33 @@ await check("the admin's In-ears tab shows who has which mix", async () => {
   await cu.evaluate(() => CentralUsage.showTab("inears")); await cu.waitForSelector(".ia-mix", { timeout: 5000 });
   const t = await cu.evaluate(() => document.querySelector('.ia-mix[data-ia-mix="2"]').textContent); assert.match(t, /Sam/);
 });
+await check("64 stereo mixes: the model, the In-ears grid, and Mix 64 mixes and meters", async () => {
+  assert.equal(await cu.evaluate(() => CUMix.state.mixes.length), 64);
+  assert.equal(await cu.evaluate(() => document.querySelectorAll(".ia-mix").length), 64);
+  await cu.evaluate(() => { const k = CUMix.state.inputs.findIndex((x) => x.name === "Kick"); CUMix.op({ op: "claim", m: 63, id: "desk-test", name: "Last" }); CUMix.op({ op: "send", m: 63, i: k, patch: { level: 0 } }); CUMix.op({ op: "mix", m: 63, patch: { local: false, wired: false } }); });
+  // nothing listens and it goes nowhere: the engine still mixes it once it is wired somewhere or tapped - tap it from here
+  await cu.evaluate(() => CUMix.listen(63, true));
+  const v = await until(() => cu.evaluate(() => CUMix.meters && CUMix.meters.mix[126] > 0.01 ? CUMix.meters.mix[126] : null), 6000); assert.ok(v > 0.01);
+  await cu.evaluate(() => CUMix.listen(63, false));
+});
+await check("wired and local per mix: auto-assign gives the first 20 mixes output pairs, the rest stay local", async () => {
+  await cu.evaluate(() => CUMix.op({ op: "autoWire", count: 20, first: 4 }));
+  const m = await until(() => cu.evaluate(() => { const q = CUMix.state.mixes; return q[19].wired && q[19].outL === 42 ? q.map((x) => [x.wired, x.local, x.outL, x.outR]) : null; }), 3000);
+  assert.deepEqual(m[0], [true, true, 4, 5]); assert.deepEqual(m[1], [true, true, 6, 7]); assert.deepEqual(m[20], [false, true, -1, -1]);
+  const card = await cu.evaluate(() => document.querySelector('.ia-mix[data-ia-mix="0"]').textContent); assert.match(card, /Out 5\/6/);
+});
+await check("a mix that is wired only: the phone can't listen to it (and stops), and is told it goes to the pack", async () => {
+  await cu.evaluate(() => CUMix.op({ op: "mix", m: 2, patch: { local: false } }));
+  await phone.waitForFunction(() => !document.querySelector('[data-ie="listen"]') && /in-ear pack/.test(document.body.textContent), null, { timeout: 5000 });
+  const refused = await phone.evaluate(() => new Promise((res) => { const ws = new WebSocket("ws://" + location.host + "/ws"); ws.onopen = () => ws.send(JSON.stringify({ type: "hello", role: "user", code: "1111", id: localStorage.getItem("cu-device-id"), name: "Sam" })); ws.onmessage = (e) => { if (typeof e.data !== "string") return; const m = JSON.parse(e.data); if (m.type === "welcome") ws.send(JSON.stringify({ type: "listen", tap: 2, on: true })); if (m.type === "refused") { res(m.error); ws.close(); } }; setTimeout(() => res(null), 3000); }));
+  assert.ok(/wired|pack/.test(refused || ""), "refusal: " + refused);
+  await cu.evaluate(() => CUMix.op({ op: "mix", m: 2, patch: { local: true } }));
+  await phone.waitForSelector('[data-ie="listen"]', { timeout: 5000 });
+});
+await check("an older saved mixer (cloud / local mode) becomes wired / local", async () => {
+  const r = await cu.evaluate(() => { const s = CUMixer.normalize({ mixes: [{ mode: "cloud", outL: 4, outR: 5 }, { mode: "local" }] }); return [s.mixes.length, s.mixes[0].wired, s.mixes[0].local, s.mixes[0].outL, s.mixes[1].wired, s.mixes[1].local, "mode" in s.mixes[0]]; });
+  assert.deepEqual(r, [64, true, false, 4, false, true, false]);
+});
 await check("recording the service writes a WAV of the main mix", async () => {
   await cu.evaluate(() => CU.mixer.record({ on: true, tap: 0 })); await new Promise((r) => setTimeout(r, 2500));
   const st = await cu.evaluate(() => CU.mixer.record({ on: false }));
@@ -115,6 +146,17 @@ await check("only the Central Control plays the tracks: Central Usage's requests
   const before = await pi.evaluate(() => PPTracks.state.section);
   await cu.evaluate((c) => CentralUsage.send({ type: "action", name: "nextSection", code: c }), code); await new Promise((r) => setTimeout(r, 600));
   assert.equal(await pi.evaluate(() => PPTracks.state.section), before);
+});
+console.log("Devices:");
+await check("several devices at once (null test devices): 8 + 4 inputs and 16 + 16 outputs join, the I/O tab lists them", async () => {
+  await cu.evaluate(() => CUMix.op({ op: "device", patch: { backend: "null", capture: "NULL#8|NULL#4", playback: "NULL#16|NULL#16" } }));
+  const st = await until(() => cu.evaluate(async () => { const s = await CU.host.status(); const e = s.engine && s.engine.status; return e && e.backend === "null" && e.inputs === 12 ? e : null; }), 12000);
+  assert.equal(st.outputs, 32); assert.equal(st.captureDevices.length, 2); assert.equal(st.captureDevices[1].first, 8);
+  await cu.evaluate(() => CentralUsage.showTab("io"));
+  const devs = await until(() => cu.evaluate(() => document.querySelectorAll(".io-dev").length >= 4 ? [...document.querySelectorAll(".io-dev")].map((d) => d.textContent) : null), 6000);
+  assert.ok(devs.some((t) => /12|1–8/.test(t)) || devs.length >= 4, devs.join(" | "));
+  await cu.evaluate(() => CUMix.op({ op: "device", patch: { backend: "internal", capture: "", playback: "" } }));
+  await until(() => cu.evaluate(async () => { const s = await CU.host.status(); return s.engine && s.engine.status && s.engine.status.backend === "internal"; }), 12000);
 });
 await check("no page errors", async () => { assert.deepEqual(errs, []); });
 

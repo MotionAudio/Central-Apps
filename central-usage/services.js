@@ -18,7 +18,13 @@ const { Host } = require("./host");
 const { PiAudio } = require("./piaudio");
 const { Recorder } = require("./recorder");
 
-function which(cmd) { try { return spawnSync("sh", ["-c", "command -v " + cmd], { encoding: "utf8" }).stdout.trim() || null; } catch (_) { return null; } }
+function which(cmd) {
+  try {
+    if (process.platform === "win32") { const r = spawnSync("where", [cmd], { encoding: "utf8", windowsHide: true }); return r.status === 0 ? (r.stdout.split(/\r?\n/)[0] || "").trim() || null : null; }
+    return spawnSync("sh", ["-c", "command -v " + cmd], { encoding: "utf8" }).stdout.trim() || null;
+  } catch (_) { return null; }
+}
+const EXE = process.platform === "win32" ? ".exe" : "";
 function code4() { return String(1000 + Math.floor(Math.random() * 9000)); }
 
 module.exports = function services(app, getWin) {
@@ -26,7 +32,8 @@ module.exports = function services(app, getWin) {
   const nativeDir = app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native");
   const binDir = app.isPackaged ? nativeDir : path.join(__dirname, "native", "build");
   const send = (ch, ...a) => { const w = getWin(); if (w && !w.isDestroyed()) w.webContents.send(ch, ...a); };
-  for (const b of ["cu-mixer", "cu-ndi"]) { const f = path.join(binDir, b); try { fs.accessSync(f, fs.constants.X_OK); } catch (_) { try { fs.chmodSync(f, 0o755); } catch (__) { } } }   // (in case a copy lost the executable bit)
+  const soundsDir = app.isPackaged ? path.join(process.resourcesPath, "sounds") : path.join(__dirname, "native", "sounds");
+  for (const b of ["cu-mixer", "cu-ndi", "cu-rig"]) { const f = path.join(binDir, b + EXE); try { fs.accessSync(f, fs.constants.X_OK); } catch (_) { try { fs.chmodSync(f, 0o755); } catch (__) { } } }   // (in case a copy lost the executable bit)
 
   // ------------------------------------------------------------------ this computer's settings
   const cfgFile = path.join(userData, "cu.json");
@@ -36,14 +43,14 @@ module.exports = function services(app, getWin) {
   if (process.env.CU_MODE) cfg.mode = process.env.CU_MODE;   // tests
 
   // ------------------------------------------------------------------ the audio host
-  const engine = new Engine({ dir: userData, bin: path.join(binDir, "cu-mixer") });
+  const engine = new Engine({ dir: userData, bin: path.join(binDir, "cu-mixer" + EXE) });
   const host = new Host({ engine, appDir: path.join(__dirname, "app"), cfg: () => ({ name: cfg.name, userCode: cfg.host.userCode, adminCode: cfg.host.adminCode }), extra: () => ({}) });
   const pi = new PiAudio(engine);
   const recorder = new Recorder();
   let piTarget = { address: "", code: "" }, recFn = null;
   function hostStatus() { return { cfg, engine: engine.info(), server: host.status(), pi: pi.status(), recorder: recorder.status() }; }
   function applyHost() {
-    const on = cfg.mode === "admin" && cfg.host.enabled;
+    const on = (cfg.mode === "admin" || cfg.mode === "main") && cfg.host.enabled;
     if (on) { engine.start(); if (!host.server || host.port !== cfg.host.port) host.start(cfg.host.port); }
     else { if (host.server) host.stop(); engine.stop(); }
     engine.setLatency(cfg.piAudio.latency || (cfg.piAudio.transport === "wifi" ? 120 : 50)); engine.setAnalysis(cfg.analysis);
@@ -108,7 +115,7 @@ module.exports = function services(app, getWin) {
   ipcMain.handle("output-ndi", (_e, opt) => {
     opt = opt || {}; ndiStop();
     if (!opt.on) { outputs.ndiStatus = { on: false }; return outputs.ndiStatus; }
-    const bin = path.join(binDir, "cu-ndi"); if (!fs.existsSync(bin)) return (outputs.ndiStatus = { on: false, error: "The NDI sender (cu-ndi) is missing from this installation." });
+    const bin = path.join(binDir, "cu-ndi" + EXE); if (!fs.existsSync(bin)) return (outputs.ndiStatus = { on: false, error: "The NDI sender (cu-ndi) is missing from this installation." });
     const w = Number(opt.width) || 1920, h = Number(opt.height) || 1080, fps = Number(opt.fps) || 30;
     const proc = spawn(bin, [opt.name || "Central Usage " + (cfg.name || "")], { stdio: ["pipe", "pipe", "ignore"] }); outputs.ndiProc = proc; outputs.ndiStatus = { on: true, starting: true };
     proc.stdin.on("error", () => { });
@@ -133,11 +140,18 @@ module.exports = function services(app, getWin) {
   let inst = null, instBuf = "";
   function instStart() {
     if (inst) return true;
-    const py = which("python3"); if (!py) { send("inst-msg", { type: "instrumentStatus", available: false, error: "Python 3 is needed for the instrument (sudo apt install python3).", inputs: [], midiInputs: [], keysCatalog: [] }); return false; }
-    const script = path.join(nativeDir, "cu-instrument.py"); if (!fs.existsSync(script)) { send("inst-msg", { type: "instrumentStatus", available: false, error: "The instrument host is missing from this installation.", inputs: [], midiInputs: [], keysCatalog: [] }); return false; }
-    inst = spawn(py, [script, path.join(userData, "instrument")], { stdio: ["pipe", "pipe", "ignore"] }); instBuf = "";
+    // Linux with PipeWire: the Central Control's own instrument host (real LV2 / LADSPA pedals, FluidSynth);
+    // Windows, macOS (or Linux without PipeWire): the built-in rig cu-rig (built-in effects, SoundFont keys)
+    const py = process.platform === "linux" && which("python3"), script = path.join(nativeDir, "cu-instrument.py");
+    const rigBin = path.join(binDir, "cu-rig" + EXE), map = [path.join(nativeDir, "rig-map.json"), path.join(binDir, "rig-map.json")].filter((f) => fs.existsSync(f))[0];
+    let cmd, args;
+    if (py && which("pw-cli") && fs.existsSync(script) && process.env.CU_RIG !== "1") { cmd = py; args = [script, path.join(userData, "instrument")]; }
+    else if (fs.existsSync(rigBin)) { cmd = rigBin; args = ["--data", path.join(userData, "instrument"), "--sounds", soundsDir].concat(map ? ["--map", map] : []).concat(process.env.CU_RIG_BACKEND ? ["--backend", process.env.CU_RIG_BACKEND] : []); }
+    else { send("inst-msg", { type: "instrumentStatus", available: false, error: "The instrument engine is missing from this installation.", inputs: [], midiInputs: [], keysCatalog: [] }); return false; }
+    try { fs.mkdirSync(path.join(userData, "instrument", "sounds", "sf2"), { recursive: true }); fs.mkdirSync(path.join(userData, "instrument", "sounds", "ir"), { recursive: true }); } catch (_) { }
+    inst = spawn(cmd, args, { stdio: ["pipe", "pipe", "ignore"], windowsHide: true }); instBuf = "";
     inst.stdout.on("data", (b) => { instBuf += b; let i; while ((i = instBuf.indexOf("\n")) >= 0) { const line = instBuf.slice(0, i); instBuf = instBuf.slice(i + 1); try { send("inst-msg", JSON.parse(line)); } catch (_) { } } });
-    inst.stdin.on("error", () => { }); inst.on("exit", () => { inst = null; });
+    inst.stdin.on("error", () => { }); inst.on("exit", () => { inst = null; }); inst.on("error", () => { inst = null; });
     return true;
   }
   ipcMain.handle("inst-start", () => instStart());

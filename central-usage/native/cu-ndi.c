@@ -1,18 +1,21 @@
 /* cu-ndi - sends Central Usage's slides / lyrics output as an NDI video source on the network.
- * Needs the NDI runtime (libndi.so.6 or .5, free from ndi.video - "NDI Tools" / "NDI SDK for Linux");
- * it is loaded at run time, so this program builds without it and says so when it is missing.
+ * Needs the NDI runtime, free from ndi.video: Linux libndi.so.6 / .5 ("NDI SDK for Linux"), Windows
+ * Processing.NDI.Lib.x64.dll ("NDI Tools" / "NDI Runtime"), macOS libndi.dylib ("NDI Tools" / the SDK).
+ * It is loaded at run time, so this program builds without it and says so when it is missing.
  * stdin: framed messages - u8 type, u32 length (little endian), payload
  *   'V'  u16 width, u16 height, u16 fps, u16 0, then width*height*4 bytes BGRA
  *   'Q'  quit
  * stdout: one JSON line per event ({"ev":"status",...}). */
+#ifndef _WIN32
 #define _GNU_SOURCE
-#include <dlfcn.h>
+#endif
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include "plat.h"
+#define say(...) do { printf(__VA_ARGS__); fflush(stdout); } while (0)
 
 typedef struct { const char *p_ndi_name; const char *p_groups; bool clock_video; bool clock_audio; } NDIlib_send_create_t;
 typedef struct {
@@ -26,27 +29,49 @@ static void (*ndi_send_destroy)(void *);
 static void (*ndi_send_video)(void *, const NDIlib_video_frame_v2_t *);
 static int (*ndi_send_conns)(void *, uint32_t);
 
-static int read_full(void *p, size_t n) { uint8_t *b = p; while (n) { ssize_t k = read(0, b, n); if (k <= 0) return 0; b += k; n -= (size_t)k; } return 1; }
+static int read_full(void *p, size_t n) { uint8_t *b = p; while (n) { long k = pl_read(b, n); if (k <= 0) return 0; b += k; n -= (size_t)k; } return 1; }
+#ifdef _WIN32
+#define NDI_LIB "Processing.NDI.Lib.x64.dll"
+static const char *names[] = { "Processing.NDI.Lib.x64.dll", "C:\\Program Files\\NDI\\NDI 6 Runtime\\v6\\Processing.NDI.Lib.x64.dll",
+  "C:\\Program Files\\NDI\\NDI 6 Tools\\Runtime\\Processing.NDI.Lib.x64.dll", "C:\\Program Files\\NDI\\NDI 5 Runtime\\v5\\Processing.NDI.Lib.x64.dll", NULL };
+#define SEP "\\"
+#elif defined(__APPLE__)
+#define NDI_LIB "libndi.dylib"
+static const char *names[] = { "libndi.dylib", "/usr/local/lib/libndi.dylib", "/Library/NDI SDK for Apple/lib/macOS/libndi.dylib", "/Library/NDI SDK for Apple/lib/macOS/libndi_advanced.dylib",
+  "/Applications/NDI Video Monitor.app/Contents/Frameworks/libndi.dylib", NULL };
+#define SEP "/"
+#else
+#define NDI_LIB "libndi.so.6"
+static const char *names[] = { "libndi.so.6", "libndi.so.5", "libndi.so", "/usr/local/lib/libndi.so.6", "/usr/lib/libndi.so.6", NULL };
+#define SEP "/"
+#endif
 static void *load(void) {
   const char *env[] = { "NDI_RUNTIME_DIR_V6", "NDI_RUNTIME_DIR_V5", NULL }; char path[1024]; void *h = NULL;
-  for (int i = 0; env[i] && !h; i++) { const char *d = getenv(env[i]); if (d) { snprintf(path, sizeof path, "%s/libndi.so.%c", d, env[i][17]); h = dlopen(path, RTLD_NOW); } }
-  const char *names[] = { "libndi.so.6", "libndi.so.5", "libndi.so", "/usr/local/lib/libndi.so.6", "/usr/lib/libndi.so.6", NULL };
-  for (int i = 0; names[i] && !h; i++) h = dlopen(names[i], RTLD_NOW);
+  for (int i = 0; env[i] && !h; i++) {
+    const char *d = getenv(env[i]); if (!d) continue;
+#if defined(_WIN32) || defined(__APPLE__)
+    snprintf(path, sizeof path, "%s" SEP "%s", d, NDI_LIB);
+#else
+    snprintf(path, sizeof path, "%s/libndi.so.%c", d, env[i][17]);
+#endif
+    h = pl_dlopen(path);
+  }
+  for (int i = 0; names[i] && !h; i++) h = pl_dlopen(names[i]);
   return h;
 }
 int main(int argc, char **argv) {
   const char *name = argc > 1 ? argv[1] : "Central Usage";
-  setvbuf(stdout, NULL, _IOLBF, 0);
+  pl_binary_stdio();
   void *lib = load();
-  if (!lib) { printf("{\"ev\":\"status\",\"ok\":false,\"error\":\"The NDI runtime is not installed (libndi.so.6 - get NDI Tools / the NDI SDK for Linux from ndi.video).\"}\n"); return 2; }
-  *(void **)&ndi_init = dlsym(lib, "NDIlib_initialize"); *(void **)&ndi_send_create = dlsym(lib, "NDIlib_send_create");
-  *(void **)&ndi_send_destroy = dlsym(lib, "NDIlib_send_destroy"); *(void **)&ndi_send_video = dlsym(lib, "NDIlib_send_send_video_v2");
-  *(void **)&ndi_send_conns = dlsym(lib, "NDIlib_send_get_no_connections");
-  if (!ndi_init || !ndi_send_create || !ndi_send_video || !ndi_init()) { printf("{\"ev\":\"status\",\"ok\":false,\"error\":\"The NDI runtime could not start (unsupported CPU or an old version).\"}\n"); return 3; }
+  if (!lib) { say("{\"ev\":\"status\",\"ok\":false,\"error\":\"The NDI runtime is not installed (" NDI_LIB " - get NDI Tools from ndi.video).\"}\n"); return 2; }
+  *(void **)&ndi_init = pl_dlsym(lib, "NDIlib_initialize"); *(void **)&ndi_send_create = pl_dlsym(lib, "NDIlib_send_create");
+  *(void **)&ndi_send_destroy = pl_dlsym(lib, "NDIlib_send_destroy"); *(void **)&ndi_send_video = pl_dlsym(lib, "NDIlib_send_send_video_v2");
+  *(void **)&ndi_send_conns = pl_dlsym(lib, "NDIlib_send_get_no_connections");
+  if (!ndi_init || !ndi_send_create || !ndi_send_video || !ndi_init()) { say("{\"ev\":\"status\",\"ok\":false,\"error\":\"The NDI runtime could not start (unsupported CPU or an old version).\"}\n"); return 3; }
   NDIlib_send_create_t sc = { name, NULL, true, false };
   void *snd = ndi_send_create(&sc);
-  if (!snd) { printf("{\"ev\":\"status\",\"ok\":false,\"error\":\"Could not create the NDI source.\"}\n"); return 4; }
-  printf("{\"ev\":\"status\",\"ok\":true,\"name\":\"%s\"}\n", name);
+  if (!snd) { say("{\"ev\":\"status\",\"ok\":false,\"error\":\"Could not create the NDI source.\"}\n"); return 4; }
+  say("{\"ev\":\"status\",\"ok\":true,\"name\":\"%s\"}\n", name);
   uint8_t *buf = NULL; size_t cap = 0; unsigned frames = 0;
   for (;;) {
     uint8_t h[5]; if (!read_full(h, 5)) break;
@@ -61,7 +86,7 @@ int main(int argc, char **argv) {
     f.xres = w; f.yres = hgt; f.FourCC = (int)FOURCC('B', 'G', 'R', 'A'); f.frame_rate_N = (fps > 0 ? fps : 30) * 1000; f.frame_rate_D = 1000;
     f.picture_aspect_ratio = (float)w / (float)hgt; f.frame_format_type = 1; f.timecode = INT64_MAX; f.p_data = buf + 8; f.line_stride_in_bytes = w * 4;
     ndi_send_video(snd, &f);
-    if (++frames % 150 == 0 && ndi_send_conns) printf("{\"ev\":\"stats\",\"frames\":%u,\"receivers\":%d}\n", frames, ndi_send_conns(snd, 0));
+    if (++frames % 150 == 0 && ndi_send_conns) say("{\"ev\":\"stats\",\"frames\":%u,\"receivers\":%d}\n", frames, ndi_send_conns(snd, 0));
   }
   if (ndi_send_destroy) ndi_send_destroy(snd);
   return 0;

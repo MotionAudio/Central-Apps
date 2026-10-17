@@ -1,5 +1,5 @@
 /* Central Usage - the in-ear page for the people on stage (Central Usage in User mode, and phones).
- * Pick a free mix (1-48), then set your own levels of the channels the sound desk routed to you.
+ * Pick a free mix (1-64), then set your own levels of the channels the sound desk routed to you.
  *   Local: your mix comes back over Wi-Fi to this device (headphones here) - a little delay
  *   Cloud: your levels go to the audio host, your mix leaves its audio interface (a wireless pack) - no delay
  * CUInEarUI.mount(root, { url, code, name, id, sinkSelect: bool }) -> { destroy(), link } */
@@ -30,15 +30,12 @@
       if (t.dataset.ie === "sink") { sink = t.value; save("sink", sink); if (player) player.setSink(sink); }
       if (!me) return;
       if (t.dataset.ieOn != null) op({ op: "send", m: me.m, i: Number(t.dataset.ieOn), patch: { on: t.checked } });
-      else if (t.dataset.ie === "stereo") op({ op: "mix", m: me.m, patch: { stereo: t.checked } });
     });
     el.addEventListener("click", function (e) {
       var b = e.target.closest("[data-ie-claim],[data-ie]"); if (!b) return; var me = mine();
-      if (b.dataset.ieClaim != null) { op({ op: "claim", m: Number(b.dataset.ieClaim), name: opt.name, mode: "local" }); return; }
+      if (b.dataset.ieClaim != null) { op({ op: "claim", m: Number(b.dataset.ieClaim), name: opt.name }); return; }
       var a = b.dataset.ie;
       if (a === "release" && me) { stopListening(); op({ op: "release", m: me.m }); }
-      else if (a === "local" && me) { op({ op: "mix", m: me.m, patch: { mode: "local" } }); }
-      else if (a === "cloud" && me) { stopListening(); op({ op: "mix", m: me.m, patch: { mode: "cloud" } }); }
       else if (a === "mute" && me) op({ op: "mix", m: me.m, patch: { mute: !me.mute } });
       else if (a === "listen" && me) { if (listening) stopListening(); else startListening(); }
       else if (a === "retry") { refused = null; connect(); }
@@ -55,7 +52,7 @@
       link = IE.link({ url: opt.url, role: "user", code: opt.code, id: opt.id || IE.deviceId(), name: opt.name || "Someone" });
       link.on("status", function (s) { status = s; renderStatus(); });
       link.on("welcome", function (st) { view = st; render(); });
-      link.on("view", function (st) { var before = mine(); view = st; var after = mine(); if (listening && (!after || (before && after.m !== before.m) || after.mode !== "local")) stopListening(); render(); });
+      link.on("view", function (st) { var before = mine(); view = st; var after = mine(); if (listening && (!after || (before && after.m !== before.m) || !after.local)) stopListening(); render(); });
       link.on("meters", function (m) { meters = m; drawMeters(); });
       link.on("refused", function (err) { refused = err; render(); });
       link.on("audio", function (pcm, frames, ch, rate) { if (player && listening) player.push(pcm, frames, ch, rate); });
@@ -64,20 +61,20 @@
     function render() {
       if (refused && !view) { el.innerHTML = '<div class="ie-card"><p class="ie-bad">' + esc(refused) + '</p><button data-ie="retry">Try again</button></div>'; return; }
       if (!view) { el.innerHTML = '<div class="ie-card"><p class="muted">Connecting to the audio host…</p><span class="ie-status"></span></div>'; renderStatus(); return; }
-      var me = mine(), key = JSON.stringify([me && me.m, me && me.mode, view.inputs.map(function (x) { return x.i + x.name; }), listening, view.mixes.map(function (q) { return q.owner + q.free; })]);
+      var me = mine(), key = JSON.stringify([me && me.m, me && me.local, me && me.wired, me && me.outL, me && me.outR, view.inputs.map(function (x) { return x.i + x.name; }), listening, view.mixes.map(function (q) { return q.owner + q.free; })]);
       if (key === structKey && me) { update(me); return; }
       structKey = key;
       if (!me) {
         el.innerHTML = '<div class="ie-card"><h3>Pick your mix</h3><p class="muted">Free mixes can be taken. Your levels stay with your mix.</p><span class="ie-status"></span><div class="ie-mixes">' +
-          view.mixes.map(function (q) { return '<button class="ie-mix' + (q.free ? "" : " taken") + '"' + (q.free ? ' data-ie-claim="' + q.m + '"' : " disabled") + "><b>" + (q.m + 1) + "</b><span>" + esc(q.free ? q.name : q.owner ? q.owner : "reserved") + "</span></button>"; }).join("") + "</div></div>";
+          view.mixes.map(function (q) { return '<button class="ie-mix' + (q.free ? "" : " taken") + '"' + (q.free ? ' data-ie-claim="' + q.m + '"' : " disabled") + "><b>" + (q.m + 1) + "</b><span>" + esc(q.free ? q.name : q.owner ? q.owner : "reserved") + "</span><small>" + (q.wired && q.local ? "pack + device" : q.wired ? "pack" : q.local ? "this device" : "") + "</small></button>"; }).join("") + "</div></div>";
         renderStatus(); return;
       }
       var canSink = !!(window.HTMLMediaElement && "setSinkId" in HTMLMediaElement.prototype) && opt.sinkSelect !== false;
       el.innerHTML = '<div class="ie-card ie-head"><div><h3>Mix ' + (me.m + 1) + " · " + esc(me.name) + '</h3><span class="ie-status"></span></div><button data-ie="release">Leave this mix</button></div>' +
-        '<div class="ie-card"><div class="ie-modes"><button data-ie="local" class="' + (me.mode === "local" ? "on" : "") + '"><b>Local</b><small>my mix comes to this device (headphones here) · a little delay</small></button><button data-ie="cloud" class="' + (me.mode === "cloud" ? "on" : "") + '"><b>Cloud</b><small>my mix leaves the sound desk\'s interface (wireless pack) · no delay</small></button></div>' +
-        (me.mode === "local" ? '<div class="row"><button data-ie="listen" class="primary big">' + (listening ? "■ Stop listening" : "▶ Listen here") + '</button><label>Delay <input type="range" min="40" max="400" step="10" data-ie="latency" value="' + latency + '"><span class="ie-latv">' + latency + " ms</span></label>" + (canSink ? '<label>Headphones <select data-ie="sink"><option value="">This device\'s output</option></select></label>' : "") + '<span class="muted small ie-stats"></span></div>'
-          : (me.hasOutput ? '<p class="muted">Your levels are sent to the audio host; your mix leaves its interface on the outputs the sound desk patched.</p>' : '<p class="ie-bad">This mix has no output on the interface yet - ask the sound desk to patch Mix ' + (me.m + 1) + " to your pack.</p>")) + "</div>" +
-        '<div class="ie-card"><div class="ie-master"><b>My level</b><input type="range" min="0" max="1" step="0.001" data-ie="level" value="' + M.dbToFader(me.level) + '"><span class="ie-mdb">' + db(me.level) + '</span><button data-ie="mute" class="' + (me.mute ? "danger on" : "") + '">' + (me.mute ? "Muted" : "Mute") + '</button><label class="toggle"><input type="checkbox" data-ie="stereo"' + (me.stereo !== false ? " checked" : "") + '> Stereo</label><div class="ie-mm"><i></i><i></i></div></div>' +
+        '<div class="ie-card">' + (me.wired ? '<p class="ie-wired"><b>Wired</b> · ' + (me.outL >= 0 ? "your mix goes to your in-ear pack (Out " + (me.outL + 1) + (me.stereo && me.outR >= 0 ? "/" + (me.outR + 1) : "") + ")" : "the sound desk hasn't given this mix an output yet") + "</p>" : "") +
+        (me.local ? '<div class="row"><button data-ie="listen" class="primary big">' + (listening ? "■ Stop listening" : "▶ Listen here") + '</button><label>Delay <input type="range" min="40" max="400" step="10" data-ie="latency" value="' + latency + '"><span class="ie-latv">' + latency + " ms</span></label>" + (canSink ? '<label>Headphones <select data-ie="sink"><option value="">This device\'s output</option></select></label>' : "") + '<span class="muted small ie-stats"></span></div>'
+          : (me.wired ? "" : '<p class="ie-bad">Mix ' + (me.m + 1) + " doesn't go anywhere yet - ask the sound desk to send it to your pack or to this device.</p>")) + "</div>" +
+        '<div class="ie-card"><div class="ie-master"><b>My level</b><input type="range" min="0" max="1" step="0.001" data-ie="level" value="' + M.dbToFader(me.level) + '"><span class="ie-mdb">' + db(me.level) + '</span><button data-ie="mute" class="' + (me.mute ? "danger on" : "") + '">' + (me.mute ? "Muted" : "Mute") + '</button><div class="ie-mm"><i></i><i></i></div></div>' +
         (view.inputs.length ? '<div class="ie-chs">' + view.inputs.map(function (x, k) { var sd = (me.sends || {})[x.i] || { level: -90, pan: 0, on: true }; return '<div class="ie-ch" data-k="' + k + '"><span class="ie-name"' + (x.color ? ' style="border-color:' + esc(x.color) + '"' : "") + ">" + esc(x.name) + '</span><div class="ie-meter"><i></i></div><input type="range" min="0" max="1" step="0.001" data-ie-send="' + x.i + '" value="' + M.dbToFader(sd.level) + '"><span class="ie-db">' + db(sd.level) + '</span><input type="range" class="ie-pan" min="-1" max="1" step="0.05" data-ie-pan="' + x.i + '" value="' + (sd.pan || 0) + '" title="Left / right"><label class="toggle" title="On / off"><input type="checkbox" data-ie-on="' + x.i + '"' + (sd.on !== false ? " checked" : "") + "></label></div>"; }).join("") + "</div>" : '<p class="muted">No channels are routed to the in-ears yet.</p>') + "</div>";
       renderStatus();
       if (canSink && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) navigator.mediaDevices.enumerateDevices().then(function (list) { var sel = el.querySelector('[data-ie="sink"]'); if (!sel) return; list.filter(function (d) { return d.kind === "audiooutput" && d.deviceId !== "default"; }).forEach(function (d) { var o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || "Output " + d.deviceId.slice(0, 6); if (d.deviceId === sink) o.selected = true; sel.appendChild(o); }); });
