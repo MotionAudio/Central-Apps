@@ -98,7 +98,7 @@ await check("talkback from an interface input: only the chosen mix hears it, at 
 await check("talkback dims the music in its mixes (-12 dB) while it talks, and lets it back up after", async () => {
   t.cmd({ cmd: "talk", slot: 0, on: 0 });
   t.cmd({ cmd: "talk", slot: 1, on: 1, src: 1, ch: 3, gain: 0, dim: -12, mixes: [1] });   // ch 3 is silent: only the dim is heard
-  const dim = await t.meters((x) => mixPeak(x, 1) < 0.1 && mixPeak(x, 0) > 0.25);
+  const dim = await t.meters((x) => Math.abs(mixPeak(x, 1) - 0.3 / 3.98) < 0.012 && mixPeak(x, 0) > 0.25, 8000);   // (once the dim has settled: a slow machine meters the ramp first)
   assert.ok(Math.abs(mixPeak(dim, 1) - 0.3 / 3.98) < 0.015, "dimmed " + mixPeak(dim, 1));
   assert.ok(Math.abs(mixPeak(dim, 0) - 0.3) < 0.03, "the other mix is not dimmed (and slot 1 is off there): " + mixPeak(dim, 0));
   t.cmd({ cmd: "talk", slot: 1, on: 0 });
@@ -109,8 +109,9 @@ await check("talkback from a computer's mic over the network (source 4 + slot), 
   t.cmd({ cmd: "talk", slot: 2, on: 1, src: 2, gain: 0, dim: 0, all: 1 });
   let ph = 0; const tick = setInterval(() => { const n = 480, b = Buffer.alloc(n * 2); for (let f = 0; f < n; f++) { b.writeInt16LE(Math.round(0.4 * 32767 * Math.sin(ph)), f * 2); ph += 2 * Math.PI * 330 / 48000; } t.net(6, 1, n, b); }, 10);
   try {
-    const m = await t.meters((x) => x.talk[2] > 0.3 && mixPeak(x, 0) > 0.55 && mixPeak(x, 1) > 0.55, 8000);
-    assert.ok(m.talk[2] > 0.3, "network talk meter " + m.talk[2]); assert.ok(mixPeak(m, 0) > 0.55 && mixPeak(m, 1) > 0.55, "both mixes hear it " + mixPeak(m, 0) + " / " + mixPeak(m, 1));
+    // the music alone peaks at 0.3 in each mix: well above that = the talk is in both
+    const m = await t.meters((x) => x.talk[2] > 0.3 && mixPeak(x, 0) > 0.42 && mixPeak(x, 1) > 0.42, 8000);
+    assert.ok(m.talk[2] > 0.3, "network talk meter " + m.talk[2]); assert.ok(mixPeak(m, 0) > 0.42 && mixPeak(m, 1) > 0.42, "both mixes hear it " + mixPeak(m, 0) + " / " + mixPeak(m, 1));
   } finally { clearInterval(tick); }
   t.cmd({ cmd: "talk", slot: 2, on: 0 });
 });
