@@ -7,7 +7,7 @@ guitar / keys rig, with a touch screen, 12 footswitches, 6 knobs, 2 sliders,
 an expression pedal, MIDI in/out, Ableton Link, four separate audio outputs
 and a projector output. **Central Usage** (`central-usage/`) is the companion
 app for the other computers in the room. An **Admin** computer gets the lighting
-controller, the tracks mixer, up to 48 in-ear mixes, lyrics and slides. A **User**
+controller, the video switcher, the tracks mixer, up to 64 in-ear mixes, lyrics and slides. A **User**
 computer gets the chord chart, the instrument, the lyrics and the musician's
 own in-ear mix. Everything follows the Central Control, and only the Central
 Control plays, stops and skips the tracks.
@@ -67,7 +67,7 @@ Control plays, stops and skips the tracks.
 - **The Mix tab** gives every track its fader, pan, mute, high-pass, 3-band EQ and
   compressor. The tracks go out of the USB interface summed (L/R) or each on its
   own output.
-- **The In-ears tab** handles up to 128 channels and 48 mixes. People on stage pick
+- **The In-ears tab** handles up to 128 channels and 64 mixes (48 in 8.0). People on stage pick
   a free mix and set their own levels from Central Usage or a phone. Their mix
   plays on that device over Wi-Fi (local), or leaves the audio host's interface for
   a pack (cloud).
@@ -134,7 +134,7 @@ Releases can also be copied to Google Drive automatically ([DRIVE-SETUP.md](DRIV
    ```bash
    sudo WIFI_SSID="Church WiFi" WIFI_PASS="password" bash build-image.sh
    ```
-   You get `central-control-os-8.0.0.img` (the version is in the name - an
+   You get `central-control-os-8.1.0.img` (the version is in the name - an
    older `pad-pedal-os.img` lying in the folder is a previous version: delete
    it so it can't be flashed by mistake). Always build from the folder you
    unzipped the newest `central-control-source.zip` into. Options: `PI_PASS=...`, `PI_HOSTNAME=...`,
@@ -150,17 +150,17 @@ Releases can also be copied to Google Drive automatically ([DRIVE-SETUP.md](DRIV
 3. **Boot.** The first boot takes about a minute longer and restarts once
    (it creates the `/data` partition and turns on safe mode). After that every
    boot goes straight to the Central Control screen. The start-up screen says
-   "Central Control 8.0.0" and the top-right of the app shows the same - if it
+   "Central Control 8.1.0" and the top-right of the app shows the same - if it
    doesn't, the card has an older image on it.
 
 4. **Wire the control surface** with `wiring.html`. Every part is optional;
    the Learn tab can move any button or knob to any pin without re-flashing.
    A guitar needs a USB audio interface, a keyboard a USB MIDI port - no wiring.
 
-5. **Central Usage** on a laptop: `sudo apt install ./central-usage/dist/central-usage-2.0.0-amd64.deb`
+5. **Central Usage** on a laptop: `sudo apt install ./central-usage/dist/central-usage-2.1.0-amd64.deb`
    (or run the AppImage), then **Find** → Connect. See `central-usage/README.md`.
    **Central Control on a PC** (no Pi, for trying it out or building setlists):
-   `sudo apt install ./central-control-desktop/dist/central-control-8.0.0-amd64.deb`.
+   `sudo apt install ./central-control-desktop/dist/central-control-8.1.0-amd64.deb`.
 
 Maintenance login: `ssh pi@padpedal.local`, password `padpedal`.
 
@@ -582,7 +582,7 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
   `node test-dmx.mjs` — the USB-DMX, Art-Net and sACN packets;
   `xvfb-run -a node test-app.mjs` — the real Electron app: the phone remote's
   server, the update check and its checksum guard.
-- `bash make-release.sh 8.0.0 owner/repo` (with `GITHUB_TOKEN`) — packs and
+- `bash make-release.sh 8.1.0 owner/repo` (with `GITHUB_TOKEN`) — packs and
   publishes a release the update checks find (see the script's header).
 
 ## Files

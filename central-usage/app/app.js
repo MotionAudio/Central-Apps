@@ -275,6 +275,6 @@
     if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Usage";
     if (!role()) askMode(); applyMode(); fire("ready");
   })();
-  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, setRole: setRole, setMode: setMode, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
+  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
     midiSend: function (d, at) { midiSend(d, at); }, midiSysex: function (d) { if (midi && midi.sysexEnabled) midiSend(d); } };
 })();

@@ -1,7 +1,7 @@
 # Central Usage
 
 The companion app for Central Control on the other computers in the room. It is
-a real desktop application (Electron), not a browser tab. Version 2.0.0.
+a real desktop application (Electron), not a browser tab. Version 2.1.0.
 
 Each computer has a role. The first time it starts it asks: **Main admin** or **Join**.
 
@@ -45,10 +45,10 @@ Download from https://motionaudio.github.io/Central-Apps/ (first-run help there 
 
 ### Linux
 
-* Ubuntu / Debian: `sudo apt install ./dist/central-usage-2.0.0-amd64.deb`, then
+* Ubuntu / Debian: `sudo apt install ./dist/central-usage-2.1.0-amd64.deb`, then
   open **Central Usage** from the app menu. The .deb recommends `pipewire-jack`
   (the audio interface for the mixer), `python3` and `fluidsynth` (the instrument).
-* Any Linux: `chmod +x dist/central-usage-2.0.0-x86_64.AppImage` and run it.
+* Any Linux: `chmod +x dist/central-usage-2.1.0-x86_64.AppImage` and run it.
 
 ## Connect
 
@@ -106,10 +106,11 @@ code** shown on the audio host's I/O tab.
 
 * **Channels** (up to 128): each one is the Central Control's channel or an
   interface input, with a name, *Tracks* or *Band*, and whether the users see it.
-* **Mixes** (up to 48): each has a name, its owner, *reserved*, and a mode:
-  * **Cloud**: the mix leaves the audio interface on the outputs you pick, to a
-    wireless pack. There is no delay.
-  * **Local**: the mix goes back over Wi-Fi to the owner's device.
+* **Mixes** (up to 64, stereo): each has a name, its owner, *reserved*, and where it goes - one,
+  the other, or both:
+  * **Wired**: out of the audio interface or Dante on the output pair you pick, to the in-rack
+    in-ear transmitters. No delay. **Auto-assign pairs** numbers them in order.
+  * **Local**: back over Wi-Fi to the owner's Central Usage or phone.
 * **The selected mix's send levels.** Here you can also **listen to any mix**,
   copy a mix, or free it. The in-ear code and the phone address are shown at the
   top.

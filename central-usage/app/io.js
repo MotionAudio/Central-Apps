@@ -122,7 +122,7 @@
     root.innerHTML = '<div class="io-grid">' + piCard() + piAudioCard() + hostCard() + ifaceCard() + listenCard() + videoCard() + lightsCard() + instCard() + midiCard() + "</div>";
     var sinkSel = $('[data-io="sink"]'); if (sinkSel && navigator.mediaDevices) navigator.mediaDevices.enumerateDevices().then(function (list) { list.filter(function (d) { return d.kind === "audiooutput" && d.deviceId !== "default"; }).forEach(function (d) { var o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || "Output " + d.deviceId.slice(0, 6); if (window.CUListen && d.deviceId === window.CUListen.sink()) o.selected = true; sinkSel.appendChild(o); }); }).catch(function () { });
   }
-  async function setCfg(patch) { if (NAT && NAT.config) { var c = await NAT.config.set(patch); CU.setConfig(c); if (hs) hs.cfg = c; } if (X) X.choose(); render(); }
+  async function setCfg(patch) { if (NAT && NAT.config) { var c = await NAT.config.set(patch); CU.setConfig(c); if (hs) hs.cfg = c; } if (X) X.choose(); render(); if (patch.newUserCode || patch.newAdminCode) registerHost(); }
   // the Central Control's address for the audio: its Ethernet or Wi-Fi address (whichever was chosen)
   function piTarget() {
     if (!NAT || !NAT.host) return; var c = cfg(), t = (c.piAudio || {}).transport, ifs = CU.state.interfaces || [];
@@ -130,7 +130,7 @@
     NAT.host.piTarget({ address: addr || "", code: CU.prefs.code || "" });
   }
   // the audio host tells the Central Control where it is, so every other Central Usage finds it
-  function registerHost() { var c = cfg(); if ((CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") && c.host && c.host.enabled && CU.state.connected && CU.prefs.code) CU.send({ type: "audioHost", action: "register", code: CU.prefs.code, port: c.host.port || 8092, name: c.name || "Central Usage" }); }
+  function registerHost() { var c = cfg(); if ((CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") && c.host && c.host.enabled && CU.state.connected && CU.prefs.code) CU.send({ type: "audioHost", action: "register", code: CU.prefs.code, port: c.host.port || 8092, name: c.name || "Central Usage", userCode: c.host.userCode, adminCode: c.host.adminCode }); }   // the Central Control hands each computer the code for its role
   CU.on("hello", function () { piTarget(); setTimeout(registerHost, 300); });
   CU.on("authed", function () { piTarget(); registerHost(); });
   CU.on("connected", function (on) { if (on) setTimeout(registerHost, 600); });
