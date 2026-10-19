@@ -4,7 +4,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { config, STAR_PRICE_CENTS, SUBSCRIBER_ADD_CENTS, PRODUCTS, SUBSCRIPTION } from "./config.js";
+import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION } from "./config.js";
 import { q, one, migrate } from "./db.js";
 import { hashPassword, checkPassword, makeToken, attachUser, requireUser, isAdmin } from "./auth.js";
 import * as store from "./storage.js";
@@ -77,7 +77,7 @@ api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
   res.json({ email: u.email, name: u.name, subscribed: u.subscribed, admin: isAdmin(u), payoutsReady: u.connect_ready, payoutsStarted: !!u.connect_account });
 }));
-api.get("/config", (_req, res) => res.json({ payments: !!pay.stripe, products: PRODUCTS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, subscriberAddCents: SUBSCRIBER_ADD_CENTS }));
+api.get("/config", (_req, res) => res.json({ payments: !!pay.stripe, products: PRODUCTS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE }));
 
 function trackOut(t) {
   return { id: String(t.id), title: t.title, artist: t.artist, kind: t.kind, key: t.song_key, bpm: Number(t.bpm) || 0, stars: t.stars, price: t.price_cents / 100, owned: !!t.owned, mine: !!t.mine };
@@ -111,7 +111,7 @@ api.post("/tracks/:id/add", requireUser, wrap(async (req, res) => {
   if (await owns(u.id, t)) return res.json({ files: await filesFor(t.id) });
   if (!u.subscribed) return res.status(402).json({ error: "Buy this track or subscribe to Central Tracks Unlimited.", checkoutUrl: pay.stripe ? await pay.trackCheckout(u, t) : undefined });
   await q("INSERT INTO library (user_id,track_id,how) VALUES ($1,$2,'subscription') ON CONFLICT DO NOTHING", [u.id, t.id]);
-  await q("INSERT INTO earnings (publisher_id,track_id,buyer_id,reason,cents) VALUES ($1,$2,$3,'subscriber_add',$4) ON CONFLICT DO NOTHING", [t.publisher_id, t.id, u.id, SUBSCRIBER_ADD_CENTS]);
+  await q("INSERT INTO earnings (publisher_id,track_id,buyer_id,reason,cents) VALUES ($1,$2,$3,'subscriber_add',0) ON CONFLICT DO NOTHING", [t.publisher_id, t.id, u.id]);  // counts toward this month's pool
   res.json({ files: await filesFor(t.id) });
 }));
 api.post("/tracks/:id/purchase", requireUser, wrap(async (req, res) => {
@@ -163,8 +163,10 @@ api.get("/publisher", requireUser, wrap(async (req, res) => {
       (SELECT COUNT(*) FROM earnings e WHERE e.track_id=t.id AND e.reason='purchase')::int AS sales,
       (SELECT COUNT(*) FROM earnings e WHERE e.track_id=t.id AND e.reason='subscriber_add')::int AS adds
     FROM tracks t WHERE t.publisher_id=$1 AND t.status<>'removed' ORDER BY t.created_at DESC`, [uid]);
-  const sum = await one("SELECT COALESCE(SUM(cents) FILTER (WHERE transfer_id IS NULL),0)::int AS unpaid, COALESCE(SUM(cents) FILTER (WHERE transfer_id IS NOT NULL),0)::int AS paid FROM earnings WHERE publisher_id=$1", [uid]);
-  res.json({ unpaid: sum.unpaid / 100, paid: sum.paid / 100, payoutsReady: req.user.connect_ready, tracks: tracks.map((t) => ({ ...trackOut(t), status: t.status, sales: t.sales, adds: t.adds })) });
+  const sum = await one(`SELECT COALESCE(SUM(cents) FILTER (WHERE transfer_id IS NULL),0)::int AS unpaid, COALESCE(SUM(cents) FILTER (WHERE transfer_id IS NOT NULL),0)::int AS paid
+    FROM (SELECT cents, transfer_id FROM earnings WHERE publisher_id=$1 UNION ALL SELECT cents, transfer_id FROM pool_shares WHERE publisher_id=$1) x`, [uid]);
+  const monthAdds = await one("SELECT COUNT(*)::int AS n FROM earnings WHERE publisher_id=$1 AND reason='subscriber_add' AND created_at >= date_trunc('month', now())", [uid]);
+  res.json({ unpaid: sum.unpaid / 100, paid: sum.paid / 100, addsThisMonth: monthAdds.n, payoutsReady: req.user.connect_ready, tracks: tracks.map((t) => ({ ...trackOut(t), status: t.status, sales: t.sales, adds: t.adds })) });
 }));
 
 // ---- payments

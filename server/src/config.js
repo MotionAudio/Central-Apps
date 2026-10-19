@@ -30,5 +30,7 @@ export const PRODUCTS = {
 export const SUBSCRIPTION = { name: "Central Tracks Unlimited", cents: 7700, interval: "month" };
 export const STAR_PRICE_CENTS = { 1: 500, 2: 1000, 3: 1500, 4: 2000, 5: 3000 };
 export const PUBLISHER_SHARE = 0.75;          // of each purchase
-export const SUBSCRIBER_ADD_CENTS = 300;      // per subscriber add, once per subscriber per track
+// Subscriber pool: this share of each month's subscription money is split among publishers by how many
+// subscriber adds they got that month (each subscriber counts once per track). Never pays out more than comes in.
+export const POOL_SHARE = 0.5;
 export const MIN_PAYOUT_CENTS = 1000;         // monthly payouts start at $10

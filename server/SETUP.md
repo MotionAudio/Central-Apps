@@ -13,7 +13,7 @@ You need **3 accounts**. Do them in this order.
 2. *Activate payments*: Stripe asks for your business details (you can sign up as an individual / sole
    proprietor), your bank account, and your SSN or EIN. This is how you get paid.
 3. Turn on **Connect** (left menu → *Connect* → *Get started*). Choose **Platform or marketplace**. This is what
-   lets you pay publishers their 75% / $3.
+   lets you pay publishers their 75% of sales and their share of the subscriber pool.
 4. Get your key: *Developers* → *API keys* → **Secret key** (starts with `sk_live_`).
    For testing first, flip *Test mode* on and use the `sk_test_` key. No real money moves in test mode.
 5. The webhook comes after step 3 below, once your site has an address.
@@ -60,7 +60,7 @@ You need **3 accounts**. Do them in this order.
 2. Endpoint URL: `https://<your site>/stripe/webhook`
 3. Tick **Listen to events on Connected accounts** as well as your account.
 4. Events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`,
-   `customer.subscription.deleted`, `account.updated`.
+   `customer.subscription.deleted`, `invoice.paid`, `account.updated`.
 5. *Add endpoint* → copy the **Signing secret** (`whsec_...`).
 6. Render → the `motion-audio` service → *Environment* → set `STRIPE_WEBHOOK_SECRET` to it → *Save* (it restarts).
 7. Stripe → *Settings* → *Billing* → **Customer portal** → *Activate*, so subscribers can cancel or change cards
@@ -86,8 +86,9 @@ Buy a domain (for example `motionaudio.com`) from Cloudflare or any registrar, t
   when Stripe confirms payment and shown on the thank-you screen.
 - Central Tracks Unlimited: $77/month.
 - Track prices come from the grade: 1★ $5 · 2★ $10 · 3★ $15 · 4★ $20 · 5★ $30.
-- Publishers: 75% of each sale, $3 the first time each subscriber adds a track. Paid on the 1st of the month to
-  their Stripe Connect account once they're owed $10 or more.
+- Publishers: 75% of each sale, plus the subscriber pool: half of each month's subscription money, split by how many
+  times subscribers added each publisher's tracks that month (each subscriber counts once per track). Paid on the 1st
+  of the month to their Stripe Connect account once they're owed $10 or more. Change the half with `POOL_SHARE`.
 
 ### Running it on your Ubuntu PC
 ```bash

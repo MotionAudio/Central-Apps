@@ -191,7 +191,7 @@ body{margin:0}
 
 <section id="publish"><div class="wrap">
   <div class="sec-head"><div><div class="eyebrow">Publish</div><h2>Sell your tracks</h2>
-    <p class="muted">Anyone with a Motion Audio account can publish. Every upload is graded for audio quality, and the grade sets the price. You keep 75% of every purchase, and earn $3 each time a subscriber adds your track.</p></div></div>
+    <p class="muted">Anyone with a Motion Audio account can publish. Every upload is graded for audio quality, and the grade sets the price. You keep 75% of every purchase, and share in the subscriber pool when subscribers add your tracks.</p></div></div>
   <p class="note" style="margin:0 0 1.4rem">Only tracks published here go into Central Tracks. Tracks you load onto your own Central Pedal or Central Pedal Control stay on your devices and are never shared.</p>
   <div class="desk">
     <form id="pubForm">
@@ -220,14 +220,15 @@ body{margin:0}
       <div class="meter"><div class="eyebrow">You earn per purchase</div><div class="big" id="perBuy">$0.00</div>
         <div class="split" aria-hidden="true"><b></b></div>
         <div class="muted" style="font-size:.85rem;margin-top:.4rem">75% to you · 25% Motion Audio · price set by the quality grade</div></div>
-      <div class="meter"><div class="eyebrow">You earn per subscriber add</div><div class="big">$3.00</div>
-        <div class="muted" style="font-size:.85rem">Flat rate each time a Central Tracks subscriber adds it</div></div>
+      <div class="meter"><div class="eyebrow">Subscriber pool</div><div class="big">50%</div>
+        <div class="muted" style="font-size:.85rem">Half of every month's subscription money is shared among publishers, split by how many times subscribers added their tracks that month.</div></div>
       <div class="meter"><div class="eyebrow">Example month</div>
         <div class="row2" style="margin-top:.4rem">
           <label class="muted" style="font-size:.85rem;display:grid;gap:.3rem">Purchases<input id="exBuys" type="number" min="0" value="20" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.5rem"></label>
-          <label class="muted" style="font-size:.85rem;display:grid;gap:.3rem">Subscriber adds<input id="exAdds" type="number" min="0" value="50" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.5rem"></label>
+          <label class="muted" style="font-size:.85rem;display:grid;gap:.3rem">Your share of adds (%)<input id="exAdds" type="number" min="0" max="100" value="5" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.5rem"></label>
         </div>
-        <div class="big" id="exTotal" style="margin-top:.5rem">$150.00</div></div>
+        <div class="muted" style="font-size:.8rem;margin-top:.3rem">Pool part assumes 100 subscribers that month ($3,850 pool).</div>
+        <div class="big" id="exTotal" style="margin-top:.5rem">$0.00</div></div>
       <div class="meter" id="payoutBox"><div class="eyebrow">Getting paid</div>
         <div class="muted" style="font-size:.9rem" id="payoutText">Sign in to publish. Earnings are paid monthly to your bank through Stripe.</div>
         <button class="btn ghost small" id="payoutBtn" hidden style="margin-top:.5rem">Set up payouts</button></div>

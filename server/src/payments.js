@@ -97,6 +97,9 @@ export async function handleWebhook(rawBody, signature) {
   } else if (ev.type === "customer.subscription.updated" || ev.type === "customer.subscription.deleted" || ev.type === "customer.subscription.created") {
     const on = ev.type !== "customer.subscription.deleted" && ["active", "trialing", "past_due"].includes(o.status);
     await q("UPDATE users SET subscribed=$1, subscription_id=$2 WHERE stripe_customer=$3", [on, o.id, o.customer]);
+  } else if (ev.type === "invoice.paid" && (o.subscription || (o.parent && o.parent.subscription_details)) && o.amount_paid > 0) {
+    const u = await one("SELECT id FROM users WHERE stripe_customer=$1", [o.customer]);
+    await q("INSERT INTO subscription_payments (invoice_id,user_id,cents,paid_at) VALUES ($1,$2,$3,to_timestamp($4)) ON CONFLICT DO NOTHING", [o.id, u ? u.id : null, o.amount_paid, o.status_transitions && o.status_transitions.paid_at || Math.floor(Date.now() / 1000)]);
   } else if (ev.type === "account.updated") {
     await q("UPDATE users SET connect_ready=$1 WHERE connect_account=$2", [!!(o.payouts_enabled && o.details_submitted), o.id]);
   }

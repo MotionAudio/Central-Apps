@@ -120,7 +120,7 @@ function renderTiers() { $("#tiers").innerHTML = [1, 2, 3, 4, 5].map((n) => `<di
 function setPrice() { $("#pPrice").value = grade ? money(TIER[grade]) : ""; $("#pubBtn").disabled = !grade; calc(); }
 function calc() {
   const per = (grade ? TIER[grade] : 0) * 0.75; $("#perBuy").textContent = money(per);
-  $("#exTotal").textContent = money(per * (+$("#exBuys").value || 0) + 3 * (+$("#exAdds").value || 0));
+  $("#exTotal").textContent = money(per * (+$("#exBuys").value || 0) + 3850 * Math.min(100, Math.max(0, +$("#exAdds").value || 0)) / 100);
 }
 ["#exBuys", "#exAdds"].forEach((s) => $(s).addEventListener("input", calc));
 
@@ -236,7 +236,7 @@ async function renderAccount(note) {
     const lib = (await api("GET", "/library")).tracks;
     $("#myLib").innerHTML = lib.length ? lib.map((t) => `<div><b>${esc(t.title)}</b> <span class="muted">· ${esc(t.kind)}</span></div>`).join("") : "Nothing yet. Add or buy tracks from Central Tracks.";
     const p = await api("GET", "/publisher");
-    $("#myPub").innerHTML = `<div><b>${money(p.unpaid)}</b> waiting to be paid · ${money(p.paid)} paid so far</div>` +
+    $("#myPub").innerHTML = `<div><b>${money(p.unpaid)}</b> waiting to be paid · ${money(p.paid)} paid so far</div><div class="muted" style="font-size:.9rem">${p.addsThisMonth} subscriber adds this month · your pool share is worked out on the 1st</div>` +
       (p.tracks.length ? p.tracks.map((t) => `<div>${starHtml(t.stars)} <b>${esc(t.title)}</b> <span class="muted">· ${money(t.price)} · ${t.sales} sold · ${t.adds} subscriber adds${t.status !== "live" ? " · " + esc(t.status) : ""}</span></div>`).join("") : '<div>No tracks published yet. <a href="#publish">Publish one</a>.</div>');
   } catch (err) { $("#myPub").textContent = err.message; }
 }

@@ -60,6 +60,23 @@ CREATE TABLE IF NOT EXISTS earnings (
   UNIQUE (track_id, buyer_id, reason)
 );
 
+-- subscription money received (Stripe invoice.paid), the source of the monthly publisher pool
+CREATE TABLE IF NOT EXISTS subscription_payments (
+  invoice_id  TEXT PRIMARY KEY,
+  user_id     BIGINT REFERENCES users(id),
+  cents       INTEGER NOT NULL,
+  paid_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- each publisher's share of a month's pool (month = 'YYYY-MM')
+CREATE TABLE IF NOT EXISTS pool_shares (
+  month        TEXT NOT NULL,
+  publisher_id BIGINT NOT NULL REFERENCES users(id),
+  adds         INTEGER NOT NULL,
+  cents        INTEGER NOT NULL,
+  transfer_id  TEXT,
+  PRIMARY KEY (month, publisher_id)
+);
+
 CREATE TABLE IF NOT EXISTS orders (
   id          BIGSERIAL PRIMARY KEY,
   user_id     BIGINT REFERENCES users(id),

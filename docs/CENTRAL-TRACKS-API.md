@@ -27,4 +27,5 @@ reachable without the token (signed, short-lived links).
 - **Price comes from the audio-quality grade** (1–5 stars, worked out automatically when a track is published):
   1★ $5 · 2★ $10 · 3★ $15 · 4★ $20 · 5★ $30. Publishers can't set their own price.
 - **Central Tracks Unlimited ($77/month)** subscribers add any track with no per-track charge.
-- **Payouts:** the publisher gets 75% of each purchase, and $3 each time a Central Tracks subscriber adds the track.
+- **Payouts:** the publisher gets 75% of each purchase. Half of each month's subscription money is a pool, split among
+  publishers by how many times subscribers added their tracks that month (once per subscriber per track).
