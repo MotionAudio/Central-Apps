@@ -179,7 +179,12 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (8.9 and earlier)</summary>
+<summary><b>What's new in each version</b> (8.10 and earlier)</summary>
+
+**New in version 8.10:**
+- **License keys and church accounts:** the first-open setup (internet, production, key, account). Keys work one device
+  at a time: P keys for Central Pedal and Pedal Control, A keys for admins, U keys for users. Release key in Settings
+  or on the website. Church packs and new prices on the website. The apps ask for keys once the website is live.
 
 **New in version 8.9:**
 - **Stem splitter, Studio mode:** vocal models voting together, Demucs FT and the 6-stem model for the band, then lead
@@ -883,6 +888,8 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `central-usage/usage-builder.js` | Packs Central Usage (the musicians' edition) from the same code as Central Control |
 | `central-pedal-control/`, `central-pedal-control-mobile/` | Central Pedal Control for macOS, Windows and Linux (Electron, the bundled driver) and iPhone, iPad and Android (Capacitor) |
 | `js/sources.js`, `js/central-tracks.js` | *Add a song*: your songs, then the four ways (own stems, the whole song split, MultiTracks.com / Prime, Central Tracks) and Planning Center |
+| `js/license.js` | The license key and the first-open setup (all four apps; Central Control / Usage get a copy in `app/shared/`) |
+| `server/src/licenses.js` | Church accounts and license keys on the website (activate, check, release, the church page, staff keys) |
 | `js/stemsplit.js`, `StemSplitter` in `pedal-driver.py` | The stem splitter: RoFormer / MDX23C ensembles (audio-separator) and Demucs, installed on demand with uv; the clean-up pass (`STEMTOOL`, numpy) and the review |
 | `js/structure.js` | Finding a song's sections from its tracks (vocals, harmony, loudness) |
 | `js/practice.js`, `PracticeMixes` in `pedal-driver.py` | Practice mixes (offline mix, time-stretch, click, WAV / MP3) and the phones' `/practice/` page |

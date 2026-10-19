@@ -103,3 +103,38 @@ CREATE TABLE IF NOT EXISTS reports (
   reason    TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ---------------------------------------------------------------- churches and license keys (8.10)
+-- A church (or production) owns the keys it bought. The main user makes it; admins and users join it with its codes.
+CREATE TABLE IF NOT EXISTS churches (
+  id          BIGSERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  owner_id    BIGINT REFERENCES users(id),
+  admin_code  TEXT UNIQUE NOT NULL,
+  user_code   TEXT UNIQUE NOT NULL,
+  has_pack    BOOLEAN NOT NULL DEFAULT FALSE,     -- bought a church pack: extra users are $10
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS church_members (
+  church_id   BIGINT NOT NULL REFERENCES churches(id) ON DELETE CASCADE,
+  user_id     BIGINT NOT NULL UNIQUE REFERENCES users(id),   -- one church per account
+  role        TEXT NOT NULL CHECK (role IN ('owner','admin','user')),
+  joined_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (church_id, user_id)
+);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS church_id BIGINT REFERENCES churches(id);
+-- a key: P (Central Pedal, Central Pedal Control), A (Central Control - admins), U (Central Usage - users).
+-- It works on one device at a time; Release (in the app or on the website) frees it for another.
+ALTER TABLE licenses ALTER COLUMN order_id DROP NOT NULL;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS kind TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS church_id BIGINT REFERENCES churches(id);
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS device_id TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS device_name TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS app TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS revoked BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT '';
+UPDATE licenses SET kind = CASE WHEN product IN ('pedal-sw','pedal-hw','pedal','pedal-control') THEN 'P' WHEN product IN ('control','admin') THEN 'A' ELSE 'U' END WHERE kind IS NULL;
+CREATE INDEX IF NOT EXISTS licenses_church ON licenses (church_id);
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id);   -- the account signed in on its device (it can release its own key)

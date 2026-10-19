@@ -1131,6 +1131,11 @@ async def main():
         st_o, _ = http("http://127.0.0.1:18766/practice/delete", json.dumps({"folder": "Sunday Oct 19"}).encode(), headers={"Origin": "https://evil.example"})
         st_o2, _ = http("http://127.0.0.1:18766/split/install", b"{}", headers={"Origin": "https://evil.example"})
         check("...another web page in a browser on this computer can't change practice mixes or the stem splitter (403)", st_o == 403 and st_o2 == 403, (st_o, st_o2))
+        st_l, _ = http("http://127.0.0.1:18766/license/state", json.dumps({"key": "PXXX"}).encode(), headers={"Origin": "https://evil.example"})
+        st_l2, _ = http("http://127.0.0.1:18766/license/state", json.dumps({"key": "P7K39QXM2HDAVW8F", "app": "pedal"}).encode())
+        hello_l = driver.hello()
+        check("the license setup's copy is kept with the data (only the app can write it), and comes back in the hello with this computer's id",
+              st_l == 403 and st_l2 == 200 and (hello_l.get("licenseState") or {}).get("key") == "P7K39QXM2HDAVW8F" and str(hello_l.get("deviceId", "")).startswith("dev-") and hello_l.get("player") is False, (st_l, st_l2, hello_l.get("licenseState"), hello_l.get("deviceId")))
         st_, body_ = http("http://127.0.0.1:18766/practice/file?folder=Sunday%20Oct%2019&name=02.%20Way%20Maker%20(Bass).wav&format=mp3&kbps=192", pm_wav, "PUT")
         pj3 = json.loads(body_ or b"{}")
         if shutil.which("ffmpeg"):

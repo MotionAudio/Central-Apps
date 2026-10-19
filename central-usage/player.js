@@ -77,7 +77,7 @@ function setup({ app, ipcMain, getMainWin, center }) {
         icon: path.join(__dirname, "build", "icon.png"),
         webPreferences: { partition: "persist:player", contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, backgroundThrottling: false }
       });
-      win.loadURL("http://127.0.0.1:" + PORT + "/app/#resume");
+      win.loadURL("http://127.0.0.1:" + PORT + "/app/?player=1#resume");   // (player=1: Central Control's own key covers it - no license setup here)
       win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
       win.on("close", (e) => {
         if (app.__quitting) return;

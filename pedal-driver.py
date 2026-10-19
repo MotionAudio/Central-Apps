@@ -44,6 +44,7 @@ import argparse
 import asyncio
 import copy
 import hashlib
+import uuid
 import hmac
 import json
 import logging
@@ -85,7 +86,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.9.1"
+APP_VERSION = "8.10.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -1395,6 +1396,14 @@ class LocalServer:
 
             def do_POST(self):
                 url = urllib.parse.urlparse(self.path)
+                if url.path == "/license/state":   # the app's license setup, kept with the data (a Central Pedal's browser profile can be wiped)
+                    if not local_origin_ok(self.headers):
+                        return self.send_json(403, {"error": "only the app can do that"})
+                    payload = self.json_body()
+                    if not isinstance(payload, dict) or len(json.dumps(payload)) > 8000:
+                        return self.send_json(400, {"error": "not a license state"})
+                    write_json(os.path.join(driver.config["data_root"], "license-state.json"), payload)
+                    return self.send_json(200, {"ok": True})
                 if url.path.startswith("/practice/") or url.path.startswith("/split/"):
                     if not local_origin_ok(self.headers):
                         return self.send_json(403, {"error": "only the app can do that"})
@@ -5175,6 +5184,38 @@ class ServiceLog:
         return out
 
 
+def preset_license_key(data_root):
+    """A built pedal's P key, put there before it ships: <data>/license-key.txt, or pad-pedal-key.txt on the SD card's
+    boot partition (build-image.sh PEDAL_KEY=..., or copied onto the card from a computer). The app offers it the first
+    time it opens."""
+    for p in (os.path.join(data_root, "license-key.txt"), "/boot/firmware/pad-pedal-key.txt", "/boot/pad-pedal-key.txt"):
+        try:
+            with open(p) as handle:
+                k = re.sub(r"[^A-Za-z0-9]", "", handle.read()).upper()
+            if 12 <= len(k) <= 20:
+                return k
+        except OSError:
+            pass
+    return ""
+
+
+def device_id():
+    """This computer's own id for its license key (the same after the app's data or the browser profile is wiped):
+    a hash of the machine id - never the machine id itself."""
+    for p in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
+        try:
+            with open(p) as handle:
+                mid = handle.read().strip()
+            if mid:
+                return "dev-" + hashlib.sha256(("central-pedal:" + mid).encode()).hexdigest()[:24]
+        except OSError:
+            pass
+    try:   # (Windows, Mac: the network card's address)
+        return "dev-" + hashlib.sha256(("central-pedal:%x" % uuid.getnode()).encode()).hexdigest()[:24]
+    except Exception:
+        return ""
+
+
 def pi_health_quick():
     """Temperature (and under-voltage when vcgencmd is there) for each service-log line."""
     out = {}
@@ -6063,6 +6104,10 @@ class PedalDriver:
             "center": self.center_link.info() if getattr(self, "center_link", None) else None,
             "pedalJob": self.center_link.job_now() if getattr(self, "center_link", None) else "player",
             "pedalControl": PEDAL_CONTROL,
+            "player": os.environ.get("CC_PLAYER") == "1",
+            "licenseKey": preset_license_key(self.config["data_root"]),
+            "licenseState": read_json(os.path.join(self.config["data_root"], "license-state.json"), None),
+            "deviceId": device_id(),
             "hostname": socket.gethostname(),
             "midi": bool(self.midi and self.midi.available),
             "midiOut": bool(self.midi and self.midi.available and self.midi.want_out),

@@ -1,9 +1,9 @@
 // Stripe: store checkout, the Central Tracks subscription, single track sales, and Connect accounts for publishers.
 // Checkout pages are hosted by Stripe; the webhook (/stripe/webhook) is what actually records a payment.
 import Stripe from "stripe";
-import crypto from "node:crypto";
 import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE } from "./config.js";
 import { q, one, pool } from "./db.js";
+import { churchOf, createChurch, issueKeys } from "./licenses.js";
 
 export const stripe = config.stripe.secret ? new Stripe(config.stripe.secret) : null;
 export function needStripe() { if (!stripe) { const e = new Error("Payments aren't set up yet (STRIPE_SECRET_KEY is missing)."); e.status = 503; throw e; } }
@@ -15,23 +15,31 @@ async function customerFor(user) {
   return c.id;
 }
 
-export async function storeCheckout(user, items) {
-  needStripe();
-  const lines = [], meta = {};
+// everything in the store comes with license keys, and keys belong to a church: you buy signed in, and the first
+// purchase makes your church (you become its main admin) when you're not in one yet
+export async function storeCheckout(user, items, churchName) {
+  if (!user) { const e = new Error("Sign in or make an account first: your keys go to your church's account."); e.status = 401; throw e; }
+  let church = await churchOf(user.id);
+  if (!church && !String(churchName || "").trim()) { const e = new Error("Name your church or production first: your keys go to its account."); e.status = 400; e.needChurch = true; throw e; }
+  const lines = [], meta = {}, qty = {};
   let ships = false;
-  for (const [id, qty] of Object.entries(items || {})) {
-    const p = PRODUCTS[id], n = Math.max(0, Math.min(50, Math.floor(Number(qty) || 0)));
-    if (!p || !n) continue;
+  for (const [id, q0] of Object.entries(items || {})) { const n = Math.max(0, Math.min(50, Math.floor(Number(q0) || 0))); if (PRODUCTS[id] && n) qty[id] = n; }   // (whole numbers, checked once)
+  for (const [id, n] of Object.entries(qty)) {
+    const p = PRODUCTS[id];
+    if (p.needsPack && !(church && church.has_pack) && !Object.keys(qty).some((k) => PRODUCTS[k].pack)) {
+      const e = new Error("The $10 user price is for churches with a church pack. Add Central Usage (user) at $20 instead."); e.status = 400; throw e;
+    }
     lines.push({ quantity: n, price_data: { currency: "usd", unit_amount: p.cents, product_data: { name: p.name } } });
     meta[id] = String(n); if (p.ships) ships = true;
   }
   if (!lines.length) { const e = new Error("Your cart is empty."); e.status = 400; throw e; }
+  needStripe();
+  if (!church) church = await createChurch(user, churchName);
   const s = await stripe.checkout.sessions.create({
     mode: "payment", line_items: lines,
-    customer: user ? await customerFor(user) : undefined,
-    customer_creation: user ? undefined : "always",
+    customer: await customerFor(user),
     shipping_address_collection: ships ? { allowed_countries: ["US", "CA"] } : undefined,
-    metadata: { kind: "store", user_id: user ? String(user.id) : "", items: JSON.stringify(meta) },
+    metadata: { kind: "store", user_id: String(user.id), church_id: String(church.id), items: JSON.stringify(meta) },
     success_url: config.publicUrl + "/#order-done-{CHECKOUT_SESSION_ID}",
     cancel_url: config.publicUrl + "/#store",
   });
@@ -79,11 +87,6 @@ export async function connectLink(user) {
   return link.url;
 }
 
-function licenseKey(product) {
-  const p = { "pedal-sw": "CP", control: "CC", usage: "CU", "pedal-hw": "CP" }[product] || "MA";
-  return p + "-" + crypto.randomBytes(8).toString("hex").toUpperCase().match(/.{4}/g).join("-");
-}
-
 // ---------------------------------------------------------------- webhook
 export async function handleWebhook(rawBody, signature) {
   needStripe();
@@ -106,14 +109,20 @@ export async function handleWebhook(rawBody, signature) {
   return { received: true };
 }
 
-async function recordOrder(sess, uid) {
-  const items = JSON.parse((sess.metadata && sess.metadata.items) || "{}");
+// checkouts started before 8.10's prices (a Stripe page stays open up to a day): their keys
+const LEGACY = { "pedal-sw": { keys: { P: 2 } }, "pedal-hw": { keys: { P: 1 } }, control: { keys: { A: 1 } }, usage: { keys: { U: 1 } } };
+export async function recordOrder(sess, uid) {
+  const items = JSON.parse((sess.metadata && sess.metadata.items) || "{}"), churchId = Number(sess.metadata && sess.metadata.church_id) || null;
   const c = await pool.connect();
   try {
     await c.query("BEGIN");
-    const r = await c.query("INSERT INTO orders (user_id,email,stripe_session,items,total_cents,shipping) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (stripe_session) DO NOTHING RETURNING id",
-      [uid, (sess.customer_details && sess.customer_details.email) || "", sess.id, items, sess.amount_total || 0, sess.shipping_details || (sess.collected_information && sess.collected_information.shipping_details) || null]);
-    if (r.rows[0]) for (const [id, n] of Object.entries(items)) if (PRODUCTS[id] && PRODUCTS[id].license) for (let i = 0; i < Number(n); i++) await c.query("INSERT INTO licenses (key,order_id,product) VALUES ($1,$2,$3)", [licenseKey(id), r.rows[0].id, id]);
+    const r = await c.query("INSERT INTO orders (user_id,email,stripe_session,items,total_cents,shipping,church_id) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (stripe_session) DO NOTHING RETURNING id",
+      [uid, (sess.customer_details && sess.customer_details.email) || "", sess.id, items, sess.amount_total || 0, sess.shipping_details || (sess.collected_information && sess.collected_information.shipping_details) || null, churchId]);
+    if (r.rows[0]) for (const [id, n] of Object.entries(items)) {
+      const p = PRODUCTS[id] || LEGACY[id]; if (!p) continue;
+      await issueKeys(c, r.rows[0].id, churchId, id, p, Number(n) || 0);
+      if (p.pack && churchId) await c.query("UPDATE churches SET has_pack=TRUE WHERE id=$1", [churchId]);
+    }
     await c.query("COMMIT");
   } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
 }

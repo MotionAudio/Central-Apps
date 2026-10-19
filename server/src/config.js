@@ -20,13 +20,20 @@ export const config = {
   },
 };
 
-// Prices (cents). Change them here.
+// Prices (cents). Change them here. "keys" is the license keys each one comes with: P (Central Pedal and Central
+// Pedal Control), A (Central Control, for admins), U (Central Usage, for users). Each key works on one device at a time.
 export const PRODUCTS = {
-  "pedal-sw": { name: "Central Pedal + Central Pedal Control (software)", cents: 8000, license: true },
-  control: { name: "Central Control license", cents: 5000, license: true },
-  usage: { name: "Central Usage license", cents: 2500, license: true },
-  "pedal-hw": { name: "Central Pedal, fully built", cents: 25000, license: true, ships: true },
+  pedal: { name: "Central Pedal (built, software installed)", cents: 25000, ships: true, keys: { P: 1 } },
+  "pedal-control": { name: "Central Pedal Control", cents: 5000, keys: { P: 1 } },
+  admin: { name: "Central Control (admin)", cents: 5000, keys: { A: 1 } },
+  user: { name: "Central Usage (user)", cents: 2000, keys: { U: 1 } },
+  "user-pack": { name: "Central Usage (user, church pack price)", cents: 1000, keys: { U: 1 }, needsPack: true },
+  "pack-small": { name: "Small church pack", cents: 40000, ships: true, pack: true, keys: { P: 2, A: 2, U: 6 } },
+  "pack-medium": { name: "Medium church pack", cents: 60000, ships: true, pack: true, keys: { P: 2, A: 4, U: 12 } },
+  "pack-large": { name: "Large church pack", cents: 85000, ships: true, pack: true, keys: { P: 2, A: 7, U: 20 } },
 };
+export const KEY_KINDS = { P: "Central Pedal / Central Pedal Control", A: "Central Control (admin)", U: "Central Usage (user)" };
+export const LICENSE_RECHECK_DAYS = 30;   // the apps check their key again this often, and keep working offline that long
 export const SUBSCRIPTION = { name: "Central Tracks Unlimited", cents: 7700, interval: "month" };
 export const STAR_PRICE_CENTS = { 1: 500, 2: 1000, 3: 1500, 4: 2000, 5: 3000 };
 export const PUBLISHER_SHARE = 0.75;          // of each purchase

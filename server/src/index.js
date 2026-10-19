@@ -4,12 +4,13 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION } from "./config.js";
+import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS } from "./config.js";
 import { q, one, migrate } from "./db.js";
 import { hashPassword, checkPassword, makeToken, attachUser, requireUser, isAdmin } from "./auth.js";
 import * as store from "./storage.js";
 import { gradeAudio } from "./grade.js";
 import * as pay from "./payments.js";
+import * as lic from "./licenses.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -57,6 +58,7 @@ function brake(req) {
 }
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+lic.routes(api, { wrap, brake, requireUser });
 
 api.post("/signup", wrap(async (req, res) => {
   brake(req);
@@ -64,8 +66,14 @@ api.post("/signup", wrap(async (req, res) => {
   if (!emailOk(email)) throw bad("Enter a valid email address.");
   if (pw.length < 8) throw bad("Use a password of at least 8 characters.");
   if (await one("SELECT 1 FROM users WHERE email=$1", [email])) throw bad("There's already an account with that email. Sign in instead.", 409);
-  const u = await one("INSERT INTO users (email,name,pass_hash) VALUES ($1,$2,$3) RETURNING id", [email, name, hashPassword(pw)]);
-  res.json({ token: makeToken(u.id) });
+  // checked before the account is made: a wrong church code shouldn't leave a half-made account
+  const join = String(req.body.churchCode || "").trim(), make = String(req.body.churchName || "").trim();
+  if (join && !(await one("SELECT 1 FROM churches WHERE admin_code=$1 OR user_code=$1", [lic.canon(join)]))) throw bad("That church code isn't right. Ask your main admin for it.", 404);
+  const u = await one("INSERT INTO users (email,name,pass_hash) VALUES ($1,$2,$3) RETURNING *", [email, name, hashPassword(pw)]);
+  let church = null;
+  try { if (join) church = (await lic.joinChurch(u, join, req.body.churchRole)).name; else if (make) church = (await lic.createChurch(u, make)).name; }
+  catch (e) { return res.json({ token: makeToken(u.id), churchError: e.message }); }
+  res.json({ token: makeToken(u.id), church });
 }));
 api.post("/login", wrap(async (req, res) => {
   brake(req);
@@ -75,9 +83,11 @@ api.post("/login", wrap(async (req, res) => {
 }));
 api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
-  res.json({ email: u.email, name: u.name, subscribed: u.subscribed, admin: isAdmin(u), payoutsReady: u.connect_ready, payoutsStarted: !!u.connect_account });
+  const c = await lic.churchOf(u.id);
+  res.json({ email: u.email, name: u.name, subscribed: u.subscribed, admin: isAdmin(u), payoutsReady: u.connect_ready, payoutsStarted: !!u.connect_account,
+    church: c ? { name: c.name, role: c.role, hasPack: c.has_pack } : null });
 }));
-api.get("/config", (_req, res) => res.json({ payments: !!pay.stripe, products: PRODUCTS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE }));
+api.get("/config", (_req, res) => res.json({ payments: !!pay.stripe, products: PRODUCTS, keyKinds: KEY_KINDS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE }));
 
 function trackOut(t) {
   return { id: String(t.id), title: t.title, artist: t.artist, kind: t.kind, key: t.song_key, bpm: Number(t.bpm) || 0, stars: t.stars, price: t.price_cents / 100, owned: !!t.owned, mine: !!t.mine };
@@ -170,15 +180,15 @@ api.get("/publisher", requireUser, wrap(async (req, res) => {
 }));
 
 // ---- payments
-api.post("/checkout/store", wrap(async (req, res) => res.json({ url: await pay.storeCheckout(req.user, req.body.items) })));
+api.post("/checkout/store", requireUser, wrap(async (req, res) => res.json({ url: await pay.storeCheckout(req.user, req.body.items, req.body.church) })));
 api.post("/checkout/subscription", requireUser, wrap(async (req, res) => res.json({ url: await pay.subscriptionCheckout(req.user) })));
 api.post("/billing", requireUser, wrap(async (req, res) => res.json({ url: await pay.billingPortal(req.user) })));
 api.post("/connect", requireUser, wrap(async (req, res) => res.json({ url: await pay.connectLink(req.user) })));
 api.get("/orders/:session", wrap(async (req, res) => {  // the Checkout session id (only the buyer has it) shows the order's license keys
   const o = await one("SELECT * FROM orders WHERE stripe_session=$1", [String(req.params.session)]);
   if (!o) return res.json({ pending: true });
-  const keys = await q("SELECT key, product FROM licenses WHERE order_id=$1 ORDER BY product, key", [o.id]);
-  res.json({ total: o.total_cents / 100, items: o.items, licenses: keys.map((k) => ({ key: k.key, product: PRODUCTS[k.product] ? PRODUCTS[k.product].name : k.product })) });
+  const keys = await q("SELECT key, product, kind FROM licenses WHERE order_id=$1 ORDER BY kind, product, key", [o.id]);
+  res.json({ total: o.total_cents / 100, items: o.items, licenses: keys.map((k) => ({ key: lic.pretty(k.key), kind: k.kind, product: KEY_KINDS[k.kind] || (PRODUCTS[k.product] ? PRODUCTS[k.product].name : k.product) })) });
 }));
 
 // ---- admin (ADMIN_EMAILS): reports and hiding tracks
@@ -194,13 +204,13 @@ api.post("/admin/tracks/:id/status", requireUser, wrap(async (req, res) => {
 }));
 
 app.use("/v1", api);
-app.get("/health", (_req, res) => res.json({ ok: true, payments: !!pay.stripe, storage: store.usingR2 ? "r2" : "local" }));
+app.get("/health", (_req, res) => { res.setHeader("Access-Control-Allow-Origin", "*"); res.json({ ok: true, payments: !!pay.stripe, storage: store.usingR2 ? "r2" : "local" }); });   // (the apps' "is the internet there?")
 app.use(express.static(path.join(here, "..", "public"), { extensions: ["html"] }));
 
 app.use((err, req, res, _next) => {
   const status = err.status || (err.type === "StripeSignatureVerificationError" ? 400 : 500);
   if (status >= 500) console.error(req.method, req.path, err);
-  res.status(status).json({ error: status >= 500 && !err.status ? "Something went wrong on the server." : err.message });
+  res.status(status).json({ error: status >= 500 && !err.status ? "Something went wrong on the server." : err.message, needChurch: err.needChurch || undefined });
 });
 
 if (process.env.NODE_ENV === "production") {

@@ -70,7 +70,7 @@
     // the main admin refused the PIN (or unpaired this Central Pedal): ask for the right one
     if (m.codeChosen !== false && (c.state === "wrongPin" || c.state === "removed") && c.error !== shownErr) { shownErr = c.error; var dd = $("#pinDialog"); if (!dd || !dd.open) dialog(false, c.error); return; }
     if (c.state === "paired") { shownErr = ""; var dp = $("#pinDialog"); if (dp && dp.open && dp.dataset.first !== "1" && dp.querySelector("h2") && /main admin/.test(dp.querySelector("h2").textContent)) dp.close(); }
-    if (m.codeChosen === false) dialog(true);
+    if (m.codeChosen === false) { if (window.PPLicense) window.PPLicense.whenReady(function () { if (info && info.codeChosen === false) dialog(true); }); else dialog(true); }   // (after the license setup: the internet first)
     else { var d = $("#pinDialog"); if (d && d.open && d.dataset.first === "1") { d.dataset.first = "0"; d.close(); PP.setStatus("Paired: the main admin set the pairing PIN (" + m.code + ")"); } }
   });
   function render() {

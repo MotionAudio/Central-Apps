@@ -52,13 +52,39 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
     try { var list = await navigator.mediaDevices.enumerateDevices(); outputs = list.filter(function (d) { return d.kind === "audiooutput"; }); } catch (_) { outputs = []; }
   }
+  // the license (js/license.js): which app this is - Central Pedal on the Pi, Central Pedal Control, or the player
+  // window inside Central Control (its own A key covers it)
+  (function () {
+    var L = window.PPLicense, started = false; if (!L) return;
+    var local = /^(127\.0\.0\.1|localhost)$/.test(location.hostname);   // (the Central Pedal's own screen; Pedal Control on a computer says so itself)
+    function persist(s) {   // a copy with the driver: a Central Pedal's browser profile can be wiped (safe mode), its data folder isn't
+      var b = window.__pedalBridge; if (!(b && b.connected) || !local) return;
+      fetch("http://127.0.0.1:8766/license/state", { method: "POST", body: JSON.stringify(s || {}) }).catch(function () { });
+    }
+    function start(m) {
+      if (started) { if (m) L.update({ presetKey: m.licenseKey, deviceId: m.deviceId, saved: m.licenseState }); return; }   // (a late hello: the key on the card, the pedal's id)
+      started = true;
+      var player = /[?&]player=1/.test(location.search) || !!(m && m.player);
+      var control = !!(window.CCDesktop && window.CCDesktop.pedalControl) || !!window.CP_CONTROL || location.protocol === "capacitor:" || !!(m && m.pedalControl) || (!m && !local);
+      var p = project(), named = p.name && !/^My Central Pedal set$/.test(p.name) ? p.name : "";
+      L.init({ app: player ? "player" : control ? "pedal-control" : "pedal", presetKey: m && m.licenseKey, deviceId: m && m.deviceId, saved: m && m.licenseState, persist: persist, production: named,
+        deviceName: control ? "Central Pedal Control" + (navigator.platform ? " (" + navigator.platform + ")" : "") : "Central Pedal" + (m && m.hostname ? " (" + m.hostname + ")" : ""),
+        onProduction: function (name) { if (!named) { p.name = name; PP.persistSoon(); } }, onChange: renderSystemExtras, onReady: renderSystemExtras });
+    }
+    if (/[?&]player=1/.test(location.search) || (window.CCDesktop && window.CCDesktop.pedalControl) || window.CP_CONTROL || location.protocol === "capacitor:") start(null);
+    F.on("hello", start);
+    var tries = 0, poll = setInterval(function () {   // (the hello may have come before this file loaded: the bridge keeps it)
+      var b = window.__pedalBridge; if (started) return clearInterval(poll);
+      if (b && b.connected && b.info) { clearInterval(poll); start(b.info); } else if (++tries > 30) { clearInterval(poll); start(null); }   // (no hello yet: on its own screen it's the Central Pedal)
+    }, 200);
+  })();
   function renderSystemExtras() {
     var root = $("#sysExtra"); if (!root) return;
     var p = project(), r = p.routing || (p.routing = {}), mo = p.midiOut || (p.midiOut = {}), pr = p.projector || (p.projector = {}), lk = p.link || (p.link = {});
     var addr = (status && status.addresses) || (bridge() && bridge().info && bridge().info.addresses) || [], code = (status && status.code) || (bridge() && bridge().info && bridge().info.code) || "";
     var host = (status && status.hostname) || (bridge() && bridge().info && bridge().info.hostname) || "padpedal", lanPort = (status && status.lanPort) || (bridge() && bridge().info && bridge().info.lanPort) || 8080, url = "http://" + (addr[0] || host + ".local") + ":" + lanPort + "/";
     var routing = engine.routing || {}, displays = (status && status.displays) || p.display || {};
-    root.innerHTML =
+    root.innerHTML = (window.PPLicense ? window.PPLicense.settingsHtml() : "") +
       '<section data-st="network"><h3>Companion devices (chord charts on phones, tablets, laptops)</h3>' + (connected() ? '<p>On the same Wi-Fi, open <b>' + esc(url) + '</b>' + (addr.length > 1 ? " (or " + addr.slice(1).map(esc).join(", ") + ")" : "") + ' and enter the pairing code <b class="code">' + esc(code) + '</b> to control it from there. Charts, lyrics, setlist and the current section follow along automatically.</p><div id="sysQr" class="qr"></div><p class="muted">Charts: <b>' + esc(url) + '</b> · Projector lyrics: <b>' + esc(url + "lyrics") + '</b> · Remote: <b>' + esc(url + "remote") + '</b> · Stage display for the band: <b>' + esc(url + "stage") + '</b> · Send songs, stems and charts from any device: <b>' + esc(url + "upload") + "</b>.</p>" : '<p class="muted">Available on the Central Pedal itself.</p>') + "</section>" +
       '<section data-st="audio"><h3>Output device</h3>' + (connected() ? '<p class="muted">On the Central Pedal the OS combines every sound card into one multi-channel output (headphone jack, I2S DAC board, USB interfaces). ' + (status && status.audio && status.audio.channels ? status.audio.channels.length + " channels: " + status.audio.channels.map(function (c, i) { return (i + 1) + " " + esc(c); }).join(" · ") : "") + '</p><label class="toggle"><input type="checkbox" data-sys="osHdmi"' + (status && status.audio && status.audio.hdmi ? " checked" : "") + '> Include HDMI audio as extra channels</label><label class="toggle"><input type="checkbox" data-sys="osUsbFirst"' + (status && status.audio && status.audio.usbFirst ? " checked" : "") + '> USB interface channels first (before the jack and the DAC)</label><p class="muted">Card order changes take effect after a restart of the screens (Settings → Screens → Apply) or a reboot.</p>' : '<label>Browser output device<select data-sys="main"><option value="auto"' + (r.mainDevice ? "" : " selected") + '>System default</option>' + outputs.map(function (d) { return '<option value="' + esc(d.deviceId) + '"' + (r.mainDevice === d.deviceId ? " selected" : "") + ">" + esc(d.label || d.deviceId) + "</option>"; }).join("") + "</select></label>" +
         '<label>Click + voice cues on a 2-channel device<select data-sys="clickFallback"><option value="off"' + (r.clickFallback === "off" ? " selected" : "") + '>Nowhere (silent)</option><option value="mix"' + (r.clickFallback === "mix" ? " selected" : "") + '>In the main mix (rehearsal)</option><option value="split"' + (r.clickFallback === "split" ? " selected" : "") + '>Left = music (mono), right = click</option><option value="device"' + (r.clickFallback === "device" ? " selected" : "") + '>Another output device…</option></select></label>' +

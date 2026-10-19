@@ -6,6 +6,9 @@
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   var ai = null, version = null;
+  // the license key (shared/license.js): an A key in Central Control, a U key in Central Usage
+  if (window.PPLicense) window.PPLicense.init({ app: CU.edition() === "usage" ? "usage" : "control", deviceName: CU.appName + (navigator.platform ? " (" + navigator.platform + ")" : ""),
+    production: (CU.config() || {}).production || "", onChange: function () { render(); }, onReady: function () { render(); } });
   function visible() { return CU.prefs.tab === "settings"; }
   function mb(n) { return Math.round((n || 0) / 1048576); }
   function aiCard() {
@@ -26,6 +29,7 @@
     var root = $("#settingsRoot"); if (!root || !visible()) return;
     var c = CU.config() || {}, m = CU.mode();
     root.innerHTML = '<div class="io-grid">' +
+      (window.PPLicense ? window.PPLicense.settingsHtml("card") : "") +
       (window.CURoles ? window.CURoles.card() : "") +
       mixCard() +
       aiCard() +

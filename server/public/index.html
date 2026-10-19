@@ -122,6 +122,11 @@ footer{border-top:1px solid var(--line);padding-block:2rem;color:var(--muted);fo
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.2rem;display:grid;gap:.6rem;align-content:start;min-width:0}
 .card h3{font-size:1rem}
 .keys{font:400 .85rem var(--mono);display:grid;gap:.3rem;user-select:all}
+.ktable{width:100%;border-collapse:collapse;font-size:.92rem}.ktable td,.ktable th{padding:.35rem .4rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.ktable code{font:500 .86rem var(--mono);user-select:all}.kcount{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
+.kcount div{border:1px solid var(--line);border-radius:10px;padding:.5rem .7rem}.kcount b{font:600 1.4rem var(--mono);display:block}
+.choice{display:grid;gap:.35rem;margin:.3rem 0}.choice label{display:flex;gap:.5rem;align-items:center;font-size:.95rem}.choice input[type=radio]{width:auto}
+.wide{grid-column:1/-1}
 .err{color:var(--accent);font-size:.9rem;min-height:1.2em}
 .chk{display:flex!important;gap:.5rem;align-items:flex-start;color:var(--fg)!important}
 .chk input{margin-top:.25rem}
@@ -153,8 +158,9 @@ body{margin:0}
 </div></div>
 
 <section id="store"><div class="wrap">
-  <div class="sec-head"><div><div class="eyebrow">Store</div><h2>Hardware and licenses</h2>
-    <p class="muted">Build your own pedal on a Raspberry Pi 4 with the software, or get one fully built and ready to play.</p></div></div>
+  <div class="sec-head"><div><div class="eyebrow">Store</div><h2>The pedal, the apps and church packs</h2>
+    <p class="muted">Central Pedal comes built with its software on it. Every app needs its own key, one device at a time: P keys for Central Pedal and Central Pedal Control, A keys for admins (Central Control), U keys for users (Central Usage). Your keys go to your church's account, where you can see them all.</p></div></div>
+  <div class="rack" id="packs"></div>
   <div class="rack" id="rack"></div>
 </div></section>
 

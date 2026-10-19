@@ -74,6 +74,43 @@ You need **3 accounts**. Do them in this order.
   address → sign in → add a track.
 - When it all works, switch Stripe out of test mode, put the `sk_live_` key and a live webhook secret in Render.
 
+## 6. Turn the license keys on in the apps
+
+Until then the apps don't ask for a key. Once the site works, send your site's address (for example
+`https://motion-audio.onrender.com`) to be put into the apps (`SERVER` at the top of `js/license.js`). The next
+release then asks for a key the first time each app opens: the internet (Wi-Fi on the pedal), the production's
+name, the key, then the account.
+
+## Churches and license keys
+
+- **Everything in the store comes with keys**, and keys belong to a church. You buy signed in. Your first purchase
+  makes your church's account, with you as its **main admin**.
+- **Keys:** 16 letters and digits, shown as `P7K3-9QXM-2HDA-VW8F`.
+  - **P** keys are for Central Pedal and Central Pedal Control.
+  - **A** keys are for Central Control (admins).
+  - **U** keys are for Central Usage (users).
+
+  Each key works on one device at a time.
+- **Joining.** The main admin's Account page shows the **admin code** and the **user code**. Admins and users pick
+  "Join my church" when they make an account and type the code. Admins can all share one account; each user has
+  their own. An account signed in on a device with a key also joins that key's church.
+- **Everyone in the church** sees how many keys are left. The main admin and admins also see every key, the device
+  it's on, the people, and a **Release** button (for a lost or broken device). On a working device: Settings →
+  License → Release key.
+- **Prices** are at the top of `src/config.js` (`PRODUCTS`): the built pedal $250, Central Pedal Control $50, admin
+  $50, user $20 ($10 for churches with a pack), Small / Medium / Large church packs $400 / $600 / $850.
+- **A pedal you build and ship.** A store order for a pedal or a pack already has its P key (on the order and on the
+  church's page): use that one. For a pedal sold another way, sign in with an `ADMIN_EMAILS` address, go to Account
+  → *Keys · Motion Audio staff* and make a P key for the customer's church (their admin code). Then put the key on
+  the pedal's card:
+  - build the image with `PEDAL_KEY=PXXX-XXXX-XXXX-XXXX` added to the `sudo ... bash build-image.sh` line, or
+  - copy a file `pad-pedal-key.txt` holding the key onto the card's boot partition from any computer.
+
+  The pedal fills it in when it first opens. A pack's order makes its P keys by itself: use one of them.
+- **Refunds:** on the same staff card, **Revoke** a key; it stops working at the app's next check.
+- **Make your own account first** with the email in `ADMIN_EMAILS`, right after the site goes up: whoever signs up
+  with that email gets the staff card.
+
 ## Your own web address (optional)
 
 Buy a domain (for example `motionaudio.com`) from Cloudflare or any registrar, then Render → the service →

@@ -15,6 +15,8 @@
 #   PI_USER=pi PI_PASS=padpedal     login for SSH / maintenance
 #   PI_HOSTNAME=padpedal            ssh pi@padpedal.local
 #   WIFI_SSID="Church WiFi" WIFI_PASS="secret" WIFI_COUNTRY=US
+#   PEDAL_KEY=PXXX-XXXX-XXXX-XXXX     this pedal's P license key (from the website: the order, or Keys · staff);
+#                                   the pedal offers it when it first opens. (Or put pad-pedal-key.txt on the card later.)
 #   TFT=none|waveshare35a|piscreen  the 3.5" SPI touch screen (default: none; the System menu can turn it on later)
 #   I2S_DAC=on|off                  PCM5102A click / instrument output board (default: on)
 #   SAFE_MODE=on|off                power-cut safe mode from first boot (default: on)
@@ -44,6 +46,7 @@ PI_HOSTNAME="${PI_HOSTNAME:-padpedal}"
 WIFI_SSID="${WIFI_SSID:-}"
 WIFI_PASS="${WIFI_PASS:-}"
 WIFI_COUNTRY="${WIFI_COUNTRY:-US}"
+PEDAL_KEY="${PEDAL_KEY:-}"
 TFT="${TFT:-none}"
 I2S_DAC="${I2S_DAC:-on}"
 SAFE_MODE="${SAFE_MODE:-on}"
@@ -205,6 +208,11 @@ chroot "$MNT" /usr/bin/env -i HOME=/root TERM=xterm LANG=C.UTF-8 \
   KIOSK_USER="$PI_USER" KIOSK_PASS="$PI_PASS" PI_HOSTNAME="$PI_HOSTNAME" \
   WIFI_SSID="$WIFI_SSID" WIFI_PASS="$WIFI_PASS" WIFI_COUNTRY="$WIFI_COUNTRY" TFT="$TFT" I2S_DAC="$I2S_DAC" SAFE_MODE="$SAFE_MODE" \
   /bin/bash /tmp/pad-pedal-src/setup-pi.sh
+
+if [ -n "$PEDAL_KEY" ]; then   # this pedal's license key, on the boot partition (the driver offers it to the app)
+  printf '%s\n' "$PEDAL_KEY" > "$BOOTMNT/pad-pedal-key.txt"
+  echo "    license key put on the card"
+fi
 
 say "Sanity-checking the image"
 for path in /opt/pad-pedal/index.html /opt/pad-pedal/css/pad-pedal.css /opt/pad-pedal/js/app.js /opt/pad-pedal/js/tracks.js /opt/pad-pedal/js/shell.js /opt/pad-pedal/companion/index.html \
