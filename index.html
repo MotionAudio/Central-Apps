@@ -209,7 +209,7 @@
       <button class="pf-btn" id="trUseTracks" title="When ON: tracks play, pads follow the song key and sections, buttons use the Tracks layout"><small>USE TRACKS</small><b>OFF</b></button>
       <div class="tr-title"><b id="trSongName">No song</b><span id="trSongMeta"></span></div>
       <select id="trSongSelect" aria-label="Song"></select>
-      <button id="trMixer" title="Every track: faders, meters, mute / solo, scenes">🎚 Mixer</button><button id="trNewSong" title="MultiTracks.com / Loop Community (Prime) downloads, Planning Center, your own files">+ Add songs</button><button id="trSetlist">♫ Setlist</button><button class="primary" id="trEdit">✎ Song editor</button>
+      <button id="trMixer" title="Every track: faders, meters, mute / solo, scenes">🎚 Mixer</button><button id="trNewSong" title="Your own MP3 / WAV, a multitrack, a Prime track, Central Tracks, Planning Center">+ Add songs</button><button id="trSetlist">♫ Setlist</button><button class="primary" id="trEdit">✎ Song editor</button>
     </div>
     <div class="tr-body">
       <div class="tr-main">
@@ -287,8 +287,8 @@
   <dialog id="setlistDialog"><div class="row spread"><div><h2>Setlist</h2><p class="muted">Each song sets the key (and tempo) for every pad. Step through songs with ◀ ▶, the NEXT footswitch or MIDI.</p></div><button data-close="setlistDialog">Close</button></div>
     <div class="setlist" id="setlistRows"></div>
     <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="primary" id="songAdd">+ Add song</button><button id="syncOpen">Setlists · Song library · Devices…</button><button id="songNone">Play without a song (pads use their own keys)</button></div><p class="muted small" id="syncLine"></p></dialog>
-  <dialog id="addDialog" class="add-dialog"><div class="row spread"><div><h2>Add songs</h2><p class="muted">From Planning Center, a MultiTracks.com / Loop Community pack, or your own files.</p></div><button data-close="addDialog">Close</button></div>
-    <div class="add-tabs" id="addTabs"><button data-src="pack" class="on">MultiTracks.com · Loop Community (Prime) · zip</button><button data-src="pco">Planning Center</button><button data-src="own">Own files</button></div>
+  <dialog id="addDialog" class="add-dialog"><div class="row spread"><div><h2>Add songs</h2><p class="muted">Your own MP3 / WAV files, a multitrack, a Prime track, or the Central Tracks library.</p></div><button data-close="addDialog">Close</button></div>
+    <div class="add-tabs" id="addTabs"><button data-src="own" class="on">My own (MP3 / WAV)</button><button data-src="pack">Multitrack</button><button data-src="prime">Prime track</button><button data-src="central">Central Tracks</button><button data-src="pco">Planning Center</button></div>
     <div id="addBody" class="add-body"></div></dialog>
   <dialog id="cueDialog" class="cue-dialog"><div class="row spread"><div><h2>Cue words in your own voice</h2><p class="muted">Say the word into the Pi's USB interface mic (or any mic on a PC). Your recording replaces the built-in word everywhere it is used; "Auto" cues pick it by name.</p></div><button data-close="cueDialog">Close</button></div>
     <div class="cue-rec"><label>Word<input id="cueWord" placeholder="Chorus, Bridge, Build, 1 2 3 4…" list="cueWords"><datalist id="cueWords"></datalist></label><div class="row"><button class="primary" id="cueRecBtn">● Record</button><button id="cuePlayBtn" disabled>▶ Play</button><button id="cueSaveBtn" disabled>Save</button><span class="muted" id="cueRecStatus">Type the word, then press Record and say it.</span></div><canvas id="cueWave" width="600" height="60"></canvas></div>
@@ -349,6 +349,7 @@
   <script src="js/scenes.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/sources.js"></script>
+  <script src="js/central-tracks.js"></script>
   <script src="js/integrations.js"></script>
   <script src="js/netsend.js"></script>
   <script src="js/hub.js"></script>

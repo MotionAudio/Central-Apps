@@ -9,7 +9,7 @@
   var esc = PP.escapeHtml, MEDIA = "http://127.0.0.1:8766";
   var KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
   var ROLES = [["music", "Music"], ["drums", "Drums / loops"], ["bass", "Bass"], ["keys", "Keys / synth / pads"], ["guitar", "Guitar"], ["vocals", "Vocals"], ["click", "Click (in-ear)"], ["guide", "Guide / cues (in-ear)"]];
-  var st = { tab: "pack", pco: { configured: null, org: "", types: [], type: null, plans: [], plan: null, items: [], sel: {}, audio: true, top: true, busy: false, log: "" }, pack: null, packBusy: false };
+  var st = { tab: "own", pco: { configured: null, org: "", types: [], type: null, plans: [], plan: null, items: [], sel: {}, audio: true, top: true, busy: false, log: "" }, pack: null, packBusy: false };
   function $(s) { return document.querySelector(s); }
   function bridge() { return window.__pedalBridge; }
   function connected() { return !!(bridge() && bridge().connected); }
@@ -215,10 +215,9 @@
     mn.log = "✓ " + list.filter(function (x) { return /^✓/.test(x.result || ""); }).length + " of " + list.length + " songs imported.";
     PP.persistNow(); T.render(); st.packBusy = false; render();
   }
-  function renderPack() {
+  function renderPack(prime) {
     if (!connected()) return '<p class="muted">Pack import runs on the Central Pedal (it unpacks the stems onto its card).</p>';
-    var pk = st.pack, mn = st.many, head = '<p>Download the song from <b>MultiTracks.com</b> (your purchases → download the stems / the Ableton set) or <b>Loop Community</b> (your multitracks → download the WAV stems - songs inside the Prime app itself stay in that app), put the <b>zip</b> (or the unzipped folder) on a USB stick or send it with the Upload page, then choose it here.</p>' +
-      '<p class="muted small">The song\'s name, key and tempo come from the file names; the click and the guide go to the in-ear output; the sections come from the pack\'s Ableton set or MIDI file when it has one; a chart in the pack becomes the song\'s chart; the full mix is left out when there are stems.</p>' +
+    var pk = st.pack, mn = st.many, head = (prime ? '<p>A <b>Prime track</b> from <b>Loop Community</b>: in your Loop Community account, open My Multitracks and download the song\'s <b>WAV stems</b> (songs kept inside the Prime app itself stay in that app). Put the zip (or the unzipped folder) on a USB stick or send it with the Upload page, then choose it here.</p>' : '<p>A <b>multitrack</b> from <b>MultiTracks.com</b> (your purchases → download the stems or the Ableton set) or any zip / folder of stems. Put it on a USB stick or send it with the Upload page, then choose it here.</p>') + '<p class="muted small">The song\'s name, key and tempo come from the file names; the click and the guide go to the in-ear output; the sections come from the pack\'s Ableton set or MIDI file when it has one; a chart in the pack becomes the song\'s chart; the full mix is left out when there are stems.</p>' +
       '<div class="row"><button class="primary" data-a="pack-pick"' + (st.packBusy ? " disabled" : "") + '>📦 One song: a zip or folder…</button><button data-a="many-pick"' + (st.packBusy ? " disabled" : "") + ">📚 Several songs: a folder of them…</button></div>";
     if (mn) return head + renderMany(mn);
     if (st.packBusy && !pk) return head + '<p class="muted">Reading the pack…</p>';
@@ -244,7 +243,7 @@
 
   // ------------------------------------------------------------- own files
   function renderOwn() {
-    return '<p>A new song from your own audio: one mixed file, or a set of stems (click, guide, drums, bass, keys…). Tempo, key, beats, sections and big hits are found automatically.</p><div class="form"><label>Song name<input id="ownName" placeholder="Song name"></label><button class="primary" data-a="own-create">Create and add tracks…</button></div>';
+    return '<p>A new song from your own <b>MP3 or WAV</b> files: one mixed file, or a set of stems (click, guide, drums, bass, keys…). Tempo, key, beats, sections and big hits are found automatically.</p><p class="muted small">Your own files stay on your devices. They are never shared to Central Tracks. To sell a track to other teams, publish it on the Motion Audio website.</p><div class="form"><label>Song name<input id="ownName" placeholder="Song name"></label><button class="primary" data-a="own-create">Create and add tracks…</button></div>';
   }
 
   // ------------------------------------------------------------- dialog
@@ -252,7 +251,7 @@
     var body = $("#addBody"); if (!body) return;
     document.querySelectorAll("#addTabs [data-src]").forEach(function (b) { b.classList.toggle("on", b.dataset.src === st.tab); });
     var y = body.scrollTop;
-    body.innerHTML = st.tab === "pco" ? renderPco() : st.tab === "pack" ? renderPack() : renderOwn();
+    body.innerHTML = st.tab === "pco" ? renderPco() : st.tab === "pack" ? renderPack(false) : st.tab === "prime" ? renderPack(true) : st.tab === "central" ? (window.PPCentralTracks ? window.PPCentralTracks.render() : '<p class="muted">Central Tracks is not available in this build.</p>') : renderOwn();
     body.scrollTop = y;
   }
   async function open(tab) {

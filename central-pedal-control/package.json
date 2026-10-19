@@ -1,7 +1,7 @@
 {
   "name": "central-pedal-control",
   "productName": "Central Pedal Control",
-  "version": "8.6.0",
+  "version": "8.7.0",
   "description": "Central Pedal Control: the Central Pedal app on a Mac - set up songs, tracks, pads, controls and the instrument, then upload them to the Central Pedal.",
   "main": "main.js",
   "author": { "name": "MotionAudio", "email": "central-control@localhost" },
