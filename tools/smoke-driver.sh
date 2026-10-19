@@ -13,6 +13,9 @@ for i in $(seq 1 90); do
 done
 if [ -n "$ok" ]; then
   curl -fsS --max-time 3 -o /dev/null http://127.0.0.1:8766/app/ && echo "app page served" || { echo "the app page is not served"; ok=""; }
+  curl -fsS --max-time 3 http://127.0.0.1:8766/practice/caps | cut -c1-200 && echo " <- practice mixes" || { echo "practice mixes don't answer"; ok=""; }
+  curl -fsS --max-time 3 http://127.0.0.1:8766/split/status | cut -c1-200 && echo " <- stem splitter" || { echo "the stem splitter doesn't answer"; ok=""; }
+  curl -fsS --max-time 3 -o /dev/null http://127.0.0.1:8080/practice/ && echo "the phones' practice page is served" || { echo "no practice page"; ok=""; }
 fi
 kill $P 2>/dev/null; sleep 1; kill -9 $P 2>/dev/null
 if [ -z "$ok" ]; then echo "DRIVER SMOKE TEST FAILED"; tail -40 "$D/driver.log"; exit 1; fi

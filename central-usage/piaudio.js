@@ -7,8 +7,8 @@ const EventEmitter = require("node:events");
 let WebSocket = null; try { WebSocket = require("ws"); } catch (_) { }
 
 class PiAudio extends EventEmitter {
-  constructor(engine) {
-    super(); this.engine = engine; this.cfg = { address: "", code: "", name: "Central Usage", enabled: false };
+  constructor(engine, base, label) {
+    super(); this.engine = engine; this.base = base || 0; this.label = label || ""; this.cfg = { address: "", code: "", name: "Central Usage", enabled: false, prefix: "" };
     this.ws = null; this.timer = null; this.st = { state: "off", error: null, packets: 0, bytes: 0, lost: 0, sources: {}, since: 0 }; this.lastSeq = {};
   }
   configure(cfg) {
@@ -18,7 +18,7 @@ class PiAudio extends EventEmitter {
   }
   set(state, error) { this.st.state = state; this.st.error = error; this.emit("status", this.status()); }
   status() { const dt = Math.max(1, (Date.now() - this.st.since) / 1000); return Object.assign({}, this.st, { address: this.cfg.address, kbps: this.st.since ? Math.round(this.st.bytes * 8 / dt / 1000) : 0 }); }
-  close() { clearTimeout(this.timer); if (this.ws) { try { this.ws.removeAllListeners(); this.ws.terminate(); } catch (_) { } } this.ws = null; }
+  close() { clearTimeout(this.timer); if (this.ws) { try { this.ws.removeAllListeners(); this.ws.terminate(); } catch (_) { } } this.ws = null; if (this.base && this.engine.setPiStream) this.engine.setPiStream({}, this.base); }
   open() {
     if (!WebSocket) { this.set("error", "network audio needs the 'ws' module"); return; }
     this.set("connecting", null);
@@ -41,14 +41,20 @@ class PiAudio extends EventEmitter {
     ws.on("error", (e) => { if (this.st.state === "connecting") this.st.error = e.message; });
   }
   retry() { clearTimeout(this.timer); this.timer = setTimeout(() => { if (this.cfg.enabled && !this.ws) this.open(); }, 3000); }
-  stream(sources) { this.st.sources = sources || {}; this.engine.setPiStream(this.st.sources); this.emit("status", this.status()); }
+  stream(sources) {
+    this.st.sources = sources || {}; const mapped = {};
+    Object.keys(this.st.sources).forEach((k) => { const s = Number(k), src = this.st.sources[k] || {}; if (s < 0 || s > 1) return;
+      mapped[s + this.base] = Object.assign({}, src, { channels: (src.channels || []).map((n) => this.cfg.prefix ? this.cfg.prefix + " " + n : n) }); });
+    this.engine.setPiStream(mapped, this.base); this.emit("status", this.status());
+  }
   packet(buf) {
     if (buf.length < 20 || buf[0] !== 67 || buf[1] !== 67 || buf[2] !== 65 || buf[3] !== 49) return;
     const src = buf[4], ch = buf[5], frames = buf.readUInt16LE(6), seq = buf.readUInt32LE(8);
     if (buf.length < 20 + frames * ch * 2) return;
     const last = this.lastSeq[src]; if (last != null && seq > last + 1) this.st.lost += seq - last - 1; this.lastSeq[src] = seq;
     this.st.packets++; this.st.bytes += buf.length;
-    this.engine.netAudio(src, ch, frames, buf.subarray(20, 20 + frames * ch * 2));
+    if (src > 1) return;
+    this.engine.netAudio(src + this.base, ch, frames, buf.subarray(20, 20 + frames * ch * 2));
   }
 }
 module.exports = { PiAudio };

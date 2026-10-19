@@ -44,6 +44,19 @@ EndSection
 XORG
   [ -n "${1:-}" ] && echo "$1" > /etc/pad-pedal/touch-ignore || true
 }
+# Elgato Stream Deck: the app (Chromium) talks to it over WebHID - the hidraw device must be readable by the session's
+# user, and Chromium is told it may use it without asking (a policy for the app's own address only)
+install_streamdeck_access() {
+  local rules=/etc/udev/rules.d/70-central-pedal-streamdeck.rules pol=/etc/chromium/policies/managed/central-pedal-webhid.json
+  local want_rules='SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0fd9", MODE="0666", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0fd9", MODE="0666", TAG+="uaccess"'
+  local want_pol='{ "WebHidAllowDevicesForUrls": [ { "devices": [ { "vendor_id": 4057 } ], "urls": [ "http://127.0.0.1:8766", "http://localhost:8766" ] } ] }'
+  if [ "$(cat "$rules" 2>/dev/null)" != "$want_rules" ]; then
+    printf '%s\n' "$want_rules" > "$rules"; udevadm control --reload 2>/dev/null || true; udevadm trigger --subsystem-match=hidraw 2>/dev/null || true
+  fi
+  install -d -m 755 /etc/chromium/policies/managed
+  [ "$(cat "$pol" 2>/dev/null)" = "$want_pol" ] || printf '%s\n' "$want_pol" > "$pol"
+}
 # Wi-Fi: Pi OS keeps the radio blocked until a country is set; NetworkManager must have it on
 wifi_radio() {
   local cc; cc="$(cat /etc/pad-pedal/wifi-country 2>/dev/null || echo US)"
@@ -312,9 +325,14 @@ PY
     echo "driver restarted" ;;
   boot-tune)
     install_touch_rules "$(cat /etc/pad-pedal/touch-ignore 2>/dev/null)" 2>/dev/null || true
+    install_streamdeck_access 2>/dev/null || true
     # xinput ties an HDMI touch screen to its own screen (the session does it); fetched once when online
     if ! command -v xinput >/dev/null && [ "$(awk '$2=="/" {print $3; exit}' /proc/mounts)" != overlay ]; then
       (timeout 300 apt-get install -y --no-install-recommends xinput >/dev/null 2>&1 &) || true
+    fi
+    # ffmpeg makes the MP3 practice mixes (8.6); a card made before that gets it once when online (else they stay WAVs)
+    if ! command -v ffmpeg >/dev/null && [ "$(awk '$2=="/" {print $3; exit}' /proc/mounts)" != overlay ]; then
+      (timeout 900 apt-get install -y --no-install-recommends ffmpeg >/dev/null 2>&1 &) || true
     fi
     for kv in $BOOT_TUNE_CONFIG; do config_all "${kv%%=*}" "${kv#*=}"; done
     for arg in $BOOT_TUNE_CMDLINE; do cmdline_arg "$arg"; done

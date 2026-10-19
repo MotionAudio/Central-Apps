@@ -32,6 +32,7 @@
   }
   function byId(id) { return inputs().filter(function (i) { return i.id === id; })[0] || null; }
   function wiringText(i) {
+    if (i.streamdeck) return "Stream Deck";
     if (i.usb) return "USB " + (i.usb.name || "") + " · " + (i.usb.codeName || ("key " + i.usb.code) || ("axis " + i.usb.abs));
     if (i.midi) return "MIDI " + i.midi.type.toUpperCase() + " " + i.midi.number + (i.midi.channel ? " ch" + i.midi.channel : "");
     if (i.kind === "encoder") return i.gpio_a != null ? "GPIO " + i.gpio_a + " / " + i.gpio_b + (i.gpio_button != null ? " · push GPIO " + i.gpio_button : "") : "not wired";
@@ -41,7 +42,7 @@
   }
   function saveInputs() {
     var list = inputs(); PP.persistSoon();
-    send({ type: "inputs", inputs: list.map(function (i) { var o = {}; Object.keys(i).forEach(function (k) { if (k !== "active" && k !== "midi") o[k] = i[k]; }); return o; }), save: true });
+    send({ type: "inputs", inputs: list.filter(function (i) { return !i.streamdeck; }).map(function (i) { var o = {}; Object.keys(i).forEach(function (k) { if (k !== "active" && k !== "midi") o[k] = i[k]; }); return o; }), save: true });
   }
 
   // ---------------------------------------------------------------- Configure

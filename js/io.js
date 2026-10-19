@@ -15,8 +15,12 @@
   var net = null;
 
   function radio(name, value, cur, label, sub) { return '<label class="io-opt' + (value === cur ? " on" : "") + '"><input type="radio" name="' + name + '" value="' + value + '"' + (value === cur ? " checked" : "") + "><span><b>" + label + "</b>" + (sub ? "<small>" + sub + "</small>" : "") + "</span></label>"; }
+  // Central Pedal Control (Mac / iPad): these are the pedal's settings - kept in the project, sent with Upload
+  function control() { return !!(window.PPTransfer && window.PPTransfer.isControl()); }
+  function pedalNet() { var p = project(); return p.netAudio || (p.netAudio = { mode: "wifi", quality: "full", instrument: true }); }
+  function setNet(patch) { if (control()) { Object.assign(pedalNet(), patch); PP.persistSoon(); render(); return; } if (window.PPNetSend) window.PPNetSend.configure(patch); }
   function netCard() {
-    var s = net || (F.systemStatus() || {}).netAudio || null, cfg = s ? s.config : { mode: "off", quality: "full", instrument: true }, mode = cfg.mode;
+    var s = control() ? { config: pedalNet() } : net || (F.systemStatus() || {}).netAudio || null, cfg = s ? s.config : { mode: "off", quality: "full", instrument: true }, mode = cfg.mode;
     var ifs = (s && s.interfaces) || (F.systemStatus() || {}).interfaces || [], eth = ifs.filter(function (i) { return i.kind === "ethernet"; }), wifi = ifs.filter(function (i) { return i.kind === "wifi"; });
     var addr = function (l) { return l.length ? l.map(function (i) { return esc(i.address) + " <small>(" + esc(i.iface) + ")</small>"; }).join(", ") : '<span class="muted">not connected</span>'; };
     var NS = window.PPNetSend, chans = NS && NS.sending() ? NS.channels() : [], stats = NS ? NS.stats() : { packets: 0, dropped: 0 };
@@ -26,11 +30,12 @@
       '<div class="io-opts">' + radio("ioNet", "off", mode, "Off", "nothing is sent") + radio("ioNet", "ethernet", mode, "Ethernet", "a cable to the network or straight to the computer - best") + radio("ioNet", "wifi", mode, "Wi-Fi", "works anywhere on the Wi-Fi; a little more delay") + radio("ioNet", "interface", mode, "Audio interface", "cables from the outputs here into the other computer's interface") + "</div>" +
       (mode === "ethernet" || mode === "wifi" ? '<div class="row"><label>Quality <select data-io="quality"><option value="full"' + (cfg.quality !== "saver" ? " selected" : "") + '>Full (48 kHz)</option><option value="saver"' + (cfg.quality === "saver" ? " selected" : "") + ">Saver (24 kHz, half the data - busy Wi-Fi)</option></select></label>" +
         '<label class="toggle"><input type="checkbox" data-io="instrument"' + (cfg.instrument !== false ? " checked" : "") + "> Include the instrument</label></div>" : "") +
+      '<label class="toggle"><input type="checkbox" data-io="netAuto"' + (cfg.auto !== false ? " checked" : "") + '> Turn on by itself when the main admin makes this pedal the track player or an instrument rig (over the cable when there is one)</label>' +
       '<table class="io-table"><tr><td>Ethernet</td><td>' + addr(eth) + '</td></tr><tr><td>Wi-Fi</td><td>' + addr(wifi) + "</td></tr>" +
       (mode === "ethernet" || mode === "wifi" ? "<tr><td>Listening</td><td>" + (listeners.length ? listeners.map(function (l) { return esc(l.name) + " <small>" + esc(l.address) + (l.dropped ? " · " + l.dropped + " late packets dropped" : "") + "</small>"; }).join("<br>") : '<span class="muted">no Central Control is listening yet - it starts when one connects (Central Control → I/O → From the Central Pedal)</span>') + "</td></tr>" +
         "<tr><td>Sending</td><td>" + (chans.length ? chans.length + " channels: " + chans.map(esc).join(" · ") + ' <small class="muted">· ' + stats.packets + " packets" + (stats.dropped ? " · " + stats.dropped + " dropped" : "") + "</small>" : '<span class="muted">-</span>') + "</td></tr>" : "") +
       (mode === "interface" ? '<tr><td>Cabling</td><td>Give each track its own output in the Tracks mixer (needs a USB interface with more outputs), and route the buses below. Plug those outputs into the Central Control computer\'s interface inputs and pick them there (I/O → Audio inputs).</td></tr>' : "") +
-      "</table>" + (connected() ? "" : '<p class="muted">Network audio is set on the Central Pedal itself (the driver is not connected).</p>') + "</section>";
+      "</table>" + (control() ? '<p class="muted">Central Pedal Control: this is what the Central Pedal will do - it goes with ⇪ Upload (tick "Network audio").</p>' : connected() ? "" : '<p class="muted">Network audio is set on the Central Pedal itself (the driver is not connected).</p>') + "</section>";
   }
   function outputsCard() {
     var T = window.PPTracks, s = T && T.song(), t = s && T.data(s), direct = (t && t.stems || []).filter(function (st) { return st.out > 0; });
@@ -78,9 +83,10 @@
     var tab = $("#tabIO"); if (!tab) return;
     tab.addEventListener("change", function (e) {
       var el = e.target;
-      if (el.name === "ioNet") { if (window.PPNetSend) window.PPNetSend.configure({ mode: el.value }); return; }
-      if (el.dataset.io === "quality") { if (window.PPNetSend) window.PPNetSend.configure({ quality: el.value }); return; }
-      if (el.dataset.io === "instrument") { if (window.PPNetSend) window.PPNetSend.configure({ instrument: el.checked }); return; }
+      if (el.name === "ioNet") { setNet({ mode: el.value }); return; }
+      if (el.dataset.io === "quality") { setNet({ quality: el.value }); return; }
+      if (el.dataset.io === "instrument") { setNet({ instrument: el.checked }); return; }
+      if (el.dataset.io === "netAuto") { setNet({ auto: el.checked }); return; }
       if (el.name === "rtMode" || el.dataset.rt) { if (window.PPSettings) window.PPSettings.onRouting(e); return; }
       if (el.dataset.sys && window.PPShell) { window.PPShell.onSys(e); setTimeout(render, 50); }
     });

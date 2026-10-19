@@ -73,7 +73,7 @@ await check("a song made in the editor (its track decoded there), a renamed pad 
   await E(async (b64) => {
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), f = new File([bytes], "Keys.wav", { type: "audio/wav" });
     const s = PPTracks.newSong("Upload Song"); PPFeatures.loadSong(PP.project().songs.length - 1); await PPTracks.importFilesIntoSong(s, [f]);
-    PP.project().pads[0].name = "Uploaded Pad"; PPActions.mapping().b1 = { action: "tap" }; PP.persistNow();
+    PP.project().pads[0].name = "Uploaded Pad"; PPActions.mapping().b1 = { action: "tap" }; const ip = PP.project(); PPInstrument.config().kind = "keys"; ip.theme = Object.assign({}, ip.theme || {}, { accent: "#ff4d6d" }); ip.setups = [{ id: "su_editor", name: "Editor Setup", settings: {} }]; ip.practice = { tempo: 80 }; ip.streamDeck = { brightness: 33 }; ip.backup = { mode: "button", timeoutMs: 2500 }; PP.project().netAudio = { mode: "wifi", quality: "saver", instrument: false }; PP.persistNow();
   }, stemB64);
   const st = await E(async () => { const s = PP.project().songs.filter((x) => x.name === "Upload Song")[0], st = s.tracks.stems[0]; return { n: s.tracks.stems.length, file: st.file || null, local: !!(await PPTracks.getStemLocal(st.id)) }; });
   assert.equal(st.n, 1); assert.equal(st.file, null, "no driver: no library file"); assert.ok(st.local, "decoded into the editor's store");
@@ -83,10 +83,10 @@ await check("a wrong PIN is refused", async () => {
   assert.match(String(err), /PIN/);
 });
 await check("Upload: the song with its track, the pads and the controls go over; the Central Pedal shows what arrived", async () => {
-  await E(() => PPTransfer.upload("127.0.0.1:8080", "4321", ["songs", "pads", "controls"], "replace"));
+  await E(() => PPTransfer.upload("127.0.0.1:8080", "4321", ["songs", "pads", "controls", "instrument", "setups", "look", "netaudio"], "replace"));
   await until(() => P(() => !!document.querySelector(".cp-arrived") && /Central Pedal Control|iPad|Mac/.test(document.querySelector(".cp-arrived").textContent)), 8000);
   const txt = await P(() => document.querySelector(".cp-arrived").textContent);
-  assert.match(txt, /1 songs/); assert.match(txt, /Pads and sounds/); assert.match(txt, /Buttons, knobs and MIDI/);
+  assert.match(txt, /1 songs/); assert.match(txt, /Pads and sounds/); assert.match(txt, /Buttons, knobs/); assert.match(txt, /Network audio/); assert.match(txt, /Instrument/); assert.match(txt, /Saved setups/); assert.match(txt, /Colours/);
 });
 await check("Apply on the Central Pedal: its setlist is the editor's, the track is in its library (decoded from there), the pad and the footswitch changed", async () => {
   await P(() => document.querySelector('.cp-arrived [data-ar="apply"]').click());
@@ -97,6 +97,14 @@ await check("Apply on the Central Pedal: its setlist is the editor's, the track 
   assert.ok(r.file && r.file.startsWith(tmp) && fs.existsSync(r.file), "in the library: " + r.file);
   const ok = await P(async () => { const s = PP.project().songs.filter((x) => x.name === "Upload Song")[0]; const rec = await PPTracks.getStem(s.tracks.stems[0].id); return rec && rec.length > 1000; });
   assert.ok(ok, "the track decodes from the library");
+});
+await check("...the instrument, the saved setups, the look, the Stream Deck, the backup player and the practice-mix settings came too (and survive the reload)", async () => {
+  const r = await P(() => { const p = PP.project(); return { kind: PPInstrument.config().kind, accent: p.theme && p.theme.accent, setups: (p.setups || []).map((x) => x.name), tempo: p.practice && p.practice.tempo, sd: p.streamDeck && p.streamDeck.brightness, bk: p.backup && p.backup.mode + "/" + p.backup.timeoutMs }; });
+  assert.equal(r.kind, "keys"); assert.equal(r.accent, "#ff4d6d"); assert.deepEqual(r.setups, ["Editor Setup"]); assert.equal(r.tempo, 80); assert.equal(r.sd, 33, "Stream Deck settings (controls part) kept after the reload"); assert.equal(r.bk, "button/2500", "backup player settings");
+});
+await check("...and the network audio set up in the editor (Wi-Fi, saver quality, no instrument) is now the Central Pedal's", async () => {
+  const na = await until(() => { try { const j = JSON.parse(fs.readFileSync(path.join(tmp, "netaudio.json"), "utf8")); return j.mode === "wifi" ? j : null; } catch (_) { return null; } }, 5000);
+  assert.equal(na.quality, "saver"); assert.equal(na.instrument, false);
 });
 
 console.log("\nCentral Pedal → Central Pedal Control (Download):");

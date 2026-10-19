@@ -85,7 +85,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.5.0"
+APP_VERSION = "8.6.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -1217,6 +1217,23 @@ class LocalServer:
                 query = urllib.parse.parse_qs(url.query)
                 path = (query.get("path") or [""])[0]
                 p = url.path
+                if p.startswith("/practice/"):   # practice mixes kept here
+                    pm = driver.practice
+                    if p == "/practice/caps":
+                        return self.send_json(200, pm.caps())
+                    if p == "/practice/list":
+                        return self.send_json(200, {"folders": pm.listing(), "caps": pm.caps()})
+                    if p == "/practice/file":
+                        f = pm.path((query.get("folder") or [""])[0], (query.get("name") or [""])[0])
+                        return self.send_file(f) if f else self.send_json(404, {"error": "no such file"})
+                    return self.send_json(404, {"error": "unknown"})
+                if p.startswith("/split/"):   # the stem splitter (Demucs)
+                    if p == "/split/status":
+                        return self.send_json(200, driver.splitter.status())
+                    if p == "/split/file":
+                        f = driver.splitter.file_path((query.get("id") or [""])[0], (query.get("rel") or [""])[0])
+                        return self.send_file(f, "application/octet-stream") if f else self.send_json(404, {"error": "no such file"})
+                    return self.send_json(404, {"error": "unknown"})
                 if p.startswith("/sync/"):
                     sync = driver.sync
                     if p == "/sync/status":
@@ -1316,6 +1333,18 @@ class LocalServer:
             def do_PUT(self):
                 url = urllib.parse.urlparse(self.path)
                 query = urllib.parse.parse_qs(url.query)
+                if url.path == "/practice/file":   # one practice mix (a WAV, or the playlist) from the app
+                    q1 = lambda k, dflt="": (query.get(k) or [dflt])[0]
+                    try:
+                        reply = driver.practice.save(q1("folder"), q1("name"), self.body(), q1("format", "wav"), int(q1("kbps", "192") or 192), q1("usb") == "1")
+                    except (ValueError, OSError) as error:
+                        return self.send_json(400, {"error": str(error)})
+                    return self.send_json(200, reply)
+                if url.path == "/split/upload":   # a song to split into stems
+                    try:
+                        return self.send_json(200, driver.splitter.upload((query.get("name") or ["song.wav"])[0], self.body()))
+                    except (ValueError, OSError) as error:
+                        return self.send_json(400, {"error": str(error)})
                 if url.path == "/export":  # save a file onto the first USB stick / SD card
                     name = safe_name((query.get("name") or ["export"])[0])
                     data = self.body()
@@ -1362,6 +1391,33 @@ class LocalServer:
 
             def do_POST(self):
                 url = urllib.parse.urlparse(self.path)
+                if url.path.startswith("/practice/") or url.path.startswith("/split/"):
+                    payload = self.json_body() or {}
+                    pm, sp = driver.practice, driver.splitter
+                    try:
+                        if url.path == "/practice/config":
+                            return self.send_json(200, pm.configure(payload))
+                        if url.path == "/practice/delete":
+                            return self.send_json(200, pm.delete(payload.get("folder"), payload.get("name")))
+                        if url.path == "/practice/usb":
+                            return self.send_json(200, pm.to_usb(payload.get("folder")))
+                        if url.path == "/practice/copy":
+                            return self.send_json(200, pm.copy_to(payload.get("folder"), payload.get("dest")))
+                        if url.path == "/split/install":
+                            return self.send_json(200, sp.install())
+                        if url.path == "/split/uninstall":
+                            return self.send_json(200, sp.uninstall())
+                        if url.path == "/split/config":
+                            return self.send_json(200, sp.configure(payload))
+                        if url.path == "/split/start":
+                            return self.send_json(200, sp.start(payload.get("path"), payload.get("opts") or {}))
+                        if url.path == "/split/cancel":
+                            return self.send_json(200, sp.cancel(payload.get("id")))
+                        if url.path == "/split/forget":
+                            return self.send_json(200, sp.forget(payload.get("id")))
+                    except (ValueError, OSError) as error:
+                        return self.send_json(400, {"error": str(error)})
+                    return self.send_json(404, {"error": "unknown"})
                 if url.path in ("/pedal/export-file", "/pedal/export-done"):   # the app here answering a Download
                     q = urllib.parse.parse_qs(url.query)
                     token = (q.get("token") or [""])[0]
@@ -1589,6 +1645,30 @@ class CompanionServer:
                     if rel.startswith("fonts/"):
                         return self.serve_static(os.path.join(app_root, "fonts"), rel[len("fonts/"):])
                     return self.serve_static(os.path.join(app_root, "central-usage", "app"), rel)
+                if p == "/practice":
+                    self.send_response(302)
+                    self.send_header("Location", "/practice/")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                if p.startswith("/practice/"):   # practice mixes for the band's phones (a setting: open / pairing code / off)
+                    pm = driver.practice
+                    code = (urllib.parse.parse_qs(url.query).get("code") or [""])[0]
+                    if p == "/practice/":
+                        body = pm.page(code).encode()
+                        self.send_response(200)
+                        self.cors()
+                        self.send_header("Content-Type", "text/html; charset=utf-8")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.end_headers()
+                        if self.command != "HEAD":
+                            self.wfile.write(body)
+                        return
+                    if not pm.allowed(code):
+                        return self.send_json(403, {"error": "practice mixes need the pairing code"})
+                    parts = [urllib.parse.unquote(x) for x in p[len("/practice/"):].split("/")]
+                    f = pm.path(parts[0], parts[1]) if len(parts) == 2 else None
+                    return self.send_file(f) if f else self.send_json(404, {"error": "no such file"})
                 if p in ("/api/pedal/export", "/api/pedal/export-file"):   # Central Pedal Control's Download (its token)
                     q = urllib.parse.parse_qs(url.query)
                     token = (q.get("token") or [""])[0]
@@ -3529,6 +3609,527 @@ SERVICE_ROLES = ("lighting", "production", "slides", "lyrics", "mix", "inears", 
 SERVICE_KINDS = ("song", "prayer", "welcome", "announcements", "offering", "sermon", "communion", "video", "other")
 
 
+def first_usb(media_roots):
+    """The first writable USB stick / SD card under /media (None when there is none)."""
+    for root in media_roots or []:
+        if os.path.basename(root) == "media" and os.path.isdir(root):
+            for d in sorted(os.listdir(root)):
+                full = os.path.join(root, d)
+                if os.path.isdir(full) and (os.path.ismount(full) or d.startswith("usb-")) and os.access(full, os.W_OK):
+                    return full
+    return None
+
+
+class PracticeMixes:
+    """Practice mixes: the app renders a mix of each song for each musician (their part up, the click, the
+    guide, slower...) and hands the WAVs here. They are kept in <data>/practice/<folder>/, turned into MP3s
+    when ffmpeg is there and that was asked for, copied onto a USB stick if wanted, and listed for phones on
+    the companion page (http://<pedal>.local:8080/practice/) - open to anyone on the network, only with the
+    pairing code, or not at all (a setting)."""
+
+    SHARES = ("open", "code", "off")
+
+    def __init__(self, driver):
+        self.driver = driver
+        self.root = os.path.join(driver.config["data_root"], "practice")
+        os.makedirs(self.root, exist_ok=True)
+        self.settings_path = os.path.join(self.root, "settings.json")
+        self.settings = read_json(self.settings_path, {}) or {}
+        if self.settings.get("share") not in self.SHARES:
+            self.settings["share"] = "open"
+
+    def share(self):
+        return self.settings.get("share", "open")
+
+    def configure(self, patch):
+        if isinstance(patch, dict):
+            if patch.get("share") in self.SHARES:
+                self.settings["share"] = patch["share"]
+            if "title" in patch:
+                self.settings["title"] = str(patch.get("title") or "")[:80]
+            write_json(self.settings_path, self.settings)
+        return self.caps()
+
+    def caps(self):
+        return {"ffmpeg": shutil.which("ffmpeg") is not None, "usb": first_usb(self.driver.config.get("media_roots")) is not None,
+                "share": self.share(), "title": self.settings.get("title") or "", "lanPort": self.driver.config.get("lan_port"),
+                "folderCopy": PEDAL_CONTROL, "hostname": socket.gethostname()}
+
+    def _dir(self, folder):
+        folder = safe_name(folder or "Practice")
+        return folder, os.path.join(self.root, folder)
+
+    def path(self, folder, name):
+        folder, d = self._dir(folder)
+        p = os.path.realpath(os.path.join(d, safe_name(name)))
+        return p if p.startswith(os.path.realpath(self.root) + os.sep) and os.path.isfile(p) else None
+
+    def save(self, folder, name, data, fmt="wav", kbps=192, usb=False):
+        if not data:
+            raise ValueError("empty file")
+        folder, d = self._dir(folder)
+        os.makedirs(d, exist_ok=True)
+        name = safe_name(name)
+        path = os.path.join(d, name)
+        with open(path + ".part", "wb") as handle:
+            handle.write(data)
+        os.replace(path + ".part", path)
+        note = ""
+        if fmt == "mp3" and name.lower().endswith(".wav"):
+            ff = shutil.which("ffmpeg")
+            if ff:
+                mp3 = path[:-4] + ".mp3"
+                kbps = max(64, min(320, int(kbps or 192)))
+                try:
+                    r = subprocess.run([ff, "-y", "-loglevel", "error", "-i", path, "-codec:a", "libmp3lame", "-b:a", "%dk" % kbps, mp3],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=900)
+                    if r.returncode == 0 and os.path.isfile(mp3):
+                        os.remove(path)
+                        path = mp3
+                    else:
+                        note = "MP3 failed (" + (r.stderr or b"").decode(errors="replace").strip()[-160:] + ") - kept the WAV"
+                except Exception as error:
+                    note = "MP3 failed (%s) - kept the WAV" % error
+            else:
+                note = "no ffmpeg on this computer - kept the WAV"
+        reply = {"ok": True, "folder": folder, "name": os.path.basename(path), "size": os.path.getsize(path), "format": path.rsplit(".", 1)[-1].lower()}
+        if note:
+            reply["note"] = note
+        if usb:
+            reply.update(self.to_usb(folder, os.path.basename(path)))
+        return reply
+
+    def to_usb(self, folder, name=None):
+        stick = first_usb(self.driver.config.get("media_roots"))
+        if not stick:
+            return {"usb": None, "usbError": "no USB stick or SD card found"}
+        folder, d = self._dir(folder)
+        target = os.path.join(stick, "Central Control", "Practice", folder)
+        os.makedirs(target, exist_ok=True)
+        names = [safe_name(name)] if name else [f for f in sorted(os.listdir(d)) if os.path.isfile(os.path.join(d, f))]
+        for n in names:
+            if os.path.isfile(os.path.join(d, n)):
+                shutil.copyfile(os.path.join(d, n), os.path.join(target, n))
+        return {"usb": target, "copied": len(names)}
+
+    def copy_to(self, folder, dest):
+        """Central Pedal Control: copy a folder of mixes into a folder the musician picked on the Mac."""
+        if not PEDAL_CONTROL:
+            raise ValueError("copying to a folder works in Central Pedal Control")
+        dest = os.path.realpath(os.path.expanduser(str(dest or "")))
+        if not dest or not os.path.isdir(dest) or not os.access(dest, os.W_OK):
+            raise ValueError("can't write to " + str(dest))
+        folder, d = self._dir(folder)
+        if not os.path.isdir(d):
+            raise ValueError("no such practice folder")
+        target = os.path.join(dest, folder)
+        os.makedirs(target, exist_ok=True)
+        n = 0
+        for f in sorted(os.listdir(d)):
+            if os.path.isfile(os.path.join(d, f)):
+                shutil.copyfile(os.path.join(d, f), os.path.join(target, f))
+                n += 1
+        return {"ok": True, "path": target, "copied": n}
+
+    def delete(self, folder, name=None):
+        folder, d = self._dir(folder)
+        if not os.path.isdir(d):
+            return {"ok": False, "error": "no such folder"}
+        if name:
+            p = self.path(folder, name)
+            if p:
+                os.remove(p)
+        else:
+            shutil.rmtree(d, ignore_errors=True)
+        return {"ok": True, "folders": self.listing()}
+
+    def listing(self):
+        out = []
+        for folder in os.listdir(self.root):
+            d = os.path.join(self.root, folder)
+            if not os.path.isdir(d):
+                continue
+            files = [{"name": f, "size": os.path.getsize(os.path.join(d, f))} for f in sorted(os.listdir(d))
+                     if os.path.isfile(os.path.join(d, f)) and not f.endswith(".part")]
+            out.append({"folder": folder, "files": files, "made": int(os.path.getmtime(d)), "size": sum(f["size"] for f in files)})
+        out.sort(key=lambda e: -e["made"])
+        return out
+
+    def allowed(self, code):
+        share = self.share()
+        return share == "open" or (share == "code" and self.driver.code_ok(code))
+
+    def page(self, code=""):
+        esc = lambda s: str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        title = esc(self.settings.get("title") or "Practice mixes")
+        head = ('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+                "<title>" + title + "</title><style>body{font:16px system-ui,sans-serif;background:#08111d;color:#e8eef6;margin:0;padding:16px;max-width:760px;margin:auto}"
+                "h1{font-size:22px}h2{font-size:17px;margin:22px 0 6px;color:#9fc3ff}.f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #1d2b3d}"
+                ".f span{flex:1 1 200px;word-break:break-word}audio{width:100%;max-width:340px;height:34px}a{color:#7fd0ff}.m{color:#8aa0b8;font-size:13px}"
+                "input,button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid #2b3d55;background:#122033;color:inherit}</style></head><body>")
+        if self.share() == "off":
+            return head + "<h1>" + title + "</h1><p>Practice mixes aren't shared from this Central Pedal.</p></body></html>"
+        if not self.allowed(code):
+            return head + "<h1>" + title + "</h1><form><p>Type the pairing code shown on the Central Pedal.</p><input name=code inputmode=numeric autofocus> <button>Open</button></form></body></html>"
+        q = ("?code=" + urllib.parse.quote(code)) if code and self.share() == "code" else ""
+        body = "<h1>" + title + "</h1>"
+        folders = self.listing()
+        if not folders:
+            body += "<p class=m>No practice mixes yet. Make them on the Central Pedal: Tracks → 🎧 Practice mixes.</p>"
+        for e in folders:
+            body += "<h2>" + esc(e["folder"]) + ' <span class=m>' + time.strftime("%b %d, %Y", time.localtime(e["made"])) + "</span></h2>"
+            for f in e["files"]:
+                href = "/practice/" + urllib.parse.quote(e["folder"]) + "/" + urllib.parse.quote(f["name"]) + q
+                audio = f["name"].lower().rsplit(".", 1)[-1] in ("mp3", "wav", "m4a")
+                body += ('<div class=f><span>' + esc(f["name"]) + ' <span class=m>' + "%.1f MB" % (f["size"] / 1048576.0) + "</span></span>" +
+                         ('<audio controls preload=none src="' + esc(href) + '"></audio>' if audio else "") + '<a href="' + esc(href) + '" download>Download</a></div>')
+        return head + body + "</body></html>"
+
+
+class StemSplitter:
+    """Split a song (one stereo file) into stems with Demucs, on this computer. Nothing is installed until the
+    musician asks: then uv (a small Python manager) is fetched, a private Python with Demucs is set up in
+    <data>/stem-splitter/, and the models download on first use. Every Demucs setting is the musician's: the
+    model (4 stems, 6 stems, fine-tuned, or just vocals / no vocals), shifts, overlap, segment length, the device
+    (CPU, Apple GPU, NVIDIA), the file format. CC_DEMUCS_CMD (or the "command" setting) runs another Demucs."""
+
+    MODELS = ("htdemucs", "htdemucs_ft", "htdemucs_6s", "hdemucs_mmi", "mdx_extra", "mdx_extra_q")
+    BAGS = {"htdemucs_ft": 4, "mdx_extra": 4, "mdx_extra_q": 4, "hdemucs_mmi": 1, "htdemucs": 1, "htdemucs_6s": 1}
+
+    def __init__(self, driver):
+        self.driver = driver
+        self.root = os.path.join(driver.config["data_root"], "stem-splitter")
+        os.makedirs(self.root, exist_ok=True)
+        self.cfg_path = os.path.join(self.root, "settings.json")
+        self.cfg = read_json(self.cfg_path, {}) or {}
+        self.jobs = {}
+        self.install_state = {"running": False, "step": "", "log": "", "error": ""}
+        self.lock = threading.Lock()
+        self.last_emit = 0.0
+
+    # ----- where things are
+    def env_python(self):
+        exe = os.path.join(self.root, "env", "Scripts", "python.exe") if os.name == "nt" else os.path.join(self.root, "env", "bin", "python")
+        return exe if os.path.isfile(exe) else None
+
+    def command(self):
+        """The Demucs command (a list), or None when it isn't installed."""
+        custom = os.environ.get("CC_DEMUCS_CMD") or self.cfg.get("command") or ""
+        if custom.strip():
+            import shlex
+            return shlex.split(custom, posix=os.name != "nt")
+        py = self.env_python()
+        return [py, "-m", "demucs.separate"] if py and os.path.isfile(os.path.join(self.root, "env", ".demucs-ok")) else None
+
+    def devices(self):
+        out = ["cpu"]
+        if sys.platform == "darwin" and os.uname().machine == "arm64":
+            out.append("mps")
+        if shutil.which("nvidia-smi"):
+            out.append("cuda")
+        return out
+
+    def slow(self):
+        """True on a Raspberry Pi: it works, but it takes a long time (and needs 4 GB+)."""
+        try:
+            with open("/proc/device-tree/model") as handle:
+                return "raspberry" in handle.read().lower()
+        except OSError:
+            return False
+
+    def memory_gb(self):
+        try:
+            with open("/proc/meminfo") as handle:
+                for line in handle:
+                    if line.startswith("MemTotal:"):
+                        return round(int(line.split()[1]) / 1048576.0, 1)
+        except OSError:
+            pass
+        return None
+
+    def status(self):
+        with self.lock:
+            jobs = [self._public(j) for j in self.jobs.values()]
+        return {"installed": self.command() is not None, "custom": bool(os.environ.get("CC_DEMUCS_CMD") or self.cfg.get("command")),
+                "install": dict(self.install_state, log=self.install_state["log"][-2500:]), "devices": self.devices(), "models": list(self.MODELS),
+                "slow": self.slow(), "memoryGb": self.memory_gb(), "platform": sys.platform, "jobs": jobs,
+                "settings": {"command": self.cfg.get("command") or "", "packages": self.cfg.get("packages") or "", "python": self.cfg.get("python") or "3.11"}}
+
+    def configure(self, patch):
+        if isinstance(patch, dict):
+            for k in ("command", "packages", "python"):
+                if k in patch:
+                    self.cfg[k] = str(patch.get(k) or "").strip()[:400]
+            write_json(self.cfg_path, self.cfg)
+        return self.status()
+
+    # ----- installing (on demand)
+    def _log(self, text):
+        self.install_state["log"] = (self.install_state["log"] + text)[-20000:]
+
+    def _uv(self):
+        found = shutil.which("uv")
+        if found:
+            return found
+        exe = os.path.join(self.root, "bin", "uv.exe" if os.name == "nt" else "uv")
+        if os.path.isfile(exe):
+            return exe
+        mach = (os.uname().machine if hasattr(os, "uname") else os.environ.get("PROCESSOR_ARCHITECTURE", "x86_64")).lower()
+        arch = "aarch64" if mach in ("arm64", "aarch64") else "x86_64"
+        if sys.platform == "darwin":
+            target, ext = arch + "-apple-darwin", ".tar.gz"
+        elif os.name == "nt":
+            target, ext = arch + "-pc-windows-msvc", ".zip"
+        else:
+            target, ext = arch + "-unknown-linux-gnu", ".tar.gz"
+        url = "https://github.com/astral-sh/uv/releases/latest/download/uv-" + target + ext
+        self.install_state["step"] = "Downloading uv"
+        self._log("Downloading " + url + "\n")
+        os.makedirs(os.path.dirname(exe), exist_ok=True)
+        archive = os.path.join(self.root, "bin", "uv" + ext)
+        with urllib.request.urlopen(url, timeout=120) as r, open(archive, "wb") as handle:
+            shutil.copyfileobj(r, handle)
+        if ext == ".zip":
+            with zipfile.ZipFile(archive) as zf:
+                for n in zf.namelist():
+                    if n.endswith("uv.exe"):
+                        with zf.open(n) as src, open(exe, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
+        else:
+            import tarfile
+            with tarfile.open(archive) as tf:
+                for m in tf.getmembers():
+                    if m.name.endswith("/uv") or m.name == "uv":
+                        with tf.extractfile(m) as src, open(exe, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
+            os.chmod(exe, 0o755)
+        os.remove(archive)
+        return exe
+
+    def _run(self, args, env=None):
+        self._log("$ " + " ".join(args) + "\n")
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+        for line in iter(proc.stdout.readline, b""):
+            self._log(line.decode(errors="replace"))
+            self._emit_status()
+        proc.wait()
+        if proc.returncode != 0:
+            raise RuntimeError("%s failed (exit %s)" % (os.path.basename(args[0]), proc.returncode))
+
+    def packages(self):
+        if self.cfg.get("packages"):
+            return self.cfg["packages"].split()
+        if sys.platform == "darwin" and os.uname().machine == "x86_64":
+            torch = ["torch==2.2.2", "torchaudio==2.2.2", "numpy<2"]   # (the last PyTorch for Intel Macs)
+        else:
+            torch = ["torch==2.5.1", "torchaudio==2.5.1"]
+        return torch + ["demucs==4.0.1", "soundfile"]
+
+    def install(self):
+        if self.install_state["running"]:
+            return self.status()
+        self.install_state = {"running": True, "step": "Starting", "log": "", "error": ""}
+
+        def work():
+            try:
+                uv = self._uv()
+                env = dict(os.environ, UV_CACHE_DIR=os.path.join(self.root, "cache"), UV_PYTHON_INSTALL_DIR=os.path.join(self.root, "python"))
+                envdir = os.path.join(self.root, "env")
+                self.install_state["step"] = "Setting up Python"
+                self._run([uv, "venv", "--python", self.cfg.get("python") or "3.11", "--seed", envdir], env)
+                py = self.env_python()
+                pkgs = self.packages()
+                torch = [p for p in pkgs if p.split("=")[0].split("<")[0] in ("torch", "torchaudio")]
+                rest = [p for p in pkgs if p not in torch]
+                cuda = "cuda" in self.devices()
+                if torch and sys.platform != "darwin" and not cuda and not self.cfg.get("packages"):
+                    self.install_state["step"] = "Installing PyTorch (CPU)"
+                    self._run([uv, "pip", "install", "--python", py, "--index-url", "https://download.pytorch.org/whl/cpu"] + torch, env)
+                    pkgs = rest
+                self.install_state["step"] = "Installing Demucs"
+                self._run([uv, "pip", "install", "--python", py] + pkgs, env)
+                self.install_state["step"] = "Checking"
+                self._run([py, "-c", "import demucs.separate, torch; print('demucs ok, torch', torch.__version__)"], env)
+                with open(os.path.join(envdir, ".demucs-ok"), "w") as handle:
+                    handle.write(time.strftime("%Y-%m-%d %H:%M"))
+                self.install_state["step"] = "Installed"
+            except Exception as error:
+                self.install_state["error"] = str(error)
+                self.install_state["step"] = "Failed"
+                self._log("\nERROR: %s\n" % error)
+            finally:
+                self.install_state["running"] = False
+                self._emit_status(force=True)
+
+        threading.Thread(target=work, daemon=True).start()
+        return self.status()
+
+    def uninstall(self):
+        if self.install_state["running"]:
+            return self.status()
+        for sub in ("env", "python", "cache", "bin"):
+            shutil.rmtree(os.path.join(self.root, sub), ignore_errors=True)
+        return self.status()
+
+    # ----- splitting
+    def upload(self, name, data):
+        if not data:
+            raise ValueError("empty file")
+        d = os.path.join(self.root, "in", secrets.token_hex(6))
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, safe_name(name))
+        with open(path, "wb") as handle:
+            handle.write(data)
+        return {"ok": True, "path": path}
+
+    def _input_ok(self, path):
+        path = os.path.realpath(str(path or ""))
+        if not os.path.isfile(path):
+            return None
+        ok_roots = [os.path.realpath(os.path.join(self.root, "in")), os.path.realpath(self.driver.config["data_root"])]
+        ok_roots += [os.path.realpath(r) for r in (self.driver.config.get("media_roots") or [])]
+        return path if any(path.startswith(r + os.sep) for r in ok_roots) else None
+
+    def args_for(self, opts, src, out):
+        model = opts.get("model") if opts.get("model") in self.MODELS else "htdemucs"
+        a = ["-n", model, "-o", out, "--filename", "{stem}.{ext}"]
+        shifts = max(0, min(20, int(opts.get("shifts") or 1)))
+        a += ["--shifts", str(shifts)]
+        overlap = float(opts.get("overlap") if opts.get("overlap") is not None else 0.25)
+        a += ["--overlap", "%.2f" % max(0.0, min(0.99, overlap))]
+        if opts.get("segment"):
+            a += ["--segment", str(max(1, min(60, int(opts["segment"]))))]
+        device = opts.get("device") or "auto"
+        if device == "auto":
+            device = "cuda" if "cuda" in self.devices() else ("mps" if "mps" in self.devices() else "cpu")
+        a += ["-d", device]
+        if opts.get("twoStems"):
+            a += ["--two-stems", re.sub(r"[^a-z]", "", str(opts["twoStems"]))]
+        fmt = opts.get("format") or "wav"
+        if fmt == "mp3":
+            a += ["--mp3", "--mp3-bitrate", str(max(96, min(320, int(opts.get("mp3Kbps") or 320))))]
+        elif fmt == "flac":
+            a += ["--flac"]
+        elif fmt == "wav24":
+            a += ["--int24"]
+        elif fmt == "float":
+            a += ["--float32"]
+        if opts.get("clipMode") in ("rescale", "clamp"):
+            a += ["--clip-mode", opts["clipMode"]]
+        if opts.get("jobs"):
+            a += ["-j", str(max(1, min(16, int(opts["jobs"]))))]
+        return a + [src]
+
+    def start(self, path, opts):
+        cmd = self.command()
+        if not cmd:
+            raise ValueError("the stem splitter isn't installed yet")
+        src = self._input_ok(path)
+        if not src:
+            raise ValueError("can't find that file")
+        opts = opts if isinstance(opts, dict) else {}
+        jid = secrets.token_hex(5)
+        out = os.path.join(self.root, "out", jid)
+        os.makedirs(out, exist_ok=True)
+        model = opts.get("model") if opts.get("model") in self.MODELS else "htdemucs"
+        job = {"id": jid, "name": os.path.basename(src), "state": "running", "progress": 0.0, "model": model, "opts": opts,
+               "files": [], "error": "", "started": time.time(), "out": out, "proc": None, "log": "", "bags": self.BAGS.get(model, 1) * max(1, int(opts.get("shifts") or 1))}
+        with self.lock:
+            self.jobs[jid] = job
+        argv = cmd + self.args_for(opts, src, out)
+        threading.Thread(target=self._work, args=(job, argv), daemon=True).start()
+        return self._public(job)
+
+    def _work(self, job, argv):
+        bars, last_pct = 0, 0.0
+        try:
+            env = dict(os.environ, PYTHONUNBUFFERED="1", TORCH_HOME=os.path.join(self.root, "models"))
+            job["proc"] = proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+            buf = b""
+            while True:
+                ch = proc.stdout.read(1)
+                if not ch:
+                    break
+                if ch in (b"\r", b"\n"):
+                    line = buf.decode(errors="replace")
+                    buf = b""
+                    m = re.search(r"(\d{1,3})%\|", line)
+                    if m:
+                        pct = int(m.group(1)) / 100.0
+                        if pct < last_pct - 0.5:
+                            bars += 1
+                        last_pct = pct
+                        job["progress"] = min(0.99, (bars + pct) / max(1, job["bags"]))
+                        self._emit_job(job)
+                    elif line.strip():
+                        job["log"] = (job["log"] + line + "\n")[-4000:]
+                else:
+                    buf += ch
+            proc.wait()
+            if job["state"] == "cancelled":
+                return
+            files = []
+            for base, _dirs, names in os.walk(job["out"]):
+                for n in sorted(names):
+                    files.append({"name": n, "size": os.path.getsize(os.path.join(base, n)), "rel": os.path.relpath(os.path.join(base, n), job["out"])})
+            if proc.returncode != 0 or not files:
+                job["state"] = "failed"
+                job["error"] = (job["log"].strip().splitlines() or ["Demucs stopped (exit %s)" % proc.returncode])[-1][:300]
+            else:
+                job["files"] = files
+                job["state"] = "done"
+                job["progress"] = 1.0
+        except Exception as error:
+            job["state"] = "failed"
+            job["error"] = str(error)
+        finally:
+            job["proc"] = None
+            job["finished"] = time.time()
+            self._emit_job(job, force=True)
+
+    def cancel(self, jid):
+        job = self.jobs.get(str(jid))
+        if job and job.get("proc"):
+            job["state"] = "cancelled"
+            try:
+                job["proc"].terminate()
+            except Exception:
+                pass
+        return {"ok": bool(job)}
+
+    def forget(self, jid):
+        with self.lock:
+            job = self.jobs.pop(str(jid), None)
+        if job:
+            self.cancel(jid)
+            shutil.rmtree(job["out"], ignore_errors=True)
+        return {"ok": bool(job)}
+
+    def file_path(self, jid, rel):
+        job = self.jobs.get(str(jid))
+        if not job:
+            return None
+        p = os.path.realpath(os.path.join(job["out"], str(rel or "")))
+        return p if p.startswith(os.path.realpath(job["out"]) + os.sep) and os.path.isfile(p) else None
+
+    def _public(self, job):
+        return {k: v for k, v in job.items() if k not in ("proc", "out")}
+
+    def _emit_job(self, job, force=False):
+        now = time.time()
+        if not force and now - self.last_emit < 0.5:
+            return
+        self.last_emit = now
+        self.driver.emit({"type": "stemSplit", "job": self._public(job)})
+
+    def _emit_status(self, force=False):
+        now = time.time()
+        if not force and now - self.last_emit < 1.0:
+            return
+        self.last_emit = now
+        self.driver.emit({"type": "stemSplitStatus", "install": dict(self.install_state, log=self.install_state["log"][-1500:]), "installed": self.command() is not None})
+
+
 class PedalTransfer:
     """Central Pedal Control (the editor on a Mac or an iPad) <-> this Central Pedal.
 
@@ -4031,8 +4632,14 @@ class CenterLink:
             await asyncio.sleep(2)
 
     async def health_loop(self):
+        n = 0
         while True:
-            await asyncio.sleep(5)
+            await asyncio.sleep(0.5)
+            n += 1
+            if self.paired and self.job == "player":
+                self.send({"type": "ping", "t": int(time.time() * 1000), "beat": True})   # (a heartbeat: a backup takes over when it stops)
+            if n % 10:
+                continue
             if self.paired:
                 h = self.driver.pedal_health()
                 song = (self.driver.display or {}).get("song") or {}
@@ -4042,7 +4649,7 @@ class CenterLink:
 
     def on_role(self, m):
         """The main admin says what this Central Pedal does, who plays, and which other pedals there are."""
-        job = m.get("job") if m.get("job") in ("player", "controller", "instrument", "standby") else "controller"
+        job = m.get("job") if m.get("job") in ("player", "controller", "instrument", "standby", "backup") else "controller"
         player = m.get("player") if isinstance(m.get("player"), dict) else None
         peers = [p for p in (m.get("peers") or []) if isinstance(p, dict) and p.get("address")]
         before = (self.job, (self.player or {}).get("address"), (self.player or {}).get("online"))
@@ -4060,6 +4667,9 @@ class CenterLink:
                 self.linked.add(key)
                 threading.Thread(target=self._link_songs, args=(p["address"], int(p.get("port") or 8080)), daemon=True).start()
         self.follow_player()
+        # its audio goes to the main admin's audio host by itself (each track, click, pads, the instrument)
+        if job in ("player", "instrument") and getattr(self.driver, "netaudio", None):
+            self.driver.netaudio.auto_on()
 
     def _link_songs(self, address, port):
         try:
@@ -4074,7 +4684,7 @@ class CenterLink:
     # ----- foot controller: this pedal's buttons drive the player
     def follow_player(self):
         p = self.player or {}
-        want = "%s:%s" % (p.get("address"), p.get("wsPort") or 8081) if self.job == "controller" and p.get("address") and p.get("online") else ""
+        want = "%s:%s" % (p.get("address"), p.get("wsPort") or 8081) if self.job in ("controller", "backup") and p.get("address") and p.get("online") else ""
         if want == self.remote_key:
             return
         self.remote_key = want
@@ -4111,6 +4721,12 @@ class CenterLink:
                         m = json.loads(raw)
                     except ValueError:
                         continue
+                    if m.get("type") == "display" and self.job == "backup":   # the backup player follows it silently
+                        keep = {k: m.get(k) for k in ("songId", "playing", "pos", "countIn", "loop", "speed", "tracksMode", "duration")}
+                        song = m.get("song") if isinstance(m.get("song"), dict) else {}
+                        keep.update({"type": "backupFollow", "song": str(song.get("name") or "")[:80], "index": song.get("index"),
+                                     "pads": [i for i, pd in enumerate(m.get("pads") or []) if isinstance(pd, dict) and pd.get("playing")][:8], "at": time.monotonic()})
+                        self.driver.emit(keep)
                     if m.get("type") == "display":   # what the player is doing, for this pedal's screen
                         song = m.get("song") if isinstance(m.get("song"), dict) else {}
                         sec = m.get("section") if isinstance(m.get("section"), dict) else {}
@@ -4124,7 +4740,16 @@ class CenterLink:
                 if self.remote is ws:
                     self.remote = None
                     self.driver.emit(self.driver.hello())
+                    if self.job == "backup":
+                        self.driver.emit({"type": "backupLost", "why": "link"})
             await asyncio.sleep(1)
+
+    def takeover(self):
+        """The backup player lost the track player mid-song: ask the main admin to make this pedal the player."""
+        if self.ws is None:
+            return False
+        self.send({"type": "cuRole", "action": "takeover", "id": self.id})
+        return True
 
     def forward(self, message):
         """An action from this pedal's buttons, for the player (controller job)."""
@@ -4154,6 +4779,8 @@ class CenterLink:
                     self.set_state("needPin", "Type the main admin's pairing PIN.")
                 else:
                     self.send(self.hello_message("join"))
+            elif act == "takeover":   # the main admin's answer to the backup player taking over
+                self.driver.emit({"type": "backupTakeoverReply", "ok": bool(m.get("ok")), "error": m.get("error"), "playerAlive": bool(m.get("playerAlive"))})
             elif act == "join":
                 if m.get("ok"):
                     self.paired = True
@@ -4206,7 +4833,8 @@ class NetAudio:
     def __init__(self, driver, path):
         self.driver = driver
         self.path = path
-        self.cfg = {"mode": "off", "rate": 48000, "instrument": True, "quality": "full"}
+        # auto: a paired track player / instrument rig turns network audio on by itself (until it is set by hand)
+        self.cfg = {"mode": "off", "rate": 48000, "instrument": True, "quality": "full", "auto": True}
         saved = read_json(path, {})
         if isinstance(saved, dict):
             self.cfg.update({k: v for k, v in saved.items() if k in self.cfg})
@@ -4224,6 +4852,9 @@ class NetAudio:
         if isinstance(cfg, dict):
             if cfg.get("mode") in self.MODES:
                 self.cfg["mode"] = cfg["mode"]
+                self.cfg["auto"] = bool(cfg.get("auto", False))   # (set by hand: it stays as set)
+            if "auto" in cfg and "mode" not in cfg:
+                self.cfg["auto"] = bool(cfg["auto"])
             if cfg.get("quality") in ("full", "saver"):
                 self.cfg["quality"] = cfg["quality"]
             if "instrument" in cfg:
@@ -4236,6 +4867,18 @@ class NetAudio:
                 self.subs.pop(ws, None)
         self.update()
         return self.status()
+
+    def auto_on(self):
+        """Paired as the track player or an instrument rig: send to the main admin, over the cable when there is one."""
+        if not self.cfg.get("auto", True) or self.cfg["mode"] != "off":
+            return False
+        kinds = [i["kind"] for i in ip_interfaces()]
+        self.cfg["mode"] = "ethernet" if "ethernet" in kinds else "wifi"
+        write_json(self.path, self.cfg)
+        log.info("network audio on (%s) - paired with the main admin", self.cfg["mode"])
+        self.update()
+        self.driver.emit(self.status())
+        return True
 
     def refusal(self):
         mode = self.cfg["mode"]
@@ -4456,6 +5099,8 @@ class PedalDriver:
         self.center_link = CenterLink(self, os.path.join(data_root, "center.json"))
         self.service_log = ServiceLog(os.path.join(data_root, "service-log"))
         self.transfer = PedalTransfer(self)
+        self.practice = PracticeMixes(self)
+        self.splitter = StemSplitter(self)
         self.sync = SongSync(self)
         self.hub_dir = os.path.join(data_root, "hub")
         self.slides_dir = os.path.join(data_root, "slides")
@@ -4817,6 +5462,9 @@ class PedalDriver:
             if result.get("ok"):
                 log.info("pairing PIN set by the user")
                 self.emit(self.hello())
+        elif kind == "backupTakeover":   # the backup player took over (js/backup.js)
+            ok = self.center_link.takeover()
+            self.send_to(ws, {"type": "backupTakeoverSent", "ok": bool(ok)})
         elif kind == "forwardAction":   # a foot controller's button, for the Central Pedal that plays
             if not self.center_link.forward(message):
                 self.send_to(ws, {"type": "forwardFailed", "name": message.get("name"), "error": "Not connected to the Central Pedal that plays."})

@@ -177,13 +177,15 @@
     sendLedsSoon();
     return true;
   }
+  // (through the exported run, so what wraps it - the service lock, Safe Stop - sees footswitches, MIDI and Stream Deck too)
+  function runX(name, args, info) { return window.PPActions && window.PPActions.run !== run ? window.PPActions.run(name, args, info) : run(name, args, info); }
   function onControl(m) {
     var e = entryFor(m.id); if (!e) return;
-    if (m.event === "press") { held[m.id] = { fired: false }; if (ACTIONS[e.action] && ACTIONS[e.action].kind === "trigger") run(e.action, e.args); else if (e.press) run(e.press.action, e.press.args); }
-    else if (m.event === "hold") { if (e.hold) { held[m.id] = { fired: true }; run(e.hold.action, e.hold.args); } }
+    if (m.event === "press") { held[m.id] = { fired: false }; if (ACTIONS[e.action] && ACTIONS[e.action].kind === "trigger") runX(e.action, e.args); else if (e.press) runX(e.press.action, e.press.args); }
+    else if (m.event === "hold") { if (e.hold) { held[m.id] = { fired: true }; runX(e.hold.action, e.hold.args); } }
     else if (m.event === "release") { var a = ACTIONS[e.action]; if (a && a.release) { try { a.release(e.args || {}); } catch (_) { } } delete held[m.id]; sendLedsSoon(); }
-    else if (typeof m.value === "number") { var c = ACTIONS[e.action]; if (c && c.kind === "continuous") run(e.action, e.args, { value: clamp(m.value, 0, 1), id: m.id }); }
-    else if (typeof m.delta === "number") { var s = ACTIONS[e.action]; if (s && s.kind === "step") run(e.action, e.args, { delta: m.delta < 0 ? -1 : 1, id: m.id }); }
+    else if (typeof m.value === "number") { var c = ACTIONS[e.action]; if (c && c.kind === "continuous") runX(e.action, e.args, { value: clamp(m.value, 0, 1), id: m.id }); }
+    else if (typeof m.delta === "number") { var s = ACTIONS[e.action]; if (s && s.kind === "step") runX(e.action, e.args, { delta: m.delta < 0 ? -1 : 1, id: m.id }); }
     flash(m.id);
   }
   var flashTimers = {};

@@ -192,7 +192,7 @@
   async function hubSong(id, force) {
     if (!id) return null; if (hub.detail[id] && !force) return hub.detail[id]; if (hub.loading[id]) return hub.loading[id];
     // only songs the Central Pedal has shared (asking for any other one is a 404)
-    if (!hub.list.some(function (q) { return q.id === id; })) { if (!hubSong.listAt || performance.now() - hubSong.listAt > 3000) { hubSong.listAt = performance.now(); await hubList(); } if (!hub.list.some(function (q) { return q.id === id; })) return null; }
+    if (!hub.list.some(function (q) { return q.id === id; })) { if (force || !hubSong.listAt || performance.now() - hubSong.listAt > 3000) { hubSong.listAt = performance.now(); await hubList(); } if (!hub.list.some(function (q) { return q.id === id; })) return null; }
     hub.loading[id] = fetch(CU.api("/hub/" + encodeURIComponent(id)), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (j) { delete hub.loading[id]; if (j) hub.detail[id] = j; return j; });
     return hub.loading[id];
   }
@@ -359,7 +359,9 @@
     } else if (m.type === "lighting" && m.song === show.song && m.by !== "Central Control-" + selfId) {
       if (show.saved) loadShow(show.song);
     } else if (m.type === "hub") {
-      hubList(); (m.changed || []).forEach(function (id) { delete hub.detail[id]; if (id === song.id) hubSong(id, true).then(function (h) { applyHub(h); renderShowPanel(); }); });
+      // (the list first: a song that has only just reached the hub isn't in the old list, and would be skipped)
+      var changed = m.changed || []; changed.forEach(function (id) { delete hub.detail[id]; });
+      hubList().then(function () { if (song.id && (changed.indexOf(song.id) >= 0 || !song.overview.length)) hubSong(song.id, true).then(function (h) { if (h) { applyHub(h); renderShowPanel(); } }); });
     } else if (m.type === "clock") {
       clockRun.onClock(m);
     } else if (m.type === "midi") {

@@ -31,6 +31,7 @@ import zipfile
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -135,6 +136,45 @@ class MockPCO(BaseHTTPRequestHandler):
         if path in routes:
             return self.reply(200, routes[path])
         return self.reply(404, {"errors": []})
+
+
+def io_wav(seconds, rate=8000):
+    import io
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(2)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(b"".join(struct.pack("<hh", int(8000 * math.sin(i / 9.0)), 0) for i in range(int(seconds * rate))))
+    return buf.getvalue()
+
+
+FAKE_DEMUCS = r"""
+import json, os, sys, time, wave
+argv = sys.argv[1:]
+json.dump(argv, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fake-demucs-argv.json"), "w"))
+if os.environ.get("FAKE_DEMUCS_FAIL"):
+    print("RuntimeError: CPU out of memory (tried to allocate 2 GB)", flush=True)
+    sys.exit(1)
+out = argv[argv.index("-o") + 1]
+model = argv[argv.index("-n") + 1]
+ext = "mp3" if "--mp3" in argv else "flac" if "--flac" in argv else "wav"
+if "--two-stems" in argv:
+    s = argv[argv.index("--two-stems") + 1]
+    stems = [s, "no_" + s]
+else:
+    stems = ["drums", "bass", "other", "vocals"] + (["guitar", "piano"] if model == "htdemucs_6s" else [])
+for p in (0, 25, 50, 75, 100):
+    sys.stdout.write("%3d%%|%s| %d/100 [00:01<00:01]\r" % (p, "#" * (p // 10), p))
+    sys.stdout.flush()
+    time.sleep(0.25)
+d = os.path.join(out, model)
+os.makedirs(d, exist_ok=True)
+for s in stems:
+    with wave.open(os.path.join(d, s + "." + ext), "wb") as w:
+        w.setnchannels(2); w.setsampwidth(2); w.setframerate(8000); w.writeframes(b"\0\0\0\0" * 800)
+print("done")
+"""
 
 
 async def main():
@@ -322,6 +362,15 @@ async def main():
             await lan.send(json.dumps({"type": "action", "name": "nextSection"}))
             action = await next_message(lambda m: m["type"] == "action")
             check("...and the action reaches the app as {action nextSection from companion}", action == {"type": "action", "name": "nextSection", "args": {}, "from": "companion"}, action)
+            # the MIDI hits for the lights (and section notes, program changes) go to the main admin too
+            await send({"type": "midiOut", "messages": [{"data": [0x90, 60, 127], "at": 12}]})
+            hit = None
+            for _ in range(10):
+                mm = json.loads(await asyncio.wait_for(lan.recv(), 2))
+                if mm.get("type") == "midi":
+                    hit = mm
+                    break
+            check("the MIDI hits go to Central Control over the network with the Pi's clock (for the lights)", hit and hit["messages"][0]["data"] == [0x90, 60, 127] and isinstance(hit.get("t"), int), hit)
         await asyncio.sleep(0.4)
         with open(config["mini_screen"]["fb"], "rb") as handle:
             fb = handle.read()
@@ -350,6 +399,16 @@ async def main():
         check("HTTP remote action with the code -> app gets {action tap}", status == 200 and action and action["name"] == "tap", action)
 
         print("\nCentral Control: network audio, the audio host, the hub, slides:")
+        na_before = dict(driver.netaudio.cfg)
+        driver.netaudio.configure({"mode": "off", "auto": True})
+        driver.center_link.on_role({"job": "player"})
+        check("paired as the track player, network audio turns on by itself (each track, click, pads, instrument to the main admin)", driver.netaudio.cfg["mode"] in ("wifi", "ethernet"), driver.netaudio.cfg)
+        driver.netaudio.configure({"mode": "off"})
+        driver.center_link.on_role({"job": "instrument"})
+        check("...but once it is set off by hand it stays off", driver.netaudio.cfg["mode"] == "off" and driver.netaudio.cfg["auto"] is False, driver.netaudio.cfg)
+        driver.netaudio.configure(na_before)
+        driver.center_link.paired = False
+
         async with websockets.connect("ws://127.0.0.1:18081") as cu:
             await asyncio.wait_for(cu.recv(), 2)
             await asyncio.wait_for(cu.recv(), 2)  # hello + display
@@ -374,7 +433,7 @@ async def main():
             refused = await cu_next(lambda m: m.get("type") == "audioSubscribed")
             check("network audio is off at first: a subscription is refused, with the reason", refused and not refused["ok"] and "off" in refused["error"], refused)
             await send({"type": "netAudio", "action": "config", "config": {"mode": "ethernet"}})
-            st = await next_message(lambda m: m.get("type") == "netAudio")
+            st = await next_message(lambda m: m.get("type") == "netAudio" and m["config"]["mode"] == "ethernet")
             check("I/O → Ethernet is kept (netaudio.json)", st and st["config"]["mode"] == "ethernet" and os.path.exists(os.path.join(root, "data", "netaudio.json")), st and st["config"])
             await cu.send(json.dumps({"type": "audioSubscribe", "code": hello["code"], "sources": [0], "name": "Desk"}))
             ok = await cu_next(lambda m: m.get("type") == "audioSubscribed")
@@ -995,6 +1054,99 @@ async def main():
         await send({"type": "serviceLock", "on": True})
         await asyncio.sleep(0.1)
         check("the LIVE screen's service lock reaches the driver (the small screen shows LOCKED)", getattr(driver, "service_lock", None) is True, getattr(driver, "service_lock", None))
+
+        # ---- practice mixes: kept here, MP3 when ffmpeg is there, a USB stick, the phones' page (open / code / off)
+        pm_wav = io_wav(0.2)
+        st_, body_ = http("http://127.0.0.1:18766/practice/file?folder=Sunday%20Oct%2019&name=01.%20Firm%20Foundation%20(Drums).wav&format=wav", pm_wav, "PUT")
+        pj = json.loads(body_ or b"{}")
+        check("practice mixes: a WAV from the app is kept in <data>/practice/<folder>/",
+              st_ == 200 and pj.get("name") == "01. Firm Foundation (Drums).wav" and os.path.isfile(os.path.join(root, "data", "practice", "Sunday Oct 19", pj.get("name", "-"))), (st_, pj))
+        st_, body_ = http("http://127.0.0.1:18766/practice/file?folder=../../evil&name=../x.wav", pm_wav, "PUT")
+        pj2 = json.loads(body_ or b"{}")
+        check("...a folder or name with ../ stays inside the practice folder",
+              st_ == 200 and not os.path.exists(os.path.join(root, "evil")) and os.path.isfile(os.path.join(root, "data", "practice", pj2.get("folder", "-"), pj2.get("name", "-"))), pj2)
+        st_, body_ = http("http://127.0.0.1:18766/practice/file?folder=Sunday%20Oct%2019&name=02.%20Way%20Maker%20(Bass).wav&format=mp3&kbps=192", pm_wav, "PUT")
+        pj3 = json.loads(body_ or b"{}")
+        if shutil.which("ffmpeg"):
+            check("...asked for MP3 with ffmpeg here: it becomes an MP3 (the WAV is gone)", pj3.get("format") == "mp3" and pj3.get("name", "").endswith(".mp3") and not os.path.exists(os.path.join(root, "data", "practice", "Sunday Oct 19", "02. Way Maker (Bass).wav")), pj3)
+        else:
+            check("...asked for MP3 without ffmpeg: the WAV is kept and the app is told why", pj3.get("format") == "wav" and "ffmpeg" in pj3.get("note", ""), pj3)
+        stick = os.path.join(root, "media", "usb-STICK")
+        os.makedirs(stick)
+        roots_before = driver.config["media_roots"]
+        driver.config["media_roots"] = roots_before + [os.path.join(root, "media")]
+        st_, body_ = http("http://127.0.0.1:18766/practice/usb", json.dumps({"folder": "Sunday Oct 19"}).encode())
+        pu = json.loads(body_ or b"{}")
+        check("...the folder is copied onto a USB stick (Central Control/Practice/<folder>)",
+              pu.get("copied") == 2 and os.path.isfile(os.path.join(stick, "Central Control", "Practice", "Sunday Oct 19", "01. Firm Foundation (Drums).wav")), pu)
+        driver.config["media_roots"] = roots_before
+        st_, body_ = http("http://127.0.0.1:18766/practice/list")
+        pl = json.loads(body_ or b"{}")
+        check("...the list has the folders and their files", any(f["folder"] == "Sunday Oct 19" and len(f["files"]) == 2 for f in pl.get("folders", [])), pl)
+        st_, page_ = http("http://127.0.0.1:18080/practice/")
+        page_ = page_.decode(errors="replace")
+        st_f, file_ = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav")
+        check("the phones' page (port 8080 /practice/) lists them with players, and the files download", st_ == 200 and "Firm Foundation (Drums)" in page_ and "<audio" in page_ and st_f == 200 and file_ == pm_wav, (st_, page_[:200], st_f))
+        http("http://127.0.0.1:18766/practice/config", json.dumps({"share": "code", "title": "Grace Band"}).encode())
+        st_a, page_a = http("http://127.0.0.1:18080/practice/")
+        st_b, _ = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav")
+        st_c, page_c = http("http://127.0.0.1:18080/practice/?code=" + driver.code)
+        st_d, file_d = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav?code=" + driver.code)
+        check("...set to need the pairing code: asks for it, refuses the files without it, works with it (and the title is the setting)",
+              b"pairing code" in page_a and b"Grace Band" in page_a and st_b == 403 and b"Firm Foundation" in page_c and st_d == 200 and file_d == pm_wav, (page_a[:160], st_b, st_d))
+        http("http://127.0.0.1:18766/practice/config", json.dumps({"share": "off"}).encode())
+        st_e, page_e = http("http://127.0.0.1:18080/practice/")
+        st_g, _ = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav?code=" + driver.code)
+        check("...set to off: not shared at all", b"aren't shared" in page_e and st_g == 403, (page_e[:160], st_g))
+        http("http://127.0.0.1:18766/practice/config", json.dumps({"share": "open"}).encode())
+        st_, body_ = http("http://127.0.0.1:18766/practice/copy", json.dumps({"folder": "Sunday Oct 19", "dest": root}).encode())
+        check("...copying into a folder on the computer is only for Central Pedal Control", st_ == 400, body_)
+        st_, body_ = http("http://127.0.0.1:18766/practice/delete", json.dumps({"folder": "Sunday Oct 19"}).encode())
+        check("...and a folder can be deleted", st_ == 200 and not os.path.exists(os.path.join(root, "data", "practice", "Sunday Oct 19")), body_)
+
+        # ---- the stem splitter, with a stand-in for Demucs (CC_DEMUCS_CMD)
+        st_, body_ = http("http://127.0.0.1:18766/split/status")
+        ss0 = json.loads(body_ or b"{}")
+        check("stem splitter: not installed until asked (no Demucs in its folder), with the devices and models listed",
+              st_ == 200 and ss0.get("installed") is False and "cpu" in ss0.get("devices", []) and "htdemucs_6s" in ss0.get("models", []), ss0)
+        stub = os.path.join(root, "fake-demucs.py")
+        with open(stub, "w") as handle:
+            handle.write(FAKE_DEMUCS)
+        os.environ["CC_DEMUCS_CMD"] = "%s %s" % (sys.executable, stub)
+        st_, body_ = http("http://127.0.0.1:18766/split/upload?name=Old%20Recording.wav", io_wav(0.5), "PUT")
+        up = json.loads(body_ or b"{}")
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": "/etc/passwd", "opts": {}}).encode())
+        check("...a file outside its folders, the library or the USB sticks is refused", st_ == 400, body_)
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {"model": "htdemucs_6s", "shifts": 2, "overlap": 0.5, "segment": 7, "device": "cpu", "format": "wav24", "clipMode": "clamp", "jobs": 2}}).encode())
+        job_ = json.loads(body_ or b"{}")
+        prog = await next_message(lambda m: m["type"] == "stemSplit" and m["job"]["id"] == job_.get("id") and 0 < m["job"]["progress"] < 1, 6.0)
+        done = await next_message(lambda m: m["type"] == "stemSplit" and m["job"]["id"] == job_.get("id") and m["job"]["state"] != "running", 10.0)
+        argv = json.load(open(os.path.join(root, "fake-demucs-argv.json"))) if os.path.exists(os.path.join(root, "fake-demucs-argv.json")) else []
+        check("...every setting reaches Demucs (model, shifts, overlap, segment, device, 24-bit, clip mode, jobs, {stem}.{ext})",
+              argv[:2] == ["-n", "htdemucs_6s"] and "--shifts" in argv and argv[argv.index("--shifts") + 1] == "2" and argv[argv.index("--overlap") + 1] == "0.50" and argv[argv.index("--segment") + 1] == "7"
+              and argv[argv.index("-d") + 1] == "cpu" and "--int24" in argv and argv[argv.index("--clip-mode") + 1] == "clamp" and argv[argv.index("-j") + 1] == "2" and "{stem}.{ext}" in argv, argv)
+        check("...progress comes to the app while it runs, then the six stems", prog is not None and done and done["job"]["state"] == "done" and sorted(f["name"] for f in done["job"]["files"]) == ["bass.wav", "drums.wav", "guitar.wav", "other.wav", "piano.wav", "vocals.wav"], (prog, done))
+        rel = done["job"]["files"][0]["rel"] if done and done["job"]["files"] else ""
+        st_, stem_ = http("http://127.0.0.1:18766/split/file?id=%s&rel=%s" % (job_.get("id"), urllib.parse.quote(rel)))
+        st_x, _ = http("http://127.0.0.1:18766/split/file?id=%s&rel=../../../settings.json" % job_.get("id"))
+        check("...the app fetches each stem (nothing outside the job's folder)", st_ == 200 and stem_[:4] == b"RIFF" and st_x == 404, (st_, st_x))
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {"twoStems": "vocals", "format": "mp3", "mp3Kbps": 256}}).encode())
+        job2 = json.loads(body_ or b"{}")
+        done2 = await next_message(lambda m: m["type"] == "stemSplit" and m["job"]["id"] == job2.get("id") and m["job"]["state"] != "running", 10.0)
+        argv2 = json.load(open(os.path.join(root, "fake-demucs-argv.json")))
+        check("...just vocals / no vocals as MP3", done2 and sorted(f["name"] for f in done2["job"]["files"]) == ["no_vocals.mp3", "vocals.mp3"] and "--two-stems" in argv2 and argv2[argv2.index("--mp3-bitrate") + 1] == "256", (done2, argv2))
+        os.environ["FAKE_DEMUCS_FAIL"] = "1"
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {}}).encode())
+        job3 = json.loads(body_ or b"{}")
+        done3 = await next_message(lambda m: m["type"] == "stemSplit" and m["job"]["id"] == job3.get("id") and m["job"]["state"] != "running", 10.0)
+        os.environ.pop("FAKE_DEMUCS_FAIL", None)
+        check("...when Demucs fails the app gets its last words", done3 and done3["job"]["state"] == "failed" and "out of memory" in done3["job"]["error"], done3)
+        st_, body_ = http("http://127.0.0.1:18766/split/forget", json.dumps({"id": job_.get("id")}).encode())
+        check("...and a finished job's files can be dropped", st_ == 200 and not os.path.isdir(os.path.join(root, "data", "stem-splitter", "out", job_.get("id", "-"))), body_)
+        os.environ.pop("CC_DEMUCS_CMD", None)
+        st_, body_ = http("http://127.0.0.1:18766/split/config", json.dumps({"python": "3.12", "packages": "demucs soundfile"}).encode())
+        sc = json.loads(body_ or b"{}")
+        check("...its install settings (Python version, packages, your own command) are kept", sc.get("settings", {}).get("python") == "3.12" and sc["settings"]["packages"] == "demucs soundfile" and sc.get("installed") is False, sc)
 
     stop_event.set()
     await asyncio.wait_for(server_task, 5)

@@ -114,7 +114,9 @@ class Engine extends EventEmitter {
   save() { try { fs.mkdirSync(this.dir, { recursive: true }); fs.writeFileSync(this.file + ".tmp", JSON.stringify(this.state)); fs.renameSync(this.file + ".tmp", this.file); } catch (_) { } }
   replaceState(next) { this.state = M.normalize(next); this.save(); this.pushAll(); this.emit("state", this.state); }
   // ---------------------------------------------------------------- the Central Pedal's channels
-  setPiStream(sources) {
+  setPiStream(sources, base) {   // base 0: the track player (slots 0/1); 2: another pedal (slots 2/3) - each replaces only its own
+    base = base || 0; const keep = {}; Object.keys(this.pi.sources || {}).forEach((k) => { const s = Number(k); if (s < base || s > base + 1) keep[s] = this.pi.sources[k]; });
+    sources = Object.assign({}, keep, sources || {});
     this.pi.sources = {}; const live = {}, names = [], seen = {};
     Object.keys(sources || {}).forEach((k) => {
       const s = Number(k); if (!(s >= 0 && s < 4)) return; const src = sources[k] || {}; this.pi.sources[s] = { channels: (src.channels || []).slice(0, NETCH), rate: src.rate || 48000 };

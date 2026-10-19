@@ -57,15 +57,17 @@ module.exports = function services(app, getWin) {
   const talk = new Talk({ engine });
   const recorder = new Recorder({ engine, bin: path.join(binDir, "cu-mixer" + EXE), ffmpeg: () => findFfmpeg(binDir), dir: () => cfg.recordDir });
   const host = new Host({ engine, talk, recorder, appDir: path.join(__dirname, "app"), cfg: () => ({ name: cfg.name, userCode: cfg.host.userCode, adminCode: cfg.host.adminCode }), extra: () => ({}) });
-  const pi = new PiAudio(engine);
-  let piTarget = { address: "", code: "" };
-  function hostStatus() { return { cfg, engine: engine.info(), server: host.status(), pi: pi.status(), recorder: recorder.state() }; }
+  const pi = new PiAudio(engine, 0), pi2 = new PiAudio(engine, 2);   // the track player, and one more pedal (the instrument rig) on its own channels
+  let piTarget = { address: "", code: "", extra: null };
+  function hostStatus() { return { cfg, engine: engine.info(), server: host.status(), pi: pi.status(), pi2: Object.assign(pi2.status(), { pedal: piTarget.extra && piTarget.extra.name || null }), recorder: recorder.state() }; }
   function applyHost() {
     const on = (cfg.mode === "admin" || cfg.mode === "main") && cfg.host.enabled;
     if (on) { engine.start(); if (!host.server || host.port !== cfg.host.port) host.start(cfg.host.port); }
     else { if (host.server) host.stop(); engine.stop(); }
     engine.setLatency(cfg.piAudio.latency || (cfg.piAudio.transport === "wifi" ? 120 : 50)); engine.setAnalysis(cfg.analysis);
-    pi.configure({ enabled: on && (cfg.piAudio.transport === "ethernet" || cfg.piAudio.transport === "wifi"), address: piTarget.address, code: piTarget.code, name: cfg.name });
+    const net = on && (cfg.piAudio.transport === "ethernet" || cfg.piAudio.transport === "wifi");
+    pi.configure({ enabled: net, address: piTarget.address, code: piTarget.code, name: cfg.name });
+    const ex = piTarget.extra; pi2.configure({ enabled: !!(net && cfg.piAudio.extraPedal !== false && ex && ex.address && ex.address !== piTarget.address), address: ex ? ex.address : "", code: ex ? ex.code || piTarget.code : "", name: cfg.name, prefix: ex ? ex.name || "Pedal 2" : "" });
     send("host-status", hostStatus());
   }
   engine.on("status", () => send("host-status", hostStatus()));
@@ -73,7 +75,7 @@ module.exports = function services(app, getWin) {
   engine.on("state", (st) => send("mixer-state", st));
   engine.on("pi", (p) => send("mixer-pi", p.names));
   engine.on("meters", (m) => send("mixer-meters", m));
-  pi.on("status", () => send("host-status", hostStatus()));
+  pi.on("status", () => send("host-status", hostStatus())); pi2.on("status", () => send("host-status", hostStatus()));
   host.onClients = () => send("host-status", hostStatus());
 
   // ------------------------------------------------------------------ the center (only on the main admin's computer)

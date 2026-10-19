@@ -34,7 +34,8 @@ const JOBS = ["general", "lighting", "production", "mix", "inears", "slides"];
 //   controller  a foot controller: its buttons start / stop, change song and section on the player
 //   instrument  only its own instrument rig (boards, pedals, keys sounds) - no tracks
 //   standby     keeps the song library, does not play (e.g. the main admin's player window when a pedal plays)
-const PEDAL_JOBS = ["player", "controller", "instrument", "standby"];
+const PEDAL_JOBS = ["player", "controller", "instrument", "backup", "standby"];
+const PLAYER_GONE_MS = 1500;   // the track player's heartbeat (every 0.5 s) stopped this long: a backup may take over
 const TALK_GROUPS = ["band", "production"];
 const SERVICE_ROLES = ["lighting", "production", "slides", "lyrics", "mix", "inears", "band"];
 const SERVICE_KINDS = ["song", "prayer", "welcome", "announcements", "offering", "sermon", "communion", "video", "other"];
@@ -62,6 +63,9 @@ class Center {
     this.lock = { all: !!(j.lock && j.lock.all), devices: Object.assign({}, (j.lock && j.lock.devices) || {}) };
     this.services = Array.isArray(j.services) ? j.services.map((s) => this.cleanService(s)).slice(0, MAX_SERVICES) : [];
     this.run = j.run || null;
+    // the main admin's player window: while a Central Pedal plays, it is the backup player (follows silently, takes over)
+    this.backup = Object.assign({ localIsBackup: true }, j.backup || {});
+    this.lastMsg = {};
     this.clients = new Map();                       // ws -> { id, auth, main, ip }
     this.health = {};                               // id -> {..., at}
     this.fails = {};
@@ -71,7 +75,7 @@ class Center {
   on(fn) { this.listeners.push(fn); }
   emit(ev) { for (const fn of this.listeners) { try { fn(ev); } catch (_) { } } }
   save() {
-    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run })); fs.renameSync(tmp, this.file); } catch (_) { }
+    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run, backup: this.backup })); fs.renameSync(tmp, this.file); } catch (_) { }
   }
 
   // ----------------------------------------------------------------------------- the server
@@ -141,6 +145,7 @@ class Center {
       if (isBinary) { this.talkAudio(ws, info, raw); return; }
       let m; try { m = JSON.parse(String(raw)); } catch (_) { return; }
       let reply = null;
+      if (info.id) this.lastMsg[info.id] = Date.now();
       try {
         if (m.type === "auth") { info.auth = !!this.pair && String(m.code || "").trim() === this.pair; reply = { type: "auth", ok: info.auth, for: "center" }; }
         else if (m.type === "ping") reply = { type: "centerPong", t: m.t, serverT: Date.now() };
@@ -182,13 +187,13 @@ class Center {
     const d = this.devices[id]; if (!d || d.pedalJob) return;
     const cur = this.playerId();
     if (!cur) d.pedalJob = "player";
-    else if (!(d.pedal || {}).local && (this.devices[cur].pedal || {}).local) { this.devices[cur].pedalJob = "standby"; d.pedalJob = "player"; }
+    else if (!(d.pedal || {}).local && (this.devices[cur].pedal || {}).local) { this.devices[cur].pedalJob = this.backup.localIsBackup ? "backup" : "standby"; d.pedalJob = "player"; }
     else d.pedalJob = "controller";
   }
   setPedalJob(id, job) {
     const d = this.devices[id]; if (!d || d.role !== "pedal" || !PEDAL_JOBS.includes(job)) return false;
     const was = d.pedalJob;
-    if (job === "player") for (const k of this.pedalIds()) if (k !== id && this.devices[k].pedalJob === "player") this.devices[k].pedalJob = (this.devices[k].pedal || {}).local ? "standby" : "controller";
+    if (job === "player") for (const k of this.pedalIds()) if (k !== id && this.devices[k].pedalJob === "player") this.devices[k].pedalJob = (this.devices[k].pedal || {}).local ? (this.backup.localIsBackup ? "backup" : "standby") : "controller";
     d.pedalJob = job;
     if (was === "player" && job !== "player") {   // nobody plays now: the main admin's own player window takes over again
       const local = this.pedalIds().find((k) => k !== id && (this.devices[k].pedal || {}).local);
@@ -230,7 +235,7 @@ class Center {
       v.devices = Object.keys(this.devices).filter((k) => k !== info.id).map((k) => this.deviceView(k)).sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
       v.pairPin = this.pair; v.pedalHealth = (this.pedalInfo() && this.health[this.pedalInfo().id]) || null;
       v.pedals = this.pedalIds().map((k) => this.pedalView(k, info)).sort((a, b) => (a.job !== "player") - (b.job !== "player") || (b.online - a.online) || a.name.localeCompare(b.name));
-      v.pedalJobs = PEDAL_JOBS;
+      v.pedalJobs = PEDAL_JOBS; v.backupLocal = !!this.backup.localIsBackup;
     }
     return v;
   }
@@ -370,6 +375,25 @@ class Center {
       if (!main) return R({ ok: false, error: "Only the main admin puts devices in the Band or Production." });
       const t = this.devices[idOf(m.target)]; if (!t || !TALK_GROUPS.includes(m.group)) return R({ ok: false, error: "No such device, or no such group." });
       t.talkGroup = m.group; this.save(); this.push(); return R({ ok: true });
+    }
+    // the backup player lost the track player mid-song: it plays now (only if the player is really gone - its
+    // heartbeat stopped - so a backup that just lost its own Wi-Fi doesn't start a second copy)
+    if (action === "takeover") {
+      const me = this.devices[id], cur = this.playerId();
+      if (!me || me.role !== "pedal" || me.pedalJob !== "backup") return R({ ok: false, error: "Only a backup player takes over." });
+      const gone = !cur || cur === id || !this.online(cur) || Date.now() - (this.lastMsg[cur] || 0) > PLAYER_GONE_MS;
+      if (!gone) return R({ ok: false, error: "The track player is still there.", playerAlive: true });
+      this.setPedalJob(id, "player");
+      if (cur && cur !== id && this.devices[cur]) this.devices[cur].pedalJob = "standby";
+      this.save(); this.push(); this.emit({ type: "takeover", id, from: cur });
+      return R({ ok: true });
+    }
+    if (action === "backupLocal") {
+      if (!main) return R({ ok: false, error: "Only the main admin sets the backup player." });
+      this.backup.localIsBackup = !!m.on;
+      const local = this.pedalIds().find((k) => (this.devices[k].pedal || {}).local), cur = this.playerId();
+      if (local && cur && cur !== local) this.devices[local].pedalJob = m.on ? "backup" : "standby";
+      this.save(); this.push(); return R({ ok: true });
     }
     if (action === "pedalJob") {
       if (!main) return R({ ok: false, error: "Only the main admin gives the Central Pedals their jobs." });

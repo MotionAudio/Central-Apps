@@ -58,6 +58,9 @@ name, so updates and settings carry on):
    **Discard**. Songs replace the pedal's setlist, or are added to it (same songs updated).
 4. **⇩ Download** does the opposite: the pedal's songs and setup come to the Mac.
 
+Also in **⇪ Upload**: the Stream Deck, the network audio to the main admin (each track, the click, the pads and the
+instrument on their own channels) with the backup player's settings, and the practice-mix and stem splitter settings.
+
 ## Android (Central Usage)
 
 1. On the phone or tablet, open the download page and tap **Download for Android** (`CentralUsage-<v>.apk`).
@@ -117,6 +120,14 @@ normally installed with the app; running the line again does no harm.
   Mac). The second screen and the Central Pedal's HDMI 2 work without it.
 * **Dante** (audio host) – Audinate's Dante Virtual Soundcard (Windows / Mac, needs its licence) or a
   Dante PCIe / USB card shows up like any interface on the I/O tab; two can be joined for 128 channels.
+* **Stem splitter (Demucs)** – Tracks → ✂ Stem splitter → **Install**. It downloads uv, a private Python, PyTorch and
+  Demucs into the app's own folder (about 2 GB, an internet connection needed once); **Remove it** takes it all away.
+  Best on a Mac (Central Pedal Control) or the main admin's computer.
+* **MP3 practice mixes** – need `ffmpeg` (on the Central Pedal image already; `sudo apt install ffmpeg` on Linux,
+  `brew install ffmpeg` on a Mac). Without it they are WAVs.
+* **Elgato Stream Deck** – plug it in; Settings → Stream Deck → **Connect a Stream Deck** (the first time a computer asks which
+  device: pick the Stream Deck). On a Central Pedal made from 8.6 or newer it is allowed already; on an older card,
+  update and restart once.
 * **The lighting chat's optional AI model** – install `llama-server` (from the llama.cpp
   project), then *Settings → Lights: AI model → Download the model*. The built-in engine works without it.
 

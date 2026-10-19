@@ -9,7 +9,7 @@
   "use strict";
   var PP = window.PP, F = window.PPFeatures; if (!PP || !F) return;
   var esc = PP.escapeHtml || function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
-  var JOB_NAMES = { player: "Track player", controller: "Foot controller", instrument: "Instrument rig", standby: "Standby" };
+  var JOB_NAMES = { player: "Track player", controller: "Foot controller", instrument: "Instrument rig", backup: "Backup player", standby: "Standby" };
   // what a foot controller sends to the track player (and an instrument rig / standby does not do itself)
   var SONG_GROUPS = { Transport: 1, Pads: 1, Tempo: 1, Key: 1, Setlist: 1, Tracks: 1, Screens: 1, Textures: 1, Scenes: 1, Rehearse: 1 };
   var LOCAL = { none: 1, tab: 1, performEdit: 1, showMixer: 1 };
@@ -27,7 +27,7 @@
       if (!F.sendToDriver(m)) note("Not connected - the button did nothing.");
       return true;
     }
-    note(job === "instrument" ? "This Central Pedal is the instrument rig - the tracks play on " + playerName() + "." : "Standby - the tracks play on " + playerName() + ".");
+    note(job === "instrument" ? "This Central Pedal is the instrument rig - the tracks play on " + playerName() + "." : job === "backup" ? "Backup player - it follows " + playerName() + " (Settings → Backup player)." : "Standby - the tracks play on " + playerName() + ".");
     return true;
   }
   function playerName() { return (player && player.name) || (center && center.player && center.player.name) || "the track player"; }
@@ -54,6 +54,7 @@
     var main = '<b>' + esc(JOB_NAMES[job]) + "</b>";
     if (job === "controller") main += " → " + esc(playerName()) + " " + link + (d.song ? ' <span class="pj-song">' + (d.playing ? "▶ " : "■ ") + esc(d.song) + (d.section ? " · " + esc(d.section) : "") + (d.next ? ' <small>next: ' + esc(d.next) + "</small>" : "") + "</span>" : "");
     else if (job === "instrument") main += ' <span class="pj-sub">your instrument only - the tracks play on ' + esc(playerName()) + "</span>";
+    else if (job === "backup") main += " " + (window.PPBackup ? window.PPBackup.barHtml(playerName(), c.remote) : "");
     else main += ' <span class="pj-sub">keeps the song library - the tracks play on ' + esc(playerName()) + "</span>";
     bar.innerHTML = main + ' <small class="pj-by">set by the main admin' + (c.name ? " (" + esc(c.name) + ")" : "") + "</small>";
   }

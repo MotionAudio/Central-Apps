@@ -12,7 +12,11 @@
   function $$(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
   function project() { return PP.project(); }
   function bridge() { return window.__pedalBridge; }
-  function send(m) { var b = bridge(); return b && b.send ? b.send(m) : false; }
+  function send(m) {
+    // the backup player follows silently: no MIDI hits / clock / Link / ProPresenter from it until it takes over
+    if (m && window.PPBackup && window.PPBackup.silent() && /^(midiOut|midiClock|link|propresenter)$/.test(m.type)) return false;
+    var b = bridge(); return b && b.send ? b.send(m) : false;
+  }
   function driverOn() { var b = bridge(); return !!(b && b.connected); }
   function fmtTime(t) { t = Math.max(0, t || 0); var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ":" + (s < 10 ? "0" : "") + s; }
   function keyName(k) { return (k || "C").replace("#", "♯"); }
@@ -353,6 +357,10 @@
     return workletReady;
   }
   function post(m, transfer) { if (node) node.port.postMessage(m, transfer || []); }
+  // the player's whole output (tracks, click, cues, direct and network outs): the backup player follows a song
+  // silently (0) and fades in when it takes over
+  var outLevel = 1;
+  function setOut(v, fadeMs) { outLevel = clamp(Number(v) || 0, 0, 1); (decks || []).forEach(function (d) { if (d && d.node) d.node.port.postMessage({ cmd: "set", out: outLevel, fadeMs: fadeMs || 0 }); }); if (node && !(decks || []).some(function (d) { return d && d.node === node; })) post({ cmd: "set", out: outLevel, fadeMs: fadeMs || 0 }); }
   function postAll(m) { decks.forEach(function (d) { d.node.port.postMessage(m); }); }
   var decks = [], deck = null;
   function otherDeck() { return decks[0] === deck ? decks[1] : decks[0]; }
@@ -393,7 +401,7 @@
       d.node.port.postMessage({ cmd: "stop", to: 0 });
       d.node.port.postMessage({ cmd: "beats", times: Float64Array.from(g.times.map(function (x) { return x * engine.ctx.sampleRate; })), downbeats: Uint8Array.from(g.down) });
       d.node.port.postMessage({ cmd: "click", enabled: !!tn.click.on, level: Math.pow(clamp(tn.click.level, 0, 100) / 100, 1.3), sub: tn.click.sub || 1, sound: tn.click.sound || "wood", stems: tn.click.stems !== false });
-      d.node.port.postMessage({ cmd: "set", speed: tn.tempoPercent / 100, pitch: Math.pow(2, tn.keyShift / 12), musicLevel: 1 });
+      d.node.port.postMessage({ cmd: "set", speed: tn.tempoPercent / 100, pitch: Math.pow(2, tn.keyShift / 12), musicLevel: 1, out: outLevel });
       d.songId = n.id;
       PP.setStatus("Next song ready: " + n.name + ((t.overlap || 0) > 0 ? " (crossfade " + t.overlap + " s)" : " (gapless)"));
     } catch (error) { console.warn("preload failed", error); }
@@ -531,7 +539,7 @@
     armFlow(s);
     post({ cmd: "beats", times: Float64Array.from(g.times.map(function (x) { return x * engine.ctx.sampleRate; })), downbeats: Uint8Array.from(g.down) });
     post({ cmd: "click", enabled: !!t.click.on && !!project().tracksMode, level: Math.pow(clamp(t.click.level, 0, 100) / 100, 1.3), sub: t.click.sub || 1, sound: t.click.sound || "wood", stems: t.click.stems !== false });
-    post({ cmd: "set", speed: t.tempoPercent / 100, pitch: Math.pow(2, t.keyShift / 12), musicLevel: 1, cueLevel: Math.pow(clamp(t.cues.level, 0, 100) / 100, 1.2) });
+    post({ cmd: "set", speed: t.tempoPercent / 100, pitch: Math.pow(2, t.keyShift / 12), musicLevel: 1, out: outLevel, cueLevel: Math.pow(clamp(t.cues.level, 0, 100) / 100, 1.2) });
     pushCues(s); pushEvents(s);
   }
   function pushEvents(s) {
@@ -1429,7 +1437,7 @@
     setLevel: setLevel, levels: levels, balance: balance, lyricsStep: lyricsStep, lyricsState: lyricsState, say: say, importFilesIntoSong: importFilesIntoSong, newSong: newSong, openEditor: openEditor,
     sendDisplay: sendDisplay, render: render, setStem: setStem, toggleClick: function () { var t = tdata(); if (t) { t.click.on = !t.click.on; pushAll(song()); PP.persistSoon(); renderTransport(); } }, toggleCues: function () { var t = tdata(); if (t) { t.cues.on = !t.cues.on; pushAll(song()); PP.persistSoon(); renderTransport(); } },
     cycleCountIn: function () { var t = tdata(); if (t) { t.countIn = (t.countIn + 1) % 3; PP.persistSoon(); renderTransport(); } }, stepSongAndPlay: stepSongAndPlay, uploadChart: uploadChart, refreshCharts: refreshCharts, charts: function () { return charts; }, applyLevels: applyLevels,
-    findSongByName: findSongByName, fileFromMedia: fileFromMedia, workerJob: workerJob, mixdown: mixdown, getStem: getStem, forgetStem: function (id) { stemMemory.delete(id); }, dropStem: delStem, putStem: putStem, getStemLocal: getStemLocal, decodeFile: decodeFile, toPcm: toPcm, decodeSum: decodeSum, driverOn: function () { return driverOn(); }, analyzeSong: analyzeSong, applyChart: applyChart, renderEditor: renderEditor, keyName: keyName, fmtTime: fmtTime, pendingJump: function () { return pendingJump; },
+    findSongByName: findSongByName, fileFromMedia: fileFromMedia, workerJob: workerJob, mixdown: mixdown, getStem: getStem, forgetStem: function (id) { stemMemory.delete(id); }, dropStem: delStem, setOut: setOut, outLevel: function () { return outLevel; }, putStem: putStem, getStemLocal: getStemLocal, decodeFile: decodeFile, toPcm: toPcm, decodeSum: decodeSum, driverOn: function () { return driverOn(); }, analyzeSong: analyzeSong, applyChart: applyChart, renderEditor: renderEditor, keyName: keyName, fmtTime: fmtTime, pendingJump: function () { return pendingJump; },
     hubSong: hubSong, netDecks: function () { return decks; }, netNames: function () { return deck && deck.netNames || []; }, ensureWorklet: ensureWorklet, NET_SLOTS: NET_SLOTS,
     abSet: abSet, abToggle: abToggle, abClear: abClear, nudgeTempo: nudgeTempo, applyMix: applyMix, captureMix: captureMix, openMixer: openMixer, renderStems: renderStems, startSegue: startSegue, preloadNext: preloadNext, segueState: function () { return { loading: segue.loading, running: segue.running, deck: deck ? deck.n : -1, other: otherDeck() ? otherDeck().songId : null }; }, meters: function () { return meters; }, afterMode: afterMode, currentSection: function () { return state.section; }
   };

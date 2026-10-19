@@ -31,7 +31,11 @@
   }
   function piStatus() {   // the live line (updated in place every 2 s, so the controls around it stay put)
     var pi = hs && hs.pi || {}, m = X && X.meters, net = m && m.net && m.net[0];
-    return esc(pi.state || "off") + (pi.error ? ' <span class="warn">' + esc(pi.error) + "</span>" : "") + (pi.state === "receiving" ? " · " + pi.kbps + " kbit/s" + (pi.lost ? " · " + pi.lost + " lost" : "") + (net ? " · buffer " + Math.round(net.ms) + " ms" + (net.under ? " · " + net.under + " gaps" : "") : "") : "") + (pi.address ? ' <span class="muted small">from ' + esc(pi.address) + "</span>" : "");
+    return esc(pi.state || "off") + (pi.error ? ' <span class="warn">' + esc(pi.error) + "</span>" : "") + (pi.state === "receiving" ? " · " + pi.kbps + " kbit/s" + (pi.lost ? " · " + pi.lost + " lost" : "") + (net ? " · buffer " + Math.round(net.ms) + " ms" + (net.under ? " · " + net.under + " gaps" : "") : "") : "") + (pi.address ? ' <span class="muted small">from ' + esc(pi.address) + "</span>" : "") + extraStatus();
+  }
+  function extraStatus() {   // the instrument rig pedal: its channels come in too (slots 3-4)
+    var p2 = hs && hs.pi2; if (!p2 || !p2.pedal) return "";
+    return '<br><span class="small">' + esc(p2.pedal) + " (instrument rig): " + esc(p2.state || "off") + (p2.error ? ' <span class="warn">' + esc(p2.error) + "</span>" : "") + (p2.state === "receiving" ? " · " + p2.kbps + " kbit/s" : "") + "</span>";
   }
   function hostCard() {
     var c = cfg(), admin = (CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main"), host = admin && c.host && c.host.enabled, srv = hs && hs.server || {};
@@ -134,8 +138,12 @@
   function piTarget() {
     if (!NAT || !NAT.host) return; var c = cfg(), t = (c.piAudio || {}).transport, ifs = CU.state.interfaces || [];
     var want = ifs.filter(function (i) { return i.kind === t; })[0], addr = t === "ethernet" || t === "wifi" ? (want ? want.address : CU.prefs.host) : "";   // (the Pi refuses with a clear message if that's the wrong connection)
-    NAT.host.piTarget({ address: addr || "", code: CU.prefs.code || "" });
+    var v = window.CUCenter && window.CUCenter.view(), pedals = (v && v.pedals) || [], player = v && v.pedal;
+    var other = pedals.filter(function (p) { return p.online && p.job === "instrument" && !p.local && p.address && (!player || p.id !== player.id); })[0] || null;
+    NAT.host.piTarget({ address: addr || "", code: CU.prefs.code || "", extra: other ? { address: other.address, name: other.name, id: other.id } : null });
   }
+  var lastExtra = "";   // the main admin moves pedals between jobs: follow the instrument rig
+  CU.on("message", function (m) { if (m && m.type === "cuRoles" && m.pedals) { var key = JSON.stringify(m.pedals.filter(function (p) { return p.job === "instrument" && p.online; }).map(function (p) { return p.id + p.address; })); if (key !== lastExtra) { lastExtra = key; piTarget(); } } });
   // the audio host tells the main admin (and the Central Pedal, when there is one) where it is, so every other device finds it
   function registerHost() { var c = cfg(); if ((CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main") && c.host && c.host.enabled && (CU.state.connected || (window.CUCenter && window.CUCenter.connected()))) CU.send({ type: "audioHost", action: "register", code: CU.prefs.code, port: c.host.port || 8092, name: c.name || "Central Control", userCode: c.host.userCode, adminCode: c.host.adminCode }); }   // the Central Pedal hands each computer the code for its role
   CU.on("hello", function () { piTarget(); setTimeout(registerHost, 300); });

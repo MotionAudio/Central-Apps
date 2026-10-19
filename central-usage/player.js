@@ -69,7 +69,9 @@ function setup({ app, ipcMain, getMainWin, center }) {
       if (!ok) { send(); return { ok: false, error: lastError }; }
       const ses = session.fromPartition("persist:player");
       const allow = (p) => ["media", "midi", "midiSysex", "fullscreen", "clipboard-read", "clipboard-sanitized-write"].includes(p);
-      ses.setPermissionRequestHandler((_wc, p, cb) => cb(allow(p))); ses.setPermissionCheckHandler((_wc, p) => allow(p));
+      ses.setPermissionRequestHandler((_wc, p, cb) => cb(allow(p))); ses.setPermissionCheckHandler((_wc, p) => allow(p) || p === "hid");
+      // an Elgato Stream Deck (WebHID) on this computer works the player's keys, without asking
+      if (!ses.__hid) { ses.__hid = true; ses.on("select-hid-device", (event, details, callback) => { event.preventDefault(); const d = details.deviceList.find((x) => x.vendorId === 0x0fd9); callback(d ? d.deviceId : ""); }); ses.setDevicePermissionHandler((d) => d.deviceType === "hid" && d.device && d.device.vendorId === 0x0fd9); }
       win = new BrowserWindow({
         width: 1280, height: 800, minWidth: 900, minHeight: 600, title: "Central Pedal player", backgroundColor: "#08111d", autoHideMenuBar: true,
         icon: path.join(__dirname, "build", "icon.png"),

@@ -39,6 +39,7 @@ window.PP_MULTITRACK_WORKLET = function () {
       this.speed = 1;
       this.pitch = 1;
       this.musicLevel = 1;
+      this.outGain = 1; this.outTarget = 1; this.outStep = 0;   // the whole player's output: the backup player follows silently (0), then fades in
       this.fadeGain = 1;
       this.fadeStep = 0;
       this.beats = null;      // Float64Array, song-time in samples
@@ -106,6 +107,7 @@ window.PP_MULTITRACK_WORKLET = function () {
           if (m.pitch != null) this.pitch = Math.min(2, Math.max(0.5, m.pitch));
           if (m.musicLevel != null) this.musicLevel = m.musicLevel;
           if (m.cueLevel != null) this.cueLevel = m.cueLevel;
+          if (m.out != null) { this.outTarget = Math.max(0, Math.min(1, m.out)); var fs = Math.max(1, (m.fadeMs || 0) / 1000 * this.rate); this.outStep = Math.abs(this.outTarget - this.outGain) / fs; if (!m.fadeMs) this.outGain = this.outTarget; }
           break;
         case "beats": this.beats = m.times; this.downbeats = m.downbeats; this.syncBeatIndex(); break;
         case "click":
@@ -286,6 +288,15 @@ window.PP_MULTITRACK_WORKLET = function () {
       }
     }
 
+    applyOut(outputs, n) {   // every output (music, click, direct outs, network) follows outGain, ramping to outTarget
+      var g = this.outGain, t = this.outTarget, st = this.outStep || 1;
+      for (var i = 0; i < n; i++) {
+        if (g !== t) g = g < t ? Math.min(t, g + st) : Math.max(t, g - st);
+        for (var o = 0; o < outputs.length; o++) { var out = outputs[o]; for (var c = 0; c < out.length; c++) out[c][i] *= g; }
+      }
+      this.outGain = g;
+    }
+
     process(inputs, outputs) {
       var music = outputs[0], clickOut = outputs[1], direct = outputs[2] || [], net = this.netOn ? outputs[3] || [] : [], mL = music[0], mR = music[1], cL = clickOut[0], cR = clickOut[1];
       var n = mL.length, rate = this.rate;
@@ -355,6 +366,7 @@ window.PP_MULTITRACK_WORKLET = function () {
       }
       this.renderClicks(cL, cR, n);
       this.renderCues(cL, cR, n);
+      if (this.outGain !== 1 || this.outTarget !== 1) this.applyOut(outputs, n);
       this.posCounter += n;
       if (this.posCounter >= 2048) {
         var msg = { type: "pos", pos: this.pos / rate, playing: this.playing, countIn: this.countIn.active ? this.countIn.remaining : 0 };

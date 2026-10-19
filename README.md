@@ -19,6 +19,20 @@ Four apps (download page: https://motionaudio.github.io/Central-Apps/):
 Everything follows the main admin's Central Control; the Central Pedal (or the main admin's player window) plays,
 stops and skips the tracks.
 
+**New in version 8.6:**
+- **Backup player:** a second Central Pedal (or the main admin's player window) plays along silently, in step, and
+  fades in where the song is if the track player stops mid-song - automatic or with a TAKE OVER button.
+- **Elgato Stream Deck** (Original, MK.2, XL, Mini, Neo, +): any action on any key, your own labels, icons and
+  colours, pages, keys that light with what they control.
+- **Practice mixes** (Tracks → 🎧): a file of each song for each musician - their part up, alone or out, click and
+  guide on or off, slower without changing the pitch, another key, a count-in - kept on the Central Pedal for the
+  band's phones (`http://<pedal>.local:8080/practice/`), a USB stick, a download or a folder on the Mac.
+- **Stem splitter** (Tracks → ✂): a stereo song becomes drums, bass, vocals and the rest (or 6 stems) with Demucs,
+  on your own computer, installed only when you ask; every Demucs setting is there.
+- **Each track, the click, the pads and the instrument go to the main admin on their own channels** as soon as a
+  Central Pedal is the track player or the instrument rig (Ethernet or Wi-Fi), with the MIDI hits; set it up in
+  Central Pedal Control and Upload it.
+
 **New in version 8.5:**
 - **Four apps.** **Central Pedal Control** (new, Mac and iPad): the Central Pedal app away from the pedal - build the
   setlist, import tracks, set up pads, controls and the instrument at home, then **⇪ Upload** them to the pedal with

@@ -63,7 +63,20 @@ const pco = http.createServer((req, res) => {
   return routes[p] ? send(200, routes[p]) : send(404, { errors: [] });
 });
 await new Promise((r) => pco.listen(0, "127.0.0.1", r));
-const driver = spawn("python3", [path.join(here, "pedal-driver.py"), "--simulate", tmp, "--app-root", here], { stdio: ["ignore", "pipe", "pipe"], env: Object.assign({}, process.env, { CC_PCO_BASE: "http://127.0.0.1:" + pco.address().port }) });
+// a stand-in for Demucs (the stem splitter): four tones as stems, with tqdm-style progress
+const fakeDemucs = path.join(tmp, "fake-demucs.py");
+fs.writeFileSync(fakeDemucs, [
+  "import math, os, struct, sys, time, wave",
+  "a = sys.argv[1:]; out = a[a.index('-o') + 1]; model = a[a.index('-n') + 1]",
+  "stems = ['drums', 'bass', 'other', 'vocals']",
+  "for p in (0, 40, 80, 100):",
+  "    sys.stdout.write('%3d%%|####| %d/100\\r' % (p, p)); sys.stdout.flush(); time.sleep(0.15)",
+  "d = os.path.join(out, model); os.makedirs(d, exist_ok=True)",
+  "for k, s in enumerate(stems):",
+  "    w = wave.open(os.path.join(d, s + '.wav'), 'wb'); w.setnchannels(2); w.setsampwidth(2); w.setframerate(22050)",
+  "    w.writeframes(b''.join(struct.pack('<hh', int(6000 * math.sin(2 * math.pi * (110 * (k + 1)) * i / 22050)), int(6000 * math.sin(2 * math.pi * (110 * (k + 1)) * i / 22050))) for i in range(22050 * 2))); w.close()",
+  ""].join("\n"));
+const driver = spawn("python3", [path.join(here, "pedal-driver.py"), "--simulate", tmp, "--app-root", here], { stdio: ["ignore", "pipe", "pipe"], env: Object.assign({}, process.env, { CC_PCO_BASE: "http://127.0.0.1:" + pco.address().port, CC_DEMUCS_CMD: "python3 " + fakeDemucs }) });
 let driverLog = "";
 driver.stdout.on("data", (d) => { driverLog += d; }); driver.stderr.on("data", (d) => { driverLog += d; });
 await until(() => /listening on ws/.test(driverLog), 15000, 100);
@@ -854,6 +867,82 @@ await check("LIVE: the tuner opens on the LIVE screen itself (no tab change) and
   await T(() => document.querySelector('[data-lv="tuner"]').click());
   await until(() => T(() => PPInstrument.tunerOn() && PPShell.currentTab() === "live"));
   await T(() => PPShell.showTab("pads")); await until(() => T(() => !PPInstrument.tunerOn()));
+});
+await check("backup player: it follows the track player's song and place silently (no MIDI hits), keeps in step, and takes over when the player goes quiet mid-song", async () => {
+  await T(() => { PPShell.showTab("live"); PPTracks.stop(true); PP.engine.stop(); PPBackup.cfg().timeoutMs = 800; PPBackup.cfg().fadeMs = 100; PPPedalJob.set("backup"); });
+  const sid = await T(() => { const p = PP.project(), i = p.songs.findIndex((q) => PPTracks.data(q).stems.length && PPTracks.data(q).duration > 6); return i < 0 ? null : p.songs[i].id; });
+  assert.ok(sid, "a song with tracks");
+  // the track player plays it from 2.0 s (4 updates a second)
+  await T((id) => { window.__bkT0 = performance.now(); window.__bkTimer = setInterval(() => { const pos = 2 + (performance.now() - window.__bkT0) / 1000; PPFeatures.emit({ type: "backupFollow", songId: id, playing: true, pos, speed: 1, countIn: 0, loop: -1, tracksMode: true, pads: [] }); }, 250); }, sid);
+  await until(() => T(() => PPTracks.isPlaying()), 8000);
+  await wait(900);
+  const f = await T(() => ({ out: PPTracks.outLevel(), silent: PPBackup.silent(), song: PP.project().songs[PP.project().songIndex].id, drift: Math.abs(PPTracks.state.pos - PPBackup.state().predicted), midi: (function () { const b = window.__pedalBridge, o = b.send; let sent = false; b.send = function (m) { if (m.type === "midiOut") sent = true; return o.call(b, m); }; window.__bkMidi = () => sent; return true; })() }));
+  assert.equal(f.out, 0, "silent"); assert.ok(f.silent); assert.equal(f.song, sid); assert.ok(f.drift < 0.35, "in step: " + f.drift);
+  // the track player goes quiet: the backup fades in where the song is
+  await T(() => clearInterval(window.__bkTimer));
+  await until(() => T(() => PPTracks.outLevel() === 1 && PPBackup.state().took), 4000);
+  const g = await T(() => ({ playing: PPTracks.isPlaying(), pos: PPTracks.state.pos, tab: PPShell.currentTab() }));
+  assert.ok(g.playing && g.pos > 2.5, JSON.stringify(g));
+  await T(() => { PPTracks.stop(true); PPPedalJob.set("player"); PPTracks.setOut(1); });
+});
+await check("LIVE shows the Pi's temperature in °F (status chip and the Ready check)", async () => {
+  const r = await T(() => { const real = PPFeatures.systemStatus; PPFeatures.systemStatus = () => Object.assign({}, real() || {}, { health: Object.assign({}, (real() || {}).health || {}, { tempC: 65 }) });
+    try { PPShell.showTab("live"); PPLive.render(); const chip = document.body.textContent, items = JSON.stringify(PPLive.readyCheck()); return { chip: /149°F/.test(chip), ready: /Temperature 149°F/.test(items), celsius: /\d°C/.test(chip + items) }; } finally { PPFeatures.systemStatus = real; } });
+  assert.deepEqual(r, { chip: true, ready: true, celsius: false });
+});
+await check("practice mixes: the time-stretch keeps the pitch, the key change moves it, and the WAV is right", async () => {
+  const r = await T(async () => {
+    const P = PPPractice, rate = 22050, n = rate * 2, sine = new Float32Array(n); for (let i = 0; i < n; i++) sine[i] = 0.5 * Math.sin(2 * Math.PI * 440 * i / rate);
+    const freq = (ch) => { let z = 0; for (let i = 1; i < ch.length; i++) if (ch[i - 1] < 0 && ch[i] >= 0) z++; return z / (ch.length / rate); };
+    const plan = await P.stretchPlan(sine, 1 / 0.75), slow = P.applyPlan(sine, plan, P.hann(2048)), up = P.resample(sine, Math.pow(2, 2 / 12));
+    const wav = new DataView(P.encodeWav(new Float32Array([0, 0.5, -0.5]), new Float32Array([0, 0.25, -1]), 48000, 24));
+    return { slowLen: slow.length / n, slowHz: freq(slow.subarray(4096, slow.length - 4096)), upHz: freq(up), wavRate: wav.getUint32(24, true), bits: wav.getUint16(34, true), ch: wav.getUint16(22, true), size: wav.byteLength };
+  });
+  assert.ok(Math.abs(r.slowLen - 1 / 0.75) < 0.01, "75% tempo is 1.33× as long: " + r.slowLen);
+  assert.ok(Math.abs(r.slowHz - 440) < 6, "...still 440 Hz: " + r.slowHz);
+  assert.ok(Math.abs(r.upHz - 440 * Math.pow(2, 2 / 12)) < 6, "+2 semitones: " + r.upHz);
+  assert.deepEqual([r.wavRate, r.bits, r.ch, r.size], [48000, 24, 2, 44 + 3 * 2 * 3]);
+});
+await check("practice mixes: made for a song (a normal mix and a slow drums mix in another key, with a count-in), kept on the Central Pedal with a playlist, and listed for phones", async () => {
+  const info = await T(() => {
+    const p = PP.project(), s = p.songs.find((q) => PPTracks.data(q).stems.length && PPTracks.data(q).duration > 6); PPTracks.stop(true);
+    const c = PPPractice.cfg(); c.songs = "pick"; c.picked = [s.id]; c.folder = "E2E Practice"; c.dest = "pedal"; c.format = "wav16"; c.countIn = 1; c.clickSource = "generated"; c.playlist = true; c.tempoMode = "song"; c.keyMode = "song";
+    c.mixes = [{ id: "a", name: "Full band", on: true, levels: {} }, { id: "b", name: "Slow drums", on: true, levels: { drums: "solo" }, tempo: 75, key: 2 }, { id: "c", name: "Off one", on: false, levels: {} }];
+    PPPractice.cfg(); PPPractice.open();
+    return { dur: PPTracks.data(s).duration, name: s.name, bpm: PPTracks.data(s).grid.bpm, n: PPPractice.songsToMake(c).length, button: document.querySelector('[data-pm-act="make"]').textContent };
+  });
+  assert.equal(info.n, 1); assert.match(info.button, /Make 2 files/);
+  await T(() => document.querySelector('[data-pm-act="make"]').click());
+  const job = await until(() => T(() => { const j = PPPractice.job(); return j && !j.running ? { files: j.files, errors: j.errors } : null; }), 90000, 300);
+  assert.deepEqual(job.errors, []); assert.equal(job.files.length, 2);
+  const list = await T(async () => (await (await fetch("http://127.0.0.1:8766/practice/list")).json()).folders.find((f) => f.folder === "E2E Practice"));
+  const names = list.files.map((f) => f.name).sort();
+  assert.ok(names.some((n) => /Slow drums\)\.wav$/.test(n)) && names.some((n) => /Full band\)\.wav$/.test(n)) && names.includes("Slow drums (playlist).m3u"), names.join(", "));
+  const lens = await T(async (names) => { const out = {}; for (const n of names.filter((x) => x.endsWith(".wav"))) { const b = await (await fetch("http://127.0.0.1:8766/practice/file?folder=E2E%20Practice&name=" + encodeURIComponent(n))).arrayBuffer(), v = new DataView(b); out[/Slow/.test(n) ? "slow" : "full"] = (b.byteLength - 44) / v.getUint32(28, true); } return out; }, names);
+  const pre = 2 * 60 / info.bpm * 2;   // (a bar of 4 at the song's tempo, roughly)
+  assert.ok(lens.full > info.dur - 1 && lens.full < info.dur + pre + 1.5, "full mix length " + lens.full + " vs " + info.dur);
+  assert.ok(Math.abs(lens.slow / lens.full - 1 / 0.75) < 0.12, "the slow one is a third longer: " + lens.slow + " / " + lens.full);
+  const page = await T(async () => (await fetch("http://127.0.0.1:8766/practice/caps")).json());
+  assert.equal(page.share, "open");
+  await T(() => { document.getElementById("pmDialog").close(); });
+});
+await check("stem splitter: installed (a stand-in Demucs here), a stereo file is split and comes back as a new song with drums / bass / vocals / other tracks", async () => {
+  const before = await T(() => PP.project().songs.length);
+  await T(async () => {
+    const c = PPStemSplit.cfg(); c.into = "new"; c.analyze = false; c.model = "htdemucs"; c.twoStems = ""; c.skip = []; c.keepOriginal = false;
+    PPStemSplit.open(); await PPStemSplit.refresh();
+    const rate = 22050, L = new Float32Array(rate * 2); for (let i = 0; i < L.length; i++) L[i] = 0.3 * Math.sin(2 * Math.PI * 220 * i / rate);
+    PPStemSplit.pick(new File([PPPractice.encodeWav(L, L, rate, 16)], "Split Test.wav", { type: "audio/wav" }));
+  });
+  const st = await T(() => PPStemSplit.state());
+  assert.ok(st.status && st.status.installed && st.status.custom, JSON.stringify(st.status && { i: st.status.installed, c: st.status.custom }));
+  assert.ok(await T(() => !document.querySelector('[data-ss-act="start"]').disabled), "Split it is ready");
+  await T(() => document.querySelector('[data-ss-act="start"]').click());
+  const song = await until(() => T((n) => { const p = PP.project(); if (p.songs.length <= n) return null; const s = p.songs.find((q) => q.name === "Split Test"); return s && PPTracks.data(s).stems.length === 4 ? PPTracks.data(s).stems.map((x) => x.name + ":" + x.role).sort() : null; }, before), 30000, 300)
+    .catch(async () => { throw new Error("no new song: " + JSON.stringify(await T(() => ({ st: PPStemSplit.state().msg, job: PPStemSplit.state().current, songs: PP.project().songs.map((q) => q.name + "/" + PPTracks.data(q).stems.length) })))); });
+  assert.deepEqual(song, ["Bass:bass", "Drums:drums", "Other:music", "Vocals:vocals"]);
+  assert.match(await T(() => PPStemSplit.state().msg), /4 stems added/);
+  await T(() => document.getElementById("ssDialog").close());
 });
 await check("no page errors during the whole run", () => assert.deepEqual(errors.filter((e) => !/favicon/.test(e)), []));
 

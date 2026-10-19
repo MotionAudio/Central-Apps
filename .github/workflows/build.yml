@@ -88,6 +88,7 @@ jobs:
           bash prepare-player.sh
           npm install --no-audit --no-fund
           bash ../tools/ci-run.sh "center test" node test-center.mjs
+          bash ../tools/ci-run.sh "pedal audio test" node test-piaudio.mjs
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never
       - name: Smoke test - the packed app (helpers, video, sounds, the player, the speech model's runtime)

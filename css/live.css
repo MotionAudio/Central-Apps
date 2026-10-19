@@ -142,3 +142,37 @@ body.service-locked .topnav .nav-tab:not(.live-tab), body.service-locked #pfSyst
 .cp-arrived { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 24px); padding: 10px 12px; background: var(--panel); border: 1px solid var(--blue); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
 .cp-arrived .sp { flex: 1; } .cp-arrived .cp-bar { width: 160px; }
 body.pedal-control #pinSection { display: none; }
+
+/* Settings → Stream Deck (js/streamdeck.js) */
+.sd { grid-column: 1 / -1; }
+.sd-pages { flex-wrap: wrap; gap: 4px; } .sd-pages button.on { background: var(--blue); color: #071321; border-color: var(--blue); font-weight: 800; }
+.sd-grid { display: grid; gap: 6px; max-width: 640px; }
+.sd-key { aspect-ratio: 1; display: grid; align-content: center; justify-items: center; gap: 2px; padding: 4px; border-radius: 10px; background: var(--c); border: 2px solid transparent; overflow: hidden; }
+.sd-key i { font-style: normal; font-size: 20px; line-height: 1; } .sd-key small { font-size: 10px; color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-key.on { background: var(--o); } .sd-key.on small, .sd-key.on i { color: #062218; } .sd-key.sel { border-color: #ffd765; }
+.sd-edit { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.sd-edit > b, .sd-edit > .row { grid-column: 1 / -1; }
+
+/* Tracks → Practice mixes (js/practice.js) and the Stem splitter (js/stemsplit.js) */
+dialog.pm-dialog { width: min(1040px, calc(100vw - 16px)); max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); padding: 0; }
+dialog.ss-dialog { width: min(820px, calc(100vw - 16px)); }
+.pm button:disabled, .ss button:disabled { opacity: .45; cursor: not-allowed; }
+.pm, .ss { display: grid; gap: 12px; padding: 14px 16px; max-height: calc(100vh - 20px); overflow: auto; }
+.pm header, .ss header { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .pm h2, .ss h2 { font-size: 19px; }
+.pm section, .ss section { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; }
+.pm h3, .ss h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.pm-grid, .ss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 12px; }
+.pm-grid label, .ss-grid label, .pm section > label, .ss section > label { display: grid; gap: 3px; font-size: 13px; color: var(--muted); }
+.pm-songs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; max-height: 26vh; overflow: auto; }
+.pm-scroll { overflow-x: auto; }
+.pm-mixes { border-collapse: collapse; font-size: 12px; min-width: 900px; } .pm-mixes th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px; white-space: nowrap; }
+.pm-mixes td { padding: 3px 4px; border-top: 1px solid color-mix(in srgb, var(--line), transparent 40%); } .pm-mixes select { min-width: 66px; padding: 4px 2px; font-size: 12px; }
+.pm-mixes input[data-mx="name"] { min-width: 120px; } .pm-mixes input[type="number"] { width: 54px; } .pm-mixes input[type="checkbox"] { width: auto; }
+.pm-list details { border-bottom: 1px solid color-mix(in srgb, var(--line), transparent 40%); padding: 6px 0; } .pm-list summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pm-list .row-tools { margin-left: auto; display: inline-flex; gap: 4px; } .pm-list ul { margin: 6px 0 0 18px; font-size: 12px; display: grid; gap: 2px; } .pm-list a { color: var(--blue); }
+.pm-bar { height: 10px; border-radius: 5px; background: #071321; border: 1px solid var(--line); overflow: hidden; } .pm-bar i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.pm-progress { display: grid; gap: 4px; } .pm-msg { min-height: 1.2em; font-size: 13px; } .pm-msg.bad, .pm .bad, .ss .bad { color: var(--danger); } .ss .warn { color: #ffd765; }
+.pm footer, .ss footer { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; position: sticky; bottom: -14px; background: var(--panel); padding: 8px 0; }
+.ss-log { max-height: 160px; overflow: auto; font-size: 11px; background: #071321; border: 1px solid var(--line); border-radius: 8px; padding: 6px; white-space: pre-wrap; }
+.ss .toggle.inline { display: inline-flex; margin-right: 10px; } .ss-file input { width: 100%; }
+@media (max-width: 640px) { .pm, .ss { padding: 10px; } }

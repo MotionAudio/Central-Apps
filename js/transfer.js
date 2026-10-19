@@ -17,20 +17,21 @@
   function driverOn() { return !!(bridge() && bridge().connected); }
   function clone(v) { return v == null ? v : JSON.parse(JSON.stringify(v)); }
   function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || "null"); localStorage.setItem(k, JSON.stringify(v)); } catch (_) { } return null; }
-  var hello = null; F.on("hello", function (m) { hello = m; markMode(); });
+  var hello = null, lastNet = null; F.on("hello", function (m) { hello = m; markMode(); }); F.on("netAudio", function (m) { if (m && m.config) lastNet = m; });
   function isControl() { var info = bridge() && bridge().info; return !!((hello && hello.pedalControl) || (info && info.pedalControl) || (window.CCDesktop && window.CCDesktop.pedalControl) || window.CP_CONTROL || location.protocol === "capacitor:"); }
   function markMode() { if (isControl() && !/Control$/.test(document.title)) document.title = "Central Pedal Control"; document.body.classList.toggle("pedal-control", isControl()); var b = $("#cpTransfer"); if (b) b.classList.toggle("hidden", !isControl()); }
 
   // what can travel: each part is a set of the project's keys (+ the pad sounds' audio for "pads")
   var PARTS = [
-    ["songs", "Songs and their tracks", "the setlist, every song's tracks, sections, chart, lyrics, mix and scenes", true],
+    ["songs", "Songs and their tracks", "the setlist, every song's tracks, sections, chart, lyrics, mix and scenes; practice-mix and stem-splitter settings", true],
     ["pads", "Pads and sounds", "the 8 pads, your imported sounds, textures, volume / tone / reverb", true],
-    ["controls", "Buttons, knobs and MIDI", "what every footswitch, knob, slider and MIDI control does", true],
+    ["controls", "Buttons, knobs, MIDI and Stream Deck", "what every footswitch, knob, slider, MIDI control and Stream Deck key does", true],
     ["instrument", "Instrument", "guitar / bass boards and pedals, keys sounds and layers", true],
     ["setups", "Saved setups", "your named setups and each song's setup", true],
     ["look", "Colours and projector look", "", true],
+    ["netaudio", "Network audio and the backup player", "each track, the click, pads and the instrument on their own channels to the main admin over Wi-Fi / Ethernet; the backup player's settings", true],
     ["outputs", "Outputs and screens", "audio routing, MIDI out, what each screen shows - only if this computer's outputs match the pedal's", false]];
-  var KEYS = { pads: ["pads", "textures", "performance", "tempo", "input", "library"], controls: ["mapping", "midi"], instrument: ["instrument"], setups: ["setups", "songSetups", "setupDefault"], look: ["theme", "projector"], outputs: ["routing", "audio", "midiOut", "display", "link"], songs: ["name", "setlistId", "songIndex", "tracksMode"] };
+  var KEYS = { pads: ["pads", "textures", "performance", "tempo", "input", "library"], controls: ["mapping", "midi", "midiInputs", "streamDeck"], instrument: ["instrument"], setups: ["setups", "songSetups", "setupDefault"], look: ["theme", "projector"], outputs: ["routing", "audio", "midiOut", "display", "link"], netaudio: ["netAudio", "backup"], songs: ["name", "setlistId", "songIndex", "tracksMode", "practice", "stemSplit"] };
 
   // ------------------------------------------------------------- packing (both sides)
   function pcmToWav(rec) {
@@ -45,6 +46,7 @@
   function pack(parts) {
     var p = project(), pkg = { version: 1, made: Date.now(), from: deviceName(), parts: parts.slice(), settings: {}, songs: [], samples: [], stems: [] };
     parts.forEach(function (part) { (KEYS[part] || []).forEach(function (k) { if (p[k] !== undefined) pkg.settings[k] = clone(p[k]); }); });
+    if (parts.indexOf("netaudio") > -1 && !isControl()) { var na = lastNet || (F.systemStatus() || {}).netAudio; if (na && na.config) pkg.settings.netAudio = clone(na.config); }   // (on the pedal: what its driver does)
     if (parts.indexOf("pads") > -1) {
       var ids = {}; (p.pads || []).forEach(function (pad) { if (pad.sampleId) ids[pad.sampleId] = 1; }); (p.library || []).forEach(function (x) { if (x && x.id) ids[x.id] = 1; });
       pkg.samples = Object.keys(ids).map(function (id) { return { fid: "sm-" + id.replace(/[^A-Za-z0-9_-]/g, ""), sampleId: id }; });
@@ -104,6 +106,8 @@
       var e2 = byStem[sid]; if (!e2.blobs || !T()) continue;
       try { var buf = e2.blobs.length > 1 ? await T().decodeSum(e2.blobs.filter(Boolean)) : await T().decodeFile(e2.blobs[0]); await T().putStem(sid, T().toPcm(buf)); } catch (error) { console.warn("decode", error); }
     }
+    // network audio is the driver's: a Central Pedal sets it there (Central Pedal Control keeps it in the project)
+    if (pkg.settings && pkg.settings.netAudio && driverOn() && !isControl()) F.sendToDriver({ type: "netAudio", action: "config", config: pkg.settings.netAudio });
     // the settings and the songs into the project
     Object.keys(pkg.settings || {}).forEach(function (k) { if (k === "songIndex" || k === "name" || k === "setlistId") return; p[k] = clone(pkg.settings[k]); });
     if ((pkg.parts || []).indexOf("songs") > -1) {

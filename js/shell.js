@@ -71,7 +71,9 @@
       '<section data-st="screens"><h3>Projector (HDMI 2) and lyrics</h3><label>Lyrics size<input type="range" min="3" max="14" step=".5" data-sys="fontSize" value="' + (pr.fontSize || 7) + '"></label><label class="toggle"><input type="checkbox" data-sys="showNext"' + (pr.showNext !== false ? " checked" : "") + "> Preview the next lines</label><label class=\"toggle\"><input type=\"checkbox\" data-sys=\"showSection\"" + (pr.showSection !== false ? " checked" : "") + "> Show the section name</label><label class=\"toggle\"><input type=\"checkbox\" data-sys=\"blank\"" + (pr.blank ? " checked" : "") + '> Blank the projector</label><label>Theme<select data-sys="theme"><option value="dark"' + (pr.theme !== "light" ? " selected" : "") + '>White on black</option><option value="light"' + (pr.theme === "light" ? " selected" : "") + ">Black on white</option></select></label></section>" +
       screensHtml(displays) +
       (window.PPTouchWifi ? window.PPTouchWifi.touchHtml(status) : "") +
-      (window.PPTouchWifi ? window.PPTouchWifi.wifiHtml(status, wifi) : "");
+      (window.PPTouchWifi ? window.PPTouchWifi.wifiHtml(status, wifi) : "") +
+      (window.PPStreamDeck ? window.PPStreamDeck.settingsHtml() : "") +
+      (window.PPBackup ? window.PPBackup.settingsHtml() : "");
     if (connected() && window.qrcode) { try { var q = window.qrcode(0, "M"); q.addData(url + (code ? "?code=" + code : "")); q.make(); $("#sysQr").innerHTML = q.createSvgTag({ cellSize: 3, margin: 2 }); } catch (_) { } }
   }
   // Settings → Screens: what each HDMI screen shows, its resolution, zoom and edge margin. The screen session on the

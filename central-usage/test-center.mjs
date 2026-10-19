@@ -164,8 +164,8 @@ ok(pr && pr.youPlay, "the first Central Pedal (here: the main admin's own player
 // a Central Pedal on the network is added: it takes over playing, the main admin's window keeps the library
 const fake2 = { readyState: 1, send() { } };
 const r2 = center.handle(fake2, { id: null, auth: false, main: false, ip: "10.0.0.5", loopback: false }, { action: "join", id: "pedal-2", role: "pedal", name: "Stage pedal", pair: "0915", pedal: { port: 8080, wsPort: 8081 } });
-ok(r2 && r2.ok && center.devices["pedal-2"].pedalJob === "player" && center.devices["pedal-1"].pedalJob === "standby", "an added pedal takes over the tracks; the main admin's window goes to standby");
-pd.q.length = 0; pr = await pd.wait((m) => m.type === "pedalRole" && m.job === "standby");
+ok(r2 && r2.ok && center.devices["pedal-2"].pedalJob === "player" && center.devices["pedal-1"].pedalJob === "backup", "an added pedal takes over the tracks; the main admin's window becomes the backup player");
+pd.q.length = 0; pr = await pd.wait((m) => m.type === "pedalRole" && m.job === "backup");
 ok(pr && pr.player && pr.player.address === "10.0.0.5" && pr.peers.some((x) => x.id === "pedal-2"), "the window hears who plays now (and links its songs to it)");
 v = await main.wait((m) => m.type === "cuRoles" && (m.pedals || []).length === 2);
 ok(v && v.pedals[0].id === "pedal-2" && v.pedals[0].job === "player", "the main admin sees both pedals, the player first");
@@ -178,6 +178,25 @@ ok(center.devices["pedal-2"].pedalJob === "instrument" && center.playerId() === 
 u.send({ type: "cuRole", action: "pedalJob", id: "dUser", target: "pedal-2", job: "player" });
 r = await u.wait((m) => m.type === "cuRoleReply" && m.action === "pedalJob");
 ok(r && !r.ok, "only the main admin gives pedals their jobs");
+// the backup player: the stage pedal plays, the window follows; it takes over only when the stage pedal's heartbeat stopped
+main.q.length = 0; main.send({ type: "cuRole", action: "pedalJob", id: "dMain", target: "pedal-2", job: "player" });
+await main.wait((m) => m.type === "cuRoleReply" && m.action === "pedalJob");
+ok(center.devices["pedal-1"].pedalJob === "backup", "with the stage pedal playing, the window is the backup again");
+center.clients.set(fake2, { id: "pedal-2", auth: true, ip: "10.0.0.5" }); center.lastMsg["pedal-2"] = Date.now();
+pd.q.length = 0; pd.send({ type: "cuRole", action: "takeover", id: "pedal-1" });
+r = await pd.wait((m) => m.type === "cuRoleReply" && m.action === "takeover");
+ok(r && !r.ok && r.playerAlive && center.playerId() === "pedal-2", "the stage pedal's heartbeat is still there: the backup stays silent (it only lost its own Wi-Fi)");
+center.lastMsg["pedal-2"] = Date.now() - 5000;
+pd.q.length = 0; pd.send({ type: "cuRole", action: "takeover", id: "pedal-1" });
+r = await pd.wait((m) => m.type === "cuRoleReply" && m.action === "takeover");
+ok(r && r.ok && center.playerId() === "pedal-1" && center.devices["pedal-2"].pedalJob === "standby", "heartbeat gone mid-song: the backup takes over and is the track player; the stage pedal goes to standby");
+center.clients.delete(fake2);
+main.q.length = 0; main.send({ type: "cuRole", action: "backupLocal", id: "dMain", on: false });
+r = await main.wait((m) => m.type === "cuRoleReply" && m.action === "backupLocal");
+ok(r && r.ok && center.backup.localIsBackup === false, "the main admin can turn the backup player off (the window then only keeps the library)");
+main.send({ type: "cuRole", action: "backupLocal", id: "dMain", on: true }); await main.wait((m) => m.type === "cuRoleReply" && m.action === "backupLocal");
+main.q.length = 0; main.send({ type: "cuRole", action: "pedalJob", id: "dMain", target: "pedal-2", job: "instrument" });
+await main.wait((m) => m.type === "cuRoleReply" && m.action === "pedalJob");
 v = await u.wait((m) => m.type === "cuRoles" && m.pedal && m.pedal.online);
 ok(v && v.pedal.wsPort === 8081 && v.pedal.address, "every device is told where the Central Pedal is");
 pd.send({ type: "cuRole", action: "health", id: "pedal-1", health: { tempC: 51, song: "Way Maker" } });

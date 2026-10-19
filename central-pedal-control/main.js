@@ -57,7 +57,10 @@ function createWindow(url) {
 function allowPermissions() {
   const ok = (p) => ["media", "midi", "midiSysex", "notifications", "fullscreen", "clipboard-read", "clipboard-sanitized-write"].includes(p);
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(ok(permission)));
-  session.defaultSession.setPermissionCheckHandler((_wc, permission) => ok(permission));
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => ok(permission) || permission === "hid");
+  // an Elgato Stream Deck (WebHID) is the app's to use, without asking
+  session.defaultSession.on("select-hid-device", (event, details, callback) => { event.preventDefault(); const d = details.deviceList.find((x) => x.vendorId === 0x0fd9); callback(d ? d.deviceId : ""); });
+  session.defaultSession.setDevicePermissionHandler((details) => details.deviceType === "hid" && details.device && details.device.vendorId === 0x0fd9);
 }
 function run(js) { if (win) win.webContents.executeJavaScript(js).catch(() => { }); }
 function menu() {
@@ -84,6 +87,9 @@ function menu() {
 
 let updater = null;
 function updateEvent() { if (win && updater) win.webContents.send("update", updater.status()); }
+// practice mixes: "A folder on this Mac…" (the driver copies them there)
+ipcMain.handle("pick-folder", async () => { const r = await dialog.showOpenDialog(win, { title: "Where should the practice mixes go?", properties: ["openDirectory", "createDirectory"] }); return r.canceled ? null : r.filePaths[0]; });
+ipcMain.handle("open-path", (_e, p) => (typeof p === "string" && p ? shell.openPath(p) : ""));
 ipcMain.handle("update-status", () => updater.status());
 ipcMain.handle("update-config", (_e, cfg) => updater.save(cfg));
 ipcMain.handle("update-check", async () => { const st = await updater.check(); updateEvent(); return st; });

@@ -285,7 +285,12 @@
     if (h.throttled) add("warn", "The Pi is slowing itself down", "Too hot or not enough power.");
     if (h.diskFreeMB != null) add(h.diskFreeMB < 300 ? "fail" : h.diskFreeMB < 1500 ? "warn" : "ok", "Storage: " + (h.diskFreeMB >= 1024 ? (h.diskFreeMB / 1024).toFixed(1) + " GB" : h.diskFreeMB + " MB") + " free", h.diskFreeMB < 1500 ? "Remove old songs or use a bigger SD card." : "");
     if (h.memFreeMB != null && h.memFreeMB < 250) add("warn", "Memory is low (" + h.memFreeMB + " MB free)", "Restart the Central Pedal before the service.");
-    // the team
+    // the team: network audio to the main admin (each track, click, pads, instrument on their own channels)
+    var na = sys.netAudio, nc = na && na.config, paired = !!((sys.center || {}).paired);
+    if (nc && connected()) {
+      if (nc.mode === "off") add(paired ? "warn" : "info", "Network audio is off", "The main admin gets no tracks, click, pads or instrument from this Central Pedal (the MIDI hits for the lights still go).", { label: "Send over Wi-Fi", act: "netOn" });
+      else if (nc.mode !== "interface") add(na.listeners && na.listeners.length ? "ok" : "info", "Network audio: " + (nc.mode === "wifi" ? "Wi-Fi" : "Ethernet") + (na.listeners && na.listeners.length ? " → " + na.listeners.map(function (l) { return l.name; }).join(", ") : " - nobody listening yet"), na.sending && na.sending.length ? na.sending.length + " channels" : "");
+    }
     var c = sys.center || (bridge() && bridge().info && bridge().info.center);
     if (c) add(c.paired ? "ok" : "info", c.paired ? "Paired with the main admin" + (c.name ? " (" + c.name + ")" : "") : "Not paired with the main admin", c.paired ? "" : "The Central Pedal works on its own; Central Control computers follow it once paired.");
     var rank = { fail: 3, warn: 2, info: 1, ok: 0 };
@@ -313,6 +318,7 @@
     else if (act === "setlist") { $("#lvReady").classList.add("hidden"); F.openSetlist(); return; }
     else if (act === "tracksOn") { if (T()) T().setTracksMode(true); }
     else if (act === "song1") F.loadSong(0);
+    else if (act === "netOn") { if (window.PPNetSend) window.PPNetSend.configure({ mode: "wifi" }); else F.sendToDriver({ type: "netAudio", action: "config", config: { mode: "wifi" } }); }
     setTimeout(openReady, 400);
   }
 
