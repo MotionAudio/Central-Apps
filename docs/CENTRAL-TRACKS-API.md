@@ -1,5 +1,7 @@
 # Central Tracks server API (v1)
 
+The server itself is in `server/` (setup: `server/SETUP.md`). It also serves the Motion Audio website.
+
 The **Central Tracks** tab in *Add songs* (Central Pedal and Central Pedal Control) talks to this API.
 Set the server address in that tab. With no server set, the tab shows a preview of the library.
 

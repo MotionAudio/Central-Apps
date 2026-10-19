@@ -1,0 +1,46 @@
+# One-click hosting on Render: dashboard → New → Blueprint → pick this repo.
+# Creates the website + API, its Postgres database, and the monthly publisher-payout job.
+services:
+  - type: web
+    name: motion-audio
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: motion-audio-db, property: connectionString }
+      - key: TOKEN_SECRET
+        generateValue: true
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+  - type: cron
+    name: motion-audio-payouts
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    dockerCommand: node src/payouts.js
+    schedule: "0 15 1 * *"   # 1st of each month, 15:00 UTC
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: motion-audio-db, property: connectionString }
+      - key: STRIPE_SECRET_KEY
+        sync: false
+databases:
+  - name: motion-audio-db
+    plan: basic-256mb
+    databaseName: motionaudio
