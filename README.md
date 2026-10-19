@@ -71,9 +71,14 @@ flowchart LR
   4. **Central Tracks**
 
   Planning Center plans come in too.
-- **Stem splitter.** The best-quality RoFormer vocal model and Demucs split a finished song into vocals, drums, bass,
-  guitar, piano and the rest, on your own computer. It can also split lead from backing vocals, and the drums into
-  kick, snare, toms, hi-hat, ride and crash.
+- **Stem splitter, Studio mode.** One WAV of the whole song becomes the tracks a band plays with, on your own computer:
+  Lead Vox, BGVs, Drums, Perc, Bass, Guitars, Keys, Synth & Pads, plus a Click and a Guide.
+  - Several RoFormer vocal models vote on the vocals; Demucs FT and the 6-stem model split the band.
+  - A clean-up pass takes the reverb off the vocals, removes the bleed between the tracks, trims the silence, writes
+    mono tracks as mono and leaves out silent ones.
+  - Check the tracks before adding them: play, solo, rename, merge, or split one again.
+  - The drum hits (kick, snare, hi-hat, crash) still go to Central Control for the lights, as MIDI notes and on its
+    timeline, with the tempo.
 - **Sections are found for you.** Intro, verse, pre-chorus, chorus, bridge and outro come from the vocals, the harmony
   and the loudness. Tempo, key, the beat grid and big hits are found too. A click and a spoken guide come from the
   grid.
@@ -174,7 +179,18 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (8.8 and earlier)</summary>
+<summary><b>What's new in each version</b> (8.9 and earlier)</summary>
+
+**New in version 8.9:**
+- **Stem splitter, Studio mode:** vocal models voting together, Demucs FT and the 6-stem model for the band, then lead
+  and backing vocals, the reverb off the vocals and the drum kit piece by piece.
+- **Clean-up pass:** bleed removal (the tracks add up to the song again), Perc, the kit as Drums or Cymbals, the
+  silence trimmed, mono tracks written mono, silent tracks left out.
+- **MultiTracks-style tracks:** Lead Vox, BGVs, Drums, Perc, Bass, Guitars, Keys, Synth & Pads, with a Click track and
+  a Guide track made from the beat grid and the sections.
+- **Check before adding:** play, solo and mute, rename, set the role, merge, or split one track again.
+- **Drum hits for the lights:** kick, snare, hi-hat and crash from a split song go to Central Control as MIDI notes
+  and on its lighting timeline, with the tempo. Each has its own note and preset.
 
 **New in version 8.8:**
 - **Central Pedal Control on every system:** macOS, Windows, Linux, iPadOS, iOS and Android.
@@ -531,8 +547,9 @@ A multitrack player built in; nothing else to install.
   numbers or a chord chart - you pick the view, the clef, the instrument
   and the note division; export as SVG (to a USB stick on the Pi).
 - **Lyrics**: words only, split by section, for the projector and phones.
-- **MIDI out**: channel 1 (or whichever you pick) sends *hits* for lights
-  (a note on every accent / section start, nothing else); channel 2 sends
+- **MIDI out**: channel 1 (or whichever you pick) sends *hits* for lights, and the drum hits of split songs as their
+  own notes (kick 36, snare 38, hi-hat 42, crash 49 by default; each can be changed or turned off).
+  The hits are a note on every accent / section start; channel 2 sends
   general MIDI (program change per song, notes per section, clock).
   The same hits and clock go over Wi-Fi to Central Control.
   **Ableton Link** and **MIDI clock** sync are in Settings.
@@ -866,7 +883,7 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `central-usage/usage-builder.js` | Packs Central Usage (the musicians' edition) from the same code as Central Control |
 | `central-pedal-control/`, `central-pedal-control-mobile/` | Central Pedal Control for macOS, Windows and Linux (Electron, the bundled driver) and iPhone, iPad and Android (Capacitor) |
 | `js/sources.js`, `js/central-tracks.js` | *Add a song*: your songs, then the four ways (own stems, the whole song split, MultiTracks.com / Prime, Central Tracks) and Planning Center |
-| `js/stemsplit.js`, `StemSplitter` in `pedal-driver.py` | The stem splitter: RoFormer / MDX23C (audio-separator) and Demucs, installed on demand with uv |
+| `js/stemsplit.js`, `StemSplitter` in `pedal-driver.py` | The stem splitter: RoFormer / MDX23C ensembles (audio-separator) and Demucs, installed on demand with uv; the clean-up pass (`STEMTOOL`, numpy) and the review |
 | `js/structure.js` | Finding a song's sections from its tracks (vocals, harmony, loudness) |
 | `js/practice.js`, `PracticeMixes` in `pedal-driver.py` | Practice mixes (offline mix, time-stretch, click, WAV / MP3) and the phones' `/practice/` page |
 | `js/backup.js`, `js/streamdeck.js` | The backup player; the Elgato Stream Deck (WebHID) |

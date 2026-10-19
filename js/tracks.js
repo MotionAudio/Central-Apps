@@ -186,6 +186,7 @@
       sections: sectionsOf(s).map(function (q) { return { name: q.sec.name, start: r3(q.start), end: r3(q.end), bar: q.sec.bar, type: C ? C.typeOf(q.sec.name) : null, color: C ? C.section(q.sec.name) : null, note: q.sec.note || "" }; }),
       grid: g ? { bpm: Math.round((s.bpm || 0) * 10) / 10, bpb: g.bpb, bars: g.bars.slice(0, 800).map(r3), barBeats: g.barBeats ? g.barBeats.slice(0, 800) : [] } : null,
       hits: (t.hits || []).slice(0, 600).map(r3), overview: out,
+      drumHits: t.drumHits ? DRUMS.reduce(function (o, k) { o[k] = (t.drumHits[k] || []).slice(0, 4000).map(r3); return o; }, {}) : null,   // (kick, snare, hi-hat, crash - from a split's kit pieces)
       stems: t.stems.map(function (st) { return { name: st.name, role: st.role || "", file: st.file || null, gain: st.gain == null ? 1 : st.gain, pan: st.pan || 0, mute: !!st.mute, bus: st.bus || "music" }; }),
       // everything the parts for each instrument are made from (chords, sections, the tracks written down, the words' timing)
       music: window.PPParts ? window.PPParts.contextOf(s, t, g, { chartText: t.chartText || "" }) : null };
@@ -196,7 +197,7 @@
     var buffer = await decodeFile(file), pcm = toPcm(buffer), id = PP.id();
     await putStem(id, pcm);
     var role = file._role || guessRole(name);
-    var rec = { id: id, name: name, role: role, gain: 1, pan: 0, mute: !!file._mute, solo: false, bus: role === "click" ? "click" : "music", length: pcm.length, overview: overview(buffer, 960) };
+    var rec = { id: id, name: name, role: role, gain: 1, pan: 0, mute: !!file._mute, solo: false, bus: role === "click" || role === "guide" ? "click" : "music", length: pcm.length, overview: overview(buffer, 960) };   // (the click and the guide go to the in-ears)
     t.stems.push(rec);
     keepInLibrary(s, file, rec);
     t.duration = Math.max(t.duration, buffer.duration);
@@ -546,9 +547,12 @@
     post({ cmd: "set", speed: t.tempoPercent / 100, pitch: Math.pow(2, t.keyShift / 12), musicLevel: 1, out: outLevel, cueLevel: Math.pow(clamp(t.cues.level, 0, 100) / 100, 1.2) });
     pushCues(s); pushEvents(s);
   }
+  var DRUMS = ["kick", "snare", "hat", "crash"], DRUM_NOTES = { kick: 36, snare: 38, hat: 42, crash: 49 };   // (General MIDI drum notes; each is a setting)
+  function drumNote(mo, k) { var n = mo.drumNotes && mo.drumNotes[k]; return clamp(n == null || n === "" ? DRUM_NOTES[k] : Number(n), 0, 127); }
   function pushEvents(s) {
     var t = data(s), list = [], mo = project().midiOut || {};
     if (mo.lightsHits !== false) t.hits.forEach(function (h, i) { list.push({ time: h, id: "hit:" + i }); });
+    if (mo.lightsDrums !== false && t.drumHits) DRUMS.forEach(function (k) { if (mo.drumParts && mo.drumParts[k] === false) return; (t.drumHits[k] || []).forEach(function (h, i) { list.push({ time: h, id: "dh:" + k + ":" + i }); }); });
     sectionsOf(s).forEach(function (x) { list.push({ time: x.start, id: "sec:" + x.index }); });
     post({ cmd: "events", list: list });
   }
@@ -828,6 +832,10 @@
       var ch = clamp((mo.lightsChannel || 1) - 1, 0, 15), note = clamp(mo.lightsNote == null ? 48 : mo.lightsNote, 0, 127);
       send({ type: "midiOut", messages: [{ data: [0x90 | ch, note, 127], at: at }, { data: [0x80 | ch, note, 0], at: at + 100 }] });
       setTimeout(function () { flashHit(); }, at);
+    } else if (id.indexOf("dh:") === 0 && mo.lightsDrums !== false) {   // a drum hit (kick, snare, hi-hat, crash) as its own note on the lights channel
+      var part = id.split(":")[1], lc = clamp((mo.lightsChannel || 1) - 1, 0, 15), dn = drumNote(mo, part);
+      send({ type: "midiOut", messages: [{ data: [0x90 | lc, dn, part === "crash" ? 127 : 110], at: at }, { data: [0x80 | lc, dn, 0], at: at + 60 }] });
+      if (part === "crash") setTimeout(function () { flashHit(); }, at);
     }
   }
   function flashHit() { var el = $("#trHitLight"); if (!el) return; el.classList.add("on"); setTimeout(function () { el.classList.remove("on"); }, 120); }
@@ -1442,7 +1450,7 @@
     sendDisplay: sendDisplay, render: render, setStem: setStem, toggleClick: function () { var t = tdata(); if (t) { t.click.on = !t.click.on; pushAll(song()); PP.persistSoon(); renderTransport(); } }, toggleCues: function () { var t = tdata(); if (t) { t.cues.on = !t.cues.on; pushAll(song()); PP.persistSoon(); renderTransport(); } },
     cycleCountIn: function () { var t = tdata(); if (t) { t.countIn = (t.countIn + 1) % 3; PP.persistSoon(); renderTransport(); } }, stepSongAndPlay: stepSongAndPlay, uploadChart: uploadChart, refreshCharts: refreshCharts, charts: function () { return charts; }, applyLevels: applyLevels,
     findSongByName: findSongByName, fileFromMedia: fileFromMedia, workerJob: workerJob, mixdown: mixdown, getStem: getStem, forgetStem: function (id) { stemMemory.delete(id); }, dropStem: delStem, setOut: setOut, outLevel: function () { return outLevel; }, putStem: putStem, getStemLocal: getStemLocal, decodeFile: decodeFile, toPcm: toPcm, decodeSum: decodeSum, driverOn: function () { return driverOn(); }, analyzeSong: analyzeSong, applyChart: applyChart, renderEditor: renderEditor, keyName: keyName, fmtTime: fmtTime, pendingJump: function () { return pendingJump; },
-    hubSong: hubSong, netDecks: function () { return decks; }, netNames: function () { return deck && deck.netNames || []; }, ensureWorklet: ensureWorklet, NET_SLOTS: NET_SLOTS,
+    hubSong: hubSong, cueIdFor: cueIdFor, cueBuffer: cueBuffer, loadCueList: loadCueList, drumNote: drumNote, DRUMS: DRUMS, netDecks: function () { return decks; }, netNames: function () { return deck && deck.netNames || []; }, ensureWorklet: ensureWorklet, NET_SLOTS: NET_SLOTS,
     abSet: abSet, abToggle: abToggle, abClear: abClear, nudgeTempo: nudgeTempo, applyMix: applyMix, captureMix: captureMix, openMixer: openMixer, renderStems: renderStems, startSegue: startSegue, preloadNext: preloadNext, segueState: function () { return { loading: segue.loading, running: segue.running, deck: deck ? deck.n : -1, other: otherDeck() ? otherDeck().songId : null }; }, meters: function () { return meters; }, afterMode: afterMode, currentSection: function () { return state.section; }
   };
   engine.hooks.push(function () { applyLevels(); });

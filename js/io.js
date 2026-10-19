@@ -53,7 +53,7 @@
     var st = F.systemStatus() || {}, ports = st.midiPorts || {}, ins = Array.isArray(ports) ? ports : ports.inputs || [], outs = Array.isArray(ports) ? [] : ports.outputs || [], mo = project().midiOut || {};
     var chk = function (k, label) { return '<label class="toggle"><input type="checkbox" data-sys="' + k + '"' + (mo[k] ? " checked" : "") + "> " + label + "</label>"; };
     return '<section class="io-card"><h3>MIDI</h3><table class="io-table"><tr><td>In</td><td>' + (ins.length ? ins.map(esc).join("<br>") : '<span class="muted">none</span>') + "</td></tr><tr><td>Out</td><td>" + (outs.length ? outs.map(esc).join("<br>") : '<span class="muted">none</span>') + "</td></tr></table>" +
-      '<div class="io-checks">' + chk("lightsHits", "Hits as notes (lights)") + chk("lightsSections", "Section notes") + chk("pcOnSong", "Program change per song") + chk("clockOut", "MIDI clock out") + '</div><p class="muted small">These also reach Central Control over the network, lined up with the tracks.</p></section>';
+      '<div class="io-checks">' + chk("lightsHits", "Hits as notes (lights)") + chk("lightsSections", "Section notes") + '<label class="toggle"><input type="checkbox" data-sys="lightsDrums"' + (mo.lightsDrums !== false ? " checked" : "") + "> Drum hits as notes (kick, snare, hi-hat, crash)</label>" + chk("pcOnSong", "Program change per song") + chk("clockOut", "MIDI clock out") + '</div><p class="muted small">These also reach Central Control over the network, lined up with the tracks.</p></section>';
   }
   function screensCard() {
     var st = F.systemStatus() || {}, d = st.displays || project().display || {};

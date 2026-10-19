@@ -85,7 +85,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.8.0"
+APP_VERSION = "8.9.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -1417,6 +1417,8 @@ class LocalServer:
                             return self.send_json(200, sp.configure(payload))
                         if url.path == "/split/start":
                             return self.send_json(200, sp.start(payload.get("path"), payload.get("opts") or {}))
+                        if url.path == "/split/resplit":
+                            return self.send_json(200, sp.resplit(payload.get("id"), payload.get("rel"), payload.get("kind"), payload.get("opts")))
                         if url.path == "/split/cancel":
                             return self.send_json(200, sp.cancel(payload.get("id")))
                         if url.path == "/split/forget":
@@ -3827,6 +3829,353 @@ class PracticeMixes:
         return head + body + "</body></html>"
 
 
+# ---- stemtool (begin): the stem splitter's clean-up pass, run with the splitter's own Python (written to <data>/stem-splitter/stemtool.py)
+STEMTOOL = r'''
+#!/usr/bin/env python3
+"""Central Pedal - the stem splitter's clean-up pass (run by the driver after a split, with the splitter's own Python;
+needs only numpy). It reads a job file (JSON) and:
+  - makes the extra drum tracks: "perc" (what is in the drums but not in the kit pieces) and "cymbals" (hi-hat + ride +
+    crash together), when asked
+  - removes bleed ("sharp" 0.5..3 says how hard): every stem is re-shaped from the song itself, frame by frame, by how much of each frequency it
+    owns (a Wiener mask over all the stems) - so a guitar left in the vocals goes back to the guitar, and the stems
+    add up to the song again. "bleed" (0..1) says how much of that to use.
+  - trims the silence at the start and the end of the song - every track by the same amount, so they stay in time
+  - measures each stem (level, peak, mono or stereo, silent) and writes mono files for the ones that are mono
+  - finds the drum hits (kick, snare, hi-hat, crash) for the lights: from the kit pieces when there are some, else from
+    the drums by frequency band
+It prints "NN%|" progress lines and, at the end, "RESULT {json}" with the files it wrote and their numbers.
+    python3 stemtool.py job.json """
+import json
+import os
+import struct
+import sys
+
+import numpy as np
+
+
+def read_wav(path):
+    with open(path, "rb") as handle:
+        data = handle.read()
+    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        raise ValueError("not a WAV file: " + os.path.basename(path))
+    pos, fmt, raw = 12, None, None
+    while pos + 8 <= len(data):
+        cid = data[pos:pos + 4]
+        size = struct.unpack("<I", data[pos + 4:pos + 8])[0]
+        body = data[pos + 8:pos + 8 + size]
+        if cid == b"fmt ":
+            fmt = body
+        elif cid == b"data":
+            raw = body
+        pos += 8 + size + (size & 1)
+    if fmt is None or raw is None:
+        raise ValueError("a WAV without fmt / data: " + os.path.basename(path))
+    tag, ch, rate = struct.unpack("<HHI", fmt[:8])
+    bits = struct.unpack("<H", fmt[14:16])[0]
+    if tag == 0xFFFE and len(fmt) >= 26:
+        tag = struct.unpack("<H", fmt[24:26])[0]
+    if tag == 3 and bits == 32:
+        x = np.frombuffer(raw[:len(raw) // 4 * 4], dtype="<f4").astype(np.float32)
+    elif tag == 3 and bits == 64:
+        x = np.frombuffer(raw[:len(raw) // 8 * 8], dtype="<f8").astype(np.float32)
+    elif bits == 16:
+        x = np.frombuffer(raw[:len(raw) // 2 * 2], dtype="<i2").astype(np.float32) / 32768.0
+    elif bits == 24:
+        b = np.frombuffer(raw[:len(raw) // 3 * 3], dtype=np.uint8).reshape(-1, 3).astype(np.int32)
+        v = b[:, 0] | (b[:, 1] << 8) | (b[:, 2] << 16)
+        v = np.where(v >= 1 << 23, v - (1 << 24), v)
+        x = v.astype(np.float32) / 8388608.0
+    elif bits == 32:
+        x = np.frombuffer(raw[:len(raw) // 4 * 4], dtype="<i4").astype(np.float32) / 2147483648.0
+    else:
+        raise ValueError("unsupported WAV (%d-bit, format %d): %s" % (bits, tag, os.path.basename(path)))
+    n = len(x) // ch
+    x = x[:n * ch].reshape(n, ch).T
+    if ch == 1:
+        x = np.vstack([x, x])
+    return np.ascontiguousarray(x[:2]), rate
+
+
+def write_wav(path, x, rate, bits):
+    ch, n = x.shape
+    if bits == 32:
+        payload = np.clip(x, -1, 1).T.astype("<f4").tobytes()
+        tag = 3
+    elif bits == 24:
+        v = np.clip(np.round(x.T * 8388607.0), -8388608, 8388607).astype(np.int32).reshape(-1)
+        b = np.empty((len(v), 3), dtype=np.uint8)
+        b[:, 0] = v & 255
+        b[:, 1] = (v >> 8) & 255
+        b[:, 2] = (v >> 16) & 255
+        payload = b.tobytes()
+        tag = 1
+    else:
+        bits = 16
+        payload = np.clip(np.round(x.T * 32767.0), -32768, 32767).astype("<i2").tobytes()
+        tag = 1
+    ba = bits // 8
+    head = b"RIFF" + struct.pack("<I", 36 + len(payload)) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, tag, ch, rate, rate * ch * ba, ch * ba, bits)
+    with open(path + ".part", "wb") as handle:
+        handle.write(head + b"data" + struct.pack("<I", len(payload)) + payload)
+    os.replace(path + ".part", path)
+
+
+def progress(p):
+    sys.stdout.write("%3d%%|\r" % max(0, min(100, int(p))))
+    sys.stdout.flush()
+
+
+def db(v):
+    return float(20 * np.log10(max(float(v), 1e-9)))
+
+
+def _debleed_block(S, R, win, N, H, sharp=1.0):
+    """S (k, 2, n), R (2, n): the masked stems for this block (STFT 4096 / hop 1024, sqrt-Hann in and out)."""
+    k, _, n = S.shape
+    pad = N
+    S = np.pad(S, ((0, 0), (0, 0), (pad, pad + N)))
+    R = np.pad(R, ((0, 0), (pad, pad + N)))
+    out = np.zeros_like(S)
+    frames = (n + pad) // H + 1
+    B = 32
+    for start in range(0, frames, B):
+        idx = np.arange(start, min(frames, start + B)) * H
+        cols = idx[:, None] + np.arange(N)[None, :]
+        for c in range(2):
+            spec = np.fft.rfft(S[:, c][:, cols] * win, axis=-1)
+            P = (spec.real ** 2 + spec.imag ** 2).astype(np.float32)
+            if sharp != 1.0:
+                P = P ** sharp
+            X = np.fft.rfft(R[c][cols] * win, axis=-1)
+            Y = np.fft.irfft(P / (P.sum(axis=0) + 1e-12) * X[None], n=N, axis=-1).astype(np.float32) * win
+            for j in range(len(idx)):
+                out[:, c, idx[j]:idx[j] + N] += Y[:, j]
+    return out[:, :, pad:pad + n] / 2.0   # (sqrt-Hann squared at 75 % overlap sums to 2)
+
+
+def debleed(stems, ref, amount, report, sharp=1.0):
+    """Every stem re-made from the reference (the song, or all the stems together) through its share of each
+    frequency in each frame: mask_i = P_i^sharp / sum(P^sharp) (sharp 1: a Wiener mask - a bleed at a quarter of the
+        level ends up at 1/16; higher is stronger, with more of the "watery" sound). Done in place, in blocks of ~45 s
+    (each with 4096 samples of margin on both sides, the margin before it kept from before it was changed), so a
+    long song with many stems needs little more memory than the stems themselves."""
+    N, H, C = 4096, 1024, 1 << 21   # (C and N multiples of H: every block has the same frame grid, so blocks join exactly)
+    keys = list(stems)
+    n = ref.shape[1]
+    win = np.sqrt(0.5 - 0.5 * np.cos(2 * np.pi * np.arange(N) / N)).astype(np.float32)
+    kept = None   # the original of the margin before this block (the block before it has changed it)
+    for a in range(0, n, C):
+        b = min(n, a + C)
+        lo, hi = max(0, a - N), min(n, b + N)
+        S = np.stack([stems[key][:, lo:hi] for key in keys])
+        if kept is not None:
+            S[:, :, :a - lo] = kept
+        kept = np.stack([stems[key][:, max(0, b - N):b] for key in keys]).copy()
+        Y = _debleed_block(S, ref[:, lo:hi], win, N, H, sharp)
+        for i, key in enumerate(keys):
+            stems[key][:, a:b] = (1 - amount) * S[i, :, a - lo:a - lo + (b - a)] + amount * Y[i, :, a - lo:a - lo + (b - a)]
+        del S, Y
+        report(b / float(n))
+    return stems
+
+
+BANDS = {"kick": (35, 130), "snare": (150, 2500), "hat": (6000, 16000), "crash": (3500, 12000)}
+OFFSET = 0.75   # (where in its frame a hit is found: calibrated on clicks at known times)
+GAPS = {"kick": 0.09, "snare": 0.09, "hat": 0.05, "crash": 0.35}
+
+
+def _fluxes(x, rate, bands):
+    """Spectral flux (log magnitude, positive differences) in each band: {name: array per hop of 512}. In blocks."""
+    N, H = 2048, 512
+    m = x.mean(axis=0) if x.ndim > 1 else x
+    frames = (len(m) - N) // H + 1
+    if frames < 3:
+        return {}
+    win = np.hanning(N).astype(np.float32)
+    freqs = np.fft.rfftfreq(N, 1.0 / rate)
+    sels = {k: (freqs >= lo) & (freqs <= hi) for k, (lo, hi) in bands.items()}
+    out = {k: np.zeros(frames, dtype=np.float32) for k in bands}
+    prev = None
+    for a in range(0, frames, 256):
+        idx = np.arange(a, min(frames, a + 256)) * H
+        lg = np.log1p(100.0 * np.abs(np.fft.rfft(m[idx[:, None] + np.arange(N)[None, :]] * win, axis=-1)))
+        both = lg if prev is None else np.vstack([prev[None], lg])
+        d = np.maximum(0.0, np.diff(both, axis=0))
+        if prev is None:
+            d = np.vstack([np.zeros((1, d.shape[1])), d])
+        for k, sel in sels.items():
+            out[k][a:a + len(d)] = d[:, sel].sum(axis=1)
+        prev = lg[-1]
+    return out
+
+
+def _peaks(flux, rate, gap, sens):
+    """Frames where the flux peaks above a moving median and a share of the loudest hits, at least <gap> s apart
+    (within the gap only the stronger one stays)."""
+    if not flux.any():
+        return []
+    H = 512
+    fps = rate / float(H)
+    k = max(3, int(fps * 0.4)) | 1
+    if len(flux) < 4000:
+        pad = np.pad(flux, (k // 2, k // 2), mode="edge")
+        med = np.array([np.median(pad[i:i + k]) for i in range(len(flux))], dtype=np.float32)
+    else:
+        med = _running_median(flux, k)
+    top = float(np.percentile(flux, 99.5))
+    thr = med * 1.5 + top * 0.18 / max(0.25, sens)   # (above the local level, and a fair share of the loudest hits)
+    cand = np.nonzero((flux[1:-1] > thr[1:-1]) & (flux[1:-1] >= flux[:-2]) & (flux[1:-1] > flux[2:]))[0] + 1
+    out = []
+    for i in cand:
+        if out and (i - out[-1]) / fps < gap:
+            if flux[i] > flux[out[-1]]:
+                out[-1] = i
+            continue
+        out.append(int(i))
+    return out
+
+
+def _times(frames, rate):
+    return [round(max(0.0, (i * 512 + OFFSET * 2048) / float(rate)), 3) for i in frames]
+
+
+def onsets(x, rate, band=None, gap=0.08, sens=1.0):
+    """The times (s) one part (a kick track, a snare track...) is hit."""
+    fl = _fluxes(x, rate, {"b": band or (30, rate / 2.0)})
+    return _times(_peaks(fl["b"], rate, gap, sens), rate) if fl else []
+
+
+def _running_median(v, k):
+    """A cheap moving median for long signals (median of 9 sub-block medians)."""
+    step = max(1, k // 9)
+    sub = np.array([np.median(v[i:i + step]) for i in range(0, len(v), step)], dtype=np.float32)
+    padded = np.pad(sub, (4, 4), mode="edge")
+    med = np.array([np.median(padded[i:i + 9]) for i in range(len(sub))], dtype=np.float32)
+    return np.repeat(med, step)[:len(v)]
+
+
+def drum_hits(stems, spec, rate, sens):
+    """spec: {"kick": key, "snare": key, "hat": key, "crash": key} (the kit pieces) or {"drums": key} (the whole kit:
+    a kick also rings in the snare's band and a snare in the kick's, so a kick or snare hit only counts when its own
+    band is at least 80 % as strong as the other one, each measured against its own loudest hits)."""
+    hits = {}
+    if spec.get("drums") in stems:
+        parts = ("kick", "snare", "hat")
+        fl = _fluxes(stems[spec["drums"]], rate, {p: BANDS[p] for p in parts})
+        if not fl:
+            return {}
+        norm = {p: fl[p] / (float(np.percentile(fl[p], 99.5)) + 1e-9) for p in parts}
+        for p in parts:
+            keep = []
+            for i in _peaks(fl[p], rate, GAPS[p], sens):
+                mine = norm[p][max(0, i - 1):i + 2].max()
+                rival = {"kick": "snare", "snare": "kick"}.get(p)
+                if not rival or mine >= 0.8 * norm[rival][max(0, i - 1):i + 2].max():
+                    keep.append(i)
+            hits[p] = _times(keep, rate)
+        return hits
+    for part in ("kick", "snare", "hat", "crash"):
+        key = spec.get(part)
+        if key in stems:
+            hits[part] = onsets(stems[key], rate, BANDS[part] if part in ("kick", "hat") else None, GAPS[part], sens)
+    return hits
+
+
+def main():
+    job = json.load(open(sys.argv[1]))
+    out_dir = job["out"]
+    os.makedirs(out_dir, exist_ok=True)
+    stems, rate = {}, None
+    for s in job["stems"]:
+        x, r = read_wav(s["path"])
+        if rate is None:
+            rate = r
+        if r != rate:
+            raise ValueError("the stems have different sample rates (%s: %d Hz)" % (s["key"], r))
+        stems[s["key"]] = x
+    n = max(x.shape[1] for x in stems.values())
+    for key in stems:
+        if stems[key].shape[1] < n:
+            stems[key] = np.pad(stems[key], ((0, 0), (0, n - stems[key].shape[1])))
+    progress(5)
+    hits = drum_hits(stems, job["hits"], rate, float(job.get("hitSens") or 1.0)) if isinstance(job.get("hits"), dict) else {}
+    aside = set(job.get("aside") or [])
+    # the extra drum tracks
+    perc = job.get("perc")
+    if perc and perc.get("drums") in stems and all(p in stems for p in perc.get("parts", [])):
+        rest = stems[perc["drums"]].copy()
+        for p in perc["parts"]:
+            rest -= stems[p]
+        stems["drum_perc"] = rest
+        if not perc.get("keepDrums"):
+            stems.pop(perc["drums"], None)
+        else:
+            aside.add(perc["drums"])   # (the whole kit next to its pieces: not part of the bleed sharing)
+    for m in job.get("merge") or []:
+        parts = [p for p in m.get("from", []) if p in stems]
+        if parts:
+            stems[m["key"]] = np.sum([stems.pop(p) for p in parts], axis=0)
+    progress(10)
+    # bleed: re-shape every stem from the song
+    amount = float(job.get("bleed") or 0)
+    shared = {k: v for k, v in stems.items() if k not in aside}
+    if amount > 0 and len(shared) > 1:
+        ref = None
+        if job.get("mix"):
+            try:
+                mx, mr = read_wav(job["mix"])
+                if mr == rate:
+                    ref = np.pad(mx, ((0, 0), (0, max(0, n - mx.shape[1]))))[:, :n]
+            except (OSError, ValueError):
+                ref = None
+        if ref is None:
+            ref = np.zeros((2, n), dtype=np.float32)
+            for x in shared.values():
+                ref += x
+        stems.update(debleed(shared, ref, max(0.0, min(1.0, amount)), lambda f: progress(10 + 75 * f), max(0.5, min(3.0, float(job.get("sharp") or 1.0)))))
+    progress(85)
+    # the same trim for every track
+    start, end = 0, n
+    if job.get("trim"):
+        loud = np.zeros(n, dtype=np.float32)
+        for x in stems.values():
+            loud += np.abs(x).max(axis=0)
+        above = np.nonzero(loud > 10 ** (-60 / 20.0))[0]
+        if len(above):
+            start = max(0, int(above[0]) - int(rate * 0.5))
+            end = min(n, int(above[-1]) + int(rate * 0.5))
+    hidden = set(job.get("hidden") or [])
+    bits = int(job.get("bits") or 32)
+    silent_db = float(job.get("silentDb") if job.get("silentDb") is not None else -55)
+    files = []
+    for key, x in stems.items():
+        if key in hidden:
+            continue
+        x = x[:, start:end]
+        mid, side = (x[0] + x[1]) * 0.5, (x[0] - x[1]) * 0.5
+        rms = float(np.sqrt(np.mean(x.astype(np.float64) ** 2))) if x.size else 0.0
+        mono = bool(job.get("mono")) and float(np.sqrt(np.mean(side.astype(np.float64) ** 2))) < 0.03 * float(np.sqrt(np.mean(mid.astype(np.float64) ** 2)) + 1e-12)
+        y = mid[None, :] if mono else x
+        path = os.path.join(out_dir, key + ".wav")
+        write_wav(path, y, rate, bits)
+        files.append({"key": key, "path": path, "db": round(db(rms), 1), "peakDb": round(db(np.max(np.abs(x)) if x.size else 0), 1), "mono": mono, "silent": db(rms) < silent_db})
+    progress(100)
+    t0 = start / float(rate)
+    hits = {k: [round(t - t0, 3) for t in v if t >= t0 and t < end / float(rate)] for k, v in hits.items()}
+    result = {"files": files, "rate": rate, "trimmed": [round(t0, 3), round((n - end) / float(rate), 3)], "hits": hits}
+    if job.get("result"):
+        with open(job["result"], "w") as handle:
+            json.dump(result, handle)
+    sys.stdout.write("\nRESULT " + json.dumps(result) + "\n")
+    sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    main()
+'''
+# ---- stemtool (end)
+
+
 class StemSplitter:
     """Split a song (one stereo file) into stems on this computer. Nothing is installed until the musician asks:
     then uv (a small Python manager) is fetched, a private Python with Demucs and audio-separator (the UVR models:
@@ -3844,7 +4193,11 @@ class StemSplitter:
                    ["MDX23C-8KFFT-InstVoc_HQ.ckpt", "MDX23C InstVoc HQ (faster)"]],
         "karaoke": [["mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt", "Mel-Band RoFormer karaoke (lead / backing)"]],
         "drums": [["MDX23C-DrumSep-aufr33-jarredou.ckpt", "MDX23C DrumSep (kick, snare, toms, hi-hat, ride, crash)"]],
+        "dereverb": [["UVR-DeEcho-DeReverb.pth", "UVR DeEcho-DeReverb"], ["dereverb_mel_band_roformer_anvuew_sdr_19.1729.ckpt", "Mel-Band RoFormer de-reverb (anvuew)"]],
     }
+    ENSEMBLE = ["mel_band_roformer_kim_ft_unwa.ckpt"]   # (Studio: these vote with the vocal model)
+    ENSEMBLE_ALGOS = ["avg_fft", "avg_wave", "median_fft", "median_wave", "max_fft", "min_fft", "uvr_max_spec", "uvr_min_spec"]
+    RESPLIT = ("vocals", "lead", "drums", "band6", "dereverb")
 
     def __init__(self, driver):
         self.driver = driver
@@ -3911,7 +4264,8 @@ class StemSplitter:
             jobs = [self._public(j) for j in self.jobs.values()]
         envdir = os.path.join(self.root, "env")
         return {"installed": self.command() is not None, "custom": bool(os.environ.get("CC_DEMUCS_CMD")), "partial": os.path.isdir(envdir) and self.command() is None,
-                "separator": self.separator_command() is not None, "sepModels": self.SEP_MODELS,
+                "separator": self.separator_command() is not None, "sepModels": self.SEP_MODELS, "ensembleAlgos": self.ENSEMBLE_ALGOS, "ensemble": self.ENSEMBLE,
+                "cleanup": self.tool_python() is not None,
                 "install": dict(self.install_state, log=self.install_state["log"][-2500:]), "devices": self.devices(), "models": list(self.MODELS),
                 "slow": self.slow(), "memoryGb": self.memory_gb(), "platform": sys.platform, "jobs": jobs,
                 "settings": {"packages": self.cfg.get("packages") or "", "python": self.cfg.get("python") or "3.11"}}
@@ -4084,10 +4438,11 @@ class StemSplitter:
         ok_roots += [os.path.realpath(r) for r in (self.driver.config.get("media_roots") or [])]
         return path if any(path.startswith(r + os.sep) for r in ok_roots) else None
 
-    def args_for(self, opts, src, out, two_stems=None):
-        model = opts.get("model") if opts.get("model") in self.MODELS else "htdemucs"
+    def args_for(self, opts, src, out, two_stems=None, model=None, shifts=None):
+        model = model if model in self.MODELS else (opts.get("model") if opts.get("model") in self.MODELS else "htdemucs")
         a = ["-n", model, "-o", out, "--filename", "{stem}.{ext}"]
-        shifts = max(0, min(20, int(opts["shifts"]) if opts.get("shifts") not in (None, "") else 1))
+        if shifts is None:
+            shifts = max(0, min(20, int(opts["shifts"]) if opts.get("shifts") not in (None, "") else 1))
         a += ["--shifts", str(shifts)]
         overlap = float(opts.get("overlap") if opts.get("overlap") is not None else 0.25)
         a += ["--overlap", "%.2f" % max(0.0, min(0.99, overlap))]
@@ -4118,10 +4473,13 @@ class StemSplitter:
             device = "cuda" if "cuda" in self.devices() else ("mps" if "mps" in self.devices() else "cpu")
         return device
 
-    def sep_args(self, opts, model, src, out):
-        """audio-separator (the UVR models: RoFormer, MDX23C...): one model on one file."""
+    def sep_args(self, opts, model, src, out, extra=None, algo=None):
+        """audio-separator (the UVR models: RoFormer, MDX23C...): one model on one file - or an ensemble, where
+        more models vote on the same split (--extra_models, --ensemble_algorithm)."""
         fmt = {"mp3": "MP3", "flac": "FLAC"}.get(opts.get("format") or "wav", "WAV")
         a = [src, "-m", model, "--output_dir", out, "--model_file_dir", os.path.join(self.root, "models", "uvr"), "--output_format", fmt, "--log_level", "info"]
+        if extra:
+            a += ["--extra_models"] + list(extra) + ["--ensemble_algorithm", algo if algo in self.ENSEMBLE_ALGOS else self.ENSEMBLE_ALGOS[0]]
         if opts.get("sepSegment"):
             a += ["--mdxc_segment_size", str(max(32, min(4096, int(opts["sepSegment"]))))]
         if opts.get("sepOverlap"):
@@ -4130,38 +4488,78 @@ class StemSplitter:
             a += ["--use_autocast"]
         return a
 
+    @staticmethod
+    def _file_ok(v):
+        return bool(re.match(r"^[A-Za-z0-9_.\-]+\.(ckpt|onnx|pth|yaml|th)$", str(v or "")))
+
     def _model(self, opts, key, kind):
         """A model file name the musician picked (or typed), else the first of its kind."""
         v = str(opts.get(key) or "")
-        if re.match(r"^[A-Za-z0-9_.\-]+\.(ckpt|onnx|pth|yaml|th)$", v):
-            return v
-        return self.SEP_MODELS[kind][0][0]
+        return v if self._file_ok(v) else self.SEP_MODELS[kind][0][0]
+
+    def _ensemble(self, opts, main):
+        """The models that vote with the vocal model in Studio (the musician's list, else ENSEMBLE)."""
+        got = opts.get("ensembleModels")
+        names = got if isinstance(got, list) else self.ENSEMBLE
+        return [m for m in names if self._file_ok(m) and m != main][:4]
 
     def plan(self, opts, src, out):
-        """The steps of a split: [(label, kind, argv-builder input, step dir, weight)]."""
-        best = opts.get("quality") == "best"
+        """The steps of a split. Each: label, kind (demucs / sep), what it splits ("in"), its folder, its weight, and
+        what it does with the files ("does"): vox (vocals / band), band (Demucs: keep = the stems to keep, else all),
+        lead (lead / backing), drums (kit pieces), dry (the reverb off). "optional" steps can fail without failing
+        the split (it says so). opts["only"] = one step on a stem of an earlier split (Split again)."""
+        only = str(opts.get("only") or "")
+        if only:
+            one = {"vocals": {"label": "Vocals and the rest", "kind": "sep", "model": self._model(opts, "vocalModel", "vocals"), "does": "vox"},
+                   "lead": {"label": "Lead and backing vocals", "kind": "sep", "model": self._model(opts, "karaokeModel", "karaoke"), "does": "lead"},
+                   "drums": {"label": "Kick, snare, toms and cymbals", "kind": "sep", "model": self._model(opts, "drumModel", "drums"), "does": "drums"},
+                   "band6": {"label": "Guitar, piano and the rest (Demucs 6 stems)", "kind": "demucs", "model": "htdemucs_6s", "does": "band"},
+                   "dereverb": {"label": "Taking the reverb off", "kind": "sep", "model": self._model(opts, "dereverbModel", "dereverb"), "does": "dry"}}.get(only)
+            if not one:
+                raise ValueError("can't split a stem that way")
+            return [dict(one, **{"in": "src", "dir": "1-" + only, "weight": 3})]
+        quality = opts.get("quality")
         two = str(opts.get("twoStems") or "")
         steps = []
-        if best and two in ("", "vocals"):
-            steps.append({"label": "Vocals (best-quality model)", "kind": "sep", "model": self._model(opts, "vocalModel", "vocals"), "in": "src", "dir": "1-vocals", "weight": 3})
+        if quality in ("best", "studio") and two in ("", "vocals"):
+            vm = self._model(opts, "vocalModel", "vocals")
+            extra = self._ensemble(opts, vm) if quality == "studio" and opts.get("ensemble") is not False else []
+            steps.append({"label": "Vocals (%s)" % ("%d models together" % (1 + len(extra)) if extra else "best-quality model"), "kind": "sep", "model": vm, "extra": extra,
+                          "algo": opts.get("ensembleAlgo"), "in": "src", "dir": "1-vocals", "weight": 3 + 2 * len(extra), "does": "vox"})
             if not two:
-                steps.append({"label": "Drums, bass and the rest (Demucs)", "kind": "demucs", "in": "instrumental", "dir": "2-band", "weight": 3, "two": ""})
+                if quality == "studio":
+                    band = opts.get("bandModel") if opts.get("bandModel") in self.MODELS else "htdemucs_ft"
+                    six = opts.get("band6Model", "htdemucs_6s")
+                    six = six if six in self.MODELS else ""
+                    sh = max(2, min(20, int(opts["shifts"]) if opts.get("shifts") not in (None, "") else 2))
+                    steps.append({"label": "Drums and bass (Demucs, %s)" % band, "kind": "demucs", "model": band, "shifts": sh, "in": "instrumental", "dir": "2-band", "weight": 4,
+                                  "does": "band", "keep": ["drums", "bass"] if six else None})
+                    if six:
+                        steps.append({"label": "Guitar, keys and the rest (Demucs, 6 stems)", "kind": "demucs", "model": six, "shifts": max(1, sh // 2), "in": "instrumental",
+                                      "dir": "3-band6", "weight": 2, "does": "band", "keep": ["guitar", "piano", "other"]})
+                else:
+                    steps.append({"label": "Drums, bass and the rest (Demucs)", "kind": "demucs", "in": "instrumental", "dir": "2-band", "weight": 3, "does": "band"})
         else:
-            steps.append({"label": "Splitting (Demucs)", "kind": "demucs", "in": "src", "dir": "1-demucs", "weight": 4, "two": two})
+            steps.append({"label": "Splitting (Demucs)", "kind": "demucs", "in": "src", "dir": "1-demucs", "weight": 4, "two": two, "does": "band"})
         if opts.get("leadBacking") and two in ("", "vocals"):
-            steps.append({"label": "Lead and backing vocals", "kind": "sep", "model": self._model(opts, "karaokeModel", "karaoke"), "in": "vocals", "dir": "3-lead", "weight": 2, "split": "vocals"})
+            steps.append({"label": "Lead and backing vocals", "kind": "sep", "model": self._model(opts, "karaokeModel", "karaoke"), "in": "vocals", "dir": "4-lead", "weight": 2, "does": "lead"})
+        if opts.get("dereverb") and two in ("", "vocals") and quality in ("best", "studio"):
+            steps.append({"label": "Taking the reverb off the vocals", "kind": "sep", "model": self._model(opts, "dereverbModel", "dereverb"), "in": "lead" if opts.get("leadBacking") else "vocals",
+                          "dir": "5-dry", "weight": 1, "does": "dry", "optional": True})
         if opts.get("drumParts") and not two:
-            steps.append({"label": "Kick, snare, toms and cymbals", "kind": "sep", "model": self._model(opts, "drumModel", "drums"), "in": "drums", "dir": "4-drums", "weight": 2, "split": "drums"})
+            steps.append({"label": "Kick, snare, toms and cymbals", "kind": "sep", "model": self._model(opts, "drumModel", "drums"), "in": "drums", "dir": "6-drums", "weight": 2, "does": "drums"})
         return steps
 
-    def start(self, path, opts):
+    def start(self, path, opts, parent=None):
         cmd = self.command()
         if not cmd:
             raise ValueError("the stem splitter isn't installed yet")
         src = self._input_ok(path)
         if not src:
             raise ValueError("can't find that file")
-        opts = opts if isinstance(opts, dict) else {}
+        opts = dict(opts) if isinstance(opts, dict) else {}
+        if opts.get("kit") == "drums" and opts.get("cleanup"):
+            opts["keepDrums"] = False   # (the kit pieces become the Drums track again)
         steps = self.plan(opts, src, None)
         if any(s["kind"] == "sep" for s in steps) and not self.separator_command():
             raise ValueError("the best-quality models aren't installed yet - press Install (or Update) in the stem splitter")
@@ -4170,12 +4568,34 @@ class StemSplitter:
         os.makedirs(out, exist_ok=True)
         model = opts.get("model") if opts.get("model") in self.MODELS else "htdemucs"
         job = {"id": jid, "name": os.path.basename(src), "state": "running", "progress": 0.0, "model": model, "opts": opts, "step": steps[0]["label"],
-               "steps": [s["label"] for s in steps], "files": [], "error": "", "started": time.time(), "eta": None, "out": out, "proc": None, "log": "",
-               "bags": self.BAGS.get(model, 1) * max(1, int(opts["shifts"]) if opts.get("shifts") not in (None, "") else 1)}
+               "steps": [s["label"] for s in steps] + (["Cleaning up the tracks"] if self._cleanup_on(opts) else []), "files": [], "error": "", "started": time.time(),
+               "eta": None, "out": out, "proc": None, "log": "", "notes": [], "hits": {}, "parent": parent}
         with self.lock:
             self.jobs[jid] = job
         threading.Thread(target=self._work, args=(job, src, steps), daemon=True).start()
         return self._public(job)
+
+    def resplit(self, jid, rel, kind, opts=None):
+        """Split one stem of a finished split again (Split again in the review): its lead and backing, its kit
+        pieces, guitar / piano / the rest, or its reverb off. Same settings as the first split, no trim (the new
+        tracks stay in time with the others), and the stem itself is what they add up to."""
+        parent = self.jobs.get(str(jid))
+        if not parent or parent.get("state") != "done":
+            raise ValueError("that split isn't finished")
+        if kind not in self.RESPLIT:
+            raise ValueError("can't split a stem that way")
+        src = self.file_path(jid, rel)
+        if not src:
+            raise ValueError("can't find that stem")
+        o = dict(parent.get("opts") or {}, only=kind, trim=False, review=True, dropSilent=False, keepReverb=True)
+        if isinstance(opts, dict):
+            o.update({k: v for k, v in opts.items() if k not in ("only", "trim")})
+        if kind == "drums":
+            o["kit"] = "pieces"   # (asked for the kit pieces: they stay apart)
+        if kind in ("band6",) and o.get("quality") not in ("best", "studio"):
+            o["quality"] = "best"
+        o.pop("twoStems", None)
+        return self.start(src, o, parent=str(jid))
 
     def _run_step(self, job, argv, done_w, weight, total_w, bars_expected, env):
         bars, last_pct = 0, 0.0
@@ -4201,7 +4621,7 @@ class StemSplitter:
                     el = time.time() - job["started"]
                     job["eta"] = int(el * (1 - job["progress"]) / job["progress"]) if job["progress"] > 0.03 else None
                     self._emit_job(job)
-                elif line.strip():
+                elif line.strip() and not line.startswith("RESULT "):
                     job["log"] = (job["log"] + line + "\n")[-4000:]
             else:
                 buf += ch
@@ -4225,73 +4645,221 @@ class StemSplitter:
                 found[key] = p
         return found
 
+    @staticmethod
+    def _dry_wet(got):
+        """A de-reverb model's two files: (dry, wet). They are called No Reverb / Reverb, No Echo / Echo, dry / wet..."""
+        dry = next((p for k, p in got.items() if k.startswith("no") or "dry" in k), None)
+        dry = dry or next((p for k, p in got.items() if not re.search(r"reverb|echo|wet", k)), None)
+        wet = next((p for k, p in got.items() if p != dry), None)
+        return dry, wet
+
+    # ----- the clean-up pass (stemtool: numpy, in the splitter's own Python)
+    def tool_python(self):
+        custom = os.environ.get("CC_STEMTOOL_PYTHON") or ""
+        if custom.strip():
+            import shlex
+            return shlex.split(custom, posix=os.name != "nt")
+        if self.env_python() and os.path.isfile(os.path.join(self.root, "env", ".demucs-ok")):
+            return [self.env_python()]
+        spy = os.path.join(self.root, "env-sep", "Scripts", "python.exe") if os.name == "nt" else os.path.join(self.root, "env-sep", "bin", "python")
+        return [spy] if os.path.isfile(spy) and os.path.isfile(os.path.join(self.root, "env-sep", ".separator-ok")) else None
+
+    def tool_path(self):
+        """The clean-up tool, written next to the splitter's settings (it is part of this file, so the bundled
+        driver and the Pi have it too)."""
+        p = os.path.join(self.root, "stemtool.py")
+        try:
+            with open(p) as handle:
+                same = handle.read() == STEMTOOL
+        except OSError:
+            same = False
+        if not same:
+            with open(p + ".part", "w") as handle:
+                handle.write(STEMTOOL)
+            os.replace(p + ".part", p)
+        return p
+
+    def _cleanup_on(self, opts):
+        return bool(opts.get("cleanup")) and self.tool_python() is not None
+
+    def _mix_ref(self, job, src):
+        """The song as a WAV (44.1 kHz float, the rate the models write) for the bleed step: the stems are made to
+        add up to it. Without ffmpeg, the song itself when it is a WAV (or nothing: the stems' own sum is used)."""
+        ff = shutil.which("ffmpeg")
+        if ff:
+            p = os.path.join(job["out"], "0-mix.wav")
+            r = subprocess.run([ff, "-y", "-loglevel", "error", "-i", src, "-ac", "2", "-ar", "44100", "-c:a", "pcm_f32le", p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
+            if r.returncode == 0 and os.path.isfile(p):
+                return p
+        return src if src.lower().endswith(".wav") else None
+
+    def _cleanup(self, job, src, final, hidden, done_w, total_w, env):
+        o = job["opts"]
+        clean = os.path.join(job["out"], "clean")
+        os.makedirs(clean, exist_ok=True)
+        stems = [{"key": k, "path": p} for k, p in final.items()] + [{"key": k, "path": p} for k, p in hidden.items() if k not in final]
+        drum_keys = [k for k in final if k.startswith("drum_") and k != "drum_perc"]
+        spec = {"out": clean, "stems": stems, "mix": self._mix_ref(job, src), "result": os.path.join(clean, "result.json"),
+                "bleed": max(0.0, min(1.0, float(o.get("bleed") if o.get("bleed") is not None else 50) / 100.0)), "sharp": max(0.5, min(3.0, float(o.get("bleedSharp") or 1.0))),
+                "trim": o.get("trim") is not False and not o.get("only"), "mono": o.get("mono") is not False, "hidden": sorted(hidden),
+                "silentDb": float(o.get("silentDb") if o.get("silentDb") is not None else -55), "hitSens": float(o.get("hitSens") or 1.0),
+                "bits": {"wav24": 24, "float": 32, "mp3": 32, "flac": 32}.get(o.get("format") or "wav", 16)}
+        if "drums_all" in hidden:   # (the whole kit, next to its pieces: never shares the song with them)
+            if drum_keys and o.get("perc") is not False:
+                spec["perc"] = {"drums": "drums_all", "parts": drum_keys, "keepDrums": bool(o.get("keepDrums"))}   # Perc = the kit minus its pieces
+            elif o.get("keepDrums"):
+                spec["aside"] = ["drums_all"]
+            else:
+                spec["stems"] = [x for x in stems if x["key"] != "drums_all"]
+            if o.get("keepDrums"):
+                spec["hidden"] = [k for k in spec["hidden"] if k != "drums_all"]
+        kit = o.get("kit") if o.get("kit") in ("drums", "cymbals", "pieces") else "pieces"
+        if drum_keys and kit == "drums":     # MultiTracks style: Drums (the kit pieces together) + Perc (the rest)
+            spec["merge"] = [{"key": "drums", "from": drum_keys}]
+        elif drum_keys and kit == "cymbals":   # Kick, Snare, Toms, Cymbals (hi-hat + ride + crash), Perc
+            spec["merge"] = [{"key": "drum_cymbals", "from": [k for k in ("drum_hh", "drum_ride", "drum_crash") if k in final]}]
+        if o.get("hits") is not False:
+            if drum_keys:
+                spec["hits"] = {p: "drum_" + k for p, k in (("kick", "kick"), ("snare", "snare"), ("hat", "hh"), ("crash", "crash")) if "drum_" + k in final}
+            elif "drums" in final:
+                spec["hits"] = {"drums": "drums"}
+        jp = os.path.join(clean, "job.json")
+        write_json(jp, spec)
+        self._run_step(job, self.tool_python() + [self.tool_path(), jp], done_w, 1, total_w, 1, env)
+        res = read_json(spec["result"], None)
+        if not isinstance(res, dict):
+            raise RuntimeError("the clean-up didn't finish")
+        return res
+
     def _work(self, job, src, steps):
-        want = job["opts"].get("format") or "wav"
-        step_opts = dict(job["opts"], format="float") if want in ("mp3", "flac") and len(steps) > 1 else job["opts"]   # (no lossy steps in between)
+        o = job["opts"]
+        want = o.get("format") or "wav"
+        cleanup = self._cleanup_on(o)
+        if o.get("cleanup") and not cleanup:
+            job["notes"].append("The clean-up pass was skipped: it needs the stem splitter's own Python (Install in the stem splitter).")
+        step_opts = dict(o, format="float") if (want in ("mp3", "flac") and len(steps) > 1) or cleanup else o   # (no lossy steps in between)
         try:
             env = dict(os.environ, PYTHONUNBUFFERED="1", TORCH_HOME=os.path.join(self.root, "models"))
-            total = float(sum(s["weight"] for s in steps)) or 1.0
+            total = float(sum(s["weight"] for s in steps) + (1 if cleanup else 0)) or 1.0
             done = 0.0
             have = {"src": src}
-            final = {}   # nice name -> (path, role)
+            final = {}    # stem key -> file
+            hidden = {}   # stems that take their share of the song in the clean-up, but aren't kept
             for s in steps:
                 job["step"] = s["label"]
                 self._emit_job(job, force=True)
                 inp = have.get(s["in"])
                 if not inp:
+                    if s.get("optional"):
+                        continue
                     raise RuntimeError("nothing to split for: " + s["label"])
                 d = os.path.join(job["out"], s["dir"])
                 os.makedirs(d, exist_ok=True)
-                if s["kind"] == "demucs":
-                    argv = self.command() + self.args_for(step_opts, inp, d, two_stems=s.get("two"))
-                    self._run_step(job, argv, done, s["weight"], total, job["bags"], env)
-                else:
-                    argv = self.separator_command() + self.sep_args(step_opts, s["model"], inp, d)
-                    self._run_step(job, argv, done, s["weight"], total, 1, env)
+                try:
+                    if s["kind"] == "demucs":
+                        model = s.get("model") or (o.get("model") if o.get("model") in self.MODELS else "htdemucs")
+                        argv = self.command() + self.args_for(step_opts, inp, d, two_stems=s.get("two", ""), model=model, shifts=s.get("shifts"))
+                        bags = self.BAGS.get(model, 1) * max(1, s.get("shifts") or (int(o["shifts"]) if o.get("shifts") not in (None, "") else 1))
+                        self._run_step(job, argv, done, s["weight"], total, bags, env)
+                    else:
+                        try:
+                            self._run_step(job, self.separator_command() + self.sep_args(step_opts, s["model"], inp, d, s.get("extra"), s.get("algo")), done, s["weight"], total, 1 + len(s.get("extra") or []), env)
+                        except RuntimeError as error:
+                            if not s.get("extra"):
+                                raise
+                            # the ensemble didn't work here (a model that won't download, an old audio-separator): one model then
+                            job["notes"].append("The vocal models couldn't work together (%s) - the vocals are from %s alone." % (str(error)[:120], s["model"]))
+                            shutil.rmtree(d, ignore_errors=True)
+                            os.makedirs(d, exist_ok=True)
+                            self._run_step(job, self.separator_command() + self.sep_args(step_opts, s["model"], inp, d), done, s["weight"], total, 1, env)
+                    got = self._outputs(d)
+                    if not got:
+                        raise RuntimeError(s["label"] + ": no files came out")
+                except RuntimeError as error:
+                    if not s.get("optional"):
+                        raise
+                    job["notes"].append("%s didn't work (%s) - left as it was." % (s["label"], str(error)[:160]))
+                    done += s["weight"]
+                    continue
                 done += s["weight"]
-                got = self._outputs(d)
-                if not got:
-                    raise RuntimeError(s["label"] + ": no files came out")
-                if s["kind"] == "sep" and s["in"] == "src":   # vocals / instrumental
+                does = s.get("does")
+                if does == "vox":   # vocals / instrumental (some models call it "other")
                     voc = got.get("vocals")
-                    inst = got.get("instrumental") or got.get("no_vocals") or next((p for k, p in got.items() if k != "vocals"), None)   # (some models call it "other")
+                    inst = got.get("instrumental") or got.get("no_vocals") or next((p for k, p in got.items() if k != "vocals"), None)
                     if voc:
-                        have["vocals"] = voc
+                        have["vocals"] = have["lead"] = voc
                         final["vocals"] = voc
                     if inst:
                         have["instrumental"] = inst
-                        if len(steps) == 1 or str(job["opts"].get("twoStems") or "") == "vocals":
+                        if len(steps) == 1 or str(o.get("twoStems") or "") == "vocals":
                             final["no_vocals"] = inst
-                elif s["kind"] == "demucs":
+                elif does == "band":
+                    keep = s.get("keep")
                     for k, p in got.items():
                         if s["in"] == "instrumental" and k == "vocals":
-                            continue   # (what is left of the vocals in the band: the RoFormer vocals are better)
+                            hidden["rest_vocals"] = p   # (what is left of the vocals in the band: the RoFormer vocals are better)
+                            continue
+                        if keep and k not in keep:
+                            continue
                         have[k] = p
                         final[k] = p
-                elif s.get("split") == "vocals":
+                elif does == "lead":
                     final.pop("vocals", None)
                     if got.get("vocals"):
-                        final["lead_vocals"] = got["vocals"]
+                        final["lead_vocals"] = have["lead"] = got["vocals"]
                     back = got.get("instrumental") or got.get("no_vocals") or got.get("backing_vocals") or next((p for k, p in got.items() if k != "vocals"), None)
                     if back:
                         final["backing_vocals"] = back
-                elif s.get("split") == "drums":
-                    if job["opts"].get("keepDrums") is not True:
+                elif does == "dry":
+                    dry, wet = self._dry_wet(got)
+                    target = "lead_vocals" if "lead_vocals" in final else "vocals"
+                    if dry:
+                        final[target] = dry
+                    if wet:
+                        if o.get("keepReverb"):
+                            final["vox_fx"] = wet
+                        else:
+                            hidden["vox_fx"] = wet
+                elif does == "drums":
+                    whole = final.get("drums") or have.get("src")
+                    if o.get("keepDrums") is not True:
                         final.pop("drums", None)
+                    if whole:
+                        hidden["drums_all"] = whole
                     for k, p in got.items():
                         final["drum_" + k] = p
+            stats = {}
+            if cleanup:
+                job["step"] = "Cleaning up the tracks"
+                self._emit_job(job, force=True)
+                if o.get("keepDrums") and "drums" in final and "drums_all" in hidden:
+                    hidden.pop("drums_all")   # (Drums is kept as it is, next to its pieces: stemtool sets it aside)
+                    hidden["drums_all"] = final.pop("drums")
+                res = self._cleanup(job, src, final, hidden, done, total, env)
+                final = {f["key"]: f["path"] for f in res.get("files", [])}
+                stats = {f["key"]: f for f in res.get("files", [])}
+                if "drums_all" in final:   # (kept: it is the Drums track)
+                    final["drums"] = final.pop("drums_all")
+                    stats["drums"] = stats.pop("drums_all")
+                job["hits"] = res.get("hits") or {}
+                job["trimmed"] = res.get("trimmed") or [0, 0]
             # the finished stems, with their names and roles, in final/
             out = os.path.join(job["out"], "final")
             os.makedirs(out, exist_ok=True)
             files = []
             ff = shutil.which("ffmpeg")
+            mt = o.get("trackSet") == "multitracks"
             for key in sorted(final, key=self._order):
+                st = stats.get(key) or {}
+                if st.get("silent") and o.get("dropSilent") is not False and not o.get("review"):
+                    job["notes"].append("%s was silent - left out." % self._nice(key, mt, final)[0])
+                    continue
                 p = final[key]
-                nice, role = self._nice(key)
+                nice, role = self._nice(key, mt, final)
                 ext = p.rsplit(".", 1)[-1].lower()
                 if want in ("mp3", "flac") and ext == "wav" and ff:   # (the format asked for, made once from the WAV)
                     name = nice + "." + want
-                    codec = ["-codec:a", "libmp3lame", "-b:a", "%dk" % max(96, min(320, int(job["opts"].get("mp3Kbps") or 320)))] if want == "mp3" else ["-codec:a", "flac"]
+                    codec = ["-codec:a", "libmp3lame", "-b:a", "%dk" % max(96, min(320, int(o.get("mp3Kbps") or 320)))] if want == "mp3" else ["-codec:a", "flac"]
                     r = subprocess.run([ff, "-y", "-loglevel", "error", "-i", p] + codec + [os.path.join(out, name)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
                     if r.returncode != 0:
                         name = nice + ".wav"
@@ -4299,7 +4867,10 @@ class StemSplitter:
                 else:
                     name = nice + "." + ext
                     shutil.copyfile(p, os.path.join(out, name))
-                files.append({"name": name, "stem": key, "role": role, "size": os.path.getsize(os.path.join(out, name)), "rel": "final/" + name})
+                f = {"name": name, "stem": key, "role": role, "size": os.path.getsize(os.path.join(out, name)), "rel": "final/" + name}
+                if st:
+                    f.update({"db": st.get("db"), "peakDb": st.get("peakDb"), "mono": st.get("mono"), "silent": st.get("silent")})
+                files.append(f)
             job["files"] = files
             job["state"] = "done"
             job["progress"] = 1.0
@@ -4315,17 +4886,26 @@ class StemSplitter:
             job["finished"] = time.time()
             self._emit_job(job, force=True)
 
-    ORDER = ["lead_vocals", "backing_vocals", "vocals", "drums", "drum_kick", "drum_snare", "drum_toms", "drum_hh", "drum_ride", "drum_crash", "drum_cymbals",
+    ORDER = ["lead_vocals", "backing_vocals", "vocals", "vox_fx", "drums", "drum_kick", "drum_snare", "drum_toms", "drum_hh", "drum_ride", "drum_crash", "drum_cymbals", "drum_perc",
              "bass", "guitar", "piano", "other", "no_vocals", "no_drums", "no_bass", "no_other"]
-    NICE = {"lead_vocals": ("Lead vocals", "vocals"), "backing_vocals": ("Backing vocals", "vocals"), "vocals": ("Vocals", "vocals"), "drums": ("Drums", "drums"),
-            "drum_kick": ("Kick", "drums"), "drum_snare": ("Snare", "drums"), "drum_toms": ("Toms", "drums"), "drum_hh": ("Hi-hat", "drums"), "drum_ride": ("Ride", "drums"),
-            "drum_crash": ("Crash", "drums"), "drum_cymbals": ("Cymbals", "drums"), "bass": ("Bass", "bass"), "guitar": ("Guitar", "guitar"), "piano": ("Piano", "keys"),
-            "other": ("Other", "music"), "no_vocals": ("Band (no vocals)", "music"), "no_drums": ("No drums", "music"), "no_bass": ("No bass", "music"), "no_other": ("Rest", "music")}
+    NICE = {"lead_vocals": ("Lead vocals", "vocals"), "backing_vocals": ("Backing vocals", "vocals"), "vocals": ("Vocals", "vocals"), "vox_fx": ("Vocal reverb", "vocals"),
+            "drums": ("Drums", "drums"), "drum_kick": ("Kick", "drums"), "drum_snare": ("Snare", "drums"), "drum_toms": ("Toms", "drums"), "drum_hh": ("Hi-hat", "drums"),
+            "drum_ride": ("Ride", "drums"), "drum_crash": ("Crash", "drums"), "drum_cymbals": ("Cymbals", "drums"), "drum_perc": ("Percussion", "drums"), "bass": ("Bass", "bass"),
+            "guitar": ("Guitar", "guitar"), "piano": ("Piano", "keys"), "other": ("Other", "music"), "no_vocals": ("Band (no vocals)", "music"), "no_drums": ("No drums", "music"),
+            "no_bass": ("No bass", "music"), "no_other": ("Rest", "music")}
+    MT = {"lead_vocals": "Lead Vox", "backing_vocals": "BGVs", "vocals": "Vox", "vox_fx": "Vox FX", "drum_hh": "Hi-Hat", "drum_perc": "Perc", "guitar": "Guitars", "piano": "Keys",
+          "other": "Synth & Pads", "no_vocals": "Band"}
 
     def _order(self, key):
         return (self.ORDER.index(key), key) if key in self.ORDER else (len(self.ORDER), key)
 
-    def _nice(self, key):
+    def _nice(self, key, multitracks=False, keys=()):
+        """(file name, role). The MultiTracks-style set: Lead Vox, BGVs, Vox FX, Kick, Snare, Toms, Cymbals, Perc, Bass,
+        Guitars, Keys, Synth & Pads... ("other" is Synth & Pads only when guitar and keys have their own tracks)."""
+        if multitracks and key in self.MT:
+            if key == "other" and "guitar" not in keys and "piano" not in keys:
+                return ("Instruments", "music")
+            return (self.MT[key], "keys" if key == "other" else self.NICE.get(key, ("", "music"))[1])
         if key in self.NICE:
             return self.NICE[key]
         base = key[5:] if key.startswith("drum_") else key

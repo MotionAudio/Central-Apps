@@ -91,6 +91,11 @@
   delete rig.output;
   rig.click = Object.assign({ hear: true, follow: true, output: false, device: "", level: 0.6, accent: true }, rig.click || {});
   rig.audio = Object.assign({ react: true, amount: 0.45, onsets: true }, rig.audio || {});
+  // the drum hits of a split song (kick, snare, hi-hat, crash - from the Central Pedal's stem splitter): a flash preset
+  // for each ("" = none), and the MIDI notes the pedal sends them on (General MIDI unless you changed them there)
+  rig.drums = Object.assign({ crash: "hit", kick: "", snare: "", hat: "" }, rig.drums || {});
+  rig.drums.notes = Object.assign({ kick: 36, snare: 38, hat: 42, crash: 49 }, rig.drums.notes || {});
+  var DRUMS = [["kick", "Kick"], ["snare", "Snare"], ["hat", "Hi-hat"], ["crash", "Crash"]];
   rig.localSongs = rig.localSongs || [];
   rig.defaultMode = rig.defaultMode || "semi";
   rig.groupLevel = rig.groupLevel || {};
@@ -98,7 +103,7 @@
   function lookById(id) { return rig.looks.filter(function (l) { return l.id === id; })[0] || rig.looks[0]; }
 
   // ------------------------------------------------------------- song position (follows the Central Pedal, or the preview here)
-  var song = { id: null, name: "", pos: 0, at: 0, playing: false, speed: 1, bpm: 120, bpb: 4, bars: [], barBeats: [], hits: [], sections: [], duration: 0, overview: [], hasTracks: false, local: false };
+  var song = { id: null, name: "", pos: 0, at: 0, playing: false, speed: 1, bpm: 120, bpb: 4, bars: [], barBeats: [], hits: [], drumHits: null, sections: [], duration: 0, overview: [], hasTracks: false, local: false };
   var preview = null;   // { ctx, sources, startAt, offset, click } when "Preview here" plays
   function posNow() {
     if (preview) return preview.offset + (preview.ctx.currentTime - preview.startAt);
@@ -136,10 +141,16 @@
       var last = secs[secs.length - 1], end = barBeatAt(Math.max(0, (last.end || song.duration) - 0.01));
       cues.push({ id: "auto-end", bar: end.bar + 1, beat: 1, look: "blackout", fade: 4, kind: "look", auto: true, label: "End" });
     } else cues.push({ id: "auto-start", bar: 1, beat: 1, look: "worship", fade: 2, kind: "look", auto: true, label: "Start" });
+    var dh = song.drumHits, crashes = dh && rig.drums.crash && (dh.crash || []).length;
     (song.hits || []).forEach(function (h, k) {
       var bb = barBeatAt(h), beat = Math.round((bb.beat) * 2) / 2;
       if (secs.some(function (s) { return Math.abs(s.start - h) < 60 / song.bpm * 0.75; })) return;
+      if (crashes && dh.crash.some(function (c) { return Math.abs(c - h) < 0.12; })) return;   // (the crash flashes it)
       cues.push({ id: "auto-hit-" + k, bar: bb.bar, beat: beat >= beatsIn(bb.bar - 1) + 1 ? 1 : beat, look: "hit", fade: 0, kind: "flash", dur: 0.5, auto: true, label: "Hit" });
+    });
+    if (dh) DRUMS.forEach(function (d) {   // the drum hits, right where they are (not rounded to the beat)
+      var look = rig.drums[d[0]]; if (!look || !rig.looks.some(function (l) { return l.id === look; })) return;
+      (dh[d[0]] || []).forEach(function (h, k) { var bb = barBeatAt(h); cues.push({ id: "auto-" + d[0] + "-" + k, bar: bb.bar, beat: bb.beat, look: look, fade: 0, kind: "flash", dur: d[0] === "crash" ? 0.5 : 0.2, auto: true, label: d[1], drum: d[0] }); });
     });
     return sortCues(cues);
   }
@@ -201,6 +212,7 @@
     song.overview = h.overview || [];
     if (!song.bars.length && h.grid) { song.bars = h.grid.bars || []; song.barBeats = h.grid.barBeats || []; song.bpm = h.grid.bpm || song.bpm; }
     if (!song.hits.length && h.hits) song.hits = h.hits;
+    song.drumHits = h.drumHits && Object.keys(h.drumHits).some(function (k) { return (h.drumHits[k] || []).length; }) ? h.drumHits : null;
     if (!song.duration && h.duration) song.duration = h.duration;
     if (!song.sections.length && h.sections) song.sections = h.sections.map(function (s) { return { name: s.name, start: s.start, end: s.end, bar: s.bar, color: s.color, type: s.type }; });
     else song.sections.forEach(function (s) { var m = (h.sections || []).filter(function (x) { return x.name === s.name && Math.abs(x.start - s.start) < 0.5; })[0]; if (m) { s.color = m.color; s.type = m.type; } });
@@ -354,7 +366,7 @@
       if (d.hits) { song.hits = d.hits; dirty(); }
       if (d.song && !d.song.hasTracks && clockRun.running) { song.pos = clockRun.pos(); song.at = performance.now(); song.playing = true; song.speed = 1; }
       var secs = (d.sections || []).map(function (s) { return { name: s.name, start: s.start, end: s.end, bar: s.bar, color: s.color, type: s.type }; }), sk = JSON.stringify(secs.map(function (s) { return [s.name, s.start]; }));
-      if (sid !== song.id) { if (!d.grid) { song.bars = []; song.barBeats = []; song.hits = []; } song.duration = d.duration || 0; setSong(sid, song.name, secs, false); }
+      if (sid !== song.id) { if (!d.grid) { song.bars = []; song.barBeats = []; song.hits = []; } song.drumHits = null; song.duration = d.duration || 0; setSong(sid, song.name, secs, false); }
       else if (sk !== song.secKey) { song.sections = secs; song.secKey = sk; dirty(); renderShowPanel(); }
     } else if (m.type === "lighting" && m.song === show.song && m.by !== "Central Control-" + selfId) {
       if (show.saved) loadShow(show.song);
@@ -365,10 +377,17 @@
     } else if (m.type === "clock") {
       clockRun.onClock(m);
     } else if (m.type === "midi") {
-      // the pedal's MIDI hits (note < 60 on channel 1): in Auto / Semi-auto they flash when the song has no detected hits of its own
-      if (show.mode === "manual" || (song.hits && song.hits.length)) return;
-      var base = CU.piToLocal(m.t) + (CU.prefs.offsetMs || 0);
-      (m.messages || []).forEach(function (msg) { var d0 = msg.data || []; if ((d0[0] & 0xF0) === 0x90 && d0[2] > 0 && (d0[0] & 0x0F) === 0 && d0[1] < 60) setTimeout(function () { live.flash = { look: "hit", until: performance.now() + 220, len: 220 }; recordFlash("hit"); }, Math.max(0, base + (msg.at || 0) - performance.now())); });
+      // the pedal's MIDI hits on channel 1, in Auto / Semi-auto: its drum notes (kick, snare, hi-hat, crash - a split
+      // song's) flash their presets when the timeline doesn't have them already; any other note under 60 (a big hit)
+      // flashes "hit" when the song has no detected hits of its own
+      if (show.mode === "manual") return;
+      var base = CU.piToLocal(m.t) + (CU.prefs.offsetMs || 0), hasHits = !!(song.hits && song.hits.length), hasDrums = !!song.drumHits;
+      (m.messages || []).forEach(function (msg) {
+        var d0 = msg.data || []; if ((d0[0] & 0xF0) !== 0x90 || !(d0[2] > 0) || (d0[0] & 0x0F) !== 0 || d0[1] >= 60) return;
+        var part = DRUMS.map(function (d) { return d[0]; }).filter(function (k) { return Number(rig.drums.notes[k]) === d0[1]; })[0], look = part ? rig.drums[part] : "hit", len = part && part !== "crash" ? 120 : 220;
+        if (part ? hasDrums || !look : hasHits) return;
+        setTimeout(function () { live.flash = { look: look, until: performance.now() + len, len: len }; recordFlash(look); }, Math.max(0, base + (msg.at || 0) - performance.now()));
+      });
     }
   }
   // songs without tracks: the Central Pedal's clock (its tempo, start / stop) runs the timeline
@@ -613,7 +632,7 @@
   }
   function programSong(id) {   // the Show tab works on this song (lights follow it) until the Central Pedal plays
     stopPreview(); var s = allSongs().filter(function (x) { return x.id === id; })[0]; if (!s) return;
-    song.local = true; song.playing = false; song.pos = 0; song.bars = []; song.barBeats = []; song.hits = []; song.bpm = s.bpm || 120; song.bpb = s.bpb || 4; song.duration = s.duration || 0; song.hasTracks = !!s.hasTracks;
+    song.local = true; song.playing = false; song.pos = 0; song.bars = []; song.barBeats = []; song.hits = []; song.drumHits = null; song.bpm = s.bpm || 120; song.bpb = s.bpb || 4; song.duration = s.duration || 0; song.hasTracks = !!s.hasTracks;
     setSong(id, s.name, [], true); showSub("show");
   }
 
@@ -727,6 +746,8 @@
     var root = $("#lxAudio"); if (!root) return; var a = rig.audio, X = window.CUMix, has = !!(X && X.meters && X.meters.bands);
     root.innerHTML = '<p class="muted small">In Auto and Semi-auto the lights breathe with the music (its level) and, in songs without detected hits, flash on the strong beats. The music is the Central Pedal\'s audio on the audio host.</p>' +
       '<label class="toggle"><input type="checkbox" data-au="react"' + (a.react ? " checked" : "") + '> React to the music</label><label>How much <input type="range" min="0" max="1" step="0.05" data-au="amount" value="' + a.amount + '"></label><label class="toggle"><input type="checkbox" data-au="onsets"' + (a.onsets ? " checked" : "") + "> Flash on the strong beats (when there are no hits)</label>" +
+      '<h4 class="small">Drum hits <span class="muted">(songs split by the Central Pedal\'s stem splitter: on the timeline, and as MIDI notes from the pedal)</span></h4><div class="row">' +
+      DRUMS.map(function (d) { return "<label>" + d[1] + ' <select data-dr="' + d[0] + '"><option value="">No flash</option>' + rig.looks.filter(function (l) { return l.flash; }).map(function (l) { return '<option value="' + esc(l.id) + '"' + (rig.drums[d[0]] === l.id ? " selected" : "") + ">" + esc(l.name) + "</option>"; }).join("") + '</select></label><label>note <input type="number" min="0" max="59" data-drn="' + d[0] + '" value="' + rig.drums.notes[d[0]] + '" style="width:64px"></label>'; }).join("") + "</div>" +
       '<p class="muted small">' + (has ? "✓ hearing the music" : "No audio here yet: it needs the audio host (I/O tab) and the Central Pedal's audio over the network.") + "</p>";
   }
 
@@ -906,7 +927,12 @@
     $("#lxMonUni").addEventListener("change", function () { $("#lxMonitor").innerHTML = ""; });
     $("#lxClick").addEventListener("change", function (e) { var k = e.target.dataset.ck; if (!k) return; rig.click[k] = e.target.type === "checkbox" ? e.target.checked : e.target.type === "range" ? Number(e.target.value) : e.target.value; saveRig(); if (k === "device" || k === "output") clickCtx(); });
     $("#lxClick").addEventListener("click", function (e) { if (e.target.dataset.ck === "run") { toggleFreeClick(); renderClick(); } });
-    $("#lxAudio").addEventListener("change", function (e) { var k = e.target.dataset.au; if (!k) return; rig.audio[k] = e.target.type === "checkbox" ? e.target.checked : Number(e.target.value); saveRig(); });
+    $("#lxAudio").addEventListener("change", function (e) {
+      var el = e.target;
+      if (el.dataset.dr) { rig.drums[el.dataset.dr] = el.value; saveRig(); dirty(); renderShowPanel(); return; }
+      if (el.dataset.drn) { rig.drums.notes[el.dataset.drn] = Math.max(0, Math.min(59, Number(el.value) || 0)); saveRig(); return; }
+      var k = el.dataset.au; if (!k) return; rig.audio[k] = el.type === "checkbox" ? el.checked : Number(el.value); saveRig();
+    });
     setInterval(function () { if (visible() && view === "output" && DMX) DMX.status().then(function (s) { outStatus = s; $$("#lxOutputs [data-out]").forEach(function (row) { var o = rig.outputs[Number(row.dataset.out)], st = s.outputs ? s.outputs.filter(function (x) { return x.universe === o.universe; })[0] : null, span = row.querySelector("span.muted"); if (span && o.mode !== "off" && st) span.textContent = st.error ? "⚠ " + st.error : "→ " + (st.target || "") + " · " + st.frames + " frames"; }); }); }, 1500);
   }
   // songs without tracks: the click here is the transport while the Central Pedal isn't playing

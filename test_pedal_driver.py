@@ -25,6 +25,7 @@ import os
 import math
 import shutil
 import struct
+import subprocess
 import sys
 import wave
 import zipfile
@@ -149,29 +150,67 @@ def io_wav(seconds, rate=8000):
     return buf.getvalue()
 
 
-FAKE_SEPARATOR = r"""
-import json, os, sys, time, wave
+FAKE_AUDIO = r"""
+import math, random, struct, wave
+def tone(path, name, rate=22050, secs=2.0):
+    # a stand-in stem with something in it: the kit pieces are hits at known times (for the lights), "toms" is silent
+    n = int(rate * secs); key = name.lower(); rnd = random.Random(len(key)); x = [0.0] * n
+    def burst(t, length, fn):
+        i0 = int(t * rate)
+        for j in range(min(int(length * rate), n - i0)):
+            x[i0 + j] += fn(j / float(rate))
+    if key == "toms":
+        pass
+    elif key == "kick":
+        for t in (0.25, 0.75, 1.25, 1.75):
+            burst(t, 0.15, lambda u: 0.8 * math.exp(-u / 0.03) * math.sin(2 * math.pi * 60 * u))
+    elif key == "snare":
+        for t in (0.5, 1.5):
+            burst(t, 0.2, lambda u: 0.5 * math.exp(-u / 0.05) * (rnd.uniform(-1, 1) + math.sin(2 * math.pi * 190 * u)))
+    elif key in ("hh", "crash", "ride"):
+        prev = [0.0]
+        def hiss(u):
+            v = rnd.uniform(-1, 1); d = v - prev[0]; prev[0] = v
+            return 0.3 * math.exp(-u / (0.3 if key == "crash" else 0.01)) * d
+        for t in ((0.25,) if key == "crash" else (0.125, 0.375, 0.625, 0.875, 1.125, 1.375, 1.625, 1.875) if key == "hh" else (0.3,)):
+            burst(t, 0.6 if key == "crash" else 0.05, hiss)
+    else:
+        f = 110 + 37 * (sum(map(ord, key)) % 40)
+        x = [0.3 * math.sin(2 * math.pi * f * i / rate) for i in range(n)]
+    with wave.open(path, "wb") as w:
+        w.setnchannels(2); w.setsampwidth(2); w.setframerate(rate)
+        w.writeframes(b"".join(struct.pack("<hh", int(max(-1, min(1, v)) * 32767), int(max(-1, min(1, v)) * 32767)) for v in x))
+"""
+
+FAKE_SEPARATOR = FAKE_AUDIO + r"""
+import json, os, sys, time
 argv = sys.argv[1:]
 log = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fake-separator-argv.json")
 calls = json.load(open(log)) if os.path.exists(log) else []
 json.dump(calls + [argv], open(log, "w"))
+if "--extra_models" in argv and os.environ.get("FAKE_ENSEMBLE_FAIL"):
+    print("ValueError: ensemble needs the same stems from every model", flush=True)
+    sys.exit(1)
 src, model, out = argv[0], argv[argv.index("-m") + 1], argv[argv.index("--output_dir") + 1]
-stems = ["kick", "snare", "toms", "hh", "ride", "crash"] if "DrumSep" in model else ["Vocals", "Other"] if "kim" in model else ["Vocals", "Instrumental"]
+stems = (["kick", "snare", "toms", "hh", "ride", "crash"] if "DrumSep" in model else ["Vocals", "Other"] if "kim" in model else ["No Reverb", "Reverb"] if "DeReverb" in model
+         else ["Vocals", "Instrumental"])
 ext = {"MP3": "mp3", "FLAC": "flac"}.get(argv[argv.index("--output_format") + 1], "wav")
 for p in (0, 50, 100):
     sys.stdout.write("%3d%%|%s| %d/100\r" % (p, "#" * (p // 10), p)); sys.stdout.flush(); time.sleep(0.1)
 os.makedirs(out, exist_ok=True)
 base = os.path.basename(src).rsplit(".", 1)[0]
 for s in stems:
-    with wave.open(os.path.join(out, "%s_(%s)_%s.%s" % (base, s, model.rsplit(".", 1)[0], ext)), "wb") as w:
-        w.setnchannels(2); w.setsampwidth(2); w.setframerate(8000); w.writeframes(b"\0\0\0\0" * 800)
+    tone(os.path.join(out, "%s_(%s)_%s.%s" % (base, s, model.rsplit(".", 1)[0], ext)), s)
 print("separated")
 """
 
-FAKE_DEMUCS = r"""
-import json, os, sys, time, wave
+FAKE_DEMUCS = FAKE_AUDIO + r"""
+import json, os, sys, time
 argv = sys.argv[1:]
-json.dump(argv, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fake-demucs-argv.json"), "w"))
+here = os.path.dirname(os.path.abspath(__file__))
+json.dump(argv, open(os.path.join(here, "fake-demucs-argv.json"), "w"))
+calls = os.path.join(here, "fake-demucs-calls.json")
+json.dump((json.load(open(calls)) if os.path.exists(calls) else []) + [argv], open(calls, "w"))
 if os.environ.get("FAKE_DEMUCS_FAIL"):
     print("RuntimeError: CPU out of memory (tried to allocate 2 GB)", flush=True)
     sys.exit(1)
@@ -190,8 +229,7 @@ for p in (0, 25, 50, 75, 100):
 d = os.path.join(out, model)
 os.makedirs(d, exist_ok=True)
 for s in stems:
-    with wave.open(os.path.join(d, s + "." + ext), "wb") as w:
-        w.setnchannels(2); w.setsampwidth(2); w.setframerate(8000); w.writeframes(b"\0\0\0\0" * 800)
+    tone(os.path.join(d, s + "." + ext), s)
 print("done")
 """
 
@@ -1213,6 +1251,100 @@ async def main():
         want6 = ["Bass.mp3", "Drums.mp3", "Other.mp3", "Vocals.mp3"] if shutil.which("ffmpeg") else ["Bass.wav", "Drums.wav", "Other.wav", "Vocals.wav"]
         check("...a vocal model whose band stem is called \"other\" still feeds Demucs; MP3 is made once at the end (WAV in between)",
               done6 and done6["job"]["state"] == "done" and names6 == want6 and "--mp3" not in dm and "--float32" in dm and "WAV" in sargs6, (names6, done6 and done6["job"].get("error"), dm, sargs6))
+        # ---- Studio: vocal models voting together, Demucs FT + 6 stems, lead / backing, the reverb off, the kit pieces,
+        # then the clean-up pass (bleed, Perc, Cymbals, silence, mono) and the drum hits for the lights
+        async def finish(jid, secs=40.0):
+            seen, end_ = [], None
+            deadline_ = time.monotonic() + secs
+            while time.monotonic() < deadline_:
+                mm = await next_message(lambda m: m["type"] == "stemSplit" and m["job"]["id"] == jid, 3.0)
+                if mm:
+                    if mm["job"].get("step") and mm["job"]["step"] not in seen:
+                        seen.append(mm["job"]["step"])
+                    if mm["job"]["state"] != "running":
+                        end_ = mm["job"]
+                        break
+            return end_, seen
+        st_, body_ = http("http://127.0.0.1:18766/split/status")
+        check("...the clean-up pass needs the splitter's Python (not there yet), and the status lists the ensemble ways", json.loads(body_).get("cleanup") is False and "avg_fft" in json.loads(body_).get("ensembleAlgos", []), body_[:300])
+        os.environ["CC_STEMTOOL_PYTHON"] = sys.executable
+        for f_ in ("fake-separator-argv.json", "fake-demucs-calls.json"):
+            if os.path.exists(os.path.join(root, f_)):
+                os.remove(os.path.join(root, f_))
+        studio = {"quality": "studio", "ensembleAlgo": "median_fft", "leadBacking": True, "dereverb": True, "drumParts": True, "cleanup": True, "bleed": 60,
+                  "trackSet": "multitracks", "kit": "cymbals", "mono": True, "trim": True, "format": "wav24"}
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": studio}).encode())
+        j7 = json.loads(body_ or b"{}")
+        d7, steps7 = await finish(j7.get("id"))
+        names7 = sorted(f["name"] for f in (d7 or {}).get("files", []))
+        sargs7 = json.load(open(os.path.join(root, "fake-separator-argv.json")))
+        dcalls7 = json.load(open(os.path.join(root, "fake-demucs-calls.json")))
+        check("...Studio: the vocal models vote together (--extra_models, the musician's ensemble way), the band is Demucs FT (2+ shifts) then the 6-stem model",
+              "--extra_models" in sargs7[0] and "mel_band_roformer_kim_ft_unwa.ckpt" in sargs7[0] and sargs7[0][sargs7[0].index("--ensemble_algorithm") + 1] == "median_fft"
+              and [c[1] for c in dcalls7] == ["htdemucs_ft", "htdemucs_6s"] and dcalls7[0][dcalls7[0].index("--shifts") + 1] == "2" and "--float32" in dcalls7[0], (sargs7[:1], dcalls7))
+        check("...then lead / backing, the reverb off the lead (UVR DeEcho-DeReverb), the kit pieces, and the clean-up - each step shown",
+              d7 and d7["state"] == "done" and "DeReverb" in " ".join(sargs7[2]) and "DrumSep" in " ".join(sargs7[3]) and j7.get("steps", [])[-1] == "Cleaning up the tracks" and "Cleaning up the tracks" in steps7,
+              (d7 and d7.get("error"), j7.get("steps"), steps7))
+        check("...MultiTracks-style tracks: Lead Vox, BGVs, Kick, Snare, Cymbals (hi-hat + ride + crash), Perc, Bass, Guitars, Keys, Synth & Pads - no reverb track, no silent Toms",
+              names7 == ["BGVs.wav", "Bass.wav", "Cymbals.wav", "Guitars.wav", "Keys.wav", "Kick.wav", "Lead Vox.wav", "Perc.wav", "Snare.wav", "Synth & Pads.wav"]
+              and any("Toms" in n for n in d7.get("notes", [])), (names7, d7 and d7.get("notes")))
+        f7 = {f["name"]: f for f in (d7 or {}).get("files", [])}
+        check("...each track has its level, peak and mono / stereo, and its role (Synth & Pads plays as keys)",
+              f7.get("Bass.wav", {}).get("mono") is True and isinstance(f7.get("Bass.wav", {}).get("db"), float) and f7.get("Synth & Pads.wav", {}).get("role") == "keys"
+              and f7.get("Lead Vox.wav", {}).get("role") == "vocals", f7.get("Bass.wav"))
+        h7 = (d7 or {}).get("hits", {})
+        def near(got, want):
+            return len(got) == len(want) and all(abs(a - b) < 0.03 for a, b in zip(got, want))
+        tr7 = (d7 or {}).get("trimmed", [0, 0])[0]
+        check("...the drum hits for the lights come from the kit pieces (kick, snare, hi-hat, crash), in time with the trimmed tracks",
+              near(h7.get("kick", []), [t - tr7 for t in (0.25, 0.75, 1.25, 1.75)]) and near(h7.get("snare", []), [t - tr7 for t in (0.5, 1.5)]) and len(h7.get("hat", [])) == 8
+              and near(h7.get("crash", []), [0.25 - tr7]), (h7, tr7))
+        st_, w7 = http("http://127.0.0.1:18766/split/file?id=%s&rel=%s" % (j7.get("id"), urllib.parse.quote(f7.get("Bass.wav", {}).get("rel", "x"))))
+        check("...a mono track is written as one channel, 24-bit as asked", st_ == 200 and struct.unpack("<H", w7[22:24])[0] == 1 and struct.unpack("<H", w7[34:36])[0] == 24, w7[:40])
+        # Split again (from the review): the reverb off one track, a new job that stays in time (no trim)
+        st_, body_ = http("http://127.0.0.1:18766/split/resplit", json.dumps({"id": j7.get("id"), "rel": f7.get("Lead Vox.wav", {}).get("rel"), "kind": "dereverb"}).encode())
+        j8 = json.loads(body_ or b"{}")
+        d8, _ = await finish(j8.get("id"))
+        check("...Split again: a track of the split, its reverb taken off - the dry vocal and the reverb on its own (Vox FX), not trimmed",
+              d8 and d8["state"] == "done" and d8.get("parent") == j7.get("id") and sorted(f["name"] for f in d8["files"]) == ["Vox FX.wav", "Vox.wav"] and d8.get("trimmed", [1])[0] == 0,
+              (d8 and d8.get("files"), d8 and d8.get("error")))
+        st_a, _ = http("http://127.0.0.1:18766/split/resplit", json.dumps({"id": j7.get("id"), "rel": "final/Bass.wav", "kind": "rm -rf"}).encode())
+        st_b, _ = http("http://127.0.0.1:18766/split/resplit", json.dumps({"id": j7.get("id"), "rel": "../../settings.json", "kind": "drums"}).encode())
+        st_c, _ = http("http://127.0.0.1:18766/split/resplit", json.dumps({"id": "nope", "rel": "final/Bass.wav", "kind": "drums"}).encode())
+        check("...only the ways it knows, only files of that split", st_a == 400 and st_b == 400 and st_c == 400, (st_a, st_b, st_c))
+        # the ensemble fails here: the vocals come from the one model, and it says so
+        os.environ["FAKE_ENSEMBLE_FAIL"] = "1"
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {"quality": "studio", "band6Model": "", "cleanup": True, "review": True, "bleed": 0, "drumParts": True, "kit": "drums", "keepDrums": True, "trackSet": "multitracks"}}).encode())
+        j9 = json.loads(body_ or b"{}")
+        d9, _ = await finish(j9.get("id"))
+        os.environ.pop("FAKE_ENSEMBLE_FAIL", None)
+        check("...when the vocal models can't vote together, the vocal model works alone (with a note); no 6-stem step when it's off; the kit pieces back together as Drums + Perc (review: the silent ones stay, marked)",
+              d9 and d9["state"] == "done" and any("alone" in n for n in d9.get("notes", [])) and sorted(f["name"] for f in d9["files"]) == ["Bass.wav", "Drums.wav", "Instruments.wav", "Perc.wav", "Vox.wav"]
+              and len(d9.get("hits", {}).get("kick", [])) == 4,
+              (d9 and d9.get("notes"), d9 and d9.get("files"), d9 and d9.get("error")))
+        # the clean-up on its own numbers: a guitar with a vocal in it, and the other way round, are put right
+        import numpy as np
+        tool = driver.splitter.tool_path()
+        sys.path.insert(0, os.path.dirname(tool))
+        import stemtool as stt
+        r_ = 22050
+        tt = np.arange(r_ * 2) / r_
+        ga, vb = (np.sin(2 * np.pi * 220 * tt) * 0.4).astype(np.float32), (np.sin(2 * np.pi * 1500 * tt) * 0.4).astype(np.float32)
+        tdir = os.path.join(root, "stt")
+        os.makedirs(tdir, exist_ok=True)
+        pad_ = np.zeros(r_, dtype=np.float32)
+        stt.write_wav(os.path.join(tdir, "g.wav"), np.vstack([np.concatenate([pad_, ga + 0.25 * vb])] * 2), r_, 24)
+        stt.write_wav(os.path.join(tdir, "v.wav"), np.vstack([np.concatenate([pad_, vb + 0.25 * ga])] * 2), r_, 32)
+        stt.write_wav(os.path.join(tdir, "m.wav"), np.vstack([np.concatenate([pad_, ga + vb])] * 2), r_, 16)
+        driver_mod.write_json(os.path.join(tdir, "job.json"), {"out": os.path.join(tdir, "out"), "stems": [{"key": "guitar", "path": os.path.join(tdir, "g.wav")}, {"key": "vocals", "path": os.path.join(tdir, "v.wav")}],
+                                                      "mix": os.path.join(tdir, "m.wav"), "bleed": 1, "sharp": 1.5, "trim": True, "mono": True, "bits": 32, "result": os.path.join(tdir, "res.json")})
+        rr = subprocess.run([sys.executable, tool, os.path.join(tdir, "job.json")], capture_output=True, text=True, timeout=120)
+        res_ = driver_mod.read_json(os.path.join(tdir, "res.json"), {})
+        g_, _ = stt.read_wav(os.path.join(tdir, "out", "guitar.wav"))
+        spec_ = np.abs(np.fft.rfft(g_[0][int(0.75 * r_):int(1.75 * r_)]))
+        check("...the clean-up takes the vocal out of the guitar (a quarter-level bleed, -12 dB, down under 2 %, with the stronger setting), trims the silent start (every track the same), writes mono",
+              rr.returncode == 0 and spec_[1500] / spec_[220] < 0.02 and 0.4 < res_.get("trimmed", [0])[0] < 0.6 and all(f["mono"] for f in res_.get("files", [])), (rr.stderr[-500:], res_, spec_[1500] / max(1e-9, spec_[220])))
+        os.environ.pop("CC_STEMTOOL_PYTHON", None)
         os.environ.pop("CC_SEPARATOR_CMD", None)
         os.environ["FAKE_DEMUCS_FAIL"] = "1"
         st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {}}).encode())

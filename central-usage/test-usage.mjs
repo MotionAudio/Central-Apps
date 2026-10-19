@@ -105,6 +105,32 @@ await check("lighting: following the song - at the chorus the chorus look is up,
   assert.deepEqual(r.a, [255, 122, 43, 255, 0], "chorus back " + r.a);
   assert.ok(r.f[1] > 200 && r.f[2] > 200 && r.f[4] > 200, "flash white " + r.f);
 });
+await check("lighting: a split song's drum hits (kick, snare, hi-hat, crash) come from the Central Pedal with its tempo - the crash flashes, the kick when you give it a preset, the pedal's drum notes too", async () => {
+  // the pedal's current song gets drum hits (as a split does); the hub brings them here with the grid and tempo
+  await pi.evaluate(() => { const s = PPTracks.song(); PPTracks.data(s).drumHits = { kick: [1, 2, 3], snare: [1.5, 2.5], hat: [], crash: [0.5] }; PPHub.push(true); });
+  await cu.waitForFunction(() => CULights.song.drumHits && CULights.song.drumHits.crash.length === 1 && CULights.song.drumHits.kick.length === 3, null, { timeout: 10000 });
+  const r = await cu.evaluate(() => {
+    const L = CULights, rig = L.rig(); L.dirty();
+    const before = L.cuesNow().filter((c) => c.drum).map((c) => c.drum + ":" + c.look);
+    rig.drums.kick = "strobehit"; L.dirty();
+    const after = L.cuesNow().filter((c) => c.drum).map((c) => c.drum + ":" + c.look);
+    rig.drums.kick = ""; L.dirty();
+    return { before, after, bpm: L.song.bpm, bars: L.song.bars.length };
+  });
+  assert.deepEqual(r.before, ["crash:hit"]); assert.deepEqual(r.after.sort(), ["crash:hit", "kick:strobehit", "kick:strobehit", "kick:strobehit"]);
+  assert.ok(r.bpm > 0 && r.bars > 0, "the tempo and the bars came too " + JSON.stringify(r));
+  // MIDI from the pedal: its drum notes flash only when the timeline doesn't have the hits; the crash note (49) flashes "hit", a kick (36) nothing (no preset)
+  const m = await cu.evaluate(async () => {
+    const L = CULights, st = CentralUsage.state; st.offset = 1000; const piNow = performance.now() + 1000, keep = L.song.drumHits;
+    const note = (n) => L.onMessage({ type: "midi", t: piNow, messages: [{ data: [0x90, n, 127], at: 0 }] });
+    L.live.flash = null; note(49); await new Promise((r) => setTimeout(r, 60)); const withHits = L.live.flash && L.live.flash.look;
+    L.song.drumHits = null; L.live.flash = null; note(49); await new Promise((r) => setTimeout(r, 60)); const crash = L.live.flash && L.live.flash.look;
+    L.live.flash = null; note(36); await new Promise((r) => setTimeout(r, 60)); const kick = L.live.flash && L.live.flash.look;
+    L.song.drumHits = keep; L.dirty(); return { withHits: withHits || null, crash: crash || null, kick: kick || null };
+  });
+  assert.deepEqual(m, { withHits: null, crash: "hit", kick: null });
+  await pi.evaluate(() => { const s = PPTracks.song(); delete PPTracks.data(s).drumHits; PPHub.push(true); });
+});
 await check("lighting: a cue added on the timeline is saved on the Central Pedal (with the pairing code) and read back", async () => {
   await cu.evaluate((c) => { CentralUsage.prefs.code = c; }, code);
   const box = await cu.$("#lxTimeline"); const bb = await box.boundingBox();

@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 // the version comes from central-usage/package.json (CI passes it as CU_VERSION); versionCode grows with it: 2.5.0 -> 20500
-def cuVersion = System.getenv("CU_VERSION") ?: "2.7.0"
+def cuVersion = System.getenv("CU_VERSION") ?: "2.8.0"
 def cuParts = (cuVersion.tokenize(".") + ["0", "0", "0"]).take(3).collect { (it.replaceAll(/[^0-9]/, "") ?: "0").toInteger() }
 def cuVersionCode = cuParts[0] * 10000 + cuParts[1] * 100 + cuParts[2]
 

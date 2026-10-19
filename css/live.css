@@ -190,3 +190,11 @@ dialog.ss-dialog { width: min(820px, calc(100vw - 16px)); }
 .as-way:hover, .as-song:hover { border-color: var(--accent); }
 button.linkish { background: none; border: 0; padding: 0; color: var(--blue); text-decoration: underline; font: inherit; cursor: pointer; }
 #addBack { margin: 6px 0 0; }
+/* the stem splitter's review: check the tracks before adding them */
+.ss-transport { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .ss-transport input[type=range] { flex: 1; min-width: 140px; }
+.ss-tracks { display: grid; gap: 4px; max-height: 46vh; overflow: auto; }
+.ss-tr { display: grid; grid-template-columns: 34px minmax(110px, 1.6fr) 92px 70px minmax(70px, .9fr) 44px minmax(110px, 1fr); gap: 6px; align-items: center; padding: 3px 4px; border-radius: 8px; }
+.ss-tr:not(.head):hover { background: color-mix(in srgb, var(--line), transparent 70%); } .ss-tr.off { opacity: .55; } .ss-tr input:not([type=checkbox]), .ss-tr select { width: 100%; min-width: 0; }
+.ss-sm { display: flex; gap: 4px; } .ss-sm button { min-width: 30px; padding: 4px 6px; } .ss-sm button.on { background: var(--accent); color: #04131f; }
+.ss-tag { font-size: 11px; padding: 1px 5px; border-radius: 6px; border: 1px solid var(--line); } .ss-tag.warn { color: #ffd765; border-color: #ffd765; }
+@media (max-width: 640px) { .ss-tr { grid-template-columns: 30px 1fr 84px; } .ss-tr > :nth-child(n+4) { grid-column: span 1; } .ss-tr.head { display: none; } }
