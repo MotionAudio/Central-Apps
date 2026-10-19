@@ -548,7 +548,7 @@
     pushCues(s); pushEvents(s);
   }
   var DRUMS = ["kick", "snare", "hat", "crash"], DRUM_NOTES = { kick: 36, snare: 38, hat: 42, crash: 49 };   // (General MIDI drum notes; each is a setting)
-  function drumNote(mo, k) { var n = mo.drumNotes && mo.drumNotes[k]; return clamp(n == null || n === "" ? DRUM_NOTES[k] : Number(n), 0, 127); }
+  function drumNote(mo, k) { var n = mo.drumNotes && mo.drumNotes[k]; return clamp(n == null || n === "" ? DRUM_NOTES[k] : Number(n), 0, 59); }
   function pushEvents(s) {
     var t = data(s), list = [], mo = project().midiOut || {};
     if (mo.lightsHits !== false) t.hits.forEach(function (h, i) { list.push({ time: h, id: "hit:" + i }); });

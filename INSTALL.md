@@ -139,7 +139,7 @@ sudo apt install ./centralusage.deb                   # Central Usage (the music
   audio-separator into the app's own folder. That is about 2.5 GB, and it needs an internet connection once. The
   separation models download the first time each one is used. **Remove it** takes it all away. It works best on a
   computer with Central Pedal Control, or on the main admin's computer; a GPU (Apple Silicon or NVIDIA) makes it much
-  faster. Studio mode runs several models one after the other, so it takes about three times as long as Best; the
+  faster. Studio mode runs several models one after the other, so it takes several times as long as Best; the
   clean-up pass needs a few hundred MB of memory per minute of song. The de-reverb
   model downloads the first time it is used, like the others.
 * **MP3 practice mixes** – need `ffmpeg` (on the Central Pedal image already; `sudo apt install ffmpeg` on Linux,

@@ -39,6 +39,7 @@
     keepOriginal: false, keepFiles: false, skip: [] };
   function cfg() {
     var p = PP.project(), c = p.stemSplit || (p.stemSplit = {});
+    if (c.kit == null && c.quality != null) c.kit = "pieces";   // (set up before 8.9: the kit pieces stay apart, as they were)
     Object.keys(DEFAULTS).forEach(function (k) { if (c[k] == null) c[k] = Array.isArray(DEFAULTS[k]) ? [] : DEFAULTS[k]; });
     c.shifts = Math.max(0, Math.min(20, Math.round(Number(c.shifts) || 0)));
     c.overlap = Math.max(0, Math.min(0.95, Number(c.overlap) || 0));
@@ -46,7 +47,7 @@
     c.bleedSharp = Math.max(0.5, Math.min(3, Number(c.bleedSharp) || 1));
     c.silentDb = Math.max(-90, Math.min(-20, Number(c.silentDb) || -55));
     c.hitSens = Math.max(0.25, Math.min(4, Number(c.hitSens) || 1));
-    c.clickLevel = Math.max(0, Math.min(100, Number(c.clickLevel)));
+    c.clickLevel = c.clickLevel === "" || !isFinite(Number(c.clickLevel)) ? 70 : Math.max(0, Math.min(100, Number(c.clickLevel)));
     return c;
   }
   var status = null, picked = null, current = null, dlg = null, pollTimer = 0, importing = false, msg = "", intoSong = null;   // (intoSong: Add a song → the whole song: this song, just this once)
@@ -57,6 +58,9 @@
     if (!driverOn()) { status = null; draw(); return; }
     try { status = await (await fetch(MEDIA + "/split/status", { cache: "no-store" })).json(); } catch (_) { status = null; }
     if (status) status.jobs.forEach(function (j) { if ((current && j.id === current.id) || (review && review.subs[j.id])) onJob(j); });
+    if (status && review) Object.keys(review.subs).forEach(function (id) {   // (a split again that is gone - the driver restarted)
+      if (!status.jobs.some(function (j) { return j.id === id; }) && Date.now() - (review.subAt[id] || 0) > 8000) onSubJob({ id: id, state: "failed", error: "it stopped" });
+    });
     draw();
   }
   function post(path, body) { return fetch(MEDIA + path, { method: "POST", body: JSON.stringify(body || {}) }).then(function (r) { return r.json(); }); }
@@ -88,6 +92,7 @@
       leadBacking: !!(c.leadBacking && sep), drumParts: !!(c.drumParts && sep), keepDrums: !!c.keepDrums, kit: c.kit, dereverb: !!(c.dereverb && sep), dereverbModel: c.dereverbModel || "", keepReverb: !!c.keepReverb,
       sepSegment: c.sepSegment ? Number(c.sepSegment) : 0, sepOverlap: c.sepOverlap ? Number(c.sepOverlap) : 0, autocast: !!c.autocast,
       model: c.model, twoStems: c.twoStems || "", shifts: c.shifts, overlap: c.overlap, segment: c.segment ? Number(c.segment) : 0, device: c.device, format: c.format === "wav16" ? "wav" : c.format, mp3Kbps: c.mp3Kbps, clipMode: c.clipMode, jobs: c.jobs,
+      twoStems: q === "studio" ? "" : c.twoStems || "",   // (Studio always splits everything)
       cleanup: !!c.cleanup, bleed: c.bleed, bleedSharp: c.bleedSharp, trim: !!c.trim && !hasStems && !c.keepOriginal,   // (trimmed tracks wouldn't line up with tracks already there, or the original)
       mono: !!c.mono, dropSilent: !!c.dropSilent, silentDb: c.silentDb, perc: !!c.perc, trackSet: c.trackSet, hits: !!c.hits, hitSens: c.hitSens, review: !!c.review };
   }
@@ -111,7 +116,7 @@
       job: job, rel: f.rel, db: f.db, mono: f.mono, silent: f.silent, merge: false, sub: null };
   }
   function openReview(j) {
-    review = { job: j, items: j.files.map(function (f) { return itemOf(f, j.id); }), subs: {}, hits: j.hits || {} };
+    review = { job: j, items: j.files.map(function (f) { return itemOf(f, j.id); }), subs: {}, subAt: {}, jobIds: [j.id], hits: j.hits || {} };
     stopPlayer(); player = { els: {}, playing: false, pos: 0, dur: 0, timer: 0, solo: {}, mute: {} };
     say(j.files.length + " tracks - listen, fix and add them" + (j.notes && j.notes.length ? " · " + j.notes.join(" ") : ""));
   }
@@ -121,11 +126,13 @@
   function onSubJob(j) {
     var it = review.items.filter(function (x) { return x.id === review.subs[j.id]; })[0]; if (!it) return;
     var was = it.sub && it.sub.state; it.sub = j;
+    if (j.state !== "running") delete review.subs[j.id];   // (seen once: never added twice)
     if (j.state === "done" && was !== "done") {   // the new tracks come in under it; it stays (unticked) in case you want it back
       var at = review.items.indexOf(it), add = j.files.map(function (f) { var n = itemOf(f, j.id); n.name = it.name + " · " + n.name; return n; });
       review.items.splice.apply(review.items, [at + 1, 0].concat(add)); it.keep = false; it.sub = null; stopPlayer();
+      if (j.hits && j.hits.kick && j.hits.kick.length && it.role === "drums") review.hits = j.hits;   // (the kit pieces find the hits better)
       say("✓ " + it.name + " split into " + add.length + " tracks");
-    } else if (j.state === "failed") { it.sub = null; say("Splitting " + it.name + " again failed: " + (j.error || ""), true); }
+    } else if (j.state !== "running") { it.sub = null; say("Splitting " + it.name + " again " + (j.state === "cancelled" ? "was stopped" : "failed: " + (j.error || "")), true); }
     if (!subsRunning() && !(current && current.state === "running")) poll(false);
     draw();
   }
@@ -141,7 +148,7 @@
   async function splitAgain(it, kind) {
     try {
       var j = await post("/split/resplit", { id: it.job, rel: it.rel, kind: kind }); if (j.error) throw new Error(j.error);
-      review.subs[j.id] = it.id; it.sub = j; poll(true); draw();
+      review.subs[j.id] = it.id; review.subAt[j.id] = Date.now(); review.jobIds.push(j.id); it.sub = j; poll(true); draw();
     } catch (error) { say("Can't split it again: " + error.message, true); }
   }
   async function mergeTicked() {
@@ -195,7 +202,7 @@
   // ---------------------------------------------------------------- bringing the tracks in
   async function bringIn(j, items) {
     var c = cfg(); importing = true; stopPlayer(); draw();
-    var jobs = {}; jobs[j.id] = 1;
+    var jobs = {}; jobs[j.id] = 1; if (review) review.jobIds.forEach(function (id) { jobs[id] = 1; });
     try {
       if (!items) items = j.files.map(function (f) { return itemOf(f, j.id); }).filter(function (it) { return it.keep; });
       var files = [];
@@ -328,7 +335,8 @@
     h += '<p class="muted small">Split a song that is one stereo file into the tracks a band plays with - Lead Vox, BGVs, Drums, Perc, Bass, Guitars, Keys, Synth & Pads, plus a Click and a Guide - on this computer. Check them, then add them as a song with sections, and with the drum hits for the lights.</p>';
     if (!driverOn()) return h + '<p class="bad">The stem splitter runs in Central Pedal Control on a Mac, Windows or Linux computer, in Central Control, or on a Central Pedal - not on a phone or tablet.</p><footer><button value="close">Close</button></footer></form>';
     if (!st) return h + "<p>…</p></form>";
-    if (st.slow) h += '<p class="warn small">On a Central Pedal this is slow (often 20-40 minutes a song, longer in Studio' + (st.memoryGb && st.memoryGb < 3.5 ? ", and this one has only " + st.memoryGb + " GB of memory - 4 GB or more is needed" : "") + "). A Mac with Central Pedal Control does it in a few minutes.</p>";
+    if (st.slow) h += '<p class="warn small">On a Central Pedal this is slow (often 20-40 minutes a song, longer in Studio' + (st.memoryGb && st.memoryGb < 3.5 ? ", and this one has only " + st.memoryGb + " GB of memory - 4 GB or more is needed" : "") + "). A Mac with Central Pedal Control does it in a few minutes." +
+      (c.quality === "studio" && (!st.memoryGb || st.memoryGb < 7.5) ? " Studio with the kit pieces can need more memory than a 4 GB Central Pedal has - pick Best here, or split on a computer." : "") + "</p>";
     // install
     var ins = st.install || {};
     h += "<section><h3>On this computer</h3>";
@@ -447,7 +455,7 @@
         else if (a0 === "rewind") seek(0);
         else if (a0 === "merge") await mergeTicked();
         else if (a0 === "add") { pausePreview(); var j = review.job; await bringIn(j, review.items.filter(function (x) { return x.keep; })); }
-        else if (a0 === "discard") { if (confirm("Throw these tracks away?")) { var ids = [review.job.id].concat(Object.keys(review.subs)); closeReview(); ids.forEach(function (id) { post("/split/forget", { id: id }).catch(function () { }); }); say("Thrown away."); } }
+        else if (a0 === "discard") { if (confirm("Throw these tracks away?")) { var ids = review.jobIds.slice(); closeReview(); ids.forEach(function (id) { post("/split/forget", { id: id }).catch(function () { }); }); say("Thrown away."); } }
         draw(); return;
       }
       if (!b.dataset.ssAct) return; var a = b.dataset.ssAct;

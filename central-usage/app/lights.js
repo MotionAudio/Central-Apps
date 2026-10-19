@@ -384,8 +384,8 @@
       var base = CU.piToLocal(m.t) + (CU.prefs.offsetMs || 0), hasHits = !!(song.hits && song.hits.length), hasDrums = !!song.drumHits;
       (m.messages || []).forEach(function (msg) {
         var d0 = msg.data || []; if ((d0[0] & 0xF0) !== 0x90 || !(d0[2] > 0) || (d0[0] & 0x0F) !== 0 || d0[1] >= 60) return;
-        var part = DRUMS.map(function (d) { return d[0]; }).filter(function (k) { return Number(rig.drums.notes[k]) === d0[1]; })[0], look = part ? rig.drums[part] : "hit", len = part && part !== "crash" ? 120 : 220;
-        if (part ? hasDrums || !look : hasHits) return;
+        var part = DRUMS.map(function (d) { return d[0]; }).filter(function (k) { return Number(rig.drums.notes[k]) === d0[1] && rig.drums[k]; })[0], look = part ? rig.drums[part] : "hit", len = part && part !== "crash" ? 120 : 220;
+        if (part ? hasDrums : hasHits) return;   // (a drum note with no preset is a plain hit, as before)
         setTimeout(function () { live.flash = { look: look, until: performance.now() + len, len: len }; recordFlash(look); }, Math.max(0, base + (msg.at || 0) - performance.now()));
       });
     }

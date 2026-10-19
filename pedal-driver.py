@@ -85,7 +85,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.9.0"
+APP_VERSION = "8.9.1"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -4490,7 +4490,7 @@ class StemSplitter:
 
     @staticmethod
     def _file_ok(v):
-        return bool(re.match(r"^[A-Za-z0-9_.\-]+\.(ckpt|onnx|pth|yaml|th)$", str(v or "")))
+        return bool(re.match(r"^[A-Za-z0-9_][A-Za-z0-9_.\-]*\.(ckpt|onnx|pth|yaml|th)$", str(v or "")))   # (never "-..." - it would look like an option)
 
     def _model(self, opts, key, kind):
         """A model file name the musician picked (or typed), else the first of its kind."""
@@ -4698,6 +4698,16 @@ class StemSplitter:
         clean = os.path.join(job["out"], "clean")
         os.makedirs(clean, exist_ok=True)
         stems = [{"key": k, "path": p} for k, p in final.items()] + [{"key": k, "path": p} for k, p in hidden.items() if k not in final]
+        ff = shutil.which("ffmpeg")
+        for x in list(stems):   # (the clean-up reads WAV: a re-split of an MP3 / FLAC track is converted first)
+            if not x["path"].lower().endswith(".wav"):
+                conv = os.path.join(clean, "_in-" + x["key"] + ".wav")
+                r = subprocess.run([ff, "-y", "-loglevel", "error", "-i", x["path"], "-c:a", "pcm_f32le", conv], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600) if ff else None
+                if r is not None and r.returncode == 0 and os.path.isfile(conv):
+                    x["path"] = conv
+                else:
+                    stems.remove(x)
+                    hidden.pop(x["key"], None)
         drum_keys = [k for k in final if k.startswith("drum_") and k != "drum_perc"]
         spec = {"out": clean, "stems": stems, "mix": self._mix_ref(job, src), "result": os.path.join(clean, "result.json"),
                 "bleed": max(0.0, min(1.0, float(o.get("bleed") if o.get("bleed") is not None else 50) / 100.0)), "sharp": max(0.5, min(3.0, float(o.get("bleedSharp") or 1.0))),
@@ -4901,7 +4911,7 @@ class StemSplitter:
 
     def _nice(self, key, multitracks=False, keys=()):
         """(file name, role). The MultiTracks-style set: Lead Vox, BGVs, Vox FX, Kick, Snare, Toms, Cymbals, Perc, Bass,
-        Guitars, Keys, Synth & Pads... ("other" is Synth & Pads only when guitar and keys have their own tracks)."""
+        Guitars, Keys, Synth & Pads... ("other" is Synth & Pads when guitar or keys has its own track, else Instruments)."""
         if multitracks and key in self.MT:
             if key == "other" and "guitar" not in keys and "piano" not in keys:
                 return ("Instruments", "music")

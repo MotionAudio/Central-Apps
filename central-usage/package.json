@@ -1,7 +1,7 @@
 {
   "name": "central-usage",
   "productName": "Central Usage",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "description": "Lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides, chord charts, lyrics and the instrument - the companion of Central Pedal. A native desktop app.",
   "main": "main.js",
   "author": {

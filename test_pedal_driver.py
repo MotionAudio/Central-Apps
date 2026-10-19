@@ -919,7 +919,7 @@ async def main():
                 if self.path.startswith("/v1/"):
                     return self.reply(None, raw=b"")
                 if self.path == "/repos/church/cc/releases/latest":
-                    return self.reply({"tag_name": "v8.9.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
+                    return self.reply({"tag_name": "v9.0.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
                                        "assets": [{"name": "central-control-source.zip", "browser_download_url": "http://127.0.0.1:18098/dl/central-control-source.zip"},
                                                   {"name": "SHA256SUMS", "browser_download_url": "http://127.0.0.1:18098/dl/SHA256SUMS"}]})
                 if self.path == "/dl/central-control-source.zip":
@@ -961,7 +961,7 @@ async def main():
         check("opening the app makes the Central Pedal look for a newer release right away", upm and upm["available"], upm)
         await send({"type": "updates", "action": "check"})
         upm = await next_message(lambda m: m["type"] == "updateStatus" and m.get("latest"), 5.0)
-        check("the daily check finds a newer release (8.9.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "8.9.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
+        check("the daily check finds a newer release (9.0.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "9.0.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
         path_ok = driver.updater.download()
         check("the download is checked against SHA256SUMS and kept in /data", os.path.exists(path_ok) and open(path_ok, "rb").read() == rel_state["zip"], path_ok)
         rel_state["zip"] = rel_state["zip"] + b"tampered"
@@ -1308,6 +1308,17 @@ async def main():
         check("...Split again: a track of the split, its reverb taken off - the dry vocal and the reverb on its own (Vox FX), not trimmed",
               d8 and d8["state"] == "done" and d8.get("parent") == j7.get("id") and sorted(f["name"] for f in d8["files"]) == ["Vox FX.wav", "Vox.wav"] and d8.get("trimmed", [1])[0] == 0,
               (d8 and d8.get("files"), d8 and d8.get("error")))
+        if shutil.which("ffmpeg"):   # a split kept as MP3: its Drums split again into the kit pieces (the clean-up reads WAV: converted first)
+            st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {"quality": "best", "cleanup": True, "format": "mp3", "review": True, "kit": "drums"}}).encode())
+            j10 = json.loads(body_ or b"{}")
+            d10, _ = await finish(j10.get("id"))
+            drel = next((f["rel"] for f in (d10 or {}).get("files", []) if f["stem"] == "drums"), "x")
+            st_, body_ = http("http://127.0.0.1:18766/split/resplit", json.dumps({"id": j10.get("id"), "rel": drel, "kind": "drums"}).encode())
+            j11 = json.loads(body_ or b"{}")
+            d11, _ = await finish(j11.get("id"))
+            n11 = sorted(f["name"] for f in (d11 or {}).get("files", []))
+            check("...Split again on an MP3 drum track: the kit pieces (each on its own) and Perc, with the hits", d11 and d11["state"] == "done" and "Kick.mp3" in n11 and "Percussion.mp3" in n11
+                  and len(d11.get("hits", {}).get("kick", [])) == 4, (n11, d11 and d11.get("error")))
         st_a, _ = http("http://127.0.0.1:18766/split/resplit", json.dumps({"id": j7.get("id"), "rel": "final/Bass.wav", "kind": "rm -rf"}).encode())
         st_b, _ = http("http://127.0.0.1:18766/split/resplit", json.dumps({"id": j7.get("id"), "rel": "../../settings.json", "kind": "drums"}).encode())
         st_c, _ = http("http://127.0.0.1:18766/split/resplit", json.dumps({"id": "nope", "rel": "final/Bass.wav", "kind": "drums"}).encode())
