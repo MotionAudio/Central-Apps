@@ -125,6 +125,7 @@
     PP.persistSoon(); renderSetlist(); renderPerformExtras();
   });
   $("#songAdd").addEventListener("click", function () {
+    if (window.PPSources) { $("#setlistDialog").close(); window.PPSources.open(); return; }   // (your songs, then the four ways to bring the tracks in)
     var p = project(); p.songs.push({ id: PP.id(), name: "Song " + (p.songs.length + 1), key: PP.playKeyFor(PP.currentPad()), bpm: Math.round(p.tempo.bpm), pad: -1, notes: "" });
     PP.persistSoon(); renderSetlist(); renderPerformExtras();
     var inputs = document.querySelectorAll('#setlistRows [data-field="name"]'); if (inputs.length) { inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); }

@@ -4,14 +4,14 @@
 for the device you open it on. Every release is also on the
 [Releases page](https://github.com/MotionAudio/Central-Apps/releases).
 
-Four apps (from 8.5):
+The four apps:
 
 | App | Who it is for | Runs on | Files |
 |---|---|---|---|
 | **Central Pedal** | the pedal on stage: pads, multitracks, click, the guitar and keys rig | Raspberry Pi | `central-control-source.zip` (the update; a new card: below) |
-| **Central Pedal Control** | getting the pedal ready anywhere: songs, tracks, pads, controls, the instrument - then **Upload** to the pedal | Mac, iPad | `central-pedal-control-<v>-mac-arm64.dmg` / `-mac-x64.dmg`; iPad: TestFlight / App Store (IOS-APP-STORE.md) |
+| **Central Pedal Control** | getting the pedal ready anywhere: songs, tracks, pads, controls, the instrument - then **Upload** to the pedal | macOS, Windows, Linux, iPad, iPhone, Android | `central-pedal-control-<v>-mac-arm64.dmg` / `-mac-x64.dmg`, `-win-x64.exe`, `-amd64.deb`, `-x86_64.AppImage`, `-android.apk`; iPhone / iPad: TestFlight / App Store (IOS-APP-STORE.md) |
 | **Central Control** | the main admin and the admins: lights, slides, lyrics, cameras, in-ears, tracks, mixing | Windows, Mac, Linux | `central-usage-<v>-win-x64.exe`, `-mac-arm64.dmg`, `-mac-x64.dmg`, `-amd64.deb`, `-x86_64.AppImage` |
-| **Central Usage** | the musicians and singers (User 1 / User 2): chord chart, instrument, lyrics, their in-ear mix | Mac, Windows, Android, iPhone, iPad | `CentralUsage-<v>-win-x64.exe`, `-mac-arm64.dmg`, `-mac-x64.dmg`, `CentralUsage-<v>.apk`; iPhone / iPad: Safari today, the App Store app once the Apple account is set up |
+| **Central Usage** | the musicians and singers (User 1 / User 2): chord chart, instrument, lyrics, their in-ear mix | macOS, Windows, Linux, Android, iPhone, iPad | `CentralUsage-<v>-win-x64.exe`, `-mac-arm64.dmg`, `-mac-x64.dmg`, `-amd64.deb`, `-x86_64.AppImage`, `CentralUsage-<v>.apk`; iPhone / iPad: Safari today, the App Store app once the Apple account is set up |
 
 **Names:** Central Control's files keep their old name (`central-usage-…`, and `Central Usage.app` on a Mac) so every
 computer that has it keeps updating itself. Central Usage is the new musicians' app: `CentralUsage-…`.
@@ -61,12 +61,14 @@ name, so updates and settings carry on):
 Also in **⇪ Upload**: the Stream Deck, the network audio to the main admin (each track, the click, the pads and the
 instrument on their own channels) with the backup player's settings, and the practice-mix and stem splitter settings.
 
-## Android (Central Usage)
+## Android (Central Usage, Central Pedal Control)
 
-1. On the phone or tablet, open the download page and tap **Download for Android** (`CentralUsage-<v>.apk`).
+1. On the phone or tablet, open the download page and tap **Download for Android** (`CentralUsage-<v>.apk`, or
+   `central-pedal-control-<v>-android.apk` for Central Pedal Control).
 2. Open it; Android asks to allow installs from the browser: **Settings → Allow from this source**, back, **Install**.
 3. Open **Central Usage** on the church Wi-Fi and tap **Find the main admin** (or type its address), then pick
-   User 1 or User 2 and type the pairing PIN.
+   User 1 or User 2 and type the pairing PIN. **Central Pedal Control** opens the Central Pedal app at once: set up
+   your songs, then **⇪ Upload** to the pedal on the same Wi-Fi.
 
 **For whoever looks after the releases - the Android signing key (once):** run `bash tools/make-android-key.sh`, keep
 the `.keystore` file and its password safe, and add two repository secrets on GitHub (Settings → Secrets and variables
@@ -115,14 +117,29 @@ Open **Central Control** from the app menu, then **Find** → Connect to reach t
 `pipewire-jack` lets the Mix, In-ears and recording reach your audio interface. It is
 normally installed with the app; running the line again does no harm.
 
+### Central Pedal Control and Central Usage on Linux
+
+The same way, with their own file names. Each installs next to Central Control without replacing it:
+
+```bash
+cd ~/Downloads/central
+NEWEST=$(wget -qO- https://api.github.com/repos/MotionAudio/Central-Apps/releases/latest)
+wget -O central-pedal-control.deb "$(echo "$NEWEST" | grep -o 'https://github.com/[^"]*central-pedal-control-[^"]*amd64\.deb')"
+sudo apt install ./central-pedal-control.deb          # Central Pedal Control
+wget -O centralusage.deb "$(echo "$NEWEST" | grep -o 'https://github.com/[^"]*CentralUsage-[^"]*amd64\.deb')"
+sudo apt install ./centralusage.deb                   # Central Usage (the musicians' app)
+```
+
 ### Optional extras
 * **Slides over NDI** – install the free *NDI Runtime* from ndi.video (NDI Tools for Linux, Windows or
   Mac). The second screen and the Central Pedal's HDMI 2 work without it.
 * **Dante** (audio host) – Audinate's Dante Virtual Soundcard (Windows / Mac, needs its licence) or a
   Dante PCIe / USB card shows up like any interface on the I/O tab; two can be joined for 128 channels.
-* **Stem splitter (Demucs)** – Tracks → ✂ Stem splitter → **Install**. It downloads uv, a private Python, PyTorch and
-  Demucs into the app's own folder (about 2 GB, an internet connection needed once); **Remove it** takes it all away.
-  Best on a Mac (Central Pedal Control) or the main admin's computer.
+* **Stem splitter** – Tracks → ✂ Stem splitter → **Install**. It downloads uv, a private Python, PyTorch, Demucs and
+  audio-separator into the app's own folder. That is about 2.5 GB, and it needs an internet connection once. The
+  separation models download the first time each one is used. **Remove it** takes it all away. It works best on a
+  computer with Central Pedal Control, or on the main admin's computer; a GPU (Apple Silicon or NVIDIA) makes it much
+  faster.
 * **MP3 practice mixes** – need `ffmpeg` (on the Central Pedal image already; `sudo apt install ffmpeg` on Linux,
   `brew install ffmpeg` on a Mac). Without it they are WAVs.
 * **Elgato Stream Deck** – plug it in; Settings → Stream Deck → **Connect a Stream Deck** (the first time a computer asks which

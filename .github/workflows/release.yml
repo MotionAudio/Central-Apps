@@ -4,10 +4,10 @@
 # every install - Raspberry Pi, Linux, Windows, macOS - updates itself from it.
 #
 # Every release has the four apps: the Raspberry Pi update for Central Pedal (central-control-source.zip);
-# Central Pedal Control for Mac (central-pedal-control-*-mac-arm64 / -x64.dmg); Central Control (central-usage-*
+# Central Pedal Control (central-pedal-control-*) for macOS, Windows, Linux and Android; Central Control (central-usage-*
 # files - their old name) for Linux (.deb, .AppImage), Windows (-win-x64.exe) and macOS (-mac-arm64.dmg, -mac-x64.dmg);
-# Central Usage (CentralUsage-*) for Windows, macOS and Android (.apk); SHA256SUMS. iPhone / iPad: TestFlight / the
-# App Store once the Apple account is set up (the ios job below, IOS-APP-STORE.md).
+# Central Usage (CentralUsage-*) for Windows, macOS, Linux and Android (.apk); SHA256SUMS. iPhone / iPad (Central Usage,
+# Central Pedal Control): TestFlight / the App Store once the Apple account is set up (the ios job below, IOS-APP-STORE.md).
 # Optional: a copy of every release in Google Drive - see DRIVE-SETUP.md (secret RCLONE_CONFIG).
 name: Release
 on:
@@ -59,7 +59,9 @@ jobs:
           find staging -type f \( -name 'central-usage-*' -o -name 'CentralUsage-*' -o -name 'central-pedal-control-*' \) -exec mv {} central-usage/dist/ \;
           bash make-release.sh "$VER"
           for want in "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" "central-usage-*-x86_64.AppImage" "central-control-source.zip" \
-                      "CentralUsage-*-win-x64.exe" "CentralUsage-*-mac-arm64.dmg" "CentralUsage-*-mac-x64.dmg" "CentralUsage-*.apk" "central-pedal-control-*-mac-arm64.dmg" "central-pedal-control-*-mac-x64.dmg"; do
+                      "CentralUsage-*-win-x64.exe" "CentralUsage-*-mac-arm64.dmg" "CentralUsage-*-mac-x64.dmg" "CentralUsage-*.apk" "central-pedal-control-*-mac-arm64.dmg" "central-pedal-control-*-mac-x64.dmg" \
+                      "CentralUsage-*-amd64.deb" "CentralUsage-*-x86_64.AppImage" "central-pedal-control-*-win-x64.exe" "central-pedal-control-*-amd64.deb" \
+                      "central-pedal-control-*-x86_64.AppImage" "central-pedal-control-*-android.apk"; do
             ls release/$VER/$want >/dev/null 2>&1 || { echo "missing from the release: $want"; exit 1; }
           done
       - name: Publish
@@ -111,8 +113,8 @@ jobs:
           CUV=$(node -p "require('./central-usage/package.json').version")
           PCV=$(node -p "require('./central-pedal-control/package.json').version")
           bash central-usage-mobile/prepare.sh ios
-          bash central-pedal-control-ios/prepare.sh
-          for app in "central-usage-mobile:$CUV:Central Usage" "central-pedal-control-ios:$PCV:Central Pedal Control"; do
+          bash central-pedal-control-mobile/prepare.sh ios
+          for app in "central-usage-mobile:$CUV:Central Usage" "central-pedal-control-mobile:$PCV:Central Pedal Control"; do
             DIR=${app%%:*}; rest=${app#*:}; V=${rest%%:*}; NAME=${rest#*:}
             xcodebuild archive -workspace $DIR/ios/App/App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' \
               -archivePath "$RUNNER_TEMP/$DIR.xcarchive" DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic MARKETING_VERSION="$V" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" $AUTH -quiet

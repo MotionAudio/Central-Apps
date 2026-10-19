@@ -2,7 +2,7 @@
  * left out), the click and the guide or not, slower to learn it (the pitch stays), in another key, a count-in.
  * They are made here from the song's tracks and kept on the Central Pedal - the band opens
  * http://<pedal>.local:8080/practice/ on their phones - or put on a USB stick, downloaded, or (Central Pedal
- * Control) copied into a folder on the Mac. Every setting is in the dialog (Tracks → 🎧 Practice mixes) and is
+ * Control on a computer) copied into a folder on it. Every setting is in the dialog (Tracks → 🎧 Practice mixes) and is
  * kept with the project; the mixes themselves (the list) can be renamed, added, changed or removed. */
 (function () {
   "use strict";
@@ -312,7 +312,7 @@
 
   function html() {
     var c = cfg(), p = project(), withTracks = p.songs.filter(function (s) { return T().data(s).stems.length; }), mixes = c.mixes, on = mixes.filter(function (m) { return m.on; }).length, songs = songsToMake(c).length;
-    var isMac = !!(window.CCDesktop && window.CCDesktop.pickFolder);
+    var isMac = !!(window.CCDesktop && window.CCDesktop.pickFolder);   // (Central Pedal Control on a computer: Mac, Windows, Linux)
     var h = '<form method="dialog" class="pm"><header><h2>🎧 Practice mixes</h2><button value="close" class="ghost" aria-label="Close">✕</button></header>' +
       '<p class="muted small">A file of each song for each musician - their part up, the click and the guide or not, slower to learn it (the pitch stays) or in another key. ' + (driverOn() && !isMac ? "Kept on this Central Pedal: the band opens <b>http://" + esc(host()) + "/practice/</b> on their phones." : "") + "</p>";
     // songs
@@ -354,13 +354,13 @@
       '<p class="muted small">In names: {n} the song number, {song}, {mix}, {key}, {bpm}, {tempo}.</p>' + chk("playlist", c.playlist, "A playlist for each mix (all the songs in order)") + "</section>";
     // where
     var dests = [["pedal", driverOn() ? (isMac ? "Keep them in Central Pedal Control" : "Keep them on this Central Pedal (phones)") : "Keep them here"], ["usb", "Keep them here and copy onto a USB stick"], ["download", "Download them"]];
-    if (isMac) dests.push(["folder", "A folder on this Mac…"]);
+    if (isMac) dests.push(["folder", "A folder on this computer…"]);
     if (!driverOn()) dests = [["download", shareFiles() ? "Save to Files or share them (a button at the end)" : "Download them"]];
     h += '<section><h3>Where they go</h3><div class="pm-grid"><label>Save to' + sel("dest", driverOn() ? c.dest : "download", dests) + "</label>" +
       (!isMac ? "<label>Phones can open them" + sel("share", c.share, [["open", "Anyone on the church network"], ["code", "With a practice code"], ["off", "No (not shared)"]]) + "</label>" +
         (c.share === "code" ? '<label title="4-12 letters or numbers - give it to the band (it is not the pairing PIN)">Practice code <input data-pm="code" value="' + esc(c.code || (caps && caps.code) || "") + '" maxlength="12" pattern="[A-Za-z0-9]{4,12}"></label>' : "") +
         '<label>Page title <input data-pm="title" value="' + esc(c.title) + '" placeholder="Practice mixes"></label>' : "") + "</div>" +
-      (driverOn() ? "" : '<p class="muted small">MP3s, the phones\' page and USB sticks need a Central Pedal or Central Pedal Control on a Mac; here they are WAV files.</p>') + "</section>";
+      (driverOn() ? "" : '<p class="muted small">MP3s, the phones\' page and USB sticks need a Central Pedal or Central Pedal Control on a computer; here they are WAV files.</p>') + "</section>";
     h += '<section><h3>Made so far</h3><div id="pmList" class="pm-list">' + listHtml() + "</div></section>";
     h += '<div class="pm-progress hidden" id="pmProgress"></div><p id="pmMsg" class="pm-msg"></p>' +
       '<footer><button type="button" class="primary" data-pm-act="make"' + (songs * on ? "" : " disabled") + '>Make ' + (songs * on) + " file" + (songs * on === 1 ? "" : "s") + " (" + songs + " song" + (songs === 1 ? "" : "s") + " × " + on + " mix" + (on === 1 ? "" : "es") + ')</button><button type="button" class="ghost hidden" data-pm-act="stop">Stop</button><button value="close">Close</button></footer></form>';
@@ -370,7 +370,7 @@
     if (!driverOn()) return '<p class="muted small">(Downloads go to this computer\'s Downloads folder.)</p>';
     if (!listCache) return '<p class="muted small">…</p>';
     if (!listCache.length) return '<p class="muted small">None yet.</p>';
-    var isMac = !!(window.CCDesktop && window.CCDesktop.pickFolder);
+    var isMac = !!(window.CCDesktop && window.CCDesktop.pickFolder);   // (Central Pedal Control on a computer: Mac, Windows, Linux)
     return listCache.map(function (e) {
       return '<details><summary><b>' + esc(e.folder) + "</b> · " + e.files.length + " files · " + (e.size / 1048576).toFixed(0) + ' MB <span class="row-tools"><button type="button" data-pm-folder="' + esc(e.folder) + '" data-pm-do="usb">USB</button>' +
         (isMac ? '<button type="button" data-pm-folder="' + esc(e.folder) + '" data-pm-do="copy">Copy to…</button>' : "") + '<button type="button" class="ghost" data-pm-folder="' + esc(e.folder) + '" data-pm-do="del">Delete</button></span></summary><ul>' +

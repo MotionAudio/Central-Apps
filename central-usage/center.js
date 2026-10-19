@@ -121,7 +121,7 @@ class Center {
     if (p === "/api/center") return send(200, { app: "central-control-center", name: this.mainName(), port: this.port, pedal: this.pedalInfo() });
     if (p === "/" ) { res.writeHead(302, { Location: "/cu/" }); return res.end(); }
     if (p === "/cu/manifest.webmanifest") return send(200, { name: "Central Usage", short_name: "Central Usage", start_url: "/cu/", scope: "/cu/", display: "standalone", background_color: "#08111d", theme_color: "#08111d", icons: [{ src: "icon.png", sizes: "512x512", type: "image/png" }] }, "application/manifest+json");
-    if (p === "/cu/icon.png") { try { return send(200, fs.readFileSync(path.join(this.opts.appDir, "..", "build", "icon.png")), "image/png"); } catch (_) { return send(404, "no icon", "text/plain"); } }
+    if (p === "/cu/icon.png") { try { var bd = path.join(this.opts.appDir, "..", "build"); return send(200, fs.readFileSync(fs.existsSync(path.join(bd, "icon-usage.png")) ? path.join(bd, "icon-usage.png") : path.join(bd, "icon.png")), "image/png"); } catch (_) { return send(404, "no icon", "text/plain"); } }
     if (p === "/cu" ) { res.writeHead(302, { Location: "/cu/" }); return res.end(); }
     if (p.startsWith("/cu/")) {
       let rel = p.slice(4) || "index.html"; if (rel.endsWith("/")) rel += "index.html";

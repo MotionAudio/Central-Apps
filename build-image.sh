@@ -59,7 +59,7 @@ say "Building Central Pedal OS $VER from $HERE"
 for old in "$HERE"/pad-pedal-os.img "$HERE"/pad-pedal-os.img.xz; do
   [ -e "$old" ] && printf '    note: %s is an image from an OLDER version (before 7.1) - delete it so it never gets flashed by mistake\n' "$(basename "$old")"
 done
-FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js
+FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js
        js/textures.js js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js
        instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh
        companion/index.html companion/lyrics.html companion/stage.html companion/upload.html companion/remote.html companion/mini.html companion/slides.html companion/common.js companion/style.css

@@ -1,8 +1,8 @@
-/* Central Pedal Control - the Central Pedal app on a Mac: build the setlist, import tracks (MultiTracks.com / Loop
+/* Central Pedal Control - the Central Pedal app on a Mac, Windows or Linux computer: build the setlist, import tracks (MultiTracks.com / Loop
  * Community downloads, your own WAVs), set up the pads, the controls, the instrument and the look anywhere - then
  * ⇪ Upload it all to the Central Pedal (the Raspberry Pi), or ⇩ Download what is on it.
  * It runs the same app and driver as the Pi (simulated board, no GPIO), started here on 127.0.0.1, with its songs
- * in this Mac's settings folder. The driver runs as an editor (CC_PEDAL_CONTROL=1): it never pairs with the main
+ * in this computer's settings folder. The driver runs as an editor (CC_PEDAL_CONTROL=1): it never pairs with the main
  * admin as a pedal and never updates itself - this app updates as a whole. */
 const { app, BrowserWindow, Menu, session, dialog, shell, ipcMain, systemPreferences } = require("electron");
 const { Updater } = require("./updater");
@@ -28,7 +28,7 @@ async function driverIsOurs() { try { const r = await fetch("http://127.0.0.1:" 
 async function startDriver() {
   if (await portOpen(PORT)) {
     if (await driverIsOurs()) return true;
-    await dialog.showMessageBox({ type: "warning", title: "Central Pedal Control", message: "Central Control's player window is open on this Mac.", detail: "They share the same place on this computer. Close the player window (Central Control → Devices → Stop) and open Central Pedal Control again." });
+    await dialog.showMessageBox({ type: "warning", title: "Central Pedal Control", message: "Central Control's player window is open on this computer.", detail: "They share the same place on this computer. Close the player window (Central Control → Devices → Stop) and open Central Pedal Control again." });
     return false;
   }
   const bundled = bundledDriver(), py = bundled ? null : python();
@@ -81,7 +81,7 @@ function menu() {
     { label: "Help", submenu: [
       { label: "Check for updates…", click: async () => { const st = await updater.check(); updateEvent(); dialog.showMessageBox(win, { type: "info", title: "Updates", message: st.available ? "Central Pedal Control " + st.latest + " is available." : "Central Pedal Control is up to date (" + app.getVersion() + ")." }); } },
       { label: "Download page", click: () => shell.openExternal("https://motionaudio.github.io/Central-Apps/") },
-      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Pedal Control " + app.getVersion(), detail: "The Central Pedal app on this Mac: make the setlist, import tracks, set up pads, controls and the instrument - then Upload them to the Central Pedal.\nElectron " + process.versions.electron }) } ] }
+      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Pedal Control " + app.getVersion(), detail: "The Central Pedal app on this computer: make the setlist, import tracks, set up pads, controls and the instrument - then Upload them to the Central Pedal.\nElectron " + process.versions.electron }) } ] }
   ]));
 }
 

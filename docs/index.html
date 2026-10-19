@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Central Apps Downloads</title>
-<meta name="description" content="Download the four Central apps: Central Pedal (Raspberry Pi), Central Pedal Control (Mac, iPad), Central Control (Windows, Mac, Linux) and Central Usage (Mac, Windows, Android, iPhone, iPad).">
+<meta name="description" content="Download the four Central apps: Central Pedal (Raspberry Pi), Central Pedal Control (Mac, Windows, Linux, iPad, iPhone, Android), Central Control (Windows, Mac, Linux) and Central Usage (Mac, Windows, Linux, Android, iPhone, iPad).">
 <style>
   :root {
     --bg: #f6f7f9; --card: #ffffff; --ink: #14181f; --muted: #5b6573; --line: #dfe3e8; --accent: #1f6feb; --accent-ink: #ffffff; --soft: #eef3fd; --ok: #1a7f37; --warn: #9a6700;
@@ -46,31 +46,36 @@
   footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 18px; }
   @media (max-width: 900px) { .hero { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 560px) { .hero { grid-template-columns: 1fr; } }
+  .app-icon { display: block; border-radius: 14px; margin-bottom: 8px; }
 </style>
 </head>
 <body>
 <main>
   <header>
     <h1>Central Apps</h1>
-    <p class="lead">Four apps for a worship team. <b>Central Pedal</b> is the Raspberry Pi on stage: pads, multitracks, click, the guitar and keys rig. <b>Central Pedal Control</b> sets it up from a Mac or an iPad. <b>Central Control</b> runs the team from the main admin's computer: lights, slides, lyrics, cameras, in-ears, tracks and mixing. <b>Central Usage</b> is the musicians' app: the chord chart, the instrument, the lyrics and your in-ear mix.</p>
+    <p class="lead">Four apps for a worship team. <b>Central Pedal</b> is the Raspberry Pi on stage: pads, multitracks, click, the guitar and keys rig. <b>Central Pedal Control</b> gets it ready from any computer, tablet or phone. <b>Central Control</b> runs the team from the main admin's computer: lights, slides, lyrics, cameras, in-ears, tracks and mixing. <b>Central Usage</b> is the musicians' app: the chord chart, the instrument, the lyrics and your in-ear mix.</p>
     <span class="ver" id="ver">Finding the newest version…</span>
   </header>
 
   <div class="hero" id="hero">
-    <div class="card"><div class="who">On stage</div><h2>Central Pedal</h2><p class="muted">Raspberry Pi</p><a class="btn primary" href="#pi">Raspberry Pi steps</a></div>
-    <div class="card"><div class="who">Getting ready</div><h2>Central Pedal Control</h2><p class="muted" id="heroPcText">Mac · iPad</p><a class="btn primary" id="heroPc" href="#pedal-control">Download</a></div>
-    <div class="card"><div class="who">Main admin &amp; admins</div><h2>Central Control</h2><p class="muted" id="heroCuText">Windows · Mac · Linux</p><a class="btn primary" id="heroCu" href="#control">Download</a></div>
-    <div class="card"><div class="who">Musicians</div><h2>Central Usage</h2><p class="muted" id="heroUsText">Mac · Windows · Android · iPhone · iPad</p><a class="btn primary" id="heroUs" href="#usage">Download</a></div>
+    <div class="card"><div class="who">On stage</div><img class="app-icon" src="brand/central-pedal.png" alt="" width="56" height="56"><h2>Central Pedal</h2><p class="muted">Raspberry Pi</p><a class="btn primary" href="#pi">Raspberry Pi steps</a></div>
+    <div class="card"><div class="who">Getting ready</div><img class="app-icon" src="brand/central-pedal-control.png" alt="" width="56" height="56"><h2>Central Pedal Control</h2><p class="muted" id="heroPcText">Mac · Windows · Linux · iPad · iPhone · Android</p><a class="btn primary" id="heroPc" href="#pedal-control">Download</a></div>
+    <div class="card"><div class="who">Main admin &amp; admins</div><img class="app-icon" src="brand/central-control.png" alt="" width="56" height="56"><h2>Central Control</h2><p class="muted" id="heroCuText">Windows · Mac · Linux</p><a class="btn primary" id="heroCu" href="#control">Download</a></div>
+    <div class="card"><div class="who">Musicians</div><img class="app-icon" src="brand/central-usage.png" alt="" width="56" height="56"><h2>Central Usage</h2><p class="muted" id="heroUsText">Mac · Windows · Linux · Android · iPhone · iPad</p><a class="btn primary" id="heroUs" href="#usage">Download</a></div>
   </div>
 
   <section id="pedal-control">
     <h2>Central Pedal Control</h2>
-    <p class="muted">The Central Pedal app away from the pedal. Make the setlist, import tracks (MultiTracks.com and Loop Community downloads, your own WAVs), set up the pads, footswitches, knobs and the instrument at home or in the office. Then press <b>⇪ Upload</b> and type the pedal's PIN, and it all goes to the Central Pedal on the church Wi-Fi. <b>⇩ Download</b> brings the pedal's setup back.</p>
+    <p class="muted">The Central Pedal app away from the pedal. Make the setlist and add songs: your own stems, a whole song split by the stem splitter, MultiTracks.com and Loop Community downloads, or Central Tracks. Set up the pads, footswitches, knobs and the instrument at home or in the office. Then press <b>⇪ Upload</b> and type the pedal's PIN, and it all goes to the Central Pedal on the church Wi-Fi. <b>⇩ Download</b> brings the pedal's setup back.</p>
     <div class="grid">
       <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-pedal-control-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
       <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-pedal-control-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>iPad</h3><p>Coming to TestFlight and the App Store</p><a class="btn" aria-disabled="true">Soon</a></div>
+      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-pedal-control-*-win-x64.exe">Download <small>.exe</small></a></div>
+      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-pedal-control-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-pedal-control-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
+      <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="central-pedal-control-*-android.apk">Download <small>.apk</small></a></div>
+      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Coming to TestFlight and the App Store</p><a class="btn" aria-disabled="true">Soon</a></div>
     </div>
+    <p class="muted"><small>The stem splitter and MP3 practice mixes run on a computer (or on the Central Pedal); on a phone or tablet everything else works.</small></p>
   </section>
 
   <section id="control">
@@ -91,6 +96,7 @@
       <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="CentralUsage-*-win-x64.exe">Download <small>.exe</small></a></div>
       <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="CentralUsage-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
       <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="CentralUsage-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="CentralUsage-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="CentralUsage-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
       <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="CentralUsage-*.apk">Download <small>.apk</small></a></div>
       <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Add it from Safari today; the App Store app is coming</p><a class="btn" href="#ios">How to add it</a></div>
     </div>
@@ -115,10 +121,10 @@ xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"   # Cen
     <details><summary>Android: “install unknown apps”</summary>
       <ol><li>Open the downloaded <code>.apk</code> (Downloads, or the browser's notification).</li>
         <li>Android asks to allow installs from your browser: <b>Settings</b> → turn on <b>Allow from this source</b> → back → <b>Install</b>.</li>
-        <li>Open <b>Central Usage</b>, join the church Wi-Fi, and tap <b>Find the main admin</b>.</li></ol>
+        <li>Open the app on the church Wi-Fi. <b>Central Usage</b>: tap <b>Find the main admin</b>. <b>Central Pedal Control</b>: set up your songs, then <b>⇪ Upload</b> to the pedal.</li></ol>
     </details>
     <details><summary>Linux</summary>
-      <ol><li><b>.deb</b>: <code>sudo apt install ./central-usage-…-amd64.deb</code> (the <code>./</code> matters).</li>
+      <ol><li><b>.deb</b>: <code>sudo apt install ./&lt;the file&gt;.deb</code> (the <code>./</code> matters). Each app installs next to the others.</li>
         <li><b>AppImage</b>: right-click → Properties → Permissions → <b>Allow executing file as program</b>, then double-click.</li></ol>
     </details>
   </section>
@@ -180,7 +186,8 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre
       var usFile = plat === "android" ? match(names, "CentralUsage-*.apk") : pick && match(names, "CentralUsage-" + pick[0]);
       if (usFile) setHero("heroUs", "heroUsText", urls[usFile], plat === "android" ? "Download for Android" : pick[1]);
       else if (plat === "ios") setHero("heroUs", "heroUsText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "From the main admin's computer on your Wi-Fi");
-      var pcFile = plat === "mac" && match(names, "central-pedal-control-*-mac-" + arch + ".dmg"); if (pcFile) setHero("heroPc", "heroPcText", urls[pcFile], pc); else if (plat !== "ios") setHero("heroPc", "heroPcText", "#pedal-control", "For Mac and iPad");
+      var pcFile = plat === "android" ? match(names, "central-pedal-control-*-android.apk") : pick && match(names, "central-pedal-control-" + pick[0]);
+      if (pcFile) setHero("heroPc", "heroPcText", urls[pcFile], plat === "android" ? "Download for Android" : pick[1]); else if (plat === "ios") setHero("heroPc", "heroPcText", "#pedal-control", "Coming to the App Store");
     })
     .catch(function (e) {
       document.getElementById("ver").textContent = "Couldn't reach GitHub (" + e.message + ") - every file is on the releases page";

@@ -5,14 +5,14 @@ Two apps go to Apple:
 | App | Project | Bundle ID | What it is |
 |---|---|---|---|
 | **Central Usage** (iPhone, iPad) | `central-usage-mobile/` | `org.centralcontrol.usage` | finds the main admin's computer on the Wi-Fi and opens Central Usage - the chord chart, the lyrics, the instrument and your in-ear mix, full screen; keeps playing the in-ear mix with the screen locked |
-| **Central Pedal Control** (iPad) | `central-pedal-control-ios/` | `org.centralcontrol.pedalcontrol` | the Central Pedal app on the iPad: set up songs, tracks, pads and controls anywhere, then Upload them to the Central Pedal |
+| **Central Pedal Control** (iPhone, iPad) | `central-pedal-control-mobile/` | `org.centralcontrol.pedalcontrol` | the Central Pedal app on the iPhone and iPad: set up songs, tracks, pads and controls anywhere, then Upload them to the Central Pedal |
 
 Until they are on TestFlight, iPhones and iPads use Central Usage as a **web app**: Safari → the main admin's
 address (`http://<main admin>:8095/cu/`) → Share → **Add to Home Screen**. That needs nothing from Apple.
 
 Once the steps below are done, **every release builds both, signs them and uploads them to App Store Connect
-automatically** (release.yml, job `ios`). Until then that job does nothing. (Android: the Central Usage `.apk` is
-on the download page already - INSTALL.md.)
+automatically** (release.yml, job `ios`). Until then that job does nothing. (Android: the Central Usage and Central Pedal Control `.apk` files
+are on the download page already - INSTALL.md.)
 
 ## What you need
 
@@ -53,5 +53,5 @@ release uploads a new build by itself; you choose when a build goes to the store
 - Apple's review needs a way to see the app working. Add a note that it needs a Central Pedal (a
   Raspberry Pi) on the same Wi-Fi, and attach a short screen recording.
 - To try one yourself before that: on a Mac with Xcode, run `bash central-usage-mobile/prepare.sh ios` (or
-  `bash central-pedal-control-ios/prepare.sh`), open `ios/App/App.xcworkspace` in that folder, pick your
+  `bash central-pedal-control-mobile/prepare.sh ios`), open `ios/App/App.xcworkspace` in that folder, pick your
   iPhone / iPad and press Run (a free Apple ID works for your own device for 7 days).

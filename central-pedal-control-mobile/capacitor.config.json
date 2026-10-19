@@ -1,0 +1,16 @@
+{
+  "appId": "org.centralcontrol.pedalcontrol",
+  "appName": "Central Pedal Control",
+  "webDir": "www",
+  "server": {
+    "cleartext": true
+  },
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

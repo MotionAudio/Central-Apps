@@ -176,3 +176,17 @@ dialog.ss-dialog { width: min(820px, calc(100vw - 16px)); }
 .ss-log { max-height: 160px; overflow: auto; font-size: 11px; background: #071321; border: 1px solid var(--line); border-radius: 8px; padding: 6px; white-space: pre-wrap; }
 .ss .toggle.inline { display: inline-flex; margin-right: 10px; } .ss-file input { width: 100%; }
 @media (max-width: 640px) { .pm, .ss { padding: 10px; } }
+.ss-more { display: grid; gap: 4px; padding-top: 4px; border-top: 1px solid color-mix(in srgb, var(--line), transparent 40%); }
+
+/* Add a song (js/sources.js): your songs, then the four ways */
+.as-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } .as-head input { flex: 1 1 220px; } .as-head h3 { font-size: 16px; }
+.as-new { font-weight: 800; } .as-name { display: flex; gap: 8px; align-items: center; flex: 1 1 260px; } .as-name input { flex: 1; }
+.as-list { display: grid; gap: 6px; max-height: 52vh; overflow: auto; } .as-list h4 { margin: 8px 0 2px; }
+.as-song { display: grid; text-align: left; gap: 2px; padding: 10px 12px; border-radius: 10px; } .as-song small { color: var(--muted); font-weight: 400; }
+.as-ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.as-way { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; column-gap: 10px; row-gap: 4px; text-align: left; padding: 14px; border-radius: 14px; min-height: 130px; align-content: start; position: relative; }
+.as-way .as-i { font-size: 28px; grid-row: 1 / 3; } .as-way b { font-size: 16px; align-self: center; } .as-way small { grid-column: 1 / -1; color: var(--muted); font-weight: 400; line-height: 1.35; }
+.as-way .as-n { position: absolute; top: 8px; right: 10px; font-size: 12px; color: var(--muted); }
+.as-way:hover, .as-song:hover { border-color: var(--accent); }
+button.linkish { background: none; border: 0; padding: 0; color: var(--blue); text-decoration: underline; font: inherit; cursor: pointer; }
+#addBack { margin: 6px 0 0; }

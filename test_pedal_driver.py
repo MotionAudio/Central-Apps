@@ -149,6 +149,25 @@ def io_wav(seconds, rate=8000):
     return buf.getvalue()
 
 
+FAKE_SEPARATOR = r"""
+import json, os, sys, time, wave
+argv = sys.argv[1:]
+log = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fake-separator-argv.json")
+calls = json.load(open(log)) if os.path.exists(log) else []
+json.dump(calls + [argv], open(log, "w"))
+src, model, out = argv[0], argv[argv.index("-m") + 1], argv[argv.index("--output_dir") + 1]
+stems = ["kick", "snare", "toms", "hh", "ride", "crash"] if "DrumSep" in model else ["Vocals", "Other"] if "kim" in model else ["Vocals", "Instrumental"]
+ext = {"MP3": "mp3", "FLAC": "flac"}.get(argv[argv.index("--output_format") + 1], "wav")
+for p in (0, 50, 100):
+    sys.stdout.write("%3d%%|%s| %d/100\r" % (p, "#" * (p // 10), p)); sys.stdout.flush(); time.sleep(0.1)
+os.makedirs(out, exist_ok=True)
+base = os.path.basename(src).rsplit(".", 1)[0]
+for s in stems:
+    with wave.open(os.path.join(out, "%s_(%s)_%s.%s" % (base, s, model.rsplit(".", 1)[0], ext)), "wb") as w:
+        w.setnchannels(2); w.setsampwidth(2); w.setframerate(8000); w.writeframes(b"\0\0\0\0" * 800)
+print("separated")
+"""
+
 FAKE_DEMUCS = r"""
 import json, os, sys, time, wave
 argv = sys.argv[1:]
@@ -1140,7 +1159,8 @@ async def main():
         check("...every setting reaches Demucs (model, shifts, overlap, segment, device, 24-bit, clip mode, jobs, {stem}.{ext})",
               argv[:2] == ["-n", "htdemucs_6s"] and "--shifts" in argv and argv[argv.index("--shifts") + 1] == "2" and argv[argv.index("--overlap") + 1] == "0.50" and argv[argv.index("--segment") + 1] == "7"
               and argv[argv.index("-d") + 1] == "cpu" and "--int24" in argv and argv[argv.index("--clip-mode") + 1] == "clamp" and argv[argv.index("-j") + 1] == "2" and "{stem}.{ext}" in argv, argv)
-        check("...progress comes to the app while it runs, then the six stems", prog is not None and done and done["job"]["state"] == "done" and sorted(f["name"] for f in done["job"]["files"]) == ["bass.wav", "drums.wav", "guitar.wav", "other.wav", "piano.wav", "vocals.wav"], (prog, done))
+        check("...progress comes to the app while it runs, then the six stems", prog is not None and done and done["job"]["state"] == "done" and sorted(f["name"] for f in done["job"]["files"]) == ["Bass.wav", "Drums.wav", "Guitar.wav", "Other.wav", "Piano.wav", "Vocals.wav"]
+              and {f["name"]: f["role"] for f in done["job"]["files"]}["Piano.wav"] == "keys", (prog, done))
         rel = done["job"]["files"][0]["rel"] if done and done["job"]["files"] else ""
         st_, stem_ = http("http://127.0.0.1:18766/split/file?id=%s&rel=%s" % (job_.get("id"), urllib.parse.quote(rel)))
         st_x, _ = http("http://127.0.0.1:18766/split/file?id=%s&rel=../../../settings.json" % job_.get("id"))
@@ -1149,7 +1169,51 @@ async def main():
         job2 = json.loads(body_ or b"{}")
         done2 = await next_message(lambda m: m["type"] == "stemSplit" and m["job"]["id"] == job2.get("id") and m["job"]["state"] != "running", 10.0)
         argv2 = json.load(open(os.path.join(root, "fake-demucs-argv.json")))
-        check("...just vocals / no vocals as MP3", done2 and sorted(f["name"] for f in done2["job"]["files"]) == ["no_vocals.mp3", "vocals.mp3"] and "--two-stems" in argv2 and argv2[argv2.index("--mp3-bitrate") + 1] == "256", (done2, argv2))
+        check("...just vocals / no vocals as MP3", done2 and sorted(f["name"] for f in done2["job"]["files"]) == ["Band (no vocals).mp3", "Vocals.mp3"] and "--two-stems" in argv2 and argv2[argv2.index("--mp3-bitrate") + 1] == "256", (done2, argv2))
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {"quality": "best"}}).encode())
+        check("...the best-quality pipeline asks for its models to be installed first", st_ == 400 and b"best-quality" in body_, body_)
+        sep = os.path.join(root, "fake-separator.py")
+        with open(sep, "w") as handle:
+            handle.write(FAKE_SEPARATOR)
+        os.environ["CC_SEPARATOR_CMD"] = "%s %s" % (sys.executable, sep)
+        st_, body_ = http("http://127.0.0.1:18766/split/status")
+        check("...with audio-separator there, the status says so and lists its models", json.loads(body_).get("separator") is True and "vocals" in json.loads(body_).get("sepModels", {}), body_[:200])
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {"quality": "best", "model": "htdemucs", "leadBacking": True, "drumParts": True, "sepSegment": 256, "autocast": True}}).encode())
+        job4 = json.loads(body_ or b"{}")
+        steps4 = []
+        done4 = None
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            m4 = await next_message(lambda m: m["type"] == "stemSplit" and m["job"]["id"] == job4.get("id"), 2.0)
+            if m4:
+                if m4["job"].get("step") and m4["job"]["step"] not in steps4:
+                    steps4.append(m4["job"]["step"])
+                if m4["job"]["state"] != "running":
+                    done4 = m4
+                    break
+        names4 = sorted(f["name"] for f in (done4 or {"job": {"files": []}})["job"]["files"])
+        sargs = json.load(open(os.path.join(root, "fake-separator-argv.json")))
+        check("...best quality: RoFormer takes the vocals, Demucs the band, then lead / backing vocals and the drum parts - each step shown",
+              done4 and done4["job"]["state"] == "done" and names4 == ["Backing vocals.wav", "Bass.wav", "Crash.wav", "Hi-hat.wav", "Kick.wav", "Lead vocals.wav", "Other.wav", "Ride.wav", "Snare.wav", "Toms.wav"]
+              and len(steps4) >= 3 and job4.get("steps") and len(job4["steps"]) == 4, (names4, steps4, done4 and done4["job"].get("error")))
+        check("...the models and settings reach audio-separator (model file, segment size, autocast; models kept in the splitter's folder)",
+              len(sargs) == 3 and "model_bs_roformer_ep_317_sdr_12.9755.ckpt" in sargs[0] and "--mdxc_segment_size" in sargs[0] and "--use_autocast" in sargs[0]
+              and "karaoke" in " ".join(sargs[1]) and "DrumSep" in " ".join(sargs[2]) and any("stem-splitter" in a for a in sargs[0]), sargs)
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {"quality": "best", "vocalModel": "../../evil.ckpt"}}).encode())
+        job5 = json.loads(body_ or b"{}")
+        await next_message(lambda m: m["type"] == "stemSplit" and m["job"]["id"] == job5.get("id") and m["job"]["state"] != "running", 10.0)
+        sargs5 = json.load(open(os.path.join(root, "fake-separator-argv.json")))
+        check("...a model name that isn't a plain file name falls back to the default", "model_bs_roformer_ep_317_sdr_12.9755.ckpt" in sargs5[-1], sargs5[-1])
+        st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {"quality": "best", "vocalModel": "mel_band_roformer_kim_ft_unwa.ckpt", "format": "mp3"}}).encode())
+        job6 = json.loads(body_ or b"{}")
+        done6 = await next_message(lambda m: m["type"] == "stemSplit" and m["job"]["id"] == job6.get("id") and m["job"]["state"] != "running", 15.0)
+        names6 = sorted(f["name"] for f in (done6 or {"job": {"files": []}})["job"]["files"])
+        dm = json.load(open(os.path.join(root, "fake-demucs-argv.json")))
+        sargs6 = json.load(open(os.path.join(root, "fake-separator-argv.json")))[-1]
+        want6 = ["Bass.mp3", "Drums.mp3", "Other.mp3", "Vocals.mp3"] if shutil.which("ffmpeg") else ["Bass.wav", "Drums.wav", "Other.wav", "Vocals.wav"]
+        check("...a vocal model whose band stem is called \"other\" still feeds Demucs; MP3 is made once at the end (WAV in between)",
+              done6 and done6["job"]["state"] == "done" and names6 == want6 and "--mp3" not in dm and "--float32" in dm and "WAV" in sargs6, (names6, done6 and done6["job"].get("error"), dm, sargs6))
+        os.environ.pop("CC_SEPARATOR_CMD", None)
         os.environ["FAKE_DEMUCS_FAIL"] = "1"
         st_, body_ = http("http://127.0.0.1:18766/split/start", json.dumps({"path": up.get("path"), "opts": {}}).encode())
         job3 = json.loads(body_ or b"{}")

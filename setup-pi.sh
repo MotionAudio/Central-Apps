@@ -39,7 +39,7 @@ step() { printf '\n==> %s\n' "$*"; }
 warn() { printf '    WARNING: %s\n' "$*" >&2; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)."; exit 1; }
-for f in index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js js/textures.js \
+for f in index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js js/textures.js \
          js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js \
          instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
          companion/remote.html companion/mini.html companion/slides.html companion/common.js companion/style.css \
@@ -130,6 +130,7 @@ install -m 644 "$SRC"/companion/*      /opt/pad-pedal/companion/
 install -d -m 755 /opt/pad-pedal/central-usage/app /opt/pad-pedal/central-usage/build
 install -m 644 "$SRC"/central-usage/app/*.js "$SRC"/central-usage/app/*.html "$SRC"/central-usage/app/*.css /opt/pad-pedal/central-usage/app/
 install -m 644 "$SRC/central-usage/build/icon.png" /opt/pad-pedal/central-usage/build/icon.png
+[ -f "$SRC/central-usage/build/icon-usage.png" ] && install -m 644 "$SRC/central-usage/build/icon-usage.png" /opt/pad-pedal/central-usage/build/icon-usage.png
 [ -f "$SRC/wiring.html" ] && install -m 644 "$SRC/wiring.html" /opt/pad-pedal/wiring.html
 [ -f "$SRC/README.md" ] && install -m 644 "$SRC/README.md" /opt/pad-pedal/README.md
 install -m 755 "$SRC/pedal-driver.py"        /opt/pad-pedal/pedal-driver.py

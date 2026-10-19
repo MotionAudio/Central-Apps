@@ -85,7 +85,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.7.1"
+APP_VERSION = "8.8.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -1644,7 +1644,8 @@ class CompanionServer:
                         self.wfile.write(body)
                         return
                     if rel == "icon.png":
-                        return self.send_file(os.path.join(app_root, "central-usage", "build", "icon.png"), "image/png", cache=True)
+                        icon = os.path.join(app_root, "central-usage", "build", "icon-usage.png")   # (Central Usage's icon)
+                        return self.send_file(icon if os.path.isfile(icon) else os.path.join(app_root, "central-usage", "build", "icon.png"), "image/png", cache=True)
                     if rel.startswith("shared/"):
                         name = rel[len("shared/"):]
                         return self.serve_static(os.path.join(app_root, "css" if name.endswith(".css") else "js"), name)
@@ -3827,14 +3828,23 @@ class PracticeMixes:
 
 
 class StemSplitter:
-    """Split a song (one stereo file) into stems with Demucs, on this computer. Nothing is installed until the
-    musician asks: then uv (a small Python manager) is fetched, a private Python with Demucs is set up in
-    <data>/stem-splitter/, and the models download on first use. Every Demucs setting is the musician's: the
-    model (4 stems, 6 stems, fine-tuned, or just vocals / no vocals), shifts, overlap, segment length, the device
-    (CPU, Apple GPU, NVIDIA), the file format. CC_DEMUCS_CMD (or the "command" setting) runs another Demucs."""
+    """Split a song (one stereo file) into stems on this computer. Nothing is installed until the musician asks:
+    then uv (a small Python manager) is fetched, a private Python with Demucs and audio-separator (the UVR models:
+    RoFormer, MDX23C) is set up in <data>/stem-splitter/, and the models download on first use.
+    A split is a few steps: the best-quality vocal model (BS-RoFormer) takes the vocals out, Demucs splits the band
+    into drums, bass, guitar, piano and the rest, then - if asked - a karaoke model splits the vocals into lead and
+    backing, and DrumSep splits the drums into kick, snare, toms, hi-hat, ride and crash. Or Demucs alone (faster).
+    Every setting is the musician's: the models, shifts, overlap, segment length, the device (CPU, Apple GPU,
+    NVIDIA), the file format. CC_DEMUCS_CMD / CC_SEPARATOR_CMD run other copies (tests, your own install)."""
 
     MODELS = ("htdemucs", "htdemucs_ft", "htdemucs_6s", "hdemucs_mmi", "mdx_extra", "mdx_extra_q")
     BAGS = {"htdemucs_ft": 4, "mdx_extra": 4, "mdx_extra_q": 4, "hdemucs_mmi": 1, "htdemucs": 1, "htdemucs_6s": 1}
+    SEP_MODELS = {   # audio-separator model files (it downloads each the first time); the first of each kind is the default
+        "vocals": [["model_bs_roformer_ep_317_sdr_12.9755.ckpt", "BS-RoFormer (best vocals)"], ["mel_band_roformer_kim_ft_unwa.ckpt", "Mel-Band RoFormer (Kim, fine-tuned)"],
+                   ["MDX23C-8KFFT-InstVoc_HQ.ckpt", "MDX23C InstVoc HQ (faster)"]],
+        "karaoke": [["mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt", "Mel-Band RoFormer karaoke (lead / backing)"]],
+        "drums": [["MDX23C-DrumSep-aufr33-jarredou.ckpt", "MDX23C DrumSep (kick, snare, toms, hi-hat, ride, crash)"]],
+    }
 
     def __init__(self, driver):
         self.driver = driver
@@ -3860,6 +3870,15 @@ class StemSplitter:
             return shlex.split(custom, posix=os.name != "nt")
         py = self.env_python()
         return [py, "-m", "demucs.separate"] if py and os.path.isfile(os.path.join(self.root, "env", ".demucs-ok")) else None
+
+    def separator_command(self):
+        """The audio-separator command (a list), or None when the best-quality models aren't installed."""
+        custom = os.environ.get("CC_SEPARATOR_CMD") or ""
+        if custom.strip():
+            import shlex
+            return shlex.split(custom, posix=os.name != "nt")
+        exe = os.path.join(self.root, "env-sep", "Scripts", "audio-separator.exe") if os.name == "nt" else os.path.join(self.root, "env-sep", "bin", "audio-separator")
+        return [exe] if os.path.isfile(exe) and os.path.isfile(os.path.join(self.root, "env-sep", ".separator-ok")) else None
 
     def devices(self):
         out = ["cpu"]
@@ -3892,6 +3911,7 @@ class StemSplitter:
             jobs = [self._public(j) for j in self.jobs.values()]
         envdir = os.path.join(self.root, "env")
         return {"installed": self.command() is not None, "custom": bool(os.environ.get("CC_DEMUCS_CMD")), "partial": os.path.isdir(envdir) and self.command() is None,
+                "separator": self.separator_command() is not None, "sepModels": self.SEP_MODELS,
                 "install": dict(self.install_state, log=self.install_state["log"][-2500:]), "devices": self.devices(), "models": list(self.MODELS),
                 "slow": self.slow(), "memoryGb": self.memory_gb(), "platform": sys.platform, "jobs": jobs,
                 "settings": {"packages": self.cfg.get("packages") or "", "python": self.cfg.get("python") or "3.11"}}
@@ -3997,6 +4017,24 @@ class StemSplitter:
                 self._run([py, "-c", "import demucs.separate, torch; print('demucs ok, torch', torch.__version__)"], env)
                 with open(os.path.join(envdir, ".demucs-ok"), "w") as handle:
                     handle.write(time.strftime("%Y-%m-%d %H:%M"))
+                # the best-quality models (RoFormer, MDX23C, DrumSep): audio-separator in a Python of its own, with the
+                # PyTorch it wants (Demucs keeps its pinned one). If it can't install here (an old Intel Mac), Demucs alone works.
+                self.install_state["step"] = "Installing the best-quality models (audio-separator)"
+                sepdir = os.path.join(self.root, "env-sep")
+                shutil.rmtree(sepdir, ignore_errors=True)
+                try:
+                    self._run([uv, "venv", "--python", self.cfg.get("python") or "3.11", "--seed", sepdir], env)
+                    spy = os.path.join(sepdir, "Scripts", "python.exe") if os.name == "nt" else os.path.join(sepdir, "bin", "python")
+                    if sys.platform != "darwin" and not cuda:
+                        self._run([uv, "pip", "install", "--python", spy, "--index-url", "https://download.pytorch.org/whl/cpu", "torch", "torchaudio"], env)
+                    self._run([uv, "pip", "install", "--python", spy, "audio-separator[%s]" % ("gpu" if cuda else "cpu")], env)
+                    self._run([spy, "-c", "import audio_separator.separator; print('audio-separator ok')"], env)
+                    with open(os.path.join(sepdir, ".separator-ok"), "w") as handle:
+                        handle.write(time.strftime("%Y-%m-%d %H:%M"))
+                except Exception as error:
+                    shutil.rmtree(sepdir, ignore_errors=True)
+                    self._log("\nThe best-quality models could not be installed here (%s) - Demucs works on its own.\n" % error)
+                    self.install_state["warning"] = "Demucs is installed; the best-quality models could not be installed on this computer"
                 self.install_state["step"] = "Installed"
             except Exception as error:
                 self.install_state["error"] = str(error)
@@ -4012,7 +4050,7 @@ class StemSplitter:
     def uninstall(self):
         if self.install_state["running"]:
             return self.status()
-        for sub in ("env", "python", "cache", "bin"):
+        for sub in ("env", "env-sep", "python", "cache", "bin", "models"):
             shutil.rmtree(os.path.join(self.root, sub), ignore_errors=True)
         return self.status()
 
@@ -4046,7 +4084,7 @@ class StemSplitter:
         ok_roots += [os.path.realpath(r) for r in (self.driver.config.get("media_roots") or [])]
         return path if any(path.startswith(r + os.sep) for r in ok_roots) else None
 
-    def args_for(self, opts, src, out):
+    def args_for(self, opts, src, out, two_stems=None):
         model = opts.get("model") if opts.get("model") in self.MODELS else "htdemucs"
         a = ["-n", model, "-o", out, "--filename", "{stem}.{ext}"]
         shifts = max(0, min(20, int(opts["shifts"]) if opts.get("shifts") not in (None, "") else 1))
@@ -4055,12 +4093,10 @@ class StemSplitter:
         a += ["--overlap", "%.2f" % max(0.0, min(0.99, overlap))]
         if opts.get("segment"):
             a += ["--segment", str(max(1, min(60, int(opts["segment"]))))]
-        device = opts.get("device") or "auto"
-        if device == "auto":
-            device = "cuda" if "cuda" in self.devices() else ("mps" if "mps" in self.devices() else "cpu")
-        a += ["-d", device]
-        if opts.get("twoStems"):
-            a += ["--two-stems", re.sub(r"[^a-z]", "", str(opts["twoStems"]))]
+        a += ["-d", self.device(opts)]
+        two = opts.get("twoStems") if two_stems is None else two_stems
+        if two:
+            a += ["--two-stems", re.sub(r"[^a-z]", "", str(two))]
         fmt = opts.get("format") or "wav"
         if fmt == "mp3":
             a += ["--mp3", "--mp3-bitrate", str(max(96, min(320, int(opts.get("mp3Kbps") or 320))))]
@@ -4076,6 +4112,48 @@ class StemSplitter:
             a += ["-j", str(max(1, min(16, int(opts["jobs"]))))]
         return a + [src]
 
+    def device(self, opts):
+        device = opts.get("device") or "auto"
+        if device == "auto" or device not in self.devices():
+            device = "cuda" if "cuda" in self.devices() else ("mps" if "mps" in self.devices() else "cpu")
+        return device
+
+    def sep_args(self, opts, model, src, out):
+        """audio-separator (the UVR models: RoFormer, MDX23C...): one model on one file."""
+        fmt = {"mp3": "MP3", "flac": "FLAC"}.get(opts.get("format") or "wav", "WAV")
+        a = [src, "-m", model, "--output_dir", out, "--model_file_dir", os.path.join(self.root, "models", "uvr"), "--output_format", fmt, "--log_level", "info"]
+        if opts.get("sepSegment"):
+            a += ["--mdxc_segment_size", str(max(32, min(4096, int(opts["sepSegment"]))))]
+        if opts.get("sepOverlap"):
+            a += ["--mdxc_overlap", str(max(2, min(50, int(opts["sepOverlap"]))))]
+        if opts.get("autocast"):
+            a += ["--use_autocast"]
+        return a
+
+    def _model(self, opts, key, kind):
+        """A model file name the musician picked (or typed), else the first of its kind."""
+        v = str(opts.get(key) or "")
+        if re.match(r"^[A-Za-z0-9_.\-]+\.(ckpt|onnx|pth|yaml|th)$", v):
+            return v
+        return self.SEP_MODELS[kind][0][0]
+
+    def plan(self, opts, src, out):
+        """The steps of a split: [(label, kind, argv-builder input, step dir, weight)]."""
+        best = opts.get("quality") == "best"
+        two = str(opts.get("twoStems") or "")
+        steps = []
+        if best and two in ("", "vocals"):
+            steps.append({"label": "Vocals (best-quality model)", "kind": "sep", "model": self._model(opts, "vocalModel", "vocals"), "in": "src", "dir": "1-vocals", "weight": 3})
+            if not two:
+                steps.append({"label": "Drums, bass and the rest (Demucs)", "kind": "demucs", "in": "instrumental", "dir": "2-band", "weight": 3, "two": ""})
+        else:
+            steps.append({"label": "Splitting (Demucs)", "kind": "demucs", "in": "src", "dir": "1-demucs", "weight": 4, "two": two})
+        if opts.get("leadBacking") and two in ("", "vocals"):
+            steps.append({"label": "Lead and backing vocals", "kind": "sep", "model": self._model(opts, "karaokeModel", "karaoke"), "in": "vocals", "dir": "3-lead", "weight": 2, "split": "vocals"})
+        if opts.get("drumParts") and not two:
+            steps.append({"label": "Kick, snare, toms and cymbals", "kind": "sep", "model": self._model(opts, "drumModel", "drums"), "in": "drums", "dir": "4-drums", "weight": 2, "split": "drums"})
+        return steps
+
     def start(self, path, opts):
         cmd = self.command()
         if not cmd:
@@ -4084,74 +4162,184 @@ class StemSplitter:
         if not src:
             raise ValueError("can't find that file")
         opts = opts if isinstance(opts, dict) else {}
+        steps = self.plan(opts, src, None)
+        if any(s["kind"] == "sep" for s in steps) and not self.separator_command():
+            raise ValueError("the best-quality models aren't installed yet - press Install (or Update) in the stem splitter")
         jid = secrets.token_hex(5)
         out = os.path.join(self.root, "out", jid)
         os.makedirs(out, exist_ok=True)
         model = opts.get("model") if opts.get("model") in self.MODELS else "htdemucs"
-        job = {"id": jid, "name": os.path.basename(src), "state": "running", "progress": 0.0, "model": model, "opts": opts,
-               "files": [], "error": "", "started": time.time(), "out": out, "proc": None, "log": "", "bags": self.BAGS.get(model, 1) * max(1, int(opts["shifts"]) if opts.get("shifts") not in (None, "") else 1)}
+        job = {"id": jid, "name": os.path.basename(src), "state": "running", "progress": 0.0, "model": model, "opts": opts, "step": steps[0]["label"],
+               "steps": [s["label"] for s in steps], "files": [], "error": "", "started": time.time(), "eta": None, "out": out, "proc": None, "log": "",
+               "bags": self.BAGS.get(model, 1) * max(1, int(opts["shifts"]) if opts.get("shifts") not in (None, "") else 1)}
         with self.lock:
             self.jobs[jid] = job
-        argv = cmd + self.args_for(opts, src, out)
-        threading.Thread(target=self._work, args=(job, argv), daemon=True).start()
+        threading.Thread(target=self._work, args=(job, src, steps), daemon=True).start()
         return self._public(job)
 
-    def _work(self, job, argv):
+    def _run_step(self, job, argv, done_w, weight, total_w, bars_expected, env):
         bars, last_pct = 0, 0.0
+        if job["state"] == "cancelled":
+            raise InterruptedError()
+        job["proc"] = proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+        buf = b""
+        while True:
+            ch = proc.stdout.read(1)
+            if not ch:
+                break
+            if ch in (b"\r", b"\n"):
+                line = buf.decode(errors="replace")
+                buf = b""
+                m = re.search(r"(\d{1,3})%\|", line)
+                if m:
+                    pct = int(m.group(1)) / 100.0
+                    if pct < last_pct - 0.5:
+                        bars += 1
+                    last_pct = pct
+                    frac = min(1.0, (min(bars, bars_expected - 1) + pct) / max(1, bars_expected))
+                    job["progress"] = min(0.99, (done_w + frac * weight) / total_w)
+                    el = time.time() - job["started"]
+                    job["eta"] = int(el * (1 - job["progress"]) / job["progress"]) if job["progress"] > 0.03 else None
+                    self._emit_job(job)
+                elif line.strip():
+                    job["log"] = (job["log"] + line + "\n")[-4000:]
+            else:
+                buf += ch
+        proc.wait()
+        job["proc"] = None
+        if job["state"] == "cancelled":
+            raise InterruptedError()
+        if proc.returncode != 0:
+            raise RuntimeError((job["log"].strip().splitlines() or ["stopped (exit %s)" % proc.returncode])[-1][:300])
+
+    @staticmethod
+    def _outputs(d):
+        """Stem name -> file in a step's folder: Demucs writes <model>/<stem>.<ext>; audio-separator writes
+        <song>_(<Stem>)_<model>.<ext>."""
+        found = {}
+        for base, _dirs, names in os.walk(d):
+            for n in sorted(names):
+                p = os.path.join(base, n)
+                m = re.findall(r"_\(([^)]+)\)", n)   # (the last one: a split of a split is named <song>_(Vocals)_<m1>_(Instrumental)_<m2>)
+                key = (m[-1] if m else n.rsplit(".", 1)[0]).strip().lower().replace(" ", "_").replace("-", "_")
+                found[key] = p
+        return found
+
+    def _work(self, job, src, steps):
+        want = job["opts"].get("format") or "wav"
+        step_opts = dict(job["opts"], format="float") if want in ("mp3", "flac") and len(steps) > 1 else job["opts"]   # (no lossy steps in between)
         try:
             env = dict(os.environ, PYTHONUNBUFFERED="1", TORCH_HOME=os.path.join(self.root, "models"))
-            job["proc"] = proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
-            buf = b""
-            while True:
-                ch = proc.stdout.read(1)
-                if not ch:
-                    break
-                if ch in (b"\r", b"\n"):
-                    line = buf.decode(errors="replace")
-                    buf = b""
-                    m = re.search(r"(\d{1,3})%\|", line)
-                    if m:
-                        pct = int(m.group(1)) / 100.0
-                        if pct < last_pct - 0.5:
-                            bars += 1
-                        last_pct = pct
-                        job["progress"] = min(0.99, (bars + pct) / max(1, job["bags"]))
-                        self._emit_job(job)
-                    elif line.strip():
-                        job["log"] = (job["log"] + line + "\n")[-4000:]
+            total = float(sum(s["weight"] for s in steps)) or 1.0
+            done = 0.0
+            have = {"src": src}
+            final = {}   # nice name -> (path, role)
+            for s in steps:
+                job["step"] = s["label"]
+                self._emit_job(job, force=True)
+                inp = have.get(s["in"])
+                if not inp:
+                    raise RuntimeError("nothing to split for: " + s["label"])
+                d = os.path.join(job["out"], s["dir"])
+                os.makedirs(d, exist_ok=True)
+                if s["kind"] == "demucs":
+                    argv = self.command() + self.args_for(step_opts, inp, d, two_stems=s.get("two"))
+                    self._run_step(job, argv, done, s["weight"], total, job["bags"], env)
                 else:
-                    buf += ch
-            proc.wait()
-            if job["state"] == "cancelled":
-                shutil.rmtree(job["out"], ignore_errors=True)
-                return
+                    argv = self.separator_command() + self.sep_args(step_opts, s["model"], inp, d)
+                    self._run_step(job, argv, done, s["weight"], total, 1, env)
+                done += s["weight"]
+                got = self._outputs(d)
+                if not got:
+                    raise RuntimeError(s["label"] + ": no files came out")
+                if s["kind"] == "sep" and s["in"] == "src":   # vocals / instrumental
+                    voc = got.get("vocals")
+                    inst = got.get("instrumental") or got.get("no_vocals") or next((p for k, p in got.items() if k != "vocals"), None)   # (some models call it "other")
+                    if voc:
+                        have["vocals"] = voc
+                        final["vocals"] = voc
+                    if inst:
+                        have["instrumental"] = inst
+                        if len(steps) == 1 or str(job["opts"].get("twoStems") or "") == "vocals":
+                            final["no_vocals"] = inst
+                elif s["kind"] == "demucs":
+                    for k, p in got.items():
+                        if s["in"] == "instrumental" and k == "vocals":
+                            continue   # (what is left of the vocals in the band: the RoFormer vocals are better)
+                        have[k] = p
+                        final[k] = p
+                elif s.get("split") == "vocals":
+                    final.pop("vocals", None)
+                    if got.get("vocals"):
+                        final["lead_vocals"] = got["vocals"]
+                    back = got.get("instrumental") or got.get("no_vocals") or got.get("backing_vocals") or next((p for k, p in got.items() if k != "vocals"), None)
+                    if back:
+                        final["backing_vocals"] = back
+                elif s.get("split") == "drums":
+                    if job["opts"].get("keepDrums") is not True:
+                        final.pop("drums", None)
+                    for k, p in got.items():
+                        final["drum_" + k] = p
+            # the finished stems, with their names and roles, in final/
+            out = os.path.join(job["out"], "final")
+            os.makedirs(out, exist_ok=True)
             files = []
-            for base, _dirs, names in os.walk(job["out"]):
-                for n in sorted(names):
-                    files.append({"name": n, "size": os.path.getsize(os.path.join(base, n)), "rel": os.path.relpath(os.path.join(base, n), job["out"])})
-            if proc.returncode != 0 or not files:
-                job["state"] = "failed"
-                job["error"] = (job["log"].strip().splitlines() or ["Demucs stopped (exit %s)" % proc.returncode])[-1][:300]
-            else:
-                job["files"] = files
-                job["state"] = "done"
-                job["progress"] = 1.0
+            ff = shutil.which("ffmpeg")
+            for key in sorted(final, key=self._order):
+                p = final[key]
+                nice, role = self._nice(key)
+                ext = p.rsplit(".", 1)[-1].lower()
+                if want in ("mp3", "flac") and ext == "wav" and ff:   # (the format asked for, made once from the WAV)
+                    name = nice + "." + want
+                    codec = ["-codec:a", "libmp3lame", "-b:a", "%dk" % max(96, min(320, int(job["opts"].get("mp3Kbps") or 320)))] if want == "mp3" else ["-codec:a", "flac"]
+                    r = subprocess.run([ff, "-y", "-loglevel", "error", "-i", p] + codec + [os.path.join(out, name)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
+                    if r.returncode != 0:
+                        name = nice + ".wav"
+                        shutil.copyfile(p, os.path.join(out, name))
+                else:
+                    name = nice + "." + ext
+                    shutil.copyfile(p, os.path.join(out, name))
+                files.append({"name": name, "stem": key, "role": role, "size": os.path.getsize(os.path.join(out, name)), "rel": "final/" + name})
+            job["files"] = files
+            job["state"] = "done"
+            job["progress"] = 1.0
+            job["eta"] = 0
+        except InterruptedError:
+            shutil.rmtree(job["out"], ignore_errors=True)
+            return
         except Exception as error:
             job["state"] = "failed"
-            job["error"] = str(error)
+            job["error"] = str(error)[:300]
         finally:
             job["proc"] = None
             job["finished"] = time.time()
             self._emit_job(job, force=True)
 
+    ORDER = ["lead_vocals", "backing_vocals", "vocals", "drums", "drum_kick", "drum_snare", "drum_toms", "drum_hh", "drum_ride", "drum_crash", "drum_cymbals",
+             "bass", "guitar", "piano", "other", "no_vocals", "no_drums", "no_bass", "no_other"]
+    NICE = {"lead_vocals": ("Lead vocals", "vocals"), "backing_vocals": ("Backing vocals", "vocals"), "vocals": ("Vocals", "vocals"), "drums": ("Drums", "drums"),
+            "drum_kick": ("Kick", "drums"), "drum_snare": ("Snare", "drums"), "drum_toms": ("Toms", "drums"), "drum_hh": ("Hi-hat", "drums"), "drum_ride": ("Ride", "drums"),
+            "drum_crash": ("Crash", "drums"), "drum_cymbals": ("Cymbals", "drums"), "bass": ("Bass", "bass"), "guitar": ("Guitar", "guitar"), "piano": ("Piano", "keys"),
+            "other": ("Other", "music"), "no_vocals": ("Band (no vocals)", "music"), "no_drums": ("No drums", "music"), "no_bass": ("No bass", "music"), "no_other": ("Rest", "music")}
+
+    def _order(self, key):
+        return (self.ORDER.index(key), key) if key in self.ORDER else (len(self.ORDER), key)
+
+    def _nice(self, key):
+        if key in self.NICE:
+            return self.NICE[key]
+        base = key[5:] if key.startswith("drum_") else key
+        return (safe_name(base.replace("_", " ").strip().title()) or "Stem", "drums" if key.startswith("drum_") else "music")
+
     def cancel(self, jid):
         job = self.jobs.get(str(jid))
-        if job and job.get("proc"):
-            job["state"] = "cancelled"
-            try:
-                job["proc"].terminate()
-            except Exception:
-                pass
+        if job and job.get("state") == "running":
+            job["state"] = "cancelled"   # (between two steps there is no process: the next step sees this)
+            if job.get("proc"):
+                try:
+                    job["proc"].terminate()
+                except Exception:
+                    pass
         return {"ok": bool(job)}
 
     def forget(self, jid):
@@ -4189,7 +4377,7 @@ class StemSplitter:
         if not force and now - self.last_emit < 1.0:
             return
         self.last_emit = now
-        self.driver.emit({"type": "stemSplitStatus", "install": dict(self.install_state, log=self.install_state["log"][-1500:]), "installed": self.command() is not None})
+        self.driver.emit({"type": "stemSplitStatus", "install": dict(self.install_state, log=self.install_state["log"][-1500:]), "installed": self.command() is not None, "separator": self.separator_command() is not None})
 
 
 class PedalTransfer:

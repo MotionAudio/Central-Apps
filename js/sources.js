@@ -9,7 +9,7 @@
   var esc = PP.escapeHtml, MEDIA = "http://127.0.0.1:8766";
   var KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
   var ROLES = [["music", "Music"], ["drums", "Drums / loops"], ["bass", "Bass"], ["keys", "Keys / synth / pads"], ["guitar", "Guitar"], ["vocals", "Vocals"], ["click", "Click (in-ear)"], ["guide", "Guide / cues (in-ear)"]];
-  var st = { tab: "own", pco: { configured: null, org: "", types: [], type: null, plans: [], plan: null, items: [], sel: {}, audio: true, top: true, busy: false, log: "" }, pack: null, packBusy: false };
+  var st = { step: "songs", target: null, find: "", library: null, tab: "own", pco: { configured: null, org: "", types: [], type: null, plans: [], plan: null, items: [], sel: {}, audio: true, top: true, busy: false, log: "" }, pack: null, packBusy: false };
   function $(s) { return document.querySelector(s); }
   function bridge() { return window.__pedalBridge; }
   function connected() { return !!(bridge() && bridge().connected); }
@@ -246,23 +246,114 @@
     return '<p>A new song from your own <b>MP3 or WAV</b> files: one mixed file, or a set of stems (click, guide, drums, bass, keys…). Tempo, key, beats, sections and big hits are found automatically.</p><p class="muted small">Your own files stay on your devices. They are never shared to Central Tracks. To sell a track to other teams, publish it on the Motion Audio website.</p><div class="form"><label>Song name<input id="ownName" placeholder="Song name"></label><button class="primary" data-a="own-create">Create and add tracks…</button></div>';
   }
 
+  // ------------------------------------------------------------- Add song: 1. your songs  2. four ways to bring the tracks in
+  function songsHere() { return PP.project().songs || []; }
+  function targetSong() { var t = st.target; if (!t || t === "new") return null; return songsHere().filter(function (x) { return x.id === t; })[0] || null; }
+  function renderSongs() {
+    var here = songsHere(), q = st.find.trim().toLowerCase(), ids = {};
+    here.forEach(function (x) { ids[x.id] = 1; });
+    var lib = (st.library || []).filter(function (x) { return !ids[x.id]; });
+    function row(x, inLib) {
+      var t = !inLib && T.data(x), n = inLib ? x.stems || 0 : t.stems.length;
+      return '<button type="button" class="as-song" data-song="' + esc(x.id) + '"' + (inLib ? ' data-lib="1"' : "") + ' data-name="' + esc(String(x.name || "").toLowerCase()) + '"><b>' + esc(x.name || "Song") + "</b><small>" +
+        esc([x.key || "", x.bpm ? Math.round(x.bpm) + " BPM" : "", n ? n + " track" + (n === 1 ? "" : "s") : "no tracks yet", inLib ? "in your song library" : "in this setlist"].filter(Boolean).join(" · ")) + "</small></button>";
+    }
+    var match = function (x) { return !q || String(x.name || "").toLowerCase().indexOf(q) >= 0; };
+    return '<div class="as-head"><button type="button" class="primary as-new" data-a="song-new">＋ New song</button><input id="asFind" placeholder="Find one of your songs" value="' + esc(st.find) + '"></div>' +
+      '<p class="muted small">Pick a song to add tracks to it, or start a new one.</p>' +
+      '<div class="as-list">' + here.filter(match).map(function (x) { return row(x, false); }).join("") +
+      (lib.filter(match).length ? '<h4 class="muted small">Song library (other setlists, other devices)</h4>' + lib.filter(match).map(function (x) { return row(x, true); }).join("") : "") +
+      (!here.length && !lib.length ? '<p class="muted">No songs yet - press <b>＋ New song</b>.</p>' : "") + "</div>";
+  }
+  var WAYS = [
+    ["own", "🎚", "Your own stems", "WAV or MP3 files - one per instrument (click, guide, drums, bass, keys…). Each becomes a track; tempo, key and sections are found."],
+    ["split", "✂", "The whole song, split", "One WAV or MP3 of the finished song, vocals and all. The stem splitter separates vocals, drums, bass and the rest."],
+    ["pack", "📦", "MultiTracks.com or Prime", "The Ableton set / stems you downloaded from MultiTracks.com or Loop Community (Prime) - sections and tempo come with it."],
+    ["central", "☁", "Central Tracks", "The Motion Audio library: search it, add any track with Unlimited, or buy just the ones you need."]];
+  function renderChoose() {
+    var s = targetSong(), isNew = st.target === "new";
+    var head = '<div class="as-head"><button type="button" class="ghost" data-a="as-back">‹ Your songs</button>' +
+      (isNew ? '<label class="as-name">New song <input id="asName" placeholder="Song name" value="' + esc(st.newName || "") + '"></label>' : '<h3>Add tracks to <b>' + esc(s ? s.name : "the song") + "</b></h3>") + "</div>";
+    return head + '<div class="as-ways">' + WAYS.map(function (w, i) {
+      return '<button type="button" class="as-way" data-way="' + w[0] + '"><span class="as-n">' + (i + 1) + '</span><span class="as-i">' + w[1] + "</span><b>" + esc(w[2]) + "</b><small>" + esc(w[3]) + "</small></button>";
+    }).join("") + "</div>" +
+      (s && T.data(s).stems.length ? '<p class="muted small">' + T.data(s).stems.length + " tracks already - new ones are added next to them.</p>" : "") +
+      (s ? '<p class="muted small">MultiTracks.com / Prime and Central Tracks bring their song with its own name, key and sections (a song of the same name is updated).</p>' : "") +
+      ((!isNew && s) ? "" : '<p class="muted small">Or: <button type="button" class="linkish" data-way="pco">the songs of a Planning Center service plan</button> · <button type="button" class="linkish" data-a="song-plain">just the song, no tracks</button> (the pads follow its key)</p>') +
+      '<input type="file" id="asFiles" accept="audio/*,.wav,.mp3,.flac,.m4a,.aif,.aiff" multiple hidden><input type="file" id="asOne" accept="audio/*,.wav,.mp3,.flac,.m4a,.aif,.aiff" hidden>';
+  }
+  async function loadLibrary() {
+    if (!connected()) { st.library = []; return; }
+    try { var j = await (await fetch(MEDIA + "/sync/songs", { cache: "no-store" })).json(); st.library = (j.songs || []).filter(function (x) { return x.here; }); } catch (_) { st.library = []; }
+    if (st.step === "songs") render();
+  }
+  // the song the tracks go into: the one picked (from the library: into this setlist first), or a new one
+  async function ensureTarget() {
+    if (st.target === "new") {
+      var name = (($("#asName") && $("#asName").value) || st.newName || "").trim() || "New song";
+      var s = T.newSong(name); st.target = s.id; st.newName = "";
+    } else if (!targetSong()) {
+      var lib = null;
+      try { var r = await fetch(MEDIA + "/sync/song/" + encodeURIComponent(st.target), { cache: "no-store" }); if (r.ok) lib = await r.json(); } catch (_) { }
+      if (!lib || lib.id !== st.target || typeof lib.name !== "string") throw new Error("that song isn't on this device any more");
+      PP.project().songs.push(lib); PP.persistSoon(); F.renderSetlist && F.renderSetlist();
+    }
+    var p = PP.project(), i = p.songs.findIndex(function (x) { return x.id === st.target; });
+    if (i >= 0 && p.songIndex !== i) F.loadSong(i);
+    return p.songs[i];
+  }
+  async function way(w) {
+    if (w === "pack" || w === "central" || w === "pco") {
+      st.tab = w; st.step = "tab"; render();
+      if (w === "pco" && st.pco.configured === null && connected()) pcoStatus().then(render);
+      return;
+    }
+    if (st.target === "new") st.newName = ($("#asName") && $("#asName").value) || "";
+    var input = $(w === "own" ? "#asFiles" : "#asOne"); if (!input) return;
+    input.onchange = async function () {
+      var files = Array.from(input.files || []); input.value = ""; if (!files.length) return;
+      try {
+        var s = await ensureTarget();
+        if (w === "own") {
+          $("#addDialog").close(); PP.setStatus("Adding " + files.length + " track" + (files.length === 1 ? "" : "s") + " to " + s.name + "…");
+          await T.importFilesIntoSong(s, files, { analyze: true });
+        } else {
+          $("#addDialog").close();
+          window.PPStemSplit.open({ songId: s.id }); window.PPStemSplit.pick(files[0]);   // (the stems go into this song, whatever the splitter's own setting)
+        }
+      } catch (error) { PP.setStatus("Could not add it: " + error.message); }
+    };
+    input.click();
+  }
+
   // ------------------------------------------------------------- dialog
   function render() {
     var body = $("#addBody"); if (!body) return;
+    var tabs = $("#addTabs"); if (tabs) tabs.classList.toggle("hidden", st.step !== "tab");
+    var back = $("#addBack"); if (back) back.classList.toggle("hidden", st.step !== "tab");
+    var sub = $("#addSub"); if (sub) sub.textContent = st.step === "songs" ? "Your songs - pick one, or start a new one." : st.step === "choose" ? "Four ways to bring the tracks in." : "";
+    if (st.step === "songs" || st.step === "choose") { var y0 = body.scrollTop; body.innerHTML = st.step === "songs" ? renderSongs() : renderChoose(); body.scrollTop = y0; if (st.step === "songs") { var f = $("#asFind"); if (f && st.focusFind) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } } return; }
     document.querySelectorAll("#addTabs [data-src]").forEach(function (b) { b.classList.toggle("on", b.dataset.src === st.tab); });
     var y = body.scrollTop;
     body.innerHTML = st.tab === "pco" ? renderPco() : st.tab === "pack" ? renderPack(false) : st.tab === "prime" ? renderPack(true) : st.tab === "central" ? (window.PPCentralTracks ? window.PPCentralTracks.render() : '<p class="muted">Central Tracks is not available in this build.</p>') : renderOwn();
     body.scrollTop = y;
   }
   async function open(tab) {
-    if (tab) st.tab = tab;
+    if (tab) { st.tab = tab; st.step = "tab"; } else { st.step = "songs"; st.target = null; st.find = ""; st.library = null; loadLibrary(); }
     $("#addDialog").showModal(); render();
     if (st.tab === "pco" && st.pco.configured !== true && connected()) { await pcoStatus(); render(); }
   }
   function wire() {
+    if ($("#addBack")) $("#addBack").addEventListener("click", function () { st.step = st.target ? "choose" : "songs"; render(); });
     $("#addTabs").addEventListener("click", function (e) { var b = e.target.closest("[data-src]"); if (!b) return; st.tab = b.dataset.src; render(); if (st.tab === "pco" && st.pco.configured === null && connected()) pcoStatus().then(render); });
+    $("#addBody").addEventListener("input", function (e) { if (e.target.id === "asFind") { st.find = e.target.value; st.focusFind = true; render(); st.focusFind = false; } });
     $("#addBody").addEventListener("click", function (e) {
+      var sg = e.target.closest("[data-song]"); if (sg) { st.target = sg.dataset.song; st.step = "choose"; render(); return; }
+      var wy = e.target.closest("[data-way]"); if (wy) { way(wy.dataset.way); return; }
       var b = e.target.closest("[data-a],[data-plan]"); if (!b) return;
+      if (b.dataset.a === "song-new") { st.target = "new"; st.newName = ""; st.step = "choose"; render(); var n = $("#asName"); if (n) n.focus(); return; }
+      if (b.dataset.a === "as-back") { st.step = "songs"; st.target = null; render(); return; }
+      if (b.dataset.a === "song-plain") { var name = (($("#asName") && $("#asName").value) || "").trim() || "New song"; T.newSong(name); F.loadSong(PP.project().songs.length - 1); $("#addDialog").close(); PP.setStatus("\u201c" + name + "\u201d added - pads follow its key"); return; }
       if (b.dataset.plan) { pcoItems(b.dataset.plan); return; }
       var a = b.dataset.a;
       if (a === "pco-connect") pcoConnect(); else if (a === "pco-import") pcoImport();
@@ -284,5 +375,5 @@
     });
   }
   wire();
-  window.PPSources = { open: open, state: st, pcoImport: pcoImport, pcoStatus: pcoStatus, packImport: packImport, manyPick: manyPick, manyImport: manyImport, importPackInfo: importPackInfo, render: render };
+  window.PPSources = { open: open, state: st, way: way, ensureTarget: ensureTarget, pcoImport: pcoImport, pcoStatus: pcoStatus, packImport: packImport, manyPick: manyPick, manyImport: manyImport, importPackInfo: importPackInfo, render: render };
 })();

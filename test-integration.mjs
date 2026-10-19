@@ -76,7 +76,20 @@ fs.writeFileSync(fakeDemucs, [
   "    w = wave.open(os.path.join(d, s + '.wav'), 'wb'); w.setnchannels(2); w.setsampwidth(2); w.setframerate(22050)",
   "    w.writeframes(b''.join(struct.pack('<hh', int(6000 * math.sin(2 * math.pi * (110 * (k + 1)) * i / 22050)), int(6000 * math.sin(2 * math.pi * (110 * (k + 1)) * i / 22050))) for i in range(22050 * 2))); w.close()",
   ""].join("\n"));
-const driver = spawn("python3", [path.join(here, "pedal-driver.py"), "--simulate", tmp, "--app-root", here], { stdio: ["ignore", "pipe", "pipe"], env: Object.assign({}, process.env, { CC_PCO_BASE: "http://127.0.0.1:" + pco.address().port, CC_DEMUCS_CMD: "python3 " + fakeDemucs }) });
+// ...and for audio-separator (the best-quality models): vocals / instrumental, or the drum parts
+const fakeSep = path.join(tmp, "fake-separator.py");
+fs.writeFileSync(fakeSep, [
+  "import math, os, struct, sys, time, wave",
+  "a = sys.argv[1:]; src = a[0]; model = a[a.index('-m') + 1]; out = a[a.index('--output_dir') + 1]",
+  "stems = ['kick', 'snare', 'toms', 'hh', 'ride', 'crash'] if 'DrumSep' in model else ['Vocals', 'Instrumental']",
+  "for p in (0, 50, 100):",
+  "    sys.stdout.write('%3d%%|####| %d/100\\r' % (p, p)); sys.stdout.flush(); time.sleep(0.1)",
+  "os.makedirs(out, exist_ok=True); base = os.path.basename(src).rsplit('.', 1)[0]",
+  "for k, s in enumerate(stems):",
+  "    w = wave.open(os.path.join(out, '%s_(%s)_%s.wav' % (base, s, model.rsplit('.', 1)[0])), 'wb'); w.setnchannels(2); w.setsampwidth(2); w.setframerate(22050)",
+  "    w.writeframes(b''.join(struct.pack('<hh', int(5000 * math.sin(2 * math.pi * (150 * (k + 2)) * i / 22050)), 0) for i in range(22050 * 2))); w.close()",
+  ""].join("\n"));
+const driver = spawn("python3", [path.join(here, "pedal-driver.py"), "--simulate", tmp, "--app-root", here], { stdio: ["ignore", "pipe", "pipe"], env: Object.assign({}, process.env, { CC_PCO_BASE: "http://127.0.0.1:" + pco.address().port, CC_DEMUCS_CMD: "python3 " + fakeDemucs, CC_SEPARATOR_CMD: "python3 " + fakeSep }) });
 let driverLog = "";
 driver.stdout.on("data", (d) => { driverLog += d; }); driver.stderr.on("data", (d) => { driverLog += d; });
 await until(() => /listening on ws/.test(driverLog), 15000, 100);
@@ -926,6 +939,13 @@ await check("practice mixes: made for a song (a normal mix and a slow drums mix 
   assert.equal(page.share, "open");
   await T(() => { document.getElementById("pmDialog").close(); });
 });
+await check("sections are found from the tracks: verse, pre-chorus, chorus, bridge, intro and outro, on the right bars", async () => {
+  await page.addScriptTag({ content: '// (runs in the page) a 40-bar song at 120 BPM: intro 4, verse 8, chorus 8, verse 8, chorus 8, outro 4\nasync function structureCheck(form) {\n  form = form || [["intro", 4], ["verse", 8], ["chorus", 8], ["verse", 8], ["chorus", 8], ["outro", 4]];\n  const plan = []; form.forEach(([p, l]) => { for (let k = 0; k < l; k++) plan.push(p); });\n  const rate = 22050, bar = 2, nb = plan.length, n = rate * bar * nb;\n  const chords = { verse: [[261.6, 329.6, 392], [220, 261.6, 329.6]], chorus: [[349.2, 440, 523.3], [392, 493.9, 587.3]], intro: [[261.6, 329.6, 392], [220, 261.6, 329.6]], outro: [[261.6, 329.6, 392], [220, 261.6, 329.6]], pre: [[233.1, 293.7, 349.2], [207.7, 261.6, 311.1]], bridge: [[220, 261.6, 329.6], [174.6, 220, 261.6]] };\n  const keys = new Float32Array(n), voc = new Float32Array(n), drums = new Float32Array(n);\n  for (let i = 0; i < n; i++) {\n    const t = i / rate, b = Math.floor(t / bar), part = plan[b], ch = chords[part][Math.floor(t / (bar * 2)) % 2], loud = part === "chorus" ? 0.22 : part === "verse" ? 0.13 : part === "pre" ? 0.16 : part === "bridge" ? 0.17 : 0.08;\n    let v = 0; for (const f of ch) v += Math.sin(2 * Math.PI * f * t); keys[i] = v * loud / 3;\n    if (part !== "intro" && part !== "outro") { const note = ch[Math.floor(t * 2) % 3] * 2; voc[i] = 0.18 * Math.sin(2 * Math.PI * note * t) * (0.6 + 0.4 * Math.sin(2 * Math.PI * 0.5 * t)); }\n    const ph = t % 0.5; drums[i] = ph < 0.05 ? 0.5 * Math.sin(2 * Math.PI * 60 * ph) * Math.exp(-ph * 60) * (part === "chorus" ? 1.4 : 1) : 0;\n  }\n  const P = PPPractice, file = (name, x) => new File([P.encodeWav(x, x, rate, 16)], name, { type: "audio/wav" });\n  const s = PPTracks.newSong("Structure Test " + nb);\n  await PPTracks.importFilesIntoSong(s, [file("Keys.wav", keys), file("Vocals.wav", voc), file("Drums.wav", drums)], { analyze: false });\n  const t = PPTracks.data(s); t.grid = { mode: "manual", bpm: 120, first: 0, bpb: 4 }; t.tempoMap = []; t.sections = [];\n  const secs = await PPStructure.detect(s);\n  return (secs || []).map((x) => x.name + "@" + x.bar);\n}\n' });
+  const a = await T(() => structureCheck());
+  assert.deepEqual(a, ["Intro@1", "Verse 1@5", "Chorus@13", "Verse 2@21", "Chorus@29", "Outro@37"]);
+  const b = await T(() => structureCheck([["intro", 4], ["verse", 8], ["pre", 4], ["chorus", 8], ["verse", 8], ["pre", 4], ["chorus", 8], ["bridge", 8], ["chorus", 8], ["outro", 4]]));
+  assert.deepEqual(b, ["Intro@1", "Verse 1@5", "Pre-Chorus@13", "Chorus@17", "Verse 2@25", "Pre-Chorus@33", "Chorus@37", "Bridge@45", "Chorus@53", "Outro@61"]);
+});
 await check("stem splitter: installed (a stand-in Demucs here), a stereo file is split and comes back as a new song with drums / bass / vocals / other tracks", async () => {
   const before = await T(() => PP.project().songs.length);
   await T(async () => {
@@ -942,6 +962,50 @@ await check("stem splitter: installed (a stand-in Demucs here), a stereo file is
     .catch(async () => { throw new Error("no new song: " + JSON.stringify(await T(() => ({ st: PPStemSplit.state().msg, job: PPStemSplit.state().current, songs: PP.project().songs.map((q) => q.name + "/" + PPTracks.data(q).stems.length) })))); });
   assert.deepEqual(song, ["Bass:bass", "Drums:drums", "Other:music", "Vocals:vocals"]);
   assert.match(await T(() => PPStemSplit.state().msg), /4 stems added/);
+  await T(() => document.getElementById("ssDialog").close());
+});
+await check("stem splitter, best quality and split further: lead / backing vocals and the drum parts come back as their own tracks, with the click and the spoken guide on", async () => {
+  await T(async () => {
+    const c = PPStemSplit.cfg(); Object.assign(c, { into: "new", quality: "best", leadBacking: true, drumParts: true, keepDrums: false, analyze: true, sections: true, clickOn: true, guideOn: true, skip: [] });
+    PPStemSplit.open(); await PPStemSplit.refresh();
+    const rate = 22050, L = new Float32Array(rate * 3); for (let i = 0; i < L.length; i++) L[i] = 0.3 * Math.sin(2 * Math.PI * 220 * i / rate);
+    PPStemSplit.pick(new File([PPPractice.encodeWav(L, L, rate, 16)], "Best Test.wav", { type: "audio/wav" }));
+  });
+  const keep = await T(() => Array.from(document.querySelectorAll("[data-ss-keep]")).map((x) => x.dataset.ssKeep));
+  assert.deepEqual(keep, ["lead_vocals", "backing_vocals", "drum_kick", "drum_snare", "drum_toms", "drum_hh", "drum_ride", "drum_crash", "bass", "other"]);
+  await T(() => document.querySelector('[data-ss-act="start"]').click());
+  const got = await until(() => T(() => { const s = PP.project().songs.find((q) => q.name === "Best Test"); const t = s && PPTracks.data(s); return t && t.stems.length >= 10 && !PPStemSplit.state().importing ? { stems: t.stems.map((x) => x.name + ":" + x.role).sort(), click: t.click.on, cues: t.cues.on } : null; }), 40000, 300)
+    .catch(async () => { throw new Error(JSON.stringify(await T(() => ({ msg: PPStemSplit.state().msg, job: PPStemSplit.state().current })))); });
+  assert.deepEqual(got.stems, ["Backing vocals:vocals", "Bass:bass", "Crash:drums", "Hi-hat:drums", "Kick:drums", "Lead vocals:vocals", "Other:music", "Ride:drums", "Snare:drums", "Toms:drums"]);
+  assert.ok(got.click && got.cues, JSON.stringify(got));
+  await T(() => document.getElementById("ssDialog").close());
+});
+await check("Add a song: your songs first (this setlist and the library), then the four ways - own stems, the whole song split, MultiTracks.com / Prime, Central Tracks", async () => {
+  await T(() => { document.querySelectorAll("dialog[open]").forEach((d) => d.close()); PPSources.open(); });
+  const first = await T(() => ({ newBtn: !!document.querySelector('[data-a="song-new"]'), rows: document.querySelectorAll("#addBody [data-song]").length, tabsHidden: document.getElementById("addTabs").classList.contains("hidden"), songs: PP.project().songs.length }));
+  assert.ok(first.newBtn && first.rows >= first.songs && first.tabsHidden, JSON.stringify(first));
+  await page.click('[data-a="song-new"]'); await page.fill("#asName", "Flow Song");
+  const ways = await T(() => Array.from(document.querySelectorAll(".as-way b")).map((b) => b.textContent));
+  assert.deepEqual(ways, ["Your own stems", "The whole song, split", "MultiTracks.com or Prime", "Central Tracks"]);
+  const [fc] = await Promise.all([page.waitForEvent("filechooser"), page.click('[data-way="own"]')]);
+  await fc.setFiles(songFile);
+  const made = await until(() => T(() => { const s = PP.project().songs.find((q) => q.name === "Flow Song"); return s && PPTracks.data(s).stems.length === 1 ? { active: PP.activeSong() && PP.activeSong().name, stem: PPTracks.data(s).stems[0].name } : null; }), 30000, 200);
+  assert.equal(made.active, "Flow Song"); assert.equal(made.stem, "Drums");
+  // an existing song: its page says so; Central Tracks opens that tab; back returns to the four ways
+  await T(() => PPSources.open());
+  await T(() => { const b = Array.from(document.querySelectorAll("#addBody [data-song]")).find((x) => /Flow Song/.test(x.textContent)); b.click(); });
+  assert.match(await T(() => document.querySelector("#addBody h3").textContent), /Add tracks to Flow Song/);
+  await page.click('[data-way="central"]');
+  const tab = await T(() => ({ on: document.querySelector("#addTabs .on").dataset.src, shown: !document.getElementById("addTabs").classList.contains("hidden"), back: !document.getElementById("addBack").classList.contains("hidden") }));
+  assert.deepEqual(tab, { on: "central", shown: true, back: true });
+  await until(() => T(() => /Central Tracks|Motion Audio/.test(document.getElementById("addBody").textContent) && !/Loading Central Tracks/.test(document.getElementById("addBody").textContent)), 8000);
+  await page.click("#addBack"); assert.equal(await T(() => document.querySelectorAll(".as-way").length), 4);
+  // the whole song: the stem splitter opens with the file picked, into this song
+  const [fc2] = await Promise.all([page.waitForEvent("filechooser"), page.click('[data-way="split"]')]);
+  await fc2.setFiles(songFile);
+  const intoBefore = await T(() => PPStemSplit.cfg().into);
+  const sp = await until(() => T(() => { const d = document.getElementById("ssDialog"); return d && d.open ? { picked: PPStemSplit.state().picked && PPStemSplit.state().picked.name, target: (PP.project().songs.find((q) => q.id === PPStemSplit.state().intoSong) || {}).name, says: /The stems go into Flow Song/.test(d.textContent), into: PPStemSplit.cfg().into } : null; }), 8000);
+  assert.deepEqual(sp, { picked: "Drums.wav", target: "Flow Song", says: true, into: intoBefore }, "into this song just this once - the splitter's own setting is unchanged");
   await T(() => document.getElementById("ssDialog").close());
 });
 await check("no page errors during the whole run", () => assert.deepEqual(errors.filter((e) => !/favicon/.test(e)), []));

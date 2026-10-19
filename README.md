@@ -1,23 +1,194 @@
+<div align="center">
+
+<img src="docs/brand/central-pedal.png" width="104" alt="Central Pedal">
+
 # Central Pedal
 
-A Raspberry Pi 4 that boots straight into Central Pedal and nothing else
-(a full-screen app, not a browser): an ambient / worship pad instrument, a
-multitrack player (stems, click, spoken cues, chord charts, lyrics) and a
-guitar / keys rig, with a touch screen, 12 footswitches, 6 knobs, 2 sliders,
-an expression pedal, MIDI in/out, Ableton Link, four separate audio outputs
-and a projector output.
+**Tracks, pads, the instrument rig, lights, lyrics and in-ears for worship teams: one system on every device.**
 
-Four apps (download page: https://motionaudio.github.io/Central-Apps/):
+[![Latest release](https://img.shields.io/github/v/release/MotionAudio/Central-Apps?label=release&color=5de6b0)](https://github.com/MotionAudio/Central-Apps/releases/latest)
+[![Build](https://img.shields.io/github/actions/workflow/status/MotionAudio/Central-Apps/release.yml?branch=main&label=build)](https://github.com/MotionAudio/Central-Apps/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-75adff)](LICENSE)
 
-| App | For | Runs on | Where in this repository |
-|---|---|---|---|
-| **Central Pedal** | the pedal on stage | Raspberry Pi | the top folder (`index.html`, `js/`, `pedal-driver.py`…) |
-| **Central Pedal Control** | getting the pedal ready anywhere, then **⇪ Upload** to it | Mac, iPad | `central-pedal-control/` (Mac), `central-pedal-control-ios/` (iPad) - the same app, `js/transfer.js` |
-| **Central Control** | the main admin and admins: lights, slides, lyrics, cameras, in-ears, tracks, mixing | Windows, Mac, Linux | `central-usage/` |
-| **Central Usage** | musicians (User 1 / User 2): chord chart, instrument, lyrics, their in-ear mix | Mac, Windows, Android, iPhone, iPad | `central-usage/` (`usage-builder.js`), `central-usage-mobile/` (Android, iPhone / iPad) |
+[**Download**](https://motionaudio.github.io/Central-Apps/) · [Install guide](INSTALL.md) · [Release notes](release-notes/) · [Central Tracks API](docs/CENTRAL-TRACKS-API.md)
 
-Everything follows the main admin's Central Control; the Central Pedal (or the main admin's player window) plays,
-stops and skips the tracks.
+</div>
+
+---
+
+## The four apps
+
+| | App | Who it's for | What it does |
+|:-:|---|---|---|
+| <img src="docs/brand/central-pedal.png" width="44" alt=""> | **Central Pedal** | The stage | A Raspberry Pi 4 that boots straight into the pedal. It has ambient pads, a multitrack player (stems, click, spoken cues, chord charts, lyrics) and a guitar / keys rig, played from a touch screen, 12 footswitches, knobs, an expression pedal, MIDI and a Stream Deck. |
+| <img src="docs/brand/central-pedal-control.png" width="44" alt=""> | **Central Pedal Control** | Whoever gets the songs ready | The same Central Pedal app on your computer, tablet or phone. You build the setlist, add songs and tracks, and set up pads, controls and the instrument anywhere. Then **⇪ Upload** it all to the pedal. |
+| <img src="docs/brand/central-control.png" width="44" alt=""> | **Central Control** | The main admin and admins | Lights, slides, lyrics, cameras, in-ear mixes, the tracks and the mix, for the whole team. |
+| <img src="docs/brand/central-usage.png" width="44" alt=""> | **Central Usage** | Musicians and singers | Your chord chart, your instrument, the lyrics and your own in-ear mix. |
+
+## Platforms
+
+| | Central Pedal | Central Pedal Control | Central Control | Central Usage |
+|---|:-:|:-:|:-:|:-:|
+| **Raspberry Pi 4** | ✅ | | | |
+| **macOS** (Apple Silicon, Intel) | | ✅ | ✅ | ✅ |
+| **Windows** 10 / 11 | | ✅ | ✅ | ✅ |
+| **Linux** (.deb, AppImage) | | ✅ | ✅ | ✅ |
+| **iPadOS** | | ✅ ¹ | | ✅ ¹ |
+| **iOS** (iPhone) | | ✅ ¹ | | ✅ ¹ |
+| **Android** | | ✅ | | ✅ |
+
+¹ iPhone and iPad: through TestFlight and the App Store once the Apple developer account is set up ([IOS-APP-STORE.md](IOS-APP-STORE.md)).
+Central Usage also runs in Safari today, served by the main admin's computer.
+
+Every release is built and tested for every system by GitHub Actions. Every installed app updates itself from the
+newest release, and asks first.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+  CT[("☁️ Central Tracks<br/>Motion Audio library")]
+  PC["🧰 Central Pedal Control<br/>Mac · Windows · Linux · iPad · iPhone · Android"]
+  CP["🎛️ Central Pedal<br/>Raspberry Pi 4"]
+  CC["🖥️ Central Control<br/>main admin · admins"]
+  CU["🎸 Central Usage<br/>musicians · singers"]
+  OUT["Lights · slides · lyrics<br/>cameras · in-ear mixes"]
+  CT -- "songs and tracks" --> PC
+  CT -- "songs and tracks" --> CP
+  PC -- "⇪ Upload: songs, tracks, pads, controls, instrument" --> CP
+  CP -- "each track, the click, pads, instrument, MIDI hits<br/>on their own channels (Wi-Fi / Ethernet)" --> CC
+  CC --> OUT
+  CC <-->|"chart, lyrics, your in-ear mix"| CU
+```
+
+## Highlights
+
+**Songs and tracks**
+- **Add a song** in four ways:
+  1. your own stems
+  2. the whole song split into stems
+  3. a MultiTracks.com / Loop Community (Prime) download, with its Ableton sections
+  4. **Central Tracks**
+
+  Planning Center plans come in too.
+- **Stem splitter.** The best-quality RoFormer vocal model and Demucs split a finished song into vocals, drums, bass,
+  guitar, piano and the rest, on your own computer. It can also split lead from backing vocals, and the drums into
+  kick, snare, toms, hi-hat, ride and crash.
+- **Sections are found for you.** Intro, verse, pre-chorus, chorus, bridge and outro come from the vocals, the harmony
+  and the loudness. Tempo, key, the beat grid and big hits are found too. A click and a spoken guide come from the
+  grid.
+- **Practice mixes** for every musician:
+  - their part up, alone or left out
+  - slower without changing the pitch, or in another key
+  - a count-in
+
+  The band plays them on their phones.
+- A full mixer, scenes, segues (gapless or crossfaded), live arrangement, key and tempo changes.
+
+**Live**
+- The **LIVE** screen:
+  - the whole service on one screen
+  - **Safe Stop**
+  - the service lock
+  - a **Ready check** before the service
+  - a **service report** afterwards
+- **Backup player:** a second pedal follows in step, silently, and takes over mid-song if the first one stops.
+
+**Control**
+- Footswitches, knobs, sliders, an expression pedal, USB foot pedals and MIDI.
+- **Elgato Stream Deck**, with your own keys and pages.
+- Ableton Link, MIDI clock and hits out, and ProPresenter.
+
+**Instrument**
+- Guitar and bass pedalboards (600+ free plugins on the Pi, a built-in rig on Windows and macOS).
+- Keys from SoundFonts, with layers and splits.
+- A tuner, an IR loader and a looper.
+
+**The team**
+- With Central Control, the main admin pairs every device, gives each pedal its job (track player, controller,
+  instrument rig, backup) and runs:
+  - lights (DMX, fixture library, timecode)
+  - slides, lyrics and cameras (NDI)
+  - 64 in-ear mixes
+  - talkback
+- With Central Usage, musicians get their own chart, lyrics and in-ear mix.
+
+## Get started
+
+1. **Install the apps.** The [download page](https://motionaudio.github.io/Central-Apps/) picks the right file for
+   your device. Step-by-step help and Linux commands are in [INSTALL.md](INSTALL.md).
+2. **Set up the Central Pedal.** Build the SD card image on an Ubuntu PC ([details below](#the-raspberry-pi-image)),
+   flash it and boot. It goes straight to the Central Pedal screen.
+3. **Get your songs ready** anywhere in Central Pedal Control, then press **⇪ Upload** with the pedal's name and PIN.
+4. **Bring in the team.** The main admin installs Central Control, and the pedals and every musician's device pair
+   with it.
+
+### The Raspberry Pi image
+
+1. **Build it** on your Ubuntu PC. The first build takes 40–60 minutes and needs internet and about 15 GB free:
+
+   ```bash
+   sudo WIFI_SSID="Church WiFi" WIFI_PASS="password" bash build-image.sh
+   ```
+   - You get `central-control-os-<version>.img`. Always build from the folder you unzipped the newest
+     `central-control-source.zip` into. Delete older images so they can't be flashed by mistake.
+   - Options:
+     - `PI_PASS=...`, `PI_HOSTNAME=...`
+     - `TFT=waveshare35a`: the 3.5" screen is on from the first boot.
+     - `I2S_DAC=off`, `SAFE_MODE=off`, `WIFI_COUNTRY=US`, `COMPRESS=1`
+     - `SOUNDS=small` skips the 1.2 GB grand piano; `SOUNDS=none` leaves out the keys sound banks.
+   - Use a 16 GB card or bigger.
+2. **Flash it** with Raspberry Pi Imager: *Choose OS → Use custom*, then pick the `.img`. Answer **No** to *OS
+   customisation*.
+3. **Boot.** The first boot takes about a minute longer and restarts once. After that, every boot goes straight to the
+   Central Pedal. The start-up screen and the top-right of the app show the version.
+4. **Wire the controls** with `wiring.html`. Every part is optional, and the Learn tab can move any button or knob to
+   any pin. A guitar needs a USB audio interface; a keyboard needs a USB MIDI port.
+
+**Other Wi-Fi later:** put `pad-pedal-wifi.txt` (the network name on line 1, the password on line 2) on the card's
+`bootfs` partition, or use Settings → Wi-Fi on the screen. Maintenance login: `ssh pi@padpedal.local`.
+
+## Central Tracks
+
+The Motion Audio community library, built into **Add a song → Central Tracks** in Central Pedal and Central Pedal
+Control:
+- Search by song, artist or key.
+- With **Central Tracks Unlimited**, add any track.
+- Otherwise, buy the tracks you need. Prices come from each track's audio-quality grade.
+
+Teams publish tracks on the Motion Audio website. Songs you import yourself never leave your devices. The server
+API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
+
+## Documentation
+
+| | |
+|---|---|
+| [INSTALL.md](INSTALL.md) | Installing every app on every system, updating, Linux commands |
+| [IOS-APP-STORE.md](IOS-APP-STORE.md) | iPhone and iPad builds: TestFlight and App Store |
+| [DRIVE-SETUP.md](DRIVE-SETUP.md) | A copy of every release in Google Drive |
+| [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md) | The Central Tracks server API |
+| [release-notes/](release-notes/) | What changed in each version |
+| [central-usage/README.md](central-usage/README.md) | Central Control and Central Usage in depth |
+| [The user guide below](#the-tabs) | Every tab of the Central Pedal, the hardware, screens, MIDI and safe mode |
+
+## Release history
+
+<details>
+<summary><b>What's new in each version</b> (8.8 and earlier)</summary>
+
+**New in version 8.8:**
+- **Central Pedal Control on every system:** macOS, Windows, Linux, iPadOS, iOS and Android.
+  **Central Usage on Linux** (.deb, AppImage).
+- **Add a song:** your songs first, or a new one, then four ways to bring its tracks in:
+  1. your own stems
+  2. the whole song split
+  3. MultiTracks.com / Prime
+  4. Central Tracks
+- **Stem splitter, best quality:** the RoFormer vocal model with Demucs for the band. It can also split lead from
+  backing vocals, and the drums into kick, snare, toms, hi-hat, ride and crash. Each step shows its progress and the
+  time left.
+- **Sections found from the tracks:** intro, verse, pre-chorus, chorus, bridge, instrumental, tag and outro, from the
+  vocals, the harmony and the loudness. After a split, the click and the spoken guide are switched on.
 
 **New in version 8.6:**
 - **Backup player:** a second Central Pedal (or the main admin's player window) plays along silently, in step, and
@@ -205,62 +376,11 @@ on a USB interface · your own recorded cue words · a stage display ·
 backup, restore and software update from a USB stick · every imported file
 kept in a library on the Pi · lighting in Central Control.
 
-## Quick start
+</details>
 
-**Just want to install the apps?** The download page **https://motionaudio.github.io/Central-Apps/**
-picks the right file for your computer; step-by-step help (and Linux commands) is in [INSTALL.md](INSTALL.md).
+---
 
-| | Central Pedal | Central Control |
-|---|---|---|
-| Raspberry Pi | ✓ (the stage device) | |
-| Windows 10 / 11 (x64) | ✓ | ✓ |
-| macOS 11+ (Apple Silicon, Intel) | ✓ | ✓ |
-| Linux (.deb, AppImage) | ✓ | ✓ |
-| iPhone / iPad | | ✓ web app from the Central Pedal ([App Store version](IOS-APP-STORE.md)) |
-
-Every release ships for all of them (GitHub Actions builds and tests each system), and every install updates
-itself from the newest release. On Windows and macOS the instrument plays through the built-in rig (built-in
-effects for every pedal, SoundFont keys) and the audio host works with any interface or Dante Virtual Soundcard.
-Releases can also be copied to Google Drive automatically ([DRIVE-SETUP.md](DRIVE-SETUP.md)).
-
-1. **Build the OS image** on your Ubuntu PC (40–60 minutes the first time, needs internet and ~15 GB free):
-
-   ```bash
-   sudo WIFI_SSID="Church WiFi" WIFI_PASS="password" bash build-image.sh
-   ```
-   You get `central-control-os-8.1.0.img` (the version is in the name - an
-   older `pad-pedal-os.img` lying in the folder is a previous version: delete
-   it so it can't be flashed by mistake). Always build from the folder you
-   unzipped the newest `central-control-source.zip` into. Options: `PI_PASS=...`, `PI_HOSTNAME=...`,
-   `TFT=waveshare35a` (3.5" screen on from the first boot), `I2S_DAC=off`,
-   `SAFE_MODE=off`, `WIFI_COUNTRY=US`, `COMPRESS=1`, `SOUNDS=small` (skip the
-   1.2 GB Salamander grand piano) or `SOUNDS=none` (no keys sound banks; the
-   General MIDI bank is still there). The image is about 8 GB with all the
-   sounds; a 16 GB card or bigger.
-
-2. **Flash it** with Raspberry Pi Imager → Choose OS → *Use custom* → the
-   `.img` → your SD card. When asked about *OS customisation*, choose **No**.
-
-3. **Boot.** The first boot takes about a minute longer and restarts once
-   (it creates the `/data` partition and turns on safe mode). After that every
-   boot goes straight to the Central Pedal screen. The start-up screen says
-   "Central Pedal 8.1.0" and the top-right of the app shows the same - if it
-   doesn't, the card has an older image on it.
-
-4. **Wire the control surface** with `wiring.html`. Every part is optional;
-   the Learn tab can move any button or knob to any pin without re-flashing.
-   A guitar needs a USB audio interface, a keyboard a USB MIDI port - no wiring.
-
-5. **Central Control** (the companion app) on a laptop: `sudo apt install ./central-usage/dist/central-usage-2.1.0-amd64.deb`
-   (or run the AppImage), then **Find** → Connect. See `central-usage/README.md`.
-   No Pi? The main admin's Central Control runs the tracks, charts and lyrics in its player window (Devices tab).
-
-Maintenance login: `ssh pi@padpedal.local`, password `padpedal`.
-
-**Wi-Fi later / another network:** put a file called `pad-pedal-wifi.txt` on
-the small `bootfs` partition of the card with the network name on line 1 and
-the password on line 2; it is imported (and deleted) at the next boot. Or use
-Settings → Wi-Fi on the screen itself (scan, pick, type the password).
+# User guide
 
 ## The tabs
 
@@ -721,7 +841,7 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `js/scenes.js`, `js/looper.js`, `js/integrations.js` | Scenes and pad layers; the looper; ProPresenter and update checks (page side) |
 | `js/io.js`, `js/netsend.js`, `js/hub.js`, `js/colors.js` | The I/O tab; the audio to Central Control (every track on its own channel); the songs for Central Control; the colours of everything |
 | `make-release.sh` | Builds a release (Pi zip, PC installers, SHA256SUMS) and publishes it to GitHub |
-| `js/sources.js`, `sources.py` | *Add songs*: Planning Center, track packs, own files (page and driver side) |
+| `sources.py` | The driver side of *Add a song*: Planning Center, track packs |
 | `companion/` | The pages phones, tablets and the projector open: charts, lyrics, remote, upload, mini, stage, slides |
 | `central-usage/` | The Central Control desktop app (Electron; its audio engine and NDI sender in `native/`) and its installers in `dist/` |
 | `cues/` | Pre-rendered spoken cue words |
@@ -744,7 +864,12 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `central-usage/native/` | `cu-mixer` (audio engine: JACK, or Windows / macOS / Linux devices through miniaudio - several at once, Dante), `cu-ndi`, `cu-rig` (built-in instrument rig), `vendor/` (miniaudio, TinySoundFont, cJSON), unit tests |
 | `central-usage-mobile/` | Central Usage for Android (`.apk`) and iPhone / iPad (TestFlight / App Store): a Capacitor app that finds the main admin and opens Central Usage - [IOS-APP-STORE.md](IOS-APP-STORE.md) |
 | `central-usage/usage-builder.js` | Packs Central Usage (the musicians' edition) from the same code as Central Control |
-| `central-pedal-control/`, `central-pedal-control-ios/` | Central Pedal Control for Mac (Electron, the bundled driver) and iPad (Capacitor) |
+| `central-pedal-control/`, `central-pedal-control-mobile/` | Central Pedal Control for macOS, Windows and Linux (Electron, the bundled driver) and iPhone, iPad and Android (Capacitor) |
+| `js/sources.js`, `js/central-tracks.js` | *Add a song*: your songs, then the four ways (own stems, the whole song split, MultiTracks.com / Prime, Central Tracks) and Planning Center |
+| `js/stemsplit.js`, `StemSplitter` in `pedal-driver.py` | The stem splitter: RoFormer / MDX23C (audio-separator) and Demucs, installed on demand with uv |
+| `js/structure.js` | Finding a song's sections from its tracks (vocals, harmony, loudness) |
+| `js/practice.js`, `PracticeMixes` in `pedal-driver.py` | Practice mixes (offline mix, time-stretch, click, WAV / MP3) and the phones' `/practice/` page |
+| `js/backup.js`, `js/streamdeck.js` | The backup player; the Elgato Stream Deck (WebHID) |
 | `js/transfer.js`, `PedalTransfer` in `pedal-driver.py`, `test-transfer.mjs` | Upload / Download between Central Pedal Control and a Central Pedal |
 | `js/live.js`, `js/report.js`, `css/live.css` | The LIVE screen, the service lock, Safe Stop, the Ready check and the service report |
 | `docs/` | The download page (GitHub Pages) |

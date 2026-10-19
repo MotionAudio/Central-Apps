@@ -232,7 +232,11 @@
     if (t.autoHits) t.hits = res.hits.slice();
     s.bpm = Math.round(res.bpm * 10) / 10 / (t.tempoPercent / 100);
     if (secTimes) { t.sections.forEach(function (sec, i) { if (secTimes[i] < 0) { sec.bar = 1; return; } var b = timeToBar(s, secTimes[i]); sec.bar = b.bar + (b.frac > 0.5 ? 1 : 0); }); }
-    if (!t.sections.length) autoSections(s);
+    if (!t.sections.length && opts.sections !== false) {   // found from the tracks (js/structure.js); else every 8 bars
+      var found = null;
+      if (window.PPStructure) { try { if (progress) progress("Finding the sections…"); found = await window.PPStructure.detect(s); } catch (error) { console.warn("sections", error); } }
+      if (!found) autoSections(s);
+    }
     PP.persistSoon();
     return res;
   }
@@ -908,7 +912,7 @@
       try { var r = await addStemFile(s, files[i], function (m) { PP.setStatus(m + " (" + (i + 1) + "/" + files.length + ")"); }); buffers.push(r); ok++; }
       catch (error) { PP.setStatus("Could not decode " + files[i].name); }
     }
-    if (ok && opts.analyze !== false) { try { await analyzeSong(s, buffers, PP.setStatus); } catch (error) { console.warn(error); } }
+    if (ok && opts.analyze !== false) { try { await analyzeSong(s, buffers, PP.setStatus, { sections: opts.sections }); } catch (error) { console.warn(error); } }
     buffers.length = 0;
     if (song() && song().id === s.id) { loadedSongId = null; if (project().tracksMode) await loadSong(s); }
     var t = data(s); PP.setStatus(ok + " track" + (ok === 1 ? "" : "s") + " added to " + s.name + (t.analysis ? " · " + Math.round(t.grid.bpm) + " BPM · " + keyName(t.originalKey) + (t.originalMode === "minor" ? "m" : "") : ""));

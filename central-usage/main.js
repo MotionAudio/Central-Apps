@@ -22,7 +22,7 @@ app.setName(APP_NAME);
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1180, height: 780, minWidth: 720, minHeight: 480, title: APP_NAME, backgroundColor: "#08111d", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: false,
+    width: 1180, height: 780, minWidth: 720, minHeight: 480, title: APP_NAME, backgroundColor: "#08111d", icon: path.join(__dirname, "build", EDITION === "usage" ? "icon-usage.png" : "icon.png"), autoHideMenuBar: false,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false, additionalArguments: ["--cu-edition=" + EDITION] }
   });
   win.loadFile(path.join(__dirname, "app", "index.html"));
