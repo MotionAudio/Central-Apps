@@ -1,5 +1,10 @@
 apply plugin: 'com.android.application'
 
+// the version comes from central-usage/package.json (CI passes it as CU_VERSION); versionCode grows with it: 2.5.0 -> 20500
+def cuVersion = System.getenv("CU_VERSION") ?: "2.5.0"
+def cuParts = (cuVersion.tokenize(".") + ["0", "0", "0"]).take(3).collect { (it.replaceAll(/[^0-9]/, "") ?: "0").toInteger() }
+def cuVersionCode = cuParts[0] * 10000 + cuParts[1] * 100 + cuParts[2]
+
 android {
     namespace "org.centralcontrol.usage"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,9 +12,8 @@ android {
         applicationId "org.centralcontrol.usage"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // the version comes from central-usage/package.json (CI passes it); versionCode grows with it: 2.5.0 -> 20500
-        versionName (System.getenv("CU_VERSION") ?: "2.5.0")
-        versionCode (System.getenv("CU_VERSION") ?: "2.5.0").tokenize(".").with { it[0].toInteger() * 10000 + it[1].toInteger() * 100 + it[2].toInteger() }
+        versionName cuVersion
+        versionCode cuVersionCode
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
