@@ -21,12 +21,13 @@ import zipfile
 
 AUDIO = (".wav", ".mp3", ".flac", ".ogg", ".oga", ".m4a", ".aac", ".aif", ".aiff", ".opus")
 CHARTS = (".pdf", ".txt", ".cho", ".chopro", ".crd", ".pro", ".onsong", ".png", ".jpg", ".jpeg")
+MARKER_FILES = (".als", ".mid", ".midi")   # an Ableton session (locators) or a MIDI file (markers): the song's sections
 KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 FLAT = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#", "Cb": "B", "Fb": "E"}
 
 # stem roles as the tracks player uses them (click / guide go to the in-ear output)
 ROLES = [
-    ("click", re.compile(r"click|metronome|\bclk\b", re.I)),
+    ("click", re.compile(r"click|metronome|\bclk\b|clicks?\s*(&|and)\s*cues", re.I)),
     ("guide", re.compile(r"guide|\bcues?\b|\bmd\b|director|talkback|count", re.I)),
     ("drums", re.compile(r"drum|kick|snare|\bperc|loop|\bbeat|\bkit\b|\btom|cymbal|hat", re.I)),
     ("bass", re.compile(r"bass|\bsub\b|808", re.I)),
@@ -76,26 +77,203 @@ def meta_from_name(name):
 
 
 # ---------------------------------------------------------------------------
+# section markers: Ableton Live sessions (MultiTracks.com "Ableton" downloads) and MIDI files
+# ---------------------------------------------------------------------------
+def _clean_marker(name):
+    name = re.sub(r"\s+", " ", str(name or "")).strip()[:40]
+    return name
+
+
+def markers_from_als(data):
+    """An Ableton Live set (.als = gzip'd XML): the locators (name + beat) and the song tempo."""
+    import gzip
+    import xml.etree.ElementTree as ET
+    try:
+        raw = gzip.decompress(data)
+    except OSError:
+        raw = data
+    root = ET.fromstring(raw)
+    tempo = None
+    for t in root.iter("Tempo"):
+        man = t.find("Manual")
+        if man is not None and man.get("Value"):
+            try:
+                tempo = float(man.get("Value"))
+                break
+            except ValueError:
+                pass
+    sig = None
+    for ts in root.iter("TimeSignature"):   # (Live 11+: the master clip's time signature)
+        num = ts.find(".//Numerator")
+        if num is not None and num.get("Value", "").isdigit():
+            sig = int(num.get("Value"))
+            break
+    out = []
+    for loc in root.iter("Locator"):
+        t, n = loc.find("Time"), loc.find("Name")
+        if t is None or n is None:
+            continue
+        try:
+            beat = float(t.get("Value"))
+        except (TypeError, ValueError):
+            continue
+        name = _clean_marker(n.get("Value"))
+        if name:
+            out.append({"name": name, "beat": beat, "time": beat * 60.0 / tempo if tempo else None})
+    out.sort(key=lambda m: m["beat"])
+    return {"markers": out, "bpm": tempo, "bpb": sig}
+
+
+def markers_from_midi(data):
+    """A Standard MIDI File: marker (0x06) / cue point (0x07) / text (0x01, a fallback) events, with the tempo map."""
+    if data[:4] != b"MThd":
+        raise ValueError("not a MIDI file")
+    fmt, ntrk, div = int.from_bytes(data[8:10], "big"), int.from_bytes(data[10:12], "big"), int.from_bytes(data[12:14], "big")
+    if div & 0x8000:
+        raise ValueError("SMPTE-timed MIDI files are not supported")
+    pos, events, tempos, sig = 8 + int.from_bytes(data[4:8], "big"), [], [], None
+    for _ in range(ntrk):
+        if data[pos:pos + 4] != b"MTrk":
+            break
+        length = int.from_bytes(data[pos + 4:pos + 8], "big")
+        i, end, tick, status = pos + 8, pos + 8 + length, 0, 0
+        while i < end:
+            v = 0
+            while True:
+                b = data[i]; i += 1; v = (v << 7) | (b & 0x7F)
+                if not b & 0x80:
+                    break
+            tick += v
+            b = data[i]
+            if b == 0xFF:
+                kind = data[i + 1]; i += 2
+                n = 0
+                while True:
+                    c = data[i]; i += 1; n = (n << 7) | (c & 0x7F)
+                    if not c & 0x80:
+                        break
+                body = data[i:i + n]; i += n
+                if kind == 0x51 and n == 3:
+                    tempos.append((tick, int.from_bytes(body, "big")))
+                elif kind == 0x58 and n >= 1 and sig is None:
+                    sig = body[0]
+                elif kind in (0x06, 0x07, 0x01):
+                    events.append((tick, kind, body.decode("utf-8", "replace")))
+                if kind == 0x2F:
+                    break
+            elif b in (0xF0, 0xF7):
+                i += 1; n = 0
+                while True:
+                    c = data[i]; i += 1; n = (n << 7) | (c & 0x7F)
+                    if not c & 0x80:
+                        break
+                i += n
+            else:
+                if b & 0x80:
+                    status = b; i += 1
+                hi = status & 0xF0
+                i += 1 if hi in (0xC0, 0xD0) else 2
+        pos = end
+    tempos.sort()
+    def seconds(tick):
+        t, last, us = 0.0, 0, 500000
+        for tt, uu in tempos:
+            if tt > tick:
+                break
+            t += (tt - last) / div * us / 1e6; last, us = tt, uu
+        return t + (tick - last) / div * us / 1e6
+    marks = [e for e in events if e[1] in (0x06, 0x07)] or [e for e in events if e[1] == 0x01]
+    out = [{"name": _clean_marker(txt), "beat": tick / div, "time": round(seconds(tick), 4)} for tick, _k, txt in sorted(marks) if _clean_marker(txt)]
+    bpm = round(60e6 / tempos[0][1], 3) if tempos else None
+    return {"markers": out, "bpm": bpm, "bpb": sig}
+
+
+def read_markers(name, data):
+    try:
+        return markers_from_als(data) if name.lower().endswith(".als") else markers_from_midi(data)
+    except Exception as error:
+        return {"markers": [], "bpm": None, "bpb": None, "error": str(error)[:120]}
+
+
+def _audio_seconds(name, size, head):
+    """How long a stem is: from a WAV / AIFF header, else a guess from the size (compressed audio ~256 kb/s)."""
+    try:
+        if head[:4] == b"RIFF" and head[8:12] == b"WAVE":
+            i, rate, ch, bits = 12, 0, 0, 0
+            while i + 8 <= len(head):
+                cid, n = head[i:i + 4], int.from_bytes(head[i + 4:i + 8], "little")
+                if cid == b"fmt ":
+                    ch, rate, bits = int.from_bytes(head[i + 10:i + 12], "little"), int.from_bytes(head[i + 12:i + 16], "little"), int.from_bytes(head[i + 22:i + 24], "little")
+                elif cid == b"data" and rate and ch and bits:
+                    return min(n, size) / (rate * ch * bits / 8.0)
+                i += 8 + n + (n & 1)
+            if rate and ch and bits:
+                return size / (rate * ch * bits / 8.0)
+    except Exception:
+        pass
+    low = name.lower()
+    return size * 8 / (1411200.0 if low.endswith((".wav", ".aif", ".aiff")) else 900000.0 if low.endswith(".flac") else 256000.0)
+
+
+def device_memory_mb():
+    try:
+        with open("/proc/meminfo") as fh:
+            for line in fh:
+                if line.startswith("MemTotal:"):
+                    return int(line.split()[1]) // 1024
+    except OSError:
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------------
 # track packs (MultiTracks.com, Loop Community, any zip / folder of stems)
 # ---------------------------------------------------------------------------
 def scan_pack(path):
     """What is in a pack: stems (with a guessed role), charts, and title / key / BPM from the names."""
-    entries = []
+    entries, marker_data = [], []
     if os.path.isdir(path):
         for base, _dirs, files in os.walk(path):
             for f in sorted(files):
-                if not f.startswith(".") and f.lower().endswith(AUDIO + CHARTS):
-                    full = os.path.join(base, f)
-                    entries.append({"name": f, "member": os.path.relpath(full, path), "size": os.path.getsize(full)})
+                full = os.path.join(base, f)
+                if f.startswith("."):
+                    continue
+                if f.lower().endswith(MARKER_FILES) and os.path.getsize(full) < 64 << 20:
+                    with open(full, "rb") as fh:
+                        marker_data.append((f, fh.read()))
+                elif f.lower().endswith(AUDIO + CHARTS):
+                    e = {"name": f, "member": os.path.relpath(full, path), "size": os.path.getsize(full)}
+                    if f.lower().endswith(AUDIO):
+                        with open(full, "rb") as fh:
+                            e["seconds"] = round(_audio_seconds(f, e["size"], fh.read(4096)), 1)
+                    entries.append(e)
     elif zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as zf:
             for info in zf.infolist():
                 f = os.path.basename(info.filename)
-                if info.is_dir() or f.startswith(".") or "__MACOSX" in info.filename or not f.lower().endswith(AUDIO + CHARTS):
+                if info.is_dir() or f.startswith(".") or "__MACOSX" in info.filename:
                     continue
-                entries.append({"name": f, "member": info.filename, "size": info.file_size})
+                if f.lower().endswith(MARKER_FILES) and info.file_size < 64 << 20:
+                    marker_data.append((f, zf.read(info)))
+                    continue
+                if not f.lower().endswith(AUDIO + CHARTS):
+                    continue
+                e = {"name": f, "member": info.filename, "size": info.file_size}
+                if f.lower().endswith(AUDIO):
+                    with zf.open(info) as fh:
+                        e["seconds"] = round(_audio_seconds(f, info.file_size, fh.read(4096)), 1)
+                entries.append(e)
     else:
         raise ValueError("not a folder or a zip file")
+    # sections: the Ableton session's locators win over a MIDI file's markers
+    marks = {"markers": [], "bpm": None, "bpb": None, "from": None}
+    for f, data in sorted(marker_data, key=lambda x: (not x[0].lower().endswith(".als"), x[0])):
+        r = read_markers(f, data)
+        if r.get("markers"):
+            marks = dict(r, **{"from": f})
+            break
+        if r.get("bpm") and not marks["bpm"]:
+            marks["bpm"], marks["bpb"] = r["bpm"], r.get("bpb")
     stems = [e for e in entries if e["name"].lower().endswith(AUDIO)]
     charts = [e for e in entries if e["name"].lower().endswith(CHARTS)]
     for e in stems:
@@ -113,7 +291,40 @@ def scan_pack(path):
             if not meta["key"] and e["name"].lower().endswith(CHARTS):
                 meta["key"] = m2["key"]
     vendor = "MultiTracks.com" if re.search(r"multitracks", path, re.I) else "Loop Community" if re.search(r"loop\s*community|prime", path, re.I) else ""
-    return {"path": path, "title": meta["title"], "key": meta["key"], "bpm": meta["bpm"], "vendor": vendor, "stems": stems, "charts": charts}
+    if marks.get("bpm") and not meta["bpm"]:
+        meta["bpm"] = round(marks["bpm"], 2)
+    # how much memory the song takes in the player (16-bit, 48 kHz, stereo unless the stem is mono)
+    used = [e for e in stems if e["use"]]
+    mem_mb = round(sum(e.get("seconds") or 0 for e in used) * 48000 * 2 * 2 / 1048576)
+    return {"path": path, "title": meta["title"], "key": meta["key"], "bpm": meta["bpm"], "vendor": vendor, "stems": stems, "charts": charts,
+            "markers": marks.get("markers") or [], "markersFrom": marks.get("from"), "bpb": marks.get("bpb"),
+            "seconds": max([e.get("seconds") or 0 for e in used] or [0]), "memMB": mem_mb, "deviceMB": device_memory_mb()}
+
+
+def scan_many(path):
+    """A folder (or zip) holding several songs - each in its own sub-folder or zip, as a MultiTracks.com / Loop
+    Community library on a USB stick usually is. One entry per song (a quick look: name, key, BPM, stems)."""
+    songs = []
+    if os.path.isdir(path):
+        kids = sorted(os.listdir(path))
+        for k in kids:
+            full = os.path.join(path, k)
+            if k.startswith(".") or k == "__MACOSX":
+                continue
+            if os.path.isdir(full) or (k.lower().endswith(".zip") and zipfile.is_zipfile(full)):
+                try:
+                    info = scan_pack(full)
+                except Exception:
+                    continue
+                if info["stems"]:
+                    songs.append({"path": full, "title": info["title"], "key": info["key"], "bpm": info["bpm"], "vendor": info["vendor"],
+                                  "stems": len([e for e in info["stems"] if e["use"]]), "markers": len(info["markers"]), "charts": len(info["charts"]), "memMB": info["memMB"]})
+    if not songs:   # the folder itself is one song
+        info = scan_pack(path)
+        if info["stems"]:
+            songs.append({"path": path, "title": info["title"], "key": info["key"], "bpm": info["bpm"], "vendor": info["vendor"],
+                          "stems": len([e for e in info["stems"] if e["use"]]), "markers": len(info["markers"]), "charts": len(info["charts"]), "memMB": info["memMB"]})
+    return {"path": path, "songs": songs, "deviceMB": device_memory_mb()}
 
 
 def import_pack(path, dest_dir, members=None):

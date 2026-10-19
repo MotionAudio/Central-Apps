@@ -51,23 +51,38 @@
   var DB = "pad-pedal-tracks-v1", STORE = "stems", dbp = null;
   function db() {
     if (dbp) return dbp;
-    dbp = new Promise(function (resolve) { if (!window.indexedDB) return resolve(null); var r = indexedDB.open(DB, 1); r.onupgradeneeded = function () { r.result.createObjectStore(STORE); }; r.onsuccess = function () { resolve(r.result); }; r.onerror = function () { resolve(null); }; });
+    dbp = new Promise(function (resolve) { if (!window.indexedDB) return resolve(null); var r = indexedDB.open(DB, 1); r.onupgradeneeded = function () { r.result.createObjectStore(STORE); }; r.onsuccess = function () { idbOk = true; resolve(r.result); }; r.onerror = function () { resolve(null); }; });
     return dbp;
   }
-  var stemMemory = new Map();
-  async function putStem(id, rec) { stemMemory.set(id, rec); var d = await db(); if (!d) return; await new Promise(function (res) { var tx = d.transaction(STORE, "readwrite"); tx.objectStore(STORE).put(rec, id); tx.oncomplete = res; tx.onerror = res; }); }
-  async function getStemLocal(id) { if (stemMemory.has(id)) return stemMemory.get(id); var d = await db(); if (!d) return null; return new Promise(function (res) { var tx = d.transaction(STORE, "readonly"), q = tx.objectStore(STORE).get(id); q.onsuccess = function () { res(q.result || null); }; q.onerror = function () { res(null); }; }); }
+  // decoded stems kept in memory for quick loading: only the most recent ones, within a budget (a Pi has little
+  // memory, and the song that plays has its own copy in the player) - the rest are read back from IndexedDB
+  var idbOk = false, stemMemory = new Map(), MEM_BUDGET = Math.max(160, Math.min(900, ((navigator.deviceMemory || 4) * 1024) * 0.12)) * 1048576;
+  function stemBytes(rec) { return rec ? (rec.L ? rec.L.byteLength : 0) + (rec.R ? rec.R.byteLength : 0) : 0; }
+  function remember(id, rec) {
+    stemMemory.delete(id); stemMemory.set(id, rec);
+    var total = 0; stemMemory.forEach(function (r) { total += stemBytes(r); });
+    if (!idbOk) return;   // (no IndexedDB: memory is the only copy)
+    for (var k of stemMemory.keys()) { if (total <= MEM_BUDGET || stemMemory.size <= 1) break; if (k === id) continue; total -= stemBytes(stemMemory.get(k)); stemMemory.delete(k); }
+  }
+  async function putStem(id, rec) { remember(id, rec); var d = await db(); if (!d) return; await new Promise(function (res) { var tx = d.transaction(STORE, "readwrite"); tx.objectStore(STORE).put(rec, id); tx.oncomplete = res; tx.onerror = res; }); }
+  async function getStemLocal(id) {
+    if (stemMemory.has(id)) { var hit = stemMemory.get(id); remember(id, hit); return hit; }
+    var d = await db(); if (!d) return null;
+    var rec = await new Promise(function (res) { var tx = d.transaction(STORE, "readonly"), q = tx.objectStore(STORE).get(id); q.onsuccess = function () { res(q.result || null); }; q.onerror = function () { res(null); }; });
+    if (rec) remember(id, rec);
+    return rec;
+  }
   // A stem whose decoded copy is gone from this browser (new card, restored backup, cleared profile) is
   // decoded again from the file the driver keeps in /data/pad-pedal/library.
   var restoring = {};
   async function getStem(id) {
     var rec = await getStemLocal(id); if (rec) return rec;
     var st = null; (project().songs || []).some(function (sg) { return (sg.tracks && sg.tracks.stems || []).some(function (q) { if (q.id === id) st = q; return !!st; }); });
-    if (!st || !st.file || !driverOn()) return null;
+    if (!st || !(st.file || (st.files && st.files.length)) || !driverOn()) return null;
     if (!restoring[id]) restoring[id] = (async function () {
       try {
         PP.setStatus("Loading " + st.name + " from the library…");
-        var buffer = await decodeFile(await fileFromMedia(st.file)), pcm = toPcm(buffer);
+        var buffer = st.file ? await decodeFile(await fileFromMedia(st.file)) : await decodeSum(await Promise.all(st.files.map(fileFromMedia))), pcm = toPcm(buffer);
         await putStem(id, pcm); st.length = pcm.length; return pcm;
       } catch (error) { console.warn("library restore failed", st.file, error); return null; }
       finally { delete restoring[id]; }
@@ -842,8 +857,45 @@
     return best;
   }
   function newSong(name) { var p = project(); var s = { id: PP.id(), name: name || "Song " + (p.songs.length + 1), key: "C", bpm: 72, pad: -1, notes: "" }; data(s); p.songs.push(s); PP.persistSoon(); return s; }
+  // Combining stems (a big song on a Pi with little memory): the stems of one kind - drums, bass, keys, guitars,
+  // vocals, the rest - are summed into one track each; click and guide stay on their own (they go to the in-ears).
+  var GROUP_NAMES = { drums: "Drums (combined)", bass: "Bass (combined)", keys: "Keys & synths (combined)", guitar: "Guitars (combined)", vocals: "Vocals (combined)", music: "Other (combined)" };
+  async function decodeSum(list, progress) {
+    var acc = null, rate = 0;
+    for (var i = 0; i < list.length; i++) {
+      if (progress) progress("Decoding " + list[i].name.replace(/\.[^.]+$/, "") + "…");
+      var b = await decodeFile(list[i]), n = b.length; rate = b.sampleRate;
+      if (!acc) acc = { L: new Float32Array(n), R: new Float32Array(n), n: n };
+      if (n > acc.n) { var L2 = new Float32Array(n), R2 = new Float32Array(n); L2.set(acc.L); R2.set(acc.R); acc = { L: L2, R: R2, n: n }; }
+      var l = b.getChannelData(0), r = b.numberOfChannels > 1 ? b.getChannelData(1) : l;
+      for (var k = 0; k < n; k++) { acc.L[k] += l[k]; acc.R[k] += r[k]; }
+    }
+    var out = engine.ctx.createBuffer(2, acc.n, rate); out.copyToChannel(acc.L, 0); out.copyToChannel(acc.R, 1);
+    return out;
+  }
+  async function addCombinedStem(s, role, list, progress) {
+    var t = data(s), buffer = await decodeSum(list, progress), pcm = toPcm(buffer), id = PP.id();
+    await putStem(id, pcm);
+    var rec = { id: id, name: GROUP_NAMES[role] || "Combined", role: role, gain: 1, pan: 0, mute: false, solo: false, bus: "music", length: pcm.length, overview: overview(buffer, 960),
+      parts: list.map(function (f) { return f.name.replace(/\.[^.]+$/, ""); }), files: list.map(function (f) { return f._mediaPath || null; }).filter(Boolean) };
+    t.stems.push(rec);
+    t.duration = Math.max(t.duration, buffer.duration);
+    refreshOverview(t); PP.persistSoon();
+    return { stem: rec, buffer: buffer };
+  }
   async function importFilesIntoSong(s, files, opts) {
     opts = opts || {}; var buffers = [], ok = 0;
+    if (opts.combine) {   // one track per kind (click and guide on their own)
+      var groups = {}, singles = [];
+      files.forEach(function (f) { var r = f._role || guessRole(f.name.replace(/\.[^.]+$/, "")); if (r === "click" || r === "guide") singles.push(f); else (groups[r] = groups[r] || []).push(f); });
+      Object.keys(groups).forEach(function (r) { if (groups[r].length === 1) singles.push(groups[r][0]); });
+      var gn = Object.keys(groups).filter(function (r) { return groups[r].length > 1; });
+      for (var g = 0; g < gn.length; g++) {
+        try { buffers.push(await addCombinedStem(s, gn[g], groups[gn[g]], function (m) { PP.setStatus(m + " (group " + (g + 1) + "/" + gn.length + ")"); })); ok++; }
+        catch (error) { console.warn(error); PP.setStatus("Could not combine the " + gn[g] + " tracks"); }
+      }
+      files = singles;
+    }
     for (var i = 0; i < files.length; i++) {
       try { var r = await addStemFile(s, files[i], function (m) { PP.setStatus(m + " (" + (i + 1) + "/" + files.length + ")"); }); buffers.push(r); ok++; }
       catch (error) { PP.setStatus("Could not decode " + files[i].name); }

@@ -684,6 +684,48 @@ async def main():
         check("importing it unpacks 8 stems and the chart into the library", status == 200 and len(im.get("files", [])) == 8 and all(os.path.exists(f["path"]) for f in im["files"]) and im.get("chartInfos") and im["chartInfos"][0]["sections"][0]["name"] == "Verse 1", body[:300])
         status, body = jpost("/pack/scan", {"path": "/etc"})
         check("packs only from the USB / SD / uploads folders", status == 400)
+        # the sections: an Ableton Live set's locators (MultiTracks.com "Ableton" downloads) and a MIDI file's markers
+        import gzip
+        als = ('<?xml version="1.0" encoding="UTF-8"?><Ableton><LiveSet><MasterTrack><DeviceChain><Mixer><Tempo><LomId Value="0" /><Manual Value="68" /></Tempo></Mixer></DeviceChain></MasterTrack>'
+               '<Locators><Locators><Locator Id="1"><Time Value="16" /><Name Value="Verse 1" /></Locator><Locator Id="0"><Time Value="0" /><Name Value="Intro" /></Locator>'
+               '<Locator Id="2"><Time Value="48" /><Name Value="Chorus" /></Locator></Locators></Locators></LiveSet></Ableton>')
+        pack2 = os.path.join(media_root, "Goodness of God (Ab) MultiTracks.zip")
+        with zipfile.ZipFile(pack2, "w") as zf:
+            for n in ("Click.wav", "Drums.wav", "Bass.wav"):
+                zf.writestr("Goodness of God/" + n, b"RIFF....WAVE" + n.encode())
+            zf.writestr("Goodness of God/Goodness of God Project/Goodness of God.als", gzip.compress(als.encode()))
+        status, body = jpost("/pack/scan", {"path": pack2})
+        sc2 = json.loads(body) if status == 200 else {}
+        check("an Ableton set in the pack gives the sections (its locators, in order, with their times) and the exact tempo",
+              [m["name"] for m in sc2.get("markers", [])] == ["Intro", "Verse 1", "Chorus"] and abs(sc2["markers"][1]["time"] - 16 * 60 / 68) < 0.001 and sc2.get("bpm") == 68 and sc2.get("key") == "G#", body[:400])
+        def vlq(n):
+            out = [n & 0x7F]
+            n >>= 7
+            while n:
+                out.insert(0, (n & 0x7F) | 0x80)
+                n >>= 7
+            return bytes(out)
+        trk = b"".join([vlq(0), b"\xff\x51\x03", (int(60e6 / 72)).to_bytes(3, "big"), vlq(0), b"\xff\x58\x04\x03\x02\x18\x08",
+                        vlq(0), b"\xff\x06\x05Intro", vlq(480 * 12), b"\xff\x06\x07Verse 1", vlq(480 * 24), b"\xff\x06\x06Bridge", vlq(0), b"\xff\x2f\x00"])
+        mid = b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big") + (1).to_bytes(2, "big") + (480).to_bytes(2, "big") + b"MTrk" + len(trk).to_bytes(4, "big") + trk
+        folder = os.path.join(media_root, "Library", "Holy Forever")
+        os.makedirs(folder, exist_ok=True)
+        for n in ("Click.wav", "Keys.wav"):
+            with wave.open(os.path.join(folder, n), "wb") as w:
+                w.setnchannels(2); w.setsampwidth(2); w.setframerate(48000); w.writeframes(b"\0\0\0\0" * 48000)
+        with open(os.path.join(folder, "Holy Forever - Markers.mid"), "wb") as fh:
+            fh.write(mid)
+        status, body = jpost("/pack/scan", {"path": folder})
+        sc3 = json.loads(body) if status == 200 else {}
+        check("a MIDI file's markers give the sections too (with its tempo and 3/4 time)",
+              [m["name"] for m in sc3.get("markers", [])] == ["Intro", "Verse 1", "Bridge"] and abs(sc3["markers"][1]["time"] - 12 * 60 / 72) < 0.001 and sc3.get("bpm") == 72 and sc3.get("bpb") == 3, body[:400])
+        check("...and the stems' length (from the WAV header) and the memory the song needs in the player",
+              all(abs(e.get("seconds", 0) - 1.0) < 0.01 for e in sc3.get("stems", [])) and sc3.get("memMB") == 0 and "deviceMB" in sc3, sc3.get("stems"))
+        shutil.copyfile(pack2, os.path.join(media_root, "Library", "Goodness of God (Ab) MultiTracks.zip"))
+        status, body = jpost("/pack/scanMany", {"path": os.path.join(media_root, "Library")})
+        many = json.loads(body) if status == 200 else {}
+        check("a folder of several songs (folders and zips) is listed song by song", sorted(x["title"] for x in many.get("songs", [])) == ["Goodness of God", "Holy Forever"]
+              and {x["title"]: x["markers"] for x in many["songs"]} == {"Goodness of God": 3, "Holy Forever": 3}, body[:400])
 
         print("\nCue words in your own voice:")
         with wave.open(os.path.join(root, "bridge.wav"), "wb") as w:
@@ -929,6 +971,12 @@ async def main():
         await send({"type": "midiOut", "messages": [{"data": [0x90, 48, 127], "at": 0}]})
         await asyncio.sleep(0.05)
         check("midiOut without a MIDI device is ignored quietly", True)
+        hl = (st2 or {}).get("health") or {}
+        check("Ready check: the status carries the Pi's health (free storage, memory) and the pairing with the main admin",
+              isinstance(hl.get("diskFreeMB"), int) and hl.get("diskFreeMB") > 0 and isinstance(hl.get("memFreeMB"), int) and "center" in (st2 or {}), hl)
+        await send({"type": "serviceLock", "on": True})
+        await asyncio.sleep(0.1)
+        check("the LIVE screen's service lock reaches the driver (the small screen shows LOCKED)", getattr(driver, "service_lock", None) is True, getattr(driver, "service_lock", None))
 
     stop_event.set()
     await asyncio.wait_for(server_task, 5)

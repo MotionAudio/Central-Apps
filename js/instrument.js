@@ -399,14 +399,16 @@
     cl.textContent = Math.abs(cents) < 3 ? "in tune" : (cents > 0 ? "+" + cents + "¢ sharp - tune down" : cents + "¢ flat - tune up");
     el.classList.toggle("intune", Math.abs(cents) < 3); el.classList.toggle("sharp", cents >= 3); el.classList.toggle("flat", cents <= -3);
     miniTuner(note.textContent, cents);
+    tunerHooks.forEach(function (fn) { try { fn(note.textContent, cents); } catch (_) { } });
   }
+  var tunerHooks = [];
   // the 3.5" screen shows the tuner too while it is up (a few times a second)
   var miniAt = 0;
   function miniTuner(note, cents) { var now = performance.now(); if (now - miniAt < 200) return; miniAt = now; send({ type: "tunerView", on: tunerOn, note: note || "–", cents: note ? cents : null }); }
   // the tuner lives on the Instrument tab: a footswitch brings that tab up; leaving the tab turns the tuner off
   function toggleTuner(force) {
     var want = typeof force === "boolean" ? force : !tunerOn; if (want === tunerOn) return tunerOn;
-    if (want && window.PPShell && window.PPShell.currentTab() !== "instrument") window.PPShell.showTab("instrument");
+    if (want && window.PPShell && ["instrument", "live"].indexOf(window.PPShell.currentTab()) < 0) window.PPShell.showTab("instrument");   // (the LIVE screen shows its own tuner)
     tunerOn = want;
     if (cfg().tunerMute !== false || !tunerOn) send({ type: "instrument", action: "level", levelDb: tunerOn ? -120 : (cfg().output.level || 0) });
     var box = tunerBox(); box.classList.toggle("on", tunerOn); tunerSmooth = null;
@@ -419,5 +421,5 @@
   function pedalNames() { return chainFor(kind()).map(function (it, i) { var p = PED.byId(it.pedal); return { index: i, name: p ? p.name : it.pedal, on: it.on !== false }; }); }
   function state() { var c = cfg(); return { kind: c.kind, tuner: tunerOn, board: c.boards[c.kind], patch: c.keys.patch, get levelDb() { return c.output.level || 0; }, set levelDb(v) { c.output.level = v; if (onTab()) { var el = $("#inOut"); if (el) { el.value = v; var o = el.parentNode.querySelector("output"); if (o) o.textContent = v + " dB"; } } } }; }
   function setKind(k) { var c = cfg(); c.kind = k; selected = null; apply("kind"); PP.setStatus("Instrument: " + (KINDS.filter(function (q) { return q[0] === k; })[0] || ["", k])[1]); if (onTab()) render(); }
-  window.PPInstrument = { show: show, hide: hide, render: render, config: cfg, kind: kind, state: state, setKind: setKind, autoSetup: autoSetup, togglePedal: togglePedal, pedalOn: pedalOn, pedalNames: pedalNames, stepBoard: stepBoard, stepPatch: stepPatch, stepKind: stepKind, expression: expression, toggleTuner: toggleTuner, tunerToggle: toggleTuner, tunerOn: function () { return tunerOn; }, apply: apply, hostConfig: hostConfig, catalog: function () { return catalog; }, chain: chainFor, resolvedChain: resolvedChain, controlsOf: controlsOf, captureRig: captureRig, applyRig: applyRig, layers: layers, maxLayers: MAX_LAYERS, status: function () { return status; } };
+  window.PPInstrument = { show: show, hide: hide, render: render, config: cfg, kind: kind, state: state, setKind: setKind, autoSetup: autoSetup, togglePedal: togglePedal, pedalOn: pedalOn, pedalNames: pedalNames, stepBoard: stepBoard, stepPatch: stepPatch, stepKind: stepKind, expression: expression, toggleTuner: toggleTuner, tunerToggle: toggleTuner, tunerOn: function () { return tunerOn; }, apply: apply, hostConfig: hostConfig, catalog: function () { return catalog; }, chain: chainFor, resolvedChain: resolvedChain, controlsOf: controlsOf, captureRig: captureRig, applyRig: applyRig, layers: layers, maxLayers: MAX_LAYERS, status: function () { return status; }, boardName: function () { var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0]; return b ? b.name : ""; }, kinds: function () { return KINDS; }, onTuner: function (fn) { tunerHooks.push(fn); } };
 })();

@@ -12,6 +12,18 @@ computer gets the chord chart, the instrument, the lyrics and the musician's
 own in-ear mix. Everything follows the Central Pedal, and only the Central
 Pedal plays, stops and skips the tracks.
 
+**New in version 8.4:**
+- **LIVE screen** (the first tab): the whole service on one screen - the setlist, the song (key, BPM, time left, what
+  comes next), its sections to jump to, big Play / Pause, Vamp, **Safe Stop** (fades out instead of cutting), next
+  song, the pads, the instrument with its tuner, meters, and the Pi's temperature (°F).
+- **Service lock:** while the service runs only playing works - the other tabs, the mixer and tracks mode are locked
+  until the Central Pedal's PIN unlocks it (it stays locked through a restart).
+- **Ready check** before the service: the sound, the outputs (the click only to the in-ears), every song's tracks and
+  sections, the Pi's temperature, power, storage and memory, the pairing - green "Ready" or a list of what to fix.
+- **MultiTracks.com / Loop Community (Prime) downloads:** the WAV stems become a song with its **sections read from the
+  Ableton set or MIDI file** in the download, an option to **combine** stems of the same kind (fewer tracks to mix,
+  less memory), a memory check, and **several songs at once** (a folder of downloads or zips).
+
 **New in version 8.3:**
 - **The main admin is the center:** pairing, roles, the Devices tab, locks, services and the in-ear host live in the
   main admin's Central Control - so everything works **without a Raspberry Pi**.
@@ -218,10 +230,30 @@ the small `bootfs` partition of the card with the network name on line 1 and
 the password on line 2; it is imported (and deleted) at the next boot. Or use
 Settings → Wi-Fi on the screen itself (scan, pick, type the password).
 
-## The seven tabs
+## The tabs
 
-`F1`–`F7`, or a button mapped to *Show tab*: **Pad · Tracks · Instrument ·
+`F8` and `F1`–`F7`, or a button mapped to *Show tab*: **LIVE · Pad · Tracks · Instrument ·
 Configure · Learn · I/O · Settings**.
+
+### LIVE
+The screen for the service. Left: the setlist (● = the song has its tracks); tap a song to load it (while something
+plays: tap twice). The song: its number in the setlist, key, BPM, the time left, what is next, and Click / Cues.
+The **sections** in song order, sized by length and coloured (verse, chorus, bridge…); the one playing fills up as it
+goes; tap one to jump there (on the bar, like the section buttons). Below: **◀ Prev section · ▶ Play / Pause ·
+Next section ▶ · ⟲ Vamp** (repeat this section until pressed again) **· ■ Safe Stop** (fades the tracks and pads out
+over 2.5 s; press again to stop at once) **· Next song** (while playing: tap twice). The pads (tap to crossfade), the
+instrument (◀ ▶ board or keys sound, and the **tuner** right there) and the tracks / pads meters.
+
+Along the top: the Pi's temperature in °F, low power, the outputs, the pairing with the main admin,
+**Ready check** and **🔒 Lock for service**.
+- **Ready check:** the sound is running; the outputs - on a 4-output interface the click must have an output of its
+  own, on a 2-output device a click in the main mix is flagged (the congregation would hear it); every song in the
+  setlist has its tracks and sections; tracks mode; the Pi's temperature, power supply (under-voltage), storage and
+  memory; the pairing. Each problem has a button to fix it where it can. Also as a button action *Ready check*.
+- **Service lock:** the other tabs, the mixer, tracks mode, seeking and set-up actions are locked (buttons and pedals
+  mapped to them do nothing); playing, sections, pads, the instrument and the tuner work. Unlock with the Central
+  Pedal's pairing PIN. The small screen shows LOCKED. Also as a button action *Service lock on*; *Safe stop* is an
+  action too.
 
 ### Pad
 The pad instrument. 8 pads per song (tap to crossfade, tap again to fade
@@ -269,11 +301,18 @@ A multitrack player built in; nothing else to install.
     and any audio attached to the arrangement (pitched to the service key if
     the file is in another key). Tick the songs (or all of them) and import; they can go to the top of
     the setlist in service order.
-  - **Track pack**: a MultiTracks.com or Loop Community download (the zip,
-    or the unzipped folder) on a USB stick. Stems are recognised by name
+  - **Track pack**: a MultiTracks.com or Loop Community (Prime) download (the zip,
+    or the unzipped folder of WAV stems) on a USB stick. Stems are recognised by name
     (click, guide, drums, bass, keys, EG / AG, vox, pads…), the full mix is
     left out, and title, key and tempo are read from the file names; you can
-    change any stem's role before importing.
+    change any stem's role before importing. The **sections** come from the
+    Ableton Live set (`.als` locators) or the MIDI file (markers) in the download,
+    and its tempo fixes the beat grid. **Combine stems of the same kind** mixes,
+    say, three drum stems into one Drums track (fewer faders, less memory); the
+    click and guide always stay separate. A pack that is too big for this Pi's
+    memory gets a warning. **Several songs…** imports a whole folder of downloads
+    (or zips) at once, one song each. Prime and Playback themselves run only on an
+    iPad / iPhone / Mac - this brings their songs to the Central Pedal.
   - **Own files**: a single file (MP3 / WAV / FLAC…) or a folder of stems,
     from a USB stick, from a phone (the *Upload* companion page), or from
     this folder on your PC over the network.

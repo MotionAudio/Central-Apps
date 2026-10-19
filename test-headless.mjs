@@ -38,6 +38,7 @@ page.on("pageerror", (e) => errors.push(String(e)));
 
 await page.goto("file://" + pagePath);
 await page.waitForFunction(() => window.__test && window.__pedalBridge);
+await page.evaluate(() => { if (window.PPShell) window.PPShell.showTab("pads"); });   // (it opens on LIVE; these checks are about the Pad tab)
 const T = (fn, arg) => page.evaluate(fn, arg);
 const hw = (msg) => T((m) => window.__pedalBridge.handleMessage(m), msg);
 const wait = (ms) => page.waitForTimeout(ms);

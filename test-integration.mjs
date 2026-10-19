@@ -11,7 +11,7 @@ import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import fs from "node:fs";
+import fs from "node:fs"; import zlib from "node:zlib";
 import os from "node:os";
 import assert from "node:assert/strict";
 
@@ -340,6 +340,26 @@ await check("Planning Center: connect with a token, pick the plan, import - key,
   assert.equal(r.name, "Amazing Grace (My Chains Are Gone)"); assert.equal(r.key, "G#"); assert.equal(r.bpb, 3);
   assert.deepEqual(r.secs, ["Verse 1", "Chorus", "Verse 1", "Chorus"]); assert.match(r.lyr || "", /My chains are gone/);
   assert.deepEqual(r.stems, ["Keys:keys"]); assert.ok(r.chart && r.pco, JSON.stringify(r));
+  await T(() => document.querySelector("#addDialog").close());
+});
+await check("track pack with an Ableton set: the sections come from its locators; 'combine' sums the drum stems into one track (click on its own)", async () => {
+  const dir = path.join(tmp, "media", "usb-stick", "Firm Foundation (C) 70 BPM");
+  fs.mkdirSync(dir, { recursive: true });
+  for (const n of ["Click.wav", "Drums.wav", "Perc.wav", "Bass.wav"]) fs.writeFileSync(path.join(dir, n), wav(70, 0, 34, 22050));
+  const als = '<?xml version="1.0"?><Ableton><LiveSet><MasterTrack><DeviceChain><Mixer><Tempo><Manual Value="70" /></Tempo></Mixer></DeviceChain></MasterTrack><Locators><Locators>' +
+    '<Locator Id="0"><Time Value="0" /><Name Value="Intro" /></Locator><Locator Id="1"><Time Value="16" /><Name Value="Verse 1" /></Locator><Locator Id="2"><Time Value="32" /><Name Value="Chorus" /></Locator></Locators></Locators></LiveSet></Ableton>';
+  fs.writeFileSync(path.join(dir, "Firm Foundation.als"), zlib.gzipSync(als));
+  const scan = await T(async (d) => { const r = await fetch("http://127.0.0.1:8766/pack/scan", { method: "POST", body: JSON.stringify({ path: d }) }); const j = await r.json(); j.stems.forEach((e) => { e.keep = e.use; }); j.combine = true; PPSources.state.pack = j; PPSources.state.many = null; PPSources.open("pack"); return j; }, dir);
+  assert.deepEqual(scan.markers.map((m) => m.name), ["Intro", "Verse 1", "Chorus"]); assert.equal(scan.bpm, 70);
+  await until(() => T(() => /3 sections from Firm Foundation\.als/.test(document.querySelector("#addBody").textContent)), 3000);
+  await page.click('[data-a="pack-import"]');
+  await until(() => T(() => /✓ Firm Foundation/.test(document.querySelector("#addBody .add-progress").textContent)), 60000, 200);
+  const r = await T(() => { const s = PPTracks.findSongByName("Firm Foundation"), t = PPTracks.data(s); return { stems: t.stems.map((q) => q.name + ":" + q.role + ":" + q.bus).sort(), parts: (t.stems.find((q) => q.parts) || {}).parts, secs: t.sections.map((x) => x.name + "@" + x.bar), bpm: Math.round(t.grid.bpm), files: (t.stems.find((q) => q.parts) || {}).files }; });
+  assert.deepEqual(r.stems, ["Bass:bass:music", "Click:click:click", "Drums (combined):drums:music"], JSON.stringify(r));
+  assert.deepEqual(r.parts.sort(), ["Drums", "Perc"]); assert.equal(r.files.length, 2, "the combined track remembers its files (decoded again from them if needed)");
+  assert.equal(r.bpm, 70);
+  assert.deepEqual(r.secs.map((x) => x.split("@")[0]), ["Intro", "Verse 1", "Chorus"]);
+  const bars = r.secs.map((x) => Number(x.split("@")[1])); assert.ok(bars[0] === 1 && Math.abs(bars[1] - 5) <= 1 && Math.abs(bars[2] - 9) <= 1, r.secs.join(", "));
   await T(() => document.querySelector("#addDialog").close());
 });
 await check("track pack: a MultiTracks-style folder on the stick is scanned (title, key, BPM, roles, full mix left out) and imported as a song", async () => {
@@ -776,6 +796,56 @@ await check("pedal jobs: as a foot controller its buttons go to the track player
   assert.ok(await T(() => /Instrument rig/.test(document.querySelector("#pedalJobBar").textContent)));
   await T(() => { PPPedalJob.set("player"); PPFeatures.sendToDriver = window.__origSend; });
   assert.ok(await T(() => !document.querySelector("#pedalJobBar")));
+});
+await check("LIVE: the setlist, the song with its key / BPM / time left, its sections; a section button jumps there", async () => {
+  await T(() => { PPTracks.stop(true); PP.engine.stop(); const p = PP.project(); let i = p.songs.findIndex((q) => PPTracks.data(q).stems.length && PPTracks.sectionsOf(q).length >= 2);
+    if (i < 0) i = 0; window.__liveName = p.songs[i] && p.songs[i].name; PPTracks.data(p.songs[i]).after = "stop"; PPFeatures.loadSong(i); PPShell.showTab("live"); });
+  await until(() => T(() => PPShell.currentTab() === "live" && !document.querySelector("#tabLive").classList.contains("hidden") && document.querySelector("#lvSong").textContent.indexOf(window.__liveName) > -1));
+  const v = await T(() => ({ rows: document.querySelectorAll("#lvSetlist .lv-row").length, songs: PP.project().songs.length, secs: document.querySelectorAll(".lv-sec").length, want: PPTracks.sectionsOf(PPFeatures && PP.project().songs[PP.project().songIndex]).length, left: document.querySelector("#lvLeft").textContent }));
+  assert.equal(v.rows, v.songs); assert.equal(v.secs, v.want); assert.ok(v.secs >= 2, "sections"); assert.match(v.left, /^−\d+:\d\d$/);
+  await T(() => document.querySelectorAll(".lv-sec")[1].click());
+  await until(() => T(() => { const s = PP.project().songs[PP.project().songIndex], x = PPTracks.sectionsOf(s)[1]; return Math.abs(PPTracks.state.pos - x.start) < 0.6; }));
+});
+await check("LIVE: Play, then Safe Stop fades the tracks out (not a cut) and stops them; the faders come back for the next song", async () => {
+  await T(() => document.querySelector('[data-lv="play"]').click());
+  await until(() => T(() => PPTracks.isPlaying()), 8000);
+  const g0 = await T(() => PP.engine.tracksBus.gain.value);
+  await T(() => document.querySelector('[data-lv="safeStop"]').click());
+  await wait(1200);
+  const mid = await T(() => ({ g: PP.engine.tracksBus.gain.value, playing: PPTracks.isPlaying(), fading: document.querySelector('[data-lv="safeStop"]').classList.contains("fading") }));
+  assert.ok(mid.playing && mid.fading && mid.g < g0 * 0.8, JSON.stringify({ g0, mid }));
+  await until(() => T(() => !PPTracks.isPlaying()), 4000);
+  await wait(600);
+  assert.ok(await T(() => PP.engine.tracksBus.gain.value) > g0 * 0.5, "faders back");
+});
+await check("LIVE: the service lock keeps the other tabs, the mixer and tracks mode away until the PIN unlocks it; playing still works", async () => {
+  await T(() => PPLive.setLocked(true));
+  assert.equal(await T(() => { PPShell.showTab("settings"); return PPShell.currentTab(); }), "live");
+  assert.equal(await T(() => { PPActions.run("tab", { tab: "tracks" }); return PPShell.currentTab(); }), "live");
+  assert.ok(await T(() => document.body.classList.contains("service-locked") && document.querySelector('[data-lv="tracksMode"]').disabled));
+  await T(() => PPActions.run("nextSection")); await wait(150);
+  const code = await T(() => String((PPFeatures.systemStatus() || {}).code || window.__pedalBridge.info.code));
+  await T(() => { window.__ask = PP.ask; PP.ask = async () => "0000"; }); await T(() => PPLive.unlock()); await wait(100);
+  assert.equal(await T(() => PPLive.locked()), true, "a wrong PIN keeps it locked");
+  await T((c) => { PP.ask = async () => c; }, code); await T(() => PPLive.unlock()); await wait(100);
+  await T(() => { PP.ask = window.__ask; });
+  assert.equal(await T(() => PPLive.locked()), false);
+  assert.equal(await T(() => { PPShell.showTab("tracks"); return PPShell.currentTab(); }), "tracks");
+});
+await check("Ready check: one list of what is fine and what to fix (sound, outputs and click, every song's tracks, the Pi), with a summary", async () => {
+  await T(() => { PPShell.showTab("live"); PPLive.openReady(); });
+  await until(() => T(() => !document.querySelector("#lvReady").classList.contains("hidden") && document.querySelectorAll("#lvReady li").length >= 4));
+  const r = await T(() => { const x = PPLive.readyCheck(); return { titles: x.items.map((i) => i.title), summary: x.summary.label }; });
+  assert.ok(r.titles.some((t) => /Sound/.test(t)) && r.titles.some((t) => /song|setlist/i.test(t)) && r.titles.some((t) => /Storage/.test(t)), JSON.stringify(r));
+  assert.match(r.summary, /Ready|to check|problem/);
+  await T(() => document.querySelector('[data-lv="readyClose"]').click());
+});
+await check("LIVE: the tuner opens on the LIVE screen itself (no tab change) and closes when leaving it", async () => {
+  await T(() => { if (PPInstrument.kind() === "off" || PPInstrument.kind() === "keys") PPInstrument.setKind("electric"); PPShell.showTab("live"); });
+  await until(() => T(() => !!document.querySelector('[data-lv="tuner"]')));
+  await T(() => document.querySelector('[data-lv="tuner"]').click());
+  await until(() => T(() => PPInstrument.tunerOn() && PPShell.currentTab() === "live"));
+  await T(() => PPShell.showTab("pads")); await until(() => T(() => !PPInstrument.tunerOn()));
 });
 await check("no page errors during the whole run", () => assert.deepEqual(errors.filter((e) => !/favicon/.test(e)), []));
 

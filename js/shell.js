@@ -1,5 +1,5 @@
-/* Central Pedal - the shell: the six top tabs (Pad / Tracks / Instrument /
- * Configure / Learn / Settings), cursor show/hide, and the Settings sections that
+/* Central Pedal - the shell: the top tabs (LIVE / Pad / Tracks / Instrument /
+ * Configure / Learn / I/O / Settings), cursor show/hide, and the Settings sections that
  * talk to the Pi (Wi-Fi, OS audio, 3.5" screen, MIDI out, Link, projector, companion devices + QR). */
 (function () {
   "use strict";
@@ -14,16 +14,18 @@
   // ------------------------------------------------------------- tabs
   var current = "pads", performBefore = null;
   function showTab(name) {
-    if (["pads", "tracks", "instrument", "configure", "learn", "io", "settings"].indexOf(name) < 0) name = "pads";
+    if (["live", "pads", "tracks", "instrument", "configure", "learn", "io", "settings"].indexOf(name) < 0) name = "live";
+    if (window.PPLive && window.PPLive.locked() && name !== "live") { window.PPLive.lockedNotice(); name = "live"; }   // service lock: the LIVE screen only
     if (current === "instrument" && name !== "instrument" && window.PPInstrument) window.PPInstrument.hide();
     if (current === "pads" && name !== "pads") performBefore = PP.isPerforming();
     current = name;
     document.querySelectorAll("[data-tab]").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); });
     document.body.classList.toggle("tab-pads", name === "pads"); document.body.dataset.tab = name;
-    [["tabTracks", "tracks"], ["tabInstrument", "instrument"], ["tabConfigure", "configure"], ["tabLearn", "learn"], ["tabIO", "io"], ["tabSettings", "settings"]].forEach(function (t) { var el = $("#" + t[0]); if (el) el.classList.toggle("hidden", name !== t[1]); });
+    [["tabLive", "live"], ["tabTracks", "tracks"], ["tabInstrument", "instrument"], ["tabConfigure", "configure"], ["tabLearn", "learn"], ["tabIO", "io"], ["tabSettings", "settings"]].forEach(function (t) { var el = $("#" + t[0]); if (el) el.classList.toggle("hidden", name !== t[1]); });
     if (name === "pads") { document.querySelector("main.app").classList.remove("hidden"); if (performBefore != null) PP.setPerformMode(performBefore); else PP.setPerformMode(PP.isPerforming()); }
     else { document.querySelector("main.app").classList.add("hidden"); $("#perform").classList.add("hidden"); document.body.classList.remove("performing"); }
     if (name === "tracks" && window.PPTracks) window.PPTracks.render();
+    if (window.PPLive) window.PPLive.shown(name === "live");
     if ((name === "configure" || name === "learn") && window.PPConfigure) window.PPConfigure.render();
     if (name === "instrument" && window.PPInstrument) window.PPInstrument.show();
     if (name === "io" && window.PPIO) { window.PPIO.render(); send({ type: "system", action: "status" }); send({ type: "netAudio", action: "status" }); }
@@ -32,7 +34,7 @@
     if (window.PPTracks) window.PPTracks.sendDisplay();
   }
   document.querySelectorAll("[data-tab]").forEach(function (b) { b.addEventListener("click", function () { showTab(b.dataset.tab); }); });
-  document.addEventListener("keydown", function (e) { if (e.target.matches && e.target.matches("input,select,textarea")) return; var m = { F1: "pads", F2: "tracks", F3: "instrument", F4: "configure", F5: "learn", F6: "settings", F7: "io" }[e.key]; if (m) { e.preventDefault(); showTab(m); } });
+  document.addEventListener("keydown", function (e) { if (e.target.matches && e.target.matches("input,select,textarea")) return; var m = { F1: "pads", F2: "tracks", F3: "instrument", F4: "configure", F5: "learn", F6: "settings", F7: "io", F8: "live" }[e.key]; if (m) { e.preventDefault(); showTab(m); } });
 
   // ------------------------------------------------------------- cursor
   var status = null;
@@ -141,10 +143,11 @@
     var pfSys = $("#pfSystem"); if (pfSys) pfSys.addEventListener("click", function () { showTab("settings"); });
   }
   wire(); renderSystemExtras();
-  var start = "pads"; try { start = localStorage.getItem("pad-pedal-tab") || "pads"; } catch (_) { }
+  var start = "live"; try { start = localStorage.getItem("pad-pedal-tab") || "live"; } catch (_) { }
   var h = location.hash.replace("#", ""); if (h === "perform") start = "pads";
-  else if (h === "resume") { var saved = null; try { saved = localStorage.getItem("pad-pedal-tab"); } catch (_) { } start = saved || "tracks"; }   // the screens at boot: where you left off (first start: Tracks)
-  else if (["pads", "tracks", "instrument", "configure", "learn", "io", "settings"].indexOf(h) > -1) start = h;
+  else if (h === "resume") { var saved = null; try { saved = localStorage.getItem("pad-pedal-tab"); } catch (_) { } start = saved || "live"; }   // the screens at boot: where you left off (first start: LIVE)
+  else if (["live", "pads", "tracks", "instrument", "configure", "learn", "io", "settings"].indexOf(h) > -1) start = h;
+  if (window.PPLive && window.PPLive.locked()) start = "live";
   showTab(start);
   setPointer(false);
   window.PPShell = { showTab: showTab, setPointer: setPointer, renderSystemExtras: renderSystemExtras, currentTab: function () { return current; }, onSys: onSys, onSysClick: onSysClick, screensHtml: screensHtml, enumerateOutputs: enumerateOutputs };

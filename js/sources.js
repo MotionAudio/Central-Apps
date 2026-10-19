@@ -9,7 +9,7 @@
   var esc = PP.escapeHtml, MEDIA = "http://127.0.0.1:8766";
   var KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
   var ROLES = [["music", "Music"], ["drums", "Drums / loops"], ["bass", "Bass"], ["keys", "Keys / synth / pads"], ["guitar", "Guitar"], ["vocals", "Vocals"], ["click", "Click (in-ear)"], ["guide", "Guide / cues (in-ear)"]];
-  var st = { tab: "pco", pco: { configured: null, org: "", types: [], type: null, plans: [], plan: null, items: [], sel: {}, audio: true, top: true, busy: false, log: "" }, pack: null, packBusy: false };
+  var st = { tab: "pack", pco: { configured: null, org: "", types: [], type: null, plans: [], plan: null, items: [], sel: {}, audio: true, top: true, busy: false, log: "" }, pack: null, packBusy: false };
   function $(s) { return document.querySelector(s); }
   function bridge() { return window.__pedalBridge; }
   function connected() { return !!(bridge() && bridge().connected); }
@@ -37,10 +37,10 @@
     var total = Math.max(1, T.timeToBar(s, t.duration).bar), per = Math.max(2, Math.floor(total / t.sections.length));
     t.sections.forEach(function (x, i) { x.bar = 1 + i * per; });
   }
-  async function filesToSong(s, files, wantKey) {
+  async function filesToSong(s, files, wantKey, opts) {
     var list = [];
     for (var i = 0; i < files.length; i++) { var f = await T.fileFromMedia(files[i].path); f._role = files[i].role; list.push(f); }
-    if (list.length) await T.importFilesIntoSong(s, list, { analyze: true });
+    if (list.length) await T.importFilesIntoSong(s, list, { analyze: true, combine: !!(opts && opts.combine) });
     respace(s);
     // the service key wins: when the tracks were recorded in another key they are pitched to it
     var t = T.data(s);
@@ -138,34 +138,108 @@
       st.packBusy = false; render();
     }, { kind: "pack" });
   }
+  // memory: a song this big would crowd a Raspberry Pi (it holds every track of the song, and of the next one)
+  function tooBig(pk) { return !!(pk && pk.deviceMB && pk.memMB > pk.deviceMB * 0.22); }
+  // sections from the pack's Ableton locators / MIDI markers (their times), on the song's bars
+  function markersToSections(s, markers, bpb) {
+    var t = T.data(s); if (!markers || !markers.length) return 0;
+    if (bpb >= 2 && bpb <= 12) t.grid.bpb = bpb;
+    var seen = {}, out = [];
+    markers.forEach(function (m) {
+      var bar = m.time != null && t.duration ? T.timeToBar(s, m.time).bar : Math.floor((m.beat || 0) / (t.grid.bpb || 4)) + 1;
+      bar = Math.max(1, Math.round(bar)); if (seen[bar]) return; seen[bar] = 1;
+      var old = (t.sections || []).filter(function (x) { return norm(x.name) === norm(m.name); })[0];
+      out.push({ id: PP.id(), name: m.name, bar: bar, pad: -1, transition: "inherit", cue: "auto", lyrics: old ? old.lyrics : "", page: old ? old.page || 0 : 0 });
+    });
+    out.sort(function (a, b) { return a.bar - b.bar; });
+    if (out.length && out[0].bar > 1) out.unshift({ id: PP.id(), name: "Intro", bar: 1, pad: -1, transition: "inherit", cue: "auto", lyrics: "", page: 0 });
+    t.sections = out; t.fromSequence = false; t.sectionsFrom = "pack";
+    return out.length;
+  }
+  // a whole pack into a song: the stems (or groups of them), the chart, the exact tempo and the sections
+  async function importPackInfo(pk, o, log) {
+    o = o || {};
+    var title = (o.title || pk.title || "Song").trim(), key = o.key != null ? o.key : pk.key, bpm = o.bpm != null ? o.bpm : pk.bpm;
+    var chosen = pk.stems.filter(function (e) { return e.keep != null ? e.keep : e.use; }); if (!chosen.length) throw new Error("no tracks chosen");
+    log("Unpacking " + chosen.length + " tracks…");
+    var s = songFor(title), t = T.data(s);
+    if (key) s.key = key; if (bpm) { s.bpm = bpm; t.grid.bpm = bpm; }
+    var r = await postJ("/pack/import", { path: pk.path, song: s.id, members: chosen.map(function (e) { return e.member; }).concat(pk.charts.map(function (c) { return c.member; })) });
+    var roleOf = {}; chosen.forEach(function (e) { roleOf[e.member] = e.role; });
+    if (r.chartInfos && r.chartInfos.length) await T.applyChart(s, r.chartInfos[0]);
+    log((o.combine ? "Combining and analysing " : "Decoding and analysing ") + r.files.length + " tracks (tempo, key, beats)…");
+    await filesToSong(s, r.files.map(function (f) { return { path: f.path, role: roleOf[f.member] || f.role }; }), key || null, { combine: !!o.combine });
+    // the pack's own tempo is exact (its Ableton set / MIDI file / name): the beat grid is fitted to it
+    if (bpm && t.analysis && Math.abs((t.grid.bpm || 0) - bpm) > 0.05) { try { await T.analyzeSong(s, null, PP.setStatus, { bpm: bpm }); } catch (e) { console.warn(e); } }
+    var n = markersToSections(s, pk.markers, pk.bpb);
+    T.pushAll && T.pushAll(s);
+    return { song: s, title: title, tracks: r.files.length, chart: !!(r.chartInfos && r.chartInfos.length), sections: n };
+  }
   async function packImport() {
     var pk = st.pack; if (!pk || pk.error || st.packBusy) return;
     var title = ($("#packTitle").value || pk.title || "Song").trim(), key = $("#packKey").value, bpm = Number($("#packBpm").value) || 0;
-    var chosen = pk.stems.filter(function (e) { return e.keep; }); if (!chosen.length) return;
-    st.packBusy = true; pk.log = "Unpacking " + chosen.length + " tracks…"; render();
+    if (!pk.stems.some(function (e) { return e.keep; })) return;
+    st.packBusy = true; render();
     try {
-      var s = songFor(title), t = T.data(s);
-      if (key) s.key = key; if (bpm) { s.bpm = bpm; t.grid.bpm = bpm; }
-      var r = await postJ("/pack/import", { path: pk.path, song: s.id, members: chosen.map(function (e) { return e.member; }).concat(pk.charts.map(function (c) { return c.member; })) });
-      var roleOf = {}; chosen.forEach(function (e) { roleOf[e.member] = e.role; });
-      if (r.chartInfos && r.chartInfos.length) await T.applyChart(s, r.chartInfos[0]);
-      pk.log = "Decoding and analysing " + r.files.length + " tracks (tempo, key, beats)…"; render();
-      await filesToSong(s, r.files.map(function (f) { return { path: f.path, role: roleOf[f.member] || f.role }; }), key || null);
-      var p = PP.project(); F.loadSong(p.songs.indexOf(s)); PP.persistNow(); T.render();
-      pk.log = "✓ " + title + ": " + r.files.length + " tracks" + (r.chartInfos && r.chartInfos.length ? " + chart" : "") + ". Open the song editor to check the sections.";
+      var res = await importPackInfo(pk, { title: title, key: key, bpm: bpm, combine: !!pk.combine }, function (m) { pk.log = m; render(); });
+      var p = PP.project(); F.loadSong(p.songs.indexOf(res.song)); PP.persistNow(); T.render();
+      pk.log = "✓ " + title + ": " + res.tracks + " tracks" + (pk.combine ? " (combined by kind)" : "") + (res.chart ? " + chart" : "") + (res.sections ? " · " + res.sections + " sections from " + (pk.markersFrom || "the pack") : " · open the song editor to check the sections") + ".";
       PP.setStatus("Imported " + title);
     } catch (e) { pk.log = "Could not import: " + e.message; }
     st.packBusy = false; render();
   }
+  // several songs at once: a folder of song folders / zips (a MultiTracks.com or Loop Community library on a stick)
+  function manyPick() {
+    if (!connected()) return;
+    F.openUsb(async function (picked) {
+      var path = picked.folder || (picked.files && picked.files[0]); if (!path) return;
+      st.packBusy = true; st.many = null; st.pack = null; render();
+      try { st.many = await postJ("/pack/scanMany", { path: path }); st.many.songs.forEach(function (x) { x.keep = true; x.combine = !!(st.many.deviceMB && x.memMB > st.many.deviceMB * 0.22); }); }
+      catch (e) { st.many = { error: e.message, songs: [] }; }
+      st.packBusy = false; render();
+    }, { kind: "pack" });
+  }
+  async function manyImport() {
+    var mn = st.many; if (!mn || st.packBusy) return;
+    var list = mn.songs.filter(function (x) { return x.keep; }); if (!list.length) return;
+    st.packBusy = true; mn.done = 0; mn.log = ""; render();
+    for (var i = 0; i < list.length; i++) {
+      var x = list[i];
+      try {
+        var pk = await postJ("/pack/scan", { path: x.path });
+        var res = await importPackInfo(pk, { combine: x.combine }, function (m) { mn.log = (i + 1) + "/" + list.length + " · " + (x.title || "") + ": " + m; render(); });
+        x.result = "✓ " + res.tracks + " tracks" + (res.sections ? " · " + res.sections + " sections" : "") + (res.chart ? " · chart" : "");
+      } catch (e) { x.result = "✗ " + e.message; }
+      mn.done = i + 1; render();
+    }
+    mn.log = "✓ " + list.filter(function (x) { return /^✓/.test(x.result || ""); }).length + " of " + list.length + " songs imported.";
+    PP.persistNow(); T.render(); st.packBusy = false; render();
+  }
   function renderPack() {
     if (!connected()) return '<p class="muted">Pack import runs on the Central Pedal (it unpacks the stems onto its card).</p>';
-    var pk = st.pack, head = '<p>Download the song from <b>MultiTracks.com</b> (Playback / "Download stems") or <b>Loop Community</b> (Prime / stem pack), put the <b>zip</b> (or the unzipped folder) on a USB stick or send it with the Upload page, then choose it here. The stems\' roles, the key and the tempo come from the file names; the full mix is left out when there are stems.</p><div class="row"><button class="primary" data-a="pack-pick"' + (st.packBusy ? " disabled" : "") + ">📦 Choose a zip or folder…</button></div>";
+    var pk = st.pack, mn = st.many, head = '<p>Download the song from <b>MultiTracks.com</b> (your purchases → download the stems / the Ableton set) or <b>Loop Community</b> (your multitracks → download the WAV stems - songs inside the Prime app itself stay in that app), put the <b>zip</b> (or the unzipped folder) on a USB stick or send it with the Upload page, then choose it here.</p>' +
+      '<p class="muted small">The song\'s name, key and tempo come from the file names; the click and the guide go to the in-ear output; the sections come from the pack\'s Ableton set or MIDI file when it has one; a chart in the pack becomes the song\'s chart; the full mix is left out when there are stems.</p>' +
+      '<div class="row"><button class="primary" data-a="pack-pick"' + (st.packBusy ? " disabled" : "") + '>📦 One song: a zip or folder…</button><button data-a="many-pick"' + (st.packBusy ? " disabled" : "") + ">📚 Several songs: a folder of them…</button></div>";
+    if (mn) return head + renderMany(mn);
     if (st.packBusy && !pk) return head + '<p class="muted">Reading the pack…</p>';
     if (!pk) return head;
     if (pk.error) return head + '<p class="muted">' + esc(pk.error) + "</p>";
+    var big = tooBig(pk); if (pk.combine == null) pk.combine = big;
+    var info = (pk.markers && pk.markers.length ? '<p class="small">✓ ' + pk.markers.length + " sections from " + esc(pk.markersFrom || "the pack") + ": " + pk.markers.slice(0, 12).map(function (m) { return esc(m.name); }).join(" · ") + (pk.markers.length > 12 ? " …" : "") + "</p>" : "") +
+      (pk.deviceMB ? '<p class="small ' + (big ? "warn" : "muted") + '">About ' + pk.memMB + " MB in the player (this Central Pedal has " + Math.round(pk.deviceMB / 1024 * 10) / 10 + " GB)" + (big ? " - a lot for a Pi: combine the tracks by kind." : ".") + "</p>" : "") +
+      '<label class="toggle"><input type="checkbox" id="packCombine"' + (pk.combine ? " checked" : "") + "> Combine the tracks by kind (drums, bass, keys, guitars, vocals, the rest - click and guide stay on their own) - less memory, fewer faders</label>";
     return head + '<div class="form"><label>Song<input id="packTitle" value="' + esc(pk.title || "") + '"></label><label>Key<select id="packKey">' + keyOpts(pk.key) + '</select></label><label>BPM<input id="packBpm" type="number" min="30" max="300" step="0.1" value="' + (pk.bpm || "") + '" placeholder="detected"></label><span class="muted">' + esc(pk.vendor || "Folder / zip") + " · " + pk.stems.length + " audio file" + (pk.stems.length === 1 ? "" : "s") + (pk.charts.length ? " · " + pk.charts.length + " chart" : "") + "</span></div>" +
       '<div class="add-list">' + pk.stems.map(function (e, i) { return '<div class="add-row' + (e.keep ? "" : " off") + '"><input type="checkbox" data-stem-i="' + i + '"' + (e.keep ? " checked" : "") + '><span><b>' + esc(e.name) + "</b><small>" + (e.fullMix ? "full mix - normally left out" : Math.round(e.size / 1048576 * 10) / 10 + " MB") + '</small></span><select data-role-i="' + i + '">' + ROLES.map(function (r) { return '<option value="' + r[0] + '"' + (r[0] === e.role ? " selected" : "") + ">" + r[1] + "</option>"; }).join("") + "</select></div>"; }).join("") + "</div>" +
-      '<div class="row"><button class="primary" data-a="pack-import"' + (st.packBusy ? " disabled" : "") + ">Import as a song</button></div><p class=\"add-progress\">" + esc(pk.log || "") + "</p>";
+      info + '<div class="row"><button class="primary" data-a="pack-import"' + (st.packBusy ? " disabled" : "") + ">Import as a song</button></div><p class=\"add-progress\">" + esc(pk.log || "") + "</p>";
+  }
+  function renderMany(mn) {
+    if (mn.error) return '<p class="muted">' + esc(mn.error) + "</p>";
+    if (!mn.songs.length) return '<p class="muted">No songs with audio were found in that folder.</p>';
+    var n = mn.songs.filter(function (x) { return x.keep; }).length;
+    return '<div class="add-list">' + mn.songs.map(function (x, i) {
+      return '<div class="add-row' + (x.keep ? "" : " off") + '"><input type="checkbox" data-many-i="' + i + '"' + (x.keep ? " checked" : "") + '><span><b>' + esc(x.title) + "</b><small>" + [x.key ? "Key " + x.key.replace("#", "♯") : "", x.bpm ? x.bpm + " BPM" : "", x.stems + " tracks", x.markers ? x.markers + " sections" : "", x.charts ? "chart" : "", x.vendor || ""].filter(Boolean).map(esc).join(" · ") + (x.result ? " · <b>" + esc(x.result) + "</b>" : "") + "</small></span>" +
+        '<label class="toggle small" title="Combine the tracks by kind (less memory)"><input type="checkbox" data-many-c="' + i + '"' + (x.combine ? " checked" : "") + "> combine</label></div>";
+    }).join("") + '</div><div class="row"><button class="primary" data-a="many-import"' + (st.packBusy || !n ? " disabled" : "") + ">Import " + n + " song" + (n === 1 ? "" : "s") + '</button><button data-a="many-back"' + (st.packBusy ? " disabled" : "") + ">Back</button></div><p class=\"add-progress\">" + esc(mn.log || "") + "</p>";
   }
 
   // ------------------------------------------------------------- own files
@@ -194,7 +268,8 @@
       var a = b.dataset.a;
       if (a === "pco-connect") pcoConnect(); else if (a === "pco-import") pcoImport();
       else if (a === "pco-forget") { if (confirm("Disconnect Planning Center? The token is removed from this Central Pedal.")) postJ("/pco/forget").then(function () { st.pco = { configured: false, org: "", types: [], type: null, plans: [], plan: null, items: [], sel: {}, audio: true, top: true, busy: false, log: "" }; render(); }); }
-      else if (a === "pack-pick") packPick(); else if (a === "pack-import") packImport();
+      else if (a === "pack-pick") { st.many = null; packPick(); } else if (a === "pack-import") packImport();
+      else if (a === "many-pick") manyPick(); else if (a === "many-import") manyImport(); else if (a === "many-back") { st.many = null; render(); }
       else if (a === "own-create") { var name = ($("#ownName").value || "").trim() || "New song"; T.newSong(name); F.loadSong(PP.project().songs.length - 1); $("#addDialog").close(); T.openEditor(); }
     });
     $("#addBody").addEventListener("change", function (e) {
@@ -204,8 +279,11 @@
       else if (el.id === "pcoAudio") st.pco.audio = el.checked; else if (el.id === "pcoTop") st.pco.top = el.checked;
       else if (el.dataset.stemI != null && st.pack) { st.pack.stems[Number(el.dataset.stemI)].keep = el.checked; render(); }
       else if (el.dataset.roleI != null && st.pack) st.pack.stems[Number(el.dataset.roleI)].role = el.value;
+      else if (el.id === "packCombine" && st.pack) st.pack.combine = el.checked;
+      else if (el.dataset.manyI != null && st.many) { st.many.songs[Number(el.dataset.manyI)].keep = el.checked; render(); }
+      else if (el.dataset.manyC != null && st.many) st.many.songs[Number(el.dataset.manyC)].combine = el.checked;
     });
   }
   wire();
-  window.PPSources = { open: open, state: st, pcoImport: pcoImport, pcoStatus: pcoStatus, packImport: packImport, render: render };
+  window.PPSources = { open: open, state: st, pcoImport: pcoImport, pcoStatus: pcoStatus, packImport: packImport, manyPick: manyPick, manyImport: manyImport, importPackInfo: importPackInfo, render: render };
 })();

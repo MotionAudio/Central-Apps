@@ -85,7 +85,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.3.0"
+APP_VERSION = "8.4.0"
 CONFIG_CANDIDATES = ["/data/pad-pedal/hardware.json", "/etc/pad-pedal/hardware.json"]
 SYSTEM_SCRIPT = "/usr/local/sbin/pad-pedal-system"
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".oga", ".m4a", ".aac", ".aif", ".aiff", ".opus")
@@ -510,6 +510,42 @@ def wifi_connect(ssid, password, hidden=False):
         return False, wifi_error(err or out)
     run(["nmcli", "connection", "modify", "padpedal-wifi", "connection.autoconnect", "yes", "connection.autoconnect-priority", "10"], timeout=10)
     return True, "Connected to %s" % ssid
+
+
+def pi_health(data_root):
+    """For the Ready check: temperature, power (under-voltage / throttling), free space, free memory."""
+    out = {}
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp") as fh:
+            out["tempC"] = round(int(fh.read().strip()) / 1000, 1)
+    except (OSError, ValueError):
+        pass
+    if shutil.which("vcgencmd"):
+        _code, text, _err = run(["vcgencmd", "get_throttled"], timeout=3)
+        m = re.search(r"0x([0-9a-fA-F]+)", text or "")
+        if m:
+            bits = int(m.group(1), 16)
+            out["underVoltage"] = bool(bits & 0x1)
+            out["throttled"] = bool(bits & 0x4) or bool(bits & 0x2)
+            out["underVoltageSinceBoot"] = bool(bits & 0x10000)
+            out["throttledSinceBoot"] = bool(bits & 0x40000)
+    try:
+        st = os.statvfs(data_root)
+        out["diskFreeMB"] = int(st.f_bavail * st.f_frsize / 1048576)
+        out["diskTotalMB"] = int(st.f_blocks * st.f_frsize / 1048576)
+    except OSError:
+        pass
+    try:
+        with open("/proc/meminfo") as fh:
+            for line in fh:
+                if line.startswith("MemAvailable:"):
+                    out["memFreeMB"] = int(line.split()[1]) // 1024
+                elif line.startswith("MemTotal:"):
+                    out["memTotalMB"] = int(line.split()[1]) // 1024
+    except (OSError, ValueError):
+        pass
+    out["simulated"] = os.environ.get("CC_PLAYER") == "1"
+    return out
 
 
 def sound_cards():
@@ -2179,6 +2215,8 @@ class MiniScreen:
                 sub += "  ↻"
         else:
             sub = "Pads" + ("  · layer" if (d.get("performance") or {}).get("layerMode") else "") + ("  · frozen" if d.get("frozen") else "")
+        if getattr(self.driver, "service_lock", False):
+            sub = "LOCKED · " + sub
         g.text((8, 25), self.clip(sub, 32), font=self.small, fill=C["muted"])
         g.text((W - 150, 4), "KEY", font=self.small, fill=C["muted"])
         g.text((W - 150, 16), key, font=self.big, fill=C["accent"])
@@ -3604,7 +3642,7 @@ class CenterLink:
         return {"state": self.state, "name": self.name, "address": t.get("host") if self.connected else None, "port": t.get("port") if self.connected else None,
                 "error": self.error, "configured": self.address or "", "job": self.job if self.paired else "player",
                 "player": {"name": p.get("name"), "address": p.get("address"), "online": bool(p.get("online"))} if p and self.paired else None,
-                "remote": bool(self.remote is not None)}
+                "remote": bool(self.remote is not None), "paired": bool(self.paired)}
 
     def job_now(self):
         """What this Central Pedal does right now: on its own (not paired) it always plays."""
@@ -4518,6 +4556,9 @@ class PedalDriver:
             # what a touch-select knob holds right now (shown on the 3.5" screen)
             self.touch_select = {k: message.get(k) for k in ("knob", "label", "value", "pickup")} if message.get("label") else None
             self.schedule_mini_render()
+        elif kind == "serviceLock":   # the LIVE screen's service lock: shown on the small screen
+            self.service_lock = bool(message.get("on"))
+            self.schedule_mini_render()
         elif kind == "tunerView":
             self.tuner_view = {k: message.get(k) for k in ("note", "cents", "on")} if message.get("on") else None
             self.schedule_mini_render()
@@ -4747,12 +4788,14 @@ class PedalDriver:
                     files.append({"path": target, "name": a["name"], "role": a["role"]})
             return {"ok": True, "title": title, "key": item.get("key"), "bpm": item.get("bpm"), "bpb": item.get("bpb"), "sequence": arr.get("sequence") or item.get("sequence") or [],
                     "chart": chart, "files": files, "attachments": atts, "pdfCharts": pdf_charts}
-        if path in ("/pack/scan", "/pack/import"):
+        if path in ("/pack/scan", "/pack/import", "/pack/scanMany"):
             ok, real = self.local.allowed(payload.get("path") or "") if self.local else (False, "")
             if not ok or not os.path.exists(real):
                 raise ValueError("that file or folder is not on a USB stick / SD card / the uploads")
             if path == "/pack/scan":
                 return sources.scan_pack(real)
+            if path == "/pack/scanMany":
+                return sources.scan_many(real)
             info = sources.import_pack(real, self.library.song_dir(payload.get("song") or "pack"), payload.get("members"))
             charts = []
             for c in info["chartFiles"]:
@@ -4887,6 +4930,8 @@ class PedalDriver:
             "netAudio": self.netaudio.status(),
             "audioHost": self.public_audio_host(),
             "centralUsage": [{"name": v.get("name") or "Central Control", "mode": v.get("mode") or ""} for v in self.lan_clients.values() if v.get("app") == "central-usage"],
+            "health": pi_health(self.config["data_root"]),
+            "center": self.center_link.info() if getattr(self, "center_link", None) else None,
         }
 
     def system_action(self, message, ws):
