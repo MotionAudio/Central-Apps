@@ -9,7 +9,7 @@ The server must allow CORS from the apps (the Pi app runs at `http://127.0.0.1:8
 | Method | Path | Answer |
 |---|---|---|
 | POST | `/v1/login` `{email, password}` | `{token}` |
-| GET | `/v1/me` | `{email, subscribed}` (`subscribed` = Central Tracks Unlimited, $60/month) |
+| GET | `/v1/me` | `{email, subscribed}` (`subscribed` = Central Tracks Unlimited, $77/month) |
 | GET | `/v1/tracks?q=&kind=` | `{tracks: [{id, title, artist, kind, key, bpm, price, stars, owned}]}` (`kind`: Pad, Multitrack, Prime) |
 | POST | `/v1/tracks/{id}/add` | subscriber or owner: `{files: [{name, url, role}]}` · otherwise **402** `{checkoutUrl}` |
 | POST | `/v1/tracks/{id}/purchase` | `{checkoutUrl}` (or `{files}` if already owned) |
@@ -23,6 +23,6 @@ reachable without the token (signed, short-lived links).
   or Central Pedal Control (own MP3 / WAV, multitracks, Prime tracks) stay on their devices and are never uploaded to
   the library.
 - **Price comes from the audio-quality grade** (1–5 stars, worked out automatically when a track is published):
-  1★ $5 · 2★ $10 · 3★ $15 · 4★ $20 · 5★ $30.
-  Publishers on the **Creator plan ($77/month)** set their own price instead.
+  1★ $5 · 2★ $10 · 3★ $15 · 4★ $20 · 5★ $30. Publishers can't set their own price.
+- **Central Tracks Unlimited ($77/month)** subscribers add any track with no per-track charge.
 - **Payouts:** the publisher gets 75% of each purchase, and $3 each time a Central Tracks subscriber adds the track.

@@ -1,7 +1,7 @@
 {
   "name": "central-pedal-control-ios",
   "private": true,
-  "version": "8.7.0",
+  "version": "8.7.1",
   "description": "Central Pedal Control for iPad (TestFlight / App Store): the Central Pedal app on an iPad - set up songs, tracks, pads and controls, then upload them to the Central Pedal.",
   "license": "MIT",
   "scripts": {

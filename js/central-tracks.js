@@ -1,5 +1,5 @@
 /* Central Pedal / Central Pedal Control - "Central Tracks": the Motion Audio community track library.
- * Lives as a tab in "Add songs". Search the library; a Central Tracks subscriber ($60/month) adds any track to
+ * Lives as a tab in "Add songs". Search the library; a Central Tracks subscriber ($77/month) adds any track to
  * this device's storage; everyone else buys the track first. Added tracks become songs like any other import
  * (stems decoded, tempo / key / beats analysed, then copied to the pedals as usual).
  * Server API: docs/CENTRAL-TRACKS-API.md. With no server set, the tab shows a preview of the library. */
@@ -104,7 +104,7 @@
     var c = cfg(), sub = st.me && st.me.subscribed;
     var acct = preview() ? '<p class="small warn">Preview of the library. Set the Central Tracks server below to search the live library, add and buy tracks.</p>'
       : !c.token ? '<p class="small">Not signed in · <button data-ct="signin-show">Sign in</button> · No account? Make one at Motion Audio.</p>'
-      : '<p class="small">' + esc(st.me ? st.me.email : "Signed in") + " · " + (sub ? "<b>Central Tracks subscriber</b> - add anything" : "No subscription - buy tracks one at a time, or subscribe ($60/month) on the Motion Audio site") + ' · <button data-ct="signout">Sign out</button></p>';
+      : '<p class="small">' + esc(st.me ? st.me.email : "Signed in") + " · " + (sub ? "<b>Central Tracks subscriber</b> - add anything" : "No subscription - buy tracks one at a time, or subscribe ($77/month) on the Motion Audio site") + ' · <button data-ct="signout">Sign out</button></p>';
     var login = st.signIn && !preview() ? '<div class="form"><label>Email<input id="ctEmail" type="email" autocomplete="username"></label><label>Password<input id="ctPass" type="password" autocomplete="current-password"></label><button class="primary" data-ct="signin">Sign in</button></div>' : "";
     var search = '<div class="form"><label>Search<input id="ctQ" type="search" value="' + esc(st.q) + '" placeholder="Song, artist or key"></label><label>Type<select id="ctKind">' + ["", "Pad", "Multitrack", "Prime"].map(function (k) { return '<option value="' + k + '"' + (k === st.kind ? " selected" : "") + ">" + (k || "All types") + "</option>"; }).join("") + '</select></label><button data-ct="search"' + (st.busy ? " disabled" : "") + ">Search</button></div>";
     var rows = (st.tracks || []).length ? '<div class="add-list">' + st.tracks.map(function (t) {
