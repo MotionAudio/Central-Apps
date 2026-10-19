@@ -85,7 +85,10 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.4.0"
+APP_VERSION = "8.5.0"
+# Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
+# pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
+PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
 CONFIG_CANDIDATES = ["/data/pad-pedal/hardware.json", "/etc/pad-pedal/hardware.json"]
 SYSTEM_SCRIPT = "/usr/local/sbin/pad-pedal-system"
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".oga", ".m4a", ".aac", ".aif", ".aiff", ".opus")
@@ -1297,6 +1300,14 @@ class LocalServer:
                             found = Library.updates_in(d["path"]) + Library.updates_in(folder)
                         out.append({"drive": d["name"], "path": d["path"], "files": found, "free": shutil.disk_usage(d["path"]).free if os.path.isdir(d["path"]) else 0})
                     return self.send_json(200, {"drives": out})
+                if p == "/api/whoami":   # (Central Pedal Control's Mac app checks that the driver on this port is its own)
+                    return self.send_json(200, {"pedalControl": PEDAL_CONTROL, "appVersion": APP_VERSION})
+                if p == "/pedal/package":   # an upload from Central Pedal Control, for the app here to apply
+                    pk = driver.transfer.local_package((query.get("token") or [""])[0])
+                    return self.send_json(200, pk) if pk else self.send_json(404, {"error": "no such upload"})
+                if p == "/pedal/file":
+                    path = driver.transfer.file_path((query.get("token") or [""])[0], (query.get("id") or [""])[0], "in")
+                    return self.send_file(path, "application/octet-stream") if path else self.send_json(404, {"error": "no such file"})
                 if p == "/project":
                     pj = os.path.join(driver.config["data_root"], "project.json")
                     return self.send_file(pj, "application/json") if os.path.isfile(pj) else self.send_json(200, {})
@@ -1351,6 +1362,15 @@ class LocalServer:
 
             def do_POST(self):
                 url = urllib.parse.urlparse(self.path)
+                if url.path in ("/pedal/export-file", "/pedal/export-done"):   # the app here answering a Download
+                    q = urllib.parse.parse_qs(url.query)
+                    token = (q.get("token") or [""])[0]
+                    if url.path == "/pedal/export-file":
+                        code_, reply = driver.transfer.put_file(token, (q.get("id") or [""])[0], "", "", "sample", self.body(), out=True)
+                        return self.send_json(code_, reply)
+                    pkg = self.json_body(64 << 20)
+                    code_, reply = driver.transfer.export_done(token, pkg)
+                    return self.send_json(code_, reply)
                 if url.path.startswith("/pco/") or url.path.startswith("/pack/"):
                     payload = self.json_body()
                     if payload is None:
@@ -1569,6 +1589,14 @@ class CompanionServer:
                     if rel.startswith("fonts/"):
                         return self.serve_static(os.path.join(app_root, "fonts"), rel[len("fonts/"):])
                     return self.serve_static(os.path.join(app_root, "central-usage", "app"), rel)
+                if p in ("/api/pedal/export", "/api/pedal/export-file"):   # Central Pedal Control's Download (its token)
+                    q = urllib.parse.parse_qs(url.query)
+                    token = (q.get("token") or [""])[0]
+                    if p == "/api/pedal/export":
+                        code_, reply = driver.transfer.export_state(token)
+                        return self.send_json(code_, reply)
+                    path = driver.transfer.file_path(token, (q.get("id") or [""])[0], "out")
+                    return self.send_file(path, "application/octet-stream") if path else self.send_json(404, {"error": "no such file"})
                 if p.startswith("/api/sync/"):   # another Central Pedal of the same group pulling songs
                     sync = driver.sync
                     if not sync.auth_ok(self.headers, p):
@@ -1645,6 +1673,27 @@ class CompanionServer:
                         payload = {}
                     code_, reply = driver.sync.handle_link(payload)
                     return self.send_json(code_, reply)
+                if url.path.startswith("/api/pedal/"):   # Central Pedal Control (Mac / iPad): Upload and Download
+                    tr = driver.transfer
+                    token = (query.get("token") or [""])[0]
+                    if url.path in ("/api/pedal/begin", "/api/pedal/export"):
+                        try:
+                            payload = json.loads(self.body(1 << 16).decode() or "{}")
+                        except Exception:
+                            payload = {}
+                        code_, reply = tr.begin(payload, "out" if url.path == "/api/pedal/export" else "in")
+                        return self.send_json(code_, reply)
+                    if url.path == "/api/pedal/file":
+                        code_, reply = tr.put_file(token, (query.get("id") or [""])[0], (query.get("name") or [""])[0], (query.get("song") or [""])[0], (query.get("kind") or ["stem"])[0], self.body())
+                        return self.send_json(code_, reply)
+                    if url.path == "/api/pedal/commit":
+                        try:
+                            pkg = json.loads(self.body(64 << 20).decode() or "{}")
+                        except Exception:
+                            return self.send_json(400, {"error": "not JSON"})
+                        code_, reply = tr.commit(token, pkg)
+                        return self.send_json(code_, reply)
+                    return self.send_json(404, {"error": "unknown"})
                 if url.path == "/api/sync/poke":
                     if not driver.sync.auth_ok(self.headers, url.path):
                         return self.send_json(403, {"error": "not linked"})
@@ -3480,6 +3529,122 @@ SERVICE_ROLES = ("lighting", "production", "slides", "lyrics", "mix", "inears", 
 SERVICE_KINDS = ("song", "prayer", "welcome", "announcements", "offering", "sermon", "communion", "video", "other")
 
 
+class PedalTransfer:
+    """Central Pedal Control (the editor on a Mac or an iPad) <-> this Central Pedal.
+
+    Upload: the editor gives the pairing PIN once (begin) and gets a token, sends each file (stems, a pad's own
+    sample) and then the package (the settings it picked and the songs). The app on this Central Pedal is told
+    ("pedalUpload"), asks before it applies the package, reads the files back from here and keeps them.
+    Download: the editor asks (export), the app here packs its settings, songs and pad samples and hands them to
+    the driver, and the editor fetches the package and the files with its token."""
+
+    TTL = 3 * 3600
+
+    def __init__(self, driver):
+        self.driver = driver
+        self.root = os.path.join(driver.config["data_root"], "pedal-transfer")
+        self.entries = {}
+        self.lock = threading.Lock()
+
+    def _prune(self):
+        now = time.time()
+        for tok, e in list(self.entries.items()):
+            if now - e["made"] > self.TTL:
+                self.entries.pop(tok, None)
+                shutil.rmtree(os.path.join(self.root, tok), ignore_errors=True)
+
+    def _entry(self, token, kind=None):
+        e = self.entries.get(str(token or ""))
+        if not e or (kind and e["kind"] != kind):
+            return None
+        return e
+
+    def begin(self, payload, kind="in"):
+        payload = payload or {}
+        if not self.driver.code_ok(payload.get("code")):
+            return 403, {"error": "That PIN is not right - it is this Central Pedal's pairing PIN (its Settings, or its screen)."}
+        with self.lock:
+            self._prune()
+            token = secrets.token_hex(16)
+            self.entries[token] = {"kind": kind, "made": time.time(), "from": str(payload.get("from") or "Central Pedal Control")[:60],
+                                   "files": {}, "package": None, "ready": False, "want": payload.get("want") if isinstance(payload.get("want"), list) else None}
+            os.makedirs(os.path.join(self.root, token), exist_ok=True)
+        if kind == "out":
+            self.driver.emit({"type": "pedalExport", "token": token, "from": self.entries[token]["from"], "want": self.entries[token]["want"]})
+        sync = getattr(self.driver, "sync", None)
+        return 200, {"token": token, "name": sync.name if sync else socket.gethostname(), "appVersion": APP_VERSION}
+
+    def put_file(self, token, fid, name, song, kind, data, out=False):
+        e = self._entry(token, "out" if out else "in")
+        if not e:
+            return 403, {"error": "unknown or old token"}
+        fid = re.sub(r"[^A-Za-z0-9_.-]", "", str(fid or ""))[:80]
+        if not fid or not data:
+            return 400, {"error": "empty"}
+        if kind == "stem" and not out:
+            sid = re.sub(r"[^A-Za-z0-9_-]", "", str(song or ""))[:64] or "upload"
+            path = self.driver.library.store(sid, name or fid, data)
+        else:
+            path = os.path.join(self.root, token, fid)
+            with open(path + ".part", "wb") as fh:
+                fh.write(data)
+            os.replace(path + ".part", path)
+        e["files"][fid] = path
+        return 200, {"ok": True, "id": fid, "path": path}
+
+    def commit(self, token, package):
+        e = self._entry(token, "in")
+        if not e:
+            return 403, {"error": "unknown or old token"}
+        if not isinstance(package, dict):
+            return 400, {"error": "no package"}
+        e["package"] = package
+        write_json(os.path.join(self.root, token, "package.json"), package)
+        songs = package.get("songs") or []
+        self.driver.emit({"type": "pedalUpload", "token": token, "from": e["from"], "summary": {
+            "songs": [str((s or {}).get("name") or "")[:80] for s in songs][:200], "settings": [str(x) for x in (package.get("parts") or [])][:20],
+            "files": len(e["files"])}})
+        return 200, {"ok": True}
+
+    def export_done(self, token, package):
+        e = self._entry(token, "out")
+        if not e:
+            return 403, {"error": "unknown or old token"}
+        e["package"] = package if isinstance(package, dict) else {}
+        e["ready"] = True
+        return 200, {"ok": True}
+
+    def export_state(self, token):
+        e = self._entry(token, "out")
+        if not e:
+            return 403, {"error": "unknown or old token"}
+        if not e["ready"]:
+            return 200, {"ready": False}
+        return 200, {"ready": True, "package": e["package"], "files": sorted(e["files"])}
+
+    def file_path(self, token, fid, kind=None):
+        e = self._entry(token, kind)
+        if not e:
+            return None
+        path = e["files"].get(str(fid or ""))
+        if not path and kind == "out":
+            # a stem from the library, named by its path in the package (only the ones the package lists)
+            refs = {}
+            for sg in ((e.get("package") or {}).get("songs") or []):
+                for st in (((sg or {}).get("tracks") or {}).get("stems") or []):
+                    for f in ([st.get("file")] if st.get("file") else []) + list(st.get("files") or []):
+                        refs[f] = True
+            if fid in refs and self.driver.library.inside(fid):
+                path = fid
+        return path if path and os.path.isfile(path) else None
+
+    def local_package(self, token):
+        e = self._entry(token, "in")
+        if not e or not e.get("package"):
+            return None
+        return {"package": e["package"], "files": e["files"], "from": e["from"]}
+
+
 class ServiceLog:
     """The service report: what the app did on each day (songs, play / stop, sections, Safe Stop, the lock, audio
     dropouts), one JSON line per event in <data>/service-log/YYYY-MM-DD.jsonl (local date), each with the Pi's
@@ -4278,7 +4443,7 @@ class PedalDriver:
         self.cues = Cues(config["app_root"], data_root)
         self.library = Library(data_root)
         # (the player window inside Central Control updates with Central Control - it does not look for Pi updates)
-        self.updater = sources.Updater(os.path.join(data_root, "updates.json"), APP_VERSION, os.path.join(data_root, "updates"), api=config.get("update_api")) if sources and hasattr(sources, "Updater") and os.environ.get("CC_PLAYER") != "1" else None
+        self.updater = sources.Updater(os.path.join(data_root, "updates.json"), APP_VERSION, os.path.join(data_root, "updates"), api=config.get("update_api")) if sources and hasattr(sources, "Updater") and os.environ.get("CC_PLAYER") != "1" and not PEDAL_CONTROL else None
         self.propresenter = sources.ProPresenter(os.path.join(data_root, "propresenter.json")) if sources and hasattr(sources, "ProPresenter") else None
         self.pco = sources.PlanningCenter(os.path.join(data_root, "sources.json"), config.get("pco_base") or "https://api.planningcenteronline.com") if sources else None
         self.instrument = instrument_host.InstrumentHost(self, data_root, config["app_root"]) if instrument_host else None
@@ -4290,6 +4455,7 @@ class PedalDriver:
         self.service_plan = ServicePlan(self, os.path.join(data_root, "services.json"))
         self.center_link = CenterLink(self, os.path.join(data_root, "center.json"))
         self.service_log = ServiceLog(os.path.join(data_root, "service-log"))
+        self.transfer = PedalTransfer(self)
         self.sync = SongSync(self)
         self.hub_dir = os.path.join(data_root, "hub")
         self.slides_dir = os.path.join(data_root, "slides")
@@ -4411,6 +4577,7 @@ class PedalDriver:
             "codeChosen": self.code_chosen(),
             "center": self.center_link.info() if getattr(self, "center_link", None) else None,
             "pedalJob": self.center_link.job_now() if getattr(self, "center_link", None) else "player",
+            "pedalControl": PEDAL_CONTROL,
             "hostname": socket.gethostname(),
             "midi": bool(self.midi and self.midi.available),
             "midiOut": bool(self.midi and self.midi.available and self.midi.want_out),
@@ -5561,7 +5728,7 @@ class PedalDriver:
         except Exception as error:
             log.warning("companion websocket could not start (%s)", error)
         tasks.append(asyncio.create_task(self.analog_loop()))
-        if self.config.get("center", True):
+        if self.config.get("center", True) and not PEDAL_CONTROL:
             pin = os.environ.get("CC_PAIR_PIN", "").strip()   # opened from the main admin's Central Control: its pairing PIN
             if re.match(r"^\d{4}$", pin) and (pin != self.code or not self.code_chosen()):
                 self.set_code(pin, from_center=True)

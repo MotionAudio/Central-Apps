@@ -41,6 +41,10 @@
     return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "settings" || t === "devices" || t === "service"; }));
   }
   var ROLE_NAMES = { main: "Main admin", admin: "Admin", user1: "User 1", user2: "User 2" };
+  // which app this is: Central Control (the main admin and admins) or Central Usage (musicians: User 1 / User 2 -
+  // also every phone and tablet opening it from the main admin's computer, and the iPhone / iPad / Android apps)
+  var EDITION = (window.CU && window.CU.edition) || (function () { var q = null; try { q = new URLSearchParams(location.search).get("edition"); } catch (_) { } return q === "usage" || q === "control" ? q : WEB ? "usage" : "all"; })();   // ("all": a plain page from the files - tests)
+  function roleAllowed(r) { return EDITION !== "usage" || r === "user1" || r === "user2" || r === null; }
   var cuCfg = { mode: store.get("mode", null), role: store.get("role", null), jobs: store.get("jobs", null), name: store.get("name", "") };
   function role() {
     var r = cuCfg.role;
@@ -53,11 +57,12 @@
     document.body.dataset.mode = m; document.body.dataset.role = r;
     document.querySelectorAll("#tabs [data-tab]").forEach(function (b) { b.hidden = allowed.indexOf(b.dataset.tab) < 0; });
     if (allowed.indexOf(prefs.tab) < 0) showTab(allowed[0]);
-    send({ type: "client", app: "central-usage", mode: m, role: r, name: cuCfg.name || "Central Control" });
+    send({ type: "client", app: "central-usage", edition: EDITION, mode: m, role: r, name: cuCfg.name || (EDITION === "usage" ? "Central Usage" : "Central Control") });
     fire("mode", m); fire("role", r);
   }
   async function setRole(r) {
     if (!MODES[r] && r !== null) return;
+    if (!roleAllowed(r)) { if (window.CURoles && window.CURoles.toast) window.CURoles.toast(ROLE_NAMES[r] + " needs Central Control - this is Central Usage, for musicians (User 1 / User 2)."); return; }
     cuCfg.role = r; cuCfg.mode = r ? (r === "main" || r === "admin" ? "admin" : "user") : null;
     store.set("role", r); store.set("mode", cuCfg.mode);
     if (window.CU && window.CU.config) { try { cuCfg = await window.CU.config.set({ role: r }); } catch (_) { } }
@@ -281,6 +286,6 @@
     if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Control";
     if (!role()) askMode(); applyMode(); fire("ready");
   })();
-  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
+  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, edition: function () { return EDITION; }, appName: EDITION === "usage" ? "Central Usage" : "Central Control", roleAllowed: roleAllowed, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
     midiSend: function (d, at) { midiSend(d, at); }, midiSysex: function (d) { if (midi && midi.sysexEnabled) midiSend(d); } };
 })();

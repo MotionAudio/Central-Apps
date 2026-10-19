@@ -5,12 +5,28 @@ A Raspberry Pi 4 that boots straight into Central Pedal and nothing else
 multitrack player (stems, click, spoken cues, chord charts, lyrics) and a
 guitar / keys rig, with a touch screen, 12 footswitches, 6 knobs, 2 sliders,
 an expression pedal, MIDI in/out, Ableton Link, four separate audio outputs
-and a projector output. **Central Control** (`central-usage/`) is the companion
-app for the other computers in the room. An **Admin** computer gets the lighting
-controller, the video switcher, the tracks mixer, up to 64 in-ear mixes, lyrics and slides. A **User**
-computer gets the chord chart, the instrument, the lyrics and the musician's
-own in-ear mix. Everything follows the Central Pedal, and only the Central
-Pedal plays, stops and skips the tracks.
+and a projector output.
+
+Four apps (download page: https://motionaudio.github.io/Central-Apps/):
+
+| App | For | Runs on | Where in this repository |
+|---|---|---|---|
+| **Central Pedal** | the pedal on stage | Raspberry Pi | the top folder (`index.html`, `js/`, `pedal-driver.py`…) |
+| **Central Pedal Control** | getting the pedal ready anywhere, then **⇪ Upload** to it | Mac, iPad | `central-pedal-control/` (Mac), `central-pedal-control-ios/` (iPad) - the same app, `js/transfer.js` |
+| **Central Control** | the main admin and admins: lights, slides, lyrics, cameras, in-ears, tracks, mixing | Windows, Mac, Linux | `central-usage/` |
+| **Central Usage** | musicians (User 1 / User 2): chord chart, instrument, lyrics, their in-ear mix | Mac, Windows, Android, iPhone, iPad | `central-usage/` (`usage-builder.js`), `central-usage-mobile/` (Android, iPhone / iPad) |
+
+Everything follows the main admin's Central Control; the Central Pedal (or the main admin's player window) plays,
+stops and skips the tracks.
+
+**New in version 8.5:**
+- **Four apps.** **Central Pedal Control** (new, Mac and iPad): the Central Pedal app away from the pedal - build the
+  setlist, import tracks, set up pads, controls and the instrument at home, then **⇪ Upload** them to the pedal with
+  its PIN (the pedal asks before it applies them, never while it plays); **⇩ Download** brings the pedal's setup back.
+  **Central Usage** (new, Mac, Windows, Android; iPhone / iPad): the musicians' app - User 1 / User 2 only.
+  **Central Control** (Windows, Mac, Linux) is now the main admin's and admins' app.
+- **Android:** Central Usage as an `.apk` on the download page; it finds the main admin's computer on the Wi-Fi.
+- The main admin's Devices tab shows which devices run Central Usage; they can't be made admins.
 
 **New in version 8.4:**
 - **LIVE screen** (the first tab): the whole service on one screen - the setlist, the song (key, BPM, time left, what
@@ -712,7 +728,11 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `central-usage/player.js`, `prepare-player.sh` | The player window in Central Control: the Central Pedal app and its driver (bundled with PyInstaller - `tools/build-driver.sh`), for the main admin's computer when no Central Pedal plays the tracks |
 | `native_rig.py` | The driver's bridge to the built-in instrument rig (cu-rig) where PipeWire isn't there (Windows, macOS) |
 | `central-usage/native/` | `cu-mixer` (audio engine: JACK, or Windows / macOS / Linux devices through miniaudio - several at once, Dante), `cu-ndi`, `cu-rig` (built-in instrument rig), `vendor/` (miniaudio, TinySoundFont, cJSON), unit tests |
-| `central-usage-ios/` | Central Control (the companion app) for the App Store / TestFlight (Capacitor) - [IOS-APP-STORE.md](IOS-APP-STORE.md) |
+| `central-usage-mobile/` | Central Usage for Android (`.apk`) and iPhone / iPad (TestFlight / App Store): a Capacitor app that finds the main admin and opens Central Usage - [IOS-APP-STORE.md](IOS-APP-STORE.md) |
+| `central-usage/usage-builder.js` | Packs Central Usage (the musicians' edition) from the same code as Central Control |
+| `central-pedal-control/`, `central-pedal-control-ios/` | Central Pedal Control for Mac (Electron, the bundled driver) and iPad (Capacitor) |
+| `js/transfer.js`, `PedalTransfer` in `pedal-driver.py`, `test-transfer.mjs` | Upload / Download between Central Pedal Control and a Central Pedal |
+| `js/live.js`, `js/report.js`, `css/live.css` | The LIVE screen, the service lock, Safe Stop, the Ready check and the service report |
 | `docs/` | The download page (GitHub Pages) |
 | `tools/` | Build helpers: the pedal map for the rig, the built-in sounds, the bundled driver, CI smoke tests, `netns-run.sh` (a test suite in its own network) |
 | `.github/workflows/` | `build.yml` (every system's installers, tested on each), `release.yml` (publishes them, Google Drive copy, App Store upload), `pages.yml` (the download page) |

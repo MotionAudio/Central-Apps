@@ -104,7 +104,7 @@
       (list.length ? list.map(function (d) {
         var g = grade(d);
         return '<tr class="' + (d.online ? "" : "off") + '"><td><span class="dv-dot ' + g[0] + '" title="' + g[1] + '"></span></td>' +
-          "<td><b>" + esc(d.name) + "</b>" + (d.claimsMain ? ' <span class="warn small">says it is the main admin</span>' : "") + (d.locked ? ' <span class="dv-tag">🔒 locked</span>' : "") + (d.health && d.health.web ? ' <span class="dv-tag">browser</span>' : "") + "</td>" +
+          "<td><b>" + esc(d.name) + "</b>" + (d.edition === "usage" ? ' <span class="dv-tag" title="the musicians\' app">Central Usage</span>' : "") + (d.claimsMain ? ' <span class="warn small">says it is the main admin</span>' : "") + (d.locked ? ' <span class="dv-tag">🔒 locked</span>' : "") + (d.health && d.health.web ? ' <span class="dv-tag">browser</span>' : "") + "</td>" +
           "<td>" + roleSel(d) + (d.role === "admin" ? ' <button class="mini" data-dv="jobs" data-id="' + esc(d.id) + '">' + esc((R() ? R().jobText(d.jobs) : "") || "Jobs") + " ▾</button>" + (openJobs === d.id ? jobsBox(d.id, d.jobs) : "") : "") + "</td>" +
           '<td><select data-dv-tg="' + esc(d.id) + '" title="Your TALK to the Band or to Production reaches it">' + [["band", "🎸 Band"], ["production", "🎬 Production"]].map(function (o) { return '<option value="' + o[0] + '"' + ((d.talkGroup || "production") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></td>" +
           '<td class="dv-health"><b class="dv-g ' + g[0] + '">' + g[1] + "</b> " + healthText(d.online ? d.health : null) + "</td>" +

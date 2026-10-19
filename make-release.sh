@@ -7,6 +7,8 @@
 # What goes in a release (names matter - the updaters look for them):
 #   central-control-source.zip           the Raspberry Pi update (Settings → Software updates → Install)
 #   central-usage-<v>-amd64.deb / -x86_64.AppImage / -win-x64.exe / -mac-arm64.dmg / -mac-x64.dmg   Central Control
+#   CentralUsage-<v>-win-x64.exe / -mac-arm64.dmg / -mac-x64.dmg / .apk                              Central Usage
+#   central-pedal-control-<v>-mac-arm64.dmg / -mac-x64.dmg                                          Central Pedal Control
 # (GitHub Actions builds the Windows and Mac installers - .github/workflows/build.yml - and puts them in the
 # dist folders before this runs; on a Linux PC this script packs whatever is there.)
 #   SHA256SUMS                           checked before anything is installed
@@ -19,11 +21,11 @@ OUT="release/$VER"; rm -rf "$OUT"; mkdir -p "$OUT"
 
 # the Pi update: the app sources in a central-control/ folder (no installers, no node_modules)
 TMP="$(mktemp -d)"; mkdir -p "$TMP/central-control"
-tar --exclude=./release --exclude=./.git --exclude=./.github --exclude=./central-control-desktop/src --exclude=./release-notes --exclude='./*/dist' --exclude='*/node_modules' --exclude='./parts' --exclude='*.zip' --exclude='__pycache__' --exclude=./staging --exclude=./central-usage/native/sounds --exclude=./central-usage/native/build --exclude='./central-usage/native/build-*' --exclude=./central-usage/player-src --exclude=./central-usage/driver-dist --exclude=./central-control-desktop/driver-dist --exclude=./central-control-desktop/native --exclude=./central-control-desktop/sounds --exclude=./central-usage-ios --exclude=./docs -cf - . | tar -xf - -C "$TMP/central-control"
+tar --exclude=./release --exclude=./.git --exclude=./.github --exclude=./central-control-desktop/src --exclude=./release-notes --exclude='./*/dist' --exclude='*/node_modules' --exclude='./parts' --exclude='*.zip' --exclude='__pycache__' --exclude=./staging --exclude=./central-usage/native/sounds --exclude=./central-usage/native/build --exclude='./central-usage/native/build-*' --exclude=./central-usage/player-src --exclude=./central-usage/driver-dist --exclude=./central-control-desktop/driver-dist --exclude=./central-control-desktop/native --exclude=./central-control-desktop/sounds --exclude=./central-usage-mobile --exclude=./central-pedal-control-ios --exclude=./central-pedal-control/src --exclude=./central-pedal-control/driver-dist --exclude=./central-pedal-control/node_modules --exclude=./docs -cf - . | tar -xf - -C "$TMP/central-control"
 (cd "$TMP" && zip -qr "$OLDPWD/$OUT/central-control-source.zip" central-control)
 rm -rf "$TMP"
 
-for f in central-usage/dist/central-usage-*; do
+for f in central-usage/dist/central-usage-* central-usage/dist/CentralUsage-* central-usage/dist/central-pedal-control-* central-pedal-control/dist/central-pedal-control-* central-usage-mobile/dist/CentralUsage-*; do
   [ -f "$f" ] && cp "$f" "$OUT/"
 done
 (cd "$OUT" && sha256sum -- * > SHA256SUMS)

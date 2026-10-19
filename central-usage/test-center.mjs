@@ -64,6 +64,18 @@ main.send({ type: "cuRole", action: "jobs", id: "dMain", target: "dAdmin", jobs:
 const aj = await a.wait((m) => m.type === "cuRoleAssigned" && m.jobs);
 ok(aj && aj.jobs[0] === "lighting", "jobs reach the admin");
 
+// Central Usage (the musicians' app): it can't be an admin; the Devices tab says which app a device runs
+const mu = await client();
+mu.send({ type: "cuRole", action: "join", id: "dUsage", name: "Bass iPad", role: "admin", pair: "0915", edition: "usage" });
+r = await mu.wait((m) => m.type === "cuRoleReply" && m.action === "join");
+ok(r && r.ok && r.role === "user1" && !r.pending, "Central Usage asking to be an admin pairs as User 1 (no admin request)");
+main.send({ type: "cuRole", action: "assign", id: "dMain", target: "dUsage", role: "admin" });
+r = await main.wait((m) => m.type === "cuRoleReply" && m.action === "assign");
+ok(r && !r.ok && /Central Usage/.test(r.error), "the main admin can't make a Central Usage device an admin (it says why)");
+v = await main.wait((m) => m.type === "cuRoles" && (m.devices || []).some((d) => d.id === "dUsage" && d.edition === "usage"));
+ok(!!v, "the Devices tab knows the device runs Central Usage");
+mu.close();
+
 // talkback: users are in the Band, admins in Production; the main admin talks to a group, everyone else to the main admin
 v = await main.wait((m) => m.type === "cuRoles" && (m.devices || []).some((d) => d.id === "dUser" && d.talkGroup === "band") && (m.devices || []).some((d) => d.id === "dAdmin" && d.talkGroup === "production"));
 ok(!!v, "talk groups: users start in the Band, admins in Production");

@@ -1,0 +1,44 @@
+{
+  "name": "central-pedal-control",
+  "productName": "Central Pedal Control",
+  "version": "8.5.0",
+  "description": "Central Pedal Control: the Central Pedal app on a Mac - set up songs, tracks, pads, controls and the instrument, then upload them to the Central Pedal.",
+  "main": "main.js",
+  "author": { "name": "MotionAudio", "email": "central-control@localhost" },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dmg --arm64 --x64"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "org.centralcontrol.pedalcontrol",
+    "productName": "Central Pedal Control",
+    "files": ["main.js", "preload.js", "updater.js", "build/icon.png"],
+    "extraResources": [
+      { "from": "src", "to": "app", "filter": ["**/*"] },
+      { "from": "driver-dist", "to": "driver", "filter": ["**/*"] }
+    ],
+    "publish": null,
+    "afterPack": "build/after-pack.js",
+    "mac": {
+      "category": "public.app-category.music",
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "artifactName": "central-pedal-control-${version}-mac-${arch}.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Central Pedal Control listens to your audio interface for the tuner and the instrument.",
+        "NSLocalNetworkUsageDescription": "Central Pedal Control uploads songs and settings to the Central Pedal on this network.",
+        "CFBundleDisplayName": "Central Pedal Control",
+        "CFBundleName": "Central Pedal Control"
+      }
+    },
+    "dmg": { "artifactName": "central-pedal-control-${version}-mac-${arch}.${ext}" }
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Central Usage</string>
+    <string name="title_activity_main">Central Usage</string>
+    <string name="package_name">org.centralcontrol.usage</string>
+    <string name="custom_url_scheme">org.centralcontrol.usage</string>
+</resources>

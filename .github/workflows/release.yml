@@ -3,9 +3,11 @@
 # from their package.json files. The apps' update checks read the newest release of this repository, so
 # every install - Raspberry Pi, Linux, Windows, macOS - updates itself from it.
 #
-# Every release has: the Raspberry Pi update for Central Pedal (central-control-source.zip), Central Control
-# (central-usage-* files) for Linux (.deb, .AppImage), Windows (-win-x64.exe) and macOS (-mac-arm64.dmg,
-# -mac-x64.dmg), SHA256SUMS. (iPhone / iPad: Central Control's user side opens from the main admin's computer.)
+# Every release has the four apps: the Raspberry Pi update for Central Pedal (central-control-source.zip);
+# Central Pedal Control for Mac (central-pedal-control-*-mac-arm64 / -x64.dmg); Central Control (central-usage-*
+# files - their old name) for Linux (.deb, .AppImage), Windows (-win-x64.exe) and macOS (-mac-arm64.dmg, -mac-x64.dmg);
+# Central Usage (CentralUsage-*) for Windows, macOS and Android (.apk); SHA256SUMS. iPhone / iPad: TestFlight / the
+# App Store once the Apple account is set up (the ios job below, IOS-APP-STORE.md).
 # Optional: a copy of every release in Google Drive - see DRIVE-SETUP.md (secret RCLONE_CONFIG).
 name: Release
 on:
@@ -37,6 +39,7 @@ jobs:
     needs: version
     if: needs.version.outputs.exists == '0'
     uses: ./.github/workflows/build.yml
+    secrets: inherit   # (the Android signing key, when it is set up - INSTALL.md)
 
   publish:
     needs: [version, build]
@@ -53,9 +56,10 @@ jobs:
       - name: Make the release files
         run: |
           mkdir -p central-usage/dist
-          find staging -type f -name 'central-usage-*' -exec mv {} central-usage/dist/ \;
+          find staging -type f \( -name 'central-usage-*' -o -name 'CentralUsage-*' -o -name 'central-pedal-control-*' \) -exec mv {} central-usage/dist/ \;
           bash make-release.sh "$VER"
-          for want in "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" "central-usage-*-x86_64.AppImage" "central-control-source.zip"; do
+          for want in "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" "central-usage-*-x86_64.AppImage" "central-control-source.zip" \
+                      "CentralUsage-*-win-x64.exe" "CentralUsage-*-mac-arm64.dmg" "CentralUsage-*-mac-x64.dmg" "CentralUsage-*.apk" "central-pedal-control-*-mac-arm64.dmg" "central-pedal-control-*-mac-x64.dmg"; do
             ls release/$VER/$want >/dev/null 2>&1 || { echo "missing from the release: $want"; exit 1; }
           done
       - name: Publish
@@ -63,7 +67,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           NOTES=release-notes/$VER.md; [ -f "$NOTES" ] || { echo "Central Control $VER" > /tmp/notes.md; NOTES=/tmp/notes.md; }
-          gh release create "v$VER" release/$VER/* --title "Central Control $VER" --notes-file "$NOTES" --target "$GITHUB_SHA"
+          gh release create "v$VER" release/$VER/* --title "Central Pedal $VER" --notes-file "$NOTES" --target "$GITHUB_SHA"
       - name: Copy to Google Drive (when set up - DRIVE-SETUP.md)
         if: env.RCLONE_CONF != ''
         run: |
@@ -93,21 +97,25 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.s.outputs.go == '1'
         with: { node-version: 20 }
-      - name: Build, sign (Xcode cloud signing with the API key) and upload
+      - name: Build, sign (Xcode cloud signing with the API key) and upload - Central Usage (iPhone / iPad) and Central Pedal Control (iPad)
         if: steps.s.outputs.go == '1'
         run: |
-          bash central-usage-ios/prepare.sh
           mkdir -p ~/private_keys && printf '%s\n' "$KEY" > ~/private_keys/AuthKey_$KEY_ID.p8
-          CUV=$(node -p "require('./central-usage/package.json').version")
           AUTH="-allowProvisioningUpdates -authenticationKeyPath $HOME/private_keys/AuthKey_$KEY_ID.p8 -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER"
-          xcodebuild archive -workspace central-usage-ios/ios/App/App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/App.xcarchive" DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic MARKETING_VERSION="$CUV" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" $AUTH -quiet
           cat > "$RUNNER_TEMP/export.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict><key>method</key><string>app-store-connect</string><key>destination</key><string>upload</string>
           <key>teamID</key><string>$TEAM</string><key>signingStyle</key><string>automatic</string></dict></plist>
           PLIST
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/export" $AUTH
-          echo "uploaded Central Usage $CUV ($GITHUB_RUN_NUMBER) to App Store Connect - it shows in TestFlight after Apple's processing"
-
+          CUV=$(node -p "require('./central-usage/package.json').version")
+          PCV=$(node -p "require('./central-pedal-control/package.json').version")
+          bash central-usage-mobile/prepare.sh ios
+          bash central-pedal-control-ios/prepare.sh
+          for app in "central-usage-mobile:$CUV:Central Usage" "central-pedal-control-ios:$PCV:Central Pedal Control"; do
+            DIR=${app%%:*}; rest=${app#*:}; V=${rest%%:*}; NAME=${rest#*:}
+            xcodebuild archive -workspace $DIR/ios/App/App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' \
+              -archivePath "$RUNNER_TEMP/$DIR.xcarchive" DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic MARKETING_VERSION="$V" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" $AUTH -quiet
+            xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/$DIR.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/export-$DIR" $AUTH
+            echo "uploaded $NAME $V ($GITHUB_RUN_NUMBER) to App Store Connect - it shows in TestFlight after Apple's processing"
+          done

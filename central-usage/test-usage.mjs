@@ -398,6 +398,17 @@ await check("iPhone / iPad: Central Control opens from the Central Pedal (http:/
   const wide = await p.evaluate(() => document.documentElement.scrollWidth); assert.ok(wide <= 400, "no sideways scrolling of the page: " + wide);
   await c.close();
 });
+await check("two apps from one code: Central Control offers the main admin and Admin; Central Usage (and phones) only User 1 / User 2", async () => {
+  for (const [ed, show, hide] of [["control", ["main", "admin"], ["user1", "user2"]], ["usage", ["user1", "user2"], ["main", "admin"]]]) {
+    const c = await b.newContext({ viewport: { width: 1280, height: 800 } }), p = await c.newPage();
+    await p.goto("file://" + path.join(here, "app", "index.html") + "?edition=" + ed); await p.waitForFunction(() => window.CentralUsage && window.CURoles && document.querySelector("#modePick"));
+    for (const r of show) assert.ok(await p.isVisible(`#modePick [data-rp='${r}']`), ed + " shows " + r);
+    for (const r of hide) assert.ok(!(await p.isVisible(`#modePick [data-rp='${r}']`)), ed + " hides " + r);
+    assert.match(await p.textContent("#modePick .rp-other"), ed === "usage" ? /Central Control/ : /Central Usage/);
+    if (ed === "usage") { await p.evaluate(() => CentralUsage.setRole("admin")); assert.notEqual(await p.evaluate(() => CentralUsage.role()), "admin", "Central Usage can't become an admin"); }
+    await c.close();
+  }
+});
 await check("no page errors", () => assert.deepEqual(errs, []));
 await b.close(); drv.kill(); ctr.kill();
 console.log(failures ? "\n" + failures + " CHECK(S) FAILED" : "\nALL CENTRAL USAGE CHECKS PASSED"); process.exit(failures ? 1 : 0);

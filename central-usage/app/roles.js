@@ -46,14 +46,14 @@
   function hello() {
     var r = CU.role(); if (!r || !linked()) return;
     var mp = document.getElementById("modePick"); if (r === "main" && ((mp && mp.dataset.keep === "1" && !mp.dataset.ready) || CU.store.get("mainSetupPending", false))) return;   // the main admin's setup: not before its PINs are picked
-    var m = { type: "cuRole", action: "hello", id: devId(), name: name(), role: r };
+    var m = { type: "cuRole", action: "hello", id: devId(), name: name(), role: r, edition: CU.edition ? CU.edition() : undefined };
     if (r === "main") { var k = keys() || {}; m.token = k.token; m.pin = k.pin; m.pair = k.pair; if (CU.prefs.code) m.code = CU.prefs.code; }
     CU.send(m);
   }
   function request(action, extra) {
     return new Promise(function (resolve) {
       if (!linked()) return resolve({ ok: false, error: CU.role() === "main" ? "The center on this computer is not running yet - try again in a moment." : "Not connected to the main admin's computer. Is it on and on this network? (Settings → This computer → Main admin's address)" });
-      var m = Object.assign({ type: "cuRole", action: action, id: devId(), name: name() }, extra || {});
+      var m = Object.assign({ type: "cuRole", action: action, id: devId(), name: name(), edition: CU.edition ? CU.edition() : undefined }, extra || {});
       (waiting[action] = waiting[action] || []).push(resolve);
       setTimeout(function () { var q = waiting[action] || [], i = q.indexOf(resolve); if (i >= 0) { q.splice(i, 1); resolve({ ok: false, error: "The main admin's computer did not answer." }); } }, 6000);
       CU.send(m);
@@ -148,12 +148,15 @@
   function firstLaunch() {
     if (document.getElementById("modePick")) return;
     var d = document.createElement("div"); d.id = "modePick"; d.className = "mode-pick";
+    var USAGE = CU.edition && CU.edition() === "usage", CONTROL = !!(CU.edition && CU.edition() === "control");
     var opt = function (r, title, text, small, hide) { return '<button data-rp="' + r + '"' + (hide ? " hidden" : "") + "><b>" + title + "</b><span>" + text + "</span>" + (small ? "<small>" + small + "</small>" : "") + "</button>"; };
     d.innerHTML = '<div class="mode-box"><h2>Set up this computer</h2>' +
       '<div class="rp-step" data-step="1"><label class="rp-name">This computer\'s name <input data-rp="name" value="' + esc(name() === "Central Control" ? "" : name()) + '" placeholder="Sound desk / Lights / Sarah\'s laptop"></label>' +
-      '<div class="mode-opts rp-roles' + (CU.web ? " web" : "") + '">' + opt("main", "Main admin", "Set up first. Picks the pairing PIN and gives every other device its role.", "usually the sound desk", CU.web) +
-      opt("admin", "Admin", "Lighting, cameras, mix, in-ears, slides & lyrics - the jobs the main admin gives it.", "", CU.web) +
-      opt("user1", "User 1", DESC.user1, "a musician") + opt("user2", "User 2", DESC.user2, "a singer / a tablet on a stand") + "</div></div>" +
+      '<div class="mode-opts rp-roles' + (CU.web || USAGE ? " web" : "") + '">' + opt("main", "Main admin", "Set up first. Picks the pairing PIN and gives every other device its role.", "usually the sound desk", CU.web || USAGE) +
+      opt("admin", "Admin", "Lighting, cameras, mix, in-ears, slides & lyrics - the jobs the main admin gives it.", "", CU.web || USAGE) +
+      opt("user1", "User 1", DESC.user1, "a musician", CONTROL) + opt("user2", "User 2", DESC.user2, "a singer / a tablet on a stand", CONTROL) + "</div>" +
+      (CONTROL ? '<p class="muted small rp-other">A musician\'s computer, tablet or phone? It gets <b>Central Usage</b> (Mac, Windows, iPad, iPhone, Android) - chord chart, instrument, lyrics and their in-ear mix.</p>' : "") +
+      (USAGE ? '<p class="muted small rp-other">Lighting, mixing, slides and the main admin are in <b>Central Control</b> (Windows, Mac, Linux).</p>' : "") + "</div>" +
       // main admin: inputs and outputs
       '<div class="rp-step" data-step="io" hidden><h3>Inputs and outputs</h3><p class="muted small">Is this computer the sound desk - the one with the audio interface or Dante that makes the in-ear mixes? Pick its inputs and outputs. You can change all of it later on the I/O tab.</p><div class="rp-io" id="rpIo"></div>' +
       '<div class="row"><button class="primary" data-rp="ioNext">Next</button><button data-rp="ioSkip">Not the sound desk - skip</button></div></div>' +
@@ -197,7 +200,7 @@
         if (a === "ioSkip" && NAT && NAT.config) { var c0 = CU.config() || {}; if (c0.host && c0.host.enabled) CU.setConfig(await NAT.config.set({ host: { enabled: false } })); }
         step("pins"); $('[data-rp="pair"]', d).focus();
       } else if (a === "back") { if (want === "main" && !d.dataset.ready) { delete d.dataset.keep; CU.store.set("mainSetupPending", false); await CU.setRole(null); document.body.appendChild(d); } want = null; step(1); }
-      else if (a === "later") { await saveName(); await CU.setRole("user1"); d.remove(); }
+      else if (a === "later") { await saveName(); await CU.setRole(CONTROL ? "admin" : "user1"); d.remove(); }
       else if (a === "close") d.remove();
       else if (a === "pinsGo") {
         var pair = $('[data-rp="pair"]', d).value.trim(), pin = $('[data-rp="pin"]', d).value.trim();
@@ -257,7 +260,7 @@
       h += '<p class="small">Jobs: <b>' + esc(jobText(CU.jobs())) + '</b> <span class="muted">(set by the main admin)</span></p>';
       h += '<div class="io-opts">' + roleRadio("admin", r) + roleRadio("user1", r, true) + roleRadio("user2", r, true) + "</div>" + addrLine();
     } else {
-      h += '<div class="io-opts">' + roleRadio("user1", r) + roleRadio("user2", r) + (CU.web ? "" : roleRadio("admin", r, !!v.hasMain)) + "</div>";
+      h += '<div class="io-opts">' + roleRadio("user1", r) + roleRadio("user2", r) + (CU.web || (CU.edition && CU.edition() === "usage") ? "" : roleRadio("admin", r, !!v.hasMain)) + "</div>";
       if (CU.web) h += '<p class="muted small">On a phone or tablet: User 1 (chart, lyrics, my in-ear mix) or User 2. Lighting, mixing and slides are on a computer with Central Control.</p>';
       if (!CU.web) h += addrLine();
     }
@@ -279,7 +282,7 @@
   function people() {
     var list = (view && view.devices) || [];
     var rows = list.map(function (d) {
-      var sel = '<select data-rl-role="' + esc(d.id) + '">' + ["admin", "user1", "user2"].map(function (x) { return '<option value="' + x + '"' + (d.role === x ? " selected" : "") + ">" + CU.roleName(x) + "</option>"; }).join("") + "</select>";
+      var sel = '<select data-rl-role="' + esc(d.id) + '" title="' + (d.edition === "usage" ? "Central Usage (a musician's app)" : d.edition === "control" ? "Central Control" : "") + '">' + (d.edition === "usage" ? ["user1", "user2"] : ["admin", "user1", "user2"]).map(function (x) { return '<option value="' + x + '"' + (d.role === x ? " selected" : "") + ">" + CU.roleName(x) + "</option>"; }).join("") + "</select>";
       var jb = d.role === "admin" ? '<div class="rl-jobs">' + Object.keys(CU.jobNames).map(function (x) { var on = (d.jobs || ["general"]).indexOf(x) >= 0; return '<label class="toggle"><input type="checkbox" data-rl-job="' + x + '" data-id="' + esc(d.id) + '"' + (on ? " checked" : "") + "> " + esc(CU.jobNames[x]) + "</label>"; }).join("") + "</div>" : "";
       return '<tr><td><span class="dot' + (d.online ? "" : " off") + '"></span> <b>' + esc(d.name) + "</b>" + (d.claimsMain ? ' <span class="warn small">says it is the main admin</span>' : "") + (d.paired ? "" : ' <span class="muted small">(not paired)</span>') + "</td><td>" + sel + jb + '</td><td><button data-rl="rename" data-id="' + esc(d.id) + '">Rename</button> <button data-rl="remove" data-id="' + esc(d.id) + '">Remove</button></td></tr>';
     }).join("");

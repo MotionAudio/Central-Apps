@@ -116,7 +116,7 @@ class Center {
     if (p === "/api/service") return send(200, this.serviceState());
     if (p === "/api/center") return send(200, { app: "central-control-center", name: this.mainName(), port: this.port, pedal: this.pedalInfo() });
     if (p === "/" ) { res.writeHead(302, { Location: "/cu/" }); return res.end(); }
-    if (p === "/cu/manifest.webmanifest") return send(200, { name: "Central Control", short_name: "Central Control", start_url: "/cu/", scope: "/cu/", display: "standalone", background_color: "#08111d", theme_color: "#08111d", icons: [{ src: "icon.png", sizes: "512x512", type: "image/png" }] }, "application/manifest+json");
+    if (p === "/cu/manifest.webmanifest") return send(200, { name: "Central Usage", short_name: "Central Usage", start_url: "/cu/", scope: "/cu/", display: "standalone", background_color: "#08111d", theme_color: "#08111d", icons: [{ src: "icon.png", sizes: "512x512", type: "image/png" }] }, "application/manifest+json");
     if (p === "/cu/icon.png") { try { return send(200, fs.readFileSync(path.join(this.opts.appDir, "..", "build", "icon.png")), "image/png"); } catch (_) { return send(404, "no icon", "text/plain"); } }
     if (p === "/cu" ) { res.writeHead(302, { Location: "/cu/" }); return res.end(); }
     if (p.startsWith("/cu/")) {
@@ -210,7 +210,7 @@ class Center {
   deviceView(id) {
     const d = this.devices[id] || {}; let h = this.health[id] || null; if (h && Date.now() - h.at > 20000) h = null;
     return { id, name: d.name || "", role: d.role || null, jobs: d.jobs || ["general"], paired: !!d.paired, online: this.online(id), lastSeen: d.lastSeen || 0,
-      claimsMain: !!d.claimsMain, locked: this.isLocked(id), wantsAdmin: !!d.wantsAdmin, health: h, talkGroup: this.talkGroup(id) };
+      claimsMain: !!d.claimsMain, locked: this.isLocked(id), wantsAdmin: !!d.wantsAdmin, health: h, talkGroup: this.talkGroup(id), edition: d.edition || null };
   }
   // the main admin's talkback groups: users are in the Band, admins in Production, unless the main admin moved them
   talkGroup(id) { const d = this.devices[id] || {}; return TALK_GROUPS.includes(d.talkGroup) ? d.talkGroup : (d.role === "user1" || d.role === "user2" ? "band" : "production"); }
@@ -257,6 +257,7 @@ class Center {
     const R = (extra) => Object.assign({ type: "cuRoleReply", action }, extra);
     if (!id) return R({ ok: false, error: "This device has no id." });
     const claim = ROLES.includes(m.role) ? m.role : null;
+    const edition = m.edition === "usage" || m.edition === "control" ? m.edition : null;   // Central Usage (musicians) or Central Control (admins)
 
     if (action === "hello" || action === "join") {
       if (action === "join") {
@@ -266,6 +267,8 @@ class Center {
         info.id = id; info.auth = true;
         const d = this.devices[id] || (this.devices[id] = {});
         let want = ["admin", "user1", "user2", "pedal"].includes(claim) ? claim : "user1", pending = false;
+        if (edition === "usage" && want === "admin") want = "user1";   // (Central Usage is for musicians: User 1 / User 2)
+        if (edition) d.edition = edition;
         if (want === "admin" && this.main && d.role !== "admin") {
           const pinOk = this.main.pinHash && salted(String(m.pin || "").trim(), this.main.pinSalt) === this.main.pinHash;
           if (!pinOk) { want = "user1"; pending = true; }
@@ -316,6 +319,7 @@ class Center {
       if (dd.role === "main" && (!this.main || this.main.id !== id)) dd.role = "admin";
       if (claim === "pedal" || dd.role === "pedal") { dd.role = "pedal"; dd.pedal = this.pedalFields(m, info); this.firstJob(id); }
       delete dd.claimsMain; dd.name = name || dd.name || "Central Control"; dd.lastSeen = now;
+      if (edition) { dd.edition = edition; if (edition === "usage" && (dd.role === "admin" || dd.role === "main")) { dd.role = "user1"; delete dd.wantsAdmin; } }
       this.save(); this.push(); this.welcome(ws); return null;
     }
 
@@ -381,6 +385,7 @@ class Center {
       else if (action === "assign") {
         if (t.role === "pedal") return R({ ok: false, error: "A Central Pedal stays a pedal - give it a job (track player, foot controller, instrument rig) instead." });
         if (!["admin", "user1", "user2"].includes(m.role)) return R({ ok: false, error: "Pick Admin, User 1 or User 2." });
+        if (m.role === "admin" && t.edition === "usage") return R({ ok: false, error: "That device runs Central Usage (for musicians: User 1 / User 2). For an admin, install Central Control on it." });
         t.role = m.role; delete t.claimsMain; delete t.wantsAdmin; tell({ role: m.role });
       }
       else if (action === "jobs") { const jobs = (m.jobs || []).filter((j) => JOBS.includes(j)); t.jobs = !jobs.length || jobs.includes("general") ? ["general"] : jobs; tell({ role: t.role, jobs: t.jobs }); }

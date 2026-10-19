@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("CU", {
   health: () => ipcRenderer.invoke("sys-health"),
   onMenu: (fn) => ipcRenderer.on("menu", (_e, name, arg) => fn(name, arg)),
   platform: process.platform,
+  edition: (process.argv.find((a) => a.startsWith("--cu-edition=")) || "--cu-edition=control").split("=")[1],   // "control" (admins) or "usage" (musicians)
   // DMX output (USB-DMX Pro, Art-Net, sACN) - the page renders the universes, the main process sends them
   dmx: {
     ports: () => ipcRenderer.invoke("dmx-ports"),

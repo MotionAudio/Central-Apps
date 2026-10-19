@@ -15,8 +15,10 @@
 
   // ------------------------------------------------------------- touch screen
   function screenLabel(s) { return (s.size ? s.size + "\" · " : "") + s.name.replace(/^[\d.]+" ?/, ""); }
+  function control() { return document.body.classList.contains("pedal-control"); }   // (Central Pedal Control on a Mac / iPad: no Pi screens or Wi-Fi here)
   function touchHtml(status) {
     lastStatus = status || lastStatus;
+    if (control()) return "";
     var st = lastStatus || {}, cat = st.touchScreens || { groups: [], screens: [] }, cur = st.touchScreen || "off", sel = picked || cur;
     if (!connected()) return '<section data-st="screens"><h3>Touch screen</h3><p class="muted">Set on the Central Pedal itself.</p></section>';
     var groups = (cat.groups || []).map(function (g) {
@@ -49,6 +51,7 @@
   var COUNTRIES = [["US", "United States"], ["CA", "Canada"], ["MX", "Mexico"], ["GB", "United Kingdom"], ["IE", "Ireland"], ["AU", "Australia"], ["NZ", "New Zealand"], ["DE", "Germany"], ["FR", "France"], ["ES", "Spain"], ["IT", "Italy"], ["NL", "Netherlands"], ["BR", "Brazil"], ["ZA", "South Africa"], ["NG", "Nigeria"], ["KE", "Kenya"], ["IN", "India"], ["PH", "Philippines"], ["KR", "South Korea"], ["JP", "Japan"]];
   function bars(sig) { var n = sig >= 75 ? 4 : sig >= 50 ? 3 : sig >= 25 ? 2 : 1; return '<span class="wf-bars" title="' + sig + '%">' + [1, 2, 3, 4].map(function (i) { return '<i class="' + (i <= n ? "on" : "") + '"></i>'; }).join("") + "</span>"; }
   function wifiHtml(status, wifi) {
+    if (control()) return "";
     if (!connected()) return '<section data-st="network"><h3>Wi-Fi</h3><p class="muted">Available on the Central Pedal itself.</p></section>';
     var w = wifi || {}, cc = w.country || "US";
     var list = (w.networks || []).map(function (n) {

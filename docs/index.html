@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Central Apps Downloads</title>
-<meta name="description" content="Download Central Pedal and Central Control for Windows, Mac, Linux, Raspberry Pi and iPhone / iPad.">
+<meta name="description" content="Download the four Central apps: Central Pedal (Raspberry Pi), Central Pedal Control (Mac, iPad), Central Control (Windows, Mac, Linux) and Central Usage (Mac, Windows, Android, iPhone, iPad).">
 <style>
   :root {
     --bg: #f6f7f9; --card: #ffffff; --ink: #14181f; --muted: #5b6573; --line: #dfe3e8; --accent: #1f6feb; --accent-ink: #ffffff; --soft: #eef3fd; --ok: #1a7f37; --warn: #9a6700;
@@ -23,7 +23,9 @@
   a { color: var(--accent); }
   .lead { color: var(--muted); max-width: 62ch; }
   .ver { display: inline-block; margin-top: 10px; padding: 3px 10px; border-radius: 999px; background: var(--soft); font-size: 13px; }
-  .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 26px 0 34px; }
+  .hero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 26px 0 34px; }
+  .hero .card { display: flex; flex-direction: column; } .hero .card p { flex: 1; font-size: 14px; }
+  .who { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); text-decoration: none; font-weight: 600; }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -42,45 +44,61 @@
   pre { background: var(--soft); padding: 12px; border-radius: 10px; overflow-x: auto; margin: 10px 0 0; white-space: pre; }
   .note { border-left: 3px solid var(--warn); padding: 4px 0 4px 12px; color: var(--muted); font-size: 14px; }
   footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 18px; }
-  @media (max-width: 720px) { .hero { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .hero { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <main>
   <header>
     <h1>Central Apps</h1>
-    <p class="lead">Central Control runs the team from the main admin's computer: lighting, mixing, in-ear mixes, slides, charts and lyrics - no Raspberry Pi needed. Central Pedal plays the pads, multitracks and the guitar / keys rig: on that same computer as the player window, or on Raspberry Pi pedals (track player, foot controller or instrument rig).</p>
+    <p class="lead">Four apps for a worship team. <b>Central Pedal</b> is the Raspberry Pi on stage: pads, multitracks, click, the guitar and keys rig. <b>Central Pedal Control</b> sets it up from a Mac or an iPad. <b>Central Control</b> runs the team from the main admin's computer: lights, slides, lyrics, cameras, in-ears, tracks and mixing. <b>Central Usage</b> is the musicians' app: the chord chart, the instrument, the lyrics and your in-ear mix.</p>
     <span class="ver" id="ver">Finding the newest version…</span>
   </header>
 
   <div class="hero" id="hero">
-    <div class="card"><h2>Central Control</h2><p class="muted" id="heroCuText">For this computer</p><a class="btn primary" id="heroCu" aria-disabled="true" href="#usage">Download</a></div>
-    <div class="card"><h2>Central Pedal</h2><p class="muted" id="heroCcText">The Raspberry Pi on stage</p><a class="btn primary" id="heroCc" href="#pi">Raspberry Pi steps</a></div>
+    <div class="card"><div class="who">On stage</div><h2>Central Pedal</h2><p class="muted">Raspberry Pi</p><a class="btn primary" href="#pi">Raspberry Pi steps</a></div>
+    <div class="card"><div class="who">Getting ready</div><h2>Central Pedal Control</h2><p class="muted" id="heroPcText">Mac · iPad</p><a class="btn primary" id="heroPc" href="#pedal-control">Download</a></div>
+    <div class="card"><div class="who">Main admin &amp; admins</div><h2>Central Control</h2><p class="muted" id="heroCuText">Windows · Mac · Linux</p><a class="btn primary" id="heroCu" href="#control">Download</a></div>
+    <div class="card"><div class="who">Musicians</div><h2>Central Usage</h2><p class="muted" id="heroUsText">Mac · Windows · Android · iPhone · iPad</p><a class="btn primary" id="heroUs" href="#usage">Download</a></div>
   </div>
 
-  <section id="usage">
+  <section id="pedal-control">
+    <h2>Central Pedal Control</h2>
+    <p class="muted">The Central Pedal app away from the pedal. Make the setlist, import tracks (MultiTracks.com and Loop Community downloads, your own WAVs), set up the pads, footswitches, knobs and the instrument at home or in the office. Then press <b>⇪ Upload</b> and type the pedal's PIN, and it all goes to the Central Pedal on the church Wi-Fi. <b>⇩ Download</b> brings the pedal's setup back.</p>
+    <div class="grid">
+      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-pedal-control-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-pedal-control-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>iPad</h3><p>Coming to TestFlight and the App Store</p><a class="btn" aria-disabled="true">Soon</a></div>
+    </div>
+  </section>
+
+  <section id="control">
     <h2>Central Control</h2>
-    <p class="muted">Every computer at the sound / lights / media desk, and every musician's laptop. The main admin's copy also runs the tracks, charts and lyrics in its player window when there is no Central Pedal. Phones and tablets (iPhone, iPad) open the user side from the main admin's computer.</p>
+    <p class="muted">For the main admin (usually the sound desk) and the admins: lighting, cameras, slides and lyrics, in-ear mixes, the tracks, mixing and talkback. The main admin's copy is the center of the team, and with no Central Pedal it plays the tracks, charts and lyrics itself (its player window).</p>
     <div class="grid">
       <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-usage-*-win-x64.exe">Download <small>.exe</small></a></div>
       <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-usage-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
       <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-usage-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
       <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-usage-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-usage-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
-      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>No download - it comes from the main admin's computer</p><a class="btn" href="#ios">How to add it</a></div>
     </div>
   </section>
 
-  <section id="control">
-    <h2>Central Pedal</h2>
-    <p class="muted">Runs on the Raspberry Pi only - the pedal on stage (track player, foot controller or instrument rig). On a computer, Central Control's player window does the same job.</p>
+  <section id="usage">
+    <h2>Central Usage</h2>
+    <p class="muted">For the musicians and singers (User 1 / User 2): the chord chart for your instrument, the lyrics, the instrument rig and your own in-ear mix. It all comes from the main admin's computer on the Wi-Fi.</p>
     <div class="grid">
-      <div class="card plat"><h3>Raspberry Pi</h3><p>Updates itself; new SD cards below</p><a class="btn" href="#pi">How to install</a></div>
+      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="CentralUsage-*-win-x64.exe">Download <small>.exe</small></a></div>
+      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="CentralUsage-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="CentralUsage-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="CentralUsage-*.apk">Download <small>.apk</small></a></div>
+      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Add it from Safari today; the App Store app is coming</p><a class="btn" href="#ios">How to add it</a></div>
     </div>
   </section>
 
   <section id="first-run">
     <h2>Opening it the first time</h2>
-    <p class="muted">The apps are free and not signed with a paid Apple / Microsoft certificate, so the computer asks once.</p>
+    <p class="muted">The apps are free and not signed with a paid Apple / Microsoft / Google certificate, so the device asks once.</p>
     <details open><summary>Windows: “Windows protected your PC”</summary>
       <ol><li>Click <b>More info</b>.</li><li>Click <b>Run anyway</b>. It installs and opens by itself.</li></ol>
     </details>
@@ -88,9 +106,16 @@
       <ol><li>Open the <code>.dmg</code> and drag the app into <b>Applications</b>.</li>
         <li>Open the app once - the Mac refuses. Click <b>Done</b>.</li>
         <li>Open <b>System Settings → Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b> next to the app's name, then confirm.</li>
-        <li>When it asks to use the microphone, allow it (the audio interface, the in-ears and the instrument need it).</li></ol>
-      <p class="note">If the Mac says the app “is damaged”, open Terminal and run:</p>
-      <pre>xattr -dr com.apple.quarantine "/Applications/Central Usage.app"</pre>
+        <li>When it asks to use the microphone, allow it (the audio interface, the in-ears, the tuner and the instrument need it).</li></ol>
+      <p class="note">If the Mac says the app “is damaged”, open Terminal and run the line for that app:</p>
+      <pre>xattr -dr com.apple.quarantine "/Applications/Central Usage.app"           # Central Control
+xattr -dr com.apple.quarantine "/Applications/CentralUsage.app"            # Central Usage
+xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"   # Central Pedal Control</pre>
+    </details>
+    <details><summary>Android: “install unknown apps”</summary>
+      <ol><li>Open the downloaded <code>.apk</code> (Downloads, or the browser's notification).</li>
+        <li>Android asks to allow installs from your browser: <b>Settings</b> → turn on <b>Allow from this source</b> → back → <b>Install</b>.</li>
+        <li>Open <b>Central Usage</b>, join the church Wi-Fi, and tap <b>Find the main admin</b>.</li></ol>
     </details>
     <details><summary>Linux</summary>
       <ol><li><b>.deb</b>: <code>sudo apt install ./central-usage-…-amd64.deb</code> (the <code>./</code> matters).</li>
@@ -99,18 +124,18 @@
   </section>
 
   <section id="ios">
-    <h2>iPhone &amp; iPad</h2>
+    <h2>iPhone &amp; iPad (Central Usage)</h2>
     <div class="card">
       <ol><li>Join the same Wi-Fi as the main admin's computer.</li>
-        <li>In <b>Safari</b>, open <code>http://&lt;main admin&gt;:8095/cu/</code> - the address is in the main admin's Central Control → Settings → This computer (with a Central Pedal, <code>http://padpedal.local:8080/cu/</code> works too).</li>
+        <li>In <b>Safari</b>, open <code>http://&lt;main admin&gt;:8095/cu/</code>. The address is in the main admin's Central Control → Settings → This computer. (With a Central Pedal, <code>http://padpedal.local:8080/cu/</code> works too.)</li>
         <li>Pick <b>User 1</b> or <b>User 2</b> and type the main admin's pairing PIN.</li>
         <li>Tap <b>Share</b> → <b>Add to Home Screen</b>. It opens full screen like an app and always has the newest version.</li></ol>
-      <p class="muted"><small>Lyrics, charts for your instrument and your in-ear mix. An App Store version is planned.</small></p>
+      <p class="muted"><small>The Central Usage and Central Pedal Control apps for iPhone / iPad come through TestFlight and the App Store once the church's Apple Developer account is set up.</small></p>
     </div>
   </section>
 
   <section id="pi">
-    <h2>Raspberry Pi</h2>
+    <h2>Raspberry Pi (Central Pedal)</h2>
     <details open><summary>Already running Central Pedal</summary>
       <p>Nothing to download: connect it to the internet, open <b>Settings</b>, and press <b>Install</b> when <b>Update ready</b> appears. Your songs and settings stay. No internet there? Put <a data-file="central-control-source.zip" class="inline">central-control-source.zip</a> on a USB stick and use <b>Settings → Update software from USB…</b>.</p>
     </details>
@@ -134,7 +159,7 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre
   var REPO = "MotionAudio/Central-Apps", RELEASES = "https://github.com/" + REPO + "/releases/latest";
   var ua = navigator.userAgent, plat = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios" : /Android/.test(ua) ? "android" : /Windows/.test(ua) ? "win" : /Macintosh|Mac OS X/.test(ua) ? "mac" : /Linux|X11/.test(ua) ? "linux" : "other";
   function match(names, pattern) { var re = new RegExp("^" + pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*") + "$"); return names.filter(function (n) { return re.test(n); })[0] || null; }
-  function setHero(id, textId, href, label, text) { var a = document.getElementById(id); a.href = href; a.removeAttribute("aria-disabled"); a.innerHTML = label; document.getElementById(textId).textContent = text; }
+  function setHero(id, textId, href, label, text) { var a = document.getElementById(id); a.href = href; a.removeAttribute("aria-disabled"); a.innerHTML = label; if (text) document.getElementById(textId).textContent = text; }
   async function macArch() {   // Apple Silicon or Intel: the browser can tell through WebGL's renderer name (Safari / Chrome)
     try { if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) { var h = await navigator.userAgentData.getHighEntropyValues(["architecture"]); if (h.architecture) return h.architecture === "arm" ? "arm64" : "x64"; } } catch (_) { }
     try { var gl = document.createElement("canvas").getContext("webgl"), ext = gl && gl.getExtension("WEBGL_debug_renderer_info"), r = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ""; if (/Apple M\d|Apple GPU/i.test(r)) return "arm64"; if (/Intel|AMD|Radeon|NVIDIA/i.test(r)) return "x64"; } catch (_) { }
@@ -144,24 +169,22 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(async function (rel) {
       var urls = {}; (rel.assets || []).forEach(function (a) { urls[a.name] = a.browser_download_url; }); var names = Object.keys(urls);
-      var v = (rel.tag_name || "").replace(/^v/, ""), cu = (match(names, "central-usage-*-amd64.deb") || match(names, "central-usage-*-win-x64.exe") || "").replace(/^central-usage-([\d.]+)-.*$/, "$1");
-      document.getElementById("ver").textContent = "Central Pedal " + v + (cu ? " · Central Control " + cu : "") + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
+      var v = (rel.tag_name || "").replace(/^v/, ""), ver = function (pat, re) { return (match(names, pat) || "").replace(re, "$1"); };
+      var cu = ver("central-usage-*-win-x64.exe", /^central-usage-([\d.]+)-.*$/), us = ver("CentralUsage-*-win-x64.exe", /^CentralUsage-([\d.]+)-.*$/);
+      document.getElementById("ver").textContent = "Central Pedal " + v + (cu ? " · Central Control " + cu : "") + (us ? " · Central Usage " + us : "") + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
       document.getElementById("notes").href = rel.html_url || RELEASES; if (urls.SHA256SUMS) document.getElementById("sums").href = urls.SHA256SUMS;
-      document.querySelectorAll("[data-file]").forEach(function (a) { var n = match(names, a.dataset.file); if (n) { a.href = urls[n]; a.title = n; } else { a.setAttribute("aria-disabled", "true"); a.title = "Not in this release yet"; } });
-      var arch = plat === "mac" ? await macArch() : "x64";
-      var pick = { win: ["*-win-x64.exe", "Download for Windows"], mac: ["*-mac-" + arch + ".dmg", "Download for Mac (" + (arch === "arm64" ? "Apple Silicon" : "Intel") + ")"], linux: ["*-amd64.deb", "Download for Linux (.deb)"] }[plat];
-      if (pick) {
-        var n0 = match(names, "central-usage-" + pick[0]); if (n0) setHero("heroCu", "heroCuText", urls[n0], pick[1], n0);
-      } else if (plat === "ios") {
-        setHero("heroCu", "heroCuText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "From the main admin's computer on your Wi-Fi");
-      } else {
-        setHero("heroCu", "heroCuText", "#usage", "Choose a system", "Pick yours below");
-      }
+      document.querySelectorAll("[data-file]").forEach(function (a) { var n = match(names, a.dataset.file); if (n) { a.href = urls[n]; a.title = n; a.removeAttribute("aria-disabled"); } else { a.setAttribute("aria-disabled", "true"); a.title = "Not in this release yet"; } });
+      var arch = plat === "mac" ? await macArch() : "x64", pc = "Download for Mac (" + (arch === "arm64" ? "Apple Silicon" : "Intel") + ")";
+      var pick = { win: ["*-win-x64.exe", "Download for Windows"], mac: ["*-mac-" + arch + ".dmg", pc], linux: ["*-amd64.deb", "Download for Linux (.deb)"] }[plat];
+      var cuFile = pick && match(names, "central-usage-" + pick[0]); if (cuFile) setHero("heroCu", "heroCuText", urls[cuFile], pick[1]);
+      var usFile = plat === "android" ? match(names, "CentralUsage-*.apk") : pick && match(names, "CentralUsage-" + pick[0]);
+      if (usFile) setHero("heroUs", "heroUsText", urls[usFile], plat === "android" ? "Download for Android" : pick[1]);
+      else if (plat === "ios") setHero("heroUs", "heroUsText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "From the main admin's computer on your Wi-Fi");
+      var pcFile = plat === "mac" && match(names, "central-pedal-control-*-mac-" + arch + ".dmg"); if (pcFile) setHero("heroPc", "heroPcText", urls[pcFile], pc); else if (plat !== "ios") setHero("heroPc", "heroPcText", "#pedal-control", "For Mac and iPad");
     })
     .catch(function (e) {
       document.getElementById("ver").textContent = "Couldn't reach GitHub (" + e.message + ") - every file is on the releases page";
-      document.querySelectorAll("[data-file]").forEach(function (a) { a.href = RELEASES; });
-      ["heroCu"].forEach(function (id) { var a = document.getElementById(id); a.href = RELEASES; a.removeAttribute("aria-disabled"); a.textContent = "Open the releases page"; });
+      document.querySelectorAll("[data-file]").forEach(function (a) { a.href = RELEASES; a.removeAttribute("aria-disabled"); });
     });
 })();
 </script>

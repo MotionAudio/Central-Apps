@@ -1,7 +1,11 @@
-# Builds every installer: Central Control for Linux, Windows and macOS (Apple Silicon and Intel), with its
-# native helpers (cu-mixer, cu-ndi, cu-rig, cu-video), the pinned ffmpeg, the player window (the Central Pedal
-# app and its driver, bundled), the built-in sounds and the offline speech model's runtime - and tests them on
-# each system. (Central Pedal itself runs only on the Raspberry Pi: its update is central-control-source.zip.)
+# Builds every installer of the four apps and tests them on each system:
+#   Central Pedal          the Raspberry Pi (its update is central-control-source.zip, made by make-release.sh)
+#   Central Pedal Control  Mac (Apple Silicon, Intel) + the iPad project       central-pedal-control-*, central-pedal-control-ios
+#   Central Control        Linux, Windows, Mac - the main admin and admins       central-usage-* (its files' old name)
+#   Central Usage          Mac, Windows, Android + the iPhone / iPad project    CentralUsage-*, central-usage-mobile
+# Central Control and Central Usage are one code base (central-usage/; usage-builder.js packs Central Usage), with
+# the native helpers (cu-mixer, cu-ndi, cu-rig, cu-video), the pinned ffmpeg, the built-in sounds and the offline
+# speech model's runtime; Central Control also carries the player window (the Central Pedal app and its driver).
 # Used by release.yml (every release ships all of them); also runs by itself on the work branches and by hand.
 #
 # Adding a native helper for every system: build it in the "natives" job (Linux, Windows cross-compiled) and in
@@ -150,6 +154,13 @@ jobs:
           ls "$R/player/pedal-driver.py" > /dev/null && "$R/driver/pedal-driver/pedal-driver.exe" --help > /dev/null && echo "the player is in the app"
           bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "central-usage/dist/win-unpacked/Central Usage.exe" "$R"
           ls -la central-usage/dist/*.exe
+      - name: Central Usage (the musicians' app)
+        working-directory: central-usage
+        run: |
+          rm -rf dist/win-unpacked
+          bash ../tools/ci-run.sh "electron-builder (Central Usage)" npx electron-builder --config usage-builder.js --win nsis --x64 --publish never
+          ls dist/win-unpacked/CentralUsage.exe > /dev/null && ! ls dist/win-unpacked/resources/player > /dev/null 2>&1 && echo "Central Usage: no player window, as it should be"
+          ls -la dist/*.exe
       - uses: actions/upload-artifact@v4
         with:
           name: installers-win
@@ -209,31 +220,80 @@ jobs:
           ls "$U/Contents/Resources/player/pedal-driver.py" > /dev/null && "$U/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "the player is in the app"
           bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "$U/Contents/MacOS/Central Usage" "$U/Contents/Resources"
           ls -la central-usage/dist/*.dmg
+      - name: Central Usage (the musicians' app)
+        working-directory: central-usage
+        run: |
+          rm -rf dist/mac*
+          bash ../tools/ci-run.sh "electron-builder (Central Usage)" npx electron-builder --config usage-builder.js --mac dmg --${{ matrix.arch }} --publish never
+          U=$(ls -d dist/mac*/CentralUsage.app); codesign --verify --deep "$U" && plutil -p "$U/Contents/Info.plist" | grep -q '"CFBundleDisplayName" => "Central Usage"' && echo "Central Usage: $U"
+          ls -la dist/*.dmg
+      - name: Central Pedal Control (Mac)
+        run: |
+          bash central-pedal-control/prepare.sh
+          cd central-pedal-control
+          npm install --no-audit --no-fund
+          bash ../tools/ci-run.sh "electron-builder (Central Pedal Control)" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          P=$(ls -d dist/mac*/"Central Pedal Control.app")
+          codesign --verify --deep "$P" && ls "$P/Contents/Resources/app/js/transfer.js" > /dev/null && "$P/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "Central Pedal Control: app + driver"
+          ls -la dist/*.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: installers-mac-${{ matrix.arch }}
           retention-days: 7
           path: |
             central-usage/dist/*.dmg
+            central-pedal-control/dist/*.dmg
 
   ios:
-    name: iPhone / iPad project (simulator build, unsigned)
+    name: iPhone / iPad projects (simulator builds, unsigned)
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - name: Prepare (Capacitor sync, CocoaPods)
-        run: bash central-usage-ios/prepare.sh
-      - name: Build for the simulator (proves the project compiles; the App Store build is in release.yml)
+      - name: Central Usage (iPhone / iPad) - Capacitor sync, CocoaPods, simulator build
         run: |
-          bash tools/ci-run.sh "iOS build" xcodebuild build -workspace central-usage-ios/ios/App/App.xcworkspace -scheme App -configuration Debug \
+          bash central-usage-mobile/prepare.sh ios
+          bash tools/ci-run.sh "iOS build (Central Usage)" xcodebuild build -workspace central-usage-mobile/ios/App/App.xcworkspace -scheme App -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -quiet
-          echo "iOS project builds"
+          echo "Central Usage iOS project builds"
+      - name: Central Pedal Control (iPad) - the Central Pedal app, simulator build
+        run: |
+          bash central-pedal-control-ios/prepare.sh
+          bash tools/ci-run.sh "iPad build (Central Pedal Control)" xcodebuild build -workspace central-pedal-control-ios/ios/App/App.xcworkspace -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -quiet
+          echo "Central Pedal Control iPad project builds"
+
+  android:
+    name: Android (Central Usage APK)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - name: Build the APK (signed with the team's key when the ANDROID_KEYSTORE_B64 secret is set - INSTALL.md)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          CU=$(node -p "require('./central-usage/package.json').version")
+          bash central-usage-mobile/prepare.sh android
+          if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/cu.keystore"; export CU_KEYSTORE="$RUNNER_TEMP/cu.keystore" CU_KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD"; echo "signed with the team's key"; else echo "::warning::No ANDROID_KEYSTORE_B64 secret: the APK is signed with a debug key (it installs, but a later version can't update it - INSTALL.md)"; fi
+          cd central-usage-mobile/android && chmod +x gradlew
+          CU_VERSION=$CU bash ../../tools/ci-run.sh "gradle" ./gradlew --no-daemon -q assembleRelease
+          mkdir -p ../dist && cp app/build/outputs/apk/release/app-release.apk "../dist/CentralUsage-$CU.apk"
+          ls -la ../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-android
+          retention-days: 7
+          path: central-usage-mobile/dist/*.apk
 
   names:
     name: Every installer is there, with the names the updaters look for (and their sizes)
-    needs: [linux, windows, macos]
+    needs: [linux, windows, macos, android]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -241,8 +301,11 @@ jobs:
         with: { pattern: installers-*, path: staging, merge-multiple: true }
       - run: |
           CU=$(node -p "require('./central-usage/package.json').version")
+          PC=$(node -p "require('./central-pedal-control/package.json').version")
           missing=0; sizes=""
-          for f in central-usage-$CU-win-x64.exe central-usage-$CU-mac-arm64.dmg central-usage-$CU-mac-x64.dmg central-usage-$CU-amd64.deb central-usage-$CU-x86_64.AppImage; do
+          for f in central-usage-$CU-win-x64.exe central-usage-$CU-mac-arm64.dmg central-usage-$CU-mac-x64.dmg central-usage-$CU-amd64.deb central-usage-$CU-x86_64.AppImage \
+                   CentralUsage-$CU-win-x64.exe CentralUsage-$CU-mac-arm64.dmg CentralUsage-$CU-mac-x64.dmg CentralUsage-$CU.apk \
+                   central-pedal-control-$PC-mac-arm64.dmg central-pedal-control-$PC-mac-x64.dmg; do
             p=$(find staging -type f -name "$f" | head -1)
             if [ -n "$p" ]; then s=$(( $(stat -c %s "$p") / 1048576 )); echo "ok  $f  ${s} MB"; sizes="$sizes$f ${s} MB%0A"; echo "| $f | ${s} MB |" >> sizes.md; else echo "::error::missing $f"; missing=1; fi
           done

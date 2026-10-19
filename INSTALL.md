@@ -1,27 +1,28 @@
-# Installing Central Pedal and Central Control
+# Installing the Central apps
 
 **The easy way: the download page - https://motionaudio.github.io/Central-Apps/** - picks the right file
-for the computer you open it on. Every release is also on the
+for the device you open it on. Every release is also on the
 [Releases page](https://github.com/MotionAudio/Central-Apps/releases).
 
-| | Central Pedal | Central Control |
-|---|---|---|
-| Raspberry Pi | the pedal on stage (below) | - |
-| Windows 10 / 11 | - (the player window in Central Control) | `central-usage-<v>-win-x64.exe` |
-| Mac, Apple Silicon (M1 and newer) | - | `central-usage-<v>-mac-arm64.dmg` |
-| Mac, Intel | - | `central-usage-<v>-mac-x64.dmg` |
-| Linux | - | `.deb` / `.AppImage` (below) |
-| iPhone / iPad | - | the user side (User 1 / User 2), opened from the main admin's computer (below) |
+Four apps (from 8.5):
 
-**Central Pedal runs only on the Raspberry Pi** (from 8.3). On a computer, the main admin's Central Control runs the
-tracks, charts and lyrics in its **player window** (Devices tab → Open the player) - the same app, built in. The
-Central Pedal for PC / Mac installs of earlier versions are no longer updated; uninstall them and use Central Control.
+| App | Who it is for | Runs on | Files |
+|---|---|---|---|
+| **Central Pedal** | the pedal on stage: pads, multitracks, click, the guitar and keys rig | Raspberry Pi | `central-control-source.zip` (the update; a new card: below) |
+| **Central Pedal Control** | getting the pedal ready anywhere: songs, tracks, pads, controls, the instrument - then **Upload** to the pedal | Mac, iPad | `central-pedal-control-<v>-mac-arm64.dmg` / `-mac-x64.dmg`; iPad: TestFlight / App Store (IOS-APP-STORE.md) |
+| **Central Control** | the main admin and the admins: lights, slides, lyrics, cameras, in-ears, tracks, mixing | Windows, Mac, Linux | `central-usage-<v>-win-x64.exe`, `-mac-arm64.dmg`, `-mac-x64.dmg`, `-amd64.deb`, `-x86_64.AppImage` |
+| **Central Usage** | the musicians and singers (User 1 / User 2): chord chart, instrument, lyrics, their in-ear mix | Mac, Windows, Android, iPhone, iPad | `CentralUsage-<v>-win-x64.exe`, `-mac-arm64.dmg`, `-mac-x64.dmg`, `CentralUsage-<v>.apk`; iPhone / iPad: Safari today, the App Store app once the Apple account is set up |
 
-**Names:** the installer files keep their old names so every install keeps updating itself: `central-usage-…` is
-Central Control, `central-control-source.zip` is the Central Pedal (Raspberry Pi) update.
+**Names:** Central Control's files keep their old name (`central-usage-…`, and `Central Usage.app` on a Mac) so every
+computer that has it keeps updating itself. Central Usage is the new musicians' app: `CentralUsage-…`.
+
+**A musician's laptop that runs Central Control today** keeps working as User 1 / User 2. New musicians' computers,
+phones and tablets get Central Usage; it can't become an admin (the main admin's Devices tab shows which app each
+device runs).
 
 Everything you install updates itself: each app looks for a new release every time it opens (and once a day) and asks
-"Update now?" - Yes or No.
+"Update now?" - Yes or No. (Android: the app opens the newest Central Usage from the main admin's computer; a new
+`.apk` is only needed when the app itself changes.)
 
 ---
 
@@ -39,20 +40,47 @@ Everything you install updates itself: each app looks for a new release every ti
 3. **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to the app, confirm.
 4. Allow the microphone when asked (the audio interface, in-ears and instrument need it).
 
-If the Mac says the app *"is damaged"*, run this in Terminal. The app file keeps its old name (so updates and settings
-carry on): Central Control is `Central Usage.app`:
-`xattr -dr com.apple.quarantine "/Applications/Central Usage.app"`
+If the Mac says the app *"is damaged"*, run the line for that app in Terminal (Central Control's file keeps its old
+name, so updates and settings carry on):
+`xattr -dr com.apple.quarantine "/Applications/Central Usage.app"` - Central Control
+`xattr -dr com.apple.quarantine "/Applications/CentralUsage.app"` - Central Usage
+`xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"` - Central Pedal Control
 
-## iPhone, iPad and Android phones / tablets
+## Central Pedal Control: Upload to the pedal
 
-Central Control runs in the browser, served by the main admin's computer (or by a Central Pedal) - nothing to install from a store:
+1. Set things up on the Mac: the setlist (Tracks → **+ Add songs**: MultiTracks.com / Loop Community downloads, your
+   own WAVs), the pads, the footswitches and knobs (Configure), the instrument, the setups.
+2. Take the Mac to church (same Wi-Fi or a network cable as the Central Pedal), press **⇪ Upload** (top right, or
+   File → Upload…, ⌘U), type the pedal's name or address (e.g. `padpedal.local`) and its pairing PIN, tick what to
+   send - songs and their tracks, pads and sounds, buttons and MIDI, instrument, setups, colours; outputs and screens
+   only if the Mac's outputs match the pedal's - and press Upload.
+3. On the Central Pedal a bar says what arrived: **Apply now** (never while it plays - it waits), **Later** or
+   **Discard**. Songs replace the pedal's setlist, or are added to it (same songs updated).
+4. **⇩ Download** does the opposite: the pedal's songs and setup come to the Mac.
+
+## Android (Central Usage)
+
+1. On the phone or tablet, open the download page and tap **Download for Android** (`CentralUsage-<v>.apk`).
+2. Open it; Android asks to allow installs from the browser: **Settings → Allow from this source**, back, **Install**.
+3. Open **Central Usage** on the church Wi-Fi and tap **Find the main admin** (or type its address), then pick
+   User 1 or User 2 and type the pairing PIN.
+
+**For whoever looks after the releases - the Android signing key (once):** run `bash tools/make-android-key.sh`, keep
+the `.keystore` file and its password safe, and add two repository secrets on GitHub (Settings → Secrets and variables
+→ Actions): `ANDROID_KEYSTORE_B64` (the text it prints) and `ANDROID_KEYSTORE_PASSWORD`. Every later `.apk` is signed
+with it, so new versions install over the old one. Until then the `.apk` is signed with a temporary key: it installs,
+but a newer one has to replace it (uninstall first).
+
+## iPhone, iPad (and any phone or tablet) in the browser
+
+Central Usage also runs in the browser, served by the main admin's computer (or by a Central Pedal) - nothing to install:
 
 1. Join the same Wi-Fi as the main admin's computer.
 2. Open **http://&lt;main admin's address&gt;:8095/cu/** in Safari (iPhone / iPad) or Chrome (Android) - the address is in
    the main admin's Central Control → Settings → This computer. With a Central Pedal, **http://padpedal.local:8080/cu/** works too.
 3. Choose **User 1** or **User 2** and type the main admin's pairing PIN (main admin → Settings → This computer).
 4. iPhone / iPad: **Share → Add to Home Screen**. Android: **⋮ → Add to Home screen**. It now opens full screen like an app.
-   (An App Store version is ready to switch on: IOS-APP-STORE.md.)
+   (The Central Usage app for iPhone / iPad is ready for TestFlight once the Apple account is set up: IOS-APP-STORE.md.)
 
 It is always the version your Central Pedal runs, so it updates with it. On a phone or tablet you are
 User 1 or User 2: the chord chart or any instrument's part, the lyrics, and your own in-ear mix.

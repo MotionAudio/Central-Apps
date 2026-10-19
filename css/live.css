@@ -128,3 +128,17 @@ body.service-locked .topnav .nav-tab:not(.live-tab), body.service-locked #pfSyst
 .rp-all summary { cursor: pointer; color: var(--muted); } .rp-all ol { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; font-size: 12px; max-height: 40vh; overflow: auto; }
 .rp-all time { color: var(--muted); font-variant-numeric: tabular-nums; display: inline-block; min-width: 92px; }
 .rp-all .k-dropout, .rp-all .k-panic { color: var(--danger); } .rp-all .k-play, .rp-all .k-end { color: var(--accent); } .rp-all .k-section { color: var(--muted); }
+
+/* Central Pedal Control: Upload / Download (js/transfer.js) */
+.cp-nav { display: inline-flex; gap: 4px; } .cp-nav button { font-weight: 800; padding: 6px 10px; } .cp-nav button:first-child { background: #1d3b63; border-color: var(--blue); }
+.cp-transfer { width: min(620px, calc(100vw - 24px)); }
+.cp-form { display: grid; gap: 10px; } .cp-form h2 { font-size: 18px; }
+.cp-parts { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; } .cp-parts legend { color: var(--muted); font-size: 12px; padding: 0 4px; }
+.cp-parts label { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; color: var(--text); font-size: 13px; }
+.cp-parts label input { width: auto; } .cp-parts small { grid-column: 2; color: var(--muted); font-size: 11px; }
+.cp-bar { display: inline-block; height: 8px; width: 100%; min-width: 80px; border-radius: 4px; background: #071321; border: 1px solid var(--line); overflow: hidden; vertical-align: middle; }
+.cp-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.cp-progress p { margin-top: 4px; }
+.cp-arrived { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 24px); padding: 10px 12px; background: var(--panel); border: 1px solid var(--blue); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+.cp-arrived .sp { flex: 1; } .cp-arrived .cp-bar { width: 160px; }
+body.pedal-control #pinSection { display: none; }

@@ -1,0 +1,19 @@
+{
+  "name": "central-usage-mobile",
+  "private": true,
+  "version": "2.5.0",
+  "description": "Central Usage for iPhone, iPad and Android: finds the main admin's computer on the Wi-Fi and opens Central Usage - the chord chart, the lyrics, the instrument and your in-ear mix.",
+  "license": "MIT",
+  "scripts": {
+    "sync:ios": "cap sync ios",
+    "sync:android": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "6.2.0",
+    "@capacitor/core": "6.2.0",
+    "@capacitor/ios": "6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "6.2.0"
+  }
+}

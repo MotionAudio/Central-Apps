@@ -57,7 +57,7 @@ function get(url, { json = false, timeout = 30000, maxBytes = 900 * 1024 * 1024,
 }
 
 class Updater {
-  /** product: "central-usage" or "central-control"; current: this app's version; dir: where to keep settings */
+  /** product: "central-usage" (Central Control), "CentralUsage" (Central Usage), "central-pedal-control"; current: this app's version; dir: where to keep settings */
   constructor({ product, current, dir, api }) {
     this.product = product; this.current = current; this.api = api || process.env.CC_UPDATE_API || "https://api.github.com";
     this.file = path.join(dir, "updates.json");
@@ -77,7 +77,8 @@ class Updater {
     const a = (this.latest && this.latest.assets) || {}, names = Object.keys(a), k = this.kind();
     const want = k === "win" ? /-win-x64\.exe$/ : k === "mac" ? (process.arch === "arm64" ? /-mac-arm64\.dmg$/ : /-mac-x64\.dmg$/) : k === "appimage" ? /\.AppImage$/ : /\.deb$/;
     const arch = k === "win" || k === "mac" ? /./ : process.arch === "arm64" ? /arm64|aarch64/ : /amd64|x86_64|x64/;
-    const name = names.filter((n) => n.startsWith(this.product + "-") && want.test(n) && arch.test(n))[0] || null;
+    const mineRe = new RegExp("^" + this.product.replace(/[^A-Za-z0-9]/g, "\\$&") + "-\\d");   // (this app's files only: central-usage-2.5.0-…, not central-usage-anything-else)
+    const name = names.filter((n) => mineRe.test(n) && want.test(n) && arch.test(n))[0] || null;
     return name ? { name, url: a[name] } : null;
   }
   status() {
@@ -161,7 +162,7 @@ Updater.prototype.installMac = async function (dmg) {
   } catch (e) {
     // can't write where the app is (or something else went wrong): show the disk image - drag the app to Applications
     spawn("open", [dmg], { detached: true, stdio: "ignore" }).unref();
-    this.error = "Drag Central " + (this.product === "central-usage" ? "Usage" : "Control") + " from the window that opened into Applications (replace the old one). (" + e.message + ")";
+    this.error = "Drag " + ({ "central-usage": "Central Control", CentralUsage: "Central Usage", "central-pedal-control": "Central Pedal Control" }[this.product] || "the app") + " from the window that opened into Applications (replace the old one). (" + e.message + ")";
     return "opened";
   } finally { if (mount) { try { await run("hdiutil", ["detach", "-quiet", mount]); } catch (_) { } } }
 };

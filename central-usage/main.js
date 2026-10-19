@@ -11,14 +11,19 @@ const http = require("node:http");
 const dns = require("node:dns");
 
 let win = null;
-// Shown as "Central Control" (renamed from Central Usage in 8.2); its settings stay in the same folder as before
-if (!app.commandLine.hasSwitch("user-data-dir")) app.setPath("userData", path.join(app.getPath("appData"), "Central Usage"));
-app.setName("Central Control");
+// Two apps from this code: Central Control (the main admin and admins: lights, slides, lyrics, cameras, in-ears,
+// tracks, mixing) and Central Usage (musicians - User 1 / User 2: the chord chart, the instrument, the lyrics, their
+// in-ear mix). package.json's "edition" says which ("usage" is set by usage-builder.js when it packs Central Usage).
+const EDITION = (() => { try { return require("./package.json").edition === "usage" ? "usage" : "control"; } catch (_) { return "control"; } })();
+const APP_NAME = EDITION === "usage" ? "Central Usage" : "Central Control";
+// Central Control keeps the settings folder it always had ("Central Usage", from before the 8.2 rename); Central Usage has its own
+if (!app.commandLine.hasSwitch("user-data-dir")) app.setPath("userData", path.join(app.getPath("appData"), EDITION === "usage" ? "Central Usage (musicians)" : "Central Usage"));
+app.setName(APP_NAME);
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1180, height: 780, minWidth: 720, minHeight: 480, title: "Central Control", backgroundColor: "#08111d", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: false,
-    webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false }
+    width: 1180, height: 780, minWidth: 720, minHeight: 480, title: APP_NAME, backgroundColor: "#08111d", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: false,
+    webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false, additionalArguments: ["--cu-edition=" + EDITION] }
   });
   win.loadFile(path.join(__dirname, "app", "index.html"));
   win.on("closed", () => { win = null; });
@@ -42,7 +47,7 @@ function menu() {
       { label: "Enter pairing code…", click: () => send("code") },
       { type: "separator" },
       { label: "Full screen", accelerator: "F11", click: () => { if (win) win.setFullScreen(!win.isFullScreen()); } },
-      { type: "separator" }, { role: "quit", label: "Quit Central Control" } ] },
+      { type: "separator" }, { role: "quit", label: "Quit " + APP_NAME } ] },
     { label: "View", submenu: [
       { label: "Chord chart", accelerator: "F1", click: () => send("tab", "chart") }, { label: "Lyrics", accelerator: "F2", click: () => send("tab", "lyrics") }, { label: "Lighting", accelerator: "F3", click: () => send("tab", "lights") },
       { label: "Mix", accelerator: "F4", click: () => send("tab", "mix") }, { label: "In-ears", accelerator: "F5", click: () => send("tab", "inears") }, { label: "Slides", accelerator: "F6", click: () => send("tab", "slides") },
@@ -52,7 +57,7 @@ function menu() {
     { label: "Help", submenu: [
       { label: "How it works", click: () => dialog.showMessageBox(win, { type: "info", title: "Central Control", message: "The main admin's Central Control is the center of the team.", detail: "1. Set up the main admin first (usually the sound desk): its inputs and outputs, a 4-digit pairing PIN and its own role PIN. Keep Central Control open on it during the service.\n2. Every other computer, phone and tablet: Admin, User 1 or User 2 and the pairing PIN - it finds the main admin on the network.\n3. Tracks, charts and lyrics: the main admin's player window (Devices tab → Open the player), or Central Pedals paired with the same PIN - the Devices tab says what each one does (track player, foot controller, instrument rig).\n4. One admin computer is the audio host: it gets the tracks, mixes them, makes up to 48 in-ear mixes and records the service.\n5. Only the track player plays, stops and skips the tracks; everything here follows it." }) },
       { label: "Check for updates…", click: () => send("updates") },
-      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Control " + app.getVersion(), detail: "Companion app for Central Pedal. Electron " + process.versions.electron + " · Chromium " + process.versions.chrome }) } ] }
+      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: APP_NAME + " " + app.getVersion(), detail: (EDITION === "usage" ? "For musicians: the chord chart, your instrument, the lyrics and your in-ear mix." : "For the main admin and admins: lights, slides, lyrics, cameras, in-ears, tracks and mixing.") + " Part of Central Pedal. Electron " + process.versions.electron + " · Chromium " + process.versions.chrome }) } ] }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -180,7 +185,7 @@ ipcMain.handle("sys-health", () => {
 });
 
 app.whenReady().then(() => {
-  updater = new Updater({ product: "central-usage", current: app.getVersion(), dir: app.getPath("userData") });
+  updater = new Updater({ product: EDITION === "usage" ? "CentralUsage" : "central-usage", current: app.getVersion(), dir: app.getPath("userData") });   // (Central Control's files keep their old central-usage-* names: every install finds its updates)
   // every time the app opens it looks for a newer release (a few seconds after start), then once a day while it runs
   setTimeout(async function loop(first) { try { if (updater.cfg.auto && (first || updater.due())) { await updater.check(); updateEvent(); } } catch (_) { } setTimeout(loop, 300 * 1000); }, 8000, true);
   try { if (JSON.parse(fs.readFileSync(remoteFile(), "utf8")).on) startRemote(); } catch (_) { }

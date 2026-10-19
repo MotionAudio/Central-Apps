@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Central Usage</title>
+<style>
+  :root { --bg: #08111d; --card: #0f1b2b; --ink: #e8eef6; --muted: #93a3b8; --line: #22324a; --accent: #4fd1a5; --accent-ink: #062018; --bad: #ff8f8f; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f4f6f9; --card: #ffffff; --ink: #121821; --muted: #5b6677; --line: #dde3ea; --accent: #13a67a; --accent-ink: #ffffff; --bad: #c62828; } }
+  :root[data-theme="light"] { --bg: #f4f6f9; --card: #ffffff; --ink: #121821; --muted: #5b6677; --line: #dde3ea; --accent: #13a67a; --accent-ink: #ffffff; --bad: #c62828; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink); font: 17px/1.5 -apple-system, system-ui, sans-serif; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+  .card { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+  h1 { font-size: 26px; margin: 0 0 4px; } p { margin: 0 0 14px; color: var(--muted); }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 14px 0 6px; }
+  input { width: 100%; font: inherit; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--ink); }
+  button { width: 100%; margin-top: 14px; font: inherit; font-weight: 600; padding: 13px; border-radius: 12px; border: 0; background: var(--accent); color: var(--accent-ink); }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .status { min-height: 24px; margin-top: 14px; font-size: 15px; color: var(--muted); } .status.bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Central Usage</h1>
+  <p>Your chord chart, the lyrics, your instrument and your in-ear mix - from the main admin's computer on this Wi-Fi.</p>
+  <button id="find">Find the main admin</button>
+  <label for="host">Or its address</label>
+  <input id="host" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="the main admin's computer, or padpedal.local">
+  <button class="ghost" id="go">Connect</button>
+  <div class="status" id="status" role="status"></div>
+</div>
+<script>
+(function () {
+  "use strict";
+  // Central Usage comes from the main admin's computer (Central Control's center: http://<it>:8095/cu/); a Central
+  // Pedal (:8080) knows where the main admin is once it is paired, and serves the same app itself when there is none
+  var CENTER = 8095, PEDAL = 8080, KEY = "cu-host";
+  var $ = function (id) { return document.getElementById(id); };
+  function saved() { try { return localStorage.getItem(KEY) || ""; } catch (_) { return ""; } }
+  function remember(h) { try { localStorage.setItem(KEY, h); } catch (_) { } }
+  function say(t, bad) { var s = $("status"); s.textContent = t; s.className = "status" + (bad ? " bad" : ""); }
+  function clean(h) { return String(h || "").trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/:\d+$/, ""); }
+  function get(url) { var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 3500); return fetch(url, { signal: ctl.signal, cache: "no-store" }).then(function (r) { clearTimeout(t); if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }); }
+  function probe(h) {
+    h = clean(h); if (!h) return Promise.reject(new Error("no address"));
+    return get("http://" + h + ":" + CENTER + "/api/center").then(function (j) { return { host: h, name: j.name || h, url: "http://" + h + ":" + CENTER + "/cu/" }; })
+      .catch(function () {
+        return get("http://" + h + ":" + PEDAL + "/api/info").then(function (j) {
+          var c = j && j.center; if (c && c.address) return { host: h, name: c.name || c.address, url: "http://" + c.address + ":" + (c.port || CENTER) + "/cu/" };
+          return { host: h, name: j.hostname || h, url: "http://" + h + ":" + PEDAL + "/cu/" };
+        });
+      });
+  }
+  function open(found) { remember(found.host); say("Found " + found.name + " - opening…"); location.href = found.url + "?edition=usage"; }
+  function find() {
+    say("Looking on this Wi-Fi…");
+    var tries = [saved(), "padpedal.local", "centralcontrol.local", "central-control.local"].filter(function (h, i, a) { return h && a.indexOf(h) === i; });
+    Promise.any ? Promise.any(tries.map(probe)).then(open).catch(fail) : tries.reduce(function (p, h) { return p.catch(function () { return probe(h); }); }, Promise.reject()).then(open).catch(fail);
+  }
+  function fail() { say("Not found. Check you're on the same Wi-Fi, or type the main admin's address (Central Control → Settings → This computer shows it).", true); }
+  $("find").addEventListener("click", find);
+  $("go").addEventListener("click", function () { var h = $("host").value.trim(); if (!h) return; say("Connecting…"); probe(h).then(open).catch(function () { say("Nothing answers at " + h + ".", true); }); });
+  $("host").addEventListener("keydown", function (e) { if (e.key === "Enter") $("go").click(); });
+  $("host").value = saved();
+  if (saved()) { say("Connecting to " + saved() + "…"); probe(saved()).then(open).catch(function () { say(""); }); }
+})();
+</script>
+</body>
+</html>

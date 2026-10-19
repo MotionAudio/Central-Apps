@@ -1,21 +1,27 @@
-# Central Control on the App Store (iPhone / iPad)
+# iPhone and iPad apps (TestFlight / App Store)
 
-Today iPhones and iPads use Central Control as a **web app**: Safari → the Central Pedal's address
-(`http://padpedal.local:8080/cu/`) → Share → **Add to Home Screen**. That needs nothing from Apple.
+Two apps go to Apple:
 
-The project in `central-usage-ios/` is the App Store version: a small app that finds the Central Pedal
-on the Wi-Fi and opens the same Central Control, full screen. It keeps playing your in-ear mix with the
-screen locked, and it appears in the App Store / TestFlight. Once the steps below are done, **every
-release builds it, signs it and uploads it to App Store Connect automatically** (release.yml, job `ios`).
-Until then that job does nothing.
+| App | Project | Bundle ID | What it is |
+|---|---|---|---|
+| **Central Usage** (iPhone, iPad) | `central-usage-mobile/` | `org.centralcontrol.usage` | finds the main admin's computer on the Wi-Fi and opens Central Usage - the chord chart, the lyrics, the instrument and your in-ear mix, full screen; keeps playing the in-ear mix with the screen locked |
+| **Central Pedal Control** (iPad) | `central-pedal-control-ios/` | `org.centralcontrol.pedalcontrol` | the Central Pedal app on the iPad: set up songs, tracks, pads and controls anywhere, then Upload them to the Central Pedal |
+
+Until they are on TestFlight, iPhones and iPads use Central Usage as a **web app**: Safari → the main admin's
+address (`http://<main admin>:8095/cu/`) → Share → **Add to Home Screen**. That needs nothing from Apple.
+
+Once the steps below are done, **every release builds both, signs them and uploads them to App Store Connect
+automatically** (release.yml, job `ios`). Until then that job does nothing. (Android: the Central Usage `.apk` is
+on the download page already - INSTALL.md.)
 
 ## What you need
 
 1. **An Apple Developer Program membership**: $99 a year, at https://developer.apple.com/programs/
    (as yourself or your church; an organisation needs a D-U-N-S number). Approval takes a day or two.
-2. **The app's record in App Store Connect** (https://appstoreconnect.apple.com → Apps → **+** → New App):
-   platform iOS, name *Central Control* (or another free name), bundle ID `org.centralcontrol.usage`
-   (register it first under Certificates, IDs & Profiles → Identifiers → **+** → App IDs), SKU anything.
+2. **Each app's record in App Store Connect** (https://appstoreconnect.apple.com → Apps → **+** → New App),
+   twice: platform iOS, name *Central Usage* with bundle ID `org.centralcontrol.usage`, and name *Central Pedal
+   Control* with bundle ID `org.centralcontrol.pedalcontrol` (register each first under Certificates, IDs &
+   Profiles → Identifiers → **+** → App IDs), SKU anything.
 3. **An App Store Connect API key**: App Store Connect → Users and Access → **Integrations** → App Store
    Connect API → **+**, access **Admin** (needed so the build can create its own signing certificate).
    Download the `.p8` file (only possible once) and note the **Key ID** and the **Issuer ID**.
@@ -41,11 +47,11 @@ release uploads a new build by itself; you choose when a build goes to the store
 
 - Signing is done by Xcode with the API key (cloud signing), so there are no certificates or profiles
   to keep up to date.
-- The app talks to the Central Pedal over plain HTTP on the local network. That is allowed in the app
+- The apps talk to the main admin's computer and the Central Pedal over plain HTTP on the local network. That is allowed in the app
   (local networking) and is fine for review. Explain it in the review notes as "connects to the user's
   own Central Pedal device on their local network".
 - Apple's review needs a way to see the app working. Add a note that it needs a Central Pedal (a
   Raspberry Pi) on the same Wi-Fi, and attach a short screen recording.
-- To try it yourself before that: on a Mac with Xcode, run `bash central-usage-ios/prepare.sh`, open
-  `central-usage-ios/ios/App/App.xcworkspace`, pick your iPhone and press Run (a free Apple ID works for
-  your own phone for 7 days).
+- To try one yourself before that: on a Mac with Xcode, run `bash central-usage-mobile/prepare.sh ios` (or
+  `bash central-pedal-control-ios/prepare.sh`), open `ios/App/App.xcworkspace` in that folder, pick your
+  iPhone / iPad and press Run (a free Apple ID works for your own device for 7 days).
