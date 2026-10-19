@@ -196,7 +196,7 @@
     var buffer = await decodeFile(file), pcm = toPcm(buffer), id = PP.id();
     await putStem(id, pcm);
     var role = file._role || guessRole(name);
-    var rec = { id: id, name: name, role: role, gain: 1, pan: 0, mute: false, solo: false, bus: role === "click" ? "click" : "music", length: pcm.length, overview: overview(buffer, 960) };
+    var rec = { id: id, name: name, role: role, gain: 1, pan: 0, mute: !!file._mute, solo: false, bus: role === "click" ? "click" : "music", length: pcm.length, overview: overview(buffer, 960) };
     t.stems.push(rec);
     keepInLibrary(s, file, rec);
     t.duration = Math.max(t.duration, buffer.duration);

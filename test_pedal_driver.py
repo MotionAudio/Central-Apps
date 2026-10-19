@@ -1065,6 +1065,15 @@ async def main():
         pj2 = json.loads(body_ or b"{}")
         check("...a folder or name with ../ stays inside the practice folder",
               st_ == 200 and not os.path.exists(os.path.join(root, "evil")) and os.path.isfile(os.path.join(root, "data", "practice", pj2.get("folder", "-"), pj2.get("name", "-"))), pj2)
+        st_dd, _ = http("http://127.0.0.1:18766/practice/file?folder=..&name=project.json", b"{}", "PUT")
+        st_dl, _ = http("http://127.0.0.1:18766/practice/delete", json.dumps({"folder": ".."}).encode())
+        st_d1, _ = http("http://127.0.0.1:18766/practice/delete", json.dumps({"folder": "."}).encode())
+        check("...the folder names . and .. are refused or kept inside (nothing above the practice folder is written or deleted)",
+              os.path.isdir(os.path.join(root, "data", "practice")) and os.path.isdir(os.path.join(root, "data", "charts")) and st_dl in (200, 400) and st_d1 in (200, 400)
+              and not (os.path.isfile(os.path.join(root, "data", "project.json")) and open(os.path.join(root, "data", "project.json")).read() == "{}"), (st_dd, st_dl, st_d1))
+        st_o, _ = http("http://127.0.0.1:18766/practice/delete", json.dumps({"folder": "Sunday Oct 19"}).encode(), headers={"Origin": "https://evil.example"})
+        st_o2, _ = http("http://127.0.0.1:18766/split/install", b"{}", headers={"Origin": "https://evil.example"})
+        check("...another web page in a browser on this computer can't change practice mixes or the stem splitter (403)", st_o == 403 and st_o2 == 403, (st_o, st_o2))
         st_, body_ = http("http://127.0.0.1:18766/practice/file?folder=Sunday%20Oct%2019&name=02.%20Way%20Maker%20(Bass).wav&format=mp3&kbps=192", pm_wav, "PUT")
         pj3 = json.loads(body_ or b"{}")
         if shutil.which("ffmpeg"):
@@ -1087,13 +1096,19 @@ async def main():
         page_ = page_.decode(errors="replace")
         st_f, file_ = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav")
         check("the phones' page (port 8080 /practice/) lists them with players, and the files download", st_ == 200 and "Firm Foundation (Drums)" in page_ and "<audio" in page_ and st_f == 200 and file_ == pm_wav, (st_, page_[:200], st_f))
-        http("http://127.0.0.1:18766/practice/config", json.dumps({"share": "code", "title": "Grace Band"}).encode())
+        _, cfg_ = http("http://127.0.0.1:18766/practice/config", json.dumps({"share": "code", "title": "Grace Band", "code": "band77"}).encode())
         st_a, page_a = http("http://127.0.0.1:18080/practice/")
         st_b, _ = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav")
-        st_c, page_c = http("http://127.0.0.1:18080/practice/?code=" + driver.code)
-        st_d, file_d = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav?code=" + driver.code)
-        check("...set to need the pairing code: asks for it, refuses the files without it, works with it (and the title is the setting)",
-              b"pairing code" in page_a and b"Grace Band" in page_a and st_b == 403 and b"Firm Foundation" in page_c and st_d == 200 and file_d == pm_wav, (page_a[:160], st_b, st_d))
+        st_p, _ = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav?code=" + driver.code)
+        st_c, page_c = http("http://127.0.0.1:18080/practice/?code=band77")
+        st_d, file_d = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav?code=band77")
+        check("...set to need a practice code: asks for it, refuses the files without it and with the pairing PIN, works with it (and the title is the setting)",
+              json.loads(cfg_).get("code") == "band77" and b"practice code" in page_a and b"Grace Band" in page_a and st_b == 403 and st_p == 403 and b"Firm Foundation" in page_c and b"band77" in page_c and st_d == 200 and file_d == pm_wav, (page_a[:160], st_b, st_p, st_d))
+        for _ in range(10):
+            http("http://127.0.0.1:18080/practice/?code=wrong1")
+        st_r, page_r = http("http://127.0.0.1:18080/practice/?code=band77")
+        check("...10 wrong codes in a row: even the right one waits (no guessing it)", b"Firm Foundation" not in page_r, page_r[:120])
+        driver.practice.fails.clear()
         http("http://127.0.0.1:18766/practice/config", json.dumps({"share": "off"}).encode())
         st_e, page_e = http("http://127.0.0.1:18080/practice/")
         st_g, _ = http("http://127.0.0.1:18080/practice/Sunday%20Oct%2019/01.%20Firm%20Foundation%20(Drums).wav?code=" + driver.code)
@@ -1144,9 +1159,13 @@ async def main():
         st_, body_ = http("http://127.0.0.1:18766/split/forget", json.dumps({"id": job_.get("id")}).encode())
         check("...and a finished job's files can be dropped", st_ == 200 and not os.path.isdir(os.path.join(root, "data", "stem-splitter", "out", job_.get("id", "-"))), body_)
         os.environ.pop("CC_DEMUCS_CMD", None)
-        st_, body_ = http("http://127.0.0.1:18766/split/config", json.dumps({"python": "3.12", "packages": "demucs soundfile"}).encode())
+        st_, body_ = http("http://127.0.0.1:18766/split/config", json.dumps({"python": "3.12", "packages": "demucs==4.0.1 soundfile", "command": "sh -c 'touch /tmp/pwned'"}).encode())
         sc = json.loads(body_ or b"{}")
-        check("...its install settings (Python version, packages, your own command) are kept", sc.get("settings", {}).get("python") == "3.12" and sc["settings"]["packages"] == "demucs soundfile" and sc.get("installed") is False, sc)
+        check("...its install settings (Python version, packages) are kept; a command can't be set over the API (only CC_DEMUCS_CMD)",
+              sc.get("settings", {}).get("python") == "3.12" and sc["settings"]["packages"] == "demucs==4.0.1 soundfile" and sc.get("installed") is False and "command" not in sc["settings"] and driver.splitter.command() is None, sc)
+        _, body_ = http("http://127.0.0.1:18766/split/config", json.dumps({"packages": "--index-url http://evil/ demucs", "python": "3.12; rm"}).encode())
+        sc2 = json.loads(body_ or b"{}")
+        check("...and packages that are options or URLs are refused", sc2["settings"]["packages"] == "demucs==4.0.1 soundfile" and sc2["settings"]["python"] == "3.12", sc2)
 
     stop_event.set()
     await asyncio.wait_for(server_task, 5)

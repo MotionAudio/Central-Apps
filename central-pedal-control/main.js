@@ -89,7 +89,6 @@ let updater = null;
 function updateEvent() { if (win && updater) win.webContents.send("update", updater.status()); }
 // practice mixes: "A folder on this Mac…" (the driver copies them there)
 ipcMain.handle("pick-folder", async () => { const r = await dialog.showOpenDialog(win, { title: "Where should the practice mixes go?", properties: ["openDirectory", "createDirectory"] }); return r.canceled ? null : r.filePaths[0]; });
-ipcMain.handle("open-path", (_e, p) => (typeof p === "string" && p ? shell.openPath(p) : ""));
 ipcMain.handle("update-status", () => updater.status());
 ipcMain.handle("update-config", (_e, cfg) => updater.save(cfg));
 ipcMain.handle("update-check", async () => { const st = await updater.check(); updateEvent(); return st; });

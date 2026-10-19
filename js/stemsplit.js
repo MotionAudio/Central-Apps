@@ -70,11 +70,10 @@
         var file = new File([blob], (NICE[stem] || stem) + "." + f.name.split(".").pop(), { type: blob.type || "audio/*" }); file._role = ROLE[stem] || "music";
         files.push(file);
       }
-      if (c.keepOriginal && picked && picked.file) { var o = new File([picked.file], "Original mix." + (picked.name.split(".").pop() || "wav")); o._role = "music"; files.push(o); }
+      if (c.keepOriginal && picked && picked.file) { var o = new File([picked.file], "Original mix." + (picked.name.split(".").pop() || "wav")); o._role = "music"; o._mute = true; files.push(o); }
       if (!files.length) throw new Error("no stems came back");
       var name = (current && current.songName) || "Split song", s = c.into === "this" && PP.activeSong() ? PP.activeSong() : T().newSong(name);
       await T().importFilesIntoSong(s, files, { analyze: c.analyze });
-      if (c.keepOriginal) { var t = T().data(s); t.stems.forEach(function (st) { if (/^Original mix/.test(st.name || "")) { st.mute = true; } }); PP.persistSoon(); }
       if (!c.keepFiles) post("/split/forget", { id: j.id }).catch(function () { });
       say("✓ " + files.length + " stems added to “" + s.name + "”");
     } catch (error) { say("Bringing the stems in failed: " + error.message, true); }
@@ -101,11 +100,11 @@
     if (st.installed) h += "<p>✓ Installed" + (st.custom ? " (your own command)" : "") + ". The models download the first time each is used.</p>";
     else if (ins.running) h += "<p>Installing - " + esc(ins.step || "") + "…</p>";
     else h += "<p>Not installed yet. Install downloads uv, a private Python, PyTorch and Demucs into this app's own folder (about 2 GB; nothing else on the computer changes)." + (ins.error ? '</p><p class="bad small">Last try failed: ' + esc(ins.error) : "") + "</p>";
-    h += '<div class="row">' + (!st.installed && !ins.running ? '<button type="button" class="primary" data-ss-act="install">Install</button>' : "") + (st.installed && !st.custom && !ins.running ? '<button type="button" class="ghost" data-ss-act="uninstall">Remove it</button>' : "") + "</div>";
+    h += '<div class="row">' + (!st.installed && !ins.running ? '<button type="button" class="primary" data-ss-act="install">Install</button>' : "") + ((st.installed || st.partial) && !st.custom && !ins.running ? '<button type="button" class="ghost" data-ss-act="uninstall">' + (st.installed ? "Remove it" : "Clear the failed install") + "</button>" : "") + "</div>";
     if (ins.log && (ins.running || ins.error)) h += '<pre class="ss-log">' + esc(ins.log.slice(-1200)) + "</pre>";
     h += '<details><summary>Advanced</summary><div class="ss-grid"><label>Python version <input data-ss-cfg="python" value="' + esc(st.settings.python || "3.11") + '"></label>' +
       '<label>Packages (blank: the usual) <input data-ss-cfg="packages" value="' + esc(st.settings.packages || "") + '" placeholder="torch torchaudio demucs soundfile"></label>' +
-      '<label>Use my own Demucs command <input data-ss-cfg="command" value="' + esc(st.settings.command || "") + '" placeholder="e.g. /usr/local/bin/python3 -m demucs.separate"></label></div></details></section>';
+      '</div><p class="muted small">Your own Demucs instead: start the app with CC_DEMUCS_CMD set to its command.</p></details></section>';
     // the song
     var s = PP.activeSong(), t = s && T().data(s), one = t && t.stems.length === 1 && t.stems[0].file ? t.stems[0] : null;
     h += "<section><h3>The song</h3>" +
@@ -144,6 +143,7 @@
     if (!dlg.open) dlg.showModal(); dlg.innerHTML = html(); refresh(); poll(true);
   }
   function wire() {
+    dlg.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.tagName === "INPUT") e.preventDefault(); });   // (Enter would close the dialog)
     dlg.addEventListener("change", function (e) {
       var t = e.target, c = cfg();
       if (t.hasAttribute("data-ss-file")) { var f = t.files && t.files[0]; if (f) { picked = { name: f.name, file: f }; draw(); } return; }

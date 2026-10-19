@@ -63,7 +63,7 @@
   // Worked out once per song (on the whole band), then the same frames are used for every mix.
   var WN = 2048, WH = 1024;
   async function stretchPlan(mono, f, cancelled) {
-    var inLen = mono.length, outLen = Math.round(inLen * f), Ha = WH / f, tol = 512, half = WN / 2, pos = [], prev = -1;
+    var inLen = mono.length, outLen = Math.round(inLen * f), Ha = WH / f, tol = 256, half = WN / 2, pos = [], prev = -1;
     for (var k = 0; k * WH < outLen; k++) {
       var nom = Math.round(k * Ha), p = nom;
       if (prev >= 0) {
@@ -174,6 +174,7 @@
       if (!plan) { plan = plans[pk] = await stretchPlan(plans.mono || (plans.mono = monoOf(src, c)), f, cancelled); }
       var win = hann(WN); chans = chans.map(function (ch) { return applyPlan(ch, plan, win); });
     }
+    mL = mR = cL = cR = null;   // (only the stretched copies from here: half the memory)
     chans = chans.map(function (ch) { return resample(ch, q); });
     await tick(); if (cancelled()) throw new Error("cancelled");
     var n = chans[0].length, beat = 60 / ((t.grid && t.grid.bpm) || s.bpm || 72), g0 = T().grid(s), pre = 0;
@@ -258,12 +259,13 @@
     if (!songs.length) return say("No songs with tracks to make mixes of.", true);
     if (!mixes.length) return say("Turn on at least one mix.", true);
     if (T().isPlaying()) return say("Stop the song first - making mixes takes all of the computer for a while.", true);
+    if (where === "download" && shareFiles() && songs.length * mixes.length > 8) return say("On an iPad make up to 8 files at a time (they are kept in memory until you save them) - pick fewer songs or mixes.", true);
     var pickDir = null;
     if (where === "folder") { try { pickDir = await window.CCDesktop.pickFolder(); } catch (_) { } if (!pickDir) return say("No folder picked.", true); }
     job = { running: true, cancel: false, done: 0, total: songs.length * mixes.length, files: [], notes: [], errors: [], share: [], folder: folder, where: where, started: Date.now() };
     var cancelled = function () { return job.cancel; }, lists = {};
     renderProgress();
-    if (driverOn()) { try { await fetch(MEDIA + "/practice/config", { method: "POST", body: JSON.stringify({ share: c.share, title: c.title }) }); } catch (_) { } }
+    if (driverOn()) { try { await fetch(MEDIA + "/practice/config", { method: "POST", body: JSON.stringify(shareCfg(c)) }); } catch (_) { } }
     try {
       for (var si = 0; si < songs.length; si++) {
         var s = songs[si]; job.song = s.name; job.mix = "loading the tracks"; renderProgress();
@@ -355,7 +357,8 @@
     if (isMac) dests.push(["folder", "A folder on this Mac…"]);
     if (!driverOn()) dests = [["download", shareFiles() ? "Save to Files or share them (a button at the end)" : "Download them"]];
     h += '<section><h3>Where they go</h3><div class="pm-grid"><label>Save to' + sel("dest", driverOn() ? c.dest : "download", dests) + "</label>" +
-      (!isMac ? "<label>Phones can open them" + sel("share", c.share, [["open", "Anyone on the church network"], ["code", "With the pairing code"], ["off", "No (not shared)"]]) + "</label>" +
+      (!isMac ? "<label>Phones can open them" + sel("share", c.share, [["open", "Anyone on the church network"], ["code", "With a practice code"], ["off", "No (not shared)"]]) + "</label>" +
+        (c.share === "code" ? '<label title="4-12 letters or numbers - give it to the band (it is not the pairing PIN)">Practice code <input data-pm="code" value="' + esc(c.code || (caps && caps.code) || "") + '" maxlength="12" pattern="[A-Za-z0-9]{4,12}"></label>' : "") +
         '<label>Page title <input data-pm="title" value="' + esc(c.title) + '" placeholder="Practice mixes"></label>' : "") + "</div>" +
       (driverOn() ? "" : '<p class="muted small">MP3s, the phones\' page and USB sticks need a Central Pedal or Central Pedal Control on a Mac; here they are WAV files.</p>') + "</section>";
     h += '<section><h3>Made so far</h3><div id="pmList" class="pm-list">' + listHtml() + "</div></section>";
@@ -395,9 +398,10 @@
   }
   function draw() { if (!dlg) return; var y = dlg.querySelector("form") ? dlg.querySelector("form").scrollTop : 0; dlg.innerHTML = html(); var f = dlg.querySelector("form"); if (f) f.scrollTop = y; renderProgress(); }
   function wire() {
+    dlg.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.tagName === "INPUT") e.preventDefault(); });   // (Enter would close the dialog)
     dlg.addEventListener("change", function (e) {
       var t = e.target, c = cfg();
-      if (t.dataset.pm) { var k = t.dataset.pm; c[k] = t.type === "checkbox" ? t.checked : t.type === "number" ? Number(t.value) : t.value; cfg(); PP.persistSoon(); if (/^(songs|tempoMode|keyMode|format|dest)$/.test(k)) draw(); else if (k === "share" || k === "title") pushShare(); return; }
+      if (t.dataset.pm) { var k = t.dataset.pm; c[k] = t.type === "checkbox" ? t.checked : t.type === "number" ? Number(t.value) : t.value; cfg(); PP.persistSoon(); if (/^(songs|tempoMode|keyMode|format|dest)$/.test(k)) draw(); else if (k === "share" || k === "title" || k === "code") { pushShare(); if (k === "share") draw(); } return; }
       if (t.dataset.pmSong) { var id = t.dataset.pmSong, i = c.picked.indexOf(id); if (t.checked && i < 0) c.picked.push(id); if (!t.checked && i >= 0) c.picked.splice(i, 1); PP.persistSoon(); draw(); return; }
       var row = t.closest("[data-mix]"); if (!row || !t.dataset.mx) return; var m = c.mixes[Number(row.dataset.mix)]; if (!m) return;
       if (t.dataset.mx === "on") { m.on = t.checked; draw(); }
@@ -426,7 +430,8 @@
     });
   }
   var shareTimer = 0;
-  function pushShare() { clearTimeout(shareTimer); shareTimer = setTimeout(function () { if (driverOn()) { var c = cfg(); fetch(MEDIA + "/practice/config", { method: "POST", body: JSON.stringify({ share: c.share, title: c.title }) }).catch(function () { }); } }, 400); }
+  function shareCfg(c) { var o = { share: c.share, title: c.title }; if (/^[A-Za-z0-9]{4,12}$/.test(c.code || "")) o.code = c.code; return o; }
+  function pushShare() { clearTimeout(shareTimer); shareTimer = setTimeout(function () { if (driverOn()) { fetch(MEDIA + "/practice/config", { method: "POST", body: JSON.stringify(shareCfg(cfg())) }).then(function (r) { return r.json(); }).then(function (j) { caps = j; }).catch(function () { }); } }, 400); }
 
   // the Tracks tab's button
   function addButton() {

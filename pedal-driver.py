@@ -257,7 +257,9 @@ def slug(text):
 def safe_name(name):
     name = os.path.basename(name or "").strip().replace("\\", "_")
     name = re.sub(r"[^A-Za-z0-9 ._\-()&'+#,]", "_", name)
-    return name[:120] or "file"
+    if not name.strip(". "):   # ("." and ".." are not names - they'd climb out of the folder)
+        return "file"
+    return name[:120]
 
 
 # ---------------------------------------------------------------------------
@@ -1333,6 +1335,8 @@ class LocalServer:
             def do_PUT(self):
                 url = urllib.parse.urlparse(self.path)
                 query = urllib.parse.parse_qs(url.query)
+                if url.path in ("/practice/file", "/split/upload") and not local_origin_ok(self.headers):
+                    return self.send_json(403, {"error": "only the app can do that"})
                 if url.path == "/practice/file":   # one practice mix (a WAV, or the playlist) from the app
                     q1 = lambda k, dflt="": (query.get(k) or [dflt])[0]
                     try:
@@ -1392,6 +1396,8 @@ class LocalServer:
             def do_POST(self):
                 url = urllib.parse.urlparse(self.path)
                 if url.path.startswith("/practice/") or url.path.startswith("/split/"):
+                    if not local_origin_ok(self.headers):
+                        return self.send_json(403, {"error": "only the app can do that"})
                     payload = self.json_body() or {}
                     pm, sp = driver.practice, driver.splitter
                     try:
@@ -1654,8 +1660,9 @@ class CompanionServer:
                 if p.startswith("/practice/"):   # practice mixes for the band's phones (a setting: open / pairing code / off)
                     pm = driver.practice
                     code = (urllib.parse.parse_qs(url.query).get("code") or [""])[0]
+                    ip = self.client_address[0] if self.client_address else ""
                     if p == "/practice/":
-                        body = pm.page(code).encode()
+                        body = pm.page(code, ip).encode()
                         self.send_response(200)
                         self.cors()
                         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -1664,8 +1671,8 @@ class CompanionServer:
                         if self.command != "HEAD":
                             self.wfile.write(body)
                         return
-                    if not pm.allowed(code):
-                        return self.send_json(403, {"error": "practice mixes need the pairing code"})
+                    if not pm.allowed(code, ip):
+                        return self.send_json(403, {"error": "practice mixes need the practice code"})
                     parts = [urllib.parse.unquote(x) for x in p[len("/practice/"):].split("/")]
                     f = pm.path(parts[0], parts[1]) if len(parts) == 2 else None
                     return self.send_file(f) if f else self.send_json(404, {"error": "no such file"})
@@ -3617,7 +3624,19 @@ def first_usb(media_roots):
                 full = os.path.join(root, d)
                 if os.path.isdir(full) and (os.path.ismount(full) or d.startswith("usb-")) and os.access(full, os.W_OK):
                     return full
+    if sys.platform == "darwin" and os.path.isdir("/Volumes"):   # (Central Pedal Control on a Mac: a stick shows up in /Volumes)
+        for d in sorted(os.listdir("/Volumes")):
+            full = os.path.join("/Volumes", d)
+            if os.path.ismount(full) and os.path.realpath(full) != "/" and not d.startswith(".") and d not in ("Macintosh HD", "Recovery", "Preboot", "VM", "Data") and os.access(full, os.W_OK):
+                return full
     return None
+
+
+def local_origin_ok(headers):
+    """Requests that change things on the local API (127.0.0.1:8766) must come from the app itself - not from
+    some other web page open in a browser on this computer (the API answers CORS for the app's own pages)."""
+    origin = (headers.get("Origin") or "").strip()
+    return origin in ("", "http://127.0.0.1:8766", "http://localhost:8766")
 
 
 class PracticeMixes:
@@ -3637,6 +3656,10 @@ class PracticeMixes:
         self.settings = read_json(self.settings_path, {}) or {}
         if self.settings.get("share") not in self.SHARES:
             self.settings["share"] = "open"
+        if not re.match(r"^[A-Za-z0-9]{4,12}$", str(self.settings.get("code") or "")):
+            self.settings["code"] = "%06d" % random.SystemRandom().randrange(1000000)   # the band's own code (not the pairing PIN)
+            write_json(self.settings_path, self.settings)
+        self.fails = {}
 
     def share(self):
         return self.settings.get("share", "open")
@@ -3647,17 +3670,22 @@ class PracticeMixes:
                 self.settings["share"] = patch["share"]
             if "title" in patch:
                 self.settings["title"] = str(patch.get("title") or "")[:80]
+            if re.match(r"^[A-Za-z0-9]{4,12}$", str(patch.get("code") or "")):
+                self.settings["code"] = str(patch["code"])
             write_json(self.settings_path, self.settings)
         return self.caps()
 
     def caps(self):
         return {"ffmpeg": shutil.which("ffmpeg") is not None, "usb": first_usb(self.driver.config.get("media_roots")) is not None,
-                "share": self.share(), "title": self.settings.get("title") or "", "lanPort": self.driver.config.get("lan_port"),
+                "share": self.share(), "title": self.settings.get("title") or "", "code": self.settings.get("code"), "lanPort": self.driver.config.get("lan_port"),
                 "folderCopy": PEDAL_CONTROL, "hostname": socket.gethostname()}
 
     def _dir(self, folder):
         folder = safe_name(folder or "Practice")
-        return folder, os.path.join(self.root, folder)
+        d = os.path.realpath(os.path.join(self.root, folder))
+        if os.path.dirname(d) != os.path.realpath(self.root):
+            raise ValueError("bad folder name")
+        return folder, d
 
     def path(self, folder, name):
         folder, d = self._dir(folder)
@@ -3755,11 +3783,23 @@ class PracticeMixes:
         out.sort(key=lambda e: -e["made"])
         return out
 
-    def allowed(self, code):
+    def allowed(self, code, ip=""):
         share = self.share()
-        return share == "open" or (share == "code" and self.driver.code_ok(code))
+        if share == "open":
+            return True
+        if share != "code" or not code:
+            return False
+        now = time.time()
+        recent = [t for t in self.fails.get(ip, []) if now - t < 300]
+        if len(recent) >= 10:   # (10 wrong codes in 5 minutes: wait)
+            self.fails[ip] = recent
+            return False
+        if hmac.compare_digest(str(code), str(self.settings.get("code") or "")):
+            return True
+        self.fails[ip] = recent + [now]
+        return False
 
-    def page(self, code=""):
+    def page(self, code="", ip=""):
         esc = lambda s: str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
         title = esc(self.settings.get("title") or "Practice mixes")
         head = ('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -3769,8 +3809,8 @@ class PracticeMixes:
                 "input,button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid #2b3d55;background:#122033;color:inherit}</style></head><body>")
         if self.share() == "off":
             return head + "<h1>" + title + "</h1><p>Practice mixes aren't shared from this Central Pedal.</p></body></html>"
-        if not self.allowed(code):
-            return head + "<h1>" + title + "</h1><form><p>Type the pairing code shown on the Central Pedal.</p><input name=code inputmode=numeric autofocus> <button>Open</button></form></body></html>"
+        if not self.allowed(code, ip):
+            return head + "<h1>" + title + "</h1><form><p>" + ("Wrong code - " if code else "") + "Type the practice code (the music director has it).</p><input name=code inputmode=numeric autofocus> <button>Open</button></form></body></html>"
         q = ("?code=" + urllib.parse.quote(code)) if code and self.share() == "code" else ""
         body = "<h1>" + title + "</h1>"
         folders = self.listing()
@@ -3814,7 +3854,7 @@ class StemSplitter:
 
     def command(self):
         """The Demucs command (a list), or None when it isn't installed."""
-        custom = os.environ.get("CC_DEMUCS_CMD") or self.cfg.get("command") or ""
+        custom = os.environ.get("CC_DEMUCS_CMD") or ""   # (only from the environment: never from a request)
         if custom.strip():
             import shlex
             return shlex.split(custom, posix=os.name != "nt")
@@ -3850,16 +3890,20 @@ class StemSplitter:
     def status(self):
         with self.lock:
             jobs = [self._public(j) for j in self.jobs.values()]
-        return {"installed": self.command() is not None, "custom": bool(os.environ.get("CC_DEMUCS_CMD") or self.cfg.get("command")),
+        envdir = os.path.join(self.root, "env")
+        return {"installed": self.command() is not None, "custom": bool(os.environ.get("CC_DEMUCS_CMD")), "partial": os.path.isdir(envdir) and self.command() is None,
                 "install": dict(self.install_state, log=self.install_state["log"][-2500:]), "devices": self.devices(), "models": list(self.MODELS),
                 "slow": self.slow(), "memoryGb": self.memory_gb(), "platform": sys.platform, "jobs": jobs,
-                "settings": {"command": self.cfg.get("command") or "", "packages": self.cfg.get("packages") or "", "python": self.cfg.get("python") or "3.11"}}
+                "settings": {"packages": self.cfg.get("packages") or "", "python": self.cfg.get("python") or "3.11"}}
 
     def configure(self, patch):
         if isinstance(patch, dict):
-            for k in ("command", "packages", "python"):
-                if k in patch:
-                    self.cfg[k] = str(patch.get(k) or "").strip()[:400]
+            if "packages" in patch:   # PyPI names and versions only (no URLs, paths or options)
+                pk = str(patch.get("packages") or "").split()
+                if all(re.match(r"^[A-Za-z0-9_.\-]+(\[[A-Za-z0-9_,\-]+\])?([=<>!~]=?[A-Za-z0-9_.*+\-]+)?(,[=<>!~]=?[A-Za-z0-9_.*+\-]+)*$", x) for x in pk):
+                    self.cfg["packages"] = " ".join(pk)[:400]
+            if "python" in patch and re.match(r"^3\.\d{1,2}$", str(patch.get("python") or "")):
+                self.cfg["python"] = str(patch["python"])
             write_json(self.cfg_path, self.cfg)
         return self.status()
 
@@ -3935,6 +3979,7 @@ class StemSplitter:
                 uv = self._uv()
                 env = dict(os.environ, UV_CACHE_DIR=os.path.join(self.root, "cache"), UV_PYTHON_INSTALL_DIR=os.path.join(self.root, "python"))
                 envdir = os.path.join(self.root, "env")
+                shutil.rmtree(envdir, ignore_errors=True)   # (what a failed try left behind)
                 self.install_state["step"] = "Setting up Python"
                 self._run([uv, "venv", "--python", self.cfg.get("python") or "3.11", "--seed", envdir], env)
                 py = self.env_python()
@@ -3972,9 +4017,20 @@ class StemSplitter:
         return self.status()
 
     # ----- splitting
+    def prune(self, days=2):
+        """Uploaded songs and split files nobody fetched, older than a couple of days (the SD card is small)."""
+        live = set(self.jobs)
+        for sub in ("in", "out"):
+            base = os.path.join(self.root, sub)
+            for d in os.listdir(base) if os.path.isdir(base) else []:
+                p = os.path.join(base, d)
+                if d not in live and os.path.isdir(p) and time.time() - os.path.getmtime(p) > days * 86400:
+                    shutil.rmtree(p, ignore_errors=True)
+
     def upload(self, name, data):
         if not data:
             raise ValueError("empty file")
+        self.prune()
         d = os.path.join(self.root, "in", secrets.token_hex(6))
         os.makedirs(d, exist_ok=True)
         path = os.path.join(d, safe_name(name))
@@ -3993,7 +4049,7 @@ class StemSplitter:
     def args_for(self, opts, src, out):
         model = opts.get("model") if opts.get("model") in self.MODELS else "htdemucs"
         a = ["-n", model, "-o", out, "--filename", "{stem}.{ext}"]
-        shifts = max(0, min(20, int(opts.get("shifts") or 1)))
+        shifts = max(0, min(20, int(opts["shifts"]) if opts.get("shifts") not in (None, "") else 1))
         a += ["--shifts", str(shifts)]
         overlap = float(opts.get("overlap") if opts.get("overlap") is not None else 0.25)
         a += ["--overlap", "%.2f" % max(0.0, min(0.99, overlap))]
@@ -4033,7 +4089,7 @@ class StemSplitter:
         os.makedirs(out, exist_ok=True)
         model = opts.get("model") if opts.get("model") in self.MODELS else "htdemucs"
         job = {"id": jid, "name": os.path.basename(src), "state": "running", "progress": 0.0, "model": model, "opts": opts,
-               "files": [], "error": "", "started": time.time(), "out": out, "proc": None, "log": "", "bags": self.BAGS.get(model, 1) * max(1, int(opts.get("shifts") or 1))}
+               "files": [], "error": "", "started": time.time(), "out": out, "proc": None, "log": "", "bags": self.BAGS.get(model, 1) * max(1, int(opts["shifts"]) if opts.get("shifts") not in (None, "") else 1)}
         with self.lock:
             self.jobs[jid] = job
         argv = cmd + self.args_for(opts, src, out)
@@ -4067,6 +4123,7 @@ class StemSplitter:
                     buf += ch
             proc.wait()
             if job["state"] == "cancelled":
+                shutil.rmtree(job["out"], ignore_errors=True)
                 return
             files = []
             for base, _dirs, names in os.walk(job["out"]):
@@ -4098,10 +4155,10 @@ class StemSplitter:
         return {"ok": bool(job)}
 
     def forget(self, jid):
+        self.cancel(jid)
         with self.lock:
             job = self.jobs.pop(str(jid), None)
         if job:
-            self.cancel(jid)
             shutil.rmtree(job["out"], ignore_errors=True)
         return {"ok": bool(job)}
 
@@ -4113,7 +4170,12 @@ class StemSplitter:
         return p if p.startswith(os.path.realpath(job["out"]) + os.sep) and os.path.isfile(p) else None
 
     def _public(self, job):
-        return {k: v for k, v in job.items() if k not in ("proc", "out")}
+        for _ in range(5):   # (the worker may add a key meanwhile)
+            try:
+                return {k: v for k, v in list(job.items()) if k not in ("proc", "out")}
+            except RuntimeError:
+                time.sleep(0.01)
+        return {"id": job.get("id"), "state": job.get("state")}
 
     def _emit_job(self, job, force=False):
         now = time.time()
