@@ -25,6 +25,7 @@
 
   var root = null, visible = false, lastKey = "", armed = { key: "", at: 0 }, tuner = { note: "–", cents: null }, ready = null;
   var locked = store("cp-service-lock") === "1";
+  function note(kind, extra) { if (window.PPReport) window.PPReport.log(kind, extra); }
 
   // ------------------------------------------------------------- the screen
   function build() {
@@ -144,6 +145,7 @@
     var c = sys.center || (bridge() && bridge().info && bridge().info.center); if (c && c.paired) chips.push('<span class="lv-st" title="Paired with the main admin">🔗 ' + esc(c.name || "Main admin") + "</span>");
     var rs = ready ? ready.summary : null;
     $("#lvStatus").innerHTML = (locked ? '<b class="lv-brand">SERVICE</b>' : "") + chips.join("") + '<span class="lv-sp"></span>' +
+      '<button class="lv-st btn" data-lv="report" title="What played, when, any dropouts">📋 Report</button>' +
       '<button class="lv-st btn ' + (rs ? rs.level : "") + '" data-lv="ready">' + (rs ? rs.label : "Ready check") + "</button>" +
       '<button class="lv-st btn lock' + (locked ? " on" : "") + '" data-lv="lock">' + (locked ? "🔒 Service lock on" : "🔓 Lock for service") + "</button>";
   }
@@ -185,7 +187,7 @@
     if (engine.voices().length) { any = true; fadePads(seconds); }
     var L = window.PPLooper; if (L && L.state && L.state().state === "playing") L.stop();
     if (!any) { PP.setStatus("Nothing is playing"); return; }
-    PP.setStatus("Safe stop: fading out…");
+    PP.setStatus("Safe stop: fading out…"); note("safeStop");
     safeStop.timer = setTimeout(function () { finishSafeStop(false); }, seconds * 1000 + 80);
     renderTransport();
   }
@@ -203,6 +205,7 @@
   // ------------------------------------------------------------- service lock
   var BLOCKED = { tab: 1, performEdit: 1, showMixer: 1, toggleTracks: 1, instrumentAuto: 1, instrumentKind: 1 };
   function setLocked(on) {
+    if (!!on !== locked) note(on ? "lock" : "unlock");
     locked = !!on; store("cp-service-lock", locked ? "1" : null);
     if (locked && window.PPShell && window.PPShell.currentTab() !== "live") window.PPShell.showTab("live");
     document.querySelectorAll("dialog[open]").forEach(function (d) { if (locked) try { d.close(); } catch (_) { } });
@@ -226,6 +229,7 @@
     a.run = function (name, args, info) {
       if (locked && BLOCKED[name] && !(name === "tab" && args && args.tab === "live")) { lockedNotice(); return true; }
       if (/^(playAll|playPauseAll|playPause|playTracks|nextSongPlay|segueNow)$/.test(name)) cancelSafeStop();
+      if (name === "panic") note("panic");
       return run.call(a, name, args, info);
     };
     a.ACTIONS.safeStop = { id: "safeStop", label: "Safe stop: fade tracks and pads out (again = now)", group: "Transport", kind: "trigger", run: function () { safeStop(); } };
@@ -291,7 +295,7 @@
   }
   function openReady() {
     if (connected()) F.sendToDriver({ type: "system", action: "status" });
-    ready = runChecks(); renderStatus(); drawReady();
+    ready = runChecks(); renderStatus(); drawReady(); note("ready", { summary: ready.summary.label });
     setTimeout(function () { if (!$("#lvReady").classList.contains("hidden")) { ready = runChecks(); renderStatus(); drawReady(); } }, 1500);   // (the Pi's numbers arrive)
   }
   function drawReady() {
@@ -336,6 +340,7 @@
     else if (a === "setlist") { F.openSetlist(); return; }
     else if (a === "lock") { if (locked) unlock(); else setLocked(true); return; }
     else if (a === "ready" || a === "readyAgain") { openReady(); return; }
+    else if (a === "report") { if (window.PPReport) window.PPReport.open(); return; }
     else if (a === "readyClose") { $("#lvReady").classList.add("hidden"); return; }
     else if (a === "lockGo") { $("#lvReady").classList.add("hidden"); setLocked(true); return; }
     else if (a === "fix") { fix(ready && ready.items[i]); return; }

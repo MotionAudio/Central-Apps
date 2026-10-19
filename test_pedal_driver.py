@@ -974,6 +974,24 @@ async def main():
         hl = (st2 or {}).get("health") or {}
         check("Ready check: the status carries the Pi's health (free storage, memory) and the pairing with the main admin",
               isinstance(hl.get("diskFreeMB"), int) and hl.get("diskFreeMB") > 0 and isinstance(hl.get("memFreeMB"), int) and "center" in (st2 or {}), hl)
+        now_t = time.time()
+        await send({"type": "serviceLog", "action": "add", "events": [
+            {"kind": "play", "t": now_t, "song": "Firm Foundation", "key": "C", "bpm": 70, "pos": 0},
+            {"kind": "end", "t": now_t + 240, "song": "Firm Foundation", "pos": 240},
+            {"kind": "bogus", "t": now_t}, {"kind": "note", "t": now_t, "evil key!": "x", "text": "y" * 500}]})
+        await asyncio.sleep(0.2)
+        await send({"type": "serviceLog", "action": "days"})
+        sd = await next_message(lambda m: m["type"] == "serviceLogDays", 4.0)
+        today = time.strftime("%Y-%m-%d", time.localtime(now_t))
+        await send({"type": "serviceLog", "action": "get", "day": today})
+        sg = await next_message(lambda m: m["type"] == "serviceLogDay", 4.0)
+        evs = (sg or {}).get("events") or []
+        check("service report: events are kept per day (unknown kinds and keys dropped, text cut short) and read back",
+              sd and any(d["day"] == today and d["songs"] == 1 for d in sd["days"]) and [e["kind"] for e in evs] == ["play", "end", "note"]
+              and evs[0]["song"] == "Firm Foundation" and "evil key!" not in evs[2] and len(evs[2]["text"]) == 120, (sd, evs))
+        await send({"type": "serviceLog", "action": "get", "day": "../../etc/passwd"})
+        bad = await next_message(lambda m: m["type"] == "serviceLogDay", 4.0)
+        check("...and a bad day name reads nothing", bad and bad["events"] == [], bad)
         await send({"type": "serviceLock", "on": True})
         await asyncio.sleep(0.1)
         check("the LIVE screen's service lock reaches the driver (the small screen shows LOCKED)", getattr(driver, "service_lock", None) is True, getattr(driver, "service_lock", None))

@@ -3480,6 +3480,106 @@ SERVICE_ROLES = ("lighting", "production", "slides", "lyrics", "mix", "inears", 
 SERVICE_KINDS = ("song", "prayer", "welcome", "announcements", "offering", "sermon", "communion", "video", "other")
 
 
+class ServiceLog:
+    """The service report: what the app did on each day (songs, play / stop, sections, Safe Stop, the lock, audio
+    dropouts), one JSON line per event in <data>/service-log/YYYY-MM-DD.jsonl (local date), each with the Pi's
+    temperature then. Kept for 120 days."""
+
+    KEEP_DAYS = 120
+    KINDS = ("song", "play", "pause", "stop", "end", "section", "jump", "vamp", "safeStop", "panic", "lock", "unlock",
+             "dropout", "health", "segue", "ready", "note")
+
+    def __init__(self, folder):
+        self.folder = folder
+        self.lock = threading.Lock()
+
+    def day_of(self, t):
+        return time.strftime("%Y-%m-%d", time.localtime(t))
+
+    def add(self, event):
+        if not isinstance(event, dict) or event.get("kind") not in self.KINDS:
+            return False
+        rec = {"kind": event["kind"]}
+        try:
+            t = float(event.get("t") or time.time())
+        except (TypeError, ValueError):
+            t = time.time()
+        if abs(t - time.time()) > 7 * 86400:
+            t = time.time()
+        rec["t"] = round(t, 2)
+        for k, v in event.items():
+            if k in ("kind", "t") or not re.match(r"^[a-zA-Z]{1,16}$", str(k)):
+                continue
+            if isinstance(v, (int, float, bool)) or v is None:
+                rec[k] = v
+            elif isinstance(v, str):
+                rec[k] = v[:120]
+        health = pi_health_quick()
+        if rec["kind"] == "health" and shutil.which("vcgencmd"):
+            _code, text, _err = run(["vcgencmd", "get_throttled"], timeout=3)
+            m = re.search(r"0x([0-9a-fA-F]+)", text or "")
+            if m:
+                bits = int(m.group(1), 16)
+                health["underVoltage"] = bool(bits & 0x1)
+                health["throttled"] = bool(bits & 0x6)
+        for k, v in health.items():
+            rec.setdefault(k, v)
+        try:
+            os.makedirs(self.folder, exist_ok=True)
+            with self.lock, open(os.path.join(self.folder, self.day_of(t) + ".jsonl"), "a") as fh:
+                fh.write(json.dumps(rec) + "\n")
+        except OSError as error:
+            log.debug("service log: %s", error)
+            return False
+        return True
+
+    def days(self):
+        try:
+            names = sorted((n[:-6] for n in os.listdir(self.folder) if re.match(r"^\d{4}-\d{2}-\d{2}\.jsonl$", n)), reverse=True)
+        except OSError:
+            return []
+        for old in names[self.KEEP_DAYS:]:
+            try:
+                os.remove(os.path.join(self.folder, old + ".jsonl"))
+            except OSError:
+                pass
+        out = []
+        for d in names[: self.KEEP_DAYS]:
+            try:
+                with open(os.path.join(self.folder, d + ".jsonl")) as fh:
+                    lines = fh.read().splitlines()
+                out.append({"day": d, "events": len(lines), "songs": sum(1 for l in lines if '"kind": "play"' in l)})
+            except OSError:
+                pass
+        return out
+
+    def get(self, day):
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(day or "")):
+            return []
+        out = []
+        try:
+            with open(os.path.join(self.folder, day + ".jsonl")) as fh:
+                for line in fh:
+                    try:
+                        out.append(json.loads(line))
+                    except ValueError:
+                        pass
+        except OSError:
+            pass
+        return out
+
+
+def pi_health_quick():
+    """Temperature (and under-voltage when vcgencmd is there) for each service-log line."""
+    out = {}
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp") as fh:
+            out["tempC"] = round(int(fh.read().strip()) / 1000, 1)
+    except (OSError, ValueError):
+        pass
+    return out
+
+
 class ServicePlan:
     """Up to 4 services (e.g. Sunday 9:00, Sunday 11:00, Wednesday, Youth), each a run order of items with
     minutes and the roles each item uses (lighting, production/cameras, slides, lyrics, mix, in-ears, band).
@@ -4189,6 +4289,7 @@ class PedalDriver:
         self.cu_roles = CuRoles(self, os.path.join(data_root, "cu-roles.json"))
         self.service_plan = ServicePlan(self, os.path.join(data_root, "services.json"))
         self.center_link = CenterLink(self, os.path.join(data_root, "center.json"))
+        self.service_log = ServiceLog(os.path.join(data_root, "service-log"))
         self.sync = SongSync(self)
         self.hub_dir = os.path.join(data_root, "hub")
         self.slides_dir = os.path.join(data_root, "slides")
@@ -4556,6 +4657,15 @@ class PedalDriver:
             # what a touch-select knob holds right now (shown on the 3.5" screen)
             self.touch_select = {k: message.get(k) for k in ("knob", "label", "value", "pickup")} if message.get("label") else None
             self.schedule_mini_render()
+        elif kind == "serviceLog":   # the service report (js/report.js)
+            action = message.get("action")
+            if action == "add":
+                for ev in (message.get("events") or [])[:200]:
+                    self.service_log.add(ev)
+            elif action == "days":
+                self.send_to(ws, {"type": "serviceLogDays", "days": self.service_log.days()})
+            elif action == "get":
+                self.send_to(ws, {"type": "serviceLogDay", "day": message.get("day"), "events": self.service_log.get(message.get("day"))})
         elif kind == "serviceLock":   # the LIVE screen's service lock: shown on the small screen
             self.service_lock = bool(message.get("on"))
             self.schedule_mini_render()

@@ -840,6 +840,14 @@ await check("Ready check: one list of what is fine and what to fix (sound, outpu
   assert.match(r.summary, /Ready|to check|problem/);
   await T(() => document.querySelector('[data-lv="readyClose"]').click());
 });
+await check("service report: today's songs (when, how long, how each ended, its sections), Safe Stop and the lock are written down and shown", async () => {
+  await T(() => PPReport.flush()); await wait(600);
+  await T(() => document.querySelector('[data-lv="report"]').click());
+  await until(() => T(() => document.querySelectorAll("#lvReport .rp-songs tbody tr").length >= 1), 10000);
+  const txt = await T(() => PPReport.text());
+  assert.match(txt, /Songs played: [1-9]/); assert.match(txt, /Safe Stop/); assert.match(txt, /Service lock on/); assert.match(txt, /▶ Play/);
+  await T(() => document.querySelector('#lvReport [data-rp="close"]').click());
+});
 await check("LIVE: the tuner opens on the LIVE screen itself (no tab change) and closes when leaving it", async () => {
   await T(() => { if (PPInstrument.kind() === "off" || PPInstrument.kind() === "keys") PPInstrument.setKind("electric"); PPShell.showTab("live"); });
   await until(() => T(() => !!document.querySelector('[data-lv="tuner"]')));

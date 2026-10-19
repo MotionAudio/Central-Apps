@@ -18,6 +18,8 @@ Pedal plays, stops and skips the tracks.
   song, the pads, the instrument with its tuner, meters, and the Pi's temperature (°F).
 - **Service lock:** while the service runs only playing works - the other tabs, the mixer and tracks mode are locked
   until the Central Pedal's PIN unlocks it (it stays locked through a restart).
+- **Service report:** LIVE → 📋 Report - what played on a day and when, how long, how each song ended, its
+  sections, safe stops, audio dropouts and the hottest temperature (°F); download it as text.
 - **Ready check** before the service: the sound, the outputs (the click only to the in-ears), every song's tracks and
   sections, the Pi's temperature, power, storage and memory, the pairing - green "Ready" or a list of what to fix.
 - **MultiTracks.com / Loop Community (Prime) downloads:** the WAV stems become a song with its **sections read from the
@@ -254,6 +256,11 @@ Along the top: the Pi's temperature in °F, low power, the outputs, the pairing 
   mapped to them do nothing); playing, sections, pads, the instrument and the tuner work. Unlock with the Central
   Pedal's pairing PIN. The small screen shows LOCKED. Also as a button action *Service lock on*; *Safe stop* is an
   action too.
+- **📋 Report:** the Central Pedal writes down what happens (songs loaded, played, stopped or played to the end,
+  sections, jumps, Vamp, Safe Stop, the lock, audio dropouts, and the Pi's temperature and power every minute while
+  playing) in `/data/pad-pedal/service-log/` (one file per day, 120 days). The report for a day: songs played,
+  playing time, stopped early, safe stops, dropouts, the hottest temperature; each song with its time, how long,
+  its sections and how it ended; and everything minute by minute. **⬇ Download** saves it as text.
 
 ### Pad
 The pad instrument. 8 pads per song (tap to crossfade, tap again to fade
