@@ -37,6 +37,15 @@ for (const [slug, g] of Object.entries(sheet)) for (const dir of ["server/public
 for (const [slug, g] of Object.entries(sheet)) for (const dir of ["server/public/brand", "docs/brand/tile"]) fs.writeFileSync(P(dir, "glyph-" + slug + ".svg"), icon(g, 100, "plain", slug.replace(/-/g, "") + "_g_"));
 for (const dir of ["server/public", "docs"]) { fs.writeFileSync(P(dir, "favicon.svg"), icon("mark", 64, "square")); await shot(P(dir, "apple-touch-icon.png"), 180, 180, icon("mark", 180, "square")); }
 
+// ---- the picture a shared link shows (Open Graph / iMessage / Slack / Facebook)
+{
+  const tiles = ["pedal", "pedalControl", "control", "usage", "services"].map((g, i) => icon(g, 112, "legacy", "og" + i)).join("");
+  await shot(P("server/public/og.png"), 1200, 630, `<div style="position:absolute;inset:0;background:radial-gradient(90% 120% at 80% 0%,#262C35 0%,${C.bg} 62%);color:${C.ink};font-family:Archivo;padding:76px 84px;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:22px">${icon("mark", 64, "plain", "ogm")}<span style="font-weight:650;font-size:40px;font-stretch:122%;letter-spacing:-.01em">Motion Audio</span></div>
+    <div style="margin-top:58px;font-weight:600;font-size:66px;line-height:1.04;font-stretch:116%;letter-spacing:-.022em;max-width:17ch">The whole worship team, run from one pedal.</div>
+    <div style="margin-top:auto;display:flex;gap:18px">${tiles}</div></div>`);
+}
+
 // ---- desktop apps (electron-builder makes .ico / .icns from these)
 await shot(P("central-pedal-control/build/icon.png"), 1024, 1024, icon("pedalControl", 1024, "mac"), true);
 await shot(P("central-usage/build/icon.png"), 1024, 1024, icon("control", 1024, "mac"), true);

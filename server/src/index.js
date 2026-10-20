@@ -243,6 +243,12 @@ api.post("/admin/tracks/:id/status", requireUser, wrap(async (req, res) => {
 
 app.use("/v1", api);
 app.get("/health", (_req, res) => { res.setHeader("Access-Control-Allow-Origin", "*"); res.json({ ok: true, payments: !!pay.stripe, storage: store.usingR2 ? "r2" : "local" }); });   // (the apps' "is the internet there?")
+// the home page with the site's own address filled in (the picture a shared link shows needs a full address)
+let homeHtml = null;
+app.get(["/", "/index.html"], (_req, res, next) => {
+  try { if (!homeHtml) homeHtml = fs.readFileSync(path.join(here, "..", "public", "index.html"), "utf8").replace(/%PUBLIC_URL%/g, config.publicUrl); } catch (_) { return next(); }
+  res.setHeader("Content-Type", "text/html; charset=utf-8"); res.setHeader("Cache-Control", "no-cache"); res.send(homeHtml);
+});
 app.use(express.static(path.join(here, "..", "public"), { extensions: ["html"] }));
 
 app.use((err, req, res, _next) => {

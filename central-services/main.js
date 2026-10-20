@@ -38,7 +38,7 @@ ipcMain.handle("update-install", async () => {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1180, height: 820, minWidth: 380, minHeight: 520, title: "Central Services", backgroundColor: "#0b1220", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: true,
+    width: 1180, height: 820, minWidth: 380, minHeight: 520, title: "Central Services", backgroundColor: "#111317", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true }
   });
   win.loadFile(path.join(SRC, "index.html"));

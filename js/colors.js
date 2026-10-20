@@ -23,10 +23,10 @@
   var PAD_DEFAULTS = ["#5de6b0", "#75adff", "#d7a8ff", "#ffb45c", "#ff7a8a", "#4fd1e8", "#e7c53c", "#9aa7ff"];
   // screen colours: [css variable, label, default]
   var SCREEN = [
-    ["bg", "Background", "#08111d"], ["panel", "Panels", "#101e31"], ["panel2", "Buttons", "#152a43"], ["line", "Lines / borders", "#294966"],
-    ["text", "Text", "#ecf7ff"], ["muted", "Small text", "#9bb2c9"], ["accent", "Accent (on / play)", "#5de6b0"], ["accentText", "Text on the accent", "#062218"],
-    ["blue", "Second accent", "#75adff"], ["danger", "Stop / warning", "#ff7878"], ["field", "Boxes you type in", "#091727"],
-    ["meterMid", "Meters: loud", "#ffd765"], ["wave", "Waveform", "#ecf7ff"], ["playhead", "Playhead", "#ffffff"], ["hit", "Hits on the timeline", "#ffd765"]
+    ["bg", "Background", "#111317"], ["panel", "Panels", "#1a1d22"], ["panel2", "Buttons", "#23272e"], ["line", "Lines / borders", "#343a44"],
+    ["text", "Text", "#ece7dd"], ["muted", "Small text", "#9aa1ab"], ["accent", "Accent (on / play)", "#e2c27e"], ["accentText", "Text on the accent", "#1a1408"],
+    ["blue", "Second accent", "#8db5de"], ["danger", "Stop / warning", "#ef6b63"], ["field", "Boxes you type in", "#0e1013"],
+    ["meterMid", "Meters: loud", "#f5cf72"], ["wave", "Waveform", "#ece7dd"], ["playhead", "Playhead", "#ffffff"], ["hit", "Hits on the timeline", "#f5cf72"]
   ];
 
   function store() { var p = project(); p.colors = p.colors || {}; p.colors.sections = p.colors.sections || {}; p.colors.pads = p.colors.pads || []; return p.colors; }

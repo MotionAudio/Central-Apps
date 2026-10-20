@@ -37,7 +37,7 @@
     if (!Array.isArray(c.pages) || !c.pages.length) c.pages = [{ name: "Service" }];
     if (c.page == null || c.page >= c.pages.length) c.page = 0;
     if (!c.keys || typeof c.keys !== "object") c.keys = {};
-    if (!c.colors) c.colors = { idle: "#152a43", on: "#5de6b0", blank: "#000000", text: "#ecf7ff", textOn: "#062218" };
+    if (!c.colors) c.colors = { idle: "#23272e", on: "#e2c27e", blank: "#000000", text: "#ece7dd", textOn: "#1a1408" };
     if (c.rotation == null) c.rotation = "auto";   // auto | 0 | 90 | 180 | 270
     if (c.flip == null) c.flip = "auto";           // auto | none | h | v | both
     if (c.labels == null) c.labels = true;

@@ -6,8 +6,8 @@
 <title>Central Pedal mini</title>
 <style>
   /* The same layout the 3.5" screen shows, scaled to any screen (HDMI 1 "big version" or a tablet). */
-  :root { --bg:#08111d; --bar:#101e31; --text:#ecf7ff; --muted:#9bb2c9; --accent:#5de6b0; --idle:#162a42; --sel:#1f446e; --play:#22805c; --stop:#60222e; --line:#294966; }
-  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; cursor:none; }
+  :root { --bg:#111317; --bar:#1A1D22; --text:#ECE7DD; --muted:#9AA1AB; --accent:#E2C27E; --idle:#162a42; --sel:#1f446e; --play:#22805c; --stop:#60222e; --line:#343A44; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:Archivo,Inter,ui-sans-serif,system-ui,sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; cursor:none; }
   body.show-cursor { cursor:auto; }
   .screen { position:fixed; inset:0; display:grid; grid-template-rows:14% 1fr; }
   .bar { background:var(--bar); display:flex; align-items:center; padding:0 2vw; gap:3vw; }
@@ -21,8 +21,8 @@
   .pad.selected { background:var(--sel); } .pad.playing { background:var(--play); border-color:var(--accent); } .pad.playing small { color:var(--accent); }
   .pad.stop { background:var(--stop); border-color:#82414b; justify-content:center; align-items:center; font-weight:800; font-size:4vh; }
   .btns { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(4,1fr); gap:1vh; min-height:0; }
-  .btns button { border:1px solid var(--line); border-radius:1.6vh; background:#152a43; color:var(--text); font-size:2.9vh; font-weight:700; min-height:0; padding:0 1vh; }
-  .btns button.on { background:var(--accent); color:#062218; }
+  .btns button { border:1px solid var(--line); border-radius:1.6vh; background:#23272E; color:var(--text); font-size:2.9vh; font-weight:700; min-height:0; padding:0 1vh; }
+  .btns button.on { background:var(--accent); color:#1A1408; }
   button:active { transform:scale(.97); }
 </style>
 </head>

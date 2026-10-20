@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Central Pedal stage</title>
 <style>
-  :root { --fg:#fff; --bg:#000; --dim:rgba(255,255,255,.45); --accent:#5de6b0; --blue:#75adff; --warn:#ffd765; }
-  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; cursor:none; }
+  :root { --fg:#fff; --bg:#000; --dim:rgba(255,255,255,.45); --accent:#E2C27E; --blue:#8DB5DE; --warn:#F5CF72; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:Archivo,Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; cursor:none; }
   body.show-cursor { cursor:auto; }
   .wrap { position:fixed; inset:0; display:grid; grid-template-rows:auto 1fr auto; padding:3vh 4vw; gap:2vh; }
   .top { display:flex; align-items:baseline; justify-content:space-between; gap:3vw; }
@@ -14,7 +14,7 @@
   .meta { font-size:3vh; color:var(--dim); white-space:nowrap; } .meta b { color:var(--fg); }
   .mid { display:grid; grid-template-columns:1.3fr 1fr; gap:4vw; align-items:center; min-height:0; }
   .now { display:grid; gap:1.5vh; }
-  .note { font-size:3.4vh; font-weight:700; color:#ffd765; min-height:1em; }
+  .note { font-size:3.4vh; font-weight:700; color:#F5CF72; min-height:1em; }
   .label { font-size:2.4vh; letter-spacing:.25em; text-transform:uppercase; color:var(--dim); }
   .section { font-size:12vh; font-weight:900; line-height:1; letter-spacing:-.02em; }
   .count { font-size:6vh; color:var(--dim); font-variant-numeric:tabular-nums; } .count b { color:var(--warn); font-size:9vh; font-weight:900; }
@@ -27,7 +27,7 @@
   .beats { display:flex; gap:1.2vh; } .beat { width:5vh; height:5vh; border-radius:50%; border:.4vh solid var(--dim); transition:background .06s, transform .06s; } .beat.on { background:var(--accent); border-color:var(--accent); transform:scale(1.15); } .beat.down.on { background:var(--warn); border-color:var(--warn); }
   .bar { height:1.6vh; border-radius:1vh; background:rgba(255,255,255,.12); overflow:hidden; position:relative; } .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--accent); } .bar s { position:absolute; top:0; bottom:0; width:.3vh; background:rgba(255,255,255,.35); }
   .time { font-size:3.4vh; font-variant-numeric:tabular-nums; color:var(--dim); } .time b { color:var(--fg); }
-  .flow { display:flex; flex-wrap:wrap; gap:.8vh; font-size:2.2vh; } .flow span { padding:.4vh 1.4vh; border-radius:99px; border:.25vh solid rgba(255,255,255,.2); color:var(--dim); } .flow span.cur { background:var(--blue); color:#071321; border-color:var(--blue); font-weight:800; } .flow span.past { opacity:.35; }
+  .flow { display:flex; flex-wrap:wrap; gap:.8vh; font-size:2.2vh; } .flow span { padding:.4vh 1.4vh; border-radius:99px; border:.25vh solid rgba(255,255,255,.2); color:var(--dim); } .flow span.cur { background:var(--blue); color:#0B0D10; border-color:var(--blue); font-weight:800; } .flow span.past { opacity:.35; }
   .idle { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:2vh; } .idle b { font-size:6vh; } .idle span { color:var(--dim); font-size:3vh; }
   .status { position:fixed; right:1.2vh; bottom:1vh; font-size:1.6vh; color:var(--dim); opacity:.7; }
   .stopped .section { color:var(--dim); }

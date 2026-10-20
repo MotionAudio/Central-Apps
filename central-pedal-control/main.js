@@ -59,7 +59,7 @@ async function startDriver() {
 
 function createWindow(url) {
   win = new BrowserWindow({
-    width: 1366, height: 860, minWidth: 900, minHeight: 600, title: "Central Pedal Control", backgroundColor: "#08111d", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: true,
+    width: 1366, height: 860, minWidth: 900, minHeight: 600, title: "Central Pedal Control", backgroundColor: "#111317", icon: path.join(__dirname, "build", "icon.png"), autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, backgroundThrottling: false }
   });
   win.loadURL(url);

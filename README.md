@@ -190,7 +190,9 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.1.1 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.1.2 and earlier)</summary>
+
+**New in version 9.1.2:** Central Pedal, Central Pedal Control and Central Services in the new look (Studio is the standard look); link previews for the website.
 
 **New in version 9.1.1:**
 - **A new look:** the Motion Audio mark, new icons for all five apps, one typeface (Archivo).

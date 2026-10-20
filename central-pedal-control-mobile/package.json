@@ -1,7 +1,7 @@
 {
   "name": "central-pedal-control-mobile",
   "private": true,
-  "version": "9.1.1",
+  "version": "9.1.2",
   "description": "Central Pedal Control for iPhone, iPad and Android: the Central Pedal app on a phone or tablet - set up songs, tracks, pads and controls, then upload them to the Central Pedal.",
   "license": "MIT",
   "scripts": {

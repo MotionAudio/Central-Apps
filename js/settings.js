@@ -14,6 +14,7 @@
 
   // ------------------------------------------------------------- appearance
   var PRESETS = [
+    { name: "Studio", theme: { bg: "#111317", panel: "#1a1d22", text: "#ece7dd", accent: "#e2c27e", blue: "#8db5de", line: "#343a44" } },
     { name: "Midnight", theme: { bg: "#08111d", panel: "#101e31", text: "#ecf7ff", accent: "#5de6b0", blue: "#75adff", line: "#294966" } },
     { name: "Worship warm", theme: { bg: "#140f0c", panel: "#241a14", text: "#fff4e8", accent: "#ffb45c", blue: "#f08a6a", line: "#4a3326" } },
     { name: "Stage black", theme: { bg: "#000000", panel: "#0d0d0d", text: "#f2f2f2", accent: "#ff4d6d", blue: "#8aa4ff", line: "#2a2a2a" } },

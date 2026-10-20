@@ -7,8 +7,8 @@ svg.notation .n-acc { font: 13px serif; fill: #111; } svg.notation .n-ts { font:
 svg.notation .n-tab { font: bold 11px sans-serif; fill: #111; } svg.notation .n-tabbg { fill: #fff; }
 svg.notation .n-lyric { font: 11px sans-serif; fill: #111; } svg.notation .n-mark { font: bold 11px sans-serif; fill: #1b4fa0; } svg.notation .n-x { stroke: #111; stroke-width: 1.6; fill: none; }
 .pt-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin: 6px 0; }
-.pt-src { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line, #294966); color: var(--muted, #9bb2c9); } .pt-src.stem { color: var(--accent, #5de6b0); border-color: var(--accent, #5de6b0); }
-.pt-warn { font-size: 12px; color: #ffcf6e; margin: 4px 0 8px; } .pt-note { font-size: 13px; color: var(--muted, #9bb2c9); margin: 4px 0; }
+.pt-src { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line, #343A44); color: var(--muted, #9AA1AB); } .pt-src.stem { color: var(--accent, #E2C27E); border-color: var(--accent, #E2C27E); }
+.pt-warn { font-size: 12px; color: #ffcf6e; margin: 4px 0 8px; } .pt-note { font-size: 13px; color: var(--muted, #9AA1AB); margin: 4px 0; }
 .pt-paper { background: #fbfaf6; color: #111; border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
 .pt-paper .chart-view, .pt-paper .chart-view * { color: #111; } .pt-paper .chart-view .ch { color: #1b4fa0; }
 .pt-system { margin-bottom: 6px; } .pt-system.grand svg + svg { margin-top: -34px; }

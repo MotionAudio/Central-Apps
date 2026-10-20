@@ -13,7 +13,7 @@
   var gctx = null, apPool = [];
 
   function css(name, fallback) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback; }
-  function colors() { return { accent: css("--accent", "#5de6b0"), blue: css("--blue", "#75adff"), text: css("--text", "#ecf7ff"), muted: css("--muted", "#9bb2c9"), grid: "rgba(151,184,209,.16)", label: "rgba(185,210,230,.7)", danger: css("--danger", "#ff7878") }; }
+  function colors() { return { accent: css("--accent", "#e2c27e"), blue: css("--blue", "#8db5de"), text: css("--text", "#ece7dd"), muted: css("--muted", "#9aa1ab"), grid: "rgba(151,184,209,.16)", label: "rgba(185,210,230,.7)", danger: css("--danger", "#ff7878") }; }
   function graphCtx() { if (!gctx) { try { gctx = new OfflineAudioContext(1, 128, 48000); } catch (_) { gctx = null; } } return gctx; }
   function liveVoice() { var p = PP.currentPad(); if (p.isInput) return engine.inputVoice; return engine.voices().filter(function (v) { return v.pad.id === p.id; })[0] || null; }
   function voicePhase(voice, rate) { if (!voice || !engine.ctx) return (performance.now() / 1000 * rate) % 1; return (((engine.ctx.currentTime - voice.startedAt) * rate) % 1 + 1) % 1; }
