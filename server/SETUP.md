@@ -194,3 +194,22 @@ The website has a **privacy policy** (`/privacy`), **terms** (`/terms`) and a **
 the footer, the sign-up form and every app's Settings → License. They're written to match how the apps work; have
 them read by someone who knows your state's rules before you launch, and change the refund terms if yours differ
 (`server/public/*.html`).
+
+## Prices, discount codes and versions
+
+**The price page.** Sign in with an `ADMIN_EMAILS` address: Account → *Prices · Motion Audio staff*. From there you can
+change:
+- every store price and what each pack includes (or hide a product);
+- the $20 renewal, Central Tracks Unlimited's monthly price, and Central Services' monthly sizes;
+- discount codes (add, change, switch off, delete);
+- the Central Tracks star prices.
+
+A change takes effect as soon as you save. **Back to the starting prices** undoes everything.
+
+**Codes it starts with.** USAGE10 (10% off the software), 2026 (50% off the software), TESTRUN (everything free for 6 months)
+and 7FREE (everything free for 7 days). % codes work once per church and never on the built pedal or monthly plans. Each
+church gets one free trial, ever.
+
+**Versions.** Releases go 9.0, 9.1 … 9.9, then 10.0. A fix is the third number (9.4.1). Admin and user keys get ten full
+releases of updates from when they were bought (9.4 → 10.4); renewing adds ten more. The website reads the current
+version from the newest GitHub release. To pin it instead, set `CURRENT_VERSION` (for example `9.0`).

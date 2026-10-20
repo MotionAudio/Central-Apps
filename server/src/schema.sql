@@ -338,3 +338,35 @@ CREATE TABLE IF NOT EXISTS sms_sends (
 );
 CREATE INDEX IF NOT EXISTS sms_sends_phone ON sms_sends (phone, at);
 CREATE INDEX IF NOT EXISTS sms_sends_user ON sms_sends (user_id, at);
+
+-- ---------------------------------------------------------------- 9.0: update coverage, renewals, discount codes, trials
+-- updates_until: the last full release a key gets (in tenths: 94 = 9.4); NULL = forever (P keys: Central Pedal and
+-- Central Pedal Control). expires_at: a trial key stops working then.
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS updates_until INTEGER;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS trial BOOLEAN NOT NULL DEFAULT FALSE;
+UPDATE licenses SET updates_until=99 WHERE updates_until IS NULL AND kind IN ('A','U') AND NOT trial AND created_at < '2026-10-21';   -- (keys from before: through 9.9)
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS trial_until TIMESTAMPTZ;
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS trial_code TEXT;
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS trial_by BIGINT REFERENCES users(id);
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS trial_reminded BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_code TEXT;
+-- prices staff changed on the website's price page (one JSON document; anything missing uses config.js)
+CREATE TABLE IF NOT EXISTS site_settings (
+  name        TEXT PRIMARY KEY,
+  data        JSONB NOT NULL,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by  TEXT NOT NULL DEFAULT ''
+);
+-- a % code used by a church (once each); Central Services' monthly plan
+CREATE TABLE IF NOT EXISTS discount_uses (
+  church_id   BIGINT NOT NULL REFERENCES churches(id) ON DELETE CASCADE,
+  code        TEXT NOT NULL,
+  order_id    BIGINT REFERENCES orders(id),
+  used_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (church_id, code)
+);
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS services_sub TEXT;         -- the Stripe subscription
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS services_item TEXT;        -- its item (its price changes with the church's size)
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS services_cents INTEGER;    -- what it charges now
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS services_status TEXT;

@@ -56,7 +56,19 @@
 
   // ------------------------------------------------------------- state
   var app = null, opts = {}, st = load(), ui = { step: 0, msg: "", busy: false, net: null, signup: false }, el = null, ready = false, waiters = [];
-  function licensed() { return !!(st && st.key && st.okAt && st.app && KIND_OF[st.app] === KIND_OF[app] && !st.blocked); }
+  // a trial key stops at its end even without internet; the app keeps the key's update coverage (null: forever)
+  function trialOver() { return !!(st && st.expiresAt && Date.now() >= new Date(st.expiresAt).getTime()); }
+  function licensed() { return !!(st && st.key && st.okAt && st.app && KIND_OF[st.app] === KIND_OF[app] && !st.blocked && !trialOver()); }
+  function keepCoverage(r) {
+    if (!r) return;
+    st.updatesUntil = r.updatesUntil != null ? r.updatesUntil : null; st.updatesUntilText = r.updatesUntilText || (r.updatesUntil == null ? "forever" : "");
+    st.expiresAt = r.expiresAt || null; st.trial = !!r.trial;
+    tellUpdater();
+  }
+  // Central Control and Central Usage on a computer: the updater installs only versions this key covers
+  function tellUpdater() {
+    try { if (window.CU && window.CU.updates && window.CU.updates.config && st && st.key) window.CU.updates.config({ limit: st.updatesUntil != null ? st.updatesUntil : null, limitText: st.updatesUntilText || "" }); } catch (_) { }
+  }
   function complete() { return licensed() && !!(st.account && st.account.email); }   // (the key and the account)
   function daysLeft() { return st && st.okAt ? Math.max(0, Math.ceil(((st.recheckDays || 30) * DAY - (Date.now() - st.okAt)) / DAY)) : 0; }
 
@@ -65,8 +77,8 @@
     if (!on() || !st || !st.key) return;
     try {
       var r = await call("/license/check", { key: st.key, device: deviceId() });
-      if (r.ok) { st.okAt = Date.now(); st.church = r.church || st.church; st.recheckDays = r.recheckDays || 30; st.blocked = null; save(st); }
-      else { st.blocked = r.reason === "elsewhere" ? "This key is now used on “" + (r.device || "another device") + "”. Enter another key, or release it there." : r.reason === "released" ? "This key was released (on the website or another device). Enter it again, or another key." : "This key no longer works. Enter another key."; save(st); }
+      if (r.ok) { st.okAt = Date.now(); st.church = r.church || st.church; st.recheckDays = r.recheckDays || 30; st.blocked = null; keepCoverage(r); save(st); }
+      else { st.blocked = r.reason === "expired" ? "Your church’s free trial ended" + (r.expiresAt ? " on " + new Date(r.expiresAt).toLocaleDateString() : "") + ". Enter a key your church bought to keep using " + NAME_OF[app] + " - your songs, setlists and settings are still here." : r.reason === "elsewhere" ? "This key is now used on “" + (r.device || "another device") + "”. Enter another key, or release it there." : r.reason === "released" ? "This key was released (on the website or another device). Enter it again, or another key." : "This key no longer works. Enter another key."; save(st); }
     } catch (e) {
       if (st.okAt && Date.now() - st.okAt > (st.recheckDays || 30) * DAY) { st.blocked = "Connect to the internet so this device can check its key (it hasn't been checked for " + (st.recheckDays || 30) + " days)."; save(st); }
     }
@@ -141,6 +153,7 @@
     }
     if (!el.open) { try { el.showModal(); } catch (_) { el.setAttribute("open", ""); } }
     if (licensed() && !(st.account && st.account.email)) ui.step = 3;   // (key done, the account not yet)
+    else if (st && trialOver()) { ui.step = 2; ui.key = ""; ui.msg = "Your church’s free trial ended. Enter a key your church bought to keep going - your songs, setlists and settings are all still here."; }
     else if (st && st.blocked) ui.step = 0;
     draw();
     if (ui.step === 0) checkNet();
@@ -163,6 +176,7 @@
     try {
       var r = await call("/license/activate", { key: key, device: deviceId(), deviceName: dn || NAME_OF[app], app: app, production: st && st.production });
       st = Object.assign(st || {}, { key: r.key, kind: r.kind, app: app, church: r.church || "", okAt: Date.now(), recheckDays: r.recheckDays || 30, deviceName: dn || NAME_OF[app], blocked: null });
+      keepCoverage(r);
       save(st); ui.step = 3; ui.msg = "";
       if (r.account && r.account.email && !ui.email) ui.email = r.account.email;   // (the key was given to this person: their email is filled in)
       if (st.account && st.account.token) { await link(st.account.token).catch(function () { }); }
@@ -239,6 +253,9 @@
       (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p>" +
         '<p class="muted">Key <code>' + esc(s.key ? s.key.slice(0, 4) + "-••••-••••-" + s.key.slice(-4) : "") + "</code>" + (s.church ? " · " + esc(s.church) : "") + (s.production ? " · " + esc(s.production) : "") +
         " · this device: " + esc(s.deviceName || "") + " · checked " + new Date(s.okAt).toLocaleDateString() + " (works offline " + daysLeft() + " more days)" + (s.account && s.account.email ? " · account " + esc(s.account.email) : "") + "</p>" +
+        (s.trial && s.expiresAt ? '<p class="muted">Free trial until ' + esc(new Date(s.expiresAt).toLocaleDateString()) + ". Then enter a key your church bought; nothing here is lost.</p>"
+          : s.kind === "P" || s.updatesUntilText === "forever" ? '<p class="muted">Updates: forever.</p>'
+          : s.updatesUntilText ? '<p class="muted">Updates through version ' + esc(s.updatesUntilText) + '. After that this version keeps working; renew the key ($20) on the website for ten more releases.</p>' : "") +
         '<div class="row"><button data-lic="release">Release key</button>' + (s.account && s.account.email ? '<button data-lic="signout">Sign out of the account</button>' : '<button data-lic="account">Sign in</button>') + "</div>" +
         '<p class="muted">Release key frees it for another device; this one asks for a key again. For a lost or broken device, release its key on the website (your church’s page).</p>'
         : '<p class="bad">No key on this device.</p><button data-lic="enter">Enter a key</button>') +
@@ -364,8 +381,9 @@
     if (!st && opts.saved && opts.saved.key) { st = opts.saved; try { localStorage.setItem(LS, JSON.stringify(st)); } catch (_) { } }   // (this browser forgot it: the Central Pedal's driver kept a copy)
     if (!KIND_OF[app] || !on()) { markReady(); return; }   // (the player window inside Central Control; licensing off)
     if (st && st.app && KIND_OF[st.app] !== KIND_OF[app]) st = { production: st.production };   // (a key for another app)
-    if (complete()) { markReady(); recheck(); }
+    if (complete()) { markReady(); recheck(); tellUpdater(); }
     else open();
+    setInterval(function () { if (st && st.expiresAt && trialOver() && !el) open(); }, 60e3);   // (the trial ends while it's open)
     setInterval(recheck, 6 * 3600e3);
     if (window.PPFeatures) { window.PPFeatures.on("systemStatus", function (m) { if (m.wifi) { ui.wifi = m.wifi; if (el && ui.step === 0) draw(); } }); window.PPFeatures.on("wifiResult", function (m) { if (el && ui.step === 0 && m.ok) setTimeout(checkNet, 2500); }); }
   }
@@ -378,5 +396,6 @@
   }
   window.PPLicense = { init: init, update: update, complete: function () { return complete(); }, on: on, licensed: licensed, state: function () { return st; }, server: base, settingsHtml: settingsHtml, release: release, recheck: recheck, open: open,
     whenReady: function (f) { if (ready) f(); else waiters.push(f); }, deviceId: deviceId, pretty: pretty, app: function () { return app; },
-    syncSettings: syncSettings, settingsChanged: settingsChanged, syncNow: pullAll, reportError: reportError, support: supportBox };
+    syncSettings: syncSettings, settingsChanged: settingsChanged, syncNow: pullAll, reportError: reportError, support: supportBox,
+    coverage: function () { return st ? { updatesUntil: st.updatesUntil != null ? st.updatesUntil : null, text: st.updatesUntilText || "", trial: !!st.trial, expiresAt: st.expiresAt || null } : null; } };
 })();

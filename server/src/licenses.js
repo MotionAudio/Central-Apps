@@ -12,6 +12,7 @@ import { config, KEY_KINDS, LICENSE_RECHECK_DAYS } from "./config.js";
 import { isAdmin } from "./auth.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
 import { requireStep } from "./signin.js";
+import { newCoverage, currentTenths, fmt } from "./versions.js";
 
 const ABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // 31 signs: no I, L, O, 0, 1
 const APP_KIND = { pedal: "P", "pedal-control": "P", control: "A", usage: "U" };
@@ -69,18 +70,32 @@ export async function issueKeys(client, orderId, churchId, productId, product, n
   for (let i = 0; i < n; i++) for (const [kind, count] of Object.entries(product.keys || {})) for (let j = 0; j < count; j++) {
     for (let tries = 0; tries < 5; tries++) {
       const k = newKey(kind);
-      const r = await client.query("INSERT INTO licenses (key,order_id,product,kind,church_id) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (key) DO NOTHING RETURNING key", [k, orderId, productId, kind, churchId]);
+      const r = await client.query("INSERT INTO licenses (key,order_id,product,kind,church_id,updates_until) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (key) DO NOTHING RETURNING key", [k, orderId, productId, kind, churchId, kind === "P" ? null : await newCoverage()]);
       if (r.rows[0]) { out.push(k); break; }
     }
   }
   return out;
 }
+// a church in a free trial (TESTRUN, 7FREE): as many keys as it wants until then
+export function trialActive(c) { return !!(c && c.trial_until && new Date(c.trial_until) > new Date()); }
+export async function mintTrialKey(client, c, kind) {
+  for (let tries = 0; tries < 5; tries++) {
+    const k = newKey(kind);
+    const r = await client.query("INSERT INTO licenses (key,product,kind,church_id,trial,expires_at,note) VALUES ($1,'trial',$2,$3,TRUE,$4,$5) ON CONFLICT (key) DO NOTHING RETURNING key", [k, kind, c.id, c.trial_until, "trial " + (c.trial_code || "")]);
+    if (r.rows[0]) return r.rows[0].key;
+  }
+  throw bad("Couldn't make a key. Try again.", 500);
+}
+const expired = (l) => !!(l.expires_at && new Date(l.expires_at) <= new Date());
+const FREE_KEY = `NOT revoked AND user_id IS NULL AND assigned_email IS NULL AND (expires_at IS NULL OR expires_at > now())
+  AND NOT EXISTS (SELECT 1 FROM license_devices d WHERE d.key=licenses.key)`;
 function keyOut(l, devs, full, me) {
   const mine = !!(me && l.user_id === me);
   return { key: full || mine ? pretty(l.key) : "••••-••••-••••-" + canon(l.key).slice(-4), mine, kind: l.kind, kindName: KEY_KINDS[l.kind] || l.kind, inUse: devs.length > 0,
     devices: devs.map((d) => ({ name: d.device_name || "a device", app: APP_NAME[d.app] || d.app, lastSeen: d.last_seen })), max: maxDevices(l.kind, null, devs),
     device: devs.length ? devs.map((d) => d.device_name || "a device").join(" · ") : null, app: devs[0] ? APP_NAME[devs[0].app] || devs[0].app : null,
-    assignedTo: full ? (l.assigned_name || l.assigned_email || null) : null, lastSeen: devs.reduce((a, d) => (!a || d.last_seen > a ? d.last_seen : a), null), revoked: l.revoked };
+    assignedTo: full ? (l.assigned_name || l.assigned_email || null) : null, lastSeen: devs.reduce((a, d) => (!a || d.last_seen > a ? d.last_seen : a), null), revoked: l.revoked,
+    updatesUntil: l.kind === "P" ? "forever" : fmt(l.updates_until), trial: l.trial, expiresAt: l.expires_at, expired: expired(l), renewable: l.kind !== "P" && !l.trial && !l.revoked };
 }
 
 // ---------------------------------------------------------------- invites (the Teams page)
@@ -154,6 +169,9 @@ export async function remindInvites() {
   return n;
 }
 
+// what a key tells its app: how far its updates go (null: forever), and when a trial key stops
+function coverage(l) { return { updatesUntil: l.kind === "P" ? null : l.updates_until, updatesUntilText: l.kind === "P" ? "forever" : fmt(l.updates_until), expiresAt: l.expires_at || null, trial: !!l.trial }; }
+
 export function routes(api, { wrap, brake, requireUser }) {
   // key guessing: 30 wrong keys from one address in 15 minutes and it waits (right keys don't count: a whole church
   // behind one internet address can set up and open its apps together)
@@ -187,6 +205,7 @@ export function routes(api, { wrap, brake, requireUser }) {
       l = await findKey(b.key, client);   // (locked: two devices at the same moment take turns)
       if (l && l.church_id && (await client.query("SELECT closed_at FROM churches WHERE id=$1", [l.church_id])).rows[0].closed_at) { await client.query("ROLLBACK"); throw bad("That key's church was closed. Ask Motion Audio support.", 403); }
       if (!l || l.revoked) { await client.query("ROLLBACK"); miss(req); throw bad("That key isn't right. Check it on your receipt or your church's page on the website.", 404); }
+      if (l && expired(l)) { await client.query("ROLLBACK"); throw bad("This trial key ended on " + new Date(l.expires_at).toLocaleDateString("en-US") + ". Enter a key your church bought (Motion Audio store), or ask your main admin.", 403); }
       if (l.kind !== want) { await client.query("ROLLBACK"); throw bad("That's a " + (KEY_KINDS[l.kind] || "different") + " key. " + APP_NAME[app] + " needs " + (want === "P" ? "a P key" : want === "A" ? "an A key (admin)" : "a U key (user)") + ".", 400); }
       const devs = (await client.query("SELECT * FROM license_devices WHERE key=$1", [l.key])).rows, here = devs.find((d) => d.device_id === dev), others = devs.filter((d) => d.device_id !== dev);
       const max = maxDevices(l.kind, app, others);
@@ -199,18 +218,19 @@ export function routes(api, { wrap, brake, requireUser }) {
       await client.query("COMMIT");
     } catch (e) { try { await client.query("ROLLBACK"); } catch (_) { } throw e; } finally { client.release(); }
     const c = l.church_id ? await one("SELECT name FROM churches WHERE id=$1", [l.church_id]) : null;
-    res.json({ ok: true, key: pretty(l.key), kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, account: l.assigned_email ? { email: l.assigned_email } : null });
+    res.json({ ok: true, key: pretty(l.key), kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, account: l.assigned_email ? { email: l.assigned_email } : null, ...coverage(l) });
   }));
   api.post("/license/check", wrap(async (req, res) => {
     keyBrake(req);
     const b = req.body || {}, dev = device(b), l = await findKey(b.key);
     if (!l || l.revoked) { miss(req); return res.json({ ok: false, reason: "invalid" }); }
     if (l.church_id && (await one("SELECT closed_at FROM churches WHERE id=$1", [l.church_id])).closed_at) return res.json({ ok: false, reason: "invalid" });   // (its church was closed)
+    if (expired(l)) return res.json({ ok: false, reason: "expired", expiresAt: l.expires_at });   // (a trial that ended: the app locks until a bought key is entered)
     const devs = await devicesOf(l.key);
     if (!devs.some((d) => d.device_id === dev)) return res.json({ ok: false, reason: devs.length >= maxDevices(l.kind, null, devs) ? "elsewhere" : "released", device: devs.map((d) => d.device_name).join(" and ") || null });
     await q("UPDATE license_devices SET last_seen=now() WHERE key=$1 AND device_id=$2", [l.key, dev]);
     const c = l.church_id ? await one("SELECT name FROM churches WHERE id=$1", [l.church_id]) : null;
-    res.json({ ok: true, kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS });
+    res.json({ ok: true, kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, ...coverage(l) });
   }));
   api.post("/license/release", wrap(async (req, res) => {   // from the device that has it
     keyBrake(req);
@@ -265,11 +285,12 @@ export function routes(api, { wrap, brake, requireUser }) {
     const dv = (k) => devs.filter((d) => d.key === k);
     const counts = {};
     for (const k of Object.keys(KEY_KINDS)) {
-      const list = keys.filter((x) => x.kind === k && !x.revoked), used = list.filter((x) => dv(x.key).length || x.assigned_email || x.user_id);
+      const list = keys.filter((x) => x.kind === k && !x.revoked && !(x.expires_at && new Date(x.expires_at) <= new Date())), used = list.filter((x) => dv(x.key).length || x.assigned_email || x.user_id);
       counts[k] = { name: KEY_KINDS[k], total: list.length, inUse: list.filter((x) => dv(x.key).length).length, given: used.length, free: list.length - used.length };
     }
     const members = staff ? await q("SELECT u.name, u.email, m.role FROM church_members m JOIN users u ON u.id=m.user_id WHERE m.church_id=$1 ORDER BY m.role, u.name", [c.id]) : [];
-    res.json({ church: { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: !!c.has_services, adminCode: c.role === "owner" ? c.admin_code : undefined, userCode: staff ? c.user_code : undefined, mail: mailOn },
+    res.json({ current: fmt(await currentTenths()), trial: { active: trialActive(c), until: c.trial_until, code: c.trial_code, used: !!c.trial_code },
+      church: { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: !!c.has_services || trialActive(c), servicesPaid: !!c.has_services, adminCode: c.role === "owner" ? c.admin_code : undefined, userCode: staff ? c.user_code : undefined, mail: mailOn },
       counts, keys: keys.map((l) => keyOut(l, dv(l.key), staff, req.user.id)), members });
   }));
   api.post("/church", requireUser, wrap(async (req, res) => {
@@ -335,8 +356,8 @@ export function routes(api, { wrap, brake, requireUser }) {
     for (const i of inv) out[i.section].push({ id: String(i.id), name: i.name, email: i.email, role: i.role_text, key: i.key ? pretty(i.key) : null,
       status: i.devices ? "set up" : i.user_id ? "joined" : "invited", devices: i.devices, reminders: i.reminders, sent: i.sent_ok, sentAt: i.sent_at, link: inviteLink(i.token) });
     const counts = {};
-    for (const s of ["admin", "user", "pedal"]) { const k = SECTION[s].kind; counts[s] = (await one("SELECT COUNT(*)::int AS n FROM licenses WHERE church_id=$1 AND kind=$2 AND NOT revoked AND user_id IS NULL AND assigned_email IS NULL AND NOT EXISTS (SELECT 1 FROM license_devices d WHERE d.key=licenses.key)", [c.id, k])).n; }
-    res.json({ sections: out, free: counts, mail: mailOn });
+    for (const s of ["admin", "user", "pedal"]) { const k = SECTION[s].kind; counts[s] = (await one(`SELECT COUNT(*)::int AS n FROM licenses WHERE church_id=$1 AND kind=$2 AND ${FREE_KEY}`, [c.id, k])).n; }
+    res.json({ sections: out, free: counts, mail: mailOn, trialUntil: trialActive(c) ? c.trial_until : null });
   }));
   api.post("/church/team", requireUser, wrap(async (req, res) => {   // { section, members: [{ name, email, role }] } - "Done"
     const c = await staffChurch(req), section = String(req.body.section || "");
@@ -349,8 +370,7 @@ export function routes(api, { wrap, brake, requireUser }) {
       const client = await pool.connect(); let inv = null;
       try {
         await client.query("BEGIN");
-        const k = (await client.query(`SELECT key FROM licenses WHERE church_id=$1 AND kind=$2 AND NOT revoked AND user_id IS NULL AND assigned_email IS NULL
-          AND NOT EXISTS (SELECT 1 FROM license_devices d WHERE d.key=licenses.key) ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`, [c.id, SECTION[section].kind])).rows[0];
+        const k = (await client.query(`SELECT key FROM licenses WHERE church_id=$1 AND kind=$2 AND ${FREE_KEY} ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`, [c.id, SECTION[section].kind])).rows[0] || (trialActive(c) ? { key: await mintTrialKey(client, c, SECTION[section].kind) } : null);
         if (!k) { await client.query("ROLLBACK"); results.push({ email, ok: false, error: "No " + SECTION[section].kind + " keys left. Buy more in the store." }); continue; }
         await client.query("UPDATE licenses SET assigned_email=$1, assigned_name=$2 WHERE key=$3", [email, name, k.key]);
         inv = (await client.query("INSERT INTO invites (church_id,section,name,email,role_text,key,token) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *", [c.id, section, name, email, role, k.key, crypto.randomBytes(18).toString("base64url")])).rows[0];
@@ -395,8 +415,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     const client = await pool.connect(); let moved;
     try {
       await client.query("BEGIN");
-      const k = (await client.query(`SELECT key FROM licenses WHERE church_id=$1 AND kind=$2 AND NOT revoked AND user_id IS NULL AND assigned_email IS NULL
-        AND NOT EXISTS (SELECT 1 FROM license_devices d WHERE d.key=licenses.key) ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`, [c.id, SECTION[to].kind])).rows[0];
+      const k = (await client.query(`SELECT key FROM licenses WHERE church_id=$1 AND kind=$2 AND ${FREE_KEY} ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`, [c.id, SECTION[to].kind])).rows[0] || (trialActive(c) ? { key: await mintTrialKey(client, c, SECTION[to].kind) } : null);
       if (!k) { await client.query("ROLLBACK"); throw bad("No " + SECTION[to].kind + " keys left for " + SECTION[to].app + ". Buy more in the store, then move them.", 409); }
       await client.query("UPDATE licenses SET assigned_email=$1, assigned_name=$2, user_id=$3 WHERE key=$4", [inv.email, inv.name, inv.user_id, k.key]);
       if (inv.key) {   // (the old key: off its devices, nobody's)

@@ -190,11 +190,12 @@ await check("the website: packs and keys in the store, a new account makes the c
   await w.goto(WEB + "/"); await w.waitForFunction(() => document.querySelectorAll("#packs .prod").length === 3);
   const store = await w.evaluate(() => ({ packs: Array.from(document.querySelectorAll("#packs .prod")).map((p) => p.querySelector("h3").textContent + " " + p.querySelector(".price").textContent.split(" ")[0]),
     rack: Array.from(document.querySelectorAll("#rack .prod")).map((p) => p.querySelector("h3").textContent + " " + p.querySelector(".price").textContent.split(" ")[0]) }));
-  assert.deepEqual(store.packs, ["Small church $400", "Medium church $600", "Large church $850"]);
-  assert.deepEqual(store.rack, ["Central Pedal $250", "Central Pedal Control $50", "Central Control (admin) $50", "Central Usage (user) $20", "Central Services $25"], "the $10 user price shows only with a pack");
+  assert.deepEqual(store.packs, ["Small church $300", "Medium church $500", "Large church $750"]);
+  assert.deepEqual(store.rack, ["Central Pedal $250", "Central Pedal Control $50", "Central Control (admin) $50", "Central Usage (user) $20", "Central Services from"], "the $10 user price shows only with a pack; Central Services is monthly (from $10)");
+  assert.ok(await w.evaluate(() => /The pedal itself is separate \(\$250\)/.test(document.querySelector("#packs .prod").textContent)), "packs say the pedal is separate");
   await w.click('#packs [data-add="pack-small"]');
   const withPack = await w.evaluate(() => Array.from(document.querySelectorAll("#rack .prod h3")).map((h) => h.textContent));
-  assert.ok(withPack.length === 5 && !withPack.includes("Central Services"), "with a pack in the cart, the $10 user is there and Central Services (free in the pack) isn't: " + withPack);
+  assert.ok(withPack.length === 6 && withPack.includes("Central Services"), "with a pack in the cart, the $10 user is there too: " + withPack);
   await w.click("#cartBtn"); assert.match(await w.textContent(".modal"), /Sign in or make an account first/); await w.click('.modal [data-close], .modal #clear');
   await w.goto(WEB + "/#account"); await w.waitForSelector("#upForm");
   await w.check('[name="upCh"][value="make"]'); await w.fill("#upName", "Pastor"); await w.fill("#upEmail", "pastor" + stamp + "@hope.test"); await w.fill("#upPass", "password123"); await w.fill("#upChurch", "Hope Church");

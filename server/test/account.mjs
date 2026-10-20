@@ -63,7 +63,8 @@ try {
   // ---------------------------------------------------------------- a church with keys and a team
   const pastor = await finish(await j("POST", "/signup", { email: E("pastor"), password: "password123", name: "Pastor", churchName: "Grace Church" }), E("pastor"));
   const T = pastor.token, cid = (await one("SELECT church_id FROM church_members WHERE user_id=(SELECT id FROM users WHERE email=$1)", [E("pastor")])).church_id;
-  await recordOrder({ id: "cs_a_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 40000, customer_details: { email: "p@grace.test" } }, null);
+  await recordOrder({ id: "cs_a_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 30000, customer_details: { email: "p@grace.test" } }, null);
+  await q("UPDATE churches SET has_services=TRUE WHERE id=$1", [cid]);   // (Central Services' monthly plan)
   const addU = await j("POST", "/church/team", { section: "user", members: [{ name: "Cal", email: E("cal"), role: "Drums" }, { name: "Dee", email: E("dee"), role: "Vocals" }] }, T);
   const addA = await j("POST", "/church/team", { section: "admin", members: [{ name: "Eli", email: E("eli"), role: "Lights" }] }, T);
   ok(addU.results.every((r) => r.ok) && addA.results[0].ok, "Teams: two users and an admin added", [addU, addA]);
@@ -89,9 +90,8 @@ try {
   ok(back.ok && /^U/.test(back.key) && (await j("GET", "/me", null, cal.token)).church.role === "user", "moving back to Users makes him a user again", back);
   ok((await j("POST", "/church/team/move", { id: calId, section: "user" }, T))._status === 400, "moving to the team they're on is refused");
   const p1 = await j("POST", "/church/team/move", { id: calId, section: "pedal" }, T);
-  const p2 = await j("POST", "/church/team/move", { id: team.sections.user.find((m) => m.name === "Dee").id, section: "pedal" }, T);
   const p3 = await j("POST", "/church/team/move", { id: team.sections.admin.find((m) => m.name === "Eli").id, section: "pedal" }, T);
-  ok(p1.ok && p2.ok && p3._status === 409 && /No P keys left/.test(p3.error), "with no keys of the new kind left, Move says so and nothing changes", [p1.ok, p2.ok, p3]);
+  ok(p1.ok && p3._status === 409 && /No P keys left/.test(p3.error), "with no keys of the new kind left, Move says so and nothing changes", [p1.ok, p3]);
   ok((await j("GET", "/church/team", null, T)).sections.admin.some((m) => m.name === "Eli"), "...Eli is still an admin");
   ok((await j("POST", "/church/team/move", { id: calId, section: "admin" }, cal.token))._status === 403, "users can't move people");
 

@@ -92,7 +92,8 @@ try {
 
   // ---------------------------------------------------------------- keys, people, and the main admin's controls
   const cid = (await one("SELECT church_id FROM church_members WHERE user_id=(SELECT id FROM users WHERE email=$1)", [E("pastor")])).church_id;
-  await recordOrder({ id: "cs_813_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 40000, customer_details: { email: "p@hope.test" } }, null);
+  await recordOrder({ id: "cs_813_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 30000, customer_details: { email: "p@hope.test" } }, null);
+  await q("UPDATE churches SET has_services=TRUE WHERE id=$1", [cid]);   // (Central Services' monthly plan)
   await j("POST", "/church/team", { section: "user", members: [{ name: "Ana", email: E("ana"), role: "Bass" }, { name: "Ben", email: E("ben"), role: "Keys" }, { name: "Cy", email: E("cy"), role: "Drums" }] }, T);
   const signupInvite = async (n, name) => j("POST", "/signup", { email: E(n), password: "password123", name, invite: to(E(n))[0].text.match(/#invite-([A-Za-z0-9_-]+)/)[1] });
   const ana = await signupInvite("ana", "Ana"), ben = await signupInvite("ben", "Ben"), cy = await signupInvite("cy", "Cy");

@@ -29,11 +29,11 @@ try {
   const cid = (await one("SELECT church_id FROM church_members m JOIN users u ON u.id=m.user_id WHERE u.email=$1", ["main" + stamp + "@church.test"])).church_id;
   await recordOrder({ id: "cs_test_" + stamp, metadata: { items: JSON.stringify({ "pack-small": "1", "user-pack": "2" }), church_id: String(cid) }, amount_total: 42000, customer_details: { email: "main@church.test" } }, null);
   ch = (await j("GET", "/church", null, T)).body;
-  ok(ch.counts.P.total === 2 && ch.counts.A.total === 2 && ch.counts.U.total === 8 && ch.counts.U.free === 8 && ch.church.hasPack, "a Small pack (+2 extra users) gives 2 P, 2 A and 8 U keys, all free; the church now has a pack", ch.counts);
+  ok(ch.counts.P.total === 1 && ch.counts.A.total === 2 && ch.counts.U.total === 8 && ch.counts.U.free === 8 && ch.church.hasPack, "a Small pack (+2 extra users) gives 1 P (Pedal Control), 2 A and 8 U keys, all free; the church now has a pack", ch.counts);
   const keys = ch.keys.map((k) => k.key), P = ch.keys.find((k) => k.kind === "P").key, A = ch.keys.find((k) => k.kind === "A").key, U = ch.keys.filter((k) => k.kind === "U").map((k) => k.key);
   ok(keys.every((k) => /^[PAU][A-Z2-9]{3}(-[A-Z2-9]{4}){3}$/.test(k) && !/[IL0O1]/.test(k)), "keys are 16 characters, start with P, A or U, no look-alike characters: " + P);
   const o = await j("GET", "/orders/cs_test_" + stamp);
-  ok(o.body.licenses && o.body.licenses.length === 12 && o.body.licenses[0].key.length === 19, "the order page lists the keys", o.body);
+  ok(o.body.licenses && o.body.licenses.length === 11 && o.body.licenses[0].key.length === 19, "the order page lists the keys", o.body);
 
   // apps: activate, the wrong kind, a second device, check, release
   const dev1 = "dev-" + stamp + "-one", dev2 = "dev-" + stamp + "-two";
@@ -108,7 +108,7 @@ try {
   const cheat = await j("POST", "/checkout/store", { items: { "pack-small": "0.5", "user-pack": 50 } }, nopack.body.token);
   ok(cheat.status === 400 && /church pack/.test(cheat.body.error), "half a pack doesn't unlock the $10 user price", cheat.body);
   const cfgj = (await j("GET", "/config")).body;
-  ok(cfgj.products["pack-small"].cents === 40000 && cfgj.products.pedal.cents === 25000 && cfgj.products["pedal-control"].cents === 5000 && cfgj.products.admin.cents === 5000 && cfgj.products.user.cents === 2000 && cfgj.products["user-pack"].cents === 1000 && cfgj.products["pack-large"].keys.U === 20, "prices: pedal $250, Pedal Control $50, admin $50, user $20 ($10 with a pack), packs $400 / $600 / $850", cfgj.products);
+  ok(cfgj.products["pack-small"].cents === 30000 && cfgj.products["pack-medium"].cents === 50000 && cfgj.products["pack-large"].cents === 75000 && !cfgj.products["pack-small"].ships && cfgj.products.pedal.cents === 25000 && cfgj.products["pedal-control"].cents === 5000 && cfgj.products.admin.cents === 5000 && cfgj.products.user.cents === 2000 && cfgj.products["user-pack"].cents === 1000 && cfgj.products["pack-large"].keys.U === 20, "prices: pedal $250, Pedal Control $50, admin $50, user $20 ($10 with a pack), packs (no pedal) $300 / $500 / $750", cfgj.products);
 
   // Motion Audio staff make a P key for a pedal they build (and only they can)
   let boss = await j("POST", "/signup", { email: "boss@motion.test", password: "password123" });

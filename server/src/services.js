@@ -4,7 +4,7 @@
 // The app (central-services/) asks /services/me who is signed in: schedulers get the scheduling screens.
 import { q, one, pool } from "./db.js";
 import { config, SERVICES_LIMITS as LIM } from "./config.js";
-import { churchOf } from "./licenses.js";
+import { churchOf, trialActive } from "./licenses.js";
 import { sendMail, escHtml } from "./mail.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
@@ -20,7 +20,7 @@ async function schedulersOf(c) {
 async function ctx(req) {
   const c = await churchOf(req.user.id);
   if (!c) throw bad("Your account isn't in a church yet. Ask your main admin to add you on the Teams page.", 403);
-  if (!c.has_services) throw bad("Your church doesn't have Central Services yet. The main admin can add it in the store ($25, free with a church pack).", 402);
+  if (!c.has_services && !trialActive(c)) throw bad("Your church doesn't have Central Services yet. The main admin can start it on the website (Account → Central Services): monthly, by the church's size.", 402);
   const sched = await schedulersOf(c);
   return { c, scheduler: sched.includes(String(req.user.id)), schedulers: sched };
 }
@@ -62,8 +62,8 @@ export function routes(api, { wrap, requireUser }) {
   api.get("/services/me", requireUser, wrap(async (req, res) => {
     const c = await churchOf(req.user.id);
     if (!c) return res.json({ church: null, role: null });
-    const sched = c.has_services ? await schedulersOf(c) : [];
-    res.json({ church: c.name, churchRole: c.role, hasServices: !!c.has_services, role: sched.includes(String(req.user.id)) ? "scheduler" : "member",
+    const on = !!c.has_services || trialActive(c), sched = on ? await schedulersOf(c) : [];
+    res.json({ church: c.name, churchRole: c.role, hasServices: on, role: sched.includes(String(req.user.id)) ? "scheduler" : "member",
       name: req.user.name, email: req.user.email, limits: LIM });
   }));
   // the whole board: teams with their people, the services from a week ago on (or a range), each with its requests
@@ -235,7 +235,7 @@ export async function remindServices() {
   const tz = config.timeZone || "America/Chicago";
   const due = await q(`SELECT r.*, s.title, s.starts_at, s.notes, s.songs, s.church_id, c.name AS church, t.name AS team
     FROM service_requests r JOIN services s ON s.id=r.service_id JOIN churches c ON c.id=s.church_id JOIN service_teams t ON t.id=r.team_id
-    WHERE r.reminded_at IS NULL AND r.status IN ('accepted','pending') AND r.asked_at < now() - interval '1 hour' AND s.starts_at > now() AND c.has_services AND (
+    WHERE r.reminded_at IS NULL AND r.status IN ('accepted','pending') AND r.asked_at < now() - interval '1 hour' AND s.starts_at > now() AND (c.has_services OR c.trial_until > now()) AND (
       ((s.starts_at AT TIME ZONE $1)::date = (now() AT TIME ZONE $1)::date + 1 AND extract(hour FROM now() AT TIME ZONE $1) >= 9)
       OR s.starts_at < now() + interval '18 hours')
     ORDER BY s.starts_at, r.id LIMIT 1000`, [tz]);

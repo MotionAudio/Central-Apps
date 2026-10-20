@@ -91,7 +91,7 @@ fs.writeFileSync(fakeSep, [
   "    v = (lambda i: 9000 * math.exp(-((i / 22050.0 - hit[0]) % 0.5) / hit[2]) * math.sin(2 * math.pi * hit[1] * i / 22050)) if hit else (lambda i: 5000 * math.sin(2 * math.pi * (150 * (k + 2)) * i / 22050))",
   "    w.writeframes(b''.join(struct.pack('<hh', int(v(i)), int(v(i))) for i in range(22050 * 2))); w.close()",
   ""].join("\n"));
-const driver = spawn("python3", [path.join(here, "pedal-driver.py"), "--simulate", tmp, "--app-root", here], { stdio: ["ignore", "pipe", "pipe"], env: Object.assign({}, process.env, { CC_PCO_BASE: "http://127.0.0.1:" + pco.address().port, CC_DEMUCS_CMD: "python3 " + fakeDemucs, CC_SEPARATOR_CMD: "python3 " + fakeSep, CC_STEMTOOL_PYTHON: "python3" }) });
+const driver = spawn("python3", [path.join(here, "pedal-driver.py"), "--simulate", tmp, "--app-root", here], { stdio: ["ignore", "pipe", "pipe"], env: Object.assign({}, process.env, { CC_UPDATE_API: "http://127.0.0.1:9", CC_PCO_BASE: "http://127.0.0.1:" + pco.address().port, CC_DEMUCS_CMD: "python3 " + fakeDemucs, CC_SEPARATOR_CMD: "python3 " + fakeSep, CC_STEMTOOL_PYTHON: "python3" }) });
 let driverLog = "";
 driver.stdout.on("data", (d) => { driverLog += d; }); driver.stderr.on("data", (d) => { driverLog += d; });
 await until(() => /listening on ws/.test(driverLog), 15000, 100);
@@ -109,7 +109,7 @@ const T = (fn, arg) => page.evaluate(fn, arg);
 async function sim(m) { await T((m) => window.__pedalBridge.send(Object.assign({ type: "sim" }, m)), m); }
 
 console.log("\nConnection and the Learn tab:");
-await check("the app is served by the driver and connects to it", async () => { await until(() => T(() => window.__pedalBridge.connected)); assert.match(await T(() => document.querySelector("#pfHw").textContent), /^Central Pedal 8\./); });
+await check("the app is served by the driver and connects to it", async () => { await until(() => T(() => window.__pedalBridge.connected)); assert.match(await T(() => document.querySelector("#pfHw").textContent), /^Central Pedal \d+\./); });
 await check("the driver's inputs show in the Learn tab with their pins", async () => { await T(() => PPShell.showTab("learn")); await wait(200); const txt = await T(() => document.querySelector('[data-learn="b1"] small').textContent); assert.match(txt, /GPIO 4/); assert.equal(await T(() => document.querySelectorAll("#lnBoard .ln-row").length), 22); });
 
 console.log("\nPairing PIN:");

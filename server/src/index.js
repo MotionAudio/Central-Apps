@@ -4,7 +4,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS } from "./config.js";
+import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS, RENEWAL, SERVICES_PLAN } from "./config.js";
 import { q, one, migrate } from "./db.js";
 import { hashPassword, checkPassword, makeToken, attachUser, requireUser, isAdmin } from "./auth.js";
 import * as store from "./storage.js";
@@ -17,6 +17,8 @@ import * as signin from "./signin.js";
 import * as support from "./support.js";
 import * as church from "./church.js";
 import * as backup from "./backup.js";
+import * as trials from "./trials.js";
+import * as prices from "./prices.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -74,6 +76,7 @@ acct.routes(api, { wrap, brake });
 signin.routes(api, { wrap, brake, requireUser });
 support.routes(api, { wrap, brake, requireUser });
 church.routes(api, { wrap, brake, requireUser });
+prices.routes(api, { wrap, requireUser });
 function needConfirmed(u) { if (u && !u.email_confirmed) { const e = bad("Confirm your email first: we sent you a link (Account → Send it again)."); e.status = 403; e.needConfirm = true; throw e; } }
 
 api.post("/signup", wrap(async (req, res) => {
@@ -110,14 +113,15 @@ api.post("/login", wrap(async (req, res) => {
   if (!u || !checkPassword(String(req.body.password || ""), u.pass_hash)) throw bad("That email and password don't match.", 401);
   res.json(await signin.issue(u, req.body));   // (the main admin and admins: a code to their phone on a new device)
 }));
+trials.routes(api, { wrap, brake, requireUser, needConfirmed });
 api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
   const c = await lic.churchOf(u.id);
   res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), payoutsReady: u.connect_ready, payoutsStarted: !!u.connect_account,
     emailConfirmed: !!u.email_confirmed, phone: u.phone ? signin.maskPhone(u.phone) : null, phoneConfirmed: u.phone_confirmed, twoStep: await signin.needsCode(u),
-    church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: !!c.has_services, subscribed: c.subscribed } : null });
+    church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: !!c.has_services || lic.trialActive(c), subscribed: c.subscribed, trialUntil: lic.trialActive(c) ? c.trial_until : null, trialUsed: !!c.trial_code } : null });
 }));
-api.get("/config", (_req, res) => res.json({ supportEmail: config.supportEmail || null, sms: signin.smsOn, payments: !!pay.stripe, products: PRODUCTS, keyKinds: KEY_KINDS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE }));
+api.get("/config", (_req, res) => res.json({ renewal: RENEWAL, servicesPlan: SERVICES_PLAN, supportEmail: config.supportEmail || null, sms: signin.smsOn, payments: !!pay.stripe, products: PRODUCTS, keyKinds: KEY_KINDS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE }));
 
 function trackOut(t) {
   return { id: String(t.id), title: t.title, artist: t.artist, kind: t.kind, key: t.song_key, bpm: Number(t.bpm) || 0, stars: t.stars, price: t.price_cents / 100, owned: !!t.owned, mine: !!t.mine };
@@ -210,7 +214,7 @@ api.get("/publisher", requireUser, wrap(async (req, res) => {
 }));
 
 // ---- payments
-api.post("/checkout/store", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json({ url: await pay.storeCheckout(req.user, req.body.items, req.body.church) }); }));
+api.post("/checkout/store", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json({ url: await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code) }); }));
 api.post("/checkout/subscription", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json({ url: await pay.subscriptionCheckout(req.user) }); }));
 api.post("/billing", requireUser, wrap(async (req, res) => res.json({ url: await pay.billingPortal(req.user) })));
 api.post("/connect", requireUser, wrap(async (req, res) => res.json({ url: await pay.connectLink(req.user) })));
@@ -244,7 +248,7 @@ app.use(express.static(path.join(here, "..", "public"), { extensions: ["html"] }
 app.use((err, req, res, _next) => {
   const status = err.status || (err.type === "StripeSignatureVerificationError" ? 400 : 500);
   if (status >= 500) { console.error(req.method, req.path, err); if (!err.status) support.recordError({ source: "website", internal: true, message: err.message, stack: err.stack, detail: { request: req.method + " " + req.path, user: req.user ? req.user.email : undefined } }); }
-  res.status(status).json({ error: status >= 500 && !err.status ? "Something went wrong on the server." : err.message, needChurch: err.needChurch || undefined, needClose: err.needClose || undefined, needConfirm: err.needConfirm || undefined });
+  res.status(status).json({ error: status >= 500 && !err.status ? "Something went wrong on the server." : err.message, trialCode: err.trialCode || undefined, needChurch: err.needChurch || undefined, needClose: err.needClose || undefined, needConfirm: err.needConfirm || undefined });
 });
 
 if (process.env.NODE_ENV === "production") {
@@ -255,5 +259,7 @@ if (process.env.NODE_ENV === "production") {
 process.on("unhandledRejection", (e) => { console.error("unhandled:", e); support.recordError({ source: "website", internal: true, message: "Unhandled: " + ((e && e.message) || String(e)), stack: e && e.stack }); });
 process.on("uncaughtException", (e) => { console.error("crash:", e); support.recordError({ source: "website", internal: true, message: "Crash: " + e.message, stack: e.stack }).finally(() => process.exit(1)); setTimeout(() => process.exit(1), 5000).unref(); });
 await migrate();
+await prices.loadPrices();
+setInterval(() => prices.loadPrices().catch(() => { }), 5 * 60e3).unref();   // (another server changed them)
 if (process.env.REMINDERS !== "off") acct.startReminders();   // (every hour: invites nobody answered, the day before a service)
 app.listen(config.port, () => console.log("Motion Audio server on " + config.publicUrl + " (storage: " + (store.usingR2 ? "R2" : "local folder") + ", payments: " + (pay.stripe ? "on" : "off") + ")"));

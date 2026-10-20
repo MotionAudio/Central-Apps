@@ -13,12 +13,26 @@
     $("#updInfo").textContent = "Central Control " + (st.current || "") + (st.lastCheck ? " · last checked " + new Date(st.lastCheck * 1000).toLocaleString() : "") + (st.kind === "appimage" ? " · AppImage" : st.kind === "deb" ? " · installed package" : "");
     if (document.activeElement !== $("#updRepo")) $("#updRepo").value = st.repo || ""; $("#updAuto").checked = st.auto !== false; if ($("#updAutoInstall")) $("#updAutoInstall").checked = st.autoInstall !== false;
     $("#updState").textContent = st.busy ? "Downloading… " + Math.round((st.progress || 0) * 100) + "%" : st.error || (st.available ? "Version " + st.latest + " is ready." + (st.notes ? " " + st.notes.split("\n")[0].slice(0, 200) : "") : st.latest ? "Up to date." : "");
+    if (st.beyond && !st.busy && !st.error) $("#updState").textContent = (st.available ? "Version " + st.latest + " is ready. " : "") + "Version " + st.beyond + " is out. This key gets updates through " + (st.limitText || "its version") + "; this version keeps working. Renew the key ($20) on the website for ten more releases.";
+    renewNote();
     $("#updInstall").hidden = !st.available; $("#updInstall").disabled = !!st.busy;
     autoStart();
     ask();
     var b = $("#updBanner"); if (!b) return;
     b.hidden = !(st.available && dismissed !== st.latest) || !!($("#updAsk") && $("#updAsk").open);
     b.innerHTML = "<b>Central Control " + esc(st.latest || "") + ' is ready</b><button class="primary" data-u="install"' + (st.busy ? " disabled" : "") + ">" + (st.busy ? "Installing…" : "Install & restart") + '</button><button data-u="later">Later</button>';
+  }
+  // past the key's updates: said once per new version (the app keeps working; nothing is forced)
+  function renewNote() {
+    if (!st.beyond || st.available) return;
+    var seen = null; try { seen = localStorage.getItem("cu-beyond-seen"); } catch (_) { }
+    if (seen === st.beyond) return;
+    try { localStorage.setItem("cu-beyond-seen", st.beyond); } catch (_) { }
+    var b = document.createElement("div"); b.className = "upd-beyond"; b.setAttribute("role", "status");
+    b.style.cssText = "position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;z-index:50;background:var(--panel,#101e31);border:1px solid var(--line,#294966);border-radius:12px;padding:12px 14px;display:grid;gap:6px;box-shadow:0 8px 30px rgba(0,0,0,.35)";
+    b.innerHTML = "<b>Version " + esc(st.beyond) + " is out</b><span>This key gets updates through " + esc(st.limitText || "its version") + ". This version keeps working as it is. To get " + esc(st.beyond) + ", renew the key ($20) on the website: Account → Your church → Renew.</span><div><button>OK</button></div>";
+    b.querySelector("button").onclick = function () { b.remove(); };
+    document.body.appendChild(b);
   }
   // installing by itself when the app opens: decided once, on the first answer from the update server
   var openedAt = Date.now(), autoDecided = false, autoTimer = null, autoLeft = 0;

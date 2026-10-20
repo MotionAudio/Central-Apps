@@ -12,9 +12,10 @@ const deb = Buffer.from("!<arch>\nfake central-usage 2.4.0 package\n"), appimg =
 const sums = ["central-usage-2.4.0-amd64.deb", "central-usage-2.4.0-x86_64.AppImage"].map((n, i) => crypto.createHash("sha256").update(i ? appimg : deb).digest("hex") + "  " + n).join("\n") + "\n";
 const gh = http.createServer((req, res) => {
   const base = "http://127.0.0.1:" + gh.address().port, send = (b, type) => { res.writeHead(200, { "Content-Type": type || "application/json" }); res.end(b); };
-  if (req.url === "/repos/church/cc/releases/latest") return send(JSON.stringify({ tag_name: "v2.4.0", body: "Lighting remote fixes", assets: [
+  const rel = (r) => (req.url.includes("?") ? [r] : r);   // (the updater reads the list of releases; older tools the newest one)
+  if (req.url === "/repos/church/cc/releases/latest" || req.url.startsWith("/repos/church/cc/releases?")) return send(JSON.stringify(rel({ tag_name: "v2.4.0", body: "Lighting remote fixes", assets: [
     { name: "central-usage-2.4.0-amd64.deb", browser_download_url: base + "/dl/deb" }, { name: "central-usage-2.4.0-x86_64.AppImage", browser_download_url: base + "/dl/appimage" },
-    { name: "central-control-source.zip", browser_download_url: base + "/dl/zip" }, { name: "SHA256SUMS", browser_download_url: base + "/dl/sums" }] }));
+    { name: "central-control-source.zip", browser_download_url: base + "/dl/zip" }, { name: "SHA256SUMS", browser_download_url: base + "/dl/sums" }] })));
   if (req.url === "/dl/deb") { res.writeHead(302, { Location: base + "/dl/deb2" }); return res.end(); }   // GitHub redirects downloads
   if (req.url === "/dl/deb2") return send(deb, "application/octet-stream");
   if (req.url === "/dl/sums") return send(sums, "text/plain");

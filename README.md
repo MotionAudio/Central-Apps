@@ -26,6 +26,14 @@
 | <img src="docs/brand/central-usage.png" width="44" alt=""> | **Central Usage** | Musicians and singers | Your chord chart, your instrument, the lyrics and your own in-ear mix. |
 | <img src="docs/brand/central-services.png" width="44" alt=""> | **Central Services** | Everyone in the church | The schedule: services, who's asked to serve, and everyone's yes or no. Admins see the whole schedule; users see their own requests. |
 
+## Versions and updates
+
+All five apps share one version number: **9.0, 9.1 … 9.9, then 10.0**. A fix is the third number (9.1.1).
+- **Central Pedal and Central Pedal Control:** updates forever.
+- **Central Control and Central Usage:** each key gets ten full releases of updates from when it was bought (bought at
+  9.4, through 10.4). Renew a key for $20 for ten more. The apps never stop working without it.
+- **Central Services:** a monthly plan, always up to date.
+
 ## Platforms
 
 | | Central Pedal | Central Pedal Control | Central Control | Central Usage | Central Services |
@@ -181,7 +189,13 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (8.13 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.0 and earlier)</summary>
+
+**New in version 9.0:**
+- **One version number for all five apps.** Full releases 9.1 … 9.9, then 10.0; fixes 9.x.1.
+- **Updates per key:** Pedal and Pedal Control forever; admin and user keys ten releases (renew $20 for ten more). Apps never stop working.
+- **Codes in the cart:** USAGE10 (10%), 2026 (50%) off the software; 7FREE (7 days) and TESTRUN (6 months) free trials.
+- **Central Services monthly** by church size; **packs without the pedal** ($300 / $500 / $750); a **price page** for staff.
 
 **New in version 8.13:**
 - **Admins sign in with email, password and a code to their phone** (once per device, 30 days).

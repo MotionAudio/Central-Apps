@@ -726,7 +726,7 @@ class Updater:
         self.path = path
         self.current = current
         self.dir = download_dir
-        self.api = api or self.API
+        self.api = api or os.environ.get("CC_UPDATE_API") or self.API   # (tests point it somewhere else)
         self.cfg = {"auto": True, "autoInstall": True, "repo": "", "lastCheck": 0}
         try:
             with open(path) as fh:

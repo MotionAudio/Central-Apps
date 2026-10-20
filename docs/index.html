@@ -107,7 +107,7 @@
 
   <section id="central-services">
     <h2>Central Services</h2>
-    <p class="muted">The church's schedule. Sign in with the account from your church's invite and the app knows who you are: the main admin and admins open on the whole schedule (and the schedulers make services and ask people), users open on their own requests and tap yes or no. Everyone sees every worship and production team, each person's role, and who said yes. Your church gets it with any church pack, or for $25 on the Motion Audio website.</p>
+    <p class="muted">The church's schedule. Sign in with the account from your church's invite and the app knows who you are: the main admin and admins open on the whole schedule (and the schedulers make services and ask people), users open on their own requests and tap yes or no. Everyone sees every worship and production team, each person's role, and who said yes. Your church gets it as a monthly plan on the Motion Audio website, by its size: from $10 a month.</p>
     <div class="grid">
       <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-services-*-win-x64.exe">Download <small>.exe</small></a></div>
       <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-services-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
@@ -193,7 +193,8 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre
       var urls = {}; (rel.assets || []).forEach(function (a) { urls[a.name] = a.browser_download_url; }); var names = Object.keys(urls);
       var v = (rel.tag_name || "").replace(/^v/, ""), ver = function (pat, re) { return (match(names, pat) || "").replace(re, "$1"); };
       var cu = ver("central-usage-*-win-x64.exe", /^central-usage-([\d.]+)-.*$/), us = ver("CentralUsage-*-win-x64.exe", /^CentralUsage-([\d.]+)-.*$/), cs = ver("central-services-*-amd64.deb", /^central-services-([\d.]+)-.*$/);
-      document.getElementById("ver").textContent = "Central Pedal " + v + (cu ? " · Central Control " + cu : "") + (us ? " · Central Usage " + us : "") + (cs ? " · Central Services " + cs : "") + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
+      var same = [cu, us, cs].every(function (x) { return !x || x === v; });   // (from 9.0 every app has the same version)
+      document.getElementById("ver").textContent = (same ? "Version " + v : "Central Pedal " + v + (cu ? " · Central Control " + cu : "") + (us ? " · Central Usage " + us : "") + (cs ? " · Central Services " + cs : "")) + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
       document.getElementById("notes").href = rel.html_url || RELEASES; if (urls.SHA256SUMS) document.getElementById("sums").href = urls.SHA256SUMS;
       document.querySelectorAll("[data-file]").forEach(function (a) { var n = match(names, a.dataset.file); if (n) { a.href = urls[n]; a.title = n; a.removeAttribute("aria-disabled"); } else { a.setAttribute("aria-disabled", "true"); a.title = "Not in this release yet"; } });
       var arch = plat === "mac" ? await macArch() : "x64", pc = "Download for Mac (" + (arch === "arm64" ? "Apple Silicon" : "Intel") + ")";

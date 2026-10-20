@@ -89,17 +89,25 @@ function needSignIn(why) { location.hash = "account"; renderAccount(why || "Sign
 // ---------------------------------------------------------------- store
 // prices come from the server (/config); these are the words around them
 const packs = [
-  { id: "pack-small", tag: "Church pack", name: "Small church", pts: ["Central Pedal, built, with its software", "Central Pedal Control", "2 admins (Central Control)", "6 users (Central Usage)", "Central Services: schedules for the whole church", "More users $10 each, admins $50"] },
-  { id: "pack-medium", tag: "Church pack", name: "Medium church", feature: true, pts: ["Central Pedal, built, with its software", "Central Pedal Control", "4 admins (Central Control)", "12 users (Central Usage)", "Central Services: schedules for the whole church", "More users $10 each, admins $50"] },
-  { id: "pack-large", tag: "Church pack", name: "Large church", pts: ["Central Pedal, built, with its software", "Central Pedal Control", "7 admins (Central Control)", "20 users (Central Usage)", "Central Services: schedules for the whole church", "More users $10 each, admins $50"] },
+  { id: "pack-small", tag: "Church pack", name: "Small church" },
+  { id: "pack-medium", tag: "Church pack", name: "Medium church", feature: true },
+  { id: "pack-large", tag: "Church pack", name: "Large church" },
 ];
+function packPoints(id) {   // what's in a pack, from the server (the price page changes it)
+  const k = (cfg.products && cfg.products[id] && cfg.products[id].keys) || {}, pts = [];
+  if (k.P) pts.push(k.P === 1 ? "Central Pedal Control" : k.P + " Central Pedal Control keys");
+  if (k.A) pts.push(k.A + " admin" + (k.A > 1 ? "s" : "") + " (Central Control)");
+  if (k.U) pts.push(k.U + " user" + (k.U > 1 ? "s" : "") + " (Central Usage)");
+  pts.push("The pedal itself is separate ($" + priceOf("pedal") + ")");
+  if (cfg.products && cfg.products["user-pack"]) pts.push("More users $" + priceOf("user-pack") + " each, admins $" + priceOf("admin"));
+  return pts;
+}
 const products = [
   { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", pts: ["Assembled pedal with buttons and knobs", "Its software installed, with its P key", "Ships to the US and Canada"] },
   { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", pts: ["Edit songs and settings, upload them to the pedal", "Windows, macOS, Linux, iPad, iPhone, Android"] },
   { id: "admin", tag: "A key", name: "Central Control (admin)", per: "per admin device", pts: ["Main admin and admins", "Lights, slides, lyrics, cameras, in-ears, tracks, mixing", "Windows, macOS, Linux"] },
   { id: "user", tag: "U key", name: "Central Usage (user)", per: "per user device", pts: ["For each musician", "Instrument, lyrics and chord charts", "Windows, macOS, Linux, iPad, iPhone, Android"] },
   { id: "user-pack", tag: "U key · pack price", name: "Central Usage (user)", per: "per user device", packOnly: true, pts: ["For churches with a church pack", "Same app as above, $10"] },
-  { id: "services", tag: "Whole church", name: "Central Services", per: "per church, one-time", oneChurch: true, pts: ["Schedules for up to 4 worship and 4 production teams", "Up to 4 schedulers and 120 people", "Everyone accepts or declines, and sees every team", "Free in every church pack · iPhone, iPad, Mac, Windows, Linux, Android"] },
 ];
 const ALL = packs.concat(products);
 const priceOf = (id) => (cfg.products && cfg.products[id] ? cfg.products[id].cents / 100 : 0);
@@ -108,37 +116,79 @@ function card(p) {
   return `<div class="prod${p.feature ? " feature" : ""}">
     <div class="tag">${p.tag}</div><h3>${p.name}</h3>
     <div class="price">$${priceOf(p.id)}<small> ${p.per || "one-time"}</small></div>
-    <ul>${p.pts.map((x) => `<li>${x}</li>`).join("")}</ul>
+    <ul>${(p.pts || packPoints(p.id)).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
     <button class="btn" data-add="${p.id}"${p.packOnly && !hasPack() ? " disabled title=\"Buy a church pack first\"" : ""}>Add to cart</button></div>`;
 }
 function renderRack() {
   if (!cfg.products) return;
-  $("#packs").innerHTML = packs.map(card).join("");
-  $("#rack").innerHTML = products.filter((p) => (!p.packOnly || hasPack()) && !(p.oneChurch && (packs.some((x) => cart[x.id] > 0) || (me && me.church && me.church.hasServices)))).map(card).join("");
+  $("#packs").innerHTML = packs.filter((p) => cfg.products[p.id] && !cfg.products[p.id].hidden).map(card).join("");
+  $("#rack").innerHTML = products.filter((p) => cfg.products[p.id] && (!p.packOnly || hasPack()) && !cfg.products[p.id].hidden).map(card).join("") + servicesCard();
+}
+// Central Services: a monthly plan by the church's size (started from Account; not in the cart)
+function servicesCard() {
+  const sp = cfg.servicesPlan; if (!sp) return "";
+  const t = sp.tiers.slice().sort((a, b) => a.upTo - b.upTo), last = t[t.length - 1];
+  return `<div class="prod"><div class="tag">Whole church · monthly</div><h3>Central Services</h3><div class="price">from $${t[0].cents / 100}<small> a month</small></div>
+    <ul>${t.map((x) => `<li>Up to ${x.upTo} members: $${x.cents / 100}/month</li>`).join("")}<li>More than ${last.upTo}: $${(sp.extraCents / 100).toFixed(2)} a month for each one past ${last.upTo}</li><li>The schedule for every team, on every device</li></ul>
+    <a class="btn" href="#account" id="svcStart">Start it in your account</a></div>`;
 }
 const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0);
 function updateCartBtn() { $("#cartBtn").textContent = "Cart · " + cartCount(); }
-function onAdd(e) { const a = e.target.closest("[data-add]"); if (!a || a.disabled) return; const pr = ALL.find((x) => x.id === a.dataset.add); cart[a.dataset.add] = pr && pr.oneChurch ? 1 : (cart[a.dataset.add] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart"); }
+function onAdd(e) { const a = e.target.closest("[data-add]"); if (!a || a.disabled) return; cart[a.dataset.add] = (cart[a.dataset.add] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart"); }
 $("#rack").addEventListener("click", onAdd); $("#packs").addEventListener("click", onAdd);
-$("#cartBtn").onclick = () => {
+let promo = null;   // the code in the cart: { code, percent } or { code, trial, days }
+$("#cartBtn").onclick = () => openCart();
+function openCart(note) {
   const ids = Object.keys(cart).filter((k) => cart[k] > 0);
-  if (!ids.length) return modal(`<h3>Your cart is empty</h3><p class="muted" style="margin:0">Add a pack, the pedal or keys from the store.</p><button class="btn" data-close>Close</button>`);
-  let total = 0;
-  const lines = ids.map((id) => { const p = ALL.find((x) => x.id === id), s = priceOf(id) * cart[id]; total += s; return `<div><span>${p.name}${p.packOnly ? " (pack price)" : ""} × ${cart[id]}</span><span>${money(s)}</span></div>`; }).join("");
-  const needChurch = me && !me.church;
-  modal(`<h3>Cart</h3><div class="lines">${lines}<div class="total"><span>Total</span><span>${money(total)}</span></div></div>
+  if (!ids.length && !(promo && promo.trial)) return modal(`<h3>Your cart is empty</h3><p class="muted" style="margin:0">Add a pack, the pedal or keys from the store. Have a free trial code? Add anything, or type it here:</p>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1">Code<input id="pcCode" placeholder="Discount or trial code" style="text-transform:uppercase"></label><button class="btn ghost" id="pcApply">Apply</button></div><div class="err" id="pcErr"></div><button class="btn" data-close>Close</button>`), wirePromo();
+  let total = 0, saved = 0;
+  const lines = ids.map((id) => {
+    const p = ALL.find((x) => x.id === id) || { name: id }, hw = cfg.products[id] && cfg.products[id].hardware, s = priceOf(id) * cart[id];
+    const d = promo && promo.percent && !hw ? Math.round(s * promo.percent) / 100 : 0; total += s - d; saved += d;
+    return `<div><span>${esc(p.name)}${p.packOnly ? " (pack price)" : ""} × ${cart[id]}</span><span>${d ? `<s class="muted">${money(s)}</s> ` : ""}${money(s - d)}</span></div>`;
+  }).join("");
+  const needChurch = me && !me.church, trial = promo && promo.trial;
+  modal(`<h3>Cart</h3><div class="lines">${lines}${saved ? `<div><span>${esc(promo.code)} · ${esc(promo.label)}</span><span>−${money(saved)}</span></div>` : ""}<div class="total"><span>Total</span><span>${money(total)}</span></div></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1">Discount or trial code<input id="pcCode" value="${esc(promo ? promo.code : "")}" placeholder="Code" style="text-transform:uppercase"></label><button class="btn ghost" id="pcApply">${promo ? "Change" : "Apply"}</button>${promo ? `<button class="btn ghost" id="pcClear">Remove</button>` : ""}</div>
+    <div class="${note && /^✓/.test(note) ? "" : "err"}" id="pcErr">${esc(note || "")}</div>
+    ${trial ? `<div class="card" style="border-color:var(--accent)"><b>${esc(promo.label)}</b><span class="muted" style="font-size:.9rem">Everything for ${promo.days} days, no payment: as many admin, user and Pedal Control keys as you like, Central Services and Central Tracks Unlimited. Then the trial keys stop and the apps ask for a key you bought (your songs and settings stay). One free trial per church.</span></div>` : ""}
     ${!me ? `<p class="muted" style="margin:0">Sign in or make an account first: your keys go to your church's account.</p>` : needChurch ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label><p class="muted" style="margin:0;font-size:.9rem">This makes your church's account, with you as its main admin. Your admins and users join it with its codes.</p>` : `<p class="muted" style="margin:0;font-size:.9rem">The keys go to <b>${esc(me.church.name)}</b>.</p>`}
     <p class="muted" style="margin:0;font-size:.9rem">You'll pay securely with Stripe. Your keys appear right after checkout and on your church's page.</p>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="checkout">${me ? "Check out" : "Sign in"}</button><button class="btn ghost" id="clear">Empty cart</button></div><div class="err" id="coErr"></div>`);
   $("#clear").onclick = () => { for (const k in cart) delete cart[k]; updateCartBtn(); renderRack(); closeModal(); };
+  wirePromo();
+  if (trial) { $("#checkout").textContent = me ? "Start the free trial" : "Sign in to start the trial"; }
   $("#checkout").onclick = async () => {
     if (!me) { closeModal(); return needSignIn("Sign in or make an account, then open the cart again."); }
     if (needChurch && !$("#coChurch").value.trim()) { $("#coErr").textContent = "Give your church or production a name."; return; }
-    if (!cfg.payments) return paymentsSoon();
     $("#checkout").disabled = true;
-    try { go((await api("POST", "/checkout/store", { items: cart, church: needChurch ? $("#coChurch").value.trim() : undefined })).url); } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; }
+    if (trial) {
+      try {
+        const t = await api("POST", "/trial", { code: promo.code, church: needChurch ? $("#coChurch").value.trim() : undefined });
+        promo = null; await refreshMe();
+        return modal(`<h3>Your free trial is on</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>. Here are keys to start with; make more any time on your church's page, or add people on the Teams card (each gets their own key).</p>
+          <div class="keys">${t.keys.map((k) => `<div>${{ P: "Central Pedal / Pedal Control", A: "Central Control (admin)", U: "Central Usage (user)" }[k.kind]}<br><b>${esc(k.key)}</b></div>`).join("")}</div>
+          <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>.</p><button class="btn" data-close>Done</button>`);
+      } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
+    }
+    if (!cfg.payments) return paymentsSoon();
+    try { go((await api("POST", "/checkout/store", { items: cart, church: needChurch ? $("#coChurch").value.trim() : undefined, code: promo && promo.percent ? promo.code : undefined })).url); } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; }
   };
-};
+}
+function wirePromo() {
+  const apply = async () => {
+    const c = ($("#pcCode").value || "").trim().toUpperCase(); if (!c) return;
+    try {
+      const d = await api("GET", "/discount/" + encodeURIComponent(c));
+      if (d.used) throw new Error(d.trial ? "Your church already had its free trial." : "Your church already used " + d.code + ".");
+      promo = d; openCart("✓ " + d.code + ": " + d.label);
+    } catch (e) { $("#pcErr").className = "err"; $("#pcErr").textContent = e.message; }
+  };
+  if ($("#pcApply")) $("#pcApply").onclick = apply;
+  if ($("#pcCode")) $("#pcCode").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); apply(); } };
+  if ($("#pcClear")) $("#pcClear").onclick = () => { promo = null; openCart(); };
+}
 
 // ---------------------------------------------------------------- subscription + library
 function renderSub() {
@@ -328,13 +378,14 @@ async function renderAccount(note) {
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
       <a class="btn ghost small" href="${APPS_URL}" target="_blank" rel="noopener" style="justify-self:start">Download the apps</a></div>
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
+    ${me.church ? `<div class="card" id="planCard"><h3>Central Services</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
     <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); if (me.admin) { renderStaff(); renderOps(); }
+  renderChurch(); renderTeams(); renderMe(); renderPlan(); if (me.admin) { renderStaff(); renderOps(); renderPrices(); }
   if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "Already confirmed" : "Sent · check your inbox (and spam)"); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
@@ -343,6 +394,53 @@ async function renderAccount(note) {
     $("#myPub").innerHTML = `<div><b>${money(p.unpaid)}</b> waiting to be paid · ${money(p.paid)} paid so far</div><div class="muted" style="font-size:.9rem">${p.addsThisMonth} subscriber adds this month · your pool share is worked out on the 1st</div>` +
       (p.tracks.length ? p.tracks.map((t) => `<div>${starHtml(t.stars)} <b>${esc(t.title)}</b> <span class="muted">· ${money(t.price)} · ${t.sales} sold · ${t.adds} subscriber adds${t.status !== "live" ? " · " + esc(t.status) : ""}</span></div>`).join("") : '<div>No tracks published yet. <a href="#publish">Publish one</a>.</div>');
   } catch (err) { $("#myPub").textContent = err.message; }
+}
+// ---------------------------------------------------------------- Central Services: the church's monthly plan
+async function renderPlan() {
+  const el = $("#planCard"); if (!el) return;
+  let p; try { p = await api("GET", "/services/plan"); } catch (e) { el.innerHTML = `<h3>Central Services</h3><div class="err">${esc(e.message)}</div>`; return; }
+  const owner = me.church && me.church.role === "owner";
+  el.innerHTML = `<h3>Central Services</h3>
+    <div class="status ${p.active || p.trial ? "on" : ""}" style="font:500 .85rem var(--mono)">${p.active ? "On · $" + ((p.charging || p.cents) / 100).toFixed(2) + "/month" : p.trial ? "On · free trial until " + new Date(p.trial).toLocaleDateString() : "Off"}</div>
+    <p class="muted" style="margin:0;font-size:.92rem">The schedule for every team. ${p.members} member${p.members === 1 ? "" : "s"} in your church: <b>$${(p.cents / 100).toFixed(2)} a month</b> (${p.tiers.map((t) => "up to " + t.upTo + " $" + t.cents / 100).join(", ")}, then $${(p.extraCents / 100).toFixed(2)} each). The price follows your church's size.</p>
+    ${owner ? (p.active ? `<button class="btn small ghost" id="planManage" style="justify-self:start">Change or cancel (Billing)</button>` : `<button class="btn small" id="planStart" style="justify-self:start">Start Central Services · $${(p.cents / 100).toFixed(2)}/month</button>`) : `<p class="muted" style="margin:0;font-size:.85rem">The main admin starts it.</p>`}<div class="err" id="planErr"></div>`;
+  if ($("#planStart")) $("#planStart").onclick = async () => { if (!cfg.payments) return paymentsSoon(); try { go((await api("POST", "/checkout/services")).url); } catch (e) { $("#planErr").textContent = e.message; } };
+  if ($("#planManage")) $("#planManage").onclick = async () => { try { go((await api("POST", "/church/billing")).url); } catch (e) { $("#planErr").textContent = e.message; } };
+}
+// ---------------------------------------------------------------- Motion Audio staff: the price page
+async function renderPrices() {
+  let host = $("#pricesCard"); if (!host) { $("#acctBody .acct").insertAdjacentHTML("beforeend", `<div class="card wide" id="pricesCard"></div>`); host = $("#pricesCard"); }
+  let r; try { r = await api("GET", "/admin/prices"); } catch (e) { host.innerHTML = `<h3>Prices</h3><div class="err">${esc(e.message)}</div>`; return; }
+  const P = r.prices, $$ = (n) => host.querySelectorAll(n), d = (c) => (c / 100).toFixed(2);
+  const inp = (path, v, w) => `<input data-pp="${path}" value="${esc(v)}" style="width:${w || 90}px">`;
+  host.innerHTML = `<h3>Prices · Motion Audio staff</h3><p class="muted" style="margin:0;font-size:.9rem">Dollars. Changes take effect as soon as you save.${r.updatedAt ? " Last saved " + new Date(r.updatedAt).toLocaleString() + " by " + esc(r.updatedBy) + "." : ""}</p>
+    <details open><summary>Store and packs</summary><table class="ktable"><tr><th>Product</th><th>Price</th><th>P</th><th>A</th><th>U</th><th>Hidden</th></tr>
+      ${Object.entries(P.PRODUCTS).map(([id, p]) => `<tr><td>${esc(p.name)}${p.hardware ? ' <span class="muted">(hardware)</span>' : ""}</td><td>$${inp("PRODUCTS." + id + ".cents", d(p.cents))}</td>${["P", "A", "U"].map((k) => `<td>${inp("PRODUCTS." + id + ".keys." + k, (p.keys || {})[k] || 0, 50)}</td>`).join("")}<td><input type="checkbox" data-pph="${id}" style="width:auto"${p.hidden ? " checked" : ""}></td></tr>`).join("")}</table></details>
+    <details><summary>Renewal and monthly</summary><div style="display:grid;gap:.4rem">
+      <label>Renewal per key $${inp("RENEWAL.cents", d(P.RENEWAL.cents))}</label>
+      <label>Central Tracks Unlimited per month $${inp("SUBSCRIPTION.cents", d(P.SUBSCRIPTION.cents))}</label>
+      <div>Central Services per month: ${P.SERVICES_PLAN.tiers.map((t, i) => `up to ${inp("SERVICES_PLAN.tiers." + i + ".upTo", t.upTo, 55)} members $${inp("SERVICES_PLAN.tiers." + i + ".cents", d(t.cents), 70)}`).join(" · ")} · then $${inp("SERVICES_PLAN.extraCents", d(P.SERVICES_PLAN.extraCents), 60)} each</div></div></details>
+    <details><summary>Discount codes</summary><table class="ktable"><tr><th>Code</th><th>What</th><th>On</th><th></th></tr>
+      ${Object.entries(P.DISCOUNTS).map(([c, x]) => `<tr><td><code>${esc(c)}</code></td><td>${x.trial ? `free trial, ${inp("DISCOUNTS." + c + ".days", x.days, 55)} days` : `${inp("DISCOUNTS." + c + ".percent", x.percent, 55)}% off the software`} <span class="muted">${esc(x.label)}</span></td><td><input type="checkbox" data-ppon="${esc(c)}" style="width:auto"${x.on !== false ? " checked" : ""}></td><td><button class="btn small ghost" data-ppdel="${esc(c)}">Delete</button></td></tr>`).join("")}</table>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><label>New code<input id="ppCode" style="width:120px;text-transform:uppercase"></label><label>Kind<select id="ppKind" style="width:auto"><option value="percent">% off the software</option><option value="trial">free trial (days)</option></select></label><label>Amount<input id="ppAmt" style="width:70px" placeholder="10"></label><button class="btn small ghost" id="ppAdd">Add</button></div></details>
+    <details><summary>Central Tracks star prices</summary>${[1, 2, 3, 4, 5].map((n) => `<label style="display:inline-grid;margin-right:.5rem">${n}★ $${inp("STAR_PRICE_CENTS." + n, d(P.STAR_PRICE_CENTS[n]), 60)}</label>`).join("")}</details>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="ppSave">Save prices</button><button class="btn ghost" id="ppReset">Back to the starting prices</button></div><div class="err" id="ppErr"></div>`;
+  const draft = JSON.parse(JSON.stringify(P));
+  const setPath = (o, path, v) => { const k = path.split("."); let x = o; for (let i = 0; i < k.length - 1; i++) { x[k[i]] = x[k[i]] || {}; x = x[k[i]]; } x[k[k.length - 1]] = v; };
+  const collect = () => {
+    $$("[data-pp]").forEach((i) => { const path = i.dataset.pp, money = /cents|extraCents|STAR_PRICE/.test(path) && !/upTo/.test(path); setPath(draft, path, money ? Math.round(parseFloat(i.value || "0") * 100) : Number(i.value || 0)); });
+    $$("[data-pph]").forEach((c) => { draft.PRODUCTS[c.dataset.pph].hidden = c.checked; });
+    $$("[data-ppon]").forEach((c) => { draft.DISCOUNTS[c.dataset.ppon].on = c.checked; });
+    return draft;
+  };
+  $$("[data-ppdel]").forEach((b) => (b.onclick = () => { if (confirm("Delete " + b.dataset.ppdel + "?")) { collect(); delete draft.DISCOUNTS[b.dataset.ppdel]; save(); } }));
+  $("#ppAdd").onclick = () => {
+    const c = ($("#ppCode").value || "").trim().toUpperCase(), n = Number($("#ppAmt").value); if (!c || !n) { $("#ppErr").textContent = "A code and an amount."; return; }
+    collect(); draft.DISCOUNTS[c] = $("#ppKind").value === "trial" ? { trial: true, days: n, label: n + "-day free trial" } : { percent: n, label: n + "% off the software" }; save();
+  };
+  async function save() { try { await api("POST", "/admin/prices", { prices: draft }); cfg = await api("GET", "/config"); renderRack(); toast("Prices saved"); renderPrices(); } catch (e) { $("#ppErr").textContent = e.message; } }
+  $("#ppSave").onclick = () => { collect(); save(); };
+  $("#ppReset").onclick = async () => { if (!confirm("Go back to the starting prices and codes?")) return; try { await api("POST", "/admin/prices", { reset: true }); cfg = await api("GET", "/config"); renderRack(); toast("Back to the starting prices"); renderPrices(); } catch (e) { $("#ppErr").textContent = e.message; } };
 }
 // ---------------------------------------------------------------- your account: phone, policies, support, delete
 function renderMe() {
@@ -411,16 +509,29 @@ async function renderChurch() {
   }
   const c = r.church, staff = c.role === "owner" || c.role === "admin", roleName = { owner: "main admin", admin: "admin", user: "user" }[c.role];
   const counts = Object.keys(r.counts).map((k) => `<div><span class="muted" style="font-size:.85rem">${k} · ${esc(r.counts[k].name)}</span><b>${r.counts[k].free}</b><span class="muted" style="font-size:.85rem">left · ${r.counts[k].inUse} in use · ${r.counts[k].total} in all</span></div>`).join("");
-  const rows = r.keys.map((k) => `<tr><td>${k.kind}</td><td><code>${esc(k.key)}</code></td><td>${k.revoked ? '<span class="err">revoked</span>' : k.inUse ? esc(k.device) + (k.app ? ` <span class="muted">· ${esc(k.app)}</span>` : "") : '<span class="muted">free</span>'}</td><td>${(staff || k.mine) && k.inUse ? `<button class="btn small ghost" data-rel="${esc(k.key)}">Release</button>` : ""}${k.mine ? ' <span class="muted" style="font-size:.85rem">yours</span>' : ""}</td></tr>`).join("");
+  const cur = r.current || "", behind = (k) => k.renewable && k.updatesUntil && Number(k.updatesUntil) < Number(cur) + 0.001;
+  const upd = (k) => k.trial ? `<span class="muted">trial · ${k.expired ? "ended" : "until " + new Date(k.expiresAt).toLocaleDateString()}</span>` : k.updatesUntil === "forever" ? '<span class="muted">forever</span>' : `<span class="${behind(k) ? "err" : "muted"}">through ${esc(k.updatesUntil || "?")}</span>`;
+  const rows = r.keys.map((k) => `<tr><td>${staff && k.renewable ? `<input type="checkbox" data-renew="${esc(k.key)}" style="width:auto" aria-label="Renew this key">` : ""} ${k.kind}</td><td><code>${esc(k.key)}</code></td><td>${k.revoked ? '<span class="err">revoked</span>' : k.expired ? '<span class="err">ended</span>' : k.inUse ? esc(k.device) + (k.app ? ` <span class="muted">· ${esc(k.app)}</span>` : "") : '<span class="muted">free</span>'}</td><td>${upd(k)}</td><td>${(staff || k.mine) && k.inUse ? `<button class="btn small ghost" data-rel="${esc(k.key)}">Release</button>` : ""}${k.mine ? ' <span class="muted" style="font-size:.85rem">yours</span>' : ""}</td></tr>`).join("");
+  const T = r.trial || {};
   el.innerHTML = `<h3>${esc(c.name)} <span class="muted" style="font-weight:400;font-size:.9rem">· you're ${roleName}</span></h3>
     <div class="kcount">${counts}</div>
     ${c.adminCode || c.userCode ? `<p style="margin:.2rem 0">${c.adminCode ? `Admin code <code style="user-select:all">${esc(c.adminCode)}</code> · ` : ""}User code <code style="user-select:all">${esc(c.userCode)}</code> <span class="muted" style="font-size:.9rem">· people join with these when they make an account. Admins can all share one account; each user has their own.</span></p>` : ""}
-    ${r.keys.length ? `<table class="ktable"><tr><th></th><th>Key</th><th>On</th><th></th></tr>${rows}</table>` : `<p class="muted" style="margin:0">No keys yet. <a href="#store">Get a church pack or keys</a>.</p>`}
+    ${T.active ? `<div class="card" style="border-color:var(--accent);display:grid;gap:.4rem"><b>Free trial (${esc(T.code)}) until ${new Date(T.until).toLocaleDateString()}</b><span class="muted" style="font-size:.9rem">As many keys as you like, Central Services and Central Tracks Unlimited. Afterwards the trial keys stop and the apps ask for a key you bought; songs and settings stay.</span>
+      ${staff ? `<div style="display:flex;gap:.4rem;flex-wrap:wrap"><button class="btn small ghost" data-mk="A">+ Admin key</button><button class="btn small ghost" data-mk="U">+ User key</button><button class="btn small ghost" data-mk="P">+ Pedal Control key</button></div>` : ""}</div>` : T.used ? `<p class="muted" style="margin:0;font-size:.9rem">Your free trial (${esc(T.code)}) has ended. <a href="#store">Get keys</a> to keep going.</p>` : ""}
+    ${r.keys.length ? `<table class="ktable"><tr><th></th><th>Key</th><th>On</th><th>Updates</th><th></th></tr>${rows}</table>
+      ${staff && r.keys.some((k) => k.renewable) ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><button class="btn small" id="renewBtn">Renew the ticked keys ($${((cfg.renewal || {}).cents || 2000) / 100} each)</button><label style="font-size:.85rem">Code<input id="renewCode" style="width:120px;text-transform:uppercase" placeholder="optional"></label><span class="muted" style="font-size:.85rem">Admin and user keys get ten releases of updates (bought at 9.0: through 10.0); renewing adds ten more. The apps keep working without it. Pedal Control keys: forever. Now: ${esc(cur)}.</span></div>` : ""}` : `<p class="muted" style="margin:0">No keys yet. <a href="#store">Get a church pack or keys</a>, or start a free trial with a code in the cart.</p>`}
     <p class="muted" style="margin:0;font-size:.9rem">Release frees a key from a lost or broken device${staff ? "" : " (yours)"}. On a working device, use Settings → License → Release key in the app.</p>
     ${c.role === "owner" ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="btn small" id="billBtn">Billing: card &amp; receipts</button><span class="muted" style="font-size:.9rem">In ${esc(c.name)}'s name. It stays with the church if the main admin changes.</span></div>` : ""}
     ${r.members.length ? `<details ${c.role === "owner" ? "open" : ""}><summary>People (${r.members.length})</summary>${r.members.map((m) => `<div class="tm"><div>${esc(m.name || m.email)} <span class="muted">· ${esc(m.email)} · ${{ owner: "main admin", admin: "admin", user: "user" }[m.role]}</span></div>${c.role === "owner" && m.role !== "owner" ? `<div class="tacts"><select class="tmove" data-role="${esc(m.email)}" aria-label="Role"><option value="admin"${m.role === "admin" ? " selected" : ""}>Admin</option><option value="user"${m.role === "user" ? " selected" : ""}>User</option></select><button class="btn small ghost" data-owner="${esc(m.email)}" data-oname="${esc(m.name || m.email)}">Make main admin</button><button class="btn small ghost" data-rm="${esc(m.email)}">Take out</button></div>` : ""}</div>`).join("")}
       ${c.role === "owner" ? `<p style="margin:.4rem 0 0"><button class="btn small ghost" id="newCodes">New codes</button> <span class="muted" style="font-size:.9rem">if a code got out. People already in stay in.</span></p>` : ""}</details>` : ""}
     <div class="err" id="relErr"></div>`;
+  el.querySelectorAll("[data-mk]").forEach((b) => (b.onclick = async () => { try { const x = await api("POST", "/church/trial-key", { kind: b.dataset.mk }); toast("New key " + x.key); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; } }));
+  if ($("#renewBtn")) $("#renewBtn").onclick = async () => {
+    const keys = Array.from(el.querySelectorAll("[data-renew]:checked")).map((x) => x.dataset.renew);
+    if (!keys.length) { $("#relErr").textContent = "Tick the keys to renew (only your church's full keys show a box: Pedal Control keys don't need it)."; return; }
+    if (!cfg.payments) return paymentsSoon();
+    try { go((await api("POST", "/checkout/renew", { keys, code: $("#renewCode").value.trim() || undefined })).url); } catch (e) { $("#relErr").textContent = e.message; }
+  };
   if ($("#billBtn")) $("#billBtn").onclick = async () => { try { go((await api("POST", "/church/billing")).url); } catch (e) { $("#relErr").textContent = e.message; } };
   el.querySelectorAll("[data-role]").forEach((sel) => (sel.onchange = async () => {
     try { await api("POST", "/church/role", { email: sel.dataset.role, role: sel.value }); toast(sel.dataset.role + " is now " + (sel.value === "admin" ? "an admin" : "a user")); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; renderChurch(); }
@@ -594,6 +705,8 @@ async function handleHash() {
     modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your payment went through. Your license keys are on the way; refresh this page in a minute to see them.</p><button class="btn" data-close>OK</button>`);
   } else if (h === "subscribed") { toast("Welcome to Central Tracks Unlimited"); setTimeout(refreshMe, 2500); }
   else if (h.startsWith("bought-")) { toast("Bought · it's in your storage"); setTimeout(loadTracks, 2500); }
+  else if (h === "renewed") { toast("Renewed · ten more releases of updates"); setTimeout(refreshMe, 2500); }
+  else if (h === "services-on") { toast("Central Services is on"); setTimeout(refreshMe, 2500); }
 }
 
 // ---------------------------------------------------------------- hero waveform

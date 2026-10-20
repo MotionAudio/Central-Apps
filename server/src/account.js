@@ -13,6 +13,8 @@ import { stripe } from "./payments.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
 import { remindInvites, churchOf, acceptInvite } from "./licenses.js";
 import { remindServices } from "./services.js";
+import { remindTrials } from "./trials.js";
+import { syncServicesPrices } from "./payments.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const hash = (t) => crypto.createHash("sha256").update(String(t)).digest("hex");
@@ -109,7 +111,7 @@ export async function runReminders() {
   try {
     const got = (await client.query("SELECT pg_try_advisory_lock(80612) AS ok")).rows[0].ok;
     if (!got) return { invites: 0, services: 0, skipped: "another server" };
-    try { return { invites: await remindInvites(), services: await remindServices() }; }
+    try { return { invites: await remindInvites(), services: await remindServices(), trials: await remindTrials(), plans: await syncServicesPrices() }; }
     finally { await client.query("SELECT pg_advisory_unlock(80612)"); }
   } finally { client.release(); running = false; }
 }

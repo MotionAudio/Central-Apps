@@ -45,8 +45,9 @@ try {
   const { one } = await import("../src/db.js");
   const cid = (await one("SELECT id FROM churches WHERE owner_id=(SELECT id FROM users WHERE email=$1)", ["pastor" + S + "@hope.test"])).id;
   await recordOrder({ id: "cs_t_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 40000, customer_details: { email: "p@hope.test" } }, null);
+  await one("UPDATE churches SET has_services=TRUE WHERE id=$1 RETURNING id", [cid]);   // (Central Services' monthly plan, as Stripe's webhook records it)
   let ch = (await j("GET", "/church", null, T));
-  ok(ch.counts.U.free === 6 && ch.counts.A.free === 2 && ch.church.hasServices, "the keys page shows how many of each are left; a pack comes with Central Services", ch.counts);
+  ok(ch.counts.U.free === 6 && ch.counts.A.free === 2 && ch.counts.P.free === 1 && ch.church.hasServices, "the keys page shows how many of each are left", ch.counts);
 
   // Teams: add people to Users - name, email, role - Done: each gets an email with the account link, the app and the key
   const add = await j("POST", "/church/team", { section: "user", members: [{ name: "Ana", email: "ana" + S + "@hope.test", role: "Bass" }, { name: "Ben", email: "ben" + S + "@hope.test", role: "Keys" }, { name: "x", email: "nope" }] }, T);
@@ -112,8 +113,8 @@ try {
   ok((await j("POST", "/services/teams", { kind: "worship", name: "X" }, ana.token))._status === 403, "members can't make teams");
   await j("POST", "/services/teams/" + w1.id + "/members", { members: [{ name: "Ana", email: "ana" + S + "@hope.test", role: "Bass" }, { name: "Wes", email: "wes" + S + "@hope.test", role: "Worship leader" }] }, T);
   await j("POST", "/services/teams/" + p1.id + "/members", { members: [{ name: "Sam", email: "sam" + S + "@hope.test", role: "Lights" }] }, T);
-  const many = Array.from({ length: 121 }, (_, i) => ({ email: "p" + i + "-" + S + "@hope.test" }));
-  ok((await j("POST", "/services/teams/" + p1.id + "/members", { members: many }, T))._status === 400, "up to 120 people");
+  const many = Array.from({ length: 1001 }, (_, i) => ({ email: "p" + i + "-" + S + "@hope.test" }));
+  ok((await j("POST", "/services/teams/" + p1.id + "/members", { members: many }, T))._status === 400, "up to 1000 people on the teams");
   const n1 = mail("ana" + S + "@hope.test").length;
   const ev = await j("POST", "/services/events", { title: "Sunday 9:00", startsAt: new Date(Date.now() + 5 * 864e5).toISOString(), teams: [w1.id, p1.id] }, T);
   ok(ev.ok && ev.asked === 3 && mail("ana" + S + "@hope.test").length === n1 + 1 && /Sunday 9:00/.test(mail("ana" + S + "@hope.test").pop().body.subject), "a service asks everyone on the chosen teams, by email", ev);
@@ -135,7 +136,7 @@ try {
   ok((await j("POST", "/services/schedulers", { emails: ["a@x", "b@x", "c@x", "d@x", "e@x"] }, T))._status === 400, "...up to 4");
   // a church without it
   const other = await finish(await j("POST", "/signup", { email: "o" + S + "@none.test", password: "password123", churchName: "No Services Church" }), "o" + S + "@none.test");
-  ok((await j("GET", "/services/board", null, other.token))._status === 402 && (await j("GET", "/config")).products.services.cents === 2500, "without it, Central Services says to get it ($25)");
+  ok((await j("GET", "/services/board", null, other.token))._status === 402, "without it, Central Services says to get it (a monthly plan)");
 } finally { srv.kill(); mailSrv.close(); }
 console.log(fails ? "\n" + fails + " TEAMS CHECK(S) FAILED\n" + log.slice(-2500) : "\nALL TEAMS & SERVICES CHECKS PASSED");
 process.exit(fails ? 1 : 0);

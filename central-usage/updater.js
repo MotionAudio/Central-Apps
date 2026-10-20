@@ -19,6 +19,8 @@ const http = require("node:http");
 const crypto = require("node:crypto");
 const { execFile, spawn } = require("node:child_process");
 
+function tenthsOf(v) { const n = versionTuple(v); return n[0] * 10 + Math.min(9, n[1]); }   // 9.4.2 -> 94
+function fmtTenths(t) { return Math.floor(t / 10) + "." + (t % 10); }
 function versionTuple(v) { const n = String(v || "").match(/\d+/g) || []; return [0, 1, 2].map((i) => Number(n[i] || 0)); }
 function newer(a, b) { const x = versionTuple(a), y = versionTuple(b); for (let i = 0; i < 3; i++) { if (x[i] !== y[i]) return x[i] > y[i]; } return false; }
 
@@ -64,7 +66,7 @@ class Updater {
   constructor({ product, current, dir, api }) {
     this.product = product; this.current = current; this.api = api || process.env.CC_UPDATE_API || "https://api.github.com";
     this.file = path.join(dir, "updates.json");
-    this.cfg = { repo: "", auto: true, autoInstall: true, lastCheck: 0 };
+    this.cfg = { repo: "", auto: true, autoInstall: true, lastCheck: 0, limit: null, limitText: "" };   // limit: the last full release this key gets (tenths, 94 = 9.4); null = any
     try { Object.assign(this.cfg, JSON.parse(fs.readFileSync(this.file, "utf8"))); } catch (_) { }
     if (!this.cfg.repo) this.cfg.repo = process.env.CC_UPDATE_REPO != null ? process.env.CC_UPDATE_REPO : "MotionAudio/Central-Apps";   // the official releases
     this.latest = null; this.error = null; this.busy = false; this.progress = 0;
@@ -73,6 +75,8 @@ class Updater {
     if (cfg && "repo" in cfg) this.cfg.repo = String(cfg.repo || "").trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "") || (process.env.CC_UPDATE_REPO || "MotionAudio/Central-Apps");   // empty = the official releases
     if (cfg && "auto" in cfg) this.cfg.auto = !!cfg.auto;
     if (cfg && "autoInstall" in cfg) this.cfg.autoInstall = !!cfg.autoInstall;
+    if (cfg && "limit" in cfg) { this.cfg.limit = cfg.limit == null || cfg.limit === "" ? null : Number(cfg.limit); this.cfg.limitText = String(cfg.limitText || ""); }
+    if (this.latest && this.cfg.limit != null && tenthsOf(this.latest.version) > this.cfg.limit) { this.beyond = this.latest.version; this.latest = null; }   // (found before the key's coverage was known)
     try { fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(this.file, JSON.stringify(this.cfg)); } catch (_) { }
     return this.status();
   }
@@ -88,24 +92,36 @@ class Updater {
   status() {
     const lt = this.latest || {};
     return { current: this.current, repo: this.cfg.repo, auto: this.cfg.auto, autoInstall: this.cfg.autoInstall !== false, lastCheck: this.cfg.lastCheck, latest: lt.version || null, notes: (lt.notes || "").slice(0, 2000),
-      available: !!(lt.version && newer(lt.version, this.current) && this.asset()), error: this.error, busy: this.busy, progress: this.progress, kind: this.kind() };
+      available: !!(lt.version && newer(lt.version, this.current) && this.asset()), error: this.error, busy: this.busy, progress: this.progress, kind: this.kind(),
+      beyond: this.beyond || null, limitText: this.cfg.limit == null ? "" : (this.cfg.limitText || fmtTenths(this.cfg.limit)) };
   }
   // once a day; after a failed look (no internet yet) again in 10 minutes
   due() { return this.cfg.auto && this.cfg.repo && Date.now() / 1000 - (this.cfg.lastCheck || 0) > (this.error ? 600 : 20 * 3600); }
   async check() {
     if (!/^[^/\s]+\/[^/\s]+$/.test(this.cfg.repo || "")) { this.error = "Set the update source first (owner/repo on GitHub)."; return this.status(); }
     try {
-      const rel = await get(this.api + "/repos/" + this.cfg.repo + "/releases/latest", { json: true, timeout: 15000 });
-      const assets = {}; (rel.assets || []).forEach((a) => { assets[a.name] = a.browser_download_url; });
-      // one release carries every app; this app's own version is in its file name (central-usage-1.3.0-amd64.deb)
-      const mine = Object.keys(assets).map((n) => (n.match(new RegExp("^" + this.product + "-(\\d+(?:\\.\\d+)*)-")) || [])[1]).filter(Boolean)[0];
-      this.latest = { version: mine || String(rel.tag_name || rel.name || "").replace(/^v/i, ""), notes: rel.body || "", assets };
+      // the newest release this key covers (its updates go through cfg.limit; past that, the app keeps working as it is)
+      const list = await get(this.api + "/repos/" + this.cfg.repo + "/releases?per_page=40", { json: true, timeout: 15000 });
+      const found = [];
+      for (const rel of Array.isArray(list) ? list : [list]) {
+        if (!rel || rel.draft || rel.prerelease) continue;
+        const assets = {}; (rel.assets || []).forEach((a) => { assets[a.name] = a.browser_download_url; });
+        // one release carries every app; this app's own version is in its file name (central-usage-9.1.0-amd64.deb)
+        const mine = Object.keys(assets).map((n) => (n.match(new RegExp("^" + this.product + "-(\\d+(?:\\.\\d+)*)-")) || [])[1]).filter(Boolean)[0];
+        const version = mine || String(rel.tag_name || rel.name || "").replace(/^v/i, "");
+        if (version) found.push({ version, notes: rel.body || "", assets });
+      }
+      found.sort((a, b) => (newer(a.version, b.version) ? -1 : newer(b.version, a.version) ? 1 : 0));
+      const lim = this.cfg.limit, ok = found.filter((f) => lim == null || tenthsOf(f.version) <= lim);
+      this.latest = ok[0] || null;
+      this.beyond = lim != null && found[0] && tenthsOf(found[0].version) > lim && newer(found[0].version, this.current) ? found[0].version : null;
       this.error = null;
     } catch (e) { this.error = explain(e); }
     this.cfg.lastCheck = Math.floor(Date.now() / 1000); this.save({});
     return this.status();
   }
   async download(onProgress) {
+    if (this.latest && this.cfg.limit != null && tenthsOf(this.latest.version) > this.cfg.limit) throw new Error("this key's updates go through " + (this.cfg.limitText || fmtTenths(this.cfg.limit)) + "; renew it on the website to get " + this.latest.version);
     const asset = this.asset(); if (!asset) throw new Error("this release has no " + ({ appimage: "AppImage", deb: ".deb", win: "Windows installer", mac: "Mac disk image" })[this.kind()] + " for this computer");
     const data = await get(asset.url, { timeout: 120000, onProgress });
     const sumsUrl = this.latest.assets.SHA256SUMS;
