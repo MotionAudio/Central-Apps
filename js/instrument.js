@@ -27,13 +27,29 @@
   function loadBoard(k, boardId) {
     var c = cfg(), board = allBoards().filter(function (b) { return b.id === boardId; })[0]; if (!board) return;
     c.boards[k] = boardId;
-    c.chains[k] = board.chain.map(function (item) { var pedal = PED.byId(item[0]); if (!pedal) return null; var values = Object.assign({}, pedal.opts.values || {}); Object.keys(item[1] || {}).forEach(function (label) { values[pedal.knobs[label] || label] = item[1][label]; }); return { uid: uid(), pedal: pedal.id, on: true, values: values }; }).filter(Boolean);
+    c.chains[k] = board.chain.map(function (item) { if (item[0] === "plug" && item[2] && item[2].plugin) return { uid: uid(), pedal: "plug", plugin: item[2].plugin, stateFrom: item[2].stateFrom || null, on: true, values: {} }; var pedal = PED.byId(item[0]); if (!pedal) return null; var values = Object.assign({}, pedal.opts.values || {}); Object.keys(item[1] || {}).forEach(function (label) { values[pedal.knobs[label] || label] = item[1][label]; }); return { uid: uid(), pedal: pedal.id, on: true, values: values }; }).filter(Boolean);
   }
   var CATS = [[/rhodes|wurli|e\.? ?piano|elec.*piano|\bep\b|fm[ _-]?piano|\bdx|tine|clav/i, "Electric pianos"], [/harp|guitar|nylon|banjo|sitar|koto|dulcimer|shamisen/i, "Guitars & harp"], [/grand|concert|steinway|yamaha|piano|upright|honky|salamander|ydp/i, "Pianos"], [/organ|drawbar|hammond|b3|church|pipe|rotary|accordion|harmonica/i, "Organs"], [/\bbass\b|bass ?yr|lately/i, "Bass"], [/brass|trumpet|horn|trombone|sax|tuba|oboe|flute|clarinet|bassoon|recorder|pan ?flute|whistle|ocarina/i, "Brass & winds"], [/pad|choir|voice|vox|aah|ooh|halo|atmos|sweep|new age|warm|bowed|space|dream/i, "Pads & choirs"], [/string|violin|cello|viola|orch|ensemble|tremolo str|pizz/i, "Strings"], [/bell|glock|vibra|marimba|celest|music box|tubular|kalimba|chime|xylo|timpani|steel dr|glass|hang\b|crystal/i, "Bells & mallets"], [/lead|square|saw|calliope|chiff|charang|fifth|synth|poly|wave/i, "Synths & leads"], [/steel/i, "Guitars & harp"]];
   function categoryOf(name) { for (var i = 0; i < CATS.length; i++) if (CATS[i][0].test(name)) return CATS[i][1]; return "Other"; }
   function flattenKeys(banks) { var out = [], order = CATS.map(function (c) { return c[1]; }); banks.forEach(function (b) { (b.presets || []).forEach(function (pr) { var nm = pr.name || b.name; out.push({ id: b.file + "#" + pr.bank + ":" + pr.prog, file: b.file, bank: pr.bank, prog: pr.prog, name: nm, bankName: b.name + (b.user ? " (yours)" : ""), category: categoryOf(nm + " " + (b.presets.length < 4 ? b.name : "")), user: !!b.user }); }); });
     out.sort(function (a, b) { var ca = a.user ? -1 : order.indexOf(a.category), cb = b.user ? -1 : order.indexOf(b.category); if (ca < 0 && !a.user) ca = 99; if (cb < 0 && !b.user) cb = 99; return ca - cb || a.name.localeCompare(b.name); }); return out; }
   var catalog = { plugins: {}, keys: [], inputs: [], midi: [], ready: false }, status = { running: false }, selected = null, showAdd = false, addCat = "all", addQuery = "", keysCat = "all", keysQuery = "", tunerOn = false;
+
+  // ------------------------------------------------------------- the musician's own plugins (VST3, CLAP, Audio Units, LV2: on computers, through the rig's plugin host)
+  // A plugin pedal is { uid, pedal: "plug", plugin: { format, id, path, name, vendor }, on, mix, levelDb }; its settings live in the plugin
+  // (saved by the host under its uid). A keys layer plays a plugin instrument when its patch is { plugin: {...}, name }.
+  var PLUG_CAT = { name: "Your plugins", color: "#7b6cd9" };
+  var plugs = { list: [], failed: [], folders: [], formats: "", scanned: false, scan: null, params: {}, paramsAt: {}, open: {} }, addTab = "pedals";
+  function plugHost() { return status.engine === "cu-rig" && !!status.pluginFormats; }
+  function isPlug(item) { return !!(item && item.plugin); }
+  function plugPedal(item) { var pl = item.plugin || {}; return { id: "plug", name: pl.name || "Plugin", category: "plugins", uri: "plug:" + pl.format + ":" + pl.id, knobs: {}, opts: {}, plugin: pl }; }
+  function pedalOf(item) { return item ? (item.plugin ? plugPedal(item) : PED.byId(item.pedal)) : null; }
+  function catOf(pedal) { return pedal && pedal.category === "plugins" ? PLUG_CAT : PED.CATEGORIES[pedal && pedal.category] || { color: "#777" }; }
+  function fmtName(f) { return { vst3: "VST3", clap: "CLAP", au: "Audio Unit", lv2: "LV2" }[f] || String(f || "").toUpperCase(); }
+  function plugRef(p) { return { format: p.format, id: p.id, path: p.path || "", name: p.name, vendor: p.vendor || "" }; }
+  function slotInfo(id) { return (status.pluginSlots || {})[id] || null; }
+  function slotError(id) { return (status.pluginErrors || {})[id] || null; }
+  function scanPlugins(force) { plugs.scan = { done: 0, total: 0, current: "" }; send({ type: "instrument", action: "plugins", scan: true, force: !!force, folders: cfg().pluginFolders || [] }); if (onTab()) render(); }
 
   // ------------------------------------------------------------- plugin port info (generated from the OS image: js/plugin-ports.js; the Pi's live scan wins when present)
   var PORTS = window.PP_PLUGIN_PORTS || {}, KNOBS = window.PP_PEDAL_KNOBS || {};
@@ -55,7 +71,7 @@
   function denorm(ctl, n) { n = clamp(n, 0, 1); var v = ctl.log && ctl.min > 0 ? ctl.min * Math.pow(ctl.max / ctl.min, n) : ctl.min + (ctl.max - ctl.min) * n; if (ctl.integer || ctl.enum) v = Math.round(v); if (ctl.toggled) v = n >= 0.5 ? 1 : 0; return v; }
   function fmt(ctl, v) { if (ctl.toggled) return v >= 0.5 ? "on" : "off"; if (ctl.sym === "Ratio" && ctl.min === 0 && ctl.max === 1 && !ctl.unit) return v >= 0.995 ? "∞ : 1" : (1 / (1 - v)).toFixed(1) + " : 1";   /* x42 darc: 0 = 1:1, 1 = limiting */ if (ctl.scale.length) { var sp = ctl.scale.filter(function (s) { return Math.abs(s[0] - v) < 1e-6; })[0]; if (sp) return sp[1]; } var a = Math.abs(v), t = a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2); return t + (ctl.unit ? " " + ctl.unit.replace(/^db$/, "dB").replace(/^hz$/, "Hz") : ""); }
   function resolvedChain(k) {
-    return chainFor(k).map(function (item) { var pedal = PED.byId(item.pedal); if (!pedal) return null; var values = {}; controlsOf(pedal).forEach(function (ctl) { values[ctl.sym] = valueOf(item, ctl); }); return { uid: item.uid, id: pedal.id, name: pedal.name, uri: pedal.uri, on: item.on !== false, values: values, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0, file: item.file || null }; }).filter(Boolean);
+    return chainFor(k).map(function (item) { if (isPlug(item)) return plugHost() ? { uid: item.uid, id: "plug", name: item.plugin.name, plugin: item.plugin, stateFrom: item.stateFrom || undefined, on: item.on !== false, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0 } : null; var pedal = PED.byId(item.pedal); if (!pedal) return null; var values = {}; controlsOf(pedal).forEach(function (ctl) { values[ctl.sym] = valueOf(item, ctl); }); return { uid: item.uid, id: pedal.id, name: pedal.name, uri: pedal.uri, on: item.on !== false, values: values, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0, file: item.file || null }; }).filter(Boolean);
   }
   function hostConfig() {
     var c = cfg(), k = kind();
@@ -71,7 +87,7 @@
   function hostKeys(c) {
     var ls = layers(c); c.keys.patch = ls[0] && ls[0].patch || c.keys.patch;
     return { patch: c.keys.patch, volume: c.keys.volume != null ? c.keys.volume : 0.8, transpose: c.keys.transpose || 0, velocity: c.keys.velocity || "normal", sustain: c.keys.sustain !== false,
-      layers: ls.slice(0, MAX_LAYERS).map(function (l) { return { patch: l.patch, on: l.on !== false, volume: l.volume == null ? 1 : l.volume, pan: l.pan || 0, octave: l.octave || 0, lo: l.lo == null ? 0 : l.lo, hi: l.hi == null ? 127 : l.hi, velLo: l.velLo || 1, velHi: l.velHi || 127 }; }) };
+      layers: ls.slice(0, MAX_LAYERS).filter(function (l) { return !(l.patch && l.patch.plugin) || plugHost(); }).map(function (l) { return { uid: l.id, patch: l.patch && l.patch.plugin ? null : l.patch, plugin: l.patch && l.patch.plugin ? l.patch.plugin : undefined, on: l.on !== false, volume: l.volume == null ? 1 : l.volume, pan: l.pan || 0, octave: l.octave || 0, lo: l.lo == null ? 0 : l.lo, hi: l.hi == null ? 127 : l.hi, velLo: l.velLo || 1, velHi: l.velHi || 127 }; }) };
   }
   function apply(reason) { send({ type: "instrument", action: "apply", config: hostConfig() }); PP.persistSoon(); if (window.PPActions) window.PPActions.sendLeds(); }
   var applyTimer = 0; function applySoon() { clearTimeout(applyTimer); applyTimer = setTimeout(function () { apply(); }, 250); }
@@ -85,6 +101,7 @@
     return '<path d="' + arc(-135, 135, r) + '" class="pk-track"/><path d="' + arc(-135, a1 + 0.01, r) + '" class="pk-val"/><circle cx="' + x + '" cy="' + y + '" r="' + (r * 0.62) + '" class="pk-cap"/><line x1="' + x + '" y1="' + y + '" x2="' + px.toFixed(1) + '" y2="' + py.toFixed(1) + '" class="pk-ptr"/>';
   }
   function pedalSvg(item, pedal, idx, sel) {
+    if (pedal.plugin) return plugSvg(item, pedal, idx, sel);
     var cat = PED.CATEGORIES[pedal.category] || { color: "#777" }, ctls = controlsOf(pedal).filter(function (c) { return !c.extra; }).slice(0, 6), w = 150, h = 190, cols = Math.min(3, Math.max(1, ctls.length));
     var knobs = ctls.map(function (ctl, i) { var cx = cols === 1 ? w / 2 : 26 + (w - 52) * ((i % cols) / (cols - 1)), cy = 52 + Math.floor(i / cols) * 46; return "<g>" + dial(norm(ctl, valueOf(item, ctl)), cx, cy, 15) + '<text x="' + cx + '" y="' + (cy + 27) + '" class="pk-lbl">' + esc(ctl.label.length > 9 ? ctl.label.slice(0, 8) + "…" : ctl.label) + "</text></g>"; }).join("");
     var on = item.on !== false;
@@ -98,6 +115,58 @@
       '<g class="pk-sw" data-sw="' + item.uid + '"><circle cx="' + (w / 2) + '" cy="' + (h - 17) + '" r="10" fill="#d8d8d8" stroke="#333" stroke-width="1.5"/><circle cx="' + (w / 2) + '" cy="' + (h - 17) + '" r="4.5" fill="#222"/></g></svg>';
   }
 
+
+  // a plugin pedal: its format on the corner, a little screen (loading / ready / a problem), the plugin's name and maker
+  function plugSvg(item, pedal, idx, sel) {
+    var pl = pedal.plugin, w = 150, h = 190, on = item.on !== false, info = slotInfo(item.uid), err = slotError(item.uid), host = plugHost();
+    var state = !host ? "here: preview" : err ? "didn’t load" : info ? (info.instrument ? "instrument" : "ready") : "loading…";
+    var vendor = String(pl.vendor || ""), nm = pedal.name;
+    return '<svg class="pedal plug' + (sel ? " selected" : "") + (on ? "" : " off") + (err ? " err" : "") + '" viewBox="0 0 ' + w + " " + h + '" data-uid="' + item.uid + '" role="button" tabindex="0" aria-label="' + esc(nm + " (" + fmtName(pl.format) + " plugin)") + '">' +
+      '<defs><linearGradient id="g' + item.uid + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8d80e6"/><stop offset="1" stop-color="#4b3f9e"/></linearGradient></defs>' +
+      '<rect x="3" y="3" width="' + (w - 6) + '" height="' + (h - 6) + '" rx="12" fill="url(#g' + item.uid + ')" stroke="' + (sel ? "#fff" : "rgba(0,0,0,.5)") + '" stroke-width="' + (sel ? 3 : 1.5) + '"/>' +
+      (on ? '<circle cx="' + (w - 18) + '" cy="18" r="9" fill="#ff4040" opacity=".3"/>' : "") + '<circle cx="' + (w - 18) + '" cy="18" r="5" fill="' + (on ? "#ff4040" : "#4a1a1a") + '" stroke="#200"/>' +
+      '<text x="12" y="23" class="pk-n">' + (idx + 1) + '</text><rect x="28" y="11" width="' + (fmtName(pl.format).length * 6.4 + 10) + '" height="16" rx="4" fill="rgba(0,0,0,.28)"/><text x="33" y="23" class="pk-fmt">' + esc(fmtName(pl.format)) + "</text>" +
+      '<rect x="16" y="36" width="' + (w - 32) + '" height="62" rx="7" fill="#101218" stroke="rgba(255,255,255,.18)"/>' +
+      '<path d="M24 67 C 36 46, 46 46, 56 67 S 76 88, 86 67 S 106 46, 116 67 S 124 80, 126 76" fill="none" stroke="' + (err ? "#ef6b63" : on && info ? "#c9c1ff" : "#5b5675") + '" stroke-width="2.2" stroke-linecap="round"/>' +
+      '<text x="' + (w / 2) + '" y="92" class="pk-state">' + esc(state) + "</text>" +
+      '<text x="' + (w / 2) + '" y="' + (h - 62) + '" class="pk-vendor">' + esc(vendor.length > 24 ? vendor.slice(0, 23) + "…" : vendor) + "</text>" +
+      '<rect x="12" y="' + (h - 52) + '" width="' + (w - 24) + '" height="22" rx="5" fill="rgba(255,255,255,.92)"/><text x="' + (w / 2) + '" y="' + (h - 37) + '" class="pk-name">' + esc(nm.length > 20 ? nm.slice(0, 19) + "…" : nm) + "</text>" +
+      '<g class="pk-sw" data-sw="' + item.uid + '"><circle cx="' + (w / 2) + '" cy="' + (h - 17) + '" r="10" fill="#d8d8d8" stroke="#333" stroke-width="1.5"/><circle cx="' + (w / 2) + '" cy="' + (h - 17) + '" r="4.5" fill="#222"/></g></svg>';
+  }
+  function plugDetail(item, pedal) {
+    var pl = pedal.plugin, info = slotInfo(item.uid), err = slotError(item.uid), host = plugHost(), ps = plugs.params[item.uid] || null, open = !!(plugs.open[item.uid] || (info && info.open));
+    var mix = item.mix == null ? 1 : item.mix;
+    return '<section class="in-detail plug-detail" style="--pc:' + PLUG_CAT.color + '"><div class="row spread"><div><h3>' + esc(pedal.name) + '</h3><p class="muted">' + esc([pl.vendor, fmtName(pl.format) + " plugin"].filter(Boolean).join(" · ")) + '</p></div><div class="se-row"><label class="toggle"><input type="checkbox" data-on="' + item.uid + '"' + (item.on !== false ? " checked" : "") + "> On</label>" +
+      (host && info && info.editor ? '<button class="primary" data-plugwin="' + item.uid + '">' + (open ? "Close its window" : "Open its window") + "</button>" : "") + "</div></div>" +
+      (err ? '<p class="plug-warn">This plugin didn’t load: ' + esc(err) + ". Is it still installed? Try Scan again under Add pedal → Your plugins.</p>" : "") +
+      (!host ? '<p class="muted">Plugins play on the computer they’re installed on, in the Instrument tab of Central Control or Central Usage. It stays on this board.</p>' : !info && !err ? '<p class="muted">Loading ' + esc(pedal.name) + "… big instruments can take a few seconds.</p>" : "") +
+      '<div class="in-mixlevel"><label>Mix <small>(dry ↔ plugin)</small><span class="control-line"><input type="range" min="0" max="100" step="1" data-pmix="' + item.uid + '" value="' + Math.round(mix * 100) + '"><output>' + Math.round(mix * 100) + '%</output></span></label><label>Level<span class="control-line"><input type="range" min="-30" max="12" step="0.5" data-plevel="' + item.uid + '" value="' + (item.levelDb || 0) + '"><output>' + (item.levelDb || 0) + " dB</output></span></label></div>" +
+      (host && info ? '<div class="plug-params" data-ppfor="' + item.uid + '">' + plugParamsHtml(item.uid, ps) + "</div>" : "") +
+      (host && info ? '<p class="muted small">Its settings, including everything you change in its own window, are saved with it on this computer.</p>' : "") + "</section>";
+  }
+  function plugParamsHtml(id, ps) {
+    if (!ps) return '<p class="muted small">Reading its controls…</p>';
+    if (!ps.length) return '<p class="muted small">It has no controls to show here' + (slotInfo(id) && slotInfo(id).editor ? ": use its window." : ".") + "</p>";
+    return '<h4>Quick controls <small class="muted">the first ' + ps.length + " of its controls</small></h4><div class=\"in-controls\">" + ps.map(function (q) { return "<label>" + esc(q.name) + '<span class="control-line"><input type="range" min="0" max="1000" step="1" value="' + Math.round(q.value * 1000) + '" data-pp="' + id + "|" + q.id + '"><output>' + esc(tidyNum(q.text)) + "</output></span></label>"; }).join("") + "</div>";
+  }
+  function tidyNum(t) { return String(t || "").replace(/-?\d+\.\d{3,}/g, function (n) { var v = Number(n), a = Math.abs(v); return String(Number(v.toFixed(a >= 100 ? 0 : a >= 10 ? 1 : 2))); }); }   // ("80.000000 %" -> "80 %")
+  function askParams(id, now) { var t = Date.now(); if (!now && plugs.paramsAt[id] && t - plugs.paramsAt[id] < 1500) return; plugs.paramsAt[id] = t; send({ type: "instrument", action: "pluginParams", uid: id, max: 24 }); }
+  // "Your plugins" in Add pedal: the effects this computer has, by format, with the folders we look in and what didn't load
+  function plugPanel(kindWanted) {
+    var q = addQuery.toLowerCase(), fmts = {}, all = plugs.list.filter(function (p) { return p.kind === kindWanted; });
+    all.forEach(function (p) { fmts[p.format] = (fmts[p.format] || 0) + 1; });
+    var list = all.filter(function (p) { return (addCat === "all" || addCat === "fmt:" + p.format) && (!q || (p.name + " " + p.vendor).toLowerCase().indexOf(q) > -1); });
+    var sc = plugs.scan, folders = cfg().pluginFolders || [];
+    return '<div class="plug-top"><span class="plug-scan muted">' + (sc ? "Looking for plugins… " + (sc.total ? sc.done + " of " + sc.total + (sc.current ? " · " + esc(sc.current) : "") : "") : plugs.scanned ? all.length + " " + (kindWanted === "instrument" ? "instruments" : "effects") + " on this computer" : "") + '</span><button id="plugScan"' + (sc ? " disabled" : "") + ">Scan again</button></div>" +
+      '<div class="st-nav">' + ['<button class="st-chip' + (addCat === "all" ? " on" : "") + '" data-cat="all">All</button>'].concat(Object.keys(fmts).sort().map(function (f) { return '<button class="st-chip' + (addCat === "fmt:" + f ? " on" : "") + '" data-cat="fmt:' + f + '">' + fmtName(f) + " <small>" + fmts[f] + "</small></button>"; })).join("") + "</div>" +
+      '<div class="pb-list plug-list">' + (list.length ? list.map(function (p) { return '<button class="pb-item plug-item" data-addplug="' + esc(p.key) + '"><b>' + esc(p.name) + "</b><small>" + esc([p.vendor, fmtName(p.format)].filter(Boolean).join(" · ")) + "</small></button>"; }).join("") :
+        '<p class="muted">' + (sc || !plugs.scanned ? "Looking…" : all.length ? "Nothing matches." : "No " + (kindWanted === "instrument" ? "instrument" : "effect") + " plugins found yet. Install them the usual way (they go into the standard plug-in folders), or add the folder they’re in below, then Scan again.") + "</p>") + "</div>" +
+      '<details class="plug-folders"><summary>Where we look <small class="muted">' + (plugs.folders.length + folders.length) + " folders" + (plugs.failed.length ? " · " + plugs.failed.length + " didn’t load" : "") + "</small></summary>" +
+      '<ul class="plain">' + plugs.folders.map(function (f) { return "<li>" + esc(f) + (folders.indexOf(f) >= 0 ? ' <button class="link" data-plugfolderdel="' + esc(f) + '">remove</button>' : "") + "</li>"; }).join("") + "</ul>" +
+      '<div class="row"><input id="plugFolder" placeholder="Another folder, e.g. D:\\Plugins\\VST3"><button id="plugFolderAdd">Add folder</button></div>' +
+      (plugs.failed.length ? '<p class="muted small">These didn’t load, so they’re left out (each one is opened on its own, so it can’t stop the others):</p><ul class="plain small">' + plugs.failed.map(function (f) { return "<li><b>" + esc(f.name) + "</b> (" + fmtName(f.format) + "): " + esc(f.error) + "</li>"; }).join("") + "</ul>" : "") +
+      (plugs.formats ? '<p class="muted small">This computer plays ' + plugs.formats.split(",").map(fmtName).join(", ") + " plugins.</p>" : "") + "</details>";
+  }
 
   // ------------------------------------------------------------- the Studio EQ's curve (the same filters the engine runs)
   function bqResp(type, f0, gainDb, q, f, fs) {
@@ -160,12 +229,14 @@
         '<label>Output level <span class="control-line"><input type="range" id="inOut" min="-40" max="12" step="1" value="' + c.output.level + '"><output>' + c.output.level + ' dB</output></span></label>' +
         '<div class="in-meter"><small>IN</small><div class="vu-bar"><i id="inVu" style="width:100%"></i></div><b id="inTuner">–</b></div><button class="pf-btn" id="inAuto" title="Sets input gain and gate from what you play and detects the instrument"><small>SET UP</small><b>AUTO</b></button><button class="pf-btn' + (tunerOn ? " on" : "") + '" id="inTunerBtn" title="Full-screen tuner for the instrument input"><small>' + (cfg().tunerMute === false ? "LIVE" : "MUTE &amp;") + '</small><b>TUNE</b></button></div>' +
         (k === "keys" ? keysPanel(c) : "") +
-        '<div class="in-boardwrap"><div class="pb-chain" id="pbChain">' + chain.map(function (item, i) { var pedal = PED.byId(item.pedal); return pedal ? '<div class="pb-slot" data-slot="' + item.uid + '">' + pedalSvg(item, pedal, i, selected === item.uid) + '<div class="pb-tools"><button data-move="' + item.uid + ':-1" title="Move left">◀</button><button data-del="' + item.uid + '" title="Remove">✕</button><button data-move="' + item.uid + ':1" title="Move right">▶</button></div></div>' : ""; }).join("") + '<button class="pb-add" id="pbAdd">＋<small>Add pedal</small></button></div></div>' +
+        '<div class="in-boardwrap"><div class="pb-chain" id="pbChain">' + chain.map(function (item, i) { var pedal = pedalOf(item); return pedal ? '<div class="pb-slot" data-slot="' + item.uid + '">' + pedalSvg(item, pedal, i, selected === item.uid) + '<div class="pb-tools"><button data-move="' + item.uid + ':-1" title="Move left">◀</button><button data-del="' + item.uid + '" title="Remove">✕</button><button data-move="' + item.uid + ':1" title="Move right">▶</button></div></div>' : ""; }).join("") + '<button class="pb-add" id="pbAdd">＋<small>Add pedal</small></button></div></div>' +
         (selected ? detailPanel(chain.filter(function (i) { return i.uid === selected; })[0]) : '<p class="muted">Tap a pedal to edit its knobs; tap its footswitch to bypass it. Footswitches on the board can do the same (Configure tab → "Pedal 1…8 on / off").</p>') +
         (showAdd ? addPanel() : "") + (window.PPLooper ? window.PPLooper.html() : "") +
-        '<div class="in-foot muted">' + (connected() ? (status.pluginCount ? status.pluginCount + " plugins installed on this Pi · " : "") + (status.latencyMs != null ? "about " + status.latencyMs + " ms in to out · " : "") + (status.error ? '<b class="warn">' + esc(status.error) + "</b>" : "native chain " + (status.running ? "running" : "idle")) : "On the Central Pedal itself the chain runs natively on the Pi; on a computer this is a preview of the board.") + "</div>");
+        '<div class="in-foot muted">' + (connected() ? (status.pluginCount ? status.pluginCount + " plugins installed on this Pi · " : "") + (status.latencyMs != null ? "about " + Math.round(status.latencyMs) + " ms in to out · " : "") + (status.error ? '<b class="warn">' + esc(status.error) + "</b>" : "native chain " + (status.running ? "running" : "idle")) : "On the Central Pedal itself the chain runs natively on the Pi; on a computer this is a preview of the board.") +
+        (status.engineAlt === "rig" ? ' · <button class="link" id="engineSwitch" data-engine="rig">Use your own plugins (VST3, CLAP, LV2): switch to the computer engine</button>' : status.engineAlt === "pedal" ? ' · <button class="link" id="engineSwitch" data-engine="pedal">Switch to the Central Pedal engine (its own LV2 pedals; your plugins rest)</button>' : "") + "</div>");
     if (k !== "off" && k !== "keys") startMeter(); else stopMeter();
     drawEqCurves();
+    var selIt = selected && chain.filter(function (i) { return i.uid === selected; })[0]; if (selIt && isPlug(selIt) && slotInfo(selIt.uid) && !plugs.params[selIt.uid]) askParams(selIt.uid, true);
   }
   function statusLine() {
     var k = kind(); if (k === "off") return '<span class="dot off"></span> Instrument off';
@@ -174,7 +245,7 @@
     return '<span class="dot' + (connected() && s.running && !s.error ? "" : " off") + '"></span> ' + esc(txt);
   }
   function detailPanel(item) {
-    var pedal = PED.byId(item.pedal); if (!pedal) return ""; var ctls = controlsOf(pedal), cat = PED.CATEGORIES[pedal.category] || {};
+    var pedal = pedalOf(item); if (!pedal) return ""; if (pedal.plugin) return plugDetail(item, pedal); var ctls = controlsOf(pedal), cat = PED.CATEGORIES[pedal.category] || {};
     return '<section class="in-detail" style="--pc:' + (cat.color || "#777") + '"><div class="row spread"><div><h3>' + esc(pedal.name) + '</h3><p class="muted">' + esc(cat.name || "") + (ctls[0] && ctls[0].guess ? " · exact ranges appear on the Pi" : "") + '</p></div><div class="se-row"><label class="toggle"><input type="checkbox" data-on="' + item.uid + '"' + (item.on !== false ? " checked" : "") + "> On</label>" +
       (pedal.opts.expression ? '<label class="toggle"><input type="checkbox" data-expr="' + item.uid + '"' + (cfg().expression === item.uid ? " checked" : "") + "> Expression pedal moves " + esc((expressionCtl(pedal) || {}).label || "it") + "</label>" : "") +
       (pedal.opts.tempo || pedal.opts.tempoBpm ? '<button data-sync="' + item.uid + '">♩ Sync to song tempo</button>' : "") + '<button data-reset="' + item.uid + '">Reset</button></div></div>' +
@@ -185,24 +256,29 @@
       '<div class="in-controls">' + ctls.map(function (ctl) { var v = valueOf(item, ctl), key = item.uid + "|" + esc(ctl.sym); if (ctl.toggled) return '<label class="toggle"><input type="checkbox" data-ctl="' + key + '"' + (v >= 0.5 ? " checked" : "") + "> " + esc(ctl.label) + "</label>"; if (ctl.enum && ctl.scale.length) return "<label>" + esc(ctl.label) + '<select data-ctl="' + key + '">' + ctl.scale.map(function (s) { return '<option value="' + s[0] + '"' + (Math.abs(s[0] - v) < 1e-6 ? " selected" : "") + ">" + esc(s[1]) + "</option>"; }).join("") + "</select></label>"; return "<label>" + esc(ctl.label) + '<span class="control-line"><input type="range" min="0" max="1000" step="1" value="' + Math.round(norm(ctl, v) * 1000) + '" data-ctl="' + key + '"><output>' + esc(fmt(ctl, v)) + "</output></span></label>"; }).join("") + "</div></section>";
   }
   function addPanel() {
+    var host = plugHost(), nPlug = plugs.list.filter(function (p) { return p.kind === "effect"; }).length;
+    var tabs = host ? '<div class="add-tabs"><button class="st-chip' + (addTab !== "plugins" ? " on" : "") + '" data-addtab="pedals">Built-in pedals <small>' + PED.pedals.length + '</small></button><button class="st-chip' + (addTab === "plugins" ? " on" : "") + '" data-addtab="plugins">Your plugins <small>' + (plugs.scanned ? nPlug : "…") + "</small></button></div>" : "";
+    if (host && addTab === "plugins") return '<section class="in-add"><div class="row spread"><h3>Add a pedal</h3>' + tabs + '<input id="pbSearch" placeholder="Search your plugins…" value="' + esc(addQuery) + '"><button id="pbAddClose">Close</button></div>' + plugPanel("effect") + "</section>";
     var cats = Object.keys(PED.CATEGORIES), q = addQuery.toLowerCase();
     var list = PED.pedals.filter(function (p) { return (addCat === "all" || p.category === addCat) && (!q || (p.name + " " + (PED.CATEGORIES[p.category] || {}).name).toLowerCase().indexOf(q) > -1); });
-    return '<section class="in-add"><div class="row spread"><h3>Add a pedal <small class="muted">' + PED.pedals.length + " to choose from</small></h3><input id=\"pbSearch\" placeholder=\"Search pedals…\" value=\"" + esc(addQuery) + '"><button id="pbAddClose">Close</button></div><div class="st-nav">' + ['<button class="st-chip' + (addCat === "all" ? " on" : "") + '" data-cat="all">All</button>'].concat(cats.map(function (cid) { return '<button class="st-chip' + (addCat === cid ? " on" : "") + '" data-cat="' + cid + '">' + esc(PED.CATEGORIES[cid].name) + "</button>"; })).join("") + '</div><div class="pb-list">' + list.map(function (p) { var ok = !catalog.ready || catalog.plugins[p.uri] || p.opts.ladspa || p.opts.builtin; return '<button class="pb-item' + (ok ? "" : " missing") + '" data-add="' + p.id + '" style="--pc:' + (PED.CATEGORIES[p.category] || {}).color + '"><i></i><b>' + esc(p.name) + "</b><small>" + esc((PED.CATEGORIES[p.category] || {}).name) + (ok ? "" : " · not installed") + "</small></button>"; }).join("") + "</div></section>";
+    return '<section class="in-add"><div class="row spread"><h3>Add a pedal' + (host ? "" : ' <small class="muted">' + PED.pedals.length + " to choose from</small>") + "</h3>" + tabs + "<input id=\"pbSearch\" placeholder=\"Search pedals…\" value=\"" + esc(addQuery) + '"><button id="pbAddClose">Close</button></div><div class="st-nav">' + ['<button class="st-chip' + (addCat === "all" ? " on" : "") + '" data-cat="all">All</button>'].concat(cats.map(function (cid) { return '<button class="st-chip' + (addCat === cid ? " on" : "") + '" data-cat="' + cid + '">' + esc(PED.CATEGORIES[cid].name) + "</button>"; })).join("") + '</div><div class="pb-list">' + list.map(function (p) { var ok = !catalog.ready || catalog.plugins[p.uri] || p.opts.ladspa || p.opts.builtin; return '<button class="pb-item' + (ok ? "" : " missing") + '" data-add="' + p.id + '" style="--pc:' + (PED.CATEGORIES[p.category] || {}).color + '"><i></i><b>' + esc(p.name) + "</b><small>" + esc((PED.CATEGORIES[p.category] || {}).name) + (ok ? "" : " · not installed") + "</small></button>"; }).join("") + "</div></section>";
   }
   function keysPanel(c) {
     var cats = {}; catalog.keys.forEach(function (p) { cats[p.category] = (cats[p.category] || 0) + 1; });
     var q = keysQuery.toLowerCase(), list = catalog.keys.filter(function (p) { return (keysCat === "all" || p.category === keysCat) && (!q || (p.name + " " + p.bank).toLowerCase().indexOf(q) > -1); }).slice(0, 400), cur = (layers(c)[layerSel] || {}).patch;
+    var host = plugHost(), instr = host ? plugs.list.filter(function (p) { return p.kind === "instrument"; }) : [], plist = keysCat === "__plug" ? instr.filter(function (p) { return !q || (p.name + " " + p.vendor).toLowerCase().indexOf(q) > -1; }) : null;
     var kbd = "", whites = 0; for (var n = 48; n <= 84; n++) if ([1, 3, 6, 8, 10].indexOf(n % 12) < 0) { kbd += '<button class="kk white" data-note="' + n + '" style="left:' + (whites * 30) + 'px">' + (n % 12 === 0 ? "C" + (n / 12 - 1) : "") + "</button>"; whites++; }
     whites = 0; for (n = 48; n <= 84; n++) { if ([1, 3, 6, 8, 10].indexOf(n % 12) < 0) whites++; else kbd += '<button class="kk black" data-note="' + n + '" style="left:' + (whites * 30 - 9) + 'px"></button>'; }
     return '<section class="in-keys"><div class="row spread"><div><h3>Sounds</h3><p class="muted">' + (catalog.keys.length ? catalog.keys.length + " sounds: grand and upright pianos, electric pianos, organs, pads, strings, leads, bells… Add your own: .sf2 SoundFonts or a folder of WAVs named by note (C4.wav, F#3.wav…) from a USB stick, or send an .sf2 from a phone or computer (Settings → Companion devices → Upload)." : connected() ? "No sound banks found yet." : "The sound list comes from the Pi.") + '</p></div><div class="row"><input id="keysSearch" placeholder="Search sounds…" value="' + esc(keysQuery) + '"><button id="keysAdd" title="Add a .sf2 SoundFont or a folder of WAV samples from a USB stick or SD card">+ Add sounds…</button></div></div>' +
-      '<div class="st-nav">' + ['<button class="st-chip' + (keysCat === "all" ? " on" : "") + '" data-kcat="all">All</button>'].concat(Object.keys(cats).sort().map(function (cid) { return '<button class="st-chip' + (keysCat === cid ? " on" : "") + '" data-kcat="' + esc(cid) + '">' + esc(cid) + " <small>" + cats[cid] + "</small></button>"; })).join("") + "</div>" +
-      '<div class="keys-list">' + (list.length ? list.map(function (p) { return '<button class="keys-item' + (cur && cur.id === p.id ? " on" : "") + '" data-patch="' + esc(p.id) + '"><b>' + esc(p.name) + "</b><small>" + esc(p.bankName) + "</small></button>"; }).join("") : '<p class="muted">Nothing matches.</p>') + "</div>" +
+      '<div class="st-nav">' + (host ? '<button class="st-chip plug-chip' + (keysCat === "__plug" ? " on" : "") + '" data-kcat="__plug">Your instruments <small>' + (plugs.scanned ? instr.length : "…") + "</small></button>" : "") + ['<button class="st-chip' + (keysCat === "all" ? " on" : "") + '" data-kcat="all">All</button>'].concat(Object.keys(cats).sort().map(function (cid) { return '<button class="st-chip' + (keysCat === cid ? " on" : "") + '" data-kcat="' + esc(cid) + '">' + esc(cid) + " <small>" + cats[cid] + "</small></button>"; })).join("") + "</div>" +
+      (plist ? '<div class="keys-list">' + (plist.length ? plist.map(function (p) { return '<button class="keys-item plug-item' + (cur && cur.id === "plug:" + p.key ? " on" : "") + '" data-kplug="' + esc(p.key) + '"><b>' + esc(p.name) + "</b><small>" + esc([p.vendor, fmtName(p.format)].filter(Boolean).join(" · ")) + "</small></button>"; }).join("") : '<p class="muted">' + (plugs.scan || !plugs.scanned ? "Looking for your instrument plugins…" : instr.length ? "Nothing matches." : "No instrument plugins found on this computer yet (Kontakt, Keyscape, Pianoteq, Vital…). Install them the usual way, then Scan again in Add pedal → Your plugins.") + "</p>") + "</div>" :
+      '<div class="keys-list">' + (list.length ? list.map(function (p) { return '<button class="keys-item' + (cur && cur.id === p.id ? " on" : "") + '" data-patch="' + esc(p.id) + '"><b>' + esc(p.name) + "</b><small>" + esc(p.bankName) + "</small></button>"; }).join("") : '<p class="muted">Nothing matches.</p>') + "</div>") +
       layersPanel(c) +
       '<div class="keys-extra"><label>Synth volume <span class="control-line"><input type="range" id="keysVolume" min="0" max="100" value="' + Math.round((c.keys.volume != null ? c.keys.volume : 0.8) * 100) + '"><output>' + Math.round((c.keys.volume != null ? c.keys.volume : 0.8) * 100) + '</output></span></label><label class="toggle"><input type="checkbox" id="keysSustain"' + (c.keys.sustain !== false ? " checked" : "") + '> Sustain pedal</label><span class="muted">Reverb, delay, chorus, compression: add them as pedals below.</span></div>' +
       '<div class="keys-kbd" id="keysKbd">' + kbd + "</div></section>";
   }
 
-  var layerSel = 0;
+  var layerSel = 0, ppTimer = 0;
   var NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
   function noteName(n) { return NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1); }
   function noteSelect(attr, idx, val) { var o = ""; for (var n = 0; n <= 127; n += 1) o += '<option value="' + n + '"' + (n === val ? " selected" : "") + ">" + noteName(n) + "</option>"; return '<select data-' + attr + '="' + idx + '">' + o + "</select>"; }
@@ -216,6 +292,7 @@
           '<label>Oct<select data-kloct="' + i + '">' + [-2, -1, 0, 1, 2].map(function (o) { return '<option value="' + o + '"' + ((l.octave || 0) === o ? " selected" : "") + ">" + (o > 0 ? "+" : "") + o + "</option>"; }).join("") + "</select></label>" +
           "<label>From" + noteSelect("kllo", i, l.lo == null ? 0 : l.lo) + "</label><label>To" + noteSelect("klhi", i, l.hi == null ? 127 : l.hi) + "</label>" +
           '<label>Vel<span class="kl-vel"><input type="number" min="1" max="127" data-klvlo="' + i + '" value="' + (l.velLo || 1) + '">–<input type="number" min="1" max="127" data-klvhi="' + i + '" value="' + (l.velHi || 127) + '"></span></label>' +
+          (l.patch && l.patch.plugin && plugHost() ? (slotError(l.id) ? '<span class="plug-warn small" title="' + esc(slotError(l.id)) + '">didn’t load</span>' : slotInfo(l.id) ? (slotInfo(l.id).editor ? '<button data-klwin="' + l.id + '">' + ((plugs.open[l.id] || slotInfo(l.id).open) ? "Close window" : "Its window") + "</button>" : "") : '<span class="muted small">loading…</span>') : "") +
           (ls.length > 1 ? '<button class="danger" data-kldel="' + i + '" title="Remove this layer">✕</button>' : "") + "</div>";
       }).join("") + "</div></div>";
   }
@@ -313,9 +390,18 @@
       if (b.id === "pbAdd") { showAdd = true; selected = null; render(); var s = $("#pbSearch"); if (s) s.focus(); return; }
       if (b.id === "pbAddClose") { showAdd = false; render(); return; }
       if (b.dataset.cat) { addCat = b.dataset.cat; render(); return; }
+      // the musician's own plugins
+      if (b.dataset.addtab) { addTab = b.dataset.addtab; addCat = "all"; if (addTab === "plugins" && !plugs.scanned && !plugs.scan) scanPlugins(false); render(); var s2 = $("#pbSearch"); if (s2) s2.focus(); return; }
+      if (b.dataset.addplug) { var pp = plugs.list.filter(function (q) { return q.key === b.dataset.addplug; })[0]; if (pp) { var pit = { uid: uid(), pedal: "plug", plugin: plugRef(pp), on: true, values: {} }; chain.push(pit); selected = pit.uid; showAdd = false; apply("add"); render(); PP.setStatus("Loading " + pp.name + "…"); } return; }
+      if (b.dataset.plugwin || b.dataset.klwin) { var wid = b.dataset.plugwin || b.dataset.klwin, si = slotInfo(wid), isOpen = !!(plugs.open[wid] || (si && si.open)); send({ type: "instrument", action: "pluginEditor", uid: wid, open: !isOpen }); plugs.open[wid] = !isOpen; render(); return; }
+      if (b.id === "plugScan") { scanPlugins(true); return; }
+      if (b.id === "plugFolderAdd") { var fin = $("#plugFolder"), fv = fin && fin.value.trim(); if (fv) { var fl = c.pluginFolders = c.pluginFolders || []; if (fl.indexOf(fv) < 0) fl.push(fv); PP.persistSoon(); scanPlugins(false); } return; }
+      if (b.dataset.plugfolderdel) { c.pluginFolders = (c.pluginFolders || []).filter(function (f) { return f !== b.dataset.plugfolderdel; }); PP.persistSoon(); scanPlugins(false); return; }
+      if (b.dataset.kplug) { var kp = plugs.list.filter(function (q) { return q.key === b.dataset.kplug; })[0]; if (kp) { var lsK = layers(c), layK = lsK[layerSel] || lsK[0]; layK.patch = { id: "plug:" + kp.key, name: kp.name, plugin: plugRef(kp) }; send({ type: "instrument", action: "keys", keys: hostConfig().keys }); PP.persistSoon(); render(); PP.setStatus("Loading " + kp.name + "…"); } return; }
+      if (b.id === "engineSwitch") { send({ type: "instrument", action: "engine", engine: b.dataset.engine }); PP.setStatus("Switching the instrument engine…"); return; }
       if (b.dataset.kcat) { keysCat = b.dataset.kcat; render(); return; }
       if (b.dataset.add) { var pedal = PED.byId(b.dataset.add); if (pedal) { var item = { uid: uid(), pedal: pedal.id, on: true, values: Object.assign({}, pedal.opts.values || {}) }, ampIdx = chain.findIndex(function (q) { var p = PED.byId(q.pedal); return p && (p.category === "amp" || p.category === "cab"); }); if (ampIdx >= 0 && ["amp", "cab", "reverb", "delay"].indexOf(pedal.category) < 0) chain.splice(ampIdx, 0, item); else chain.push(item); selected = item.uid; showAdd = false; apply("add"); render(); } return; }
-      if (b.dataset.reset) { var it2 = chain.filter(function (q) { return q.uid === b.dataset.reset; })[0]; if (it2) { var rp = PED.byId(it2.pedal); it2.values = Object.assign({}, rp && rp.opts.values || {}); apply("reset"); render(); } return; }
+      if (b.dataset.reset) { var it2 = chain.filter(function (q) { return q.uid === b.dataset.reset; })[0]; if (it2 && !isPlug(it2)) { var rp = PED.byId(it2.pedal); it2.values = Object.assign({}, rp && rp.opts.values || {}); apply("reset"); render(); } return; }
       if (b.dataset.sync) { var it3 = chain.filter(function (q) { return q.uid === b.dataset.sync; })[0], p3 = it3 && PED.byId(it3.pedal); if (p3) { var bpm = project().tempo.bpm; if (p3.opts.tempoBpm) it3.values[p3.opts.tempoBpm] = bpm; else if (p3.opts.tempo) { var ctl = controlsOf(p3).filter(function (q) { return q.sym === p3.opts.tempo; })[0], ms = 60000 / bpm * 0.75; it3.values[p3.opts.tempo] = ctl ? clamp(ctl.max > 50 ? ms : ms / 1000, ctl.min, ctl.max) : ms; } apply("sync"); render(); PP.setStatus("Delay set to a dotted eighth at " + Math.round(bpm) + " BPM"); } return; }
       if (b.dataset.patch) { var p = catalog.keys.filter(function (q) { return q.id === b.dataset.patch; })[0]; if (p) { var ls0 = layers(c), lay = ls0[layerSel] || ls0[0]; lay.patch = { id: p.id, file: p.file, bank: p.bank, prog: p.prog, name: p.name }; send({ type: "instrument", action: "keys", keys: hostConfig().keys }); PP.persistSoon(); render(); } return; }
       if (b.id === "klAdd") { var ls1 = layers(c); if (ls1.length < MAX_LAYERS) { ls1.push({ id: uid(), patch: null, on: true, volume: 0.8, pan: 0, octave: 0, lo: 0, hi: 127, velLo: 1, velHi: 127 }); layerSel = ls1.length - 1; keysLive(); render(); PP.setStatus("Layer " + ls1.length + " added: tap a sound for it"); } return; }
@@ -330,6 +416,7 @@
     });
     root.addEventListener("input", function (e) {
       var el = e.target, c = cfg(), k = kind(), out = el.parentNode && el.parentNode.querySelector("output");
+      if (el.dataset.pp) { var pq = el.dataset.pp.split("|"); send({ type: "instrument", action: "pluginSet", uid: pq[0], id: Number(pq[1]), value: Number(el.value) / 1000 }); clearTimeout(ppTimer); ppTimer = setTimeout(function () { askParams(pq[0], true); }, 120); return; }
       if (el.dataset.ctl) { var parts = el.dataset.ctl.split("|"), item = chainFor(k).filter(function (q) { return q.uid === parts[0]; })[0], pedal = item && PED.byId(item.pedal); if (!pedal) return; var ctl = controlsOf(pedal).filter(function (q) { return q.sym === parts[1]; })[0]; if (!ctl) return; var v = el.type === "checkbox" ? (el.checked ? 1 : 0) : el.tagName === "SELECT" ? Number(el.value) : denorm(ctl, Number(el.value) / 1000); item.values[ctl.sym] = v; if (out) out.textContent = fmt(ctl, v); send({ type: "instrument", action: "set", uid: item.uid, sym: ctl.sym, value: v }); PP.persistSoon(); var svg = root.querySelector('svg.pedal[data-uid="' + item.uid + '"]'); if (svg) svg.outerHTML = pedalSvg(item, pedal, chainFor(k).indexOf(item), true); return; }
       if (el.id === "inGain") { c.input.gain = Number(el.value); if (out) out.textContent = el.value + " dB"; inputSoon(); }
       else if (el.id === "inGate") { c.input.gate = Number(el.value); if (out) out.textContent = el.value + " dB"; inputSoon(); }
@@ -344,7 +431,7 @@
     });
     root.addEventListener("change", function (e) {
       var el = e.target, c = cfg(), k = kind();
-      if (el.id === "inBoard") { if (el.value === "__custom") { PP.ask("Name for this board", { value: "My " + (k === "keys" ? "keys" : "board"), ok: "Save board" }).then(function (name) { if (name) { var id = "custom-" + uid(); c.custom.push({ id: id, name: name, kind: k, chain: chainFor(k).map(function (it) { return [it.pedal, Object.assign({}, it.values)]; }) }); c.boards[k] = id; PP.persistSoon(); } render(); }); return; } loadBoard(k, el.value); selected = null; apply("board"); render(); }
+      if (el.id === "inBoard") { if (el.value === "__custom") { PP.ask("Name for this board", { value: "My " + (k === "keys" ? "keys" : "board"), ok: "Save board" }).then(function (name) { if (name) { var id = "custom-" + uid(); c.custom.push({ id: id, name: name, kind: k, chain: chainFor(k).map(function (it) { if (isPlug(it)) { var snap = "s" + uid(); send({ type: "instrument", action: "pluginCopyState", from: it.uid, to: snap }); return ["plug", {}, { plugin: it.plugin, stateFrom: snap }]; } return [it.pedal, Object.assign({}, it.values)]; }) }); c.boards[k] = id; PP.persistSoon(); } render(); }); return; } loadBoard(k, el.value); selected = null; apply("board"); render(); }
       else if (el.id === "inInput") { c.input.device = el.value; var inp = catalog.inputs.filter(function (i) { return i.id === el.value; })[0]; c.input.deviceId = inp ? inp.browserId : null; stopMeter(); apply("input"); render(); }
       else if (el.id === "inChannel") { c.input.channel = el.value; apply("input"); }
       else if (el.id === "inMidi") { c.keys.midi = el.value; keysSoon(); }
@@ -363,20 +450,34 @@
     function keyUp(e) { var kk = e.target.closest && e.target.closest(".kk"); if (!kk) return; kk.classList.remove("down"); send({ type: "instrument", action: "note", on: false, note: Number(kk.dataset.note), velocity: 0 }); }
     root.addEventListener("pointerup", keyUp); root.addEventListener("pointercancel", keyUp); root.addEventListener("pointerleave", keyUp, true);
     F.on("instrumentStatus", function (m) {
-      var before = JSON.stringify([status.running, status.error, status.kind, (status.inputs || []).length, (status.keysCatalog || []).length, !!status.plugins]);
+      var sig = function (x) { return JSON.stringify([x.running, x.error, x.kind, (x.inputs || []).length, (x.keysCatalog || []).length, !!x.plugins, x.engine, x.engineAlt, Object.keys(x.pluginSlots || {}).sort(), x.pluginErrors || {}]); };
+      var before = sig(status), hadEngine = status.available !== undefined, prevEngine = status.engine;
       status = m;
+      if (hadEngine && prevEngine !== m.engine) setTimeout(function () { if (kind() !== "off") apply("engine"); }, 300);   // (switched engines: give the new one the board)
+      if (plugHost() && !plugs.asked) { plugs.asked = true; send({ type: "instrument", action: "plugins", scan: true, folders: cfg().pluginFolders || [] }); }
+      if (m.pluginSlots) Object.keys(plugs.open).forEach(function (id) { var si = m.pluginSlots[id]; if (si) plugs.open[id] = !!si.open; });
       if (m.plugins) catalog.plugins = m.plugins;
       catalog.inputs = (m.inputs || []).map(function (i) { return { id: i.name, name: (i.desc || i.name) + (i.channels ? " · " + i.channels + " in" : "") }; });
       catalog.midi = m.midiInputs || []; catalog.keys = flattenKeys(m.keysCatalog || []); catalog.ready = true;
       if (pendingPatchFile) { var np = catalog.keys.filter(function (p) { return p.file === pendingPatchFile; })[0]; if (np) { pendingPatchFile = null; var cc = cfg(); cc.keys.patch = { id: np.id, file: np.file, bank: np.bank, prog: np.prog, name: np.name }; keysQuery = ""; keysCat = "all"; if (kind() === "keys") send({ type: "instrument", action: "keys", keys: hostConfig().keys }); PP.persistSoon(); } }
       var s = $(".in-status"); if (s) s.innerHTML = statusLine();
-      if (onTab() && before !== JSON.stringify([m.running, m.error, m.kind, (m.inputs || []).length, (m.keysCatalog || []).length, !!m.plugins])) render();
+      if (onTab() && before !== sig(m)) render();
     });
     // the Studio compressor / limiter / de-esser's gain reduction (the computer's built-in rig reports it)
     F.on("instrumentMeters", function (m) {
       document.querySelectorAll("[data-gr]").forEach(function (el) { var g = m.gr && m.gr[el.dataset.gr] || 0; el.querySelector("i").style.width = Math.min(100, g / 24 * 100) + "%"; el.querySelector("output").textContent = (g > 0.05 ? "−" + g.toFixed(1) : "0.0") + " dB"; });
     });
     setInterval(function () { if (onTab() && document.querySelector("[data-gr]")) send({ type: "instrument", action: "meters" }); }, 120);
+    F.on("pluginList", function (m) { plugs.list = m.plugins || []; plugs.failed = m.failed || []; plugs.folders = m.folders || []; plugs.formats = m.formats || ""; if (m.scanning) { if (!plugs.scan) plugs.scan = { done: 0, total: 0 }; } else { plugs.scanned = true; plugs.scan = null; } if (onTab()) render(); });
+    F.on("pluginScan", function (m) { plugs.scan = m; var el = $(".plug-scan"); if (el) el.textContent = "Looking for plugins… " + (m.total ? m.done + " of " + m.total + (m.current ? " · " + m.current : "") : ""); });
+    F.on("pluginParams", function (m) {
+      plugs.params[m.uid] = m.params || []; var box = document.querySelector('.plug-params[data-ppfor="' + m.uid + '"]'); if (!box) return;
+      var a = document.activeElement, dragging = a && box.contains(a) && a.matches('input[type="range"]');
+      if (!dragging) { box.innerHTML = plugParamsHtml(m.uid, m.params || []); return; }
+      (m.params || []).forEach(function (q) { var inp = box.querySelector('[data-pp="' + m.uid + "|" + q.id + '"]'); if (!inp) return; var o = inp.parentNode.querySelector("output"); if (o) o.textContent = tidyNum(q.text); if (inp !== a) inp.value = Math.round(q.value * 1000); });
+    });
+    F.on("pluginEditor", function (m) { plugs.open[m.uid] = !!m.open; if (m.error) PP.setStatus(m.error); if (onTab()) render(); });
+    setInterval(function () { if (!onTab() || !selected || !plugHost()) return; var it = chainFor(kind()).filter(function (q) { return q.uid === selected; })[0]; if (it && isPlug(it) && slotInfo(it.uid)) askParams(it.uid); }, 2000);   // (its own window may have moved them)
     F.on("hello", function () { send({ type: "instrument", action: "status" }); setTimeout(function () { if (kind() !== "off") apply("connect"); }, 600); });
   }
   function show() { send({ type: "instrument", action: "status" }); render(); }
@@ -471,7 +572,7 @@
     if (onTab()) render(); if (window.PPActions) window.PPActions.sendLeds(); return tunerOn;
   }
   wire();
-  function pedalNames() { return chainFor(kind()).map(function (it, i) { var p = PED.byId(it.pedal); return { index: i, name: p ? p.name : it.pedal, on: it.on !== false }; }); }
+  function pedalNames() { return chainFor(kind()).map(function (it, i) { var p = pedalOf(it); return { index: i, name: p ? p.name : it.pedal, on: it.on !== false }; }); }
   function state() { var c = cfg(); return { kind: c.kind, tuner: tunerOn, board: c.boards[c.kind], patch: c.keys.patch, get levelDb() { return c.output.level || 0; }, set levelDb(v) { c.output.level = v; if (onTab()) { var el = $("#inOut"); if (el) { el.value = v; var o = el.parentNode.querySelector("output"); if (o) o.textContent = v + " dB"; } } } }; }
   function setKind(k) { var c = cfg(); c.kind = k; selected = null; apply("kind"); PP.setStatus("Instrument: " + (KINDS.filter(function (q) { return q[0] === k; })[0] || ["", k])[1]); if (onTab()) render(); }
   window.PPInstrument = { show: show, hide: hide, render: render, config: cfg, kind: kind, state: state, setKind: setKind, autoSetup: autoSetup, togglePedal: togglePedal, pedalOn: pedalOn, pedalNames: pedalNames, stepBoard: stepBoard, stepPatch: stepPatch, stepKind: stepKind, expression: expression, toggleTuner: toggleTuner, tunerToggle: toggleTuner, tunerOn: function () { return tunerOn; }, apply: apply, hostConfig: hostConfig, catalog: function () { return catalog; }, chain: chainFor, resolvedChain: resolvedChain, controlsOf: controlsOf, captureRig: captureRig, applyRig: applyRig, layers: layers, maxLayers: MAX_LAYERS, status: function () { return status; }, boardName: function () { var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0]; return b ? b.name : ""; }, kinds: function () { return KINDS; }, onTuner: function (fn) { tunerHooks.push(fn); } };

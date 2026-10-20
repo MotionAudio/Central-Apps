@@ -225,7 +225,11 @@ module.exports = function services(app, getWin) {
   ipcMain.handle("read-file", (_e, f) => { try { return fs.readFileSync(f); } catch (_) { return null; } });
 
   // ------------------------------------------------------------------ the Instrument tab (runs the Central Pedal's instrument host here)
-  let inst = null, instBuf = "";
+  let inst = null, instBuf = "", instKind = "", instAlt = "";
+  // Linux with PipeWire has two engines: the Central Pedal's own (real LV2 pedals) and the built-in rig (which also
+  // plays the musician's own VST3 / CLAP / LV2 plugins). The page offers the other one; the choice is remembered.
+  const enginePref = () => path.join(userData, "instrument", "engine.json");
+  const engineWanted = () => { try { return JSON.parse(fs.readFileSync(enginePref(), "utf8")).engine || ""; } catch (_) { return ""; } };
   function instStart() {
     if (inst) return true;
     // Linux with PipeWire: the Central Pedal's own instrument host (real LV2 / LADSPA pedals, FluidSynth);
@@ -233,17 +237,27 @@ module.exports = function services(app, getWin) {
     const py = process.platform === "linux" && which("python3"), script = path.join(nativeDir, "cu-instrument.py");
     const rigBin = path.join(binDir, "cu-rig" + EXE), map = [path.join(nativeDir, "rig-map.json"), path.join(binDir, "rig-map.json")].filter((f) => fs.existsSync(f))[0];
     let cmd, args;
-    if (py && which("pw-cli") && fs.existsSync(script) && process.env.CU_RIG !== "1") { cmd = py; args = [script, path.join(userData, "instrument")]; }
-    else if (fs.existsSync(rigBin)) { cmd = rigBin; args = ["--data", path.join(userData, "instrument"), "--sounds", soundsDir].concat(map ? ["--map", map] : []).concat(process.env.CU_RIG_BACKEND ? ["--backend", process.env.CU_RIG_BACKEND] : []); }
+    const pedalOk = !!(py && which("pw-cli") && fs.existsSync(script)), rigOk = fs.existsSync(rigBin);
+    if (pedalOk && process.env.CU_RIG !== "1" && !(engineWanted() === "rig" && rigOk)) { cmd = py; args = [script, path.join(userData, "instrument")]; instKind = "pedal"; }
+    else if (rigOk) { instKind = "rig"; cmd = rigBin; args = ["--data", path.join(userData, "instrument"), "--sounds", soundsDir].concat(map ? ["--map", map] : []).concat(process.env.CU_RIG_BACKEND ? ["--backend", process.env.CU_RIG_BACKEND] : []); }
     else { send("inst-msg", { type: "instrumentStatus", available: false, error: "The instrument engine is missing from this installation.", inputs: [], midiInputs: [], keysCatalog: [] }); return false; }
     try { fs.mkdirSync(path.join(userData, "instrument", "sounds", "sf2"), { recursive: true }); fs.mkdirSync(path.join(userData, "instrument", "sounds", "ir"), { recursive: true }); } catch (_) { }
+    instAlt = pedalOk && rigOk ? (instKind === "pedal" ? "rig" : "pedal") : "";
     inst = spawn(cmd, args, { stdio: ["pipe", "pipe", "ignore"], windowsHide: true }); instBuf = "";
-    inst.stdout.on("data", (b) => { instBuf += b; let i; while ((i = instBuf.indexOf("\n")) >= 0) { const line = instBuf.slice(0, i); instBuf = instBuf.slice(i + 1); try { send("inst-msg", JSON.parse(line)); } catch (_) { } } });
+    inst.stdout.on("data", (b) => { instBuf += b; let i; while ((i = instBuf.indexOf("\n")) >= 0) { const line = instBuf.slice(0, i); instBuf = instBuf.slice(i + 1); try { const m = JSON.parse(line); if (m && m.type === "instrumentStatus" && instAlt) m.engineAlt = instAlt; send("inst-msg", m); } catch (_) { } } });
     inst.stdin.on("error", () => { }); inst.on("exit", () => { inst = null; }); inst.on("error", () => { inst = null; });
     return true;
   }
   ipcMain.handle("inst-start", () => instStart());
-  ipcMain.on("inst-send", (_e, msg) => { if (instStart() && inst) inst.stdin.write(JSON.stringify(msg) + "\n"); });
+  ipcMain.on("inst-send", (_e, msg) => {
+    if (msg && msg.action === "engine") {   // switch engines (Linux): remember, stop this one, start the other
+      try { fs.mkdirSync(path.dirname(enginePref()), { recursive: true }); fs.writeFileSync(enginePref(), JSON.stringify({ engine: msg.engine === "rig" ? "rig" : "pedal" })); } catch (_) { }
+      const restart = () => { instStart(); if (inst) inst.stdin.write(JSON.stringify({ type: "instrument", action: "status" }) + "\n"); };
+      if (inst) { const old = inst; old.once("exit", restart); try { old.stdin.end(); } catch (_) { } setTimeout(() => { try { old.kill(); } catch (_) { } }, 2500); } else restart();
+      return;
+    }
+    if (instStart() && inst) inst.stdin.write(JSON.stringify(msg) + "\n");
+  });
   ipcMain.handle("inst-stop", () => { if (inst) { try { inst.stdin.end(); setTimeout(() => { if (inst) inst.kill(); }, 1500); } catch (_) { } } return true; });
 
   // ------------------------------------------------------------------ the lights' local AI model (optional)

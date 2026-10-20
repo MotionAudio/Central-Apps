@@ -4,7 +4,7 @@
 #ifdef __APPLE__
 #import <Cocoa/Cocoa.h>
 #import <AudioToolbox/AudioToolbox.h>
-#import <AudioUnit/AUCocoaUIView.h>
+#import <CoreAudioKit/AUCocoaUIView.h>
 #import <CoreAudioKit/CoreAudioKit.h>
 #include <algorithm>
 #include <atomic>
@@ -39,7 +39,7 @@ struct AuPlug : Plug {
   const float *curIn[2] = { nullptr, nullptr }; int curN = 0; std::vector<float> zeros;
   AudioBufferList *abl = nullptr; std::vector<float> outMem[2]; Float64 sampleTime = 0;
   struct P { AudioUnitParameterID id; std::string name; float min, max; AudioUnitParameterUnit unit; UInt32 flags; }; std::vector<P> plist;
-  NSView *auView = nil; id frameObserver = nil;
+  NSView *auView = nil; ::id frameObserver = nil;   // (::id: Plug has a member called id)
 
   ~AuPlug() override {
     if (editor) closeEditor();
@@ -133,7 +133,7 @@ struct AuPlug : Plug {
       if (AudioUnitGetProperty(unit, kAudioUnitProperty_CocoaUI, kAudioUnitScope_Global, 0, info, &sz) == noErr) {
         NSURL *url = (NSURL *)info->mCocoaAUViewBundleLocation; NSString *cls = (NSString *)info->mCocoaAUViewClass[0];
         NSBundle *b = url ? [NSBundle bundleWithURL:url] : nil; Class c = b && cls ? [b classNamed:cls] : nil; NSView *v = nil;
-        if (c && [c conformsToProtocol:@protocol(AUCocoaUIBase)]) { id<AUCocoaUIBase> factory = [[c alloc] init]; v = [factory uiViewForAudioUnit:unit withSize:NSMakeSize(640, 400)]; [v retain]; [factory release]; }
+        if (c && [c conformsToProtocol:@protocol(AUCocoaUIBase)]) { ::id<AUCocoaUIBase> factory = [[c alloc] init]; v = [factory uiViewForAudioUnit:unit withSize:NSMakeSize(640, 400)]; [v retain]; [factory release]; }
         if (info->mCocoaAUViewBundleLocation) CFRelease(info->mCocoaAUViewBundleLocation);
         for (UInt32 i = 0; i < (sz - sizeof(CFURLRef)) / sizeof(CFStringRef); i++) if (info->mCocoaAUViewClass[i]) CFRelease(info->mCocoaAUViewClass[i]);
         if (v) return v;

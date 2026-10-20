@@ -10,6 +10,24 @@
   body { padding:12px; }
   #status { position:fixed; left:12px; bottom:10px; color:var(--muted); font-size:13px; pointer-events:none; }
   .cu-missing { padding:30px; color:var(--muted); }
+  /* the controls, as in the Central Pedal app (the page's own stylesheet takes them for granted) */
+  button, input, select { font:inherit; }
+  button { appearance:none; cursor:pointer; border:1px solid var(--line); background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0)),var(--panel2); color:var(--text); border-radius:9px; padding:9px 12px; font-weight:500; transition:transform .12s ease,border-color .12s ease,background-color .12s ease; }
+  button:hover { border-color:#454C58; } button:active { transform:translateY(1px); } button:disabled { opacity:.5; cursor:default; transform:none; }
+  button.primary { border:1px solid var(--accent); color:var(--accentText); background:linear-gradient(180deg,color-mix(in srgb,var(--accent),#fff 22%),var(--accent)); font-weight:700; } button.danger { color:#fff; background:#5a2730; border-color:#82414b; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  h2, h3, h4, p { margin:0; } h3 { font-size:15px; } h2, h3, h4 { font-stretch:108%; letter-spacing:-.01em; }
+  .row { display:flex; align-items:center; gap:9px; } .spread { justify-content:space-between; } .muted, small { color:var(--muted); }
+  label { display:grid; gap:5px; color:var(--muted); font-size:12px; }
+  input, select { min-width:0; width:100%; color:var(--text); background:var(--field); border:1px solid var(--line); border-radius:7px; padding:8px; }
+  input[type="range"] { padding:3px; accent-color:var(--accent); } input[type="checkbox"] { width:17px; height:17px; padding:0; accent-color:var(--accent); }
+  label.toggle { display:flex; align-items:center; gap:7px; color:var(--text); font-size:13px; }
+  .control-line { display:flex; align-items:center; justify-content:space-between; gap:7px; } .control-line output { color:var(--text); font-size:11px; min-width:42px; text-align:right; }
+  .pf-btn { display:grid; justify-items:center; align-content:center; min-width:clamp(62px,9vw,96px); padding:6px 12px; border-radius:12px; line-height:1.05; } .pf-btn small { font-size:9px; letter-spacing:.14em; color:var(--muted); } .pf-btn b { font-size:15px; }
+  .pf-btn.on { background:var(--accent); color:var(--accentText); border-color:var(--accent); } .pf-btn.on small { color:var(--accentText); }
+  .in-bar { display:flex; flex-wrap:wrap; align-items:end; gap:10px 14px; margin:12px 0; } .in-bar > label { min-width:160px; flex:1 1 160px; max-width:260px; }
+  .in-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; } .in-kinds { display:flex; flex-wrap:wrap; gap:8px; }
+  details summary { cursor:pointer; }
 </style>
 </head>
 <body>

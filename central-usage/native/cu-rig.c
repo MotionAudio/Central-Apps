@@ -710,6 +710,7 @@ static void routing(cJSON *r) {
   const char *dev2 = r ? str(r, "device", "") : ""; if (dev2[0]) snprintf(devOut, sizeof devOut, "%s", dev2);
 }
 static void keys_set(cJSON *k) {
+  if (strstr(lastError, "SoundFont")) lastError[0] = 0;   /* (asked again for these layers below) */
   Keys nk; memset(&nk, 0, sizeof nk); nk.transpose = (int)num(k, "transpose", 0); nk.sustain = !cJSON_IsFalse(cJSON_GetObjectItem(k, "sustain")); snprintf(nk.velocity, sizeof nk.velocity, "%s", str(k, "velocity", "normal")); nk.volume = (float)num(k, "volume", 0.8);
   cJSON *layers = cJSON_GetObjectItem(k, "layers"), *ly; cJSON *one = NULL;
   if (!cJSON_IsArray(layers) || !cJSON_GetArraySize(layers)) { one = cJSON_CreateArray(); cJSON *l0 = cJSON_CreateObject(); cJSON *p = cJSON_GetObjectItem(k, "patch"); if (p) cJSON_AddItemToObject(l0, "patch", cJSON_Duplicate(p, 1)); cJSON_AddItemToArray(one, l0); layers = one; }
