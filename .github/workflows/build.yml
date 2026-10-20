@@ -19,7 +19,7 @@ on:
   workflow_call:
   workflow_dispatch:
   push:
-    branches: [platforms, v8.1, plugin-host]
+    branches: [platforms, v8.1]
 permissions:
   contents: read
 jobs:

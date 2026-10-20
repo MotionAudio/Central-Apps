@@ -193,7 +193,9 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.1.4 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.2.0 and earlier)</summary>
+
+**New in version 9.2.0:** your own plugins in the Instrument tab of Central Control and Central Usage: VST3 and CLAP (Windows, macOS, Linux), Audio Units (macOS) and LV2 (Linux), effects on the board and instruments as keys layers (Kontakt, Keyscape…), with their own windows, quick controls and saved settings; a plugin that crashes is set aside instead of taking the rig down.
 
 **New in version 9.1.4:** studio compressor (with a gain-reduction meter on computers), 7-band parametric EQ with a live curve, limiter and de-esser for every instrument, on the Central Pedal and computers; three studio channel-strip boards.
 
