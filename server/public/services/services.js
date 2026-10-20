@@ -11,9 +11,21 @@
   var DESK = window.CSDesktop && window.CSDesktop.updates;   // (the Mac / Windows / Linux app: updates; phones and tablets update from their store)
   var LS = "cs-token";
   var token = null; try { token = localStorage.getItem(LS); } catch (_) { }
-  var st = { me: null, board: null, tab: "mine", msg: "", err: "", busy: false, form: null, editTeam: null, signup: false };
+  var st = { me: null, board: null, tab: "mine", msg: "", err: "", busy: false, form: null, editTeam: null, signup: false, two: null, editSongs: null };
   function $(s) { return document.querySelector(s); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function deviceId() { var d = null; try { d = localStorage.getItem("cs-device"); if (!d) { d = "cs-" + Array.from(crypto.getRandomValues(new Uint8Array(12)), function (x) { return ("0" + x.toString(16)).slice(-2); }).join(""); localStorage.setItem("cs-device", d); } } catch (_) { } return d || ""; }
+  // what goes wrong on this page is reported to the website (the support email hears about new kinds of errors)
+  (function () {
+    var sent = {}, n = 0;
+    function report(message, stack) {
+      var k = String(message).slice(0, 200); if (!message || sent[k] || n >= 10 || !BASE) return; sent[k] = 1; n++;
+      try { fetch(BASE + "/v1/errors", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: "central-services", version: window.CS_VERSION || "", message: String(message).slice(0, 500), stack: String(stack || "").slice(0, 4000), url: APP ? "app" : location.pathname, platform: navigator.userAgent.slice(0, 120) }) }).catch(function () { }); } catch (_) { }
+    }
+    addEventListener("error", function (e) { report(e.message || "Script error", e.error && e.error.stack); });
+    addEventListener("unhandledrejection", function (e) { var x = e.reason || {}; if (x.status) return; report("Unhandled: " + (x.message || String(x)), x.stack); });
+    window.CCReportError = report;   // (the computer app's main process reports through here)
+  })();
   function setToken(t) { token = t; try { if (t) localStorage.setItem(LS, t); else localStorage.removeItem(LS); } catch (_) { } }
   async function api(method, path, body) {
     var h = { "Content-Type": "application/json" }; if (token) h.Authorization = "Bearer " + token;
@@ -43,13 +55,18 @@
 
   // ---------------------------------------------------------------- screens
   function signIn() {
-    var su = st.signup;
+    var su = st.signup, t = st.two;
+    if (t) return '<div class="center card"><h2>' + (t.step === "phone" ? "Add your phone" : "Enter the code") + "</h2>" +
+      (t.step === "phone" ? '<p class="muted" style="margin:0">You\'re an admin, so signing in on a new device also takes a code sent to your phone.</p><label>Mobile number<input id="tPhone" type="tel" autocomplete="tel" placeholder="555-123-4567"></label><div class="row"><button class="primary" data-a="tphone">Send the code</button><button data-a="tcancel">Cancel</button></div>'
+        : '<p class="muted" style="margin:0">We ' + (t.by === "email" ? "emailed" : "texted") + " a 6-digit code to <b>" + esc(t.to) + "</b>" + (t.both ? " and emailed another to you (adding a phone takes both)" : "") + '.</p><label>' + (t.both ? "Code from the text" : "Code") + '<input id="tCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7"></label>' + (t.both ? '<label>Code from the email<input id="tECode" inputmode="numeric" maxlength="7"></label>' : "") + '<div class="row"><button class="primary" data-a="tcode">Sign in</button><button data-a="tagain">Send again</button><button data-a="tcancel">Cancel</button></div>') +
+      (st.err ? '<div class="err">' + esc(st.err) + "</div>" : "") + (st.note ? '<div class="okmsg">' + esc(st.note) + "</div>" : "") + "</div>";
     return '<div class="center card"><h2>Central Services</h2><p class="muted" style="margin:0">Sign in with your Motion Audio account (the one from your church\'s invite).</p>' +
       (su ? '<label>Name<input id="sName" autocomplete="name"></label>' : "") +
       '<label>Email<input id="sEmail" type="email" autocomplete="username" value="' + esc(st.email || "") + '"></label><label>Password' + (su ? " (8+ characters)" : "") + '<input id="sPass" type="password" autocomplete="' + (su ? "new-password" : "current-password") + '"></label>' +
       (su ? '<label>Church code (from your main admin - optional if they added you)<input id="sCode"></label>' : "") +
       '<div class="row"><button class="primary" data-a="' + (su ? "signup" : "login") + '">' + (su ? "Make my account" : "Sign in") + '</button><button data-a="toggle">' + (su ? "I have an account" : "Make an account") + "</button>" + (su ? "" : '<button class="small" data-a="forgot">Forgot password?</button>') + "</div>" +
       (st.note ? '<div class="okmsg">' + esc(st.note) + "</div>" : "") +
+      '<p class="muted small" style="margin:0">' + (su ? "Making an account means you agree to the " + policy("terms", "Terms") + " and the " + policy("privacy", "Privacy policy") + ". " : "") + '<button class="small" data-a="support">Contact support</button></p>' + (st.tab === "support" ? supportCard() : "") +
       (st.err ? '<div class="err">' + esc(st.err) + "</div>" : "") + (APP ? '<button class="small" data-tab="app">⚙ App settings</button>' + (st.tab === "app" ? appSettings() : "") : "") + "</div>";
   }
   // ⚙ App (the apps only): the website's address, and on a computer the updates
@@ -65,7 +82,7 @@
   function header() {
     var m = st.me, sched = m.role === "scheduler", who = { owner: "Main admin", admin: "Admin", user: "User" }[m.churchRole] || "Team member";
     return '<header><h1>' + esc(m.church || "Central Services") + '</h1><span class="muted small">Central Services</span><div class="who"><span>' + esc(m.name || m.email) + '</span><span class="badge' + (m.churchRole === "owner" || m.churchRole === "admin" ? " adm" : "") + '" data-role="' + esc(m.churchRole || "") + '">' + who + "</span>" + (sched ? '<span class="badge sched">Scheduler</span>' : "") + '<button class="small" data-a="refresh" title="Refresh">↻</button><button class="small" data-a="logout">Sign out</button></div></header>' +
-      '<nav>' + [["mine", "My requests"], ["schedule", "Schedule"], ["teams", "Teams"]].concat(sched ? [["new", "+ New service"]] : []).concat(APP ? [["app", "⚙ App"]] : []).map(function (t) { return '<button class="' + (st.tab === t[0] ? "on" : "") + '" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</nav>";
+      '<nav>' + [["mine", "My requests"], ["schedule", "Schedule"], ["away", "Away"], ["teams", "Teams"]].concat(sched ? [["new", "+ New service"]] : []).concat([["account", "Account"]]).concat(APP ? [["app", "⚙ App"]] : []).map(function (t) { return '<button class="' + (st.tab === t[0] ? "on" : "") + '" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</nav>";
   }
   function mine() {
     var b = st.board, list = [];
@@ -89,8 +106,11 @@
       }).join("") + "</div>";
     }).join("");
     var c = { accepted: 0, declined: 0, pending: 0 }; s.requests.forEach(function (r) { c[r.status]++; });
+    var away = awayOn(s.day);
     return '<div class="card svc"><div class="row" style="justify-content:space-between"><div><div class="when">' + esc(when(s.startsAt)) + "</div><div>" + esc(s.title) + "</div>" + (s.notes ? '<div class="muted small">' + esc(s.notes) + "</div>" : "") + "</div>" +
       '<div class="small muted">' + c.accepted + " yes · " + c.declined + " no · " + c.pending + " not yet</div></div>" +
+      songsBlock(s, sched) +
+      (away.length ? '<div class="small muted">Away that day: ' + away.map(function (b) { return esc(b.name || b.email); }).join(", ") + "</div>" : "") +
       (cols ? '<div class="teams">' + cols + "</div>" : '<p class="muted small" style="margin:0">Nobody asked yet.</p>') +
       (sched ? '<div class="row"><button class="small" data-ask="' + s.id + '">Ask more people</button><button class="small no" data-delsvc="' + s.id + '">Delete</button></div>' : "") + "</div>";
   }
@@ -121,17 +141,65 @@
     var b = st.board, f = st.form || {};
     var svc = forId ? b.services.filter(function (s) { return s.id === forId; })[0] : null;
     var asked = {}; if (svc) svc.requests.forEach(function (r) { asked[r.teamId + "|" + r.email] = true; });
+    var dayAway = svc ? awayOn(svc.day) : f.when ? awayOn(String(f.when).slice(0, 10)) : null;
     var pick = b.teams.map(function (t) {
       return '<div class="team"><h4><label class="pick"><input type="checkbox" data-pickteam="' + t.id + '"> ' + esc(t.name) + '</label><span class="kind">' + t.kind + "</span></h4>" + t.members.map(function (m) {
         var k = t.id + "|" + m.email;
-        return '<label class="pick"><input type="checkbox" data-pick="' + esc(k) + '"' + (asked[k] ? " checked disabled" : "") + "> " + esc(m.name || m.email) + (m.role ? ' <span class="muted small">· ' + esc(m.role) + "</span>" : "") + "</label>";
+        var gone = dayAway && dayAway.some(function (b) { return b.email === m.email; });
+        return '<label class="pick"><input type="checkbox" data-pick="' + esc(k) + '"' + (asked[k] ? " checked disabled" : gone ? " disabled" : "") + "> " + esc(m.name || m.email) + (m.role ? ' <span class="muted small">· ' + esc(m.role) + "</span>" : "") + (gone ? ' <span class="st declined">away</span>' : "") + "</label>";
       }).join("") + "</div>";
     }).join("");
     return '<div class="card"><h2>' + (svc ? "Ask more people: " + esc(svc.title) + ", " + esc(when(svc.startsAt, true)) : "New service") + "</h2>" +
-      (svc ? "" : '<div class="grid2"><label>Name<input id="fTitle" placeholder="Sunday 9:00" value="' + esc(f.title || "") + '"></label><label>Date and time<input id="fWhen" type="datetime-local" value="' + esc(f.when || "") + '"></label></div><label>Notes (optional)<textarea id="fNotes" rows="2">' + esc(f.notes || "") + "</textarea></label>") +
+      (svc ? "" : '<div class="grid2"><label>Name<input id="fTitle" placeholder="Sunday 9:00" value="' + esc(f.title || "") + '"></label><label>Date and time<input id="fWhen" type="datetime-local" value="' + esc(f.when || "") + '"></label></div><label>Notes (optional)<textarea id="fNotes" rows="2">' + esc(f.notes || "") + "</textarea></label>" +
+        '<label>Songs (optional) - one a line: title, key, BPM<textarea id="fSongs" rows="4" placeholder="Way Maker, E, 68&#10;Goodness of God, Ab, 63">' + esc(f.songs || "") + "</textarea></label>" +
+        '<div class="row"><button class="small" data-a="checkaway">Who\'s away that day?</button>' + (dayAway ? '<span class="muted small">' + (dayAway.length ? "Away: " + dayAway.map(function (b) { return esc(b.name || b.email); }).join(", ") : "Nobody is away that day.") + "</span>" : "") + "</div>") +
       '<h3>Who to ask</h3>' + (b.teams.length ? '<div class="teams">' + pick + "</div>" : '<p class="muted">Make teams first (Teams).</p>') +
       '<label class="pick"><input type="checkbox" id="fMail" checked> Email them the request</label>' +
       '<div class="row"><button class="primary" data-a="' + (svc ? "askmore" : "create") + '"' + (svc ? ' data-svc="' + svc.id + '"' : "") + ">" + (svc ? "Ask them" : "Schedule it") + "</button>" + (svc ? '<button data-tab="schedule">Cancel</button>' : "") + "</div></div>";
+  }
+  // ---- songs: the list on each service (schedulers edit it)
+  function songsBlock(s, sched) {
+    if (st.editSongs === s.id) {
+      var rows = (st.songDraft || []).concat([{ title: "", key: "", bpm: "" }]);
+      return '<div class="team"><h4><span>Songs</span></h4>' + rows.map(function (x, i) { return '<div class="row songrow"><input placeholder="Title" data-sg="' + i + '" data-f="title" value="' + esc(x.title) + '" style="flex:3;min-width:140px"><input placeholder="Key" data-sg="' + i + '" data-f="key" value="' + esc(x.key) + '" style="flex:1;min-width:60px"><input placeholder="BPM" inputmode="numeric" data-sg="' + i + '" data-f="bpm" value="' + esc(x.bpm || "") + '" style="flex:1;min-width:60px"></div>'; }).join("") +
+        '<div class="row"><button class="small primary" data-savesongs="' + s.id + '">Save songs</button><button class="small" data-a="cancelsongs">Cancel</button></div></div>';
+    }
+    var list = s.songs || [];
+    if (!list.length && !sched) return "";
+    return '<div class="songs">' + (list.length ? '<b class="small">Songs</b><ol class="small">' + list.map(function (x) { return "<li>" + esc(x.title) + (x.key ? ' <span class="muted">· ' + esc(x.key) + "</span>" : "") + (x.bpm ? ' <span class="muted">· ' + x.bpm + " BPM</span>" : "") + (x.notes ? ' <span class="muted">· ' + esc(x.notes) + "</span>" : "") + "</li>"; }).join("") + "</ol>" : "") +
+      (sched ? '<button class="small" data-editsongs="' + s.id + '">' + (list.length ? "Edit songs" : "+ Add songs") + "</button>" : "") + "</div>";
+  }
+  function parseSongs(text) {   // "Title, Key, BPM" a line
+    return String(text || "").split("\n").map(function (l) { var p = l.split(/\s*[,;|]\s*|\s+-\s+/); return { title: (p[0] || "").trim(), key: (p[1] || "").trim(), bpm: Number((p[2] || "").replace(/[^0-9.]/g, "")) || 0 }; }).filter(function (x) { return x.title; });
+  }
+  // ---- away: the days people can't serve
+  function awayOn(day) { var b = st.board; return day && b && b.blockouts ? b.blockouts.filter(function (x) { return x.from <= day && x.to >= day; }) : []; }
+  function fmtDay(d) { var x = new Date(d + "T12:00:00"); return x.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
+  function awayView() {
+    var b = st.board, sched = st.me.role === "scheduler", mine = (b.blockouts || []).filter(function (x) { return x.mine; }), others = (b.blockouts || []).filter(function (x) { return !x.mine; });
+    var people = []; b.teams.forEach(function (t) { t.members.forEach(function (m) { if (!people.some(function (p) { return p.email === m.email; })) people.push(m); }); });
+    var range = function (x) { return fmtDay(x.from) + (x.to !== x.from ? " – " + fmtDay(x.to) : ""); };
+    return '<div class="card"><h2>Days I\'m away</h2><p class="muted small" style="margin:0">Schedulers see these, and asking a whole team skips you on those days. A request you hadn\'t answered for one of them turns into a no.</p>' +
+      (mine.length ? mine.map(function (x) { return '<div class="p"><span><b>' + range(x) + "</b>" + (x.note ? ' <span class="r">· ' + esc(x.note) + "</span>" : "") + '</span><button class="small" data-rmaway="' + x.id + '">Remove</button></div>'; }).join("") : '<span class="muted small">None.</span>') +
+      '<div class="grid2"><label>First day<input type="date" id="aFrom"></label><label>Last day<input type="date" id="aTo"></label></div><label>Note (optional)<input id="aNote" placeholder="Vacation, work trip…"></label>' +
+      (sched ? '<label>For<select id="aWho"><option value="">Me</option>' + people.map(function (p) { return '<option value="' + esc(p.email) + '">' + esc(p.name || p.email) + "</option>"; }).join("") + "</select></label>" : "") +
+      '<div class="row"><button class="primary" data-a="addaway">Add</button></div></div>' +
+      '<div class="card"><h2>Who\'s away</h2>' + (others.length ? others.map(function (x) { return '<div class="p"><span><b>' + esc(x.name || x.email) + "</b> " + range(x) + (x.note ? ' <span class="r">· ' + esc(x.note) + "</span>" : "") + "</span>" + (sched ? '<button class="small" data-rmaway="' + x.id + '">✕</button>' : "") + "</div>"; }).join("") : '<span class="muted small">Nobody else.</span>') + "</div>";
+  }
+  // ---- account: policies, support, delete
+  function policy(name, label) { return '<a href="' + esc(BASE) + "/" + name + '" target="_blank" rel="noopener">' + label + "</a>"; }
+  function accountCard() {
+    var m = st.me || {};
+    return '<div class="card"><h2>Account</h2>' + (m.email ? "<div>" + esc(m.name || "") + " <b>" + esc(m.email) + "</b></div>" : "") +
+      '<div class="row small">' + policy("privacy", "Privacy policy") + " · " + policy("terms", "Terms") + " · " + policy("refunds", "Refunds") + ' <button class="small" data-a="support">Contact support</button></div>' +
+      (m.email ? '<details><summary class="small" style="color:var(--no)">Delete my account</summary><p class="muted small">Removes your name, email and phone, frees your keys and takes you out of your church. It can\'t be undone. The main admin hands that role to someone else first (on the website: Account → People).</p>' +
+        '<label>Your password<input type="password" id="delPw" autocomplete="current-password"></label><div class="row"><button class="no" data-a="delacct">Delete my account</button></div></details>' : "") + "</div>";
+  }
+  function supportCard() {
+    var m = st.me || {};
+    return '<div class="card"><h2>Contact support</h2><p class="muted small" style="margin:0">Tell us what\'s going on. We answer by email.</p>' +
+      '<label>Your email<input type="email" id="spEmail" value="' + esc(m.email || ($("#sEmail") || {}).value || "") + '"></label><label>About<input id="spSubject" placeholder="Schedule, sign-in, keys…"></label><label>What\'s going on?<textarea id="spMsg" rows="4"></textarea></label>' +
+      '<div class="row"><button class="primary" data-a="sendsupport">Send</button></div></div>';
   }
   function draw() {
     var root = $("#root"), a = document.activeElement, keepId = a && a.id && a.tagName !== "BUTTON" ? a.id : null, keepVal = keepId ? a.value : null;
@@ -140,7 +208,8 @@
     if (!st.me.church) h += '<div class="card"><h2>Not in a church yet</h2><p style="margin:0">Ask your main admin to add you on the Teams page of the Motion Audio website, or join with your church\'s code when you make your account.</p></div>';
     else if (!st.me.hasServices) h += '<div class="card"><h2>' + esc(st.me.church) + '</h2><p style="margin:0">Your church doesn\'t have Central Services yet. The main admin can add it in the store: $25 for the whole church, free with a church pack.</p></div>';
     if (st.tab === "app") h += appSettings();
-    else if (st.board) h += st.tab === "schedule" ? schedule() : st.tab === "teams" ? teams() : st.tab === "new" ? newService() : st.tab.indexOf("ask-") === 0 ? newService(st.tab.slice(4)) : mine();
+    else if (st.tab === "account" || st.tab === "support") h += accountCard() + (st.tab === "support" ? supportCard() : "");
+    else if (st.board) h += st.tab === "schedule" ? schedule() : st.tab === "teams" ? teams() : st.tab === "away" ? awayView() : st.tab === "new" ? newService() : st.tab.indexOf("ask-") === 0 ? newService(st.tab.slice(4)) : mine();
     h += (st.msg ? '<div class="okmsg">' + esc(st.msg) + "</div>" : "") + (st.err ? '<div class="err">' + esc(st.err) + "</div>" : "") + "</main>";
     root.innerHTML = h;
     if (keepId && document.getElementById(keepId)) { var n = document.getElementById(keepId); n.value = keepVal; try { n.focus(); } catch (_) { } }
@@ -160,7 +229,42 @@
     if (d.a === "login" || d.a === "signup") {
       var body = { email: ($("#sEmail") || {}).value, password: ($("#sPass") || {}).value };
       if (d.a === "signup") { body.name = ($("#sName") || {}).value; if (($("#sCode") || {}).value) { body.churchCode = $("#sCode").value; body.churchRole = "user"; } }
-      api("POST", d.a === "signup" ? "/signup" : "/login", body).then(function (r) { setToken(r.token); st.err = r.churchError || ""; st.note = ""; load(); }).catch(function (er) { st.err = er.message; draw(); });
+      body.device = deviceId();
+      api("POST", d.a === "signup" ? "/signup" : "/login", body).then(function (r) { if (r.step) { st.two = r; st.err = ""; st.note = r.churchError || ""; return draw(); } setToken(r.token); st.err = r.churchError || ""; st.note = ""; load(); }).catch(function (er) { st.err = er.message; draw(); });
+      return;
+    }
+    if (d.a === "tphone") { api("POST", "/login/phone", { ticket: st.two.ticket, phone: ($("#tPhone") || {}).value }).then(function (r) { Object.assign(st.two, r); st.err = ""; draw(); }).catch(function (er) { st.err = er.message; draw(); }); return; }
+    if (d.a === "tagain") { api("POST", "/login/resend", { ticket: st.two.ticket }).then(function (r) { Object.assign(st.two, r); st.err = ""; st.note = "A new code is on its way."; draw(); }).catch(function (er) { st.err = er.message; draw(); }); return; }
+    if (d.a === "tcode") { api("POST", "/login/code", { ticket: st.two.ticket, code: ($("#tCode") || {}).value, emailCode: ($("#tECode") || {}).value }).then(function (r) { st.two = null; setToken(r.token); st.err = ""; st.note = ""; load(); }).catch(function (er) { st.err = er.message; draw(); }); return; }
+    if (d.a === "tcancel") { st.two = null; st.err = ""; st.note = ""; draw(); return; }
+    if (d.a === "support") { st.tab = "support"; draw(); var f = $("#spMsg"); if (f) f.focus(); return; }
+    if (d.a === "sendsupport") {
+      api("POST", "/support", { email: ($("#spEmail") || {}).value, subject: ($("#spSubject") || {}).value, message: ($("#spMsg") || {}).value, app: "Central Services", version: window.CS_VERSION || "", platform: navigator.userAgent.slice(0, 120) })
+        .then(function (r) { st.tab = st.me ? "account" : "mine"; if (st.me) say("✓ " + r.message); else { st.note = r.message; st.err = ""; } draw(); }).catch(function (er) { st.err = er.message; draw(); });
+      return;
+    }
+    if (d.a === "delacct") {
+      if (!confirm("Delete your Motion Audio account for good?")) return;
+      var pw = ($("#delPw") || {}).value || "";
+      var go = function (close) { return api("POST", "/account/delete", { password: pw, closeChurch: close }); };
+      go(false).catch(function (er) { if (er.status === 409 && /also closes/.test(er.message) && confirm(er.message + " Delete and close it?")) return go(true); throw er; })
+        .then(function () { setToken(null); st.me = null; st.board = null; st.tab = "mine"; st.note = "Your account is deleted. A confirmation is in your email."; draw(); })
+        .catch(function (er) { st.err = er.message; draw(); });
+      return;
+    }
+    if (d.a === "addaway") {
+      var from = ($("#aFrom") || {}).value, to = ($("#aTo") || {}).value || from, who = ($("#aWho") || {}).value || undefined, nt = ($("#aNote") || {}).value;
+      if (!from) { st.err = "Pick the first day you're away."; return draw(); }
+      act(async function () { var r = await api("POST", "/services/blockouts", { from: from, to: to, note: nt, email: who }); say("✓ Saved" + (r.declined ? " · " + r.declined + " request" + (r.declined > 1 ? "s" : "") + " on those days marked no" : "")); });
+      return;
+    }
+    if (d.rmaway) { act(async function () { await api("POST", "/services/blockouts/" + d.rmaway + "/remove"); }); return; }
+    if (d.a === "checkaway") { st.form = { title: ($("#fTitle") || {}).value, when: ($("#fWhen") || {}).value, notes: ($("#fNotes") || {}).value, songs: ($("#fSongs") || {}).value }; if (!st.form.when) { st.err = "Pick the date first."; } else st.err = ""; draw(); return; }
+    if (d.editsongs) { var sv = st.board.services.filter(function (x) { return x.id === d.editsongs; })[0]; st.editSongs = d.editsongs; st.songDraft = (sv.songs || []).map(function (x) { return Object.assign({}, x); }); draw(); return; }
+    if (d.a === "cancelsongs") { st.editSongs = null; draw(); return; }
+    if (d.savesongs) {
+      var rows = Array.from(document.querySelectorAll(".songrow")).map(function (row) { var g = function (f) { return (row.querySelector('[data-f="' + f + '"]') || {}).value || ""; }; return { title: g("title").trim(), key: g("key").trim(), bpm: Number(g("bpm")) || 0 }; }).filter(function (x) { return x.title; });
+      act(async function () { await api("POST", "/services/events/" + d.savesongs + "/songs", { songs: rows }); st.editSongs = null; say("✓ Songs saved"); });
       return;
     }
     if (d.a === "toggle") { st.signup = !st.signup; st.err = ""; st.note = ""; draw(); return; }
@@ -197,10 +301,10 @@
     if (d.a === "create" || d.a === "askmore") {
       var ask = Array.from(document.querySelectorAll("[data-pick]:checked:not(:disabled)")).map(function (c) { var p = c.dataset.pick.split("|"); return { teamId: p[0], email: p.slice(1).join("|") }; }), mail = ($("#fMail") || {}).checked !== false;
       if (d.a === "create") {
-        st.form = { title: $("#fTitle").value, when: $("#fWhen").value, notes: $("#fNotes").value };
+        st.form = { title: $("#fTitle").value, when: $("#fWhen").value, notes: $("#fNotes").value, songs: ($("#fSongs") || {}).value };
         if (!st.form.title || !st.form.when) { st.err = "Give it a name, a date and a time."; return draw(); }
-        act(async function () { var r = await api("POST", "/services/events", { title: st.form.title, startsAt: new Date(st.form.when).toISOString(), notes: st.form.notes, ask: ask, email: mail }); st.form = null; st.tab = "schedule"; say("✓ Scheduled · " + r.asked + " asked"); });
-      } else act(async function () { var r = await api("POST", "/services/events/" + d.svc + "/ask", { ask: ask, email: mail }); st.tab = "schedule"; say("✓ " + r.asked + " more asked"); });
+        act(async function () { var r = await api("POST", "/services/events", { title: st.form.title, startsAt: new Date(st.form.when).toISOString(), notes: st.form.notes, songs: parseSongs(st.form.songs), ask: ask, email: mail }); st.form = null; st.tab = "schedule"; say("✓ Scheduled · " + r.asked + " asked" + (r.away && r.away.length ? " · away that day: " + r.away.join(", ") : "")); });
+      } else act(async function () { var r = await api("POST", "/services/events/" + d.svc + "/ask", { ask: ask, email: mail }); st.tab = "schedule"; say("✓ " + r.asked + " more asked" + (r.away && r.away.length ? " · away that day: " + r.away.join(", ") : "")); });
       return;
     }
     if (d.ask) { st.tab = "ask-" + d.ask; draw(); return; }
@@ -208,7 +312,7 @@
     if (d.unask) { act(async function () { await api("POST", "/services/requests/" + d.unask + "/remove"); }); return; }
   });
   document.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.closest && e.target.closest(".center")) { var b = document.querySelector(".center button.primary"); if (b) b.click(); } });
-  setInterval(function () { if (st.me && !st.editTeam && st.tab !== "new" && st.tab.indexOf("ask-") !== 0 && !(document.activeElement && document.activeElement.tagName === "INPUT")) load(); }, 60000);
+  setInterval(function () { if (st.me && !st.editTeam && !st.editSongs && st.tab !== "new" && st.tab !== "away" && st.tab !== "account" && st.tab.indexOf("ask-") !== 0 && !(document.activeElement && document.activeElement.tagName === "INPUT")) load(); }, 60000);
   // updates on a computer: a new version found when the app opens installs by itself after a 10-second notice
   // ("Not now" skips it; ⚙ App turns it off). Everything is on the website, so nothing is lost.
   var autoDecided = false, autoTimer = null, autoLeft = 0, openedAt = Date.now();
@@ -232,6 +336,6 @@
     DESK.on(function (r) { Object.assign(up, r); autoStart(); if (st.tab === "app") draw(); });
     DESK.status().then(function (r) { Object.assign(up, r); autoStart(); });
   }
-  window.CentralServices = { state: function () { return st; }, load: load, updates: function () { return up; } };
+  window.CentralServices = { state: function () { return st; }, load: load, updates: function () { return up; }, support: function () { st.tab = "support"; draw(); } };
   load();
 })();

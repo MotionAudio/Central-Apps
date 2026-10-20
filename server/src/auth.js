@@ -16,17 +16,18 @@ export function checkPassword(pw, stored) {
 }
 const TOKEN_DAYS = 30;
 function sign(s) { return crypto.createHmac("sha256", config.tokenSecret).update(s).digest("base64url"); }
-export function makeToken(userId) {
-  const body = userId + "." + (Date.now() + TOKEN_DAYS * 864e5);
+// stepped: the sign-in passed the phone code (admins); admin tools need it
+export function makeToken(userId, stepped) {
+  const body = userId + "." + (Date.now() + TOKEN_DAYS * 864e5) + (stepped ? ".2" : "");
   return body + "." + sign(body);
 }
 function readTokenFull(tok) {
   const parts = String(tok || "").split(".");
-  if (parts.length !== 3) return null;
-  const body = parts[0] + "." + parts[1], sig = Buffer.from(parts[2]), want = Buffer.from(sign(body));
+  if (parts.length !== 3 && parts.length !== 4) return null;
+  const body = parts.slice(0, -1).join("."), sig = Buffer.from(parts[parts.length - 1]), want = Buffer.from(sign(body));
   if (sig.length !== want.length || !crypto.timingSafeEqual(sig, want)) return null;
   if (Number(parts[1]) < Date.now()) return null;
-  return { id: Number(parts[0]), issued: Number(parts[1]) - TOKEN_DAYS * 864e5 };
+  return { id: Number(parts[0]), issued: Number(parts[1]) - TOKEN_DAYS * 864e5, stepped: parts.length === 4 && parts[2] === "2" };
 }
 export function readToken(tok) { const t = readTokenFull(tok); return t ? t.id : null; }
 
@@ -35,7 +36,8 @@ export async function attachUser(req, _res, next) {
   const h = req.headers.authorization || "";
   const t = h.startsWith("Bearer ") ? readTokenFull(h.slice(7)) : null;
   const u = t ? await one("SELECT * FROM users WHERE id=$1", [t.id]) : null;
-  req.user = u && !(u.pw_changed_at && t.issued < new Date(u.pw_changed_at).getTime()) ? u : null;
+  req.user = u && !u.deleted_at && !(u.pw_changed_at && t.issued < new Date(u.pw_changed_at).getTime()) ? u : null;
+  req.stepped = !!(req.user && t.stepped);
   next();
 }
 export function requireUser(req, res, next) {

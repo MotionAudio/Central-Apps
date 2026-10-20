@@ -30,8 +30,8 @@
     var r = await fetch(base() + "/v1" + path, { method: method, headers: h, body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
     var j = {}; try { j = await r.json(); } catch (e) {}
     if (r.status === 402) { var e402 = new Error(j.error || "Purchase needed"); e402.checkoutUrl = j.checkoutUrl; e402.status = 402; throw e402; }
-    if (r.status === 401) { var c = cfg(); delete c.token; saveCfg(c); st.me = null; var e401 = new Error("Sign in to Central Tracks"); e401.status = 401; throw e401; }
-    if (!r.ok || j.error) throw new Error(j.error || ("Central Tracks server answered " + r.status));
+    if (r.status === 401 && path.indexOf("/login") !== 0) { var c = cfg(); delete c.token; saveCfg(c); st.me = null; var e401 = new Error("Sign in to Central Tracks"); e401.status = 401; throw e401; }
+    if (!r.ok || j.error) { var er = new Error(j.error || ("Central Tracks server answered " + r.status)); er.status = r.status; throw er; }
     return j;
   }
 
@@ -94,9 +94,26 @@
   async function signIn() {
     var email = ($("#ctEmail").value || "").trim(), pw = $("#ctPass").value || ""; if (!email || !pw) return;
     st.busy = true; rerender();
-    try { var j = await api("POST", "/login", { email: email, password: pw }); var c = cfg(); c.token = j.token; saveCfg(c); st.signIn = false; st.me = null; st.log = "Signed in."; }
+    try {
+      var dev = window.PPLicense && window.PPLicense.deviceId ? window.PPLicense.deviceId() : "";
+      var j = await api("POST", "/login", { email: email, password: pw, device: dev });
+      if (j.step) { st.two = j; st.log = j.step === "phone" ? "Admin accounts sign in with a code sent to a phone: enter your mobile number." : "Enter the code sent to " + j.to + "."; st.busy = false; rerender(); return; }
+      var c = cfg(); c.token = j.token; saveCfg(c); st.signIn = false; st.me = null; st.log = "Signed in.";
+    }
     catch (e) { st.log = "Could not sign in: " + e.message; }
     st.busy = false; await refresh();
+  }
+  // an admin account: the phone (the first time), then the code sent to it
+  async function twoStep(a) {
+    var t = st.two; if (!t || st.busy) return;
+    var phone = (($("#ctPhone") || {}).value || "").trim(), code = (($("#ctCode") || {}).value || "").trim(), ecode = (($("#ctECode") || {}).value || "").trim();   // (read before it redraws)
+    st.busy = true; rerender();
+    try {
+      if (a === "phone") { Object.assign(t, await api("POST", "/login/phone", { ticket: t.ticket, phone: phone })); st.log = "Enter the code sent to " + t.to + "."; }
+      else if (a === "again") { Object.assign(t, await api("POST", "/login/resend", { ticket: t.ticket })); st.log = "A new code is on its way."; }
+      else { var r = await api("POST", "/login/code", { ticket: t.ticket, code: code, emailCode: ecode || undefined }); var c = cfg(); c.token = r.token; saveCfg(c); st.two = null; st.signIn = false; st.me = null; st.log = "Signed in."; st.busy = false; return refresh(); }
+    } catch (e) { st.log = e.message; if (e.status === 410) st.two = null; }
+    st.busy = false; rerender();
   }
 
   function render() {
@@ -105,7 +122,9 @@
     var acct = preview() ? '<p class="small warn">Preview of the library. Set the Central Tracks server below to search the live library, add and buy tracks.</p>'
       : !c.token ? '<p class="small">Not signed in · <button data-ct="signin-show">Sign in</button> · No account? Make one at Motion Audio.</p>'
       : '<p class="small">' + esc(st.me ? st.me.email : "Signed in") + " · " + (sub ? "<b>Central Tracks subscriber</b> - add anything" : "No subscription - buy tracks one at a time, or subscribe ($77/month) on the Motion Audio site") + ' · <button data-ct="signout">Sign out</button></p>';
-    var login = st.signIn && !preview() ? '<div class="form"><label>Email<input id="ctEmail" type="email" autocomplete="username"></label><label>Password<input id="ctPass" type="password" autocomplete="current-password"></label><button class="primary" data-ct="signin">Sign in</button></div>' : "";
+    var login = st.two ? (st.two.step === "phone" ? '<div class="form"><label>Mobile number<input id="ctPhone" type="tel" autocomplete="tel"></label><button class="primary" data-ct="two-phone">Send the code</button><button data-ct="two-cancel">Cancel</button></div>'
+        : '<div class="form"><label>' + (st.two.both ? "Code from the text" : "Code") + '<input id="ctCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7"></label>' + (st.two.both ? '<label>Code from the email<input id="ctECode" inputmode="numeric" maxlength="7"></label>' : "") + '<button class="primary" data-ct="two-code">Sign in</button><button data-ct="two-again">Send again</button><button data-ct="two-cancel">Cancel</button></div>')
+      : st.signIn && !preview() ? '<div class="form"><label>Email<input id="ctEmail" type="email" autocomplete="username"></label><label>Password<input id="ctPass" type="password" autocomplete="current-password"></label><button class="primary" data-ct="signin">Sign in</button></div>' : "";
     var search = '<div class="form"><label>Search<input id="ctQ" type="search" value="' + esc(st.q) + '" placeholder="Song, artist or key"></label><label>Type<select id="ctKind">' + ["", "Pad", "Multitrack", "Prime"].map(function (k) { return '<option value="' + k + '"' + (k === st.kind ? " selected" : "") + ">" + (k || "All types") + "</option>"; }).join("") + '</select></label><button data-ct="search"' + (st.busy ? " disabled" : "") + ">Search</button></div>";
     var rows = (st.tracks || []).length ? '<div class="add-list">' + st.tracks.map(function (t) {
       var act = t.owned ? '<button data-ct-add="' + esc(String(t.id)) + '"' + (st.busy ? " disabled" : "") + ">Add to storage</button>"
@@ -129,6 +148,8 @@
       if (k === "search") { st.q = ($("#ctQ").value || "").trim(); st.kind = $("#ctKind").value; refresh(); }
       else if (k === "signin-show") { st.signIn = true; rerender(); }
       else if (k === "signin") signIn();
+      else if (k === "two-phone" || k === "two-code" || k === "two-again") twoStep(k.slice(4));
+      else if (k === "two-cancel") { st.two = null; st.log = ""; rerender(); }
       else if (k === "signout") { var c = cfg(); delete c.token; saveCfg(c); st.me = null; st.log = "Signed out."; refresh(); }
       else if (k === "server") { var c2 = cfg(); c2.server = ($("#ctServer").value || "").trim(); delete c2.token; saveCfg(c2); st.me = null; st.tracks = null; st.log = c2.server ? "Server saved. Sign in to add tracks." : ""; rerender(); }
     });

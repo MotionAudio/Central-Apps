@@ -12,6 +12,18 @@ app.setName("Central Services");
 const SRC = app.isPackaged ? path.join(process.resourcesPath, "app") : path.join(__dirname, "src");
 let win = null, updater = null;
 
+// errors in this (main) process go to the page, which reports them to the Motion Audio website with its own
+// (the support email hears about each new kind); they're kept until the page has loaded
+const mainErrors = [];
+function flushMainErrors() {
+  const w = BrowserWindow.getAllWindows().find((x) => !x.isDestroyed() && !x.webContents.isLoading()); if (!w) return;
+  while (mainErrors.length) { const x = mainErrors.shift(); w.webContents.executeJavaScript("window.CCReportError && window.CCReportError(" + JSON.stringify(x.message) + "," + JSON.stringify(x.stack) + ",'main')").catch(() => { }); }
+}
+function mainError(kind, e) { console.error(kind, e); if (mainErrors.length < 20) mainErrors.push({ message: kind + ": " + ((e && e.message) || String(e)), stack: (e && e.stack) || "" }); flushMainErrors(); }
+process.on("uncaughtException", (e) => mainError("Crash (main process)", e));
+process.on("unhandledRejection", (e) => mainError("Unhandled (main process)", e));
+app.on("browser-window-created", (_e, w) => w.webContents.on("did-finish-load", () => setTimeout(flushMainErrors, 3000)));
+
 function updateEvent() { if (win && updater) win.webContents.send("update", updater.status()); }
 ipcMain.handle("update-status", () => updater.status());
 ipcMain.handle("update-config", (_e, cfg) => updater.save(cfg));
@@ -43,6 +55,7 @@ function menu() {
     { label: "View", submenu: [{ role: "zoomIn" }, { role: "zoomOut" }, { role: "resetZoom" }, { type: "separator" }, { role: "togglefullscreen" }, { role: "toggleDevTools", label: "Developer tools" }] },
     { label: "Help", submenu: [
       { label: "Check for updates…", click: async () => { const st = await updater.check(); updateEvent(); dialog.showMessageBox(win, { type: "info", title: "Updates", message: st.available ? "Central Services " + st.latest + " is available - ⚙ App installs it." : st.error ? st.error : "Central Services is up to date (" + app.getVersion() + ")." }); } },
+      { label: "Contact technical support…", click: () => win && win.webContents.executeJavaScript("window.CentralServices && CentralServices.support()").catch(() => { }) },
       { label: "Download page", click: () => shell.openExternal("https://motionaudio.github.io/Central-Apps/#central-services") }] }
   ]));
 }

@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { config } from "./config.js";
 
@@ -56,4 +56,27 @@ export async function exists(key) {
 export async function remove(key) {
   if (usingR2) await s3.send(new DeleteObjectCommand({ Bucket: S.bucket, Key: key }));
   else { try { fs.unlinkSync(localPath(key)); } catch {} }
+}
+
+// the server's own files (the nightly database backups): write one, list them, read one back
+export async function putFile(key, buf, contentType) {
+  if (usingR2) return s3.send(new PutObjectCommand({ Bucket: S.bucket, Key: key, Body: buf, ContentType: contentType || "application/octet-stream" }));
+  const p = localPath(key); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, buf);
+}
+export async function listFiles(prefix) {   // [{ key, size, modified }]
+  if (usingR2) {
+    const out = []; let token;
+    do {
+      const r = await s3.send(new ListObjectsV2Command({ Bucket: S.bucket, Prefix: prefix, ContinuationToken: token }));
+      for (const o of r.Contents || []) out.push({ key: o.Key, size: o.Size, modified: o.LastModified });
+      token = r.IsTruncated ? r.NextContinuationToken : null;
+    } while (token);
+    return out;
+  }
+  const dir = localPath(prefix.replace(/\/$/, "") + "/x").replace(/[\\/]x$/, "");
+  try { return fs.readdirSync(dir).map((n) => { const st = fs.statSync(path.join(dir, n)); return { key: prefix.replace(/\/?$/, "/") + n, size: st.size, modified: st.mtime }; }); } catch { return []; }
+}
+export async function readFile(key) {
+  if (usingR2) { const r = await s3.send(new GetObjectCommand({ Bucket: S.bucket, Key: key })); return Buffer.from(await r.Body.transformToByteArray()); }
+  return fs.readFileSync(localPath(key));
 }

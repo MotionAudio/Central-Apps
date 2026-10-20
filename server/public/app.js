@@ -29,6 +29,61 @@ function modal(html) {
 function closeModal() { $("#modalHost").innerHTML = ""; }
 function go(url) { location.href = url; }
 function paymentsSoon() { modal(`<h3>Payments open soon</h3><p class="muted" style="margin:0">Checkout isn't switched on yet. Check back shortly.</p><button class="btn" data-close>OK</button>`); }
+// this browser's id: an admin's code is asked once per device (then trusted 30 days)
+function deviceId() {
+  try { let d = localStorage.getItem("ma-device"); if (!d) { d = "web-" + Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, "0")).join(""); localStorage.setItem("ma-device", d); } return d; } catch { return ""; }
+}
+// the main admin and admins: email, password, then a code sent to their phone (the first time, they add the phone)
+function finishSignIn(r) {
+  if (!r || r.token || !r.step) return Promise.resolve(r);
+  return new Promise((resolve, reject) => {
+    let st = r, done = false;
+    const draw = (err) => {
+      if (st.step === "phone") modal(`<h3>Add your phone</h3><p class="muted" style="margin:0">You're an admin, so signing in on a new device also takes a code sent to your phone. Which mobile number should get it?</p>
+        <form id="tsForm" style="background:none;border:0;padding:0"><label>Mobile number<input id="tsPhone" type="tel" autocomplete="tel" placeholder="555-123-4567" required></label>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Send the code</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err">${esc(err || "")}</div></form>`);
+      else modal(`<h3>Enter the code${st.both ? "s" : ""}</h3><p class="muted" style="margin:0">We ${st.by === "email" ? "emailed" : "texted"} a 6-digit code to <b>${esc(st.to)}</b>${st.both ? " and emailed another to you (adding a phone takes both)" : ""}. They work for 10 minutes.</p>
+        <form id="tsForm" style="background:none;border:0;padding:0"><label>${st.both ? "Code from the text" : "Code"}<input id="tsCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required style="font:600 1.3rem var(--mono);letter-spacing:.2em"></label>
+        ${st.both ? `<label>Code from the email<input id="tsECode" inputmode="numeric" maxlength="7" required style="font:600 1.3rem var(--mono);letter-spacing:.2em"></label>` : ""}
+        <label style="display:flex;gap:.4rem;align-items:center;font-size:.92rem"><input type="checkbox" id="tsTrust" checked style="width:auto"> Trust this device for 30 days</label>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Sign in</button><button class="btn ghost" type="button" id="tsAgain">Send again</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err">${esc(err || "")}</div></form>`);
+      const host = $("#modalHost .modal-bg");
+      host.addEventListener("click", (e) => { if (!done && (e.target === host || e.target.closest("[data-close]"))) { done = true; reject(new Error("Signing in was cancelled.")); } });
+      if ($("#tsAgain")) $("#tsAgain").onclick = async () => { try { st = Object.assign(st, await api("POST", "/login/resend", { ticket: st.ticket })); draw("A new code is on its way."); } catch (e) { draw(e.message); } };
+      $("#tsForm").onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          if (st.step === "phone") { st = Object.assign(st, await api("POST", "/login/phone", { ticket: st.ticket, phone: $("#tsPhone").value })); return draw(); }
+          const t = await api("POST", "/login/code", { ticket: st.ticket, code: $("#tsCode").value, emailCode: $("#tsECode") ? $("#tsECode").value : undefined, trust: $("#tsTrust").checked });
+          done = true; closeModal(); resolve(Object.assign({}, r, { token: t.token, step: undefined }));
+        } catch (err) { draw(err.message); }
+      };
+      const f = $("#tsPhone") || $("#tsCode"); if (f) f.focus();
+    };
+    draw();
+  });
+}
+// what goes wrong on these pages is reported (at most 10 a page; the same one once)
+(function () {
+  const sent = new Set(); let n = 0;
+  function report(message, stack) {
+    const k = String(message).slice(0, 200); if (!message || sent.has(k) || n >= 10) return; sent.add(k); n++;
+    try { fetch("/v1/errors", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: "website", message: String(message).slice(0, 500), stack: String(stack || "").slice(0, 4000), url: location.pathname + location.hash.split("-")[0], platform: navigator.userAgent }) }).catch(() => {}); } catch {}
+  }
+  addEventListener("error", (e) => report(e.message || "Script error", e.error && e.error.stack));
+  addEventListener("unhandledrejection", (e) => { const x = e.reason || {}; if (x.status) return; report("Unhandled: " + (x.message || String(x)), x.stack); });   // (answers from the server with an error are shown, not reported)
+})();
+function supportForm(note) {
+  modal(`<h3>Contact support</h3><p class="muted" style="margin:0">${esc(note || "Tell us what's going on. We answer by email.")}${cfg.supportEmail ? ` Or email <a href="mailto:${esc(cfg.supportEmail)}">${esc(cfg.supportEmail)}</a>.` : ""}</p>
+    <form id="spForm" style="background:none;border:0;padding:0"><label>Your name<input id="spName" value="${esc(me ? me.name : "")}"></label><label>Your email<input id="spEmail" type="email" required value="${esc(me ? me.email : "")}"></label>
+    <label>About<input id="spSubject" placeholder="Pairing, keys, billing…"></label><label>What's going on?<textarea id="spMsg" rows="5" required></textarea></label>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Send</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err" id="spErr"></div></form>`);
+  $("#spForm").onsubmit = async (e) => {
+    e.preventDefault();
+    try { const r = await api("POST", "/support", { name: $("#spName").value, email: $("#spEmail").value, subject: $("#spSubject").value, message: $("#spMsg").value, app: "Website", platform: navigator.userAgent.slice(0, 120) }); modal(`<h3>Thanks</h3><p style="margin:0">${esc(r.message)}</p><button class="btn" data-close>OK</button>`); }
+    catch (err) { $("#spErr").textContent = err.message; }
+  };
+}
 function needSignIn(why) { location.hash = "account"; renderAccount(why || "Sign in or make an account to continue."); }
 
 // ---------------------------------------------------------------- store
@@ -242,6 +297,7 @@ function signInForm(note) {
       <label><input type="radio" name="upCh" value="none"> Not now (Central Tracks only)</label></div>
     <label id="upCodeL">Church code (from your main admin)<input id="upCode" placeholder="8 letters and digits"></label>
     <label id="upChurchL" hidden>Church or production name<input id="upChurch" placeholder="Grace Church"></label>
+    <p class="muted" style="margin:0;font-size:.85rem">Making an account means you agree to the <a href="/terms" target="_blank">Terms</a> and the <a href="/privacy" target="_blank">Privacy policy</a>.</p>
     <button class="btn">Make account</button><div class="err" id="upErr"></div></form></div></div>`;
 }
 async function renderAccount(note) {
@@ -250,7 +306,7 @@ async function renderAccount(note) {
   if (!me) {
     $("#acctTitle").textContent = "Sign in";
     body.innerHTML = signInForm(note);
-    $("#inForm").onsubmit = async (e) => { e.preventDefault(); try { setToken((await api("POST", "/login", { email: $("#inEmail").value, password: $("#inPass").value })).token); await refreshMe(); toast("Signed in"); } catch (err) { $("#inErr").textContent = err.message; } };
+    $("#inForm").onsubmit = async (e) => { e.preventDefault(); try { setToken((await finishSignIn(await api("POST", "/login", { email: $("#inEmail").value, password: $("#inPass").value, device: deviceId() }))).token); await refreshMe(); toast("Signed in"); } catch (err) { $("#inErr").textContent = err.message; } };
     $("#forgotBtn").onclick = () => forgotPassword($("#inEmail").value);
     const chWay = () => (document.querySelector('[name="upCh"]:checked') || {}).value;
     document.querySelectorAll('[name="upCh"]').forEach((r) => (r.onchange = () => { $("#upCodeL").hidden = chWay() !== "join"; $("#upChurchL").hidden = chWay() !== "make"; }));
@@ -259,23 +315,27 @@ async function renderAccount(note) {
       if (w === "join" && !$("#upCode").value.trim()) { $("#upErr").textContent = "Enter your church's code, or pick another choice."; return; }
       if (w === "make" && !$("#upChurch").value.trim()) { $("#upErr").textContent = "Give your church or production a name."; return; }
       try {
-        const r = await api("POST", "/signup", { name: $("#upName").value, email: $("#upEmail").value, password: $("#upPass").value,
-          churchCode: w === "join" ? $("#upCode").value.trim() : undefined, churchRole: $("#upRole").value, churchName: w === "make" ? $("#upChurch").value.trim() : undefined });
-        setToken(r.token); await refreshMe(); toast(r.churchError ? r.churchError : "Account made · you're signed in" + (r.church ? " · " + r.church : ""));
+        const r = await finishSignIn(await api("POST", "/signup", { name: $("#upName").value, email: $("#upEmail").value, password: $("#upPass").value, device: deviceId(),
+          churchCode: w === "join" ? $("#upCode").value.trim() : undefined, churchRole: $("#upRole").value, churchName: w === "make" ? $("#upChurch").value.trim() : undefined }));
+        setToken(r.token); await refreshMe(); toast(r.churchError ? r.churchError : "Account made · check your email to confirm it" + (r.church ? " · " + r.church : ""));
       } catch (err) { $("#upErr").textContent = err.message; }
     };
     return;
   }
   $("#acctTitle").textContent = me.name ? "Hi, " + me.name : "Your account";
-  body.innerHTML = `<div class="acct"><div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited · $77/month" : "Not subscribed"}</div>
+  body.innerHTML = `<div class="acct">${me.emailConfirmed ? "" : `<div class="card wide confirm-card"><h3>Confirm your email</h3><p style="margin:0">We sent a link to <b>${esc(me.email)}</b>. Your receipts, keys, invites and password resets go there, so checkout waits until it's confirmed.</p><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="cfAgain">Send it again</button></div></div>`}
+    <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited · $77/month" : "Not subscribed"}</div>
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
       <a class="btn ghost small" href="${APPS_URL}" target="_blank" rel="noopener" style="justify-self:start">Download the apps</a></div>
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
     ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
-    <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div></div>`;
-  renderChurch(); renderTeams(); if (me.admin) renderStaff();
+    <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
+    ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
+    <div class="card wide" id="meCard"></div></div>`;
+  renderChurch(); renderTeams(); renderMe(); if (me.admin) { renderStaff(); renderOps(); }
+  if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "Already confirmed" : "Sent · check your inbox (and spam)"); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
     $("#myLib").innerHTML = lib.length ? lib.map((t) => `<div><b>${esc(t.title)}</b> <span class="muted">· ${esc(t.kind)}</span></div>`).join("") : "Nothing yet. Add or buy tracks from Central Tracks.";
@@ -283,6 +343,50 @@ async function renderAccount(note) {
     $("#myPub").innerHTML = `<div><b>${money(p.unpaid)}</b> waiting to be paid · ${money(p.paid)} paid so far</div><div class="muted" style="font-size:.9rem">${p.addsThisMonth} subscriber adds this month · your pool share is worked out on the 1st</div>` +
       (p.tracks.length ? p.tracks.map((t) => `<div>${starHtml(t.stars)} <b>${esc(t.title)}</b> <span class="muted">· ${money(t.price)} · ${t.sales} sold · ${t.adds} subscriber adds${t.status !== "live" ? " · " + esc(t.status) : ""}</span></div>`).join("") : '<div>No tracks published yet. <a href="#publish">Publish one</a>.</div>');
   } catch (err) { $("#myPub").textContent = err.message; }
+}
+// ---------------------------------------------------------------- your account: phone, policies, support, delete
+function renderMe() {
+  const el = $("#meCard"); if (!el) return;
+  el.innerHTML = `<h3>Your account</h3>
+    <div><b>${esc(me.email)}</b> ${me.emailConfirmed ? '<span class="muted">· confirmed</span>' : '<span class="err">· not confirmed yet</span>'}</div>
+    <div>Phone for sign-in codes: ${me.phone ? `<b>${esc(me.phone)}</b>${me.phoneConfirmed ? "" : ' <span class="muted">(confirmed at your next sign-in)</span>'}` : '<span class="muted">none</span>'} ${me.twoStep ? '<span class="muted">· as an admin, each new device signs in with a code</span>' : ""}</div>
+    <details><summary>Change phone</summary><form id="phForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>New mobile number<input id="phNew" type="tel" required></label><label>Your password<input id="phPw" type="password" autocomplete="current-password" required></label><button class="btn small">Save</button></form></details>
+    <p style="margin:0;font-size:.92rem"><a href="/privacy" target="_blank">Privacy policy</a> · <a href="/terms" target="_blank">Terms</a> · <a href="/refunds" target="_blank">Refunds</a> · <a href="#support">Contact support</a></p>
+    <details class="danger"><summary>Delete my account</summary><p class="muted" style="margin:.3rem 0">This removes your name, email and phone, frees your keys, and takes you out of your church. ${me.church && me.church.role === "owner" ? "<b>You're the main admin:</b> make someone else the main admin first (People, below in Your church)." : ""} It can't be undone.</p>
+      <form id="delForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Your password<input id="delPw" type="password" autocomplete="current-password" required></label><button class="btn small danger-btn">Delete my account</button></form></details>
+    <div class="err" id="meErr"></div>`;
+  $("#phForm").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const r = await api("POST", "/account/phone", { phone: $("#phNew").value, password: $("#phPw").value });
+      if (!r.step) { toast("Saved"); return refreshMe(); }
+      const ask = (err) => {
+        modal(`<h3>Confirm the new number</h3><p class="muted" style="margin:0">We texted a code to <b>${esc(r.to)}</b>.</p><form id="pcForm" style="background:none;border:0;padding:0"><label>Code<input id="pcCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required></label><div style="display:flex;gap:.5rem"><button class="btn">Confirm</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err">${esc(err || "")}</div></form>`);
+        $("#pcForm").onsubmit = async (e2) => { e2.preventDefault(); try { await api("POST", "/account/phone/confirm", { ticket: r.ticket, code: $("#pcCode").value }); closeModal(); toast("New phone saved · each device confirms with it at its next sign-in"); await refreshMe(); } catch (err2) { ask(err2.message); } };
+      };
+      ask();
+    } catch (err) { $("#meErr").textContent = err.message; }
+  };
+  $("#delForm").onsubmit = async (e) => {
+    e.preventDefault();
+    if (!confirm("Delete your Motion Audio account for good?")) return;
+    const send = (closeChurch) => api("POST", "/account/delete", { password: $("#delPw").value, closeChurch });
+    try { await send(false).catch(async (err) => { if (err.status === 409 && /also closes/.test(err.message) && confirm(err.message + " Delete and close it?")) return send(true); throw err; }); setToken(null); me = null; renderAll(); location.hash = ""; modal(`<h3>Your account is deleted</h3><p style="margin:0">Your details are gone and your keys are free. A confirmation is in your email.</p><button class="btn" data-close>OK</button>`); }
+    catch (err) { $("#meErr").textContent = err.message; }
+  };
+}
+// Motion Audio staff: errors from the website and the apps, support messages, the nightly backups
+async function renderOps() {
+  const el = $("#opsCard"); if (!el) return;
+  let r, b; try { r = await api("GET", "/admin/errors"); b = await api("GET", "/admin/backups"); } catch (e) { el.innerHTML = `<h3>Errors, support, backups</h3><div class="err">${esc(e.message)}</div>`; return; }
+  const open = r.errors.filter((x) => !x.resolved);
+  el.innerHTML = `<h3>Errors, support, backups · Motion Audio staff</h3>
+    <details ${open.length ? "open" : ""}><summary>Errors (${open.length} open)</summary>${r.errors.length ? r.errors.map((x) => `<div class="tm" style="${x.resolved ? "opacity:.55" : ""}"><div><b>${esc(x.source)} ${esc(x.version)}</b> <span class="muted">· ${x.count}× · last ${new Date(x.last_at).toLocaleString()}</span><div style="font:.85rem var(--mono);white-space:pre-wrap">${esc(x.message)}</div><details><summary class="muted" style="font-size:.85rem">Details</summary><pre style="font:.75rem var(--mono);white-space:pre-wrap">${esc(x.stack)}
+${esc(JSON.stringify(x.detail, null, 1))}</pre></details></div>${x.resolved ? "" : `<button class="btn small ghost" data-fix="${x.id}">Fixed</button>`}</div>`).join("") : '<p class="muted">None.</p>'}</details>
+    <details><summary>Support messages (${r.support.length})</summary>${r.support.map((x) => `<div class="tm"><div><b>#${x.id} ${esc(x.subject)}</b> <span class="muted">· ${esc(x.name || "")} &lt;${esc(x.email)}&gt; · ${esc(x.app)} ${esc(x.version)} · ${new Date(x.created_at).toLocaleString()}${x.sent ? "" : " · not emailed"}</span><div style="white-space:pre-wrap">${esc(x.message)}</div></div><a class="btn small ghost" href="mailto:${esc(x.email)}?subject=${encodeURIComponent("Re: [Support #" + x.id + "] " + x.subject)}">Reply</a></div>`).join("") || '<p class="muted">None.</p>'}</details>
+    <details><summary>Backups (${b.backups.length})</summary><p class="muted" style="margin:.3rem 0;font-size:.9rem">Every night, kept 30 days, in the file storage under backups/. To restore: server/SETUP.md → Backups.</p>${b.backups.slice(0, 10).map((f) => `<div><code>${esc(f.key)}</code> <span class="muted">· ${(f.size / 1024).toFixed(0)} KB · ${new Date(f.modified).toLocaleString()}</span></div>`).join("")}<button class="btn small ghost" id="bkNow" style="margin-top:.4rem">Back up now</button></details>`;
+  el.querySelectorAll("[data-fix]").forEach((x) => (x.onclick = async () => { try { await api("POST", "/admin/errors/" + x.dataset.fix + "/resolve"); renderOps(); } catch (e) { toast(e.message); } }));
+  $("#bkNow").onclick = async () => { try { const k = await api("POST", "/admin/backups"); toast("Backed up · " + k.rows + " rows"); renderOps(); } catch (e) { toast(e.message); } };
 }
 // ---------------------------------------------------------------- the church: its keys, codes and people
 async function renderChurch() {
@@ -313,9 +417,19 @@ async function renderChurch() {
     ${c.adminCode || c.userCode ? `<p style="margin:.2rem 0">${c.adminCode ? `Admin code <code style="user-select:all">${esc(c.adminCode)}</code> · ` : ""}User code <code style="user-select:all">${esc(c.userCode)}</code> <span class="muted" style="font-size:.9rem">· people join with these when they make an account. Admins can all share one account; each user has their own.</span></p>` : ""}
     ${r.keys.length ? `<table class="ktable"><tr><th></th><th>Key</th><th>On</th><th></th></tr>${rows}</table>` : `<p class="muted" style="margin:0">No keys yet. <a href="#store">Get a church pack or keys</a>.</p>`}
     <p class="muted" style="margin:0;font-size:.9rem">Release frees a key from a lost or broken device${staff ? "" : " (yours)"}. On a working device, use Settings → License → Release key in the app.</p>
-    ${r.members.length ? `<details><summary>People (${r.members.length})</summary>${r.members.map((m) => `<div>${esc(m.name || m.email)} <span class="muted">· ${esc(m.email)} · ${{ owner: "main admin", admin: "admin", user: "user" }[m.role]}</span>${c.role === "owner" && m.role !== "owner" ? ` <button class="btn small ghost" data-rm="${esc(m.email)}">Take out</button>` : ""}</div>`).join("")}
+    ${c.role === "owner" ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="btn small" id="billBtn">Billing: card &amp; receipts</button><span class="muted" style="font-size:.9rem">In ${esc(c.name)}'s name. It stays with the church if the main admin changes.</span></div>` : ""}
+    ${r.members.length ? `<details ${c.role === "owner" ? "open" : ""}><summary>People (${r.members.length})</summary>${r.members.map((m) => `<div class="tm"><div>${esc(m.name || m.email)} <span class="muted">· ${esc(m.email)} · ${{ owner: "main admin", admin: "admin", user: "user" }[m.role]}</span></div>${c.role === "owner" && m.role !== "owner" ? `<div class="tacts"><select class="tmove" data-role="${esc(m.email)}" aria-label="Role"><option value="admin"${m.role === "admin" ? " selected" : ""}>Admin</option><option value="user"${m.role === "user" ? " selected" : ""}>User</option></select><button class="btn small ghost" data-owner="${esc(m.email)}" data-oname="${esc(m.name || m.email)}">Make main admin</button><button class="btn small ghost" data-rm="${esc(m.email)}">Take out</button></div>` : ""}</div>`).join("")}
       ${c.role === "owner" ? `<p style="margin:.4rem 0 0"><button class="btn small ghost" id="newCodes">New codes</button> <span class="muted" style="font-size:.9rem">if a code got out. People already in stay in.</span></p>` : ""}</details>` : ""}
     <div class="err" id="relErr"></div>`;
+  if ($("#billBtn")) $("#billBtn").onclick = async () => { try { go((await api("POST", "/church/billing")).url); } catch (e) { $("#relErr").textContent = e.message; } };
+  el.querySelectorAll("[data-role]").forEach((sel) => (sel.onchange = async () => {
+    try { await api("POST", "/church/role", { email: sel.dataset.role, role: sel.value }); toast(sel.dataset.role + " is now " + (sel.value === "admin" ? "an admin" : "a user")); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; renderChurch(); }
+  }));
+  el.querySelectorAll("[data-owner]").forEach((b) => (b.onclick = () => {
+    modal(`<h3>Make ${esc(b.dataset.oname)} the main admin?</h3><p class="muted" style="margin:0">They get your controls (roles, people, billing). You stay an admin. ${esc(c.name)}'s billing and card stay with the church.</p>
+      <form id="hoForm" style="background:none;border:0;padding:0"><label>Your password<input id="hoPw" type="password" autocomplete="current-password" required></label><div style="display:flex;gap:.5rem"><button class="btn">Make them main admin</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err" id="hoErr"></div></form>`);
+    $("#hoForm").onsubmit = async (e) => { e.preventDefault(); try { await api("POST", "/church/handover", { email: b.dataset.owner, password: $("#hoPw").value }); closeModal(); toast(b.dataset.oname + " is the main admin now"); await refreshMe(); } catch (err) { $("#hoErr").textContent = err.message; } };
+  }));
   el.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Take " + b.dataset.rm + " out of " + c.name + "?")) return;
     try { await api("POST", "/church/remove", { email: b.dataset.rm }); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; }
@@ -399,7 +513,7 @@ async function showReset(tok) {
     e.preventDefault();
     if ($("#rsPass").value !== $("#rsPass2").value) { $("#rsErr").textContent = "The two passwords aren't the same."; return; }
     try {
-      const r = await api("POST", "/password/reset", { token: tok, password: $("#rsPass").value });
+      const r = await finishSignIn(await api("POST", "/password/reset", { token: tok, password: $("#rsPass").value, device: deviceId() }));
       setToken(r.token); await refreshMe(); closeModal(); toast("New password saved · you're signed in");
       const back = sessionStorage.getItem("ma-after-reset"); sessionStorage.removeItem("ma-after-reset");
       history.replaceState(null, "", back || "#account"); if (back) handleHash();
@@ -425,11 +539,11 @@ async function showInvite(token) {
   $("#ivForgot").onclick = () => forgotPassword($("#ivEmail").value, "#invite-" + token);
   $("#ivForm").onsubmit = async (e) => {
     e.preventDefault();
-    try { const r = await api("POST", "/signup", { name: $("#ivName").value, email: $("#ivEmail").value, password: $("#ivPass").value, invite: token }); setToken(r.token); await refreshMe(); next({ church: r.church }); }
+    try { const r = await finishSignIn(await api("POST", "/signup", { name: $("#ivName").value, email: $("#ivEmail").value, password: $("#ivPass").value, invite: token, device: deviceId() })); setToken(r.token); await refreshMe(); next({ church: r.church }); }
     catch (err) { $("#ivErr").textContent = err.message; }
   };
   $("#ivIn").onclick = async () => {
-    try { setToken((await api("POST", "/login", { email: $("#ivEmail").value, password: $("#ivPass").value })).token); await refreshMe(); const r = await api("POST", "/invite/accept", { token }); await refreshMe(); next(r); }
+    try { setToken((await finishSignIn(await api("POST", "/login", { email: $("#ivEmail").value, password: $("#ivPass").value, device: deviceId() }))).token); await refreshMe(); const r = await api("POST", "/invite/accept", { token }); await refreshMe(); next(r); }
     catch (err) { $("#ivErr").textContent = err.message; }
   };
 }
@@ -462,6 +576,8 @@ async function handleHash() {
   const h = location.hash.slice(1);
   if (h.startsWith("invite-")) return showInvite(h.slice(7));
   if (h.startsWith("reset-")) return showReset(h.slice(6));
+  if (h.startsWith("confirm-")) { try { const r = await api("POST", "/account/confirm", { token: h.slice(8) }); history.replaceState(null, "", "#account"); await refreshMe(); modal(`<h3>Email confirmed</h3><p style="margin:0">${esc(r.email)} is confirmed. Thanks!</p><button class="btn" data-close>OK</button>`); } catch (e) { modal(`<h3>Confirm your email</h3><p class="err" style="margin:0">${esc(e.message)}</p><button class="btn" data-close>OK</button>`); } return; }
+  if (h === "support") { history.replaceState(null, "", location.pathname); return supportForm(); }
   if (h.startsWith("order-done-")) {
     const session = h.slice(11); for (const k in cart) delete cart[k]; updateCartBtn();
     modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your order is confirmed. Getting your license keys…</p>`);

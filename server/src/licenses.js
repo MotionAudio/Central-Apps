@@ -11,6 +11,7 @@ import { q, one, pool } from "./db.js";
 import { config, KEY_KINDS, LICENSE_RECHECK_DAYS } from "./config.js";
 import { isAdmin } from "./auth.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
+import { requireStep } from "./signin.js";
 
 const ABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // 31 signs: no I, L, O, 0, 1
 const APP_KIND = { pedal: "P", "pedal-control": "P", control: "A", usage: "U" };
@@ -122,6 +123,7 @@ export async function acceptInvite(user, token) {
     else await q("UPDATE church_members SET role='owner' WHERE user_id=$1", [user.id]);
     if (c.owner_id && c.owner_id !== user.id) await q("UPDATE church_members SET role='admin' WHERE user_id=$1 AND church_id=$2", [c.owner_id, c.id]);   // (the one who made it stays, as an admin)
     await q("UPDATE churches SET owner_id=$1 WHERE id=$2", [user.id, c.id]);
+    (await import("./payments.js")).syncChurchCustomer(c.id).catch(() => { });   // (the receipts go to the new main admin)
   } else {
     const role = SECTION[inv.section].role;
     if (!mine) await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,$3)", [inv.church_id, user.id, role]);
@@ -168,6 +170,7 @@ export function routes(api, { wrap, brake, requireUser }) {
   async function staffChurch(req, ownerOnly) {
     const c = await churchOf(req.user.id);
     if (!c || !(c.role === "owner" || (!ownerOnly && c.role === "admin"))) throw bad(ownerOnly ? "Only the main admin can do that." : "Only the main admin and admins can do that.", 403);
+    await requireStep(req);
     return c;
   }
 
@@ -182,6 +185,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     try {
       await client.query("BEGIN");
       l = await findKey(b.key, client);   // (locked: two devices at the same moment take turns)
+      if (l && l.church_id && (await client.query("SELECT closed_at FROM churches WHERE id=$1", [l.church_id])).rows[0].closed_at) { await client.query("ROLLBACK"); throw bad("That key's church was closed. Ask Motion Audio support.", 403); }
       if (!l || l.revoked) { await client.query("ROLLBACK"); miss(req); throw bad("That key isn't right. Check it on your receipt or your church's page on the website.", 404); }
       if (l.kind !== want) { await client.query("ROLLBACK"); throw bad("That's a " + (KEY_KINDS[l.kind] || "different") + " key. " + APP_NAME[app] + " needs " + (want === "P" ? "a P key" : want === "A" ? "an A key (admin)" : "a U key (user)") + ".", 400); }
       const devs = (await client.query("SELECT * FROM license_devices WHERE key=$1", [l.key])).rows, here = devs.find((d) => d.device_id === dev), others = devs.filter((d) => d.device_id !== dev);
@@ -201,6 +205,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     keyBrake(req);
     const b = req.body || {}, dev = device(b), l = await findKey(b.key);
     if (!l || l.revoked) { miss(req); return res.json({ ok: false, reason: "invalid" }); }
+    if (l.church_id && (await one("SELECT closed_at FROM churches WHERE id=$1", [l.church_id])).closed_at) return res.json({ ok: false, reason: "invalid" });   // (its church was closed)
     const devs = await devicesOf(l.key);
     if (!devs.some((d) => d.device_id === dev)) return res.json({ ok: false, reason: devs.length >= maxDevices(l.kind, null, devs) ? "elsewhere" : "released", device: devs.map((d) => d.device_name).join(" and ") || null });
     await q("UPDATE license_devices SET last_seen=now() WHERE key=$1 AND device_id=$2", [l.key, dev]);
@@ -254,6 +259,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     const c = await churchOf(req.user.id);
     if (!c) return res.json({ church: null });
     const staff = c.role === "owner" || c.role === "admin";
+    if (staff) await requireStep(req);
     const keys = await q("SELECT * FROM licenses WHERE church_id=$1 ORDER BY kind, created_at, key", [c.id]);
     const devs = await q("SELECT d.* FROM license_devices d JOIN licenses l ON l.key=d.key WHERE l.church_id=$1", [c.id]);
     const dv = (k) => devs.filter((d) => d.key === k);
@@ -306,7 +312,9 @@ export function routes(api, { wrap, brake, requireUser }) {
   api.post("/church/rename", requireUser, wrap(async (req, res) => {
     const c = await staffChurch(req, true), name = String(req.body.name || "").trim().slice(0, 100);
     if (!name) throw bad("Give it a name.");
-    await q("UPDATE churches SET name=$1 WHERE id=$2", [name, c.id]); res.json({ ok: true });
+    await q("UPDATE churches SET name=$1 WHERE id=$2", [name, c.id]);
+    (await import("./payments.js")).syncChurchCustomer(c.id).catch(() => { });   // (the name on the receipts)
+    res.json({ ok: true });
   }));
   api.post("/church/release", requireUser, wrap(async (req, res) => {   // free a key's devices (a lost or broken one): all, or one by name
     const c = await churchOf(req.user.id), l = await findKey(req.body.key);
@@ -421,7 +429,7 @@ export function routes(api, { wrap, brake, requireUser }) {
 
   // ---- Motion Audio staff (ADMIN_EMAILS): make keys (a pedal you build and ship, a replacement), find and fix keys
   api.post("/admin/keys", requireUser, wrap(async (req, res) => {
-    if (!isAdmin(req.user)) throw bad("Admins only.", 403);
+    if (!isAdmin(req.user)) throw bad("Admins only.", 403); await requireStep(req);
     const kind = String(req.body.kind || ""), n = Math.max(1, Math.min(100, Number(req.body.count) || 1)), note = String(req.body.note || "").slice(0, 200);
     if (!KEY_KINDS[kind]) throw bad("Kind must be P, A or U.");
     let churchId = null;
@@ -431,7 +439,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     res.json({ keys });
   }));
   api.get("/admin/keys", requireUser, wrap(async (req, res) => {
-    if (!isAdmin(req.user)) throw bad("Admins only.", 403);
+    if (!isAdmin(req.user)) throw bad("Admins only.", 403); await requireStep(req);
     const s = canon(req.query.q || ""), name = String(req.query.q || "").trim().replace(/[%_\\]/g, "\\$&").slice(0, 100);
     const rows = await q(`SELECT l.*, c.name AS church FROM licenses l LEFT JOIN churches c ON c.id=l.church_id
       WHERE $1='' OR regexp_replace(upper(l.key),'[^A-Z0-9]','','g') LIKE '%'||$1||'%' OR c.name ILIKE '%'||$2||'%' ORDER BY l.created_at DESC LIMIT 200`, [s, name]);
@@ -439,7 +447,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     res.json({ keys: rows.map((l) => Object.assign(keyOut(l, devs.filter((d) => d.key === l.key), true), { church: l.church || "", note: l.note, created: l.created_at })) });
   }));
   api.post("/admin/keys/:key/:action", requireUser, wrap(async (req, res) => {
-    if (!isAdmin(req.user)) throw bad("Admins only.", 403);
+    if (!isAdmin(req.user)) throw bad("Admins only.", 403); await requireStep(req);
     const l = await findKey(req.params.key); if (!l) throw bad("No such key.", 404);
     const a = req.params.action;
     if (a === "release") await q("DELETE FROM license_devices WHERE key=$1", [l.key]);

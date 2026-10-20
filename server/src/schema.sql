@@ -246,3 +246,95 @@ ALTER TABLE invites ADD COLUMN IF NOT EXISTS reminded_at TIMESTAMPTZ;
 -- Central Services: the day-before reminder (accepted: "you're serving tomorrow"; not answered yet: "please answer")
 ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS asked_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS reminded_at TIMESTAMPTZ;
+
+-- ---------------------------------------------------------------- 8.13: confirm email, phone codes for admins, delete
+-- account, church billing, blockout dates, song lists, error reports, support messages
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_confirmed BOOLEAN;
+UPDATE users SET email_confirmed=TRUE WHERE email_confirmed IS NULL;          -- (accounts from before: already fine)
+ALTER TABLE users ALTER COLUMN email_confirmed SET DEFAULT FALSE;
+CREATE TABLE IF NOT EXISTS email_confirms (
+  token_hash  TEXT PRIMARY KEY,
+  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email       TEXT NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- the main admin and admins sign in with email, password and a code sent to their phone (once per device, 30 days)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_confirmed BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE TABLE IF NOT EXISTS login_codes (
+  nonce       TEXT PRIMARY KEY,
+  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash   TEXT,
+  phone       TEXT,
+  device      TEXT NOT NULL DEFAULT '',
+  attempts    SMALLINT NOT NULL DEFAULT 0,
+  sends       SMALLINT NOT NULL DEFAULT 0,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS trusted_devices (
+  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  device_hash TEXT NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (user_id, device_hash)
+);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+-- billing belongs to the church (its name on the card's receipts), not to whoever is main admin
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS stripe_customer TEXT;
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS subscribed BOOLEAN NOT NULL DEFAULT FALSE;   -- Central Tracks Unlimited for the whole church
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS subscription_id TEXT;
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+-- Central Services: dates someone can't serve, and each service's songs
+CREATE TABLE IF NOT EXISTS service_blockouts (
+  id          BIGSERIAL PRIMARY KEY,
+  church_id   BIGINT NOT NULL REFERENCES churches(id) ON DELETE CASCADE,
+  email       TEXT NOT NULL,
+  name        TEXT NOT NULL DEFAULT '',
+  starts_on   DATE NOT NULL,
+  ends_on     DATE NOT NULL,
+  note        TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS service_blockouts_when ON service_blockouts (church_id, ends_on);
+ALTER TABLE services ADD COLUMN IF NOT EXISTS songs JSONB NOT NULL DEFAULT '[]';
+-- errors the website and the apps ran into (one row per kind of error; the support email hears about each new one)
+CREATE TABLE IF NOT EXISTS app_errors (
+  id          BIGSERIAL PRIMARY KEY,
+  fingerprint TEXT UNIQUE NOT NULL,
+  source      TEXT NOT NULL,             -- website, central-pedal, central-pedal-control, central-control, central-usage, central-services
+  version     TEXT NOT NULL DEFAULT '',
+  message     TEXT NOT NULL,
+  stack       TEXT NOT NULL DEFAULT '',
+  detail      JSONB NOT NULL DEFAULT '{}',
+  count       INTEGER NOT NULL DEFAULT 1,
+  first_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  alerted_at  TIMESTAMPTZ,
+  resolved    BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS app_errors_last ON app_errors (last_at DESC);
+CREATE TABLE IF NOT EXISTS support_requests (
+  id          BIGSERIAL PRIMARY KEY,
+  user_id     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  name        TEXT NOT NULL DEFAULT '',
+  email       TEXT NOT NULL,
+  subject     TEXT NOT NULL DEFAULT '',
+  message     TEXT NOT NULL,
+  app         TEXT NOT NULL DEFAULT '',
+  version     TEXT NOT NULL DEFAULT '',
+  sent        BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- (8.13 sign-in codes: adding a phone takes a texted code and an emailed one; texts are counted per account and number)
+ALTER TABLE login_codes ADD COLUMN IF NOT EXISTS email_code_hash TEXT;
+ALTER TABLE login_codes ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'login';
+ALTER TABLE login_codes ADD COLUMN IF NOT EXISTS via TEXT;
+CREATE TABLE IF NOT EXISTS sms_sends (
+  id       BIGSERIAL PRIMARY KEY,
+  user_id  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  phone    TEXT NOT NULL,
+  at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS sms_sends_phone ON sms_sends (phone, at);
+CREATE INDEX IF NOT EXISTS sms_sends_user ON sms_sends (user_id, at);

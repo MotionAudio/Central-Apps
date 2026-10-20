@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Refund policy · Motion Audio</title><meta name="description" content="Refunds and returns for Central Pedal, license keys, church packs and Central Tracks.">
+<style>
+:root{--bg:#f7f7f5;--fg:#141a22;--muted:#5b6573;--line:#dfe2e6;--accent:#b45309;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1218;--fg:#e8ecf2;--muted:#9aa6b5;--line:#263040;--accent:#f59e0b;--card:#151b24}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}a{color:var(--accent)}h1{font-size:2rem;line-height:1.2;margin:.4rem 0}h2{font-size:1.2rem;margin:2rem 0 .4rem}
+.top{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;font-size:.95rem}.muted{color:var(--muted)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px}li{margin:.25rem 0}
+nav a{margin-left:.8rem}footer{margin-top:3rem;font-size:.9rem;color:var(--muted)}
+</style></head><body><main>
+<div class="top"><a href="/">← Motion Audio</a><nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/#support">Support</a></nav></div>
+<h1>Refund policy</h1><p class="muted">Last updated October 20, 2026</p>
+
+<div class="box"><b>In short:</b> unused keys can be refunded within 30 days. A built Central Pedal can be returned within 30 days. Faulty hardware is repaired or replaced for one year. The subscription can be cancelled any time.</div>
+
+<h2>License keys and church packs</h2>
+<ul>
+<li>Within <b>30 days</b> of purchase, we refund any key that has never been activated on a device.</li>
+<li>For a church pack, we refund its unused keys at the price they were bought at. If the pedal or the Pedal Control key has been used, the pack's pedal is handled as below.</li>
+<li>Refunded keys stop working.</li>
+</ul>
+
+<h2>Central Pedal (built)</h2>
+<ul>
+<li>Return it within <b>30 days</b> of delivery, in working order and with everything it came with, for a full refund of the pedal. Return shipping is paid by the buyer unless the pedal arrived damaged or faulty.</li>
+<li>If it stops working because of a defect within <b>one year</b>, we repair or replace it, and we pay the shipping.</li>
+<li>Damage from drops, liquid or modifications isn't covered.</li>
+</ul>
+
+<h2>Central Tracks</h2>
+<ul>
+<li><b>Unlimited subscription:</b> cancel any time under Billing. It stays on until the end of the month already paid. We don't refund part of a month.</li>
+<li><b>Single tracks:</b> because the files are delivered right away, purchases are final. If a file is broken or isn't what was described, contact us within 14 days and we'll fix it or refund it.</li>
+</ul>
+
+<h2>Central Services</h2>
+<p>Within 30 days of purchase, a church that hasn't scheduled a service yet can get a full refund.</p>
+
+<h2>How to ask</h2>
+<p><a href="/#support">Contact support</a> with your church's name and the order. Refunds go back to the card that paid, usually within 5 to 10 business days.</p>
+
+<footer>Questions? <a href="/#support">Contact support</a><span class="sup"></span>.</footer>
+</main>
+<script>
+// the support email comes from the website's settings (SUPPORT_EMAIL)
+fetch("/v1/config").then(function (r) { return r.json(); }).then(function (c) {
+  if (!c.supportEmail) return;
+  document.querySelectorAll(".sup").forEach(function (s) { s.innerHTML = ' or email <a href="mailto:' + c.supportEmail + '">' + c.supportEmail + "</a>"; });
+}).catch(function () {});
+</script>
+</body></html>

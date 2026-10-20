@@ -181,7 +181,13 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (8.12 and earlier)</summary>
+<summary><b>What's new in each version</b> (8.13 and earlier)</summary>
+
+**New in version 8.13:**
+- **Admins sign in with email, password and a code to their phone** (once per device, 30 days).
+- The main admin changes roles, hands the main admin role over, and manages **billing in the church's name**.
+- **Confirm email**, **Delete my account**, **privacy policy / terms / refunds** pages.
+- **Central Services:** away dates and song lists. **Contact support**, **error alerts** and **nightly backups**.
 
 **New in version 8.12:**
 - **Forgot password** on the website, in every app's sign-in and in Central Services (an emailed link, once, for an hour).

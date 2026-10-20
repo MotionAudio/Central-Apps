@@ -6,6 +6,9 @@ export const config = {
   databaseUrl: env.DATABASE_URL || "postgres://localhost/motionaudio",
   tokenSecret: env.TOKEN_SECRET || "dev-only-secret-change-me",
   timeZone: env.TIME_ZONE || "America/Chicago",   // (the times in schedule emails)
+  supportEmail: (env.SUPPORT_EMAIL || "").trim(),              // technical support: the Contact support form, error alerts
+  alertEmail: (env.ALERT_EMAIL || env.SUPPORT_EMAIL || "").trim(),   // (error alerts somewhere else, if wanted)
+  sms: { sid: env.TWILIO_ACCOUNT_SID || "", token: env.TWILIO_AUTH_TOKEN || "", from: env.TWILIO_FROM || "", api: env.TWILIO_API_URL || "https://api.twilio.com" },
   adminEmails: (env.ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
   stripe: {
     secret: env.STRIPE_SECRET_KEY || "",

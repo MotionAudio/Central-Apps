@@ -19,6 +19,18 @@ const PORT = 8766, EXE = process.platform === "win32" ? ".exe" : "";
 const RES = app.isPackaged ? process.resourcesPath : __dirname;
 let win = null, driver = null, driverLog = "";
 
+// errors in this (main) process go to the page, which reports them to the Motion Audio website with its own
+// (the support email hears about each new kind); they're kept until the page has loaded
+const mainErrors = [];
+function flushMainErrors() {
+  const w = BrowserWindow.getAllWindows().find((x) => !x.isDestroyed() && !x.webContents.isLoading()); if (!w) return;
+  while (mainErrors.length) { const x = mainErrors.shift(); w.webContents.executeJavaScript("window.CCReportError && window.CCReportError(" + JSON.stringify(x.message) + "," + JSON.stringify(x.stack) + ",'main')").catch(() => { }); }
+}
+function mainError(kind, e) { console.error(kind, e); if (mainErrors.length < 20) mainErrors.push({ message: kind + ": " + ((e && e.message) || String(e)), stack: (e && e.stack) || "" }); flushMainErrors(); }
+process.on("uncaughtException", (e) => mainError("Crash (main process)", e));
+process.on("unhandledRejection", (e) => mainError("Unhandled (main process)", e));
+app.on("browser-window-created", (_e, w) => w.webContents.on("did-finish-load", () => setTimeout(flushMainErrors, 3000)));
+
 function python() { for (const p of ["python3", "python"]) { try { if (spawnSync(p, ["--version"]).status === 0) return p; } catch (_) { } } return null; }
 function bundledDriver() { const f = path.join(RES, app.isPackaged ? "driver" : "driver-dist", "pedal-driver", "pedal-driver" + EXE); return fs.existsSync(f) ? f : null; }
 function portOpen(port) { return new Promise((resolve) => { const s = net.connect(port, "127.0.0.1"); s.once("connect", () => { s.destroy(); resolve(true); }); s.once("error", () => resolve(false)); setTimeout(() => { s.destroy(); resolve(false); }, 800); }); }
@@ -81,6 +93,7 @@ function menu() {
     { label: "Help", submenu: [
       { label: "Check for updates…", click: async () => { const st = await updater.check(); updateEvent(); dialog.showMessageBox(win, { type: "info", title: "Updates", message: st.available ? "Central Pedal Control " + st.latest + " is available." : "Central Pedal Control is up to date (" + app.getVersion() + ")." }); } },
       { label: "Download page", click: () => shell.openExternal("https://motionaudio.github.io/Central-Apps/") },
+      { label: "Contact technical support…", click: () => win && win.webContents.executeJavaScript("!!(window.PPLicense && PPLicense.on() && (PPLicense.support(), true))").then((ok) => { if (!ok) dialog.showMessageBox(win, { type: "info", title: "Technical support", message: "Technical support opens here once the Motion Audio website is online.", detail: "Until then, use the contact on the download page." }); }).catch(() => { }) },
       { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Pedal Control " + app.getVersion(), detail: "The Central Pedal app on this computer: make the setlist, import tracks, set up pads, controls and the instrument - then Upload them to the Central Pedal.\nElectron " + process.versions.electron }) } ] }
   ]));
 }

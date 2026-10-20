@@ -62,12 +62,12 @@
       fetch("http://127.0.0.1:8766/license/state", { method: "POST", body: JSON.stringify(s || {}) }).catch(function () { });
     }
     function start(m) {
-      if (started) { if (m) L.update({ presetKey: m.licenseKey, deviceId: m.deviceId, saved: m.licenseState }); return; }   // (a late hello: the key on the card, the pedal's id)
+      if (started) { if (m) L.update({ presetKey: m.licenseKey, deviceId: m.deviceId, saved: m.licenseState, version: m.appVersion }); return; }   // (a late hello: the key on the card, the pedal's id)
       started = true;
       var player = /[?&]player=1/.test(location.search) || !!(m && m.player);
       var control = !!(window.CCDesktop && window.CCDesktop.pedalControl) || !!window.CP_CONTROL || location.protocol === "capacitor:" || !!(m && m.pedalControl) || (!m && !local);
       var p = project(), named = p.name && !/^My Central Pedal set$/.test(p.name) ? p.name : "";
-      L.init({ app: player ? "player" : control ? "pedal-control" : "pedal", presetKey: m && m.licenseKey, deviceId: m && m.deviceId, saved: m && m.licenseState, persist: persist, production: named,
+      L.init({ app: player ? "player" : control ? "pedal-control" : "pedal", version: (m && m.appVersion) || "", presetKey: m && m.licenseKey, deviceId: m && m.deviceId, saved: m && m.licenseState, persist: persist, production: named,
         deviceName: control ? "Central Pedal Control" + (navigator.platform ? " (" + navigator.platform + ")" : "") : "Central Pedal" + (m && m.hostname ? " (" + m.hostname + ")" : ""),
         onProduction: function (name) { if (!named) { p.name = name; PP.persistSoon(); } }, onChange: renderSystemExtras, onReady: renderSystemExtras });
       if (control && !player && L.syncSettings) syncPrefs();

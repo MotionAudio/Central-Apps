@@ -11,6 +11,18 @@ const http = require("node:http");
 const dns = require("node:dns");
 
 let win = null;
+
+// errors in this (main) process go to the page, which reports them to the Motion Audio website with its own
+// (the support email hears about each new kind); they're kept until the page has loaded
+const mainErrors = [];
+function flushMainErrors() {
+  const w = BrowserWindow.getAllWindows().find((x) => !x.isDestroyed() && !x.webContents.isLoading()); if (!w) return;
+  while (mainErrors.length) { const x = mainErrors.shift(); w.webContents.executeJavaScript("window.CCReportError && window.CCReportError(" + JSON.stringify(x.message) + "," + JSON.stringify(x.stack) + ",'main')").catch(() => { }); }
+}
+function mainError(kind, e) { console.error(kind, e); if (mainErrors.length < 20) mainErrors.push({ message: kind + ": " + ((e && e.message) || String(e)), stack: (e && e.stack) || "" }); flushMainErrors(); }
+process.on("uncaughtException", (e) => mainError("Crash (main process)", e));
+process.on("unhandledRejection", (e) => mainError("Unhandled (main process)", e));
+app.on("browser-window-created", (_e, w) => w.webContents.on("did-finish-load", () => setTimeout(flushMainErrors, 3000)));
 // Two apps from this code: Central Control (the main admin and admins: lights, slides, lyrics, cameras, in-ears,
 // tracks, mixing) and Central Usage (musicians - User 1 / User 2: the chord chart, the instrument, the lyrics, their
 // in-ear mix). package.json's "edition" says which ("usage" is set by usage-builder.js when it packs Central Usage).
@@ -57,6 +69,7 @@ function menu() {
     { label: "Help", submenu: [
       { label: "How it works", click: () => dialog.showMessageBox(win, { type: "info", title: "Central Control", message: "The main admin's Central Control is the center of the team.", detail: "1. Set up the main admin first (usually the sound desk): its inputs and outputs, a 4-digit pairing PIN and its own role PIN. Keep Central Control open on it during the service.\n2. Every other computer, phone and tablet: Admin, User 1 or User 2 and the pairing PIN - it finds the main admin on the network.\n3. Tracks, charts and lyrics: the main admin's player window (Devices tab → Open the player), or Central Pedals paired with the same PIN - the Devices tab says what each one does (track player, foot controller, instrument rig).\n4. One admin computer is the audio host: it gets the tracks, mixes them, makes up to 48 in-ear mixes and records the service.\n5. Only the track player plays, stops and skips the tracks; everything here follows it." }) },
       { label: "Check for updates…", click: () => send("updates") },
+      { label: "Contact technical support…", click: () => win && win.webContents.executeJavaScript("!!(window.PPLicense && PPLicense.on() && (PPLicense.support(), true))").then((ok) => { if (!ok) dialog.showMessageBox(win, { type: "info", title: "Technical support", message: "Technical support opens here once the Motion Audio website is online.", detail: "Until then, use the contact on the download page." }); }).catch(() => { }) },
       { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: APP_NAME + " " + app.getVersion(), detail: (EDITION === "usage" ? "For musicians: the chord chart, your instrument, the lyrics and your in-ear mix." : "For the main admin and admins: lights, slides, lyrics, cameras, in-ears, tracks and mixing.") + " Part of Central Pedal. Electron " + process.versions.electron + " · Chromium " + process.versions.chrome }) } ] }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));

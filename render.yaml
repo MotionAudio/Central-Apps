@@ -33,6 +33,14 @@ services:
         sync: false
       - key: TIME_ZONE           # the schedule emails' time zone (Central Services reminders: from 9 a.m. the day before)
         value: America/Chicago
+      - key: SUPPORT_EMAIL       # technical support: the Contact support form and the error alerts go here
+        sync: false
+      - key: TWILIO_ACCOUNT_SID  # text messages for the admins' sign-in codes (twilio.com); until set, codes go by email
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM         # the Twilio phone number the codes come from, e.g. +15125550100
+        sync: false
   - type: cron
     name: motion-audio-payouts
     runtime: docker
@@ -45,6 +53,25 @@ services:
       - key: DATABASE_URL
         fromDatabase: { name: motion-audio-db, property: connectionString }
       - key: STRIPE_SECRET_KEY
+        sync: false
+  - type: cron
+    name: motion-audio-backup
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    dockerCommand: node src/backup.js
+    schedule: "0 8 * * *"    # every night, 08:00 UTC (2-3 a.m. in Texas); kept 30 days in R2 under backups/
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: motion-audio-db, property: connectionString }
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
         sync: false
 databases:
   - name: motion-audio-db

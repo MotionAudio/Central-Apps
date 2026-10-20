@@ -13,6 +13,10 @@ import * as pay from "./payments.js";
 import * as lic from "./licenses.js";
 import * as svc from "./services.js";
 import * as acct from "./account.js";
+import * as signin from "./signin.js";
+import * as support from "./support.js";
+import * as church from "./church.js";
+import * as backup from "./backup.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -52,17 +56,25 @@ api.use((req, res, next) => {  // the apps call from http://127.0.0.1:8766 (Pi) 
 api.use(express.json({ limit: "256kb" }));
 api.use(wrap(attachUser));
 
-const tries = new Map();  // simple brake on password guessing: 10 tries per IP per 15 minutes
+// a brake on guessing (passwords, codes): 20 failed tries per internet address per 15 minutes. Only failures count, so a
+// whole church signing in on the same Wi-Fi isn't slowed down.
+const tries = new Map();
 function brake(req) {
   const now = Date.now(), k = req.ip, t = (tries.get(k) || []).filter((x) => now - x < 15 * 60e3);
-  t.push(now); tries.set(k, t);
-  if (t.length > 10) { const e = new Error("Too many tries. Wait a few minutes and try again."); e.status = 429; throw e; }
+  tries.set(k, t);
+  if (t.length >= 20) { const e = new Error("Too many tries. Wait a few minutes and try again."); e.status = 429; throw e; }
+  if (req.res && !req.braked) { req.braked = true; req.res.on("finish", () => { if (req.res.statusCode >= 400 && req.res.statusCode !== 429) (tries.get(k) || tries.set(k, []).get(k)).push(Date.now()); }); }
 }
+setInterval(() => { const now = Date.now(); for (const [k, t] of tries) if (!t.some((x) => now - x < 15 * 60e3)) tries.delete(k); }, 15 * 60e3).unref();
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 lic.routes(api, { wrap, brake, requireUser });
 svc.routes(api, { wrap, requireUser });
 acct.routes(api, { wrap, brake });
+signin.routes(api, { wrap, brake, requireUser });
+support.routes(api, { wrap, brake, requireUser });
+church.routes(api, { wrap, brake, requireUser });
+function needConfirmed(u) { if (u && !u.email_confirmed) { const e = bad("Confirm your email first: we sent you a link (Account → Send it again)."); e.status = 403; e.needConfirm = true; throw e; } }
 
 api.post("/signup", wrap(async (req, res) => {
   brake(req);
@@ -78,27 +90,34 @@ api.post("/signup", wrap(async (req, res) => {
   try {
     if (req.body.invite) church = (await lic.acceptInvite(u, req.body.invite)).church;   // (the link in a Teams email)
     else if (join) church = (await lic.joinChurch(u, join, req.body.churchRole)).name; else if (make) church = (await lic.createChurch(u, make)).name;
-    else {   // (added on a Teams page but signed up without the email's link: the invite still counts)
-      const inv = await one("SELECT token FROM invites WHERE email=$1 AND user_id IS NULL AND section<>'owner' ORDER BY created_at DESC LIMIT 1", [email]);
-      if (inv) church = (await lic.acceptInvite(u, inv.token)).church;
-    }
+    // (added on a Teams page but signed up without the email's link: the invite counts once the email is confirmed)
   }
-  catch (e) { return res.json({ token: makeToken(u.id), churchError: e.message }); }
-  res.json({ token: makeToken(u.id), church });
+  catch (e) { await confirmOrSend(u, req.body.invite); return res.json(await signin.issue(u, req.body, { churchError: e.message })); }
+  await confirmOrSend(u, req.body.invite);
+  const fresh = await one("SELECT * FROM users WHERE id=$1", [u.id]);
+  if (!church) church = await acct.joinByEmail(fresh);   // (no email set up on the website: confirmed already)
+  res.json(await signin.issue(fresh, req.body, { church }));
 }));
+// a new account's email: confirmed already when it came from an invite sent to that email, otherwise a link goes to it
+async function confirmOrSend(u, inviteToken) {
+  const inv = inviteToken ? await one("SELECT email FROM invites WHERE token=$1", [String(inviteToken)]) : null;
+  if (inv && inv.email === u.email) await q("UPDATE users SET email_confirmed=TRUE WHERE id=$1", [u.id]);
+  else await acct.sendConfirm(u);
+}
 api.post("/login", wrap(async (req, res) => {
   brake(req);
-  const u = await one("SELECT * FROM users WHERE email=$1", [String(req.body.email || "").trim().toLowerCase()]);
+  const u = await one("SELECT * FROM users WHERE email=$1 AND deleted_at IS NULL", [String(req.body.email || "").trim().toLowerCase()]);
   if (!u || !checkPassword(String(req.body.password || ""), u.pass_hash)) throw bad("That email and password don't match.", 401);
-  res.json({ token: makeToken(u.id) });
+  res.json(await signin.issue(u, req.body));   // (the main admin and admins: a code to their phone on a new device)
 }));
 api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
   const c = await lic.churchOf(u.id);
-  res.json({ email: u.email, name: u.name, subscribed: u.subscribed, admin: isAdmin(u), payoutsReady: u.connect_ready, payoutsStarted: !!u.connect_account,
-    church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: !!c.has_services } : null });
+  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), payoutsReady: u.connect_ready, payoutsStarted: !!u.connect_account,
+    emailConfirmed: !!u.email_confirmed, phone: u.phone ? signin.maskPhone(u.phone) : null, phoneConfirmed: u.phone_confirmed, twoStep: await signin.needsCode(u),
+    church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: !!c.has_services, subscribed: c.subscribed } : null });
 }));
-api.get("/config", (_req, res) => res.json({ payments: !!pay.stripe, products: PRODUCTS, keyKinds: KEY_KINDS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE }));
+api.get("/config", (_req, res) => res.json({ supportEmail: config.supportEmail || null, sms: signin.smsOn, payments: !!pay.stripe, products: PRODUCTS, keyKinds: KEY_KINDS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE }));
 
 function trackOut(t) {
   return { id: String(t.id), title: t.title, artist: t.artist, kind: t.kind, key: t.song_key, bpm: Number(t.bpm) || 0, stars: t.stars, price: t.price_cents / 100, owned: !!t.owned, mine: !!t.mine };
@@ -130,13 +149,13 @@ async function owns(uid, t) { return t.publisher_id === uid || !!(await one("SEL
 api.post("/tracks/:id/add", requireUser, wrap(async (req, res) => {
   const u = req.user, t = await liveTrack(req.params.id);
   if (await owns(u.id, t)) return res.json({ files: await filesFor(t.id) });
-  if (!u.subscribed) return res.status(402).json({ error: "Buy this track or subscribe to Central Tracks Unlimited.", checkoutUrl: pay.stripe ? await pay.trackCheckout(u, t) : undefined });
+  if (!(await pay.isSubscribed(u))) return res.status(402).json({ error: "Buy this track or subscribe to Central Tracks Unlimited.", checkoutUrl: pay.stripe ? await pay.trackCheckout(u, t) : undefined });
   await q("INSERT INTO library (user_id,track_id,how) VALUES ($1,$2,'subscription') ON CONFLICT DO NOTHING", [u.id, t.id]);
   await q("INSERT INTO earnings (publisher_id,track_id,buyer_id,reason,cents) VALUES ($1,$2,$3,'subscriber_add',0) ON CONFLICT DO NOTHING", [t.publisher_id, t.id, u.id]);  // counts toward this month's pool
   res.json({ files: await filesFor(t.id) });
 }));
 api.post("/tracks/:id/purchase", requireUser, wrap(async (req, res) => {
-  const u = req.user, t = await liveTrack(req.params.id);
+  const u = req.user, t = await liveTrack(req.params.id); needConfirmed(u);
   if (await owns(u.id, t)) return res.json({ files: await filesFor(t.id) });
   res.json({ checkoutUrl: await pay.trackCheckout(u, t) });
 }));
@@ -191,8 +210,8 @@ api.get("/publisher", requireUser, wrap(async (req, res) => {
 }));
 
 // ---- payments
-api.post("/checkout/store", requireUser, wrap(async (req, res) => res.json({ url: await pay.storeCheckout(req.user, req.body.items, req.body.church) })));
-api.post("/checkout/subscription", requireUser, wrap(async (req, res) => res.json({ url: await pay.subscriptionCheckout(req.user) })));
+api.post("/checkout/store", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json({ url: await pay.storeCheckout(req.user, req.body.items, req.body.church) }); }));
+api.post("/checkout/subscription", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json({ url: await pay.subscriptionCheckout(req.user) }); }));
 api.post("/billing", requireUser, wrap(async (req, res) => res.json({ url: await pay.billingPortal(req.user) })));
 api.post("/connect", requireUser, wrap(async (req, res) => res.json({ url: await pay.connectLink(req.user) })));
 api.get("/orders/:session", wrap(async (req, res) => {  // the Checkout session id (only the buyer has it) shows the order's license keys
@@ -202,13 +221,17 @@ api.get("/orders/:session", wrap(async (req, res) => {  // the Checkout session 
   res.json({ total: o.total_cents / 100, items: o.items, licenses: keys.map((k) => ({ key: lic.pretty(k.key), kind: k.kind, product: KEY_KINDS[k.kind] || (PRODUCTS[k.product] ? PRODUCTS[k.product].name : k.product) })) });
 }));
 
+// ---- admin (ADMIN_EMAILS): the nightly backups (and Back up now)
+api.get("/admin/backups", requireUser, wrap(async (req, res) => { if (!isAdmin(req.user)) throw bad("Admins only.", 403); await signin.requireStep(req); res.json({ backups: (await backup.listBackups()).slice(0, 40) }); }));
+api.post("/admin/backups", requireUser, wrap(async (req, res) => { if (!isAdmin(req.user)) throw bad("Admins only.", 403); await signin.requireStep(req); res.json(await backup.makeBackup()); }));
+
 // ---- admin (ADMIN_EMAILS): reports and hiding tracks
 api.get("/admin/reports", requireUser, wrap(async (req, res) => {
-  if (!isAdmin(req.user)) throw bad("Admins only.", 403);
+  if (!isAdmin(req.user)) throw bad("Admins only.", 403); await signin.requireStep(req);
   res.json({ reports: await q("SELECT r.*, t.title, t.status FROM reports r JOIN tracks t ON t.id=r.track_id ORDER BY r.created_at DESC LIMIT 200") });
 }));
 api.post("/admin/tracks/:id/status", requireUser, wrap(async (req, res) => {
-  if (!isAdmin(req.user)) throw bad("Admins only.", 403);
+  if (!isAdmin(req.user)) throw bad("Admins only.", 403); await signin.requireStep(req);
   if (!["live", "hidden", "removed"].includes(req.body.status)) throw bad("Status must be live, hidden or removed.");
   await q("UPDATE tracks SET status=$1 WHERE id=$2", [req.body.status, Number(req.params.id) || 0]);
   res.json({ ok: true });
@@ -220,14 +243,17 @@ app.use(express.static(path.join(here, "..", "public"), { extensions: ["html"] }
 
 app.use((err, req, res, _next) => {
   const status = err.status || (err.type === "StripeSignatureVerificationError" ? 400 : 500);
-  if (status >= 500) console.error(req.method, req.path, err);
-  res.status(status).json({ error: status >= 500 && !err.status ? "Something went wrong on the server." : err.message, needChurch: err.needChurch || undefined });
+  if (status >= 500) { console.error(req.method, req.path, err); if (!err.status) support.recordError({ source: "website", internal: true, message: err.message, stack: err.stack, detail: { request: req.method + " " + req.path, user: req.user ? req.user.email : undefined } }); }
+  res.status(status).json({ error: status >= 500 && !err.status ? "Something went wrong on the server." : err.message, needChurch: err.needChurch || undefined, needClose: err.needClose || undefined, needConfirm: err.needConfirm || undefined });
 });
 
 if (process.env.NODE_ENV === "production") {
   if (config.tokenSecret === "dev-only-secret-change-me") throw new Error("Set TOKEN_SECRET before running in production.");
   if (!store.usingR2) console.warn("WARNING: R2 storage isn't set, so uploads go to the server's disk and are lost on every deploy. Set the R2_* variables.");
 }
+// the website's own crashes are reported too (then it restarts, as Render does for any exit)
+process.on("unhandledRejection", (e) => { console.error("unhandled:", e); support.recordError({ source: "website", internal: true, message: "Unhandled: " + ((e && e.message) || String(e)), stack: e && e.stack }); });
+process.on("uncaughtException", (e) => { console.error("crash:", e); support.recordError({ source: "website", internal: true, message: "Crash: " + e.message, stack: e.stack }).finally(() => process.exit(1)); setTimeout(() => process.exit(1), 5000).unref(); });
 await migrate();
 if (process.env.REMINDERS !== "off") acct.startReminders();   // (every hour: invites nobody answered, the day before a service)
 app.listen(config.port, () => console.log("Motion Audio server on " + config.publicUrl + " (storage: " + (store.usingR2 ? "R2" : "local folder") + ", payments: " + (pay.stripe ? "on" : "off") + ")"));

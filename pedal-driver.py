@@ -86,7 +86,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "8.12.0"
+APP_VERSION = "8.13.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -7345,6 +7345,27 @@ class _SimBus:
         return [(raw >> 8) & 0xFF, raw & 0xFF]
 
 
+
+class UiErrorHandler(logging.Handler):
+    """Errors the driver logs go to the app on the pedal's screen, which reports them to the Motion Audio website (the
+    support email hears about each new kind). The same message at most once every 10 minutes."""
+
+    def __init__(self, driver):
+        super().__init__(level=logging.ERROR)
+        self.driver, self.sent = driver, {}
+
+    def emit(self, record):
+        try:
+            message = record.getMessage()[:400]
+            key, now = message[:120], time.time()
+            if now - self.sent.get(key, 0) < 600:
+                return
+            self.sent[key] = now
+            stack = logging.Formatter().formatException(record.exc_info) if record.exc_info else ""
+            self.driver.emit({"type": "driverError", "message": message, "stack": stack[-3000:]})
+        except Exception:  # never let reporting break the driver
+            pass
+
 def main():
     parser = argparse.ArgumentParser(description="Pad Pedal hardware / system driver")
     parser.add_argument("--config", default=None, help="default: first of " + ", ".join(CONFIG_CANDIDATES))
@@ -7396,6 +7417,9 @@ def main():
     else:
         driver = PedalDriver(config)
         driver.config_path = config_path
+
+    logging.getLogger().addHandler(UiErrorHandler(driver))
+    threading.excepthook = lambda a: log.error("thread %s crashed: %s", getattr(a.thread, "name", "?"), a.exc_value, exc_info=(a.exc_type, a.exc_value, a.exc_traceback))
 
     async def runner():
         stop_event = asyncio.Event()

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terms of use · Motion Audio</title><meta name="description" content="The terms for using the Central apps, Central Services, Central Tracks and the Motion Audio website.">
+<style>
+:root{--bg:#f7f7f5;--fg:#141a22;--muted:#5b6573;--line:#dfe2e6;--accent:#b45309;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1218;--fg:#e8ecf2;--muted:#9aa6b5;--line:#263040;--accent:#f59e0b;--card:#151b24}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}a{color:var(--accent)}h1{font-size:2rem;line-height:1.2;margin:.4rem 0}h2{font-size:1.2rem;margin:2rem 0 .4rem}
+.top{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;font-size:.95rem}.muted{color:var(--muted)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px}li{margin:.25rem 0}
+nav a{margin-left:.8rem}footer{margin-top:3rem;font-size:.9rem;color:var(--muted)}
+</style></head><body><main>
+<div class="top"><a href="/">← Motion Audio</a><nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/#support">Support</a></nav></div>
+<h1>Terms of use</h1><p class="muted">Last updated October 20, 2026</p>
+
+<p>These terms cover the Motion Audio website, the Central apps (Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services), and the Central Tracks library. By making an account or using the apps, you agree to them.</p>
+
+<h2>Accounts</h2>
+<ul>
+<li>Give a real email address and keep your password to yourself. Admins also keep their phone number current, because sign-in codes go to it.</li>
+<li>You're responsible for what happens under your account. Tell us right away if you think someone else is using it.</li>
+<li>A church or production has one main admin. The main admin controls the church's people, roles, keys and billing, and can hand the role to someone else.</li>
+</ul>
+
+<h2>License keys</h2>
+<ul>
+<li>Each key is a license to use one app. It is not a sale of the software.</li>
+<li>An admin key (A) works on one device at a time. A user key (U) or Pedal Control key (P) works on two devices of the same person, signed in with the same account. A pedal's own key works on that pedal.</li>
+<li>Keys belong to the church that bought them. The main admin and admins can move them between people and devices. Don't sell keys or share them outside your church.</li>
+<li>Don't try to get around the key checks, or copy, change or resell the apps.</li>
+</ul>
+
+<h2>Payments and billing</h2>
+<ul>
+<li>Prices are in US dollars and are shown before you pay. Stripe processes the payment.</li>
+<li>A church's purchases and subscription are billed to the church, in its name. The card on file stays with the church when the main admin changes. The main admin manages it under Billing.</li>
+<li>The Central Tracks Unlimited subscription renews every month until it's cancelled. Cancel any time under Billing. It stays on until the end of the month you've paid for.</li>
+<li>Refunds follow the <a href="/refunds">refund policy</a>.</li>
+</ul>
+
+<h2>Central Tracks</h2>
+<ul>
+<li>Tracks you buy or add are for use in your church's services, rehearsals and productions. Don't redistribute the files.</li>
+<li>When you publish a track, you confirm that you own it or have the rights to sell it, and you give Motion Audio permission to store it, grade it, and sell it in Central Tracks. Publishers get 75% of each sale, plus their share of the monthly subscriber pool. Payouts go monthly through Stripe once the balance is at least $10.</li>
+<li>We can take down a track that's reported or that breaks these terms.</li>
+<li>Your church still needs its own licenses for public performance and streaming of songs (for example CCLI).</li>
+</ul>
+
+<h2>Central Services</h2>
+<p>The main admin and the schedulers they choose make services and ask people to serve. Everyone in the church sees the schedule. Use people's contact details only for your church's scheduling.</p>
+
+<h2>Updates</h2>
+<p>The apps look for new versions when they open and install them. Updates never remove your songs, setlists or settings. We may change or stop features, and we'll give notice before we stop anything you paid for.</p>
+
+<h2>Acceptable use</h2>
+<p>Don't use the apps or the website to break the law or anyone's rights, upload anything harmful, attack or overload our servers, or get into accounts that aren't yours.</p>
+
+<h2>Ending your account</h2>
+<p>You can delete your account at any time. We can suspend or close an account that breaks these terms. Where we can, we'll warn you first.</p>
+
+<h2>Disclaimers</h2>
+<p>We work hard to keep everything running, especially on Sunday morning. Even so, the apps and services are provided "as is", and we can't promise they will never fail. Always have a backup plan for live services. As far as the law allows, Motion Audio isn't liable for indirect or consequential losses, and our total liability is limited to what you paid us in the 12 months before the claim.</p>
+
+<h2>Changes to these terms</h2>
+<p>If we change these terms in a way that matters, we'll post the new version here and email account holders before it takes effect. If you keep using the apps after that, you accept the new terms.</p>
+
+<footer>Questions? <a href="/#support">Contact support</a><span class="sup"></span>.</footer>
+</main>
+<script>
+// the support email comes from the website's settings (SUPPORT_EMAIL)
+fetch("/v1/config").then(function (r) { return r.json(); }).then(function (c) {
+  if (!c.supportEmail) return;
+  document.querySelectorAll(".sup").forEach(function (s) { s.innerHTML = ' or email <a href="mailto:' + c.supportEmail + '">' + c.supportEmail + "</a>"; });
+}).catch(function () {});
+</script>
+</body></html>

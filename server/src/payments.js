@@ -15,6 +15,32 @@ async function customerFor(user) {
   return c.id;
 }
 
+// the church's own billing (its name on the receipts; the card stays with the church when the main admin changes)
+export async function churchCustomer(church) {
+  if (church.stripe_customer) return church.stripe_customer;
+  const owner = church.owner_id ? await one("SELECT email FROM users WHERE id=$1", [church.owner_id]) : null;
+  const c = await stripe.customers.create({ name: church.name, email: owner ? owner.email : undefined, metadata: { church_id: String(church.id) } });
+  await q("UPDATE churches SET stripe_customer=$1 WHERE id=$2", [c.id, church.id]);
+  return c.id;
+}
+export async function churchBillingPortal(church) {
+  needStripe();
+  const s = await stripe.billingPortal.sessions.create({ customer: await churchCustomer(church), return_url: config.publicUrl + "/#account" });
+  return s.url;
+}
+export async function syncChurchCustomer(churchId) {   // (a new name, or a new main admin: the receipts' name and email)
+  if (!stripe) return;
+  const c = await one("SELECT c.*, u.email AS owner_email FROM churches c LEFT JOIN users u ON u.id=c.owner_id WHERE c.id=$1", [churchId]);
+  if (!c || !c.stripe_customer) return;
+  try { await stripe.customers.update(c.stripe_customer, { name: c.name, email: c.owner_email || undefined }); } catch (e) { console.error("stripe customer:", e.message); }
+}
+// Central Tracks Unlimited: yours, or your church's (the main admin subscribes for everyone in it)
+export async function isSubscribed(user) {
+  if (!user) return false;
+  if (user.subscribed) return true;
+  return !!(await one("SELECT 1 FROM church_members m JOIN churches c ON c.id=m.church_id WHERE m.user_id=$1 AND c.subscribed", [user.id]));
+}
+
 // everything in the store comes with license keys, and keys belong to a church: you buy signed in, and the first
 // purchase makes your church (you become its main admin) when you're not in one yet
 export async function storeCheckout(user, items, churchName) {
@@ -38,7 +64,7 @@ export async function storeCheckout(user, items, churchName) {
   if (!church) church = await createChurch(user, churchName);
   const s = await stripe.checkout.sessions.create({
     mode: "payment", line_items: lines,
-    customer: await customerFor(user),
+    customer: await churchCustomer(church),
     shipping_address_collection: ships ? { allowed_countries: ["US", "CA"] } : undefined,
     metadata: { kind: "store", user_id: String(user.id), church_id: String(church.id), items: JSON.stringify(meta) },
     success_url: config.publicUrl + "/#order-done-{CHECKOUT_SESSION_ID}",
@@ -49,12 +75,13 @@ export async function storeCheckout(user, items, churchName) {
 
 export async function subscriptionCheckout(user) {
   needStripe();
-  if (user.subscribed) { const e = new Error("You're already subscribed."); e.status = 400; throw e; }
+  if (await isSubscribed(user)) { const e = new Error("You're already subscribed."); e.status = 400; throw e; }
+  const church = await churchOf(user.id), forChurch = !!(church && church.role === "owner");   // (the main admin: for the whole church, billed to it)
   const s = await stripe.checkout.sessions.create({
-    mode: "subscription", customer: await customerFor(user),
-    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: SUBSCRIPTION.cents, recurring: { interval: SUBSCRIPTION.interval }, product_data: { name: SUBSCRIPTION.name } } }],
-    metadata: { kind: "subscription", user_id: String(user.id) },
-    subscription_data: { metadata: { user_id: String(user.id) } },
+    mode: "subscription", customer: forChurch ? await churchCustomer(church) : await customerFor(user),
+    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: SUBSCRIPTION.cents, recurring: { interval: SUBSCRIPTION.interval }, product_data: { name: SUBSCRIPTION.name + (forChurch ? " - " + church.name : "") } } }],
+    metadata: { kind: "subscription", user_id: String(user.id), church_id: forChurch ? String(church.id) : "" },
+    subscription_data: { metadata: { user_id: String(user.id), church_id: forChurch ? String(church.id) : "" } },
     success_url: config.publicUrl + "/#subscribed", cancel_url: config.publicUrl + "/#tracks",
   });
   return s.url;
@@ -97,10 +124,12 @@ export async function handleWebhook(rawBody, signature) {
     const kind = o.metadata && o.metadata.kind, uid = Number(o.metadata && o.metadata.user_id) || null;
     if (kind === "store") await recordOrder(o, uid);
     else if (kind === "track") await recordTrackSale(uid, Number(o.metadata.track_id));
+    else if (kind === "subscription" && Number(o.metadata.church_id)) await q("UPDATE churches SET subscribed=TRUE, subscription_id=$1 WHERE id=$2", [o.subscription, Number(o.metadata.church_id)]);
     else if (kind === "subscription" && uid) await q("UPDATE users SET subscribed=TRUE, subscription_id=$1 WHERE id=$2", [o.subscription, uid]);
   } else if (ev.type === "customer.subscription.updated" || ev.type === "customer.subscription.deleted" || ev.type === "customer.subscription.created") {
     const on = ev.type !== "customer.subscription.deleted" && ["active", "trialing", "past_due"].includes(o.status);
     await q("UPDATE users SET subscribed=$1, subscription_id=$2 WHERE stripe_customer=$3", [on, o.id, o.customer]);
+    await q("UPDATE churches SET subscribed=$1, subscription_id=$2 WHERE stripe_customer=$3", [on, o.id, o.customer]);
   } else if (ev.type === "invoice.paid" && (o.subscription || (o.parent && o.parent.subscription_details)) && o.amount_paid > 0) {
     const u = await one("SELECT id FROM users WHERE stripe_customer=$1", [o.customer]);
     await q("INSERT INTO subscription_payments (invoice_id,user_id,cents,paid_at) VALUES ($1,$2,$3,to_timestamp($4)) ON CONFLICT DO NOTHING", [o.id, u ? u.id : null, o.amount_paid, o.status_transitions && o.status_transitions.paid_at || Math.floor(Date.now() / 1000)]);

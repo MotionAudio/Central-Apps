@@ -23,10 +23,17 @@ let ipN = 0;   // (each call from its own address, so the brake on password gues
 const j = async (method, p, body, tok) => { const r = await fetch(base + "/v1" + p, { method, headers: { "Content-Type": "application/json", "X-Forwarded-For": "10.9." + (++ipN >> 8 & 255) + "." + (ipN & 255), ...(tok ? { Authorization: "Bearer " + tok } : {}) }, body: body ? JSON.stringify(body) : undefined }); return Object.assign(await r.json().catch(() => ({})), { _status: r.status }); };
 const to = (who) => mails.filter((m) => m.to && m.to[0] === who), last = (who) => to(who).pop();
 const E = (n) => n + S + "@grace.test";
+async function finish(r, email) {   // admins and staff finish signing in with a code (by email here: no Twilio)
+  if (!r.step) return r;
+  if (r.step === "phone") Object.assign(r, await j("POST", "/login/phone", { ticket: r.ticket, phone: "555-010-" + String(S).slice(-4) }));
+  const m = to(email).filter((x) => /sign-in code/.test(x.subject)).pop();
+  const t = await j("POST", "/login/code", { ticket: r.ticket, code: m.subject.match(/(\d{6})/)[1] });
+  return Object.assign({}, r, { token: t.token });
+}
 try {
   const { q, one } = await import("../src/db.js");
   const { recordOrder } = await import("../src/payments.js");
-  const staff = await j("POST", "/signup", { email: STAFF, password: "password123", name: "Staff" });
+  const staff = await finish(await j("POST", "/signup", { email: STAFF, password: "password123", name: "Staff" }), STAFF);
 
   // ---------------------------------------------------------------- forgot password
   const ana0 = await j("POST", "/signup", { email: E("ana"), password: "old-password", name: "Ana" });
@@ -54,7 +61,7 @@ try {
   ok((await j("POST", "/password/reset", { token: expired, password: "another-pass" }))._status === 404, "a link older than an hour doesn't work");
 
   // ---------------------------------------------------------------- a church with keys and a team
-  const pastor = await j("POST", "/signup", { email: E("pastor"), password: "password123", name: "Pastor", churchName: "Grace Church" });
+  const pastor = await finish(await j("POST", "/signup", { email: E("pastor"), password: "password123", name: "Pastor", churchName: "Grace Church" }), E("pastor"));
   const T = pastor.token, cid = (await one("SELECT church_id FROM church_members WHERE user_id=(SELECT id FROM users WHERE email=$1)", [E("pastor")])).church_id;
   await recordOrder({ id: "cs_a_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 40000, customer_details: { email: "p@grace.test" } }, null);
   const addU = await j("POST", "/church/team", { section: "user", members: [{ name: "Cal", email: E("cal"), role: "Drums" }, { name: "Dee", email: E("dee"), role: "Vocals" }] }, T);

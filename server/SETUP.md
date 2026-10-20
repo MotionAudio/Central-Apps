@@ -51,6 +51,26 @@ What it sends by itself, every hour (nothing to set up): a reminder to anyone ad
 their account after 3 days, and again after 7; and Central Services' day-before email (from 9 a.m. in `TIME_ZONE`) to
 everyone serving tomorrow, and to anyone who hasn't answered yet.
 
+## 2c. Twilio — text messages for admins' sign-in codes
+
+The main admin and admins sign in with email, password **and a 6-digit code texted to their phone** (once per device,
+then the device is trusted for 30 days). Until Twilio is set up, the code goes to their email instead.
+
+1. Go to **twilio.com** → sign up → buy a phone number that can send SMS (about $1.15/month; each text about 1¢).
+2. In the US, texting from an app number needs **A2P 10DLC registration** (Twilio walks you through it: your business,
+   and "account verification codes" as the use). Approval takes a few days.
+3. Copy the **Account SID**, **Auth Token** and the number (`+1…`) for step 3.
+4. Codes are texted to US and Canada numbers only (`+1`), and at most 10 a day per account and 8 a day per number, so
+   nobody can run up your Twilio bill. For other countries, set `SMS_COUNTRIES` (calling codes, e.g. `1,44`) and allow
+   them in Twilio → Messaging → Geo permissions.
+
+## 2d. A support email
+
+Pick the address for technical support (for example `support@your-domain.com`; a Gmail address works too). The Contact
+support form on the website and in every app sends there (Reply goes straight to the person), and so do the **error
+alerts**: an email for each new kind of error the website or an app runs into (repeats at most once a day). Staff see
+them all on the website: Account → *Errors, support, backups*.
+
 ## 3. Render — runs the website, the API and the database
 
 1. Go to **render.com** → *Get started* → **sign up with GitHub** (use the MotionAudio account) and let it see the
@@ -66,6 +86,8 @@ everyone serving tomorrow, and to anyone who hasn't answered yet.
    | `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | from Cloudflare step 5 (`R2_BUCKET` = `central-tracks`) |
    | `RESEND_API_KEY` | from Resend step 3 |
    | `MAIL_FROM` | `Motion Audio <team@your-domain.com>` (the domain you verified in Resend) |
+   | `SUPPORT_EMAIL` | the support address from step 2d |
+   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | from Twilio step 2c (leave empty for now to send codes by email) |
 4. *Apply*. The first build takes a few minutes. Your site is then at `https://motion-audio.onrender.com`
    (Render shows the exact address).
 5. Cost: about $7/month for the website, $6–7 for the database, and about $1 for the payout job.
@@ -151,3 +173,24 @@ cd server && cp .env.example .env    # edit it; leave R2 empty to store files lo
 npm install && set -a && . ./.env && set +a && npm start
 ```
 Then open http://localhost:8080.
+
+## Backups
+
+Every night (the `motion-audio-backup` job in `render.yaml`) the whole database is saved to R2 under `backups/`, kept
+30 days. Staff see them on the website (Account → *Errors, support, backups*) and can press **Back up now** before a big
+change. Render's paid Postgres also keeps its own daily backups.
+
+**To restore** (the database is lost or broken):
+1. Render → *New* → **PostgreSQL** (an empty one).
+2. In R2, download the backup you want from `backups/` (the newest is at the top).
+3. On a computer with Node 20 and this repository: `cd server && npm ci`, then
+   `DATABASE_URL=<the new database's External URL> node src/backup.js restore <the downloaded .jsonl.gz>`
+   It refuses a database that already has accounts in it.
+4. Render → the website → *Environment* → point `DATABASE_URL` at the new database → *Save* (it restarts).
+
+## Policies
+
+The website has a **privacy policy** (`/privacy`), **terms** (`/terms`) and a **refund policy** (`/refunds`), linked from
+the footer, the sign-up form and every app's Settings → License. They're written to match how the apps work; have
+them read by someone who knows your state's rules before you launch, and change the refund terms if yours differ
+(`server/public/*.html`).

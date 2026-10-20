@@ -89,6 +89,7 @@
       "#licWiz button{font:inherit;padding:10px 16px;border-radius:10px;border:1px solid var(--line,#294966);background:#13253b;color:inherit;cursor:pointer}#licWiz button.primary{background:var(--accent,#5de6b0);color:#04131f;border-color:transparent;font-weight:600}" +
       "#licWiz button:disabled{opacity:.5}#licWiz .muted{color:var(--muted,#8fa7bf);font-size:13px}#licWiz .bad{color:#ff8a8a}#licWiz .ok{color:var(--accent,#5de6b0)}#licWiz .wifi-list{display:grid;gap:6px;max-height:220px;overflow:auto}" +
       "#licWiz .wifi-list button{text-align:left}#licWiz section{border:0;padding:0}#licWiz .tabs{display:flex;gap:6px}#licWiz .tabs button.on{border-color:var(--accent,#5de6b0)}";
+    s.textContent += s.textContent.replace(/#licWiz/g, "#licMini") + "#licWiz button.bad-btn,#licMini button.bad-btn,section button.bad-btn{background:#7f1d1d;border-color:#b91c1c;color:#fff}#licMini textarea{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line,#294966);background:#071321;color:inherit}";
     document.head.appendChild(s);
   }
   function wifiPanel() {   // the Central Pedal's own Wi-Fi list (js/touch-wifi.js does the connecting)
@@ -113,6 +114,12 @@
         '<label>This device’s name (so you know it on the website)<input id="lwDev" value="' + esc(ui.devName || (st && st.deviceName) || opts.deviceName || NAME_OF[app]) + '"></label>' +
         '<p class="muted">The key is in the email from your church and on your church’s page on the website. ' + (kind === "A" || app === "pedal" ? "It works on one device at a time" : "It works on two devices (for example the church’s and your own) with the same account and the same settings") + '; Settings → License → Release key frees a device for another.</p>';
       btns = '<button data-lw="back">Back</button><button class="primary" data-lw="key"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Checking…" : "Use this key") + "</button>";
+    } else if (s === 3 && ui.two) {   // an admin account: the phone (first time), then the code sent to it
+      var t = ui.two;
+      body = t.step === "phone" ? '<p>You’re an admin, so signing in on a new device also takes a code sent to your phone. Which mobile number should get it?</p><label>Mobile number<input id="lwPhone" type="tel" autocomplete="tel" placeholder="555-123-4567"></label>'
+        : '<p>We ' + (t.by === "email" ? "emailed" : "texted") + " a 6-digit code to <b>" + esc(t.to) + "</b>" + (t.both ? " and emailed another to you (adding a phone takes both)" : "") + '. They work for 10 minutes.</p><label>' + (t.both ? "Code from the text" : "Code") + '<input id="lwCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" class="lw-key"></label>' +
+          (t.both ? '<label>Code from the email<input id="lwECode" inputmode="numeric" maxlength="7" class="lw-key"></label>' : "");
+      btns = '<button data-lw="tcancel">Back</button>' + (t.step === "code" ? '<button data-lw="tagain"' + (ui.busy ? " disabled" : "") + ">Send again</button>" : "") + '<button class="primary" data-lw="' + (t.step === "phone" ? "tphone" : "tcode") + '"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "One moment…" : t.step === "phone" ? "Send the code" : "Sign in") + "</button>";
     } else if (s === 3) {
       var su = ui.signup;
       body = '<p>' + (st && st.church ? "Key ✓ · <b>" + esc(st.church) + "</b>. " : "Key ✓. ") + (kind === "U" ? "Sign in with <b>your own</b> account (each user has their own)." : "Sign in with your church’s admin account (all admins can share one), or your own.") + "</p>" +
@@ -170,12 +177,27 @@
     if (!email || !pw) { ui.msg = "Enter your email and password."; return draw(); }
     ui.busy = true; ui.msg = ""; draw();
     try {
-      var r = await call(ui.signup ? "/signup" : "/login", ui.signup ? { email: email, password: pw, name: name } : { email: email, password: pw });
-      await link(r.token);
-      st.account = { email: email, token: r.token }; save(st);
-      shareToken(r.token); setTimeout(pullAll, 0);   // (this account's settings come down now)
-      ui.busy = false; finish();
+      var r = await call(ui.signup ? "/signup" : "/login", ui.signup ? { email: email, password: pw, name: name, device: deviceId() } : { email: email, password: pw, device: deviceId() });
+      if (r.step) { ui.two = Object.assign(r, { email: email }); ui.busy = false; ui.msg = ""; return draw(); }   // (an admin: a code to the phone first)
+      await signedIn(email, r.token);
     } catch (e) { ui.busy = false; ui.msg = e.message; draw(); }
+  }
+  async function signedIn(email, tok) {
+    await link(tok);
+    st.account = { email: email, token: tok }; save(st); ui.two = null;
+    shareToken(tok); setTimeout(pullAll, 0);   // (this account's settings come down now)
+    ui.busy = false; finish();
+  }
+  async function twoStep(a) {
+    var t = ui.two; if (!t) return;
+    var phone = ((document.getElementById("lwPhone") || {}).value || "").trim(), code = ((document.getElementById("lwCode") || {}).value || "").trim(), ecode = ((document.getElementById("lwECode") || {}).value || "").trim();   // (read before the window redraws)
+    ui.busy = true; ui.msg = ""; draw();
+    try {
+      if (a === "tphone") Object.assign(t, await call("/login/phone", { ticket: t.ticket, phone: phone }));
+      else if (a === "tagain") { Object.assign(t, await call("/login/resend", { ticket: t.ticket })); ui.msg = "✓ A new code is on its way."; }
+      else { var r = await call("/login/code", { ticket: t.ticket, code: code, emailCode: ecode || undefined }); return await signedIn(t.email, r.token); }
+    } catch (e) { ui.msg = e.message; if (e.status === 410) ui.two = null; }
+    ui.busy = false; draw();
   }
   // Forgot password: the website emails a link to set a new one (on any phone or computer); then sign in here with it
   async function forgot() {
@@ -202,6 +224,8 @@
       else if (a === "in" || a === "up") { ui.signup = a === "up"; ui.msg = ""; draw(); }
       else if (a === "acct") account();
       else if (a === "forgot") forgot();
+      else if (a === "tphone" || a === "tcode" || a === "tagain") twoStep(a);
+      else if (a === "tcancel") { ui.two = null; ui.msg = ""; draw(); }
     });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter") { var b = el.querySelector("button.primary"); if (b && !b.disabled) { e.preventDefault(); b.click(); } } });
     el.addEventListener("input", function (e) { if (e.target.id === "lwKey") { var p0 = e.target.selectionStart, before = e.target.value; e.target.value = pretty(before); if (p0 === before.length) e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } });
@@ -217,7 +241,47 @@
         " · this device: " + esc(s.deviceName || "") + " · checked " + new Date(s.okAt).toLocaleDateString() + " (works offline " + daysLeft() + " more days)" + (s.account && s.account.email ? " · account " + esc(s.account.email) : "") + "</p>" +
         '<div class="row"><button data-lic="release">Release key</button>' + (s.account && s.account.email ? '<button data-lic="signout">Sign out of the account</button>' : '<button data-lic="account">Sign in</button>') + "</div>" +
         '<p class="muted">Release key frees it for another device; this one asks for a key again. For a lost or broken device, release its key on the website (your church’s page).</p>'
-        : '<p class="bad">No key on this device.</p><button data-lic="enter">Enter a key</button>') + "</section>";
+        : '<p class="bad">No key on this device.</p><button data-lic="enter">Enter a key</button>') +
+      '<div class="row"><button data-lic="support">Contact support</button><a href="' + esc(base()) + '/privacy" target="_blank" rel="noopener">Privacy policy</a> · <a href="' + esc(base()) + '/terms" target="_blank" rel="noopener">Terms</a>' +
+      (s.account && s.account.email ? '<button data-lic="delete" class="bad-btn">Delete my account</button>' : "") + "</div></section>";
+  }
+  // a small window over everything (Contact support, Delete my account)
+  function mini(html, onAct) {
+    css();
+    var d = document.getElementById("licMini"); if (d) d.remove();
+    d = document.createElement("dialog"); d.id = "licMini"; d.className = "lw-mini"; document.body.appendChild(d);
+    d.innerHTML = '<div class="lw">' + html + "</div>";
+    d.addEventListener("click", function (e) { var b = e.target.closest("[data-mini]"); if (!b) return; if (b.dataset.mini === "close") { d.close(); d.remove(); } else onAct(b.dataset.mini, d); });
+    try { d.showModal(); } catch (_) { d.setAttribute("open", ""); }
+    return d;
+  }
+  function supportBox(note) {
+    var s = st || {}, email = (s.account && s.account.email) || "";
+    mini('<h2>Contact support</h2><p class="muted">' + esc(note || "Tell us what’s going on. We answer by email.") + '</p><label>Your email<input id="spEmail" type="email" value="' + esc(email) + '"></label><label>About<input id="spSubject" placeholder="Pairing, keys, sound…"></label><label>What’s going on?<textarea id="spMsg" rows="5"></textarea></label><p class="bad" id="spErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary" data-mini="send">Send</button></div>',
+      async function (a, d) {
+        if (a !== "send") return;
+        try {
+          var r = await call("/support", { email: d.querySelector("#spEmail").value, subject: d.querySelector("#spSubject").value, message: d.querySelector("#spMsg").value, app: NAME_OF[app] || "", version: appVer, platform: navigator.userAgent.slice(0, 120) }, token());
+          d.querySelector(".lw").innerHTML = '<h2>Thanks</h2><p class="ok">' + esc(r.message) + '</p><div class="row"><button class="primary" data-mini="close">OK</button></div>';
+        } catch (e) { d.querySelector("#spErr").textContent = e.message; }
+      });
+  }
+  function deleteBox() {
+    var s = st || {};
+    mini('<h2>Delete my account</h2><p>This deletes <b>' + esc(s.account && s.account.email) + '</b>: your name, email and phone are removed, your keys are freed, and you’re taken out of your church. It can’t be undone.</p><p class="muted">The main admin hands that role to someone else first (on the website: Account → People → Make main admin).</p><label>Your password<input id="delPw" type="password" autocomplete="current-password"></label><p class="bad" id="delErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary bad-btn" data-mini="del">Delete my account</button></div>',
+      async function (a, d, close) {
+        if (a !== "del" && a !== "delclose") return;
+        try {
+          await call("/account/delete", { password: d.querySelector("#delPw").value, closeChurch: a === "delclose" }, token());
+          var keep = { production: s.production }; st = keep; save(st);
+          d.querySelector(".lw").innerHTML = '<h2>Your account is deleted</h2><p>Your details are gone and your keys are free. A confirmation is in your email.</p><div class="row"><button class="primary" data-mini="close">OK</button></div>';
+          if (opts.onChange) try { opts.onChange(); } catch (_) { }
+          d.addEventListener("close", function () { ui.step = 2; open(); });
+        } catch (e) {
+          d.querySelector("#delErr").textContent = e.message;
+          if (e.status === 409 && /also closes/.test(e.message)) d.querySelector(".row").insertAdjacentHTML("beforeend", '<button class="bad-btn" data-mini="delclose">Delete and close it</button>');
+        }
+      });
   }
   async function release() {
     if (!st || !st.key) return;
@@ -234,6 +298,8 @@
     if (a === "release") release();
     else if (a === "enter") { ui.step = 0; open(); }
     else if (a === "account") { ui.step = 3; open(); }
+    else if (a === "support") supportBox();
+    else if (a === "delete") deleteBox();
     else if (a === "signout") { if (st) { delete st.account; save(st); } if (opts.onChange) opts.onChange(); }
   });
 
@@ -268,9 +334,33 @@
   setInterval(pullAll, 3 * 60e3);
   window.addEventListener("focus", function () { setTimeout(pullAll, 500); });
 
+  // ------------------------------------------------------------- errors: what goes wrong in the app goes to the website
+  // (the support email hears about each new kind of error). The page's own errors, the computer app's (window.CCReportError
+  // from its main process) and the Central Pedal driver's (driverError). At most 20 a run; the same one once.
+  var appVer = "", SRC = { pedal: "central-pedal", "pedal-control": "central-pedal-control", control: "central-control", usage: "central-usage", player: "central-control" };
+  var reported = {}, nReported = 0, early = [];
+  function reportError(message, stack, kind) {
+    if (!message) return;
+    if (!app) { if (early.length < 10) early.push([message, stack, kind]); return; }   // (before init: kept for a moment)
+    var k = String(message).slice(0, 200); if (!on() || reported[k] || nReported >= 20) return; reported[k] = 1; nReported++;
+    try { fetch(base() + "/v1/errors", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: SRC[app] || "central-pedal", version: appVer, message: String(message).slice(0, 500), stack: String(stack || "").slice(0, 4000), kind: kind || "page", device: deviceId(), platform: navigator.userAgent.slice(0, 120), url: location.pathname }) }).catch(function () { }); } catch (_) { }
+  }
+  window.addEventListener("error", function (e) { if (e.message) reportError(e.message, e.error && e.error.stack, "page"); });
+  window.addEventListener("unhandledrejection", function (e) { var x = e.reason || {}; if (x.status) return; reportError("Unhandled: " + (x.message || String(x)), x.stack, "page"); });
+  window.CCReportError = reportError;
+  function learnVersion() {
+    if (opts.version) appVer = String(opts.version);
+    try {
+      if (window.CU && window.CU.version) window.CU.version().then(function (v) { if (v && v.app) appVer = v.app; }).catch(function () { });
+      else if (window.CCDesktop && window.CCDesktop.updates) window.CCDesktop.updates.status().then(function (v) { if (v && v.current) appVer = v.current; }).catch(function () { });
+    } catch (_) { }
+  }
+
   // ------------------------------------------------------------- start
   function init(o2) {
-    opts = o2 || {}; app = opts.app; st = load();
+    opts = o2 || {}; app = opts.app; st = load(); learnVersion();
+    early.splice(0).forEach(function (x) { reportError(x[0], x[1], x[2]); });
+    if (window.PPFeatures) window.PPFeatures.on("driverError", function (m) { reportError("Driver: " + m.message, m.stack, "driver"); });
     if (!st && opts.saved && opts.saved.key) { st = opts.saved; try { localStorage.setItem(LS, JSON.stringify(st)); } catch (_) { } }   // (this browser forgot it: the Central Pedal's driver kept a copy)
     if (!KIND_OF[app] || !on()) { markReady(); return; }   // (the player window inside Central Control; licensing off)
     if (st && st.app && KIND_OF[st.app] !== KIND_OF[app]) st = { production: st.production };   // (a key for another app)
@@ -282,10 +372,11 @@
   // the driver's hello came late (a Central Pedal still starting): the key on its card, its id, its saved copy
   function update(o2) {
     Object.keys(o2 || {}).forEach(function (k) { if (o2[k] != null && o2[k] !== "") opts[k] = o2[k]; });
+    if (opts.version) appVer = String(opts.version);
     if (!st || !st.key) { if (o2 && o2.saved && o2.saved.key) { st = o2.saved; try { localStorage.setItem(LS, JSON.stringify(st)); } catch (_) { } if (complete()) { close(); recheck(); return; } } }
     if (el) draw();
   }
   window.PPLicense = { init: init, update: update, complete: function () { return complete(); }, on: on, licensed: licensed, state: function () { return st; }, server: base, settingsHtml: settingsHtml, release: release, recheck: recheck, open: open,
     whenReady: function (f) { if (ready) f(); else waiters.push(f); }, deviceId: deviceId, pretty: pretty, app: function () { return app; },
-    syncSettings: syncSettings, settingsChanged: settingsChanged, syncNow: pullAll };
+    syncSettings: syncSettings, settingsChanged: settingsChanged, syncNow: pullAll, reportError: reportError, support: supportBox };
 })();
