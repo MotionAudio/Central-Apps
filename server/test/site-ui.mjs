@@ -72,7 +72,7 @@ try {
   await page.waitForFunction(() => /Hi, Pat/.test(document.querySelector("#acctTitle").textContent), null, { timeout: 6000 }).catch(() => {});
   ok(/Hi, Pat/.test(await page.textContent("#acctTitle")), "signed up, added the phone and entered the code: signed in");
   ok(await page.isVisible(".confirm-card"), "the account asks to confirm the email");
-  await page.waitForSelector("#churchCard .ktable, #churchCard h3:not(:only-child)", { timeout: 5000 }).catch(() => {});
+  await page.waitForFunction(() => /Grace Church/.test((document.querySelector("#churchCard") || {}).textContent || ""), null, { timeout: 8000 }).catch(() => {});
   ok(/Grace Church/.test(await page.textContent("#churchCard")), "the church was made, with Pat as its main admin");
   await shot("account-new", true);
 
@@ -159,6 +159,42 @@ try {
   ok(/Grace Church/.test(await txt("#codesCard")), "staff Codes: Grace Church used 7FREE");
   ok(/Pairing/.test(await txt("#opsCard")) || true, "staff Errors and support");
   await shot("staff", true);
+
+  // ---------------------------------------------------------------- edit mode (staff): words, a price, a picture, sections
+  ok(/Website editors/.test(await txt("#editorsCard")), "staff: the Website editors card");
+  await page.waitForSelector("#editBtn", { timeout: 5000 }); await page.click("#editBtn"); await page.waitForSelector("#editBar:not([hidden])");
+  ok(await page.$eval("[data-edit='hero.title']", (e) => e.isContentEditable), "Edit this page: the words become editable");
+  await page.click("[data-edit='hero.title']"); await page.keyboard.press("Control+A"); await page.keyboard.type("Sunday, sorted.");
+  await page.waitForSelector("#pedalBuy [data-price='pedal'][contenteditable='true']", { timeout: 5000 });
+  await page.click("#pedalBuy [data-price='pedal']"); await page.keyboard.press("Control+A"); await page.keyboard.type("$265");
+  await page.hover("#publish"); await page.click("#publish .sec-tools [data-st='toggle']");
+  await page.hover("#tracks .sec-head"); await page.click("#tracks .sec-tools [data-st='add']"); await page.click(".add-kinds [data-kind='faq']");
+  await page.waitForSelector("[data-block] .faq-item .q");
+  await page.click("[data-block] h2"); await page.keyboard.press("Control+A"); await page.keyboard.type("Questions we hear a lot");
+  await page.click("[data-block] .faq-item .q"); await page.keyboard.press("Control+A"); await page.keyboard.type("Does it work without internet?");
+  await page.click("[data-block] .faq-item .a"); await page.keyboard.press("Control+A"); await page.keyboard.type("Yes. Everything runs on your own Wi-Fi.");
+  // a picture for the pedal (a real 1x1 PNG)
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  const up = await page.evaluate(async (b64) => { const t = localStorage.getItem("ma-token"); const r = await fetch("/v1/admin/content/image", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ data: "data:image/png;base64," + b64 }) }); return r.json(); }, png.toString("base64"));
+  ok(/^\/site-media\/[a-f0-9]+\.png$/.test(up.url || ""), "a picture uploads", JSON.stringify(up));
+  const bad = await page.evaluate(async () => { const t = localStorage.getItem("ma-token"); const r = await fetch("/v1/admin/content/image", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ data: btoa("<script>alert(1)</script>") }) }); return r.status; });
+  ok(bad === 400, "something that isn't a picture is refused");
+  await shot("editing", true);
+  await page.click("[data-eb='save']"); await page.waitForTimeout(1200);
+  await page.click("[data-eb='done']"); await page.waitForTimeout(400);
+  // what a visitor sees now
+  const v = await browser.newPage({ viewport: { width: 1280, height: 900 } }); v.on("pageerror", (e) => errors.push("visitor:" + e.message));
+  await v.goto(base + "/", { waitUntil: "networkidle" }); await v.waitForTimeout(800);
+  ok((await v.textContent("h1")) === "Sunday, sorted.", "a visitor sees the new headline", await v.textContent("h1"));
+  ok(await v.$eval("#publish", (e) => e.hidden), "the hidden section is gone for visitors");
+  ok(/Does it work without internet\?/.test(await v.textContent("[data-block]")) && await v.$eval("[data-block]", (e) => !!e.closest("body") && e.previousElementSibling && e.previousElementSibling.id === "tracks"), "the new questions section shows, right after Central Tracks");
+  ok(/\$265/.test(await v.textContent("#pedalBuy")), "the new pedal price is live", await v.textContent("#pedalBuy .price"));
+  ok(!(await v.$("#editBtn")) || !(await v.isVisible("#editBtn")), "visitors don't get the Edit button");
+  const xss = await page.evaluate(async () => { const t = localStorage.getItem("ma-token"); const r = await fetch("/v1/admin/content", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ content: { text: { "hero.title": "<img src=x onerror=alert(1)>Hi<script>x()</script>" } } }) }); return (await r.json()).content.text["hero.title"]; });
+  ok(xss === "Hi", "saved words can't carry scripts", xss);
+  await v.close();
+  // put everything back (other tests use the standard prices and words)
+  await page.evaluate(async () => { const t = localStorage.getItem("ma-token"), h = { "Content-Type": "application/json", Authorization: "Bearer " + t }; await fetch("/v1/admin/content", { method: "POST", headers: h, body: JSON.stringify({ content: {} }) }); await fetch("/v1/admin/prices", { method: "POST", headers: h, body: JSON.stringify({ reset: true }) }); });
 
   // ---------------------------------------------------------------- phone width
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto(base + "/", { waitUntil: "networkidle" }); await page.waitForTimeout(300);

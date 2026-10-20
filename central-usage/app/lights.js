@@ -500,21 +500,43 @@
   function drawPlot() {
     var svg = $("#lxPlot"); if (!svg) return;
     var key = String(rig.fixtures.length) + JSON.stringify(rig.fixtures.map(function (f) { return [f.x, f.y, f.name]; }));
+    var pos = function (f) { return { x: (f.x == null ? 0.5 : f.x) * 1000, y: (f.y == null ? 0.5 : f.y) * 520 + 10 }; };
     if (svg.dataset.n !== key) {
       svg.dataset.n = key;
-      svg.innerHTML = '<rect x="0" y="0" width="1000" height="560" rx="16" class="lx-stage"></rect><text x="22" y="544" class="lx-aud" style="text-anchor:start">▼ AUDIENCE</text>' + rig.fixtures.map(function (f) {
-        var x = (f.x == null ? 0.5 : f.x) * 1000, y = (f.y == null ? 0.5 : f.y) * 520 + 10, mover = profileOf(f).mover;
-        return '<g class="lx-fix" data-fix="' + esc(f.id) + '" transform="translate(' + x + "," + y + ')"><circle r="' + (mover ? 26 : f.group === "haze" ? 18 : 22) + '" class="lx-body"></circle><circle r="' + (mover ? 18 : 15) + '" class="lx-lens" id="lens-' + esc(f.id) + '"></circle>' + (mover ? '<line x1="0" y1="0" x2="0" y2="-34" class="lx-beam" id="beam-' + esc(f.id) + '"></line>' : "") + '<text y="' + (y > 470 ? -(mover ? 34 : 30) : (mover ? 50 : 44)) + '">' + esc(f.name) + "</text></g>";
-      }).join("");
+      // the stage: a dark floor with boards, the lip at the front; each light throws a pool of its colour on the floor
+      // (screen-blended, so pools add up like real light) and a mover also shows its beam
+      var defs = '<defs><linearGradient id="lxFloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E1013"/><stop offset=".75" stop-color="#15181D"/><stop offset="1" stop-color="#1B1F25"/></linearGradient>' +
+        '<linearGradient id="lxCan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A515C"/><stop offset=".5" stop-color="#262B33"/><stop offset="1" stop-color="#15181D"/></linearGradient>' +
+        '<linearGradient id="lxLip" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E2C27E" stop-opacity="0"/><stop offset=".5" stop-color="#E2C27E" stop-opacity=".45"/><stop offset="1" stop-color="#E2C27E" stop-opacity="0"/></linearGradient>' +
+        rig.fixtures.map(function (f) { var id = esc(f.id); return '<radialGradient id="lxp-' + id + '"><stop offset="0" id="lxp0-' + id + '" stop-color="#fff" stop-opacity=".95"/><stop offset=".45" id="lxp1-' + id + '" stop-color="#fff" stop-opacity=".45"/><stop offset="1" id="lxp2-' + id + '" stop-color="#fff" stop-opacity="0"/></radialGradient>' +
+          '<linearGradient id="lxc-' + id + '" gradientUnits="userSpaceOnUse"><stop offset="0" id="lxc0-' + id + '" stop-color="#fff" stop-opacity=".55"/><stop offset="1" id="lxc1-' + id + '" stop-color="#fff" stop-opacity="0"/></linearGradient>'; }).join("") + "</defs>";
+      var boards = ""; for (var by = 36; by < 520; by += 28) boards += '<line x1="12" x2="988" y1="' + by + '" y2="' + by + '" stroke="#fff" stroke-opacity=".022"/>';
+      svg.innerHTML = defs + '<rect x="0" y="0" width="1000" height="560" rx="16" class="lx-stage" fill="url(#lxFloor)"></rect>' + boards +
+        '<g style="mix-blend-mode:screen">' + rig.fixtures.map(function (f) { var id = esc(f.id), p = pos(f); return (profileOf(f).mover ? '<polygon id="cone-' + id + '" fill="url(#lxc-' + id + ')" points="0,0 0,0 0,0"/>' : "") + '<ellipse id="pool-' + id + '" cx="' + p.x + '" cy="' + Math.min(530, p.y + 46) + '" rx="' + (f.group === "haze" ? 170 : 105) + '" ry="' + (f.group === "haze" ? 120 : 52) + '" fill="url(#lxp-' + id + ')" opacity="0"/>'; }).join("") + "</g>" +
+        '<rect x="40" y="521" width="920" height="2" fill="url(#lxLip)"/><text x="500" y="551" class="lx-aud">Audience</text>' +
+        rig.fixtures.map(function (f) {
+          var p = pos(f), x = p.x, y = p.y, mover = profileOf(f).mover, r = mover ? 26 : f.group === "haze" ? 18 : 22;
+          return '<g class="lx-fix" data-fix="' + esc(f.id) + '" transform="translate(' + x + "," + y + ')"><circle r="' + (r + 3) + '" fill="#000" opacity=".45" cy="3"></circle><circle r="' + r + '" class="lx-body" fill="url(#lxCan)"></circle><circle r="' + (r - 1.5) + '" fill="none" stroke="#fff" stroke-opacity=".08"></circle><circle r="' + (mover ? 18 : 15) + '" class="lx-lens" id="lens-' + esc(f.id) + '"></circle><circle r="' + (mover ? 6 : 5) + '" cx="' + (mover ? -6 : -5) + '" cy="' + (mover ? -6 : -5) + '" fill="#fff" opacity=".18"></circle>' + (mover ? '<line x1="0" y1="0" x2="0" y2="-34" class="lx-beam" id="beam-' + esc(f.id) + '"></line>' : "") + '<text y="' + (y > 470 ? -(mover ? 34 : 30) : (mover ? 50 : 44)) + '">' + esc(f.name) + "</text></g>";
+        }).join("");
     }
     rig.fixtures.forEach(function (f) {
       var st = live.fixtureColor[f.id], el = document.getElementById("lens-" + f.id); if (!st || !el) return;
-      var c = lensColor(f, st);
-      el.style.fill = c.css; el.style.filter = c.k > 0.05 ? "drop-shadow(0 0 " + Math.round(4 + 14 * c.k) + "px " + c.css + ")" : "none";
-      var beam = document.getElementById("beam-" + f.id); if (beam) { var ang = (st.pan - 0.5) * 300, len = 20 + st.tilt * 50; beam.setAttribute("x2", String(Math.sin(ang * Math.PI / 180) * len)); beam.setAttribute("y2", String(-Math.cos(ang * Math.PI / 180) * len)); beam.style.stroke = c.css; beam.style.opacity = String(0.2 + c.k * 0.8); }
+      var c = lensColor(f, st), id = f.id, p = pos(f), k = c.k;
+      el.style.fill = k > 0.02 ? c.css : "#0B0D10"; el.style.filter = k > 0.05 ? "drop-shadow(0 0 " + Math.round(4 + 16 * k) + "px " + c.css + ")" : "none";
+      var hue = c.full, pool = document.getElementById("pool-" + id);
+      ["lxp0-", "lxp1-", "lxp2-", "lxc0-", "lxc1-"].forEach(function (pre) { var s2 = document.getElementById(pre + id); if (s2) s2.setAttribute("stop-color", hue); });
+      if (pool) pool.setAttribute("opacity", String(Math.min(0.95, k * 1.3)));
+      var beam = document.getElementById("beam-" + id), cone = document.getElementById("cone-" + id);
+      if (beam || cone) {
+        var ang = (st.pan - 0.5) * 300, len = 20 + st.tilt * 50, dx = Math.sin(ang * Math.PI / 180), dy = -Math.cos(ang * Math.PI / 180);
+        if (beam) { beam.setAttribute("x2", String(dx * len)); beam.setAttribute("y2", String(dy * len)); beam.style.stroke = c.css; beam.style.opacity = String(0.25 + k * 0.75); }
+        var reach = 90 + st.tilt * 150, tx = p.x + dx * reach, ty = p.y + dy * reach, w = 26 + st.tilt * 24, px = -dy, py = dx;
+        if (cone) { cone.setAttribute("points", p.x + "," + p.y + " " + (tx + px * w) + "," + (ty + py * w) + " " + (tx - px * w) + "," + (ty - py * w)); cone.setAttribute("opacity", String(Math.min(0.9, k))); var g = document.getElementById("lxc-" + id); if (g) { g.setAttribute("x1", p.x); g.setAttribute("y1", p.y); g.setAttribute("x2", tx); g.setAttribute("y2", ty); } }
+        if (pool) { pool.setAttribute("cx", String(tx)); pool.setAttribute("cy", String(ty)); pool.setAttribute("rx", "70"); pool.setAttribute("ry", "38"); }
+      }
     });
   }
-  function lensColor(f, st) { var k = f.group === "haze" ? st.haze : st.dim, r = Math.round(clamp((st.r + st.w + st.a) * k, 0, 1) * 255), g = Math.round(clamp((st.g + st.w + st.a * 0.55) * k, 0, 1) * 255), b = Math.round(clamp((st.b + st.w + st.uv * 0.6) * k, 0, 1) * 255); if (f.group === "haze") { r = g = b = Math.round(160 * k); } return { css: "rgb(" + r + "," + g + "," + b + ")", k: k }; }
+  function lensColor(f, st) { var k = f.group === "haze" ? st.haze : st.dim, r = Math.round(clamp((st.r + st.w + st.a) * k, 0, 1) * 255), g = Math.round(clamp((st.g + st.w + st.a * 0.55) * k, 0, 1) * 255), b = Math.round(clamp((st.b + st.w + st.uv * 0.6) * k, 0, 1) * 255); if (f.group === "haze") { r = g = b = Math.round(160 * k); } var R = clamp(st.r + st.w + st.a, 0, 1), G = clamp(st.g + st.w + st.a * 0.55, 0, 1), Bl = clamp(st.b + st.w + st.uv * 0.6, 0, 1), m = Math.max(R, G, Bl, 0.001); if (f.group === "haze") { R = G = Bl = m = 0.7; } return { css: "rgb(" + r + "," + g + "," + b + ")", full: "rgb(" + Math.round(R / m * 255) + "," + Math.round(G / m * 255) + "," + Math.round(Bl / m * 255) + ")", k: k }; }
   // timeline: the waveform, the sections in their colours, the hits as lines, the cues
   var tl = { w: 0, h: 0 };
   function dur() { return Math.max(10, song.duration || (song.sections.length ? song.sections[song.sections.length - 1].end : 0) || 120); }
@@ -522,38 +544,49 @@
   function tlX(t) { return t / dur() * tl.w; }
   var ROW = { sec: 0, look: 64, fixture: 92, flash: 112 };
   function cueY(c) { return c.kind === "flash" ? ROW.flash : c.kind === "fixture" ? ROW.fixture : ROW.look; }
+  function rrect(ctx, x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2)); else ctx.rect(x, y, w, h); }
   function drawTimeline() {
     var cv = $("#lxTimeline"); if (!cv) return;
     var dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W) return;
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     var ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); tl.w = W; tl.h = H;
-    var D = dur();
-    // waveform (the Central Pedal's tracks, all of them together)
+    var D = dur(), F = '"Archivo", ui-sans-serif, sans-serif', played = tlX(posNow());
+    var bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#16191E"); bg.addColorStop(1, "#0C0E11"); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    // sections: a soft tint behind, a labelled chip on top
+    song.sections.forEach(function (s) {
+      var x = tlX(s.start), x2 = tlX(s.end || D), w = Math.max(1, x2 - x - 2), col = s.color || SEC_COLORS[s.type || secType(s.name)] || "#5a7896";
+      ctx.fillStyle = col; ctx.globalAlpha = 0.06; ctx.fillRect(x, 18, w, H - 18); ctx.globalAlpha = 0.92; rrect(ctx, x + 1, 2, w, 14, 4); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.save(); ctx.beginPath(); ctx.rect(x + 1, 0, w - 4, 18); ctx.clip(); ctx.fillStyle = "rgba(10,11,13,.86)"; ctx.font = "600 10.5px " + F; ctx.fillText(s.name, x + 6, 12.5); ctx.restore();
+    });
+    // bars: hairlines, a stronger one and the number every 4
+    var bars = song.bars.length ? song.bars : null, nb = bars ? bars.length : Math.ceil(D / (60 / song.bpm * song.bpb));
+    for (var b = 0; b < nb; b++) { var bx = Math.round(tlX(bars ? bars[b] : b * 60 / song.bpm * song.bpb)) + 0.5, four = b % 4 === 0; ctx.fillStyle = four ? "rgba(236,231,221,.09)" : "rgba(236,231,221,.035)"; ctx.fillRect(bx, 18, 1, H - 18); if (four && W / nb * 4 > 26) { ctx.fillStyle = "rgba(236,231,221,.38)"; ctx.font = "500 9.5px " + F; ctx.fillText(String(b + 1), bx + 3, H - 4); } }
+    // waveform: a smooth mirrored envelope, brass where it has played
     var ov = song.overview || [], mid = 20 + (H - 20 - 26) / 2, amp = (H - 20 - 26) / 2 - 2;
-    if (ov.length) { var played = tlX(posNow()); for (var i = 0; i < ov.length; i++) { var x = i / ov.length * W, w = Math.max(1, W / ov.length - 0.4), v = Math.min(1, ov[i] * 1.1) * amp; ctx.fillStyle = x < played && playingNow() ? "rgba(93,230,176,.55)" : "rgba(200,220,240,.28)"; ctx.fillRect(x, mid - v, w, Math.max(1, v * 2)); } }
-    else { ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.font = "12px sans-serif"; ctx.fillText(song.id ? (song.hasTracks === false ? "No tracks: the timeline runs on the Central Pedal's click (or the click here)" : "Waveform: comes with the Central Pedal's tracks") : "No song", 10, mid + 4); }
-    // bars
-    ctx.fillStyle = "rgba(255,255,255,.06)"; var bars = song.bars.length ? song.bars : null, nb = bars ? bars.length : Math.ceil(D / (60 / song.bpm * song.bpb));
-    for (var b = 0; b < nb; b++) { var bx = tlX(bars ? bars[b] : b * 60 / song.bpm * song.bpb); ctx.fillRect(bx, 20, 1, H - 20); if (b % 4 === 0 && W / nb * 4 > 26) { ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.font = "10px sans-serif"; ctx.fillText(String(b + 1), bx + 2, H - 3); ctx.fillStyle = "rgba(255,255,255,.06)"; } }
-    // sections, in their colours
-    song.sections.forEach(function (s) { var x = tlX(s.start), x2 = tlX(s.end || D), col = s.color || SEC_COLORS[s.type || secType(s.name)] || "#5a7896"; ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.fillRect(x, 0, Math.max(1, x2 - x - 1), 18); ctx.globalAlpha = 0.07; ctx.fillRect(x, 18, Math.max(1, x2 - x - 1), H - 18); ctx.globalAlpha = 1; ctx.fillStyle = "#08111d"; ctx.font = "bold 11px sans-serif"; ctx.save(); ctx.beginPath(); ctx.rect(x, 0, x2 - x - 2, 18); ctx.clip(); ctx.fillText(s.name, x + 4, 13); ctx.restore(); });
-    // the hits: lines where they are (land your cues on them)
-    ctx.strokeStyle = "rgba(255,215,101,.55)"; ctx.lineWidth = 1; (song.hits || []).forEach(function (h) { var hx = Math.round(tlX(h)) + 0.5; ctx.beginPath(); ctx.moveTo(hx, 18); ctx.lineTo(hx, H); ctx.stroke(); });
-    // the part just recorded
-    if (lastRec) { ctx.fillStyle = "rgba(255,120,120,.10)"; ctx.fillRect(tlX(lastRec.from), 18, tlX(lastRec.to) - tlX(lastRec.from), H - 18); }
-    if (rec) { ctx.fillStyle = "rgba(255,80,80,.18)"; ctx.fillRect(tlX(rec.from), 18, tlX(posNow()) - tlX(rec.from), H - 18); }
-    // cues (automatic ones dimmer)
-    var list = cuesNow().concat(rec ? rec.cues : []);
-    list.forEach(function (c) {
-      var x = tlX(cueTime(c)), y = cueY(c), h = c.kind === "flash" ? 12 : c.kind === "fixture" ? 14 : 20, l = c.look ? lookById(c.look) : null;
-      ctx.globalAlpha = c.auto ? 0.55 : 1;
-      if (c.kind === "look" && c.fade) { var fw = tlX(cueTime(c) + c.fade * 60 / song.bpm) - x; ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x, y, fw, h); }
-      if (c.kind === "fixture") { var ids = Object.keys(c.fixtures || {}); ids.slice(0, 4).forEach(function (id, k) { ctx.fillStyle = c.fixtures[id].color || "#888"; ctx.fillRect(x - 3, y + k * 3.5, 6, 3.5); }); ctx.strokeStyle = c === selectedCue ? "#5de6b0" : "rgba(0,0,0,.6)"; ctx.lineWidth = c === selectedCue ? 3 : 1; ctx.strokeRect(x - 3.5, y - 0.5, 7, h + 1); }
-      else { ctx.fillStyle = (l && l.swatch) || "#888"; ctx.fillRect(x - 3, y, 6, h); ctx.strokeStyle = c === selectedCue ? "#5de6b0" : "rgba(0,0,0,.6)"; ctx.lineWidth = c === selectedCue ? 3 : 1; ctx.strokeRect(x - 3.5, y - 0.5, 7, h + 1); }
-      if (c.kind === "look" && l) { ctx.fillStyle = "#dfe9f5"; ctx.font = "11px sans-serif"; ctx.fillText(l.name, x + 6, y + 14); }
+    if (ov.length) {
+      var env = function () { ctx.beginPath(); ctx.moveTo(0, mid); for (var i = 0; i < ov.length; i++) ctx.lineTo(i / (ov.length - 1 || 1) * W, mid - Math.min(1, ov[i] * 1.1) * amp); for (var j = ov.length - 1; j >= 0; j--) ctx.lineTo(j / (ov.length - 1 || 1) * W, mid + Math.min(1, ov[j] * 1.1) * amp); ctx.closePath(); };
+      var g1 = ctx.createLinearGradient(0, mid - amp, 0, mid + amp); g1.addColorStop(0, "rgba(236,231,221,.30)"); g1.addColorStop(0.5, "rgba(236,231,221,.16)"); g1.addColorStop(1, "rgba(236,231,221,.30)");
+      env(); ctx.fillStyle = g1; ctx.fill();
+      if (playingNow() && played > 0) { var g2 = ctx.createLinearGradient(0, mid - amp, 0, mid + amp); g2.addColorStop(0, "rgba(240,217,164,.9)"); g2.addColorStop(0.5, "rgba(201,163,92,.55)"); g2.addColorStop(1, "rgba(240,217,164,.9)"); ctx.save(); ctx.beginPath(); ctx.rect(0, 0, played, H); ctx.clip(); env(); ctx.fillStyle = g2; ctx.fill(); ctx.restore(); }
+      ctx.fillStyle = "rgba(236,231,221,.12)"; ctx.fillRect(0, Math.round(mid), W, 1);
+    } else { ctx.fillStyle = "rgba(236,231,221,.36)"; ctx.font = "500 12px " + F; ctx.textAlign = "center"; ctx.fillText(song.id ? (song.hasTracks === false ? "No tracks: the timeline runs on the Central Pedal's click (or the click here)" : "The waveform comes with the Central Pedal's tracks") : "No song", W / 2, mid + 4); ctx.textAlign = "left"; }
+    // the hits: thin gold lines with a diamond at the top (land your cues on them)
+    (song.hits || []).forEach(function (h) { var hx = Math.round(tlX(h)) + 0.5; ctx.fillStyle = "rgba(245,207,114,.38)"; ctx.fillRect(hx - 0.5, 20, 1, H - 20); ctx.fillStyle = "#F5CF72"; ctx.beginPath(); ctx.moveTo(hx, 18); ctx.lineTo(hx + 3, 21); ctx.lineTo(hx, 24); ctx.lineTo(hx - 3, 21); ctx.closePath(); ctx.fill(); });
+    if (lastRec) { ctx.fillStyle = "rgba(239,107,99,.10)"; ctx.fillRect(tlX(lastRec.from), 18, tlX(lastRec.to) - tlX(lastRec.from), H - 18); }
+    if (rec) { ctx.fillStyle = "rgba(239,107,99,.2)"; ctx.fillRect(tlX(rec.from), 18, tlX(posNow()) - tlX(rec.from), H - 18); }
+    // cues: rounded markers in the preset's colour (automatic ones dimmer), the selected one ringed in brass
+    cuesNow().concat(rec ? rec.cues : []).forEach(function (c) {
+      var x = tlX(cueTime(c)), y = cueY(c), h = c.kind === "flash" ? 12 : c.kind === "fixture" ? 14 : 20, l = c.look ? lookById(c.look) : null, sel = c === selectedCue;
+      ctx.globalAlpha = c.auto ? 0.5 : 1;
+      if (c.kind === "look" && c.fade) { var fw = tlX(cueTime(c) + c.fade * 60 / song.bpm) - x, fg = ctx.createLinearGradient(x, 0, x + fw, 0); fg.addColorStop(0, "rgba(236,231,221,.18)"); fg.addColorStop(1, "rgba(236,231,221,0)"); ctx.fillStyle = fg; ctx.fillRect(x, y + 2, fw, h - 4); }
+      if (c.kind === "fixture") { Object.keys(c.fixtures || {}).slice(0, 4).forEach(function (id, k) { ctx.fillStyle = c.fixtures[id].color || "#888"; ctx.fillRect(x - 3, y + k * 3.5, 6, 3.5); }); }
+      else { ctx.shadowColor = (l && l.swatch) || "#888"; ctx.shadowBlur = c.auto ? 0 : 6; rrect(ctx, x - 3.5, y, 7, h, 3); ctx.fillStyle = (l && l.swatch) || "#888"; ctx.fill(); ctx.shadowBlur = 0; }
+      rrect(ctx, x - 4, y - 0.5, 8, h + 1, 3.5); ctx.lineWidth = sel ? 2.5 : 1; ctx.strokeStyle = sel ? "#F0D9A4" : "rgba(0,0,0,.65)"; ctx.stroke();
+      if (c.kind === "look" && l) { ctx.fillStyle = "rgba(236,231,221,.9)"; ctx.font = "500 11px " + F; ctx.fillText(l.name, x + 7, y + 14); }
       ctx.globalAlpha = 1;
     });
-    var px = tlX(posNow()); ctx.fillStyle = "#5de6b0"; ctx.fillRect(px - 1, 0, 2, H);
+    // the playhead: a brass line with a glow and a small head
+    var px = tlX(posNow()); ctx.save(); ctx.shadowColor = "rgba(240,217,164,.8)"; ctx.shadowBlur = 8; ctx.fillStyle = "#F0D9A4"; ctx.fillRect(px - 1, 0, 2, H); ctx.beginPath(); ctx.moveTo(px - 5, 0); ctx.lineTo(px + 5, 0); ctx.lineTo(px, 6); ctx.closePath(); ctx.fill(); ctx.restore();
   }
   function cueAtPx(px, py) { var best = null, bd = 9; cuesNow().forEach(function (c) { if (c.auto) return; var x = tlX(cueTime(c)), y = cueY(c) + 8, d = Math.abs(x - px) + (Math.abs(y - py) > 14 ? 20 : 0); if (d < bd) { bd = d; best = c; } }); return best; }
   function snapTime(t) {

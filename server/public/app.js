@@ -19,7 +19,7 @@ async function api(method, path, body) {
   if (!r.ok && r.status !== 402) { const e = new Error(j.error || "The server answered " + r.status + "."); e.status = r.status; throw e; }
   return Object.assign(j, { _status: r.status });
 }
-function setToken(t) { token = t; try { t ? localStorage.setItem("ma-token", t) : localStorage.removeItem("ma-token"); } catch {} }
+function setToken(t) { token = t; try { t ? localStorage.setItem("ma-token", t) : localStorage.removeItem("ma-token"); } catch {} if (window.SiteContent && window.SiteContent.checkEditor) window.SiteContent.checkEditor(); }
 
 function toast(m) { const d = document.createElement("div"); d.className = "toast"; d.textContent = m; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }
 function modal(html) {
@@ -28,7 +28,7 @@ function modal(html) {
 }
 function closeModal() { $("#modalHost").innerHTML = ""; }
 function go(url) { location.href = url; }
-function paymentsSoon() { modal(`<h3>Payments open soon</h3><p class="muted" style="margin:0">Checkout isn't switched on yet. Check back shortly.</p><button class="btn" data-close>OK</button>`); }
+function paymentsSoon() { modal(`<h3>Almost ready</h3><p class="muted" style="margin:0">We're finishing setting up checkout. Please check back soon, or write to us and we'll sort out your order by hand.</p><button class="btn" data-close>OK</button>`); }
 // this browser's id: an admin's code is asked once per device (then trusted 30 days)
 function deviceId() {
   try { let d = localStorage.getItem("ma-device"); if (!d) { d = "web-" + Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, "0")).join(""); localStorage.setItem("ma-device", d); } return d; } catch { return ""; }
@@ -39,7 +39,7 @@ function finishSignIn(r) {
   return new Promise((resolve, reject) => {
     let st = r, done = false;
     const draw = (err) => {
-      if (st.step === "phone") modal(`<h3>Add your phone</h3><p class="muted" style="margin:0">You're an admin, so signing in on a new device also takes a code sent to your phone. Which mobile number should get it?</p>
+      if (st.step === "phone") modal(`<h3>Add your phone</h3><p class="muted" style="margin:0">Because you look after your church's account, a new device needs a code from your phone too. It keeps your church safe. Which mobile number should we text?</p>
         <form id="tsForm" style="background:none;border:0;padding:0"><label>Mobile number<input id="tsPhone" type="tel" autocomplete="tel" placeholder="555-123-4567" required></label>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Send the code</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err">${esc(err || "")}</div></form>`);
       else modal(`<h3>Enter the code${st.both ? "s" : ""}</h3><p class="muted" style="margin:0">We ${st.by === "email" ? "emailed" : "texted"} a 6-digit code to <b>${esc(st.to)}</b>${st.both ? " and emailed another to you (adding a phone takes both)" : ""}. They work for 10 minutes.</p>
@@ -74,7 +74,7 @@ function finishSignIn(r) {
   addEventListener("unhandledrejection", (e) => { const x = e.reason || {}; if (x.status) return; report("Unhandled: " + (x.message || String(x)), x.stack); });   // (answers from the server with an error are shown, not reported)
 })();
 function supportForm(note) {
-  modal(`<h3>Contact support</h3><p class="muted" style="margin:0">${esc(note || "Tell us what's going on. We answer by email.")}${cfg.supportEmail ? ` Or email <a href="mailto:${esc(cfg.supportEmail)}">${esc(cfg.supportEmail)}</a>.` : ""}</p>
+  modal(`<h3>Talk to us</h3><p class="muted" style="margin:0">${esc(note || "Tell us what's going on. A real person on our team reads every message and writes back by email.")}${cfg.supportEmail ? ` Or email <a href="mailto:${esc(cfg.supportEmail)}">${esc(cfg.supportEmail)}</a>.` : ""}</p>
     <form id="spForm" style="background:none;border:0;padding:0"><label>Your name<input id="spName" value="${esc(me ? me.name : "")}"></label><label>Your email<input id="spEmail" type="email" required value="${esc(me ? me.email : "")}"></label>
     <label>About<input id="spSubject" placeholder="Pairing, keys, billing…"></label><label>What's going on?<textarea id="spMsg" rows="5" required></textarea></label>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Send</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err" id="spErr"></div></form>`);
@@ -103,47 +103,64 @@ function packPoints(id) {   // what's in a pack, from the server (the price page
   return pts;
 }
 const products = [
-  { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", icon: "central-pedal", pts: ["Assembled pedal with its footswitches and knobs", "Its software installed, with its P key", "Ships to the US and Canada"] },
-  { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", icon: "central-pedal-control", pts: ["Edit songs and settings, and send them to the pedal. Windows, macOS, Linux, iPad, iPhone and Android."] },
-  { id: "admin", tag: "A key", name: "Central Control", per: "per admin device", icon: "central-control", pts: ["For the main admin and admins: lights, slides, lyrics, cameras, in-ears, tracks and mixing. Windows, macOS and Linux."] },
-  { id: "user", tag: "U key", name: "Central Usage", per: "per user", icon: "central-usage", pts: ["For each musician: their instrument, lyrics, chord charts and in-ear mix, on a church device and a home one. Every platform."] },
-  { id: "user-pack", tag: "U key, church pack price", name: "Central Usage", per: "per user", icon: "central-usage", packOnly: true, pts: ["The same app, for churches with a church pack."] },
+  { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", icon: "central-pedal", desc: "This is the heart of it. Your pads, multitracks and click play from the floor, and every other app follows along.", pts: ["Built and tested by us, footswitches and knobs included", "Its software is already on it, with its P key", "Ships to the US and Canada"] },
+  { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", icon: "central-pedal-control", pts: ["Build your songs, pads and setlists at home, then send it all to the pedal. Windows, macOS, Linux, iPad, iPhone and Android."] },
+  { id: "admin", tag: "A key", name: "Central Control", per: "per admin computer", icon: "central-control", pts: ["For whoever runs the desk: lights, slides, lyrics, cameras, in-ears, tracks and the mix, all in one place. Windows, macOS and Linux."] },
+  { id: "user", tag: "U key", name: "Central Usage", per: "per musician", icon: "central-usage", pts: ["For each musician: their chart, the lyrics, their instrument and their own in-ear mix, at church and at home. Works on everything."] },
+  { id: "user-pack", tag: "U key, church pack price", name: "Central Usage", per: "per musician", icon: "central-usage", packOnly: true, pts: ["The same app, at the price for churches with a pack."] },
 ];
 const ALL = packs.concat(products);
 const priceOf = (id) => (cfg.products && cfg.products[id] ? cfg.products[id].cents / 100 : 0);
 const hasPack = () => !!(me && me.church && me.church.hasPack) || packs.some((p) => cart[p.id] > 0);
-const addBtn = (p, cls) => `<button class="btn${cls || ""}" data-add="${p.id}"${p.packOnly && !hasPack() ? " disabled title=\"Buy a church pack first\"" : ""}>${cart[p.id] ? "Add another" : "Add to cart"}</button>`;
+// the page's words: what edit mode saved for a key, or what's written here (edit.js keeps the saved words)
+const T = (key, text) => (window.SiteContent ? window.SiteContent.html(key, esc(text)) : esc(text));
+const ed = (key) => `data-edit="${key}"`;
+const priceTag = (id, per) => `<div class="price"><span data-price="${id}">$${priceOf(id)}</span><small>${esc(per)}</small></div>`;
+const addBtn = (p, cls) => `<button class="btn${cls || ""}" data-add="${p.id}"${p.packOnly && !hasPack() ? " disabled title=\"Add a church pack first\"" : ""}>${cart[p.id] ? "Add another" : "Add to cart"}</button>`;
 function pedalCard(p) {   // the built pedal: the wide row at the top of the store
-  return `<div class="pedal-row"><div class="art on-stage"><img src="/brand/glyph-central-pedal.svg" alt=""></div>
-    <div class="body"><div class="label">${esc(p.tag)}</div><h3 style="font-size:1.7rem">${esc(p.name)}</h3>
-    <p style="color:var(--ink-2)">The heart of the system. Your pads, multitracks and click play from the floor, and every other app follows it.</p>
-    <ul>${p.pts.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-    <div class="buyline"><div class="price">$${priceOf(p.id)}<small>${esc(p.per)}</small></div>${addBtn(p)}</div></div></div>`;
+  const k = "prod." + p.id;
+  return `<div class="pedal-row"><div class="art on-stage"><img src="${window.SiteContent ? window.SiteContent.img(k + ".img", "/brand/glyph-central-pedal.svg") : "/brand/glyph-central-pedal.svg"}" alt="Central Pedal" data-edit-img="${k}.img"></div>
+    <div class="body"><div class="label" ${ed(k + ".tag")}>${T(k + ".tag", p.tag)}</div><h3 style="font-size:1.7rem" ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3>
+    <p style="color:var(--ink-2)" ${ed(k + ".desc")}>${T(k + ".desc", p.desc)}</p>
+    <ul ${ed(k + ".pts")}>${window.SiteContent && window.SiteContent.has(k + ".pts") ? window.SiteContent.html(k + ".pts") : p.pts.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+    <div class="buyline">${priceTag(p.id, p.per)}${addBtn(p)}</div></div></div>`;
 }
 function packCard(p) {   // a church pack: one column of the packs panel
-  return `<div class="tier${p.feature ? " feature" : ""}">${p.feature ? `<div class="pick">Recommended</div>` : ""}
-    <h3>${esc(p.name)}</h3><div class="price">$${priceOf(p.id)}<small>one-time</small></div>
+  const k = "pack." + p.id;
+  return `<div class="tier${p.feature ? " feature" : ""}">${p.feature ? `<div class="pick" ${ed(k + ".pick")}>${T(k + ".pick", "Recommended")}</div>` : ""}
+    <h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3>${priceTag(p.id, "one-time")}
     <ul>${packPoints(p.id).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${addBtn(p, p.feature ? "" : " ghost")}</div>`;
 }
 function rowCard(p) {   // an app on its own: a row of the price list
-  return `<div class="pl-row"><img src="/brand/${p.icon}.svg" alt=""><div class="what"><span class="label">${esc(p.tag)}</span><h3>${esc(p.name)}</h3></div>
-    <p class="desc">${esc(p.pts.join(" "))}</p><div class="price">$${priceOf(p.id)}<small>${esc(p.per)}</small></div>${addBtn(p, " ghost")}</div>`;
+  const k = "prod." + p.id;
+  return `<div class="pl-row"><img src="/brand/${p.icon}.svg" alt=""><div class="what"><span class="label" ${ed(k + ".tag")}>${T(k + ".tag", p.tag)}</span><h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3></div>
+    <p class="desc" ${ed(k + ".desc")}>${T(k + ".desc", p.pts.join(" "))}</p>${priceTag(p.id, p.per)}${addBtn(p, " ghost")}</div>`;
 }
 function renderRack() {
   if (!cfg.products) return;
+  if (window.SiteContent && window.SiteContent.editing()) return;   // (not while the page is being edited)
   const shown = (p) => cfg.products[p.id] && !cfg.products[p.id].hidden;
   $("#pedalBuy").innerHTML = products.filter((p) => p.id === "pedal" && shown(p)).map(pedalCard).join("");
   $("#packs").innerHTML = packs.filter(shown).map(packCard).join("");
   $("#packs").hidden = !$("#packs").innerHTML;
   $("#rack").innerHTML = products.filter((p) => p.id !== "pedal" && shown(p) && (!p.packOnly || hasPack())).map(rowCard).join("") + servicesCard();
+  renderPlanPrice();
 }
 // Central Services: a monthly plan by the church's size (started from Account; not in the cart)
 function servicesCard() {
   const sp = cfg.servicesPlan; if (!sp) return "";
   const t = sp.tiers.slice().sort((a, b) => a.upTo - b.upTo), last = t[t.length - 1];
-  return `<div class="pl-row"><img src="/brand/central-services.svg" alt=""><div class="what"><span class="label">Whole church, monthly</span><h3>Central Services</h3></div>
-    <p class="desc">The schedule for every team, on every device. ${t.map((x) => `Up to ${x.upTo} people $${x.cents / 100}`).join(", ")}, then $${(sp.extraCents / 100).toFixed(2)} a month for each one past ${last.upTo}.</p>
+  return `<div class="pl-row"><img src="/brand/central-services.svg" alt=""><div class="what"><span class="label" ${ed("prod.services.tag")}>${T("prod.services.tag", "Whole church, monthly")}</span><h3 ${ed("prod.services.name")}>${T("prod.services.name", "Central Services")}</h3></div>
+    <p class="desc"><span ${ed("prod.services.desc")}>${T("prod.services.desc", "Who's serving, who's away and what you're playing, on everyone's phone.")}</span> ${t.map((x) => `Up to ${x.upTo} people $${x.cents / 100}`).join(", ")}, then $${(sp.extraCents / 100).toFixed(2)} a month for each one past ${last.upTo}.</p>
     <div class="price">$${t[0].cents / 100}<small>a month, from</small></div><a class="btn ghost" href="#account" id="svcStart">Start in your account</a></div>`;
+}
+// Central Tracks Unlimited: its price from the price list
+const subPrice = () => (cfg.subscription && cfg.subscription.cents ? cfg.subscription.cents / 100 : 77);
+const dollars = (n) => "$" + (Number.isInteger(n) ? n : n.toFixed(2));
+function renderPlanPrice() {
+  const el = $("#planPrice"); if (el) el.innerHTML = `<span data-price="subscription">${dollars(subPrice())}</span><small> / month</small>`;
+  const note = $("#exPoolNote"); if (note) note.textContent = "The pool part assumes 100 subscribers that month (a " + money(subPrice() * 100 * 0.5) + " pool).";
+  if (typeof renderSub === "function") renderSub(); if (typeof calc === "function") calc();
 }
 const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0);
 function updateCartBtn() { const n = cartCount(); $("#cartBtn").innerHTML = `Cart <span class="count">${n}</span>`; $("#cartBtn").classList.toggle("has", n > 0); }
@@ -153,7 +170,7 @@ let promo = null;   // the code in the cart: { code, percent } or { code, trial,
 $("#cartBtn").onclick = () => openCart();
 function openCart(note) {
   const ids = Object.keys(cart).filter((k) => cart[k] > 0);
-  if (!ids.length && !(promo && promo.trial)) return modal(`<h3>Your cart is empty</h3><p class="muted" style="margin:0">Add a pack, the pedal or keys from the store. Have a free trial code? Add anything, or type it here:</p>
+  if (!ids.length && !(promo && promo.trial)) return modal(`<h3>Your cart is empty</h3><p class="muted" style="margin:0">Pick a pack, the pedal or a few keys from the store. Got a free trial code? Type it here and you're off:</p>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1 1 140px;min-width:0">Code<input id="pcCode" placeholder="Discount or trial code" style="text-transform:uppercase"></label><button class="btn ghost" id="pcApply">Apply</button></div><div class="err" id="pcErr"></div><button class="btn" data-close>Close</button>`), wirePromo();
   let total = 0, saved = 0;
   const lines = ids.map((id) => {
@@ -180,7 +197,7 @@ function openCart(note) {
       try {
         const t = await api("POST", "/trial", { code: promo.code, church: needChurch ? $("#coChurch").value.trim() : undefined });
         promo = null; await refreshMe();
-        return modal(`<h3>Your free trial is on</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>: unlimited keys, Central Services and Central Tracks Unlimited.</p>
+        return modal(`<h3>Your free trial has started!</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>: unlimited keys, Central Services and Central Tracks Unlimited.</p>
           <p style="margin:0">Make keys as you need them: on the <b>Teams</b> card add your admins, users and Pedal Control people (each gets an email with their key), or press <b>+ Admin key</b>, <b>+ User key</b> or <b>+ Pedal Control key</b> on your church's page.</p>
           <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>.</p><a class="btn" href="#account" data-close>Go to my church</a>`);
       } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
@@ -208,7 +225,7 @@ function renderSub() {
   const on = !!(me && me.subscribed);
   $("#subStatus").textContent = on ? "Subscribed · unlimited adds" : "Not subscribed";
   $("#subStatus").classList.toggle("on", on);
-  $("#subBtn").textContent = on ? "Manage subscription" : "Subscribe for $77/mo";
+  $("#subBtn").textContent = on ? "Manage subscription" : "Subscribe for " + dollars(subPrice()) + " a month";
 }
 $("#subBtn").onclick = async () => {
   if (!me) return needSignIn("Sign in to subscribe to Central Tracks Unlimited.");
@@ -240,12 +257,12 @@ $("#tbody").addEventListener("click", async (e) => {
   if (!me) return needSignIn("Sign in to add or buy tracks.");
   const id = (s || b).dataset.store || (s || b).dataset.buy, t = tracks.find((x) => x.id === id);
   if (s) {
-    try { const r = await api("POST", "/tracks/" + id + "/add"); if (r._status === 402) return buyModal(t); t.owned = true; renderTracks(); toast("Added to your storage · open Central Tracks in the app to download it"); } catch (err) { toast(err.message); }
+    try { const r = await api("POST", "/tracks/" + id + "/add"); if (r._status === 402) return buyModal(t); t.owned = true; renderTracks(); toast("It's in your storage. Open Central Tracks in the app to download it."); } catch (err) { toast(err.message); }
   } else buyModal(t);
 });
 function buyModal(t) {
   modal(`<h3>Buy track</h3><div class="lines"><div><span>${esc(t.title)}</span><span>${money(t.price)}</span></div></div>
-    <p class="muted" style="margin:0">Or subscribe for $77/month to add every track.</p>
+    <p class="muted" style="margin:0">Or subscribe for ${dollars(subPrice())} a month and add every track.</p>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="buyGo">Buy ${money(t.price)}</button><button class="btn ghost" data-close>Cancel</button></div><div class="err" id="buyErr"></div>`);
   $("#buyGo").onclick = async () => {
     if (!cfg.payments) return paymentsSoon();
@@ -259,7 +276,7 @@ function renderTiers() { $("#tiers").innerHTML = [1, 2, 3, 4, 5].map((n) => `<di
 function setPrice() { $("#pPrice").value = grade ? money(TIER[grade]) : ""; $("#pubBtn").disabled = !grade; calc(); }
 function calc() {
   const per = (grade ? TIER[grade] : 0) * 0.75; $("#perBuy").textContent = money(per);
-  $("#exTotal").textContent = money(per * (+$("#exBuys").value || 0) + 3850 * Math.min(100, Math.max(0, +$("#exAdds").value || 0)) / 100);
+  $("#exTotal").textContent = money(per * (+$("#exBuys").value || 0) + subPrice() * 100 * 0.5 * Math.min(100, Math.max(0, +$("#exAdds").value || 0)) / 100);
 }
 ["#exBuys", "#exAdds"].forEach((s) => $(s).addEventListener("input", calc));
 
@@ -331,7 +348,7 @@ $("#pubForm").addEventListener("submit", async (e) => {
     grade = r.grade.stars; $("#gLabel").textContent = "Quality grade · final"; $("#gStars").innerHTML = starHtml(grade); showChecks(r.grade.checks, "text"); renderTiers(); calc();
     $("#pPrice").value = money(r.track.price);
     msg.textContent = "Published: " + r.track.title + " · " + grade + "★ · " + money(r.track.price) + (me.payoutsReady ? "" : " · set up payouts to get paid");
-    toast("Published to Central Tracks"); e.target.reset(); grade = 0; $("#pubBtn").disabled = true; loadTracks(); refreshMe();
+    toast("You're published! Your track is in Central Tracks."); e.target.reset(); grade = 0; $("#pubBtn").disabled = true; loadTracks(); refreshMe();
   } catch (err) { msg.textContent = err.message; $("#pubBtn").disabled = false; }
 });
 $("#payoutBtn").onclick = async () => {
@@ -348,10 +365,10 @@ function renderPayout() {
 
 // ---------------------------------------------------------------- account
 function signInForm(note) {
-  return `<div class="acct"><div class="card"><h3>Sign in</h3>${note ? `<p class="muted" style="margin:0">${esc(note)}</p>` : ""}
+  return `<div class="acct"><div class="card"><h3>Welcome back</h3>${note ? `<p class="muted" style="margin:0">${esc(note)}</p>` : ""}
     <form id="inForm" style="background:none;border:0;padding:0"><label>Email<input id="inEmail" type="email" autocomplete="username" required></label>
     <label>Password<input id="inPass" type="password" autocomplete="current-password" required></label><div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="btn">Sign in</button><button class="btn ghost small" type="button" id="forgotBtn">Forgot password?</button></div><div class="err" id="inErr"></div></form></div>
-    <div class="card"><h3>Make an account</h3><p class="muted" style="margin:0">Free. Use it to buy, subscribe, publish, and sign in to Central Tracks in the apps.</p>
+    <div class="card"><h3>New here? Make an account</h3><p class="muted" style="margin:0">It's free. You'll use it to order, set up your team, publish tracks and sign in to the apps.</p>
     <form id="upForm" style="background:none;border:0;padding:0"><label>Name<input id="upName" autocomplete="name"></label><label>Email<input id="upEmail" type="email" autocomplete="email" required></label>
     <label>Password (8+ characters)<input id="upPass" type="password" autocomplete="new-password" minlength="8" required></label>
     <div class="choice"><b style="font-size:.95rem">Your church</b>
@@ -369,7 +386,7 @@ async function renderAccount(note) {
   if (!me) {
     $("#acctTitle").textContent = "Sign in";
     body.innerHTML = signInForm(note);
-    $("#inForm").onsubmit = async (e) => { e.preventDefault(); try { setToken((await finishSignIn(await api("POST", "/login", { email: $("#inEmail").value, password: $("#inPass").value, device: deviceId() }))).token); await refreshMe(); toast("Signed in"); } catch (err) { $("#inErr").textContent = err.message; } };
+    $("#inForm").onsubmit = async (e) => { e.preventDefault(); try { setToken((await finishSignIn(await api("POST", "/login", { email: $("#inEmail").value, password: $("#inPass").value, device: deviceId() }))).token); await refreshMe(); toast("Welcome back!"); } catch (err) { $("#inErr").textContent = err.message; } };
     $("#forgotBtn").onclick = () => forgotPassword($("#inEmail").value);
     const chWay = () => (document.querySelector('[name="upCh"]:checked') || {}).value;
     document.querySelectorAll('[name="upCh"]').forEach((r) => (r.onchange = () => { $("#upCodeL").hidden = chWay() !== "join"; $("#upChurchL").hidden = chWay() !== "make"; }));
@@ -380,7 +397,7 @@ async function renderAccount(note) {
       try {
         const r = await finishSignIn(await api("POST", "/signup", { name: $("#upName").value, email: $("#upEmail").value, password: $("#upPass").value, device: deviceId(),
           churchCode: w === "join" ? $("#upCode").value.trim() : undefined, churchRole: $("#upRole").value, churchName: w === "make" ? $("#upChurch").value.trim() : undefined }));
-        setToken(r.token); await refreshMe(); toast(r.churchError ? r.churchError : "Account made · check your email to confirm it" + (r.church ? " · " + r.church : ""));
+        setToken(r.token); await refreshMe(); toast(r.churchError ? r.churchError : "Welcome! Check your email for a link to confirm your account." + (r.church ? " " + r.church + " is set up." : ""));
       } catch (err) { $("#upErr").textContent = err.message; }
     };
     return;
@@ -389,7 +406,7 @@ async function renderAccount(note) {
   body.innerHTML = `<div class="acct">${me.emailConfirmed ? "" : `<div class="card wide confirm-card"><h3>Confirm your email</h3><p style="margin:0">We sent a link to <b>${esc(me.email)}</b>. Your receipts, keys, invites and password resets go there, so checkout waits until it's confirmed.</p><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="cfAgain">Send it again</button></div></div>`}
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
     ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
-    <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited · $77/month" : "Not subscribed"}</div>
+    <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
       <a class="btn ghost small" href="${APPS_URL}" target="_blank" rel="noopener" style="justify-self:start">Download the apps</a></div>
     ${me.church ? `<div class="card" id="planCard"><h3>Central Services</h3><div class="muted">Loading…</div></div>` : ""}
@@ -398,8 +415,8 @@ async function renderAccount(note) {
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); renderPlan(); if (me.admin) { renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); }
-  if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "Already confirmed" : "Sent · check your inbox (and spam)"); } catch (e) { toast(e.message); } };
+  renderChurch(); renderTeams(); renderMe(); renderPlan(); if (me.admin) { renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); }
+  if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "You're already confirmed." : "Sent! Check your inbox, and your spam folder just in case."); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
     $("#myLib").innerHTML = lib.length ? lib.map((t) => `<div><b>${esc(t.title)}</b> <span class="muted">· ${esc(t.kind)}</span></div>`).join("") : "Nothing yet. Add or buy tracks from Central Tracks.";
@@ -499,7 +516,7 @@ function renderMe() {
       if (!r.step) { toast("Saved"); return refreshMe(); }
       const ask = (err) => {
         modal(`<h3>Confirm the new number</h3><p class="muted" style="margin:0">We texted a code to <b>${esc(r.to)}</b>.</p><form id="pcForm" style="background:none;border:0;padding:0"><label>Code<input id="pcCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required></label><div style="display:flex;gap:.5rem"><button class="btn">Confirm</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err">${esc(err || "")}</div></form>`);
-        $("#pcForm").onsubmit = async (e2) => { e2.preventDefault(); try { await api("POST", "/account/phone/confirm", { ticket: r.ticket, code: $("#pcCode").value }); closeModal(); toast("New phone saved · each device confirms with it at its next sign-in"); await refreshMe(); } catch (err2) { ask(err2.message); } };
+        $("#pcForm").onsubmit = async (e2) => { e2.preventDefault(); try { await api("POST", "/account/phone/confirm", { ticket: r.ticket, code: $("#pcCode").value }); closeModal(); toast("New phone saved. Your devices will text it a code next time you sign in."); await refreshMe(); } catch (err2) { ask(err2.message); } };
       };
       ask();
     } catch (err) { $("#meErr").textContent = err.message; }
@@ -540,10 +557,10 @@ async function renderChurch() {
       e.preventDefault(); const other = (document.querySelector('[name="chOwn"]:checked') || {}).value === "other";
       try {
         const j = await api("POST", "/church", { name: $("#chName").value, ownerEmail: other ? $("#chOEmail").value : undefined, ownerName: other ? $("#chOName").value : undefined });
-        await refreshMe(); toast(j.invite ? (j.invite.sent ? "Made · the main admin's invite is on its way" : "Made · copy the main admin's link from the Teams card") : "Your church's account is made");
+        await refreshMe(); toast(j.invite ? (j.invite.sent ? "Done. We've emailed the main admin their invite." : "Done. Copy the main admin's link from the Teams card.") : "Your church is set up!");
       } catch (err) { $("#chErr").textContent = err.message; }
     };
-    $("#chJoin").onsubmit = async (e) => { e.preventDefault(); try { const j = await api("POST", "/church/join", { code: $("#chCode").value, role: $("#chRole").value }); await refreshMe(); toast("You joined " + j.church); } catch (err) { $("#chErr").textContent = err.message; } };
+    $("#chJoin").onsubmit = async (e) => { e.preventDefault(); try { const j = await api("POST", "/church/join", { code: $("#chCode").value, role: $("#chRole").value }); await refreshMe(); toast("You're in! Welcome to " + j.church + "."); } catch (err) { $("#chErr").textContent = err.message; } };
     return;
   }
   const c = r.church, staff = c.role === "owner" || c.role === "admin", roleName = { owner: "main admin", admin: "admin", user: "user" }[c.role];
@@ -587,7 +604,7 @@ async function renderChurch() {
   if ($("#newCodes")) $("#newCodes").onclick = async () => { if (!confirm("Make new admin and user codes? The old ones stop working.")) return; try { await api("POST", "/church/codes"); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; } };
   el.querySelectorAll("[data-rel]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Release " + b.dataset.rel + "? The device using it stops working until a key is entered again.")) return;
-    try { await api("POST", "/church/release", { key: b.dataset.rel }); toast("Released · it can be used on another device"); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; }
+    try { await api("POST", "/church/release", { key: b.dataset.rel }); toast("Released. You can use that key on another device now."); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; }
   }));
 }
 // ---------------------------------------------------------------- Teams: Admins, Users, Pedal Control
@@ -624,7 +641,7 @@ async function renderTeams() {
     } catch (e) { teamNote = e.message; }
     renderTeams(); renderChurch();
   }));
-  el.querySelectorAll("[data-tresend]").forEach((b) => (b.onclick = async () => { try { const x = await api("POST", "/church/team/resend", { id: b.dataset.tresend }); toast(x.sent ? "Sent again" : "Email isn't set up: use Copy link"); renderTeams(); } catch (e) { toast(e.message); } }));
+  el.querySelectorAll("[data-tresend]").forEach((b) => (b.onclick = async () => { try { const x = await api("POST", "/church/team/resend", { id: b.dataset.tresend }); toast(x.sent ? "Sent again." : "Email isn't set up yet, so use Copy link."); renderTeams(); } catch (e) { toast(e.message); } }));
   el.querySelectorAll("[data-tcopy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.tcopy); toast("Invite link copied"); } catch (_) { prompt("Copy this invite link:", b.dataset.tcopy); } }));
   el.querySelectorAll("[data-tmove]").forEach((sel) => (sel.onchange = async () => {
     const to = sel.value, t = SECT.find((x) => x[0] === to); if (!t) return;
@@ -635,13 +652,13 @@ async function renderTeams() {
   }));
   el.querySelectorAll("[data-tremove]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Remove " + b.dataset.tname + "? Their key is free again right away, and their app stops asking for it at its next check.")) return;
-    try { await api("POST", "/church/team/remove", { id: b.dataset.tremove }); toast("Removed · their key is free"); renderTeams(); renderChurch(); } catch (e) { toast(e.message); }
+    try { await api("POST", "/church/team/remove", { id: b.dataset.tremove }); toast("Removed. Their key is free for someone else."); renderTeams(); renderChurch(); } catch (e) { toast(e.message); }
   }));
-  if ($("#ownForm")) $("#ownForm").onsubmit = async (e) => { e.preventDefault(); try { const x = await api("POST", "/church/owner", { name: $("#ownName").value, email: $("#ownEmail").value }); toast(x.sent ? "Invite sent" : "Email isn't set up: copy the link from the Teams card"); renderTeams(); } catch (err) { teamNote = err.message; renderTeams(); } };
+  if ($("#ownForm")) $("#ownForm").onsubmit = async (e) => { e.preventDefault(); try { const x = await api("POST", "/church/owner", { name: $("#ownName").value, email: $("#ownEmail").value }); toast(x.sent ? "Invite sent!" : "Email isn't set up yet, so copy the link from the Teams card."); renderTeams(); } catch (err) { teamNote = err.message; renderTeams(); } };
 }
 // ---------------------------------------------------------------- forgot password: an emailed link (an hour, once)
 function forgotPassword(email, back) {
-  modal(`<h3>Forgot password?</h3><p class="muted" style="margin:0">Type your account's email. We'll send a link to set a new password.</p>
+  modal(`<h3>Forgot your password?</h3><p class="muted" style="margin:0">It happens to all of us. Type your account's email and we'll send you a link to set a new one.</p>
     <form id="fpForm" style="background:none;border:0;padding:0"><label>Email<input id="fpEmail" type="email" autocomplete="username" required value="${esc(email || "")}"></label>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Send the link</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err" id="fpErr"></div></form>`);
   $("#fpForm").onsubmit = async (e) => {
@@ -664,7 +681,7 @@ async function showReset(tok) {
     if ($("#rsPass").value !== $("#rsPass2").value) { $("#rsErr").textContent = "The two passwords aren't the same."; return; }
     try {
       const r = await finishSignIn(await api("POST", "/password/reset", { token: tok, password: $("#rsPass").value, device: deviceId() }));
-      setToken(r.token); await refreshMe(); closeModal(); toast("New password saved · you're signed in");
+      setToken(r.token); await refreshMe(); closeModal(); toast("New password saved, and you're signed in.");
       const back = sessionStorage.getItem("ma-after-reset"); sessionStorage.removeItem("ma-after-reset");
       history.replaceState(null, "", back || "#account"); if (back) handleHash();
     } catch (err) { $("#rsErr").textContent = err.message; }
@@ -713,7 +730,7 @@ async function renderStaff(qs) {
   let t = 0; $("#mkQ").oninput = (e) => { clearTimeout(t); t = setTimeout(() => renderStaff(e.target.value), 300); };
   el.querySelectorAll("[data-sk]").forEach((b) => (b.onclick = async () => { try { await api("POST", "/admin/keys/" + encodeURIComponent(b.dataset.k) + "/" + b.dataset.sk); renderStaff(qs); } catch (e) { toast(e.message); } }));
 }
-$("#signOut").onclick = () => { setToken(null); me = null; renderAll(); toast("Signed out"); };
+$("#signOut").onclick = () => { setToken(null); me = null; renderAll(); toast("You're signed out. See you soon."); };
 
 async function refreshMe() {
   if (!token) { me = null; } else { try { me = await api("GET", "/me"); } catch { me = null; } }
@@ -730,7 +747,7 @@ async function handleHash() {
   if (h === "support") { history.replaceState(null, "", location.pathname); return supportForm(); }
   if (h.startsWith("order-done-")) {
     const session = h.slice(11); for (const k in cart) delete cart[k]; updateCartBtn();
-    modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your order is confirmed. Getting your license keys…</p>`);
+    modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your order is in. We're getting your keys ready…</p>`);
     for (let i = 0; i < 15; i++) {
       const o = await api("GET", "/orders/" + encodeURIComponent(session)).catch(() => ({ pending: true }));
       if (!o.pending) {
@@ -741,13 +758,24 @@ async function handleHash() {
       }
       await new Promise((r) => setTimeout(r, 2000));
     }
-    modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your payment went through. Your license keys are on the way; refresh this page in a minute to see them.</p><button class="btn" data-close>OK</button>`);
-  } else if (h === "subscribed") { toast("Welcome to Central Tracks Unlimited"); setTimeout(refreshMe, 2500); }
-  else if (h.startsWith("bought-")) { toast("Bought · it's in your storage"); setTimeout(loadTracks, 2500); }
-  else if (h === "renewed") { toast("Renewed · ten more releases of updates"); setTimeout(refreshMe, 2500); }
-  else if (h === "services-on") { toast("Central Services is on"); setTimeout(refreshMe, 2500); }
+    modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your payment went through. Your keys are on their way: refresh this page in a minute and you'll see them.</p><button class="btn" data-close>OK</button>`);
+  } else if (h === "subscribed") { toast("Welcome to Central Tracks Unlimited! Add anything you like."); setTimeout(refreshMe, 2500); }
+  else if (h.startsWith("bought-")) { toast("Thanks! It's in your storage now."); setTimeout(loadTracks, 2500); }
+  else if (h === "renewed") { toast("Renewed. You've got ten more releases of updates."); setTimeout(refreshMe, 2500); }
+  else if (h === "services-on") { toast("Central Services is on. Your team can sign in now."); setTimeout(refreshMe, 2500); }
 }
 
+// ---------------------------------------------------------------- staff: who can edit the website
+async function renderEditors() {
+  let host = $("#editorsCard"); if (!host) { $("#acctBody .acct").insertAdjacentHTML("beforeend", `<div class="card wide" id="editorsCard"></div>`); host = $("#editorsCard"); }
+  let r; try { r = await api("GET", "/admin/editors"); } catch (e) { host.innerHTML = `<h3>Website editors</h3><div class="err">${esc(e.message)}</div>`; return; }
+  host.innerHTML = `<h3>Website editors</h3><p class="muted" style="margin:0;font-size:.92rem">You and the rest of the Motion Audio staff can always edit the website: sign in, then press <b>Edit this page</b> at the bottom left. Add other people here to let them change the words, pictures and sections too. Prices stay with staff.</p>
+    <div>${r.emails.length ? r.emails.map((e) => `<div class="tm"><span>${esc(e)}</span><button class="btn small ghost" data-ered="${esc(e)}">Remove</button></div>`).join("") : '<span class="muted">No one else yet.</span>'}</div>
+    <form id="edForm" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1 1 220px">Their email (the one they sign in with)<input id="edEmail" type="email" required></label><button class="btn small">Add editor</button></form><div class="err" id="edErr"></div>`;
+  const save = async (emails) => { try { await api("POST", "/admin/editors", { emails }); renderEditors(); toast("Saved"); } catch (e) { $("#edErr").textContent = e.message; } };
+  host.querySelectorAll("[data-ered]").forEach((b) => (b.onclick = () => save(r.emails.filter((x) => x !== b.dataset.ered))));
+  $("#edForm").onsubmit = (e) => { e.preventDefault(); save(r.emails.concat($("#edEmail").value.trim())); };
+}
 // ---------------------------------------------------------------- hero: pad swells
 // Overlapping pad envelopes in brass: they swell in once when the page opens, then breathe slowly.
 (function () {
@@ -777,6 +805,8 @@ async function handleHash() {
 })();
 
 renderTiers(); setPrice();
-api("GET", "/config").then((c) => { cfg = c; renderRack(); }).catch(() => {});
+window.refreshConfig = () => api("GET", "/config").then((c) => { cfg = c; renderRack(); }).catch(() => {});
+window.refreshConfig();
+document.addEventListener("sitecontent", () => renderRack());
 refreshMe().then(handleHash);
 addEventListener("hashchange", handleHash);

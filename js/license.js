@@ -115,12 +115,12 @@
     return window.PPTouchWifi.wifiHtml(null, ui.wifi || null) || "";
   }
   function html() {
-    var s = ui.step, kind = KIND_OF[app], head = '<h2>' + esc(NAME_OF[app] || "Central") + (st && st.blocked && s === 2 ? " - enter a key" : " - let's set it up") + "</h2>" +
+    var s = ui.step, kind = KIND_OF[app], head = '<h2>' + esc(NAME_OF[app] || "Central") + (st && st.blocked && s === 2 ? " - enter a key" : ": let’s get you set up") + "</h2>" +
       '<div class="lw-steps">' + STEPS.map(function (n, i) { return '<span class="' + (i === s ? "on" : i < s ? "done" : "") + '">' + (i < s ? "✓ " : (i + 1) + ". ") + n + "</span>"; }).join("") + "</div>";
     var body = "", btns = "";
     if (s === 0) {
-      body = ui.net === true ? '<p class="ok">✓ Connected to the internet.</p>' : ui.net === false ? (navigator.onLine === false ? '<p class="bad">Not connected to the internet yet.</p>' + wifiPanel()
-        : '<p class="bad">Can’t reach the Motion Audio website.</p><p class="muted">Check that this ' + (app === "pedal" ? "pedal" : "device") + ' is on the internet. If it is, the website may be busy: try again in a minute.</p>' + (app === "pedal" ? wifiPanel() : "")) : "<p>Checking the internet…</p>";
+      body = ui.net === true ? '<p class="ok">✓ You’re online.</p>' : ui.net === false ? (navigator.onLine === false ? '<p class="bad">We can’t see the internet from here yet.</p>' + wifiPanel()
+        : '<p class="bad">We can’t reach the Motion Audio website right now.</p><p class="muted">Check that this ' + (app === "pedal" ? "pedal" : "device") + ' is on the internet. If it is, we might be busy for a moment: give it a minute and try again.</p>' + (app === "pedal" ? wifiPanel() : "")) : "<p>Checking the internet…</p>";
       btns = (ui.net === false ? '<button data-lw="retry">Try again</button>' : "") + '<button class="primary" data-lw="next"' + (ui.net === true ? "" : " disabled") + ">Next</button>";
     } else if (s === 1) {
       body = '<label>Your church or production’s name<input id="lwProd" value="' + esc((st && st.production) || opts.production || "") + '" placeholder="Grace Church" autocomplete="organization"></label>' +
@@ -130,11 +130,11 @@
       body = (st && st.blocked ? '<p class="bad">' + esc(st.blocked) + "</p>" : "") +
         '<label><span>License key - it starts with <b>' + kind + "</b> · " + esc({ P: "Central Pedal / Central Pedal Control", A: "Central Control (admins)", U: "Central Usage (users)" }[kind]) + '</span><input id="lwKey" class="lw-key" maxlength="29" value="' + esc(pretty(ui.key || (st && st.key) || opts.presetKey || "")) + '" placeholder="' + kind + 'XXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"></label>' +
         '<label>This device’s name (so you know it on the website)<input id="lwDev" value="' + esc(ui.devName || (st && st.deviceName) || opts.deviceName || NAME_OF[app]) + '"></label>' +
-        '<p class="muted">The key is in the email from your church and on your church’s page on the website. ' + (kind === "A" || app === "pedal" ? "It works on one device at a time" : "It works on two devices (for example the church’s and your own) with the same account and the same settings") + '; Settings → License → Release key frees a device for another.</p>';
+        '<p class="muted">Your key is in the email your church sent you, and on your church’s page on our website. ' + (kind === "A" || app === "pedal" ? "It works on one device at a time" : "It works on two devices (for example the church’s and your own) with the same account and the same settings") + '; Settings → License → Release key frees a device for another.</p>';
       btns = '<button data-lw="back">Back</button><button class="primary" data-lw="key"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Checking…" : "Use this key") + "</button>";
     } else if (s === 3 && ui.two) {   // an admin account: the phone (first time), then the code sent to it
       var t = ui.two;
-      body = t.step === "phone" ? '<p>You’re an admin, so signing in on a new device also takes a code sent to your phone. Which mobile number should get it?</p><label>Mobile number<input id="lwPhone" type="tel" autocomplete="tel" placeholder="555-123-4567"></label>'
+      body = t.step === "phone" ? '<p>Because you look after your church’s account, a new device needs a code from your phone too. Which mobile number should we text?</p><label>Mobile number<input id="lwPhone" type="tel" autocomplete="tel" placeholder="555-123-4567"></label>'
         : '<p>We ' + (t.by === "email" ? "emailed" : "texted") + " a 6-digit code to <b>" + esc(t.to) + "</b>" + (t.both ? " and emailed another to you (adding a phone takes both)" : "") + '. They work for 10 minutes.</p><label>' + (t.both ? "Code from the text" : "Code") + '<input id="lwCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" class="lw-key"></label>' +
           (t.both ? '<label>Code from the email<input id="lwECode" inputmode="numeric" maxlength="7" class="lw-key"></label>' : "");
       btns = '<button data-lw="tcancel">Back</button>' + (t.step === "code" ? '<button data-lw="tagain"' + (ui.busy ? " disabled" : "") + ">Send again</button>" : "") + '<button class="primary" data-lw="' + (t.step === "phone" ? "tphone" : "tcode") + '"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "One moment…" : t.step === "phone" ? "Send the code" : "Sign in") + "</button>";
@@ -259,7 +259,7 @@
       (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p>" +
         '<p class="muted">Key <code>' + esc(s.key ? s.key.slice(0, 4) + "-••••-••••-" + s.key.slice(-4) : "") + "</code>" + (s.church ? " · " + esc(s.church) : "") + (s.production ? " · " + esc(s.production) : "") +
         " · this device: " + esc(s.deviceName || "") + " · checked " + new Date(s.okAt).toLocaleDateString() + " (works offline " + daysLeft() + " more days)" + (s.account && s.account.email ? " · account " + esc(s.account.email) : "") + "</p>" +
-        (s.trial && s.expiresAt ? '<p class="muted">Free trial until ' + esc(new Date(s.expiresAt).toLocaleDateString()) + ". Then enter a key your church bought; nothing here is lost.</p>"
+        (s.trial && s.expiresAt ? '<p class="muted">Free trial until ' + esc(new Date(s.expiresAt).toLocaleDateString()) + ". After that, enter a key your church bought. Everything you made here stays.</p>"
           : s.kind === "P" || s.updatesUntilText === "forever" ? '<p class="muted">Updates: forever.</p>'
           : s.updatesUntilText ? '<p class="muted">Updates through version ' + esc(s.updatesUntilText) + '. After that this version keeps working; renew the key ($20) on the website for ten more releases.</p>' : "") +
         '<div class="row"><button data-lic="release">Release key</button>' + (s.account && s.account.email ? '<button data-lic="signout">Sign out of the account</button>' : '<button data-lic="account">Sign in</button>') + "</div>" +
@@ -280,12 +280,12 @@
   }
   function supportBox(note) {
     var s = st || {}, email = (s.account && s.account.email) || "";
-    mini('<h2>Contact support</h2><p class="muted">' + esc(note || "Tell us what’s going on. We answer by email.") + '</p><label>Your email<input id="spEmail" type="email" value="' + esc(email) + '"></label><label>About<input id="spSubject" placeholder="Pairing, keys, sound…"></label><label>What’s going on?<textarea id="spMsg" rows="5"></textarea></label><p class="bad" id="spErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary" data-mini="send">Send</button></div>',
+    mini('<h2>Talk to us</h2><p class="muted">' + esc(note || "Tell us what’s going on. A real person on our team reads every message and writes back by email.") + '</p><label>Your email<input id="spEmail" type="email" value="' + esc(email) + '"></label><label>About<input id="spSubject" placeholder="Pairing, keys, sound…"></label><label>What’s going on?<textarea id="spMsg" rows="5"></textarea></label><p class="bad" id="spErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary" data-mini="send">Send</button></div>',
       async function (a, d) {
         if (a !== "send") return;
         try {
           var r = await call("/support", { email: d.querySelector("#spEmail").value, subject: d.querySelector("#spSubject").value, message: d.querySelector("#spMsg").value, app: NAME_OF[app] || "", version: appVer, platform: navigator.userAgent.slice(0, 120) }, token());
-          d.querySelector(".lw").innerHTML = '<h2>Thanks</h2><p class="ok">' + esc(r.message) + '</p><div class="row"><button class="primary" data-mini="close">OK</button></div>';
+          d.querySelector(".lw").innerHTML = '<h2>Thanks, we’ve got it</h2><p class="ok">' + esc(r.message) + '</p><div class="row"><button class="primary" data-mini="close">OK</button></div>';
         } catch (e) { d.querySelector("#spErr").textContent = e.message; }
       });
   }
@@ -297,7 +297,7 @@
         try {
           await call("/account/delete", { password: d.querySelector("#delPw").value, closeChurch: a === "delclose" }, token());
           var keep = { production: s.production }; st = keep; save(st);
-          d.querySelector(".lw").innerHTML = '<h2>Your account is deleted</h2><p>Your details are gone and your keys are free. A confirmation is in your email.</p><div class="row"><button class="primary" data-mini="close">OK</button></div>';
+          d.querySelector(".lw").innerHTML = '<h2>Your account is deleted</h2><p>Your details are gone and your keys are free for others. We’ve emailed you a confirmation. Thanks for being with us.</p><div class="row"><button class="primary" data-mini="close">OK</button></div>';
           if (opts.onChange) try { opts.onChange(); } catch (_) { }
           d.addEventListener("close", function () { ui.step = 2; open(); });
         } catch (e) {

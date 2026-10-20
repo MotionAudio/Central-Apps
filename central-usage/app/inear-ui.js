@@ -98,8 +98,8 @@
     function bar(v) { var d = v > 0 ? 20 * Math.log10(v) : -90; return Math.max(0, Math.min(100, (d + 60) / 60 * 100)); }
     function drawMeters() {
       if (!meters) return;
-      el.querySelectorAll(".ie-ch").forEach(function (row) { var v = meters.in && meters.in[Number(row.dataset.k)] || 0; row.querySelector(".ie-meter i").style.width = bar(v) + "%"; });
-      var mm = el.querySelectorAll(".ie-mm i"); if (mm.length && meters.mine) { mm[0].style.width = bar(meters.mine[0]) + "%"; mm[1].style.width = bar(meters.mine[1]) + "%"; }
+      el.querySelectorAll(".ie-ch").forEach(function (row) { var v = meters.in && meters.in[Number(row.dataset.k)] || 0; row.querySelector(".ie-meter i").style.setProperty("--v", bar(v) + "%"); });
+      var mm = el.querySelectorAll(".ie-mm i"); if (mm.length && meters.mine) { mm[0].style.setProperty("--v", bar(meters.mine[0]) + "%"); mm[1].style.setProperty("--v", bar(meters.mine[1]) + "%"); }
       var st = el.querySelector(".ie-stats"); if (st && player) { var s = player.stats(); st.textContent = s.bufferMs != null ? "buffer " + s.bufferMs + " ms" + (s.outputMs ? " + output " + s.outputMs + " ms" : "") + (s.underruns ? " · " + s.underruns + " gaps" : "") : ""; }
     }
     connect(); render();

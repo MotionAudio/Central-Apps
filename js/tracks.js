@@ -1129,40 +1129,49 @@
     drawTimeline();
   }
   var tlCanvas = null;
+  function rrect(ctx, x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2))); else ctx.rect(x, y, w, h); }
+  function cssVar(n, d) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d; }
   function drawTimeline() {
     var c = $("#trTimeline"), s = song(), t = s && data(s); if (!c) return;
-    var g = PP.graphGeometry(c), ctx = g.ctx, W = g.width, H = g.height; ctx.clearRect(0, 0, W, H);
-    if (!t || !t.duration) { ctx.fillStyle = "rgba(155,178,201,.5)"; ctx.font = "13px system-ui"; ctx.fillText(s ? "No tracks yet" : "No song", 12, H / 2); return; }
-    var dur = t.duration, x = function (tm) { return tm / dur * W; };
-    // sections (the standard colours, Settings → Appearance) and the whole-song waveform in each section's colour
+    var g = PP.graphGeometry(c), ctx = g.ctx, W = g.width, H = g.height, F = '"Archivo", system-ui, sans-serif'; ctx.clearRect(0, 0, W, H);
+    var bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "rgba(255,255,255,.025)"); bg.addColorStop(1, "rgba(0,0,0,.25)"); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    if (!t || !t.duration) { ctx.fillStyle = "rgba(236,231,221,.45)"; ctx.font = "500 13px " + F; ctx.textAlign = "center"; ctx.fillText(s ? "No tracks yet" : "No song", W / 2, H / 2 + 4); ctx.textAlign = "left"; return; }
+    var dur = t.duration, x = function (tm) { return tm / dur * W; }, top = 20, bot = H - 10;
     var sig = t.stems.map(function (q) { return q.id + q.role + (q.mute ? 1 : 0) + (q.gain == null ? 1 : Math.round(q.gain * 20)); }).join("|");
     if ((t.overviewMix !== 2 || t._ovSig !== sig) && t.stems.length) { refreshOverview(t); t._ovSig = sig; }
     var secs = sectionsOf(s), C = window.PPColors, col = function (q) { return C ? C.section(q.sec.name) : "#5a7896"; };
-    secs.forEach(function (q, i) { ctx.fillStyle = col(q) + (i === state.section ? "40" : "26"); ctx.fillRect(x(q.start), 0, Math.max(1, x(q.end) - x(q.start)), H); ctx.fillStyle = col(q); ctx.fillRect(x(q.start), 0, Math.max(1, x(q.end) - x(q.start)), 3); });
-    var ov = t.overview || [], n = ov.length, mid = H / 2 + 6, si = 0, playedX = x(state.pos), waveC = getComputedStyle(document.documentElement).getPropertyValue("--wave").trim() || "#ecf7ff";
-    for (var i = 0; i < n; i++) {
-      var tm = i / n * dur; while (si < secs.length - 1 && tm >= secs[si].end) si++;
-      var bx = i / n * W, h = Math.max(1, ov[i] * (H - 20) * .92), q = secs[si];
-      ctx.fillStyle = q && tm >= q.start ? col(q) : waveC; ctx.globalAlpha = bx < playedX ? 1 : .62;
-      ctx.fillRect(bx, mid - h / 2, Math.max(1, W / n - .4), h);
+    // sections: a soft tint (stronger on the one playing) and a rounded chip with the name
+    secs.forEach(function (q, i) {
+      var x1 = x(q.start), w = Math.max(1, x(q.end) - x1), cur = i === state.section;
+      ctx.fillStyle = col(q); ctx.globalAlpha = cur ? 0.13 : 0.06; ctx.fillRect(x1, top, w - 1, H - top); ctx.globalAlpha = cur ? 1 : 0.82;
+      rrect(ctx, x1 + 1, 3, w - 3, 14, 4); ctx.fill(); ctx.globalAlpha = 1;
+      if (w > 30) { ctx.save(); ctx.beginPath(); ctx.rect(x1 + 1, 0, w - 6, 18); ctx.clip(); ctx.fillStyle = "rgba(10,11,13,.88)"; ctx.font = "600 10.5px " + F; ctx.fillText(q.sec.name, x1 + 7, 13.5); ctx.restore(); }
+    });
+    // bars: hairlines, stronger every 4
+    var gr = grid(s);
+    if (gr) { var every = gr.bars.length > 200 ? 4 : 1; for (var b = 0; b < gr.bars.length; b += every) { var bx = Math.round(x(gr.bars[b])) + 0.5; if (bx > W) break; ctx.fillStyle = b % 4 === 0 ? "rgba(236,231,221,.10)" : "rgba(236,231,221,.04)"; ctx.fillRect(bx, top, 1, H - top); } }
+    // the waveform: a smooth mirrored envelope in each section's colour, lit where it has played
+    var ov = t.overview || [], n = ov.length, mid = (top + bot) / 2, amp = (bot - top) / 2, playedX = x(state.pos), waveC = cssVar("--wave", "#ece7dd");
+    if (n) {
+      var env = function () { ctx.beginPath(); ctx.moveTo(0, mid); for (var i = 0; i < n; i++) ctx.lineTo(i / (n - 1 || 1) * W, mid - Math.max(0.5, ov[i] * amp * 0.95)); for (var j = n - 1; j >= 0; j--) ctx.lineTo(j / (n - 1 || 1) * W, mid + Math.max(0.5, ov[j] * amp * 0.95)); ctx.closePath(); };
+      var paint = function (x1, x2, color) { ctx.save(); ctx.beginPath(); ctx.rect(x1, 0, x2 - x1, H); ctx.clip(); var gg = ctx.createLinearGradient(0, mid - amp, 0, mid + amp); gg.addColorStop(0, color); gg.addColorStop(0.5, color + "99"); gg.addColorStop(1, color); env(); ctx.fillStyle = gg; ctx.fill(); ctx.restore(); };
+      var hex = function (cl) { return /^#[0-9a-f]{6}$/i.test(cl) ? cl : "#ece7dd"; };
+      if (secs.length) { if (secs[0].start > 0) paint(0, x(secs[0].start), hex(waveC)); secs.forEach(function (q) { paint(x(q.start), x(q.end), hex(col(q))); }); } else paint(0, W, hex(waveC));
+      // not played yet: dimmed
+      ctx.fillStyle = "rgba(14,16,19,.5)"; ctx.fillRect(playedX, top, W - playedX, bot - top);
+      ctx.fillStyle = "rgba(236,231,221,.14)"; ctx.fillRect(0, Math.round(mid), W, 1);
     }
-    ctx.globalAlpha = 1;
-    // bars
-    var gr = grid(s); ctx.strokeStyle = "rgba(255,255,255,.18)"; ctx.lineWidth = 1;
-    if (gr) { var every = gr.bars.length > 200 ? 4 : 1; for (var b = 0; b < gr.bars.length; b += every) { var bx = x(gr.bars[b]); if (bx > W) break; ctx.beginPath(); ctx.moveTo(bx, 0); ctx.lineTo(bx, H * .18); ctx.stroke(); } }
-    // hits
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--hit").trim() || "#ffd765"; t.hits.forEach(function (h) { ctx.fillRect(x(h) - 1, H - 6, 2, 6); });
-    // loop
-    if (state.loop >= 0 && secs[state.loop]) { var q2 = secs[state.loop]; ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e2c27e"; ctx.lineWidth = 2; ctx.strokeRect(x(q2.start) + 1, 1, x(q2.end) - x(q2.start) - 2, H - 2); }
-    if (ab.a != null) { ctx.fillStyle = "rgba(255,215,101,.9)"; ctx.fillRect(x(ab.a) - 1, 0, 2, H); }
-    if (ab.b != null) { ctx.fillStyle = "rgba(255,215,101,.9)"; ctx.fillRect(x(ab.b) - 1, 0, 2, H); }
-    if (ab.on && ab.a != null && ab.b != null) { ctx.fillStyle = "rgba(255,215,101,.14)"; ctx.fillRect(x(ab.a), 0, x(ab.b) - x(ab.a), H); }
-    // section names
-    ctx.fillStyle = "rgba(236,247,255,.9)"; ctx.font = "bold 11px system-ui";
-    secs.forEach(function (q) { var w = x(q.end) - x(q.start); if (w > 34) ctx.fillText(q.sec.name.slice(0, Math.floor(w / 7)), x(q.start) + 4, 13); });
-    // playhead
-    var px = x(state.pos); ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--playhead").trim() || "#fff"; ctx.fillRect(px - 1, 0, 2, H); ctx.beginPath(); ctx.moveTo(px - 6, 0); ctx.lineTo(px + 6, 0); ctx.lineTo(px, 7); ctx.fill();
-    if (pendingJump) { var jx = x(pendingJump.time); ctx.fillStyle = "#ffd765"; ctx.fillRect(jx - 1, 0, 2, H); }
+    // hits: gold diamonds along the bottom
+    var hitC = cssVar("--hit", "#f5cf72"); ctx.fillStyle = hitC; t.hits.forEach(function (h) { var hx = x(h); ctx.beginPath(); ctx.moveTo(hx, H - 8); ctx.lineTo(hx + 3.5, H - 4.5); ctx.lineTo(hx, H - 1); ctx.lineTo(hx - 3.5, H - 4.5); ctx.closePath(); ctx.fill(); });
+    // the section on repeat, and A / B
+    var acc = cssVar("--accent", "#e2c27e");
+    if (state.loop >= 0 && secs[state.loop]) { var q2 = secs[state.loop]; ctx.strokeStyle = acc; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); rrect(ctx, x(q2.start) + 1, 1, x(q2.end) - x(q2.start) - 2, H - 2, 6); ctx.stroke(); ctx.setLineDash([]); }
+    if (ab.on && ab.a != null && ab.b != null) { ctx.fillStyle = "rgba(245,207,114,.12)"; ctx.fillRect(x(ab.a), 0, x(ab.b) - x(ab.a), H); }
+    [["A", ab.a], ["B", ab.b]].forEach(function (m) { if (m[1] == null) return; var mx = x(m[1]); ctx.fillStyle = hitC; ctx.fillRect(mx - 1, 0, 2, H); rrect(ctx, mx - 7, H - 16, 14, 14, 3); ctx.fill(); ctx.fillStyle = "#1a1408"; ctx.font = "700 10px " + F; ctx.textAlign = "center"; ctx.fillText(m[0], mx, H - 5); ctx.textAlign = "left"; });
+    // the playhead: a line with a glow and a head
+    var px = x(state.pos), ph = cssVar("--playhead", "#ffffff");
+    ctx.save(); ctx.shadowColor = "rgba(255,255,255,.7)"; ctx.shadowBlur = 8; ctx.fillStyle = ph; ctx.fillRect(px - 1, 0, 2, H); ctx.beginPath(); ctx.moveTo(px - 6, 0); ctx.lineTo(px + 6, 0); ctx.lineTo(px, 7); ctx.closePath(); ctx.fill(); ctx.restore();
+    if (pendingJump) { var jx = x(pendingJump.time); ctx.fillStyle = hitC; ctx.setLineDash([3, 3]); ctx.fillRect(jx - 1, 0, 2, H); ctx.setLineDash([]); }
   }
   function timelinePointer(e) {
     var c = $("#trTimeline"), s = song(); if (!s || !data(s).duration) return;

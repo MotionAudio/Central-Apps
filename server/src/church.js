@@ -55,7 +55,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     await syncChurchCustomer(c.id);
     const who = req.user.name || req.user.email;
     await sendMail(m.email, "You're now the main admin of " + c.name, "Hi" + (m.name ? " " + m.name : "") + ",\n\n" + who + " made you the main admin of " + c.name + " on Motion Audio. You can now change people's roles, add and remove people, and manage the church's billing (Account on the website).\n\nMotion Audio\n",
-      "<div style=\"font:15px/1.5 system-ui,sans-serif\"><p>Hi" + (m.name ? " " + escHtml(m.name) : "") + ",</p><p>" + escHtml(who) + " made you the main admin of <b>" + escHtml(c.name) + "</b> on Motion Audio. You can now change people's roles, add and remove people, and manage the church's billing (Account on the website).</p><p>Motion Audio</p></div>");
+      "<div style=\"font:15px/1.5 system-ui,sans-serif\"><p>Hi" + (m.name ? " " + escHtml(m.name) : "") + ",</p><p>" + escHtml(who) + " made you the main admin of <b>" + escHtml(c.name) + "</b> on Motion Audio. You can now change people's roles, add and remove people, and manage the church's billing (Account on the website).</p><p>Talk soon,<br>The Motion Audio team</p></div>");
     res.json({ ok: true, owner: m.email });
   }));
 }

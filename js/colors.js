@@ -20,7 +20,7 @@
     ["outro", "Outro / ending", /outro|ending|end\b|coda/i, "#4f6bd1"],
     ["other", "Anything else", /.*/, "#5a7896"]
   ];
-  var PAD_DEFAULTS = ["#5de6b0", "#75adff", "#d7a8ff", "#ffb45c", "#ff7a8a", "#4fd1e8", "#e7c53c", "#9aa7ff"];
+  var PAD_DEFAULTS = ["#e2c27e", "#7fb0e0", "#c4a3ec", "#ef9f62", "#ec7f8c", "#5fcac0", "#d8c25a", "#93a2ef"];   // (9.1.3: jewel tones for the graphite look)
   // screen colours: [css variable, label, default]
   var SCREEN = [
     ["bg", "Background", "#111317"], ["panel", "Panels", "#1a1d22"], ["panel2", "Buttons", "#23272e"], ["line", "Lines / borders", "#343a44"],

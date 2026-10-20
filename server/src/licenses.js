@@ -107,20 +107,20 @@ async function sendInvite(inv, church, how) {
   const subject = (how === "reminder" ? "Reminder: " : "") + (owner ? "You're the main admin of " + church.name + " - Motion Audio"
     : how === "moved" ? church.name + " moved you to " + s.app : church.name + " added you to the team - " + s.app);
   const lead = how === "moved" ? church.name + " moved you to " + s.app + (inv.role_text ? " (" + inv.role_text + ")" : "") + ". Your old key no longer works; here's your new one."
-    : church.name + " added you" + (inv.role_text ? " as " + inv.role_text : "") + "." + (how === "reminder" ? " Your key is waiting for you." : "");
+    : "Welcome to the team! " + church.name + " added you" + (inv.role_text ? " as " + inv.role_text : "") + ", and we've got everything ready for you." + (how === "reminder" ? " Your key is waiting for you." : "");
   const text = (inv.name ? "Hi " + inv.name + ",\n\n" : "Hi,\n\n") + (owner
-    ? church.name + " made you its main admin on Motion Audio." + (how === "reminder" ? " The invite is still waiting." : "") + "\n\n1. Make your account (or sign in): " + link + "\n"
+    ? church.name + " made you its main admin on Motion Audio. Thanks for taking care of your team." + (how === "reminder" ? " The invite is still waiting for you." : "") + "\n\n1. Make your account (or sign in): " + link + "\n"
     : lead + "\n\n1. " + step1 + ": " + link + "\n2. Download " + s.app + ": " + APPS_URL + "#" + s.anchor +
       "\n3. Open it, connect to Wi-Fi, and enter your key: " + key + "\n" + (inv.section === "user" || inv.section === "pedal" ? "\nYour key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.\n" : "")) +
     (church.has_services ? "\nYour church's schedule is in Central Services: " + APPS_URL + "#central-services - sign in with the same account.\n" : "") +
-    "\nMotion Audio\n";
+    "\nTalk soon,\nThe Motion Audio team\n";
   const html = '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px">' + (inv.name ? "<p>Hi " + escHtml(inv.name) + ",</p>" : "<p>Hi,</p>") + (owner
-    ? "<p><b>" + escHtml(church.name) + "</b> made you its main admin on Motion Audio." + (how === "reminder" ? " The invite is still waiting." : "") + "</p><p><a href=\"" + escHtml(link) + "\" style=\"display:inline-block;background:#d97706;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none\">Make your account</a></p>"
+    ? "<p><b>" + escHtml(church.name) + "</b> made you its main admin on Motion Audio." + (how === "reminder" ? " The invite is still waiting." : "") + "</p><p><a href=\"" + escHtml(link) + "\" style=\"display:inline-block;background:#12161C;color:#fff;padding:12px 20px;border-radius:6px;font-weight:600;text-decoration:none\">Make your account</a></p>"
     : "<p>" + escHtml(lead) + "</p><ol>" +
       "<li><a href=\"" + escHtml(link) + "\">" + step1 + "</a></li><li><a href=\"" + APPS_URL + "#" + s.anchor + "\">Download " + escHtml(s.app) + "</a></li>" +
       "<li>Open it, connect to Wi-Fi, and enter your key:<br><code style=\"font:600 18px ui-monospace,monospace;letter-spacing:.05em\">" + escHtml(key) + "</code></li></ol>" +
       (inv.section !== "admin" ? "<p style=\"color:#555\">Your key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.</p>" : "")) +
-    (church.has_services ? "<p>Your church's schedule is in <a href=\"" + APPS_URL + "#central-services\">Central Services</a> - sign in with the same account.</p>" : "") + "<p>Motion Audio</p></div>";
+    (church.has_services ? "<p>Your church's schedule is in <a href=\"" + APPS_URL + "#central-services\">Central Services</a> - sign in with the same account.</p>" : "") + "<p>Talk soon,<br>The Motion Audio team</p></div>";
   const r = await sendMail(inv.email, subject, text, html);
   await q("UPDATE invites SET sent_at=now(), sent_ok=$1 WHERE id=$2", [r.sent, inv.id]);
   return r;

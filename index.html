@@ -76,6 +76,12 @@
     @keyframes pfPulse { 50% { opacity:.25; } }
     .pf-pad:active { transform:scale(.985); }
     .pf-pad.pf-stop { justify-content:center; align-items:center; text-align:center; background:#3a1a22; border-color:#82414b; color:#fff; } .pf-stop b { font-size:clamp(18px,3.8vh,28px); letter-spacing:.08em; } .pf-stop small { color:#f3b9bf; }
+    /* 9.1.3: the pad page's pads, backlit in their own colour */
+    .pf-pad { background:radial-gradient(130% 100% at 50% 0%,#272C34,#181B20) !important; border-color:#2E333B !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -3px 0 rgba(0,0,0,.35),0 3px 0 #0A0B0D,0 10px 24px -12px rgba(0,0,0,.8); }
+    .pf-pad::before { content:""; position:absolute; left:14px; right:14px; top:0; height:3px; border-radius:0 0 4px 4px; background:var(--padc,var(--accent)); opacity:.8; }
+    .pf-pad.playing { background:radial-gradient(140% 120% at 50% 0%,color-mix(in srgb,var(--padc,var(--accent)),#1A1D22 30%),color-mix(in srgb,var(--padc,var(--accent)),#111317 78%)) !important; border-color:color-mix(in srgb,var(--padc,var(--accent)),#fff 18%) !important; box-shadow:0 0 0 2px var(--padc,var(--accent)),0 0 44px -6px var(--padc,var(--accent)),inset 0 1px 0 rgba(255,255,255,.2) !important; }
+    .pf-pad.playing b { color:#fff; text-shadow:0 1px 8px rgba(0,0,0,.45); } .pf-pad.playing .n { color:#fff; } .pf-pad.playing::after { background:#fff; box-shadow:0 0 10px #fff; }
+    .pf-pad.pf-stop { background:radial-gradient(120% 90% at 50% 0%,#6A2A2A,#3A1717) !important; border-color:#8A3B38 !important; }
     .pf-side { display:flex; flex-direction:column; gap:clamp(8px,1.4vh,14px); min-height:0; }
     .pf-knobs { flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:clamp(6px,1.2vh,12px); }
     .knob { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:0; padding:6px; border:1px solid var(--line); border-radius:14px; background:var(--panel); cursor:ns-resize; touch-action:none; outline:none; }

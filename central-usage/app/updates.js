@@ -29,7 +29,7 @@
     if (seen === st.beyond) return;
     try { localStorage.setItem("cu-beyond-seen", st.beyond); } catch (_) { }
     var b = document.createElement("div"); b.className = "upd-beyond"; b.setAttribute("role", "status");
-    b.style.cssText = "position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;z-index:50;background:var(--panel,#101e31);border:1px solid var(--line,#294966);border-radius:12px;padding:12px 14px;display:grid;gap:6px;box-shadow:0 8px 30px rgba(0,0,0,.35)";
+    b.style.cssText = "position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;z-index:50;background:var(--panel,#1A1D22);border:1px solid var(--line,#343A44);border-radius:12px;padding:12px 14px;display:grid;gap:6px;box-shadow:0 8px 30px rgba(0,0,0,.35)";
     b.innerHTML = "<b>Version " + esc(st.beyond) + " is out</b><span>This key gets updates through " + esc(st.limitText || "its version") + ". This version keeps working as it is. To get " + esc(st.beyond) + ", renew the key ($20) on the website: Account → Your church → Renew.</span><div><button>OK</button></div>";
     b.querySelector("button").onclick = function () { b.remove(); };
     document.body.appendChild(b);

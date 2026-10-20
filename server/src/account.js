@@ -37,8 +37,8 @@ export function routes(api, { wrap, brake }) {
           (u.name ? "Hi " + u.name + ",\n\n" : "Hi,\n\n") + "Set a new password for your Motion Audio account here (the link works once, for an hour):\n" + link +
             "\n\nThe same account signs in to Central Pedal, Central Pedal Control, Central Control, Central Usage and Central Services.\nDidn't ask for this? Ignore this email - your password stays the same.\n\nMotion Audio\n",
           '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px"><p>' + (u.name ? "Hi " + escHtml(u.name) + "," : "Hi,") + "</p><p>Set a new password for your Motion Audio account (the link works once, for an hour):</p>" +
-            '<p><a href="' + escHtml(link) + '" style="display:inline-block;background:#d97706;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Set a new password</a></p>' +
-            "<p style=\"color:#555\">The same account signs in to all the Central apps. Didn't ask for this? Ignore this email - your password stays the same.</p><p>Motion Audio</p></div>");
+            '<p><a href="' + escHtml(link) + '" style="display:inline-block;background:#12161C;color:#fff;padding:12px 20px;border-radius:6px;font-weight:600;text-decoration:none">Set a new password</a></p>' +
+            "<p style=\"color:#555\">The same account signs in to all the Central apps. Didn't ask for this? Ignore this email - your password stays the same.</p><p>Talk soon,<br>The Motion Audio team</p></div>");
       }
     }
     res.json({ ok: true, message: "If there's an account with that email, a link to set a new password is on its way. It works for an hour." });
@@ -127,7 +127,7 @@ export async function sendConfirm(user) {
   await q("INSERT INTO email_confirms (token_hash,user_id,email,expires_at) VALUES ($1,$2,$3,now() + interval '7 days')", [hash(token), user.id, user.email]);
   return sendMail(user.email, "Confirm your email - Motion Audio",
     (user.name ? "Hi " + user.name + ",\n\n" : "Hi,\n\n") + "Confirm this is your email (the link works for 7 days):\n" + link + "\n\nYour receipts, keys, invites and password resets come here.\n\nMotion Audio\n",
-    '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px"><p>' + (user.name ? "Hi " + escHtml(user.name) + "," : "Hi,") + '</p><p>Confirm this is your email:</p><p><a href="' + escHtml(link) + '" style="display:inline-block;background:#d97706;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Confirm my email</a></p><p style="color:#555">Your receipts, keys, invites and password resets come here. The link works for 7 days.</p><p>Motion Audio</p></div>');
+    '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px"><p>' + (user.name ? "Hi " + escHtml(user.name) + "," : "Hi,") + '</p><p>Confirm this is your email:</p><p><a href="' + escHtml(link) + '" style="display:inline-block;background:#12161C;color:#fff;padding:12px 20px;border-radius:6px;font-weight:600;text-decoration:none">Confirm my email</a></p><p style="color:#555">Your receipts, keys, invites and password resets come here. The link works for 7 days.</p><p>Talk soon,<br>The Motion Audio team</p></div>');
 }
 
 // what's left of an account: nothing that says who it was (the row stays so past orders and payouts still add up)

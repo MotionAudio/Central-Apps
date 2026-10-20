@@ -220,3 +220,24 @@ ended before it. Use it for an emergency fix. Apps pick it up when they next ope
 **Versions.** Releases go 9.0, 9.1 … 9.9, then 10.0. A fix is the third number (9.4.1). Admin and user keys get ten full
 releases of updates from when they were bought (9.4 → 10.4); renewing adds ten more. The website reads the current
 version from the newest GitHub release. To pin it instead, set `CURRENT_VERSION` (for example `9.0`).
+
+
+## Editing the website
+
+Motion Audio staff (the emails in `ADMIN_EMAILS`) can edit the website itself:
+1. Sign in.
+2. Press **Edit this page** (bottom left).
+
+What you can change:
+- the words (click and type);
+- prices (click and type);
+- pictures (Replace picture);
+- sections (Hide this section, or **+ Add a section after**: text, questions and answers, quotes, a picture).
+
+Press **Save changes** and it's live for everyone. Prices go to the same price list as the price page.
+
+To let other people edit, add their emails on Account → **Website editors**. They change words, pictures and sections, but not prices.
+
+Where things are kept:
+- The edits are in the database (`site_settings`: `content` and `editors`).
+- Pictures go to storage under `site-media/` and are served from `/site-media/`.

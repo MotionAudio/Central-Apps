@@ -23,8 +23,8 @@ export async function remindTrials() {   // the day before a trial ends: an emai
     const claimed = await one("UPDATE churches SET trial_reminded=TRUE WHERE id=$1 AND NOT trial_reminded RETURNING id", [c.id]); if (!claimed) continue;
     const link = config.publicUrl + "/#store";
     const r = await sendMail(c.email, "Your free trial ends " + day(c.trial_until) + " - " + c.name,
-      "Hi" + (c.owner_name ? " " + c.owner_name : "") + ",\n\n" + c.name + "'s free trial ends " + day(c.trial_until) + ". After that, the trial keys stop and the apps ask for a key. Your songs, setlists and settings stay.\n\nGet keys (or a church pack) and Central Services here: " + link + "\n\nMotion Audio\n",
-      '<div style="font:15px/1.5 system-ui,sans-serif;max-width:520px"><p>Hi' + (c.owner_name ? " " + escHtml(c.owner_name) : "") + ",</p><p><b>" + escHtml(c.name) + "</b>'s free trial ends <b>" + escHtml(day(c.trial_until)) + "</b>. After that, the trial keys stop and the apps ask for a key. Your songs, setlists and settings stay.</p><p><a href=\"" + escHtml(link) + "\">Get keys, a church pack and Central Services</a></p><p>Motion Audio</p></div>");
+      "Hi" + (c.owner_name ? " " + c.owner_name : "") + ",\n\n" + c.name + "'s free trial ends " + day(c.trial_until) + ". After that, the trial keys stop and the apps ask for a key. Your songs, setlists and settings stay.\n\nGet keys (or a church pack) and Central Services here: " + link + "\n\nTalk soon,\nThe Motion Audio team\n",
+      '<div style="font:15px/1.5 system-ui,sans-serif;max-width:520px"><p>Hi' + (c.owner_name ? " " + escHtml(c.owner_name) : "") + ",</p><p><b>" + escHtml(c.name) + "</b>'s free trial ends <b>" + escHtml(day(c.trial_until)) + "</b>. After that, the trial keys stop and the apps ask for a key. Your songs, setlists and settings stay.</p><p><a href=\"" + escHtml(link) + "\">Get keys, a church pack and Central Services</a></p><p>Talk soon,<br>The Motion Audio team</p></div>");
     if (r.sent) n++;
   }
   return n;

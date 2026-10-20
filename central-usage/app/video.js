@@ -409,11 +409,11 @@
     ctx.font = "700 " + fsz + "px Inter, system-ui, sans-serif"; ctx.textBaseline = "bottom";
     pi.items.forEach(function (s, i) {
       var x = (i % g.c) * tw, y = Math.floor(i / g.c) * th, tl = t[s.id], on = tl && tl.on.length, pv = tl && tl.pvw.length;
-      ctx.lineWidth = on || pv ? Math.max(3, tw / 90) : 1; ctx.strokeStyle = on ? "#ff3b3b" : pv ? "#2fd15a" : "#294966"; ctx.strokeRect(x + ctx.lineWidth / 2, y + ctx.lineWidth / 2, tw - ctx.lineWidth, th - ctx.lineWidth);
+      ctx.lineWidth = on || pv ? Math.max(3, tw / 90) : 1; ctx.strokeStyle = on ? "#ff3b3b" : pv ? "#2fd15a" : "#343A44"; ctx.strokeRect(x + ctx.lineWidth / 2, y + ctx.lineWidth / 2, tw - ctx.lineWidth, th - ctx.lineWidth);
       var label = (S.page * g.c * g.r + i + 1) + "  " + s.name + (on ? "  ● " + tl.on.map(function (k) { return k === "main" ? "M" : "S"; }).join("") : pv ? "  ○ " + tl.pvw.map(function (k) { return k === "main" ? "M" : "S"; }).join("") : "");
       ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(x + 4, y + th - fsz * 1.6, Math.min(tw - 8, ctx.measureText(label).width + 12), fsz * 1.45);
-      ctx.fillStyle = on ? "#ff8a8a" : pv ? "#8cf5a8" : "#ecf7ff"; ctx.fillText(label, x + 10, y + th - fsz * 0.35);
-      if (s.id !== S.init.slidesId && !live(s.id)) { var stt = S.status[s.id] || {}; ctx.fillStyle = "#9bb2c9"; ctx.textBaseline = "middle"; ctx.textAlign = "center"; ctx.fillText(stt.state === "connecting" ? "connecting…" : stt.error ? "no signal" : "no signal", x + tw / 2, y + th / 2); ctx.textAlign = "left"; ctx.textBaseline = "bottom"; }
+      ctx.fillStyle = on ? "#ff8a8a" : pv ? "#8cf5a8" : "#ECE7DD"; ctx.fillText(label, x + 10, y + th - fsz * 0.35);
+      if (s.id !== S.init.slidesId && !live(s.id)) { var stt = S.status[s.id] || {}; ctx.fillStyle = "#9AA1AB"; ctx.textBaseline = "middle"; ctx.textAlign = "center"; ctx.fillText(stt.state === "connecting" ? "connecting…" : stt.error ? "no signal" : "no signal", x + tw / 2, y + th / 2); ctx.textAlign = "left"; ctx.textBaseline = "bottom"; }
     });
     cv._layout = { tw: tw, th: th, g: g, items: pi.items, W: W, H: H };
   }

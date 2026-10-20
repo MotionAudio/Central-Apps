@@ -47,7 +47,7 @@ async function emailCode(user, code, note) {
 }
 async function phoneNotice(user, phone) {
   await sendMail(user.email, "A phone was added to your Motion Audio account", "The phone number ending " + phone.slice(-4) + " now gets the sign-in codes for " + user.email + ".\n\nNot you? Set a new password right away (Forgot password? on the website) and contact support.\n\nMotion Audio\n",
-    '<div style="font:15px/1.5 system-ui,sans-serif;max-width:520px"><p>The phone number ending <b>' + escHtml(phone.slice(-4)) + "</b> now gets the sign-in codes for " + escHtml(user.email) + ".</p><p><b>Not you?</b> Set a new password right away (Forgot password? on the website) and contact support.</p><p>Motion Audio</p></div>");
+    '<div style="font:15px/1.5 system-ui,sans-serif;max-width:520px"><p>The phone number ending <b>' + escHtml(phone.slice(-4)) + "</b> now gets the sign-in codes for " + escHtml(user.email) + ".</p><p><b>Not you?</b> Set a new password right away (Forgot password? on the website) and contact support.</p><p>Talk soon,<br>The Motion Audio team</p></div>");
 }
 export async function needsCode(user) {
   if (!smsOn && !mailOn) return false;

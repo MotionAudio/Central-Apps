@@ -60,7 +60,7 @@
   function detail() {
     if (sel < 0 || !S().inputs[sel]) return '<p class="muted">Click a channel\'s name for its high-pass, EQ and compressor.</p>';
     var x = S().inputs[sel], e = x.eq, c = x.comp, hz = function (v) { return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + " kHz" : Math.round(v) + " Hz"; }, dbs = function (v) { return (v > 0 ? "+" : "") + Number(v).toFixed(1) + " dB"; };
-    return '<div class="mx-dhead"><input data-mxd="name" value="' + esc(x.name) + '" placeholder="Name"><input type="color" data-mxd="color" value="' + esc(x.color || "#5de6b0") + '" title="Colour"><select data-mxd="group"><option value="tracks"' + (x.group === "tracks" ? " selected" : "") + '>Tracks (Mix tab)</option><option value="band"' + (x.group !== "tracks" ? " selected" : "") + '>Band / mic</option></select><label class="toggle"><input type="checkbox" data-mxd="show"' + (x.show !== false ? " checked" : "") + '> Shown to the in-ear users</label><span class="muted small">' + esc(srcLabel(x)) + '</span><button data-mxd="close">Close</button></div>' +
+    return '<div class="mx-dhead"><input data-mxd="name" value="' + esc(x.name) + '" placeholder="Name"><input type="color" data-mxd="color" value="' + esc(x.color || "#E2C27E") + '" title="Colour"><select data-mxd="group"><option value="tracks"' + (x.group === "tracks" ? " selected" : "") + '>Tracks (Mix tab)</option><option value="band"' + (x.group !== "tracks" ? " selected" : "") + '>Band / mic</option></select><label class="toggle"><input type="checkbox" data-mxd="show"' + (x.show !== false ? " checked" : "") + '> Shown to the in-ear users</label><span class="muted small">' + esc(srcLabel(x)) + '</span><button data-mxd="close">Close</button></div>' +
       '<div class="mx-dgrid"><div class="mx-dcol"><h4>Input</h4>' + slider("Trim", "trim", -24, 24, 0.5, x.trim, dbs) + '<label class="toggle"><input type="checkbox" data-mxd="phase"' + (x.phase ? " checked" : "") + "> Polarity flip</label>" + slider("High-pass", "hpf", 0, 400, 5, x.hpf, function (v) { return v > 0 ? Math.round(v) + " Hz" : "off"; }) + "</div>" +
       '<div class="mx-dcol"><h4><label class="toggle"><input type="checkbox" data-mxd="eq.on"' + (e.on ? " checked" : "") + '> EQ</label></h4><canvas class="mx-curve" id="mxCurve"></canvas>' +
       slider("Low", "eq.lg", -18, 18, 0.5, e.lg, dbs) + slider("Low freq", "eq.lf", 20, 1000, 5, e.lf, hz) + slider("Mid", "eq.mg", -18, 18, 0.5, e.mg, dbs) + slider("Mid freq", "eq.mf", 100, 12000, 10, e.mf, hz) + slider("Mid width (Q)", "eq.mq", 0.2, 8, 0.1, e.mq, function (v) { return Number(v).toFixed(1); }) + slider("High", "eq.hg", -18, 18, 0.5, e.hg, dbs) + slider("High freq", "eq.hf", 1000, 20000, 100, e.hf, hz) + '<button data-mxd="eqflat">Flat</button></div>' +
@@ -111,7 +111,7 @@
     var cv = $("#mxCurve"); if (!cv || sel < 0) return; var x = S().inputs[sel], dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W) return;
     cv.width = W * dpr; cv.height = H * dpr; var g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
     g.strokeStyle = "rgba(255,255,255,.08)"; [100, 1000, 10000].forEach(function (f) { var px = Math.log(f / 20) / Math.log(1000) * W; g.beginPath(); g.moveTo(px, 0); g.lineTo(px, H); g.stroke(); }); g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
-    g.strokeStyle = x.eq.on || x.hpf ? "#5de6b0" : "#567"; g.lineWidth = 2; g.beginPath();
+    g.strokeStyle = x.eq.on || x.hpf ? "#E2C27E" : "#4A515C"; g.lineWidth = 2; g.beginPath();
     for (var k = 0; k <= W; k += 2) { var f = 20 * Math.pow(1000, k / W), d = 0; if (x.hpf > 0) d += bqMag(0, x.hpf, 0, 0.707, f, 48000); if (x.eq.on) { d += bqMag(1, x.eq.lf, x.eq.lg, 0.707, f, 48000) + bqMag(2, x.eq.mf, x.eq.mg, x.eq.mq, f, 48000) + bqMag(3, x.eq.hf, x.eq.hg, 0.707, f, 48000); } var y = H / 2 - d / 24 * (H / 2); if (k) g.lineTo(k, y); else g.moveTo(k, y); }
     g.stroke();
   }
@@ -127,7 +127,7 @@
     var cv = $("#mxWave"); if (!cv) return; var dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W) return;
     if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     var g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-    var n = X.kind === "local" ? 1200 : 600, step = W / n, mid = H / 2; g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent") || "#5de6b0";
+    var n = X.kind === "local" ? 1200 : 600, step = W / n, mid = H / 2; g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent") || "#E2C27E";
     for (var k = 0; k < wave.length; k++) { var v = Math.min(1, wave[wave.length - 1 - k] || 0), h = Math.max(1, v * (H - 4)); g.fillRect(W - (k + 1) * step, mid - h / 2, Math.max(1, step - 0.3), h); }
   }
 

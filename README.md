@@ -190,7 +190,9 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.1.2 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.1.3 and earlier)</summary>
+
+**New in version 9.1.3:** lit-stage lighting graphics, a polished tracks timeline, console-style in-ear mixing, backlit pads; edit the website yourself (words, prices, pictures, sections, editors); a warmer voice everywhere.
 
 **New in version 9.1.2:** Central Pedal, Central Pedal Control and Central Services in the new look (Studio is the standard look); link previews for the website.
 

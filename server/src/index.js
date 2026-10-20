@@ -19,6 +19,7 @@ import * as church from "./church.js";
 import * as backup from "./backup.js";
 import * as trials from "./trials.js";
 import * as prices from "./prices.js";
+import * as content from "./content.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -55,7 +56,8 @@ api.use((req, res, next) => {  // the apps call from http://127.0.0.1:8766 (Pi) 
   if (req.method === "OPTIONS") return res.status(204).end();
   next();
 });
-api.use(express.json({ limit: "256kb" }));
+const jsonSmall = express.json({ limit: "256kb" }), jsonBig = express.json({ limit: "12mb" });   // (edit mode sends pictures and whole pages)
+api.use((req, res, next) => (/^\/admin\/content/.test(req.path) ? jsonBig : jsonSmall)(req, res, next));
 api.use(wrap(attachUser));
 
 // a brake on guessing (passwords, codes): 20 failed tries per internet address per 15 minutes. Only failures count, so a
@@ -77,6 +79,7 @@ signin.routes(api, { wrap, brake, requireUser });
 support.routes(api, { wrap, brake, requireUser });
 church.routes(api, { wrap, brake, requireUser });
 prices.routes(api, { wrap, requireUser });
+content.routes(app, api, { wrap, requireUser });
 function needConfirmed(u) { if (u && !u.email_confirmed) { const e = bad("Confirm your email first: we sent you a link (Account → Send it again)."); e.status = 403; e.needConfirm = true; throw e; } }
 
 api.post("/signup", wrap(async (req, res) => {

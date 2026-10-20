@@ -9,7 +9,7 @@
   <a class="logo" href="/" style="color:var(--ink)"><span style="color:var(--brass)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
   <nav><a href="/#store">Store</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds" class="on">Refunds</a><a href="/#support">Support</a></nav>
 </div></header>
-<main class="wrap doc">
+<main class="wrap doc" data-section="doc" data-edit="page.refunds">
 <h1>Refund policy</h1><p class="muted">Last updated October 20, 2026</p>
 
 <div class="box"><b>In short:</b> unused keys can be refunded within 30 days. A built Central Pedal can be returned within 30 days. Faulty hardware is repaired or replaced for one year. Monthly plans can be cancelled any time. Free trials cost nothing.</div>
@@ -52,4 +52,6 @@ fetch("/v1/config").then(function (r) { return r.json(); }).then(function (c) {
   document.querySelectorAll(".sup").forEach(function (s) { s.innerHTML = ' or email <a href="mailto:' + c.supportEmail + '">' + c.supportEmail + "</a>"; });
 }).catch(function () {});
 </script>
+<div id="modalHost"></div>
+<script src="/edit.js"></script>
 </body></html>
