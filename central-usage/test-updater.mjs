@@ -48,5 +48,11 @@ await cover(94, "9.3.0", "9.4.1", "9.6.0", "covered through 9.4: it installs 9.4
 await cover(null, "9.3.0", "9.6.0", null, "no limit (Pedal Control, Central Services): the newest, 9.6.0");
 await cover(110, "9.3.0", "9.6.0", null, "renewed through 11.0: 9.6.0");
 await cover(94, "9.4.1", "9.4.1", "9.6.0", "already on 9.4.1, covered through 9.4: nothing to install, 9.6.0 needs a renewal");
+{ // "Release to all devices": an emergency release installs even past the key's updates
+  const u = new Updater({ product: "central-usage", current: "9.3.0", dir: os.tmpdir(), api: "http://127.0.0.1:" + gh.address().port });
+  u.cfg.repo = "x/y"; u.save({ limit: 94, everyone: ["9.6.0"] }); const st = await u.check();
+  try { assert.equal(st.latest, "9.6.0"); assert.equal(st.beyond, null); console.log("  ✓ covered through 9.4, but 9.6.0 was released to all devices: it installs 9.6.0"); }
+  catch (e) { failures++; console.error("  ✗ everyone: latest " + st.latest + ", beyond " + st.beyond); }
+}
 gh.close(); as(real.platform, real.arch, real.appimage);
 console.log(failures ? "\n" + failures + " UPDATER CHECK(S) FAILED" : "\nALL UPDATER CHECKS PASSED"); process.exit(failures ? 1 : 0);

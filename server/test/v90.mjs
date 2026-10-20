@@ -14,7 +14,9 @@ const mails = [];
 const stub = http.createServer((req, res) => { let b = ""; req.on("data", (d) => (b += d)); req.on("end", () => { mails.push(JSON.parse(b || "{}")); res.end('{"id":"x"}'); }); });
 await new Promise((r) => stub.listen(0, "127.0.0.1", r));
 process.env.DATABASE_URL = db; process.env.CURRENT_VERSION = "9.0";
-const srv = spawn(process.execPath, [path.join(here, "..", "src", "index.js")], { env: Object.assign({}, process.env, { PORT: String(port), STRIPE_SECRET_KEY: "", RESEND_API_KEY: "re_test", MAIL_FROM: "M <t@motion.test>",
+const gh = http.createServer((req, res) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify([{ tag_name: "v9.2.0", name: "9.2", published_at: "2026-12-01T00:00:00Z" }, { tag_name: "v9.1.1", name: "9.1.1 fix", published_at: "2026-11-15T00:00:00Z" }])); });
+await new Promise((r) => gh.listen(0, "127.0.0.1", r));
+const srv = spawn(process.execPath, [path.join(here, "..", "src", "index.js")], { env: Object.assign({}, process.env, { CC_UPDATE_API: "http://127.0.0.1:" + gh.address().port, PORT: String(port), STRIPE_SECRET_KEY: "", RESEND_API_KEY: "re_test", MAIL_FROM: "M <t@motion.test>",
   RESEND_API_URL: "http://127.0.0.1:" + stub.address().port + "/emails", PUBLIC_URL: "https://motion.test", ADMIN_EMAILS: STAFF, REMINDERS: "off", CURRENT_VERSION: "9.0" }), stdio: ["ignore", "pipe", "pipe"] });
 let log = ""; srv.stdout.on("data", (d) => { log += d; }); srv.stderr.on("data", (d) => { log += d; });
 for (let i = 0; i < 100 && !/Motion Audio server on/.test(log); i++) await new Promise((r) => setTimeout(r, 100));
@@ -68,7 +70,8 @@ try {
 
   // ---------------------------------------------------------------- discount codes
   const d10 = await j("GET", "/discount/usage10"), d50 = await j("GET", "/discount/2026"), dt = await j("GET", "/discount/TESTRUN"), d7 = await j("GET", "/discount/7free");
-  ok(d10.percent === 10 && d50.percent === 50 && dt.trial && dt.days === 183 && d7.trial && d7.days === 7 && (await j("GET", "/discount/NOPE"))._status === 404, "codes: USAGE10 10%, 2026 50%, TESTRUN 6 months, 7FREE 7 days (any capitals); unknown codes are refused");
+  const db3 = await j("GET", "/discount/betatest");
+  ok(d10.percent === 10 && d50.percent === 50 && dt.trial && dt.days === 183 && d7.trial && d7.days === 7 && db3.trial && db3.days === 92 && (await j("GET", "/discount/NOPE"))._status === 404, "codes: USAGE10 10%, 2026 50%, TESTRUN 6 months, BETATEST 3 months, 7FREE 7 days (any capitals); unknown codes are refused");
   ok((await j("GET", "/discount/USAGE10", null, T)).used === true, "...USAGE10 shows as used for this church (it was on the renewal)");
   const u10 = await j("POST", "/checkout/store", { items: { user: 2 }, code: "USAGE10" }, T);
   ok(u10._status === 409 && /already used USAGE10/.test(u10.error), "a % code works once per church", u10);
@@ -84,22 +87,23 @@ try {
   ok(t0._status === 403, "a trial needs a confirmed email", t0);
   await confirm(E("trial"));
   const t1 = await j("POST", "/trial", { code: "7free" }, tr.token);
-  ok(t1.ok && t1.keys.length === 3 && Math.abs(new Date(t1.until) - Date.now() - 7 * 864e5) < 60e3, "7FREE: a 7-day trial starts with a Pedal Control, an admin and a user key", t1);
+  ok(t1.ok && !t1.keys && Math.abs(new Date(t1.until) - Date.now() - 7 * 864e5) < 60e3, "7FREE: a 7-day trial starts (unlimited keys, made as they're needed)", t1);
+  const tA = (await j("POST", "/church/trial-key", { kind: "A" }, tr.token)).key, tU = (await j("POST", "/church/trial-key", { kind: "U" }, tr.token)).key;
   const meT = await j("GET", "/me", null, tr.token);
   ok(meT.subscribed && meT.church.hasServices && meT.church.trialUntil, "...with Central Services and Central Tracks Unlimited", meT.church);
   const many = await j("POST", "/church/team", { section: "admin", members: Array.from({ length: 9 }, (_, i) => ({ name: "A" + i, email: E("ad" + i) })) }, tr.token);
   ok(many.results.every((x) => x.ok), "unlimited: 9 more admins get keys on the Teams page", many.results.filter((x) => !x.ok));
   const mk = await j("POST", "/church/trial-key", { kind: "U" }, tr.token);
   ok(mk.ok && /^U/.test(mk.key), "Make a key: another user key, any time during the trial");
-  const tk = await j("POST", "/license/activate", { key: t1.keys.find((k) => k.kind === "A").key, device: "dev-t-" + S, deviceName: "Trial desk", app: "control" });
+  const tk = await j("POST", "/license/activate", { key: tA, device: "dev-t-" + S, deviceName: "Trial desk", app: "control" });
   ok(tk.ok && tk.trial && tk.expiresAt, "a trial key works, and the app knows when it ends", tk);
   ok((await j("POST", "/trial", { code: "TESTRUN" }, tr.token))._status === 409, "one free code per church (7FREE used: TESTRUN is refused)");
   // the trial ends
   await q("UPDATE churches SET trial_until=now() - interval '1 minute' WHERE name=$1", ["Trial " + S]);
   await q("UPDATE licenses SET expires_at=now() - interval '1 minute' WHERE church_id=(SELECT id FROM churches WHERE name=$1)", ["Trial " + S]);
-  const chk = await j("POST", "/license/check", { key: t1.keys.find((k) => k.kind === "A").key, device: "dev-t-" + S });
+  const chk = await j("POST", "/license/check", { key: tA, device: "dev-t-" + S });
   ok(chk.ok === false && chk.reason === "expired", "after the trial, its keys stop (the app locks until a bought key is entered)", chk);
-  ok((await j("POST", "/license/activate", { key: t1.keys.find((k) => k.kind === "U").key, device: "dev-u-" + S, app: "usage" }))._status === 403, "...and can't be entered on a new device");
+  ok((await j("POST", "/license/activate", { key: tU, device: "dev-u-" + S, app: "usage" }))._status === 403, "...and can't be entered on a new device");
   const meE = await j("GET", "/me", null, tr.token);
   ok(!meE.subscribed && !meE.church.hasServices && !meE.church.trialUntil && meE.church.trialUsed, "...Central Services and Central Tracks stop too", meE.church);
   ok((await j("POST", "/church/team", { section: "user", members: [{ email: E("late") }] }, tr.token)).results[0].ok === false, "...and no more free keys");
@@ -130,6 +134,20 @@ try {
   ok((await j("POST", "/admin/prices", { prices: Object.assign({}, np, { DISCOUNTS: { "x!": { percent: 5 } } }) }, staff.token))._status === 400, "a bad code is refused (nothing changes)");
   await j("POST", "/admin/prices", { reset: true }, staff.token);
   ok((await j("GET", "/config")).products.user.cents === 2000, "Reset goes back to the starting prices");
-} finally { srv.kill(); stub.close(); }
+
+  // ---------------------------------------------------------------- the codes page, and "Release to all devices"
+  const codes = await j("GET", "/admin/codes", null, staff.token);
+  const c7 = codes.codes.find((x) => x.code === "7FREE"), cu = codes.codes.find((x) => x.code === "USAGE10"), cb = codes.codes.find((x) => x.code === "BETATEST");
+  ok(c7 && c7.used >= 1 && c7.uses.some((u) => u.church === "Trial " + S) && cu.uses.some((u) => u.church === "Nine " + S) && cb && cb.days === 92, "the codes page lists every code and the churches that used it", { c7: c7 && c7.used, cu: cu && cu.used });
+  ok((await j("GET", "/admin/codes", null, T))._status === 403, "...staff only");
+  const rel = await j("GET", "/admin/releases", null, staff.token);
+  ok(rel.releases.length === 2 && rel.releases[0].version === "9.2.0" && !rel.releases[0].everyone, "the releases page lists the releases from GitHub", rel.releases);
+  await j("POST", "/admin/releases", { version: "9.1.1", everyone: true }, staff.token);
+  const vers = await j("GET", "/versions");
+  ok(vers.everyone.includes("9.1.1") && (await j("GET", "/admin/releases", null, staff.token)).releases.find((x) => x.version === "9.1.1").everyone, "Release to all devices: the apps read 9.1.1 as for everyone", vers);
+  await j("POST", "/admin/releases", { version: "9.1.1", everyone: false }, staff.token);
+  ok(!(await j("GET", "/versions")).everyone.includes("9.1.1"), "...and Stop takes it back");
+  ok((await j("POST", "/admin/releases", { version: "nine" }, staff.token))._status === 400, "a version that isn't one is refused");
+} finally { srv.kill(); stub.close(); gh.close(); }
 console.log(fails ? "\n" + fails + " 9.0 CHECK(S) FAILED\n" + log.slice(-2500) : "\nALL 9.0 CHECKS PASSED");
 process.exit(fails ? 1 : 0);

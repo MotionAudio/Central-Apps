@@ -66,7 +66,7 @@ class Updater {
   constructor({ product, current, dir, api }) {
     this.product = product; this.current = current; this.api = api || process.env.CC_UPDATE_API || "https://api.github.com";
     this.file = path.join(dir, "updates.json");
-    this.cfg = { repo: "", auto: true, autoInstall: true, lastCheck: 0, limit: null, limitText: "" };   // limit: the last full release this key gets (tenths, 94 = 9.4); null = any
+    this.cfg = { repo: "", auto: true, autoInstall: true, lastCheck: 0, limit: null, limitText: "", everyone: [] };   // everyone: releases Motion Audio sent to every device (installed even past the limit)   // limit: the last full release this key gets (tenths, 94 = 9.4); null = any
     try { Object.assign(this.cfg, JSON.parse(fs.readFileSync(this.file, "utf8"))); } catch (_) { }
     if (!this.cfg.repo) this.cfg.repo = process.env.CC_UPDATE_REPO != null ? process.env.CC_UPDATE_REPO : "MotionAudio/Central-Apps";   // the official releases
     this.latest = null; this.error = null; this.busy = false; this.progress = 0;
@@ -76,10 +76,13 @@ class Updater {
     if (cfg && "auto" in cfg) this.cfg.auto = !!cfg.auto;
     if (cfg && "autoInstall" in cfg) this.cfg.autoInstall = !!cfg.autoInstall;
     if (cfg && "limit" in cfg) { this.cfg.limit = cfg.limit == null || cfg.limit === "" ? null : Number(cfg.limit); this.cfg.limitText = String(cfg.limitText || ""); }
-    if (this.latest && this.cfg.limit != null && tenthsOf(this.latest.version) > this.cfg.limit) { this.beyond = this.latest.version; this.latest = null; }   // (found before the key's coverage was known)
+    if (cfg && Array.isArray(cfg.everyone)) this.cfg.everyone = cfg.everyone.map(String).slice(0, 50);
+    if (this.latest && !this.allowed(this.latest.version)) { this.beyond = this.latest.version; this.latest = null; }   // (found before the key's coverage was known)
     try { fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(this.file, JSON.stringify(this.cfg)); } catch (_) { }
     return this.status();
   }
+  // a version this app may install: within its key's updates, or one Motion Audio sent to every device
+  allowed(v) { return this.cfg.limit == null || tenthsOf(v) <= this.cfg.limit || (this.cfg.everyone || []).includes(String(v)); }
   kind() { return process.platform === "win32" ? "win" : process.platform === "darwin" ? "mac" : process.env.APPIMAGE ? "appimage" : "deb"; }
   asset() {
     const a = (this.latest && this.latest.assets) || {}, names = Object.keys(a), k = this.kind();
@@ -112,16 +115,16 @@ class Updater {
         if (version) found.push({ version, notes: rel.body || "", assets });
       }
       found.sort((a, b) => (newer(a.version, b.version) ? -1 : newer(b.version, a.version) ? 1 : 0));
-      const lim = this.cfg.limit, ok = found.filter((f) => lim == null || tenthsOf(f.version) <= lim);
+      const ok = found.filter((f) => this.allowed(f.version));
       this.latest = ok[0] || null;
-      this.beyond = lim != null && found[0] && tenthsOf(found[0].version) > lim && newer(found[0].version, this.current) ? found[0].version : null;
+      this.beyond = found[0] && !this.allowed(found[0].version) && newer(found[0].version, this.current) ? found[0].version : null;
       this.error = null;
     } catch (e) { this.error = explain(e); }
     this.cfg.lastCheck = Math.floor(Date.now() / 1000); this.save({});
     return this.status();
   }
   async download(onProgress) {
-    if (this.latest && this.cfg.limit != null && tenthsOf(this.latest.version) > this.cfg.limit) throw new Error("this key's updates go through " + (this.cfg.limitText || fmtTenths(this.cfg.limit)) + "; renew it on the website to get " + this.latest.version);
+    if (this.latest && !this.allowed(this.latest.version)) throw new Error("this key's updates go through " + (this.cfg.limitText || fmtTenths(this.cfg.limit)) + "; renew it on the website to get " + this.latest.version);
     const asset = this.asset(); if (!asset) throw new Error("this release has no " + ({ appimage: "AppImage", deb: ".deb", win: "Windows installer", mac: "Mac disk image" })[this.kind()] + " for this computer");
     const data = await get(asset.url, { timeout: 120000, onProgress });
     const sumsUrl = this.latest.assets.SHA256SUMS;

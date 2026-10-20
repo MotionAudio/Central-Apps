@@ -167,9 +167,9 @@ function openCart(note) {
       try {
         const t = await api("POST", "/trial", { code: promo.code, church: needChurch ? $("#coChurch").value.trim() : undefined });
         promo = null; await refreshMe();
-        return modal(`<h3>Your free trial is on</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>. Here are keys to start with; make more any time on your church's page, or add people on the Teams card (each gets their own key).</p>
-          <div class="keys">${t.keys.map((k) => `<div>${{ P: "Central Pedal / Pedal Control", A: "Central Control (admin)", U: "Central Usage (user)" }[k.kind]}<br><b>${esc(k.key)}</b></div>`).join("")}</div>
-          <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>.</p><button class="btn" data-close>Done</button>`);
+        return modal(`<h3>Your free trial is on</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>: unlimited keys, Central Services and Central Tracks Unlimited.</p>
+          <p style="margin:0">Make keys as you need them: on the <b>Teams</b> card add your admins, users and Pedal Control people (each gets an email with their key), or press <b>+ Admin key</b>, <b>+ User key</b> or <b>+ Pedal Control key</b> on your church's page.</p>
+          <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>.</p><a class="btn" href="#account" data-close>Go to my church</a>`);
       } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
     }
     if (!cfg.payments) return paymentsSoon();
@@ -385,7 +385,7 @@ async function renderAccount(note) {
     <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); renderPlan(); if (me.admin) { renderStaff(); renderOps(); renderPrices(); }
+  renderChurch(); renderTeams(); renderMe(); renderPlan(); if (me.admin) { renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); }
   if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "Already confirmed" : "Sent · check your inbox (and spam)"); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
@@ -406,6 +406,32 @@ async function renderPlan() {
     ${owner ? (p.active ? `<button class="btn small ghost" id="planManage" style="justify-self:start">Change or cancel (Billing)</button>` : `<button class="btn small" id="planStart" style="justify-self:start">Start Central Services · $${(p.cents / 100).toFixed(2)}/month</button>`) : `<p class="muted" style="margin:0;font-size:.85rem">The main admin starts it.</p>`}<div class="err" id="planErr"></div>`;
   if ($("#planStart")) $("#planStart").onclick = async () => { if (!cfg.payments) return paymentsSoon(); try { go((await api("POST", "/checkout/services")).url); } catch (e) { $("#planErr").textContent = e.message; } };
   if ($("#planManage")) $("#planManage").onclick = async () => { try { go((await api("POST", "/church/billing")).url); } catch (e) { $("#planErr").textContent = e.message; } };
+}
+// ---------------------------------------------------------------- Motion Audio staff: every code, and who used it
+async function renderCodes() {
+  let host = $("#codesCard"); if (!host) { $("#acctBody .acct").insertAdjacentHTML("beforeend", `<div class="card wide" id="codesCard"></div>`); host = $("#codesCard"); }
+  let r; try { r = await api("GET", "/admin/codes"); } catch (e) { host.innerHTML = `<h3>Codes</h3><div class="err">${esc(e.message)}</div>`; return; }
+  const when = (d) => new Date(d).toLocaleDateString();
+  host.innerHTML = `<h3>Codes · Motion Audio staff</h3><p class="muted" style="margin:0;font-size:.9rem">Every discount and free trial code, and the churches that used it. Change or add codes on the Prices card.</p>
+    <table class="ktable"><tr><th>Code</th><th>What it does</th><th>On</th><th>Used</th></tr>
+    ${r.codes.map((c) => `<tr><td><code>${esc(c.code)}</code></td><td>${c.kind === "trial" ? "Everything free for " + c.days + " days" : c.percent + "% off the software"}${c.label && c.label !== c.percent + "% off the software" ? ` <span class="muted">· ${esc(c.label)}</span>` : ""}</td><td>${c.on ? "✓" : '<span class="muted">off</span>'}</td>
+      <td>${c.used ? `<details><summary>${c.used} ${c.used === 1 ? "church" : "churches"}${c.kind === "trial" ? " · " + c.active + " in a trial now" : ""}</summary>${c.uses.map((u) => `<div style="font-size:.88rem">${esc(u.church)} <span class="muted">· ${c.kind === "trial" ? (u.active ? "until " : "ended ") + when(u.until) : when(u.used_at) + (u.total_cents != null ? " · paid " + money(u.total_cents / 100) : "")}</span></div>`).join("")}</details>` : '<span class="muted">not yet</span>'}</td></tr>`).join("")}
+    ${r.deleted.map((d) => `<tr><td><code>${esc(d.code)}</code></td><td class="muted">deleted</td><td></td><td>${d.uses.length} ${d.uses.length === 1 ? "church" : "churches"}</td></tr>`).join("")}</table>`;
+}
+// ---------------------------------------------------------------- Motion Audio staff: releases, and "Release to all devices"
+async function renderReleases() {
+  let host = $("#relCard"); if (!host) { $("#acctBody .acct").insertAdjacentHTML("beforeend", `<div class="card wide" id="relCard"></div>`); host = $("#relCard"); }
+  let r; try { r = await api("GET", "/admin/releases"); } catch (e) { host.innerHTML = `<h3>Releases</h3><div class="err">${esc(e.message)}</div>`; return; }
+  host.innerHTML = `<h3>Releases · Motion Audio staff</h3><p class="muted" style="margin:0;font-size:.9rem">Current: <b>${esc(r.current)}</b>. <b>Release to all devices</b> lets every app install that version, even ones whose key's updates ended before it (for an emergency fix). Apps pick it up when they next open (or within 6 hours).</p>
+    ${r.releases.length ? `<table class="ktable"><tr><th>Version</th><th>Published</th><th>To all devices</th></tr>${r.releases.map((x) => `<tr><td><b>${esc(x.version)}</b> <span class="muted">${esc(x.name || "")}</span></td><td>${x.published ? new Date(x.published).toLocaleDateString() : ""}</td>
+      <td>${x.everyone ? `<span style="color:var(--accent)">✓ every device</span> <button class="btn small ghost" data-ev="${esc(x.version)}" data-on="0">Stop</button>` : `<button class="btn small ghost" data-ev="${esc(x.version)}" data-on="1">Release to all devices</button>`}</td></tr>`).join("")}</table>` : `<p class="muted" style="margin:0">Couldn't read the releases from GitHub right now.</p>`}
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><label>Or a version<input id="evVer" placeholder="9.4.1" style="width:110px"></label><button class="btn small ghost" id="evAdd">Release to all devices</button></div><div class="err" id="evErr"></div>`;
+  const send = async (version, on) => {
+    if (on && !confirm("Release " + version + " to every device, even those whose updates ended before it?")) return;
+    try { await api("POST", "/admin/releases", { version, everyone: on }); toast(on ? version + " goes to every device" : version + " back to normal"); renderReleases(); } catch (e) { $("#evErr").textContent = e.message; }
+  };
+  host.querySelectorAll("[data-ev]").forEach((b) => (b.onclick = () => send(b.dataset.ev, b.dataset.on === "1")));
+  $("#evAdd").onclick = () => { const v = $("#evVer").value.trim(); if (v) send(v, true); };
 }
 // ---------------------------------------------------------------- Motion Audio staff: the price page
 async function renderPrices() {

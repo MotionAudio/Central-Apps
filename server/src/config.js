@@ -38,12 +38,14 @@ export const PRODUCTS = {
 };
 // Discount codes (typed in the cart; any capitals). Staff change them (and every price here) on the website's price page.
 // percent codes: off the software (keys, packs, renewals) - not the built pedal, not monthly plans; each once per church.
-// trial codes: everything free (keys, Central Services, Central Tracks Unlimited); one free code per church, ever.
+// trial codes: everything free for that long (unlimited keys, Central Services, Central Tracks Unlimited); one free code
+// per church or production company, ever.
 export const DISCOUNTS = {
   USAGE10: { percent: 10, label: "10% off the software", on: true },
   "2026": { percent: 50, label: "50% off the software", on: true },
   TESTRUN: { trial: true, days: 183, label: "Test run: everything free for 6 months", on: true },
   "7FREE": { trial: true, days: 7, label: "7-day free trial of everything", on: true },
+  BETATEST: { trial: true, days: 92, label: "Beta test: everything free for 3 months", on: true },
 };
 // renewing a Central Control (A) or Central Usage (U) key: ten more full releases of updates
 export const RENEWAL = { name: "Update renewal (one key, ten more releases)", cents: 2000 };

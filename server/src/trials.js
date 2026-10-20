@@ -1,7 +1,8 @@
-// Discount codes in the cart, free trials (TESTRUN, 7FREE), renewals and Central Services' monthly plan.
-// A trial: no payment. Until it ends the church gets as many keys as it wants (admins, users, Pedal Control: the Teams
-// page and Make a key), Central Services and Central Tracks Unlimited. Then its trial keys stop - the apps lock until a
-// bought key is entered - and the rest goes back to what it pays for. One free code per church, ever (and per main admin).
+// Discount codes in the cart, free trials (7FREE, BETATEST, TESTRUN), renewals and Central Services' monthly plan.
+// A trial: no payment. Until it ends the church gets unlimited keys (admins, users, Pedal Control: made as they're
+// needed, on the Teams page or with + key), Central Services and Central Tracks Unlimited. Then its trial keys stop - the
+// apps lock until a bought key is entered - and the rest goes back to what it pays for. One free code per church or
+// production company, ever.
 import { q, one, pool } from "./db.js";
 import { DISCOUNTS, RENEWAL, SERVICES_PLAN, servicesCents } from "./config.js";
 import { churchOf, createChurch, mintTrialKey, trialActive, pretty } from "./licenses.js";
@@ -9,7 +10,8 @@ import { requireStep } from "./signin.js";
 import * as pay from "./payments.js";
 import { sendMail, escHtml } from "./mail.js";
 import { config } from "./config.js";
-import { currentTenths, fmt } from "./versions.js";
+import { currentTenths, fmt, everyoneList, setEveryone } from "./versions.js";
+import { isAdmin } from "./auth.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const day = (d) => new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: config.timeZone || "America/Chicago" });
@@ -46,17 +48,11 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
     let c = await churchOf(req.user.id);
     if (c && c.role !== "owner") throw bad("Only the main admin can start a trial for " + c.name + ".", 403);
     if (c && c.trial_code) throw bad(c.name + " already had its free trial (" + c.trial_code + ").", 409);
-    if (await one("SELECT 1 FROM churches WHERE trial_by=$1", [req.user.id])) throw bad("You already started a free trial for another church. One free trial each.", 409);
     if (!c) { if (!String(req.body.church || "").trim()) { const e = bad("Name your church or production first."); e.needChurch = true; throw e; } await createChurch(req.user, req.body.church); c = await churchOf(req.user.id); }
-    const until = new Date(Date.now() + d.days * 864e5), client = await pool.connect(), keys = [];
-    try {
-      await client.query("BEGIN");
-      const ok = (await client.query("UPDATE churches SET trial_until=$1, trial_code=$2, trial_by=$3 WHERE id=$4 AND trial_code IS NULL RETURNING *", [until, code, req.user.id, c.id])).rows[0];
-      if (!ok) throw bad(c.name + " already had its free trial.", 409);
-      for (const k of ["P", "A", "U"]) keys.push({ kind: k, key: pretty(await mintTrialKey(client, ok, k)) });   // (one of each to start; more any time)
-      await client.query("COMMIT");
-    } catch (e) { try { await client.query("ROLLBACK"); } catch (_) { } throw e; } finally { client.release(); }
-    res.json({ ok: true, church: c.name, until, label: d.label, keys });
+    const until = new Date(Date.now() + d.days * 864e5);
+    const ok = await one("UPDATE churches SET trial_until=$1, trial_code=$2, trial_by=$3 WHERE id=$4 AND trial_code IS NULL RETURNING id", [until, code, req.user.id, c.id]);
+    if (!ok) throw bad(c.name + " already had its free trial.", 409);
+    res.json({ ok: true, church: c.name, until, label: d.label });   // (keys: unlimited, made as they're needed)
   }));
   // during a trial: another key (as many as you like)
   api.post("/church/trial-key", requireUser, wrap(async (req, res) => {
@@ -89,6 +85,34 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
     await requireStep(req);
     res.json({ url: await pay.servicesCheckout(req.user, c) });
   }));
-  // what the website shows about versions and renewals
-  api.get("/versions", wrap(async (_req, res) => { const t = await currentTenths(); res.json({ current: fmt(t), renewalCents: RENEWAL.cents }); }));
+  // what the website and the apps read about versions: the current one, the renewal price, and the releases Motion Audio
+  // sent to every device (an emergency fix installs even past a key's updates)
+  api.get("/versions", wrap(async (_req, res) => { const t = await currentTenths(); res.json({ current: fmt(t), renewalCents: RENEWAL.cents, everyone: await everyoneList() }); }));
+
+  // ---- Motion Audio staff: every code and who used it; releases and "Release to all devices"
+  const staff = async (req) => { if (!isAdmin(req.user)) throw bad("Admins only.", 403); await requireStep(req); };
+  api.get("/admin/codes", requireUser, wrap(async (req, res) => {
+    await staff(req);
+    const uses = await q("SELECT d.code, d.used_at, c.name AS church, o.total_cents FROM discount_uses d JOIN churches c ON c.id=d.church_id LEFT JOIN orders o ON o.id=d.order_id ORDER BY d.used_at DESC");
+    const trials = await q("SELECT trial_code AS code, name AS church, trial_until AS until, (trial_until > now()) AS active FROM churches WHERE trial_code IS NOT NULL ORDER BY trial_until DESC");
+    const codes = Object.entries(DISCOUNTS).map(([code, d]) => {
+      const u = d.trial ? trials.filter((t) => t.code === code) : uses.filter((x) => x.code === code);
+      return { code, kind: d.trial ? "trial" : "percent", percent: d.percent || 0, days: d.days || 0, label: d.label, on: d.on !== false, used: u.length, active: d.trial ? u.filter((t) => t.active).length : undefined, uses: u.slice(0, 200) };
+    });
+    const gone = [...new Set(uses.map((x) => x.code).concat(trials.map((t) => t.code)))].filter((c) => !DISCOUNTS[c]);   // (codes deleted since, still in the records)
+    res.json({ codes, deleted: gone.map((code) => ({ code, uses: uses.filter((x) => x.code === code).concat(trials.filter((t) => t.code === code)) })) });
+  }));
+  api.get("/admin/releases", requireUser, wrap(async (req, res) => {
+    await staff(req);
+    const ev = await everyoneList(), apiBase = process.env.CC_UPDATE_API || "https://api.github.com", repo = process.env.CC_UPDATE_REPO || "MotionAudio/Central-Apps";
+    let list = [];
+    try { const r = await fetch(apiBase + "/repos/" + repo + "/releases?per_page=30", { headers: { Accept: "application/vnd.github+json", "User-Agent": "motion-audio" }, signal: AbortSignal.timeout(10000) }); if (r.ok) list = await r.json(); } catch (_) { }
+    res.json({ current: fmt(await currentTenths()), releases: (Array.isArray(list) ? list : []).filter((x) => !x.draft).map((x) => { const v = String(x.tag_name || "").replace(/^v/i, ""); return { version: v, name: x.name || x.tag_name, published: x.published_at, everyone: ev.includes(v) }; }), everyone: ev });
+  }));
+  api.post("/admin/releases", requireUser, wrap(async (req, res) => {
+    await staff(req);
+    const v = String(req.body.version || "").trim().replace(/^v/i, "");
+    if (!/^\d+\.\d+(\.\d+)?$/.test(v)) throw bad("A version like 9.4.1.");
+    res.json({ ok: true, everyone: await setEveryone(v, req.body.everyone !== false, req.user.email) });
+  }));
 }

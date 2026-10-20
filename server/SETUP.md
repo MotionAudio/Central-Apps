@@ -206,9 +206,16 @@ change:
 
 A change takes effect as soon as you save. **Back to the starting prices** undoes everything.
 
-**Codes it starts with.** USAGE10 (10% off the software), 2026 (50% off the software), TESTRUN (everything free for 6 months)
-and 7FREE (everything free for 7 days). % codes work once per church and never on the built pedal or monthly plans. Each
-church gets one free trial, ever.
+**Codes it starts with.** USAGE10 (10% off the software), 2026 (50% off the software), 7FREE (everything free for 7
+days), BETATEST (everything free for 3 months) and TESTRUN (everything free for 6 months). % codes work once per church
+and never on the built pedal or monthly plans. Each church or production company gets one free trial, ever. A trial
+gives unlimited keys, made as they're needed.
+
+**The codes page** (Account → *Codes*): every code, what it does, whether it's on, and every church that used it (and
+which trials are running now).
+
+**Release to all devices** (Account → *Releases*): lets every app install that version, even apps whose key's updates
+ended before it. Use it for an emergency fix. Apps pick it up when they next open, or within 6 hours. **Stop** takes it back.
 
 **Versions.** Releases go 9.0, 9.1 … 9.9, then 10.0. A fix is the third number (9.4.1). Admin and user keys get ten full
 releases of updates from when they were bought (9.4 → 10.4); renewing adds ten more. The website reads the current

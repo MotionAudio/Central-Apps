@@ -1,7 +1,7 @@
 {
   "name": "central-services",
   "productName": "Central Services",
-  "version": "9.0.0",
+  "version": "9.1.0",
   "description": "Central Services: your church's schedule - worship and production teams, who is asked, who said yes or no.",
   "homepage": "https://motionaudio.github.io/Central-Apps/",
   "main": "main.js",

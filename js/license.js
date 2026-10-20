@@ -67,7 +67,13 @@
   }
   // Central Control and Central Usage on a computer: the updater installs only versions this key covers
   function tellUpdater() {
-    try { if (window.CU && window.CU.updates && window.CU.updates.config && st && st.key) window.CU.updates.config({ limit: st.updatesUntil != null ? st.updatesUntil : null, limitText: st.updatesUntilText || "" }); } catch (_) { }
+    try { if (window.CU && window.CU.updates && window.CU.updates.config && st && st.key) window.CU.updates.config({ limit: st.updatesUntil != null ? st.updatesUntil : null, limitText: st.updatesUntilText || "", everyone: everyone }); } catch (_) { }
+  }
+  // releases Motion Audio sent to every device (an emergency fix installs even past this key's updates)
+  var everyone = [];
+  async function learnEveryone() {
+    if (!on() || !(window.CU && window.CU.updates)) return;
+    try { var v = await call("/versions"); if (v && Array.isArray(v.everyone)) { everyone = v.everyone; tellUpdater(); } } catch (_) { }
   }
   function complete() { return licensed() && !!(st.account && st.account.email); }   // (the key and the account)
   function daysLeft() { return st && st.okAt ? Math.max(0, Math.ceil(((st.recheckDays || 30) * DAY - (Date.now() - st.okAt)) / DAY)) : 0; }
@@ -383,6 +389,7 @@
     if (st && st.app && KIND_OF[st.app] !== KIND_OF[app]) st = { production: st.production };   // (a key for another app)
     if (complete()) { markReady(); recheck(); tellUpdater(); }
     else open();
+    learnEveryone(); setInterval(learnEveryone, 6 * 3600e3);
     setInterval(function () { if (st && st.expiresAt && trialOver() && !el) open(); }, 60e3);   // (the trial ends while it's open)
     setInterval(recheck, 6 * 3600e3);
     if (window.PPFeatures) { window.PPFeatures.on("systemStatus", function (m) { if (m.wifi) { ui.wifi = m.wifi; if (el && ui.step === 0) draw(); } }); window.PPFeatures.on("wifiResult", function (m) { if (el && ui.step === 0 && m.ok) setTimeout(checkNet, 2500); }); }

@@ -28,3 +28,21 @@ export async function currentTenths() {
 }
 // the coverage of a key bought (or renewed) now: through the current version + one whole version
 export async function newCoverage(from) { const now = await currentTenths(); return Math.max(now, from || 0) + COVER_RELEASES; }
+
+// releases Motion Audio sent to every device ("Release to all devices": an emergency fix installs even past a key's
+// updates). Kept in site_settings; the apps read them from /v1/versions.
+import { q, one } from "./db.js";
+let ev = { at: 0, list: [] };
+export async function everyoneList() {
+  if (Date.now() - ev.at < 60e3) return ev.list;
+  const r = await one("SELECT data FROM site_settings WHERE name='everyone'").catch(() => null);
+  ev = { at: Date.now(), list: r && Array.isArray(r.data.versions) ? r.data.versions : [] };
+  return ev.list;
+}
+export async function setEveryone(version, on, by) {
+  ev.at = 0; const list = (await everyoneList()).filter((v) => v !== version);
+  if (on) list.push(version);
+  await q("INSERT INTO site_settings (name,data,updated_by) VALUES ('everyone',$1,$2) ON CONFLICT (name) DO UPDATE SET data=EXCLUDED.data, updated_at=now(), updated_by=EXCLUDED.updated_by", [{ versions: list }, by || ""]);
+  ev = { at: Date.now(), list };
+  return list;
+}
