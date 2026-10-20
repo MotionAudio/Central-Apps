@@ -225,7 +225,7 @@ module.exports = function services(app, getWin) {
   ipcMain.handle("read-file", (_e, f) => { try { return fs.readFileSync(f); } catch (_) { return null; } });
 
   // ------------------------------------------------------------------ the Instrument tab (runs the Central Pedal's instrument host here)
-  let inst = null, instBuf = "", instKind = "", instAlt = "";
+  let inst = null, instBuf = "", instKind = "", instAlt = "", instLastApply = null, instRestarts = [], instStopping = false;
   // Linux with PipeWire has two engines: the Central Pedal's own (real LV2 pedals) and the built-in rig (which also
   // plays the musician's own VST3 / CLAP / LV2 plugins). The page offers the other one; the choice is remembered.
   const enginePref = () => path.join(userData, "instrument", "engine.json");
@@ -245,7 +245,18 @@ module.exports = function services(app, getWin) {
     instAlt = pedalOk && rigOk ? (instKind === "pedal" ? "rig" : "pedal") : "";
     inst = spawn(cmd, args, { stdio: ["pipe", "pipe", "ignore"], windowsHide: true }); instBuf = "";
     inst.stdout.on("data", (b) => { instBuf += b; let i; while ((i = instBuf.indexOf("\n")) >= 0) { const line = instBuf.slice(0, i); instBuf = instBuf.slice(i + 1); try { const m = JSON.parse(line); if (m && m.type === "instrumentStatus" && instAlt) m.engineAlt = instAlt; send("inst-msg", m); } catch (_) { } } });
-    inst.stdin.on("error", () => { }); inst.on("exit", () => { inst = null; }); inst.on("error", () => { inst = null; });
+    const me = inst;
+    inst.stdin.on("error", () => { }); inst.on("error", () => { if (inst === me) inst = null; });
+    inst.on("exit", (code, sig) => {
+      if (inst === me) inst = null;
+      if (instStopping || (code === 0 && !sig)) return;
+      // it stopped by itself (a plugin crashed it): start it again with the same board, at most three times a minute
+      // (a plugin that crashed it while loading is paused by the engine, so it can't do it twice)
+      instRestarts = instRestarts.filter((t) => Date.now() - t < 60000);
+      if (instRestarts.length >= 3) { send("inst-msg", { type: "instrumentStatus", available: true, running: false, error: "The instrument engine stopped three times in a minute, so it is off for now. Remove the plugin that is doing it, then change anything to start it again.", inputs: [], midiInputs: [], keysCatalog: [] }); instRestarts = []; return; }
+      instRestarts.push(Date.now()); send("inst-msg", { type: "instrumentNotice", text: "The instrument engine stopped unexpectedly. Starting it again…" });
+      setTimeout(() => { if (inst) return; instStart(); if (inst && instLastApply) inst.stdin.write(JSON.stringify(instLastApply) + "\n"); }, 800);
+    });
     return true;
   }
   ipcMain.handle("inst-start", () => instStart());
@@ -253,12 +264,13 @@ module.exports = function services(app, getWin) {
     if (msg && msg.action === "engine") {   // switch engines (Linux): remember, stop this one, start the other
       try { fs.mkdirSync(path.dirname(enginePref()), { recursive: true }); fs.writeFileSync(enginePref(), JSON.stringify({ engine: msg.engine === "rig" ? "rig" : "pedal" })); } catch (_) { }
       const restart = () => { instStart(); if (inst) inst.stdin.write(JSON.stringify({ type: "instrument", action: "status" }) + "\n"); };
-      if (inst) { const old = inst; old.once("exit", restart); try { old.stdin.end(); } catch (_) { } setTimeout(() => { try { old.kill(); } catch (_) { } }, 2500); } else restart();
+      if (inst) { const old = inst; instStopping = true; old.once("exit", () => { instStopping = false; restart(); }); try { old.stdin.end(); } catch (_) { } setTimeout(() => { try { old.kill(); } catch (_) { } }, 2500); } else restart();
       return;
     }
+    if (msg && msg.action === "apply") instLastApply = msg;
     if (instStart() && inst) inst.stdin.write(JSON.stringify(msg) + "\n");
   });
-  ipcMain.handle("inst-stop", () => { if (inst) { try { inst.stdin.end(); setTimeout(() => { if (inst) inst.kill(); }, 1500); } catch (_) { } } return true; });
+  ipcMain.handle("inst-stop", () => { if (inst) { instStopping = true; inst.once("exit", () => { instStopping = false; }); try { inst.stdin.end(); setTimeout(() => { if (inst) inst.kill(); }, 1500); } catch (_) { } } return true; });
 
   // ------------------------------------------------------------------ the lights' local AI model (optional)
   const ai = { dir: path.join(userData, "models"), proc: null, port: 8093, download: null, ready: false, error: null };

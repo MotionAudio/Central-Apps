@@ -138,7 +138,7 @@ struct AuPlug : Plug {
       if (AudioUnitGetProperty(unit, kAudioUnitProperty_CocoaUI, kAudioUnitScope_Global, 0, info, &sz) == noErr) {
         NSURL *url = (NSURL *)info->mCocoaAUViewBundleLocation; NSString *cls = (NSString *)info->mCocoaAUViewClass[0];
         NSBundle *b = url ? [NSBundle bundleWithURL:url] : nil; Class c = b && cls ? [b classNamed:cls] : nil; NSView *v = nil;
-        if (c && [c instancesRespondToSelector:@selector(uiViewForAudioUnit:withSize:)]) { ::id<PHCocoaUIFactory> factory = (::id<PHCocoaUIFactory>)[[c alloc] init]; v = [factory uiViewForAudioUnit:unit withSize:NSMakeSize(640, 400)]; [v retain]; [factory release]; }
+        if (c && [c instancesRespondToSelector:@selector(uiViewForAudioUnit:withSize:)]) { NSObject<PHCocoaUIFactory> *factory = (NSObject<PHCocoaUIFactory> *)[[c alloc] init]; v = [factory uiViewForAudioUnit:unit withSize:NSMakeSize(640, 400)]; [v retain]; [factory release]; }
         if (info->mCocoaAUViewBundleLocation) CFRelease(info->mCocoaAUViewBundleLocation);
         for (UInt32 i = 0; i < (sz - sizeof(CFURLRef)) / sizeof(CFStringRef); i++) if (info->mCocoaAUViewClass[i]) CFRelease(info->mCocoaAUViewClass[i]);
         if (v) return v;

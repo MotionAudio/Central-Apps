@@ -106,7 +106,7 @@ const products = [
   { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", icon: "central-pedal", desc: "This is the heart of it. Your pads, multitracks and click play from the floor, and every other app follows along.", pts: ["Built and tested by us, footswitches and knobs included", "Its software is already on it, with its P key", "Ships to the US and Canada"] },
   { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", icon: "central-pedal-control", pts: ["Build your songs, pads and setlists at home, then send it all to the pedal. Windows, macOS, Linux, iPad, iPhone and Android."] },
   { id: "admin", tag: "A key", name: "Central Control", per: "per admin computer", icon: "central-control", pts: ["For whoever runs the desk: lights, slides, lyrics, cameras, in-ears, tracks and the mix, all in one place. Windows, macOS and Linux."] },
-  { id: "user", tag: "U key", name: "Central Usage", per: "per musician", icon: "central-usage", pts: ["For each musician: their chart, the lyrics, their instrument and their own in-ear mix, at church and at home. Works on everything."] },
+  { id: "user", tag: "U key", name: "Central Usage", per: "per musician", icon: "central-usage", pts: ["For each musician: their chart, the lyrics, their instrument and their own in-ear mix, at church and at home. Works on everything.", "On a computer, bring the plugins you already own: Kontakt, Keyscape, your favourite reverb. VST3, Audio Units, CLAP and LV2."] },
   { id: "user-pack", tag: "U key, church pack price", name: "Central Usage", per: "per musician", icon: "central-usage", packOnly: true, pts: ["The same app, at the price for churches with a pack."] },
 ];
 const ALL = packs.concat(products);

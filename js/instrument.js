@@ -468,6 +468,7 @@
       document.querySelectorAll("[data-gr]").forEach(function (el) { var g = m.gr && m.gr[el.dataset.gr] || 0; el.querySelector("i").style.width = Math.min(100, g / 24 * 100) + "%"; el.querySelector("output").textContent = (g > 0.05 ? "−" + g.toFixed(1) : "0.0") + " dB"; });
     });
     setInterval(function () { if (onTab() && document.querySelector("[data-gr]")) send({ type: "instrument", action: "meters" }); }, 120);
+    F.on("instrumentNotice", function (m) { if (m.text) PP.setStatus(m.text); });
     F.on("pluginList", function (m) { plugs.list = m.plugins || []; plugs.failed = m.failed || []; plugs.folders = m.folders || []; plugs.formats = m.formats || ""; if (m.scanning) { if (!plugs.scan) plugs.scan = { done: 0, total: 0 }; } else { plugs.scanned = true; plugs.scan = null; } if (onTab()) render(); });
     F.on("pluginScan", function (m) { plugs.scan = m; var el = $(".plug-scan"); if (el) el.textContent = "Looking for plugins… " + (m.total ? m.done + " of " + m.total + (m.current ? " · " + m.current : "") : ""); });
     F.on("pluginParams", function (m) {

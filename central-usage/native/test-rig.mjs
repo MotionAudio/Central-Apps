@@ -199,6 +199,20 @@ if (havePlugins) {
     send({ action: "status" }); const s = await next((m) => m.type === "instrumentStatus" && m.pluginSlots && m.pluginSlots.lay1); assert.equal(s.pluginSlots.lay1.instrument, true);
   });
 }
+if (havePlugins) await check("a plugin that crashes the engine as it loads is paused after the restart (until Scan again), so it can't crash it again", async () => {
+  const data2 = path.join(tmp, "data-crash"), crash = { format: "clap", id: "audio.motion.test-gain", path: path.join(testPlugDir, "crash-test.clap"), name: "Crash" };
+  const run = () => { const q = spawn(bin, ["--data", data2, "--backend", "null"], { stdio: ["pipe", "pipe", "ignore"] }); let b = "", got = []; q.stdout.on("data", (c) => { b += c; let i; while ((i = b.indexOf("\n")) >= 0) { try { got.push(JSON.parse(b.slice(0, i))); } catch (_) { } b = b.slice(i + 1); } }); return { q, got, send: (m) => q.stdin.write(JSON.stringify(m) + "\n") }; };
+  const cfg = { action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [{ uid: "cr1", id: "plug", plugin: crash, on: true, mix: 1, levelDb: 0 }], levelDb: 0, routing: {} } };
+  const a = run(); await sleep(300); a.send(cfg); const code = await new Promise((r) => { a.q.on("exit", (c, sig) => r(c === null ? sig : c)); setTimeout(() => r("still running"), 8000); });
+  assert.notEqual(code, "still running", "the crash plugin should take the first engine down"); assert.notEqual(code, 0);
+  const b = run(); await sleep(300); b.send(cfg); await sleep(1500);
+  const st = b.got.filter((m) => m.type === "instrumentStatus" && m.pluginErrors && m.pluginErrors.cr1).pop();
+  assert.ok(st && /paused/.test(st.pluginErrors.cr1), "paused after the crash: " + JSON.stringify(st && st.pluginErrors));
+  assert.equal(b.q.exitCode, null, "the second engine is still running");
+  b.send({ action: "plugins", scan: true, force: true, folders: [] }); await sleep(400);
+  assert.equal(fs.readFileSync(path.join(data2, "plugin-paused.txt"), "utf8").trim(), "", "Scan again un-pauses it");
+  b.q.stdin.end(); if (a.q.exitCode === null) a.q.kill();
+});
 await check("off stops the audio", async () => { send({ action: "apply", config: { kind: "off" } }); const s = await next((m) => m.type === "instrumentStatus" && m.kind === "off"); assert.equal(s.running, false); });
 p.stdin.end();
 setTimeout(() => { p.kill(); console.log(failures ? "\n" + failures + " RIG CHECK(S) FAILED" : "\nALL RIG CHECKS PASSED"); process.exit(failures ? 1 : 0); }, 800);

@@ -138,6 +138,17 @@ static Plug *openAny(const std::string &format, const std::string &id, const std
 #endif
   err = format + " plugins don't work on this computer"; return nullptr;
 }
+// ---- a plugin that crashed the rig while it loaded is paused until the next "Scan again"
+// (before loading, its key goes in plugin-loading.txt; a rig that starts and finds the file knows which one it was)
+static std::set<std::string> paused;
+static std::string loadingFile() { return U(P(gData) / "plugin-loading.txt"); }
+static std::string pausedFile() { return U(P(gData) / "plugin-paused.txt"); }
+static void savePaused() { std::error_code ec; fs::create_directories(P(gData), ec); std::ofstream f(P(pausedFile()), std::ios::trunc); for (auto &k : paused) f << k << "\n"; }
+static void loadPaused() {
+  { std::ifstream f(P(pausedFile())); std::string l; while (std::getline(f, l)) if (!l.empty()) paused.insert(l); }
+  std::ifstream g(P(loadingFile())); std::string k; if (std::getline(g, k) && !k.empty()) { paused.insert(k); g.close(); savePaused(); log("%s crashed while loading last time: paused", k.c_str()); }
+  std::error_code ec; fs::remove(P(loadingFile()), ec);
+}
 }  // namespace ph
 
 using namespace ph;
@@ -145,7 +156,7 @@ struct PhPlug {};   // (the C side only ever sees ph::Plug pointers through this
 static Plug *PP(PhPlug *p) { return reinterpret_cast<Plug *>(p); }
 
 extern "C" {
-void ph_init(const char *dataDir, void (*emit)(const char *json)) { gData = dataDir && dataDir[0] ? dataDir : "."; gEmit = emit; }
+void ph_init(const char *dataDir, void (*emit)(const char *json)) { gData = dataDir && dataDir[0] ? dataDir : "."; gEmit = emit; loadPaused(); }
 void ph_post(void (*fn)(void *), void *arg) { post([fn, arg] { fn(arg); }); }
 
 PhPlug *ph_get(const char *slot, const char *format, const char *id, const char *path, const char *stateFrom, double sr, int maxBlock, char *err, int errLen) {
@@ -156,13 +167,17 @@ PhPlug *ph_get(const char *slot, const char *format, const char *id, const char 
     Plug *old = it->second; saveSlot(old); pool.erase(it); if (--old->refs == 0) destroy(old);
   }
   std::error_code ec; if (pa.empty() || (f != "au" && f != "lv2" && !fs::exists(P(pa), ec))) { std::string found = findPath(f, i); if (!found.empty()) pa = found; }
+  std::string key = f + ":" + i;
+  if (paused.count(key)) { if (err) snprintf(err, (size_t)errLen, "it crashed the instrument engine the last time it started, so it is paused. Scan again (Add pedal, Your plugins) to give it another try"); return nullptr; }
+  { std::error_code ec2; fs::create_directories(P(gData), ec2); std::ofstream lf(P(loadingFile()), std::ios::trunc); lf << key << "\n"; }
+  auto loaded = [] { std::error_code ec3; fs::remove(P(loadingFile()), ec3); };
   std::string e; Plug *p = openAny(f, i, pa, e);
-  if (!p) { if (err) snprintf(err, (size_t)errLen, "%s", e.c_str()); return nullptr; }
+  if (!p) { loaded(); if (err) snprintf(err, (size_t)errLen, "%s", e.c_str()); return nullptr; }
   p->format = f; p->id = i; p->path = pa; p->slot = s; p->sampleRate = sr; p->maxBlock = maxBlock;
-  if (!p->start(sr, maxBlock, e)) { if (err) snprintf(err, (size_t)errLen, "%s", e.c_str()); delete p; return nullptr; }
+  if (!p->start(sr, maxBlock, e)) { loaded(); if (err) snprintf(err, (size_t)errLen, "%s", e.c_str()); delete p; return nullptr; }
   std::vector<uint8_t> st;
   if (readState(s, f, i, st) || (stateFrom && stateFrom[0] && readState(stateFrom, f, i, st))) { if (!p->loadState(st)) log("%s: its saved state did not load", p->name.c_str()); else if (!readState(s, f, i, st)) p->dirty = true; }
-  p->refs = 2; pool[s] = p; return reinterpret_cast<PhPlug *>(p);
+  loaded(); p->refs = 2; pool[s] = p; return reinterpret_cast<PhPlug *>(p);
 }
 void ph_retain(PhPlug *p) { if (p) PP(p)->refs++; }
 void ph_release(PhPlug *p) { if (!p) return; Plug *q = PP(p); if (--q->refs == 0) destroy(q); }
@@ -377,6 +392,7 @@ static void scanWorker(std::vector<std::string> extra, bool force) {
 
 extern "C" {
 void ph_scan(const char *extraFoldersJson, int force) {
+  if (force && !paused.empty()) { paused.clear(); savePaused(); }   // ("Scan again": paused plugins get another try)
   if (scanning.exchange(true)) return;
   std::vector<std::string> extra; cJSON *a = extraFoldersJson ? cJSON_Parse(extraFoldersJson) : nullptr, *e; if (a) cJSON_ArrayForEach(e, a) if (cJSON_IsString(e)) extra.push_back(e->valuestring); cJSON_Delete(a);
   std::thread(scanWorker, extra, force != 0).detach();

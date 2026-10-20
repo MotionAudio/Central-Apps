@@ -89,8 +89,8 @@ try {
   await page.fill("#pcCode", "7free"); await page.click("#pcApply"); await page.waitForTimeout(500);
   ok(/Start the free trial/.test(await page.textContent("#checkout")), "7FREE in an empty cart: Start the free trial");
   await shot("trial-cart");
-  await page.click("#checkout"); await page.waitForSelector(".modal h3:text('Your free trial is on')", { timeout: 5000 }).catch(() => {});
-  ok(/Your free trial is on/.test(await page.textContent(".modal")), "the trial starts");
+  await page.click("#checkout"); await page.waitForSelector(".modal h3:text('Your free trial has started')", { timeout: 5000 }).catch(() => {});
+  ok(/Your free trial has started/.test(await page.textContent(".modal")), "the trial starts");
   await page.click(".modal [data-close]"); await page.waitForTimeout(800);
   ok(/Free trial \(7FREE\)/.test(await page.textContent("#churchCard")), "the church page shows the trial");
 
