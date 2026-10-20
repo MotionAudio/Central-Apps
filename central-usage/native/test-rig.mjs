@@ -121,7 +121,7 @@ if (!fs.existsSync(path.join(testPlugDir, "central-test.clap"))) {
   else for (const [name, def] of [["central-test.clap", []], ["crash-test.clap", ["-DCENTRAL_TEST_CRASH"]]]) spawnSync(cc, ["-shared", "-fPIC", "-O2", ...def, "-o", path.join(testPlugDir, name), src, "-lm"], { stdio: "inherit" });
 }
 const testClap = path.join(testPlugDir, "central-test.clap"), havePlugins = fs.existsSync(testClap);
-if (!havePlugins) console.log("  (no test plugins and no C compiler: the plugin checks are skipped)");
+if (!havePlugins) { if (process.env.CI) { console.error("  ✗ the test plugins are missing (make builds them into test-plugins/ next to cu-rig)"); process.exit(1); } console.log("  (no test plugins and no C compiler: the plugin checks are skipped)"); }
 const gainPlug = { format: "clap", id: "audio.motion.test-gain", path: testClap, name: "Central Test Gain" }, synthPlug = { format: "clap", id: "audio.motion.test-synth", path: testClap, name: "Central Test Synth" };
 const plugFx = (uid, extra) => Object.assign({ uid, id: "plug", plugin: gainPlug, on: true, mix: 1, levelDb: 0 }, extra || {});
 const electric = (chain) => ({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain, levelDb: 0, routing: {} } });
@@ -137,6 +137,7 @@ if (havePlugins) {
     assert.ok(l.failed.some((f) => /crash-test/.test(f.path)), "the crashing plugin is listed as failed: " + JSON.stringify(l.failed));
     assert.ok(/clap/.test(l.formats), "formats " + l.formats);
     assert.equal(p.exitCode, null, "the rig is still running");
+    if (process.env.CI) assert.ok(/vst3/.test(l.formats) && fs.existsSync(path.join(testPlugDir, "central-test.vst3")), "in CI the VST3 test plugin is there and VST3 is hosted: " + l.formats);
     if (/vst3/.test(l.formats) && fs.existsSync(path.join(testPlugDir, "central-test.vst3"))) {
       const vfx = l.plugins.find((x) => x.format === "vst3" && x.name === "Central Test Gain VST3"), vsyn = l.plugins.find((x) => x.format === "vst3" && x.name === "Central Test Synth VST3");
       assert.ok(vfx && vfx.kind === "effect" && vfx.vendor === "Motion Audio" && /^[0-9A-F]{32}$/.test(vfx.id), "the VST3 effect: " + JSON.stringify(vfx));

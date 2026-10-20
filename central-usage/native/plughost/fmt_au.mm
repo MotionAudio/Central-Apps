@@ -4,13 +4,17 @@
 #ifdef __APPLE__
 #import <Cocoa/Cocoa.h>
 #import <AudioToolbox/AudioToolbox.h>
-#import <CoreAudioKit/AUCocoaUIView.h>
 #import <CoreAudioKit/CoreAudioKit.h>
 #include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <vector>
 #include "ph.hpp"
+
+// what an Audio Unit's own Cocoa view factory answers (the SDK's AUCocoaUIBase; declared here, checked at run time)
+@protocol PHCocoaUIFactory <NSObject>
+- (NSView *)uiViewForAudioUnit:(AudioUnit)inAudioUnit withSize:(NSSize)inPreferredSize;
+@end
 
 namespace ph {
 static std::string fourcc(OSType t) { char b[9]; snprintf(b, sizeof b, "%08X", (unsigned)t); return b; }
@@ -21,7 +25,8 @@ static bool parseId(const std::string &id, AudioComponentDescription &d) {   // 
 }
 
 bool listAu(std::vector<ClassInfo> &out) {
-  for (OSType type : { kAudioUnitType_Effect, kAudioUnitType_MusicEffect, kAudioUnitType_MusicDevice }) {
+  const OSType types[] = { kAudioUnitType_Effect, kAudioUnitType_MusicEffect, kAudioUnitType_MusicDevice };
+  for (OSType type : types) {
     AudioComponentDescription want{}; want.componentType = type; AudioComponent c = nullptr;
     while ((c = AudioComponentFindNext(c, &want))) {
       AudioComponentDescription d{}; if (AudioComponentGetDescription(c, &d) != noErr) continue;
@@ -133,7 +138,7 @@ struct AuPlug : Plug {
       if (AudioUnitGetProperty(unit, kAudioUnitProperty_CocoaUI, kAudioUnitScope_Global, 0, info, &sz) == noErr) {
         NSURL *url = (NSURL *)info->mCocoaAUViewBundleLocation; NSString *cls = (NSString *)info->mCocoaAUViewClass[0];
         NSBundle *b = url ? [NSBundle bundleWithURL:url] : nil; Class c = b && cls ? [b classNamed:cls] : nil; NSView *v = nil;
-        if (c && [c conformsToProtocol:@protocol(AUCocoaUIBase)]) { ::id<AUCocoaUIBase> factory = [[c alloc] init]; v = [factory uiViewForAudioUnit:unit withSize:NSMakeSize(640, 400)]; [v retain]; [factory release]; }
+        if (c && [c instancesRespondToSelector:@selector(uiViewForAudioUnit:withSize:)]) { ::id<PHCocoaUIFactory> factory = (::id<PHCocoaUIFactory>)[[c alloc] init]; v = [factory uiViewForAudioUnit:unit withSize:NSMakeSize(640, 400)]; [v retain]; [factory release]; }
         if (info->mCocoaAUViewBundleLocation) CFRelease(info->mCocoaAUViewBundleLocation);
         for (UInt32 i = 0; i < (sz - sizeof(CFURLRef)) / sizeof(CFStringRef); i++) if (info->mCocoaAUViewClass[i]) CFRelease(info->mCocoaAUViewClass[i]);
         if (v) return v;

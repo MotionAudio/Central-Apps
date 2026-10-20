@@ -23,7 +23,7 @@ const char *windowApi() { return "cocoa"; }
 struct MacWin : Window {
   NSWindow *win = nil; PHWindowDelegate *del = nil; bool sizing = false;
   MacWin(const std::string &title, int w, int h, bool resizable) {
-    NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | (resizable ? NSWindowStyleMaskResizable : 0);
+    NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | (resizable ? NSWindowStyleMaskResizable : (NSWindowStyleMask)0);
     win = [[NSWindow alloc] initWithContentRect:NSMakeRect(120, 120, w, h) styleMask:style backing:NSBackingStoreBuffered defer:NO];
     [win setReleasedWhenClosed:NO];
     [win setTitle:[NSString stringWithUTF8String:title.c_str()]];

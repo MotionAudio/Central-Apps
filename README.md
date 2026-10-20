@@ -116,7 +116,10 @@ flowchart LR
 
 **Instrument**
 - Guitar and bass pedalboards (600+ free plugins on the Pi, a built-in rig on Windows and macOS).
-- Keys from SoundFonts, with layers and splits.
+- Studio compressor, 7-band EQ, limiter and de-esser on every instrument.
+- Your own plugins on computers: VST3 and CLAP (Windows, macOS, Linux), Audio Units (macOS) and LV2 (Linux), effects
+  and instruments (Kontakt, Keyscape…), with their own windows.
+- Keys from SoundFonts or your instrument plugins, with layers and splits.
 - A tuner, an IR loader and a looper.
 
 **The team**
@@ -417,7 +420,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
   can go to an audio output. The lights also react to the music.
 - **Slides:** pictures, video and lyrics go to a second screen, the Central
   Pedal's HDMI 2 and NDI.
-- **The Instrument tab** is the same guitar / bass / keys rig as on the Pi.
+- **The Instrument tab** is the same guitar / bass / keys rig as on the Pi, and it also plays your own VST3, CLAP,
+  Audio Unit (macOS) and LV2 (Linux) plugins, effects and instruments, with their windows.
 
 **New in version 7.1:** the HDMI picture is right on any monitor - its own
 native resolution (sharp, not stretched), the whole app on screen, a monitor
@@ -940,7 +944,7 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
 | `test_pedal_driver.py`, `test-integration.mjs`, `test-headless.mjs`, `test_instrument_host.py` | Automated tests |
 | `central-usage/player.js`, `prepare-player.sh` | The player window in Central Control: the Central Pedal app and its driver (bundled with PyInstaller - `tools/build-driver.sh`), for the main admin's computer when no Central Pedal plays the tracks |
 | `native_rig.py` | The driver's bridge to the built-in instrument rig (cu-rig) where PipeWire isn't there (Windows, macOS) |
-| `central-usage/native/` | `cu-mixer` (audio engine: JACK, or Windows / macOS / Linux devices through miniaudio - several at once, Dante), `cu-ndi`, `cu-rig` (built-in instrument rig), `vendor/` (miniaudio, TinySoundFont, cJSON), unit tests |
+| `central-usage/native/` | `cu-mixer` (audio engine: JACK, or Windows / macOS / Linux devices through miniaudio - several at once, Dante), `cu-ndi`, `cu-rig` (built-in instrument rig + `plughost/`, the host for the musician's own VST3 / CLAP / Audio Unit / LV2 plugins: scans in child processes, states in `plugin-states/`, editor windows on X11 / Win32 / Cocoa), `vendor/` (miniaudio, TinySoundFont, cJSON, CLAP headers, the VST3 SDK's interface headers), unit tests (`test-rig.mjs` with test CLAP and VST3 plugins from `plughost/test/`) |
 | `central-usage-mobile/` | Central Usage for Android (`.apk`) and iPhone / iPad (TestFlight / App Store): a Capacitor app that finds the main admin and opens Central Usage - [IOS-APP-STORE.md](IOS-APP-STORE.md) |
 | `central-usage/usage-builder.js` | Packs Central Usage (the musicians' edition) from the same code as Central Control |
 | `central-pedal-control/`, `central-pedal-control-mobile/` | Central Pedal Control for macOS, Windows and Linux (Electron, the bundled driver) and iPhone, iPad and Android (Capacitor) |
