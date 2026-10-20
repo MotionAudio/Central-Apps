@@ -5,6 +5,7 @@ export const config = {
   publicUrl: (env.PUBLIC_URL || env.RENDER_EXTERNAL_URL || "http://localhost:" + (env.PORT || 8080)).replace(/\/+$/, ""),
   databaseUrl: env.DATABASE_URL || "postgres://localhost/motionaudio",
   tokenSecret: env.TOKEN_SECRET || "dev-only-secret-change-me",
+  timeZone: env.TIME_ZONE || "America/Chicago",   // (the times in schedule emails)
   adminEmails: (env.ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
   stripe: {
     secret: env.STRIPE_SECRET_KEY || "",
@@ -28,12 +29,15 @@ export const PRODUCTS = {
   admin: { name: "Central Control (admin)", cents: 5000, keys: { A: 1 } },
   user: { name: "Central Usage (user)", cents: 2000, keys: { U: 1 } },
   "user-pack": { name: "Central Usage (user, church pack price)", cents: 1000, keys: { U: 1 }, needsPack: true },
-  "pack-small": { name: "Small church pack", cents: 40000, ships: true, pack: true, keys: { P: 2, A: 2, U: 6 } },
-  "pack-medium": { name: "Medium church pack", cents: 60000, ships: true, pack: true, keys: { P: 2, A: 4, U: 12 } },
-  "pack-large": { name: "Large church pack", cents: 85000, ships: true, pack: true, keys: { P: 2, A: 7, U: 20 } },
+  services: { name: "Central Services (scheduling, for the whole church)", cents: 2500, services: true, keys: {}, onePerChurch: true },
+  "pack-small": { name: "Small church pack", cents: 40000, ships: true, pack: true, services: true, keys: { P: 2, A: 2, U: 6 } },
+  "pack-medium": { name: "Medium church pack", cents: 60000, ships: true, pack: true, services: true, keys: { P: 2, A: 4, U: 12 } },
+  "pack-large": { name: "Large church pack", cents: 85000, ships: true, pack: true, services: true, keys: { P: 2, A: 7, U: 20 } },
 };
 export const KEY_KINDS = { P: "Central Pedal / Central Pedal Control", A: "Central Control (admin)", U: "Central Usage (user)" };
-export const LICENSE_RECHECK_DAYS = 30;   // the apps check their key again this often, and keep working offline that long
+export const LICENSE_RECHECK_DAYS = 30;
+// Central Services: per church
+export const SERVICES_LIMITS = { teamsPerKind: 4, schedulers: 4, people: 120 };   // the apps check their key again this often, and keep working offline that long
 export const SUBSCRIPTION = { name: "Central Tracks Unlimited", cents: 7700, interval: "month" };
 export const STAR_PRICE_CENTS = { 1: 500, 2: 1000, 3: 1500, 4: 2000, 5: 3000 };
 export const PUBLISHER_SHARE = 0.75;          // of each purchase

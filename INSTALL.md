@@ -61,10 +61,11 @@ name, so updates and settings carry on):
 Also in **⇪ Upload**: the Stream Deck, the network audio to the main admin (each track, the click, the pads and the
 instrument on their own channels) with the backup player's settings, and the practice-mix and stem splitter settings.
 
-## Android (Central Usage, Central Pedal Control)
+## Android (Central Usage, Central Pedal Control, Central Services)
 
 1. On the phone or tablet, open the download page and tap **Download for Android** (`CentralUsage-<v>.apk`, or
-   `central-pedal-control-<v>-android.apk` for Central Pedal Control).
+   `central-pedal-control-<v>-android.apk` for Central Pedal Control, `central-services-<v>-android.apk` for Central
+   Services).
 2. Open it; Android asks to allow installs from the browser: **Settings → Allow from this source**, back, **Install**.
 3. Open **Central Usage** on the church Wi-Fi and tap **Find the main admin** (or type its address), then pick
    User 1 or User 2 and type the pairing PIN. **Central Pedal Control** opens the Central Pedal app at once: set up
@@ -159,6 +160,19 @@ Download the `.AppImage` from the Releases page instead of the `.deb`, then righ
 
 ---
 
+## Setting up a church (8.11)
+
+1. On the Motion Audio website, **make the church account**, then the **main admin** (the same account, or type
+   someone else's name and email to send them the main admin link).
+2. **Buy the keys** or a church pack. The church page shows how many A, U and P keys are left.
+3. **Teams → Admins / Users / Pedal Control → Add members:** name, email and role for each, then **Done**. Each
+   person gets an email with a link to make their account, their app's download link and their key.
+4. **Each person:** makes the account, downloads the app, connects to Wi-Fi (skipped when already online), types the
+   key. An admin key works on one device; a user or Pedal Control key on two (church and home), signed in with the
+   same account, with the settings shared between them.
+5. **Central Services** (the schedule): sign in with the same account. Admins open on the whole schedule, users on
+   their own requests.
+
 ## Setting up a team (8.3)
 
 1. **The main admin first** - Central Control on the sound desk computer: choose **Main admin**, its inputs and
@@ -217,8 +231,11 @@ cat /tmp/pad-pedal-session.log           # the screen session (screens found, wi
 ---
 
 ## Updating later
-* **Pi:** Settings → Install when *Update ready* appears.
-* **Windows / Mac / Linux apps:** they check for updates themselves and ask before installing
-  (Windows: the new installer runs by itself; Mac: the app is replaced and restarts; Linux: the new
-  .deb or AppImage). Or download the newest from the download page again.
+* **Pi:** it looks every time it starts and installs a new version by itself after a 10-second notice on its screen
+  (never while something plays). Or Settings → Software updates → Install.
+* **Windows / Mac / Linux apps:** they look every time they open and install a new version by itself after a
+  10-second notice, never while something plays (Windows: the new installer runs by itself; Mac: the app is replaced
+  and restarts; Linux: the new .deb or AppImage). Or download the newest from the download page again.
+* **Android apps:** they look every time they open; after the 10-second notice the new `.apk` downloads and Android
+  shows **Update** (one tap). Songs, settings, the key and the sign-in stay.
 * **iPhone / iPad:** the web app always has the Central Pedal's version - nothing to do.

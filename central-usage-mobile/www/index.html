@@ -53,7 +53,7 @@
   }
   // this phone's own id for its license key (Central Usage itself comes from the main admin's address, which can change)
   function devId() { var d = null; try { d = localStorage.getItem("cc-device-id"); } catch (_) { } if (!d) { var a = new Uint8Array(12); crypto.getRandomValues(a); d = "dev-" + Array.from(a).map(function (x) { return ("0" + x.toString(16)).slice(-2); }).join(""); try { localStorage.setItem("cc-device-id", d); } catch (_) { } } return d; }
-  function open(found) { remember(found.host); say("Found " + found.name + " - opening…"); location.href = found.url + "?edition=usage&cudev=" + devId(); }
+  function open(found) { remember(found.host); say("Found " + found.name + " - opening…"); var go = function () { location.href = found.url + "?edition=usage&cudev=" + devId(); }; if (window.AppUpdate) AppUpdate.gate(go); else go(); }
   function find() {
     say("Looking on this Wi-Fi…");
     var tries = [saved(), "padpedal.local", "centralcontrol.local", "central-control.local"].filter(function (h, i, a) { return h && a.indexOf(h) === i; });

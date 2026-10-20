@@ -16,7 +16,7 @@
 
 ---
 
-## The four apps
+## The apps
 
 | | App | Who it's for | What it does |
 |:-:|---|---|---|
@@ -24,24 +24,26 @@
 | <img src="docs/brand/central-pedal-control.png" width="44" alt=""> | **Central Pedal Control** | Whoever gets the songs ready | The same Central Pedal app on your computer, tablet or phone. You build the setlist, add songs and tracks, and set up pads, controls and the instrument anywhere. Then **⇪ Upload** it all to the pedal. |
 | <img src="docs/brand/central-control.png" width="44" alt=""> | **Central Control** | The main admin and admins | Lights, slides, lyrics, cameras, in-ear mixes, the tracks and the mix, for the whole team. |
 | <img src="docs/brand/central-usage.png" width="44" alt=""> | **Central Usage** | Musicians and singers | Your chord chart, your instrument, the lyrics and your own in-ear mix. |
+| <img src="docs/brand/central-services.png" width="44" alt=""> | **Central Services** | Everyone in the church | The schedule: services, who's asked to serve, and everyone's yes or no. Admins see the whole schedule; users see their own requests. |
 
 ## Platforms
 
-| | Central Pedal | Central Pedal Control | Central Control | Central Usage |
-|---|:-:|:-:|:-:|:-:|
-| **Raspberry Pi 4** | ✅ | | | |
-| **macOS** (Apple Silicon, Intel) | | ✅ | ✅ | ✅ |
-| **Windows** 10 / 11 | | ✅ | ✅ | ✅ |
-| **Linux** (.deb, AppImage) | | ✅ | ✅ | ✅ |
-| **iPadOS** | | ✅ ¹ | | ✅ ¹ |
-| **iOS** (iPhone) | | ✅ ¹ | | ✅ ¹ |
-| **Android** | | ✅ | | ✅ |
+| | Central Pedal | Central Pedal Control | Central Control | Central Usage | Central Services |
+|---|:-:|:-:|:-:|:-:|:-:|
+| **Raspberry Pi 4** | ✅ | | | | |
+| **macOS** (Apple Silicon, Intel) | | ✅ | ✅ | ✅ | ✅ |
+| **Windows** 10 / 11 | | ✅ | ✅ | ✅ | ✅ |
+| **Linux** (.deb, AppImage) | | ✅ | ✅ | ✅ | ✅ |
+| **iPadOS** | | ✅ ¹ | | ✅ ¹ | ✅ ¹ |
+| **iOS** (iPhone) | | ✅ ¹ | | ✅ ¹ | ✅ ¹ |
+| **Android** | | ✅ | | ✅ | ✅ |
 
 ¹ iPhone and iPad: through TestFlight and the App Store once the Apple developer account is set up ([IOS-APP-STORE.md](IOS-APP-STORE.md)).
 Central Usage also runs in Safari today, served by the main admin's computer.
 
-Every release is built and tested for every system by GitHub Actions. Every installed app updates itself from the
-newest release, and asks first.
+Every release is built and tested for every system by GitHub Actions. Every installed app looks for a new version
+every time it opens and installs it by itself after a 10-second notice (Android: it downloads, then one tap on
+**Update**). Songs, setlists, settings, keys and sign-ins are never touched by an update.
 
 ## How it fits together
 
@@ -179,7 +181,15 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (8.10 and earlier)</summary>
+<summary><b>What's new in each version</b> (8.11 and earlier)</summary>
+
+**New in version 8.11:**
+- **Teams:** the main admin adds Admins, Users and Pedal Control people (name, email, role); each gets an email with
+  the link to make their account, their app's download link and their key. The church page shows the keys left.
+- **Keys:** an admin key on one device; a user key or Pedal Control key on two (church and home), same account only.
+  Settings follow the account, so both devices match.
+- **Updates on open** for every app, Android included. The Wi-Fi step is skipped when already online.
+- **Central Services** (new): the church's schedule; it knows whether the account is an admin or a user.
 
 **New in version 8.10:**
 - **License keys and church accounts:** the first-open setup (internet, production, key, account). Keys work one device

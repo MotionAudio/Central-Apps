@@ -1,6 +1,7 @@
 # Builds every installer of the four apps and tests them on each system:
 #   Central Pedal          the Raspberry Pi (its update is central-control-source.zip, made by make-release.sh)
 #   Central Pedal Control  Mac, Windows, Linux, Android + the iPhone / iPad project   central-pedal-control-*, central-pedal-control-mobile
+#   Central Services       Mac, Windows, Linux, Android + the iPhone / iPad project   central-services-*, central-services-mobile
 #   Central Control        Linux, Windows, Mac - the main admin and admins       central-usage-* (its files' old name)
 #   Central Usage          Mac, Windows, Linux, Android + the iPhone / iPad project  CentralUsage-*, central-usage-mobile
 # Central Control and Central Usage are one code base (central-usage/; usage-builder.js packs Central Usage), with
@@ -120,6 +121,15 @@ jobs:
           [ "$(dpkg-deb -f dist/central-pedal-control-*-amd64.deb Package)" = central-pedal-control ] || { echo "::error::wrong .deb package name"; exit 1; }
           echo "Central Pedal Control: app + driver"
           ls -la dist/ | grep -E "deb|AppImage"
+      - name: Central Services (Linux)
+        run: |
+          bash central-services/prepare.sh
+          cd central-services
+          npm install --no-audit --no-fund
+          bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder --linux deb AppImage --x64 --publish never
+          test -f dist/linux-unpacked/resources/app/services.js || { echo "::error::the Central Services page is missing"; exit 1; }
+          [ "$(dpkg-deb -f dist/central-services-*-amd64.deb Package)" = central-services ] || { echo "::error::wrong .deb package name"; exit 1; }
+          ls -la dist/ | grep -E "deb|AppImage"
       - uses: actions/upload-artifact@v4
         with:
           name: installers-linux
@@ -129,6 +139,8 @@ jobs:
             central-usage/dist/*.AppImage
             central-pedal-control/dist/*.deb
             central-pedal-control/dist/*.AppImage
+            central-services/dist/*.deb
+            central-services/dist/*.AppImage
 
   windows:
     name: Windows (x64 installer)
@@ -195,6 +207,14 @@ jobs:
           dist/win-unpacked/resources/driver/pedal-driver/pedal-driver.exe --help > /dev/null || { echo "::error::the bundled driver doesn't run"; exit 1; }
           echo "Central Pedal Control: app + driver"
           ls -la dist/*.exe
+      - name: Central Services (Windows)
+        run: |
+          bash central-services/prepare.sh
+          cd central-services
+          npm install --no-audit --no-fund
+          bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder --win nsis --x64 --publish never
+          test -f dist/win-unpacked/resources/app/services.js || { echo "::error::the Central Services page is missing"; exit 1; }
+          ls -la dist/*.exe
       - uses: actions/upload-artifact@v4
         with:
           name: installers-win
@@ -202,6 +222,7 @@ jobs:
           path: |
             central-usage/dist/*.exe
             central-pedal-control/dist/*.exe
+            central-services/dist/*.exe
 
   macos:
     name: macOS (${{ matrix.arch }})
@@ -271,6 +292,15 @@ jobs:
           P=$(ls -d dist/mac*/"Central Pedal Control.app")
           codesign --verify --deep "$P" && ls "$P/Contents/Resources/app/js/transfer.js" > /dev/null && "$P/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "Central Pedal Control: app + driver"
           ls -la dist/*.dmg
+      - name: Central Services (Mac)
+        run: |
+          bash central-services/prepare.sh
+          cd central-services
+          npm install --no-audit --no-fund
+          bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          P=$(ls -d dist/mac*/"Central Services.app")
+          codesign --verify --deep "$P" && ls "$P/Contents/Resources/app/services.js" > /dev/null && echo "Central Services: $P"
+          ls -la dist/*.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: installers-mac-${{ matrix.arch }}
@@ -278,6 +308,7 @@ jobs:
           path: |
             central-usage/dist/*.dmg
             central-pedal-control/dist/*.dmg
+            central-services/dist/*.dmg
 
   ios:
     name: iPhone / iPad projects (simulator builds, unsigned)
@@ -298,6 +329,12 @@ jobs:
           bash tools/ci-run.sh "iOS build (Central Pedal Control)" xcodebuild build -workspace central-pedal-control-mobile/ios/App/App.xcworkspace -scheme App -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -quiet
           echo "Central Pedal Control iPhone / iPad project builds"
+      - name: Central Services (iPhone / iPad) - the schedule, simulator build
+        run: |
+          bash central-services-mobile/prepare.sh ios
+          bash tools/ci-run.sh "iOS build (Central Services)" xcodebuild build -workspace central-services-mobile/ios/App/App.xcworkspace -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -quiet
+          echo "Central Services iPhone / iPad project builds"
 
   android:
     name: Android (Central Usage + Central Pedal Control APKs)
@@ -335,6 +372,19 @@ jobs:
           grep -q "assets/public/js/transfer.js" "$RUNNER_TEMP/apk.txt" || { echo "::error::the Central Pedal app is not in the APK"; exit 1; }
           echo "the Central Pedal app is inside"
           ls -la ../dist
+      - name: Central Services APK (the schedule on an Android phone / tablet)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          CS=$(node -p "require('./central-services/package.json').version")
+          bash central-services-mobile/prepare.sh android
+          if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/cu.keystore"; export CU_KEYSTORE="$RUNNER_TEMP/cu.keystore" CU_KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD"; fi
+          cd central-services-mobile/android && chmod +x gradlew
+          CS_VERSION=$CS bash ../../tools/ci-run.sh "gradle (Central Services)" ./gradlew --no-daemon -q assembleRelease
+          mkdir -p ../dist && cp app/build/outputs/apk/release/app-release.apk "../dist/central-services-$CS-android.apk"
+          unzip -l "../dist/central-services-$CS-android.apk" | grep -q "assets/public/services.js" || { echo "::error::the Central Services page is not in the APK"; exit 1; }
+          ls -la ../dist
       - uses: actions/upload-artifact@v4
         with:
           name: installers-android
@@ -342,6 +392,7 @@ jobs:
           path: |
             central-usage-mobile/dist/*.apk
             central-pedal-control-mobile/dist/*.apk
+            central-services-mobile/dist/*.apk
 
   names:
     name: Every installer is there, with the names the updaters look for (and their sizes)
@@ -354,12 +405,15 @@ jobs:
       - run: |
           CU=$(node -p "require('./central-usage/package.json').version")
           PC=$(node -p "require('./central-pedal-control/package.json').version")
+          CS=$(node -p "require('./central-services/package.json').version")
           missing=0; sizes=""
           for f in central-usage-$CU-win-x64.exe central-usage-$CU-mac-arm64.dmg central-usage-$CU-mac-x64.dmg central-usage-$CU-amd64.deb central-usage-$CU-x86_64.AppImage \
                    CentralUsage-$CU-win-x64.exe CentralUsage-$CU-mac-arm64.dmg CentralUsage-$CU-mac-x64.dmg CentralUsage-$CU.apk \
                    CentralUsage-$CU-amd64.deb CentralUsage-$CU-x86_64.AppImage \
                    central-pedal-control-$PC-mac-arm64.dmg central-pedal-control-$PC-mac-x64.dmg central-pedal-control-$PC-win-x64.exe \
-                   central-pedal-control-$PC-amd64.deb central-pedal-control-$PC-x86_64.AppImage central-pedal-control-$PC-android.apk; do
+                   central-pedal-control-$PC-amd64.deb central-pedal-control-$PC-x86_64.AppImage central-pedal-control-$PC-android.apk \
+                   central-services-$CS-mac-arm64.dmg central-services-$CS-mac-x64.dmg central-services-$CS-win-x64.exe \
+                   central-services-$CS-amd64.deb central-services-$CS-x86_64.AppImage central-services-$CS-android.apk; do
             p=$(find staging -type f -name "$f" | head -1)
             if [ -n "$p" ]; then s=$(( $(stat -c %s "$p") / 1048576 )); echo "ok  $f  ${s} MB"; sizes="$sizes$f ${s} MB%0A"; echo "| $f | ${s} MB |" >> sizes.md; else echo "::error::missing $f"; missing=1; fi
           done

@@ -9,6 +9,8 @@
   // the license key (shared/license.js): an A key in Central Control, a U key in Central Usage
   if (window.PPLicense) window.PPLicense.init({ app: CU.edition() === "usage" ? "usage" : "control", deviceName: CU.appName + (navigator.platform ? " (" + navigator.platform + ")" : ""),
     production: (CU.config() || {}).production || "", onChange: function () { render(); }, onReady: function () { render(); } });
+  // the person's preferences follow their account: the same on the church's device and at home
+  if (window.PPLicense && window.PPLicense.syncSettings && CU.syncedPrefs) window.PPLicense.syncSettings(CU.edition() === "usage" ? "usage" : "control", { get: CU.syncedPrefs, apply: CU.applySyncedPrefs });
   function visible() { return CU.prefs.tab === "settings"; }
   function mb(n) { return Math.round((n || 0) / 1048576); }
   function aiCard() {

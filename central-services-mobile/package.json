@@ -1,0 +1,19 @@
+{
+  "name": "central-services-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Central Services for iPhone, iPad and Android: your church's schedule - worship and production teams, who is asked, who said yes or no.",
+  "license": "MIT",
+  "scripts": {
+    "sync:ios": "cap sync ios",
+    "sync:android": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "6.2.0",
+    "@capacitor/core": "6.2.0",
+    "@capacitor/ios": "6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "6.2.0"
+  }
+}

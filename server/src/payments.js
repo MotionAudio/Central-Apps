@@ -26,6 +26,7 @@ export async function storeCheckout(user, items, churchName) {
   for (const [id, q0] of Object.entries(items || {})) { const n = Math.max(0, Math.min(50, Math.floor(Number(q0) || 0))); if (PRODUCTS[id] && n) qty[id] = n; }   // (whole numbers, checked once)
   for (const [id, n] of Object.entries(qty)) {
     const p = PRODUCTS[id];
+    if (p.onePerChurch && (n > 1 || (church && church.has_services))) { const e = new Error(church && church.has_services ? "Your church already has Central Services." : "Central Services is one per church."); e.status = 400; throw e; }
     if (p.needsPack && !(church && church.has_pack) && !Object.keys(qty).some((k) => PRODUCTS[k].pack)) {
       const e = new Error("The $10 user price is for churches with a church pack. Add Central Usage (user) at $20 instead."); e.status = 400; throw e;
     }
@@ -122,6 +123,7 @@ export async function recordOrder(sess, uid) {
       const p = PRODUCTS[id] || LEGACY[id]; if (!p) continue;
       await issueKeys(c, r.rows[0].id, churchId, id, p, Number(n) || 0);
       if (p.pack && churchId) await c.query("UPDATE churches SET has_pack=TRUE WHERE id=$1", [churchId]);
+      if (p.services && churchId) await c.query("UPDATE churches SET has_services=TRUE WHERE id=$1", [churchId]);
     }
     await c.query("COMMIT");
   } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }

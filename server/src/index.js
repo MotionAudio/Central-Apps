@@ -11,6 +11,7 @@ import * as store from "./storage.js";
 import { gradeAudio } from "./grade.js";
 import * as pay from "./payments.js";
 import * as lic from "./licenses.js";
+import * as svc from "./services.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -43,7 +44,7 @@ const api = express.Router();
 api.use((req, res, next) => {  // the apps call from http://127.0.0.1:8766 (Pi) and file:// (Mac); tokens, not cookies
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
   if (req.method === "OPTIONS") return res.status(204).end();
   next();
 });
@@ -59,6 +60,7 @@ function brake(req) {
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 lic.routes(api, { wrap, brake, requireUser });
+svc.routes(api, { wrap, requireUser });
 
 api.post("/signup", wrap(async (req, res) => {
   brake(req);
@@ -71,7 +73,14 @@ api.post("/signup", wrap(async (req, res) => {
   if (join && !(await one("SELECT 1 FROM churches WHERE admin_code=$1 OR user_code=$1", [lic.canon(join)]))) throw bad("That church code isn't right. Ask your main admin for it.", 404);
   const u = await one("INSERT INTO users (email,name,pass_hash) VALUES ($1,$2,$3) RETURNING *", [email, name, hashPassword(pw)]);
   let church = null;
-  try { if (join) church = (await lic.joinChurch(u, join, req.body.churchRole)).name; else if (make) church = (await lic.createChurch(u, make)).name; }
+  try {
+    if (req.body.invite) church = (await lic.acceptInvite(u, req.body.invite)).church;   // (the link in a Teams email)
+    else if (join) church = (await lic.joinChurch(u, join, req.body.churchRole)).name; else if (make) church = (await lic.createChurch(u, make)).name;
+    else {   // (added on a Teams page but signed up without the email's link: the invite still counts)
+      const inv = await one("SELECT token FROM invites WHERE email=$1 AND user_id IS NULL AND section<>'owner' ORDER BY created_at DESC LIMIT 1", [email]);
+      if (inv) church = (await lic.acceptInvite(u, inv.token)).church;
+    }
+  }
   catch (e) { return res.json({ token: makeToken(u.id), churchError: e.message }); }
   res.json({ token: makeToken(u.id), church });
 }));
@@ -85,7 +94,7 @@ api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
   const c = await lic.churchOf(u.id);
   res.json({ email: u.email, name: u.name, subscribed: u.subscribed, admin: isAdmin(u), payoutsReady: u.connect_ready, payoutsStarted: !!u.connect_account,
-    church: c ? { name: c.name, role: c.role, hasPack: c.has_pack } : null });
+    church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: !!c.has_services } : null });
 }));
 api.get("/config", (_req, res) => res.json({ payments: !!pay.stripe, products: PRODUCTS, keyKinds: KEY_KINDS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE }));
 

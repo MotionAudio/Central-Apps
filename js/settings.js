@@ -157,5 +157,5 @@
   }
   wire(); applyScale();
   F.on("update", function (m) { if (m.state === "failed") PP.setStatus("Update failed: " + (m.message || "")); });
-  window.PPSettings = { render: render, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
+  window.PPSettings = { render: render, applyScale: applyScale, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
 })();

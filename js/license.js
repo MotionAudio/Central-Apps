@@ -111,7 +111,7 @@
       body = (st && st.blocked ? '<p class="bad">' + esc(st.blocked) + "</p>" : "") +
         '<label><span>License key - it starts with <b>' + kind + "</b> · " + esc({ P: "Central Pedal / Central Pedal Control", A: "Central Control (admins)", U: "Central Usage (users)" }[kind]) + '</span><input id="lwKey" class="lw-key" maxlength="29" value="' + esc(pretty(ui.key || (st && st.key) || opts.presetKey || "")) + '" placeholder="' + kind + 'XXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"></label>' +
         '<label>This device’s name (so you know it on the website)<input id="lwDev" value="' + esc(ui.devName || (st && st.deviceName) || opts.deviceName || NAME_OF[app]) + '"></label>' +
-        '<p class="muted">The key is on your receipt and on your church’s page on the website. It works on one device at a time; Settings → License → Release key frees it for another.</p>';
+        '<p class="muted">The key is in the email from your church and on your church’s page on the website. ' + (kind === "A" || app === "pedal" ? "It works on one device at a time" : "It works on two devices (for example the church’s and your own) with the same account and the same settings") + '; Settings → License → Release key frees a device for another.</p>';
       btns = '<button data-lw="back">Back</button><button class="primary" data-lw="key"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Checking…" : "Use this key") + "</button>";
     } else if (s === 3) {
       var su = ui.signup;
@@ -144,7 +144,7 @@
     ui.net = null; draw();
     var ok = await online(); ui.net = ok; ui.msg = ""; draw();
     if (!ok && app === "pedal" && window.PPFeatures) window.PPFeatures.sendToDriver({ type: "system", action: "wifi" });   // (the Wi-Fi list)
-    if (ok) setTimeout(function () { if (ui.step === 0 && ui.net) { ui.step = st && st.production ? 2 : 1; draw(); } }, 700);
+    if (ok && ui.step === 0) { ui.step = st && st.production ? 2 : 1; draw(); }   // already online (Wi-Fi or a cable): the Wi-Fi step is skipped
   }
   async function useKey() {
     var key = (document.getElementById("lwKey") || {}).value || "", dn = ((document.getElementById("lwDev") || {}).value || "").trim();
@@ -157,6 +157,7 @@
       var r = await call("/license/activate", { key: key, device: deviceId(), deviceName: dn || NAME_OF[app], app: app, production: st && st.production });
       st = Object.assign(st || {}, { key: r.key, kind: r.kind, app: app, church: r.church || "", okAt: Date.now(), recheckDays: r.recheckDays || 30, deviceName: dn || NAME_OF[app], blocked: null });
       save(st); ui.step = 3; ui.msg = "";
+      if (r.account && r.account.email && !ui.email) ui.email = r.account.email;   // (the key was given to this person: their email is filled in)
       if (st.account && st.account.token) { await link(st.account.token).catch(function () { }); }
     } catch (e) { ui.msg = e.name === "AbortError" ? "The website didn't answer. Check the internet and try again." : e.message; }
     ui.busy = false; draw();
@@ -172,7 +173,7 @@
       var r = await call(ui.signup ? "/signup" : "/login", ui.signup ? { email: email, password: pw, name: name } : { email: email, password: pw });
       await link(r.token);
       st.account = { email: email, token: r.token }; save(st);
-      shareToken(r.token);
+      shareToken(r.token); setTimeout(pullAll, 0);   // (this account's settings come down now)
       ui.busy = false; finish();
     } catch (e) { ui.busy = false; ui.msg = e.message; draw(); }
   }
@@ -226,6 +227,37 @@
     else if (a === "signout") { if (st) { delete st.account; save(st); } if (opts.onChange) opts.onChange(); }
   });
 
+  // ------------------------------------------------------------- settings that follow the account
+  // An app registers what to keep in step (get: its preferences now; apply: preferences from the account). The newest
+  // change wins: a change here goes up a few seconds later, and every few minutes (and when the window comes back) the
+  // account's copy comes down - so the church's device and the one at home, signed in to the same account, match.
+  var syncs = {}, SYNC_LS = "central-license-sync";
+  function syncStamps() { try { return JSON.parse(localStorage.getItem(SYNC_LS) || "{}"); } catch (_) { return {}; } }
+  function setStamp(name, t) { var m = syncStamps(); m[name] = t; try { localStorage.setItem(SYNC_LS, JSON.stringify(m)); } catch (_) { } }
+  function token() { return st && st.account && st.account.token; }
+  function syncSettings(name, o) { syncs[name] = { get: o.get, apply: o.apply, timer: 0, dirty: false }; pull(name); }
+  async function pull(name) {
+    var s = syncs[name]; if (!s || !on() || !token() || s.dirty) return;
+    try {
+      var r = await call("/settings/" + encodeURIComponent(name), undefined, token()), mine = syncStamps()[name] || 0;
+      if (r.data && r.updated > mine) { setStamp(name, r.updated); try { s.apply(r.data); } catch (_) { } }
+      else if (mine > (r.updated || 0) || !r.data) push(name);   // (changed here while offline; or the account has none yet)
+    } catch (e) { if (e.status === 401 && st && st.account) { /* signed out on the website: the wizard asks again at the next check */ } }
+  }
+  async function push(name) {
+    var s = syncs[name]; if (!s || !on() || !token()) return;
+    var t = Date.now(), data; try { data = s.get(); } catch (_) { return; } if (!data) return;
+    setStamp(name, t);
+    try { await call("/settings/" + encodeURIComponent(name), { data: data, updated: t }, token()); s.dirty = false; } catch (_) { s.dirty = false; }
+  }
+  function settingsChanged(name) {
+    var s = syncs[name]; if (!s) return;
+    s.dirty = true; setStamp(name, Date.now()); clearTimeout(s.timer); s.timer = setTimeout(function () { push(name); }, 3000);
+  }
+  function pullAll() { Object.keys(syncs).forEach(pull); }
+  setInterval(pullAll, 3 * 60e3);
+  window.addEventListener("focus", function () { setTimeout(pullAll, 500); });
+
   // ------------------------------------------------------------- start
   function init(o2) {
     opts = o2 || {}; app = opts.app; st = load();
@@ -244,5 +276,6 @@
     if (el) draw();
   }
   window.PPLicense = { init: init, update: update, complete: function () { return complete(); }, on: on, licensed: licensed, state: function () { return st; }, server: base, settingsHtml: settingsHtml, release: release, recheck: recheck, open: open,
-    whenReady: function (f) { if (ready) f(); else waiters.push(f); }, deviceId: deviceId, pretty: pretty, app: function () { return app; } };
+    whenReady: function (f) { if (ready) f(); else waiters.push(f); }, deviceId: deviceId, pretty: pretty, app: function () { return app; },
+    syncSettings: syncSettings, settingsChanged: settingsChanged, syncNow: pullAll };
 })();

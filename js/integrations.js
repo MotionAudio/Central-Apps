@@ -38,23 +38,52 @@
   function renderUpd() {
     if ($("#updRepo") && document.activeElement !== $("#updRepo")) $("#updRepo").value = up.repo || "";
     if ($("#updAuto")) $("#updAuto").checked = up.auto !== false;
+    if ($("#updAutoInstall")) $("#updAutoInstall").checked = up.autoInstall !== false;
     var info = $("#updInfo"); if (info) info.textContent = "This Central Pedal: version " + (up.current || "?") + (up.lastCheck ? " · last checked " + new Date(up.lastCheck * 1000).toLocaleString() : "") + ".";
     var st = $("#updState"); if (st) st.textContent = up.busy ? "Working…" : up.error ? up.error : up.available ? "Version " + up.latest + " is available." + (up.notes ? " " + up.notes.split("\n")[0].slice(0, 160) : "") : up.latest ? "Up to date." : "";
     var ib = $("#updInstall"); if (ib) { ib.classList.toggle("hidden", !up.available); ib.disabled = !!up.busy; }
+    autoStart();
     askIfNew();
     var b = banner(); b.classList.toggle("hidden", !(up.available && !up.dismissed && !(askEl && askEl.open)));
     b.innerHTML = '<b>Update ' + esc(up.latest || "") + ' is ready</b><span>' + (busyPlaying() ? "Install it after the service (stop the pads and tracks first)." : "Installs in about a minute; your songs and settings stay.") + '</span><button class="primary" data-upd="install"' + (up.busy || busyPlaying() ? " disabled" : "") + '>' + (up.busy ? "Installing…" : "Install") + '</button><button data-upd="later">Later</button>';
   }
+  // when the app opens and a newer version is there, it installs by itself after a 10-second notice ("Not now" skips
+  // it) - never while the pads or tracks play (then it asks). Decided once, on the first answer from the update server.
+  var openedAt = Date.now(), autoDecided = false, autoTimer = null, autoLeft = 0;
+  function autoStart() {
+    if (autoDecided || autoTimer || !up.current) return;
+    if (/[?&]player=1/.test(location.search) || (!DESK && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) { autoDecided = true; return; }   // only the pedal's own screen (or this computer's app) installs
+    if (!up.latest && !up.available) { if (Date.now() - openedAt > 30 * 60 * 1000) autoDecided = true; return; }   // no answer yet (no internet yet)
+    autoDecided = true;
+    if (!up.available || up.busy || up.auto === false || up.autoInstall === false || up.dismissed || busyPlaying()) return;
+    makeAsk(); asked = up.latest; autoLeft = 10;
+    function paint() {
+      askEl.innerHTML = '<h2>Updating Central Pedal</h2><p><b>Version ' + esc(up.latest || "") + '</b> installs in ' + autoLeft + ' s, then the app restarts (this one is ' + esc(up.current || "?") + ').</p>' +
+        '<p class="muted small">Your songs, setlists and settings stay. Turn this off in Settings → Software updates.</p>' +
+        '<div class="row"><button class="primary" data-ask="yes">Update now</button><button data-ask="no">Not now</button></div>';
+    }
+    paint(); if (!askEl.open) askEl.showModal();
+    autoTimer = setInterval(function () {
+      if (!askEl.open) { stopAuto(); return; }   // "Not now" / Escape
+      if (busyPlaying()) { stopAuto(); askEl.close(); asked = null; renderUpd(); return; }   // something started playing: ask instead
+      autoLeft--; if (autoLeft > 0) return paint();
+      stopAuto(); askEl.close(); install(true);
+    }, 1000);
+  }
+  function stopAuto() { if (autoTimer) { clearInterval(autoTimer); autoTimer = null; } }
   // "Update available - update now?" Yes installs, No asks again the next time the app opens
   var askEl = null, asked = null;
+  function makeAsk() {
+    if (askEl) return;
+    askEl = document.createElement("dialog"); askEl.id = "updAsk"; askEl.className = "upd-ask"; document.body.appendChild(askEl);
+    askEl.addEventListener("click", function (e) { var b = e.target.closest("[data-ask]"); if (!b) return; stopAuto(); if (b.dataset.ask === "yes") { askEl.close(); install(true); } else { askEl.close(); up.dismissed = true; renderUpd(); } });
+    askEl.addEventListener("cancel", function () { stopAuto(); up.dismissed = true; setTimeout(renderUpd, 0); });
+  }
   function askIfNew() {
+    if (autoTimer) return;
     if (!up.available || up.busy || up.auto === false || up.dismissed || asked === up.latest) { if (askEl && askEl.open) paintAsk(); return; }
     asked = up.latest;
-    if (!askEl) {
-      askEl = document.createElement("dialog"); askEl.id = "updAsk"; askEl.className = "upd-ask"; document.body.appendChild(askEl);
-      askEl.addEventListener("click", function (e) { var b = e.target.closest("[data-ask]"); if (!b) return; if (b.dataset.ask === "yes") { askEl.close(); install(true); } else { askEl.close(); up.dismissed = true; renderUpd(); } });
-      askEl.addEventListener("cancel", function () { up.dismissed = true; setTimeout(renderUpd, 0); });
-    }
+    makeAsk();
     paintAsk(); if (!askEl.open) askEl.showModal();
   }
   function paintAsk() {
@@ -64,6 +93,7 @@
       "<p>" + (playing ? "Stop the pads and tracks first - updates never install while something plays." : "Want to update now? It takes about a minute; your songs and settings stay.") + "</p>" +
       '<div class="row"><button class="primary" data-ask="yes"' + (playing ? " disabled" : "") + '>Yes, update</button><button data-ask="no">No</button></div>';
   }
+  function updCfg() { return { repo: $("#updRepo").value.trim(), auto: $("#updAuto").checked, autoInstall: $("#updAutoInstall") ? $("#updAutoInstall").checked : true }; }
   var bannerEl = null;
   function banner() { if (!bannerEl) { bannerEl = document.createElement("div"); bannerEl.className = "upd-banner hidden"; bannerEl.id = "updBanner"; document.body.appendChild(bannerEl); } return bannerEl; }
   function install(already) {
@@ -75,11 +105,11 @@
   F.on("update", function (m) { if (m.state === "done") PP.setStatus("Update installed - restarting…"); else if (m.state === "failed") PP.setStatus("Update failed: " + (m.message || "")); });
   document.addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;
-    if (b.id === "updCheck") { upSend("config", { repo: $("#updRepo").value.trim(), auto: $("#updAuto").checked }); upSend("check"); up.busy = true; renderUpd(); }
+    if (b.id === "updCheck") { autoDecided = true; upSend("config", updCfg()); upSend("check"); up.busy = true; renderUpd(); }
     else if (b.id === "updInstall" || b.dataset.upd === "install") install();
     else if (b.dataset.upd === "later") { up.dismissed = true; renderUpd(); }
   });
-  document.addEventListener("change", function (e) { if (e.target.id === "updAuto" || e.target.id === "updRepo") upSend("config", { repo: $("#updRepo").value.trim(), auto: $("#updAuto").checked }); });
+  document.addEventListener("change", function (e) { if (e.target.id === "updAuto" || e.target.id === "updAutoInstall" || e.target.id === "updRepo") upSend("config", updCfg()); });
   setInterval(function () { if (up.available) renderUpd(); }, 3000);
   // the app just opened: the Central Pedal (Pi) looks for a newer release now; on a PC the app itself already does
   var openedSent = false;

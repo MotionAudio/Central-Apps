@@ -43,14 +43,25 @@ await check("the phone remote: switched on in Lighting → Output, it serves its
   assert.equal(r.status, 200);
   await win.waitForFunction(() => CULights.live.manual && CULights.live.manual.id === "bridge", null, { timeout: 3000 });
 });
-await check("updates: with the update source set, a newer Central Control on the release page is found (and which file fits this computer)", async () => {
-  const st = await win.evaluate(async () => { await CU.updates.config({ repo: "https://github.com/church/cc", auto: true }); return CU.updates.check(); });
+await check("updates: with the update source set, a newer Central Control on the release page is found (and which file fits this computer); with Install by itself off it asks", async () => {
+  const st = await win.evaluate(async () => { await CU.updates.config({ repo: "https://github.com/church/cc", auto: true, autoInstall: false }); return CU.updates.check(); });
+  assert.equal(st.autoInstall, false);
   assert.equal(st.repo, "church/cc"); assert.equal(st.latest, "2.4.0"); assert.equal(st.available, true, JSON.stringify(st)); assert.equal(st.kind, "deb");
   await win.waitForFunction(() => document.querySelector("#updAsk").open, null, { timeout: 3000 });
   assert.match(await win.evaluate(() => document.querySelector("#updAsk").textContent), /Central Control 2\.4\.0[\s\S]*Want to update now\?/);
   assert.ok(await win.evaluate(() => document.querySelector("#updBanner").hidden), "no banner under the question");
   await win.click('#updAsk [data-ask="no"]');
   await win.waitForFunction(() => !document.querySelector("#updAsk").open && document.querySelector("#updBanner").hidden, null, { timeout: 3000 });
+});
+await check("updates: when the app opens and finds it, a new version installs by itself after a 10-second notice; Not now skips it", async () => {
+  await win.evaluate(() => CU.updates.config({ autoInstall: true }));
+  await win.reload(); await win.waitForFunction(() => window.CUUpdates && window.CU && window.CU.updates);
+  await win.waitForFunction(() => document.querySelector("#updAsk").open && /installs in \d+ s/.test(document.querySelector("#updAsk").textContent), null, { timeout: 8000 });
+  assert.match(await win.textContent("#updAsk"), /2\.4\.0[\s\S]*songs, setlists and settings stay/);
+  assert.equal(await win.evaluate(() => document.getElementById("updAutoInstall").checked), true);
+  await win.click('#updAsk [data-ask="no"]'); await win.waitForTimeout(1500);
+  const st = await win.evaluate(() => CU.updates.status());
+  assert.ok(!st.busy && await win.evaluate(() => !document.querySelector("#updAsk").open), "nothing installs");
 });
 await check("updates: an empty update source means the official releases (MotionAudio/Central-Apps)", async () => {
   const { Updater } = require("./updater.js");

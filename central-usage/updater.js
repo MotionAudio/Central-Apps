@@ -1,5 +1,8 @@
 /* Desktop updater, shared by Central Control and Central Pedal (PC). It looks at the Releases page of a
- * GitHub repository once a day, and only installs when the person says so:
+ * GitHub repository every time the app opens and once a day. When the app opens and finds a newer version it installs
+ * it by itself (cfg.autoInstall, on by default - never while something plays; the app asks instead); otherwise it
+ * installs when the person says so. Songs, setlists and settings live in the app's settings folder, which an update
+ * never touches:
  *  - Linux, running as an AppImage: the new AppImage replaces this one and the app restarts;
  *  - Linux, installed from the .deb: the new .deb is installed with the system's password prompt (pkexec
  *    apt-get), or, without pkexec, opened in the software installer;
@@ -61,7 +64,7 @@ class Updater {
   constructor({ product, current, dir, api }) {
     this.product = product; this.current = current; this.api = api || process.env.CC_UPDATE_API || "https://api.github.com";
     this.file = path.join(dir, "updates.json");
-    this.cfg = { repo: "", auto: true, lastCheck: 0 };
+    this.cfg = { repo: "", auto: true, autoInstall: true, lastCheck: 0 };
     try { Object.assign(this.cfg, JSON.parse(fs.readFileSync(this.file, "utf8"))); } catch (_) { }
     if (!this.cfg.repo) this.cfg.repo = process.env.CC_UPDATE_REPO != null ? process.env.CC_UPDATE_REPO : "MotionAudio/Central-Apps";   // the official releases
     this.latest = null; this.error = null; this.busy = false; this.progress = 0;
@@ -69,6 +72,7 @@ class Updater {
   save(cfg) {
     if (cfg && "repo" in cfg) this.cfg.repo = String(cfg.repo || "").trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "") || (process.env.CC_UPDATE_REPO || "MotionAudio/Central-Apps");   // empty = the official releases
     if (cfg && "auto" in cfg) this.cfg.auto = !!cfg.auto;
+    if (cfg && "autoInstall" in cfg) this.cfg.autoInstall = !!cfg.autoInstall;
     try { fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(this.file, JSON.stringify(this.cfg)); } catch (_) { }
     return this.status();
   }
@@ -83,7 +87,7 @@ class Updater {
   }
   status() {
     const lt = this.latest || {};
-    return { current: this.current, repo: this.cfg.repo, auto: this.cfg.auto, lastCheck: this.cfg.lastCheck, latest: lt.version || null, notes: (lt.notes || "").slice(0, 2000),
+    return { current: this.current, repo: this.cfg.repo, auto: this.cfg.auto, autoInstall: this.cfg.autoInstall !== false, lastCheck: this.cfg.lastCheck, latest: lt.version || null, notes: (lt.notes || "").slice(0, 2000),
       available: !!(lt.version && newer(lt.version, this.current) && this.asset()), error: this.error, busy: this.busy, progress: this.progress, kind: this.kind() };
   }
   // once a day; after a failed look (no internet yet) again in 10 minutes

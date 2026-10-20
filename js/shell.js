@@ -70,6 +70,19 @@
       L.init({ app: player ? "player" : control ? "pedal-control" : "pedal", presetKey: m && m.licenseKey, deviceId: m && m.deviceId, saved: m && m.licenseState, persist: persist, production: named,
         deviceName: control ? "Central Pedal Control" + (navigator.platform ? " (" + navigator.platform + ")" : "") : "Central Pedal" + (m && m.hostname ? " (" + m.hostname + ")" : ""),
         onProduction: function (name) { if (!named) { p.name = name; PP.persistSoon(); } }, onChange: renderSystemExtras, onReady: renderSystemExtras });
+      if (control && !player && L.syncSettings) syncPrefs();
+    }
+    // Central Pedal Control on two devices (the church's and home): the look and the screen size follow the account
+    function syncPrefs() {
+      var KEYS = ["theme", "ui"];
+      function mine() { var q = project(), o = {}; KEYS.forEach(function (k) { if (q[k] !== undefined) o[k] = q[k]; }); return o; }
+      var last = JSON.stringify(mine());
+      L.syncSettings("pedal-control", { get: mine, apply: function (d) {
+        var q = project(); KEYS.forEach(function (k) { if (d && d[k] && typeof d[k] === "object") q[k] = d[k]; });
+        last = JSON.stringify(mine()); PP.persistSoon(); try { PP.applyTheme(); } catch (_) { }
+        try { if (window.PPSettings) { window.PPSettings.applyScale(); window.PPSettings.render(); } } catch (_) { }
+      } });
+      setInterval(function () { var now = JSON.stringify(mine()); if (now !== last) { last = now; L.settingsChanged("pedal-control"); } }, 2000);
     }
     if (/[?&]player=1/.test(location.search) || (window.CCDesktop && window.CCDesktop.pedalControl) || window.CP_CONTROL || location.protocol === "capacitor:") start(null);
     F.on("hello", start);

@@ -8,7 +8,11 @@
   var C = window.PPChords;
   function $(s) { return document.querySelector(s); }
   function esc(s) { return C.esc(s); }
-  var store = { get: function (k, d) { try { var v = localStorage.getItem("cu-" + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: function (k, v) { try { localStorage.setItem("cu-" + k, JSON.stringify(v)); } catch (_) { } } };
+  // preferences that follow the person's account (the church's device and the one at home match); this computer's
+  // own things - the pedal's address, PINs, audio and MIDI devices, the light rig, timing offsets - stay here
+  var SYNCED = ["instrument", "shapes", "nashville", "chordsOnly", "fontSize", "lyricsSize", "lyricsNext", "part", "partView", "iaMix", "mxSel", "mxAll", "lxView", "lxRight", "vidView", "vidBus", "tbGroup", "tbTargets", "tbDim", "aiUse", "slides", "svcSel", "recName"];
+  function syncName() { return EDITION === "usage" ? "usage" : "control"; }
+  var store = { get: function (k, d) { try { var v = localStorage.getItem("cu-" + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }, set: function (k, v) { try { localStorage.setItem("cu-" + k, JSON.stringify(v)); } catch (_) { } if (SYNCED.indexOf(k) >= 0 && window.PPLicense && window.PPLicense.settingsChanged) window.PPLicense.settingsChanged(syncName()); } };
   // opened in a browser from the Central Pedal (http://<pi>:8080/cu/ - iPhone, iPad, any phone): users only, and it
   // talks to the Central Pedal it came from. The app (window.CU) has everything.
   var WEB = !window.CU && /^https?:$/.test(location.protocol);
@@ -286,6 +290,16 @@
     if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Control";
     if (!role()) askMode(); applyMode(); fire("ready");
   })();
-  window.CentralUsage = { state: state, prefs: prefs, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, edition: function () { return EDITION; }, appName: EDITION === "usage" ? "Central Usage" : "Central Control", roleAllowed: roleAllowed, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
+  function syncedPrefs() { var o = {}; SYNCED.forEach(function (k) { var v = store.get(k, undefined); if (v !== undefined) o[k] = v; }); return o; }
+  function applySyncedPrefs(d) {
+    SYNCED.forEach(function (k) { if (!d || !(k in d)) return; try { localStorage.setItem("cu-" + k, JSON.stringify(d[k])); } catch (_) { } if (k in prefs) prefs[k] = d[k]; });
+    try {
+      $("#fontSize").value = prefs.fontSize; $("#lyricsSize").value = prefs.lyricsSize; $("#lyricsNext").checked = prefs.lyricsNext; $("#nashville").checked = prefs.nashville; $("#chordsOnly").checked = prefs.chordsOnly;
+      document.documentElement.style.setProperty("--chart-size", prefs.fontSize + "px"); document.documentElement.style.setProperty("--lyrics-size", prefs.lyricsSize + "px");
+      if ($("#instrument")) $("#instrument").value = prefs.instrument; fillShapes(); renderChart(); render();
+    } catch (_) { }
+    fire("prefsSynced", d);
+  }
+  window.CentralUsage = { state: state, prefs: prefs, syncedPrefs: syncedPrefs, applySyncedPrefs: applySyncedPrefs, syncName: syncName, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, edition: function () { return EDITION; }, appName: EDITION === "usage" ? "Central Usage" : "Central Control", roleAllowed: roleAllowed, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
     midiSend: function (d, at) { midiSend(d, at); }, midiSysex: function (d) { if (midi && midi.sysexEnabled) midiSend(d); } };
 })();

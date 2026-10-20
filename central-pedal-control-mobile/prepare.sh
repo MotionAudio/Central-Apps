@@ -15,6 +15,7 @@ p = sys.argv[1]; s = open(p, encoding="utf-8").read()
 s = s.replace("<head>", "<head>\n  <script>window.CP_CONTROL = true;</script>", 1).replace("<title>Central Pedal</title>", "<title>Central Pedal Control</title>", 1)
 open(p, "w", encoding="utf-8").write(s)
 PY
+node "$ROOT/tools/add-android-update.js" "$HERE/www" "Central Pedal Control" "$ROOT/central-pedal-control/package.json" '^central-pedal-control-(\d+\.\d+\.\d+)-android\.apk$'
 cd "$HERE"
 npm install --no-audit --no-fund
 npx cap sync "$PLATFORM"

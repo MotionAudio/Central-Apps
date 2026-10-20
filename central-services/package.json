@@ -1,0 +1,121 @@
+{
+  "name": "central-services",
+  "productName": "Central Services",
+  "version": "1.0.0",
+  "description": "Central Services: your church's schedule - worship and production teams, who is asked, who said yes or no.",
+  "homepage": "https://motionaudio.github.io/Central-Apps/",
+  "main": "main.js",
+  "author": {
+    "name": "MotionAudio",
+    "email": "central-control@localhost"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dmg --arm64 --x64",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:linux": "electron-builder --linux deb AppImage --x64"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "org.centralcontrol.services",
+    "productName": "Central Services",
+    "files": [
+      "main.js",
+      "preload.js",
+      "updater.js",
+      "build/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "src",
+        "to": "app",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "publish": null,
+    "afterPack": "build/after-pack.js",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "artifactName": "central-services-${version}-mac-${arch}.${ext}",
+      "extendInfo": {
+        "CFBundleDisplayName": "Central Services",
+        "CFBundleName": "Central Services"
+      }
+    },
+    "dmg": {
+      "artifactName": "central-services-${version}-mac-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "central-services-${version}-win-x64.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "central-services-${version}-win-x64.${ext}",
+      "shortcutName": "Central Services",
+      "uninstallDisplayName": "Central Services"
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "category": "Office",
+      "icon": "build/icon.png",
+      "synopsis": "Your church's service schedule",
+      "desktop": {
+        "Name": "Central Services",
+        "Comment": "Your church's schedule: teams, requests, yes or no",
+        "Categories": "Office;Calendar;"
+      },
+      "maintainer": "Central Control <central-control@localhost>",
+      "artifactName": "central-services-${version}-${arch}.${ext}",
+      "executableName": "central-services"
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "libasound2"
+      ],
+      "afterInstall": "build/after-install.sh",
+      "afterRemove": "build/after-remove.sh"
+    }
+  }
+}

@@ -6,5 +6,6 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 PLATFORM="${1:-ios}"
+node ../tools/add-android-update.js www "Central Usage" ../central-usage/package.json '^CentralUsage-(\d+\.\d+\.\d+)\.apk$'
 npm install --no-audit --no-fund
 npx cap sync "$PLATFORM"

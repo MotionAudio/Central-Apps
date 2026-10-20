@@ -34,9 +34,9 @@ function needSignIn(why) { location.hash = "account"; renderAccount(why || "Sign
 // ---------------------------------------------------------------- store
 // prices come from the server (/config); these are the words around them
 const packs = [
-  { id: "pack-small", tag: "Church pack", name: "Small church", pts: ["Central Pedal, built, with its software", "Central Pedal Control", "2 admins (Central Control)", "6 users (Central Usage)", "More users $10 each, admins $50"] },
-  { id: "pack-medium", tag: "Church pack", name: "Medium church", feature: true, pts: ["Central Pedal, built, with its software", "Central Pedal Control", "4 admins (Central Control)", "12 users (Central Usage)", "More users $10 each, admins $50"] },
-  { id: "pack-large", tag: "Church pack", name: "Large church", pts: ["Central Pedal, built, with its software", "Central Pedal Control", "7 admins (Central Control)", "20 users (Central Usage)", "More users $10 each, admins $50"] },
+  { id: "pack-small", tag: "Church pack", name: "Small church", pts: ["Central Pedal, built, with its software", "Central Pedal Control", "2 admins (Central Control)", "6 users (Central Usage)", "Central Services: schedules for the whole church", "More users $10 each, admins $50"] },
+  { id: "pack-medium", tag: "Church pack", name: "Medium church", feature: true, pts: ["Central Pedal, built, with its software", "Central Pedal Control", "4 admins (Central Control)", "12 users (Central Usage)", "Central Services: schedules for the whole church", "More users $10 each, admins $50"] },
+  { id: "pack-large", tag: "Church pack", name: "Large church", pts: ["Central Pedal, built, with its software", "Central Pedal Control", "7 admins (Central Control)", "20 users (Central Usage)", "Central Services: schedules for the whole church", "More users $10 each, admins $50"] },
 ];
 const products = [
   { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", pts: ["Assembled pedal with buttons and knobs", "Its software installed, with its P key", "Ships to the US and Canada"] },
@@ -44,6 +44,7 @@ const products = [
   { id: "admin", tag: "A key", name: "Central Control (admin)", per: "per admin device", pts: ["Main admin and admins", "Lights, slides, lyrics, cameras, in-ears, tracks, mixing", "Windows, macOS, Linux"] },
   { id: "user", tag: "U key", name: "Central Usage (user)", per: "per user device", pts: ["For each musician", "Instrument, lyrics and chord charts", "Windows, macOS, Linux, iPad, iPhone, Android"] },
   { id: "user-pack", tag: "U key · pack price", name: "Central Usage (user)", per: "per user device", packOnly: true, pts: ["For churches with a church pack", "Same app as above, $10"] },
+  { id: "services", tag: "Whole church", name: "Central Services", per: "per church, one-time", oneChurch: true, pts: ["Schedules for up to 4 worship and 4 production teams", "Up to 4 schedulers and 120 people", "Everyone accepts or declines, and sees every team", "Free in every church pack · iPhone, iPad, Mac, Windows, Linux, Android"] },
 ];
 const ALL = packs.concat(products);
 const priceOf = (id) => (cfg.products && cfg.products[id] ? cfg.products[id].cents / 100 : 0);
@@ -58,11 +59,11 @@ function card(p) {
 function renderRack() {
   if (!cfg.products) return;
   $("#packs").innerHTML = packs.map(card).join("");
-  $("#rack").innerHTML = products.filter((p) => !p.packOnly || hasPack()).map(card).join("");
+  $("#rack").innerHTML = products.filter((p) => (!p.packOnly || hasPack()) && !(p.oneChurch && (packs.some((x) => cart[x.id] > 0) || (me && me.church && me.church.hasServices)))).map(card).join("");
 }
 const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0);
 function updateCartBtn() { $("#cartBtn").textContent = "Cart · " + cartCount(); }
-function onAdd(e) { const a = e.target.closest("[data-add]"); if (!a || a.disabled) return; cart[a.dataset.add] = (cart[a.dataset.add] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart"); }
+function onAdd(e) { const a = e.target.closest("[data-add]"); if (!a || a.disabled) return; const pr = ALL.find((x) => x.id === a.dataset.add); cart[a.dataset.add] = pr && pr.oneChurch ? 1 : (cart[a.dataset.add] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart"); }
 $("#rack").addEventListener("click", onAdd); $("#packs").addEventListener("click", onAdd);
 $("#cartBtn").onclick = () => {
   const ids = Object.keys(cart).filter((k) => cart[k] > 0);
@@ -269,10 +270,11 @@ async function renderAccount(note) {
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
       <a class="btn ghost small" href="${APPS_URL}" target="_blank" rel="noopener" style="justify-self:start">Download the apps</a></div>
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
+    ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
     <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div></div>`;
-  renderChurch(); if (me.admin) renderStaff();
+  renderChurch(); renderTeams(); if (me.admin) renderStaff();
   try {
     const lib = (await api("GET", "/library")).tracks;
     $("#myLib").innerHTML = lib.length ? lib.map((t) => `<div><b>${esc(t.title)}</b> <span class="muted">· ${esc(t.kind)}</span></div>`).join("") : "Nothing yet. Add or buy tracks from Central Tracks.";
@@ -287,9 +289,18 @@ async function renderChurch() {
   let r; try { r = await api("GET", "/church"); } catch (e) { el.innerHTML = `<h3>Your church</h3><div class="err">${esc(e.message)}</div>`; return; }
   if (!r.church) {
     el.innerHTML = `<h3>Your church</h3><p class="muted" style="margin:0">Your account isn't in a church yet. The main admin makes it; admins and users join with its code.</p>
-      <div class="acct"><form id="chMake" style="background:none;border:0;padding:0"><label>I'm the main admin: church or production name<input id="chName" placeholder="Grace Church"></label><button class="btn small">Make our church</button></form>
+      <div class="acct"><form id="chMake" style="background:none;border:0;padding:0"><label>Make our church's account: its name<input id="chName" placeholder="Grace Church"></label>
+        <div class="choice"><label><input type="radio" name="chOwn" value="me" checked> I'm the main admin</label><label><input type="radio" name="chOwn" value="other"> The main admin is someone else</label></div>
+        <div id="chOther" hidden><label>Their name<input id="chOName"></label><label>Their email (they get a link to make their account)<input id="chOEmail" type="email"></label></div><button class="btn small">Make our church</button></form>
       <form id="chJoin" style="background:none;border:0;padding:0"><label>Join with a code<input id="chCode" placeholder="from your main admin"></label><label>As <select id="chRole"><option value="user">a user</option><option value="admin">an admin</option></select></label><button class="btn small">Join</button></form></div><div class="err" id="chErr"></div>`;
-    $("#chMake").onsubmit = async (e) => { e.preventDefault(); try { await api("POST", "/church", { name: $("#chName").value }); await refreshMe(); toast("Your church's account is made"); } catch (err) { $("#chErr").textContent = err.message; } };
+    document.querySelectorAll('[name="chOwn"]').forEach((r) => (r.onchange = () => { $("#chOther").hidden = r.value !== "other" || !r.checked; }));
+    $("#chMake").onsubmit = async (e) => {
+      e.preventDefault(); const other = (document.querySelector('[name="chOwn"]:checked') || {}).value === "other";
+      try {
+        const j = await api("POST", "/church", { name: $("#chName").value, ownerEmail: other ? $("#chOEmail").value : undefined, ownerName: other ? $("#chOName").value : undefined });
+        await refreshMe(); toast(j.invite ? (j.invite.sent ? "Made · the main admin's invite is on its way" : "Made · copy the main admin's link from the Teams card") : "Your church's account is made");
+      } catch (err) { $("#chErr").textContent = err.message; }
+    };
     $("#chJoin").onsubmit = async (e) => { e.preventDefault(); try { const j = await api("POST", "/church/join", { code: $("#chCode").value, role: $("#chRole").value }); await refreshMe(); toast("You joined " + j.church); } catch (err) { $("#chErr").textContent = err.message; } };
     return;
   }
@@ -313,6 +324,72 @@ async function renderChurch() {
     if (!confirm("Release " + b.dataset.rel + "? The device using it stops working until a key is entered again.")) return;
     try { await api("POST", "/church/release", { key: b.dataset.rel }); toast("Released · it can be used on another device"); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; }
   }));
+}
+// ---------------------------------------------------------------- Teams: Admins, Users, Pedal Control
+const SECT = [["admin", "Admins", "Central Control", "A"], ["user", "Users", "Central Usage", "U"], ["pedal", "Pedal Control", "Central Pedal Control", "P"]];
+const adding = { admin: [], user: [], pedal: [] };
+let teamNote = "";
+async function renderTeams() {
+  const el = $("#teamsCard"); if (!el) return;
+  let r; try { r = await api("GET", "/church/team"); } catch (e) { el.innerHTML = `<h3>Teams</h3><div class="err">${esc(e.message)}</div>`; return; }
+  const status = (m) => `<span class="tstat ${m.status.replace(" ", "")}">${{ invited: "invited", joined: "account made", "set up": "✓ app set up" }[m.status]}</span>`;
+  const owner = (r.sections.owner || [])[0];
+  el.innerHTML = `<h3>Teams</h3>
+    <p class="muted" style="margin:0;font-size:.92rem">Add people to a team: each gets an email with a link to make their account, the download link for their app, and their key. ${r.mail ? "" : "<b>Email isn't set up yet</b> - copy each person's invite link and send it yourself."}</p>
+    ${owner ? `<p style="margin:0">Main admin invite: <b>${esc(owner.name || owner.email)}</b> · ${esc(owner.email)} · ${owner.status === "invited" ? "waiting" : "✓ accepted"} <button class="btn small ghost" data-tresend="${owner.id}">Resend</button> <button class="btn small ghost" data-tcopy="${esc(owner.link)}">Copy link</button></p>` : ""}
+    <div class="teams">${SECT.map(([id, title, app, kind]) => `<section class="team"><h4>${title} <span class="muted">· ${app} · ${r.free[id]} ${kind} key${r.free[id] === 1 ? "" : "s"} left</span></h4>
+      ${r.sections[id].length ? r.sections[id].map((m) => `<div class="tm"><div><b>${esc(m.name || m.email)}</b>${m.role ? ` <span class="muted">· ${esc(m.role)}</span>` : ""}<div class="muted" style="font-size:.85rem">${esc(m.email)}${m.key ? " · <code>" + esc(m.key) + "</code>" : ""}</div></div>
+        <div class="tacts">${status(m)}${m.status !== "set up" ? ` <button class="btn small ghost" data-tresend="${m.id}">Resend</button>` : ""}${!r.mail ? ` <button class="btn small ghost" data-tcopy="${esc(m.link)}">Copy link</button>` : ""} <button class="btn small ghost" data-tremove="${m.id}" data-tname="${esc(m.name || m.email)}">Remove</button></div></div>`).join("") : `<p class="muted" style="margin:0">Nobody yet.</p>`}
+      ${adding[id].map((a, i) => `<div class="trow"><input placeholder="Name" data-ta="${id}" data-ti="${i}" data-tf="name" value="${esc(a.name)}"><input placeholder="Email" type="email" data-ta="${id}" data-ti="${i}" data-tf="email" value="${esc(a.email)}"><input placeholder="Role (e.g. Bass, Lights)" data-ta="${id}" data-ti="${i}" data-tf="role" value="${esc(a.role)}"></div>`).join("")}
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small ghost" data-tadd="${id}">+ Add ${adding[id].length ? "another" : "members"}</button>${adding[id].length ? `<button class="btn small" data-tdone="${id}">Done</button>` : ""}</div></section>`).join("")}</div>
+    ${me.church.role === "owner" && !owner ? `<details><summary style="font-size:.92rem">Make someone else the main admin</summary><form id="ownForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Name<input id="ownName"></label><label>Email<input id="ownEmail" type="email"></label><button class="btn small">Send the invite</button></form></details>` : ""}
+    <div class="${/^✓/.test(teamNote) ? "" : "err"}" id="teamMsg" style="white-space:pre-line">${esc(teamNote)}</div>`;
+  el.querySelectorAll("[data-ta]").forEach((inp) => (inp.oninput = () => { adding[inp.dataset.ta][+inp.dataset.ti][inp.dataset.tf] = inp.value; }));
+  el.querySelectorAll("[data-tadd]").forEach((b) => (b.onclick = () => { adding[b.dataset.tadd].push({ name: "", email: "", role: "" }); teamNote = ""; renderTeams(); }));
+  el.querySelectorAll("[data-tdone]").forEach((b) => (b.onclick = async () => {
+    const id = b.dataset.tdone, list = adding[id].filter((a) => a.email.trim());
+    if (!list.length) { adding[id] = []; return renderTeams(); }
+    b.disabled = true;
+    try {
+      const res = (await api("POST", "/church/team", { section: id, members: list })).results;
+      const okN = res.filter((x) => x.ok).length, bad = res.filter((x) => !x.ok);
+      teamNote = (okN ? "✓ " + okN + " added" + (res.some((x) => x.ok && x.sent) ? " · their emails are on the way" : " · email isn't set up: use Copy link") : "") + (bad.length ? "\n" + bad.map((x) => x.email + ": " + x.error).join("\n") : "");
+      adding[id] = list.filter((a) => bad.some((x) => x.email === a.email.trim().toLowerCase()));   // (the ones that didn't work stay to fix)
+    } catch (e) { teamNote = e.message; }
+    renderTeams(); renderChurch();
+  }));
+  el.querySelectorAll("[data-tresend]").forEach((b) => (b.onclick = async () => { try { const x = await api("POST", "/church/team/resend", { id: b.dataset.tresend }); toast(x.sent ? "Sent again" : "Email isn't set up: use Copy link"); renderTeams(); } catch (e) { toast(e.message); } }));
+  el.querySelectorAll("[data-tcopy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.tcopy); toast("Invite link copied"); } catch (_) { prompt("Copy this invite link:", b.dataset.tcopy); } }));
+  el.querySelectorAll("[data-tremove]").forEach((b) => (b.onclick = async () => {
+    if (!confirm("Remove " + b.dataset.tname + "? Their key is free again right away, and their app stops asking for it at its next check.")) return;
+    try { await api("POST", "/church/team/remove", { id: b.dataset.tremove }); toast("Removed · their key is free"); renderTeams(); renderChurch(); } catch (e) { toast(e.message); }
+  }));
+  if ($("#ownForm")) $("#ownForm").onsubmit = async (e) => { e.preventDefault(); try { const x = await api("POST", "/church/owner", { name: $("#ownName").value, email: $("#ownEmail").value }); toast(x.sent ? "Invite sent" : "Email isn't set up: copy the link from the Teams card"); renderTeams(); } catch (err) { teamNote = err.message; renderTeams(); } };
+}
+// the link in an invite email: make the account (or sign in), then the app and the key
+async function showInvite(token) {
+  let inv; try { inv = await api("GET", "/invite/" + encodeURIComponent(token)); } catch (e) { return modal(`<h3>Invite</h3><p class="err">${esc(e.message)}</p><button class="btn" data-close>OK</button>`); }
+  const next = (r) => modal(`<h3>Welcome to ${esc(r.church || inv.church)}</h3>
+    ${inv.section === "owner" ? `<p style="margin:0">You're its main admin. Your church's page and the Teams card are under Account.</p>` : `<ol style="margin:0;padding-left:1.2rem;display:grid;gap:.4rem">
+      <li>Download <b>${esc(inv.app)}</b> on your device: <a href="${esc(inv.download)}" target="_blank" rel="noopener">get it here</a></li>
+      <li>Open it and connect to Wi-Fi.</li><li>Enter your key: <code style="font:600 1.05rem var(--mono);user-select:all">${esc(inv.key || "")}</code></li><li>Sign in with this account. Done.</li></ol>`}
+    <button class="btn" data-close>OK</button>`);
+  if (me) {
+    try { const r = await api("POST", "/invite/accept", { token }); await refreshMe(); return next(r); } catch (e) { return modal(`<h3>Invite</h3><p class="err">${esc(e.message)}</p><button class="btn" data-close>OK</button>`); }
+  }
+  modal(`<h3>${esc(inv.church)}</h3><p class="muted" style="margin:0">${inv.section === "owner" ? "You're invited to be the main admin." : "You're invited to " + esc(inv.app) + (inv.role ? " as " + esc(inv.role) : "") + "."} Make your account${inv.used ? "" : " (or sign in if you have one)"}:</p>
+    <form id="ivForm" style="background:none;border:0;padding:0"><label>Name<input id="ivName" value="${esc(inv.name || "")}"></label><label>Email<input id="ivEmail" type="email" value="${esc(inv.email)}"></label>
+    <label>Password (8+ characters)<input id="ivPass" type="password" minlength="8" autocomplete="new-password"></label>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Make my account</button><button class="btn ghost" type="button" id="ivIn">I have an account: sign in</button></div><div class="err" id="ivErr"></div></form>`);
+  $("#ivForm").onsubmit = async (e) => {
+    e.preventDefault();
+    try { const r = await api("POST", "/signup", { name: $("#ivName").value, email: $("#ivEmail").value, password: $("#ivPass").value, invite: token }); setToken(r.token); await refreshMe(); next({ church: r.church }); }
+    catch (err) { $("#ivErr").textContent = err.message; }
+  };
+  $("#ivIn").onclick = async () => {
+    try { setToken((await api("POST", "/login", { email: $("#ivEmail").value, password: $("#ivPass").value })).token); await refreshMe(); const r = await api("POST", "/invite/accept", { token }); await refreshMe(); next(r); }
+    catch (err) { $("#ivErr").textContent = err.message; }
+  };
 }
 async function renderStaff(qs) {
   const el = $("#staffCard"); if (!el) return;
@@ -341,6 +418,7 @@ function renderAll() { renderSub(); renderPayout(); renderAccount(); loadTracks(
 // ---------------------------------------------------------------- returning from Stripe
 async function handleHash() {
   const h = location.hash.slice(1);
+  if (h.startsWith("invite-")) return showInvite(h.slice(7));
   if (h.startsWith("order-done-")) {
     const session = h.slice(11); for (const k in cart) delete cart[k]; updateCartBtn();
     modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your order is confirmed. Getting your license keys…</p>`);

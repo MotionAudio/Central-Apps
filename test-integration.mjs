@@ -585,6 +585,27 @@ await check("updates: a newer release asks 'Update available - update now?'; Yes
   await T(() => { PPFeatures.handleHardware({ type: "updateStatus", current: "7.0.0", latest: "7.1.0", available: true, notes: "Better", repo: "church/cc", auto: true }); }); await wait(300);
   assert.ok(await T(() => !document.querySelector("#updAsk").open), "No: not asked again until the app opens again");
 });
+await check("updates: when the app opens and nothing plays, a new version installs by itself after a 10-second notice (Not now skips it; the setting turns it off)", async () => {
+  const p2 = await ctx.newPage(); p2.on("pageerror", (e) => errors.push("upd:" + e));
+  await p2.goto("http://127.0.0.1:8766/app/#perform"); await p2.waitForFunction(() => window.PPFeatures && window.PPIntegrations);
+  await p2.evaluate(() => { PPFeatures.handleHardware({ type: "updateStatus", current: "7.0.0", latest: "7.2.0", available: true, notes: "", repo: "church/cc", auto: true, autoInstall: true }); });
+  await p2.waitForFunction(() => document.querySelector("#updAsk") && document.querySelector("#updAsk").open && /installs in \d+ s/.test(document.querySelector("#updAsk").textContent));
+  assert.match(await p2.textContent("#updAsk"), /songs, setlists and settings stay/);
+  const a = await p2.evaluate(() => +document.querySelector("#updAsk").textContent.match(/installs in (\d+) s/)[1]); await p2.waitForTimeout(2200);
+  const b = await p2.evaluate(() => +document.querySelector("#updAsk").textContent.match(/installs in (\d+) s/)[1]);
+  assert.ok(b < a, "it counts down " + a + " → " + b);
+  await p2.click('#updAsk [data-ask="no"]'); await p2.waitForTimeout(1500);
+  assert.ok(await p2.evaluate(() => !document.querySelector("#updAsk").open && !PPIntegrations.updates().busy), "Not now: nothing installs");
+  await p2.close();
+  // turned off: it asks instead
+  const p3 = await ctx.newPage(); p3.on("pageerror", (e) => errors.push("upd2:" + e));
+  await p3.goto("http://127.0.0.1:8766/app/#perform"); await p3.waitForFunction(() => window.PPFeatures && window.PPIntegrations);
+  await p3.evaluate(() => { PPFeatures.handleHardware({ type: "updateStatus", current: "7.0.0", latest: "7.2.0", available: true, notes: "", repo: "church/cc", auto: true, autoInstall: false }); });
+  await p3.waitForFunction(() => document.querySelector("#updAsk") && document.querySelector("#updAsk").open);
+  assert.match(await p3.textContent("#updAsk"), /Want to update now\?/);
+  assert.equal(await p3.evaluate(() => document.getElementById("updAutoInstall") && document.getElementById("updAutoInstall").checked), false, "Settings → Software updates shows it off");
+  await p3.click('#updAsk [data-ask="no"]'); await p3.close();
+});
 
 // back to the state the companion checks expect: Test Song chosen and stopped, pads in normal mode
 await T(() => { PPTracks.stop(true); PP.engine.stop(); PP.project().performance.layerMode = false; const p = PP.project(), i = p.songs.findIndex((q) => q.name === "Test Song"); PPTracks.data(p.songs[i]).after = "stop"; PPFeatures.loadSong(i); PPShell.showTab("tracks"); });

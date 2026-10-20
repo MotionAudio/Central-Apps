@@ -1,0 +1,72 @@
+apply plugin: 'com.android.application'
+
+// the version comes from central-services/package.json (CI passes it as CS_VERSION); versionCode grows with it: 1.2.3 -> 10203
+def cuVersion = System.getenv("CS_VERSION") ?: "1.0.0"
+def cuParts = (cuVersion.tokenize(".") + ["0", "0", "0"]).take(3).collect { (it.replaceAll(/[^0-9]/, "") ?: "0").toInteger() }
+def cuVersionCode = cuParts[0] * 10000 + cuParts[1] * 100 + cuParts[2]
+
+android {
+    namespace "org.centralcontrol.services"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "org.centralcontrol.services"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionName cuVersion
+        versionCode cuVersionCode
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // signed with the team's key when CI has it (secret ANDROID_KEYSTORE_B64 - IOS-APP-STORE.md / INSTALL.md), so a new
+    // version installs over the old one; without it, the debug key (fine to try, but each such build is a new app)
+    signingConfigs {
+        release {
+            if (System.getenv("CU_KEYSTORE")) {
+                storeFile file(System.getenv("CU_KEYSTORE"))
+                storePassword System.getenv("CU_KEYSTORE_PASSWORD")
+                keyAlias (System.getenv("CU_KEY_ALIAS") ?: "central-usage")
+                keyPassword (System.getenv("CU_KEY_PASSWORD") ?: System.getenv("CU_KEYSTORE_PASSWORD"))
+            }
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig System.getenv("CU_KEYSTORE") ? signingConfigs.release : signingConfigs.debug
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

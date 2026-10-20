@@ -176,7 +176,8 @@
   <script src="settings.js"></script>
   <dialog id="updDialog"><h2>Updates</h2><p class="muted" id="updInfo"></p>
     <label>Update source (GitHub owner/repo)<input id="updRepo" placeholder="MotionAudio/Central-Apps"></label>
-    <label class="toggle"><input type="checkbox" id="updAuto" checked> Look for updates every time the app opens (and once a day) and ask me</label>
+    <label class="toggle"><input type="checkbox" id="updAuto" checked> Look for updates every time the app opens (and once a day)</label>
+    <label class="toggle"><input type="checkbox" id="updAutoInstall" checked> Install a new version by itself when the app opens (never while something plays; your songs, setlists and settings stay)</label>
     <p id="updState"></p>
     <div class="row"><button id="updCheck">Check now</button><button class="primary" id="updInstall" hidden>Install update</button><button id="updClose">Close</button></div></dialog>
   <div class="upd-banner" id="updBanner" hidden></div>

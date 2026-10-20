@@ -23,7 +23,7 @@
   a { color: var(--accent); }
   .lead { color: var(--muted); max-width: 62ch; }
   .ver { display: inline-block; margin-top: 10px; padding: 3px 10px; border-radius: 999px; background: var(--soft); font-size: 13px; }
-  .hero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 26px 0 34px; }
+  .hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 26px 0 34px; }
   .hero .card { display: flex; flex-direction: column; } .hero .card p { flex: 1; font-size: 14px; }
   .who { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
@@ -32,6 +32,7 @@
   .btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
   .btn small { font-weight: 400; opacity: .8; }
   .hero .btn { width: 100%; margin-top: 10px; }
+  .hero .btn { font-size: 14px; padding: 9px 10px; } .hero h2 { font-size: 19px; line-height: 1.2; } .hero .who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   section { margin: 34px 0; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin-top: 14px; }
   .plat { display: flex; flex-direction: column; gap: 8px; }
@@ -44,6 +45,7 @@
   pre { background: var(--soft); padding: 12px; border-radius: 10px; overflow-x: auto; margin: 10px 0 0; white-space: pre; }
   .note { border-left: 3px solid var(--warn); padding: 4px 0 4px 12px; color: var(--muted); font-size: 14px; }
   footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 18px; }
+  @media (max-width: 1100px) { .hero { grid-template-columns: repeat(3, 1fr); } }
   @media (max-width: 900px) { .hero { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 560px) { .hero { grid-template-columns: 1fr; } }
   .app-icon { display: block; border-radius: 14px; margin-bottom: 8px; }
@@ -53,15 +55,16 @@
 <main>
   <header>
     <h1>Central Apps</h1>
-    <p class="lead">Four apps for a worship team. <b>Central Pedal</b> is the Raspberry Pi on stage: pads, multitracks, click, the guitar and keys rig. <b>Central Pedal Control</b> gets it ready from any computer, tablet or phone. <b>Central Control</b> runs the team from the main admin's computer: lights, slides, lyrics, cameras, in-ears, tracks and mixing. <b>Central Usage</b> is the musicians' app: the chord chart, the instrument, the lyrics and your in-ear mix.</p>
+    <p class="lead">Five apps for a worship team. <b>Central Pedal</b> is the Raspberry Pi on stage: pads, multitracks, click, the guitar and keys rig. <b>Central Pedal Control</b> gets it ready from any computer, tablet or phone. <b>Central Control</b> runs the team from the main admin's computer: lights, slides, lyrics, cameras, in-ears, tracks and mixing. <b>Central Usage</b> is the musicians' app: the chord chart, the instrument, the lyrics and your in-ear mix. <b>Central Services</b> is the church's schedule: who serves when, and everyone's yes or no.</p>
     <span class="ver" id="ver">Finding the newest version…</span>
   </header>
 
   <div class="hero" id="hero">
     <div class="card"><div class="who">On stage</div><img class="app-icon" src="brand/central-pedal.png" alt="" width="56" height="56"><h2>Central Pedal</h2><p class="muted">Raspberry Pi</p><a class="btn primary" href="#pi">Raspberry Pi steps</a></div>
     <div class="card"><div class="who">Getting ready</div><img class="app-icon" src="brand/central-pedal-control.png" alt="" width="56" height="56"><h2>Central Pedal Control</h2><p class="muted" id="heroPcText">Mac · Windows · Linux · iPad · iPhone · Android</p><a class="btn primary" id="heroPc" href="#pedal-control">Download</a></div>
-    <div class="card"><div class="who">Main admin &amp; admins</div><img class="app-icon" src="brand/central-control.png" alt="" width="56" height="56"><h2>Central Control</h2><p class="muted" id="heroCuText">Windows · Mac · Linux</p><a class="btn primary" id="heroCu" href="#control">Download</a></div>
+    <div class="card"><div class="who">Admins</div><img class="app-icon" src="brand/central-control.png" alt="" width="56" height="56"><h2>Central Control</h2><p class="muted" id="heroCuText">Windows · Mac · Linux</p><a class="btn primary" id="heroCu" href="#control">Download</a></div>
     <div class="card"><div class="who">Musicians</div><img class="app-icon" src="brand/central-usage.png" alt="" width="56" height="56"><h2>Central Usage</h2><p class="muted" id="heroUsText">Mac · Windows · Linux · Android · iPhone · iPad</p><a class="btn primary" id="heroUs" href="#usage">Download</a></div>
+    <div class="card"><div class="who">Everyone</div><img class="app-icon" src="brand/central-services.png" alt="" width="56" height="56"><h2>Central Services</h2><p class="muted" id="heroCsText">Mac · Windows · Linux · Android · iPhone · iPad</p><a class="btn primary" id="heroCs" href="#central-services">Download</a></div>
   </div>
 
   <section id="pedal-control">
@@ -99,6 +102,19 @@
       <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="CentralUsage-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="CentralUsage-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
       <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="CentralUsage-*.apk">Download <small>.apk</small></a></div>
       <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Add it from Safari today; the App Store app is coming</p><a class="btn" href="#ios">How to add it</a></div>
+    </div>
+  </section>
+
+  <section id="central-services">
+    <h2>Central Services</h2>
+    <p class="muted">The church's schedule. Sign in with the account from your church's invite and the app knows who you are: the main admin and admins open on the whole schedule (and the schedulers make services and ask people), users open on their own requests and tap yes or no. Everyone sees every worship and production team, each person's role, and who said yes. Your church gets it with any church pack, or for $25 on the Motion Audio website.</p>
+    <div class="grid">
+      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-services-*-win-x64.exe">Download <small>.exe</small></a></div>
+      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-services-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-services-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-services-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-services-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
+      <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="central-services-*-android.apk">Download <small>.apk</small></a></div>
+      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Coming to TestFlight and the App Store</p><a class="btn" aria-disabled="true">Soon</a></div>
     </div>
   </section>
 
@@ -176,8 +192,8 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre
     .then(async function (rel) {
       var urls = {}; (rel.assets || []).forEach(function (a) { urls[a.name] = a.browser_download_url; }); var names = Object.keys(urls);
       var v = (rel.tag_name || "").replace(/^v/, ""), ver = function (pat, re) { return (match(names, pat) || "").replace(re, "$1"); };
-      var cu = ver("central-usage-*-win-x64.exe", /^central-usage-([\d.]+)-.*$/), us = ver("CentralUsage-*-win-x64.exe", /^CentralUsage-([\d.]+)-.*$/);
-      document.getElementById("ver").textContent = "Central Pedal " + v + (cu ? " · Central Control " + cu : "") + (us ? " · Central Usage " + us : "") + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
+      var cu = ver("central-usage-*-win-x64.exe", /^central-usage-([\d.]+)-.*$/), us = ver("CentralUsage-*-win-x64.exe", /^CentralUsage-([\d.]+)-.*$/), cs = ver("central-services-*-amd64.deb", /^central-services-([\d.]+)-.*$/);
+      document.getElementById("ver").textContent = "Central Pedal " + v + (cu ? " · Central Control " + cu : "") + (us ? " · Central Usage " + us : "") + (cs ? " · Central Services " + cs : "") + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
       document.getElementById("notes").href = rel.html_url || RELEASES; if (urls.SHA256SUMS) document.getElementById("sums").href = urls.SHA256SUMS;
       document.querySelectorAll("[data-file]").forEach(function (a) { var n = match(names, a.dataset.file); if (n) { a.href = urls[n]; a.title = n; a.removeAttribute("aria-disabled"); } else { a.setAttribute("aria-disabled", "true"); a.title = "Not in this release yet"; } });
       var arch = plat === "mac" ? await macArch() : "x64", pc = "Download for Mac (" + (arch === "arm64" ? "Apple Silicon" : "Intel") + ")";
@@ -187,6 +203,8 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre
       if (usFile) setHero("heroUs", "heroUsText", urls[usFile], plat === "android" ? "Download for Android" : pick[1]);
       else if (plat === "ios") setHero("heroUs", "heroUsText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "From the main admin's computer on your Wi-Fi");
       var pcFile = plat === "android" ? match(names, "central-pedal-control-*-android.apk") : pick && match(names, "central-pedal-control-" + pick[0]);
+      var csFile = plat === "android" ? match(names, "central-services-*-android.apk") : pick && match(names, "central-services-" + pick[0]);
+      if (csFile) setHero("heroCs", "heroCsText", urls[csFile], plat === "android" ? "Download for Android" : pick[1]); else if (plat === "ios") setHero("heroCs", "heroCsText", "#central-services", "Coming to the App Store");
       if (pcFile) setHero("heroPc", "heroPcText", urls[pcFile], plat === "android" ? "Download for Android" : pick[1]); else if (plat === "ios") setHero("heroPc", "heroPcText", "#pedal-control", "Coming to the App Store");
     })
     .catch(function (e) {

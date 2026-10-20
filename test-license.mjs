@@ -146,15 +146,51 @@ await check("Central Control: an A key; Central Usage: a U key and the user's ow
   const ch = await j("GET", "/church", null, owner.token);
   assert.ok(ch.counts.A.inUse === 1 && ch.counts.U.inUse === 1 && ch.members.some((m) => m.role === "user" && /^bass/.test(m.email)), JSON.stringify(ch.counts));
 });
+await check("a U key works on two devices with the same account, and the person's preferences follow them", async () => {
+  const cuApp = "file://" + path.join(here, "central-usage", "app", "index.html");
+  async function device(name) {   // (its own browser profile: another computer)
+    const c = await browser.newContext({ viewport: { width: 1100, height: 760 } });
+    await c.addInitScript((server) => { window.PP_LICENSE_CONFIG = { server: server, required: true }; try { localStorage.setItem("cc-license", JSON.stringify({ production: "Grace Church" })); } catch (_) { } }, WEB);
+    const pg = await c.newPage(); pg.on("pageerror", (e) => errors.push(name + ":" + e)); pg.on("dialog", (d) => d.accept());
+    await pg.goto(cuApp + "?edition=usage&cudev=dev-" + name + "-" + stamp);
+    await pg.waitForFunction(() => window.PPLicense && document.getElementById("lwKey"), null, { timeout: 15000 });
+    assert.match(await pg.textContent("#licWiz"), /two devices/, "the setup says the key works on two devices");
+    await pg.fill("#lwKey", U1); await pg.click('#licWiz [data-lw="key"]');
+    return { c, pg };
+  }
+  async function signIn(pg, email) {
+    await pg.waitForFunction(() => document.getElementById("lwEmail")); await pg.fill("#lwEmail", email); await pg.fill("#lwPass", "password123"); await pg.click('#licWiz [data-lw="acct"]');
+  }
+  // home: the same person's account - fine (2 of 2)
+  const home = await device("home"); await signIn(home.pg, "bass" + stamp + "@grace.test");
+  await home.pg.waitForFunction(() => !document.getElementById("licWiz") && PPLicense.licensed());
+  const keyRow = (await j("GET", "/church", null, owner.token)).keys.find((k) => k.key === U1);
+  assert.equal((keyRow.devices || []).length, 2, "the website shows both devices: " + JSON.stringify(keyRow));
+  // a friend's account on a third computer: the key is full
+  const third = await device("friend");
+  await third.pg.waitForFunction(() => /2 devices|two devices|already/i.test((document.querySelector("#licWiz .bad") || {}).textContent || ""));
+  await third.c.close();
+  // a preference changed at home comes to the phone (the first device), and back
+  await home.pg.evaluate(() => { const el = document.getElementById("fontSize"); el.value = "26"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  await home.pg.waitForTimeout(3600);
+  const bass = await j("POST", "/login", { email: "bass" + stamp + "@grace.test", password: "password123" });
+  const saved = await until(async () => { const r = await j("GET", "/settings/usage", null, bass.token); return r.data && r.data.fontSize === 26 && r; });
+  assert.ok(saved.updated > 0);
+  const phone = await ctx.newPage(); phone.on("pageerror", (e) => errors.push("phone:" + e));
+  await phone.goto(cuApp + "?edition=usage&cudev=dev-phone-" + stamp);
+  await phone.waitForFunction(() => window.CentralUsage && CentralUsage.prefs.fontSize === 26 && document.getElementById("fontSize").value === "26", null, { timeout: 10000 });
+  await phone.close(); await home.c.close();
+});
 await check("the website: packs and keys in the store, a new account makes the church, its page shows the codes and how many keys are left", async () => {
   const w = await ctx.newPage(); w.on("pageerror", (e) => errors.push("web:" + e)); w.on("dialog", (d) => d.accept());
   await w.goto(WEB + "/"); await w.waitForFunction(() => document.querySelectorAll("#packs .prod").length === 3);
   const store = await w.evaluate(() => ({ packs: Array.from(document.querySelectorAll("#packs .prod")).map((p) => p.querySelector("h3").textContent + " " + p.querySelector(".price").textContent.split(" ")[0]),
     rack: Array.from(document.querySelectorAll("#rack .prod")).map((p) => p.querySelector("h3").textContent + " " + p.querySelector(".price").textContent.split(" ")[0]) }));
   assert.deepEqual(store.packs, ["Small church $400", "Medium church $600", "Large church $850"]);
-  assert.deepEqual(store.rack, ["Central Pedal $250", "Central Pedal Control $50", "Central Control (admin) $50", "Central Usage (user) $20"], "the $10 user price shows only with a pack");
+  assert.deepEqual(store.rack, ["Central Pedal $250", "Central Pedal Control $50", "Central Control (admin) $50", "Central Usage (user) $20", "Central Services $25"], "the $10 user price shows only with a pack");
   await w.click('#packs [data-add="pack-small"]');
-  assert.ok(await w.evaluate(() => Array.from(document.querySelectorAll("#rack .prod h3")).length === 5), "with a pack in the cart, the $10 user is there");
+  const withPack = await w.evaluate(() => Array.from(document.querySelectorAll("#rack .prod h3")).map((h) => h.textContent));
+  assert.ok(withPack.length === 5 && !withPack.includes("Central Services"), "with a pack in the cart, the $10 user is there and Central Services (free in the pack) isn't: " + withPack);
   await w.click("#cartBtn"); assert.match(await w.textContent(".modal"), /Sign in or make an account first/); await w.click('.modal [data-close], .modal #clear');
   await w.goto(WEB + "/#account"); await w.waitForSelector("#upForm");
   await w.check('[name="upCh"][value="make"]'); await w.fill("#upName", "Pastor"); await w.fill("#upEmail", "pastor" + stamp + "@hope.test"); await w.fill("#upPass", "password123"); await w.fill("#upChurch", "Hope Church");

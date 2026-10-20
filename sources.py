@@ -715,7 +715,9 @@ class Updater:
     """Looks for a newer release on GitHub (Releases of the repository set in Settings → Software updates).
     A release carries:  central-control-source.zip  (this Pi),  central-control-<v>-amd64.deb / .AppImage and
     central-usage-<v>-amd64.deb / .AppImage (the PC apps),  and SHA256SUMS  (sha256 of every file).
-    It only ever looks and downloads; installing is the musician's tap (never while something is playing)."""
+    It only ever looks and downloads. The app installs a new version by itself when it opens and nothing is playing
+    ("autoInstall", on unless turned off in Settings → Software updates), otherwise it asks; songs, setlists and
+    settings live in the data folder, which an update never touches."""
 
     API = "https://api.github.com"
     DEFAULT_REPO = "MotionAudio/Central-Apps"
@@ -725,7 +727,7 @@ class Updater:
         self.current = current
         self.dir = download_dir
         self.api = api or self.API
-        self.cfg = {"auto": True, "repo": "", "lastCheck": 0}
+        self.cfg = {"auto": True, "autoInstall": True, "repo": "", "lastCheck": 0}
         try:
             with open(path) as fh:
                 self.cfg.update(json.load(fh))
@@ -738,9 +740,9 @@ class Updater:
         self.busy = False
 
     def save(self, cfg):
-        for k in ("auto", "repo"):
+        for k in ("auto", "autoInstall", "repo"):
             if k in cfg:
-                self.cfg[k] = cfg[k]
+                self.cfg[k] = cfg[k] if k == "repo" else bool(cfg[k])
         self.cfg["repo"] = re.sub(r"^https?://github\.com/", "", str(self.cfg.get("repo") or "").strip()).strip("/") or self.DEFAULT_REPO   # empty = the official releases
         self._write()
         return self.status()
@@ -754,7 +756,7 @@ class Updater:
     def status(self):
         lt = self.latest or {}
         newer = bool(lt and version_tuple(lt.get("version")) > version_tuple(self.current))
-        return {"type": "updateStatus", "current": self.current, "repo": self.cfg.get("repo"), "auto": bool(self.cfg.get("auto")), "lastCheck": self.cfg.get("lastCheck") or 0,
+        return {"type": "updateStatus", "current": self.current, "repo": self.cfg.get("repo"), "auto": bool(self.cfg.get("auto")), "autoInstall": self.cfg.get("autoInstall") is not False, "lastCheck": self.cfg.get("lastCheck") or 0,
                 "available": newer, "latest": lt.get("version"), "notes": (lt.get("notes") or "")[:2000], "published": lt.get("published"), "hasPi": bool(lt.get("zip")), "error": self.error, "busy": self.busy}
 
     def _get(self, url, timeout=20, raw=False):

@@ -1,0 +1,16 @@
+{
+  "appId": "org.centralcontrol.services",
+  "appName": "Central Services",
+  "webDir": "www",
+  "server": {
+    "cleartext": true
+  },
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": true,
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
