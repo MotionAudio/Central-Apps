@@ -449,7 +449,7 @@ await check("the mixer: every track gets a big fader with a meter, mute / solo a
   await page.click("#mixDialog [data-close=mixDialog]");
 });
 await check("pads: up to 4 layers at once (a 5th replaces the oldest), each with its own level", async () => {
-  await T(() => { PP.engine.stop(); PP.project().performance.layerMode = true; });
+  await T(() => { PPTracks.stop(true); PP.engine.stop(); PP.project().performance.layerMode = true; });   // (the tracks stopped: a section starting would swell the pads)
   await wait(300);
   for (let i = 0; i < 5; i++) { await T((i) => PP.triggerPad(i, { layer: true }), i); await wait(150); }
   await until(() => T(() => PP.engine.layerState().length === 4));

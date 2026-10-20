@@ -4,187 +4,67 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Motion Audio</title>
-<meta name="description" content="Central Pedal, Central Control, Central Usage and the Central Tracks library for worship teams.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-<style>
-/* Layout: stage-console storefront — hero waveform, product rack, Central Tracks library, publish desk */
-:root{
-  --bg:#f3f1f7; --surface:#ffffff; --fg:#1d1830; --muted:#625b78; --line:#dcd7e8;
-  --accent:#d9770f; --accent-ink:#ffffff; --signal:#5b3fd6; --ok:#1f8a54;
-  --display:"Unbounded",system-ui,sans-serif; --body:"Figtree",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#120f1d; --surface:#1c1830; --fg:#efecf7; --muted:#a49cbd; --line:#2f2a47;
-  --accent:#f0952f; --accent-ink:#1a1206; --signal:#9d88ff; --ok:#4cc98a; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#120f1d; --surface:#1c1830; --fg:#efecf7; --muted:#a49cbd; --line:#2f2a47;
-  --accent:#f0952f; --accent-ink:#1a1206; --signal:#9d88ff; --ok:#4cc98a; color-scheme:dark}
-*{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body)}
-.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-h1,h2,h3{font-family:var(--display);text-wrap:balance;line-height:1.15;margin:0}
-h2{font-size:clamp(1.5rem,3.5vw,2.2rem)}
-.eyebrow{font:500 .75rem var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--signal)}
-.muted{color:var(--muted)}
-a{color:inherit}
-button{font:inherit;cursor:pointer}
-:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
-.btn{border:0;border-radius:8px;padding:.7rem 1.1rem;font-weight:600;background:var(--accent);color:var(--accent-ink)}
-.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
-.btn.small{padding:.45rem .8rem;font-size:.9rem}
-
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
-header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-header.top .wrap{display:flex;align-items:center;gap:1rem;padding-block:.8rem;flex-wrap:wrap}
-.logo{font:700 1.05rem var(--display);display:flex;align-items:center;gap:.5rem}
-.logo i{display:inline-flex;gap:2px;align-items:end;height:18px}
-.logo i b{width:3px;background:var(--accent);border-radius:2px}
-nav{display:flex;gap:1rem;margin-left:auto;flex-wrap:wrap;font-size:.95rem}
-nav a{text-decoration:none;color:var(--muted)} nav a:hover{color:var(--fg)}
-.cartbtn{font:500 .85rem var(--mono)}
-
-.hero .wrap{padding-block:3.5rem 2.5rem;display:grid;gap:2rem;grid-template-columns:1.1fr .9fr;align-items:center}
-.hero h1{font-size:clamp(2rem,5.5vw,3.6rem)}
-.hero h1 em{font-style:normal;color:var(--accent)}
-.hero p{max-width:52ch;font-size:1.1rem}
-.hero .ctas{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.4rem}
-canvas#wave{width:100%;height:220px;display:block;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
-@media (max-width:800px){.hero .wrap{grid-template-columns:1fr}}
-
-section{padding-block:3rem}
-.sec-head{display:flex;justify-content:space-between;align-items:end;gap:1rem;flex-wrap:wrap;margin-bottom:1.6rem}
-.sec-head p{max-width:56ch;margin:.4rem 0 0}
-
-.rack{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}
-.prod{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.3rem;display:flex;flex-direction:column;gap:.7rem;min-width:0}
-.prod.feature{border-color:var(--accent)}
-.prod .tag{font:500 .72rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.prod h3{font-size:1.1rem}
-.price{font:700 2rem var(--display)}
-.price small{font:400 .85rem var(--body);color:var(--muted)}
-.prod ul{margin:0;padding-left:1.1rem;color:var(--muted);font-size:.95rem;flex:1}
-.prod .btn{align-self:flex-start}
-
-.tracks-band{background:var(--surface);border-block:1px solid var(--line)}
-.sub{display:grid;grid-template-columns:1fr 1.4fr;gap:1.5rem;align-items:start}
-@media (max-width:860px){.sub{grid-template-columns:1fr}}
-.plan{border:1px solid var(--accent);border-radius:12px;padding:1.3rem;display:flex;flex-direction:column;gap:.7rem}
-.plan .status{font:500 .8rem var(--mono)}
-.plan .status.on{color:var(--ok)}
-.flow{font:400 .85rem var(--mono);color:var(--muted);display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
-.flow span{border:1px solid var(--line);border-radius:6px;padding:.15rem .45rem;color:var(--fg)}
-.lib{min-width:0}
-.lib .bar{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem}
-.lib input,.lib select,form input,form select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.6rem .75rem;min-width:0}
-.lib input{flex:1 1 200px}
-.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
-table{width:100%;border-collapse:collapse;font-size:.93rem}
-th{text-align:left;font:500 .72rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.6rem .75rem;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:.6rem .75rem;border-bottom:1px solid var(--line);vertical-align:middle}
-tr:last-child td{border-bottom:0}
-td.num{font:400 .85rem var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
-.kind{font:500 .7rem var(--mono);padding:.1rem .4rem;border-radius:4px;border:1px solid var(--line);color:var(--signal);white-space:nowrap}
-.added{color:var(--ok);font:500 .82rem var(--mono);white-space:nowrap}
-
-.desk{display:grid;grid-template-columns:1.2fr 1fr;gap:1.5rem}
-@media (max-width:860px){.desk{grid-template-columns:1fr}}
-form{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.3rem;display:grid;gap:.9rem;min-width:0}
-form label{display:grid;gap:.3rem;font-size:.9rem;color:var(--muted)}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
-@media (max-width:480px){.row2{grid-template-columns:1fr}}
-.payout{display:grid;gap:.8rem;align-content:start}
-.meter{border:1px solid var(--line);border-radius:12px;padding:1.1rem;background:var(--surface)}
-.meter .big{font:700 1.8rem var(--display);font-variant-numeric:tabular-nums}
-.split{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin-top:.6rem}
-.split b{display:block;height:100%;width:75%;background:var(--accent)}
-.stars{color:var(--accent);letter-spacing:1px;white-space:nowrap;font-size:1rem}
-.stars .off{color:var(--line)}
-.grade{border:1px solid var(--line);border-radius:10px;padding:.9rem;display:grid;gap:.5rem;background:var(--bg)}
-.grade .stars{font-size:1.5rem}
-.checks{display:grid;gap:.25rem;font:400 .82rem var(--mono);color:var(--muted)}
-.checks .bad{color:var(--accent)}
-.tiers{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;font:500 .8rem var(--mono);text-align:center}
-.tiers div{border:1px solid var(--line);border-radius:8px;padding:.45rem .2rem;font-variant-numeric:tabular-nums}
-.tiers div.on{border-color:var(--accent);color:var(--accent)}
-.note{border-left:3px solid var(--signal);padding:.4rem .8rem;font-size:.92rem;color:var(--muted);max-width:70ch}
-
-footer{border-top:1px solid var(--line);padding-block:2rem;color:var(--muted);font-size:.9rem}
-
-.modal-bg{position:fixed;inset:0;background:rgba(10,8,20,.55);display:grid;place-items:center;z-index:20;padding:16px}
-.modal{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:1.4rem;max-width:440px;width:100%;display:grid;gap:.9rem}
-.modal .lines{display:grid;gap:.4rem;font-size:.95rem}
-.modal .lines div{display:flex;justify-content:space-between;gap:1rem}
-.modal .total{border-top:1px solid var(--line);padding-top:.5rem;font-weight:600}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:.6rem 1rem;border-radius:8px;z-index:30;font-size:.92rem}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-.acct{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.2rem;display:grid;gap:.6rem;align-content:start;min-width:0}
-.card h3{font-size:1rem}
-.keys{font:400 .85rem var(--mono);display:grid;gap:.3rem;user-select:all}
-.ktable{width:100%;border-collapse:collapse;font-size:.92rem}.ktable td,.ktable th{padding:.35rem .4rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-.ktable code{font:500 .86rem var(--mono);user-select:all}.kcount{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem}
-.kcount div{border:1px solid var(--line);border-radius:10px;padding:.5rem .7rem}.kcount b{font:600 1.4rem var(--mono);display:block}
-.choice{display:grid;gap:.35rem;margin:.3rem 0}.choice label{display:flex;gap:.5rem;align-items:center;font-size:.95rem}.choice input[type=radio]{width:auto}
-.wide{grid-column:1/-1}
-.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.8rem}.team{border:1px solid var(--line);border-radius:12px;padding:.7rem;display:grid;gap:.5rem;align-content:start}
-.team h4{margin:0;font-size:1rem}.team h4 .muted{font-weight:400;font-size:.85rem}.tm{display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:.35rem 0}
-.tacts{display:flex;gap:.3rem;align-items:center;flex-wrap:wrap}.tstat{font:500 .78rem var(--mono);padding:.1rem .45rem;border-radius:99px;border:1px solid var(--line)}.tstat.setup{color:#15803d;border-color:#15803d}.tstat.joined{color:#b45309;border-color:#b45309}.confirm-card{border-color:var(--accent)!important}details.danger summary{color:#b91c1c}.danger-btn{background:#b91c1c!important;border-color:#b91c1c!important;color:#fff!important}footer a{color:inherit}
-.tacts select.tmove{width:auto;max-width:100%;font-size:.8rem;padding:.2rem .35rem;border-radius:8px}
-.trow{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:.35rem}@media (max-width:640px){.trow{grid-template-columns:1fr}}
-.err{color:var(--accent);font-size:.9rem;min-height:1.2em}
-.chk{display:flex!important;gap:.5rem;align-items:flex-start;color:var(--fg)!important}
-.chk input{margin-top:.25rem}
-form input[type=file]{padding:.45rem}
-.modal form{background:none;border:0;padding:0}
-*{box-sizing:border-box}
-body{margin:0}
-</style>
+<meta name="description" content="Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and the Central Tracks library for worship teams.">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
 </head>
 <body>
 
 <header class="top"><div class="wrap">
-  <div class="logo"><i><b style="height:8px"></b><b style="height:16px"></b><b style="height:11px"></b><b style="height:18px"></b></i>Motion Audio</div>
+  <a class="logo" href="#" style="color:var(--ink)"><span style="color:var(--brass)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
   <nav>
-    <a href="#store">Store</a><a href="#tracks">Central Tracks</a><a href="#publish">Publish</a><a href="/services/">Services</a>
+    <a href="#store">Store</a><a href="#tracks">Central Tracks</a><a href="#publish">Publish</a><a href="/services/">Central Services</a>
     <a href="#account" id="acctLink">Sign in</a>
-    <button class="btn ghost small cartbtn" id="cartBtn">Cart · 0</button>
+    <button class="btn ghost small cartbtn" id="cartBtn">Cart <span class="count">0</span></button>
   </nav>
 </div></header>
 
-<div class="hero"><div class="wrap">
-  <div>
-    <div class="eyebrow">The Central system</div>
-    <h1>Pads, tracks and charts for the whole team, <em>run from one hub.</em></h1>
-    <p class="muted">Central Pedal plays your pads and multitracks from the floor. Central Control runs the service from the main admin. Central Usage puts chords and lyrics in front of every musician.</p>
-    <div class="ctas"><a class="btn" href="#store">Shop the system</a><a class="btn ghost" href="#tracks">Browse Central Tracks</a></div>
+<div class="hero on-stage"><div class="wrap">
+  <h1>The whole worship team, run from one pedal.</h1>
+  <p class="lede">Central Pedal plays your pads and multitracks from the floor. Central Control runs lights, lyrics, slides and in-ears from the desk. Central Usage puts the chart, the lyrics and their own mix in front of every musician.</p>
+  <div class="ctas"><a class="btn brass" href="#store">Shop the system</a><a class="btn ghost" href="#tracks">Browse Central Tracks</a></div>
+  <canvas id="wave" aria-hidden="true"></canvas>
+  <div class="system" aria-label="The five Central apps">
+    <a href="#store"><img src="/brand/central-pedal.svg" alt=""><b>Central Pedal</b><span>Plays from the floor</span></a>
+    <a href="#store"><img src="/brand/central-pedal-control.svg" alt=""><b>Central Pedal Control</b><span>Builds songs and sets</span></a>
+    <a href="#store"><img src="/brand/central-control.svg" alt=""><b>Central Control</b><span>Runs the service</span></a>
+    <a href="#store"><img src="/brand/central-usage.svg" alt=""><b>Central Usage</b><span>For every musician</span></a>
+    <a href="/services/"><img src="/brand/central-services.svg" alt=""><b>Central Services</b><span>Schedules every team</span></a>
   </div>
-  <canvas id="wave" aria-label="Animated pad waveform"></canvas>
 </div></div>
 
 <section id="store"><div class="wrap">
-  <div class="sec-head"><div><div class="eyebrow">Store</div><h2>The pedal, the apps and church packs</h2>
-    <p class="muted">Central Pedal comes built with its software on it. Every app needs its own key: P keys for Central Pedal and Central Pedal Control (updates forever), A keys for admins (Central Control) and U keys for users (Central Usage), with ten releases of updates (bought at 9.0: through 10.0) that you can renew for $20. Your apps never stop working if you don't renew. Have a discount or free trial code? Type it in the cart.</p></div></div>
-  <div class="rack" id="packs"></div>
-  <div class="rack" id="rack"></div>
+  <div class="sec-head"><h2>Everything a church needs, nothing it doesn&rsquo;t</h2>
+    <p>The pedal comes built, with its software on it. Each app runs on a key. Have a discount or free trial code? Type it in the cart.</p></div>
+  <div id="pedalBuy"></div>
+  <div class="packs-head"><div><h3 style="font-size:1.5rem">Church packs</h3><p style="margin-top:.35rem">Keys for the whole team at a lower price. The pedal is bought on its own.</p></div></div>
+  <div class="packs" id="packs"></div>
+  <dl class="keydefs">
+    <div><dt>P</dt><dd><b>Central Pedal and Pedal Control</b></dd><dd>Updates forever.</dd></div>
+    <div><dt>A</dt><dd><b>Admins, Central Control</b></dd><dd>One device per key. Ten releases of updates (bought at 9.0: through 10.0), renewable for $20.</dd></div>
+    <div><dt>U</dt><dd><b>Users, Central Usage</b></dd><dd>Two devices per key, a church one and a home one. Updates as for admins. Apps never stop working if you don&rsquo;t renew.</dd></div>
+  </dl>
+  <div class="pricelist" id="rack"></div>
 </div></section>
 
-<section id="tracks" class="tracks-band"><div class="wrap">
-  <div class="sec-head"><div><div class="eyebrow">Central Tracks</div><h2>A community library of tracks</h2>
-    <p class="muted">Subscribers add any track to their storage at no extra cost. Without a subscription, buy tracks one at a time. Everything you add shows up in Central Pedal and Central Pedal Control under Add Tracks.</p></div></div>
+<section id="tracks" class="band"><div class="wrap">
+  <div class="sec-head"><h2>Central Tracks, a library made by worship teams</h2>
+    <p>Subscribers add any track to their storage at no extra cost. Without a subscription, buy tracks one at a time. Everything you add shows up in Central Pedal and Central Pedal Control under Add Tracks.</p></div>
   <div class="sub">
-    <div class="plan">
-      <div class="tag eyebrow">Subscription</div>
+    <div class="plan on-stage">
+      <div class="label" style="color:var(--brass-hi)">Monthly subscription</div>
       <h3>Central Tracks Unlimited</h3>
       <div class="price">$77<small> / month</small></div>
-      <ul class="muted" style="margin:0;padding-left:1.1rem">
+      <ul>
         <li>Unlimited adds from the whole library</li>
         <li>Pads, multitracks and Prime tracks</li>
         <li>Syncs straight to your pedal storage</li>
       </ul>
       <div class="status" id="subStatus">Not subscribed</div>
-      <button class="btn" id="subBtn">Subscribe for $77/mo</button>
-      <div class="flow" aria-label="How adding works in the app">Add Tracks → <span>My own (MP3/WAV)</span><span>Multitrack</span><span>Prime track</span><span>Central Tracks</span></div>
+      <button class="btn brass" id="subBtn">Subscribe for $77/mo</button>
+      <div class="flow" aria-label="How adding works in the app">In the apps, Add Tracks has <span>My own (MP3/WAV)</span><span>Multitrack</span><span>Prime track</span><span>Central Tracks</span></div>
     </div>
     <div class="lib">
       <div class="bar">
@@ -195,15 +75,15 @@ body{margin:0}
         <thead><tr><th>Track</th><th>Type</th><th>Quality</th><th>Key</th><th>BPM</th><th>Price</th><th></th></tr></thead>
         <tbody id="tbody"></tbody>
       </table></div>
-      <p class="muted" id="libNote" style="font-size:.85rem;margin:.6rem 0 0">Only tracks published on this site are listed. Songs people load onto their own pedals stay private.</p>
+      <p class="muted" id="libNote" style="font-size:.88rem;margin:.8rem 0 0">Only tracks published on this site are listed. Songs people load onto their own pedals stay private.</p>
     </div>
   </div>
 </div></section>
 
 <section id="publish"><div class="wrap">
-  <div class="sec-head"><div><div class="eyebrow">Publish</div><h2>Sell your tracks</h2>
-    <p class="muted">Anyone with a Motion Audio account can publish. Every upload is graded for audio quality, and the grade sets the price. You keep 75% of every purchase, and share in the subscriber pool when subscribers add your tracks.</p></div></div>
-  <p class="note" style="margin:0 0 1.4rem">Only tracks published here go into Central Tracks. Tracks you load onto your own Central Pedal or Central Pedal Control stay on your devices and are never shared.</p>
+  <div class="sec-head"><h2>Publish your tracks and get paid</h2>
+    <p>Anyone with a Motion Audio account can publish. Every upload is graded for audio quality, and the grade sets the price. You keep 75% of every purchase, and share in the subscriber pool when subscribers add your tracks.</p></div>
+  <p class="note">Only tracks published here go into Central Tracks. Tracks you load onto your own Central Pedal or Central Pedal Control stay on your devices and are never shared.</p>
   <div class="desk">
     <form id="pubForm">
       <label>Song title<input id="pTitle" required maxlength="140" placeholder="Way Maker (Pad)"></label>
@@ -216,10 +96,10 @@ body{margin:0}
         <label>BPM<input id="pBpm" type="number" min="0" max="300" value="72"></label>
         <label>Price (set by the grade)<input id="pPrice" type="text" value="" disabled></label>
       </div>
-      <label>Full mix (MP3 or WAV) · this is what gets graded<input id="pFile" type="file" accept=".mp3,.wav,.flac,.m4a,.aif,.aiff,audio/*" required></label>
-      <label>Stems (optional, for multitracks) · name them Click, Guide, Drums, Bass, Keys…<input id="pStems" type="file" accept=".mp3,.wav,.flac,.m4a,.aif,.aiff,audio/*" multiple></label>
+      <label>Full mix (MP3 or WAV), the file that gets graded<input id="pFile" type="file" accept=".mp3,.wav,.flac,.m4a,.aif,.aiff,audio/*" required></label>
+      <label>Stems for a multitrack (optional): name them Click, Guide, Drums, Bass, Keys…<input id="pStems" type="file" accept=".mp3,.wav,.flac,.m4a,.aif,.aiff,audio/*" multiple></label>
       <div class="grade" id="grade" aria-live="polite">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span class="eyebrow" id="gLabel">Quality grade · estimate</span><span class="stars" id="gStars">☆☆☆☆☆</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span class="label" id="gLabel">Quality grade (estimate)</span><span class="stars" id="gStars">☆☆☆☆☆</span></div>
         <div class="checks" id="gChecks"><div>Choose the full mix. You'll see an estimate here; the final grade is set when you publish.</div></div>
         <div class="tiers" id="tiers"></div>
       </div>
@@ -228,31 +108,36 @@ body{margin:0}
       <div class="err" id="pubMsg"></div>
     </form>
     <div class="payout">
-      <div class="meter"><div class="eyebrow">You earn per purchase</div><div class="big" id="perBuy">$0.00</div>
+      <div class="meter"><div class="label">You earn per purchase</div><div class="big" id="perBuy">$0.00</div>
         <div class="split" aria-hidden="true"><b></b></div>
-        <div class="muted" style="font-size:.85rem;margin-top:.4rem">75% to you · 25% Motion Audio · price set by the quality grade</div></div>
-      <div class="meter"><div class="eyebrow">Subscriber pool</div><div class="big">50%</div>
+        <div class="muted" style="font-size:.85rem;margin-top:.4rem">75% to you, 25% to Motion Audio. The quality grade sets the price.</div></div>
+      <div class="meter"><div class="label">Subscriber pool</div><div class="big">50%</div>
         <div class="muted" style="font-size:.85rem">Half of every month's subscription money is shared among publishers, split by how many times subscribers added their tracks that month.</div></div>
-      <div class="meter"><div class="eyebrow">Example month</div>
+      <div class="meter"><div class="label">Example month</div>
         <div class="row2" style="margin-top:.4rem">
-          <label class="muted" style="font-size:.85rem;display:grid;gap:.3rem">Purchases<input id="exBuys" type="number" min="0" value="20" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.5rem"></label>
-          <label class="muted" style="font-size:.85rem;display:grid;gap:.3rem">Your share of adds (%)<input id="exAdds" type="number" min="0" max="100" value="5" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.5rem"></label>
+          <label style="font-size:.85rem">Purchases<input id="exBuys" type="number" min="0" value="20"></label>
+          <label style="font-size:.85rem">Your share of adds (%)<input id="exAdds" type="number" min="0" max="100" value="5"></label>
         </div>
         <div class="muted" style="font-size:.8rem;margin-top:.3rem">Pool part assumes 100 subscribers that month ($3,850 pool).</div>
         <div class="big" id="exTotal" style="margin-top:.5rem">$0.00</div></div>
-      <div class="meter" id="payoutBox"><div class="eyebrow">Getting paid</div>
+      <div class="meter" id="payoutBox"><div class="label">Getting paid</div>
         <div class="muted" style="font-size:.9rem" id="payoutText">Sign in to publish. Earnings are paid monthly to your bank through Stripe.</div>
         <button class="btn ghost small" id="payoutBtn" hidden style="margin-top:.5rem">Set up payouts</button></div>
     </div>
   </div>
 </div></section>
 
-<section id="account" class="tracks-band"><div class="wrap">
-  <div class="sec-head"><div><div class="eyebrow">Account</div><h2 id="acctTitle">Your account</h2></div><button class="btn ghost small" id="signOut" hidden>Sign out</button></div>
+<section id="account" class="band"><div class="wrap">
+  <div class="sec-head" style="align-items:center"><h2 id="acctTitle">Your account</h2><div style="justify-self:end"><button class="btn ghost small" id="signOut" hidden>Sign out</button></div></div>
   <div id="acctBody"></div>
 </div></section>
 
-<footer><div class="wrap">© 2026 Motion Audio · Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services, Central Tracks · Prices in USD · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/refunds">Refunds</a> · <a href="#support">Support</a></div></footer>
+<footer class="on-stage"><div class="wrap">
+  <div><a class="logo" href="#"><span style="color:var(--brass-hi)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
+    <p class="apps">Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Tracks.</p></div>
+  <div class="links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="#support">Support</a><a href="https://motionaudio.github.io/Central-Apps/">Downloads</a></div>
+  <div class="fine">&copy; 2026 Motion Audio. Prices in US dollars.</div>
+</div></footer>
 
 <div id="modalHost"></div>
 <script src="app.js"></script>

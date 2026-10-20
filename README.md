@@ -183,13 +183,22 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 | [DRIVE-SETUP.md](DRIVE-SETUP.md) | A copy of every release in Google Drive |
 | [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md) | The Central Tracks server API |
 | [release-notes/](release-notes/) | What changed in each version |
+| [docs/brand/](docs/brand/) | The Motion Audio mark and the five app icons (PNG and SVG) |
 | [central-usage/README.md](central-usage/README.md) | Central Control and Central Usage in depth |
 | [The user guide below](#the-tabs) | Every tab of the Central Pedal, the hardware, screens, MIDI and safe mode |
 
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.0 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.1.1 and earlier)</summary>
+
+**New in version 9.1.1:**
+- **A new look:** the Motion Audio mark, new icons for all five apps, one typeface (Archivo).
+- **The website** is redesigned: light pages, a dark stage at the top, a clearer store.
+- **Central Control and Central Usage** are in the dark studio look.
+- Pad swells keep the balance between layers.
+
+**New in version 9.1:** the BETATEST code, trial keys made as they're needed, the staff codes page, Release to all devices.
 
 **New in version 9.0:**
 - **One version number for all five apps.** Full releases 9.1 … 9.9, then 10.0; fixes 9.x.1.
@@ -884,6 +893,13 @@ Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
   `node test-dmx.mjs` — the USB-DMX, Art-Net and sACN packets;
   `xvfb-run -a node test-app.mjs` — the real Electron app: the phone remote's
   server, the update check and its checksum guard.
+- `node server/test/site-ui.mjs postgres://…` — the website clicked through in a
+  real browser: store and cart codes, the main admin's account and phone code,
+  confirming the email, a free trial, Teams and invites, support, forgot
+  password, the staff cards, phone width (screenshots with a 3rd argument).
+- `node tools/brand/make-brand.mjs` — redraws every app icon, launch screen and
+  website icon from `tools/brand/glyphs.mjs` (needs Playwright).
+- `bash tools/bump-version.sh 9.1.1` — sets the one version on every app.
 - `bash make-release.sh 8.1.0 owner/repo` (with `GITHUB_TOKEN`) — packs and
   publishes a release the update checks find (see the script's header).
 

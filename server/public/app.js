@@ -103,45 +103,58 @@ function packPoints(id) {   // what's in a pack, from the server (the price page
   return pts;
 }
 const products = [
-  { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", pts: ["Assembled pedal with buttons and knobs", "Its software installed, with its P key", "Ships to the US and Canada"] },
-  { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", pts: ["Edit songs and settings, upload them to the pedal", "Windows, macOS, Linux, iPad, iPhone, Android"] },
-  { id: "admin", tag: "A key", name: "Central Control (admin)", per: "per admin device", pts: ["Main admin and admins", "Lights, slides, lyrics, cameras, in-ears, tracks, mixing", "Windows, macOS, Linux"] },
-  { id: "user", tag: "U key", name: "Central Usage (user)", per: "per user device", pts: ["For each musician", "Instrument, lyrics and chord charts", "Windows, macOS, Linux, iPad, iPhone, Android"] },
-  { id: "user-pack", tag: "U key · pack price", name: "Central Usage (user)", per: "per user device", packOnly: true, pts: ["For churches with a church pack", "Same app as above, $10"] },
+  { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", icon: "central-pedal", pts: ["Assembled pedal with its footswitches and knobs", "Its software installed, with its P key", "Ships to the US and Canada"] },
+  { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", icon: "central-pedal-control", pts: ["Edit songs and settings, and send them to the pedal. Windows, macOS, Linux, iPad, iPhone and Android."] },
+  { id: "admin", tag: "A key", name: "Central Control", per: "per admin device", icon: "central-control", pts: ["For the main admin and admins: lights, slides, lyrics, cameras, in-ears, tracks and mixing. Windows, macOS and Linux."] },
+  { id: "user", tag: "U key", name: "Central Usage", per: "per user", icon: "central-usage", pts: ["For each musician: their instrument, lyrics, chord charts and in-ear mix, on a church device and a home one. Every platform."] },
+  { id: "user-pack", tag: "U key, church pack price", name: "Central Usage", per: "per user", icon: "central-usage", packOnly: true, pts: ["The same app, for churches with a church pack."] },
 ];
 const ALL = packs.concat(products);
 const priceOf = (id) => (cfg.products && cfg.products[id] ? cfg.products[id].cents / 100 : 0);
 const hasPack = () => !!(me && me.church && me.church.hasPack) || packs.some((p) => cart[p.id] > 0);
-function card(p) {
-  return `<div class="prod${p.feature ? " feature" : ""}">
-    <div class="tag">${p.tag}</div><h3>${p.name}</h3>
-    <div class="price">$${priceOf(p.id)}<small> ${p.per || "one-time"}</small></div>
-    <ul>${(p.pts || packPoints(p.id)).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-    <button class="btn" data-add="${p.id}"${p.packOnly && !hasPack() ? " disabled title=\"Buy a church pack first\"" : ""}>Add to cart</button></div>`;
+const addBtn = (p, cls) => `<button class="btn${cls || ""}" data-add="${p.id}"${p.packOnly && !hasPack() ? " disabled title=\"Buy a church pack first\"" : ""}>${cart[p.id] ? "Add another" : "Add to cart"}</button>`;
+function pedalCard(p) {   // the built pedal: the wide row at the top of the store
+  return `<div class="pedal-row"><div class="art on-stage"><img src="/brand/glyph-central-pedal.svg" alt=""></div>
+    <div class="body"><div class="label">${esc(p.tag)}</div><h3 style="font-size:1.7rem">${esc(p.name)}</h3>
+    <p style="color:var(--ink-2)">The heart of the system. Your pads, multitracks and click play from the floor, and every other app follows it.</p>
+    <ul>${p.pts.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+    <div class="buyline"><div class="price">$${priceOf(p.id)}<small>${esc(p.per)}</small></div>${addBtn(p)}</div></div></div>`;
+}
+function packCard(p) {   // a church pack: one column of the packs panel
+  return `<div class="tier${p.feature ? " feature" : ""}">${p.feature ? `<div class="pick">Recommended</div>` : ""}
+    <h3>${esc(p.name)}</h3><div class="price">$${priceOf(p.id)}<small>one-time</small></div>
+    <ul>${packPoints(p.id).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${addBtn(p, p.feature ? "" : " ghost")}</div>`;
+}
+function rowCard(p) {   // an app on its own: a row of the price list
+  return `<div class="pl-row"><img src="/brand/${p.icon}.svg" alt=""><div class="what"><span class="label">${esc(p.tag)}</span><h3>${esc(p.name)}</h3></div>
+    <p class="desc">${esc(p.pts.join(" "))}</p><div class="price">$${priceOf(p.id)}<small>${esc(p.per)}</small></div>${addBtn(p, " ghost")}</div>`;
 }
 function renderRack() {
   if (!cfg.products) return;
-  $("#packs").innerHTML = packs.filter((p) => cfg.products[p.id] && !cfg.products[p.id].hidden).map(card).join("");
-  $("#rack").innerHTML = products.filter((p) => cfg.products[p.id] && (!p.packOnly || hasPack()) && !cfg.products[p.id].hidden).map(card).join("") + servicesCard();
+  const shown = (p) => cfg.products[p.id] && !cfg.products[p.id].hidden;
+  $("#pedalBuy").innerHTML = products.filter((p) => p.id === "pedal" && shown(p)).map(pedalCard).join("");
+  $("#packs").innerHTML = packs.filter(shown).map(packCard).join("");
+  $("#packs").hidden = !$("#packs").innerHTML;
+  $("#rack").innerHTML = products.filter((p) => p.id !== "pedal" && shown(p) && (!p.packOnly || hasPack())).map(rowCard).join("") + servicesCard();
 }
 // Central Services: a monthly plan by the church's size (started from Account; not in the cart)
 function servicesCard() {
   const sp = cfg.servicesPlan; if (!sp) return "";
   const t = sp.tiers.slice().sort((a, b) => a.upTo - b.upTo), last = t[t.length - 1];
-  return `<div class="prod"><div class="tag">Whole church · monthly</div><h3>Central Services</h3><div class="price">from $${t[0].cents / 100}<small> a month</small></div>
-    <ul>${t.map((x) => `<li>Up to ${x.upTo} members: $${x.cents / 100}/month</li>`).join("")}<li>More than ${last.upTo}: $${(sp.extraCents / 100).toFixed(2)} a month for each one past ${last.upTo}</li><li>The schedule for every team, on every device</li></ul>
-    <a class="btn" href="#account" id="svcStart">Start it in your account</a></div>`;
+  return `<div class="pl-row"><img src="/brand/central-services.svg" alt=""><div class="what"><span class="label">Whole church, monthly</span><h3>Central Services</h3></div>
+    <p class="desc">The schedule for every team, on every device. ${t.map((x) => `Up to ${x.upTo} people $${x.cents / 100}`).join(", ")}, then $${(sp.extraCents / 100).toFixed(2)} a month for each one past ${last.upTo}.</p>
+    <div class="price">$${t[0].cents / 100}<small>a month, from</small></div><a class="btn ghost" href="#account" id="svcStart">Start in your account</a></div>`;
 }
 const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0);
-function updateCartBtn() { $("#cartBtn").textContent = "Cart · " + cartCount(); }
+function updateCartBtn() { const n = cartCount(); $("#cartBtn").innerHTML = `Cart <span class="count">${n}</span>`; $("#cartBtn").classList.toggle("has", n > 0); }
 function onAdd(e) { const a = e.target.closest("[data-add]"); if (!a || a.disabled) return; cart[a.dataset.add] = (cart[a.dataset.add] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart"); }
-$("#rack").addEventListener("click", onAdd); $("#packs").addEventListener("click", onAdd);
+$("#rack").addEventListener("click", onAdd); $("#packs").addEventListener("click", onAdd); $("#pedalBuy").addEventListener("click", onAdd);
 let promo = null;   // the code in the cart: { code, percent } or { code, trial, days }
 $("#cartBtn").onclick = () => openCart();
 function openCart(note) {
   const ids = Object.keys(cart).filter((k) => cart[k] > 0);
   if (!ids.length && !(promo && promo.trial)) return modal(`<h3>Your cart is empty</h3><p class="muted" style="margin:0">Add a pack, the pedal or keys from the store. Have a free trial code? Add anything, or type it here:</p>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1">Code<input id="pcCode" placeholder="Discount or trial code" style="text-transform:uppercase"></label><button class="btn ghost" id="pcApply">Apply</button></div><div class="err" id="pcErr"></div><button class="btn" data-close>Close</button>`), wirePromo();
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1 1 140px;min-width:0">Code<input id="pcCode" placeholder="Discount or trial code" style="text-transform:uppercase"></label><button class="btn ghost" id="pcApply">Apply</button></div><div class="err" id="pcErr"></div><button class="btn" data-close>Close</button>`), wirePromo();
   let total = 0, saved = 0;
   const lines = ids.map((id) => {
     const p = ALL.find((x) => x.id === id) || { name: id }, hw = cfg.products[id] && cfg.products[id].hardware, s = priceOf(id) * cart[id];
@@ -150,7 +163,7 @@ function openCart(note) {
   }).join("");
   const needChurch = me && !me.church, trial = promo && promo.trial;
   modal(`<h3>Cart</h3><div class="lines">${lines}${saved ? `<div><span>${esc(promo.code)} · ${esc(promo.label)}</span><span>−${money(saved)}</span></div>` : ""}<div class="total"><span>Total</span><span>${money(total)}</span></div></div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1">Discount or trial code<input id="pcCode" value="${esc(promo ? promo.code : "")}" placeholder="Code" style="text-transform:uppercase"></label><button class="btn ghost" id="pcApply">${promo ? "Change" : "Apply"}</button>${promo ? `<button class="btn ghost" id="pcClear">Remove</button>` : ""}</div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1 1 140px;min-width:0">Discount or trial code<input id="pcCode" value="${esc(promo ? promo.code : "")}" placeholder="Code" style="text-transform:uppercase"></label><button class="btn ghost" id="pcApply">${promo ? "Change" : "Apply"}</button>${promo ? `<button class="btn ghost" id="pcClear">Remove</button>` : ""}</div>
     <div class="${note && /^✓/.test(note) ? "" : "err"}" id="pcErr">${esc(note || "")}</div>
     ${trial ? `<div class="card" style="border-color:var(--accent)"><b>${esc(promo.label)}</b><span class="muted" style="font-size:.9rem">Everything for ${promo.days} days, no payment: as many admin, user and Pedal Control keys as you like, Central Services and Central Tracks Unlimited. Then the trial keys stop and the apps ask for a key you bought (your songs and settings stay). One free trial per church.</span></div>` : ""}
     ${!me ? `<p class="muted" style="margin:0">Sign in or make an account first: your keys go to your church's account.</p>` : needChurch ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label><p class="muted" style="margin:0;font-size:.9rem">This makes your church's account, with you as its main admin. Your admins and users join it with its codes.</p>` : `<p class="muted" style="margin:0;font-size:.9rem">The keys go to <b>${esc(me.church.name)}</b>.</p>`}
@@ -374,15 +387,15 @@ async function renderAccount(note) {
   }
   $("#acctTitle").textContent = me.name ? "Hi, " + me.name : "Your account";
   body.innerHTML = `<div class="acct">${me.emailConfirmed ? "" : `<div class="card wide confirm-card"><h3>Confirm your email</h3><p style="margin:0">We sent a link to <b>${esc(me.email)}</b>. Your receipts, keys, invites and password resets go there, so checkout waits until it's confirmed.</p><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="cfAgain">Send it again</button></div></div>`}
+    <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
+    ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited · $77/month" : "Not subscribed"}</div>
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
       <a class="btn ghost small" href="${APPS_URL}" target="_blank" rel="noopener" style="justify-self:start">Download the apps</a></div>
-    <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
     ${me.church ? `<div class="card" id="planCard"><h3>Central Services</h3><div class="muted">Loading…</div></div>` : ""}
-    ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
-    ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
     <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
+    ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
   renderChurch(); renderTeams(); renderMe(); renderPlan(); if (me.admin) { renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); }
@@ -735,22 +748,32 @@ async function handleHash() {
   else if (h === "services-on") { toast("Central Services is on"); setTimeout(refreshMe, 2500); }
 }
 
-// ---------------------------------------------------------------- hero waveform
+// ---------------------------------------------------------------- hero: pad swells
+// Overlapping pad envelopes in brass: they swell in once when the page opens, then breathe slowly.
 (function () {
-  const c = $("#wave"), x = c.getContext("2d"); let t = 0;
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  function draw() {
-    const w = (c.width = c.clientWidth * devicePixelRatio), h = (c.height = c.clientHeight * devicePixelRatio);
-    const cs = getComputedStyle(document.documentElement), cols = [cs.getPropertyValue("--accent"), cs.getPropertyValue("--signal")];
+  const c = $("#wave"); if (!c) return; const x = c.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches, t0 = performance.now();
+  const swells = [{ c: 0.30, w: 0.62, a: 0.92 }, { c: 0.62, w: 0.70, a: 0.70 }, { c: 0.86, w: 0.48, a: 0.48 }, { c: 0.10, w: 0.40, a: 0.36 }];
+  const bell = (u, sw) => { const d = (u - sw.c) / (sw.w / 2); return Math.abs(d) >= 1 ? 0 : Math.pow(Math.cos(d * Math.PI / 2), 2.2); };
+  let raf = 0;
+  function draw(now) {
+    const dpr = devicePixelRatio || 1, w = (c.width = c.clientWidth * dpr), h = (c.height = c.clientHeight * dpr), t = ((now || t0) - t0) / 1000;
+    const attack = reduce ? 1 : Math.min(1, t / 2.2), ease = 1 - Math.pow(1 - attack, 3), base = h - dpr;
     x.clearRect(0, 0, w, h);
-    for (let L = 0; L < 3; L++) {
-      x.beginPath(); x.lineWidth = (3 - L) * devicePixelRatio * 1.2; x.strokeStyle = cols[L % 2]; x.globalAlpha = 1 - L * 0.3;
-      for (let i = 0; i <= w; i += 4) { const u = i / w, y = h / 2 + Math.sin(u * 6 + t * (1 + L * 0.3) + L) * h * 0.18 * Math.sin(u * Math.PI) + Math.sin(u * 17 - t * 1.7) * h * 0.04; i ? x.lineTo(i, y) : x.moveTo(i, y); }
-      x.stroke();
-    }
-    x.globalAlpha = 1; t += 0.012; if (!reduce) requestAnimationFrame(draw);
+    swells.forEach((sw, i) => {
+      const breath = reduce ? 1 : 1 + Math.sin(t * 0.55 + i * 1.7) * 0.05, s2 = { c: sw.c + (reduce ? 0 : Math.sin(t * 0.12 + i) * 0.015), w: sw.w };
+      const path = () => { x.beginPath(); for (let px = 0; px <= w + 3 * dpr; px += 3 * dpr) { const y = base - bell(px / w, s2) * sw.a * breath * ease * (h - 12 * dpr); px ? x.lineTo(px, y) : x.moveTo(px, y); } };
+      if (i === 0) {   // the lead swell gets a soft fill under it
+        path(); x.lineTo(w, base); x.lineTo(0, base); x.closePath();
+        const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, "rgba(226,194,126,.16)"); g.addColorStop(1, "rgba(226,194,126,0)"); x.fillStyle = g; x.fill();
+      }
+      path(); x.lineWidth = (i === 0 ? 2.2 : 1.3) * dpr; x.strokeStyle = i === 0 ? "#E2C27E" : "rgba(226,194,126," + (0.55 - i * 0.1) + ")"; x.stroke();
+    });
+    x.fillStyle = "#343A44"; x.fillRect(0, base, w, dpr);
+    if (!reduce && !document.hidden) raf = requestAnimationFrame(draw);
   }
-  draw(); addEventListener("resize", () => reduce && draw());
+  draw(); addEventListener("resize", () => { if (reduce) draw(); });
+  document.addEventListener("visibilitychange", () => { cancelAnimationFrame(raf); if (!document.hidden) raf = requestAnimationFrame(draw); });
 })();
 
 renderTiers(); setPrice();

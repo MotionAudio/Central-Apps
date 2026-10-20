@@ -97,17 +97,17 @@
   function css() {
     if (document.getElementById("licCss")) return;
     var s = document.createElement("style"); s.id = "licCss";
-    s.textContent = "dialog#licWiz{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;z-index:2147483000;background:var(--bg,#08111d);color:var(--text,#ecf7ff);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;font:15px/1.45 system-ui,sans-serif;box-sizing:border-box}" +
-      "dialog#licWiz::backdrop{background:var(--bg,#08111d)}" +
-      "#licWiz .lw{width:min(560px,100%);background:var(--panel,#101e31);border:1px solid var(--line,#294966);border-radius:16px;padding:20px;display:grid;gap:12px}" +
-      "#licWiz h2{margin:0;font-size:21px}#licWiz .lw-steps{display:flex;gap:6px;flex-wrap:wrap}#licWiz .lw-steps span{font-size:12px;padding:3px 8px;border-radius:99px;border:1px solid var(--line,#294966);color:var(--muted,#8fa7bf)}" +
-      "#licWiz .lw-steps span.on{background:var(--accent,#5de6b0);color:#04131f;border-color:transparent}#licWiz .lw-steps span.done{color:var(--accent,#5de6b0)}" +
-      "#licWiz label{display:grid;gap:4px;font-size:14px;color:var(--muted,#8fa7bf)}#licWiz input,#licWiz select{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line,#294966);background:#071321;color:inherit}" +
+    s.textContent = "dialog#licWiz{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;z-index:2147483000;background:var(--bg,#111317);color:var(--text,#ece7dd);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;font:15px/1.45 system-ui,sans-serif;box-sizing:border-box}" +
+      "dialog#licWiz::backdrop{background:var(--bg,#111317)}" +
+      "#licWiz .lw{width:min(560px,100%);background:var(--panel,#101e31);border:1px solid var(--line,#343a44);border-radius:16px;padding:20px;display:grid;gap:12px}" +
+      "#licWiz h2{margin:0;font-size:21px}#licWiz .lw-steps{display:flex;gap:6px;flex-wrap:wrap}#licWiz .lw-steps span{font-size:12px;padding:3px 8px;border-radius:99px;border:1px solid var(--line,#343a44);color:var(--muted,#9aa1ab)}" +
+      "#licWiz .lw-steps span.on{background:var(--accent,#e2c27e);color:#1a1408;border-color:transparent}#licWiz .lw-steps span.done{color:var(--accent,#e2c27e)}" +
+      "#licWiz label{display:grid;gap:4px;font-size:14px;color:var(--muted,#9aa1ab)}#licWiz input,#licWiz select{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line,#343a44);background:#071321;color:inherit}" +
       "#licWiz input.lw-key{font:600 20px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase}#licWiz .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}" +
-      "#licWiz button{font:inherit;padding:10px 16px;border-radius:10px;border:1px solid var(--line,#294966);background:#13253b;color:inherit;cursor:pointer}#licWiz button.primary{background:var(--accent,#5de6b0);color:#04131f;border-color:transparent;font-weight:600}" +
-      "#licWiz button:disabled{opacity:.5}#licWiz .muted{color:var(--muted,#8fa7bf);font-size:13px}#licWiz .bad{color:#ff8a8a}#licWiz .ok{color:var(--accent,#5de6b0)}#licWiz .wifi-list{display:grid;gap:6px;max-height:220px;overflow:auto}" +
-      "#licWiz .wifi-list button{text-align:left}#licWiz section{border:0;padding:0}#licWiz .tabs{display:flex;gap:6px}#licWiz .tabs button.on{border-color:var(--accent,#5de6b0)}";
-    s.textContent += s.textContent.replace(/#licWiz/g, "#licMini") + "#licWiz button.bad-btn,#licMini button.bad-btn,section button.bad-btn{background:#7f1d1d;border-color:#b91c1c;color:#fff}#licMini textarea{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line,#294966);background:#071321;color:inherit}";
+      "#licWiz button{font:inherit;padding:10px 16px;border-radius:10px;border:1px solid var(--line,#343a44);background:#23272e;color:inherit;cursor:pointer}#licWiz button.primary{background:var(--accent,#e2c27e);color:#1a1408;border-color:transparent;font-weight:600}" +
+      "#licWiz button:disabled{opacity:.5}#licWiz .muted{color:var(--muted,#9aa1ab);font-size:13px}#licWiz .bad{color:#ff8a8a}#licWiz .ok{color:var(--accent,#e2c27e)}#licWiz .wifi-list{display:grid;gap:6px;max-height:220px;overflow:auto}" +
+      "#licWiz .wifi-list button{text-align:left}#licWiz section{border:0;padding:0}#licWiz .tabs{display:flex;gap:6px}#licWiz .tabs button.on{border-color:var(--accent,#e2c27e)}";
+    s.textContent += s.textContent.replace(/#licWiz/g, "#licMini") + "#licWiz button.bad-btn,#licMini button.bad-btn,section button.bad-btn{background:#7f1d1d;border-color:#b91c1c;color:#fff}#licMini textarea{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line,#343a44);background:#071321;color:inherit}";
     document.head.appendChild(s);
   }
   function wifiPanel() {   // the Central Pedal's own Wi-Fi list (js/touch-wifi.js does the connecting)

@@ -11,7 +11,7 @@
 .tb-talk.onair { background: #e02424; border-color: #ff9a9a; color: #fff; box-shadow: 0 0 0 3px rgba(224, 36, 36, .35), 0 0 22px rgba(255, 60, 60, .7); animation: tb-pulse 1s ease-in-out infinite alternate; }
 .tb-talk.onair.latched { box-shadow: 0 0 0 3px rgba(255, 255, 255, .5), 0 0 26px rgba(255, 60, 60, .85); }
 @keyframes tb-pulse { from { filter: brightness(1); } to { filter: brightness(1.18); } }
-.tb-level { display: inline-block; width: 90px; height: 6px; border-radius: 3px; background: #0b1a2b; border: 1px solid var(--line); overflow: hidden; vertical-align: middle; } .tb-level i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .08s; }
+.tb-level { display: inline-block; width: 90px; height: 6px; border-radius: 3px; background: #15181D; border: 1px solid var(--line); overflow: hidden; vertical-align: middle; } .tb-level i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .08s; }
 .tb-mixes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; max-height: 150px; overflow: auto; padding: 2px; }
 .tb-mix { display: flex !important; gap: 6px; align-items: center; color: var(--text); font-size: 12px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel2); } .tb-mix b { color: var(--muted); min-width: 18px; } .tb-mix span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tb-mix.owned { border-color: color-mix(in srgb, var(--accent), transparent 50%); }
 .tb-msg:empty { display: none; }
@@ -32,8 +32,8 @@ button.mini { padding: 2px 8px; font-size: 12px; }
 .tb-groups { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
 .tb-groups button { border: 0; border-radius: 0; padding: 6px 12px; background: transparent; }
 .tb-groups button + button { border-left: 1px solid var(--line); }
-.tb-groups button.on { background: var(--accent); color: var(--accentText, #062218); font-weight: 700; }
+.tb-groups button.on { background: var(--accent); color: var(--accentText, #1A1408); font-weight: 700; }
 .tb-groups button small { opacity: .75; font-weight: 500; }
 .tb-groups.mini button { padding: 4px 9px; font-size: 12px; }
 .tb-top { display: inline-flex; gap: 6px; align-items: center; }
-.tb-banner.tb-heard { background: #1d3b5c; border-color: #75adff; }
+.tb-banner.tb-heard { background: #2C313A; border-color: #8DB5DE; }

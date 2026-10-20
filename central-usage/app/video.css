@@ -30,9 +30,9 @@
 .vd-tog.on { background: var(--accent); color: var(--accentText); border-color: var(--accent); }
 .vd-live.on { background: #d92f35; border-color: #d92f35; color: #fff; } .vd-rec.on { background: #d92f35; border-color: #d92f35; color: #fff; }
 .vd-mvbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.vd-seg { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); font-size: 12px; } .vd-seg button.on { background: var(--blue); color: #04122a; border-color: var(--blue); font-weight: 800; }
+.vd-seg { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); font-size: 12px; } .vd-seg button.on { background: var(--blue); color: #0E1013; border-color: var(--blue); font-weight: 800; }
 .vd-pages { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
-.vd-mv { width: 100%; background: #050a12; border-radius: 10px; border: 1px solid var(--line); cursor: pointer; display: block; touch-action: manipulation; outline: none; }
+.vd-mv { width: 100%; background: #08090B; border-radius: 10px; border: 1px solid var(--line); cursor: pointer; display: block; touch-action: manipulation; outline: none; }
 .vd-empty { text-align: center; }
 .vd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 12px; align-items: start; }
 .vd-grid .wide { grid-column: 1 / -1; }
@@ -43,7 +43,7 @@
 .vd-rowbtn { white-space: nowrap; } .vd-rowbtn button { padding: 5px 8px; }
 .vd-dests input { width: 100%; min-width: 90px; }
 .vd-asrc.on { border-color: var(--accent); }
-.vd-meter { height: 8px; background: #0a1626; border-radius: 4px; overflow: hidden; } .vd-meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .05s linear; }
+.vd-meter { height: 8px; background: #111317; border-radius: 4px; overflow: hidden; } .vd-meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .05s linear; }
 .vd-meter i.hot { background: var(--chord); } .vd-meter i.clip { background: var(--danger); }
 .spacer { flex: 1; }
 @media (max-width: 700px) { .vd-mons { grid-template-columns: 1fr 1fr; } .vd-ctl button { min-width: 0; padding: 9px 10px; } .vd-chips { margin-left: 0; } }

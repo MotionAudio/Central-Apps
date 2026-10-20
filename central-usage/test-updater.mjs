@@ -38,7 +38,7 @@ const gh = http.createServer((req, res) => { res.writeHead(200, { "Content-Type"
 await new Promise((r) => gh.listen(0, "127.0.0.1", r));
 as("linux", "x64", false);
 async function cover(limit, current, wantLatest, wantBeyond, label) {
-  const u = new Updater({ product: "central-usage", current, dir: os.tmpdir(), api: "http://127.0.0.1:" + gh.address().port });
+  const u = new Updater({ product: "central-usage", current, dir: require("node:fs").mkdtempSync(require("node:path").join(os.tmpdir(), "cu-upd-")), api: "http://127.0.0.1:" + gh.address().port });
   u.cfg.repo = "x/y"; u.cfg.limit = limit;
   const st = await u.check();
   try { assert.equal(st.latest, wantLatest); assert.equal(st.beyond, wantBeyond); console.log("  ✓ " + label); }
@@ -49,7 +49,7 @@ await cover(null, "9.3.0", "9.6.0", null, "no limit (Pedal Control, Central Serv
 await cover(110, "9.3.0", "9.6.0", null, "renewed through 11.0: 9.6.0");
 await cover(94, "9.4.1", "9.4.1", "9.6.0", "already on 9.4.1, covered through 9.4: nothing to install, 9.6.0 needs a renewal");
 { // "Release to all devices": an emergency release installs even past the key's updates
-  const u = new Updater({ product: "central-usage", current: "9.3.0", dir: os.tmpdir(), api: "http://127.0.0.1:" + gh.address().port });
+  const u = new Updater({ product: "central-usage", current: "9.3.0", dir: require("node:fs").mkdtempSync(require("node:path").join(os.tmpdir(), "cu-upd-")), api: "http://127.0.0.1:" + gh.address().port });
   u.cfg.repo = "x/y"; u.save({ limit: 94, everyone: ["9.6.0"] }); const st = await u.check();
   try { assert.equal(st.latest, "9.6.0"); assert.equal(st.beyond, null); console.log("  ✓ covered through 9.4, but 9.6.0 was released to all devices: it installs 9.6.0"); }
   catch (e) { failures++; console.error("  ✗ everyone: latest " + st.latest + ", beyond " + st.beyond); }

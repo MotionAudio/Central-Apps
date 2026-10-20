@@ -588,7 +588,7 @@
   function cueWordId(text) { return slug(String(text || "").replace(/\(.*?\)/g, "")); }
   function drawCueWave(buf) {
     var cv = $("#cueWave"); if (!cv) return; var ctx = cv.getContext("2d"), W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H); if (!buf) return;
-    var d = buf.getChannelData(0), per = Math.max(1, Math.floor(d.length / W)); ctx.fillStyle = "#5de6b0";
+    var d = buf.getChannelData(0), per = Math.max(1, Math.floor(d.length / W)); ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e2c27e";
     for (var x = 0; x < W; x++) { var m = 0; for (var i = x * per; i < Math.min(d.length, (x + 1) * per); i += 2) { var v = Math.abs(d[i]); if (v > m) m = v; } ctx.fillRect(x, H / 2 - m * H / 2, 1, Math.max(1, m * H)); }
   }
   function trimSilence(buf) {  // cut leading / trailing silence, keep 60 ms of air, normalise
@@ -781,9 +781,10 @@
   }
   function padsFollowSection(x) {
     var s = song(), t = data(s), f = follow(t); if (!f.swell || x.sec.pad === -2) return;
-    var lvl = sectionSwell(x.sec); if (Math.abs(lvl - swellNow) < .01) return; swellNow = lvl;
+    var lvl = sectionSwell(x.sec); if (Math.abs(lvl - swellNow) < .01) return; var prev = swellNow; swellNow = lvl;
     var secs = clamp(t.transition.seconds || 3, .3, 12);
-    engine.playingIndexes().forEach(function (i) { engine.setLayerLevel(i, lvl, secs); });
+    // every playing layer moves by the same amount, so a mix of layers (one pad quieter than another) keeps its balance
+    engine.layerState().forEach(function (l) { engine.setLayerLevel(l.pad, prev > .01 ? clamp(l.level * lvl / prev, 0, 1.4) : lvl, secs); });
   }
   function onTransport() {
     padsFollowTransport();
@@ -1152,7 +1153,7 @@
     // hits
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--hit").trim() || "#ffd765"; t.hits.forEach(function (h) { ctx.fillRect(x(h) - 1, H - 6, 2, 6); });
     // loop
-    if (state.loop >= 0 && secs[state.loop]) { var q2 = secs[state.loop]; ctx.strokeStyle = "#5de6b0"; ctx.lineWidth = 2; ctx.strokeRect(x(q2.start) + 1, 1, x(q2.end) - x(q2.start) - 2, H - 2); }
+    if (state.loop >= 0 && secs[state.loop]) { var q2 = secs[state.loop]; ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e2c27e"; ctx.lineWidth = 2; ctx.strokeRect(x(q2.start) + 1, 1, x(q2.end) - x(q2.start) - 2, H - 2); }
     if (ab.a != null) { ctx.fillStyle = "rgba(255,215,101,.9)"; ctx.fillRect(x(ab.a) - 1, 0, 2, H); }
     if (ab.b != null) { ctx.fillStyle = "rgba(255,215,101,.9)"; ctx.fillRect(x(ab.b) - 1, 0, 2, H); }
     if (ab.on && ab.a != null && ab.b != null) { ctx.fillStyle = "rgba(255,215,101,.14)"; ctx.fillRect(x(ab.a), 0, x(ab.b) - x(ab.a), H); }
