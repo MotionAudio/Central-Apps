@@ -18,7 +18,8 @@
     comp: { name: "Compressor & gate", color: "#2a7fd4" }, eq: { name: "EQ & tone", color: "#2d8f8b" }, wah: { name: "Wah & filter", color: "#c9a227" },
     mod: { name: "Chorus, phaser, flanger", color: "#1f8ba6" }, trem: { name: "Tremolo & vibrato", color: "#b0557e" }, pitch: { name: "Octave & pitch", color: "#6a5acd" },
     delay: { name: "Delay & echo", color: "#2f6b9a" }, reverb: { name: "Reverb & ambience", color: "#5b8c5a" }, amp: { name: "Amps & preamps", color: "#8a6d3b" },
-    cab: { name: "Cabinets", color: "#555f6b" }, util: { name: "Utility", color: "#6c757d" }, acoustic: { name: "Acoustic", color: "#c8793b" }
+    cab: { name: "Cabinets", color: "#555f6b" }, util: { name: "Utility", color: "#6c757d" }, acoustic: { name: "Acoustic", color: "#c8793b" },
+    studio: { name: "Studio: compressor, EQ, limiter", color: "#b8893f" }
   };
   // id, name, category, plugin uri, knobs {label: symbol}, optional {mono: true} notes
   var P = [
@@ -60,7 +61,7 @@
     ["hfb", "Harmonic Fuzz Box", "fuzz", GX + "gx_hfb_#_hfb_", { Fuzz: "INTENSITY", Level: "VOLUME" }],
     ["swh-fold", "Foldover Distortion", "fuzz", SWH + "foldover", { Drive: "drive_p", Skew: "push" }],
     // ---- compressor / gate
-    ["gxcomp", "Studio Compressor", "comp", GX + "gx_compressor#_compressor", { Threshold: "THRESHOLD", Ratio: "RATIO", Attack: "ATTACK", Release: "RELEASE", Knee: "KNEE" }],
+    ["gxcomp", "Guitarix Compressor", "comp", GX + "gx_compressor#_compressor", { Threshold: "THRESHOLD", Ratio: "RATIO", Attack: "ATTACK", Release: "RELEASE", Knee: "KNEE" }],
     ["gxmbcomp", "Multiband Compressor", "comp", GX + "gx_mbcompressor_#_mbcompressor_", { Low: "MAKEUP1", Mid: "MAKEUP3", High: "MAKEUP5" }],
     ["expander", "Expander", "comp", GX + "gx_expander#_expander", { Threshold: "THRESHOLD", Ratio: "RATIO", Attack: "ATTACK", Release: "RELEASE" }],
     ["calfcomp", "Calf Compressor", "comp", CALF + "Compressor", { Threshold: "threshold", Ratio: "ratio", Attack: "attack", Release: "release", Makeup: "makeup", Knee: "knee" }],
@@ -206,8 +207,11 @@
     ["eq10q-eq4", "EQ4Q Parametric", "eq", "http://eq10q.sourceforge.net/eq/eq4qm", {"Input Gain": "input_gain", "Output Gain": "output_gain", "Filter 1 Gain": "filter1_gain", "Filter 2 Gain": "filter2_gain", "Filter 3 Gain": "filter3_gain"}],
     ["eq10q-gate", "GT10 Noise Gate", "comp", "http://eq10q.sourceforge.net/gate", {"Threshold": "threshold", "Attack": "attack", "Hold": "hold", "Decay": "decay", "Ratio": "compratio"}],
     ["eq10q-bassup", "Bass Up", "eq", "http://eq10q.sourceforge.net/bassup", {"Amount": "amount"}],
-    ["x42-comp", "x42 Studio Compressor", "comp", "http://gareus.org/oss/lv2/darc#mono", {"Input Gain": "inputgain", "Threshold": "threshold", "Ratio": "Ratio", "Attack Time": "attack", "Release Time": "release"}],
-    ["x42-limiter", "x42 Peak Limiter", "comp", "http://gareus.org/oss/lv2/dpl#mono", {"Input Gain": "gain", "Threshold": "threshold", "Release Time": "release"}],
+    ["x42-comp", "Studio Compressor", "studio", "http://gareus.org/oss/lv2/darc#mono", { "Input": "inputgain", "Threshold": "threshold", "Ratio": "Ratio", "Attack": "attack", "Release": "release" }, { values: { threshold: -24, Ratio: 0.6, attack: 0.01, release: 0.15 } }],
+    ["x42-limiter", "Studio Limiter", "studio", "http://gareus.org/oss/lv2/dpl#mono", { "Input": "gain", "Ceiling": "threshold", "Release": "release" }],
+    // ---- studio: our own 7-band parametric EQ (PipeWire's own filters on the Pi, the same filters in the computer rig) and a de-esser
+    ["studio-eq", "Studio EQ (7-band parametric)", "studio", "builtin:studioeq", { "Low cut": "hp_freq", "Low shelf": "ls_gain", "Low freq": "ls_freq", "Bell 1": "p1_gain", "Bell 1 freq": "p1_freq", "Bell 1 width": "p1_q", "Bell 2": "p2_gain", "Bell 2 freq": "p2_freq", "Bell 2 width": "p2_q", "Bell 3": "p3_gain", "Bell 3 freq": "p3_freq", "Bell 3 width": "p3_q", "High shelf": "hs_gain", "High freq": "hs_freq", "High cut": "lp_freq", "Output": "out_gain" }, { builtin: true, graph: "eq" }],
+    ["studio-deess", "Studio De-esser", "studio", MDA + "DeEss", { "Threshold": "thresh", "Frequency": "freq", "Highs": "hf_drive" }],
     ["x42-autotune", "Autotune (vocals)", "pitch", "http://gareus.org/oss/lv2/fat1", {"Tuning": "tuning", "Bias": "bias", "Filter": "filter", "Correction": "corr", "Offset": "offset"}],
     ["gx-digidelay-st", "Digital Delay Stereo", "delay", "http://guitarix.sourceforge.net/plugins/gx_digital_delay_st_#_digital_delay_st_", {"FEEDBACK": "FEEDBACK", "GAIN": "GAIN", "HIGHPASS": "HIGHPASS", "HOWPASS": "HOWPASS", "LEVEL": "LEVEL"}],
     ["gx-duckdelay-st", "Ducking Delay Stereo", "delay", "http://guitarix.sourceforge.net/plugins/gx_duck_delay_st_#_duck_delay_st_", {"AMOUNT": "AMOUNT", "ATTACK": "ATTACK", "COLORATION": "COLORATION", "EFFECT": "EFFECT", "FEEDBACK": "FEEDBACK"}],
@@ -299,7 +303,10 @@
     { id: "keys-stage", name: "Keys: Stage", kind: "keys", chain: [["calfcomp", {}], ["calfeq5", {}], ["dfly-hall", { Decay: 2.6 }]] },
     { id: "keys-ambient", name: "Keys: Ambient Pad", kind: "keys", chain: [["calfchorus", {}], ["calfvdelay", {}], ["dfly-hall", { Decay: 6 }]] },
     { id: "keys-ep", name: "Keys: EP Tremolo", kind: "keys", chain: [["tap-trem", {}], ["calfphaser", {}], ["dfly-plate", {}]] },
-    { id: "keys-organ", name: "Keys: Organ Leslie", kind: "keys", chain: [["calfrotary", {}], ["gxreverb", {}]] }
+    { id: "keys-organ", name: "Keys: Organ Leslie", kind: "keys", chain: [["calfrotary", {}], ["gxreverb", {}]] },
+    { id: "studio-acoustic", name: "Studio: Acoustic Channel Strip", kind: "acoustic", chain: [["feedback-killer", {}], ["studio-eq", { hp_freq: 80, p1_gain: -3, p1_freq: 250, p3_gain: 2, p3_freq: 5000, hs_gain: 1.5 }], ["x42-comp", { threshold: -24, Ratio: 0.6 }], ["x42-limiter", {}]] },
+    { id: "studio-bass", name: "Studio: Bass Channel Strip", kind: "bass", chain: [["studio-eq", { hp_freq: 35, p1_gain: -3, p1_freq: 300, p1_q: 1.2, p3_gain: 2, p3_freq: 2500, lp_freq: 9000 }], ["x42-comp", { threshold: -26, Ratio: 0.75, attack: 0.02, release: 0.2 }], ["x42-limiter", {}]] },
+    { id: "studio-keys", name: "Studio: Keys Polish", kind: "keys", chain: [["studio-eq", { hp_freq: 40, p1_gain: -2, p1_freq: 350, hs_gain: 1.5, hs_freq: 10000 }], ["x42-comp", { threshold: -22, Ratio: 0.5, attack: 0.02, release: 0.3 }], ["dfly-plate", {}], ["x42-limiter", {}]] }
   ];
   var api = { CATEGORIES: CATEGORIES, pedals: pedals, boards: BOARDS, byId: function (id) { return pedals.filter(function (p) { return p.id === id; })[0] || null; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

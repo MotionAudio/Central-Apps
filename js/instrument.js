@@ -53,7 +53,7 @@
   function valueOf(item, ctl) { var v = item.values[ctl.sym]; if (v == null) v = ctl.def != null ? ctl.def : (ctl.min + ctl.max) / 2; return v; }
   function norm(ctl, v) { if (ctl.max === ctl.min) return 0; if (ctl.log && ctl.min > 0) return clamp(Math.log(v / ctl.min) / Math.log(ctl.max / ctl.min), 0, 1); return clamp((v - ctl.min) / (ctl.max - ctl.min), 0, 1); }
   function denorm(ctl, n) { n = clamp(n, 0, 1); var v = ctl.log && ctl.min > 0 ? ctl.min * Math.pow(ctl.max / ctl.min, n) : ctl.min + (ctl.max - ctl.min) * n; if (ctl.integer || ctl.enum) v = Math.round(v); if (ctl.toggled) v = n >= 0.5 ? 1 : 0; return v; }
-  function fmt(ctl, v) { if (ctl.toggled) return v >= 0.5 ? "on" : "off"; if (ctl.scale.length) { var sp = ctl.scale.filter(function (s) { return Math.abs(s[0] - v) < 1e-6; })[0]; if (sp) return sp[1]; } var a = Math.abs(v), t = a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2); return t + (ctl.unit ? " " + ctl.unit.replace(/^db$/, "dB").replace(/^hz$/, "Hz") : ""); }
+  function fmt(ctl, v) { if (ctl.toggled) return v >= 0.5 ? "on" : "off"; if (ctl.sym === "Ratio" && ctl.min === 0 && ctl.max === 1 && !ctl.unit) return v >= 0.995 ? "∞ : 1" : (1 / (1 - v)).toFixed(1) + " : 1";   /* x42 darc: 0 = 1:1, 1 = limiting */ if (ctl.scale.length) { var sp = ctl.scale.filter(function (s) { return Math.abs(s[0] - v) < 1e-6; })[0]; if (sp) return sp[1]; } var a = Math.abs(v), t = a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2); return t + (ctl.unit ? " " + ctl.unit.replace(/^db$/, "dB").replace(/^hz$/, "Hz") : ""); }
   function resolvedChain(k) {
     return chainFor(k).map(function (item) { var pedal = PED.byId(item.pedal); if (!pedal) return null; var values = {}; controlsOf(pedal).forEach(function (ctl) { values[ctl.sym] = valueOf(item, ctl); }); return { uid: item.uid, id: pedal.id, name: pedal.name, uri: pedal.uri, on: item.on !== false, values: values, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0, file: item.file || null }; }).filter(Boolean);
   }
@@ -98,6 +98,51 @@
       '<g class="pk-sw" data-sw="' + item.uid + '"><circle cx="' + (w / 2) + '" cy="' + (h - 17) + '" r="10" fill="#d8d8d8" stroke="#333" stroke-width="1.5"/><circle cx="' + (w / 2) + '" cy="' + (h - 17) + '" r="4.5" fill="#222"/></g></svg>';
   }
 
+
+  // ------------------------------------------------------------- the Studio EQ's curve (the same filters the engine runs)
+  function bqResp(type, f0, gainDb, q, f, fs) {
+    var A = Math.pow(10, gainDb / 40), w0 = 2 * Math.PI * f0 / fs, cw = Math.cos(w0), sw = Math.sin(w0), al = sw / (2 * q), s2 = 2 * Math.sqrt(A) * al, b0, b1, b2, a0, a1, a2;
+    if (type === "hp") { b0 = (1 + cw) / 2; b1 = -(1 + cw); b2 = (1 + cw) / 2; a0 = 1 + al; a1 = -2 * cw; a2 = 1 - al; }
+    else if (type === "lp") { b0 = (1 - cw) / 2; b1 = 1 - cw; b2 = (1 - cw) / 2; a0 = 1 + al; a1 = -2 * cw; a2 = 1 - al; }
+    else if (type === "ls") { b0 = A * ((A + 1) - (A - 1) * cw + s2); b1 = 2 * A * ((A - 1) - (A + 1) * cw); b2 = A * ((A + 1) - (A - 1) * cw - s2); a0 = (A + 1) + (A - 1) * cw + s2; a1 = -2 * ((A - 1) + (A + 1) * cw); a2 = (A + 1) + (A - 1) * cw - s2; }
+    else if (type === "hs") { b0 = A * ((A + 1) + (A - 1) * cw + s2); b1 = -2 * A * ((A - 1) + (A + 1) * cw); b2 = A * ((A + 1) + (A - 1) * cw - s2); a0 = (A + 1) - (A - 1) * cw + s2; a1 = 2 * ((A - 1) - (A + 1) * cw); a2 = (A + 1) - (A - 1) * cw - s2; }
+    else { b0 = 1 + al * A; b1 = -2 * cw; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * cw; a2 = 1 - al / A; }
+    var w = 2 * Math.PI * f / fs, c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2 * w), s2b = Math.sin(2 * w);
+    var nr = b0 + b1 * c1 + b2 * c2, ni = -(b1 * s1 + b2 * s2b), dr = a0 + a1 * c1 + a2 * c2, di = -(a1 * s1 + a2 * s2b);
+    return 10 * Math.log10((nr * nr + ni * ni) / (dr * dr + di * di));
+  }
+  function eqDb(v, f) {
+    var fs = 48000, g = function (k, d) { var x = Number(v[k]); return isFinite(x) ? x : d; }, db = 0;
+    if (g("hp_freq", 20) > 20.5) db += bqResp("hp", g("hp_freq", 20), 0, 0.707, f, fs);
+    db += bqResp("ls", g("ls_freq", 100), g("ls_gain", 0), 0.707, f, fs);
+    ["p1", "p2", "p3"].forEach(function (b, i) { db += bqResp("pk", g(b + "_freq", [250, 1000, 4000][i]), g(b + "_gain", 0), g(b + "_q", 1), f, fs); });
+    db += bqResp("hs", g("hs_freq", 8000), g("hs_gain", 0), 0.707, f, fs);
+    if (g("lp_freq", 20000) < 19999) db += bqResp("lp", g("lp_freq", 20000), 0, 0.707, f, fs);
+    return db + g("out_gain", 0);
+  }
+  var eqRaf = 0;
+  function drawEqCurves() {
+    cancelAnimationFrame(eqRaf); eqRaf = requestAnimationFrame(function () {
+      document.querySelectorAll("canvas[data-eqc]").forEach(function (cv) {
+        var item = chainFor(kind()).filter(function (q) { return q.uid === cv.dataset.eqc; })[0]; if (!item) return;
+        var dpr = window.devicePixelRatio || 1, W = cv.clientWidth || 600, H = cv.clientHeight || 180; cv.width = W * dpr; cv.height = H * dpr;
+        var x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, W, H);
+        var css = getComputedStyle(document.documentElement), acc = css.getPropertyValue("--accent").trim() || "#e2c27e", F = '"Archivo", system-ui, sans-serif';
+        var fx = function (f) { return Math.log(f / 20) / Math.log(1000) * W; }, dy = function (db) { return H / 2 - db / 24 * (H / 2 - 10); };
+        x.font = "500 10px " + F;
+        [50, 100, 200, 500, 1000, 2000, 5000, 10000].forEach(function (f) { var px = Math.round(fx(f)) + 0.5; x.fillStyle = "rgba(236,231,221,.07)"; x.fillRect(px, 0, 1, H); x.fillStyle = "rgba(236,231,221,.35)"; x.fillText(f >= 1000 ? f / 1000 + "k" : String(f), px + 3, H - 4); });
+        [-18, -12, -6, 0, 6, 12, 18].forEach(function (db) { var py = Math.round(dy(db)) + 0.5; x.fillStyle = db === 0 ? "rgba(236,231,221,.22)" : "rgba(236,231,221,.06)"; x.fillRect(0, py, W, 1); if (db) { x.fillStyle = "rgba(236,231,221,.3)"; x.fillText((db > 0 ? "+" : "") + db, 3, py - 2); } });
+        var pts = []; for (var i = 0; i <= 200; i++) { var f = 20 * Math.pow(1000, i / 200); pts.push([fx(f), dy(Math.max(-24, Math.min(24, eqDb(item.values || {}, f))))]); }
+        x.beginPath(); x.moveTo(0, dy(0)); pts.forEach(function (p) { x.lineTo(p[0], p[1]); }); x.lineTo(W, dy(0)); x.closePath();
+        var g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, acc + "55"); g.addColorStop(0.5, acc + "10"); g.addColorStop(1, acc + "55"); x.fillStyle = g; x.fill();
+        x.beginPath(); pts.forEach(function (p, i) { i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]); }); x.strokeStyle = acc; x.lineWidth = 2; x.shadowColor = acc; x.shadowBlur = 6; x.stroke(); x.shadowBlur = 0;
+        // a dot on each band
+        var v = item.values || {}, num = function (k, d) { var n = Number(v[k]); return isFinite(n) ? n : d; };
+        [["ls", num("ls_freq", 100)], ["p1", num("p1_freq", 250)], ["p2", num("p2_freq", 1000)], ["p3", num("p3_freq", 4000)], ["hs", num("hs_freq", 8000)]].forEach(function (b) { var px = fx(b[1]), py = dy(Math.max(-24, Math.min(24, eqDb(v, b[1])))); x.beginPath(); x.arc(px, py, 4.5, 0, 7); x.fillStyle = "#111317"; x.fill(); x.lineWidth = 2; x.strokeStyle = acc; x.stroke(); });
+      });
+    });
+  }
+  document.addEventListener("input", function (e) { if (e.target && e.target.closest && e.target.closest("#instrumentRoot")) drawEqCurves(); });
   // ------------------------------------------------------------- rendering
   function render() {
     var root = $("#instrumentRoot"); if (!root) return;
@@ -120,6 +165,7 @@
         (showAdd ? addPanel() : "") + (window.PPLooper ? window.PPLooper.html() : "") +
         '<div class="in-foot muted">' + (connected() ? (status.pluginCount ? status.pluginCount + " plugins installed on this Pi · " : "") + (status.latencyMs != null ? "about " + status.latencyMs + " ms in to out · " : "") + (status.error ? '<b class="warn">' + esc(status.error) + "</b>" : "native chain " + (status.running ? "running" : "idle")) : "On the Central Pedal itself the chain runs natively on the Pi; on a computer this is a preview of the board.") + "</div>");
     if (k !== "off" && k !== "keys") startMeter(); else stopMeter();
+    drawEqCurves();
   }
   function statusLine() {
     var k = kind(); if (k === "off") return '<span class="dot off"></span> Instrument off';
@@ -134,6 +180,8 @@
       (pedal.opts.tempo || pedal.opts.tempoBpm ? '<button data-sync="' + item.uid + '">♩ Sync to song tempo</button>' : "") + '<button data-reset="' + item.uid + '">Reset</button></div></div>' +
       '<div class="in-mixlevel"><label>Mix <small>(dry ↔ pedal)</small><span class="control-line"><input type="range" min="0" max="100" step="1" data-pmix="' + item.uid + '" value="' + Math.round((item.mix == null ? 1 : item.mix) * 100) + '"><output>' + Math.round((item.mix == null ? 1 : item.mix) * 100) + '%</output></span></label><label>Level<span class="control-line"><input type="range" min="-30" max="12" step="0.5" data-plevel="' + item.uid + '" value="' + (item.levelDb || 0) + '"><output>' + (item.levelDb || 0) + ' dB</output></span></label></div>' +
       (pedal.opts.irFile ? '<div class="in-ir"><label>Impulse response<select data-irfile="' + item.uid + '"><option value="">— choose an IR —</option>' + (status.irs || []).map(function (f) { return '<option value="' + esc(f.file) + '"' + (item.file === f.file ? " selected" : "") + ">" + esc(f.name) + "</option>"; }).join("") + '</select></label><button data-iradd="' + item.uid + '">+ Add IR from USB…</button><span class="muted small">A .wav cabinet or acoustic-body impulse (mono, 48 kHz best).</span></div>' : "") +
+      (pedal.opts.graph === "eq" ? '<canvas class="eq-curve" data-eqc="' + item.uid + '" aria-label="EQ curve"></canvas>' : "") +
+      (pedal.category === "studio" && pedal.opts.graph !== "eq" && status.engine === "cu-rig" ? '<div class="gr-meter" data-gr="' + item.uid + '"><span>Gain reduction</span><b><i></i></b><output>0.0 dB</output></div>' : "") +
       '<div class="in-controls">' + ctls.map(function (ctl) { var v = valueOf(item, ctl), key = item.uid + "|" + esc(ctl.sym); if (ctl.toggled) return '<label class="toggle"><input type="checkbox" data-ctl="' + key + '"' + (v >= 0.5 ? " checked" : "") + "> " + esc(ctl.label) + "</label>"; if (ctl.enum && ctl.scale.length) return "<label>" + esc(ctl.label) + '<select data-ctl="' + key + '">' + ctl.scale.map(function (s) { return '<option value="' + s[0] + '"' + (Math.abs(s[0] - v) < 1e-6 ? " selected" : "") + ">" + esc(s[1]) + "</option>"; }).join("") + "</select></label>"; return "<label>" + esc(ctl.label) + '<span class="control-line"><input type="range" min="0" max="1000" step="1" value="' + Math.round(norm(ctl, v) * 1000) + '" data-ctl="' + key + '"><output>' + esc(fmt(ctl, v)) + "</output></span></label>"; }).join("") + "</div></section>";
   }
   function addPanel() {
@@ -267,7 +315,7 @@
       if (b.dataset.cat) { addCat = b.dataset.cat; render(); return; }
       if (b.dataset.kcat) { keysCat = b.dataset.kcat; render(); return; }
       if (b.dataset.add) { var pedal = PED.byId(b.dataset.add); if (pedal) { var item = { uid: uid(), pedal: pedal.id, on: true, values: Object.assign({}, pedal.opts.values || {}) }, ampIdx = chain.findIndex(function (q) { var p = PED.byId(q.pedal); return p && (p.category === "amp" || p.category === "cab"); }); if (ampIdx >= 0 && ["amp", "cab", "reverb", "delay"].indexOf(pedal.category) < 0) chain.splice(ampIdx, 0, item); else chain.push(item); selected = item.uid; showAdd = false; apply("add"); render(); } return; }
-      if (b.dataset.reset) { var it2 = chain.filter(function (q) { return q.uid === b.dataset.reset; })[0]; if (it2) { it2.values = {}; apply("reset"); render(); } return; }
+      if (b.dataset.reset) { var it2 = chain.filter(function (q) { return q.uid === b.dataset.reset; })[0]; if (it2) { var rp = PED.byId(it2.pedal); it2.values = Object.assign({}, rp && rp.opts.values || {}); apply("reset"); render(); } return; }
       if (b.dataset.sync) { var it3 = chain.filter(function (q) { return q.uid === b.dataset.sync; })[0], p3 = it3 && PED.byId(it3.pedal); if (p3) { var bpm = project().tempo.bpm; if (p3.opts.tempoBpm) it3.values[p3.opts.tempoBpm] = bpm; else if (p3.opts.tempo) { var ctl = controlsOf(p3).filter(function (q) { return q.sym === p3.opts.tempo; })[0], ms = 60000 / bpm * 0.75; it3.values[p3.opts.tempo] = ctl ? clamp(ctl.max > 50 ? ms : ms / 1000, ctl.min, ctl.max) : ms; } apply("sync"); render(); PP.setStatus("Delay set to a dotted eighth at " + Math.round(bpm) + " BPM"); } return; }
       if (b.dataset.patch) { var p = catalog.keys.filter(function (q) { return q.id === b.dataset.patch; })[0]; if (p) { var ls0 = layers(c), lay = ls0[layerSel] || ls0[0]; lay.patch = { id: p.id, file: p.file, bank: p.bank, prog: p.prog, name: p.name }; send({ type: "instrument", action: "keys", keys: hostConfig().keys }); PP.persistSoon(); render(); } return; }
       if (b.id === "klAdd") { var ls1 = layers(c); if (ls1.length < MAX_LAYERS) { ls1.push({ id: uid(), patch: null, on: true, volume: 0.8, pan: 0, octave: 0, lo: 0, hi: 127, velLo: 1, velHi: 127 }); layerSel = ls1.length - 1; keysLive(); render(); PP.setStatus("Layer " + ls1.length + " added: tap a sound for it"); } return; }
@@ -324,6 +372,11 @@
       var s = $(".in-status"); if (s) s.innerHTML = statusLine();
       if (onTab() && before !== JSON.stringify([m.running, m.error, m.kind, (m.inputs || []).length, (m.keysCatalog || []).length, !!m.plugins])) render();
     });
+    // the Studio compressor / limiter / de-esser's gain reduction (the computer's built-in rig reports it)
+    F.on("instrumentMeters", function (m) {
+      document.querySelectorAll("[data-gr]").forEach(function (el) { var g = m.gr && m.gr[el.dataset.gr] || 0; el.querySelector("i").style.width = Math.min(100, g / 24 * 100) + "%"; el.querySelector("output").textContent = (g > 0.05 ? "−" + g.toFixed(1) : "0.0") + " dB"; });
+    });
+    setInterval(function () { if (onTab() && document.querySelector("[data-gr]")) send({ type: "instrument", action: "meters" }); }, 120);
     F.on("hello", function () { send({ type: "instrument", action: "status" }); setTimeout(function () { if (kind() !== "off") apply("connect"); }, 600); });
   }
   function show() { send({ type: "instrument", action: "status" }); render(); }

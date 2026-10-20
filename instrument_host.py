@@ -46,6 +46,52 @@ def db_to_lin(db):
     return math.pow(10.0, float(db or 0) / 20.0)
 
 
+# The Studio EQ (builtin:studioeq): a chain of PipeWire's own biquad filters - low cut, low shelf, three bells, high
+# shelf, high cut - and an output gain. The computer rig (cu-rig) runs the same filters.
+STUDIO_EQ_URI = "builtin:studioeq"
+STUDIO_EQ_BANDS = [("hp", "bq_highpass"), ("ls", "bq_lowshelf"), ("p1", "bq_peaking"), ("p2", "bq_peaking"), ("p3", "bq_peaking"), ("hs", "bq_highshelf"), ("lp", "bq_lowpass")]
+
+
+def studio_eq_value(controls, sym, default):
+    try:
+        return float(controls.get(sym, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def studio_eq_graph(base, controls):
+    """Nodes and links of one Studio EQ (one channel). Returns (nodes, links, input port, output port)."""
+    v = lambda sym, d: studio_eq_value(controls, sym, d)
+    settings = {
+        "hp": {"Freq": max(10.0, min(1000.0, v("hp_freq", 20))), "Q": 0.707},
+        "ls": {"Freq": max(20.0, min(1000.0, v("ls_freq", 100))), "Q": 0.707, "Gain": max(-18.0, min(18.0, v("ls_gain", 0)))},
+        "hs": {"Freq": max(1000.0, min(20000.0, v("hs_freq", 8000))), "Q": 0.707, "Gain": max(-18.0, min(18.0, v("hs_gain", 0)))},
+        "lp": {"Freq": max(1000.0, min(20000.0, v("lp_freq", 20000))), "Q": 0.707},
+    }
+    for b, f, g in (("p1", 250, 0), ("p2", 1000, 0), ("p3", 4000, 0)):
+        settings[b] = {"Freq": max(20.0, min(20000.0, v(b + "_freq", f))), "Q": max(0.1, min(10.0, v(b + "_q", 1))), "Gain": max(-18.0, min(18.0, v(b + "_gain", g)))}
+    nodes, links, prev = [], [], None
+    for band, label in STUDIO_EQ_BANDS:
+        ctl = " ".join('"%s" = %s' % (k, ("%.4f" % val).rstrip("0").rstrip(".")) for k, val in settings[band].items())
+        nodes.append('{ type = builtin name = %s%s label = %s control = { %s } }' % (base, band, label, ctl))
+        if prev:
+            links.append('{ output = "%s:Out" input = "%s%s:In" }' % (prev, base, band))
+        prev = base + band
+    nodes.append('{ type = builtin name = %sog label = mixer control = { "Gain 1" = %.5f } }' % (base, db_to_lin(max(-24.0, min(24.0, v("out_gain", 0))))))
+    links.append('{ output = "%s:Out" input = "%sog:In 1" }' % (prev, base))
+    return nodes, links, "%shp:In" % base, "%sog:Out" % base
+
+
+def studio_eq_params(base, sym, value):
+    """A Studio EQ knob -> the PipeWire control(s) it moves (for one channel's nodes named base...)."""
+    m = re.match(r"^(hp|ls|p1|p2|p3|hs|lp)_(freq|gain|q)$", sym or "")
+    if m:
+        return {"%s%s:%s" % (base, m.group(1), {"freq": "Freq", "gain": "Gain", "q": "Q"}[m.group(2)]): float(value)}
+    if sym == "out_gain":
+        return {"%sog:Gain 1" % base: db_to_lin(max(-24.0, min(24.0, float(value))))}
+    return {}
+
+
 def run(cmd, timeout=10, env=None, check=False):
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
@@ -601,6 +647,20 @@ context.modules = [
             for sym, value in (it.get("values") or {}).items():
                 controls[sym] = value
             ctl = " ".join('"%s" = %s' % (k.replace('"', ""), ("%.6f" % float(v)).rstrip("0").rstrip(".")) for k, v in controls.items() if isinstance(v, (int, float)))
+            if info.get("builtin") == "studioeq":
+                wet, dry = mix_gains(it.get("on", True), it.get("mix"), it.get("levelDb"))
+                for ch in (["L"] if channels == 1 else chans):
+                    base = uid if channels == 1 else uid + ch
+                    eq_nodes, eq_links, eq_in, eq_out = studio_eq_graph(base, controls)
+                    nodes.extend(eq_nodes)
+                    links.extend(eq_links)
+                    src = prev["L"] if channels == 1 else prev[ch]
+                    links.append('{ output = "%s" input = "%s" }' % (src, eq_in))
+                    nodes.append('{ type = builtin name = m%s label = mixer control = { "Gain 1" = %.4f "Gain 2" = %.4f } }' % (base, wet, dry))
+                    links.append('{ output = "%s" input = "m%s:In 1" }' % (eq_out, base))
+                    links.append('{ output = "%s" input = "m%s:In 2" }' % (src, base))
+                    prev["L" if channels == 1 else ch] = "m%s:Out" % base
+                continue
             if info.get("builtin") == "convolver":
                 irf = str(it.get("file") or "").replace('"', "")
                 if not irf or not os.path.exists(irf):
@@ -870,6 +930,15 @@ context.modules = [
             return
         uid = re.sub(r"[^A-Za-z0-9]", "", str(uid))[:12]
         stereo = self.config.get("kind") == "keys" or (self.config.get("input") or {}).get("channel") == "stereo"
+        item = next((it for it in (self.config.get("chain") or []) if re.sub(r"[^A-Za-z0-9]", "", str(it.get("uid", "")))[:12] == uid), None)
+        if item and item.get("uri") == STUDIO_EQ_URI:   # the Studio EQ: its knobs move PipeWire's own filters
+            params = {}
+            for base in ([uid + "L", uid + "R"] if stereo else [uid]):
+                params.update(studio_eq_params(base, sym, value))
+            if params:
+                self.pw.set_params(node, params)
+            item.setdefault("values", {})[sym] = value
+            return
         params = {"%s:%s" % (uid, sym): float(value)}
         if stereo:  # mono plugins were duplicated per channel
             params["%sL:%s" % (uid, sym)] = float(value)

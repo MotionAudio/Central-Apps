@@ -73,6 +73,32 @@ await check("bypass and a knob change take effect live", async () => {
   send({ action: "bypass", uid: "drv", on: false }); await sleep(300); const off = await meters();
   assert.ok(Math.abs(off.out - 0.3) < 0.05, "bypassed output ~ the input (0.3): " + off.out + " (on: " + on.out + ")");
 });
+// the Studio effects: real units, real behaviour (testtone 0.3 = -10.5 dBFS, 196 Hz)
+const studio = async (id, values, opts) => { send({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [item(id, values, Object.assign({ uid: "st" }, opts || {}))], levelDb: 0, routing: {} } }); await sleep(400); return meters(); };
+await check("Studio EQ: a +12 dB bell at the tone's pitch makes it louder, a -12 dB one quieter, flat leaves it alone", async () => {
+  send({ action: "testtone", freq: 196, level: 0.3 });
+  const flat = await studio("studio-eq", {}), up = await studio("studio-eq", { p1_freq: 196, p1_gain: 12, p1_q: 1 }), down = await studio("studio-eq", { p1_freq: 196, p1_gain: -12, p1_q: 1 });
+  assert.ok(Math.abs(flat.out - 0.3) < 0.04, "flat " + flat.out); assert.ok(up.out > 0.8, "boost " + up.out); assert.ok(down.out < 0.12, "cut " + down.out);
+  const cut = await studio("studio-eq", { hp_freq: 800 }); assert.ok(cut.out < 0.1, "a low cut at 800 Hz takes out 196 Hz: " + cut.out);
+});
+await check("Studio Compressor: over the threshold it turns the tone down and reports the gain reduction", async () => {
+  send({ action: "testtone", freq: 196, level: 0.3 });
+  const soft = await studio("x42-comp", { threshold: -10, Ratio: 0 }), hard = await studio("x42-comp", { threshold: -40, Ratio: 0.9, attack: 0.001 });
+  assert.ok(hard.out < soft.out * 0.75, "compressed " + hard.out + " vs " + soft.out);
+  assert.ok(hard.gr && hard.gr.st < -6, "gain reduction " + JSON.stringify(hard.gr));
+});
+await check("Studio Limiter: nothing gets past the ceiling, even pushed 20 dB", async () => {
+  send({ action: "testtone", freq: 196, level: 0.3 });
+  const m = await studio("x42-limiter", { gain: 20, threshold: -6, release: 0.05 });
+  assert.ok(m.out <= 0.502 && m.out > 0.4, "ceiling -6 dB = 0.501: " + m.out);
+});
+await check("De-esser: highs over the threshold duck, lows go straight through", async () => {
+  send({ action: "testtone", freq: 196, level: 0.3 }); const low = await studio("studio-deess", { thresh: 0, freq: 0.5, hf_drive: 0.5 });
+  assert.ok(Math.abs(low.out - 0.3) < 0.05, "196 Hz untouched: " + low.out);
+  send({ action: "testtone", freq: 8000, level: 0.3 }); const s = await studio("studio-deess", { thresh: 0, freq: 0.5, hf_drive: 0.5 });
+  assert.ok(s.out < 0.15, "8 kHz ducked: " + s.out);
+  send({ action: "testtone", freq: 196, level: 0.3 });
+});
 if (haveSf2) await check("keys: a SoundFont bank is listed, two layers play a note, the level follows the layer volume", async () => {
   send({ action: "testtone", level: 0 }); send({ action: "rescan" });
   const s = await next((m) => m.type === "instrumentStatus" && (m.keysCatalog || []).length > 0);

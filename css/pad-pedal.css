@@ -363,3 +363,11 @@ input[type=range]:focus-visible { outline: none; } input[type=range]:focus-visib
 .stem-meter i.clip { background: #EF4B4B; box-shadow: 0 0 8px rgba(239,75,75,.6); }
 .mix-strips .stem-meter i { background-size: 100% 260px; }
 #trTimeline { background: linear-gradient(180deg, #15181D, #0B0D10); box-shadow: inset 0 1px 3px rgba(0,0,0,.6); }
+/* the Studio EQ's curve */
+.eq-curve { display: block; width: 100%; height: 190px; margin: 6px 0 12px; border-radius: 10px; background: linear-gradient(180deg, #15181D, #0B0D10); box-shadow: inset 0 1px 3px rgba(0,0,0,.6); border: 1px solid #2A2F37; }
+
+/* gain reduction (Studio compressor, limiter, de-esser): fills from the right, like a console's GR meter */
+.gr-meter{display:grid;grid-template-columns:auto 1fr 4.5em;align-items:center;gap:12px;margin:12px 0 4px;font-size:12px;color:var(--muted)}
+.gr-meter b{position:relative;height:8px;border-radius:4px;background:#0b0d10;box-shadow:inset 0 1px 2px rgba(0,0,0,.6);overflow:hidden;direction:rtl}
+.gr-meter i{display:block;height:100%;width:0;background:linear-gradient(270deg,#e2c27e,#ef9f62 70%,#ef6b63);border-radius:4px;transition:width .08s linear}
+.gr-meter output{text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}

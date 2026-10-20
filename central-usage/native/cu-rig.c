@@ -132,7 +132,7 @@ static const char *roleWords[NROLES] = {
   "up oct2 octave2 upper",
   "presence"
 };
-enum { FX_NONE, FX_DRIVE, FX_DIST, FX_FUZZ, FX_COMP, FX_GATE, FX_EQ, FX_WAH, FX_CHORUS, FX_FLANGER, FX_PHASER, FX_ROTARY, FX_TREM, FX_VIBRATO, FX_OCTAVE, FX_DELAY, FX_REVERB, FX_AMP, FX_CAB, FX_IR, FX_ACOUSTIC, FX_UTIL, FX_SHIMMER };
+enum { FX_NONE, FX_DRIVE, FX_DIST, FX_FUZZ, FX_COMP, FX_GATE, FX_EQ, FX_WAH, FX_CHORUS, FX_FLANGER, FX_PHASER, FX_ROTARY, FX_TREM, FX_VIBRATO, FX_OCTAVE, FX_DELAY, FX_REVERB, FX_AMP, FX_CAB, FX_IR, FX_ACOUSTIC, FX_UTIL, FX_SHIMMER, FX_SCOMP, FX_SLIMIT, FX_SEQ, FX_SDEESS };
 typedef struct { char sym[48]; int role; float min, max, def; int log; char unit[12]; } Ctl;
 typedef struct {
   char uid[24], id[64]; int type, on; float mix, levelDb, wet, dry;
@@ -140,6 +140,7 @@ typedef struct {
   float p[NROLES]; float raw[NROLES]; char unit[NROLES][12]; int has[NROLES];
   /* state */
   Bq f[2][8]; Line line[2]; Verb *verb; float env[2], lfo, z[2][6], hold[2], att, rel; int sign[2]; float *ir; int irLen; float *hist[2]; int hpos[2]; float rmax[NROLES];
+  /* the Studio effects (raw values by symbol) */ float sIn, sThr, sRatio, sMakeup, sOut, la[2][128]; int laPos[2], lhold[2]; float gr;
   int dirty;
 } Fx;
 typedef struct { Fx fx[MAXFX]; int n; int stereoIn; float inGain, gateDb, gateEnv, gateGain; int gateOn; } Chain;
@@ -162,6 +163,7 @@ static int fx_type(const char *cat, const char *id, const char *uri) {
   if (uri && !strcmp(uri, "builtin:convolver")) return FX_IR;
   if (strstr(s, "shimmer")) return FX_SHIMMER;
   if (!cat) cat = "";
+  if (!strcmp(cat, "studio")) return strstr(s, "deess") ? FX_SDEESS : strstr(s, "limit") || strstr(s, "dpl#") ? FX_SLIMIT : strstr(s, "studioeq") || strstr(s, "-eq") ? FX_SEQ : FX_SCOMP;
   if (!strcmp(cat, "boost")) return FX_DRIVE;
   if (!strcmp(cat, "dist")) return FX_DIST;
   if (!strcmp(cat, "fuzz")) return FX_FUZZ;
@@ -195,6 +197,9 @@ static float hz_of(Fx *x, float lo, float hi) { if (x->has[R_RATE] && !strcmp(x-
 static float db_of(Fx *x, int r, float lo, float hi) { if (x->has[r] && !strcmp(x->unit[r], "db")) return clampf(x->raw[r], lo, hi); return lo + (hi - lo) * x->p[r]; }
 
 static float *load_ir(const char *path, int *len);
+/* a control's own value (the Studio effects use real units: dB, seconds, Hz) */
+static float sv(Fx *x, const char *sym, float def) { for (int k = 0; k < x->nctl; k++) if (!strcmp(x->ctl[k].sym, sym)) return x->val[k]; return def; }
+static float coef_s(float sec) { return sec <= 0 ? 0 : expf(-1.0f / (sec * (float)FS)); }
 static void fx_prepare(Fx *x) {   /* filters and buffers for the current parameters (control thread) */
   float tone = x->p[R_TONE], bass = x->p[R_BASS], mid = x->p[R_MID], treb = x->has[R_TREBLE] ? x->p[R_TREBLE] : tone;
   for (int s = 0; s < 2; s++) {
@@ -215,6 +220,27 @@ static void fx_prepare(Fx *x) {   /* filters and buffers for the current paramet
       case FX_OCTAVE: bq_set(&f[0], BQ_LP, 600, 0, 0.707); bq_set(&f[1], BQ_LP, 300, 0, 0.707); bq_set(&f[2], BQ_HP, 200, 0, 0.707); break;
       case FX_DELAY: bq_set(&f[0], BQ_LP, 1500 + 7000 * tone, 0, 0.707); break;
       case FX_COMP: case FX_GATE: case FX_UTIL: break;
+      case FX_SEQ: {   /* Studio EQ: high-pass, low shelf, three bells, high shelf, low-pass */
+        float hp = sv(x, "hp_freq", 20), lp = sv(x, "lp_freq", 20000);
+        bq_set(&f[0], BQ_HP, clampf(hp, 10, 1000), 0, 0.707); bq_set(&f[6], BQ_LP, clampf(lp, 1000, 22000) > FS * 0.45 ? FS * 0.45 : clampf(lp, 1000, 22000), 0, 0.707);
+        bq_set(&f[1], BQ_LS, clampf(sv(x, "ls_freq", 100), 20, 1000), clampf(sv(x, "ls_gain", 0), -18, 18), 0.707);
+        bq_set(&f[2], BQ_PK, clampf(sv(x, "p1_freq", 250), 20, 20000), clampf(sv(x, "p1_gain", 0), -18, 18), clampf(sv(x, "p1_q", 1), 0.1f, 10));
+        bq_set(&f[3], BQ_PK, clampf(sv(x, "p2_freq", 1000), 20, 20000), clampf(sv(x, "p2_gain", 0), -18, 18), clampf(sv(x, "p2_q", 1), 0.1f, 10));
+        bq_set(&f[4], BQ_PK, clampf(sv(x, "p3_freq", 4000), 20, 20000), clampf(sv(x, "p3_gain", 0), -18, 18), clampf(sv(x, "p3_q", 1), 0.1f, 10));
+        bq_set(&f[5], BQ_HS, clampf(sv(x, "hs_freq", 8000), 1000, 20000) > FS * 0.45 ? FS * 0.45 : clampf(sv(x, "hs_freq", 8000), 1000, 20000), clampf(sv(x, "hs_gain", 0), -18, 18), 0.707);
+        x->sOut = db2lin(clampf(sv(x, "out_gain", 0), -24, 24)); x->sIn = hp > 20.5f ? 1 : 0; x->sThr = lp < 19999 ? 1 : 0; break; }
+      case FX_SCOMP: {   /* Studio Compressor (the same controls as x42 darc on the Central Pedal) */
+        float r = clampf(sv(x, "Ratio", 0.5f), 0, 0.95f);
+        x->sIn = db2lin(clampf(sv(x, "inputgain", 0), -10, 30)); x->sThr = clampf(sv(x, "threshold", -30), -60, 0); x->sRatio = 1 / (1 - r);
+        x->att = coef_s(clampf(sv(x, "attack", 0.01f), 0.0005f, 0.2f)); x->rel = coef_s(clampf(sv(x, "release", 0.3f), 0.01f, 5));
+        x->sMakeup = -x->sThr * (1 - 1 / x->sRatio) * 0.35f; break; }
+      case FX_SDEESS: {   /* De-esser (the MDA De-ess controls): threshold -60..0 dB, frequency 1-12 kHz, the highs -20..+20 dB */
+        float fr = 1000 * powf(12, clampf(sv(x, "freq", 0.5f), 0, 1)); if (fr > FS * 0.45f) fr = FS * 0.45f;
+        bq_set(&f[0], BQ_HP, fr, 0, 0.707); bq_set(&f[2], BQ_HP, fr, 0, 0.707); bq_set(&f[1], BQ_LP, fr, 0, 0.707); bq_set(&f[3], BQ_LP, fr, 0, 0.707);   /* Linkwitz-Riley: the two bands add back up flat */
+        x->sThr = db2lin(-60 + 60 * clampf(sv(x, "thresh", 0.15f), 0, 1)); x->sOut = db2lin(-20 + 40 * clampf(sv(x, "hf_drive", 0.5f), 0, 1));
+        x->att = coef_s(0.0008f); x->rel = coef_s(0.06f); break; }
+      case FX_SLIMIT:   /* Studio Limiter (the same controls as x42 dpl): input gain, ceiling, release; 1.3 ms look-ahead */
+        x->sIn = db2lin(clampf(sv(x, "gain", 0), -10, 30)); x->sThr = db2lin(clampf(sv(x, "threshold", -1), -20, 0)); x->rel = coef_s(clampf(sv(x, "release", 0.01f), 0.001f, 2) / 3); break;
       default: break;
     }
     if ((x->type == FX_DELAY || x->type == FX_CHORUS || x->type == FX_FLANGER || x->type == FX_VIBRATO || x->type == FX_ROTARY || x->type == FX_SHIMMER) && !x->line[s].d) line_init(&x->line[s], (int)(FS * 4.2));
@@ -241,6 +267,29 @@ static inline float fx_sample(Fx *x, int s, float y) {
     case FX_DRIVE: { float g = db2lin(30 * x->p[R_DRIVE]); y = bq(&f[0], y); y = bq(&f[2], y) * g; y = tanhf(y) / (0.6f + 0.4f * tanhf(g * 0.3f)); return bq(&f[1], y) * db2lin((x->p[R_LEVEL] - 0.5f) * 24); }
     case FX_DIST: { float g = db2lin(12 + 36 * x->p[R_DRIVE]); y = bq(&f[0], y) * g; y = y > 0 ? tanhf(y) : tanhf(0.75f * y) / 0.75f; y = clampf(y, -1, 1) * 0.5f; return bq(&f[1], y) * db2lin((x->p[R_LEVEL] - 0.5f) * 24); }
     case FX_FUZZ: { float g = db2lin(20 + 40 * x->p[R_DRIVE]); y = bq(&f[0], y) * g; y = clampf(y, -1, 1); y = y - y * y * y / 3; return bq(&f[1], y) * 0.6f * db2lin((x->p[R_LEVEL] - 0.5f) * 24); }
+    case FX_SEQ: {
+      if (x->sIn > 0) y = bq(&f[0], y);
+      y = bq(&f[5], bq(&f[4], bq(&f[3], bq(&f[2], bq(&f[1], y)))));
+      if (x->sThr > 0) y = bq(&f[6], y);
+      return y * x->sOut; }
+    case FX_SDEESS: {   /* split at the frequency; the highs duck when they're over the threshold */
+      float hi = bq(&f[2], bq(&f[0], y)), lo = bq(&f[3], bq(&f[1], y)), a = fabsf(hi);
+      x->env[s] = a > x->env[s] ? x->att * x->env[s] + (1 - x->att) * a : x->rel * x->env[s] + (1 - x->rel) * a;
+      float g = x->env[s] > x->sThr ? x->sThr / x->env[s] : 1; if (s == 0) x->gr = 20 * log10f(g + 1e-9f);
+      return lo + hi * g * x->sOut; }
+    case FX_SCOMP: {   /* feed-forward, soft knee (6 dB), smoothed in dB */
+      float in = y * x->sIn, lev = 20 * log10f(fabsf(in) + 1e-9f), over = lev - x->sThr, W = 6, g;
+      if (2 * over < -W) g = 0; else if (2 * fabsf(over) <= W) g = (1 / x->sRatio - 1) * (over + W / 2) * (over + W / 2) / (2 * W); else g = (1 / x->sRatio - 1) * over;
+      x->env[s] = g < x->env[s] ? x->att * x->env[s] + (1 - x->att) * g : x->rel * x->env[s] + (1 - x->rel) * g;
+      if (s == 0) x->gr = x->env[0];
+      return in * db2lin(x->env[s] + x->sMakeup); }
+    case FX_SLIMIT: {
+      float in = y * x->sIn, a = fabsf(in), want = a > x->sThr ? x->sThr / a : 1;
+      float *L = x->la[s]; int n = 64, p = x->laPos[s]; float out = L[p]; L[p] = in; x->laPos[s] = (p + 1) % n;
+      if (x->env[s] <= 0 || x->env[s] > 1) x->env[s] = 1;
+      if (want < x->env[s]) { x->env[s] = want; x->lhold[s] = n; } else if (x->lhold[s] > 0) x->lhold[s]--; else x->env[s] = 1 - x->rel * (1 - x->env[s]);
+      if (s == 0) x->gr = 20 * log10f(x->env[0] + 1e-9f);
+      out *= x->env[s]; return clampf(out, -x->sThr, x->sThr); }
     case FX_COMP: {
       float thr = db_of(x, R_THR, -50, 0), ratio = x->has[R_RATIO] && x->rmax[R_RATIO] > 2 ? clampf(x->raw[R_RATIO], 1, 30) : 1 + 11 * x->p[R_RATIO];
       if (!x->has[R_THR] && x->has[R_DRIVE]) thr = -10 - 40 * x->p[R_DRIVE];   /* "Sustain" */
@@ -693,7 +742,7 @@ static void handle(cJSON *m) {
   if (!strcmp(a, "routing")) { routing(cJSON_GetObjectItem(m, "routing")); return; }
   if (!strcmp(a, "testtone")) { ttFreq = (float)num(m, "freq", 220); ttLevel = (float)num(m, "level", 0); return; }
   if (!strcmp(a, "rescan")) { cJSON_Delete(catCache); catCache = NULL; status(); return; }
-  if (!strcmp(a, "meters")) { cJSON *o = cJSON_CreateObject(); cJSON_AddStringToObject(o, "type", "instrumentMeters"); cJSON_AddNumberToObject(o, "in", inPeak); cJSON_AddNumberToObject(o, "out", outPeak); cJSON_AddNumberToObject(o, "cpu", cpuLoad); inPeak = outPeak = 0; emit_json(o); cJSON_Delete(o); return; }
+  if (!strcmp(a, "meters")) { cJSON *o = cJSON_CreateObject(); cJSON_AddStringToObject(o, "type", "instrumentMeters"); cJSON_AddNumberToObject(o, "in", inPeak); cJSON_AddNumberToObject(o, "out", outPeak); cJSON_AddNumberToObject(o, "cpu", cpuLoad); { Chain *c = chainLive; if (c) { cJSON *g = NULL; for (int i = 0; i < c->n; i++) { Fx *x = &c->fx[i]; if (x->type == FX_SCOMP || x->type == FX_SLIMIT || x->type == FX_SDEESS) { if (!g) g = cJSON_AddObjectToObject(o, "gr"); cJSON_AddNumberToObject(g, x->uid, isfinite(x->gr) ? (double)x->gr : 0); } } } }   /* gain reduction (dB) of the Studio dynamics */ inPeak = outPeak = 0; emit_json(o); cJSON_Delete(o); return; }
 }
 
 static char *read_file(const char *path) { FILE *f = fopen(path, "rb"); if (!f) return NULL; fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET); char *s = malloc((size_t)n + 1); if (fread(s, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(s); return NULL; } s[n] = 0; fclose(f); return s; }

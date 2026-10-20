@@ -190,7 +190,9 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.1.3 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.1.4 and earlier)</summary>
+
+**New in version 9.1.4:** studio compressor (with a gain-reduction meter on computers), 7-band parametric EQ with a live curve, limiter and de-esser for every instrument, on the Central Pedal and computers; three studio channel-strip boards.
 
 **New in version 9.1.3:** lit-stage lighting graphics, a polished tracks timeline, console-style in-ear mixing, backlit pads; edit the website yourself (words, prices, pictures, sections, editors); a warmer voice everywhere.
 
