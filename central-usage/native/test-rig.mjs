@@ -110,6 +110,94 @@ if (haveSf2) await check("keys: a SoundFont bank is listed, two layers play a no
   assert.ok(m.out > 0.02, "keys out " + m.out);
   send({ action: "midi", data: [0x80, 60, 0] }); send({ action: "note", note: 60, on: false });
 });
+// ---- the musician's own plugins: two test CLAP plugins (plughost/test/test-plugins.c), built next to the rig by the
+// Makefile (or here with a C compiler); a third one crashes as it loads
+const exe = process.platform === "win32" ? ".dll" : "";
+let testPlugDir = path.join(path.dirname(bin), "test-plugins");
+if (!fs.existsSync(path.join(testPlugDir, "central-test.clap"))) {
+  testPlugDir = path.join(tmp, "test-plugins"); fs.mkdirSync(testPlugDir, { recursive: true });
+  const src = path.join(here, "plughost", "test", "test-plugins.c"), cc = process.env.CC || (process.platform === "win32" ? "gcc" : "cc");
+  if (process.platform === "linux") spawnSync("bash", [path.join(here, "plughost", "test", "make-test-plugins.sh"), tmp, "linux"], { stdio: "inherit" });
+  else for (const [name, def] of [["central-test.clap", []], ["crash-test.clap", ["-DCENTRAL_TEST_CRASH"]]]) spawnSync(cc, ["-shared", "-fPIC", "-O2", ...def, "-o", path.join(testPlugDir, name), src, "-lm"], { stdio: "inherit" });
+}
+const testClap = path.join(testPlugDir, "central-test.clap"), havePlugins = fs.existsSync(testClap);
+if (!havePlugins) console.log("  (no test plugins and no C compiler: the plugin checks are skipped)");
+const gainPlug = { format: "clap", id: "audio.motion.test-gain", path: testClap, name: "Central Test Gain" }, synthPlug = { format: "clap", id: "audio.motion.test-synth", path: testClap, name: "Central Test Synth" };
+const plugFx = (uid, extra) => Object.assign({ uid, id: "plug", plugin: gainPlug, on: true, mix: 1, levelDb: 0 }, extra || {});
+const electric = (chain) => ({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain, levelDb: 0, routing: {} } });
+const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, what + ": " + a + " (expected about " + b + ")");
+const formats = { clap: { fx: gainPlug, synth: synthPlug } };
+if (havePlugins) {
+  await check("plugins: a scan finds the CLAP (and VST3) effects and instruments, each file in a process of its own, and lists the plugin that crashes as failed", async () => {
+    send({ action: "plugins", scan: true, force: true, folders: [testPlugDir] });
+    const l = await next((m) => m.type === "pluginList" && m.plugins.some((x) => x.id === "audio.motion.test-gain"), 60000);
+    const fx = l.plugins.find((x) => x.id === "audio.motion.test-gain"), syn = l.plugins.find((x) => x.id === "audio.motion.test-synth");
+    assert.equal(fx.kind, "effect"); assert.equal(fx.format, "clap"); assert.equal(fx.name, "Central Test Gain"); assert.equal(fx.vendor, "Motion Audio");
+    assert.ok(syn && syn.kind === "instrument", "the synth is an instrument");
+    assert.ok(l.failed.some((f) => /crash-test/.test(f.path)), "the crashing plugin is listed as failed: " + JSON.stringify(l.failed));
+    assert.ok(/clap/.test(l.formats), "formats " + l.formats);
+    assert.equal(p.exitCode, null, "the rig is still running");
+    if (/vst3/.test(l.formats) && fs.existsSync(path.join(testPlugDir, "central-test.vst3"))) {
+      const vfx = l.plugins.find((x) => x.format === "vst3" && x.name === "Central Test Gain VST3"), vsyn = l.plugins.find((x) => x.format === "vst3" && x.name === "Central Test Synth VST3");
+      assert.ok(vfx && vfx.kind === "effect" && vfx.vendor === "Motion Audio" && /^[0-9A-F]{32}$/.test(vfx.id), "the VST3 effect: " + JSON.stringify(vfx));
+      assert.ok(vsyn && vsyn.kind === "instrument", "the VST3 instrument: " + JSON.stringify(vsyn));
+      formats.vst3 = { fx: vfx, synth: vsyn };
+    }
+  });
+  for (const [fmt, pl] of Object.entries(formats)) {
+    if (fmt === "clap") continue;
+    await check(fmt.toUpperCase() + ": an effect's Gain works live and comes back from its saved state; an instrument plays a keys layer", async () => {
+      send({ action: "testtone", freq: 196, level: 0.3 });
+      send(electric([{ uid: "vg1", id: "plug", plugin: pl.fx, on: true, mix: 1, levelDb: 0 }])); const st = await next((m) => m.type === "instrumentStatus" && m.kind === "electric" && m.pluginSlots && (m.pluginSlots.vg1 || m.pluginErrors.vg1));
+      assert.ok(st.pluginSlots.vg1, "loaded: " + JSON.stringify(st.pluginErrors)); await sleep(400); near((await meters()).out, 0.3, 0.03, "unity");
+      send({ action: "pluginParams", uid: "vg1" }); const pr = await next((m) => m.type === "pluginParams" && m.uid === "vg1"); assert.equal(pr.params[0].name, "Gain"); assert.match(pr.params[0].text, /0\.0 dB/);
+      send({ action: "pluginSet", uid: "vg1", id: pr.params[0].id, value: 0.75 }); await sleep(400); near((await meters()).out, 0.3 * 3.98, 0.1, "+12 dB");
+      send({ action: "apply", config: { kind: "off" } }); await next((m) => m.type === "instrumentStatus" && m.kind === "off");
+      send(electric([{ uid: "vg1", id: "plug", plugin: pl.fx, on: true, mix: 1, levelDb: 0 }])); await sleep(500); near((await meters()).out, 0.3 * 3.98, 0.1, "+12 dB after reloading");
+      send({ action: "testtone", level: 0 });
+      send({ action: "apply", config: { kind: "keys", keys: { volume: 1, layers: [{ uid: "vl1", plugin: pl.synth, volume: 1 }] }, chain: [], levelDb: 0, routing: {} } });
+      await next((m) => m.type === "instrumentStatus" && m.kind === "keys"); await sleep(300);
+      send({ action: "note", on: true, note: 69, velocity: 127 }); await sleep(300); const on = await meters(); assert.ok(on.out > 0.1, "a note sounds: " + on.out);
+      send({ action: "note", on: false, note: 69, velocity: 0 }); await sleep(300); const off = await meters(); assert.ok(off.out < 0.01, "note off stops it: " + off.out);
+    });
+  }
+  await check("a CLAP effect in the board: it passes sound, its Gain parameter works live, and the app sees it", async () => {
+    send({ action: "testtone", freq: 196, level: 0.3 });
+    send(electric([plugFx("pg1")])); await sleep(500); const a = await meters(); near(a.out, 0.3, 0.03, "unity gain");
+    send({ action: "pluginParams", uid: "pg1" }); const pr = await next((m) => m.type === "pluginParams" && m.uid === "pg1");
+    assert.equal(pr.params.length, 1); assert.equal(pr.params[0].name, "Gain"); near(pr.params[0].value, 0.5, 0.001, "Gain (normalized)"); assert.match(pr.params[0].text, /0\.0 dB/);
+    send({ action: "pluginSet", uid: "pg1", id: pr.params[0].id, value: 0.75 }); await sleep(400); const b = await meters(); near(b.out, 0.3 * Math.pow(10, 12 / 20), 0.08, "+12 dB");
+    send({ action: "status" }); const s = await next((m) => m.type === "instrumentStatus" && m.pluginSlots && m.pluginSlots.pg1);
+    assert.equal(s.pluginSlots.pg1.name, "Central Test Gain"); assert.equal(s.pluginSlots.pg1.instrument, false);
+    send({ action: "bypass", uid: "pg1", on: false }); await sleep(300); const c = await meters(); near(c.out, 0.3, 0.03, "bypassed");
+  });
+  await check("a plugin keeps its settings: through board changes (same instance), after it is removed (saved state), and a new pedal can start from it", async () => {
+    send(electric([item("ts9", {}, { uid: "drv", on: false }), plugFx("pg1")])); await sleep(400); near((await meters()).out, 0.3 * 3.98, 0.1, "still +12 dB after the board changed");
+    send({ action: "apply", config: { kind: "off" } }); await next((m) => m.type === "instrumentStatus" && m.kind === "off");
+    assert.ok(fs.existsSync(path.join(tmp, "data", "plugin-states", "pg1.state")), "the state file was saved");
+    send(electric([plugFx("pg1")])); await sleep(500); near((await meters()).out, 0.3 * 3.98, 0.1, "+12 dB restored from the saved state");
+    send(electric([plugFx("pg2", { stateFrom: "pg1" })])); await sleep(500); near((await meters()).out, 0.3 * 3.98, 0.1, "a new slot started from pg1's state");
+    send({ action: "pluginCopyState", from: "pg1", to: "board1" }); const cp = await next((m) => m.type === "pluginCopyState"); assert.equal(cp.ok, true);
+  });
+  await check("a plugin that is missing says why, and the rest of the board still plays", async () => {
+    send(electric([plugFx("pgx", { plugin: { format: "clap", id: "no.such.plugin", path: testClap } }), item("ts9", {}, { uid: "drv" })]));
+    const s = await next((m) => m.type === "instrumentStatus" && m.pluginErrors && m.pluginErrors.pgx); assert.ok(s.pluginErrors.pgx.length > 3, s.pluginErrors.pgx);
+    await sleep(300); const m = await meters(); assert.ok(m.out > 0.05, "the drive still plays: " + m.out);
+    send(electric([plugFx("pgv", { plugin: { format: "vst3", id: "0123", path: path.join(tmp, "nothing.vst3") } })])); const v = await next((x) => x.type === "instrumentStatus" && x.pluginErrors && x.pluginErrors.pgv); assert.ok(v.pluginErrors.pgv, "a VST3 that isn't there");
+  });
+  await check("a CLAP instrument plays as a keys layer, with the layer's split, octave and volume", async () => {
+    send({ action: "testtone", level: 0 });
+    send({ action: "apply", config: { kind: "keys", keys: { volume: 1, layers: [{ uid: "lay1", plugin: synthPlug, volume: 1, lo: 0, hi: 127 }] }, chain: [], levelDb: 0, routing: {} } });
+    await next((m) => m.type === "instrumentStatus" && m.kind === "keys"); await sleep(300);
+    const quiet = await meters(); assert.ok(quiet.out < 0.01, "silent before a note: " + quiet.out);
+    send({ action: "note", on: true, note: 69, velocity: 127 }); await sleep(300); const on = await meters(); assert.ok(on.out > 0.1, "a note sounds: " + on.out);
+    send({ action: "note", on: false, note: 69, velocity: 0 }); await sleep(300); const off = await meters(); assert.ok(off.out < 0.01, "note off stops it: " + off.out);
+    send({ action: "keys", keys: { volume: 1, layers: [{ uid: "lay1", plugin: synthPlug, volume: 1, lo: 0, hi: 59 }] } }); await sleep(200);
+    send({ action: "note", on: true, note: 69, velocity: 127 }); await sleep(300); const out = await meters(); assert.ok(out.out < 0.01, "a note above the split is not played: " + out.out);
+    send({ action: "note", on: false, note: 69, velocity: 0 });
+    send({ action: "status" }); const s = await next((m) => m.type === "instrumentStatus" && m.pluginSlots && m.pluginSlots.lay1); assert.equal(s.pluginSlots.lay1.instrument, true);
+  });
+}
 await check("off stops the audio", async () => { send({ action: "apply", config: { kind: "off" } }); const s = await next((m) => m.type === "instrumentStatus" && m.kind === "off"); assert.equal(s.running, false); });
 p.stdin.end();
 setTimeout(() => { p.kill(); console.log(failures ? "\n" + failures + " RIG CHECK(S) FAILED" : "\nALL RIG CHECKS PASSED"); process.exit(failures ? 1 : 0); }, 800);

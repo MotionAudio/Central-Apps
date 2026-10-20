@@ -19,7 +19,7 @@ on:
   workflow_call:
   workflow_dispatch:
   push:
-    branches: [platforms, v8.1]
+    branches: [platforms, v8.1, plugin-host]
 permissions:
   contents: read
 jobs:
@@ -31,7 +31,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: Compilers
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 p7zip-full
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev   # (C++ for the plugin host; the X11, lilv and suil headers for Linux)
       - name: Build (Linux x64, Windows x64) - the rig map comes from js/pedals.js here
         run: |
           bash tools/ci-run.sh "native build (Linux)" make -C central-usage/native -j4
@@ -53,9 +53,19 @@ jobs:
       - name: Built-in sounds
         run: bash tools/fetch-builtin-sounds.sh central-usage/native/sounds
       - uses: actions/upload-artifact@v4
-        with: { name: natives-linux-x64, path: central-usage/native/build/, retention-days: 7 }
+        with:
+          name: natives-linux-x64
+          retention-days: 7
+          path: |
+            central-usage/native/build/
+            !central-usage/native/build/obj/
       - uses: actions/upload-artifact@v4
-        with: { name: natives-win-x64, path: central-usage/native/build-win/, retention-days: 7 }
+        with:
+          name: natives-win-x64
+          retention-days: 7
+          path: |
+            central-usage/native/build-win/
+            !central-usage/native/build-win/obj/
       - uses: actions/upload-artifact@v4
         with: { name: sounds, path: central-usage/native/sounds/, retention-days: 7 }
 
