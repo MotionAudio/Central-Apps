@@ -232,7 +232,7 @@ function renderPayout() {
 function signInForm(note) {
   return `<div class="acct"><div class="card"><h3>Sign in</h3>${note ? `<p class="muted" style="margin:0">${esc(note)}</p>` : ""}
     <form id="inForm" style="background:none;border:0;padding:0"><label>Email<input id="inEmail" type="email" autocomplete="username" required></label>
-    <label>Password<input id="inPass" type="password" autocomplete="current-password" required></label><button class="btn">Sign in</button><div class="err" id="inErr"></div></form></div>
+    <label>Password<input id="inPass" type="password" autocomplete="current-password" required></label><div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="btn">Sign in</button><button class="btn ghost small" type="button" id="forgotBtn">Forgot password?</button></div><div class="err" id="inErr"></div></form></div>
     <div class="card"><h3>Make an account</h3><p class="muted" style="margin:0">Free. Use it to buy, subscribe, publish, and sign in to Central Tracks in the apps.</p>
     <form id="upForm" style="background:none;border:0;padding:0"><label>Name<input id="upName" autocomplete="name"></label><label>Email<input id="upEmail" type="email" autocomplete="email" required></label>
     <label>Password (8+ characters)<input id="upPass" type="password" autocomplete="new-password" minlength="8" required></label>
@@ -251,6 +251,7 @@ async function renderAccount(note) {
     $("#acctTitle").textContent = "Sign in";
     body.innerHTML = signInForm(note);
     $("#inForm").onsubmit = async (e) => { e.preventDefault(); try { setToken((await api("POST", "/login", { email: $("#inEmail").value, password: $("#inPass").value })).token); await refreshMe(); toast("Signed in"); } catch (err) { $("#inErr").textContent = err.message; } };
+    $("#forgotBtn").onclick = () => forgotPassword($("#inEmail").value);
     const chWay = () => (document.querySelector('[name="upCh"]:checked') || {}).value;
     document.querySelectorAll('[name="upCh"]').forEach((r) => (r.onchange = () => { $("#upCodeL").hidden = chWay() !== "join"; $("#upChurchL").hidden = chWay() !== "make"; }));
     $("#upForm").onsubmit = async (e) => {
@@ -339,7 +340,8 @@ async function renderTeams() {
     ${owner ? `<p style="margin:0">Main admin invite: <b>${esc(owner.name || owner.email)}</b> · ${esc(owner.email)} · ${owner.status === "invited" ? "waiting" : "✓ accepted"} <button class="btn small ghost" data-tresend="${owner.id}">Resend</button> <button class="btn small ghost" data-tcopy="${esc(owner.link)}">Copy link</button></p>` : ""}
     <div class="teams">${SECT.map(([id, title, app, kind]) => `<section class="team"><h4>${title} <span class="muted">· ${app} · ${r.free[id]} ${kind} key${r.free[id] === 1 ? "" : "s"} left</span></h4>
       ${r.sections[id].length ? r.sections[id].map((m) => `<div class="tm"><div><b>${esc(m.name || m.email)}</b>${m.role ? ` <span class="muted">· ${esc(m.role)}</span>` : ""}<div class="muted" style="font-size:.85rem">${esc(m.email)}${m.key ? " · <code>" + esc(m.key) + "</code>" : ""}</div></div>
-        <div class="tacts">${status(m)}${m.status !== "set up" ? ` <button class="btn small ghost" data-tresend="${m.id}">Resend</button>` : ""}${!r.mail ? ` <button class="btn small ghost" data-tcopy="${esc(m.link)}">Copy link</button>` : ""} <button class="btn small ghost" data-tremove="${m.id}" data-tname="${esc(m.name || m.email)}">Remove</button></div></div>`).join("") : `<p class="muted" style="margin:0">Nobody yet.</p>`}
+        <div class="tacts">${status(m)}${m.reminders && m.status === "invited" ? ` <span class="muted" style="font-size:.8rem">reminded ${m.reminders}×</span>` : ""}${m.status !== "set up" ? ` <button class="btn small ghost" data-tresend="${m.id}">Resend</button>` : ""}
+          <select class="tmove" data-tmove="${m.id}" data-tname="${esc(m.name || m.email)}" aria-label="Move to another team"><option value="">Move to…</option>${SECT.filter((x) => x[0] !== id).map((x) => `<option value="${x[0]}">${x[1]} (${x[2]})</option>`).join("")}</select>${!r.mail ? ` <button class="btn small ghost" data-tcopy="${esc(m.link)}">Copy link</button>` : ""} <button class="btn small ghost" data-tremove="${m.id}" data-tname="${esc(m.name || m.email)}">Remove</button></div></div>`).join("") : `<p class="muted" style="margin:0">Nobody yet.</p>`}
       ${adding[id].map((a, i) => `<div class="trow"><input placeholder="Name" data-ta="${id}" data-ti="${i}" data-tf="name" value="${esc(a.name)}"><input placeholder="Email" type="email" data-ta="${id}" data-ti="${i}" data-tf="email" value="${esc(a.email)}"><input placeholder="Role (e.g. Bass, Lights)" data-ta="${id}" data-ti="${i}" data-tf="role" value="${esc(a.role)}"></div>`).join("")}
       <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small ghost" data-tadd="${id}">+ Add ${adding[id].length ? "another" : "members"}</button>${adding[id].length ? `<button class="btn small" data-tdone="${id}">Done</button>` : ""}</div></section>`).join("")}</div>
     ${me.church.role === "owner" && !owner ? `<details><summary style="font-size:.92rem">Make someone else the main admin</summary><form id="ownForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Name<input id="ownName"></label><label>Email<input id="ownEmail" type="email"></label><button class="btn small">Send the invite</button></form></details>` : ""}
@@ -360,12 +362,51 @@ async function renderTeams() {
   }));
   el.querySelectorAll("[data-tresend]").forEach((b) => (b.onclick = async () => { try { const x = await api("POST", "/church/team/resend", { id: b.dataset.tresend }); toast(x.sent ? "Sent again" : "Email isn't set up: use Copy link"); renderTeams(); } catch (e) { toast(e.message); } }));
   el.querySelectorAll("[data-tcopy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.tcopy); toast("Invite link copied"); } catch (_) { prompt("Copy this invite link:", b.dataset.tcopy); } }));
+  el.querySelectorAll("[data-tmove]").forEach((sel) => (sel.onchange = async () => {
+    const to = sel.value, t = SECT.find((x) => x[0] === to); if (!t) return;
+    if (!confirm("Move " + sel.dataset.tname + " to " + t[1] + "? They get a " + t[3] + " key for " + t[2] + " by email, and their old key is free again (its app asks for a key at its next check).")) { sel.value = ""; return; }
+    try { const x = await api("POST", "/church/team/move", { id: sel.dataset.tmove, section: to }); teamNote = "✓ Moved to " + t[1] + " · new key " + x.key + (x.sent ? " · their email is on the way" : " · email isn't set up: use Copy link"); }
+    catch (e) { teamNote = e.message; }
+    renderTeams(); renderChurch();
+  }));
   el.querySelectorAll("[data-tremove]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Remove " + b.dataset.tname + "? Their key is free again right away, and their app stops asking for it at its next check.")) return;
     try { await api("POST", "/church/team/remove", { id: b.dataset.tremove }); toast("Removed · their key is free"); renderTeams(); renderChurch(); } catch (e) { toast(e.message); }
   }));
   if ($("#ownForm")) $("#ownForm").onsubmit = async (e) => { e.preventDefault(); try { const x = await api("POST", "/church/owner", { name: $("#ownName").value, email: $("#ownEmail").value }); toast(x.sent ? "Invite sent" : "Email isn't set up: copy the link from the Teams card"); renderTeams(); } catch (err) { teamNote = err.message; renderTeams(); } };
 }
+// ---------------------------------------------------------------- forgot password: an emailed link (an hour, once)
+function forgotPassword(email, back) {
+  modal(`<h3>Forgot password?</h3><p class="muted" style="margin:0">Type your account's email. We'll send a link to set a new password.</p>
+    <form id="fpForm" style="background:none;border:0;padding:0"><label>Email<input id="fpEmail" type="email" autocomplete="username" required value="${esc(email || "")}"></label>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Send the link</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err" id="fpErr"></div></form>`);
+  $("#fpForm").onsubmit = async (e) => {
+    e.preventDefault();
+    try { const r = await api("POST", "/password/forgot", { email: $("#fpEmail").value }); modal(`<h3>Check your email</h3><p style="margin:0">${esc(r.message)}</p><p class="muted" style="margin:0;font-size:.9rem">Nothing after a few minutes? Look in spam, or try again.</p><button class="btn" data-close>OK</button>`); }
+    catch (err) { $("#fpErr").textContent = err.message; }
+  };
+  if (back) sessionStorage.setItem("ma-after-reset", back);
+}
+async function showReset(tok) {
+  let info; try { info = await api("GET", "/password/reset/" + encodeURIComponent(tok)); }
+  catch (e) { return modal(`<h3>Set a new password</h3><p class="err" style="margin:0">${esc(e.message)}</p><div style="display:flex;gap:.5rem"><button class="btn" id="rsAgain">Send a new link</button><button class="btn ghost" data-close>Close</button></div>`), ($("#rsAgain").onclick = () => forgotPassword("")); }
+  modal(`<h3>Set a new password</h3><p class="muted" style="margin:0">For <b>${esc(info.email)}</b>. Every other device signed in with this account signs in again with the new password.</p>
+    <form id="rsForm" style="background:none;border:0;padding:0"><input type="email" autocomplete="username" value="${esc(info.email)}" hidden>
+    <label>New password (8+ characters)<input id="rsPass" type="password" minlength="8" autocomplete="new-password" required></label>
+    <label>The same again<input id="rsPass2" type="password" minlength="8" autocomplete="new-password" required></label>
+    <button class="btn">Save the new password</button><div class="err" id="rsErr"></div></form>`);
+  $("#rsForm").onsubmit = async (e) => {
+    e.preventDefault();
+    if ($("#rsPass").value !== $("#rsPass2").value) { $("#rsErr").textContent = "The two passwords aren't the same."; return; }
+    try {
+      const r = await api("POST", "/password/reset", { token: tok, password: $("#rsPass").value });
+      setToken(r.token); await refreshMe(); closeModal(); toast("New password saved · you're signed in");
+      const back = sessionStorage.getItem("ma-after-reset"); sessionStorage.removeItem("ma-after-reset");
+      history.replaceState(null, "", back || "#account"); if (back) handleHash();
+    } catch (err) { $("#rsErr").textContent = err.message; }
+  };
+}
+
 // the link in an invite email: make the account (or sign in), then the app and the key
 async function showInvite(token) {
   let inv; try { inv = await api("GET", "/invite/" + encodeURIComponent(token)); } catch (e) { return modal(`<h3>Invite</h3><p class="err">${esc(e.message)}</p><button class="btn" data-close>OK</button>`); }
@@ -380,7 +421,8 @@ async function showInvite(token) {
   modal(`<h3>${esc(inv.church)}</h3><p class="muted" style="margin:0">${inv.section === "owner" ? "You're invited to be the main admin." : "You're invited to " + esc(inv.app) + (inv.role ? " as " + esc(inv.role) : "") + "."} Make your account${inv.used ? "" : " (or sign in if you have one)"}:</p>
     <form id="ivForm" style="background:none;border:0;padding:0"><label>Name<input id="ivName" value="${esc(inv.name || "")}"></label><label>Email<input id="ivEmail" type="email" value="${esc(inv.email)}"></label>
     <label>Password (8+ characters)<input id="ivPass" type="password" minlength="8" autocomplete="new-password"></label>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Make my account</button><button class="btn ghost" type="button" id="ivIn">I have an account: sign in</button></div><div class="err" id="ivErr"></div></form>`);
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Make my account</button><button class="btn ghost" type="button" id="ivIn">I have an account: sign in</button><button class="btn ghost small" type="button" id="ivForgot">Forgot password?</button></div><div class="err" id="ivErr"></div></form>`);
+  $("#ivForgot").onclick = () => forgotPassword($("#ivEmail").value, "#invite-" + token);
   $("#ivForm").onsubmit = async (e) => {
     e.preventDefault();
     try { const r = await api("POST", "/signup", { name: $("#ivName").value, email: $("#ivEmail").value, password: $("#ivPass").value, invite: token }); setToken(r.token); await refreshMe(); next({ church: r.church }); }
@@ -419,6 +461,7 @@ function renderAll() { renderSub(); renderPayout(); renderAccount(); loadTracks(
 async function handleHash() {
   const h = location.hash.slice(1);
   if (h.startsWith("invite-")) return showInvite(h.slice(7));
+  if (h.startsWith("reset-")) return showReset(h.slice(6));
   if (h.startsWith("order-done-")) {
     const session = h.slice(11); for (const k in cart) delete cart[k]; updateCartBtn();
     modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your order is confirmed. Getting your license keys…</p>`);

@@ -37,6 +37,20 @@ You need **3 accounts**. Do them in this order.
    apply to the `central-tracks` bucket → *Create*. Copy the **Access Key ID**, **Secret Access Key**, and the
    **endpoint** (`https://<account-id>.r2.cloudflarestorage.com`). The secret is shown once.
 
+## 2b. Resend — email (invites, reminders, Forgot password)
+
+Without it the website can't send email: Teams invites show a link to copy instead, and **Forgot password** and the
+reminders don't work.
+
+1. Go to **resend.com** → sign up (free up to 3,000 emails a month).
+2. *Domains* → **Add domain** → your web address (for example `motionaudio.com`) → add the DNS records it shows at
+   whoever sells you the domain, and wait for *Verified*.
+3. *API Keys* → **Create API key** (Sending access) → copy it (`re_…`).
+
+What it sends by itself, every hour (nothing to set up): a reminder to anyone added on a Teams page who hasn't made
+their account after 3 days, and again after 7; and Central Services' day-before email (from 9 a.m. in `TIME_ZONE`) to
+everyone serving tomorrow, and to anyone who hasn't answered yet.
+
 ## 3. Render — runs the website, the API and the database
 
 1. Go to **render.com** → *Get started* → **sign up with GitHub** (use the MotionAudio account) and let it see the
@@ -50,6 +64,8 @@ You need **3 accounts**. Do them in this order.
    | `STRIPE_SECRET_KEY` | from Stripe step 4 (asked twice: website and payout job) |
    | `STRIPE_WEBHOOK_SECRET` | type `later` for now |
    | `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | from Cloudflare step 5 (`R2_BUCKET` = `central-tracks`) |
+   | `RESEND_API_KEY` | from Resend step 3 |
+   | `MAIL_FROM` | `Motion Audio <team@your-domain.com>` (the domain you verified in Resend) |
 4. *Apply*. The first build takes a few minutes. Your site is then at `https://motion-audio.onrender.com`
    (Render shows the exact address).
 5. Cost: about $7/month for the website, $6–7 for the database, and about $1 for the payout job.

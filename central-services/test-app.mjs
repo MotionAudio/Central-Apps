@@ -12,13 +12,13 @@ if (!DB) { console.log("SKIP: set MA_DATABASE_URL (a Postgres for the website) t
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 6).join("\n      ")); } }
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// a stand-in for api.github.com: the official releases have Central Services 1.1.0
-const deb = Buffer.from("!<arch>\nfake central-services 1.1.0\n");
+// a stand-in for api.github.com: the official releases have Central Services 9.0.0
+const deb = Buffer.from("!<arch>\nfake central-services 9.0.0\n");
 const gh = http.createServer((req, res) => {
   const base = "http://127.0.0.1:" + gh.address().port, send = (b, type) => { res.writeHead(200, { "Content-Type": type || "application/json" }); res.end(b); };
   if (req.url === "/repos/MotionAudio/Central-Apps/releases/latest") return send(JSON.stringify({ tag_name: "v9.0.0", body: "Schedules", assets: [
-    { name: "central-services-1.1.0-amd64.deb", browser_download_url: base + "/dl/deb" }, { name: "central-services-1.1.0-x86_64.AppImage", browser_download_url: base + "/dl/ai" }, { name: "SHA256SUMS", browser_download_url: base + "/dl/sums" }] }));
-  if (req.url === "/dl/sums") return send(crypto.createHash("sha256").update(deb).digest("hex") + "  central-services-1.1.0-amd64.deb\n", "text/plain");
+    { name: "central-services-9.0.0-amd64.deb", browser_download_url: base + "/dl/deb" }, { name: "central-services-9.0.0-x86_64.AppImage", browser_download_url: base + "/dl/ai" }, { name: "SHA256SUMS", browser_download_url: base + "/dl/sums" }] }));
+  if (req.url === "/dl/sums") return send(crypto.createHash("sha256").update(deb).digest("hex") + "  central-services-9.0.0-amd64.deb\n", "text/plain");
   res.writeHead(404); res.end();
 });
 await new Promise((r) => gh.listen(0, "127.0.0.1", r));
@@ -52,7 +52,7 @@ await check("it opens on sign-in; with no website address yet it says where to p
   assert.match(await win.textContent("#root"), /App settings/);
 });
 await check("a new version found when it opens: a 10-second notice, then it would install by itself; Not now skips it", async () => {
-  await win.waitForFunction(() => document.getElementById("csUpd") && /Updating Central Services to 1\.1\.0 in \d+ s/.test(document.getElementById("csUpd").textContent), null, { timeout: 15000 });
+  await win.waitForFunction(() => document.getElementById("csUpd") && /Updating Central Services to 9\.0\.0 in \d+ s/.test(document.getElementById("csUpd").textContent), null, { timeout: 15000 });
   assert.match(await win.textContent("#csUpd"), /nothing is lost/);
   await win.click('#csUpd [data-a="upnot"]'); await wait(1500);
   assert.equal(await win.evaluate(() => !!document.getElementById("csUpd")), false);

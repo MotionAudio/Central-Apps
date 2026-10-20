@@ -84,20 +84,24 @@ function keyOut(l, devs, full, me) {
 
 // ---------------------------------------------------------------- invites (the Teams page)
 function inviteLink(token) { return config.publicUrl + "/#invite-" + token; }
-async function sendInvite(inv, church) {
-  const s = SECTION[inv.section], link = inviteLink(inv.token), owner = inv.section === "owner";
-  const key = inv.key ? pretty(inv.key) : "";
-  const subject = owner ? "You're the main admin of " + church.name + " - Motion Audio" : church.name + " added you to the team - " + s.app;
+// how: undefined (the first email, or Resend), "reminder" (nobody answered yet), "moved" (to another team: new app and key)
+async function sendInvite(inv, church, how) {
+  const s = SECTION[inv.section], link = inviteLink(inv.token), owner = inv.section === "owner", joined = !!inv.user_id;
+  const key = inv.key ? pretty(inv.key) : "", step1 = joined ? "Sign in with your account" : "Make your account";
+  const subject = (how === "reminder" ? "Reminder: " : "") + (owner ? "You're the main admin of " + church.name + " - Motion Audio"
+    : how === "moved" ? church.name + " moved you to " + s.app : church.name + " added you to the team - " + s.app);
+  const lead = how === "moved" ? church.name + " moved you to " + s.app + (inv.role_text ? " (" + inv.role_text + ")" : "") + ". Your old key no longer works; here's your new one."
+    : church.name + " added you" + (inv.role_text ? " as " + inv.role_text : "") + "." + (how === "reminder" ? " Your key is waiting for you." : "");
   const text = (inv.name ? "Hi " + inv.name + ",\n\n" : "Hi,\n\n") + (owner
-    ? church.name + " made you its main admin on Motion Audio.\n\n1. Make your account (or sign in): " + link + "\n"
-    : church.name + " added you" + (inv.role_text ? " as " + inv.role_text : "") + ".\n\n1. Make your account: " + link + "\n2. Download " + s.app + ": " + APPS_URL + "#" + s.anchor +
+    ? church.name + " made you its main admin on Motion Audio." + (how === "reminder" ? " The invite is still waiting." : "") + "\n\n1. Make your account (or sign in): " + link + "\n"
+    : lead + "\n\n1. " + step1 + ": " + link + "\n2. Download " + s.app + ": " + APPS_URL + "#" + s.anchor +
       "\n3. Open it, connect to Wi-Fi, and enter your key: " + key + "\n" + (inv.section === "user" || inv.section === "pedal" ? "\nYour key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.\n" : "")) +
     (church.has_services ? "\nYour church's schedule is in Central Services: " + APPS_URL + "#central-services - sign in with the same account.\n" : "") +
     "\nMotion Audio\n";
   const html = '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px">' + (inv.name ? "<p>Hi " + escHtml(inv.name) + ",</p>" : "<p>Hi,</p>") + (owner
-    ? "<p><b>" + escHtml(church.name) + "</b> made you its main admin on Motion Audio.</p><p><a href=\"" + escHtml(link) + "\" style=\"display:inline-block;background:#d97706;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none\">Make your account</a></p>"
-    : "<p><b>" + escHtml(church.name) + "</b> added you" + (inv.role_text ? " as <b>" + escHtml(inv.role_text) + "</b>" : "") + ".</p><ol>" +
-      "<li><a href=\"" + escHtml(link) + "\">Make your account</a></li><li><a href=\"" + APPS_URL + "#" + s.anchor + "\">Download " + escHtml(s.app) + "</a></li>" +
+    ? "<p><b>" + escHtml(church.name) + "</b> made you its main admin on Motion Audio." + (how === "reminder" ? " The invite is still waiting." : "") + "</p><p><a href=\"" + escHtml(link) + "\" style=\"display:inline-block;background:#d97706;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none\">Make your account</a></p>"
+    : "<p>" + escHtml(lead) + "</p><ol>" +
+      "<li><a href=\"" + escHtml(link) + "\">" + step1 + "</a></li><li><a href=\"" + APPS_URL + "#" + s.anchor + "\">Download " + escHtml(s.app) + "</a></li>" +
       "<li>Open it, connect to Wi-Fi, and enter your key:<br><code style=\"font:600 18px ui-monospace,monospace;letter-spacing:.05em\">" + escHtml(key) + "</code></li></ol>" +
       (inv.section !== "admin" ? "<p style=\"color:#555\">Your key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.</p>" : "")) +
     (church.has_services ? "<p>Your church's schedule is in <a href=\"" + APPS_URL + "#central-services\">Central Services</a> - sign in with the same account.</p>" : "") + "<p>Motion Audio</p></div>";
@@ -127,6 +131,25 @@ export async function acceptInvite(user, token) {
   await q("UPDATE invites SET user_id=$1 WHERE id=$2", [user.id, inv.id]);
   const c = await churchOf(user.id);
   return { church: c.name, role: c.role, key: inv.key ? pretty(inv.key) : null, app: SECTION[inv.section] ? SECTION[inv.section].app : null };
+}
+
+// Teams invites nobody answered (no account yet): a reminder 3 days after it was sent, another after 7, then no more.
+// Moving someone to another team starts the count again.
+export async function remindInvites() {
+  const due = await q(`SELECT i.* FROM invites i WHERE i.user_id IS NULL AND i.sent_ok AND (
+      (i.reminders = 0 AND COALESCE(i.sent_at, i.created_at) < now() - interval '3 days') OR
+      (i.reminders = 1 AND i.reminded_at < now() - interval '4 days'))
+    AND NOT EXISTS (SELECT 1 FROM users u WHERE u.email = i.email AND EXISTS (SELECT 1 FROM church_members m WHERE m.user_id=u.id AND m.church_id=i.church_id))
+    ORDER BY i.id LIMIT 500`);
+  let n = 0;
+  for (const inv of due) {
+    const c = await one("SELECT * FROM churches WHERE id=$1", [inv.church_id]);
+    const claimed = await one("UPDATE invites SET reminders=reminders+1, reminded_at=now() WHERE id=$1 AND reminders=$2 RETURNING id", [inv.id, inv.reminders]);   // (once, even if two run)
+    if (!claimed || !c) continue;
+    const r = await sendInvite(inv, c, "reminder");
+    if (r.sent) n++;
+  }
+  return n;
 }
 
 export function routes(api, { wrap, brake, requireUser }) {
@@ -302,7 +325,7 @@ export function routes(api, { wrap, brake, requireUser }) {
       FROM invites i LEFT JOIN users u ON u.id=i.user_id WHERE i.church_id=$1 ORDER BY i.section, i.created_at`, [c.id]);
     const out = { admin: [], user: [], pedal: [], owner: [] };
     for (const i of inv) out[i.section].push({ id: String(i.id), name: i.name, email: i.email, role: i.role_text, key: i.key ? pretty(i.key) : null,
-      status: i.devices ? "set up" : i.user_id ? "joined" : "invited", devices: i.devices, sent: i.sent_ok, sentAt: i.sent_at, link: inviteLink(i.token) });
+      status: i.devices ? "set up" : i.user_id ? "joined" : "invited", devices: i.devices, reminders: i.reminders, sent: i.sent_ok, sentAt: i.sent_at, link: inviteLink(i.token) });
     const counts = {};
     for (const s of ["admin", "user", "pedal"]) { const k = SECTION[s].kind; counts[s] = (await one("SELECT COUNT(*)::int AS n FROM licenses WHERE church_id=$1 AND kind=$2 AND NOT revoked AND user_id IS NULL AND assigned_email IS NULL AND NOT EXISTS (SELECT 1 FROM license_devices d WHERE d.key=licenses.key)", [c.id, k])).n; }
     res.json({ sections: out, free: counts, mail: mailOn });
@@ -349,6 +372,38 @@ export function routes(api, { wrap, brake, requireUser }) {
       if (!still) await q("DELETE FROM church_members WHERE church_id=$1 AND user_id=$2 AND role<>'owner'", [c.id, inv.user_id]);
     }
     res.json({ ok: true });
+  }));
+
+  // move someone to another team (Admins, Users, Pedal Control): they keep their place in the church; their old key is
+  // free again, they get a key of the new kind and an email with the new app and key; their church role follows
+  // (Admins: admin; Users / Pedal Control: user - never the main admin's)
+  api.post("/church/team/move", requireUser, wrap(async (req, res) => {
+    const c = await staffChurch(req), to = String(req.body.section || "");
+    const inv = await one("SELECT * FROM invites WHERE id=$1 AND church_id=$2", [Number(req.body.id) || 0, c.id]);
+    if (!inv || inv.section === "owner") throw bad("Not on your team.", 404);
+    if (!SECTION[to]) throw bad("Admins, Users or Pedal Control.");
+    if (to === inv.section) throw bad("They're already on that team.");
+    if (await one("SELECT 1 FROM invites WHERE church_id=$1 AND section=$2 AND email=$3", [c.id, to, inv.email])) throw bad((inv.name || inv.email) + " is already on that team. Remove them from this one instead.", 409);
+    const client = await pool.connect(); let moved;
+    try {
+      await client.query("BEGIN");
+      const k = (await client.query(`SELECT key FROM licenses WHERE church_id=$1 AND kind=$2 AND NOT revoked AND user_id IS NULL AND assigned_email IS NULL
+        AND NOT EXISTS (SELECT 1 FROM license_devices d WHERE d.key=licenses.key) ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`, [c.id, SECTION[to].kind])).rows[0];
+      if (!k) { await client.query("ROLLBACK"); throw bad("No " + SECTION[to].kind + " keys left for " + SECTION[to].app + ". Buy more in the store, then move them.", 409); }
+      await client.query("UPDATE licenses SET assigned_email=$1, assigned_name=$2, user_id=$3 WHERE key=$4", [inv.email, inv.name, inv.user_id, k.key]);
+      if (inv.key) {   // (the old key: off its devices, nobody's)
+        await client.query("DELETE FROM license_devices WHERE key=$1", [inv.key]);
+        await client.query("UPDATE licenses SET user_id=NULL, assigned_email=NULL, assigned_name=NULL WHERE key=$1", [inv.key]);
+      }
+      moved = (await client.query("UPDATE invites SET section=$1, key=$2, reminders=0, reminded_at=NULL WHERE id=$3 RETURNING *", [to, k.key, inv.id])).rows[0];
+      if (inv.user_id) {
+        const admin = to === "admin" || !!(await client.query("SELECT 1 FROM invites WHERE church_id=$1 AND user_id=$2 AND section='admin' AND id<>$3", [c.id, inv.user_id, inv.id])).rows[0];
+        await client.query("UPDATE church_members SET role=$1 WHERE church_id=$2 AND user_id=$3 AND role<>'owner'", [admin ? "admin" : "user", c.id, inv.user_id]);
+      }
+      await client.query("COMMIT");
+    } catch (e) { try { await client.query("ROLLBACK"); } catch (_) { } throw e; } finally { client.release(); }
+    const r = await sendInvite(moved, c, "moved");
+    res.json({ ok: true, sent: r.sent, why: r.why, key: pretty(moved.key), app: SECTION[to].app, link: inviteLink(moved.token) });
   }));
 
   // ---- settings that follow the account (both devices of a key share them)

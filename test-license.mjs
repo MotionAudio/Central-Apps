@@ -132,6 +132,10 @@ await check("Central Control: an A key; Central Usage: a U key and the user's ow
   assert.match(await c1.evaluate(() => document.querySelector("#licWiz .bad").textContent), /starts with A/);
   await c1.fill("#lwKey", A1); await c1.click('#licWiz [data-lw="key"]');
   await c1.waitForFunction(() => document.getElementById("lwEmail") && /admins can share one/.test(document.getElementById("licWiz").textContent));
+  // Forgot password? asks the website for a link (this test's website has no email set up, so it says so)
+  await c1.click('#licWiz [data-lw="forgot"]'); assert.match(await c1.evaluate(() => document.querySelector("#licWiz .bad").textContent), /email first/);
+  await c1.fill("#lwEmail", "lead" + stamp + "@grace.test"); await c1.click('#licWiz [data-lw="forgot"]');
+  await c1.waitForFunction(() => /can't send email/.test(document.getElementById("licWiz").textContent));
   await c1.fill("#lwEmail", "lead" + stamp + "@grace.test"); await c1.fill("#lwPass", "password123"); await c1.click('#licWiz [data-lw="acct"]');
   await c1.waitForFunction(() => !document.getElementById("licWiz") && PPLicense.licensed());
   await c1.close();

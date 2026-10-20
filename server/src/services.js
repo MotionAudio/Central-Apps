@@ -180,3 +180,30 @@ export function routes(api, { wrap, requireUser }) {
     res.json({ ok: true });
   }));
 }
+
+// The day before a service (from 9 in the morning, in TIME_ZONE), or when it's less than 18 hours away: everyone who
+// accepted gets "you're serving tomorrow", and anyone who hasn't answered gets "please answer". Once per request; not
+// for someone asked in the last hour (they just got the ask), nor once the service has started.
+export async function remindServices() {
+  const tz = config.timeZone || "America/Chicago";
+  const due = await q(`SELECT r.*, s.title, s.starts_at, s.notes, s.church_id, c.name AS church, t.name AS team
+    FROM service_requests r JOIN services s ON s.id=r.service_id JOIN churches c ON c.id=s.church_id JOIN service_teams t ON t.id=r.team_id
+    WHERE r.reminded_at IS NULL AND r.status IN ('accepted','pending') AND r.asked_at < now() - interval '1 hour' AND s.starts_at > now() AND c.has_services AND (
+      ((s.starts_at AT TIME ZONE $1)::date = (now() AT TIME ZONE $1)::date + 1 AND extract(hour FROM now() AT TIME ZONE $1) >= 9)
+      OR s.starts_at < now() + interval '18 hours')
+    ORDER BY s.starts_at, r.id LIMIT 1000`, [tz]);
+  let n = 0;
+  for (const r of due) {
+    const claimed = await one("UPDATE service_requests SET reminded_at=now() WHERE id=$1 AND reminded_at IS NULL RETURNING id", [r.id]);   // (once, even if two run)
+    if (!claimed) continue;
+    const yes = r.status === "accepted", link = config.publicUrl + "/#services", w = when(r.starts_at);
+    const subject = yes ? "Reminder: you're serving at " + r.title + " - " + w : "Please answer: " + r.title + " - " + w;
+    const line = yes ? "You're serving" + (r.role ? " as " + r.role : "") + " (" + r.team + ") at " + r.title + ", " + w + "."
+      : "You're asked to serve" + (r.role ? " as " + r.role : "") + " (" + r.team + ") at " + r.title + ", " + w + ", and you haven't answered yet. Accept or decline so the team knows.";
+    const m = await sendMail(r.email, subject, (r.name ? "Hi " + r.name + ",\n\n" : "Hi,\n\n") + line + (r.notes ? "\n\nNotes: " + r.notes : "") + "\n\nCentral Services, or here: " + link + "\n\n" + r.church + "\n",
+      '<div style="font:15px/1.5 system-ui,sans-serif;max-width:520px"><p>' + (r.name ? "Hi " + escHtml(r.name) + "," : "Hi,") + "</p><p>" + escHtml(line) + "</p>" + (r.notes ? '<p style="color:#555">Notes: ' + escHtml(r.notes) + "</p>" : "") +
+        "<p>See the schedule in <b>Central Services</b>, or <a href=\"" + escHtml(link) + "\">on the website</a>.</p><p>" + escHtml(r.church) + "</p></div>");
+    if (m.sent) n++;
+  }
+  return n;
+}

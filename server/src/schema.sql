@@ -228,3 +228,21 @@ CREATE TABLE IF NOT EXISTS service_requests (   -- someone asked to serve: they 
   responded_at TIMESTAMPTZ,
   UNIQUE (service_id, team_id, email)
 );
+
+-- ---------------------------------------------------------------- forgot password, reminders, moving people (8.12)
+-- a reset link (only its hash is kept); it works once, for an hour
+CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash  TEXT PRIMARY KEY,
+  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used        BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS password_resets_user ON password_resets (user_id, created_at);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pw_changed_at TIMESTAMPTZ;   -- sign-ins from before a new password stop working
+-- invites nobody answered: a reminder after 3 days, another after 7, then no more
+ALTER TABLE invites ADD COLUMN IF NOT EXISTS reminders SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE invites ADD COLUMN IF NOT EXISTS reminded_at TIMESTAMPTZ;
+-- Central Services: the day-before reminder (accepted: "you're serving tomorrow"; not answered yet: "please answer")
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS asked_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS reminded_at TIMESTAMPTZ;

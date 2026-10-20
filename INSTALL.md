@@ -172,6 +172,8 @@ Download the `.AppImage` from the Releases page instead of the `.deb`, then righ
    same account, with the settings shared between them.
 5. **Central Services** (the schedule): sign in with the same account. Admins open on the whole schedule, users on
    their own requests.
+6. **Later:** people who haven't made their account get a reminder after 3 and 7 days. **Move to…** puts someone on
+   another team (they get the new app's key by email). Forgot your password? Every sign-in has **Forgot password?**
 
 ## Setting up a team (8.3)
 

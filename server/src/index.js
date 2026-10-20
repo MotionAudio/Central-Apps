@@ -12,6 +12,7 @@ import { gradeAudio } from "./grade.js";
 import * as pay from "./payments.js";
 import * as lic from "./licenses.js";
 import * as svc from "./services.js";
+import * as acct from "./account.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -61,6 +62,7 @@ function bad(msg, status = 400) { const e = new Error(msg); e.status = status; r
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 lic.routes(api, { wrap, brake, requireUser });
 svc.routes(api, { wrap, requireUser });
+acct.routes(api, { wrap, brake });
 
 api.post("/signup", wrap(async (req, res) => {
   brake(req);
@@ -227,4 +229,5 @@ if (process.env.NODE_ENV === "production") {
   if (!store.usingR2) console.warn("WARNING: R2 storage isn't set, so uploads go to the server's disk and are lost on every deploy. Set the R2_* variables.");
 }
 await migrate();
+if (process.env.REMINDERS !== "off") acct.startReminders();   // (every hour: invites nobody answered, the day before a service)
 app.listen(config.port, () => console.log("Motion Audio server on " + config.publicUrl + " (storage: " + (store.usingR2 ? "R2" : "local folder") + ", payments: " + (pay.stripe ? "on" : "off") + ")"));

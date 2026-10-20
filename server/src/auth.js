@@ -14,25 +14,28 @@ export function checkPassword(pw, stored) {
   const key = crypto.scryptSync(pw, Buffer.from(saltHex, "hex"), 64);
   return crypto.timingSafeEqual(key, Buffer.from(keyHex, "hex"));
 }
+const TOKEN_DAYS = 30;
 function sign(s) { return crypto.createHmac("sha256", config.tokenSecret).update(s).digest("base64url"); }
 export function makeToken(userId) {
-  const body = userId + "." + (Date.now() + 30 * 864e5);
+  const body = userId + "." + (Date.now() + TOKEN_DAYS * 864e5);
   return body + "." + sign(body);
 }
-export function readToken(tok) {
+function readTokenFull(tok) {
   const parts = String(tok || "").split(".");
   if (parts.length !== 3) return null;
   const body = parts[0] + "." + parts[1], sig = Buffer.from(parts[2]), want = Buffer.from(sign(body));
   if (sig.length !== want.length || !crypto.timingSafeEqual(sig, want)) return null;
   if (Number(parts[1]) < Date.now()) return null;
-  return Number(parts[0]);
+  return { id: Number(parts[0]), issued: Number(parts[1]) - TOKEN_DAYS * 864e5 };
 }
+export function readToken(tok) { const t = readTokenFull(tok); return t ? t.id : null; }
 
-// Express middleware: req.user when signed in
+// Express middleware: req.user when signed in (a sign-in from before the password was changed doesn't count)
 export async function attachUser(req, _res, next) {
   const h = req.headers.authorization || "";
-  const id = h.startsWith("Bearer ") ? readToken(h.slice(7)) : null;
-  req.user = id ? await one("SELECT * FROM users WHERE id=$1", [id]) : null;
+  const t = h.startsWith("Bearer ") ? readTokenFull(h.slice(7)) : null;
+  const u = t ? await one("SELECT * FROM users WHERE id=$1", [t.id]) : null;
+  req.user = u && !(u.pw_changed_at && t.issued < new Date(u.pw_changed_at).getTime()) ? u : null;
   next();
 }
 export function requireUser(req, res, next) {

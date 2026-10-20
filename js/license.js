@@ -119,7 +119,7 @@
         '<div class="tabs"><button data-lw="in" class="' + (su ? "" : "on") + '">Sign in</button><button data-lw="up" class="' + (su ? "on" : "") + '">Make an account</button></div>' +
         (su ? '<label>Name<input id="lwName" autocomplete="name"></label>' : "") +
         '<label>Email<input id="lwEmail" type="email" autocomplete="username" value="' + esc(ui.email || "") + '"></label><label>Password' + (su ? " (8+ characters)" : "") + '<input id="lwPass" type="password" autocomplete="' + (su ? "new-password" : "current-password") + '"></label>';
-      btns = '<button class="primary" data-lw="acct"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "One moment…" : su ? "Make account" : "Sign in") + "</button>";
+      btns = (su ? "" : '<button data-lw="forgot"' + (ui.busy ? " disabled" : "") + ">Forgot password?</button>") + '<button class="primary" data-lw="acct"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "One moment…" : su ? "Make account" : "Sign in") + "</button>";
     }
     return '<div class="lw">' + head + body + (ui.msg ? '<p class="' + (/^✓/.test(ui.msg) ? "ok" : "bad") + '">' + esc(ui.msg) + "</p>" : "") + '<div class="row">' + btns + "</div></div>";
   }
@@ -177,6 +177,15 @@
       ui.busy = false; finish();
     } catch (e) { ui.busy = false; ui.msg = e.message; draw(); }
   }
+  // Forgot password: the website emails a link to set a new one (on any phone or computer); then sign in here with it
+  async function forgot() {
+    var email = ((document.getElementById("lwEmail") || {}).value || "").trim(); ui.email = email;
+    if (!email) { ui.msg = "Type your account's email first, then press Forgot password?"; return draw(); }
+    ui.busy = true; ui.msg = ""; draw();
+    try { var r = await call("/password/forgot", { email: email }); ui.msg = "✓ " + (r.message || "Check your email.") + " Open the link, set the new password, then sign in here with it."; }
+    catch (e) { ui.msg = e.name === "AbortError" ? "The website didn't answer. Check the internet and try again." : e.message; }
+    ui.busy = false; draw();
+  }
   function shareToken(token) {   // the same account signs in to Central Tracks in Central Pedal / Central Pedal Control
     if (app !== "pedal" && app !== "pedal-control") return;
     try { var c = JSON.parse(localStorage.getItem("central-tracks") || "{}"); if (!c.server) c.server = base(); if (c.server === base()) c.token = token; localStorage.setItem("central-tracks", JSON.stringify(c)); } catch (_) { }
@@ -192,6 +201,7 @@
       else if (a === "key") useKey();
       else if (a === "in" || a === "up") { ui.signup = a === "up"; ui.msg = ""; draw(); }
       else if (a === "acct") account();
+      else if (a === "forgot") forgot();
     });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter") { var b = el.querySelector("button.primary"); if (b && !b.disabled) { e.preventDefault(); b.click(); } } });
     el.addEventListener("input", function (e) { if (e.target.id === "lwKey") { var p0 = e.target.selectionStart, before = e.target.value; e.target.value = pretty(before); if (p0 === before.length) e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } });

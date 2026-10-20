@@ -46,9 +46,10 @@
     var su = st.signup;
     return '<div class="center card"><h2>Central Services</h2><p class="muted" style="margin:0">Sign in with your Motion Audio account (the one from your church\'s invite).</p>' +
       (su ? '<label>Name<input id="sName" autocomplete="name"></label>' : "") +
-      '<label>Email<input id="sEmail" type="email" autocomplete="username"></label><label>Password' + (su ? " (8+ characters)" : "") + '<input id="sPass" type="password" autocomplete="' + (su ? "new-password" : "current-password") + '"></label>' +
+      '<label>Email<input id="sEmail" type="email" autocomplete="username" value="' + esc(st.email || "") + '"></label><label>Password' + (su ? " (8+ characters)" : "") + '<input id="sPass" type="password" autocomplete="' + (su ? "new-password" : "current-password") + '"></label>' +
       (su ? '<label>Church code (from your main admin - optional if they added you)<input id="sCode"></label>' : "") +
-      '<div class="row"><button class="primary" data-a="' + (su ? "signup" : "login") + '">' + (su ? "Make my account" : "Sign in") + '</button><button data-a="toggle">' + (su ? "I have an account" : "Make an account") + "</button></div>" +
+      '<div class="row"><button class="primary" data-a="' + (su ? "signup" : "login") + '">' + (su ? "Make my account" : "Sign in") + '</button><button data-a="toggle">' + (su ? "I have an account" : "Make an account") + "</button>" + (su ? "" : '<button class="small" data-a="forgot">Forgot password?</button>') + "</div>" +
+      (st.note ? '<div class="okmsg">' + esc(st.note) + "</div>" : "") +
       (st.err ? '<div class="err">' + esc(st.err) + "</div>" : "") + (APP ? '<button class="small" data-tab="app">⚙ App settings</button>' + (st.tab === "app" ? appSettings() : "") : "") + "</div>";
   }
   // ⚙ App (the apps only): the website's address, and on a computer the updates
@@ -159,10 +160,17 @@
     if (d.a === "login" || d.a === "signup") {
       var body = { email: ($("#sEmail") || {}).value, password: ($("#sPass") || {}).value };
       if (d.a === "signup") { body.name = ($("#sName") || {}).value; if (($("#sCode") || {}).value) { body.churchCode = $("#sCode").value; body.churchRole = "user"; } }
-      api("POST", d.a === "signup" ? "/signup" : "/login", body).then(function (r) { setToken(r.token); st.err = r.churchError || ""; load(); }).catch(function (er) { st.err = er.message; draw(); });
+      api("POST", d.a === "signup" ? "/signup" : "/login", body).then(function (r) { setToken(r.token); st.err = r.churchError || ""; st.note = ""; load(); }).catch(function (er) { st.err = er.message; draw(); });
       return;
     }
-    if (d.a === "toggle") { st.signup = !st.signup; st.err = ""; draw(); return; }
+    if (d.a === "toggle") { st.signup = !st.signup; st.err = ""; st.note = ""; draw(); return; }
+    if (d.a === "forgot") {   // the website emails a link to set a new password; then sign in here with it
+      var em = (($("#sEmail") || {}).value || "").trim(); st.email = em;
+      if (!em) { st.err = "Type your account's email first, then press Forgot password?"; st.note = ""; draw(); return; }
+      api("POST", "/password/forgot", { email: em }).then(function (r) { st.err = ""; st.note = (r.message || "Check your email.") + " Set the new password with the link, then sign in here."; draw(); })
+        .catch(function (er) { st.note = ""; st.err = er.message; draw(); });
+      return;
+    }
     if (d.a === "logout") { setToken(null); st.me = null; st.board = null; st.tab = "mine"; st.landed = false; st.msg = ""; st.err = ""; st.editTeam = null; st.form = null; draw(); return; }
     if (d.a === "refresh") { load(); return; }
     if (d.a === "saveapp") {

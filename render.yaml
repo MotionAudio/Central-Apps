@@ -31,6 +31,8 @@ services:
         sync: false
       - key: MAIL_FROM           # e.g. Motion Audio <team@your-domain.com> (a domain verified in Resend)
         sync: false
+      - key: TIME_ZONE           # the schedule emails' time zone (Central Services reminders: from 9 a.m. the day before)
+        value: America/Chicago
   - type: cron
     name: motion-audio-payouts
     runtime: docker

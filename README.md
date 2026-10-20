@@ -181,7 +181,12 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (8.11 and earlier)</summary>
+<summary><b>What's new in each version</b> (8.12 and earlier)</summary>
+
+**New in version 8.12:**
+- **Forgot password** on the website, in every app's sign-in and in Central Services (an emailed link, once, for an hour).
+- **Invite reminders** after 3 and 7 days; **Move to…** another team (new key and app by email, old key freed).
+- **Central Services** emails everyone serving the day before, and nudges anyone who hasn't answered.
 
 **New in version 8.11:**
 - **Teams:** the main admin adds Admins, Users and Pedal Control people (name, email, role); each gets an email with
