@@ -96,8 +96,11 @@ await check("the main admin's computer is the center: it starts when this comput
   assert.ok(wins.some((u) => /127\.0\.0\.1:8766\/app\//.test(u)), "the player window is open: " + wins.join(", "));
   await win.waitForFunction(() => CentralUsage.state.connected, null, { timeout: 15000 });   // and this computer follows it (songs, charts, lyrics)
   await win.evaluate(() => CU.player.stop());
-  const off = await win.evaluate(async () => { await CentralUsage.setRole("user1"); await new Promise((r) => setTimeout(r, 400)); return CU.center.status(); });
+  const off = await win.evaluate(async () => { await CentralUsage.setRole("admin"); await new Promise((r) => setTimeout(r, 400)); return CU.center.status(); });
   assert.equal(off.on, false);
+  // two apps: Central Control is for the main admin and admins; User 1 / User 2 are Central Usage's
+  const still = await win.evaluate(async () => { await CentralUsage.setRole("user1"); return (await CU.config.get()).role; }).catch(() => null);
+  assert.notEqual(still, "user1", "Central Control refuses User 1");
   await assert.rejects(() => fetch("http://127.0.0.1:18095/api/center"));
 });
 await app.close(); gh.close();
