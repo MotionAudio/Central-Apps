@@ -1,7 +1,7 @@
 {
   "name": "central-pedal-control",
   "productName": "Central Pedal Control",
-  "version": "9.2.1",
+  "version": "9.2.2",
   "description": "Central Pedal Control: the Central Pedal app on your computer, tablet or phone - set up songs, tracks, pads, controls and the instrument, then upload them to the Central Pedal.",
   "homepage": "https://motionaudio.github.io/Central-Apps/",
   "main": "main.js",
@@ -99,12 +99,13 @@
         "AppImage"
       ],
       "category": "AudioVideo",
-      "icon": "build/icon.png",
+      "icon": "build/icons",
       "synopsis": "Get your Central Pedal ready anywhere, then upload it",
       "desktop": {
         "Name": "Central Pedal Control",
         "Comment": "Set up songs, tracks, pads and controls, then upload them to the Central Pedal",
-        "Categories": "AudioVideo;Audio;Music;"
+        "Categories": "AudioVideo;Audio;Music;",
+        "StartupWMClass": "Central Pedal Control"
       },
       "maintainer": "Central Control <central-control@localhost>",
       "artifactName": "central-pedal-control-${version}-${arch}.${ext}",

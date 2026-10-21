@@ -76,6 +76,7 @@ Type=Application
 Name=$NAME
 Exec="$DIR/$ICON.AppImage" %U
 Icon=$ICON
+StartupWMClass=$NAME
 Categories=AudioVideo;Audio;Music;
 Terminal=false
 EOF

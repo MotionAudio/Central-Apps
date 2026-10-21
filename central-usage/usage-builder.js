@@ -22,8 +22,8 @@ b.win.artifactName = FILE + "-${version}-win-x64.${ext}";
 b.nsis = Object.assign({}, b.nsis, { artifactName: FILE + "-${version}-win-x64.${ext}", shortcutName: NAME, uninstallDisplayName: NAME });
 // Linux: its own package (centralusage), so it installs next to Central Control's (central-usage) without replacing it
 b.linux = Object.assign({}, b.linux, { artifactName: FILE + "-${version}-${arch}.${ext}", executableName: "centralusage", synopsis: "The chord chart, your instrument, the lyrics and your in-ear mix",
-  desktop: { Name: NAME, Comment: "The chord chart, your instrument, the lyrics and your in-ear mix - for the band", Categories: "AudioVideo;Audio;Music;" } });
-b.deb = Object.assign({}, b.deb, { afterInstall: "build/after-install-usage.sh", afterRemove: "build/after-remove-usage.sh" });
-b.mac.icon = b.win.icon = "build/icon-usage.png"; b.linux.icon = "build/icon-usage.png";   // (Central Usage's own icon: CU)
+  desktop: { Name: NAME, Comment: "The chord chart, your instrument, the lyrics and your in-ear mix - for the band", Categories: "AudioVideo;Audio;Music;", StartupWMClass: NAME } });   // (its windows are "Central Usage": the dock matches them to this entry)
+b.deb = Object.assign({}, b.deb, { afterInstall: "build/after-install-usage.sh", afterRemove: "build/after-remove-usage.sh", fpm: [] });   // (only Central Control replaces the retired central-control package)
+b.mac.icon = b.win.icon = "build/icon-usage.png"; b.linux.icon = "build/icons/usage";   // (Central Usage's own icon: CU; Linux gets every size, tools/make-linux-icons.py)
 if (process.argv.includes("--linux")) b.extraMetadata.name = "centralusage";   // (the .deb package name; Mac / Windows installs keep theirs)
 module.exports = b;

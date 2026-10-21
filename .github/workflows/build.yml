@@ -112,6 +112,8 @@ jobs:
           ls -la central-usage/dist/ | grep -E "deb|AppImage"
           [ "$(dpkg-deb -f central-usage/dist/CentralControl-*-amd64.deb Package)" = central-usage ] || { echo "::error::Central Control's .deb must stay the package central-usage (so it replaces the copies from before 9.2.1)"; exit 1; }
           dpkg-deb -c central-usage/dist/CentralControl-*-amd64.deb | grep -q "./opt/Central Control/central-usage" || { echo "::error::Central Control should install in /opt/Central Control"; exit 1; }
+          dpkg-deb -f central-usage/dist/CentralControl-*-amd64.deb Conflicts Replaces | grep -c "central-control" | grep -qx 2 || { echo "::error::Central Control must replace the retired central-control package (it used /opt/Central Control too)"; exit 1; }
+          bash tools/check-linux-deb.sh central-usage/dist/CentralControl-*-amd64.deb "Central Control"
       - name: Central Usage (Linux)
         working-directory: central-usage
         run: |
@@ -120,6 +122,8 @@ jobs:
           test -x dist/linux-unpacked/centralusage || { echo "::error::no centralusage program"; exit 1; }
           if [ -e dist/linux-unpacked/resources/player ]; then echo "::error::Central Usage must not carry the player window"; exit 1; fi
           [ "$(dpkg-deb -f dist/CentralUsage-*-amd64.deb Package)" = centralusage ] || { echo "::error::Central Usage's .deb must be its own package (centralusage)"; exit 1; }
+          [ -z "$(dpkg-deb -f dist/CentralUsage-*-amd64.deb Conflicts)" ] || { echo "::error::Central Usage must not remove other packages"; exit 1; }
+          bash ../tools/check-linux-deb.sh dist/CentralUsage-*-amd64.deb "Central Usage"
           echo "Central Usage: no player window, its own package (installs next to Central Control)"
           ls -la dist/ | grep -E "deb|AppImage"
       - name: Central Pedal Control (Linux)
@@ -131,6 +135,7 @@ jobs:
           test -f dist/linux-unpacked/resources/app/js/transfer.js || { echo "::error::the app is missing"; exit 1; }
           dist/linux-unpacked/resources/driver/pedal-driver/pedal-driver --help > /dev/null || { echo "::error::the bundled driver doesn't run"; exit 1; }
           [ "$(dpkg-deb -f dist/central-pedal-control-*-amd64.deb Package)" = central-pedal-control ] || { echo "::error::wrong .deb package name"; exit 1; }
+          bash ../tools/check-linux-deb.sh dist/central-pedal-control-*-amd64.deb "Central Pedal Control"
           echo "Central Pedal Control: app + driver"
           ls -la dist/ | grep -E "deb|AppImage"
       - name: Central Services (Linux)
@@ -141,6 +146,7 @@ jobs:
           bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder --linux deb AppImage --x64 --publish never
           test -f dist/linux-unpacked/resources/app/services.js || { echo "::error::the Central Services page is missing"; exit 1; }
           [ "$(dpkg-deb -f dist/central-services-*-amd64.deb Package)" = central-services ] || { echo "::error::wrong .deb package name"; exit 1; }
+          bash ../tools/check-linux-deb.sh dist/central-services-*-amd64.deb "Central Services"
           ls -la dist/ | grep -E "deb|AppImage"
       - uses: actions/upload-artifact@v4
         with:

@@ -1,7 +1,7 @@
 {
   "name": "central-services",
   "productName": "Central Services",
-  "version": "9.2.1",
+  "version": "9.2.2",
   "description": "Central Services: your church's schedule - worship and production teams, who is asked, who said yes or no.",
   "homepage": "https://motionaudio.github.io/Central-Apps/",
   "main": "main.js",
@@ -90,12 +90,13 @@
         "AppImage"
       ],
       "category": "Office",
-      "icon": "build/icon.png",
+      "icon": "build/icons",
       "synopsis": "Your church's service schedule",
       "desktop": {
         "Name": "Central Services",
         "Comment": "Your church's schedule: teams, requests, yes or no",
-        "Categories": "Office;Calendar;"
+        "Categories": "Office;Calendar;",
+        "StartupWMClass": "Central Services"
       },
       "maintainer": "Central Control <central-control@localhost>",
       "artifactName": "central-services-${version}-${arch}.${ext}",

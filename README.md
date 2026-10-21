@@ -193,7 +193,9 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.2.1 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.2.2 and earlier)</summary>
+
+**New in version 9.2.2:** On Linux, every app shows its logo in the app menu and the dock, and Central Control installs over the retired Central Pedal desktop app (the old central-control package) instead of stopping.
 
 **New in version 9.2.1:** Central Control is called Central Control everywhere (its files, the Mac app, the Linux folder; old copies keep updating), Central Control is admins only and Central Usage musicians only, and a one-line install on Linux.
 
