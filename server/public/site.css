@@ -55,7 +55,7 @@ nav a{text-decoration:none;color:var(--ink-2);padding:.3rem 0;border-bottom:1px 
 nav a:hover{color:var(--ink);border-bottom-color:var(--ink)}
 .cartbtn .count{display:inline-grid;place-items:center;min-width:1.45rem;height:1.45rem;padding:0 .35rem;border-radius:99px;background:var(--ink);color:#fff;font-size:.78rem;font-variant-numeric:tabular-nums}
 .cartbtn.has .count{background:var(--brass);}
-@media (max-width:760px){header.top .wrap{padding-block:.6rem;gap:.5rem}nav{margin-left:0;width:100%;justify-content:space-between;gap:.2rem .9rem;font-size:.9rem}}
+@media (max-width:760px){header.top .wrap{position:relative;padding-block:.55rem 0;gap:.2rem;min-height:0}.logo{min-height:44px}nav{margin:0;padding:0 0 .35rem;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:1.15rem;font-size:.92rem;-webkit-overflow-scrolling:touch}nav::-webkit-scrollbar{display:none}nav a{white-space:nowrap;padding:.55rem 0}nav .cartbtn{position:absolute;top:.55rem;right:max(20px,env(safe-area-inset-right,0px))}}
 
 /* the stage: the hero, in the apps' own graphite */
 .on-stage{background:var(--stage);color:var(--on-stage)}
@@ -139,7 +139,7 @@ section{padding-block:clamp(3.5rem,8vw,6rem)}
 .keydefs dt{grid-row:span 2;font-weight:650;font-stretch:110%;font-size:1.05rem;width:2.1rem;height:2.1rem;display:grid;place-items:center;border:1px solid var(--line-2);border-radius:var(--r-sm)}
 .keydefs dd{margin:0;font-size:.92rem;color:var(--ink-2)}
 .keydefs dd b{color:var(--ink);font-weight:600}
-@media (max-width:1000px){.keydefs{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:1100px){.keydefs{grid-template-columns:repeat(2,1fr);gap:1.2rem 2.5rem}}
 @media (max-width:620px){.keydefs{grid-template-columns:1fr;gap:1rem}}
 
 /* store: price list - the apps one by one, and Central Services */
@@ -215,7 +215,7 @@ form label{display:grid;gap:.35rem;font-size:.88rem;font-weight:500;color:var(--
 .err{color:var(--bad);font-size:.9rem;min-height:1.2em}
 
 /* account */
-.acct{display:grid;gap:1.2rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+.acct{display:grid;gap:1.2rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));align-items:start}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:clamp(1.2rem,2.6vw,1.7rem);display:grid;grid-template-columns:minmax(0,1fr);gap:.85rem;align-content:start;min-width:0}
 .card h3{font-size:1.12rem}
 .card h3 .muted{font-weight:400}
@@ -227,7 +227,7 @@ form label{display:grid;gap:.35rem;font-size:.88rem;font-weight:500;color:var(--
 .ktable td,.ktable th{padding:.55rem .5rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .ktable th{background:none;padding-top:.2rem}
 .ktable code{font:500 .9rem var(--font);font-variant-numeric:tabular-nums;letter-spacing:.03em;user-select:all}
-.kcount{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.kcount{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .kcount div{background:var(--surface);padding:.75rem .9rem;font-size:.88rem;color:var(--ink-3)}
 .kcount b{font-weight:600;font-size:1.6rem;font-stretch:108%;display:block;color:var(--ink);line-height:1.2}
 .choice{display:grid;gap:.45rem;margin:.2rem 0}.choice label{display:flex;gap:.55rem;align-items:center;font-size:.95rem;font-weight:400;color:var(--ink)}
@@ -284,7 +284,7 @@ footer .fine{grid-column:1/-1;border-top:1px solid var(--stage-line);padding-top
 .modal .total{border-top:1px solid var(--ink);padding-top:.6rem;font-weight:600}
 .modal .lines .saved{color:var(--brass-ink)}
 .qty{display:inline-flex;align-items:center;gap:.35rem;margin-left:.4rem;color:var(--ink-3);font-variant-numeric:tabular-nums}
-.qbtn{width:26px;height:26px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);display:inline-grid;place-items:center;line-height:1;font-size:.95rem;padding:0;color:var(--ink-2)}
+.qbtn{width:32px;height:32px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);display:inline-grid;place-items:center;line-height:1;font-size:.95rem;padding:0;color:var(--ink-2)}
 .qbtn:hover{border-color:var(--ink);color:var(--ink)}
 .modal.pay{max-width:560px}
 .pay-head{display:grid;gap:.3rem}
@@ -305,7 +305,7 @@ footer .fine{grid-column:1/-1;border-top:1px solid var(--stage-line);padding-top
 .doc p+p{margin-top:.9rem}
 .doc ul{padding-left:1.2rem}
 .doc li+li{margin-top:.35rem}
-@media (max-width:700px){.card .ktable{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.card table:not(.ktable){display:block;max-width:100%;overflow-x:auto}}
+@media (max-width:700px){.card .ktable:not(.keytable){display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.card table:not(.ktable){display:block;max-width:100%;overflow-x:auto}}
 
 /* ---------------- added sections (edit mode adds them) ---------------- */
 .xblock { padding-block: clamp(3rem, 7vw, 5rem); }
@@ -359,3 +359,57 @@ body.editing .art:hover .img-tools, body.editing *:hover > .img-tools { display:
 .toast.bad { background: var(--bad); }
 .codeline label:has(input[type=number]){flex:0 0 auto}
 .modal .err:empty,.modal .ok-note:empty{display:none}
+
+/* ---------------- layout clean-up (9.3.3) ---------------- */
+/* the church's keys: the kind, the key, where it's used, its updates and Release line up row by row */
+.keytable td{vertical-align:middle}
+.keytable td.kk{white-space:nowrap;width:3.6rem}
+.keytable td.kk b{font-weight:600}
+.keytable td.kk input,.keytable .kcb{display:inline-block;width:1.05rem;height:1.05rem;margin:0 .55rem 0 0;vertical-align:-.15em}
+.keytable td:last-child{text-align:right;white-space:nowrap;width:1%}
+.keytable td:nth-child(4){white-space:nowrap}
+.keytable .btn.small{min-height:32px}
+@media (min-width:641px){.keytable tr:has(td){height:3.1rem}}
+@media (max-width:640px){
+  .keytable,.keytable tbody{display:block}
+  .keytable tr:first-child:not(:has(td)){display:none}
+  .keytable tr{display:grid;grid-template-columns:3rem minmax(0,1fr) auto;column-gap:.6rem;row-gap:.1rem;align-items:center;padding:.65rem 0;border-bottom:1px solid var(--line);height:auto}
+  .keytable td{border:0;padding:0;height:auto}
+  .keytable td.kk{grid-row:1/span 3;align-self:start;padding-top:.1rem;width:auto}
+  .keytable td:nth-child(2){grid-column:2;font-size:.95rem}
+  .keytable td:nth-child(3){grid-column:2;font-size:.88rem}
+  .keytable td:nth-child(4){grid-column:2;font-size:.82rem}
+  .keytable td:last-child{grid-column:3;grid-row:1/span 3;width:auto}
+  .keytable td:last-child:empty{display:none}
+  .kcount{grid-template-columns:1fr}
+  .kcount div{display:grid;grid-template-columns:3.2rem minmax(0,1fr);column-gap:.6rem;align-items:center;padding:.6rem .9rem}
+  .kcount div b{grid-column:1;grid-row:1/span 2;font-size:1.7rem;text-align:center}
+  .kcount div span{grid-column:2}
+}
+/* People and Teams: who's on top, what you can do underneath */
+.card .tm{align-items:center}
+.card .tm>div:first-child{min-width:0;overflow-wrap:anywhere}
+.team .tmem{display:grid;gap:.45rem;padding:.7rem 0}
+.team .tmem:last-of-type{border-bottom:0}
+.tmwho{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.15rem .6rem;align-items:start}
+.tmwho .tstat{grid-column:2;grid-row:1;align-self:center}
+.tmsub{grid-column:1/-1;font-size:.84rem;overflow-wrap:anywhere}
+.tmsub code{font:500 .82rem var(--font);letter-spacing:.03em}
+.team .tacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(6.4rem,1fr));gap:.4rem}
+.team .tacts select.tmove{width:100%;max-width:none}
+.team .tacts .btn{width:100%}
+#ownForm label{flex:1 1 12rem}#ownForm input{width:100%}
+.team h4{display:grid;gap:.1rem;font-size:1.02rem}
+.team h4 .muted{font-size:.84rem}
+@media (max-width:640px){.card .tm:not(.tmem){display:grid;gap:.5rem}.card .tm .tacts .btn,.card .tm .tacts select{min-height:40px}}
+/* Central Tracks: the song gets the room; the price is on the Buy button */
+table.tracks td:first-child{min-width:12rem}
+table.tracks td.act{text-align:right;white-space:nowrap}
+table.tracks .stars{font-size:.92rem;letter-spacing:0}
+@media (max-width:640px){table.tracks td:first-child{min-width:10rem}}
+/* the account's forms: labels and fields the same width, buttons on their own line on phones */
+.card form>label>input:not([type=checkbox]):not([type=radio]),.card form>label>select{width:100%}
+.codeline .btn{flex:none}
+@media (max-width:480px){.codeline .btn{flex:1 1 100%}}
+.modal .lines div>span:first-child{min-width:0}
+@media (max-width:480px){.modal{padding:1.15rem}.modal .btn{flex:1 1 auto}}

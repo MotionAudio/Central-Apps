@@ -37,6 +37,19 @@ label{display:grid;gap:.3rem;font-size:.88rem;color:var(--muted)}input[type=chec
 .songs ol{margin:.2rem 0 .3rem;padding-left:1.3rem}.songs{display:grid;gap:.2rem}.songs button{justify-self:start}details summary{cursor:pointer}a{color:var(--accent-hi)}
 .center{max-width:430px;margin:8vh auto;padding:1.4rem}.center::before{content:"";display:block;width:40px;height:40px;margin-bottom:.4rem;background:var(--accent);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='black' stroke-width='9' stroke-linecap='round'%3E%3Cpath d='M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80'/%3E%3Cpath d='M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='black' stroke-width='9' stroke-linecap='round'%3E%3Cpath d='M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80'/%3E%3Cpath d='M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
 .pick{display:flex;gap:.45rem;align-items:center;font-size:.92rem;color:var(--fg)}.pick input{width:auto}
+/* layout: the tabs and the cards share one column; phones get the menu in one sliding row */
+nav{max-width:920px}main{max-width:calc(920px + 2rem)}
+.team .p+.p{border-top:1px solid #22262D}.team .p{padding:.3rem 0}
+.card h2{text-wrap:balance}
+@media (max-width:600px){
+  header{gap:.5rem .7rem;padding:.65rem 1rem}header>.muted{display:none}
+  header .who{width:100%;margin-left:0;flex-wrap:nowrap}header .who>span:not(.badge){display:none}header .who [data-a=refresh]{margin-left:auto}
+  header .who button{min-height:36px}
+  nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}nav::-webkit-scrollbar{display:none}nav button{white-space:nowrap;flex:none;min-height:40px}
+  main{padding-inline:max(.75rem,env(safe-area-inset-left,0px))}
+  .card{padding:.9rem .85rem}
+  .p button,.row button{min-height:36px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
