@@ -1,0 +1,191 @@
+[
+ {
+  "id": "cc-service",
+  "app": "Central Control",
+  "file": "img/apps/cc-service.webp",
+  "alt": "Central Control's Service tab: the Sunday 9:00 service is running, Amazing Grace is on now with 3:40 left and Holy, Holy, Holy next; below, the church's three services and the run order with minutes and roles.",
+  "caption": "Run the service from one screen: everyone sees what's on now, what's next and how long is left."
+ },
+ {
+  "id": "cc-lights",
+  "app": "Central Control",
+  "file": "img/apps/cc-lights.webp",
+  "alt": "Central Control's Lighting tab: a stage plot of the fixtures, preset looks like Worship blue and Warm verse, the song's timeline with lighting cues on each verse, and fader strips for every light.",
+  "caption": "Lighting follows the song: cues sit on the song's sections and the lights change by themselves."
+ },
+ {
+  "id": "cc-mix",
+  "app": "Central Control",
+  "file": "img/apps/cc-mix.webp",
+  "alt": "Central Control's Mix tab: this computer is the audio host, the Central Pedal's tracks arrive as channels (Drums, Bass, Keys, Vocals) with meters and faders, and the service is being recorded.",
+  "caption": "Mix the tracks at the desk and record the whole service with one button."
+ },
+ {
+  "id": "cc-slides",
+  "app": "Central Control",
+  "file": "img/apps/cc-slides.webp",
+  "alt": "Central Control's Slides tab: a list of announcement slides (Welcome, Church picnic, Youth retreat, Scripture, Giving), the Church picnic slide in Preview, and the Live screen.",
+  "caption": "Make announcement slides, check them in Preview, then send them live to the screens."
+ },
+ {
+  "id": "cc-lyrics",
+  "app": "Central Control",
+  "file": "img/apps/cc-lyrics.webp",
+  "alt": "Central Control's Lyrics tab: the second verse of Amazing Grace in large text with the next lines shown smaller underneath.",
+  "caption": "The lyrics follow the song by themselves, with the next lines ready underneath."
+ },
+ {
+  "id": "cc-devices",
+  "app": "Central Control",
+  "file": "img/apps/cc-devices.webp",
+  "alt": "Central Control's Devices tab: the built-in player window is the track player and online, and the Office computer is kept in sync as the second main admin's computer.",
+  "caption": "See every device, and keep the second main admin's computer in sync so it can take over."
+ },
+ {
+  "id": "cc-settings",
+  "app": "Central Control",
+  "file": "img/apps/cc-settings.webp",
+  "alt": "Central Control's Settings: this computer is named Sound desk and is the main admin, with its pairing PIN and role PIN, plus options for track outputs, the lighting AI model and lyrics from the vocal.",
+  "caption": "Settings shows this computer's role and the PINs other devices use to pair."
+ },
+ {
+  "id": "cc-inears",
+  "app": "Central Control",
+  "file": "img/apps/cc-inears.webp",
+  "alt": "Central Control's In-ears tab: the in-ear code, the list of channels from the Central Pedal and a grid of mixes, with Mix 1 taken by Sarah (keys).",
+  "caption": "Up to 64 in-ear mixes: each musician picks a mix and sets their own levels."
+ },
+ {
+  "id": "cc-io",
+  "app": "Central Control",
+  "file": "img/apps/cc-io.webp",
+  "alt": "Central Control's I/O tab in three columns: what comes in from the Central Pedal, this computer as the audio host, and what goes out to screens and lights.",
+  "caption": "I/O shows what comes in, what this computer does with it, and what goes out."
+ },
+ {
+  "id": "cc-video",
+  "app": "Central Control",
+  "file": "img/apps/cc-video.webp",
+  "alt": "Central Control's Video tab: Main and Stream switchers with preview and program monitors, and a multiview with two stage cameras and the slides.",
+  "caption": "Switch cameras for the room screens and the stream, with slides and lyrics on top."
+ },
+ {
+  "id": "cu-chart",
+  "app": "Central Usage",
+  "file": "img/apps/cu-chart.webp",
+  "alt": "Central Usage's Chord chart: Amazing Grace in G with chords over the lyrics, the current verse highlighted, and section buttons for each verse.",
+  "caption": "Each musician's chord chart follows the song and highlights where the band is."
+ },
+ {
+  "id": "cu-lyrics",
+  "app": "Central Usage",
+  "file": "img/apps/cu-lyrics.webp",
+  "alt": "Central Usage's Lyrics tab: the second verse of Amazing Grace in large text with the next verse underneath.",
+  "caption": "Singers see the words as the song moves, with the next lines coming up."
+ },
+ {
+  "id": "cu-inears",
+  "app": "Central Usage",
+  "file": "img/apps/cu-inears.webp",
+  "alt": "Central Usage's In-ears tab: Mix 1 with a Listen here button and a fader for each channel - Instrument, Click, Drums, Bass, Keys, Vocals.",
+  "caption": "Every musician sets their own in-ear mix from their own laptop."
+ },
+ {
+  "id": "cu-instrument",
+  "app": "Central Usage",
+  "file": "img/apps/cu-instrument.webp",
+  "alt": "Central Usage's Instrument tab with Piano and keys picked: a grid of 136 sounds with E.Piano 1 chosen, layers, and an on-screen keyboard.",
+  "caption": "Plug in a keyboard or guitar and play it through 136 built-in sounds."
+ },
+ {
+  "id": "pc-live",
+  "app": "Central Pedal Control",
+  "file": "img/apps/pc-live.webp",
+  "alt": "Central Pedal Control's LIVE screen: the setlist of five hymns, Holy, Holy, Holy playing in D at 88 BPM, verse buttons, big Prev, Pause, Next, Vamp and Safe stop buttons, and eight pads.",
+  "caption": "LIVE shows exactly what the pedal's buttons do during the service."
+ },
+ {
+  "id": "pc-pads",
+  "app": "Central Pedal Control",
+  "file": "img/apps/pc-pads.webp",
+  "alt": "Central Pedal Control's PAD screen: eight pad channels (Warm Pad, Ambient Clouds and more) with sound, key, crossfade and effect settings, plus texture channels.",
+  "caption": "Shape the pads: pick a sound, its key, how it fades in, and add effects."
+ },
+ {
+  "id": "pc-tracks",
+  "app": "Central Pedal Control",
+  "file": "img/apps/pc-tracks.webp",
+  "alt": "Central Pedal Control's TRACKS screen: Holy, Holy, Holy's waveform with its verses marked, the lyrics for the current section, rehearse and speed controls, and a mixer for Click, Drums, Bass, Keys and Vocals.",
+  "caption": "Load a song's tracks, mark its sections, and set the click and cues."
+ },
+ {
+  "id": "pc-instrument",
+  "app": "Central Pedal Control",
+  "file": "img/apps/pc-instrument.webp",
+  "alt": "Central Pedal Control's INSTRUMENT screen with Piano and keys picked and Church Organ chosen from 136 sounds, with layers and a keyboard.",
+  "caption": "Set up the instrument sound the pedal plays from a USB keyboard."
+ },
+ {
+  "id": "pc-configure",
+  "app": "Central Pedal Control",
+  "file": "img/apps/pc-configure.webp",
+  "alt": "Central Pedal Control's CONFIGURE screen: a list of the pedal's buttons, each with what a press does and what a hold does.",
+  "caption": "Choose what every button, knob and pedal does - a press and a hold."
+ },
+ {
+  "id": "pc-learn",
+  "app": "Central Pedal Control",
+  "file": "img/apps/pc-learn.webp",
+  "alt": "Central Pedal Control's LEARN screen: each control-board input with a Learn button, and the default wiring diagram.",
+  "caption": "Wire your own buttons and knobs, then press Learn to find each one."
+ },
+ {
+  "id": "pc-io",
+  "app": "Central Pedal Control",
+  "file": "img/apps/pc-io.webp",
+  "alt": "Central Pedal Control's I/O screen: sending audio to Central Control over Wi-Fi or Ethernet, and the pedal's four audio outputs for tracks, pads, click and the instrument.",
+  "caption": "Pick where the pedal's audio goes: the desk, the in-ears, or both."
+ },
+ {
+  "id": "pc-settings",
+  "app": "Central Pedal Control",
+  "file": "img/apps/pc-settings.webp",
+  "alt": "Central Pedal Control's SETTINGS: colour themes such as Studio and Midnight, the colours of sections and pads, saved setups, the audio engine and output routing.",
+  "caption": "Make the screens your own and save setups you can bring back with one tap."
+ },
+ {
+  "id": "pedal-live",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal-live.webp",
+  "alt": "The Central Pedal's own touchscreen in LIVE: Amazing Grace playing in G at 72 BPM with 1:58 left, verse buttons, Pause, Next, Vamp and Safe stop, and the eight pads.",
+  "caption": "On the pedal's screen everything is big enough to read from where you stand."
+ },
+ {
+  "id": "pedal-pads",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal-pads.webp",
+  "alt": "The Central Pedal's touchscreen on the PAD screen: the pad list and the settings for Pad 1, Warm Pad.",
+  "caption": "Change a pad's sound right on the pedal."
+ },
+ {
+  "id": "cs-schedule",
+  "app": "Central Services",
+  "file": "img/apps/cs-schedule.webp",
+  "alt": "Central Services' Schedule for Grace Church: Sunday 9:00 with its four songs and keys, the Sunday band and Tech team, and each person's answer - Yes, No or Not yet - with 8 yes, 1 no and 1 not yet.",
+  "caption": "Everyone can see the whole schedule: who's serving, in what role, and who has answered."
+ },
+ {
+  "id": "cs-request",
+  "app": "Central Services",
+  "file": "img/apps/cs-request.webp",
+  "alt": "Central Services on Leah's account: My requests shows two services she's asked to sing at, Sunday 9:00 and Sunday 11:00, each with Accept and Decline buttons and a place for a note.",
+  "caption": "Volunteers answer with one tap, and can leave a note if they can't make it."
+ },
+ {
+  "id": "cs-teams",
+  "app": "Central Services",
+  "file": "img/apps/cs-teams.webp",
+  "alt": "Central Services' Teams screen for Grace Church: a Slots bar showing 14 of 30 in use, the Sunday band and Evening band worship teams, and the Tech team, each person with their role.",
+  "caption": "Teams shows who serves where, and how many of your church's slots are in use."
+ }
+]

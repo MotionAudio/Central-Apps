@@ -44,7 +44,7 @@ label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted)
 .lyrics .line { margin: .08em 0; } .lyrics .next { margin-top: .8em; font-size: .5em; color: var(--muted); font-weight: 600; }
 .lights { flex: 1; overflow: auto; padding: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-content: start; }
 .card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,0) 40%), var(--panel); display: grid; gap: 10px; align-content: start; } .card h3 { margin: 0; font-size: 15px; } .card label { display: grid; gap: 4px; justify-items: start; } .card label.toggle { display: flex; } .card select { width: 100%; }
-.live { display: grid; grid-template-columns: 54px repeat(3, 1fr); gap: 10px; align-items: center; } .live div { display: grid; justify-items: center; } .live b { font-size: 24px; } .live span { color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+/* (9.3.2: the old meters row ".live" is gone: "live" is the on-air state of a look, a slide, a song and a run-order row) */
 .beat { width: 44px; height: 44px; border-radius: 50%; background: #23272E; border: 2px solid var(--line); transition: background .08s; } .beat.on { background: var(--accent); box-shadow: 0 0 18px var(--accent); } .beat.down { background: var(--chord); box-shadow: 0 0 18px var(--chord); }
 .hit { text-align: center; padding: 18px; border-radius: 12px; border: 2px solid var(--line); font-weight: 900; letter-spacing: .3em; color: #4A515C; transition: all .1s; } .hit.on { background: var(--danger); color: #fff; border-color: var(--danger); box-shadow: 0 0 30px var(--danger); }
 .log { font: 12px/1.5 ui-monospace, monospace; color: var(--muted); max-height: 220px; overflow: auto; white-space: pre-wrap; }
@@ -193,7 +193,7 @@ button.on { background: color-mix(in srgb, var(--accent), transparent 70%); bord
 .lx-sw { width: 18px; height: 18px; border-radius: 50%; background: #111; box-shadow: 0 0 0 1px rgba(255, 255, 255, .2); } .lx-ltn { display: grid; font-size: 12px; font-weight: 700; overflow: hidden; } .lx-ltn small { color: var(--muted); font-weight: 400; font-size: 10px; }
 .lx-lt input[type=color] { width: 34px; height: 26px; padding: 0; } .lx-lt input[type=range] { width: 70px; } .lx-lt button { padding: 3px 7px; font-size: 12px; }
 .lx-songs { display: grid; grid-template-columns: 280px 1fr; gap: 14px; align-items: start; } @media (max-width: 820px) { .lx-songs { grid-template-columns: 1fr; } }
-.lx-slist { display: grid; gap: 4px; align-content: start; } .lx-sitem { display: grid; text-align: left; gap: 1px; } .lx-sitem small { color: var(--muted); font-size: 11px; } .lx-sitem.sel { border-color: var(--accent); } .lx-sitem.live b::after { content: " ●"; color: var(--accent); }
+.lx-slist { display: grid; gap: 4px; align-content: start; } .lx-sitem { display: grid; text-align: left; gap: 1px; } .lx-sitem small { color: var(--muted); font-size: 11px; } .lx-sitem.sel { border-color: var(--accent); } .lx-sitem.onair b::after { content: " ●"; color: var(--accent); }   /* (not .live: that is the meters row) */
 .lx-sedit { display: grid; gap: 10px; align-content: start; } .lx-sedit h3 { margin: 0; } .lx-scenes input, .lx-scenes select { max-width: 100%; }
 .lx-out { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
 .mx-head select, .sl-outs select, .ia-mixed select, .io-c select, .lx-out select, #lxClick select, #slLook select, #slPreview select, .lx-sedit select { width: auto; max-width: 100%; }
@@ -260,9 +260,9 @@ html[data-web] .admin-only, html[data-web] #findBtn, html[data-web] #connectBtn,
 .sv-list { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .sv-pick { display: grid; text-align: left; gap: 2px; padding: 8px 12px; } .sv-pick small { color: var(--muted); font-size: 11px; } .sv-pick.on { border-color: var(--accent); } .sv-pick.add { border-style: dashed; }
 .sv-head { gap: 12px; flex-wrap: wrap; align-items: end; } .sv-head label:not(.toggle) { display: grid; gap: 3px; }
 .sv-roles { display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; margin: 10px 0; } .sv-roles label { display: inline-flex; gap: 5px; align-items: center; }
-.sv-items { width: 100%; border-collapse: collapse; } .sv-items th { text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 4px; }
+.sv-items { width: 100%; border-collapse: collapse; table-layout: fixed; }   /* (fixed columns: a long song list in a select can't widen the row) */ .sv-items th { text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 4px; }
 .sv-items td { padding: 4px; border-top: 1px solid var(--line); vertical-align: top; } .sv-items tr.live td { background: color-mix(in srgb, var(--accent), transparent 85%); }
-.sv-items td input[data-itf="title"] { width: 100%; min-width: 140px; } .sv-items td select[data-itf="song"] { display: block; margin-top: 4px; max-width: 100%; }
+.sv-items td input[data-itf="title"] { width: 100%; min-width: 0; box-sizing: border-box; } .sv-items td select[data-itf="song"] { display: block; margin-top: 4px; width: 100%; box-sizing: border-box; } .sv-items td select[data-itf="kind"] { width: 100%; box-sizing: border-box; }
 .sv-iroles { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 12px; } .sv-iroles label { display: inline-flex; gap: 3px; align-items: center; }
 .sv-iacts { white-space: nowrap; } .sv-adds { gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; } .sv-adds button { padding: 4px 9px; font-size: 12px; }
 
