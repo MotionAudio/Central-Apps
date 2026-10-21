@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Install the Central apps · Motion Audio</title><meta name="description" content="How to install Central Control, Central Usage, Central Pedal Control and Central Services on Windows, Mac, Linux, Android, iPhone and iPad.">
+<meta name="theme-color" content="#15181D">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/apps/manual.css"></head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="logo" href="/" style="color:var(--ink)"><span style="color:var(--brass)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
+  <nav><a href="/apps/">Apps</a><a href="/#store">Store</a><a href="/#tracks">Central Tracks</a><a href="/help/" class="on" aria-current="page">Help</a><a href="/services/">Central Services</a><a href="/#account">Account</a></nav>
+</div></header>
+<div class="page-head on-stage plain"><div class="wrap"><div class="crumbs"><a href="/help/">Help</a></div><h1>Install the apps</h1><p class="lede">Every app on every device, step by step, with what to press the first time it opens.</p></div></div>
+<main class="wrap man"><aside class="toc" aria-label="On this page"><b>On this page</b><ol><li><a href="#before-you-start">Before you start</a></li><li><a href="#windows">Windows</a></li><li><a href="#mac">Mac</a></li><li><a href="#linux">Linux</a></li><li><a href="#android">Android</a></li><li><a href="#iphone-and-ipad">iPhone and iPad</a></li><li><a href="#the-central-pedal">The Central Pedal</a></li><li><a href="#signing-in-and-your-key">Signing in and your key</a></li><li><a href="#updates">Updates</a></li><li><a href="#uninstalling">Uninstalling</a></li></ol></aside>
+<article class="doc">
+<h2 id="before-you-start">Before you start</h2>
+
+<p class="lead">Every app is on the <a href="https://motionaudio.github.io/Central-Apps/">download page</a>, which picks the right file for the device you open it on. Install the apps for your role, sign in, type your key, and they update themselves from then on.</p>
+<div class="tblwrap"><table class="tbl"><thead><tr><th>App</th><th>Windows</th><th>Mac</th><th>Linux</th><th>Android</th><th>iPhone and iPad</th></tr></thead><tbody>
+<tr><td><b>Central Control</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td></td><td></td></tr>
+<tr><td><b>Central Usage</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>In Safari today</td></tr>
+<tr><td><b>Central Pedal Control</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Coming</td></tr>
+<tr><td><b>Central Services</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>On the website today</td></tr>
+</tbody></table></div>
+<p>The Central Pedal itself comes ready: see <a href="#the-central-pedal">The Central Pedal</a>.</p>
+<div class="note"><p>The apps aren't signed with a paid Apple, Microsoft or Google certificate yet, so each device asks once the first time. The steps below show what to press.</p></div>
+
+<h2 id="windows">Windows</h2>
+
+<ol class="steps">
+<li><b>Download the <code>.exe</code></b> for your app from the <a href="https://motionaudio.github.io/Central-Apps/">download page</a> (Windows 10 or 11, 64-bit).</li>
+<li><b>Open it.</b> Windows says <i>"Windows protected your PC"</i>.</li>
+<li><b>Click More info, then Run anyway.</b> It installs and opens by itself.</li>
+</ol>
+
+<h2 id="mac">Mac</h2>
+
+<ol class="steps">
+<li><b>Download the <code>.dmg</code></b> for your Mac: <i>Apple Silicon</i> for M1 and newer, <i>Intel</i> for Macs from before 2021.</li>
+<li><b>Open it and drag the app into Applications.</b></li>
+<li><b>Open the app once.</b> The Mac refuses because it can't verify the developer. Click <b>Done</b>.</li>
+<li><b>System Settings → Privacy &amp; Security.</b> Scroll down, click <b>Open Anyway</b> next to the app's name, and confirm.</li>
+<li><b>Allow the microphone</b> when it asks. The audio interface, the in-ears, the tuner and the instrument need it.</li>
+</ol>
+<p>If the Mac says the app <i>"is damaged"</i>, open Terminal and run the line for that app:</p>
+<div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/Central Control.app&quot;</code><button type="button">Copy</button></div><div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/CentralUsage.app&quot;</code><button type="button">Copy</button></div><div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/Central Pedal Control.app&quot;</code><button type="button">Copy</button></div>
+<h2 id="linux">Linux</h2>
+
+<p>The easy way: open Terminal (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> on Ubuntu), paste the line for your app, press Enter and type your password when it asks. It finds the newest version, checks the download, and installs it with everything the app needs. Ubuntu, Debian, Mint and Pop!_OS get the <code>.deb</code>; any other Linux gets the AppImage in <code>~/Applications</code> with a menu entry. Run the same line again any time to reinstall or update.</p>
+<h3 id="central-control">Central Control</h3>
+<div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control</code><button type="button">Copy</button></div>
+<p>Then open <b>Central Control</b> from your app menu, or type <code>central-control</code>. Since 9.3.1 the package and the program are both called <code>central-control</code>. Installing it fixes old menu entries and desktop icons that still pointed at the old name.</p>
+<h3 id="central-usage">Central Usage</h3>
+<div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage</code><button type="button">Copy</button></div>
+<h3 id="central-pedal-control">Central Pedal Control</h3>
+<div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control</code><button type="button">Copy</button></div>
+<h3 id="central-services">Central Services</h3>
+<div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services</code><button type="button">Copy</button></div>
+<h3>By hand</h3>
+<ul>
+<li><b>A <code>.deb</code></b>: download it from the download page, then <code>sudo apt install ./&lt;the file&gt;.deb</code> in the folder you saved it to. The <code>./</code> matters. Each app installs next to the others.</li>
+<li><b>An AppImage</b>: right-click it → <b>Properties → Permissions → Allow executing file as program</b>, then double-click it. AppImages need FUSE 2 (<code>sudo dnf install fuse-libs</code> on Fedora, <code>sudo pacman -S fuse2</code> on Arch).</li>
+</ul>
+<p>Central Control's mixer, in-ears and recording reach your audio interface through PipeWire's JACK: the <code>.deb</code> recommends <code>pipewire-jack</code>, and <code>sudo apt install pipewire-jack</code> adds it if it's missing.</p>
+
+<h2 id="android">Android</h2>
+
+<p>Central Usage, Central Pedal Control and Central Services run on Android 6 or newer.</p>
+<ol class="steps">
+<li><b>On the phone or tablet,</b> open the <a href="https://motionaudio.github.io/Central-Apps/">download page</a> and tap <b>Download</b> for Android.</li>
+<li><b>Open the <code>.apk</code></b> from Downloads or the browser's notification.</li>
+<li><b>Allow installs from your browser</b>: Android asks once. Settings → turn on <b>Allow from this source</b> → back → <b>Install</b>.</li>
+<li><b>Open the app on the church Wi-Fi.</b> Central Usage: tap <b>Find the main admin</b>. Central Pedal Control: set up your songs, then Upload to the pedal.</li>
+</ol>
+
+<h2 id="iphone-and-ipad">iPhone and iPad</h2>
+
+<p>The App Store apps aren't out yet. Today:</p>
+<ul>
+<li><b>Central Usage</b> runs in Safari, served by the main admin's computer: join the church Wi-Fi, open <code>http://&lt;main admin's address&gt;:8095/cu/</code>, choose User 1 or User 2 and type the pairing PIN, then <b>Share → Add to Home Screen</b>. It opens full screen and always has the hub's version. The address is in the main admin's Central Control, Settings → This computer.</li>
+<li><b>Central Services</b> works in Safari on the website: <a href="/services/">open Central Services</a>.</li>
+<li><b>Central Pedal Control</b> for iPhone and iPad is coming to TestFlight and the App Store.</li>
+</ul>
+
+<h2 id="the-central-pedal">The Central Pedal</h2>
+
+<p>We build every pedal and ship it with its software installed and its own key, so there's nothing to install. Plug in the power, a screen and your outputs; it boots into the app in about 15 seconds and asks for the Wi-Fi the first time. Then see <a href="/apps/central-pedal.html#first-time-on">First time on</a>.</p>
+<p>Updates arrive by themselves: the pedal looks every time it starts and installs a new version after a 10-second notice, never while something plays. With no internet, put the newest <code>central-control-source.zip</code> from the download page on a USB stick and use Settings → <b>Update software from USB…</b>.</p>
+
+<h2 id="signing-in-and-your-key">Signing in and your key</h2>
+
+<p>The first time an app opens, it asks for your Motion Audio account and your key. Your key is in the email your main admin's invite sent you, and on the website under Account → Your church.</p>
+<ol class="steps">
+<li><b>Sign in.</b> Use the account your invite email made. Admins can share one account if your church wants; each user has their own. Main admins and admins also get a code by text on a new device.</li>
+<li><b>Type your key</b>: 16 letters and digits.</li>
+<li><b>Join the Wi-Fi</b> if the device isn't online yet.</li>
+</ol>
+<div class="tblwrap"><table class="tbl"><thead><tr><th>Key</th><th>For</th><th>Devices</th><th>Updates</th></tr></thead><tbody>
+<tr><td><b>P</b></td><td>Central Pedal and Central Pedal Control</td><td>Two for Pedal Control; a pedal has its own</td><td>Forever</td></tr>
+<tr><td><b>A</b></td><td>Central Control (main admins and admins)</td><td>One computer</td><td>Ten full releases, then $20 renews ten more</td></tr>
+<tr><td><b>U</b></td><td>Central Usage (users)</td><td>Two (say, church and home)</td><td>Ten full releases, then $20 renews ten more</td></tr>
+</tbody></table></div>
+<p>Buy at 9.4 and an A or U key gets every update through 10.4, fixes included. The apps never stop working if you don't renew; they keep the version they have. To move a key, <b>Release key</b> in the app's Settings → License, or on the website.</p>
+
+<h2 id="updates">Updates</h2>
+
+<ul>
+<li><b>Windows, Mac and Linux apps</b> look for a new version every time they open and install it after a short notice, never while something plays. You can turn automatic installs off in the app's settings and check for updates there yourself.</li>
+<li><b>Android</b> apps look every time they open; the new <code>.apk</code> downloads and Android shows <b>Update</b>. One tap.</li>
+<li><b>Central Usage in Safari</b> always has the hub's version: nothing to do.</li>
+<li>Songs, setlists, settings, your key and your sign-in are never touched by an update.</li>
+</ul>
+
+<h2 id="uninstalling">Uninstalling</h2>
+
+<ul>
+<li><b>First, release the key</b> (Settings → License → Release key) so you can use it on another device.</li>
+<li><b>Windows</b>: Settings → Apps → the app → Uninstall.</li>
+<li><b>Mac</b>: drag the app from Applications to the Bin.</li>
+<li><b>Linux</b>: <code>sudo apt remove central-control</code> (or <code>centralusage</code>, <code>central-pedal-control</code>, <code>central-services</code>). For an AppImage, delete the file in <code>~/Applications</code> and its menu entry in <code>~/.local/share/applications</code>.</li>
+<li><b>Android</b>: press and hold the app → Uninstall.</li>
+</ul>
+
+</article></main>
+<footer class="on-stage"><div class="wrap">
+  <div><a class="logo" href="/"><span style="color:var(--brass-hi)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
+    <p class="apps">Made for worship teams, by Motion Audio. Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Tracks.</p></div>
+  <div class="links"><a href="/apps/">The apps</a><a href="/help/install.html">Install</a><a href="/help/accounts.html">Accounts</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/#support">Talk to us</a><a href="https://motionaudio.github.io/Central-Apps/">Downloads</a></div>
+  <div class="fine">&copy; 2026 Motion Audio. Prices in US dollars, tax included.</div>
+</div></footer>
+<script>
+// screenshots that aren't there yet stay out of the way; the table of contents follows the reading
+document.querySelectorAll("figure.shot img").forEach(function (i) { function miss() { i.closest("figure").classList.add("missing"); } if (i.complete && !i.naturalWidth) miss(); i.addEventListener("error", miss); });
+document.querySelectorAll(".cmd button").forEach(function (b) { b.addEventListener("click", function () { var t = b.parentNode.querySelector("code").textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1600); }).catch(function () { b.textContent = "Select it"; }); }); });
+(function () { var links = [].slice.call(document.querySelectorAll(".toc a")); if (!links.length || !("IntersectionObserver" in window)) return;
+  var map = {}; links.forEach(function (a) { map[a.getAttribute("href").slice(1)] = a; });
+  var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { links.forEach(function (a) { a.classList.remove("on"); }); var a = map[e.target.id]; if (a) a.classList.add("on"); } }); }, { rootMargin: "-90px 0px -70% 0px" });
+  Object.keys(map).forEach(function (id) { var h = document.getElementById(id); if (h) io.observe(h); }); })();
+</script>
+</body></html>
