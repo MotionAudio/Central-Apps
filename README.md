@@ -193,9 +193,11 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.2.0 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.2.1 and earlier)</summary>
 
-**New in version 9.2.0:** your own plugins in the Instrument tab of Central Control and Central Usage: VST3 and CLAP (Windows, macOS, Linux), Audio Units (macOS) and LV2 (Linux), effects on the board and instruments as keys layers (Kontakt, Keyscape…), with their own windows, quick controls and saved settings; a plugin that crashes is set aside instead of taking the rig down.
+**New in version 9.2.1:** Central Control is called Central Control everywhere (its files, the Mac app, the Linux folder; old copies keep updating), Central Control is admins only and Central Usage musicians only, and a one-line install on Linux.
+
+**New in version 9.2.0:** your own plugins in the Instrument tab of Central Usage: VST3 and CLAP (Windows, macOS, Linux), Audio Units (macOS) and LV2 (Linux), effects on the board and instruments as keys layers (Kontakt, Keyscape…), with their own windows, quick controls and saved settings; a plugin that crashes is set aside instead of taking the rig down.
 
 **New in version 9.1.4:** studio compressor (with a gain-reduction meter on computers), 7-band parametric EQ with a live curve, limiter and de-esser for every instrument, on the Central Pedal and computers; three studio channel-strip boards.
 
@@ -422,8 +424,9 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
   can go to an audio output. The lights also react to the music.
 - **Slides:** pictures, video and lyrics go to a second screen, the Central
   Pedal's HDMI 2 and NDI.
-- **The Instrument tab** is the same guitar / bass / keys rig as on the Pi, and it also plays your own VST3, CLAP,
-  Audio Unit (macOS) and LV2 (Linux) plugins, effects and instruments, with their windows.
+- **The Instrument tab** is the same guitar / bass / keys rig as on the Pi. It is in Central Usage, the musicians'
+  app, and also plays your own VST3, CLAP, Audio Unit (macOS) and LV2 (Linux) plugins, effects and instruments,
+  with their windows.
 
 **New in version 7.1:** the HDMI picture is right on any monitor - its own
 native resolution (sharp, not stretched), the whole app on screen, a monitor

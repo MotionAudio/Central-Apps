@@ -2,7 +2,7 @@
 #   Central Pedal          the Raspberry Pi (its update is central-control-source.zip, made by make-release.sh)
 #   Central Pedal Control  Mac, Windows, Linux, Android + the iPhone / iPad project   central-pedal-control-*, central-pedal-control-mobile
 #   Central Services       Mac, Windows, Linux, Android + the iPhone / iPad project   central-services-*, central-services-mobile
-#   Central Control        Linux, Windows, Mac - the main admin and admins       central-usage-* (its files' old name)
+#   Central Control        Linux, Windows, Mac - the main admin and admins       CentralControl-* (the release adds central-usage-* copies)
 #   Central Usage          Mac, Windows, Linux, Android + the iPhone / iPad project  CentralUsage-*, central-usage-mobile
 # Central Control and Central Usage are one code base (central-usage/; usage-builder.js packs Central Usage), with
 # the native helpers (cu-mixer, cu-ndi, cu-rig, cu-video), the pinned ffmpeg, the built-in sounds and the offline
@@ -110,6 +110,8 @@ jobs:
           ls "$R/player/pedal-driver.py" "$R/player/index.html" "$R/player/screens.json" > /dev/null && "$R/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "the player is in the app"
           bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js central-usage/dist/linux-unpacked/central-usage "$R"
           ls -la central-usage/dist/ | grep -E "deb|AppImage"
+          [ "$(dpkg-deb -f central-usage/dist/CentralControl-*-amd64.deb Package)" = central-usage ] || { echo "::error::Central Control's .deb must stay the package central-usage (so it replaces the copies from before 9.2.1)"; exit 1; }
+          dpkg-deb -c central-usage/dist/CentralControl-*-amd64.deb | grep -q "./opt/Central Control/central-usage" || { echo "::error::Central Control should install in /opt/Central Control"; exit 1; }
       - name: Central Usage (Linux)
         working-directory: central-usage
         run: |
@@ -198,7 +200,7 @@ jobs:
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$R/native"
           ls "$R/sounds/"*.sf2 | head -3
           ls "$R/player/pedal-driver.py" > /dev/null && "$R/driver/pedal-driver/pedal-driver.exe" --help > /dev/null && echo "the player is in the app"
-          bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "central-usage/dist/win-unpacked/Central Usage.exe" "$R"
+          bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "central-usage/dist/win-unpacked/Central Control.exe" "$R"
           ls -la central-usage/dist/*.exe
       - name: Central Usage (the musicians' app)
         working-directory: central-usage
@@ -279,12 +281,12 @@ jobs:
       - name: Smoke test - the packed app (signed, helpers, video, the player, the speech model's runtime)
         timeout-minutes: 10
         run: |
-          U=$(ls -d central-usage/dist/mac*/"Central Usage.app")
+          U=$(ls -d central-usage/dist/mac*/"Central Control.app")
           codesign --verify --deep "$U" && echo "signed: $U"
           "$U/Contents/Resources/native/cu-mixer" --version
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$U/Contents/Resources/native"
           ls "$U/Contents/Resources/player/pedal-driver.py" > /dev/null && "$U/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "the player is in the app"
-          bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "$U/Contents/MacOS/Central Usage" "$U/Contents/Resources"
+          bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "$U/Contents/MacOS/Central Control" "$U/Contents/Resources"
           ls -la central-usage/dist/*.dmg
       - name: Central Usage (the musicians' app)
         working-directory: central-usage
@@ -417,7 +419,7 @@ jobs:
           PC=$(node -p "require('./central-pedal-control/package.json').version")
           CS=$(node -p "require('./central-services/package.json').version")
           missing=0; sizes=""
-          for f in central-usage-$CU-win-x64.exe central-usage-$CU-mac-arm64.dmg central-usage-$CU-mac-x64.dmg central-usage-$CU-amd64.deb central-usage-$CU-x86_64.AppImage \
+          for f in CentralControl-$CU-win-x64.exe CentralControl-$CU-mac-arm64.dmg CentralControl-$CU-mac-x64.dmg CentralControl-$CU-amd64.deb CentralControl-$CU-x86_64.AppImage \
                    CentralUsage-$CU-win-x64.exe CentralUsage-$CU-mac-arm64.dmg CentralUsage-$CU-mac-x64.dmg CentralUsage-$CU.apk \
                    CentralUsage-$CU-amd64.deb CentralUsage-$CU-x86_64.AppImage \
                    central-pedal-control-$PC-mac-arm64.dmg central-pedal-control-$PC-mac-x64.dmg central-pedal-control-$PC-win-x64.exe \

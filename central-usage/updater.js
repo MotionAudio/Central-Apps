@@ -62,9 +62,11 @@ function get(url, { json = false, timeout = 30000, maxBytes = 900 * 1024 * 1024,
 }
 
 class Updater {
-  /** product: "central-usage" (Central Control), "CentralUsage" (Central Usage), "central-pedal-control"; current: this app's version; dir: where to keep settings */
+  /** product: the start of this app's file names, or several, newest first: ["CentralControl", "central-usage"] (Central
+   *  Control: its files' name since 9.2.1, then the old one), "CentralUsage" (Central Usage), "central-pedal-control";
+   *  current: this app's version; dir: where to keep settings */
   constructor({ product, current, dir, api }) {
-    this.product = product; this.current = current; this.api = api || process.env.CC_UPDATE_API || "https://api.github.com";
+    this.products = [].concat(product); this.product = this.products[0]; this.current = current; this.api = api || process.env.CC_UPDATE_API || "https://api.github.com";
     this.file = path.join(dir, "updates.json");
     this.cfg = { repo: "", auto: true, autoInstall: true, lastCheck: 0, limit: null, limitText: "", everyone: [] };   // everyone: releases Motion Audio sent to every device (installed even past the limit)   // limit: the last full release this key gets (tenths, 94 = 9.4); null = any
     try { Object.assign(this.cfg, JSON.parse(fs.readFileSync(this.file, "utf8"))); } catch (_) { }
@@ -88,9 +90,12 @@ class Updater {
     const a = (this.latest && this.latest.assets) || {}, names = Object.keys(a), k = this.kind();
     const want = k === "win" ? /-win-x64\.exe$/ : k === "mac" ? (process.arch === "arm64" ? /-mac-arm64\.dmg$/ : /-mac-x64\.dmg$/) : k === "appimage" ? /\.AppImage$/ : /\.deb$/;
     const arch = k === "win" || k === "mac" ? /./ : process.arch === "arm64" ? /arm64|aarch64/ : /amd64|x86_64|x64/;
-    const mineRe = new RegExp("^" + this.product.replace(/[^A-Za-z0-9]/g, "\\$&") + "-\\d");   // (this app's files only: central-usage-2.5.0-…, not central-usage-anything-else)
-    const name = names.filter((n) => mineRe.test(n) && want.test(n) && arch.test(n))[0] || null;
-    return name ? { name, url: a[name] } : null;
+    for (const product of this.products) {   // (the newest name first; a release may carry the old name too)
+      const mineRe = new RegExp("^" + product.replace(/[^A-Za-z0-9]/g, "\\$&") + "-\\d");   // (this app's files only: central-usage-2.5.0-…, not central-usage-anything-else)
+      const name = names.filter((n) => mineRe.test(n) && want.test(n) && arch.test(n))[0] || null;
+      if (name) return { name, url: a[name] };
+    }
+    return null;
   }
   status() {
     const lt = this.latest || {};
@@ -110,7 +115,7 @@ class Updater {
         if (!rel || rel.draft || rel.prerelease) continue;
         const assets = {}; (rel.assets || []).forEach((a) => { assets[a.name] = a.browser_download_url; });
         // one release carries every app; this app's own version is in its file name (central-usage-9.1.0-amd64.deb)
-        const mine = Object.keys(assets).map((n) => (n.match(new RegExp("^" + this.product + "-(\\d+(?:\\.\\d+)*)-")) || [])[1]).filter(Boolean)[0];
+        const mine = this.products.map((pr) => Object.keys(assets).map((n) => (n.match(new RegExp("^" + pr + "-(\\d+(?:\\.\\d+)*)-")) || [])[1]).filter(Boolean)[0]).filter(Boolean)[0];
         const version = mine || String(rel.tag_name || rel.name || "").replace(/^v/i, "");
         if (version) found.push({ version, notes: rel.body || "", assets });
       }
@@ -175,17 +180,21 @@ Updater.prototype.installMac = async function (dmg) {
     mount = (out.split("\n").map((l) => l.split("\t").pop().trim()).filter((p) => p.startsWith("/Volumes/"))[0]) || null;
     if (!mount) throw new Error("the disk image did not mount");
     const app = fs.readdirSync(mount).filter((n) => n.endsWith(".app"))[0]; if (!app) throw new Error("no app in the disk image");
-    const fresh = bundle + ".new", old = bundle + ".old";
+    // the new app goes in under its own name (Central Control's app was called "Central Usage.app" before 9.2.1)
+    const target = path.join(path.dirname(bundle), app), fresh = target + ".new", old = bundle + ".old";
     fs.rmSync(fresh, { recursive: true, force: true }); fs.rmSync(old, { recursive: true, force: true });
     await run("ditto", [path.join(mount, app), fresh]);
     try { await run("xattr", ["-dr", "com.apple.quarantine", fresh]); } catch (_) { }
-    fs.renameSync(bundle, old); fs.renameSync(fresh, bundle);
+    fs.renameSync(bundle, old);
+    if (target !== bundle && fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });   // (a copy already under the new name)
+    fs.renameSync(fresh, target);
     fs.rmSync(old, { recursive: true, force: true });
+    const exe = fs.readdirSync(path.join(target, "Contents", "MacOS"))[0]; this.relaunchExec = exe ? path.join(target, "Contents", "MacOS", exe) : null;
     return "restart";
   } catch (e) {
     // can't write where the app is (or something else went wrong): show the disk image - drag the app to Applications
     spawn("open", [dmg], { detached: true, stdio: "ignore" }).unref();
-    this.error = "Drag " + ({ "central-usage": "Central Control", CentralUsage: "Central Usage", "central-pedal-control": "Central Pedal Control" }[this.product] || "the app") + " from the window that opened into Applications (replace the old one). (" + e.message + ")";
+    this.error = "Drag " + ({ CentralControl: "Central Control", "central-usage": "Central Control", CentralUsage: "Central Usage", "central-pedal-control": "Central Pedal Control" }[this.product] || "the app") + " from the window that opened into Applications (replace the old one). (" + e.message + ")";
     return "opened";
   } finally { if (mount) { try { await run("hdiutil", ["detach", "-quiet", mount]); } catch (_) { } } }
 };

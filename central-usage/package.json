@@ -1,7 +1,7 @@
 {
   "name": "central-usage",
-  "productName": "Central Usage",
-  "version": "9.2.0",
+  "productName": "Central Control",
+  "version": "9.2.1",
   "description": "Lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides, chord charts, lyrics and the instrument - the companion of Central Pedal. A native desktop app.",
   "main": "main.js",
   "author": {
@@ -24,8 +24,8 @@
   },
   "build": {
     "appId": "org.centralcontrol.usage",
-    "productName": "Central Usage",
-    "artifactName": "central-usage-${version}-${arch}.${ext}",
+    "productName": "Central Control",
+    "artifactName": "CentralControl-${version}-${arch}.${ext}",
     "files": [
       "main.js",
       "preload.js",
@@ -63,7 +63,7 @@
         "Categories": "AudioVideo;Audio;Music;"
       },
       "maintainer": "Central Control <central-control@localhost>",
-      "artifactName": "central-usage-${version}-${arch}.${ext}",
+      "artifactName": "CentralControl-${version}-${arch}.${ext}",
       "files": [
         "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
         "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**"
@@ -107,7 +107,7 @@
       "identity": null,
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "artifactName": "central-usage-${version}-mac-${arch}.${ext}",
+      "artifactName": "CentralControl-${version}-mac-${arch}.${ext}",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Central Control records the audio interface's inputs for the mixer, the in-ears and the instrument. The stream's sound comes from your audio interface or Dante.",
         "NSLocalNetworkUsageDescription": "Central Control talks to the Central Pedal and to the other Central Control computers on this network.",
@@ -130,7 +130,7 @@
         }
       ],
       "icon": "build/icon.png",
-      "artifactName": "central-usage-${version}-win-x64.${ext}",
+      "artifactName": "CentralControl-${version}-win-x64.${ext}",
       "files": [
         "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
         "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**"
@@ -193,13 +193,13 @@
     ],
     "afterPack": "build/after-pack.js",
     "dmg": {
-      "artifactName": "central-usage-${version}-mac-${arch}.${ext}"
+      "artifactName": "CentralControl-${version}-mac-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
-      "artifactName": "central-usage-${version}-win-x64.${ext}",
+      "artifactName": "CentralControl-${version}-win-x64.${ext}",
       "shortcutName": "Central Control",
       "uninstallDisplayName": "Central Control"
     },

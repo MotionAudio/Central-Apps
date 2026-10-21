@@ -28,6 +28,7 @@ app.on("browser-window-created", (_e, w) => w.webContents.on("did-finish-load", 
 // in-ear mix). package.json's "edition" says which ("usage" is set by usage-builder.js when it packs Central Usage).
 const EDITION = (() => { try { return require("./package.json").edition === "usage" ? "usage" : "control"; } catch (_) { return "control"; } })();
 const APP_NAME = EDITION === "usage" ? "Central Usage" : "Central Control";
+process.env.CU_APP_NAME = APP_NAME;   // (the name other gear sees: the audio engine, Art-Net, network audio)
 // Central Control keeps the settings folder it always had ("Central Usage", from before the 8.2 rename); Central Usage has its own
 if (!app.commandLine.hasSwitch("user-data-dir")) app.setPath("userData", path.join(app.getPath("appData"), EDITION === "usage" ? "Central Usage (musicians)" : "Central Usage"));
 app.setName(APP_NAME);
@@ -175,7 +176,7 @@ ipcMain.handle("update-status", () => updater.status());
 ipcMain.handle("update-config", (_e, cfg) => updater.save(cfg));
 ipcMain.handle("update-check", async () => { const st = await updater.check(); updateEvent(); return st; });
 ipcMain.handle("update-install", async () => {
-  try { const r = await updater.install(() => updateEvent()); updateEvent(); if (r === "restart") { app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : undefined); app.exit(0); } else if (r === "quit") app.exit(0); return { ok: true, result: r }; }
+  try { const r = await updater.install(() => updateEvent()); updateEvent(); if (r === "restart") { app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : updater.relaunchExec ? { execPath: updater.relaunchExec } : undefined); app.exit(0); } else if (r === "quit") app.exit(0); return { ok: true, result: r }; }
   catch (e) { updater.error = e.message; updateEvent(); return { ok: false, error: e.message }; }
 });
 
@@ -198,7 +199,7 @@ ipcMain.handle("sys-health", () => {
 });
 
 app.whenReady().then(() => {
-  updater = new Updater({ product: EDITION === "usage" ? "CentralUsage" : "central-usage", current: app.getVersion(), dir: app.getPath("userData") });   // (Central Control's files keep their old central-usage-* names: every install finds its updates)
+  updater = new Updater({ product: EDITION === "usage" ? "CentralUsage" : ["CentralControl", "central-usage"], current: app.getVersion(), dir: app.getPath("userData") });   // (Central Control's files are CentralControl-* since 9.2.1; releases also carry the old central-usage-* names for apps from before)
   // every time the app opens it looks for a newer release (a few seconds after start), then once a day while it runs
   setTimeout(async function loop(first) { try { if (updater.cfg.auto && (first || updater.due())) { await updater.check(); updateEvent(); } } catch (_) { } setTimeout(loop, 300 * 1000); }, 8000, true);
   try { if (JSON.parse(fs.readFileSync(remoteFile(), "utf8")).on) startRemote(); } catch (_) { }

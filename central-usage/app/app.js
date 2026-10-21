@@ -48,7 +48,8 @@
   // which app this is: Central Control (the main admin and admins) or Central Usage (musicians: User 1 / User 2 -
   // also every phone and tablet opening it from the main admin's computer, and the iPhone / iPad / Android apps)
   var EDITION = (window.CU && window.CU.edition) || (function () { var q = null; try { q = new URLSearchParams(location.search).get("edition"); } catch (_) { } return q === "usage" || q === "control" ? q : WEB ? "usage" : "all"; })();   // ("all": a plain page from the files - tests)
-  function roleAllowed(r) { return EDITION !== "usage" || r === "user1" || r === "user2" || r === null; }
+  // two apps: Central Control is for the main admin and admins, Central Usage for the musicians (User 1 / User 2)
+  function roleAllowed(r) { if (r === null) return true; if (EDITION === "usage") return r === "user1" || r === "user2"; if (EDITION === "control") return r === "main" || r === "admin"; return true; }
   var cuCfg = { mode: store.get("mode", null), role: store.get("role", null), jobs: store.get("jobs", null), name: store.get("name", "") };
   function role() {
     var r = cuCfg.role;
@@ -66,7 +67,7 @@
   }
   async function setRole(r) {
     if (!MODES[r] && r !== null) return;
-    if (!roleAllowed(r)) { if (window.CURoles && window.CURoles.toast) window.CURoles.toast(ROLE_NAMES[r] + " needs Central Control - this is Central Usage, for musicians (User 1 / User 2)."); return; }
+    if (!roleAllowed(r)) { if (window.CURoles && window.CURoles.toast) window.CURoles.toast(EDITION === "control" ? ROLE_NAMES[r] + " is in Central Usage, the musicians' app. This is Central Control, for the main admin and admins." : ROLE_NAMES[r] + " needs Central Control - this is Central Usage, for musicians (User 1 / User 2)."); return; }
     cuCfg.role = r; cuCfg.mode = r ? (r === "main" || r === "admin" ? "admin" : "user") : null;
     store.set("role", r); store.set("mode", cuCfg.mode);
     if (window.CU && window.CU.config) { try { cuCfg = await window.CU.config.set({ role: r }); } catch (_) { } }

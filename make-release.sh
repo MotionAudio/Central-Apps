@@ -6,7 +6,8 @@
 #
 # What goes in a release (names matter - the updaters look for them):
 #   central-control-source.zip           the Raspberry Pi update (Settings → Software updates → Install)
-#   central-usage-<v>-amd64.deb / -x86_64.AppImage / -win-x64.exe / -mac-arm64.dmg / -mac-x64.dmg   Central Control
+#   CentralControl-<v>-amd64.deb / -x86_64.AppImage / -win-x64.exe / -mac-arm64.dmg / -mac-x64.dmg  Central Control
+#     (+ the same files as central-usage-<v>-…, the name Central Control from before 9.2.1 updates from)
 #   CentralUsage-<v>-win-x64.exe / -mac-arm64.dmg / -mac-x64.dmg / .apk                              Central Usage
 #   central-pedal-control-<v>-mac-arm64.dmg / -mac-x64.dmg                                          Central Pedal Control
 #   central-services-<v>-amd64.deb / -x86_64.AppImage / -win-x64.exe / -mac-*.dmg / -android.apk   Central Services
@@ -26,9 +27,11 @@ tar --exclude=./release --exclude=./.git --exclude=./.github --exclude=./central
 (cd "$TMP" && zip -qr "$OLDPWD/$OUT/central-control-source.zip" central-control)
 rm -rf "$TMP"
 
-for f in central-usage/dist/central-usage-* central-usage/dist/CentralUsage-* central-usage/dist/central-pedal-control-* central-usage/dist/central-services-* central-pedal-control/dist/central-pedal-control-* central-services/dist/central-services-* central-usage-mobile/dist/CentralUsage-*; do
+for f in central-usage/dist/CentralControl-* central-usage/dist/central-usage-* central-usage/dist/CentralUsage-* central-usage/dist/central-pedal-control-* central-usage/dist/central-services-* central-pedal-control/dist/central-pedal-control-* central-services/dist/central-services-* central-usage-mobile/dist/CentralUsage-*; do
   [ -f "$f" ] && cp "$f" "$OUT/"
 done
+# Central Control's files again under their old name, for the copies installed before 9.2.1 (they look for central-usage-*)
+for f in "$OUT"/CentralControl-*; do [ -f "$f" ] || continue; n="$(basename "$f")"; cp "$f" "$OUT/central-usage-${n#CentralControl-}"; done
 (cd "$OUT" && sha256sum -- * > SHA256SUMS)
 echo "release files in $OUT:"; ls -la "$OUT"
 

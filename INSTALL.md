@@ -10,11 +10,13 @@ The four apps:
 |---|---|---|---|
 | **Central Pedal** | the pedal on stage: pads, multitracks, click, the guitar and keys rig | Raspberry Pi | `central-control-source.zip` (the update; a new card: below) |
 | **Central Pedal Control** | getting the pedal ready anywhere: songs, tracks, pads, controls, the instrument - then **Upload** to the pedal | macOS, Windows, Linux, iPad, iPhone, Android | `central-pedal-control-<v>-mac-arm64.dmg` / `-mac-x64.dmg`, `-win-x64.exe`, `-amd64.deb`, `-x86_64.AppImage`, `-android.apk`; iPhone / iPad: TestFlight / App Store (IOS-APP-STORE.md) |
-| **Central Control** | the main admin and the admins: lights, slides, lyrics, cameras, in-ears, tracks, mixing | Windows, Mac, Linux | `central-usage-<v>-win-x64.exe`, `-mac-arm64.dmg`, `-mac-x64.dmg`, `-amd64.deb`, `-x86_64.AppImage` |
+| **Central Control** | the main admin and the admins: lights, slides, lyrics, cameras, in-ears, tracks, mixing | Windows, Mac, Linux | `CentralControl-<v>-win-x64.exe`, `-mac-arm64.dmg`, `-mac-x64.dmg`, `-amd64.deb`, `-x86_64.AppImage` |
 | **Central Usage** | the musicians and singers (User 1 / User 2): chord chart, instrument, lyrics, their in-ear mix | macOS, Windows, Linux, Android, iPhone, iPad | `CentralUsage-<v>-win-x64.exe`, `-mac-arm64.dmg`, `-mac-x64.dmg`, `-amd64.deb`, `-x86_64.AppImage`, `CentralUsage-<v>.apk`; iPhone / iPad: Safari today, the App Store app once the Apple account is set up |
 
-**Names:** Central Control's files keep their old name (`central-usage-…`, and `Central Usage.app` on a Mac) so every
-computer that has it keeps updating itself. Central Usage is the new musicians' app: `CentralUsage-…`.
+**Names:** since 9.2.1 Central Control is called Central Control everywhere: its files (`CentralControl-…`), the Mac
+app (`Central Control.app`) and the Linux folder (`/opt/Central Control`). Each release also carries the same files under
+their old name (`central-usage-…`), so copies installed before 9.2.1 keep updating themselves; when they do, they become
+Central Control too, with their settings and library where they were. Central Usage is the musicians' app: `CentralUsage-…`.
 
 **A musician's laptop that runs Central Control today** keeps working as User 1 / User 2. New musicians' computers,
 phones and tablets get Central Usage; it can't become an admin (the main admin's Devices tab shows which app each
@@ -40,9 +42,8 @@ Everything you install updates itself: each app looks for a new release every ti
 3. **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to the app, confirm.
 4. Allow the microphone when asked (the audio interface, in-ears and instrument need it).
 
-If the Mac says the app *"is damaged"*, run the line for that app in Terminal (Central Control's file keeps its old
-name, so updates and settings carry on):
-`xattr -dr com.apple.quarantine "/Applications/Central Usage.app"` - Central Control
+If the Mac says the app *"is damaged"*, run the line for that app in Terminal:
+`xattr -dr com.apple.quarantine "/Applications/Central Control.app"` - Central Control
 `xattr -dr com.apple.quarantine "/Applications/CentralUsage.app"` - Central Usage
 `xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"` - Central Pedal Control
 
@@ -95,6 +96,21 @@ User 1 or User 2: the chord chart or any instrument's part, the lyrics, and your
 
 ## Linux, from a terminal
 
+**The easy way: one line per app.** Open a terminal (Ctrl + Alt + T on Ubuntu), paste the line for the app you want,
+press Enter and type your password when it asks:
+
+```bash
+curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control         # Central Control
+curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage           # Central Usage
+curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control   # Central Pedal Control
+curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services        # Central Services
+```
+
+It finds the newest version, checks the download against the release's checksums, and installs it with everything the
+app needs; the app is then in your app menu and updates itself. Ubuntu, Debian, Mint, Pop!_OS and the like get the
+`.deb`; any other Linux gets the AppImage in `~/Applications` with a menu entry. Without an app name it asks which one.
+The steps below do the same by hand.
+
 The commands below always fetch the **newest** release, so they keep working when new
 versions come out. Copy them into a terminal (Ctrl + Alt + T on Ubuntu) one block at a time.
 
@@ -108,8 +124,8 @@ versions come out. Copy them into a terminal (Ctrl + Alt + T on Ubuntu) one bloc
 ```bash
 mkdir -p ~/Downloads/central && cd ~/Downloads/central
 NEWEST=$(wget -qO- https://api.github.com/repos/MotionAudio/Central-Apps/releases/latest)
-wget -O central-usage.deb "$(echo "$NEWEST" | grep -o 'https://github.com/[^"]*central-usage-[^"]*amd64\.deb')"
-sudo apt install ./central-usage.deb
+wget -O central-control.deb "$(echo "$NEWEST" | grep -o 'https://github.com/[^"]*CentralControl-[^"]*amd64\.deb')"
+sudo apt install ./central-control.deb
 sudo apt install pipewire-jack
 ```
 

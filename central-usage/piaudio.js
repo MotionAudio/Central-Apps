@@ -8,7 +8,7 @@ let WebSocket = null; try { WebSocket = require("ws"); } catch (_) { }
 
 class PiAudio extends EventEmitter {
   constructor(engine, base, label) {
-    super(); this.engine = engine; this.base = base || 0; this.label = label || ""; this.cfg = { address: "", code: "", name: "Central Usage", enabled: false, prefix: "" };
+    super(); this.engine = engine; this.base = base || 0; this.label = label || ""; this.cfg = { address: "", code: "", name: process.env.CU_APP_NAME || "Central Usage", enabled: false, prefix: "" };
     this.ws = null; this.timer = null; this.st = { state: "off", error: null, packets: 0, bytes: 0, lost: 0, sources: {}, since: 0 }; this.lastSeq = {};
   }
   configure(cfg) {

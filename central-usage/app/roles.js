@@ -169,7 +169,7 @@
       '<div class="rp-step" data-step="join" hidden><h3 data-rp-title></h3><label>Pairing PIN <input data-rp="joinPin" inputmode="numeric" maxlength="4" placeholder="the main admin\'s 4 digits" autocomplete="off"></label>' +
       '<details class="rp-addr"><summary class="small">Main admin not found by itself?</summary><label>Its address <input data-rp="centerHost" placeholder="192.168.1.20" autocomplete="off"></label></details>' +
       '<label class="rp-adminpin" hidden>Main admin\'s role PIN <small class="muted">(optional - without it the main admin approves you)</small><input data-rp="rolePin" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
-      '<div class="row"><button class="primary" data-rp="go">Pair</button><button data-rp="back">Back</button><a href="#" data-rp="later">Not now - start as User 1</a></div></div>' +
+      '<div class="row"><button class="primary" data-rp="go">Pair</button><button data-rp="back">Back</button><a href="#" data-rp="later">' + (CONTROL ? "Not now - start as an admin" : "Not now - start as User 1") + '</a></div></div>' +
       '<p class="rp-msg warn"></p><div class="rp-done" hidden></div></div>';
     document.body.appendChild(d);
     var want = null;
@@ -258,9 +258,10 @@
         '<p class="muted small">Every device, its role, its jobs and its connection are on the <button class="linkish" data-rl="devices">Devices</button> tab. This computer is the center: every device (and the Central Pedal) pairs with it, so keep Central Control open here during the service.</p>' + centerLine();
     } else if (r === "admin") {
       h += '<p class="small">Jobs: <b>' + esc(jobText(CU.jobs())) + '</b> <span class="muted">(set by the main admin)</span></p>';
-      h += '<div class="io-opts">' + roleRadio("admin", r) + roleRadio("user1", r, true) + roleRadio("user2", r, true) + "</div>" + addrLine();
+      h += '<div class="io-opts">' + roleRadio("admin", r) + (CU.edition && CU.edition() === "control" ? "" : roleRadio("user1", r, true) + roleRadio("user2", r, true)) + "</div>" + addrLine();
     } else {
-      h += '<div class="io-opts">' + roleRadio("user1", r) + roleRadio("user2", r) + (CU.web || (CU.edition && CU.edition() === "usage") ? "" : roleRadio("admin", r, !!v.hasMain)) + "</div>";
+      if (CU.edition && CU.edition() === "control") h += '<p class="small">Central Control is for the main admin and admins. Musicians and singers use <b>Central Usage</b>.</p><div class="io-opts">' + roleRadio("admin", r, !!v.hasMain) + "</div>";   // (a Central Control set to User 1 / 2 before 9.2.1)
+      else h += '<div class="io-opts">' + roleRadio("user1", r) + roleRadio("user2", r) + (CU.web || (CU.edition && CU.edition() === "usage") ? "" : roleRadio("admin", r, !!v.hasMain)) + "</div>";
       if (CU.web) h += '<p class="muted small">On a phone or tablet: User 1 (chart, lyrics, my in-ear mix) or User 2. Lighting, mixing and slides are on a computer with Central Control.</p>';
       if (!CU.web) h += addrLine();
     }
@@ -282,7 +283,7 @@
   function people() {
     var list = (view && view.devices) || [];
     var rows = list.map(function (d) {
-      var sel = '<select data-rl-role="' + esc(d.id) + '" title="' + (d.edition === "usage" ? "Central Usage (a musician's app)" : d.edition === "control" ? "Central Control" : "") + '">' + (d.edition === "usage" ? ["user1", "user2"] : ["admin", "user1", "user2"]).map(function (x) { return '<option value="' + x + '"' + (d.role === x ? " selected" : "") + ">" + CU.roleName(x) + "</option>"; }).join("") + "</select>";
+      var sel = '<select data-rl-role="' + esc(d.id) + '" title="' + (d.edition === "usage" ? "Central Usage (a musician's app)" : d.edition === "control" ? "Central Control" : "") + '">' + (d.edition === "usage" ? ["user1", "user2"] : d.edition === "control" ? ["admin"] : ["admin", "user1", "user2"]).map(function (x) { return '<option value="' + x + '"' + (d.role === x ? " selected" : "") + ">" + CU.roleName(x) + "</option>"; }).join("") + "</select>";
       var jb = d.role === "admin" ? '<div class="rl-jobs">' + Object.keys(CU.jobNames).map(function (x) { var on = (d.jobs || ["general"]).indexOf(x) >= 0; return '<label class="toggle"><input type="checkbox" data-rl-job="' + x + '" data-id="' + esc(d.id) + '"' + (on ? " checked" : "") + "> " + esc(CU.jobNames[x]) + "</label>"; }).join("") + "</div>" : "";
       return '<tr><td><span class="dot' + (d.online ? "" : " off") + '"></span> <b>' + esc(d.name) + "</b>" + (d.claimsMain ? ' <span class="warn small">says it is the main admin</span>' : "") + (d.paired ? "" : ' <span class="muted small">(not paired)</span>') + "</td><td>" + sel + jb + '</td><td><button data-rl="rename" data-id="' + esc(d.id) + '">Rename</button> <button data-rl="remove" data-id="' + esc(d.id) + '">Remove</button></td></tr>';
     }).join("");

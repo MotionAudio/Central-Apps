@@ -61,7 +61,7 @@ function sacnPacket(universe, data) {
   buf.writeUInt16BE(0x0010, 0); buf.writeUInt16BE(0, 2); buf.write("ASC-E1.17\0\0\0", 4, "latin1");
   buf.writeUInt16BE(0x7000 | (638 - 16), 16); buf.writeUInt32BE(0x00000004, 18); CID.copy(buf, 22);
   buf.writeUInt16BE(0x7000 | (638 - 38), 38); buf.writeUInt32BE(0x00000002, 40);
-  buf.write("Central Usage", 44, "utf8"); buf[108] = 100; buf.writeUInt16BE(0, 109);
+  buf.write(process.env.CU_APP_NAME || "Central Usage", 44, "utf8"); buf[108] = 100; buf.writeUInt16BE(0, 109);
   sacnSeq[universe] = ((sacnSeq[universe] || 0) + 1) & 0xff; buf[111] = sacnSeq[universe]; buf[112] = 0;
   buf.writeUInt16BE(universe, 113);
   buf.writeUInt16BE(0x7000 | (638 - 115), 115); buf[117] = 0x02; buf[118] = 0xa1;

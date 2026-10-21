@@ -28,6 +28,16 @@ for (const [p, v] of [["central-usage", "2.1.0"], ["central-control", "8.1.0"]])
   pick(p, "darwin", "x64", false, p + "-" + v + "-mac-x64.dmg");
 }
 pick("central-usage", "linux", "arm64", false, "central-usage-2.1.0-arm64.deb");
+// Central Control since 9.2.1: its files are CentralControl-*, and releases also carry central-usage-* copies for older installs
+{
+  const both = Object.assign({}, assets); ["CentralControl-2.1.0-amd64.deb", "CentralControl-2.1.0-win-x64.exe", "CentralControl-2.1.0-mac-arm64.dmg"].forEach((n) => { both[n] = "https://example/" + n; });
+  const tryPick = (asset, platform, arch, want, label) => { as(platform, arch, false); const u = new Updater({ product: ["CentralControl", "central-usage"], current: "1.0.0", dir: os.tmpdir() }); u.latest = { version: "9", assets: asset }; const a = u.asset();
+    try { assert.equal(a && a.name, want); console.log("  ✓ Central Control (" + label + ") on " + platform + " -> " + want); } catch (e) { failures++; console.error("  ✗ Central Control (" + label + "): " + (a && a.name) + " (wanted " + want + ")"); } };
+  tryPick(both, "linux", "x64", "CentralControl-2.1.0-amd64.deb", "new name first");
+  tryPick(both, "win32", "x64", "CentralControl-2.1.0-win-x64.exe", "new name first");
+  tryPick(both, "darwin", "arm64", "CentralControl-2.1.0-mac-arm64.dmg", "new name first");
+  tryPick(assets, "darwin", "x64", "central-usage-2.1.0-mac-x64.dmg", "an older release: the old name");
+}
 as(real.platform, real.arch, real.appimage);
 
 // update coverage: an admin or user key gets updates through its version (limit, in tenths); past that the app keeps

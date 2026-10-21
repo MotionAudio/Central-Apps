@@ -4,7 +4,7 @@
 # every install - Raspberry Pi, Linux, Windows, macOS - updates itself from it.
 #
 # Every release has the five apps: the Raspberry Pi update for Central Pedal (central-control-source.zip);
-# Central Pedal Control (central-pedal-control-*) for macOS, Windows, Linux and Android; Central Control (central-usage-*
+# Central Pedal Control (central-pedal-control-*) for macOS, Windows, Linux and Android; Central Control (CentralControl-*, and central-usage-* for apps from before 9.2.1;
 # files - their old name) for Linux (.deb, .AppImage), Windows (-win-x64.exe) and macOS (-mac-arm64.dmg, -mac-x64.dmg);
 # Central Usage (CentralUsage-*) for Windows, macOS, Linux and Android (.apk); Central Services (central-services-*) for
 # Windows, macOS, Linux and Android; SHA256SUMS. iPhone / iPad (Central Usage,
@@ -57,9 +57,10 @@ jobs:
       - name: Make the release files
         run: |
           mkdir -p central-usage/dist
-          find staging -type f \( -name 'central-usage-*' -o -name 'CentralUsage-*' -o -name 'central-pedal-control-*' -o -name 'central-services-*' \) -exec mv {} central-usage/dist/ \;
+          find staging -type f \( -name 'CentralControl-*' -o -name 'central-usage-*' -o -name 'CentralUsage-*' -o -name 'central-pedal-control-*' -o -name 'central-services-*' \) -exec mv {} central-usage/dist/ \;
           bash make-release.sh "$VER"
-          for want in "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" "central-usage-*-x86_64.AppImage" "central-control-source.zip" \
+          for want in "CentralControl-*-win-x64.exe" "CentralControl-*-mac-arm64.dmg" "CentralControl-*-mac-x64.dmg" "CentralControl-*-amd64.deb" "CentralControl-*-x86_64.AppImage" \
+                      "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" "central-usage-*-x86_64.AppImage" "central-control-source.zip" \
                       "CentralUsage-*-win-x64.exe" "CentralUsage-*-mac-arm64.dmg" "CentralUsage-*-mac-x64.dmg" "CentralUsage-*.apk" "central-pedal-control-*-mac-arm64.dmg" "central-pedal-control-*-mac-x64.dmg" \
                       "CentralUsage-*-amd64.deb" "CentralUsage-*-x86_64.AppImage" "central-pedal-control-*-win-x64.exe" "central-pedal-control-*-amd64.deb" \
                       "central-pedal-control-*-x86_64.AppImage" "central-pedal-control-*-android.apk" \

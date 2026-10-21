@@ -27,7 +27,7 @@ class Engine extends EventEmitter {
   start() {
     this.wanted = true; if (this.proc) return;
     if (!this.bin || !fs.existsSync(this.bin)) { this.error = "The audio engine (cu-mixer) is missing from this installation."; this.emit("status", this.info()); return; }
-    const d = this.state.device, args = ["--name", "Central Usage", "--block", String(d.buffer || 256)];
+    const d = this.state.device, args = ["--name", process.env.CU_APP_NAME || "Central Usage", "--block", String(d.buffer || 256)];
     if (d.capture) args.push("--capture", d.capture); if (d.playback) args.push("--playback", d.playback);
     if (d.backend && d.backend !== "auto") args.push("--backend", d.backend);   // internal | jack | miniaudio | null
     if (d.exclusive) args.push("--exclusive");                                   // WASAPI / Core Audio exclusive mode: lower latency

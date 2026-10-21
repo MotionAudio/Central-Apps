@@ -31,7 +31,7 @@ ipcMain.handle("update-check", async () => { const st = await updater.check(); u
 ipcMain.handle("update-install", async () => {
   try {
     const r = await updater.install(() => updateEvent()); updateEvent();
-    if (r === "restart") { app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : undefined); app.exit(0); } else if (r === "quit") app.exit(0);
+    if (r === "restart") { app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : updater.relaunchExec ? { execPath: updater.relaunchExec } : undefined); app.exit(0); } else if (r === "quit") app.exit(0);
     return { ok: true, result: r };
   } catch (e) { updater.error = e.message; updateEvent(); return { ok: false, error: e.message }; }
 });

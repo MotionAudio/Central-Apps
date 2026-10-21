@@ -59,6 +59,11 @@
   .plat { display: flex; flex-direction: column; gap: .5rem; }
   .plat .btn { width: 100%; }
   .plat p { font-size: .9rem; color: var(--muted); margin: 0 0 auto; padding-bottom: .4rem; }
+  .grid > .linux-line { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: .6rem 1.2rem; align-items: center; background: var(--paper); }
+  .linux-line b { display: block; } .linux-line span { display: block; font-size: .88rem; color: var(--muted); margin-top: .15rem; }
+  .linux-line code { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: .55rem .7rem; font-size: 12.5px; word-break: break-all; user-select: all; }
+  .linux-line .copy { min-width: 96px; }
+  @media (max-width: 760px) { .grid > .linux-line { grid-template-columns: minmax(0, 1fr); } }
   section > .card { border: 1px solid var(--line); border-radius: 14px; margin-top: 1rem; }
   details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.2rem; margin: .7rem 0; }
   details[open] { border-color: var(--line-2); }
@@ -102,6 +107,7 @@
       <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-pedal-control-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-pedal-control-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
       <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="central-pedal-control-*-android.apk">Download <small>.apk</small></a></div>
       <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Coming to TestFlight and the App Store</p><a class="btn" aria-disabled="true">Soon</a></div>
+      <div class="card linux-line"><div><b>Linux, the easy way</b><span>Open Terminal, paste this, press Enter. It installs the newest version and everything it needs; then the app is in your app menu.</span></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control">Copy</button></div>
     </div>
     <p class="muted"><small>The stem splitter and MP3 practice mixes run on a computer (or on the Central Pedal); on a phone or tablet everything else works.</small></p>
   </section>
@@ -110,10 +116,11 @@
     <div class="sechead"><img src="brand/tile/central-control.svg" alt="" width="44" height="44"><h2>Central Control</h2></div>
     <p class="muted">For the main admin (usually the sound desk) and the admins: lighting, cameras, slides and lyrics, in-ear mixes, the tracks, mixing and talkback. The main admin's copy is the center of the team, and with no Central Pedal it plays the tracks, charts and lyrics itself (its player window).</p>
     <div class="grid">
-      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-usage-*-win-x64.exe">Download <small>.exe</small></a></div>
-      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-usage-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-usage-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-usage-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-usage-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
+      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="CentralControl-*-win-x64.exe">Download <small>.exe</small></a></div>
+      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="CentralControl-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="CentralControl-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
+      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="CentralControl-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="CentralControl-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
+      <div class="card linux-line"><div><b>Linux, the easy way</b><span>Open Terminal, paste this, press Enter. It installs the newest version and everything it needs; then the app is in your app menu.</span></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control">Copy</button></div>
     </div>
   </section>
 
@@ -127,6 +134,7 @@
       <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="CentralUsage-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="CentralUsage-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
       <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="CentralUsage-*.apk">Download <small>.apk</small></a></div>
       <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Add it from Safari today; the App Store app is coming</p><a class="btn" href="#ios">How to add it</a></div>
+      <div class="card linux-line"><div><b>Linux, the easy way</b><span>Open Terminal, paste this, press Enter. It installs the newest version and everything it needs; then the app is in your app menu.</span></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage">Copy</button></div>
     </div>
   </section>
 
@@ -140,6 +148,7 @@
       <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-services-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-services-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
       <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="central-services-*-android.apk">Download <small>.apk</small></a></div>
       <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Coming to TestFlight and the App Store</p><a class="btn" aria-disabled="true">Soon</a></div>
+      <div class="card linux-line"><div><b>Linux, the easy way</b><span>Open Terminal, paste this, press Enter. It installs the newest version and everything it needs; then the app is in your app menu.</span></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services">Copy</button></div>
     </div>
   </section>
 
@@ -155,7 +164,7 @@
         <li>Open <b>System Settings → Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b> next to the app's name, then confirm.</li>
         <li>When it asks to use the microphone, allow it (the audio interface, the in-ears, the tuner and the instrument need it).</li></ol>
       <p class="note">If the Mac says the app “is damaged”, open Terminal and run the line for that app:</p>
-      <pre>xattr -dr com.apple.quarantine "/Applications/Central Usage.app"           # Central Control
+      <pre>xattr -dr com.apple.quarantine "/Applications/Central Control.app"         # Central Control
 xattr -dr com.apple.quarantine "/Applications/CentralUsage.app"            # Central Usage
 xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"   # Central Pedal Control</pre>
     </details>
@@ -165,8 +174,9 @@ xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"   # Cen
         <li>Open the app on the church Wi-Fi. <b>Central Usage</b>: tap <b>Find the main admin</b>. <b>Central Pedal Control</b>: set up your songs, then <b>⇪ Upload</b> to the pedal.</li></ol>
     </details>
     <details><summary>Linux</summary>
-      <ol><li><b>.deb</b>: <code>sudo apt install ./&lt;the file&gt;.deb</code> (the <code>./</code> matters). Each app installs next to the others.</li>
-        <li><b>AppImage</b>: right-click → Properties → Permissions → <b>Allow executing file as program</b>, then double-click.</li></ol>
+      <ol><li><b>The easy way</b>: open <b>Terminal</b>, paste the line from the app's Linux card above, press Enter and type your password when it asks. It installs the newest version with everything the app needs, and the app is in your app menu. Run the same line again any time to reinstall. (Ubuntu, Debian, Mint, Pop!_OS and the like get the .deb; any other Linux gets the AppImage with a menu entry.)</li>
+        <li><b>.deb by hand</b>: <code>sudo apt install ./&lt;the file&gt;.deb</code> (the <code>./</code> matters). Each app installs next to the others.</li>
+        <li><b>AppImage by hand</b>: right-click → Properties → Permissions → <b>Allow executing file as program</b>, then double-click.</li></ol>
     </details>
   </section>
 
@@ -212,19 +222,21 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre
     try { var gl = document.createElement("canvas").getContext("webgl"), ext = gl && gl.getExtension("WEBGL_debug_renderer_info"), r = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ""; if (/Apple M\d|Apple GPU/i.test(r)) return "arm64"; if (/Intel|AMD|Radeon|NVIDIA/i.test(r)) return "x64"; } catch (_) { }
     return "arm64";
   }
+  document.querySelectorAll("[data-copy]").forEach(function (b) { b.addEventListener("click", function () { var t = b.dataset.copy, done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1800); }; if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () {}); else { var r = document.createRange(); r.selectNodeContents(b.previousElementSibling); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } }); });
   fetch("https://api.github.com/repos/" + REPO + "/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(async function (rel) {
       var urls = {}; (rel.assets || []).forEach(function (a) { urls[a.name] = a.browser_download_url; }); var names = Object.keys(urls);
       var v = (rel.tag_name || "").replace(/^v/, ""), ver = function (pat, re) { return (match(names, pat) || "").replace(re, "$1"); };
-      var cu = ver("central-usage-*-win-x64.exe", /^central-usage-([\d.]+)-.*$/), us = ver("CentralUsage-*-win-x64.exe", /^CentralUsage-([\d.]+)-.*$/), cs = ver("central-services-*-amd64.deb", /^central-services-([\d.]+)-.*$/);
+      var cu = ver("CentralControl-*-win-x64.exe", /^CentralControl-([\d.]+)-.*$/) || ver("central-usage-*-win-x64.exe", /^central-usage-([\d.]+)-.*$/), us = ver("CentralUsage-*-win-x64.exe", /^CentralUsage-([\d.]+)-.*$/), cs = ver("central-services-*-amd64.deb", /^central-services-([\d.]+)-.*$/);
       var same = [cu, us, cs].every(function (x) { return !x || x === v; });   // (from 9.0 every app has the same version)
       document.getElementById("ver").textContent = (same ? "Version " + v : "Central Pedal " + v + (cu ? " · Central Control " + cu : "") + (us ? " · Central Usage " + us : "") + (cs ? " · Central Services " + cs : "")) + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
       document.getElementById("notes").href = rel.html_url || RELEASES; if (urls.SHA256SUMS) document.getElementById("sums").href = urls.SHA256SUMS;
-      document.querySelectorAll("[data-file]").forEach(function (a) { var n = match(names, a.dataset.file); if (n) { a.href = urls[n]; a.title = n; a.removeAttribute("aria-disabled"); } else { a.setAttribute("aria-disabled", "true"); a.title = "Not in this release yet"; } });
+      // (releases before 9.2.1 have Central Control under its old file names, central-usage-*)
+      document.querySelectorAll("[data-file]").forEach(function (a) { var n = match(names, a.dataset.file) || (/^CentralControl-/.test(a.dataset.file) ? match(names, a.dataset.file.replace(/^CentralControl-/, "central-usage-")) : null); if (n) { a.href = urls[n]; a.title = n; a.removeAttribute("aria-disabled"); } else { a.setAttribute("aria-disabled", "true"); a.title = "Not in this release yet"; } });
       var arch = plat === "mac" ? await macArch() : "x64", pc = "Download for Mac (" + (arch === "arm64" ? "Apple Silicon" : "Intel") + ")";
       var pick = { win: ["*-win-x64.exe", "Download for Windows"], mac: ["*-mac-" + arch + ".dmg", pc], linux: ["*-amd64.deb", "Download for Linux (.deb)"] }[plat];
-      var cuFile = pick && match(names, "central-usage-" + pick[0]); if (cuFile) setHero("heroCu", "heroCuText", urls[cuFile], pick[1]);
+      var cuFile = pick && (match(names, "CentralControl-" + pick[0]) || match(names, "central-usage-" + pick[0])); if (cuFile) setHero("heroCu", "heroCuText", urls[cuFile], pick[1]);
       var usFile = plat === "android" ? match(names, "CentralUsage-*.apk") : pick && match(names, "CentralUsage-" + pick[0]);
       if (usFile) setHero("heroUs", "heroUsText", urls[usFile], plat === "android" ? "Download for Android" : pick[1]);
       else if (plat === "ios") setHero("heroUs", "heroUsText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "From the main admin's computer on your Wi-Fi");
