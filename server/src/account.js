@@ -11,7 +11,7 @@ import { hashPassword, checkPassword, requireUser, isAdmin } from "./auth.js";
 import { issue, requireStep } from "./signin.js";
 import { stripe } from "./payments.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
-import { remindInvites, churchOf, acceptInvite } from "./licenses.js";
+import { remindInvites, churchOf, acceptInvite, isMain } from "./licenses.js";
 import { remindServices } from "./services.js";
 import { remindTrials } from "./trials.js";
 
@@ -87,10 +87,10 @@ export function routes(api, { wrap, brake }) {
     const u = req.user;
     if (!checkPassword(String(req.body.password || ""), u.pass_hash)) throw bad("That password isn't right.", 403);
     const c = await churchOf(u.id);
-    const otherMain = c && c.role === "owner" ? await one("SELECT 1 FROM church_members WHERE church_id=$1 AND user_id<>$2 AND role='owner'", [c.id, u.id]) : null;
-    if (c && c.role === "owner" && !otherMain) {   // (with a second main admin, the church carries on with them)
+    const otherMain = c && isMain(c.role) ? await one("SELECT 1 FROM church_members WHERE church_id=$1 AND user_id<>$2 AND role IN ('owner','church')", [c.id, u.id]) : null;
+    if (c && isMain(c.role) && !otherMain) {   // (with another main admin or the church account, the church carries on with them)
       const others = await one("SELECT COUNT(*)::int AS n FROM church_members WHERE church_id=$1 AND user_id<>$2", [c.id, u.id]);
-      if (others.n) throw bad("You're the main admin of " + c.name + ". Make someone else a main admin first (Account → People → Make main admin), then delete your account.", 409);
+      if (others.n) throw bad((c.role === "church" ? "This is " + c.name + "'s church account. " : "You're the main admin of " + c.name + ". ") + "Make someone else a main admin first (Account → People → Make main admin), then delete this account.", 409);
       if (!req.body.closeChurch) { const e = bad("You're the only one in " + c.name + ". Deleting your account also closes it: its keys stop working.", 409); e.needClose = true; throw e; }
     }
     res.json(await deleteAccount(u, c));
@@ -136,9 +136,9 @@ export async function deleteAccount(u, c) {
   let closes = false;
   try {
     await client.query("BEGIN");
-    if (c && c.role === "owner") {   // (locked, and checked again: nobody joined meanwhile; another main admin carries on)
+    if (c && isMain(c.role)) {   // (locked, and checked again: nobody joined meanwhile; the church account or another main admin carries on)
       await client.query("SELECT id FROM churches WHERE id=$1 FOR UPDATE", [c.id]);
-      const other = (await client.query("SELECT user_id FROM church_members WHERE church_id=$1 AND user_id<>$2 AND role='owner' LIMIT 1", [c.id, u.id])).rows[0];
+      const other = (await client.query("SELECT user_id FROM church_members WHERE church_id=$1 AND user_id<>$2 AND role IN ('owner','church') ORDER BY (role='church') DESC LIMIT 1", [c.id, u.id])).rows[0];
       if (other) await client.query("UPDATE churches SET owner_id=$1 WHERE id=$2 AND (owner_id=$3 OR owner_id IS NULL)", [other.user_id, c.id, u.id]);
       else {
         const others = (await client.query("SELECT COUNT(*)::int AS n FROM church_members WHERE church_id=$1 AND user_id<>$2", [c.id, u.id])).rows[0].n;

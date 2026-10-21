@@ -205,7 +205,7 @@ module.exports = function services(app, getWin) {
   }
   function restart() {   // (the window, the center and the player start again in their new place)
     if (process.env.CU_NO_RELAUNCH) { steppingDown = false; applyHost(); applyCenter(); send("hub-restart"); return; }
-    setTimeout(() => { app.relaunch(); app.exit(0); }, 400);
+    const exe = require("./updater").Updater.debExec(process.execPath); setTimeout(() => { app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : exe && exe !== process.execPath ? { execPath: exe } : undefined); app.exit(0); }, 400);
   }
   ipcMain.handle("center-heard", () => [...heard.values()].filter((h) => Date.now() - h.at < 8000));
   ipcMain.handle("center-probe", (_e, host, port) => new Promise((resolve) => {

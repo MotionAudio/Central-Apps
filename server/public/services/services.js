@@ -80,8 +80,8 @@
       '<div class="row"><button class="primary" data-a="saveapp">Save</button></div></div>';
   }
   function header() {
-    var m = st.me, sched = m.role === "scheduler", who = { owner: "Main admin", admin: "Admin", user: "User" }[m.churchRole] || "Team member";
-    return '<header><h1>' + esc(m.church || "Central Services") + '</h1><span class="muted small">Central Services</span><div class="who"><span>' + esc(m.name || m.email) + '</span><span class="badge' + (m.churchRole === "owner" || m.churchRole === "admin" ? " adm" : "") + '" data-role="' + esc(m.churchRole || "") + '">' + who + "</span>" + (sched ? '<span class="badge sched">Scheduler</span>' : "") + '<button class="small" data-a="refresh" title="Refresh">↻</button><button class="small" data-a="logout">Sign out</button></div></header>' +
+    var m = st.me, sched = m.role === "scheduler", who = { church: "Church account", owner: "Main admin", admin: "Admin", user: "User" }[m.churchRole] || "Team member";
+    return '<header><h1>' + esc(m.church || "Central Services") + '</h1><span class="muted small">Central Services</span><div class="who"><span>' + esc(m.name || m.email) + '</span><span class="badge' + (m.churchRole === "church" || m.churchRole === "owner" || m.churchRole === "admin" ? " adm" : "") + '" data-role="' + esc(m.churchRole || "") + '">' + who + "</span>" + (sched ? '<span class="badge sched">Scheduler</span>' : "") + '<button class="small" data-a="refresh" title="Refresh">↻</button><button class="small" data-a="logout">Sign out</button></div></header>' +
       '<nav>' + [["mine", "My requests"], ["schedule", "Schedule"], ["away", "Away"], ["teams", "Teams"]].concat(sched ? [["new", "+ New service"]] : []).concat([["account", "Account"]]).concat(APP ? [["app", "⚙ App"]] : []).map(function (t) { return '<button class="' + (st.tab === t[0] ? "on" : "") + '" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</nav>";
   }
   function mine() {
@@ -121,16 +121,16 @@
   // the church's Central Services slots: each person on the teams takes one; taking someone off frees it
   function slotsCard(b) {
     var x = b.slots; if (!x) return "";
-    var buyer = st.me.churchRole === "owner" || st.me.churchRole === "admin", site = BASE ? BASE + "/#account" : "";
+    var buyer = st.me.churchRole === "church" || st.me.churchRole === "owner" || st.me.churchRole === "admin", site = BASE ? BASE + "/#account" : "";
     if (x.trial) return '<div class="card slots"><h2>Slots</h2><p class="muted small" style="margin:0">Free trial: as many people as you like until ' + esc(new Date(x.trial).toLocaleDateString()) + ".</p></div>";
     var pct = x.slots ? Math.min(100, Math.round(x.used / x.slots * 100)) : 100, full = x.free <= 0;
     return '<div class="card slots"><div class="row" style="justify-content:space-between;align-items:baseline"><h2>Slots</h2><span class="slots-n"><b>' + x.used + '</b> of ' + x.slots + ' in use</span></div>' +
       '<div class="meterbar' + (full ? " full" : "") + '"><i style="width:' + pct + '%"></i></div>' +
-      '<p class="muted small" style="margin:0">' + (full ? "<b>Every slot is in use.</b> " : x.free + " free. ") + "Each person on your teams takes one; take someone off a team and theirs is free for the next person." +
+      '<p class="muted small" style="margin:0">' + (full ? "<b>Every slot is in use.</b> " : x.free + " free. ") + "Each person on your teams takes one (the church account doesn't); take someone off a team and theirs is free for the next person." +
       (buyer && site ? ' <a href="' + esc(site) + '" target="_blank" rel="noopener">Add slots on the website</a> ($5 each, once).' : full ? " Ask your main admin for more." : "") + "</p></div>";
   }
   function teams() {
-    var b = st.board, sched = st.me.role === "scheduler", owner = st.me.churchRole === "owner";
+    var b = st.board, sched = st.me.role === "scheduler", owner = st.me.churchRole === "church" || st.me.churchRole === "owner";
     var group = function (kind, title) {
       var list = b.teams.filter(function (t) { return t.kind === kind; });
       return '<div class="card"><div class="row" style="justify-content:space-between"><h2>' + title + ' <span class="muted small">(' + list.length + " of " + b.limits.teamsPerKind + ")</span></h2>" +
@@ -145,7 +145,7 @@
     var people = b.people || [];
     return slotsCard(b) + group("worship", "Worship teams") + group("production", "Production teams") +
       '<div class="card"><h2>Schedulers <span class="muted small">(up to ' + b.limits.schedulers + ")</span></h2><div>" + b.schedulers.map(function (u) { return esc(u.name || u.email); }).join(" · ") + "</div>" +
-      (owner ? '<details><summary class="small">Choose the schedulers</summary><div style="display:grid;gap:.2rem;margin-top:.4rem">' + people.map(function (p) { return '<label class="pick"><input type="checkbox" data-schedpick value="' + esc(p.email) + '"' + (b.schedulers.some(function (u) { return u.email === p.email; }) ? " checked" : "") + "> " + esc(p.name || p.email) + ' <span class="muted small">· ' + esc(p.role) + "</span></label>"; }).join("") +
+      (owner ? '<details><summary class="small">Choose the schedulers</summary><div style="display:grid;gap:.2rem;margin-top:.4rem">' + people.map(function (p) { return '<label class="pick"><input type="checkbox" data-schedpick value="' + esc(p.email) + '"' + (b.schedulers.some(function (u) { return u.email === p.email; }) ? " checked" : "") + "> " + esc(p.name || p.email) + ' <span class="muted small">· ' + esc({ church: "church account", owner: "main admin" }[p.role] || p.role) + "</span></label>"; }).join("") +
         '<button class="small primary" data-a="saveSched" style="justify-self:start">Save</button></div></details>' : "") + "</div>";
   }
   function newService(forId) {

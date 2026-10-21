@@ -161,6 +161,7 @@ class Updater {
       const pk = await new Promise((r) => execFile("sh", ["-c", "command -v pkexec"], (err, out) => r(!err && out.trim())));
       if (pk) {
         await new Promise((resolve, reject) => { const p = spawn(pk, ["apt-get", "install", "-y", "--allow-downgrades", file], { stdio: "ignore" }); p.on("exit", (code) => code === 0 ? resolve() : reject(new Error(code === 126 || code === 127 ? "the password prompt was closed" : "apt-get stopped with code " + code))); p.on("error", reject); });
+        this.relaunchExec = debExec(process.execPath);
         return "restart";
       }
       spawn("xdg-open", [file], { detached: true, stdio: "ignore" }).unref();
@@ -168,6 +169,16 @@ class Updater {
     } finally { this.busy = false; }
   }
 }
+
+// Linux .deb: the app's program after an update - the same file, or the new name in the same folder (Central Control's
+// program is central-control since 9.3.1; it was central-usage)
+function debExec(cur) {
+  try { if (fs.existsSync(cur) && fs.statSync(cur).isFile()) return cur; } catch (_) { }
+  const dir = path.dirname(cur), names = ["central-control", "central-pedal-control", "central-services", "centralusage"];
+  for (const d of [dir, "/opt/Central Control"]) for (const n of names) { const f = path.join(d, n); try { if (fs.statSync(f).isFile()) return f; } catch (_) { } }
+  return null;
+}
+Updater.debExec = debExec;
 
 // macOS: mount the .dmg, put its app in place of this one (the old one is kept until the new one is in), unmount
 Updater.prototype.installMac = async function (dmg) {

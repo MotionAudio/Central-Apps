@@ -280,7 +280,7 @@ $("#subBtn").onclick = async () => {
   if (!me) return needSignIn("Sign in to subscribe to Central Tracks Unlimited.");
   if (!cfg.payments) return paymentsSoon();
   if (me.subscribed) { try { go((await api("POST", "/billing")).url); } catch (e) { toast(e.message); } return; }
-  const forChurch = me.church && me.church.role === "owner";
+  const forChurch = me.church && isMainRole(me.church.role);
   openCheckout("Central Tracks Unlimited", dollars(subPrice()) + " a month, tax included" + (forChurch ? " · for everyone in " + esc(me.church.name) : "") + ". Cancel any time.", () => api("POST", "/checkout/subscription"));
 };
 let searchTimer = 0;
@@ -437,14 +437,15 @@ function signInForm(note) {
     <form id="inForm" style="background:none;border:0;padding:0"><label>Email<input id="inEmail" type="email" autocomplete="username" required></label>
     <label>Password<input id="inPass" type="password" autocomplete="current-password" required></label><div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="btn">Sign in</button><button class="btn ghost small" type="button" id="forgotBtn">Forgot password?</button></div><div class="err" id="inErr"></div></form></div>
     <div class="card"><h3>New here? Make an account</h3><p class="muted" style="margin:0">It's free. You'll use it to order, set up your team, publish tracks and sign in to the apps.</p>
-    <form id="upForm" style="background:none;border:0;padding:0"><label>Name<input id="upName" autocomplete="name"></label><label>Email<input id="upEmail" type="email" autocomplete="email" required></label>
+    <form id="upForm" style="background:none;border:0;padding:0"><label id="upNameL">Your name<input id="upName" autocomplete="name"></label><label><span id="upEmailT">Your email</span><input id="upEmail" type="email" autocomplete="email" required></label>
     <label>Password (8+ characters)<input id="upPass" type="password" autocomplete="new-password" minlength="8" required></label>
     <div class="choice"><b style="font-size:.95rem">Your church</b>
       <label><input type="radio" name="upCh" value="join" checked> Join my church as <select id="upRole" style="width:auto"><option value="user">a user</option><option value="admin">an admin</option></select></label>
-      <label><input type="radio" name="upCh" value="make"> I'm the main admin: make our church's account</label>
+      <label><input type="radio" name="upCh" value="make"> Set up a new church: this is the church's own account</label>
       <label><input type="radio" name="upCh" value="none"> Not now (Central Tracks only)</label></div>
     <label id="upCodeL">Church code (from your main admin)<input id="upCode" placeholder="8 letters and digits"></label>
     <label id="upChurchL" hidden>Church or production name<input id="upChurch" placeholder="Grace Church"></label>
+    <p class="muted" id="upChurchHelp" hidden style="margin:0;font-size:.88rem">Use the church's own email, like office@yourchurch.org, not your personal one. This account buys and pays for the church and adds your main admins, admins and users. It doesn't use a Central Services slot. You'll join as a main admin with your own account.</p>
     <p class="muted" style="margin:0;font-size:.85rem">Making an account means you agree to the <a href="/terms" target="_blank">Terms</a> and the <a href="/privacy" target="_blank">Privacy policy</a>.</p>
     <button class="btn">Make account</button><div class="err" id="upErr"></div></form></div></div>`;
 }
@@ -457,15 +458,15 @@ async function renderAccount(note) {
     $("#inForm").onsubmit = async (e) => { e.preventDefault(); try { setToken((await finishSignIn(await api("POST", "/login", { email: $("#inEmail").value, password: $("#inPass").value, device: deviceId() }))).token); await refreshMe(); toast("Welcome back!"); } catch (err) { $("#inErr").textContent = err.message; } };
     $("#forgotBtn").onclick = () => forgotPassword($("#inEmail").value);
     const chWay = () => (document.querySelector('[name="upCh"]:checked') || {}).value;
-    document.querySelectorAll('[name="upCh"]').forEach((r) => (r.onchange = () => { $("#upCodeL").hidden = chWay() !== "join"; $("#upChurchL").hidden = chWay() !== "make"; }));
+    document.querySelectorAll('[name="upCh"]').forEach((r) => (r.onchange = () => { const mk = chWay() === "make"; $("#upCodeL").hidden = chWay() !== "join"; $("#upChurchL").hidden = !mk; $("#upChurchHelp").hidden = !mk; $("#upNameL").hidden = mk; $("#upEmailT").textContent = mk ? "The church's email" : "Your email"; }));
     $("#upForm").onsubmit = async (e) => {
       e.preventDefault(); const w = chWay();
       if (w === "join" && !$("#upCode").value.trim()) { $("#upErr").textContent = "Enter your church's code, or pick another choice."; return; }
       if (w === "make" && !$("#upChurch").value.trim()) { $("#upErr").textContent = "Give your church or production a name."; return; }
       try {
-        const r = await finishSignIn(await api("POST", "/signup", { name: $("#upName").value, email: $("#upEmail").value, password: $("#upPass").value, device: deviceId(),
+        const r = await finishSignIn(await api("POST", "/signup", { name: w === "make" ? $("#upChurch").value.trim() : $("#upName").value, email: $("#upEmail").value, password: $("#upPass").value, device: deviceId(),
           churchCode: w === "join" ? $("#upCode").value.trim() : undefined, churchRole: $("#upRole").value, churchName: w === "make" ? $("#upChurch").value.trim() : undefined }));
-        setToken(r.token); await refreshMe(); toast(r.churchError ? r.churchError : "Welcome! Check your email for a link to confirm your account." + (r.church ? " " + r.church + " is set up." : ""));
+        setToken(r.token); await refreshMe(); toast(r.churchError ? r.churchError : "Welcome! Check your email for a link to confirm your account." + (r.church ? " " + r.church + " is set up." + (w === "make" ? " Next: invite your main admins under Your church." : "") : ""));
       } catch (err) { $("#upErr").textContent = err.message; }
     };
     return;
@@ -516,10 +517,10 @@ async function mountConnect() {
 async function renderSlots() {
   const el = $("#slotsCard"); if (!el) return;
   let p; try { p = await api("GET", "/services/slots"); } catch (e) { el.innerHTML = `<h3>Central Services</h3><div class="err">${esc(e.message)}</div>`; return; }
-  const staff = me.church && (me.church.role === "owner" || me.church.role === "admin"), pct = p.slots ? Math.min(100, Math.round((p.used / p.slots) * 100)) : 0;
+  const staff = me.church && isStaffRole(me.church.role), pct = p.slots ? Math.min(100, Math.round((p.used / p.slots) * 100)) : 0;
   el.innerHTML = `<h3>Central Services</h3>
     ${p.trial ? `<div class="slots-big"><b>Free trial</b><span>as many people as you like until ${new Date(p.trial).toLocaleDateString()}</span></div>` : `<div class="slots-big"><b>${p.used}<small> of ${p.slots}</small></b><span>slots in use · ${p.free} free</span></div><div class="meterbar${pct >= 100 ? " full" : ""}"><i style="width:${pct}%"></i></div>`}
-    <p class="muted" style="margin:0;font-size:.92rem">Each person on your teams takes a slot. Take someone off a team and their slot is free for the next person. Slots are bought once: ${dollars(priceOf("services-slot") || 5)} each.</p>
+    <p class="muted" style="margin:0;font-size:.92rem">Each person on your teams takes a slot, except the church account. Take someone off a team and their slot is free for the next person. Slots are bought once: ${dollars(priceOf("services-slot") || 5)} each.</p>
     ${staff ? `<div class="codeline"><label>More slots<input id="slN" type="number" min="1" max="50" value="5" style="width:90px"></label><button class="btn small" id="slAdd">Add to cart</button><a class="btn small ghost" href="/services/">Open Central Services</a></div>` : `<a class="btn small ghost" href="/services/" style="justify-self:start">Open Central Services</a>`}`;
   if ($("#slAdd")) $("#slAdd").onclick = () => { const n = Math.max(1, Math.min(50, Math.floor(+$("#slN").value || 0))); cart["services-slot"] = (cart["services-slot"] || 0) + n; updateCartBtn(); renderRack(); openCart(); };
 }
@@ -614,7 +615,7 @@ function renderMe() {
     <div>Phone for sign-in codes: ${me.phone ? `<b>${esc(me.phone)}</b>${me.phoneConfirmed ? "" : ' <span class="muted">(confirmed at your next sign-in)</span>'}` : '<span class="muted">none</span>'} ${me.twoStep ? '<span class="muted">· as an admin, each new device signs in with a code</span>' : ""}</div>
     <details><summary>Change phone</summary><form id="phForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>New mobile number<input id="phNew" type="tel" required></label><label>Your password<input id="phPw" type="password" autocomplete="current-password" required></label><button class="btn small">Save</button></form></details>
     <p style="margin:0;font-size:.92rem"><a href="/privacy" target="_blank">Privacy policy</a> · <a href="/terms" target="_blank">Terms</a> · <a href="/refunds" target="_blank">Refunds</a> · <a href="#support">Contact support</a></p>
-    <details class="danger"><summary>Delete my account</summary><p class="muted" style="margin:.3rem 0">This removes your name, email and phone, frees your keys, and takes you out of your church. ${me.church && me.church.role === "owner" ? "<b>You're the main admin:</b> make someone else the main admin first (People, below in Your church)." : ""} It can't be undone.</p>
+    <details class="danger"><summary>Delete my account</summary><p class="muted" style="margin:.3rem 0">This removes your name, email and phone, frees your keys, and takes you out of your church. ${me.church && me.church.role === "church" ? "<b>This is the church account:</b> make someone a main admin first (People, below in Your church)." : me.church && me.church.role === "owner" ? "<b>You're a main admin:</b> if you're the only one, make someone else a main admin first (People, below in Your church)." : ""} It can't be undone.</p>
       <form id="delForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Your password<input id="delPw" type="password" autocomplete="current-password" required></label><button class="btn small danger-btn">Delete my account</button></form></details>
     <div class="err" id="meErr"></div>`;
   $("#phForm").onsubmit = async (e) => {
@@ -655,23 +656,24 @@ async function renderChurch() {
   const el = $("#churchCard"); if (!el) return;
   let r; try { r = await api("GET", "/church"); } catch (e) { el.innerHTML = `<h3>Your church</h3><div class="err">${esc(e.message)}</div>`; return; }
   if (!r.church) {
-    el.innerHTML = `<h3>Your church</h3><p class="muted" style="margin:0">Your account isn't in a church yet. The main admin makes it; admins and users join with its code.</p>
-      <div class="acct"><form id="chMake" style="background:none;border:0;padding:0"><label>Make our church's account: its name<input id="chName" placeholder="Grace Church"></label>
-        <div class="choice"><label><input type="radio" name="chOwn" value="me" checked> I'm the main admin</label><label><input type="radio" name="chOwn" value="other"> The main admin is someone else</label></div>
-        <div id="chOther" hidden><label>Their name<input id="chOName"></label><label>Their email (they get a link to make their account)<input id="chOEmail" type="email"></label></div><button class="btn small">Make our church</button></form>
+    el.innerHTML = `<h3>Your church</h3><p class="muted" style="margin:0">This account isn't in a church yet. Admins and users join with the church's code. A new church gets its own account: make it with the church's email (like office@yourchurch.org), then invite your main admins.</p>
+      <div class="acct"><form id="chMake" style="background:none;border:0;padding:0"><label>Make this the church's account: the church's name<input id="chName" placeholder="Grace Church"></label>
+        <p class="muted" style="margin:0;font-size:.85rem">Only if ${esc(me.email)} is the church's own email: this account then pays for the church and adds everyone. It can't also be a person's account.</p>
+        <div class="choice"><label><input type="radio" name="chOwn" value="me" checked> I'll invite the main admins later</label><label><input type="radio" name="chOwn" value="other"> Invite the first main admin now</label></div>
+        <div id="chOther" hidden><label>Their name<input id="chOName"></label><label>Their own email (they get a link to make their account)<input id="chOEmail" type="email"></label></div><button class="btn small">Make the church's account</button></form>
       <form id="chJoin" style="background:none;border:0;padding:0"><label>Join with a code<input id="chCode" placeholder="from your main admin"></label><label>As <select id="chRole"><option value="user">a user</option><option value="admin">an admin</option></select></label><button class="btn small">Join</button></form></div><div class="err" id="chErr"></div>`;
     document.querySelectorAll('[name="chOwn"]').forEach((r) => (r.onchange = () => { $("#chOther").hidden = r.value !== "other" || !r.checked; }));
     $("#chMake").onsubmit = async (e) => {
       e.preventDefault(); const other = (document.querySelector('[name="chOwn"]:checked') || {}).value === "other";
       try {
         const j = await api("POST", "/church", { name: $("#chName").value, ownerEmail: other ? $("#chOEmail").value : undefined, ownerName: other ? $("#chOName").value : undefined });
-        await refreshMe(); toast(j.invite ? (j.invite.sent ? "Done. We've emailed the main admin their invite." : "Done. Copy the main admin's link from the Teams card.") : "Your church is set up!");
+        await refreshMe(); toast(j.invite ? (j.invite.sent ? "Done. We've emailed the main admin their invite." : "Done. Copy the main admin's link from the Teams card.") : "Your church is set up! Invite your main admins on the Teams card.");
       } catch (err) { $("#chErr").textContent = err.message; }
     };
     $("#chJoin").onsubmit = async (e) => { e.preventDefault(); try { const j = await api("POST", "/church/join", { code: $("#chCode").value, role: $("#chRole").value }); await refreshMe(); toast("You're in! Welcome to " + j.church + "."); } catch (err) { $("#chErr").textContent = err.message; } };
     return;
   }
-  const c = r.church, staff = c.role === "owner" || c.role === "admin", roleName = { owner: "main admin", admin: "admin", user: "user" }[c.role];
+  const c = r.church, staff = isStaffRole(c.role), main = isMainRole(c.role), roleName = { church: "the church account", owner: "a main admin", admin: "an admin", user: "a user" }[c.role];
   const mains = r.members.filter((m) => m.role === "owner").length, maxMain = cfg.mainAdminsMax || 2;
   const counts = Object.keys(r.counts).map((k) => `<div><span class="muted" style="font-size:.85rem">${k} · ${esc(r.counts[k].name)}</span><b>${r.counts[k].free}</b><span class="muted" style="font-size:.85rem">left · ${r.counts[k].inUse} in use · ${r.counts[k].total} in all</span></div>`).join("");
   const cur = r.current || "", behind = (k) => k.renewable && k.updatesUntil && Number(k.updatesUntil) < Number(cur) + 0.001;
@@ -686,18 +688,19 @@ async function renderChurch() {
     ${r.keys.length ? `<table class="ktable"><tr><th></th><th>Key</th><th>On</th><th>Updates</th><th></th></tr>${rows}</table>
       ${staff && r.keys.some((k) => k.renewable) ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><button class="btn small" id="renewBtn">Renew the ticked keys ($${((cfg.renewal || {}).cents || 2000) / 100} each)</button><label style="font-size:.85rem">Code<input id="renewCode" style="width:120px;text-transform:uppercase" placeholder="optional"></label><span class="muted" style="font-size:.85rem">Admin and user keys get ten releases of updates (bought at 9.0: through 10.0); renewing adds ten more. The apps keep working without it. Pedal Control keys: forever. Now: ${esc(cur)}.</span></div>` : ""}` : `<p class="muted" style="margin:0">No keys yet. <a href="#store">Get a pack or keys</a>, or start a free trial with a code in the cart.</p>`}
     <p class="muted" style="margin:0;font-size:.9rem">Release frees a key from a lost or broken device${staff ? "" : " (yours)"}. On a working device, use Settings → License → Release key in the app.</p>
-    ${c.role === "owner" ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="btn small" id="billBtn">Billing: card &amp; receipts</button><span class="muted" style="font-size:.9rem">In ${esc(c.name)}'s name. It stays with the church if the main admin changes.</span></div>` : ""}
-    ${r.members.length ? `<details ${c.role === "owner" ? "open" : ""}><summary>People (${r.members.length}) · ${mains} of ${maxMain} main admins</summary>${c.role === "owner" ? `<p class="muted" style="margin:.4rem 0 0;font-size:.88rem">A church can have ${maxMain} main admins with the same controls. Make one of your admins a main admin, or hand yours over and stay an admin.</p>` : ""}${r.members.map((m) => {
-      const me1 = m.email === me.email, other = c.role === "owner" && !me1, label = { owner: "main admin", admin: "admin", user: "user" }[m.role];
-      const acts = !other ? (me1 && m.role === "owner" && mains > 1 ? `<button class="btn small ghost" data-main="${esc(m.email)}" data-on="0" data-mname="yourself">Step down to admin</button>` : "")
+    ${main ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="btn small" id="billBtn">Billing: card &amp; receipts</button><span class="muted" style="font-size:.9rem">In ${esc(c.name)}'s name. It stays with the church when main admins change.</span></div>` : ""}
+    ${c.role === "church" && !mains ? `<div class="card" style="border-color:var(--accent);display:grid;gap:.3rem"><b>Next: your main admins</b><span class="muted" style="font-size:.9rem">The main admin runs Central Control on the desk computer (the hub). Invite up to ${maxMain} on the Teams card below with their own email, or make one of your admins a main admin under People.</span></div>` : ""}
+    ${r.members.length ? `<details ${main ? "open" : ""}><summary>People (${r.members.length}) · ${mains} of ${maxMain} main admins</summary>${main ? `<p class="muted" style="margin:.4rem 0 0;font-size:.88rem">${r.members.some((m) => m.role === "church") ? "The church account and up to " + maxMain + " main admins have the same controls: roles, people, billing and buying. Make one of your admins a main admin." : "A church can have " + maxMain + " main admins with the same controls. Make one of your admins a main admin, or hand yours over and stay an admin."}</p>` : ""}${r.members.map((m) => {
+      const me1 = m.email === me.email, other = main && !me1 && m.role !== "church", label = { church: "church account", owner: "main admin", admin: "admin", user: "user" }[m.role];
+      const acts = !other ? (me1 && m.role === "owner" && (mains > 1 || r.members.some((x) => x.role === "church")) ? `<button class="btn small ghost" data-main="${esc(m.email)}" data-on="0" data-mname="yourself">Step down to admin</button>` : "")
         : m.role === "owner" ? `<button class="btn small ghost" data-main="${esc(m.email)}" data-on="0" data-mname="${esc(m.name || m.email)}">Back to admin</button>`
         : `<select class="tmove" data-role="${esc(m.email)}" aria-label="Role"><option value="admin"${m.role === "admin" ? " selected" : ""}>Admin</option><option value="user"${m.role === "user" ? " selected" : ""}>User</option></select>`
           + (m.role === "admin" && mains < maxMain ? `<button class="btn small ghost" data-main="${esc(m.email)}" data-on="1" data-mname="${esc(m.name || m.email)}">Make main admin</button>` : "")
-          + (m.role === "admin" ? `<button class="btn small ghost" data-owner="${esc(m.email)}" data-oname="${esc(m.name || m.email)}">Hand over</button>` : "")
+          + (m.role === "admin" && c.role === "owner" ? `<button class="btn small ghost" data-owner="${esc(m.email)}" data-oname="${esc(m.name || m.email)}">Hand over</button>` : "")
           + `<button class="btn small ghost" data-rm="${esc(m.email)}">Take out</button>`;
-      return `<div class="tm"><div>${esc(m.name || m.email)}${me1 ? ' <span class="muted">(you)</span>' : ""} <span class="muted">· ${esc(m.email)} · </span><span class="${m.role === "owner" ? "role-main" : "muted"}">${label}</span></div>${acts ? `<div class="tacts">${acts}</div>` : ""}</div>`;
+      return `<div class="tm"><div>${esc(m.name || m.email)}${me1 ? ' <span class="muted">(you)</span>' : ""} <span class="muted">· ${esc(m.email)} · </span><span class="${m.role === "owner" || m.role === "church" ? "role-main" : "muted"}">${label}</span></div>${acts ? `<div class="tacts">${acts}</div>` : ""}</div>`;
     }).join("")}
-      ${c.role === "owner" ? `<p style="margin:.4rem 0 0"><button class="btn small ghost" id="newCodes">New codes</button> <span class="muted" style="font-size:.9rem">if a code got out. People already in stay in.</span></p>` : ""}</details>` : ""}
+      ${main ? `<p style="margin:.4rem 0 0"><button class="btn small ghost" id="newCodes">New codes</button> <span class="muted" style="font-size:.9rem">if a code got out. People already in stay in.</span></p>` : ""}</details>` : ""}
     <div class="err" id="relErr"></div>`;
   el.querySelectorAll("[data-mk]").forEach((b) => (b.onclick = async () => { try { const x = await api("POST", "/church/trial-key", { kind: b.dataset.mk }); toast("New key " + x.key); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; } }));
   if ($("#renewBtn")) $("#renewBtn").onclick = async () => {
@@ -733,6 +736,8 @@ async function renderChurch() {
 // ---------------------------------------------------------------- Teams: Admins, Users, Pedal Control
 const SECT = [["admin", "Admins", "Central Control", "A"], ["user", "Users", "Central Usage", "U"], ["pedal", "Pedal Control", "Central Pedal Control", "P"]];
 const adding = { admin: [], user: [], pedal: [] };
+const isMainRole = (r) => r === "church" || r === "owner";   // (the church account and the main admins: the main admin's controls)
+const isStaffRole = (r) => isMainRole(r) || r === "admin";
 let teamNote = "";
 async function renderTeams() {
   const el = $("#teamsCard"); if (!el) return;
@@ -748,6 +753,7 @@ async function renderTeams() {
           <select class="tmove" data-tmove="${m.id}" data-tname="${esc(m.name || m.email)}" aria-label="Move to another team"><option value="">Move to…</option>${SECT.filter((x) => x[0] !== id).map((x) => `<option value="${x[0]}">${x[1]} (${x[2]})</option>`).join("")}</select>${!r.mail ? ` <button class="btn small ghost" data-tcopy="${esc(m.link)}">Copy link</button>` : ""} <button class="btn small ghost" data-tremove="${m.id}" data-tname="${esc(m.name || m.email)}">Remove</button></div></div>`).join("") : `<p class="muted" style="margin:0">Nobody yet.</p>`}
       ${adding[id].map((a, i) => `<div class="trow"><input placeholder="Name" data-ta="${id}" data-ti="${i}" data-tf="name" value="${esc(a.name)}"><input placeholder="Email" type="email" data-ta="${id}" data-ti="${i}" data-tf="email" value="${esc(a.email)}"><input placeholder="Role (e.g. Bass, Lights)" data-ta="${id}" data-ti="${i}" data-tf="role" value="${esc(a.role)}"></div>`).join("")}
       <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small ghost" data-tadd="${id}">+ Add ${adding[id].length ? "another" : "members"}</button>${adding[id].length ? `<button class="btn small" data-tdone="${id}">Done</button>` : ""}</div></section>`).join("")}</div>
+    ${me.church.role === "church" && !owner ? `<details open><summary style="font-size:.92rem">Invite a main admin (with their own email)</summary><form id="ownForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Name<input id="ownName"></label><label>Email<input id="ownEmail" type="email"></label><button class="btn small">Send the invite</button></form></details>` : ""}
     ${me.church.role === "owner" && !owner ? `<details><summary style="font-size:.92rem">Invite someone new to take over as main admin</summary><form id="ownForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Name<input id="ownName"></label><label>Email<input id="ownEmail" type="email"></label><button class="btn small">Send the invite</button></form></details>` : ""}
     <div class="${/^✓/.test(teamNote) ? "" : "err"}" id="teamMsg" style="white-space:pre-line">${esc(teamNote)}</div>`;
   el.querySelectorAll("[data-ta]").forEach((inp) => (inp.oninput = () => { adding[inp.dataset.ta][+inp.dataset.ti][inp.dataset.tf] = inp.value; }));

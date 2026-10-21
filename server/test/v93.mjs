@@ -94,6 +94,8 @@ try {
 
   // ---------------------------------------------------------------- the store: the embedded form
   const T = await account("main", { churchName: "Grace 93 " + S });
+  // (this church plays one from before 9.3.1, made by a person: its maker is its main admin - test/v931.mjs has church accounts)
+  await q("UPDATE church_members SET role='owner' WHERE role='church' AND church_id=(SELECT id FROM churches WHERE name=$1)", ["Grace 93 " + S]);
   const st = await j("POST", "/checkout/store", { items: { "pack-ultra": 1, "ultra-plus10": 1, pedal: 1, "services-slot": 2 }, code: "betatest" }, T);
   const s1 = lastSession(), L = s1.line_items;
   ok(st.clientSecret && st.clientSecret.endsWith("_secret") && st.session, "a checkout answers with the payment form's client secret", st);

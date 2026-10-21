@@ -1,7 +1,7 @@
 {
   "name": "central-usage",
   "productName": "Central Control",
-  "version": "9.3.0",
+  "version": "9.3.1",
   "description": "Lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides, chord charts, lyrics and the instrument - the companion of Central Pedal. A native desktop app.",
   "main": "main.js",
   "author": {
@@ -13,8 +13,8 @@
     "prestart": "bash prepare-shared.sh",
     "start": "electron .",
     "predist": "bash prepare-shared.sh",
-    "dist": "electron-builder --linux deb AppImage",
-    "dist:all": "electron-builder --linux deb AppImage --x64 --arm64",
+    "dist": "electron-builder --linux deb AppImage -c.extraMetadata.name=central-control",
+    "dist:all": "electron-builder --linux deb AppImage --x64 --arm64 -c.extraMetadata.name=central-control",
     "dist:win": "electron-builder --win nsis --x64",
     "dist:mac": "electron-builder --mac dmg --arm64 --x64"
   },
@@ -56,6 +56,7 @@
         "AppImage"
       ],
       "category": "AudioVideo",
+      "executableName": "central-control",
       "icon": "build/icons/control",
       "synopsis": "Lights, mixing, in-ears, slides, charts and lyrics with Central Pedal",
       "desktop": {
@@ -94,8 +95,8 @@
         "libsuil-0-0"
       ],
       "fpm": [
-        "--conflicts=central-control",
-        "--replaces=central-control"
+        "--conflicts=central-usage",
+        "--replaces=central-usage"
       ]
     },
     "mac": {
