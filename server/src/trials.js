@@ -1,10 +1,10 @@
-// Discount codes in the cart, free trials (7FREE, BETATEST, TESTRUN), renewals and Central Services' monthly plan.
+// Discount codes in the cart, free trials (TRIALRUN, 7FREE), renewals and the church's Central Services slots.
 // A trial: no payment. Until it ends the church gets unlimited keys (admins, users, Pedal Control: made as they're
 // needed, on the Teams page or with + key), Central Services and Central Tracks Unlimited. Then its trial keys stop - the
 // apps lock until a bought key is entered - and the rest goes back to what it pays for. One free code per church or
 // production company, ever.
 import { q, one, pool } from "./db.js";
-import { DISCOUNTS, RENEWAL, SERVICES_PLAN, servicesCents } from "./config.js";
+import { DISCOUNTS, RENEWAL } from "./config.js";
 import { churchOf, createChurch, mintTrialKey, trialActive, pretty } from "./licenses.js";
 import { requireStep } from "./signin.js";
 import * as pay from "./payments.js";
@@ -16,6 +16,13 @@ import { isAdmin } from "./auth.js";
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const day = (d) => new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: config.timeZone || "America/Chicago" });
 
+// a church's Central Services slots: how many it has, and how many people are on its teams (each takes one)
+export async function slotsOf(c) {
+  const used = (await one("SELECT COUNT(DISTINCT m.email)::int AS n FROM service_team_members m JOIN service_teams t ON t.id=m.team_id WHERE t.church_id=$1", [c.id])).n;
+  const trial = trialActive(c);
+  return { slots: c.services_slots || 0, used, free: Math.max(0, (c.services_slots || 0) - used), on: trial || (c.services_slots || 0) > 0, trial: trial ? c.trial_until : null };
+}
+
 export async function remindTrials() {   // the day before a trial ends: an email to the main admin
   let n = 0;
   for (const c of await q(`SELECT c.*, u.email, u.name AS owner_name FROM churches c JOIN users u ON u.id=c.owner_id
@@ -23,8 +30,8 @@ export async function remindTrials() {   // the day before a trial ends: an emai
     const claimed = await one("UPDATE churches SET trial_reminded=TRUE WHERE id=$1 AND NOT trial_reminded RETURNING id", [c.id]); if (!claimed) continue;
     const link = config.publicUrl + "/#store";
     const r = await sendMail(c.email, "Your free trial ends " + day(c.trial_until) + " - " + c.name,
-      "Hi" + (c.owner_name ? " " + c.owner_name : "") + ",\n\n" + c.name + "'s free trial ends " + day(c.trial_until) + ". After that, the trial keys stop and the apps ask for a key. Your songs, setlists and settings stay.\n\nGet keys (or a church pack) and Central Services here: " + link + "\n\nTalk soon,\nThe Motion Audio team\n",
-      '<div style="font:15px/1.5 system-ui,sans-serif;max-width:520px"><p>Hi' + (c.owner_name ? " " + escHtml(c.owner_name) : "") + ",</p><p><b>" + escHtml(c.name) + "</b>'s free trial ends <b>" + escHtml(day(c.trial_until)) + "</b>. After that, the trial keys stop and the apps ask for a key. Your songs, setlists and settings stay.</p><p><a href=\"" + escHtml(link) + "\">Get keys, a church pack and Central Services</a></p><p>Talk soon,<br>The Motion Audio team</p></div>");
+      "Hi" + (c.owner_name ? " " + c.owner_name : "") + ",\n\n" + c.name + "'s free trial ends " + day(c.trial_until) + ". After that, the trial keys stop and the apps ask for a key. Your songs, setlists and settings stay.\n\nGet a pack or keys (with Central Services slots) here: " + link + "\n\nTalk soon,\nThe Motion Audio team\n",
+      '<div style="font:15px/1.5 system-ui,sans-serif;max-width:520px"><p>Hi' + (c.owner_name ? " " + escHtml(c.owner_name) : "") + ",</p><p><b>" + escHtml(c.name) + "</b>'s free trial ends <b>" + escHtml(day(c.trial_until)) + "</b>. After that, the trial keys stop and the apps ask for a key. Your songs, setlists and settings stay.</p><p><a href=\"" + escHtml(link) + "\">Get a pack or keys, with Central Services slots</a></p><p>Talk soon,<br>The Motion Audio team</p></div>");
     if (r.sent) n++;
   }
   return n;
@@ -68,22 +75,15 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
   api.post("/checkout/renew", requireUser, wrap(async (req, res) => {
     needConfirmed(req.user);
     const c = await churchOf(req.user.id);
-    if (!c || !(c.role === "owner" || c.role === "admin")) throw bad("Only the main admin and admins can renew keys.", 403);
+    if (!c || !(c.role === "owner" || c.role === "admin")) throw bad("Only the main admins and admins can renew keys.", 403);
     await requireStep(req);
-    res.json({ url: await pay.renewCheckout(req.user, c, req.body.keys, req.body.code) });
+    res.json(await pay.renewCheckout(req.user, c, req.body.keys, req.body.code));
   }));
-  // Central Services' monthly plan (the main admin)
-  api.get("/services/plan", requireUser, wrap(async (req, res) => {
+  // Central Services: the church's slots (bought once; each person on the teams takes one, and a slot is free again
+  // when that person comes off the teams)
+  api.get("/services/slots", requireUser, wrap(async (req, res) => {
     const c = await churchOf(req.user.id); if (!c) return res.json({ church: null });
-    const members = await pay.membersOf(c.id);
-    res.json({ members, cents: servicesCents(members), tiers: SERVICES_PLAN.tiers, extraCents: SERVICES_PLAN.extraCents, active: !!c.has_services, status: c.services_status, charging: c.services_cents, trial: trialActive(c) ? c.trial_until : null });
-  }));
-  api.post("/checkout/services", requireUser, wrap(async (req, res) => {
-    needConfirmed(req.user);
-    const c = await churchOf(req.user.id);
-    if (!c || c.role !== "owner") throw bad("Only the main admin can subscribe the church.", 403);
-    await requireStep(req);
-    res.json({ url: await pay.servicesCheckout(req.user, c) });
+    res.json(Object.assign({ church: c.name }, await slotsOf(c)));
   }));
   // what the website and the apps read about versions: the current one, the renewal price, and the releases Motion Audio
   // sent to every device (an emergency fix installs even past a key's updates)

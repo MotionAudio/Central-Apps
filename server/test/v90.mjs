@@ -1,6 +1,6 @@
-// 9.0 against a real Postgres: version numbers and update coverage, renewals, discount codes (once per church, software
-// only), free trials (TESTRUN, 7FREE: unlimited keys, Central Services, Central Tracks; then the keys stop), Central
-// Services' monthly plan by size, packs without the pedal, and the staff price page.
+// 9.0 against a real Postgres: version numbers and update coverage, renewals, discount codes (once per church, not the
+// pedal), free trials (TRIALRUN, 7FREE: unlimited keys, Central Services, Central Tracks; then the keys stop), Central
+// Services slots, the 9.3 packs (Lite, Regular, Plus, Ultra), and the staff price page.
 //   node test/v90.mjs postgres://.../ma [port]
 import { spawn } from "node:child_process";
 import http from "node:http";
@@ -40,18 +40,18 @@ try {
 
   // ---------------------------------------------------------------- versions and coverage
   ok(V.tenths("9.4.2") === 94 && V.tenths("v10.0.0") === 100 && V.fmt(104) === "10.4" && V.fmt(90) === "9.0", "versions: 9.4.2 is release 9.4; 9.9 then 10.0");
-  ok(C.servicesCents(1) === 1000 && C.servicesCents(10) === 1000 && C.servicesCents(11) === 2500 && C.servicesCents(25) === 2500 && C.servicesCents(50) === 5000 && C.servicesCents(51) === 5050 && C.servicesCents(60) === 5500,
-    "Central Services: $10 up to 10, $25 up to 25, $50 up to 50, then $0.50 each past 50");
-  const cfg = await j("GET", "/config");
-  const ps = cfg.products["pack-small"], pm = cfg.products["pack-medium"], pl = cfg.products["pack-large"];
-  ok(ps.cents === 30000 && pm.cents === 50000 && pl.cents === 75000 && !ps.ships && ps.keys.P === 1 && ps.keys.A === 2 && ps.keys.U === 6 && !cfg.products.services && cfg.products.pedal.cents === 25000 && cfg.renewal.cents === 2000,
-    "packs: no pedal, one Pedal Control key, $300 / $500 / $750; the pedal is $250 on its own; renewal $20; no one-time Central Services", ps);
+  const cfg = await j("GET", "/config"), P0 = cfg.products, pk = (id) => [P0[id].cents / 100, P0[id].keys.A, P0[id].keys.U, P0[id].keys.P, P0[id].slots].join("/");
+  ok(pk("pack-lite") === "250/3/6/1/15" && pk("pack-regular") === "350/4/8/1/18" && pk("pack-plus") === "500/5/10/1/20" && pk("pack-ultra") === "700/6/16/1/30" && !P0["pack-lite"].ships,
+    "packs (1 main admin + admins, users, 1 Pedal Control, Services slots): Lite $250 3/6/15, Regular $350 4/8/18, Plus $500 5/10/20, Ultra $700 6/16/30; no pedal", P0);
+  ok(P0["ultra-plus10"].cents === 3500 && P0["ultra-plus10"].slots === 10 && P0["ultra-plus10"].addonFor === "pack-ultra" && P0["services-slot"].cents === 500 && P0["services-slot"].slots === 1
+    && P0.admin.cents === 5000 && P0.user.cents === 2000 && P0["pedal-control"].cents === 5000 && P0.pedal.cents === 25000 && P0.pedal.hardware && cfg.subscription.cents === 7700 && cfg.renewal.cents === 2000 && cfg.mainAdminsMax === 2,
+    "singles: Ultra +10 slots $35, a Services slot $5, admin $50, user $20, Pedal Control $50, the pedal $250, Central Tracks Unlimited $77/month, renewal $20; up to 2 main admins");
 
   // ---------------------------------------------------------------- a church with keys bought at 9.0
   const own = await finish(await j("POST", "/signup", { email: E("own"), password: "password123", name: "Owner", churchName: "Nine " + S }), E("own"));
   await confirm(E("own"));
   const T = own.token, c = await one("SELECT c.* FROM churches c JOIN church_members m ON m.church_id=c.id JOIN users u ON u.id=m.user_id WHERE u.email=$1", [E("own")]);
-  await pay.recordOrder({ id: "cs_90_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(c.id), code: "" }, amount_total: 30000, customer_details: { email: "o@nine.test" } }, null);
+  await pay.recordOrder({ id: "cs_90_" + S, amount_total: 30000, customer_details: { email: "o@nine.test" }  }, { church_id: String(c.id), user_id: null, items: { "pack-lite": "1" } });
   const keys = await q("SELECT key, kind, updates_until FROM licenses WHERE church_id=$1", [c.id]);
   ok(keys.filter((k) => k.kind === "P").every((k) => k.updates_until === null) && keys.filter((k) => k.kind !== "P").every((k) => k.updates_until === 100), "bought at 9.0: admin and user keys get updates through 10.0; Pedal Control forever", keys.map((k) => k.kind + ":" + k.updates_until));
   const A = keys.find((k) => k.kind === "A").key, P = keys.find((k) => k.kind === "P").key;
@@ -64,22 +64,22 @@ try {
   // ---------------------------------------------------------------- renewals ($20 a key: one version past where it ended)
   ok((await j("POST", "/checkout/renew", { keys: [P] }, T))._status === 400, "Pedal Control keys aren't renewed (forever)");
   ok((await j("POST", "/checkout/renew", { keys: [A] }, T))._status === 503, "renewing an admin key goes to Stripe (here: payments aren't set up, so it says so)");
-  await pay.recordRenewal({ id: "cs_ren_" + S, metadata: { kind: "renew", user_id: "0", church_id: String(c.id), keys: A, code: "USAGE10" }, amount_total: 1800, customer_details: {} });
-  await pay.recordRenewal({ id: "cs_ren_" + S, metadata: { kind: "renew", user_id: "0", church_id: String(c.id), keys: A, code: "USAGE10" }, amount_total: 1800, customer_details: {} });
+  await pay.recordRenewal({ id: "cs_ren_" + S, amount_total: 1000, customer_details: {} }, { user_id: null, church_id: c.id, items: { keys: [A] }, code: "BETATEST" });
+  await pay.recordRenewal({ id: "cs_ren_" + S, amount_total: 1000, customer_details: {} }, { user_id: null, church_id: c.id, items: { keys: [A] }, code: "BETATEST" });
   ok((await one("SELECT updates_until FROM licenses WHERE key=$1", [A])).updates_until === 110, "a renewal adds one version past where it ended (10.0 → 11.0), once per payment", (await one("SELECT updates_until FROM licenses WHERE key=$1", [A])));
 
   // ---------------------------------------------------------------- discount codes
-  const d10 = await j("GET", "/discount/usage10"), d50 = await j("GET", "/discount/2026"), dt = await j("GET", "/discount/TESTRUN"), d7 = await j("GET", "/discount/7free");
-  const db3 = await j("GET", "/discount/betatest");
-  ok(d10.percent === 10 && d50.percent === 50 && dt.trial && dt.days === 183 && d7.trial && d7.days === 7 && db3.trial && db3.days === 92 && (await j("GET", "/discount/NOPE"))._status === 404, "codes: USAGE10 10%, 2026 50%, TESTRUN 6 months, BETATEST 3 months, 7FREE 7 days (any capitals); unknown codes are refused");
-  ok((await j("GET", "/discount/USAGE10", null, T)).used === true, "...USAGE10 shows as used for this church (it was on the renewal)");
-  const u10 = await j("POST", "/checkout/store", { items: { user: 2 }, code: "USAGE10" }, T);
-  ok(u10._status === 409 && /already used USAGE10/.test(u10.error), "a % code works once per church", u10);
-  ok((await j("POST", "/checkout/store", { items: { user: 2 }, code: "2026" }, T))._status === 503, "2026 is fine (then Stripe; not set up here)");
+  const db = await j("GET", "/discount/betatest"), dt = await j("GET", "/discount/TRIALRUN"), d7 = await j("GET", "/discount/7free");
+  ok(db.percent === 50 && dt.trial && dt.days === 183 && d7.trial && d7.days === 7 && (await j("GET", "/discount/NOPE"))._status === 404 && (await j("GET", "/discount/USAGE10"))._status === 404 && (await j("GET", "/discount/TESTRUN"))._status === 404,
+    "codes: BETATEST 50% off, TRIALRUN 6 months free, 7FREE 7 days (any capitals); the old ones (USAGE10, 2026, TESTRUN) are gone");
+  ok((await j("GET", "/discount/BETATEST", null, T)).used === true, "...BETATEST shows as used for this church (it was on the renewal)");
+  const u10 = await j("POST", "/checkout/store", { items: { user: 2 }, code: "BETATEST" }, T);
+  ok(u10._status === 409 && /already used BETATEST/.test(u10.error), "a % code works once per church", u10);
+  ok((await j("POST", "/checkout/store", { items: { user: 2 } }, T))._status === 503, "without a code it's fine (then Stripe; not set up here)");
   ok((await j("POST", "/checkout/store", { items: { user: 1 }, code: "7FREE" }, T)).trialCode === "7FREE", "a free code in the checkout box says to start the trial instead");
   const { percentCode } = pay; const off = (cents, d) => Math.round(cents * (100 - d.percent) / 100);
-  const d = await percentCode("2026", null);
-  ok(off(C.PRODUCTS.admin.cents, d) === 2500 && off(C.PRODUCTS["pack-small"].cents, d) === 15000 && C.PRODUCTS.pedal.hardware, "50% off: admin $25, Small pack $150; the built pedal is never discounted (and monthly plans aren't either)");
+  const d = await percentCode("BETATEST", null);
+  ok(off(C.PRODUCTS.admin.cents, d) === 2500 && off(C.PRODUCTS["pack-ultra"].cents, d) === 35000 && off(C.PRODUCTS["services-slot"].cents, d) === 250 && C.PRODUCTS.pedal.hardware, "50% off: admin $25, Ultra $350, a slot $2.50; the built pedal is never discounted (and monthly plans aren't either)");
 
   // ---------------------------------------------------------------- free trials
   const tr = await finish(await j("POST", "/signup", { email: E("trial"), password: "password123", name: "Trial", churchName: "Trial " + S }), E("trial"));
@@ -97,7 +97,7 @@ try {
   ok(mk.ok && /^U/.test(mk.key), "Make a key: another user key, any time during the trial");
   const tk = await j("POST", "/license/activate", { key: tA, device: "dev-t-" + S, deviceName: "Trial desk", app: "control" });
   ok(tk.ok && tk.trial && tk.expiresAt, "a trial key works, and the app knows when it ends", tk);
-  ok((await j("POST", "/trial", { code: "TESTRUN" }, tr.token))._status === 409, "one free code per church (7FREE used: TESTRUN is refused)");
+  ok((await j("POST", "/trial", { code: "TRIALRUN" }, tr.token))._status === 409, "one free code per church (7FREE used: TRIALRUN is refused)");
   // the trial ends
   await q("UPDATE churches SET trial_until=now() - interval '1 minute' WHERE name=$1", ["Trial " + S]);
   await q("UPDATE licenses SET expires_at=now() - interval '1 minute' WHERE church_id=(SELECT id FROM churches WHERE name=$1)", ["Trial " + S]);
@@ -110,35 +110,36 @@ try {
   ok((await j("POST", "/trial", { code: "7FREE" }, tr.token))._status === 409, "...and no second trial");
   const tr2 = await finish(await j("POST", "/signup", { email: E("test"), password: "password123", churchName: "Test run " + S }), E("test"));
   await confirm(E("test"));
-  const t2 = await j("POST", "/trial", { code: "TESTRUN" }, tr2.token);
-  ok(t2.ok && Math.abs(new Date(t2.until) - Date.now() - 183 * 864e5) < 60e3, "TESTRUN: another church gets everything free for 6 months", t2.until);
+  const t2 = await j("POST", "/trial", { code: "TRIALRUN" }, tr2.token);
+  ok(t2.ok && Math.abs(new Date(t2.until) - Date.now() - 183 * 864e5) < 60e3, "TRIALRUN: another church gets everything free for 6 months", t2.until);
 
-  // ---------------------------------------------------------------- Central Services' monthly plan
-  const plan = await j("GET", "/services/plan", null, T);
-  ok(plan.cents === 1000 && plan.members >= 1 && !plan.active, "Central Services: a church this size is $10 a month", plan);
-  ok((await j("POST", "/checkout/services", null, T))._status === 503, "the main admin subscribes through Stripe (not set up here)");
-  ok((await j("GET", "/services/board", null, T))._status === 402, "without it (and no trial), the schedule says to subscribe");
+  // ---------------------------------------------------------------- Central Services slots
+  const sl = await j("GET", "/services/slots", null, T);
+  ok(sl.slots === 15 && sl.used === 0 && sl.free === 15 && sl.on, "Central Services: a Lite pack comes with 15 slots, none used yet", sl);
+  const bare = await finish(await j("POST", "/signup", { email: E("bare"), password: "password123", churchName: "Bare " + S }), E("bare"));
+  ok((await j("GET", "/services/board", null, bare.token))._status === 402 && !(await j("GET", "/services/slots", null, bare.token)).on, "without slots (and no trial), the schedule says how to get them");
+  ok((await j("POST", "/checkout/store", { items: { "ultra-plus10": 1 } }, T))._status === 400, "Ultra's 10 more slots need an Ultra pack");
 
   // ---------------------------------------------------------------- the staff price page
   const staff = await finish(await j("POST", "/signup", { email: STAFF, password: "password123" }), STAFF);
   const pr = await j("GET", "/admin/prices", null, staff.token);
-  ok(pr.prices && pr.prices.PRODUCTS.admin.cents === 5000 && pr.prices.DISCOUNTS.USAGE10, "staff see every price, pack and code");
+  ok(pr.prices && pr.prices.PRODUCTS.admin.cents === 5000 && pr.prices.DISCOUNTS.BETATEST && !pr.prices.SERVICES_PLAN, "staff see every price, pack and code");
   ok((await j("GET", "/admin/prices", null, T))._status === 403, "...staff only");
   const np = JSON.parse(JSON.stringify(pr.prices));
-  np.PRODUCTS.user.cents = 2500; np.PRODUCTS["pack-small"].keys.U = 8; np.DISCOUNTS.SPRING20 = { percent: 20, label: "Spring" }; np.DISCOUNTS.USAGE10.on = false;
-  np.SERVICES_PLAN.extraCents = 75; np.RENEWAL.cents = 2500; np.STAR_PRICE_CENTS[5] = 3500;
+  np.PRODUCTS.user.cents = 2500; np.PRODUCTS["pack-lite"].keys.U = 8; np.PRODUCTS["pack-lite"].slots = 16; np.DISCOUNTS.SPRING20 = { percent: 20, label: "Spring" }; np.DISCOUNTS.BETATEST.on = false;
+  np.RENEWAL.cents = 2500; np.STAR_PRICE_CENTS[5] = 3500;
   const saved = await j("POST", "/admin/prices", { prices: np }, staff.token);
   const cfg2 = await j("GET", "/config");
-  ok(saved.ok && cfg2.products.user.cents === 2500 && cfg2.products["pack-small"].keys.U === 8 && cfg2.renewal.cents === 2500 && cfg2.servicesPlan.extraCents === 75 && cfg2.starPrices[5] === 3500, "saving changes prices, pack contents, renewal, monthly and star prices at once");
-  ok((await j("GET", "/discount/SPRING20")).percent === 20 && (await j("GET", "/discount/USAGE10"))._status === 404, "...a new code works, a switched-off code doesn't");
+  ok(saved.ok && cfg2.products.user.cents === 2500 && cfg2.products["pack-lite"].keys.U === 8 && cfg2.products["pack-lite"].slots === 16 && cfg2.products["ultra-plus10"].addonFor === "pack-ultra" && cfg2.renewal.cents === 2500 && cfg2.starPrices[5] === 3500, "saving changes prices, pack contents (keys and slots), renewal and star prices at once");
+  ok((await j("GET", "/discount/SPRING20")).percent === 20 && (await j("GET", "/discount/BETATEST"))._status === 404, "...a new code works, a switched-off code doesn't");
   ok((await j("POST", "/admin/prices", { prices: Object.assign({}, np, { DISCOUNTS: { "x!": { percent: 5 } } }) }, staff.token))._status === 400, "a bad code is refused (nothing changes)");
   await j("POST", "/admin/prices", { reset: true }, staff.token);
   ok((await j("GET", "/config")).products.user.cents === 2000, "Reset goes back to the starting prices");
 
   // ---------------------------------------------------------------- the codes page, and "Release to all devices"
   const codes = await j("GET", "/admin/codes", null, staff.token);
-  const c7 = codes.codes.find((x) => x.code === "7FREE"), cu = codes.codes.find((x) => x.code === "USAGE10"), cb = codes.codes.find((x) => x.code === "BETATEST");
-  ok(c7 && c7.used >= 1 && c7.uses.some((u) => u.church === "Trial " + S) && cu.uses.some((u) => u.church === "Nine " + S) && cb && cb.days === 92, "the codes page lists every code and the churches that used it", { c7: c7 && c7.used, cu: cu && cu.used });
+  const c7 = codes.codes.find((x) => x.code === "7FREE"), cb = codes.codes.find((x) => x.code === "BETATEST"), cr = codes.codes.find((x) => x.code === "TRIALRUN");
+  ok(c7 && c7.used >= 1 && c7.uses.some((u) => u.church === "Trial " + S) && cb.uses.some((u) => u.church === "Nine " + S) && cb.percent === 50 && cr && cr.days === 183, "the codes page lists every code and the churches that used it", { c7: c7 && c7.used, cb: cb && cb.used });
   ok((await j("GET", "/admin/codes", null, T))._status === 403, "...staff only");
   const rel = await j("GET", "/admin/releases", null, staff.token);
   ok(rel.releases.length === 2 && rel.releases[0].version === "9.2.0" && !rel.releases[0].everyone, "the releases page lists the releases from GitHub", rel.releases);

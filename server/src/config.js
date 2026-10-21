@@ -11,8 +11,12 @@ export const config = {
   sms: { sid: env.TWILIO_ACCOUNT_SID || "", token: env.TWILIO_AUTH_TOKEN || "", from: env.TWILIO_FROM || "", api: env.TWILIO_API_URL || "https://api.twilio.com" },
   adminEmails: (env.ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
   stripe: {
-    secret: env.STRIPE_SECRET_KEY || "",
+    secret: env.STRIPE_SECRET_KEY || "",                 // sk_... or a restricted rk_... key (SETUP.md lists its permissions)
+    publishable: env.STRIPE_PUBLISHABLE_KEY || "",       // pk_...: the payment form on the page, and the payout settings
     webhookSecret: env.STRIPE_WEBHOOK_SECRET || "",
+    apiVersion: "2026-09-30.endive",
+    api: env.STRIPE_API_URL || "",                       // (tests: a stand-in Stripe)
+    requireIdToPublish: env.REQUIRE_ID_TO_PUBLISH !== "off",   // publishers verify their ID once before their first upload
   },
   // Cloudflare R2 (or any S3-compatible storage). Left empty, files go to a local folder (for testing only).
   storage: {
@@ -24,42 +28,41 @@ export const config = {
   },
 };
 
-// Prices (cents). Change them here. "keys" is the license keys each one comes with: P (Central Pedal and Central
-// Pedal Control), A (Central Control, for admins), U (Central Usage, for users). Each key works on one device at a time.
+// Prices (cents), tax included. Change them on the website's price page (staff), or here for the defaults.
+// keys: the license keys each one comes with - P (Central Pedal and Central Pedal Control), A (Central Control: the main
+// admin and admins), U (Central Usage: users). A church has up to 2 main admins: both use A keys (an admin is made a main
+// admin on the church's page). slots: Central Services slots - one person on the church's teams each; when someone is
+// taken off the teams, their slot is free for someone else. addonFor: only with that pack (one for each).
 export const PRODUCTS = {
-  pedal: { name: "Central Pedal (built, software installed)", cents: 25000, ships: true, hardware: true, keys: { P: 1 } },
+  "pack-lite": { name: "Central-Apps Lite", cents: 25000, pack: true, keys: { P: 1, A: 3, U: 6 }, slots: 15 },
+  "pack-regular": { name: "Central-Apps Regular", cents: 35000, pack: true, keys: { P: 1, A: 4, U: 8 }, slots: 18 },
+  "pack-plus": { name: "Central-Apps Plus", cents: 50000, pack: true, keys: { P: 1, A: 5, U: 10 }, slots: 20 },
+  "pack-ultra": { name: "Central-Apps Ultra", cents: 70000, pack: true, keys: { P: 1, A: 6, U: 16 }, slots: 30 },
+  "ultra-plus10": { name: "Ultra: 10 more Central Services slots", cents: 3500, keys: {}, slots: 10, addonFor: "pack-ultra" },
+  admin: { name: "Central Admin key", cents: 5000, keys: { A: 1 } },
+  user: { name: "Central User key", cents: 2000, keys: { U: 1 } },
+  "services-slot": { name: "Central Services slot", cents: 500, keys: {}, slots: 1 },
   "pedal-control": { name: "Central Pedal Control", cents: 5000, keys: { P: 1 } },
-  admin: { name: "Central Control (admin)", cents: 5000, keys: { A: 1 } },
-  user: { name: "Central Usage (user)", cents: 2000, keys: { U: 1 } },
-  "user-pack": { name: "Central Usage (user, church pack price)", cents: 1000, keys: { U: 1 }, needsPack: true },
-  "pack-small": { name: "Small church pack", cents: 30000, pack: true, keys: { P: 1, A: 2, U: 6 } },
-  "pack-medium": { name: "Medium church pack", cents: 50000, pack: true, keys: { P: 1, A: 4, U: 12 } },
-  "pack-large": { name: "Large church pack", cents: 75000, pack: true, keys: { P: 1, A: 7, U: 20 } },
+  pedal: { name: "Central Pedal (built, software installed)", cents: 25000, ships: true, hardware: true, keys: { P: 1 } },
 };
-// Discount codes (typed in the cart; any capitals). Staff change them (and every price here) on the website's price page.
-// percent codes: off the software (keys, packs, renewals) - not the built pedal, not monthly plans; each once per church.
+// Discount codes (typed in the cart; any capitals). Staff change them on the website's price page.
+// percent codes: off everything but the built pedal (keys, packs, slots, renewals; not monthly plans); once per church.
 // trial codes: everything free for that long (unlimited keys, Central Services, Central Tracks Unlimited); one free code
 // per church or production company, ever.
 export const DISCOUNTS = {
-  USAGE10: { percent: 10, label: "10% off the software", on: true },
-  "2026": { percent: 50, label: "50% off the software", on: true },
-  TESTRUN: { trial: true, days: 183, label: "Test run: everything free for 6 months", on: true },
+  TRIALRUN: { trial: true, days: 183, label: "Trial run: everything free for 6 months", on: true },
+  BETATEST: { percent: 50, label: "Beta test: 50% off", on: true },
   "7FREE": { trial: true, days: 7, label: "7-day free trial of everything", on: true },
-  BETATEST: { trial: true, days: 92, label: "Beta test: everything free for 3 months", on: true },
 };
 // renewing a Central Control (A) or Central Usage (U) key: ten more full releases of updates
 export const RENEWAL = { name: "Update renewal (one key, ten more releases)", cents: 2000 };
-export const KEY_KINDS = { P: "Central Pedal / Central Pedal Control", A: "Central Control (admin)", U: "Central Usage (user)" };
+export const KEY_KINDS = { P: "Central Pedal / Central Pedal Control", A: "Central Control (main admin or admin)", U: "Central Usage (user)" };
 export const LICENSE_RECHECK_DAYS = 30;
-// Central Services: a monthly plan per church, by how many accounts are in it: up to 10 $10, up to 25 $25, up to 50 $50,
-// then $0.50 a month for each one past 50. The price follows the church's size.
-export const SERVICES_PLAN = { name: "Central Services", tiers: [{ upTo: 10, cents: 1000 }, { upTo: 25, cents: 2500 }, { upTo: 50, cents: 5000 }], extraCents: 50 };
-export function servicesCents(members) {
-  const t = SERVICES_PLAN.tiers.slice().sort((a, b) => a.upTo - b.upTo), n = Math.max(1, Number(members) || 0), last = t[t.length - 1];
-  for (const x of t) if (n <= x.upTo) return x.cents;
-  return last.cents + (n - last.upTo) * SERVICES_PLAN.extraCents;
-}
+export const MAIN_ADMINS_MAX = 2;
+// Central Services: slots bought once (packs come with some). Each person on the church's teams takes one.
 export const SERVICES_LIMITS = { teamsPerKind: 4, schedulers: 4, people: 1000 };
+// Stripe tax codes (prices include tax; Stripe Tax is off until it's set up - see server/SETUP.md)
+export const TAX_CODES = { software: "txcd_10202003", tangible: "txcd_99999999", subscription: "txcd_10804010", track: "txcd_10401100" };
 export const SUBSCRIPTION = { name: "Central Tracks Unlimited", cents: 7700, interval: "month" };
 export const STAR_PRICE_CENTS = { 1: 500, 2: 1000, 3: 1500, 4: 2000, 5: 3000 };
 export const PUBLISHER_SHARE = 0.75;          // of each purchase

@@ -4,7 +4,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS, RENEWAL, SERVICES_PLAN } from "./config.js";
+import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS, RENEWAL, MAIN_ADMINS_MAX } from "./config.js";
 import { q, one, migrate } from "./db.js";
 import { hashPassword, checkPassword, makeToken, attachUser, requireUser, isAdmin } from "./auth.js";
 import * as store from "./storage.js";
@@ -120,11 +120,18 @@ trials.routes(api, { wrap, brake, requireUser, needConfirmed });
 api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
   const c = await lic.churchOf(u.id);
-  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), payoutsReady: u.connect_ready, payoutsStarted: !!u.connect_account,
+  const payoutsReady = u.connect_account && !u.connect_ready ? await pay.refreshConnect(u) : !!u.connect_ready;   // (back from Stripe's payout setup)
+  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), payoutsReady, payoutsStarted: !!u.connect_account,
+    idStatus: u.id_status, idRequired: !!(config.stripe.requireIdToPublish && pay.stripe),
     emailConfirmed: !!u.email_confirmed, phone: u.phone ? signin.maskPhone(u.phone) : null, phoneConfirmed: u.phone_confirmed, twoStep: await signin.needsCode(u),
-    church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: !!c.has_services || lic.trialActive(c), subscribed: c.subscribed, trialUntil: lic.trialActive(c) ? c.trial_until : null, trialUsed: !!c.trial_code } : null });
+    church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, owned: await pay.ownedCounts(c.id), hasServices: (c.services_slots || 0) > 0 || lic.trialActive(c), servicesSlots: c.services_slots || 0, subscribed: c.subscribed, trialUntil: lic.trialActive(c) ? c.trial_until : null, trialUsed: !!c.trial_code } : null });
 }));
-api.get("/config", (_req, res) => res.json({ renewal: RENEWAL, servicesPlan: SERVICES_PLAN, supportEmail: config.supportEmail || null, sms: signin.smsOn, payments: !!pay.stripe, products: PRODUCTS, keyKinds: KEY_KINDS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE }));
+api.get("/config", wrap(async (req, res) => {
+  const preview = req.query.preview && req.user && isAdmin(req.user);   // (staff see a saved sale before it's live)
+  res.json({ renewal: RENEWAL, supportEmail: config.supportEmail || null, sms: signin.smsOn, payments: !!pay.stripe, publishableKey: config.stripe.publishable || null,
+    products: PRODUCTS, keyKinds: KEY_KINDS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE, mainAdminsMax: MAIN_ADMINS_MAX,
+    sale: preview ? publicSale((await saleRow()).draft, true) : publicSale(await pay.liveSale()) });
+}));
 
 function trackOut(t) {
   return { id: String(t.id), title: t.title, artist: t.artist, kind: t.kind, key: t.song_key, bpm: Number(t.bpm) || 0, stars: t.stars, price: t.price_cents / 100, owned: !!t.owned, mine: !!t.mine };
@@ -156,7 +163,7 @@ async function owns(uid, t) { return t.publisher_id === uid || !!(await one("SEL
 api.post("/tracks/:id/add", requireUser, wrap(async (req, res) => {
   const u = req.user, t = await liveTrack(req.params.id);
   if (await owns(u.id, t)) return res.json({ files: await filesFor(t.id) });
-  if (!(await pay.isSubscribed(u))) return res.status(402).json({ error: "Buy this track or subscribe to Central Tracks Unlimited.", checkoutUrl: pay.stripe ? await pay.trackCheckout(u, t) : undefined });
+  if (!(await pay.isSubscribed(u))) return res.status(402).json({ error: "Buy this track or subscribe to Central Tracks Unlimited.", checkoutUrl: config.publicUrl + "/#buy-" + t.id });   // (the apps open the website to pay)
   await q("INSERT INTO library (user_id,track_id,how) VALUES ($1,$2,'subscription') ON CONFLICT DO NOTHING", [u.id, t.id]);
   await q("INSERT INTO earnings (publisher_id,track_id,buyer_id,reason,cents) VALUES ($1,$2,$3,'subscriber_add',0) ON CONFLICT DO NOTHING", [t.publisher_id, t.id, u.id]);  // counts toward this month's pool
   res.json({ files: await filesFor(t.id) });
@@ -164,7 +171,12 @@ api.post("/tracks/:id/add", requireUser, wrap(async (req, res) => {
 api.post("/tracks/:id/purchase", requireUser, wrap(async (req, res) => {
   const u = req.user, t = await liveTrack(req.params.id); needConfirmed(u);
   if (await owns(u.id, t)) return res.json({ files: await filesFor(t.id) });
-  res.json({ checkoutUrl: await pay.trackCheckout(u, t) });
+  if (!req.query.web) return res.json({ checkoutUrl: config.publicUrl + "/#buy-" + t.id });   // the apps open the website to pay
+  res.json(await pay.trackCheckout(u, t));   // the website: the payment form's { clientSecret }
+}));
+api.get("/tracks/:id", wrap(async (req, res) => {   // one track (the website's Buy link from the apps)
+  const uid = req.user ? req.user.id : 0, t = await liveTrack(req.params.id);
+  res.json({ track: trackOut({ ...t, owned: uid ? await owns(uid, t) : false, mine: t.publisher_id === uid }) });
 }));
 api.get("/library", requireUser, wrap(async (req, res) => {
   const rows = await q("SELECT t.*, TRUE AS owned FROM library l JOIN tracks t ON t.id=l.track_id WHERE l.user_id=$1 AND t.status='live' ORDER BY l.added_at DESC", [req.user.id]);
@@ -191,6 +203,7 @@ api.post("/publish", requireUser, wrap(async (req, res) => {
   if (!title || !artist) throw bad("Add the song title and the artist.");
   if (!["Pad", "Multitrack", "Prime"].includes(b.kind)) throw bad("Choose Pad, Multitrack or Prime.");
   if (b.rights !== true) throw bad("Confirm that you own this recording or have the rights to sell it.");
+  if (config.stripe.requireIdToPublish && pay.stripe && u.id_status !== "verified") throw bad("Verify your ID before you publish (once, about 2 minutes): Publishing → Verify my ID.", 403);
   if (!b.mix || !mine(b.mix.key) || !(await store.exists(b.mix.key))) throw bad("Upload the full mix first.");
   const stems = (Array.isArray(b.stems) ? b.stems : []).slice(0, 64);
   for (const s of stems) if (!mine(s.key) || !(await store.exists(s.key))) throw bad("One of the stems didn't finish uploading. Try again.");
@@ -217,15 +230,50 @@ api.get("/publisher", requireUser, wrap(async (req, res) => {
 }));
 
 // ---- payments
-api.post("/checkout/store", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json({ url: await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code) }); }));
-api.post("/checkout/subscription", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json({ url: await pay.subscriptionCheckout(req.user) }); }));
+// every checkout answers { clientSecret, session }: the page shows Stripe's payment form with it
+api.post("/checkout/store", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code)); }));
+api.post("/checkout/store/check", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code, "check")); }));   // (the cart: any problem shows before the payment form)
+api.post("/checkout/subscription", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.subscriptionCheckout(req.user)); }));
 api.post("/billing", requireUser, wrap(async (req, res) => res.json({ url: await pay.billingPortal(req.user) })));
+// publishers: payout setup (Stripe's pages), the payout settings shown on the website, and the one-time ID check
 api.post("/connect", requireUser, wrap(async (req, res) => res.json({ url: await pay.connectLink(req.user) })));
+api.post("/connect/session", requireUser, wrap(async (req, res) => res.json({ clientSecret: await pay.connectSession(req.user) })));
+api.post("/identity", requireUser, wrap(async (req, res) => {
+  if (req.user.id_status === "verified") return res.json({ verified: true });
+  res.json({ url: await pay.identitySession(req.user) });
+}));
 api.get("/orders/:session", wrap(async (req, res) => {  // the Checkout session id (only the buyer has it) shows the order's license keys
   const o = await one("SELECT * FROM orders WHERE stripe_session=$1", [String(req.params.session)]);
   if (!o) return res.json({ pending: true });
   const keys = await q("SELECT key, product, kind FROM licenses WHERE order_id=$1 ORDER BY kind, product, key", [o.id]);
-  res.json({ total: o.total_cents / 100, items: o.items, licenses: keys.map((k) => ({ key: lic.pretty(k.key), kind: k.kind, product: KEY_KINDS[k.kind] || (PRODUCTS[k.product] ? PRODUCTS[k.product].name : k.product) })) });
+  res.json({ total: o.total_cents / 100, items: o.items, slots: o.slots || 0, status: o.status, shipping: !!o.shipping,
+    licenses: o.status === "paid" ? keys.map((k) => ({ key: lic.pretty(k.key), kind: k.kind, product: KEY_KINDS[k.kind] || (PRODUCTS[k.product] ? PRODUCTS[k.product].name : k.product) })) : [] });
+}));
+
+// ---- a sale on the website (staff): saved as a draft, seen by staff only ("Preview"), then put live for everyone
+const SALE_KEYS = ["name", "percent", "banner", "endsAt", "includePedal"];
+async function saleRow() { const r = await one("SELECT data FROM site_settings WHERE name='sale'"); return (r && r.data) || { draft: null, live: null }; }
+function publicSale(x, preview) { return x && x.percent ? { name: x.name || "Sale", percent: x.percent, banner: x.banner || "", endsAt: x.endsAt || null, includePedal: !!x.includePedal, preview: !!preview } : null; }
+async function saveSale(data, by) { await q("INSERT INTO site_settings (name,data,updated_by) VALUES ('sale',$1,$2) ON CONFLICT (name) DO UPDATE SET data=EXCLUDED.data, updated_at=now(), updated_by=EXCLUDED.updated_by", [data, by]); }
+const staffOnly = async (req) => { if (!isAdmin(req.user)) throw bad("Admins only.", 403); await signin.requireStep(req); };
+api.get("/admin/sale", requireUser, wrap(async (req, res) => { await staffOnly(req); res.json(await saleRow()); }));
+api.post("/admin/sale", requireUser, wrap(async (req, res) => {   // save the draft
+  await staffOnly(req);
+  const b = req.body || {}, pct = Math.round(Number(b.percent));
+  if (!(pct >= 1 && pct <= 90)) throw bad("A sale is 1% to 90% off.");
+  const endsAt = b.endsAt ? new Date(b.endsAt) : null; if (endsAt && (isNaN(endsAt) || endsAt < new Date())) throw bad("The end date has to be in the future.");
+  const draft = { name: String(b.name || "Sale").trim().slice(0, 60), percent: pct, banner: String(b.banner || "").trim().slice(0, 160), endsAt: endsAt ? endsAt.toISOString() : null, includePedal: !!b.includePedal };
+  const row = await saleRow(); await saveSale({ ...row, draft }, req.user.email);
+  res.json({ ok: true, draft });
+}));
+api.post("/admin/sale/live", requireUser, wrap(async (req, res) => {   // put the draft live, or end the live sale
+  await staffOnly(req);
+  const row = await saleRow();
+  if (req.body && req.body.end) { await saveSale({ ...row, live: null }, req.user.email); return res.json({ ok: true, live: null }); }
+  if (!row.draft) throw bad("Save a sale first.");
+  const live = Object.fromEntries(SALE_KEYS.map((k) => [k, row.draft[k]]));
+  await saveSale({ ...row, live: { ...live, at: new Date().toISOString() } }, req.user.email);
+  res.json({ ok: true, live });
 }));
 
 // ---- admin (ADMIN_EMAILS): the nightly backups (and Back up now)

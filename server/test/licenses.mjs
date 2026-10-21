@@ -27,13 +27,13 @@ try {
   const { recordOrder } = await import("../src/payments.js");
   const { one } = await import("../src/db.js");
   const cid = (await one("SELECT church_id FROM church_members m JOIN users u ON u.id=m.user_id WHERE u.email=$1", ["main" + stamp + "@church.test"])).church_id;
-  await recordOrder({ id: "cs_test_" + stamp, metadata: { items: JSON.stringify({ "pack-small": "1", "user-pack": "2" }), church_id: String(cid) }, amount_total: 42000, customer_details: { email: "main@church.test" } }, null);
+  await recordOrder({ id: "cs_test_" + stamp, amount_total: 42000, customer_details: { email: "main@church.test" }  }, { church_id: String(cid), user_id: null, items: { "pack-lite": "1", "user": "2" } });
   ch = (await j("GET", "/church", null, T)).body;
-  ok(ch.counts.P.total === 1 && ch.counts.A.total === 2 && ch.counts.U.total === 8 && ch.counts.U.free === 8 && ch.church.hasPack, "a Small pack (+2 extra users) gives 1 P (Pedal Control), 2 A and 8 U keys, all free; the church now has a pack", ch.counts);
+  ok(ch.counts.P.total === 1 && ch.counts.A.total === 3 && ch.counts.U.total === 8 && ch.counts.U.free === 8 && ch.church.hasPack && ch.church.servicesSlots === 15, "a Lite pack (+2 users) gives 1 P (Pedal Control), 3 A (the main admin and 2 admins), 8 U keys and 15 Central Services slots", [ch.counts, ch.church]);
   const keys = ch.keys.map((k) => k.key), P = ch.keys.find((k) => k.kind === "P").key, A = ch.keys.find((k) => k.kind === "A").key, U = ch.keys.filter((k) => k.kind === "U").map((k) => k.key);
   ok(keys.every((k) => /^[PAU][A-Z2-9]{3}(-[A-Z2-9]{4}){3}$/.test(k) && !/[IL0O1]/.test(k)), "keys are 16 characters, start with P, A or U, no look-alike characters: " + P);
   const o = await j("GET", "/orders/cs_test_" + stamp);
-  ok(o.body.licenses && o.body.licenses.length === 11 && o.body.licenses[0].key.length === 19, "the order page lists the keys", o.body);
+  ok(o.body.licenses && o.body.licenses.length === 12 && o.body.licenses[0].key.length === 19 && o.body.slots === 15, "the order page lists the keys and the slots", o.body);
 
   // apps: activate, the wrong kind, a second device, check, release
   const dev1 = "dev-" + stamp + "-one", dev2 = "dev-" + stamp + "-two";
@@ -101,14 +101,14 @@ try {
   ok(codes1.adminCode !== codes0.adminCode && codes1.userCode !== codes0.userCode && (await j("POST", "/church/codes", null, usr.body.token)).status === 403, "the main admin makes new codes (nobody else can)");
   ok((await j("POST", "/church/remove", { email: "mus" + stamp + "@church.test" }, T)).body.ok && !(await j("GET", "/me", null, mus.body.token)).body.church, "...and takes someone out");
 
-  // the store: sign in first, and the $10 user price needs a pack
+  // the store: sign in first; Ultra's 10 more slots need an Ultra pack
   const anon = await fetch(base + "/v1/checkout/store", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: { user: 1 } }) });
   ok(anon.status === 401, "buying needs an account (the keys go to a church)");
   const nopack = await j("POST", "/signup", { email: "np" + stamp + "@church.test", password: "password123", churchName: "No Pack Church" });
-  const cheat = await j("POST", "/checkout/store", { items: { "pack-small": "0.5", "user-pack": 50 } }, nopack.body.token);
-  ok(cheat.status === 400 && /church pack/.test(cheat.body.error), "half a pack doesn't unlock the $10 user price", cheat.body);
+  const cheat = await j("POST", "/checkout/store", { items: { "pack-ultra": "0.5", "ultra-plus10": 1 } }, nopack.body.token);
+  ok(cheat.status === 400 && /goes with Central-Apps Ultra/.test(cheat.body.error), "half an Ultra pack doesn't unlock its 10 more slots", cheat.body);
   const cfgj = (await j("GET", "/config")).body;
-  ok(cfgj.products["pack-small"].cents === 30000 && cfgj.products["pack-medium"].cents === 50000 && cfgj.products["pack-large"].cents === 75000 && !cfgj.products["pack-small"].ships && cfgj.products.pedal.cents === 25000 && cfgj.products["pedal-control"].cents === 5000 && cfgj.products.admin.cents === 5000 && cfgj.products.user.cents === 2000 && cfgj.products["user-pack"].cents === 1000 && cfgj.products["pack-large"].keys.U === 20, "prices: pedal $250, Pedal Control $50, admin $50, user $20 ($10 with a pack), packs (no pedal) $300 / $500 / $750", cfgj.products);
+  ok(cfgj.products["pack-lite"].cents === 25000 && cfgj.products["pack-regular"].cents === 35000 && cfgj.products["pack-plus"].cents === 50000 && cfgj.products["pack-ultra"].cents === 70000 && !cfgj.products["pack-lite"].ships && cfgj.products.pedal.cents === 25000 && cfgj.products["pedal-control"].cents === 5000 && cfgj.products.admin.cents === 5000 && cfgj.products.user.cents === 2000 && !cfgj.products["user-pack"] && cfgj.products["pack-ultra"].keys.U === 16, "prices: pedal $250, Pedal Control $50, admin $50, user $20, packs (no pedal) $250 / $350 / $500 / $700", cfgj.products);
 
   // Motion Audio staff make a P key for a pedal they build (and only they can)
   let boss = await j("POST", "/signup", { email: "boss@motion.test", password: "password123" });

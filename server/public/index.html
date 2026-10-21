@@ -12,6 +12,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site.css">
+<script src="https://js.stripe.com/dahlia/stripe.js" async></script>
 </head>
 <body>
 
@@ -23,6 +24,7 @@
     <button class="btn ghost small cartbtn" id="cartBtn">Cart <span class="count">0</span></button>
   </nav>
 </div></header>
+<div class="salebar" id="saleBar" hidden></div>
 
 <div class="hero on-stage" data-section="hero"><div class="wrap">
   <h1 data-edit="hero.title">Your whole worship team, run from one pedal.</h1>
@@ -40,14 +42,15 @@
 
 <section id="store" data-section="store"><div class="wrap">
   <div class="sec-head"><h2 data-edit="store.title">Everything your team needs, nothing it doesn&rsquo;t</h2>
-    <p data-edit="store.lede">We build every pedal and ship it ready to play. Each app runs on a key you buy once. Got a discount or free-trial code? Pop it in the cart.</p></div>
+    <p data-edit="store.lede">We build every pedal and ship it ready to play. Each app runs on a key you buy once, and every price includes tax. Got a discount or free-trial code? Pop it in the cart.</p></div>
   <div id="pedalBuy"></div>
-  <div class="packs-head" data-section="packs"><div><h3 style="font-size:1.5rem" data-edit="packs.title">Church packs</h3><p style="margin-top:.35rem" data-edit="packs.lede">Keys for your whole team, for less. The pedal is separate, so you can start with what you already have.</p></div></div>
+  <div class="packs-head" data-section="packs"><div><h3 style="font-size:1.5rem" data-edit="packs.title">Packs for your whole team</h3><p style="margin-top:.35rem" data-edit="packs.lede">Your church's account holds every key and slot, and you hand them out from the Teams page. Each pack has a main admin, admins, users, Central Pedal Control and Central Services slots. The pedal is separate, so you can start with what you already have.</p></div></div>
   <div class="packs" id="packs"></div>
   <dl class="keydefs" data-section="keys">
     <div><dt>P</dt><dd><b data-edit="keys.p.title">Central Pedal and Pedal Control</b></dd><dd data-edit="keys.p.body">Yours for good, with every update we ever make.</dd></div>
-    <div><dt>A</dt><dd><b data-edit="keys.a.title">Admins, Central Control</b></dd><dd data-edit="keys.a.body">One computer per key, with ten releases of updates (buy at 9.0 and you're covered through 10.0). Renew for $20 whenever you like.</dd></div>
+    <div><dt>A</dt><dd><b data-edit="keys.a.title">Main admins and admins, Central Control</b></dd><dd data-edit="keys.a.body">One computer per key, with ten releases of updates (buy at 9.0 and you're covered through 10.0). Renew for $20 whenever you like. Up to 2 main admins per church.</dd></div>
     <div><dt>U</dt><dd><b data-edit="keys.u.title">Musicians, Central Usage</b></dd><dd data-edit="keys.u.body">Two devices per key, so players can have one at church and one at home. Your apps keep working even if you never renew.</dd></div>
+    <div><dt>S</dt><dd><b data-edit="keys.s.title">Central Services slots</b></dd><dd data-edit="keys.s.body">One per person on your teams, no key to type. Take someone off a team and their slot is free for the next person.</dd></div>
   </dl>
   <div class="pricelist" id="rack"></div>
 </div></section>
@@ -123,6 +126,9 @@
         </div>
         <div class="muted" style="font-size:.8rem;margin-top:.3rem" id="exPoolNote">The pool part assumes 100 subscribers that month.</div>
         <div class="big" id="exTotal" style="margin-top:.5rem">$0.00</div></div>
+      <div class="meter" id="idBox" hidden><div class="label">Your ID</div>
+        <div class="muted" style="font-size:.9rem" id="idText"></div>
+        <button class="btn ghost small" id="idBtn" style="margin-top:.5rem">Verify my ID</button></div>
       <div class="meter" id="payoutBox"><div class="label">Getting paid</div>
         <div class="muted" style="font-size:.9rem" id="payoutText">Sign in to publish. We pay what you've earned each month, straight to your bank through Stripe.</div>
         <button class="btn ghost small" id="payoutBtn" hidden style="margin-top:.5rem">Set up payouts</button></div>

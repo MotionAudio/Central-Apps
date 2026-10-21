@@ -63,7 +63,7 @@ try {
   // ---------------------------------------------------------------- a church with keys and a team
   const pastor = await finish(await j("POST", "/signup", { email: E("pastor"), password: "password123", name: "Pastor", churchName: "Grace Church" }), E("pastor"));
   const T = pastor.token, cid = (await one("SELECT church_id FROM church_members WHERE user_id=(SELECT id FROM users WHERE email=$1)", [E("pastor")])).church_id;
-  await recordOrder({ id: "cs_a_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 30000, customer_details: { email: "p@grace.test" } }, null);
+  await recordOrder({ id: "cs_a_" + S, amount_total: 30000, customer_details: { email: "p@grace.test" }  }, { church_id: String(cid), user_id: null, items: { "pack-lite": "1" } });
   await q("UPDATE churches SET has_services=TRUE WHERE id=$1", [cid]);   // (Central Services' monthly plan)
   const addU = await j("POST", "/church/team", { section: "user", members: [{ name: "Cal", email: E("cal"), role: "Drums" }, { name: "Dee", email: E("dee"), role: "Vocals" }] }, T);
   const addA = await j("POST", "/church/team", { section: "admin", members: [{ name: "Eli", email: E("eli"), role: "Lights" }] }, T);

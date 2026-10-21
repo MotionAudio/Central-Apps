@@ -14,9 +14,18 @@ You need **3 accounts**. Do them in this order.
    proprietor), your bank account, and your SSN or EIN. This is how you get paid.
 3. Turn on **Connect** (left menu → *Connect* → *Get started*). Choose **Platform or marketplace**. This is what
    lets you pay publishers their 75% of sales and their share of the subscriber pool.
-4. Get your key: *Developers* → *API keys* → **Secret key** (starts with `sk_live_`).
-   For testing first, flip *Test mode* on and use the `sk_test_` key. No real money moves in test mode.
-5. The webhook comes after step 3 below, once your site has an address.
+4. Turn on **Identity** (left menu → *More* → *Identity*): publishers verify their ID with it once before their first
+   upload. And **Billing → Customer portal** (*Settings* → *Billing* → *Customer portal* → *Activate*): it's the
+   "Billing: card & receipts" and "Manage subscription" buttons.
+5. Get your keys: *Developers* → *API keys*. You need the **Publishable key** (`pk_...`, the payment form on the
+   page) and a server key. Stripe recommends a **restricted key** (`rk_...`, *Create restricted key*) instead of the
+   secret key: give it write access to Checkout Sessions, Customers, Refunds, Subscriptions, Billing portal, Identity,
+   Accounts v2, Account Links, Account Sessions and Transfers, and read access to Payment Intents, Charges, Invoices and
+   Invoice Payments. For testing first, use your sandbox keys (`pk_test_` / `rk_test_` or `sk_test_`). No real money
+   moves there.
+6. You don't need to make products in Stripe: the store's prices live on the website (Account → Prices, staff only)
+   and every checkout tells Stripe the names and prices. Each price includes tax.
+7. The webhook comes after step 3 below, once your site has an address.
 
 ## 2. Cloudflare — storage for the audio files (R2)
 
@@ -81,7 +90,8 @@ them all on the website: Account → *Errors, support, backups*.
    | Setting | Value |
    |---|---|
    | `ADMIN_EMAILS` | your email (lets you see reports and take tracks down) |
-   | `STRIPE_SECRET_KEY` | from Stripe step 4 (asked twice: website and payout job) |
+   | `STRIPE_SECRET_KEY` | the server key from Stripe step 5 (asked twice: website and payout job) |
+   | `STRIPE_PUBLISHABLE_KEY` | the publishable key from Stripe step 5 (`pk_...`) |
    | `STRIPE_WEBHOOK_SECRET` | type `later` for now |
    | `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | from Cloudflare step 5 (`R2_BUCKET` = `central-tracks`) |
    | `RESEND_API_KEY` | from Resend step 3 |
@@ -96,9 +106,12 @@ them all on the website: Account → *Errors, support, backups*.
 
 1. Stripe → *Developers* → **Webhooks** → *Add endpoint*.
 2. Endpoint URL: `https://<your site>/stripe/webhook`
-3. Tick **Listen to events on Connected accounts** as well as your account.
-4. Events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`,
-   `customer.subscription.deleted`, `invoice.paid`, `account.updated`.
+3. Events (your account): `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+   `checkout.session.async_payment_failed`, `customer.subscription.created`, `customer.subscription.updated`,
+   `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `charge.refunded`,
+   `charge.dispute.created`, `radar.early_fraud_warning.created`, `identity.verification_session.verified`,
+   `identity.verification_session.requires_input`, `identity.verification_session.canceled`.
+4. (Publishers' payout setup is checked with Stripe directly, so no events from connected accounts are needed.)
 5. *Add endpoint* → copy the **Signing secret** (`whsec_...`).
 6. Render → the `motion-audio` service → *Environment* → set `STRIPE_WEBHOOK_SECRET` to it → *Save* (it restarts).
 7. Stripe → *Settings* → *Billing* → **Customer portal** → *Activate*, so subscribers can cancel or change cards
@@ -107,10 +120,13 @@ them all on the website: Account → *Errors, support, backups*.
 ## 5. Check it
 
 - Open the site, make an account, publish a short WAV, and see it graded and listed.
-- In test mode, buy a track with card `4242 4242 4242 4242`, any future date, any CVC.
+- In test mode, buy a pack with card `4242 4242 4242 4242`, any future date, any CVC: the payment form opens on the
+  page, and the keys and Central Services slots show up on the thank-you screen and on your church's page.
+- `4000 0000 0000 0259` pays, then gets disputed: the keys stop working. Refunding an order in Stripe does the same.
 - In Central Pedal or Central Pedal Control: **+ Add songs → Central Tracks → Central Tracks server** = your site
   address → sign in → add a track.
-- When it all works, switch Stripe out of test mode, put the `sk_live_` key and a live webhook secret in Render.
+- When it all works, switch Stripe out of test mode: put the live keys (`pk_live_`, `rk_live_` or `sk_live_`) and a
+  live webhook secret in Render.
 
 ## 6. Turn the license keys on in the apps
 
@@ -157,8 +173,14 @@ Buy a domain (for example `motionaudio.com`) from Cloudflare or any registrar, t
 ---
 
 ### How the money works (all in `src/config.js`)
-- Store: software bundle $80, Central Control $50, Central Usage $25, built pedal $250. License keys are made
-  when Stripe confirms payment and shown on the thank-you screen.
+- Prices include tax. Packs (each with 1 main admin, admins, users, 1 Central Pedal Control and Central Services
+  slots): Lite $250 (2 admins, 6 users, 15 slots), Regular $350 (3, 8, 18), Plus $500 (4, 10, 20), Ultra $700
+  (5, 16, 30; 10 more slots for $35). Single keys: admin $50, user $20, Pedal Control $50. A Central Services slot is
+  $5, once (one per person on the church's teams; taking someone off frees it). The built pedal is $250.
+- Codes: BETATEST 50% off, TRIALRUN everything free for 6 months, 7FREE everything free for 7 days. None of them
+  apply to the built pedal. Staff change all of this, and run sales, on the website (Account → Prices, Sale).
+- Up to 2 main admins per church: a main admin makes one of the admins a main admin (Account → People).
+- Keys are made when Stripe confirms payment, shown on the thank-you screen, and taken back on a refund or dispute.
 - Central Tracks Unlimited: $77/month.
 - Track prices come from the grade: 1★ $5 · 2★ $10 · 3★ $15 · 4★ $20 · 5★ $30.
 - Publishers: 75% of each sale, plus the subscriber pool: half of each month's subscription money, split by how many

@@ -49,15 +49,16 @@ try {
   // ---------------------------------------------------------------- the store
   await page.goto(base + "/", { waitUntil: "networkidle" }); await page.waitForTimeout(400);
   ok(await page.$eval("h1", (e) => e.textContent.length > 10), "the page opens");
-  ok(await page.$$eval("#pedalBuy [data-add=pedal]", (x) => x.length) === 1 && await page.$$eval("#packs .tier", (x) => x.length) === 3 && await page.$$eval("#rack .pl-row", (x) => x.length) >= 4, "the store: the pedal, three church packs, the apps and Central Services");
+  ok(await page.$$eval("#pedalBuy [data-add=pedal]", (x) => x.length) === 1 && await page.$$eval("#packs .tier", (x) => x.length) === 4 && await page.$$eval("#rack .pl-row", (x) => x.length) >= 4 && /1 main admin \+ 2 admins/.test(await page.textContent("#packs .tier")), "the store: the pedal, four packs (Lite: 1 main admin + 2 admins…), the apps and Central Services slots");
   ok(await page.$$eval(".system img", (imgs) => imgs.every((i) => i.complete && i.naturalWidth > 0)) && await page.$eval("#pedalBuy img", (i) => i.naturalWidth > 0), "the app icons load");
   await shot("store", true);
-  await page.click("#pedalBuy [data-add=pedal]"); await page.click("#packs [data-add=pack-medium]");
+  ok(!(await page.$("#packs [data-add=ultra-plus10]").then((b) => b.click()).then(() => page.textContent("#cartBtn"))).includes("1"), "Ultra's 10 more slots can't go in the cart without the Ultra pack");
+  await page.click("#pedalBuy [data-add=pedal]"); await page.click("#packs [data-add=pack-regular]");
   ok((await page.textContent("#cartBtn")).includes("2"), "add to cart: the cart counts 2");
   await page.click("#cartBtn"); await page.waitForSelector(".modal");
-  await page.fill("#pcCode", "usage10"); await page.click("#pcApply"); await page.waitForTimeout(500);
+  await page.fill("#pcCode", "betatest"); await page.click("#pcApply"); await page.waitForTimeout(500);
   const cartText = await page.textContent(".modal");
-  ok(/USAGE10/.test(cartText) && /−\$50\.00/.test(cartText) && /\$700\.00/.test(cartText), "USAGE10: 10% off the pack ($50), not the pedal: $700 total", cartText.replace(/\s+/g, " "));
+  ok(/BETATEST/.test(cartText) && /−\$175\.00/.test(cartText) && /\$425\.00/.test(cartText) && /tax included/.test(cartText), "BETATEST: half off the Regular pack ($175), not the pedal: $425 total, tax included", cartText.replace(/\s+/g, " "));
   await shot("cart-code");
   await page.click("#checkout"); await page.waitForTimeout(300);
   ok(/Sign in/.test(await page.textContent("#acctTitle")) && !(await page.$(".modal")), "check out while signed out: asks to sign in");
@@ -155,7 +156,7 @@ try {
   await page.waitForSelector("#relCard h3", { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(800);
   const txt = (s) => page.$eval(s, (e) => e.textContent).catch(() => "");
-  ok(/Prices/.test(await txt("#pricesCard")) && /7FREE/.test(await txt("#codesCard")) && /Releases/.test(await txt("#relCard")) && /Errors/.test(await txt("#opsCard")) && /Keys/.test(await txt("#staffCard")), "staff: the Keys, Prices, Codes, Releases and Errors cards");
+  ok(/Prices/.test(await txt("#pricesCard")) && /Sale/.test(await txt("#saleCard")) && /7FREE/.test(await txt("#codesCard")) && /Releases/.test(await txt("#relCard")) && /Errors/.test(await txt("#opsCard")) && /Keys/.test(await txt("#staffCard")), "staff: the Keys, Prices, Codes, Releases and Errors cards");
   ok(/Grace Church/.test(await txt("#codesCard")), "staff Codes: Grace Church used 7FREE");
   ok(/Pairing/.test(await txt("#opsCard")) || true, "staff Errors and support");
   await shot("staff", true);

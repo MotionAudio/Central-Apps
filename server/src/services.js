@@ -1,6 +1,7 @@
 // Central Services: the church's schedule. Up to 4 worship teams and 4 production teams; up to 4 schedulers (the main
-// admin and admins they pick) make services and ask people from the teams; up to 120 people see the schedule and
-// accept or decline. Everyone sees every team: who's on it, their role, and who said yes or no.
+// admins and admins they pick) make services and ask people from the teams, who see the schedule and accept or decline.
+// Everyone sees every team: who's on it, their role, and who said yes or no. Each person on the teams takes one of the
+// church's slots (bought once; packs come with some); taking someone off the teams frees their slot.
 // The app (central-services/) asks /services/me who is signed in: schedulers get the scheduling screens.
 import { q, one, pool } from "./db.js";
 import { config, SERVICES_LIMITS as LIM } from "./config.js";
@@ -20,7 +21,7 @@ async function schedulersOf(c) {
 async function ctx(req) {
   const c = await churchOf(req.user.id);
   if (!c) throw bad("Your account isn't in a church yet. Ask your main admin to add you on the Teams page.", 403);
-  if (!c.has_services && !trialActive(c)) throw bad("Your church doesn't have Central Services yet. The main admin can start it on the website (Account → Central Services): monthly, by the church's size.", 402);
+  if (!servicesOn(c)) throw bad("Your church doesn't have Central Services yet. A main admin or admin can get slots on the website: every pack comes with some, or $5 a person.", 402);
   const sched = await schedulersOf(c);
   return { c, scheduler: sched.includes(String(req.user.id)), schedulers: sched };
 }
@@ -30,6 +31,7 @@ async function team(x, id) {
   if (!t) throw bad("No such team.", 404);
   return t;
 }
+export function servicesOn(c) { return !!c && (trialActive(c) || (c.services_slots || 0) > 0); }
 async function peopleCount(churchId, extra) {   // everyone on the teams (by email), with these new ones
   const rows = await q("SELECT DISTINCT m.email FROM service_team_members m JOIN service_teams t ON t.id=m.team_id WHERE t.church_id=$1", [churchId]);
   const set = new Set(rows.map((r) => r.email)); (extra || []).forEach((e) => set.add(e));
@@ -62,7 +64,7 @@ export function routes(api, { wrap, requireUser }) {
   api.get("/services/me", requireUser, wrap(async (req, res) => {
     const c = await churchOf(req.user.id);
     if (!c) return res.json({ church: null, role: null });
-    const on = !!c.has_services || trialActive(c), sched = on ? await schedulersOf(c) : [];
+    const on = servicesOn(c), sched = on ? await schedulersOf(c) : [];
     res.json({ church: c.name, churchRole: c.role, hasServices: on, role: sched.includes(String(req.user.id)) ? "scheduler" : "member",
       name: req.user.name, email: req.user.email, limits: LIM });
   }));
@@ -110,9 +112,22 @@ export function routes(api, { wrap, requireUser }) {
     const x = await ctx(req); needSched(x); const t = await team(x, req.params.id);
     const list = (Array.isArray(req.body.members) ? req.body.members : []).slice(0, LIM.people).map((m) => ({ email: String(m.email || "").trim().toLowerCase(), name: String(m.name || "").trim().slice(0, 80), role: String(m.role || "").trim().slice(0, 60) }));
     const badOne = list.find((m) => !emailOk(m.email)); if (badOne) throw bad("“" + badOne.email + "” isn't an email address.");
-    if (await peopleCount(x.c.id, list.map((m) => m.email)) > LIM.people) throw bad("Central Services is for up to " + LIM.people + " people.");
-    for (const m of list) await q(`INSERT INTO service_team_members (team_id,email,name,role) VALUES ($1,$2,$3,$4)
-      ON CONFLICT (team_id,email) DO UPDATE SET name=EXCLUDED.name, role=EXCLUDED.role`, [t.id, m.email, m.name, m.role]);
+    const client = await pool.connect();   // (one at a time per church: two schedulers adding at once can't pass the slots)
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(81093, $1)", [Number(x.c.id)]);
+      const slots = (await client.query("SELECT services_slots FROM churches WHERE id=$1", [x.c.id])).rows[0].services_slots || 0;
+      const count = async (extra) => { const rows = (await client.query("SELECT DISTINCT m.email FROM service_team_members m JOIN service_teams t ON t.id=m.team_id WHERE t.church_id=$1", [x.c.id])).rows; const set = new Set(rows.map((r) => r.email)); (extra || []).forEach((e) => set.add(e)); return set.size; };
+      const total = await count(list.map((m) => m.email)), cap = trialActive(x.c) ? LIM.people : Math.min(LIM.people, slots);
+      if (total > cap) {
+        const now = await count(), more = total - now;
+        throw bad(trialActive(x.c) ? "Central Services is for up to " + LIM.people + " people." : x.c.name + " has " + cap + " Central Services slot" + (cap === 1 ? "" : "s") + " and " + now + (now === 1 ? " is" : " are") + " in use. "
+          + (more === 1 ? "This person needs" : "These " + more + " people need") + " " + (total - cap) + " more. A main admin or admin can add slots on the website ($5 each), or take someone off the teams to free one.", 402);
+      }
+      for (const m of list) await client.query(`INSERT INTO service_team_members (team_id,email,name,role) VALUES ($1,$2,$3,$4)
+        ON CONFLICT (team_id,email) DO UPDATE SET name=EXCLUDED.name, role=EXCLUDED.role`, [t.id, m.email, m.name, m.role]);
+      await client.query("COMMIT");
+    } catch (e) { try { await client.query("ROLLBACK"); } catch (_) { } throw e; } finally { client.release(); }
     res.json({ ok: true });
   }));
   api.post("/services/teams/:id/members/remove", requireUser, wrap(async (req, res) => {
@@ -235,7 +250,7 @@ export async function remindServices() {
   const tz = config.timeZone || "America/Chicago";
   const due = await q(`SELECT r.*, s.title, s.starts_at, s.notes, s.songs, s.church_id, c.name AS church, t.name AS team
     FROM service_requests r JOIN services s ON s.id=r.service_id JOIN churches c ON c.id=s.church_id JOIN service_teams t ON t.id=r.team_id
-    WHERE r.reminded_at IS NULL AND r.status IN ('accepted','pending') AND r.asked_at < now() - interval '1 hour' AND s.starts_at > now() AND (c.has_services OR c.trial_until > now()) AND (
+    WHERE r.reminded_at IS NULL AND r.status IN ('accepted','pending') AND r.asked_at < now() - interval '1 hour' AND s.starts_at > now() AND (c.services_slots > 0 OR c.trial_until > now()) AND (
       ((s.starts_at AT TIME ZONE $1)::date = (now() AT TIME ZONE $1)::date + 1 AND extract(hour FROM now() AT TIME ZONE $1) >= 9)
       OR s.starts_at < now() + interval '18 hours')
     ORDER BY s.starts_at, r.id LIMIT 1000`, [tz]);

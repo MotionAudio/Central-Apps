@@ -1,13 +1,38 @@
-// Stripe: store checkout, the Central Tracks subscription, single track sales, and Connect accounts for publishers.
-// Checkout pages are hosted by Stripe; the webhook (/stripe/webhook) is what actually records a payment.
+// Stripe for Motion Audio (see ../STRIPE-PLAN.md):
+//  - Checkout, embedded on our own page (ui_mode "form", the Checkout Studio settings below): the store (keys, packs,
+//    Central Services slots, the built pedal), key renewals, single Central Tracks, and the $77/month Central Tracks
+//    Unlimited subscription. The browser gets a client_secret and shows Stripe's payment form in a window on the site.
+//  - Prices come from config.js / the staff price page and go to Stripe as price_data, tax included (tax_behavior
+//    "inclusive"), each with its tax code, so receipts and the Dashboard show the real names.
+//  - Fulfilment happens only in the webhook (/stripe/webhook), from the row this server wrote when it started the
+//    Checkout Session (never from metadata alone).
+//  - Radar runs on every payment. Refunds, disputes and early fraud warnings take back what a payment gave: keys,
+//    Central Services slots, renewals, a track (and the publisher's share), subscription money in the publisher pool.
+//  - Connect: publishers are Accounts v2 recipient accounts (Express dashboard); payouts.js pays them monthly.
+//  - Identity: publishers verify their ID once before their first upload.
+//  - Tax: off (automatic_tax false) until it's set up; every price already includes tax and carries a tax code.
 import Stripe from "stripe";
-import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE, DISCOUNTS, RENEWAL, SERVICES_PLAN, servicesCents } from "./config.js";
+import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE, DISCOUNTS, RENEWAL, TAX_CODES } from "./config.js";
 import { q, one, pool } from "./db.js";
-import { churchOf, createChurch, issueKeys, trialActive, canon, pretty } from "./licenses.js";
+import { churchOf, createChurch, issueKeys, canon, pretty } from "./licenses.js";
 import { fmt, COVER_RELEASES } from "./versions.js";
 
 function err(msg, status = 400, extra) { const e = new Error(msg); e.status = status; return Object.assign(e, extra || {}); }
-// a % code for the software (keys, packs, renewals): known, switched on, and not used by this church yet
+const S = config.stripe;
+function stripeOptions() {
+  const o = { apiVersion: S.apiVersion, appInfo: { name: "Motion Audio", url: config.publicUrl } };
+  if (S.api) { const u = new URL(S.api); Object.assign(o, { host: u.hostname, port: Number(u.port) || (u.protocol === "https:" ? 443 : 80), protocol: u.protocol.replace(":", "") }); }
+  return o;
+}
+export const stripe = S.secret ? new Stripe(S.secret, stripeOptions()) : null;
+export function needStripe() { if (!stripe) throw err("Payments aren't set up yet (STRIPE_SECRET_KEY is missing).", 503); }
+
+// Checkout Studio settings, the same on every Checkout Session
+const STUDIO = { ui_mode: "form", billing_address_collection: "auto", phone_number_collection: { enabled: false }, automatic_tax: { enabled: false }, integration_identifier: "custom_embedded_web_0001" };
+const back = (hash) => config.publicUrl + "/#" + hash;
+
+// ---------------------------------------------------------------- codes and sales
+// a % code: known, switched on, and not used by this church yet. Off everything but the built pedal.
 export async function percentCode(code, church) {
   const c = String(code || "").trim().toUpperCase(); if (!c) return null;
   const d = DISCOUNTS[c];
@@ -16,19 +41,31 @@ export async function percentCode(code, church) {
   if (church && (await one("SELECT 1 FROM discount_uses WHERE church_id=$1 AND code=$2", [church.id, c]))) throw err("Your church already used " + c + ".", 409);
   return { code: c, percent: d.percent, label: d.label };
 }
+// the sale that's on the website now (staff save it, preview it, then put it live): { name, percent, endsAt, includePedal }
+export async function liveSale() {
+  const r = await one("SELECT data FROM site_settings WHERE name='sale'");
+  const s = r && r.data && r.data.live;
+  if (!s || !s.percent) return null;
+  if (s.endsAt && Date.parse(s.endsAt) < Date.now()) return null;
+  return s;
+}
+// what comes off: a typed code wins; otherwise the live sale
+async function discountFor(code, church) {
+  const d = await percentCode(code, church);
+  if (d) return { ...d, pedal: false };
+  const s = await liveSale();
+  return s ? { code: "", sale: s.name || "Sale", percent: s.percent, label: (s.name || "Sale") + ": " + s.percent + "% off", pedal: !!s.includePedal } : null;
+}
 const off = (cents, d) => (d ? Math.round((cents * (100 - d.percent)) / 100) : cents);
 
-export const stripe = config.stripe.secret ? new Stripe(config.stripe.secret) : null;
-export function needStripe() { if (!stripe) { const e = new Error("Payments aren't set up yet (STRIPE_SECRET_KEY is missing)."); e.status = 503; throw e; } }
-
+// ---------------------------------------------------------------- customers
 async function customerFor(user) {
   if (user.stripe_customer) return user.stripe_customer;
   const c = await stripe.customers.create({ email: user.email, name: user.name || undefined, metadata: { user_id: String(user.id) } });
   await q("UPDATE users SET stripe_customer=$1 WHERE id=$2", [c.id, user.id]);
   return c.id;
 }
-
-// the church's own billing (its name on the receipts; the card stays with the church when the main admin changes)
+// the church's own billing (its name on the receipts; the card stays with the church when a main admin changes)
 export async function churchCustomer(church) {
   if (church.stripe_customer) return church.stripe_customer;
   const owner = church.owner_id ? await one("SELECT email FROM users WHERE id=$1", [church.owner_id]) : null;
@@ -38,7 +75,7 @@ export async function churchCustomer(church) {
 }
 export async function churchBillingPortal(church) {
   needStripe();
-  const s = await stripe.billingPortal.sessions.create({ customer: await churchCustomer(church), return_url: config.publicUrl + "/#account" });
+  const s = await stripe.billingPortal.sessions.create({ customer: await churchCustomer(church), return_url: back("account") });
   return s.url;
 }
 export async function syncChurchCustomer(churchId) {   // (a new name, or a new main admin: the receipts' name and email)
@@ -47,60 +84,85 @@ export async function syncChurchCustomer(churchId) {   // (a new name, or a new 
   if (!c || !c.stripe_customer) return;
   try { await stripe.customers.update(c.stripe_customer, { name: c.name, email: c.owner_email || undefined }); } catch (e) { console.error("stripe customer:", e.message); }
 }
-// Central Tracks Unlimited: yours, or your church's (the main admin subscribes for everyone in it)
+// Central Tracks Unlimited: yours, or your church's (a main admin subscribes for everyone in it)
 export async function isSubscribed(user) {
   if (!user) return false;
   if (user.subscribed) return true;
   return !!(await one("SELECT 1 FROM church_members m JOIN churches c ON c.id=m.church_id WHERE m.user_id=$1 AND (c.subscribed OR c.trial_until > now())", [user.id]));   // (a free trial includes Central Tracks Unlimited)
 }
 
-// everything in the store comes with license keys, and keys belong to a church: you buy signed in, and the first
-// purchase makes your church (you become its main admin) when you're not in one yet
-export async function storeCheckout(user, items, churchName, code) {
-  if (!user) { const e = new Error("Sign in or make an account first: your keys go to your church's account."); e.status = 401; throw e; }
+async function remember(s, kind, { user, church, track, items, code }) {
+  await q("INSERT INTO checkouts (session_id,kind,user_id,church_id,track_id,items,code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING",
+    [s.id, kind, user ? user.id : null, church ? church.id : null, track ? track.id : null, items || null, code || null]);
+  return { clientSecret: s.client_secret, session: s.id };
+}
+const line = (name, cents, n, taxCode, description) => ({ quantity: n, price_data: { currency: "usd", unit_amount: cents, tax_behavior: "inclusive", product_data: { name, description: description || undefined, tax_code: taxCode } } });
+
+// ---------------------------------------------------------------- the store
+// how many of each product a church has bought (paid orders, not refunded or disputed)
+export async function ownedCounts(churchId) {
+  const out = {};
+  for (const o of await q("SELECT items FROM orders WHERE church_id=$1 AND status IN ('paid','review')", [churchId])) for (const [id, n] of Object.entries(o.items || {})) if (!/^(renew)$/.test(id)) out[id] = (out[id] || 0) + (Number(n) || 0);
+  return out;
+}
+// everything in the store belongs to a church: you buy signed in, and the first purchase makes your church (you become
+// its main admin) when you're not in one yet
+export async function storeCheckout(user, items, churchName, code, only) {   // (only "check": everything but the payment)
+  if (!user) throw err("Sign in or make an account first: your keys go to your church's account.", 401);
   let church = await churchOf(user.id);
-  if (!church && !String(churchName || "").trim()) { const e = new Error("Name your church or production first: your keys go to its account."); e.status = 400; e.needChurch = true; throw e; }
-  const lines = [], meta = {}, qty = {};
-  let ships = false;
+  if (!church && !String(churchName || "").trim()) throw err("Name your church or production first: your keys go to its account.", 400, { needChurch: true });
+  if (church && !(church.role === "owner" || church.role === "admin")) throw err("Only " + church.name + "'s main admins and admins buy for it. Ask one of them, or they can add you on the Teams page.", 403);
+  const qty = {};
   for (const [id, q0] of Object.entries(items || {})) { const n = Math.max(0, Math.min(50, Math.floor(Number(q0) || 0))); if (PRODUCTS[id] && n) qty[id] = n; }   // (whole numbers, checked once)
+  if (!Object.keys(qty).length) throw err("Your cart is empty.");
+  const owned = church ? await ownedCounts(church.id) : {};
   for (const [id, n] of Object.entries(qty)) {
     const p = PRODUCTS[id];
     if (p.hidden) throw err(p.name + " isn't for sale right now.");
-    if (p.needsPack && !(church && church.has_pack) && !Object.keys(qty).some((k) => PRODUCTS[k].pack)) {
-      const e = new Error("The $10 user price is for churches with a church pack. Add Central Usage (user) at $20 instead."); e.status = 400; throw e;
+    if (p.addonFor) {   // one for each of its pack: in this cart, or bought before
+      const base = PRODUCTS[p.addonFor], room = (qty[p.addonFor] || 0) + (owned[p.addonFor] || 0) - (owned[id] || 0);
+      if (n > room) throw err(p.name + " goes with " + (base ? base.name : "its pack") + ": one for each" + (room > 0 ? " (you can add " + room + ")" : ". Add " + (base ? base.name : "the pack") + " first") + ".");
     }
-    lines.push({ id, n, p });
-    meta[id] = String(n); if (p.ships) ships = true;
   }
-  if (!lines.length) { const e = new Error("Your cart is empty."); e.status = 400; throw e; }
-  const disc = await percentCode(code, church);   // (the built pedal is never discounted)
+  const disc = await discountFor(code, church);
+  if (only === "check") return { ok: true };
   needStripe();
   if (!church) church = await createChurch(user, churchName);
-  const items2 = lines.map((l) => ({ quantity: l.n, price_data: { currency: "usd", unit_amount: l.p.hardware ? l.p.cents : off(l.p.cents, disc), product_data: { name: l.p.name + (disc && !l.p.hardware ? " (" + disc.code + ")" : "") } } }));
+  let ships = false;
+  const lines = Object.entries(qty).map(([id, n]) => {
+    const p = PRODUCTS[id], cut = disc && (!p.hardware || disc.pedal); if (p.ships) ships = true;
+    return line(p.name + (cut ? " (" + (disc.code || disc.sale) + ")" : ""), cut ? off(p.cents, disc) : p.cents, n, p.hardware ? TAX_CODES.tangible : TAX_CODES.software, describe(p));
+  });
   const s = await stripe.checkout.sessions.create({
-    mode: "payment", line_items: items2,
+    ...STUDIO, mode: "payment", submit_type: "auto", line_items: lines,
     customer: await churchCustomer(church),
     shipping_address_collection: ships ? { allowed_countries: ["US", "CA"] } : undefined,
-    metadata: { kind: "store", user_id: String(user.id), church_id: String(church.id), items: JSON.stringify(meta), code: disc ? disc.code : "" },
-    success_url: config.publicUrl + "/#order-done-{CHECKOUT_SESSION_ID}",
-    cancel_url: config.publicUrl + "/#store",
+    metadata: { kind: "store", church_id: String(church.id) },
+    return_url: back("order-done-{CHECKOUT_SESSION_ID}"),
   });
-  return s.url;
+  await closeOthers(church, s.id, disc && disc.code, Object.keys(qty).some((id) => PRODUCTS[id].addonFor));
+  return remember(s, "store", { user, church, items: qty, code: disc && disc.code });
+}
+// a once-per-church code (or a pack's add-on) can't be paid for twice by keeping two checkouts open: starting a new one
+// closes the church's other unpaid checkouts that have that code (or an add-on). Stripe's own expiry is a day.
+async function closeOthers(church, keep, code, addon) {
+  if (!code && !addon) return;
+  const open = await q(`SELECT session_id, items, code FROM checkouts c WHERE church_id=$1 AND session_id<>$2 AND created_at > now() - interval '25 hours'
+    AND NOT EXISTS (SELECT 1 FROM stripe_payments p WHERE p.session_id=c.session_id)`, [church.id, keep]);
+  for (const o of open) {
+    const hit = (code && o.code === code) || (addon && Object.keys(o.items || {}).some((id) => PRODUCTS[id] && PRODUCTS[id].addonFor));
+    if (hit) await stripe.checkout.sessions.expire(o.session_id).catch(() => { });   // (already paid or expired: nothing to do)
+  }
+}
+function describe(p) {   // the line under a product on the payment form and the receipt
+  const k = p.keys || {}, parts = [];
+  if (k.A) parts.push(p.pack ? "1 main admin" + (k.A > 1 ? " + " + (k.A - 1) + " admin" + (k.A > 2 ? "s" : "") : "") : k.A + " admin key" + (k.A > 1 ? "s" : ""));
+  if (k.U) parts.push(k.U + " user" + (k.U > 1 ? "s" : ""));
+  if (k.P && !p.hardware) parts.push(k.P === 1 ? "Central Pedal Control" : k.P + " Pedal Control keys");
+  if (p.slots) parts.push(p.slots + " Central Services slot" + (p.slots > 1 ? "s" : ""));
+  return parts.join(" · ");
 }
 
-export async function subscriptionCheckout(user) {
-  needStripe();
-  if (await isSubscribed(user)) { const e = new Error("You're already subscribed."); e.status = 400; throw e; }
-  const church = await churchOf(user.id), forChurch = !!(church && church.role === "owner");   // (the main admin: for the whole church, billed to it)
-  const s = await stripe.checkout.sessions.create({
-    mode: "subscription", customer: forChurch ? await churchCustomer(church) : await customerFor(user),
-    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: SUBSCRIPTION.cents, recurring: { interval: SUBSCRIPTION.interval }, product_data: { name: SUBSCRIPTION.name + (forChurch ? " - " + church.name : "") } } }],
-    metadata: { kind: "subscription", user_id: String(user.id), church_id: forChurch ? String(church.id) : "" },
-    subscription_data: { metadata: { kind: "tracks", user_id: String(user.id), church_id: forChurch ? String(church.id) : "" } },
-    success_url: config.publicUrl + "/#subscribed", cancel_url: config.publicUrl + "/#tracks",
-  });
-  return s.url;
-}
 // renewing keys: $20 each (a % code applies), ten more full releases each, from where its updates end now
 export async function renewCheckout(user, church, keys, code) {
   const rows = [];
@@ -115,138 +177,208 @@ export async function renewCheckout(user, church, keys, code) {
   const disc = await percentCode(code, church);
   needStripe();
   const s = await stripe.checkout.sessions.create({
-    mode: "payment", customer: await churchCustomer(church),
-    line_items: rows.map((l) => ({ quantity: 1, price_data: { currency: "usd", unit_amount: off(RENEWAL.cents, disc), product_data: { name: RENEWAL.name + " · " + l.kind + " key …" + l.key.slice(-4) + " · updates through " + fmt((l.updates_until || 0) + COVER_RELEASES) } } })),
-    metadata: { kind: "renew", user_id: String(user.id), church_id: String(church.id), keys: rows.map((l) => l.key).join(","), code: disc ? disc.code : "" },
-    success_url: config.publicUrl + "/#renewed", cancel_url: config.publicUrl + "/#account",
+    ...STUDIO, mode: "payment", submit_type: "auto", customer: await churchCustomer(church),
+    line_items: rows.map((l) => line(RENEWAL.name + " · " + l.kind + " key …" + l.key.slice(-4), off(RENEWAL.cents, disc), 1, TAX_CODES.software, "Updates through " + fmt((l.updates_until || 0) + COVER_RELEASES))),
+    metadata: { kind: "renew", church_id: String(church.id) },
+    return_url: back("renewed"),
   });
-  return s.url;
+  await closeOthers(church, s.id, disc && disc.code, false);
+  return remember(s, "renew", { user, church, items: { keys: rows.map((l) => l.key) }, code: disc && disc.code });
 }
-export async function recordRenewal(sess) {
-  const keys = String((sess.metadata && sess.metadata.keys) || "").split(",").filter(Boolean), churchId = Number(sess.metadata.church_id) || null, code = (sess.metadata && sess.metadata.code) || "";
-  const c = await pool.connect();
-  try {
-    await c.query("BEGIN");
-    const r = await c.query("INSERT INTO orders (user_id,email,stripe_session,items,total_cents,church_id,discount_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (stripe_session) DO NOTHING RETURNING id",
-      [Number(sess.metadata.user_id) || null, (sess.customer_details && sess.customer_details.email) || "", sess.id, { renew: keys.length }, sess.amount_total || 0, churchId, code || null]);
-    if (r.rows[0]) {
-      await c.query("UPDATE licenses SET updates_until = COALESCE(updates_until, 0) + $1 WHERE key = ANY($2) AND church_id=$3 AND kind<>'P'", [COVER_RELEASES, keys, churchId]);   // (one version past where it ended)
-      if (code && churchId) await c.query("INSERT INTO discount_uses (church_id,code,order_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", [churchId, code, r.rows[0].id]);
-    }
-    await c.query("COMMIT");
-  } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
-}
-// Central Services: a monthly plan by the church's size (accounts in it)
-export async function membersOf(churchId) { return (await one("SELECT COUNT(*)::int AS n FROM church_members WHERE church_id=$1", [churchId])).n; }
-export async function servicesCheckout(user, church) {
-  if (church.has_services && church.services_sub) throw err("Your church already has Central Services. Change or cancel it under Billing.", 409);
+
+export async function subscriptionCheckout(user) {
   needStripe();
-  const n = await membersOf(church.id), cents = servicesCents(n);
+  if (await isSubscribed(user)) throw err("You're already subscribed.");
+  const church = await churchOf(user.id), forChurch = !!(church && church.role === "owner");   // (a main admin: for the whole church, billed to it)
   const s = await stripe.checkout.sessions.create({
-    mode: "subscription", customer: await churchCustomer(church),
-    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: cents, recurring: { interval: "month" }, product_data: { name: SERVICES_PLAN.name + " - " + church.name } } }],
-    metadata: { kind: "services", user_id: String(user.id), church_id: String(church.id) },
-    subscription_data: { metadata: { kind: "services", church_id: String(church.id) } },
-    success_url: config.publicUrl + "/#services-on", cancel_url: config.publicUrl + "/#account",
+    ...STUDIO, mode: "subscription", payment_method_collection: "always", submit_type: "auto",
+    customer: forChurch ? await churchCustomer(church) : await customerFor(user),
+    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: SUBSCRIPTION.cents, tax_behavior: "inclusive", recurring: { interval: SUBSCRIPTION.interval },
+      product_data: { name: SUBSCRIPTION.name + (forChurch ? " - " + church.name : ""), tax_code: TAX_CODES.subscription } } }],
+    metadata: { kind: "subscription" },
+    subscription_data: { metadata: { kind: "tracks", user_id: String(user.id), church_id: forChurch ? String(church.id) : "" } },
+    return_url: back("subscribed"),
   });
-  return s.url;
-}
-// the plan's price follows the church's size (checked every hour; the next month's bill uses the new price)
-export async function syncServicesPrices() {
-  if (!stripe) return 0;
-  let changed = 0;
-  for (const c of await q("SELECT * FROM churches WHERE has_services AND services_sub IS NOT NULL")) {
-    const want = servicesCents(await membersOf(c.id));
-    if (want === c.services_cents) continue;
-    try {
-      const sub = await stripe.subscriptions.retrieve(c.services_sub), item = sub.items.data[0];
-      await stripe.subscriptions.update(c.services_sub, { items: [{ id: item.id, price_data: { currency: "usd", product: item.price.product, unit_amount: want, recurring: { interval: "month" } } }], proration_behavior: "none" });
-      await q("UPDATE churches SET services_cents=$1, services_item=$2 WHERE id=$3", [want, item.id, c.id]); changed++;
-    } catch (e) { console.error("services price", c.id, e.message); }
-  }
-  return changed;
+  return remember(s, "subscription", { user, church: forChurch ? church : null });
 }
 export async function billingPortal(user) {
   needStripe();
-  const s = await stripe.billingPortal.sessions.create({ customer: await customerFor(user), return_url: config.publicUrl + "/#account" });
+  const s = await stripe.billingPortal.sessions.create({ customer: await customerFor(user), return_url: back("account") });
   return s.url;
 }
 
 export async function trackCheckout(user, track) {
   needStripe();
   const s = await stripe.checkout.sessions.create({
-    mode: "payment", customer: await customerFor(user),
-    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: track.price_cents, product_data: { name: track.title + " (" + track.kind + ")", description: "Central Tracks · " + track.artist } } }],
-    metadata: { kind: "track", user_id: String(user.id), track_id: String(track.id) },
-    success_url: config.publicUrl + "/#bought-" + track.id, cancel_url: config.publicUrl + "/#tracks",
+    ...STUDIO, mode: "payment", submit_type: "auto", customer: await customerFor(user),
+    line_items: [line(track.title + " (" + track.kind + ")", track.price_cents, 1, TAX_CODES.track, "Central Tracks · " + track.artist)],
+    metadata: { kind: "track" },
+    return_url: back("bought-" + track.id),
   });
-  return s.url;
+  return remember(s, "track", { user, track });
 }
 
-// publishers get paid through a Stripe Connect Express account (Stripe collects their bank and tax details)
+// ---------------------------------------------------------------- Connect (publishers)
+// an Accounts v2 recipient account with the Express dashboard: Motion Audio is the seller, publishers are paid by transfer
 export async function connectLink(user) {
   needStripe();
   let acct = user.connect_account;
   if (!acct) {
-    const a = await stripe.accounts.create({ type: "express", email: user.email, capabilities: { transfers: { requested: true } }, metadata: { user_id: String(user.id) } });
+    const a = await stripe.v2.core.accounts.create({
+      contact_email: user.email, display_name: user.name || user.email, dashboard: "express",
+      identity: { country: "us", entity_type: "individual" },
+      configuration: { recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } } },
+      defaults: { currency: "usd", responsibilities: { fees_collector: "application", losses_collector: "application" } },
+      metadata: { user_id: String(user.id) },
+    });
     acct = a.id; await q("UPDATE users SET connect_account=$1 WHERE id=$2", [acct, user.id]);
   }
-  const link = await stripe.accountLinks.create({ account: acct, type: "account_onboarding", refresh_url: config.publicUrl + "/#publish", return_url: config.publicUrl + "/#publish" });
+  const use = user.connect_ready ? "account_update" : "account_onboarding";
+  const link = await stripe.v2.core.accountLinks.create({ account: acct, use_case: { type: use, [use]: { configurations: ["recipient"], refresh_url: back("payouts-refresh"), return_url: back("payouts-done") } } });
   return link.url;
+}
+// the source of truth for "can we send this publisher money": the v2 transfers capability
+export async function transfersActive(accountId) {
+  const a = await stripe.v2.core.accounts.retrieve(accountId, { include: ["configuration.recipient"] });
+  const c = a.configuration && a.configuration.recipient && a.configuration.recipient.capabilities;
+  return !!(c && c.stripe_balance && c.stripe_balance.stripe_transfers && c.stripe_balance.stripe_transfers.status === "active");
+}
+export async function refreshConnect(user) {
+  if (!stripe || !user.connect_account) return !!user.connect_ready;
+  const ready = await transfersActive(user.connect_account).catch(() => !!user.connect_ready);
+  if (ready !== !!user.connect_ready) await q("UPDATE users SET connect_ready=$1 WHERE id=$2", [ready, user.id]);
+  return ready;
+}
+// the payout settings and notices shown on the website (Connect embedded components)
+export async function connectSession(user) {
+  needStripe();
+  if (!user.connect_account) throw err("Set up payouts first.");
+  const s = await stripe.accountSessions.create({ account: user.connect_account, components: { notification_banner: { enabled: true }, account_management: { enabled: true }, payouts: { enabled: true } } });
+  return s.client_secret;
+}
+
+// ---------------------------------------------------------------- Identity (publishers)
+export async function identitySession(user) {
+  needStripe();
+  const v = await stripe.identity.verificationSessions.create({ type: "document", client_reference_id: String(user.id), options: { document: { require_matching_selfie: true } }, return_url: back("id-done") });
+  await q("UPDATE users SET identity_session=$1, id_status='processing' WHERE id=$2 AND id_status<>'verified'", [v.id, user.id]);
+  return v.url;
 }
 
 // ---------------------------------------------------------------- webhook
 export async function handleWebhook(rawBody, signature) {
   needStripe();
-  const ev = stripe.webhooks.constructEvent(rawBody, signature, config.stripe.webhookSecret);
+  const ev = stripe.webhooks.constructEvent(rawBody, signature, S.webhookSecret);
   const o = ev.data.object;
-  if (ev.type === "checkout.session.completed" && o.payment_status !== "unpaid") {
-    const kind = o.metadata && o.metadata.kind, uid = Number(o.metadata && o.metadata.user_id) || null;
-    if (kind === "store") await recordOrder(o, uid);
-    else if (kind === "renew") await recordRenewal(o);
-    else if (kind === "services" && Number(o.metadata.church_id)) {
-      let item = null, cents = null; try { const sub = await stripe.subscriptions.retrieve(o.subscription); item = sub.items.data[0].id; cents = sub.items.data[0].price.unit_amount; } catch (_) { }
-      await q("UPDATE churches SET has_services=TRUE, services_sub=$1, services_item=$2, services_cents=$3, services_status='active' WHERE id=$4", [o.subscription, item, cents, Number(o.metadata.church_id)]);
+  switch (ev.type) {
+    case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded":
+      if (o.payment_status !== "unpaid") await fulfil(o);
+      break;
+    case "checkout.session.async_payment_failed":
+      console.warn("payment failed for checkout", o.id);
+      break;
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      const on = ev.type !== "customer.subscription.deleted" && ["active", "trialing", "past_due"].includes(o.status), md = o.metadata || {};
+      if (md.kind === "services") break;   // (Central Services' old monthly plan, before 9.3: not Central Tracks)
+      if (Number(md.church_id)) await q("UPDATE churches SET subscribed=$1, subscription_id=$2 WHERE id=$3", [on, o.id, Number(md.church_id)]);
+      else await q("UPDATE users SET subscribed=$1, subscription_id=$2 WHERE stripe_customer=$3", [on, o.id, o.customer]);
+      break;
     }
-    else if (kind === "track") await recordTrackSale(uid, Number(o.metadata.track_id));
-    else if (kind === "subscription" && Number(o.metadata.church_id)) await q("UPDATE churches SET subscribed=TRUE, subscription_id=$1 WHERE id=$2", [o.subscription, Number(o.metadata.church_id)]);
-    else if (kind === "subscription" && uid) await q("UPDATE users SET subscribed=TRUE, subscription_id=$1 WHERE id=$2", [o.subscription, uid]);
-  } else if (ev.type === "customer.subscription.updated" || ev.type === "customer.subscription.deleted" || ev.type === "customer.subscription.created") {
-    const on = ev.type !== "customer.subscription.deleted" && ["active", "trialing", "past_due"].includes(o.status);
-    const md = o.metadata || {};
-    if (md.kind === "services" || (await one("SELECT 1 FROM churches WHERE services_sub=$1", [o.id]))) await q("UPDATE churches SET has_services=$1, services_status=$2 WHERE services_sub=$3 OR id=$4", [on, o.status, o.id, Number(md.church_id) || 0]);
-    else if (Number(md.church_id)) await q("UPDATE churches SET subscribed=$1, subscription_id=$2 WHERE id=$3", [on, o.id, Number(md.church_id)]);
-    else await q("UPDATE users SET subscribed=$1, subscription_id=$2 WHERE stripe_customer=$3", [on, o.id, o.customer]);
-  } else if (ev.type === "invoice.paid" && (o.subscription || (o.parent && o.parent.subscription_details)) && o.amount_paid > 0
-    && !(o.parent && o.parent.subscription_details && o.parent.subscription_details.metadata && o.parent.subscription_details.metadata.kind === "services")
-    && !(o.subscription && (await one("SELECT 1 FROM churches WHERE services_sub=$1", [o.subscription])))) {   // (Central Services' money isn't Central Tracks' publisher pool)
-    const u = await one("SELECT id FROM users WHERE stripe_customer=$1", [o.customer]);
-    await q("INSERT INTO subscription_payments (invoice_id,user_id,cents,paid_at) VALUES ($1,$2,$3,to_timestamp($4)) ON CONFLICT DO NOTHING", [o.id, u ? u.id : null, o.amount_paid, o.status_transitions && o.status_transitions.paid_at || Math.floor(Date.now() / 1000)]);
-  } else if (ev.type === "account.updated") {
-    await q("UPDATE users SET connect_ready=$1 WHERE connect_account=$2", [!!(o.payouts_enabled && o.details_submitted), o.id]);
+    case "invoice.paid":
+      if (o.amount_paid > 0 && (o.subscription || (o.parent && o.parent.subscription_details))
+        && !(o.parent && o.parent.subscription_details && o.parent.subscription_details.metadata && o.parent.subscription_details.metadata.kind === "services")) {   // Central Tracks money: the publisher pool
+        const u = await one("SELECT id FROM users WHERE stripe_customer=$1", [o.customer]);
+        const paidBy = ((o.payments && o.payments.data) || []).find((p) => p.payment && p.payment.payment_intent);
+        await q("INSERT INTO subscription_payments (invoice_id,user_id,cents,paid_at,payment_intent) VALUES ($1,$2,$3,to_timestamp($4),$5) ON CONFLICT DO NOTHING",
+          [o.id, u ? u.id : null, o.amount_paid, (o.status_transitions && o.status_transitions.paid_at) || Math.floor(Date.now() / 1000), paidBy ? String(paidBy.payment.payment_intent) : (o.payment_intent ? String(o.payment_intent) : null)]);
+      }
+      break;
+    case "invoice.payment_failed":
+      console.warn("subscription payment failed", o.id, o.customer);   // (Stripe retries and emails; subscription.updated changes access)
+      break;
+    case "charge.refunded":
+      if (o.refunded) await reverse(o.payment_intent, "refunded");   // (full refunds; a part refund is a goodwill gesture)
+      break;
+    case "charge.dispute.created":
+      await reverse(o.payment_intent, "disputed");
+      break;
+    case "radar.early_fraud_warning.created":
+      await earlyFraudWarning(o);
+      break;
+    case "identity.verification_session.verified":
+    case "identity.verification_session.requires_input":
+    case "identity.verification_session.canceled": {
+      const status = ev.type.endsWith("verified") ? "verified" : ev.type.endsWith("requires_input") ? "requires_input" : "none";
+      await q("UPDATE users SET id_status=$1 WHERE identity_session=$2", [status, o.id]);
+      break;
+    }
   }
   return { received: true };
 }
 
-// checkouts started before 8.10's prices (a Stripe page stays open up to a day): their keys
-const LEGACY = { "pedal-sw": { keys: { P: 2 } }, "pedal-hw": { keys: { P: 1 } }, control: { keys: { A: 1 } }, usage: { keys: { U: 1 } } };
-export async function recordOrder(sess, uid) {
-  const items = JSON.parse((sess.metadata && sess.metadata.items) || "{}"), churchId = Number(sess.metadata && sess.metadata.church_id) || null;
+async function fulfil(sess) {
+  const c = await one("SELECT * FROM checkouts WHERE session_id=$1", [sess.id]);
+  if (!c) return console.warn("checkout not started by this server:", sess.id);
+  if (c.kind === "subscription") {
+    if (c.church_id) await q("UPDATE churches SET subscribed=TRUE, subscription_id=$1 WHERE id=$2", [sess.subscription, c.church_id]);
+    else if (c.user_id) await q("UPDATE users SET subscribed=TRUE, subscription_id=$1 WHERE id=$2", [sess.subscription, c.user_id]);
+    return;
+  }
+  const pi = sess.payment_intent ? String(sess.payment_intent) : "free-" + sess.id;   // (a 100% code: nothing was charged)
+  if (await one("SELECT 1 FROM stripe_payments WHERE payment_intent=$1", [pi])) return;   // already done (webhooks can repeat)
+  let orderId = null;
+  if (c.kind === "store") orderId = await recordOrder(sess, c);
+  else if (c.kind === "renew") orderId = await recordRenewal(sess, c);
+  else if (c.kind === "track") await recordTrackSale(c.user_id, c.track_id);
+  await q("INSERT INTO stripe_payments (payment_intent,session_id,kind,user_id,order_id,track_id) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING", [pi, sess.id, c.kind, c.user_id, orderId, c.track_id]);
+  if (!sess.payment_intent) return;
+  // a refund or dispute can arrive before this event: check the charge now, so the order of webhooks doesn't matter
+  let ch = null;
+  try { ch = (await stripe.paymentIntents.retrieve(pi, { expand: ["latest_charge"] })).latest_charge; } catch (e) { console.warn("checking the charge of", pi, e.message); }
+  if (ch && ch.disputed) await reverse(pi, "disputed");
+  else if (ch && ch.refunded) await reverse(pi, "refunded");
+}
+
+const shipping = (sess) => (sess.collected_information && sess.collected_information.shipping_details) || sess.shipping_details || null;
+export async function recordOrder(sess, co) {   // (exported for the tests)
+  const items = co.items || {}, churchId = co.church_id;
+  const slots = Object.entries(items).reduce((a, [id, n]) => a + ((PRODUCTS[id] && PRODUCTS[id].slots) || 0) * (Number(n) || 0), 0);
   const c = await pool.connect();
   try {
     await c.query("BEGIN");
-    const r = await c.query("INSERT INTO orders (user_id,email,stripe_session,items,total_cents,shipping,church_id) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (stripe_session) DO NOTHING RETURNING id",
-      [uid, (sess.customer_details && sess.customer_details.email) || "", sess.id, items, sess.amount_total || 0, sess.shipping_details || (sess.collected_information && sess.collected_information.shipping_details) || null, churchId]);
-    if (r.rows[0]) for (const [id, n] of Object.entries(items)) {
-      const p = PRODUCTS[id] || LEGACY[id]; if (!p) continue;
-      await issueKeys(c, r.rows[0].id, churchId, id, p, Number(n) || 0);
-      if (p.pack && churchId) await c.query("UPDATE churches SET has_pack=TRUE WHERE id=$1", [churchId]);
-    }
-    if (r.rows[0] && sess.metadata && sess.metadata.code && churchId) {
-      await c.query("UPDATE orders SET discount_code=$1 WHERE id=$2", [sess.metadata.code, r.rows[0].id]);
-      await c.query("INSERT INTO discount_uses (church_id,code,order_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", [churchId, sess.metadata.code, r.rows[0].id]);
+    const r = await c.query("INSERT INTO orders (user_id,email,stripe_session,items,total_cents,shipping,church_id,discount_code,slots) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (stripe_session) DO NOTHING RETURNING id",
+      [co.user_id, (sess.customer_details && sess.customer_details.email) || "", sess.id, items, sess.amount_total || 0, shipping(sess), churchId, co.code || null, slots]);
+    const id = r.rows[0] && r.rows[0].id;
+    if (id) {
+      for (const [pid, n] of Object.entries(items)) {
+        const p = PRODUCTS[pid]; if (!p) continue;
+        await issueKeys(c, id, churchId, pid, p, Number(n) || 0);
+        if (p.pack && churchId) await c.query("UPDATE churches SET has_pack=TRUE WHERE id=$1", [churchId]);
+      }
+      if (slots && churchId) await c.query("UPDATE churches SET services_slots = services_slots + $1 WHERE id=$2", [slots, churchId]);
+      if (co.code && churchId) await c.query("INSERT INTO discount_uses (church_id,code,order_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", [churchId, co.code, id]);
     }
     await c.query("COMMIT");
+    return id || (await one("SELECT id FROM orders WHERE stripe_session=$1", [sess.id])).id;
+  } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
+}
+export async function recordRenewal(sess, co) {
+  const keys = (co.items && co.items.keys) || [], churchId = co.church_id;
+  const c = await pool.connect();
+  try {
+    await c.query("BEGIN");
+    const r = await c.query("INSERT INTO orders (user_id,email,stripe_session,items,total_cents,church_id,discount_code) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (stripe_session) DO NOTHING RETURNING id",
+      [co.user_id, (sess.customer_details && sess.customer_details.email) || "", sess.id, { renew: keys.length, keys }, sess.amount_total || 0, churchId, co.code || null]);
+    const id = r.rows[0] && r.rows[0].id;
+    if (id) {
+      await c.query("UPDATE licenses SET updates_until = COALESCE(updates_until, 0) + $1 WHERE key = ANY($2) AND church_id=$3 AND kind<>'P'", [COVER_RELEASES, keys, churchId]);   // (one version past where it ended)
+      if (co.code && churchId) await c.query("INSERT INTO discount_uses (church_id,code,order_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", [churchId, co.code, id]);
+    }
+    await c.query("COMMIT");
+    return id || (await one("SELECT id FROM orders WHERE stripe_session=$1", [sess.id])).id;
   } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
 }
 
@@ -254,4 +386,60 @@ export async function recordTrackSale(uid, trackId) {
   const t = await one("SELECT * FROM tracks WHERE id=$1", [trackId]); if (!t || !uid) return;
   await q("INSERT INTO library (user_id,track_id,how) VALUES ($1,$2,'purchase') ON CONFLICT (user_id,track_id) DO UPDATE SET how='purchase'", [uid, trackId]);
   if (t.publisher_id !== uid) await q("INSERT INTO earnings (publisher_id,track_id,buyer_id,reason,cents) VALUES ($1,$2,$3,'purchase',$4) ON CONFLICT DO NOTHING", [t.publisher_id, trackId, uid, Math.round(t.price_cents * PUBLISHER_SHARE)]);
+}
+
+// A refund or dispute: take back what the payment gave. Found through the PaymentIntent (our stripe_payments row for
+// one-time payments; Stripe's invoice payments for the subscription).
+export async function reverse(paymentIntent, why) {
+  if (!paymentIntent) return;
+  const pi = String(paymentIntent), p = await one("SELECT * FROM stripe_payments WHERE payment_intent=$1", [pi]);
+  if (p) {
+    const done = p.status === "refunded" || p.status === "disputed";
+    if (p.status === why) return;
+    await q("UPDATE stripe_payments SET status=$1 WHERE payment_intent=$2", [why, pi]);
+    if (done) return;   // (already taken back: a refund then a dispute takes nothing twice)
+    if (p.kind === "track") {
+      await q("DELETE FROM library WHERE user_id=$1 AND track_id=$2 AND how='purchase'", [p.user_id, p.track_id]);
+      const e = await one("SELECT * FROM earnings WHERE track_id=$1 AND buyer_id=$2 AND reason='purchase'", [p.track_id, p.user_id]);
+      if (e && !e.transfer_id) await q("DELETE FROM earnings WHERE id=$1", [e.id]);   // not paid out yet: just drop it
+      else if (e) await q("INSERT INTO earnings (publisher_id,track_id,buyer_id,reason,cents) VALUES ($1,$2,$3,'reversal',$4) ON CONFLICT DO NOTHING", [e.publisher_id, e.track_id, e.buyer_id, -e.cents]);   // already paid: off the next payout
+    } else if (p.kind === "store" && p.order_id) {
+      const o = await one("UPDATE orders SET status=$1 WHERE id=$2 AND status IN ('paid','review') RETURNING church_id, slots", [why, p.order_id]);
+      await q("UPDATE licenses SET revoked=TRUE WHERE order_id=$1", [p.order_id]);
+      await q("DELETE FROM license_devices WHERE key IN (SELECT key FROM licenses WHERE order_id=$1)", [p.order_id]);
+      if (o && o.slots && o.church_id) await q("UPDATE churches SET services_slots = GREATEST(0, services_slots - $1) WHERE id=$2", [o.slots, o.church_id]);
+    } else if (p.kind === "renew" && p.order_id) {
+      const o = await one("UPDATE orders SET status=$1 WHERE id=$2 AND status IN ('paid','review') RETURNING church_id, items", [why, p.order_id]);
+      if (o) await q("UPDATE licenses SET updates_until = GREATEST(0, COALESCE(updates_until, 0) - $1) WHERE key = ANY($2) AND church_id=$3 AND kind<>'P'", [COVER_RELEASES, (o.items && o.items.keys) || [], o.church_id]);
+    }
+    return;
+  }
+  // a subscription payment: out of the pool income; on a dispute, the subscription ends too
+  const ip = (await stripe.invoicePayments.list({ payment: { type: "payment_intent", payment_intent: pi }, limit: 1 })).data[0];
+  if (!ip) return console.warn("refund or dispute for a payment this server doesn't know:", pi);
+  const invoiceId = typeof ip.invoice === "string" ? ip.invoice : ip.invoice.id;
+  await q("UPDATE subscription_payments SET reversed=TRUE WHERE invoice_id=$1", [invoiceId]);
+  if (why === "disputed") {
+    const inv = await stripe.invoices.retrieve(invoiceId);
+    const sub = inv.parent && inv.parent.subscription_details && inv.parent.subscription_details.subscription;
+    if (sub) await stripe.subscriptions.cancel(typeof sub === "string" ? sub : sub.id).catch((e) => console.warn("cancel:", e.message));
+  }
+}
+
+// Radar early fraud warning: refund digital purchases right away (cheaper than a dispute); hold a built pedal for review.
+async function earlyFraudWarning(efw) {
+  if (!efw.actionable) return;
+  const pi = String(efw.payment_intent || ""), p = pi ? await one("SELECT * FROM stripe_payments WHERE payment_intent=$1", [pi]) : null;
+  if (p && (p.status === "refunded" || p.status === "disputed")) return;   // (already taken back)
+  if (p && p.kind === "store" && p.order_id) {
+    const o = await one("SELECT items FROM orders WHERE id=$1", [p.order_id]);
+    if (o && Object.keys(o.items || {}).some((id) => PRODUCTS[id] && PRODUCTS[id].ships)) {
+      await q("UPDATE orders SET status='review' WHERE id=$1", [p.order_id]);
+      await q("UPDATE stripe_payments SET status='review' WHERE payment_intent=$1", [pi]);
+      return console.warn("FRAUD WARNING: order", p.order_id, "is held - don't ship it; review it in Stripe → Radar");
+    }
+  }
+  try { await stripe.refunds.create({ charge: typeof efw.charge === "string" ? efw.charge : efw.charge.id, reason: "fraudulent" }); }
+  catch (e) { if (e.code !== "charge_already_refunded") throw e; }
+  // (charge.refunded follows and takes the access back)
 }

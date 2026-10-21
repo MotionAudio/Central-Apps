@@ -35,8 +35,7 @@ process.env.DATABASE_URL = DB;
 const { recordOrder } = await import(pathToFileURL(path.join(SRV, "src", "payments.js")).href);
 const { one } = await import(pathToFileURL(path.join(SRV, "src", "db.js")).href);
 const cid = (await one("SELECT id FROM churches WHERE owner_id=(SELECT id FROM users WHERE email=$1)", ["pastor" + S + "@faith.test"])).id;
-await recordOrder({ id: "cs_app_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 30000, customer_details: { email: "p@faith.test" } }, null);
-await one("UPDATE churches SET has_services=TRUE WHERE id=$1 RETURNING id", [cid]);   // (Central Services' monthly plan, as Stripe's webhook records it)
+await recordOrder({ id: "cs_app_" + S, amount_total: 25000, customer_details: { email: "p@faith.test" } }, { church_id: cid, user_id: null, items: { "pack-lite": 1 } });   // (a Lite pack: its 15 Central Services slots, as Stripe's webhook records it)
 const userCode = (await j("GET", "/church", null, owner.token)).church.userCode;
 await j("POST", "/signup", { email: "keys" + S + "@faith.test", password: "password123", name: "Kim Keys", churchCode: userCode, churchRole: "user" });
 const team = await j("POST", "/services/teams", { kind: "worship", name: "Worship A" }, owner.token);

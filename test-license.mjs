@@ -187,15 +187,13 @@ await check("a U key works on two devices with the same account, and the person'
 });
 await check("the website: packs and keys in the store, a new account makes the church, its page shows the codes and how many keys are left", async () => {
   const w = await ctx.newPage(); w.on("pageerror", (e) => errors.push("web:" + e)); w.on("dialog", (d) => d.accept());
-  await w.goto(WEB + "/"); await w.waitForFunction(() => document.querySelectorAll("#packs .tier").length === 3);
+  await w.goto(WEB + "/"); await w.waitForFunction(() => document.querySelectorAll("#packs .tier").length === 4);
   const store = await w.evaluate(() => { const priced = (sel) => Array.from(document.querySelectorAll(sel)).map((p) => p.querySelector("h3").textContent + " " + (p.querySelector(".price").textContent.match(/\$\d+/) || [""])[0]);
     return { packs: priced("#packs .tier"), rack: priced("#pedalBuy .pedal-row").concat(priced("#rack .pl-row")) }; });
-  assert.deepEqual(store.packs, ["Small church $300", "Medium church $500", "Large church $750"]);
-  assert.deepEqual(store.rack, ["Central Pedal $250", "Central Pedal Control $50", "Central Control $50", "Central Usage $20", "Central Services $10"], "the $10 user price shows only with a pack; Central Services is monthly (from $10)");
-  assert.ok(await w.evaluate(() => /The pedal itself is separate \(\$250\)/.test(document.querySelector("#packs .tier").textContent)), "packs say the pedal is separate");
-  await w.click('#packs [data-add="pack-small"]');
-  const withPack = await w.evaluate(() => Array.from(document.querySelectorAll("#rack .pl-row h3")).map((h) => h.textContent));
-  assert.ok(withPack.length === 5 && withPack.filter((x) => x === "Central Usage").length === 2 && withPack.includes("Central Services"), "with a pack in the cart, the $10 user is there too: " + withPack);
+  assert.deepEqual(store.packs, ["Lite $250", "Regular $350", "Plus $500", "Ultra $700"]);
+  assert.deepEqual(store.rack, ["Central Pedal $250", "Central Control $50", "Central Usage $20", "Central Pedal Control $50", "Central Services $5"], "singles: admin $50, user $20, Pedal Control $50, a Central Services slot $5");
+  assert.ok(await w.evaluate(() => /1 main admin \+ 2 admins/.test(document.querySelector("#packs .tier").textContent) && /15\s*Central Services/.test(document.querySelector("#packs .tier").textContent)), "Lite: 1 main admin + 2 admins, 15 Central Services slots");
+  await w.click('#packs [data-add="pack-lite"]');
   await w.click("#cartBtn"); assert.match(await w.textContent(".modal"), /Sign in or make an account first/); await w.click('.modal [data-close], .modal #clear');
   await w.goto(WEB + "/#account"); await w.waitForSelector("#upForm");
   await w.check('[name="upCh"][value="make"]'); await w.fill("#upName", "Pastor"); await w.fill("#upEmail", "pastor" + stamp + "@hope.test"); await w.fill("#upPass", "password123"); await w.fill("#upChurch", "Hope Church");

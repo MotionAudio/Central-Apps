@@ -206,7 +206,7 @@
     if (!st.me) { root.innerHTML = signIn(); return; }
     var h = header() + "<main>";
     if (!st.me.church) h += '<div class="card"><h2>Not in a church yet</h2><p style="margin:0">Ask your main admin to add you on the Teams page of the Motion Audio website, or join with your church\'s code when you make your account.</p></div>';
-    else if (!st.me.hasServices) h += '<div class="card"><h2>' + esc(st.me.church) + '</h2><p style="margin:0">Your church doesn\'t have Central Services yet. The main admin starts it on the Motion Audio website (Account → Central Services): monthly, by the church\'s size, from $10.</p></div>';
+    else if (!st.me.hasServices) h += '<div class="card"><h2>' + esc(st.me.church) + '</h2><p style="margin:0">Your church doesn\'t have Central Services yet. A main admin or admin gets it on the Motion Audio website: every pack comes with slots for your team, or add them for $5 a person, once.</p></div>';
     if (st.tab === "app") h += appSettings();
     else if (st.tab === "account" || st.tab === "support") h += accountCard() + (st.tab === "support" ? supportCard() : "");
     else if (st.board) h += st.tab === "schedule" ? schedule() : st.tab === "teams" ? teams() : st.tab === "away" ? awayView() : st.tab === "new" ? newService() : st.tab.indexOf("ask-") === 0 ? newService(st.tab.slice(4)) : mine();

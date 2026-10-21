@@ -76,7 +76,7 @@ export async function issueKeys(client, orderId, churchId, productId, product, n
   }
   return out;
 }
-// a church in a free trial (TESTRUN, 7FREE): as many keys as it wants until then
+// a church in a free trial (TRIALRUN, 7FREE): as many keys as it wants until then
 export function trialActive(c) { return !!(c && c.trial_until && new Date(c.trial_until) > new Date()); }
 export async function mintTrialKey(client, c, kind) {
   for (let tries = 0; tries < 5; tries++) {
@@ -112,7 +112,7 @@ async function sendInvite(inv, church, how) {
     ? church.name + " made you its main admin on Motion Audio. Thanks for taking care of your team." + (how === "reminder" ? " The invite is still waiting for you." : "") + "\n\n1. Make your account (or sign in): " + link + "\n"
     : lead + "\n\n1. " + step1 + ": " + link + "\n2. Download " + s.app + ": " + APPS_URL + "#" + s.anchor +
       "\n3. Open it, connect to Wi-Fi, and enter your key: " + key + "\n" + (inv.section === "user" || inv.section === "pedal" ? "\nYour key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.\n" : "")) +
-    (church.has_services ? "\nYour church's schedule is in Central Services: " + APPS_URL + "#central-services - sign in with the same account.\n" : "") +
+    ((church.services_slots || 0) > 0 || trialActive(church) ? "\nYour church's schedule is in Central Services: " + APPS_URL + "#central-services - sign in with the same account.\n" : "") +
     "\nTalk soon,\nThe Motion Audio team\n";
   const html = '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px">' + (inv.name ? "<p>Hi " + escHtml(inv.name) + ",</p>" : "<p>Hi,</p>") + (owner
     ? "<p><b>" + escHtml(church.name) + "</b> made you its main admin on Motion Audio." + (how === "reminder" ? " The invite is still waiting." : "") + "</p><p><a href=\"" + escHtml(link) + "\" style=\"display:inline-block;background:#12161C;color:#fff;padding:12px 20px;border-radius:6px;font-weight:600;text-decoration:none\">Make your account</a></p>"
@@ -120,7 +120,7 @@ async function sendInvite(inv, church, how) {
       "<li><a href=\"" + escHtml(link) + "\">" + step1 + "</a></li><li><a href=\"" + APPS_URL + "#" + s.anchor + "\">Download " + escHtml(s.app) + "</a></li>" +
       "<li>Open it, connect to Wi-Fi, and enter your key:<br><code style=\"font:600 18px ui-monospace,monospace;letter-spacing:.05em\">" + escHtml(key) + "</code></li></ol>" +
       (inv.section !== "admin" ? "<p style=\"color:#555\">Your key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.</p>" : "")) +
-    (church.has_services ? "<p>Your church's schedule is in <a href=\"" + APPS_URL + "#central-services\">Central Services</a> - sign in with the same account.</p>" : "") + "<p>Talk soon,<br>The Motion Audio team</p></div>";
+    ((church.services_slots || 0) > 0 || trialActive(church) ? "<p>Your church's schedule is in <a href=\"" + APPS_URL + "#central-services\">Central Services</a> - sign in with the same account.</p>" : "") + "<p>Talk soon,<br>The Motion Audio team</p></div>";
   const r = await sendMail(inv.email, subject, text, html);
   await q("UPDATE invites SET sent_at=now(), sent_ok=$1 WHERE id=$2", [r.sent, inv.id]);
   return r;
@@ -290,7 +290,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     }
     const members = staff ? await q("SELECT u.name, u.email, m.role FROM church_members m JOIN users u ON u.id=m.user_id WHERE m.church_id=$1 ORDER BY m.role, u.name", [c.id]) : [];
     res.json({ current: fmt(await currentTenths()), trial: { active: trialActive(c), until: c.trial_until, code: c.trial_code, used: !!c.trial_code },
-      church: { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: !!c.has_services || trialActive(c), servicesPaid: !!c.has_services, adminCode: c.role === "owner" ? c.admin_code : undefined, userCode: staff ? c.user_code : undefined, mail: mailOn },
+      church: { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: (c.services_slots || 0) > 0 || trialActive(c), servicesSlots: c.services_slots || 0, adminCode: c.role === "owner" ? c.admin_code : undefined, userCode: staff ? c.user_code : undefined, mail: mailOn },
       counts, keys: keys.map((l) => keyOut(l, dv(l.key), staff, req.user.id)), members });
   }));
   api.post("/church", requireUser, wrap(async (req, res) => {

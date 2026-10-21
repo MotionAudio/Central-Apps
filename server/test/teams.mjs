@@ -40,14 +40,14 @@ try {
   ok(me.church && me.church.role === "owner" && me2.church.role === "admin", "they make their account and become the main admin; whoever made the church stays as an admin", [me.church, me2.church]);
   const T = pastor.token;
 
-  // keys: a Small pack (2 P, 2 A, 6 U), recorded the way the webhook does
+  // keys: a Lite pack (1 P, 3 A, 6 U, 15 Central Services slots), recorded the way the webhook does
   const { recordOrder } = await import("../src/payments.js");
   const { one } = await import("../src/db.js");
   const cid = (await one("SELECT id FROM churches WHERE owner_id=(SELECT id FROM users WHERE email=$1)", ["pastor" + S + "@hope.test"])).id;
-  await recordOrder({ id: "cs_t_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 40000, customer_details: { email: "p@hope.test" } }, null);
+  await recordOrder({ id: "cs_t_" + S, amount_total: 40000, customer_details: { email: "p@hope.test" }  }, { church_id: String(cid), user_id: null, items: { "pack-lite": "1" } });
   await one("UPDATE churches SET has_services=TRUE WHERE id=$1 RETURNING id", [cid]);   // (Central Services' monthly plan, as Stripe's webhook records it)
   let ch = (await j("GET", "/church", null, T));
-  ok(ch.counts.U.free === 6 && ch.counts.A.free === 2 && ch.counts.P.free === 1 && ch.church.hasServices, "the keys page shows how many of each are left", ch.counts);
+  ok(ch.counts.U.free === 6 && ch.counts.A.free === 3 && ch.counts.P.free === 1 && ch.church.hasServices, "the keys page shows how many of each are left", ch.counts);
 
   // Teams: add people to Users - name, email, role - Done: each gets an email with the account link, the app and the key
   const add = await j("POST", "/church/team", { section: "user", members: [{ name: "Ana", email: "ana" + S + "@hope.test", role: "Bass" }, { name: "Ben", email: "ben" + S + "@hope.test", role: "Keys" }, { name: "x", email: "nope" }] }, T);
@@ -56,9 +56,9 @@ try {
   ok(anaMail && anaMail.auth === "Bearer re_test" && /Central Usage/.test(anaMail.body.subject) && anaMail.body.text.includes(add.results[0].key) && /Central-Apps\/#usage\b/.test(anaMail.body.text) && /Central Services: \S+#central-services/.test(anaMail.body.text) && /#invite-/.test(anaMail.body.text) && /as Bass/.test(anaMail.body.text),
     "...with the link to make their account, the Central Usage download (its section of the page), their U key and Central Services", anaMail && anaMail.body);
   const team = await j("GET", "/church/team", null, T);
-  ok(team.sections.user.length === 2 && team.sections.user.every((m) => m.status === "invited") && team.free.user === 4 && team.free.admin === 2, "the Teams page shows who's invited and how many keys are left", team);
-  const adm = await j("POST", "/church/team", { section: "admin", members: [{ name: "Sam", email: "sam" + S + "@hope.test", role: "Lights" }, { name: "Liz", email: "liz" + S + "@hope.test", role: "Sound" }, { name: "Max", email: "max" + S + "@hope.test" }] }, T);
-  ok(adm.results[0].ok && adm.results[1].ok && /No A keys left/.test(adm.results[2].error) && /Central Control/.test(mail("sam" + S + "@hope.test")[0].body.subject), "admins get Central Control and an A key; when the keys run out it says so", adm.results);
+  ok(team.sections.user.length === 2 && team.sections.user.every((m) => m.status === "invited") && team.free.user === 4 && team.free.admin === 3, "the Teams page shows who's invited and how many keys are left", team);
+  const adm = await j("POST", "/church/team", { section: "admin", members: [{ name: "Sam", email: "sam" + S + "@hope.test", role: "Lights" }, { name: "Liz", email: "liz" + S + "@hope.test", role: "Sound" }, { name: "Kai", email: "kai" + S + "@hope.test", role: "Video" }, { name: "Max", email: "max" + S + "@hope.test" }] }, T);
+  ok(adm.results[0].ok && adm.results[1].ok && adm.results[2].ok && /No A keys left/.test(adm.results[3].error) && /Central Control/.test(mail("sam" + S + "@hope.test")[0].body.subject), "admins get Central Control and an A key; when the keys run out it says so", adm.results);
   const ped = await j("POST", "/church/team", { section: "pedal", members: [{ name: "Wes", email: "wes" + S + "@hope.test", role: "Worship leader" }] }, T);
   ok(ped.results[0].ok && /Central Pedal Control/.test(mail("wes" + S + "@hope.test")[0].body.text), "Pedal Control members get Pedal Control and a P key", ped.results);
 
@@ -113,8 +113,16 @@ try {
   ok((await j("POST", "/services/teams", { kind: "worship", name: "X" }, ana.token))._status === 403, "members can't make teams");
   await j("POST", "/services/teams/" + w1.id + "/members", { members: [{ name: "Ana", email: "ana" + S + "@hope.test", role: "Bass" }, { name: "Wes", email: "wes" + S + "@hope.test", role: "Worship leader" }] }, T);
   await j("POST", "/services/teams/" + p1.id + "/members", { members: [{ name: "Sam", email: "sam" + S + "@hope.test", role: "Lights" }] }, T);
-  const many = Array.from({ length: 1001 }, (_, i) => ({ email: "p" + i + "-" + S + "@hope.test" }));
-  ok((await j("POST", "/services/teams/" + p1.id + "/members", { members: many }, T))._status === 400, "up to 1000 people on the teams");
+  // each person on the teams takes one of the church's 15 slots; taking someone off frees theirs
+  const twelve = Array.from({ length: 12 }, (_, i) => ({ email: "p" + i + "-" + S + "@hope.test" }));
+  ok((await j("POST", "/services/teams/" + p1.id + "/members", { members: twelve }, T)).ok, "3 people on the teams + 12 more = the Lite pack's 15 slots");
+  const over = await j("POST", "/services/teams/" + p1.id + "/members", { members: [{ email: "one-too-many" + S + "@hope.test" }] }, T);
+  ok(over._status === 402 && /15 Central Services slots and 15 are in use/.test(over.error), "the 16th person needs another slot (it says how many are in use)", over);
+  ok((await j("GET", "/services/slots", null, T)).free === 0, "...no slots free");
+  await j("POST", "/services/teams/" + p1.id + "/members/remove", { email: "p0-" + S + "@hope.test" }, T);
+  ok((await j("POST", "/services/teams/" + p1.id + "/members", { members: [{ email: "one-too-many" + S + "@hope.test" }] }, T)).ok, "taking someone off the teams frees their slot for someone else");
+  for (let i = 1; i < 12; i++) await j("POST", "/services/teams/" + p1.id + "/members/remove", { email: "p" + i + "-" + S + "@hope.test" }, T);
+  await j("POST", "/services/teams/" + p1.id + "/members/remove", { email: "one-too-many" + S + "@hope.test" }, T);
   const n1 = mail("ana" + S + "@hope.test").length;
   const ev = await j("POST", "/services/events", { title: "Sunday 9:00", startsAt: new Date(Date.now() + 5 * 864e5).toISOString(), teams: [w1.id, p1.id] }, T);
   ok(ev.ok && ev.asked === 3 && mail("ana" + S + "@hope.test").length === n1 + 1 && /Sunday 9:00/.test(mail("ana" + S + "@hope.test").pop().body.subject), "a service asks everyone on the chosen teams, by email", ev);

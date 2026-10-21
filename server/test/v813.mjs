@@ -92,7 +92,7 @@ try {
 
   // ---------------------------------------------------------------- keys, people, and the main admin's controls
   const cid = (await one("SELECT church_id FROM church_members WHERE user_id=(SELECT id FROM users WHERE email=$1)", [E("pastor")])).church_id;
-  await recordOrder({ id: "cs_813_" + S, metadata: { items: JSON.stringify({ "pack-small": "1" }), church_id: String(cid) }, amount_total: 30000, customer_details: { email: "p@hope.test" } }, null);
+  await recordOrder({ id: "cs_813_" + S, amount_total: 30000, customer_details: { email: "p@hope.test" }  }, { church_id: String(cid), user_id: null, items: { "pack-lite": "1" } });
   await q("UPDATE churches SET has_services=TRUE WHERE id=$1", [cid]);   // (Central Services' monthly plan)
   await j("POST", "/church/team", { section: "user", members: [{ name: "Ana", email: E("ana"), role: "Bass" }, { name: "Ben", email: E("ben"), role: "Keys" }, { name: "Cy", email: E("cy"), role: "Drums" }] }, T);
   const signupInvite = async (n, name) => j("POST", "/signup", { email: E(n), password: "password123", name, invite: to(E(n))[0].text.match(/#invite-([A-Za-z0-9_-]+)/)[1] });
@@ -126,7 +126,7 @@ try {
   ok(!k.user_id && !k.assigned_email && gone && gone.name === "" && !gone.phone && /Your Motion Audio account is deleted/.test(last(E("ana")).subject), "...her key is free, her details are gone, she gets a goodbye email", [k, gone]);
   ok(!(await one("SELECT 1 FROM church_members m JOIN users u ON u.id=m.user_id WHERE u.email=$1", [E("ana")])), "...and she's out of the church");
   const bdel = await j("POST", "/account/delete", { password: "password123" }, ben.token);
-  ok(bdel._status === 409 && /Make someone else the main admin first/.test(bdel.error), "the main admin of a church with people in it hands over first", bdel);
+  ok(bdel._status === 409 && /Make someone else a main admin first/.test(bdel.error), "the main admin of a church with people in it hands over first", bdel);
   const solo = await j("POST", "/signup", { email: E("solo"), password: "password123", churchName: "Solo " + S });
   const soloIn = await adminIn(solo, E("solo"), "555-030-" + String(S).slice(-4));
   const sd = await j("POST", "/account/delete", { password: "password123" }, soloIn.token);

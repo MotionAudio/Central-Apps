@@ -370,3 +370,36 @@ ALTER TABLE churches ADD COLUMN IF NOT EXISTS services_sub TEXT;         -- the 
 ALTER TABLE churches ADD COLUMN IF NOT EXISTS services_item TEXT;        -- its item (its price changes with the church's size)
 ALTER TABLE churches ADD COLUMN IF NOT EXISTS services_cents INTEGER;    -- what it charges now
 ALTER TABLE churches ADD COLUMN IF NOT EXISTS services_status TEXT;
+-- 9.3: Central Services slots (bought once; packs come with some); a church can have 2 main admins (role 'owner')
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS services_slots INTEGER NOT NULL DEFAULT 0;
+-- every Checkout Session this server starts (the webhook fulfils from this row, not from metadata)
+CREATE TABLE IF NOT EXISTS checkouts (
+  session_id  TEXT PRIMARY KEY,
+  kind        TEXT NOT NULL,              -- store, renew, subscription, track
+  user_id     BIGINT REFERENCES users(id),
+  church_id   BIGINT REFERENCES churches(id),
+  track_id    BIGINT REFERENCES tracks(id),
+  items       JSONB,                      -- store: { productId: qty }; renew: { keys: [...] }
+  code        TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- one row per paid one-time payment: how a refund, dispute or fraud warning finds what to take back
+CREATE TABLE IF NOT EXISTS stripe_payments (
+  payment_intent TEXT PRIMARY KEY,
+  session_id  TEXT NOT NULL,
+  kind        TEXT NOT NULL,              -- store, renew, track
+  user_id     BIGINT REFERENCES users(id),
+  order_id    BIGINT REFERENCES orders(id),
+  track_id    BIGINT REFERENCES tracks(id),
+  status      TEXT NOT NULL DEFAULT 'paid',   -- paid, refunded, disputed, review
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_intent TEXT;
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS reversed BOOLEAN NOT NULL DEFAULT FALSE;
+-- a sale paid back: what it gave the publisher comes off their next payout
+ALTER TABLE earnings DROP CONSTRAINT IF EXISTS earnings_reason_check;
+ALTER TABLE earnings ADD CONSTRAINT earnings_reason_check CHECK (reason IN ('purchase','subscriber_add','reversal'));
+-- publishers verify their ID once (Stripe Identity) before their first upload
+ALTER TABLE users ADD COLUMN IF NOT EXISTS identity_session TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS id_status TEXT NOT NULL DEFAULT 'none';   -- none, processing, requires_input, verified
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS slots INTEGER NOT NULL DEFAULT 0;   -- Central Services slots it gave (a refund takes them back)

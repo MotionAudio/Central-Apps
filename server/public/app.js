@@ -86,37 +86,61 @@ function supportForm(note) {
 }
 function needSignIn(why) { location.hash = "account"; renderAccount(why || "Sign in or make an account to continue."); }
 
-// ---------------------------------------------------------------- store
-// prices come from the server (/config); these are the words around them
-const packs = [
-  { id: "pack-small", tag: "Church pack", name: "Small church" },
-  { id: "pack-medium", tag: "Church pack", name: "Medium church", feature: true },
-  { id: "pack-large", tag: "Church pack", name: "Large church" },
-];
-function packPoints(id) {   // what's in a pack, from the server (the price page changes it)
-  const k = (cfg.products && cfg.products[id] && cfg.products[id].keys) || {}, pts = [];
-  if (k.P) pts.push(k.P === 1 ? "Central Pedal Control" : k.P + " Central Pedal Control keys");
-  if (k.A) pts.push(k.A + " admin" + (k.A > 1 ? "s" : "") + " (Central Control)");
-  if (k.U) pts.push(k.U + " user" + (k.U > 1 ? "s" : "") + " (Central Usage)");
-  pts.push("The pedal itself is separate ($" + priceOf("pedal") + ")");
-  if (cfg.products && cfg.products["user-pack"]) pts.push("More users $" + priceOf("user-pack") + " each, admins $" + priceOf("admin"));
-  return pts;
+// ---------------------------------------------------------------- the payment form (Stripe, on this page)
+// Checkout Studio's embedded form (ui_mode "form"): the server starts a Checkout Session and answers its client secret;
+// Stripe's form opens in a window here. When it's paid, Stripe sends the browser back to the page (#order-done-…).
+const APPEARANCE = { theme: "stripe", labels: "auto", inputs: "spaced", variables: { borderRadius: "6px", colorBackground: "#ffffff", colorPrimary: "#12161C", colorText: "#12161C", colorTextSecondary: "#434C59", colorDanger: "#B42318", colorSuccess: "#1E7A4C", fontFamily: '"Helvetica Neue", Arial, system-ui, sans-serif', fontSizeBase: "16px", spacingUnit: "4px" } };
+let stripeJs = null;
+async function stripeReady() { for (let i = 0; i < 60 && !window.Stripe; i++) await new Promise((r) => setTimeout(r, 100)); return window.Stripe; }
+async function openCheckout(title, sub, getSecret) {
+  if (!cfg.payments || !cfg.publishableKey) return paymentsSoon();
+  modal(`<div class="pay-head"><h3>${esc(title)}</h3>${sub ? `<p class="muted" style="margin:0">${sub}</p>` : ""}</div><div id="checkout-form"><p class="muted">Loading the secure payment form…</p></div><div class="err" id="payErr"></div>
+    <div class="pay-foot"><span class="muted">Payments by <b>Stripe</b>. We never see your card.</span><button class="btn ghost small" data-close>Cancel</button></div>`);
+  $(".modal").classList.add("pay");
+  const fail = (e) => { const el = $("#payErr"); if (el) el.textContent = (e && e.message) || "Payment didn't go through. Try again."; };
+  if (!(await stripeReady())) return fail(new Error("The payment form couldn't load. Check your connection, or turn off a blocker for this site, then try again."));
+  stripeJs = stripeJs || window.Stripe(cfg.publishableKey);
+  try {
+    const clientSecret = getSecret().then((r) => { if (!r.clientSecret) throw new Error(r.error || "Couldn't start checkout."); return r.clientSecret; });
+    clientSecret.catch(fail);
+    const checkout = stripeJs.initCheckoutFormSdk({ clientSecret, appearance: APPEARANCE });
+    const form = checkout.createForm({ layout: "expanded" });
+    $("#checkout-form").innerHTML = ""; form.mount("#checkout-form");
+    const res = await checkout.loadActions();
+    if (res.type !== "success") return fail(res.error || new Error("Couldn't load the payment form."));
+    form.on("confirm", async (event) => {
+      try { const r = await res.actions.confirm({ formConfirmEvent: event }); if (r && r.type === "error") fail(r.error); } catch (err) { fail(err); }
+    });
+  } catch (e) { fail(e); }
 }
+
+// ---------------------------------------------------------------- store
+// prices and what's in each pack come from the server (/config: the staff price page changes them); these are the words
+// around them. A pack: 1 main admin + admins (A keys, Central Control), users (U keys, Central Usage), 1 Central Pedal
+// Control (P key) and Central Services slots.
+const packs = [
+  { id: "pack-lite", name: "Lite", who: "A small team getting started" },
+  { id: "pack-regular", name: "Regular", who: "A full band and a production team", feature: true },
+  { id: "pack-plus", name: "Plus", who: "Bigger teams, more than one service" },
+  { id: "pack-ultra", name: "Ultra", who: "Large churches and production companies", addon: "ultra-plus10" },
+];
 const products = [
   { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", icon: "central-pedal", desc: "This is the heart of it. Your pads, multitracks and click play from the floor, and every other app follows along.", pts: ["Built and tested by us, footswitches and knobs included", "Its software is already on it, with its P key", "Ships to the US and Canada"] },
-  { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", icon: "central-pedal-control", pts: ["Build your songs, pads and setlists at home, then send it all to the pedal. Windows, macOS, Linux, iPad, iPhone and Android."] },
   { id: "admin", tag: "A key", name: "Central Control", per: "per admin computer", icon: "central-control", pts: ["For whoever runs the desk: lights, slides, lyrics, cameras, in-ears, tracks and the mix, all in one place. Windows, macOS and Linux."] },
-  { id: "user", tag: "U key", name: "Central Usage", per: "per musician", icon: "central-usage", pts: ["For each musician: their chart, the lyrics, their instrument and their own in-ear mix, at church and at home. Works on everything.", "On a computer, bring the plugins you already own: Kontakt, Keyscape, your favourite reverb. VST3, Audio Units, CLAP and LV2."] },
-  { id: "user-pack", tag: "U key, church pack price", name: "Central Usage", per: "per musician", icon: "central-usage", packOnly: true, pts: ["The same app, at the price for churches with a pack."] },
+  { id: "user", tag: "U key", name: "Central Usage", per: "per musician", icon: "central-usage", pts: ["For each musician: their chart, the lyrics, their instrument and their own in-ear mix, at church and at home. Works on everything.", "On a computer, bring the plugins you already own: VST3, Audio Units, CLAP and LV2."] },
+  { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", icon: "central-pedal-control", pts: ["Build your songs, pads and setlists at home, then send it all to the pedal. Windows, macOS, Linux, iPad, iPhone and Android."] },
+  { id: "services-slot", tag: "Slot", name: "Central Services", per: "per person, once", icon: "central-services", pts: ["Who's serving, who's away and what you're playing, on everyone's phone. Each person on your teams takes a slot; take someone off and theirs is free for the next."] },
 ];
-const ALL = packs.concat(products);
-const priceOf = (id) => (cfg.products && cfg.products[id] ? cfg.products[id].cents / 100 : 0);
-const hasPack = () => !!(me && me.church && me.church.hasPack) || packs.some((p) => cart[p.id] > 0);
-// the page's words: what edit mode saved for a key, or what's written here (edit.js keeps the saved words)
+const P_ = (id) => (cfg.products && cfg.products[id]) || null;
+const priceOf = (id) => (P_(id) ? P_(id).cents / 100 : 0);
+const dollars = (n) => "$" + (Number.isInteger(n) ? n : n.toFixed(2));
+// the sale on the website now (or, for staff, the one they're previewing): what an item costs with it
+const saleOn = (id) => !!(cfg.sale && P_(id) && (!P_(id).hardware || cfg.sale.includePedal));
+const salePrice = (id) => Math.round(priceOf(id) * (100 - cfg.sale.percent)) / 100;
 const T = (key, text) => (window.SiteContent ? window.SiteContent.html(key, esc(text)) : esc(text));
 const ed = (key) => `data-edit="${key}"`;
-const priceTag = (id, per) => `<div class="price"><span data-price="${id}">$${priceOf(id)}</span><small>${esc(per)}</small></div>`;
-const addBtn = (p, cls) => `<button class="btn${cls || ""}" data-add="${p.id}"${p.packOnly && !hasPack() ? " disabled title=\"Add a church pack first\"" : ""}>${cart[p.id] ? "Add another" : "Add to cart"}</button>`;
+const priceTag = (id, per) => `<div class="price">${saleOn(id) ? `<s>${dollars(priceOf(id))}</s> <span class="now">${dollars(salePrice(id))}</span>` : `<span data-price="${id}">${dollars(priceOf(id))}</span>`}<small>${esc(per)}</small></div>`;
+const addBtn = (p, cls, label) => `<button class="btn${cls || ""}" data-add="${p.id}">${label || (cart[p.id] ? "Add another" : "Add to cart")}</button>`;
 function pedalCard(p) {   // the built pedal: the wide row at the top of the store
   const k = "prod." + p.id;
   return `<div class="pedal-row"><div class="art on-stage"><img src="${window.SiteContent ? window.SiteContent.img(k + ".img", "/brand/glyph-central-pedal.svg") : "/brand/glyph-central-pedal.svg"}" alt="Central Pedal" data-edit-img="${k}.img"></div>
@@ -125,38 +149,48 @@ function pedalCard(p) {   // the built pedal: the wide row at the top of the sto
     <ul ${ed(k + ".pts")}>${window.SiteContent && window.SiteContent.has(k + ".pts") ? window.SiteContent.html(k + ".pts") : p.pts.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
     <div class="buyline">${priceTag(p.id, p.per)}${addBtn(p)}</div></div></div>`;
 }
-function packCard(p) {   // a church pack: one column of the packs panel
-  const k = "pack." + p.id;
-  return `<div class="tier${p.feature ? " feature" : ""}">${p.feature ? `<div class="pick" ${ed(k + ".pick")}>${T(k + ".pick", "Recommended")}</div>` : ""}
-    <h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3>${priceTag(p.id, "one-time")}
-    <ul>${packPoints(p.id).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${addBtn(p, p.feature ? "" : " ghost")}</div>`;
+// a pack: a spec sheet - the counts down the left, what they are on the right
+function packSpec(id) {
+  const p = P_(id) || {}, k = p.keys || {}, rows = [];
+  if (k.A) rows.push([k.A, "Central Control", k.A > 1 ? "1 main admin + " + (k.A - 1) + " admin" + (k.A > 2 ? "s" : "") : "1 main admin"]);
+  if (k.U) rows.push([k.U, "Central Usage", "users: each musician and singer"]);
+  if (k.P) rows.push([k.P, "Central Pedal Control", k.P > 1 ? "keys" : "to get the pedal ready"]);
+  if (p.slots) rows.push([p.slots, "Central Services", "slots: one per person on your teams"]);
+  return `<dl class="spec">${rows.map((r) => `<div><dt>${r[0]}</dt><dd><b>${esc(r[1])}</b><span>${esc(r[2])}</span></dd></div>`).join("")}</dl>`;
+}
+function packCard(p) {
+  const k = "pack." + p.id, a = p.addon && P_(p.addon) && !P_(p.addon).hidden ? P_(p.addon) : null;
+  return `<div class="tier${p.feature ? " feature" : ""}">
+    <div class="tier-head"><h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3>${p.feature ? `<span class="pick" ${ed(k + ".pick")}>${T(k + ".pick", "Most picked")}</span>` : ""}</div>
+    <p class="who" ${ed(k + ".who")}>${T(k + ".who", p.who)}</p>${priceTag(p.id, "one-time")}
+    ${packSpec(p.id)}
+    ${a ? `<div class="addon"><div><b>+${a.slots} Central Services slots</b><span>${saleOn(p.addon) ? `<s>${dollars(priceOf(p.addon))}</s> ${dollars(salePrice(p.addon))}` : dollars(priceOf(p.addon))}, with this pack</span></div>${addBtn({ id: p.addon }, " ghost small", cart[p.addon] ? "Added" : "Add")}</div>` : ""}
+    ${addBtn(p, p.feature ? "" : " ghost")}</div>`;
 }
 function rowCard(p) {   // an app on its own: a row of the price list
   const k = "prod." + p.id;
   return `<div class="pl-row"><img src="/brand/${p.icon}.svg" alt=""><div class="what"><span class="label" ${ed(k + ".tag")}>${T(k + ".tag", p.tag)}</span><h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3></div>
     <p class="desc" ${ed(k + ".desc")}>${T(k + ".desc", p.pts.join(" "))}</p>${priceTag(p.id, p.per)}${addBtn(p, " ghost")}</div>`;
 }
+function renderSale() {   // the strip under the header while a sale is on
+  const el = $("#saleBar"), x = cfg.sale; if (!el) return;
+  el.hidden = !x;
+  if (x) el.innerHTML = `<div class="wrap"><b>${esc(x.name)}: ${x.percent}% off</b><span>${esc(x.banner || "Everything but the built pedal.")}${x.endsAt ? " Until " + new Date(x.endsAt).toLocaleDateString(undefined, { month: "long", day: "numeric" }) + "." : ""}</span>${x.preview ? `<span class="pv">Preview: only staff see this</span>` : ""}<a href="#store">Shop the sale</a></div>`;
+}
 function renderRack() {
   if (!cfg.products) return;
   if (window.SiteContent && window.SiteContent.editing()) return;   // (not while the page is being edited)
-  const shown = (p) => cfg.products[p.id] && !cfg.products[p.id].hidden;
+  const shown = (p) => P_(p.id) && !P_(p.id).hidden;
+  renderSale();
   $("#pedalBuy").innerHTML = products.filter((p) => p.id === "pedal" && shown(p)).map(pedalCard).join("");
   $("#packs").innerHTML = packs.filter(shown).map(packCard).join("");
   $("#packs").hidden = !$("#packs").innerHTML;
-  $("#rack").innerHTML = products.filter((p) => p.id !== "pedal" && shown(p) && (!p.packOnly || hasPack())).map(rowCard).join("") + servicesCard();
+  $("#packs").style.setProperty("--n", packs.filter(shown).length);
+  $("#rack").innerHTML = products.filter((p) => p.id !== "pedal" && shown(p)).map(rowCard).join("");
   renderPlanPrice();
-}
-// Central Services: a monthly plan by the church's size (started from Account; not in the cart)
-function servicesCard() {
-  const sp = cfg.servicesPlan; if (!sp) return "";
-  const t = sp.tiers.slice().sort((a, b) => a.upTo - b.upTo), last = t[t.length - 1];
-  return `<div class="pl-row"><img src="/brand/central-services.svg" alt=""><div class="what"><span class="label" ${ed("prod.services.tag")}>${T("prod.services.tag", "Whole church, monthly")}</span><h3 ${ed("prod.services.name")}>${T("prod.services.name", "Central Services")}</h3></div>
-    <p class="desc"><span ${ed("prod.services.desc")}>${T("prod.services.desc", "Who's serving, who's away and what you're playing, on everyone's phone.")}</span> ${t.map((x) => `Up to ${x.upTo} people $${x.cents / 100}`).join(", ")}, then $${(sp.extraCents / 100).toFixed(2)} a month for each one past ${last.upTo}.</p>
-    <div class="price">$${t[0].cents / 100}<small>a month, from</small></div><a class="btn ghost" href="#account" id="svcStart">Start in your account</a></div>`;
 }
 // Central Tracks Unlimited: its price from the price list
 const subPrice = () => (cfg.subscription && cfg.subscription.cents ? cfg.subscription.cents / 100 : 77);
-const dollars = (n) => "$" + (Number.isInteger(n) ? n : n.toFixed(2));
 function renderPlanPrice() {
   const el = $("#planPrice"); if (el) el.innerHTML = `<span data-price="subscription">${dollars(subPrice())}</span><small> / month</small>`;
   const note = $("#exPoolNote"); if (note) note.textContent = "The pool part assumes 100 subscribers that month (a " + money(subPrice() * 100 * 0.5) + " pool).";
@@ -164,29 +198,43 @@ function renderPlanPrice() {
 }
 const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0);
 function updateCartBtn() { const n = cartCount(); $("#cartBtn").innerHTML = `Cart <span class="count">${n}</span>`; $("#cartBtn").classList.toggle("has", n > 0); }
-function onAdd(e) { const a = e.target.closest("[data-add]"); if (!a || a.disabled) return; cart[a.dataset.add] = (cart[a.dataset.add] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart"); }
+function onAdd(e) {
+  const a = e.target.closest("[data-add]"); if (!a || a.disabled) return;
+  const id = a.dataset.add, base = P_(id) && P_(id).addonFor;
+  if (base && (cart[id] || 0) >= (cart[base] || 0) + ownedOf(base) - ownedOf(id)) return toast(cart[id] ? "One for each " + nameOf(base) + "." : "Add " + nameOf(base) + " first: these slots go with it.");
+  cart[id] = (cart[id] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart");
+}
 $("#rack").addEventListener("click", onAdd); $("#packs").addEventListener("click", onAdd); $("#pedalBuy").addEventListener("click", onAdd);
 let promo = null;   // the code in the cart: { code, percent } or { code, trial, days }
 $("#cartBtn").onclick = () => openCart();
+const nameOf = (id) => (P_(id) ? P_(id).name : id);
+const ownedOf = (id) => (me && me.church && me.church.owned ? me.church.owned[id] || 0 : 0);
+function fitAddons() {   // an add-on can't outnumber its pack (in the cart, or bought before)
+  for (const k of Object.keys(cart)) { const b = P_(k) && P_(k).addonFor; if (!b) continue; const room = (cart[b] || 0) + ownedOf(b) - ownedOf(k); if (cart[k] > room) { if (room > 0) cart[k] = room; else delete cart[k]; } }
+}
 function openCart(note) {
-  const ids = Object.keys(cart).filter((k) => cart[k] > 0);
+  const ids = Object.keys(cart).filter((k) => cart[k] > 0 && P_(k));
   if (!ids.length && !(promo && promo.trial)) return modal(`<h3>Your cart is empty</h3><p class="muted" style="margin:0">Pick a pack, the pedal or a few keys from the store. Got a free trial code? Type it here and you're off:</p>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1 1 140px;min-width:0">Code<input id="pcCode" placeholder="Discount or trial code" style="text-transform:uppercase"></label><button class="btn ghost" id="pcApply">Apply</button></div><div class="err" id="pcErr"></div><button class="btn" data-close>Close</button>`), wirePromo();
+    <div class="codeline"><label>Code<input id="pcCode" placeholder="Discount or trial code" autocapitalize="characters"></label><button class="btn ghost" id="pcApply">Apply</button></div><div class="err" id="pcErr"></div><button class="btn" data-close>Close</button>`), wirePromo();
   let total = 0, saved = 0;
+  const cut = (id) => (promo && promo.percent ? (P_(id).hardware ? 0 : promo.percent) : saleOn(id) ? cfg.sale.percent : 0);
   const lines = ids.map((id) => {
-    const p = ALL.find((x) => x.id === id) || { name: id }, hw = cfg.products[id] && cfg.products[id].hardware, s = priceOf(id) * cart[id];
-    const d = promo && promo.percent && !hw ? Math.round(s * promo.percent) / 100 : 0; total += s - d; saved += d;
-    return `<div><span>${esc(p.name)}${p.packOnly ? " (pack price)" : ""} × ${cart[id]}</span><span>${d ? `<s class="muted">${money(s)}</s> ` : ""}${money(s - d)}</span></div>`;
+    const s = priceOf(id) * cart[id], pc = cut(id), d = pc ? Math.round(s * pc) / 100 : 0; total += s - d; saved += d;
+    return `<div><span>${esc(nameOf(id))} <span class="qty"><button class="qbtn" data-q="${id}" data-d="-1" aria-label="One fewer">−</button>${cart[id]}<button class="qbtn" data-q="${id}" data-d="1" aria-label="One more">+</button></span></span><span>${d ? `<s class="muted">${money(s)}</s> ` : ""}${money(s - d)}</span></div>`;
   }).join("");
+  const why = promo && promo.percent ? esc(promo.code) + " · " + esc(promo.label) : cfg.sale ? esc(cfg.sale.name) + " · " + cfg.sale.percent + "% off" : "";
   const needChurch = me && !me.church, trial = promo && promo.trial;
-  modal(`<h3>Cart</h3><div class="lines">${lines}${saved ? `<div><span>${esc(promo.code)} · ${esc(promo.label)}</span><span>−${money(saved)}</span></div>` : ""}<div class="total"><span>Total</span><span>${money(total)}</span></div></div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1 1 140px;min-width:0">Discount or trial code<input id="pcCode" value="${esc(promo ? promo.code : "")}" placeholder="Code" style="text-transform:uppercase"></label><button class="btn ghost" id="pcApply">${promo ? "Change" : "Apply"}</button>${promo ? `<button class="btn ghost" id="pcClear">Remove</button>` : ""}</div>
-    <div class="${note && /^✓/.test(note) ? "" : "err"}" id="pcErr">${esc(note || "")}</div>
-    ${trial ? `<div class="card" style="border-color:var(--accent)"><b>${esc(promo.label)}</b><span class="muted" style="font-size:.9rem">Everything for ${promo.days} days, no payment: as many admin, user and Pedal Control keys as you like, Central Services and Central Tracks Unlimited. Then the trial keys stop and the apps ask for a key you bought (your songs and settings stay). One free trial per church.</span></div>` : ""}
+  modal(`<h3>Cart</h3><div class="lines">${lines}${saved ? `<div class="saved"><span>${why}</span><span>−${money(saved)}</span></div>` : ""}<div class="total"><span>Total <span class="muted" style="font-weight:400;font-size:.85rem">tax included</span></span><span>${money(total)}</span></div></div>
+    <div class="codeline"><label>Discount or trial code<input id="pcCode" value="${esc(promo ? promo.code : "")}" placeholder="Code" autocapitalize="characters"></label><button class="btn ghost" id="pcApply">${promo ? "Change" : "Apply"}</button>${promo ? `<button class="btn ghost" id="pcClear">Remove</button>` : ""}</div>
+    <div class="${note && /^✓/.test(note) ? "ok-note" : "err"}" id="pcErr">${esc(note || "")}</div>
+    ${trial ? `<div class="card" style="border-color:var(--brass)"><b>${esc(promo.label)}</b><span class="muted" style="font-size:.9rem">Everything for ${promo.days} days, no payment: as many admin, user and Pedal Control keys as you like, Central Services and Central Tracks Unlimited. Then the trial keys stop and the apps ask for a key you bought (your songs and settings stay). One free trial per church.</span></div>` : ""}
     ${!me ? `<p class="muted" style="margin:0">Sign in or make an account first: your keys go to your church's account.</p>` : needChurch ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label><p class="muted" style="margin:0;font-size:.9rem">This makes your church's account, with you as its main admin. Your admins and users join it with its codes.</p>` : `<p class="muted" style="margin:0;font-size:.9rem">The keys go to <b>${esc(me.church.name)}</b>.</p>`}
-    <p class="muted" style="margin:0;font-size:.9rem">You'll pay securely with Stripe. Your keys appear right after checkout and on your church's page.</p>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="checkout">${me ? "Check out" : "Sign in"}</button><button class="btn ghost" id="clear">Empty cart</button></div><div class="err" id="coErr"></div>`);
   $("#clear").onclick = () => { for (const k in cart) delete cart[k]; updateCartBtn(); renderRack(); closeModal(); };
+  document.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => {
+    const id = b.dataset.q; cart[id] = Math.max(0, Math.min(50, (cart[id] || 0) + Number(b.dataset.d))); if (!cart[id]) delete cart[id];
+    fitAddons(); updateCartBtn(); renderRack(); openCart();
+  }));
   wirePromo();
   if (trial) { $("#checkout").textContent = me ? "Start the free trial" : "Sign in to start the trial"; }
   $("#checkout").onclick = async () => {
@@ -202,8 +250,9 @@ function openCart(note) {
           <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>.</p><a class="btn" href="#account" data-close>Go to my church</a>`);
       } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
     }
-    if (!cfg.payments) return paymentsSoon();
-    try { go((await api("POST", "/checkout/store", { items: cart, church: needChurch ? $("#coChurch").value.trim() : undefined, code: promo && promo.percent ? promo.code : undefined })).url); } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; }
+    const body = { items: cart, church: needChurch ? $("#coChurch").value.trim() : undefined, code: promo && promo.percent ? promo.code : undefined };
+    try { await api("POST", "/checkout/store/check", body); } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
+    openCheckout("Check out", `${cartCount()} item${cartCount() === 1 ? "" : "s"} · ${money(total)} · for ${esc(me.church ? me.church.name : body.church)}`, () => api("POST", "/checkout/store", body));
   };
 }
 function wirePromo() {
@@ -230,7 +279,9 @@ function renderSub() {
 $("#subBtn").onclick = async () => {
   if (!me) return needSignIn("Sign in to subscribe to Central Tracks Unlimited.");
   if (!cfg.payments) return paymentsSoon();
-  try { go((await api("POST", me.subscribed ? "/billing" : "/checkout/subscription")).url); } catch (e) { toast(e.message); }
+  if (me.subscribed) { try { go((await api("POST", "/billing")).url); } catch (e) { toast(e.message); } return; }
+  const forChurch = me.church && me.church.role === "owner";
+  openCheckout("Central Tracks Unlimited", dollars(subPrice()) + " a month, tax included" + (forChurch ? " · for everyone in " + esc(me.church.name) : "") + ". Cancel any time.", () => api("POST", "/checkout/subscription"));
 };
 let searchTimer = 0;
 async function loadTracks() {
@@ -261,13 +312,19 @@ $("#tbody").addEventListener("click", async (e) => {
   } else buyModal(t);
 });
 function buyModal(t) {
-  modal(`<h3>Buy track</h3><div class="lines"><div><span>${esc(t.title)}</span><span>${money(t.price)}</span></div></div>
+  modal(`<h3>Buy track</h3><div class="lines"><div><span><b>${esc(t.title)}</b> <span class="muted">· ${esc(t.artist)} · ${esc(t.kind)}</span></span><span>${money(t.price)}</span></div></div>
     <p class="muted" style="margin:0">Or subscribe for ${dollars(subPrice())} a month and add every track.</p>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="buyGo">Buy ${money(t.price)}</button><button class="btn ghost" data-close>Cancel</button></div><div class="err" id="buyErr"></div>`);
-  $("#buyGo").onclick = async () => {
-    if (!cfg.payments) return paymentsSoon();
-    try { const r = await api("POST", "/tracks/" + t.id + "/purchase"); if (r.url || r.checkoutUrl) go(r.url || r.checkoutUrl); else { closeModal(); loadTracks(); } } catch (e) { $("#buyErr").textContent = e.message; }
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="buyGo">Buy for ${money(t.price)}</button><button class="btn ghost" data-close>Cancel</button></div><div class="err" id="buyErr"></div>`);
+  $("#buyGo").onclick = () => {
+    if (t.owned) { closeModal(); return toast("It's already in your storage."); }
+    openCheckout("Buy " + t.title, money(t.price) + ", tax included. It goes straight to your storage.", () => api("POST", "/tracks/" + t.id + "/purchase?web=1"));
   };
+}
+// the apps send people here to buy a track (#buy-<id>)
+async function buyFromLink(id) {
+  if (!me) { try { sessionStorage.setItem("ma-after-signin", "#buy-" + id); } catch {} return needSignIn("Sign in to buy this track. It goes straight to your storage."); }
+  try { const t = (await api("GET", "/tracks/" + encodeURIComponent(id))).track; if (t.owned) return modal(`<h3>${esc(t.title)}</h3><p style="margin:0">It's in your storage already. Open Central Tracks in the app to download it.</p><button class="btn" data-close>OK</button>`); buyModal(t); }
+  catch (e) { modal(`<h3>Buy track</h3><p class="err" style="margin:0">${esc(e.message)}</p><button class="btn" data-close>OK</button>`); }
 }
 
 // ---------------------------------------------------------------- publishing
@@ -337,6 +394,7 @@ $("#pubForm").addEventListener("submit", async (e) => {
   if (!me) return needSignIn("Sign in to publish tracks.");
   const mix = $("#pFile").files[0], stems = Array.from($("#pStems").files || []), msg = $("#pubMsg");
   if (!mix) return; if (!$("#pRights").checked) { msg.textContent = "Confirm you have the rights to sell this track."; return; }
+  if (me.idRequired && me.idStatus !== "verified") { msg.textContent = "Verify your ID first (once, about 2 minutes): Verify my ID, next to the form."; $("#idBox").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   $("#pubBtn").disabled = true; msg.textContent = "";
   try {
     const all = [mix, ...stems], total = all.reduce((a, f) => a + f.size, 0); let done = 0;
@@ -355,8 +413,18 @@ $("#payoutBtn").onclick = async () => {
   if (!cfg.payments) return paymentsSoon();
   try { go((await api("POST", "/connect")).url); } catch (e) { toast(e.message); }
 };
+$("#idBtn").onclick = async () => {
+  if (!cfg.payments) return paymentsSoon();
+  try { const r = await api("POST", "/identity"); if (r.verified) { toast("You're verified."); return refreshMe(); } go(r.url); } catch (e) { toast(e.message); }
+};
 function renderPayout() {
-  const t = $("#payoutText"), b = $("#payoutBtn");
+  const t = $("#payoutText"), b = $("#payoutBtn"), it = $("#idText"), ib = $("#idBtn"), box = $("#idBox");
+  const needId = !!(me && me.idRequired), idOk = !!(me && me.idStatus === "verified");
+  box.hidden = !needId;
+  if (needId) {
+    it.textContent = idOk ? "✓ Verified. You can publish." : me.idStatus === "processing" ? "Stripe is checking your ID. It usually takes a minute or two." : me.idStatus === "requires_input" ? "Stripe couldn't confirm your ID. Try again with a clear photo." : "Once, before your first upload: a photo of your ID and a selfie, through Stripe. It keeps Central Tracks honest.";
+    ib.hidden = idOk || me.idStatus === "processing"; ib.textContent = me.idStatus === "requires_input" ? "Try again" : "Verify my ID";
+  }
   if (!me) { t.textContent = "Sign in to publish. Earnings are paid monthly to your bank through Stripe."; b.hidden = true; return; }
   if (me.payoutsReady) { t.textContent = "Payouts are set up. Earnings over $10 are paid on the 1st of each month."; b.hidden = true; return; }
   t.textContent = (me.payoutsStarted ? "Finish setting up payouts" : "Set up payouts") + " so we can send your earnings. Stripe asks for your bank and tax details."; b.hidden = false;
@@ -409,13 +477,13 @@ async function renderAccount(note) {
     <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
       <a class="btn ghost small" href="${APPS_URL}" target="_blank" rel="noopener" style="justify-self:start">Download the apps</a></div>
-    ${me.church ? `<div class="card" id="planCard"><h3>Central Services</h3><div class="muted">Loading…</div></div>` : ""}
+    ${me.church ? `<div class="card" id="slotsCard"><h3>Central Services</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
     <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); renderPlan(); if (me.admin) { renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); }
+  renderChurch(); renderTeams(); renderMe(); renderSlots(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); }
   if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "You're already confirmed." : "Sent! Check your inbox, and your spam folder just in case."); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
@@ -424,18 +492,36 @@ async function renderAccount(note) {
     $("#myPub").innerHTML = `<div><b>${money(p.unpaid)}</b> waiting to be paid · ${money(p.paid)} paid so far</div><div class="muted" style="font-size:.9rem">${p.addsThisMonth} subscriber adds this month · your pool share is worked out on the 1st</div>` +
       (p.tracks.length ? p.tracks.map((t) => `<div>${starHtml(t.stars)} <b>${esc(t.title)}</b> <span class="muted">· ${money(t.price)} · ${t.sales} sold · ${t.adds} subscriber adds${t.status !== "live" ? " · " + esc(t.status) : ""}</span></div>`).join("") : '<div>No tracks published yet. <a href="#publish">Publish one</a>.</div>');
   } catch (err) { $("#myPub").textContent = err.message; }
+  if (me.payoutsStarted && cfg.publishableKey) mountConnect();
 }
-// ---------------------------------------------------------------- Central Services: the church's monthly plan
-async function renderPlan() {
-  const el = $("#planCard"); if (!el) return;
-  let p; try { p = await api("GET", "/services/plan"); } catch (e) { el.innerHTML = `<h3>Central Services</h3><div class="err">${esc(e.message)}</div>`; return; }
-  const owner = me.church && me.church.role === "owner";
+// the payout settings and Stripe's notices, on this page (Connect embedded components)
+function loadScript(src) { return new Promise((ok, bad) => { if (document.querySelector(`script[src="${src}"]`)) return ok(); const x = document.createElement("script"); x.src = src; x.onload = ok; x.onerror = bad; document.head.appendChild(x); }); }
+let connectUi = null;
+async function mountConnect() {
+  const box = document.createElement("div"); box.className = "card wide"; box.id = "connectCard";
+  box.innerHTML = '<h3>Payout settings</h3><p class="muted" style="margin:0;font-size:.92rem">Your bank account and payouts, kept by Stripe. Notices appear here if Stripe needs something from you.</p><div id="cBanner"></div><div id="cPayouts"></div><div id="cManage"></div>';
+  const old = $("#connectCard"); if (old) old.remove();
+  $("#acctBody .acct").appendChild(box);
+  try {
+    await loadScript("https://connect-js.stripe.com/v1.0/connect.js");
+    for (let i = 0; i < 50 && !(window.StripeConnect && window.StripeConnect.init); i++) await new Promise((r) => setTimeout(r, 100));
+    connectUi = connectUi || window.StripeConnect.init({ publishableKey: cfg.publishableKey, fetchClientSecret: async () => (await api("POST", "/connect/session")).clientSecret,
+      appearance: { variables: { colorPrimary: "#12161C", colorText: "#12161C", borderRadius: "6px", fontFamily: '"Helvetica Neue", Arial, system-ui, sans-serif' } } });
+    $("#cBanner").appendChild(connectUi.create("notification-banner"));
+    $("#cPayouts").appendChild(connectUi.create("payouts"));
+    $("#cManage").appendChild(connectUi.create("account-management"));
+  } catch { const b = box.querySelector("#cBanner"); if (b) b.innerHTML = '<p class="muted">Payout settings couldn\'t load. Refresh the page to try again.</p>'; }
+}
+// ---------------------------------------------------------------- Central Services: the church's slots
+async function renderSlots() {
+  const el = $("#slotsCard"); if (!el) return;
+  let p; try { p = await api("GET", "/services/slots"); } catch (e) { el.innerHTML = `<h3>Central Services</h3><div class="err">${esc(e.message)}</div>`; return; }
+  const staff = me.church && (me.church.role === "owner" || me.church.role === "admin"), pct = p.slots ? Math.min(100, Math.round((p.used / p.slots) * 100)) : 0;
   el.innerHTML = `<h3>Central Services</h3>
-    <div class="status ${p.active || p.trial ? "on" : ""}" style="font:500 .85rem var(--mono)">${p.active ? "On · $" + ((p.charging || p.cents) / 100).toFixed(2) + "/month" : p.trial ? "On · free trial until " + new Date(p.trial).toLocaleDateString() : "Off"}</div>
-    <p class="muted" style="margin:0;font-size:.92rem">The schedule for every team. ${p.members} member${p.members === 1 ? "" : "s"} in your church: <b>$${(p.cents / 100).toFixed(2)} a month</b> (${p.tiers.map((t) => "up to " + t.upTo + " $" + t.cents / 100).join(", ")}, then $${(p.extraCents / 100).toFixed(2)} each). The price follows your church's size.</p>
-    ${owner ? (p.active ? `<button class="btn small ghost" id="planManage" style="justify-self:start">Change or cancel (Billing)</button>` : `<button class="btn small" id="planStart" style="justify-self:start">Start Central Services · $${(p.cents / 100).toFixed(2)}/month</button>`) : `<p class="muted" style="margin:0;font-size:.85rem">The main admin starts it.</p>`}<div class="err" id="planErr"></div>`;
-  if ($("#planStart")) $("#planStart").onclick = async () => { if (!cfg.payments) return paymentsSoon(); try { go((await api("POST", "/checkout/services")).url); } catch (e) { $("#planErr").textContent = e.message; } };
-  if ($("#planManage")) $("#planManage").onclick = async () => { try { go((await api("POST", "/church/billing")).url); } catch (e) { $("#planErr").textContent = e.message; } };
+    ${p.trial ? `<div class="slots-big"><b>Free trial</b><span>as many people as you like until ${new Date(p.trial).toLocaleDateString()}</span></div>` : `<div class="slots-big"><b>${p.used}<small> of ${p.slots}</small></b><span>slots in use · ${p.free} free</span></div><div class="meterbar${pct >= 100 ? " full" : ""}"><i style="width:${pct}%"></i></div>`}
+    <p class="muted" style="margin:0;font-size:.92rem">Each person on your teams takes a slot. Take someone off a team and their slot is free for the next person. Slots are bought once: ${dollars(priceOf("services-slot") || 5)} each.</p>
+    ${staff ? `<div class="codeline"><label>More slots<input id="slN" type="number" min="1" max="50" value="5" style="width:90px"></label><button class="btn small" id="slAdd">Add to cart</button><a class="btn small ghost" href="/services/">Open Central Services</a></div>` : `<a class="btn small ghost" href="/services/" style="justify-self:start">Open Central Services</a>`}`;
+  if ($("#slAdd")) $("#slAdd").onclick = () => { const n = Math.max(1, Math.min(50, Math.floor(+$("#slN").value || 0))); cart["services-slot"] = (cart["services-slot"] || 0) + n; updateCartBtn(); renderRack(); openCart(); };
 }
 // ---------------------------------------------------------------- Motion Audio staff: every code, and who used it
 async function renderCodes() {
@@ -444,9 +530,32 @@ async function renderCodes() {
   const when = (d) => new Date(d).toLocaleDateString();
   host.innerHTML = `<h3>Codes · Motion Audio staff</h3><p class="muted" style="margin:0;font-size:.9rem">Every discount and free trial code, and the churches that used it. Change or add codes on the Prices card.</p>
     <table class="ktable"><tr><th>Code</th><th>What it does</th><th>On</th><th>Used</th></tr>
-    ${r.codes.map((c) => `<tr><td><code>${esc(c.code)}</code></td><td>${c.kind === "trial" ? "Everything free for " + c.days + " days" : c.percent + "% off the software"}${c.label && c.label !== c.percent + "% off the software" ? ` <span class="muted">· ${esc(c.label)}</span>` : ""}</td><td>${c.on ? "✓" : '<span class="muted">off</span>'}</td>
+    ${r.codes.map((c) => `<tr><td><code>${esc(c.code)}</code></td><td>${c.kind === "trial" ? "Everything free for " + c.days + " days" : c.percent + "% off, not the pedal"}${c.label ? ` <span class="muted">· ${esc(c.label)}</span>` : ""}</td><td>${c.on ? "✓" : '<span class="muted">off</span>'}</td>
       <td>${c.used ? `<details><summary>${c.used} ${c.used === 1 ? "church" : "churches"}${c.kind === "trial" ? " · " + c.active + " in a trial now" : ""}</summary>${c.uses.map((u) => `<div style="font-size:.88rem">${esc(u.church)} <span class="muted">· ${c.kind === "trial" ? (u.active ? "until " : "ended ") + when(u.until) : when(u.used_at) + (u.total_cents != null ? " · paid " + money(u.total_cents / 100) : "")}</span></div>`).join("")}</details>` : '<span class="muted">not yet</span>'}</td></tr>`).join("")}
     ${r.deleted.map((d) => `<tr><td><code>${esc(d.code)}</code></td><td class="muted">deleted</td><td></td><td>${d.uses.length} ${d.uses.length === 1 ? "church" : "churches"}</td></tr>`).join("")}</table>`;
+}
+// ---------------------------------------------------------------- Motion Audio staff: a sale (save, preview, put it live)
+let previewing = false;
+async function renderSaleStaff() {
+  let host = $("#saleCard"); if (!host) { $("#acctBody .acct").insertAdjacentHTML("beforeend", `<div class="card wide" id="saleCard"></div>`); host = $("#saleCard"); }
+  let r; try { r = await api("GET", "/admin/sale"); } catch (e) { host.innerHTML = `<h3>Sale</h3><div class="err">${esc(e.message)}</div>`; return; }
+  const d = r.draft || {}, live = r.live, day = (x) => (x ? new Date(x).toISOString().slice(0, 10) : "");
+  const same = live && d && ["name", "percent", "banner", "endsAt", "includePedal"].every((k) => (live[k] || null) === (d[k] || null));
+  host.innerHTML = `<h3>Sale · Motion Audio staff</h3>
+    <p class="muted" style="margin:0;font-size:.9rem">A sale shows a strip under the header and takes its % off everything in the store (not the pedal, unless you tick it). A typed code still wins. <b>Save</b> keeps it to yourself; <b>Preview</b> shows the site as customers will see it, to you only; <b>Put it live</b> shows everyone.</p>
+    <div class="sale-state ${live ? "on" : ""}">${live ? `<b>Live now:</b> ${esc(live.name)}, ${live.percent}% off${live.endsAt ? " until " + new Date(live.endsAt).toLocaleDateString() : ""}${same ? "" : ' <span class="muted">· your saved changes aren\'t live yet</span>'}` : "No sale is live."}</div>
+    <form id="saForm" class="sale-form"><label>Name<input id="saName" value="${esc(d.name || "")}" placeholder="Easter sale" maxlength="60" required></label><label>% off<input id="saPct" type="number" min="1" max="90" value="${esc(d.percent || 20)}" required></label>
+      <label class="wide2">The line on the strip<input id="saBanner" value="${esc(d.banner || "")}" maxlength="160" placeholder="20% off every pack and key until Sunday"></label><label>Ends (optional)<input id="saEnds" type="date" value="${day(d.endsAt)}"></label>
+      <label class="chk"><input type="checkbox" id="saPedal"${d.includePedal ? " checked" : ""}> <span>The built pedal too</span></label>
+      <div class="sale-btns"><button class="btn small">Save</button><button class="btn small ghost" type="button" id="saPrev"${r.draft ? "" : " disabled"}>${previewing ? "Stop preview" : "Preview"}</button><button class="btn small ghost" type="button" id="saLive"${r.draft && !same ? "" : " disabled"}>Put it live</button>${live ? `<button class="btn small ghost" type="button" id="saEnd">End the sale</button>` : ""}</div></form><div class="err" id="saErr"></div>`;
+  $("#saForm").onsubmit = async (e) => {
+    e.preventDefault();
+    try { await api("POST", "/admin/sale", { name: $("#saName").value, percent: +$("#saPct").value, banner: $("#saBanner").value, endsAt: $("#saEnds").value ? new Date($("#saEnds").value + "T23:59:00").toISOString() : null, includePedal: $("#saPedal").checked }); toast("Saved. Only you can see it (Preview)."); if (previewing) await window.refreshConfig(); renderSaleStaff(); }
+    catch (err) { $("#saErr").textContent = err.message; }
+  };
+  $("#saPrev").onclick = async () => { previewing = !previewing; await window.refreshConfig(); renderSaleStaff(); if (previewing) { location.hash = "store"; toast("Previewing: only you see this sale"); } };
+  $("#saLive").onclick = async () => { if (!confirm("Put this sale live for everyone?")) return; try { await api("POST", "/admin/sale/live", {}); previewing = false; await window.refreshConfig(); toast("The sale is live"); renderSaleStaff(); } catch (err) { $("#saErr").textContent = err.message; } };
+  if ($("#saEnd")) $("#saEnd").onclick = async () => { if (!confirm("End the sale now?")) return; try { await api("POST", "/admin/sale/live", { end: true }); await window.refreshConfig(); toast("The sale has ended"); renderSaleStaff(); } catch (err) { $("#saErr").textContent = err.message; } };
 }
 // ---------------------------------------------------------------- Motion Audio staff: releases, and "Release to all devices"
 async function renderReleases() {
@@ -470,21 +579,20 @@ async function renderPrices() {
   const P = r.prices, $$ = (n) => host.querySelectorAll(n), d = (c) => (c / 100).toFixed(2);
   const inp = (path, v, w) => `<input data-pp="${path}" value="${esc(v)}" style="width:${w || 90}px">`;
   host.innerHTML = `<h3>Prices · Motion Audio staff</h3><p class="muted" style="margin:0;font-size:.9rem">Dollars. Changes take effect as soon as you save.${r.updatedAt ? " Last saved " + new Date(r.updatedAt).toLocaleString() + " by " + esc(r.updatedBy) + "." : ""}</p>
-    <details open><summary>Store and packs</summary><table class="ktable"><tr><th>Product</th><th>Price</th><th>P</th><th>A</th><th>U</th><th>Hidden</th></tr>
-      ${Object.entries(P.PRODUCTS).map(([id, p]) => `<tr><td>${esc(p.name)}${p.hardware ? ' <span class="muted">(hardware)</span>' : ""}</td><td>$${inp("PRODUCTS." + id + ".cents", d(p.cents))}</td>${["P", "A", "U"].map((k) => `<td>${inp("PRODUCTS." + id + ".keys." + k, (p.keys || {})[k] || 0, 50)}</td>`).join("")}<td><input type="checkbox" data-pph="${id}" style="width:auto"${p.hidden ? " checked" : ""}></td></tr>`).join("")}</table></details>
+    <details open><summary>Store and packs</summary><p class="muted" style="margin:.3rem 0;font-size:.85rem">Prices include tax. P, A and U are the keys each one comes with (a pack's A keys are its main admin and admins); Slots are Central Services slots.</p><table class="ktable"><tr><th>Product</th><th>Price</th><th>P</th><th>A</th><th>U</th><th>Slots</th><th>Hidden</th></tr>
+      ${Object.entries(P.PRODUCTS).map(([id, p]) => `<tr><td>${esc(p.name)}${p.hardware ? ' <span class="muted">(hardware)</span>' : ""}${p.addonFor ? ' <span class="muted">(with ' + esc((P.PRODUCTS[p.addonFor] || {}).name || p.addonFor) + ")</span>" : ""}</td><td>$${inp("PRODUCTS." + id + ".cents", d(p.cents))}</td>${["P", "A", "U"].map((k) => `<td>${inp("PRODUCTS." + id + ".keys." + k, (p.keys || {})[k] || 0, 50)}</td>`).join("")}<td>${inp("PRODUCTS." + id + ".slots", p.slots || 0, 55)}</td><td><input type="checkbox" data-pph="${id}" style="width:auto"${p.hidden ? " checked" : ""}></td></tr>`).join("")}</table></details>
     <details><summary>Renewal and monthly</summary><div style="display:grid;gap:.4rem">
       <label>Renewal per key $${inp("RENEWAL.cents", d(P.RENEWAL.cents))}</label>
-      <label>Central Tracks Unlimited per month $${inp("SUBSCRIPTION.cents", d(P.SUBSCRIPTION.cents))}</label>
-      <div>Central Services per month: ${P.SERVICES_PLAN.tiers.map((t, i) => `up to ${inp("SERVICES_PLAN.tiers." + i + ".upTo", t.upTo, 55)} members $${inp("SERVICES_PLAN.tiers." + i + ".cents", d(t.cents), 70)}`).join(" · ")} · then $${inp("SERVICES_PLAN.extraCents", d(P.SERVICES_PLAN.extraCents), 60)} each</div></div></details>
+      <label>Central Tracks Unlimited per month $${inp("SUBSCRIPTION.cents", d(P.SUBSCRIPTION.cents))}</label></div></details>
     <details><summary>Discount codes</summary><table class="ktable"><tr><th>Code</th><th>What</th><th>On</th><th></th></tr>
-      ${Object.entries(P.DISCOUNTS).map(([c, x]) => `<tr><td><code>${esc(c)}</code></td><td>${x.trial ? `free trial, ${inp("DISCOUNTS." + c + ".days", x.days, 55)} days` : `${inp("DISCOUNTS." + c + ".percent", x.percent, 55)}% off the software`} <span class="muted">${esc(x.label)}</span></td><td><input type="checkbox" data-ppon="${esc(c)}" style="width:auto"${x.on !== false ? " checked" : ""}></td><td><button class="btn small ghost" data-ppdel="${esc(c)}">Delete</button></td></tr>`).join("")}</table>
-      <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><label>New code<input id="ppCode" style="width:120px;text-transform:uppercase"></label><label>Kind<select id="ppKind" style="width:auto"><option value="percent">% off the software</option><option value="trial">free trial (days)</option></select></label><label>Amount<input id="ppAmt" style="width:70px" placeholder="10"></label><button class="btn small ghost" id="ppAdd">Add</button></div></details>
+      ${Object.entries(P.DISCOUNTS).map(([c, x]) => `<tr><td><code>${esc(c)}</code></td><td>${x.trial ? `free trial, ${inp("DISCOUNTS." + c + ".days", x.days, 55)} days` : `${inp("DISCOUNTS." + c + ".percent", x.percent, 55)}% off (not the pedal)`} <span class="muted">${esc(x.label)}</span></td><td><input type="checkbox" data-ppon="${esc(c)}" style="width:auto"${x.on !== false ? " checked" : ""}></td><td><button class="btn small ghost" data-ppdel="${esc(c)}">Delete</button></td></tr>`).join("")}</table>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><label>New code<input id="ppCode" style="width:120px;text-transform:uppercase"></label><label>Kind<select id="ppKind" style="width:auto"><option value="percent">% off (not the pedal)</option><option value="trial">free trial (days)</option></select></label><label>Amount<input id="ppAmt" style="width:70px" placeholder="10"></label><button class="btn small ghost" id="ppAdd">Add</button></div></details>
     <details><summary>Central Tracks star prices</summary>${[1, 2, 3, 4, 5].map((n) => `<label style="display:inline-grid;margin-right:.5rem">${n}★ $${inp("STAR_PRICE_CENTS." + n, d(P.STAR_PRICE_CENTS[n]), 60)}</label>`).join("")}</details>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="ppSave">Save prices</button><button class="btn ghost" id="ppReset">Back to the starting prices</button></div><div class="err" id="ppErr"></div>`;
   const draft = JSON.parse(JSON.stringify(P));
   const setPath = (o, path, v) => { const k = path.split("."); let x = o; for (let i = 0; i < k.length - 1; i++) { x[k[i]] = x[k[i]] || {}; x = x[k[i]]; } x[k[k.length - 1]] = v; };
   const collect = () => {
-    $$("[data-pp]").forEach((i) => { const path = i.dataset.pp, money = /cents|extraCents|STAR_PRICE/.test(path) && !/upTo/.test(path); setPath(draft, path, money ? Math.round(parseFloat(i.value || "0") * 100) : Number(i.value || 0)); });
+    $$("[data-pp]").forEach((i) => { const path = i.dataset.pp, money = /cents|STAR_PRICE/.test(path); setPath(draft, path, money ? Math.round(parseFloat(i.value || "0") * 100) : Number(i.value || 0)); });
     $$("[data-pph]").forEach((c) => { draft.PRODUCTS[c.dataset.pph].hidden = c.checked; });
     $$("[data-ppon]").forEach((c) => { draft.DISCOUNTS[c.dataset.ppon].on = c.checked; });
     return draft;
@@ -492,7 +600,7 @@ async function renderPrices() {
   $$("[data-ppdel]").forEach((b) => (b.onclick = () => { if (confirm("Delete " + b.dataset.ppdel + "?")) { collect(); delete draft.DISCOUNTS[b.dataset.ppdel]; save(); } }));
   $("#ppAdd").onclick = () => {
     const c = ($("#ppCode").value || "").trim().toUpperCase(), n = Number($("#ppAmt").value); if (!c || !n) { $("#ppErr").textContent = "A code and an amount."; return; }
-    collect(); draft.DISCOUNTS[c] = $("#ppKind").value === "trial" ? { trial: true, days: n, label: n + "-day free trial" } : { percent: n, label: n + "% off the software" }; save();
+    collect(); draft.DISCOUNTS[c] = $("#ppKind").value === "trial" ? { trial: true, days: n, label: n + "-day free trial" } : { percent: n, label: n + "% off" }; save();
   };
   async function save() { try { await api("POST", "/admin/prices", { prices: draft }); cfg = await api("GET", "/config"); renderRack(); toast("Prices saved"); renderPrices(); } catch (e) { $("#ppErr").textContent = e.message; } }
   $("#ppSave").onclick = () => { collect(); save(); };
@@ -564,6 +672,7 @@ async function renderChurch() {
     return;
   }
   const c = r.church, staff = c.role === "owner" || c.role === "admin", roleName = { owner: "main admin", admin: "admin", user: "user" }[c.role];
+  const mains = r.members.filter((m) => m.role === "owner").length, maxMain = cfg.mainAdminsMax || 2;
   const counts = Object.keys(r.counts).map((k) => `<div><span class="muted" style="font-size:.85rem">${k} · ${esc(r.counts[k].name)}</span><b>${r.counts[k].free}</b><span class="muted" style="font-size:.85rem">left · ${r.counts[k].inUse} in use · ${r.counts[k].total} in all</span></div>`).join("");
   const cur = r.current || "", behind = (k) => k.renewable && k.updatesUntil && Number(k.updatesUntil) < Number(cur) + 0.001;
   const upd = (k) => k.trial ? `<span class="muted">trial · ${k.expired ? "ended" : "until " + new Date(k.expiresAt).toLocaleDateString()}</span>` : k.updatesUntil === "forever" ? '<span class="muted">forever</span>' : `<span class="${behind(k) ? "err" : "muted"}">through ${esc(k.updatesUntil || "?")}</span>`;
@@ -575,27 +684,41 @@ async function renderChurch() {
     ${T.active ? `<div class="card" style="border-color:var(--accent);display:grid;gap:.4rem"><b>Free trial (${esc(T.code)}) until ${new Date(T.until).toLocaleDateString()}</b><span class="muted" style="font-size:.9rem">As many keys as you like, Central Services and Central Tracks Unlimited. Afterwards the trial keys stop and the apps ask for a key you bought; songs and settings stay.</span>
       ${staff ? `<div style="display:flex;gap:.4rem;flex-wrap:wrap"><button class="btn small ghost" data-mk="A">+ Admin key</button><button class="btn small ghost" data-mk="U">+ User key</button><button class="btn small ghost" data-mk="P">+ Pedal Control key</button></div>` : ""}</div>` : T.used ? `<p class="muted" style="margin:0;font-size:.9rem">Your free trial (${esc(T.code)}) has ended. <a href="#store">Get keys</a> to keep going.</p>` : ""}
     ${r.keys.length ? `<table class="ktable"><tr><th></th><th>Key</th><th>On</th><th>Updates</th><th></th></tr>${rows}</table>
-      ${staff && r.keys.some((k) => k.renewable) ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><button class="btn small" id="renewBtn">Renew the ticked keys ($${((cfg.renewal || {}).cents || 2000) / 100} each)</button><label style="font-size:.85rem">Code<input id="renewCode" style="width:120px;text-transform:uppercase" placeholder="optional"></label><span class="muted" style="font-size:.85rem">Admin and user keys get ten releases of updates (bought at 9.0: through 10.0); renewing adds ten more. The apps keep working without it. Pedal Control keys: forever. Now: ${esc(cur)}.</span></div>` : ""}` : `<p class="muted" style="margin:0">No keys yet. <a href="#store">Get a church pack or keys</a>, or start a free trial with a code in the cart.</p>`}
+      ${staff && r.keys.some((k) => k.renewable) ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><button class="btn small" id="renewBtn">Renew the ticked keys ($${((cfg.renewal || {}).cents || 2000) / 100} each)</button><label style="font-size:.85rem">Code<input id="renewCode" style="width:120px;text-transform:uppercase" placeholder="optional"></label><span class="muted" style="font-size:.85rem">Admin and user keys get ten releases of updates (bought at 9.0: through 10.0); renewing adds ten more. The apps keep working without it. Pedal Control keys: forever. Now: ${esc(cur)}.</span></div>` : ""}` : `<p class="muted" style="margin:0">No keys yet. <a href="#store">Get a pack or keys</a>, or start a free trial with a code in the cart.</p>`}
     <p class="muted" style="margin:0;font-size:.9rem">Release frees a key from a lost or broken device${staff ? "" : " (yours)"}. On a working device, use Settings → License → Release key in the app.</p>
     ${c.role === "owner" ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="btn small" id="billBtn">Billing: card &amp; receipts</button><span class="muted" style="font-size:.9rem">In ${esc(c.name)}'s name. It stays with the church if the main admin changes.</span></div>` : ""}
-    ${r.members.length ? `<details ${c.role === "owner" ? "open" : ""}><summary>People (${r.members.length})</summary>${r.members.map((m) => `<div class="tm"><div>${esc(m.name || m.email)} <span class="muted">· ${esc(m.email)} · ${{ owner: "main admin", admin: "admin", user: "user" }[m.role]}</span></div>${c.role === "owner" && m.role !== "owner" ? `<div class="tacts"><select class="tmove" data-role="${esc(m.email)}" aria-label="Role"><option value="admin"${m.role === "admin" ? " selected" : ""}>Admin</option><option value="user"${m.role === "user" ? " selected" : ""}>User</option></select><button class="btn small ghost" data-owner="${esc(m.email)}" data-oname="${esc(m.name || m.email)}">Make main admin</button><button class="btn small ghost" data-rm="${esc(m.email)}">Take out</button></div>` : ""}</div>`).join("")}
+    ${r.members.length ? `<details ${c.role === "owner" ? "open" : ""}><summary>People (${r.members.length}) · ${mains} of ${maxMain} main admins</summary>${c.role === "owner" ? `<p class="muted" style="margin:.4rem 0 0;font-size:.88rem">A church can have ${maxMain} main admins with the same controls. Make one of your admins a main admin, or hand yours over and stay an admin.</p>` : ""}${r.members.map((m) => {
+      const me1 = m.email === me.email, other = c.role === "owner" && !me1, label = { owner: "main admin", admin: "admin", user: "user" }[m.role];
+      const acts = !other ? (me1 && m.role === "owner" && mains > 1 ? `<button class="btn small ghost" data-main="${esc(m.email)}" data-on="0" data-mname="yourself">Step down to admin</button>` : "")
+        : m.role === "owner" ? `<button class="btn small ghost" data-main="${esc(m.email)}" data-on="0" data-mname="${esc(m.name || m.email)}">Back to admin</button>`
+        : `<select class="tmove" data-role="${esc(m.email)}" aria-label="Role"><option value="admin"${m.role === "admin" ? " selected" : ""}>Admin</option><option value="user"${m.role === "user" ? " selected" : ""}>User</option></select>`
+          + (m.role === "admin" && mains < maxMain ? `<button class="btn small ghost" data-main="${esc(m.email)}" data-on="1" data-mname="${esc(m.name || m.email)}">Make main admin</button>` : "")
+          + (m.role === "admin" ? `<button class="btn small ghost" data-owner="${esc(m.email)}" data-oname="${esc(m.name || m.email)}">Hand over</button>` : "")
+          + `<button class="btn small ghost" data-rm="${esc(m.email)}">Take out</button>`;
+      return `<div class="tm"><div>${esc(m.name || m.email)}${me1 ? ' <span class="muted">(you)</span>' : ""} <span class="muted">· ${esc(m.email)} · </span><span class="${m.role === "owner" ? "role-main" : "muted"}">${label}</span></div>${acts ? `<div class="tacts">${acts}</div>` : ""}</div>`;
+    }).join("")}
       ${c.role === "owner" ? `<p style="margin:.4rem 0 0"><button class="btn small ghost" id="newCodes">New codes</button> <span class="muted" style="font-size:.9rem">if a code got out. People already in stay in.</span></p>` : ""}</details>` : ""}
     <div class="err" id="relErr"></div>`;
   el.querySelectorAll("[data-mk]").forEach((b) => (b.onclick = async () => { try { const x = await api("POST", "/church/trial-key", { kind: b.dataset.mk }); toast("New key " + x.key); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; } }));
   if ($("#renewBtn")) $("#renewBtn").onclick = async () => {
     const keys = Array.from(el.querySelectorAll("[data-renew]:checked")).map((x) => x.dataset.renew);
     if (!keys.length) { $("#relErr").textContent = "Tick the keys to renew (only your church's full keys show a box: Pedal Control keys don't need it)."; return; }
-    if (!cfg.payments) return paymentsSoon();
-    try { go((await api("POST", "/checkout/renew", { keys, code: $("#renewCode").value.trim() || undefined })).url); } catch (e) { $("#relErr").textContent = e.message; }
+    const code = $("#renewCode").value.trim() || undefined;
+    openCheckout("Renew " + keys.length + " key" + (keys.length === 1 ? "" : "s"), "Ten more releases of updates for each, " + dollars(((cfg.renewal || {}).cents || 2000) / 100) + " a key" + (code ? " (code " + esc(code.toUpperCase()) + ")" : "") + ".", () => api("POST", "/checkout/renew", { keys, code }));
   };
   if ($("#billBtn")) $("#billBtn").onclick = async () => { try { go((await api("POST", "/church/billing")).url); } catch (e) { $("#relErr").textContent = e.message; } };
   el.querySelectorAll("[data-role]").forEach((sel) => (sel.onchange = async () => {
     try { await api("POST", "/church/role", { email: sel.dataset.role, role: sel.value }); toast(sel.dataset.role + " is now " + (sel.value === "admin" ? "an admin" : "a user")); renderChurch(); } catch (e) { $("#relErr").textContent = e.message; renderChurch(); }
   }));
+  el.querySelectorAll("[data-main]").forEach((b) => (b.onclick = async () => {
+    const on = b.dataset.on === "1", who = b.dataset.mname;
+    if (!confirm(on ? "Make " + who + " a main admin? They get the same controls as you: roles, people and billing." : who === "yourself" ? "Step down to admin? The other main admin keeps the controls." : "Put " + who + " back to admin?")) return;
+    try { await api("POST", "/church/main-admin", { email: b.dataset.main, on }); toast(on ? who + " is a main admin now" : who === "yourself" ? "You're an admin now" : who + " is an admin again"); await refreshMe(); } catch (e) { $("#relErr").textContent = e.message; }
+  }));
   el.querySelectorAll("[data-owner]").forEach((b) => (b.onclick = () => {
-    modal(`<h3>Make ${esc(b.dataset.oname)} the main admin?</h3><p class="muted" style="margin:0">They get your controls (roles, people, billing). You stay an admin. ${esc(c.name)}'s billing and card stay with the church.</p>
-      <form id="hoForm" style="background:none;border:0;padding:0"><label>Your password<input id="hoPw" type="password" autocomplete="current-password" required></label><div style="display:flex;gap:.5rem"><button class="btn">Make them main admin</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err" id="hoErr"></div></form>`);
-    $("#hoForm").onsubmit = async (e) => { e.preventDefault(); try { await api("POST", "/church/handover", { email: b.dataset.owner, password: $("#hoPw").value }); closeModal(); toast(b.dataset.oname + " is the main admin now"); await refreshMe(); } catch (err) { $("#hoErr").textContent = err.message; } };
+    modal(`<h3>Hand your main admin role to ${esc(b.dataset.oname)}?</h3><p class="muted" style="margin:0">They get your controls (roles, people, billing) and you become an admin. ${esc(c.name)}'s billing and card stay with the church.</p>
+      <form id="hoForm" style="background:none;border:0;padding:0"><label>Your password<input id="hoPw" type="password" autocomplete="current-password" required></label><div style="display:flex;gap:.5rem"><button class="btn">Hand it over</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err" id="hoErr"></div></form>`);
+    $("#hoForm").onsubmit = async (e) => { e.preventDefault(); try { await api("POST", "/church/handover", { email: b.dataset.owner, password: $("#hoPw").value }); closeModal(); toast(b.dataset.oname + " is a main admin now, and you're an admin"); await refreshMe(); } catch (err) { $("#hoErr").textContent = err.message; } };
   }));
   el.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Take " + b.dataset.rm + " out of " + c.name + "?")) return;
@@ -625,7 +748,7 @@ async function renderTeams() {
           <select class="tmove" data-tmove="${m.id}" data-tname="${esc(m.name || m.email)}" aria-label="Move to another team"><option value="">Move to…</option>${SECT.filter((x) => x[0] !== id).map((x) => `<option value="${x[0]}">${x[1]} (${x[2]})</option>`).join("")}</select>${!r.mail ? ` <button class="btn small ghost" data-tcopy="${esc(m.link)}">Copy link</button>` : ""} <button class="btn small ghost" data-tremove="${m.id}" data-tname="${esc(m.name || m.email)}">Remove</button></div></div>`).join("") : `<p class="muted" style="margin:0">Nobody yet.</p>`}
       ${adding[id].map((a, i) => `<div class="trow"><input placeholder="Name" data-ta="${id}" data-ti="${i}" data-tf="name" value="${esc(a.name)}"><input placeholder="Email" type="email" data-ta="${id}" data-ti="${i}" data-tf="email" value="${esc(a.email)}"><input placeholder="Role (e.g. Bass, Lights)" data-ta="${id}" data-ti="${i}" data-tf="role" value="${esc(a.role)}"></div>`).join("")}
       <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small ghost" data-tadd="${id}">+ Add ${adding[id].length ? "another" : "members"}</button>${adding[id].length ? `<button class="btn small" data-tdone="${id}">Done</button>` : ""}</div></section>`).join("")}</div>
-    ${me.church.role === "owner" && !owner ? `<details><summary style="font-size:.92rem">Make someone else the main admin</summary><form id="ownForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Name<input id="ownName"></label><label>Email<input id="ownEmail" type="email"></label><button class="btn small">Send the invite</button></form></details>` : ""}
+    ${me.church.role === "owner" && !owner ? `<details><summary style="font-size:.92rem">Invite someone new to take over as main admin</summary><form id="ownForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Name<input id="ownName"></label><label>Email<input id="ownEmail" type="email"></label><button class="btn small">Send the invite</button></form></details>` : ""}
     <div class="${/^✓/.test(teamNote) ? "" : "err"}" id="teamMsg" style="white-space:pre-line">${esc(teamNote)}</div>`;
   el.querySelectorAll("[data-ta]").forEach((inp) => (inp.oninput = () => { adding[inp.dataset.ta][+inp.dataset.ti][inp.dataset.tf] = inp.value; }));
   el.querySelectorAll("[data-tadd]").forEach((b) => (b.onclick = () => { adding[b.dataset.tadd].push({ name: "", email: "", role: "" }); teamNote = ""; renderTeams(); }));
@@ -735,6 +858,7 @@ $("#signOut").onclick = () => { setToken(null); me = null; renderAll(); toast("Y
 async function refreshMe() {
   if (!token) { me = null; } else { try { me = await api("GET", "/me"); } catch { me = null; } }
   renderAll();
+  if (me) { let back = null; try { back = sessionStorage.getItem("ma-after-signin"); sessionStorage.removeItem("ma-after-signin"); } catch {} if (back) { history.replaceState(null, "", back); handleHash(); } }   // (signed in to buy a track the apps sent)
 }
 function renderAll() { renderSub(); renderPayout(); renderAccount(); loadTracks(); renderRack(); }
 
@@ -762,7 +886,9 @@ async function handleHash() {
   } else if (h === "subscribed") { toast("Welcome to Central Tracks Unlimited! Add anything you like."); setTimeout(refreshMe, 2500); }
   else if (h.startsWith("bought-")) { toast("Thanks! It's in your storage now."); setTimeout(loadTracks, 2500); }
   else if (h === "renewed") { toast("Renewed. You've got ten more releases of updates."); setTimeout(refreshMe, 2500); }
-  else if (h === "services-on") { toast("Central Services is on. Your team can sign in now."); setTimeout(refreshMe, 2500); }
+  else if (h.startsWith("buy-")) { history.replaceState(null, "", "#tracks"); return buyFromLink(h.slice(4)); }
+  else if (h === "id-done") { history.replaceState(null, "", "#publish"); toast("Thanks! Stripe is checking your ID. It usually takes a minute or two."); setTimeout(refreshMe, 4000); }
+  else if (h === "payouts-done" || h === "payouts-refresh") { history.replaceState(null, "", "#publish"); if (h === "payouts-refresh") { try { go((await api("POST", "/connect")).url); } catch (e) { toast(e.message); } } else { toast("Payout setup saved."); refreshMe(); } }
 }
 
 // ---------------------------------------------------------------- staff: who can edit the website
@@ -805,7 +931,7 @@ async function renderEditors() {
 })();
 
 renderTiers(); setPrice();
-window.refreshConfig = () => api("GET", "/config").then((c) => { cfg = c; renderRack(); }).catch(() => {});
+window.refreshConfig = () => api("GET", "/config" + (previewing ? "?preview=1" : "")).then((c) => { cfg = c; renderRack(); }).catch(() => {});
 window.refreshConfig();
 document.addEventListener("sitecontent", () => renderRack());
 refreshMe().then(handleHash);

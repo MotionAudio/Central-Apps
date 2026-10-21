@@ -14,7 +14,6 @@ import { sendMail, mailOn, escHtml } from "./mail.js";
 import { remindInvites, churchOf, acceptInvite } from "./licenses.js";
 import { remindServices } from "./services.js";
 import { remindTrials } from "./trials.js";
-import { syncServicesPrices } from "./payments.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const hash = (t) => crypto.createHash("sha256").update(String(t)).digest("hex");
@@ -88,9 +87,10 @@ export function routes(api, { wrap, brake }) {
     const u = req.user;
     if (!checkPassword(String(req.body.password || ""), u.pass_hash)) throw bad("That password isn't right.", 403);
     const c = await churchOf(u.id);
-    if (c && c.role === "owner") {
+    const otherMain = c && c.role === "owner" ? await one("SELECT 1 FROM church_members WHERE church_id=$1 AND user_id<>$2 AND role='owner'", [c.id, u.id]) : null;
+    if (c && c.role === "owner" && !otherMain) {   // (with a second main admin, the church carries on with them)
       const others = await one("SELECT COUNT(*)::int AS n FROM church_members WHERE church_id=$1 AND user_id<>$2", [c.id, u.id]);
-      if (others.n) throw bad("You're the main admin of " + c.name + ". Make someone else the main admin first (Account → Members → Make main admin), then delete your account.", 409);
+      if (others.n) throw bad("You're the main admin of " + c.name + ". Make someone else a main admin first (Account → People → Make main admin), then delete your account.", 409);
       if (!req.body.closeChurch) { const e = bad("You're the only one in " + c.name + ". Deleting your account also closes it: its keys stop working.", 409); e.needClose = true; throw e; }
     }
     res.json(await deleteAccount(u, c));
@@ -111,7 +111,7 @@ export async function runReminders() {
   try {
     const got = (await client.query("SELECT pg_try_advisory_lock(80612) AS ok")).rows[0].ok;
     if (!got) return { invites: 0, services: 0, skipped: "another server" };
-    try { return { invites: await remindInvites(), services: await remindServices(), trials: await remindTrials(), plans: await syncServicesPrices() }; }
+    try { return { invites: await remindInvites(), services: await remindServices(), trials: await remindTrials() }; }
     finally { await client.query("SELECT pg_advisory_unlock(80612)"); }
   } finally { client.release(); running = false; }
 }
@@ -133,12 +133,18 @@ export async function sendConfirm(user) {
 // what's left of an account: nothing that says who it was (the row stays so past orders and payouts still add up)
 export async function deleteAccount(u, c) {
   const email = u.email, client = await pool.connect();
+  let closes = false;
   try {
     await client.query("BEGIN");
-    if (c && c.role === "owner") {   // (locked, and checked again: nobody joined meanwhile)
+    if (c && c.role === "owner") {   // (locked, and checked again: nobody joined meanwhile; another main admin carries on)
       await client.query("SELECT id FROM churches WHERE id=$1 FOR UPDATE", [c.id]);
-      const others = (await client.query("SELECT COUNT(*)::int AS n FROM church_members WHERE church_id=$1 AND user_id<>$2", [c.id, u.id])).rows[0].n;
-      if (others) { const e = bad("Someone just joined " + c.name + ". Make someone else the main admin first.", 409); throw e; }
+      const other = (await client.query("SELECT user_id FROM church_members WHERE church_id=$1 AND user_id<>$2 AND role='owner' LIMIT 1", [c.id, u.id])).rows[0];
+      if (other) await client.query("UPDATE churches SET owner_id=$1 WHERE id=$2 AND (owner_id=$3 OR owner_id IS NULL)", [other.user_id, c.id, u.id]);
+      else {
+        const others = (await client.query("SELECT COUNT(*)::int AS n FROM church_members WHERE church_id=$1 AND user_id<>$2", [c.id, u.id])).rows[0].n;
+        if (others) { const e = bad("Someone just joined " + c.name + ". Make someone else a main admin first.", 409); throw e; }
+        closes = true;
+      }
     }
     const keys = (await client.query("SELECT key FROM licenses WHERE user_id=$1 OR assigned_email=$2", [u.id, email])).rows.map((r) => r.key);
     if (keys.length) { await client.query("DELETE FROM license_devices WHERE key = ANY($1)", [keys]); await client.query("UPDATE licenses SET user_id=NULL, assigned_email=NULL, assigned_name=NULL WHERE key = ANY($1)", [keys]); }
@@ -151,18 +157,18 @@ export async function deleteAccount(u, c) {
     await client.query("DELETE FROM service_requests r USING services s WHERE s.id=r.service_id AND r.email=$1 AND s.starts_at > now()", [email]);
     await client.query("UPDATE service_requests SET email='deleted-' || id, name='', note='' WHERE email=$1", [email]);
     await client.query("UPDATE tracks SET status='hidden' WHERE publisher_id=$1 AND status='live'", [u.id]);
-    if (c && c.role === "owner") await client.query("UPDATE churches SET owner_id=NULL, closed_at=now() WHERE id=$1", [c.id]);
+    if (closes) await client.query("UPDATE churches SET owner_id=NULL, closed_at=now() WHERE id=$1", [c.id]);
     await client.query(`UPDATE users SET email='deleted-' || id || '@deleted.invalid', name='', pass_hash='!', phone=NULL, phone_confirmed=FALSE,
       subscribed=FALSE, deleted_at=now() WHERE id=$1`, [u.id]);
     await client.query("COMMIT");
   } catch (e) { try { await client.query("ROLLBACK"); } catch (_) { } throw e; } finally { client.release(); }
   if (stripe) {   // (their own card and subscription; a closed church's too)
     try { if (u.stripe_customer) await stripe.customers.del(u.stripe_customer); } catch (_) { }
-    try { if (c && c.role === "owner" && c.stripe_customer) await stripe.customers.del(c.stripe_customer); } catch (_) { }
+    try { if (closes && c.stripe_customer) await stripe.customers.del(c.stripe_customer); } catch (_) { }
   }
-  await sendMail(email, "Your Motion Audio account is deleted", "Your Motion Audio account (" + email + ") is deleted" + (c && c.role === "owner" ? ", and " + c.name + " is closed" : "") + ". Its keys are free again and your details are gone.\n\nMotion Audio\n",
-    "<p style=\"font:15px/1.5 system-ui,sans-serif\">Your Motion Audio account (" + escHtml(email) + ") is deleted" + (c && c.role === "owner" ? ", and " + escHtml(c.name) + " is closed" : "") + ". Its keys are free again and your details are gone.</p>");
-  return { ok: true, closedChurch: !!(c && c.role === "owner") };
+  await sendMail(email, "Your Motion Audio account is deleted", "Your Motion Audio account (" + email + ") is deleted" + (closes ? ", and " + c.name + " is closed" : "") + ". Its keys are free again and your details are gone.\n\nMotion Audio\n",
+    "<p style=\"font:15px/1.5 system-ui,sans-serif\">Your Motion Audio account (" + escHtml(email) + ") is deleted" + (closes ? ", and " + escHtml(c.name) + " is closed" : "") + ". Its keys are free again and your details are gone.</p>");
+  return { ok: true, closedChurch: closes };
 }
 
 // someone the Teams page invited who made their account without the email's link: once their email is confirmed, the
