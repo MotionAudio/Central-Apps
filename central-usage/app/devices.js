@@ -94,7 +94,7 @@
           '<td class="small">' + (p.online ? '<span class="dv-ok">online</span> ' + st.join(" · ") : '<span class="muted">offline · ' + ago(p.lastSeen) + "</span>") + "</td>" +
           '<td class="dv-acts"><button data-dv="rename" data-id="' + esc(p.id) + '">Rename</button><button class="danger" data-dv="remove" data-id="' + esc(p.id) + '">Unpair</button></td></tr>';
       }).join("") + "</tbody></table>";
-      h += '<label class="toggle small"><input type="checkbox" data-dv="backupLocal"' + (v.backupLocal !== false ? " checked" : "") + "> While a Central Pedal plays, this computer's player window is the <b>backup player</b> (it follows the song silently and takes over if the Central Pedal stops mid-song - its timing is in the player window's Settings → Backup player)</label>";
+      h += '<label class="toggle small"><input type="checkbox" data-dv="backupLocal"' + (v.backupLocal !== false ? " checked" : "") + "><span>While a Central Pedal plays, this computer's player window is the <b>backup player</b>: it follows the song silently and takes over if the Central Pedal stops mid-song. Its timing is in the player window's Settings → Backup player.</span></label>";
       h += '<p class="muted small">One track player at a time - every Central Control and phone follows it, and changes over by itself when you pick another. Foot controllers drive the track player; instrument rigs only play their own instrument. Songs, tracks, charts and setlists are copied to every pedal. Add another Central Pedal with the pairing PIN <b>' + esc(pin) + "</b>.</p>";
     }
     return h + "</div>";

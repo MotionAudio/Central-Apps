@@ -193,7 +193,9 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.3.2 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.3.3 and earlier)</summary>
+
+**New in version 9.3.3:** A layout clean-up across Central Control (top bar, Lighting, Service, Devices, I/O, Settings, Mix, In-ears, Video), the website (phones, store, Central Tracks, Teams, account) and Central Services; same look.
 
 **New in version 9.3.2:** Central Control's Service tab lays out the running item properly, the Slides Live screen shows the slide full width, and the on-air song and look in Lighting keep their layout.
 
