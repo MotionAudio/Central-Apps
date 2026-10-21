@@ -14,9 +14,9 @@ You need **3 accounts**. Do them in this order.
    proprietor), your bank account, and your SSN or EIN. This is how you get paid.
 3. Turn on **Connect** (left menu → *Connect* → *Get started*). Choose **Platform or marketplace**. This is what
    lets you pay publishers their 75% of sales and their share of the subscriber pool.
-4. Turn on **Identity** (left menu → *More* → *Identity*): publishers verify their ID with it once before their first
-   upload. And **Billing → Customer portal** (*Settings* → *Billing* → *Customer portal* → *Activate*): it's the
-   "Billing: card & receipts" and "Manage subscription" buttons.
+4. Turn on **Billing → Customer portal** (*Settings* → *Billing* → *Customer portal* → *Activate*): it's the
+   "Billing: card & receipts" and "Manage subscription" buttons. (Publishers don't verify their ID. To ask for it
+   later: turn on Stripe Identity and set `REQUIRE_ID_TO_PUBLISH` to `on` in Render.)
 5. Get your keys: *Developers* → *API keys*. You need the **Publishable key** (`pk_...`, the payment form on the
    page) and a server key. Stripe recommends a **restricted key** (`rk_...`, *Create restricted key*) instead of the
    secret key: give it write access to Checkout Sessions, Customers, Refunds, Subscriptions, Billing portal, Identity,

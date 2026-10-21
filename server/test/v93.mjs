@@ -62,7 +62,7 @@ const lastSession = () => sessions().pop().body;
 process.env.DATABASE_URL = db;
 const srv = spawn(process.execPath, [path.join(here, "..", "src", "index.js")], { env: Object.assign({}, process.env, { PORT: String(port), STRIPE_SECRET_KEY: "sk_test_93", STRIPE_PUBLISHABLE_KEY: "pk_test_93", STRIPE_WEBHOOK_SECRET: WHSEC,
   STRIPE_API_URL: "http://127.0.0.1:" + stripeSrv.address().port, RESEND_API_KEY: "re_test", MAIL_FROM: "M <t@motion.test>", RESEND_API_URL: "http://127.0.0.1:" + mailSrv.address().port + "/emails",
-  PUBLIC_URL: "https://motion.test", ADMIN_EMAILS: STAFF, REMINDERS: "off" }), stdio: ["ignore", "pipe", "pipe"] });
+  PUBLIC_URL: "https://motion.test", ADMIN_EMAILS: STAFF, REMINDERS: "off", REQUIRE_ID_TO_PUBLISH: "on" }), stdio: ["ignore", "pipe", "pipe"] });
 let log = ""; srv.stdout.on("data", (d) => { log += d; }); srv.stderr.on("data", (d) => { log += d; });
 for (let i = 0; i < 100 && !/Motion Audio server on/.test(log); i++) await new Promise((r) => setTimeout(r, 100));
 

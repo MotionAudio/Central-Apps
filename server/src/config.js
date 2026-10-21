@@ -16,7 +16,7 @@ export const config = {
     webhookSecret: env.STRIPE_WEBHOOK_SECRET || "",
     apiVersion: "2026-09-30.endive",
     api: env.STRIPE_API_URL || "",                       // (tests: a stand-in Stripe)
-    requireIdToPublish: env.REQUIRE_ID_TO_PUBLISH !== "off",   // publishers verify their ID once before their first upload
+    requireIdToPublish: env.REQUIRE_ID_TO_PUBLISH === "on",   // off: anyone with an account publishes. "on": publishers verify their ID once first (Stripe Identity)
   },
   // Cloudflare R2 (or any S3-compatible storage). Left empty, files go to a local folder (for testing only).
   storage: {
