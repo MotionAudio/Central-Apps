@@ -118,6 +118,17 @@
     var b = st.board, sched = st.me.role === "scheduler", list = b.services.filter(function (s) { return new Date(s.startsAt) > Date.now() - 6 * 3600e3; });
     return '<div class="card"><h2>Schedule</h2>' + (list.length ? list.map(function (s) { return serviceCard(s, sched); }).join("") : '<p class="muted" style="margin:0">No services scheduled yet.' + (sched ? " Make one with + New service." : "") + "</p>") + "</div>";
   }
+  // the church's Central Services slots: each person on the teams takes one; taking someone off frees it
+  function slotsCard(b) {
+    var x = b.slots; if (!x) return "";
+    var buyer = st.me.churchRole === "owner" || st.me.churchRole === "admin", site = BASE ? BASE + "/#account" : "";
+    if (x.trial) return '<div class="card slots"><h2>Slots</h2><p class="muted small" style="margin:0">Free trial: as many people as you like until ' + esc(new Date(x.trial).toLocaleDateString()) + ".</p></div>";
+    var pct = x.slots ? Math.min(100, Math.round(x.used / x.slots * 100)) : 100, full = x.free <= 0;
+    return '<div class="card slots"><div class="row" style="justify-content:space-between;align-items:baseline"><h2>Slots</h2><span class="slots-n"><b>' + x.used + '</b> of ' + x.slots + ' in use</span></div>' +
+      '<div class="meterbar' + (full ? " full" : "") + '"><i style="width:' + pct + '%"></i></div>' +
+      '<p class="muted small" style="margin:0">' + (full ? "<b>Every slot is in use.</b> " : x.free + " free. ") + "Each person on your teams takes one; take someone off a team and theirs is free for the next person." +
+      (buyer && site ? ' <a href="' + esc(site) + '" target="_blank" rel="noopener">Add slots on the website</a> ($5 each, once).' : full ? " Ask your main admin for more." : "") + "</p></div>";
+  }
   function teams() {
     var b = st.board, sched = st.me.role === "scheduler", owner = st.me.churchRole === "owner";
     var group = function (kind, title) {
@@ -132,7 +143,7 @@
         }).join("") + "</div>" : '<p class="muted small" style="margin:0">No ' + kind + " teams yet.</p>") + "</div>";
     };
     var people = b.people || [];
-    return group("worship", "Worship teams") + group("production", "Production teams") +
+    return slotsCard(b) + group("worship", "Worship teams") + group("production", "Production teams") +
       '<div class="card"><h2>Schedulers <span class="muted small">(up to ' + b.limits.schedulers + ")</span></h2><div>" + b.schedulers.map(function (u) { return esc(u.name || u.email); }).join(" · ") + "</div>" +
       (owner ? '<details><summary class="small">Choose the schedulers</summary><div style="display:grid;gap:.2rem;margin-top:.4rem">' + people.map(function (p) { return '<label class="pick"><input type="checkbox" data-schedpick value="' + esc(p.email) + '"' + (b.schedulers.some(function (u) { return u.email === p.email; }) ? " checked" : "") + "> " + esc(p.name || p.email) + ' <span class="muted small">· ' + esc(p.role) + "</span></label>"; }).join("") +
         '<button class="small primary" data-a="saveSched" style="justify-self:start">Save</button></div></details>' : "") + "</div>";

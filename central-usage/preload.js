@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld("CU", {
   player: { open: () => ipcRenderer.invoke("player-open"), status: () => ipcRenderer.invoke("player-status"), stop: () => ipcRenderer.invoke("player-stop"), on: (fn) => ipcRenderer.on("player-status", (_e, st) => fn(st)) },
   center: { status: () => ipcRenderer.invoke("center-status"), heard: () => ipcRenderer.invoke("center-heard"), probe: (host, port) => ipcRenderer.invoke("center-probe", host, port), on: (fn) => ipcRenderer.on("center-status", (_e, st) => fn(st)) },
   config: { get: () => ipcRenderer.invoke("cu-config"), set: (patch) => ipcRenderer.invoke("cu-config-set", patch) },
+  // the hub and the second main admin's computer kept in sync with it (hubsync.js)
+  standby: { status: () => ipcRenderer.invoke("standby-status"), sync: () => ipcRenderer.invoke("standby-sync"), set: (m) => ipcRenderer.invoke("standby-set", m),
+    takeover: (o) => ipcRenderer.invoke("hub-takeover", o), on: (fn) => ipcRenderer.on("standby-status", (_e, st) => fn(st)),
+    onHubChanged: (fn) => ipcRenderer.on("hub-changed", (_e, m) => fn(m)), onRestart: (fn) => ipcRenderer.on("hub-restart", () => fn()) },
+  hubState: (store) => ipcRenderer.send("hub-state", store),
+  hubImport: () => ipcRenderer.sendSync("hub-state-import"),
   host: { status: () => ipcRenderer.invoke("host-status"), on: (fn) => ipcRenderer.on("host-status", (_e, st) => fn(st)), piTarget: (t) => ipcRenderer.invoke("pi-target", t) },
   mixer: {
     get: () => ipcRenderer.invoke("mixer-get"), op: (op) => ipcRenderer.invoke("mixer-op", op), replace: (st) => ipcRenderer.invoke("mixer-replace", st),

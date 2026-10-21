@@ -19,7 +19,8 @@ const { PiAudio } = require("./piaudio");
 const { Recorder } = require("./recorder");
 const { Talk, isDesk } = require("./talk");
 const { findFfmpeg } = require("./video-service");
-const { Center, BEACON_PORT } = require("./center");
+const { Center, BEACON_PORT, salted } = require("./center");
+const hubsync = require("./hubsync");
 const dgram = require("node:dgram");
 
 function which(cmd) {
@@ -87,7 +88,9 @@ module.exports = function services(app, getWin) {
   async function applyCenter() {
     const want = cfg.role === "main";
     if (want && !center) {
-      center = new Center({ port: centerPort, dataDir: userData, appDir: path.join(__dirname, "app"), name: cfg.name || os.hostname(), beacon: !process.env.CU_NO_BEACON });
+      center = new Center({ port: centerPort, dataDir: userData, appDir: path.join(__dirname, "app"), name: cfg.name || os.hostname(), beacon: !process.env.CU_NO_BEACON,
+        mirror: (req, res, c) => hubsync.serveMirror(req, res, { dataDir: userData, check: (sec) => c.checkMirror(sec), before: () => c.save(),
+          info: () => ({ hub: c.hubKey, gen: c.gen, name: c.mainName() }), handover: (sec, from) => stepDown("handover", { secret: sec, hub: c.hubKey, hubName: (c.devices[c.standby && c.standby.id] || {}).name || "", host: from && from.host, port: from && from.port }) }) });
       center.on((ev) => { if (ev.type === "status" || ev.type === "error") send("center-status", centerStatus()); });
       await center.start();
     } else if (!want) {   // no longer the main admin: its list goes (another computer can become the main admin)
@@ -102,10 +105,108 @@ module.exports = function services(app, getWin) {
   try {
     const ear = dgram.createSocket({ type: "udp4", reuseAddr: true });
     ear.on("error", () => { });
-    ear.on("message", (buf, rinfo) => { try { const j = JSON.parse(String(buf)); if (j.app === "central-control-center" && j.port) heard.set(rinfo.address + ":" + j.port, { host: rinfo.address, port: Number(j.port), name: String(j.name || "").slice(0, 40), at: Date.now() }); } catch (_) { } });
+    ear.on("message", (buf, rinfo) => { try { const j = JSON.parse(String(buf)); if (j.app === "central-control-center" && j.port && center && j.hub && j.hub === center.hubKey && Number(j.gen) > center.gen) stepDown("newer", { by: String(j.name || "").slice(0, 40) });
+        if (j.app === "central-control-center" && j.port) heard.set(rinfo.address + ":" + j.port, { host: rinfo.address, port: Number(j.port), name: String(j.name || "").slice(0, 40), hub: String(j.hub || ""), gen: Number(j.gen) || 0, at: Date.now() }); } catch (_) { } });
     ear.bind(BEACON_PORT, () => { try { ear.setBroadcast(true); } catch (_) { } });
   } catch (_) { }
   ipcMain.handle("center-status", () => centerStatus());
+
+  // ------------------------------------------------------------------ the hub and the second main admin's computer (hubsync.js)
+  // the hub's window sends what of it belongs to the church (lighting, slides, timecode); the in-sync computer copies it
+  const hubStateFile = path.join(userData, "hub-state.json"), importFile = path.join(userData, "hub-state-import.json"), standbyDir = path.join(userData, "standby");
+  let lastHubState = "";
+  ipcMain.on("hub-state", (_e, store) => {
+    if (cfg.role !== "main" || !store || typeof store !== "object") return;
+    const keep = {}; for (const k of hubsync.HUB_KEYS) if (typeof store[k] === "string" && store[k].length < 8e6) keep[k] = store[k];
+    const mk = cfg.mainKeys || {}, body = JSON.stringify({ store: keep, pin: mk.pin, pair: mk.pair, userCode: cfg.host.userCode, adminCode: cfg.host.adminCode, name: cfg.name });
+    if (body === lastHubState) return; lastHubState = body;
+    try { fs.writeFileSync(hubStateFile + ".part", body); fs.renameSync(hubStateFile + ".part", hubStateFile); } catch (_) { }
+  });
+  // after a takeover: the window puts the hub's lighting, slides and timecode in place before anything reads them
+  ipcMain.on("hub-state-import", (e) => { let j = null; try { j = JSON.parse(fs.readFileSync(importFile, "utf8")); fs.unlinkSync(importFile); } catch (_) { } e.returnValue = j; });
+  // the in-sync computer: { secret, hub, hubName, port, host } in cfg.standby; a copy every minute
+  const sync = { busy: false, at: null, ok: null, error: null, files: 0, bytes: 0, host: null };
+  function hubAddress() {
+    const sb = cfg.standby; if (!sb) return null;
+    const fresh = [...heard.values()].filter((h) => h.hub === sb.hub && Date.now() - h.at < 8000).sort((a, b) => b.gen - a.gen)[0];
+    return fresh ? { host: fresh.host, port: fresh.port } : sb.host ? { host: sb.host, port: sb.port || centerPort } : null;
+  }
+  function standbyStatus() {
+    const last = hubsync.lastSync(standbyDir);
+    return { on: !!cfg.standby, hubName: cfg.standby ? cfg.standby.hubName || "" : "", busy: sync.busy, at: sync.at || (last && last.at) || null, ok: sync.ok, error: sync.error,
+      files: sync.files || (last && last.files) || 0, bytes: sync.bytes || (last && last.bytes) || 0,
+      hubOnline: !!(cfg.standby && ([...heard.values()].some((h) => h.hub === cfg.standby.hub && Date.now() - h.at < 8000) || (sync.ok && sync.at && Date.now() - sync.at < 150000))),   // (heard, or copied from it lately)
+      copy: !!(last && fs.existsSync(path.join(standbyDir, "center.json"))) };
+  }
+  async function syncNow() {
+    if (!cfg.standby || cfg.role === "main" || sync.busy) return standbyStatus();
+    const a = hubAddress(); if (!a) { sync.ok = false; sync.error = "Can't find the hub on this network."; send("standby-status", standbyStatus()); return standbyStatus(); }
+    sync.busy = true; send("standby-status", standbyStatus());
+    try {
+      const r = await hubsync.syncFrom({ host: a.host, port: a.port, secret: cfg.standby.secret, dest: standbyDir });
+      Object.assign(sync, { at: r.at, ok: true, error: null, files: r.files, bytes: r.bytes });
+      if (cfg.standby.host !== a.host || (r.info && r.info.name && r.info.name !== cfg.standby.hubName)) { cfg.standby.host = a.host; cfg.standby.port = a.port; if (r.info && r.info.name) cfg.standby.hubName = r.info.name; saveCfg(); }
+    } catch (e) { sync.ok = false; sync.error = /403/.test(e.message) || /not the in-sync/.test(e.message) ? "The hub no longer keeps this computer in sync." : e.message; }
+    sync.busy = false; send("standby-status", standbyStatus());
+    return standbyStatus();
+  }
+  setInterval(() => { syncNow().catch(() => { }); }, Number(process.env.CU_SYNC_MS) || 60000).unref();
+  ipcMain.handle("standby-status", () => standbyStatus());
+  ipcMain.handle("standby-sync", () => syncNow());
+  ipcMain.handle("standby-set", (_e, m) => {   // from the center, through this computer's window: { type: "standbyAssigned" | "standbyCleared", secret, hub, hubName, port }
+    m = m || {};
+    if (m.type === "standbyAssigned" && /^[0-9a-f]{32,128}$/.test(String(m.secret || "")) && cfg.role !== "main") {
+      const host = /^[A-Za-z0-9.:-]{1,64}$/.test(String(m.host || "")) ? String(m.host) : null;
+      cfg.standby = { secret: String(m.secret), hub: String(m.hub || ""), hubName: String(m.hubName || "").slice(0, 40), port: Number(m.port) || centerPort, host, since: Date.now() };
+      saveCfg(); setTimeout(() => syncNow().catch(() => { }), 500);
+    } else if (m.type === "standbyCleared" && cfg.standby && (!m.hub || m.hub === cfg.standby.hub)) {
+      delete cfg.standby; saveCfg(); try { fs.rmSync(standbyDir, { recursive: true, force: true }); } catch (_) { }
+    }
+    send("standby-status", standbyStatus()); return standbyStatus();
+  });
+  // Take over as the hub: { pin, deviceId, force } -> { ok } | { needForce, at } | { ok: false, error }
+  ipcMain.handle("hub-takeover", async (_e, o) => {
+    o = o || {};
+    if (!cfg.standby) return { ok: false, error: "This computer isn't kept in sync with the hub." };
+    const pin = hubsync.pinOk(standbyDir, o.pin, salted);
+    if (pin === null) return { ok: false, error: "There's no copy of the hub on this computer yet. Wait for the first sync (it runs every minute)." };
+    if (!pin) return { ok: false, error: "That isn't the main admin's role PIN." };
+    let planned = false;
+    if (hubAddress()) {   // the hub on: one last copy, then it hands over
+      while (sync.busy) await new Promise((r) => setTimeout(r, 200));
+      const st = await syncNow();
+      if (st.ok && st.at && Date.now() - st.at < 30000) {
+        try { const a = hubAddress(); await hubsync.handover({ host: a.host, port: a.port, secret: cfg.standby.secret, myPort: centerPort }); planned = true; }
+        catch (e) { if (!o.force) return { needForce: true, at: st.at, error: "The hub didn't hand over (" + e.message + ")." }; }
+      } else if (!o.force) return { needForce: true, at: st.at };
+    } else if (!o.force) return { needForce: true, at: standbyStatus().at };
+    const r = hubsync.promote({ userData, dest: standbyDir, deviceId: String(o.deviceId || ""), name: cfg.name, token: mainKeys().token, planned, salted });
+    const hs = r.hubState || {};
+    if (/^\d{4}$/.test(String(hs.pin || ""))) cfg.mainKeys.pin = String(hs.pin);
+    if (/^\d{4}$/.test(String(hs.pair || ""))) cfg.mainKeys.pair = String(hs.pair);
+    if (hs.userCode) cfg.host.userCode = hs.userCode; if (hs.adminCode) cfg.host.adminCode = hs.adminCode;
+    cfg.role = "main"; cfg.mode = "admin"; delete cfg.standby; saveCfg();
+    try { fs.writeFileSync(importFile, JSON.stringify(hs.store || {})); } catch (_) { }
+    try { fs.rmSync(standbyDir, { recursive: true, force: true }); } catch (_) { }
+    restart();
+    return { ok: true, planned };
+  });
+  // this computer stops being the hub: handed over (it keeps itself in sync with the new hub), or a newer hub of this
+  // church is on the network (it took over while this computer was off)
+  let steppingDown = false;
+  function stepDown(why, o) {
+    if (steppingDown || cfg.role !== "main") return; steppingDown = true;
+    o = o || {};
+    cfg.role = "admin"; cfg.mode = "admin";
+    if (why === "handover" && o.secret) cfg.standby = { secret: o.secret, hub: o.hub, hubName: o.hubName || "", port: o.port || centerPort, host: o.host || null, since: Date.now() };
+    saveCfg();
+    send("hub-changed", { why, by: o.by || o.hubName || "" });
+    setTimeout(() => restart(), 1500);
+  }
+  function restart() {   // (the window, the center and the player start again in their new place)
+    if (process.env.CU_NO_RELAUNCH) { steppingDown = false; applyHost(); applyCenter(); send("hub-restart"); return; }
+    setTimeout(() => { app.relaunch(); app.exit(0); }, 400);
+  }
   ipcMain.handle("center-heard", () => [...heard.values()].filter((h) => Date.now() - h.at < 8000));
   ipcMain.handle("center-probe", (_e, host, port) => new Promise((resolve) => {
     const req = http.get({ host: String(host), port: Number(port) || 8095, path: "/api/center", timeout: 1500 }, (res) => { let b = ""; res.setEncoding("utf8"); res.on("data", (c) => { b += c; if (b.length > 8192) req.destroy(); }); res.on("end", () => { try { const j = JSON.parse(b); resolve(j && j.app === "central-control-center" ? Object.assign(j, { host: String(host) }) : null); } catch (_) { resolve(null); } }); });

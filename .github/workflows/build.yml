@@ -99,9 +99,11 @@ jobs:
           bash prepare-player.sh
           npm install --no-audit --no-fund
           bash ../tools/ci-run.sh "center test" node test-center.mjs
+          bash ../tools/ci-run.sh "hub sync test" node test-hubsync.mjs
           bash ../tools/ci-run.sh "pedal audio test" node test-piaudio.mjs
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never
+          node ../tools/check-packaged.js dist/linux-unpacked/resources/app.asar
       - name: Smoke test - the packed app (helpers, video, sounds, the player, the speech model's runtime)
         run: |
           R=central-usage/dist/linux-unpacked/resources
@@ -196,6 +198,7 @@ jobs:
           bash prepare-player.sh
           npm install --no-audit --no-fund
           bash ../tools/ci-run.sh "center test" node test-center.mjs
+          bash ../tools/ci-run.sh "hub sync test" node test-hubsync.mjs
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --win nsis --x64 --publish never
       - name: Smoke test - the packed app (helpers, video, the player, sounds, the speech model's runtime)

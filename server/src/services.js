@@ -6,6 +6,7 @@
 import { q, one, pool } from "./db.js";
 import { config, SERVICES_LIMITS as LIM } from "./config.js";
 import { churchOf, trialActive } from "./licenses.js";
+import { slotsOf } from "./trials.js";
 import { sendMail, escHtml } from "./mail.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
@@ -81,6 +82,7 @@ export function routes(api, { wrap, requireUser }) {
     const away = await q("SELECT *, to_char(starts_on,'YYYY-MM-DD') AS day1, to_char(ends_on,'YYYY-MM-DD') AS day2 FROM service_blockouts WHERE church_id=$1 AND ends_on >= (now() AT TIME ZONE $2)::date - 1 ORDER BY starts_on, name", [x.c.id, config.timeZone || "America/Chicago"]);
     res.json({
       church: x.c.name, role: x.scheduler ? "scheduler" : "member", me, limits: LIM, schedulers: schedUsers.map((u) => ({ name: u.name, email: u.email })), people,
+      slots: x.scheduler ? await slotsOf(x.c) : undefined,   // (the schedulers see how many of the church's slots are in use)
       teams: teams.map((t) => ({ id: String(t.id), kind: t.kind, name: t.name, members: members.filter((m) => m.team_id === t.id).map((m) => ({ email: m.email, name: m.name, role: m.role })) })),
       blockouts: away.map((b) => ({ id: String(b.id), email: b.email, name: b.name, from: b.day1, to: b.day2, note: b.note, mine: b.email === me })),
       services: svc.map((s) => ({ id: String(s.id), title: s.title, startsAt: s.starts_at, day: dayOf(s.starts_at), notes: s.notes, songs: s.songs || [],

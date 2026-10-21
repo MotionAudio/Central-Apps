@@ -22,6 +22,7 @@
     if (battery) { h.battery = Math.round(battery.level * 100); h.charging = !!battery.charging; }
     var ie = window.CUInEarStats && window.CUInEarStats(); if (ie) { h.ieBuf = ie.bufferMs; h.ieDrops = ie.underruns; }
     if (navigator.connection && navigator.connection.effectiveType) h.net = navigator.connection.effectiveType;
+    var sy = window.CUHubStandby && window.CUHubStandby.health(); if (sy) Object.assign(h, sy);   // (the second main admin's computer: how its copy of the hub is doing)
     var R0 = R(); CU.send({ type: "cuRole", action: "health", id: R0 ? R0.devId() : undefined, health: h });
   }
   setInterval(report, 5000); CU.on("center", function (on) { if (on) setTimeout(report, 1500); });
@@ -58,6 +59,23 @@
   // ------------------------------------------------------------- the track player and the Central Pedals
   var PJ = { player: ["Track player", "plays the tracks, sends the charts and lyrics"], controller: ["Foot controller", "its buttons drive the track player"], instrument: ["Instrument rig", "only its own instrument"], backup: ["Backup player", "plays the same song silently; takes over if the track player stops"], standby: ["Standby", "keeps the songs, does not play"] };
   var playerMsg = "";
+  // the second main admin's computer, kept in sync so it can take over as the hub (hubsync.js)
+  function standbyCard(v, list) {
+    var sb = v.standby, can = list.filter(function (d) { return d.role === "admin" && d.edition === "control"; });
+    var h = '<div class="card dv-sb"><h3>Second main admin\'s computer</h3>';
+    if (sb) {
+      var fresh = sb.syncAt && Date.now() - sb.syncAt < 5 * 60e3;
+      h += '<p><b>' + esc(sb.name) + '</b> keeps a copy of everything on this computer: songs and tracks, lighting, slides, the mixer, cameras, paired devices and the PINs. ' +
+        (!sb.online ? '<span class="muted">It\'s off right now; it catches up when it\'s back.</span>' : sb.syncOk && fresh ? '<span class="dv-g good">✓ in sync</span> <span class="muted">' + ago(sb.syncAt) + "</span>" : sb.syncError ? '<span class="warn">' + esc(sb.syncError) + "</span>" : '<span class="muted">first copy on its way…</span>') + "</p>" +
+        '<p class="muted small">If this computer is away or broken, open Settings on ' + esc(sb.name) + ' and press <b>Take over as the hub</b> (with your role PIN). Everyone stays paired.</p>' +
+        '<div class="row"><button data-dv="unstandby" data-id="' + esc(sb.id) + '">Stop keeping it in sync</button></div>';
+    } else {
+      h += '<p class="muted small">Your church can have two main admins. Keep the other main admin\'s computer in sync with this one, and it can take over as the hub any time: when you\'re away, or if this computer breaks.</p>' +
+        (can.length ? '<div class="row">' + can.map(function (d) { return '<button data-dv="standby" data-id="' + esc(d.id) + '"' + (d.online ? "" : " disabled title=\"It isn't on\"") + ">Keep " + esc(d.name) + " in sync</button>"; }).join("") + "</div>"
+          : '<p class="muted small">It needs Central Control on a computer, paired as an admin.</p>');
+    }
+    return h + "</div>";
+  }
   function fahrenheit(c) { return Math.round(c * 9 / 5 + 32); }
   function pedalsCard(v) {
     var pedals = v.pedals || [], pin = v.pairPin || ((R() && R().keys()) || {}).pair || "", local = pedals.filter(function (p) { return p.local; })[0], canOpen = !!(NAT && NAT.player);
@@ -100,6 +118,7 @@
     h += pedalsCard(v);
     if (window.CUCenter && !window.CUCenter.connected()) h += '<p class="warn">The center on this computer is not running - restart Central Control (is another program using port 8095?).</p>';
     if (wants.length) h += '<div class="dv-asks">' + wants.map(function (d) { return '<div class="dv-ask"><b>' + esc(d.name) + "</b> wants to be an admin <button class=\"primary\" data-dv=\"allow\" data-id=\"" + esc(d.id) + '">Allow</button><button data-dv="deny" data-id="' + esc(d.id) + '">Keep as ' + esc(CU.roleName(d.role)) + "</button></div>"; }).join("") + "</div>";
+    h += standbyCard(v, list);
     h += '<div class="dv-me card"><h3>This computer (main admin)</h3><p class="muted small">Your own job: everything (production manager), or only what you run - e.g. lighting when someone else has the cameras.</p>' + jobsBox("me", me.jobs || CU.jobs(), true) + "</div>";
     h += '<table class="dv-table"><thead><tr><th></th><th>Device</th><th>Role</th><th title="Who hears the main admin&#39;s Band talk or Production talk">Talk group</th><th>Connection</th><th>Last seen</th><th></th></tr></thead><tbody>' +
       (list.length ? list.map(function (d) {
@@ -140,6 +159,8 @@
     else if (a === "allow" || a === "deny") r = await R().request("approve", { target: id, allow: a === "allow" });
     else if (a === "apply") { var want = pendingRole[id] || (b.closest("tr").querySelector("[data-dv-role]") || {}).value; if (want) r = await R().request("assign", { target: id, role: want }); delete pendingRole[id]; }
     else if (a === "jobs") { openJobs = openJobs === id ? null : id; render(); return; }
+    else if (a === "standby") { if (confirm("Keep this computer in sync with yours? It copies everything (songs, tracks, lighting, slides, the mixer, paired devices and PINs) and can take over as the hub with your role PIN.")) r = await R().request("standby", { target: id, on: true }); }
+    else if (a === "unstandby") { if (confirm("Stop keeping it in sync? Its copy is deleted.")) r = await R().request("standby", { target: id, on: false }); }
     else if (a === "openPlayer") { openPlayer(); return; }
     else if (a === "stopPlayer") { if (confirm("Stop the player on this computer? Its tracks stop.")) { await NAT.player.stop(); playerMsg = ""; } render(); return; }
     else if (a === "rename") { var nm = await CU.askText("Name:", ""); if (nm) r = await R().request("rename", { target: id, newName: nm.trim() }); }

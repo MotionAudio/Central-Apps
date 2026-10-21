@@ -33,6 +33,7 @@
     root.innerHTML = '<div class="io-grid">' +
       (window.PPLicense ? window.PPLicense.settingsHtml("card") : "") +
       (window.CURoles ? window.CURoles.card() : "") +
+      (window.CUHubStandby ? window.CUHubStandby.card() : "") +
       mixCard() +
       aiCard() +
       (window.CULyricsListen ? window.CULyricsListen.card() : "") +

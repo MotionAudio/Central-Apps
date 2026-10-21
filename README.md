@@ -193,7 +193,9 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.2.2 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.3.0 and earlier)</summary>
+
+**New in version 9.3.0:** The second main admin's computer stays in sync with the hub (songs, tracks, lighting, slides, the mixer, cameras, paired devices and PINs) and can take over as the hub with the role PIN, planned or when the hub is broken; Central Services shows the church's slots on the Teams screen.
 
 **New in version 9.2.2:** On Linux, every app shows its logo in the app menu and the dock, and Central Control installs over the retired Central Pedal desktop app (the old central-control package) instead of stopping.
 

@@ -65,6 +65,11 @@ class Center {
     this.run = j.run || null;
     // the main admin's player window: while a Central Pedal plays, it is the backup player (follows silently, takes over)
     this.backup = Object.assign({ localIsBackup: true }, j.backup || {});
+    // the church's hub: its id stays the same when the hub moves to the other main admin's computer (hubsync.js); gen goes
+    // up each time, so an old hub that comes back after a takeover hears a newer one and steps down
+    this.hubKey = /^[0-9a-f]{16,64}$/.test(j.hubKey || "") ? j.hubKey : crypto.randomBytes(12).toString("hex");
+    this.gen = Math.max(1, Number(j.gen) || 1);
+    this.standby = j.standby && j.standby.id && j.standby.secretHash ? j.standby : null;   // the other main admin's computer, kept in sync: { id, secretSalt, secretHash, since }
     this.lastMsg = {};
     this.clients = new Map();                       // ws -> { id, auth, main, ip }
     this.health = {};                               // id -> {..., at}
@@ -75,7 +80,7 @@ class Center {
   on(fn) { this.listeners.push(fn); }
   emit(ev) { for (const fn of this.listeners) { try { fn(ev); } catch (_) { } } }
   save() {
-    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run, backup: this.backup })); fs.renameSync(tmp, this.file); } catch (_) { }
+    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run, backup: this.backup, hubKey: this.hubKey, gen: this.gen, standby: this.standby })); fs.renameSync(tmp, this.file); } catch (_) { }
   }
 
   // ----------------------------------------------------------------------------- the server
@@ -103,12 +108,18 @@ class Center {
       this.beacon.on("error", () => { });
       this.beacon.bind(0, () => {
         try { this.beacon.setBroadcast(true); } catch (_) { }
-        const send = () => { const m = Buffer.from(JSON.stringify({ app: "central-control-center", name: this.mainName(), port: this.port, v: 1 })); try { this.beacon.send(m, BEACON_PORT, "255.255.255.255"); } catch (_) { } };
+        const send = () => { const m = Buffer.from(JSON.stringify({ app: "central-control-center", name: this.mainName(), port: this.port, v: 1, hub: this.hubKey, gen: this.gen })); try { this.beacon.send(m, BEACON_PORT, "255.255.255.255"); } catch (_) { } };
         send(); this.beaconTimer = setInterval(send, 2000);
       });
     } catch (_) { }
   }
   mainName() { return (this.main && this.main.name) || this.opts.name; }
+  checkMirror(secret) { return !!(this.standby && secret && salted(secret, this.standby.secretSalt) === this.standby.secretHash); }
+  standbyView() {
+    const sb = this.standby; if (!sb) return null;
+    const d = this.devices[sb.id] || {}, h = this.health[sb.id] || {};
+    return { id: sb.id, name: d.name || "Central Control", online: this.online(sb.id), since: sb.since || null, syncAt: h.syncAt || null, syncOk: h.syncOk !== false, syncError: h.syncError || null };
+  }
   status() {
     return { running: !!this.port, port: this.port, addresses: addresses(), pair: this.pair, error: this.error || null,
       devices: Object.keys(this.devices).length, online: [...this.clients.values()].filter((c) => c.id).length, pedal: this.pedalInfo() };
@@ -118,6 +129,7 @@ class Center {
     const url = new URL(req.url, "http://x"), p = decodeURIComponent(url.pathname);
     const send = (code, body, type) => { res.writeHead(code, { "Content-Type": type || "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" }); res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body)); };
     if (p === "/api/service") return send(200, this.serviceState());
+    if (p.startsWith("/api/mirror/") && this.opts.mirror) return this.opts.mirror(req, res, this);   // (hubsync.js: the in-sync computer)
     if (p === "/api/center") return send(200, { app: "central-control-center", name: this.mainName(), port: this.port, pedal: this.pedalInfo() });
     if (p === "/" ) { res.writeHead(302, { Location: "/cu/" }); return res.end(); }
     if (p === "/cu/manifest.webmanifest") return send(200, { name: "Central Usage", short_name: "Central Usage", start_url: "/cu/", scope: "/cu/", display: "standalone", background_color: "#111317", theme_color: "#111317", icons: [{ src: "icon.png", sizes: "512x512", type: "image/png" }] }, "application/manifest+json");
@@ -236,7 +248,9 @@ class Center {
       v.pairPin = this.pair; v.pedalHealth = (this.pedalInfo() && this.health[this.pedalInfo().id]) || null;
       v.pedals = this.pedalIds().map((k) => this.pedalView(k, info)).sort((a, b) => (a.job !== "player") - (b.job !== "player") || (b.online - a.online) || a.name.localeCompare(b.name));
       v.pedalJobs = PEDAL_JOBS; v.backupLocal = !!this.backup.localIsBackup;
+      v.standby = this.standbyView();
     }
+    if (this.standby && info.id === this.standby.id) v.youAreStandby = true;
     return v;
   }
   push() { for (const [ws, info] of this.clients) if (info.id) this.sendTo(ws, this.viewFor(info)); this.tellPedals(); this.emit({ type: "status" }); }
@@ -334,7 +348,7 @@ class Center {
 
     if (action === "health") {
       const h = {}; let n = 0;
-      for (const [k, v] of Object.entries(m.health || {})) { if (n >= 16) break; if (typeof v === "number" || typeof v === "boolean" || (typeof v === "string" && v.length < 60)) { h[String(k).slice(0, 20)] = v; n++; } }
+      for (const [k, v] of Object.entries(m.health || {})) { if (n >= 20) break; if (typeof v === "number" || typeof v === "boolean" || (typeof v === "string" && v.length < 60)) { h[String(k).slice(0, 20)] = v; n++; } }
       h.at = now; this.health[id] = h; this.pushMainSoon(); return null;
     }
     if (action === "set") {
@@ -361,6 +375,23 @@ class Center {
       if (!main) return R({ ok: false, error: "Only the main admin." });
       const jobs = (m.jobs || []).filter((j) => JOBS.includes(j)); d.jobs = !jobs.length || jobs.includes("general") ? ["general"] : jobs;
       this.save(); this.push(); return R({ ok: true, jobs: d.jobs });
+    }
+    if (action === "standby") {   // keep the other main admin's computer in sync (one at a time)
+      if (!main) return R({ ok: false, error: "Only the main admin." });
+      const target = idOf(m.target), on = m.on !== false, td = this.devices[target];
+      const tell = (msg) => { for (const tw of this.socketsOf(target)) this.sendTo(tw, Object.assign({ from: "center", hub: this.hubKey }, msg)); };
+      if (!on) {
+        if (this.standby && this.standby.id === target) { this.standby = null; tell({ type: "standbyCleared" }); }
+        this.save(); this.push(); return R({ ok: true });
+      }
+      if (!td || td.role !== "admin") return R({ ok: false, error: "Only an admin computer can be kept in sync. Make it an admin first." });
+      if (td.edition !== "control") return R({ ok: false, error: "That device isn't running Central Control on a computer, so it can't keep a copy." });
+      if (!this.online(target)) return R({ ok: false, error: td.name + " isn't on right now. Open Central Control on it, then try again." });
+      if (this.standby && this.standby.id !== target) { const prev = this.standby.id; this.standby = null; for (const tw of this.socketsOf(prev)) this.sendTo(tw, { type: "standbyCleared", from: "center", hub: this.hubKey }); }
+      const secret = crypto.randomBytes(24).toString("hex"), secretSalt = crypto.randomBytes(8).toString("hex");
+      this.standby = { id: target, secretSalt, secretHash: salted(secret, secretSalt), since: now };
+      tell({ type: "standbyAssigned", secret, hubName: this.mainName(), port: this.port });
+      this.save(); this.push(); return R({ ok: true });
     }
     if (action === "setPair") { if (!main) return R({ ok: false, error: "Only the main admin." }); const r = this.setPair(m.pair); if (!r.ok) return R(r); this.push(); return R({ ok: true, pair: r.code }); }
     if (action === "lock") {
@@ -411,10 +442,11 @@ class Center {
         if (!["admin", "user1", "user2"].includes(m.role)) return R({ ok: false, error: "Pick Admin, User 1 or User 2." });
         if (m.role === "admin" && t.edition === "usage") return R({ ok: false, error: "That device runs Central Usage (for musicians: User 1 / User 2). For an admin, install Central Control on it." });
         t.role = m.role; delete t.claimsMain; delete t.wantsAdmin; tell({ role: m.role });
+        if (m.role !== "admin" && this.standby && this.standby.id === target) { this.standby = null; for (const tw of this.socketsOf(target)) this.sendTo(tw, { type: "standbyCleared", from: "center", hub: this.hubKey }); }   // (only an admin computer keeps the copy)
       }
       else if (action === "jobs") { const jobs = (m.jobs || []).filter((j) => JOBS.includes(j)); t.jobs = !jobs.length || jobs.includes("general") ? ["general"] : jobs; tell({ role: t.role, jobs: t.jobs }); }
       else if (action === "rename") { t.name = clean(m.newName) || t.name; tell({ name: t.name, role: t.role }); }
-      else { if (t.role === "pedal" && t.pedalJob === "player") this.setPedalJob(target, "standby"); delete this.devices[target]; tell({ role: null, removed: true }); }
+      else { if (t.role === "pedal" && t.pedalJob === "player") this.setPedalJob(target, "standby"); if (this.standby && this.standby.id === target) { this.standby = null; for (const tw of this.socketsOf(target)) this.sendTo(tw, { type: "standbyCleared", from: "center", hub: this.hubKey }); } delete this.devices[target]; tell({ role: null, removed: true }); }
       this.save(); this.push(); return R({ ok: true });
     }
     return R({ ok: false, error: "Unknown action." });
@@ -521,7 +553,7 @@ class Center {
   }
 }
 
-module.exports = { Center, BEACON_PORT, PEDAL_JOBS, TALK_GROUPS };
+module.exports = { Center, BEACON_PORT, PEDAL_JOBS, TALK_GROUPS, salted };
 
 // on its own: node center.js --port 8095 --data <folder> [--app <folder>] [--no-beacon]
 if (require.main === module) {

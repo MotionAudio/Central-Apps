@@ -119,6 +119,8 @@ try {
   const over = await j("POST", "/services/teams/" + p1.id + "/members", { members: [{ email: "one-too-many" + S + "@hope.test" }] }, T);
   ok(over._status === 402 && /15 Central Services slots and 15 are in use/.test(over.error), "the 16th person needs another slot (it says how many are in use)", over);
   ok((await j("GET", "/services/slots", null, T)).free === 0, "...no slots free");
+  const bs = await j("GET", "/services/board", null, T), bm = await j("GET", "/services/board", null, ana.token);
+  ok(bs.slots && bs.slots.slots === 15 && bs.slots.used === 15 && bm.slots === undefined, "the schedulers see the slots on the Teams screen (members don't)", [bs.slots, bm.slots]);
   await j("POST", "/services/teams/" + p1.id + "/members/remove", { email: "p0-" + S + "@hope.test" }, T);
   ok((await j("POST", "/services/teams/" + p1.id + "/members", { members: [{ email: "one-too-many" + S + "@hope.test" }] }, T)).ok, "taking someone off the teams frees their slot for someone else");
   for (let i = 1; i < 12; i++) await j("POST", "/services/teams/" + p1.id + "/members/remove", { email: "p" + i + "-" + S + "@hope.test" }, T);
