@@ -320,3 +320,51 @@ input[type=range]:disabled { opacity: .45; cursor: not-allowed; }
 .mx-gr i { background: linear-gradient(90deg, #F5CF72, #EF6B63); }
 .mx-pan::-webkit-slider-thumb, input.ie-pan::-webkit-slider-thumb { width: 14px; height: 14px; margin-top: -4px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #F4F1EA, #A9AEB6 60%, #6E7682); }
 input[type=checkbox] { accent-color: var(--accent); }
+
+/* ---- 9.3.3 layout clean-up ---------------------------------------------------------------------------------------- */
+/* the top bar always has the same two rows: where you are (brand, tabs, role, countdown, lock) on top, then talk, the
+   song and the Central Pedal's connection below - instead of whatever happened to wrap at this window's width */
+.top { row-gap: 8px; }
+.top > .brand { order: 1; } .top > .tabs { order: 2; } .top > .role-chip { order: 3; margin-left: auto; } .top > .cd-chip { order: 4; } .top > .ml-btn { order: 5; }
+.top::before { content: ""; order: 6; flex-basis: 100%; height: 0; }
+.top > .tb-top { order: 7; } .top > .song { order: 8; } .top > .conn { order: 9; margin-left: auto; }
+/* one rhythm inside cards: the card's gap spaces its parts, paragraphs add no margins of their own */
+.card p { margin: 0; } .card p + p { margin-top: 6px; }
+.card > button, .card > .row > button:only-child { justify-self: start; }
+.card label.toggle { align-items: flex-start; } .card label.toggle > input[type=checkbox] { flex: 0 0 auto; margin-top: 1px; }
+/* Settings: the cards pack into columns instead of leaving a hole under every short card */
+#settingsRoot > .io-grid { display: block; columns: 340px; column-gap: 12px; }
+#settingsRoot > .io-grid > * { break-inside: avoid; margin: 0 0 12px; }
+#settingsRoot > .io-grid > .wide { column-span: all; }
+/* Lighting → Show: the songs & presets panel gives the stage, the presets and the faders more room */
+.lx-showview { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); }
+@media (min-width: 1700px) { .lx-showview { grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); } }
+.lx-top { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr); }
+.lx-faders { gap: 6px; } .lx-fader { flex: 1 1 0; min-width: 44px; }
+.lx-rightpanel p { margin: 4px 0; }
+/* Lighting → Fixtures and Output: the same gap between cards as every other tab, cards as tall as what they hold */
+.lx-view[data-lxv="fixtures"]:not([hidden]) { display: flex; flex-direction: column; gap: 12px; }
+.lx-view > .lights { padding: 0; overflow: visible; align-items: start; }
+.lx-showmain { grid-template-rows: minmax(310px, 1fr) auto 150px auto auto; }
+.lx-rightpanel { overflow-x: hidden; } .lx-rightpanel .lx-looks .lx-palette { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
+.io-t td input:not([type=checkbox]):not([type=radio]):not([type=range]), .io-t td select { max-width: 100%; }
+.lx-view > .lights { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+/* Service: the roles line up in the same columns on every run-order row; the service picker isn't screen-wide */
+.sv-iroles { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 3px 8px; }
+#svStartPick { max-width: 420px; }
+/* Mix: no empty channel-detail box and no tall empty board before the first track arrives */
+.mx-detail:empty { display: none; } .mx-strips:has(> .mx-none) { min-height: 0; }
+#mixRoot:has(.mx-none) .mx-detail { display: none; }
+/* a short form doesn't need the whole window: the musician's in-ear sign-in */
+.card.ie-setup { max-width: 620px; } .card.ie-setup input { width: 100%; max-width: 320px; }
+.lx-rightpanel .lx-looks { grid-template-columns: minmax(0, 1fr); } .lx-rightpanel .lx-lookedit { min-width: 0; } .lx-rightpanel .lx-lookedit > .row { flex-wrap: wrap; }
+.lx-rightpanel .lx-lookedit input:not([type=checkbox]):not([type=color]):not([type=range]), .lx-rightpanel .lx-lookedit select { max-width: 100%; }
+#mixRoot:has(.mx-none) .mx-wave { display: none; }
+/* the presets above the faders: whole rows only (3 at a time, scroll for more), never a row cut in half */
+.lx-side .lx-palette { grid-auto-rows: 46px; height: calc(2 * 46px + 6px); min-height: calc(2 * 46px + 6px); scroll-snap-type: y mandatory; scroll-padding: 0; }
+@media (min-height: 1000px) { .lx-side .lx-palette { height: calc(3 * 46px + 2 * 6px); min-height: calc(3 * 46px + 2 * 6px); } }
+.lx-side .lx-palette > * { scroll-snap-align: start; min-height: 0; height: 46px; overflow: hidden; }
+.lx-side .lx-palette .lx-look { line-height: 1.15; }
+.lx-side { grid-template-rows: auto auto auto; align-content: start; }
+/* the bar under the stage plot: the buttons stay together on one line and wrap as a group */
+.lx-showbar .lx-showbtns { display: inline-flex; gap: 8px; flex-wrap: nowrap; }

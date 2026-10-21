@@ -253,8 +253,8 @@
     if (notice) h += '<p class="warn small">' + esc(notice) + "</p>";
     if (v.conflict && v.conflict.length > 1) h += '<p class="warn">Two computers say they are the main admin: ' + v.conflict.map(function (x) { return "<b>" + esc(x.name) + "</b>" + (x.registered ? " (the one in charge)" : ""); }).join(" and ") + '. On the one that should not be, use <b>Forget role</b> below.</p>';
     if (r === "main") {
-      h += '<table class="io-t"><tr><td>Pairing PIN</td><td><b class="io-code">' + esc(k.pair) + '</b> <button data-rl="setPair">Change…</button> <span class="muted small">every device joins with it (the Central Pedal too)</span></td></tr>' +
-        '<tr><td>Role PIN</td><td><b class="io-code" data-rl="pinShow">' + esc(k.pin) + '</b> <button data-rl="setPin">Change…</button> <span class="muted small">only you - it moves a computer between user and admin</span></td></tr></table>' +
+      h += '<table class="io-t"><tr><td>Pairing PIN</td><td><b class="io-code">' + esc(k.pair) + '</b> <button data-rl="setPair">Change…</button><div class="muted small">Every device joins with it (the Central Pedal too).</div></td></tr>' +
+        '<tr><td>Role PIN</td><td><b class="io-code" data-rl="pinShow">' + esc(k.pin) + '</b> <button data-rl="setPin">Change…</button><div class="muted small">Only you: it moves a computer between user and admin.</div></td></tr></table>' +
         '<p class="muted small">Every device, its role, its jobs and its connection are on the <button class="linkish" data-rl="devices">Devices</button> tab. This computer is the center: every device (and the Central Pedal) pairs with it, so keep Central Control open here during the service.</p>' + centerLine();
     } else if (r === "admin") {
       h += '<p class="small">Jobs: <b>' + esc(jobText(CU.jobs())) + '</b> <span class="muted">(set by the main admin)</span></p>';

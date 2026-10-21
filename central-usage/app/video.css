@@ -12,7 +12,7 @@
 .vd-body.sw .vd-out { padding: 8px; gap: 6px; }
 .vd-body.sw .vd-mons { display: flex; gap: 8px; }
 .vd-body.sw .vd-mons figure { flex: 0 1 auto; min-width: 0; }
-.vd-body.sw .vd-mons canvas { height: clamp(72px, 16vh, 180px); width: auto; max-width: 100%; border-width: 2px; }
+.vd-body.sw .vd-mons canvas { height: clamp(72px, 21vh, 220px); width: auto; max-width: 100%; border-width: 2px; }
 .vd-body.sw .vd-ctl button { min-width: 0; padding: 6px 10px; font-size: 12px; } .vd-body.sw .vd-ctl select { padding: 5px 6px; font-size: 12px; }
 .vd-mvwrap { flex: 1; min-height: 140px; display: flex; justify-content: center; align-items: flex-start; overflow: hidden; }
 .vd-mvwrap .vd-mv { width: auto; }
