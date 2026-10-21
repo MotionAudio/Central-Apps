@@ -84,18 +84,32 @@ class Updater {
   status() {
     const lt = this.latest || {};
     return { current: this.current, repo: this.cfg.repo, auto: this.cfg.auto, lastCheck: this.cfg.lastCheck, latest: lt.version || null, notes: (lt.notes || "").slice(0, 2000),
-      available: !!(lt.version && newer(lt.version, this.current) && this.asset()), error: this.error, busy: this.busy, progress: this.progress, kind: this.kind() };
+      available: !!(lt.version && newer(lt.version, this.current) && versionTuple(lt.version)[0] === versionTuple(this.current)[0] && this.asset()), error: this.error, busy: this.busy, progress: this.progress, kind: this.kind(),
+      upgrade: this.upgrade || null, upgradeNote: this.upgrade ? "Version " + this.upgrade + " is out. It's a new purchase at motionaudio.org; this copy keeps getting " + versionTuple(this.current)[0] + ".x updates." : null };
   }
   // once a day; after a failed look (no internet yet) again in 10 minutes
   due() { return this.cfg.auto && this.cfg.repo && Date.now() / 1000 - (this.cfg.lastCheck || 0) > (this.error ? 600 : 20 * 3600); }
   async check() {
     if (!/^[^/\s]+\/[^/\s]+$/.test(this.cfg.repo || "")) { this.error = "Set the update source first (owner/repo on GitHub)."; return this.status(); }
     try {
-      const rel = await get(this.api + "/repos/" + this.cfg.repo + "/releases/latest", { json: true, timeout: 15000 });
-      const assets = {}; (rel.assets || []).forEach((a) => { assets[a.name] = a.browser_download_url; });
-      // one release carries every app; this app's own version is in its file name (central-usage-1.3.0-amd64.deb)
-      const mine = Object.keys(assets).map((n) => (n.match(new RegExp("^" + this.product + "-(\\d+(?:\\.\\d+)*)-")) || [])[1]).filter(Boolean)[0];
-      this.latest = { version: mine || String(rel.tag_name || rel.name || "").replace(/^v/i, ""), notes: rel.body || "", assets };
+      // Updates stay inside this app's major version (2.0-2.9); the next major is a new purchase on the website.
+      const read = (rel) => {
+        const assets = {}; (rel.assets || []).forEach((a) => { assets[a.name] = a.browser_download_url; });
+        // one release carries every app; this app's own version is in its file name (central-usage-1.3.0-amd64.deb)
+        const mine = Object.keys(assets).map((n) => (n.match(new RegExp("^" + this.product + "-(\\d+(?:\\.\\d+)*)-")) || [])[1]).filter(Boolean)[0];
+        return { version: mine || String(rel.tag_name || rel.name || "").replace(/^v/i, ""), notes: rel.body || "", assets };
+      };
+      const major = versionTuple(this.current)[0];
+      let latest = read(await get(this.api + "/repos/" + this.cfg.repo + "/releases/latest", { json: true, timeout: 15000 }));
+      this.upgrade = null;
+      if (versionTuple(latest.version)[0] > major) {
+        this.upgrade = latest.version;   // a new major is out: tell them, but don't install it
+        let list = [];
+        try { list = await get(this.api + "/repos/" + this.cfg.repo + "/releases?per_page=50", { json: true, timeout: 15000 }); } catch (_) { }
+        latest = (Array.isArray(list) ? list : []).filter((r) => !r.draft && !r.prerelease).map(read)
+          .filter((r) => versionTuple(r.version)[0] === major).sort((a, b) => (newer(a.version, b.version) ? -1 : newer(b.version, a.version) ? 1 : 0))[0] || { version: this.current, notes: "", assets: {} };
+      }
+      this.latest = latest;
       this.error = null;
     } catch (e) { this.error = explain(e); }
     this.cfg.lastCheck = Math.floor(Date.now() / 1000); this.save({});

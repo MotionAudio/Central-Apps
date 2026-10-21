@@ -40,6 +40,7 @@
     if ($("#updAuto")) $("#updAuto").checked = up.auto !== false;
     var info = $("#updInfo"); if (info) info.textContent = "This Central Pedal: version " + (up.current || "?") + (up.lastCheck ? " · last checked " + new Date(up.lastCheck * 1000).toLocaleString() : "") + ".";
     var st = $("#updState"); if (st) st.textContent = up.busy ? "Working…" : up.error ? up.error : up.available ? "Version " + up.latest + " is available." + (up.notes ? " " + up.notes.split("\n")[0].slice(0, 160) : "") : up.latest ? "Up to date." : "";
+    if (st && up.upgradeNote && !up.busy) st.textContent += " " + up.upgradeNote;
     var ib = $("#updInstall"); if (ib) { ib.classList.toggle("hidden", !up.available); ib.disabled = !!up.busy; }
     askIfNew();
     var b = banner(); b.classList.toggle("hidden", !(up.available && !up.dismissed && !(askEl && askEl.open)));

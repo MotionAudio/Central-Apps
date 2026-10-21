@@ -4,176 +4,212 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Motion Audio</title>
-<meta name="description" content="Central Pedal, Central Control, Central Usage and the Central Tracks library for worship teams.">
+<meta name="description" content="Central Pedal, Central Control, Central Usage, Central Services and the Central Tracks library for churches and production teams.">
+<script src="https://js.stripe.com/dahlia/stripe.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: stage-console storefront — hero waveform, product rack, Central Tracks library, publish desk */
+/* Layout: the look of the Central apps - dark navy panels, thin blue rules, mint for "go", pad-tile cards with
+   coloured top stripes, small spaced capitals for labels. One dark look, like the apps. */
 :root{
-  --bg:#f3f1f7; --surface:#ffffff; --fg:#1d1830; --muted:#625b78; --line:#dcd7e8;
-  --accent:#d9770f; --accent-ink:#ffffff; --signal:#5b3fd6; --ok:#1f8a54;
-  --display:"Unbounded",system-ui,sans-serif; --body:"Figtree",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  --bg:#08111d; --bg2:#0b1626; --panel:#101e31; --panel2:#142740; --line:#294966; --line2:#1c3350;
+  --text:#ecf7ff; --muted:#9bb2c9; --accent:#5de6b0; --accent-ink:#06251a; --blue:#75adff; --chord:#ffd765;
+  --danger:#ff7878; --live:#e9505e; --violet:#b59bff; --pink:#ff8fb1; --cyan:#62d6e8;
+  --sale: #e9505e;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#120f1d; --surface:#1c1830; --fg:#efecf7; --muted:#a49cbd; --line:#2f2a47;
-  --accent:#f0952f; --accent-ink:#1a1206; --signal:#9d88ff; --ok:#4cc98a; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#120f1d; --surface:#1c1830; --fg:#efecf7; --muted:#a49cbd; --line:#2f2a47;
-  --accent:#f0952f; --accent-ink:#1a1206; --signal:#9d88ff; --ok:#4cc98a; color-scheme:dark}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body)}
-.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-h1,h2,h3{font-family:var(--display);text-wrap:balance;line-height:1.15;margin:0}
-h2{font-size:clamp(1.5rem,3.5vw,2.2rem)}
-.eyebrow{font:500 .75rem var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--signal)}
+html,body{margin:0}
+body{background:radial-gradient(1200px 500px at 70% -10%,#13284a 0%,transparent 60%),var(--bg);color:var(--text);font:16px/1.55 var(--sans);min-height:100vh}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{margin:0;text-wrap:balance;line-height:1.15;font-weight:800;letter-spacing:-.01em}
+h2{font-size:clamp(1.5rem,3.2vw,2.1rem)}
+h3{font-size:1.1rem}
+a{color:var(--blue)}
 .muted{color:var(--muted)}
-a{color:inherit}
-button{font:inherit;cursor:pointer}
-:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
-.btn{border:0;border-radius:8px;padding:.7rem 1.1rem;font-weight:600;background:var(--accent);color:var(--accent-ink)}
-.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
-.btn.small{padding:.45rem .8rem;font-size:.9rem}
+.label,.eyebrow,.tag{font:700 .72rem var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+button{font:inherit;cursor:pointer;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{border:1px solid var(--line);border-radius:10px;padding:.7rem 1.1rem;font-weight:700;background:var(--panel2);color:var(--text);text-decoration:none;display:inline-flex;align-items:center;gap:.4rem;justify-content:center}
+.btn:hover{border-color:var(--blue)}
+.btn.go,.btn.primary{background:#16503d;border-color:#2c8a68;color:var(--accent)}
+.btn.go:hover{background:#1b5f48}
+.btn.ghost{background:transparent}
+.btn.small{padding:.45rem .8rem;font-size:.88rem;border-radius:9px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.chip{display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--line);border-radius:999px;padding:.2rem .65rem;font-size:.8rem;color:var(--muted);background:var(--bg2)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px}
+input,select,textarea{font:inherit;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:.6rem .75rem;min-width:0;width:100%}
+input[type=checkbox]{width:auto}
+input[type=color]{padding:.2rem;height:2.6rem}
+label{display:grid;gap:.3rem;font-size:.9rem;color:var(--muted)}
 
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
-header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-header.top .wrap{display:flex;align-items:center;gap:1rem;padding-block:.8rem;flex-wrap:wrap}
-.logo{font:700 1.05rem var(--display);display:flex;align-items:center;gap:.5rem}
-.logo i{display:inline-flex;gap:2px;align-items:end;height:18px}
-.logo i b{width:3px;background:var(--accent);border-radius:2px}
-nav{display:flex;gap:1rem;margin-left:auto;flex-wrap:wrap;font-size:.95rem}
-nav a{text-decoration:none;color:var(--muted)} nav a:hover{color:var(--fg)}
-.cartbtn{font:500 .85rem var(--mono)}
+.salebar{background:var(--sale);color:#fff;font-weight:700;text-align:center}
+.salebar .wrap{padding-block:.55rem;display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;align-items:center}
+.salebar .pv{font:600 .72rem var(--mono);background:rgba(0,0,0,.25);border-radius:6px;padding:.1rem .45rem}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:rgba(8,17,29,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--line2)}
+header.top .wrap{display:flex;align-items:center;gap:.6rem;padding-block:.65rem;flex-wrap:wrap}
+.logo{font:800 1.05rem var(--sans);display:flex;align-items:center;gap:.55rem;margin-right:auto;color:var(--text);text-decoration:none}
+.logo i{display:inline-flex;gap:3px;align-items:end;height:20px}
+.logo i b{width:4px;border-radius:2px}
+nav{display:flex;gap:.4rem;flex-wrap:wrap}
+nav a{font:700 .78rem var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--text);text-decoration:none;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:.5rem .8rem}
+nav a:hover{border-color:var(--blue)}
+.cartbtn{font:600 .85rem var(--mono)}
 
-.hero .wrap{padding-block:3.5rem 2.5rem;display:grid;gap:2rem;grid-template-columns:1.1fr .9fr;align-items:center}
-.hero h1{font-size:clamp(2rem,5.5vw,3.6rem)}
+.hero .wrap{padding-block:3.2rem 2.2rem;display:grid;gap:2rem;grid-template-columns:1.05fr .95fr;align-items:center}
+.hero h1{font-size:clamp(2rem,5vw,3.4rem)}
 .hero h1 em{font-style:normal;color:var(--accent)}
-.hero p{max-width:52ch;font-size:1.1rem}
-.hero .ctas{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.4rem}
-canvas#wave{width:100%;height:220px;display:block;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
-@media (max-width:800px){.hero .wrap{grid-template-columns:1fr}}
+.hero p{max-width:54ch;font-size:1.08rem}
+.hero .ctas{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1.3rem}
+.deck{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem}
+.pad{border:1px solid var(--line);border-top:3px solid var(--c);border-radius:12px;background:var(--panel2);aspect-ratio:1;padding:.55rem .65rem;display:flex;flex-direction:column;justify-content:space-between;font-weight:700;font-size:.85rem;max-width:100%}
+.pad small{align-self:flex-end;font:600 .7rem var(--mono);color:var(--muted)}
+.pad.on{box-shadow:0 0 0 1px var(--c) inset;background:#183053}
+canvas#wave{width:100%;height:70px;display:block;margin-top:.6rem;border-radius:10px;background:var(--bg2);border:1px solid var(--line2)}
+@media (max-width:860px){.hero .wrap{grid-template-columns:1fr}}
 
-section{padding-block:3rem}
-.sec-head{display:flex;justify-content:space-between;align-items:end;gap:1rem;flex-wrap:wrap;margin-bottom:1.6rem}
-.sec-head p{max-width:56ch;margin:.4rem 0 0}
+section{padding-block:2.8rem;scroll-margin-top:64px}
+@media (max-width:560px){header.top .wrap{gap:.45rem}.logo{width:100%}nav{gap:.3rem;flex:1}nav a{padding:.42rem .55rem;font-size:.68rem;letter-spacing:.08em}.cartbtn{padding:.42rem .6rem}}
+.band{background:rgba(16,30,49,.55);border-block:1px solid var(--line2)}
+.sec-head{display:flex;justify-content:space-between;align-items:end;gap:1rem;flex-wrap:wrap;margin-bottom:1.4rem}
+.sec-head p{max-width:62ch;margin:.4rem 0 0}
 
-.rack{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}
-.prod{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.3rem;display:flex;flex-direction:column;gap:.7rem;min-width:0}
-.prod.feature{border-color:var(--accent)}
-.prod .tag{font:500 .72rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.prod h3{font-size:1.1rem}
-.price{font:700 2rem var(--display)}
-.price small{font:400 .85rem var(--body);color:var(--muted)}
-.prod ul{margin:0;padding-left:1.1rem;color:var(--muted);font-size:.95rem;flex:1}
-.prod .btn{align-self:flex-start}
+.rack{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.8rem}
+.prod{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--c,var(--blue));border-radius:14px;padding:1.1rem;display:flex;flex-direction:column;gap:.6rem;min-width:0}
+.prod .price{font:800 1.9rem var(--sans)}
+.prod .price small{font:500 .8rem var(--sans);color:var(--muted)}
+.prod .was{text-decoration:line-through;color:var(--muted);font-size:1rem;font-weight:600;margin-right:.35rem}
+.prod ul{margin:0;padding-left:1.05rem;color:var(--muted);font-size:.93rem;flex:1}
+.prod .incl{display:flex;flex-wrap:wrap;gap:.35rem}
+.prod .addon{border:1px dashed var(--line);border-radius:10px;padding:.55rem .7rem;display:flex;gap:.55rem;align-items:center;font-size:.88rem;color:var(--muted)}
+.prod .addon input{accent-color:var(--accent)}
+.prod.best{border-color:#2c8a68;box-shadow:0 0 0 1px #2c8a68 inset}
+.subhead{margin:1.8rem 0 .8rem}
 
-.tracks-band{background:var(--surface);border-block:1px solid var(--line)}
-.sub{display:grid;grid-template-columns:1fr 1.4fr;gap:1.5rem;align-items:start}
-@media (max-width:860px){.sub{grid-template-columns:1fr}}
-.plan{border:1px solid var(--accent);border-radius:12px;padding:1.3rem;display:flex;flex-direction:column;gap:.7rem}
-.plan .status{font:500 .8rem var(--mono)}
-.plan .status.on{color:var(--ok)}
-.flow{font:400 .85rem var(--mono);color:var(--muted);display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
-.flow span{border:1px solid var(--line);border-radius:6px;padding:.15rem .45rem;color:var(--fg)}
+.sub{display:grid;grid-template-columns:1fr 1.45fr;gap:1.2rem;align-items:start}
+@media (max-width:900px){.sub{grid-template-columns:1fr}}
+.plan{padding:1.2rem;display:flex;flex-direction:column;gap:.65rem;border-top:3px solid var(--accent)}
+.plan .price{font:800 2rem var(--sans)}
+.plan .price small{font:500 .85rem var(--sans);color:var(--muted)}
+.status{font:600 .8rem var(--mono);color:var(--muted)}
+.status.on{color:var(--accent)}
+.flow{font:500 .8rem var(--mono);color:var(--muted);display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
 .lib{min-width:0}
-.lib .bar{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem}
-.lib input,.lib select,form input,form select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.6rem .75rem;min-width:0}
-.lib input{flex:1 1 200px}
-.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.lib .bar{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.7rem}
+.lib .bar input{flex:1 1 200px;width:auto}
+.lib .bar select{width:auto}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
 table{width:100%;border-collapse:collapse;font-size:.93rem}
-th{text-align:left;font:500 .72rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.6rem .75rem;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:.6rem .75rem;border-bottom:1px solid var(--line);vertical-align:middle}
+th{text-align:left;font:700 .7rem var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.65rem .75rem;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:.6rem .75rem;border-bottom:1px solid var(--line2);vertical-align:middle}
 tr:last-child td{border-bottom:0}
 td.num{font:400 .85rem var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
-.kind{font:500 .7rem var(--mono);padding:.1rem .4rem;border-radius:4px;border:1px solid var(--line);color:var(--signal);white-space:nowrap}
-.added{color:var(--ok);font:500 .82rem var(--mono);white-space:nowrap}
-
-.desk{display:grid;grid-template-columns:1.2fr 1fr;gap:1.5rem}
-@media (max-width:860px){.desk{grid-template-columns:1fr}}
-form{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.3rem;display:grid;gap:.9rem;min-width:0}
-form label{display:grid;gap:.3rem;font-size:.9rem;color:var(--muted)}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
-@media (max-width:480px){.row2{grid-template-columns:1fr}}
-.payout{display:grid;gap:.8rem;align-content:start}
-.meter{border:1px solid var(--line);border-radius:12px;padding:1.1rem;background:var(--surface)}
-.meter .big{font:700 1.8rem var(--display);font-variant-numeric:tabular-nums}
-.split{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin-top:.6rem}
-.split b{display:block;height:100%;width:75%;background:var(--accent)}
-.stars{color:var(--accent);letter-spacing:1px;white-space:nowrap;font-size:1rem}
+.kind{font:700 .68rem var(--sans);letter-spacing:.1em;text-transform:uppercase;padding:.15rem .45rem;border-radius:6px;border:1px solid var(--line);color:var(--blue);white-space:nowrap}
+.added{color:var(--accent);font:600 .82rem var(--mono);white-space:nowrap}
+.stars{color:var(--chord);letter-spacing:1px;white-space:nowrap}
 .stars .off{color:var(--line)}
-.grade{border:1px solid var(--line);border-radius:10px;padding:.9rem;display:grid;gap:.5rem;background:var(--bg)}
-.grade .stars{font-size:1.5rem}
+
+.desk{display:grid;grid-template-columns:1.2fr 1fr;gap:1.2rem}
+@media (max-width:900px){.desk{grid-template-columns:1fr}}
+form.card,.formcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1.2rem;display:grid;gap:.85rem;min-width:0;align-content:start}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media (max-width:480px){.row2{grid-template-columns:1fr}}
+.grade{border:1px solid var(--line);border-radius:12px;padding:.85rem;display:grid;gap:.5rem;background:var(--bg2)}
+.grade .stars{font-size:1.4rem}
 .checks{display:grid;gap:.25rem;font:400 .82rem var(--mono);color:var(--muted)}
-.checks .bad{color:var(--accent)}
-.tiers{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;font:500 .8rem var(--mono);text-align:center}
+.checks .bad{color:var(--danger)}
+.tiers{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;font:600 .78rem var(--mono);text-align:center}
 .tiers div{border:1px solid var(--line);border-radius:8px;padding:.45rem .2rem;font-variant-numeric:tabular-nums}
-.tiers div.on{border-color:var(--accent);color:var(--accent)}
-.note{border-left:3px solid var(--signal);padding:.4rem .8rem;font-size:.92rem;color:var(--muted);max-width:70ch}
+.tiers div.on{border-color:var(--chord);color:var(--chord)}
+.chk{display:flex!important;gap:.5rem;align-items:flex-start;color:var(--text)!important}
+.chk input{margin-top:.3rem}
+.payout{display:grid;gap:.8rem;align-content:start}
+.meter{border:1px solid var(--line);border-radius:12px;padding:1rem;background:var(--panel)}
+.meter .big{font:800 1.7rem var(--sans);font-variant-numeric:tabular-nums}
+.split{height:10px;border-radius:5px;background:var(--line2);overflow:hidden;margin-top:.6rem}
+.split b{display:block;height:100%;width:75%;background:var(--accent)}
+.note{border-left:3px solid var(--blue);padding:.4rem .8rem;font-size:.92rem;color:var(--muted);max-width:75ch;margin:0 0 1.3rem}
+.err{color:var(--danger);font-size:.9rem;min-height:1.2em}
 
-footer{border-top:1px solid var(--line);padding-block:2rem;color:var(--muted);font-size:.9rem}
+.acct{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1.1rem;display:grid;gap:.6rem;align-content:start;min-width:0}
+.keys{font:400 .85rem var(--mono);display:grid;gap:.35rem}
+.keys b{user-select:all;color:var(--text)}
+.admin{border-top:3px solid var(--chord)}
+.codes{display:grid;gap:.35rem;font-size:.9rem}
+.codes div{display:flex;justify-content:space-between;gap:.6rem;align-items:center;border-bottom:1px solid var(--line2);padding-bottom:.35rem}
+.codes code{font:600 .9rem var(--mono);color:var(--chord)}
+footer{border-top:1px solid var(--line2);padding-block:2rem;color:var(--muted);font-size:.9rem}
 
-.modal-bg{position:fixed;inset:0;background:rgba(10,8,20,.55);display:grid;place-items:center;z-index:20;padding:16px}
-.modal{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:1.4rem;max-width:440px;width:100%;display:grid;gap:.9rem}
-.modal .lines{display:grid;gap:.4rem;font-size:.95rem}
-.modal .lines div{display:flex;justify-content:space-between;gap:1rem}
-.modal .total{border-top:1px solid var(--line);padding-top:.5rem;font-weight:600}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:.6rem 1rem;border-radius:8px;z-index:30;font-size:.92rem}
+.modal-bg{position:fixed;inset:0;background:rgba(3,8,15,.72);display:grid;place-items:center;z-index:20;padding:16px}
+.modal{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:1.3rem;max-width:460px;width:100%;display:grid;gap:.85rem;max-height:calc(100vh - 32px);overflow:auto}
+.modal .lines{display:grid;gap:.45rem;font-size:.95rem}
+.modal .lines>div{display:flex;justify-content:space-between;gap:1rem;align-items:center}
+.modal .total{border-top:1px solid var(--line);padding-top:.5rem;font-weight:700}
+.modal.pay{max-width:540px;background:#f6f8fb;color:#30313d}
+.modal.pay .muted{color:#5b6472}
+#checkout-form{min-height:120px}
+.qty{display:inline-flex;gap:.3rem;align-items:center;white-space:nowrap}
+.qty .btn{padding:.15rem .5rem;min-width:2rem}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--panel2);border:1px solid var(--accent);color:var(--text);padding:.6rem 1rem;border-radius:10px;z-index:30;font-size:.92rem}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-.acct{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.2rem;display:grid;gap:.6rem;align-content:start;min-width:0}
-.card h3{font-size:1rem}
-.keys{font:400 .85rem var(--mono);display:grid;gap:.3rem;user-select:all}
-.err{color:var(--accent);font-size:.9rem;min-height:1.2em}
-.chk{display:flex!important;gap:.5rem;align-items:flex-start;color:var(--fg)!important}
-.chk input{margin-top:.25rem}
-form input[type=file]{padding:.45rem}
-.modal form{background:none;border:0;padding:0}
-*{box-sizing:border-box}
-body{margin:0}
 </style>
 </head>
 <body>
-
+<div id="saleBar" class="salebar" hidden><div class="wrap"><span id="saleText"></span><span class="pv" id="salePv" hidden>PREVIEW · only you see this</span></div></div>
 <header class="top"><div class="wrap">
-  <div class="logo"><i><b style="height:8px"></b><b style="height:16px"></b><b style="height:11px"></b><b style="height:18px"></b></i>Motion Audio</div>
-  <nav>
-    <a href="#store">Store</a><a href="#tracks">Central Tracks</a><a href="#publish">Publish</a>
-    <a href="#account" id="acctLink">Sign in</a>
-    <button class="btn ghost small cartbtn" id="cartBtn">Cart · 0</button>
-  </nav>
+  <a class="logo" href="#"><i><b style="height:9px;background:var(--blue)"></b><b style="height:17px;background:var(--accent)"></b><b style="height:12px;background:var(--violet)"></b><b style="height:20px;background:var(--chord)"></b></i>Motion Audio</a>
+  <nav><a href="#store">Store</a><a href="#tracks">Tracks</a><a href="#publish">Publish</a><a href="#account" id="acctLink">Sign in</a></nav>
+  <button class="btn small cartbtn" id="cartBtn">Cart · 0</button>
 </div></header>
 
 <div class="hero"><div class="wrap">
   <div>
-    <div class="eyebrow">The Central system</div>
-    <h1>Pads, tracks and charts for the whole team, <em>run from one hub.</em></h1>
-    <p class="muted">Central Pedal plays your pads and multitracks from the floor. Central Control runs the service from the main admin. Central Usage puts chords and lyrics in front of every musician.</p>
-    <div class="ctas"><a class="btn" href="#store">Shop the system</a><a class="btn ghost" href="#tracks">Browse Central Tracks</a></div>
+    <div class="eyebrow">For churches and production teams</div>
+    <h1>Pads, tracks, lights and charts, <em>run from one hub.</em></h1>
+    <p class="muted">Central Pedal plays your pads and multitracks from the floor. Central Control runs the service from the main admin. Central Usage puts chords and lyrics in front of every musician, and Central Services keeps the church's schedule.</p>
+    <div class="ctas"><a class="btn go" href="#store">See the packs</a><a class="btn" href="#tracks">Browse Central Tracks</a></div>
   </div>
-  <canvas id="wave" aria-label="Animated pad waveform"></canvas>
+  <div class="panel" style="padding:.8rem">
+    <div class="label" style="margin-bottom:.55rem">Pads</div>
+    <div class="deck" aria-hidden="true">
+      <div class="pad on" style="--c:var(--blue)"><small>1</small>Warm Pad</div><div class="pad" style="--c:var(--blue)"><small>2</small>Ambient Clouds</div>
+      <div class="pad" style="--c:var(--violet)"><small>3</small>Worship Swell</div><div class="pad" style="--c:var(--chord)"><small>4</small>Dream Choir</div>
+    </div>
+    <canvas id="wave" aria-label="A pad playing"></canvas>
+  </div>
 </div></div>
 
 <section id="store"><div class="wrap">
-  <div class="sec-head"><div><div class="eyebrow">Store</div><h2>Hardware and licenses</h2>
-    <p class="muted">Build your own pedal on a Raspberry Pi 4 with the software, or get one fully built and ready to play.</p></div></div>
-  <div class="rack" id="rack"></div>
+  <div class="sec-head"><div><div class="eyebrow">Store · prices include tax</div><h2>Packs for your whole team</h2>
+    <p class="muted">Every pack has a Main Admin, admins, users, Central Services accounts for your church, and a Central Pedal Control license. Need more later? Add single keys and accounts below.</p></div></div>
+  <div class="rack" id="rack"><p class="muted">Loading the store…</p></div>
+  <h3 class="subhead">Add more</h3>
+  <div class="rack" id="rackMore"></div>
+  <h3 class="subhead">Hardware</h3>
+  <div class="rack" id="rackHw"></div>
 </div></section>
 
-<section id="tracks" class="tracks-band"><div class="wrap">
+<section id="tracks" class="band"><div class="wrap">
   <div class="sec-head"><div><div class="eyebrow">Central Tracks</div><h2>A community library of tracks</h2>
     <p class="muted">Subscribers add any track to their storage at no extra cost. Without a subscription, buy tracks one at a time. Everything you add shows up in Central Pedal and Central Pedal Control under Add Tracks.</p></div></div>
   <div class="sub">
-    <div class="plan">
-      <div class="tag eyebrow">Subscription</div>
+    <div class="panel plan">
+      <div class="label">Subscription</div>
       <h3>Central Tracks Unlimited</h3>
-      <div class="price">$77<small> / month</small></div>
+      <div class="price">$<span id="subPrice">77</span><small> / month · tax included</small></div>
       <ul class="muted" style="margin:0;padding-left:1.1rem">
         <li>Unlimited adds from the whole library</li>
         <li>Pads, multitracks and Prime tracks</li>
         <li>Syncs straight to your pedal storage</li>
       </ul>
       <div class="status" id="subStatus">Not subscribed</div>
-      <button class="btn" id="subBtn">Subscribe for $77/mo</button>
-      <div class="flow" aria-label="How adding works in the app">Add Tracks → <span>My own (MP3/WAV)</span><span>Multitrack</span><span>Prime track</span><span>Central Tracks</span></div>
+      <button class="btn go" id="subBtn">Subscribe for $77/mo</button>
+      <div class="muted" style="font-size:.85rem" id="trialNote">New subscribers: use code <b>7FREE</b> for a 7-day free trial.</div>
+      <div class="flow" aria-label="How adding works in the app">Add Tracks → <span class="chip">My own (MP3/WAV)</span><span class="chip">Multitrack</span><span class="chip">Prime track</span><span class="chip">Central Tracks</span></div>
     </div>
     <div class="lib">
       <div class="bar">
@@ -192,9 +228,9 @@ body{margin:0}
 <section id="publish"><div class="wrap">
   <div class="sec-head"><div><div class="eyebrow">Publish</div><h2>Sell your tracks</h2>
     <p class="muted">Anyone with a Motion Audio account can publish. Every upload is graded for audio quality, and the grade sets the price. You keep 75% of every purchase, and share in the subscriber pool when subscribers add your tracks.</p></div></div>
-  <p class="note" style="margin:0 0 1.4rem">Only tracks published here go into Central Tracks. Tracks you load onto your own Central Pedal or Central Pedal Control stay on your devices and are never shared.</p>
+  <p class="note">Only tracks published here go into Central Tracks. Tracks you load onto your own Central Pedal or Central Pedal Control stay on your devices and are never shared.</p>
   <div class="desk">
-    <form id="pubForm">
+    <form id="pubForm" class="card">
       <label>Song title<input id="pTitle" required maxlength="140" placeholder="Way Maker (Pad)"></label>
       <label>Artist / arranger<input id="pArtist" required maxlength="140" placeholder="Your name"></label>
       <div class="row2">
@@ -208,40 +244,43 @@ body{margin:0}
       <label>Full mix (MP3 or WAV) · this is what gets graded<input id="pFile" type="file" accept=".mp3,.wav,.flac,.m4a,.aif,.aiff,audio/*" required></label>
       <label>Stems (optional, for multitracks) · name them Click, Guide, Drums, Bass, Keys…<input id="pStems" type="file" accept=".mp3,.wav,.flac,.m4a,.aif,.aiff,audio/*" multiple></label>
       <div class="grade" id="grade" aria-live="polite">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span class="eyebrow" id="gLabel">Quality grade · estimate</span><span class="stars" id="gStars">☆☆☆☆☆</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span class="label" id="gLabel">Quality grade · estimate</span><span class="stars" id="gStars">☆☆☆☆☆</span></div>
         <div class="checks" id="gChecks"><div>Choose the full mix. You'll see an estimate here; the final grade is set when you publish.</div></div>
         <div class="tiers" id="tiers"></div>
       </div>
+      <div class="grade" id="idBox" hidden><div><b>Verify your ID</b> <span class="muted">· one time, about 2 minutes, through Stripe</span></div>
+        <div class="muted" style="font-size:.9rem">Every publisher verifies who they are before their first upload. It keeps the library honest and lets us act on copyright reports.</div>
+        <button type="button" class="btn small" id="idBtn" style="justify-self:start">Verify my ID</button></div>
       <label class="chk"><input type="checkbox" id="pRights" required> <span>I own this recording, or I have the rights to sell it (including the song itself). Tracks reported for copyright are taken down.</span></label>
-      <button class="btn" type="submit" id="pubBtn" disabled>Publish track</button>
+      <button class="btn go" type="submit" id="pubBtn" disabled>Publish track</button>
       <div class="err" id="pubMsg"></div>
     </form>
     <div class="payout">
-      <div class="meter"><div class="eyebrow">You earn per purchase</div><div class="big" id="perBuy">$0.00</div>
+      <div class="meter"><div class="label">You earn per purchase</div><div class="big" id="perBuy">$0.00</div>
         <div class="split" aria-hidden="true"><b></b></div>
         <div class="muted" style="font-size:.85rem;margin-top:.4rem">75% to you · 25% Motion Audio · price set by the quality grade</div></div>
-      <div class="meter"><div class="eyebrow">Subscriber pool</div><div class="big">50%</div>
+      <div class="meter"><div class="label">Subscriber pool</div><div class="big">50%</div>
         <div class="muted" style="font-size:.85rem">Half of every month's subscription money is shared among publishers, split by how many times subscribers added their tracks that month.</div></div>
-      <div class="meter"><div class="eyebrow">Example month</div>
+      <div class="meter"><div class="label">Example month</div>
         <div class="row2" style="margin-top:.4rem">
-          <label class="muted" style="font-size:.85rem;display:grid;gap:.3rem">Purchases<input id="exBuys" type="number" min="0" value="20" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.5rem"></label>
-          <label class="muted" style="font-size:.85rem;display:grid;gap:.3rem">Your share of adds (%)<input id="exAdds" type="number" min="0" max="100" value="5" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.5rem"></label>
+          <label style="font-size:.85rem">Purchases<input id="exBuys" type="number" min="0" value="20"></label>
+          <label style="font-size:.85rem">Your share of adds (%)<input id="exAdds" type="number" min="0" max="100" value="5"></label>
         </div>
         <div class="muted" style="font-size:.8rem;margin-top:.3rem">Pool part assumes 100 subscribers that month ($3,850 pool).</div>
         <div class="big" id="exTotal" style="margin-top:.5rem">$0.00</div></div>
-      <div class="meter" id="payoutBox"><div class="eyebrow">Getting paid</div>
+      <div class="meter" id="payoutBox"><div class="label">Getting paid</div>
         <div class="muted" style="font-size:.9rem" id="payoutText">Sign in to publish. Earnings are paid monthly to your bank through Stripe.</div>
-        <button class="btn ghost small" id="payoutBtn" hidden style="margin-top:.5rem">Set up payouts</button></div>
+        <button class="btn small" id="payoutBtn" hidden style="margin-top:.5rem">Set up payouts</button></div>
     </div>
   </div>
 </div></section>
 
-<section id="account" class="tracks-band"><div class="wrap">
-  <div class="sec-head"><div><div class="eyebrow">Account</div><h2 id="acctTitle">Your account</h2></div><button class="btn ghost small" id="signOut" hidden>Sign out</button></div>
+<section id="account" class="band"><div class="wrap">
+  <div class="sec-head"><div><div class="eyebrow">Account</div><h2 id="acctTitle">Your account</h2></div><button class="btn small ghost" id="signOut" hidden>Sign out</button></div>
   <div id="acctBody"></div>
 </div></section>
 
-<footer><div class="wrap">© 2026 Motion Audio · Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Tracks · Prices in USD</div></footer>
+<footer><div class="wrap">© 2026 Motion Audio · MotionAudio.org · Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services, Central Tracks · Prices in USD, tax included</div></footer>
 
 <div id="modalHost"></div>
 <script src="app.js"></script>

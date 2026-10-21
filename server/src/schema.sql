@@ -103,3 +103,45 @@ CREATE TABLE IF NOT EXISTS reports (
   reason    TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ---- Stripe additions (safe to re-run)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS identity_session TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS id_status TEXT NOT NULL DEFAULT 'none';  -- none | processing | requires_input | verified
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS revoked BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS reversed BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_intent TEXT;
+ALTER TABLE earnings DROP CONSTRAINT IF EXISTS earnings_reason_check;
+ALTER TABLE earnings ADD CONSTRAINT earnings_reason_check CHECK (reason IN ('purchase','subscriber_add','reversal'));
+
+-- every Checkout Session we create, so webhooks map Stripe objects back to our records (not metadata)
+CREATE TABLE IF NOT EXISTS checkouts (
+  session_id  TEXT PRIMARY KEY,
+  kind        TEXT NOT NULL CHECK (kind IN ('store','track','subscription')),
+  user_id     BIGINT REFERENCES users(id),
+  track_id    BIGINT REFERENCES tracks(id),
+  items       JSONB,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- one row per fulfilled one-time payment: refunds, disputes and fraud warnings find the purchase through it
+CREATE TABLE IF NOT EXISTS stripe_payments (
+  payment_intent TEXT PRIMARY KEY,
+  session_id  TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  user_id     BIGINT REFERENCES users(id),
+  track_id    BIGINT REFERENCES tracks(id),
+  order_id    BIGINT REFERENCES orders(id),
+  status      TEXT NOT NULL DEFAULT 'paid',   -- paid | refunded | disputed | review
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'license';
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS app TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS major INTEGER;   -- updates allowed within this major version only
+ALTER TABLE users ADD COLUMN IF NOT EXISTS services_accounts INTEGER NOT NULL DEFAULT 0;  -- Central Services accounts (per church)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS had_trial BOOLEAN NOT NULL DEFAULT FALSE;
+-- website settings with a draft (what the admin is previewing) and a live copy (what everyone sees)
+CREATE TABLE IF NOT EXISTS site_settings (
+  key   TEXT PRIMARY KEY,
+  draft JSONB NOT NULL DEFAULT '{}',
+  live  JSONB NOT NULL DEFAULT '{}',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

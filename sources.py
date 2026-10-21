@@ -753,9 +753,11 @@ class Updater:
 
     def status(self):
         lt = self.latest or {}
-        newer = bool(lt and version_tuple(lt.get("version")) > version_tuple(self.current))
+        newer = bool(lt and version_tuple(lt.get("version")) > version_tuple(self.current) and version_tuple(lt.get("version"))[0] == version_tuple(self.current)[0])
+        up = getattr(self, "upgrade", None)
         return {"type": "updateStatus", "current": self.current, "repo": self.cfg.get("repo"), "auto": bool(self.cfg.get("auto")), "lastCheck": self.cfg.get("lastCheck") or 0,
-                "available": newer, "latest": lt.get("version"), "notes": (lt.get("notes") or "")[:2000], "published": lt.get("published"), "hasPi": bool(lt.get("zip")), "error": self.error, "busy": self.busy}
+                "available": newer, "latest": lt.get("version"), "notes": (lt.get("notes") or "")[:2000], "published": lt.get("published"), "hasPi": bool(lt.get("zip")), "error": self.error, "busy": self.busy,
+                "upgrade": up, "upgradeNote": ("Version %s is out. It's a new purchase at motionaudio.org; this Central Pedal keeps getting %d.x updates." % (up, version_tuple(self.current)[0])) if up else None}
 
     def _get(self, url, timeout=20, raw=False):
         req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json" if not raw else "application/octet-stream", "User-Agent": "CentralControl-updater"})
@@ -768,11 +770,25 @@ class Updater:
         if not repo or "/" not in repo:
             self.error = "set the update source (owner/repo on GitHub) first"
             return self.status()
-        try:
-            rel = self._get("%s/repos/%s/releases/latest" % (self.api, repo))
+        def read(rel):
             assets = {a.get("name"): a.get("browser_download_url") for a in (rel.get("assets") or [])}
-            self.latest = {"version": (rel.get("tag_name") or rel.get("name") or "").lstrip("vV"), "notes": rel.get("body") or "", "published": rel.get("published_at"),
-                           "zip": assets.get("central-control-source.zip"), "sums": assets.get("SHA256SUMS"), "assets": assets}
+            return {"version": (rel.get("tag_name") or rel.get("name") or "").lstrip("vV"), "notes": rel.get("body") or "", "published": rel.get("published_at"),
+                    "zip": assets.get("central-control-source.zip"), "sums": assets.get("SHA256SUMS"), "assets": assets}
+        try:
+            # updates stay inside this major version (8.0-8.9); the next major is a new purchase on the website
+            major = version_tuple(self.current)[0]
+            latest = read(self._get("%s/repos/%s/releases/latest" % (self.api, repo)))
+            self.upgrade = None
+            if version_tuple(latest["version"])[0] > major:
+                self.upgrade = latest["version"]
+                try:
+                    rels = self._get("%s/repos/%s/releases?per_page=50" % (self.api, repo)) or []
+                except Exception:
+                    rels = []
+                same = [read(r) for r in rels if isinstance(r, dict) and not r.get("draft") and not r.get("prerelease")]
+                same = [r for r in same if version_tuple(r["version"])[0] == major]
+                latest = max(same, key=lambda r: version_tuple(r["version"])) if same else {"version": self.current, "notes": "", "zip": None, "sums": None, "assets": {}}
+            self.latest = latest
             self.error = None
         except Exception as error:
             self.error = explain_network_error(error)
