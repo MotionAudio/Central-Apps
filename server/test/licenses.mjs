@@ -21,7 +21,7 @@ try {
   ok(own.body.token && own.body.church === "Grace Church", "the main user makes the church account when signing up", own.body);
   const T = own.body.token;
   let ch = (await j("GET", "/church", null, T)).body;
-  ok(ch.church && ch.church.role === "owner" && ch.church.adminCode && ch.church.userCode && ch.church.adminCode !== ch.church.userCode, "the main admin sees the admin and user codes", ch);
+  ok(ch.church && ch.church.role === "church" && ch.church.adminCode && ch.church.userCode && ch.church.adminCode !== ch.church.userCode, "the church account (it made the church) sees the admin and user codes", ch);
 
   // a Small church pack bought by the church: the webhook records it -> 2 P, 2 A, 6 U keys for the church
   const { recordOrder } = await import("../src/payments.js");
@@ -65,7 +65,7 @@ try {
   const l1 = await j("POST", "/license/link", { key: U[0], device: dev1 }, usr.body.token);
   ok(l1.body.ok && l1.body.role === "user" && l1.body.church === "Grace Church", "a user's own account joins the church as a user", l1.body);
   const adm = await j("POST", "/license/link", { key: A, device: dev2 }, T);
-  ok(adm.body.ok && adm.body.role === "owner", "the main admin's account on an admin device stays the owner", adm.body);
+  ok(adm.body.ok && adm.body.role === "church", "the church account on an admin device stays the church account", adm.body);
   ch = (await j("GET", "/church", null, T)).body;
   ok(ch.counts.A.inUse === 1 && ch.counts.U.inUse === 1 && ch.members.length === 2 && ch.keys.find((k) => k.inUse && k.kind === "U").device === "Singer's iPhone", "everyone on the church sees keys in use and left; the main admin sees the devices", ch.counts);
   const seen = (await j("GET", "/church", null, usr.body.token)).body;

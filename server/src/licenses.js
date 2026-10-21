@@ -8,7 +8,7 @@
 // Pedal Control): each gets an email with a link to make their account, their app's download link and their key.
 import crypto from "node:crypto";
 import { q, one, pool } from "./db.js";
-import { config, KEY_KINDS, LICENSE_RECHECK_DAYS } from "./config.js";
+import { config, KEY_KINDS, LICENSE_RECHECK_DAYS, MAIN_ADMINS_MAX } from "./config.js";
 import { isAdmin } from "./auth.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
 import { requireStep } from "./signin.js";
@@ -42,6 +42,9 @@ async function findKey(k, client) {
   return r.rows[0] || null;
 }
 const devicesOf = (key) => q("SELECT * FROM license_devices WHERE key=$1 ORDER BY activated_at", [key]);
+// the church account and the main admins have the main admin's controls; with the admins they're the church's staff
+export const isMain = (role) => role === "church" || role === "owner";
+export const isStaff = (role) => isMain(role) || role === "admin";
 export async function churchOf(userId) {
   return userId ? one("SELECT c.*, m.role FROM church_members m JOIN churches c ON c.id=m.church_id WHERE m.user_id=$1", [userId]) : null;
 }
@@ -49,8 +52,9 @@ export async function createChurch(user, name) {
   name = String(name || "").trim().slice(0, 100);
   if (!name) throw bad("Give your church or production a name.");
   if (await churchOf(user.id)) throw bad("Your account is already in a church.", 409);
+  // the account that makes the church is the church account: it pays (the billing contact) and adds everyone else
   const c = await one("INSERT INTO churches (name,owner_id,admin_code,user_code) VALUES ($1,$2,$3,$4) RETURNING *", [name, user.id, code(), code()]);
-  await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,'owner')", [c.id, user.id]);
+  await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,'church')", [c.id, user.id]);
   return c;
 }
 export async function joinChurch(user, joinCode, role) {
@@ -60,7 +64,7 @@ export async function joinChurch(user, joinCode, role) {
   if (r === "admin" && c.admin_code !== cc) throw bad("That's the users' code. Admins join with the admin code.", 403);
   const mine = await churchOf(user.id);
   if (mine && mine.id !== c.id) throw bad("Your account is already in another church.", 409);
-  if (mine) { if (mine.role !== "owner" && r === "admin" && mine.role === "user") await q("UPDATE church_members SET role='admin' WHERE user_id=$1", [user.id]); return c; }
+  if (mine) { if (!isMain(mine.role) && r === "admin" && mine.role === "user") await q("UPDATE church_members SET role='admin' WHERE user_id=$1", [user.id]); return c; }
   await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,$3)", [c.id, user.id, r]);
   return c;
 }
@@ -104,18 +108,18 @@ function inviteLink(token) { return config.publicUrl + "/#invite-" + token; }
 async function sendInvite(inv, church, how) {
   const s = SECTION[inv.section], link = inviteLink(inv.token), owner = inv.section === "owner", joined = !!inv.user_id;
   const key = inv.key ? pretty(inv.key) : "", step1 = joined ? "Sign in with your account" : "Make your account";
-  const subject = (how === "reminder" ? "Reminder: " : "") + (owner ? "You're the main admin of " + church.name + " - Motion Audio"
+  const subject = (how === "reminder" ? "Reminder: " : "") + (owner ? "You're a main admin of " + church.name + " - Motion Audio"
     : how === "moved" ? church.name + " moved you to " + s.app : church.name + " added you to the team - " + s.app);
   const lead = how === "moved" ? church.name + " moved you to " + s.app + (inv.role_text ? " (" + inv.role_text + ")" : "") + ". Your old key no longer works; here's your new one."
     : "Welcome to the team! " + church.name + " added you" + (inv.role_text ? " as " + inv.role_text : "") + ", and we've got everything ready for you." + (how === "reminder" ? " Your key is waiting for you." : "");
   const text = (inv.name ? "Hi " + inv.name + ",\n\n" : "Hi,\n\n") + (owner
-    ? church.name + " made you its main admin on Motion Audio. Thanks for taking care of your team." + (how === "reminder" ? " The invite is still waiting for you." : "") + "\n\n1. Make your account (or sign in): " + link + "\n"
+    ? church.name + " made you a main admin on Motion Audio. Thanks for taking care of your team." + (how === "reminder" ? " The invite is still waiting for you." : "") + "\n\n1. Make your account (or sign in): " + link + "\n"
     : lead + "\n\n1. " + step1 + ": " + link + "\n2. Download " + s.app + ": " + APPS_URL + "#" + s.anchor +
       "\n3. Open it, connect to Wi-Fi, and enter your key: " + key + "\n" + (inv.section === "user" || inv.section === "pedal" ? "\nYour key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.\n" : "")) +
     ((church.services_slots || 0) > 0 || trialActive(church) ? "\nYour church's schedule is in Central Services: " + APPS_URL + "#central-services - sign in with the same account.\n" : "") +
     "\nTalk soon,\nThe Motion Audio team\n";
   const html = '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px">' + (inv.name ? "<p>Hi " + escHtml(inv.name) + ",</p>" : "<p>Hi,</p>") + (owner
-    ? "<p><b>" + escHtml(church.name) + "</b> made you its main admin on Motion Audio." + (how === "reminder" ? " The invite is still waiting." : "") + "</p><p><a href=\"" + escHtml(link) + "\" style=\"display:inline-block;background:#12161C;color:#fff;padding:12px 20px;border-radius:6px;font-weight:600;text-decoration:none\">Make your account</a></p>"
+    ? "<p><b>" + escHtml(church.name) + "</b> made you a main admin on Motion Audio." + (how === "reminder" ? " The invite is still waiting." : "") + "</p><p><a href=\"" + escHtml(link) + "\" style=\"display:inline-block;background:#12161C;color:#fff;padding:12px 20px;border-radius:6px;font-weight:600;text-decoration:none\">Make your account</a></p>"
     : "<p>" + escHtml(lead) + "</p><ol>" +
       "<li><a href=\"" + escHtml(link) + "\">" + step1 + "</a></li><li><a href=\"" + APPS_URL + "#" + s.anchor + "\">Download " + escHtml(s.app) + "</a></li>" +
       "<li>Open it, connect to Wi-Fi, and enter your key:<br><code style=\"font:600 18px ui-monospace,monospace;letter-spacing:.05em\">" + escHtml(key) + "</code></li></ol>" +
@@ -134,11 +138,20 @@ export async function acceptInvite(user, token) {
   if (mine && mine.id !== inv.church_id) throw bad("Your account is already in another church (" + mine.name + ").", 409);
   if (inv.section === "owner") {
     const c = await one("SELECT * FROM churches WHERE id=$1", [inv.church_id]);
-    if (!mine) await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,'owner')", [inv.church_id, user.id]);
-    else await q("UPDATE church_members SET role='owner' WHERE user_id=$1", [user.id]);
-    if (c.owner_id && c.owner_id !== user.id) await q("UPDATE church_members SET role='admin' WHERE user_id=$1 AND church_id=$2", [c.owner_id, c.id]);   // (the one who made it stays, as an admin)
-    await q("UPDATE churches SET owner_id=$1 WHERE id=$2", [user.id, c.id]);
-    (await import("./payments.js")).syncChurchCustomer(c.id).catch(() => { });   // (the receipts go to the new main admin)
+    if (mine && mine.role === "church") throw bad("That's the church account. A main admin uses their own account.", 409);
+    const account = await one("SELECT user_id FROM church_members WHERE church_id=$1 AND role='church'", [c.id]);
+    if (account) {   // a church with its own account: one more main admin (up to 2); the church account stays the billing contact
+      const mains = await one("SELECT COUNT(*)::int AS n FROM church_members WHERE church_id=$1 AND role='owner' AND user_id<>$2", [c.id, user.id]);
+      if (mains.n >= MAIN_ADMINS_MAX) throw bad(c.name + " has " + MAIN_ADMINS_MAX + " main admins already. Ask the church account to put one back to admin first.", 409);
+      if (!mine) await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,'owner')", [inv.church_id, user.id]);
+      else await q("UPDATE church_members SET role='owner' WHERE user_id=$1", [user.id]);
+    } else {   // (a church from before 9.3.1, made by a person: the main admin role moves to them)
+      if (!mine) await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,'owner')", [inv.church_id, user.id]);
+      else await q("UPDATE church_members SET role='owner' WHERE user_id=$1", [user.id]);
+      if (c.owner_id && c.owner_id !== user.id) await q("UPDATE church_members SET role='admin' WHERE user_id=$1 AND church_id=$2", [c.owner_id, c.id]);   // (the one who made it stays, as an admin)
+      await q("UPDATE churches SET owner_id=$1 WHERE id=$2", [user.id, c.id]);
+      (await import("./payments.js")).syncChurchCustomer(c.id).catch(() => { });   // (the receipts go to the new main admin)
+    }
   } else {
     const role = SECTION[inv.section].role;
     if (!mine) await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,$3)", [inv.church_id, user.id, role]);
@@ -187,7 +200,7 @@ export function routes(api, { wrap, brake, requireUser }) {
   }
   async function staffChurch(req, ownerOnly) {
     const c = await churchOf(req.user.id);
-    if (!c || !(c.role === "owner" || (!ownerOnly && c.role === "admin"))) throw bad(ownerOnly ? "Only the main admin can do that." : "Only the main admin and admins can do that.", 403);
+    if (!c || !(isMain(c.role) || (!ownerOnly && c.role === "admin"))) throw bad(ownerOnly ? "Only the church account and the main admins can do that." : "Only the church account, the main admins and admins can do that.", 403);
     await requireStep(req);
     return c;
   }
@@ -248,7 +261,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     const owner = l.user_id ? await one("SELECT email, name FROM users WHERE id=$1", [l.user_id]) : null;
     const wrongAccount = (l.user_id && l.user_id !== req.user.id) ? (owner ? owner.email : "another account")
       : (!l.user_id && l.assigned_email && l.assigned_email !== req.user.email.toLowerCase()) ? l.assigned_email : null;
-    if (wrongAccount && !(await churchOf(req.user.id).then((c) => c && c.id === l.church_id && (c.role === "owner" || c.role === "admin") && l.kind !== "U"))) {
+    if (wrongAccount && !(await churchOf(req.user.id).then((c) => c && c.id === l.church_id && isStaff(c.role) && l.kind !== "U"))) {
       await q("DELETE FROM license_devices WHERE key=$1 AND device_id=$2", [l.key, dev]);   // (this device doesn't keep the key)
       throw bad("This key belongs to " + wrongAccount + ". Sign in with that account - a key works on two devices of the same person.", 409);
     }
@@ -278,7 +291,7 @@ export function routes(api, { wrap, brake, requireUser }) {
   api.get("/church", requireUser, wrap(async (req, res) => {
     const c = await churchOf(req.user.id);
     if (!c) return res.json({ church: null });
-    const staff = c.role === "owner" || c.role === "admin";
+    const staff = isStaff(c.role);
     if (staff) await requireStep(req);
     const keys = await q("SELECT * FROM licenses WHERE church_id=$1 ORDER BY kind, created_at, key", [c.id]);
     const devs = await q("SELECT d.* FROM license_devices d JOIN licenses l ON l.key=d.key WHERE l.church_id=$1", [c.id]);
@@ -288,9 +301,9 @@ export function routes(api, { wrap, brake, requireUser }) {
       const list = keys.filter((x) => x.kind === k && !x.revoked && !(x.expires_at && new Date(x.expires_at) <= new Date())), used = list.filter((x) => dv(x.key).length || x.assigned_email || x.user_id);
       counts[k] = { name: KEY_KINDS[k], total: list.length, inUse: list.filter((x) => dv(x.key).length).length, given: used.length, free: list.length - used.length };
     }
-    const members = staff ? await q("SELECT u.name, u.email, m.role FROM church_members m JOIN users u ON u.id=m.user_id WHERE m.church_id=$1 ORDER BY m.role, u.name", [c.id]) : [];
+    const members = staff ? await q("SELECT u.name, u.email, m.role FROM church_members m JOIN users u ON u.id=m.user_id WHERE m.church_id=$1 ORDER BY array_position(ARRAY['church','owner','admin','user'], m.role), u.name", [c.id]) : [];
     res.json({ current: fmt(await currentTenths()), trial: { active: trialActive(c), until: c.trial_until, code: c.trial_code, used: !!c.trial_code },
-      church: { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: (c.services_slots || 0) > 0 || trialActive(c), servicesSlots: c.services_slots || 0, adminCode: c.role === "owner" ? c.admin_code : undefined, userCode: staff ? c.user_code : undefined, mail: mailOn },
+      church: { name: c.name, role: c.role, hasPack: c.has_pack, hasServices: (c.services_slots || 0) > 0 || trialActive(c), servicesSlots: c.services_slots || 0, adminCode: isMain(c.role) ? c.admin_code : undefined, userCode: staff ? c.user_code : undefined, mail: mailOn },
       counts, keys: keys.map((l) => keyOut(l, dv(l.key), staff, req.user.id)), members });
   }));
   api.post("/church", requireUser, wrap(async (req, res) => {
@@ -302,6 +315,9 @@ export function routes(api, { wrap, brake, requireUser }) {
   }));
   async function makeOwnerInvite(c, email, name) {
     if (!emailOk(email)) throw bad("That main admin email doesn't look right.");
+    if (await one("SELECT 1 FROM church_members m JOIN users u ON u.id=m.user_id WHERE m.church_id=$1 AND m.role='church' AND u.email=$2", [c.id, email])) throw bad("That's the church account's email. A main admin uses their own.");
+    const mains = await one("SELECT COUNT(*)::int AS n, bool_or(role='church') AS acct FROM church_members WHERE church_id=$1 AND role IN ('owner','church')", [c.id]);
+    if (mains.acct && mains.n - 1 >= MAIN_ADMINS_MAX) throw bad(c.name + " has " + MAIN_ADMINS_MAX + " main admins already. Put one back to admin first.", 409);
     await q("DELETE FROM invites WHERE church_id=$1 AND section='owner'", [c.id]);
     const inv = await one("INSERT INTO invites (church_id,section,name,email,token) VALUES ($1,'owner',$2,$3,$4) RETURNING *", [c.id, name.slice(0, 80), email, crypto.randomBytes(18).toString("base64url")]);
     const r = await sendInvite(inv, c);
@@ -322,8 +338,9 @@ export function routes(api, { wrap, brake, requireUser }) {
   }
   api.post("/church/remove", requireUser, wrap(async (req, res) => {   // take someone out of the church: their keys are free again
     const c = await staffChurch(req, true);
-    const u = await one("SELECT u.id FROM users u JOIN church_members m ON m.user_id=u.id WHERE m.church_id=$1 AND u.email=$2", [c.id, String(req.body.email || "").toLowerCase()]);
+    const u = await one("SELECT u.id, m.role FROM users u JOIN church_members m ON m.user_id=u.id WHERE m.church_id=$1 AND u.email=$2", [c.id, String(req.body.email || "").toLowerCase()]);
     if (!u) throw bad("That person isn't in your church.", 404);
+    if (u.role === "church") throw bad("That's the church account: it stays.", 400);
     if (u.id === req.user.id) throw bad("You can't take yourself out.", 400);
     for (const l of await q("SELECT key FROM licenses WHERE church_id=$1 AND (user_id=$2 OR assigned_email=$3)", [c.id, u.id, String(req.body.email || "").toLowerCase()])) await freeKey(l.key);
     await q("DELETE FROM invites WHERE church_id=$1 AND (user_id=$2 OR email=$3)", [c.id, u.id, String(req.body.email || "").toLowerCase()]);
@@ -341,7 +358,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     const c = await churchOf(req.user.id), l = await findKey(req.body.key);
     if (!c) throw bad("Your account isn't in a church.", 403);
     if (!l || l.church_id !== c.id) throw bad("That key isn't one of your church's.", 404);
-    if (!(c.role === "owner" || c.role === "admin" || l.user_id === req.user.id)) throw bad("Only the main admin, admins, and the person using the key can release it.", 403);   // (a user: their own devices)
+    if (!(isStaff(c.role) || l.user_id === req.user.id)) throw bad("Only the church account, the main admins, admins, and the person using the key can release it.", 403);   // (a user: their own devices)
     if (req.body.device) await q("DELETE FROM license_devices WHERE key=$1 AND device_name=$2", [l.key, String(req.body.device)]);
     else await q("DELETE FROM license_devices WHERE key=$1", [l.key]);
     res.json({ ok: true });
@@ -397,7 +414,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     await q("DELETE FROM invites WHERE id=$1", [inv.id]);
     if (inv.user_id) {   // (out of the church too, unless they're on another team or they're the main admin)
       const still = await one("SELECT 1 FROM invites WHERE church_id=$1 AND user_id=$2", [c.id, inv.user_id]);
-      if (!still) await q("DELETE FROM church_members WHERE church_id=$1 AND user_id=$2 AND role<>'owner'", [c.id, inv.user_id]);
+      if (!still) await q("DELETE FROM church_members WHERE church_id=$1 AND user_id=$2 AND role NOT IN ('owner','church')", [c.id, inv.user_id]);
     }
     res.json({ ok: true });
   }));
@@ -425,7 +442,7 @@ export function routes(api, { wrap, brake, requireUser }) {
       moved = (await client.query("UPDATE invites SET section=$1, key=$2, reminders=0, reminded_at=NULL WHERE id=$3 RETURNING *", [to, k.key, inv.id])).rows[0];
       if (inv.user_id) {
         const admin = to === "admin" || !!(await client.query("SELECT 1 FROM invites WHERE church_id=$1 AND user_id=$2 AND section='admin' AND id<>$3", [c.id, inv.user_id, inv.id])).rows[0];
-        await client.query("UPDATE church_members SET role=$1 WHERE church_id=$2 AND user_id=$3 AND role<>'owner'", [admin ? "admin" : "user", c.id, inv.user_id]);
+        await client.query("UPDATE church_members SET role=$1 WHERE church_id=$2 AND user_id=$3 AND role NOT IN ('owner','church')", [admin ? "admin" : "user", c.id, inv.user_id]);
       }
       await client.query("COMMIT");
     } catch (e) { try { await client.query("ROLLBACK"); } catch (_) { } throw e; } finally { client.release(); }

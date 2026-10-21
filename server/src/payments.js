@@ -105,13 +105,13 @@ export async function ownedCounts(churchId) {
   for (const o of await q("SELECT items FROM orders WHERE church_id=$1 AND status IN ('paid','review')", [churchId])) for (const [id, n] of Object.entries(o.items || {})) if (!/^(renew)$/.test(id)) out[id] = (out[id] || 0) + (Number(n) || 0);
   return out;
 }
-// everything in the store belongs to a church: you buy signed in, and the first purchase makes your church (you become
-// its main admin) when you're not in one yet
+// everything in the store belongs to a church: you buy signed in, and the first purchase makes your church when you're
+// not in one yet (this account becomes the church account)
 export async function storeCheckout(user, items, churchName, code, only) {   // (only "check": everything but the payment)
   if (!user) throw err("Sign in or make an account first: your keys go to your church's account.", 401);
   let church = await churchOf(user.id);
   if (!church && !String(churchName || "").trim()) throw err("Name your church or production first: your keys go to its account.", 400, { needChurch: true });
-  if (church && !(church.role === "owner" || church.role === "admin")) throw err("Only " + church.name + "'s main admins and admins buy for it. Ask one of them, or they can add you on the Teams page.", 403);
+  if (church && !["church", "owner", "admin"].includes(church.role)) throw err("Only " + church.name + "'s church account, main admins and admins buy for it. Ask one of them, or they can add you on the Teams page.", 403);
   const qty = {};
   for (const [id, q0] of Object.entries(items || {})) { const n = Math.max(0, Math.min(50, Math.floor(Number(q0) || 0))); if (PRODUCTS[id] && n) qty[id] = n; }   // (whole numbers, checked once)
   if (!Object.keys(qty).length) throw err("Your cart is empty.");
@@ -189,7 +189,7 @@ export async function renewCheckout(user, church, keys, code) {
 export async function subscriptionCheckout(user) {
   needStripe();
   if (await isSubscribed(user)) throw err("You're already subscribed.");
-  const church = await churchOf(user.id), forChurch = !!(church && church.role === "owner");   // (a main admin: for the whole church, billed to it)
+  const church = await churchOf(user.id), forChurch = !!(church && (church.role === "church" || church.role === "owner"));   // (the church account or a main admin: for the whole church, billed to it)
   const s = await stripe.checkout.sessions.create({
     ...STUDIO, mode: "subscription", payment_method_collection: "always", submit_type: "auto",
     customer: forChurch ? await churchCustomer(church) : await customerFor(user),

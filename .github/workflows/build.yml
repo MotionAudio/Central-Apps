@@ -102,7 +102,7 @@ jobs:
           bash ../tools/ci-run.sh "hub sync test" node test-hubsync.mjs
           bash ../tools/ci-run.sh "pedal audio test" node test-piaudio.mjs
           node ../tools/prune-onnx.js .
-          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never -c.extraMetadata.name=central-control
           node ../tools/check-packaged.js dist/linux-unpacked/resources/app.asar
       - name: Smoke test - the packed app (helpers, video, sounds, the player, the speech model's runtime)
         run: |
@@ -110,11 +110,12 @@ jobs:
           "$R/native/cu-mixer" --version && "$R/native/cu-rig" --version && ls "$R/native/rig-map.json" "$R/sounds/"*.sf2 > /dev/null
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$R/native"
           ls "$R/player/pedal-driver.py" "$R/player/index.html" "$R/player/screens.json" > /dev/null && "$R/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "the player is in the app"
-          bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js central-usage/dist/linux-unpacked/central-usage "$R"
+          bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js central-usage/dist/linux-unpacked/central-control "$R"
           ls -la central-usage/dist/ | grep -E "deb|AppImage"
-          [ "$(dpkg-deb -f central-usage/dist/CentralControl-*-amd64.deb Package)" = central-usage ] || { echo "::error::Central Control's .deb must stay the package central-usage (so it replaces the copies from before 9.2.1)"; exit 1; }
-          dpkg-deb -c central-usage/dist/CentralControl-*-amd64.deb | grep -q "./opt/Central Control/central-usage" || { echo "::error::Central Control should install in /opt/Central Control"; exit 1; }
-          dpkg-deb -f central-usage/dist/CentralControl-*-amd64.deb Conflicts Replaces | grep -c "central-control" | grep -qx 2 || { echo "::error::Central Control must replace the retired central-control package (it used /opt/Central Control too)"; exit 1; }
+          [ "$(dpkg-deb -f central-usage/dist/CentralControl-*-amd64.deb Package)" = central-control ] || { echo "::error::Central Control's .deb is the package central-control (since 9.3.1)"; exit 1; }
+          dpkg-deb -c central-usage/dist/CentralControl-*-amd64.deb | grep -q "./opt/Central Control/central-control$" || { echo "::error::Central Control should install /opt/Central Control/central-control"; exit 1; }
+          dpkg-deb -c central-usage/dist/CentralControl-*-amd64.deb | grep -q "./usr/share/applications/central-control.desktop" || { echo "::error::Central Control's menu entry should be central-control.desktop"; exit 1; }
+          dpkg-deb -f central-usage/dist/CentralControl-*-amd64.deb Conflicts Replaces | grep -c "central-usage" | grep -qx 2 || { echo "::error::Central Control must replace the central-usage package (its name from 9.2.1 to 9.3.0)"; exit 1; }
           bash tools/check-linux-deb.sh central-usage/dist/CentralControl-*-amd64.deb "Central Control"
       - name: Central Usage (Linux)
         working-directory: central-usage

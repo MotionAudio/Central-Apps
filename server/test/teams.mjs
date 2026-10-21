@@ -37,13 +37,13 @@ try {
   ok(inv.church === "Hope Church" && inv.section === "owner" && inv.email === "pastor" + S + "@hope.test", "the link shows the church and who it's for", inv);
   const pastor = await finish(await j("POST", "/signup", { email: "pastor" + S + "@hope.test", password: "password123", name: "Pastor Dan", invite: tok }), "pastor" + S + "@hope.test");
   const me = await j("GET", "/me", null, pastor.token), me2 = await j("GET", "/me", null, maker.token);
-  ok(me.church && me.church.role === "owner" && me2.church.role === "admin", "they make their account and become the main admin; whoever made the church stays as an admin", [me.church, me2.church]);
+  ok(me.church && me.church.role === "owner" && me2.church.role === "church", "they make their account and become a main admin; the account that made the church is the church account", [me.church, me2.church]);
   const T = pastor.token;
 
   // keys: a Lite pack (1 P, 3 A, 6 U, 15 Central Services slots), recorded the way the webhook does
   const { recordOrder } = await import("../src/payments.js");
   const { one } = await import("../src/db.js");
-  const cid = (await one("SELECT id FROM churches WHERE owner_id=(SELECT id FROM users WHERE email=$1)", ["pastor" + S + "@hope.test"])).id;
+  const cid = (await one("SELECT id FROM churches WHERE owner_id=(SELECT id FROM users WHERE email=$1)", ["office" + S + "@hope.test"])).id;
   await recordOrder({ id: "cs_t_" + S, amount_total: 40000, customer_details: { email: "p@hope.test" }  }, { church_id: String(cid), user_id: null, items: { "pack-lite": "1" } });
   await one("UPDATE churches SET has_services=TRUE WHERE id=$1 RETURNING id", [cid]);   // (Central Services' monthly plan, as Stripe's webhook records it)
   let ch = (await j("GET", "/church", null, T));

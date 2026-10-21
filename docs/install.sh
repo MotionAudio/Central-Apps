@@ -25,7 +25,7 @@ if [ -z "$APP" ]; then
   else fail "Say which app: ... | bash -s control   (or usage, pedal-control, services)"; fi
 fi
 case "$APP" in
-  control|central-control)         NAME="Central Control";       PREFIXES="CentralControl central-usage"; ICON=central-control; BIN=central-usage ;;
+  control|central-control)         NAME="Central Control";       PREFIXES="CentralControl central-usage"; ICON=central-control; BIN=central-control ;;
   usage|central-usage)             NAME="Central Usage";         PREFIXES="CentralUsage";                 ICON=central-usage;   BIN=centralusage ;;
   pedal-control|central-pedal-control) NAME="Central Pedal Control"; PREFIXES="central-pedal-control";    ICON=central-pedal-control; BIN=central-pedal-control ;;
   services|central-services)       NAME="Central Services";      PREFIXES="central-services";             ICON=central-services; BIN=central-services ;;

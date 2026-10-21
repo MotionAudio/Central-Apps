@@ -13,10 +13,15 @@ function bad(msg, status = 400) { const e = new Error(msg); e.status = status; r
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const KINDS = ["worship", "production"];
 
+// emails on the teams that use no slot: the church account's
+async function freeEmails(churchId, client) {
+  const r = await (client || pool).query("SELECT u.email FROM church_members m JOIN users u ON u.id=m.user_id WHERE m.church_id=$1 AND m.role='church'", [churchId]);
+  return r.rows.map((x) => x.email);
+}
 async function schedulersOf(c) {
   const chosen = await q("SELECT user_id FROM service_schedulers WHERE church_id=$1", [c.id]);
   if (chosen.length) return chosen.map((r) => String(r.user_id));
-  const staff = await q("SELECT user_id FROM church_members WHERE church_id=$1 AND role IN ('owner','admin') ORDER BY (role='owner') DESC, joined_at LIMIT $2", [c.id, LIM.schedulers]);
+  const staff = await q("SELECT user_id FROM church_members WHERE church_id=$1 AND role IN ('church','owner','admin') ORDER BY array_position(ARRAY['church','owner','admin'], role), joined_at LIMIT $2", [c.id, LIM.schedulers]);
   return staff.map((r) => String(r.user_id));
 }
 async function ctx(req) {
@@ -119,7 +124,8 @@ export function routes(api, { wrap, requireUser }) {
       await client.query("BEGIN");
       await client.query("SELECT pg_advisory_xact_lock(81093, $1)", [Number(x.c.id)]);
       const slots = (await client.query("SELECT services_slots FROM churches WHERE id=$1", [x.c.id])).rows[0].services_slots || 0;
-      const count = async (extra) => { const rows = (await client.query("SELECT DISTINCT m.email FROM service_team_members m JOIN service_teams t ON t.id=m.team_id WHERE t.church_id=$1", [x.c.id])).rows; const set = new Set(rows.map((r) => r.email)); (extra || []).forEach((e) => set.add(e)); return set.size; };
+      const free = await freeEmails(x.c.id, client);   // (the church account uses no slot)
+      const count = async (extra) => { const rows = (await client.query("SELECT DISTINCT m.email FROM service_team_members m JOIN service_teams t ON t.id=m.team_id WHERE t.church_id=$1", [x.c.id])).rows; const set = new Set(rows.map((r) => r.email)); (extra || []).forEach((e) => set.add(e)); free.forEach((e) => set.delete(e)); return set.size; };
       const total = await count(list.map((m) => m.email)), cap = trialActive(x.c) ? LIM.people : Math.min(LIM.people, slots);
       if (total > cap) {
         const now = await count(), more = total - now;
@@ -230,7 +236,7 @@ export function routes(api, { wrap, requireUser }) {
   // ---- the main admin: who schedules (up to 4)
   api.post("/services/schedulers", requireUser, wrap(async (req, res) => {   // { emails: [...] }
     const c = await churchOf(req.user.id);
-    if (!c || c.role !== "owner") throw bad("Only the main admin picks the schedulers.", 403);
+    if (!c || !(c.role === "church" || c.role === "owner")) throw bad("Only the church account and the main admins pick the schedulers.", 403);
     const emails = (Array.isArray(req.body.emails) ? req.body.emails : []).map((e) => String(e).toLowerCase()).slice(0, LIM.schedulers + 1);
     if (emails.length > LIM.schedulers) throw bad("Up to " + LIM.schedulers + " schedulers.");
     const users = emails.length ? await q("SELECT u.id, u.email FROM users u JOIN church_members m ON m.user_id=u.id WHERE m.church_id=$1 AND u.email = ANY($2)", [c.id, emails]) : [];

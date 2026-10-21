@@ -53,7 +53,7 @@ export async function needsCode(user) {
   if (!smsOn && !mailOn) return false;
   if (isAdmin(user)) return true;
   const m = await one("SELECT role FROM church_members WHERE user_id=$1", [user.id]);
-  return !!(m && (m.role === "owner" || m.role === "admin"));
+  return !!(m && (m.role === "church" || m.role === "owner" || m.role === "admin"));
 }
 // admin tools: the sign-in must have passed the code (someone who became an admin after signing in signs in again)
 export async function requireStep(req) {

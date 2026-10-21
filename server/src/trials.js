@@ -18,7 +18,8 @@ const day = (d) => new Date(d).toLocaleDateString("en-US", { month: "long", day:
 
 // a church's Central Services slots: how many it has, and how many people are on its teams (each takes one)
 export async function slotsOf(c) {
-  const used = (await one("SELECT COUNT(DISTINCT m.email)::int AS n FROM service_team_members m JOIN service_teams t ON t.id=m.team_id WHERE t.church_id=$1", [c.id])).n;
+  const used = (await one(`SELECT COUNT(DISTINCT m.email)::int AS n FROM service_team_members m JOIN service_teams t ON t.id=m.team_id WHERE t.church_id=$1
+    AND m.email NOT IN (SELECT u.email FROM church_members cm JOIN users u ON u.id=cm.user_id WHERE cm.church_id=$1 AND cm.role='church')`, [c.id])).n;   // (the church account uses no slot)
   const trial = trialActive(c);
   return { slots: c.services_slots || 0, used, free: Math.max(0, (c.services_slots || 0) - used), on: trial || (c.services_slots || 0) > 0, trial: trial ? c.trial_until : null };
 }
@@ -53,7 +54,7 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
     const code = String(req.body.code || "").trim().toUpperCase(), d = DISCOUNTS[code];
     if (!d || d.on === false || !d.trial) throw bad("That isn't a free trial code.", 404);
     let c = await churchOf(req.user.id);
-    if (c && c.role !== "owner") throw bad("Only the main admin can start a trial for " + c.name + ".", 403);
+    if (c && !(c.role === "church" || c.role === "owner")) throw bad("Only the church account or a main admin can start a trial for " + c.name + ".", 403);
     if (c && c.trial_code) throw bad(c.name + " already had its free trial (" + c.trial_code + ").", 409);
     if (!c) { if (!String(req.body.church || "").trim()) { const e = bad("Name your church or production first."); e.needChurch = true; throw e; } await createChurch(req.user, req.body.church); c = await churchOf(req.user.id); }
     const until = new Date(Date.now() + d.days * 864e5);
@@ -64,7 +65,7 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
   // during a trial: another key (as many as you like)
   api.post("/church/trial-key", requireUser, wrap(async (req, res) => {
     const c = await churchOf(req.user.id);
-    if (!c || !(c.role === "owner" || c.role === "admin")) throw bad("Only the main admin and admins can make keys.", 403);
+    if (!c || !["church", "owner", "admin"].includes(c.role)) throw bad("Only the church account, the main admins and admins can make keys.", 403);
     await requireStep(req);
     if (!trialActive(c)) throw bad("Your church isn't in a free trial.", 409);
     const kind = String(req.body.kind || ""); if (!["P", "A", "U"].includes(kind)) throw bad("P, A or U.");
@@ -75,7 +76,7 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
   api.post("/checkout/renew", requireUser, wrap(async (req, res) => {
     needConfirmed(req.user);
     const c = await churchOf(req.user.id);
-    if (!c || !(c.role === "owner" || c.role === "admin")) throw bad("Only the main admins and admins can renew keys.", 403);
+    if (!c || !["church", "owner", "admin"].includes(c.role)) throw bad("Only the church account, the main admins and admins can renew keys.", 403);
     await requireStep(req);
     res.json(await pay.renewCheckout(req.user, c, req.body.keys, req.body.code));
   }));

@@ -64,17 +64,19 @@ try {
   ok(/Sign in/.test(await page.textContent("#acctTitle")) && !(await page.$(".modal")), "check out while signed out: asks to sign in");
 
   // ---------------------------------------------------------------- the main admin makes the church's account
-  await page.fill("#upName", "Pat Owner"); await page.fill("#upEmail", OWNER); await page.fill("#upPass", "worship-" + S);
-  await page.check('[name=upCh][value=make]'); ok(await page.isVisible("#upChurch") && !(await page.isVisible("#upCode")), "make an account: \"I'm the main admin\" asks for the church's name");
+  await page.check('[name=upCh][value=make]');
+  ok(await page.isVisible("#upChurch") && !(await page.isVisible("#upCode")) && !(await page.isVisible("#upName")) && await page.isVisible("#upChurchHelp") && /church's email/.test(await page.textContent("#upEmailT")),
+    "set up a new church: it asks for the church's name and the church's own email (the church account), not a person's name");
+  await page.fill("#upEmail", OWNER); await page.fill("#upPass", "worship-" + S);
   await page.fill("#upChurch", "Grace Church " + S);
   await shot("signup", true);
   await page.click("#upForm .btn");
   await codeStep(OWNER);
-  await page.waitForFunction(() => /Hi, Pat/.test(document.querySelector("#acctTitle").textContent), null, { timeout: 6000 }).catch(() => {});
-  ok(/Hi, Pat/.test(await page.textContent("#acctTitle")), "signed up, added the phone and entered the code: signed in");
+  await page.waitForFunction(() => /Hi, Grace Church/.test(document.querySelector("#acctTitle").textContent), null, { timeout: 6000 }).catch(() => {});
+  ok(/Hi, Grace Church/.test(await page.textContent("#acctTitle")), "signed up, added the phone and entered the code: signed in as the church");
   ok(await page.isVisible(".confirm-card"), "the account asks to confirm the email");
   await page.waitForFunction(() => /Grace Church/.test((document.querySelector("#churchCard") || {}).textContent || ""), null, { timeout: 8000 }).catch(() => {});
-  ok(/Grace Church/.test(await page.textContent("#churchCard")), "the church was made, with Pat as its main admin");
+  ok(/Grace Church/.test(await page.textContent("#churchCard")) && /the church account/.test(await page.textContent("#churchCard")) && /Next: your main admins/.test(await page.textContent("#churchCard")), "the church was made; this is its church account, and it's told to invite its main admins next");
   await shot("account-new", true);
 
   // confirm the email (the link in the mail)
@@ -130,12 +132,12 @@ try {
   if (await page.$("#tsForm")) await codeStep(OWNER);
   await page.waitForTimeout(800);
   if (await page.$(".modal [data-close]")) await page.click(".modal [data-close]");
-  if (!/Hi, Pat/.test(await page.textContent("#acctTitle"))) {
+  if (!/Hi, Grace Church/.test(await page.textContent("#acctTitle"))) {
     await page.fill("#inEmail", OWNER); await page.fill("#inPass", "new-pass-" + S); await page.click("#inForm .btn:not(.ghost)"); await page.waitForTimeout(600);
     if (await page.$("#tsForm")) await codeStep(OWNER);
     await page.waitForTimeout(800);
   }
-  ok(/Hi, Pat/.test(await page.textContent("#acctTitle")), "the new password signs in");
+  ok(/Hi, Grace Church/.test(await page.textContent("#acctTitle")), "the new password signs in");
 
   // ---------------------------------------------------------------- Sam's invite link
   await page.click("#signOut"); await page.waitForTimeout(300);

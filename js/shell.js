@@ -40,7 +40,10 @@
   var status = null;
   var pointer = false;
   function cursorMode() { var d = (status && status.displays) || project().display || {}; return d.cursor || "auto"; }
-  function setPointer(on) { pointer = !!on; var mode = cursorMode(); document.body.classList.toggle("no-cursor", mode === "never" || (mode === "auto" && connected() && !pointer)); }
+  // only the Central Pedal's own touchscreen hides the pointer: Central Pedal Control, the player window in Central Control,
+  // a phone/tablet app and a browser on another computer always show it
+  var pedalScreen = /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && !window.CCDesktop && !window.CP_CONTROL && location.protocol !== "capacitor:" && !/[?&]player=1/.test(location.search);
+  function setPointer(on) { pointer = !!on; var mode = cursorMode(); document.body.classList.toggle("no-cursor", pedalScreen && (mode === "never" || (mode === "auto" && connected() && !pointer))); }
   document.addEventListener("pointermove", function (e) { if (!connected() && e.pointerType === "mouse" && document.body.classList.contains("no-cursor")) document.body.classList.remove("no-cursor"); });
   F.on("hello", function (m) { setPointer(!!m.mouse); renderSystemExtras(); });
   F.on("devices", function (m) { setPointer(!!m.mouse); });

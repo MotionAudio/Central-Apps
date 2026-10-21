@@ -403,3 +403,9 @@ ALTER TABLE earnings ADD CONSTRAINT earnings_reason_check CHECK (reason IN ('pur
 ALTER TABLE users ADD COLUMN IF NOT EXISTS identity_session TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS id_status TEXT NOT NULL DEFAULT 'none';   -- none, processing, requires_input, verified
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS slots INTEGER NOT NULL DEFAULT 0;   -- Central Services slots it gave (a refund takes them back)
+
+-- 9.3.1: the church account - the church's own login (office@church), not a person. It buys and pays, holds the keys
+-- and slots, and adds the main admins (up to 2), admins and users. One per church; it uses no Central Services slot.
+ALTER TABLE church_members DROP CONSTRAINT IF EXISTS church_members_role_check;
+ALTER TABLE church_members ADD CONSTRAINT church_members_role_check CHECK (role IN ('church','owner','admin','user'));
+CREATE UNIQUE INDEX IF NOT EXISTS church_members_one_church_account ON church_members (church_id) WHERE role='church';

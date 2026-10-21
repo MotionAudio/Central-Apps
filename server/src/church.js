@@ -4,7 +4,7 @@
 // is the church's billing contact (Stripe's receipts go to them).
 import { q, one, pool } from "./db.js";
 import { checkPassword } from "./auth.js";
-import { churchOf } from "./licenses.js";
+import { churchOf, isMain } from "./licenses.js";
 import { churchBillingPortal, syncChurchCustomer } from "./payments.js";
 import { MAIN_ADMINS_MAX } from "./config.js";
 import { requireStep } from "./signin.js";
@@ -13,7 +13,7 @@ import { sendMail, escHtml } from "./mail.js";
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 async function ownerChurch(req) {
   const c = await churchOf(req.user.id);
-  if (!c || c.role !== "owner") throw bad("Only a main admin can do that.", 403);
+  if (!c || !isMain(c.role)) throw bad("Only the church account or a main admin can do that.", 403);
   await requireStep(req);
   return c;
 }
@@ -31,6 +31,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     const c = await ownerChurch(req), role = String(req.body.role || "");
     if (!["admin", "user"].includes(role)) throw bad("Admin or user.");
     const m = await member(c, req.body.email);
+    if (m.role === "church") throw bad("That's the church account: it keeps its controls.", 400);
     if (m.role === "owner") throw bad("That's a main admin. Use Back to admin first.", 400);
     await q("UPDATE church_members SET role=$1 WHERE church_id=$2 AND user_id=$3", [role, c.id, m.id]);
     if (role === "user") await q("DELETE FROM service_schedulers WHERE church_id=$1 AND user_id=$2", [c.id, m.id]);
@@ -47,7 +48,9 @@ export function routes(api, { wrap, brake, requireUser }) {
       await client.query("BEGIN");
       const ch = (await client.query("SELECT owner_id FROM churches WHERE id=$1 FOR UPDATE", [c.id])).rows[0];   // (locked: two people can't both add a third)
       const list = (await client.query("SELECT user_id FROM church_members WHERE church_id=$1 AND role='owner'", [c.id])).rows.map((r) => String(r.user_id));
-      if (!list.includes(String(req.user.id))) throw bad("You're not a main admin any more.", 409);
+      const account = (await client.query("SELECT user_id FROM church_members WHERE church_id=$1 AND role='church'", [c.id])).rows[0];
+      if (!list.includes(String(req.user.id)) && !(account && String(account.user_id) === String(req.user.id))) throw bad("You're not a main admin any more.", 409);
+      if (m.role === "church") throw bad("That's the church account: it isn't one of the " + MAIN_ADMINS_MAX + " main admins.");
       if (on) {
         if (m.role === "owner") throw bad((m.name || m.email) + " is a main admin already.");
         if (m.role !== "admin") throw bad("Make " + (m.name || m.email) + " an admin first: a main admin is promoted from the admins.");
@@ -55,9 +58,9 @@ export function routes(api, { wrap, brake, requireUser }) {
         await client.query("UPDATE church_members SET role='owner' WHERE church_id=$1 AND user_id=$2", [c.id, m.id]);
       } else {
         if (m.role !== "owner") throw bad((m.name || m.email) + " isn't a main admin.");
-        if (list.length <= 1) throw bad("A church needs a main admin. Make someone else a main admin first.", 409);
+        if (list.length <= 1 && !account) throw bad("A church needs a main admin. Make someone else a main admin first.", 409);
         await client.query("UPDATE church_members SET role='admin' WHERE church_id=$1 AND user_id=$2", [c.id, m.id]);
-        if (String(ch.owner_id) === String(m.id)) await client.query("UPDATE churches SET owner_id=$1 WHERE id=$2", [list.find((id) => id !== String(m.id)), c.id]);   // (the billing contact is the other one now)
+        if (String(ch.owner_id) === String(m.id) && list.length > 1) await client.query("UPDATE churches SET owner_id=$1 WHERE id=$2", [list.find((id) => id !== String(m.id)), c.id]);   // (the billing contact is the other one now)
       }
       await client.query("DELETE FROM invites WHERE church_id=$1 AND section='owner'", [c.id]);
       owners = (await client.query("SELECT COUNT(*)::int AS n FROM church_members WHERE church_id=$1 AND role='owner'", [c.id])).rows[0].n;
@@ -74,10 +77,12 @@ export function routes(api, { wrap, brake, requireUser }) {
   api.post("/church/handover", requireUser, wrap(async (req, res) => {
     brake(req);
     const c = await ownerChurch(req);
+    if (c.role === "church") throw bad("The church account keeps its controls. Make an admin a main admin instead.", 400);
     if (!checkPassword(String(req.body.password || ""), req.user.pass_hash)) throw bad("That password isn't right.", 403);
     const m = await member(c, req.body.email);
     if (m.id === req.user.id) throw bad("You're already a main admin.");
     if (m.role === "owner") throw bad((m.name || m.email) + " is a main admin already.");
+    if (m.role === "church") throw bad("That's the church account.");
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
