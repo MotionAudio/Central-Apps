@@ -63,6 +63,7 @@
   .linux-line b { display: block; } .linux-line span { display: block; font-size: .88rem; color: var(--muted); margin-top: .15rem; }
   .linux-line code { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: .55rem .7rem; font-size: 12.5px; word-break: break-all; user-select: all; }
   .linux-line .copy { min-width: 96px; }
+  .lapp { display: flex; align-items: center; gap: .75rem; } .lapp img { width: 36px; height: 36px; flex: none; }
   @media (max-width: 760px) { .grid > .linux-line { grid-template-columns: minmax(0, 1fr); } }
   section > .card { border: 1px solid var(--line); border-radius: 14px; margin-top: 1rem; }
   details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.2rem; margin: .7rem 0; }
@@ -80,7 +81,7 @@
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap"><a class="logo" href="https://motionaudio.github.io/Central-Apps/"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg>Motion Audio</a><nav><a href="#first-run">Opening it the first time</a><a href="#pi">Raspberry Pi</a><a id="notesTop" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Release notes</a></nav></div></header>
+<header class="top"><div class="wrap"><a class="logo" href="https://motionaudio.github.io/Central-Apps/"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg>Motion Audio</a><nav><a href="#linux">Install on Linux</a><a href="#first-run">Opening it the first time</a><a href="#pi">Raspberry Pi</a><a id="notesTop" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Release notes</a></nav></div></header>
 <div class="stage"><div class="wrap">
   <div>
     <h1>Download the Central apps</h1>
@@ -97,6 +98,17 @@
   </div>
 </div></div>
 <main class="wrap">
+  <section id="linux">
+    <h2>Install on Linux</h2>
+    <p class="muted">Open Terminal, paste the line for the app you want, and press Enter. It finds the newest version, checks the download, and installs it with everything it needs. The app then appears in your app menu and updates itself. Ubuntu, Debian, Mint and Pop!_OS get the .deb; any other Linux gets the AppImage. Central Pedal itself goes on the Raspberry Pi: see the <a href="#pi">Raspberry Pi steps</a>.</p>
+    <div class="grid">
+      <div class="card linux-line"><div class="lapp"><img src="brand/tile/central-pedal-control.svg" alt="" width="36" height="36"><div><b>Central Pedal Control</b><span>Getting the pedal ready</span></div></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control">Copy</button></div>
+      <div class="card linux-line"><div class="lapp"><img src="brand/tile/central-control.svg" alt="" width="36" height="36"><div><b>Central Control</b><span>The main admin and admins</span></div></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control">Copy</button></div>
+      <div class="card linux-line"><div class="lapp"><img src="brand/tile/central-usage.svg" alt="" width="36" height="36"><div><b>Central Usage</b><span>Musicians and singers</span></div></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage">Copy</button></div>
+      <div class="card linux-line"><div class="lapp"><img src="brand/tile/central-services.svg" alt="" width="36" height="36"><div><b>Central Services</b><span>The church's schedule</span></div></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services">Copy</button></div>
+    </div>
+  </section>
+
   <section id="pedal-control">
     <div class="sechead"><img src="brand/tile/central-pedal-control.svg" alt="" width="44" height="44"><h2>Central Pedal Control</h2></div>
     <p class="muted">The Central Pedal app away from the pedal. Make the setlist and add songs: your own stems, a whole song split by the stem splitter, MultiTracks.com and Loop Community downloads, or Central Tracks. Set up the pads, footswitches, knobs and the instrument at home or in the office. Then press <b>⇪ Upload</b> and type the pedal's PIN, and it all goes to the Central Pedal on the church Wi-Fi. <b>⇩ Download</b> brings the pedal's setup back.</p>
