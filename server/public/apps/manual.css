@@ -59,7 +59,7 @@
 .steps>li{counter-increment:s;position:relative;padding:.7rem 0 .8rem 3rem;border-bottom:1px solid var(--line);margin:0!important}
 .steps>li:last-child{border-bottom:0}
 .steps>li::before{content:counter(s);position:absolute;left:0;top:.65rem;width:2rem;height:2rem;display:grid;place-items:center;border-radius:50%;background:var(--ink);color:#fff;font-weight:600;font-size:.9rem;font-variant-numeric:tabular-nums}
-.steps>li>b:first-child{display:block;color:var(--ink)}
+.steps>li>b:first-child{color:var(--ink)}
 
 /* a note in the margin of the text */
 .note{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--brass);border-radius:var(--r);padding:.9rem 1.15rem;color:var(--ink-2)}

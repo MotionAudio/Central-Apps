@@ -193,7 +193,9 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 ## Release history
 
 <details>
-<summary><b>What's new in each version</b> (9.3.1 and earlier)</summary>
+<summary><b>What's new in each version</b> (9.3.2 and earlier)</summary>
+
+**New in version 9.3.2:** Central Control's Service tab lays out the running item properly, the Slides Live screen shows the slide full width, and the on-air song and look in Lighting keep their layout.
 
 **New in version 9.3.1:** Central Control opens on Linux again (old launchers are pointed at the app) and is `central-control` everywhere on Linux; Central Pedal Control shows the mouse pointer on computers; on the website a church signs up with its own church account, which pays, adds the main admins, admins and users, and uses no Central Services slot; new app pages, manuals and install guides.
 
