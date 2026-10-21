@@ -166,5 +166,26 @@
   "file": "img/apps/pedal-pads.webp",
   "alt": "The Central Pedal's touchscreen on the PAD screen: the pad list and the settings for Pad 1, Warm Pad.",
   "caption": "Change a pad's sound right on the pedal."
+ },
+ {
+  "id": "cs-schedule",
+  "app": "Central Services",
+  "file": "img/apps/cs-schedule.webp",
+  "alt": "Central Services' Schedule for Grace Church: Sunday 9:00 with its four songs and keys, the Sunday band and Tech team, and each person's answer - Yes, No or Not yet - with 8 yes, 1 no and 1 not yet.",
+  "caption": "Everyone can see the whole schedule: who's serving, in what role, and who has answered."
+ },
+ {
+  "id": "cs-request",
+  "app": "Central Services",
+  "file": "img/apps/cs-request.webp",
+  "alt": "Central Services on Leah's account: My requests shows two services she's asked to sing at, Sunday 9:00 and Sunday 11:00, each with Accept and Decline buttons and a place for a note.",
+  "caption": "Volunteers answer with one tap, and can leave a note if they can't make it."
+ },
+ {
+  "id": "cs-teams",
+  "app": "Central Services",
+  "file": "img/apps/cs-teams.webp",
+  "alt": "Central Services' Teams screen for Grace Church: a Slots bar showing 14 of 30 in use, the Sunday band and Evening band worship teams, and the Tech team, each person with their role.",
+  "caption": "Teams shows who serves where, and how many of your church's slots are in use."
  }
 ]
