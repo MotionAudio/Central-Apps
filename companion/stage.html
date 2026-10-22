@@ -33,6 +33,15 @@
   .stopped .section { color:var(--dim); }
   .svc { position:fixed; top:1vh; right:2vw; font-size:2.6vh; color:var(--dim); font-variant-numeric:tabular-nums; z-index:5; } .svc b { color:var(--fg); } .svc .over { color:#ff6b6b; }
   .idle .svcbig { font-size:9vh; font-weight:900; color:var(--warn); font-variant-numeric:tabular-nums; }
+  /* a portrait screen (a phone, a tablet stood up): one column, sizes held by the width too */
+  @media (max-aspect-ratio: 1/1) {
+    .mid { grid-template-columns:minmax(0,1fr); align-content:start; gap:3vh; }
+    .song { font-size:min(5vh, 7.5vw); } .meta { font-size:min(3vh, 4.2vw); white-space:normal; text-align:right; }
+    .section { font-size:min(12vh, 17vw); } .count b { font-size:min(9vh, 13vw); } .count { font-size:min(6vh, 8vw); }
+    .next { border-left:0; border-top:.5vh solid var(--blue); padding:2vh 0 0; } .next .name { font-size:min(7vh, 10vw); }
+    .lyrics { font-size:min(3.6vh, 5vw); max-height:24vh; } .note, .time { font-size:min(3.4vh, 4.8vw); }
+    .bottom { grid-template-columns:minmax(0,1fr); gap:1.5vh; }
+  }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -61,7 +70,7 @@
     if (!d || !d.song) { $("#idle").hidden = false; $("#wrap").hidden = true; $("#idleSub").textContent = d ? "No song selected" : "Waiting for the Central Pedal…"; return; }
     $("#idle").hidden = true; $("#wrap").hidden = false; last = d; lastAt = performance.now();
     document.body.classList.toggle("stopped", !d.playing);
-    $("#song").textContent = (d.song.index + 1) + ". " + d.song.name;
+    $("#song").textContent = $("#song").title = (d.song.index + 1) + ". " + d.song.name;
     $("#meta").innerHTML = "<b>" + esc(C.keyName(d.song.key)) + "</b> · <b>" + d.bpm + "</b> BPM · " + (d.bpb || 4) + "/4" + (d.countIn ? " · <b>count-in " + d.countIn + "</b>" : "");
     $("#section").textContent = d.section ? d.section.name : (d.song.hasTracks ? (d.playing ? "…" : "Ready") : "No tracks");
     var ls = d.lyrics || { lines: [], next: [] };

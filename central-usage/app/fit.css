@@ -6,5 +6,5 @@
 /* Lighting → Output: the DMX monitor's channel numbers fit their cells (narrow windows get more rows, not cut numbers) */
 .lx-monitor { grid-template-columns: repeat(auto-fill, minmax(24px, 1fr)); }
 
-/* Lighting: the last presets in the side panel can scroll clear of the "Tell it" button */
-.lx-rightpanel { padding-bottom: 64px; }
+/* Lighting: the songs and presets panel stops above the "Tell it" button, so the button never covers a preset or text */
+.lx-rightpanel { margin-bottom: 64px; }

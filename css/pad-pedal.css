@@ -395,3 +395,5 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 .sys-grid section input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .sys-grid section select { max-width: 100%; }
 /* fit: the pad list stays inside its card (a long sound name wraps instead of widening the list) */
 #padList { grid-template-columns: minmax(0, 1fr); } #padList > .pad { min-width: 0; } #padList > .pad span { white-space: normal; overflow-wrap: anywhere; }
+/* fit: the add-a-song dialog's title and Close button get room above the first row */
+.add-dialog > .row.spread { margin-bottom: 10px; align-items: flex-start; gap: 12px; }
