@@ -224,6 +224,29 @@ def screen_by_id(app_root, sid):
     return next((x for x in screens_catalog(app_root)["screens"] if x.get("id") == sid), None)
 
 
+def display_connectors(drm="/sys/class/drm"):
+    """What the Pi's own display ports see: {"seen": the KMS driver lists its ports, "hdmi": a screen on HDMI,
+    "dsi": a screen on the ribbon port}. A small GPIO (SPI) screen isn't one of them."""
+    out = {"seen": False, "hdmi": False, "dsi": False}
+    try:
+        names = os.listdir(drm)
+    except OSError:
+        return out
+    for n in names:
+        m = re.match(r"card\d+-(HDMI|DSI)", n)
+        if not m:
+            continue
+        out["seen"] = True
+        try:
+            with open(os.path.join(drm, n, "status")) as fh:
+                st = fh.read().strip()
+        except OSError:
+            continue
+        if st == "connected":
+            out["hdmi" if m.group(1) == "HDMI" else "dsi"] = True
+    return out
+
+
 def touch_screen_id(config):
     """The touch screen picked (Settings → Touch screen), or what an older version had set ("off" = none)."""
     sid = config.get("touch_screen")
@@ -6655,6 +6678,30 @@ class PedalDriver:
         cfg["cards"] = chans.get("cards") or []
         return cfg
 
+    def auto_touch_screen(self, wait=8.0):
+        """A Pi with nothing on HDMI or the ribbon port, and no touch screen picked yet, most likely has the common 3.5"
+        GPIO screen - which stays white until its driver is on. Turn that one on (once) and restart. Picking a screen
+        (or "None") in Settings → Touch screen always wins."""
+        c = self.config
+        if c.get("simulated") and not os.environ.get("CC_DRM_DIR"):
+            return None
+        if c.get("touch_screen") or screen_on(c) or c.get("touch_screen_auto"):
+            return None
+        if not os.path.exists(SYSTEM_SCRIPT) and not os.environ.get("CC_DRM_DIR"):
+            return None
+        time.sleep(wait)   # (an HDMI monitor can take a moment to answer)
+        ports = display_connectors(os.environ.get("CC_DRM_DIR", "/sys/class/drm"))
+        if not ports["seen"] or ports["hdmi"] or ports["dsi"]:
+            return None
+        sid = "rpi35-xpt2046"
+        c["touch_screen_auto"] = sid
+        self.save_config()
+        result = self.set_touch_screen(sid)
+        log.info("no screen on HDMI or the ribbon port: turned on the 3.5\" GPIO screen (%s): %s", sid, result)
+        if result.get("ok") and not c.get("simulated"):
+            run_privileged("/usr/sbin/shutdown", "-r", "now")
+        return result
+
     def set_touch_screen(self, sid):
         """Settings → Touch screen: the screen's config.txt lines (and the maker's driver, downloaded), its touch panel,
         and what HDMI 1 shows. Takes effect after a restart."""
@@ -7230,6 +7277,7 @@ class PedalDriver:
         self.local.start()
         self.companion = CompanionServer(self, int(self.config["lan_port"]))
         self.companion.start()
+        threading.Thread(target=self.auto_touch_screen, daemon=True).start()
         self.start_gpio()
         self.start_analog()
         tasks = []
