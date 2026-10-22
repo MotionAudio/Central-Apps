@@ -187,7 +187,7 @@ await check("lighting: fixtures can be added with addresses that follow on, and 
   const n0 = await cu.evaluate(() => CULights.rig().fixtures.length);
   await cu.selectOption("#lxAddProfile", "rgbw4"); await cu.fill("#lxAddCount", "4"); await cu.fill("#lxAddName", "Side"); await cu.click("#lxAddBtn");
   const f = await cu.evaluate(() => CULights.rig().fixtures.slice(-4).map((x) => x.address));
-  assert.deepEqual(f, [54, 58, 62, 66]); assert.equal(await cu.evaluate(() => CULights.rig().fixtures.length), n0 + 4);
+  assert.deepEqual(f, [103, 107, 111, 115]);   // (after the example rig: its strobe is at 101-102) assert.equal(await cu.evaluate(() => CULights.rig().fixtures.length), n0 + 4);
   await cu.evaluate(() => { const fx = CULights.rig().fixtures; fx[fx.length - 1].address = 1; CULights.renderAll(); });
   assert.ok(await cu.evaluate(() => document.querySelectorAll("#lxFixTable tr.clash").length >= 2));
   await cu.click('[data-lx="show"]');
