@@ -71,7 +71,7 @@
     var p = project(), el = $("#lvSetlist");
     el.innerHTML = '<div class="lv-h">SETLIST <small>' + p.songs.length + " songs</small></div>" + (p.songs.length ? p.songs.map(function (s, i) {
       var cur = i === p.songIndex, tr = hasTracks(s), sure = armed.key === "song" + i && Date.now() - armed.at < 3000;
-      return '<button class="lv-row' + (cur ? " now" : "") + (sure ? " sure" : "") + '" data-lv="song" data-i="' + i + '"><span class="n">' + (i + 1) + "</span><span class=\"t\"><b>" + esc(s.name) + "</b><small>" + esc(String(s.key || "").replace("#", "♯")) + " · " + (s.bpm || "–") + " BPM" + (tr ? "" : " · pads only") + "</small></span>" + (sure ? '<em>tap again</em>' : (tr ? '<i class="ok" title="tracks loaded">●</i>' : '<i title="no tracks">○</i>')) + "</button>";
+      return '<button class="lv-row' + (cur ? " now" : "") + (sure ? " sure" : "") + '" data-lv="song" data-i="' + i + '"><span class="n">' + (i + 1) + "</span><span class=\"t\"><b title=\"" + esc(s.name) + "\">" + esc(s.name) + "</b><small>" + esc(String(s.key || "").replace("#", "♯")) + " · " + (s.bpm || "–") + " BPM" + (tr ? "" : " · pads only") + "</small></span>" + (sure ? '<em>tap again</em>' : (tr ? '<i class="ok" title="tracks loaded">●</i>' : '<i title="no tracks">○</i>')) + "</button>";
     }).join("") : '<p class="muted small">No setlist yet.' + (locked ? "" : ' <button data-lv="setlist">♫ Make the setlist</button>') + "</p>");
   }
 
