@@ -112,6 +112,8 @@ await check("lighting: light bars (each cell its own colour), strobes (button, b
   assert.equal(await cu.evaluate(() => CULights.rig().stage.width), 12);
   await cu.evaluate(() => { const w = document.querySelector("[data-sf='width']"); w.value = "10"; w.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector("[data-stage3]").click(); });
 });
+  // (the Classic Auto here - a preset per section name; the smart Auto is checked after the drum hits)
+  await cu.evaluate(() => { CULights.rig().auto.smart = false; CULights.dirty(); });
   const cues = await cu.evaluate(() => CULights.cuesNow().filter((c) => c.kind === "look").map((c) => c.look + "@" + c.bar));
   assert.ok(cues[0] === "verse@1" && cues.some((c) => /^chorus@/.test(c)) && /^blackout@/.test(cues[cues.length - 1]), cues.join(" "));
   assert.ok(await cu.evaluate(() => document.querySelectorAll("#lxPalette .lx-look").length >= 12));
@@ -170,6 +172,21 @@ await check("lighting: a split song's drum hits (kick, snare, hi-hat, crash) com
   });
   assert.deepEqual(m, { withHits: null, crash: "hit", kick: null });
   await pi.evaluate(() => { const s = PPTracks.song(); delete PPTracks.data(s).drumHits; PPHub.push(true); });
+});
+await check("lighting, the smart Auto on the Central Pedal's song: its feel and each section's, a look per section from the analysis, the Auto panel, and a section previewed on the stage", async () => {
+  const r = await cu.evaluate(async () => {
+    const L = CULights; L.rig().auto.smart = true; L.dirty(); L.renderAll();
+    const sd = L.smart(), looks = L.cuesNow().filter((c) => c.kind === "look" && c.look !== "blackout");
+    const panel = document.getElementById("lxAutoPanel"), chips = panel.querySelectorAll(".lx-ausec").length;
+    panel.querySelector("[data-ax-prev='0']").click(); await new Promise((res) => setTimeout(res, 300));
+    const previewing = L.live.manual && L.live.manual.id;
+    document.getElementById("lxFollow").click();
+    return { style: sd.analysis.style, sections: sd.analysis.sections.length, songSections: L.song.sections.length, looks: looks.map((c) => c.look), panel: panel.textContent, chips, previewing, first: sd.built.sections[0].look, back: L.live.manual };
+  });
+  assert.ok(["intimate", "mid", "upbeat"].includes(r.style)); assert.equal(r.sections, r.songSections);
+  assert.ok(r.looks.length === r.sections && r.looks.every((l) => /^auto:/.test(l)), r.looks.join(" "));
+  assert.match(r.panel, /Auto lighting/); assert.equal(r.chips, r.sections);
+  assert.equal(r.previewing, r.first); assert.equal(r.back, null);
 });
 await check("lighting: a cue added on the timeline is saved on the Central Pedal (with the pairing code) and read back", async () => {
   await cu.evaluate((c) => { CentralUsage.prefs.code = c; }, code);

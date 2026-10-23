@@ -61,6 +61,33 @@ await check("the phone remote: switched on in Lighting → Output, it serves its
   assert.equal(r.status, 200);
   await win.waitForFunction(() => CULights.live.manual && CULights.live.manual.id === "bridge", null, { timeout: 3000 });
 });
+await check("Lighting, the smart Auto: a 128 BPM song is Upbeat (movers, bars and washes all working, strobes waiting for the hits); a 68 BPM one is Intimate (warm, the strobe never fires, a hit is a swell); the feel can be set", async () => {
+  const r = await win.evaluate(async () => {
+    CULights.live.manual = null; CULights.showSub("show");
+    const secs = (list) => { let at = 0; return list.map(([name, len]) => { const s = { name, start: at, end: at + len }; at += len; return s; }); };
+    const play = (id, name, bpm, key, list, pos, hits) => [0, 1].forEach(() => CULights.onMessage({ type: "display", songId: id, song: { name, hasTracks: true, key }, key, bpm, bpb: 4, playing: true, pos, duration: list[list.length - 1].end, sections: list, hits: hits || [] }));   // (twice: the display comes many times a second; a new song's first one clears the old hits)
+    const lightsBy = () => { const out = {}; CULights.rig().fixtures.forEach((f) => { out[f.name] = CULights.live.fixtureColor[f.id]; }); return out; };
+    const up = secs([["Intro", 8], ["Verse 1", 22], ["Pre-Chorus", 8], ["Chorus", 22], ["Breakdown", 8], ["Chorus", 22], ["Outro", 8]]);
+    play("lx-up", "Anthem", 128, "A", up, 45, [30.2]); await new Promise((r) => setTimeout(r, 400));
+    const a = CULights.smart().analysis, cues = CULights.cuesNow(), sec = cues.filter((c) => c.kind === "look" && /^auto:lx-up:s/.test(c.look)); const upLooks = sec.map((c) => CULights.lookById(c.look).style);
+    CULights.render(); const upLights = lightsBy();
+    const panel = document.getElementById("lxAutoPanel"), panelText = panel.hidden ? "" : panel.textContent, chips = panel.querySelectorAll(".lx-ausec").length;
+    const ballad = secs([["Verse 1", 40], ["Chorus", 40], ["Verse 2", 40]]);
+    play("lx-soft", "Still", 68, "D", ballad, 61.0, [61.0]); await new Promise((r) => setTimeout(r, 400));
+    const b = CULights.smart().analysis, flashes = CULights.cuesNow().filter((c) => c.kind === "flash").map((c) => c.look);
+    let strobeMax = 0, frontMin = 1; for (let i = 0; i < 12; i++) { CULights.render(); const L = lightsBy(); strobeMax = Math.max(strobeMax, L.Strobe.dim); frontMin = Math.min(frontMin, L["Front L"].dim); await new Promise((r) => setTimeout(r, 30)); }
+    CULights.setFeel("song", "upbeat"); const set = CULights.smart().analysis;
+    const setText = document.getElementById("lxAutoPanel").textContent; CULights.setFeel("song", "auto");
+    return { upStyle: a.style, sectionCues: sec.length, sections: up.length, upLooks, upLights, panelText, chips, softStyle: b.style, flashes, strobeMax, frontMin, setStyle: set.style, setText };
+  });
+  assert.equal(r.upStyle, "upbeat"); assert.equal(r.sectionCues, r.sections, "section cues " + r.sectionCues); assert.ok(r.upLooks.includes("upbeat"), r.upLooks.join());
+  for (const n of ["Mover L", "Mover R", "Bar L", "Back 1", "Front L", "Hazer"]) assert.ok(r.upLights[n] && (r.upLights[n].dim > 0 || r.upLights[n].haze > 0), n + " " + JSON.stringify(r.upLights[n]));
+  assert.equal(r.upLights.Strobe.dim, 0, "the strobe waits for a hit");
+  assert.match(r.panelText, /Auto lighting[\s\S]*Upbeat/, "panel: " + r.panelText); assert.equal(r.chips, r.sections, "chips " + r.chips);
+  assert.equal(r.softStyle, "intimate"); assert.ok(r.flashes.length && r.flashes.every((l) => /:swell$/.test(l)), r.flashes.join());
+  assert.equal(r.strobeMax, 0, "strobe " + r.strobeMax); assert.ok(r.frontMin >= 0.4, "faces lit " + r.frontMin);
+  assert.equal(r.setStyle, "upbeat"); assert.match(r.setText, /set by you/, "panel: " + r.setText);
+});
 await check("updates: with the update source set, a newer Central Control on the release page is found (and which file fits this computer); with Install by itself off it asks", async () => {
   const st = await win.evaluate(async () => { await CU.updates.config({ repo: "https://github.com/church/cc", auto: true, autoInstall: false }); return CU.updates.check(); });
   assert.equal(st.autoInstall, false);

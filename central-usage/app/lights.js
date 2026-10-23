@@ -2,7 +2,10 @@
  *
  *  Show      the song's timeline: waveform (from the Central Pedal's tracks), the sections in their
  *            colours, the hits as lines, and the cues. Three modes per song:
- *              Auto       the sections and the hits (MIDI hits from the pedal) + the music (the streamed audio)
+ *              Auto       the sections and the hits (MIDI hits from the pedal) + the music (the streamed audio).
+ *                         Smart (lights-auto.js, the default): each song's feel - Intimate, Mid or Upbeat, detected
+ *                         or set, per song and per section - picks a look per section for every kind of light, which
+ *                         hits flash, and how the lights follow the music live. Classic: a preset per section name.
  *              Semi-auto  the same, plus your own cues on top
  *              Manual     only your cues (program them on the waveform, the hit lines show where to land)
  *            Tell it the show in plain words (lights-ai.js), record what you press while the song plays and
@@ -170,6 +173,7 @@
   delete rig.output;
   rig.click = Object.assign({ hear: true, follow: true, output: false, device: "", level: 0.6, accent: true }, rig.click || {});
   rig.audio = Object.assign({ react: true, amount: 0.45, onsets: true }, rig.audio || {});
+  rig.auto = Object.assign({ smart: true }, rig.auto || {});   // Auto: Smart (each song's feel, every light, the live layer) or Classic (a preset per section name)
   // the drum hits of a split song (kick, snare, hi-hat, crash - from the Central Pedal's stem splitter): a flash preset
   // for each ("" = none), and the MIDI notes the pedal sends them on (General MIDI unless you changed them there)
   rig.drums = Object.assign({ crash: "hit", kick: "", snare: "", hat: "" }, rig.drums || {});
@@ -182,10 +186,10 @@
   function ensurePlaced() { var byGroup = {}; rig.fixtures.forEach(function (f) { (byGroup[f.group] = byGroup[f.group] || []).push(f); }); rig.fixtures.forEach(function (f) { if (!f.pos) { var list = byGroup[f.group]; placeFixture(f, list.indexOf(f), list.length); } }); }
   ensurePlaced();
   function saveRig() { store.set("rig", rig); }
-  function lookById(id) { return rig.looks.filter(function (l) { return l.id === id; })[0] || rig.looks[0]; }
+  function lookById(id) { if (/^auto:/.test(id || "")) { var al = smartLooks()[id]; if (al) return al; } return rig.looks.filter(function (l) { return l.id === id; })[0] || rig.looks[0]; }
 
   // ------------------------------------------------------------- song position (follows the Central Pedal, or the preview here)
-  var song = { id: null, name: "", pos: 0, at: 0, playing: false, speed: 1, bpm: 120, bpb: 4, bars: [], barBeats: [], hits: [], drumHits: null, sections: [], duration: 0, overview: [], hasTracks: false, local: false };
+  var song = { id: null, name: "", pos: 0, at: 0, playing: false, speed: 1, bpm: 120, bpb: 4, bars: [], barBeats: [], hits: [], drumHits: null, sections: [], duration: 0, overview: [], hasTracks: false, local: false, key: "", stems: [] };
   var preview = null;   // { ctx, sources, startAt, offset, click } when "Preview here" plays
   function posNow() {
     if (preview) return preview.offset + (preview.ctx.currentTime - preview.startAt);
@@ -213,7 +217,31 @@
   var show = { song: null, cues: [], mode: rig.defaultMode, bpm: null, saved: true, loading: false, by: "" }, saveTimer = 0, effective = null;
   var SECTION_RULES = [[/^intro|^walk|^instrumental/i, "worship"], [/^verse/i, "verse"], [/^pre/i, "build"], [/^chorus|^refrain|^hook/i, "chorus"], [/^bridge/i, "bridge"], [/^break|^down|^interlude/i, "breakdown"], [/^tag|^vamp/i, "chorus"], [/^outro|^end|^coda/i, "ending"], [/^build/i, "build"], [/^turn/i, "worship"]];
   function lookForSection(name) { for (var i = 0; i < SECTION_RULES.length; i++) if (SECTION_RULES[i][0].test(name || "")) return SECTION_RULES[i][1]; return "worship"; }
+  // the smart Auto (lights-auto.js): the song's feel and its sections' energy -> a look per section for every kind of
+  // light, the hits the feel allows, and the live layer. Worked out again when the song, its sections or the
+  // overrides change.
+  var smart = { key: "", analysis: null, built: null, live: {} };
+  function smartOn() { return !!(rig.auto.smart && window.CULightsAuto); }
+  function smartData() {
+    if (!smartOn()) return null;
+    var feel = show.feel || {}, key = JSON.stringify([song.id, song.bpm, song.key, song.duration, song.secKey, song.overview.length, (song.hits || []).length, song.drumHits ? Object.keys(song.drumHits).map(function (k) { return (song.drumHits[k] || []).length; }).join(",") : "", feel]);
+    if (smart.key !== key || !smart.analysis) {
+      var A = window.CULightsAuto;
+      smart.analysis = A.analyse({ bpm: song.bpm, key: song.key, duration: song.duration, sections: song.sections, overview: song.overview, hits: song.hits, drumHits: song.drumHits, stems: song.stems }, { song: feel.song, sections: feel.sections });
+      smart.built = A.buildLooks(smart.analysis, "auto:" + (song.id || "song"));
+      smart.key = key;
+    }
+    return smart;
+  }
+  function smartLooks() { var s = smartData(); return s ? s.built.looks : {}; }
+  function smartSectionAt(t) { var s = smartData(); if (!s) return null; var list = s.analysis.sections; for (var i = list.length - 1; i >= 0; i--) if (t >= list[i].start - 1e-3) return list[i]; return list[0] || null; }
+  function partFor(look, f) { return window.CULightsAuto ? window.CULightsAuto.partFor(look, f.group, kindOf(f)) : look && look.g && look.g[f.group]; }
   function autoCues() {
+    var sd = smartData();
+    if (sd && song.sections && song.sections.length) return sortCues(window.CULightsAuto.cues(sd.analysis, sd.built, song, barBeatAt));
+    return classicCues();
+  }
+  function classicCues() {
     var cues = [], secs = song.sections || [];
     secs.forEach(function (s) {
       var bb = s.bar ? { bar: s.bar, beat: 1 } : barBeatAt(s.start), lk = lookForSection(s.name), l = lookById(lk);
@@ -254,7 +282,7 @@
       if (saved.mode) { show.mode = saved.mode; show.cues = saved.cues.filter(function (c) { return !c.auto; }); }
       else if (saved.auto) { show.mode = "auto"; show.cues = []; }             // 1.x: an automatic show was saved
       else { show.mode = saved.cues.length ? "manual" : rig.defaultMode; show.cues = saved.cues; }
-      show.bpm = saved.bpm || null; show.by = saved.by || "";
+      show.bpm = saved.bpm || null; show.by = saved.by || ""; show.feel = saved.feel && typeof saved.feel === "object" ? saved.feel : {};
       (saved.looks || []).forEach(function (l) { if (l && l.id && !rig.looks.some(function (x) { return x.id === l.id; })) rig.looks.push(l); });   // presets the chat box made travel with the show
       sortCues(show.cues);
     }
@@ -271,7 +299,7 @@
     var used = {}; show.cues.forEach(function (c) { if (c.look) used[c.look] = true; });
     var looks = rig.looks.filter(function (l) { return used[l.id] && !l.builtIn; });
     try {
-      var r = await fetch(CU.api("/lighting"), { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ song: show.song, code: code, by: "Central Control-" + selfId, show: { cues: show.cues, mode: show.mode, bpm: show.bpm || song.bpm, song: song.name, looks: looks } }) });
+      var r = await fetch(CU.api("/lighting"), { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ song: show.song, code: code, by: "Central Control-" + selfId, show: { cues: show.cues, mode: show.mode, bpm: show.bpm || song.bpm, song: song.name, looks: looks, feel: show.feel || {} } }) });
       var j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
       show.saved = true; show.updated = j.updated;
     } catch (e) { $("#lxSaveState").textContent = "could not save: " + e.message; return; }
@@ -298,6 +326,7 @@
     if (!song.duration && h.duration) song.duration = h.duration;
     if (!song.sections.length && h.sections) song.sections = h.sections.map(function (s) { return { name: s.name, start: s.start, end: s.end, bar: s.bar, color: s.color, type: s.type }; });
     else song.sections.forEach(function (s) { var m = (h.sections || []).filter(function (x) { return x.name === s.name && Math.abs(x.start - s.start) < 0.5; })[0]; if (m) { s.color = m.color; s.type = m.type; } });
+    if (h.key) song.key = h.key; if (h.bpm && !song.bpm) song.bpm = h.bpm; song.stems = (h.stems || []).map(function (s) { return { name: s.name, role: s.role }; });
     song.hasTracks = !!h.hasTracks; dirty();
   }
 
@@ -311,7 +340,7 @@
   // bounces run along the whole row of bars in the group, cell by cell.
   var SYNC_BEATS = { bar: 0, beat: 1, half: 0.5, quarter: 0.25, eighth: 0.125 };
   function stateFor(look, f, idx, n, beats, cell, cells) {
-    var g = look && look.g && look.g[f.group];
+    var g = partFor(look, f);
     var st = { dim: 0, r: 0, g: 0, b: 0, w: 0, a: 0, uv: 0, strobe: 0, pan: 0.5, tilt: 0.5, haze: 0 };
     if (!g) return st;
     cells = cells || 1; cell = cell || 0;
@@ -384,7 +413,11 @@
     var X = window.CUMix, m = X && X.meters; if (!m || !m.bands || !rig.audio.react || show.mode === "manual") return null;
     var e = m.bands[0] * 0.6 + m.bands[1] * 0.4, a = live.audio;
     a.peak = Math.max(e, a.peak * 0.9995, 0.02); a.level = clamp(e / a.peak, 0, 1);
-    if (rig.audio.onsets && playingNow() && !(song.hits && song.hits.length) && a.onsets != null && m.onsets > a.onsets) live.flash = { look: "hit", until: performance.now() + 140, len: 140 };
+    if (rig.audio.onsets && playingNow() && !(song.hits && song.hits.length) && a.onsets != null && m.onsets > a.onsets) {
+      var look = "hit";
+      if (smartOn()) { var sec = smartSectionAt(posNow()), kind = sec ? window.CULightsAuto.onsetFlash(sec.style, sec.energy) : "soft"; look = kind ? smart.built.flash[kind] : null; }   // (intimate: no flashes from the music)
+      if (look) live.flash = { look: look, until: performance.now() + 140, len: 140 };
+    }
     a.onsets = m.onsets;
     return a.level;
   }
@@ -400,15 +433,27 @@
     var cueOver = playing && !live.manual ? cueOverrides(t) : {}, lvl = playing ? audioLevel() : null, amt = rig.audio.amount;
     var unis = {}, colors = {}, cellColors = {};
     // the strobes: the Strobe button (held), and a burst on each hit (a flash preset firing) when "on the hits" is on
-    var anyStrobe = rig.fixtures.some(isStrobe), holdOn = !!live.strobeHold, burstOn = !!(fl && rig.strobe.onHits && fl.look && fl.look.flash);
+    var anyStrobe = rig.fixtures.some(isStrobe), holdOn = !!live.strobeHold, burstOn = !!(fl && rig.strobe.onHits && fl.look && fl.look.flash && !fl.look.soft);
+    // the smart Auto's live layer: the music's level breathes the lights (gently when intimate), upbeat songs pulse on
+    // the beat, builds rise through to the next section
+    var mods = null;
+    if (smartOn() && playing && !live.manual && show.mode !== "manual") {
+      var sec = smartSectionAt(t);
+      if (sec) {
+        var bbNow = barBeatAt(t), now2 = performance.now();
+        smart.live.ctx = { style: sec.style, energy: sec.energy, trend: sec.trend, progress: sec.end > sec.start ? (t - sec.start) / (sec.end - sec.start) : 0, level: lvl, beatFrac: beats - Math.floor(beats), downbeat: bbNow.beat < 2, playing: true, dt: smart.live.at ? Math.min(0.2, (now2 - smart.live.at) / 1000) : 0.025, state: smart.live.state };
+        mods = window.CULightsAuto.liveMod(smart.live.ctx); smart.live.state = smart.live.ctx.state; smart.live.at = now2; smart.live.style = sec.style;
+      }
+    }
     rig.fixtures.forEach(function (f) {
       var list = groups[f.group], idx = list.indexOf(f), n = list.length, cells = cellsOf(f), states = [];
       for (var c = 0; c < cells; c++) {
         var st = base.p >= 1 ? stateFor(base.to, f, idx, n, beats, c, cells) : mix(stateFor(base.from, f, idx, n, beats, c, cells), stateFor(base.to, f, idx, n, beats, c, cells), base.p);
         if (cueOver[f.id]) st = mix(st, overState(st, cueOver[f.id]), cueOver[f.id].p);
         if (live.over[f.id]) st = overState(st, live.over[f.id]);
-        if (lvl != null && f.group !== "house" && f.group !== "haze") st.dim *= (1 - amt) + amt * (0.35 + 0.65 * lvl);
-        if (fl && fl.look.g[f.group]) { var fs = stateFor(fl.look, f, idx, n, beats, c, cells); st = mix(st, fs, clamp(fl.p * 1.5, 0, 1)); }
+        if (mods) { var kf = kindOf(f), mk = (kf === "mover" || kf === "bar" || kf === "strobe" || kf === "blinder") && f.group !== "front" && f.group !== "house" ? kf : f.group; st.dim *= mods[mk] == null ? 1 : mods[mk]; }
+        else if (lvl != null && f.group !== "house" && f.group !== "haze") st.dim *= (1 - amt) + amt * (0.35 + 0.65 * lvl);
+        if (fl && partFor(fl.look, f)) { var fs = stateFor(fl.look, f, idx, n, beats, c, cells); st = mix(st, fs, clamp(fl.p * 1.5, 0, 1)); }
         if ((holdOn || burstOn) && (isStrobe(f) || (holdOn && !anyStrobe && f.group !== "haze" && f.group !== "house"))) {
           var sOn = softStrobe(rig.strobe.rate, holdOn ? rig.strobe.button : "eighth", beats, now);
           if (holdOn || burstOn) st = { dim: sOn ? 1 : 0, r: 1, g: 1, b: 1, w: 1, a: 0, uv: 0, strobe: 0, pan: st.pan, tilt: st.tilt, haze: 0 };
@@ -481,6 +526,7 @@
       if (localRun && d.playing) { localRun = false; toggleFreeClick(false); }
       song.pos = d.pos || 0; song.at = performance.now(); song.playing = !!d.playing || (!d.song || !d.song.hasTracks ? clockRun.running : false); song.speed = d.speed || 1;
       song.bpm = d.bpm || song.bpm; song.bpb = d.bpb || 4; song.duration = d.duration || song.duration || 0; song.name = d.song ? d.song.name : "";
+      var dk = d.key || (d.song && d.song.key) || ""; if (dk && dk !== song.key) { song.key = dk; dirty(); }
       if (d.grid) { song.bars = d.grid.bars || []; song.barBeats = d.grid.barBeats || []; song.bpm = d.grid.bpm || song.bpm; dirty(); }
       if (d.hits) { song.hits = d.hits; dirty(); }
       if (d.song && !d.song.hasTracks && clockRun.running) { song.pos = clockRun.pos(); song.at = performance.now(); song.playing = true; song.speed = 1; }
@@ -505,6 +551,7 @@
         var d0 = msg.data || []; if ((d0[0] & 0xF0) !== 0x90 || !(d0[2] > 0) || (d0[0] & 0x0F) !== 0 || d0[1] >= 60) return;
         var part = DRUMS.map(function (d) { return d[0]; }).filter(function (k) { return Number(rig.drums.notes[k]) === d0[1] && rig.drums[k]; })[0], look = part ? rig.drums[part] : "hit", len = part && part !== "crash" ? 120 : 220;
         if (part ? hasDrums : hasHits) return;   // (a drum note with no preset is a plain hit, as before)
+        if (smartOn() && !part) { var sec = smartSectionAt(posNow()), fk = sec ? window.CULightsAuto.onsetFlash(sec.style, sec.energy) : "soft"; if (!fk) return; look = smart.built.flash[fk]; }   // (the smart Auto: the hit the song's feel allows)
         setTimeout(function () { live.flash = { look: look, until: performance.now() + len, len: len }; recordFlash(look); }, Math.max(0, base + (msg.at || 0) - performance.now()));
       });
     }
@@ -717,7 +764,36 @@
     if (beat >= beatsIn(bar - 1) + 1) { bar++; beat = 1; } if (beat < 1) beat = 1;
     return { bar: Math.max(1, bar), beat: beat };
   }
+  // the Auto panel: the song's feel (detected, or set), each section's energy and feel (each can be set), a preview
+  var FEEL_ICON = { build: "↗", fade: "↘", steady: "" };
+  function renderAutoPanel() {
+    var el = $("#lxAutoPanel"); if (!el) return;
+    if (!show.song || show.mode === "manual" || !window.CULightsAuto) { el.hidden = true; el.innerHTML = ""; return; }
+    el.hidden = false;
+    var A = window.CULightsAuto, sd = smartData(), names = A.STYLE_NAME, opt = function (cur, det) { return '<option value="auto"' + (!cur ? " selected" : "") + ">Detected" + (det ? " (" + names[det] + ")" : "") + "</option>" + A.STYLES.map(function (s) { return '<option value="' + s + '"' + (cur === s ? " selected" : "") + ">" + names[s] + "</option>"; }).join(""); };
+    var head = '<div class="lx-auto-head"><b>Auto lighting</b><select data-ax="engine" title="Smart: each song is lit for its feel, with every light, and follows the music live. Classic: one preset per section name."><option value="smart"' + (rig.auto.smart ? " selected" : "") + '>Smart</option><option value="classic"' + (!rig.auto.smart ? " selected" : "") + ">Classic</option></select>";
+    if (!sd) { el.innerHTML = head + '<span class="muted small">One preset per section name, the hits flash, the music breathes the lights.</span></div>'; return; }
+    var a = sd.analysis, feel = show.feel || {};
+    head += '<span class="lx-feel lx-feel-' + a.style + '">' + esc(names[a.style]) + "</span>" +
+      '<span class="muted small">' + (a.overridden ? "set by you · detected " + esc(names[a.detected]) : "from " + esc(a.why.join(" · ") || "the sections")) + (a.key ? " · " + esc(a.key) : "") + "</span>" +
+      '<label class="lx-auto-set">Feel <select data-ax="song">' + opt(feel.song, a.detected) + "</select></label></div>";
+    var secs = a.sections.length && song.sections.length ? '<div class="lx-auto-secs">' + a.sections.map(function (s, i) {
+      var k = String(Math.round(s.start * 1000) / 1000), cur = feel.sections && feel.sections[k];
+      return '<div class="lx-ausec lx-feel-' + s.style + '" title="' + esc(s.name + ": energy " + Math.round(s.energy * 100) + "%" + (s.trend !== "steady" ? ", " + (s.trend === "build" ? "builds" : "fades") : "") + (s.dropAfter ? ", drops after" : "")) + '">' +
+        '<button data-ax-prev="' + i + '" title="See this section\'s look on the stage">' + esc(s.name || "Section") + (FEEL_ICON[s.trend] ? " " + FEEL_ICON[s.trend] : "") + "</button>" +
+        '<i class="lx-energy"><b style="width:' + Math.round(s.energy * 100) + '%"></b></i>' +
+        '<select data-ax-sec="' + esc(k) + '">' + opt(cur, s.detected) + "</select></div>";
+    }).join("") + "</div>" : "";
+    el.innerHTML = head + secs + (live.manual && /^auto:/.test(live.manual.id || "") ? '<p class="muted small">Previewing ' + esc(live.manual.name) + ' - press <b>▶ Follow the show</b> to go back.</p>' : "");
+  }
+  function setFeel(where, value) {
+    show.feel = show.feel || {};
+    if (where === "song") { if (value === "auto") delete show.feel.song; else show.feel.song = value; }
+    else { show.feel.sections = show.feel.sections || {}; if (value === "auto") delete show.feel.sections[where]; else show.feel.sections[where] = value; }
+    changed();
+  }
   function renderShowPanel() {
+    renderAutoPanel();
     var info = $("#lxShowInfo"); if (!info) return;
     var mode = show.mode, mine = show.cues.length;
     $("#lxMode").value = mode;
@@ -952,7 +1028,7 @@
   function wire() {
     $("#lxNav").addEventListener("click", function (e) { var b = e.target.closest("[data-lx]"); if (b) showSub(b.dataset.lx); });
     $("#lxPalette").addEventListener("click", function (e) { var b = e.target.closest("[data-look]"); if (!b) return; selectedLook = b.dataset.look; store.set("lxLook", selectedLook); goLook(b.dataset.look); renderPalette(); });
-    $("#lxFollow").addEventListener("click", function () { live.manual = null; renderPalette(); });
+    $("#lxFollow").addEventListener("click", function () { live.manual = null; renderPalette(); renderAutoPanel(); });
     $("#lxBlackout").addEventListener("click", function () { live.blackout = !live.blackout; renderPalette(); });
     $("#lxRec").addEventListener("click", function () { live.rec = !live.rec; if (!live.rec) finishRecording(); else if (playingNow()) rec = { from: posNow(), cues: [] }; renderShowPanel(); });
     $("#lxPreview").addEventListener("click", function () {
@@ -974,6 +1050,19 @@
     document.addEventListener("keyup", function (e) { if (e.key === "s" || e.key === "S") strobeOff(); });
     $("#lxStrobeSet").addEventListener("change", function (e) { var k = e.target.dataset.sb; if (!k) return; rig.strobe[k] = e.target.type === "checkbox" ? e.target.checked : e.target.type === "range" ? Number(e.target.value) : e.target.value; saveRig(); });
     $("#lxMode").addEventListener("change", function () { show.mode = this.value; changed(); });
+    var ap = $("#lxAutoPanel");
+    if (ap) {
+      ap.addEventListener("change", function (e) {
+        var t = e.target;
+        if (t.dataset.ax === "engine") { rig.auto.smart = t.value === "smart"; saveRig(); dirty(); renderShowPanel(); }
+        else if (t.dataset.ax === "song") setFeel("song", t.value);
+        else if (t.dataset.axSec != null) setFeel(t.dataset.axSec, t.value);
+      });
+      ap.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-ax-prev]"); if (!b) return;
+        var sd = smartData(); if (!sd) return; var s = sd.built.sections[Number(b.dataset.axPrev)]; if (s) { goLook(s.look); renderAutoPanel(); }
+      });
+    }
     $("#lxAuto").addEventListener("click", function () { if (show.cues.length && !confirm("Replace this song's cues with an automatic show from its sections and hits? (you can then change them)")) return; var a = autoCues(); a.forEach(function (c) { c.id = uid(); delete c.auto; }); show.cues = a; show.mode = "manual"; selectedCue = null; changed(); });
     $("#lxClear").addEventListener("click", function () { if (!confirm("Remove every cue of yours from this song?")) return; show.cues = []; selectedCue = null; changed(); });
     $("#lxSnap").value = rig.snap || "beat"; $("#lxSnap").addEventListener("change", function () { rig.snap = this.value; saveRig(); renderShowPanel(); });
@@ -1153,5 +1242,7 @@
     setOverride: function (id, o) { if (o) { live.over[id] = o; recordFixture(id, o); } else delete live.over[id]; }, toggleClick: toggleFreeClick, click: click,
     // the 3D stage (lights3d.js), the bars and the strobes
     kindOf: kindOf, cellsOf: cellsOf, isStrobe: isStrobe, placeFixture: placeFixture, defaultAim: defaultAim, aimAt: aimAt, trussById: trussById, saveRig: saveRig, groups: GROUPS, defaultStage: defaultStage,
-    identify: function (id) { live.identify = { id: id, until: performance.now() + 2500 }; }, isShowing: function () { return visible() && view === "show"; }, softStrobe: softStrobe };
+    identify: function (id) { live.identify = { id: id, until: performance.now() + 2500 }; }, isShowing: function () { return visible() && view === "show"; }, softStrobe: softStrobe,
+    // the smart Auto
+    smart: smartData, smartSectionAt: smartSectionAt, setFeel: setFeel, renderAutoPanel: renderAutoPanel };
 })();
