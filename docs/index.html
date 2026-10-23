@@ -208,13 +208,10 @@ xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"   # Cen
     <details open><summary>Already running Central Pedal</summary>
       <p>Nothing to download: connect it to the internet, open <b>Settings</b>, and press <b>Install</b> when <b>Update ready</b> appears. Your songs and settings stay. No internet there? Put <a data-file="central-control-source.zip" class="inline">central-control-source.zip</a> on a USB stick and use <b>Settings → Update software from USB…</b>.</p>
     </details>
-    <details><summary>A new SD card (built on an Ubuntu PC)</summary>
-      <pre>mkdir -p ~/Downloads/central &amp;&amp; cd ~/Downloads/central
-NEWEST=$(wget -qO- https://api.github.com/repos/MotionAudio/Central-Apps/releases/latest)
-wget -O central-control-source.zip "$(echo "$NEWEST" | grep -o 'https://github.com/[^"]*central-control-source\.zip')"
-rm -rf source &amp;&amp; unzip -q central-control-source.zip -d source &amp;&amp; cd source
-sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh</pre>
-      <p class="muted"><small>Then flash the <code>.img</code> with Raspberry Pi Imager → Use custom (choose <b>No</b> for OS customisation). More in <a href="https://github.com/MotionAudio/Central-Apps/blob/main/INSTALL.md">INSTALL.md</a>.</small></p>
+    <details open><summary>A new SD card (on an Ubuntu PC)</summary>
+      <p>Put the SD card in the PC, open Terminal, paste this line and press Enter. It asks for the Wi-Fi, your small touch screen and the pedal's key, downloads the newest Central Pedal, builds <code>central-pedal-&lt;version&gt;.img</code> and writes it to the card you pick. The first card takes about 45 minutes; the next ones are quicker.</p>
+      <div class="card linux-line"><div><b>Make a Central Pedal SD card</b><span>Ubuntu or Debian, about 15 GB free</span></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash">Copy</button></div>
+      <p class="muted"><small>Then put the card in the Raspberry Pi 4 and plug in the power: the first start takes a minute longer and restarts once. More in <a href="https://github.com/MotionAudio/Central-Apps/blob/main/INSTALL.md">INSTALL.md</a>.</small></p>
     </details>
   </section>
 

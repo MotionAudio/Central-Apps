@@ -227,7 +227,7 @@ sudo WIFI_SSID="your network" WIFI_PASS="your password" bash build-image.sh
 ```
 
 Type your own Wi-Fi name and password in place of `your network` / `your password`
-(never put them in a file you share). You get `central-control-os-<version>.img`.
+(never put them in a file you share). You get `central-pedal-<version>.img`.
 
 Flash it with **Raspberry Pi Imager** → Choose OS → **Use custom** → the `.img` → your SD
 card. When it asks about *OS customisation*, choose **No**. The first boot takes about a
