@@ -109,6 +109,9 @@ const T = (fn, arg) => page.evaluate(fn, arg);
 async function sim(m) { await T((m) => window.__pedalBridge.send(Object.assign({ type: "sim" }, m)), m); }
 
 console.log("\nConnection and the Learn tab:");
+await check("the Central Pedal itself opens without a license key (no setup), even with keys required and no website", async () => {
+  await wait(1500); assert.equal(await T(() => PPLicense.app()), "pedal"); assert.equal(await page.$("dialog#licWiz"), null);
+});
 await check("the app is served by the driver and connects to it", async () => { await until(() => T(() => window.__pedalBridge.connected)); assert.match(await T(() => document.querySelector("#pfHw").textContent), /^Central Pedal \d+\./); });
 await check("the driver's inputs show in the Learn tab with their pins", async () => { await T(() => PPShell.showTab("learn")); await wait(200); const txt = await T(() => document.querySelector('[data-learn="b1"] small').textContent); assert.match(txt, /GPIO 4/); assert.equal(await T(() => document.querySelectorAll("#lnBoard .ln-row").length), 22); });
 
@@ -760,6 +763,15 @@ await check("Central Pedal Control in a browser (an iPad): the Central Pedal ser
   const man = await (await fetch("http://127.0.0.1:8080/control/manifest.webmanifest")).json(); assert.equal(man.start_url, "/control/");
   const cp = await ctx.newPage(); cp.on("pageerror", (e) => errors.push("control:" + e));
   await cp.goto("http://127.0.0.1:8080/control/"); await cp.waitForFunction(() => window.PPTransfer && document.querySelector('[data-cpo="live"]'), null, { timeout: 15000 });
+  // no website yet: Pedal Control asks for its P key (production, then the key); the default P key opens it and stays after a reload
+  await cp.waitForSelector("dialog#licWiz[open] #lwProd", { timeout: 8000 });
+  await cp.fill("#lwProd", "Grace Church"); await cp.click('#licWiz [data-lw="prod"]'); await cp.waitForSelector("#lwKey");
+  await cp.fill("#lwKey", "UDEF-AULT-KEY0-2026"); await cp.click('#licWiz [data-lw="key"]');
+  assert.match(await cp.textContent("#licWiz .bad"), /That's a U key .*needs a key that starts with P/);
+  await cp.fill("#lwKey", "PDEF-AULT-KEY0-2026"); await cp.click('#licWiz [data-lw="key"]'); await cp.waitForSelector("dialog#licWiz", { state: "detached", timeout: 4000 });
+  await cp.reload(); await cp.waitForFunction(() => window.PPTransfer && document.querySelector('[data-cpo="live"]'), null, { timeout: 15000 }); await cp.waitForTimeout(800);
+  assert.equal(await cp.$("dialog#licWiz"), null, "the default key stays after a reload");
+  assert.equal(await cp.evaluate(() => PPLicense.app()), "pedal-control");
   await cp.evaluate(() => document.querySelector('[data-cpo="live"]').click());
   assert.equal(await cp.evaluate(() => document.querySelector('#cpTransferDialog [data-cp="host"]').value), "127.0.0.1:8080", "opened from the pedal: that pedal");
   await cp.evaluate((c) => { document.querySelector('#cpTransferDialog [data-cp="pin"]').value = c; document.querySelector('#cpTransferDialog [data-cp="live"]').click(); }, code);
