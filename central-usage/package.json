@@ -37,6 +37,7 @@
       "host.js",
       "piaudio.js",
       "recorder.js",
+      "streamout.js",
       "talk.js",
       "video-service.js",
       "video-cert.js",

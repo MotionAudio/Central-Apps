@@ -71,13 +71,26 @@ class Engine extends EventEmitter {
     else if (x.src.kind === "pi" && this.pi.live[x.src.key] != null) { src = 2; ch = this.pi.live[x.src.key]; }
     let direct = x.direct, pre = x.directPre ? 1 : 0;
     if (s.trackOut === "direct" && x.group === "tracks" && direct < 0 && src) { const order = this.trackOrder(); const k = order.indexOf(i); if (k >= 0) direct = s.directFirst + k; }
-    const e = x.eq, c = x.comp;
-    return { cmd: "input", i, src, ch, trim: x.trim, phase: x.phase ? 1 : 0, hpf: x.hpf, eq: [e.on ? 1 : 0, e.lf, e.lg, e.mf, e.mg, e.mq, e.hf, e.hg], comp: [c.on ? 1 : 0, c.thr, c.ratio, c.att, c.rel, c.makeup], fader: x.fader, mute: x.mute ? 1 : 0, pan: x.pan, direct, directPre: pre };
+    const e = x.eq, c = x.comp, g = x.gate || {}, fx = x.fx || {};
+    return { cmd: "input", i, src, ch, trim: x.trim, phase: x.phase ? 1 : 0, hpf: x.hpf, eq: [e.on ? 1 : 0, e.lf, e.lg, e.mf, e.mg, e.mq, e.hf, e.hg, e.m2f || 3000, e.m2g || 0, e.m2q || 1], comp: [c.on ? 1 : 0, c.thr, c.ratio, c.att, c.rel, c.makeup],
+      gate: [g.on ? 1 : 0, g.thr, g.range, g.att, g.hold, g.rel], fx: [fx.rev == null ? -90 : fx.rev, fx.dly == null ? -90 : fx.dly], fader: x.fader, mute: x.mute ? 1 : 0, pan: x.pan, direct, directPre: pre };
   }
+  fxCmd() {
+    const r = this.state.fx.rev, d = this.state.fx.dly, ms = M.delayMs(d);
+    return { cmd: "fx", rev: [r.on ? 1 : 0, r.decay, r.pre, r.damp, r.lowcut, r.width, r.ret], dly: [d.on ? 1 : 0, ms, d.ping ? ms : ms, d.fb, d.hicut, d.lowcut, d.ret, d.ping ? 1 : 0] };
+  }
+  streamUsed() { const q = this.state.stream; return Object.keys(q.sends).length > 0 || (this.taps.get(M.STREAMTAP) || new Set()).size > 0 || q.outL >= 0 || q.outR >= 0; }
+  streamCmd() {
+    const q = this.state.stream, c = q.comp, tapped = (this.taps.get(M.STREAMTAP) || new Set()).size > 0;
+    return { cmd: "stream", level: q.level, mute: q.mute ? 1 : 0, outL: q.outL, outR: q.outR, tap: tapped ? 1 : 0, used: this.streamUsed() || this.recording ? 1 : 0, comp: [c.on ? 1 : 0, c.thr, c.ratio, c.att, c.rel, c.makeup], rRev: q.rRev, rDly: q.rDly };
+  }
+  ssendCmd(i) { const sd = this.state.stream.sends[i]; return sd ? { cmd: "ssend", i, level: sd.level, pan: sd.pan, on: sd.on === false ? 0 : 1 } : { cmd: "ssend", i, level: -90, pan: 0, on: 0 }; }
+  // the song's tempo (the Central Pedal's BPM): the delay follows it when it is set to a note value
+  setTempo(bpm) { bpm = Math.round((Number(bpm) || 0) * 10) / 10; const d = this.state.fx.dly; if (!(bpm >= 30 && bpm <= 400) || Math.abs((d.bpm || 0) - bpm) < 0.05) return false; d.bpm = bpm; this.cmd(this.fxCmd()); this.saveSoon(); this.emit("op", { op: "fx", patch: { dly: { bpm } } }, { role: "host" }); return true; }
   trackOrder() { const s = this.state, out = []; s.inputs.forEach((x, i) => { if (x.group === "tracks" && x.direct < 0 && (x.src.kind === "in" || (x.src.kind === "pi" && this.pi.live[x.src.key] != null))) out.push(i); }); return out; }
   mixCmd(m) {
     const q = this.state.mixes[m], tapped = (this.taps.get(m + 1) || new Set()).size > 0, wired = !!q.wired;
-    return { cmd: "mix", m, level: q.level, mute: q.mute ? 1 : 0, outL: wired ? q.outL : -1, outR: wired ? q.outR : -1, stereo: q.stereo ? 1 : 0, tap: tapped ? 1 : 0, used: (Object.keys(q.sends).length || tapped || (wired && (q.outL >= 0 || q.outR >= 0))) ? 1 : 0 };
+    return { cmd: "mix", m, level: q.level, mute: q.mute ? 1 : 0, outL: wired ? q.outL : -1, outR: wired ? q.outR : -1, stereo: q.stereo ? 1 : 0, tap: tapped ? 1 : 0, used: (Object.keys(q.sends).length || tapped || (wired && (q.outL >= 0 || q.outR >= 0))) ? 1 : 0, rRev: q.rRev == null ? -90 : q.rRev, rDly: q.rDly == null ? -90 : q.rDly };
   }
   mainCmd() { const s = this.state, b = s.main, tapped = (this.taps.get(0) || new Set()).size > 0, direct = s.trackOut === "direct"; return { cmd: "main", level: b.level, mute: b.mute ? 1 : 0, outL: direct ? -1 : b.outL, outR: direct ? -1 : b.outR, stereo: 1, tap: tapped ? 1 : 0, used: 1 }; }
   sendCmd(m, i) { const sd = this.state.mixes[m].sends[i]; return sd ? { cmd: "send", m, i, level: sd.level, pan: sd.pan, on: sd.on === false ? 0 : 1 } : { cmd: "send", m, i, level: -90, pan: 0, on: 0 }; }
@@ -88,6 +101,7 @@ class Engine extends EventEmitter {
     for (let i = 0; i < M.MAXIN; i++) this.cmd(this.inputCmd(i));
     this.cmd(this.mainCmd());
     for (let m = 0; m < M.MAXMIX; m++) { this.cmd(this.mixCmd(m)); Object.keys(this.state.mixes[m].sends).forEach((i) => this.cmd(this.sendCmd(m, Number(i)))); }
+    this.cmd(this.fxCmd()); this.cmd(this.streamCmd()); Object.keys(this.state.stream.sends).forEach((i) => this.cmd(this.ssendCmd(Number(i))));
     this.cmd({ cmd: "analysis", src: this.analysis === "main" ? 1 : 0 });
     this.emit("pushed");   // (talkback sets its slots up again)
   }
@@ -108,6 +122,10 @@ class Engine extends EventEmitter {
     else if (op.op === "autoWire") { for (let m = 0; m < M.MAXMIX; m++) this.cmd(this.mixCmd(m)); }
     else if (op.op === "send") { this.cmd(this.sendCmd(op.m, op.i)); this.cmd(this.mixCmd(op.m)); }
     else if (op.op === "clearSends") { this.cmd({ cmd: "clearSends", m: op.m }); this.cmd(this.mixCmd(op.m)); }
+    else if (op.op === "fx") this.cmd(this.fxCmd());
+    else if (op.op === "stream") this.cmd(this.streamCmd());
+    else if (op.op === "streamSend") { this.cmd(this.ssendCmd(op.i)); this.cmd(this.streamCmd()); }
+    else if (op.op === "streamCopy") { for (let i = 0; i < M.MAXIN; i++) this.cmd(this.ssendCmd(i)); this.cmd(this.streamCmd()); }
     else if (op.op === "device" && JSON.stringify(this.state.device) !== deviceBefore) this.restart();
   }
   saveSoon() { clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => this.save(), 800); }
@@ -146,7 +164,7 @@ class Engine extends EventEmitter {
     let set = this.taps.get(id); if (!set) { set = new Set(); this.taps.set(id, set); }
     if (on) set.add(fn); else set.delete(fn);
     if (!set.size) this.taps.delete(id);
-    if (id === 0) this.cmd(this.mainCmd()); else if (id >= 1 && id <= M.MAXMIX) this.cmd(this.mixCmd(id - 1));
+    if (id === 0) this.cmd(this.mainCmd()); else if (id >= 1 && id <= M.MAXMIX) this.cmd(this.mixCmd(id - 1)); else if (id === M.STREAMTAP) this.cmd(this.streamCmd());
   }
 }
 module.exports = { Engine, NETCH };

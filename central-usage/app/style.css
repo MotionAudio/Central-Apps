@@ -368,3 +368,19 @@ input[type=checkbox] { accent-color: var(--accent); }
 .lx-side { grid-template-rows: auto auto auto; align-content: start; }
 /* the bar under the stage plot: the buttons stay together on one line and wrap as a group */
 .lx-showbar .lx-showbtns { display: inline-flex; gap: 8px; flex-wrap: nowrap; }
+/* Mix: gate / FX on the strips, the stream mix on the faders, the reverb & delay and stream mix cards (mix-stream.js) */
+.mx-layer button { padding: 5px 12px; } .mx-layer button.on { background: var(--accent); color: var(--accentText); border-color: var(--accent); } .mx-layer button.on.stream { background: var(--blue); border-color: var(--blue); color: #0B1520; }
+.mx-strip.streaming { border-top-color: var(--blue); background: linear-gradient(180deg, rgba(141,181,222,.10), rgba(141,181,222,0) 40%), #17191E; } .mx-strip.streaming .mx-src { color: var(--blue); }
+.mx-h4 { margin-top: 8px !important; }
+.mx-extra { display: grid; gap: 12px; } .mx-extra:empty { display: none; }
+.mx-fxhead { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; justify-content: space-between; margin-bottom: 10px; } .mx-fxhead h3 { margin: 0; display: flex; gap: 10px; align-items: center; }
+.mx-fxm { display: inline-block; vertical-align: middle; width: 70px; height: 6px; border-radius: 3px; background: var(--well); position: relative; overflow: hidden; } .mx-fxm::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--v, 0%); background: var(--ok); transition: width .08s linear; }
+.mx-fxpre { gap: 6px; } .mx-fxpre button { padding: 3px 9px; font-size: 12px; }
+.mx-iefx { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(90px, 1.2fr) minmax(90px, 1.2fr); gap: 4px 8px; align-items: center; font-size: 12px; } .mx-iefx > b { color: var(--muted); font-size: 11px; font-weight: 650; } .mx-iefx > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-iefx label { display: grid; grid-template-columns: minmax(40px, 1fr) 58px; gap: 4px; align-items: center; } .mx-iefx output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.mx-stream { border-color: rgba(141,181,222,.35); }
+.mx-onair { background: #C8463F; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 3px 8px; border-radius: 999px; animation: mxAir 1.6s ease-in-out infinite; } @keyframes mxAir { 50% { opacity: .65; } } @media (prefers-reduced-motion: reduce) { .mx-onair { animation: none; } }
+.mx-smeter { display: grid; gap: 3px; } .mx-smeter i { display: block; height: 8px; width: 0; border-radius: 3px; background: linear-gradient(90deg, #3FBF78 0, #4FCB86 70%, #F5CF72 88%, #EF4B4B 100%); background-size: 100% 100%; transition: width .08s linear; } .mx-smeter { background: var(--well); padding: 3px; border-radius: 5px; }
+.mx-dest { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); } .mx-dest input { width: 170px; max-width: 100%; } .mx-dest select { width: auto; }
+.mx-chip { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--well); color: var(--muted); } .mx-chip.live { background: rgba(111,207,151,.18); color: var(--ok); } .mx-chip.error, .mx-chip.reconnecting { background: rgba(239,107,99,.16); color: var(--danger); } .mx-chip.connecting, .mx-chip.starting { color: var(--chord); }
+.mx-where .warn a { color: inherit; text-decoration: underline; }
