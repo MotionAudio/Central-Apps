@@ -577,7 +577,7 @@ async function renderAccount(note) {
   }
   $("#acctTitle").textContent = me.name ? "Hi, " + me.name : "Your account";
   body.innerHTML = `<div class="acct">${me.emailConfirmed ? "" : `<div class="card wide confirm-card"><h3>Confirm your email</h3><p style="margin:0">We sent a link to <b>${esc(me.email)}</b>. Your receipts, keys, invites and password resets go there, so checkout waits until it's confirmed.</p><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="cfAgain">Send it again</button></div></div>`}
-    <div class="card wide dl-link"><h3>Your downloads</h3><p class="muted" style="margin:0">Your apps, how to install them on each computer or phone, and your keys.</p><a class="btn small" href="#downloads" style="justify-self:start">Open your downloads</a></div>
+    <div class="card wide dl-link"><h3>Your downloads</h3><p class="muted" style="margin:0">Your apps, how to install them on each computer or phone, and your keys.</p><a class="btn small" href="#downloads" style="justify-self:start">Open your downloads</a><div id="myRenew"></div></div>
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
     ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
@@ -590,7 +590,7 @@ async function renderAccount(note) {
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); }
+  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); renderMyRenewals(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); }
   if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "You're already confirmed." : "Sent! Check your inbox, and your spam folder just in case."); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
@@ -639,7 +639,8 @@ async function showDownloads(thanks) {
   let d; try { d = await api("GET", "/downloads"); } catch (e) { el.innerHTML = `<h2>Your downloads</h2><p class="err">${esc(e.message)}</p>`; return; }
   const others = (a) => Object.keys(PLATFORM_NAME).filter((p) => p !== PLATFORM && (p !== "android" || a.steps.android) && (p !== "ipad" || a.phone));
   const appCard = (a) => `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(a.icon)}.svg" alt=""><div><h3>${esc(a.name)}</h3><span class="muted">${esc(a.runsOn)}${a.phone ? " · " + (a.kind === "U" ? "iPhone and iPad in Safari" : "iPad in Safari") : ""}</span></div></div>
-    <div class="dl-keys">${a.keys.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)}${k.inUse ? ` <span class="muted">· on ${k.inUse} device${k.inUse === 1 ? "" : "s"}</span> <button class="btn small ghost" data-dlrel="${esc(k.key)}">Release</button>` : ""}</div>`).join("")}
+    <div class="dl-keys">${a.keys.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)}${k.inUse ? ` <span class="muted">· on ${k.inUse} device${k.inUse === 1 ? "" : "s"}</span> <button class="btn small ghost" data-dlrel="${esc(k.key)}">Release</button>` : ""}
+      ${k.updatesUntil && k.updatesUntil !== "forever" ? `<span class="muted" style="font-size:.88rem;flex-basis:100%">Updates through ${esc(k.updatesUntil)}${k.renewable ? ` · <button class="btn small ghost" data-renewme="${esc(k.key)}">Renew: ten more releases, ${dollars(d.renewalCents / 100)}</button>` : ""}</span>` : ""}</div>`).join("")}
       <span class="muted" style="font-size:.9rem">Type ${a.keys.length > 1 ? "a key" : "it"} when the app first opens (${esc(a.devices)} per key).</span></div>
     ${PLATFORM !== "ipad" && !(PLATFORM === "android" && !a.steps.android) ? `<a class="btn" href="${esc(a.download)}" target="_blank" rel="noopener">Download ${esc(a.name)}</a>` : ""}
     <div><b style="font-size:.92rem">On ${esc(PLATFORM_NAME[PLATFORM])}</b>${stepsHtml(a, PLATFORM)}</div>
@@ -655,10 +656,24 @@ async function showDownloads(thanks) {
     ${none ? `<p class="muted">No keys here yet. Keys your church gives you come by email; keys you buy for yourself ("Just me") show up here. <a href="#store">Visit the store</a>.</p>` : `<div class="dl-grid">${d.pedals.map(pedalCard).join("")}${d.apps.map(appCard).join("")}${pkgCard}</div>`}
     <p class="muted" style="font-size:.9rem">Every app is also on the <a href="${esc(d.appsUrl)}" target="_blank" rel="noopener">download page</a>. <a href="${esc(d.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.</p><div class="err" id="dlErr"></div>`;
   wireCopies(el);
+  el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], d.renewalCents)));
   el.querySelectorAll("[data-dlrel]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Release this key from its devices? They stop working until the key is typed again.")) return;
     try { await api("POST", "/church/release", { key: b.dataset.dlrel }); toast("Released. Type it on the device you want."); showDownloads(); } catch (e) { $("#dlErr").textContent = e.message; }
   }));
+}
+// renewing your own ("Just me") Central Control or Central Usage keys: ten more releases each, billed to you
+function renewMine(keys, cents) {
+  openCheckout("Renew " + keys.length + " key" + (keys.length === 1 ? "" : "s"), "Ten more releases of updates for each, " + dollars((cents || 2000) / 100) + " a key, billed to you. The app keeps working either way.", () => api("POST", "/checkout/renew", { keys, for: "me" }));
+}
+// the Account page's Your downloads card: your own keys whose updates you can renew
+async function renderMyRenewals() {
+  const el = $("#myRenew"); if (!el) return;
+  let d; try { d = await api("GET", "/downloads"); } catch (_) { return; }
+  const mine = d.apps.flatMap((a) => a.keys.filter((k) => k.renewable).map((k) => Object.assign({ app: a.name }, k)));
+  if (!mine.length) return;
+  el.innerHTML = `<div style="display:grid;gap:.3rem">${mine.map((k) => `<div class="tm"><span><b>${esc(k.app)}</b> <code>${esc(k.key)}</code> <span class="muted">· updates through ${esc(k.updatesUntil)}</span></span><button class="btn small ghost" data-renewme="${esc(k.key)}">Renew (${dollars(d.renewalCents / 100)})</button></div>`).join("")}</div>`;
+  el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], d.renewalCents)));
 }
 // a church's purchase: next, add your people (each gets their app, how to install it and their key by email)
 function showNext(o) {

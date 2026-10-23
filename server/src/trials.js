@@ -5,7 +5,7 @@
 // production company, ever.
 import { q, one, pool } from "./db.js";
 import { DISCOUNTS, RENEWAL } from "./config.js";
-import { churchOf, createChurch, mintTrialKey, trialActive, pretty } from "./licenses.js";
+import { churchOf, createChurch, mintTrialKey, trialActive, pretty, personalChurch } from "./licenses.js";
 import { requireStep } from "./signin.js";
 import * as pay from "./payments.js";
 import { sendMail, escHtml } from "./mail.js";
@@ -82,6 +82,11 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
   // renew keys (main admin and admins pay; billed to the church)
   api.post("/checkout/renew", requireUser, wrap(async (req, res) => {
     needConfirmed(req.user);
+    if (req.body.for === "me") {   // your own "Just me" keys (Downloads, Account): billed to you
+      const pc = await personalChurch(req.user);
+      if (!pc) throw bad("You don't have keys of your own to renew.", 404);
+      return res.json(await pay.renewCheckout(req.user, pc, req.body.keys, req.body.code, true));
+    }
     const c = await churchOf(req.user.id);
     if (!c || !["church", "owner", "admin"].includes(c.role)) throw bad("Only the church account, the main admins and admins can renew keys.", 403);
     await requireStep(req);

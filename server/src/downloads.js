@@ -2,9 +2,10 @@
 // phone, and the key; a built pedal (where it ships, and its phone setup); your sound plan package keys. The website
 // shows it (#downloads) and a "Just me" buyer gets the same by email after paying.
 import { q, one } from "./db.js";
-import { config, PLANS, PLAN_IDS } from "./config.js";
+import { config, PLANS, PLAN_IDS, RENEWAL } from "./config.js";
 import { sendMail, escHtml } from "./mail.js";
 import { keyState, packageRows, pretty as prettyPackage } from "./plans.js";
+import { fmt } from "./versions.js";
 
 const APPS_URL = "https://motionaudio.github.io/Central-Apps/";
 const INSTALL = "/help/install.html";
@@ -39,13 +40,14 @@ const planNames = (plans) => (PLAN_IDS.every((id) => plans.includes(id)) ? "All 
 // everything for one person (onlyOrder: just what that order gave - the email after a purchase)
 export async function downloadsFor(user, onlyOrder) {
   const email = String(user.email || "").toLowerCase();
-  const keys = await q(`SELECT l.*, (SELECT COUNT(*) FROM license_devices d WHERE d.key=l.key)::int AS devices FROM licenses l
+  const keys = await q(`SELECT l.*, (SELECT COUNT(*) FROM license_devices d WHERE d.key=l.key)::int AS devices, COALESCE(c.personal, FALSE) AS personal FROM licenses l LEFT JOIN churches c ON c.id=l.church_id
     WHERE (l.user_id=$1 OR l.assigned_email=$2) AND NOT l.revoked AND (l.expires_at IS NULL OR l.expires_at > now())` + (onlyOrder ? " AND l.order_id=$3" : "") + " ORDER BY l.kind, l.created_at", onlyOrder ? [user.id, email, onlyOrder] : [user.id, email]);
   const apps = ["P", "A", "U"].filter((k) => keys.some((l) => l.kind === k)).map((k) => {
     const a = APPS[k];
     return { kind: k, name: a.name, icon: a.icon, download: APPS_URL + "#" + a.anchor, runsOn: a.runsOn, devices: a.devices, phone: a.phone,
       steps: steps(a), linuxCommand: "curl -fsSL " + APPS_URL + "install.sh | bash -s " + a.linux, guide: config.publicUrl + INSTALL,
-      keys: keys.filter((l) => l.kind === k).map((l) => ({ key: pretty(l.key), trial: l.trial, expiresAt: l.expires_at, inUse: l.devices })) };
+      keys: keys.filter((l) => l.kind === k).map((l) => ({ key: pretty(l.key), trial: l.trial, expiresAt: l.expires_at, inUse: l.devices,
+        updatesUntil: k === "P" ? "forever" : fmt(l.updates_until), own: !!(l.personal && l.user_id === user.id), renewable: !!(l.personal && l.user_id === user.id && k !== "P" && !l.trial) })) };
   });
   const orders = await q("SELECT id, shipping, status, created_at FROM orders WHERE user_id=$1 AND status IN ('paid','review') AND (items ? 'pedal')" + (onlyOrder ? " AND id=$2" : "") + " ORDER BY created_at DESC", onlyOrder ? [user.id, onlyOrder] : [user.id]);
   const pedals = orders.map((o) => ({ ordered: o.created_at, shipsTo: address(o.shipping), held: o.status === "review" }));
@@ -54,7 +56,7 @@ export async function downloadsFor(user, onlyOrder) {
     const rows = await packageRows(email, user.id);
     packages = rows.filter((k) => keyState(k).ok).map((k) => ({ key: prettyPackage(k.key), plans: planNames(k.plans), until: k.ends, trial: k.trial, church: k.sub_kind === "bundle" || k.trial ? k.church : null }));
   }
-  return { apps, pedals, pedalSetup: PEDAL_SETUP, sdCard: config.publicUrl + INSTALL + "#making-your-own-sd-card", packages, appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
+  return { apps, pedals, renewalCents: RENEWAL.cents, pedalSetup: PEDAL_SETUP, sdCard: config.publicUrl + INSTALL + "#making-your-own-sd-card", packages, appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
 }
 
 // the email to a "Just me" buyer after paying: the same as the Downloads page, for what they just bought
