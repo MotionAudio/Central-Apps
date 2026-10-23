@@ -172,7 +172,7 @@ await check("lighting: a split song's drum hits (kick, snare, hi-hat, crash) com
 });
 await check("lighting: a cue added on the timeline is saved on the Central Pedal (with the pairing code) and read back", async () => {
   await cu.evaluate((c) => { CentralUsage.prefs.code = c; }, code);
-  const box = await cu.$("#lxTimeline"); const bb = await box.boundingBox();
+  const box = await cu.$("#lxTimeline"); await box.scrollIntoViewIfNeeded(); const bb = await box.boundingBox();   // (below a bigger 3D stage)
   const before = await cu.evaluate(() => CULights.show().cues.length);
   await cu.mouse.click(bb.x + bb.width * 0.6, bb.y + 50);
   await cu.waitForFunction((n) => CULights.show().cues.length === n + 1 && CULights.show().saved, before, { timeout: 6000 });
