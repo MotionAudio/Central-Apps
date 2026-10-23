@@ -23,10 +23,14 @@
   window.PP = { project: function () { return proj; }, setStatus: setStatus, persistSoon: function () { clearTimeout(timer); timer = setTimeout(persist, 400); }, persistNow: persist, escapeHtml: esc, clamp: function (v, a, b) { return v < a ? a : v > b ? b : v; }, ask: ask, engine: null };
   window.PPFeatures = { on: function (t, fn) { (listeners[t] = listeners[t] || []).push(fn); }, emit: function (m) { (listeners[m.type] || []).forEach(function (fn) { try { fn(m); } catch (e) { console.warn(e); } }); }, openUsb: null, systemStatus: function () { return null; } };
   window.PPShell = { currentTab: function () { return "instrument"; } };
+  // the sound plans: the app (the parent window, with the license) tells this frame which are active; until it does, nothing is locked
+  var plans = { on: false, list: {} };
+  window.PPLicense = { hasPlan: function (id) { return !plans.on || !id || id === "free" || !!plans.list[id]; }, plans: function () { return plans.list; }, on: function () { return plans.on; } };
   window.__pedalBridge = { connected: true, send: function (m) { parent.postMessage({ cu: "inst-out", msg: m }, "*"); return true; } };
   window.addEventListener("message", function (e) {
     var d = e.data; if (!d || d.cu !== "inst") return; var m = d.msg || {};
     if (m.type === "shown") { if (window.PPInstrument) window.PPInstrument.show(); return; }
+    if (m.type === "plans") { var was = JSON.stringify(plans); plans = { on: !!m.on, list: m.plans || {} }; if (was !== JSON.stringify(plans)) window.dispatchEvent(new CustomEvent("pp-plans")); return; }
     window.PPFeatures.emit(m);
   });
 })();

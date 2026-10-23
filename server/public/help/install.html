@@ -11,7 +11,7 @@
   <nav><a href="/apps/">Apps</a><a href="/#store">Store</a><a href="/#tracks">Central Tracks</a><a href="/help/" class="on" aria-current="page">Help</a><a href="/services/">Central Services</a><a href="/#account">Account</a></nav>
 </div></header>
 <div class="page-head on-stage plain"><div class="wrap"><div class="crumbs"><a href="/help/">Help</a></div><h1>Install the apps</h1><p class="lede">Every app on every device, step by step, with what to press the first time it opens.</p></div></div>
-<main class="wrap man"><aside class="toc" aria-label="On this page"><b>On this page</b><ol><li><a href="#before-you-start">Before you start</a></li><li><a href="#windows">Windows</a></li><li><a href="#mac">Mac</a></li><li><a href="#linux">Linux</a></li><li><a href="#android">Android</a></li><li><a href="#iphone-and-ipad">iPhone and iPad</a></li><li><a href="#the-central-pedal">The Central Pedal</a></li><li><a href="#signing-in-and-your-key">Signing in and your key</a></li><li><a href="#updates">Updates</a></li><li><a href="#uninstalling">Uninstalling</a></li></ol></aside>
+<main class="wrap man"><aside class="toc" aria-label="On this page"><b>On this page</b><ol><li><a href="#before-you-start">Before you start</a></li><li><a href="#windows">Windows</a></li><li><a href="#mac">Mac</a></li><li><a href="#linux">Linux</a></li><li><a href="#android">Android</a></li><li><a href="#iphone-and-ipad">iPhone and iPad</a></li><li><a href="#the-central-pedal">The Central Pedal</a></li><li><a href="#making-your-own-sd-card">Making your own SD card</a></li><li><a href="#signing-in-and-your-key">Signing in and your key</a></li><li><a href="#updates">Updates</a></li><li><a href="#uninstalling">Uninstalling</a></li></ol></aside>
 <article class="doc">
 <h2 id="before-you-start">Before you start</h2>
 
@@ -84,7 +84,11 @@
 
 <h2 id="the-central-pedal">The Central Pedal</h2>
 
-<p>We build every pedal and ship it with its software installed and its own key, so there's nothing to install. Plug in the power, a screen and your outputs; it boots into the app in about 15 seconds and asks for the Wi-Fi the first time. Then see <a href="/apps/central-pedal.html#first-time-on">First time on</a>.</p>
+<p>We build every pedal and ship it with its software installed, and it needs no key, so there's nothing to install. Plug in the power and your outputs, then set it up from your phone: join the Wi-Fi <b>"Central Pedal Setup"</b> (the pedal makes it when it has no network; the setup page opens by itself, or go to <code>http://10.42.0.1</code>), pick the church Wi-Fi, the touch screen and the 4-digit code, and press Upload. See <a href="/apps/central-pedal.html#first-time-on">First time on</a>.</p>
+<h3 id="making-your-own-sd-card">Making your own SD card</h3>
+<p>Building your own pedal, or starting a card over? On an Ubuntu or Debian computer, paste this in the Terminal:</p>
+<div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash</code><button type="button">Copy</button></div>
+<p>It asks no questions: put the SD card in, pick it from the list and type <b>ERASE</b>. It downloads the newest Central Pedal and puts every sound on a 32 GB card (all but the big grand piano on a 16 GB card). Then put the card in the Raspberry Pi 4 and do the phone setup above.</p>
 <p>Updates arrive by themselves: the pedal looks every time it starts and installs a new version after a 10-second notice, never while something plays. With no internet, put the newest <code>central-control-source.zip</code> from the download page on a USB stick and use Settings → <b>Update software from USB…</b>.</p>
 
 <h2 id="signing-in-and-your-key">Signing in and your key</h2>
@@ -96,9 +100,10 @@
 <li><b>Join the Wi-Fi</b> if the device isn't online yet.</li>
 </ol>
 <div class="tblwrap"><table class="tbl"><thead><tr><th>Key</th><th>For</th><th>Devices</th><th>Updates</th></tr></thead><tbody>
-<tr><td><b>P</b></td><td>Central Pedal and Central Pedal Control</td><td>Two for Pedal Control; a pedal has its own</td><td>Forever</td></tr>
+<tr><td><b>P</b></td><td>Central Pedal Control (the pedal itself needs no key)</td><td>Two</td><td>Forever</td></tr>
 <tr><td><b>A</b></td><td>Central Control (main admins and admins)</td><td>One computer</td><td>Ten full releases, then $20 renews ten more</td></tr>
 <tr><td><b>U</b></td><td>Central Usage (users)</td><td>Two (say, church and home)</td><td>Ten full releases, then $20 renews ten more</td></tr>
+<tr><td><b>S</b></td><td>A sound plans package (any app: Settings → Packages → Add a package)</td><td>Two at a time</td><td>As long as the plan: it renews every year</td></tr>
 </tbody></table></div>
 <p>Buy at 9.4 and an A or U key gets every update through 10.4, fixes included. The apps never stop working if you don't renew; they keep the version they have. To move a key, <b>Release key</b> in the app's Settings → License, or on the website.</p>
 

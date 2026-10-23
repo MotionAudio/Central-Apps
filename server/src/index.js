@@ -4,7 +4,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS, RENEWAL, MAIN_ADMINS_MAX } from "./config.js";
+import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS, RENEWAL, MAIN_ADMINS_MAX, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PACKAGE_DEVICES, TRACK_KINDS, ITEM_KINDS, DEMO_MAX_SECONDS } from "./config.js";
 import { q, one, migrate } from "./db.js";
 import { hashPassword, checkPassword, makeToken, attachUser, requireUser, isAdmin } from "./auth.js";
 import * as store from "./storage.js";
@@ -20,6 +20,8 @@ import * as backup from "./backup.js";
 import * as trials from "./trials.js";
 import * as prices from "./prices.js";
 import * as content from "./content.js";
+import * as plans from "./plans.js";
+import * as downloads from "./downloads.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -80,6 +82,8 @@ support.routes(api, { wrap, brake, requireUser });
 church.routes(api, { wrap, brake, requireUser });
 prices.routes(api, { wrap, requireUser });
 content.routes(app, api, { wrap, requireUser });
+plans.routes(api, { wrap, requireUser });
+downloads.routes(api, { wrap, requireUser });
 function needConfirmed(u) { if (u && !u.email_confirmed) { const e = bad("Confirm your email first: we sent you a link (Account → Send it again)."); e.status = 403; e.needConfirm = true; throw e; } }
 
 api.post("/signup", wrap(async (req, res) => {
@@ -90,7 +94,7 @@ api.post("/signup", wrap(async (req, res) => {
   if (await one("SELECT 1 FROM users WHERE email=$1", [email])) throw bad("There's already an account with that email. Sign in instead.", 409);
   // checked before the account is made: a wrong church code shouldn't leave a half-made account
   const join = String(req.body.churchCode || "").trim(), make = String(req.body.churchName || "").trim();
-  if (join && !(await one("SELECT 1 FROM churches WHERE admin_code=$1 OR user_code=$1", [lic.canon(join)]))) throw bad("That church code isn't right. Ask your main admin for it.", 404);
+  if (join && !(await one("SELECT 1 FROM churches WHERE (admin_code=$1 OR user_code=$1) AND NOT personal", [lic.canon(join)]))) throw bad("That church code isn't right. Ask your main admin for it.", 404);
   const u = await one("INSERT INTO users (email,name,pass_hash) VALUES ($1,$2,$3) RETURNING *", [email, name, hashPassword(pw)]);
   let church = null;
   try {
@@ -130,17 +134,22 @@ api.get("/config", wrap(async (req, res) => {
   const preview = req.query.preview && req.user && isAdmin(req.user);   // (staff see a saved sale before it's live)
   res.json({ renewal: RENEWAL, supportEmail: config.supportEmail || null, sms: signin.smsOn, payments: !!pay.stripe, publishableKey: config.stripe.publishable || null,
     products: PRODUCTS, keyKinds: KEY_KINDS, subscription: SUBSCRIPTION, starPrices: STAR_PRICE_CENTS, poolShare: POOL_SHARE, mainAdminsMax: MAIN_ADMINS_MAX,
+    plans: PLANS, planIds: PLAN_IDS, planAll: PLAN_ALL, planBundles: PLAN_BUNDLES, packageDevices: PACKAGE_DEVICES, trackKinds: TRACK_KINDS, itemKinds: ITEM_KINDS, demoMaxSeconds: DEMO_MAX_SECONDS,
     sale: preview ? publicSale((await saleRow()).draft, true) : publicSale(await pay.liveSale()) });
 }));
 
+// kind: Pad, Multitrack, Prime (recordings) or Sound, Board, Click (installed by the apps: format sf2, zip or json;
+// they have a demo clip, GET /tracks/:id/demo). The apps install what /tracks/:id/add answers by its kind.
 function trackOut(t) {
-  return { id: String(t.id), title: t.title, artist: t.artist, kind: t.kind, key: t.song_key, bpm: Number(t.bpm) || 0, stars: t.stars, price: t.price_cents / 100, owned: !!t.owned, mine: !!t.mine };
+  const item = !!ITEM_KINDS[t.kind];
+  return { id: String(t.id), title: t.title, artist: t.artist, kind: t.kind, key: t.song_key, bpm: Number(t.bpm) || 0, stars: t.stars, price: t.price_cents / 100, owned: !!t.owned, mine: !!t.mine,
+    item, format: item ? t.item_format || null : undefined, demo: item || undefined };
 }
-api.get("/tracks", wrap(async (req, res) => {
-  const uid = req.user ? req.user.id : 0, text = String(req.query.q || "").trim().slice(0, 100), kind = String(req.query.kind || "");
+api.get("/tracks", wrap(async (req, res) => {   // ?kind=Sound, or several: ?kind=Sound,Board,Click
+  const uid = req.user ? req.user.id : 0, text = String(req.query.q || "").trim().slice(0, 100), kinds = String(req.query.kind || "").split(",").map((k) => k.trim()).filter((k) => TRACK_KINDS.includes(k));
   const params = [uid], where = ["t.status='live'"];
   if (text) { params.push("%" + text.replace(/[%_\\]/g, "\\$&") + "%"); where.push("(t.title ILIKE $" + params.length + " OR t.artist ILIKE $" + params.length + " OR t.song_key ILIKE $" + params.length + ")"); }
-  if (["Pad", "Multitrack", "Prime"].includes(kind)) { params.push(kind); where.push("t.kind=$" + params.length); }
+  if (kinds.length) { params.push(kinds); where.push("t.kind = ANY($" + params.length + ")"); }
   if (req.query.mine && uid) where.push("t.publisher_id=$1");
   const rows = await q(`SELECT t.*, (l.user_id IS NOT NULL OR t.publisher_id=$1) AS owned, (t.publisher_id=$1) AS mine
     FROM tracks t LEFT JOIN library l ON l.track_id=t.id AND l.user_id=$1
@@ -148,11 +157,13 @@ api.get("/tracks", wrap(async (req, res) => {
   res.json({ tracks: rows.map(trackOut) });
 }));
 
-async function filesFor(trackId) {
+async function filesFor(trackId) {   // (a Sound, Board or Click: its one file, role "item" - not the demo clip)
   const files = await q("SELECT * FROM track_files WHERE track_id=$1 ORDER BY is_mix, id", [trackId]);
   const stems = files.filter((f) => !f.is_mix), use = stems.length ? stems : files;  // stems when there are any, else the mix
   return Promise.all(use.map(async (f) => ({ name: f.name, role: f.role || undefined, url: await store.downloadUrl(f.storage_key, f.name) })));
 }
+// what the apps get when they add or buy something: its kind (how to install it), the format of an item, and the files
+const delivery = async (t) => ({ kind: t.kind, format: ITEM_KINDS[t.kind] ? t.item_format || null : undefined, files: await filesFor(t.id) });
 async function liveTrack(id) {
   const t = await one("SELECT * FROM tracks WHERE id=$1", [Number(id) || 0]);
   if (!t || t.status !== "live") throw bad("That track isn't available.", 404);
@@ -162,15 +173,22 @@ async function owns(uid, t) { return t.publisher_id === uid || !!(await one("SEL
 
 api.post("/tracks/:id/add", requireUser, wrap(async (req, res) => {
   const u = req.user, t = await liveTrack(req.params.id);
-  if (await owns(u.id, t)) return res.json({ files: await filesFor(t.id) });
-  if (!(await pay.isSubscribed(u))) return res.status(402).json({ error: "Buy this track or subscribe to Central Tracks Unlimited.", checkoutUrl: config.publicUrl + "/#buy-" + t.id });   // (the apps open the website to pay)
+  if (await owns(u.id, t)) return res.json(await delivery(t));
+  if (!(await pay.isSubscribed(u))) return res.status(402).json({ error: "Buy this " + (ITEM_KINDS[t.kind] ? t.kind.toLowerCase() : "track") + " or subscribe to Central Tracks Unlimited.", checkoutUrl: config.publicUrl + "/#buy-" + t.id });   // (the apps open the website to pay)
   await q("INSERT INTO library (user_id,track_id,how) VALUES ($1,$2,'subscription') ON CONFLICT DO NOTHING", [u.id, t.id]);
   await q("INSERT INTO earnings (publisher_id,track_id,buyer_id,reason,cents) VALUES ($1,$2,$3,'subscriber_add',0) ON CONFLICT DO NOTHING", [t.publisher_id, t.id, u.id]);  // counts toward this month's pool
-  res.json({ files: await filesFor(t.id) });
+  res.json(await delivery(t));
+}));
+api.get("/tracks/:id/demo", wrap(async (req, res) => {   // a Sound, Board or Click's demo clip: anyone can listen before buying
+  const t = await liveTrack(req.params.id);
+  if (!ITEM_KINDS[t.kind]) throw bad("Only Sounds, Boards and Clicks have a demo clip.", 404);
+  const f = await one("SELECT * FROM track_files WHERE track_id=$1 AND is_mix ORDER BY id LIMIT 1", [t.id]);
+  if (!f) throw bad("This one has no demo clip.", 404);
+  res.json({ name: f.name, url: await store.downloadUrl(f.storage_key, f.name) });
 }));
 api.post("/tracks/:id/purchase", requireUser, wrap(async (req, res) => {
   const u = req.user, t = await liveTrack(req.params.id); needConfirmed(u);
-  if (await owns(u.id, t)) return res.json({ files: await filesFor(t.id) });
+  if (await owns(u.id, t)) return res.json(await delivery(t));
   if (!req.query.web) return res.json({ checkoutUrl: config.publicUrl + "/#buy-" + t.id });   // the apps open the website to pay
   res.json(await pay.trackCheckout(u, t));   // the website: the payment form's { clientSecret }
 }));
@@ -200,23 +218,51 @@ const ROLES = ["", "music", "drums", "bass", "keys", "guitar", "vocals", "click"
 api.post("/publish", requireUser, wrap(async (req, res) => {
   const u = req.user, b = req.body, mine = (k) => typeof k === "string" && k.startsWith("u" + u.id + "/");
   const title = String(b.title || "").trim().slice(0, 140), artist = String(b.artist || "").trim().slice(0, 140);
-  if (!title || !artist) throw bad("Add the song title and the artist.");
-  if (!["Pad", "Multitrack", "Prime"].includes(b.kind)) throw bad("Choose Pad, Multitrack or Prime.");
-  if (b.rights !== true) throw bad("Confirm that you own this recording or have the rights to sell it.");
+  if (!title || !artist) throw bad("Add the " + (ITEM_KINDS[b.kind] ? "name" : "song title") + " and the artist.");
+  if (!TRACK_KINDS.includes(b.kind)) throw bad("Choose Pad, Multitrack, Prime, Sound, Board or Click.");
+  const item = ITEM_KINDS[b.kind];
+  if (b.rights !== true) throw bad(item ? "Confirm that you made this " + b.kind.toLowerCase() + " or have the rights to sell it." : "Confirm that you own this recording or have the rights to sell it.");
   if (config.stripe.requireIdToPublish && pay.stripe && u.id_status !== "verified") throw bad("Verify your ID before you publish (once, about 2 minutes): Publishing → Verify my ID.", 403);
-  if (!b.mix || !mine(b.mix.key) || !(await store.exists(b.mix.key))) throw bad("Upload the full mix first.");
-  const stems = (Array.isArray(b.stems) ? b.stems : []).slice(0, 64);
+  if (!b.mix || !mine(b.mix.key) || !(await store.exists(b.mix.key))) throw bad(item ? "Upload a short demo clip first (MP3 or WAV): we grade it, and its stars set the price." : "Upload the full mix first.");
+  const stems = item ? [] : (Array.isArray(b.stems) ? b.stems : []).slice(0, 64);
   for (const s of stems) if (!mine(s.key) || !(await store.exists(s.key))) throw bad("One of the stems didn't finish uploading. Try again.");
+  let format = null;
+  if (item) {   // a Sound, Board or Click: the file the apps install, checked here
+    if (!b.item || !mine(b.item.key) || !(await store.exists(b.item.key))) throw bad("Upload the " + b.kind.toLowerCase() + " itself: " + item.what + ".");
+    format = path.extname(String(b.item.name || "")).slice(1).toLowerCase();
+    if (!item.ext.includes(format)) throw bad("A " + b.kind + " is " + item.what + ".");
+    format = await checkItem(b.kind, format, b.item.key, item);
+  }
 
   const tmp = await store.fetchToTemp(b.mix.key);
   let g; try { g = await gradeAudio(tmp); } finally { fs.rm(path.dirname(tmp), { recursive: true, force: true }, () => {}); }
-  const t = await one(`INSERT INTO tracks (publisher_id,title,artist,kind,song_key,bpm,stars,price_cents,grade_report,rights_ok)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE) RETURNING *`,
-    [u.id, title, artist, b.kind, String(b.key || "").slice(0, 8), Math.max(0, Math.min(400, Number(b.bpm) || 0)), g.stars, STAR_PRICE_CENTS[g.stars], JSON.stringify(g.checks)]);
-  await q("INSERT INTO track_files (track_id,name,role,storage_key,is_mix) VALUES ($1,$2,'',$3,TRUE)", [t.id, String(b.mix.name || "Mix").slice(0, 200), b.mix.key]);
+  if (item && g.info.duration > DEMO_MAX_SECONDS + 0.5) throw bad("Keep the demo clip under " + Math.round(DEMO_MAX_SECONDS / 60) + " minutes: it's a taste of the " + b.kind.toLowerCase() + ".");
+  const t = await one(`INSERT INTO tracks (publisher_id,title,artist,kind,song_key,bpm,stars,price_cents,grade_report,rights_ok,item_format)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10) RETURNING *`,
+    [u.id, title, artist, b.kind, String(b.key || "").slice(0, 8), Math.max(0, Math.min(400, Number(b.bpm) || 0)), g.stars, STAR_PRICE_CENTS[g.stars], JSON.stringify(g.checks), format]);
+  await q("INSERT INTO track_files (track_id,name,role,storage_key,is_mix) VALUES ($1,$2,$3,$4,TRUE)", [t.id, String(b.mix.name || (item ? "Demo" : "Mix")).slice(0, 200), item ? "demo" : "", b.mix.key]);
+  if (item) await q("INSERT INTO track_files (track_id,name,role,storage_key,is_mix) VALUES ($1,$2,'item',$3,FALSE)", [t.id, String(b.item.name).slice(0, 200), b.item.key]);
   for (const s of stems) await q("INSERT INTO track_files (track_id,name,role,storage_key,is_mix) VALUES ($1,$2,$3,$4,FALSE)", [t.id, String(s.name || "Stem").slice(0, 200), ROLES.includes(s.role) ? s.role : "", s.key]);
   res.json({ track: trackOut({ ...t, owned: true, mine: true }), grade: g });
 }));
+// a Sound (.sf2 or a zip of samples), a Board (a JSON preset) or a Click (a zip of WAVs): the right size, and really that
+// kind of file (an .sf2 starts RIFF....sfbk, a zip PK; a Board is a JSON object). Answers its format.
+async function checkItem(kind, format, key, item) {
+  const tmp = await store.fetchToTemp(key);
+  try {
+    const size = fs.statSync(tmp).size;
+    if (size > item.maxBytes) throw bad("That " + kind.toLowerCase() + " is too big (up to " + (item.maxBytes >= 1024 ** 3 ? item.maxBytes / 1024 ** 3 + " GB" : Math.round(item.maxBytes / 1024 ** 2) + " MB") + ").");
+    if (size < 4) throw bad("That file is empty.");
+    const fd = fs.openSync(tmp, "r"), head = Buffer.alloc(12); fs.readSync(fd, head, 0, 12, 0); fs.closeSync(fd);
+    if (format === "sf2" && !(head.toString("latin1", 0, 4) === "RIFF" && head.toString("latin1", 8, 12) === "sfbk")) throw bad("That isn't a SoundFont (.sf2) file.");
+    if (format === "zip" && head.toString("latin1", 0, 2) !== "PK") throw bad("That isn't a zip file.");
+    if (format === "json") {
+      let v; try { v = JSON.parse(fs.readFileSync(tmp, "utf8")); } catch { throw bad("That Board isn't readable JSON. Export it again from the pedal board."); }
+      if (!v || typeof v !== "object" || Array.isArray(v)) throw bad("A Board is a pedal board preset: one JSON object.");
+    }
+    return format;
+  } finally { fs.rm(path.dirname(tmp), { recursive: true, force: true }, () => {}); }
+}
 api.get("/publisher", requireUser, wrap(async (req, res) => {
   const uid = req.user.id;
   const tracks = await q(`SELECT t.*, TRUE AS owned, TRUE AS mine,
@@ -231,9 +277,15 @@ api.get("/publisher", requireUser, wrap(async (req, res) => {
 
 // ---- payments
 // every checkout answers { clientSecret, session }: the page shows Stripe's payment form with it
-api.post("/checkout/store", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code)); }));
-api.post("/checkout/store/check", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code, "check")); }));   // (the cart: any problem shows before the payment form)
+api.post("/checkout/store", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code, undefined, req.body.for)); }));
+api.post("/checkout/store/check", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code, "check", req.body.for)); }));   // (the cart: any problem shows before the payment form)
 api.post("/checkout/subscription", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.subscriptionCheckout(req.user)); }));
+// sound plans (yearly), as package keys: your own { plans: ["keys", ...] or "all", code } (one key, emailed to you), or a
+// church bundle { seats: 4 | 8 | 12 | 16 | 20, code } (that many keys, handed out on the Teams page)
+api.post("/checkout/plans", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.planCheckout(req.user, req.body.plans, req.body.code)); }));
+api.post("/checkout/plans/check", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.planCheckout(req.user, req.body.plans, req.body.code, "check")); }));
+api.post("/checkout/plan-bundle", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.bundleCheckout(req.user, req.body.seats, req.body.code)); }));
+api.post("/checkout/plan-bundle/check", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.bundleCheckout(req.user, req.body.seats, req.body.code, "check")); }));
 api.post("/billing", requireUser, wrap(async (req, res) => res.json({ url: await pay.billingPortal(req.user) })));
 // publishers: payout setup (Stripe's pages), the payout settings shown on the website, and the one-time ID check
 api.post("/connect", requireUser, wrap(async (req, res) => res.json({ url: await pay.connectLink(req.user) })));
@@ -246,7 +298,9 @@ api.get("/orders/:session", wrap(async (req, res) => {  // the Checkout session 
   const o = await one("SELECT * FROM orders WHERE stripe_session=$1", [String(req.params.session)]);
   if (!o) return res.json({ pending: true });
   const keys = await q("SELECT key, product, kind FROM licenses WHERE order_id=$1 ORDER BY kind, product, key", [o.id]);
-  res.json({ total: o.total_cents / 100, items: o.items, slots: o.slots || 0, status: o.status, shipping: !!o.shipping,
+  const ch = o.church_id ? await one("SELECT name, personal FROM churches WHERE id=$1", [o.church_id]) : null;   // ("Just me": the Downloads page; a church: next, add your people)
+  res.json({ total: o.total_cents / 100, items: o.items, slots: o.slots || 0, status: o.status, shipping: !!o.shipping, personal: !!(ch && ch.personal), church: ch && !ch.personal ? ch.name : null,
+    itemNames: Object.entries(o.items || {}).filter(([id]) => PRODUCTS[id]).map(([id, n]) => ({ name: PRODUCTS[id].name, n: Number(n) || 0 })),
     licenses: o.status === "paid" ? keys.map((k) => ({ key: lic.pretty(k.key), kind: k.kind, product: KEY_KINDS[k.kind] || (PRODUCTS[k.product] ? PRODUCTS[k.product].name : k.product) })) : [] });
 }));
 

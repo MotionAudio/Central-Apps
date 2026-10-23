@@ -355,6 +355,7 @@
       deck = decks[0]; node = deck.node;
       applyDirectOuts();
       post({ cmd: "meters", on: true }); decks[1].node.port.postMessage({ cmd: "meters", on: true });
+      sendClickSets();
       applyLevels();
       return node;
     })();
@@ -362,6 +363,21 @@
     return workletReady;
   }
   function post(m, transfer) { if (node) node.port.postMessage(m, transfer || []); }
+  // ---- click sounds from Central Tracks ("Click" items): two short samples, the accent and the beat, kept in the project
+  function b64ToF32(b64) { try { var bin = atob(b64 || ""), n = bin.length >> 1, out = new Float32Array(n); for (var i = 0; i < n; i++) { var v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); out[i] = (v > 32767 ? v - 65536 : v) / 32768; } return out; } catch (_) { return new Float32Array(0); } }
+  function f32ToB64(f) { var s = ""; for (var i = 0; i < f.length; i++) { var v = Math.max(-32768, Math.min(32767, Math.round(f[i] * 32767))) & 0xffff; s += String.fromCharCode(v & 255, v >> 8); } return btoa(s); }
+  function clickSets() { var p = project(); return Array.isArray(p.clickSets) ? p.clickSets : []; }
+  function sendClickSets() { var sets = {}; clickSets().forEach(function (c) { sets[c.id] = { hi: b64ToF32(c.hi), lo: b64ToF32(c.lo), rate: c.rate || 48000 }; }); (decks || []).forEach(function (d) { if (d && d.node) d.node.port.postMessage({ cmd: "clickSets", sets: sets }); }); }
+  function addClickSet(name, hi, lo, rate) {   // hi, lo: Float32Array (cut to half a second)
+    var p = project(), max = Math.round((rate || 48000) * 0.5), id = "set:" + Math.random().toString(36).slice(2, 8);
+    p.clickSets = clickSets().concat([{ id: id, name: String(name || "Click").slice(0, 40), rate: rate || 48000, hi: f32ToB64(hi.subarray(0, max)), lo: f32ToB64((lo || hi).subarray(0, max)) }]).slice(-12);
+    PP.persistSoon(); sendClickSets(); clickOptions(); return id;
+  }
+  function clickOptions() {
+    var sel = document.getElementById("seClickSound"); if (!sel) return; var cur = sel.value;
+    sel.innerHTML = [["wood", "Wood"], ["sticks", "Sticks"], ["beep", "Beep"]].concat(clickSets().map(function (c) { return [c.id, c.name]; })).map(function (o) { return '<option value="' + PP.escapeHtml(o[0]) + '">' + PP.escapeHtml(o[1]) + "</option>"; }).join("");
+    if (cur) sel.value = cur;
+  }
   // the player's whole output (tracks, click, cues, direct and network outs): the backup player follows a song
   // silently (0) and fades in when it takes over
   var outLevel = 1;
@@ -1035,6 +1051,7 @@
       var st = I.state();
       ins = { kind: st.kind, kinds: I.kinds().map(function (k) { return [k[0], k[1]]; }), board: I.boardName(), patch: st.patch ? st.patch.name : "", tuner: !!st.tuner, levelDb: st.levelDb,
         pedals: I.pedalNames().slice(0, 18), knobs: I.miniKnobs ? I.miniKnobs() : [], playAny: I.playAnyOn ? I.playAnyOn() : false };
+      if (I.lockInfo) { var lk = I.lockInfo(); ins.boardLocked = lk.board || null; ins.patchLocked = lk.patch || null; }   // ("Part of Central Pedals · $50 a year" when a plan ended)
     }
     return { stems: t ? t.stems.map(function (q, i) { return { i: i, name: q.name, gain: Math.round((q.gain == null ? 1 : q.gain) * 1000) / 1000, mute: !!q.mute, role: q.role }; }) : [],
       levels: { tracks: Math.round(levels.tracks * 1000) / 1000, click: Math.round(levels.click * 1000) / 1000 }, volume: p.performance ? p.performance.volume : 1,
@@ -1217,7 +1234,7 @@
     $("#seOrigKey").innerHTML = '<option value="">unknown</option>' + KEYS.map(function (k) { return '<option value="' + k + '"' + (k === t.originalKey ? " selected" : "") + ">" + keyName(k) + "</option>"; }).join("");
     renderTempoMap(s, t); renderFlowEditor(s, t);
     $("#seBpm").value = Math.round(t.grid.bpm * 10) / 10; $("#seFirst").value = Math.round((t.grid.first || 0) * 1000) / 1000; $("#seBpb").value = t.grid.bpb || 4; $("#seGridMode").value = t.grid.mode === "detected" ? "detected" : "fitted";
-    $("#seCountIn").value = t.countIn; $("#seClickSound").value = t.click.sound; $("#seClickSub").value = t.click.sub; $("#seClickLevel").value = t.click.level; $("#seCueLevel").value = t.cues.level; $("#seCueLead").value = t.cues.leadBars; $("#seCountVoice").checked = !!t.cues.countVoice; $("#seClickStems").checked = t.click.stems !== false;
+    clickOptions(); $("#seCountIn").value = t.countIn; $("#seClickSound").value = t.click.sound; $("#seClickSub").value = t.click.sub; $("#seClickLevel").value = t.click.level; $("#seCueLevel").value = t.cues.level; $("#seCueLead").value = t.cues.leadBars; $("#seCountVoice").checked = !!t.cues.countVoice; $("#seClickStems").checked = t.click.stems !== false;
     var fl = follow(t); $("#seSongPad").innerHTML = '<option value="-1">the selected pad</option>' + project().pads.map(function (pd, i) { return '<option value="' + i + '"' + (s.pad === i ? " selected" : "") + ">" + (i + 1) + " · " + esc(pd.name) + "</option>"; }).join(""); $("#seFollowStart").checked = fl.start; $("#seFollowStop").checked = fl.stop; $("#seFollowSwell").checked = fl.swell;
     $("#seTransition").value = t.transition.type; $("#seTransitionSec").value = t.transition.seconds; $("#seJump").value = t.jump; $("#seLyricsLines").value = t.lyricsLines; $("#seAutoHits").checked = !!t.autoHits; $("#sePresentation").value = s.presentation || ""; $("#seAfter").value = afterMode(t); $("#seGap").value = t.gap; $("#seOverlap").value = t.overlap; $("#seGap").parentNode.hidden = afterMode(t) !== "play"; $("#seOverlap").parentNode.hidden = afterMode(t) !== "segue"; $("#seProgram").value = s.midiProgram == null ? "" : s.midiProgram;
     renderGuesses(s, t);
@@ -1470,7 +1487,7 @@
   F.on("hello", function () { loadCueList().then(function () { preloadCountVoice(); }); refreshCharts().then(render); if (project().link && project().link.enabled) send({ type: "link", enabled: true, bpm: song() ? song().bpm : project().tempo.bpm, playing: state.playing }); sendDisplay(); });
 
   // public
-  window.PPTracks = {
+  window.PPTracks = { addClickSet: addClickSet, clickSets: clickSets,
     state: state, song: song, data: data, grid: grid, pushAll: pushAll, beatsInBar: beatsInBar, flowEntries: flowEntries, flowActive: flowActive, setFlowOn: setFlowOn, queueSection: queueSection, flowRepeat: flowRepeat, flowSkip: flowSkip, flowReset: flowReset, armQueue: function () { queueArmed = !queueArmed; renderFlow(); }, sectionsOf: sectionsOf, sectionAt: sectionAt, timeToBar: timeToBar, barStart: barStart,
     play: play, pause: pause, stop: stop, togglePlay: togglePlay, seek: seek, goSection: goSection, nextSection: nextSection, prevSection: prevSection, restartSection: restartSection, startOver: startOver,
     toggleLoop: toggleLoop, setLoop: setLoop, shiftKey: shiftKey, setTempoPercent: setTempoPercent, setTracksMode: setTracksMode, isPlaying: function () { return state.playing; }, isActive: isActive,

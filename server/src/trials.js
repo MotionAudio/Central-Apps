@@ -5,13 +5,14 @@
 // production company, ever.
 import { q, one, pool } from "./db.js";
 import { DISCOUNTS, RENEWAL } from "./config.js";
-import { churchOf, createChurch, mintTrialKey, trialActive, pretty } from "./licenses.js";
+import { churchOf, createChurch, mintTrialKey, trialActive, pretty, personalChurch } from "./licenses.js";
 import { requireStep } from "./signin.js";
 import * as pay from "./payments.js";
 import { sendMail, escHtml } from "./mail.js";
 import { config } from "./config.js";
 import { currentTenths, fmt, everyoneList, setEveryone } from "./versions.js";
 import { isAdmin } from "./auth.js";
+import { mintTrialPackage, sendPackage, pretty as prettyPackage } from "./plans.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const day = (d) => new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: config.timeZone || "America/Chicago" });
@@ -45,7 +46,9 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
     if (!d || d.on === false) throw bad("That code isn't valid.", 404);
     const c = req.user ? await churchOf(req.user.id) : null;
     const used = d.trial ? !!(c && c.trial_code) : !!(c && (await one("SELECT 1 FROM discount_uses WHERE church_id=$1 AND code=$2", [c.id, code])));
-    res.json({ code, label: d.label, percent: d.percent || 0, trial: !!d.trial, days: d.days || 0, used });
+    // (sound plans: a % code takes that much off the first year, once per person / once per church for a bundle)
+    const plans = !d.trial && d.plans !== false, planUsed = plans && req.user ? !!(await one("SELECT 1 FROM plan_code_uses WHERE who=$1 AND code=$2", ["u" + req.user.id, code])) : false;
+    res.json({ code, label: d.label, percent: d.percent || 0, trial: !!d.trial, days: d.days || 0, used, plans, planUsed });
   }));
   // start a free trial (the main admin; makes the church if there isn't one yet)
   api.post("/trial", requireUser, wrap(async (req, res) => {
@@ -60,7 +63,10 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
     const until = new Date(Date.now() + d.days * 864e5);
     const ok = await one("UPDATE churches SET trial_until=$1, trial_code=$2, trial_by=$3 WHERE id=$4 AND trial_code IS NULL RETURNING id", [until, code, req.user.id, c.id]);
     if (!ok) throw bad(c.name + " already had its free trial.", 409);
-    res.json({ ok: true, church: c.name, until, label: d.label });   // (keys: unlimited, made as they're needed)
+    // (9.5) every sound plan too: a trial package key for whoever started it (more on the Teams page, for anyone in the church)
+    const pk = await mintTrialPackage({ id: c.id, trial_until: until }, { email: req.user.email, name: req.user.name });
+    await sendPackage(pk, "given");
+    res.json({ ok: true, church: c.name, until, label: d.label, packageKey: prettyPackage(pk) });   // (keys: unlimited, made as they're needed)
   }));
   // during a trial: another key (as many as you like)
   api.post("/church/trial-key", requireUser, wrap(async (req, res) => {
@@ -68,13 +74,19 @@ export function routes(api, { wrap, brake, requireUser, needConfirmed }) {
     if (!c || !["church", "owner", "admin"].includes(c.role)) throw bad("Only the church account, the main admins and admins can make keys.", 403);
     await requireStep(req);
     if (!trialActive(c)) throw bad("Your church isn't in a free trial.", 409);
-    const kind = String(req.body.kind || ""); if (!["P", "A", "U"].includes(kind)) throw bad("P, A or U.");
+    const kind = String(req.body.kind || ""); if (!["P", "A", "U", "S"].includes(kind)) throw bad("P, A, U or S.");
+    if (kind === "S") return res.json({ ok: true, key: prettyPackage(await mintTrialPackage(c)), until: c.trial_until });   // (a package key: every sound plan until the trial ends)
     const client = await pool.connect();
     try { res.json({ ok: true, key: pretty(await mintTrialKey(client, c, kind)), until: c.trial_until }); } finally { client.release(); }
   }));
   // renew keys (main admin and admins pay; billed to the church)
   api.post("/checkout/renew", requireUser, wrap(async (req, res) => {
     needConfirmed(req.user);
+    if (req.body.for === "me") {   // your own "Just me" keys (Downloads, Account): billed to you
+      const pc = await personalChurch(req.user);
+      if (!pc) throw bad("You don't have keys of your own to renew.", 404);
+      return res.json(await pay.renewCheckout(req.user, pc, req.body.keys, req.body.code, true));
+    }
     const c = await churchOf(req.user.id);
     if (!c || !["church", "owner", "admin"].includes(c.role)) throw bad("Only the church account, the main admins and admins can renew keys.", 403);
     await requireStep(req);

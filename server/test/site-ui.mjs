@@ -50,6 +50,9 @@ try {
   await page.goto(base + "/", { waitUntil: "networkidle" }); await page.waitForTimeout(400);
   ok(await page.$eval("h1", (e) => e.textContent.length > 10), "the page opens");
   ok(await page.$$eval("#pedalBuy [data-add=pedal]", (x) => x.length) === 1 && await page.$$eval("#packs .tier", (x) => x.length) === 4 && await page.$$eval("#rack .pl-row", (x) => x.length) >= 4 && /1 main admin \+ 2 admins/.test(await page.textContent("#packs .tier")), "the store: the pedal, four packs (Lite: 1 main admin + 2 admins…), the apps and Central Services slots");
+  ok(await page.$$eval("#planCards .tier", (x) => x.length) === 4 && /Central Keys/.test(await page.textContent("#planCards")) && /\$50/.test(await page.textContent("#planCards")) && /\$220/.test(await page.textContent("#planAll")) && await page.$$eval("#planBundles .bundle-row", (x) => x.length) === 5 && /package key/.test(await page.textContent("#plans")),
+    "the store: sound plans (four, all four for $220, five church bundles), each a package key");
+  ok((await page.$$eval(".keydefs dt", (d) => d.map((x) => x.textContent))).join() === "P,A,U,S,Slots", "the key legend: P, A, U, S (sound plan packages) and Slots (Central Services)");
   ok(await page.$$eval(".system img", (imgs) => imgs.every((i) => i.complete && i.naturalWidth > 0)) && await page.$eval("#pedalBuy img", (i) => i.naturalWidth > 0), "the app icons load");
   await shot("store", true);
   ok(!(await page.$("#packs [data-add=ultra-plus10]").then((b) => b.click()).then(() => page.textContent("#cartBtn"))).includes("1"), "Ultra's 10 more slots can't go in the cart without the Ultra pack");
@@ -96,6 +99,30 @@ try {
   ok(/Your free trial has started/.test(await page.textContent(".modal")), "the trial starts");
   await page.click(".modal [data-close]"); await page.waitForTimeout(800);
   ok(/Free trial \(7FREE\)/.test(await page.textContent("#churchCard")), "the church page shows the trial");
+  await page.waitForFunction(() => /S[A-Z0-9]{3}-/.test((document.querySelector("#pkgCard") || {}).textContent || ""), null, { timeout: 5000 }).catch(() => {});
+  ok(/All four sound plans/.test(await page.textContent("#pkgCard")) && /free trial/.test(await page.textContent("#pkgCard")) && /Settings → Packages/.test(await page.textContent("#pkgCard")), "Sound plans on the Account page: the trial's package key, and where to paste it", await page.textContent("#pkgCard"));
+  ok(!!(await waitMail(OWNER, /package key/i)), "...and it came by email");
+  // sound plans in the cart: they check out on their own (yearly)
+  await page.click("#planAll [data-plan=all]"); await page.click("#planBundles [data-bundle='8']");
+  ok((await page.textContent("#cartBtn")).includes("2"), "all four and a bundle for 8 in the cart");
+  await page.click("#cartBtn"); await page.waitForSelector(".modal .cart-plans");
+  const pc = await page.textContent(".modal");
+  ok(/Sound plans/.test(pc) && /All four sound plans/.test(pc) && /\$220\.00 a year/.test(pc) && /Sound plans for 8 people/.test(pc) && /\$1,?360\.00 a year/.test(pc) && await page.$("#plGo") && await page.$("#bnGo") && !(await page.$("#checkout")), "the cart: the plans with their own Check out buttons", pc.replace(/\s+/g, " "));
+  await shot("cart-plans");
+  await page.click("#clear"); await page.waitForTimeout(200);
+  // who it's for: Just me, or a church or team
+  await page.click("#rack [data-add=user]"); await page.click("#cartBtn"); await page.waitForSelector(".modal [name=coFor]");
+  ok(await page.isChecked("[name=coFor][value=church]"), "signed in as the church: the cart asks who it's for (a church or team, picked)");
+  await page.check("[name=coFor][value=me]"); await page.waitForTimeout(250);
+  ok(/The keys are yours/.test(await page.textContent(".modal")) && /Downloads/.test(await page.textContent(".modal")) && !(await page.$("#coChurch")), "Just me: the keys are yours, on your Downloads page and in your email");
+  await shot("cart-just-me");
+  await page.click("#clear"); await page.waitForTimeout(200);
+  ok(/Open your downloads/.test(await page.textContent("#acctBody")), "the Account page links to Your downloads");
+  await page.evaluate(() => { location.hash = "downloads"; }); await page.waitForSelector("#downloads:not([hidden]) .dl-card", { timeout: 6000 }).catch(() => {});
+  ok(await page.isVisible("#downloads") && /Your downloads/.test(await page.textContent("#downloads")) && /Settings → Packages → Add a package/.test(await page.textContent("#downloads")), "the Downloads page: here, the trial's package key and where to paste it", await page.textContent("#downloads"));
+  await shot("downloads", true);
+  await page.evaluate(() => { location.hash = "account"; }); await page.waitForTimeout(300);
+  ok(!(await page.isVisible("#downloads")), "...and it goes away when you go somewhere else");
 
   // ---------------------------------------------------------------- Teams: add a user
   await page.waitForSelector("#teamsCard [data-tadd=users]", { timeout: 5000 }).catch(() => {});
@@ -108,6 +135,12 @@ try {
   ok(/✓ 1 added/.test(await page.textContent("#teamMsg")) && /Sam Bass/.test(await page.textContent("#teamsCard")), "Teams: Done adds Sam and says the email is on the way", await page.textContent("#teamMsg"));
   const inv = await waitMail("sam" + S + "@grace.test", /./);
   ok(inv && /Central Usage/.test(inv.text) && /#invite-/.test(inv.text) && /[A-Z0-9]{4}-[A-Z0-9]{4}/.test(inv.text), "Sam's email: the invite link, the Central Usage download and a key");
+  await page.waitForSelector("#teamPkgs #pkGive", { timeout: 5000 }).catch(() => {});
+  ok(/Sound plan package keys/.test(await page.textContent("#teamPkgs")) && /free trial/.test(await page.textContent("#teamPkgs")), "Teams: the package keys section (in the trial: one for anyone)", await page.textContent("#teamPkgs"));
+  await page.selectOption("#pkWho", "sam" + S + "@grace.test"); await page.click("#pkGive");
+  const pm = await waitMail("sam" + S + "@grace.test", /package key/i);
+  await page.waitForFunction(() => /Sam Bass/.test((document.querySelector("#teamPkgs") || {}).textContent || ""), null, { timeout: 5000 }).catch(() => {});
+  ok(pm && /S[A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(pm.text) && /Settings → Packages/.test(pm.text) && /Sam Bass/.test(await page.textContent("#teamPkgs")), "Give and email it: Sam gets a package key by email", pm && pm.subject);
   await shot("teams", true);
 
   // ---------------------------------------------------------------- support

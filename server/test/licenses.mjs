@@ -49,6 +49,7 @@ try {
   ok(a.status === 404, "a made-up key is refused");
   let c = await j("POST", "/license/check", { key: A, device: dev1 });
   ok(c.body.ok === true, "the 30-day check: still this device's");
+  ok(c.body.kind && typeof c.body.recheckDays === "number" && c.body.tracksUnlimited === false && !("plans" in c.body), "(9.5) the check also says tracksUnlimited; sound plans come as package keys, not here", c.body);
   c = await j("POST", "/license/check", { key: A, device: dev2 });
   ok(c.body.ok === false && c.body.reason === "elsewhere", "the check on another device says it's used elsewhere", c.body);
   await j("POST", "/license/release", { key: A, device: dev2 });

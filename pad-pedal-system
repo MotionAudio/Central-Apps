@@ -9,6 +9,7 @@
 #   pad-pedal-system dac on|off                 the I2S DAC board (PCM5102A, "hifiberry-dac") for click / cues
 #   pad-pedal-system audio hdmi|nohdmi usbfirst|jackfirst   which cards join the combined output (applied at login)
 #   pad-pedal-system hostname <name>            rename the Pad Pedal (<name>.local)
+#   pad-pedal-system setup-ap start [name]|stop|status   phone setup: the pedal's own Wi-Fi "Central Pedal Setup"
 #   pad-pedal-system wifi-import                import /boot/firmware/pad-pedal-wifi.txt into NetworkManager
 #   pad-pedal-system update <zip>               install a central-control-source zip (from a USB stick) over /opt/pad-pedal
 #   pad-pedal-system restart-app                restart the driver and the screens (after an update)
@@ -220,6 +221,35 @@ PY
         install -d /etc/pad-pedal; echo "$cc" > /etc/pad-pedal/wifi-country; wifi_radio; echo "Wi-Fi country: $cc" ;;
       *) echo "usage: $0 wifi scan|status|connect [hidden]|forget|country <CC>" >&2; exit 1 ;;
     esac ;;
+  setup-ap)
+    # Phone setup: the pedal makes its own open Wi-Fi "Central Pedal Setup" (10.42.0.1). Every name a phone looks up
+    # answers 10.42.0.1, so the phone opens the setup page (the driver serves it on port 80) by itself.
+    command -v nmcli >/dev/null || { echo "NetworkManager is not installed" >&2; exit 2; }
+    DNSCONF=/etc/NetworkManager/dnsmasq-shared.d/central-setup.conf
+    case "${2:-status}" in
+      start)
+        wifi_radio
+        name="${3:-Central Pedal Setup}"; name="$(printf '%s' "$name" | tr -cd 'A-Za-z0-9 ._-' | cut -c1-32)"
+        install -d /etc/NetworkManager/dnsmasq-shared.d
+        printf 'address=/#/10.42.0.1\n' > "$DNSCONF"
+        nmcli connection delete central-setup >/dev/null 2>&1 || true
+        nmcli device disconnect wlan0 >/dev/null 2>&1 || true
+        nmcli connection add type wifi ifname wlan0 con-name central-setup autoconnect no ssid "$name" \
+          802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared ipv4.addresses 10.42.0.1/24 ipv6.method disabled >/dev/null
+        if ! out="$(nmcli --wait 30 connection up central-setup 2>&1)"; then
+          nmcli connection delete central-setup >/dev/null 2>&1 || true; rm -f "$DNSCONF"
+          echo "$out" >&2; exit 5
+        fi
+        echo "setup Wi-Fi on: $name" ;;
+      stop)
+        nmcli connection down central-setup >/dev/null 2>&1 || true
+        nmcli connection delete central-setup >/dev/null 2>&1 || true
+        rm -f "$DNSCONF"
+        (nmcli connection up padpedal-wifi >/dev/null 2>&1 || true) &
+        echo "setup Wi-Fi off" ;;
+      status) nmcli -t -f NAME connection show --active | grep -qx central-setup && echo on || echo off ;;
+      *) echo "usage: $0 setup-ap start [name]|stop|status" >&2; exit 1 ;;
+    esac ;;
   tft)
     overlay="${2:-none}"
     remove_overlays
@@ -359,5 +389,5 @@ PY
     echo "tft=$(grep -oE '^dtoverlay=(waveshare35a|waveshare35b|waveshare35c|piscreen|tft35a|tinylcd35|pitft35-resistive)' "$CONFIG" | head -1 | cut -d= -f2)"
     echo "dac=$(grep -q '^dtoverlay=hifiberry-dac' "$CONFIG" && echo on || echo off)"
     cat "$DATA/audio.json" 2>/dev/null || true ;;
-  *) echo "usage: $0 safe-mode|screen|tft|wifi|dac|audio|hostname|wifi-import|update|restart-app|boot-tune|status" >&2; exit 1 ;;
+  *) echo "usage: $0 safe-mode|screen|tft|wifi|setup-ap|dac|audio|hostname|wifi-import|update|restart-app|boot-tune|status" >&2; exit 1 ;;
 esac

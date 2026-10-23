@@ -283,7 +283,18 @@
     ["auto-pan", "Auto Pan", "trem", MDA + "RoundPan", { Pan: "pan", Speed: "auto" }],
     ["hard-limit", "Hard Limiter", "util", SWH + "hardLimiter", { Limit: "limit_db", Wet: "wet_gain" }],
   ];
-  var pedals = P.map(function (p) { return { id: p[0], name: p[1], category: p[2], uri: p[3], knobs: p[4] || {}, opts: p[5] || {} }; });
+  // ---- the plans (yearly, per person): which plan unlocks each pedal. "free" ones come with every Central Pedal and app.
+  var PLANS = {
+    keys: { name: "Central Keys", price: "$50 a year", what: "pianos, electric pianos, organs, synths and pads" },
+    plugins: { name: "Central Plugins", price: "$120 a year", what: "EQ, compressors, reverb, delay and mix effects" },
+    instrument: { name: "Central Instrument", price: "$80 a year", what: "basses, guitars, strings, brass and winds to play from your guitar" },
+    pedals: { name: "Central Pedals", price: "$50 a year", what: "drive, fuzz, wah, modulation, pitch, amps, cabs and acoustic pedals" }
+  };
+  var TIER_OF_CATEGORY = { comp: "plugins", eq: "plugins", delay: "plugins", reverb: "plugins", studio: "plugins", util: "plugins",
+    boost: "pedals", dist: "pedals", fuzz: "pedals", wah: "pedals", mod: "pedals", trem: "pedals", pitch: "pedals", amp: "pedals", cab: "pedals", acoustic: "pedals" };
+  // the free starter set: one or two essentials of each kind (boost, drive, compressor, gate, EQ, chorus, delay, reverb, amp, cab), the tuner and the volume pedal
+  var FREE = { booster: 1, ts9: 1, gxcomp: 1, calfcomp: 1, calfgate: 1, calfeq5: 1, calfbass: 1, gxchorus: 1, digdelay: 1, "dfly-hall": 1, gxamp: 1, gxcab: 1, "acoustic-comp": 1, tuner: 1, volume: 1 };
+  var pedals = P.map(function (p) { return { id: p[0], name: p[1], category: p[2], uri: p[3], knobs: p[4] || {}, opts: p[5] || {}, tier: FREE[p[0]] ? "free" : TIER_OF_CATEGORY[p[2]] || "pedals" }; });
 
   // ---- our own boards: presets made of several pedals (name, instrument kind, chain)
   var BOARDS = [
@@ -306,9 +317,37 @@
     { id: "keys-organ", name: "Keys: Organ Leslie", kind: "keys", chain: [["calfrotary", {}], ["gxreverb", {}]] },
     { id: "studio-acoustic", name: "Studio: Acoustic Channel Strip", kind: "acoustic", chain: [["feedback-killer", {}], ["studio-eq", { hp_freq: 80, p1_gain: -3, p1_freq: 250, p3_gain: 2, p3_freq: 5000, hs_gain: 1.5 }], ["x42-comp", { threshold: -24, Ratio: 0.6 }], ["x42-limiter", {}]] },
     { id: "studio-bass", name: "Studio: Bass Channel Strip", kind: "bass", chain: [["studio-eq", { hp_freq: 35, p1_gain: -3, p1_freq: 300, p1_q: 1.2, p3_gain: 2, p3_freq: 2500, lp_freq: 9000 }], ["x42-comp", { threshold: -26, Ratio: 0.75, attack: 0.02, release: 0.2 }], ["x42-limiter", {}]] },
-    { id: "studio-keys", name: "Studio: Keys Polish", kind: "keys", chain: [["studio-eq", { hp_freq: 40, p1_gain: -2, p1_freq: 350, hs_gain: 1.5, hs_freq: 10000 }], ["x42-comp", { threshold: -22, Ratio: 0.5, attack: 0.02, release: 0.3 }], ["dfly-plate", {}], ["x42-limiter", {}]] }
+    { id: "studio-keys", name: "Studio: Keys Polish", kind: "keys", chain: [["studio-eq", { hp_freq: 40, p1_gain: -2, p1_freq: 350, hs_gain: 1.5, hs_freq: 10000 }], ["x42-comp", { threshold: -22, Ratio: 0.5, attack: 0.02, release: 0.3 }], ["dfly-plate", {}], ["x42-limiter", {}]] },
+    // ---- 9.5: finished presets. A keys board can bring its sound too ("sound": the first sound whose name matches)
+    { id: "worship-grand", name: "Worship Grand", kind: "keys", sound: "salamander|ydp|grand piano|concert grand|grand", chain: [["calfcomp", { Threshold: 0.25, Ratio: 2.5 }], ["calfeq5", {}], ["dfly-hall", { Decay: 2.8, Late: 22 }]] },
+    { id: "ambient-keys", name: "Ambient Keys", kind: "keys", sound: "sweep pad|new age|bowed|choir|pad", chain: [["gxchorus", { Level: 0.35 }], ["digdelay", { Feedback: 55, Mix: 35 }], ["dfly-hall", { Decay: 7.5, Late: 35 }]] },
+    { id: "fingerstyle-bass", name: "Bass: Fingerstyle", kind: "bass", chain: [["calfgate", {}], ["studio-eq", { hp_freq: 32, p1_gain: -2.5, p1_freq: 250, p1_q: 1, p3_gain: 2.5, p3_freq: 1800, lp_freq: 7000 }], ["x42-comp", { threshold: -24, Ratio: 0.7, attack: 0.025, release: 0.18 }], ["calfbass", { Amount: 0.35 }]] },
+    { id: "clean-strat", name: "Clean Strat-ish", kind: "electric", chain: [["gxcomp", {}], ["chump", { Gain: 0.25, Tone: 0.65 }], ["gxcab", {}], ["tubetrem", { Depth: 0.25 }], ["gxchorus", { Level: 0.2 }], ["digdelay", { Feedback: 25, Mix: 18 }], ["dfly-hall", { Decay: 1.8 }]] }
   ];
-  var api = { CATEGORIES: CATEGORIES, pedals: pedals, boards: BOARDS, byId: function (id) { return pedals.filter(function (p) { return p.id === id; })[0] || null; } };
+  var BY_ID = {}; pedals.forEach(function (p) { BY_ID[p.id] = p; });
+  function byId(id) { return BY_ID[id] || null; }
+  // a board needs the plans of its pedals (a board of free pedals is free)
+  function boardPlans(board) { var need = []; ((board && board.chain) || []).forEach(function (item) { var p = item && !(item[0] === "plug") ? byId(item[0] || item.pedal) : null; if (p && p.tier !== "free" && need.indexOf(p.tier) < 0) need.push(p.tier); }); return need; }
+  BOARDS.forEach(function (b) { b.plans = boardPlans(b); if (b.sound && b.plans.indexOf("keys") < 0) b.plans.unshift("keys"); b.tier = b.plans.length ? b.plans[0] : "free"; });
+
+  // ---- keys & instrument sounds: a bank's own tier (get-sounds.sh lists it), else by what the sound is
+  var INSTRUMENT_CATS = { "Guitars & harp": 1, Bass: 1, "Brass & winds": 1, Strings: 1 };
+  function soundTier(sound) {
+    if (!sound) return "free";
+    if (sound.user || sound.plugin) return "free";   // (the musician's own banks, Central Tracks sounds and plugins)
+    if (sound.bankTier) return sound.bankTier;
+    if (/synth|\bfm\b|analog|saw|square/i.test(sound.name || "")) return "keys";
+    return INSTRUMENT_CATS[sound.category] ? "instrument" : "keys";
+  }
+  // is a plan active? (PPLicense knows; licensing off, or no license file here: everything is)
+  function lic() { var L = global.PPLicense; if (L && typeof L.hasPlan === "function") return L; try { if (global.parent && global.parent !== global && global.parent.PPLicense && global.parent.PPLicense.hasPlan) return global.parent.PPLicense; } catch (_) { } return null; }
+  function has(tier) { if (!tier || tier === "free") return true; var L = lic(); return L ? !!L.hasPlan(tier) : true; }
+  function missing(tiers) { return (Array.isArray(tiers) ? tiers : [tiers]).filter(function (t) { return t && t !== "free" && !has(t); }); }
+  function planText(tiers) { var m = Array.isArray(tiers) ? tiers : [tiers]; return m.filter(function (t) { return PLANS[t]; }).map(function (t) { return PLANS[t].name + " · " + PLANS[t].price; }).join(" + "); }
+  function lockText(tiers) { var t = planText(tiers); return t ? "Part of " + t : ""; }
+  var api = { CATEGORIES: CATEGORIES, pedals: pedals, boards: BOARDS, byId: byId, PLANS: PLANS, FREE: FREE, boardPlans: boardPlans, soundTier: soundTier, has: has, missing: missing, planText: planText, lockText: lockText,
+    pedalLocked: function (p) { p = typeof p === "string" ? byId(p) : p; return !!(p && p.tier && !has(p.tier)); },
+    boardLocked: function (b) { return missing(b && (b.plans || boardPlans(b))).length > 0; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   global.PPPedals = api;
 })(typeof window !== "undefined" ? window : globalThis);
