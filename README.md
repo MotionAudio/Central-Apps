@@ -195,7 +195,7 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
-**New in version 9.3.5:** Central Pedal stops multiplying MIDI ports (it opened its own ports as devices) and shows devices by name; Settings packs its cards on a big HDMI screen; one tap picks the common 3.5" touch screen, and the screen list loads whatever language the Pi is set to.
+**New in version 9.3.5:** Central Pedal stops multiplying MIDI ports (it opened its own ports as devices) and shows devices by name; Settings packs its cards on a big HDMI screen; the Touch screen list always shows the screens (it was empty on some Pis), with one tap for the common 3.5" screen.
 
 **New in version 9.3.4:** Central Control's lighting gets a 3D stage (real stage size, trusses, beams, place and aim every light), light bars with every cell its own colour, and strobes (hold-to-strobe button, rate fader, beat-locked, bursts on the hits); no overlapping text anywhere; the mouse pointer always shows in Central Pedal Control; a white 3.5" touch screen is turned on by itself.
 

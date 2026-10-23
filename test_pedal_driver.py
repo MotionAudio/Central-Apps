@@ -1057,7 +1057,15 @@ async def main():
         driver_mod.__file__ = os.path.join(empty_dir, "pedal-driver.py")
         miss = driver_mod.screens_catalog(empty_dir)
         driver_mod.__file__ = real_file
-        check("...and a missing screens.json says so (the Touch screen card shows it)", miss["screens"] == [] and "missing" in miss.get("error", ""), miss)
+        check("...and without screens.json the list built into the driver is used (it says why)", len(miss["screens"]) == 32 and "missing" in miss.get("fallback", ""), miss.get("fallback"))
+        with open(os.path.join(here_dir, "screens.json"), encoding="utf-8") as handle:
+            shipped = json.load(handle)
+        check("the screen list built into the driver is the same as screens.json", json.loads(driver_mod.BUILTIN_SCREENS_JSON) == shipped)
+        import ast as _ast
+        with open(os.path.join(here_dir, "pedal-driver.py"), encoding="utf-8") as handle:
+            tree = _ast.parse(handle.read())
+        lit = next(_ast.literal_eval(n.value) for n in tree.body if isinstance(n, _ast.Assign) and getattr(n.targets[0], "id", "") == "BUILTIN_SCREENS_JSON")
+        check("...and the root helper can read it from the driver file as data (pad-pedal-system screen, no screens.json)", json.loads(lit) == shipped)
         check("MIDI: real devices are opened; Midi Through and RtMidi ports (ours too) are not - opening those made new ones every scan",
               driver_mod.midi_port_wanted("Arturia KeyStep 32:Arturia KeyStep 32 MIDI 1 20:0") and not driver_mod.midi_port_wanted("Midi Through:Midi Through Port-0 14:0")
               and not driver_mod.midi_port_wanted("RtMidiIn Client:RtMidi input 129:0") and not driver_mod.midi_port_wanted("RtMidiOut Client:RtMidi output 128:0"))

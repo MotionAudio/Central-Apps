@@ -137,15 +137,20 @@ case "${1:-status}" in
   screen)
     id="${2:-off}"
     CATALOG="${CC_SCREENS_JSON:-/opt/pad-pedal/screens.json}"
-    [ "$id" = off ] || [ -f "$CATALOG" ] || { echo "screens.json is missing - update Central Pedal first" >&2; exit 2; }
-    # the screen's config.txt lines, its forced HDMI mode and its maker driver (name|url)
-    picked="$(python3 - "$CATALOG" "$id" <<'PY'
-import json, re, shlex, sys
+    # the screen's config.txt lines, its forced HDMI mode and its maker driver (name|url); without a readable
+    # screens.json, the copy built into the driver (read as data, never run)
+    picked="$(python3 - "$CATALOG" "$id" "${CC_DRIVER_PY:-/opt/pad-pedal/pedal-driver.py}" <<'PY'
+import ast, json, re, shlex, sys
 cat, sid = sys.argv[1], sys.argv[2]
 lines, video, drv, url, kind = [], "", "", "", "off"
 if sid != "off":
     try: data = json.load(open(cat, encoding="utf-8"))
-    except Exception as e: sys.exit("screens.json: %s" % e)
+    except Exception as e:
+        try:
+            tree = ast.parse(open(sys.argv[3], encoding="utf-8").read())
+            data = json.loads(next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "BUILTIN_SCREENS_JSON"))
+        except Exception:
+            sys.exit("screens.json: %s" % e)
     s = next((x for x in data.get("screens", []) if x.get("id") == sid), None)
     if not s: sys.exit("unknown screen %s" % sid)
     ok = re.compile(r"^(dtparam=[a-z0-9_]+=on|dtoverlay=[a-z0-9-]+([:,][A-Za-z0-9_=.-]+)*)$")
