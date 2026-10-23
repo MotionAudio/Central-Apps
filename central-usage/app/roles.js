@@ -265,7 +265,7 @@
       if (CU.web) h += '<p class="muted small">On a phone or tablet: User 1 (chart, lyrics, my in-ear mix) or User 2. Lighting, mixing and slides are on a computer with Central Control.</p>';
       if (!CU.web) h += addrLine();
     }
-    h += '<div class="row"><button data-rl="forget">Forget role…</button><span class="muted small">Back to the first-launch choice. Use it if two computers were set up as the main admin.</span></div></section>';
+    h += '<div class="row"><button data-rl="forget">Forget role…</button><span class="muted small">' + (CU.edition && CU.edition() === "usage" ? "Back to the first-launch choice (User 1 or User 2)." : "Back to the first-launch choice. Use it if two computers were set up as the main admin.") + '</span></div></section>';
     return h;
   }
   // where the main admin is (everyone else) / the center on this computer (the main admin)

@@ -29,16 +29,16 @@
   }
   function render() {
     var root = $("#settingsRoot"); if (!root || !visible()) return;
-    var c = CU.config() || {}, m = CU.mode();
+    var c = CU.config() || {}, m = CU.mode(), usage = CU.edition && CU.edition() === "usage", admin = m === "admin" && !usage;
     root.innerHTML = '<div class="io-grid">' +
       (window.PPLicense ? window.PPLicense.settingsHtml("card") : "") +
       (window.CURoles ? window.CURoles.card() : "") +
       (window.CUHubStandby ? window.CUHubStandby.card() : "") +
       mixCard() +
-      aiCard() +
-      (window.CULyricsListen ? window.CULyricsListen.card() : "") +
-      '<section class="card"><h3>Updates</h3><p class="muted">Central Control looks for a new version once a day and installs it only when you say so.</p><button data-st="updates">Check for updates…</button></section>' +
-      '<section class="card"><h3>About</h3><p>Central Control ' + esc(version && version.app || "") + '</p><p class="muted small">Companion app for Central Pedal: chord charts, lyrics, lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides.</p></section></div>';
+      (admin ? aiCard() : "") +   // (the lighting's AI model and the lyrics-from-the-vocal model are admin work: not in Central Usage)
+      (admin && window.CULyricsListen ? window.CULyricsListen.card() : "") +
+      '<section class="card"><h3>Updates</h3><p class="muted">' + esc(CU.appName) + ' looks for a new version once a day and installs it only when you say so.</p><button data-st="updates">Check for updates…</button></section>' +
+      '<section class="card"><h3>About</h3><p>' + esc(CU.appName) + " " + esc(version && version.app || "") + '</p><p class="muted small">' + (usage ? "For the musicians and singers of a Central Pedal team: the chord chart, your instrument, the lyrics and your in-ear mix." : "For the main admin and admins of a Central Pedal team: lighting (DMX + MIDI), slides and lyrics, the tracks mixer, in-ear mixes, cameras.") + "</p></section></div>";
   }
   var root = $("#settingsRoot");
   root.addEventListener("change", async function (e) {

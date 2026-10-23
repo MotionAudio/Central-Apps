@@ -436,6 +436,43 @@ async def main():
         check("touching pad 1 on the small screen -> action pad 1", hit == {"name": "pad", "args": {"index": 0}}, hit)
         hit = driver.mini.hit_test(340, 70)
         check("touching the transport button -> playPause", hit == {"name": "playPause"}, hit)
+        # the panel's real order in one report: BTN_TOUCH 1, then ABS_X / ABS_Y, then SYN - each tap at its own place
+        import types as _types
+        _ec = _types.SimpleNamespace(EV_SYN=0, EV_KEY=1, EV_ABS=3, BTN_TOUCH=330, ABS_X=0, ABS_Y=1, ABS_MT_POSITION_X=53, ABS_MT_POSITION_Y=54)
+        _E = lambda t, c, v: _types.SimpleNamespace(type=t, code=c, value=v)
+        _stop = threading.Event()
+        cal = driver.mini.spec.get("calibration") or {}
+        def _raw(px, py):   # the raw panel numbers for a screen point (map_touch backwards)
+            fx, fy = px / (driver.mini.w - 1), py / (driver.mini.h - 1)
+            if cal.get("flip_x"):
+                fx = 1 - fx
+            if cal.get("flip_y"):
+                fy = 1 - fy
+            ax = cal.get("xmin", 200) + fx * (cal.get("xmax", 3900) - cal.get("xmin", 200))
+            ay = cal.get("ymin", 200) + fy * (cal.get("ymax", 3900) - cal.get("ymin", 200))
+            return (int(ay), int(ax)) if cal.get("swap", True) else (int(ax), int(ay))
+        _evs = []
+        for px, py in ((60, 100), (340, 70)):
+            rx, ry = _raw(px, py)
+            _evs += [_E(1, 330, 1), _E(3, 0, rx), _E(3, 1, ry), _E(0, 0, 0), _E(3, 0, rx + 3), _E(0, 0, 0), _E(1, 330, 0), _E(0, 0, 0)]
+        class _Dev:
+            name = "ADS7846 Touchscreen"
+            def read_loop(self):
+                for e in _evs:
+                    yield e
+                _stop.set()
+            def close(self):
+                pass
+        _fake = _types.SimpleNamespace(available=True, stop_flag=_stop, evdev=_types.SimpleNamespace(ecodes=_ec, list_devices=lambda: ["/dev/input/event9"], InputDevice=lambda p: _Dev()))
+        _taps = []
+        _real_emit = driver.emit
+        driver.emit = lambda m: _taps.append(m) if m.get("from_") == "screen" else _real_emit(m)
+        try:
+            driver.mini.touch_loop(_fake)
+        finally:
+            driver.emit = _real_emit
+        check("a tap on the small screen is read at its own place (the panel says \"touched\" before where): pad 1, then play",
+              [t.get("name") for t in _taps] == ["pad", "playPause"] and _taps[0].get("args") == {"index": 0}, _taps)
         driver.handle_app_message({"type": "touchSelect", "knob": "Knob 3", "label": "Reverb · Big Sky", "value": "40%", "pickup": "up"})
         img = driver.mini.render(driver.display)
         check("the small screen shows what the touch-select knob holds (a strip along the bottom)", driver.touch_select["label"] == "Reverb · Big Sky" and img.getpixel((240, 300)) == (10, 40, 30), driver.touch_select)
@@ -1038,8 +1075,8 @@ async def main():
         check("maker drivers come only from the maker's own repository", not bad, bad)
         r = driver.set_touch_screen("rpi35-xpt2046")
         disp = driver.displays_config()
-        check("picking it: the small screen is on, its touch panel is read by the driver, HDMI 1 shows a copy of it",
-              r["ok"] and driver_mod.screen_on(driver.config) and driver.config["mini_screen"]["touch"] == "ADS7846" and disp["hdmi1"] == "touch" and disp["touchKind"] == "spi", (r, disp))
+        check("picking it: the small screen is on, its touch panel is read by the driver, HDMI 1 keeps the app (Settings stays reachable)",
+              r["ok"] and driver_mod.screen_on(driver.config) and driver.config["mini_screen"]["touch"] == "ADS7846" and disp["hdmi1"] == "app" and disp["touchKind"] == "spi", (r, disp))
         check("...and its pins are kept free of buttons", set(blue["pins"]) <= set(driver_mod.reserved_pins(driver.config)))
         r = driver.set_touch_screen("hdmi-7-1024")
         disp = driver.displays_config()
@@ -1133,7 +1170,8 @@ async def main():
         hl = (st2 or {}).get("health") or {}
         check("Ready check: the status carries the Pi's health (free storage, memory) and the pairing with the main admin",
               isinstance(hl.get("diskFreeMB"), int) and hl.get("diskFreeMB") > 0 and isinstance(hl.get("memFreeMB"), int) and "center" in (st2 or {}), hl)
-        now_t = time.time()
+        lt = time.localtime()
+        now_t = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 12, 0, 0, 0, 0, -1))   # (noon today: the song's end can't fall on the next day)
         await send({"type": "serviceLog", "action": "add", "events": [
             {"kind": "play", "t": now_t, "song": "Firm Foundation", "key": "C", "bpm": 70, "pos": 0},
             {"kind": "end", "t": now_t + 240, "song": "Firm Foundation", "pos": 240},

@@ -86,7 +86,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.3.5"
+APP_VERSION = "9.3.6"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -234,6 +234,23 @@ def screens_catalog(app_root):
         return _SCREENS["data"]
     except Exception as error:
         return dict(builtin_screens(), fallback="screens.json could not be read (%s)" % error)
+
+
+def framebuffers(root="/sys/class/graphics"):
+    """The Pi's picture outputs by name ({"fb0": "vc4drmfb", "fb1": "fb_ili9486"}): a small GPIO screen whose driver
+    started shows up here (Settings → Touch screen says whether it did)."""
+    out = {}
+    try:
+        for n in sorted(os.listdir(root)):
+            if re.fullmatch(r"fb\d+", n):
+                try:
+                    with open(os.path.join(root, n, "name"), encoding="utf-8", errors="replace") as handle:
+                        out[n] = handle.read().strip()[:40]
+                except OSError:
+                    out[n] = ""
+    except OSError:
+        pass
+    return out
 
 
 def screen_by_id(app_root, sid):
@@ -2583,31 +2600,41 @@ class MiniScreen:
                 time.sleep(5)
                 continue
             log.info("3.5\" touch panel: %s", dev.name)
+            self.touch_name = dev.name
             x = y = None
-            down = False
+            down = pending = False
             try:
                 for event in dev.read_loop():
                     if usb.stop_flag.is_set():
                         break
+                    # The panel sends "touched" before the place it was touched (both in one report): the tap is acted
+                    # on at the end of the report, with this touch's place - not the last one's (or none at all).
                     if event.type == ev.ecodes.EV_ABS:
-                        if event.code == ev.ecodes.ABS_X:
+                        if event.code in (ev.ecodes.ABS_X, getattr(ev.ecodes, "ABS_MT_POSITION_X", -1)):
                             x = event.value
-                        elif event.code == ev.ecodes.ABS_Y:
+                        elif event.code in (ev.ecodes.ABS_Y, getattr(ev.ecodes, "ABS_MT_POSITION_Y", -1)):
                             y = event.value
                     elif event.type == ev.ecodes.EV_KEY and event.code == ev.ecodes.BTN_TOUCH:
-                        if event.value == 1 and not down and x is not None and y is not None:
-                            down = True
-                            if self.driver.touch_calibrating:
-                                self.driver.touch_calibration_point(x, y)
-                            else:
-                                action = self.hit_test(*self.map_touch(x, y))
-                                if action:
-                                    self.driver.emit(dict(action, type="action", from_="screen"))
+                        if event.value == 1 and not down:
+                            down = pending = True
                         elif event.value == 0:
-                            down = False
+                            down = pending = False
+                    elif event.type == ev.ecodes.EV_SYN and pending and x is not None and y is not None:
+                        pending = False
+                        self.tap(x, y)
             except Exception as error:
                 log.debug("touch loop ended (%s)", error)
                 time.sleep(2)
+
+    def tap(self, raw_x, raw_y):
+        """One touch on the panel (raw panel numbers): a calibration point, or the button under it."""
+        if self.driver.touch_calibrating:
+            self.driver.touch_calibration_point(raw_x, raw_y)
+            return None
+        action = self.hit_test(*self.map_touch(raw_x, raw_y))
+        if action:
+            self.driver.emit(dict(action, type="action", from_="screen"))
+        return action
 
     def draw_calibration(self, step):
         img = self.Image.new("RGB", (self.w, self.h), self.COL["bg"])
@@ -6760,18 +6787,25 @@ class PedalDriver:
         # the screens: HDMI 1 shows a copy of a small touch screen; an HDMI / ribbon touch screen is screen 1 itself
         cfg = self.displays_config()
         cfg["touchKind"] = kind
-        if kind == "spi" and cfg.get("hdmi1", "app") in ("app", "mini"):
-            cfg["hdmi1"] = "touch"
-        elif kind != "spi" and cfg.get("hdmi1") in ("touch", "mini"):
-            cfg["hdmi1"] = "app"
+        if kind != "spi" and cfg.get("hdmi1") in ("touch", "mini"):
+            cfg["hdmi1"] = "app"   # (a small GPIO screen leaves HDMI 1 on the app: Settings → Screens can show a copy)
         write_json(os.path.join(self.config["data_root"], "displays.json"), cfg)
         log.info("touch screen: %s (%s) - after a restart", sid, kind)
         return {"ok": True, "screen": sid, "kind": kind, "name": (s or {}).get("name", "No touch screen"), "restart": True}
 
     def displays_config(self):
-        d = read_json(os.path.join(self.config["data_root"], "displays.json"), {"hdmi2": "lyrics", "cursor": "auto"})
+        path = os.path.join(self.config["data_root"], "displays.json")
+        d = read_json(path, {"hdmi2": "lyrics", "cursor": "auto"})
+        if (d.get("v") or 1) < 2:
+            # (before 9.3.6 picking a small GPIO screen switched HDMI 1 to a copy of it - with no way back to Settings
+            # when the small screen didn't come on. HDMI 1 shows the app again; the copy stays one pick away.)
+            if d.get("hdmi1") in ("touch", "mini"):
+                d["hdmi1"] = "app"
+            d["v"] = 2
+            if os.path.exists(path):
+                write_json(path, d)
         if not d.get("hdmi1"):
-            d["hdmi1"] = "touch" if touch_kind(self.config) == "spi" else "app"
+            d["hdmi1"] = "app"
         d.setdefault("touchKind", touch_kind(self.config))
         return d
 
@@ -6796,6 +6830,8 @@ class PedalDriver:
             "touchScreens": screens_catalog(self.config.get("app_root")),
             "touchScreenPending": bool(self.config.get("touch_screen_pending")) and self.config.get("touch_screen_pending") == boot_id(),
             "miniScreen": bool(self.mini and self.mini.available and self.mini.fb_present()),
+            "miniTouch": getattr(self.mini, "touch_name", None) if self.mini else None,
+            "framebuffers": framebuffers(),
             "audio": self.audio_config(),
             "soundCards": sound_cards(),
             "displays": self.displays_config(),
