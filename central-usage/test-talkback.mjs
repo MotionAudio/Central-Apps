@@ -32,8 +32,16 @@ const crashed = path.join(recDir, "2026-01-04 09.30 - Crashed"); fs.mkdirSync(cr
 fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", role: "main", name: "Desk", host: { enabled: true, port: PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "off" }, recordDir: recDir }));
 fs.writeFileSync(path.join(userData, "mixer.json"), JSON.stringify({ device: { backend: "null", capture: "NULL#4", playback: "NULL#4", buffer: 256 } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
+// (9.5: Central Control needs a key - with no website yet, its default A key)
+async function passKey(p, key) {
+  await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 }).catch(() => { });
+  if (!(await p.evaluate(() => !!document.getElementById("licWiz")))) return;
+  await p.evaluate((k) => { localStorage.setItem("cc-license", JSON.stringify({ key: k, kind: k[0], app: k[0] === "U" ? "usage" : "control", okAt: Date.now(), production: "Test church", isDefault: true })); }, key);
+  await p.reload(); await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 });
+}
 const app = await electron.launch({ executablePath: exe, args: [path.join(here, "main.js"), "--no-sandbox", "--user-data-dir=" + userData].concat(FAKE), env: Object.assign({}, process.env, { CC_UPDATE_API: "http://127.0.0.1:9" }) });
 const cu = await app.firstWindow(); const errs = []; cu.on("pageerror", (e) => errs.push("host: " + e));
+await passKey(cu, "ADEF-AULT-KEY0-2026");
 await cu.waitForFunction(() => window.CentralUsage && window.CUMix && window.CUTalk && window.CURecUI && window.CU && window.CU.recorder);
 await until(() => cu.evaluate(() => CUMix.kind === "local" && CUMix.state && CUMix.hostStatus && CUMix.hostStatus.engine && CUMix.hostStatus.engine.status && CUMix.hostStatus.engine.status.inputs === 4), 15000);
 // two mixes that go somewhere (wired to the test outputs): Mix 3 and Mix 5
@@ -42,6 +50,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || "/
 async function cuPage(label, store) {   // the app's page in a browser (another computer), set up through its local storage
   const c = await browser.newContext({ viewport: { width: 1280, height: 800 } }); await c.grantPermissions(["microphone"]).catch(() => { });
   await c.addInitScript((s) => { Object.keys(s).forEach((k) => localStorage.setItem("cu-" + k, JSON.stringify(s[k]))); }, store);
+  await c.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "ADEF-AULT-KEY0-2026", kind: "A", app: "control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });
   const p = await c.newPage(); p.on("pageerror", (e) => errs.push(label + ": " + e));
   await p.goto("file://" + path.join(here, "app", "index.html")); await p.waitForFunction(() => window.CentralUsage && window.CUTalk);
   return p;

@@ -36,8 +36,16 @@ const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-host-ud-"));
 fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", name: "Desk", host: { enabled: true, port: HOST_PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "ethernet", latency: 80 }, recordDir: path.join(userData, "rec") }));
 fs.writeFileSync(path.join(userData, "mixer.json"), JSON.stringify({ device: { backend: "internal", buffer: 256 } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
+// (9.5: Central Control needs a key - with no website yet, its default A key)
+async function passKey(p, key) {
+  await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 }).catch(() => { });
+  if (!(await p.evaluate(() => !!document.getElementById("licWiz")))) return;
+  await p.evaluate((k) => { localStorage.setItem("cc-license", JSON.stringify({ key: k, kind: k[0], app: k[0] === "U" ? "usage" : "control", okAt: Date.now(), production: "Test church", isDefault: true })); }, key);
+  await p.reload(); await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 });
+}
 const app = await electron.launch({ executablePath: exe, args: [path.join(here, "main.js"), "--no-sandbox", "--user-data-dir=" + userData], env: Object.assign({}, process.env, { CC_UPDATE_API: "http://127.0.0.1:9" }) });
 const cu = await app.firstWindow(); cu.on("pageerror", (e) => errs.push("cu: " + e));
+await passKey(cu, "ADEF-AULT-KEY0-2026");
 await cu.waitForFunction(() => window.CentralUsage && window.CUMix && window.CU && window.CU.host);
 await cu.evaluate((c) => { CentralUsage.prefs.code = c; CentralUsage.store.set("code", c); CentralUsage.connect("127.0.0.1"); }, code);
 
@@ -175,6 +183,13 @@ await check("the phone's mix is stereo: every channel has a labelled PAN; the us
   await phone.click('[data-ie="stereo"]');
   await until(() => cu.evaluate(() => CUMix.state.mixes[2].stereo === true), 4000);
   await until(() => phone.evaluate(() => document.querySelectorAll(".ie-ch .ie-pan").length >= 2), 4000);
+});
+await check("the phone's own reverb and delay: off at first, the user turns their reverb up (in their mix only)", async () => {
+  await until(() => phone.evaluate(() => document.querySelectorAll(".ie-fx [data-ie-fx]").length === 2), 4000);
+  assert.equal(await phone.evaluate(() => document.querySelector('.ie-fx [data-ie-fx="rRev"]').parentNode.querySelector("output").textContent), "off");
+  await phone.evaluate(() => { const r = document.querySelector('.ie-fx [data-ie-fx="rRev"]'); r.value = "0.75"; r.dispatchEvent(new Event("input", { bubbles: true })); });
+  await until(() => cu.evaluate(() => CUMix.state.mixes[2].rRev > -20), 4000);
+  assert.equal(await cu.evaluate(() => CUMix.state.mixes.filter((q, m) => m !== 2).every((q) => q.rRev === -90)), true, "only their mix");
 });
 await check("a phone can't change someone else's mix or the channels", async () => {
   const ok = await phone.evaluate(() => new Promise((res) => { const ws = new WebSocket("ws://" + location.host + "/ws"); ws.onopen = () => { ws.send(JSON.stringify({ type: "hello", role: "user", code: "1111", id: "other", name: "Other" })); setTimeout(() => { ws.send(JSON.stringify({ type: "op", op: { op: "send", m: 2, i: 0, patch: { level: 6 } } })); ws.send(JSON.stringify({ type: "op", op: { op: "input", i: 0, patch: { fader: 6 } } })); }, 200); }; const got = []; ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.type === "refused") got.push(m.error); if (got.length === 2) res(got); }; setTimeout(() => res(got), 3000); }));

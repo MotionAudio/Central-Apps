@@ -72,3 +72,8 @@ button.mini { padding: 2px 8px; min-height: 0; font-size: 12px; }
 .ie-seg { display: inline-flex; border: 1px solid var(--line, #343A44); border-radius: 10px; overflow: hidden; }
 .ie-seg button { border: 0; border-radius: 0; padding: 8px 12px; background: transparent; }
 .ie-seg button.on { background: var(--accent, #E2C27E); color: #1A1408; font-weight: 700; }
+
+/* your own reverb / delay from the sound desk (in your ears only) */
+.ie-fx { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 16px; margin-top: 10px; }
+.ie-fx label { display: grid; grid-template-columns: 56px minmax(0, 1fr) 64px; gap: 8px; align-items: center; font-size: 13px; }
+.ie-fx output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted, #9AA1AB); }

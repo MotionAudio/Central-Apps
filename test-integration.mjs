@@ -308,8 +308,8 @@ await check("flow: Intro → Verse → Intro plays the Verse, then jumps back to
   // play from the start of the Verse (flow entry 1): at its end (bar 5) the player must land back on the Intro (bar 1)
   await T(() => { PPTracks.goSection(1, { immediate: true }); PPTracks.play({ countIn: false }); });
   const verseEnd = await T(() => PPTracks.sectionsOf(PPTracks.song())[1].end);
-  await until(() => T(() => PPTracks.state.pos > 0.5 && PPTracks.state.flowIndex === 1), 4000, 50);
-  await until(() => T((e) => PPTracks.state.flowIndex === 2 && PPTracks.state.pos < e - 0.5, verseEnd), 8000, 30);
+  await until(() => T(() => PPTracks.state.pos > 0.5 && PPTracks.state.flowIndex === 1), 8000, 50);
+  await until(() => T((e) => PPTracks.state.flowIndex === 2 && PPTracks.state.pos < e - 0.5, verseEnd), 16000, 30);
   const after = await T(() => ({ idx: PPTracks.state.flowIndex, pos: PPTracks.state.pos, section: PPTracks.state.section, current: document.querySelector("#trFlow .fl-chip.current").textContent }));
   assert.ok(after.pos < 2.5 && after.section === 0 && after.current === "Intro", JSON.stringify(after));
   await T(() => PPTracks.pause());

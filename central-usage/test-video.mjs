@@ -49,9 +49,17 @@ const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-video-ud-"));
 fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", role: "admin", name: "Video desk" }));
 fs.writeFileSync(path.join(userData, "video.json"), JSON.stringify({ record: { dir: recDir }, stream: { preset: "720p30", bitrate: 2500, encoder: "auto" } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
+// (9.5: Central Control needs a key - with no website yet, its default A key)
+async function passKey(p, key) {
+  await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 }).catch(() => { });
+  if (!(await p.evaluate(() => !!document.getElementById("licWiz")))) return;
+  await p.evaluate((k) => { localStorage.setItem("cc-license", JSON.stringify({ key: k, kind: k[0], app: k[0] === "U" ? "usage" : "control", okAt: Date.now(), production: "Test church", isDefault: true })); }, key);
+  await p.reload(); await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 });
+}
 const app = await electron.launch({ executablePath: exe, args: [path.join(app0, "main.js"), "--no-sandbox", "--user-data-dir=" + userData, "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream", "--ignore-gpu-blocklist", "--enable-unsafe-swiftshader"],
   env: Object.assign({}, process.env, { CU_FFMPEG: FF, CU_VIDEO_PHONE_PORT: String(BASE + 3), CC_UPDATE_API: "http://127.0.0.1:9/none", CU_MODE: "admin", CU_ROLE: "admin" }) });
 const cu = await app.firstWindow(); const errs = []; cu.on("pageerror", (e) => errs.push(String(e))); cu.on("console", (m) => { if (m.type() === "error" && !/favicon|ERR_CONNECTION|Failed to load resource|WebSocket/.test(m.text())) errs.push("console: " + m.text()); });
+await passKey(cu, "ADEF-AULT-KEY0-2026");
 await cu.waitForFunction(() => window.CentralUsage && window.CUVideo && window.CUVideoTab);
 await cu.evaluate(() => { const p = document.getElementById("modePick"); if (p) p.remove(); CentralUsage.showTab("video"); });
 const ready = await until(() => cu.evaluate(() => CUVideoTab.state.ready || CUVideoTab.state.error), 15000);
