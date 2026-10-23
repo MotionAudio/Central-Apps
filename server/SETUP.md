@@ -19,7 +19,8 @@ You need **3 accounts**. Do them in this order.
    later: turn on Stripe Identity and set `REQUIRE_ID_TO_PUBLISH` to `on` in Render.)
 5. Get your keys: *Developers* → *API keys*. You need the **Publishable key** (`pk_...`, the payment form on the
    page) and a server key. Stripe recommends a **restricted key** (`rk_...`, *Create restricted key*) instead of the
-   secret key: give it write access to Checkout Sessions, Customers, Refunds, Subscriptions, Billing portal, Identity,
+   secret key: give it write access to Checkout Sessions, Customers, Refunds, Subscriptions, Coupons (a % code on a
+   sound plan's first year), Billing portal, Identity,
    Accounts v2, Account Links, Account Sessions and Transfers, and read access to Payment Intents, Charges, Invoices and
    Invoice Payments. For testing first, use your sandbox keys (`pk_test_` / `rk_test_` or `sk_test_`). No real money
    moves there.

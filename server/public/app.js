@@ -125,7 +125,7 @@ const packs = [
   { id: "pack-ultra", name: "Ultra", who: "Large churches and production companies", addon: "ultra-plus10" },
 ];
 const products = [
-  { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", icon: "central-pedal", desc: "This is the heart of it. Your pads, multitracks and click play from the floor, and every other app follows along.", pts: ["Built and tested by us, footswitches and knobs included", "Its software is already on it, with its P key", "Ships to the US and Canada"] },
+  { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", icon: "central-pedal", desc: "This is the heart of it. Your pads, multitracks and click play from the floor, and every other app follows along.", pts: ["Built and tested by us, footswitches and knobs included", "Its software is already on it (no key needed), plus a P key for Central Pedal Control", "Ships to the US and Canada"] },
   { id: "admin", tag: "A key", name: "Central Control", per: "per admin computer", icon: "central-control", pts: ["For whoever runs the desk: lights, slides, lyrics, cameras, in-ears, tracks and the mix, all in one place. Windows, macOS and Linux."] },
   { id: "user", tag: "U key", name: "Central Usage", per: "per musician", icon: "central-usage", pts: ["For each musician: their chart, the lyrics, their instrument and their own in-ear mix, at church and at home. Works on everything.", "On a computer, bring the plugins you already own: VST3, Audio Units, CLAP and LV2."] },
   { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", icon: "central-pedal-control", pts: ["Build your songs, pads and setlists at home, then send it all to the pedal. Windows, macOS, Linux, iPad, iPhone and Android."] },
@@ -187,7 +187,67 @@ function renderRack() {
   $("#packs").hidden = !$("#packs").innerHTML;
   $("#packs").style.setProperty("--n", packs.filter(shown).length);
   $("#rack").innerHTML = products.filter((p) => p.id !== "pedal" && shown(p)).map(rowCard).join("");
-  renderPlanPrice();
+  renderPlanPrice(); renderPlans();
+}
+// ---------------------------------------------------------------- sound plans (yearly, as package keys)
+// Your own plans (one package key, emailed to you) or a church bundle (a key for each person, given out on Teams).
+// They're yearly, so they check out on their own, apart from the store's one-time things.
+const planCart = { plans: [], bundle: 0 };
+const planIds = () => cfg.planIds || ["keys", "plugins", "instrument", "pedals"];
+const planName = (id) => (id === "all" ? (cfg.planAll || {}).name || "All four sound plans" : (cfg.plans[id] || {}).name || id);
+const planListText = (ids) => (planIds().every((id) => ids.includes(id)) ? "All four sound plans" : planIds().filter((id) => ids.includes(id)).map(planName).join(", "));
+const ownPlanCents = () => (planCart.plans.includes("all") ? cfg.planAll.cents : planCart.plans.reduce((a, id) => a + ((cfg.plans[id] || {}).cents || 0), 0));
+const longDate = (d) => new Date(d).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+function renderPlans() {
+  if (!cfg.plans || !$("#planCards")) return;
+  const inCart = (id) => planCart.plans.includes(id) || planCart.plans.includes("all"), ids = planIds();
+  $("#planCards").style.setProperty("--n", ids.length);
+  $("#planCards").innerHTML = ids.map((id) => {
+    const p = cfg.plans[id], k = "plan." + id;
+    return `<div class="tier"><div class="tier-head"><h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3></div><p class="who" ${ed(k + ".what")}>${T(k + ".what", p.what)}</p>
+      <div class="price"><span data-price="plan-${id}">${dollars(p.cents / 100)}</span><small>a year</small></div><button class="btn ghost" data-plan="${id}"${inCart(id) ? " disabled" : ""}>${inCart(id) ? "In your cart" : "Add to cart"}</button></div>`;
+  }).join("");
+  const sum = ids.reduce((a, id) => a + cfg.plans[id].cents, 0), all = planCart.plans.includes("all");
+  $("#planAll").innerHTML = `<div class="plan-all"><div><b ${ed("plan.all.name")}>${T("plan.all.name", "All four")}</b><span ${ed("plan.all.what")}>${T("plan.all.what", "Central Keys, Central Plugins, Central Instrument and Central Pedals on one package key.")}</span></div>
+    <div class="price">${sum > cfg.planAll.cents ? `<s>${dollars(sum / 100)}</s> ` : ""}<span class="now">${dollars(cfg.planAll.cents / 100)}</span><small>a year</small></div><button class="btn" data-plan="all"${all ? " disabled" : ""}>${all ? "In your cart" : "Add to cart"}</button></div>`;
+  const usd = (c) => "$" + (c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 });
+  $("#planBundles").innerHTML = Object.entries(cfg.planBundles || {}).map(([n, c]) => `<div class="bundle-row"><b>${n} people</b><span class="muted">${usd(Math.round(c / n))} a person</span><div class="price">${usd(c)}<small>a year</small></div>
+    <button class="btn small ghost" data-bundle="${n}"${planCart.bundle === Number(n) ? " disabled" : ""}>${planCart.bundle === Number(n) ? "In your cart" : "Add to cart"}</button></div>`).join("");
+}
+$("#store").addEventListener("click", (e) => {
+  const p = e.target.closest("[data-plan]"), b = e.target.closest("[data-bundle]");
+  if (p && !p.disabled) { const id = p.dataset.plan; planCart.plans = id === "all" ? ["all"] : planCart.plans.filter((x) => x !== "all").concat(id); updateCartBtn(); renderPlans(); toast("Added to cart"); }
+  if (b && !b.disabled) { planCart.bundle = Number(b.dataset.bundle); updateCartBtn(); renderPlans(); toast("Added to cart (one bundle at a time)"); }
+});
+// the plans' part of the cart
+function planCartHtml() {
+  const pc = promo && promo.percent && promo.plans !== false ? promo.percent : 0, own = ownPlanCents(), b = planCart.bundle, bc = b ? (cfg.planBundles || {})[b] || 0 : 0;
+  const off = (c) => Math.round((c * pc) / 100);
+  const rows = planCart.plans.map((id) => `<div><span>${esc(planName(id))} <button class="qbtn" data-plrm="${id}" aria-label="Take it out">×</button></span><span>${money((id === "all" ? cfg.planAll.cents : cfg.plans[id].cents) / 100)} a year</span></div>`).join("");
+  const cheaper = !planCart.plans.includes("all") && planCart.plans.length > 1 && own >= cfg.planAll.cents;
+  return `<div class="cart-plans"><div><b>Sound plans</b> <span class="muted" style="font-size:.88rem">· yearly, renewing · a package key by email, to paste in Settings → Packages</span></div>
+    ${rows ? `<div class="lines">${rows}${pc ? `<div class="saved"><span>${esc(promo.code)} · the first year</span><span>−${money(off(own) / 100)}</span></div>` : ""}<div class="total"><span>Your plans, the first year</span><span>${money((own - off(own)) / 100)}</span></div></div>
+      ${cheaper ? `<p class="ok-note" style="margin:0">All four is ${dollars(cfg.planAll.cents / 100)} a year, no more than these. <button class="btn small ghost" id="plAll">Switch to all four</button></p>` : ""}
+      <div><button class="btn" id="plGo">${me ? "Check out your plans" : "Sign in"}</button></div>` : ""}
+    ${b ? `<div class="lines"><div><span>Sound plans for ${b} people <button class="qbtn" data-plrm="bundle" aria-label="Take it out">×</button></span><span>${money(bc / 100)} a year</span></div>${pc ? `<div class="saved"><span>${esc(promo.code)} · the first year</span><span>−${money(off(bc) / 100)}</span></div>` : ""}</div>
+      <p class="muted" style="margin:0;font-size:.9rem">${b} package keys with all four plans${me && me.church ? ", for " + esc(me.church.name) : ""}. You give them out on the Teams page.</p><div><button class="btn" id="bnGo">${me ? "Check out the bundle" : "Sign in"}</button></div>` : ""}</div>`;
+}
+function wirePlanCart() {
+  document.querySelectorAll("[data-plrm]").forEach((x) => (x.onclick = () => { const id = x.dataset.plrm; if (id === "bundle") planCart.bundle = 0; else planCart.plans = planCart.plans.filter((p) => p !== id); updateCartBtn(); renderPlans(); openCart(); }));
+  if ($("#plAll")) $("#plAll").onclick = () => { planCart.plans = ["all"]; updateCartBtn(); renderPlans(); openCart(); };
+  const code = () => (promo && promo.percent && promo.plans !== false ? promo.code : undefined);
+  if ($("#plGo")) $("#plGo").onclick = async () => {
+    if (!me) { closeModal(); return needSignIn("Sign in or make an account, then open the cart again."); }
+    const body = { plans: planCart.plans, code: code() };
+    try { await api("POST", "/checkout/plans/check", body); } catch (e) { $("#coErr").textContent = e.message; return; }
+    openCheckout("Sound plans", esc(planListText(planCart.plans.includes("all") ? planIds() : planCart.plans)) + " · " + money(ownPlanCents() / 100) + " a year, tax included, renewing. Your package key comes by email.", () => api("POST", "/checkout/plans", body));
+  };
+  if ($("#bnGo")) $("#bnGo").onclick = async () => {
+    if (!me) { closeModal(); return needSignIn("Sign in with your church's account, then open the cart again."); }
+    const body = { seats: planCart.bundle, code: code() };
+    try { await api("POST", "/checkout/plan-bundle/check", body); } catch (e) { $("#coErr").textContent = e.message; return; }
+    openCheckout("Sound plans for " + planCart.bundle + " people", money(cfg.planBundles[planCart.bundle] / 100) + " a year, tax included, renewing" + (me.church ? " · for " + esc(me.church.name) : "") + ". Give the package keys out on the Teams page.", () => api("POST", "/checkout/plan-bundle", body));
+  };
 }
 // Central Tracks Unlimited: its price from the price list
 const subPrice = () => (cfg.subscription && cfg.subscription.cents ? cfg.subscription.cents / 100 : 77);
@@ -196,7 +256,8 @@ function renderPlanPrice() {
   const note = $("#exPoolNote"); if (note) note.textContent = "The pool part assumes 100 subscribers that month (a " + money(subPrice() * 100 * 0.5) + " pool).";
   if (typeof renderSub === "function") renderSub(); if (typeof calc === "function") calc();
 }
-const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0);
+const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0) + planCart.plans.length + (planCart.bundle ? 1 : 0);
+const storeCount = () => Object.values(cart).reduce((a, b) => a + b, 0);
 function updateCartBtn() { const n = cartCount(); $("#cartBtn").innerHTML = `Cart <span class="count">${n}</span>`; $("#cartBtn").classList.toggle("has", n > 0); }
 function onAdd(e) {
   const a = e.target.closest("[data-add]"); if (!a || a.disabled) return;
@@ -214,7 +275,8 @@ function fitAddons() {   // an add-on can't outnumber its pack (in the cart, or 
 }
 function openCart(note) {
   const ids = Object.keys(cart).filter((k) => cart[k] > 0 && P_(k));
-  if (!ids.length && !(promo && promo.trial)) return modal(`<h3>Your cart is empty</h3><p class="muted" style="margin:0">Pick a pack, the pedal or a few keys from the store. Got a free trial code? Type it here and you're off:</p>
+  const hasPlans = planCart.plans.length > 0 || !!planCart.bundle;
+  if (!ids.length && !hasPlans && !(promo && promo.trial)) return modal(`<h3>Your cart is empty</h3><p class="muted" style="margin:0">Pick a pack, the pedal, a few keys or sound plans from the store. Got a free trial code? Type it here and you're off:</p>
     <div class="codeline"><label>Code<input id="pcCode" placeholder="Discount or trial code" autocapitalize="characters"></label><button class="btn ghost" id="pcApply">Apply</button></div><div class="err" id="pcErr"></div><button class="btn" data-close>Close</button>`), wirePromo();
   let total = 0, saved = 0;
   const cut = (id) => (promo && promo.percent ? (P_(id).hardware ? 0 : promo.percent) : saleOn(id) ? cfg.sale.percent : 0);
@@ -224,13 +286,17 @@ function openCart(note) {
   }).join("");
   const why = promo && promo.percent ? esc(promo.code) + " · " + esc(promo.label) : cfg.sale ? esc(cfg.sale.name) + " · " + cfg.sale.percent + "% off" : "";
   const needChurch = me && !me.church, trial = promo && promo.trial;
-  modal(`<h3>Cart</h3><div class="lines">${lines}${saved ? `<div class="saved"><span>${why}</span><span>−${money(saved)}</span></div>` : ""}<div class="total"><span>Total <span class="muted" style="font-weight:400;font-size:.85rem">tax included</span></span><span>${money(total)}</span></div></div>
+  const storePart = ids.length || trial;
+  modal(`<h3>Cart</h3>${ids.length ? `<div class="lines">${lines}${saved ? `<div class="saved"><span>${why}</span><span>−${money(saved)}</span></div>` : ""}<div class="total"><span>Total <span class="muted" style="font-weight:400;font-size:.85rem">tax included</span></span><span>${money(total)}</span></div></div>` : ""}
+    ${hasPlans ? planCartHtml() : ""}
     <div class="codeline"><label>Discount or trial code<input id="pcCode" value="${esc(promo ? promo.code : "")}" placeholder="Code" autocapitalize="characters"></label><button class="btn ghost" id="pcApply">${promo ? "Change" : "Apply"}</button>${promo ? `<button class="btn ghost" id="pcClear">Remove</button>` : ""}</div>
     <div class="${note && /^✓/.test(note) ? "ok-note" : "err"}" id="pcErr">${esc(note || "")}</div>
-    ${trial ? `<div class="card" style="border-color:var(--brass)"><b>${esc(promo.label)}</b><span class="muted" style="font-size:.9rem">Everything for ${promo.days} days, no payment: as many admin, user and Pedal Control keys as you like, Central Services and Central Tracks Unlimited. Then the trial keys stop and the apps ask for a key you bought (your songs and settings stay). One free trial per church.</span></div>` : ""}
-    ${!me ? `<p class="muted" style="margin:0">Sign in or make an account first: your keys go to your church's account.</p>` : needChurch ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label><p class="muted" style="margin:0;font-size:.9rem">This makes your church's account, with you as its main admin. Your admins and users join it with its codes.</p>` : `<p class="muted" style="margin:0;font-size:.9rem">The keys go to <b>${esc(me.church.name)}</b>.</p>`}
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="checkout">${me ? "Check out" : "Sign in"}</button><button class="btn ghost" id="clear">Empty cart</button></div><div class="err" id="coErr"></div>`);
-  $("#clear").onclick = () => { for (const k in cart) delete cart[k]; updateCartBtn(); renderRack(); closeModal(); };
+    ${trial ? `<div class="card" style="border-color:var(--brass)"><b>${esc(promo.label)}</b><span class="muted" style="font-size:.9rem">Everything for ${promo.days} days, no payment: as many admin, user and Pedal Control keys as you like, Central Services, Central Tracks Unlimited and all four sound plans (package keys by email). Then the trial keys stop and the apps ask for a key you bought (your songs and settings stay). One free trial per church.</span></div>` : ""}
+    ${!storePart ? "" : !me ? `<p class="muted" style="margin:0">Sign in or make an account first: your keys go to your church's account.</p>` : needChurch ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label><p class="muted" style="margin:0;font-size:.9rem">This makes your church's account, with you as its main admin. Your admins and users join it with its codes.</p>` : `<p class="muted" style="margin:0;font-size:.9rem">The keys go to <b>${esc(me.church.name)}</b>.</p>`}
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">${storePart ? `<button class="btn" id="checkout">${me ? (hasPlans ? "Check out the store items" : "Check out") : "Sign in"}</button>` : ""}<button class="btn ghost" id="clear">Empty cart</button></div><div class="err" id="coErr"></div>`);
+  $("#clear").onclick = () => { for (const k in cart) delete cart[k]; planCart.plans = []; planCart.bundle = 0; updateCartBtn(); renderRack(); closeModal(); };
+  wirePlanCart();
+  if (!$("#checkout")) return wirePromo();
   document.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => {
     const id = b.dataset.q; cart[id] = Math.max(0, Math.min(50, (cart[id] || 0) + Number(b.dataset.d))); if (!cart[id]) delete cart[id];
     fitAddons(); updateCartBtn(); renderRack(); openCart();
@@ -245,14 +311,15 @@ function openCart(note) {
       try {
         const t = await api("POST", "/trial", { code: promo.code, church: needChurch ? $("#coChurch").value.trim() : undefined });
         promo = null; await refreshMe();
-        return modal(`<h3>Your free trial has started!</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>: unlimited keys, Central Services and Central Tracks Unlimited.</p>
+        return modal(`<h3>Your free trial has started!</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>: unlimited keys, Central Services, Central Tracks Unlimited and all four sound plans.</p>
+          ${t.packageKey ? `<p style="margin:0">Your sound plans package key (it's in your email too): <code style="user-select:all;font-weight:600">${esc(t.packageKey)}</code>. In any app: <b>Settings → Packages → Add a package</b>, and paste it. Give your team theirs on the <b>Teams</b> card.</p>` : ""}
           <p style="margin:0">Make keys as you need them: on the <b>Teams</b> card add your admins, users and Pedal Control people (each gets an email with their key), or press <b>+ Admin key</b>, <b>+ User key</b> or <b>+ Pedal Control key</b> on your church's page.</p>
           <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>.</p><a class="btn" href="#account" data-close>Go to my church</a>`);
       } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
     }
     const body = { items: cart, church: needChurch ? $("#coChurch").value.trim() : undefined, code: promo && promo.percent ? promo.code : undefined };
     try { await api("POST", "/checkout/store/check", body); } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
-    openCheckout("Check out", `${cartCount()} item${cartCount() === 1 ? "" : "s"} · ${money(total)} · for ${esc(me.church ? me.church.name : body.church)}`, () => api("POST", "/checkout/store", body));
+    openCheckout("Check out", `${storeCount()} item${storeCount() === 1 ? "" : "s"} · ${money(total)} · for ${esc(me.church ? me.church.name : body.church)}`, () => api("POST", "/checkout/store", body));
   };
 }
 function wirePromo() {
@@ -296,13 +363,24 @@ function renderTracks() {
     const act = t.owned ? `<span class="added">${t.mine ? "Yours" : "In storage"}</span>`
       : sub ? `<button class="btn small" data-store="${esc(t.id)}">Add to storage</button>`
       : `<button class="btn small ghost" data-buy="${esc(t.id)}">Buy ${money(t.price)}</button>`;
-    return `<tr><td><div style="font-weight:600">${esc(t.title)}</div><div class="muted" style="font-size:.85rem">${esc(t.artist)}</div></td>
+    return `<tr><td><div style="font-weight:600">${esc(t.title)}${t.demo ? ` <button class="btn small ghost demo-btn" data-demo="${esc(t.id)}" aria-label="Play the demo of ${esc(t.title)}">▶ Demo</button>` : ""}</div><div class="muted" style="font-size:.85rem">${esc(t.artist)}</div></td>
       <td><span class="kind">${esc(t.kind)}</span></td><td>${starHtml(t.stars)}</td><td class="num">${esc(t.key || "—")}</td><td class="num">${t.bpm || "—"}</td><td class="act">${act}</td></tr>`;
   }).join("");
 }
 $("#q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadTracks, 250); });
 $("#kindF").onchange = loadTracks;
+let demoAudio = null;   // a Sound, Board or Click's demo clip (anyone can listen)
+async function playDemo(btn) {
+  if (demoAudio) { demoAudio.pause(); const was = demoAudio.dataset.id; document.querySelectorAll("[data-demo]").forEach((x) => (x.textContent = "▶ Demo")); demoAudio = null; if (was === btn.dataset.demo) return; }
+  try {
+    const r = await api("GET", "/tracks/" + encodeURIComponent(btn.dataset.demo) + "/demo");
+    demoAudio = new Audio(r.url); demoAudio.dataset.id = btn.dataset.demo; btn.textContent = "■ Stop";
+    demoAudio.onended = () => { btn.textContent = "▶ Demo"; demoAudio = null; };
+    await demoAudio.play();
+  } catch (e) { btn.textContent = "▶ Demo"; toast(e.message || "The demo couldn't play."); }
+}
 $("#tbody").addEventListener("click", async (e) => {
+  const dm = e.target.closest("[data-demo]"); if (dm) return playDemo(dm);
   const s = e.target.closest("[data-store]"), b = e.target.closest("[data-buy]");
   if (!s && !b) return;
   if (!me) return needSignIn("Sign in to add or buy tracks.");
@@ -389,24 +467,34 @@ function uploadFile(file, onProgress) {  // signed link → straight to storage,
     x.send(file);
   }));
 }
+// Sound, Board and Click: the file the apps install, plus a short demo clip (graded: its stars set the price)
+const ITEM_WHAT = { Sound: ["The sound itself: an .sf2, or a zip of samples", ".sf2,.zip"], Board: ["The pedal board preset (.json)", ".json"], Click: ["The click and count-in set: a zip of WAVs", ".zip"] };
+const isItem = () => !!ITEM_WHAT[$("#pKind").value];
+$("#pKind").addEventListener("change", () => {
+  const w = ITEM_WHAT[$("#pKind").value];
+  $("#pItemL").hidden = !w; $("#pStemsL").hidden = !!w; $("#pItem").required = !!w;
+  if (w) { $("#pItemT").textContent = w[0]; $("#pItem").accept = w[1]; }
+  $("#pFileT").textContent = w ? "A short demo clip (MP3 or WAV, under 2 minutes): we grade it, and its stars set the price" : "Full mix (MP3 or WAV), the file we grade";
+});
 $("#pubForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!me) return needSignIn("Sign in to publish tracks.");
-  const mix = $("#pFile").files[0], stems = Array.from($("#pStems").files || []), msg = $("#pubMsg");
-  if (!mix) return; if (!$("#pRights").checked) { msg.textContent = "Confirm you have the rights to sell this track."; return; }
+  const mix = $("#pFile").files[0], stems = isItem() ? [] : Array.from($("#pStems").files || []), item = isItem() ? $("#pItem").files[0] : null, msg = $("#pubMsg");
+  if (!mix) return; if (isItem() && !item) { msg.textContent = "Choose the " + $("#pKind").value.toLowerCase() + " file itself, and a short demo clip."; return; }
+  if (!$("#pRights").checked) { msg.textContent = "Confirm you have the rights to sell this."; return; }
   if (me.idRequired && me.idStatus !== "verified") { msg.textContent = "Verify your ID first (once, about 2 minutes): Verify my ID, next to the form."; $("#idBox").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   $("#pubBtn").disabled = true; msg.textContent = "";
   try {
-    const all = [mix, ...stems], total = all.reduce((a, f) => a + f.size, 0); let done = 0;
+    const all = [mix, ...stems, ...(item ? [item] : [])], total = all.reduce((a, f) => a + f.size, 0); let done = 0;
     const up = [];
     for (const f of all) { const r = await uploadFile(f, (p) => { msg.textContent = "Uploading " + Math.round(((done + p * f.size) / total) * 100) + "%…"; }); done += f.size; up.push(r); }
     msg.textContent = "Grading on the server…";
     const r = await api("POST", "/publish", { title: $("#pTitle").value, artist: $("#pArtist").value, kind: $("#pKind").value, key: $("#pKey").value, bpm: +$("#pBpm").value || 0, rights: true,
-      mix: up[0], stems: up.slice(1).map((s) => ({ ...s, role: guessRole(s.name) })) });
+      mix: up[0], stems: item ? [] : up.slice(1).map((s) => ({ ...s, role: guessRole(s.name) })), item: item ? up[up.length - 1] : undefined });
     grade = r.grade.stars; $("#gLabel").textContent = "Quality grade · final"; $("#gStars").innerHTML = starHtml(grade); showChecks(r.grade.checks, "text"); renderTiers(); calc();
     $("#pPrice").value = money(r.track.price);
     msg.textContent = "Published: " + r.track.title + " · " + grade + "★ · " + money(r.track.price) + (me.payoutsReady ? "" : " · set up payouts to get paid");
-    toast("You're published! Your track is in Central Tracks."); e.target.reset(); grade = 0; $("#pubBtn").disabled = true; loadTracks(); refreshMe();
+    toast("You're published! Your track is in Central Tracks."); e.target.reset(); $("#pKind").dispatchEvent(new Event("change")); grade = 0; $("#pubBtn").disabled = true; loadTracks(); refreshMe();
   } catch (err) { msg.textContent = err.message; $("#pubBtn").disabled = false; }
 });
 $("#payoutBtn").onclick = async () => {
@@ -478,13 +566,14 @@ async function renderAccount(note) {
     <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
       <a class="btn ghost small" href="${APPS_URL}" target="_blank" rel="noopener" style="justify-self:start">Download the apps</a></div>
+    <div class="card wide" id="pkgCard"><h3>Sound plans</h3><div class="muted">Loading…</div></div>
     ${me.church ? `<div class="card" id="slotsCard"><h3>Central Services</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
     <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); renderSlots(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); }
+  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); }
   if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "You're already confirmed." : "Sent! Check your inbox, and your spam folder just in case."); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
@@ -512,6 +601,49 @@ async function mountConnect() {
     $("#cPayouts").appendChild(connectUi.create("payouts"));
     $("#cManage").appendChild(connectUi.create("account-management"));
   } catch { const b = box.querySelector("#cBanner"); if (b) b.innerHTML = '<p class="muted">Payout settings couldn\'t load. Refresh the page to try again.</p>'; }
+}
+// ---------------------------------------------------------------- sound plans: my package keys
+async function renderPackages() {
+  const el = $("#pkgCard"); if (!el) return;
+  let r; try { r = await api("GET", "/packages/mine"); } catch (e) { el.innerHTML = `<h3>Sound plans</h3><div class="err">${esc(e.message)}</div>`; return; }
+  const how = `<p class="muted" style="margin:0;font-size:.9rem">On each device (Central Pedal, Central Pedal Control, Central Control or Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. A key works on ${cfg.packageDevices || 2} devices at a time.</p>`;
+  if (!r.packages.length) { el.innerHTML = `<h3>Sound plans</h3><p class="muted" style="margin:0">No sound plans yet. <a href="#plans">See the plans</a>: you get a package key by email, then paste it in any app's Settings → Packages.</p>`; return; }
+  el.innerHTML = `<h3>Sound plans</h3><div class="pkgs">${r.packages.map((p) => `<div class="pkg${p.ok ? "" : " ended"}">
+      <div class="pkg-top"><code style="user-select:all">${esc(p.key)}</code><button class="btn small ghost" data-pkcopy="${esc(p.key)}">Copy</button></div>
+      <div><b>${esc(planListText(p.plans))}</b> <span class="muted">· ${p.from === "church" ? "from " + esc(p.church || "your church") : p.from === "trial" ? "free trial" : "yours"}</span></div>
+      <div class="${p.ok ? "muted" : "err"}" style="font-size:.9rem">${p.ok ? (p.renews ? "Renews " : "Until ") + esc(longDate(p.end)) + (p.pastDue ? " · the last payment didn't go through: update your card" : "") : esc(p.error)}</div>
+      ${p.devices.length ? p.devices.map((d) => `<div class="tm"><span>${esc(d.name)} <span class="muted">· ${esc(d.app)}</span></span><button class="btn small ghost" data-pkrel="${esc(p.key)}" data-pkdev="${esc(d.id)}">Release</button></div>`).join("") : `<div class="muted" style="font-size:.88rem">Not on a device yet.</div>`}</div>`).join("")}</div>
+    ${how}${r.packages.some((p) => p.from === "own") ? `<div><button class="btn small ghost" id="pkBill">Renewal and card</button> <a class="btn small ghost" href="#plans">More plans</a></div>` : ""}<div class="err" id="pkMineErr"></div>`;
+  el.querySelectorAll("[data-pkcopy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.pkcopy); toast("Key copied"); } catch (_) { prompt("Copy this key:", b.dataset.pkcopy); } }));
+  el.querySelectorAll("[data-pkrel]").forEach((b) => (b.onclick = async () => {
+    if (!confirm("Release this package from that device? Its sounds stop there until the key is added again.")) return;
+    try { await api("POST", "/packages/release", { key: b.dataset.pkrel, device: b.dataset.pkdev }); toast("Released. You can add it on another device now."); renderPackages(); } catch (e) { $("#pkMineErr").textContent = e.message; }
+  }));
+  if ($("#pkBill")) $("#pkBill").onclick = async () => { try { go((await api("POST", "/billing")).url); } catch (e) { $("#pkMineErr").textContent = e.message; } };
+}
+// ---------------------------------------------------------------- Teams: the church's package keys (bundles, the free trial)
+async function renderTeamPackages() {
+  const el = $("#teamPkgs"); if (!el) return;
+  let r; try { r = await api("GET", "/church/packages"); } catch (e) { el.innerHTML = `<div class="err">${esc(e.message)}</div>`; return; }
+  const head = `<h4>Sound plan package keys <span class="muted">${r.trialUntil ? "free trial: one for anyone, until " + esc(longDate(r.trialUntil)) : r.total ? r.given + " of " + r.total + " given · " + r.free + " free" : "none yet"}</span></h4>`;
+  if (!r.keys.length && !r.trialUntil) { el.innerHTML = `<section class="team">${head}<p class="muted" style="margin:0">A bundle gives you a package key with all four sound plans for each person, a year. <a href="#plans">See the bundles</a>.</p></section>`; return; }
+  const given = r.keys.filter((k) => k.holder), canGive = (r.free > 0 || r.trialUntil) && r.people.length;
+  el.innerHTML = `<section class="team">${head}
+    <p class="muted" style="margin:0;font-size:.9rem">Give someone a key: they get it by email and paste it in Settings → Packages on their devices (${cfg.packageDevices || 2} at a time). Take it back and their copy stops working; a new key takes its place for the next person.</p>
+    ${given.map((k) => `<div class="tm tmem"><div class="tmwho"><div class="tmname"><b>${esc(k.holder.name || k.holder.email)}</b>${k.trial ? ' <span class="muted">· trial</span>' : ""}</div><div class="tmsub muted">${esc(k.holder.email)} · <code>${esc(k.key)}</code> · ${k.devices.length ? k.devices.map((d) => esc(d.name)).join(", ") : "not added yet"}</div></div>
+      <div class="tacts"><button class="btn small ghost" data-pkres="${esc(k.key)}">Resend</button><button class="btn small ghost" data-pkback="${esc(k.key)}" data-pkname="${esc(k.holder.name || k.holder.email)}">Take back</button></div></div>`).join("")}
+    ${canGive ? `<div class="codeline"><label>Give a package key to<select id="pkWho">${r.people.map((p) => `<option value="${esc(p.email)}">${esc(p.name ? p.name + " · " + p.email : p.email)}</option>`).join("")}</select></label><button class="btn small" id="pkGive">Give and email it</button></div>`
+      : r.free > 0 ? `<p class="muted" style="margin:0">Add people to a team first, then give them a key.</p>` : `<p class="muted" style="margin:0">All given. <a href="#plans">Add another bundle</a>, or take one back.</p>`}
+    <div class="err" id="pkErr" style="white-space:pre-line"></div></section>`;
+  if ($("#pkGive")) $("#pkGive").onclick = async () => {
+    const who = r.people.find((p) => p.email === $("#pkWho").value);
+    try { const x = await api("POST", "/church/packages/give", { email: who.email, name: who.name }); toast(x.sent ? "Done: " + (who.name || who.email) + "'s key is on its way by email." : "Given. Email isn't set up yet: their key is " + x.key); renderTeamPackages(); } catch (e) { $("#pkErr").textContent = e.message; }
+  };
+  el.querySelectorAll("[data-pkres]").forEach((b) => (b.onclick = async () => { try { const x = await api("POST", "/church/packages/resend", { key: b.dataset.pkres }); toast(x.sent ? "Sent again." : "Email isn't set up yet."); } catch (e) { $("#pkErr").textContent = e.message; } }));
+  el.querySelectorAll("[data-pkback]").forEach((b) => (b.onclick = async () => {
+    if (!confirm("Take " + b.dataset.pkname + "'s package key back? It stops working on their devices, and a new key is ready for someone else.")) return;
+    try { await api("POST", "/church/packages/take-back", { key: b.dataset.pkback }); toast("Taken back. A new key is free to give."); renderTeamPackages(); } catch (e) { $("#pkErr").textContent = e.message; }
+  }));
 }
 // ---------------------------------------------------------------- Central Services: the church's slots
 async function renderSlots() {
@@ -586,16 +718,21 @@ async function renderPrices() {
       <label>Renewal per key $${inp("RENEWAL.cents", d(P.RENEWAL.cents))}</label>
       <label>Central Tracks Unlimited per month $${inp("SUBSCRIPTION.cents", d(P.SUBSCRIPTION.cents))}</label></div></details>
     <details><summary>Discount codes</summary><table class="ktable"><tr><th>Code</th><th>What</th><th>On</th><th></th></tr>
-      ${Object.entries(P.DISCOUNTS).map(([c, x]) => `<tr><td><code>${esc(c)}</code></td><td>${x.trial ? `free trial, ${inp("DISCOUNTS." + c + ".days", x.days, 55)} days` : `${inp("DISCOUNTS." + c + ".percent", x.percent, 55)}% off (not the pedal)`} <span class="muted">${esc(x.label)}</span></td><td><input type="checkbox" data-ppon="${esc(c)}" style="width:auto"${x.on !== false ? " checked" : ""}></td><td><button class="btn small ghost" data-ppdel="${esc(c)}">Delete</button></td></tr>`).join("")}</table>
+      ${Object.entries(P.DISCOUNTS).map(([c, x]) => `<tr><td><code>${esc(c)}</code></td><td>${x.trial ? `free trial, ${inp("DISCOUNTS." + c + ".days", x.days, 55)} days` : `${inp("DISCOUNTS." + c + ".percent", x.percent, 55)}% off (not the pedal) <label style="display:inline-flex;gap:.25rem;align-items:center;font-size:.85rem"><input type="checkbox" data-ppplans="${esc(c)}" style="width:auto"${x.plans !== false ? " checked" : ""}> and a sound plan's first year</label>`} <span class="muted">${esc(x.label)}</span></td><td><input type="checkbox" data-ppon="${esc(c)}" style="width:auto"${x.on !== false ? " checked" : ""}></td><td><button class="btn small ghost" data-ppdel="${esc(c)}">Delete</button></td></tr>`).join("")}</table>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><label>New code<input id="ppCode" style="width:120px;text-transform:uppercase"></label><label>Kind<select id="ppKind" style="width:auto"><option value="percent">% off (not the pedal)</option><option value="trial">free trial (days)</option></select></label><label>Amount<input id="ppAmt" style="width:70px" placeholder="10"></label><button class="btn small ghost" id="ppAdd">Add</button></div></details>
+    <details><summary>Sound plans (a year)</summary><p class="muted" style="margin:.3rem 0;font-size:.85rem">Each plan comes as a package key. A church bundle is all four plans for that many people.</p><div style="display:grid;gap:.4rem">
+      ${Object.entries(P.PLANS || {}).map(([id, p]) => `<label>${esc(p.name)} $${inp("PLANS." + id + ".cents", d(p.cents))}</label>`).join("")}
+      <label>${esc((P.PLAN_ALL || {}).name || "All four")} $${inp("PLAN_ALL.cents", d((P.PLAN_ALL || {}).cents || 0))}</label>
+      ${Object.entries(P.PLAN_BUNDLES || {}).map(([n, c]) => `<label>Bundle for ${esc(n)} people $${inp("PLAN_BUNDLES." + n, d(c))}</label>`).join("")}</div></details>
     <details><summary>Central Tracks star prices</summary>${[1, 2, 3, 4, 5].map((n) => `<label style="display:inline-grid;margin-right:.5rem">${n}★ $${inp("STAR_PRICE_CENTS." + n, d(P.STAR_PRICE_CENTS[n]), 60)}</label>`).join("")}</details>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="ppSave">Save prices</button><button class="btn ghost" id="ppReset">Back to the starting prices</button></div><div class="err" id="ppErr"></div>`;
   const draft = JSON.parse(JSON.stringify(P));
   const setPath = (o, path, v) => { const k = path.split("."); let x = o; for (let i = 0; i < k.length - 1; i++) { x[k[i]] = x[k[i]] || {}; x = x[k[i]]; } x[k[k.length - 1]] = v; };
   const collect = () => {
-    $$("[data-pp]").forEach((i) => { const path = i.dataset.pp, money = /cents|STAR_PRICE/.test(path); setPath(draft, path, money ? Math.round(parseFloat(i.value || "0") * 100) : Number(i.value || 0)); });
+    $$("[data-pp]").forEach((i) => { const path = i.dataset.pp, money = /cents|STAR_PRICE|PLAN_BUNDLES/.test(path); setPath(draft, path, money ? Math.round(parseFloat(i.value || "0") * 100) : Number(i.value || 0)); });
     $$("[data-pph]").forEach((c) => { draft.PRODUCTS[c.dataset.pph].hidden = c.checked; });
     $$("[data-ppon]").forEach((c) => { draft.DISCOUNTS[c.dataset.ppon].on = c.checked; });
+    $$("[data-ppplans]").forEach((c) => { if (c.checked) delete draft.DISCOUNTS[c.dataset.ppplans].plans; else draft.DISCOUNTS[c.dataset.ppplans].plans = false; });
     return draft;
   };
   $$("[data-ppdel]").forEach((b) => (b.onclick = () => { if (confirm("Delete " + b.dataset.ppdel + "?")) { collect(); delete draft.DISCOUNTS[b.dataset.ppdel]; save(); } }));
@@ -753,6 +890,7 @@ async function renderTeams() {
           <select class="tmove" data-tmove="${m.id}" data-tname="${esc(m.name || m.email)}" aria-label="Move to another team"><option value="">Move to…</option>${SECT.filter((x) => x[0] !== id).map((x) => `<option value="${x[0]}">${x[1]} (${x[2]})</option>`).join("")}</select>${!r.mail ? ` <button class="btn small ghost" data-tcopy="${esc(m.link)}">Copy link</button>` : ""} <button class="btn small ghost" data-tremove="${m.id}" data-tname="${esc(m.name || m.email)}">Remove</button></div></div>`).join("") : `<p class="muted" style="margin:0">Nobody yet.</p>`}
       ${adding[id].map((a, i) => `<div class="trow"><input placeholder="Name" data-ta="${id}" data-ti="${i}" data-tf="name" value="${esc(a.name)}"><input placeholder="Email" type="email" data-ta="${id}" data-ti="${i}" data-tf="email" value="${esc(a.email)}"><input placeholder="Role (e.g. Bass, Lights)" data-ta="${id}" data-ti="${i}" data-tf="role" value="${esc(a.role)}"></div>`).join("")}
       <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small ghost" data-tadd="${id}">+ Add ${adding[id].length ? "another" : "members"}</button>${adding[id].length ? `<button class="btn small" data-tdone="${id}">Done</button>` : ""}</div></section>`).join("")}</div>
+    <div id="teamPkgs"></div>
     ${me.church.role === "church" && !owner ? `<details open><summary style="font-size:.92rem">Invite a main admin (with their own email)</summary><form id="ownForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Name<input id="ownName"></label><label>Email<input id="ownEmail" type="email"></label><button class="btn small">Send the invite</button></form></details>` : ""}
     ${me.church.role === "owner" && !owner ? `<details><summary style="font-size:.92rem">Invite someone new to take over as main admin</summary><form id="ownForm" style="background:none;border:0;padding:0;display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label>Name<input id="ownName"></label><label>Email<input id="ownEmail" type="email"></label><button class="btn small">Send the invite</button></form></details>` : ""}
     <div class="${/^✓/.test(teamNote) ? "" : "err"}" id="teamMsg" style="white-space:pre-line">${esc(teamNote)}</div>`;
@@ -784,6 +922,7 @@ async function renderTeams() {
     try { await api("POST", "/church/team/remove", { id: b.dataset.tremove }); toast("Removed. Their key is free for someone else."); renderTeams(); renderChurch(); } catch (e) { toast(e.message); }
   }));
   if ($("#ownForm")) $("#ownForm").onsubmit = async (e) => { e.preventDefault(); try { const x = await api("POST", "/church/owner", { name: $("#ownName").value, email: $("#ownEmail").value }); toast(x.sent ? "Invite sent!" : "Email isn't set up yet, so copy the link from the Teams card."); renderTeams(); } catch (err) { teamNote = err.message; renderTeams(); } };
+  renderTeamPackages();
 }
 // ---------------------------------------------------------------- forgot password: an emailed link (an hour, once)
 function forgotPassword(email, back) {
@@ -881,7 +1020,7 @@ async function handleHash() {
     for (let i = 0; i < 15; i++) {
       const o = await api("GET", "/orders/" + encodeURIComponent(session)).catch(() => ({ pending: true }));
       if (!o.pending) {
-        modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your keys are also on your church's page (Account). Stripe has emailed your receipt. Enter a key when an app first opens: P keys in Central Pedal and Central Pedal Control, A keys in Central Control, U keys in Central Usage.</p>
+        modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your keys are also on your church's page (Account). Stripe has emailed your receipt. Enter a key when an app first opens: P keys in Central Pedal Control (the pedal itself needs none), A keys in Central Control, U keys in Central Usage.</p>
           <div class="keys">${o.licenses.map((l) => `<div>${esc(l.product)}<br><b>${esc(l.key)}</b></div>`).join("")}</div>
           <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>. A built pedal ships to the address you gave.</p><button class="btn" data-close>Done</button>`);
         return;
@@ -889,6 +1028,11 @@ async function handleHash() {
       await new Promise((r) => setTimeout(r, 2000));
     }
     modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your payment went through. Your keys are on their way: refresh this page in a minute and you'll see them.</p><button class="btn" data-close>OK</button>`);
+  } else if (h === "plans-done") {
+    const bundle = !!planCart.bundle; planCart.plans = []; planCart.bundle = 0; updateCartBtn(); renderPlans(); history.replaceState(null, "", "#account");
+    modal(`<h3>Thank you!</h3><p style="margin:0">${bundle ? "Your church's package keys are on the <b>Teams</b> card: give one to each person, and they get it by email." : "Your package key is on its way by email, and it's on your Account page under <b>Sound plans</b>."}</p>
+      <p class="muted" style="margin:0">On each device: <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 2} devices at a time, and renews every year.</p><button class="btn" data-close>OK</button>`);
+    setTimeout(refreshMe, 2500);
   } else if (h === "subscribed") { toast("Welcome to Central Tracks Unlimited! Add anything you like."); setTimeout(refreshMe, 2500); }
   else if (h.startsWith("bought-")) { toast("Thanks! It's in your storage now."); setTimeout(loadTracks, 2500); }
   else if (h === "renewed") { toast("Renewed. You've got ten more releases of updates."); setTimeout(refreshMe, 2500); }

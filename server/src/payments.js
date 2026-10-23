@@ -1,7 +1,8 @@
 // Stripe for Motion Audio (see ../STRIPE-PLAN.md):
 //  - Checkout, embedded on our own page (ui_mode "form", the Checkout Studio settings below): the store (keys, packs,
 //    Central Services slots, the built pedal), key renewals, single Central Tracks, and the $77/month Central Tracks
-//    Unlimited subscription. The browser gets a client_secret and shows Stripe's payment form in a window on the site.
+//    Unlimited subscription, and (9.5) the yearly sound plans: package keys, a person's own or a church bundle's.
+//    The browser gets a client_secret and shows Stripe's payment form in a window on the site.
 //  - Prices come from config.js / the staff price page and go to Stripe as price_data, tax included (tax_behavior
 //    "inclusive"), each with its tax code, so receipts and the Dashboard show the real names.
 //  - Fulfilment happens only in the webhook (/stripe/webhook), from the row this server wrote when it started the
@@ -12,10 +13,11 @@
 //  - Identity: publishers verify their ID once before their first upload.
 //  - Tax: off (automatic_tax false) until it's set up; every price already includes tax and carries a tax code.
 import Stripe from "stripe";
-import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE, DISCOUNTS, RENEWAL, TAX_CODES } from "./config.js";
+import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE, DISCOUNTS, RENEWAL, TAX_CODES, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PLAN_INTERVAL } from "./config.js";
 import { q, one, pool } from "./db.js";
 import { churchOf, createChurch, issueKeys, canon, pretty } from "./licenses.js";
 import { fmt, COVER_RELEASES } from "./versions.js";
+import { PLAN_LIVE, PLAN_END, issuePackages } from "./plans.js";
 
 function err(msg, status = 400, extra) { const e = new Error(msg); e.status = status; return Object.assign(e, extra || {}); }
 const S = config.stripe;
@@ -84,11 +86,13 @@ export async function syncChurchCustomer(churchId) {   // (a new name, or a new 
   if (!c || !c.stripe_customer) return;
   try { await stripe.customers.update(c.stripe_customer, { name: c.name, email: c.owner_email || undefined }); } catch (e) { console.error("stripe customer:", e.message); }
 }
-// Central Tracks Unlimited: yours, or your church's (a main admin subscribes for everyone in it)
+// Central Tracks Unlimited: yours, or your church's. The church's (or its free trial) is for the church account, the
+// main admins, the pedal and Pedal Control - the people the church gave a P key - not each user (9.5).
 export async function isSubscribed(user) {
   if (!user) return false;
   if (user.subscribed) return true;
-  return !!(await one("SELECT 1 FROM church_members m JOIN churches c ON c.id=m.church_id WHERE m.user_id=$1 AND (c.subscribed OR c.trial_until > now())", [user.id]));   // (a free trial includes Central Tracks Unlimited)
+  return !!(await one(`SELECT 1 FROM church_members m JOIN churches c ON c.id=m.church_id WHERE m.user_id=$1 AND (c.subscribed OR c.trial_until > now())
+    AND (m.role IN ('church','owner') OR EXISTS (SELECT 1 FROM licenses l WHERE l.church_id=c.id AND l.kind='P' AND NOT l.revoked AND (l.user_id=m.user_id OR l.assigned_email=$2)))`, [user.id, String(user.email || "").toLowerCase()]));   // (a free trial includes Central Tracks Unlimited)
 }
 
 async function remember(s, kind, { user, church, track, items, code }) {
@@ -201,6 +205,102 @@ export async function subscriptionCheckout(user) {
   });
   return remember(s, "subscription", { user, church: forChurch ? church : null });
 }
+// ---------------------------------------------------------------- sound plans (yearly)
+// A % code takes that much off the first year (a Stripe coupon that applies once): once per person, or once per church
+// for a bundle. Free trial codes aren't for checkout (a trial includes every plan); a code with plans: false is store-only.
+async function planCode(code, who) {
+  const c = String(code || "").trim().toUpperCase(); if (!c) return null;
+  const d = DISCOUNTS[c];
+  if (!d || d.on === false) throw err("That code isn't valid.", 404);
+  if (d.trial) throw err("That's a free trial code: start the trial from the cart. It includes every sound plan while it lasts.", 400, { trialCode: c });
+  if (d.plans === false) throw err(c + " isn't for sound plans.", 400);
+  if (await one("SELECT 1 FROM plan_code_uses WHERE who=$1 AND code=$2", [who, c])) throw err((who[0] === "c" ? "Your church" : "You") + " already used " + c + " on a sound plan.", 409);
+  return { code: c, percent: d.percent, label: d.label };
+}
+async function planCoupon(d) {   // (made once for each code and percent; Stripe keeps it)
+  const id = "MA-" + d.code + "-" + d.percent + "-FIRST-YEAR";
+  try { await stripe.coupons.create({ id, percent_off: d.percent, duration: "once", name: d.code + ": " + d.percent + "% off the first year" }); }
+  catch (e) { if (!(e.code === "resource_already_exists" || /already exists/i.test(e.message || ""))) throw e; }
+  return id;
+}
+const yearLine = (name, cents, description) => ({ quantity: 1, price_data: { currency: "usd", unit_amount: cents, tax_behavior: "inclusive", recurring: { interval: PLAN_INTERVAL },
+  product_data: { name, description: description || undefined, tax_code: TAX_CODES.subscription } } });
+const allNames = () => PLAN_IDS.map((id) => PLANS[id].name).join(" · ");
+// a code can't be used twice by keeping two plan checkouts open: starting one closes the others with that code
+async function closePlanCheckouts(who, keep, code) {
+  if (!code) return;
+  const open = await q(`SELECT id, session_id FROM plan_subs WHERE code=$1 AND id<>$2 AND stripe_sub IS NULL AND session_id IS NOT NULL AND created_at > now() - interval '25 hours'
+    AND (CASE WHEN kind='bundle' THEN 'c' || church_id ELSE 'u' || user_id END)=$3`, [code, keep, who]);
+  for (const o of open) { await stripe.checkout.sessions.expire(o.session_id).catch(() => { }); await q("UPDATE plan_subs SET status='incomplete_expired' WHERE id=$1 AND stripe_sub IS NULL", [o.id]); }
+}
+// your own plans: { plans: ["keys", "plugins"] } or "all" (all four for less). Billed to you, renews every year.
+export async function planCheckout(user, want, code, only) {
+  if (!user) throw err("Sign in first: a sound plan is yours, in every app you sign in to.", 401);
+  const list = (Array.isArray(want) ? want : [want]).map((x) => String(x || ""));
+  const ids = list.includes("all") ? PLAN_IDS.slice() : PLAN_IDS.filter((id) => list.includes(id));
+  if (!ids.length) throw err("Pick a sound plan.");
+  const all = ids.length === PLAN_IDS.length;
+  const held = await q(`SELECT plans, ${PLAN_END} AS ends FROM plan_subs WHERE kind='person' AND user_id=$1 AND ${PLAN_LIVE}`, [user.id]);
+  const dup = ids.filter((id) => held.some((h) => h.plans.includes(id)));
+  if (dup.length) throw err("You already have " + dup.map((id) => PLANS[id].name).join(" and ") + ". It renews by itself; manage it on your Account page.", 409);
+  const disc = await planCode(code, "u" + user.id);
+  const cents = all ? PLAN_ALL.cents : ids.reduce((a, id) => a + PLANS[id].cents, 0);
+  if (only === "check") return { ok: true, plans: ids, cents, percent: disc ? disc.percent : 0 };
+  needStripe();
+  const row = await one("INSERT INTO plan_subs (kind,user_id,plans,seats,cents,code) VALUES ('person',$1,$2,1,$3,$4) RETURNING id", [user.id, ids, cents, disc ? disc.code : null]);
+  const s = await stripe.checkout.sessions.create({
+    ...STUDIO, mode: "subscription", payment_method_collection: "always",
+    customer: await customerFor(user),
+    line_items: all ? [yearLine(PLAN_ALL.name, PLAN_ALL.cents, allNames())] : ids.map((id) => yearLine(PLANS[id].name, PLANS[id].cents, PLANS[id].what)),
+    discounts: disc ? [{ coupon: await planCoupon(disc) }] : undefined,
+    metadata: { kind: "plans" },
+    subscription_data: { metadata: { kind: "plans", plan_sub_id: String(row.id), user_id: String(user.id), plans: ids.join(",") } },
+    return_url: back("plans-done"),
+  });
+  await q("UPDATE plan_subs SET session_id=$1 WHERE id=$2", [s.id, row.id]);
+  await closePlanCheckouts("u" + user.id, row.id, disc && disc.code);
+  return remember(s, "plans", { user, items: { planSub: row.id, plans: ids }, code: disc && disc.code });
+}
+// a church bundle: all four plans for N people, a year, billed to the church (its church account, main admins, admins)
+export async function bundleCheckout(user, seats, code, only) {
+  if (!user) throw err("Sign in first.", 401);
+  const church = await churchOf(user.id);
+  if (!church) throw err("A bundle belongs to a church: make your church's account first (Account → Your church).", 400);
+  if (!["church", "owner", "admin"].includes(church.role)) throw err("Only " + church.name + "'s church account, main admins and admins buy for it.", 403);
+  const n = Math.floor(Number(seats) || 0), cents = PLAN_BUNDLES[n];
+  if (!cents) throw err("Bundles come for " + Object.keys(PLAN_BUNDLES).join(", ").replace(/, (\d+)$/, " or $1") + " people.");
+  const disc = await planCode(code, "c" + church.id);
+  if (only === "check") return { ok: true, seats: n, cents, percent: disc ? disc.percent : 0 };
+  needStripe();
+  const row = await one("INSERT INTO plan_subs (kind,user_id,church_id,plans,seats,cents,code) VALUES ('bundle',$1,$2,$3,$4,$5,$6) RETURNING id", [user.id, church.id, PLAN_IDS, n, cents, disc ? disc.code : null]);
+  const s = await stripe.checkout.sessions.create({
+    ...STUDIO, mode: "subscription", payment_method_collection: "always",
+    customer: await churchCustomer(church),
+    line_items: [yearLine("Sound plans for " + n + " people - " + church.name, cents, allNames() + ". Hand the seats out on the Teams page.")],
+    discounts: disc ? [{ coupon: await planCoupon(disc) }] : undefined,
+    metadata: { kind: "plans" },
+    subscription_data: { metadata: { kind: "plans", plan_sub_id: String(row.id), church_id: String(church.id), seats: String(n) } },
+    return_url: back("plans-done"),
+  });
+  await q("UPDATE plan_subs SET session_id=$1 WHERE id=$2", [s.id, row.id]);
+  await closePlanCheckouts("c" + church.id, row.id, disc && disc.code);
+  return remember(s, "plans", { user, church, items: { planSub: row.id, seats: n }, code: disc && disc.code });
+}
+// Stripe's subscription events for a plan: its status and the date it's paid through (on the subscription's item in
+// this API version). An old "incomplete" arriving late never turns a paid plan off.
+async function planSubEvent(o, type) {
+  const md = o.metadata || {}, item = o.items && o.items.data && o.items.data[0];
+  const end = Number(o.current_period_end || (item && item.current_period_end)) || null;
+  const status = type === "customer.subscription.deleted" ? "canceled" : String(o.status || "");
+  await q(`UPDATE plan_subs SET stripe_sub=$1,
+      status = CASE WHEN status='canceled' THEN status WHEN $2='incomplete' AND status<>'incomplete' THEN status ELSE $2 END,
+      period_end = COALESCE(to_timestamp($3::double precision), period_end), cancel_at_period_end=$4,
+      past_due_since = CASE WHEN $2='past_due' THEN COALESCE(past_due_since, now()) ELSE NULL END,
+      ended_at = CASE WHEN status='canceled' THEN ended_at WHEN $2 IN ('canceled','unpaid','incomplete_expired') THEN COALESCE(ended_at, now()) ELSE NULL END
+    WHERE stripe_sub=$1 OR (id=$5 AND stripe_sub IS NULL)`, [o.id, status, end, !!o.cancel_at_period_end, Number(md.plan_sub_id) || 0]);
+}
+const invoiceKind = (o) => { const d = (o.parent && o.parent.subscription_details) || o.subscription_details || {}; return (d.metadata && d.metadata.kind) || ""; };
+
 export async function billingPortal(user) {
   needStripe();
   const s = await stripe.billingPortal.sessions.create({ customer: await customerFor(user), return_url: back("account") });
@@ -283,13 +383,14 @@ export async function handleWebhook(rawBody, signature) {
     case "customer.subscription.deleted": {
       const on = ev.type !== "customer.subscription.deleted" && ["active", "trialing", "past_due"].includes(o.status), md = o.metadata || {};
       if (md.kind === "services") break;   // (Central Services' old monthly plan, before 9.3: not Central Tracks)
+      if (md.kind === "plans") { await planSubEvent(o, ev.type); break; }   // (a sound plan: not Central Tracks)
       if (Number(md.church_id)) await q("UPDATE churches SET subscribed=$1, subscription_id=$2 WHERE id=$3", [on, o.id, Number(md.church_id)]);
       else await q("UPDATE users SET subscribed=$1, subscription_id=$2 WHERE stripe_customer=$3", [on, o.id, o.customer]);
       break;
     }
     case "invoice.paid":
       if (o.amount_paid > 0 && (o.subscription || (o.parent && o.parent.subscription_details))
-        && !(o.parent && o.parent.subscription_details && o.parent.subscription_details.metadata && o.parent.subscription_details.metadata.kind === "services")) {   // Central Tracks money: the publisher pool
+        && !["services", "plans"].includes(invoiceKind(o))) {   // Central Tracks money: the publisher pool (not Central Services', not the sound plans')
         const u = await one("SELECT id FROM users WHERE stripe_customer=$1", [o.customer]);
         const paidBy = ((o.payments && o.payments.data) || []).find((p) => p.payment && p.payment.payment_intent);
         await q("INSERT INTO subscription_payments (invoice_id,user_id,cents,paid_at,payment_intent) VALUES ($1,$2,$3,to_timestamp($4),$5) ON CONFLICT DO NOTHING",
@@ -325,6 +426,14 @@ async function fulfil(sess) {
   if (c.kind === "subscription") {
     if (c.church_id) await q("UPDATE churches SET subscribed=TRUE, subscription_id=$1 WHERE id=$2", [sess.subscription, c.church_id]);
     else if (c.user_id) await q("UPDATE users SET subscribed=TRUE, subscription_id=$1 WHERE id=$2", [sess.subscription, c.user_id]);
+    return;
+  }
+  if (c.kind === "plans") {   // sound plans: on for a year (Stripe's subscription events then keep its dates), and its package keys
+    const sub = sess.subscription ? String(typeof sess.subscription === "string" ? sess.subscription : sess.subscription.id) : null;
+    const r = await one(`UPDATE plan_subs SET stripe_sub=COALESCE($1, stripe_sub), status=CASE WHEN status IN ('incomplete','incomplete_expired') THEN 'active' ELSE status END,
+        period_end=COALESCE(period_end, now() + interval '1 year') WHERE id=$2 AND (stripe_sub IS NULL OR stripe_sub=$1) RETURNING *`, [sub, Number(c.items && c.items.planSub) || 0]);
+    if (r && r.code) await q("INSERT INTO plan_code_uses (who,code,plan_sub_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", [r.kind === "bundle" ? "c" + r.church_id : "u" + r.user_id, r.code, r.id]);
+    if (r) await issuePackages(r.id);   // (a person's key is emailed to them; a bundle's wait on the Teams page)
     return;
   }
   const pi = sess.payment_intent ? String(sess.payment_intent) : "free-" + sess.id;   // (a 100% code: nothing was charged)
@@ -418,12 +527,16 @@ export async function reverse(paymentIntent, why) {
   const ip = (await stripe.invoicePayments.list({ payment: { type: "payment_intent", payment_intent: pi }, limit: 1 })).data[0];
   if (!ip) return console.warn("refund or dispute for a payment this server doesn't know:", pi);
   const invoiceId = typeof ip.invoice === "string" ? ip.invoice : ip.invoice.id;
-  await q("UPDATE subscription_payments SET reversed=TRUE WHERE invoice_id=$1", [invoiceId]);
-  if (why === "disputed") {
-    const inv = await stripe.invoices.retrieve(invoiceId);
-    const sub = inv.parent && inv.parent.subscription_details && inv.parent.subscription_details.subscription;
-    if (sub) await stripe.subscriptions.cancel(typeof sub === "string" ? sub : sub.id).catch((e) => console.warn("cancel:", e.message));
+  const inv = await stripe.invoices.retrieve(invoiceId);
+  const subRef = inv.parent && inv.parent.subscription_details && inv.parent.subscription_details.subscription, sub = subRef ? (typeof subRef === "string" ? subRef : subRef.id) : null;
+  const plan = sub ? await one("SELECT id FROM plan_subs WHERE stripe_sub=$1", [sub]) : null;
+  if (plan) {   // a sound plan paid back (refund or dispute): it ends now
+    await q("UPDATE plan_subs SET status='canceled', ended_at=COALESCE(ended_at, now()) WHERE id=$1", [plan.id]);
+    await stripe.subscriptions.cancel(sub).catch((e) => console.warn("cancel:", e.message));
+    return;
   }
+  await q("UPDATE subscription_payments SET reversed=TRUE WHERE invoice_id=$1", [invoiceId]);
+  if (why === "disputed" && sub) await stripe.subscriptions.cancel(sub).catch((e) => console.warn("cancel:", e.message));
 }
 
 // Radar early fraud warning: refund digital purchases right away (cheaper than a dispute); hold a built pedal for review.

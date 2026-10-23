@@ -11,7 +11,7 @@ import { hashPassword, checkPassword, requireUser, isAdmin } from "./auth.js";
 import { issue, requireStep } from "./signin.js";
 import { stripe } from "./payments.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
-import { remindInvites, churchOf, acceptInvite, isMain } from "./licenses.js";
+import { remindInvites, churchOf, acceptInvite, isMain, newKey } from "./licenses.js";
 import { remindServices } from "./services.js";
 import { remindTrials } from "./trials.js";
 
@@ -152,6 +152,14 @@ export async function deleteAccount(u, c) {
     await client.query("DELETE FROM service_schedulers WHERE user_id=$1", [u.id]);
     await client.query("DELETE FROM church_members WHERE user_id=$1", [u.id]);
     for (const t of ["user_settings", "password_resets", "email_confirms", "login_codes", "trusted_devices"]) await client.query("DELETE FROM " + t + " WHERE user_id=$1", [u.id]);
+    // sound plans: their own end with their card (below); a church's package key they had goes back, a new one in its place
+    await client.query("UPDATE plan_subs SET status='canceled', ended_at=COALESCE(ended_at, now()) WHERE kind='person' AND user_id=$1 AND status<>'canceled'", [u.id]);
+    for (const k of (await client.query("SELECT key, plans, plan_sub_id, church_id, trial FROM package_keys WHERE holder_email=$1 AND church_id IS NOT NULL AND NOT revoked", [email])).rows) {
+      await client.query("UPDATE package_keys SET revoked=TRUE, revoked_why='replaced' WHERE key=$1", [k.key]);
+      await client.query("DELETE FROM package_devices WHERE key=$1", [k.key]);
+      if (!k.trial) await client.query("INSERT INTO package_keys (key,plans,plan_sub_id,church_id) VALUES ($1,$2,$3,$4)", [newKey("S"), k.plans, k.plan_sub_id, k.church_id]);
+    }
+    await client.query("DELETE FROM package_devices WHERE key IN (SELECT key FROM package_keys WHERE (holder_email=$1 OR user_id=$2) AND church_id IS NULL)", [email, u.id]);
     await client.query("DELETE FROM service_team_members WHERE email=$1", [email]);
     await client.query("DELETE FROM service_blockouts WHERE email=$1", [email]);
     await client.query("DELETE FROM service_requests r USING services s WHERE s.id=r.service_id AND r.email=$1 AND s.starts_at > now()", [email]);

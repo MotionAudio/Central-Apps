@@ -154,6 +154,25 @@ section{padding-block:clamp(3.5rem,8vw,6rem)}
 .pl-row .btn{justify-self:end}
 @media (max-width:860px){.pl-row{grid-template-columns:44px 1fr auto;gap:.5rem 1rem}.pl-row img{width:44px;height:44px}.pl-row .desc{grid-column:2/-1}.pl-row .btn{grid-column:2/-1;justify-self:start}.pl-row .price{grid-row:1;grid-column:3}}
 
+/* store: sound plans (yearly, package keys) */
+.plan-all{display:grid;grid-template-columns:minmax(0,1fr) auto 11.5rem;gap:1.2rem;align-items:center;margin-top:1rem;padding:1.1rem clamp(1.1rem,2.4vw,1.6rem);border:1px solid var(--line);border-radius:var(--r-lg);background:linear-gradient(90deg,var(--brass-wash),var(--surface) 70%);position:relative;overflow:hidden}
+.plan-all::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--brass)}
+.plan-all>div:first-child{display:grid;gap:.15rem}.plan-all>div:first-child b{font-size:1.25rem;font-stretch:110%}.plan-all>div:first-child span{color:var(--ink-2);font-size:.92rem}
+.plan-all .price{font-size:1.9rem;white-space:nowrap}.plan-all .price small{margin-left:.3rem;font-size:.78rem}
+#planCards .who{flex:1;min-height:0}
+.plan-all .btn{justify-self:end}
+.bundles-head{margin:2.2rem 0 .4rem}.bundles-head h4{font-size:1.1rem}.bundles-head p{color:var(--ink-2);margin:.2rem 0 0;max-width:62ch}
+.bundles{border-top:1px solid var(--ink)}
+.bundle-row{display:grid;grid-template-columns:minmax(0,1fr) 9rem 9rem 11.5rem;gap:1rem;align-items:center;padding:.8rem 0;border-bottom:1px solid var(--line)}
+.bundle-row .price{font-size:1.25rem;white-space:nowrap;text-align:right}.bundle-row .price small{margin-left:.3rem;font-size:.75rem}.bundle-row .btn{justify-self:end}
+@media (max-width:760px){.plan-all{grid-template-columns:1fr auto}.plan-all .btn{grid-column:1/-1;justify-self:start}.bundle-row{grid-template-columns:1fr auto;gap:.3rem 1rem}.bundle-row .muted{grid-row:2}.bundle-row .btn{grid-row:2;grid-column:2}}
+.cart-plans{display:grid;gap:.6rem;padding-top:.6rem;border-top:1px solid var(--line)}
+.pkgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem}
+.pkg{display:grid;gap:.35rem;padding:.8rem .9rem;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper)}
+.pkg.ended{opacity:.75}
+.pkg-top{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.pkg-top code{font-weight:600;letter-spacing:.04em}
+.demo-btn{margin-left:.4rem;padding:.1rem .5rem;font-size:.78rem;vertical-align:middle}
+
 /* Central Tracks */
 .sub{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.5fr);gap:2rem;align-items:start}
 @media (max-width:900px){.sub{grid-template-columns:1fr}}

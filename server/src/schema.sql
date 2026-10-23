@@ -409,3 +409,73 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS slots INTEGER NOT NULL DEFAULT 0;   
 ALTER TABLE church_members DROP CONSTRAINT IF EXISTS church_members_role_check;
 ALTER TABLE church_members ADD CONSTRAINT church_members_role_check CHECK (role IN ('church','owner','admin','user'));
 CREATE UNIQUE INDEX IF NOT EXISTS church_members_one_church_account ON church_members (church_id) WHERE role='church';
+
+-- 9.5: sound plans (yearly): Central Keys, Central Plugins, Central Instrument, Central Pedals. One row per Stripe
+-- subscription: a person's own (some of the plans, or all four: one package key), or a church's bundle (all four plans,
+-- `seats` package keys handed out on the Teams page). Written when the checkout starts; the webhook makes it active,
+-- issues its keys and keeps its dates (a key lasts as long as its subscription).
+CREATE TABLE IF NOT EXISTS plan_subs (
+  id          BIGSERIAL PRIMARY KEY,
+  kind        TEXT NOT NULL CHECK (kind IN ('person','bundle')),
+  user_id     BIGINT REFERENCES users(id),                         -- person: whose; bundle: who bought it
+  church_id   BIGINT REFERENCES churches(id) ON DELETE CASCADE,    -- bundle: whose
+  plans       TEXT[] NOT NULL,
+  seats       INTEGER NOT NULL DEFAULT 1,
+  cents       INTEGER NOT NULL DEFAULT 0,                          -- a year, as sold
+  code        TEXT,                                                -- a % code on the first year
+  session_id  TEXT,
+  stripe_sub  TEXT UNIQUE,
+  status      TEXT NOT NULL DEFAULT 'incomplete',                  -- Stripe's: active, trialing, past_due, canceled, ...
+  period_end  TIMESTAMPTZ,                                         -- paid through (it renews then)
+  cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
+  past_due_since TIMESTAMPTZ,                                      -- a renewal that didn't go through: 14 more days
+  ended_at    TIMESTAMPTZ,                                         -- canceled, refunded: when it stopped
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE plan_subs ADD COLUMN IF NOT EXISTS past_due_since TIMESTAMPTZ;
+ALTER TABLE plan_subs ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS plan_subs_user ON plan_subs (user_id) WHERE kind='person';
+CREATE INDEX IF NOT EXISTS plan_subs_church ON plan_subs (church_id) WHERE kind='bundle';
+-- a package key: SXXX-XXXX-XXXX-XXXX. Its plans last as long as its subscription (renewals carry it on), or until a
+-- trial ends. A church's key is given to one person (holder) on the Teams page; taking it back revokes it and puts a new
+-- key in its place, so the first person's copy stops working.
+CREATE TABLE IF NOT EXISTS package_keys (
+  key          TEXT PRIMARY KEY,
+  plans        TEXT[] NOT NULL,
+  plan_sub_id  BIGINT REFERENCES plan_subs(id) ON DELETE SET NULL,
+  church_id    BIGINT REFERENCES churches(id) ON DELETE CASCADE,   -- a bundle's or a trial's
+  user_id      BIGINT REFERENCES users(id),                        -- a person's own: who bought it
+  holder_email TEXT,                                               -- who it's for (emailed to them)
+  holder_name  TEXT NOT NULL DEFAULT '',
+  given_at     TIMESTAMPTZ,
+  trial        BOOLEAN NOT NULL DEFAULT FALSE,
+  ends_at      TIMESTAMPTZ,                                        -- a trial key: when it stops
+  revoked      BOOLEAN NOT NULL DEFAULT FALSE,
+  revoked_why  TEXT,                                               -- 'replaced' (given to someone else), 'removed'
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS package_keys_sub ON package_keys (plan_sub_id);
+CREATE INDEX IF NOT EXISTS package_keys_church ON package_keys (church_id);
+CREATE INDEX IF NOT EXISTS package_keys_holder ON package_keys (holder_email);
+CREATE TABLE IF NOT EXISTS package_devices (
+  key          TEXT NOT NULL REFERENCES package_keys(key) ON DELETE CASCADE,
+  device_id    TEXT NOT NULL,
+  app          TEXT NOT NULL DEFAULT '',
+  device_name  TEXT NOT NULL DEFAULT '',
+  activated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (key, device_id)
+);
+-- a % code on a plan's first year: once per person ('u' + id), or once per church for a bundle ('c' + id)
+CREATE TABLE IF NOT EXISTS plan_code_uses (
+  who         TEXT NOT NULL,
+  code        TEXT NOT NULL,
+  plan_sub_id BIGINT REFERENCES plan_subs(id) ON DELETE SET NULL,
+  used_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (who, code)
+);
+-- Central Tracks: Sound, Board and Click besides the recordings. Their demo clip is the graded mix (is_mix); the file
+-- the apps install is the track_files row with role 'item'.
+ALTER TABLE tracks DROP CONSTRAINT IF EXISTS tracks_kind_check;
+ALTER TABLE tracks ADD CONSTRAINT tracks_kind_check CHECK (kind IN ('Pad','Multitrack','Prime','Sound','Board','Click'));
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS item_format TEXT;   -- sf2, zip, json
