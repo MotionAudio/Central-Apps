@@ -1045,6 +1045,22 @@ async def main():
         disp = driver.displays_config()
         check("an HDMI touch screen: no small screen, HDMI 1 is the touch screen and shows the app", r["ok"] and not driver_mod.screen_on(driver.config) and disp["hdmi1"] == "app" and disp["touchKind"] == "hdmi", disp)
         check("an unknown screen is refused", not driver.set_touch_screen("nope")["ok"])
+        # the screen list: read as UTF-8 even when the Pi's language leaves Python on plain ASCII; a missing one says so
+        here_dir = os.path.dirname(os.path.abspath(driver_mod.__file__))
+        code = "import importlib.util,json,sys; s=importlib.util.spec_from_file_location('d', sys.argv[1]); d=importlib.util.module_from_spec(s); s.loader.exec_module(d); print(json.dumps([len(d.screens_catalog(sys.argv[2])['screens']), d.read_json(sys.argv[3], None) is not None]))"
+        env_ascii = dict(os.environ, LC_ALL="xx_XX.UTF-8", LANG="xx_XX.UTF-8", PYTHONUTF8="0")
+        res = subprocess.run([sys.executable, "-c", code, os.path.join(here_dir, "pedal-driver.py"), here_dir, os.path.join(here_dir, "screens.json")], env=env_ascii, capture_output=True, text=True, timeout=60)
+        check("the touch screen list loads on a Pi whose language isn't installed (Python on plain ASCII)", res.stdout.strip().endswith("[32, true]"), (res.stdout[-200:], res.stderr[-400:]))
+        empty_dir = os.path.join(root, "no-screens")
+        os.makedirs(empty_dir, exist_ok=True)
+        real_file = driver_mod.__file__
+        driver_mod.__file__ = os.path.join(empty_dir, "pedal-driver.py")
+        miss = driver_mod.screens_catalog(empty_dir)
+        driver_mod.__file__ = real_file
+        check("...and a missing screens.json says so (the Touch screen card shows it)", miss["screens"] == [] and "missing" in miss.get("error", ""), miss)
+        check("MIDI: real devices are opened; Midi Through and RtMidi ports (ours too) are not - opening those made new ones every scan",
+              driver_mod.midi_port_wanted("Arturia KeyStep 32:Arturia KeyStep 32 MIDI 1 20:0") and not driver_mod.midi_port_wanted("Midi Through:Midi Through Port-0 14:0")
+              and not driver_mod.midi_port_wanted("RtMidiIn Client:RtMidi input 129:0") and not driver_mod.midi_port_wanted("RtMidiOut Client:RtMidi output 128:0"))
         driver.set_touch_screen("off")
         # nothing on HDMI or the ribbon port, no screen picked yet: the common 3.5" GPIO screen is turned on, once
         drm = os.path.join(root, "drm")

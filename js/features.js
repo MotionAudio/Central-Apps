@@ -189,6 +189,10 @@
     if (cc === 31) return toggleFreeze();
   }
   var webMidi = null, midiPorts = [];
+  // a MIDI port by its own name ("Arturia KeyStep 32:Arturia KeyStep 32 MIDI 1 20:0" -> "Arturia KeyStep 32 MIDI 1"),
+  // in a short list that scrolls when there are many
+  function portName(n) { var out = / \(out\)$/.test(n); n = String(n).replace(/ \(out\)$/, "").replace(/\s+\d+:\d+$/, ""); var i = n.indexOf(":"); return (i > 0 && n.slice(i + 1).trim() ? n.slice(i + 1).trim() : n) + (out ? " (out)" : ""); }
+  function portList(names, empty) { return names && names.length ? '<ul class="port-list">' + names.map(function (n) { return '<li title="' + esc(n) + '">' + esc(portName(n)) + "</li>"; }).join("") + "</ul>" : '<span class="muted">' + esc(empty || "none") + "</span>"; }
   function startWebMidi() {
     var info = bridge() && bridge().info;
     if (info && info.midi) return; // the Pi's driver already reads MIDI devices
@@ -295,7 +299,7 @@
       safe.dataset.want = s.safeMode ? "off" : "on";
     }
     $("#sysShutdown").disabled = !connected; $("#sysReboot").disabled = !connected;
-    $("#midiPorts").textContent = midiPorts.length ? "Connected: " + midiPorts.join(", ") : "No MIDI devices found. Plug in a USB MIDI keyboard or foot controller.";
+    $("#midiPorts").innerHTML = midiPorts.length ? "Connected:" + portList(midiPorts) : "No MIDI devices found. Plug in a USB MIDI keyboard or foot controller.";
     $("#midiClock").checked = !!project().midi.clock; $("#midiChannel").value = String(project().midi.channel || 0);
     $("#sysBpm").value = Math.round(project().tempo.bpm);
     $("#tempoSource").textContent = "Currently set by: " + (clockFollowing() ? "MIDI clock" : tempoSource === "tap" ? "tap tempo" : tempoSource === "song" ? "the current song" : "this setting");
@@ -338,7 +342,7 @@
 
   // re-link a song's pad set after a reload (project.pads was saved while that song was active)
   (function () { var p = project(); if (p.usingSongPads) { var song = p.songs.filter(function (s) { return s.id === p.usingSongPads; })[0]; if (song && song.padSet) { song.padSet.pads = p.pads; song.padSet.normalized = true; } else { p.usingSongPads = null; if (p.globalPads) { p.pads = p.globalPads; p.globalPads = null; } } } })();
-  window.PPFeatures = { renderSetlist: renderSetlist, openSetlist: openSetlist, onSong: function (fn) { songHooks.push(fn); }, toggleLayerMode: toggleLayerMode, morphButton: morphButton, savePadsToSong: savePadsToSong, applyPadSet: applyPadSet, on: on, emit: emit, systemStatus: function () { return systemStatus; }, sendToDriver: sendToDriver, clockFollowing: clockFollowing, tempoSource: function () { return tempoSource; }, interceptPad: interceptPad, handleHardware: handleHardware, renderPerformExtras: renderPerformExtras, footswitchPad: footswitchPad, handleMidi: handleMidi, tap: tap, setTempo: setTempo, loadSong: loadSong, stepSong: stepSong, toggleFreeze: toggleFreeze, openUsb: openUsb, mediaAvailable: mediaAvailable, renderSystem: renderSystem };
+  window.PPFeatures = { renderSetlist: renderSetlist, openSetlist: openSetlist, onSong: function (fn) { songHooks.push(fn); }, toggleLayerMode: toggleLayerMode, morphButton: morphButton, savePadsToSong: savePadsToSong, applyPadSet: applyPadSet, on: on, emit: emit, systemStatus: function () { return systemStatus; }, portList: portList, sendToDriver: sendToDriver, clockFollowing: clockFollowing, tempoSource: function () { return tempoSource; }, interceptPad: interceptPad, handleHardware: handleHardware, renderPerformExtras: renderPerformExtras, footswitchPad: footswitchPad, handleMidi: handleMidi, tap: tap, setTempo: setTempo, loadSong: loadSong, stepSong: stepSong, toggleFreeze: toggleFreeze, openUsb: openUsb, mediaAvailable: mediaAvailable, renderSystem: renderSystem };
   renderPerformExtras();
   setTimeout(startWebMidi, 2500);
 })();

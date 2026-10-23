@@ -238,7 +238,7 @@
     return '<section data-st="midi" class="sd"><h3>Stream Deck</h3>' +
       '<p class="small">' + (dev ? "✓ <b>" + esc(dev.model.name) + "</b> (" + dev.model.keys + " keys)" : supported() ? '<span class="muted">No Stream Deck connected.</span> <button data-sd="connect">Connect a Stream Deck</button>' : '<span class="muted">This browser can\'t reach a Stream Deck (WebHID) - the Central Pedal and the Central apps can.</span>') + "</p>" +
       '<div class="row sd-pages">' + c.pages.map(function (pg, p) { return '<button data-sd="page" data-i="' + p + '"' + (p === c.page ? ' class="on"' : "") + ">" + esc(pg.name || "Page " + (p + 1)) + "</button>"; }).join("") + '<button data-sd="addPage" title="Add a page">＋</button>' + (c.pages.length > 1 ? '<button data-sd="renamePage">Rename</button><button data-sd="delPage">Remove page</button>' : '<button data-sd="renamePage">Rename</button>') + "</div>" +
-      '<div class="sd-grid" style="grid-template-columns:repeat(' + cc + ',1fr)">' + grid + "</div>" +
+      '<div class="sd-main"><div class="sd-grid" style="grid-template-columns:repeat(' + cc + ',1fr)">' + grid + "</div>" +
       '<div class="sd-edit"><b>Key ' + (selKey + 1) + "</b>" +
       '<label>Press<select data-sd="action">' + actionOptions(e.action) + "</select></label>" +
       (act && act.arg ? '<label>Which (number)<input type="number" min="1" max="99" data-sd="arg" value="' + (((e.args && e.args.index) || 0) + 1) + '"></label>' : "") +
@@ -247,14 +247,14 @@
       '<label>Icon (an emoji or 1-2 letters)<input data-sd="icon" maxlength="4" value="' + esc(k.icon || "") + '"></label>' +
       '<label>Colour<input type="color" data-sd="color" value="' + esc(k.color || c.colors.idle) + '"></label>' +
       '<label>Colour when on<input type="color" data-sd="onColor" value="' + esc(k.onColor || c.colors.on) + '"></label>' +
-      '<div class="row"><button data-sd="clearKey">Clear this key</button><button data-sd="resetPage">Default layout for this page</button></div></div>' +
-      '<label>Brightness<span class="control-line"><input type="range" min="0" max="100" data-sd="brightness" value="' + c.brightness + '"><output>' + c.brightness + "%</output></span></label>" +
+      '<div class="row"><button data-sd="clearKey">Clear this key</button><button data-sd="resetPage">Default layout for this page</button></div></div></div>' +
+      '<div class="sd-opts"><label>Brightness<span class="control-line"><input type="range" min="0" max="100" data-sd="brightness" value="' + c.brightness + '"><output>' + c.brightness + "%</output></span></label>" +
       '<label>Hold time (ms)<input type="number" min="150" max="3000" step="50" data-sd="holdMs" value="' + c.holdMs + '"></label>' +
       '<label>Dim after (minutes, 0 = never)<input type="number" min="0" max="240" data-sd="idleDim" value="' + c.idleDim + '"></label>' +
       '<label class="toggle"><input type="checkbox" data-sd="labels"' + (c.labels ? " checked" : "") + "> Show labels on the keys</label>" +
       '<label>Key colour<input type="color" data-sd="cIdle" value="' + esc(c.colors.idle) + '"></label><label>On colour<input type="color" data-sd="cOn" value="' + esc(c.colors.on) + '"></label>' +
       '<label>Picture rotation<select data-sd="rotation">' + ["auto", "0", "90", "180", "270"].map(function (x) { return '<option value="' + x + '"' + (String(c.rotation) === x ? " selected" : "") + ">" + (x === "auto" ? "Automatic" : x + "°") + "</option>"; }).join("") + "</select></label>" +
-      '<label>Picture flip<select data-sd="flip">' + [["auto", "Automatic"], ["none", "None"], ["h", "Left ↔ right"], ["v", "Upside down"], ["both", "Both"]].map(function (x) { return '<option value="' + x[0] + '"' + (c.flip === x[0] ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + "</select></label>" +
+      '<label>Picture flip<select data-sd="flip">' + [["auto", "Automatic"], ["none", "None"], ["h", "Left ↔ right"], ["v", "Upside down"], ["both", "Both"]].map(function (x) { return '<option value="' + x[0] + '"' + (c.flip === x[0] ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + "</select></label></div>" +
       '<p class="muted small">Keys are also on the Configure tab ("Stream Deck key …"), next to the footswitches. Page keys: give a key "Stream Deck: next page". The settings travel with Upload (Buttons, knobs and MIDI).</p></section>';
   }
   function rerender() { if (window.PPShell && window.PPShell.currentTab() === "settings") window.PPShell.renderSystemExtras(); }

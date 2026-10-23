@@ -86,7 +86,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.3.4"
+APP_VERSION = "9.3.5"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -208,16 +208,23 @@ def boot_id():
 
 
 def screens_catalog(app_root):
-    path = os.path.join(app_root or os.path.dirname(os.path.abspath(__file__)), "screens.json")
+    """screens.json from the app's folder (or the driver's own folder). An unreadable one isn't kept: the next look
+    tries again, and "error" says what's wrong (Settings → Touch screen shows it)."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    paths = [os.path.join(d, "screens.json") for d in dict.fromkeys([app_root or here, here])]
+    path = next((p for p in paths if os.path.isfile(p)), None)
+    if not path:
+        return {"groups": [], "screens": [], "error": "screens.json is missing from " + (app_root or here)}
     try:
-        mtime = os.path.getmtime(path)
-    except OSError:
-        return {"groups": [], "screens": []}
-    if _SCREENS.get("mtime") != mtime:
-        data = read_json(path, {"groups": [], "screens": []})
-        _SCREENS.clear()
-        _SCREENS.update({"mtime": mtime, "data": {"groups": data.get("groups") or [], "screens": data.get("screens") or []}})
-    return _SCREENS["data"]
+        key = (path, os.path.getmtime(path))
+        if _SCREENS.get("key") != key:
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
+            _SCREENS.clear()
+            _SCREENS.update({"key": key, "data": {"groups": data.get("groups") or [], "screens": data.get("screens") or []}})
+        return _SCREENS["data"]
+    except Exception as error:
+        return {"groups": [], "screens": [], "error": "screens.json could not be read (%s)" % error}
 
 
 def screen_by_id(app_root, sid):
@@ -614,7 +621,7 @@ def connected_displays():
 
 def read_json(path, default):
     try:
-        with open(path) as handle:
+        with open(path, encoding="utf-8") as handle:
             return json.load(handle)
     except Exception:
         return default
@@ -623,7 +630,7 @@ def read_json(path, default):
 def write_json(path, value):
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path + ".part", "w") as handle:
+        with open(path + ".part", "w", encoding="utf-8") as handle:
             json.dump(value, handle, indent=2)
         os.replace(path + ".part", path)
         return True
@@ -1913,6 +1920,13 @@ class ClockTempo:
         return None
 
 
+def midi_port_wanted(name):
+    """A real MIDI device's port - not "Midi Through", and not a port a program opened through RtMidi ("RtMidiIn Client",
+    "RtMidiOut Client"): every port we open makes one of those, and opening those in turn made a new one every scan."""
+    client = str(name).split(":", 1)[0].strip()
+    return bool(client) and "Through" not in name and not client.startswith("RtMidi")
+
+
 class Midi:
     """All USB MIDI inputs / outputs (hot-plugged), scheduled sends, MIDI clock out."""
 
@@ -1960,8 +1974,8 @@ class Midi:
         if not self.available:
             return
         try:
-            in_names = [n for n in self.mido.get_input_names() if "Through" not in n]
-            out_names = [n for n in self.mido.get_output_names() if "Through" not in n] if self.want_out else []
+            in_names = [n for n in self.mido.get_input_names() if midi_port_wanted(n)]
+            out_names = [n for n in self.mido.get_output_names() if midi_port_wanted(n)] if self.want_out else []
         except Exception as error:
             log.debug("MIDI scan failed (%s)", error)
             return
@@ -7482,5 +7496,18 @@ def main():
     asyncio.run(runner())
 
 
+def utf8_mode():
+    """Text files are UTF-8 here (the touch screen list says "480×320", songs have accents). A Pi set to a language
+    that isn't installed makes Python read them as plain ASCII - the screen list came up empty. So: UTF-8 mode, always
+    (for the helpers it starts too)."""
+    os.environ["PYTHONUTF8"] = "1"
+    if sys.flags.utf8_mode or getattr(sys, "frozen", False):   # (the packed driver in the desktop apps: not restartable like this)
+        return
+    import locale
+    if (locale.getpreferredencoding(False) or "").lower().replace("-", "") != "utf8":
+        os.execv(sys.executable, [sys.executable, "-X", "utf8"] + sys.argv)
+
+
 if __name__ == "__main__":
+    utf8_mode()
     main()

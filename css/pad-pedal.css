@@ -397,3 +397,11 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 #padList { grid-template-columns: minmax(0, 1fr); } #padList > .pad { min-width: 0; } #padList > .pad span { white-space: normal; overflow-wrap: anywhere; }
 /* fit: the add-a-song dialog's title and Close button get room above the first row */
 .add-dialog > .row.spread { margin-bottom: 10px; align-items: flex-start; gap: 12px; }
+/* Settings packs like a pinboard (shell.js sets each card's row span from its height): 2 px rows, the gap is the
+   card's bottom margin */
+#tabSettings .sys-grid.packed { grid-auto-rows: 2px; row-gap: 0; align-items: start; }
+#tabSettings .sys-grid.packed > section, #tabSettings .sys-grid.packed > #sysExtra > section { margin-bottom: 12px; }
+/* MIDI ports: each on its own line by its own name; a long list scrolls */
+.port-list { list-style: none; margin: 4px 0 0; padding: 0; max-height: 10.5em; overflow-y: auto; display: grid; gap: 2px; }
+.port-list li { overflow-wrap: anywhere; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,.04); color: var(--text); }
+.ts-quick { white-space: normal; text-align: left; justify-self: start; }

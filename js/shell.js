@@ -110,7 +110,7 @@
         '<label class="toggle"><input type="checkbox" data-sys="lightsDrums"' + (mo.lightsDrums !== false ? " checked" : "") + '> Send the drum hits (from split songs) as their own notes on the lights channel</label><div class="row">' +
         [["kick", "Kick"], ["snare", "Snare"], ["hat", "Hi-hat"], ["crash", "Crash"]].map(function (d) { var n = window.PPTracks && window.PPTracks.drumNote ? window.PPTracks.drumNote(mo, d[0]) : ""; return '<label><span><input type="checkbox" data-sys="drumPart:' + d[0] + '"' + (!(mo.drumParts && mo.drumParts[d[0]] === false) ? " checked" : "") + "> " + d[1] + ' note</span><input type="number" min="0" max="59" data-sys="drumNote:' + d[0] + '" value="' + n + '" style="width:70px"></label>'; }).join("") + "</div>" +
       '<label>General channel<input type="number" min="1" max="16" data-sys="generalChannel" value="' + (mo.generalChannel || 2) + '"></label><label class="toggle"><input type="checkbox" data-sys="pcOnSong"' + (mo.pcOnSong !== false ? " checked" : "") + "> Program change when a song loads</label><label class=\"toggle\"><input type=\"checkbox\" data-sys=\"noteOnSection\"" + (mo.noteOnSection !== false ? " checked" : "") + "> Note (60 + section) when a section starts</label><label class=\"toggle\"><input type=\"checkbox\" data-sys=\"clockOut\"" + (mo.clockOut !== false ? " checked" : "") + '> MIDI clock + start / stop while tracks play</label><label>Timing offset (ms, + = later)<input type="number" min="-200" max="200" data-sys="offsetMs" value="' + (mo.offsetMs || 0) + '"></label>' +
-      '<p class="muted">' + (status && status.midiPorts && status.midiPorts.outputs && status.midiPorts.outputs.length ? "Sending to: " + status.midiPorts.outputs.map(esc).join(", ") : "No MIDI output device found (plug a USB MIDI interface into the Pi).") + "</p></section>" +
+      '<div class="muted">' + (status && status.midiPorts && status.midiPorts.outputs && status.midiPorts.outputs.length ? "Sending to:" + F.portList(status.midiPorts.outputs) : "No MIDI output device found (plug a USB MIDI interface into the Pi).") + "</div></section>" +
       '<section data-st="midi"><h3>Ableton Link</h3><label class="toggle"><input type="checkbox" data-sys="linkEnabled"' + (lk.enabled ? " checked" : "") + "> Share tempo and play / stop with Link apps on this Wi-Fi</label><p class=\"muted\">" + (status && status.link ? (status.link.available ? (status.link.peers ? status.link.peers + " Link peer(s) connected" : "No Link peers yet") : "Link is not installed on this system") : "Available on the Central Pedal itself") + "</p></section>" +
       '<section data-st="screens"><h3>Projector (HDMI 2) and lyrics</h3><label>Lyrics size<input type="range" min="3" max="14" step=".5" data-sys="fontSize" value="' + (pr.fontSize || 7) + '"></label><label class="toggle"><input type="checkbox" data-sys="showNext"' + (pr.showNext !== false ? " checked" : "") + "> Preview the next lines</label><label class=\"toggle\"><input type=\"checkbox\" data-sys=\"showSection\"" + (pr.showSection !== false ? " checked" : "") + "> Show the section name</label><label class=\"toggle\"><input type=\"checkbox\" data-sys=\"blank\"" + (pr.blank ? " checked" : "") + '> Blank the projector</label><label>Theme<select data-sys="theme"><option value="dark"' + (pr.theme !== "light" ? " selected" : "") + '>White on black</option><option value="light"' + (pr.theme === "light" ? " selected" : "") + ">Black on white</option></select></label></section>" +
       screensHtml(displays) +
@@ -200,4 +200,29 @@
   showTab(start);
   setPointer(false);
   window.PPShell = { showTab: showTab, setPointer: setPointer, renderSystemExtras: renderSystemExtras, currentTab: function () { return current; }, onSys: onSys, onSysClick: onSysClick, screensHtml: screensHtml, enumerateOutputs: enumerateOutputs };
+})();
+
+/* Settings: the cards pack upward like a pinboard, each as tall as its own content (a card is no longer stretched to
+ * the tallest card in its row, which left big empty boxes on a wide screen). */
+(function () {
+  "use strict";
+  var grid = document.getElementById("systemDialog"); if (!grid || !window.ResizeObserver) return;
+  var GAP = 12, ROW = 2, queued = false;
+  function items() { return Array.prototype.slice.call(grid.querySelectorAll("#systemDialog > section, #sysExtra > section")); }
+  function pack() {
+    queued = false;
+    if (!grid.offsetParent) return;
+    grid.classList.add("packed");
+    items().forEach(function (s) {
+      if (!s.offsetParent) return;
+      var span = Math.ceil((s.getBoundingClientRect().height + GAP) / ROW) + "";
+      if (s.dataset.span !== span) { s.dataset.span = span; s.style.gridRowEnd = "span " + span; }
+    });
+  }
+  function soon() { if (!queued) { queued = true; requestAnimationFrame(pack); } }
+  var ro = new ResizeObserver(soon);
+  function watch() { items().forEach(function (s) { if (!s.__packed) { s.__packed = true; ro.observe(s); } }); soon(); }
+  new MutationObserver(watch).observe(grid, { childList: true, subtree: true });
+  ro.observe(grid); watch();
+  window.PPSettingsPack = { pack: pack };
 })();
