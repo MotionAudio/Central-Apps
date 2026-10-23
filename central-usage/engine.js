@@ -120,7 +120,8 @@ class Engine extends EventEmitter {
     this.pi.sources = {}; const live = {}, names = [], seen = {};
     Object.keys(sources || {}).forEach((k) => {
       const s = Number(k); if (!(s >= 0 && s < 4)) return; const src = sources[k] || {}; this.pi.sources[s] = { channels: (src.channels || []).slice(0, NETCH), rate: src.rate || 48000 };
-      this.pi.sources[s].channels.forEach((name, c) => { let key = String(name || "ch " + (c + 1)).toLowerCase().trim(); if (seen[key]) { let n = 2; while (seen[key + " " + n]) n++; key = key + " " + n; name = name + " " + n; } seen[key] = true; live[key] = s * NETCH + c; names.push({ key, name, source: s, ch: c }); });
+      const pans = Array.isArray(src.pans) ? src.pans : [];
+      this.pi.sources[s].channels.forEach((name, c) => { let key = String(name || "ch " + (c + 1)).toLowerCase().trim(); if (seen[key]) { let n = 2; while (seen[key + " " + n]) n++; key = key + " " + n; name = name + " " + n; } seen[key] = true; live[key] = s * NETCH + c; names.push({ key, name, source: s, ch: c, pan: Math.max(-1, Math.min(1, Number(pans[c]) || 0)) }); });
     });
     this.pi.live = live; this.pi.names = names;
     // every channel gets an input (found by name; a new name takes the first free input)
@@ -129,7 +130,7 @@ class Engine extends EventEmitter {
       const free = this.state.inputs.findIndex((x) => x.src.kind === "none" && !x.name);
       if (free < 0) return;
       const tracks = n.source === 0 && !/^(tracks mix|pads|click)/i.test(n.name);
-      this.apply({ op: "input", i: free, patch: { src: { kind: "pi", key: n.key }, name: n.name, group: tracks || n.source === 1 ? "tracks" : "band", fader: /^tracks mix/i.test(n.name) ? -90 : 0, show: true } }, { role: "host" });
+      this.apply({ op: "input", i: free, patch: { src: { kind: "pi", key: n.key }, name: n.name, group: tracks || n.source === 1 ? "tracks" : "band", fader: /^tracks mix/i.test(n.name) ? -90 : 0, pan: n.pan || 0, show: true } }, { role: "host" });   // (a track starts at the pan it has on the Central Pedal)
     });
     if (this.proc) { this.pushNet(); for (let i = 0; i < M.MAXIN; i++) this.cmd(this.inputCmd(i)); }
     this.emit("pi", this.pi);

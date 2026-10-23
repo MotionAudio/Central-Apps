@@ -448,6 +448,21 @@ await check("the mixer: every track gets a big fader with a meter, mute / solo a
   assert.equal(g.data, 0.5); assert.equal(Number(g.small), 0.5); assert.match(g.db, /-6\.0 dB/);
   await page.click("#mixDialog [data-close=mixDialog]");
 });
+await check("PAN on every track: labelled, says L 30 / C / R 30, follows on both strips, double-click centres; the stemPan action and the small screens' state", async () => {
+  const id = await T(() => PPTracks.data(PPTracks.song()).stems[0].id);
+  const lab = await T((id) => { const b = document.querySelector('#trStems .stem[data-stem="' + id + '"] .stem-panbox'); return b ? b.querySelector("span").textContent + "|" + b.querySelector(".stem-panv").textContent : null; }, id);
+  assert.equal(lab, "PAN|C");
+  await page.$eval('#trStems .stem[data-stem="' + id + '"] .stem-pan', (el) => { el.value = -0.3; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  const p = await T((id) => ({ data: PPTracks.data(PPTracks.song()).stems.find((s) => s.id === id).pan, text: document.querySelector('#trStems .stem[data-stem="' + id + '"] .stem-panv').textContent, mini: PPTracks.data(PPTracks.song()).stems.length }), id);
+  assert.equal(p.data, -0.3); assert.equal(p.text, "L 30");
+  await page.dblclick('#trStems .stem[data-stem="' + id + '"] .stem-pan');
+  assert.equal(await T((id) => PPTracks.data(PPTracks.song()).stems.find((s) => s.id === id).pan, id), 0);
+  await T(() => PPActions.run("stemPan", { index: 0 }, { value: 0.9 }));
+  const a = await T(() => ({ pan: PPTracks.data(PPTracks.song()).stems[0].pan, text: document.querySelector("#trStems .stem[data-stem] .stem-panv").textContent, listed: PPActions.list().some((x) => x.id === "stemPan") }));
+  assert.equal(a.pan, 0.8); assert.equal(a.text, "R 80"); assert.ok(a.listed, "a knob / MIDI can learn it");
+  await T(() => PPActions.run("stemPan", { index: 0, pan: 0 }, { value: 0.9 }));
+  assert.equal(await T(() => PPTracks.data(PPTracks.song()).stems[0].pan), 0);
+});
 await check("pads: up to 4 layers at once (a 5th replaces the oldest), each with its own level", async () => {
   await T(() => { PPTracks.stop(true); PP.engine.stop(); PP.project().performance.layerMode = true; });   // (the tracks stopped: a section starting would swell the pads)
   await wait(300);
@@ -744,6 +759,11 @@ await check("the copy of the small screen has its tabs: Tracks → Mixer moves a
   await tap('[data-fader="tracksLevel"]');
   await wait(1700); await T(() => PPTracks.sendDisplay());   // (after the screen's own 1.5 s: the level the app now has)
   await until(() => mini.evaluate(() => { const b = document.querySelector('[data-fader="tracksLevel"] b'); return b && Math.abs(parseFloat(b.style.width) - 30) < 6; }), 3000);
+  // each track's PAN beside its level: shows where it is, a double-tap centres it (in the app)
+  await T(() => { PPTracks.setStem(PPTracks.data(PPTracks.song()).stems[0].id, "pan", -0.3); PPTracks.sendDisplay(); });
+  await until(() => mini.evaluate(() => { const r = document.querySelector('.row.stem .panbox'); return r && r.querySelector("small").textContent === "PAN" && r.querySelector(".pv").textContent === "L 30"; }), 4000);
+  await mini.evaluate(() => { const el = document.querySelector('[data-fader="stemPan"]'), x = el.getBoundingClientRect().left + 5; for (let k = 0; k < 2; k++) { el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: x })); el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: x })); } });
+  await until(() => T(() => PPTracks.data(PPTracks.song()).stems[0].pan === 0), 4000);
   await T(() => { if (window.PPInstrument) PPInstrument.setKind("electric"); }); await wait(600); await T(() => PPTracks.sendDisplay()); await wait(400);
   await tap('[data-tab="instrument"]'); await tap('[data-sub="pedals"]');
   await until(() => mini.evaluate(() => document.querySelectorAll(".pedal").length > 0), 6000);

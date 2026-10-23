@@ -85,7 +85,7 @@
     var owns = mix.ownerId && who.id && mix.ownerId === who.id;
     if (op.op === "mix") {
       var patch = op.patch || {};
-      if (!admin) { if (!owns) return false; patch = { level: patch.level, mute: patch.mute, name: patch.name }; Object.keys(patch).forEach(function (k) { if (patch[k] === undefined) delete patch[k]; }); }   // where it goes is the sound desk's choice
+      if (!admin) { if (!owns) return false; patch = { level: patch.level, mute: patch.mute, name: patch.name, stereo: patch.stereo }; Object.keys(patch).forEach(function (k) { if (patch[k] === undefined) delete patch[k]; }); }   // where it goes is the sound desk's choice (stereo / mono is the owner's too)
       return put(mix, MIX_KEYS, patch);
     }
     if (op.op === "send") {

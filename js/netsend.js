@@ -84,7 +84,9 @@
       var sink = c.createGain(); sink.gain.value = 0; node.connect(sink); sink.connect(c.destination); st.nodes.push(sink);   // keeps the node pulled
       node.port.onmessage = function (e) { sendBlock(e.data, C); };
       st.node = node; st.names = all; st.rate = c.sampleRate / dec; st.on = true;
-      bridge() && bridge().send({ type: "netAudio", action: "info", channels: all, rate: st.rate, stems: S });
+      // each channel's pan (a track's own; the stereo pairs left / right): Central Control's channels start there
+      var tp = T && T.netPans ? T.netPans() : [], pans = names.map(function (_, i) { return Number(tp[i]) || 0; }).concat([0, -1, 1, -1, 1]);
+      bridge() && bridge().send({ type: "netAudio", action: "info", channels: all, pans: pans, rate: st.rate, stems: S });
     } finally { st.building = false; }
   }
   function sendBlock(ab, C) {

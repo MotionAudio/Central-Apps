@@ -52,10 +52,12 @@
     return '<div class="mx-strip' + (i === sel ? " sel" : "") + (active(x) ? "" : " idle") + '" data-i="' + i + '"' + (x.color ? ' style="--c:' + esc(x.color) + '"' : "") + '>' +
       '<div class="mx-name" title="' + esc(srcLabel(x)) + '">' + esc(x.name || "Input " + (i + 1)) + '</div><div class="mx-src">' + esc(srcLabel(x)) + "</div>" +
       '<div class="mx-body"><div class="mx-meter"><i></i><b></b></div><input type="range" class="mx-fader" min="0" max="1" step="0.001" data-mx="fader" value="' + M.dbToFader(x.fader) + '"></div>' +
-      '<div class="mx-db">' + db(x.fader) + '</div><input type="range" class="mx-pan" min="-1" max="1" step="0.05" data-mx="pan" value="' + x.pan + '" title="Pan">' +
+      '<div class="mx-db">' + db(x.fader) + '</div><label class="mx-panbox" title="Pan: left / right (double-click or hold: centre)"><span>PAN</span><input type="range" class="mx-pan" min="-1" max="1" step="0.05" data-mx="pan" value="' + x.pan + '" aria-label="' + esc(x.name || "Input " + (i + 1)) + ' pan"><b class="mx-panv">' + panText(x.pan) + "</b></label>" +
       '<div class="mx-btns"><button data-mx="mute" class="' + (x.mute ? "on danger" : "") + '">M</button><button data-mx="eq" class="' + (x.eq.on || x.hpf ? "on" : "") + '" title="High-pass and EQ">EQ</button><button data-mx="comp" class="' + (x.comp.on ? "on" : "") + '" title="Compressor">C</button></div>' +
       (direct ? '<select data-mx="direct" title="Its own output">' + outOptions(x.direct, S().trackOut === "direct" ? "auto" : "—") + "</select>" : "") + "</div>";
   }
+  // pan as people read it: L 30 / C / R 30
+  function panText(v) { v = Number(v) || 0; var n = Math.round(Math.abs(v) * 100); return n < 2 ? "C" : (v < 0 ? "L " : "R ") + n; }
   function slider(label, key, min, max, step, v, fmt) { return '<label class="mx-sl"><span>' + label + '</span><input type="range" min="' + min + '" max="' + max + '" step="' + step + '" data-mxd="' + key + '" value="' + v + '"><output>' + fmt(v) + "</output></label>"; }
   function detail() {
     if (sel < 0 || !S().inputs[sel]) return '<p class="muted">Click a channel\'s name for its high-pass, EQ and compressor.</p>';
@@ -87,7 +89,7 @@
     document.querySelectorAll("#mixRoot .mx-strip").forEach(function (el) {
       var x = s.inputs[Number(el.dataset.i)]; if (!x) return;
       var f = el.querySelector('[data-mx="fader"]'); if (f && f !== dragging) { f.value = M.dbToFader(x.fader); el.querySelector(".mx-db").textContent = db(x.fader); }
-      var p = el.querySelector('[data-mx="pan"]'); if (p && p !== dragging) p.value = x.pan;
+      var p = el.querySelector('[data-mx="pan"]'); if (p && p !== dragging) { p.value = x.pan; var pv = el.querySelector(".mx-panv"); if (pv) pv.textContent = panText(x.pan); }
       var mb = el.querySelector('[data-mx="mute"]'); mb.classList.toggle("on", x.mute); mb.classList.toggle("danger", x.mute);
       el.querySelector('[data-mx="eq"]').classList.toggle("on", !!(x.eq.on || x.hpf)); el.querySelector('[data-mx="comp"]').classList.toggle("on", x.comp.on);
       var d = el.querySelector('[data-mx="direct"]'); if (d && d !== document.activeElement) d.value = String(x.direct);
@@ -133,13 +135,21 @@
 
   // ------------------------------------------------------------------ events
   var root = $("#mixRoot");
-  root.addEventListener("pointerdown", function (e) { if (e.target.type === "range") dragging = e.target; });
-  document.addEventListener("pointerup", function () { if (dragging) { dragging = null; } });
+  // a pan back to the centre: a double-click, or holding it still
+  var panHold = null;
+  function centrePan(el) { var strip = el.closest(".mx-strip"); if (!strip) return; var i = Number(strip.dataset.i); el.value = 0; var pv = strip.querySelector(".mx-panv"); if (pv) pv.textContent = "C"; X.op({ op: "input", i: i, patch: { pan: 0 } }); }
+  root.addEventListener("pointerdown", function (e) {
+    if (e.target.type === "range") dragging = e.target;
+    if (e.target.dataset && e.target.dataset.mx === "pan") { var el = e.target, v0 = el.value; clearTimeout(panHold && panHold.t); panHold = { x0: e.clientX, t: setTimeout(function () { if (panHold && Math.abs(Number(el.value) - Number(v0)) < 0.06) centrePan(el); panHold = null; }, 600) }; }
+  });
+  root.addEventListener("pointermove", function (e) { if (panHold && Math.abs(e.clientX - panHold.x0) > 8) { clearTimeout(panHold.t); panHold = null; } });
+  root.addEventListener("dblclick", function (e) { if (e.target.dataset && e.target.dataset.mx === "pan") centrePan(e.target); });
+  document.addEventListener("pointerup", function () { if (panHold) { clearTimeout(panHold.t); panHold = null; } if (dragging) { dragging = null; } });
   root.addEventListener("input", function (e) {
     var t = e.target, s = S(); if (!s) return;
     var strip = t.closest(".mx-strip"), i = strip ? Number(strip.dataset.i) : sel;
     if (t.dataset.mx === "fader") { var d = Math.round(M.faderToDb(Number(t.value)) * 10) / 10; strip.querySelector(".mx-db").textContent = db(d); send("f" + i, { op: "input", i: i, patch: { fader: d } }); }
-    else if (t.dataset.mx === "pan") send("p" + i, { op: "input", i: i, patch: { pan: Number(t.value) } });
+    else if (t.dataset.mx === "pan") { var pv = strip.querySelector(".mx-panv"); if (pv) pv.textContent = panText(t.value); send("p" + i, { op: "input", i: i, patch: { pan: Number(t.value) } }); }
     else if (t.dataset.mxMain === "level") { var d2 = Math.round(M.faderToDb(Number(t.value)) * 10) / 10; $(".mx-mdb").textContent = db(d2); send("main", { op: "main", patch: { level: d2 } }); }
     else if (t.dataset.mxd && t.type === "range") {
       var k = t.dataset.mxd, v = Number(t.value), out = t.parentNode.querySelector("output"), patch = {};

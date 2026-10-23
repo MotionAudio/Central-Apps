@@ -88,6 +88,8 @@
   def("balance", "Pads ↔ Tracks balance", "Tracks", "continuous", function (a, v) { if (T()) T().balance(v); });
   def("tempoPercent", "Tracks tempo (50–150 %)", "Tracks", "continuous", function (a, v) { if (T()) T().setTempoPercent(50 + v * 100); });
   def("stemLevel", "Stem N level", "Tracks", "continuous", function (a, v) { var s = T() && T().song(); if (!s) return; var st = T().data(s).stems[Number(a && a.index) || 0]; if (st) { T().setStem(st.id, "gain", v * 1.3); T().render(); } }, { arg: "stem" });
+  // pan: a knob / slider 0..1 = left..right (the middle is the centre); args.pan (-1..1) says it exactly (the small screens' CENTRE)
+  def("stemPan", "Stem N pan (left / right)", "Tracks", "continuous", function (a, v) { var s = T() && T().song(); if (!s) return; var st = T().data(s).stems[Number(a && a.index) || 0]; if (!st) return; var p = a && a.pan != null ? Number(a.pan) : v * 2 - 1; p = Math.max(-1, Math.min(1, Math.abs(p) < 0.02 ? 0 : p)); T().setStem(st.id, "pan", Math.round(p * 100) / 100); T().renderStems(); }, { arg: "stem" });
   def("texture1Level", "Texture 1 level", "Textures", "continuous", function (a, v) { if (X()) X().setLevel(0, v); });
   def("texture2Level", "Texture 2 level", "Textures", "continuous", function (a, v) { if (X()) X().setLevel(1, v); });
   // ---- instrument (the pedalboard / keys on the Instrument tab)

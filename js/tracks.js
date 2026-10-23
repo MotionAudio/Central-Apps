@@ -397,7 +397,8 @@
       transfer.push(L); if (R) transfer.push(R);
       length = Math.max(length, rec.length); st.missing = false;
     }
-    return { stems: stems, transfer: transfer, length: length, names: stems.map(function (q) { var st = t.stems.filter(function (x) { return x.id === q.id; })[0]; return st ? st.name : "Track"; }) };
+    return { stems: stems, transfer: transfer, length: length, names: stems.map(function (q) { var st = t.stems.filter(function (x) { return x.id === q.id; })[0]; return st ? st.name : "Track"; }),
+      pans: stems.map(function (q) { return Math.max(-1, Math.min(1, Number(q.pan) || 0)); }) };   // (each track's pan: Central Control's channel starts there)
   }
 
   // ------------------------------------------------------------- segues: what happens when a song ends
@@ -417,7 +418,7 @@
     segue.loading = true;
     try {
       var r = await stemsFor(n); if (otherDeck() !== d || segue.running) return;
-      d.node.port.postMessage({ cmd: "pause" }); d.node.port.postMessage({ cmd: "load", stems: r.stems, length: r.length }, r.transfer); d.netNames = r.names;
+      d.node.port.postMessage({ cmd: "pause" }); d.node.port.postMessage({ cmd: "load", stems: r.stems, length: r.length }, r.transfer); d.netNames = r.names; d.netPans = r.pans;
       var tn = data(n), g = grid(n);
       d.node.port.postMessage({ cmd: "stop", to: 0 });
       d.node.port.postMessage({ cmd: "beats", times: Float64Array.from(g.times.map(function (x) { return x * engine.ctx.sampleRate; })), downbeats: Uint8Array.from(g.down) });
@@ -485,7 +486,7 @@
     // already waiting on the other deck (preloaded for a segue): just swap
     var od = otherDeck(); if (od && od.songId === s.id && !segue.running) { swapDeck(); pushAll(s); applyDirectOuts(); state.playing = false; state.pos = 0; state.countIn = 0; state.loop = -1; state.section = -1; state.ended = false; state.flowIndex = 0; render(); return; }
     var r = await stemsFor(s), stems = r.stems, transfer = r.transfer, length = r.length;
-    loadedSongId = s.id; deck.songId = s.id; deck.netNames = r.names;
+    loadedSongId = s.id; deck.songId = s.id; deck.netNames = r.names; deck.netPans = r.pans;
     post({ cmd: "load", stems: stems, length: length }, transfer);
     document.dispatchEvent(new CustomEvent("pp-stems"));
     applyDirectOuts();
@@ -1053,7 +1054,7 @@
         pedals: I.pedalNames().slice(0, 18), knobs: I.miniKnobs ? I.miniKnobs() : [] };
       if (I.lockInfo) { var lk = I.lockInfo(); ins.boardLocked = lk.board || null; ins.patchLocked = lk.patch || null; }   // ("Part of Central Pedals · $50 a year" when a plan ended)
     }
-    return { stems: t ? t.stems.map(function (q, i) { return { i: i, name: q.name, gain: Math.round((q.gain == null ? 1 : q.gain) * 1000) / 1000, mute: !!q.mute, role: q.role }; }) : [],
+    return { stems: t ? t.stems.map(function (q, i) { return { i: i, name: q.name, gain: Math.round((q.gain == null ? 1 : q.gain) * 1000) / 1000, pan: Math.round((Number(q.pan) || 0) * 100) / 100, mute: !!q.mute, role: q.role }; }) : [],
       levels: { tracks: Math.round(levels.tracks * 1000) / 1000, click: Math.round(levels.click * 1000) / 1000 }, volume: p.performance ? p.performance.volume : 1,
       tempoPercent: t ? t.tempoPercent : 100, instrument: ins,
       routing: window.PPSettings && window.PPSettings.routingSummary ? window.PPSettings.routingSummary() : null,
@@ -1089,13 +1090,15 @@
     renderStems(); renderSections(); renderTransport(); renderPosition(); drawTimeline();
     var sel = $("#trSongSelect"); if (sel) { sel.innerHTML = '<option value="-1">— choose a song —</option>' + p.songs.map(function (q, i) { return '<option value="' + i + '"' + (i === p.songIndex ? " selected" : "") + ">" + (i + 1) + ". " + esc(q.name) + (q.tracks && q.tracks.stems && q.tracks.stems.length ? " ♫" : "") + "</option>"; }).join(""); }
   }
+  // pan as people read it: L 30 / C / R 30 (percent of the way to one side)
+  function panText(v) { v = Number(v) || 0; var n = Math.round(Math.abs(v) * 100); return n < 2 ? "C" : (v < 0 ? "L " : "R ") + n; }
   function dbText(g) { return g > 0 ? (20 * Math.log10(g)).toFixed(1) + " dB" : "−∞"; }
   function stripHtml(st, anySolo, direct, chans) {
     return '<div class="stem role-' + esc(st.role || "music") + (st.mute ? " muted" : "") + (st.solo ? " solo" : "") + (anySolo && !st.solo ? " dim" : "") + (st.bus === "click" ? " clickbus" : "") + (st.missing ? " missing" : "") + '" data-stem="' + st.id + '">' +
       '<div class="stem-name" title="' + esc(st.name) + '">' + esc(st.name) + "</div>" +
       '<div class="stem-fwrap"><input type="range" class="stem-fader" orient="vertical" min="0" max="1.41" step=".01" value="' + st.gain + '" aria-label="' + esc(st.name) + ' level" title="Level (double-tap: 0 dB)"><div class="stem-meter"><i></i></div></div>' +
       '<small class="stem-db">' + dbText(st.gain) + '</small>' +
-      '<input type="range" class="stem-pan" min="-1" max="1" step=".02" value="' + (st.pan || 0) + '" aria-label="' + esc(st.name) + ' pan" title="Pan (double-tap: centre)">' +
+      '<label class="stem-panbox" title="Pan: left / right (double-tap or hold: centre)"><span>PAN</span><input type="range" class="stem-pan" min="-1" max="1" step=".02" value="' + (st.pan || 0) + '" aria-label="' + esc(st.name) + ' pan"><b class="stem-panv">' + panText(st.pan) + "</b></label>" +
       '<div class="stem-btns"><button data-sf="mute" class="' + (st.mute ? "on" : "") + '" title="Mute">M</button><button data-sf="solo" class="' + (st.solo ? "on" : "") + '" title="Solo">S</button></div>' +
       (direct ? '<select class="stem-out" title="Direct output for this track (a USB interface output), or in the tracks mix"><option value="0"' + (!st.out ? " selected" : "") + '>in mix</option>' + chans.map(function (n, i) { return '<option value="' + (i + 1) + '"' + (st.out === i + 1 ? " selected" : "") + ">→ " + esc(String(n).replace(/^\d+ · /, "").slice(0, 14)) + "</option>"; }).join("") + "</select>" : "") +
       '<small>' + (st.bus === "click" ? "→ click out" : st.out > 0 ? "→ out " + st.out : esc(st.role)) + "</small></div>";
@@ -1124,15 +1127,26 @@
       var bus = e.target.closest("[data-bus]"); if (bus && e.target.classList.contains("bus-fader")) { setLevel(bus.dataset.bus, Number(e.target.value)); bus.querySelector(".stem-db").textContent = Math.round(Number(e.target.value) * 100) + "%"; return; }
       var row = e.target.closest("[data-stem]"); if (!row) return;
       if (e.target.classList.contains("stem-fader")) { var g = Number(e.target.value); setStem(row.dataset.stem, "gain", g); var db = row.querySelector(".stem-db"); if (db) db.textContent = dbText(g); syncOtherStrip(row.dataset.stem, root); }
-      else if (e.target.classList.contains("stem-pan")) { setStem(row.dataset.stem, "pan", Number(e.target.value)); syncOtherStrip(row.dataset.stem, root); }
+      else if (e.target.classList.contains("stem-pan")) { setStem(row.dataset.stem, "pan", Number(e.target.value)); var pv = row.querySelector(".stem-panv"); if (pv) pv.textContent = panText(e.target.value); syncOtherStrip(row.dataset.stem, root); }
     });
     root.addEventListener("change", function (e) { var row = e.target.closest("[data-stem]"); if (!row || !e.target.classList.contains("stem-out")) return; var st = tdata().stems.filter(function (q) { return q.id === row.dataset.stem; })[0]; if (!st) return; st.out = Number(e.target.value) || 0; PP.persistSoon(); applyDirectOuts(); renderStems(); PP.setStatus(st.out ? st.name + " → output " + st.out + " (direct)" : st.name + " back in the tracks mix"); });
-    root.addEventListener("dblclick", function (e) { var row = e.target.closest("[data-stem]"); if (!row) return; if (e.target.classList.contains("stem-pan")) { e.target.value = 0; setStem(row.dataset.stem, "pan", 0); } else if (e.target.classList.contains("stem-fader")) { e.target.value = 1; setStem(row.dataset.stem, "gain", 1); var db = row.querySelector(".stem-db"); if (db) db.textContent = "0.0 dB"; } syncOtherStrip(row.dataset.stem, root); });
+    root.addEventListener("dblclick", function (e) { var row = e.target.closest("[data-stem]"); if (!row) return; if (e.target.classList.contains("stem-pan")) { centrePan(row, e.target); } else if (e.target.classList.contains("stem-fader")) { e.target.value = 1; setStem(row.dataset.stem, "gain", 1); var db = row.querySelector(".stem-db"); if (db) db.textContent = "0.0 dB"; } syncOtherStrip(row.dataset.stem, root); });
+    // hold the pan (touch screens have no double-click to speak of): back to the centre
+    var hold = null;
+    root.addEventListener("pointerdown", function (e) {
+      if (!e.target.classList || !e.target.classList.contains("stem-pan")) return;
+      var row = e.target.closest("[data-stem]"), x0 = e.clientX, el = e.target, v0 = el.value;
+      clearTimeout(hold && hold.t);
+      hold = { x0: x0, t: setTimeout(function () { if (hold && Math.abs(Number(el.value) - Number(v0)) < 0.05) centrePan(row, el); hold = null; }, 600) };
+    });
+    root.addEventListener("pointermove", function (e) { if (hold && Math.abs(e.clientX - hold.x0) > 8) { clearTimeout(hold.t); hold = null; } });
+    ["pointerup", "pointercancel"].forEach(function (ev) { root.addEventListener(ev, function () { if (hold) { clearTimeout(hold.t); hold = null; } }); });
+    function centrePan(row, el) { if (!row) return; el.value = 0; setStem(row.dataset.stem, "pan", 0); var pv = row.querySelector(".stem-panv"); if (pv) pv.textContent = "C"; syncOtherStrip(row.dataset.stem, root); }
     root.addEventListener("click", function (e) { var b = e.target.closest("[data-sf]"), row = e.target.closest("[data-stem]"); if (!b || !row) return; var st = tdata().stems.filter(function (q) { return q.id === row.dataset.stem; })[0]; if (!st) return; setStem(st.id, b.dataset.sf, !st[b.dataset.sf]); renderStems(); });
   }
   function syncOtherStrip(id, from) {  // the small strip on the Tracks tab and the big mixer show the same values
     var st = tdata().stems.filter(function (q) { return q.id === id; })[0]; if (!st) return;
-    [$("#trStems"), $("#mixStrips")].forEach(function (root) { if (!root || root === from) return; var row = root.querySelector('[data-stem="' + id + '"]'); if (!row) return; row.querySelector(".stem-fader").value = st.gain; row.querySelector(".stem-pan").value = st.pan || 0; row.querySelector(".stem-db").textContent = dbText(st.gain); });
+    [$("#trStems"), $("#mixStrips")].forEach(function (root) { if (!root || root === from) return; var row = root.querySelector('[data-stem="' + id + '"]'); if (!row) return; row.querySelector(".stem-fader").value = st.gain; row.querySelector(".stem-pan").value = st.pan || 0; var pv = row.querySelector(".stem-panv"); if (pv) pv.textContent = panText(st.pan); row.querySelector(".stem-db").textContent = dbText(st.gain); });
   }
   function renderSections() {
     var root = $("#trSections"), s = song(); if (!root) return;
@@ -1495,7 +1509,7 @@
     sendDisplay: sendDisplay, render: render, setStem: setStem, toggleClick: function () { var t = tdata(); if (t) { t.click.on = !t.click.on; pushAll(song()); PP.persistSoon(); renderTransport(); } }, toggleCues: function () { var t = tdata(); if (t) { t.cues.on = !t.cues.on; pushAll(song()); PP.persistSoon(); renderTransport(); } },
     cycleCountIn: function () { var t = tdata(); if (t) { t.countIn = (t.countIn + 1) % 3; PP.persistSoon(); renderTransport(); } }, stepSongAndPlay: stepSongAndPlay, uploadChart: uploadChart, refreshCharts: refreshCharts, charts: function () { return charts; }, applyLevels: applyLevels,
     findSongByName: findSongByName, fileFromMedia: fileFromMedia, workerJob: workerJob, mixdown: mixdown, getStem: getStem, forgetStem: function (id) { stemMemory.delete(id); }, dropStem: delStem, setOut: setOut, outLevel: function () { return outLevel; }, putStem: putStem, getStemLocal: getStemLocal, decodeFile: decodeFile, toPcm: toPcm, decodeSum: decodeSum, driverOn: function () { return driverOn(); }, analyzeSong: analyzeSong, applyChart: applyChart, renderEditor: renderEditor, keyName: keyName, fmtTime: fmtTime, pendingJump: function () { return pendingJump; },
-    hubSong: hubSong, cueIdFor: cueIdFor, cueBuffer: cueBuffer, loadCueList: loadCueList, drumNote: drumNote, DRUMS: DRUMS, netDecks: function () { return decks; }, netNames: function () { return deck && deck.netNames || []; }, ensureWorklet: ensureWorklet, NET_SLOTS: NET_SLOTS,
+    hubSong: hubSong, cueIdFor: cueIdFor, cueBuffer: cueBuffer, loadCueList: loadCueList, drumNote: drumNote, DRUMS: DRUMS, netDecks: function () { return decks; }, netNames: function () { return deck && deck.netNames || []; }, netPans: function () { return deck && deck.netPans || []; }, ensureWorklet: ensureWorklet, NET_SLOTS: NET_SLOTS,
     abSet: abSet, abToggle: abToggle, abClear: abClear, nudgeTempo: nudgeTempo, applyMix: applyMix, captureMix: captureMix, openMixer: openMixer, renderStems: renderStems, startSegue: startSegue, preloadNext: preloadNext, segueState: function () { return { loading: segue.loading, running: segue.running, deck: deck ? deck.n : -1, other: otherDeck() ? otherDeck().songId : null }; }, meters: function () { return meters; }, afterMode: afterMode, currentSection: function () { return state.section; }
   };
   engine.hooks.push(function () { applyLevels(); });
