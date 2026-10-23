@@ -335,6 +335,18 @@ try {
   const ml = await j("POST", "/license/link", { key: memKey, device: mk.device }, mem);
   ok(mo.clientSecret && mk.ok && ml.ok && ml.church === "Grace 95 " + S && (await j("GET", "/me", null, mem)).church.name === "Grace 95 " + S && (await one("SELECT c.personal FROM licenses l JOIN churches c ON c.id=l.church_id WHERE regexp_replace(l.key,'-','','g')=$1", [memKey.replace(/-/g, "")])).personal,
     "...but buys \"Just me\": a key of their own (not the church's) that works while they stay in the church", { ml });
+  // renewing updates for your own key: same price and rules as a church's, billed to you
+  const dl2 = await j("GET", "/downloads", null, solo), uk = dl2.apps.find((a) => a.kind === "U").keys[0], pk0 = dl2.apps.find((a) => a.kind === "P").keys[0];
+  ok(uk.renewable && /^\d+\.\d+$/.test(uk.updatesUntil) && !pk0.renewable && pk0.updatesUntil === "forever" && dl2.renewalCents === 2000, "Downloads: your own Central Usage key can be renewed ($20); Pedal Control keys get updates forever", { uk, pk0 });
+  const upd0 = (await one("SELECT updates_until FROM licenses WHERE regexp_replace(key,'-','','g')=$1", [uk.key.replace(/-/g, "")])).updates_until;
+  const rn = await j("POST", "/checkout/renew", { keys: [uk.key], for: "me" }, solo), rs = lastSession();
+  ok(rn.clientSecret && rs.customer === (await one("SELECT stripe_customer FROM users WHERE id=$1", [soloId])).stripe_customer && rs.line_items[0].price_data.unit_amount === "2000" && /Update renewal/.test(rs.line_items[0].price_data.product_data.name),
+    "Renew: $20 for ten more releases, billed to the person", rs);
+  await hook("checkout.session.completed", { id: rn.session, object: "checkout.session", payment_status: "paid", payment_intent: "pi_solo_renew_" + S, amount_total: 2000, customer_details: { email: E("solo") } });
+  ok((await one("SELECT updates_until FROM licenses WHERE regexp_replace(key,'-','','g')=$1", [uk.key.replace(/-/g, "")])).updates_until === upd0 + 10, "...paid: ten more releases");
+  const churchKey = (await one("SELECT key FROM licenses WHERE church_id=$1 AND kind='U' LIMIT 1", [cid])).key;
+  ok((await j("POST", "/checkout/renew", { keys: [memKey], for: "me" }, solo))._status === 404 && (await j("POST", "/checkout/renew", { keys: [churchKey], for: "me" }, mem))._status === 404 && (await j("POST", "/checkout/renew", { keys: [uk.key], for: "me" }, mem))._status === 404,
+    "only your own keys: not someone else's, and not a church's (that's the church's renewal)");
   // and their own sound plan, pasted into the Central Usage their church gave them
   const memU = newKeyStr("U");
   await q("INSERT INTO licenses (key,product,kind,church_id,assigned_email,updates_until) VALUES ($1,'made','U',$2,$3,105)", [memU, cid, E("member")]);

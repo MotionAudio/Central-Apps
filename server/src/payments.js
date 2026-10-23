@@ -173,11 +173,12 @@ function describe(p) {   // the line under a product on the payment form and the
 }
 
 // renewing keys: $20 each (a % code applies), ten more full releases each, from where its updates end now
-export async function renewCheckout(user, church, keys, code) {
+// (personal: "Just me" keys - the person's own, billed to them; error words say "yours" instead of the church's)
+export async function renewCheckout(user, church, keys, code, personal) {
   const rows = [];
   for (const k of (Array.isArray(keys) ? keys : []).slice(0, 25)) {
     const l = await one("SELECT * FROM licenses WHERE regexp_replace(upper(key),'[^A-Z0-9]','','g')=$1 AND church_id=$2", [canon(k), church.id]);
-    if (!l) throw err("Key " + k + " isn't one of " + church.name + "'s.", 404);
+    if (!l || (personal && l.user_id !== user.id)) throw err("Key " + k + (personal ? " isn't one of yours." : " isn't one of " + church.name + "'s."), 404);
     if (l.kind === "P") throw err("Pedal and Pedal Control keys get updates forever: nothing to renew.");
     if (l.trial || l.revoked) throw err("Key " + pretty(l.key) + " can't be renewed.");
     if (!rows.some((x) => x.key === l.key)) rows.push(l);
@@ -186,7 +187,7 @@ export async function renewCheckout(user, church, keys, code) {
   const disc = await percentCode(code, church);
   needStripe();
   const s = await stripe.checkout.sessions.create({
-    ...STUDIO, mode: "payment", submit_type: "auto", customer: await churchCustomer(church),
+    ...STUDIO, mode: "payment", submit_type: "auto", customer: personal ? await customerFor(user) : await churchCustomer(church),
     line_items: rows.map((l) => line(RENEWAL.name + " · " + l.kind + " key …" + l.key.slice(-4), off(RENEWAL.cents, disc), 1, TAX_CODES.software, "Updates through " + fmt((l.updates_until || 0) + COVER_RELEASES))),
     metadata: { kind: "renew", church_id: String(church.id) },
     return_url: back("renewed"),
