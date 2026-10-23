@@ -43,9 +43,11 @@ is logged and skipped.  Config: /data/pad-pedal/hardware.json (falls back to
 import argparse
 import asyncio
 import copy
+import datetime
 import hashlib
 import uuid
 import hmac
+import io
 import json
 import logging
 import mimetypes
@@ -59,6 +61,7 @@ import socket
 import struct
 import sys
 import subprocess
+import tempfile
 import threading
 import zipfile
 import time
@@ -95,7 +98,7 @@ SYSTEM_SCRIPT = "/usr/local/sbin/pad-pedal-system"
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".oga", ".m4a", ".aac", ".aif", ".aiff", ".opus")
 CHART_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".txt", ".cho", ".chopro", ".crd", ".pro", ".onsong")
 SF2_EXTENSIONS = (".sf2", ".sf3")
-UPLOAD_KINDS = ("stems", "sounds", "charts", "sf2")
+UPLOAD_KINDS = ("stems", "sounds", "charts", "sf2", "soundzip")
 
 # Pins the standard build keeps for other jobs (see wiring.html):
 #   2,3 I2C (ADS1115 knobs, MCP23017)   18,19,21 I2S DAC (click / MD output)
@@ -651,6 +654,54 @@ def read_json(path, default):
             return json.load(handle)
     except Exception:
         return default
+
+
+PLAN_NAMES = {"keys": "Central Keys", "plugins": "Central Plugins", "instrument": "Central Instrument", "pedals": "Central Pedals"}
+
+
+def clean_packages(items):
+    """The sound plan packages the app keeps with the pedal (keys like SXXX-XXXX-XXXX-XXXX and what each one opens)."""
+    out = []
+    for p in items if isinstance(items, list) else []:
+        if not isinstance(p, dict) or not isinstance(p.get("key"), str) or not re.fullmatch(r"[A-Z0-9-]{8,40}", p["key"]):
+            continue
+        plans = {k: str(v)[:40] for k, v in (p.get("plans") or {}).items() if k in PLAN_NAMES} if isinstance(p.get("plans"), dict) else {}
+        q = {"key": p["key"], "plans": plans}
+        for k in ("end", "holder", "church", "error"):
+            if isinstance(p.get(k), str):
+                q[k] = p[k][:120]
+        if isinstance(p.get("okAt"), (int, float)):
+            q["okAt"] = p["okAt"]
+        if p.get("ok") is False:
+            q["ok"] = False
+        out.append(q)
+    return out[:20]
+
+
+def package_lines(items, now=None):
+    """For the small screens: one short line per package ("Central Keys, Central Pedals · to 10/23/2027" or why it stopped)."""
+    now = time.time() if now is None else now
+    lines = []
+    for p in items or []:
+        plans = p.get("plans") or {}
+        ends = []
+        for v in plans.values():
+            try:
+                ends.append(datetime.datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp())
+            except Exception:
+                pass
+        names = ", ".join(PLAN_NAMES[k] for k in ("keys", "plugins", "instrument", "pedals") if k in plans) or "no plans"
+        stale = p.get("okAt") and now - p["okAt"] / 1000.0 > 14 * 86400
+        if p.get("ok") is False:
+            state = p.get("error") or "not valid"
+        elif ends and max(ends) < now:
+            state = "ended"
+        elif stale:
+            state = "needs the internet to check"
+        else:
+            state = ("to " + time.strftime("%m/%d/%Y", time.localtime(max(ends)))) if ends else "active"
+        lines.append("%s · %s" % (names, state))
+    return lines
 
 
 def write_json(path, value):
@@ -1829,7 +1880,8 @@ class CompanionServer:
                 if p == "/api/info":
                     return self.send_json(200, {"hostname": socket.gethostname(), "wsPort": driver.config["lan_ws_port"], "version": VERSION, "appVersion": APP_VERSION, "addresses": ip_addresses(),
                                                 "interfaces": ip_interfaces(), "netAudio": {"mode": driver.netaudio.cfg["mode"]}, "audioHost": driver.public_audio_host(), "center": driver.center_link.info() if driver.center_link.connected else None,
-                                                "displays": {k: v for k, v in driver.displays_config().items() if k in ("hdmi1", "hdmi2", "touchKind")}})
+                                                "displays": {k: v for k, v in driver.displays_config().items() if k in ("hdmi1", "hdmi2", "touchKind")},
+                                                "packages": package_lines(read_json(os.path.join(driver.config["data_root"], "packages.json"), []))})
                 if p == "/api/hub":   # songs on the Central Pedal, for Central Control
                     return self.send_json(200, {"songs": driver.hub_listing()})
                 if p.startswith("/api/hub/"):
@@ -2692,6 +2744,7 @@ class MiniScreen:
         self.tab, self.sub, self.pages, self.override = "pads", {}, {}, {}
         self.active, self.drag_at, self.confirm, self.confirm_at = None, 0.0, None, 0.0
         self.pick_screen, self.touch_msg = None, ""
+        self.notice, self.notice_at = "", 0.0   # (a line along the bottom for a few seconds: "Part of Central Pedals · $50 a year…")
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -2857,6 +2910,10 @@ class MiniScreen:
             log.debug("small screen page %s: %s", tab, error)
             self.text(g, (W / 2, H / 2), "…", self.F["num"], C["muted"], "mm")
         self.tabbar(g, hits, tab)
+        if self.notice and time.monotonic() - self.notice_at < self.NOTICE_S:
+            g.rounded_rectangle([4, H - 88, W - 4, H - 46], 9, fill=(40, 34, 20), outline=C["accent"], width=2)
+            self.lock_icon(g, 12, H - 79, 22, C["accent"])
+            self.text(g, (42, H - 67), self.notice, self.F["label"], C["text"], "lm", W - 54)
         ts = getattr(self.driver, "touch_select", None)
         if ts and ts.get("label"):
             # the touch-select knob: which setting it holds, and which way to turn to pick it up
@@ -3114,8 +3171,13 @@ class MiniScreen:
             self.button(g, hits, [6, y0, 66, y1], "‹", {"name": "patchPrev" if keys else "boardPrev"}, font=self.F["num"])
             self.button(g, hits, [W - 66, y0, W - 6, y1], "›", {"name": "patchNext" if keys else "boardNext"}, font=self.F["num"])
             g.rounded_rectangle([72, y0, W - 72, y1], 10, fill=C["bar"], outline=C["line"])
+            locked = ins.get("patchLocked") if keys else ins.get("boardLocked")
             self.text(g, (W / 2, y0 + 16), "SOUND" if keys else "BOARD", self.F["tiny"], C["muted"], "mm")
-            self.text(g, (W / 2, y0 + 40), name or ("pick a sound" if keys else "pick a board"), self.F["title"], C["text"], "mm", W - 160)
+            self.text(g, (W / 2, y0 + (34 if locked else 40)), name or ("pick a sound" if keys else "pick a board"), self.F["title"], C["muted"] if locked else C["text"], "mm", W - 160)
+            if locked:
+                self.lock_icon(g, 80, y0 + 6, 16, C["accent"])
+                self.text(g, (W / 2, y0 + 54), ("muted · " if keys else "locked pedals bypassed · ") + locked, self.F["tiny"], C["accent"], "mm", W - 156)
+                hits.append(([72, y0, W - 72, y1], {"local": "say", "text": locked + (" - this sound is muted until the plan is active." if keys else " - its locked pedals are bypassed until the plan is active.")}))
         lv = ins.get("levelDb") or 0
         self.fader(g, hits, [6, 190, W - 6, 230], "Instrument level", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
         self.button(g, hits, [6, 236, W / 2 - 3, H - 46], "TUNER", {"name": "tuner"}, on=bool(ins.get("tuner")))
@@ -3135,6 +3197,14 @@ class MiniScreen:
             r, c = divmod(j, 3)
             x, y = 6 + c * (cw + 5), gy0 + r * (ch + 5)
             on = bool(p.get("on"))
+            if p.get("locked"):
+                box = [x, y, x + cw, y + ch]
+                g.rounded_rectangle(box, 9, fill=C["bar"], outline=C["line"], width=1)
+                self.lock_icon(g, x + 8, y + 6, 16, C["accent"])
+                self.text(g, (x + 28, y + 7), "LOCKED", self.F["tiny"], C["accent"])
+                self.text(g, (x + 8, y + ch - 8), p.get("name") or "Pedal", self.F["label"], C["muted"], "ld", cw - 14)
+                hits.append((list(map(int, box)), {"local": "say", "text": p["locked"] + " - bypassed until the plan is active."}))
+                continue
             col = p.get("color")
             rgb = tuple(int(col[k:k + 2], 16) for k in (1, 3, 5)) if isinstance(col, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", col) else C["accent"]
             box = [x, y, x + cw, y + ch]
@@ -3157,7 +3227,9 @@ class MiniScreen:
         for k in shown:
             label = (k.get("pedal") or "") + " · " + (k.get("label") or "")
             self.fader(g, hits, [6, y, W - 6, y + rh], label, k.get("value") or 0, {"name": "pedalKnob", "args": {"uid": k.get("uid"), "sym": k.get("sym")}},
-                       valtext=k.get("text"), dim=not k.get("on", True))
+                       valtext="locked" if k.get("locked") else k.get("text"), dim=not k.get("on", True) or bool(k.get("locked")))
+            if k.get("locked"):
+                hits[-1] = ([6, int(y), W - 6, int(y + rh)], {"local": "say", "text": k["locked"] + " - bypassed until the plan is active."})
             y += rh
 
     def instrument_tune(self, g, hits, d, ins):
@@ -3281,11 +3353,17 @@ class MiniScreen:
         except Exception:
             code = ""
         lines = [("Central Pedal", APP_VERSION), ("Address", ", ".join(addrs[:2]) or "not on a network"), ("Pairing code", code or "–")]
+        try:
+            pk = package_lines(read_json(os.path.join(self.driver.config["data_root"], "packages.json"), [])) if self.driver else []
+        except Exception:
+            pk = []
+        lines += [("Packages" if i == 0 else "", v) for i, v in enumerate(pk[:2])] or [("Packages", "none - free sounds and pedals")]
         y = 80
         for k, v in lines:
             self.text(g, (10, y), k, self.F["label"], C["muted"])
             self.text(g, (130, y), v, self.F["label"], C["text"], "la", W - 140)
             y += 22
+        self.text(g, (130, y), "Add a package in the app or Pedal Control", self.F["sub"], C["muted"], "la", W - 140)
         bw = (W - 12 - 10) / 3
         by0, by1 = H - 46 - 64, H - 50
         self.button(g, hits, [6, by0, 6 + bw, by1], "CALIBRATE", {"local": "calibrate"}, sub="the touch")
@@ -3293,10 +3371,30 @@ class MiniScreen:
         self.button(g, hits, [6 + 2 * bw + 10, by0, W - 6, by1], "SHUT DOWN", {"local": "shutdown"}, on=self.confirm == "shutdown", fill=C["stop"], sub="tap again" if self.confirm == "shutdown" else "safely")
 
     # ----- what a touch does ----------------------------------------------------------------------------------------
+    NOTICE_S = 3.5
+
+    def lock_icon(self, g, x, y, size, color):
+        """A padlock (drawn: the screen's font has no lock glyph): its body and its shackle, size px high."""
+        s = float(size)
+        g.rounded_rectangle([x, y + s * 0.42, x + s * 0.82, y + s], max(1, int(s * 0.12)), fill=color)
+        g.arc([x + s * 0.16, y, x + s * 0.66, y + s * 0.84], 180, 360, fill=color, width=max(2, int(s * 0.13)))
+        g.line([x + s * 0.18, y + s * 0.42, x + s * 0.18, y + s * 0.47], fill=color, width=max(2, int(s * 0.13)))
+        g.line([x + s * 0.64, y + s * 0.42, x + s * 0.64, y + s * 0.47], fill=color, width=max(2, int(s * 0.13)))
+
+    def say(self, text):
+        """Show a line along the bottom for a few seconds (which plan opens a locked pedal or sound)."""
+        self.notice, self.notice_at = str(text or ""), time.monotonic()
+        if self.driver:
+            t = threading.Timer(self.NOTICE_S + 0.1, lambda: self.driver.schedule_mini_render(force=True))
+            t.daemon = True
+            t.start()
+
     def local(self, a):
         """The small screen's own buttons: tabs, pages, HDMI choices, restart / shut down (asked twice)."""
         kind = a.get("local")
-        if kind == "tab":
+        if kind == "say":
+            self.say(a.get("text"))
+        elif kind == "tab":
             self.tab = a.get("value") or "pads"
         elif kind == "sub":
             self.tab = a.get("tab") or self.tab
@@ -7070,6 +7168,7 @@ class PedalDriver:
             "player": os.environ.get("CC_PLAYER") == "1",
             "licenseKey": preset_license_key(self.config["data_root"]),
             "licenseState": read_json(os.path.join(self.config["data_root"], "license-state.json"), None),
+            "packages": read_json(os.path.join(self.config["data_root"], "packages.json"), []),
             "deviceId": device_id(),
             "hostname": socket.gethostname(),
             "midi": bool(self.midi and self.midi.available),
@@ -7332,6 +7431,15 @@ class PedalDriver:
         elif kind == "serviceLock":   # the LIVE screen's service lock: shown on the small screen
             self.service_lock = bool(message.get("on"))
             self.schedule_mini_render()
+        elif kind == "packages":   # the sound plan packages: kept with the pedal, so the app, Pedal Control and both small screens see the same ones
+            path = os.path.join(self.config["data_root"], "packages.json")
+            if message.get("action") == "save":
+                items = clean_packages(message.get("packages"))
+                write_json(path, items)
+                self.emit({"type": "packages", "packages": items}, lan=True)
+                self.schedule_mini_render(force=True)
+            else:
+                self.send_to(ws, {"type": "packages", "packages": read_json(path, [])})
         elif kind == "tunerView":
             self.tuner_view = {k: message.get(k) for k in ("note", "cents", "on")} if message.get("on") else None
             self.schedule_mini_render()
@@ -7471,6 +7579,29 @@ class PedalDriver:
                 self.send_to(ws, {"type": "hardware", "config": self.config, "saved": True})
 
     # ----- uploads ----------------------------------------------------------
+    def install_sound_zip(self, name, data):
+        """Unpack a sound zip safely (names flattened, sizes capped) and add it to the keys sounds: every .sf2 inside, else
+        one bank built from the WAVs named by note."""
+        base = re.sub(r"[^\w.\- ]+", "", os.path.splitext(os.path.basename(name or "Sound"))[0])[:40] or "Sound"
+        added, total = [], 0
+        with zipfile.ZipFile(io.BytesIO(data)) as zf, tempfile.TemporaryDirectory(prefix="ct-sound-") as tmp:
+            for zi in zf.infolist():
+                fn = os.path.basename(zi.filename)
+                if zi.is_dir() or not fn or fn.startswith((".", "_")) or not fn.lower().endswith((".sf2", ".sf3", ".wav")):
+                    continue
+                total += zi.file_size
+                if zi.file_size > 600 * 1024 * 1024 or total > 1200 * 1024 * 1024:
+                    raise ValueError("that sound is too big to unpack")
+                if fn.lower().endswith((".sf2", ".sf3")):
+                    added.append(self.instrument.add_sf2(base + " - " + fn, zf.read(zi))["file"])
+                else:
+                    with zf.open(zi) as src, open(os.path.join(tmp, re.sub(r"[^\w#.\- ]+", "", fn)), "wb") as out:
+                        shutil.copyfileobj(src, out)
+            if not added:
+                info = self.instrument.add_wav_bank(base, tmp)
+                return {"file": info["file"], "banks": 1, "samples": info.get("samples", 0)}
+        return {"file": added[-1], "banks": len(added)}
+
     def handle_upload(self, kind, name, song, data, announce=True):
         kind = kind if kind in UPLOAD_KINDS else "stems"
         name = safe_name(name)
@@ -7487,6 +7618,19 @@ class PedalDriver:
                 except Exception:
                     pass
             return {"ok": True, "kind": "sf2", "name": name, "presets": info["presets"], "file": info["file"]}
+        if kind == "soundzip":   # a Central Tracks "Sound": a zip with .sf2 banks, or WAVs named by note (C4.wav…) -> a keys / instrument bank
+            if not self.instrument:
+                return {"error": "instrument host not available"}
+            try:
+                info = self.install_sound_zip(name, data)
+            except (ValueError, OSError, zipfile.BadZipFile) as error:
+                return {"error": str(error)}
+            if announce:
+                try:
+                    self.emit(self.instrument.status())
+                except Exception:
+                    pass
+            return dict(info, ok=True, kind="soundzip", name=name)
         if kind == "charts":
             info = self.charts.from_file(name, data)
             result = {"ok": True, "kind": "charts", "name": name, "song": song, "chart": info}

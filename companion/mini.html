@@ -58,6 +58,11 @@
   .picker { display:grid; grid-template-columns:12vh 1fr 12vh; gap:1.2vh; height:20vh; } .picker .name { border:1px solid var(--line); border-radius:2vh; background:var(--bar); display:grid; place-content:center; text-align:center; min-width:0; } .picker .name small { color:var(--muted); font-size:2.6vh; font-weight:650; } .picker .name b { font-size:4.8vh; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60vw; }
   .picker .btn { font-size:7vh; }
   .pedals { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); gap:1.2vh; min-height:0; }
+  /* plans: locked pedals and sounds are dimmed with a lock; a tap says which plan opens them */
+  .lock { display:inline-block; width:2.6vh; height:2.6vh; vertical-align:-.3vh; margin-right:.8vh; color:var(--accent); } .lock svg { width:100%; height:100%; display:block; }
+  .pedal.locked { background:var(--bar) !important; border-color:var(--line) !important; } .pedal.locked small { color:var(--accent); } .pedal.locked b { color:var(--muted); }
+  .locknote { display:block; color:var(--accent); font-size:2.6vh; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .notice { position:fixed; left:1vh; right:1vh; bottom:13.5%; padding:1.6vh 2vh; border:2px solid var(--accent); border-radius:2vh; background:#28220f; font-size:3.4vh; z-index:5; }
   .pedal { border:1px solid var(--line); border-radius:2vh; background:var(--btn); display:flex; flex-direction:column; justify-content:space-between; padding:1.4vh; text-align:left; min-height:0; overflow:hidden; }
   .pedal small { font-size:2.6vh; color:var(--muted); display:flex; align-items:center; gap:1vh; } .pedal small::before { content:""; width:2vh; height:2vh; border-radius:50%; background:var(--track); }
   .pedal b { font-size:3.6vh; font-weight:600; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -107,6 +112,12 @@
       '<span class="nm">' + esc(label) + '</span><div class="fader" data-fader="' + esc(act) + '" data-args=\'' + esc(JSON.stringify(args || {})) + '\'><i><b style="width:' + (v * 100).toFixed(1) + '%"></b></i><em style="left:' + (v * 100).toFixed(1) + '%"></em></div><span class="val">' + esc(valtext != null ? valtext : Math.round(v * 100) + "%") + "</span></div>";
   }
   function db(v) { v = Number(v) || 0; return (v > 0 ? "+" : "") + v + " dB"; }
+  var LOCK = '<span class="lock"><svg viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="8" rx="1.6" fill="currentColor"/><path d="M5.2 7V5.2a2.8 2.8 0 0 1 5.6 0V7" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>';
+  var noticeTimer = 0;
+  function say(text) {   // a line over the page for a few seconds (which plan opens a locked pedal or sound)
+    var n = document.getElementById("notice"); if (!n) { n = document.createElement("div"); n.id = "notice"; n.className = "notice"; document.body.appendChild(n); }
+    n.innerHTML = LOCK + esc(text); n.style.display = ""; clearTimeout(noticeTimer); noticeTimer = setTimeout(function () { n.style.display = "none"; }, 3500);
+  }
 
   var PAGES = {
     pads: function (d) {
@@ -139,17 +150,18 @@
     instrument_sound: function (d, ins) {
       var keys = ins.kind === "keys", off = ins.kind === "off", kinds = (ins.kinds || []).map(function (k) { return k[0]; });
       return chips("instrument") + '<div class="content" style="grid-template-rows:auto auto auto 1fr"><div class="kinds">' + kinds.map(function (k) { return btn(KINDS[k] || k, "instrumentKindSet", { kind: k }, k === ins.kind); }).join("") + "</div>" +
-        (off ? '<div class="picker"><div class="name" style="grid-column:1/-1"><b>The instrument is off - pick one above</b></div></div>' : '<div class="picker">' + btn("‹", keys ? "patchPrev" : "boardPrev") + '<div class="name"><small>' + (keys ? "SOUND" : "BOARD") + "</small><b>" + esc((keys ? ins.patch : ins.board) || "–") + "</b></div>" + btn("›", keys ? "patchNext" : "boardNext") + "</div>") +
+        (off ? '<div class="picker"><div class="name" style="grid-column:1/-1"><b>The instrument is off - pick one above</b></div></div>' : '<div class="picker">' + btn("‹", keys ? "patchPrev" : "boardPrev") + '<div class="name"' + ((keys ? ins.patchLocked : ins.boardLocked) ? ' data-say="' + esc((keys ? ins.patchLocked + " - this sound is muted until the plan is active." : ins.boardLocked + " - its locked pedals are bypassed until the plan is active.")) + '"' : "") + "><small>" + ((keys ? ins.patchLocked : ins.boardLocked) ? LOCK : "") + (keys ? "SOUND" : "BOARD") + "</small><b>" + esc((keys ? ins.patch : ins.board) || "–") + "</b></div>" + btn("›", keys ? "patchNext" : "boardNext") + "</div>") +
         fader("Instrument level", "instrumentLevel", {}, ((ins.levelDb || 0) + 30) / 42, db(ins.levelDb)) +
         '<div class="grid4" style="grid-template-columns:1fr 1fr;grid-template-rows:1fr">' + btn("TUNER", "tuner", {}, !!ins.tuner) + '<button class="btn" data-sub="pedals">PEDALS</button></div></div>';
     },
     instrument_pedals: function (d, ins) {
       var pg = paged("pedals", ins.pedals || [], 9);
-      return chips("instrument", pg) + '<div class="content pedals">' + (pg.items.map(function (p) { return '<button class="pedal' + (p.on ? " on" : "") + '" style="--c:' + esc(p.color || "#E2C27E") + '" data-act="pedalToggle" data-args=\'{"index":' + p.index + "}'><small>" + (p.on ? "ON" : "off") + "</small><b>" + esc(p.name) + "</b></button>"; }).join("") || '<div class="empty" style="grid-column:1/-1;grid-row:1/-1">No pedals on this board</div>') + "</div>";
+      return chips("instrument", pg) + '<div class="content pedals">' + (pg.items.map(function (p) { if (p.locked) return '<button class="pedal locked" data-say="' + esc(p.locked + " - bypassed until the plan is active.") + '"><small>' + LOCK + "LOCKED</small><b>" + esc(p.name) + "</b></button>";
+        return '<button class="pedal' + (p.on ? " on" : "") + '" style="--c:' + esc(p.color || "#E2C27E") + '" data-act="pedalToggle" data-args=\'{"index":' + p.index + "}'><small>" + (p.on ? "ON" : "off") + "</small><b>" + esc(p.name) + "</b></button>"; }).join("") || '<div class="empty" style="grid-column:1/-1;grid-row:1/-1">No pedals on this board</div>') + "</div>";
     },
     instrument_eq: function (d, ins) {
       var pg = paged("eq", ins.knobs || [], 5);
-      return chips("instrument", pg) + '<div class="content rows" style="grid-template-rows:repeat(5,1fr)">' + (pg.items.map(function (k) { return fader(k.pedal + " · " + k.label, "pedalKnob", { uid: k.uid, sym: k.sym }, k.value, k.text, null, k.on === false); }).join("") || '<div class="empty">No EQ or compressor on this board.<br>Add one on the Instrument tab (EQ &amp; tone, Compressor, Studio).</div>') + "</div>";
+      return chips("instrument", pg) + '<div class="content rows" style="grid-template-rows:repeat(5,1fr)">' + (pg.items.map(function (k) { if (k.locked) return '<div class="row dim" data-say="' + esc(k.locked + " - bypassed until the plan is active.") + '"><span class="nomute"></span><span class="nm">' + LOCK + esc(k.pedal + " · " + k.label) + '</span><span class="locknote">' + esc(k.locked) + '</span><span class="val">locked</span></div>'; return fader(k.pedal + " · " + k.label, "pedalKnob", { uid: k.uid, sym: k.sym }, k.value, k.text, null, k.on === false); }).join("") || '<div class="empty">No EQ or compressor on this board.<br>Add one on the Instrument tab (EQ &amp; tone, Compressor, Studio).</div>') + "</div>";
     },
     instrument_tune: function (d, ins) {
       var vol = (d.mini || {}).volume; if (vol == null) vol = (d.performance || {}).volume;
@@ -207,6 +219,7 @@
     var t = e.target.closest("[data-tab]"); if (t) { ui.tab = t.dataset.tab; keep(); render(); if (ui.tab === "settings") info(); return; }
     var s = e.target.closest("[data-sub]"); if (s) { if (ui.tab === "pads") return; ui.sub[ui.tab] = s.dataset.sub; keep(); render(); return; }
     var p = e.target.closest("[data-page]"); if (p && !p.disabled) { ui.pages[p.dataset.page] = (ui.pages[p.dataset.page] || 0) + Number(p.dataset.d); render(); return; }
+    var sy = e.target.closest("[data-say]"); if (sy) { e.preventDefault(); say(sy.dataset.say); return; }
     var b = e.target.closest("[data-act]"); if (!b) return; e.preventDefault();
     var args = {}; try { args = JSON.parse(b.dataset.args || "{}"); } catch (_) { }
     C.action(b.dataset.act, args);
