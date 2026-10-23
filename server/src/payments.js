@@ -217,9 +217,17 @@ async function planCode(code, who) {
   if (await one("SELECT 1 FROM plan_code_uses WHERE who=$1 AND code=$2", [who, c])) throw err((who[0] === "c" ? "Your church" : "You") + " already used " + c + " on a sound plan.", 409);
   return { code: c, percent: d.percent, label: d.label };
 }
-async function planCoupon(d) {   // (made once for each code and percent; Stripe keeps it)
-  const id = "MA-" + d.code + "-" + d.percent + "-FIRST-YEAR";
-  try { await stripe.coupons.create({ id, percent_off: d.percent, duration: "once", name: d.code + ": " + d.percent + "% off the first year" }); }
+// what comes off a plan's first year: a typed code wins; otherwise the live sale (as in the store - they don't stack)
+async function planDiscount(code, who) {
+  const d = await planCode(code, who);
+  if (d) return d;
+  const s = await liveSale();
+  return s ? { code: "", sale: s.name || "Sale", percent: s.percent, label: (s.name || "Sale") + ": " + s.percent + "% off" } : null;
+}
+async function planCoupon(d) {   // (made once for each code or sale and percent; Stripe keeps it)
+  const tag = d.code || "SALE-" + (String(d.sale || "").toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 30) || "X");
+  const id = "MA-" + tag + "-" + d.percent + "-FIRST-YEAR";
+  try { await stripe.coupons.create({ id, percent_off: d.percent, duration: "once", name: (d.code || d.sale) + ": " + d.percent + "% off the first year" }); }
   catch (e) { if (!(e.code === "resource_already_exists" || /already exists/i.test(e.message || ""))) throw e; }
   return id;
 }
@@ -243,11 +251,11 @@ export async function planCheckout(user, want, code, only) {
   const held = await q(`SELECT plans, ${PLAN_END} AS ends FROM plan_subs WHERE kind='person' AND user_id=$1 AND ${PLAN_LIVE}`, [user.id]);
   const dup = ids.filter((id) => held.some((h) => h.plans.includes(id)));
   if (dup.length) throw err("You already have " + dup.map((id) => PLANS[id].name).join(" and ") + ". It renews by itself; manage it on your Account page.", 409);
-  const disc = await planCode(code, "u" + user.id);
+  const disc = await planDiscount(code, "u" + user.id);
   const cents = all ? PLAN_ALL.cents : ids.reduce((a, id) => a + PLANS[id].cents, 0);
-  if (only === "check") return { ok: true, plans: ids, cents, percent: disc ? disc.percent : 0 };
+  if (only === "check") return { ok: true, plans: ids, cents, percent: disc ? disc.percent : 0, sale: (disc && disc.sale) || undefined };
   needStripe();
-  const row = await one("INSERT INTO plan_subs (kind,user_id,plans,seats,cents,code) VALUES ('person',$1,$2,1,$3,$4) RETURNING id", [user.id, ids, cents, disc ? disc.code : null]);
+  const row = await one("INSERT INTO plan_subs (kind,user_id,plans,seats,cents,code) VALUES ('person',$1,$2,1,$3,$4) RETURNING id", [user.id, ids, cents, (disc && disc.code) || null]);
   const s = await stripe.checkout.sessions.create({
     ...STUDIO, mode: "subscription", payment_method_collection: "always",
     customer: await customerFor(user),
@@ -269,10 +277,10 @@ export async function bundleCheckout(user, seats, code, only) {
   if (!["church", "owner", "admin"].includes(church.role)) throw err("Only " + church.name + "'s church account, main admins and admins buy for it.", 403);
   const n = Math.floor(Number(seats) || 0), cents = PLAN_BUNDLES[n];
   if (!cents) throw err("Bundles come for " + Object.keys(PLAN_BUNDLES).join(", ").replace(/, (\d+)$/, " or $1") + " people.");
-  const disc = await planCode(code, "c" + church.id);
-  if (only === "check") return { ok: true, seats: n, cents, percent: disc ? disc.percent : 0 };
+  const disc = await planDiscount(code, "c" + church.id);
+  if (only === "check") return { ok: true, seats: n, cents, percent: disc ? disc.percent : 0, sale: (disc && disc.sale) || undefined };
   needStripe();
-  const row = await one("INSERT INTO plan_subs (kind,user_id,church_id,plans,seats,cents,code) VALUES ('bundle',$1,$2,$3,$4,$5,$6) RETURNING id", [user.id, church.id, PLAN_IDS, n, cents, disc ? disc.code : null]);
+  const row = await one("INSERT INTO plan_subs (kind,user_id,church_id,plans,seats,cents,code) VALUES ('bundle',$1,$2,$3,$4,$5,$6) RETURNING id", [user.id, church.id, PLAN_IDS, n, cents, (disc && disc.code) || null]);
   const s = await stripe.checkout.sessions.create({
     ...STUDIO, mode: "subscription", payment_method_collection: "always",
     customer: await churchCustomer(church),

@@ -48,7 +48,7 @@ export const PRODUCTS = {
 // Discount codes (typed in the cart; any capitals). Staff change them on the website's price page.
 // percent codes: off everything but the built pedal (keys, packs, slots, renewals; not monthly plans); once per church.
 // They also take that much off the first year of a sound plan (once per person, or once per church for a bundle),
-// unless the code has plans: false.
+// unless the code has plans: false. With no code typed, a live sale (the staff Sale page) does the same; they don't stack.
 // trial codes: everything free for that long (unlimited keys, Central Services, Central Tracks Unlimited); one free code
 // per church or production company, ever.
 export const DISCOUNTS = {

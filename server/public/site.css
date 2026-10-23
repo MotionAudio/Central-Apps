@@ -134,10 +134,11 @@ section{padding-block:clamp(3.5rem,8vw,6rem)}
 .salebar a{margin-left:auto;color:var(--stage);font-weight:600;text-underline-offset:.2em}
 
 /* store: how keys work */
-.keydefs{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem 2rem;margin:1.6rem 0 0;padding:1.3rem 0 0;border-top:1px solid var(--line)}
+.keydefs{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem 2rem;margin:1.6rem 0 0;padding:1.3rem 0 0;border-top:1px solid var(--line)}
 .keydefs div{display:grid;grid-template-columns:auto 1fr;gap:.1rem .75rem;align-content:start}
 .keydefs dt{grid-row:span 2;font-weight:650;font-stretch:110%;font-size:1.05rem;width:2.1rem;height:2.1rem;display:grid;place-items:center;border:1px solid var(--line-2);border-radius:var(--r-sm)}
 .keydefs dd{margin:0;font-size:.92rem;color:var(--ink-2)}
+.keydefs dt{min-width:2.1rem;width:auto;padding:0 .45rem;justify-self:start}
 .keydefs dd b{color:var(--ink);font-weight:600}
 @media (max-width:1100px){.keydefs{grid-template-columns:repeat(2,1fr);gap:1.2rem 2.5rem}}
 @media (max-width:620px){.keydefs{grid-template-columns:1fr;gap:1rem}}
@@ -163,7 +164,7 @@ section{padding-block:clamp(3.5rem,8vw,6rem)}
 .plan-all .btn{justify-self:end}
 .bundles-head{margin:2.2rem 0 .4rem}.bundles-head h4{font-size:1.1rem}.bundles-head p{color:var(--ink-2);margin:.2rem 0 0;max-width:62ch}
 .bundles{border-top:1px solid var(--ink)}
-.bundle-row{display:grid;grid-template-columns:minmax(0,1fr) 9rem 9rem 11.5rem;gap:1rem;align-items:center;padding:.8rem 0;border-bottom:1px solid var(--line)}
+.bundle-row{display:grid;grid-template-columns:minmax(0,1fr) 9rem 13rem 11.5rem;gap:1rem;align-items:center;padding:.8rem 0;border-bottom:1px solid var(--line)}
 .bundle-row .price{font-size:1.25rem;white-space:nowrap;text-align:right}.bundle-row .price small{margin-left:.3rem;font-size:.75rem}.bundle-row .btn{justify-self:end}
 @media (max-width:760px){.plan-all{grid-template-columns:1fr auto}.plan-all .btn{grid-column:1/-1;justify-self:start}.bundle-row{grid-template-columns:1fr auto;gap:.3rem 1rem}.bundle-row .muted{grid-row:2}.bundle-row .btn{grid-row:2;grid-column:2}}
 .cart-plans{display:grid;gap:.6rem;padding-top:.6rem;border-top:1px solid var(--line)}
