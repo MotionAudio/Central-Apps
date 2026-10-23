@@ -90,7 +90,7 @@ await check("talkback from an interface input: only the chosen mix hears it, at 
   const before = await t.meters((x) => mixPeak(x, 0) > 0.25 && mixPeak(x, 1) > 0.25);
   assert.ok(Math.abs(mixPeak(before, 0) - 0.3) < 0.03, "music alone " + mixPeak(before, 0));
   t.cmd({ cmd: "talk", slot: 0, on: 1, src: 1, ch: 2, gain: 0, dim: 0, mixes: [0] });
-  const on = await t.meters((x) => mixPeak(x, 0) > 0.6 && x.talk[0] > 0.4);
+  const on = await t.meters((x) => mixPeak(x, 0) > 0.6 && x.talk[0] > 0.45, 8000);   // (a slow machine meters the talk fading in first)
   assert.ok(mixPeak(on, 0) > 0.6 && mixPeak(on, 0) < 0.85, "mix 1 with talkback " + mixPeak(on, 0));
   assert.ok(Math.abs(mixPeak(on, 1) - 0.3) < 0.03, "mix 2 doesn't hear it: " + mixPeak(on, 1));
   assert.ok(Math.abs(on.talk[0] - 0.5) < 0.06, "talk meter " + on.talk[0]);

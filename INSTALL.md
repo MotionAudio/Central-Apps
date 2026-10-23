@@ -216,7 +216,27 @@ No internet on the Pi? Put the newest `central-control-source.zip` on a USB stic
 **Settings → Update software from USB…**.
 
 ### A fresh SD card
-Build the image on your Ubuntu PC (40–60 minutes the first time, about 15 GB free):
+**The easy way: one line.** Put the SD card in your Ubuntu PC, open a terminal and paste:
+
+```bash
+curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash
+```
+
+It asks nothing but which card (and ERASE to be sure), then downloads, builds and writes the card by itself
+(about 45 minutes the first time). Every sound fits on a 32 GB card; a 16 GB card gets all but the big grand piano.
+
+**First start: set it up from a phone.** Put the card in the Pi and plug in the power. With no network, the pedal
+makes its own Wi-Fi, **Central Pedal Setup**. Join it on a phone and the setup page opens by itself (or go to
+http://10.42.0.1). Pick the church Wi-Fi, the touch screen and the 4-digit code, then **Upload**:
+
+- If you use Central Control, type the main admin's code: that pairs the pedal with it.
+- If not, pick any 4 digits. Central Pedal Control connects with the same code.
+
+The pedal joins the Wi-Fi, downloads the screen's driver and restarts once. A wrong password? *Central Pedal Setup*
+comes back in about a minute and the page says what happened. Later (a new building), **Settings → Wi-Fi → Turn the
+setup Wi-Fi on** runs it again; it also comes back by itself when the saved Wi-Fi is gone for two minutes.
+
+**By hand:** build the image on your Ubuntu PC (40–60 minutes the first time, about 15 GB free):
 
 ```bash
 mkdir -p ~/Downloads/central && cd ~/Downloads/central

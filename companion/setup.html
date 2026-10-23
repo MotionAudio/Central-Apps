@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111317">
+<title>Set up Central Pedal</title>
+<style>
+  :root { --bg:#111317; --card:#1A1D22; --text:#ECE7DD; --muted:#9AA1AB; --accent:#E2C27E; --line:#343A44; --btn:#23272E; --ontext:#1A1408; --bad:#F2A07B; --good:#7FD1A8; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 520px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 26px; line-height: 1.15; margin: 8px 0 4px; letter-spacing: -0.01em; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 0 0 14px; }
+  h2 { font-size: 17px; margin: 0 0 4px; display: flex; gap: 10px; align-items: baseline; }
+  h2 b { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .hint { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+  .nets { display: grid; gap: 6px; max-height: 300px; overflow: auto; margin: 0 0 10px; }
+  .net { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--btn); color: var(--text); font: inherit; }
+  .net[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .net span { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .net .lock, .net .bars { flex: none; }
+  .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; }
+  .bars i { width: 4px; background: var(--line); border-radius: 1px; }
+  .bars i.on { background: var(--text); }
+  .lock { color: var(--muted); font-size: 13px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 6px; }
+  input, select { width: 100%; padding: 13px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0C0E11; color: var(--text); font: inherit; font-size: 16px; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .code { font-size: 28px; letter-spacing: 0.5em; text-align: center; font-variant-numeric: tabular-nums; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .link { background: none; border: 0; color: var(--accent); font: inherit; font-size: 14px; padding: 6px 0; text-decoration: underline; }
+  .go { width: 100%; padding: 16px; border: 0; border-radius: 12px; background: var(--accent); color: var(--ontext); font: inherit; font-size: 18px; font-weight: 700; margin-top: 6px; }
+  .go[disabled] { opacity: 0.6; }
+  .msg { margin: 12px 0 0; font-size: 15px; }
+  .msg.bad { color: var(--bad); }
+  .msg.good { color: var(--good); }
+  .banner { border-color: var(--bad); color: var(--bad); }
+  .done h2 { color: var(--good); }
+  .done ol { margin: 8px 0 0; padding-left: 20px; }
+  .hidden { display: none !important; }
+  .check { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .check input { width: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Set up Central Pedal</h1>
+  <p class="lead" id="lead">Three things, then Upload. The pedal does the rest.</p>
+
+  <section class="banner hidden" id="lastError" role="alert"></section>
+
+  <form id="form" novalidate>
+    <section id="wifiBox">
+      <h2><b>1</b> Wi-Fi</h2>
+      <p class="hint">The Wi-Fi the pedal uses at church.</p>
+      <div class="nets" id="nets" role="list"></div>
+      <div class="row"><button type="button" class="link" id="otherBtn">Other network (hidden)</button><span style="flex:1"></span><button type="button" class="link" id="rescan">Look again</button></div>
+      <div id="otherBox" class="hidden">
+        <label for="ssid">Network name</label>
+        <input id="ssid" autocomplete="off" autocapitalize="none" spellcheck="false">
+      </div>
+      <div id="passBox" class="hidden">
+        <label for="password">Password for <span id="passFor"></span></label>
+        <input id="password" type="password" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <label class="check"><input type="checkbox" id="showPass"> Show the password</label>
+      </div>
+      <p class="msg bad" id="wifiErr" aria-live="polite"></p>
+    </section>
+
+    <section>
+      <h2><b>2</b> Touch screen</h2>
+      <p class="hint">The screen on the pedal. Most pedals have the blue 3.5" one. The pedal downloads its driver and restarts once.</p>
+      <select id="screen" aria-label="Touch screen"></select>
+      <p class="msg bad" id="screenErr" aria-live="polite"></p>
+    </section>
+
+    <section>
+      <h2><b>3</b> 4-digit code</h2>
+      <p class="hint" id="codeHint">If you use Central Control, type the main admin's code. If not, pick any 4 digits. Central Pedal Control uses this code to connect.</p>
+      <input id="code" class="code" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="4-digit code">
+      <p class="msg bad" id="codeErr" aria-live="polite"></p>
+    </section>
+
+    <button class="go" id="go" type="submit">Upload</button>
+    <p class="msg" id="msg" aria-live="polite"></p>
+  </form>
+
+  <section class="done hidden" id="done">
+    <h2>Uploaded</h2>
+    <p id="doneText"></p>
+    <ol id="doneSteps"></ol>
+  </section>
+</main>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var state = null, pick = null, other = false;
+
+  function bars(signal) {
+    var n = signal >= 75 ? 4 : signal >= 50 ? 3 : signal >= 25 ? 2 : 1, h = "";
+    for (var i = 1; i <= 4; i++) h += '<i class="' + (i <= n ? "on" : "") + '" style="height:' + (i * 3 + 2) + 'px"></i>';
+    return '<span class="bars" aria-hidden="true">' + h + "</span>";
+  }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+
+  function paintNets() {
+    var list = (state && state.networks) || [], h = "";
+    if (state && !state.setupWifi && state.connected) {
+      h += '<button type="button" class="net" role="listitem" data-keep="1" aria-pressed="' + (pick === "__keep" ? "true" : "false") + '"><span>Keep “' + esc(state.connected) + '”</span></button>';
+    }
+    list.forEach(function (n) {
+      h += '<button type="button" class="net" role="listitem" data-ssid="' + esc(n.ssid) + '" data-sec="' + (n.security ? 1 : 0) + '" aria-pressed="' + (!other && pick === n.ssid ? "true" : "false") + '">' + bars(n.signal || 0) + "<span>" + esc(n.ssid) + "</span>" + (n.security ? '<span class="lock">password</span>' : "") + "</button>";
+    });
+    if (!h) h = '<p class="hint">No Wi-Fi found nearby. Use “Other network” to type its name.</p>';
+    $("nets").innerHTML = h;
+  }
+  function needsPass() {
+    if (other) return true;
+    if (!pick || pick === "__keep") return false;
+    var n = ((state && state.networks) || []).filter(function (x) { return x.ssid === pick; })[0];
+    return !n || !!n.security;
+  }
+  function paintPass() {
+    var show = needsPass();
+    $("passBox").classList.toggle("hidden", !show);
+    $("passFor").textContent = other ? "this network" : "“" + (pick || "") + "”";
+  }
+
+  $("nets").addEventListener("click", function (e) {
+    var b = e.target.closest(".net"); if (!b) return;
+    other = false; $("otherBox").classList.add("hidden");
+    pick = b.dataset.keep ? "__keep" : b.dataset.ssid;
+    $("wifiErr").textContent = "";
+    paintNets(); paintPass();
+    if (needsPass()) $("password").focus();
+  });
+  $("otherBtn").addEventListener("click", function () {
+    other = true; pick = null; $("otherBox").classList.remove("hidden"); paintNets(); paintPass(); $("ssid").focus();
+  });
+  $("showPass").addEventListener("change", function () { $("password").type = this.checked ? "text" : "password"; });
+  $("code").addEventListener("input", function () { this.value = this.value.replace(/\D/g, "").slice(0, 4); $("codeErr").textContent = ""; });
+  $("rescan").addEventListener("click", function () { load(true); });
+
+  function load(again) {
+    if (again) $("nets").innerHTML = '<p class="hint">Looking for Wi-Fi…</p>';
+    fetch("/setup/state", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (s) {
+      state = s;
+      if (s.error) { $("lastError").textContent = s.error; $("lastError").classList.remove("hidden"); }
+      if (!s.setupWifi && s.connected && pick === null) pick = "__keep";
+      paintNets(); paintPass();
+      var sel = $("screen"), groups = {}, order = [];
+      (s.screens || []).forEach(function (x) { if (!groups[x.group]) { groups[x.group] = []; order.push(x.group); } groups[x.group].push(x); });
+      sel.innerHTML = order.map(function (g) {
+        return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>"; }).join("") + "</optgroup>";
+      }).join("") + '<option value="off">No touch screen (a TV or monitor on HDMI)</option>';
+      sel.value = s.screen || "rpi35-xpt2046";
+      if (s.codeChosen) $("codeHint").textContent = "This pedal already has a code. Type it to make the changes (it's the same code Central Pedal Control uses).";
+    }).catch(function () {
+      $("nets").innerHTML = '<p class="hint">The pedal isn\'t answering. Check that this phone is on “Central Pedal Setup”, then reload.</p>';
+    });
+  }
+
+  $("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    ["wifiErr", "screenErr", "codeErr"].forEach(function (id) { $(id).textContent = ""; });
+    $("msg").textContent = ""; $("msg").className = "msg";
+    var keep = pick === "__keep", ssid = other ? $("ssid").value.trim() : (keep ? "" : pick || "");
+    if (!keep && !ssid) { $("wifiErr").textContent = "Pick the church's Wi-Fi."; $("wifiBox").scrollIntoView({ behavior: "smooth" }); return; }
+    var code = $("code").value;
+    if (!/^\d{4}$/.test(code)) { $("codeErr").textContent = "The code is 4 digits."; $("code").focus(); return; }
+    var body = { ssid: ssid, password: needsPass() ? $("password").value : "", hidden: other, keepWifi: keep, screen: $("screen").value, code: code };
+    $("go").disabled = true; $("go").textContent = "Uploading…";
+    fetch("/setup/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        $("go").disabled = false; $("go").textContent = "Upload";
+        if (!r.ok) {
+          var where = { wifi: "wifiErr", password: "wifiErr", screen: "screenErr", code: "codeErr" }[r.field] || "msg";
+          $(where).textContent = r.error || "That didn't work."; if (where === "msg") $("msg").className = "msg bad";
+          return;
+        }
+        $("form").classList.add("hidden"); $("lastError").classList.add("hidden");
+        $("done").classList.remove("hidden");
+        $("lead").textContent = "You can close this page.";
+        $("doneText").textContent = r.message || "Saved.";
+        var steps = [];
+        if (!keep) steps.push("This phone leaves “Central Pedal Setup” - put it back on your own Wi-Fi.");
+        if (r.restart) steps.push("The pedal downloads the screen's driver and restarts once (about a minute).");
+        steps.push("Open Central Pedal Control and type the same 4-digit code.");
+        if (!keep) steps.push("If the password was wrong, “Central Pedal Setup” comes back in about a minute - join it again and this page says what happened.");
+        $("doneSteps").innerHTML = steps.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
+      })
+      .catch(function () {
+        // (the setup Wi-Fi can go away before the answer arrives - that means it worked)
+        $("go").disabled = false; $("go").textContent = "Upload";
+        if (!keep) { $("form").classList.add("hidden"); $("done").classList.remove("hidden"); $("doneText").textContent = "The pedal is joining “" + ssid + "”."; $("doneSteps").innerHTML = "<li>If it can't, “Central Pedal Setup” comes back in about a minute.</li>"; }
+        else { $("msg").textContent = "The pedal didn't answer - try again."; $("msg").className = "msg bad"; }
+      });
+  });
+
+  load(false);
+})();
+</script>
+</body>
+</html>

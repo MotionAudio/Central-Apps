@@ -149,8 +149,11 @@ flowchart LR
 curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash
 ```
 
-It asks for the Wi-Fi, the small touch screen and the pedal's key, downloads the newest Central Pedal, builds
-`central-pedal-<version>.img` and writes it to the card you pick. By hand, from this folder:
+No questions: put the card in, pick it and type ERASE. It downloads the newest Central Pedal, builds
+`central-pedal-<version>.img` (every sound on a 32 GB card, all but the big grand piano on 16 GB) and writes it.
+The first time the pedal starts with no network it makes its own Wi-Fi, **Central Pedal Setup**: join it on a phone
+and the setup page opens (or go to http://10.42.0.1). Pick the church Wi-Fi, the touch screen and the 4-digit code
+(the main admin's, or any 4 digits; Central Pedal Control uses the same one), then Upload. By hand, from this folder:
 
 1. **Build it** on your Ubuntu PC. The first build takes 40–60 minutes and needs internet and about 15 GB free:
 

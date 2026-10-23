@@ -547,6 +547,67 @@ async def main():
         action = await next_message(lambda m: m["type"] == "action")
         check("HTTP remote action with the code -> app gets {action tap}", status == 200 and action and action["name"] == "tap", action)
 
+        print("\nPhone setup (the pedal's own Wi-Fi, the setup page):")
+        shutil.copy(str(Path(__file__).with_name("companion") / "setup.html"), os.path.join(app_root, "companion", "setup.html"))
+        ps = driver.phone_setup
+        _saved = (driver_mod.wifi_status, driver_mod.wifi_connect, driver_mod.run_privileged, driver.set_touch_screen)
+        _calls = {"connect": [], "screen": [], "priv": []}
+        driver_mod.wifi_status = lambda scan=False: {"connected": None, "networks": [{"ssid": "Church Wi-Fi", "signal": 80, "security": "WPA2"}, {"ssid": "Guest", "signal": 40, "security": ""}]}
+        driver_mod.wifi_connect = lambda ssid, pw, hidden=False: (_calls["connect"].append((ssid, pw)) or (pw == "goodpassword", "Connected" if pw == "goodpassword" else "Wrong password - check it."))
+        driver_mod.run_privileged = lambda *a: _calls["priv"].append(a)
+        driver.set_touch_screen = lambda sid: (_calls["screen"].append(sid) or {"ok": True, "restart": True})
+        old_code, chosen_file = driver.code, os.path.join(driver.config["data_root"], "code-chosen")
+        had_chosen = os.path.exists(chosen_file)
+        if had_chosen:
+            os.remove(chosen_file)
+        try:
+            status, body = http("http://127.0.0.1:18080/setup")
+            check("the setup page is served (on the pedal's own Wi-Fi it is port 80; on the network :8080/setup)", status == 200 and b"Set up Central Pedal" in body and b"Upload" in body)
+            status, body = http("http://127.0.0.1:18080/setup/state")
+            st = json.loads(body) if status == 200 else {}
+            check("/setup/state: the Wi-Fi around, every touch screen, the 3.5\" one first pick, no code yet",
+                  [n["ssid"] for n in st.get("networks", [])] == ["Church Wi-Fi", "Guest"] and any(x["id"] == "rpi35-xpt2046" for x in st.get("screens", [])) and st.get("screen") == "rpi35-xpt2046" and st.get("codeChosen") is False, st)
+            post = lambda d: json.loads(http("http://127.0.0.1:18080/setup/apply", data=json.dumps(d).encode())[1])
+            r1 = post({"ssid": "Church Wi-Fi", "password": "goodpassword", "screen": "rpi35-xpt2046", "code": "12"})
+            r2 = post({"ssid": "", "password": "", "screen": "rpi35-xpt2046", "code": "4321"})
+            r3 = post({"ssid": "Church Wi-Fi", "password": "short", "screen": "rpi35-xpt2046", "code": "4321"})
+            check("Upload says what's missing, next to it: the code is 4 digits, pick a Wi-Fi, a password is 8+ characters",
+                  r1.get("field") == "code" and r2.get("field") == "wifi" and r3.get("field") == "password", (r1, r2, r3))
+            r = post({"ssid": "Church Wi-Fi", "password": "goodpassword", "screen": "rpi35-xpt2046", "code": "4321"})
+            for _ in range(60):
+                if not ps.busy:
+                    break
+                await asyncio.sleep(0.1)
+            check("Upload: the code is saved (Pedal Control's code), the pedal joins the Wi-Fi, sets the screen and restarts for it",
+                  r.get("ok") and driver.code == "4321" and driver.code_chosen() and _calls["connect"] == [("Church Wi-Fi", "goodpassword")] and _calls["screen"] == ["rpi35-xpt2046"]
+                  and (driver.config.get("simulated") or any("-r" in c for c in _calls["priv"])) and ps.joined == "Church Wi-Fi", (r, driver.code, _calls, ps.error))
+            r = post({"ssid": "Church Wi-Fi", "password": "goodpassword", "screen": "rpi35-xpt2046", "code": "1111"})
+            check("once a code is set, the page needs it (anyone else on the network can't change the Wi-Fi)", r.get("ok") is False and r.get("field") == "code", r)
+            _calls["screen"].clear()
+            driver.config["touch_screen"] = "rpi35-xpt2046"
+            r = post({"ssid": "Church Wi-Fi", "password": "wrongpassword", "screen": "rpi35-xpt2046", "code": "4321"})
+            for _ in range(60):
+                if not ps.busy:
+                    break
+                await asyncio.sleep(0.1)
+            check("a wrong Wi-Fi password: the page says so next time (the setup Wi-Fi comes back when the pedal is offline); the screen isn't touched",
+                  r.get("ok") and "couldn't join" in ps.error and "Wrong password" in ps.error and _calls["screen"] == [], (r, ps.error, _calls))
+            ps.error = ""
+            ps.on = True
+            img = driver.mini.render(driver.display)
+            hit = driver.mini.hit_test(420, 290)
+            check("while the setup Wi-Fi is on, the small screen says what to do on the phone (NOT NOW turns it off)", hit == {"local": "setupStop"} and driver.system_status()["phoneSetup"]["on"] is True, hit)
+            ps.on = False
+            driver.mini.render(driver.display)
+        finally:
+            driver_mod.wifi_status, driver_mod.wifi_connect, driver_mod.run_privileged, driver.set_touch_screen = _saved
+            driver.config.pop("touch_screen", None)
+            driver.code = old_code
+            with open(os.path.join(driver.config["data_root"], "code"), "w") as handle:
+                handle.write(old_code)
+            if not had_chosen and os.path.exists(chosen_file):
+                os.remove(chosen_file)
+
         print("\nCentral Control: network audio, the audio host, the hub, slides:")
         na_before = dict(driver.netaudio.cfg)
         driver.netaudio.configure({"mode": "off", "auto": True})

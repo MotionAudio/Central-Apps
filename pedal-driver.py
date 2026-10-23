@@ -1694,6 +1694,10 @@ class CompanionServer:
                 pages = {"/": "index.html", "/index.html": "index.html", "/charts": "index.html", "/charts/": "index.html",
                          "/lyrics": "lyrics.html", "/lyrics/": "lyrics.html", "/upload": "upload.html", "/upload/": "upload.html",
                          "/remote": "remote.html", "/remote/": "remote.html", "/mini": "mini.html", "/mini/": "mini.html", "/stage": "stage.html", "/stage/": "stage.html", "/slides": "slides.html", "/slides/": "slides.html"}
+                if p in ("/setup", "/setup/"):   # phone setup (Wi-Fi, touch screen, code) - also on the pedal's own setup Wi-Fi
+                    return driver.phone_setup.send_page(self)
+                if p == "/setup/state":
+                    return self.send_json(200, driver.phone_setup.state())
                 if p == "/cu":
                     self.send_response(302)
                     self.send_header("Location", "/cu/")
@@ -1870,6 +1874,12 @@ class CompanionServer:
             def do_POST(self):
                 url = urllib.parse.urlparse(self.path)
                 query = urllib.parse.parse_qs(url.query)
+                if url.path == "/setup/apply":
+                    try:
+                        payload = json.loads(self.body(1 << 14).decode() or "{}")
+                    except Exception:
+                        payload = {}
+                    return self.send_json(200, driver.phone_setup.apply(payload))
                 if url.path == "/api/sync/link":
                     try:
                         payload = json.loads(self.body(1 << 16).decode() or "{}")
@@ -1979,6 +1989,259 @@ class CompanionServer:
 # ---------------------------------------------------------------------------
 # MIDI in/out + clock, Ableton Link
 # ---------------------------------------------------------------------------
+SETUP_SSID = "Central Pedal Setup"
+SETUP_IP = "10.42.0.1"
+
+
+class PhoneSetup:
+    """Phone setup: a Central Pedal with no network makes its own open Wi-Fi, "Central Pedal Setup". A phone that joins
+    it opens the setup page by itself (every name answers 10.42.0.1 and port 80 sends everything to /setup): pick the
+    church Wi-Fi, the touch screen and the 4-digit code (the main admin's, or a new one - Central Pedal Control uses the
+    same code), then Upload. The pedal joins the Wi-Fi, turns the screen on (fetching its driver) and restarts when the
+    screen needs it. If the Wi-Fi doesn't work, "Central Pedal Setup" comes back and the page says why.
+    The same page is at http://<pedal>:8080/setup on the network (it asks for the pedal's code there)."""
+
+    FIRST_WAIT = 25       # seconds offline before the setup Wi-Fi comes on (no Wi-Fi saved yet)
+    SAVED_WAIT = 120      # ... with a Wi-Fi saved that doesn't answer (a new room, the router restarting)
+    RETRY_SAVED = 300     # the setup Wi-Fi gives the saved network another try after this long with no phone on it
+
+    def __init__(self, driver):
+        self.driver = driver
+        self.on = False
+        self.busy = False
+        self.httpd = None
+        self.networks = []
+        self.error = ""
+        self.joined = ""
+        self.since = 0.0
+        self.last_seen = 0.0     # the last time a phone asked for the setup page
+        self.lock = threading.Lock()
+        self.stopping = False
+
+    # ----- what's there
+    def available(self):
+        return os.path.exists(SYSTEM_SCRIPT) and sys.platform.startswith("linux") and shutil.which("nmcli") is not None
+
+    def online(self):
+        addrs = [a for a in ip_addresses() if not a.startswith("10.42.0.")]
+        return bool(addrs)
+
+    def saved_wifi(self):
+        code, out, _ = run(["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"], timeout=8)
+        if code != 0:
+            return False
+        for line in out.splitlines():
+            name, _, kind = line.rpartition(":")
+            if kind in ("802-11-wireless", "wifi") and name != "central-setup":
+                return True
+        return False
+
+    def status(self):
+        return {"on": self.on, "ssid": SETUP_SSID, "address": "http://%s/" % SETUP_IP, "error": self.error, "busy": self.busy, "joined": self.joined}
+
+    # ----- on / off
+    def watch(self):
+        """At start and whenever the pedal has been offline a while: the setup Wi-Fi."""
+        if not self.available():
+            return
+        time.sleep(15)
+        offline_since = None
+        while not self.stopping:
+            try:
+                if self.on:
+                    quiet = time.monotonic() - max(self.since, self.last_seen)
+                    if not self.busy and quiet > self.RETRY_SAVED and self.saved_wifi():
+                        log.info("phone setup: no phone for a while - trying the saved Wi-Fi again")
+                        self.stop()
+                        offline_since = time.monotonic()
+                elif not self.busy:
+                    if self.online():
+                        offline_since = None
+                    else:
+                        offline_since = offline_since or time.monotonic()
+                        wait = self.SAVED_WAIT if self.saved_wifi() else self.FIRST_WAIT
+                        if time.monotonic() - offline_since >= wait:
+                            self.start("no network")
+                            offline_since = None
+            except Exception as error:
+                log.warning("phone setup: %s", error)
+            time.sleep(10)
+
+    def start(self, why=""):
+        with self.lock:
+            if self.on or not self.available():
+                return self.status()
+            try:   # (the list for the page: once the pedal is its own Wi-Fi it can't look around)
+                self.networks = [n for n in wifi_status(scan=True).get("networks") or [] if n.get("ssid") and n["ssid"] != SETUP_SSID]
+            except Exception:
+                self.networks = []
+            code, out, err = run(["sudo", "-n", SYSTEM_SCRIPT, "setup-ap", "start", SETUP_SSID], timeout=60)
+            if code != 0:
+                log.warning("phone setup: the setup Wi-Fi didn't start: %s", (err or out).strip()[-200:])
+                return dict(self.status(), ok=False, startError=wifi_error(err or out))
+            self.on, self.since = True, time.monotonic()
+            self.serve()
+            log.info("phone setup: Wi-Fi \"%s\" is on (%s)", SETUP_SSID, why or "asked")
+        self.announce()
+        return self.status()
+
+    def stop(self):
+        with self.lock:
+            if self.httpd:
+                try:
+                    self.httpd.shutdown()
+                    self.httpd.server_close()
+                except Exception:
+                    pass
+                self.httpd = None
+            if self.on:
+                run(["sudo", "-n", SYSTEM_SCRIPT, "setup-ap", "stop"], timeout=30)
+            self.on = False
+        self.announce()
+
+    def announce(self):
+        d = self.driver
+        if getattr(d, "loop", None) is not None:
+            try:
+                d.loop.call_soon_threadsafe(d.emit, {"type": "phoneSetup", **self.status()})
+            except Exception:
+                pass
+        if getattr(d, "loop", None) is not None and getattr(d, "mini", None) is not None:
+            try:
+                d.loop.call_soon_threadsafe(d.schedule_mini_render, True)
+            except Exception:
+                pass
+
+    def serve(self):
+        """Port 80 while the setup Wi-Fi is on: the page, and every other address sent to it (that is what makes a
+        phone open it by itself)."""
+        setup = self
+
+        class Handler(HttpBase):
+            def do_HEAD(self):
+                self.do_GET()
+
+            def do_GET(self):
+                p = urllib.parse.urlparse(self.path).path
+                if p in ("/setup", "/setup/"):
+                    setup.last_seen = time.monotonic()
+                    return setup.send_page(self)
+                if p == "/setup/state":
+                    setup.last_seen = time.monotonic()
+                    return self.send_json(200, setup.state(local=True))
+                self.send_response(302)
+                self.send_header("Location", "http://%s/setup" % SETUP_IP)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def do_POST(self):
+                p = urllib.parse.urlparse(self.path).path
+                if p != "/setup/apply":
+                    return self.send_json(404, {"error": "unknown"})
+                try:
+                    payload = json.loads(self.body(1 << 14).decode() or "{}")
+                except Exception:
+                    payload = {}
+                setup.last_seen = time.monotonic()
+                return self.send_json(200, setup.apply(payload, local=True))
+
+        try:
+            self.httpd = ThreadingHTTPServer(("0.0.0.0", 80), Handler)
+            self.httpd.daemon_threads = True
+            threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        except OSError as error:
+            self.httpd = None   # (the page is still at :8080/setup)
+            log.warning("phone setup: port 80 is not free (%s) - the page is at http://%s:%s/setup", error, SETUP_IP, self.driver.config.get("lan_port"))
+
+    # ----- the page
+    def send_page(self, h):
+        path = os.path.join(self.driver.config["app_root"], "companion", "setup.html")
+        return h.send_file(path, "text/html; charset=utf-8")
+
+    def state(self, local=False):
+        d = self.driver
+        cat = screens_catalog(d.config.get("app_root"))
+        groups = {g.get("id"): g.get("name") for g in cat.get("groups") or []}
+        screens = [{"id": s.get("id"), "name": s.get("name"), "group": groups.get(s.get("kind"), s.get("kind")), "kind": s.get("kind")} for s in cat.get("screens") or []]
+        current = touch_screen_id(d.config)
+        connected = None
+        if not self.on:
+            try:
+                connected = wifi_status().get("connected")
+            except Exception:
+                connected = None
+        return {"setupWifi": self.on, "local": bool(local and self.on), "networks": self.networks if self.on else (wifi_status(scan=True).get("networks") or []),
+                "connected": connected, "screens": screens, "screen": current if current != "off" else ("rpi35-xpt2046" if not d.config.get("touch_screen") else "off"),
+                "codeChosen": d.code_chosen(), "center": d.center_link.info() if getattr(d, "center_link", None) else None,
+                "error": self.error, "busy": self.busy, "joined": self.joined, "name": socket.gethostname(), "version": APP_VERSION}
+
+    def apply(self, payload, local=False):
+        """Upload: the code is checked (and saved) right away; the Wi-Fi and the screen a moment later, after the
+        phone has its answer (the setup Wi-Fi goes away when the pedal joins the church's)."""
+        d = self.driver
+        if self.busy:
+            return {"ok": False, "error": "The pedal is still setting up - give it a minute."}
+        ssid = str(payload.get("ssid") or "").strip()
+        password = str(payload.get("password") or "")
+        hidden = bool(payload.get("hidden"))
+        keep_wifi = bool(payload.get("keepWifi")) and not self.on
+        sid = str(payload.get("screen") or "").strip()
+        code = re.sub(r"\D", "", str(payload.get("code") or ""))[:4]
+        if not keep_wifi and not ssid:
+            return {"ok": False, "field": "wifi", "error": "Pick the church's Wi-Fi."}
+        if password and len(password) < 8:
+            return {"ok": False, "field": "password", "error": "Wi-Fi passwords are at least 8 characters - check it."}
+        if sid and sid != "off" and not screen_by_id(d.config.get("app_root"), sid):
+            return {"ok": False, "field": "screen", "error": "Pick the touch screen from the list."}
+        if len(code) != 4:
+            return {"ok": False, "field": "code", "error": "The code is 4 digits."}
+        if d.code_chosen():
+            if not d.code_ok(code):
+                return {"ok": False, "field": "code", "error": "That's not this pedal's code. It's the 4 digits picked when it was set up (main admin → Settings → This computer)."}
+        else:
+            r = d.set_code(code)
+            if not r.get("ok"):
+                return {"ok": False, "field": "code", "error": r.get("error") or "The code wasn't saved."}
+        self.busy, self.error = True, ""
+        threading.Thread(target=self._finish, args=(ssid, password, hidden, keep_wifi, sid), daemon=True).start()
+        return {"ok": True, "ssid": ssid, "restart": bool(sid and sid != touch_screen_id(d.config)),
+                "message": ("The pedal is joining \"%s\" now." % ssid) if not keep_wifi else "Saved."}
+
+    def _finish(self, ssid, password, hidden, keep_wifi, sid):
+        d = self.driver
+        try:
+            time.sleep(3 if self.on else 0.5)   # (the phone gets the answer before the setup Wi-Fi goes)
+            if not keep_wifi:
+                was_on = self.on
+                self.stop()
+                ok, msg = wifi_connect(ssid, password, hidden=hidden)
+                if not ok:
+                    self.error = "The pedal couldn't join \"%s\": %s" % (ssid, msg)
+                    log.warning("phone setup: %s", self.error)
+                    self.busy = False
+                    if was_on or not self.online():
+                        self.start("the Wi-Fi didn't work")
+                    return
+                self.joined = ssid
+                log.info("phone setup: joined %s", ssid)
+            restart = False
+            if sid and sid != touch_screen_id(d.config):
+                r = d.set_touch_screen(sid)
+                if r.get("ok"):
+                    restart = bool(r.get("restart"))
+                else:
+                    self.error = "Wi-Fi ✓ - the screen wasn't set: %s Pick it again in Settings → Touch screen." % (r.get("error") or "")
+                    log.warning("phone setup: %s", self.error)
+            if restart and not d.config.get("simulated"):
+                log.info("phone setup: restarting for the new screen")
+                time.sleep(2)
+                run_privileged("/usr/sbin/shutdown", "-r", "now")
+        finally:
+            self.busy = False
+            self.announce()
+
+
 class ClockTempo:
     def __init__(self):
         self.ticks = []
@@ -2620,6 +2883,23 @@ class MiniScreen:
             box = [W - 110, H - 50, W - 10, H - 10]
             hits = []
             self.button(g, hits, box, "DONE", {"name": "tuner"}, fill=(21, 42, 67))
+        ps = getattr(self.driver, "phone_setup", None)
+        if ps and (ps.on or ps.busy):
+            # phone setup takes the whole small screen: what to do on the phone
+            g.rectangle([0, 0, W, H], fill=C["bg"])
+            self.text(g, (14, 12), "Set up with your phone", self.F["title"], C["text"])
+            lines = (["The pedal is joining the Wi-Fi…"] if ps.busy else
+                     ["1. On your phone, join the Wi-Fi", "    \"%s\"" % SETUP_SSID, "2. The setup page opens by itself", "    (or go to %s)" % SETUP_IP, "3. Pick the Wi-Fi, screen and code,", "    then Upload"])
+            for i, line in enumerate(lines):
+                self.text(g, (14, 52 + i * 27), line, self.F["btn"], C["accent"] if line.startswith("    \"") else C["text"])
+            if ps.error:
+                first, _, rest = ps.error.partition(": ")
+                self.text(g, (14, H - 100), self.clip(first.replace("The pedal couldn't", "Couldn't"), 52), self.font, (255, 210, 120), "la", W - 28)
+                if rest:
+                    self.text(g, (14, H - 76), self.clip(rest.split(" - ")[0], 52), self.font, (255, 210, 120), "la", W - 28)
+            hits = []
+            if not ps.busy:
+                self.button(g, hits, [W - 130, H - 50, W - 10, H - 10], "NOT NOW", {"local": "setupStop"}, fill=(21, 42, 67))
         with self.lock:
             self.image = img
             self.hits = hits
@@ -3032,6 +3312,8 @@ class MiniScreen:
             self.driver.system_action({"action": "displays", "config": {"hdmi%d" % n: opts[(i + int(a.get("d") or 1)) % len(opts)]}}, None)
         elif kind == "restartScreens" and self.driver:
             self.driver.system_action({"action": "restartSession"}, None)
+        elif kind == "setupStop" and self.driver and getattr(self.driver, "phone_setup", None):
+            threading.Thread(target=self.driver.phone_setup.stop, daemon=True).start()
         elif kind == "calibrate" and self.driver:
             self.driver.start_touch_calibration()
             return
@@ -6658,6 +6940,7 @@ class PedalDriver:
         self.cu_roles = CuRoles(self, os.path.join(data_root, "cu-roles.json"))
         self.service_plan = ServicePlan(self, os.path.join(data_root, "services.json"))
         self.center_link = CenterLink(self, os.path.join(data_root, "center.json"))
+        self.phone_setup = PhoneSetup(self)
         self.service_log = ServiceLog(os.path.join(data_root, "service-log"))
         self.transfer = PedalTransfer(self)
         self.practice = PracticeMixes(self)
@@ -7455,6 +7738,7 @@ class PedalDriver:
             "centralUsage": [{"name": v.get("name") or "Central Control", "mode": v.get("mode") or ""} for v in self.lan_clients.values() if v.get("app") == "central-usage"],
             "health": pi_health(self.config["data_root"]),
             "center": self.center_link.info() if getattr(self, "center_link", None) else None,
+            "phoneSetup": self.phone_setup.status() if getattr(self, "phone_setup", None) else None,
         }
 
     def system_action(self, message, ws):
@@ -7507,6 +7791,10 @@ class PedalDriver:
                 cfg = {"hdmi": bool(message.get("hdmi")), "usbFirst": bool(message.get("usbFirst"))}
                 write_json(os.path.join(self.config["data_root"], "audio.json"), cfg)
                 run_privileged(SYSTEM_SCRIPT, "audio", "hdmi" if cfg["hdmi"] else "nohdmi", "usbfirst" if cfg["usbFirst"] else "jackfirst")
+            elif action == "phoneSetup":
+                ps = self.phone_setup
+                threading.Thread(target=(ps.stop if value == "off" else lambda: ps.start("asked in the app")), daemon=True).start()
+                return
             elif action == "touchScreen":
                 result = self.set_touch_screen(str(value or "off"))
                 self.emit(dict(result, type="touchScreenResult"))
@@ -7948,6 +8236,7 @@ class PedalDriver:
         except Exception as error:
             log.debug("displays: %s", error)
         threading.Thread(target=self.auto_touch_screen, daemon=True).start()
+        threading.Thread(target=self.phone_setup.watch, daemon=True).start()
         self.start_gpio()
         self.start_analog()
         tasks = []
