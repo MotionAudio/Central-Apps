@@ -149,8 +149,11 @@ flowchart LR
 curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash
 ```
 
-It asks for the Wi-Fi, the small touch screen and the pedal's key, downloads the newest Central Pedal, builds
-`central-pedal-<version>.img` and writes it to the card you pick. By hand, from this folder:
+No questions: put the card in, pick it and type ERASE. It downloads the newest Central Pedal, builds
+`central-pedal-<version>.img` (every sound on a 32 GB card, all but the big grand piano on 16 GB) and writes it.
+The first time the pedal starts with no network it makes its own Wi-Fi, **Central Pedal Setup**: join it on a phone
+and the setup page opens (or go to http://10.42.0.1). Pick the church Wi-Fi, the touch screen and the 4-digit code
+(the main admin's, or any 4 digits; Central Pedal Control uses the same one), then Upload. By hand, from this folder:
 
 1. **Build it** on your Ubuntu PC. The first build takes 40–60 minutes and needs internet and about 15 GB free:
 
@@ -203,6 +206,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
+
+**New in version 9.5.0:** Sound plans (Central Keys, Plugins, Instrument and Pedals, yearly, a package key pasted in Settings → Packages; church bundles) with a free starter set and more sounds; Central Tracks sells sounds, pedal boards and click sounds; Central Pedal needs no key; the SD card maker asks nothing and a new pedal is set up from a phone (Wi-Fi "Central Pedal Setup"); the website's Downloads page after you buy, and emails with keys for everyone a church adds.
 
 **New in version 9.4.2:** Steadier taps on the small 3.5" screen; HDMI 1 always shows the full app; a one-line SD card maker (`curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash`) and the image is now named central-pedal.
 

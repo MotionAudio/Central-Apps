@@ -16,6 +16,8 @@ Environment=XDG_RUNTIME_DIR=/run/user/1000
 Restart=always
 RestartSec=2
 User=pi
+# phone setup: the setup page on port 80 (phones open it by themselves when they join "Central Pedal Setup")
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 SupplementaryGroups=gpio i2c spi input video audio render plugdev
 
 [Install]

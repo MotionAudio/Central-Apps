@@ -62,7 +62,12 @@ window.PP_MULTITRACK_WORKLET = function () {
     }
 
     buildClicks(sound) {
-      var r = this.rate;
+      var r = this.rate, u = this.userClicks && this.userClicks[sound];
+      if (u && u.hi && u.hi.length) {   // a click set from Central Tracks: its own two samples (the sub-beat is the beat, quieter)
+        var rs = function (buf) { if (!buf || !buf.length) return new Float32Array(1); var ratio = (u.rate || r) / r; if (Math.abs(ratio - 1) < 1e-3) return buf; var n = Math.floor(buf.length / ratio), out = new Float32Array(n); for (var i = 0; i < n; i++) { var x = i * ratio, j = Math.floor(x), f = x - j; out[i] = (buf[j] || 0) * (1 - f) + (buf[j + 1] || 0) * f; } return out; };
+        var hi = rs(u.hi), lo = rs(u.lo && u.lo.length ? u.lo : u.hi), sub = new Float32Array(lo.length); for (var k = 0; k < lo.length; k++) sub[k] = lo[k] * 0.55;
+        return { hi: hi, lo: lo, sub: sub };
+      }
       if (sound === "beep") return { hi: makeClick(r, 1760, 60, 0), lo: makeClick(r, 1175, 50, 0), sub: makeClick(r, 880, 25, 0) };
       if (sound === "sticks") return { hi: makeClick(r, 2800, 18, 0.9), lo: makeClick(r, 2200, 16, 0.7), sub: makeClick(r, 2000, 10, 0.4) };
       return { hi: makeClick(r, 2000, 32, 0.5), lo: makeClick(r, 1400, 28, 0.35), sub: makeClick(r, 1100, 16, 0.2) };
@@ -117,6 +122,7 @@ window.PP_MULTITRACK_WORKLET = function () {
           if (m.sub != null) this.click.sub = m.sub;
           if (m.sound && m.sound !== this.click.sound) { this.click.sound = m.sound; this.clickBufs = this.buildClicks(m.sound); }
           break;
+        case "clickSets": this.userClicks = m.sets || {}; if (this.userClicks[this.click.sound]) this.clickBufs = this.buildClicks(this.click.sound); break;
         case "cueBuffers": var self = this; Object.keys(m.buffers).forEach(function (k) { self.cueBuffers[k] = m.buffers[k]; }); break;
         case "cues": this.cues = (m.list || []).map(function (c) { return { time: c.time * sampleRate, id: c.id, level: c.level == null ? 1 : c.level }; }).sort(function (a, b) { return a.time - b.time; }); this.syncCueIndex(); break;
         case "sayNow": if (this.cueBuffers[m.id]) this.liveCues.push({ buf: this.cueBuffers[m.id], i: 0, level: (m.level == null ? 1 : m.level) }); break;

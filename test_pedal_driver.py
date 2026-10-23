@@ -20,6 +20,7 @@ companion remote (pairing code).
 """
 import asyncio
 import importlib.util
+import io
 import json
 import os
 import math
@@ -528,6 +529,52 @@ async def main():
         mini.tab = "pads"
         check("...the INSTRUMENT tab's pedals switch on / off; SETTINGS → In & out steps an output",
               ped == {"name": "pedalToggle", "args": {"index": 0}} and bus and bus.get("name") == "busOutput" and bus["args"] == {"bus": "tracks", "delta": 1}, (ped, bus))
+        # the plans: a pedal, board, sound or knob whose plan isn't active is dimmed with a lock; a tap says which plan opens it
+        lock_txt = "Part of Central Pedals · $50 a year"
+        ins_l = {"kind": "electric", "kinds": [["electric", "Electric"], ["keys", "Keys"]], "board": "Fuzz Wall", "boardLocked": lock_txt, "levelDb": 0,
+                 "pedals": [{"index": 0, "name": "Big Muff", "on": False, "color": "#8e44ad", "locked": lock_txt}, {"index": 1, "name": "Clean Booster", "on": True, "color": "#3f9f5a"}],
+                 "knobs": [{"uid": "u1", "sym": "ls_level", "pedal": "Calf 5-band EQ", "label": "Low shelf", "value": 0.5, "text": "0 dB", "on": False, "locked": "Part of Central Plugins · $120 a year"}]}
+        disp_l = dict(disp, mini=dict(disp["mini"], instrument=ins_l))
+        driver.schedule_mini_render = lambda force=False: None
+        mini.tab, mini.sub["instrument"] = "instrument", "pedals"
+        mini.render(disp_l)
+        locked_hit, open_hit = mini.hit_test(60, 110), mini.hit_test(240, 110)
+        mini.local(locked_hit)
+        img_l = mini.render(disp_l)
+        notice_on = mini.notice.startswith(lock_txt) and img_l.getpixel((4, 250)) != mini.COL["bg"]
+        mini.sub["instrument"] = "sound"
+        mini.render(disp_l)
+        board_hit = mini.hit_test(240, 150)
+        mini.sub["instrument"] = "eq"
+        mini.render(disp_l)
+        knob_hit = mini.hit_test(300, 92)
+        mini.notice_at = 0
+        check("small screen: a locked pedal is dimmed with a lock; tapping it says which plan (a line along the bottom), an open one still switches",
+              locked_hit.get("local") == "say" and lock_txt in locked_hit["text"] and open_hit == {"name": "pedalToggle", "args": {"index": 1}} and notice_on, (locked_hit, open_hit, mini.notice))
+        check("...a board whose plan ended says so on the Sound page; a locked EQ knob doesn't move, it says Central Plugins",
+              board_hit.get("local") == "say" and lock_txt in board_hit["text"] and knob_hit.get("local") == "say" and "Central Plugins" in knob_hit["text"], (board_hit, knob_hit))
+        # packages (sound plan keys) are kept by the driver for every screen
+        future = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(time.time() + 200 * 86400))
+        past = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(time.time() - 3 * 86400))
+        driver.emit = lambda m, lan=False: _taps.append(m)
+        _taps.clear()
+        driver.handle_app_message({"type": "packages", "action": "save", "packages": [
+            {"key": "SABC-DEFG-HJKL-MNPQ", "plans": {"keys": future, "pedals": future, "bogus": future}, "holder": "Sam", "okAt": time.time() * 1000},
+            {"key": "SZZZ-ZZZZ-ZZZZ-ZZZZ", "plans": {"plugins": past}, "okAt": time.time() * 1000},
+            {"key": "not a key; rm -rf /", "plans": {"keys": future}}]})
+        saved = driver_mod.read_json(os.path.join(driver.config["data_root"], "packages.json"), None)
+        lines = driver_mod.package_lines(saved)
+        check("packages: the app saves them with the driver (bad keys and unknown plans dropped) and every screen hears them",
+              [p["key"] for p in saved or []] == ["SABC-DEFG-HJKL-MNPQ", "SZZZ-ZZZZ-ZZZZ-ZZZZ"] and "bogus" not in saved[0]["plans"]
+              and any(m.get("type") == "packages" and len(m.get("packages") or []) == 2 for m in _taps), (saved, _taps[-1:] if _taps else None))
+        stale = driver_mod.package_lines([{"key": "SABC-DEFG-HJKL-MNPQ", "plans": {"keys": future}, "okAt": (time.time() - 20 * 86400) * 1000}])
+        check("...one line each for the small screens: plans and end date, ended, or needs the internet after 14 days offline",
+              lines[0].startswith("Central Keys, Central Pedals · to ") and lines[1] == "Central Plugins · ended" and stale == ["Central Keys · needs the internet to check"], (lines, stale))
+        mini.tab, mini.sub["settings"] = "settings", "system"
+        mini.render(disp_l)
+        driver.emit = _real_emit
+        driver.schedule_mini_render = _sched
+        mini.tab = "pads"
         driver.handle_app_message({"type": "touchSelect", "knob": "Knob 3", "label": "Reverb · Big Sky", "value": "40%", "pickup": "up"})
         img = driver.mini.render(driver.display)
         check("the small screen shows what the touch-select knob holds (a strip along the bottom)", driver.touch_select["label"] == "Reverb · Big Sky" and img.getpixel((240, 300)) == (10, 40, 30), driver.touch_select)
@@ -546,6 +593,67 @@ async def main():
         status, body = http("http://127.0.0.1:18080/api/action", data=json.dumps({"name": "tap", "code": hello["code"]}).encode())
         action = await next_message(lambda m: m["type"] == "action")
         check("HTTP remote action with the code -> app gets {action tap}", status == 200 and action and action["name"] == "tap", action)
+
+        print("\nPhone setup (the pedal's own Wi-Fi, the setup page):")
+        shutil.copy(str(Path(__file__).with_name("companion") / "setup.html"), os.path.join(app_root, "companion", "setup.html"))
+        ps = driver.phone_setup
+        _saved = (driver_mod.wifi_status, driver_mod.wifi_connect, driver_mod.run_privileged, driver.set_touch_screen)
+        _calls = {"connect": [], "screen": [], "priv": []}
+        driver_mod.wifi_status = lambda scan=False: {"connected": None, "networks": [{"ssid": "Church Wi-Fi", "signal": 80, "security": "WPA2"}, {"ssid": "Guest", "signal": 40, "security": ""}]}
+        driver_mod.wifi_connect = lambda ssid, pw, hidden=False: (_calls["connect"].append((ssid, pw)) or (pw == "goodpassword", "Connected" if pw == "goodpassword" else "Wrong password - check it."))
+        driver_mod.run_privileged = lambda *a: _calls["priv"].append(a)
+        driver.set_touch_screen = lambda sid: (_calls["screen"].append(sid) or {"ok": True, "restart": True})
+        old_code, chosen_file = driver.code, os.path.join(driver.config["data_root"], "code-chosen")
+        had_chosen = os.path.exists(chosen_file)
+        if had_chosen:
+            os.remove(chosen_file)
+        try:
+            status, body = http("http://127.0.0.1:18080/setup")
+            check("the setup page is served (on the pedal's own Wi-Fi it is port 80; on the network :8080/setup)", status == 200 and b"Set up Central Pedal" in body and b"Upload" in body)
+            status, body = http("http://127.0.0.1:18080/setup/state")
+            st = json.loads(body) if status == 200 else {}
+            check("/setup/state: the Wi-Fi around, every touch screen, the 3.5\" one first pick, no code yet",
+                  [n["ssid"] for n in st.get("networks", [])] == ["Church Wi-Fi", "Guest"] and any(x["id"] == "rpi35-xpt2046" for x in st.get("screens", [])) and st.get("screen") == "rpi35-xpt2046" and st.get("codeChosen") is False, st)
+            post = lambda d: json.loads(http("http://127.0.0.1:18080/setup/apply", data=json.dumps(d).encode())[1])
+            r1 = post({"ssid": "Church Wi-Fi", "password": "goodpassword", "screen": "rpi35-xpt2046", "code": "12"})
+            r2 = post({"ssid": "", "password": "", "screen": "rpi35-xpt2046", "code": "4321"})
+            r3 = post({"ssid": "Church Wi-Fi", "password": "short", "screen": "rpi35-xpt2046", "code": "4321"})
+            check("Upload says what's missing, next to it: the code is 4 digits, pick a Wi-Fi, a password is 8+ characters",
+                  r1.get("field") == "code" and r2.get("field") == "wifi" and r3.get("field") == "password", (r1, r2, r3))
+            r = post({"ssid": "Church Wi-Fi", "password": "goodpassword", "screen": "rpi35-xpt2046", "code": "4321"})
+            for _ in range(60):
+                if not ps.busy:
+                    break
+                await asyncio.sleep(0.1)
+            check("Upload: the code is saved (Pedal Control's code), the pedal joins the Wi-Fi, sets the screen and restarts for it",
+                  r.get("ok") and driver.code == "4321" and driver.code_chosen() and _calls["connect"] == [("Church Wi-Fi", "goodpassword")] and _calls["screen"] == ["rpi35-xpt2046"]
+                  and (driver.config.get("simulated") or any("-r" in c for c in _calls["priv"])) and ps.joined == "Church Wi-Fi", (r, driver.code, _calls, ps.error))
+            r = post({"ssid": "Church Wi-Fi", "password": "goodpassword", "screen": "rpi35-xpt2046", "code": "1111"})
+            check("once a code is set, the page needs it (anyone else on the network can't change the Wi-Fi)", r.get("ok") is False and r.get("field") == "code", r)
+            _calls["screen"].clear()
+            driver.config["touch_screen"] = "rpi35-xpt2046"
+            r = post({"ssid": "Church Wi-Fi", "password": "wrongpassword", "screen": "rpi35-xpt2046", "code": "4321"})
+            for _ in range(60):
+                if not ps.busy:
+                    break
+                await asyncio.sleep(0.1)
+            check("a wrong Wi-Fi password: the page says so next time (the setup Wi-Fi comes back when the pedal is offline); the screen isn't touched",
+                  r.get("ok") and "couldn't join" in ps.error and "Wrong password" in ps.error and _calls["screen"] == [], (r, ps.error, _calls))
+            ps.error = ""
+            ps.on = True
+            img = driver.mini.render(driver.display)
+            hit = driver.mini.hit_test(420, 290)
+            check("while the setup Wi-Fi is on, the small screen says what to do on the phone (NOT NOW turns it off)", hit == {"local": "setupStop"} and driver.system_status()["phoneSetup"]["on"] is True, hit)
+            ps.on = False
+            driver.mini.render(driver.display)
+        finally:
+            driver_mod.wifi_status, driver_mod.wifi_connect, driver_mod.run_privileged, driver.set_touch_screen = _saved
+            driver.config.pop("touch_screen", None)
+            driver.code = old_code
+            with open(os.path.join(driver.config["data_root"], "code"), "w") as handle:
+                handle.write(old_code)
+            if not had_chosen and os.path.exists(chosen_file):
+                os.remove(chosen_file)
 
         print("\nCentral Control: network audio, the audio host, the hub, slides:")
         na_before = dict(driver.netaudio.cfg)
@@ -847,6 +955,24 @@ async def main():
             st = await next_message(lambda m: m["type"] == "instrumentStatus" and sum(1 for b in m.get("keysCatalog", []) if b.get("user")) >= 2, 6.0)   # (not an older status still on its way)
             names = [b["name"] for b in (st or {}).get("keysCatalog", []) if b.get("user")]
             check("the Instrument tab's sound list has both new banks, marked as the user's", "My Piano" in names and "Stick Bank" in names, names)
+            # Central Tracks "Sound" items: a zip of WAVs named by note (paths flattened: nothing lands outside), or a zip with .sf2 banks
+            zbuf = io.BytesIO()
+            with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.write(os.path.join(bank, "C4.wav"), "Felt Upright/C4.wav")
+                zf.write(os.path.join(bank, "G4.wav"), "../../escape/G4.wav")
+                zf.writestr("Felt Upright/readme.txt", "hello")
+                zf.writestr("__MACOSX/._C4.wav", "junk")
+            status, body = http("http://127.0.0.1:18766/upload?kind=soundzip&name=" + urllib.request.quote("Felt Upright.zip"), data=zbuf.getvalue(), method="PUT")
+            made = json.loads(body) if status == 200 else {}
+            check("Central Tracks: a Sound (a zip of WAVs) installs as one of the keys sounds", status == 200 and made.get("ok") and made.get("samples") == 2 and os.path.exists(made.get("file", ""))
+                  and not os.path.exists(os.path.join(os.path.dirname(made.get("file", "")), "..", "escape")), body[:300])
+            zbuf = io.BytesIO()
+            with zipfile.ZipFile(zbuf, "w") as zf:
+                zf.write(os.path.join(media_root, "Stick Bank.sf2"), "banks/Choir Pad.sf2")
+            status, body = http("http://127.0.0.1:18766/upload?kind=soundzip&name=Choir.zip", data=zbuf.getvalue(), method="PUT")
+            made2 = json.loads(body) if status == 200 else {}
+            status3, body3 = http("http://127.0.0.1:18766/upload?kind=soundzip&name=Bad.zip", data=b"not a zip at all", method="PUT")
+            check("...and a zip with .sf2 banks adds each one; a broken zip is refused", made2.get("banks") == 1 and os.path.exists(made2.get("file", "")) and json.loads(body3).get("error"), (body[:200], body3[:200]))
 
         print("\nPlanning Center and track packs:")
         pco_srv = ThreadingHTTPServer(("127.0.0.1", 18099), MockPCO)

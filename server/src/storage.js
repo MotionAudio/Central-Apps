@@ -13,7 +13,7 @@ export const usingR2 = !!(S.endpoint && S.bucket && S.accessKey && S.secretKey);
 const s3 = usingR2 ? new S3Client({ region: "auto", endpoint: S.endpoint, credentials: { accessKeyId: S.accessKey, secretAccessKey: S.secretKey } }) : null;
 
 export function newKey(userId, fileName) {
-  const ext = (path.extname(fileName || "").toLowerCase().match(/^\.(wav|mp3|flac|m4a|aif|aiff|ogg|zip)$/) || [".bin"])[0];
+  const ext = (path.extname(fileName || "").toLowerCase().match(/^\.(wav|mp3|flac|m4a|aif|aiff|ogg|zip|sf2|json)$/) || [".bin"])[0];
   return "u" + userId + "/" + Date.now().toString(36) + "-" + crypto.randomBytes(6).toString("hex") + ext;
 }
 

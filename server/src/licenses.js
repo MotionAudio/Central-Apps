@@ -8,11 +8,13 @@
 // Pedal Control): each gets an email with a link to make their account, their app's download link and their key.
 import crypto from "node:crypto";
 import { q, one, pool } from "./db.js";
-import { config, KEY_KINDS, LICENSE_RECHECK_DAYS, MAIN_ADMINS_MAX } from "./config.js";
+import { config, KEY_KINDS, LICENSE_RECHECK_DAYS, MAIN_ADMINS_MAX, DEFAULT_KEYS } from "./config.js";
+import { defaultKind, defaultKeysOn, defaultOffMessage, DEFAULT_CHURCH } from "./defaultkeys.js";
 import { isAdmin } from "./auth.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
 import { requireStep } from "./signin.js";
 import { newCoverage, currentTenths, fmt } from "./versions.js";
+import { tracksUnlimitedFor, takeBackAll } from "./plans.js";
 
 const ABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // 31 signs: no I, L, O, 0, 1
 const APP_KIND = { pedal: "P", "pedal-control": "P", control: "A", usage: "U" };
@@ -57,8 +59,16 @@ export async function createChurch(user, name) {
   await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,'church')", [c.id, user.id]);
   return c;
 }
+// "Just me" (9.5): a person's own keys belong to their personal row - not a church anyone joins, so they can be in a
+// church too. Made with their first "Just me" purchase.
+export async function personalChurch(user, make) {
+  const c = await one("SELECT * FROM churches WHERE personal AND owner_id=$1", [user.id]);
+  if (c || !make) return c;
+  await q("INSERT INTO churches (name,owner_id,admin_code,user_code,personal) VALUES ($1,$2,$3,$4,TRUE) ON CONFLICT DO NOTHING", [String(user.name || user.email).slice(0, 100), user.id, code(), code()]);
+  return one("SELECT * FROM churches WHERE personal AND owner_id=$1", [user.id]);
+}
 export async function joinChurch(user, joinCode, role) {
-  const cc = canon(joinCode), c = await one("SELECT * FROM churches WHERE admin_code=$1 OR user_code=$1", [cc]);
+  const cc = canon(joinCode), c = await one("SELECT * FROM churches WHERE (admin_code=$1 OR user_code=$1) AND NOT personal", [cc]);
   if (!c) throw bad("That church code isn't right. Ask your main admin for it (it's on their account page).", 404);
   const r = role === "admin" ? "admin" : "user";
   if (r === "admin" && c.admin_code !== cc) throw bad("That's the users' code. Admins join with the admin code.", 403);
@@ -104,6 +114,8 @@ function keyOut(l, devs, full, me) {
 
 // ---------------------------------------------------------------- invites (the Teams page)
 function inviteLink(token) { return config.publicUrl + "/#invite-" + token; }
+// the install guide (Windows, Mac, Linux, Android, iPad - every app: help/install.html)
+const installUrl = () => config.publicUrl + "/help/install.html#before-you-start";
 // how: undefined (the first email, or Resend), "reminder" (nobody answered yet), "moved" (to another team: new app and key)
 async function sendInvite(inv, church, how) {
   const s = SECTION[inv.section], link = inviteLink(inv.token), owner = inv.section === "owner", joined = !!inv.user_id;
@@ -125,7 +137,7 @@ async function sendInvite(inv, church, how) {
       "<li>Open it, connect to Wi-Fi, and enter your key:<br><code style=\"font:600 18px ui-monospace,monospace;letter-spacing:.05em\">" + escHtml(key) + "</code></li></ol>" +
       (inv.section !== "admin" ? "<p style=\"color:#555\">Your key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.</p>" : "")) +
     ((church.services_slots || 0) > 0 || trialActive(church) ? "<p>Your church's schedule is in <a href=\"" + APPS_URL + "#central-services\">Central Services</a> - sign in with the same account.</p>" : "") + "<p>Talk soon,<br>The Motion Audio team</p></div>";
-  const r = await sendMail(inv.email, subject, text, html);
+  const r = await sendMail(inv.email, subject, text.replace(/(\n2\. Download [^\n]+)/, "$1\n   How to install it: " + installUrl(inv.section)), html.replace(/(Download [^<]+<\/a>)<\/li>/, "$1 (<a href=\"" + escHtml(installUrl(inv.section)) + "\">how to install it</a>)</li>"));
   await q("UPDATE invites SET sent_at=now(), sent_ok=$1 WHERE id=$2", [r.sent, inv.id]);
   return r;
 }
@@ -182,6 +194,11 @@ export async function remindInvites() {
   return n;
 }
 
+// a default key's answer: no church of its own, updates always, no end, no Central Tracks Unlimited
+function defaultReply(kind, activate) {
+  return Object.assign({ ok: true }, activate ? { key: DEFAULT_KEYS[kind] } : {}, { kind, church: DEFAULT_CHURCH, recheckDays: LICENSE_RECHECK_DAYS }, activate ? { account: null } : {},
+    { updatesUntil: null, updatesUntilText: "forever", expiresAt: null, trial: false, tracksUnlimited: false, defaultKey: true });
+}
 // what a key tells its app: how far its updates go (null: forever), and when a trial key stops
 function coverage(l) { return { updatesUntil: l.kind === "P" ? null : l.updates_until, updatesUntilText: l.kind === "P" ? "forever" : fmt(l.updates_until), expiresAt: l.expires_at || null, trial: !!l.trial }; }
 
@@ -210,6 +227,12 @@ export function routes(api, { wrap, brake, requireUser }) {
     keyBrake(req);
     const b = req.body || {}, dev = device(b), app = String(b.app || ""), want = APP_KIND[app];
     if (!want) throw bad("Unknown app.");
+    const dk = defaultKind(b.key);   // (a default key: while staff keep them on, any device, nothing to store)
+    if (dk && dk !== "S") {
+      if (!(await defaultKeysOn())) throw bad(defaultOffMessage(), 403);
+      if (dk !== want) throw bad("That's a " + (KEY_KINDS[dk] || "different") + " key. " + APP_NAME[app] + " needs " + (want === "P" ? "a P key" : want === "A" ? "an A key (admin)" : "a U key (user)") + ".", 400);
+      return res.json(defaultReply(dk, true));
+    }
     const name = String(b.deviceName || "").trim().slice(0, 80) || APP_NAME[app];
     const client = await pool.connect();
     let l;
@@ -231,11 +254,16 @@ export function routes(api, { wrap, brake, requireUser }) {
       await client.query("COMMIT");
     } catch (e) { try { await client.query("ROLLBACK"); } catch (_) { } throw e; } finally { client.release(); }
     const c = l.church_id ? await one("SELECT name FROM churches WHERE id=$1", [l.church_id]) : null;
-    res.json({ ok: true, key: pretty(l.key), kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, account: l.assigned_email ? { email: l.assigned_email } : null, ...coverage(l) });
+    res.json({ ok: true, key: pretty(l.key), kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, account: l.assigned_email ? { email: l.assigned_email } : null, ...coverage(l), tracksUnlimited: await tracksUnlimitedFor(l) });
   }));
+  // (9.5) besides ok / kind / church / recheckDays / coverage, the reply says tracksUnlimited: true | false - Central
+  // Tracks Unlimited (every community Pad, Multitrack, Prime, Sound, Board and Click). Sound plans aren't here: they're
+  // package keys (plans.js, /v1/package/...).
   api.post("/license/check", wrap(async (req, res) => {
     keyBrake(req);
-    const b = req.body || {}, dev = device(b), l = await findKey(b.key);
+    const b = req.body || {}, dev = device(b), dk = defaultKind(b.key);
+    if (dk && dk !== "S") return res.json((await defaultKeysOn()) ? defaultReply(dk) : { ok: false, reason: "invalid", message: defaultOffMessage() });   // (switched off: the app asks for a real key)
+    const l = await findKey(b.key);
     if (!l || l.revoked) { miss(req); return res.json({ ok: false, reason: "invalid" }); }
     if (l.church_id && (await one("SELECT closed_at FROM churches WHERE id=$1", [l.church_id])).closed_at) return res.json({ ok: false, reason: "invalid" });   // (its church was closed)
     if (expired(l)) return res.json({ ok: false, reason: "expired", expiresAt: l.expires_at });   // (a trial that ended: the app locks until a bought key is entered)
@@ -243,7 +271,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     if (!devs.some((d) => d.device_id === dev)) return res.json({ ok: false, reason: devs.length >= maxDevices(l.kind, null, devs) ? "elsewhere" : "released", device: devs.map((d) => d.device_name).join(" and ") || null });
     await q("UPDATE license_devices SET last_seen=now() WHERE key=$1 AND device_id=$2", [l.key, dev]);
     const c = l.church_id ? await one("SELECT name FROM churches WHERE id=$1", [l.church_id]) : null;
-    res.json({ ok: true, kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, ...coverage(l) });
+    res.json({ ok: true, kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, ...coverage(l), tracksUnlimited: await tracksUnlimitedFor(l) });
   }));
   api.post("/license/release", wrap(async (req, res) => {   // from the device that has it
     keyBrake(req);
@@ -255,6 +283,7 @@ export function routes(api, { wrap, brake, requireUser }) {
   // same one (so a key isn't shared). A key the Teams page sent to someone is theirs. The account joins the key's church:
   // an A key makes it an admin; P and U keys a user.
   api.post("/license/link", requireUser, wrap(async (req, res) => {
+    if (defaultKind((req.body || {}).key)) { const c = await churchOf(req.user.id); return res.json({ ok: true, church: c ? c.name : null, role: c ? c.role : null }); }   // (a default key is nobody's: nothing to link)
     const b = req.body || {}, dev = device(b), l = await findKey(b.key);
     const devs = l ? await devicesOf(l.key) : [];
     if (!l || l.revoked || !devs.some((d) => d.device_id === dev)) throw bad("Activate the key on this device first.", 400);
@@ -265,7 +294,8 @@ export function routes(api, { wrap, brake, requireUser }) {
       await q("DELETE FROM license_devices WHERE key=$1 AND device_id=$2", [l.key, dev]);   // (this device doesn't keep the key)
       throw bad("This key belongs to " + wrongAccount + ". Sign in with that account - a key works on two devices of the same person.", 409);
     }
-    if (l.church_id) {
+    const personal = l.church_id ? !!(await one("SELECT personal FROM churches WHERE id=$1", [l.church_id])).personal : false;   // (a "Just me" key: its buyer's, whatever church they're in)
+    if (l.church_id && !personal) {
       const mine = await churchOf(req.user.id);
       if (mine && mine.id !== l.church_id) throw bad("This account belongs to another church (" + mine.name + "). Sign in with your church's account.", 409);
       if (!mine) await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,$3)", [l.church_id, req.user.id, l.kind === "A" ? "admin" : "user"]);
@@ -345,6 +375,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     for (const l of await q("SELECT key FROM licenses WHERE church_id=$1 AND (user_id=$2 OR assigned_email=$3)", [c.id, u.id, String(req.body.email || "").toLowerCase()])) await freeKey(l.key);
     await q("DELETE FROM invites WHERE church_id=$1 AND (user_id=$2 OR email=$3)", [c.id, u.id, String(req.body.email || "").toLowerCase()]);
     await q("DELETE FROM church_members WHERE user_id=$1", [u.id]);
+    await takeBackAll(c.id, req.body.email);   // (the church's package keys they had: back, a new one in each one's place)
     res.json({ ok: true });
   }));
   api.post("/church/rename", requireUser, wrap(async (req, res) => {
@@ -355,7 +386,8 @@ export function routes(api, { wrap, brake, requireUser }) {
     res.json({ ok: true });
   }));
   api.post("/church/release", requireUser, wrap(async (req, res) => {   // free a key's devices (a lost or broken one): all, or one by name
-    const c = await churchOf(req.user.id), l = await findKey(req.body.key);
+    const l = await findKey(req.body.key), own = l && l.user_id === req.user.id && (await personalChurch(req.user)) && l.church_id === (await personalChurch(req.user)).id;   // (your own "Just me" key)
+    const c = own ? { id: l.church_id, role: "user" } : await churchOf(req.user.id);
     if (!c) throw bad("Your account isn't in a church.", 403);
     if (!l || l.church_id !== c.id) throw bad("That key isn't one of your church's.", 404);
     if (!(isStaff(c.role) || l.user_id === req.user.id)) throw bad("Only the church account, the main admins, admins, and the person using the key can release it.", 403);   // (a user: their own devices)
@@ -416,6 +448,8 @@ export function routes(api, { wrap, brake, requireUser }) {
       const still = await one("SELECT 1 FROM invites WHERE church_id=$1 AND user_id=$2", [c.id, inv.user_id]);
       if (!still) await q("DELETE FROM church_members WHERE church_id=$1 AND user_id=$2 AND role NOT IN ('owner','church')", [c.id, inv.user_id]);
     }
+    // (no longer in the church, and on no other team: the church's package keys they had come back)
+    if (!(await one("SELECT 1 FROM invites WHERE church_id=$1 AND email=$2", [c.id, inv.email])) && !(await one("SELECT 1 FROM church_members m JOIN users u ON u.id=m.user_id WHERE m.church_id=$1 AND u.email=$2", [c.id, inv.email]))) await takeBackAll(c.id, inv.email);
     res.json({ ok: true });
   }));
 

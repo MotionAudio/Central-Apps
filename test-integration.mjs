@@ -109,6 +109,9 @@ const T = (fn, arg) => page.evaluate(fn, arg);
 async function sim(m) { await T((m) => window.__pedalBridge.send(Object.assign({ type: "sim" }, m)), m); }
 
 console.log("\nConnection and the Learn tab:");
+await check("the Central Pedal itself opens without a license key (no setup), even with keys required and no website", async () => {
+  await wait(1500); assert.equal(await T(() => PPLicense.app()), "pedal"); assert.equal(await page.$("dialog#licWiz"), null);
+});
 await check("the app is served by the driver and connects to it", async () => { await until(() => T(() => window.__pedalBridge.connected)); assert.match(await T(() => document.querySelector("#pfHw").textContent), /^Central Pedal \d+\./); });
 await check("the driver's inputs show in the Learn tab with their pins", async () => { await T(() => PPShell.showTab("learn")); await wait(200); const txt = await T(() => document.querySelector('[data-learn="b1"] small').textContent); assert.match(txt, /GPIO 4/); assert.equal(await T(() => document.querySelectorAll("#lnBoard .ln-row").length), 22); });
 
@@ -549,6 +552,107 @@ await check("instrument scenes: capture the rig, switch pedals, recall - one 'sc
   assert.deepEqual(r.msgs, ["scene"]); assert.deepEqual(r.on, r.saved);
   await T(() => PPInstrument.setKind("off"));
 });
+console.log("\nSound plans (9.5): tiers, locks, packages, Central Tracks sounds / boards / clicks:");
+await check("plans: with licensing off everything is open; every pedal and board has a tier; the free set is a dozen-odd pedals and four boards", async () => {
+  const r = await T(() => ({ off: ["keys", "plugins", "instrument", "pedals"].every((id) => PPLicense.hasPlan(id)), noTier: PPPedals.pedals.filter((p) => !p.tier).length,
+    free: PPPedals.pedals.filter((p) => p.tier === "free").length, freeBoards: PPPedals.boards.filter((b) => !b.plans.length).map((b) => b.id),
+    muff: PPPedals.byId("muff").tier, reverb: PPPedals.byId("zitarev").tier, lock: PPPedals.lockText("instrument"), pkgs: !!document.querySelector("#pkgSettings") || PPLicense.packagesHtml().includes("no packages needed") }));
+  assert.ok(r.off, "licensing off: all plans open"); assert.equal(r.noTier, 0); assert.ok(r.free >= 12 && r.free <= 16, "free pedals " + r.free);
+  assert.deepEqual(r.freeBoards, ["clean-worship", "acoustic-dry", "bass-di", "keys-stage"]); assert.equal(r.muff, "pedals"); assert.equal(r.reverb, "plugins");
+  assert.equal(r.lock, "Part of Central Instrument · $80 a year"); assert.ok(r.pkgs, "Settings → Packages says no packages are needed");
+});
+await check("plans: a saved board keeps a locked pedal, bypassed with a lock and its plan; the footswitch, Add pedal and board stepping skip what's locked", async () => {
+  const r = await T(async () => {
+    const L = PPLicense; window.__hasPlan = L.hasPlan; L.hasPlan = (id) => id === "plugins" || id === "instrument";   // (Central Pedals and Central Keys ended)
+    window.dispatchEvent(new CustomEvent("pp-plans"));
+    PPShell.showTab("instrument"); PPInstrument.setKind("electric");
+    const c = PPInstrument.config(); c.boards.electric = "fuzz-wall";
+    c.chains.electric = [{ uid: "lk1", pedal: "muff", on: true, values: {} }, { uid: "lk2", pedal: "booster", on: true, values: {} }, { uid: "lk3", pedal: "zitarev", on: true, values: {} }];
+    window.__sent = []; window.dispatchEvent(new CustomEvent("pp-plans")); PPInstrument.render(); await new Promise((ok) => setTimeout(ok, 100));
+    const host = PPInstrument.hostConfig().chain, applied = window.__sent.filter((m) => m.action === "apply").pop();
+    const svgLocked = document.querySelectorAll("#pbChain svg.pedal.locked").length, svgText = (document.querySelector("#pbChain svg.pedal.locked") || {}).textContent || "";
+    const toggled = PPInstrument.togglePedal(0), names = PPInstrument.pedalNames(), info = PPInstrument.lockInfo();
+    const dis = { modern: (document.querySelector('#inBoard option[value="modern-gain"]') || {}).disabled, clean: (document.querySelector('#inBoard option[value="clean-worship"]') || {}).disabled, cur: (document.querySelector('#inBoard option[value="fuzz-wall"]') || {}).disabled };
+    document.querySelector("#pbAdd").click(); await new Promise((ok) => setTimeout(ok, 50));
+    const addItem = document.querySelector('.pb-item.locked[data-add="muff"]'), addText = addItem ? addItem.textContent : ""; if (addItem) addItem.click();
+    const lenAfterAdd = PPInstrument.config().chains.electric.length; document.querySelector("#pbAddClose") && document.querySelector("#pbAddClose").click();
+    const seen = new Set(); for (let i = 0; i < 12; i++) { PPInstrument.stepBoard(1); seen.add(PPInstrument.config().boards.electric); }
+    return { host: host.map((p) => [p.id, p.on, !!p.locked]), sentOff: applied && applied.config.chain[0].on, svgLocked, svgText, toggled, names: names.map((n) => [n.on, n.locked || ""]), info, dis, addText, lenAfterAdd, seen: [...seen].sort() };
+  });
+  assert.deepEqual(r.host, [["muff", false, true], ["booster", true, false], ["zitarev", true, false]]); assert.equal(r.sentOff, false, "the engine gets it bypassed");
+  assert.equal(r.svgLocked, 1); assert.ok(/Central Pedals/.test(r.svgText) && /bypassed/.test(r.svgText), r.svgText);
+  assert.equal(r.toggled, false); assert.deepEqual(r.names[0], [false, "Part of Central Pedals · $50 a year"]); assert.ok(/Central Pedals/.test(r.info.board || ""), JSON.stringify(r.info));
+  assert.deepEqual(r.dis, { modern: true, clean: false, cur: false }); assert.ok(/Part of Central Pedals · \$50 a year/.test(r.addText), r.addText); assert.equal(r.lenAfterAdd, 3, "a locked pedal isn't added");
+  assert.deepEqual(r.seen, ["ambient-swell", "clean-worship"], "stepping lands only on open boards");
+});
+await check("plans: keys sounds carry their bank's tier (or by what they are); a locked sound is listed with its plan, muted in a saved layer and skipped by patch stepping", async () => {
+  const r = await T(async () => {
+    PPInstrument.setKind("keys");
+    PPFeatures.emit({ type: "instrumentStatus", available: true, running: true, kind: "keys", inputs: [], midiInputs: [], keysCatalog: [
+      { file: "/s/Upright-Piano-KW - u.sf2", name: "Upright Piano KW", tier: "free", presets: [{ name: "Upright Piano KW", bank: 0, prog: 0 }] },
+      { file: "/s/Salamander-Grand-Piano - s.sf2", name: "Salamander Grand Piano", tier: "keys", presets: [{ name: "Salamander Grand", bank: 0, prog: 0 }] },
+      { file: "/usr/share/sounds/sf2/FluidR3_GM.sf2", name: "General MIDI (FluidR3)", presets: [{ name: "Cello", bank: 0, prog: 42 }, { name: "Rhodes EP", bank: 0, prog: 4 }, { name: "Synth Bass 1", bank: 0, prog: 38 }, { name: "Fingered Bass", bank: 0, prog: 33 }] },
+      { file: "/data/sf2/Mine.sf2", name: "Mine", user: true, presets: [{ name: "My Pad", bank: 0, prog: 0 }] }] });
+    await new Promise((ok) => setTimeout(ok, 50));
+    const cat = PPInstrument.catalog().keys, tiers = {}; cat.forEach((s) => { tiers[s.name] = s.tier; });
+    const c = PPInstrument.config(), ls = PPInstrument.layers(); const sal = cat.find((s) => s.name === "Salamander Grand");
+    ls[0].patch = { id: sal.id, file: sal.file, bank: 0, prog: 0, name: sal.name }; c.keys.patch = ls[0].patch; PPInstrument.render();
+    const layerOn = PPInstrument.hostConfig().keys.layers[0].on, lockedItems = [...document.querySelectorAll(".keys-item.locked")].map((b) => b.textContent);
+    const muted = (document.querySelector(".kl-lock") || {}).textContent || "", info = PPInstrument.lockInfo();
+    const visited = new Set(); for (let i = 0; i < 8; i++) { PPInstrument.stepPatch(1); visited.add(PPInstrument.layers()[0].patch.name); }
+    return { tiers, layerOn, lockedItems, muted, info, visited: [...visited].sort() };
+  });
+  assert.deepEqual(r.tiers, { "Upright Piano KW": "free", "Salamander Grand": "keys", Cello: "instrument", "Rhodes EP": "keys", "Synth Bass 1": "keys", "Fingered Bass": "instrument", "My Pad": "free" });
+  assert.equal(r.layerOn, false, "a saved layer with a locked sound is muted"); assert.ok(/muted · Part of Central Keys · \$50 a year/.test(r.muted), r.muted); assert.ok(/Central Keys/.test(r.info.patch || ""));
+  assert.equal(r.lockedItems.length, 3); assert.ok(r.lockedItems.every((t) => /Part of Central Keys/.test(t)), r.lockedItems.join(" | "));
+  assert.deepEqual(r.visited, ["Cello", "Fingered Bass", "My Pad", "Upright Piano KW"]);
+});
+await check("plans: with Central Keys back, \"Worship Grand\" brings its grand piano; the small screens hear what's locked", async () => {
+  const r = await T(async () => {
+    PPLicense.hasPlan = () => true; window.dispatchEvent(new CustomEvent("pp-plans")); await new Promise((ok) => setTimeout(ok, 50));
+    const sel = document.querySelector("#inBoard"); sel.value = "worship-grand"; sel.dispatchEvent(new Event("change", { bubbles: true }));
+    const out = { patch: PPInstrument.layers()[0].patch.name, on: PPInstrument.hostConfig().keys.layers[0].on, board: PPInstrument.config().boards.keys };
+    PPLicense.hasPlan = (id) => id !== "pedals"; PPInstrument.setKind("electric"); const c = PPInstrument.config(); c.chains.electric = [{ uid: "lk1", pedal: "muff", on: true, values: {} }]; c.boards.electric = "fuzz-wall";
+    let disp = null; const b = window.__pedalBridge, orig = b.send; b.send = function (m) { if (m.type === "display") disp = m; return orig.call(b, m); };
+    PPTracks.sendDisplay && PPTracks.sendDisplay(); await new Promise((ok) => setTimeout(ok, 400)); b.send = orig;
+    const ins = disp && disp.mini && disp.mini.instrument;
+    out.mini = ins ? { locked: ins.pedals[0].locked, board: ins.boardLocked } : null;
+    PPLicense.hasPlan = window.__hasPlan; window.dispatchEvent(new CustomEvent("pp-plans")); PPInstrument.setKind("off");
+    return out;
+  });
+  assert.equal(r.board, "worship-grand"); assert.equal(r.patch, "Salamander Grand"); assert.equal(r.on, true);
+  assert.deepEqual(r.mini, { locked: "Part of Central Pedals · $50 a year", board: "Part of Central Pedals · $50 a year" });
+});
+await check("Central Tracks: a Board installs as one of your boards, a Click (zip of two WAVs) as a click sound - both straight from the download", async () => {
+  const r = await T(async () => {
+    // a zip made here: the board stored, the WAVs deflated (CompressionStream), as the site would send them
+    function wav(freq) { const n = 2400, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, s) => [...s].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+      w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 48000, true); v.setUint32(28, 96000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(12000 * Math.sin(2 * Math.PI * freq * i / 48000) * Math.exp(-i / 600)), true); return new Uint8Array(b); }
+    async function zip(entries) {
+      const parts = [], central = []; let off = 0;
+      for (const e of entries) {
+        const name = new TextEncoder().encode(e.name), data = e.deflate ? new Uint8Array(await new Response(new Blob([e.data]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer()) : e.data;
+        const h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(8, e.deflate ? 8 : 0, true); h.setUint32(18, data.length, true); h.setUint32(22, e.data.length, true); h.setUint16(26, name.length, true);
+        const c = new DataView(new ArrayBuffer(46)); c.setUint32(0, 0x02014b50, true); c.setUint16(10, e.deflate ? 8 : 0, true); c.setUint32(20, data.length, true); c.setUint32(24, e.data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+        parts.push(new Uint8Array(h.buffer), name, data); central.push(new Uint8Array(c.buffer), name); off += 30 + name.length + data.length;
+      }
+      const size = central.reduce((a, x) => a + x.length, 0), end = new DataView(new ArrayBuffer(22)); end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true); end.setUint32(12, size, true); end.setUint32(16, off, true);
+      return new Blob([...parts, ...central, new Uint8Array(end.buffer)]);
+    }
+    const boardZip = await zip([{ name: "board/Shimmer Lead.json", data: new TextEncoder().encode(JSON.stringify({ name: "Shimmer Lead", kind: "electric", chain: [["ts9", { Drive: 0.4 }], ["not-a-pedal", {}], ["dfly-hall", { Decay: 5 }]] })) }]);
+    const clickZip = await zip([{ name: "Rimshot/accent.wav", data: wav(1800), deflate: true }, { name: "Rimshot/beat.wav", data: wav(1200), deflate: true }, { name: "__MACOSX/._beat.wav", data: new Uint8Array(4) }]);
+    const before = PPInstrument.config().custom.length;
+    await PPCentralTracks.install({ id: "b1", kind: "Board", title: "Shimmer Lead" }, [{ url: URL.createObjectURL(boardZip), name: "shimmer.zip" }]);
+    const board = PPInstrument.config().custom[before];
+    await PPCentralTracks.install({ id: "c1", kind: "Click", title: "Rimshot Click" }, [{ url: URL.createObjectURL(clickZip), name: "rimshot.zip" }]);
+    const sets = PPTracks.clickSets(), last = sets[sets.length - 1];
+    return { board: board && { name: board.name, kind: board.kind, chain: board.chain.map((x) => x[0]) }, inList: PPInstrument.config().custom.length - before, click: last && { name: last.name, id: last.id, hi: last.hi.length > 1000, lo: last.lo.length > 1000 }, log: PPCentralTracks.state.log };
+  });
+  assert.deepEqual(r.board, { name: "Shimmer Lead", kind: "electric", chain: ["ts9", "dfly-hall"] }); assert.equal(r.inList, 1);
+  assert.ok(r.click && r.click.name === "Rimshot Click" && /^set:/.test(r.click.id) && r.click.hi && r.click.lo, JSON.stringify(r));
+  assert.ok(/click sound/.test(r.log), r.log);
+});
 await check("looper: records a loop from the instrument, closes it, plays it, overdubs, undoes and clears", async () => {
   const r = await T(async () => {
     const ctx = PP.engine.ctx, osc = ctx.createOscillator(); osc.frequency.value = 220; osc.start();
@@ -659,6 +763,15 @@ await check("Central Pedal Control in a browser (an iPad): the Central Pedal ser
   const man = await (await fetch("http://127.0.0.1:8080/control/manifest.webmanifest")).json(); assert.equal(man.start_url, "/control/");
   const cp = await ctx.newPage(); cp.on("pageerror", (e) => errors.push("control:" + e));
   await cp.goto("http://127.0.0.1:8080/control/"); await cp.waitForFunction(() => window.PPTransfer && document.querySelector('[data-cpo="live"]'), null, { timeout: 15000 });
+  // no website yet: Pedal Control asks for its P key (production, then the key); the default P key opens it and stays after a reload
+  await cp.waitForSelector("dialog#licWiz[open] #lwProd", { timeout: 8000 });
+  await cp.fill("#lwProd", "Grace Church"); await cp.click('#licWiz [data-lw="prod"]'); await cp.waitForSelector("#lwKey");
+  await cp.fill("#lwKey", "UDEF-AULT-KEY0-2026"); await cp.click('#licWiz [data-lw="key"]');
+  assert.match(await cp.textContent("#licWiz .bad"), /That's a U key .*needs a key that starts with P/);
+  await cp.fill("#lwKey", "PDEF-AULT-KEY0-2026"); await cp.click('#licWiz [data-lw="key"]'); await cp.waitForSelector("dialog#licWiz", { state: "detached", timeout: 4000 });
+  await cp.reload(); await cp.waitForFunction(() => window.PPTransfer && document.querySelector('[data-cpo="live"]'), null, { timeout: 15000 }); await cp.waitForTimeout(800);
+  assert.equal(await cp.$("dialog#licWiz"), null, "the default key stays after a reload");
+  assert.equal(await cp.evaluate(() => PPLicense.app()), "pedal-control");
   await cp.evaluate(() => document.querySelector('[data-cpo="live"]').click());
   assert.equal(await cp.evaluate(() => document.querySelector('#cpTransferDialog [data-cp="host"]').value), "127.0.0.1:8080", "opened from the pedal: that pedal");
   await cp.evaluate((c) => { document.querySelector('#cpTransferDialog [data-cp="pin"]').value = c; document.querySelector('#cpTransferDialog [data-cp="live"]').click(); }, code);

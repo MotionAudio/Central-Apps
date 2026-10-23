@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Make a Central Pedal SD card on an Ubuntu / Debian PC, with one line in the Terminal:
 #   curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash
-# It asks a few questions (Wi-Fi, which small touch screen, the pedal's key), downloads the newest Central Pedal,
-# builds the card image (central-pedal-<version>.img) and writes it to the SD card you pick. Run it again any time:
-# the Raspberry Pi OS download is kept, so the next card is quicker.
+# No questions: put the SD card in, pick it, type ERASE. It downloads the newest Central Pedal, builds the card
+# (central-pedal-<version>.img, with as many sounds as the card holds) and writes it. The pedal sets itself up from a
+# phone the first time it starts (Wi-Fi, touch screen, 4-digit code). Run it again any time: the Raspberry Pi OS
+# download is kept, so the next card is quicker.
 set -euo pipefail
 
 REPO="MotionAudio/Central-Apps"
@@ -13,39 +14,51 @@ fail() { printf '\n\033[1;31m%s\033[0m\n' "$*" >&2; exit 1; }
 ask()  { local q="$1" def="${2:-}" a; printf '%s' "$q" > /dev/tty; IFS= read -r a < /dev/tty || true; printf '%s' "${a:-$def}"; }
 
 [ "$(id -u)" -eq 0 ] || fail "Run it with sudo:   curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash"
-[ -r /dev/tty ] || fail "Run it in a Terminal window (it asks a few questions)."
+[ -r /dev/tty ] || fail "Run it in a Terminal window."
 command -v apt-get >/dev/null || fail "This needs Ubuntu or Debian (or Raspberry Pi OS)."
 USER_HOME="$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)"; USER_HOME="${USER_HOME:-/root}"
 WORK="${CENTRAL_PEDAL_SD:-$USER_HOME/central-pedal-sd}"
 mkdir -p "$WORK"
 
 printf '\n\033[1mCentral Pedal SD card\033[0m\n'
-note "This takes about 45 minutes the first time (about 20 after that) and needs about 15 GB free."
-note "Files go in $WORK"
+note "About 45 minutes the first time (about 20 after that). It needs about 15 GB free on this PC."
 free_gb=$(df -BG --output=avail "$WORK" | tail -1 | tr -dc 0-9)
 [ "${free_gb:-0}" -ge "${MIN_GB:-14}" ] || fail "Only ${free_gb} GB free in $WORK - it needs about 15 GB. Free some space and run it again."
 
-# ---- questions
-say "1/4  Wi-Fi"
-WIFI_SSID="$(ask '   The church Wi-Fi name (Enter = set it on the pedal later): ')"
-WIFI_PASS=""
-if [ -n "$WIFI_SSID" ]; then
-  printf '   Its password: ' > /dev/tty; stty -echo < /dev/tty; IFS= read -r WIFI_PASS < /dev/tty || true; stty echo < /dev/tty; printf '\n' > /dev/tty
+# ---- the SD card first (then the long part runs by itself)
+say "Put the SD card in this PC (a card reader is fine), then press Enter"
+ask '' >/dev/null
+# removable disks only (a card reader, USB, the SD slot), never this PC's own disk
+mapfile -t CARDS < <(lsblk -J -b -d -p -o NAME,SIZE,TRAN,RM,MODEL,TYPE | python3 -c '
+import json, sys
+for d in json.load(sys.stdin).get("blockdevices", []):
+    name, tran, rm = d.get("name") or "", (d.get("tran") or ""), d.get("rm")
+    if d.get("type") != "disk" or any(x in name for x in ("loop", "zram", "/dev/sr", "/dev/nvme")):
+        continue
+    size = int(d.get("size") or 0)
+    if size and (rm in (True, "1", 1) or tran in ("usb", "mmc") or "mmcblk" in name):
+        print("%s %d %.0f GB  %s" % (name, size, size / 1e9, (d.get("model") or "").strip()))
+')
+ROOTDEV="$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" 2>/dev/null || true)"
+[ "${#CARDS[@]}" -gt 0 ] || fail "No SD card found. Put it in (or try another card reader) and run the line again."
+if [ "${#CARDS[@]}" -eq 1 ]; then
+  pick=1
+else
+  note "Cards and USB drives:"
+  n=0; for c in "${CARDS[@]}"; do n=$((n + 1)); printf '   %d) %s\n' "$n" "$(printf '%s' "$c" | cut -d' ' -f1,3-)" > /dev/tty; done
+  pick="$(ask "   Which one is the SD card? Type 1-$n: ")"
+  [[ "$pick" =~ ^[0-9]+$ ]] && [ "$pick" -ge 1 ] && [ "$pick" -le "$n" ] || fail "That's not one of the numbers."
 fi
-
-say "2/4  The small touch screen on the pedal"
-note "1) The blue 3.5\" screen with \"XPT2046\" on the back (most common)"
-note "2) Waveshare 3.5\" (A)"
-note "3) None, or I'll pick it on the pedal later"
-case "$(ask '   Type 1, 2 or 3 [1]: ' 1)" in 2) TFT=waveshare35a ;; 3) TFT=none ;; *) TFT=piscreen ;; esac
-
-say "3/4  The pedal's key (optional)"
-PEDAL_KEY="$(ask '   Its P key, like PXXX-XXXX-XXXX-XXXX (Enter = type it on the pedal later): ' | tr '[:lower:]' '[:upper:]' | tr -d ' ')"
-
-say "4/4  Keys sounds"
-note "1) All of them, with the grand piano (the card needs 32 GB)"
-note "2) Without the big grand piano (16 GB card is enough)"
-case "$(ask '   Type 1 or 2 [1]: ' 1)" in 2) SOUNDS=small ;; *) SOUNDS=full ;; esac
+CARD="${CARDS[$((pick - 1))]}"
+DEV="$(printf '%s' "$CARD" | cut -d' ' -f1)"; BYTES="$(printf '%s' "$CARD" | cut -d' ' -f2)"; LABEL="$(printf '%s' "$CARD" | cut -d' ' -f3-)"
+[ -n "$ROOTDEV" ] && [ "$DEV" = "/dev/$ROOTDEV" ] && fail "$DEV is this PC's own disk - not writing to it."
+# the sounds: all of them on a 32 GB card or bigger, without the big grand piano on a 16 GB one
+if [ "$BYTES" -ge 28000000000 ]; then SOUNDS=full; SUFFIX=""
+elif [ "$BYTES" -ge 14000000000 ]; then SOUNDS=small; SUFFIX="-16gb"
+else fail "That card is $LABEL - Central Pedal needs a 16 GB card or bigger (32 GB holds every sound)."; fi
+printf '\n\033[1;31m   Everything on %s (%s) will be erased.\033[0m\n' "$DEV" "$LABEL" > /dev/tty
+[ "$(ask '   Type ERASE to make the Central Pedal card: ')" = "ERASE" ] || fail "Nothing was changed."
+note "Leave the card in. The rest runs by itself."
 
 # ---- the newest Central Pedal
 say "Downloading the newest Central Pedal"
@@ -67,15 +80,15 @@ unzip -q "$WORK/central-pedal-source.zip" -d "$WORK/source"
 SRC="$(dirname "$(find "$WORK/source" -name build-image.sh -print -quit)")"
 [ -f "$SRC/build-image.sh" ] || fail "That download doesn't have the image builder in it."
 VER="${TAG#v}"
-IMG="$WORK/central-pedal-$VER.img"
+IMG="$WORK/central-pedal-$VER$SUFFIX.img"
 
 # ---- build (skipped when this version's image is already here)
 if [ -f "$IMG" ] && [ "${REBUILD:-0}" != 1 ]; then
-  say "central-pedal-$VER.img is already built - using it (REBUILD=1 makes a new one)"
+  say "$(basename "$IMG") is already built - using it (REBUILD=1 makes a new one)"
 else
-  say "Building central-pedal-$VER.img (the long part - leave this window open)"
-  rm -f "$WORK"/central-pedal-*.img   # (an older version's image never gets written by mistake)
-  WIFI_SSID="$WIFI_SSID" WIFI_PASS="$WIFI_PASS" TFT="$TFT" PEDAL_KEY="$PEDAL_KEY" SOUNDS="$SOUNDS" \
+  say "Building $(basename "$IMG") (the long part - leave this window open)"
+  find "$WORK" -maxdepth 1 -name "central-pedal-*.img" ! -name "central-pedal-$VER*.img" -delete   # (an older version's image never gets written by mistake)
+  TFT=none SOUNDS="$SOUNDS" \
     OUT="$IMG" CACHE="$WORK/cache" bash "$SRC/build-image.sh" > "$WORK/build.log" 2>&1 &
   pid=$!
   spin='|/-\'; i=0; t0=$(date +%s)
@@ -90,41 +103,17 @@ else
 fi
 
 # ---- write it to the SD card
-say "Put the SD card in this PC (a card reader is fine), then press Enter"
-ask '' >/dev/null
-# removable disks only (a card reader, USB, the SD slot), never this PC's own disk
-mapfile -t CARDS < <(lsblk -J -d -p -o NAME,SIZE,TRAN,RM,MODEL,TYPE | python3 -c '
-import json, sys
-for d in json.load(sys.stdin).get("blockdevices", []):
-    name, tran, rm = d.get("name") or "", (d.get("tran") or ""), d.get("rm")
-    if d.get("type") != "disk" or any(x in name for x in ("loop", "zram", "/dev/sr", "/dev/nvme")):
-        continue
-    if rm in (True, "1", 1) or tran in ("usb", "mmc") or "mmcblk" in name:
-        print("%s  %s  %s %s" % (name, d.get("size") or "", (d.get("model") or "").strip(), "(" + tran + ")" if tran else ""))
-')
-ROOTDEV="$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" 2>/dev/null || true)"
-if [ "${#CARDS[@]}" -eq 0 ]; then
-  say "No SD card found."
-  note "The image is ready: $IMG"
-  note "Write it with Raspberry Pi Imager (sudo apt install rpi-imager): Choose OS -> Use custom -> this file."
-  exit 0
-fi
-note "Cards and USB drives:"
-n=0; for c in "${CARDS[@]}"; do n=$((n + 1)); printf '   %d) %s\n' "$n" "$c" > /dev/tty; done
-pick="$(ask "   Which one is the SD card? Type 1-$n (Enter = don't write, keep the image): ")"
-[ -n "$pick" ] || { note "Not written. The image is here: $IMG"; exit 0; }
-[[ "$pick" =~ ^[0-9]+$ ]] && [ "$pick" -ge 1 ] && [ "$pick" -le "$n" ] || fail "That's not one of the numbers."
-DEV="$(printf '%s' "${CARDS[$((pick - 1))]}" | awk '{print $1}')"
-[ -n "$ROOTDEV" ] && [ "$DEV" = "/dev/$ROOTDEV" ] && fail "$DEV is this PC's own disk - not writing to it."
-printf '\n\033[1;31m   Everything on %s will be erased.\033[0m\n' "$(printf '%s' "${CARDS[$((pick - 1))]}" | sed 's/  */ /g')" > /dev/tty
-[ "$(ask '   Type ERASE to write the card: ')" = "ERASE" ] || { note "Not written. The image is here: $IMG"; exit 0; }
+while [ ! -b "$DEV" ]; do
+  say "The SD card isn't there any more - put it back in and press Enter"; ask '' >/dev/null
+done
 for part in $(lsblk -lnpo NAME "$DEV" | tail -n +2); do umount "$part" 2>/dev/null || true; done
 say "Writing the card (a few minutes)"
 dd if="$IMG" of="$DEV" bs=4M status=progress conv=fsync
 sync
 command -v eject >/dev/null && eject "$DEV" 2>/dev/null || true
 say "Done - the card is ready."
-note "Put it in the Raspberry Pi 4 and plug in the power. The first start takes about a minute longer"
-note "and restarts once; after that it goes straight into Central Pedal."
-[ -z "$WIFI_SSID" ] && note "It asks for the Wi-Fi on its screen the first time."
+note "1. Put it in the Raspberry Pi and plug in the power (the first start takes a couple of minutes)."
+note "2. On your phone, join the Wi-Fi \"Central Pedal Setup\". The setup page opens by itself"
+note "   (or go to http://10.42.0.1)."
+note "3. Pick the church Wi-Fi, the touch screen and the 4-digit code, then Upload."
 note "Next card: run the same line again."

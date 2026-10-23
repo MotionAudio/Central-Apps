@@ -1,7 +1,7 @@
 {
   "name": "central-usage",
   "productName": "Central Control",
-  "version": "9.4.2",
+  "version": "9.5.0",
   "description": "Lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides, chord charts, lyrics and the instrument - the companion of Central Pedal. A native desktop app.",
   "main": "main.js",
   "author": {

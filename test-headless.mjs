@@ -29,6 +29,8 @@ async function check(label, fn) {
 
 const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+// (opened from a file this is Central Pedal Control, which needs a key: the default P key, as a church would enter it today)
+await page.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "PDEF-AULT-KEY0-2026", kind: "P", app: "pedal-control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });
 // The app tries ws://127.0.0.1:8765 (the pedal driver). On a machine without the
 // driver that connection is refused; the app handles it, Chrome still logs it.
 const benign = /127\.0\.0\.1:876[56]|ERR_CONNECTION_REFUSED/;  // the pedal driver is not running on a PC
@@ -331,6 +333,125 @@ await check("Settings tab opens and explains safe mode needs the Pi", async () =
 });
 
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));
+
+// ---- the license keys before the website opens: Central Pedal Control asks for its key (production name, then the key);
+// only the default P key works; it survives a reload; Settings → License says it's the default key
+console.log("\nLicense keys with no website (default keys):");
+{
+  const p3 = await browser.newPage({ viewport: { width: 1100, height: 800 } }); const errs3 = []; p3.on("pageerror", (e) => errs3.push(String(e)));
+  await p3.addInitScript(() => { window.CP_CONTROL = true; });   // (Central Pedal Control, as its app and /control/ mark it)
+  await p3.goto("file://" + pagePath); await p3.waitForFunction(() => window.PPLicense && window.PPShell);
+  await check("Central Pedal Control opens on the setup with no website: the production's name, then the key (no internet or account steps)", async () => {
+    await p3.waitForSelector("dialog#licWiz[open]", { timeout: 8000 });
+    const steps = await p3.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)); assert.deepEqual(steps, ["1. Production", "2. License key"]);
+    await p3.fill("#lwProd", "Grace Church"); await p3.click('#licWiz [data-lw="prod"]'); await p3.waitForSelector("#lwKey");
+    assert.match(await p3.textContent("#licWiz"), /PDEF-AULT-KEY0-2026/);
+  });
+  await check("a key for another app and a random key are refused with the right words", async () => {
+    await p3.fill("#lwKey", "ADEF-AULT-KEY0-2026"); await p3.click('#licWiz [data-lw="key"]'); await wait(100);
+    assert.match(await p3.textContent("#licWiz .bad"), /That's an A key \(Central Control - admins\)\. Central Pedal Control needs a key that starts with P\./);
+    await p3.fill("#lwKey", "PQ7K-2MXR-9TLB-4WZD"); await p3.click('#licWiz [data-lw="key"]'); await wait(100);
+    assert.equal(await p3.textContent("#licWiz .bad"), "This key can't be checked yet - the Motion Audio website isn't open. Use the default key for now.");
+  });
+  await check("the default key opens it, survives a reload, and Settings → License calls it the default key (temporary)", async () => {
+    await p3.fill("#lwKey", "pdef-ault-key0-2026"); await p3.click('#licWiz [data-lw="key"]'); await wait(300);
+    assert.equal(await p3.$("dialog#licWiz"), null, "the setup closed");
+    await p3.reload(); await p3.waitForFunction(() => window.PPLicense && window.PPShell); await wait(800);
+    assert.equal(await p3.$("dialog#licWiz"), null, "no setup after a reload");
+    const r = await p3.evaluate(() => ({ html: PPLicense.settingsHtml(), cov: PPLicense.coverage(), st: PPLicense.state(), keys: PPLicense.hasPlan("keys") }));
+    assert.match(r.html, /Default key \(temporary\)/); assert.equal(r.st.production, "Grace Church"); assert.deepEqual([r.cov.updatesUntil, r.cov.text, r.cov.expiresAt], [null, "forever", null]);
+    assert.equal(r.keys, true, "sound plans stay open until the website opens");
+    assert.deepEqual(errs3, []);
+  });
+  await p3.close();
+}
+
+// ---- packages (the sound plans) against a stand-in website, on a page with just the license file: the Central Pedal has no key
+// of its own (no setup wizard), its packages are activated for the pedal's id and kept with its driver; 14 days offline at most
+console.log("\nPackages (sound plans):");
+{
+  const http = await import("node:http");
+  const calls = [], pk = { ok: true, plans: null };
+  const future = new Date(Date.now() + 300 * 864e5).toISOString(), soon = new Date(Date.now() + 30 * 864e5).toISOString();
+  const srv = http.createServer((req, res) => {
+    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Content-Type": "application/json" };
+    if (req.method === "OPTIONS") { res.writeHead(204, cors); return res.end(); }
+    let body = ""; req.on("data", (d) => { body += d; }); req.on("end", () => {
+      const j = body ? JSON.parse(body) : {}; calls.push([req.url, j]);
+      let out = { ok: true };
+      if (req.url === "/v1/package/activate") out = /^SABC/.test(j.key) ? { ok: true, key: j.key, plans: { keys: future, instrument: soon }, holder: "Sam", church: "Grace" } : { ok: false, error: "That package key isn't valid." };
+      else if (req.url === "/v1/package/check") out = { packages: j.keys.map((k) => pk.ok ? { key: k, ok: true, plans: pk.plans || { keys: future, instrument: soon }, end: future } : { key: k, ok: false, error: "refunded" }) };
+      else if (req.url === "/v1/versions") out = { everyone: [] };
+      res.writeHead(200, cors); res.end(JSON.stringify(out));
+    });
+  });
+  await new Promise((ok) => srv.listen(18893, "127.0.0.1", ok));
+  const tmpPage = path.join(os.tmpdir(), "pp-packages-" + process.pid + ".html");
+  fs.writeFileSync(tmpPage, `<!doctype html><meta charset="utf-8"><body><div id="set"></div>
+<script>window.PP_LICENSE_CONFIG = { server: "http://127.0.0.1:18893", required: true }; window.__sent = []; window.__plansEvents = 0;
+var L = {}; window.PPFeatures = { on: function (t, f) { (L[t] = L[t] || []).push(f); }, emit: function (m) { (L[m.type] || []).forEach(function (f) { f(m); }); }, sendToDriver: function () { } };
+window.__pedalBridge = { connected: true, info: { deviceId: "pedal-0123456789ab" }, send: function (m) { window.__sent.push(m); return true; } };
+window.addEventListener("pp-plans", function () { window.__plansEvents++; });</script>
+<script src="${pathToFileURLish(path.join(here, "js", "license.js"))}"></script><script src="${pathToFileURLish(path.join(here, "js", "pedals.js"))}"></script>`);
+  function pathToFileURLish(p) { return "file://" + p.split(path.sep).map(encodeURIComponent).join("/"); }
+  const p2 = await browser.newPage();
+  const errs = []; p2.on("pageerror", (e) => errs.push(String(e)));
+  await p2.goto("file://" + tmpPage);
+  const R = (fn, arg) => p2.evaluate(fn, arg);
+  await check("the Central Pedal opens without a license key (no setup wizard); Settings shows Packages, not License; nothing is open yet", async () => {
+    await R(() => PPLicense.init({ app: "pedal", packages: [] })); await wait(300);
+    const r = await R(() => ({ wiz: !!document.querySelector("dialog#licWiz"), html: PPLicense.settingsHtml(), keys: PPLicense.hasPlan("keys"), free: PPLicense.hasPlan("free"), lockedMuff: PPPedals.pedalLocked("muff"), ts9: PPPedals.pedalLocked("ts9") }));
+    assert.equal(r.wiz, false); assert.ok(/<h3>Packages<\/h3>/.test(r.html) && !/<h3>License<\/h3>/.test(r.html), r.html.slice(0, 200));
+    assert.equal(r.keys, false); assert.equal(r.free, true); assert.equal(r.lockedMuff, true); assert.equal(r.ts9, false);
+  });
+  await check("Add a package: a wrong key is caught here; a good one is activated for the pedal's own id, opens its plans and is kept with the driver", async () => {
+    await R(() => { document.getElementById("set").innerHTML = PPLicense.settingsHtml(); });
+    await p2.fill("#pkgKey", "hello"); await p2.click('[data-pkg="add"]'); await wait(100);
+    const bad = await p2.textContent("#pkgSettings"); const nCalls = calls.filter((c) => c[0] === "/v1/package/activate").length;
+    await p2.fill("#pkgKey", "sabc-defg-hjkl-mnpq"); await p2.click('[data-pkg="add"]'); await wait(400);
+    const act = calls.filter((c) => c[0] === "/v1/package/activate").pop()[1];
+    const r = await R(() => ({ keys: PPLicense.hasPlan("keys"), inst: PPLicense.hasPlan("instrument"), plugins: PPLicense.hasPlan("plugins"), plans: Object.keys(PPLicense.plans()).sort(), saved: window.__sent.filter((m) => m.type === "packages" && m.action === "save").pop(), text: document.getElementById("pkgSettings").textContent, events: window.__plansEvents }));
+    assert.ok(/starts with S/.test(bad) && nCalls === 0, bad);
+    assert.deepEqual(act, { key: "SABC-DEFG-HJKL-MNPQ", deviceId: "pedal-0123456789ab", app: "pedal" });
+    assert.ok(r.keys && r.inst && !r.plugins, JSON.stringify(r)); assert.deepEqual(r.plans, ["instrument", "keys"]);
+    assert.ok(r.saved && r.saved.packages.length === 1 && r.saved.packages[0].key === "SABC-DEFG-HJKL-MNPQ", JSON.stringify(r.saved));
+    assert.ok(/Central Keys until/.test(r.text) && /active/.test(r.text) && r.events >= 1, r.text);
+  });
+  await check("offline it keeps working 14 days after the last good check, never past a plan's end date; a refunded package stops at the next check", async () => {
+    const r = await R(async () => {
+      const set = (days, plans) => { const l = PPLicense.packages(); l[0].okAt = Date.now() - days * 864e5; if (plans) l[0].plans = plans; window.PPFeatures.emit({ type: "packages", packages: l }); };
+      set(13); const d13 = PPLicense.hasPlan("keys"); set(15); const d15 = PPLicense.hasPlan("keys");
+      set(1, { keys: new Date(Date.now() - 864e5).toISOString() }); const ended = PPLicense.hasPlan("keys");
+      return { d13, d15, ended };
+    });
+    pk.ok = false; await R(() => PPLicense.checkPackages()); await wait(200);
+    const after = await R(() => ({ keys: PPLicense.hasPlan("keys"), text: PPLicense.packagesHtml() }));
+    assert.deepEqual(r, { d13: true, d15: false, ended: false }); assert.equal(after.keys, false); assert.ok(/refunded/.test(after.text), after.text.slice(0, 300));
+    const chk = calls.filter((c) => c[0] === "/v1/package/check").pop()[1]; assert.deepEqual(chk, { keys: ["SABC-DEFG-HJKL-MNPQ"], deviceId: "pedal-0123456789ab" });
+  });
+  await check("Remove releases the key on the website and takes it off the pedal", async () => {
+    await R(() => { document.getElementById("set").innerHTML = PPLicense.settingsHtml(); }); await p2.click("[data-pkg-remove]"); await wait(300);
+    const rel = calls.filter((c) => c[0] === "/v1/package/release").pop();
+    const r = await R(() => ({ n: PPLicense.packages().length, saved: window.__sent.filter((m) => m.type === "packages").pop() }));
+    assert.deepEqual(rel && rel[1], { key: "SABC-DEFG-HJKL-MNPQ", deviceId: "pedal-0123456789ab" }); assert.equal(r.n, 0); assert.deepEqual(r.saved.packages, []);
+    assert.deepEqual(errs, []);
+  });
+  await check("with no website the Central Pedal still needs no key; Settings → Packages takes only the default package key (every plan)", async () => {
+    const p4 = await browser.newPage(); const html = fs.readFileSync(tmpPage, "utf8").replace('server: "http://127.0.0.1:18893", ', "");
+    const tmp4 = tmpPage.replace(/\.html$/, "-nosite.html"); fs.writeFileSync(tmp4, html);
+    await p4.goto("file://" + tmp4); await p4.evaluate(() => { localStorage.clear(); PPLicense.init({ app: "pedal", packages: [] }); document.getElementById("set").innerHTML = PPLicense.settingsHtml(); }); await wait(200);
+    const wiz = await p4.$("dialog#licWiz"), open = await p4.evaluate(() => PPLicense.hasPlan("pedals"));
+    await p4.fill("#pkgKey", "SQ7K-2MXR-9TLB-4WZD"); await p4.click('[data-pkg="add"]'); await wait(100);
+    const refused = await p4.textContent("#pkgSettings .small");
+    await p4.fill("#pkgKey", "SDEF-AULT-KEY0-2026"); await p4.click('[data-pkg="add"]'); await wait(200);
+    const r = await p4.evaluate(() => ({ list: PPLicense.packages(), text: document.getElementById("pkgSettings").textContent, saved: window.__sent.filter((m) => m.type === "packages").pop() }));
+    assert.equal(wiz, null); assert.equal(open, true); assert.match(refused, /website isn't open\. Use the default key for now/);
+    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pedals", "plugins"]); assert.match(r.text, /Default package \(temporary\)/);
+    assert.ok(r.saved && r.saved.packages[0].key === "SDEF-AULT-KEY0-2026", "kept with the pedal's driver");
+    await p4.close(); fs.rmSync(tmp4, { force: true });
+  });
+  await p2.close(); srv.close(); fs.rmSync(tmpPage, { force: true });
+}
 
 await browser.close();
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nAll app checks passed.");

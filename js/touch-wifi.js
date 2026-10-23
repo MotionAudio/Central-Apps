@@ -70,8 +70,33 @@
       '<div class="wifi-list">' + (list || (wifi ? '<span class="muted small">No networks found yet - Scan again.</span>' : "")) + "</div>" +
       '<div class="row"><button data-wf="scan">Scan again</button><button data-wf="other">Other network…</button>' + (w.connected ? '<button data-wf="forget">Forget this network</button>' : "") +
       '<label class="wf-cc">Country<select data-wf="country">' + COUNTRIES.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === cc ? " selected" : "") + ">" + c[1] + "</option>"; }).join("") + (COUNTRIES.some(function (c) { return c[0] === cc; }) ? "" : '<option value="' + esc(cc) + '" selected>' + esc(cc) + "</option>") + "</select></label></div>" +
-      '<p class="muted small">The Wi-Fi radio follows the country\'s rules - set yours, or some networks (5 GHz channels) stay hidden. A cable in the Ethernet port works too.</p></section>';
+      '<p class="muted small">The Wi-Fi radio follows the country\'s rules - set yours, or some networks (5 GHz channels) stay hidden. A cable in the Ethernet port works too.</p>' +
+      phoneHtml(status) + "</section>";
   }
+  // phone setup: the pedal's own Wi-Fi "Central Pedal Setup" (it comes on by itself when the pedal has no network)
+  function phoneHtml(status) {
+    var ps = (status && status.phoneSetup) || phone;
+    if (!ps) return "";
+    return '<div class="wf-phone"><h4>Set up from a phone</h4>' +
+      (ps.on ? '<p>The setup Wi-Fi is on: on a phone, join <b>' + esc(ps.ssid || "Central Pedal Setup") + '</b> - the setup page opens by itself (or go to ' + esc(ps.address || "http://10.42.0.1/") + ').</p><div class="row"><button data-wf="phoneOff">Turn the setup Wi-Fi off</button></div>'
+        : '<p class="muted small">The pedal makes its own Wi-Fi, <b>' + esc(ps.ssid || "Central Pedal Setup") + '</b>, for a phone to pick the church Wi-Fi, the touch screen and the code. It comes on by itself when the pedal has no network. While it is on, the pedal is off the church Wi-Fi.</p><div class="row"><button data-wf="phoneOn">Turn the setup Wi-Fi on</button></div>') +
+      (ps.error ? '<p class="warn small">' + esc(ps.error) + "</p>" : "") + "</div>";
+  }
+  var phone = null;
+  function phoneDialog() {
+    var d = document.getElementById("phoneSetupDialog");
+    if (!phone || !phone.on || control()) { if (d && d.open) d.close(); return; }
+    if (!d) {
+      d = document.createElement("dialog"); d.id = "phoneSetupDialog"; d.className = "pin-dialog";
+      document.body.appendChild(d);
+      d.addEventListener("click", function (e) { if (e.target.closest("[data-wf=phoneOff]")) d.close(); });
+    }
+    d.innerHTML = "<h2>Set up with your phone</h2><ol><li>On your phone, join the Wi-Fi <b>" + esc(phone.ssid || "Central Pedal Setup") + "</b>.</li><li>The setup page opens by itself (or go to " + esc(phone.address || "http://10.42.0.1/") + ").</li><li>Pick the church Wi-Fi, the touch screen and the 4-digit code, then Upload.</li></ol>" +
+      (phone.error ? '<p class="warn">' + esc(phone.error) + "</p>" : "") +
+      '<p class="muted small">Or set the Wi-Fi up here: Not now, then Settings → Wi-Fi.</p><div class="row"><button data-wf="phoneOff">Not now</button></div>';
+    if (!d.open) d.showModal();
+  }
+  F.on("phoneSetup", function (m) { phone = m; phoneDialog(); rerender(); });
   function connect(ssid, pw, hidden) { wfBusy = true; wfMsg = "Connecting to " + ssid + "…"; rerender(); send({ type: "system", action: "wifi", ssid: ssid, password: pw || "", hidden: !!hidden }); PP.setStatus(wfMsg); }
   F.on("wifiResult", function (m) {
     wfBusy = !!m.busy; wfMsg = m.busy ? m.message : (m.ok ? "✓ " : "") + (m.message || (m.ok ? "Done" : "Could not connect."));
@@ -95,6 +120,8 @@
       if (window.PPTracks && window.PPTracks.isPlaying && window.PPTracks.isPlaying() && !confirm("Something is playing. Restart the Central Pedal now?")) return;
       PP.persistNow(); send({ type: "system", action: "reboot" }); PP.setStatus("Restarting…");
     } else if (b.dataset.ts === "calibrate") { send({ type: "hardware", action: "calibrateTouch" }); PP.setStatus("Touch the two crosses on the small screen"); }
+    else if (a === "phoneOn") { send({ type: "system", action: "phoneSetup", value: "on" }); PP.setStatus("Turning the setup Wi-Fi on…"); }
+    else if (a === "phoneOff") { send({ type: "system", action: "phoneSetup", value: "off" }); if (phone) phone.on = false; phoneDialog(); rerender(); }
     else if (a === "scan") { wfMsg = "Scanning…"; wfBusy = true; rerender(); send({ type: "system", action: "wifi" }); setTimeout(function () { if (wfMsg === "Scanning…") { wfMsg = ""; wfBusy = false; rerender(); } }, 20000); }
     else if (a === "net") {
       var ssid = b.dataset.ssid;
@@ -107,6 +134,6 @@
       connect(name.trim(), pw2, true);
     } else if (a === "forget") { if (confirm("Forget this Wi-Fi network? The Central Pedal disconnects from it.")) send({ type: "system", action: "wifiForget" }); }
   });
-  F.on("systemStatus", function (m) { lastStatus = m; if (!m.busy && wfMsg === "Scanning…") { wfMsg = ""; wfBusy = false; } });
+  F.on("systemStatus", function (m) { lastStatus = m; if (m.phoneSetup) { var was = phone && phone.on; phone = m.phoneSetup; if (!!phone.on !== !!was) phoneDialog(); } if (!m.busy && wfMsg === "Scanning…") { wfMsg = ""; wfBusy = false; } });
   window.PPTouchWifi = { touchHtml: touchHtml, wifiHtml: wifiHtml };
 })();

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * License keys and the first-open setup, end to end: the real website (server/, on a Postgres), the real driver and
- * the apps in headless Chromium - Central Pedal (with a key put on its card), Central Control (A key) and Central
- * Usage (U key): set up, wrong keys, Release key, released on the website, 30 days offline.
+ * the apps in headless Chromium - Central Pedal (no key: it only takes sound packages), Central Pedal Control (a P key,
+ * here the pedal's own web copy at :8080/control/, with the key put on the pedal's card), Central Control (A key) and
+ * Central Usage (U key): set up, wrong keys, Release key, released on the website, 30 days offline.
  *   MA_DATABASE_URL=postgres://... MA_SERVER_DIR=path/to/server (with node_modules) node test-license.mjs
  */
 import { chromium } from "playwright";
@@ -45,11 +46,18 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
 const ctx = await browser.newContext({ viewport: { width: 1200, height: 800 } });
 await ctx.addInitScript((server) => { window.PP_LICENSE_CONFIG = { server: server, required: true }; }, WEB);
 const errors = [];
+const CONTROL = "http://127.0.0.1:8080/control/#perform";
+await check("Central Pedal itself needs no key: no setup, even with licensing on", async () => {
+  const p0 = await ctx.newPage(); p0.on("pageerror", (e) => errors.push("p0:" + e));
+  await p0.goto("http://127.0.0.1:8766/app/#perform"); await p0.waitForFunction(() => window.PPLicense && PPLicense.app());
+  await p0.waitForTimeout(2500);
+  assert.equal(await p0.evaluate(() => PPLicense.app() + ":" + !!document.getElementById("licWiz")), "pedal:false"); await p0.close();
+});
 const page = await ctx.newPage(); page.on("pageerror", (e) => errors.push(String(e))); page.on("dialog", (d) => d.accept());
 const T = (fn, arg) => page.evaluate(fn, arg);
-await page.goto("http://127.0.0.1:8766/app/#perform");
+await page.goto(CONTROL);
 
-await check("Central Pedal opens on the setup: internet ✓, then the production's name", async () => {
+await check("Central Pedal Control opens on the setup: internet ✓, then the production's name", async () => {
   await until(() => T(() => !!document.getElementById("licWiz")), 10000);
   await until(() => T(() => !!document.getElementById("lwProd")), 8000);
   const steps = await T(() => Array.from(document.querySelectorAll("#licWiz .lw-steps span")).map((s) => s.textContent));
@@ -57,16 +65,23 @@ await check("Central Pedal opens on the setup: internet ✓, then the production
   await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await wait(300);
   assert.ok(await T(() => document.getElementById("licWiz") && document.getElementById("licWiz").open), "Escape (twice) doesn't skip it");
 });
-await check("...the name, then the key that came on the card is already filled in, with this pedal's name", async () => {
+await check("...the name, then the key (Pedal Control is its own device: no key from a pedal's card), with this device's name", async () => {
   await page.fill("#lwProd", "Grace Church"); await page.click('#licWiz [data-lw="prod"]');
   const k = await until(() => T(() => { const i = document.getElementById("lwKey"); return i ? { key: i.value, dev: document.getElementById("lwDev").value } : null; }));
-  assert.equal(k.key, P1); assert.match(k.dev, /^Central Pedal/);
+  assert.equal(k.key, ""); assert.match(k.dev, /^Central Pedal Control/);
   assert.equal(await T(() => PP.project().name), "Grace Church", "the set is named after the production");
 });
-await check("...a wrong kind of key is caught before it is sent; a key used on another device says where", async () => {
+await check("...a wrong kind of key is caught before it is sent; with the website open the default key is checked there like any key; a key used on another device says where", async () => {
   await page.fill("#lwKey", A1); await page.click('#licWiz [data-lw="key"]');
   assert.match(await T(() => document.querySelector("#licWiz .bad").textContent), /needs a key that starts with P/);
-  await j("POST", "/license/activate", { key: P2, device: "dev-someone-elses", deviceName: "Youth room pedal", app: "pedal" });
+  const sent = []; const onReq = (r) => { if (/\/v1\/license\/activate$/.test(r.url())) sent.push(r.postDataJSON()); }; page.on("request", onReq);
+  await page.fill("#lwKey", "PDEF-AULT-KEY0-2026"); await page.click('#licWiz [data-lw="key"]');
+  await until(() => sent.length > 0 && T(() => !!document.getElementById("lwKey") && !document.querySelector('#licWiz [data-lw="key"]').disabled), 8000);
+  page.off("request", onReq); assert.equal(sent[0].key, "PDEF-AULT-KEY0-2026", "the website decides (staff can switch the default keys off)");
+  await T(() => { const s = PPLicense.state(); if (s && s.key === "PDEF-AULT-KEY0-2026") { localStorage.removeItem("cc-license"); } });   // (if the website took it, start over without it)
+  if (!(await T(() => !!document.getElementById("lwKey")))) { await page.reload(); await until(() => T(() => !!document.getElementById("lwProd") || !!document.getElementById("lwKey")), 10000); if (await T(() => !!document.getElementById("lwProd"))) { await page.fill("#lwProd", "Grace Church"); await page.click('#licWiz [data-lw="prod"]'); } }
+  await j("POST", "/license/activate", { key: P2, device: "dev-someone-elses", deviceName: "Youth room pedal", app: "pedal-control" });
+  await j("POST", "/license/activate", { key: P2, device: "dev-someone-elses-2", deviceName: "Office iPad", app: "pedal-control" });   // (a Pedal Control key is on two devices at most)
   await page.fill("#lwKey", P2); await page.click('#licWiz [data-lw="key"]');
   await until(() => T(() => /Youth room pedal/.test((document.querySelector("#licWiz .bad") || {}).textContent || "")));
 });
@@ -77,17 +92,16 @@ await check("...its own key works; then the account: the main admin signs in, an
   await page.fill("#lwEmail", "lead" + stamp + "@grace.test"); await page.fill("#lwPass", "password123"); await page.click('#licWiz [data-lw="acct"]');
   await until(() => T(() => !document.getElementById("licWiz")), 8000);
   const s = await T(() => ({ ok: PPLicense.licensed(), st: PPLicense.state(), ct: JSON.parse(localStorage.getItem("central-tracks") || "{}") }));
-  assert.ok(s.ok && s.st.kind === "P" && s.st.app === "pedal" && s.st.account.email.startsWith("lead"), JSON.stringify(s.st));
+  assert.ok(s.ok && s.st.kind === "P" && s.st.app === "pedal-control" && s.st.account.email.startsWith("lead"), JSON.stringify(s.st));
   assert.ok(s.ct.server === WEB && s.ct.token, "Central Tracks is signed in with the same account");
   const ch = await j("GET", "/church", null, owner.token);
   assert.ok(ch.keys.some((k) => k.key === P1 && k.inUse && /^Central Pedal/.test(k.device)), "the website shows the key on this pedal");
 });
-await check("the pedal keeps a copy with its driver (a wiped browser profile doesn't ask again) and uses its own id", async () => {
-  await until(() => fs.existsSync(path.join(tmp, "license-state.json")) && JSON.parse(fs.readFileSync(path.join(tmp, "license-state.json"), "utf8")).key === P1, 6000);
-  assert.equal(await T(() => PPLicense.deviceId() === window.__pedalBridge.info.deviceId && /^dev-[0-9a-f]{24}$/.test(PPLicense.deviceId())), true);
-  await T(() => { localStorage.removeItem("cc-license"); localStorage.removeItem("cc-device-id"); });
+await check("Pedal Control keeps its key and its own device id across a reload (no setup again)", async () => {
+  const id = await T(() => PPLicense.deviceId()); assert.match(id, /^dev-[0-9a-f]{24}$/);
   await page.reload(); await page.waitForFunction(() => window.PPLicense && PPLicense.app()); await wait(2000);
-  assert.equal(await T(() => !document.getElementById("licWiz") && PPLicense.complete()), true, "no setup after the profile was wiped");
+  assert.equal(await T(() => !document.getElementById("licWiz") && PPLicense.complete() && PPLicense.app()), "pedal-control", "no setup after a reload");
+  assert.equal(await T(() => PPLicense.deviceId()), id);
 });
 await check("Settings → License shows the key and Release key frees it (the setup comes back)", async () => {
   await T(() => PPShell.showTab("settings")); await until(() => T(() => !!document.querySelector('#licSettings [data-lic="release"]')), 6000);
@@ -106,11 +120,11 @@ await check("a key released on the website (a lost device) stops the app at its 
   await until(() => T(() => /released/.test((document.getElementById("licWiz") || {}).textContent || "")), 8000);
 });
 await check("offline: it keeps working for 30 days after the last check, then asks for the internet", async () => {
-  await j("POST", "/license/activate", { key: P1, device: await T(() => PPLicense.deviceId()), deviceName: "Central Pedal", app: "pedal" });
+  await j("POST", "/license/activate", { key: P1, device: await T(() => PPLicense.deviceId()), deviceName: "Central Pedal Control", app: "pedal-control" });
   const p2 = await ctx.newPage(); p2.on("pageerror", (e) => errors.push("p2:" + e));
   await p2.addInitScript(() => { window.PP_LICENSE_CONFIG = { server: "http://127.0.0.1:9", required: true }; });   // (nothing answers there: offline)
-  const setAge = (days) => p2.evaluate((d) => { const s = JSON.parse(localStorage.getItem("cc-license")); s.okAt = Date.now() - d * 864e5; s.blocked = null; s.app = "pedal"; s.account = s.account || { email: "x" }; localStorage.setItem("cc-license", JSON.stringify(s)); }, days);
-  await p2.goto("http://127.0.0.1:8766/app/#perform"); await p2.waitForFunction(() => window.PPLicense);
+  const setAge = (days) => p2.evaluate((d) => { const s = JSON.parse(localStorage.getItem("cc-license")); s.okAt = Date.now() - d * 864e5; s.blocked = null; s.app = "pedal-control"; s.account = s.account || { email: "x" }; localStorage.setItem("cc-license", JSON.stringify(s)); }, days);
+  await p2.goto(CONTROL); await p2.waitForFunction(() => window.PPLicense);
   await p2.evaluate((k) => { const s = JSON.parse(localStorage.getItem("cc-license") || "{}"); s.key = k; s.kind = "P"; localStorage.setItem("cc-license", JSON.stringify(s)); }, P1);
   await setAge(10); await p2.reload(); await p2.waitForFunction(() => window.PPLicense && PPLicense.app()); await p2.waitForTimeout(2500);
   assert.equal(await p2.evaluate(() => !!document.getElementById("licWiz")), false, "10 days offline: still works");
