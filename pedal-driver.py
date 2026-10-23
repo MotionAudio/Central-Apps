@@ -86,7 +86,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.4.1"
+APP_VERSION = "9.4.2"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -1165,6 +1165,8 @@ class HttpBase(BaseHTTPRequestHandler):
         self.send_header("Accept-Ranges", "bytes")
         if cache:
             self.send_header("Cache-Control", "max-age=3600")
+        elif re.search(r"\.(html?|js|css)$", path or "", re.I):
+            self.send_header("Cache-Control", "no-cache")   # (pages and scripts: always the version just installed)
         self.end_headers()
         if self.command == "HEAD":
             return None
@@ -3198,6 +3200,7 @@ class MiniScreen:
             self.touch_name = dev.name
             x = y = None
             down = pending = False
+            samples, down_at = [], 0.0
             try:
                 for event in dev.read_loop():
                     if usb.stop_flag.is_set():
@@ -3212,18 +3215,33 @@ class MiniScreen:
                     elif event.type == ev.ecodes.EV_KEY and event.code == ev.ecodes.BTN_TOUCH:
                         if event.value == 1 and not down:
                             down = pending = True
+                            samples, down_at = [], time.monotonic()
                         elif event.value == 0:
+                            if pending and samples:   # (a very quick tap: what was read so far)
+                                self.tap(*self.steady(samples))
                             down = pending = False
                             self.active = None
                     elif event.type == ev.ecodes.EV_SYN and x is not None and y is not None:
                         if pending:
-                            pending = False
-                            self.tap(x, y)
+                            # A resistive panel's first readings jump while the finger settles: the tap goes off on the
+                            # middle of the first few (about 30 ms), not on the very first one.
+                            samples.append((x, y))
+                            if len(samples) >= 4 or time.monotonic() - down_at > 0.05:
+                                pending = False
+                                self.tap(*self.steady(samples))
                         elif down and self.active:
                             self.drag(x, y)   # (a finger sliding along a fader)
             except Exception as error:
                 log.debug("touch loop ended (%s)", error)
                 time.sleep(2)
+
+    @staticmethod
+    def steady(samples):
+        """The touch's place from its first readings: the middle value of each (the first reading left out when there
+        are enough)."""
+        pts = samples[1:] if len(samples) >= 3 else samples
+        xs, ys = sorted(p[0] for p in pts), sorted(p[1] for p in pts)
+        return xs[len(xs) // 2], ys[len(ys) // 2]
 
     def draw_calibration(self, step):
         img = self.Image.new("RGB", (self.w, self.h), self.COL["bg"])
@@ -7925,6 +7943,10 @@ class PedalDriver:
         self.local.start()
         self.companion = CompanionServer(self, int(self.config["lan_port"]))
         self.companion.start()
+        try:
+            self.displays_config()   # (an older version's "HDMI 1 = copy of the small screen" becomes the full app before the screens start)
+        except Exception as error:
+            log.debug("displays: %s", error)
         threading.Thread(target=self.auto_touch_screen, daemon=True).start()
         self.start_gpio()
         self.start_analog()

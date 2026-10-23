@@ -131,6 +131,7 @@ install -d -m 755 /opt/pad-pedal/central-usage/app /opt/pad-pedal/central-usage/
 install -m 644 "$SRC"/central-usage/app/*.js "$SRC"/central-usage/app/*.html "$SRC"/central-usage/app/*.css /opt/pad-pedal/central-usage/app/
 install -m 644 "$SRC/central-usage/build/icon.png" /opt/pad-pedal/central-usage/build/icon.png
 [ -f "$SRC/central-usage/build/icon-usage.png" ] && install -m 644 "$SRC/central-usage/build/icon-usage.png" /opt/pad-pedal/central-usage/build/icon-usage.png
+[ -f "$SRC/central-pedal-control/build/icon.png" ] && install -d -m 755 /opt/pad-pedal/central-pedal-control/build && install -m 644 "$SRC/central-pedal-control/build/icon.png" /opt/pad-pedal/central-pedal-control/build/icon.png
 [ -f "$SRC/wiring.html" ] && install -m 644 "$SRC/wiring.html" /opt/pad-pedal/wiring.html
 [ -f "$SRC/README.md" ] && install -m 644 "$SRC/README.md" /opt/pad-pedal/README.md
 install -m 755 "$SRC/pedal-driver.py"        /opt/pad-pedal/pedal-driver.py

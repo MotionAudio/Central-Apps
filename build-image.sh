@@ -6,7 +6,7 @@
 # into it, and writes a ready-to-flash SD card image:
 #
 #     sudo ./build-image.sh
-#     -> central-control-os-<version>.img   (flash with Raspberry Pi Imager: "Use custom")
+#     -> central-pedal-<version>.img   (flash with Raspberry Pi Imager: "Use custom")
 #
 # Flash it, put the card in a Raspberry Pi 4, power on: it boots straight
 # into Central Pedal. Nothing else ever appears.
@@ -22,7 +22,7 @@
 #   SAFE_MODE=on|off                power-cut safe mode from first boot (default: on)
 #   SOUNDS=full|small|none          keys sound banks: all (1.6 GB), without the Salamander grand, or none
 #   EXTRA_MB=...                    grow the system partition by this much instead of working it out
-#   OUT=my-card.img                 output file (default: central-control-os-<version>.img)
+#   OUT=my-card.img                 output file (default: central-pedal-<version>.img)
 #   COMPRESS=1                      also write a .img.xz (smaller)
 #   BASE_IMAGE=/path/to/raspios.img.xz   use an image you already downloaded
 #
@@ -36,7 +36,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VER="$(sed -nE 's/^APP_VERSION = "([^"]+)".*/\1/p' "$HERE/pedal-driver.py" 2>/dev/null | head -1)"; VER="${VER:-unknown}"
-OUT="${OUT:-$HERE/central-control-os-$VER.img}"
+OUT="${OUT:-$HERE/central-pedal-$VER.img}"
 CACHE="${CACHE:-$HERE/.cache}"
 BASE_URL="${BASE_URL:-https://downloads.raspberrypi.com/raspios_lite_arm64_latest}"
 BASE_IMAGE="${BASE_IMAGE:-}"
@@ -185,6 +185,11 @@ printf '#!/bin/sh\nexit 101\n' > "$MNT/usr/sbin/policy-rc.d"; chmod +x "$MNT/usr
 
 mkdir -p "$MNT/tmp/pad-pedal-src/js/vendor" "$MNT/tmp/pad-pedal-src/companion" "$MNT/tmp/pad-pedal-src/css" "$MNT/tmp/pad-pedal-src/fonts" "$MNT/tmp/pad-pedal-src/central-usage/app" "$MNT/tmp/pad-pedal-src/central-usage/build"
 for f in "${FILES[@]}"; do cp "$HERE/$f" "$MNT/tmp/pad-pedal-src/$f"; done
+# every app file in those folders, not only the ones listed above (setup-pi.sh installs the folders whole)
+cp "$HERE"/css/*.css "$MNT/tmp/pad-pedal-src/css/"; cp "$HERE"/js/*.js "$MNT/tmp/pad-pedal-src/js/"; cp "$HERE"/js/vendor/*.js "$MNT/tmp/pad-pedal-src/js/vendor/"
+cp "$HERE"/companion/* "$MNT/tmp/pad-pedal-src/companion/"; cp "$HERE"/fonts/* "$MNT/tmp/pad-pedal-src/fonts/"
+cp "$HERE"/central-usage/app/*.js "$HERE"/central-usage/app/*.html "$HERE"/central-usage/app/*.css "$MNT/tmp/pad-pedal-src/central-usage/app/"
+[ -f "$HERE/central-pedal-control/build/icon.png" ] && mkdir -p "$MNT/tmp/pad-pedal-src/central-pedal-control/build" && cp "$HERE/central-pedal-control/build/icon.png" "$MNT/tmp/pad-pedal-src/central-pedal-control/build/"
 # pre-rendered spoken cue words, so the build works without espeak-ng too
 [ -d "$HERE/cues" ] && cp -r "$HERE/cues" "$MNT/tmp/pad-pedal-src/cues"
 # the sound banks fetched above (setup-pi.sh moves them into /opt/pad-pedal/sounds)

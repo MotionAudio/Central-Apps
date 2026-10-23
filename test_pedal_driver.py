@@ -473,6 +473,8 @@ async def main():
             driver.emit = _real_emit
         check("a tap on the small screen is read at its own place (the panel says \"touched\" before where): pad 1, then play",
               [t.get("name") for t in _taps] == ["pad", "playPause"] and _taps[0].get("args") == {"index": 0}, _taps)
+        check("a touch's place is the middle of its first readings (the first, jumpy one left out)",
+              driver_mod.MiniScreen.steady([(900, 900), (2000, 1500), (2010, 1490), (1990, 1510)]) == (2000, 1500))
         # the tabs: Tracks → Mixer, a fader by tap and by drag, the Instrument's pedals, Settings → In & out
         mini = driver.mini
         touch_screen_id_before = driver_mod.touch_screen_id(driver.config)

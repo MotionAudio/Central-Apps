@@ -143,12 +143,21 @@ flowchart LR
 
 ### The Raspberry Pi image
 
+**The easy way:** put the SD card in your Ubuntu PC, open Terminal and run
+
+```bash
+curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash
+```
+
+It asks for the Wi-Fi, the small touch screen and the pedal's key, downloads the newest Central Pedal, builds
+`central-pedal-<version>.img` and writes it to the card you pick. By hand, from this folder:
+
 1. **Build it** on your Ubuntu PC. The first build takes 40–60 minutes and needs internet and about 15 GB free:
 
    ```bash
    sudo WIFI_SSID="Church WiFi" WIFI_PASS="password" bash build-image.sh
    ```
-   - You get `central-control-os-<version>.img`. Always build from the folder you unzipped the newest
+   - You get `central-pedal-<version>.img`. Always build from the folder you unzipped the newest
      `central-control-source.zip` into. Delete older images so they can't be flashed by mistake.
    - Options:
      - `PI_PASS=...`, `PI_HOSTNAME=...`
@@ -194,6 +203,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
+
+**New in version 9.4.2:** Steadier taps on the small 3.5" screen; HDMI 1 always shows the full app; a one-line SD card maker (`curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash`) and the image is now named central-pedal.
 
 **New in version 9.4.1:** The small 3.5" screen's Settings get a Touch page: pick which touch screen it is, calibrate the touch, and flip it 180°.
 
