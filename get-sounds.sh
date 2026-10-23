@@ -2,7 +2,9 @@
 # ==============================================================================
 # Central Control - fetch the keys and instrument sound banks (SoundFont .sf2) the
 # Instrument tab plays. All are free to use and to sell as part of a product: FreePats
-# (CC0 / CC-BY) and the Salamander Grand Piano (CC-BY 3.0, Alexander Holm). Each bank
+# (CC0 / CC-BY), the Salamander Grand Piano (CC-BY 3.0, Alexander Holm) and the orchestra
+# (strings, brass, woodwinds) built from VS Chamber Orchestra 2: CE (CC0, Versilian Studios)
+# by sounds-vsco.py next to this script (needs python3-numpy). Each bank
 # belongs to a plan (free, Central Keys or Central Instrument): the script writes
 # tiers.txt (read by the instrument host) and CREDITS.txt (authors and licenses) next
 # to the banks. Run by build-image.sh on your PC and by install-kiosk.sh on the Pi;
@@ -10,10 +12,12 @@
 #
 #   bash get-sounds.sh <target folder>          (default: ./sounds)
 #   SMALL=1 bash get-sounds.sh                  skip the big banks (the Salamander grand, two guitars)
-#   ONLY="Ukulele,Ocarina" bash get-sounds.sh   just these banks (by short name)
+#   ONLY="Ukulele,Ocarina" bash get-sounds.sh   just these banks (by short name; "VSCO" = the orchestra)
+#   NO_ORCHESTRA=1 bash get-sounds.sh           skip the orchestra (strings, brass, woodwinds: about 95 MB)
 # ==============================================================================
 set -uo pipefail
-TARGET="${1:-$(cd "$(dirname "$0")" && pwd)/sounds}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+TARGET="${1:-$HERE/sounds}"
 CACHE="${CACHE:-$TARGET/.downloads}"
 mkdir -p "$TARGET" "$CACHE"
 say() { printf '\n==> %s\n' "$*"; }
@@ -59,8 +63,8 @@ BANKS=(
   "https://freepats.zenvoid.org/Reed/TenorSaxophone/TenorSaxophone-small-SF2-20200717.tar.bz2|CC0|Tenor Saxophone|instrument"
   "https://freepats.zenvoid.org/Wind/Recorder1/Recorder-SF2-20201205.7z|CC0|Recorder|instrument"
   # 9.5: guitars (electric clean / jazz / direct / distorted, nylon), ukulele, ocarina and two synth sets (all CC0, FreePats).
-  # Real strings, cello, brass and winds come from the General MIDI banks already on the pedal (FluidR3 GM and
-  # MuseScore General, both MIT): the app puts those sounds in Central Instrument.
+  # Real strings, cello, brass and woodwinds: the orchestra below (VSCO 2: CE); the General MIDI banks already on the
+  # pedal (FluidR3 GM and MuseScore General, both MIT) have more, sorted into Central Instrument by the app.
   "https://github.com/freepats/electric-guitar-FSBS-clean/releases/download/2026-08-07/EGuitarFSBS-clean-bridge-small-SF2-20260807.7z|CC0|Electric Guitar Clean|instrument"
   "https://github.com/freepats/electric-guitar-FSBS-jazz/releases/download/2026-08-07/EGuitarFSBS-jazz-bridge-small-SF2-20260807.7z|CC0|Electric Guitar Jazz|instrument"
   "https://github.com/freepats/electric-guitar-FSBS-direct/releases/download/2022-09-11/EGuitarFSBS-direct-SF2-20220911.7z|CC0|Electric Guitar Direct|instrument|big"
@@ -109,6 +113,22 @@ for entry in "${BANKS[@]}"; do
   if [ "$n" -gt 0 ]; then echo "    $n bank(s) ready"; ok=$((ok+1)); else echo "    no .sf2 inside - skipped"; failed+=("$name"); fi
 done
 
+# ---- the orchestra: VS Chamber Orchestra 2: CE (SFZ + WAV, CC0) made into three SoundFonts here (looped, mono)
+# Its readme asks that the samples not be sold on their own: they come free with every Central Pedal and app
+# (VSCO_TIER below), never as part of a paid plan.
+VSCO_TIER="${VSCO_TIER:-free}"
+VSCO_BANKS=("VSCO Strings|VSCO-Strings" "VSCO Brass|VSCO-Brass" "VSCO Woodwinds|VSCO-Woodwinds")
+if [ "${NO_ORCHESTRA:-0}" != "1" ] && { [ -z "${ONLY:-}" ] || [[ ",$ONLY," == *",VSCO,"* ]]; }; then
+  wanted=$((wanted+3))
+  if [ ! -f "$HERE/sounds-vsco.py" ]; then echo "    (sounds-vsco.py is missing - no orchestra)"; failed+=("VSCO orchestra")
+  elif ! python3 -c "import numpy" 2>/dev/null; then echo "    (python3-numpy is missing - no orchestra: sudo apt install python3-numpy)"; failed+=("VSCO orchestra")
+  else
+    say "Orchestra: strings, brass, woodwinds (VS Chamber Orchestra 2: CE, CC0)"
+    python3 "$HERE/sounds-vsco.py" "$CACHE/vsco" "$TARGET" || failed+=("VSCO orchestra")
+    for v in "${VSCO_BANKS[@]}"; do ls "$TARGET/${v#*|} - "*.sf2 >/dev/null 2>&1 && ok=$((ok+1)); done
+  fi
+fi
+
 # ---- tiers.txt (which plan opens each bank: the Pi's instrument host reads it) and CREDITS.txt (who made each one)
 plan_name() { case "$1" in free) echo "free with every Central Pedal and app";; keys) echo "Central Keys";; instrument) echo "Central Instrument";; *) echo "$1";; esac; }
 {
@@ -117,6 +137,7 @@ plan_name() { case "$1" in free) echo "free with every Central Pedal and app";; 
     IFS='|' read -r url license name tier big <<< "$entry"; slug="$(slug_of "$name")"
     ls "$TARGET/$slug - "*.sf2 >/dev/null 2>&1 && echo "$slug|$tier|$license|$name"
   done
+  for v in "${VSCO_BANKS[@]}"; do ls "$TARGET/${v#*|} - "*.sf2 >/dev/null 2>&1 && echo "${v#*|}|$VSCO_TIER|CC0|${v%%|*}"; done
 } > "$TARGET/tiers.txt"
 {
   echo "Central Pedal keys & instrument sounds - credits and licenses"
@@ -136,6 +157,16 @@ plan_name() { case "$1" in free) echo "free with every Central Pedal and app";; 
       "YDP Grand Piano") echo "  Author:  Zenph Studios Yamaha Disklavier Pro multisamples for OLPC (Dr. Mikhail Krishtal and team, donated via Dr. Richard Boulanger / cSounds.com); SoundFont by roberto@zenvoid.org for FreePats" ;;
       *) echo "  Author:  FreePats project (freepats.zenvoid.org)" ;;
     esac
+    echo
+  done
+  for v in "${VSCO_BANKS[@]}"; do
+    ls "$TARGET/${v#*|} - "*.sf2 >/dev/null 2>&1 || continue
+    echo "${v%%|*}"
+    echo "  License: CC0 1.0    Plan: $(plan_name "$VSCO_TIER")"
+    echo "  Source:  https://github.com/sgossner/VSCO-2-CE (VS Chamber Orchestra 2: Community Edition, SFZ)"
+    echo "  Author:  Versilian Studios - recorded by Sam Gossner and Simon Dalzell, sample cutting by Elan Hickler / Soundemote."
+    echo "           Made into a looped mono SoundFont for Central Pedal by sounds-vsco.py. Free with every Central Pedal"
+    echo "           and app, as Versilian asks (the samples are not sold on their own)."
     echo
   done
   echo "General MIDI banks installed with the system (their sounds are sorted into Central Keys or Central Instrument):"

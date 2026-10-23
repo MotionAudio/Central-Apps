@@ -593,7 +593,8 @@ await check("plans: with licensing off everything is open; every pedal and board
     free: PPPedals.pedals.filter((p) => p.tier === "free").length, freeBoards: PPPedals.boards.filter((b) => !b.plans.length).map((b) => b.id),
     muff: PPPedals.byId("muff").tier, reverb: PPPedals.byId("zitarev").tier, lock: PPPedals.lockText("instrument"), pkgs: !!document.querySelector("#pkgSettings") || PPLicense.packagesHtml().includes("no packages needed") }));
   assert.ok(r.off, "licensing off: all plans open"); assert.equal(r.noTier, 0); assert.ok(r.free >= 12 && r.free <= 16, "free pedals " + r.free);
-  assert.deepEqual(r.freeBoards, ["clean-worship", "acoustic-dry", "bass-di", "keys-stage"]); assert.equal(r.muff, "pedals"); assert.equal(r.reverb, "plugins");
+  // (four free boards, plus the 9.6 orchestra boards: their sounds come free with every app)
+  assert.deepEqual(r.freeBoards, ["clean-worship", "acoustic-dry", "bass-di", "keys-stage", "worship-strings", "cello-pad", "brass-swell", "flute-lead"]); assert.equal(r.muff, "pedals"); assert.equal(r.reverb, "plugins");
   assert.equal(r.lock, "Part of Central Instrument · $80 a year"); assert.ok(r.pkgs, "Settings → Packages says no packages are needed");
 });
 await check("plans: a saved board keeps a locked pedal, bypassed with a lock and its plan; the footswitch, Add pedal and board stepping skip what's locked", async () => {
