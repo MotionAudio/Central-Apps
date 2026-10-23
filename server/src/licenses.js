@@ -13,6 +13,7 @@ import { isAdmin } from "./auth.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
 import { requireStep } from "./signin.js";
 import { newCoverage, currentTenths, fmt } from "./versions.js";
+import { tracksUnlimitedFor, takeBackAll } from "./plans.js";
 
 const ABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // 31 signs: no I, L, O, 0, 1
 const APP_KIND = { pedal: "P", "pedal-control": "P", control: "A", usage: "U" };
@@ -231,8 +232,11 @@ export function routes(api, { wrap, brake, requireUser }) {
       await client.query("COMMIT");
     } catch (e) { try { await client.query("ROLLBACK"); } catch (_) { } throw e; } finally { client.release(); }
     const c = l.church_id ? await one("SELECT name FROM churches WHERE id=$1", [l.church_id]) : null;
-    res.json({ ok: true, key: pretty(l.key), kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, account: l.assigned_email ? { email: l.assigned_email } : null, ...coverage(l) });
+    res.json({ ok: true, key: pretty(l.key), kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, account: l.assigned_email ? { email: l.assigned_email } : null, ...coverage(l), tracksUnlimited: await tracksUnlimitedFor(l) });
   }));
+  // (9.5) besides ok / kind / church / recheckDays / coverage, the reply says tracksUnlimited: true | false - Central
+  // Tracks Unlimited (every community Pad, Multitrack, Prime, Sound, Board and Click). Sound plans aren't here: they're
+  // package keys (plans.js, /v1/package/...).
   api.post("/license/check", wrap(async (req, res) => {
     keyBrake(req);
     const b = req.body || {}, dev = device(b), l = await findKey(b.key);
@@ -243,7 +247,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     if (!devs.some((d) => d.device_id === dev)) return res.json({ ok: false, reason: devs.length >= maxDevices(l.kind, null, devs) ? "elsewhere" : "released", device: devs.map((d) => d.device_name).join(" and ") || null });
     await q("UPDATE license_devices SET last_seen=now() WHERE key=$1 AND device_id=$2", [l.key, dev]);
     const c = l.church_id ? await one("SELECT name FROM churches WHERE id=$1", [l.church_id]) : null;
-    res.json({ ok: true, kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, ...coverage(l) });
+    res.json({ ok: true, kind: l.kind, church: c ? c.name : "", recheckDays: LICENSE_RECHECK_DAYS, ...coverage(l), tracksUnlimited: await tracksUnlimitedFor(l) });
   }));
   api.post("/license/release", wrap(async (req, res) => {   // from the device that has it
     keyBrake(req);
@@ -345,6 +349,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     for (const l of await q("SELECT key FROM licenses WHERE church_id=$1 AND (user_id=$2 OR assigned_email=$3)", [c.id, u.id, String(req.body.email || "").toLowerCase()])) await freeKey(l.key);
     await q("DELETE FROM invites WHERE church_id=$1 AND (user_id=$2 OR email=$3)", [c.id, u.id, String(req.body.email || "").toLowerCase()]);
     await q("DELETE FROM church_members WHERE user_id=$1", [u.id]);
+    await takeBackAll(c.id, req.body.email);   // (the church's package keys they had: back, a new one in each one's place)
     res.json({ ok: true });
   }));
   api.post("/church/rename", requireUser, wrap(async (req, res) => {
@@ -416,6 +421,8 @@ export function routes(api, { wrap, brake, requireUser }) {
       const still = await one("SELECT 1 FROM invites WHERE church_id=$1 AND user_id=$2", [c.id, inv.user_id]);
       if (!still) await q("DELETE FROM church_members WHERE church_id=$1 AND user_id=$2 AND role NOT IN ('owner','church')", [c.id, inv.user_id]);
     }
+    // (no longer in the church, and on no other team: the church's package keys they had come back)
+    if (!(await one("SELECT 1 FROM invites WHERE church_id=$1 AND email=$2", [c.id, inv.email])) && !(await one("SELECT 1 FROM church_members m JOIN users u ON u.id=m.user_id WHERE m.church_id=$1 AND u.email=$2", [c.id, inv.email]))) await takeBackAll(c.id, inv.email);
     res.json({ ok: true });
   }));
 
