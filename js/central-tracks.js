@@ -1,7 +1,11 @@
-/* Central Pedal / Central Pedal Control - "Central Tracks": the Motion Audio community track library.
- * Lives as a tab in "Add songs". Search the library; a Central Tracks subscriber ($77/month) adds any track to
- * this device's storage; everyone else buys the track first. Added tracks become songs like any other import
- * (stems decoded, tempo / key / beats analysed, then copied to the pedals as usual).
+/* Central Pedal / Central Pedal Control - "Central Tracks": the Motion Audio community library.
+ * Lives as a tab in "Add songs". Search the library; a Central Tracks Unlimited subscriber ($77/month) adds anything;
+ * everyone else buys an item first (priced by its star grade). Kinds:
+ *   Pad, Multitrack, Prime - become songs like any other import (stems decoded, tempo / key / beats analysed, copied to the pedals)
+ *   Sound - an .sf2, or a zip of .sf2 banks / WAVs named by note: installed as one of your keys & instrument sounds
+ *   Board - a pedal board (.json): installed as one of your boards on the Instrument tab
+ *   Click - a zip (or two .wav files: accent, beat): a click sound to pick in a song's Click settings
+ * Each installs as soon as it's added.
  * Server API: docs/CENTRAL-TRACKS-API.md. With no server set, the tab shows a preview of the library. */
 (function () {
   "use strict";
@@ -13,8 +17,13 @@
     { id: "p3", title: "Holy Forever - Prime Track", artist: "Motion Audio", kind: "Prime", key: "C", bpm: 72, price: 14.99 },
     { id: "p4", title: "Firm Foundation - Click & Guide", artist: "J. Alvarez", kind: "Multitrack", key: "B", bpm: 73, price: 19.99 },
     { id: "p5", title: "Warm Swell Pad (all 12 keys)", artist: "Motion Audio", kind: "Pad", key: "", bpm: 0, price: 9.99 },
-    { id: "p6", title: "Same God - Full Stems", artist: "North Room Music", kind: "Multitrack", key: "D", bpm: 76, price: 24.99 }
+    { id: "p6", title: "Same God - Full Stems", artist: "North Room Music", kind: "Multitrack", key: "D", bpm: 76, price: 24.99 },
+    { id: "p7", title: "Felt Upright (sampled)", artist: "Grace Hill Keys", kind: "Sound", key: "", bpm: 0, price: 4.99, stars: 4 },
+    { id: "p8", title: "Worship Lead Board (ambient)", artist: "M. Ortiz", kind: "Board", key: "", bpm: 0, price: 1.99, stars: 3 },
+    { id: "p9", title: "Rimshot & Shaker Click", artist: "Motion Audio", kind: "Click", key: "", bpm: 0, price: 0.99, stars: 5 }
   ];
+  var KINDS = ["Pad", "Multitrack", "Prime", "Sound", "Board", "Click"], SONG_KINDS = { Pad: 1, Multitrack: 1, Prime: 1 };
+  var MEDIA = "http://127.0.0.1:8766";
   var st = { q: "", kind: "", tracks: null, me: null, busy: false, log: "", checkout: null, signIn: false, err: "" };
 
   function cfg() { try { return JSON.parse(localStorage.getItem(LS) || "{}"); } catch (e) { return {}; } }
@@ -71,12 +80,81 @@
     PP.setStatus("Added " + t.title + " from Central Tracks");
   }
 
+  // ---- Sounds, boards and clicks: installed on add (not songs)
+  async function download(files) {
+    var got = [];
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i], r = await fetch(f.url); if (!r.ok) throw new Error("download failed (" + r.status + ")");
+      got.push({ name: f.name || ("file-" + (i + 1)), role: f.role || "", blob: await r.blob() });
+      st.log = "Downloaded " + (i + 1) + "/" + files.length; rerender();
+    }
+    return got;
+  }
+  function ext(n) { return String(n || "").toLowerCase().split(".").pop(); }
+  // a small zip reader (stored and deflated entries) for clicks and boards that come zipped
+  async function unzip(blob) {
+    var buf = new Uint8Array(await blob.arrayBuffer()), dv = new DataView(buf.buffer), out = [], eocd = -1;
+    for (var i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error("not a zip file");
+    var n = dv.getUint16(eocd + 10, true), p = dv.getUint32(eocd + 16, true);
+    for (var k = 0; k < n; k++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      var method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), size = dv.getUint32(p + 24, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+      var name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nl)); p += 46 + nl + xl + cl;
+      if (/\/$/.test(name) || size > 64 * 1024 * 1024) continue;
+      var start = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true), raw = buf.subarray(start, start + csize), data;
+      if (method === 0) data = raw;
+      else if (method === 8 && typeof DecompressionStream !== "undefined") data = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+      else continue;
+      out.push({ name: name.split("/").pop(), blob: new Blob([data]) });
+    }
+    return out.filter(function (e) { return e.name && !/^[._]/.test(e.name); });
+  }
+  async function installSound(t, got) {
+    var n = 0;
+    for (var i = 0; i < got.length; i++) {
+      var g = got[i], e = ext(g.name), kind = e === "sf2" || e === "sf3" ? "sf2" : e === "zip" ? "soundzip" : null; if (!kind) continue;
+      var name = kind === "sf2" ? g.name : (t.title || "Sound") + ".zip";
+      st.log = "Installing " + t.title + "…"; rerender();
+      var r = await fetch(MEDIA + "/upload?kind=" + kind + "&name=" + encodeURIComponent(name), { method: "PUT", body: g.blob }), j = await r.json().catch(function () { return {}; });
+      if (!r.ok || j.error) throw new Error(j.error || ("the pedal answered " + r.status)); n++;
+    }
+    if (!n) throw new Error("no .sf2 or .zip in it");
+    if (F.sendToDriver) F.sendToDriver({ type: "instrument", action: "status" });
+    return "✓ " + t.title + " is in your sounds (Instrument tab → Piano & keys, marked “yours”).";
+  }
+  async function installBoard(t, got) {
+    var I = window.PPInstrument; if (!I || !I.addBoard) throw new Error("the Instrument tab isn't here");
+    var files = []; for (var i = 0; i < got.length; i++) files = files.concat(ext(got[i].name) === "zip" ? await unzip(got[i].blob) : [got[i]]);
+    var js = files.filter(function (f) { return ext(f.name) === "json"; })[0]; if (!js) throw new Error("no board (.json) in it");
+    var b = I.addBoard(JSON.parse(await js.blob.text()), t.title);
+    return "✓ " + b.name + " is one of your " + ({ electric: "electric guitar", acoustic: "acoustic", bass: "bass", keys: "keys" }[b.kind] || "") + " boards (Instrument tab → Board).";
+  }
+  async function installClick(t, got) {
+    var files = []; for (var i = 0; i < got.length; i++) files = files.concat(ext(got[i].name) === "zip" ? await unzip(got[i].blob) : [got[i]]);
+    var wavs = files.filter(function (f) { return /^(wav|wave|flac|mp3|ogg)$/.test(ext(f.name)); }); if (!wavs.length) throw new Error("no click sounds (.wav) in it");
+    var hi = wavs.filter(function (f) { return /accent|hi|high|down|bar|one|1\b/i.test(f.name); })[0] || wavs[0], lo = wavs.filter(function (f) { return f !== hi && /beat|lo|low|click|2\b/i.test(f.name); })[0] || wavs.filter(function (f) { return f !== hi; })[0] || hi;
+    var ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 48000);
+    async function dec(f) { var ab = await ctx.decodeAudioData(await f.blob.arrayBuffer()); var ch = ab.getChannelData(0), out = new Float32Array(ch.length); out.set(ch); if (ab.numberOfChannels > 1) { var c2 = ab.getChannelData(1); for (var k = 0; k < out.length; k++) out[k] = (out[k] + c2[k]) / 2; } return { data: out, rate: ab.sampleRate }; }
+    var a = await dec(hi), b = await dec(lo);
+    T.addClickSet(t.title, a.data, b.data, a.rate);
+    return "✓ " + t.title + " is a click sound: pick it in a song's settings → Click sound.";
+  }
+  function addLabel(t) { return SONG_KINDS[t.kind] || !t.kind ? "Add to storage" : t.kind === "Sound" ? "Add to my sounds" : t.kind === "Board" ? "Add to my boards" : "Add to my clicks"; }
+  async function install(t, files) {
+    if (SONG_KINDS[t.kind] || !t.kind) return intoSong(t, files);
+    st.log = "Downloading " + t.title + "…"; rerender();
+    var got = await download(files);
+    st.log = t.kind === "Sound" ? await installSound(t, got) : t.kind === "Board" ? await installBoard(t, got) : t.kind === "Click" ? await installClick(t, got) : "This version doesn't know " + t.kind + " items yet - update Central Pedal.";
+    t.owned = true; PP.setStatus("Added " + t.title + " from Central Tracks"); rerender();
+  }
+
   async function addTrack(id) {
     var t = (st.tracks || []).filter(function (x) { return String(x.id) === String(id); })[0]; if (!t || st.busy) return;
     if (preview()) { st.log = "This is a preview of the library. Set the Central Tracks server (below) and sign in to add tracks."; rerender(); return; }
     if (!cfg().token) { st.signIn = true; st.log = "Sign in to add tracks."; rerender(); return; }
     st.busy = true; st.checkout = null; rerender();
-    try { var j = await api("POST", "/tracks/" + encodeURIComponent(id) + "/add"); await intoSong(t, j.files || []); }
+    try { var j = await api("POST", "/tracks/" + encodeURIComponent(id) + "/add"); await install(t, j.files || []); }
     catch (e) { if (e.status === 402) { st.checkout = { id: id, title: t.title, price: t.price, url: e.checkoutUrl }; st.log = ""; } else st.log = "Could not add: " + e.message; }
     st.busy = false; rerender();
   }
@@ -87,7 +165,7 @@
     st.busy = true; rerender();
     try {
       var j = await api("POST", "/tracks/" + encodeURIComponent(id) + "/purchase");
-      if (j.files) await intoSong(t, j.files); else { st.checkout = { id: id, title: t.title, price: t.price, url: j.checkoutUrl }; try { window.open(j.checkoutUrl, "_blank"); } catch (e) {} }
+      if (j.files) await install(t, j.files); else { st.checkout = { id: id, title: t.title, price: t.price, url: j.checkoutUrl }; try { window.open(j.checkoutUrl, "_blank"); } catch (e) {} }
     } catch (e) { st.log = "Could not start the purchase: " + e.message; }
     st.busy = false; rerender();
   }
@@ -125,16 +203,16 @@
     var login = st.two ? (st.two.step === "phone" ? '<div class="form"><label>Mobile number<input id="ctPhone" type="tel" autocomplete="tel"></label><button class="primary" data-ct="two-phone">Send the code</button><button data-ct="two-cancel">Cancel</button></div>'
         : '<div class="form"><label>' + (st.two.both ? "Code from the text" : "Code") + '<input id="ctCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7"></label>' + (st.two.both ? '<label>Code from the email<input id="ctECode" inputmode="numeric" maxlength="7"></label>' : "") + '<button class="primary" data-ct="two-code">Sign in</button><button data-ct="two-again">Send again</button><button data-ct="two-cancel">Cancel</button></div>')
       : st.signIn && !preview() ? '<div class="form"><label>Email<input id="ctEmail" type="email" autocomplete="username"></label><label>Password<input id="ctPass" type="password" autocomplete="current-password"></label><button class="primary" data-ct="signin">Sign in</button></div>' : "";
-    var search = '<div class="form"><label>Search<input id="ctQ" type="search" value="' + esc(st.q) + '" placeholder="Song, artist or key"></label><label>Type<select id="ctKind">' + ["", "Pad", "Multitrack", "Prime"].map(function (k) { return '<option value="' + k + '"' + (k === st.kind ? " selected" : "") + ">" + (k || "All types") + "</option>"; }).join("") + '</select></label><button data-ct="search"' + (st.busy ? " disabled" : "") + ">Search</button></div>";
+    var search = '<div class="form"><label>Search<input id="ctQ" type="search" value="' + esc(st.q) + '" placeholder="Song, artist or key"></label><label>Type<select id="ctKind">' + [""].concat(KINDS).map(function (k) { return '<option value="' + k + '"' + (k === st.kind ? " selected" : "") + ">" + (k || "All types") + "</option>"; }).join("") + '</select></label><button data-ct="search"' + (st.busy ? " disabled" : "") + ">Search</button></div>";
     var rows = (st.tracks || []).length ? '<div class="add-list">' + st.tracks.map(function (t) {
-      var act = t.owned ? '<button data-ct-add="' + esc(String(t.id)) + '"' + (st.busy ? " disabled" : "") + ">Add to storage</button>"
-        : sub || preview() ? '<button class="primary" data-ct-add="' + esc(String(t.id)) + '"' + (st.busy ? " disabled" : "") + ">Add to storage</button>"
+      var act = t.owned ? '<button data-ct-add="' + esc(String(t.id)) + '"' + (st.busy ? " disabled" : "") + ">" + addLabel(t) + "</button>"
+        : sub || preview() ? '<button class="primary" data-ct-add="' + esc(String(t.id)) + '"' + (st.busy ? " disabled" : "") + ">" + addLabel(t) + "</button>"
         : '<button class="primary" data-ct-buy="' + esc(String(t.id)) + '"' + (st.busy ? " disabled" : "") + ">Buy " + money(t.price) + "</button>";
-      return '<div class="add-row"><span class="tag">' + esc(t.kind || "") + "</span><span><b>" + esc(t.title) + "</b><small>" + [t.artist, t.key ? "Key " + String(t.key).replace("#", "♯") : "", t.bpm ? t.bpm + " BPM" : "", money(t.price)].filter(Boolean).map(esc).join(" · ") + "</small></span>" + act + "</div>";
+      return '<div class="add-row"><span class="tag">' + esc(t.kind || "") + "</span><span><b>" + esc(t.title) + "</b><small>" + [t.artist, t.key ? "Key " + String(t.key).replace("#", "♯") : "", t.bpm ? t.bpm + " BPM" : "", t.stars ? t.stars + "-star" : "", money(t.price)].filter(Boolean).map(esc).join(" · ") + "</small></span>" + act + "</div>";
     }).join("") + "</div>" : '<p class="muted">No tracks match that search.</p>';
     var co = st.checkout ? '<div class="add-plan"><p class="small">Finish buying <b>' + esc(st.checkout.title) + "</b> (" + money(st.checkout.price) + ") on the Motion Audio site" + (st.checkout.url ? ': <span style="user-select:all">' + esc(st.checkout.url) + "</span>" : "") + ' - on a Central Pedal open that link on your phone. Then:</p><button class="primary" data-ct-add="' + esc(String(st.checkout.id)) + '">I\'ve paid - add it</button></div>' : "";
     var server = '<details' + (preview() ? " open" : "") + '><summary class="small">Central Tracks server</summary><div class="form"><label>Server address<input id="ctServer" value="' + esc(c.server || "") + '" placeholder="https://tracks.example.com"></label><button data-ct="server">Save</button></div></details>';
-    return '<p>The Motion Audio community library: pads, multitracks and Prime tracks published by other worship teams. Subscribers add any track; otherwise buy the ones you need. Added tracks land in this device\'s song library and copy to your pedals.</p><p class="muted small">Tracks you import yourself are never added to this library. Only tracks published on the Motion Audio website are listed here.</p>' +
+    return '<p>The Motion Audio community library: pads, multitracks, Prime tracks, sounds, pedal boards and click sounds published by other worship teams. Central Tracks Unlimited subscribers add anything; otherwise buy the ones you need (priced by their star grade). Sounds, boards and clicks install as soon as they\'re added. Added tracks land in this device\'s song library and copy to your pedals.</p><p class="muted small">Tracks you import yourself are never added to this library. Only tracks published on the Motion Audio website are listed here.</p>' +
       acct + login + search + (st.err ? '<p class="small warn">' + esc(st.err) + "</p>" : "") + rows + co + '<p class="add-progress">' + esc(st.log || "") + "</p>" + server;
   }
 
@@ -156,5 +234,5 @@
     body.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.id === "ctQ") { st.q = e.target.value.trim(); st.kind = $("#ctKind").value; refresh(); } });
   }
   wire();
-  window.PPCentralTracks = { render: render, refresh: refresh, state: st };
+  window.PPCentralTracks = { render: render, refresh: refresh, state: st, install: install, unzip: unzip };
 })();

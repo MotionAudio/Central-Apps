@@ -184,6 +184,35 @@ def read_wav_mono16(path):
     return list(vals), rate
 
 
+_TIERS_CACHE = {}
+BANK_TIER_NAMES = ("free", "keys", "instrument")
+
+
+def bank_tiers(folder):
+    """The plan each downloaded bank belongs to, from the tiers.txt get-sounds.sh writes next to the banks:
+    one line per bank, "<file prefix>|<tier>|<license>|<name>" (tier: free, keys or instrument). Banks it doesn't list
+    (General MIDI sets, the musician's own) have no tier here: the app sorts their sounds by what they are."""
+    path = os.path.join(folder, "tiers.txt")
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return {}
+    cached = _TIERS_CACHE.get(path)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    tiers = {}
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                parts = line.strip().split("|")
+                if len(parts) >= 2 and parts[0] and not parts[0].startswith("#") and parts[1] in BANK_TIER_NAMES:
+                    tiers[parts[0]] = parts[1]
+    except OSError:
+        return {}
+    _TIERS_CACHE[path] = (mtime, tiers)
+    return tiers
+
+
 def build_sf2_from_wavs(folder, out_path, name=None):
     """Turn a folder of WAVs named by note (C4.wav, F#3.wav, 60.wav...) into a one-preset SoundFont."""
     samples = []
@@ -394,6 +423,7 @@ class InstrumentHost:
         for d in SF2_DIRS + [self.sf2_user_dir]:
             if not os.path.isdir(d):
                 continue
+            tiers = bank_tiers(d) if d != self.sf2_user_dir else {}
             for fn in sorted(os.listdir(d)):
                 if not fn.lower().endswith((".sf2", ".sf3")):
                     continue
@@ -414,7 +444,11 @@ class InstrumentHost:
                     for pr in presets:
                         if pr["name"].strip().lower() in ("instrument", "preset", "untitled", "new preset", "default"):
                             pr["name"] = bank_name
-                    out.append({"file": path, "name": bank_name, "presets": presets[:512], "user": d == self.sf2_user_dir})
+                    bank = {"file": path, "name": bank_name, "presets": presets[:512], "user": d == self.sf2_user_dir}
+                    tier = tiers.get(base.split(" - ")[0]) if " - " in base else None
+                    if tier:
+                        bank["tier"] = tier   # (which plan opens it: free, keys or instrument - get-sounds.sh lists them)
+                    out.append(bank)
         # two General MIDI banks (FluidR3 and the small TimGM6mb) would list every GM sound twice: keep the better one
         if any(b["name"] == "General MIDI (FluidR3)" for b in out):
             out = [b for b in out if not re.search(r"timgm", b["name"], re.I)]

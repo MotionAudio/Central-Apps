@@ -332,6 +332,79 @@ await check("Settings tab opens and explains safe mode needs the Pi", async () =
 
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));
 
+// ---- packages (the sound plans) against a stand-in website, on a page with just the license file: the Central Pedal has no key
+// of its own (no setup wizard), its packages are activated for the pedal's id and kept with its driver; 14 days offline at most
+console.log("\nPackages (sound plans):");
+{
+  const http = await import("node:http");
+  const calls = [], pk = { ok: true, plans: null };
+  const future = new Date(Date.now() + 300 * 864e5).toISOString(), soon = new Date(Date.now() + 30 * 864e5).toISOString();
+  const srv = http.createServer((req, res) => {
+    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Content-Type": "application/json" };
+    if (req.method === "OPTIONS") { res.writeHead(204, cors); return res.end(); }
+    let body = ""; req.on("data", (d) => { body += d; }); req.on("end", () => {
+      const j = body ? JSON.parse(body) : {}; calls.push([req.url, j]);
+      let out = { ok: true };
+      if (req.url === "/v1/package/activate") out = /^SABC/.test(j.key) ? { ok: true, key: j.key, plans: { keys: future, instrument: soon }, holder: "Sam", church: "Grace" } : { ok: false, error: "That package key isn't valid." };
+      else if (req.url === "/v1/package/check") out = { packages: j.keys.map((k) => pk.ok ? { key: k, ok: true, plans: pk.plans || { keys: future, instrument: soon }, end: future } : { key: k, ok: false, error: "refunded" }) };
+      else if (req.url === "/v1/versions") out = { everyone: [] };
+      res.writeHead(200, cors); res.end(JSON.stringify(out));
+    });
+  });
+  await new Promise((ok) => srv.listen(18893, "127.0.0.1", ok));
+  const tmpPage = path.join(os.tmpdir(), "pp-packages-" + process.pid + ".html");
+  fs.writeFileSync(tmpPage, `<!doctype html><meta charset="utf-8"><body><div id="set"></div>
+<script>window.PP_LICENSE_CONFIG = { server: "http://127.0.0.1:18893", required: true }; window.__sent = []; window.__plansEvents = 0;
+var L = {}; window.PPFeatures = { on: function (t, f) { (L[t] = L[t] || []).push(f); }, emit: function (m) { (L[m.type] || []).forEach(function (f) { f(m); }); }, sendToDriver: function () { } };
+window.__pedalBridge = { connected: true, info: { deviceId: "pedal-0123456789ab" }, send: function (m) { window.__sent.push(m); return true; } };
+window.addEventListener("pp-plans", function () { window.__plansEvents++; });</script>
+<script src="${pathToFileURLish(path.join(here, "js", "license.js"))}"></script><script src="${pathToFileURLish(path.join(here, "js", "pedals.js"))}"></script>`);
+  function pathToFileURLish(p) { return "file://" + p.split(path.sep).map(encodeURIComponent).join("/"); }
+  const p2 = await browser.newPage();
+  const errs = []; p2.on("pageerror", (e) => errs.push(String(e)));
+  await p2.goto("file://" + tmpPage);
+  const R = (fn, arg) => p2.evaluate(fn, arg);
+  await check("the Central Pedal opens without a license key (no setup wizard); Settings shows Packages, not License; nothing is open yet", async () => {
+    await R(() => PPLicense.init({ app: "pedal", packages: [] })); await wait(300);
+    const r = await R(() => ({ wiz: !!document.querySelector("dialog#licWiz"), html: PPLicense.settingsHtml(), keys: PPLicense.hasPlan("keys"), free: PPLicense.hasPlan("free"), lockedMuff: PPPedals.pedalLocked("muff"), ts9: PPPedals.pedalLocked("ts9") }));
+    assert.equal(r.wiz, false); assert.ok(/<h3>Packages<\/h3>/.test(r.html) && !/<h3>License<\/h3>/.test(r.html), r.html.slice(0, 200));
+    assert.equal(r.keys, false); assert.equal(r.free, true); assert.equal(r.lockedMuff, true); assert.equal(r.ts9, false);
+  });
+  await check("Add a package: a wrong key is caught here; a good one is activated for the pedal's own id, opens its plans and is kept with the driver", async () => {
+    await R(() => { document.getElementById("set").innerHTML = PPLicense.settingsHtml(); });
+    await p2.fill("#pkgKey", "hello"); await p2.click('[data-pkg="add"]'); await wait(100);
+    const bad = await p2.textContent("#pkgSettings"); const nCalls = calls.filter((c) => c[0] === "/v1/package/activate").length;
+    await p2.fill("#pkgKey", "sabc-defg-hjkl-mnpq"); await p2.click('[data-pkg="add"]'); await wait(400);
+    const act = calls.filter((c) => c[0] === "/v1/package/activate").pop()[1];
+    const r = await R(() => ({ keys: PPLicense.hasPlan("keys"), inst: PPLicense.hasPlan("instrument"), plugins: PPLicense.hasPlan("plugins"), plans: Object.keys(PPLicense.plans()).sort(), saved: window.__sent.filter((m) => m.type === "packages" && m.action === "save").pop(), text: document.getElementById("pkgSettings").textContent, events: window.__plansEvents }));
+    assert.ok(/starts with S/.test(bad) && nCalls === 0, bad);
+    assert.deepEqual(act, { key: "SABC-DEFG-HJKL-MNPQ", deviceId: "pedal-0123456789ab", app: "pedal" });
+    assert.ok(r.keys && r.inst && !r.plugins, JSON.stringify(r)); assert.deepEqual(r.plans, ["instrument", "keys"]);
+    assert.ok(r.saved && r.saved.packages.length === 1 && r.saved.packages[0].key === "SABC-DEFG-HJKL-MNPQ", JSON.stringify(r.saved));
+    assert.ok(/Central Keys until/.test(r.text) && /active/.test(r.text) && r.events >= 1, r.text);
+  });
+  await check("offline it keeps working 14 days after the last good check, never past a plan's end date; a refunded package stops at the next check", async () => {
+    const r = await R(async () => {
+      const set = (days, plans) => { const l = PPLicense.packages(); l[0].okAt = Date.now() - days * 864e5; if (plans) l[0].plans = plans; window.PPFeatures.emit({ type: "packages", packages: l }); };
+      set(13); const d13 = PPLicense.hasPlan("keys"); set(15); const d15 = PPLicense.hasPlan("keys");
+      set(1, { keys: new Date(Date.now() - 864e5).toISOString() }); const ended = PPLicense.hasPlan("keys");
+      return { d13, d15, ended };
+    });
+    pk.ok = false; await R(() => PPLicense.checkPackages()); await wait(200);
+    const after = await R(() => ({ keys: PPLicense.hasPlan("keys"), text: PPLicense.packagesHtml() }));
+    assert.deepEqual(r, { d13: true, d15: false, ended: false }); assert.equal(after.keys, false); assert.ok(/refunded/.test(after.text), after.text.slice(0, 300));
+    const chk = calls.filter((c) => c[0] === "/v1/package/check").pop()[1]; assert.deepEqual(chk, { keys: ["SABC-DEFG-HJKL-MNPQ"], deviceId: "pedal-0123456789ab" });
+  });
+  await check("Remove releases the key on the website and takes it off the pedal", async () => {
+    await R(() => { document.getElementById("set").innerHTML = PPLicense.settingsHtml(); }); await p2.click("[data-pkg-remove]"); await wait(300);
+    const rel = calls.filter((c) => c[0] === "/v1/package/release").pop();
+    const r = await R(() => ({ n: PPLicense.packages().length, saved: window.__sent.filter((m) => m.type === "packages").pop() }));
+    assert.deepEqual(rel && rel[1], { key: "SABC-DEFG-HJKL-MNPQ", deviceId: "pedal-0123456789ab" }); assert.equal(r.n, 0); assert.deepEqual(r.saved.packages, []);
+    assert.deepEqual(errs, []);
+  });
+  await p2.close(); srv.close(); fs.rmSync(tmpPage, { force: true });
+}
+
 await browser.close();
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nAll app checks passed.");
 process.exit(failures ? 1 : 0);

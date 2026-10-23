@@ -20,6 +20,7 @@ companion remote (pairing code).
 """
 import asyncio
 import importlib.util
+import io
 import json
 import os
 import math
@@ -528,6 +529,52 @@ async def main():
         mini.tab = "pads"
         check("...the INSTRUMENT tab's pedals switch on / off; SETTINGS → In & out steps an output",
               ped == {"name": "pedalToggle", "args": {"index": 0}} and bus and bus.get("name") == "busOutput" and bus["args"] == {"bus": "tracks", "delta": 1}, (ped, bus))
+        # the plans: a pedal, board, sound or knob whose plan isn't active is dimmed with a lock; a tap says which plan opens it
+        lock_txt = "Part of Central Pedals · $50 a year"
+        ins_l = {"kind": "electric", "kinds": [["electric", "Electric"], ["keys", "Keys"]], "board": "Fuzz Wall", "boardLocked": lock_txt, "levelDb": 0,
+                 "pedals": [{"index": 0, "name": "Big Muff", "on": False, "color": "#8e44ad", "locked": lock_txt}, {"index": 1, "name": "Clean Booster", "on": True, "color": "#3f9f5a"}],
+                 "knobs": [{"uid": "u1", "sym": "ls_level", "pedal": "Calf 5-band EQ", "label": "Low shelf", "value": 0.5, "text": "0 dB", "on": False, "locked": "Part of Central Plugins · $120 a year"}]}
+        disp_l = dict(disp, mini=dict(disp["mini"], instrument=ins_l))
+        driver.schedule_mini_render = lambda force=False: None
+        mini.tab, mini.sub["instrument"] = "instrument", "pedals"
+        mini.render(disp_l)
+        locked_hit, open_hit = mini.hit_test(60, 110), mini.hit_test(240, 110)
+        mini.local(locked_hit)
+        img_l = mini.render(disp_l)
+        notice_on = mini.notice.startswith(lock_txt) and img_l.getpixel((4, 250)) != mini.COL["bg"]
+        mini.sub["instrument"] = "sound"
+        mini.render(disp_l)
+        board_hit = mini.hit_test(240, 150)
+        mini.sub["instrument"] = "eq"
+        mini.render(disp_l)
+        knob_hit = mini.hit_test(300, 92)
+        mini.notice_at = 0
+        check("small screen: a locked pedal is dimmed with a lock; tapping it says which plan (a line along the bottom), an open one still switches",
+              locked_hit.get("local") == "say" and lock_txt in locked_hit["text"] and open_hit == {"name": "pedalToggle", "args": {"index": 1}} and notice_on, (locked_hit, open_hit, mini.notice))
+        check("...a board whose plan ended says so on the Sound page; a locked EQ knob doesn't move, it says Central Plugins",
+              board_hit.get("local") == "say" and lock_txt in board_hit["text"] and knob_hit.get("local") == "say" and "Central Plugins" in knob_hit["text"], (board_hit, knob_hit))
+        # packages (sound plan keys) are kept by the driver for every screen
+        future = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(time.time() + 200 * 86400))
+        past = time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime(time.time() - 3 * 86400))
+        driver.emit = lambda m, lan=False: _taps.append(m)
+        _taps.clear()
+        driver.handle_app_message({"type": "packages", "action": "save", "packages": [
+            {"key": "SABC-DEFG-HJKL-MNPQ", "plans": {"keys": future, "pedals": future, "bogus": future}, "holder": "Sam", "okAt": time.time() * 1000},
+            {"key": "SZZZ-ZZZZ-ZZZZ-ZZZZ", "plans": {"plugins": past}, "okAt": time.time() * 1000},
+            {"key": "not a key; rm -rf /", "plans": {"keys": future}}]})
+        saved = driver_mod.read_json(os.path.join(driver.config["data_root"], "packages.json"), None)
+        lines = driver_mod.package_lines(saved)
+        check("packages: the app saves them with the driver (bad keys and unknown plans dropped) and every screen hears them",
+              [p["key"] for p in saved or []] == ["SABC-DEFG-HJKL-MNPQ", "SZZZ-ZZZZ-ZZZZ-ZZZZ"] and "bogus" not in saved[0]["plans"]
+              and any(m.get("type") == "packages" and len(m.get("packages") or []) == 2 for m in _taps), (saved, _taps[-1:] if _taps else None))
+        stale = driver_mod.package_lines([{"key": "SABC-DEFG-HJKL-MNPQ", "plans": {"keys": future}, "okAt": (time.time() - 20 * 86400) * 1000}])
+        check("...one line each for the small screens: plans and end date, ended, or needs the internet after 14 days offline",
+              lines[0].startswith("Central Keys, Central Pedals · to ") and lines[1] == "Central Plugins · ended" and stale == ["Central Keys · needs the internet to check"], (lines, stale))
+        mini.tab, mini.sub["settings"] = "settings", "system"
+        mini.render(disp_l)
+        driver.emit = _real_emit
+        driver.schedule_mini_render = _sched
+        mini.tab = "pads"
         driver.handle_app_message({"type": "touchSelect", "knob": "Knob 3", "label": "Reverb · Big Sky", "value": "40%", "pickup": "up"})
         img = driver.mini.render(driver.display)
         check("the small screen shows what the touch-select knob holds (a strip along the bottom)", driver.touch_select["label"] == "Reverb · Big Sky" and img.getpixel((240, 300)) == (10, 40, 30), driver.touch_select)
@@ -847,6 +894,24 @@ async def main():
             st = await next_message(lambda m: m["type"] == "instrumentStatus" and sum(1 for b in m.get("keysCatalog", []) if b.get("user")) >= 2, 6.0)   # (not an older status still on its way)
             names = [b["name"] for b in (st or {}).get("keysCatalog", []) if b.get("user")]
             check("the Instrument tab's sound list has both new banks, marked as the user's", "My Piano" in names and "Stick Bank" in names, names)
+            # Central Tracks "Sound" items: a zip of WAVs named by note (paths flattened: nothing lands outside), or a zip with .sf2 banks
+            zbuf = io.BytesIO()
+            with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.write(os.path.join(bank, "C4.wav"), "Felt Upright/C4.wav")
+                zf.write(os.path.join(bank, "G4.wav"), "../../escape/G4.wav")
+                zf.writestr("Felt Upright/readme.txt", "hello")
+                zf.writestr("__MACOSX/._C4.wav", "junk")
+            status, body = http("http://127.0.0.1:18766/upload?kind=soundzip&name=" + urllib.request.quote("Felt Upright.zip"), data=zbuf.getvalue(), method="PUT")
+            made = json.loads(body) if status == 200 else {}
+            check("Central Tracks: a Sound (a zip of WAVs) installs as one of the keys sounds", status == 200 and made.get("ok") and made.get("samples") == 2 and os.path.exists(made.get("file", ""))
+                  and not os.path.exists(os.path.join(os.path.dirname(made.get("file", "")), "..", "escape")), body[:300])
+            zbuf = io.BytesIO()
+            with zipfile.ZipFile(zbuf, "w") as zf:
+                zf.write(os.path.join(media_root, "Stick Bank.sf2"), "banks/Choir Pad.sf2")
+            status, body = http("http://127.0.0.1:18766/upload?kind=soundzip&name=Choir.zip", data=zbuf.getvalue(), method="PUT")
+            made2 = json.loads(body) if status == 200 else {}
+            status3, body3 = http("http://127.0.0.1:18766/upload?kind=soundzip&name=Bad.zip", data=b"not a zip at all", method="PUT")
+            check("...and a zip with .sf2 banks adds each one; a broken zip is refused", made2.get("banks") == 1 and os.path.exists(made2.get("file", "")) and json.loads(body3).get("error"), (body[:200], body3[:200]))
 
         print("\nPlanning Center and track packs:")
         pco_srv = ThreadingHTTPServer(("127.0.0.1", 18099), MockPCO)

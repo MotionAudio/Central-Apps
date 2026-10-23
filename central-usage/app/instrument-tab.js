@@ -26,9 +26,13 @@
     post(m);
   });
   window.addEventListener("message", function (e) { var d = e.data; if (d && d.cu === "inst-out" && d.msg && d.msg.action === "keys" && d.msg.keys && d.msg.keys.midi) midiWant = d.msg.keys.midi; });
+  // the sound plans (Central Keys, Plugins, Instrument, Pedals): which are active, for the locks in the frame
+  function postPlans() { var L = window.PPLicense; post({ type: "plans", on: !!(L && L.on && L.on()), plans: L && L.plans ? L.plans() : {} }); }
+  window.addEventListener("pp-plans", postPlans);
+  if (frame) frame.addEventListener("load", function () { setTimeout(postPlans, 0); });
   CU.on("tab", function (t) {
     if (t !== "instrument" || !frame) return;
     if (!loaded) { loaded = true; if (NAT) NAT.start(); frame.src = frame.dataset.src; }
-    else post({ type: "shown" });
+    else { postPlans(); post({ type: "shown" }); }
   });
 })();

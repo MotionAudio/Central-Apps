@@ -63,8 +63,102 @@
     if (!r) return;
     st.updatesUntil = r.updatesUntil != null ? r.updatesUntil : null; st.updatesUntilText = r.updatesUntilText || (r.updatesUntil == null ? "forever" : "");
     st.expiresAt = r.expiresAt || null; st.trial = !!r.trial;
-    tellUpdater();
+    if (r.tracksUnlimited !== undefined) st.tracksUnlimited = !!r.tracksUnlimited;
+    tellUpdater(); plansChanged();
   }
+  // ---- packages: the sound plans (Central Keys, Central Plugins, Central Instrument, Central Pedals), yearly, each bought as a
+  // package key (SXXX-XXXX-XXXX-XXXX) added in Settings → Packages. A package names the plans it opens and each one's end date.
+  // They're checked on the website when added, when the app opens online and every few hours; one keeps working offline for
+  // 14 days after its last good check (never past its end date). The Central Pedal keeps them with its driver (packages.json),
+  // so the app, Pedal Control and both small screens see the same ones; the computers keep their own.
+  // With licensing off (no website set) every plan is open.
+  var PLAN_IDS = ["keys", "plugins", "instrument", "pedals"], PK_LS = "cc-packages", OFFLINE_DAYS = 14;
+  var PLAN_NAMES = { keys: "Central Keys", plugins: "Central Plugins", instrument: "Central Instrument", pedals: "Central Pedals" };
+  var pk = { list: [], msg: "", busy: false };
+  try { pk.list = JSON.parse(localStorage.getItem(PK_LS) || "[]") || []; } catch (_) { pk.list = []; }
+  function onPedal() { return app === "pedal" || app === "pedal-control"; }   // (the packages belong to the Central Pedal)
+  function pkDevice() { var b = window.__pedalBridge, id = onPedal() && b && b.info && b.info.deviceId; return id && /^[A-Za-z0-9-]{8,80}$/.test(id) ? id : deviceId(); }
+  function cleanPlans(p) { var out = {}; if (p && typeof p === "object") PLAN_IDS.forEach(function (id) { if (p[id]) out[id] = String(p[id]); }); return out; }
+  function pkTime(iso) { var t = new Date(iso).getTime(); return isNaN(t) ? Infinity : t; }
+  function pkLive(p) { return !!(p && p.ok !== false && p.okAt && Date.now() - p.okAt < OFFLINE_DAYS * DAY); }
+  function planActive(id) { return pk.list.some(function (p) { return pkLive(p) && p.plans && p.plans[id] && Date.now() < pkTime(p.plans[id]); }); }
+  function planEnd(id) { var e = 0; pk.list.forEach(function (p) { if (pkLive(p) && p.plans && p.plans[id]) e = Math.max(e, pkTime(p.plans[id])); }); return e; }
+  function hasPlan(id) {
+    if (!on()) return true;   // (licensing off: everything)
+    if (!id || id === "free") return true;
+    return planActive(id);
+  }
+  function plans() { var out = {}; PLAN_IDS.forEach(function (id) { if (hasPlan(id)) { var e = planEnd(id); out[id] = on() && e && e !== Infinity ? new Date(e).toISOString() : true; } }); return out; }
+  function pkSave(toDriver) {
+    try { localStorage.setItem(PK_LS, JSON.stringify(pk.list)); } catch (_) { }
+    var b = window.__pedalBridge; if (toDriver !== false && onPedal() && b && b.connected && b.send) b.send({ type: "packages", action: "save", packages: pk.list });
+    plansChanged(); pkRedraw();
+  }
+  function pkFromDriver(list) { if (!Array.isArray(list)) return; pk.list = list; try { localStorage.setItem(PK_LS, JSON.stringify(list)); } catch (_) { } plansChanged(); pkRedraw(); }
+  async function pkActivate(key) {
+    var c = String(key || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (c.length !== 16 || c[0] !== "S") { pk.msg = "A package key has 16 letters and digits and starts with S (SXXX-XXXX-XXXX-XXXX)."; return pkRedraw(); }
+    pk.busy = true; pk.msg = ""; pkRedraw();
+    try {
+      var r = await call("/package/activate", { key: pretty(c), deviceId: pkDevice(), app: app });
+      if (!r.ok) throw new Error(r.error || "That key didn't work.");
+      var item = { key: r.key || pretty(c), plans: cleanPlans(r.plans), holder: r.holder || "", church: r.church || "", okAt: Date.now() };
+      pk.list = pk.list.filter(function (p) { return p.key !== item.key; }).concat([item]);
+      pk.msg = "Added: " + (Object.keys(item.plans).map(function (id) { return PLAN_NAMES[id]; }).join(", ") || "no plans") + ".";
+      pkSave();
+    } catch (e) { pk.msg = e.name === "AbortError" ? "The website didn't answer. Check the internet and try again." : e.message; }
+    pk.busy = false; pkRedraw();
+  }
+  async function pkRelease(key) {
+    pk.busy = true; pkRedraw();
+    try { await call("/package/release", { key: key, deviceId: pkDevice() }); pk.msg = "Removed. The key is free for another device."; }
+    catch (e) { pk.msg = "Removed from this device. The website didn't answer, so release the key there to use it on another device."; }
+    pk.list = pk.list.filter(function (p) { return p.key !== key; }); pk.busy = false; pkSave();
+  }
+  var pkChecking = false;
+  async function checkPackages() {
+    if (!on() || !pk.list.length || pkChecking) return; pkChecking = true;
+    try {
+      var r = await call("/package/check", { keys: pk.list.map(function (p) { return p.key; }), deviceId: pkDevice() }), by = {};
+      (r.packages || []).forEach(function (q) { by[q.key] = q; });
+      pk.list.forEach(function (p) { var q = by[p.key]; if (!q) return; if (q.ok) { p.ok = true; p.plans = cleanPlans(q.plans); p.end = q.end || ""; p.okAt = Date.now(); delete p.error; } else { p.ok = false; p.error = q.error || "not valid any more"; } });
+      pkSave();
+    } catch (_) { }   // (offline: they keep working until 14 days after the last good check)
+    pkChecking = false;
+  }
+  function pkStatus(p) {
+    if (p.ok === false) return { text: p.error || "not valid", bad: true };
+    var ends = Object.keys(p.plans || {}).map(function (id) { return pkTime(p.plans[id]); }), last = ends.length ? Math.max.apply(null, ends) : 0;
+    if (last && last !== Infinity && last < Date.now()) return { text: "ended " + new Date(last).toLocaleDateString(), bad: true };
+    if (!pkLive(p)) return { text: "needs the internet to check (last checked " + (p.okAt ? new Date(p.okAt).toLocaleDateString() : "never") + ")", bad: true };
+    return { text: "active · checked " + new Date(p.okAt).toLocaleDateString(), bad: false };
+  }
+  function packagesHtml(cls) {
+    var rows = pk.list.map(function (p) {
+      var s = pkStatus(p), names = PLAN_IDS.filter(function (id) { return p.plans && p.plans[id]; }).map(function (id) { var t = pkTime(p.plans[id]); return esc(PLAN_NAMES[id]) + (t !== Infinity ? " until " + esc(new Date(t).toLocaleDateString()) : ""); });
+      return '<li><b>' + (names.join(" · ") || "No plans") + '</b><br><span class="muted">' + esc(p.key.slice(0, 4) + "-••••-••••-" + p.key.slice(-4)) + (p.holder ? " · " + esc(p.holder) : "") + (p.church ? " · " + esc(p.church) : "") + ' · </span><span class="' + (s.bad ? "bad" : "ok") + '">' + esc(s.text) + '</span> <button class="link" data-pkg-remove="' + esc(p.key) + '"' + (pk.busy ? " disabled" : "") + ">Remove</button></li>";
+    }).join("");
+    return '<section class="' + (cls || "") + '" data-st="packages" id="pkgSettings"><h3>Packages</h3>' +
+      (!on() ? '<p class="muted">Every sound, board and pedal is open on this version - no packages needed.</p>'
+        : '<p class="muted">Sound plans: Central Keys (pianos, synths, pads), Central Plugins (EQ, compressors, reverb, delay), Central Instrument (basses, guitars, strings, brass, winds) and Central Pedals (drive, fuzz, wah, modulation, amps, cabs). Each is a yearly package with its own key. ' + (onPedal() ? "Packages here are kept by the Central Pedal, so its screens and Pedal Control see them too." : "") + "</p>" +
+          (rows ? '<ul class="plain pkg-list">' + rows + "</ul>" : '<p class="muted">No packages yet: the free sounds and pedals are open.</p>') +
+          '<div class="row"><input id="pkgKey" placeholder="SXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" style="text-transform:uppercase"><button class="primary" data-pkg="add"' + (pk.busy ? " disabled" : "") + '>Add a package</button>' + (pk.list.length ? '<button data-pkg="check"' + (pk.busy ? " disabled" : "") + ">Check now</button>" : "") + "</div>" +
+          (pk.msg ? '<p class="small">' + esc(pk.msg) + "</p>" : "")) + "</section>";
+  }
+  function pkRedraw() { var el2 = document.getElementById("pkgSettings"); if (el2) { var keep = el2.querySelector("#pkgKey"), v = keep ? keep.value : ""; el2.outerHTML = packagesHtml(el2.className); var k2 = document.getElementById("pkgKey"); if (k2 && v && !pk.busy && !/^Added/.test(pk.msg)) k2.value = v; } }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-pkg],[data-pkg-remove]"); if (!b) return;
+    if (b.dataset.pkgRemove) { pkRelease(b.dataset.pkgRemove); return; }
+    if (b.dataset.pkg === "add") pkActivate((document.getElementById("pkgKey") || {}).value);
+    else if (b.dataset.pkg === "check") { pk.msg = "Checking…"; pkRedraw(); checkPackages().then(function () { pk.msg = ""; pkRedraw(); }); }
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target && e.target.id === "pkgKey") pkActivate(e.target.value); });
+  var planSig = null;
+  function plansChanged() {   // (tells the Instrument tab and the screens when a plan starts or ends)
+    var sig = JSON.stringify([on(), PLAN_IDS.map(hasPlan), !!(st && st.tracksUnlimited)]); if (sig === planSig) return; planSig = sig;
+    try { window.dispatchEvent(new CustomEvent("pp-plans", { detail: { plans: plans(), tracksUnlimited: tracksUnlimited() } })); } catch (_) { }
+  }
+  function tracksUnlimited() { return !on() || !!(st && st.tracksUnlimited); }
   // Central Control and Central Usage on a computer: the updater installs only versions this key covers
   function tellUpdater() {
     try { if (window.CU && window.CU.updates && window.CU.updates.config && st && st.key) window.CU.updates.config({ limit: st.updatesUntil != null ? st.updatesUntil : null, limitText: st.updatesUntilText || "", everyone: everyone }); } catch (_) { }
@@ -88,6 +182,7 @@
     } catch (e) {
       if (st.okAt && Date.now() - st.okAt > (st.recheckDays || 30) * DAY) { st.blocked = "Connect to the internet so this device can check its key (it hasn't been checked for " + (st.recheckDays || 30) + " days)."; save(st); }
     }
+    plansChanged();
     if (!complete()) open();
     else if (el) close();
   }
@@ -253,9 +348,9 @@
 
   // ------------------------------------------------------------- Settings → License
   function settingsHtml(cls) {
-    if (!on()) return "";
+    if (!on() || app === "pedal") return packagesHtml(cls);   // (the Central Pedal has no license key of its own: just its packages)
     var s = st || {};
-    return '<section class="' + (cls || "") + '" data-st="license" id="licSettings"><h3>License</h3>' +
+    return packagesHtml(cls) + '<section class="' + (cls || "") + '" data-st="license" id="licSettings"><h3>License</h3>' +
       (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p>" +
         '<p class="muted">Key <code>' + esc(s.key ? s.key.slice(0, 4) + "-••••-••••-" + s.key.slice(-4) : "") + "</code>" + (s.church ? " · " + esc(s.church) : "") + (s.production ? " · " + esc(s.production) : "") +
         " · this device: " + esc(s.deviceName || "") + " · checked " + new Date(s.okAt).toLocaleDateString() + " (works offline " + daysLeft() + " more days)" + (s.account && s.account.email ? " · account " + esc(s.account.email) : "") + "</p>" +
@@ -322,6 +417,7 @@
     else if (a === "enter") { ui.step = 0; open(); }
     else if (a === "account") { ui.step = 3; open(); }
     else if (a === "support") supportBox();
+    else if (a === "recheck") { recheck().then(function () { if (opts.onChange) opts.onChange(); }); }
     else if (a === "delete") deleteBox();
     else if (a === "signout") { if (st) { delete st.account; save(st); } if (opts.onChange) opts.onChange(); }
   });
@@ -385,17 +481,31 @@
     early.splice(0).forEach(function (x) { reportError(x[0], x[1], x[2]); });
     if (window.PPFeatures) window.PPFeatures.on("driverError", function (m) { reportError("Driver: " + m.message, m.stack, "driver"); });
     if (!st && opts.saved && opts.saved.key) { st = opts.saved; try { localStorage.setItem(LS, JSON.stringify(st)); } catch (_) { } }   // (this browser forgot it: the Central Pedal's driver kept a copy)
-    if (!KIND_OF[app] || !on()) { markReady(); return; }   // (the player window inside Central Control; licensing off)
+    pkStart();
+    if (!KIND_OF[app] || !on() || app === "pedal") { markReady(); return; }   // (the player window inside Central Control; licensing off; the Central Pedal itself needs no key - only packages)
     if (st && st.app && KIND_OF[st.app] !== KIND_OF[app]) st = { production: st.production };   // (a key for another app)
     if (complete()) { markReady(); recheck(); tellUpdater(); }
     else open();
     learnEveryone(); setInterval(learnEveryone, 6 * 3600e3);
-    setInterval(function () { if (st && st.expiresAt && trialOver() && !el) open(); }, 60e3);   // (the trial ends while it's open)
+    setInterval(function () { if (st && st.expiresAt && trialOver() && !el) open(); plansChanged(); }, 60e3);   // (the trial ends while it's open; a plan ends at its date)
+    plansChanged();
     setInterval(recheck, 6 * 3600e3);
     if (window.PPFeatures) { window.PPFeatures.on("systemStatus", function (m) { if (m.wifi) { ui.wifi = m.wifi; if (el && ui.step === 0) draw(); } }); window.PPFeatures.on("wifiResult", function (m) { if (el && ui.step === 0 && m.ok) setTimeout(checkNet, 2500); }); }
   }
+  // packages: from the Central Pedal's driver (on the pedal and in Pedal Control), checked now and every few hours
+  var pkStarted = false;
+  function pkStart() {
+    if (pkStarted) return; pkStarted = true;
+    if (onPedal() && Array.isArray(opts.packages)) pkFromDriver(opts.packages);
+    if (window.PPFeatures) window.PPFeatures.on("packages", function (m) { pkFromDriver(m.packages); });
+    if (onPedal() && window.PPFeatures) window.PPFeatures.on("hello", function (m) { if (m && Array.isArray(m.packages)) pkFromDriver(m.packages); });
+    setTimeout(checkPackages, 4000); setInterval(checkPackages, 6 * 3600e3);
+    window.addEventListener("online", function () { setTimeout(checkPackages, 3000); });
+    setInterval(plansChanged, 60e3);   // (a plan ends at its date, or 14 days offline)
+  }
   // the driver's hello came late (a Central Pedal still starting): the key on its card, its id, its saved copy
   function update(o2) {
+    if (o2 && Array.isArray(o2.packages) && onPedal()) pkFromDriver(o2.packages);
     Object.keys(o2 || {}).forEach(function (k) { if (o2[k] != null && o2[k] !== "") opts[k] = o2[k]; });
     if (opts.version) appVer = String(opts.version);
     if (!st || !st.key) { if (o2 && o2.saved && o2.saved.key) { st = o2.saved; try { localStorage.setItem(LS, JSON.stringify(st)); } catch (_) { } if (complete()) { close(); recheck(); return; } } }
@@ -403,6 +513,8 @@
   }
   window.PPLicense = { init: init, update: update, complete: function () { return complete(); }, on: on, licensed: licensed, state: function () { return st; }, server: base, settingsHtml: settingsHtml, release: release, recheck: recheck, open: open,
     whenReady: function (f) { if (ready) f(); else waiters.push(f); }, deviceId: deviceId, pretty: pretty, app: function () { return app; },
+    plans: plans, hasPlan: hasPlan, planName: function (id) { return PLAN_NAMES[id] || id; }, tracksUnlimited: tracksUnlimited,
+    packages: function () { return pk.list.slice(); }, packagesHtml: packagesHtml, checkPackages: checkPackages, addPackage: pkActivate, removePackage: pkRelease,
     syncSettings: syncSettings, settingsChanged: settingsChanged, syncNow: pullAll, reportError: reportError, support: supportBox,
     coverage: function () { return st ? { updatesUntil: st.updatesUntil != null ? st.updatesUntil : null, text: st.updatesUntilText || "", trial: !!st.trial, expiresAt: st.expiresAt || null } : null; } };
 })();
