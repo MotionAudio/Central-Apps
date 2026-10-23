@@ -58,8 +58,16 @@ export async function createChurch(user, name) {
   await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,'church')", [c.id, user.id]);
   return c;
 }
+// "Just me" (9.5): a person's own keys belong to their personal row - not a church anyone joins, so they can be in a
+// church too. Made with their first "Just me" purchase.
+export async function personalChurch(user, make) {
+  const c = await one("SELECT * FROM churches WHERE personal AND owner_id=$1", [user.id]);
+  if (c || !make) return c;
+  await q("INSERT INTO churches (name,owner_id,admin_code,user_code,personal) VALUES ($1,$2,$3,$4,TRUE) ON CONFLICT DO NOTHING", [String(user.name || user.email).slice(0, 100), user.id, code(), code()]);
+  return one("SELECT * FROM churches WHERE personal AND owner_id=$1", [user.id]);
+}
 export async function joinChurch(user, joinCode, role) {
-  const cc = canon(joinCode), c = await one("SELECT * FROM churches WHERE admin_code=$1 OR user_code=$1", [cc]);
+  const cc = canon(joinCode), c = await one("SELECT * FROM churches WHERE (admin_code=$1 OR user_code=$1) AND NOT personal", [cc]);
   if (!c) throw bad("That church code isn't right. Ask your main admin for it (it's on their account page).", 404);
   const r = role === "admin" ? "admin" : "user";
   if (r === "admin" && c.admin_code !== cc) throw bad("That's the users' code. Admins join with the admin code.", 403);
@@ -105,6 +113,8 @@ function keyOut(l, devs, full, me) {
 
 // ---------------------------------------------------------------- invites (the Teams page)
 function inviteLink(token) { return config.publicUrl + "/#invite-" + token; }
+// the install guide (Windows, Mac, Linux, Android, iPad - every app: help/install.html)
+const installUrl = () => config.publicUrl + "/help/install.html#before-you-start";
 // how: undefined (the first email, or Resend), "reminder" (nobody answered yet), "moved" (to another team: new app and key)
 async function sendInvite(inv, church, how) {
   const s = SECTION[inv.section], link = inviteLink(inv.token), owner = inv.section === "owner", joined = !!inv.user_id;
@@ -126,7 +136,7 @@ async function sendInvite(inv, church, how) {
       "<li>Open it, connect to Wi-Fi, and enter your key:<br><code style=\"font:600 18px ui-monospace,monospace;letter-spacing:.05em\">" + escHtml(key) + "</code></li></ol>" +
       (inv.section !== "admin" ? "<p style=\"color:#555\">Your key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.</p>" : "")) +
     ((church.services_slots || 0) > 0 || trialActive(church) ? "<p>Your church's schedule is in <a href=\"" + APPS_URL + "#central-services\">Central Services</a> - sign in with the same account.</p>" : "") + "<p>Talk soon,<br>The Motion Audio team</p></div>";
-  const r = await sendMail(inv.email, subject, text, html);
+  const r = await sendMail(inv.email, subject, text.replace(/(\n2\. Download [^\n]+)/, "$1\n   How to install it: " + installUrl(inv.section)), html.replace(/(Download [^<]+<\/a>)<\/li>/, "$1 (<a href=\"" + escHtml(installUrl(inv.section)) + "\">how to install it</a>)</li>"));
   await q("UPDATE invites SET sent_at=now(), sent_ok=$1 WHERE id=$2", [r.sent, inv.id]);
   return r;
 }
@@ -269,7 +279,8 @@ export function routes(api, { wrap, brake, requireUser }) {
       await q("DELETE FROM license_devices WHERE key=$1 AND device_id=$2", [l.key, dev]);   // (this device doesn't keep the key)
       throw bad("This key belongs to " + wrongAccount + ". Sign in with that account - a key works on two devices of the same person.", 409);
     }
-    if (l.church_id) {
+    const personal = l.church_id ? !!(await one("SELECT personal FROM churches WHERE id=$1", [l.church_id])).personal : false;   // (a "Just me" key: its buyer's, whatever church they're in)
+    if (l.church_id && !personal) {
       const mine = await churchOf(req.user.id);
       if (mine && mine.id !== l.church_id) throw bad("This account belongs to another church (" + mine.name + "). Sign in with your church's account.", 409);
       if (!mine) await q("INSERT INTO church_members (church_id,user_id,role) VALUES ($1,$2,$3)", [l.church_id, req.user.id, l.kind === "A" ? "admin" : "user"]);
@@ -360,7 +371,8 @@ export function routes(api, { wrap, brake, requireUser }) {
     res.json({ ok: true });
   }));
   api.post("/church/release", requireUser, wrap(async (req, res) => {   // free a key's devices (a lost or broken one): all, or one by name
-    const c = await churchOf(req.user.id), l = await findKey(req.body.key);
+    const l = await findKey(req.body.key), own = l && l.user_id === req.user.id && (await personalChurch(req.user)) && l.church_id === (await personalChurch(req.user)).id;   // (your own "Just me" key)
+    const c = own ? { id: l.church_id, role: "user" } : await churchOf(req.user.id);
     if (!c) throw bad("Your account isn't in a church.", 403);
     if (!l || l.church_id !== c.id) throw bad("That key isn't one of your church's.", 404);
     if (!(isStaff(c.role) || l.user_id === req.user.id)) throw bad("Only the church account, the main admins, admins, and the person using the key can release it.", 403);   // (a user: their own devices)

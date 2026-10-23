@@ -286,6 +286,8 @@ try {
   const tTeam = await j("POST", "/church/team", { section: "user", members: [{ name: "Tess", email: E("tess") }] }, T);
   const tg = await j("POST", "/church/packages/give", { email: E("tess") }, T);
   ok(tTeam.results[0].ok && tg.ok && tg.sent && mailedKey(E("tess")) === tg.key && (await j("GET", "/church/packages", null, T)).trialUntil, "the Teams page gives trial package keys too (one is made for each person)", tg);
+  const tessInv = to(E("tess")).find((m) => /added you to the team/.test(m.subject));
+  ok(tessInv && /2\. Download Central Usage: [^\n]+\n   How to install it: http[^\n]+\/help\/install\.html#before-you-start/.test(tessInv.text) && /how to install it<\/a>/.test(tessInv.html), "the Teams email says how to install the app, next to its download link", tessInv && tessInv.text);
   await q("UPDATE churches SET trial_until=now() - interval '1 minute' WHERE name=$1", ["Trial 95 " + S]);
   await q("UPDATE package_keys SET ends_at=now() - interval '1 minute' WHERE church_id=(SELECT id FROM churches WHERE name=$1)", ["Trial 95 " + S]);
   const te = await pkgCheck(tt.packageKey, tk.deviceId);
@@ -299,6 +301,47 @@ try {
   invoicePays["pi_rf_" + S] = "in_rf_" + S; invoiceSubs["in_rf_" + S] = "sub_rf_" + S;
   await hook("charge.refunded", { id: "ch_rf", object: "charge", refunded: true, payment_intent: "pi_rf_" + S });
   ok((await pkgCheck(rk, rka.deviceId)).ok === false && calls.some((c) => c.method === "DELETE" && c.path === "/v1/subscriptions/sub_rf_" + S), "refunded: the package ends and Stripe stops renewing it");
+
+  // ---------------------------------------------------------------- "Just me": the keys are the buyer's, with a Downloads page
+  const solo = await account("solo"), soloId = (await one("SELECT id FROM users WHERE email=$1", [E("solo")])).id;
+  const sc1 = await j("POST", "/checkout/store/check", { items: { "pack-lite": 1 }, for: "me" }, solo);
+  const sc2 = await j("POST", "/checkout/store/check", { items: { "services-slot": 3 }, for: "me" }, solo);
+  ok(sc1._status === 400 && /for a church or team/.test(sc1.error) && sc2._status === 400, "Just me: packs and Central Services slots are for a church or team", sc1);
+  ok((await j("POST", "/checkout/store/check", { items: { user: 1, pedal: 1 }, for: "me" }, solo)).ok, "...a pedal and a Central Usage key are fine, with no church to name");
+  const so = await j("POST", "/checkout/store", { items: { user: 1, pedal: 1 }, for: "me" }, solo), sos = lastSession();
+  ok(so.clientSecret && sos.metadata.for === "me" && sos.shipping_address_collection && !(await j("GET", "/me", null, solo)).church, "the payment form: billed to the person; no church is made for them", sos.metadata);
+  await hook("checkout.session.completed", { id: so.session, object: "checkout.session", payment_status: "paid", payment_intent: "pi_solo_" + S, amount_total: 27000, customer_details: { email: E("solo") },
+    collected_information: { shipping_details: { name: "Sam Solo", address: { line1: "12 Hymn St", city: "Nashville", state: "TN", postal_code: "37201", country: "US" } } } });
+  const soOrder = await j("GET", "/orders/" + so.session);
+  const soKeys = await q("SELECT l.kind, l.user_id, l.assigned_email FROM licenses l JOIN orders o ON o.id=l.order_id WHERE o.stripe_session=$1 ORDER BY kind", [so.session]);
+  ok(soOrder.personal === true && soOrder.church === null && soKeys.length === 2 && soKeys.every((k) => Number(k.user_id) === Number(soloId) && k.assigned_email === E("solo")), "paid: every key is the buyer's at once (no Teams handout); the order says it's personal", { soOrder, soKeys });
+  const dlMail = to(E("solo")).filter((m) => /Your downloads and keys/.test(m.subject)).pop();
+  ok(dlMail && /CENTRAL USAGE/.test(dlMail.text) && /U[A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(dlMail.text) && /motionaudio\.github\.io\/Central-Apps\/#usage/.test(dlMail.text) && /Run anyway/.test(dlMail.text) && /install\.sh \| bash -s usage/.test(dlMail.text)
+    && /ships to Sam Solo, 12 Hymn St, Nashville TN 37201, US/.test(dlMail.text) && /Central Pedal Setup/.test(dlMail.text) && /CENTRAL PEDAL CONTROL/.test(dlMail.text), "the buyer's email: each key, its download link, how to install it, and the pedal's address and phone setup", dlMail && dlMail.text);
+  const dl = await j("GET", "/downloads", null, solo);
+  const dlU = dl.apps.find((a) => a.kind === "U"), dlP = dl.apps.find((a) => a.kind === "P");
+  ok(dlU && dlP && dlU.keys.length === 1 && /#usage$/.test(dlU.download) && dlU.steps.windows.length && dlU.steps.mac.length && dlU.steps.android && /bash -s usage/.test(dlU.linuxCommand) && /Safari/.test(dlU.phone)
+    && dl.pedals.length === 1 && /Nashville/.test(dl.pedals[0].shipsTo) && dl.pedalSetup.some((s) => /Central Pedal Setup/.test(s)) && /#making-your-own-sd-card$/.test(dl.sdCard),
+    "Downloads: a card per app (download link, steps for each computer and phone, the key) and the pedal (where it ships, the phone setup, the SD card guide)", dl);
+  const sUse = await useKey(dlU.keys[0].key, "usage");
+  ok(sUse.ok && (await j("POST", "/license/link", { key: dlU.keys[0].key, device: sUse.device }, solo)).ok && !(await j("GET", "/me", null, solo)).church, "the key works and signs in with the buyer's account; still no church");
+  ok((await j("POST", "/church/release", { key: dlU.keys[0].key }, solo)).ok && (await check(dlU.keys[0].key, sUse.device)).ok === false, "the buyer can release their own key (Downloads → Release)");
+  // someone in a church buys for themselves: their own keys, not the church's
+  const mem = await account("member", { churchCode: codes.userCode, churchRole: "user" });
+  ok((await j("POST", "/checkout/store/check", { items: { user: 1 } }, mem))._status === 403, "a user in a church can't buy for the church...");
+  const mo = await j("POST", "/checkout/store", { items: { "pedal-control": 1 }, for: "me" }, mem);
+  await hook("checkout.session.completed", { id: mo.session, object: "checkout.session", payment_status: "paid", payment_intent: "pi_mem_" + S, amount_total: 5000, customer_details: { email: E("member") } });
+  const memKey = (await j("GET", "/downloads", null, mem)).apps.find((a) => a.kind === "P").keys[0].key, mk = await useKey(memKey, "pedal-control");
+  const ml = await j("POST", "/license/link", { key: memKey, device: mk.device }, mem);
+  ok(mo.clientSecret && mk.ok && ml.ok && ml.church === "Grace 95 " + S && (await j("GET", "/me", null, mem)).church.name === "Grace 95 " + S && (await one("SELECT c.personal FROM licenses l JOIN churches c ON c.id=l.church_id WHERE regexp_replace(l.key,'-','','g')=$1", [memKey.replace(/-/g, "")])).personal,
+    "...but buys \"Just me\": a key of their own (not the church's) that works while they stay in the church", { ml });
+  // and their own sound plan, pasted into the Central Usage their church gave them
+  const memU = newKeyStr("U");
+  await q("INSERT INTO licenses (key,product,kind,church_id,assigned_email,updates_until) VALUES ($1,'made','U',$2,$3,105)", [memU, cid, E("member")]);
+  const mu = await useKey(memU, "usage");
+  const mp = await j("POST", "/checkout/plans", { plans: ["keys"] }, mem); await completed(mp.session, "sub_mem_" + S);
+  const memPkg = mailedKey(E("member")), mpa = await j("POST", "/package/activate", { key: memPkg, deviceId: mu.device, app: "usage" });
+  ok(mu.ok && mpa.ok && mpa.plans.keys && mpa.church === "" && (await check(memU, mu.device)).ok, "a church's user buys their own Central Keys and adds it to the Central Usage the church gave them (same device)", mpa);
 
   // ---------------------------------------------------------------- the price page
   const st = (await finish(await j("POST", "/signup", { email: STAFF, password: "password123" }), STAFF)).token;

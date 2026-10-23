@@ -37,6 +37,8 @@ const KEY_SQL = `SELECT k.*, c.name AS church, c.closed_at, s.status AS sub_stat
     CASE WHEN k.trial THEN k.ends_at WHEN s.status IN ('active','trialing','past_due') THEN ${endOf("s.")} ELSE COALESCE(LEAST(s.ended_at, s.period_end), s.period_end) END AS ends,
     (CASE WHEN k.trial THEN k.ends_at > now() ELSE s.status IN ('active','trialing','past_due') AND s.period_end IS NOT NULL AND ${endOf("s.")} > now() END) AS live
   FROM package_keys k LEFT JOIN plan_subs s ON s.id=k.plan_sub_id LEFT JOIN churches c ON c.id=k.church_id`;
+// a person's package keys: bought by them, or given to them
+export const packageRows = (email, userId) => q(KEY_SQL + " WHERE NOT k.revoked AND (k.holder_email=$1 OR (k.user_id=$2 AND k.church_id IS NULL)) ORDER BY k.created_at DESC", [String(email || "").toLowerCase(), userId]);
 const findKey = async (key) => { const c = canon(key); return c.length === 16 && c[0] === "S" ? one(KEY_SQL + " WHERE k.key=$1", [c]) : null; };
 
 // what a key gives now: { ok, plans: { keys: "<ISO end>" }, end, error }
@@ -198,7 +200,7 @@ export function routes(api, { wrap, requireUser }) {
       devices: devs.map((d) => ({ id: d.device_id, name: d.device_name || APPS[d.app] || "a device", app: APPS[d.app] || d.app, lastSeen: d.last_seen })), max: PACKAGE_DEVICES };
   };
   api.get("/packages/mine", requireUser, wrap(async (req, res) => {
-    const rows = await q(KEY_SQL + " WHERE NOT k.revoked AND (k.holder_email=$1 OR (k.user_id=$2 AND k.church_id IS NULL)) ORDER BY k.created_at DESC", [req.user.email.toLowerCase(), req.user.id]);
+    const rows = await packageRows(req.user.email, req.user.id);
     const devs = rows.length ? await q("SELECT * FROM package_devices WHERE key = ANY($1) ORDER BY activated_at", [rows.map((r) => r.key)]) : [];
     res.json({ packages: rows.filter((k) => keyState(k).ok || k.ends).map((k) => keyOut(k, devs.filter((d) => d.key === k.key))) });
   }));

@@ -21,6 +21,7 @@ import * as trials from "./trials.js";
 import * as prices from "./prices.js";
 import * as content from "./content.js";
 import * as plans from "./plans.js";
+import * as downloads from "./downloads.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -82,6 +83,7 @@ church.routes(api, { wrap, brake, requireUser });
 prices.routes(api, { wrap, requireUser });
 content.routes(app, api, { wrap, requireUser });
 plans.routes(api, { wrap, requireUser });
+downloads.routes(api, { wrap, requireUser });
 function needConfirmed(u) { if (u && !u.email_confirmed) { const e = bad("Confirm your email first: we sent you a link (Account → Send it again)."); e.status = 403; e.needConfirm = true; throw e; } }
 
 api.post("/signup", wrap(async (req, res) => {
@@ -92,7 +94,7 @@ api.post("/signup", wrap(async (req, res) => {
   if (await one("SELECT 1 FROM users WHERE email=$1", [email])) throw bad("There's already an account with that email. Sign in instead.", 409);
   // checked before the account is made: a wrong church code shouldn't leave a half-made account
   const join = String(req.body.churchCode || "").trim(), make = String(req.body.churchName || "").trim();
-  if (join && !(await one("SELECT 1 FROM churches WHERE admin_code=$1 OR user_code=$1", [lic.canon(join)]))) throw bad("That church code isn't right. Ask your main admin for it.", 404);
+  if (join && !(await one("SELECT 1 FROM churches WHERE (admin_code=$1 OR user_code=$1) AND NOT personal", [lic.canon(join)]))) throw bad("That church code isn't right. Ask your main admin for it.", 404);
   const u = await one("INSERT INTO users (email,name,pass_hash) VALUES ($1,$2,$3) RETURNING *", [email, name, hashPassword(pw)]);
   let church = null;
   try {
@@ -275,8 +277,8 @@ api.get("/publisher", requireUser, wrap(async (req, res) => {
 
 // ---- payments
 // every checkout answers { clientSecret, session }: the page shows Stripe's payment form with it
-api.post("/checkout/store", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code)); }));
-api.post("/checkout/store/check", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code, "check")); }));   // (the cart: any problem shows before the payment form)
+api.post("/checkout/store", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code, undefined, req.body.for)); }));
+api.post("/checkout/store/check", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.storeCheckout(req.user, req.body.items, req.body.church, req.body.code, "check", req.body.for)); }));   // (the cart: any problem shows before the payment form)
 api.post("/checkout/subscription", requireUser, wrap(async (req, res) => { needConfirmed(req.user); res.json(await pay.subscriptionCheckout(req.user)); }));
 // sound plans (yearly), as package keys: your own { plans: ["keys", ...] or "all", code } (one key, emailed to you), or a
 // church bundle { seats: 4 | 8 | 12 | 16 | 20, code } (that many keys, handed out on the Teams page)
@@ -296,7 +298,9 @@ api.get("/orders/:session", wrap(async (req, res) => {  // the Checkout session 
   const o = await one("SELECT * FROM orders WHERE stripe_session=$1", [String(req.params.session)]);
   if (!o) return res.json({ pending: true });
   const keys = await q("SELECT key, product, kind FROM licenses WHERE order_id=$1 ORDER BY kind, product, key", [o.id]);
-  res.json({ total: o.total_cents / 100, items: o.items, slots: o.slots || 0, status: o.status, shipping: !!o.shipping,
+  const ch = o.church_id ? await one("SELECT name, personal FROM churches WHERE id=$1", [o.church_id]) : null;   // ("Just me": the Downloads page; a church: next, add your people)
+  res.json({ total: o.total_cents / 100, items: o.items, slots: o.slots || 0, status: o.status, shipping: !!o.shipping, personal: !!(ch && ch.personal), church: ch && !ch.personal ? ch.name : null,
+    itemNames: Object.entries(o.items || {}).filter(([id]) => PRODUCTS[id]).map(([id, n]) => ({ name: PRODUCTS[id].name, n: Number(n) || 0 })),
     licenses: o.status === "paid" ? keys.map((k) => ({ key: lic.pretty(k.key), kind: k.kind, product: KEY_KINDS[k.kind] || (PRODUCTS[k.product] ? PRODUCTS[k.product].name : k.product) })) : [] });
 }));
 

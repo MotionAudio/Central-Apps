@@ -110,6 +110,19 @@ try {
   ok(/Sound plans/.test(pc) && /All four sound plans/.test(pc) && /\$220\.00 a year/.test(pc) && /Sound plans for 8 people/.test(pc) && /\$1,?360\.00 a year/.test(pc) && await page.$("#plGo") && await page.$("#bnGo") && !(await page.$("#checkout")), "the cart: the plans with their own Check out buttons", pc.replace(/\s+/g, " "));
   await shot("cart-plans");
   await page.click("#clear"); await page.waitForTimeout(200);
+  // who it's for: Just me, or a church or team
+  await page.click("#rack [data-add=user]"); await page.click("#cartBtn"); await page.waitForSelector(".modal [name=coFor]");
+  ok(await page.isChecked("[name=coFor][value=church]"), "signed in as the church: the cart asks who it's for (a church or team, picked)");
+  await page.check("[name=coFor][value=me]"); await page.waitForTimeout(250);
+  ok(/The keys are yours/.test(await page.textContent(".modal")) && /Downloads/.test(await page.textContent(".modal")) && !(await page.$("#coChurch")), "Just me: the keys are yours, on your Downloads page and in your email");
+  await shot("cart-just-me");
+  await page.click("#clear"); await page.waitForTimeout(200);
+  ok(/Open your downloads/.test(await page.textContent("#acctBody")), "the Account page links to Your downloads");
+  await page.evaluate(() => { location.hash = "downloads"; }); await page.waitForSelector("#downloads:not([hidden]) .dl-card", { timeout: 6000 }).catch(() => {});
+  ok(await page.isVisible("#downloads") && /Your downloads/.test(await page.textContent("#downloads")) && /Settings → Packages → Add a package/.test(await page.textContent("#downloads")), "the Downloads page: here, the trial's package key and where to paste it", await page.textContent("#downloads"));
+  await shot("downloads", true);
+  await page.evaluate(() => { location.hash = "account"; }); await page.waitForTimeout(300);
+  ok(!(await page.isVisible("#downloads")), "...and it goes away when you go somewhere else");
 
   // ---------------------------------------------------------------- Teams: add a user
   await page.waitForSelector("#teamsCard [data-tadd=users]", { timeout: 5000 }).catch(() => {});
