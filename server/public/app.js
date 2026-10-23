@@ -198,6 +198,7 @@ const planName = (id) => (id === "all" ? (cfg.planAll || {}).name || "All four s
 const planListText = (ids) => (planIds().every((id) => ids.includes(id)) ? "All four sound plans" : planIds().filter((id) => ids.includes(id)).map(planName).join(", "));
 const ownPlanCents = () => (planCart.plans.includes("all") ? cfg.planAll.cents : planCart.plans.reduce((a, id) => a + ((cfg.plans[id] || {}).cents || 0), 0));
 const longDate = (d) => new Date(d).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+const firstYear = (c) => (cfg.sale ? Math.round((c * (100 - cfg.sale.percent)) / 100) : c);   // (a sale is off a plan's first year)
 function renderPlans() {
   if (!cfg.plans || !$("#planCards")) return;
   const inCart = (id) => planCart.plans.includes(id) || planCart.plans.includes("all"), ids = planIds();
@@ -205,13 +206,13 @@ function renderPlans() {
   $("#planCards").innerHTML = ids.map((id) => {
     const p = cfg.plans[id], k = "plan." + id;
     return `<div class="tier"><div class="tier-head"><h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3></div><p class="who" ${ed(k + ".what")}>${T(k + ".what", p.what)}</p>
-      <div class="price"><span data-price="plan-${id}">${dollars(p.cents / 100)}</span><small>a year</small></div><button class="btn ghost" data-plan="${id}"${inCart(id) ? " disabled" : ""}>${inCart(id) ? "In your cart" : "Add to cart"}</button></div>`;
+      <div class="price">${cfg.sale ? `<s>${dollars(p.cents / 100)}</s> <span class="now">${dollars(firstYear(p.cents) / 100)}</span><small>the first year</small>` : `<span data-price="plan-${id}">${dollars(p.cents / 100)}</span><small>a year</small>`}</div><button class="btn ghost" data-plan="${id}"${inCart(id) ? " disabled" : ""}>${inCart(id) ? "In your cart" : "Add to cart"}</button></div>`;
   }).join("");
   const sum = ids.reduce((a, id) => a + cfg.plans[id].cents, 0), all = planCart.plans.includes("all");
   $("#planAll").innerHTML = `<div class="plan-all"><div><b ${ed("plan.all.name")}>${T("plan.all.name", "All four")}</b><span ${ed("plan.all.what")}>${T("plan.all.what", "Central Keys, Central Plugins, Central Instrument and Central Pedals on one package key.")}</span></div>
-    <div class="price">${sum > cfg.planAll.cents ? `<s>${dollars(sum / 100)}</s> ` : ""}<span class="now">${dollars(cfg.planAll.cents / 100)}</span><small>a year</small></div><button class="btn" data-plan="all"${all ? " disabled" : ""}>${all ? "In your cart" : "Add to cart"}</button></div>`;
+    <div class="price">${sum > firstYear(cfg.planAll.cents) ? `<s>${dollars(sum / 100)}</s> ` : ""}<span class="now">${dollars(firstYear(cfg.planAll.cents) / 100)}</span><small>${cfg.sale ? "the first year" : "a year"}</small></div><button class="btn" data-plan="all"${all ? " disabled" : ""}>${all ? "In your cart" : "Add to cart"}</button></div>`;
   const usd = (c) => "$" + (c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 });
-  $("#planBundles").innerHTML = Object.entries(cfg.planBundles || {}).map(([n, c]) => `<div class="bundle-row"><b>${n} people</b><span class="muted">${usd(Math.round(c / n))} a person</span><div class="price">${usd(c)}<small>a year</small></div>
+  $("#planBundles").innerHTML = Object.entries(cfg.planBundles || {}).map(([n, c]) => `<div class="bundle-row"><b>${n} people</b><span class="muted">${usd(Math.round(c / n))} a person</span><div class="price">${cfg.sale ? `<s>${usd(c)}</s> <span class="now">${usd(firstYear(c))}</span><small>the first year</small>` : `${usd(c)}<small>a year</small>`}</div>
     <button class="btn small ghost" data-bundle="${n}"${planCart.bundle === Number(n) ? " disabled" : ""}>${planCart.bundle === Number(n) ? "In your cart" : "Add to cart"}</button></div>`).join("");
 }
 $("#store").addEventListener("click", (e) => {
@@ -221,15 +222,18 @@ $("#store").addEventListener("click", (e) => {
 });
 // the plans' part of the cart
 function planCartHtml() {
-  const pc = promo && promo.percent && promo.plans !== false ? promo.percent : 0, own = ownPlanCents(), b = planCart.bundle, bc = b ? (cfg.planBundles || {})[b] || 0 : 0;
+  // (a typed code wins; otherwise the sale that's on - the first year, as in the store they don't stack)
+  const byCode = promo && promo.percent && promo.plans !== false, pc = byCode ? promo.percent : promo && promo.percent ? 0 : cfg.sale ? cfg.sale.percent : 0;
+  const why = byCode ? promo.code : cfg.sale ? cfg.sale.name : "";
+  const own = ownPlanCents(), b = planCart.bundle, bc = b ? (cfg.planBundles || {})[b] || 0 : 0;
   const off = (c) => Math.round((c * pc) / 100);
   const rows = planCart.plans.map((id) => `<div><span>${esc(planName(id))} <button class="qbtn" data-plrm="${id}" aria-label="Take it out">×</button></span><span>${money((id === "all" ? cfg.planAll.cents : cfg.plans[id].cents) / 100)} a year</span></div>`).join("");
   const cheaper = !planCart.plans.includes("all") && planCart.plans.length > 1 && own >= cfg.planAll.cents;
   return `<div class="cart-plans"><div><b>Sound plans</b> <span class="muted" style="font-size:.88rem">· yearly, renewing · a package key by email, to paste in Settings → Packages</span></div>
-    ${rows ? `<div class="lines">${rows}${pc ? `<div class="saved"><span>${esc(promo.code)} · the first year</span><span>−${money(off(own) / 100)}</span></div>` : ""}<div class="total"><span>Your plans, the first year</span><span>${money((own - off(own)) / 100)}</span></div></div>
+    ${rows ? `<div class="lines">${rows}${pc ? `<div class="saved"><span>${esc(why)} · ${pc}% off the first year</span><span>−${money(off(own) / 100)}</span></div>` : ""}<div class="total"><span>Your plans, the first year</span><span>${money((own - off(own)) / 100)}</span></div></div>
       ${cheaper ? `<p class="ok-note" style="margin:0">All four is ${dollars(cfg.planAll.cents / 100)} a year, no more than these. <button class="btn small ghost" id="plAll">Switch to all four</button></p>` : ""}
       <div><button class="btn" id="plGo">${me ? "Check out your plans" : "Sign in"}</button></div>` : ""}
-    ${b ? `<div class="lines"><div><span>Sound plans for ${b} people <button class="qbtn" data-plrm="bundle" aria-label="Take it out">×</button></span><span>${money(bc / 100)} a year</span></div>${pc ? `<div class="saved"><span>${esc(promo.code)} · the first year</span><span>−${money(off(bc) / 100)}</span></div>` : ""}</div>
+    ${b ? `<div class="lines"><div><span>Sound plans for ${b} people <button class="qbtn" data-plrm="bundle" aria-label="Take it out">×</button></span><span>${money(bc / 100)} a year</span></div>${pc ? `<div class="saved"><span>${esc(why)} · ${pc}% off the first year</span><span>−${money(off(bc) / 100)}</span></div>` : ""}</div>
       <p class="muted" style="margin:0;font-size:.9rem">${b} package keys with all four plans${me && me.church ? ", for " + esc(me.church.name) : ""}. You give them out on the Teams page.</p><div><button class="btn" id="bnGo">${me ? "Check out the bundle" : "Sign in"}</button></div>` : ""}</div>`;
 }
 function wirePlanCart() {

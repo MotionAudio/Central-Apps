@@ -318,6 +318,25 @@ try {
   const c3 = await j("GET", "/config");
   ok(c3.plans.keys.cents === 5000 && c3.planAll.cents === 22000 && c3.planBundles[20] === 290000, "Back to the starting prices");
 
+  // ---------------------------------------------------------------- a sale on the website: off a plan's first year too
+  await j("POST", "/admin/sale", { name: "Spring sale", percent: 20, banner: "20% off" }, st);
+  await j("POST", "/admin/sale/live", {}, st);
+  const sp = await account("spring");
+  const sc = await j("POST", "/checkout/plans/check", { plans: ["keys"] }, sp);
+  ok(sc.ok && sc.percent === 20 && sc.sale === "Spring sale", "a live sale comes off a plan with no code typed", sc);
+  await j("POST", "/checkout/plans", { plans: "all" }, sp);
+  const ss = lastSession(), sCoupon = calls.filter((c) => c.path === "/v1/coupons").pop().body;
+  ok(ss.discounts[0].coupon === "MA-SALE-SPRINGSALE-20-FIRST-YEAR" && sCoupon.percent_off === "20" && sCoupon.duration === "once" && /Spring sale: 20% off the first year/.test(sCoupon.name) && ss.line_items[0].price_data.unit_amount === "22000",
+    "...as a coupon on the first year (the yearly price stays $220)", { d: ss.discounts, sCoupon });
+  const sb = await j("POST", "/checkout/plans/check", { plans: ["keys"], code: "BETATEST" }, sp);
+  ok(sb.percent === 50 && !sb.sale, "a typed code wins over the sale (they don't stack)", sb);
+  ok((await j("POST", "/checkout/plan-bundle/check", { seats: 4 }, O)).percent === 20, "the sale is off a church bundle's first year too");
+  await j("POST", "/checkout/plans", { plans: ["pedals"] }, sp);
+  ok(!(await one("SELECT code FROM plan_subs WHERE id=$1", [Number(lastSession().subscription_data.metadata.plan_sub_id)])).code, "(a sale isn't a code: nothing is used up)");
+  await j("POST", "/admin/sale/live", { end: true }, st);
+  const se = await j("POST", "/checkout/plans/check", { plans: ["keys"] }, sp);
+  ok(se.percent === 0 && !se.sale, "the sale ends: full price", se);
+
   // ---------------------------------------------------------------- Sound, Board and Click in Central Tracks
   const pub = await account("pub"), buyer = await account("buyer"), fan = await account("fan");
   await q("UPDATE users SET subscribed=TRUE WHERE email=$1", [E("fan")]);

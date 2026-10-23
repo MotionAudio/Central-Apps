@@ -52,6 +52,7 @@ try {
   ok(await page.$$eval("#pedalBuy [data-add=pedal]", (x) => x.length) === 1 && await page.$$eval("#packs .tier", (x) => x.length) === 4 && await page.$$eval("#rack .pl-row", (x) => x.length) >= 4 && /1 main admin \+ 2 admins/.test(await page.textContent("#packs .tier")), "the store: the pedal, four packs (Lite: 1 main admin + 2 admins…), the apps and Central Services slots");
   ok(await page.$$eval("#planCards .tier", (x) => x.length) === 4 && /Central Keys/.test(await page.textContent("#planCards")) && /\$50/.test(await page.textContent("#planCards")) && /\$220/.test(await page.textContent("#planAll")) && await page.$$eval("#planBundles .bundle-row", (x) => x.length) === 5 && /package key/.test(await page.textContent("#plans")),
     "the store: sound plans (four, all four for $220, five church bundles), each a package key");
+  ok((await page.$$eval(".keydefs dt", (d) => d.map((x) => x.textContent))).join() === "P,A,U,S,Slots", "the key legend: P, A, U, S (sound plan packages) and Slots (Central Services)");
   ok(await page.$$eval(".system img", (imgs) => imgs.every((i) => i.complete && i.naturalWidth > 0)) && await page.$eval("#pedalBuy img", (i) => i.naturalWidth > 0), "the app icons load");
   await shot("store", true);
   ok(!(await page.$("#packs [data-add=ultra-plus10]").then((b) => b.click()).then(() => page.textContent("#cartBtn"))).includes("1"), "Ultra's 10 more slots can't go in the cart without the Ultra pack");
