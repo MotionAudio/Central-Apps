@@ -1,7 +1,7 @@
 {
   "name": "central-usage-mobile",
   "private": true,
-  "version": "9.3.5",
+  "version": "9.3.6",
   "description": "Central Usage for iPhone, iPad and Android: finds the main admin's computer on the Wi-Fi and opens Central Usage - the chord chart, the lyrics, the instrument and your in-ear mix.",
   "license": "MIT",
   "scripts": {

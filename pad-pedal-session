@@ -54,7 +54,7 @@ if scale != "auto":
     try: scale = "%g" % max(0.5, min(3.0, float(scale)))
     except Exception: scale = "auto"
 touch = d.get("touchKind") if d.get("touchKind") in ("spi", "hdmi", "dsi") else "off"
-h1 = d.get("hdmi1") or ("touch" if touch == "spi" else "app")
+h1 = d.get("hdmi1") or "app"
 if touch in ("hdmi", "dsi"): h1 = "app"          # the touch screen is screen 1: it shows the app
 if h1 == "touch" and touch != "spi": h1 = "app"
 out = {"HDMI1": h1, "HDMI2": d.get("hdmi2") or "lyrics", "TOUCHKIND": touch, "CURSOR": d.get("cursor") or "auto",

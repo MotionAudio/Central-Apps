@@ -29,13 +29,17 @@
     var info = s ? '<div class="ts-info"><b>' + esc(s.name) + '</b> <span class="ts-kind">' + esc(KIND[s.kind] || "") + (s.res ? " · " + s.res[0] + "×" + s.res[1] : "") + "</span>" +
       (s.also ? '<div class="muted small">' + esc(s.also) + "</div>" : "") +
       '<div class="small">' + (s.driver ? "⬇ Downloads the maker's driver when you apply it (the Central Pedal needs the internet once)." : "✓ Its driver is built into the Central Pedal.") +
-      (s.kind === "spi" ? " Central Pedal draws its own remote on it; HDMI 1 can show a copy." : " It shows the Central Pedal app; the other HDMI port shows lyrics or chord charts.") + "</div></div>"
+      (s.kind === "spi" ? " Central Pedal draws its own remote on it; HDMI 1 keeps the app (Settings → Screens can show a copy)." : " It shows the Central Pedal app; the other HDMI port shows lyrics or chord charts.") + "</div></div>"
       : (sel === "off" ? '<div class="ts-info muted small">No touch screen: HDMI 1 shows the Central Pedal app.</div>' : "");
+    var fbs = st.framebuffers || {}, fbNames = Object.keys(fbs).map(function (k) { return k + (fbs[k] ? " (" + fbs[k] + ")" : ""); }).join(", ");
+    var spiState = now && now.kind === "spi" && !st.touchScreenPending ? (st.miniScreen ? '<p class="small">✓ The small screen is on: Central Pedal draws its remote on it. ' + (st.miniTouch ? "✓ Its touch panel is found (" + esc(st.miniTouch) + "). Taps land in the wrong place? Calibrate its touch." : '<span class="warn">Its touch panel isn\'t found yet.</span>') + "</p>"
+      : '<p class="warn small">The small screen\'s driver didn\'t start (the Pi sees ' + esc(fbNames || "no small screen") + '). Check the board sits on the first 26 pins with nothing shifted, then try the next 3.5" screen in the list (Waveshare 3.5" (A), then (B)) and restart.</p>') : "";
     var pending = st.touchScreenPending, none = !(cat.screens || []).length, has35 = (cat.screens || []).some(function (x) { return x.id === "rpi35-xpt2046"; });
     return '<section data-st="screens" class="ts"><h3>Touch screen</h3>' +
       (none ? '<p class="warn small">The list of screens didn\'t load' + (cat.error ? " (" + esc(cat.error) + ")" : "") + '. Install the newest update (Settings → Software updates), then come back here.</p>' : "") +
       '<p class="muted small">Now: <b>' + esc(now ? now.name : "none") + "</b>" + (pending ? ' <span class="warn">- restart to use the new screen</span>' : "") + "</p>" +
       (has35 && sel !== "rpi35-xpt2046" && cur !== "rpi35-xpt2046" ? '<button data-ts="quick35" class="ts-quick">The blue 3.5" screen on the pins (XPT2046 on the back)</button>' : "") +
+      spiState +
       '<label>Screen<select data-ts="pick"><option value="off"' + (sel === "off" ? " selected" : "") + ">No touch screen" + (cur === "off" ? "  ✓ now" : "") + "</option>" + groups + "</select></label>" + info +
       '<div class="row"><button class="primary" data-ts="apply"' + (sel === cur && !pending ? " disabled" : "") + ">Use this screen</button>" +
       (pending ? '<button data-ts="restart">Restart now</button>' : "") +
