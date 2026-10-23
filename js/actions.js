@@ -102,6 +102,19 @@
   def("instrumentKind", "Instrument: switch electric / acoustic / bass / keys / off", "Instrument", "trigger", function () { if (!I()) return; var order = ["electric", "acoustic", "bass", "keys", "off"], k = I().state().kind; I().setKind(order[(order.indexOf(k) + 1) % order.length]); });
   def("instrumentAuto", "Instrument: Auto set-up", "Instrument", "trigger", function () { if (I()) I().autoSetup(); });
   def("instrumentExpression", "Instrument: expression (wah / volume pedal)", "Instrument", "continuous", function (a, v) { if (I()) I().expression(v); });
+  // the small touch screen: pick the instrument by name, an EQ / compressor knob (0-1), a track's mute
+  def("instrumentKindSet", "Instrument: pick electric / acoustic / bass / keys / off", "Instrument", "trigger", function (a) { var k = String(a && a.kind || ""); if (I() && /^(electric|acoustic|bass|keys|off)$/.test(k)) I().setKind(k); }, { hidden: true });
+  def("pedalKnob", "Instrument: a pedal's knob", "Instrument", "continuous", function (a, v) { if (I() && a && a.uid && a.sym) I().setKnob(String(a.uid), String(a.sym), v); }, { hidden: true });
+  def("busOutput", "Output routing: a bus to the next / previous output", "Audio", "trigger", function (a) { if (window.PPSettings && a) window.PPSettings.stepBus(String(a.bus || ""), Number(a.delta) || 1); }, { hidden: true });
+  def("inputGain", "Instrument: input gain", "Instrument", "continuous", function (a, v) { if (I()) I().setInput("gain", -20 + v * 60); }, { hidden: true });
+  def("inputChannel", "Instrument: input channel L / R", "Instrument", "trigger", function (a) { if (I()) I().setInput("channel", a && a.channel === "R" ? "R" : "L"); }, { hidden: true });
+  def("hdmiShow", "Screens: what HDMI 1 / 2 shows (next / previous)", "Screens", "trigger", function (a) {
+    var n = Number(a && a.n) === 2 ? 2 : 1, opts = n === 1 ? ["app", "touch", "lyrics", "charts", "stage", "slides"] : ["lyrics", "slides", "stage", "charts", "touch", "app", "off"];
+    var st = F.systemStatus() || {}, d = st.displays || {}, cur = d["hdmi" + n] === "mini" ? "touch" : d["hdmi" + n] || opts[0], i = Math.max(0, opts.indexOf(cur)), cfg = {};
+    cfg["hdmi" + n] = opts[(i + (Number(a && a.delta) < 0 ? -1 : 1) + opts.length) % opts.length];
+    if (window.__pedalBridge && window.__pedalBridge.send) { window.__pedalBridge.send({ type: "system", action: "displays", config: cfg }); window.__pedalBridge.send({ type: "system", action: "status" }); }
+  }, { hidden: true });
+  def("stemMute", "Tracks: stem N mute on / off", "Tracks", "trigger", function (a) { var s = T() && T().song(); if (!s) return; var st = T().data(s).stems[Number(a && a.index) || 0]; if (st) { T().setStem(st.id, "mute", !st.mute); T().render(); } }, { arg: "stem" });
   def("instrumentLevel", "Instrument: output level", "Instrument", "continuous", function (a, v) { if (!I()) return; var s = I().state(); s.levelDb = Math.round((-30 + v * 42) * 2) / 2; PP.persistSoon(); if (window.__pedalBridge && window.__pedalBridge.send) window.__pedalBridge.send({ type: "instrument", action: "level", levelDb: s.levelDb }); });
   def("stepPedal", "Encoder: next / previous board preset", "Instrument", "step", function (a, d) { if (I()) I().stepBoard(d); });
   def("stepPatch", "Encoder: next / previous keys sound", "Instrument", "step", function (a, d) { if (I()) I().stepPatch(d); });
@@ -175,6 +188,7 @@
     if (window.PPPedalJob && window.PPPedalJob.intercept(a, args, info)) { sendLedsSoon(); return true; }   // a foot controller / instrument rig (pedal-job.js)
     try { a.run(args || {}, info && info.value != null ? info.value : (info && info.delta) || 0, info || {}); } catch (error) { console.warn("action failed", name, error); }
     sendLedsSoon();
+    if (window.PPTracks && window.PPTracks.sendDisplay) window.PPTracks.sendDisplay();   // (the small screen and the copies show the change)
     return true;
   }
   // (through the exported run, so what wraps it - the service lock, Safe Stop - sees footswitches, MIDI and Stream Deck too)
@@ -222,6 +236,6 @@
   setInterval(sendLeds, 1000);
   function modeChanged() { lastLeds = ""; sendLedsSoon(); if (window.PPConfigure) window.PPConfigure.render(); }
 
-  function list(kind) { return Object.keys(ACTIONS).map(function (k) { return ACTIONS[k]; }).filter(function (a) { return !kind || a.kind === kind || a.id === "none"; }); }
+  function list(kind) { return Object.keys(ACTIONS).map(function (k) { return ACTIONS[k]; }).filter(function (a) { return !a.hidden && (!kind || a.kind === kind || a.id === "none"); }); }   // (hidden: the small screen's own)
   window.PPActions = { ACTIONS: ACTIONS, list: list, run: run, onControl: onControl, midiInput: midiInput, mapping: mapping, defaults: defaults, mode: mode, sendLeds: sendLedsSoon, modeChanged: modeChanged, entryFor: entryFor };
 })();

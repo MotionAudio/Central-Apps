@@ -636,6 +636,35 @@ await check("the big version of the 3.5\" screen shows the pads and transport, a
 await check("the driver drew the small screen with the song name", async () => { const fb = fs.readFileSync(path.join(tmp, "fb1")); assert.ok(fb.some((b) => b !== 0)); });
 const remote = await ctx.newPage();
 await remote.goto("http://127.0.0.1:8080/remote?code=" + code);
+await check("the copy of the small screen has its tabs: Tracks → Mixer moves a level, Instrument → Pedals switches a pedal (straight to the app)", async () => {
+  const tap = (sel) => mini.evaluate((s) => { const el = document.querySelector(s); if (!el) return false; el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: el.getBoundingClientRect().left + el.getBoundingClientRect().width * 0.3 })); el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: el.getBoundingClientRect().left + el.getBoundingClientRect().width * 0.3 })); return true; }, sel);
+  await tap('[data-tab="tracks"]'); await tap('[data-sub="mix"]');
+  await until(() => mini.evaluate(() => !!document.querySelector('[data-fader="tracksLevel"]')), 5000);
+  await tap('[data-fader="tracksLevel"]');
+  await wait(1700); await T(() => PPTracks.sendDisplay());   // (after the screen's own 1.5 s: the level the app now has)
+  await until(() => mini.evaluate(() => { const b = document.querySelector('[data-fader="tracksLevel"] b'); return b && Math.abs(parseFloat(b.style.width) - 30) < 6; }), 3000);
+  await T(() => { if (window.PPInstrument) PPInstrument.setKind("electric"); }); await wait(600); await T(() => PPTracks.sendDisplay()); await wait(400);
+  await tap('[data-tab="instrument"]'); await tap('[data-sub="pedals"]');
+  await until(() => mini.evaluate(() => document.querySelectorAll(".pedal").length > 0), 6000);
+  const before = await T(() => PPInstrument.pedalNames()[0].on);
+  await tap(".pedal");
+  await until(() => T((b) => PPInstrument.pedalNames()[0].on !== b, before), 5000);
+  await T(() => PPInstrument.togglePedal(0)); await T(() => PPInstrument.setKind("off"));
+  await tap('[data-tab="pads"]');
+});
+await check("Central Pedal Control in a browser (an iPad): the Central Pedal serves it at /control/ as the editor, with ● Live", async () => {
+  const html = await (await fetch("http://127.0.0.1:8080/control/")).text();
+  assert.match(html, /window\.CP_CONTROL = true/); assert.match(html, /apple-mobile-web-app-capable/);
+  assert.equal((await fetch("http://127.0.0.1:8080/control/pedal-driver.py")).status, 404, "the driver itself is not served");
+  const man = await (await fetch("http://127.0.0.1:8080/control/manifest.webmanifest")).json(); assert.equal(man.start_url, "/control/");
+  const cp = await ctx.newPage(); cp.on("pageerror", (e) => errors.push("control:" + e));
+  await cp.goto("http://127.0.0.1:8080/control/"); await cp.waitForFunction(() => window.PPTransfer && document.querySelector('[data-cpo="live"]'), null, { timeout: 15000 });
+  await cp.evaluate(() => document.querySelector('[data-cpo="live"]').click());
+  assert.equal(await cp.evaluate(() => document.querySelector('#cpTransferDialog [data-cp="host"]').value), "127.0.0.1:8080", "opened from the pedal: that pedal");
+  await cp.evaluate((c) => { document.querySelector('#cpTransferDialog [data-cp="pin"]').value = c; document.querySelector('#cpTransferDialog [data-cp="live"]').click(); }, code);
+  await cp.waitForFunction(() => { const f = document.querySelector("#cpLive iframe"); return f && /\/mini\?code=/.test(f.src) && !document.querySelector("#cpLive").classList.contains("hidden"); }, null, { timeout: 8000 });
+  await cp.close();
+});
 await check("the phone remote lists pads, sections and songs", async () => { await until(() => remote.evaluate(() => document.querySelectorAll("#pads .pad").length === 9 && document.querySelectorAll("#songs button").length >= 1 && document.querySelectorAll("#sections button").length >= 2), 8000); });
 
 console.log("\nSystem:");

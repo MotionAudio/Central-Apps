@@ -195,6 +195,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 9.4.0:** The small 3.5" touch screen gets Pads, Tracks (play, mixer, setlist), Instrument (sound, pedals, EQ and compressor, tuner) and Settings (inputs and outputs, screens, system) tabs in the app's look, and the HDMI copy has them too; Central Pedal Control gets ● Live (work the pedal over the network, every change right away) and runs on the iPad from the pedal (`http://padpedal.local:8080/control/`, Add to Home Screen).
+
 **New in version 9.3.6:** Touch works on the small 3.5" screen (each tap lands where you touch); HDMI 1 keeps the Central Pedal app when a small screen is picked; Central Usage's Settings no longer shows admin (lighting) settings.
 
 **New in version 9.3.5:** Central Pedal stops multiplying MIDI ports (it opened its own ports as devices) and shows devices by name; Settings packs its cards on a big HDMI screen; the Touch screen list always shows the screens (it was empty on some Pis), with one tap for the common 3.5" screen.

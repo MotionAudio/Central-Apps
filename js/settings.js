@@ -70,6 +70,16 @@
     send({ type: "routing", routing: r }); // the Pi links the native instrument chain to its channel
   }
 
+  // the small touch screen's Settings: step a bus to the next / previous output (0 = off)
+  function stepBus(bus, delta) {
+    var r = project().routing; if (!BUSES.some(function (b) { return b[0] === bus; })) return false;
+    var n = channelNames().length, max = r.mode === "stereo" ? n - 1 : n, ch = r.buses[bus] ? r.buses[bus].ch || 0 : 0;
+    ch = (ch + (delta < 0 ? -1 : 1) + max + 1) % (max + 1);
+    r.buses[bus] = { ch: ch }; engine.routeOutput(); PP.persistSoon(); renderRouting(); if (window.PPIO) window.PPIO.render();
+    send({ type: "routing", routing: r }); return true;
+  }
+  function routingSummary() { var r = project().routing, names = channelNames(); return { mode: r.mode === "stereo" ? "stereo" : "mono4", buses: BUSES.map(function (b) { var ch = r.buses[b[0]] ? r.buses[b[0]].ch || 0 : 0; return { id: b[0], name: b[1], ch: ch, out: ch ? names[ch - 1] || "Output " + ch : "Off" }; }) }; }
+
   // ------------------------------------------------------------- sub-navigation
   var GROUPS = [["all", "All"], ["look", "Appearance"], ["setups", "Saved setups"], ["audio", "Audio"], ["midi", "MIDI & tempo"], ["screens", "Screens"], ["network", "Wi-Fi & devices"], ["system", "System"]];
   var group = "all";
@@ -158,5 +168,5 @@
   }
   wire(); applyScale();
   F.on("update", function (m) { if (m.state === "failed") PP.setStatus("Update failed: " + (m.message || "")); });
-  window.PPSettings = { render: render, applyScale: applyScale, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
+  window.PPSettings = { stepBus: stepBus, routingSummary: routingSummary, render: render, applyScale: applyScale, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
 })();

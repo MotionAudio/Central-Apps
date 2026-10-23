@@ -573,8 +573,30 @@
     if (onTab()) render(); if (window.PPActions) window.PPActions.sendLeds(); return tunerOn;
   }
   wire();
-  function pedalNames() { return chainFor(kind()).map(function (it, i) { var p = pedalOf(it); return { index: i, name: p ? p.name : it.pedal, on: it.on !== false }; }); }
+  // the small touch screen's Instrument tab: the EQ, compressor and studio pedals' knobs (0-1), and setting one
+  var MINI_CATS = { eq: 1, comp: 1, studio: 1 };
+  function miniKnobs() {
+    var out = [];
+    chainFor(kind()).forEach(function (it) {
+      var p = pedalOf(it); if (!p || it.plugin || !MINI_CATS[p.category]) return;
+      controlsOf(p).forEach(function (ctl) { if (ctl.extra || ctl.toggled || ctl.enum) return; out.push({ uid: it.uid, sym: ctl.sym, pedal: p.name, label: ctl.label, value: Math.round(norm(ctl, valueOf(it, ctl)) * 1000) / 1000, text: fmt(ctl, valueOf(it, ctl)), on: it.on !== false }); });
+    });
+    return out.slice(0, 24);
+  }
+  function setInput(field, value) {   // the small screen's Settings: input gain (dB) and channel (L / R)
+    var c = cfg();
+    if (field === "gain") c.input.gain = clamp(Math.round(Number(value) || 0), -20, 40);
+    else if (field === "channel") c.input.channel = value === "R" ? "R" : "L";
+    else return false;
+    inputSoon(); if (onTab()) render(); return true;
+  }
+  function setKnob(uid, sym, n) {
+    var it = chainFor(kind()).filter(function (q) { return q.uid === uid; })[0], p = it && PED.byId(it.pedal); if (!p) return false;
+    var ctl = controlsOf(p).filter(function (c) { return c.sym === sym; })[0]; if (!ctl) return false;
+    var v = denorm(ctl, n); it.values[ctl.sym] = v; send({ type: "instrument", action: "set", uid: it.uid, sym: ctl.sym, value: v }); PP.persistSoon(); if (onTab()) render(); return true;
+  }
+  function pedalNames() { return chainFor(kind()).map(function (it, i) { var p = pedalOf(it), cat = p && PED.CATEGORIES[p.category]; return { index: i, name: p ? p.name : it.pedal, on: it.on !== false, color: cat ? cat.color : null }; }); }
   function state() { var c = cfg(); return { kind: c.kind, tuner: tunerOn, board: c.boards[c.kind], patch: c.keys.patch, get levelDb() { return c.output.level || 0; }, set levelDb(v) { c.output.level = v; if (onTab()) { var el = $("#inOut"); if (el) { el.value = v; var o = el.parentNode.querySelector("output"); if (o) o.textContent = v + " dB"; } } } }; }
   function setKind(k) { var c = cfg(); c.kind = k; selected = null; apply("kind"); PP.setStatus("Instrument: " + (KINDS.filter(function (q) { return q[0] === k; })[0] || ["", k])[1]); if (onTab()) render(); }
-  window.PPInstrument = { show: show, hide: hide, render: render, config: cfg, kind: kind, state: state, setKind: setKind, autoSetup: autoSetup, togglePedal: togglePedal, pedalOn: pedalOn, pedalNames: pedalNames, stepBoard: stepBoard, stepPatch: stepPatch, stepKind: stepKind, expression: expression, toggleTuner: toggleTuner, tunerToggle: toggleTuner, tunerOn: function () { return tunerOn; }, apply: apply, hostConfig: hostConfig, catalog: function () { return catalog; }, chain: chainFor, resolvedChain: resolvedChain, controlsOf: controlsOf, captureRig: captureRig, applyRig: applyRig, layers: layers, maxLayers: MAX_LAYERS, status: function () { return status; }, boardName: function () { var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0]; return b ? b.name : ""; }, kinds: function () { return KINDS; }, onTuner: function (fn) { tunerHooks.push(fn); } };
+  window.PPInstrument = { show: show, hide: hide, render: render, config: cfg, kind: kind, state: state, setKind: setKind, autoSetup: autoSetup, togglePedal: togglePedal, pedalOn: pedalOn, pedalNames: pedalNames, miniKnobs: miniKnobs, setKnob: setKnob, setInput: setInput, stepBoard: stepBoard, stepPatch: stepPatch, stepKind: stepKind, expression: expression, toggleTuner: toggleTuner, tunerToggle: toggleTuner, tunerOn: function () { return tunerOn; }, apply: apply, hostConfig: hostConfig, catalog: function () { return catalog; }, chain: chainFor, resolvedChain: resolvedChain, controlsOf: controlsOf, captureRig: captureRig, applyRig: applyRig, layers: layers, maxLayers: MAX_LAYERS, status: function () { return status; }, boardName: function () { var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0]; return b ? b.name : ""; }, kinds: function () { return KINDS; }, onTuner: function (fn) { tunerHooks.push(fn); } };
 })();

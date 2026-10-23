@@ -306,6 +306,7 @@ PY
         install -d -m 755 "$R/opt/pad-pedal/central-usage/app" "$R/opt/pad-pedal/central-usage/build"
         install -m 644 "$src"/central-usage/app/*.js "$src"/central-usage/app/*.html "$src"/central-usage/app/*.css "$R/opt/pad-pedal/central-usage/app/" 2>/dev/null || true
         [ -f "$src/central-usage/build/icon.png" ] && install -m 644 "$src/central-usage/build/icon.png" "$R/opt/pad-pedal/central-usage/build/icon.png"
+        [ -f "$src/central-pedal-control/build/icon.png" ] && install -d -m 755 "$R/opt/pad-pedal/central-pedal-control/build" && install -m 644 "$src/central-pedal-control/build/icon.png" "$R/opt/pad-pedal/central-pedal-control/build/icon.png"
       fi
       [ -f "$src/pad-pedal-safe-mode" ] && install -m 755 "$src/pad-pedal-safe-mode" "$R/usr/local/sbin/pad-pedal-safe-mode"
       [ -f "$src/xinitrc" ] && install -m 755 "$src/xinitrc" "$R/home/$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)/.xinitrc" 2>/dev/null || true

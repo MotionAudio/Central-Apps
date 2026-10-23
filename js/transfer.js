@@ -257,16 +257,66 @@
     }
   });
 
+  // ------------------------------------------------------------- Live: the Central Pedal itself, right here
+  // A Central Pedal on the network, live: its pads, tracks (play, sections, mixer, setlist), instrument (sound, pedals,
+  // EQ / compressor, tuner, level) and inputs / outputs - the same tabs as its small touch screen. Every tap and fader
+  // goes straight to the pedal over the network (no Upload); the pedal's own app stays in charge of the sound.
+  var liveEl = null;
+  function liveDialog() {
+    var d = dialog(), list = pedals(), here = /^https?:$/.test(location.protocol) && location.port === "8080" ? location.host : "";   // (opened from a Central Pedal: that one)
+    var cur = (here && list.filter(function (x) { return x.host === here; })[0]) || (here ? { host: here, pin: "" } : list[0]) || { host: "", pin: "" };
+    d.dataset.dir = "live";
+    d.innerHTML = '<form method="dialog" class="cp-form"><div class="row spread"><h2>● Live on a Central Pedal</h2><button value="cancel" data-cp="close">Close</button></div>' +
+      '<label>Central Pedal<input data-cp="host" list="cpHosts" placeholder="padpedal.local or 192.168.1.50" value="' + esc(cur.host || "") + '"><datalist id="cpHosts">' + list.map(function (x) { return '<option value="' + esc(x.host) + '">' + esc(x.name) + "</option>"; }).join("") + "</datalist></label>" +
+      '<label>Its pairing PIN<input data-cp="pin" inputmode="numeric" maxlength="4" autocomplete="off" type="password" value="' + esc(cur.pin || "") + '"></label>' +
+      '<label class="toggle"><input type="checkbox" data-cp="keep"' + (cur.pin ? " checked" : "") + "> Remember the PIN on this " + esc(deviceName()) + "</label>" +
+      '<div class="cp-progress hidden"><div class="cp-bar"><i></i></div><p class="small" data-cp="msg"></p></div>' +
+      '<div class="row"><button class="primary" type="button" data-cp="live">● Go live</button></div>' +
+      '<p class="muted small">Pads, tracks, the mixer, the setlist, the instrument (sound, pedals, EQ and compressor, tuner) and the inputs and outputs - every change happens on the pedal right away. Same network as the pedal; a cable or 5 GHz Wi-Fi keeps it quickest.</p></form>';
+    d.showModal();
+    found().then(function (more) { var dl = $("#cpHosts", d); if (!dl) return; more.forEach(function (x) { if (!list.some(function (y) { return y.host === x.host; })) dl.insertAdjacentHTML("beforeend", '<option value="' + esc(x.host) + '">' + esc(x.name) + "</option>"); }); if (!$("[data-cp=host]", d).value && more[0]) $("[data-cp=host]", d).value = more[0].host; }).catch(function () { });
+  }
+  async function goLive(host, pin) {
+    var url = base(host);
+    say("Connecting to " + host + "…", null);
+    var info = null;
+    try { var r = await fetch(url + "/api/info", { cache: "no-store", signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined }); info = await r.json(); }
+    catch (_) { throw new Error("Can't reach " + host + " - is it on, and on this network? (Its Settings → Companion devices shows its address.)"); }
+    try { var a = await fetch(url + "/api/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: pin, name: "none" }) }); if (a.status === 403) throw new Error("pin"); }
+    catch (error) { if (error.message === "pin") throw new Error("That PIN is not right - it is on the pedal under Settings → Companion devices."); }
+    dialog().close();
+    if (!liveEl) {
+      liveEl = document.createElement("div"); liveEl.id = "cpLive"; liveEl.className = "cp-live";
+      liveEl.innerHTML = '<div class="cp-live-bar"><b>● LIVE</b><span data-cl="name"></span><span style="flex:1"></span><button data-cl="reload" title="Reconnect">↻</button><button data-cl="close">Close</button></div><iframe title="Central Pedal live" allow="autoplay"></iframe>';
+      document.body.appendChild(liveEl);
+      liveEl.addEventListener("click", function (e) { var b = e.target.closest("[data-cl]"); if (!b) return; if (b.dataset.cl === "close") { liveEl.classList.add("hidden"); $("iframe", liveEl).src = "about:blank"; } else if (b.dataset.cl === "reload") { var f = $("iframe", liveEl); f.src = f.dataset.src; } });
+    }
+    var f = $("iframe", liveEl); f.dataset.src = url + "/mini?code=" + encodeURIComponent(pin) + "&live=1"; f.src = f.dataset.src;
+    $("[data-cl=name]", liveEl).textContent = (info && info.hostname ? info.hostname : host) + (info && info.appVersion ? " · Central Pedal " + info.appVersion : "");
+    liveEl.classList.remove("hidden");
+  }
+  dialog().addEventListener("click", async function (e) {
+    var b = e.target.closest && e.target.closest('[data-cp="live"]'); if (!b || busy) return;
+    e.preventDefault();
+    var d = dialog(), host = $("[data-cp=host]", d).value.trim(), pin = $("[data-cp=pin]", d).value.trim();
+    if (!host) return say("Type the Central Pedal's name or address (its Settings → Companion devices shows it).", null, true);
+    if (!/^\d{4}$/.test(pin)) return say("The PIN is 4 digits.", null, true);
+    busy = true; b.disabled = true;
+    try { await goLive(host, pin); remember(host, null, pin, $("[data-cp=keep]", d).checked); }
+    catch (error) { say(String(error && error.message || error), null, true); }
+    finally { busy = false; b.disabled = false; }
+  });
+
   // ------------------------------------------------------------- the nav buttons (Central Pedal Control only)
   function addButtons() {
     var right = $(".topnav .nav-right"); if (!right || $("#cpTransfer")) return;
     var box = document.createElement("span"); box.id = "cpTransfer"; box.className = "cp-nav hidden";
-    box.innerHTML = '<button data-cpo="up" title="Send songs and settings to a Central Pedal">⇪ Upload</button><button data-cpo="down" title="Bring songs and settings back from a Central Pedal">⇩</button>';
+    box.innerHTML = '<button data-cpo="live" class="cp-live-btn" title="Work the Central Pedal live: pads, tracks, mixer, instrument, inputs and outputs">● Live</button><button data-cpo="up" title="Send songs and settings to a Central Pedal">⇪ Upload</button><button data-cpo="down" title="Bring songs and settings back from a Central Pedal">⇩</button>';
     right.insertBefore(box, right.firstChild);
-    box.addEventListener("click", function (e) { var b = e.target.closest("[data-cpo]"); if (b) open(b.dataset.cpo); });
+    box.addEventListener("click", function (e) { var b = e.target.closest("[data-cpo]"); if (!b) return; if (b.dataset.cpo === "live") liveDialog(); else open(b.dataset.cpo); });
     markMode();
   }
   addButtons();
   setTimeout(markMode, 1500);
-  window.PPTransfer = { open: open, pack: pack, apply: apply, isControl: isControl, pcmToWav: pcmToWav, upload: upload, download: download, pending: function () { return pending; } };
+  window.PPTransfer = { live: liveDialog, goLive: goLive, open: open, pack: pack, apply: apply, isControl: isControl, pcmToWav: pcmToWav, upload: upload, download: download, pending: function () { return pending; } };
 })();
