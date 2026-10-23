@@ -189,8 +189,136 @@ def main():
         assert any("padpedal-guitar-out" in l and l.endswith("padpedal_out:playback_RL") for l in ls) and any("padpedal-guitar-out" in l and l.endswith("padpedal_out:playback_RR") for l in ls), ls
     check("a stereo input + stereo pair output builds a two-channel chain on channels 3-4", t_stereo)
 
-    print("\nKeys:")
+    print("\nPlay any sound (the guitar plays a keys sound):")
     sf2 = [os.path.join(d, f) for d in instrument_host.SF2_DIRS if os.path.isdir(d) for f in os.listdir(d) if f.lower().endswith(".sf2")]
+    have_cc = shutil.which("cc") or shutil.which("gcc")
+    if not shutil.which("fluidsynth") or not sf2 or not (have_cc or host.find_playany(build=False)) or not shutil.which("pw-play") or not shutil.which("pw-record"):
+        print("  (fluidsynth, a SoundFont, a C compiler (or a built central-playany.so) or pw-play / pw-record is missing here - skipped)")
+    else:
+        cat = host.keys_catalog()
+        bank = next((b for b in cat if any(p["bank"] == 0 and p["prog"] == 0 for p in b["presets"])), cat[0])   # (General MIDI program 0: a grand piano)
+        pr0 = next((p for p in bank["presets"] if p["bank"] == 0 and p["prog"] == 0), bank["presets"][0])
+        piano = {"file": bank["file"], "bank": pr0["bank"], "prog": pr0["prog"], "name": pr0["name"]}
+        rec_wav, play_wav = os.path.join(data, "rec.wav"), os.path.join(data, "e4.wav")
+
+        def write_e4(path):   # a pure E4 (no harmonics): what the keys sound adds above it is its own
+            import wave, struct, math
+            w = wave.open(path, "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(48000)
+            fr = []
+            for i in range(48000 * 2):
+                t = i - 24000
+                a = 0.0 if t < 0 else min(1.0, t / 240.0) * math.exp(-t / 48000.0)
+                fr.append(struct.pack("<h", int(14000 * a * math.sin(2 * math.pi * 329.63 * i / 48000))))
+            w.writeframes(b"".join(fr)); w.close()
+
+        def play_and_record():
+            """Plays the E4 into the chain and records the output sink: channel 4 = the instrument's output; channel 1 =
+            the same E4 linked straight to the sink (no processing: the reference the latency is measured from)."""
+            if os.path.exists(rec_wav):
+                os.remove(rec_wav)
+            rec = subprocess.Popen(["pw-record", "--target", "padpedal_out", "-P", "{ stream.capture.sink = true }", "--channels", "4", "--channel-map", "FL,FR,RL,RR", "--rate", "48000", "--format", "f32", rec_wav], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(0.6)
+            play = subprocess.Popen(["pw-play", "--target", "padpedal-guitar-in", "-P", "{ node.name = pa-test-guitar }", play_wav], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            for _ in range(40):   # (the E4 starts 0.5 s into the file: time enough to link it)
+                time.sleep(0.02)
+                if subprocess.run(["pw-link", "pa-test-guitar:output_MONO", "padpedal_out:playback_FL"], env=env, capture_output=True).returncode == 0:
+                    break
+            play.wait(timeout=20)
+            time.sleep(0.4)
+            rec.terminate(); rec.wait(timeout=5)
+            import struct
+            b = open(rec_wav, "rb").read() if os.path.exists(rec_wav) else b""
+            if len(b) < 64 or b[:4] != b"RIFF":
+                return [], []
+            pos, ch, bits, raw = 12, 1, 32, b""
+            while pos + 8 <= len(b):   # (pw-record writes WAVE_FORMAT_EXTENSIBLE, which the wave module can't read)
+                cid, size = b[pos:pos + 4], struct.unpack("<I", b[pos + 4:pos + 8])[0]
+                if cid == b"fmt ":
+                    ch, bits = struct.unpack("<H", b[pos + 10:pos + 12])[0], struct.unpack("<H", b[pos + 22:pos + 24])[0]
+                elif cid == b"data":
+                    raw = b[pos + 8:pos + 8 + size]
+                    break
+                pos += 8 + size + (size & 1)
+            vals = struct.unpack("<%df" % (len(raw) // 4), raw[:len(raw) // 4 * 4]) if bits == 32 else [v / 32768.0 for v in struct.unpack("<%dh" % (len(raw) // 2), raw[:len(raw) // 2 * 2])]
+            frames = len(vals) // ch
+            return [vals[i * ch] for i in range(frames)], [vals[i * ch + ch - 1] for i in range(frames)]
+
+        def env_ms(x):   # peak level per 1 ms
+            return [max(abs(v) for v in x[i:i + 48]) for i in range(0, len(x) - 47, 48)]
+
+        def onset(e, frac=0.1):
+            peak = max(e) if e else 0
+            return next((i for i, v in enumerate(e) if v > frac * peak), None) if peak > 1e-4 else None
+
+        def harmonics(x, f0=329.63, fs=48000):   # how much of the sound is above the fundamental (a pure E4: ~0)
+            import cmath, math
+            seg = x[len(x) // 3: len(x) // 3 + 9600]
+            def mag(f):
+                return abs(sum(v * cmath.exp(-2j * math.pi * f * i / fs) for i, v in enumerate(seg)))
+            fund = mag(f0)
+            return (mag(2 * f0) + mag(3 * f0)) / fund if fund > 0 else 0.0
+
+        host.config = {"kind": "electric", "input": {"device": "auto", "channel": "L", "gainDb": 0, "gateOn": False}, "chain": [], "keys": {}, "levelDb": 0,
+                       "routing": {"mode": "mono4", "buses": {"instrument": {"ch": 4}}}, "playAny": {"on": True, "patch": piano, "mode": "notes", "dry": 0.0, "sensitivity": 0.5}}
+
+        def t_pa_chain():
+            host._apply_safe()
+            assert host.running and not host.error, host.error
+            assert host.playany_in_chain and host.find_playany(build=False), "the plugin is not in the chain"
+            conf = open(os.path.join(host.dir, "guitar.conf")).read()
+            assert 'label = "central_playany"' in conf and "pmixL" in conf and '"Mode" = 1' in conf, conf[-900:]
+            assert host.procs.get("fluid") and host.procs["fluid"].poll() is None, "FluidSynth is not running for the notes"
+            ls = links(env)
+            assert any("padpedal-keys-synth" in l and l.endswith("padpedal_out:playback_RR") for l in ls), "the notes' sound is not on channel 4: %s" % ls
+            assert host.status()["playAny"]["on"]
+        check("on: the plugin is built from its C source, goes into the guitar chain, and FluidSynth plays the chosen sound on channel 4", t_pa_chain)
+
+        def t_pa_notes():
+            write_e4(play_wav)
+            ref, out = play_and_record()
+            assert len(out) > 48000, "nothing recorded (%d samples)" % len(out)
+            peak = max(abs(v) for v in out)
+            assert peak > 0.01, "silence at the output: %.4f" % peak
+            # the guitar (dry 0) is gone: what plays is the piano - a pure E4 has no harmonics, the piano does
+            h = harmonics(out[onset(env_ms(out)) * 48:])
+            a, b = onset(env_ms(ref)), onset(env_ms(out))
+            ref2, out2 = play_and_record()   # (again: the first note after FluidSynth starts can be slower)
+            a2, b2 = onset(env_ms(ref2)), onset(env_ms(out2))
+            print("      output peak %.3f, harmonics %.2f (the guitar alone: ~0); the piano starts %s / %s ms after the guitar" % (peak, h, (b - a) if a is not None and b is not None else "?", (b2 - a2) if a2 is not None and b2 is not None else "?"))
+            if a2 is not None and b2 is not None:
+                a, b = a2, b2
+            assert h > 0.05, "no piano harmonics: %.3f" % h
+            assert a is not None and b is not None and 0 <= b - a < 25, "the piano came %s ms after the guitar" % ((b - a) if a is not None and b is not None else "?")
+        check("a guitar E4 through PipeWire: the plugin finds it, FluidSynth plays a piano E4 (dry 0), measured against the guitar itself", t_pa_notes)
+
+        def t_pa_dry():
+            host.handle({"action": "playany", "playAny": {"on": True, "patch": piano, "mode": "notes", "dry": 1.0}}, lambda m: None)
+            time.sleep(0.8)
+            ref, out = play_and_record()
+            assert max(abs(v) for v in out) > 0.3, "dry 1: the guitar is there too"
+            assert host.procs["guitar"].poll() is None
+        check("dry blend 1, live (no restart): the guitar and the piano together", t_pa_dry)
+
+        def t_pa_synth_off():
+            host.handle({"action": "playany", "playAny": {"on": True, "patch": piano, "mode": "synth", "dry": 0.0}}, lambda m: None)
+            time.sleep(0.8)
+            ref, out = play_and_record()
+            a, b = onset(env_ms(ref)), onset(env_ms(out))
+            peak = max(abs(v) for v in out)
+            print("      synth mode: output peak %.3f, starts %s ms after the guitar" % (peak, (b - a) if a is not None and b is not None else "?"))
+            assert peak > 0.01, "synth mode is silent"
+            assert a is not None and b is not None and b - a <= 5, "synth mode is late"
+            procs = dict(host.procs)
+            host.handle({"action": "playany", "playAny": {"on": False, "patch": piano}}, lambda m: None)
+            time.sleep(0.8)
+            ref, out = play_and_record()
+            h = harmonics(out[(onset(env_ms(out)) or 0) * 48:])
+            assert max(abs(v) for v in out) > 0.3 and h < 0.03, "off: the guitar as it is (harmonics %.3f)" % h
+            assert host.procs.get("guitar") is procs.get("guitar"), "on / off restarted the chain"
+            assert not host.status()["playAny"]["on"]
+        check("synth mode makes its own sound at once; off gives back the guitar as it is - both live, without restarting the chain", t_pa_synth_off)
+
+    print("\nKeys:")
     if not shutil.which("fluidsynth") or not sf2:
         print("  (fluidsynth or a SoundFont is missing here - keys tests skipped)")
     else:

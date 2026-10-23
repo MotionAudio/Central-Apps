@@ -138,6 +138,9 @@ install -m 755 "$SRC/pedal-driver.py"        /opt/pad-pedal/pedal-driver.py
 install -m 644 "$SRC/instrument_host.py"     /opt/pad-pedal/instrument_host.py
 install -m 644 "$SRC/sources.py"            /opt/pad-pedal/sources.py
 install -m 644 "$SRC/instrument-plugins.json" /opt/pad-pedal/instrument-plugins.json
+# play any sound: its plugin (built by CI for arm64) and its C sources (the driver builds it from them if it is missing)
+[ -d "$SRC/bin" ] && { rm -rf /opt/pad-pedal/bin; cp -r "$SRC/bin" /opt/pad-pedal/bin; chmod -R a+rX /opt/pad-pedal/bin; }
+[ -d "$SRC/central-usage/native/playany" ] && install -d -m 755 /opt/pad-pedal/central-usage/native/playany && install -m 644 "$SRC"/central-usage/native/playany/*.c "$SRC"/central-usage/native/playany/*.h /opt/pad-pedal/central-usage/native/playany/
 install -m 644 "$SRC/screens.json"           /opt/pad-pedal/screens.json
 install -m 755 "$SRC/get-sounds.sh"          /opt/pad-pedal/get-sounds.sh
 install -d -m 755 /opt/pad-pedal/sounds

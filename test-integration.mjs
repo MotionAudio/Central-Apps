@@ -555,6 +555,26 @@ await check("instrument: every pedal has Mix and Level (sent live), keys get up 
   const k = await T(() => PPInstrument.hostConfig().keys.layers);
   assert.equal(k.length, 8); assert.equal(k[0].hi, 59); assert.equal(k[1].lo, 60);
 });
+await check("play any sound: a guitar gets its panel; on, mode, sound and dry blend go to the driver live; the footswitch action toggles it", async () => {
+  await T(() => { PPShell.showTab("instrument"); PPInstrument.setKind("electric"); });
+  await page.waitForSelector("#paOn"); await T(() => { window.__sent = []; });
+  const last = () => T(() => window.__sent.filter((m) => m.type === "instrument" && m.action === "playany").pop() || null);
+  await page.click("#paOn"); await wait(200);
+  let m = await last(); assert.ok(m && m.playAny.on === true && m.playAny.mode === "auto", JSON.stringify(m));
+  await page.waitForSelector('[data-pamode="synth"]'); await page.click('[data-pamode="synth"]'); await wait(200);
+  m = await last(); assert.equal(m.playAny.mode, "synth");
+  await page.$eval("#paDry", (el) => { el.value = 30; el.dispatchEvent(new Event("input", { bubbles: true })); }); await wait(250);
+  m = await last(); assert.equal(m.playAny.dry, 0.3);
+  assert.equal(await T(() => PPInstrument.hostConfig().playAny.dry), 0.3, "the apply config carries it too");
+  assert.ok(await T(() => PPActions.list().some((a) => a.id === "playAnyToggle")), "a footswitch action");
+  await T(() => PPActions.run("playAnyToggle")); await wait(200);
+  m = await last(); assert.equal(m.playAny.on, false, "the footswitch turned it off");
+  assert.equal(await T(() => PPInstrument.playAnyOn()), false);
+  await T(() => PPInstrument.setKind("keys")); await wait(200);
+  assert.equal(await T(() => PPInstrument.hostConfig().playAny), undefined, "keys: no play any sound");
+  assert.equal(await page.$("#paOn"), null);
+  await T(() => PPInstrument.setKind("off"));
+});
 await check("instrument scenes: capture the rig, switch pedals, recall - one 'scene' message switches them back without a restart", async () => {
   await T(() => PPInstrument.setKind("electric")); await wait(500);
   const r = await T(async () => {

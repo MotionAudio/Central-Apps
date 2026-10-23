@@ -104,6 +104,10 @@
   def("instrumentKind", "Instrument: switch electric / acoustic / bass / keys / off", "Instrument", "trigger", function () { if (!I()) return; var order = ["electric", "acoustic", "bass", "keys", "off"], k = I().state().kind; I().setKind(order[(order.indexOf(k) + 1) % order.length]); });
   def("instrumentAuto", "Instrument: Auto set-up", "Instrument", "trigger", function () { if (I()) I().autoSetup(); });
   def("instrumentExpression", "Instrument: expression (wah / volume pedal)", "Instrument", "continuous", function (a, v) { if (I()) I().expression(v); });
+  // play any sound: the guitar / bass / acoustic plays the chosen keys sound (notes) or a guitar synth (chords)
+  def("playAnyToggle", "Play any sound on / off", "Instrument", "trigger", function () { if (I() && I().togglePlayAny) I().togglePlayAny(); }, { led: function () { return I() && I().playAnyOn && I().playAnyOn() ? "on" : "off"; } });
+  def("playAnyMode", "Play any sound: Auto / Notes / Synth (next)", "Instrument", "trigger", function () { if (I() && I().stepPlayAnyMode) I().stepPlayAnyMode(1); });
+  def("playAnyDry", "Play any sound: dry guitar blend", "Instrument", "continuous", function (a, v) { if (I() && I().setPlayAny) I().setPlayAny({ dry: v }); });
   // the small touch screen: pick the instrument by name, an EQ / compressor knob (0-1), a track's mute
   def("instrumentKindSet", "Instrument: pick electric / acoustic / bass / keys / off", "Instrument", "trigger", function (a) { var k = String(a && a.kind || ""); if (I() && /^(electric|acoustic|bass|keys|off)$/.test(k)) I().setKind(k); }, { hidden: true });
   def("pedalKnob", "Instrument: a pedal's knob", "Instrument", "continuous", function (a, v) { if (I() && a && a.uid && a.sym) I().setKnob(String(a.uid), String(a.sym), v); }, { hidden: true });

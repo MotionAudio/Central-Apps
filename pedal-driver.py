@@ -3211,6 +3211,12 @@ class MiniScreen:
                 hits.append(([72, y0, W - 72, y1], {"local": "say", "text": locked + (" - this sound is muted until the plan is active." if keys else " - its locked pedals are bypassed until the plan is active.")}))
         lv = ins.get("levelDb") or 0
         self.fader(g, hits, [6, 190, W - 6, 230], "Instrument level", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
+        if ins.get("kind") in ("electric", "acoustic", "bass"):   # play any sound: the guitar plays the chosen keys sound / a synth
+            third = (W - 12 - 8) / 3.0
+            self.button(g, hits, [6, 236, 6 + third, H - 46], "TUNER", {"name": "tuner"}, on=bool(ins.get("tuner")))
+            self.button(g, hits, [10 + third, 236, 10 + 2 * third, H - 46], "PLAY ANY", {"name": "playAnyToggle"}, on=bool(ins.get("playAny")))
+            self.button(g, hits, [14 + 2 * third, 236, W - 6, H - 46], "PEDALS", {"local": "sub", "tab": "instrument", "value": "pedals"})
+            return
         self.button(g, hits, [6, 236, W / 2 - 3, H - 46], "TUNER", {"name": "tuner"}, on=bool(ins.get("tuner")))
         self.button(g, hits, [W / 2 + 3, 236, W - 6, H - 46], "PEDALS", {"local": "sub", "tab": "instrument", "value": "pedals"})
 

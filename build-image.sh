@@ -192,6 +192,9 @@ cp "$HERE"/central-usage/app/*.js "$HERE"/central-usage/app/*.html "$HERE"/centr
 [ -f "$HERE/central-pedal-control/build/icon.png" ] && mkdir -p "$MNT/tmp/pad-pedal-src/central-pedal-control/build" && cp "$HERE/central-pedal-control/build/icon.png" "$MNT/tmp/pad-pedal-src/central-pedal-control/build/"
 # pre-rendered spoken cue words, so the build works without espeak-ng too
 [ -d "$HERE/cues" ] && cp -r "$HERE/cues" "$MNT/tmp/pad-pedal-src/cues"
+# play any sound: its plugin for the Pi (bin/, in the release zip) and its C sources
+[ -d "$HERE/bin" ] && cp -r "$HERE/bin" "$MNT/tmp/pad-pedal-src/bin"
+[ -d "$HERE/central-usage/native/playany" ] && mkdir -p "$MNT/tmp/pad-pedal-src/central-usage/native/playany" && cp "$HERE"/central-usage/native/playany/*.[ch] "$MNT/tmp/pad-pedal-src/central-usage/native/playany/"
 # the sound banks fetched above (setup-pi.sh moves them into /opt/pad-pedal/sounds)
 if [ "$SOUNDS" != "none" ]; then
   mkdir -p "$MNT/tmp/pad-pedal-src/sounds"; cp "$HERE"/sounds/*.sf2 "$HERE"/sounds/*.txt "$HERE"/sounds/*README* "$HERE"/sounds/*LICENSE* "$MNT/tmp/pad-pedal-src/sounds/" 2>/dev/null || true

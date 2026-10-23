@@ -10,7 +10,13 @@ the same kind of effects chain. Controls change live with pw-cli set-param;
 on/off never rebuilds the chain.
 
 The app only ever sends: apply {config}, set {uid, sym, value}, bypass {uid, on},
-input {input}, level {levelDb}, keys {keys}, note {note, on, velocity}, status.
+input {input}, level {levelDb}, keys {keys}, note {note, on, velocity}, playany {playAny}, status.
+
+Play any sound (config.playAny = {on, patch, mode, dry, sensitivity, volume}): the guitar / bass / acoustic plays
+any keys sound. The analysis is a plugin (central-usage/native/playany: central-playany.so, LADSPA + LV2) inside the
+guitar chain: single notes go to FluidSynth as MIDI notes on PLAYANY_CHANNEL, where the chosen sound is loaded (its
+sound goes straight to the instrument's output); chords play the plugin's own synth mode. The dry guitar is mixed
+in at the dry blend. On / off, the mode and the blend change live; the chain is only rebuilt the first time.
 """
 import json
 import logging
@@ -30,6 +36,39 @@ SF2_DIRS = ["/opt/pad-pedal/sounds", "/usr/share/sounds/sf2", "/usr/share/sounds
 FLUID_PORT = 9800
 CONVOLVER_URI = "builtin:convolver"
 MAX_KEY_LAYERS = 8
+PLAYANY_CHANNEL = 10           # FluidSynth channel of play any sound (the keys layers use 0..7; 9 is drums in GM)
+PLAYANY_LABEL = "central_playany"
+PLAYANY_MODES = {"auto": 0, "notes": 1, "synth": 2}
+
+
+def playany_tone(name):
+    """The synth mode's voice for a sound's name (the same words as pa_tone_for_name in playany.c)."""
+    s = (name or "").lower()
+    for tone, words in ((3, ("bass", "sub", "808")), (4, ("organ", "hammond", "b3", "drawbar", "accordion", "harmonium")),
+                        (1, ("pad", "string", "choir", "voice", "vox", "warm", "halo", "ambient", "atmos", "swell", "cello", "viol", "orchestra", "ensemble", "aah", "ooh")),
+                        (2, ("lead", "brass", "saw", "square", "trumpet", "horn", "sax", "trombone", "synth", "chiptune", "fifths"))):
+        if any(w in s for w in words):
+            return tone
+    return 0
+
+
+def playany_settings(pa, kind):
+    """config.playAny -> the plugin's controls and the mix: {controls: {...}, dry, volume, on, mode, patch}."""
+    pa = pa if isinstance(pa, dict) else {}
+    on = bool(pa.get("on")) and kind in ("electric", "acoustic", "bass")
+    mode = PLAYANY_MODES.get(str(pa.get("mode") or "auto"), 0)
+    def num(key, default, lo, hi):
+        try:
+            return max(lo, min(hi, float(pa.get(key, default))))
+        except (TypeError, ValueError):
+            return default
+    dry, sens, volume = num("dry", 0.0, 0.0, 1.0), num("sensitivity", 0.5, 0.0, 1.0), num("volume", 1.0, 0.0, 1.5)
+    patch = pa.get("patch") if isinstance(pa.get("patch"), dict) else {}
+    bass = kind == "bass"
+    controls = {"Active": 1 if on else 0, "Mode": mode, "Sensitivity": round(sens, 3), "Tone": playany_tone(patch.get("name") or patch.get("file") or ""),
+                "Synth level": round(volume, 3), "Low note": 23 if bass else 40, "High note": 67 if bass else 88, "Channel": PLAYANY_CHANNEL,
+                "Port": FLUID_PORT if mode != 2 else 0, "Bend": 0 if pa.get("bend") is False else 1}
+    return {"on": on, "mode": mode, "dry": dry if on else 1.0, "volume": volume, "controls": controls, "patch": patch}
 
 
 def mix_gains(on, mix, level_db):
@@ -367,6 +406,9 @@ class InstrumentHost:
         self.pw = PW(env)
         self.last_status = 0
         self.lv2 = None   # probed on first use: can this PipeWire's filter-chain load LV2 plugins?
+        self.playany_so = None        # central-playany.so (found / built on first use)
+        self.playany_in_chain = False  # the running guitar chain has the play-any plugin in it
+        self.playany_fluid = False     # FluidSynth runs for play any sound (not for keys)
 
     def probe_lv2(self):
         """True when libpipewire-module-filter-chain can host LV2 (PipeWire >= 1.4 or a build with lilv)."""
@@ -393,6 +435,46 @@ class InstrumentHost:
         self.lv2 = result
         log.info("filter-chain LV2 support: %s", "yes" if self.lv2 else "no (LADSPA pedals only)")
         return self.lv2
+
+    # ----- play any sound: the plugin ---------------------------------------------
+    def find_playany(self, build=True):
+        """central-playany.so: shipped (bin/linux-<arch>/ in the Pi release, native/ in Central Control, the dev build),
+        or built here from its C sources the first time (they need nothing but a C compiler)."""
+        if self.playany_so and os.path.isfile(self.playany_so):
+            return self.playany_so
+        import platform
+        arch = platform.machine() or "aarch64"
+        roots = [self.app_root, os.path.dirname(self.app_root or "")]
+        cands = [os.environ.get("CC_PLAYANY_SO") or ""]
+        for r in roots:
+            if r:
+                cands += [os.path.join(r, "bin", "linux-" + arch, "central-playany.lv2", "central-playany.so"),
+                          os.path.join(r, "central-usage", "native", "build", "central-playany.lv2", "central-playany.so"),
+                          os.path.join(r, "central-playany.lv2", "central-playany.so"),
+                          os.path.join(r, "native", "central-playany.lv2", "central-playany.so")]
+        built = os.path.join(self.dir, "bin", "central-playany.so")
+        cands.append(built)
+        for c in cands:
+            if c and os.path.isfile(c):
+                self.playany_so = c
+                return c
+        if not build:
+            return None
+        src = next((d for d in (os.path.join(r, "central-usage", "native", "playany") for r in roots if r) if os.path.isfile(os.path.join(d, "playany.c"))), None)
+        if not src:
+            src = next((d for d in (os.path.join(r, "playany") for r in roots if r) if os.path.isfile(os.path.join(d, "playany.c"))), None)
+        cc = shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
+        if not src or not cc:
+            return None
+        os.makedirs(os.path.dirname(built), exist_ok=True)
+        r = run([cc, "-O2", "-fPIC", "-shared", "-o", built + ".part", os.path.join(src, "playany-plugin.c"), os.path.join(src, "playany.c"), "-lm", "-lpthread"], timeout=120)
+        if r.returncode != 0 or not os.path.isfile(built + ".part"):
+            log.warning("play any sound: building the plugin failed: %s", (r.stderr or r.stdout or "").strip()[-300:])
+            return None
+        os.replace(built + ".part", built)
+        log.info("play any sound: built %s", built)
+        self.playany_so = built
+        return built
 
     # ----- catalogue ---------------------------------------------------------
     def load_plugins(self):
@@ -508,7 +590,8 @@ class InstrumentHost:
         return {"type": "instrumentStatus", "available": self.available, "running": self.running, "kind": self.config.get("kind", "off"), "error": self.error,
                 "input": self.input_desc, "inputs": inputs, "midiInputs": [m for m in midi_inputs if KEYS_PORT_NAME not in m], "keysCatalog": self.keys_catalog(), "keysEngine": self.keys_engine,
                 "plugins": self.plugins_for_app(), "latencyMs": 128 / 48.0 if self.running else None,
-                "irs": self.ir_list(), "maxKeyLayers": MAX_KEY_LAYERS, "looper": bool(self.config.get("looper"))}
+                "irs": self.ir_list(), "maxKeyLayers": MAX_KEY_LAYERS, "looper": bool(self.config.get("looper")),
+                "playAny": {"available": bool(self.find_playany(build=False) or (shutil.which("cc") or shutil.which("gcc"))), "on": bool(playany_settings(self.config.get("playAny"), self.config.get("kind"))["on"]) and self.playany_in_chain, "engine": "plugin"}}
 
     def plugins_for_app(self):
         """uri -> { controls: [...] } (only what the app needs)"""
@@ -568,6 +651,10 @@ class InstrumentHost:
         if action == "routing":
             self.config["routing"] = message.get("routing") or {}
             threading.Thread(target=self._relink_safe, daemon=True).start()
+            return
+        if action == "playany":
+            self.config["playAny"] = message.get("playAny") or {}
+            threading.Thread(target=self._playany_safe, daemon=True).start()
 
     def _apply_safe(self):
         with self.lock:
@@ -586,6 +673,15 @@ class InstrumentHost:
                     self.apply_keys_settings()
             except Exception as error:
                 self.error = str(error)[:200]
+            self.emit_status()
+
+    def _playany_safe(self):
+        with self.lock:
+            try:
+                self.apply_playany()
+            except Exception as error:
+                self.error = str(error)[:200]
+                log.warning("play any sound: %s", error)
             self.emit_status()
 
     def _relink_safe(self):
@@ -645,14 +741,26 @@ context.modules = [
             self.driver.emit(self.status())
 
     # ----- building the chain ------------------------------------------------
-    def chain_conf(self, name, items, channels, gain_db, gate, level_db, stereo_in=False):
-        """A filter-chain config. Mono (channels=1) or stereo (2) graph. Each pedal sits behind a bypass mixer."""
+    def chain_conf(self, name, items, channels, gain_db, gate, level_db, stereo_in=False, playany=None):
+        """A filter-chain config. Mono (channels=1) or stereo (2) graph. Each pedal sits behind a bypass mixer.
+        playany: {so, controls, dry, volume} puts play any sound in: the plugin hears the input (after the input gain,
+        before the gate), and a mixer per channel at the end mixes the guitar (at the dry blend) with its synth mode."""
         nodes, links = [], []
         chans = ["L", "R"][:channels]
         # input gain: a mixer per channel
         for ch in chans:
             nodes.append('{ type = builtin name = gin%s label = mixer control = { "Gain 1" = %.5f } }' % (ch, db_to_lin(gain_db)))
         prev = {ch: "gin%s:Out" % ch for ch in chans}
+        if playany:
+            ctl = " ".join('"%s" = %s' % (k, ("%.4f" % float(v)).rstrip("0").rstrip(".")) for k, v in playany["controls"].items())
+            nodes.append('{ type = ladspa name = pany plugin = "%s" label = "%s" control = { %s } }' % (playany["so"].replace('"', ""), PLAYANY_LABEL, ctl))
+            if channels == 1:
+                links.append('{ output = "ginL:Out" input = "pany:In" }')
+            else:   # a stereo input: the plugin hears both sides
+                nodes.append('{ type = builtin name = pasum label = mixer control = { "Gain 1" = 0.5 "Gain 2" = 0.5 } }')
+                links.append('{ output = "ginL:Out" input = "pasum:In 1" }')
+                links.append('{ output = "ginR:Out" input = "pasum:In 2" }')
+                links.append('{ output = "pasum:Out" input = "pany:In" }')
         if gate and gate.get("on") and self.lv2 and self.plugin("http://calf.sourceforge.net/plugins/Gate"):
             for ch in chans:
                 nodes.append('{ type = lv2 name = gate%s plugin = "http://calf.sourceforge.net/plugins/Gate" control = { "threshold" = %.5f "range" = 0.0001 "attack" = 2 "release" = 120 } }' % (ch, db_to_lin(gate.get("db", -65))))
@@ -736,6 +844,12 @@ context.modules = [
                         links.append('{ output = "%s%s:%s" input = "m%s%s:In 1" }' % (uid, ch, aouts[0]["sym"], uid, ch))
                         links.append('{ output = "%s" input = "m%s%s:In 2" }' % (prev[ch], uid, ch))
                         prev[ch] = "m%s%s:Out" % (uid, ch)
+        if playany:   # the guitar at the dry blend + play any sound's synth mode
+            for ch in chans:
+                nodes.append('{ type = builtin name = pmix%s label = mixer control = { "Gain 1" = %.4f "Gain 2" = 1.0 } }' % (ch, playany["dry"]))
+                links.append('{ output = "%s" input = "pmix%s:In 1" }' % (prev[ch], ch))
+                links.append('{ output = "pany:Out" input = "pmix%s:In 2" }' % ch)
+                prev[ch] = "pmix%s:Out" % ch
         # output level (+ mono sum when the output is a single channel)
         for ch in chans:
             nodes.append('{ type = builtin name = gout%s label = mixer control = { "Gain 1" = %.5f } }' % (ch, db_to_lin(level_db)))
@@ -815,6 +929,7 @@ context.modules = [
         for name in list(self.procs):
             self.stop_chain(name)
         self.stop_keys()
+        self.playany_in_chain = False
         self.running = False
         self.input_desc = None
 
@@ -830,21 +945,92 @@ context.modules = [
         inp = self.config.get("input") or {}
         chain = self.config.get("chain") or []
         if kind in ("electric", "acoustic", "bass"):
-            self.stop_keys()
+            pa = self.playany_for_chain()
+            if not (pa and pa["on"] and pa["mode"] != 2 and self.playany_fluid):   # (FluidSynth stays only when it plays for play any sound)
+                self.stop_keys()
             stereo = inp.get("channel") == "stereo"
-            conf = self.chain_conf("guitar", chain, 2 if stereo else 1, inp.get("gainDb", 0), {"on": inp.get("gateOn", True), "db": inp.get("gateDb", -65)}, self.config.get("levelDb", 0))
+            conf = self.chain_conf("guitar", chain, 2 if stereo else 1, inp.get("gainDb", 0), {"on": inp.get("gateOn", True), "db": inp.get("gateDb", -65)}, self.config.get("levelDb", 0), playany=pa)
             self.start_chain("guitar", conf)
+            self.playany_in_chain = bool(pa)
             self.link_input()
+            if pa and pa["on"] and pa["mode"] != 2:
+                self.playany_sound(pa)
             self.link_output()
             self.running = True
         elif kind == "keys":
             self.stop_chain("guitar")
+            self.playany_in_chain = False
+            if self.playany_fluid:   # FluidSynth was started for play any sound: the keys start it their own way
+                self.stop_keys()
             self.start_keys()
             conf = self.chain_conf("keys", chain, 2, 0, None, self.config.get("levelDb", 0))
             self.start_chain("keys", conf)
             self.link_keys()
             self.link_output()
             self.running = True
+
+    # ----- play any sound -------------------------------------------------------
+    def playany_for_chain(self):
+        """The play-any settings for building the guitar chain, or None (never turned on for this instrument, or the
+        plugin is missing). Once it is in the chain it stays (switched off by its Active control), so on / off is live."""
+        pa_cfg = self.config.get("playAny")
+        if not isinstance(pa_cfg, dict) or not (pa_cfg.get("on") or self.playany_in_chain):
+            return None
+        so = self.find_playany()
+        if not so:
+            if pa_cfg.get("on"):
+                self.error = "play any sound: its plugin is missing on this pedal (update the software)"
+            return None
+        pa = playany_settings(pa_cfg, self.config.get("kind"))
+        pa["so"] = so
+        return pa
+
+    def playany_sound(self, pa):
+        """FluidSynth plays the chosen sound on PLAYANY_CHANNEL (started for it when the keys aren't running)."""
+        if not (self.procs.get("fluid") and self.procs["fluid"].poll() is None):
+            self.start_keys(router=False)
+            self.playany_fluid = True
+        patch = pa.get("patch") or {}
+        path = patch.get("file")
+        if not path or not os.path.exists(path):
+            patch = self.default_patch() or {}
+            path = patch.get("file")
+        if not path:
+            raise RuntimeError("play any sound: no SoundFont banks installed")
+        if path not in self.fluid_sf:
+            out = self.fluid("load \"%s\"" % path)
+            m = re.search(r"loaded SoundFont has ID (\d+)", out)
+            self.fluid_sf[path] = int(m.group(1)) if m else len(self.fluid_sf) + 1
+        ch = PLAYANY_CHANNEL
+        self.fluid("select %d %d %d %d" % (ch, self.fluid_sf[path], int(patch.get("bank", 0)), int(patch.get("prog", 0))))
+        self.fluid("cc %d 7 127" % ch)
+        self.fluid("cc %d 10 64" % ch)
+        self.fluid("gain %.3f" % (0.8 * float(pa.get("volume", 1.0)) * db_to_lin(self.config.get("levelDb", 0))))
+
+    def apply_playany(self):
+        """play any sound changed (the footswitch, the Instrument tab): live when the plugin is already in the chain."""
+        kind = self.config.get("kind")
+        if kind not in ("electric", "acoustic", "bass") or not self.running:
+            return
+        pa = self.playany_for_chain()
+        if pa and not self.playany_in_chain:   # the first time: the chain is rebuilt with the plugin in it
+            self.apply()
+            return
+        if not pa:
+            return
+        node = self.node_ids.get("guitar-in")
+        if node:
+            params = {"pany:%s" % k: v for k, v in pa["controls"].items()}
+            params.update({"pmixL:Gain 1": pa["dry"], "pmixR:Gain 1": pa["dry"]})
+            self.pw.set_params(node, params)
+        if pa["on"] and pa["mode"] != 2:
+            self.playany_sound(pa)
+            self.link_output()
+        elif self.playany_fluid:   # notes off: FluidSynth isn't needed any more
+            try:
+                self.fluid("cc %d 123 0" % PLAYANY_CHANNEL)
+            except OSError:
+                pass
 
     def chain_name(self):
         return "keys" if self.config.get("kind") == "keys" else "guitar"
@@ -939,20 +1125,29 @@ context.modules = [
             targets.append(sink_in[ch])
         if not targets:
             raise RuntimeError("output channel %d does not exist on this device" % ch)
-        if len(outs) == 1:
-            for t in targets:
-                self.pw.link(outs[0]["id"], t["id"])
-        else:
-            if len(targets) == 1:   # stereo chain to a mono channel: both sides into it (the sink mixes)
-                self.pw.link(outs[0]["id"], targets[0]["id"])
-                self.pw.link(outs[1]["id"], targets[0]["id"])
-            else:
-                self.pw.link(outs[0]["id"], targets[0]["id"])
-                self.pw.link(outs[1]["id"], targets[1]["id"])
+        self.link_to(outs, targets)
+        if self.playany_fluid and name == "guitar":   # play any sound's notes (FluidSynth) go to the same channel(s)
+            synth = next((n for n in self.pw.nodes(objs) if n["name"] == "padpedal-keys-synth"), None)
+            if synth:
+                self.unlink_node(synth["id"], "out", objs)
+                self.link_to(self.ports_of(synth["id"], "out", objs), targets)
         try:
             self.link_loop()
         except Exception as error:
             log.warning("looper tap: %s", error)
+
+    def link_to(self, outs, targets):
+        if not outs or not targets:
+            return
+        if len(outs) == 1:
+            for t in targets:
+                self.pw.link(outs[0]["id"], t["id"])
+        elif len(targets) == 1:   # stereo to a mono channel: both sides into it (the sink mixes)
+            self.pw.link(outs[0]["id"], targets[0]["id"])
+            self.pw.link(outs[1]["id"], targets[0]["id"])
+        else:
+            self.pw.link(outs[0]["id"], targets[0]["id"])
+            self.pw.link(outs[1]["id"], targets[1]["id"])
 
     # ----- live changes ------------------------------------------------------
     def chain_node(self):
@@ -1022,9 +1217,16 @@ context.modules = [
         if node:
             g = db_to_lin(self.config.get("levelDb", 0))
             self.pw.set_params(node, {"goutL:Gain 1": g, "goutR:Gain 1": g})
+        if self.playany_fluid:
+            try:
+                pa = playany_settings(self.config.get("playAny"), self.config.get("kind"))
+                self.fluid("gain %.3f" % (0.8 * pa["volume"] * db_to_lin(self.config.get("levelDb", 0))))
+            except OSError:
+                pass
 
     # ----- keys (FluidSynth) -------------------------------------------------
-    def start_keys(self):
+    def start_keys(self, router=True):
+        """FluidSynth. router=False: for play any sound (no keyboard, no keys layers)."""
         if self.procs.get("fluid") and self.procs["fluid"].poll() is None:
             return
         if not shutil.which("fluidsynth"):
@@ -1041,7 +1243,7 @@ context.modules = [
         env["PIPEWIRE_PROPS"] = '{ node.name = "padpedal-keys-synth" node.autoconnect = false media.role = Music }'
         logf = open(os.path.join(self.dir, "fluidsynth.log"), "w")
         cmd = ["fluidsynth", "-a", "pipewire", "-m", "alsa_seq", "-i", "-s", "-o", "shell.port=%d" % FLUID_PORT, "-o", "midi.portname=Central Pedal Synth",
-               "-o", "audio.period-size=128", "-o", "audio.periods=3", "-o", "synth.gain=0.8", "-o", "synth.reverb.active=no", "-o", "synth.chorus.active=no", "-o", "synth.polyphony=128"]
+               "-o", "audio.period-size=128", "-o", "audio.periods=3", "-o", "synth.sample-rate=48000", "-o", "synth.gain=0.8", "-o", "synth.reverb.active=no", "-o", "synth.chorus.active=no", "-o", "synth.polyphony=128"]
         # stdin stays open (a pipe we never write to): with -s fluidsynth still reads the shell and quits on EOF
         self.procs["fluid"] = subprocess.Popen(cmd, env=env, stdout=logf, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
         self.fluid_sf = {}
@@ -1055,8 +1257,9 @@ context.modules = [
             except OSError:
                 continue
         self.keys_engine = "FluidSynth"
-        self.start_midi_router()
-        self.apply_keys_settings()
+        if router:
+            self.start_midi_router()
+            self.apply_keys_settings()
 
     def stop_keys(self):
         proc = self.procs.pop("fluid", None)
@@ -1068,6 +1271,7 @@ context.modules = [
                 proc.kill()
         self.stop_chain("keys")
         self.keys_engine = None
+        self.playany_fluid = False
         self.stop_midi_router()
 
     def fluid(self, command):

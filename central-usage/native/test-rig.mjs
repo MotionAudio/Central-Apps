@@ -110,6 +110,24 @@ if (haveSf2) await check("keys: a SoundFont bank is listed, two layers play a no
   assert.ok(m.out > 0.02, "keys out " + m.out);
   send({ action: "midi", data: [0x80, 60, 0] }); send({ action: "note", note: 60, on: false });
 });
+if (haveSf2) await check("play any sound: a guitar note plays the chosen sound, synth mode makes its own, the dry blend, and off", async () => {
+  const s = msgs.slice().reverse().find((m) => m.type === "instrumentStatus" && (m.keysCatalog || []).length);
+  const bank = s.keysCatalog.find((b) => /Test Sine/.test(b.name)), patch = { file: bank.file, bank: bank.presets[0].bank, prog: bank.presets[0].prog, name: "Test Sine" };
+  const about = (x, want, tol, what) => assert.ok(Math.abs(x - want) <= tol, what + ": " + x + " (expected about " + want + ")");
+  const config = (playAny) => ({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [], levelDb: 0, routing: {}, playAny } });
+  send({ action: "testtone", level: 0 }); send(config({ on: true, patch, mode: "notes", dry: 0, sensitivity: 0.5 }));
+  const st = await next((m) => m.type === "instrumentStatus" && m.kind === "electric"); assert.ok(st.playAny && st.playAny.on, JSON.stringify(st.playAny));
+  await sleep(300); send({ action: "testtone", freq: 329.63, level: 0.3 }); await sleep(500);   // E4
+  const m = await meters(); assert.ok(m.playAny, "meters say what plays: " + JSON.stringify(m));
+  assert.equal(m.playAny.state, "note"); assert.equal(m.playAny.note, 64); assert.ok(m.out > 0.02, "the sound plays: " + m.out);
+  send({ action: "playany", playAny: { on: true, patch, mode: "synth", dry: 0 } }); await sleep(400); const sy = await meters();
+  assert.equal(sy.playAny.state, "synth"); assert.ok(sy.out > 0.01, "synth mode out " + sy.out);
+  send({ action: "playany", playAny: { on: true, patch, mode: "synth", dry: 1, volume: 0 } }); await sleep(400); const dry = await meters();
+  about(dry.out, 0.3, 0.05, "dry blend 1, play-any volume 0: the guitar as it is");
+  send({ action: "playany", playAny: { on: false, patch } }); await sleep(400); const off = await meters();
+  assert.ok(!off.playAny, "off: " + JSON.stringify(off.playAny)); about(off.out, 0.3, 0.05, "off: the guitar as it is");
+  send({ action: "testtone", level: 0 });
+});
 // ---- the musician's own plugins: two test CLAP plugins (plughost/test/test-plugins.c), built next to the rig by the
 // Makefile (or here with a C compiler); a third one crashes as it loads
 const exe = process.platform === "win32" ? ".dll" : "";
