@@ -41,7 +41,7 @@ warn() { printf '    WARNING: %s\n' "$*" >&2; }
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)."; exit 1; }
 for f in index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js js/textures.js \
          js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js \
-         instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
+         instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
          companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css \
          pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session \
          pad-pedal-audio-config xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf \
@@ -75,7 +75,7 @@ python3 -c "import smbus" 2>/dev/null || python3 -c "import smbus2" 2>/dev/null 
 
 step "Instrument: free guitar pedal / amp plugins (LV2, LADSPA) and the keys engine (FluidSynth)"
 # 600+ plugins: Guitarix, Calf, LSP, x42, Zam, Dragonfly, mda, swh, Invada, TAP, CAPS... ~175 MB
-INSTRUMENT_PKGS="guitarix-lv2 calf-plugins lsp-plugins-lv2 x42-plugins zam-plugins dragonfly-reverb mda-lv2 swh-lv2 invada-studio-plugins-lv2 tap-plugins caps wah-plugins rev-plugins fil-plugins abgate eq10q ir.lv2 autotalent zita-at1 fluidsynth fluid-soundfont-gm lilv-utils p7zip-full"
+INSTRUMENT_PKGS="guitarix-lv2 calf-plugins lsp-plugins-lv2 x42-plugins zam-plugins dragonfly-reverb mda-lv2 dpf-plugins-lv2 fomp rubberband-lv2 ardour-lv2-plugins swh-lv2 invada-studio-plugins-lv2 tap-plugins caps wah-plugins rev-plugins fil-plugins abgate eq10q ir.lv2 autotalent zita-at1 fluidsynth fluid-soundfont-gm lilv-utils p7zip-full"
 apt-get install -y --no-install-recommends $INSTRUMENT_PKGS >/dev/null 2>&1 && echo "    + $INSTRUMENT_PKGS" || {
   warn "some instrument packages did not install; trying them one by one"
   for pkg in $INSTRUMENT_PKGS; do apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1 && echo "    + $pkg" || echo "    (skipped $pkg)"; done
@@ -143,6 +143,7 @@ install -m 644 "$SRC/instrument-plugins.json" /opt/pad-pedal/instrument-plugins.
 [ -d "$SRC/central-usage/native/playany" ] && install -d -m 755 /opt/pad-pedal/central-usage/native/playany && install -m 644 "$SRC"/central-usage/native/playany/*.c "$SRC"/central-usage/native/playany/*.h /opt/pad-pedal/central-usage/native/playany/
 install -m 644 "$SRC/screens.json"           /opt/pad-pedal/screens.json
 install -m 755 "$SRC/get-sounds.sh"          /opt/pad-pedal/get-sounds.sh
+install -m 755 "$SRC/sounds-vsco.py"         /opt/pad-pedal/sounds-vsco.py
 install -d -m 755 /opt/pad-pedal/sounds
 if ls "$SRC"/sounds/*.sf2 >/dev/null 2>&1; then
   # inside the image build the staging folder is thrown away afterwards, so move the (big) banks instead of copying;

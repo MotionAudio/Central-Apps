@@ -19,6 +19,31 @@ log = logging.getLogger("pedal-driver.rig")
 EXE = ".exe" if sys.platform == "win32" else ""
 
 
+def bank_plans(catalog):
+    """The plan of each bank the rig lists, from the tiers.txt next to the banks (as on the Pi): the orchestra that
+    comes with the app is free, whatever its sounds are called."""
+    cache = {}
+    for b in catalog or []:
+        path = b.get("file") or ""
+        folder = os.path.dirname(path)
+        if folder not in cache:
+            tiers = {}
+            try:
+                with open(os.path.join(folder, "tiers.txt"), encoding="utf-8", errors="replace") as handle:
+                    for line in handle:
+                        parts = line.strip().split("|")
+                        if len(parts) >= 2 and parts[0] and not parts[0].startswith("#") and parts[1] in ("free", "keys", "instrument"):
+                            tiers[parts[0]] = parts[1]
+            except OSError:
+                pass
+            cache[folder] = tiers
+        base = os.path.splitext(os.path.basename(path))[0]
+        tier = cache[folder].get(base.split(" - ")[0]) if " - " in base else None
+        if tier and not b.get("tier"):
+            b["tier"] = tier
+    return catalog
+
+
 def find_binary(app_root):
     candidates = [os.environ.get("CC_RIG_BIN") or ""]
     for base in (app_root, os.path.dirname(app_root or ""), os.path.dirname(os.path.abspath(sys.executable))):
@@ -86,6 +111,7 @@ class NativeRig:
                 continue
             if msg.get("type") == "instrumentStatus":
                 msg["midiInputs"] = list(self.midi_ports)
+                bank_plans(msg.get("keysCatalog"))
                 self.last = msg
                 self.kind = msg.get("kind") or "off"
             try:

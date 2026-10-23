@@ -64,7 +64,7 @@ for old in "$HERE"/pad-pedal-os.img "$HERE"/pad-pedal-os.img.xz; do
 done
 FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js
        js/textures.js js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js
-       instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh
+       instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py
        companion/index.html companion/lyrics.html companion/stage.html companion/upload.html companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css
        pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session pad-pedal-audio-config
        xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf pad-pedal-safe-mode pad-pedal.sudoers
@@ -84,7 +84,7 @@ if [ "$ARCH" != "aarch64" ] && [ ! -x /usr/bin/qemu-aarch64-static ]; then NEED+
 if [ ${#NEED[@]} -gt 0 ]; then
   say "Installing: xz-utils fdisk e2fsprogs curl qemu-user-static binfmt-support"
   apt-get update
-  apt-get install -y xz-utils fdisk e2fsprogs curl util-linux
+  apt-get install -y xz-utils fdisk e2fsprogs curl util-linux python3-numpy
   [ "$ARCH" = "aarch64" ] || apt-get install -y qemu-user-static binfmt-support \
     || apt-get install -y qemu-user-binfmt
 fi

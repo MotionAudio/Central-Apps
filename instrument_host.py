@@ -223,6 +223,42 @@ def read_wav_mono16(path):
     return list(vals), rate
 
 
+def lv2_dirs():
+    """Where LV2 bundles live (LV2_PATH, else the usual places on Linux)."""
+    if os.environ.get("LV2_PATH"):
+        return [d for d in os.environ["LV2_PATH"].split(os.pathsep) if d]
+    dirs = [os.path.expanduser("~/.lv2"), "/usr/local/lib/lv2", "/usr/lib/lv2"]
+    try:
+        dirs += [os.path.join("/usr/lib", d, "lv2") for d in os.listdir("/usr/lib") if d.endswith("-linux-gnu")]
+    except OSError:
+        pass
+    return dirs
+
+
+def installed_lv2_uris(dirs=None):
+    """The plugin URIs the installed LV2 bundles declare (read from each bundle's manifest.ttl: full <uris> and
+    prefixed names). An empty set means no LV2 bundles were found at all (then nothing is filtered)."""
+    found = set()
+    for base in (dirs if dirs is not None else lv2_dirs()):
+        try:
+            bundles = os.listdir(base)
+        except OSError:
+            continue
+        for b in bundles:
+            path = os.path.join(base, b, "manifest.ttl")
+            try:
+                with open(path, encoding="utf-8", errors="replace") as handle:
+                    text = handle.read()
+            except OSError:
+                continue
+            prefixes = dict(re.findall(r"@prefix\s+([\w-]*):\s*<([^>]*)>", text))
+            found.update(re.findall(r"<([^>\s]+)>", text))
+            for pfx, local in re.findall(r"(?<![\w<])([\w-]+):([\w#./-]+)", text):
+                if pfx in prefixes:
+                    found.add(prefixes[pfx] + local)
+    return found
+
+
 _TIERS_CACHE = {}
 BANK_TIER_NAMES = ("free", "keys", "instrument")
 
@@ -481,9 +517,20 @@ class InstrumentHost:
         for path in (os.path.join(self.app_root, "instrument-plugins.json"), os.path.join(self.data_root, "instrument-plugins.json")):
             try:
                 with open(path) as handle:
-                    return json.load(handle)
+                    cat = json.load(handle)
             except (OSError, ValueError):
                 continue
+            # an LV2 pedal whose plugin package isn't on this computer yet (a Central Pedal updated from a zip before its
+            # packages were installed) is left out: the chain skips it and the app shows it "not installed", instead of
+            # PipeWire refusing the whole guitar chain
+            have = installed_lv2_uris()
+            if have:
+                gone = [u for u, info in cat.items() if not info.get("ladspa") and not u.startswith(("ladspa:", "builtin:")) and u not in have]
+                for u in gone:
+                    cat.pop(u, None)
+                if gone:
+                    log.info("%d pedal plugin(s) not installed here (e.g. %s)", len(gone), gone[0])
+            return cat
         return {}
 
     def plugin(self, uri):
