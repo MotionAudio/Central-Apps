@@ -229,3 +229,11 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--blue); te
 .sd-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 14px; align-items: end; }
 .sd-opts > label:first-child { grid-column: span 2; }
 .sd input[type="color"] { width: 72px; max-width: 100%; height: 34px; padding: 2px; }
+/* Central Pedal Control → Live: the pedal's own live page over the whole window, with a bar to close it */
+.cp-nav button.cp-live-btn { background: #5b1f27; border-color: #c4505c; }
+.cp-live { position: fixed; inset: 0; z-index: 900; display: grid; grid-template-rows: auto 1fr; background: #111317; }
+.cp-live.hidden { display: none; }
+.cp-live-bar { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #1A1D22; border-bottom: 1px solid #343A44; min-width: 0; }
+.cp-live-bar b { color: #ff6b6b; letter-spacing: .04em; } .cp-live-bar span { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cp-live iframe { width: 100%; height: 100%; border: 0; display: block; background: #111317; }
+.cp-nav button[data-cpo="up"] { background: #1d3b63; border-color: var(--blue); }

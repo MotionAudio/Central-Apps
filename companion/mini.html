@@ -2,35 +2,70 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><link rel="stylesheet" href="/fonts/fonts.css">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Central Pedal mini</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Pedal Live">
+<title>Central Pedal Live</title>
 <style>
-  /* The same layout the 3.5" screen shows, scaled to any screen (HDMI 1 "big version" or a tablet). */
-  :root { --bg:#111317; --bar:#1A1D22; --text:#ECE7DD; --muted:#9AA1AB; --accent:#E2C27E; --idle:#162a42; --sel:#1f446e; --play:#22805c; --stop:#60222e; --line:#343A44; }
-  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:Archivo,Inter,ui-sans-serif,system-ui,sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; cursor:none; }
+  /* The small touch screen's tabs (Pads, Tracks, Instrument, Settings), scaled to any screen: HDMI 1 / 2 "Copy of the
+     small touch screen", or a tablet. Sizes follow the screen's height (vh), so a TV and a phone show the same layout. */
+  :root { --bg:#111317; --bar:#1A1D22; --text:#ECE7DD; --muted:#9AA1AB; --accent:#E2C27E; --idle:#162a42; --sel:#1f446e; --play:#22805c; --stop:#60222e; --line:#343A44; --btn:#23272E; --track:#2E333C; --ontext:#1A1408; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:Archivo,Inter,ui-sans-serif,system-ui,sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; cursor:none; touch-action:none; }
   body.show-cursor { cursor:auto; }
-  .screen { position:fixed; inset:0; display:grid; grid-template-rows:14% 1fr; }
-  .bar { background:var(--bar); display:flex; align-items:center; padding:0 2vw; gap:3vw; }
-  .bar .song { flex:1; min-width:0; } .bar .song b { display:block; font-size:4.6vh; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .bar .song span { color:var(--muted); font-size:3vh; }
-  .bar .stat { display:grid; justify-items:center; line-height:1; gap:.5vh; } .bar .stat small { font-size:2.2vh; letter-spacing:.14em; color:var(--muted); } .bar .stat b { font-size:6.5vh; } .bar .key b { color:var(--accent); }
-  .dot { width:2.4vh; height:2.4vh; border-radius:50%; background:var(--accent); opacity:0; } .dot.on { opacity:1; animation:pulse 1.2s infinite; } @keyframes pulse { 50% { opacity:.3; } }
-  .body { display:grid; grid-template-columns:62% 1fr; gap:1.2vh; padding:1.2vh; min-height:0; }
+  button { font:inherit; color:inherit; }
+  .screen { position:fixed; inset:0; display:grid; grid-template-rows:12.5% 1fr 12.5%; }
+  .bar { background:var(--bar); display:flex; align-items:center; padding:0 2vw; gap:3vw; min-width:0; }
+  .bar .song { flex:1; min-width:0; } .bar .song b { display:block; font-size:5vh; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .bar .song span { display:block; color:var(--muted); font-size:3.2vh; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar .stat { display:grid; justify-items:start; line-height:1; gap:.6vh; } .bar .stat small { font-size:2.6vh; color:var(--muted); font-weight:600; } .bar .stat b { font-size:6.4vh; } .bar .key b { color:var(--accent); }
+  .dot { width:2.4vh; height:2.4vh; border-radius:50%; background:var(--accent); opacity:0; align-self:center; } .dot.on { opacity:1; animation:pulse 1.2s infinite; } @keyframes pulse { 50% { opacity:.3; } }
+  .body { padding:1.4vh 1.2vh; min-height:0; display:grid; grid-template-rows:auto 1fr; gap:1.4vh; }
+  .body.nochips { grid-template-rows:1fr; }
+  .tabs { display:grid; grid-template-columns:repeat(4,1fr); background:var(--bar); border-top:1px solid var(--line); }
+  .tabs button { background:none; border:0; border-top:.9vh solid transparent; color:var(--muted); font-size:3.8vh; font-weight:750; font-stretch:85%; }
+  .tabs button.on { background:var(--btn); color:var(--accent); border-top-color:var(--accent); }
+  .chips { display:flex; gap:1vh; min-width:0; } .chips button { flex:1; min-width:0; height:7.6vh; border-radius:4vh; border:1px solid var(--line); background:var(--bar); font-size:3.6vh; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chips button.on { background:var(--accent); color:var(--ontext); border-color:var(--accent); }
+  .chips .pg { flex:0 0 9vh; } .chips .pgn { flex:0 0 auto; align-self:center; color:var(--muted); font-size:3.2vh; padding:0 .6vh; } .chips button:disabled { color:var(--line); }
+  .content { min-height:0; display:grid; gap:1.2vh; }
+  .btn { border:1px solid var(--line); border-radius:2.6vh; background:var(--btn); font-size:4vh; font-weight:750; min-height:0; min-width:0; padding:0 1vh; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .btn small { display:block; font-size:2.8vh; font-weight:500; color:var(--muted); } .btn.on small { color:var(--ontext); }
+  .btn.on { background:var(--accent); color:var(--ontext); border-color:var(--accent); } .btn.stop { background:var(--stop); border-color:#82414b; }
+  button:active { transform:scale(.97); }
+  /* pads */
+  .padsgrid { display:grid; grid-template-columns:62% 1fr; gap:1.2vh; min-height:0; }
   .pads { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); gap:1.2vh; min-height:0; }
-  .pad { border:1px solid var(--line); border-radius:2vh; background:var(--idle); display:flex; flex-direction:column; justify-content:space-between; padding:1.4vh; text-align:left; color:var(--text); font-size:3.2vh; min-height:0; overflow:hidden; }
-  .pad small { color:var(--muted); font-size:2.6vh; } .pad b { font-size:3.4vh; line-height:1.1; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow-wrap:anywhere; }
+  .pad { border:1px solid var(--line); border-radius:2vh; background:var(--idle); display:flex; flex-direction:column; justify-content:space-between; padding:1.4vh; text-align:left; font-size:3.2vh; min-height:0; overflow:hidden; }
+  .pad small { color:var(--muted); font-size:2.6vh; } .pad b { font-size:3.6vh; line-height:1.1; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow-wrap:anywhere; }
   .pad.selected { background:var(--sel); } .pad.playing { background:var(--play); border-color:var(--accent); } .pad.playing small { color:var(--accent); }
   .pad.stop { background:var(--stop); border-color:#82414b; justify-content:center; align-items:center; font-weight:800; font-size:4vh; }
-  .btns { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(4,1fr); gap:1vh; min-height:0; }
-  .btns button { border:1px solid var(--line); border-radius:1.6vh; background:#23272E; color:var(--text); font-size:2.9vh; font-weight:700; min-height:0; padding:0 1vh; }
-  .btns button.on { background:var(--accent); color:#1A1408; }
-  button:active { transform:scale(.97); }
-  /* a portrait phone: the pads on top, the buttons under them; sizes held by the width too */
-  @media (max-aspect-ratio: 1/1) {
-    .screen { grid-template-rows:auto 1fr; } .body { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1.4fr) minmax(0,1fr); }
-    .pad { font-size:min(3.2vh, 4.4vw); } .pad small { font-size:min(2.6vh, 3.6vw); } .pad b { font-size:min(3.4vh, 4.4vw); }
-    .bar { padding:1.2vh 3vw; } .bar .song b { font-size:min(4.6vh, 6vw); } .bar .song span { font-size:min(3vh, 4vw); } .bar .stat small { font-size:min(2.2vh, 3vw); } .bar .stat b { font-size:min(6.5vh, 8vw); }
-    .btns button { font-size:min(2.9vh, 3.8vw); }
-  }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(4,1fr); gap:1vh; min-height:0; } .grid2 .btn { font-size:3.2vh; }
+  /* tracks */
+  .secs { display:grid; grid-template-columns:repeat(5,1fr); gap:1vh; height:9vh; } .secs .btn { font-size:3.4vh; border-radius:1.8vh; }
+  .grid4 { display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:1fr 1fr; gap:1.2vh; min-height:0; }
+  .rows { display:grid; grid-auto-rows:minmax(0,1fr); gap:.8vh; min-height:0; }
+  .row { display:grid; grid-template-columns:auto 30% 1fr 9vw; align-items:center; gap:1.4vh; min-width:0; }
+  .row .nm { font-size:3.6vh; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .row .val { color:var(--muted); font-size:3vh; text-align:right; white-space:nowrap; }
+  .row.dim .nm { color:var(--muted); }
+  .mute { width:8vh; height:7vh; border-radius:1.4vh; border:1px solid var(--line); background:var(--btn); font-weight:750; font-size:3.4vh; } .mute.on { background:var(--accent); color:var(--ontext); }
+  .nomute { width:8vh; }
+  .fader { position:relative; height:7vh; touch-action:none; cursor:pointer; } .fader i { position:absolute; left:0; right:0; top:50%; height:1.6vh; margin-top:-.8vh; border-radius:1vh; background:var(--track); overflow:hidden; } .fader i b { position:absolute; left:0; top:0; bottom:0; background:var(--accent); }
+  .fader em { position:absolute; top:50%; width:4.4vh; height:4.4vh; margin:-2.2vh 0 0 -2.2vh; border-radius:50%; background:var(--text); }
+  .row.dim .fader i b { background:var(--line); }
+  .songs .song { display:grid; grid-template-columns:5vh 1fr auto 3vh; align-items:center; gap:1.4vh; border:1px solid var(--line); border-radius:1.6vh; background:var(--btn); padding:0 1.6vh; font-size:3.8vh; text-align:left; min-height:0; overflow:hidden; }
+  .songs .song span:first-child { color:var(--muted); } .songs .song.on { background:var(--sel); border-color:var(--accent); } .songs .song .k { color:var(--muted); } .songs .song .t { width:1.6vh; height:1.6vh; border-radius:50%; background:var(--accent); }
+  .songs .song b { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
+  /* instrument */
+  .kinds { display:grid; grid-template-columns:repeat(5,1fr); gap:1vh; height:11vh; } .kinds .btn { font-size:3.6vh; border-radius:1.8vh; }
+  .picker { display:grid; grid-template-columns:12vh 1fr 12vh; gap:1.2vh; height:20vh; } .picker .name { border:1px solid var(--line); border-radius:2vh; background:var(--bar); display:grid; place-content:center; text-align:center; min-width:0; } .picker .name small { color:var(--muted); font-size:2.6vh; font-weight:650; } .picker .name b { font-size:4.8vh; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60vw; }
+  .picker .btn { font-size:7vh; }
+  .pedals { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); gap:1.2vh; min-height:0; }
+  .pedal { border:1px solid var(--line); border-radius:2vh; background:var(--btn); display:flex; flex-direction:column; justify-content:space-between; padding:1.4vh; text-align:left; min-height:0; overflow:hidden; }
+  .pedal small { font-size:2.6vh; color:var(--muted); display:flex; align-items:center; gap:1vh; } .pedal small::before { content:""; width:2vh; height:2vh; border-radius:50%; background:var(--track); }
+  .pedal b { font-size:3.6vh; font-weight:600; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pedal.on { border-color:var(--c); background:color-mix(in srgb, var(--c) 45%, var(--bg)); } .pedal.on small, .pedal.on b { color:var(--text); } .pedal.on small::before { background:#ff5c50; }
+  .empty { display:grid; place-content:center; text-align:center; color:var(--muted); font-size:3.6vh; }
+  .out { display:grid; grid-template-columns:30% 8vh 1fr 8vh; gap:1vh; align-items:center; } .out .nm { font-size:3.6vh; } .out .val { border:1px solid var(--line); border-radius:1.4vh; background:var(--bar); height:6.4vh; display:grid; place-content:center; font-size:3.4vh; white-space:nowrap; overflow:hidden; } .out .btn { height:6.4vh; font-size:4vh; border-radius:1.4vh; }
+  .info { display:grid; grid-template-columns:auto 1fr; gap:1.4vh 4vh; font-size:3.8vh; align-content:start; } .info span { color:var(--muted); }
+  @media (max-aspect-ratio: 1/1) { .bar .stat b { font-size:min(6.4vh, 8vw); } .padsgrid { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1.4fr) minmax(0,1fr); } .tabs button { font-size:min(3.8vh, 4vw); } }
 </style>
 </head>
 <body>
@@ -38,33 +73,147 @@
   <div class="bar">
     <div class="song"><b id="song">Central Pedal</b><span id="sub"></span></div>
     <div class="stat" id="timeBox"><small>TIME</small><b id="time">0:00</b></div>
+    <i class="dot" id="dot"></i>
     <div class="stat key"><small>KEY</small><b id="key">C</b></div>
     <div class="stat"><small>BPM</small><b id="bpm">72</b></div>
-    <i class="dot" id="dot"></i>
   </div>
-  <div class="body">
-    <div class="pads" id="pads"></div>
-    <div class="btns" id="btns"></div>
-  </div>
+  <div class="body" id="body"></div>
+  <div class="tabs" id="tabs"></div>
 </div>
 <script src="common.js"></script>
 <script>
 (function () {
   var C = window.PPCompanion, esc = C.esc, $ = function (s) { return document.querySelector(s); };
+  var TABS = [["pads", "PADS"], ["tracks", "TRACKS"], ["instrument", "INSTRUMENT"], ["settings", "SETTINGS"]];
+  var SUBS = { tracks: [["play", "Play"], ["mix", "Mixer"], ["songs", "Setlist"]], instrument: [["sound", "Sound"], ["pedals", "Pedals"], ["eq", "EQ · Comp"], ["tune", "Tuner · Level"]], settings: [["audio", "In & out"], ["screens", "Screens"], ["system", "System"]] };
+  var KINDS = { electric: "Electric", acoustic: "Acoustic", bass: "Bass", keys: "Keys", off: "Off" };
+  var HDMI = { app: "Central Pedal app", touch: "Copy of the small screen", mini: "Copy of the small screen", lyrics: "Lyrics", charts: "Chord charts", stage: "Stage display", slides: "Slides", off: "Nothing" };
+  var ui = { tab: "pads", sub: {}, pages: {} }, last = null, override = {};
+  try { var saved = JSON.parse(localStorage.getItem("pp-mini-ui") || "null"); if (saved && saved.tab) ui = Object.assign(ui, saved); } catch (_) { }
+  function keep() { try { localStorage.setItem("pp-mini-ui", JSON.stringify({ tab: ui.tab, sub: ui.sub })); } catch (_) { } }
   document.addEventListener("mousemove", function () { document.body.classList.add("show-cursor"); clearTimeout(window.__cur); window.__cur = setTimeout(function () { document.body.classList.remove("show-cursor"); }, 2000); });
-  document.addEventListener("pointerdown", function (e) { var b = e.target.closest("[data-act]"); if (!b) return; e.preventDefault(); C.action(b.dataset.act, b.dataset.index != null ? { index: Number(b.dataset.index) } : {}); });
-  C.on(function (st) {
-    var d = st.display; if (!d) return;
+
+  function btn(label, act, args, on, cls, sub) { return '<button class="btn' + (on ? " on" : "") + (cls ? " " + cls : "") + '"' + (act ? ' data-act="' + act + '" data-args=\'' + esc(JSON.stringify(args || {})) + "'" : "") + ">" + esc(label) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</button>"; }
+  function paged(key, list, per) { var pages = Math.max(1, Math.ceil(list.length / per)), p = Math.max(0, Math.min(ui.pages[key] || 0, pages - 1)); ui.pages[key] = p; return { items: list.slice(p * per, p * per + per), page: p, pages: pages, key: key }; }
+  function chips(tab, pg) {
+    var cur = ui.sub[tab] || SUBS[tab][0][0];
+    return '<div class="chips">' + SUBS[tab].map(function (s) { return '<button data-sub="' + s[0] + '"' + (s[0] === cur ? ' class="on"' : "") + ">" + esc(s[1]) + "</button>"; }).join("") +
+      (pg && pg.pages > 1 ? '<button class="pg" data-page="' + pg.key + '" data-d="-1"' + (pg.page ? "" : " disabled") + '>‹</button><span class="pgn">' + (pg.page + 1) + "/" + pg.pages + '</span><button class="pg" data-page="' + pg.key + '" data-d="1"' + (pg.page < pg.pages - 1 ? "" : " disabled") + ">›</button>" : "") + "</div>";
+  }
+  function fval(key, v) { var o = override[key]; return o && Date.now() - o.t < 1500 ? o.v : v; }
+  function fader(label, act, args, value, valtext, mute, dim) {
+    var key = act + "|" + JSON.stringify(args || {}), v = Math.max(0, Math.min(1, fval(key, value || 0)));
+    return '<div class="row' + (dim ? " dim" : "") + '">' + (mute ? '<button class="mute' + (mute.on ? " on" : "") + '" data-act="' + mute.act + '" data-args=\'' + esc(JSON.stringify(mute.args)) + "'>M</button>" : '<span class="nomute"></span>') +
+      '<span class="nm">' + esc(label) + '</span><div class="fader" data-fader="' + esc(act) + '" data-args=\'' + esc(JSON.stringify(args || {})) + '\'><i><b style="width:' + (v * 100).toFixed(1) + '%"></b></i><em style="left:' + (v * 100).toFixed(1) + '%"></em></div><span class="val">' + esc(valtext != null ? valtext : Math.round(v * 100) + "%") + "</span></div>";
+  }
+  function db(v) { v = Number(v) || 0; return (v > 0 ? "+" : "") + v + " dB"; }
+
+  var PAGES = {
+    pads: function (d) {
+      var tracks = !!d.tracksMode, perf = d.performance || {};
+      var pads = (d.pads || []).slice(0, 8).map(function (p, i) { return '<button class="pad' + (p.playing ? " playing" : p.selected ? " selected" : "") + '" data-act="pad" data-args=\'{"index":' + i + "}'><small>" + (i + 1) + "</small><b>" + esc(p.name) + "</b></button>"; }).join("") + '<button class="pad stop" data-act="stop">STOP</button>';
+      var b = tracks ? [[d.playing ? "PAUSE" : "PLAY", "playPause", d.playing], ["START", "startOver"], ["SECTION ›", "nextSection"], ["REPEAT", "repeatSection", d.loop >= 0], ["KEY −", "keyDown"], ["KEY +", "keyUp"], ["CLICK", "toggleClick", d.click !== false], ["NEXT SONG", "nextSong"]]
+        : [["TAP", "tap"], ["FREEZE", "freeze", !!d.frozen], ["KEY −", "keyDown"], ["KEY +", "keyUp"], ["LAYER", "layer", !!perf.layerMode], ["NEXT SONG", "nextSong"], ["PREV SONG", "prevSong"], ["TRACKS", "toggleTracks"]];
+      return '<div class="padsgrid"><div class="pads" id="pads">' + pads + '</div><div class="grid2">' + b.map(function (x) { return btn(x[0], x[1], {}, x[2]); }).join("") + "</div></div>";
+    },
+    tracks_play: function (d) {
+      var secs = (d.sections || []).map(function (s, i) { return Object.assign({ index: i }, s); }), cur = d.section ? d.section.index : -1;
+      if (d.songId !== ui.secsSong) { ui.secsSong = d.songId; ui.pages.secs = Math.floor(Math.max(0, cur) / 5); }
+      var pg = paged("secs", secs, 5);
+      var row = pg.items.map(function (s) { var on = s.index === cur; return '<button class="btn' + (on ? " on" : "") + '" style="' + (s.color && !on ? "background:color-mix(in srgb," + esc(s.color) + " 35%, var(--bg))" : "") + '" data-act="goSection" data-args=\'{"index":' + s.index + "}'>" + esc(s.name || "Section") + "</button>"; }).join("");
+      var b = [[d.playing ? "PAUSE" : "PLAY", "playPause", d.playing], ["START", "startOver"], ["SECTION ›", "nextSection"], ["REPEAT", "repeatSection", d.loop >= 0], ["CLICK", "toggleClick", d.click !== false], ["KEY −", "keyDown"], ["KEY +", "keyUp"], ["NEXT SONG", "nextSong"]];
+      return chips("tracks", pg) + '<div class="content" style="grid-template-rows:auto 1fr"><div class="secs">' + (row || '<div class="empty" style="grid-column:1/-1">No sections</div>') + '</div><div class="grid4">' + b.map(function (x) { return btn(x[0], x[1], {}, x[2]); }).join("") + "</div></div>";
+    },
+    tracks_mix: function (d) {
+      var m = d.mini || {}, lv = m.levels || {};
+      var rows = [["Tracks (all)", "tracksLevel", {}, lv.tracks, null], ["Click", "clickLevel", {}, lv.click, null]].concat((m.stems || []).map(function (s) { return [s.name || "Track", "stemLevel", { index: s.i }, Math.min(1, (s.gain || 0) / 1.3), { act: "stemMute", args: { index: s.i }, on: !!s.mute }]; }));
+      var pg = paged("mix", rows, 6);
+      return chips("tracks", pg) + '<div class="content rows" style="grid-template-rows:repeat(6,1fr)">' + pg.items.map(function (r) { return fader(r[0], r[1], r[2], r[3], null, r[4], r[4] && r[4].on); }).join("") + "</div>";
+    },
+    tracks_songs: function (d) {
+      var songs = (d.songs || []).map(function (s, i) { return Object.assign({ index: i }, s); }), cur = d.song ? d.song.index : -1;
+      if (cur !== ui.songsCur) { ui.songsCur = cur; ui.pages.songs = Math.floor(Math.max(0, cur) / 6); }
+      var pg = paged("songs", songs, 6);
+      return chips("tracks", pg) + '<div class="content rows songs" style="grid-template-rows:repeat(6,1fr)">' + (pg.items.map(function (s) { return '<button class="song' + (s.index === cur ? " on" : "") + '" data-act="loadSong" data-args=\'{"index":' + s.index + "}'><span>" + (s.index + 1) + "</span><b>" + esc(s.name) + '</b><span class="k">' + esc(s.key || "") + "</span>" + (s.hasTracks ? '<i class="t"></i>' : "<i></i>") + "</button>"; }).join("") || '<div class="empty">The setlist is empty</div>') + "</div>";
+    },
+    instrument_sound: function (d, ins) {
+      var keys = ins.kind === "keys", off = ins.kind === "off", kinds = (ins.kinds || []).map(function (k) { return k[0]; });
+      return chips("instrument") + '<div class="content" style="grid-template-rows:auto auto auto 1fr"><div class="kinds">' + kinds.map(function (k) { return btn(KINDS[k] || k, "instrumentKindSet", { kind: k }, k === ins.kind); }).join("") + "</div>" +
+        (off ? '<div class="picker"><div class="name" style="grid-column:1/-1"><b>The instrument is off - pick one above</b></div></div>' : '<div class="picker">' + btn("‹", keys ? "patchPrev" : "boardPrev") + '<div class="name"><small>' + (keys ? "SOUND" : "BOARD") + "</small><b>" + esc((keys ? ins.patch : ins.board) || "–") + "</b></div>" + btn("›", keys ? "patchNext" : "boardNext") + "</div>") +
+        fader("Instrument level", "instrumentLevel", {}, ((ins.levelDb || 0) + 30) / 42, db(ins.levelDb)) +
+        '<div class="grid4" style="grid-template-columns:1fr 1fr;grid-template-rows:1fr">' + btn("TUNER", "tuner", {}, !!ins.tuner) + '<button class="btn" data-sub="pedals">PEDALS</button></div></div>';
+    },
+    instrument_pedals: function (d, ins) {
+      var pg = paged("pedals", ins.pedals || [], 9);
+      return chips("instrument", pg) + '<div class="content pedals">' + (pg.items.map(function (p) { return '<button class="pedal' + (p.on ? " on" : "") + '" style="--c:' + esc(p.color || "#E2C27E") + '" data-act="pedalToggle" data-args=\'{"index":' + p.index + "}'><small>" + (p.on ? "ON" : "off") + "</small><b>" + esc(p.name) + "</b></button>"; }).join("") || '<div class="empty" style="grid-column:1/-1;grid-row:1/-1">No pedals on this board</div>') + "</div>";
+    },
+    instrument_eq: function (d, ins) {
+      var pg = paged("eq", ins.knobs || [], 5);
+      return chips("instrument", pg) + '<div class="content rows" style="grid-template-rows:repeat(5,1fr)">' + (pg.items.map(function (k) { return fader(k.pedal + " · " + k.label, "pedalKnob", { uid: k.uid, sym: k.sym }, k.value, k.text, null, k.on === false); }).join("") || '<div class="empty">No EQ or compressor on this board.<br>Add one on the Instrument tab (EQ &amp; tone, Compressor, Studio).</div>') + "</div>";
+    },
+    instrument_tune: function (d, ins) {
+      var vol = (d.mini || {}).volume; if (vol == null) vol = (d.performance || {}).volume;
+      return chips("instrument") + '<div class="content" style="grid-template-rows:1.3fr 1fr 1fr 1.1fr">' + btn("TUNER", "tuner", {}, !!ins.tuner, "", "the instrument is muted while it's up") +
+        fader("Instrument level", "instrumentLevel", {}, ((ins.levelDb || 0) + 30) / 42, db(ins.levelDb)) + fader("Pads volume", "volume", {}, vol == null ? 1 : vol) + btn("AUTO SET-UP", "instrumentAuto", {}, false, "", "listens to you play and sets the gain") + "</div>";
+    },
+    settings_audio: function (d) {
+      var m = d.mini || {}, inp = m.input || {}, ins = m.instrument || {}, rt = ((m.routing || {}).buses || []).slice(0, 4);
+      return chips("settings") + '<div class="content rows" style="grid-template-rows:repeat(6,1fr)">' +
+        '<div class="row" style="grid-template-columns:30% 1fr 9vw 9vh 9vh"><span class="nm">Input gain</span><div class="fader" data-fader="inputGain" data-args=\'{}\'><i><b style="width:' + (((inp.gain || 0) + 20) / 60 * 100).toFixed(1) + '%"></b></i><em style="left:' + (((inp.gain || 0) + 20) / 60 * 100).toFixed(1) + '%"></em></div><span class="val">' + db(inp.gain) + "</span>" + btn("L", "inputChannel", { channel: "L" }, (inp.channel || "L") === "L", "mute") + btn("R", "inputChannel", { channel: "R" }, inp.channel === "R", "mute") + "</div>" +
+        fader("Instrument out", "instrumentLevel", {}, ((ins.levelDb || 0) + 30) / 42, db(ins.levelDb)) +
+        rt.map(function (b) { return '<div class="out"><span class="nm">' + esc(b.name) + "</span>" + btn("‹", "busOutput", { bus: b.id, delta: -1 }) + '<span class="val">' + esc(b.out || "Off") + "</span>" + btn("›", "busOutput", { bus: b.id, delta: 1 }) + "</div>"; }).join("") + "</div>";
+    },
+    settings_screens: function (d) {
+      var st = C.state.info || {}, disp = st.displays || {};
+      return chips("settings") + '<div class="content rows" style="grid-template-rows:repeat(3,1fr) 1fr">' + [1, 2].map(function (n) { return '<div class="out"><span class="nm">HDMI ' + n + "</span>" + btn("‹", "hdmiShow", { n: n, delta: -1 }) + '<span class="val">' + esc(HDMI[disp["hdmi" + n]] || (n === 1 ? "Central Pedal app" : "Lyrics")) + "</span>" + btn("›", "hdmiShow", { n: n, delta: 1 }) + "</div>"; }).join("") +
+        '<div class="empty" style="font-size:3vh">A change restarts the screens (the sound keeps playing on the Pi\'s own outputs).</div></div>';
+    },
+    settings_system: function (d) {
+      var st = C.state.info || {};
+      return chips("settings") + '<div class="content"><div class="info"><span>Central Pedal</span><b>' + esc(st.appVersion || "") + "</b><span>Address</span><b>" + esc((st.addresses || []).slice(0, 2).join(", ") || location.hostname) + '</b><span>Name</span><b>' + esc(st.hostname || C.state.hostname || "") + "</b></div></div>";
+    }
+  };
+
+  function render() {
+    var d = last; if (!d) return;
     var tracks = !!d.tracksMode, perf = d.performance || {};
     $("#song").textContent = d.song ? d.song.name : "Central Pedal";
-    $("#sub").textContent = tracks ? ((d.countIn ? "Count-in " + d.countIn : (d.section ? d.section.name : "")) + (d.bar ? "  · bar " + d.bar : "") + (d.loop >= 0 ? "  ⟲" : "")) : ("Pads" + (perf.layerMode ? " · layer" : "") + (d.frozen ? " · frozen" : ""));
+    $("#sub").textContent = tracks ? ((d.countIn ? "Count-in " + d.countIn : (d.section ? d.section.name : "")) + (d.bar ? "  · bar " + d.bar : "") + (d.loop >= 0 ? "  · repeat" : "")) : ("Pads" + (perf.layerMode ? " · layer" : "") + (d.frozen ? " · frozen" : ""));
     $("#key").textContent = C.keyName(d.key); $("#bpm").textContent = d.bpm || "";
-    $("#timeBox").style.visibility = tracks ? "visible" : "hidden"; $("#time").textContent = C.fmtTime(d.pos); $("#dot").classList.toggle("on", !!(tracks && d.playing));
-    $("#pads").innerHTML = (d.pads || []).slice(0, 8).map(function (p, i) { return '<button class="pad' + (p.playing ? " playing" : p.selected ? " selected" : "") + '" data-act="pad" data-index="' + i + '"><small>' + (i + 1) + "</small><b>" + esc(p.name) + "</b></button>"; }).join("") + '<button class="pad stop" data-act="stop">STOP</button>';
-    var buttons = tracks ? [[d.playing ? "‖ PAUSE" : "▶ PLAY", "playPause", d.playing], ["|◀ START", "startOver", false], ["SECTION ▶|", "nextSection", false], ["↻ REPEAT", "repeatSection", d.loop >= 0], ["KEY −", "keyDown", false], ["KEY +", "keyUp", false], ["CLICK", "toggleClick", d.click !== false], ["NEXT SONG", "nextSong", false]]
-      : [["TAP", "tap", false], ["FREEZE", "freeze", !!d.frozen], ["KEY −", "keyDown", false], ["KEY +", "keyUp", false], ["LAYER", "layer", !!perf.layerMode], ["NEXT SONG", "nextSong", false], ["PREV SONG", "prevSong", false], ["TRACKS", "toggleTracks", false]];
-    $("#btns").innerHTML = buttons.map(function (b) { return '<button data-act="' + b[1] + '" class="' + (b[2] ? "on" : "") + '">' + b[0] + "</button>"; }).join("");
+    $("#timeBox").style.display = tracks ? "" : "none"; $("#time").textContent = C.fmtTime(d.pos); $("#dot").classList.toggle("on", !!(tracks && d.playing));
+    $("#tabs").innerHTML = TABS.map(function (t) { return '<button data-tab="' + t[0] + '"' + (t[0] === ui.tab ? ' class="on"' : "") + ">" + t[1] + "</button>"; }).join("");
+    var tab = ui.tab, html;
+    if (tab === "pads") html = PAGES.pads(d);
+    else {
+      var sub = ui.sub[tab] || SUBS[tab][0][0], ins = (d.mini || {}).instrument;
+      if (tab === "instrument" && !ins) html = chips("instrument") + '<div class="empty">The instrument isn\'t ready yet</div>';
+      else html = PAGES[tab + "_" + sub](d, ins);
+    }
+    var body = $("#body"); body.classList.toggle("nochips", tab === "pads"); body.innerHTML = html;
+  }
+  C.on(function (st) { if (st.display) { last = st.display; if (!dragging) render(); } });
+  // the pedal's own info (version, addresses, what each HDMI port shows) for the Settings tab
+  function info() { fetch(C.api("/info"), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { C.state.info = j; if (ui.tab === "settings" && !dragging) render(); }).catch(function () { }); }
+  info(); setInterval(info, 15000);
+
+  function send(name, args, value) { if (C.actionValue) C.actionValue(name, args, value); else C.action(name, args); }
+  var dragging = null, lastSend = 0;
+  function faderValue(el, x) { var r = el.getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / Math.max(1, r.width))); }
+  function setFader(el, v) { var b = el.querySelector("b"), em = el.querySelector("em"); if (b) b.style.width = (v * 100).toFixed(1) + "%"; if (em) em.style.left = (v * 100).toFixed(1) + "%"; }
+  function faderSend(el, v, force) { var args = JSON.parse(el.dataset.args || "{}"), act = el.dataset.fader; override[act + "|" + JSON.stringify(args)] = { v: v, t: Date.now() }; setFader(el, v); var now = Date.now(); if (force || now - lastSend > 40) { lastSend = now; send(act, args, v); } }
+  document.addEventListener("pointerdown", function (e) {
+    var f = e.target.closest("[data-fader]");
+    if (f) { e.preventDefault(); dragging = f; try { f.setPointerCapture(e.pointerId); } catch (_) { } faderSend(f, faderValue(f, e.clientX), true); return; }
+    var t = e.target.closest("[data-tab]"); if (t) { ui.tab = t.dataset.tab; keep(); render(); if (ui.tab === "settings") info(); return; }
+    var s = e.target.closest("[data-sub]"); if (s) { if (ui.tab === "pads") return; ui.sub[ui.tab] = s.dataset.sub; keep(); render(); return; }
+    var p = e.target.closest("[data-page]"); if (p && !p.disabled) { ui.pages[p.dataset.page] = (ui.pages[p.dataset.page] || 0) + Number(p.dataset.d); render(); return; }
+    var b = e.target.closest("[data-act]"); if (!b) return; e.preventDefault();
+    var args = {}; try { args = JSON.parse(b.dataset.args || "{}"); } catch (_) { }
+    C.action(b.dataset.act, args);
   });
+  document.addEventListener("pointermove", function (e) { if (dragging) faderSend(dragging, faderValue(dragging, e.clientX)); });
+  function up(e) { if (!dragging) return; faderSend(dragging, faderValue(dragging, e.clientX), true); dragging = null; render(); }
+  document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up);
 })();
 </script>
 </body>

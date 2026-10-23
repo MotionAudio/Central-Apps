@@ -1013,6 +1013,7 @@
         lyrics: ls, chart: s && s.chart ? { id: s.chart.id, name: s.chart.name, page: (x && x.sec.page) || 1, pageCount: s.chart.pageCount || 1 } : null,
         projector: { fontSize: proj.fontSize || 7, blank: !!proj.blank, showNext: proj.showNext !== false, align: proj.align || "center", theme: proj.theme || "dark", showSection: proj.showSection !== false },
         pads: p.pads.map(function (pad, i) { return { name: pad.name, playing: engine.playingIndexes().indexOf(i) > -1, selected: i === PP.selected() }; }),
+        mini: miniState(p, t),
         performance: p.performance, frozen: !!engine.frozen, click: t ? !!t.click.on : true, cues: t ? !!t.cues.on : true, textures: (p.textures || []).map(function (c) { return { on: !!c.enabled, name: window.PPTextures ? window.PPTextures.byId(c.texture).name : c.texture }; })
       };
       var heavyKey = s ? s.id + "|" + t.duration + "|" + (g ? g.bars.length + ":" + g.bars[0] + ":" + g.bars[g.bars.length - 1] : 0) + "|" + (t.hits ? t.hits.length : 0) + "|" + JSON.stringify(t.tempoMap || []) + "|" + secs.length : "none";
@@ -1027,6 +1028,23 @@
   }
   var lastHeavyKey = null;
   F.on("hello", function () { lastHeavyKey = null; sendDisplay(); });
+  // what the small touch screen's Tracks and Instrument tabs show: the stems (level, mute), the levels, the instrument
+  function miniState(p, t) {
+    var I = window.PPInstrument, ins = null;
+    if (I) {
+      var st = I.state();
+      ins = { kind: st.kind, kinds: I.kinds().map(function (k) { return [k[0], k[1]]; }), board: I.boardName(), patch: st.patch ? st.patch.name : "", tuner: !!st.tuner, levelDb: st.levelDb,
+        pedals: I.pedalNames().slice(0, 18), knobs: I.miniKnobs ? I.miniKnobs() : [] };
+    }
+    return { stems: t ? t.stems.map(function (q, i) { return { i: i, name: q.name, gain: Math.round((q.gain == null ? 1 : q.gain) * 1000) / 1000, mute: !!q.mute, role: q.role }; }) : [],
+      levels: { tracks: Math.round(levels.tracks * 1000) / 1000, click: Math.round(levels.click * 1000) / 1000 }, volume: p.performance ? p.performance.volume : 1,
+      tempoPercent: t ? t.tempoPercent : 100, instrument: ins,
+      routing: window.PPSettings && window.PPSettings.routingSummary ? window.PPSettings.routingSummary() : null,
+      input: I ? (function () { var c = I.config(); return { gain: c.input.gain || 0, channel: c.input.channel || "L", device: c.input.device || "auto" }; })() : null };
+  }
+  // a change anywhere (a pedal switched on the Instrument tab, a fader…) reaches the small screen too - at most ~6 a second
+  var persistSoon0 = PP.persistSoon, miniAt = 0, miniTimer = 0;
+  PP.persistSoon = function () { var r = persistSoon0.apply(this, arguments); var now = performance.now(); if (now - miniAt > 160) { miniAt = now; sendDisplay(); } else if (!miniTimer) miniTimer = setTimeout(function () { miniTimer = 0; miniAt = performance.now(); sendDisplay(); }, 170); return r; };
 
   // ------------------------------------------------------------- levels (knobs)
   var levels = { tracks: .85, click: .85, cue: .9, pads: 1 };

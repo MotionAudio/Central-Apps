@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 // the version comes from central-pedal-control/package.json (CI passes it as PC_VERSION); versionCode grows with it: 8.7.0 -> 80700
-def cuVersion = System.getenv("PC_VERSION") ?: "9.3.6"
+def cuVersion = System.getenv("PC_VERSION") ?: "9.4.0"
 def cuParts = (cuVersion.tokenize(".") + ["0", "0", "0"]).take(3).collect { (it.replaceAll(/[^0-9]/, "") ?: "0").toInteger() }
 def cuVersionCode = cuParts[0] * 10000 + cuParts[1] * 100 + cuParts[2]
 

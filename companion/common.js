@@ -33,6 +33,12 @@
     socket.send(JSON.stringify({ type: "action", name: name, args: args || {}, code: code }));
     return true;
   }
+  function actionValue(name, args, value) {   // a fader: the action with its value (0-1)
+    if (!state.authed) { if (!askCode()) return false; }
+    if (!socket || socket.readyState !== 1) return false;
+    socket.send(JSON.stringify({ type: "action", name: name, args: args || {}, value: value, code: code }));
+    return true;
+  }
   function askCode() {
     var entered = prompt("Enter the 4-digit pairing code shown on the Central Pedal under Settings → Companion devices:", "");
     if (!entered) return false;
@@ -43,5 +49,5 @@
   }
   fetch("http://" + host + ":" + (location.port || 8080) + "/api/info", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j.wsPort) state.wsPort = j.wsPort; state.hostname = j.hostname || state.hostname; connect(); }).catch(function () { connect(); });
 
-  window.PPCompanion = { state: state, on: function (fn) { listeners.push(fn); if (state.display || state.slide) fn(state); }, action: action, askCode: askCode, esc: esc, keyName: keyName, fmtTime: fmtTime, api: function (p) { return "http://" + host + ":" + (location.port || 8080) + "/api" + p; }, hasCode: function () { return !!code; } };
+  window.PPCompanion = { state: state, on: function (fn) { listeners.push(fn); if (state.display || state.slide) fn(state); }, action: action, actionValue: actionValue, askCode: askCode, esc: esc, keyName: keyName, fmtTime: fmtTime, api: function (p) { return "http://" + host + ":" + (location.port || 8080) + "/api" + p; }, hasCode: function () { return !!code; } };
 })();

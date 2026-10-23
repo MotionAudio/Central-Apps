@@ -473,6 +473,40 @@ async def main():
             driver.emit = _real_emit
         check("a tap on the small screen is read at its own place (the panel says \"touched\" before where): pad 1, then play",
               [t.get("name") for t in _taps] == ["pad", "playPause"] and _taps[0].get("args") == {"index": 0}, _taps)
+        # the tabs: Tracks → Mixer, a fader by tap and by drag, the Instrument's pedals, Settings → In & out
+        mini = driver.mini
+        disp = dict(driver.display or {}, mini={"stems": [{"i": 0, "name": "Drums", "gain": 1.0, "mute": False}], "levels": {"tracks": 0.5, "click": 0.5}, "volume": 1,
+                                                 "instrument": {"kind": "electric", "kinds": [["electric", "Electric"], ["off", "Off"]], "board": "Clean Worship", "levelDb": 0, "pedals": [{"index": 0, "name": "Booster", "on": True}], "knobs": []},
+                                                 "input": {"gain": 0, "channel": "L"}, "routing": {"buses": [{"id": "tracks", "name": "Tracks", "ch": 1, "out": "Output 1"}]}})
+        _taps.clear()
+        driver.emit = lambda m: _taps.append(m) if m.get("from_") == "screen" else _real_emit(m)
+        _sched = driver.schedule_mini_render
+        driver.schedule_mini_render = lambda force=False: None   # (no redraw from the live display in between)
+        mini.render(disp)
+        tab_hit = mini.hit_test(180, 305)
+        mini.local(tab_hit)
+        mini.local({"local": "sub", "tab": "tracks", "value": "mix"})
+        mini.render(disp)
+        fad = mini.hit_test(300, 92)
+        x0, x1 = fad["slider"] if fad else (0, 1)
+        mini.active, mini.drag_at = fad, 0
+        mini.send_value(fad, x0 + (x1 - x0) * 0.25)
+        mini.drag_at = 0
+        mini.active = fad
+        mini.drag(*_raw(int(x0 + (x1 - x0) * 0.75), 92))
+        check("small screen: the TRACKS tab → Mixer; a fader sends its level when tapped and follows a drag",
+              tab_hit == {"local": "tab", "value": "tracks"} and fad and fad["name"] == "tracksLevel" and len(_taps) == 2 and abs(_taps[0]["value"] - 0.25) < 0.02 and abs(_taps[1]["value"] - 0.75) < 0.03, (tab_hit, fad and fad["name"], _taps))
+        mini.local({"local": "tab", "value": "instrument"}); mini.local({"local": "sub", "tab": "instrument", "value": "pedals"})
+        mini.render(disp)
+        ped = mini.hit_test(60, 110)
+        mini.local({"local": "tab", "value": "settings"}); mini.local({"local": "sub", "tab": "settings", "value": "audio"})
+        mini.render(disp)
+        bus = mini.hit_test(470, 160)
+        driver.emit = _real_emit
+        driver.schedule_mini_render = _sched
+        mini.tab = "pads"
+        check("...the INSTRUMENT tab's pedals switch on / off; SETTINGS → In & out steps an output",
+              ped == {"name": "pedalToggle", "args": {"index": 0}} and bus and bus.get("name") == "busOutput" and bus["args"] == {"bus": "tracks", "delta": 1}, (ped, bus))
         driver.handle_app_message({"type": "touchSelect", "knob": "Knob 3", "label": "Reverb · Big Sky", "value": "40%", "pickup": "up"})
         img = driver.mini.render(driver.display)
         check("the small screen shows what the touch-select knob holds (a strip along the bottom)", driver.touch_select["label"] == "Reverb · Big Sky" and img.getpixel((240, 300)) == (10, 40, 30), driver.touch_select)

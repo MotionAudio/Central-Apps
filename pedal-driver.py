@@ -86,7 +86,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.3.6"
+APP_VERSION = "9.4.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -1719,6 +1719,52 @@ class CompanionServer:
                     if rel.startswith("fonts/"):
                         return self.serve_static(os.path.join(app_root, "fonts"), rel[len("fonts/"):])
                     return self.serve_static(os.path.join(app_root, "central-usage", "app"), rel)
+                if p == "/control":
+                    self.send_response(302)
+                    self.send_header("Location", "/control/")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                if p.startswith("/control/"):   # Central Pedal Control in any browser (an iPad: Share → Add to Home Screen)
+                    app_root = driver.config["app_root"]
+                    rel = p[len("/control/"):]
+                    if rel in ("", "index.html"):
+                        try:
+                            with open(os.path.join(app_root, "index.html"), encoding="utf-8") as handle:
+                                page = handle.read()
+                        except OSError:
+                            return self.send_json(404, {"error": "no app"})
+                        head = ('<head>\n  <script>window.CP_CONTROL = true;</script>\n  <link rel="manifest" href="manifest.webmanifest">\n'
+                                '  <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">\n'
+                                '  <meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="Pedal Control">\n'
+                                '  <link rel="apple-touch-icon" href="icon.png">')
+                        body = page.replace("<head>", head, 1).replace("<title>Central Pedal</title>", "<title>Central Pedal Control</title>", 1).encode()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/html; charset=utf-8")
+                        self.send_header("Cache-Control", "no-store")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.end_headers()
+                        if self.command != "HEAD":
+                            self.wfile.write(body)
+                        return
+                    if rel == "manifest.webmanifest":
+                        body = json.dumps({"name": "Central Pedal Control", "short_name": "Pedal Control", "start_url": "/control/", "scope": "/control/", "display": "standalone",
+                                           "background_color": "#111317", "theme_color": "#111317", "icons": [{"src": "/control/icon.png", "sizes": "512x512", "type": "image/png"}]}).encode()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/manifest+json")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.end_headers()
+                        if self.command != "HEAD":
+                            self.wfile.write(body)
+                        return
+                    if rel == "icon.png":
+                        for icon in (os.path.join(app_root, "central-pedal-control", "build", "icon.png"), os.path.join(app_root, "central-usage", "build", "icon.png")):
+                            if os.path.isfile(icon):
+                                return self.send_file(icon, "image/png", cache=True)
+                        return self.send_json(404, {"error": "no icon"})
+                    if re.match(r"^(css|js|fonts|cues)/", rel):   # (only the app's own files - never the driver or settings)
+                        return self.serve_static(app_root, rel)
+                    return self.send_json(404, {"error": "unknown"})
                 if p == "/practice":
                     self.send_response(302)
                     self.send_header("Location", "/practice/")
@@ -1776,7 +1822,8 @@ class CompanionServer:
                     return self.send_json(200, driver.service_plan.state())
                 if p == "/api/info":
                     return self.send_json(200, {"hostname": socket.gethostname(), "wsPort": driver.config["lan_ws_port"], "version": VERSION, "appVersion": APP_VERSION, "addresses": ip_addresses(),
-                                                "interfaces": ip_interfaces(), "netAudio": {"mode": driver.netaudio.cfg["mode"]}, "audioHost": driver.public_audio_host(), "center": driver.center_link.info() if driver.center_link.connected else None})
+                                                "interfaces": ip_interfaces(), "netAudio": {"mode": driver.netaudio.cfg["mode"]}, "audioHost": driver.public_audio_host(), "center": driver.center_link.info() if driver.center_link.connected else None,
+                                                "displays": {k: v for k, v in driver.displays_config().items() if k in ("hdmi1", "hdmi2", "touchKind")}})
                 if p == "/api/hub":   # songs on the Central Pedal, for Central Control
                     return self.send_json(200, {"songs": driver.hub_listing()})
                 if p.startswith("/api/hub/"):
@@ -2364,9 +2411,8 @@ class UsbInputs:
 # The 3.5" SPI touch screen (framebuffer + ADS7846 touch)
 # ---------------------------------------------------------------------------
 class MiniScreen:
-    """Draws a compact Pad Pedal / Tracks remote on /dev/fb1 and reads its touch panel."""
-    COL = {"bg": (8, 17, 29), "bar": (16, 30, 49), "text": (236, 247, 255), "muted": (155, 178, 201), "accent": (93, 230, 176),
-           "idle": (22, 42, 66), "selected": (31, 68, 110), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (41, 73, 102), "on": (93, 230, 176)}
+    """The small touch screen on the GPIO pins (/dev/fb1): Pads, Tracks, Instrument and Settings tabs, drawn here and
+    touched through its own panel. Taps run the app's actions; the tabs, pages and HDMI choices are the screen's own."""
 
     def __init__(self, driver, spec, fb_override=None):
         self.driver = driver
@@ -2378,6 +2424,8 @@ class MiniScreen:
         self.image = None
         self.hits = []
         self.lock = threading.Lock()
+        self.tab, self.sub, self.pages, self.override = "pads", {}, {}, {}
+        self.active, self.drag_at, self.confirm, self.confirm_at = None, 0.0, None, 0.0
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -2385,15 +2433,7 @@ class MiniScreen:
             log.info("3.5\" screen rendering disabled (%s) - install python3-pil", error)
             return
         self.available = True
-        candidates = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                      "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"]
-        path = next((c for c in candidates if os.path.isfile(c)), None)
-        try:
-            self.font = self.ImageFont.truetype(path, 15) if path else self.ImageFont.load_default()
-            self.small = self.ImageFont.truetype(path, 12) if path else self.ImageFont.load_default()
-            self.big = self.ImageFont.truetype(path, 24) if path else self.ImageFont.load_default()
-        except Exception:
-            self.font = self.small = self.big = self.ImageFont.load_default()
+        self.load_fonts()
 
     def fb_present(self):
         return os.path.exists(self.fb)
@@ -2403,6 +2443,137 @@ class MiniScreen:
         text = str(text or "")
         return text if len(text) <= n else text[: n - 1] + "…"
 
+    # ----- the look (the same colours as the app's "Copy of the small touch screen" page) -------------------------
+    COL = {"bg": (17, 19, 23), "bar": (26, 29, 34), "text": (236, 231, 221), "muted": (154, 161, 171), "accent": (226, 194, 126),
+           "idle": (22, 42, 66), "selected": (31, 68, 110), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (52, 58, 68),
+           "btn": (35, 39, 46), "on": (226, 194, 126), "ontext": (26, 20, 8), "warn": (255, 190, 110), "track": (46, 51, 60)}
+    TABS = [("pads", "PADS"), ("tracks", "TRACKS"), ("instrument", "INSTRUMENT"), ("settings", "SETTINGS")]
+    SUBS = {"tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist")],
+            "instrument": [("sound", "Sound"), ("pedals", "Pedals"), ("eq", "EQ · Comp"), ("tune", "Tuner · Level")],
+            "settings": [("audio", "In & out"), ("screens", "Screens"), ("system", "System")]}
+    HDMI1 = [("app", "Central Pedal app"), ("touch", "Copy of this screen"), ("lyrics", "Lyrics"), ("charts", "Chord charts"), ("stage", "Stage display"), ("slides", "Slides")]
+    HDMI2 = [("lyrics", "Lyrics"), ("slides", "Slides & lyrics"), ("stage", "Stage display"), ("charts", "Chord charts"), ("touch", "Copy of this screen"), ("app", "Central Pedal app"), ("off", "Nothing")]
+    KIND_SHORT = {"electric": "Electric", "acoustic": "Acoustic", "bass": "Bass", "keys": "Keys", "off": "Off"}
+
+    def load_fonts(self):
+        here = os.path.dirname(os.path.abspath(__file__))
+        roots = [os.path.join(here, "fonts")]
+        try:
+            roots.insert(0, os.path.join(self.driver.config["app_root"], "fonts"))
+        except Exception:
+            pass
+        dejavu = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                  "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"]
+
+        def find(name):
+            for r in roots:
+                p = os.path.join(r, name)
+                if os.path.isfile(p):
+                    return p
+            return next((c for c in dejavu if os.path.isfile(c)), None)
+
+        def font(name, size):
+            path = find(name)
+            basic = getattr(getattr(self.ImageFont, "Layout", None), "BASIC", getattr(self.ImageFont, "LAYOUT_BASIC", 0))
+            try:   # (the basic layout: the same letter spacing with or without libraqm)
+                return self.ImageFont.truetype(path, size, layout_engine=basic) if path else self.ImageFont.load_default()
+            except Exception:
+                try:
+                    return self.ImageFont.truetype(path, size)
+                except Exception:
+                    return self.ImageFont.load_default()
+        self.F = {"title": font("archivo-semibold.ttf", 16), "sub": font("archivo-medium.ttf", 11), "label": font("archivo-medium.ttf", 12),
+                  "btn": font("archivo-bold.ttf", 13), "tab": font("archivo-condensed-bold.ttf", 13), "num": font("archivo-bold.ttf", 21),
+                  "tiny": font("archivo-semibold.ttf", 9), "big": font("archivo-bold.ttf", 30), "name": font("archivo-semibold.ttf", 14)}
+        # (older names other code and tests use)
+        self.font, self.small, self.big = self.F["btn"], self.F["sub"], self.F["num"]
+
+    # ----- small drawing helpers ------------------------------------------------------------------------------------
+    def fit(self, g, text, font, width):
+        text = str(text or "")
+        try:
+            if g.textlength(text, font=font) <= width:
+                return text
+            while text and g.textlength(text + "…", font=font) > width:
+                text = text[:-1]
+            return text.rstrip() + "…"
+        except Exception:
+            n = max(1, int(width / 7))
+            return text if len(text) <= n else text[: n - 1] + "…"
+
+    def text(self, g, xy, text, font, fill, anchor="la", width=None):
+        if width:
+            text = self.fit(g, text, font, width)
+        try:
+            g.text(xy, text, font=font, fill=fill, anchor=anchor)
+        except Exception:
+            g.text(xy, text, font=font, fill=fill)
+
+    def button(self, g, hits, box, label, action, on=False, fill=None, sub=None, font=None, color=None, radius=9):
+        C = self.COL
+        bg = C["on"] if on else (fill or C["btn"])
+        g.rounded_rectangle(box, radius, fill=bg, outline=C["accent"] if on else C["line"])
+        fg = C["ontext"] if on else (color or C["text"])
+        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        w = box[2] - box[0] - 10
+        if sub:
+            self.text(g, (cx, cy - 7), label, font or self.F["btn"], fg, "mm", w)
+            self.text(g, (cx, cy + 9), sub, self.F["sub"], C["ontext"] if on else C["muted"], "mm", w)
+        else:
+            self.text(g, (cx, cy), label, font or self.F["btn"], fg, "mm", w)
+        if action is not None:
+            hits.append((list(map(int, box)), action))
+
+    def slider_value(self, key, value):
+        o = self.override.get(key)
+        if o and time.monotonic() - o[1] < 1.5:
+            return o[0]
+        return value
+
+    def fader(self, g, hits, box, label, value, action, valtext=None, dim=False):
+        """A row: its name on the left, a bar to slide across (tap or drag)."""
+        C = self.COL
+        x0, y0, x1, y1 = box
+        key = action["name"] + "|" + json.dumps(action.get("args") or {}, sort_keys=True)
+        v = max(0.0, min(1.0, float(self.slider_value(key, value) or 0)))
+        lw = 118
+        self.text(g, (x0 + 2, (y0 + y1) / 2), label, self.F["label"], C["muted"] if dim else C["text"], "lm", lw - 6)
+        bx0, bx1, cy = x0 + lw, x1 - 44, (y0 + y1) / 2
+        g.rounded_rectangle([bx0, cy - 5, bx1, cy + 5], 5, fill=C["track"])
+        fx = bx0 + (bx1 - bx0) * v
+        if fx > bx0 + 4:
+            g.rounded_rectangle([bx0, cy - 5, fx, cy + 5], 5, fill=C["line"] if dim else C["accent"])
+        g.ellipse([fx - 9, cy - 9, fx + 9, cy + 9], fill=C["text"], outline=C["bg"])
+        self.text(g, (x1 - 2, cy), valtext if valtext is not None else "%d%%" % round(v * 100), self.F["sub"], C["muted"], "rm", 42)
+        hits.append(([int(bx0 - 10), int(y0), int(bx1 + 10), int(y1)], dict(action, slider=[bx0, bx1], key=key)))
+
+    def chips(self, g, hits, tab, y0=44, y1=70, pager=None):
+        """The tab's pages (Play · Mixer · Setlist …) and, when a list runs long, ‹ 1/3 › on the right."""
+        C, W = self.COL, self.w
+        subs = self.SUBS[tab]
+        right = W - 6 - (96 if pager else 0)
+        cw = (right - 6 - 4 * (len(subs) - 1)) / len(subs)
+        cur = self.sub.get(tab, subs[0][0])
+        for i, (sid, name) in enumerate(subs):
+            x = 6 + i * (cw + 4)
+            box = [x, y0, x + cw, y1]
+            on = sid == cur
+            g.rounded_rectangle(box, 13, fill=C["accent"] if on else C["bar"], outline=C["accent"] if on else C["line"])
+            self.text(g, ((box[0] + box[2]) / 2, (y0 + y1) / 2), name, self.F["label"], C["ontext"] if on else C["text"], "mm", cw - 8)
+            hits.append(([int(b) for b in box], {"local": "sub", "tab": tab, "value": sid}))
+        if pager:
+            key, page, pages = pager
+            self.button(g, hits, [W - 98, y0, W - 66, y1], "‹", {"local": "page", "key": key, "d": -1} if page > 0 else None, radius=13, color=C["text"] if page > 0 else C["line"])
+            self.text(g, (W - 50, (y0 + y1) / 2), "%d/%d" % (page + 1, pages), self.F["sub"], C["muted"], "mm")
+            self.button(g, hits, [W - 38, y0, W - 6, y1], "›", {"local": "page", "key": key, "d": 1} if page < pages - 1 else None, radius=13, color=C["text"] if page < pages - 1 else C["line"])
+
+    def paged(self, key, items, per):
+        pages = max(1, (len(items) + per - 1) // per)
+        page = max(0, min(self.pages.get(key, 0), pages - 1))
+        self.pages[key] = page
+        return items[page * per:(page + 1) * per], page, pages
+
+    # ----- the screen -----------------------------------------------------------------------------------------------
     def render(self, d):
         """Draw the whole screen from the app's display state. Returns the PIL image."""
         if not self.available:
@@ -2412,57 +2583,118 @@ class MiniScreen:
         g = self.ImageDraw.Draw(img)
         hits = []
         d = d or {}
+        self.header(g, d)
+        tab = self.tab if self.tab in dict(self.TABS) else "pads"
+        try:
+            getattr(self, "page_" + tab)(g, hits, d)
+        except Exception as error:   # (a page with odd data never blanks the screen)
+            log.debug("small screen page %s: %s", tab, error)
+            self.text(g, (W / 2, H / 2), "…", self.F["num"], C["muted"], "mm")
+        self.tabbar(g, hits, tab)
+        ts = getattr(self.driver, "touch_select", None)
+        if ts and ts.get("label"):
+            # the touch-select knob: which setting it holds, and which way to turn to pick it up
+            g.rectangle([0, H - 42, W, H], fill=(10, 40, 30))
+            g.line([0, H - 42, W, H - 42], fill=C["accent"], width=2)
+            g.text((8, H - 37), self.clip(ts.get("label"), 46), font=self.font, fill=C["text"])
+            pick = ts.get("pickup")
+            sub = ("turn UP ▲ to pick it up" if pick == "up" else "turn DOWN ▼ to pick it up" if pick == "down" else str(ts.get("value") or ""))
+            g.text((8, H - 19), self.clip(sub, 48), font=self.small, fill=(255, 210, 120) if pick else C["accent"])
+        tv = getattr(self.driver, "tuner_view", None)
+        if tv and tv.get("on"):
+            # the tuner takes the whole small screen
+            g.rectangle([0, 0, W, H], fill=(4, 9, 16))
+            cents = tv.get("cents")
+            ok = cents is not None and abs(int(cents)) < 3
+            self.text(g, (10, 8), "TUNER", self.F["tab"], C["muted"])
+            self.text(g, (W / 2, 95), str(tv.get("note") or "–"), self.F["big"], C["accent"] if ok else C["text"], "mm")
+            g.rectangle([30, 150, W - 30, 158], fill=C["line"])
+            g.rectangle([W / 2 - 1, 140, W / 2 + 1, 168], fill=C["muted"])
+            if cents is not None:
+                x = W / 2 + max(-50, min(50, int(cents))) / 50.0 * (W / 2 - 30)
+                g.rectangle([x - 4, 136, x + 4, 172], fill=C["accent"] if ok else (255, 180, 80))
+                self.text(g, (W / 2, 200), "in tune" if ok else ("%+d¢ %s" % (int(cents), "sharp" if cents > 0 else "flat")), self.F["title"], C["accent"] if ok else (255, 210, 120), "mm")
+            box = [W - 110, H - 50, W - 10, H - 10]
+            hits = []
+            self.button(g, hits, box, "DONE", {"name": "tuner"}, fill=(21, 42, 67))
+        with self.lock:
+            self.image = img
+            self.hits = hits
+        return img
+
+    def header(self, g, d):
+        C, W = self.COL, self.w
+        g.rectangle([0, 0, W, 40], fill=C["bar"])
         song = d.get("song") or {}
         tracks = bool(d.get("tracksMode"))
         section = d.get("section") or {}
-        key = str(d.get("key") or song.get("key") or "C").replace("#", "♯")
-        g.rectangle([0, 0, W, 44], fill=C["bar"])
-        g.text((8, 5), self.clip(song.get("name") or "Pad Pedal", 22), font=self.font, fill=C["text"])
         if tracks:
             sub = (section.get("name") or "") + ("  · bar %s" % d.get("bar") if d.get("bar") else "")
             if d.get("countIn"):
                 sub = "Count-in %s" % d.get("countIn")
-            elif d.get("loop", -1) >= 0:
-                sub += "  ↻"
+            elif (d.get("loop") if d.get("loop") is not None else -1) >= 0:
+                sub += "  · repeat"
         else:
             sub = "Pads" + ("  · layer" if (d.get("performance") or {}).get("layerMode") else "") + ("  · frozen" if d.get("frozen") else "")
         if getattr(self.driver, "service_lock", False):
             sub = "LOCKED · " + sub
-        g.text((8, 25), self.clip(sub, 32), font=self.small, fill=C["muted"])
-        g.text((W - 150, 4), "KEY", font=self.small, fill=C["muted"])
-        g.text((W - 150, 16), key, font=self.big, fill=C["accent"])
-        g.text((W - 86, 4), "BPM", font=self.small, fill=C["muted"])
-        g.text((W - 86, 16), str(int(round(d.get("bpm") or 0))), font=self.big, fill=C["text"])
+        right = W - (178 if tracks else 112)
+        self.text(g, (10, 4), song.get("name") or "Central Pedal", self.F["title"], C["text"], "la", right - 16)
+        self.text(g, (10, 23), sub, self.F["sub"], C["muted"], "la", right - 16)
+        key = str(d.get("key") or song.get("key") or "C")
+        x = W - 104
         if tracks:
             pos = d.get("pos") or 0
-            g.text((W - 218, 4), "TIME", font=self.small, fill=C["muted"])
-            g.text((W - 218, 18), "%d:%02d" % (int(pos) // 60, int(pos) % 60), font=self.font, fill=C["text"])
+            self.text(g, (x - 66, 4), "TIME", self.F["tiny"], C["muted"])
+            self.text(g, (x - 66, 15), "%d:%02d" % (int(pos) // 60, int(pos) % 60), self.F["num"], C["text"])
             if d.get("playing"):
-                g.ellipse([W - 12, 6, W - 4, 14], fill=C["accent"])
+                g.ellipse([x - 80, 22, x - 72, 30], fill=C["accent"])
+        self.text(g, (x, 4), "KEY", self.F["tiny"], C["muted"])
+        self.text(g, (x, 15), key, self.F["num"], C["accent"])
+        self.text(g, (x + 50, 4), "BPM", self.F["tiny"], C["muted"])
+        self.text(g, (x + 50, 15), str(int(round(d.get("bpm") or 0))), self.F["num"], C["text"])
+
+    def tabbar(self, g, hits, tab):
+        C, W, H = self.COL, self.w, self.h
+        y0 = H - 40
+        g.rectangle([0, y0, W, H], fill=C["bar"])
+        g.line([0, y0, W, y0], fill=C["line"])
+        tw = W / len(self.TABS)
+        for i, (tid, name) in enumerate(self.TABS):
+            x0, x1 = i * tw, (i + 1) * tw
+            if tid == tab:
+                g.rectangle([x0, y0 + 1, x1, H], fill=C["btn"])
+                g.rectangle([x0 + 10, y0 + 1, x1 - 10, y0 + 4], fill=C["accent"])
+            self.text(g, ((x0 + x1) / 2, y0 + 21), name, self.F["tab"], C["accent"] if tid == tab else C["muted"], "mm", tw - 6)
+            hits.append(([int(x0), y0, int(x1), H], {"local": "tab", "value": tid}))
+
+    # ----- PADS: the 8 pads + STOP, and the 8 buttons (transport when tracks are on) ---------------------------------
+    def page_pads(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
         pads = d.get("pads") or []
-        gx, gy, gw, gh = 6, 50, 296, H - 56
-        cols, rows = 3, 3
-        cw, ch = (gw - (cols - 1) * 5) / cols, (gh - (rows - 1) * 5) / rows
+        gx, gy, gw, gh = 6, 46, 296, H - 46 - 46
+        cw, ch = (gw - 2 * 5) / 3, (gh - 2 * 5) / 3
         for i in range(9):
-            r, c = divmod(i, cols)
+            r, c = divmod(i, 3)
             x0, y0 = gx + c * (cw + 5), gy + r * (ch + 5)
             box = [int(x0), int(y0), int(x0 + cw), int(y0 + ch)]
             if i == 8:
-                g.rounded_rectangle(box, 8, fill=C["stop"], outline=(130, 65, 75))
-                g.text((x0 + 10, y0 + ch / 2 - 10), "STOP", font=self.font, fill=(255, 255, 255))
+                g.rounded_rectangle(box, 10, fill=C["stop"], outline=(130, 65, 75))
+                self.text(g, ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2), "STOP", self.F["btn"], (255, 255, 255), "mm")
                 hits.append((box, {"name": "stop"}))
                 continue
             pad = pads[i] if i < len(pads) else {"name": "Pad %d" % (i + 1)}
             state = "playing" if pad.get("playing") else "selected" if pad.get("selected") else "idle"
-            g.rounded_rectangle(box, 8, fill=C[state], outline=C["accent"] if state == "playing" else C["line"])
-            g.text((x0 + 7, y0 + 4), str(i + 1), font=self.small, fill=C["accent"] if state == "playing" else C["muted"])
-            g.text((x0 + 7, y0 + ch - 24), self.clip(pad.get("name"), 11), font=self.small, fill=C["text"])
+            g.rounded_rectangle(box, 10, fill=C[state], outline=C["accent"] if state == "playing" else C["line"])
+            self.text(g, (x0 + 8, y0 + 5), str(i + 1), self.F["sub"], C["accent"] if state == "playing" else C["muted"])
+            self.text(g, (x0 + 8, y0 + ch - 7), pad.get("name"), self.F["label"], C["text"], "ld", cw - 14)
             hits.append((box, {"name": "pad", "args": {"index": i}}))
-        bx, by, bw = 308, 50, W - 308 - 6
-        if tracks:
-            buttons = [("‖ PAUSE" if d.get("playing") else "▶ PLAY", {"name": "playPause"}, bool(d.get("playing"))),
-                       ("|◀ START", {"name": "startOver"}, False), ("SECTION ▶|", {"name": "nextSection"}, False),
-                       ("↻ REPEAT", {"name": "repeatSection"}, d.get("loop", -1) >= 0),
+        bx, by, bw = 308, gy, W - 308 - 6
+        if d.get("tracksMode"):
+            loop = d.get("loop") if d.get("loop") is not None else -1
+            buttons = [("PAUSE" if d.get("playing") else "PLAY", {"name": "playPause"}, bool(d.get("playing"))),
+                       ("START", {"name": "startOver"}, False), ("SECTION ›", {"name": "nextSection"}, False),
+                       ("REPEAT", {"name": "repeatSection"}, loop >= 0),
                        ("KEY −", {"name": "keyDown"}, False), ("KEY +", {"name": "keyUp"}, False),
                        ("CLICK", {"name": "toggleClick"}, bool(d.get("click", True))), ("NEXT SONG", {"name": "nextSong"}, False)]
         else:
@@ -2471,46 +2703,337 @@ class MiniScreen:
                        ("KEY −", {"name": "keyDown"}, False), ("KEY +", {"name": "keyUp"}, False),
                        ("LAYER", {"name": "layer"}, bool(perf.get("layerMode"))), ("NEXT SONG", {"name": "nextSong"}, False),
                        ("PREV SONG", {"name": "prevSong"}, False), ("TRACKS", {"name": "toggleTracks"}, False)]
-        rows = 4
-        bh = (H - by - 6 - (rows - 1) * 4) / rows
+        bh = (gh - 3 * 4) / 4
         for i, (label, action, on) in enumerate(buttons[:8]):
             r, c = divmod(i, 2)
             x0, y0 = bx + c * (bw / 2 + 2), by + r * (bh + 4)
-            box = [int(x0), int(y0), int(x0 + bw / 2 - 2), int(y0 + bh)]
-            g.rounded_rectangle(box, 7, fill=C["on"] if on else (21, 42, 67), outline=C["line"])
-            g.text((x0 + 6, y0 + bh / 2 - 8), label, font=self.small, fill=(6, 34, 24) if on else C["text"])
-            hits.append((box, action))
-        ts = getattr(self.driver, "touch_select", None)
-        if ts and ts.get("label"):
-            # the touch-select knob: which setting it holds, and which way to turn to pick it up
-            g.rectangle([0, H - 42, W, H], fill=(10, 40, 30))
-            g.line([0, H - 42, W, H - 42], fill=C["accent"], width=2)
-            g.text((8, H - 38), self.clip("%s → %s" % (ts.get("knob") or "Knob", ts.get("label")), 40), font=self.font, fill=C["text"])
-            pick = ts.get("pickup")
-            sub = ("turn UP ▲ to pick it up" if pick == "up" else "turn DOWN ▼ to pick it up" if pick == "down" else str(ts.get("value") or ""))
-            g.text((8, H - 19), self.clip(sub, 48), font=self.small, fill=(255, 210, 120) if pick else C["accent"])
-        tv = getattr(self.driver, "tuner_view", None)
-        if tv and tv.get("on"):
-            # the tuner (from the Instrument tab) takes the whole small screen
-            g.rectangle([0, 0, W, H], fill=(4, 9, 16))
-            cents = tv.get("cents")
-            ok = cents is not None and abs(int(cents)) < 3
-            g.text((10, 8), "TUNER", font=self.small, fill=C["muted"])
-            g.text((W / 2 - 40, 60), str(tv.get("note") or "–"), font=self.big, fill=C["accent"] if ok else C["text"])
-            g.rectangle([30, 150, W - 30, 158], fill=C["line"])
-            g.rectangle([W / 2 - 1, 140, W / 2 + 1, 168], fill=C["muted"])
-            if cents is not None:
-                x = W / 2 + max(-50, min(50, int(cents))) / 50.0 * (W / 2 - 30)
-                g.rectangle([x - 4, 136, x + 4, 172], fill=C["accent"] if ok else (255, 180, 80))
-                g.text((W / 2 - 60, 190), "in tune" if ok else ("%+d¢ %s" % (int(cents), "sharp" if cents > 0 else "flat")), font=self.font, fill=C["accent"] if ok else (255, 210, 120))
-            box = [W - 110, H - 50, W - 10, H - 10]
-            g.rounded_rectangle(box, 8, fill=(21, 42, 67), outline=C["line"])
-            g.text((W - 98, H - 38), "DONE", font=self.font, fill=C["text"])
-            hits = [(box, {"name": "tuner"})]
-        with self.lock:
-            self.image = img
-            self.hits = hits
-        return img
+            self.button(g, hits, [x0, y0, x0 + bw / 2 - 2, y0 + bh], label, action, on=on, font=self.F["sub"] if len(label) > 8 else self.F["btn"])
+
+    # ----- TRACKS ---------------------------------------------------------------------------------------------------
+    def page_tracks(self, g, hits, d):
+        sub = self.sub.get("tracks", "play")
+        getattr(self, "tracks_" + sub)(g, hits, d)
+
+    def tracks_play(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        secs = d.get("sections") or []
+        cur = (d.get("section") or {}).get("index")
+        if secs and cur is not None and self.pages.get("secs_song") != d.get("songId"):
+            self.pages["secs_song"] = d.get("songId")
+            self.pages["secs"] = int(cur) // 5
+        items = [dict(s, index=i) for i, s in enumerate(secs)]
+        shown, page, pages = self.paged("secs", items, 5)
+        self.chips(g, hits, "tracks", pager=("secs", page, pages) if pages > 1 else None)
+        y0, y1 = 76, 108
+        if not shown:
+            self.text(g, (W / 2, (y0 + y1) / 2), "No sections - this song has no tracks" if not (d.get("song") or {}).get("hasTracks") else "No sections yet", self.F["sub"], C["muted"], "mm")
+        cw = (W - 12 - 4 * 4) / 5
+        for j, s in enumerate(shown):
+            x = 6 + j * (cw + 4)
+            on = s["index"] == cur
+            col = s.get("color")
+            fill = C["btn"]
+            if isinstance(col, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", col):
+                rgb = tuple(int(col[k:k + 2], 16) for k in (1, 3, 5))
+                fill = tuple(int(v * (0.85 if on else 0.35) + C["bg"][n] * (0.15 if on else 0.65)) for n, v in enumerate(rgb))
+            g.rounded_rectangle([x, y0, x + cw, y1], 8, fill=fill, outline=C["accent"] if on else C["line"], width=2 if on else 1)
+            self.text(g, (x + cw / 2, (y0 + y1) / 2), s.get("name") or "Section", self.F["label"], C["text"], "mm", cw - 8)
+            hits.append(([int(x), y0, int(x + cw), y1], {"name": "goSection", "args": {"index": s["index"]}}))
+        loop = d.get("loop") if d.get("loop") is not None else -1
+        buttons = [("PAUSE" if d.get("playing") else "PLAY", {"name": "playPause"}, bool(d.get("playing")), None),
+                   ("START", {"name": "startOver"}, False, None), ("SECTION ›", {"name": "nextSection"}, False, None),
+                   ("REPEAT", {"name": "repeatSection"}, loop >= 0, None),
+                   ("CLICK", {"name": "toggleClick"}, bool(d.get("click", True)), None),
+                   ("KEY −", {"name": "keyDown"}, False, None), ("KEY +", {"name": "keyUp"}, False, None),
+                   ("NEXT SONG", {"name": "nextSong"}, False, None)]
+        gy0, gy1 = 114, H - 46
+        bw, bh = (W - 12 - 3 * 5) / 4, (gy1 - gy0 - 5) / 2
+        for i, (label, action, on, sub) in enumerate(buttons):
+            r, c = divmod(i, 4)
+            x, y = 6 + c * (bw + 5), gy0 + r * (bh + 5)
+            self.button(g, hits, [x, y, x + bw, y + bh], label, action, on=on, sub=sub)
+
+    def tracks_mix(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        m = d.get("mini") or {}
+        lv = m.get("levels") or {}
+        rows = [("Tracks (all)", {"name": "tracksLevel"}, lv.get("tracks", 0.85), None, None),
+                ("Click", {"name": "clickLevel"}, lv.get("click", 0.85), None, None)]
+        for s in m.get("stems") or []:
+            rows.append((s.get("name") or "Track", {"name": "stemLevel", "args": {"index": s.get("i", 0)}}, min(1.0, (s.get("gain") or 0) / 1.3),
+                         {"name": "stemMute", "args": {"index": s.get("i", 0)}}, bool(s.get("mute"))))
+        shown, page, pages = self.paged("mix", rows, 6)
+        self.chips(g, hits, "tracks", pager=("mix", page, pages) if pages > 1 else None)
+        y = 76
+        rh = (H - 46 - 76) / 6
+        for label, action, value, mute, muted in shown:
+            x0 = 6
+            if mute is not None:
+                self.button(g, hits, [6, y + 3, 38, y + rh - 3], "M", mute, on=muted, radius=7, font=self.F["label"])
+                x0 = 44
+            self.fader(g, hits, [x0, y, W - 6, y + rh], label, value, action, dim=bool(muted))
+            y += rh
+        if not (m.get("stems") or []):
+            self.text(g, (W / 2, H - 70), "This song has no tracks yet", self.F["sub"], C["muted"], "mm")
+
+    def tracks_songs(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        songs = d.get("songs") or []
+        cur = (d.get("song") or {}).get("index")
+        if cur is not None and self.pages.get("songs_cur") != cur:
+            self.pages["songs_cur"] = cur
+            self.pages["songs"] = int(cur) // 6
+        items = [dict(s, index=i) for i, s in enumerate(songs)]
+        shown, page, pages = self.paged("songs", items, 6)
+        self.chips(g, hits, "tracks", pager=("songs", page, pages) if pages > 1 else None)
+        y, rh = 76, (H - 46 - 76) / 6
+        for s in shown:
+            on = s["index"] == cur
+            box = [6, y + 2, W - 6, y + rh - 2]
+            g.rounded_rectangle(box, 8, fill=C["selected"] if on else C["btn"], outline=C["accent"] if on else C["line"])
+            self.text(g, (16, (box[1] + box[3]) / 2), str(s["index"] + 1), self.F["label"], C["accent"] if on else C["muted"], "lm")
+            self.text(g, (44, (box[1] + box[3]) / 2), s.get("name") or "Song", self.F["name"], C["text"], "lm", W - 44 - 70)
+            self.text(g, (W - 30, (box[1] + box[3]) / 2), s.get("key") or "", self.F["label"], C["muted"], "rm")
+            if s.get("hasTracks"):   # (a dot: the song has tracks)
+                cy = (box[1] + box[3]) / 2
+                g.ellipse([W - 22, cy - 4, W - 14, cy + 4], fill=C["accent"])
+            hits.append((list(map(int, box)), {"name": "loadSong", "args": {"index": s["index"]}}))
+            y += rh
+        if not songs:
+            self.text(g, (W / 2, 170), "The setlist is empty", self.F["sub"], C["muted"], "mm")
+
+    # ----- INSTRUMENT -----------------------------------------------------------------------------------------------
+    def page_instrument(self, g, hits, d):
+        ins = (d.get("mini") or {}).get("instrument")
+        sub = self.sub.get("instrument", "sound")
+        if not ins:
+            self.chips(g, hits, "instrument")
+            self.text(g, (self.w / 2, 170), "The instrument isn't ready yet", self.F["sub"], self.COL["muted"], "mm")
+            return
+        getattr(self, "instrument_" + sub)(g, hits, d, ins)
+
+    def instrument_sound(self, g, hits, d, ins):
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "instrument")
+        kinds = [k[0] for k in ins.get("kinds") or []] or ["electric", "acoustic", "bass", "keys", "off"]
+        cw = (W - 12 - 4 * (len(kinds) - 1)) / len(kinds)
+        for i, k in enumerate(kinds):
+            x = 6 + i * (cw + 4)
+            self.button(g, hits, [x, 76, x + cw, 110], self.KIND_SHORT.get(k, k.title()), {"name": "instrumentKindSet", "args": {"kind": k}}, on=k == ins.get("kind"), radius=8)
+        keys = ins.get("kind") == "keys"
+        off = ins.get("kind") == "off"
+        name = ins.get("patch") if keys else ins.get("board")
+        y0, y1 = 118, 182
+        if off:
+            g.rounded_rectangle([6, y0, W - 6, y1], 10, fill=C["bar"], outline=C["line"])
+            self.text(g, (W / 2, (y0 + y1) / 2), "The instrument is off - pick one above", self.F["label"], C["muted"], "mm")
+        else:
+            self.button(g, hits, [6, y0, 66, y1], "‹", {"name": "patchPrev" if keys else "boardPrev"}, font=self.F["num"])
+            self.button(g, hits, [W - 66, y0, W - 6, y1], "›", {"name": "patchNext" if keys else "boardNext"}, font=self.F["num"])
+            g.rounded_rectangle([72, y0, W - 72, y1], 10, fill=C["bar"], outline=C["line"])
+            self.text(g, (W / 2, y0 + 16), "SOUND" if keys else "BOARD", self.F["tiny"], C["muted"], "mm")
+            self.text(g, (W / 2, y0 + 40), name or ("pick a sound" if keys else "pick a board"), self.F["title"], C["text"], "mm", W - 160)
+        lv = ins.get("levelDb") or 0
+        self.fader(g, hits, [6, 190, W - 6, 230], "Instrument level", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
+        self.button(g, hits, [6, 236, W / 2 - 3, H - 46], "TUNER", {"name": "tuner"}, on=bool(ins.get("tuner")))
+        self.button(g, hits, [W / 2 + 3, 236, W - 6, H - 46], "PEDALS", {"local": "sub", "tab": "instrument", "value": "pedals"})
+
+    def instrument_pedals(self, g, hits, d, ins):
+        C, W, H = self.COL, self.w, self.h
+        pedals = ins.get("pedals") or []
+        shown, page, pages = self.paged("pedals", pedals, 9)
+        self.chips(g, hits, "instrument", pager=("pedals", page, pages) if pages > 1 else None)
+        if not pedals:
+            self.text(g, (W / 2, 170), "No pedals on this board" if ins.get("kind") != "off" else "The instrument is off", self.F["sub"], C["muted"], "mm")
+            return
+        gy0, gy1 = 76, H - 46
+        cw, ch = (W - 12 - 2 * 5) / 3, (gy1 - gy0 - 2 * 5) / 3
+        for j, p in enumerate(shown):
+            r, c = divmod(j, 3)
+            x, y = 6 + c * (cw + 5), gy0 + r * (ch + 5)
+            on = bool(p.get("on"))
+            col = p.get("color")
+            rgb = tuple(int(col[k:k + 2], 16) for k in (1, 3, 5)) if isinstance(col, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", col) else C["accent"]
+            box = [x, y, x + cw, y + ch]
+            g.rounded_rectangle(box, 9, fill=tuple(int(v * 0.45 + C["bg"][n] * 0.55) for n, v in enumerate(rgb)) if on else C["btn"], outline=rgb if on else C["line"], width=2 if on else 1)
+            g.ellipse([x + 8, y + 8, x + 18, y + 18], fill=(255, 92, 80) if on else C["track"])
+            self.text(g, (x + 24, y + 6), "ON" if on else "off", self.F["tiny"], C["text"] if on else C["muted"])
+            self.text(g, (x + 8, y + ch - 8), p.get("name") or "Pedal", self.F["label"], C["text"] if on else C["muted"], "ld", cw - 14)
+            hits.append((list(map(int, box)), {"name": "pedalToggle", "args": {"index": p.get("index", 0)}}))
+
+    def instrument_eq(self, g, hits, d, ins):
+        C, W, H = self.COL, self.w, self.h
+        knobs = ins.get("knobs") or []
+        shown, page, pages = self.paged("eq", knobs, 5)
+        self.chips(g, hits, "instrument", pager=("eq", page, pages) if pages > 1 else None)
+        if not knobs:
+            self.text(g, (W / 2, 150), "No EQ or compressor on this board.", self.F["label"], C["muted"], "mm")
+            self.text(g, (W / 2, 172), "Add one on the Instrument tab (EQ & tone, Compressor, Studio).", self.F["sub"], C["muted"], "mm", W - 20)
+            return
+        y, rh = 76, (H - 46 - 76) / 5
+        for k in shown:
+            label = (k.get("pedal") or "") + " · " + (k.get("label") or "")
+            self.fader(g, hits, [6, y, W - 6, y + rh], label, k.get("value") or 0, {"name": "pedalKnob", "args": {"uid": k.get("uid"), "sym": k.get("sym")}},
+                       valtext=k.get("text"), dim=not k.get("on", True))
+            y += rh
+
+    def instrument_tune(self, g, hits, d, ins):
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "instrument")
+        self.button(g, hits, [6, 76, W - 6, 132], "TUNER", {"name": "tuner"}, on=bool(ins.get("tuner")), sub="the instrument is muted while it's up", font=self.F["title"])
+        lv = ins.get("levelDb") or 0
+        self.fader(g, hits, [6, 140, W - 6, 182], "Instrument level", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
+        vol = (d.get("mini") or {}).get("volume")
+        if vol is None:
+            vol = (d.get("performance") or {}).get("volume", 1)
+        self.fader(g, hits, [6, 186, W - 6, 228], "Pads volume", vol or 0, {"name": "volume"})
+        self.button(g, hits, [6, 234, W - 6, H - 46], "AUTO SET-UP", {"name": "instrumentAuto"}, sub="listens to you play and sets the gain")
+
+    # ----- SETTINGS -------------------------------------------------------------------------------------------------
+    def page_settings(self, g, hits, d):
+        sub = self.sub.get("settings", "audio")
+        getattr(self, "settings_" + sub)(g, hits, d)
+
+    def settings_audio(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        m = d.get("mini") or {}
+        inp = m.get("input") or {}
+        rt = (m.get("routing") or {}).get("buses") or []
+        self.chips(g, hits, "settings")
+        rh = (H - 46 - 76) / 6
+        y = 76
+        gain = inp.get("gain") or 0
+        self.fader(g, hits, [6, y, W - 110, y + rh], "Input gain", (gain + 20) / 60.0, {"name": "inputGain"}, valtext="%+d dB" % gain)
+        ch = inp.get("channel") or "L"
+        self.button(g, hits, [W - 102, y + 4, W - 56, y + rh - 4], "IN L", {"name": "inputChannel", "args": {"channel": "L"}}, on=ch == "L", radius=7, font=self.F["label"])
+        self.button(g, hits, [W - 52, y + 4, W - 6, y + rh - 4], "IN R", {"name": "inputChannel", "args": {"channel": "R"}}, on=ch == "R", radius=7, font=self.F["label"])
+        y += rh
+        lv = ((m.get("instrument") or {}).get("levelDb")) or 0
+        self.fader(g, hits, [6, y, W - 6, y + rh], "Instrument out", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
+        y += rh
+        for b in rt[:4]:
+            self.text(g, (8, y + rh / 2), b.get("name") or b.get("id"), self.F["label"], C["text"], "lm", 118)
+            self.button(g, hits, [124, y + 3, 160, y + rh - 3], "‹", {"name": "busOutput", "args": {"bus": b.get("id"), "delta": -1}}, radius=7)
+            g.rounded_rectangle([164, y + 3, W - 46, y + rh - 3], 7, fill=C["bar"], outline=C["line"])
+            self.text(g, ((164 + W - 46) / 2, y + rh / 2), b.get("out") or "Off", self.F["label"], C["text"] if b.get("ch") else C["muted"], "mm", W - 46 - 172)
+            self.button(g, hits, [W - 42, y + 3, W - 6, y + rh - 3], "›", {"name": "busOutput", "args": {"bus": b.get("id"), "delta": 1}}, radius=7)
+            y += rh
+        if not rt:
+            self.text(g, (W / 2, 200), "Outputs: set on the Central Pedal app (Settings → Audio)", self.F["sub"], C["muted"], "mm")
+
+    def settings_screens(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "settings")
+        disp = self.driver.displays_config() if self.driver else {}
+        y = 80
+        for n, opts in ((1, self.HDMI1), (2, self.HDMI2)):
+            cur = disp.get("hdmi%d" % n) or ("app" if n == 1 else "lyrics")
+            if cur == "mini":
+                cur = "touch"
+            name = dict(opts).get(cur, cur)
+            self.text(g, (8, y + 22), "HDMI %d" % n, self.F["name"], C["text"], "lm")
+            self.button(g, hits, [80, y, 124, y + 44], "‹", {"local": "hdmi", "n": n, "d": -1}, font=self.F["num"])
+            g.rounded_rectangle([130, y, W - 56, y + 44], 9, fill=C["bar"], outline=C["line"])
+            self.text(g, ((130 + W - 56) / 2, y + 22), name, self.F["label"], C["text"], "mm", W - 56 - 140)
+            self.button(g, hits, [W - 50, y, W - 6, y + 44], "›", {"local": "hdmi", "n": n, "d": 1}, font=self.F["num"])
+            y += 52
+        self.text(g, (W / 2, y + 6), "A change restarts the screens (the sound keeps playing on the Pi's own outputs).", self.F["tiny"], C["muted"], "mm", W - 16)
+        self.button(g, hits, [6, H - 46 - 50, W - 6, H - 50], "RESTART THE SCREENS", {"local": "restartScreens"})
+
+    def settings_system(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "settings")
+        try:
+            addrs = ip_addresses()
+        except Exception:
+            addrs = []
+        code = ""
+        try:
+            code = self.driver.pair_code() if self.driver and hasattr(self.driver, "pair_code") else str((self.driver.system_status() or {}).get("code") or "")
+        except Exception:
+            code = ""
+        lines = [("Central Pedal", APP_VERSION), ("Address", ", ".join(addrs[:2]) or "not on a network"), ("Pairing code", code or "–")]
+        y = 80
+        for k, v in lines:
+            self.text(g, (10, y), k, self.F["label"], C["muted"])
+            self.text(g, (130, y), v, self.F["label"], C["text"], "la", W - 140)
+            y += 22
+        bw = (W - 12 - 10) / 3
+        by0, by1 = H - 46 - 64, H - 50
+        self.button(g, hits, [6, by0, 6 + bw, by1], "CALIBRATE", {"local": "calibrate"}, sub="the touch")
+        self.button(g, hits, [6 + bw + 5, by0, 6 + 2 * bw + 5, by1], "RESTART", {"local": "reboot"}, on=self.confirm == "reboot", sub="tap again" if self.confirm == "reboot" else "the pedal")
+        self.button(g, hits, [6 + 2 * bw + 10, by0, W - 6, by1], "SHUT DOWN", {"local": "shutdown"}, on=self.confirm == "shutdown", fill=C["stop"], sub="tap again" if self.confirm == "shutdown" else "safely")
+
+    # ----- what a touch does ----------------------------------------------------------------------------------------
+    def local(self, a):
+        """The small screen's own buttons: tabs, pages, HDMI choices, restart / shut down (asked twice)."""
+        kind = a.get("local")
+        if kind == "tab":
+            self.tab = a.get("value") or "pads"
+        elif kind == "sub":
+            self.tab = a.get("tab") or self.tab
+            self.sub[self.tab] = a.get("value")
+        elif kind == "page":
+            self.pages[a.get("key")] = self.pages.get(a.get("key"), 0) + int(a.get("d") or 0)
+        elif kind == "hdmi" and self.driver:
+            n = int(a.get("n") or 1)
+            opts = [o[0] for o in (self.HDMI1 if n == 1 else self.HDMI2)]
+            cur = self.driver.displays_config().get("hdmi%d" % n) or opts[0]
+            cur = "touch" if cur == "mini" else cur
+            i = opts.index(cur) if cur in opts else 0
+            self.driver.system_action({"action": "displays", "config": {"hdmi%d" % n: opts[(i + int(a.get("d") or 1)) % len(opts)]}}, None)
+        elif kind == "restartScreens" and self.driver:
+            self.driver.system_action({"action": "restartSession"}, None)
+        elif kind == "calibrate" and self.driver:
+            self.driver.start_touch_calibration()
+            return
+        elif kind in ("reboot", "shutdown") and self.driver:
+            if self.confirm == kind and time.monotonic() - self.confirm_at < 5:
+                self.confirm = None
+                self.driver.system_action({"action": kind}, None)
+            else:
+                self.confirm, self.confirm_at = kind, time.monotonic()
+        if self.driver:
+            self.driver.schedule_mini_render(force=True)
+
+    def send_value(self, action, x):
+        x0, x1 = action["slider"]
+        v = max(0.0, min(1.0, (x - x0) / max(1.0, x1 - x0)))
+        self.override[action["key"]] = (v, time.monotonic())
+        if self.driver:
+            self.driver.emit({"type": "action", "name": action["name"], "args": action.get("args") or {}, "value": v, "from_": "screen"})
+            self.driver.schedule_mini_render()
+        return v
+
+    def tap(self, raw_x, raw_y):
+        """One touch on the panel (raw panel numbers): a calibration point, or the button under it."""
+        if self.driver and self.driver.touch_calibrating:
+            self.driver.touch_calibration_point(raw_x, raw_y)
+            return None
+        x, y = self.map_touch(raw_x, raw_y)
+        action = self.hit_test(x, y)
+        self.active = None
+        if not action:
+            return None
+        if action.get("local"):
+            self.local(action)
+            return action
+        if action.get("slider"):
+            self.active, self.drag_at = action, time.monotonic()
+            self.send_value(action, x)
+            return action
+        if self.driver:
+            self.driver.emit({"type": "action", "name": action["name"], "args": action.get("args") or {}, "from_": "screen"})
+        return action
+
+    def drag(self, raw_x, raw_y):
+        """A finger sliding on a fader: its value follows (about 25 a second)."""
+        a = self.active
+        if not a or time.monotonic() - self.drag_at < 0.04:
+            return None
+        self.drag_at = time.monotonic()
+        x, _ = self.map_touch(raw_x, raw_y)
+        return self.send_value(a, x)
 
     def push(self):
         if not self.available or self.image is None or not self.fb_present():
@@ -2619,22 +3142,16 @@ class MiniScreen:
                             down = pending = True
                         elif event.value == 0:
                             down = pending = False
-                    elif event.type == ev.ecodes.EV_SYN and pending and x is not None and y is not None:
-                        pending = False
-                        self.tap(x, y)
+                            self.active = None
+                    elif event.type == ev.ecodes.EV_SYN and x is not None and y is not None:
+                        if pending:
+                            pending = False
+                            self.tap(x, y)
+                        elif down and self.active:
+                            self.drag(x, y)   # (a finger sliding along a fader)
             except Exception as error:
                 log.debug("touch loop ended (%s)", error)
                 time.sleep(2)
-
-    def tap(self, raw_x, raw_y):
-        """One touch on the panel (raw panel numbers): a calibration point, or the button under it."""
-        if self.driver.touch_calibrating:
-            self.driver.touch_calibration_point(raw_x, raw_y)
-            return None
-        action = self.hit_test(*self.map_touch(raw_x, raw_y))
-        if action:
-            self.driver.emit(dict(action, type="action", from_="screen"))
-        return action
 
     def draw_calibration(self, step):
         img = self.Image.new("RGB", (self.w, self.h), self.COL["bg"])
