@@ -86,7 +86,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.4.0"
+APP_VERSION = "9.4.1"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -2426,6 +2426,7 @@ class MiniScreen:
         self.lock = threading.Lock()
         self.tab, self.sub, self.pages, self.override = "pads", {}, {}, {}
         self.active, self.drag_at, self.confirm, self.confirm_at = None, 0.0, None, 0.0
+        self.pick_screen, self.touch_msg = None, ""
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -2450,7 +2451,7 @@ class MiniScreen:
     TABS = [("pads", "PADS"), ("tracks", "TRACKS"), ("instrument", "INSTRUMENT"), ("settings", "SETTINGS")]
     SUBS = {"tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist")],
             "instrument": [("sound", "Sound"), ("pedals", "Pedals"), ("eq", "EQ · Comp"), ("tune", "Tuner · Level")],
-            "settings": [("audio", "In & out"), ("screens", "Screens"), ("system", "System")]}
+            "settings": [("audio", "In & out"), ("screens", "Screens"), ("touch", "Touch"), ("system", "System")]}
     HDMI1 = [("app", "Central Pedal app"), ("touch", "Copy of this screen"), ("lyrics", "Lyrics"), ("charts", "Chord charts"), ("stage", "Stage display"), ("slides", "Slides")]
     HDMI2 = [("lyrics", "Lyrics"), ("slides", "Slides & lyrics"), ("stage", "Stage display"), ("charts", "Chord charts"), ("touch", "Copy of this screen"), ("app", "Central Pedal app"), ("off", "Nothing")]
     KIND_SHORT = {"electric": "Electric", "acoustic": "Acoustic", "bass": "Bass", "keys": "Keys", "off": "Off"}
@@ -2940,6 +2941,51 @@ class MiniScreen:
         self.text(g, (W / 2, y + 6), "A change restarts the screens (the sound keeps playing on the Pi's own outputs).", self.F["tiny"], C["muted"], "mm", W - 16)
         self.button(g, hits, [6, H - 46 - 50, W - 6, H - 50], "RESTART THE SCREENS", {"local": "restartScreens"})
 
+    def screen_list(self):
+        """Every touch screen the pedal knows (screens.json): small GPIO screens first, then HDMI and ribbon-cable ones,
+        then "No touch screen"."""
+        app_root = self.driver.config.get("app_root") if self.driver else None
+        cat = screens_catalog(app_root)
+        order = {"spi": 0, "hdmi": 1, "dsi": 2}
+        items = sorted(cat.get("screens") or [], key=lambda x: (order.get(x.get("kind"), 3), -(x.get("size") or 0), x.get("name") or ""))
+        return [(x.get("id"), x) for x in items] + [("off", {"name": "No touch screen", "kind": "off"})]
+
+    def settings_touch(self, g, hits, d):
+        """Settings → Touch: which touch screen this is (applied after a restart), calibrate its touch, flip it 180°."""
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "settings")
+        cfg = self.driver.config if self.driver else {}
+        cur = touch_screen_id(cfg) if self.driver else "off"
+        screens = self.screen_list()
+        ids = [x[0] for x in screens]
+        pick = self.pick_screen if self.pick_screen in ids else cur if cur in ids else ids[0]
+        self.pick_screen = pick
+        s = dict(screens)[pick]
+        kinds = {"spi": "on the GPIO pins", "hdmi": "HDMI touch", "dsi": "ribbon cable", "off": "HDMI 1 shows the app"}
+        y0, y1 = 76, 132
+        self.button(g, hits, [6, y0, 50, y1], "‹", {"local": "tsPick", "d": -1}, font=self.F["num"])
+        self.button(g, hits, [W - 50, y0, W - 6, y1], "›", {"local": "tsPick", "d": 1}, font=self.F["num"])
+        g.rounded_rectangle([56, y0, W - 56, y1], 10, fill=C["bar"], outline=C["accent"] if pick == cur else C["line"])
+        self.text(g, (W / 2, y0 + 18), s.get("name") or pick, self.F["label"], C["text"], "mm", W - 124)
+        info = ("In use · " if pick == cur else "") + kinds.get(s.get("kind"), "") + (" · %d×%d" % tuple(s["res"][:2]) if s.get("res") else "") + (" · downloads its driver once" if s.get("driver") else "")
+        self.text(g, (W / 2, y0 + 38), info, self.F["sub"], C["muted"], "mm", W - 124)
+        pending = bool(cfg.get("touch_screen_pending")) and cfg.get("touch_screen_pending") == boot_id()
+        msg = self.touch_msg or ("Restart to use the new screen." if pending else "")
+        if msg:
+            self.text(g, (W / 2, 144), msg, self.F["sub"], C["accent"] if msg.startswith("Saved") else C["warn"], "mm", W - 16)
+        by0, by1 = 154, 200
+        if pick != cur:
+            self.button(g, hits, [6, by0, W - 6, by1], "USE THIS SCREEN", {"local": "tsApply"}, on=True, sub="then restart the pedal")
+        elif pending:
+            self.button(g, hits, [6, by0, W - 6, by1], "RESTART NOW", {"local": "reboot"}, on=self.confirm == "reboot", sub="tap again" if self.confirm == "reboot" else "to use the new screen")
+        else:
+            touch = getattr(self, "touch_name", None)
+            self.text(g, (W / 2, (by0 + by1) / 2), ("Touch panel found: " + touch) if touch else "Touch panel not found yet", self.F["label"], C["text"] if touch else C["warn"], "mm", W - 16)
+        bw = (W - 12 - 5) / 2
+        flipped = int((self.spec or {}).get("rotate") or 0) == 180
+        self.button(g, hits, [6, 208, 6 + bw, H - 46], "CALIBRATE", {"local": "calibrate"}, sub="touch the two crosses")
+        self.button(g, hits, [6 + bw + 5, 208, W - 6, H - 46], "FLIP 180°", {"local": "flip"}, on=flipped, sub="upside down" if flipped else "for a screen mounted upside down")
+
     def settings_system(self, g, hits, d):
         C, W, H = self.COL, self.w, self.h
         self.chips(g, hits, "settings")
@@ -2987,6 +3033,32 @@ class MiniScreen:
         elif kind == "calibrate" and self.driver:
             self.driver.start_touch_calibration()
             return
+        elif kind == "tsPick":
+            ids = [x[0] for x in self.screen_list()]
+            i = ids.index(self.pick_screen) if self.pick_screen in ids else 0
+            self.pick_screen, self.touch_msg = ids[(i + int(a.get("d") or 1)) % len(ids)], ""
+        elif kind == "tsApply" and self.driver:
+            sid = self.pick_screen
+            self.touch_msg = "Setting up the screen…"
+
+            def work():
+                try:
+                    r = self.driver.set_touch_screen(sid)
+                except Exception as error:
+                    r = {"ok": False, "error": str(error)[:120]}
+                self.touch_msg = "Saved - restart the pedal to use it." if r.get("ok") else (r.get("error") or "Not changed.")
+                self.driver.emit(dict(r, type="touchScreenResult", screen=sid))
+                self.driver.schedule_mini_render(force=True)
+            threading.Thread(target=work, daemon=True).start()
+        elif kind == "flip" and self.driver:
+            # the picture turned 180° and the touch with it (its calibration flipped both ways)
+            mini = self.driver.config.setdefault("mini_screen", {})
+            mini["rotate"] = 0 if int(mini.get("rotate") or 0) == 180 else 180
+            cal = dict(mini.get("calibration") or {})
+            cal["flip_x"], cal["flip_y"] = not cal.get("flip_x", False), not cal.get("flip_y", False)
+            mini["calibration"] = cal
+            self.spec = mini
+            self.driver.save_config()
         elif kind in ("reboot", "shutdown") and self.driver:
             if self.confirm == kind and time.monotonic() - self.confirm_at < 5:
                 self.confirm = None
