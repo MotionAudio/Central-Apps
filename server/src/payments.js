@@ -15,7 +15,8 @@
 import Stripe from "stripe";
 import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE, DISCOUNTS, RENEWAL, TAX_CODES, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PLAN_INTERVAL } from "./config.js";
 import { q, one, pool } from "./db.js";
-import { churchOf, createChurch, issueKeys, canon, pretty } from "./licenses.js";
+import { churchOf, createChurch, personalChurch, issueKeys, canon, pretty } from "./licenses.js";
+import { sendDownloadsEmail } from "./downloads.js";
 import { fmt, COVER_RELEASES } from "./versions.js";
 import { PLAN_LIVE, PLAN_END, issuePackages } from "./plans.js";
 
@@ -109,16 +110,20 @@ export async function ownedCounts(churchId) {
   for (const o of await q("SELECT items FROM orders WHERE church_id=$1 AND status IN ('paid','review')", [churchId])) for (const [id, n] of Object.entries(o.items || {})) if (!/^(renew)$/.test(id)) out[id] = (out[id] || 0) + (Number(n) || 0);
   return out;
 }
-// everything in the store belongs to a church: you buy signed in, and the first purchase makes your church when you're
-// not in one yet (this account becomes the church account)
-export async function storeCheckout(user, items, churchName, code, only) {   // (only "check": everything but the payment)
+// Who it's for (9.5): "church" - a church or team: it belongs to the church, the first purchase makes your church when
+// you're not in one yet (this account becomes the church account), and keys are handed out on the Teams page. "me" -
+// just me: keys go to the buyer's personal row and are theirs at once (even when they're in a church: their own keys,
+// not the church's); packs, their add-ons and Central Services slots are for a church or team.
+export async function storeCheckout(user, items, churchName, code, only, forWho) {   // (only "check": everything but the payment)
   if (!user) throw err("Sign in or make an account first: your keys go to your church's account.", 401);
-  let church = await churchOf(user.id);
-  if (!church && !String(churchName || "").trim()) throw err("Name your church or production first: your keys go to its account.", 400, { needChurch: true });
-  if (church && !["church", "owner", "admin"].includes(church.role)) throw err("Only " + church.name + "'s church account, main admins and admins buy for it. Ask one of them, or they can add you on the Teams page.", 403);
+  const personal = forWho === "me";
+  let church = personal ? await personalChurch(user) : await churchOf(user.id);
+  if (!personal && !church && !String(churchName || "").trim()) throw err("Name your church or production first: your keys go to its account.", 400, { needChurch: true });
+  if (!personal && church && !["church", "owner", "admin"].includes(church.role)) throw err("Only " + church.name + "'s church account, main admins and admins buy for it. Ask one of them, or choose \"Just me\" to buy keys of your own.", 403);
   const qty = {};
   for (const [id, q0] of Object.entries(items || {})) { const n = Math.max(0, Math.min(50, Math.floor(Number(q0) || 0))); if (PRODUCTS[id] && n) qty[id] = n; }   // (whole numbers, checked once)
   if (!Object.keys(qty).length) throw err("Your cart is empty.");
+  if (personal) for (const id of Object.keys(qty)) { const p = PRODUCTS[id]; if (p.pack || p.addonFor || p.slots) throw err(p.name + " is for a church or team: choose \"A church or team\" at checkout."); }
   const owned = church ? await ownedCounts(church.id) : {};
   for (const [id, n] of Object.entries(qty)) {
     const p = PRODUCTS[id];
@@ -131,7 +136,7 @@ export async function storeCheckout(user, items, churchName, code, only) {   // 
   const disc = await discountFor(code, church);
   if (only === "check") return { ok: true };
   needStripe();
-  if (!church) church = await createChurch(user, churchName);
+  if (!church) church = personal ? await personalChurch(user, true) : await createChurch(user, churchName);
   let ships = false;
   const lines = Object.entries(qty).map(([id, n]) => {
     const p = PRODUCTS[id], cut = disc && (!p.hardware || disc.pedal); if (p.ships) ships = true;
@@ -139,9 +144,9 @@ export async function storeCheckout(user, items, churchName, code, only) {   // 
   });
   const s = await stripe.checkout.sessions.create({
     ...STUDIO, mode: "payment", submit_type: "auto", line_items: lines,
-    customer: await churchCustomer(church),
+    customer: personal ? await customerFor(user) : await churchCustomer(church),
     shipping_address_collection: ships ? { allowed_countries: ["US", "CA"] } : undefined,
-    metadata: { kind: "store", church_id: String(church.id) },
+    metadata: { kind: "store", church_id: String(church.id), for: personal ? "me" : "church" },
     return_url: back("order-done-{CHECKOUT_SESSION_ID}"),
   });
   await closeOthers(church, s.id, disc && disc.code, Object.keys(qty).some((id) => PRODUCTS[id].addonFor));
@@ -447,7 +452,11 @@ async function fulfil(sess) {
   const pi = sess.payment_intent ? String(sess.payment_intent) : "free-" + sess.id;   // (a 100% code: nothing was charged)
   if (await one("SELECT 1 FROM stripe_payments WHERE payment_intent=$1", [pi])) return;   // already done (webhooks can repeat)
   let orderId = null;
-  if (c.kind === "store") orderId = await recordOrder(sess, c);
+  if (c.kind === "store") {
+    orderId = await recordOrder(sess, c);
+    const pc = c.church_id ? await one("SELECT personal FROM churches WHERE id=$1", [c.church_id]) : null;
+    if (pc && pc.personal && c.user_id) await sendDownloadsEmail(c.user_id, orderId).catch((e) => console.warn("downloads email:", e.message));   // ("Just me": the keys, download links and how to install, by email)
+  }
   else if (c.kind === "renew") orderId = await recordRenewal(sess, c);
   else if (c.kind === "track") await recordTrackSale(c.user_id, c.track_id);
   await q("INSERT INTO stripe_payments (payment_intent,session_id,kind,user_id,order_id,track_id) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING", [pi, sess.id, c.kind, c.user_id, orderId, c.track_id]);
@@ -476,6 +485,8 @@ export async function recordOrder(sess, co) {   // (exported for the tests)
         if (p.pack && churchId) await c.query("UPDATE churches SET has_pack=TRUE WHERE id=$1", [churchId]);
       }
       if (slots && churchId) await c.query("UPDATE churches SET services_slots = services_slots + $1 WHERE id=$2", [slots, churchId]);
+      const pc = churchId ? (await c.query("SELECT personal FROM churches WHERE id=$1", [churchId])).rows[0] : null;
+      if (pc && pc.personal && co.user_id) await c.query("UPDATE licenses l SET user_id=u.id, assigned_email=u.email, assigned_name=u.name FROM users u WHERE u.id=$1 AND l.order_id=$2", [co.user_id, id]);   // ("Just me": every key is the buyer's at once)
       if (co.code && churchId) await c.query("INSERT INTO discount_uses (church_id,code,order_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", [churchId, co.code, id]);
     }
     await c.query("COMMIT");

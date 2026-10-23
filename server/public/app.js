@@ -271,6 +271,7 @@ function onAdd(e) {
 }
 $("#rack").addEventListener("click", onAdd); $("#packs").addEventListener("click", onAdd); $("#pedalBuy").addEventListener("click", onAdd);
 let promo = null;   // the code in the cart: { code, percent } or { code, trial, days }
+let forWho = null;  // the store items: "me" (Just me) or "church" (a church or team)
 $("#cartBtn").onclick = () => openCart();
 const nameOf = (id) => (P_(id) ? P_(id).name : id);
 const ownedOf = (id) => (me && me.church && me.church.owned ? me.church.owned[id] || 0 : 0);
@@ -289,14 +290,24 @@ function openCart(note) {
     return `<div><span>${esc(nameOf(id))} <span class="qty"><button class="qbtn" data-q="${id}" data-d="-1" aria-label="One fewer">−</button>${cart[id]}<button class="qbtn" data-q="${id}" data-d="1" aria-label="One more">+</button></span></span><span>${d ? `<s class="muted">${money(s)}</s> ` : ""}${money(s - d)}</span></div>`;
   }).join("");
   const why = promo && promo.percent ? esc(promo.code) + " · " + esc(promo.label) : cfg.sale ? esc(cfg.sale.name) + " · " + cfg.sale.percent + "% off" : "";
-  const needChurch = me && !me.church, trial = promo && promo.trial;
-  const storePart = ids.length || trial;
+  const trial = promo && promo.trial, storePart = ids.length || trial;
+  // who it's for: "Just me" (the keys are yours at once: your Downloads page and an email) or a church or team (handed
+  // out on the Teams page). Packs and Central Services slots are for a church or team.
+  const churchOnly = ids.some((id) => P_(id).pack || P_(id).addonFor || P_(id).slots);
+  if (!forWho && me) forWho = me.church && isStaffRole(me.church.role) ? "church" : "me";
+  if (churchOnly) forWho = "church";
+  const forMe = forWho === "me" && !trial, needChurch = me && !me.church && !forMe;
+  const whoHtml = ids.length && !trial && me ? `<div class="choice"><b style="font-size:.95rem">Who is it for?</b>
+    <label><input type="radio" name="coFor" value="me"${forMe ? " checked" : ""}${churchOnly ? " disabled" : ""}> <span>Just me <span class="muted" style="font-size:.88rem">· the keys are yours</span></span></label>
+    <label><input type="radio" name="coFor" value="church"${forMe ? "" : " checked"}> <span>A church or team <span class="muted" style="font-size:.88rem">· you hand the keys out on the Teams page</span></span></label>
+    ${churchOnly ? `<span class="muted" style="font-size:.85rem">Packs and Central Services slots are for a church or team.</span>` : ""}</div>` : "";
   modal(`<h3>Cart</h3>${ids.length ? `<div class="lines">${lines}${saved ? `<div class="saved"><span>${why}</span><span>−${money(saved)}</span></div>` : ""}<div class="total"><span>Total <span class="muted" style="font-weight:400;font-size:.85rem">tax included</span></span><span>${money(total)}</span></div></div>` : ""}
     ${hasPlans ? planCartHtml() : ""}
     <div class="codeline"><label>Discount or trial code<input id="pcCode" value="${esc(promo ? promo.code : "")}" placeholder="Code" autocapitalize="characters"></label><button class="btn ghost" id="pcApply">${promo ? "Change" : "Apply"}</button>${promo ? `<button class="btn ghost" id="pcClear">Remove</button>` : ""}</div>
     <div class="${note && /^✓/.test(note) ? "ok-note" : "err"}" id="pcErr">${esc(note || "")}</div>
     ${trial ? `<div class="card" style="border-color:var(--brass)"><b>${esc(promo.label)}</b><span class="muted" style="font-size:.9rem">Everything for ${promo.days} days, no payment: as many admin, user and Pedal Control keys as you like, Central Services, Central Tracks Unlimited and all four sound plans (package keys by email). Then the trial keys stop and the apps ask for a key you bought (your songs and settings stay). One free trial per church.</span></div>` : ""}
-    ${!storePart ? "" : !me ? `<p class="muted" style="margin:0">Sign in or make an account first: your keys go to your church's account.</p>` : needChurch ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label><p class="muted" style="margin:0;font-size:.9rem">This makes your church's account, with you as its main admin. Your admins and users join it with its codes.</p>` : `<p class="muted" style="margin:0;font-size:.9rem">The keys go to <b>${esc(me.church.name)}</b>.</p>`}
+    ${whoHtml}
+    ${!storePart ? "" : !me ? `<p class="muted" style="margin:0">Sign in or make an account first: your keys go to your account, or your church's.</p>` : forMe ? `<p class="muted" style="margin:0;font-size:.9rem">The keys are yours${me.church ? ", not " + esc(me.church.name) + "'s" : ""}: right after paying they're on your <b>Downloads</b> page, with how to install each app, and in your email.</p>` : trial && me && !me.church ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label>` : needChurch ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label><p class="muted" style="margin:0;font-size:.9rem">This makes your church's account, with you as its main admin. Your admins and users join it with its codes.</p>` : `<p class="muted" style="margin:0;font-size:.9rem">The keys go to <b>${esc(me.church.name)}</b>.</p>`}
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">${storePart ? `<button class="btn" id="checkout">${me ? (hasPlans ? "Check out the store items" : "Check out") : "Sign in"}</button>` : ""}<button class="btn ghost" id="clear">Empty cart</button></div><div class="err" id="coErr"></div>`);
   $("#clear").onclick = () => { for (const k in cart) delete cart[k]; planCart.plans = []; planCart.bundle = 0; updateCartBtn(); renderRack(); closeModal(); };
   wirePlanCart();
@@ -306,14 +317,15 @@ function openCart(note) {
     fitAddons(); updateCartBtn(); renderRack(); openCart();
   }));
   wirePromo();
+  document.querySelectorAll('[name="coFor"]').forEach((r) => (r.onchange = () => { forWho = r.value; openCart(); }));
   if (trial) { $("#checkout").textContent = me ? "Start the free trial" : "Sign in to start the trial"; }
   $("#checkout").onclick = async () => {
     if (!me) { closeModal(); return needSignIn("Sign in or make an account, then open the cart again."); }
-    if (needChurch && !$("#coChurch").value.trim()) { $("#coErr").textContent = "Give your church or production a name."; return; }
+    if ($("#coChurch") && !$("#coChurch").value.trim()) { $("#coErr").textContent = "Give your church or production a name."; return; }
     $("#checkout").disabled = true;
     if (trial) {
       try {
-        const t = await api("POST", "/trial", { code: promo.code, church: needChurch ? $("#coChurch").value.trim() : undefined });
+        const t = await api("POST", "/trial", { code: promo.code, church: $("#coChurch") ? $("#coChurch").value.trim() : undefined });
         promo = null; await refreshMe();
         return modal(`<h3>Your free trial has started!</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>: unlimited keys, Central Services, Central Tracks Unlimited and all four sound plans.</p>
           ${t.packageKey ? `<p style="margin:0">Your sound plans package key (it's in your email too): <code style="user-select:all;font-weight:600">${esc(t.packageKey)}</code>. In any app: <b>Settings → Packages → Add a package</b>, and paste it. Give your team theirs on the <b>Teams</b> card.</p>` : ""}
@@ -321,9 +333,9 @@ function openCart(note) {
           <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>.</p><a class="btn" href="#account" data-close>Go to my church</a>`);
       } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
     }
-    const body = { items: cart, church: needChurch ? $("#coChurch").value.trim() : undefined, code: promo && promo.percent ? promo.code : undefined };
+    const body = { items: cart, for: forMe ? "me" : "church", church: needChurch && $("#coChurch") ? $("#coChurch").value.trim() : undefined, code: promo && promo.percent ? promo.code : undefined };
     try { await api("POST", "/checkout/store/check", body); } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
-    openCheckout("Check out", `${storeCount()} item${storeCount() === 1 ? "" : "s"} · ${money(total)} · for ${esc(me.church ? me.church.name : body.church)}`, () => api("POST", "/checkout/store", body));
+    openCheckout("Check out", `${storeCount()} item${storeCount() === 1 ? "" : "s"} · ${money(total)} · for ${forMe ? "you" : esc(me.church ? me.church.name : body.church)}`, () => api("POST", "/checkout/store", body));
   };
 }
 function wirePromo() {
@@ -565,6 +577,7 @@ async function renderAccount(note) {
   }
   $("#acctTitle").textContent = me.name ? "Hi, " + me.name : "Your account";
   body.innerHTML = `<div class="acct">${me.emailConfirmed ? "" : `<div class="card wide confirm-card"><h3>Confirm your email</h3><p style="margin:0">We sent a link to <b>${esc(me.email)}</b>. Your receipts, keys, invites and password resets go there, so checkout waits until it's confirmed.</p><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="cfAgain">Send it again</button></div></div>`}
+    <div class="card wide dl-link"><h3>Your downloads</h3><p class="muted" style="margin:0">Your apps, how to install them on each computer or phone, and your keys.</p><a class="btn small" href="#downloads" style="justify-self:start">Open your downloads</a></div>
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
     ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
@@ -605,6 +618,60 @@ async function mountConnect() {
     $("#cPayouts").appendChild(connectUi.create("payouts"));
     $("#cManage").appendChild(connectUi.create("account-management"));
   } catch { const b = box.querySelector("#cBanner"); if (b) b.innerHTML = '<p class="muted">Payout settings couldn\'t load. Refresh the page to try again.</p>'; }
+}
+// ---------------------------------------------------------------- Your downloads (#downloads)
+// One card per app you have a key for: download, how to install it on this computer (others folded away), the key.
+// A built pedal: where it ships and its phone setup. Sound plans: the package keys.
+const PLATFORM = (() => { const u = navigator.userAgent || ""; return /iPhone|iPad|iPod/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? "ipad" : /Android/.test(u) ? "android" : /Windows/.test(u) ? "windows" : /Mac/.test(u) ? "mac" : /Linux|X11|CrOS/.test(u) ? "linux" : "windows"; })();
+const PLATFORM_NAME = { windows: "Windows", mac: "Mac", linux: "Linux (Ubuntu and others)", android: "Android", ipad: "iPhone and iPad" };
+function dlSection(on) { const s = $("#downloads"); if (!s) return null; s.hidden = !on; return $("#dlBody"); }
+const copyBtn = (text, label) => `<button class="btn small ghost" data-copy="${esc(text)}">${label || "Copy"}</button>`;
+function wireCopies(root) { root.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); toast("Copied"); } catch (_) { prompt("Copy this:", b.dataset.copy); } })); }
+function stepsHtml(a, p) {
+  if (p === "ipad") return a.phone ? `<p style="margin:.3rem 0 0;font-size:.93rem">${esc(a.phone)}</p>` : `<p class="muted" style="margin:0">${esc(a.name)} runs on ${esc(a.runsOn)}: open this page on one of those to install it.</p>`;
+  if (p === "android" && !a.steps.android) return `<p class="muted" style="margin:0">${esc(a.name)} runs on ${esc(a.runsOn)}: open this page on one of those to install it.</p>`;
+  return `<ol class="steps">${a.steps[p].map((s) => `<li>${esc(s)}</li>`).join("")}</ol>${p === "linux" ? `<div class="cmd"><code>${esc(a.linuxCommand)}</code>${copyBtn(a.linuxCommand)}</div>` : ""}`;
+}
+async function showDownloads(thanks) {
+  const el = dlSection(true); if (!el) return;
+  if (!me) { el.innerHTML = `<h2>Your downloads</h2><p class="muted">Sign in to see your apps, how to install them, and your keys.</p><a class="btn" href="#account">Sign in</a>`; $("#downloads").scrollIntoView({ behavior: "smooth" }); return; }
+  el.innerHTML = `<h2>Your downloads</h2><p class="muted">Loading…</p>`; $("#downloads").scrollIntoView({ behavior: "smooth" });
+  let d; try { d = await api("GET", "/downloads"); } catch (e) { el.innerHTML = `<h2>Your downloads</h2><p class="err">${esc(e.message)}</p>`; return; }
+  const others = (a) => Object.keys(PLATFORM_NAME).filter((p) => p !== PLATFORM && (p !== "android" || a.steps.android) && (p !== "ipad" || a.phone));
+  const appCard = (a) => `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(a.icon)}.svg" alt=""><div><h3>${esc(a.name)}</h3><span class="muted">${esc(a.runsOn)}${a.phone ? " · " + (a.kind === "U" ? "iPhone and iPad in Safari" : "iPad in Safari") : ""}</span></div></div>
+    <div class="dl-keys">${a.keys.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)}${k.inUse ? ` <span class="muted">· on ${k.inUse} device${k.inUse === 1 ? "" : "s"}</span> <button class="btn small ghost" data-dlrel="${esc(k.key)}">Release</button>` : ""}</div>`).join("")}
+      <span class="muted" style="font-size:.9rem">Type ${a.keys.length > 1 ? "a key" : "it"} when the app first opens (${esc(a.devices)} per key).</span></div>
+    ${PLATFORM !== "ipad" && !(PLATFORM === "android" && !a.steps.android) ? `<a class="btn" href="${esc(a.download)}" target="_blank" rel="noopener">Download ${esc(a.name)}</a>` : ""}
+    <div><b style="font-size:.92rem">On ${esc(PLATFORM_NAME[PLATFORM])}</b>${stepsHtml(a, PLATFORM)}</div>
+    <details><summary>Other computers and phones</summary>${others(a).map((p) => `<div style="margin-top:.5rem"><b style="font-size:.92rem">${esc(PLATFORM_NAME[p])}</b>${stepsHtml(a, p)}</div>`).join("")}<p style="margin:.5rem 0 0"><a href="${esc(a.guide)}">The full install guide</a></p></details></div>`;
+  const pedalCard = (p) => `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">${p.held ? "Being checked before it ships" : p.shipsTo ? "Ships to " + esc(p.shipsTo) : "Ships to the address you gave"}</span></div></div>
+    <p style="margin:0">It comes with its software on it and needs no key. When it arrives, set it up from your phone:</p><ol class="steps">${d.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+    <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home. Making your own SD card instead? <a href="${esc(d.sdCard)}">One line, no questions</a>.</p></div>`;
+  const pkgCard = d.packages.length ? `<div class="dl-card"><div class="dl-head"><div><h3>Sound plans</h3><span class="muted">Package keys</span></div></div>
+    <div class="dl-keys">${d.packages.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)} <span class="muted">· ${esc(k.plans)}${k.church ? " · from " + esc(k.church) : ""} · until ${esc(longDate(k.until))}</span></div>`).join("")}</div>
+    <p style="margin:0">In any app (Central Pedal, Central Pedal Control, Central Control, Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 2} devices at a time.</p></div>` : "";
+  const none = !d.apps.length && !d.pedals.length && !d.packages.length;
+  el.innerHTML = `<div class="sec-head"><h2>Your downloads</h2><p>${esc(thanks || "Your apps, how to install them, and your keys.")}</p></div>
+    ${none ? `<p class="muted">No keys here yet. Keys your church gives you come by email; keys you buy for yourself ("Just me") show up here. <a href="#store">Visit the store</a>.</p>` : `<div class="dl-grid">${d.pedals.map(pedalCard).join("")}${d.apps.map(appCard).join("")}${pkgCard}</div>`}
+    <p class="muted" style="font-size:.9rem">Every app is also on the <a href="${esc(d.appsUrl)}" target="_blank" rel="noopener">download page</a>. <a href="${esc(d.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.</p><div class="err" id="dlErr"></div>`;
+  wireCopies(el);
+  el.querySelectorAll("[data-dlrel]").forEach((b) => (b.onclick = async () => {
+    if (!confirm("Release this key from its devices? They stop working until the key is typed again.")) return;
+    try { await api("POST", "/church/release", { key: b.dataset.dlrel }); toast("Released. Type it on the device you want."); showDownloads(); } catch (e) { $("#dlErr").textContent = e.message; }
+  }));
+}
+// a church's purchase: next, add your people (each gets their app, how to install it and their key by email)
+function showNext(o) {
+  const el = dlSection(true); if (!el) return;
+  const kinds = {}; for (const l of o.licenses || []) kinds[l.kind] = (kinds[l.kind] || 0) + 1;
+  const kindText = Object.entries(kinds).map(([k, n]) => n + " " + ({ A: "Central Control (A)", U: "Central Usage (U)", P: "Central Pedal Control (P)" }[k] || k) + " key" + (n === 1 ? "" : "s")).join(", ");
+  el.innerHTML = `<div class="sec-head"><h2>Thank you! Next: add your people</h2><p>${esc(o.church || "Your church")} has what you bought. Stripe has emailed the receipt.</p></div>
+    <div class="dl-grid"><div class="dl-card"><h3>What you bought</h3><ul style="margin:0">${(o.itemNames || []).map((x) => `<li>${x.n > 1 ? x.n + " × " : ""}${esc(x.name)}</li>`).join("")}</ul>
+      ${kindText ? `<p class="muted" style="margin:0">${esc(kindText)}${o.slots ? " · " + o.slots + " Central Services slots" : ""}</p>` : ""}${o.shipping ? `<p class="muted" style="margin:0">The pedal ships to the address you gave.</p>` : ""}</div>
+    <div class="dl-card"><h3>Add your people on the Teams page</h3><p style="margin:0">Add your admins, users and Pedal Control people with their name and email. Each one gets an email with a link to make their account, their app's download link, how to install it, and their own key.</p>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="goTeams">Open Teams</button><a class="btn ghost" href="#downloads">Your own downloads</a></div></div></div>`;
+  $("#downloads").scrollIntoView({ behavior: "smooth" });
+  $("#goTeams").onclick = () => { location.hash = "account"; setTimeout(() => { const t = $("#teamsCard"); if (t) t.scrollIntoView({ behavior: "smooth" }); }, 700); };
 }
 // ---------------------------------------------------------------- sound plans: my package keys
 async function renderPackages() {
@@ -1014,6 +1081,8 @@ function renderAll() { renderSub(); renderPayout(); renderAccount(); loadTracks(
 // ---------------------------------------------------------------- returning from Stripe
 async function handleHash() {
   const h = location.hash.slice(1);
+  if (h === "downloads") return showDownloads();
+  if (!h.startsWith("order-done-") && $("#downloads")) $("#downloads").hidden = true;   // (the Downloads view shows only when it's asked for)
   if (h.startsWith("invite-")) return showInvite(h.slice(7));
   if (h.startsWith("reset-")) return showReset(h.slice(6));
   if (h.startsWith("confirm-")) { try { const r = await api("POST", "/account/confirm", { token: h.slice(8) }); history.replaceState(null, "", "#account"); await refreshMe(); modal(`<h3>Email confirmed</h3><p style="margin:0">${esc(r.email)} is confirmed. Thanks!</p><button class="btn" data-close>OK</button>`); } catch (e) { modal(`<h3>Confirm your email</h3><p class="err" style="margin:0">${esc(e.message)}</p><button class="btn" data-close>OK</button>`); } return; }
@@ -1024,10 +1093,9 @@ async function handleHash() {
     for (let i = 0; i < 15; i++) {
       const o = await api("GET", "/orders/" + encodeURIComponent(session)).catch(() => ({ pending: true }));
       if (!o.pending) {
-        modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your keys are also on your church's page (Account). Stripe has emailed your receipt. Enter a key when an app first opens: P keys in Central Pedal Control (the pedal itself needs none), A keys in Central Control, U keys in Central Usage.</p>
-          <div class="keys">${o.licenses.map((l) => `<div>${esc(l.product)}<br><b>${esc(l.key)}</b></div>`).join("")}</div>
-          <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>. A built pedal ships to the address you gave.</p><button class="btn" data-close>Done</button>`);
-        return;
+        closeModal(); await refreshMe().catch(() => {});
+        history.replaceState(null, "", o.personal ? "#downloads" : location.pathname);
+        return o.personal ? showDownloads("Thank you! Here's everything you just bought, and how to install it. It's in your email too.") : showNext(o);   // ("Just me": your downloads; a church: next, add your people)
       }
       await new Promise((r) => setTimeout(r, 2000));
     }
