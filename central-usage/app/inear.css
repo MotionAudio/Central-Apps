@@ -20,14 +20,15 @@
 .ie-mm { grid-column:1 / -1; display:grid; gap:3px; }
 .ie-mm i, .ie-meter i { display:block; height:5px; width:0; background:linear-gradient(90deg, #6FCF97, #6FCF97 70%, #F5CF72 85%, #ff6b4a); border-radius:3px; transition:width .08s linear; }
 .ie-chs { display:flex; flex-direction:column; gap:8px; }
-.ie-ch { display:grid; grid-template-columns:minmax(80px, 150px) 60px 1fr 52px 70px auto; gap:8px; align-items:center; padding:6px 0; border-top:1px solid var(--line, #343A44); }
+.ie-ch { display:grid; grid-template-columns:minmax(80px, 150px) 60px 1fr 52px 150px auto; gap:8px; align-items:center; padding:6px 0; border-top:1px solid var(--line, #343A44); }
 .ie-name { border-left:4px solid transparent; padding-left:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
 .ie-meter { background:rgba(255,255,255,.07); border-radius:3px; height:5px; overflow:hidden; }
 .ie-db, .ie-mdb { font-variant-numeric:tabular-nums; font-size:13px; color:var(--muted, #9AA1AB); text-align:right; }
 .ie-root input[type=range] { width:100%; min-width:0; accent-color:var(--accent, #E2C27E); }
 @media (max-width:620px) {
   .ie-ch { grid-template-columns:1fr 52px auto; grid-template-areas:"name db on" "fader fader fader" "meter meter pan"; }
-  .ie-ch .ie-name { grid-area:name; } .ie-ch .ie-db { grid-area:db; } .ie-ch label { grid-area:on; } .ie-ch [data-ie-send] { grid-area:fader; } .ie-ch .ie-meter { grid-area:meter; } .ie-ch .ie-pan { grid-area:pan; width:90px; }
+  .ie-ch { grid-template-areas:"name db on" "fader fader fader" "meter pan pan"; grid-template-columns:1fr 52px auto; }
+  .ie-ch .ie-name { grid-area:name; } .ie-ch .ie-db { grid-area:db; } .ie-ch label.toggle { grid-area:on; } .ie-ch [data-ie-send] { grid-area:fader; } .ie-ch .ie-meter { grid-area:meter; } .ie-ch .ie-panbox { grid-area:pan; width:160px; justify-self:end; }
   .ie-master { grid-template-columns:auto 1fr auto; } .ie-modes { grid-template-columns:1fr; }
 }
 /* several audio devices / Dante (I/O tab) and wired / local mixes (In-ears tab) */
@@ -62,3 +63,12 @@ button.mini { padding: 2px 8px; min-height: 0; font-size: 12px; }
 /* pan: a small round knob, not a fader cap */
 .ie-root input.ie-pan::-webkit-slider-thumb { width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #F4F1EA, #A9AEB6 60%, #6E7682); }
 .ie-root input.ie-pan::-webkit-slider-runnable-track { height: 4px; background: linear-gradient(90deg, #1B1E23, #060708 50%, #1B1E23); }
+/* PAN, labelled, with where it is (L 30 / C / R 30); a mono mix has none */
+.ie-panbox { display: grid; grid-template-columns: auto 1fr 3em; align-items: center; gap: 6px; margin: 0; min-width: 0; cursor: pointer; }
+.ie-panbox > span { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted, #9AA1AB); }
+.ie-panv { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.ie-panbox.ie-mono { display: block; font-size: 11px; color: var(--muted, #9AA1AB); text-align: center; letter-spacing: .04em; }
+/* Stereo / Mono for my own mix */
+.ie-seg { display: inline-flex; border: 1px solid var(--line, #343A44); border-radius: 10px; overflow: hidden; }
+.ie-seg button { border: 0; border-radius: 0; padding: 8px 12px; background: transparent; }
+.ie-seg button.on { background: var(--accent, #E2C27E); color: #1A1408; font-weight: 700; }

@@ -500,6 +500,33 @@ async def main():
         mini.drag(*_raw(int(x0 + (x1 - x0) * 0.75), 92))
         check("small screen: the TRACKS tab → Mixer; a fader sends its level when tapped and follows a drag",
               tab_hit == {"local": "tab", "value": "tracks"} and fad and fad["name"] == "tracksLevel" and len(_taps) == 2 and abs(_taps[0]["value"] - 0.25) < 0.02 and abs(_taps[1]["value"] - 0.75) < 0.03, (tab_hit, fad and fad["name"], _taps))
+        # each track's PAN beside its level: a tap doesn't jump it, a drag moves it, a double-tap centres it
+        disp_p = dict(disp, mini=dict(disp["mini"], stems=[{"i": 0, "name": "Drums", "gain": 1.0, "mute": False, "pan": -0.3}]))
+        mini.render(disp_p)
+        ph = mini.hit_test(434, 158)
+        _taps.clear(); mini.pan_tap = None
+        mini.tap(*_raw(434, 158))
+        n_tap = len(_taps)
+        mini.drag_at = 0
+        mini.drag(*_raw(460, 158))
+        dragged = list(_taps)
+        mini.active, mini.pan_tap = None, None
+        _taps.clear()
+        mini.tap(*_raw(434, 158)); mini.tap(*_raw(434, 158))
+        check("small screen: each track has a PAN beside its level - a tap doesn't jump it, a drag moves it, a double-tap centres it (stemPan)",
+              ph and ph.get("name") == "stemPan" and ph.get("pan") and ph.get("args") == {"index": 0} and n_tap == 0
+              and len(dragged) == 1 and dragged[0]["name"] == "stemPan" and dragged[0]["value"] > 0.8
+              and len(_taps) == 1 and _taps[0]["args"] == {"index": 0, "pan": 0} and abs(_taps[0]["value"] - 0.5) < 1e-6
+              and driver_mod.MiniScreen.pan_text(-0.3) == "L 30" and driver_mod.MiniScreen.pan_text(0.01) == "C" and driver_mod.MiniScreen.pan_text(1) == "R 100",
+              (ph, n_tap, dragged, _taps))
+        _src0 = driver.netaudio.sources.get(0)
+        driver.netaudio.set_info({"channels": ["Drums", "Bass", "Click + cues"], "pans": [0.25, "x"], "rate": 48000})
+        check("the tracks' pans go with their names to Central Control (a missing or bad one is centre)",
+              driver.netaudio.sources[0].get("pans") == [0.25, 0.0, 0.0], driver.netaudio.sources[0])
+        if _src0 is None:
+            driver.netaudio.sources.pop(0, None)
+        else:
+            driver.netaudio.sources[0] = _src0
         mini.local({"local": "tab", "value": "instrument"}); mini.local({"local": "sub", "tab": "instrument", "value": "pedals"})
         mini.render(disp)
         ped = mini.hit_test(60, 110)

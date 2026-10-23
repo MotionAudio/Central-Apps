@@ -67,6 +67,23 @@ await check("Mix tab: a strip per track; a fader move and the EQ go to the engin
   const saved = await until(() => { try { const j = JSON.parse(fs.readFileSync(path.join(userData, "mixer.json"), "utf8")); return j.inputs && j.inputs[k].fader === -12 ? j : null; } catch (_) { return null; } }, 4000);
   assert.ok(saved);
 });
+await check("Mix tab: every strip has a labelled PAN that says L 30 / C / R 30; a double-click centres it", async () => {
+  const k = await cu.evaluate(() => CUMix.state.inputs.findIndex((x) => x.name === "Keys"));
+  const sel = '.mx-strip[data-i="' + k + '"] [data-mx="pan"]';
+  assert.equal(await cu.evaluate((k) => { const b = document.querySelector('.mx-strip[data-i="' + k + '"] .mx-panbox'); return b && b.querySelector("span").textContent + "|" + b.querySelector(".mx-panv").textContent; }, k), "PAN|C");
+  await cu.$eval(sel, (el) => { el.value = "0.3"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  await until(() => cu.evaluate((k) => CUMix.state.inputs[k].pan === 0.3, k), 3000);
+  assert.equal(await cu.evaluate((k) => document.querySelector('.mx-strip[data-i="' + k + '"] .mx-panv').textContent, k), "R 30");
+  await cu.dblclick(sel);
+  await until(() => cu.evaluate((k) => CUMix.state.inputs[k].pan === 0, k), 3000);
+});
+await check("a Central Pedal track starts at the pan it has on the pedal", async () => {
+  const { Engine } = (await import(path.join(here, "engine.js"))).default;
+  const eng = new Engine({ dir: fs.mkdtempSync(path.join(os.tmpdir(), "cu-pan-")) });
+  eng.setPiStream({ 0: { channels: ["Bass", "Pads L", "Pads R"], pans: [-0.4, -1, 1] } }, 0);
+  const got = ["Bass", "Pads L", "Pads R"].map((n) => (eng.state.inputs.find((x) => x.name === n) || {}).pan);
+  assert.deepEqual(got, [-0.4, -1, 1]);
+});
 await check("tracks out: each track on its own output (direct) is chosen on the Mix tab", async () => {
   await cu.evaluate(() => CUMix.op({ op: "trackOut", value: "direct", first: 2 }));
   await until(() => cu.evaluate(() => CUMix.state.trackOut === "direct" && document.querySelector('[name="mxOut"][value="direct"]').checked), 3000);
@@ -90,6 +107,19 @@ await check("the phone sets its own levels (they reach the audio host) and hears
   await phone.waitForFunction(() => /buffer \d+ ms/.test((document.querySelector(".ie-stats") || {}).textContent || ""), null, { timeout: 8000 });
   const mine = await until(() => cu.evaluate(() => CUMix.meters && CUMix.meters.mix[4] > 0.01 ? CUMix.meters.mix[4] : null), 6000); assert.ok(mine > 0.01);
 });
+await check("the phone's mix is stereo: every channel has a labelled PAN; the user switches their own mix to Mono (pan goes) and back", async () => {
+  await until(() => phone.evaluate(() => document.querySelectorAll(".ie-ch .ie-panbox .ie-pan").length >= 2 && document.querySelector('[data-ie="stereo"]').classList.contains("on")), 4000);
+  assert.equal(await phone.evaluate(() => document.querySelector(".ie-ch .ie-panbox span").textContent), "PAN");
+  await phone.evaluate(() => { const r = [...document.querySelectorAll(".ie-ch")].find((x) => x.querySelector(".ie-name").textContent === "Kick").querySelector(".ie-pan"); r.value = "-0.5"; r.dispatchEvent(new Event("input", { bubbles: true })); });
+  await until(() => cu.evaluate(() => { const k = CUMix.state.inputs.findIndex((x) => x.name === "Kick"), s = CUMix.state.mixes[2].sends[k]; return s && s.pan === -0.5; }), 4000);
+  assert.equal(await phone.evaluate(() => [...document.querySelectorAll(".ie-ch")].find((x) => x.querySelector(".ie-name").textContent === "Kick").querySelector(".ie-panv").textContent), "L 50");
+  await phone.click('[data-ie="mono"]');
+  await until(() => cu.evaluate(() => CUMix.state.mixes[2].stereo === false), 4000);
+  await until(() => phone.evaluate(() => document.querySelectorAll(".ie-ch .ie-pan").length === 0 && document.querySelectorAll(".ie-ch .ie-mono").length >= 2), 4000);
+  await phone.click('[data-ie="stereo"]');
+  await until(() => cu.evaluate(() => CUMix.state.mixes[2].stereo === true), 4000);
+  await until(() => phone.evaluate(() => document.querySelectorAll(".ie-ch .ie-pan").length >= 2), 4000);
+});
 await check("a phone can't change someone else's mix or the channels", async () => {
   const ok = await phone.evaluate(() => new Promise((res) => { const ws = new WebSocket("ws://" + location.host + "/ws"); ws.onopen = () => { ws.send(JSON.stringify({ type: "hello", role: "user", code: "1111", id: "other", name: "Other" })); setTimeout(() => { ws.send(JSON.stringify({ type: "op", op: { op: "send", m: 2, i: 0, patch: { level: 6 } } })); ws.send(JSON.stringify({ type: "op", op: { op: "input", i: 0, patch: { fader: 6 } } })); }, 200); }; const got = []; ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.type === "refused") got.push(m.error); if (got.length === 2) res(got); }; setTimeout(() => res(got), 3000); }));
   assert.equal(ok.length, 2, JSON.stringify(ok));
@@ -97,6 +127,12 @@ await check("a phone can't change someone else's mix or the channels", async () 
 await check("the admin's In-ears tab shows who has which mix", async () => {
   await cu.evaluate(() => CentralUsage.showTab("inears")); await cu.waitForSelector(".ia-mix", { timeout: 5000 });
   const t = await cu.evaluate(() => document.querySelector('.ia-mix[data-ia-mix="2"]').textContent); assert.match(t, /Sam/);
+  // the desk sees every channel's PAN in a stereo mix (labelled, L 50 / C / R 50), none in a mono one
+  await cu.click('.ia-mix[data-ia-mix="2"]');
+  await until(() => cu.evaluate(() => { const v = [...document.querySelectorAll(".ia-mixed .ie-ch")].map((r) => (r.querySelector(".ie-panv") || {}).textContent); return v.includes("L 50") && v.every((x) => x); }), 4000);
+  await cu.evaluate(() => CUMix.op({ op: "mix", m: 2, patch: { stereo: false } }));
+  await until(() => cu.evaluate(() => document.querySelectorAll(".ia-mixed .ie-pan").length === 0 && document.querySelectorAll(".ia-mixed .ie-mono").length > 0), 4000);
+  await cu.evaluate(() => CUMix.op({ op: "mix", m: 2, patch: { stereo: true } }));
 });
 await check("64 stereo mixes: the model, the In-ears grid, and Mix 64 mixes and meters", async () => {
   assert.equal(await cu.evaluate(() => CUMix.state.mixes.length), 64);

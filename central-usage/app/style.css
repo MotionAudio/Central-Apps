@@ -139,6 +139,11 @@ button.on { background: color-mix(in srgb, var(--accent), transparent 70%); bord
 .mx-meter { position: relative; width: 10px; background: var(--well); border-radius: 4px; overflow: hidden; } .mx-meter i { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(0deg, #6FCF97, #6FCF97 70%, #F5CF72 85%, #ff6b4a); } .mx-meter b { position: absolute; left: 0; right: 0; top: 0; height: 0; background: rgba(255, 120, 120, .8); }
 .mx-fader { writing-mode: vertical-lr; direction: rtl; width: 34px; height: 200px; accent-color: var(--accent); }
 .mx-db { text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); } .mx-pan { width: 100%; accent-color: var(--blue); }
+/* PAN, labelled, with where it is (L 30 / C / R 30) - on the Mix tab strips (the in-ear channels: inear.css) */
+.mx-panbox { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px; margin: 0; min-width: 0; cursor: pointer; }
+.mx-panbox > span { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); }
+.mx-panv { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 2.8em; text-align: right; }
+.mx-panbox { grid-template-columns: 1fr auto; row-gap: 2px; } .mx-panbox .mx-pan { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
 .mx-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; } .mx-btns button { padding: 4px 0; font-size: 11px; font-weight: 800; } .mx-strip select { width: 100%; font-size: 11px; padding: 3px; }
 .mx-detail { gap: 12px; } .mx-dhead { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .mx-dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .mx-dcol { display: grid; gap: 6px; align-content: start; } .mx-dcol h4 { margin: 0; } .mx-sl { display: grid !important; grid-template-columns: 90px 1fr 70px; align-items: center; gap: 8px; } .mx-sl output { font-size: 12px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
