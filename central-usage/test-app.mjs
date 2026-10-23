@@ -30,6 +30,23 @@ const app = await electron.launch({ executablePath: exe, args: [path.join(here, 
 const win = await app.firstWindow();
 await win.waitForFunction(() => window.CULights && window.CU && window.CU.remote);
 
+// no website yet: Central Control asks for its A key (the production's name, then the key); only the default A key works
+await check("Central Control opens on its key setup with no website; a key for another app and a random key are refused with the right words", async () => {
+  await win.waitForSelector("dialog#licWiz[open] #lwProd", { timeout: 10000 });
+  assert.deepEqual(await win.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)), ["1. Production", "2. License key"]);
+  await win.fill("#lwProd", "Grace Church"); await win.click('#licWiz [data-lw="prod"]'); await win.waitForSelector("#lwKey");
+  await win.fill("#lwKey", "PDEF-AULT-KEY0-2026"); await win.click('#licWiz [data-lw="key"]');
+  assert.match(await win.textContent("#licWiz .bad"), /That's a P key .*Central Control needs a key that starts with A\./);
+  await win.fill("#lwKey", "AQ7K-2MXR-9TLB-4WZD"); await win.click('#licWiz [data-lw="key"]'); await win.waitForTimeout(100);
+  assert.equal(await win.textContent("#licWiz .bad"), "This key can't be checked yet - the Motion Audio website isn't open. Use the default key for now.");
+});
+await check("the default A key opens it, survives a reload, and Settings → License calls it the default key (temporary)", async () => {
+  await win.fill("#lwKey", "ADEF-AULT-KEY0-2026"); await win.click('#licWiz [data-lw="key"]'); await win.waitForSelector("dialog#licWiz", { state: "detached", timeout: 4000 });
+  await win.reload(); await win.waitForFunction(() => window.CULights && window.CU && window.CU.remote && window.PPLicense); await win.waitForTimeout(800);
+  assert.equal(await win.$("dialog#licWiz"), null, "no setup after a reload");
+  assert.match(await win.evaluate(() => PPLicense.settingsHtml("card")), /Default key \(temporary\)/);
+});
+
 await check("the phone remote: switched on in Lighting → Output, it serves its page and the lights' state with the code, refuses a wrong code", async () => {
   await win.evaluate(() => { document.querySelector('[data-tab="lights"]').click(); CULights.showSub("output"); });
   await win.waitForSelector("#lxRmOn", { timeout: 5000 });

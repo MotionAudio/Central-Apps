@@ -65,16 +65,23 @@ await check("Central Pedal Control opens on the setup: internet ✓, then the pr
   await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await wait(300);
   assert.ok(await T(() => document.getElementById("licWiz") && document.getElementById("licWiz").open), "Escape (twice) doesn't skip it");
 });
-await check("...the name, then the key that came on the card is already filled in, with this pedal's name", async () => {
+await check("...the name, then the key (Pedal Control is its own device: no key from a pedal's card), with this device's name", async () => {
   await page.fill("#lwProd", "Grace Church"); await page.click('#licWiz [data-lw="prod"]');
   const k = await until(() => T(() => { const i = document.getElementById("lwKey"); return i ? { key: i.value, dev: document.getElementById("lwDev").value } : null; }));
-  assert.equal(k.key, P1); assert.match(k.dev, /^Central Pedal/);
+  assert.equal(k.key, ""); assert.match(k.dev, /^Central Pedal Control/);
   assert.equal(await T(() => PP.project().name), "Grace Church", "the set is named after the production");
 });
-await check("...a wrong kind of key is caught before it is sent; a key used on another device says where", async () => {
+await check("...a wrong kind of key is caught before it is sent; with the website open the default key is checked there like any key; a key used on another device says where", async () => {
   await page.fill("#lwKey", A1); await page.click('#licWiz [data-lw="key"]');
   assert.match(await T(() => document.querySelector("#licWiz .bad").textContent), /needs a key that starts with P/);
+  const sent = []; const onReq = (r) => { if (/\/v1\/license\/activate$/.test(r.url())) sent.push(r.postDataJSON()); }; page.on("request", onReq);
+  await page.fill("#lwKey", "PDEF-AULT-KEY0-2026"); await page.click('#licWiz [data-lw="key"]');
+  await until(() => sent.length > 0 && T(() => !!document.getElementById("lwKey") && !document.querySelector('#licWiz [data-lw="key"]').disabled), 8000);
+  page.off("request", onReq); assert.equal(sent[0].key, "PDEF-AULT-KEY0-2026", "the website decides (staff can switch the default keys off)");
+  await T(() => { const s = PPLicense.state(); if (s && s.key === "PDEF-AULT-KEY0-2026") { localStorage.removeItem("cc-license"); } });   // (if the website took it, start over without it)
+  if (!(await T(() => !!document.getElementById("lwKey")))) { await page.reload(); await until(() => T(() => !!document.getElementById("lwProd") || !!document.getElementById("lwKey")), 10000); if (await T(() => !!document.getElementById("lwProd"))) { await page.fill("#lwProd", "Grace Church"); await page.click('#licWiz [data-lw="prod"]'); } }
   await j("POST", "/license/activate", { key: P2, device: "dev-someone-elses", deviceName: "Youth room pedal", app: "pedal-control" });
+  await j("POST", "/license/activate", { key: P2, device: "dev-someone-elses-2", deviceName: "Office iPad", app: "pedal-control" });   // (a Pedal Control key is on two devices at most)
   await page.fill("#lwKey", P2); await page.click('#licWiz [data-lw="key"]');
   await until(() => T(() => /Youth room pedal/.test((document.querySelector("#licWiz .bad") || {}).textContent || "")));
 });
@@ -90,12 +97,11 @@ await check("...its own key works; then the account: the main admin signs in, an
   const ch = await j("GET", "/church", null, owner.token);
   assert.ok(ch.keys.some((k) => k.key === P1 && k.inUse && /^Central Pedal/.test(k.device)), "the website shows the key on this pedal");
 });
-await check("the pedal keeps a copy with its driver (a wiped browser profile doesn't ask again) and uses its own id", async () => {
-  await until(() => fs.existsSync(path.join(tmp, "license-state.json")) && JSON.parse(fs.readFileSync(path.join(tmp, "license-state.json"), "utf8")).key === P1, 6000);
-  assert.equal(await T(() => PPLicense.deviceId() === window.__pedalBridge.info.deviceId && /^dev-[0-9a-f]{24}$/.test(PPLicense.deviceId())), true);
-  await T(() => { localStorage.removeItem("cc-license"); localStorage.removeItem("cc-device-id"); });
+await check("Pedal Control keeps its key and its own device id across a reload (no setup again)", async () => {
+  const id = await T(() => PPLicense.deviceId()); assert.match(id, /^dev-[0-9a-f]{24}$/);
   await page.reload(); await page.waitForFunction(() => window.PPLicense && PPLicense.app()); await wait(2000);
-  assert.equal(await T(() => !document.getElementById("licWiz") && PPLicense.complete()), true, "no setup after the profile was wiped");
+  assert.equal(await T(() => !document.getElementById("licWiz") && PPLicense.complete() && PPLicense.app()), "pedal-control", "no setup after a reload");
+  assert.equal(await T(() => PPLicense.deviceId()), id);
 });
 await check("Settings → License shows the key and Release key frees it (the setup comes back)", async () => {
   await T(() => PPShell.showTab("settings")); await until(() => T(() => !!document.querySelector('#licSettings [data-lic="release"]')), 6000);

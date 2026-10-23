@@ -30,7 +30,8 @@ await pi.waitForFunction(() => PPTracks.song() && PPTracks.song().chart && PPTra
 await pi.evaluate(() => { PPTracks.sendDisplay(); PPFeatures.sendToDriver({ type: "system", action: "status" }); }); await pi.waitForFunction(() => PPFeatures.systemStatus() && PPFeatures.systemStatus().code, null, { timeout: 5000 }); code = await pi.evaluate(() => PPFeatures.systemStatus().code);
 // Central Control renderer
 const cu = await ctx.newPage(); cu.on("pageerror", (e) => errs.push("cu:" + e)); cu.on("console", (m) => { if (m.type() === "error" && !/favicon|NAME_NOT_RESOLVED|padpedal\.local/.test(m.text())) errs.push("cu-console:" + m.text()); });
-await cu.addInitScript(() => { if (!localStorage.getItem("cu-mode")) localStorage.setItem("cu-mode", JSON.stringify("user")); });   // a musician's computer first (chart, lyrics)
+await cu.addInitScript(() => { if (!localStorage.getItem("cu-mode")) localStorage.setItem("cu-mode", JSON.stringify("user")); });
+await cu.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "ADEF-AULT-KEY0-2026", kind: "A", app: "control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });   // (no website yet: Central Control on its default key)   // a musician's computer first (chart, lyrics)
 await cu.goto("file://" + path.join(here, "app", "index.html") + ""); await cu.waitForFunction(() => window.CentralUsage);
 await cu.evaluate(() => { CentralUsage.connect("127.0.0.1"); });
 await check("connects to the Central Pedal and shows its song", async () => { await cu.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.display && CentralUsage.state.display.song, null, { timeout: 8000 }); assert.match(await cu.textContent("#songName"), /Test Song/); });
@@ -310,7 +311,8 @@ await check("parts on the chart tab: pick Bass / Keys / Drums / Trumpet and the 
 async function cuPage(label) {
   const c = await b.newContext({ viewport: { width: 1280, height: 800 } }); const p = await c.newPage();
   p.on("pageerror", (e) => errs.push(label + ":" + e)); p.on("console", (m) => { if (m.type() === "error" && !/favicon|NAME_NOT_RESOLVED|ERR_CONNECTION_REFUSED|padpedal\.local/.test(m.text())) errs.push(label + "-console:" + m.text()); });
-  await p.addInitScript(() => { if (!localStorage.getItem("cu-centerHost")) localStorage.setItem("cu-centerHost", JSON.stringify("127.0.0.1:8095")); });   // (the app finds the main admin by itself; a plain browser page is told)
+  await p.addInitScript(() => { if (!localStorage.getItem("cu-centerHost")) localStorage.setItem("cu-centerHost", JSON.stringify("127.0.0.1:8095")); });
+  await p.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "ADEF-AULT-KEY0-2026", kind: "A", app: "control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });   // (the app finds the main admin by itself; a plain browser page is told)
   await p.goto("file://" + path.join(here, "app", "index.html")); await p.waitForFunction(() => window.CentralUsage && window.CURoles);
   return p;
 }
@@ -449,6 +451,7 @@ await check("Forget role on the main admin goes back to the first-launch choice"
 await check("iPhone / iPad: Central Control opens from the Central Pedal (http://pi:8080/cu/), joins as a user, shows the user tabs and the parts", async () => {
   const c = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" });
   const p = await c.newPage(); p.on("pageerror", (e) => errs.push("web:" + e)); p.on("console", (m) => { if (m.type() === "error" && !/favicon|icon\.png|404|ERR_CONNECTION_REFUSED/.test(m.text())) errs.push("web-console:" + m.text()); });
+  await p.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "UDEF-AULT-KEY0-2026", kind: "U", app: "usage", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });   // (a phone is Central Usage: its default U key)
   const r = await p.goto("http://127.0.0.1:8080/cu/"); assert.equal(r.status(), 200);
   await p.waitForFunction(() => window.CentralUsage && window.CURoles && CentralUsage.web);
   const man = await (await fetch("http://127.0.0.1:8080/cu/manifest.webmanifest")).json(); assert.equal(man.display, "standalone");
@@ -462,6 +465,19 @@ await check("iPhone / iPad: Central Control opens from the Central Pedal (http:/
   await p.click('[data-tab="chart"]'); await p.selectOption("#partPick", "bass");
   await p.waitForFunction(() => document.querySelector("#partView svg"), null, { timeout: 8000 });
   const wide = await p.evaluate(() => document.documentElement.scrollWidth); assert.ok(wide <= 400, "no sideways scrolling of the page: " + wide);
+  await c.close();
+});
+await check("no website yet: Central Usage asks for its U key; an A key and a random key are refused, the default U key opens it and stays after a reload", async () => {
+  const c = await b.newContext({ viewport: { width: 1280, height: 800 } }), p = await c.newPage(); p.on("pageerror", (e) => errs.push("usage-key:" + e));
+  await p.goto("file://" + path.join(here, "app", "index.html") + "?edition=usage"); await p.waitForSelector("dialog#licWiz[open] #lwProd", { timeout: 10000 });
+  await p.fill("#lwProd", "Grace Church"); await p.click('#licWiz [data-lw="prod"]'); await p.waitForSelector("#lwKey");
+  await p.fill("#lwKey", "ADEF-AULT-KEY0-2026"); await p.click('#licWiz [data-lw="key"]');
+  assert.match(await p.textContent("#licWiz .bad"), /That's an A key .*Central Usage needs a key that starts with U\./);
+  await p.fill("#lwKey", "UQ7K-2MXR-9TLB-4WZD"); await p.click('#licWiz [data-lw="key"]'); await p.waitForTimeout(100);
+  assert.match(await p.textContent("#licWiz .bad"), /website isn't open\. Use the default key for now\./);
+  await p.fill("#lwKey", "UDEF-AULT-KEY0-2026"); await p.click('#licWiz [data-lw="key"]'); await p.waitForSelector("dialog#licWiz", { state: "detached", timeout: 4000 });
+  await p.reload(); await p.waitForFunction(() => window.CentralUsage && window.PPLicense); await p.waitForTimeout(800);
+  assert.equal(await p.$("dialog#licWiz"), null); assert.equal(await p.evaluate(() => PPLicense.app()), "usage");
   await c.close();
 });
 await check("two apps from one code: Central Control offers the main admin and Admin; Central Usage (and phones) only User 1 / User 2", async () => {

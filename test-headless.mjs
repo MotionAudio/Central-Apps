@@ -29,6 +29,8 @@ async function check(label, fn) {
 
 const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+// (opened from a file this is Central Pedal Control, which needs a key: the default P key, as a church would enter it today)
+await page.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "PDEF-AULT-KEY0-2026", kind: "P", app: "pedal-control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });
 // The app tries ws://127.0.0.1:8765 (the pedal driver). On a machine without the
 // driver that connection is refused; the app handles it, Chrome still logs it.
 const benign = /127\.0\.0\.1:876[56]|ERR_CONNECTION_REFUSED/;  // the pedal driver is not running on a PC
@@ -332,6 +334,38 @@ await check("Settings tab opens and explains safe mode needs the Pi", async () =
 
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));
 
+// ---- the license keys before the website opens: Central Pedal Control asks for its key (production name, then the key);
+// only the default P key works; it survives a reload; Settings → License says it's the default key
+console.log("\nLicense keys with no website (default keys):");
+{
+  const p3 = await browser.newPage({ viewport: { width: 1100, height: 800 } }); const errs3 = []; p3.on("pageerror", (e) => errs3.push(String(e)));
+  await p3.addInitScript(() => { window.CP_CONTROL = true; });   // (Central Pedal Control, as its app and /control/ mark it)
+  await p3.goto("file://" + pagePath); await p3.waitForFunction(() => window.PPLicense && window.PPShell);
+  await check("Central Pedal Control opens on the setup with no website: the production's name, then the key (no internet or account steps)", async () => {
+    await p3.waitForSelector("dialog#licWiz[open]", { timeout: 8000 });
+    const steps = await p3.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)); assert.deepEqual(steps, ["1. Production", "2. License key"]);
+    await p3.fill("#lwProd", "Grace Church"); await p3.click('#licWiz [data-lw="prod"]'); await p3.waitForSelector("#lwKey");
+    assert.match(await p3.textContent("#licWiz"), /PDEF-AULT-KEY0-2026/);
+  });
+  await check("a key for another app and a random key are refused with the right words", async () => {
+    await p3.fill("#lwKey", "ADEF-AULT-KEY0-2026"); await p3.click('#licWiz [data-lw="key"]'); await wait(100);
+    assert.match(await p3.textContent("#licWiz .bad"), /That's an A key \(Central Control - admins\)\. Central Pedal Control needs a key that starts with P\./);
+    await p3.fill("#lwKey", "PQ7K-2MXR-9TLB-4WZD"); await p3.click('#licWiz [data-lw="key"]'); await wait(100);
+    assert.equal(await p3.textContent("#licWiz .bad"), "This key can't be checked yet - the Motion Audio website isn't open. Use the default key for now.");
+  });
+  await check("the default key opens it, survives a reload, and Settings → License calls it the default key (temporary)", async () => {
+    await p3.fill("#lwKey", "pdef-ault-key0-2026"); await p3.click('#licWiz [data-lw="key"]'); await wait(300);
+    assert.equal(await p3.$("dialog#licWiz"), null, "the setup closed");
+    await p3.reload(); await p3.waitForFunction(() => window.PPLicense && window.PPShell); await wait(800);
+    assert.equal(await p3.$("dialog#licWiz"), null, "no setup after a reload");
+    const r = await p3.evaluate(() => ({ html: PPLicense.settingsHtml(), cov: PPLicense.coverage(), st: PPLicense.state(), keys: PPLicense.hasPlan("keys") }));
+    assert.match(r.html, /Default key \(temporary\)/); assert.equal(r.st.production, "Grace Church"); assert.deepEqual([r.cov.updatesUntil, r.cov.text, r.cov.expiresAt], [null, "forever", null]);
+    assert.equal(r.keys, true, "sound plans stay open until the website opens");
+    assert.deepEqual(errs3, []);
+  });
+  await p3.close();
+}
+
 // ---- packages (the sound plans) against a stand-in website, on a page with just the license file: the Central Pedal has no key
 // of its own (no setup wizard), its packages are activated for the pedal's id and kept with its driver; 14 days offline at most
 console.log("\nPackages (sound plans):");
@@ -401,6 +435,20 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     const r = await R(() => ({ n: PPLicense.packages().length, saved: window.__sent.filter((m) => m.type === "packages").pop() }));
     assert.deepEqual(rel && rel[1], { key: "SABC-DEFG-HJKL-MNPQ", deviceId: "pedal-0123456789ab" }); assert.equal(r.n, 0); assert.deepEqual(r.saved.packages, []);
     assert.deepEqual(errs, []);
+  });
+  await check("with no website the Central Pedal still needs no key; Settings → Packages takes only the default package key (every plan)", async () => {
+    const p4 = await browser.newPage(); const html = fs.readFileSync(tmpPage, "utf8").replace('server: "http://127.0.0.1:18893", ', "");
+    const tmp4 = tmpPage.replace(/\.html$/, "-nosite.html"); fs.writeFileSync(tmp4, html);
+    await p4.goto("file://" + tmp4); await p4.evaluate(() => { localStorage.clear(); PPLicense.init({ app: "pedal", packages: [] }); document.getElementById("set").innerHTML = PPLicense.settingsHtml(); }); await wait(200);
+    const wiz = await p4.$("dialog#licWiz"), open = await p4.evaluate(() => PPLicense.hasPlan("pedals"));
+    await p4.fill("#pkgKey", "SQ7K-2MXR-9TLB-4WZD"); await p4.click('[data-pkg="add"]'); await wait(100);
+    const refused = await p4.textContent("#pkgSettings .small");
+    await p4.fill("#pkgKey", "SDEF-AULT-KEY0-2026"); await p4.click('[data-pkg="add"]'); await wait(200);
+    const r = await p4.evaluate(() => ({ list: PPLicense.packages(), text: document.getElementById("pkgSettings").textContent, saved: window.__sent.filter((m) => m.type === "packages").pop() }));
+    assert.equal(wiz, null); assert.equal(open, true); assert.match(refused, /website isn't open\. Use the default key for now/);
+    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pedals", "plugins"]); assert.match(r.text, /Default package \(temporary\)/);
+    assert.ok(r.saved && r.saved.packages[0].key === "SDEF-AULT-KEY0-2026", "kept with the pedal's driver");
+    await p4.close(); fs.rmSync(tmp4, { force: true });
   });
   await p2.close(); srv.close(); fs.rmSync(tmpPage, { force: true });
 }
