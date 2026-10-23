@@ -67,11 +67,11 @@ await check("⚙ App settings: the website's address, and Install by itself (on;
   const st = await win.evaluate(() => window.CSDesktop.updates.status()); assert.equal(st.autoInstall, false);
   await win.evaluate(() => window.CSDesktop.updates.config({ autoInstall: true }));
 });
-await check("the main admin signs in: the church's name, Main admin and Scheduler, opening on the schedule; the new service is on it", async () => {
+await check("the church account signs in: the church's name, Church account and Scheduler, opening on the schedule; the new service is on it", async () => {
   await win.fill("#sEmail", "pastor" + S + "@faith.test"); await win.fill("#sPass", "password123"); await win.click('[data-a="login"]');
   await win.waitForFunction(() => document.querySelector("header h1"));
   assert.equal(await win.textContent("header h1"), "Faith Church " + S);
-  assert.equal(await win.textContent("header .badge"), "Main admin");
+  assert.equal(await win.textContent("header .badge"), "Church account");
   assert.equal(await win.textContent("header .badge.sched"), "Scheduler");
   assert.ok(await win.evaluate(() => document.querySelector('[data-tab="schedule"]').classList.contains("on")), "an admin opens on the whole schedule");
   assert.ok(await win.evaluate(() => !!document.querySelector('[data-tab="new"]')), "a scheduler can make services");

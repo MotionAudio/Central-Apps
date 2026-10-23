@@ -10,8 +10,8 @@
   "id": "cc-lights",
   "app": "Central Control",
   "file": "img/apps/cc-lights.webp",
-  "alt": "Central Control's Lighting tab: a stage plot of the fixtures, preset looks like Worship blue and Warm verse, the song's timeline with lighting cues on each verse, and fader strips for every light.",
-  "caption": "Lighting follows the song: cues sit on the song's sections and the lights change by themselves."
+  "alt": "The Lighting tab: the stage in 3D with trusses, moving heads, light bars and beams, above the presets",
+  "caption": "Lighting: your stage in 3D, with every light where it hangs and where it points."
  },
  {
   "id": "cc-mix",

@@ -74,7 +74,7 @@ figure.shot.missing{display:none}
 
 /* a terminal line with a copy button */
 .cmd{display:flex;align-items:center;gap:.6rem;background:var(--stage);color:var(--on-stage);border-radius:var(--r-sm);padding:.55rem .6rem .55rem .9rem}
-.cmd code{flex:1;background:none;border:0;color:inherit;padding:0;font-size:.86rem;white-space:pre-wrap;word-break:break-all}
+.cmd code{flex:1;min-width:0;background:none;border:0;color:inherit;padding:0;font-size:.86rem;white-space:pre-wrap;word-break:break-all;overflow-wrap:anywhere}
 .cmd button{flex:none;background:var(--stage-3);color:var(--on-stage);border:1px solid var(--stage-line);border-radius:var(--r-sm);padding:.25rem .7rem;font-size:.82rem;min-height:32px}
 .cmd button:hover{border-color:var(--on-stage-2)}
 pre.block{background:var(--stage);color:var(--on-stage);border-radius:var(--r-sm);padding:.9rem 1rem;overflow:auto;font-size:.84rem;line-height:1.55}

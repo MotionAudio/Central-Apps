@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Central Pedal lyrics</title>
 <style>
-  :root { --size:7vh; --fg:#fff; --bg:#000; --dim:rgba(255,255,255,.42); }
+  :root { --size:min(7vh, 8.05vw); --fit:1; --fg:#fff; --bg:#000; --dim:rgba(255,255,255,.42); }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:Archivo,Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; cursor:none; }
   body.light { --fg:#000; --bg:#fff; --dim:rgba(0,0,0,.45); }
   body.show-cursor { cursor:auto; }
   .stage { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4vh 6vw; text-align:center; transition:opacity .35s; }
   .stage.blank { opacity:0; }
   .section { position:absolute; top:3vh; left:0; right:0; font-size:2.6vh; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); }
-  .lines { font-size:var(--size); line-height:1.25; font-weight:700; text-wrap:balance; }
+  .lines { font-size:calc(var(--size) * var(--fit)); line-height:1.25; font-weight:700; text-wrap:balance; }
   .lines div { margin:.1em 0; }
-  .next { margin-top:4vh; font-size:calc(var(--size) * .55); line-height:1.25; color:var(--dim); }
+  .next { margin-top:4vh; font-size:calc(var(--size) * .55 * var(--fit)); line-height:1.25; color:var(--dim); }
   .title { font-size:calc(var(--size) * .9); font-weight:800; }
   .sub { color:var(--dim); font-size:3vh; margin-top:2vh; }
   .status { position:fixed; right:1.2vh; bottom:1vh; font-size:1.6vh; color:var(--dim); opacity:.7; }
@@ -36,7 +36,7 @@
     $("#status").textContent = st.connected ? "" : "reconnecting…";
     if (!d) return;
     var p = d.projector || {}, ls = d.lyrics || { lines: [], next: [], section: "" };
-    document.documentElement.style.setProperty("--size", (p.fontSize || 7) + "vh");
+    var n = p.fontSize || 7; document.documentElement.style.setProperty("--size", "min(" + n + "vh, " + (n * 1.15).toFixed(2) + "vw)");   // (a portrait screen: the width limits it too)
     document.body.classList.toggle("light", p.theme === "light");
     stage.classList.toggle("blank", !!p.blank);
     stage.classList.toggle("left", p.align === "left");
@@ -50,7 +50,19 @@
     stage.innerHTML = (p.showSection !== false ? '<div class="section">' + esc(ls.section) + (ls.pages > 1 ? "  " + (ls.page + 1) + "/" + ls.pages : "") + "</div>" : "") +
       '<div class="lines">' + ls.lines.map(function (l) { return "<div>" + esc(l) + "</div>"; }).join("") + "</div>" +
       (p.showNext !== false && ls.next && ls.next.length ? '<div class="next">' + ls.next.map(function (l) { return "<div>" + esc(l) + "</div>"; }).join("") + "</div>" : "");
+    fit();
   }
+  // the lines always fit the screen, under the section name: smaller when there are many of them (or a small screen)
+  function fit() {
+    var root = document.documentElement, st = $("#stage"), lines = st.querySelector(".lines"); root.style.setProperty("--fit", "1"); if (!lines) return;
+    var sec = st.querySelector(".section"), next = st.querySelector(".next"), f = 1;
+    for (var i = 0; i < 14; i++) {
+      var a = lines.getBoundingClientRect(), b = next ? next.getBoundingClientRect() : a, top = Math.min(a.top, b.top), bottom = Math.max(a.bottom, b.bottom), lim = sec ? sec.getBoundingClientRect().bottom + 6 : 4;
+      if (top >= lim && bottom <= innerHeight - 4 && lines.scrollWidth <= lines.clientWidth + 1) break;
+      f *= 0.9; root.style.setProperty("--fit", f.toFixed(3));
+    }
+  }
+  window.addEventListener("resize", function () { fit(); });
   C.on(render);
 })();
 </script>

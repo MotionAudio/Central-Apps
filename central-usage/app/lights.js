@@ -37,22 +37,64 @@
     rgbwds6: { name: "Dimmer + RGBW + strobe (6 ch)", ch: ["dim", "r", "g", "b", "w", "strobe"] },
     rgbawuv6: { name: "RGBAW+UV par (6 ch)", ch: ["r", "g", "b", "a", "w", "uv"] },
     rgbwauvds8: { name: "Dimmer + strobe + RGBWA+UV (8 ch)", ch: ["dim", "strobe", "r", "g", "b", "w", "a", "uv"] },
-    bar8rgb: { name: "LED bar 8 × RGB (24 ch)", ch: ["r", "g", "b", "r", "g", "b", "r", "g", "b", "r", "g", "b", "r", "g", "b", "r", "g", "b", "r", "g", "b", "r", "g", "b"] },
+    bar8rgb: { name: "LED bar 8 × RGB (24 ch)", ch: cellsCh(8, ["r", "g", "b"]) },
+    bar4rgb: { name: "LED bar 4 × RGB (12 ch)", ch: cellsCh(4, ["r", "g", "b"]) },
+    bar12rgb: { name: "LED bar 12 × RGB (36 ch)", ch: cellsCh(12, ["r", "g", "b"]) },
+    bar16rgb: { name: "LED pixel bar 16 × RGB (48 ch)", ch: cellsCh(16, ["r", "g", "b"]) },
+    bar8rgbw: { name: "LED bar 8 × RGBW (32 ch)", ch: cellsCh(8, ["r", "g", "b", "w"]) },
+    bard8rgb: { name: "LED bar dimmer + strobe + 8 × RGB (26 ch)", ch: ["dim", "strobe"].concat(cellsCh(8, ["r", "g", "b"])) },
+    bar6rgbwauv: { name: "LED bar 6 × RGBWA+UV (36 ch)", ch: cellsCh(6, ["r", "g", "b", "w", "a", "uv"]) },
     mhmini9: { name: "Moving head, mini RGBW (9 ch)", ch: ["pan", "tilt", "dim", "strobe", "r", "g", "b", "w", "speed"], mover: true },
     mhwash14: { name: "Moving head wash RGBW (14 ch)", ch: ["pan", "panf", "tilt", "tiltf", "speed", "dim", "strobe", "r", "g", "b", "w", "zero", "zero", "zero"], mover: true },
     mhspot11: { name: "Moving head spot (11 ch)", ch: ["pan", "panf", "tilt", "tiltf", "speed", "dim", "strobe", "wheel", "gobo", "prism", "focus"], mover: true },
-    strobe2: { name: "Strobe (2 ch: intensity, rate)", ch: ["dim", "strobe"] },
-    blinder2: { name: "Blinder 2-cell (2 ch)", ch: ["dim", "dim"] },
+    strobe2: { name: "Strobe (2 ch: intensity, rate)", ch: ["dim", "strobe"], kind: "strobe" },
+    strobe1: { name: "Strobe (1 ch: intensity, flashed by Central Control)", ch: ["dim"], kind: "strobe" },
+    strobe4: { name: "Strobe (4 ch: intensity, rate, duration, effect)", ch: ["dim", "strobe", "zero", "zero"], kind: "strobe" },
+    strobergb5: { name: "LED strobe panel + RGB (5 ch)", ch: ["dim", "strobe", "r", "g", "b"], kind: "strobe" },
+    strobe8cell: { name: "LED strobe bar 8 cells (10 ch)", ch: ["strobe", "zero"].concat(cellsCh(8, ["dim"])), kind: "strobe" },
+    blinder2: { name: "Blinder 2-cell (2 ch)", ch: ["dim", "dim"], kind: "blinder" },
+    blinder4: { name: "Blinder 4-cell (4 ch)", ch: ["dim", "dim", "dim", "dim"], kind: "blinder" },
     hazer2: { name: "Hazer (2 ch: output, fan)", ch: ["haze", "fan"] },
     fog1: { name: "Fogger (1 ch)", ch: ["haze"] }
   };
+  function cellsCh(n, per) { var out = []; for (var i = 0; i < n; i++) out = out.concat(per); return out; }
+  // what a fixture is (for the 3D stage and the strobes): mover, bar (several cells), strobe, blinder, haze, par;
+  // and its cells: a bar's colour channels repeat once per cell ("r g b r g b …"), a blinder's or strobe bar's dimmers
+  var COLOR_CH = { r: 1, g: 1, b: 1, w: 1, a: 1, uv: 1 };
+  function cellsOfCh(ch) {
+    var count = {}; ch.forEach(function (t) { count[t] = (count[t] || 0) + 1; });
+    var colours = Math.max(count.r || 0, count.g || 0, count.b || 0, count.w || 0);
+    if (colours > 1) return colours;
+    if (!colours && (count.dim || 0) > 1) return count.dim;   // (a blinder's lamps, a strobe bar's cells)
+    return 1;
+  }
+  function kindOfProfile(p) {
+    if (!p) return "par";
+    if (p.kind) return p.kind;
+    if (p.mover) return "mover";
+    if (p.ch.indexOf("haze") >= 0) return "haze";
+    if (cellsOfCh(p.ch) > 1) return p.ch.some(function (t) { return COLOR_CH[t]; }) ? "bar" : "blinder";
+    if (/strobe/i.test(p.name || "") && !p.ch.some(function (t) { return t === "r" || t === "g" || t === "b"; })) return "strobe";
+    if (/bar|batten|strip/i.test(p.name || "")) return "bar";
+    return "par";
+  }
+  function cellsOf(f) { var p = profileOf(f); return p._cells || (p._cells = cellsOfCh(p.ch)); }
+  function kindOf(f) { if (f.group === "haze") return "haze"; var k = kindOfProfile(profileOf(f)); return k; }
+  // the strobes: a strobe fixture, or anything in the Strobes / blinders group that isn't a blinder
+  function isStrobe(f) { var k = kindOf(f); return k === "strobe" || (f.group === "fx" && k !== "blinder" && k !== "haze"); }
   var CH_TYPES = ["dim", "r", "g", "b", "w", "a", "uv", "strobe", "pan", "panf", "tilt", "tiltf", "speed", "wheel", "gobo", "prism", "focus", "haze", "fan", "zero", "full"];
   var GROUPS = [["front", "Front / key"], ["back", "Back / colour"], ["beam", "Beams / movers"], ["house", "House / audience"], ["fx", "Strobes / blinders"], ["haze", "Haze / fog"]];
-  var FX = [["none", "Steady"], ["pulse", "Pulse on the beat"], ["chase", "Chase"], ["alternate", "Alternate odd / even"], ["breathe", "Breathe (slow)"], ["rainbow", "Rainbow"], ["sweep", "Sweep (movers)"], ["circle", "Circle (movers)"], ["figure8", "Figure 8 (movers)"], ["panwave", "Pan wave (movers)"], ["tiltwave", "Tilt wave (movers)"], ["ballyhoo", "Ballyhoo (movers)"], ["flicker", "Flicker"], ["flash", "Flash on the beat"]];
+  var FX = [["none", "Steady"], ["pulse", "Pulse on the beat"], ["chase", "Chase"], ["alternate", "Alternate odd / even"], ["breathe", "Breathe (slow)"], ["rainbow", "Rainbow"], ["wipe", "Wipe (along the bars)"], ["bounce", "Bounce (along the bars)"], ["sparkle", "Sparkle (bar cells)"], ["sweep", "Sweep (movers)"], ["circle", "Circle (movers)"], ["figure8", "Figure 8 (movers)"], ["panwave", "Pan wave (movers)"], ["tiltwave", "Tilt wave (movers)"], ["ballyhoo", "Ballyhoo (movers)"], ["flicker", "Flicker"], ["flash", "Flash on the beat"]];
   var POSITIONS = [["Home", 0.5, 0.5], ["Audience", 0.5, 0.78], ["Stage", 0.5, 0.25], ["Ceiling", 0.5, 0.02], ["Cross L", 0.36, 0.62], ["Cross R", 0.64, 0.62], ["Fan out", 0.5, 0.55, 0.5], ["Floor", 0.5, 0.97]];
   function libEntry(id) { return (rig.library || []).filter(function (x) { return x.id === id; })[0] || null; }
-  function profileFor(id) { if (PROFILES[id]) return PROFILES[id]; var e = libEntry(id); return e ? { name: e.name, ch: e.ch, mover: e.mover } : null; }
-  function profileOf(f) { if (/^lib:/.test(f.profile || "")) return profileFor(f.profile) || PROFILES.dimmer; return f.profile === "custom" ? { name: "Custom", ch: f.channels || ["dim"], mover: (f.channels || []).indexOf("pan") >= 0 } : PROFILES[f.profile] || PROFILES.dimmer; }
+  var libProfiles = {};
+  function profileFor(id) { if (PROFILES[id]) return PROFILES[id]; var e = libEntry(id); if (!e) return null; var c = libProfiles[id]; if (!c || c.src !== e) c = libProfiles[id] = { name: e.name, ch: e.ch, mover: e.mover, src: e }; return c; }
+  var customProfiles = {};
+  function profileOf(f) {
+    if (/^lib:/.test(f.profile || "")) return profileFor(f.profile) || PROFILES.dimmer;
+    if (f.profile === "custom") { var key = (f.channels || ["dim"]).join(" "); return customProfiles[key] || (customProfiles[key] = { name: "Custom", ch: f.channels || ["dim"], mover: (f.channels || []).indexOf("pan") >= 0 }); }
+    return PROFILES[f.profile] || PROFILES.dimmer;
+  }
 
   // ------------------------------------------------------------- presets (looks)
   function G(dim, color, o) { return Object.assign({ dim: dim, color: color || "#ffffff", w: 0, a: 0, uv: 0, strobe: 0, fx: "none", speed: 1, size: 0.6, pan: 0.5, tilt: 0.5 }, o || {}); }
@@ -71,20 +113,57 @@
       { id: "ending", name: "Ending", swatch: "#3355ff", fade: 4, g: { front: G(0.5, WARM), back: G(0.45, BLUE, { fx: "breathe", speed: 4, size: 0.5 }) } },
       { id: "celebrate", name: "Celebrate", swatch: "#ff3ea5", fade: 1, g: { front: G(0.9, WARM), back: G(1, WHITE, { fx: "rainbow", speed: 4, size: 1 }), beam: G(1, WHITE, { fx: "rainbow", speed: 2, size: 1, w: 0 }), fx: G(0.4, WHITE, { fx: "flash", speed: 1, size: 1 }) } },
       { id: "hit", name: "Hit (white flash)", swatch: "#ffffff", flash: true, g: { front: G(1, WHITE, { w: 1 }), back: G(1, WHITE, { w: 1 }), beam: G(1, WHITE, { w: 1 }), fx: G(1, WHITE, { w: 1 }), house: G(0.6, WHITE) } },
-      { id: "strobehit", name: "Strobe hit", swatch: "#e8f4ff", flash: true, g: { fx: G(1, WHITE, { w: 1, strobe: 0.8 }), beam: G(1, WHITE, { w: 1, strobe: 0.8 }), back: G(1, WHITE, { strobe: 0.6 }) } }
+      { id: "strobehit", name: "Strobe hit", swatch: "#e8f4ff", flash: true, g: { fx: G(1, WHITE, { w: 1, strobe: 0.8 }), beam: G(1, WHITE, { w: 1, strobe: 0.8 }), back: G(1, WHITE, { strobe: 0.6 }) } },
+      { id: "strobebeat", name: "Strobe on the beat", swatch: "#cfe6ff", fade: 0, g: { front: G(0.5, WARM), back: G(0.8, PURPLE, { fx: "chase", speed: 0.5, size: 0.9 }), beam: G(0.9, WHITE, { w: 1, fx: "ballyhoo", speed: 4, size: 0.6 }), fx: G(1, WHITE, { w: 1, strobe: 1, strobeSync: "half" }), haze: G(0.4) } },
+      { id: "barwave", name: "Bars: colour wave", swatch: "#00c8ff", fade: 1, g: { front: G(0.55, WARM), back: G(0.9, "#00c8ff", { fx: "rainbow", speed: 4, size: 0.8 }), beam: G(0.5, BLUE, { fx: "sweep", speed: 8, size: 0.4 }), haze: G(0.3) } }
     ].map(function (l) { l.builtIn = true; return l; });
   }
 
+  // ------------------------------------------------------------- the stage (in metres): its width and depth, the deck's
+  // height, and the trusses. x runs across (0 = the middle), y is the height above the room's floor, z runs from the
+  // stage's front edge (0) upstage (negative) and out over the audience (positive).
+  function defaultStage() { return { width: 10, depth: 6, deck: 0.6, room: 14, trusses: [{ id: "front", name: "Front truss", d: -2.5, h: 5.5, width: 10 }, { id: "mid", name: "Mid truss", d: 2.5, h: 5, width: 8 }, { id: "back", name: "Back truss", d: 5.3, h: 5, width: 10 }] }; }
+  function trussById(id) { return (rig.stage.trusses || []).filter(function (t) { return t.id === id; })[0] || null; }
+  var GROUP_PLACE = { front: "front", back: "back", beam: "mid", fx: "back", house: "house", haze: "floor" };
+  // where a light goes when it's added (or comes from a rig made before the 3D stage): on its group's truss, spread
+  // across, aimed the way that group usually points
+  function placeFixture(f, i, n) {
+    var st = rig.stage, W = st.width, mount = f.mount || GROUP_PLACE[f.group] || "floor", k = kindOf(f);
+    if (k === "bar" && f.group === "back" && !f.mount) mount = "floor";   // (bars stand on the stage, lighting up the back)
+    var across = f.x != null ? (f.x - 0.5) * W * 0.9 : n > 1 ? (i / (n - 1) - 0.5) * W * 0.75 : 0;
+    var p = { x: Math.round(across * 20) / 20, y: 0, z: 0 }, t = trussById(mount);
+    if (t) { p.y = t.h - 0.35; p.z = -t.d; }
+    else if (mount === "house") { p.y = Math.max(5, (st.trusses[0] || {}).h || 5.5) + 0.5; p.z = Math.min(st.room - 2, 6); mount = "house"; }
+    else { mount = "floor"; p.y = st.deck; p.z = f.group === "haze" ? -st.depth + 0.6 : k === "bar" ? -st.depth + 0.5 : f.group === "front" ? 0.4 : -st.depth * 0.5; if (f.group === "haze") p.x = -W / 2 + 0.8; }
+    f.pos = p; f.mount = mount;
+    f.aim = defaultAim(f);
+    return f;
+  }
+  // which way a light points: yaw (0 = towards the audience, 90 = to stage left…) and pitch (degrees below level; 90 = straight down)
+  function defaultAim(f) {
+    var k = kindOf(f), p = f.pos, st = rig.stage;
+    if (k === "mover") return { yaw: 0, pitch: 0, hang: f.mount === "floor" ? "up" : "down" };
+    if (f.group === "house") return { yaw: 0, pitch: 90 };
+    if (f.mount === "floor" && k === "bar") return { yaw: 180, pitch: -70 };   // (up the back wall)
+    if (f.group === "haze") return { yaw: 0, pitch: 0 };
+    var target = f.group === "front" ? { x: p.x * 0.6, y: st.deck + 1.6, z: -st.depth * 0.35 } : f.group === "back" ? { x: p.x * 0.8, y: st.deck + 1.2, z: -st.depth * 0.2 } : { x: p.x, y: st.deck + 1.2, z: 1.5 };
+    return aimAt(p, target);
+  }
+  function aimAt(p, t) { var dx = t.x - p.x, dy = t.y - p.y, dz = t.z - p.z, h = Math.sqrt(dx * dx + dz * dz); return { yaw: Math.round(Math.atan2(dx, dz) * 180 / Math.PI), pitch: Math.round(Math.atan2(-dy, h) * 180 / Math.PI) }; }
+
   // ------------------------------------------------------------- the rig - kept on this computer
   function defaultRig() {
-    var f = [], add = function (name, profile, group, addr, x, y) { f.push({ id: uid(), name: name, profile: profile, group: group, universe: 1, address: addr, x: x, y: y }); };
-    add("Front L", "rgbwd5", "front", 1, 0.3, 0.86); add("Front R", "rgbwd5", "front", 6, 0.7, 0.86);
-    for (var i = 0; i < 4; i++) add("Back " + (i + 1), "rgbwd5", "back", 11 + i * 5, 0.2 + i * 0.2, 0.18);
-    add("Mover L", "mhmini9", "beam", 31, 0.3, 0.32); add("Mover R", "mhmini9", "beam", 40, 0.7, 0.32);
-    add("Blinder", "blinder2", "fx", 49, 0.5, 0.06); add("House", "dimmer", "house", 51, 0.5, 0.97); add("Hazer", "hazer2", "haze", 52, 0.08, 0.1);
-    return { fixtures: f, looks: BUILTIN(), outputs: [{ universe: 1, mode: "off", path: "", host: "", offset: 0 }], master: 1, groupLevel: {}, stopped: "walkin", snap: "beat" };
+    var f = [], add = function (name, profile, group, addr, x) { f.push({ id: uid(), name: name, profile: profile, group: group, universe: 1, address: addr, x: x }); };
+    add("Front L", "rgbwd5", "front", 1, 0.3); add("Front R", "rgbwd5", "front", 6, 0.7);
+    for (var i = 0; i < 4; i++) add("Back " + (i + 1), "rgbwd5", "back", 11 + i * 5, 0.2 + i * 0.2);
+    add("Mover L", "mhmini9", "beam", 31, 0.3); add("Mover R", "mhmini9", "beam", 40, 0.7);
+    add("Blinder", "blinder2", "fx", 49, 0.5); add("House", "dimmer", "house", 51, 0.5); add("Hazer", "hazer2", "haze", 52, 0.08);
+    add("Bar L", "bar8rgb", "back", 53, 0.3); add("Bar R", "bar8rgb", "back", 77, 0.7); add("Strobe", "strobe2", "fx", 101, 0.5);
+    return { fixtures: f, looks: BUILTIN(), outputs: [{ universe: 1, mode: "off", path: "", host: "", offset: 0 }], master: 1, groupLevel: {}, stopped: "walkin", snap: "beat", stage: defaultStage() };
   }
   var rig = store.get("rig", null) || defaultRig();
+  rig.stage = Object.assign(defaultStage(), rig.stage || {}); if (!Array.isArray(rig.stage.trusses)) rig.stage.trusses = defaultStage().trusses;
+  rig.strobe = Object.assign({ rate: 0.7, onHits: true, burst: 0.5, button: "free" }, rig.strobe || {});
   if (!rig.looks || !rig.looks.length) rig.looks = BUILTIN();
   BUILTIN().forEach(function (b) { if (!rig.looks.some(function (l) { return l.id === b.id; })) rig.looks.push(b); else { var mine = rig.looks.filter(function (l) { return l.id === b.id; })[0]; if (mine.builtIn && mine.fade == null) mine.fade = b.fade; } });
   if (!Array.isArray(rig.outputs)) rig.outputs = [Object.assign({ universe: 1, mode: "off", path: "", host: "", offset: 0 }, rig.output || {}, { universe: 1 })];   // one output (1.x) -> one per universe
@@ -99,6 +178,9 @@
   rig.localSongs = rig.localSongs || [];
   rig.defaultMode = rig.defaultMode || "semi";
   rig.groupLevel = rig.groupLevel || {};
+  // lights from before the 3D stage: put each on the stage (from where it sat on the flat plot)
+  function ensurePlaced() { var byGroup = {}; rig.fixtures.forEach(function (f) { (byGroup[f.group] = byGroup[f.group] || []).push(f); }); rig.fixtures.forEach(function (f) { if (!f.pos) { var list = byGroup[f.group]; placeFixture(f, list.indexOf(f), list.length); } }); }
+  ensurePlaced();
   function saveRig() { store.set("rig", rig); }
   function lookById(id) { return rig.looks.filter(function (l) { return l.id === id; })[0] || rig.looks[0]; }
 
@@ -224,21 +306,32 @@
   function hexRgb(h) { h = String(h || "#000").replace("#", ""); if (h.length === 3) h = h.split("").map(function (c) { return c + c; }).join(""); var n = parseInt(h, 16) || 0; return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
   function rgbHex(r, g, b) { return "#" + [r, g, b].map(function (v) { return ("0" + Math.round(clamp(v, 0, 1) * 255).toString(16)).slice(-2); }).join(""); }
   function hsv(h, s, v) { var i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s); switch (((i % 6) + 6) % 6) { case 0: return [v, t, p]; case 1: return [q, v, p]; case 2: return [p, v, t]; case 3: return [p, q, v]; case 4: return [t, p, v]; default: return [v, p, q]; } }
-  var flickerState = {};
-  function stateFor(look, f, idx, n, beats) {
+  var flickerState = {}, sparkleState = {};
+  // a light's state in a preset. A bar's cells (cell of cells) each get their own: chases, rainbows, wipes and
+  // bounces run along the whole row of bars in the group, cell by cell.
+  var SYNC_BEATS = { bar: 0, beat: 1, half: 0.5, quarter: 0.25, eighth: 0.125 };
+  function stateFor(look, f, idx, n, beats, cell, cells) {
     var g = look && look.g && look.g[f.group];
     var st = { dim: 0, r: 0, g: 0, b: 0, w: 0, a: 0, uv: 0, strobe: 0, pan: 0.5, tilt: 0.5, haze: 0 };
     if (!g) return st;
+    cells = cells || 1; cell = cell || 0;
+    var unit = idx * cells + cell, units = Math.max(1, n * cells), u = (unit + 0.5) / units;   // (where this cell sits along the group)
     var rgb = hexRgb(g.color), dim = g.dim, speed = Math.max(0.125, g.speed || 1), size = g.size == null ? 0.6 : g.size, ph = beats / speed, frac = ph - Math.floor(ph);
     switch (g.fx) {
       case "pulse": dim *= (1 - size) + size * Math.exp(-frac * 4); break;
-      case "chase": dim *= (Math.floor(ph) % Math.max(1, n)) === idx ? 1 : 1 - size; break;
-      case "alternate": if (g.color2) { if ((Math.floor(ph) + idx) % 2) rgb = hexRgb(g.color2); } else dim *= (Math.floor(ph) % 2) === (idx % 2) ? 1 : 1 - size; break;   // two colours: they swap on the beat
+      case "chase": dim *= (Math.floor(ph) % units) === unit ? 1 : 1 - size; break;
+      case "alternate": if (g.color2) { if ((Math.floor(ph) + unit) % 2) rgb = hexRgb(g.color2); } else dim *= (Math.floor(ph) % 2) === (unit % 2) ? 1 : 1 - size; break;   // two colours: they swap on the beat
       case "breathe": dim *= (1 - size) + size * (0.5 - 0.5 * Math.cos(2 * Math.PI * (beats / (speed * 4)))); break;
-      case "rainbow": rgb = hsv(((beats / (speed * 4)) + idx / Math.max(1, n)) % 1, size, 1); break;
+      case "rainbow": rgb = hsv(((beats / (speed * 4)) + u) % 1, size, 1); break;
       case "flash": dim *= frac < 0.12 ? 1 : 1 - size; break;
-      case "flicker": var k = f.id, fs = flickerState[k] || (flickerState[k] = 1); fs += (0.75 + Math.random() * 0.25 - fs) * 0.25; flickerState[k] = fs; dim *= 1 - size + size * fs; break;
+      case "flicker": var k = f.id + ":" + cell, fs = flickerState[k] || (flickerState[k] = 1); fs += (0.75 + Math.random() * 0.25 - fs) * 0.25; flickerState[k] = fs; dim *= 1 - size + size * fs; break;
+      case "wipe": var wp = (beats / (speed * 4)) % 2, fill = wp < 1 ? wp : 2 - wp; dim *= u <= fill ? 1 : 1 - size; if (g.color2 && u > fill) rgb = hexRgb(g.color2); break;   // fills along, then empties
+      case "bounce": var bp = (beats / (speed * 2)) % 2, at = bp < 1 ? bp : 2 - bp, dist = Math.abs(u - at) * units; dim *= dist < 1.5 ? 1 - dist / 1.5 * 0.5 : 1 - size; break;
+      case "sparkle": var sk = f.id + ":" + cell, sp = sparkleState[sk]; if (!sp || beats - sp.at > speed * 0.25 || beats < sp.at) sp = sparkleState[sk] = { at: beats, on: Math.random() < 0.25 }; dim *= sp.on ? 1 : 1 - size; break;
     }
+    // a strobe locked to the song: Central Control flashes it on the bar / beat / ½ / ¼ / ⅛ (the light's own strobe stays open)
+    var sync = g.strobe > 0 && g.strobeSync && g.strobeSync !== "free" ? SYNC_BEATS[g.strobeSync] : null, swStrobe = false;
+    if (sync != null) { var every = sync || (song.bpb || 4), sp2 = beats / every, fr2 = sp2 - Math.floor(sp2), on = fr2 * every * 60 / (song.bpm || 100) < Math.max(0.03, 0.06 * (1 - g.strobe) + 0.02); dim *= on ? 1 : 0; swStrobe = true; }
     var pan = g.pan == null ? 0.5 : g.pan, tilt = g.tilt == null ? 0.5 : g.tilt;
     var spread = n > 1 ? (idx / (n - 1) - 0.5) : 0; pan = clamp(pan + spread * (g.fan || 0), 0, 1);
     var ang = 2 * Math.PI * (beats / (speed * 4) + (g.offset == null ? 1 : g.offset) * idx / Math.max(2, n));
@@ -249,8 +342,13 @@
     else if (g.fx === "tiltwave") tilt = clamp(tilt + size * 0.25 * Math.sin(ang), 0, 1);
     else if (g.fx === "ballyhoo") { pan = clamp(pan + size * 0.3 * Math.sin(ang * 1.7 + idx) * Math.cos(ang * 0.6), 0, 1); tilt = clamp(tilt + size * 0.2 * Math.sin(ang * 1.3 + idx * 2), 0, 1); }
     if (f.invertPan) pan = 1 - pan; if (f.invertTilt) tilt = 1 - tilt;
-    st.dim = clamp(dim, 0, 1); st.r = rgb[0]; st.g = rgb[1]; st.b = rgb[2]; st.w = g.w || 0; st.a = g.a || 0; st.uv = g.uv || 0; st.strobe = g.strobe || 0; st.pan = pan; st.tilt = tilt; st.haze = f.group === "haze" ? clamp(dim, 0, 1) : 0;
+    st.dim = clamp(dim, 0, 1); st.r = rgb[0]; st.g = rgb[1]; st.b = rgb[2]; st.w = g.w || 0; st.a = g.a || 0; st.uv = g.uv || 0; st.strobe = swStrobe ? 0 : g.strobe || 0; st.pan = pan; st.tilt = tilt; st.haze = f.group === "haze" ? clamp(dim, 0, 1) : 0;
     return st;
+  }
+  // a strobe flashed by Central Control (the hits' bursts, the Strobe button): on/off at a rate, or on the song's grid
+  function softStrobe(rate, sync, beats, now) {
+    if (sync && SYNC_BEATS[sync] != null) { var every = SYNC_BEATS[sync] || (song.bpb || 4), p = beats / every; return (p - Math.floor(p)) * every * 60 / (song.bpm || 100) < 0.035; }
+    var hz = 2 + clamp(rate, 0, 1) * 18; return ((now / 1000) * hz) % 1 < 0.3;
   }
   function mix(a, b, p) { var o = {}; for (var k in a) o[k] = a[k] + (b[k] - a[k]) * p; if (p >= 0.5) o.strobe = b.strobe; else o.strobe = a.strobe; return o; }
   function overState(st, o) {   // a light's own colour / level (the list under the stage plot, or a recorded light cue)
@@ -300,36 +398,57 @@
     var fl = playing && !live.manual ? activeFlash(t) : null;
     if (live.flash && now < live.flash.until) fl = { look: lookById(live.flash.look), p: (live.flash.until - now) / live.flash.len };
     var cueOver = playing && !live.manual ? cueOverrides(t) : {}, lvl = playing ? audioLevel() : null, amt = rig.audio.amount;
-    var unis = {}, colors = {};
+    var unis = {}, colors = {}, cellColors = {};
+    // the strobes: the Strobe button (held), and a burst on each hit (a flash preset firing) when "on the hits" is on
+    var anyStrobe = rig.fixtures.some(isStrobe), holdOn = !!live.strobeHold, burstOn = !!(fl && rig.strobe.onHits && fl.look && fl.look.flash);
     rig.fixtures.forEach(function (f) {
-      var list = groups[f.group], idx = list.indexOf(f), n = list.length;
-      var st = base.p >= 1 ? stateFor(base.to, f, idx, n, beats) : mix(stateFor(base.from, f, idx, n, beats), stateFor(base.to, f, idx, n, beats), base.p);
-      if (cueOver[f.id]) st = mix(st, overState(st, cueOver[f.id]), cueOver[f.id].p);
-      if (live.over[f.id]) st = overState(st, live.over[f.id]);
-      if (lvl != null && f.group !== "house" && f.group !== "haze") st.dim *= (1 - amt) + amt * (0.35 + 0.65 * lvl);
-      if (fl && fl.look.g[f.group]) { var fs = stateFor(fl.look, f, idx, n, beats); st = mix(st, fs, clamp(fl.p * 1.5, 0, 1)); }
-      var gl = rig.groupLevel[f.group] == null ? 1 : rig.groupLevel[f.group], m = live.blackout ? 0 : (rig.master == null ? 1 : rig.master) * gl;
-      st.dim *= m; st.haze *= live.blackout ? 0 : gl;
-      if (live.identify && now < live.identify.until) { var on = f.id === live.identify.id && Math.floor(now / 250) % 2 === 0; st = { dim: on ? 1 : 0, r: 1, g: 1, b: 1, w: 1, a: 0, uv: 0, strobe: 0, pan: 0.5, tilt: 0.5, haze: 0 }; }
-      colors[f.id] = st;
-      write(unis, f, st);
+      var list = groups[f.group], idx = list.indexOf(f), n = list.length, cells = cellsOf(f), states = [];
+      for (var c = 0; c < cells; c++) {
+        var st = base.p >= 1 ? stateFor(base.to, f, idx, n, beats, c, cells) : mix(stateFor(base.from, f, idx, n, beats, c, cells), stateFor(base.to, f, idx, n, beats, c, cells), base.p);
+        if (cueOver[f.id]) st = mix(st, overState(st, cueOver[f.id]), cueOver[f.id].p);
+        if (live.over[f.id]) st = overState(st, live.over[f.id]);
+        if (lvl != null && f.group !== "house" && f.group !== "haze") st.dim *= (1 - amt) + amt * (0.35 + 0.65 * lvl);
+        if (fl && fl.look.g[f.group]) { var fs = stateFor(fl.look, f, idx, n, beats, c, cells); st = mix(st, fs, clamp(fl.p * 1.5, 0, 1)); }
+        if ((holdOn || burstOn) && (isStrobe(f) || (holdOn && !anyStrobe && f.group !== "haze" && f.group !== "house"))) {
+          var sOn = softStrobe(rig.strobe.rate, holdOn ? rig.strobe.button : "eighth", beats, now);
+          if (holdOn || burstOn) st = { dim: sOn ? 1 : 0, r: 1, g: 1, b: 1, w: 1, a: 0, uv: 0, strobe: 0, pan: st.pan, tilt: st.tilt, haze: 0 };
+        }
+        var gl = rig.groupLevel[f.group] == null ? 1 : rig.groupLevel[f.group], m = live.blackout ? 0 : (rig.master == null ? 1 : rig.master) * gl;
+        st.dim *= m; st.haze *= live.blackout ? 0 : gl;
+        if (live.identify && now < live.identify.until) { var on = f.id === live.identify.id && Math.floor(now / 250) % 2 === 0; st = { dim: on ? 1 : 0, r: 1, g: 1, b: 1, w: 1, a: 0, uv: 0, strobe: 0, pan: 0.5, tilt: 0.5, haze: 0 }; }
+        states.push(st);
+      }
+      colors[f.id] = cells === 1 ? states[0] : average(states); cellColors[f.id] = states;
+      write(unis, f, states);
     });
-    live.fixtureColor = colors; live.state = { t: t, beats: beats, cue: base.cue || null, manual: !!live.manual };
+    live.fixtureColor = colors; live.cellColor = cellColors; live.state = { t: t, beats: beats, cue: base.cue || null, manual: !!live.manual };
     live.lastFrame = unis;
     return unis;
   }
-  function write(unis, f, st) {
-    var u = String(f.universe || 1), data = unis[u] || (unis[u] = new Uint8Array(512)), p = profileOf(f), hasDim = p.ch.indexOf("dim") >= 0, hasW = p.ch.indexOf("w") >= 0, hasA = p.ch.indexOf("a") >= 0;
-    var r = st.r, g = st.g, b = st.b, w = st.w, a = st.a;
-    if (!hasW && w) { r = Math.min(1, r + w); g = Math.min(1, g + w); b = Math.min(1, b + w); }
-    if (!hasA && a) { r = Math.min(1, r + a); g = Math.min(1, g + a * 0.55); }
-    var k = hasDim ? 1 : st.dim, pan16 = Math.round(st.pan * 65535), tilt16 = Math.round(st.tilt * 65535);
-    var values = { dim: st.dim, r: r * k, g: g * k, b: b * k, w: hasW ? w * k : 0, a: hasA ? a * k : 0, uv: st.uv * k, strobe: st.strobe > 0 ? (10 + st.strobe * 245) / 255 : 0, haze: st.haze, fan: st.haze > 0 ? 0.6 : 0, speed: 0.1, wheel: 0, gobo: 0, prism: 0, focus: 0.5, zero: 0, full: 1 };
+  function average(list) { var o = {}, n = list.length; for (var k in list[0]) { var s2 = 0; for (var i = 0; i < n; i++) s2 += list[i][k]; o[k] = s2 / n; } o.strobe = list[0].strobe; o.dim = Math.max.apply(null, list.map(function (x) { return x.dim; })); return o; }
+  // one fixture's channels. A bar: its colour channels repeat per cell, so the k-th "r" is cell k's red (a blinder's
+  // or a strobe bar's k-th dimmer is cell k's level); the channels it has once (dimmer, strobe) are the whole bar's.
+  function write(unis, f, sts) {
+    if (!Array.isArray(sts)) sts = [sts];
+    var u = String(f.universe || 1), data = unis[u] || (unis[u] = new Uint8Array(512)), p = profileOf(f), cells = sts.length;
+    var count = {}; p.ch.forEach(function (t) { count[t] = (count[t] || 0) + 1; });
+    var hasDim = !!count.dim, hasW = !!count.w, hasA = !!count.a, dimPerCell = cells > 1 && count.dim === cells, all = cells > 1 ? average(sts) : sts[0];
+    function vals(st, whole) {
+      var r = st.r, g = st.g, b = st.b, w = st.w, a = st.a;
+      if (!hasW && w) { r = Math.min(1, r + w); g = Math.min(1, g + w); b = Math.min(1, b + w); }
+      if (!hasA && a) { r = Math.min(1, r + a); g = Math.min(1, g + a * 0.55); }
+      var k = hasDim && !(dimPerCell && !whole) ? (cells > 1 && !dimPerCell ? st.dim / Math.max(0.001, all.dim) : 1) : st.dim;   // (a bar with one dimmer: each cell's level is in its colour)
+      if (hasDim && dimPerCell) k = 1;
+      return { dim: st.dim, r: r * k, g: g * k, b: b * k, w: hasW ? w * k : 0, a: hasA ? a * k : 0, uv: st.uv * k, strobe: st.strobe > 0 ? (10 + st.strobe * 245) / 255 : 0, haze: st.haze, fan: st.haze > 0 ? 0.6 : 0, speed: 0.1, wheel: 0, gobo: 0, prism: 0, focus: 0.5, zero: 0, full: 1 };
+    }
+    var per = sts.map(function (st) { return vals(st, false); }), whole = vals(all, true), seen = {};
+    var pan16 = Math.round(all.pan * 65535), tilt16 = Math.round(all.tilt * 65535);
     for (var i = 0; i < p.ch.length; i++) {
       var addr = (f.address || 1) - 1 + i; if (addr < 0 || addr > 511) continue;
-      var type = p.ch[i], v;
+      var type = p.ch[i], v, nth = seen[type] = (seen[type] || 0) + 1;
+      var src = cells > 1 && count[type] === cells ? per[nth - 1] : whole;   // (repeated once per cell: that cell's; otherwise the whole light's)
       if (type === "pan") v = pan16 >> 8; else if (type === "panf") v = pan16 & 255; else if (type === "tilt") v = tilt16 >> 8; else if (type === "tiltf") v = tilt16 & 255;
-      else v = Math.round(clamp(values[type] == null ? 0 : values[type], 0, 1) * 255);
+      else v = Math.round(clamp(src[type] == null ? 0 : src[type], 0, 1) * 255);
       data[addr] = v;
     }
   }
@@ -477,7 +596,7 @@
   }
   function rightPanel(on) { if (on != null) store.set("lxRight", !!on); var open = store.get("lxRight", true) !== false; var sv = $(".lx-showview"); if (sv) sv.classList.toggle("noright", !open); var b = $("#lxRightShow"); if (b) b.hidden = open; }
   function showSubOnly(v) { view = v; store.set("lxView", v); var fab = $("#lxChatOpen"); if (fab) fab.hidden = v !== "show"; if (v !== "show") chatOpen(false); $$("#lxNav [data-lx]").forEach(function (b) { b.classList.toggle("on", b.dataset.lx === v); }); $$(".lx-view").forEach(function (el) { el.hidden = el.dataset.lxv !== v; }); renderAll(); }
-  function renderAll() { if (view === "show") { renderPalette(); renderShowPanel(); renderFaders(); renderLights(); hubList(); renderSongs(); renderLooks(); rightPanel(); } else if (view === "fixtures") renderFixtures(); else if (view === "output") { renderOutput(); renderClick(); renderAudio(); renderRemote(); if (window.CUTimecode) window.CUTimecode.render(); } }
+  function renderAll() { if (view === "show") { renderPalette(); renderShowPanel(); renderFaders(); renderLights(); hubList(); renderSongs(); renderLooks(); rightPanel(); } else if (view === "fixtures") renderFixtures(); else if (view === "output") { renderOutput(); renderClick(); renderAudio(); renderStrobeSet(); renderRemote(); if (window.CUTimecode) window.CUTimecode.render(); } }
 
   // ---- show view: stage plot, preset palette, faders, timeline, lights list
   function renderPalette() {
@@ -488,7 +607,8 @@
   function renderFaders() {
     var root = $("#lxFaders"); if (!root) return;
     root.innerHTML = '<label class="lx-fader master">Master<input type="range" min="0" max="1" step="0.01" data-fader="master" value="' + (rig.master == null ? 1 : rig.master) + '"></label>' +
-      GROUPS.map(function (g) { if (!rig.fixtures.some(function (f) { return f.group === g[0]; })) return ""; return '<label class="lx-fader">' + esc(g[1]) + '<input type="range" min="0" max="1" step="0.01" data-fader="' + g[0] + '" value="' + (rig.groupLevel[g[0]] == null ? 1 : rig.groupLevel[g[0]]) + '"></label>'; }).join("");
+      GROUPS.map(function (g) { if (!rig.fixtures.some(function (f) { return f.group === g[0]; })) return ""; return '<label class="lx-fader">' + esc(g[1]) + '<input type="range" min="0" max="1" step="0.01" data-fader="' + g[0] + '" value="' + (rig.groupLevel[g[0]] == null ? 1 : rig.groupLevel[g[0]]) + '"></label>'; }).join("") +
+      (rig.fixtures.some(isStrobe) ? '<label class="lx-fader strobe" title="How fast the Strobe button and the hit bursts flash">Strobe rate<input type="range" min="0" max="1" step="0.01" data-fader="strobeRate" value="' + rig.strobe.rate + '"></label>' : "");
   }
   function drawLive() {
     if (view === "show") {
@@ -498,6 +618,7 @@
     } else if (view === "output") drawMonitor();
   }
   function drawPlot() {
+    if (window.CULights3D && window.CULights3D.active()) { window.CULights3D.frame(); return; }
     var svg = $("#lxPlot"); if (!svg) return;
     var key = String(rig.fixtures.length) + JSON.stringify(rig.fixtures.map(function (f) { return [f.x, f.y, f.name]; }));
     var pos = function (f) { return { x: (f.x == null ? 0.5 : f.x) * 1000, y: (f.y == null ? 0.5 : f.y) * 520 + 10 }; };
@@ -684,7 +805,7 @@
         return '<div class="lx-group' + (on ? "" : " off") + '" data-group="' + gr[0] + '"><div class="row spread"><b>' + esc(gr[1]) + '</b><label class="toggle"><input type="checkbox" data-lg="on"' + (on ? " checked" : "") + "> on</label></div>" +
           '<label>' + (haze ? "Output" : "Intensity") + ' <output>' + Math.round(g.dim * 100) + '%</output><input type="range" min="0" max="1" step="0.01" data-lg="dim" value="' + g.dim + '"></label>' +
           (haze ? "" : '<div class="row"><label>Colour<input type="color" data-lg="color" value="' + esc(g.color) + '"></label><label>2nd colour<input type="color" data-lg="color2" value="' + esc(g.color2 || g.color) + '" title="With Alternate: the lights swap between the two colours"></label><span class="lx-swatches">' + ["#ffb36b", "#ffffff", "#1f4dff", "#0a1fb0", "#7a2bff", "#ff2a10", "#ff8a00", "#00c8ff", "#00e676", "#ff3ea5"].map(function (c) { return '<button data-lg-color="' + c + '" style="background:' + c + '"></button>'; }).join("") + "</span></div>" +
-          '<div class="row"><label>White <input type="range" min="0" max="1" step="0.05" data-lg="w" value="' + (g.w || 0) + '"></label><label>Amber <input type="range" min="0" max="1" step="0.05" data-lg="a" value="' + (g.a || 0) + '"></label><label>UV <input type="range" min="0" max="1" step="0.05" data-lg="uv" value="' + (g.uv || 0) + '"></label><label>Strobe <input type="range" min="0" max="1" step="0.05" data-lg="strobe" value="' + (g.strobe || 0) + '"></label></div>' +
+          '<div class="row"><label>White <input type="range" min="0" max="1" step="0.05" data-lg="w" value="' + (g.w || 0) + '"></label><label>Amber <input type="range" min="0" max="1" step="0.05" data-lg="a" value="' + (g.a || 0) + '"></label><label>UV <input type="range" min="0" max="1" step="0.05" data-lg="uv" value="' + (g.uv || 0) + '"></label><label>Strobe <input type="range" min="0" max="1" step="0.05" data-lg="strobe" value="' + (g.strobe || 0) + '"></label><label>Strobe timing<select data-lg="strobeSync">' + [["free", "The light's own"], ["bar", "On the bar"], ["beat", "On the beat"], ["half", "On ½ beats"], ["quarter", "On ¼ beats"], ["eighth", "On ⅛ beats"]].map(function (o) { return '<option value="' + o[0] + '"' + ((g.strobeSync || "free") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label></div>" +
           '<div class="row"><label>Motion<select data-lg="fx">' + FX.map(function (f) { return '<option value="' + f[0] + '"' + (f[0] === g.fx ? " selected" : "") + ">" + f[1] + "</option>"; }).join("") + '</select></label><label>Every<select data-lg="speed">' + [[0.25, "¼ beat"], [0.5, "½ beat"], [1, "beat"], [2, "2 beats"], [4, "bar"], [8, "2 bars"], [16, "4 bars"]].map(function (s) { return '<option value="' + s[0] + '"' + (Number(g.speed) === s[0] ? " selected" : "") + ">" + s[1] + "</option>"; }).join("") + '</select></label><label>Depth <input type="range" min="0" max="1" step="0.05" data-lg="size" value="' + (g.size == null ? 0.6 : g.size) + '"></label></div>' +
           (gr[0] === "beam" || groupHasMovers(gr[0]) ? moverEditor(g) : "")) + "</div>";
       }).join("") + "</div>";
@@ -731,14 +852,16 @@
     root.innerHTML = '<table class="lx-table"><thead><tr><th>Name</th><th>Type</th><th>Group</th><th>Universe</th><th>Address</th><th>Channels</th><th></th></tr></thead><tbody>' + rig.fixtures.map(function (f) {
       var p = profileOf(f), n = p.ch.length, end = (f.address || 1) + n - 1, hasOut = rig.outputs.some(function (o) { return o.universe === (f.universe || 1) && o.mode !== "off"; });
       return '<tr data-fx="' + esc(f.id) + '"' + (clash[f.id] ? ' class="clash"' : "") + '><td><input data-ff="name" value="' + esc(f.name) + '"></td><td><select data-ff="profile">' + profileOptions(f.profile) + '<option value="custom"' + (f.profile === "custom" ? " selected" : "") + '>Custom…</option></select>' + (p.mover ? '<span class="lx-inv"><label class="toggle" title="Mirror the pan (a mover hung the other way round)"><input type="checkbox" data-ff="invertPan"' + (f.invertPan ? " checked" : "") + '>invert pan</label><label class="toggle"><input type="checkbox" data-ff="invertTilt"' + (f.invertTilt ? " checked" : "") + ">invert tilt</label></span>" : "") + (f.profile === "custom" ? '<input data-ff="channels" title="Channel types in order: ' + CH_TYPES.join(" ") + '" value="' + esc((f.channels || []).join(" ")) + '">' : "") + "</td>" +
-        '<td><select data-ff="group">' + GROUPS.map(function (g) { return '<option value="' + g[0] + '"' + (g[0] === f.group ? " selected" : "") + ">" + esc(g[1]) + "</option>"; }).join("") + '</select></td><td><input type="number" min="1" max="64" data-ff="universe" value="' + (f.universe || 1) + '">' + (hasOut ? "" : ' <small class="warn" title="No output sends this universe (Output tab)">no output</small>') + '</td><td><input type="number" min="1" max="512" data-ff="address" value="' + (f.address || 1) + '"></td><td class="muted">' + n + " (" + f.address + "–" + end + ")" + (clash[f.id] ? ' <b class="bad">overlaps</b>' : end > 512 ? ' <b class="bad">past 512</b>' : "") + '</td><td><button data-ff="identify" title="Flash this fixture">Find</button><button data-ff="del" title="Remove">✕</button></td></tr>';
+        '<td><select data-ff="group">' + GROUPS.map(function (g) { return '<option value="' + g[0] + '"' + (g[0] === f.group ? " selected" : "") + ">" + esc(g[1]) + "</option>"; }).join("") + '</select></td><td><input type="number" min="1" max="64" data-ff="universe" value="' + (f.universe || 1) + '">' + (hasOut ? "" : ' <small class="warn" title="No output sends this universe (Output tab)">no output</small>') + '</td><td><input type="number" min="1" max="512" data-ff="address" value="' + (f.address || 1) + '"></td><td class="muted">' + n + " (" + f.address + "–" + end + ")" + (cellsOf(f) > 1 ? " · " + cellsOf(f) + " cells" : "") + " · " + esc(placeName(f)) + (clash[f.id] ? ' <b class="bad">overlaps</b>' : end > 512 ? ' <b class="bad">past 512</b>' : "") + '</td><td><button data-ff="identify" title="Flash this fixture">Find</button><button data-ff="del" title="Remove">✕</button></td></tr>';
     }).join("") + "</tbody></table>";
     var uni = Number($("#lxAddUni").value) || 1, next = rig.fixtures.reduce(function (m, f) { return (f.universe || 1) === uni ? Math.max(m, (f.address || 1) + profileOf(f).ch.length) : m; }, 1);
     $("#lxAddAddr").value = Math.min(512, next);
   }
+  function placeName(f) { var t = trussById(f.mount); return t ? t.name : f.mount === "house" ? "over the audience" : f.pos && f.pos.z > 0.05 ? "audience floor" : "stage"; }
   function addFixtures() {
     var prof = $("#lxAddProfile").value, P = profileFor(prof) || PROFILES.dimmer, n = clamp(Number($("#lxAddCount").value) || 1, 1, 48), addr = clamp(Number($("#lxAddAddr").value) || 1, 1, 512), uni = clamp(Number($("#lxAddUni").value) || 1, 1, 64), grp = $("#lxAddGroup").value, le = libEntry(prof), name = $("#lxAddName").value.trim() || (le ? le.model : P.name.replace(/\s*\(.*$/, ""));
-    for (var i = 0; i < n; i++) rig.fixtures.push({ id: uid(), name: n > 1 ? name + " " + (i + 1) : name, profile: prof, group: grp, universe: uni, address: addr + i * P.ch.length, x: n > 1 ? 0.15 + 0.7 * i / (n - 1) : 0.5, y: { front: 0.85, back: 0.2, beam: 0.34, house: 0.96, fx: 0.08, haze: 0.1 }[grp] || 0.5 });
+    for (var i = 0; i < n; i++) { var nf = { id: uid(), name: n > 1 ? name + " " + (i + 1) : name, profile: prof, group: grp, universe: uni, address: addr + i * P.ch.length, x: n > 1 ? 0.15 + 0.7 * i / (n - 1) : 0.5, y: { front: 0.85, back: 0.2, beam: 0.34, house: 0.96, fx: 0.08, haze: 0.1 }[grp] || 0.5 }; rig.fixtures.push(placeFixture(nf, i, n)); }
+    if (window.CULights3D) window.CULights3D.rebuild();
     if (!rig.outputs.some(function (o) { return o.universe === uni; })) rig.outputs.push({ universe: uni, mode: "off", path: "", host: "", offset: 0 });
     saveRig(); renderFixtures(); $("#lxPlot").dataset.n = "";
   }
@@ -774,6 +897,13 @@
       '<div class="row"><label>Output <select data-ck="device"><option value="">This computer\'s output</option></select></label><label>Level <input type="range" min="0" max="1" step="0.05" data-ck="level" value="' + c.level + '"></label><label class="toggle"><input type="checkbox" data-ck="accent"' + (c.accent ? " checked" : "") + "> Accent the first beat</label></div>" +
       '<button data-ck="run">' + (click.running ? "■ Stop the click" : "▶ Run the click now (" + Math.round(song.bpm || 120) + " BPM)") + "</button>";
     var sel = root.querySelector('[data-ck="device"]'); if (navigator.mediaDevices) navigator.mediaDevices.enumerateDevices().then(function (list) { list.filter(function (d) { return d.kind === "audiooutput" && d.deviceId !== "default"; }).forEach(function (d) { var o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || "Output " + d.deviceId.slice(0, 6); if (d.deviceId === c.device) o.selected = true; sel.appendChild(o); }); }).catch(function () { });
+  }
+  function renderStrobeSet() {
+    var root = $("#lxStrobeSet"); if (!root) return; var S2 = rig.strobe, n = rig.fixtures.filter(isStrobe).length;
+    root.innerHTML = '<p class="muted small">' + (n ? n + " strobe" + (n === 1 ? "" : "s") + " in the rig (strobe fixtures, and lights in Strobes / blinders)." : "No strobes in the rig yet: add a strobe fixture, or put lights in Strobes / blinders. Until then the Strobe button flashes every light.") + "</p>" +
+      '<label class="toggle"><input type="checkbox" data-sb="onHits"' + (S2.onHits ? " checked" : "") + "> Strobe burst on the hits (a flash preset firing: the song's hits, the drum hits, the H key)</label>" +
+      '<div class="row"><label>Strobe button <select data-sb="button">' + [["free", "Free (at the Strobe rate)"], ["beat", "Locked to the beat"], ["half", "Locked to ½ beats"], ["quarter", "Locked to ¼ beats"], ["eighth", "Locked to ⅛ beats"]].map(function (o) { return '<option value="' + o[0] + '"' + (S2.button === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + '</select></label><label>Strobe rate <input type="range" min="0" max="1" step="0.01" data-sb="rate" value="' + S2.rate + '"></label></div>' +
+      '<p class="muted small">In a preset: each group\'s Strobe sets the rate and brightness, and "Strobe timing" locks it to the bar, beat, ½, ¼ or ⅛ of the song. Hold the Strobe button (or S) to strobe live.</p>';
   }
   function renderAudio() {
     var root = $("#lxAudio"); if (!root) return; var a = rig.audio, X = window.CUMix, has = !!(X && X.meters && X.meters.bands);
@@ -835,7 +965,14 @@
     document.addEventListener("keydown", function (e) { if (!visible() || e.target.matches("input,select,textarea") || e.repeat) return; if (e.key === "h" || e.key === "H") { live.flash = { look: "hit", until: performance.now() + 250, len: 250 }; recordFlash("hit"); } });
     $("#lxFlash").addEventListener("pointerdown", function () { live.flash = { look: "hit", until: performance.now() + 100000, len: 100000 }; recordFlash("hit"); });
     ["pointerup", "pointerleave"].forEach(function (ev) { $("#lxFlash").addEventListener(ev, function () { if (live.flash && live.flash.len > 1000) live.flash = { look: "hit", until: performance.now() + 250, len: 250 }; }); });
-    $("#lxFaders").addEventListener("input", function (e) { var k = e.target.dataset.fader; if (!k) return; if (k === "master") rig.master = Number(e.target.value); else rig.groupLevel[k] = Number(e.target.value); saveRig(); });
+    $("#lxFaders").addEventListener("input", function (e) { var k = e.target.dataset.fader; if (!k) return; if (k === "master") rig.master = Number(e.target.value); else if (k === "strobeRate") rig.strobe.rate = Number(e.target.value); else rig.groupLevel[k] = Number(e.target.value); saveRig(); });
+    // the Strobe button: hold it and the strobes flash
+    var sb = $("#lxStrobe"), strobeOff = function () { if (live.strobeHold) { live.strobeHold = false; sb.classList.remove("on"); } };
+    sb.addEventListener("pointerdown", function (e) { live.strobeHold = true; sb.classList.add("on"); recordFlash("strobehit"); try { sb.setPointerCapture(e.pointerId); } catch (_) { } });
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (ev) { sb.addEventListener(ev, strobeOff); });
+    document.addEventListener("keydown", function (e) { if (!visible() || e.target.matches("input,select,textarea") || e.repeat) return; if (e.key === "s" || e.key === "S") { live.strobeHold = true; sb.classList.add("on"); } });
+    document.addEventListener("keyup", function (e) { if (e.key === "s" || e.key === "S") strobeOff(); });
+    $("#lxStrobeSet").addEventListener("change", function (e) { var k = e.target.dataset.sb; if (!k) return; rig.strobe[k] = e.target.type === "checkbox" ? e.target.checked : e.target.type === "range" ? Number(e.target.value) : e.target.value; saveRig(); });
     $("#lxMode").addEventListener("change", function () { show.mode = this.value; changed(); });
     $("#lxAuto").addEventListener("click", function () { if (show.cues.length && !confirm("Replace this song's cues with an automatic show from its sections and hits? (you can then change them)")) return; var a = autoCues(); a.forEach(function (c) { c.id = uid(); delete c.auto; }); show.cues = a; show.mode = "manual"; selectedCue = null; changed(); });
     $("#lxClear").addEventListener("click", function () { if (!confirm("Remove every cue of yours from this song?")) return; show.cues = []; selectedCue = null; changed(); });
@@ -910,7 +1047,7 @@
       var box = el.closest("[data-group]"); if (!box) return; var gk = box.dataset.group, f = el.dataset.lg; if (!f) return;
       if (f === "on") { if (el.checked) l.g[gk] = l.g[gk] || G(0.7, "#ffffff"); else delete l.g[gk]; saveRig(); renderLooks(); return; }
       l.g[gk] = l.g[gk] || G(0.7, "#ffffff");
-      l.g[gk][f] = f === "color" || f === "color2" || f === "fx" ? el.value : Number(el.value);
+      l.g[gk][f] = f === "color" || f === "color2" || f === "fx" || f === "strobeSync" ? el.value : Number(el.value);
       var out = el.parentNode.querySelector("output"); if (out) out.textContent = Math.round(Number(el.value) * 100) + "%";
       saveRig();
     }
@@ -948,9 +1085,9 @@
       if (k === "del") { rig.fixtures.splice(rig.fixtures.indexOf(f), 1); saveRig(); renderFixtures(); $("#lxPlot").dataset.n = ""; }
       else if (k === "identify") { live.identify = { id: f.id, until: performance.now() + 2500 }; }
     });
-    $("#lxRigSave").addEventListener("click", function () { var text = JSON.stringify({ format: "central-usage-rig", version: 2, fixtures: rig.fixtures, looks: rig.looks, outputs: rig.outputs, library: rig.library || [] }, null, 1); if (window.CU && window.CU.saveFile) window.CU.saveFile("lighting-rig.json", text); else { var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = "lighting-rig.json"; a.click(); } });
-    $("#lxRigOpen").addEventListener("click", async function () { var text = window.CU && window.CU.openFile ? await window.CU.openFile() : null; if (!text) return; try { var j = JSON.parse(text); if (j.format !== "central-usage-rig") throw new Error("not a Central Control rig"); rig.fixtures = j.fixtures || []; rig.looks = j.looks && j.looks.length ? j.looks : BUILTIN(); if (Array.isArray(j.outputs)) rig.outputs = j.outputs; else if (j.output) rig.outputs = [Object.assign({ universe: 1 }, j.output)]; if (j.library) rig.library = j.library; saveRig(); applyOutput(); renderAll(); } catch (err) { alert("Could not open it: " + err.message); } });
-    $("#lxRigReset").addEventListener("click", function () { if (!confirm("Start again with the example rig (10 fixtures)?")) return; var keep = rig.outputs, ck = rig.click, au = rig.audio, songs = rig.localSongs; rig = defaultRig(); rig.outputs = keep; rig.click = ck; rig.audio = au; rig.localSongs = songs; saveRig(); renderAll(); });
+    $("#lxRigSave").addEventListener("click", function () { var text = JSON.stringify({ format: "central-usage-rig", version: 3, fixtures: rig.fixtures, looks: rig.looks, outputs: rig.outputs, library: rig.library || [], stage: rig.stage }, null, 1); if (window.CU && window.CU.saveFile) window.CU.saveFile("lighting-rig.json", text); else { var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = "lighting-rig.json"; a.click(); } });
+    $("#lxRigOpen").addEventListener("click", async function () { var text = window.CU && window.CU.openFile ? await window.CU.openFile() : null; if (!text) return; try { var j = JSON.parse(text); if (j.format !== "central-usage-rig") throw new Error("not a Central Control rig"); rig.fixtures = j.fixtures || []; rig.looks = j.looks && j.looks.length ? j.looks : BUILTIN(); if (Array.isArray(j.outputs)) rig.outputs = j.outputs; else if (j.output) rig.outputs = [Object.assign({ universe: 1 }, j.output)]; if (j.library) rig.library = j.library; if (j.stage) rig.stage = Object.assign(defaultStage(), j.stage); ensurePlaced(); saveRig(); applyOutput(); renderAll(); if (window.CULights3D) window.CULights3D.rebuild(); } catch (err) { alert("Could not open it: " + err.message); } });
+    $("#lxRigReset").addEventListener("click", function () { if (!confirm("Start again with the example rig (" + defaultRig().fixtures.length + " fixtures on a standard stage)?")) return; var keep = rig.outputs, ck = rig.click, au = rig.audio, songs = rig.localSongs; rig = defaultRig(); rig.outputs = keep; rig.click = ck; rig.audio = au; rig.localSongs = songs; saveRig(); renderAll(); if (window.CULights3D) window.CULights3D.rebuild(); });
     // outputs
     var outs = $("#lxOutputs");
     outs.addEventListener("change", function (e) { var row = e.target.closest("[data-out]"), o = row && rig.outputs[Number(row.dataset.out)], k = e.target.dataset.o; if (!o || !k) return; if (k === "universe" || k === "offset") o[k] = Number(e.target.value) || (k === "universe" ? 1 : 0); else o[k] = e.target.value.trim(); applyOutput(); });
@@ -985,6 +1122,7 @@
     if (c.cmd === "look" && c.id) goLook(c.id);
     else if (c.cmd === "follow") live.manual = null;
     else if (c.cmd === "blackout") live.blackout = !live.blackout;
+    else if (c.cmd === "strobe") live.strobeHold = !!c.on;
     else if (c.cmd === "flash") { live.flash = c.on ? { look: "hit", until: performance.now() + 100000, len: 100000 } : { look: "hit", until: performance.now() + 250, len: 250 }; if (c.on) recordFlash("hit"); }
     else if (c.cmd === "fader" && c.id) { var v = clamp(Number(c.value) || 0, 0, 1); if (c.id === "master") rig.master = v; else rig.groupLevel[c.id] = v; saveRig(); if (view === "show") renderFaders(); }
     if (view === "show") renderPalette();
@@ -1012,5 +1150,8 @@
   window.CULights = { posNow: posNow, profileOf: profileOf, addToLibrary: addToLibrary, remoteState: remoteState, remoteCommand: remoteCommand, POSITIONS: POSITIONS, onMessage: onMessage, render: render, renderAll: renderAll, show: function () { return show; }, rig: function () { return rig; }, song: song, live: live,
     autoCues: autoCues, cuesNow: cuesNow, dirty: dirty, timeOf: timeOf, barBeatAt: barBeatAt, lookById: lookById, goLook: goLook, profiles: PROFILES, write: write, stateFor: stateFor, saveShow: saveShow, showSub: showSub, selectCue: function (c) { selectedCue = c; renderShowPanel(); },
     chat: chat, startPreview: startPreview, stopPreview: stopPreview, preview: function () { return preview; }, programSong: programSong, hub: hub, hubList: hubList, setMode: function (m) { show.mode = m; changed(); }, record: function (on) { live.rec = !!on; if (!on) finishRecording(); else if (playingNow()) rec = { from: posNow(), cues: [] }; }, recording: function () { return rec; },
-    setOverride: function (id, o) { if (o) { live.over[id] = o; recordFixture(id, o); } else delete live.over[id]; }, toggleClick: toggleFreeClick, click: click };
+    setOverride: function (id, o) { if (o) { live.over[id] = o; recordFixture(id, o); } else delete live.over[id]; }, toggleClick: toggleFreeClick, click: click,
+    // the 3D stage (lights3d.js), the bars and the strobes
+    kindOf: kindOf, cellsOf: cellsOf, isStrobe: isStrobe, placeFixture: placeFixture, defaultAim: defaultAim, aimAt: aimAt, trussById: trussById, saveRig: saveRig, groups: GROUPS, defaultStage: defaultStage,
+    identify: function (id) { live.identify = { id: id, until: performance.now() + 2500 }; }, isShowing: function () { return visible() && view === "show"; }, softStrobe: softStrobe };
 })();

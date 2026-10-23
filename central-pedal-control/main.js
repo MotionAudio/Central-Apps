@@ -63,6 +63,8 @@ function createWindow(url) {
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, backgroundThrottling: false }
   });
   win.loadURL(url);
+  // a computer always shows its mouse pointer (only the Central Pedal's own touchscreen hides it)
+  win.webContents.on("did-finish-load", () => { win && win.webContents.insertCSS("body.no-cursor, body.no-cursor * { cursor: auto !important; } body.no-cursor button, body.no-cursor a, body.no-cursor [data-tab] { cursor: pointer !important; }").catch(() => { }); });
   win.on("closed", () => { win = null; });
   win.webContents.setWindowOpenHandler(({ url: u }) => { shell.openExternal(u); return { action: "deny" }; });
 }

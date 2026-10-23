@@ -1,10 +1,13 @@
 /* Central Pedal v5 - shell, Tracks, Instrument, Configure, Learn, Settings, textures, song editor */
 body.no-cursor, body.no-cursor * { cursor: none !important; }
 .topnav { position: sticky; top: 0; z-index: 60; display: flex; align-items: stretch; gap: 6px; padding: 6px 10px; background: color-mix(in srgb, var(--bg), #000 20%); border-bottom: 1px solid var(--line); min-height: 52px; }
-.topnav .nav-tab { flex: 1 1 0; min-width: 0; font-weight: 800; letter-spacing: .06em; font-size: clamp(12px, 1.9vh, 16px); border-radius: 10px; padding: 8px 6px; }
+.topnav .nav-tab { flex: 1 1 0; min-width: 0; font-weight: 800; letter-spacing: .05em; font-size: clamp(12px, min(1.9vh, 1.02vw), 16px); border-radius: 10px; padding: 8px 4px; white-space: nowrap; }
 .topnav .nav-tab.active { background: var(--accent); color: var(--accentText); border-color: var(--accent); }
 .topnav .nav-right { display: flex; align-items: center; gap: 6px; }
 .topnav .nav-right .pf-hw { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+/* narrow screens (the 7" touchscreen, a small window): the tab names fit their buttons */
+@media (max-width: 980px) { .topnav { gap: 4px; padding: 6px 6px; } .topnav .nav-tab { letter-spacing: .01em; font-size: clamp(10.5px, 1.32vw, 13px); padding: 8px 2px; } .topnav .nav-right .pf-hw { max-width: 120px; font-size: 11px; white-space: nowrap; } }
+@media (max-width: 860px) { .topnav .nav-right .pf-hw { display: none; } }
 body.performing .topnav { position: fixed; left: 0; right: 0; }
 .perform { top: 52px !important; }
 main.app { padding-top: 14px; }
@@ -246,7 +249,7 @@ svg.notation .n-tab { font: bold 11px sans-serif; fill: #111; } svg.notation .n-
 .scr-card label { display: grid; gap: 4px; } .scr-card output { color: var(--accent); font-weight: 700; margin-left: 6px; }
 .warn-line { border: 1px solid #b98a2e; background: rgba(255, 190, 70, .08); color: #ffd58a; border-radius: 10px; padding: 8px 10px; margin: 6px 0; }
 .rt-mode label.toggle { display: inline-flex; align-items: center; gap: 8px; flex: 0 1 auto; width: auto; }
-.rt-mode label.toggle input { margin: 0; flex: 0 0 auto; }
+.rt-mode label.toggle input { margin: 0; flex: 0 0 auto; width: auto; }
 dialog.pp-ask { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); padding: 16px 18px; min-width: min(460px, 92vw); max-width: 92vw; }
 dialog.pp-ask::backdrop { background: rgba(0, 0, 0, .55); }
 dialog.pp-ask label { display: grid; gap: 8px; font-weight: 600; } dialog.pp-ask label.toggle { display: inline-flex; font-weight: 400; margin-top: 8px; }
@@ -384,3 +387,13 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 .plug-detail h4 { margin: 14px 0 0; font-size: 13px; } .plug-detail h4 small { font-weight: 400; margin-left: 6px; }
 .plug-warn { color: #ff9b94; } p.plug-warn { border: 1px solid rgba(239,107,99,.5); background: rgba(239,107,99,.08); border-radius: 10px; padding: 8px 10px; }
 .muted.small, .small { font-size: 12px; }
+/* fit: a tick box or a radio keeps its size next to its words (the base rule makes fields full width, which squeezed
+   them in a flex row), and a settings card never grows wider than its column (its fields shrink to fit) */
+.toggle > input[type="checkbox"], .toggle > input[type="radio"] { width: auto; flex: 0 0 auto; margin: 0; }
+.sys-grid section { grid-template-columns: minmax(0, 1fr); min-width: 0; } .sys-grid section > * { min-width: 0; }
+.sys-grid section label:not(.toggle) { grid-template-columns: minmax(0, 1fr); }
+.sys-grid section input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .sys-grid section select { max-width: 100%; }
+/* fit: the pad list stays inside its card (a long sound name wraps instead of widening the list) */
+#padList { grid-template-columns: minmax(0, 1fr); } #padList > .pad { min-width: 0; } #padList > .pad span { white-space: normal; overflow-wrap: anywhere; }
+/* fit: the add-a-song dialog's title and Close button get room above the first row */
+.add-dialog > .row.spread { margin-bottom: 10px; align-items: flex-start; gap: 12px; }

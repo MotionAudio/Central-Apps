@@ -29,7 +29,7 @@
 <div id="login"><h1>Lights remote</h1><p class="muted">Enter the 4-digit code shown in Central Control → Lighting → Output → Phone remote.</p><input id="pin" inputmode="numeric" maxlength="4" autocomplete="off"><p class="muted" id="loginMsg"></p><button id="go">Connect</button></div>
 <main id="app" hidden>
   <header><div><h1 id="title">Lights</h1><div class="muted" id="now">…</div></div><button id="logout" class="muted">⏏</button></header>
-  <div class="row"><button id="follow">▶ Follow show</button><button id="flash">Flash</button><button id="blackout">Blackout</button></div>
+  <div class="row"><button id="follow">▶ Follow show</button><button id="flash">Flash</button><button id="strobe">Strobe</button><button id="blackout">Blackout</button></div>
   <div class="looks" id="looks"></div>
   <div class="faders" id="faders"></div>
 </main>
@@ -63,6 +63,8 @@
   $("#blackout").addEventListener("click", function () { cmd({ cmd: "blackout" }); });
   $("#flash").addEventListener("pointerdown", function () { cmd({ cmd: "flash", on: true }); });
   $("#flash").addEventListener("pointerup", function () { cmd({ cmd: "flash", on: false }); });
+  $("#strobe").addEventListener("pointerdown", function () { cmd({ cmd: "strobe", on: true }); });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(function (ev) { $("#strobe").addEventListener(ev, function () { cmd({ cmd: "strobe", on: false }); }); });
   $("#looks").addEventListener("click", function (e) { var b = e.target.closest("[data-look]"); if (b) cmd({ cmd: "look", id: b.dataset.look }); });
   var ft = 0;
   $("#faders").addEventListener("input", function (e) { var el = e.target; if (!el.dataset.fader) return; dragging = true; el.nextSibling.textContent = el.value; clearTimeout(ft); ft = setTimeout(function () { cmd({ cmd: "fader", id: el.dataset.fader, value: Number(el.value) / 100 }); }, 40); });

@@ -12,18 +12,25 @@
   .screen { position:fixed; inset:0; display:grid; grid-template-rows:14% 1fr; }
   .bar { background:var(--bar); display:flex; align-items:center; padding:0 2vw; gap:3vw; }
   .bar .song { flex:1; min-width:0; } .bar .song b { display:block; font-size:4.6vh; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .bar .song span { color:var(--muted); font-size:3vh; }
-  .bar .stat { display:grid; justify-items:center; line-height:1; } .bar .stat small { font-size:2.2vh; letter-spacing:.14em; color:var(--muted); } .bar .stat b { font-size:6.5vh; } .bar .key b { color:var(--accent); }
+  .bar .stat { display:grid; justify-items:center; line-height:1; gap:.5vh; } .bar .stat small { font-size:2.2vh; letter-spacing:.14em; color:var(--muted); } .bar .stat b { font-size:6.5vh; } .bar .key b { color:var(--accent); }
   .dot { width:2.4vh; height:2.4vh; border-radius:50%; background:var(--accent); opacity:0; } .dot.on { opacity:1; animation:pulse 1.2s infinite; } @keyframes pulse { 50% { opacity:.3; } }
   .body { display:grid; grid-template-columns:62% 1fr; gap:1.2vh; padding:1.2vh; min-height:0; }
   .pads { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); gap:1.2vh; min-height:0; }
   .pad { border:1px solid var(--line); border-radius:2vh; background:var(--idle); display:flex; flex-direction:column; justify-content:space-between; padding:1.4vh; text-align:left; color:var(--text); font-size:3.2vh; min-height:0; overflow:hidden; }
-  .pad small { color:var(--muted); font-size:2.6vh; } .pad b { font-size:3.4vh; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pad small { color:var(--muted); font-size:2.6vh; } .pad b { font-size:3.4vh; line-height:1.1; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow-wrap:anywhere; }
   .pad.selected { background:var(--sel); } .pad.playing { background:var(--play); border-color:var(--accent); } .pad.playing small { color:var(--accent); }
   .pad.stop { background:var(--stop); border-color:#82414b; justify-content:center; align-items:center; font-weight:800; font-size:4vh; }
   .btns { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(4,1fr); gap:1vh; min-height:0; }
   .btns button { border:1px solid var(--line); border-radius:1.6vh; background:#23272E; color:var(--text); font-size:2.9vh; font-weight:700; min-height:0; padding:0 1vh; }
   .btns button.on { background:var(--accent); color:#1A1408; }
   button:active { transform:scale(.97); }
+  /* a portrait phone: the pads on top, the buttons under them; sizes held by the width too */
+  @media (max-aspect-ratio: 1/1) {
+    .screen { grid-template-rows:auto 1fr; } .body { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1.4fr) minmax(0,1fr); }
+    .pad { font-size:min(3.2vh, 4.4vw); } .pad small { font-size:min(2.6vh, 3.6vw); } .pad b { font-size:min(3.4vh, 4.4vw); }
+    .bar { padding:1.2vh 3vw; } .bar .song b { font-size:min(4.6vh, 6vw); } .bar .song span { font-size:min(3vh, 4vw); } .bar .stat small { font-size:min(2.2vh, 3vw); } .bar .stat b { font-size:min(6.5vh, 8vw); }
+    .btns button { font-size:min(2.9vh, 3.8vw); }
+  }
 </style>
 </head>
 <body>

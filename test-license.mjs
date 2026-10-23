@@ -196,11 +196,11 @@ await check("the website: packs and keys in the store, a new account makes the c
   await w.click('#packs [data-add="pack-lite"]');
   await w.click("#cartBtn"); assert.match(await w.textContent(".modal"), /Sign in or make an account first/); await w.click('.modal [data-close], .modal #clear');
   await w.goto(WEB + "/#account"); await w.waitForSelector("#upForm");
-  await w.check('[name="upCh"][value="make"]'); await w.fill("#upName", "Pastor"); await w.fill("#upEmail", "pastor" + stamp + "@hope.test"); await w.fill("#upPass", "password123"); await w.fill("#upChurch", "Hope Church");
+  await w.check('[name="upCh"][value="make"]'); await w.fill("#upEmail", "pastor" + stamp + "@hope.test"); await w.fill("#upPass", "password123"); await w.fill("#upChurch", "Hope Church");
   await w.click("#upForm button.btn");
   await w.waitForFunction(() => /Hope Church/.test((document.getElementById("churchCard") || {}).textContent || "") && /Admin code/.test(document.getElementById("churchCard").textContent));
   const card = await w.textContent("#churchCard");
-  assert.match(card, /you're main admin/); assert.match(card, /User code [A-Z2-9]{8}/); assert.match(card, /No keys yet/);
+  assert.match(card, /you're the church account/); assert.match(card, /User code [A-Z2-9]{8}/); assert.match(card, /No keys yet/);
   await w.close();
 });
 await check("no page errors", () => assert.deepEqual(errors.filter((e) => !/favicon|Failed to fetch|NetworkError|AbortError/.test(e)), []));

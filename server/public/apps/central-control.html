@@ -81,8 +81,15 @@
 <p>Central Control doesn't have the chord chart or the instrument: those are the musicians' screens, in <a href="/apps/central-usage.html">Central Usage</a>. Central Control sends them the song and the section that's playing, so every musician's chart and lyrics follow along.</p>
 <h2 id="lighting">Lighting</h2>
 
-<p>A light controller that follows the song. It has three parts: <b>Show</b>, <b>Fixtures</b> and <b>Output</b>.</p>
-<figure class="shot"><img src="/img/apps/cc-lights.webp" alt="The Lighting tab: the stage plot, presets and faders above the song&#x27;s timeline with sections, hits and cues" loading="lazy"><figcaption>Lighting → Show: the stage plot, the presets and the song's timeline with its sections, hits and cues.</figcaption></figure>
+<p>A light controller that follows the song, with your stage in 3D. It has three parts: <b>Show</b>, <b>Fixtures</b> and <b>Output</b>.</p>
+<figure class="shot"><img src="/img/apps/cc-lights.webp" alt="The Lighting tab: the 3D stage, presets and faders above the song&#x27;s timeline with sections, hits and cues" loading="lazy"><figcaption>Lighting → Show: the stage in 3D, the presets and the song's timeline with its sections, hits and cues.</figcaption></figure>
+<h3>The 3D stage</h3>
+<ul>
+<li>Your stage at its real size, its trusses and the audience. Each light shows its colour, its beam through the haze and the pool of light where it lands; moving heads turn with their pan and tilt, bars show every cell, strobes flash.</li>
+<li><b>Look around</b>: drag to turn, right-drag (or Shift-drag) to slide, the wheel to zoom, or pick <b>Audience</b>, <b>Corner</b>, <b>Top</b> or <b>Side</b>. <b>Bigger</b> gives the stage the whole width. <b>Names</b> shows every light's name.</li>
+<li><b>Place a light</b>: click it. Drag it along its truss or across the floor, and in its panel pick where it hangs (the floor, a truss or over the audience), its height, and where it points: drag <i>Points</i> and <i>Tilt down</i>, or press <b>At the stage</b>, <b>At the audience</b>, <b>Straight down</b>, <b>Straight up</b> or <b>Back wall</b>. Moving heads are <i>Hung</i> or <i>Standing</i>, and their pan and tilt range match the fixture (540° and 270° for most).</li>
+<li><b>Stage &amp; trusses</b>: type your stage's width, depth and height and the room in front of it, and add trusses: how far from the front edge (negative is out over the audience), how high and how wide. Lights on a truss move with it.</li>
+</ul>
 <h3>Show</h3>
 <ul>
 <li>The <b>timeline</b> shows the song's waveform, its sections in their colours, the hits as yellow lines, and your cues. Click the timeline to add a cue; drag a cue to move it. It snaps to the bar, beat, ½ beat or ¼ beat.</li>
@@ -91,10 +98,12 @@
 <li><b>● Record</b>: while the song plays (on the pedal, or <b>▶ Preview here</b>), everything you press goes on the timeline. Record again over any part to replace just that part.</li>
 <li><b>Lights</b>: every light under the plot. Change one light's colour and level live, then <b>+ Cue with these colours</b>.</li>
 <li><b>Songs</b>: every song on the pedal, with or without tracks, plus your own. A scene programmed at 93 BPM stays on its bar and beat when the song is played at 112.</li>
-<li><b>Presets</b>: colour, second colour, white, amber, UV, strobe, motion (effects, mover position, fan, phase) and timing.</li>
+<li><b>Presets</b>: colour, second colour, white, amber, UV, strobe and strobe timing, motion (effects, mover position, fan, phase) and timing.</li>
+<li><b>Light bars</b>: every cell has its own colour. Chase, Rainbow, Wipe, Bounce and Sparkle run cell by cell along all the bars in a group, and Alternate swaps every other cell. Pick a bar type in Fixtures (4, 8, 12 or 16 cells), or import its file: the cells are found by themselves.</li>
+<li><b>Strobes</b>: hold <b>Strobe</b> (or the S key, or Strobe on the phone remote) and every strobe flashes at the <b>Strobe rate</b> fader, or locked to the beat (Output → Strobes). In a preset, each group's <i>Strobe</i> sets the rate and <i>Strobe timing</i> locks it to the bar, beat, ½, ¼ or ⅛. With <i>Strobe burst on the hits</i> on, the strobes fire on every hit. The presets <i>Strobe hit</i> and <i>Strobe on the beat</i> are ready to use.</li>
 </ul>
 <h3>Fixtures</h3>
-<p>The patch: each light's type from the fixture library (from QLC+ and Open Fixture Library), its universe, address and group, and where it sits on the stage plot.</p>
+<p>The patch: each light's type from the fixture library (from QLC+ and Open Fixture Library) or the built-in types (pars, light bars, strobes, blinders, moving heads, hazers), its universe, address and group. New lights go on their group's truss (front lights on the front truss, movers on the mid truss, back lights and strobes on the back truss, bars on the stage floor); place them exactly on the 3D stage.</p>
 <h3>Output</h3>
 <ul>
 <li>One <b>DMX output per universe</b>: USB-DMX (ENTTEC Pro and compatibles), Art-Net or sACN, with a monitor for each universe.</li>

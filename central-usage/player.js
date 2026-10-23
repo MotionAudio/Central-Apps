@@ -78,6 +78,7 @@ function setup({ app, ipcMain, getMainWin, center }) {
         webPreferences: { partition: "persist:player", contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, backgroundThrottling: false }
       });
       win.loadURL("http://127.0.0.1:" + PORT + "/app/?player=1#resume");   // (player=1: Central Control's own key covers it - no license setup here)
+      win.webContents.on("did-finish-load", () => { if (win) win.webContents.insertCSS("body.no-cursor, body.no-cursor * { cursor: auto !important; }").catch(() => { }); });   // (a computer: the pointer always shows)
       win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
       win.on("close", (e) => {
         if (app.__quitting) return;

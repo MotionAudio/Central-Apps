@@ -68,10 +68,49 @@ await check("MIDI relay: the Pi's hit notes arrive with its clock and are schedu
   const ok = await cu.evaluate(() => { const st = CentralUsage.state; st.offset = 1000; const localNow = performance.now(); const piNow = localNow + 1000; const seen = []; const l = document.querySelector("#log"); CentralUsage.onMessage({ type: "midi", t: piNow, messages: [{ data: [0x90, 48, 127], at: 250 }, { data: [0x80, 48, 0], at: 350 }] }); return /note 48/.test(l.textContent) && /in 2\d\d ms/.test(l.textContent); });
   assert.ok(ok, "hit logged with ~250 ms lookahead");
 });
-await check("lighting: the example rig is on the stage plot and the auto show is built from the song's sections", async () => {
+await check("lighting: the example rig (with light bars and a strobe) is on the 3D stage and the auto show is built from the song's sections", async () => {
   await cu.evaluate(() => CentralUsage.setMode("admin"));   // the lights are on admin computers
   await cu.click('[data-tab="lights"]'); await cu.click('[data-lx="show"]');
-  await cu.waitForFunction(() => document.querySelectorAll("#lxPlot .lx-fix").length === 11 && CULights.cuesNow().length >= 3, null, { timeout: 8000 });
+  await cu.waitForFunction(() => window.CULights3D && CULights3D.active() && CULights3D.count() === CULights.rig().fixtures.length && CULights.rig().fixtures.length === 14 && CULights.cuesNow().length >= 3, null, { timeout: 8000 });
+await check("lighting: light bars (each cell its own colour), strobes (button, beat-locked, hit bursts) and the 3D stage", async () => {
+  const r = await cu.evaluate(() => {
+    const L = CULights, rig = L.rig(), bar = rig.fixtures.find((f) => f.name === "Bar L"), strobe = rig.fixtures.find((f) => f.name === "Strobe");
+    const out = { kinds: [L.kindOf(bar), L.cellsOf(bar), L.kindOf(strobe), L.isStrobe(strobe), L.kindOf(rig.fixtures.find((f) => f.name === "Mover L")), L.kindOf(rig.fixtures.find((f) => f.name === "Blinder")), L.cellsOf(rig.fixtures.find((f) => f.name === "Blinder"))] };
+    // a rainbow and a chase run along the bar's cells
+    const look = { g: { back: { dim: 1, color: "#ff0000", fx: "rainbow", speed: 4, size: 1 } } }, cells = [0, 3, 7].map((c) => L.stateFor(look, bar, 0, 2, 0, c, 8));
+    out.rainbow = cells.map((s) => [s.r, s.g, s.b].map((v) => v.toFixed(2)).join("/"));
+    const chase = { g: { back: { dim: 1, color: "#ffffff", fx: "chase", speed: 1, size: 1 } } };
+    out.chase = [0, 1, 2].map((b) => [0, 1, 2].map((c) => L.stateFor(chase, bar, 0, 2, b, c, 8).dim).join(""));
+    // its channels: cell k's red is the k-th "r"
+    const unis = {}; const sts = Array.from({ length: 8 }, (_, k) => ({ dim: 1, r: k === 2 ? 1 : 0, g: 0, b: k === 5 ? 1 : 0, w: 0, a: 0, uv: 0, strobe: 0, pan: 0.5, tilt: 0.5, haze: 0 }));
+    L.write(unis, bar, sts); const u = unis[String(bar.universe)], a = bar.address - 1;
+    out.dmx = [u[a + 6], u[a + 8], u[a + 17], u[a + 3]];
+    // a strobe locked to the beat flashes only near the beat
+    const sb = { g: { fx: { dim: 1, color: "#ffffff", strobe: 1, strobeSync: "beat" } } };
+    out.beat = [0, 0.02, 0.5, 1.01].map((b) => L.stateFor(sb, strobe, 0, 2, b).dim);
+    out.place = [bar.mount, Math.round(bar.pos.y * 10) / 10, strobe.mount, rig.fixtures.find((f) => f.name === "Mover L").mount, rig.stage.trusses.length];
+    return out;
+  });
+  assert.deepEqual(r.kinds, ["bar", 8, "strobe", true, "mover", "blinder", 2], JSON.stringify(r));
+  assert.ok(new Set(r.rainbow).size === 3, "every cell its own colour " + JSON.stringify(r.rainbow));
+  assert.deepEqual(r.chase, ["100", "010", "001"], "a chase steps cell by cell " + JSON.stringify(r.chase));
+  assert.deepEqual(r.dmx, [255, 0, 255, 0], "cell 3's red and cell 6's blue " + JSON.stringify(r.dmx));
+  assert.ok(r.beat[0] === 1 && r.beat[1] === 1 && r.beat[2] === 0 && r.beat[3] === 1, "beat-locked strobe " + JSON.stringify(r.beat));
+  assert.ok(r.place[0] === "floor" && r.place[2] === "back" && r.place[3] === "mid" && r.place[4] === 3, JSON.stringify(r.place));
+  // the Strobe button: held, the strobe flashes; let go, it follows the show again
+  await cu.evaluate(() => { CULights.rig().strobe.button = "free"; });
+  await cu.dispatchEvent("#lxStrobe", "pointerdown");
+  const seen = new Set(); for (let i = 0; i < 25; i++) { seen.add(await cu.evaluate(() => { const L = CULights, f = L.rig().fixtures.find((x) => x.name === "Strobe"); return L.live.fixtureColor[f.id].dim > 0.5 ? 1 : 0; })); await new Promise((res) => setTimeout(res, 23)); }
+  await cu.dispatchEvent("#lxStrobe", "pointerup");
+  assert.ok(seen.has(1) && seen.has(0), "the strobe flashes while the button is held");
+  assert.ok(!(await cu.evaluate(() => CULights.live.strobeHold)), "let go: it stops");
+  // the 3D stage: click a light to pick it, its panel shows; the stage settings change the stage
+  const pick = await cu.evaluate(() => { const f = CULights.rig().fixtures.find((x) => x.name === "Mover L"); CULights3D.select(f.id); return !!document.querySelector("#lx3dPanel:not([hidden]) [data-pf='mount']"); });
+  assert.ok(pick, "the light's panel");
+  await cu.evaluate(() => { CULights3D.select(null); document.querySelector("[data-stage3]").click(); const w = document.querySelector("[data-sf='width']"); w.value = "12"; w.dispatchEvent(new Event("input", { bubbles: true })); });
+  assert.equal(await cu.evaluate(() => CULights.rig().stage.width), 12);
+  await cu.evaluate(() => { const w = document.querySelector("[data-sf='width']"); w.value = "10"; w.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector("[data-stage3]").click(); });
+});
   const cues = await cu.evaluate(() => CULights.cuesNow().filter((c) => c.kind === "look").map((c) => c.look + "@" + c.bar));
   assert.ok(cues[0] === "verse@1" && cues.some((c) => /^chorus@/.test(c)) && /^blackout@/.test(cues[cues.length - 1]), cues.join(" "));
   assert.ok(await cu.evaluate(() => document.querySelectorAll("#lxPalette .lx-look").length >= 12));
@@ -133,7 +172,7 @@ await check("lighting: a split song's drum hits (kick, snare, hi-hat, crash) com
 });
 await check("lighting: a cue added on the timeline is saved on the Central Pedal (with the pairing code) and read back", async () => {
   await cu.evaluate((c) => { CentralUsage.prefs.code = c; }, code);
-  const box = await cu.$("#lxTimeline"); const bb = await box.boundingBox();
+  const box = await cu.$("#lxTimeline"); await box.scrollIntoViewIfNeeded(); const bb = await box.boundingBox();   // (below a bigger 3D stage)
   const before = await cu.evaluate(() => CULights.show().cues.length);
   await cu.mouse.click(bb.x + bb.width * 0.6, bb.y + 50);
   await cu.waitForFunction((n) => CULights.show().cues.length === n + 1 && CULights.show().saved, before, { timeout: 6000 });
@@ -148,7 +187,8 @@ await check("lighting: fixtures can be added with addresses that follow on, and 
   const n0 = await cu.evaluate(() => CULights.rig().fixtures.length);
   await cu.selectOption("#lxAddProfile", "rgbw4"); await cu.fill("#lxAddCount", "4"); await cu.fill("#lxAddName", "Side"); await cu.click("#lxAddBtn");
   const f = await cu.evaluate(() => CULights.rig().fixtures.slice(-4).map((x) => x.address));
-  assert.deepEqual(f, [54, 58, 62, 66]); assert.equal(await cu.evaluate(() => CULights.rig().fixtures.length), n0 + 4);
+  // (after the example rig: its strobe is at 101-102)
+  assert.deepEqual(f, [103, 107, 111, 115]); assert.equal(await cu.evaluate(() => CULights.rig().fixtures.length), n0 + 4);
   await cu.evaluate(() => { const fx = CULights.rig().fixtures; fx[fx.length - 1].address = 1; CULights.renderAll(); });
   assert.ok(await cu.evaluate(() => document.querySelectorAll("#lxFixTable tr.clash").length >= 2));
   await cu.click('[data-lx="show"]');

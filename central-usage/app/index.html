@@ -16,6 +16,8 @@
   <link rel="stylesheet" href="video.css">
   <link rel="stylesheet" href="talkback.css">
   <link rel="stylesheet" href="shared/parts.css">
+  <link rel="stylesheet" href="lights3d.css">
+  <link rel="stylesheet" href="fit.css">
 </head>
 <body>
   <header class="top">
@@ -72,9 +74,10 @@
     <div class="lx-view lx-showview" data-lxv="show">
      <div class="lx-showmain">
       <div class="lx-top">
-        <svg id="lxPlot" class="lx-plot" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="lx-stage3d" id="lx3d" aria-label="The stage in 3D"></div>
+        <svg id="lxPlot" class="lx-plot" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" hidden></svg>
         <div class="lx-side">
-          <div class="row"><button id="lxFollow" class="on" title="The cues on the timeline run the lights">▶ Follow the show</button><button id="lxBlackout" class="danger" title="Everything off (keeps running underneath)">Blackout</button><button id="lxFlash" title="Hold for a white flash">Flash</button></div>
+          <div class="row"><button id="lxFollow" class="on" title="The cues on the timeline run the lights">▶ Follow the show</button><button id="lxBlackout" class="danger" title="Everything off (keeps running underneath)">Blackout</button><button id="lxFlash" title="Hold for a white flash">Flash</button><button id="lxStrobe" title="Hold: the strobes flash (at the Strobe rate, or locked to the beat - Output tab)">Strobe</button></div>
           <div class="lx-palette" id="lxPalette"></div>
           <div class="lx-faders" id="lxFaders"></div>
         </div>
@@ -135,6 +138,7 @@
         </div>
         <div class="card"><h3>Click</h3><div id="lxClick"></div></div>
         <div class="card"><h3>Lights and the music</h3><div id="lxAudio"></div></div>
+        <div class="card"><h3>Strobes</h3><div id="lxStrobeSet"></div></div>
         <div class="card"><h3>Timecode out (MTC · LTC)</h3><div id="lxTimecode"></div></div>
         <div class="card"><h3>Phone remote</h3><div id="lxRemote"></div></div>
       </div>
@@ -158,6 +162,8 @@
   <script src="fixturelib.js"></script>
   <script src="lights-ai.js"></script>
   <script src="lights.js"></script>
+  <script src="vendor/three.min.js"></script>
+  <script src="lights3d.js"></script>
   <script src="timecode.js"></script>
   <script src="updates.js"></script>
   <script src="mix.js"></script>

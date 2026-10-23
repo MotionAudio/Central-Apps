@@ -1,0 +1,10 @@
+/* Central Control: text that must fit (no overlapping or clipped labels at any window size) */
+
+/* Slides: a text slide's thumbnail keeps its words inside the little screen (3 lines, long addresses break) */
+.sl-th.sl-tht > span { max-width: 100%; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 1.25; }
+
+/* Lighting → Output: the DMX monitor's channel numbers fit their cells (narrow windows get more rows, not cut numbers) */
+.lx-monitor { grid-template-columns: repeat(auto-fill, minmax(24px, 1fr)); }
+
+/* Lighting: the songs and presets panel stops above the "Tell it" button, so the button never covers a preset or text */
+.lx-rightpanel { margin-bottom: 64px; }
