@@ -220,3 +220,12 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--blue); te
 .lv-pad.sel { box-shadow: inset 0 0 0 1px var(--blue), 0 2px 0 #0A0B0D; }
 .lv-pad.on { background: radial-gradient(140% 120% at 50% 0%, color-mix(in srgb, var(--padc, var(--accent)), #1A1D22 35%), color-mix(in srgb, var(--padc, var(--accent)), #111317 75%)); border-color: color-mix(in srgb, var(--padc, var(--accent)), #fff 20%); box-shadow: 0 0 0 1px var(--padc, var(--accent)), 0 0 26px -4px var(--padc, var(--accent)), inset 0 1px 0 rgba(255,255,255,.18); }
 .lv-pad.on b { color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.45); }
+/* Stream Deck in Settings: the keys and the key's settings side by side on a wide screen; the deck's own settings in
+   a grid of short fields (not each one the whole width of the page) */
+.sd-main { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 1fr); gap: 12px; align-items: start; }
+.sd-main .sd-edit { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-content: start; }
+.sd-main .sd-edit > b, .sd-main .sd-edit > .row { grid-column: 1 / -1; }
+@media (max-width: 1000px) { .sd-main { grid-template-columns: minmax(0, 1fr); } }
+.sd-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 14px; align-items: end; }
+.sd-opts > label:first-child { grid-column: span 2; }
+.sd input[type="color"] { width: 72px; max-width: 100%; height: 34px; padding: 2px; }

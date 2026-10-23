@@ -10,6 +10,8 @@ ExecStart=/usr/bin/python3 /opt/pad-pedal/pedal-driver.py
 RuntimeDirectory=pad-pedal
 WorkingDirectory=/run/pad-pedal
 Environment=LG_WD=/run/pad-pedal
+# text files are UTF-8 whatever language the Pi is set to
+Environment=PYTHONUTF8=1
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 Restart=always
 RestartSec=2
