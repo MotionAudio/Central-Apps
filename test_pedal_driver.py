@@ -475,6 +475,7 @@ async def main():
               [t.get("name") for t in _taps] == ["pad", "playPause"] and _taps[0].get("args") == {"index": 0}, _taps)
         # the tabs: Tracks → Mixer, a fader by tap and by drag, the Instrument's pedals, Settings → In & out
         mini = driver.mini
+        touch_screen_id_before = driver_mod.touch_screen_id(driver.config)
         disp = dict(driver.display or {}, mini={"stems": [{"i": 0, "name": "Drums", "gain": 1.0, "mute": False}], "levels": {"tracks": 0.5, "click": 0.5}, "volume": 1,
                                                  "instrument": {"kind": "electric", "kinds": [["electric", "Electric"], ["off", "Off"]], "board": "Clean Worship", "levelDb": 0, "pedals": [{"index": 0, "name": "Booster", "on": True}], "knobs": []},
                                                  "input": {"gain": 0, "channel": "L"}, "routing": {"buses": [{"id": "tracks", "name": "Tracks", "ch": 1, "out": "Output 1"}]}})
@@ -502,6 +503,24 @@ async def main():
         mini.local({"local": "tab", "value": "settings"}); mini.local({"local": "sub", "tab": "settings", "value": "audio"})
         mini.render(disp)
         bus = mini.hit_test(470, 160)
+        mini.local({"local": "sub", "tab": "settings", "value": "touch"})
+        mini.render(disp)
+        cal0 = dict((driver.config.get("mini_screen") or {}).get("calibration") or {})
+        flip = mini.hit_test(360, 240)
+        mini.local(flip)
+        cal1 = dict(driver.config["mini_screen"].get("calibration") or {})
+        rot1 = driver.config["mini_screen"].get("rotate")
+        mini.local(flip)
+        nxt = mini.hit_test(470, 100)
+        mini.local(nxt)
+        picked = mini.pick_screen
+        mini.render(disp)
+        use = mini.hit_test(240, 175)
+        check("small screen: SETTINGS → Touch picks the touch screen (‹ ›, then Use this screen) and flips the picture and the touch 180°",
+              flip == {"local": "flip"} and rot1 == 180 and cal1.get("flip_x") != cal0.get("flip_x", False) and cal1.get("flip_y") != cal0.get("flip_y", False)
+              and driver.config["mini_screen"].get("rotate") == 0 and nxt == {"local": "tsPick", "d": 1} and picked != touch_screen_id_before and use == {"local": "tsApply"},
+              (flip, rot1, cal0, cal1, nxt, picked, use))
+        mini.pick_screen = None
         driver.emit = _real_emit
         driver.schedule_mini_render = _sched
         mini.tab = "pads"
@@ -823,7 +842,7 @@ async def main():
             status, body = http("http://127.0.0.1:18766/instrument/sf2", data=json.dumps({"path": "/etc/passwd"}).encode(), headers={"Content-Type": "application/json"})
             check("...but only from the USB / SD / uploads folders", status == 403)
             await ws.send(json.dumps({"type": "instrument", "action": "status"}))
-            st = await next_message(lambda m: m["type"] == "instrumentStatus")
+            st = await next_message(lambda m: m["type"] == "instrumentStatus" and sum(1 for b in m.get("keysCatalog", []) if b.get("user")) >= 2, 6.0)   # (not an older status still on its way)
             names = [b["name"] for b in (st or {}).get("keysCatalog", []) if b.get("user")]
             check("the Instrument tab's sound list has both new banks, marked as the user's", "My Piano" in names and "Stick Bank" in names, names)
 
