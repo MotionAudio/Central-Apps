@@ -590,7 +590,7 @@ async function renderAccount(note) {
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); renderMyRenewals(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); }
+  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); renderMyRenewals(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); renderDefaultKeys(); }
   if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "You're already confirmed." : "Sent! Check your inbox, and your spam folder just in case."); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
@@ -1128,6 +1128,21 @@ async function handleHash() {
   else if (h === "payouts-done" || h === "payouts-refresh") { history.replaceState(null, "", "#publish"); if (h === "payouts-refresh") { try { go((await api("POST", "/connect")).url); } catch (e) { toast(e.message); } } else { toast("Payout setup saved."); refreshMe(); } }
 }
 
+// ---------------------------------------------------------------- staff: the default keys (on for now; off when every church has its own)
+async function renderDefaultKeys() {
+  let host = $("#defKeysCard"); if (!host) { $("#acctBody .acct").insertAdjacentHTML("beforeend", `<div class="card wide" id="defKeysCard"></div>`); host = $("#defKeysCard"); }
+  let r; try { r = await api("GET", "/admin/default-keys"); } catch (e) { host.innerHTML = `<h3>Default keys</h3><div class="err">${esc(e.message)}</div>`; return; }
+  const names = { P: "Central Pedal Control", A: "Central Control", U: "Central Usage", S: "Sound plans (all four, a package key)" };
+  host.innerHTML = `<h3>Default keys · Motion Audio staff</h3>
+    <p class="muted" style="margin:0;font-size:.92rem">One shared key per app, so the apps work before every church has its own: any number of devices, updates always, no Central Tracks Unlimited. Switch them off and the apps ask for a real key at their next check (they're told it was a temporary key).</p>
+    <div class="slots-big"><b>${r.on ? "On" : "Off"}</b><span>${r.on ? "the default keys work" : "the default keys don't work"}</span></div>
+    <table class="ktable"><tr><th>App</th><th>Key</th></tr>${Object.entries(r.keys).map(([k, v]) => `<tr><td>${esc(names[k] || k)}</td><td><code style="user-select:all">${esc(v)}</code></td></tr>`).join("")}</table>
+    <div><button class="btn small${r.on ? " ghost" : ""}" id="dkToggle">${r.on ? "Switch them off" : "Switch them on"}</button></div><div class="err" id="dkErr"></div>`;
+  $("#dkToggle").onclick = async () => {
+    if (r.on && !confirm("Switch the default keys off? Every app using one asks for a real key at its next check.")) return;
+    try { await api("POST", "/admin/default-keys", { on: !r.on }); toast(r.on ? "Default keys are off" : "Default keys are on"); renderDefaultKeys(); } catch (e) { $("#dkErr").textContent = e.message; }
+  };
+}
 // ---------------------------------------------------------------- staff: who can edit the website
 async function renderEditors() {
   let host = $("#editorsCard"); if (!host) { $("#acctBody .acct").insertAdjacentHTML("beforeend", `<div class="card wide" id="editorsCard"></div>`); host = $("#editorsCard"); }

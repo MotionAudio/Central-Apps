@@ -60,6 +60,8 @@ export const DISCOUNTS = {
 export const RENEWAL = { name: "Update renewal (one key, ten more releases)", cents: 2000 };
 export const KEY_KINDS = { P: "Central Pedal / Central Pedal Control", A: "Central Control (main admin or admin)", U: "Central Usage (user)" };
 export const LICENSE_RECHECK_DAYS = 30;
+// default keys, one per kind, for now (staff switch them off on the staff page: see defaultkeys.js)
+export const DEFAULT_KEYS = { P: "PDEF-AULT-KEY0-2026", A: "ADEF-AULT-KEY0-2026", U: "UDEF-AULT-KEY0-2026", S: "SDEF-AULT-KEY0-2026" };
 export const MAIN_ADMINS_MAX = 2;
 // Central Services: slots bought once (packs come with some). Each person on the church's teams takes one.
 export const SERVICES_LIMITS = { teamsPerKind: 4, schedulers: 4, people: 1000 };

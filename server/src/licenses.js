@@ -8,7 +8,8 @@
 // Pedal Control): each gets an email with a link to make their account, their app's download link and their key.
 import crypto from "node:crypto";
 import { q, one, pool } from "./db.js";
-import { config, KEY_KINDS, LICENSE_RECHECK_DAYS, MAIN_ADMINS_MAX } from "./config.js";
+import { config, KEY_KINDS, LICENSE_RECHECK_DAYS, MAIN_ADMINS_MAX, DEFAULT_KEYS } from "./config.js";
+import { defaultKind, defaultKeysOn, defaultOffMessage, DEFAULT_CHURCH } from "./defaultkeys.js";
 import { isAdmin } from "./auth.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
 import { requireStep } from "./signin.js";
@@ -193,6 +194,11 @@ export async function remindInvites() {
   return n;
 }
 
+// a default key's answer: no church of its own, updates always, no end, no Central Tracks Unlimited
+function defaultReply(kind, activate) {
+  return Object.assign({ ok: true }, activate ? { key: DEFAULT_KEYS[kind] } : {}, { kind, church: DEFAULT_CHURCH, recheckDays: LICENSE_RECHECK_DAYS }, activate ? { account: null } : {},
+    { updatesUntil: null, updatesUntilText: "forever", expiresAt: null, trial: false, tracksUnlimited: false, defaultKey: true });
+}
 // what a key tells its app: how far its updates go (null: forever), and when a trial key stops
 function coverage(l) { return { updatesUntil: l.kind === "P" ? null : l.updates_until, updatesUntilText: l.kind === "P" ? "forever" : fmt(l.updates_until), expiresAt: l.expires_at || null, trial: !!l.trial }; }
 
@@ -221,6 +227,12 @@ export function routes(api, { wrap, brake, requireUser }) {
     keyBrake(req);
     const b = req.body || {}, dev = device(b), app = String(b.app || ""), want = APP_KIND[app];
     if (!want) throw bad("Unknown app.");
+    const dk = defaultKind(b.key);   // (a default key: while staff keep them on, any device, nothing to store)
+    if (dk && dk !== "S") {
+      if (!(await defaultKeysOn())) throw bad(defaultOffMessage(), 403);
+      if (dk !== want) throw bad("That's a " + (KEY_KINDS[dk] || "different") + " key. " + APP_NAME[app] + " needs " + (want === "P" ? "a P key" : want === "A" ? "an A key (admin)" : "a U key (user)") + ".", 400);
+      return res.json(defaultReply(dk, true));
+    }
     const name = String(b.deviceName || "").trim().slice(0, 80) || APP_NAME[app];
     const client = await pool.connect();
     let l;
@@ -249,7 +261,9 @@ export function routes(api, { wrap, brake, requireUser }) {
   // package keys (plans.js, /v1/package/...).
   api.post("/license/check", wrap(async (req, res) => {
     keyBrake(req);
-    const b = req.body || {}, dev = device(b), l = await findKey(b.key);
+    const b = req.body || {}, dev = device(b), dk = defaultKind(b.key);
+    if (dk && dk !== "S") return res.json((await defaultKeysOn()) ? defaultReply(dk) : { ok: false, reason: "invalid", message: defaultOffMessage() });   // (switched off: the app asks for a real key)
+    const l = await findKey(b.key);
     if (!l || l.revoked) { miss(req); return res.json({ ok: false, reason: "invalid" }); }
     if (l.church_id && (await one("SELECT closed_at FROM churches WHERE id=$1", [l.church_id])).closed_at) return res.json({ ok: false, reason: "invalid" });   // (its church was closed)
     if (expired(l)) return res.json({ ok: false, reason: "expired", expiresAt: l.expires_at });   // (a trial that ended: the app locks until a bought key is entered)
@@ -269,6 +283,7 @@ export function routes(api, { wrap, brake, requireUser }) {
   // same one (so a key isn't shared). A key the Teams page sent to someone is theirs. The account joins the key's church:
   // an A key makes it an admin; P and U keys a user.
   api.post("/license/link", requireUser, wrap(async (req, res) => {
+    if (defaultKind((req.body || {}).key)) { const c = await churchOf(req.user.id); return res.json({ ok: true, church: c ? c.name : null, role: c ? c.role : null }); }   // (a default key is nobody's: nothing to link)
     const b = req.body || {}, dev = device(b), l = await findKey(b.key);
     const devs = l ? await devicesOf(l.key) : [];
     if (!l || l.revoked || !devs.some((d) => d.device_id === dev)) throw bad("Activate the key on this device first.", 400);

@@ -14,6 +14,8 @@ import { q, one, pool } from "./db.js";
 import { config, PLANS, PLAN_IDS, PACKAGE_DEVICES } from "./config.js";
 import { requireStep } from "./signin.js";
 import { sendMail, escHtml, mailOn } from "./mail.js";
+import { defaultKind, defaultKeysOn, defaultOffMessage, DEFAULT_CHURCH, DEFAULT_END } from "./defaultkeys.js";
+const defaultPackage = () => ({ ok: true, plans: Object.fromEntries(PLAN_IDS.map((id) => [id, DEFAULT_END])), end: DEFAULT_END });
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const isMain = (role) => role === "church" || role === "owner";
@@ -154,6 +156,7 @@ export function routes(api, { wrap, requireUser }) {
     if (braked(req)) return res.json({ ok: false, error: "Too many wrong keys. Wait a few minutes and try again." });
     if (!devOk(b.deviceId)) return res.json({ ok: false, error: "This device has no id yet. Restart the app and try again." });
     const app = String(b.app || ""); if (!APPS[app]) return res.json({ ok: false, error: "Unknown app." });
+    if (defaultKind(b.key) === "S") return res.json((await defaultKeysOn()) ? Object.assign({ key: pretty(b.key) }, defaultPackage(), { holder: "", church: DEFAULT_CHURCH, trial: false, defaultKey: true }) : { ok: false, error: defaultOffMessage() });   // (the default package key: all four plans while staff keep it on)
     const client = await pool.connect(); let k, st;
     try {
       await client.query("BEGIN");
@@ -177,6 +180,7 @@ export function routes(api, { wrap, requireUser }) {
   api.post("/package/check", wrap(async (req, res) => {
     const b = req.body || {}, keys = (Array.isArray(b.keys) ? b.keys : []).slice(0, 20), out = [];
     for (const key of keys) {
+      if (defaultKind(key) === "S") { const on = await defaultKeysOn(); out.push(on ? Object.assign({ key: pretty(key) }, defaultPackage()) : { key: pretty(key), ok: false, plans: {}, end: null, error: defaultOffMessage() }); continue; }
       const k = await findKey(key), st = keyState(k);
       if (!k) miss(req);
       if (st.ok && !(await one("SELECT 1 FROM package_devices WHERE key=$1 AND device_id=$2", [k.key, String(b.deviceId || "")]))) { out.push({ key: pretty(key), ok: false, plans: {}, end: st.end, error: "This package was released from this device. Add it again (Settings → Packages → Add a package)." }); continue; }
