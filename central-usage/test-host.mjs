@@ -7,7 +7,7 @@
 // usual ports (8765/8766/8080/8081). To run beside another copy on the same machine, give the whole run its
 // own network:  sudo bash ../tools/netns-run.sh xvfb-run -a node test-host.mjs
 import { _electron as electron, chromium } from "playwright";
-import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
+import { spawn, spawnSync } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url)), root = process.env.CC_ROOT || path.join(here, "..");
 const HOST_PORT = Number(process.env.CU_TEST_HOST_PORT || 18092);
@@ -89,6 +89,62 @@ await check("tracks out: each track on its own output (direct) is chosen on the 
   await until(() => cu.evaluate(() => CUMix.state.trackOut === "direct" && document.querySelector('[name="mxOut"][value="direct"]').checked), 3000);
   await cu.evaluate(() => CUMix.op({ op: "trackOut", value: "sum", first: 2 }));
 });
+await check("channel processing: a preset (Lead vocal) fills the gate, the 4-band EQ, the compressor and the FX sends; G / EQ / C / FX light up", async () => {
+  const k = await cu.evaluate(() => CUMix.state.inputs.findIndex((x) => x.name === "Keys"));
+  await cu.evaluate((k) => { document.querySelector('.mx-strip[data-i="' + k + '"] [data-mx="fx"]').click(); }, k);
+  await cu.waitForSelector('[data-mxd="preset"]', { timeout: 3000 });
+  await cu.selectOption('[data-mxd="preset"]', "vocal");
+  const x = await until(() => cu.evaluate((k) => { const x = CUMix.state.inputs[k]; return x.comp.on && x.fx.rev === -12 ? x : null; }, k), 3000);
+  assert.ok(x.eq.on && x.eq.m2f === 3500 && x.eq.m2g === 2.5 && x.hpf === 100 && x.fx.dly === -20, JSON.stringify(x));
+  await cu.evaluate((k) => CUMix.op({ op: "input", i: k, patch: { gate: { on: true, thr: -50 } } }), k);
+  const lit = await until(() => cu.evaluate((k) => { const s = document.querySelector('.mx-strip[data-i="' + k + '"]'); return ["gate", "eq", "comp", "fx"].every((b) => s.querySelector('[data-mx="' + b + '"]').classList.contains("on")) ? true : null; }, k), 3000);
+  assert.ok(lit);
+  assert.ok(await cu.evaluate(() => !!document.querySelector(".mx-gt") && document.querySelectorAll('[data-mxd^="eq.m2"]').length === 3), "the gate and the second mid in the channel panel");
+});
+await check("reverb & delay: the card sets them; the delay follows the song's tempo (a quarter note at the Central Pedal's BPM)", async () => {
+  await cu.waitForSelector(".mx-fxcard", { timeout: 3000 });
+  await cu.click('.mx-fxcard [data-fxq="hall"]');
+  await until(() => cu.evaluate(() => CUMix.state.fx.rev.decay === 2.4), 3000);
+  const bpm = await until(() => cu.evaluate(() => { const d = CentralUsage.state.display; return d && d.bpm ? Number(d.bpm) : null; }), 6000);
+  const dly = await until(() => cu.evaluate((b) => Math.abs(CUMix.state.fx.dly.bpm - b) < 0.2 ? CUMix.state.fx.dly : null, bpm), 5000);
+  const ms = await cu.evaluate((d) => CUMixer.delayMs(d), dly); assert.ok(Math.abs(ms - 60000 / bpm) < 1, ms + " ms: " + JSON.stringify(dly));
+  const meters = await cu.evaluate(() => CUMix.meters); assert.ok(Array.isArray(meters.gate) && Array.isArray(meters.fx) && Array.isArray(meters.stream), Object.keys(meters).join(","));
+});
+await check("stream mix: 'Faders: Stream mix' moves the stream's own levels (the room doesn't change); 'Start from the main mix' copies them; its meters move", async () => {
+  const k = await cu.evaluate(() => CUMix.state.inputs.findIndex((x) => x.name === "Kick"));
+  const roomBefore = await cu.evaluate((k) => CUMix.state.inputs[k].fader, k);
+  await cu.click('[data-mx-layer="stream"]'); await cu.waitForSelector(".mx-strip.streaming", { timeout: 3000 });
+  await cu.evaluate((k) => { const f = document.querySelector('.mx-strip[data-i="' + k + '"] [data-mx="fader"]'); f.value = String(CUMixer.dbToFader(-6)); f.dispatchEvent(new Event("input", { bubbles: true })); }, k);
+  const sd = await until(() => cu.evaluate((k) => { const s = CUMix.state.stream.sends[k]; return s && Math.abs(s.level + 6) < 0.2 ? s : null; }, k), 3000);
+  assert.ok(sd); assert.equal(await cu.evaluate((k) => CUMix.state.inputs[k].fader, k), roomBefore, "the room's fader didn't move");
+  cu.once("dialog", (d) => d.accept()); await cu.click('[data-sm="copy"]');
+  const n = await until(() => cu.evaluate(() => { const s = CUMix.state.stream.sends; return Object.keys(s).length >= 2 ? Object.keys(s).length : null; }), 3000); assert.ok(n >= 2);
+  const m = await until(() => cu.evaluate(() => CUMix.meters && CUMix.meters.stream && CUMix.meters.stream[0] > 0.01 ? CUMix.meters.stream : null), 6000); assert.ok(m, "stream meters");
+  await cu.click('[data-mx-layer="main"]');
+});
+await check("stream mix out: live to a file (a test destination) with a still picture - video and the stream mix's sound in it", async () => {
+  const out = path.join(userData, "live-test.flv");
+  await cu.evaluate((f) => CU.streamOut.call({ action: "config", patch: { destinations: [{ kind: "file", url: f }] } }), out);
+  const id = await cu.evaluate(() => CU.streamOut.call({}).then((s) => s.destinations[0].id));
+  await cu.evaluate((i) => CU.streamOut.call({ action: "live", id: i, on: true }), id);
+  const live = await until(() => cu.evaluate(() => CU.streamOut.call({}).then((s) => s.live ? s : null)), 15000); assert.ok(live, "live");
+  assert.ok(await until(() => cu.evaluate(() => !document.querySelector(".mx-onair").hidden), 4000), "ON AIR shows");
+  await new Promise((r) => setTimeout(r, 4000));
+  await cu.evaluate((i) => CU.streamOut.call({ action: "live", id: i, on: false }), id); await new Promise((r) => setTimeout(r, 3500));
+  const pr = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,codec_name:format=duration", "-of", "json", out], { encoding: "utf8" }); const j = JSON.parse(pr.stdout || "{}");
+  assert.ok(j.streams && j.streams.some((s) => s.codec_name === "h264") && j.streams.some((s) => s.codec_name === "aac") && Number(j.format.duration) > 2, pr.stdout + pr.stderr);
+  const vd = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", out, "-map", "0:a", "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8" }).stderr; const max = Number((/max_volume: (-?[\d.]+) dB/.exec(vd) || [])[1]);
+  assert.ok(max > -40, "the stream mix is in it: max " + max + " dB");
+});
+await check("stream mix out: the virtual sound device (Linux) - made with PipeWire / PulseAudio when it's there, a clear message when it isn't", async () => {
+  const st = await cu.evaluate(() => CU.streamOut.call({ action: "virtual", on: true }));
+  const hasPactl = spawnSync("sh", ["-c", "command -v pactl && command -v pacat"]).status === 0 && spawnSync("pactl", ["info"]).status === 0;
+  if (hasPactl) {
+    assert.equal(st.virtual.state, "on", JSON.stringify(st.virtual));
+    assert.ok(/central_control_stream_mic/.test(spawnSync("pactl", ["list", "short", "sources"], { encoding: "utf8" }).stdout), "the microphone is listed");
+  } else assert.ok(st.virtual.state === "error" && /pulseaudio-utils|PipeWire/.test(st.virtual.error), JSON.stringify(st.virtual));
+  const off = await cu.evaluate(() => CU.streamOut.call({ action: "virtual", on: false })); assert.equal(off.virtual.state, "off");
+});
 console.log("In-ears:");
 const phone = await browser.newPage(); phone.on("pageerror", (e) => errs.push("phone: " + e));
 await check("a phone opens the audio host's page, picks a free mix and gets only the routed channels", async () => {
@@ -166,6 +222,8 @@ await check("recording the service writes a WAV of the main mix", async () => {
   const st = await cu.evaluate(() => CU.mixer.record({ on: false }));
   assert.ok(st.saved && fs.existsSync(st.saved), JSON.stringify(st)); assert.ok(fs.statSync(st.saved).size > 48000 * 4, "size " + fs.statSync(st.saved).size);
   assert.equal(fs.readFileSync(st.saved).toString("latin1", 0, 4), "RIFF");
+  const sm = path.join(path.dirname(st.saved), "Stream mix.wav");   // the stream mix has channels in it: recorded next to the program
+  assert.ok(fs.existsSync(sm) && fs.statSync(sm).size > 48000 * 4, "Stream mix.wav " + (fs.existsSync(sm) ? fs.statSync(sm).size : "missing"));
 });
 console.log("Lights:");
 await check("the lights get the song from the hub: waveform, and the music's level from the engine", async () => {

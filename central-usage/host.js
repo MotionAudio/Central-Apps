@@ -111,7 +111,9 @@ class Host {
       return;
     }
     if (m.type === "listen") {   // { tap: "main" | mix index, on, rate: 48000 | 24000, mono }
-      const tap = m.tap === "main" ? 0 : (Number(m.tap) | 0) + 1;
+      const tap = m.tap === "main" ? 0 : m.tap === "stream" ? M.STREAMTAP : (Number(m.tap) | 0) + 1;
+      if (tap === M.STREAMTAP && c.role !== "admin") return this.sendJson(c.ws, { type: "refused", error: "The stream mix is for the sound desk." });
+      if (tap > M.STREAMTAP || tap < 0) return;
       if (c.role === "user" && m.on) { const q = this.engine.state.mixes[tap - 1]; if (!q || q.ownerId !== c.id) return this.sendJson(c.ws, { type: "refused", error: "Pick your mix first." }); if (!q.local) return this.sendJson(c.ws, { type: "refused", error: "This mix goes to a wired in-ear pack - the sound desk can also send it to your device." }); }
       if (m.on) this.listen(c, tap, { rate: m.rate === 24000 ? 24000 : 48000, mono: !!m.mono }); else this.unlisten(c, tap);
       this.emitClients(); return;
@@ -147,7 +149,7 @@ class Host {
     const extra = this.extra();
     this.clients.forEach((c) => {
       if (!c.role || c.talkOnly || c.ws.bufferedAmount > 128 * 1024) return;
-      if (c.role === "admin") this.sendJson(c.ws, { type: "meters", in: e.in, gr: e.gr, mix: e.mix, main: e.main, net: e.net, bands: e.bands, onsets: e.onsets, xruns: e.xruns, extra });
+      if (c.role === "admin") this.sendJson(c.ws, { type: "meters", in: e.in, gr: e.gr, gate: e.gate, mix: e.mix, main: e.main, stream: e.stream, streamGr: e.streamGr, fx: e.fx, net: e.net, bands: e.bands, onsets: e.onsets, xruns: e.xruns, extra });
       else {
         const view = M.forUser(this.engine.state, c.id, this.live()), mine = view.mixes.find((q) => q.mine);
         this.sendJson(c.ws, { type: "meters", in: view.inputs.map((x) => Math.round((e.in[x.i] || 0) * 1000) / 1000), mine: mine ? [e.mix[mine.m * 2], e.mix[mine.m * 2 + 1]] : null });

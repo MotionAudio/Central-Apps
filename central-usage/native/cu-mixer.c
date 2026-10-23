@@ -2,13 +2,17 @@
  *
  *  Inputs (up to 128): the audio interface's (or Dante's) inputs, and the Central Pedal's channels that
  *  arrive over the network (each track on its own channel, click, pads, instrument).
- *  Each input: trim, polarity, high-pass, 3-band EQ (low shelf, bell, high shelf), compressor, then
+ *  Each input: trim, polarity, high-pass, gate, 4-band EQ (low shelf, two bells, high shelf), compressor, then
  *    - the main mix (fader, pan, mute)          -> two outputs (the tracks summed out over USB)
  *    - a direct output (pre or post fader)      -> any output (each track on its own USB output)
  *    - 64 stereo in-ear mixes (level, pan)      -> a wired output pair (in-ear transmitters in the rack)
  *                                                  and / or back over the network ("local")
- *  Every mix has a level, mute and a limiter; any mix (and the main mix) can be "tapped": its audio comes
- *  back to Central Control (network in-ears, listening on the laptop, recording, the live waveform).
+ *    - two FX sends (post fader), like a console's aux sends: one reverb, one delay (stereo returns)
+ *    - the stream mix (its own level and pan)   -> an output pair, and / or tapped for the live stream
+ *  The FX returns go into the main mix (a return level), and into each in-ear mix and the stream mix at
+ *  their own return levels. The stream mix has its own compressor ("glue") before its limiter.
+ *  Every mix has a level, mute and a limiter; any mix (and the main / stream mix) can be "tapped": its audio
+ *  comes back to Central Control (network in-ears, listening on the laptop, recording, the live stream).
  *  Meters, 3-band levels and onsets (the lights react to the music) come back 20 times a second.
  *
  *  Talkback: 4 talk slots. Each takes a microphone - an interface / Dante input, or a network stream (network
@@ -35,11 +39,19 @@
  *
  *  stdin / stdout carry framed messages: u8 type, u32 length (little endian), payload.
  *    in : 'J' a JSON command (one object)        'N' network audio: u8 source, u8 channels, u16 frames, int16 data
- *    out: 'J' a JSON event (status, meters, rec) 'A' tap audio: u8 tap (0 main, 1..64 mixes), u16 frames, int16 stereo
+ *    out: 'J' a JSON event (status, meters, rec) 'A' tap audio: u8 tap (0 main, 1..64 mixes, 65 stream), u16 frames, int16 stereo
  *  Commands (besides input / send / mix / main / net / analysis / testgen / quit):
  *    {"cmd":"talk","slot":0,"on":1,"src":2,"ch":0,"gain":0,"dim":-12,"all":0,"mixes":[2,5]}   src 1 interface ch, 2 network
  *    {"cmd":"rec","on":1,"dir":"/x/2026-10-17 10.30","files":"In 01.wav|Track 01.wav|Program.wav","ins":[0],"net":[0],"prog":0}
- *    {"cmd":"rec","on":0}       -> {"ev":"rec","state":"recording"|"stopped"|"error", ...}
+ *    {"cmd":"rec","on":0}       -> {"ev":"rec","state":"recording"|"stopped"|"error", ...}     (prog 65: the stream mix;
+ *                                  "prog2": a second program next to the first, e.g. the stream mix with the main mix)
+ *    {"cmd":"input",...,"gate":[on,thr dB,range dB,attack ms,hold ms,release ms],"fx":[reverb send dB,delay send dB]}
+ *              ("eq" takes 11 numbers: on, low f/g, mid f/g/q, high f/g, then a second mid f/g/q)
+ *    {"cmd":"fx","rev":[on,decay s,predelay ms,damping 0-1,low cut Hz,width 0-1,return dB],
+ *                "dly":[on,left ms,right ms,feedback 0-0.95,high cut Hz,low cut Hz,return dB,ping-pong]}
+ *    {"cmd":"stream","level":0,"mute":0,"outL":4,"outR":5,"tap":1,"used":1,"comp":[on,thr,ratio,att,rel,makeup],"rRev":-90,"rDly":-90}
+ *    {"cmd":"ssend","i":3,"level":-6,"pan":0,"on":1}      a channel's level in the stream mix
+ *    "mix" also takes "rRev" / "rDly": that in-ear mix's reverb / delay return levels (dB)
  *
  *  Linux / macOS: cc -O2 -o cu-mixer cu-mixer.c -lm -ldl -lpthread   (macOS: + -framework CoreAudio ...)
  *  Windows:       x86_64-w64-mingw32-gcc -O2 -o cu-mixer.exe cu-mixer.c -lole32 -lwinmm
@@ -89,6 +101,7 @@
 #define CMDRING 4096
 #define OUTRING (8 << 20)
 #define MAXDEV 8               /* devices per direction */
+#define STREAMTAP (MAXMIX + 1) /* the stream mix's tap (and recording program) number */
 
 /* ------------------------------------------------------------------ JACK, loaded at run time */
 typedef uint32_t jack_nframes_t;
@@ -151,13 +164,15 @@ static void bq_set(Biquad *f, int type, double fs, double freq, double gainDb, d
 /* ------------------------------------------------------------------ state */
 typedef struct {
   int src, ch;                 /* src 0 none, 1 interface input ch, 2 network: ch = source * MAXNETCH + channel */
-  float trim; int hpfOn; Biquad hpf; int eqOn; Biquad eq[3];
+  float trim; int hpfOn; Biquad hpf; int eqOn, eq4On; Biquad eq[4];
+  int gateOn, gOpen, gHoldN, gHold; float gThrO, gThrC, gFloor, gAtt, gRel, gGain, gEnv, gt;   /* the gate */
   int compOn; float thr, ratio, attC, relC, makeup, env;
   float fader, pan, gL, gR, cL, cR; int mute; int direct, directPre;
+  float sRev, sDly, cRev, cDly;   /* the FX sends (post fader) */
   float peak, gr;
 } Input;
 typedef struct { int m; float gL, gR, cL, cR; } Send;
-typedef struct { float level, cur; int mute, outL, outR, stereo, tap, used; float lim, peakL, peakR; } Mix;
+typedef struct { float level, cur; int mute, outL, outR, stereo, tap, used; float lim, peakL, peakR; float rRev, rDly, cRev, cDly; } Mix;
 typedef struct {
   int channels, used; double rate, target, ratio, rpos; float *ring; _Atomic uint64_t w; int primed; unsigned under, over; float peak[MAXNETCH]; double level;
 } Net;
@@ -166,6 +181,10 @@ static Input in[MAXIN];
 static Send sends[MAXIN][MAXMIX];
 static int nsends[MAXIN];
 static Mix mix[MAXMIX], mainb;          /* mainb: the main mix */
+static Mix streamb;                     /* the stream mix */
+static Send ssend[MAXIN]; static int ssOn[MAXIN];
+static struct { int on; float thr, ratio, attC, relC, makeup, env, gr; } scomp;   /* the stream mix's compressor */
+static float streamL[MAXBLOCK], streamR[MAXBLOCK], revIn[MAXBLOCK], dlyIn[MAXBLOCK], revL[MAXBLOCK], revR[MAXBLOCK], dlyL[MAXBLOCK], dlyR[MAXBLOCK];
 static Net net[MAXNET];
 static double FS = 48000;
 static int BLOCK = 256, nIn = 0, nOut = 0;
@@ -205,7 +224,62 @@ static int jarr(const char *js, const char *key, float *out, int max) { const ch
 static int jstr(const char *js, const char *key, char *out, int max) { const char *p = jkey(js, key); if (!p || *p != '"') return 0; p++; int n = 0; while (*p && *p != '"' && n < max - 1) { if (*p == '\\' && p[1]) p++; out[n++] = *p++; } out[n] = 0; return 1; }
 static float db2lin(double db) { return db <= -90 ? 0 : (float)pow(10, db / 20); }
 
-enum { C_INPUT = 1, C_SEND, C_MIX, C_MAIN, C_NET, C_ANALYSIS, C_CLEARSENDS, C_TESTGEN, C_TALK };
+enum { C_INPUT = 1, C_SEND, C_MIX, C_MAIN, C_NET, C_ANALYSIS, C_CLEARSENDS, C_TESTGEN, C_TALK, C_FX, C_STREAM, C_SSEND };
+
+/* ------------------------------------------------------------------ the FX returns: a reverb (Freeverb's comb / all-pass
+ * network, its lengths scaled to the engine's rate) and a stereo delay (tempo set by the app; ping-pong as an option) */
+#define RVC 8
+#define RVA 4
+#define RVMAX 8192
+#define PREMAX 19200
+#define DLMAX (192000 * 3)
+static const int rvCombLen[RVC] = { 1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617 }, rvApLen[RVA] = { 556, 441, 341, 225 };
+static struct {
+  int on, ready, cl[2][RVC], ci[2][RVC], al[2][RVA], ai[2][RVA], pre, pw; float cs[2][RVC], fb, d1, d2, wet1, wet2, ret, cret, peak;
+  float comb[2][RVC][RVMAX], ap[2][RVA][RVMAX / 2], preBuf[PREMAX]; Biquad lc;
+} RV;
+static struct {
+  int on, ping, w; float tL, tR, cL, cR, fb, lpA, lpL, lpR, ret, cret, peak; Biquad hpL, hpR; float bufL[DLMAX], bufR[DLMAX];
+} DL;
+static void fx_ready(void) {   /* the lengths for this rate (once the device's rate is known) */
+  double k = FS / 44100.0;
+  for (int c = 0; c < 2; c++) {
+    for (int j = 0; j < RVC; j++) { int L = (int)((rvCombLen[j] + c * 23) * k); RV.cl[c][j] = L < 8 ? 8 : L >= RVMAX ? RVMAX - 1 : L; RV.ci[c][j] = 0; RV.cs[c][j] = 0; }
+    for (int j = 0; j < RVA; j++) { int L = (int)((rvApLen[j] + c * 23) * k); RV.al[c][j] = L < 4 ? 4 : L >= RVMAX / 2 ? RVMAX / 2 - 1 : L; RV.ai[c][j] = 0; }
+  }
+  memset(RV.comb, 0, sizeof RV.comb); memset(RV.ap, 0, sizeof RV.ap); memset(RV.preBuf, 0, sizeof RV.preBuf);
+  RV.ready = 1;
+}
+static void fx_reverb(int frames) {
+  for (int f = 0; f < frames; f++) {
+    float x = revIn[f];
+    if (RV.pre > 0) { float d = RV.preBuf[(RV.pw - RV.pre + PREMAX) % PREMAX]; RV.preBuf[RV.pw] = x; RV.pw = (RV.pw + 1) % PREMAX; x = d; }
+    x = bq(&RV.lc, x) * 0.015f;
+    float o[2];
+    for (int c = 0; c < 2; c++) {
+      float acc = 0;
+      for (int j = 0; j < RVC; j++) {
+        float *b = RV.comb[c][j]; int i = RV.ci[c][j]; float y = b[i];
+        RV.cs[c][j] = y * RV.d2 + RV.cs[c][j] * RV.d1; b[i] = x + RV.cs[c][j] * RV.fb; if (++i >= RV.cl[c][j]) i = 0; RV.ci[c][j] = i; acc += y;
+      }
+      for (int j = 0; j < RVA; j++) { float *b = RV.ap[c][j]; int i = RV.ai[c][j]; float bo = b[i], y = -acc + bo; b[i] = acc + bo * 0.5f; if (++i >= RV.al[c][j]) i = 0; RV.ai[c][j] = i; acc = y; }
+      o[c] = acc;
+    }
+    revL[f] = o[0] * RV.wet1 + o[1] * RV.wet2; revR[f] = o[1] * RV.wet1 + o[0] * RV.wet2;
+  }
+}
+static inline float dl_read(const float *b, float d) { float p = (float)DL.w - d; while (p < 0) p += DLMAX; int i0 = (int)p; float fr = p - (float)i0; int i1 = i0 + 1 >= DLMAX ? 0 : i0 + 1; return b[i0] + (b[i1] - b[i0]) * fr; }
+static void fx_delay(int frames) {
+  for (int f = 0; f < frames; f++) {
+    DL.cL += (DL.tL - DL.cL) * 0.0005f; DL.cR += (DL.tR - DL.cR) * 0.0005f;   /* a new time glides (no click) */
+    float yL = dl_read(DL.bufL, DL.cL), yR = dl_read(DL.bufR, DL.cR);
+    DL.lpL = yL + (DL.lpL - yL) * DL.lpA; DL.lpR = yR + (DL.lpR - yR) * DL.lpA;   /* darker repeats */
+    float fL = bq(&DL.hpL, DL.lpL) * DL.fb, fR = bq(&DL.hpR, DL.lpR) * DL.fb, x = dlyIn[f];
+    if (DL.ping) { DL.bufL[DL.w] = x + fR; DL.bufR[DL.w] = fL; } else { DL.bufL[DL.w] = x + fL; DL.bufR[DL.w] = x + fR; }
+    if (++DL.w >= DLMAX) DL.w = 0;
+    dlyL[f] = yL; dlyR[f] = yR;
+  }
+}
 /* a test tone on an interface input (the test suite checks how several devices' channels are combined) */
 static struct { float freq, level; double ph; } tg[MAXIN]; static float tgch[MAXIN][MAXBLOCK];
 /* talkback: a mic into chosen mixes; the music in those mixes dims while it talks */
@@ -233,8 +307,19 @@ static void command(const char *js) {
     x->src = (int)jnum(js, "src", 0); x->ch = (int)jnum(js, "ch", 0);
     x->trim = db2lin(jnum(js, "trim", 0)) * (jnum(js, "phase", 0) ? -1 : 1);
     double hpf = jnum(js, "hpf", 0); x->hpfOn = hpf > 0; if (hpf > 0) bq_set(&x->hpf, 0, FS, hpf, 0, 0.707);
-    float eq[8] = { 0 }; int ne = jarr(js, "eq", eq, 8);
+    float eq[11] = { 0 }; int ne = jarr(js, "eq", eq, 11);
     x->eqOn = ne >= 8 && eq[0] > 0; if (x->eqOn) { bq_set(&x->eq[0], 1, FS, eq[1], eq[2], 0.707); bq_set(&x->eq[1], 2, FS, eq[3], eq[4], eq[5]); bq_set(&x->eq[2], 3, FS, eq[6], eq[7], 0.707); }
+    x->eq4On = x->eqOn && ne >= 11 && fabsf(eq[9]) > 0.01f; if (x->eq4On) bq_set(&x->eq[3], 2, FS, eq[8], eq[9], eq[10]);   /* the second mid */
+    float gt[6] = { 0 }; int ng = jarr(js, "gate", gt, 6);
+    x->gateOn = ng >= 6 && gt[0] > 0;
+    if (x->gateOn) {
+      x->gThrO = db2lin(gt[1]); x->gThrC = db2lin(gt[1] - 4);                         /* opens at the threshold, closes 4 dB under it */
+      x->gFloor = db2lin(gt[2] < -80 ? -90 : gt[2]);                                  /* range: how far down it closes (-90: off) */
+      x->gAtt = 1 - (float)exp(-1.0 / (FS * (gt[3] > 0.05 ? gt[3] : 0.5) / 1000));
+      x->gHoldN = (int)(FS * (gt[4] > 0 ? gt[4] : 0) / 1000);
+      x->gRel = 1 - (float)exp(-1.0 / (FS * (gt[5] > 1 ? gt[5] : 100) / 1000));
+    }
+    float fx[2] = { -90, -90 }; jarr(js, "fx", fx, 2); x->sRev = db2lin(fx[0]); x->sDly = db2lin(fx[1]);
     float cp[6] = { 0 }; int nc = jarr(js, "comp", cp, 6);
     x->compOn = nc >= 6 && cp[0] > 0; x->thr = cp[1]; x->ratio = cp[2] < 1 ? 1 : cp[2];
     x->attC = (float)exp(-1.0 / (FS * (cp[3] > 0.1 ? cp[3] : 10) / 1000)); x->relC = (float)exp(-1.0 / (FS * (cp[4] > 1 ? cp[4] : 120) / 1000)); x->makeup = db2lin(cp[5]);
@@ -247,6 +332,27 @@ static void command(const char *js) {
   } else if (!strcmp(cmd, "mix") || !strcmp(cmd, "main")) {
     c.kind = cmd[1] == 'i' ? C_MIX : C_MAIN; c.a = (int)jnum(js, "m", 0); if (c.kind == C_MIX && (c.a < 0 || c.a >= MAXMIX)) return;
     c.f[0] = db2lin(jnum(js, "level", 0)); c.f[1] = (float)jnum(js, "mute", 0); c.f[2] = (float)jnum(js, "outL", -1); c.f[3] = (float)jnum(js, "outR", -1); c.f[4] = (float)jnum(js, "stereo", 1); c.f[5] = (float)jnum(js, "tap", 0); c.f[6] = (float)jnum(js, "used", 1);
+    c.f[7] = db2lin(jnum(js, "rRev", -90)); c.f[8] = db2lin(jnum(js, "rDly", -90));
+  } else if (!strcmp(cmd, "stream")) {
+    c.kind = C_STREAM;
+    c.f[0] = db2lin(jnum(js, "level", 0)); c.f[1] = (float)jnum(js, "mute", 0); c.f[2] = (float)jnum(js, "outL", -1); c.f[3] = (float)jnum(js, "outR", -1); c.f[4] = 1; c.f[5] = (float)jnum(js, "tap", 0); c.f[6] = (float)jnum(js, "used", 1);
+    c.f[7] = db2lin(jnum(js, "rRev", -90)); c.f[8] = db2lin(jnum(js, "rDly", -90));
+    float cp[6] = { 0 }; int nc = jarr(js, "comp", cp, 6);
+    c.f[9] = nc >= 6 && cp[0] > 0; c.f[10] = cp[1]; c.f[11] = cp[2] < 1 ? 1 : cp[2];
+    c.f[12] = (float)exp(-1.0 / (FS * (cp[3] > 0.1 ? cp[3] : 10) / 1000)); c.f[13] = (float)exp(-1.0 / (FS * (cp[4] > 1 ? cp[4] : 150) / 1000)); c.f[14] = db2lin(cp[5]);
+  } else if (!strcmp(cmd, "ssend")) {
+    c.kind = C_SSEND; c.a = (int)jnum(js, "i", -1); if (c.a < 0 || c.a >= MAXIN) return;
+    float g = db2lin(jnum(js, "level", -90)); if (jnum(js, "on", 1) == 0) g = 0; pan_gains(g, (float)jnum(js, "pan", 0), &c.f[0], &c.f[1]);
+  } else if (!strcmp(cmd, "fx")) {
+    c.kind = C_FX;
+    float r[7] = { 0, 2, 20, 0.5f, 120, 1, -90 }, d[8] = { 0, 500, 500, 0.35f, 6000, 150, -90, 0 };
+    c.b = jarr(js, "rev", r, 7) > 0; c.a = jarr(js, "dly", d, 8) > 0;
+    double decay = r[1] < 0.2 ? 0.2 : r[1] > 12 ? 12 : r[1];
+    c.f[0] = r[0] > 0; c.f[1] = (float)pow(10, -3 * 0.0306 / decay); if (c.f[1] > 0.985f) c.f[1] = 0.985f;   /* the combs' feedback for that decay time (RT60) */
+    c.f[2] = (float)(FS * (r[2] < 0 ? 0 : r[2] > 200 ? 200 : r[2]) / 1000); c.f[3] = (r[3] < 0 ? 0 : r[3] > 1 ? 1 : r[3]) * 0.4f;
+    c.f[4] = r[4]; c.f[5] = r[5] < 0 ? 0 : r[5] > 1 ? 1 : r[5]; c.f[6] = db2lin(r[6]);
+    c.f[7] = d[0] > 0; c.f[8] = (float)(FS * (d[1] < 1 ? 1 : d[1] > 2900 ? 2900 : d[1]) / 1000); c.f[9] = (float)(FS * (d[2] < 1 ? 1 : d[2] > 2900 ? 2900 : d[2]) / 1000);
+    c.f[10] = d[3] < 0 ? 0 : d[3] > 0.95f ? 0.95f : d[3]; c.f[11] = (float)exp(-2 * M_PI * (d[4] < 500 ? 500 : d[4]) / FS); c.f[12] = d[5]; c.f[13] = db2lin(d[6]); c.f[14] = d[7] > 0;
   } else if (!strcmp(cmd, "clearSends")) { c.kind = C_CLEARSENDS; c.a = (int)jnum(js, "m", -1); if (c.a < 0 || c.a >= MAXMIX) return;
   } else if (!strcmp(cmd, "net")) {
     int s = (int)jnum(js, "src", -1); if (s < 0 || s >= MAXNET) return;
@@ -270,10 +376,11 @@ static void apply_cmds(void) {
   while (r != w) {
     Cmd *c = &cmds[r % CMDRING];
     if (c->kind == C_INPUT) {
-      Input *x = &in[c->a], *n = &c->input; Biquad h = x->hpf, e0 = x->eq[0], e1 = x->eq[1], e2 = x->eq[2]; float env = x->env, cL = x->cL, cR = x->cR, pk = x->peak;
+      Input *x = &in[c->a], *n = &c->input; Biquad h = x->hpf, e[4] = { x->eq[0], x->eq[1], x->eq[2], x->eq[3] }; float env = x->env, cL = x->cL, cR = x->cR, pk = x->peak, cRev = x->cRev, cDly = x->cDly, gg = x->gGain, ge = x->gEnv; int go = x->gOpen, gh = x->gHold;
       int sameSrc = x->src == n->src && x->ch == n->ch;
       *x = *n;
-      if (sameSrc) { x->hpf.z1 = h.z1; x->hpf.z2 = h.z2; x->eq[0].z1 = e0.z1; x->eq[0].z2 = e0.z2; x->eq[1].z1 = e1.z1; x->eq[1].z2 = e1.z2; x->eq[2].z1 = e2.z1; x->eq[2].z2 = e2.z2; x->env = env; x->cL = cL; x->cR = cR; x->peak = pk; }
+      if (sameSrc) { x->hpf.z1 = h.z1; x->hpf.z2 = h.z2; for (int k = 0; k < 4; k++) { x->eq[k].z1 = e[k].z1; x->eq[k].z2 = e[k].z2; } x->env = env; x->cL = cL; x->cR = cR; x->peak = pk; x->cRev = cRev; x->cDly = cDly; x->gGain = gg; x->gEnv = ge; x->gOpen = go; x->gHold = gh; }
+      else { x->gGain = 1; x->gOpen = 1; }
     } else if (c->kind == C_SEND) {
       int m = c->a, i = c->b, k; for (k = 0; k < nsends[i]; k++) if (sends[i][k].m == m) break;
       if (c->f[0] == 0 && c->f[1] == 0) { if (k < nsends[i]) { sends[i][k].gL = sends[i][k].gR = 0; } }   /* glides to 0, removed below */
@@ -284,6 +391,22 @@ static void apply_cmds(void) {
     } else if (c->kind == C_MIX || c->kind == C_MAIN) {
       Mix *m = c->kind == C_MIX ? &mix[c->a] : &mainb;
       m->level = c->f[0]; m->mute = c->f[1] != 0; m->outL = (int)c->f[2]; m->outR = (int)c->f[3]; m->stereo = c->f[4] != 0; m->tap = c->f[5] != 0; m->used = c->f[6] != 0;
+      if (c->kind == C_MIX) { m->rRev = c->f[7]; m->rDly = c->f[8]; }
+    } else if (c->kind == C_STREAM) {
+      Mix *m = &streamb; m->level = c->f[0]; m->mute = c->f[1] != 0; m->outL = (int)c->f[2]; m->outR = (int)c->f[3]; m->stereo = 1; m->tap = c->f[5] != 0; m->used = c->f[6] != 0; m->rRev = c->f[7]; m->rDly = c->f[8];
+      scomp.on = c->f[9] != 0; scomp.thr = c->f[10]; scomp.ratio = c->f[11]; scomp.attC = c->f[12]; scomp.relC = c->f[13]; scomp.makeup = c->f[14];
+    } else if (c->kind == C_SSEND) {
+      Send *s = &ssend[c->a]; s->gL = c->f[0]; s->gR = c->f[1]; if (s->gL > 0 || s->gR > 0) ssOn[c->a] = 1;
+    } else if (c->kind == C_FX) {
+      if (c->b) {
+        if (!RV.ready) fx_ready();
+        RV.on = c->f[0] != 0; RV.fb = c->f[1]; RV.pre = (int)c->f[2]; if (RV.pre >= PREMAX) RV.pre = PREMAX - 1; RV.d1 = c->f[3]; RV.d2 = 1 - c->f[3];
+        bq_set(&RV.lc, 0, FS, c->f[4] > 20 ? c->f[4] : 20, 0, 0.707); RV.wet1 = 3 * (c->f[5] / 2 + 0.5f); RV.wet2 = 3 * ((1 - c->f[5]) / 2); RV.ret = c->f[6];
+      }
+      if (c->a) {
+        DL.on = c->f[7] != 0; DL.tL = c->f[8]; DL.tR = c->f[9]; if (DL.cL <= 0) { DL.cL = DL.tL; DL.cR = DL.tR; }
+        DL.fb = c->f[10]; DL.lpA = c->f[11]; bq_set(&DL.hpL, 0, FS, c->f[12] > 20 ? c->f[12] : 20, 0, 0.707); DL.hpR = DL.hpL; DL.hpR.z1 = DL.hpR.z2 = 0; DL.ret = c->f[13]; DL.ping = c->f[14] != 0;
+      }
     } else if (c->kind == C_NET) {
       Net *n = &net[c->a]; if (c->ptr && !n->ring) n->ring = c->ptr; else if (c->ptr) free(c->ptr);   /* (free on the audio thread happens only on a race at start) */
       n->channels = c->b; n->rate = c->f[0] > 1000 ? c->f[0] : 48000; n->target = c->f[1] * n->rate / 1000; n->used = c->b > 0 && n->ring;
@@ -324,7 +447,7 @@ static void net_read(int s, int frames) {   /* resample to the engine rate, keep
 }
 
 /* ------------------------------------------------------------------ the mix */
-static int16_t tapBuf[MAXMIX + 1][TAPFRAMES * 2]; static int tapN[MAXMIX + 1];
+static int16_t tapBuf[MAXMIX + 2][TAPFRAMES * 2]; static int tapN[MAXMIX + 2];
 static void tap_add(int t, const float *L, const float *R, int frames) {
   for (int f = 0; f < frames; f++) {
     float l = L[f], r = R[f]; l = l > 1 ? 1 : l < -1 ? -1 : l; r = r > 1 ? 1 : r < -1 ? -1 : r;
@@ -341,7 +464,11 @@ static void process(int frames, float **insDev, float **outs) {
   for (int o = 0; o < nOut; o++) memset(outs[o], 0, sizeof(float) * frames);
   memset(mainL, 0, sizeof(float) * frames); memset(mainR, 0, sizeof(float) * frames);
   for (int m = 0; m < MAXMIX; m++) if (mix[m].used) { memset(mixL[m], 0, sizeof(float) * frames); memset(mixR[m], 0, sizeof(float) * frames); }
+  memset(streamL, 0, sizeof(float) * frames); memset(streamR, 0, sizeof(float) * frames);
+  memset(revIn, 0, sizeof(float) * frames); memset(dlyIn, 0, sizeof(float) * frames);
+  if (!RV.ready) fx_ready();
   const float gstep = 1.0f / 256, dstep = 1.0f / 2400;   /* gain glide per sample; the talkback dim (~50 ms) */
+  int fxRev = RV.on || RV.cret > 1e-5f, fxDly = DL.on || DL.cret > 1e-5f;
   /* the interface's inputs (with a test tone added where one is on) - mixed, talked into and recorded the same */
   float *insT[MAXIN], **ins = NULL;
   if (insDev) {
@@ -356,11 +483,18 @@ static void process(int frames, float **insDev, float **outs) {
     if (x->src == 1 && x->ch >= 0 && x->ch < nIn && ins) src = ins[x->ch];
     else if (x->src == 2) { int s = x->ch / MAXNETCH, c = x->ch % MAXNETCH; if (s < MAXNET && net[s].used && c < net[s].channels) src = netbuf[s][c]; }
     if (!src) { x->peak *= 0.9f; continue; }
-    float pk = x->peak, grMax = 0;
+    float pk = x->peak, grMax = 0, gMin = 1;
     for (int f = 0; f < frames; f++) {
       float v = src[f] * x->trim;
       if (x->hpfOn) v = bq(&x->hpf, v);
-      if (x->eqOn) { v = bq(&x->eq[0], v); v = bq(&x->eq[1], v); v = bq(&x->eq[2], v); }
+      if (x->gateOn) {   /* opens fast, holds, then closes down to its range */
+        float a = fabsf(v); x->gEnv = a > x->gEnv ? a : x->gEnv * 0.9995f;
+        if (x->gEnv >= x->gThrO) { x->gOpen = 1; x->gHold = x->gHoldN; }
+        else if (x->gEnv < x->gThrC) { if (x->gHold > 0) x->gHold--; else x->gOpen = 0; }
+        float target = x->gOpen ? 1 : x->gFloor; x->gGain += (target - x->gGain) * (target > x->gGain ? x->gAtt : x->gRel);
+        v *= x->gGain; if (x->gGain < gMin) gMin = x->gGain;
+      }
+      if (x->eqOn) { v = bq(&x->eq[0], v); v = bq(&x->eq[1], v); if (x->eq4On) v = bq(&x->eq[3], v); v = bq(&x->eq[2], v); }
       if (x->compOn) {
         float a = fabsf(v); x->env = a > x->env ? x->attC * x->env + (1 - x->attC) * a : x->relC * x->env + (1 - x->relC) * a;
         float lev = x->env > 1e-6f ? 20 * log10f(x->env) : -120, over = lev - x->thr;
@@ -370,10 +504,21 @@ static void process(int frames, float **insDev, float **outs) {
       strip[f] = v; float av = fabsf(v); if (av > pk) pk = av;
     }
     x->peak = pk; x->gr = grMax > x->gr ? grMax : x->gr * 0.9f;
+    { float gd = x->gateOn && gMin < 1 ? -20 * log10f(gMin > 1e-5f ? gMin : 1e-5f) : 0; x->gt = gd > x->gt ? gd : x->gt * 0.9f; }
     /* main */
     for (int f = 0; f < frames; f++) {
       x->cL += (x->gL - x->cL) * gstep; x->cR += (x->gR - x->cR) * gstep;
       mainL[f] += strip[f] * x->cL; mainR[f] += strip[f] * x->cR;
+    }
+    /* the FX sends (post fader: the fader and mute move them too) */
+    float post = x->mute ? 0 : x->fader, tRev = fxRev ? x->sRev * post : 0, tDly = fxDly ? x->sDly * post : 0;
+    if (tRev > 0 || x->cRev > 1e-6f) { for (int f = 0; f < frames; f++) { x->cRev += (tRev - x->cRev) * gstep; revIn[f] += strip[f] * x->cRev; } } else x->cRev = 0;
+    if (tDly > 0 || x->cDly > 1e-6f) { for (int f = 0; f < frames; f++) { x->cDly += (tDly - x->cDly) * gstep; dlyIn[f] += strip[f] * x->cDly; } } else x->cDly = 0;
+    /* the stream mix (its own levels) */
+    if (ssOn[i] && streamb.used) {
+      Send *s = &ssend[i];
+      for (int f = 0; f < frames; f++) { s->cL += (s->gL - s->cL) * gstep; s->cR += (s->gR - s->cR) * gstep; streamL[f] += strip[f] * s->cL; streamR[f] += strip[f] * s->cR; }
+      if (s->gL == 0 && s->gR == 0 && fabsf(s->cL) < 1e-5f && fabsf(s->cR) < 1e-5f) { s->cL = s->cR = 0; ssOn[i] = 0; }
     }
     if (x->direct >= 0 && x->direct < nOut) { float g = x->directPre ? 1 : (x->mute ? 0 : x->fader); float *o = outs[x->direct]; for (int f = 0; f < frames; f++) o[f] += strip[f] * g; }
     /* in-ear mixes */
@@ -383,6 +528,46 @@ static void process(int frames, float **insDev, float **outs) {
       for (int f = 0; f < frames; f++) { s->cL += (s->gL - s->cL) * gstep; s->cR += (s->gR - s->cR) * gstep; L[f] += strip[f] * s->cL; R[f] += strip[f] * s->cR; }
       if (s->gL == 0 && s->gR == 0 && fabsf(s->cL) < 1e-5f && fabsf(s->cR) < 1e-5f) { sends[i][k] = sends[i][--nsends[i]]; k--; }
     }
+  }
+  /* the FX returns: the reverb and the delay, into the main mix, the in-ear mixes and the stream mix at their own levels */
+  if (fxRev || fxDly) {
+    if (fxRev) fx_reverb(frames); else { memset(revL, 0, sizeof(float) * frames); memset(revR, 0, sizeof(float) * frames); }
+    if (fxDly) fx_delay(frames); else { memset(dlyL, 0, sizeof(float) * frames); memset(dlyR, 0, sizeof(float) * frames); }
+    float tr = RV.on ? RV.ret : 0, td = DL.on ? DL.ret : 0, pr = RV.peak, pd = DL.peak;
+    for (int f = 0; f < frames; f++) {
+      RV.cret += (tr - RV.cret) * gstep; DL.cret += (td - DL.cret) * gstep;
+      mainL[f] += revL[f] * RV.cret + dlyL[f] * DL.cret; mainR[f] += revR[f] * RV.cret + dlyR[f] * DL.cret;
+      float a = fabsf(revL[f]) > fabsf(revR[f]) ? fabsf(revL[f]) : fabsf(revR[f]), b = fabsf(dlyL[f]) > fabsf(dlyR[f]) ? fabsf(dlyL[f]) : fabsf(dlyR[f]);
+      if (a > pr) pr = a; if (b > pd) pd = b;
+    }
+    RV.peak = pr; DL.peak = pd;
+    for (int m = -1; m < MAXMIX; m++) {
+      Mix *b = m < 0 ? &streamb : &mix[m]; if (!b->used) continue;
+      float rr = RV.on ? b->rRev : 0, rd = DL.on ? b->rDly : 0; if (rr == 0 && rd == 0 && b->cRev < 1e-6f && b->cDly < 1e-6f) { b->cRev = b->cDly = 0; continue; }
+      float *L = m < 0 ? streamL : mixL[m], *R = m < 0 ? streamR : mixR[m];
+      for (int f = 0; f < frames; f++) { b->cRev += (rr - b->cRev) * gstep; b->cDly += (rd - b->cDly) * gstep; L[f] += revL[f] * b->cRev + dlyL[f] * b->cDly; R[f] += revR[f] * b->cRev + dlyR[f] * b->cDly; }
+    }
+  }
+  /* the stream mix: level, mute, its compressor (stereo linked), the limiter, its outputs and its tap */
+  if (streamb.used) {
+    Mix *b = &streamb; float target = b->mute ? 0 : b->level, pl = b->peakL, pr = b->peakR, grMax = 0;
+    for (int f = 0; f < frames; f++) {
+      b->cur += (target - b->cur) * gstep; float l = streamL[f] * b->cur, r = streamR[f] * b->cur;
+      if (scomp.on) {
+        float a = fabsf(l) > fabsf(r) ? fabsf(l) : fabsf(r); scomp.env = a > scomp.env ? scomp.attC * scomp.env + (1 - scomp.attC) * a : scomp.relC * scomp.env + (1 - scomp.relC) * a;
+        float lev = scomp.env > 1e-6f ? 20 * log10f(scomp.env) : -120, over = lev - scomp.thr, g = scomp.makeup;
+        if (over > 0) { float red = over * (1 - 1 / scomp.ratio); if (red > grMax) grMax = red; g *= powf(10, -red / 20); }
+        l *= g; r *= g;
+      }
+      float pk = fabsf(l) > fabsf(r) ? fabsf(l) : fabsf(r), g = pk > limCeil ? limCeil / pk : 1;
+      if (g < b->lim || b->lim == 0) b->lim = g; else b->lim += (1 - b->lim) * 0.0001f; if (b->lim > 1) b->lim = 1;
+      l *= b->lim; r *= b->lim; streamL[f] = l; streamR[f] = r;
+      if (fabsf(l) > pl) pl = fabsf(l); if (fabsf(r) > pr) pr = fabsf(r);
+    }
+    b->peakL = pl; b->peakR = pr; scomp.gr = grMax > scomp.gr ? grMax : scomp.gr * 0.9f;
+    if (b->outL >= 0 && b->outL < nOut) { float *o = outs[b->outL]; for (int f = 0; f < frames; f++) o[f] += streamL[f]; }
+    if (b->outR >= 0 && b->outR < nOut && b->outR != b->outL) { float *o = outs[b->outR]; for (int f = 0; f < frames; f++) o[f] += streamR[f]; }
+    if (b->tap) tap_add(STREAMTAP, streamL, streamR, frames);
   }
   /* talkback: each slot's mic (high-passed, faded in / out) */
   int talkLive[TALKS];
@@ -437,9 +622,12 @@ static void process(int frames, float **insDev, float **outs) {
 }
 
 /* meters: packed binary for the writer thread (which turns them into JSON) */
-typedef struct { float in[MAXIN], gr[MAXIN], mix[MAXMIX][2], main[2], net[MAXNET][MAXNETCH], bands[3], netLevel[MAXNET], talk[TALKS]; unsigned onsets, xruns, under[MAXNET]; int netUsed[MAXNET], netCh[MAXNET], recOn; uint64_t recFrames, recDropped; } Meters;
+typedef struct { float in[MAXIN], gr[MAXIN], gt[MAXIN], mix[MAXMIX][2], main[2], stream[2], streamGr, fx[2], net[MAXNET][MAXNETCH], bands[3], netLevel[MAXNET], talk[TALKS]; unsigned onsets, xruns, under[MAXNET]; int netUsed[MAXNET], netCh[MAXNET], recOn; uint64_t recFrames, recDropped; } Meters;
 static Meters mt;
 static void meters_out(void) {
+  for (int i = 0; i < MAXIN; i++) mt.gt[i] = in[i].gt;
+  mt.stream[0] = streamb.peakL; mt.stream[1] = streamb.peakR; streamb.peakL = streamb.peakR = 0; mt.streamGr = scomp.gr;
+  mt.fx[0] = RV.peak * RV.cret; mt.fx[1] = DL.peak * DL.cret; RV.peak = DL.peak = 0;
   for (int k = 0; k < TALKS; k++) { mt.talk[k] = talk[k].peak; talk[k].peak = 0; }
   mt.recOn = REC.active; mt.recFrames = atomic_load(&REC.frames); mt.recDropped = atomic_load(&REC.dropped);
   for (int i = 0; i < MAXIN; i++) { mt.in[i] = in[i].peak; mt.gr[i] = in[i].gr; in[i].peak = 0; }
@@ -694,6 +882,8 @@ static void meters_json(const Meters *m) {
   size_t L = 0; jcat(&L, "{\"ev\":\"meters\",\"in\":[");
   for (int i = 0; i < MAXIN; i++) jcat(&L, "%s%.4f", i ? "," : "", m->in[i]);
   jcat(&L, "],\"gr\":["); for (int i = 0; i < MAXIN; i++) jcat(&L, "%s%.1f", i ? "," : "", m->gr[i]);
+  jcat(&L, "],\"gate\":["); for (int i = 0; i < MAXIN; i++) jcat(&L, "%s%.1f", i ? "," : "", m->gt[i]);
+  jcat(&L, "],\"stream\":[%.4f,%.4f],\"streamGr\":%.1f,\"fx\":[%.4f,%.4f", m->stream[0], m->stream[1], m->streamGr, m->fx[0], m->fx[1]);
   jcat(&L, "],\"mix\":["); for (int k = 0; k < MAXMIX; k++) jcat(&L, "%s%.4f,%.4f", k ? "," : "", m->mix[k][0], m->mix[k][1]);
   jcat(&L, "],\"main\":[%.4f,%.4f],\"net\":[", m->main[0], m->main[1]);
   for (int s = 0; s < PINET; s++) { jcat(&L, "%s{\"on\":%d,\"ch\":%d,\"ms\":%.1f,\"under\":%u,\"peak\":[", s ? "," : "", m->netUsed[s], m->netCh[s], m->netLevel[s], m->under[s]); for (int c = 0; c < m->netCh[s] && c < MAXNETCH; c++) jcat(&L, "%s%.4f", c ? "," : "", m->net[s][c]); jcat(&L, "]}"); }
@@ -768,6 +958,7 @@ static void rec_capture(int frames, float **ins) {
     RecTrack *t = &REC.t[k];
     if (t->kind == 0) col[nc++] = ins && t->idx < nIn ? ins[t->idx] : NULL;
     else if (t->kind == 1) { int s = t->idx / MAXNETCH, c = t->idx % MAXNETCH; col[nc++] = net[s].used && net[s].ring && c < net[s].channels ? netbuf[s][c] : NULL; }
+    else if (t->idx == STREAMTAP) { col[nc++] = streamb.used ? streamL : NULL; col[nc++] = streamb.used ? streamR : NULL; }
     else { int m = t->idx - 1, ok = m < 0 || mix[m].used; col[nc++] = !ok ? NULL : m < 0 ? mainL : mixL[m]; col[nc++] = !ok ? NULL : m < 0 ? mainR : mixR[m]; }
   }
   uint64_t need = 2 + (uint64_t)frames * (uint64_t)nc, w = atomic_load(&REC.w), r = atomic_load(&REC.r);
@@ -836,14 +1027,16 @@ static void rec_command(const char *js) {
   int ni = jarr(js, "ins", a, MAXIN), nn = jarr(js, "net", b, PINET * MAXNETCH), prog = (int)jnum(js, "prog", -1);
   for (int k = 0; k < ni && REC.n < RECMAXT; k++) if (a[k] >= 0 && a[k] < MAXIN) { RecTrack *t = &REC.t[REC.n++]; memset(t, 0, sizeof *t); t->kind = 0; t->idx = (int)a[k]; t->chans = 1; }
   for (int k = 0; k < nn && REC.n < RECMAXT; k++) if (b[k] >= 0 && b[k] < PINET * MAXNETCH) { RecTrack *t = &REC.t[REC.n++]; memset(t, 0, sizeof *t); t->kind = 1; t->idx = (int)b[k]; t->chans = 1; }
-  if (prog >= 0 && prog <= MAXMIX && REC.n < RECMAXT) { RecTrack *t = &REC.t[REC.n++]; memset(t, 0, sizeof *t); t->kind = 2; t->idx = prog; t->chans = 2; }
+  if (prog >= 0 && prog <= STREAMTAP && REC.n < RECMAXT) { RecTrack *t = &REC.t[REC.n++]; memset(t, 0, sizeof *t); t->kind = 2; t->idx = prog; t->chans = 2; }
+  int prog2 = (int)jnum(js, "prog2", -1);   /* a second stereo program (the stream mix next to the main mix) */
+  if (prog2 >= 0 && prog2 <= STREAMTAP && prog2 != prog && REC.n < RECMAXT) { RecTrack *t = &REC.t[REC.n++]; memset(t, 0, sizeof *t); t->kind = 2; t->idx = prog2; t->chans = 2; }
   if (!REC.n) { rec_fail("nothing to record"); return; }
   /* file names: "a.wav|b.wav|..." in the same order (or made up) */
   const char *p = files; size_t dl = strlen(REC.dir); int sep = dl && (REC.dir[dl - 1] == '/' || REC.dir[dl - 1] == '\\');
   for (int k = 0; k < REC.n; k++) {
     RecTrack *t = &REC.t[k]; char nm[512] = ""; const char *e = p && *p ? strchr(p, '|') : NULL; size_t len = p && *p ? (e ? (size_t)(e - p) : strlen(p)) : 0;
     if (len && len < sizeof nm) { memcpy(nm, p, len); nm[len] = 0; }
-    if (!nm[0]) { if (t->kind == 0) snprintf(nm, sizeof nm, "in-%03d.wav", t->idx + 1); else if (t->kind == 1) snprintf(nm, sizeof nm, "net-%d-%02d.wav", t->idx / MAXNETCH, t->idx % MAXNETCH + 1); else snprintf(nm, sizeof nm, "program.wav"); }
+    if (!nm[0]) { if (t->kind == 0) snprintf(nm, sizeof nm, "in-%03d.wav", t->idx + 1); else if (t->kind == 1) snprintf(nm, sizeof nm, "net-%d-%02d.wav", t->idx / MAXNETCH, t->idx % MAXNETCH + 1); else snprintf(nm, sizeof nm, t->idx == STREAMTAP ? "stream.wav" : "program.wav"); }
     p = e ? e + 1 : NULL;
     snprintf(t->path, sizeof t->path, "%s%s%s", REC.dir, sep ? "" : "/", nm);
     t->f = pl_fopen(t->path, "wb");
@@ -908,7 +1101,7 @@ static void status_json(const char *backend) {
   dev_list_json(&L, "captureDevices", capDev, nCapDev); dev_list_json(&L, "playbackDevices", playDev, nPlayDev);
   avail_json(&L, "availableCapture", availCap, nAvailCap); avail_json(&L, "availablePlayback", availPlay, nAvailPlay);
   if (devError[0]) { jcat(&L, ",\"deviceError\":"); jstr_out(&L, devError); }
-  jcat(&L, ",\"max\":{\"inputs\":%d,\"mixes\":%d,\"outputs\":%d,\"netChannels\":%d,\"devices\":%d}}", MAXIN, MAXMIX, MAXOUT, MAXNETCH, MAXDEV);
+  jcat(&L, ",\"max\":{\"inputs\":%d,\"mixes\":%d,\"outputs\":%d,\"netChannels\":%d,\"devices\":%d},\"features\":[\"gate\",\"eq4\",\"fx\",\"stream\"],\"streamTap\":%d}", MAXIN, MAXMIX, MAXOUT, MAXNETCH, MAXDEV, STREAMTAP);
   flush_out(); put(stdout, 'J', jt, (uint32_t)L); flush_out(); free(jt); jt = NULL;
 }
 
@@ -925,7 +1118,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--max-in") && i + 1 < argc) maxIn = atoi(argv[++i]);
     else if (!strcmp(argv[i], "--max-out") && i + 1 < argc) maxOut = atoi(argv[++i]);
     else if (!strcmp(argv[i], "--exclusive")) exclusive = 1;
-    else if (!strcmp(argv[i], "--version")) { puts("cu-mixer 2"); return 0; }
+    else if (!strcmp(argv[i], "--version")) { puts("cu-mixer 3"); return 0; }
   }
   if (maxIn > MAXIN) maxIn = MAXIN; if (maxOut > MAXOUT) maxOut = MAXOUT; if (BLOCK < 16) BLOCK = 16; if (BLOCK > MAXBLOCK) BLOCK = MAXBLOCK;
   pl_ignore_sigpipe(); pl_binary_stdio();
@@ -934,7 +1127,8 @@ int main(int argc, char **argv) {
   for (int o = 0; o < MAXOUT; o++) scratch[o] = calloc(MAXBLOCK, sizeof(float));
   mainb.level = 1; mainb.stereo = 1; mainb.used = 1; mainb.outL = mainb.outR = -1;
   for (int m = 0; m < MAXMIX; m++) { mix[m].level = 1; mix[m].stereo = 1; mix[m].outL = mix[m].outR = -1; }
-  for (int i = 0; i < MAXIN; i++) { in[i].direct = -1; in[i].trim = 1; }
+  streamb.level = 1; streamb.stereo = 1; streamb.outL = streamb.outR = -1; streamb.used = 0;
+  for (int i = 0; i < MAXIN; i++) { in[i].direct = -1; in[i].trim = 1; in[i].gGain = 1; in[i].gOpen = 1; }
   for (int m = 0; m < MAXMIX; m++) dimCur[m] = 1;
   for (int k = 0; k < TALKS; k++) bq_set(&talk[k].hpf, 0, FS > 0 ? FS : 48000, 90, 0, 0.707);   /* talkback: no rumble / handling noise */
   meterEvery = (unsigned)(FS / 20);

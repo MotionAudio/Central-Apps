@@ -550,9 +550,27 @@
         '<div class="row"><label>Left <select data-af="l">' + opts(s.l | 0) + '</select></label><label>Right <select data-af="r">' + opts(s.r == null ? 1 : s.r | 0) + '</select></label><label>Gain <input type="range" data-af="gain" min="-30" max="18" step="0.5" value="' + (Number(s.gain) || 0) + '"><output>' + (Number(s.gain) || 0) + ' dB</output></label></div>' +
         '<div class="vd-meter"><i data-meter="' + i + '-0"></i></div><div class="vd-meter"><i data-meter="' + i + '-1"></i></div><p class="small muted" data-astat="' + i + '"></p></section>';
     }
-    return '<div class="vd-grid">' + srcCard(0) + srcCard(1) + '<section class="card"><h3>The stream\'s sound</h3><p class="muted small">The stream uses the source that is ticked. Usually: A = the sound desk\'s main L / R, B = a separate stream mix from the desk. This does not change the sound in the room.</p>' +
-      '<label>Delay (to line the sound up with the cameras) <input type="range" data-a="delay" min="0" max="1000" step="10" value="' + (a.delay | 0) + '"><output>' + (a.delay | 0) + ' ms</output></label>' +
+    var mixCard = '<section class="card vd-asrc' + (a.use === 2 ? " on" : "") + '"><h3><label class="toggle"><input type="radio" name="vdUse" value="2"' + (a.use === 2 ? " checked" : "") + "> Stream mix</label></h3>" +
+      '<p class="muted small">The Mix tab\'s stream mix, straight from the sound desk (Central Control\'s audio host - this computer or another one): no cable, no interface channels. Its levels, compressor and reverb are on the Mix tab ("Faders: Stream mix").</p>' +
+      '<div class="vd-meter"><i data-mixmeter="0"></i></div><div class="vd-meter"><i data-mixmeter="1"></i></div><p class="small muted" data-mixstat>' + (a.use === 2 ? "Starts with the stream (or the recording)." : "") + "</p></section>";
+    return '<div class="vd-grid">' + srcCard(0) + srcCard(1) + mixCard + '<section class="card"><h3>The stream\'s sound</h3><p class="muted small">The stream uses the source that is ticked. Usually: A = the sound desk\'s main L / R, B = a separate stream mix from the desk, or the Stream mix straight from Central Control. This does not change the sound in the room.</p>' +
+      '<label>Delay (to line the sound up with the cameras) <input type="range" data-a="delay" min="0" max="' + (a.use === 2 ? 2000 : 1000) + '" step="10" value="' + (a.delay | 0) + '"><output>' + (a.delay | 0) + ' ms</output></label>' +
       '<p class="muted small">Audio system: ' + esc(S.audio.backend || "…") + '. Dante: install Audinate\'s Dante Virtual Soundcard (Windows / Mac, its own licence) or use a Dante card that shows up as a sound card; its channels appear here like any interface.</p><button data-a="rescan">Look for devices again</button></section></div>';
+  }
+  // the stream mix from an audio host on another computer: the page listens to it (the Mix tab's link) and passes it on
+  var mixFwd = { on: false };
+  function mixForward(on) {
+    var X = window.CUMix; if (!X || on === mixFwd.on) return;
+    mixFwd.on = on; X.listen("stream", on);
+  }
+  if (window.CUMix) window.CUMix.on("audio", function (pcm, frames, ch, rate, tap) {
+    if (!mixFwd.on || tap !== 65 || ch !== 2 || rate !== 48000) return;
+    V.mixPcm(new Uint8Array(pcm.buffer, pcm.byteOffset, frames * 4));
+  });
+  function paintMixMeters(m) {
+    if (S.view !== "audio") return;
+    for (var c = 0; c < 2; c++) { var el = $('[data-mixmeter="' + c + '"]'); if (!el) continue; var v = m.peak[c], db = v > 0 ? 20 * Math.log10(v) : -90; el.style.width = clamp((db + 60) / 60 * 100, 0, 100) + "%"; el.className = db > -3 ? "clip" : db > -12 ? "hot" : ""; }
+    var st = $("[data-mixstat]"); if (st) st.textContent = m.receiving ? "● receiving the stream mix" + (m.local ? " (this computer is the audio host)" : " from the audio host") : (window.CUMix && window.CUMix.kind === "none" ? "No sound desk link - turn on the audio host (I/O tab) or enter its admin code." : "Waiting for the stream mix… (is anything in it? Mix tab → Faders: Stream mix)");
   }
   function paintMeters(m) {
     if (S.view !== "audio") return;
@@ -667,6 +685,8 @@
     else if (ev.type === "ndi") { S.ndi = { error: ev.error, sources: ev.sources || [] }; if (S.view === "sources") paintView(); }
     else if (ev.type === "stream") { S.stream = ev.status; paintStatus(); }
     else if (ev.type === "audioMeters") { S.audio.meters = ev; paintMeters(ev); }
+    else if (ev.type === "mixAudio") mixForward(!!ev.on);
+    else if (ev.type === "mixMeters") paintMixMeters(ev);
     else if (ev.type === "audioDevices") { S.audio.devices = ev.devices; S.audio.backend = ev.backend; if (S.view === "audio") paintView(); }
     else if (ev.type === "audioStatus") { S.audio.status = ev.status; if (S.view === "audio") (ev.status.sources || []).forEach(function (s, i) { var el = $('[data-astat="' + i + '"]'); if (el) el.textContent = s.running ? "● running · " + s.channels + " channels" : s.error ? "✕ " + s.error : s.device ? "not running" : ""; }); }
     else if (ev.type === "phones") { S.phones = ev.info; if (S.view === "phones") paintView(); }

@@ -209,6 +209,35 @@ await check("the audio helper opens a source, meters it and reports", async () =
   assert.ok(await cu.evaluate(() => !!CUVideoTab.state.audio.meters));
 });
 
+await check("the Stream mix as the stream's sound: the sound desk's mix (here pushed by the page) goes into the stream, delayed by the A/V offset", async () => {
+  const before = fs.existsSync(recDir) ? fs.readdirSync(recDir).filter((f) => f.endsWith(".mp4")) : [];
+  await cu.evaluate(() => CUVideo.config({ audio: { use: 2, delay: 200 } }).then((c) => { CUVideoTab.state.cfg = c; }));
+  await cu.evaluate(() => CUVideo.record(true)); await sleep(1500);   // (silence first: the stream keeps going with nothing from the desk)
+  await cu.evaluate(() => new Promise((done) => {   // 3 s of a 440 Hz tone, 20 ms at a time, like the audio host sends it
+    let ph = 0, sent = 0; const t0 = performance.now();
+    const t = setInterval(() => {   // (whatever the page's timers do: always as much as the time that went by)
+      const due = Math.min(144000, Math.floor((performance.now() - t0) * 48)), n = due - sent; if (n <= 0) return;
+      const b = new Int16Array(n * 2); for (let f = 0; f < n; f++) { const v = Math.round(0.5 * 32767 * Math.sin(ph)); b[f * 2] = v; b[f * 2 + 1] = v; ph += 2 * Math.PI * 440 / 48000; }
+      CUVideo.mixPcm(new Uint8Array(b.buffer)); sent = due; if (sent >= 144000) { clearInterval(t); done(); }
+    }, 20);
+  }));
+  const speed = parseFloat(await cu.evaluate(() => CUVideo.status().then((s) => s.encoder && s.encoder.speed || "0"))) || 0;   // (a busy test machine encodes slower than real time)
+  await sleep(1500); await cu.evaluate(() => CUVideo.record(false)); await sleep(2500);
+  await cu.evaluate(() => CUVideo.config({ audio: { use: 0, delay: 80 } }).then((c) => { CUVideoTab.state.cfg = c; }));
+  const file = (fs.readdirSync(recDir).filter((f) => f.endsWith(".mp4") && before.indexOf(f) < 0))[0]; assert.ok(file, "no new recording");
+  const j = probe(path.join(recDir, file)); assert.ok(j && j.streams.some((s) => s.codec_type === "audio") && Number(j.format.duration) > (speed >= 0.95 ? 4 : 2), JSON.stringify(j) + " speed " + speed);
+  const vd = spawnSync(FF, ["-hide_banner", "-nostats", "-i", path.join(recDir, file), "-map", "0:a", "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8" }).stderr;
+  const max = Number((/max_volume: (-?[\d.]+) dB/.exec(vd) || [])[1]); assert.ok(max > -12, "the tone is in the stream: max " + max + " dB");
+  // before the tone: silence (nothing from the desk yet - the stream kept going)
+  const sd = spawnSync(FF, ["-hide_banner", "-nostats", "-i", path.join(recDir, file), "-map", "0:a", "-af", "silencedetect=n=-30dB:d=0.1", "-f", "null", "-"], { encoding: "utf8" }).stderr;
+  const ends = [...sd.matchAll(/silence_end: ([\d.]+)/g)].map((m) => Number(m[1])), starts = [...sd.matchAll(/silence_start: ([\d.]+)/g)].map((m) => Number(m[1]));
+  assert.ok(starts[0] === 0 && ends[0] > 0.1, "silence first: " + sd.match(/silence_(start|end): [\d.]+/g));
+  if (speed >= 0.95) {   // 3 s of tone went in: one piece of about 3 s in the stream (not stretched, not chopped up) - when the encoder keeps up
+    const toneFrom = ends[0], toneTo = starts.find((s) => s > toneFrom);
+    assert.ok(toneTo && toneTo - toneFrom > 2.6 && toneTo - toneFrom < 3.6, "the tone: " + toneFrom + " to " + toneTo + " s (" + sd.match(/silence_(start|end): [\d.]+/g) + ")");
+  } else console.log("      (this machine encodes at " + speed + "x: the tone's length isn't checked)");
+});
+
 console.log("NDI:");
 await check("without the NDI runtime the Sources page says what to install", async () => { const r = await cu.evaluate(() => CUVideo.ndiFind()); const e = r.error || (await until(() => cu.evaluate(() => CUVideoTab.state.ndi.error), 4000)); assert.ok(/NDI/.test(e || ""), JSON.stringify(r)); });
 await check("NDI out without the runtime reports it instead of failing silently", async () => { await cu.evaluate(() => CUVideo.ndiOut("stream", true)); const st = await until(() => cu.evaluate(() => CUVideo.status().then((s) => s.ndi.stream.error ? s : null)), 5000); assert.ok(st && /NDI/.test(st.ndi.stream.error), JSON.stringify(st && st.ndi)); await cu.evaluate(() => CUVideo.ndiOut("stream", false)); });

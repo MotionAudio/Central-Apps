@@ -79,6 +79,8 @@ class Recorder extends EventEmitter {
     if (opts.tracks !== false) (this.engine.pi.names || []).filter((x) => x.source < 4).forEach((x, i) => out.push({ kind: "net", ch: x.source * NETCH + x.ch, file: "Track " + pad(i + 1) + " - " + (clean(x.name, 40) || "ch " + (x.ch + 1)) + ".wav" }));
     const prog = opts.program == null || opts.program === "main" ? 0 : opts.program === false ? -1 : Number(opts.program) + 1;
     if (prog >= 0 && prog <= 64) out.push({ kind: "prog", ch: prog, file: "Program.wav" });
+    const sm = this.engine.state && this.engine.state.stream;   // the live stream mix, next to the program (its own WAV and MP3)
+    if (opts.stream !== false && sm && sm.record !== false && this.engine.streamUsed && this.engine.streamUsed()) out.push({ kind: "prog2", ch: 65, file: "Stream mix.wav" });
     const seen = {}; out.forEach((t) => { let f = t.file, k = 2; while (seen[f.toLowerCase()]) f = t.file.replace(/\.wav$/, " (" + k++ + ").wav"); seen[f.toLowerCase()] = 1; t.file = f; });
     return out;
   }
@@ -99,7 +101,7 @@ class Recorder extends EventEmitter {
     Object.assign(this.st, { starting: true, error: null, name, folder, started: Date.now(), frames: 0, dropped: 0, tracks: tracks.length, files: tracks, mp3: null });
     this.emitState("starting");
     const answer = this.waitRec((e) => e.state === "recording" || e.state === "error", 8000);
-    this.engine.cmd({ cmd: "rec", on: 1, dir: folder, files: tracks.map((t) => t.file).join("|"), ins: tracks.filter((t) => t.kind === "in").map((t) => t.ch), net: tracks.filter((t) => t.kind === "net").map((t) => t.ch), prog: (tracks.find((t) => t.kind === "prog") || { ch: -1 }).ch });
+    this.engine.cmd({ cmd: "rec", on: 1, dir: folder, files: tracks.map((t) => t.file).join("|"), ins: tracks.filter((t) => t.kind === "in").map((t) => t.ch), net: tracks.filter((t) => t.kind === "net").map((t) => t.ch), prog: (tracks.find((t) => t.kind === "prog") || { ch: -1 }).ch, prog2: (tracks.find((t) => t.kind === "prog2") || { ch: -1 }).ch });
     let e; try { e = await answer; } catch (err) { e = { state: "error", error: err.message }; }
     this.st.starting = false;
     if (e.state !== "recording") {
@@ -137,9 +139,11 @@ class Recorder extends EventEmitter {
     return { folder, files, program: fs.existsSync(prog) ? prog : null, seconds: e && e.frames ? Math.round(e.frames / (e.rate || 48000)) : Math.round((Date.now() - this.st.started) / 1000), dropped: e ? e.dropped || 0 : null };
   }
   // ---------------------------------------------------------------- the podcast MP3 (after the stop, in the background)
-  makeMp3(folder, title) {
-    const wav = folder && path.join(folder, "Program.wav"), mp3 = folder && path.join(folder, "Program.mp3");
-    if (!wav || !fs.existsSync(wav) || fs.existsSync(mp3)) return;
+  makeMp3(folder, title, which) {
+    which = which || "Program";
+    const wav = folder && path.join(folder, which + ".wav"), mp3 = folder && path.join(folder, which + ".mp3");
+    const next = () => { if (which === "Program" && folder && fs.existsSync(path.join(folder, "Stream mix.wav"))) this.makeMp3(folder, title ? title + " (stream)" : "", "Stream mix"); };   // (then the stream mix's)
+    if (!wav || !fs.existsSync(wav) || fs.existsSync(mp3)) return next();
     const bin = this.ffmpeg(); if (!bin) { this.st.mp3 = { state: "error", error: "ffmpeg is missing - the MP3 was not made (the WAV is there)." }; this.emitState("mp3"); return; }
     this.st.mp3 = { state: "making", file: mp3 }; this.emitState("mp3");
     const args = ["-hide_banner", "-loglevel", "error", "-y", "-i", wav, "-codec:a", "libmp3lame", "-b:a", "128k", "-metadata", "title=" + (title || path.basename(folder)), mp3 + ".part.mp3"];
@@ -153,6 +157,7 @@ class Recorder extends EventEmitter {
       this.st.mp3 = code === 0 ? { state: "done", file: mp3 } : { state: "error", error: "The MP3 could not be made: " + (err.trim().split("\n").pop() || "ffmpeg failed") };
       if (this.st.last && this.st.last.folder === folder) this.st.last = this.summary(folder, { frames: this.st.last.seconds * 48000, dropped: this.st.last.dropped });
       this.emitState("mp3");
+      if (code === 0) next();
     });
   }
   // ---------------------------------------------------------------- crash repair
