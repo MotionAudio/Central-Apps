@@ -76,7 +76,46 @@
   function hostConfig() {
     var c = cfg(), k = kind();
     return { kind: k, input: { device: c.input.device || "auto", channel: c.input.channel || "L", gainDb: c.input.gain || 0, gateOn: c.input.gate > -90, gateDb: c.input.gate != null ? c.input.gate : -70 }, chain: resolvedChain(k),
-      keys: hostKeys(c), levelDb: c.output.level || 0, routing: project().routing || {}, looper: !!(window.PPLooper && window.PPLooper.armed()) };
+      keys: hostKeys(c), levelDb: c.output.level || 0, routing: project().routing || {}, looper: !!(window.PPLooper && window.PPLooper.armed()), playAny: hostPlayAny(c, k) };
+  }
+  // ---- play any sound: a guitar, bass or acoustic plays any keys sound. Single notes (lead lines) are tracked and play the
+  // chosen sound; chords play a guitar-synth sound (no note detection, so it follows at once). Auto switches between them.
+  var GUITARS = { electric: 1, acoustic: 1, bass: 1 }, PA_MODES = [["auto", "Auto", "notes for lead lines, synth for chords"], ["notes", "Notes", "every note plays the sound"], ["synth", "Synth", "a guitar synth that follows chords"]];
+  function paCfg(c) { c = c || cfg(); if (!c.playAny) c.playAny = { on: false, patch: null, mode: "auto", dry: 0, sensitivity: 0.5, volume: 1 }; return c.playAny; }
+  function hostPlayAny(c, k) {
+    if (!GUITARS[k || kind()]) return undefined;
+    var pa = paCfg(c), patch = pa.patch && !pa.patch.plugin ? { file: pa.patch.file, bank: pa.patch.bank, prog: pa.patch.prog, name: pa.patch.name } : null;
+    return { on: !!pa.on, patch: patch, mode: pa.mode || "auto", dry: pa.dry == null ? 0 : pa.dry, sensitivity: pa.sensitivity == null ? 0.5 : pa.sensitivity, volume: pa.volume == null ? 1 : pa.volume };
+  }
+  var paTimer = 0;
+  function paSend(now) { clearTimeout(paTimer); var go = function () { var hp = hostPlayAny(cfg(), kind()); if (hp) send({ type: "instrument", action: "playany", playAny: hp }); PP.persistSoon(); if (window.PPActions) window.PPActions.sendLeds(); }; if (now) go(); else paTimer = setTimeout(go, 80); }
+  function playAnyOn() { return GUITARS[kind()] ? !!paCfg().on : false; }
+  function setPlayAny(o) {
+    var pa = paCfg(); Object.keys(o || {}).forEach(function (key) { pa[key] = o[key]; });
+    if (pa.on && !pa.patch && catalog.keys.length) { var p = catalog.keys.filter(function (q) { return /grand|piano/i.test(q.name); })[0] || catalog.keys[0]; pa.patch = { id: p.id, file: p.file, bank: p.bank, prog: p.prog, name: p.name }; }
+    paSend(o && (o.on != null || o.mode != null || o.patch)); if (onTab()) render(); return pa;
+  }
+  function togglePlayAny() {
+    if (!GUITARS[kind()]) { PP.setStatus("Play any sound works with an electric, acoustic or bass guitar"); return false; }
+    var pa = setPlayAny({ on: !paCfg().on }); PP.setStatus("Play any sound " + (pa.on ? "on: " + (pa.mode === "synth" ? "guitar synth" : (pa.patch ? pa.patch.name : "a piano")) : "off")); return pa.on;
+  }
+  function stepPlayAnyMode(d) { var pa = paCfg(), i = PA_MODES.findIndex(function (m) { return m[0] === (pa.mode || "auto"); }), m = PA_MODES[(i + (d || 1) + PA_MODES.length) % PA_MODES.length]; setPlayAny({ mode: m[0] }); PP.setStatus("Play any sound: " + m[1] + " (" + m[2] + ")"); }
+  function paSoundOptions(cur) {
+    var groups = {}, order = [];
+    catalog.keys.forEach(function (p) { var g = p.user ? "Yours" : p.category; if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(p); });
+    return (cur || !catalog.keys.length ? "" : '<option value="">— choose a sound —</option>') + order.map(function (g) { return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (p) { return '<option value="' + esc(p.id) + '"' + (cur && cur.id === p.id ? " selected" : "") + ">" + esc(p.name) + "</option>"; }).join("") + "</optgroup>"; }).join("");
+  }
+  function playAnyPanel(c) {
+    var pa = paCfg(c), st = status.playAny || {}, avail = !connected() || st.available !== false, mode = pa.mode || "auto";
+    return '<section class="in-playany' + (pa.on ? " on" : "") + '"><div class="row spread"><div><h3>Play any sound</h3><p class="muted">Your ' + (kind() === "bass" ? "bass" : "guitar") + " plays any sound: single notes play the sound you pick (piano, bass, synth, strings…); chords play a guitar synth that follows them at once.</p></div>" +
+      '<div class="se-row"><span class="pa-now muted small" data-panow>' + (pa.on ? "" : "") + '</span><button class="pf-btn pa-on' + (pa.on ? " on" : "") + '" id="paOn"' + (avail ? "" : " disabled") + '><small>PLAY ANY SOUND</small><b>' + (pa.on ? "ON" : "OFF") + "</b></button></div></div>" +
+      (avail ? "" : '<p class="warn small">Not available on this system yet (its plugin is missing).</p>') +
+      '<div class="in-bar pa-bar"><label>Sound<select id="paSound">' + (catalog.keys.length ? paSoundOptions(pa.patch) : '<option value="">' + (connected() ? "No sounds found yet" : "The sound list comes from the Pi") + "</option>") + "</select></label>" +
+      '<label>Mode<span class="seg pa-modes">' + PA_MODES.map(function (m) { return '<button class="' + (mode === m[0] ? "on" : "") + '" data-pamode="' + m[0] + '" title="' + esc(m[2]) + '">' + m[1] + "</button>"; }).join("") + "</span></label>" +
+      '<label>Dry guitar <span class="control-line"><input type="range" id="paDry" min="0" max="100" step="1" value="' + Math.round((pa.dry || 0) * 100) + '"><output>' + Math.round((pa.dry || 0) * 100) + "%</output></span></label>" +
+      '<label>Sensitivity <span class="control-line"><input type="range" id="paSens" min="0" max="100" step="1" value="' + Math.round((pa.sensitivity == null ? 0.5 : pa.sensitivity) * 100) + '"><output>' + Math.round((pa.sensitivity == null ? 0.5 : pa.sensitivity) * 100) + "</output></span></label>" +
+      '<label>Level <span class="control-line"><input type="range" id="paVol" min="0" max="150" step="1" value="' + Math.round((pa.volume == null ? 1 : pa.volume) * 100) + '"><output>' + Math.round((pa.volume == null ? 1 : pa.volume) * 100) + "%</output></span></label></div>" +
+      '<p class="muted small">Footswitch: Configure → "Play any sound on / off". Play cleanly for the best tracking: higher Sensitivity hears softer playing, lower ignores string noise.</p></section>';
   }
   // ---- keys layers: up to 8 sounds at once (piano + pad + strings…), each with its own volume, pan, octave, key range and velocity range
   var MAX_LAYERS = 8;
@@ -228,7 +267,7 @@
           '<label>MIDI keyboard<select id="inMidi"><option value="auto">Auto (any USB MIDI)</option>' + catalog.midi.map(function (m) { return '<option value="' + esc(m) + '"' + (c.keys.midi === m ? " selected" : "") + ">" + esc(m) + "</option>"; }).join("") + '</select></label><label>Transpose <span class="control-line"><input type="range" id="inTranspose" min="-12" max="12" step="1" value="' + (c.keys.transpose || 0) + '"><output>' + (c.keys.transpose || 0) + '</output></span></label><label>Velocity<select id="inVel">' + [["soft", "Soft touch"], ["normal", "Normal"], ["hard", "Hard"], ["fixed", "Fixed (organ)"]].map(function (o) { return '<option value="' + o[0] + '"' + (c.keys.velocity === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>") +
         '<label>Output level <span class="control-line"><input type="range" id="inOut" min="-40" max="12" step="1" value="' + c.output.level + '"><output>' + c.output.level + ' dB</output></span></label>' +
         '<div class="in-meter"><small>IN</small><div class="vu-bar"><i id="inVu" style="width:100%"></i></div><b id="inTuner">–</b></div><button class="pf-btn" id="inAuto" title="Sets input gain and gate from what you play and detects the instrument"><small>SET UP</small><b>AUTO</b></button><button class="pf-btn' + (tunerOn ? " on" : "") + '" id="inTunerBtn" title="Full-screen tuner for the instrument input"><small>' + (cfg().tunerMute === false ? "LIVE" : "MUTE &amp;") + '</small><b>TUNE</b></button></div>' +
-        (k === "keys" ? keysPanel(c) : "") +
+        (k === "keys" ? keysPanel(c) : "") + (GUITARS[k] ? playAnyPanel(c) : "") +
         '<div class="in-boardwrap"><div class="pb-chain" id="pbChain">' + chain.map(function (item, i) { var pedal = pedalOf(item); return pedal ? '<div class="pb-slot" data-slot="' + item.uid + '">' + pedalSvg(item, pedal, i, selected === item.uid) + '<div class="pb-tools"><button data-move="' + item.uid + ':-1" title="Move left">◀</button><button data-del="' + item.uid + '" title="Remove">✕</button><button data-move="' + item.uid + ':1" title="Move right">▶</button></div></div>' : ""; }).join("") + '<button class="pb-add" id="pbAdd">＋<small>Add pedal</small></button></div></div>' +
         (selected ? detailPanel(chain.filter(function (i) { return i.uid === selected; })[0]) : '<p class="muted">Tap a pedal to edit its knobs; tap its footswitch to bypass it. Footswitches on the board can do the same (Configure tab → "Pedal 1…8 on / off").</p>') +
         (showAdd ? addPanel() : "") + (window.PPLooper ? window.PPLooper.html() : "") +
@@ -302,6 +341,7 @@
   function captureRig(full) {
     var c = cfg(), k = kind(), r = { kind: k, levelDb: c.output.level || 0, pedals: chainFor(k).map(function (it) { return { uid: it.uid, on: it.on !== false, mix: it.mix == null ? 1 : it.mix, levelDb: it.levelDb || 0 }; }) };
     if (k === "keys") r.layers = layers(c).map(function (l) { return { id: l.id, on: l.on !== false, volume: l.volume == null ? 1 : l.volume }; });
+    if (GUITARS[k] && c.playAny) r.playAny = JSON.parse(JSON.stringify(c.playAny));
     if (full) { r.board = c.boards[k] || null; r.chain = JSON.parse(JSON.stringify(chainFor(k))); if (k === "keys") r.keys = JSON.parse(JSON.stringify(c.keys)); r.input = JSON.parse(JSON.stringify(c.input)); }
     return r;
   }
@@ -313,6 +353,7 @@
     if (k === "off") return;
     var same = !r.chain || (JSON.stringify(chainFor(k).map(function (i) { return i.uid + i.pedal; })) === JSON.stringify(r.chain.map(function (i) { return i.uid + i.pedal; })));
     if (!same) { c.chains[k] = JSON.parse(JSON.stringify(r.chain)); if (r.board) c.boards[k] = r.board; if (r.keys) c.keys = JSON.parse(JSON.stringify(r.keys)); selected = null; apply("scene"); if (onTab()) render(); return; }
+    if (r.playAny && GUITARS[k] && JSON.stringify(r.playAny) !== JSON.stringify(c.playAny || null)) { c.playAny = JSON.parse(JSON.stringify(r.playAny)); paSend(true); }
     var byUid = {}; (r.pedals || []).forEach(function (p) { byUid[p.uid] = p; });
     chainFor(k).forEach(function (it) { var p = byUid[it.uid]; if (!p) return; it.on = p.on; it.mix = p.mix; it.levelDb = p.levelDb; });
     var msg = { type: "instrument", action: "scene", pedals: r.pedals || [] };
@@ -410,6 +451,8 @@
       if (b.dataset.klon != null) { var l3 = layers(c)[Number(b.dataset.klon)]; if (l3) { l3.on = l3.on === false; keysLive(); render(); } return; }
       if (b.dataset.kldel != null) { var ls4 = layers(c); ls4.splice(Number(b.dataset.kldel), 1); layerSel = 0; keysLive(); render(); return; }
       if (b.dataset.iradd) { addIr(b.dataset.iradd); return; }
+      if (b.id === "paOn") { togglePlayAny(); return; }
+      if (b.dataset.pamode) { setPlayAny({ mode: b.dataset.pamode }); return; }
       if (b.id === "inAuto") { autoSetup(); return; }
       if (b.id === "inTunerBtn") { toggleTuner(); return; }
       if (b.id === "keysAdd") { addSounds(); return; }
@@ -425,6 +468,7 @@
       else if (el.dataset.pmix || el.dataset.plevel) { var pu = el.dataset.pmix || el.dataset.plevel, pit = chainFor(k).filter(function (q) { return q.uid === pu; })[0]; if (!pit) return; if (el.dataset.pmix) { pit.mix = Number(el.value) / 100; if (out) out.textContent = el.value + "%"; } else { pit.levelDb = Number(el.value); if (out) out.textContent = el.value + " dB"; } send({ type: "instrument", action: "pedalmix", uid: pit.uid, mix: pit.mix == null ? 1 : pit.mix, levelDb: pit.levelDb || 0 }); PP.persistSoon(); }
       else if (el.dataset.klvol != null) { var lv = layers(c)[Number(el.dataset.klvol)]; if (lv) { lv.volume = Number(el.value) / 100; if (out) out.textContent = el.value; keysLive(); } }
       else if (el.dataset.klpan != null) { var lp = layers(c)[Number(el.dataset.klpan)]; if (lp) { lp.pan = Number(el.value) / 100; keysLive(); } }
+      else if (el.id === "paDry" || el.id === "paSens" || el.id === "paVol") { var pv = Number(el.value) / 100, pk = el.id === "paDry" ? "dry" : el.id === "paSens" ? "sensitivity" : "volume"; paCfg(c)[pk] = pv; if (out) out.textContent = el.id === "paSens" ? el.value : el.value + "%"; paSend(false); }
       else if (el.id === "keysVolume") { c.keys.volume = Number(el.value) / 100; if (out) out.textContent = el.value; keysSoon(); }
       else if (el.id === "pbSearch") { addQuery = el.value; var list = $(".pb-list"); if (list) { var d = document.createElement("div"); d.innerHTML = addPanel(); list.outerHTML = d.querySelector(".pb-list").outerHTML; } }
       else if (el.id === "keysSearch") { keysQuery = el.value; var kl = $(".keys-list"); if (kl) { var d2 = document.createElement("div"); d2.innerHTML = keysPanel(c); kl.outerHTML = d2.querySelector(".keys-list").outerHTML; } }
@@ -435,6 +479,7 @@
       else if (el.id === "inInput") { c.input.device = el.value; var inp = catalog.inputs.filter(function (i) { return i.id === el.value; })[0]; c.input.deviceId = inp ? inp.browserId : null; stopMeter(); apply("input"); render(); }
       else if (el.id === "inChannel") { c.input.channel = el.value; apply("input"); }
       else if (el.id === "inMidi") { c.keys.midi = el.value; keysSoon(); }
+      else if (el.id === "paSound") { var ps = catalog.keys.filter(function (q) { return q.id === el.value; })[0]; if (ps) { setPlayAny({ patch: { id: ps.id, file: ps.file, bank: ps.bank, prog: ps.prog, name: ps.name } }); PP.setStatus("Play any sound: " + ps.name); } }
       else if (el.id === "inVel") { c.keys.velocity = el.value; keysSoon(); }
       else if (el.id === "keysSustain") { c.keys.sustain = el.checked; keysSoon(); }
       else if (el.dataset.on) { var it = chainFor(k).filter(function (q) { return q.uid === el.dataset.on; })[0]; if (it) { it.on = el.checked; send({ type: "instrument", action: "bypass", uid: it.uid, on: it.on }); PP.persistSoon(); render(); } }
@@ -450,7 +495,7 @@
     function keyUp(e) { var kk = e.target.closest && e.target.closest(".kk"); if (!kk) return; kk.classList.remove("down"); send({ type: "instrument", action: "note", on: false, note: Number(kk.dataset.note), velocity: 0 }); }
     root.addEventListener("pointerup", keyUp); root.addEventListener("pointercancel", keyUp); root.addEventListener("pointerleave", keyUp, true);
     F.on("instrumentStatus", function (m) {
-      var sig = function (x) { return JSON.stringify([x.running, x.error, x.kind, (x.inputs || []).length, (x.keysCatalog || []).length, !!x.plugins, x.engine, x.engineAlt, Object.keys(x.pluginSlots || {}).sort(), x.pluginErrors || {}]); };
+      var sig = function (x) { return JSON.stringify([x.running, x.error, x.kind, (x.inputs || []).length, (x.keysCatalog || []).length, !!x.plugins, x.engine, x.engineAlt, Object.keys(x.pluginSlots || {}).sort(), x.pluginErrors || {}, x.playAny && x.playAny.available]); };
       var before = sig(status), hadEngine = status.available !== undefined, prevEngine = status.engine;
       status = m;
       if (hadEngine && prevEngine !== m.engine) setTimeout(function () { if (kind() !== "off") apply("engine"); }, 300);   // (switched engines: give the new one the board)
@@ -465,9 +510,10 @@
     });
     // the Studio compressor / limiter / de-esser's gain reduction (the computer's built-in rig reports it)
     F.on("instrumentMeters", function (m) {
+      var pn = document.querySelector("[data-panow]"); if (pn) { var q = m.playAny; pn.textContent = !q ? "" : q.state === "note" && q.note >= 0 ? "Now: notes · " + noteName(q.note) : q.state === "synth" ? "Now: synth (chord)" : "Now: listening"; }
       document.querySelectorAll("[data-gr]").forEach(function (el) { var g = m.gr && m.gr[el.dataset.gr] || 0; el.querySelector("i").style.width = Math.min(100, g / 24 * 100) + "%"; el.querySelector("output").textContent = (g > 0.05 ? "−" + g.toFixed(1) : "0.0") + " dB"; });
     });
-    setInterval(function () { if (onTab() && document.querySelector("[data-gr]")) send({ type: "instrument", action: "meters" }); }, 120);
+    setInterval(function () { if (onTab() && (document.querySelector("[data-gr]") || (playAnyOn() && document.querySelector("[data-panow]")))) send({ type: "instrument", action: "meters" }); }, 120);
     F.on("instrumentNotice", function (m) { if (m.text) PP.setStatus(m.text); });
     F.on("pluginList", function (m) { plugs.list = m.plugins || []; plugs.failed = m.failed || []; plugs.folders = m.folders || []; plugs.formats = m.formats || ""; if (m.scanning) { if (!plugs.scan) plugs.scan = { done: 0, total: 0 }; } else { plugs.scanned = true; plugs.scan = null; } if (onTab()) render(); });
     F.on("pluginScan", function (m) { plugs.scan = m; var el = $(".plug-scan"); if (el) el.textContent = "Looking for plugins… " + (m.total ? m.done + " of " + m.total + (m.current ? " · " + m.current : "") : ""); });
@@ -598,5 +644,5 @@
   function pedalNames() { return chainFor(kind()).map(function (it, i) { var p = pedalOf(it), cat = p && PED.CATEGORIES[p.category]; return { index: i, name: p ? p.name : it.pedal, on: it.on !== false, color: cat ? cat.color : null }; }); }
   function state() { var c = cfg(); return { kind: c.kind, tuner: tunerOn, board: c.boards[c.kind], patch: c.keys.patch, get levelDb() { return c.output.level || 0; }, set levelDb(v) { c.output.level = v; if (onTab()) { var el = $("#inOut"); if (el) { el.value = v; var o = el.parentNode.querySelector("output"); if (o) o.textContent = v + " dB"; } } } }; }
   function setKind(k) { var c = cfg(); c.kind = k; selected = null; apply("kind"); PP.setStatus("Instrument: " + (KINDS.filter(function (q) { return q[0] === k; })[0] || ["", k])[1]); if (onTab()) render(); }
-  window.PPInstrument = { show: show, hide: hide, render: render, config: cfg, kind: kind, state: state, setKind: setKind, autoSetup: autoSetup, togglePedal: togglePedal, pedalOn: pedalOn, pedalNames: pedalNames, miniKnobs: miniKnobs, setKnob: setKnob, setInput: setInput, stepBoard: stepBoard, stepPatch: stepPatch, stepKind: stepKind, expression: expression, toggleTuner: toggleTuner, tunerToggle: toggleTuner, tunerOn: function () { return tunerOn; }, apply: apply, hostConfig: hostConfig, catalog: function () { return catalog; }, chain: chainFor, resolvedChain: resolvedChain, controlsOf: controlsOf, captureRig: captureRig, applyRig: applyRig, layers: layers, maxLayers: MAX_LAYERS, status: function () { return status; }, boardName: function () { var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0]; return b ? b.name : ""; }, kinds: function () { return KINDS; }, onTuner: function (fn) { tunerHooks.push(fn); } };
+  window.PPInstrument = { show: show, hide: hide, render: render, config: cfg, kind: kind, state: state, setKind: setKind, autoSetup: autoSetup, togglePedal: togglePedal, pedalOn: pedalOn, pedalNames: pedalNames, miniKnobs: miniKnobs, setKnob: setKnob, setInput: setInput, stepBoard: stepBoard, stepPatch: stepPatch, stepKind: stepKind, expression: expression, toggleTuner: toggleTuner, tunerToggle: toggleTuner, tunerOn: function () { return tunerOn; }, apply: apply, hostConfig: hostConfig, catalog: function () { return catalog; }, chain: chainFor, resolvedChain: resolvedChain, controlsOf: controlsOf, captureRig: captureRig, applyRig: applyRig, layers: layers, maxLayers: MAX_LAYERS, status: function () { return status; }, boardName: function () { var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0]; return b ? b.name : ""; }, kinds: function () { return KINDS; }, onTuner: function (fn) { tunerHooks.push(fn); }, togglePlayAny: togglePlayAny, playAnyOn: playAnyOn, setPlayAny: setPlayAny, stepPlayAnyMode: stepPlayAnyMode, playAny: function () { return paCfg(); } };
 })();

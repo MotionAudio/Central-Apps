@@ -1,0 +1,41 @@
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Play any sound (central-usage/native/playany/playany-plugin.c). The port order is the plugin's P_* order;
+# test-playany-plugin checks this file against the plugin's own table.
+<https://motionaudio.github.io/Central-Apps/plugins/playany>
+    a lv2:Plugin , lv2:InstrumentPlugin ;
+    doap:name "Central Play Any Sound" ;
+    doap:license <https://opensource.org/licenses/MIT> ;
+    lv2:optionalFeature lv2:hardRTCapable ;
+    lv2:port [
+        a lv2:AudioPort , lv2:InputPort ; lv2:index 0 ; lv2:symbol "in" ; lv2:name "In"
+    ] , [
+        a lv2:AudioPort , lv2:OutputPort ; lv2:index 1 ; lv2:symbol "out" ; lv2:name "Out"
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 2 ; lv2:symbol "active" ; lv2:name "Active" ; lv2:default 1 ; lv2:minimum 0 ; lv2:maximum 1 ; lv2:portProperty lv2:toggled
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 3 ; lv2:symbol "mode" ; lv2:name "Mode" ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 2 ; lv2:portProperty lv2:integer , lv2:enumeration ;
+        lv2:scalePoint [ rdfs:label "Auto" ; <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> 0 ] , [ rdfs:label "Notes" ; <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> 1 ] , [ rdfs:label "Synth" ; <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> 2 ]
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 4 ; lv2:symbol "sensitivity" ; lv2:name "Sensitivity" ; lv2:default 0.5 ; lv2:minimum 0 ; lv2:maximum 1
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 5 ; lv2:symbol "tone" ; lv2:name "Tone" ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 4 ; lv2:portProperty lv2:integer
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 6 ; lv2:symbol "level" ; lv2:name "Synth level" ; lv2:default 1 ; lv2:minimum 0 ; lv2:maximum 2
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 7 ; lv2:symbol "low" ; lv2:name "Low note" ; lv2:default 40 ; lv2:minimum 21 ; lv2:maximum 72 ; lv2:portProperty lv2:integer
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 8 ; lv2:symbol "high" ; lv2:name "High note" ; lv2:default 88 ; lv2:minimum 48 ; lv2:maximum 108 ; lv2:portProperty lv2:integer
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 9 ; lv2:symbol "channel" ; lv2:name "Channel" ; lv2:default 10 ; lv2:minimum 0 ; lv2:maximum 15 ; lv2:portProperty lv2:integer
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 10 ; lv2:symbol "port" ; lv2:name "Port" ; lv2:default 9800 ; lv2:minimum 0 ; lv2:maximum 65535 ; lv2:portProperty lv2:integer
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 11 ; lv2:symbol "bend" ; lv2:name "Bend" ; lv2:default 1 ; lv2:minimum 0 ; lv2:maximum 1 ; lv2:portProperty lv2:toggled
+    ] , [
+        a lv2:ControlPort , lv2:OutputPort ; lv2:index 12 ; lv2:symbol "state" ; lv2:name "State" ; lv2:default 0 ; lv2:minimum 0 ; lv2:maximum 2
+    ] , [
+        a lv2:ControlPort , lv2:OutputPort ; lv2:index 13 ; lv2:symbol "note" ; lv2:name "Note" ; lv2:default -1 ; lv2:minimum -1 ; lv2:maximum 127
+    ] .

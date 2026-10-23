@@ -156,6 +156,7 @@
           "cu-rig",
           "cu-rig.exe",
           "rig-map.json",
+          "central-playany.lv2/**",
           "cu-video",
           "cu-video.exe",
           "ffmpeg",

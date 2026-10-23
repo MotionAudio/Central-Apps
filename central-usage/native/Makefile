@@ -5,6 +5,9 @@
 #             plugins on every computer (plughost/: VST3, CLAP; Audio Units on macOS; LV2 on Linux) - C++
 #   test-plugins/  test CLAP and VST3 plugins for test-rig.mjs (never shipped)
 #   rig-map.json  which built-in effect plays each pedal (made from js/pedals.js)
+#   playany/      play any sound: the guitar plays any keys sound (C, built into cu-rig); on Linux also
+#                 central-playany.so - the same as a LADSPA / LV2 plugin for PipeWire's filter-chain (the Raspberry Pi)
+#                 and test-playany / test-playany-plugin (make test runs them)
 # No JACK / NDI headers needed. Third-party sources are in vendor/. Linux also needs the X11, lilv and suil headers
 # (libx11-dev liblilv-dev libsuil-dev lv2-dev; the libraries themselves are loaded at run time, if they are there).
 #   make                    this computer (Linux: gcc, macOS: clang universal arm64 + x86_64)
@@ -59,7 +62,11 @@ else
   PLAT := linux
 endif
 OUT ?= build
-all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap
+PLAYANY :=
+ifeq ($(PLAT),linux)
+  PLAYANY := $(OUT)/central-playany.lv2/central-playany.so
+endif
+all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY)
 $(OUT)/cu-mixer$(EXE): cu-mixer.c plat.h
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-mixer.c $(LIBS)
 $(OUT)/cu-ndi$(EXE): cu-ndi.c plat.h
@@ -70,18 +77,28 @@ $(OUT)/obj/%.cpp.o: %.cpp plughost/ph.hpp plughost/plughost.h
 	mkdir -p $(dir $@) && $(CXX) $(CXXFLAGS) $(PHFLAGS) -c -o $@ $<
 $(OUT)/obj/%.mm.o: %.mm plughost/ph.hpp plughost/plughost.h
 	mkdir -p $(dir $@) && $(CXX) $(CXXFLAGS) $(PHFLAGS) -ObjC++ -c -o $@ $<
-$(OUT)/obj/cu-rig.o: cu-rig.c plat.h plughost/plughost.h
+$(OUT)/obj/cu-rig.o: cu-rig.c plat.h plughost/plughost.h playany/playany.h
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ cu-rig.c
 $(OUT)/obj/cJSON.o: vendor/cJSON.c
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ vendor/cJSON.c
-$(OUT)/cu-rig$(EXE): $(OUT)/obj/cu-rig.o $(OUT)/obj/cJSON.o $(PHOBJ)
+$(OUT)/obj/playany.o: playany/playany.c playany/playany.h
+	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ playany/playany.c
+$(OUT)/cu-rig$(EXE): $(OUT)/obj/cu-rig.o $(OUT)/obj/cJSON.o $(OUT)/obj/playany.o $(PHOBJ)
 	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) -o $@ $^ $(RIGLIBS)
 $(OUT)/test-plugins/central-test.clap: plughost/test/test-plugins.c plughost/test/test-vst3.cpp plughost/test/make-test-plugins.sh
 	CC="$(CC)" CXX="$(CXX)" bash plughost/test/make-test-plugins.sh $(OUT) $(PLAT) "$(ARCH)"
+# play any sound: its test (synthetic guitar notes, lead lines, chords), and on Linux the plugin for PipeWire
+$(OUT)/test-playany$(EXE): playany/test-playany.c playany/playany.c playany/playany.h
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ playany/test-playany.c playany/playany.c -lm
+$(OUT)/central-playany.lv2/central-playany.so: playany/playany-plugin.c playany/playany.c playany/playany.h playany/central-playany.lv2/manifest.ttl playany/central-playany.lv2/central-playany.ttl
+	mkdir -p $(OUT)/central-playany.lv2 && $(CC) $(CFLAGS) -fPIC -shared -o $@ playany/playany-plugin.c playany/playany.c -lm -lpthread && cp playany/central-playany.lv2/*.ttl $(OUT)/central-playany.lv2/
+$(OUT)/test-playany-plugin: playany/test-playany-plugin.c
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ playany/test-playany-plugin.c -ldl -lpthread -lm
+playany: $(OUT)/test-playany$(EXE) $(PLAYANY)
 $(OUT)/rig-map.json: ../../js/pedals.js ../../instrument-plugins.json ../../tools/make-rig-map.js
 	mkdir -p $(OUT) && node ../../tools/make-rig-map.js $@
-test: all
-	node test-mixer.mjs $(OUT)/cu-mixer$(EXE) && node test-rig.mjs $(OUT)/cu-rig$(EXE)
+test: all $(if $(PLAYANY),$(OUT)/test-playany-plugin)
+	$(OUT)/test-playany$(EXE) && $(if $(PLAYANY),$(OUT)/test-playany-plugin $(PLAYANY) playany/central-playany.lv2/central-playany.ttl &&) node test-mixer.mjs $(OUT)/cu-mixer$(EXE) && node test-rig.mjs $(OUT)/cu-rig$(EXE)
 clean:
 	rm -rf build build-*
-.PHONY: all test clean
+.PHONY: all test clean playany

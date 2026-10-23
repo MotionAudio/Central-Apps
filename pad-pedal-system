@@ -301,6 +301,9 @@ PY
       [ -d "$src/cues" ] && install -m 644 "$src"/cues/*.wav "$R/opt/pad-pedal/cues/" 2>/dev/null || true
       for f in wiring.html README.md instrument_host.py sources.py instrument-plugins.json screens.json; do [ -f "$src/$f" ] && install -m 644 "$src/$f" "$R/opt/pad-pedal/$f"; done
       for f in pedal-driver.py get-sounds.sh pad-pedal-session pad-pedal-audio-config firstboot.sh; do [ -f "$src/$f" ] && install -m 755 "$src/$f" "$R/opt/pad-pedal/$f"; done
+      # play any sound: its plugin (built by CI for arm64) and its C sources (built on the Pi if the plugin is missing)
+      [ -d "$src/bin" ] && { rm -rf "$R/opt/pad-pedal/bin"; cp -r "$src/bin" "$R/opt/pad-pedal/bin"; chmod -R a+rX "$R/opt/pad-pedal/bin"; }
+      [ -d "$src/central-usage/native/playany" ] && install -d -m 755 "$R/opt/pad-pedal/central-usage/native/playany" && install -m 644 "$src"/central-usage/native/playany/*.c "$src"/central-usage/native/playany/*.h "$R/opt/pad-pedal/central-usage/native/playany/"
       [ -f "$src/pad-pedal-system" ] && install -m 755 "$src/pad-pedal-system" "$R/usr/local/sbin/pad-pedal-system.new" && mv -f "$R/usr/local/sbin/pad-pedal-system.new" "$R/usr/local/sbin/pad-pedal-system"
       if [ -d "$src/central-usage/app" ]; then   # Central Control for phones and tablets (http://<pedal>:8080/cu/)
         install -d -m 755 "$R/opt/pad-pedal/central-usage/app" "$R/opt/pad-pedal/central-usage/build"

@@ -9,6 +9,9 @@
 # speech model's runtime; Central Control also carries the player window (the Central Pedal app and its driver).
 # Used by release.yml (every release ships all of them); also runs by itself on the work branches and by hand.
 #
+# Play any sound (central-usage/native/playany/) is built into cu-rig everywhere; the natives job also builds it as
+# the Raspberry Pi's plugin (central-playany.so, LADSPA + LV2) for Linux arm64 and x64 into bin/linux-<arch>/,
+# which the Pi release (central-control-source.zip, release.yml) carries.
 # Adding a native helper for every system: build it in the "natives" job (Linux, Windows cross-compiled) and in
 # the macos jobs, put it in central-usage/native/build/, list it in central-usage/package.json ->
 # build.extraResources[0].filter, and check it in the "packed apps" steps.
@@ -31,7 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: Compilers
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev   # (C++ for the plugin host; the X11, lilv and suil headers for Linux)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix gcc-aarch64-linux-gnu p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev   # (C++ for the plugin host; the X11, lilv and suil headers for Linux; arm64 C for the Pi's play-any plugin)
       - name: Build (Linux x64, Windows x64) - the rig map comes from js/pedals.js here
         run: |
           bash tools/ci-run.sh "native build (Linux)" make -C central-usage/native -j4
@@ -39,6 +42,11 @@ jobs:
           bash tools/ci-run.sh "cu-video (Linux)" make -C central-usage/native/video
           bash tools/ci-run.sh "cu-video (Windows)" make -C central-usage/native/video CC=x86_64-w64-mingw32-gcc EXE=.exe LIBS="-lole32 -lwinmm -static"
           mv central-usage/native/build/cu-video.exe central-usage/native/build-win/
+          bash tools/ci-run.sh "play any sound: the Pi's plugin (Linux arm64)" make -C central-usage/native CC=aarch64-linux-gnu-gcc OUT=build-linux-arm64 playany
+          file central-usage/native/build-linux-arm64/central-playany.lv2/central-playany.so | grep -q aarch64 || { echo "::error::the arm64 play-any plugin is not arm64"; exit 1; }
+          mkdir -p bin/linux-aarch64 bin/linux-x86_64
+          cp -r central-usage/native/build-linux-arm64/central-playany.lv2 bin/linux-aarch64/
+          cp -r central-usage/native/build/central-playany.lv2 bin/linux-x86_64/
           node -e 'const m=require("./central-usage/native/build/rig-map.json"),P=require("./js/pedals.js");const miss=P.pedals.filter(p=>!m[p.id]).map(p=>p.id);if(miss.length){console.log("::error::pedals missing from the rig map: "+miss.join(", "));process.exit(1)}console.log("rig map: "+Object.keys(m).length+" pedals, all of js/pedals.js")'
       - name: ffmpeg (pinned, checksum-checked)
         run: |
@@ -48,6 +56,9 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
+          bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
+          make -C central-usage/native build/test-playany-plugin
+          bash tools/ci-run.sh "play any sound: plugin test" central-usage/native/build/test-playany-plugin central-usage/native/build/central-playany.lv2/central-playany.so central-usage/native/playany/central-playany.lv2/central-playany.ttl
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
       - name: Built-in sounds
@@ -68,6 +79,8 @@ jobs:
             !central-usage/native/build-win/obj/
       - uses: actions/upload-artifact@v4
         with: { name: sounds, path: central-usage/native/sounds/, retention-days: 7 }
+      - uses: actions/upload-artifact@v4
+        with: { name: natives-pi, path: bin/, retention-days: 7 }   # (the Pi release: release.yml puts it in central-control-source.zip)
 
   linux:
     name: Linux (deb + AppImage)
@@ -184,6 +197,7 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer.exe
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig.exe
+          bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany.exe
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
       - name: Bundle the driver for the player window (PyInstaller) and smoke test it
@@ -274,6 +288,7 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
+          bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
       - name: Bundle the driver for the player window (PyInstaller) and smoke test it
         timeout-minutes: 20
