@@ -49,6 +49,7 @@ jobs:
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
+          bash tools/ci-run.sh "lights auto test" node central-usage/test-lights-auto.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
       - name: Built-in sounds
         run: bash tools/fetch-builtin-sounds.sh central-usage/native/sounds
