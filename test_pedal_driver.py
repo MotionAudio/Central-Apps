@@ -682,6 +682,101 @@ async def main():
             if not had_chosen and os.path.exists(chosen_file):
                 os.remove(chosen_file)
 
+        print("\nThe factory test (a card built by hand) and the customer's first start:")
+        import types as _ft
+        froot = tempfile.mkdtemp(prefix="pp-factory-")
+        marker = os.path.join(froot, "central-factory-test")
+        fdata = os.path.join(froot, "data")
+        os.makedirs(fdata)
+        fd = _ft.SimpleNamespace(config={"data_root": fdata, "app_root": app_root, "touch_screen": "rpi35-xpt2046", "inputs": []}, leds={}, mini=None, midi=None, loop=None, load_code=lambda: "0000")
+        Fc = driver_mod.Factory
+        fjson = lambda: json.load(open(os.path.join(fdata, "factory.json")))
+        check("an ordinary card (no marker): no factory test", Fc(fd, markers=[marker], bid="A").state == "none" and not os.path.exists(os.path.join(fdata, "factory.json")))
+        with open(marker, "w") as handle:
+            handle.write("factory")
+        f1 = Fc(fd, markers=[marker], bid="A")
+        check("the marker build-image.sh puts on the card: the first start is the factory test", f1.on and fjson()["state"] == "factory" and fjson()["boot"] == "A")
+        check("...the driver restarting (same start of the pedal) stays in the test", Fc(fd, markers=[marker], bid="A").on)
+        f1.continue_next()
+        check("...a restart the test asks for (a new touch screen) comes back into the test, once", Fc(fd, markers=[marker], bid="B").on and "continue" not in fjson())
+        for name in ("code", "code-chosen"):
+            with open(os.path.join(fdata, name), "w") as handle:
+                handle.write("1234" if name == "code" else "1")
+        f4 = Fc(fd, markers=[marker], bid="C")
+        check("unplugged after the test: the customer's first start - the touch screen is kept, the test's code is gone, the setup asks on the phone",
+              f4.state == "customer" and f4.first_boot() and f4.screen_set() and fjson()["screen"] == "rpi35-xpt2046" and not os.path.exists(os.path.join(fdata, "code-chosen")) and not f4.on, fjson())
+        f5 = Fc(fd, markers=[marker], bid="D")
+        check("...and stays the customer's (the marker never starts the test again)", f5.state == "customer" and f5.first_boot())
+        f5.continue_next()
+        check("...the customer's restarts never go back into the test", Fc(fd, markers=[marker], bid="E").state == "customer")
+        f5.setup_done()
+        check("...once the phone setup is done, it isn't the first start any more", not Fc(fd, markers=[marker], bid="F").first_boot())
+        # the phone setup's watch: never during the factory test; straight away on the customer's first start
+        def watch_starts(state, first, seconds):
+            fx = _ft.SimpleNamespace(on=state == "factory", first_boot=lambda: first)
+            dd = _ft.SimpleNamespace(config=fd.config, factory=fx, loop=None)
+            ps2 = driver_mod.PhoneSetup(dd)
+            started = []
+            ps2.available, ps2.online, ps2.saved_wifi = (lambda: True), (lambda: False), (lambda: False)
+            ps2.start = lambda why="": (started.append(why), setattr(ps2, "on", True), setattr(ps2, "stopping", True))
+            threading.Thread(target=ps2.watch, daemon=True).start()
+            time.sleep(seconds)
+            ps2.stopping = True
+            fx.on = False
+            return started
+        check("phone setup: during the factory test the setup Wi-Fi never comes on (the tester's own network)", watch_starts("factory", False, 4.0) == [])
+        check("...on the customer's first start it comes on straight away (about 3 s, not after 25)", watch_starts("customer", True, 4.0) == ["the customer's first start"])
+        # the setup page: the touch screen was set in the factory - not asked again
+        real_fx = driver.factory
+        try:
+            driver.factory = Fc(fd, markers=[marker], bid="G")
+            j = json.load(open(os.path.join(fdata, "factory.json"))); j["firstBoot"] = True
+            json.dump(j, open(os.path.join(fdata, "factory.json"), "w"))
+            driver.config["touch_screen"] = "rpi35-xpt2046"
+            _ws = driver_mod.wifi_status
+            driver_mod.wifi_status = lambda scan=False: {"connected": None, "networks": []}
+            try:
+                status, body = http("http://127.0.0.1:18080/setup/state")
+            finally:
+                driver_mod.wifi_status = _ws
+            stt = json.loads(body) if status == 200 else {}
+            check("the setup page after the factory test: the touch screen is already set (shown with a Change link, not a step)",
+                  stt.get("screenSet") is True and "3.5" in (stt.get("screenName") or ""), stt)
+            status, body = http("http://127.0.0.1:18080/setup")
+            check("...the page has the 'Touch screen: … ✓ Change' line and two steps", b'id="screenDone"' in body and b"Two things" in body and b'id="screenChange"' in body)
+            # the factory test's own messages and the small screen's test pattern
+            driver.factory = Fc(driver, markers=[], bid="G")
+            driver.factory.state = "factory"
+            await send({"type": "factory", "action": "status"})
+            fs = await next_message(lambda m: m.get("type") == "factoryStatus", timeout=8)
+            check("the factory test page gets every input, the touch screen catalog, health and the sound banks",
+                  fs and len(fs["inputs"]) == len(driver.config["inputs"]) and fs["touchScreen"] == "rpi35-xpt2046" and fs["touchScreens"]["screens"] and "health" in fs and "banks" in fs and fs["on"] is True, fs and {k: fs[k] for k in ("touchScreen", "on")})
+            _sched = driver.schedule_mini_render
+            driver.factory.set_pattern(True)
+            driver.mini.render(driver.display)
+            corner = driver.mini.hit_test(25, 25)
+            driver.mini.local(corner or {})
+            check("the small screen shows the test pattern; touching a corner counts it", corner == {"local": "factoryCorner", "corner": "tl"} and driver.factory.corners == {"tl"}, corner)
+            await send({"type": "factory", "action": "report", "results": {"in:b1": "pass"}})
+            rep = await next_message(lambda m: m.get("type") == "factoryReport", timeout=4)
+            saved_rep = json.load(open(os.path.join(driver.config["data_root"], "factory-report.json")))
+            check("Save report writes factory-report.json (results, version, the touch screen)", rep and rep.get("ok") and saved_rep["results"] == {"in:b1": "pass"} and saved_rep["version"] == driver_mod.APP_VERSION)
+            await send({"type": "factory", "action": "finish"})
+            await asyncio.sleep(0.3)
+            check("Finish marks the test finished (unplug it: the next start is the customer's)", driver.factory.load().get("finished") is True)
+            driver.factory.set_pattern(False)
+            driver.mini.render(driver.display)
+        finally:
+            driver.factory = real_fx
+            driver.config.pop("touch_screen", None)
+            shutil.rmtree(froot, ignore_errors=True)
+            try:
+                for _n in ("factory-report.json", "factory.json"):
+                    if os.path.exists(os.path.join(driver.config["data_root"], _n)):
+                        os.remove(os.path.join(driver.config["data_root"], _n))
+            except OSError:
+                pass
+
         print("\nCentral Control: network audio, the audio host, the hub, slides:")
         na_before = dict(driver.netaudio.cfg)
         driver.netaudio.configure({"mode": "off", "auto": True})

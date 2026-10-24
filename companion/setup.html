@@ -41,6 +41,7 @@
   .done h2 { color: var(--good); }
   .done ol { margin: 8px 0 0; padding-left: 20px; }
   .hidden { display: none !important; }
+  .ok { color: var(--good); font-weight: 700; }
   .check { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; margin-top: 8px; }
   .check input { width: auto; }
 </style>
@@ -70,7 +71,11 @@
       <p class="msg bad" id="wifiErr" aria-live="polite"></p>
     </section>
 
-    <section>
+    <section id="screenDone" class="hidden">
+      <p class="row" style="margin:0"><span>Touch screen: <b id="screenName"></b> <span class="ok">✓</span></span><span style="flex:1"></span><button type="button" class="link" id="screenChange">Change</button></p>
+    </section>
+
+    <section id="screenBox">
       <h2><b>2</b> Touch screen</h2>
       <p class="hint">The screen on the pedal. Most pedals have the blue 3.5" one. The pedal downloads its driver and restarts once.</p>
       <select id="screen" aria-label="Touch screen"></select>
@@ -78,7 +83,7 @@
     </section>
 
     <section>
-      <h2><b>3</b> 4-digit code</h2>
+      <h2><b id="codeNum">3</b> 4-digit code</h2>
       <p class="hint" id="codeHint">If you use Central Control, type the main admin's code. If not, pick any 4 digits. Central Pedal Control uses this code to connect.</p>
       <input id="code" class="code" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="4-digit code">
       <p class="msg bad" id="codeErr" aria-live="polite"></p>
@@ -98,7 +103,7 @@
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
-  var state = null, pick = null, other = false;
+  var state = null, pick = null, other = false, screenOpen = false;
 
   function bars(signal) {
     var n = signal >= 75 ? 4 : signal >= 50 ? 3 : signal >= 25 ? 2 : 1, h = "";
@@ -144,6 +149,7 @@
   $("showPass").addEventListener("change", function () { $("password").type = this.checked ? "text" : "password"; });
   $("code").addEventListener("input", function () { this.value = this.value.replace(/\D/g, "").slice(0, 4); $("codeErr").textContent = ""; });
   $("rescan").addEventListener("click", function () { load(true); });
+  $("screenChange").addEventListener("click", function () { screenOpen = true; $("screenDone").classList.add("hidden"); $("screenBox").classList.remove("hidden"); $("codeNum").textContent = "3"; $("screen").focus(); });
 
   function load(again) {
     if (again) $("nets").innerHTML = '<p class="hint">Looking for Wi-Fi…</p>';
@@ -158,6 +164,10 @@
         return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>"; }).join("") + "</optgroup>";
       }).join("") + '<option value="off">No touch screen (a TV or monitor on HDMI)</option>';
       sel.value = s.screen || "rpi35-xpt2046";
+      if (s.screenSet && !screenOpen) {   // (set when the pedal was tested: nothing to pick, Change opens the list)
+        $("screenName").textContent = s.screenName || s.screen; $("screenDone").classList.remove("hidden"); $("screenBox").classList.add("hidden");
+        $("codeNum").textContent = "2"; $("lead").textContent = "Two things, then Upload. The pedal does the rest.";
+      }
       if (s.codeChosen) $("codeHint").textContent = "This pedal already has a code. Type it to make the changes (it's the same code Central Pedal Control uses).";
     }).catch(function () {
       $("nets").innerHTML = '<p class="hint">The pedal isn\'t answering. Check that this phone is on “Central Pedal Setup”, then reload.</p>';
@@ -172,7 +182,7 @@
     if (!keep && !ssid) { $("wifiErr").textContent = "Pick the church's Wi-Fi."; $("wifiBox").scrollIntoView({ behavior: "smooth" }); return; }
     var code = $("code").value;
     if (!/^\d{4}$/.test(code)) { $("codeErr").textContent = "The code is 4 digits."; $("code").focus(); return; }
-    var body = { ssid: ssid, password: needsPass() ? $("password").value : "", hidden: other, keepWifi: keep, screen: $("screen").value, code: code };
+    var body = { ssid: ssid, password: needsPass() ? $("password").value : "", hidden: other, keepWifi: keep, screen: state && state.screenSet && !screenOpen ? "" : $("screen").value, code: code };
     $("go").disabled = true; $("go").textContent = "Uploading…";
     fetch("/setup/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })

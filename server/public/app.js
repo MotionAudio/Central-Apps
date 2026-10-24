@@ -648,10 +648,10 @@ async function showDownloads(thanks) {
     <div><b style="font-size:.92rem">On ${esc(PLATFORM_NAME[PLATFORM])}</b>${stepsHtml(a, PLATFORM)}</div>
     <details><summary>Other computers and phones</summary>${others(a).map((p) => `<div style="margin-top:.5rem"><b style="font-size:.92rem">${esc(PLATFORM_NAME[p])}</b>${stepsHtml(a, p)}</div>`).join("")}<p style="margin:.5rem 0 0"><a href="${esc(a.guide)}">The full install guide</a></p></details></div>`;
   const pedalCard = (p) => `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">${p.held ? "Being checked before it ships" : p.shipsTo ? "Ships to " + esc(p.shipsTo) : "Ships to the address you gave"}</span></div></div>
-    <p style="margin:0">It comes with its software on it and needs no key. When it arrives, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
-    <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home. Making your own SD card instead? <a href="${esc(pub.sdCard)}">One line, no questions</a>.</p></div>`;
+    <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+    <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home.</p></div>`;
   const pedalPublic = `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">Raspberry Pi 4 · needs no key</span></div></div>
-    <p style="margin:0">A built pedal comes with its software on it. Building your own? Make its SD card on an Ubuntu PC with <a href="${esc(pub.sdCard)}">one line, no questions</a>, then set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol></div>`;
+    <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol></div>`;
   const sv = pub.services;
   const servicesCard = `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(sv.icon)}.svg" alt=""><div><h3>${esc(sv.name)}</h3><span class="muted">${esc(sv.runsOn)}</span></div></div>
     <div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(sv.note)}</span></div>

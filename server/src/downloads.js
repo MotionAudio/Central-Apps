@@ -30,9 +30,10 @@ function steps(a) {
 }
 export const PEDAL_SETUP = [
   "Plug in the power and your outputs. A screen on HDMI 1 is optional.",
-  "On a phone, join the Wi-Fi \"Central Pedal Setup\". The setup page opens by itself (or go to http://10.42.0.1).",
-  "Pick the church Wi-Fi, the touch screen and a 4-digit code (with Central Control: the main admin's code), then press Upload.",
-  "The pedal joins the Wi-Fi, downloads the screen's driver and restarts once. Central Pedal Control uses the same code to Upload your songs.",
+  "On your phone, connect to the Wi-Fi \"Central Pedal Setup\". The setup page opens by itself (or go to http://10.42.0.1).",
+  "Pick the church Wi-Fi and type its password.",
+  "Type a 4-digit code: with Central Control, the main admin's code; otherwise any 4 digits. Central Pedal Control uses the same code to Upload your songs.",
+  "Press Upload. The pedal joins the Wi-Fi and is ready.",
 ];
 const address = (s) => { if (!s) return null; const a = s.address || {}; return [s.name, a.line1, a.line2, [a.city, a.state, a.postal_code].filter(Boolean).join(" "), a.country].filter(Boolean).join(", "); };
 const planNames = (plans) => (PLAN_IDS.every((id) => plans.includes(id)) ? "All four sound plans" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(", "));
@@ -56,7 +57,7 @@ export async function downloadsFor(user, onlyOrder) {
     const rows = await packageRows(email, user.id);
     packages = rows.filter((k) => keyState(k).ok).map((k) => ({ key: prettyPackage(k.key), plans: planNames(k.plans), until: k.ends, trial: k.trial, church: k.sub_kind === "bundle" || k.trial ? k.church : null }));
   }
-  return { apps, pedals, renewalCents: RENEWAL.cents, pedalSetup: PEDAL_SETUP, sdCard: config.publicUrl + INSTALL + "#making-your-own-sd-card", packages, appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
+  return { apps, pedals, renewalCents: RENEWAL.cents, pedalSetup: PEDAL_SETUP, packages, appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
 }
 
 // the email to a "Just me" buyer after paying: the same as the Downloads page, for what they just bought
@@ -68,7 +69,7 @@ export async function sendDownloadsEmail(userId, orderId) {
   t.push("Hi" + (user.name ? " " + user.name : "") + ",\n\nThanks for your order! Here's everything you need. It's on your Downloads page too: " + page + "\n");
   h.push('<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:560px"><p>Hi' + (user.name ? " " + escHtml(user.name) : "") + ',</p><p>Thanks for your order! Here\'s everything you need. It\'s on your <a href="' + escHtml(page) + '">Downloads page</a> too.</p>');
   for (const p of d.pedals) {
-    t.push("CENTRAL PEDAL\n" + (p.shipsTo ? "It ships to " + p.shipsTo + "." : "We'll ship it to the address you gave.") + " When it arrives:\n" + d.pedalSetup.map((s, i) => "  " + (i + 1) + ". " + s).join("\n") + "\nMaking your own SD card instead: " + d.sdCard + "\n");
+    t.push("CENTRAL PEDAL\n" + (p.shipsTo ? "It ships to " + p.shipsTo + "." : "We'll ship it to the address you gave.") + " When it arrives:\n" + d.pedalSetup.map((s, i) => "  " + (i + 1) + ". " + s).join("\n") + "\n");
     h.push("<h3 style=\"margin:1.2em 0 .3em\">Central Pedal</h3><p>" + (p.shipsTo ? "It ships to <b>" + escHtml(p.shipsTo) + "</b>." : "We'll ship it to the address you gave.") + " When it arrives:</p><ol>" + d.pedalSetup.map((s) => "<li>" + escHtml(s) + "</li>").join("") + "</ol>");
   }
   for (const a of d.apps) {
@@ -93,7 +94,7 @@ export function publicDownloads() {
   });
   const services = { name: "Central Services", icon: "central-services", download: APPS_URL + "#central-services", runsOn: "Windows, Mac, Linux, Android and any web browser",
     web: config.publicUrl + "/services/", note: "No key: sign in with your Motion Audio account. Your church gives you a slot." };
-  return { apps, services, pedalSetup: PEDAL_SETUP, sdCard: config.publicUrl + INSTALL + "#making-your-own-sd-card", appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
+  return { apps, services, pedalSetup: PEDAL_SETUP, appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
 }
 
 export function routes(api, { wrap, requireUser }) {
