@@ -3035,7 +3035,7 @@ class MiniScreen:
         self.tab, self.sub, self.pages, self.override = "pads", {}, {}, {}
         self.active, self.drag_at, self.confirm, self.confirm_at = None, 0.0, None, 0.0
         self.pick_screen, self.touch_msg = None, ""
-        self.notice, self.notice_at = "", 0.0   # (a line along the bottom for a few seconds: "Part of Central Pedals · $50 a year…")
+        self.notice, self.notice_at = "", 0.0   # (a line along the bottom for a few seconds: "Part of Central Pedals · $70 a year…")
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
