@@ -10,6 +10,8 @@ KU="$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)"; KH="$(getent passw
   echo "Central Pedal start-up report - $(date)"
   echo "version: $(cat /etc/pad-pedal/version 2>/dev/null || echo unknown) · up $(cut -d' ' -f1 /proc/uptime)s · $(tr -d '\0' < /proc/device-tree/model 2>/dev/null)"
   echo "first start done: $([ -e /var/lib/pad-pedal/firstboot-done ] && echo yes || echo NO)"
+  echo "power: $(vcgencmd get_throttled 2>/dev/null || echo unknown)  (0x0 = fine; 0x50005 or any 1 in the last digit = the power supply is too weak)"
+  echo; echo "== start-up time"; systemd-analyze 2>&1 | head -3; systemd-analyze blame --no-pager 2>&1 | head -15
   echo; echo "== services that failed"; systemctl --failed --no-pager --no-legend 2>&1
   echo; echo "== first start (data partition, Wi-Fi radio, safe mode)"; journalctl -b -u pad-pedal-firstboot --no-pager 2>&1 | tail -40
   echo; echo "== Central Pedal (driver)"; systemctl status pad-pedal-driver --no-pager 2>&1 | head -12; journalctl -b -u pad-pedal-driver --no-pager 2>&1 | tail -80

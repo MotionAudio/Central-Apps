@@ -77,10 +77,15 @@ wifi_radio() {
 #             Wi-Fi comes up in the background, so nothing waits for "network online". Bluetooth is not used
 #             anywhere (only its services are off - the disable-bt overlay would take GPIO 14/15, two buttons).
 #             avahi (padpedal.local), NetworkManager, ssh, timesyncd, fsck of /data stay as they are.
-BOOT_TUNE_CONFIG="boot_delay=0 initial_turbo=30 disable_splash=1"
-BOOT_TUNE_CMDLINE="quiet loglevel=3 logo.nologo consoleblank=0"
+BOOT_TUNE_CONFIG="boot_delay=0 initial_turbo=60 disable_splash=1 camera_auto_detect=0"   # (the pedal has no camera: not probing for one saves a moment)
+BOOT_TUNE_CMDLINE="quiet loglevel=3 logo.nologo consoleblank=0 vt.global_cursor_default=0 rd.udev.log_level=3 udev.log_level=3 systemd.show_status=false"
+#   screen:   the start-up text (disk check, service lines, the kernel's warnings) goes to tty3 instead of the screen,
+#             the auto-login shows no Debian banner, IP address, motd or "last login" - power on -> black -> the app.
+#             (it is all still in the journal and in central-pedal-log.txt on the card)
+#   safe mode: "Remount Root and Kernel File Systems" has nothing to do on the read-only copy (it only fails there)
 BOOT_TUNE_OFF="NetworkManager-wait-online.service systemd-networkd-wait-online.service apt-daily.timer apt-daily-upgrade.timer man-db.timer
-               e2scrub_reap.service ModemManager.service triggerhappy.service triggerhappy.socket hciuart.service bluetooth.service keyboard-setup.service"
+               e2scrub_reap.service ModemManager.service triggerhappy.service triggerhappy.socket hciuart.service bluetooth.service keyboard-setup.service
+               rpi-eeprom-update.service sshswitch.service rsyslog.service"   # (Settings → Software updates updates the pedal; the journal keeps the logs)
 config_all() {  # config_all key value -> key=value for every Pi model (an existing key=... is replaced, else added under [all])
   local key="$1" value="$2" last
   grep -qE "^$key=$value\$" "$CONFIG" && return 0
@@ -108,19 +113,44 @@ tune_wanted() {  # tune_wanted <root> -> the units / settings still to change th
     compgen -G "$R/etc/systemd/system/*.wants/$u" >/dev/null && echo "$u"
   done
   [ -d "$R/etc/cloud" ] && [ ! -e "$R/etc/cloud/cloud-init.disabled" ] && echo cloud-init
+  quiet_console_done "$R" || echo quiet-console
   return 0
+}
+kiosk_user() { cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi; }
+GETTY_QUIET='ExecStart=-/sbin/agetty --autologin USER --noissue --nonewline --nohostname %I $TERM'
+quiet_console_done() {  # quiet_console_done <root>
+  local R="$1" U; U="$(kiosk_user)"
+  grep -qF -- "--noissue" "$R/etc/systemd/system/getty@tty1.service.d/autologin.conf" 2>/dev/null &&
+    [ -e "$R/home/$U/.hushlogin" ] && [ -f "$R/etc/systemd/system/systemd-remount-fs.service.d/central-pedal.conf" ]
+}
+quiet_console() {  # quiet_console <root>
+  local R="$1" U; U="$(kiosk_user)"
+  install -d "$R/etc/systemd/system/getty@tty1.service.d" "$R/etc/systemd/system/systemd-remount-fs.service.d"
+  printf '[Service]\nExecStart=\n%s\n' "${GETTY_QUIET/USER/$U}" > "$R/etc/systemd/system/getty@tty1.service.d/autologin.conf"
+  [ -d "$R/home/$U" ] && touch "$R/home/$U/.hushlogin" && chown "$(stat -c %u:%g "$R/home/$U")" "$R/home/$U/.hushlogin" 2>/dev/null
+  printf '[Unit]\n# safe mode (overlayroot): the root is a read-only copy, nothing to remount\nConditionKernelCommandLine=!overlayroot\n' \
+    > "$R/etc/systemd/system/systemd-remount-fs.service.d/central-pedal.conf"
+  return 0
+}
+console_tty3() {  # the kernel / start-up console on tty3 (not the screen); a serial console stays
+  grep -qE '(^| )console=tty3( |$)' "$CMDLINE" && return 0
+  boot_rw
+  if grep -qE '(^| )console=tty[0-9]+( |$)' "$CMDLINE"; then sed -i -E '1 s/(^| )console=tty[0-9]+( |$)/\1console=tty3\2/' "$CMDLINE"; else sed -i '1 s/$/ console=tty3/' "$CMDLINE"; fi
+  echo "  cmdline.txt: console=tty3"
 }
 tune_root() {  # tune_root <root>  (/ = the running system; /media/root-ro = the real partition under safe mode)
   local R="$1" u
   for u in $(tune_wanted "$R"); do
-    if [ "$u" = cloud-init ]; then
+    if [ "$u" = quiet-console ]; then
+      quiet_console "$R"
+    elif [ "$u" = cloud-init ]; then
       touch "$R/etc/cloud/cloud-init.disabled"   # first-boot setup is done by firstboot.sh; cloud-init waits for the network
     elif [ "$R" = / ]; then
       systemctl disable --no-reload "$u" >/dev/null 2>&1 || true
     else
       systemctl --root="$R" disable "$u" >/dev/null 2>&1 || true
     fi
-    if [ "$R" = / ]; then echo "  off: $u"; else echo "  off: $u (in $R)"; fi
+    if [ "$R" = / ]; then echo "  done: $u"; else echo "  done: $u (in $R)"; fi
   done
 }
 
@@ -389,6 +419,7 @@ PY
     fi
     for kv in $BOOT_TUNE_CONFIG; do config_all "${kv%%=*}" "${kv#*=}"; done
     for arg in $BOOT_TUNE_CMDLINE; do cmdline_arg "$arg"; done
+    console_tty3
     tune_root /
     # safe mode: the running system is a throw-away copy - make the change on the real partition too
     if [ "$(awk '$2=="/" {print $3; exit}' /proc/mounts)" = "overlay" ] && mountpoint -q /media/root-ro && [ -n "$(tune_wanted /media/root-ro)" ]; then
