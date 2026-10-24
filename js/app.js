@@ -33,8 +33,8 @@
     function normalizeRouting(r){var d=defaultRouting();if(!r||typeof r!=="object")return d;
       if(!r.mode){ // v4 routing (clickMode) -> v5
         var cm=r.clickMode||"auto";d.clickFallback=cm==="mix"||cm==="split"||cm==="device"||cm==="off"?cm:"off";d.mainDevice=r.mainDevice||null;d.clickDevice=r.clickDevice||null;return d;}
-      var out={mode:r.mode==="stereo"?"stereo":"mono4",buses:{},clickFallback:["off","mix","split","device"].indexOf(r.clickFallback)>-1?r.clickFallback:"off",mainDevice:r.mainDevice||null,clickDevice:r.clickDevice||null};
-      Object.keys(d.buses).forEach(function(k){var b=r.buses&&r.buses[k];var ch=b&&isFinite(Number(b.ch))?Math.round(Number(b.ch)):d.buses[k].ch;out.buses[k]={ch:clamp(ch,0,32)};});return out;}
+      var out={mode:["stereo","stereo2","custom"].indexOf(r.mode)>-1?r.mode:"mono4",buses:{},clickFallback:["off","mix","split","device"].indexOf(r.clickFallback)>-1?r.clickFallback:"off",mainDevice:r.mainDevice||null,clickDevice:r.clickDevice||null};
+      Object.keys(d.buses).forEach(function(k){var b=r.buses&&r.buses[k];var ch=b&&isFinite(Number(b.ch))?Math.round(Number(b.ch)):d.buses[k].ch;var st=b&&typeof b.st==="boolean"?b.st:out.mode==="stereo";out.buses[k]={ch:clamp(ch,0,32),st:st};});return out;}
     function defaultProject(){return {version:6,setlistId:id(),tracksMode:false,textures:[],routing:defaultRouting(),audio:{sampleRate:0,latency:"interactive"},instrument:{},midiOut:{},link:{enabled:false},mapping:{},projector:{},display:{},name:"My Central Pedal set",selected:0,theme:{bg:"#111317",panel:"#1A1D22",text:"#ECE7DD",accent:"#E2C27E",blue:"#8DB5DE",line:"#343A44"},pads:Array.from({length:PAD_COUNT},function(_,i){return defaultPad(i);}),library:[],performance:defaultPerformance(),tempo:{bpm:72},songs:[],songIndex:-1,input:defaultInput(),midi:{channel:0,clock:true}};}
     function mergeInto(base,saved){
       if(!saved||typeof saved!=="object")return base;
@@ -308,16 +308,16 @@
     AudioEngine.prototype.routeOutput=function(){var c=this.ctx;if(!c)return;var r=project.routing=normalizeRouting(project.routing);
       var self=this;[this.outGain,this.tracksOut,this.clickBus].forEach(function(n){try{n.disconnect();}catch(_){}});
       (this.routeNodes||[]).forEach(function(n){try{n.disconnect();}catch(_){}});this.routeNodes=[];this.merger=null;
-      var maxCh=Math.max(1,c.destination.maxChannelCount||2),stereo=r.mode==="stereo",need=0;
+      var maxCh=Math.max(1,c.destination.maxChannelCount||2),need=0,stOf=function(k){return !!(r.buses[k]&&r.buses[k].st);};
       var buses={tracks:this.tracksOut,pad:this.outGain,click:this.clickBus};if(this.loopOut){try{this.loopOut.disconnect();}catch(_){}buses.instrument=this.loopOut;}var directs=(this.directOuts||[]).filter(function(d){return d.node&&d.ch>0;});
       directs.forEach(function(d){try{d.node.disconnect();}catch(_){}need=Math.max(need,d.ch);});
-      Object.keys(buses).forEach(function(k){var ch=r.buses[k]?r.buses[k].ch:0;if(ch>0)need=Math.max(need,ch+(stereo?1:0));});
+      Object.keys(buses).forEach(function(k){var ch=r.buses[k]?r.buses[k].ch:0;if(ch>0)need=Math.max(need,ch+(stOf(k)?1:0));});
       var multi=maxCh>2&&need>2;
       this.routing={mode:multi?r.mode:"stereo2",channels:maxCh,wanted:r.mode,need:need,buses:{}};
       if(multi){var n=Math.min(maxCh,Math.max(2,need));try{c.destination.channelCount=n;c.destination.channelCountMode="explicit";c.destination.channelInterpretation="discrete";}catch(_){}
         var m=this.merger=c.createChannelMerger(n);this.routeNodes.push(m);
         Object.keys(buses).forEach(function(k){var ch=r.buses[k]?r.buses[k].ch:0,node=buses[k];if(!(ch>0)||ch>n){self.routing.buses[k]="off";return;}
-          if(stereo&&ch<n){var sp=c.createChannelSplitter(2);node.connect(sp);sp.connect(m,0,ch-1);sp.connect(m,1,ch);self.routeNodes.push(sp);self.routing.buses[k]=ch+"-"+(ch+1);}
+          if(stOf(k)&&ch<n){var sp=c.createChannelSplitter(2);node.connect(sp);sp.connect(m,0,ch-1);sp.connect(m,1,ch);self.routeNodes.push(sp);self.routing.buses[k]=ch+"-"+(ch+1);}
           else{var mono=c.createGain();mono.channelCount=1;mono.channelCountMode="explicit";mono.channelInterpretation="speakers";node.connect(mono);mono.connect(m,0,ch-1);self.routeNodes.push(mono);self.routing.buses[k]=String(ch);}});
         self.routing.direct={};directs.forEach(function(d){if(d.ch<=n){d.node.connect(m,0,d.ch-1);self.routing.direct[d.id]=d.ch;}});
         m.connect(c.destination);}

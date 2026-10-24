@@ -621,6 +621,21 @@ async def main():
         action = await next_message(lambda m: m["type"] == "action")
         check("HTTP remote action with the code -> app gets {action tap}", status == 200 and action and action["name"] == "tap", action)
 
+        print("\nA USB audio interface plugged in while it's on:")
+        _sc, _ac = driver_mod.sound_cards, driver.audio_config
+        try:
+            driver_mod.sound_cards = lambda: ["Headphones bcm2835 Headphones - bcm2835 Headphones", "sndrpihifiberry RPi-simple - snd_rpi_hifiberry_dac", "USB USB-Audio - Scarlett 2i2 USB"]
+            driver.audio_config = lambda: {"channels": [], "cards": [{"kind": "jack"}, {"kind": "i2s"}]}
+            ch1 = driver.audio_devices_changed()
+            driver.audio_config = lambda: {"channels": [], "cards": [{"kind": "jack"}, {"kind": "i2s"}, {"kind": "usb", "desc": "Scarlett 2i2 USB"}]}
+            ch2 = driver.audio_devices_changed()
+            driver_mod.sound_cards = lambda: ["Headphones bcm2835 Headphones - bcm2835 Headphones"]
+            ch3 = driver.audio_devices_changed()
+            check("a USB interface plugged in after the start: the app offers to restart the screens to use its outputs; once in use nothing to say; unplugged: back to the jack and the DAC",
+                  ch1 and ch1["usb"] == ["Scarlett 2i2 USB"] and "Scarlett" in ch1["message"] and ch2 is None and ch3 and "unplugged" in ch3["message"], (ch1, ch2, ch3))
+        finally:
+            driver_mod.sound_cards, driver.audio_config = _sc, _ac
+
         print("\nPhone setup (the pedal's own Wi-Fi, the setup page):")
         shutil.copy(str(Path(__file__).with_name("companion") / "setup.html"), os.path.join(app_root, "companion", "setup.html"))
         ps = driver.phone_setup

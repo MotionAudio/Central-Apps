@@ -8090,6 +8090,38 @@ class PedalDriver:
         threading.Timer(2.0, lambda: run(["sudo", "-n", "/usr/local/sbin/pad-pedal-system", "restart-app"], timeout=30)).start()
         return {"ok": True, "message": out.strip()[-400:]}
 
+    def usb_audio_cards(self):
+        """The USB audio interfaces plugged in now (from /proc/asound/cards)."""
+        return sorted(c.split(" ", 1)[1].split(" - ", 1)[-1].strip() for c in sound_cards() if "USB-Audio" in c)
+
+    def audio_devices_changed(self):
+        """A USB interface plugged in (or out) since the screens started: its outputs are used once the screens restart
+        (the combined output is made when they start). None when nothing changed."""
+        now = self.usb_audio_cards()
+        planned = [c.get("desc") or c.get("name") or "" for c in self.audio_config().get("cards") or [] if c.get("kind") == "usb"]
+        if bool(now) == bool(planned) and len(now) == len(planned):
+            return None
+        return {"type": "audioDevicesChanged", "usb": now, "inUse": planned,
+                "message": ("%s is plugged in: restart the screens to use its outputs (from 5 up)." % now[0]) if now and not planned else
+                           ("The USB interface is unplugged: restart the screens to go back to the jack and the DAC board.") if planned and not now else
+                           "The USB interfaces changed: restart the screens to use them."}
+
+    def watch_audio_devices(self):
+        if not os.path.exists(SYSTEM_SCRIPT):
+            return
+        time.sleep(20)
+        last = None
+        while True:
+            try:
+                ch = self.audio_devices_changed()
+                key = json.dumps(ch, sort_keys=True) if ch else None
+                if key != last and self.loop is not None:
+                    last = key
+                    self.loop.call_soon_threadsafe(self.emit, ch or {"type": "audioDevicesChanged", "usb": self.usb_audio_cards(), "settled": True})
+            except Exception as error:
+                log.debug("audio devices: %s", error)
+            time.sleep(4)
+
     def audio_config(self):
         cfg = read_json(os.path.join(self.config["data_root"], "audio.json"), {"hdmi": False, "usbFirst": False})
         chans = read_json(os.path.join(self.config["data_root"], "audio-channels.json"), {})
@@ -8721,6 +8753,7 @@ class PedalDriver:
             log.debug("displays: %s", error)
         threading.Thread(target=self.auto_touch_screen, daemon=True).start()
         threading.Thread(target=self.phone_setup.watch, daemon=True).start()
+        threading.Thread(target=self.watch_audio_devices, daemon=True).start()
         self.start_gpio()
         self.start_analog()
         tasks = []

@@ -1133,7 +1133,8 @@ context.modules = [
             ch = int(((r.get("buses") or {}).get("instrument") or {}).get("ch", 4))
         except (TypeError, ValueError):
             ch = 4
-        return ch, r.get("mode") == "stereo"
+        bus = (r.get("buses") or {}).get("instrument") or {}
+        return ch, bool(bus["st"]) if isinstance(bus.get("st"), bool) else r.get("mode") == "stereo"   # (each output mono or a stereo pair)
 
     def sink_ports(self, objs):
         sink = None
