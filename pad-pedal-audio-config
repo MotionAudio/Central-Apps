@@ -25,7 +25,7 @@ import time
 DATA = "/data/pad-pedal"
 LAYOUTS = {2: ["FL", "FR"], 4: ["FL", "FR", "RL", "RR"], 6: ["FL", "FR", "FC", "LFE", "RL", "RR"], 8: ["FL", "FR", "FC", "LFE", "RL", "RR", "SL", "SR"]}
 CARD_PATTERNS = [
-    ("jack", r"alsa_output\.platform-bcm2835_audio\..*|alsa_output\.platform-.*headphones.*", "Headphone jack", 2),
+    ("jack", r"alsa_output\.platform-bcm2835_audio\..*|alsa_output\..*bcm2835.*|alsa_output\..*[Hh]eadphones.*", "Headphone jack", 2),
     ("i2s", r"alsa_output\.platform-soc_sound\..*|alsa_output\..*hifiberry.*|alsa_output\..*sndrpihifiberry.*|alsa_output\.platform-.*i2s.*", "I2S DAC board", 2),
     ("usb", r"alsa_output\.usb-.*", "USB interface", None),
     ("hdmi0", r"alsa_output\.platform-fef00700\.hdmi\..*|alsa_output\..*hdmi.*0.*", "HDMI 1", 2),
@@ -135,17 +135,78 @@ context.modules = [
 """ % {"n": len(positions), "positions": " ".join(positions), "rules": "\n".join(rules)}
 
 
+def asound_cards():
+    """[(index, id)] from /proc/asound/cards, e.g. [(0, "Headphones"), (1, "vc4hdmi0"), (2, "vc4hdmi1")]."""
+    cards = []
+    try:
+        with open("/proc/asound/cards") as handle:
+            for line in handle:
+                m = re.match(r"\s*(\d+)\s+\[(\S+)\s*\]", line)
+                if m:
+                    cards.append((int(m.group(1)), m.group(2)))
+    except OSError:
+        pass
+    return cards
+
+
+def plays(index):
+    """The card has an output (a USB MIDI keyboard or a microphone is a card too, with nothing to play on)."""
+    try:
+        return any(n.startswith("pcm") and n.endswith("p") for n in os.listdir("/proc/asound/card%d" % index))
+    except OSError:
+        return True
+
+
+def wanted_cards(cfg):
+    """The sound cards the combined output should hold (HDMI only when Settings → Output device asks for it)."""
+    return [c for c in asound_cards() if (cfg.get("hdmi") or not re.match(r"(?i)vc4hdmi|hdmi", c[1])) and plays(c[0])]
+
+
+def wait_for_sinks(env, cfg, timeout=20.0):
+    """PipeWire makes the cards' sinks one by one, a few seconds after login (HDMI ones often first). Wait until every
+    card we want has a sink - stopping at the first two sinks used to plan with only the HDMI ones, leave the headphone
+    jack out and make a combined output with nothing behind it: no sound at all."""
+    want = len(wanted_cards(cfg))
+    end, sinks = time.time() + timeout, []
+    while True:
+        sinks = pw_sinks(env)
+        mine = [s for s in sinks if cfg.get("hdmi") or not re.search(r"hdmi", s[0], re.I)]
+        if (want and len(mine) >= want) or (not want and sinks) or time.time() > end:
+            return sinks
+        time.sleep(0.5)
+
+
+def fallback_cards(sinks):
+    """No known card matched: use whatever output PipeWire has (better than a combined output with nothing behind it)."""
+    for name, desc, ch in sorted(sinks, key=lambda s: (bool(re.search(r"hdmi", s[0], re.I)), s[0])):
+        kind = "hdmi0" if re.search(r"hdmi", name, re.I) else "jack"
+        return [(kind, name, desc, 2, ["FL", "FR"])], LAYOUTS[2]
+    return [], LAYOUTS[2]
+
+
+def unmute(env, planned):
+    """Every card at full level and unmuted (a fresh card can come up muted or quiet); levels are set in the app."""
+    for idx, cid in asound_cards():   # the jack's own mixer ("PCM") when PipeWire doesn't drive it: 0 dB, on
+        if re.match(r"(?i)headphones|bcm2835", cid):
+            for control in ("PCM", "Headphone"):
+                subprocess.run(["amixer", "-q", "-c", str(idx), "sset", control, "0dB", "unmute"], capture_output=True, timeout=10)
+    for kind, name, desc, ch, poss in planned:
+        subprocess.run(["pactl", "set-sink-mute", name, "0"], env=env, capture_output=True, timeout=10)
+        subprocess.run(["pactl", "set-sink-volume", name, "100%"], env=env, capture_output=True, timeout=10)
+    subprocess.run(["pactl", "set-sink-mute", "padpedal_out", "0"], env=env, capture_output=True, timeout=10)
+    subprocess.run(["pactl", "set-sink-volume", "padpedal_out", "100%"], env=env, capture_output=True, timeout=10)
+
+
 def apply():
     env = dict(os.environ)
     env.setdefault("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
     cfg = settings()
-    sinks = []
-    for _ in range(20):
-        sinks = pw_sinks(env)
-        if any(re.match(r"alsa_output\.platform-bcm2835_audio\..*", s[0]) for s in sinks) or len(sinks) >= 2:
-            break
-        time.sleep(0.5)
+    sinks = wait_for_sinks(env, cfg)
+    print("audio: cards %s · sinks %s" % ([c[1] for c in asound_cards()], [s[0] for s in sinks]))
     planned, positions = plan(sinks, cfg)
+    if not planned:
+        planned, positions = fallback_cards(sinks)
+        print("audio: no known sound card among %s - using %s" % ([s[0] for s in sinks], [p[1] for p in planned] or "nothing"))
     home = os.path.expanduser("~")
     target = os.path.join(home, ".config", "pipewire", "pipewire.conf.d")
     os.makedirs(target, exist_ok=True)
@@ -169,6 +230,7 @@ def apply():
         if result.returncode == 0:
             break
         time.sleep(0.5)
+    unmute(env, planned)
     print("audio: %d channels: %s" % (len(positions), ", ".join("%d %s" % (i + 1, n) for i, n in enumerate(channel_names(planned, positions)))))
 
 

@@ -15,13 +15,22 @@
   function fmtTime(t) { t = Math.max(0, t || 0); var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ":" + (s < 10 ? "0" : "") + s; }
   function notify() { listeners.forEach(function (fn) { try { fn(state); } catch (e) { console.warn(e); } }); }
 
+  // the Central Pedal was updated while this page was open: load the new page once (not again for the same version)
+  var seenVersion = "";
+  function newVersion(v) {
+    if (!v) return;
+    if (!seenVersion) { seenVersion = v; return; }
+    if (v === seenVersion) return;
+    try { if (sessionStorage.getItem("pp-reloaded-for") === v) return; sessionStorage.setItem("pp-reloaded-for", v); } catch (_) { return; }
+    var q = new URLSearchParams(location.search); q.set("v", v); location.replace(location.pathname + "?" + q.toString() + location.hash);
+  }
   function connect() {
     try { socket = new WebSocket("ws://" + host + ":" + state.wsPort); } catch (_) { setTimeout(connect, retry); return; }
     socket.onopen = function () { state.connected = true; if (code) socket.send(JSON.stringify({ type: "auth", code: code })); notify(); clearInterval(pingTimer); pingTimer = setInterval(function () { try { socket.send(JSON.stringify({ type: "ping" })); } catch (_) { } }, 20000); };
     socket.onmessage = function (e) {
       var m; try { m = JSON.parse(e.data); } catch (_) { return; }
       if (m.type === "display") { state.display = m; notify(); }
-      else if (m.type === "hello") { state.hostname = m.hostname || ""; notify(); }
+      else if (m.type === "hello") { state.hostname = m.hostname || ""; newVersion(m.appVersion); notify(); }
       else if (m.type === "slide") { state.slide = m; notify(); }
       else if (m.type === "auth") { state.authed = !!m.ok; if (!m.ok && code) { try { localStorage.removeItem("pp-code"); } catch (_) { } code = ""; } notify(); }
     };

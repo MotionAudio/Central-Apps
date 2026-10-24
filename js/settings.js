@@ -54,8 +54,16 @@
   // Presets: 4 mono (1 tracks · 2 pads · 3 click · 4 instrument) or 2 stereo (tracks + pads on 1-2, click + instrument on 3-4).
   var PRESET_ROUTES = {
     mono4: { tracks: { ch: 1, st: false }, pad: { ch: 2, st: false }, click: { ch: 3, st: false }, instrument: { ch: 4, st: false } },
-    stereo2: { tracks: { ch: 1, st: true }, pad: { ch: 1, st: true }, click: { ch: 3, st: true }, instrument: { ch: 3, st: true } }
+    stereo2: { tracks: { ch: 1, st: true }, pad: { ch: 1, st: true }, click: { ch: 3, st: true }, instrument: { ch: 3, st: true } },
+    all12: { tracks: { ch: 1, st: true }, pad: { ch: 1, st: true }, click: { ch: 1, st: true }, instrument: { ch: 1, st: true } }
   };
+  // the outputs really there: the Pi's list (jack 2, DAC board 2, USB interface…), else this device's channel count
+  function realOutputs() {
+    var st = F.systemStatus && F.systemStatus(), list = st && st.audio && st.audio.channels;
+    if (list && list.length) return list.length;
+    return engine.ctx ? (engine.ctx.destination.maxChannelCount || 2) : 2;
+  }
+  function onPi() { var st = F.systemStatus && F.systemStatus(); return !!(st && st.audio && st.audio.channels && st.audio.channels.length); }
   function routeOptions(n) {   // [{v: "3" | "1s", ch, st, label}]: Off, every output, every stereo pair
     var names = channelNames(), out = [{ v: "0", ch: 0, st: false, label: "Off" }];
     for (var c = 1; c <= n; c++) out.push({ v: String(c), ch: c, st: false, label: names[c - 1] });
@@ -73,23 +81,27 @@
   }
   function renderRouting(into) {
     var root = into || $("#routingMatrix"); if (!root) return;
-    var r = project().routing, n = channelNames().length, opts = routeOptions(n), live = engine.routing || {}, pre = presetOf(r);
+    var r = project().routing, n = channelNames().length, opts = routeOptions(n), live = engine.routing || {}, pre = presetOf(r), avail = realOutputs(), st = F.systemStatus && F.systemStatus();
     root.innerHTML = '<div class="rt-mode"><span class="muted">Quick set-ups:</span>' +
       '<button class="' + (pre === "mono4" ? "on" : "") + '" data-rtpreset="mono4" title="1 tracks · 2 pads · 3 click + voice · 4 instrument">4 mono outputs</button>' +
       '<button class="' + (pre === "stereo2" ? "on" : "") + '" data-rtpreset="stereo2" title="Tracks + pads on 1–2 · click + instrument on 3–4">2 stereo outputs</button>' +
+      '<button class="' + (pre === "all12" ? "on" : "") + '" data-rtpreset="all12" title="Tracks, pads, click and instrument together on 1–2 (the headphone jack)">Everything on 1–2</button>' +
       (pre === "custom" ? '<span class="rt-custom">Your own</span>' : "") + "</div>" +
       '<table class="rt-table"><thead><tr><th>Bus</th><th>Goes to</th><th>Now</th></tr></thead><tbody>' +
       BUSES.map(function (b) {
         var bus = r.buses[b[0]] || { ch: 0 }, shared = sharing(r, b[0]), now = b[0] === "instrument" ? (connected() ? (bus.ch > 0 ? busOut(bus) : "off") : "on the Pi only") : (live.buses && live.buses[b[0]] ? (live.buses[b[0]] === "off" ? "off" : live.buses[b[0]]) : "—");
+        var missing = bus.ch > 0 && bus.ch > avail && !(b[0] === "instrument" && !connected()) && !(b[0] === "click" && live.mode === "stereo2" && (r.clickFallback || "mix") !== "mix");
+        if (missing) now = "1–2 · " + (bus.st ? bus.ch + "–" + (bus.ch + 1) + " aren't" : bus.ch + " isn't") + " connected";
         var cur = busValue(bus), has = opts.some(function (o) { return o.v === cur; });
         return '<tr><td><b>' + b[1] + '</b><br><small>' + b[2] + '</small></td><td><select data-rt="' + b[0] + '">' + (has ? "" : '<option value="' + cur + '" selected>' + esc(busOut(bus)) + " (not connected)</option>") +
           '<optgroup label="One output (mono)">' + opts.filter(function (o) { return !o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" +
           (n >= 2 ? '<optgroup label="A pair (stereo)">' + opts.filter(function (o) { return o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" : "") +
           "</select>" + (shared.length ? '<br><small class="rt-shared">mixed with ' + esc(shared.join(" and ")) + "</small>" : "") + "</td><td>" + esc(now) + "</td></tr>";
       }).join("") + "</tbody></table>" +
-      '<p class="muted">' + (live.mode === "stereo2" ? "This device only has 2 outputs: tracks and pads share them; the click uses the fallback chosen under Output device. On the Central Pedal the jack + DAC (+ USB interface) give 4 or more." : "On the Central Pedal: 1–2 are the Pi's own headphone jack (left, right), 3–4 the DAC board. A USB audio interface adds its outputs from 5 up, as soon as it's plugged in. Several buses on one output are mixed there.") + "</p>";
+      '<p class="muted">' + (avail <= 2 ? (onPi() ? "This Central Pedal has 2 outputs, the headphone jack: everything plays on 1–2. " : "This device has 2 outputs: everything plays on 1–2. ") + "A bus set to an output that isn't connected is heard on 1–2 (the click: see Output device). On the Central Pedal 3–4 are the DAC board and a USB audio interface adds 5 up." : "1–2 are the Pi's own headphone jack (left, right), 3–4 the DAC board. A USB audio interface adds its outputs from 5 up, as soon as it's plugged in. Several buses on one output are mixed there; a bus set to an output that isn't connected is heard on 1–2.") + "</p>" +
+      (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- changes after a restart; without the board, untick this so 3–4 aren't offered</small></label>" : "");
   }
-  function setBus(bus, v) { var r = project().routing, s = String(v || "0"); r.buses[bus] = { ch: parseInt(s, 10) || 0, st: /s$/.test(s) }; r.mode = presetOf(r) === "stereo2" ? "stereo2" : presetOf(r) === "mono4" ? "mono4" : "custom"; }
+  function setBus(bus, v) { var r = project().routing, s = String(v || "0"); r.buses[bus] = { ch: parseInt(s, 10) || 0, st: /s$/.test(s) }; r.mode = presetOf(r); }
   function applyRouting() { var r = project().routing; engine.routeOutput(); PP.persistSoon(); renderRouting(); if (window.PPIO) window.PPIO.render(); send({ type: "routing", routing: r }); }   // (the Pi links the native instrument chain to its output)
   function onRouting(e) {
     var el = e.target, r = project().routing;
@@ -99,6 +111,11 @@
     applyRouting();
   }
   document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("[data-rtpreset]"); if (b) onRouting({ target: b }); });
+  document.addEventListener("change", function (e) {   // the DAC board (outputs 3-4): its overlay on / off, after a restart
+    var el = e.target; if (!el || !el.hasAttribute || !el.hasAttribute("data-rtdac")) return;
+    send({ type: "system", action: "dac", value: el.checked ? "on" : "off" });
+    PP.setStatus(el.checked ? "DAC board on: outputs 3–4 after the next restart." : "DAC board off: after the next restart everything plays on the headphone jack (1–2).");
+  });
 
   // a USB audio interface plugged in (or out) while the pedal is on: its outputs need the screens restarted
   F.on("audioDevicesChanged", function (m) {

@@ -1,5 +1,6 @@
   (function () {
     "use strict";
+    var APP_VERSION="9.7.0"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
     var STORAGE="pad-pedal-seamless-v3", DB_NAME="pad-pedal-samples-v3", DB_STORE="samples", KEYS=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"], STOCK_VOICES=["Warm Pad","Ambient Pad","Worship Swell","Dream Choir","Heavenly Pad","Soft Strings","Shimmer Pad","Gentle Pluck"], EQ_COLORS=["#61e7b2","#7caeff","#ffcf66","#ff8b8b","#d998ff","#64e5f0"];
     var PAD_COUNT=8;
     var selected=0, editingInput=false, editingBand=0, currentWaveBuffer=null, waveDrag=null, wavePeaks=new Map(), saveTimer=0, trimRestartTimer=0, project;
@@ -29,11 +30,12 @@
     function defaultPad(index){var names=["Warm Pad","Ambient Clouds","Worship Swell","Dream Choir","Soft Strings","Shimmer Pad","Gentle Pluck","Cinematic Swell"], voices=["Warm Pad","Ambient Pad","Worship Swell","Dream Choir","Soft Strings","Shimmer Pad","Gentle Pluck","Cinematic Swell"];return {id:id(),name:names[index]||"Pad "+(index+1),key:"C",rootKey:"C",voice:voices[index]||"Warm Pad",chord:"auto",sampleId:null,level:72,crossfade:160,trimStart:0,trimEnd:1,loop:true,octaves:{sub:0,up:0},swell:{attack:0,breathe:0,rate:.08},effects:defaultEffects()};}
     function defaultInput(){var p=defaultPad(0);p.id="input";p.name="Audio input";p.isInput=true;p.enabled=false;p.voice="Input";p.level=80;p.effects.reverb.wet=28;return p;}
     function defaultPerformance(){return {volume:.85,tone:1,reverb:.5,fade:.5,morph:.5,exprTarget:"swell",layerMode:false};}
-    function defaultRouting(){return {mode:"mono4",buses:{tracks:{ch:1},pad:{ch:2},click:{ch:3},instrument:{ch:4}},clickFallback:"off",mainDevice:null,clickDevice:null};}
+    function defaultRouting(){return {mode:"mono4",buses:{tracks:{ch:1},pad:{ch:2},click:{ch:3},instrument:{ch:4}},clickFallback:"mix",mainDevice:null,clickDevice:null,fbv:2};}
     function normalizeRouting(r){var d=defaultRouting();if(!r||typeof r!=="object")return d;
       if(!r.mode){ // v4 routing (clickMode) -> v5
         var cm=r.clickMode||"auto";d.clickFallback=cm==="mix"||cm==="split"||cm==="device"||cm==="off"?cm:"off";d.mainDevice=r.mainDevice||null;d.clickDevice=r.clickDevice||null;return d;}
-      var out={mode:["stereo","stereo2","custom"].indexOf(r.mode)>-1?r.mode:"mono4",buses:{},clickFallback:["off","mix","split","device"].indexOf(r.clickFallback)>-1?r.clickFallback:"off",mainDevice:r.mainDevice||null,clickDevice:r.clickDevice||null};
+      var out={mode:["stereo","stereo2","all12","custom"].indexOf(r.mode)>-1?r.mode:"mono4",buses:{},clickFallback:["off","mix","split","device"].indexOf(r.clickFallback)>-1?r.clickFallback:"mix",mainDevice:r.mainDevice||null,clickDevice:r.clickDevice||null,fbv:2};
+      if(r.fbv!==2&&out.clickFallback==="off")out.clickFallback="mix"; // (9.8: "off" was only the old default - on a 2-output device the click is heard on 1-2 unless you pick Nowhere again)
       Object.keys(d.buses).forEach(function(k){var b=r.buses&&r.buses[k];var ch=b&&isFinite(Number(b.ch))?Math.round(Number(b.ch)):d.buses[k].ch;var st=b&&typeof b.st==="boolean"?b.st:out.mode==="stereo";out.buses[k]={ch:clamp(ch,0,32),st:st};});return out;}
     function defaultProject(){return {version:6,setlistId:id(),tracksMode:false,textures:[],routing:defaultRouting(),audio:{sampleRate:0,latency:"interactive"},instrument:{},midiOut:{},link:{enabled:false},mapping:{},projector:{},display:{},name:"My Central Pedal set",selected:0,theme:{bg:"#111317",panel:"#1A1D22",text:"#ECE7DD",accent:"#E2C27E",blue:"#8DB5DE",line:"#343A44"},pads:Array.from({length:PAD_COUNT},function(_,i){return defaultPad(i);}),library:[],performance:defaultPerformance(),tempo:{bpm:72},songs:[],songIndex:-1,input:defaultInput(),midi:{channel:0,clock:true}};}
     function mergeInto(base,saved){
@@ -67,6 +69,13 @@
     function mirrorSoon(){clearTimeout(mirrorTimer);mirrorTimer=setTimeout(mirrorNow,1500);}
     function mirrorNow(){var b=window.__pedalBridge;if(!b||!b.connected||!localStorage.getItem(STORAGE))return;if(mirrorBusy){mirrorDirty=true;return;}mirrorBusy=true;fetch("http://127.0.0.1:8766/project",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(project)}).catch(function(){}).then(function(){mirrorBusy=false;if(mirrorDirty){mirrorDirty=false;mirrorSoon();}});}
     // a browser with no project yet (new card, restored backup) takes the driver's copy
+    // The driver says which version is installed. After a software update (or a page Chromium kept from before it)
+    // the page reloads once to the version just installed - its screens, settings and routing match the driver again.
+    var firstDriverVersion="";
+    function checkAppVersion(v){if(!v||typeof v!=="string")return;if(!firstDriverVersion)firstDriverVersion=v;var mine=APP_VERSION||firstDriverVersion;if(v===mine&&v===firstDriverVersion)return;
+      try{if(sessionStorage.getItem("pp-reloaded-for")===v)return;sessionStorage.setItem("pp-reloaded-for",v);}catch(_){return;}
+      try{persistNow();}catch(_){}setStatus("Central Pedal "+v+" is installed - loading it…");
+      setTimeout(function(){var q=new URLSearchParams(location.search);q.set("v",v);location.replace(location.pathname+"?"+q.toString()+location.hash);},600);}
     function adoptDriverProject(){var b=window.__pedalBridge;if(!b||!b.connected)return;if(localStorage.getItem(STORAGE))return;fetch("http://127.0.0.1:8766/project",{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).then(function(j){if(j&&Array.isArray(j.pads)&&!localStorage.getItem(STORAGE)){localStorage.setItem(STORAGE,JSON.stringify(j));location.reload();}}).catch(function(){});} function currentPad(){return editingInput?project.input:project.pads[selected];}
     function getPath(obj,path){return path.split(".").reduce(function(value,part){return value==null?undefined:value[part];},obj);} function setPath(obj,path,value){var parts=path.split("."),target=obj;parts.slice(0,-1).forEach(function(part){target=target[part];});target[parts[parts.length-1]]=value;} function controlValue(control){if(control.type==="checkbox")return control.checked;if(control.type==="range"||control.type==="number")return Number(control.value);return control.value;}
     function formatValue(path,value){
@@ -316,13 +325,16 @@
       this.routing={mode:multi?r.mode:"stereo2",channels:maxCh,wanted:r.mode,need:need,buses:{}};
       if(multi){var n=Math.min(maxCh,Math.max(2,need));try{c.destination.channelCount=n;c.destination.channelCountMode="explicit";c.destination.channelInterpretation="discrete";}catch(_){}
         var m=this.merger=c.createChannelMerger(n);this.routeNodes.push(m);
-        Object.keys(buses).forEach(function(k){var ch=r.buses[k]?r.buses[k].ch:0,node=buses[k];if(!(ch>0)||ch>n){self.routing.buses[k]="off";return;}
-          if(stOf(k)&&ch<n){var sp=c.createChannelSplitter(2);node.connect(sp);sp.connect(m,0,ch-1);sp.connect(m,1,ch);self.routeNodes.push(sp);self.routing.buses[k]=ch+"-"+(ch+1);}
+        self.routing.fallback={};
+        Object.keys(buses).forEach(function(k){var ch=r.buses[k]?r.buses[k].ch:0,node=buses[k],st=stOf(k);if(!(ch>0)){self.routing.buses[k]="off";return;}
+          if(ch>n){self.routing.fallback[k]=ch;ch=1;st=true;} // (an output that isn't there - no DAC board, the USB interface unplugged: heard on 1-2)
+          if(st&&ch<n){var sp=c.createChannelSplitter(2);node.connect(sp);sp.connect(m,0,ch-1);sp.connect(m,1,ch);self.routeNodes.push(sp);self.routing.buses[k]=ch+"-"+(ch+1);}
           else{var mono=c.createGain();mono.channelCount=1;mono.channelCountMode="explicit";mono.channelInterpretation="speakers";node.connect(mono);mono.connect(m,0,ch-1);self.routeNodes.push(mono);self.routing.buses[k]=String(ch);}});
         self.routing.direct={};directs.forEach(function(d){if(d.ch<=n){d.node.connect(m,0,d.ch-1);self.routing.direct[d.id]=d.ch;}});
         m.connect(c.destination);}
       else{try{if(c.destination.channelCount!==2){c.destination.channelCount=2;c.destination.channelCountMode="explicit";c.destination.channelInterpretation="speakers";}}catch(_){}
-        var fb=r.clickFallback||"off";this.routing.buses={tracks:"1-2",pad:"1-2",click:fb};
+        var fb=r.clickFallback||"mix";this.routing.buses={tracks:"1-2",pad:"1-2",click:fb==="mix"?"1-2":fb,instrument:"1-2"};this.routing.fallback={};
+        Object.keys(r.buses).forEach(function(k){var b=r.buses[k];if(b&&b.ch>2&&(k!=="click"||fb==="mix"))self.routing.fallback[k]=b.ch;});
         if(fb==="split"){var m2=this.merger=c.createChannelMerger(2),mono2=c.createGain(),cm=c.createGain();mono2.channelCount=1;mono2.channelCountMode="explicit";cm.channelCount=1;cm.channelCountMode="explicit";this.outGain.connect(mono2);this.tracksOut.connect(mono2);mono2.connect(m2,0,0);this.clickBus.connect(cm);cm.connect(m2,0,1);m2.connect(c.destination);this.routeNodes.push(m2,mono2,cm);}
         else{this.outGain.connect(c.destination);this.tracksOut.connect(c.destination);if(this.loopOut)this.loopOut.connect(c.destination);
           if(fb==="mix")this.clickBus.connect(c.destination);else if(fb==="device")this.clickToDevice();}}
@@ -715,7 +727,7 @@
         if (!message || typeof message !== "object") return;
         switch (message.type) {
           case "hello":
-            this.connected = true; this.info = message; this.showStatus(); adoptDriverProject(); mirrorSoon();
+            this.connected = true; this.info = message; this.showStatus(); checkAppVersion(message.appVersion); adoptDriverProject(); mirrorSoon();
             if (!this.roleSent && this.socket && this.socket.readyState === 1) { this.roleSent = true; try { this.socket.send(JSON.stringify({ type: "role", role: "app" })); } catch (_) {} }
             else { this.sendState(); setStatus("Connected to the Central Pedal"); }
             if (window.PPFeatures) window.PPFeatures.handleHardware(message);
@@ -767,7 +779,7 @@
     document.querySelector("#inputEnabled").addEventListener("change",async function(e){var ok=await engine.setInput(e.target.checked);if(!ok&&e.target.checked)e.target.checked=false;persistSoon();renderInputPad();renderChain();});
 
     // ---- internal API for the feature modules (graphics.js, features.js) ----
-    window.PP={engine:engine,project:function(){return project;},currentPad:currentPad,selected:function(){return selected;},isEditingInput:function(){return editingInput;},editingBand:function(){return editingBand;},
+    window.PP={appVersion:APP_VERSION,engine:engine,project:function(){return project;},currentPad:currentPad,selected:function(){return selected;},isEditingInput:function(){return editingInput;},editingBand:function(){return editingBand;},
       setSelectedPad:setSelectedPad,triggerPad:triggerPad,changeKey:changeKey,setStatus:setStatus,persistSoon:persistSoon,persistNow:persistNow,mirrorNow:mirrorNow,adoptDriverProject:adoptDriverProject,renderPads:renderPads,loadForm:loadForm,renderChain:renderChain,
       setPerformance:setPerformance,setExpression:setExpression,isPerforming:isPerforming,setPerformMode:setPerformMode,playingIndex:playingIndex,activeSong:activeSong,playKeyFor:playKeyFor,
       clamp:clamp,escapeHtml:escapeHtml,KEYS:KEYS,noteIndex:noteIndex,COMP_TYPES:COMP_TYPES,compSettings:compSettings,compOutDb:compOutDb,shaperCurve:shaperCurve,biquadDb:biquadDb,logFreqs:logFreqs,drawSpectrum:drawSpectrum,

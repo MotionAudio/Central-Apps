@@ -353,6 +353,55 @@ await check("outputs: 1-2 the Pi's jack, 3-4 the DAC; quick set-ups (4 mono, 2 s
   assert.deepEqual(r.stepped, { ch: 5, st: true }, "the small screen steps a bus to the next choice (3–4 stereo → 5–6 stereo)");
   assert.equal(r.back, JSON.stringify({ tracks: { ch: 1, st: false }, pad: { ch: 2, st: false }, click: { ch: 3, st: false }, instrument: { ch: 4, st: false } }));
 });
+await check("only the headphone jack (no DAC board): a bus on 3-4 is heard on 1-2 and the table says so; 'Everything on 1-2'; the DAC board can be switched off", async () => {
+  const r = await page.evaluate(async () => {
+    const sent = []; const b = window.__pedalBridge, was = b.send; b.send = function (m) { sent.push(m); };
+    PPFeatures.handleHardware({ type: "systemStatus", i2sDac: true, audio: { channels: ["Headphone jack L", "Headphone jack R"], hdmi: false, usbFirst: false } });
+    PPShell.showTab("settings"); await new Promise((ok) => setTimeout(ok, 100));
+    document.querySelector('[data-rtpreset="mono4"]').click(); await new Promise((ok) => setTimeout(ok, 50));
+    const out = {};
+    out.nowClick = [...document.querySelectorAll("#routingMatrix tbody tr")].find((tr) => /Click/.test(tr.textContent)).lastElementChild.textContent;
+    out.clickLive = PP.engine.routing.buses.click; out.fallback = PP.engine.routing.fallback; out.fb = PP.project().routing.clickFallback;
+    out.note = document.querySelector("#routingMatrix p.muted").textContent;
+    document.querySelector('[data-rtpreset="all12"]').click(); await new Promise((ok) => setTimeout(ok, 50));
+    out.all12 = PPSettings.routingSummary();
+    const dac = document.querySelector("#routingMatrix [data-rtdac]"); out.dacChecked = dac && dac.checked;
+    if (dac) { dac.checked = false; dac.dispatchEvent(new Event("change", { bubbles: true })); }
+    out.sent = sent.filter((m) => m.action === "dac"); b.send = was;
+    document.querySelector('[data-rtpreset="mono4"]').click();
+    PPFeatures.handleHardware({ type: "systemStatus", audio: { channels: [] } });
+    PPShell.showTab("pads"); return out;
+  });
+  assert.match(r.nowClick, /1–2 · 3 isn't connected/, "the click row: " + r.nowClick);
+  assert.equal(r.fb, "mix", "on a 2-output device the click is heard on 1-2 by default");
+  assert.equal(r.clickLive, "1-2");
+  assert.equal(r.fallback.click, 3); assert.equal(r.fallback.instrument, 4);
+  assert.match(r.note, /2 outputs, the headphone jack: everything plays on 1–2/);
+  assert.equal(r.all12.mode, "all12"); assert.ok(r.all12.buses.every((x) => x.ch === 1 && x.st), "everything stereo on 1-2");
+  assert.equal(r.dacChecked, true, "the DAC board switch shows what the pedal has");
+  assert.deepEqual(r.sent.map((m) => m.value), ["off"], "unticking turns the DAC board off");
+});
+await check("old saved routing: the click's old default 'off' becomes 'heard on 1-2' once; picking Nowhere again stays", async () => {
+  const r = await page.evaluate(() => {
+    const rt = PP.project().routing, keep = JSON.stringify(rt);
+    PP.project().routing = { mode: "mono4", buses: { tracks: { ch: 1 }, pad: { ch: 2 }, click: { ch: 3 }, instrument: { ch: 4 } }, clickFallback: "off" };
+    PP.engine.routeOutput(); const migrated = PP.project().routing.clickFallback;
+    PP.project().routing.clickFallback = "off"; PP.engine.routeOutput(); const kept = PP.project().routing.clickFallback;
+    PP.project().routing = JSON.parse(keep); PP.engine.routeOutput(); return { migrated, kept };
+  });
+  assert.deepEqual(r, { migrated: "mix", kept: "off" });
+});
+await check("a page older than its Central Pedal reloads once to the version just installed (not again for the same version)", async () => {
+  const p5 = await browser.newPage(); await p5.goto("file://" + pagePath); await p5.waitForFunction(() => window.__pedalBridge && window.PPShell);
+  const same = await p5.evaluate(() => { window.__pedalBridge.handleMessage({ type: "hello", appVersion: PP.appVersion }); return new Promise((ok) => setTimeout(() => ok(location.search), 900)); });
+  assert.equal(same, "", "same version: no reload");
+  await Promise.all([p5.waitForNavigation({ timeout: 5000 }), p5.evaluate(() => window.__pedalBridge.handleMessage({ type: "hello", appVersion: "99.1.0" }))]);
+  assert.match(p5.url(), /[?&]v=99\.1\.0/);
+  await p5.waitForFunction(() => window.__pedalBridge && window.PPShell);
+  const again = await p5.evaluate(() => { window.__pedalBridge.handleMessage({ type: "hello", appVersion: "99.1.0" }); return new Promise((ok) => setTimeout(() => ok(sessionStorage.getItem("pp-reloaded-for")), 900)); });
+  assert.equal(again, "99.1.0"); assert.match(p5.url(), /[?&]v=99\.1\.0$/, "no second reload for the same version");
+  await p5.close();
+});
 
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));
 
