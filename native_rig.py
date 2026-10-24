@@ -32,7 +32,7 @@ def bank_plans(catalog):
                 with open(os.path.join(folder, "tiers.txt"), encoding="utf-8", errors="replace") as handle:
                     for line in handle:
                         parts = line.strip().split("|")
-                        if len(parts) >= 2 and parts[0] and not parts[0].startswith("#") and parts[1] in ("free", "keys", "instrument"):
+                        if len(parts) >= 2 and parts[0] and not parts[0].startswith("#") and parts[1] in ("free", "keys", "instrument", "plugins", "pedals"):
                             tiers[parts[0]] = parts[1]
             except OSError:
                 pass

@@ -7,9 +7,9 @@
    "planName": "Central Keys",
    "title": "Central Keys Library",
    "version": "1.0",
-   "summary": "An upright piano, an FM piano, a clavisynth and a harpsichord; a pipe organ, a quiet organ and a positive organ; vibraphone, marimba, glockenspiel, tubular bells and hand chimes - with worship-ready presets.",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; nine pads (warm, air, choir aah / ooh, shimmer, strings, glass, swell, worship) - with worship-ready presets.",
    "file": "central-keys-library-1.0.zip",
-   "size": 150000000,
+   "size": 420000000,
    "approximate": true,
    "sha256": null,
    "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-keys-library-1.0.zip",
@@ -48,9 +48,37 @@
        "Tubular Bells",
        "Hand Chimes",
        "Chime Pad",
-       "Vibes & Chimes"
+       "Vibes & Chimes",
+       "Xylophone",
+       "Church Bells"
       ],
       "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Keys Grand Pianos",
+      "presets": [
+       "Concert Grand (Steinway B)",
+       "Studio Grand (Kawai)",
+       "Soft Grand",
+       "Grand & FM Piano",
+       "FM Piano 2"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Keys Pads",
+      "presets": [
+       "Warm Pad",
+       "Air Pad",
+       "Choir Aah",
+       "Choir Ooh",
+       "Shimmer Pad",
+       "String Pad",
+       "Glass Pad",
+       "Swell Pad",
+       "Worship Pad"
+      ],
+      "license": "Motion Audio - sold with Central Keys"
      }
     ],
     "presets": [
@@ -65,20 +93,66 @@
      "Marimba Groove",
      "Glock Sparkle",
      "Christmas Bells",
-     "Chime Pad"
+     "Chime Pad",
+     "Sunday Grand",
+     "Intimate Grand",
+     "Studio Grand Bright",
+     "Warm Worship Pad",
+     "Air Pad Wash",
+     "Choir Aah",
+     "Choir Ooh (soft)",
+     "Shimmer Pad Bed",
+     "String Pad Swell",
+     "Glass Pad",
+     "Slow Swell Pad",
+     "Xylophone Bright",
+     "Church Bells"
     ],
     "boards": [],
     "irs": []
    },
    "counts": {
-    "sound": 3,
+    "sound": 5,
     "board": 0,
-    "preset": 12,
+    "preset": 25,
     "ir": 0,
     "click": 0
    },
    "credits": [
+    "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
     "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+   ],
+   "sources": [
+    {
+     "item": "Central Keys Pianos",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Keys Organs",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Keys Mallets",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Keys Grand Pianos",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Keys Pads",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Keys",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    }
    ]
   },
   {
@@ -87,9 +161,9 @@
    "planName": "Central Instrument",
    "title": "Central Instrument Library",
    "version": "1.0",
-   "summary": "Folk and concert harps, kalimba and strumstick; recorders, harmonica, tenor sax and ocarina; hand and orchestral percussion kits - with presets to play from keys or your instrument.",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument.",
    "file": "central-instrument-library-1.0.zip",
-   "size": 105000000,
+   "size": 520000000,
    "approximate": true,
    "sha256": null,
    "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-instrument-library-1.0.zip",
@@ -114,7 +188,9 @@
        "Recorder Consort",
        "Harmonica",
        "Tenor Sax",
-       "Ocarina"
+       "Ocarina",
+       "Chromatic Harmonica",
+       "Saxello"
       ],
       "license": "CC0 1.0"
      },
@@ -123,6 +199,51 @@
       "presets": [
        "Hand Percussion",
        "Orchestral Percussion"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Instrument World",
+      "presets": [
+       "Dan Tranh (zither)",
+       "Dan Tranh Tremolo",
+       "Bowed Psaltery",
+       "Plucked Psaltery",
+       "Balafon",
+       "Mbira",
+       "Kalimba (Kenya)"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Instrument Drum Kits",
+      "presets": [
+       "Studio Kit",
+       "Rusty Rock Kit",
+       "Unruly Kit",
+       "Brushes Kit"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Instrument Guitars and Basses",
+      "presets": [
+       "Hollowbody Guitar (Gretsch)",
+       "Archtop Guitar (Hofner)",
+       "Electric Guitar Clean",
+       "Upright Bass",
+       "Upright Bass (bowed)",
+       "Jazz Bass",
+       "Acoustic Bass (hollowbody)"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Instrument Saxophones",
+      "presets": [
+       "Alto Sax",
+       "Baritone Sax",
+       "Sax Section"
       ],
       "license": "CC0 1.0"
      }
@@ -138,20 +259,128 @@
      "Tenor Sax Ballad",
      "Ocarina Air",
      "Hand Percussion",
-     "Orchestral Percussion"
+     "Orchestral Percussion",
+     "Worship Kit (brushes)",
+     "Studio Kit",
+     "Rock Kit",
+     "Unruly Kit",
+     "Upright Jazz Bass",
+     "Bowed Bass Drone",
+     "Fingerstyle Jazz Bass",
+     "Hollowbody Bass",
+     "Clean Hollowbody",
+     "Archtop Jazz Guitar",
+     "Clean Electric Strums",
+     "Alto Sax Ballad",
+     "Baritone Sax Groove",
+     "Sax Section",
+     "Chromatic Harmonica",
+     "Saxello",
+     "Dan Tranh Meditation",
+     "Bowed Psaltery Air",
+     "Balafon & Mbira"
     ],
     "boards": [],
     "irs": []
    },
    "counts": {
-    "sound": 3,
+    "sound": 7,
     "board": 0,
-    "preset": 11,
+    "preset": 30,
     "ir": 0,
     "click": 0
    },
    "credits": [
-    "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+    "Black And Green Guitars, Emily Guitar, Meatbass, Growlybass, Big Little Bass by Karoryfer Samples - CC0 1.0",
+    "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+    "Virtuosity Drums; Big Rusty Drums and Unruly Drums by Karoryfer Samples - CC0 1.0",
+    "Weresax and Bear Sax by Karoryfer Samples - CC0 1.0"
+   ],
+   "sources": [
+    {
+     "item": "Central Instrument Harps",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Instrument Winds",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Instrument Percussion",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Instrument World",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Instrument Drum Kits",
+     "text": "Virtuosity Drums - Austin McMahon, recorded at Virtuosity Musical Instruments, Boston",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/virtuosity_drums/tree/9f04cf9a734527edfbb0a4eee1f674e45bbf71bc"
+    },
+    {
+     "item": "Central Instrument Drum Kits",
+     "text": "Big Rusty Drums - Karoryfer Samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/karoryfer.big-rusty-drums/tree/f07ce00df34a46b6b08375be56fe116cf15782bc"
+    },
+    {
+     "item": "Central Instrument Drum Kits",
+     "text": "Unruly Drums - Karoryfer Samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/karoryfer.unruly-drums/tree/9bf75c2a1392f190cd1c264645653629f0b3a097"
+    },
+    {
+     "item": "Central Instrument Guitars and Basses",
+     "text": "Black And Green Guitars - Karoryfer Samples (Brian Wood)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/karoryfer.black-and-green-guitars/tree/b3b3249d37dc977a1a297bd2dc053e6d9b6b805c"
+    },
+    {
+     "item": "Central Instrument Guitars and Basses",
+     "text": "Emily Guitar - Karoryfer Samples (D. Smolken)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/karoryfer.emilyguitar/tree/b4920dc662fd9cad6dcaccdeecffdd91c8725d8c"
+    },
+    {
+     "item": "Central Instrument Guitars and Basses",
+     "text": "Meatbass - Karoryfer Samples (Drogomir Smolken, Ludwik Zamenhof)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/karoryfer.meatbass/tree/ac9e859564bda286ab5ec672d00ff1aa2fef2895"
+    },
+    {
+     "item": "Central Instrument Guitars and Basses",
+     "text": "Growlybass - Karoryfer Samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/karoryfer.growlybass/tree/4f483268fc66b5a6d5781d421c0d11b8d08d3fc6"
+    },
+    {
+     "item": "Central Instrument Guitars and Basses",
+     "text": "Big Little Bass - Karoryfer Samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/karoryfer.big-little-bass/tree/4e92bdf54dcd2d6cfad968cc90542d5461c9b9fc"
+    },
+    {
+     "item": "Central Instrument Saxophones",
+     "text": "Weresax - Karoryfer Samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/karoryfer.weresax/tree/a4d756b21d2a573aca0d840cce7e71ba5effd4c6"
+    },
+    {
+     "item": "Central Instrument Saxophones",
+     "text": "Bear Sax - Karoryfer Samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments/karoryfer.bear-sax/tree/7abb3c652525a15dfac80e1b5dfbba9964ee568f"
+    }
    ]
   },
   {
@@ -160,15 +389,27 @@
    "planName": "Central Plugins",
    "title": "Central Plugins Library",
    "version": "1.0",
-   "summary": "Mix-ready boards built from the Central Plugins effects: ambient electric, dotted-eighth leads, studio electric, acoustic and bass channel strips, piano and pad polish.",
+   "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish.",
    "file": "central-plugins-library-1.0.zip",
-   "size": 100000,
+   "size": 12000000,
    "approximate": true,
    "sha256": null,
    "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-plugins-library-1.0.zip",
    "contents": {
-    "sounds": [],
-    "presets": [],
+    "sounds": [
+     {
+      "name": "Central Plugins Textures",
+      "presets": [
+       "Ambient Drone",
+       "Transitions (risers, swells, reverse cymbals)"
+      ],
+      "license": "Motion Audio + CC0 1.0"
+     }
+    ],
+    "presets": [
+     "Plugins: Ambient Drone Bed",
+     "Plugins: Transitions (risers and swells)"
+    ],
     "boards": [
      "Plugins: Worship Electric Ambience",
      "Plugins: Dotted-Eighth Lead",
@@ -180,18 +421,41 @@
      "Plugins: Bass Warm and Round",
      "Plugins: Keys Wide Pad",
      "Plugins: Keys Piano Polish",
-     "Plugins: Keys Room for Vocals"
+     "Plugins: Keys Room for Vocals",
+     "Plugins: Pad Wash (keys)",
+     "Plugins: Shimmer Keys",
+     "Plugins: Ambient Guitar Swells",
+     "Plugins: Tight Rhythm Electric",
+     "Plugins: Acoustic Plate Ballad",
+     "Plugins: Acoustic Ducked Delay",
+     "Plugins: Bass Glue"
     ],
     "irs": []
    },
    "counts": {
-    "sound": 0,
-    "board": 11,
-    "preset": 0,
+    "sound": 1,
+    "board": 18,
+    "preset": 2,
     "ir": 0,
     "click": 0
    },
-   "credits": []
+   "credits": [
+    "Motion Audio (synthesised); cymbals, gong and bass drum from VCSL by Versilian Studios (CC0 1.0)"
+   ],
+   "sources": [
+    {
+     "item": "Central Plugins Textures",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Plugins",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Central Plugins Textures",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    }
+   ]
   },
   {
    "id": "central-pedals-library",
@@ -199,7 +463,7 @@
    "planName": "Central Pedals",
    "title": "Central Pedals Library",
    "version": "1.0",
-   "summary": "14 cabinet and acoustic-body impulse responses for the IR loader, and pedalboards that use them: worship crunch, edge delay, vintage and modern stacks, fuzz swells, bass rigs and acoustic bodies.",
+   "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies.",
    "file": "central-pedals-library-1.0.zip",
    "size": 200000,
    "approximate": true,
@@ -222,7 +486,15 @@
      "Pedals: Acoustic Dreadnought",
      "Pedals: Acoustic Parlor",
      "Pedals: Nylon Warm",
-     "Pedals: Jumbo Strum"
+     "Pedals: Jumbo Strum",
+     "Pedals: Worship Lead Room 2x12",
+     "Pedals: Dark Edge Vintage",
+     "Pedals: Modern Tight Room",
+     "Pedals: Tweed Edge Blues",
+     "Pedals: Open Back Room Ambient",
+     "Pedals: Small Combo Edge Trem",
+     "Pedals: Closed Back Edge Crunch",
+     "Pedals: Fuzz Room Wall"
     ],
     "irs": [
      "Central 1x12 Open Back",
@@ -238,18 +510,202 @@
      "Central Acoustic Dreadnought Body",
      "Central Acoustic Jumbo Body",
      "Central Acoustic Parlor Body",
-     "Central Acoustic Nylon Body"
+     "Central Acoustic Nylon Body",
+     "Central 1x12 Open Back Edge",
+     "Central 1x12 Open Back Room",
+     "Central 2x12 Closed Back Edge",
+     "Central 2x12 Closed Back Room",
+     "Central 2x12 Worship Smooth Edge",
+     "Central 2x12 Worship Smooth Room",
+     "Central 4x12 Vintage Edge",
+     "Central 4x12 Vintage Room",
+     "Central 4x12 Modern Tight Edge",
+     "Central 4x12 Modern Tight Room",
+     "Central 1x10 Small Combo Edge",
+     "Central 1x10 Small Combo Room",
+     "Central 2x10 Tweed Edge",
+     "Central 2x10 Tweed Room"
     ]
    },
    "counts": {
     "sound": 0,
-    "board": 14,
+    "board": 22,
     "preset": 0,
-    "ir": 14,
+    "ir": 28,
     "click": 0
    },
    "credits": [
     "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+   ],
+   "sources": [
+    {
+     "item": "Central 1x12 Open Back",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 2x12 Closed Back",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 2x12 Worship Smooth",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 4x12 Vintage",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 4x12 Modern Tight",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 1x10 Small Combo",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 2x10 Tweed",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Bass 4x10",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Bass 1x15",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Bass 8x10",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Acoustic Dreadnought Body",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Acoustic Jumbo Body",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Acoustic Parlor Body",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Acoustic Nylon Body",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 1x12 Open Back Edge",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 1x12 Open Back Room",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 2x12 Closed Back Edge",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 2x12 Closed Back Room",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 2x12 Worship Smooth Edge",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 2x12 Worship Smooth Room",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 4x12 Vintage Edge",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 4x12 Vintage Room",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 4x12 Modern Tight Edge",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 4x12 Modern Tight Room",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 1x10 Small Combo Edge",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 1x10 Small Combo Room",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 2x10 Tweed Edge",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central 2x10 Tweed Room",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pedals",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    }
    ]
   }
  ]
