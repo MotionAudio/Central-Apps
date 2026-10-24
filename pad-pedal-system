@@ -330,7 +330,7 @@ PY
       install -m 644 "$src"/companion/* "$R/opt/pad-pedal/companion/"
       [ -d "$src/cues" ] && install -m 644 "$src"/cues/*.wav "$R/opt/pad-pedal/cues/" 2>/dev/null || true
       for f in wiring.html README.md instrument_host.py sources.py instrument-plugins.json screens.json; do [ -f "$src/$f" ] && install -m 644 "$src/$f" "$R/opt/pad-pedal/$f"; done
-      for f in pedal-driver.py get-sounds.sh sounds-vsco.py pad-pedal-session pad-pedal-audio-config firstboot.sh; do [ -f "$src/$f" ] && install -m 755 "$src/$f" "$R/opt/pad-pedal/$f"; done
+      for f in pedal-driver.py get-sounds.sh sounds-vsco.py pad-pedal-session pad-pedal-audio-config firstboot.sh pad-pedal-bootlog; do [ -f "$src/$f" ] && install -m 755 "$src/$f" "$R/opt/pad-pedal/$f"; done
       # play any sound: its plugin (built by CI for arm64) and its C sources (built on the Pi if the plugin is missing)
       [ -d "$src/bin" ] && { rm -rf "$R/opt/pad-pedal/bin"; cp -r "$src/bin" "$R/opt/pad-pedal/bin"; chmod -R a+rX "$R/opt/pad-pedal/bin"; }
       [ -d "$src/central-usage/native/playany" ] && install -d -m 755 "$R/opt/pad-pedal/central-usage/native/playany" && install -m 644 "$src"/central-usage/native/playany/*.c "$src"/central-usage/native/playany/*.h "$R/opt/pad-pedal/central-usage/native/playany/"
@@ -344,6 +344,9 @@ PY
       [ -f "$src/pad-pedal-safe-mode" ] && install -m 755 "$src/pad-pedal-safe-mode" "$R/usr/local/sbin/pad-pedal-safe-mode"
       [ -f "$src/xinitrc" ] && install -m 755 "$src/xinitrc" "$R/home/$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)/.xinitrc" 2>/dev/null || true
       [ -f "$src/pad-pedal-driver.service" ] && install -m 644 "$src/pad-pedal-driver.service" "$R/etc/systemd/system/pad-pedal-driver.service"
+      for u in pad-pedal-bootlog.service pad-pedal-bootlog.timer; do [ -f "$src/$u" ] && install -m 644 "$src/$u" "$R/etc/systemd/system/$u"; done
+      [ -f "$src/pad-pedal-bootlog.timer" ] && install -d "$R/etc/systemd/system/timers.target.wants" && ln -sf /etc/systemd/system/pad-pedal-bootlog.timer "$R/etc/systemd/system/timers.target.wants/pad-pedal-bootlog.timer"
+      [ -f "$src/bash_profile" ] && install -m 644 -o "$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)" "$src/bash_profile" "$R/home/$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)/.bash_profile" 2>/dev/null || true
       sed -nE 's/^APP_VERSION = "([^"]+)".*/\1/p' "$src/pedal-driver.py" | head -1 > "$R/etc/pad-pedal/version" 2>/dev/null || true
     }
     install_into /

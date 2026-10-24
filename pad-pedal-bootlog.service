@@ -1,0 +1,7 @@
+[Unit]
+Description=Central Pedal start-up report on the SD card (central-pedal-log.txt)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/pad-pedal/pad-pedal-bootlog

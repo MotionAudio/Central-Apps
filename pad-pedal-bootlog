@@ -1,0 +1,24 @@
+#!/bin/bash
+# Central Pedal - a start-up report on the SD card's boot partition (central-pedal-log.txt), readable on any
+# computer: put the card in a PC or Mac and open the "bootfs" drive. Written 1 and 4 minutes after each start, so
+# when the screens or the setup Wi-Fi don't come up, the reason is there without typing any commands.
+BOOT=/boot/firmware; [ -d "$BOOT" ] && [ -f "$BOOT/config.txt" ] || BOOT=/boot
+mount -o remount,rw "$BOOT" 2>/dev/null || true
+OUT="$BOOT/central-pedal-log.txt"
+KU="$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)"; KH="$(getent passwd "$KU" | cut -d: -f6)"
+{
+  echo "Central Pedal start-up report - $(date)"
+  echo "version: $(cat /etc/pad-pedal/version 2>/dev/null || echo unknown) · up $(cut -d' ' -f1 /proc/uptime)s · $(tr -d '\0' < /proc/device-tree/model 2>/dev/null)"
+  echo "first start done: $([ -e /var/lib/pad-pedal/firstboot-done ] && echo yes || echo NO)"
+  echo; echo "== services that failed"; systemctl --failed --no-pager --no-legend 2>&1
+  echo; echo "== first start (data partition, Wi-Fi radio, safe mode)"; journalctl -b -u pad-pedal-firstboot --no-pager 2>&1 | tail -40
+  echo; echo "== Central Pedal (driver)"; systemctl status pad-pedal-driver --no-pager 2>&1 | head -12; journalctl -b -u pad-pedal-driver --no-pager 2>&1 | tail -80
+  echo; echo "== screens (the login on the main screen starts them)"; systemctl status getty@tty1 --no-pager 2>&1 | head -8
+  echo "-- session log"; tail -60 /tmp/pad-pedal-x.log 2>&1
+  echo "-- Xorg"; tail -50 "$KH/.local/share/xorg/Xorg.0.log" 2>/dev/null || tail -50 /var/log/Xorg.0.log 2>&1
+  echo; echo "== network"; nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev 2>&1; nmcli -t connection show 2>&1; ip -br addr 2>&1
+  echo; echo "== disks"; lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINT 2>&1; df -h / /data 2>&1; findmnt /data 2>&1
+  echo; echo "== screens the kernel sees"; ls /sys/class/graphics/ 2>&1; for f in /sys/class/drm/card*-*/status; do echo "$f: $(cat "$f")"; done 2>/dev/null; grep -E '^(dtoverlay|dtparam)' "$BOOT/config.txt" 2>&1
+  echo; echo "== kernel messages (errors, screen, touch)"; dmesg 2>&1 | grep -iE "error|fail|fbtft|fb1|spi|ads7846|under-voltage" | tail -50
+} > "$OUT.tmp" 2>&1
+mv -f "$OUT.tmp" "$OUT"; sync
