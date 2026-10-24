@@ -50,6 +50,7 @@ import hmac
 import io
 import json
 import logging
+import math
 import mimetypes
 import os
 import random
@@ -216,7 +217,7 @@ def boot_id():
 
 
 # screens.json as it shipped with this driver: used when the file can't be found or read (tests keep them the same)
-BUILTIN_SCREENS_JSON = r'''{"_about":"Central Pedal touch screens. kind: spi = a small screen on the GPIO pins (Central Pedal draws its own remote on it; HDMI 1 can show a copy), hdmi = a touch monitor on HDMI 1 (shows the app; its touch is USB), dsi = a screen on the ribbon-cable display port (shows the app). config = lines for config.txt; video = the mode forced on HDMI 1 when the screen does not say its size; driver = the maker's overlay, downloaded when the screen is picked (built-in ones need nothing). pins = GPIO pins the screen uses (kept free of buttons).","groups":[{"id":"spi","name":"Small screens on the GPIO pins (2.2\" - 4\")"},{"id":"hdmi","name":"HDMI touch screens (USB touch)"},{"id":"dsi","name":"Ribbon-cable (DSI) touch screens"}],"screens":[{"id":"rpi35-xpt2046","kind":"spi","size":3.5,"res":[480,320],"name":"3.5\" RPi Display - XPT2046 touch (the common blue board)","also":"LCDwiki MPI3501, Waveshare 3.5\" (A) and its clones (Kuman, OSOYOO, Elegoo, iUniker, Quimat...), 480\u00d7320, ILI9486","config":["dtparam=spi=on","dtoverlay=piscreen,speed=16000000,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25],"calibration":{"xmin":200,"xmax":3900,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":true}},{"id":"waveshare35a","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (A) - Waveshare's own driver","also":"the same board as above, with the overlay from Waveshare's LCD-show","config":["dtparam=spi=on","dtoverlay=waveshare35a:rotate=90"],"driver":{"name":"waveshare35a","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35a-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) IPS","config":["dtparam=spi=on","dtoverlay=waveshare35b:rotate=90"],"driver":{"name":"waveshare35b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b-v2","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) Rev 2.0","config":["dtparam=spi=on","dtoverlay=waveshare35b-v2:rotate=90"],"driver":{"name":"waveshare35b-v2","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-v2-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35c","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (C) high speed","config":["dtparam=spi=on","dtoverlay=waveshare35c:rotate=90"],"driver":{"name":"waveshare35c","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35c-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"piscreen2r","kind":"spi","size":3.5,"res":[480,320],"name":"OzzMaker PiScreen 2 (3.5\")","config":["dtparam=spi=on","dtoverlay=piscreen2r,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"pitft35","kind":"spi","size":3.5,"res":[480,320],"name":"Adafruit PiTFT 3.5\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=25"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"tinylcd35","kind":"spi","size":3.5,"res":[480,320],"name":"TinyLCD 3.5\"","config":["dtparam=spi=on","dtoverlay=tinylcd35,touch,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,5,25]},{"id":"mz61581","kind":"spi","size":3.2,"res":[480,320],"name":"Tontec 3.2\" / 3.5\" (MZ61581)","config":["dtparam=spi=on","dtoverlay=mz61581,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,4,15,18,25]},{"id":"waveshare32b","kind":"spi","size":3.2,"res":[320,240],"name":"Waveshare 3.2\" (B)","config":["dtparam=spi=on","dtoverlay=waveshare32b:rotate=270"],"driver":{"name":"waveshare32b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare32b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,22,27]},{"id":"pitft28r","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft28-resistive,rotate=90,speed=64000000,fps=30"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"pitft28c","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (capacitive)","config":["dtparam=spi=on","dtparam=i2c_arm=on","dtoverlay=pitft28-capacitive,rotate=90,speed=64000000,fps=30"],"touch":"EP0110M09|ft6236|ft6x06","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":0,"xmax":240,"ymin":0,"ymax":320,"swap":true,"flip_x":false,"flip_y":true}},{"id":"rpi-display","kind":"spi","size":2.8,"res":[320,240],"name":"Watterott RPi-Display 2.8\"","config":["dtparam=spi=on","dtoverlay=rpi-display,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,18,23,24,25]},{"id":"hy28b","kind":"spi","size":2.8,"res":[320,240],"name":"HY28B 2.8\"","config":["dtparam=spi=on","dtoverlay=hy28b,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,18,25]},{"id":"pitft22","kind":"spi","size":2.2,"res":[320,240],"name":"Adafruit PiTFT 2.2\" (no touch - buttons only)","config":["dtparam=spi=on","dtoverlay=pitft22,rotate=270,speed=32000000,fps=30"],"touch":"","pins":[7,8,9,10,11,25]},{"id":"hdmi-auto","kind":"hdmi","name":"HDMI touch screen - any size (it says its own size)","also":"most screens sold for the Pi: Waveshare, Elecrow, SunFounder, ROADOM, the official monitors","config":[]},{"id":"hdmi-35","kind":"hdmi","size":3.5,"res":[480,320],"name":"3.5\" HDMI touch (MPI3508) 480\u00d7320","config":[],"video":"480x320M@60"},{"id":"hdmi-4","kind":"hdmi","size":4,"res":[800,480],"name":"4\" HDMI touch (MPI4008) 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-5","kind":"hdmi","size":5,"res":[800,480],"name":"5\" HDMI touch 800\u00d7480 (Waveshare 5\", Elecrow, MPI5008)","config":[],"video":"800x480M@60"},{"id":"hdmi-7-800","kind":"hdmi","size":7,"res":[800,480],"name":"7\" HDMI touch 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-7-1024","kind":"hdmi","size":7,"res":[1024,600],"name":"7\" HDMI touch 1024\u00d7600 (Waveshare 7\" C, Elecrow, SunFounder)","config":[],"video":"1024x600M@60"},{"id":"hdmi-10","kind":"hdmi","size":10.1,"res":[1280,800],"name":"10.1\" HDMI touch 1280\u00d7800","config":[],"video":"1280x800M@60"},{"id":"dsi-rpi7","kind":"dsi","size":7,"res":[800,480],"name":"Raspberry Pi Touch Display 7\" (the original)","also":"and the Waveshare 4.3\" / 5\" / 7\" DSI screens made to work like it","config":["dtoverlay=vc4-kms-dsi-7inch"]},{"id":"dsi-rpi2-7","kind":"dsi","size":7,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (7\")","config":["dtoverlay=vc4-kms-dsi-ili9881-7inch,rotation=90"]},{"id":"dsi-rpi2-5","kind":"dsi","size":5,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (5\")","config":["dtoverlay=vc4-kms-dsi-ili9881-5inch,rotation=90"]},{"id":"dsi-ws-28","kind":"dsi","size":2.8,"res":[480,640],"name":"Waveshare 2.8\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,2_8_inch"]},{"id":"dsi-ws-34","kind":"dsi","size":3.4,"res":[800,800],"name":"Waveshare 3.4\" round DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,3_4_inch"]},{"id":"dsi-ws-40","kind":"dsi","size":4,"res":[480,800],"name":"Waveshare 4\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,4_0_inch"]},{"id":"dsi-ws-50","kind":"dsi","size":5,"res":[720,1280],"name":"Waveshare 5\" DSI (720\u00d71280)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,5_0_inch"]},{"id":"dsi-ws-70c","kind":"dsi","size":7,"res":[1024,600],"name":"Waveshare 7\" DSI (C) 1024\u00d7600","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_0_inchC"]},{"id":"dsi-ws-79","kind":"dsi","size":7.9,"res":[400,1280],"name":"Waveshare 7.9\" DSI (bar)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_9_inch"]},{"id":"dsi-ws-101","kind":"dsi","size":10.1,"res":[800,1280],"name":"Waveshare 10.1\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,10_1_inch"]}]}'''
+BUILTIN_SCREENS_JSON = r'''{"_about":"Central Pedal touch screens. kind: spi = a small screen on the GPIO pins (Central Pedal draws its own remote on it; HDMI 1 can show a copy), hdmi = a touch monitor on HDMI 1 (shows the app; its touch is USB), dsi = a screen on the ribbon-cable display port (shows the app). config = lines for config.txt; video = the mode forced on HDMI 1 when the screen does not say its size; driver = the maker's overlay, downloaded when the screen is picked (built-in ones need nothing). pins = GPIO pins the screen uses (kept free of buttons).","groups":[{"id":"spi","name":"Small screens on the GPIO pins (2.2\" - 4\")"},{"id":"hdmi","name":"HDMI touch screens (USB touch)"},{"id":"dsi","name":"Ribbon-cable (DSI) touch screens"}],"screens":[{"id":"rpi35-xpt2046","kind":"spi","size":3.5,"res":[480,320],"name":"3.5\" RPi Display - XPT2046 touch (the common blue board)","also":"LCDwiki MPI3501, Waveshare 3.5\" (A) and its clones (Kuman, OSOYOO, Elegoo, iUniker, Quimat...), 480\u00d7320, ILI9486","config":["dtparam=spi=on","dtoverlay=piscreen,speed=16000000,rotate=90,fps=50"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25],"calibration":{"xmin":200,"xmax":3900,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":true}},{"id":"waveshare35a","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (A) - Waveshare's own driver","also":"the same board as above, with the overlay from Waveshare's LCD-show","config":["dtparam=spi=on","dtoverlay=waveshare35a:rotate=90"],"driver":{"name":"waveshare35a","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35a-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) IPS","config":["dtparam=spi=on","dtoverlay=waveshare35b:rotate=90"],"driver":{"name":"waveshare35b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b-v2","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) Rev 2.0","config":["dtparam=spi=on","dtoverlay=waveshare35b-v2:rotate=90"],"driver":{"name":"waveshare35b-v2","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-v2-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35c","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (C) high speed","config":["dtparam=spi=on","dtoverlay=waveshare35c:rotate=90"],"driver":{"name":"waveshare35c","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35c-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"piscreen2r","kind":"spi","size":3.5,"res":[480,320],"name":"OzzMaker PiScreen 2 (3.5\")","config":["dtparam=spi=on","dtoverlay=piscreen2r,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"pitft35","kind":"spi","size":3.5,"res":[480,320],"name":"Adafruit PiTFT 3.5\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=25"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"tinylcd35","kind":"spi","size":3.5,"res":[480,320],"name":"TinyLCD 3.5\"","config":["dtparam=spi=on","dtoverlay=tinylcd35,touch,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,5,25]},{"id":"mz61581","kind":"spi","size":3.2,"res":[480,320],"name":"Tontec 3.2\" / 3.5\" (MZ61581)","config":["dtparam=spi=on","dtoverlay=mz61581,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,4,15,18,25]},{"id":"waveshare32b","kind":"spi","size":3.2,"res":[320,240],"name":"Waveshare 3.2\" (B)","config":["dtparam=spi=on","dtoverlay=waveshare32b:rotate=270"],"driver":{"name":"waveshare32b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare32b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,22,27]},{"id":"pitft28r","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft28-resistive,rotate=90,speed=64000000,fps=30"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"pitft28c","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (capacitive)","config":["dtparam=spi=on","dtparam=i2c_arm=on","dtoverlay=pitft28-capacitive,rotate=90,speed=64000000,fps=30"],"touch":"EP0110M09|ft6236|ft6x06","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":0,"xmax":240,"ymin":0,"ymax":320,"swap":true,"flip_x":false,"flip_y":true}},{"id":"rpi-display","kind":"spi","size":2.8,"res":[320,240],"name":"Watterott RPi-Display 2.8\"","config":["dtparam=spi=on","dtoverlay=rpi-display,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,18,23,24,25]},{"id":"hy28b","kind":"spi","size":2.8,"res":[320,240],"name":"HY28B 2.8\"","config":["dtparam=spi=on","dtoverlay=hy28b,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,18,25]},{"id":"pitft22","kind":"spi","size":2.2,"res":[320,240],"name":"Adafruit PiTFT 2.2\" (no touch - buttons only)","config":["dtparam=spi=on","dtoverlay=pitft22,rotate=270,speed=32000000,fps=30"],"touch":"","pins":[7,8,9,10,11,25]},{"id":"hdmi-auto","kind":"hdmi","name":"HDMI touch screen - any size (it says its own size)","also":"most screens sold for the Pi: Waveshare, Elecrow, SunFounder, ROADOM, the official monitors","config":[]},{"id":"hdmi-35","kind":"hdmi","size":3.5,"res":[480,320],"name":"3.5\" HDMI touch (MPI3508) 480\u00d7320","config":[],"video":"480x320M@60"},{"id":"hdmi-4","kind":"hdmi","size":4,"res":[800,480],"name":"4\" HDMI touch (MPI4008) 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-5","kind":"hdmi","size":5,"res":[800,480],"name":"5\" HDMI touch 800\u00d7480 (Waveshare 5\", Elecrow, MPI5008)","config":[],"video":"800x480M@60"},{"id":"hdmi-7-800","kind":"hdmi","size":7,"res":[800,480],"name":"7\" HDMI touch 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-7-1024","kind":"hdmi","size":7,"res":[1024,600],"name":"7\" HDMI touch 1024\u00d7600 (Waveshare 7\" C, Elecrow, SunFounder)","config":[],"video":"1024x600M@60"},{"id":"hdmi-10","kind":"hdmi","size":10.1,"res":[1280,800],"name":"10.1\" HDMI touch 1280\u00d7800","config":[],"video":"1280x800M@60"},{"id":"dsi-rpi7","kind":"dsi","size":7,"res":[800,480],"name":"Raspberry Pi Touch Display 7\" (the original)","also":"and the Waveshare 4.3\" / 5\" / 7\" DSI screens made to work like it","config":["dtoverlay=vc4-kms-dsi-7inch"]},{"id":"dsi-rpi2-7","kind":"dsi","size":7,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (7\")","config":["dtoverlay=vc4-kms-dsi-ili9881-7inch,rotation=90"]},{"id":"dsi-rpi2-5","kind":"dsi","size":5,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (5\")","config":["dtoverlay=vc4-kms-dsi-ili9881-5inch,rotation=90"]},{"id":"dsi-ws-28","kind":"dsi","size":2.8,"res":[480,640],"name":"Waveshare 2.8\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,2_8_inch"]},{"id":"dsi-ws-34","kind":"dsi","size":3.4,"res":[800,800],"name":"Waveshare 3.4\" round DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,3_4_inch"]},{"id":"dsi-ws-40","kind":"dsi","size":4,"res":[480,800],"name":"Waveshare 4\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,4_0_inch"]},{"id":"dsi-ws-50","kind":"dsi","size":5,"res":[720,1280],"name":"Waveshare 5\" DSI (720\u00d71280)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,5_0_inch"]},{"id":"dsi-ws-70c","kind":"dsi","size":7,"res":[1024,600],"name":"Waveshare 7\" DSI (C) 1024\u00d7600","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_0_inchC"]},{"id":"dsi-ws-79","kind":"dsi","size":7.9,"res":[400,1280],"name":"Waveshare 7.9\" DSI (bar)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_9_inch"]},{"id":"dsi-ws-101","kind":"dsi","size":10.1,"res":[800,1280],"name":"Waveshare 10.1\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,10_1_inch"]}]}'''
 
 
 def builtin_screens():
@@ -3028,6 +3029,10 @@ class MiniScreen:
         self.active, self.drag_at, self.confirm, self.confirm_at = None, 0.0, None, 0.0
         self.pick_screen, self.touch_msg = None, ""
         self.notice, self.notice_at = "", 0.0   # (a line along the bottom for a few seconds: "Part of Central Pedals · $50 a year…")
+        self.overlay = None    # a list to pick from (boards, sounds, what a button does) or the keyboard, over the page
+        self.lists = {}        # what the app sent for those lists: {what: {"items": [...], ...}}
+        self.wifi, self.wifi_at, self.wifi_busy, self.wifi_msg = None, 0.0, False, ""
+        self.update_msg, self.update_ready = "", False
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -3050,9 +3055,11 @@ class MiniScreen:
            "idle": (22, 42, 66), "selected": (31, 68, 110), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (52, 58, 68),
            "btn": (35, 39, 46), "on": (226, 194, 126), "ontext": (26, 20, 8), "warn": (255, 190, 110), "track": (46, 51, 60)}
     TABS = [("pads", "PADS"), ("tracks", "TRACKS"), ("instrument", "INSTRUMENT"), ("settings", "SETTINGS")]
-    SUBS = {"tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist")],
+    SUBS = {"pads": [("pads", "Pads"), ("key", "Key"), ("sound", "Sound")],
+            "tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist"), ("tempo", "Click · Tempo")],
             "instrument": [("sound", "Sound"), ("pedals", "Pedals"), ("eq", "EQ · Comp"), ("tune", "Tuner · Level")],
-            "settings": [("audio", "In & out"), ("screens", "Screens"), ("touch", "Touch"), ("system", "System")]}
+            "settings": [("audio", "Audio"), ("wifi", "Wi-Fi"), ("controls", "Controls"), ("screens", "Screens"), ("touch", "Touch"), ("system", "System")]}
+    KEY_NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
     HDMI1 = [("app", "Central Pedal app"), ("touch", "Copy of this screen"), ("lyrics", "Lyrics"), ("charts", "Chord charts"), ("stage", "Stage display"), ("slides", "Slides")]
     HDMI2 = [("lyrics", "Lyrics"), ("slides", "Slides & lyrics"), ("stage", "Stage display"), ("charts", "Chord charts"), ("touch", "Copy of this screen"), ("app", "Central Pedal app"), ("off", "Nothing")]
     KIND_SHORT = {"electric": "Electric", "acoustic": "Acoustic", "bass": "Bass", "keys": "Keys", "off": "Off"}
@@ -3091,14 +3098,34 @@ class MiniScreen:
         self.font, self.small, self.big = self.F["btn"], self.F["sub"], self.F["num"]
 
     # ----- small drawing helpers ------------------------------------------------------------------------------------
+    # Text is most of the drawing time (FreeType draws every letter each time): each word's picture is kept and
+    # stamped again, so a redraw costs a few milliseconds even on a Pi 3.
+    TEXT_CACHE = 4000
+
+    def text_width(self, g, text, font):
+        cache = self.__dict__.setdefault("_wcache", {})
+        key = (text, id(font))
+        w = cache.get(key)
+        if w is None:
+            w = g.textlength(text, font=font)
+            if len(cache) > self.TEXT_CACHE:
+                cache.clear()
+            cache[key] = w
+        return w
+
     def fit(self, g, text, font, width):
         text = str(text or "")
         try:
-            if g.textlength(text, font=font) <= width:
+            if self.text_width(g, text, font) <= width:
                 return text
-            while text and g.textlength(text + "…", font=font) > width:
-                text = text[:-1]
-            return text.rstrip() + "…"
+            lo, hi = 0, len(text)   # the longest start that fits with "…" (halving, not a letter at a time)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if self.text_width(g, text[:mid] + "…", font) <= width:
+                    lo = mid
+                else:
+                    hi = mid - 1
+            return text[:lo].rstrip() + "…"
         except Exception:
             n = max(1, int(width / 7))
             return text if len(text) <= n else text[: n - 1] + "…"
@@ -3106,6 +3133,25 @@ class MiniScreen:
     def text(self, g, xy, text, font, fill, anchor="la", width=None):
         if width:
             text = self.fit(g, text, font, width)
+        text = str(text if text is not None else "")
+        if not text:
+            return
+        try:
+            cache = self.__dict__.setdefault("_tcache", {})
+            x, y = float(xy[0]), float(xy[1])
+            start = (round(x - math.floor(x), 2), round(y - math.floor(y), 2))   # (the same sub-pixel place as drawing it afresh)
+            key = (text, id(font), anchor, start)
+            hit = cache.get(key)
+            if hit is None:
+                hit = font.getmask2(text, "L", anchor=anchor, start=start)
+                if len(cache) > self.TEXT_CACHE:
+                    cache.clear()
+                cache[key] = hit
+            mask, off = hit
+            g.draw.draw_bitmap((int(math.floor(x)) + off[0], int(math.floor(y)) + off[1]), mask, g._getink(fill)[0])
+            return
+        except Exception:
+            pass
         try:
             g.text(xy, text, font=font, fill=fill, anchor=anchor)
         except Exception:
@@ -3214,12 +3260,17 @@ class MiniScreen:
         d = d or {}
         self.header(g, d)
         tab = self.tab if self.tab in dict(self.TABS) else "pads"
+        ov = self.overlay
         try:
-            getattr(self, "page_" + tab)(g, hits, d)
+            if ov:
+                getattr(self, "overlay_" + ov["kind"])(g, hits, d)
+            else:
+                getattr(self, "page_" + tab)(g, hits, d)
         except Exception as error:   # (a page with odd data never blanks the screen)
             log.debug("small screen page %s: %s", tab, error)
             self.text(g, (W / 2, H / 2), "…", self.F["num"], C["muted"], "mm")
-        self.tabbar(g, hits, tab)
+        if not (ov and ov["kind"] == "keys"):
+            self.tabbar(g, hits, tab)
         if self.notice and time.monotonic() - self.notice_at < self.NOTICE_S:
             g.rounded_rectangle([4, H - 88, W - 4, H - 46], 9, fill=(40, 34, 20), outline=C["accent"], width=2)
             self.lock_icon(g, 12, H - 79, 22, C["accent"])
@@ -3344,9 +3395,13 @@ class MiniScreen:
 
     # ----- PADS: the 8 pads + STOP, and the 8 buttons (transport when tracks are on) ---------------------------------
     def page_pads(self, g, hits, d):
+        sub = self.sub.get("pads", "pads")
+        if sub != "pads":
+            return getattr(self, "pads_" + sub)(g, hits, d)
         C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "pads")
         pads = d.get("pads") or []
-        gx, gy, gw, gh = 6, 46, 296, H - 46 - 46
+        gx, gy, gw, gh = 6, 76, 296, H - 46 - 76
         cw, ch = (gw - 2 * 5) / 3, (gh - 2 * 5) / 3
         for i in range(9):
             r, c = divmod(i, 3)
@@ -3383,6 +3438,60 @@ class MiniScreen:
             x0, y0 = bx + c * (bw / 2 + 2), by + r * (bh + 4)
             self.button(g, hits, [x0, y0, x0 + bw / 2 - 2, y0 + bh], label, action, on=on, font=self.F["sub"] if len(label) > 8 else self.F["btn"])
 
+    @classmethod
+    def key_index(cls, key):
+        """C = 0 … B = 11 from "G", "F#m", "Bb", "E♭" (None when it can't be read)."""
+        m = re.match(r"\s*([A-Ga-g])([#♯b♭]?)", str(key or ""))
+        if not m:
+            return None
+        n = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}[m.group(1).upper()]
+        return (n + (1 if m.group(2) in ("#", "♯") else -1 if m.group(2) in ("b", "♭") else 0)) % 12
+
+    def pads_key(self, g, hits, d):
+        """Every key at once: a tap goes straight to it (playing tracks shift with it)."""
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "pads")
+        key = d.get("key") or (d.get("song") or {}).get("key")
+        cur = self.key_index(key)
+        minor = bool(re.match(r"\s*[A-Ga-g][#♯b♭]?m(?!aj)", str(key or "")))
+        cw, kh = (W - 12 - 5 * 4) / 6, 50
+        for i, name in enumerate(self.KEY_NAMES):
+            r, c = divmod(i, 6)
+            x, y = 6 + c * (cw + 4), 76 + r * (kh + 4)
+            delta = ((i - cur + 6) % 12) - 6 if cur is not None else None
+            action = None if delta == 0 else {"name": "stepKey", "delta": delta} if delta is not None else None
+            self.button(g, hits, [x, y, x + cw, y + kh], name + ("m" if minor else ""), action, on=cur == i,
+                        font=self.F["num"] if len(name) == 1 and not minor else self.F["title"])
+        y = 76 + 2 * (kh + 4) + 4
+        half = (W - 12 - 5) / 2
+        self.button(g, hits, [6, y, 6 + half, y + 46], "KEY −", {"name": "keyDown"}, sub="a half step down")
+        self.button(g, hits, [11 + half, y, W - 6, y + 46], "KEY +", {"name": "keyUp"}, sub="a half step up")
+        self.text(g, (W / 2, H - 56), "The pads change key at once; playing tracks shift with them.", self.F["sub"], C["muted"], "mm", W - 16)
+
+    def pads_sound(self, g, hits, d):
+        """How the pads sound: volume, reverb, tone, fade - and freeze, layer and the two textures."""
+        W, H = self.w, self.h
+        self.chips(g, hits, "pads")
+        perf = d.get("performance") or {}
+        vol = (d.get("mini") or {}).get("volume")
+        rows = [("Pads volume", "volume", perf.get("volume", vol if vol is not None else 0.85)), ("Reverb", "reverb", perf.get("reverb", 0.5)),
+                ("Tone", "tone", perf.get("tone", 1)), ("Fade time", "fade", perf.get("fade", 0.5))]
+        y, rh = 76, 32
+        for label, name, value in rows:
+            value = float(value or 0)
+            vt = ("dark" if value < 0.2 else "bright" if value > 0.8 else "%d%%" % round(value * 100)) if name == "tone" else None
+            self.fader(g, hits, [6, y, W - 6, y + rh], label, value, {"name": name}, valtext=vt)
+            y += rh
+        tex = d.get("textures") or []
+        buttons = [("FREEZE", {"name": "freeze"}, bool(d.get("frozen")), "hold the sound"), ("LAYER", {"name": "layer"}, bool(perf.get("layerMode")), "stack pads")]
+        for n in (0, 1):
+            t = tex[n] if n < len(tex) else {}
+            buttons.append(("TEXTURE %d" % (n + 1), {"name": "texture%d" % (n + 1)}, bool(t.get("on")), t.get("name") or "off"))
+        bw = (W - 12 - 3 * 5) / 4
+        for i, (label, action, on, sub) in enumerate(buttons):
+            x = 6 + i * (bw + 5)
+            self.button(g, hits, [x, y + 6, x + bw, H - 46], label, action, on=on, sub=sub, font=self.F["label"])
+
     # ----- TRACKS ---------------------------------------------------------------------------------------------------
     def page_tracks(self, g, hits, d):
         sub = self.sub.get("tracks", "play")
@@ -3415,11 +3524,10 @@ class MiniScreen:
             hits.append(([int(x), y0, int(x + cw), y1], {"name": "goSection", "args": {"index": s["index"]}}))
         loop = d.get("loop") if d.get("loop") is not None else -1
         buttons = [("PAUSE" if d.get("playing") else "PLAY", {"name": "playPause"}, bool(d.get("playing")), None),
-                   ("START", {"name": "startOver"}, False, None), ("SECTION ›", {"name": "nextSection"}, False, None),
-                   ("REPEAT", {"name": "repeatSection"}, loop >= 0, None),
-                   ("CLICK", {"name": "toggleClick"}, bool(d.get("click", True)), None),
-                   ("KEY −", {"name": "keyDown"}, False, None), ("KEY +", {"name": "keyUp"}, False, None),
-                   ("NEXT SONG", {"name": "nextSong"}, False, None)]
+                   ("STOP", {"name": "stopTracks"}, False, None), ("‹ SECTION", {"name": "prevSection"}, False, None),
+                   ("SECTION ›", {"name": "nextSection"}, False, None),
+                   ("REPEAT", {"name": "repeatSection"}, loop >= 0, None), ("START", {"name": "startOver"}, False, "from the top"),
+                   ("‹ SONG", {"name": "prevSong"}, False, None), ("NEXT SONG", {"name": "nextSong"}, False, None)]
         gy0, gy1 = 114, H - 46
         bw, bh = (W - 12 - 3 * 5) / 4, (gy1 - gy0 - 5) / 2
         for i, (label, action, on, sub) in enumerate(buttons):
@@ -3480,6 +3588,27 @@ class MiniScreen:
         if not songs:
             self.text(g, (W / 2, 170), "The setlist is empty", self.F["sub"], C["muted"], "mm")
 
+    def tracks_tempo(self, g, hits, d):
+        """The click and the tempo: tempo %, back to 100, ±5 %, tap; click on / off and its level, voice cues, count-in."""
+        W, H = self.w, self.h
+        self.chips(g, hits, "tracks")
+        m = d.get("mini") or {}
+        pct = float(m.get("tempoPercent") if m.get("tempoPercent") is not None else round((d.get("speed") or 1) * 100))
+        self.fader(g, hits, [6, 76, W - 6, 112], "Tempo", (pct - 50) / 100.0, {"name": "tempoPercent"}, valtext="%d%%" % round(pct), label_w=70)
+        bw = (W - 12 - 3 * 5) / 4
+        for i, (label, action, sub) in enumerate((("− 5%", {"name": "slower"}, "same pitch"), ("100%", {"name": "tempoReset"}, "as recorded"),
+                                                   ("+ 5%", {"name": "faster"}, "same pitch"), ("TAP", {"name": "tap"}, "%d BPM" % round(d.get("bpm") or 0)))):
+            x = 6 + i * (bw + 5)
+            self.button(g, hits, [x, 116, x + bw, 160], label, action, sub=sub, on=label == "100%" and round(pct) == 100)
+        lv = m.get("levels") or {}
+        self.fader(g, hits, [6, 166, W - 6, 202], "Click level", lv.get("click", 0.85), {"name": "clickLevel"}, dim=not d.get("click", True), label_w=100)
+        third = (W - 12 - 10) / 3
+        for i, (label, action, on, sub) in enumerate((("CLICK", {"name": "toggleClick"}, bool(d.get("click", True)), "on" if d.get("click", True) else "off"),
+                                                       ("VOICE CUES", {"name": "toggleCues"}, bool(d.get("cues", True)), "on" if d.get("cues", True) else "off"),
+                                                       ("COUNT-IN", {"name": "countIn"}, False, "off · 1 · 2 bars"))):
+            x = 6 + i * (third + 5)
+            self.button(g, hits, [x, 208, x + third, H - 46], label, action, on=on, sub=sub)
+
     # ----- INSTRUMENT -----------------------------------------------------------------------------------------------
     def page_instrument(self, g, hits, d):
         ins = (d.get("mini") or {}).get("instrument")
@@ -3516,6 +3645,9 @@ class MiniScreen:
                 self.lock_icon(g, 80, y0 + 6, 16, C["accent"])
                 self.text(g, (W / 2, y0 + 54), ("muted · " if keys else "locked pedals bypassed · ") + locked, self.F["tiny"], C["accent"], "mm", W - 156)
                 hits.append(([72, y0, W - 72, y1], {"local": "say", "text": locked + (" - this sound is muted until the plan is active." if keys else " - its locked pedals are bypassed until the plan is active.")}))
+            else:   # the whole list: tap the name
+                self.text(g, (W / 2, y0 + 56), "tap for the list", self.F["tiny"], C["muted"], "mm")
+                hits.append(([72, y0, W - 72, y1], {"local": "list", "what": "patches" if keys else "boards", "title": "Keys sounds" if keys else "Boards"}))
         lv = ins.get("levelDb") or 0
         self.fader(g, hits, [6, 190, W - 6, 230], "Instrument level", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
         if ins.get("kind") in ("electric", "acoustic", "bass"):   # play any sound: the guitar plays the chosen keys sound / a synth
@@ -3582,10 +3714,16 @@ class MiniScreen:
         self.button(g, hits, [6, 76, W - 6, 132], "TUNER", {"name": "tuner"}, on=bool(ins.get("tuner")), sub="the instrument is muted while it's up", font=self.F["title"])
         lv = ins.get("levelDb") or 0
         self.fader(g, hits, [6, 140, W - 6, 182], "Instrument level", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
-        vol = (d.get("mini") or {}).get("volume")
-        if vol is None:
-            vol = (d.get("performance") or {}).get("volume", 1)
-        self.fader(g, hits, [6, 186, W - 6, 228], "Pads volume", vol or 0, {"name": "volume"})
+        if ins.get("kind") in ("electric", "acoustic", "bass"):   # play any sound: on / off and its mode
+            mode = str((self.lists.get("instrument") or {}).get("mode") or "")
+            half = (W - 12 - 5) / 2
+            self.button(g, hits, [6, 186, 6 + half, 228], "PLAY ANY", {"name": "playAnyToggle"}, on=bool(ins.get("playAny")), sub="any sound from the guitar")
+            self.button(g, hits, [11 + half, 186, W - 6, 228], "MODE: " + (mode.title() if mode else "…"), {"local": "pick", "what": "playAnyMode", "id": "next"}, sub="Auto · Notes · Synth")
+        else:
+            vol = (d.get("mini") or {}).get("volume")
+            if vol is None:
+                vol = (d.get("performance") or {}).get("volume", 1)
+            self.fader(g, hits, [6, 186, W - 6, 228], "Pads volume", vol or 0, {"name": "volume"})
         self.button(g, hits, [6, 234, W - 6, H - 46], "AUTO SET-UP", {"name": "instrumentAuto"}, sub="listens to you play and sets the gain")
 
     # ----- SETTINGS -------------------------------------------------------------------------------------------------
@@ -3618,7 +3756,7 @@ class MiniScreen:
             self.button(g, hits, [W - 42, y + 3, W - 6, y + rh - 3], "›", {"name": "busOutput", "args": {"bus": b.get("id"), "delta": 1}}, radius=7)
             y += rh
         if not rt:
-            self.text(g, (W / 2, 200), "Outputs: set on the Central Pedal app (Settings → Audio)", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 200), "Outputs: set them in the Central Pedal app, Settings - Audio", self.F["sub"], C["muted"], "mm")
 
     def settings_screens(self, g, hits, d):
         C, W, H = self.COL, self.w, self.h
@@ -3684,6 +3822,145 @@ class MiniScreen:
         self.button(g, hits, [6, 208, 6 + bw, H - 46], "CALIBRATE", {"local": "calibrate"}, sub="touch the two crosses")
         self.button(g, hits, [6 + bw + 5, 208, W - 6, H - 46], "FLIP 180°", {"local": "flip"}, on=flipped, sub="upside down" if flipped else "for a screen mounted upside down")
 
+    # ----- SETTINGS → Wi-Fi: the networks around; an open or saved one joins with a tap, a new one asks its password
+    WIFI_PER = 3
+
+    def wifi_refresh(self, scan=False, force=False):
+        if self.wifi_busy or (not force and self.wifi is not None and time.monotonic() - self.wifi_at < 20):
+            return
+        self.wifi_busy = True
+
+        def work():
+            try:
+                self.wifi = wifi_status(scan=scan)
+            except Exception as error:
+                self.wifi = {"error": str(error)[:80], "networks": []}
+            self.wifi_at, self.wifi_busy = time.monotonic(), False
+            if self.driver:
+                self.driver.schedule_mini_render(force=True)
+        threading.Thread(target=work, daemon=True).start()
+
+    def settings_wifi(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        st = self.wifi
+        if st is None or time.monotonic() - self.wifi_at > 20:
+            self.wifi_refresh()
+        st = st or {}
+        nets = st.get("networks") or []
+        shown, page, pages = self.paged("wifi", nets, self.WIFI_PER)
+        self.chips(g, hits, "settings")
+        if st.get("connected"):
+            line = "Connected to %s · %s%%" % (st["connected"], st.get("signal") or 0)
+        elif st.get("error"):
+            line = st["error"]
+        else:
+            line = "Looking…" if self.wifi_busy or not st else "Not connected"
+        addrs = ", ".join((st.get("addresses") or [])[:2])
+        self.text(g, (8, 84), line, self.F["label"], C["text"] if st.get("connected") else C["warn"], "lm", W - 16)
+        self.text(g, (8, 102), self.wifi_msg or (addrs and "Address " + addrs) or "", self.F["sub"], C["accent"] if self.wifi_msg else C["muted"], "lm", W - 16)
+        y, rh = 114, 36
+        for n in shown:
+            on = bool(n.get("active"))
+            box = [6, y, W - 6, y + rh - 4]
+            g.rounded_rectangle(box, 8, fill=C["selected"] if on else C["btn"], outline=C["accent"] if on else C["line"])
+            if n.get("security"):
+                self.lock_icon(g, 14, y + 8, 15, C["muted"])
+            self.text(g, (38, y + (rh - 4) / 2), n.get("ssid") or "", self.F["name"], C["text"], "lm", W - 150)
+            bars = max(1, min(4, int((n.get("signal") or 0) / 25) + 1))
+            for b in range(4):
+                bx = W - 96 + b * 7
+                g.rectangle([bx, y + rh - 12 - (b + 1) * 4, bx + 4, y + rh - 12], fill=C["accent"] if b < bars else C["track"])
+            self.text(g, (W - 14, y + (rh - 4) / 2), "joined" if on else "join", self.F["sub"], C["accent"] if on else C["muted"], "rm")
+            hits.append(([int(v) for v in box], {"local": "wifiPick", "ssid": n.get("ssid"), "secure": bool(n.get("security")), "active": on}))
+            y += rh
+        if not nets:
+            self.text(g, (W / 2, 160), "Looking for Wi-Fi…" if self.wifi_busy else "No Wi-Fi found - tap SCAN", self.F["sub"], C["muted"], "mm")
+        pw = 54 if pages > 1 else 0
+        half = (W - 12 - 5 - 2 * (pw + 5 if pw else 0)) / 2
+        x = 6
+        if pw:
+            self.button(g, hits, [x, 226, x + pw, H - 46], "‹", {"local": "page", "key": "wifi", "d": -1} if page > 0 else None, font=self.F["num"], color=C["text"] if page > 0 else C["line"])
+            x += pw + 5
+        self.button(g, hits, [x, 226, x + half, H - 46], "SCAN", {"local": "wifiScan"}, sub="look again")
+        self.button(g, hits, [x + half + 5, 226, x + 2 * half + 5, H - 46], "PHONE SETUP", {"local": "phoneSetup"}, sub="set it up from a phone")
+        if pw:
+            self.button(g, hits, [W - 6 - pw, 226, W - 6, H - 46], "›", {"local": "page", "key": "wifi", "d": 1} if page < pages - 1 else None, font=self.F["num"], color=C["text"] if page < pages - 1 else C["line"])
+
+    def wifi_join(self, ssid, password):
+        self.wifi_msg = "Joining %s…" % ssid
+
+        def work():
+            try:
+                ok, text = wifi_connect(ssid, password)
+            except Exception as error:
+                ok, text = False, str(error)[:80]
+            self.wifi_msg = ("Joined %s" % ssid) if ok else (text or "Couldn't join %s" % ssid)
+            if self.driver:
+                self.driver.emit({"type": "wifiResult", "ok": ok, "message": text, "ssid": ssid})
+            self.wifi_busy = False
+            self.wifi_refresh(force=True)
+        threading.Thread(target=work, daemon=True).start()
+
+    def run_update(self, install=False):
+        """Settings → System: look for a new version, then INSTALL (asked twice) - the same as Settings → Software updates."""
+        up = getattr(self.driver, "updater", None)
+        if not up:
+            self.update_msg = "not on this pedal"
+            return
+        if getattr(up, "busy", False):
+            self.update_msg = "busy - a moment…"
+            return
+        self.update_msg = "installing - the pedal restarts its app" if install else "looking…"
+
+        def work():
+            up.busy = True
+            try:
+                if install:
+                    if not up.latest:
+                        up.check()
+                    res = self.driver.software_update(up.download())
+                    self.update_ready = False
+                    self.update_msg = "installed - restarting…" if res.get("ok") else "not installed: " + str(res.get("error") or "")[:60]
+                else:
+                    st = up.check()
+                    self.update_ready = str(st.get("latest")) if st.get("available") and st.get("hasPi") else False
+                    self.update_msg = ("%s is ready - tap INSTALL" % st.get("latest")) if self.update_ready else (st.get("error") or "up to date (%s)" % APP_VERSION)
+            except Exception as error:
+                self.update_msg = "couldn't: %s" % str(error)[:60]
+            finally:
+                up.busy = False
+                self.driver.emit(up.status())
+                self.driver.schedule_mini_render(force=True)
+        threading.Thread(target=work, daemon=True).start()
+
+    # ----- SETTINGS → Controls: what each button, knob and slider does (tap one, pick from the list)
+    def settings_controls(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        data = self.lists.get("controls")
+        self.want("controls")
+        items = (data or {}).get("items") or []
+        shown, page, pages = self.paged("controls", items, 4)
+        self.chips(g, hits, "settings")
+        if data is None:
+            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            return
+        if pages > 1:   # ‹ 1/5 › along the bottom
+            yb = H - 46 - 34
+            self.button(g, hits, [6, yb, 120, H - 46], "‹ PREV", {"local": "page", "key": "controls", "d": -1} if page > 0 else None, color=C["text"] if page > 0 else C["line"])
+            self.text(g, (W / 2, yb + 17), "%d / %d" % (page + 1, pages), self.F["label"], C["muted"], "mm")
+            self.button(g, hits, [W - 120, yb, W - 6, H - 46], "MORE ›", {"local": "page", "key": "controls", "d": 1} if page < pages - 1 else None, color=C["text"] if page < pages - 1 else C["line"])
+        y, rh = 76, (H - 46 - 76 - 38) / 4
+        for it in shown:
+            box = [6, y + 2, W - 6, y + rh - 2]
+            g.rounded_rectangle(box, 8, fill=C["btn"], outline=C["line"])
+            self.text(g, (16, (box[1] + box[3]) / 2), it.get("name") or it.get("id"), self.F["name"], C["text"], "lm", 130)
+            none = (it.get("action") or "none") == "none"
+            self.text(g, (W - 30, (box[1] + box[3]) / 2), it.get("label") or "", self.F["label"], C["muted"] if none else C["accent"], "rm", W - 190)
+            self.text(g, (W - 14, (box[1] + box[3]) / 2), "›", self.F["title"], C["muted"], "rm")
+            hits.append(([int(v) for v in box], {"local": "list", "what": "actions", "kind": it.get("kind") or "trigger", "target": it.get("id"),
+                                                 "current": it.get("action"), "title": (it.get("name") or it.get("id")) + " does…"}))
+            y += rh
+
     def settings_system(self, g, hits, d):
         C, W, H = self.COL, self.w, self.h
         self.chips(g, hits, "settings")
@@ -3702,17 +3979,127 @@ class MiniScreen:
         except Exception:
             pk = []
         lines += [("Packages" if i == 0 else "", v) for i, v in enumerate(pk[:2])] or [("Packages", "none - free sounds and pedals")]
+        up = getattr(self.driver, "updater", None) if self.driver else None
+        lines.append(("Updates", self.update_msg or ("tap UPDATES to look" if up else "not on this pedal")))
         y = 80
         for k, v in lines:
             self.text(g, (10, y), k, self.F["label"], C["muted"])
-            self.text(g, (130, y), v, self.F["label"], C["text"], "la", W - 140)
-            y += 22
-        self.text(g, (130, y), "Add a package in the app or Pedal Control", self.F["sub"], C["muted"], "la", W - 140)
-        bw = (W - 12 - 10) / 3
-        by0, by1 = H - 46 - 64, H - 50
-        self.button(g, hits, [6, by0, 6 + bw, by1], "CALIBRATE", {"local": "calibrate"}, sub="the touch")
-        self.button(g, hits, [6 + bw + 5, by0, 6 + 2 * bw + 5, by1], "RESTART", {"local": "reboot"}, on=self.confirm == "reboot", sub="tap again" if self.confirm == "reboot" else "the pedal")
-        self.button(g, hits, [6 + 2 * bw + 10, by0, W - 6, by1], "SHUT DOWN", {"local": "shutdown"}, on=self.confirm == "shutdown", fill=C["stop"], sub="tap again" if self.confirm == "shutdown" else "safely")
+            self.text(g, (130, y), v, self.F["label"], C["accent"] if k == "Updates" and self.update_ready else C["text"], "la", W - 140)
+            y += 21
+        bw = (W - 12 - 15) / 4
+        by0, by1 = H - 46 - 62, H - 50
+        x = [6 + i * (bw + 5) for i in range(4)]
+        if self.update_ready:
+            self.button(g, hits, [x[0], by0, x[0] + bw, by1], "INSTALL", {"local": "update", "install": True}, on=self.confirm == "update", sub="tap again" if self.confirm == "update" else self.update_ready)
+        else:
+            self.button(g, hits, [x[0], by0, x[0] + bw, by1], "UPDATES", {"local": "update"}, sub="look now")
+        self.button(g, hits, [x[1], by0, x[1] + bw, by1], "ADD KEY", {"local": "keys", "purpose": "package", "title": "Type the package key (SXXX-XXXX-XXXX-XXXX)"}, sub="a package")
+        self.button(g, hits, [x[2], by0, x[2] + bw, by1], "RESTART", {"local": "reboot"}, on=self.confirm == "reboot", sub="tap again" if self.confirm == "reboot" else "the pedal")
+        self.button(g, hits, [x[3], by0, W - 6, by1], "SHUT DOWN", {"local": "shutdown"}, on=self.confirm == "shutdown", fill=C["stop"], sub="tap again" if self.confirm == "shutdown" else "safely")
+
+    # ----- over the page: a list to pick from, or the keyboard ------------------------------------------------------
+    def want(self, what, kind=None, every=4.0):
+        """Ask the app for a list (sounds, boards, what a button can do…), at most every few seconds."""
+        key = what + (":" + kind if kind else "")
+        asked = self.__dict__.setdefault("_asked", {})
+        if self.driver and time.monotonic() - asked.get(key, 0) > every:
+            asked[key] = time.monotonic()
+            self.driver.emit({"type": "miniRequest", "what": what, "kind": kind})
+
+    def list_key(self, ov):
+        return ov["what"] + (":" + ov["akind"] if ov.get("akind") else "")
+
+    def overlay_list(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        ov = self.overlay
+        key = self.list_key(ov)
+        data = self.lists.get(key)
+        items = (data or {}).get("items") or []
+        cur = ov.get("current") if ov.get("current") is not None else (data or {}).get("current")
+        if data is not None and not ov.get("placed"):   # (opens at the page with the current one on it)
+            ov["placed"] = True
+            at = next((i for i, it in enumerate(items) if it.get("id") == cur), 0)
+            self.pages["list:" + key] = at // 5
+        shown, page, pages = self.paged("list:" + key, items, 5)
+        self.button(g, hits, [6, 44, 86, 70], "‹ BACK", {"local": "back"}, radius=13, font=self.F["label"])
+        self.text(g, (96, 57), ov.get("title") or "", self.F["name"], C["text"], "lm", W - 96 - (104 if pages > 1 else 8))
+        if pages > 1:
+            self.button(g, hits, [W - 98, 44, W - 66, 70], "‹", {"local": "page", "key": "list:" + key, "d": -1} if page > 0 else None, radius=13, color=C["text"] if page > 0 else C["line"])
+            self.text(g, (W - 50, 57), "%d/%d" % (page + 1, pages), self.F["sub"], C["muted"], "mm")
+            self.button(g, hits, [W - 38, 44, W - 6, 70], "›", {"local": "page", "key": "list:" + key, "d": 1} if page < pages - 1 else None, radius=13, color=C["text"] if page < pages - 1 else C["line"])
+        if data is None:
+            self.want(ov["what"], ov.get("akind"), every=2.0)
+            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            return
+        if not items:
+            self.text(g, (W / 2, 170), "Nothing to pick here", self.F["sub"], C["muted"], "mm")
+            return
+        y, rh = 76, (H - 46 - 76) / 5
+        for it in shown:
+            on = it.get("id") == cur
+            box = [6, y + 2, W - 6, y + rh - 2]
+            g.rounded_rectangle(box, 8, fill=C["selected"] if on else C["bar"] if it.get("locked") else C["btn"], outline=C["accent"] if on else C["line"])
+            cy = (box[1] + box[3]) / 2
+            x = 14
+            if it.get("locked"):
+                self.lock_icon(g, x, cy - 8, 15, C["accent"])
+                x += 22
+            self.text(g, (x, cy), it.get("label") or it.get("id"), self.F["name"], C["muted"] if it.get("locked") else C["text"], "lm", W - x - 150)
+            self.text(g, (W - 14, cy), it.get("locked") or it.get("sub") or "", self.F["sub"], C["accent"] if it.get("locked") else C["muted"], "rm", 140)
+            if it.get("locked"):
+                hits.append(([int(v) for v in box], {"local": "say", "text": str(it.get("locked")) + " - it opens with that plan."}))
+            else:
+                hits.append(([int(v) for v in box], {"local": "pick", "what": ov["what"], "id": it.get("id"), "target": ov.get("target"), "label": it.get("label")}))
+            y += rh
+
+    KB_ROWS = {"abc": ["1234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm-._"],
+               "ABC": ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM-._"],
+               "sym": ["1234567890", "!@#$%^&*()", "=+[]{};:'", '",<>/?~|\\`']}
+
+    def kb_shown(self):
+        ov = self.overlay
+        v = ov.get("value") or ""
+        if ov.get("purpose") == "package":
+            return "-".join(v[i:i + 4] for i in range(0, len(v), 4))
+        return v
+
+    def overlay_keys(self, g, hits, d):
+        """A keyboard for a Wi-Fi password or a package key (keys 44 px wide, the field on top)."""
+        C, W, H = self.COL, self.w, self.h
+        ov = self.overlay
+        g.rectangle([0, 40, W, H], fill=C["bg"])
+        g.rounded_rectangle([6, 44, W - 6, 80], 8, fill=C["bar"], outline=C["accent"])
+        shown = self.kb_shown()
+        if shown:
+            shown = self.fit(g, shown, self.F["title"], W - 40) if self.text_width(g, shown, self.F["title"]) > W - 40 else shown
+            self.text(g, (16, 62), shown, self.F["title"], C["text"], "lm")
+            cx = 18 + self.text_width(g, shown, self.F["title"])
+            g.rectangle([cx, 52, cx + 1, 72], fill=C["accent"])
+        else:
+            self.text(g, (16, 62), ov.get("title") or "", self.F["label"], C["muted"], "lm", W - 32)
+        mode = ov.get("mode") or "abc"
+        rows = self.KB_ROWS[mode]
+        top, rh, gap = 86, 42, 4
+        kw = (W - 12 - 9 * gap) / 10
+        for r, row in enumerate(rows):
+            y = top + r * (rh + gap)
+            x = 6
+            for ch in row:
+                self.button(g, hits, [x, y, x + kw, y + rh], ch, {"local": "kb", "k": ch}, font=self.F["title"], radius=7)
+                x += kw + gap
+            if len(row) < 10:   # (a short row ends with ⌫)
+                self.button(g, hits, [x, y, W - 6, y + rh], "DEL", {"local": "kbDel"}, radius=7, font=self.F["label"])
+        y = top + 4 * (rh + gap)
+        cols = [("ABC" if mode == "abc" else "abc", {"local": "kbMode", "mode": "ABC" if mode == "abc" else "abc"}, 64),
+                ("#+=", {"local": "kbMode", "mode": "sym" if mode != "sym" else "abc"}, 56), ("space", {"local": "kb", "k": " "}, 0),
+                ("DEL", {"local": "kbDel"}, 56), ("CANCEL", {"local": "back"}, 76), ("OK", {"local": "kbOk"}, 76)]
+        fixed = sum(c[2] for c in cols) + gap * (len(cols) - 1)
+        x = 6
+        for label, action, wdt in cols:
+            wdt = wdt or (W - 12 - fixed)
+            self.button(g, hits, [x, y, x + wdt, H - 4], label, action, on=label == "OK", radius=7,
+                        font=self.F["label"] if len(label) > 2 else self.F["title"])
+            x += wdt + gap
 
     # ----- what a touch does ----------------------------------------------------------------------------------------
     NOTICE_S = 3.5
@@ -3740,9 +4127,70 @@ class MiniScreen:
             self.say(a.get("text"))
         elif kind == "tab":
             self.tab = a.get("value") or "pads"
+            self.overlay = None
         elif kind == "sub":
             self.tab = a.get("tab") or self.tab
             self.sub[self.tab] = a.get("value")
+            self.overlay = None
+            if self.tab == "settings" and a.get("value") == "wifi":
+                self.wifi_refresh(force=True)
+            if self.tab == "instrument" and a.get("value") == "tune":
+                self.want("instrument", every=0)
+        elif kind == "list":
+            self.overlay = {"kind": "list", "what": a.get("what"), "akind": a.get("kind"), "title": a.get("title"), "target": a.get("target"), "current": a.get("current")}
+            self.lists.pop(self.list_key(self.overlay), None)   # (always the app's newest list)
+            self.want(a.get("what"), a.get("kind"), every=0)
+        elif kind == "back":
+            self.overlay = None
+        elif kind == "pick" and self.driver:
+            self.driver.emit({"type": "miniPick", "what": a.get("what"), "id": a.get("id"), "target": a.get("target")})
+            if a.get("what") != "playAnyMode":
+                self.overlay = None
+                if a.get("label"):
+                    self.say(("Now: " if a.get("what") == "actions" else "") + str(a.get("label")))
+        elif kind == "wifiScan":
+            self.wifi_msg = ""
+            self.wifi_refresh(scan=True, force=True)
+        elif kind == "wifiPick" and self.driver:
+            if a.get("active"):
+                self.wifi_msg = "Already joined %s" % a.get("ssid")
+            elif a.get("secure"):
+                self.overlay = {"kind": "keys", "purpose": "wifi", "ssid": a.get("ssid"), "value": "", "mode": "abc", "title": "Password for %s" % a.get("ssid")}
+            else:
+                self.wifi_join(a.get("ssid"), "")
+        elif kind == "phoneSetup" and self.driver and getattr(self.driver, "phone_setup", None):
+            threading.Thread(target=lambda: self.driver.phone_setup.start("asked on the small screen"), daemon=True).start()
+        elif kind == "keys":
+            self.overlay = {"kind": "keys", "purpose": a.get("purpose"), "value": "", "mode": "ABC" if a.get("purpose") == "package" else "abc", "title": a.get("title")}
+        elif kind == "kb" and self.overlay and self.overlay.get("kind") == "keys":
+            ov, ch = self.overlay, str(a.get("k") or "")
+            if ov.get("purpose") == "package":
+                ch = re.sub(r"[^A-Z0-9]", "", ch.upper())
+                if len(ov["value"]) < 16:
+                    ov["value"] += ch
+            elif len(ov["value"]) < 64:
+                ov["value"] += ch
+        elif kind == "kbDel" and self.overlay and self.overlay.get("kind") == "keys":
+            self.overlay["value"] = self.overlay["value"][:-1]
+        elif kind == "kbMode" and self.overlay and self.overlay.get("kind") == "keys":
+            self.overlay["mode"] = a.get("mode") if a.get("mode") in self.KB_ROWS else "abc"
+        elif kind == "kbOk" and self.overlay and self.overlay.get("kind") == "keys" and self.driver:
+            ov, self.overlay = self.overlay, None
+            if ov.get("purpose") == "wifi":
+                self.tab, self.sub["settings"] = "settings", "wifi"
+                self.wifi_join(ov.get("ssid"), ov.get("value") or "")
+            elif ov.get("purpose") == "package":
+                if len(ov.get("value") or "") != 16 or not ov["value"].startswith("S"):
+                    self.say("A package key has 16 letters and digits and starts with S.")
+                else:
+                    self.driver.emit({"type": "miniPackage", "key": "-".join(ov["value"][i:i + 4] for i in range(0, 16, 4))})
+                    self.say("Checking the key…")
+        elif kind == "update" and self.driver:
+            if a.get("install") and not (self.confirm == "update" and time.monotonic() - self.confirm_at < 5):
+                self.confirm, self.confirm_at = "update", time.monotonic()
+            else:
+                self.confirm = None
+                self.run_update(bool(a.get("install")))
         elif kind == "page":
             self.pages[a.get("key")] = self.pages.get(a.get("key"), 0) + int(a.get("d") or 0)
         elif kind == "hdmi" and self.driver:
@@ -3811,10 +4259,12 @@ class MiniScreen:
             self.driver.touch_calibration_point(raw_x, raw_y)
             return None
         x, y = self.map_touch(raw_x, raw_y)
-        action = self.hit_test(x, y)
+        action, box = self.hit_box(x, y)
         self.active = None
         if not action:
             return None
+        if not action.get("slider") and self.fb_present():
+            self.press_feedback(box)
         if action.get("local"):
             self.local(action)
             return action
@@ -3837,34 +4287,105 @@ class MiniScreen:
             self.send_value(action, x)
             return action
         if self.driver:
-            self.driver.emit({"type": "action", "name": action["name"], "args": action.get("args") or {}, "from_": "screen"})
+            msg = {"type": "action", "name": action["name"], "args": action.get("args") or {}, "from_": "screen"}
+            if action.get("delta"):
+                msg["delta"] = action["delta"]
+            self.driver.emit(msg)
         return action
 
     def drag(self, raw_x, raw_y):
-        """A finger sliding on a fader: its value follows (about 25 a second)."""
+        """A finger sliding on a fader: its value follows (about 40 a second; a wobble of a pixel or two is ignored)."""
         a = self.active
-        if not a or time.monotonic() - self.drag_at < 0.04:
+        if not a or time.monotonic() - self.drag_at < 0.025:
+            return None
+        x, _ = self.map_touch(raw_x, raw_y)
+        if a.get("drag_x") is not None and abs(x - a["drag_x"]) < 2:
             return None
         self.drag_at = time.monotonic()
-        x, _ = self.map_touch(raw_x, raw_y)
+        a["drag_x"] = x
         return self.send_value(a, x)
 
-    def push(self):
-        if not self.available or self.image is None or not self.fb_present():
+    FULL_PUSH_S = 30.0   # (now and then the whole picture again, in case something else drew on the screen)
+
+    def push(self, img=None):
+        """Put the picture on the screen. Only the rows that changed since the last one are written: the screen's
+        driver sends just those over SPI (a whole 480×320 picture takes ~150 ms at 16 MHz, a clock tick ~15 ms)."""
+        img = img if img is not None else self.image
+        if not self.available or img is None or not self.fb_present():
             return False
-        img = self.image
         if self.spec.get("rotate"):
             img = img.rotate(int(self.spec["rotate"]), expand=True)
         size = self.fb_size()
         if size and tuple(size) != img.size:   # a 320×240 screen: the same picture, scaled
             img = img.resize(tuple(size), getattr(self.Image, "LANCZOS", 1))
+        data = self.to_rgb565(img)
+        w, h = img.size
+        row = w * 2
+        stride = self.fb_stride() or row
+        plock = self.__dict__.setdefault("_push_lock", threading.Lock())
+        with plock:
+            prev = getattr(self, "_last_fb", None)
+            full = prev is None or len(prev) != len(data) or stride != row or time.monotonic() - getattr(self, "_full_at", 0.0) > self.FULL_PUSH_S
+            r0, r1 = 0, h
+            if not full:
+                rows = self.changed_rows(prev, data, w, h)
+                if rows is None:
+                    self.last_push_bytes = 0
+                    return True
+                r0, r1 = rows
+            try:
+                with open(self.fb, "r+b") as handle:
+                    if stride == row:
+                        handle.seek(r0 * row)
+                        handle.write(data[r0 * row:r1 * row])
+                    else:   # (a framebuffer with padded lines: line by line)
+                        for y in range(r0, r1):
+                            handle.seek(y * stride)
+                            handle.write(data[y * row:(y + 1) * row])
+                self._last_fb = data
+                self.last_push_bytes = (r1 - r0) * row
+                if full:
+                    self._full_at = time.monotonic()
+                return True
+            except Exception as error:
+                self._last_fb = None
+                log.debug("framebuffer write failed (%s)", error)
+                return False
+
+    @staticmethod
+    def changed_rows(prev, data, w, h):
+        """(first, last + 1) of the rows that differ, or None when nothing did."""
         try:
-            with open(self.fb, "r+b") as handle:
-                handle.write(self.to_rgb565(img))
-            return True
-        except Exception as error:
-            log.debug("framebuffer write failed (%s)", error)
+            import numpy as np
+            a = np.frombuffer(data, dtype="<u2").reshape(h, w)
+            b = np.frombuffer(prev, dtype="<u2").reshape(h, w)
+            rows = np.flatnonzero((a != b).any(axis=1))
+            return (int(rows[0]), int(rows[-1]) + 1) if rows.size else None
+        except Exception:
+            row = w * 2
+            diff = [y for y in range(h) if data[y * row:(y + 1) * row] != prev[y * row:(y + 1) * row]]
+            return (diff[0], diff[-1] + 1) if diff else None
+
+    def fb_stride(self):
+        if getattr(self, "_fb_stride", None) is None:
+            try:
+                with open("/sys/class/graphics/%s/stride" % os.path.basename(self.fb)) as fh:
+                    self._fb_stride = int(fh.read().strip() or 0)
+            except (OSError, ValueError):
+                self._fb_stride = 0
+        return self._fb_stride
+
+    def press_feedback(self, box):
+        """The pressed button lights up at once - before the app has answered (that redraw follows a moment later)."""
+        if not self.available or self.image is None:
             return False
+        with self.lock:
+            img = self.image.copy()
+        g = self.ImageDraw.Draw(img)
+        x0, y0, x1, y1 = [int(v) for v in box]
+        g.rounded_rectangle([x0, y0, x1, y1], 9, outline=self.COL["accent"], width=3)
+        g.rounded_rectangle([x0 + 3, y0 + 3, x1 - 3, y1 - 3], 7, outline=(255, 244, 214), width=1)
+        return self.push(img)
 
     def fb_size(self):
         """The framebuffer's own size (/sys/class/graphics/fbN/virtual_size), else the picked screen's."""
@@ -3897,11 +4418,24 @@ class MiniScreen:
             return bytes(out)
 
     def hit_test(self, x, y):
+        return self.hit_box(x, y)[0]
+
+    def hit_box(self, x, y):
+        """The button under a point (and its box). A touch that lands just outside one (a resistive panel's few
+        pixels of error) still counts for the nearest button within 6 px."""
         with self.lock:
-            for box, action in self.hits:
-                if box[0] <= x <= box[2] and box[1] <= y <= box[3]:
-                    return action
-        return None
+            hits = list(self.hits)
+        for box, action in hits:
+            if box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                return action, box
+        best, near = None, 6.0
+        for box, action in hits:
+            dx = max(box[0] - x, 0, x - box[2])
+            dy = max(box[1] - y, 0, y - box[3])
+            d = math.hypot(dx, dy)
+            if d <= near:
+                best, near = (action, box), d
+        return best or (None, None)
 
     def map_touch(self, raw_x, raw_y):
         c = self.spec.get("calibration") or {}
@@ -3966,7 +4500,7 @@ class MiniScreen:
                             # A resistive panel's first readings jump while the finger settles: the tap goes off on the
                             # middle of the first few (about 30 ms), not on the very first one.
                             samples.append((x, y))
-                            if len(samples) >= 4 or time.monotonic() - down_at > 0.05:
+                            if len(samples) >= 3 or time.monotonic() - down_at > 0.03:
                                 pending = False
                                 self.tap(*self.steady(samples))
                         elif down and self.active:
@@ -7865,6 +8399,15 @@ class PedalDriver:
                 self.schedule_mini_render(force=True)
             else:
                 self.send_to(ws, {"type": "packages", "packages": read_json(path, [])})
+        elif kind == "miniList":   # the small screen's lists (sounds, boards, what a control does…), from the app
+            if self.mini:
+                what = str(message.get("what") or "") + (":" + str(message["kind"]) if message.get("kind") else "")
+                self.mini.lists[what] = {k: v for k, v in message.items() if k not in ("type", "what", "kind")}
+                self.schedule_mini_render(force=True)
+        elif kind == "miniResult":
+            if self.mini and message.get("text"):
+                self.mini.say(str(message["text"])[:120])
+                self.schedule_mini_render(force=True)
         elif kind == "tunerView":
             self.tuner_view = {k: message.get(k) for k in ("note", "cents", "on")} if message.get("on") else None
             self.schedule_mini_render()
@@ -8218,6 +8761,38 @@ class PedalDriver:
         cfg["channels"] = chans.get("channels") or []
         cfg["cards"] = chans.get("cards") or []
         return cfg
+
+    def refresh_screen_lines(self, config_txt=None):
+        """A card made before its screen's config.txt lines changed (9.8: the 3.5" screen updates 50 times a second,
+        not 20) gets the new lines - they take effect at the next start. Only the same screen's own block is touched.
+        True = rewritten, False = already current, None = nothing to do here."""
+        c = self.config
+        if config_txt is None and (c.get("simulated") or not os.path.exists(SYSTEM_SCRIPT)):
+            return None
+        sid = touch_screen_id(c)
+        s = screen_by_id(c.get("app_root"), sid) if sid != "off" else None
+        if not s or s.get("kind") != "spi":
+            return None
+        path = config_txt or next((p for p in ("/boot/firmware/config.txt", "/boot/config.txt") if os.path.isfile(p)), None)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                text = handle.read()
+        except (OSError, TypeError):
+            return None
+        m = re.search(r"^# central-pedal-screen begin\n(.*?)^# central-pedal-screen end$", text, re.M | re.S)
+        if not m:
+            return None
+        have = [ln.strip() for ln in m.group(1).splitlines() if ln.strip() and ln.strip() != "[all]"]
+        want = list(s.get("config") or [])
+        if have == want:
+            return False
+        overlays = lambda lines: [re.split(r"[:,]", ln[len("dtoverlay="):])[0] for ln in lines if ln.startswith("dtoverlay=")]
+        if overlays(have) != overlays(want):
+            return None   # (another screen's lines, or edited by hand: left alone)
+        if config_txt is None:
+            ok = run_privileged(SYSTEM_SCRIPT, "screen", sid)
+            log.info("touch screen %s: config.txt lines brought up to date%s", sid, " (next start)" if ok else " - failed")
+        return True
 
     def auto_touch_screen(self, wait=8.0):
         """A Pi with nothing on HDMI or the ribbon port, and no touch screen picked yet, most likely has the common 3.5"
@@ -8812,21 +9387,26 @@ class PedalDriver:
         if not (self.mini and self.mini.available):
             return
         now = time.monotonic()
-        if not force and now - self.last_mini_render < 0.1:
+        if not force and now - self.last_mini_render < 0.05:
             if self.mini_timer is None and self.loop:
-                self.mini_timer = self.loop.call_later(0.12, lambda: self.schedule_mini_render(True))
+                self.mini_timer = self.loop.call_later(0.06, lambda: self.schedule_mini_render(True))
             return
         self.mini_timer = None
         self.last_mini_render = now
+        if getattr(self, "_mini_wake", None) is None:
+            self._mini_wake = threading.Event()
 
-        def work():
-            try:
-                self.mini.render(self.display)
-                self.mini.push()
-            except Exception as error:
-                log.debug("mini render failed (%s)", error)
-
-        threading.Thread(target=work, daemon=True).start()
+            def worker():   # one drawing thread: a burst of changes draws once, with the newest state
+                while True:
+                    self._mini_wake.wait()
+                    self._mini_wake.clear()
+                    try:
+                        self.mini.render(self.display)
+                        self.mini.push()
+                    except Exception as error:
+                        log.debug("mini render failed (%s)", error)
+            threading.Thread(target=worker, daemon=True, name="mini-screen").start()
+        self._mini_wake.set()
 
     # ----- lifecycle ----------------------------------------------------------
     async def run(self, stop_event=None):
@@ -8842,6 +9422,7 @@ class PedalDriver:
         except Exception as error:
             log.debug("displays: %s", error)
         threading.Thread(target=self.auto_touch_screen, daemon=True).start()
+        threading.Thread(target=self.refresh_screen_lines, daemon=True).start()
         threading.Thread(target=self.phone_setup.watch, daemon=True).start()
         threading.Thread(target=self.watch_audio_devices, daemon=True).start()
         self.start_gpio()

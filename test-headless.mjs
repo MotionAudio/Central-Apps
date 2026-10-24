@@ -118,6 +118,20 @@ await check("hello from the driver -> the 'Central Pedal' connected badge", asyn
   await hw({ type: "hello", pads: 7, knobs: ["volume"], expression: true, encoder: true });
   assert.equal(await T(() => document.querySelector("#pfHw").classList.contains("on")), true);
 });
+await check("the small screen's lists: the controls and what each does, what a button can do; a pick there changes the button", async () => {
+  await T(() => { window.__sent = []; __pedalBridge.socket = { readyState: 1, send: (s) => window.__sent.push(JSON.parse(s)) }; });
+  const before = await T(() => JSON.stringify(PPActions.mapping().b1 || null));
+  await hw({ type: "miniRequest", what: "controls" });
+  await hw({ type: "miniRequest", what: "actions", kind: "continuous" });
+  await hw({ type: "miniPick", what: "actions", id: "tap", target: "b1" }); await wait(50);
+  const sent = await T(() => window.__sent.filter((m) => m.type === "miniList"));
+  const ctl = sent.find((m) => m.what === "controls"), act = sent.find((m) => m.what === "actions"), again = sent.filter((m) => m.what === "controls");
+  assert.ok(ctl && ctl.items.length >= 20 && ctl.items.some((i) => i.id === "k1" && i.kind === "continuous"), JSON.stringify(ctl && ctl.items.slice(0, 3)));
+  assert.ok(act && act.kind === "continuous" && act.items.some((i) => i.id === "volume") && !act.items.some((i) => i.id === "tap"));
+  assert.equal(await T(() => PPActions.mapping().b1.action), "tap");
+  assert.ok(again.length === 2 && again[1].items.find((i) => i.id === "b1").action === "tap");
+  await T((b) => { const m = PPActions.mapping(); if (b === "null") delete m.b1; else m.b1 = JSON.parse(b); __pedalBridge.socket = null; }, before);
+});
 
 console.log("\nPerform screen:");
 await check("encoder hold -> switches to the Perform screen", async () => {
