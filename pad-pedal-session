@@ -26,7 +26,20 @@ exec >>"$LOG" 2>&1
 echo "=== session start $(date)"
 
 xset -dpms; xset s off; xset s noblank
-unclutter -idle 1 -root >/dev/null 2>&1 &
+# the pointer: hidden for the touch screens, shown whenever a real mouse is plugged in (Settings → Screens → Mouse cursor)
+mouse_plugged() {   # a device with relative axes and a mouse handler (a touch screen has absolute axes only)
+  awk 'BEGIN { RS = ""; f = 1 } /H: Handlers=[^\n]*mouse/ && /B: REL=[0-9a-f]*[1-9a-f]/ { f = 0 } END { exit f }' /proc/bus/input/devices 2>/dev/null
+}
+UNCLUTTER_PID=""
+pointer_watch() {
+  local want=hide
+  case "${CURSOR:-auto}" in always) want=show ;; never) want=hide ;; *) mouse_plugged && want=show ;; esac
+  if [ "$want" = hide ]; then
+    { [ -n "$UNCLUTTER_PID" ] && kill -0 "$UNCLUTTER_PID" 2>/dev/null; } || { unclutter -idle 1 -root >/dev/null 2>&1 & UNCLUTTER_PID=$!; }
+  elif [ -n "$UNCLUTTER_PID" ]; then
+    kill "$UNCLUTTER_PID" 2>/dev/null; UNCLUTTER_PID=""
+  fi
+}
 xsetroot -solid '#08111d' 2>/dev/null
 
 # ---- audio: 4-channel output (music 1-2 on the jack / USB, click 3-4 on the I2S DAC)
@@ -262,6 +275,7 @@ start_engine() {
 
 layout
 [ -z "$AUDIO_PID" ] || wait "$AUDIO_PID"
+pointer_watch
 start_engine
 start_window 1
 if [ -n "$SEC" ]; then sleep 0.5; start_window 2; fi
@@ -273,6 +287,7 @@ LAST_HDMI="$(hdmi_sig)"; LAST_CFG="$(md5sum < "$DATA/displays.json" 2>/dev/null)
 CONTENT="$HDMI1|$HDMI2|$SCALE|$CURSOR|$TOUCHKIND"
 while kill -0 "$PID1" 2>/dev/null; do
   sleep "${CC_WATCH_EVERY:-2}"
+  pointer_watch
   NOW_HDMI="$(hdmi_sig)"; NOW_CFG="$(md5sum < "$DATA/displays.json" 2>/dev/null)"
   [ "$NOW_HDMI" = "$LAST_HDMI" ] && [ "$NOW_CFG" = "$LAST_CFG" ] && continue
   if [ "$NOW_CFG" != "$LAST_CFG" ]; then

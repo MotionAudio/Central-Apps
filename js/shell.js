@@ -43,10 +43,18 @@
   // only the Central Pedal's own touchscreen hides the pointer: Central Pedal Control, the player window in Central Control,
   // a phone/tablet app and a browser on another computer always show it
   var pedalScreen = /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && !window.CCDesktop && !window.CP_CONTROL && location.protocol !== "capacitor:" && !/[?&]player=1/.test(location.search);
-  function setPointer(on) { pointer = !!on; var mode = cursorMode(); document.body.classList.toggle("no-cursor", pedalScreen && (mode === "never" || (mode === "auto" && connected() && !pointer))); }
-  document.addEventListener("pointermove", function (e) { if (!connected() && e.pointerType === "mouse" && document.body.classList.contains("no-cursor")) document.body.classList.remove("no-cursor"); });
+  // a real mouse: the driver sees it (USB), or the page sees it hover - a pointer moving with no button down, several
+  // times in a row (a touch screen only moves while it is pressed)
+  var hovered = false, hoverRun = 0, hoverAt = 0;
+  function setPointer(on) { if (on != null) pointer = !!on; var mode = cursorMode(); document.body.classList.toggle("no-cursor", pedalScreen && (mode === "never" || (mode === "auto" && connected() && !pointer && !hovered))); }
+  document.addEventListener("pointermove", function (e) {
+    if (e.pointerType !== "mouse" || e.buttons) { hoverRun = 0; return; }
+    var t = Date.now(); hoverRun = t - hoverAt < 400 ? hoverRun + 1 : 1; hoverAt = t;
+    if (hoverRun >= 4 && !hovered) { hovered = true; setPointer(null); }
+    if (!connected() && document.body.classList.contains("no-cursor")) document.body.classList.remove("no-cursor");
+  });
   F.on("hello", function (m) { setPointer(!!m.mouse); renderSystemExtras(); });
-  F.on("devices", function (m) { setPointer(!!m.mouse); });
+  F.on("devices", function (m) { if (!m.mouse) hovered = false; setPointer(!!m.mouse); });
 
   // ------------------------------------------------------------- system extras
   var wifi = null, outputs = [];
