@@ -10,6 +10,7 @@
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function db(v) { return v <= -90 ? "-∞" : (v > 0 ? "+" : "") + Number(v).toFixed(1); }
+  function panText(v) { v = Number(v) || 0; var n = Math.round(Math.abs(v) * 100); return n < 2 ? "C" : (v < 0 ? "L " : "R ") + n; }   // L 30 / C / R 30
   var selMix = CU.store.get("iaMix", 0), allCh = false, dragging = null, structKey = "", userUi = null, userKey = "";
   function visible() { return CU.prefs.tab === "inears"; }
   function isAdmin() { var m = CU.mode(); return m === "admin" || m === "main"; }
@@ -63,7 +64,7 @@
       (q.wired ? '<label>Out L <select data-iam="outL">' + outOptions(q.outL) + '</select></label><label>Out R <select data-iam="outR">' + outOptions(q.outR) + "</select></label>" : "") +
       '<label class="toggle" title="Back over the network to the user\'s Central Control or phone"><input type="checkbox" data-iam="local"' + (q.local ? " checked" : "") + '> <b>Local</b> <small class="muted">to their device</small></label><label class="toggle"><input type="checkbox" data-iam="stereo"' + (q.stereo ? " checked" : "") + "> Stereo</label></div>" +
       '<div class="ie-master"><b>Level</b><input type="range" min="0" max="1" step="0.001" data-iam="level" value="' + M.dbToFader(q.level) + '"><span class="ia-mdb">' + db(q.level) + '</span><button data-ia="mute" class="' + (q.mute ? "danger on" : "") + '">' + (q.mute ? "Muted" : "Mute") + '</button><button data-ia="listen" class="' + (listening ? "on" : "") + '">' + (listening ? "■ Stop listening" : "🎧 Listen here") + '</button><div class="ie-mm"><i></i><i></i></div></div>' +
-      (ins.length ? '<div class="ie-chs">' + ins.map(function (i) { var x = s.inputs[i], sd = q.sends[i] || { level: -90, pan: 0, on: true }; return '<div class="ie-ch" data-i="' + i + '"><span class="ie-name"' + (x.color ? ' style="border-color:' + esc(x.color) + '"' : "") + ">" + esc(x.name || "Input " + (i + 1)) + '</span><div class="ie-meter"><i></i></div><input type="range" min="0" max="1" step="0.001" data-ias="level" value="' + M.dbToFader(sd.level) + '"><span class="ie-db">' + db(sd.level) + '</span><input type="range" class="ie-pan" min="-1" max="1" step="0.05" data-ias="pan" value="' + (sd.pan || 0) + '"><label class="toggle"><input type="checkbox" data-ias="on"' + (sd.on !== false ? " checked" : "") + "></label></div>"; }).join("") + "</div>" : '<p class="muted">No channels with a source yet.</p>') +
+      (ins.length ? '<div class="ie-chs">' + ins.map(function (i) { var x = s.inputs[i], sd = q.sends[i] || { level: -90, pan: 0, on: true }; return '<div class="ie-ch" data-i="' + i + '"><span class="ie-name"' + (x.color ? ' style="border-color:' + esc(x.color) + '"' : "") + ">" + esc(x.name || "Input " + (i + 1)) + '</span><div class="ie-meter"><i></i></div><input type="range" min="0" max="1" step="0.001" data-ias="level" value="' + M.dbToFader(sd.level) + '"><span class="ie-db">' + db(sd.level) + "</span>" + (q.stereo !== false ? '<label class="ie-panbox" title="Left / right (double-click or hold: centre)"><span>PAN</span><input type="range" class="ie-pan" min="-1" max="1" step="0.05" data-ias="pan" value="' + (sd.pan || 0) + '" aria-label="Pan"><b class="ie-panv">' + panText(sd.pan) + "</b></label>" : '<span class="ie-panbox ie-mono">mono</span>') + '<label class="toggle"><input type="checkbox" data-ias="on"' + (sd.on !== false ? " checked" : "") + "></label></div>"; }).join("") + "</div>" : '<p class="muted">No channels with a source yet.</p>') +
       '<div class="row"><button data-ia="clear">All sends off</button><button data-ia="copy">Copy this mix to…</button></div></div>';
   }
   function renderAdmin(root, force) {
@@ -76,7 +77,7 @@
   }
   function updateAdmin() {
     var s = S(), q = s.mixes[selMix]; if (!q) return;
-    document.querySelectorAll(".ia-mixed .ie-ch").forEach(function (row) { var i = Number(row.dataset.i), sd = q.sends[i] || { level: -90, pan: 0, on: true }, f = row.querySelector('[data-ias="level"]'), p = row.querySelector('[data-ias="pan"]'); if (f !== dragging) { f.value = M.dbToFader(sd.level); row.querySelector(".ie-db").textContent = db(sd.level); } if (p !== dragging) p.value = sd.pan || 0; row.querySelector('[data-ias="on"]').checked = sd.on !== false; });
+    document.querySelectorAll(".ia-mixed .ie-ch").forEach(function (row) { var i = Number(row.dataset.i), sd = q.sends[i] || { level: -90, pan: 0, on: true }, f = row.querySelector('[data-ias="level"]'), p = row.querySelector('[data-ias="pan"]'); if (f !== dragging) { f.value = M.dbToFader(sd.level); row.querySelector(".ie-db").textContent = db(sd.level); } if (p && p !== dragging) { p.value = sd.pan || 0; var pv = row.querySelector(".ie-panv"); if (pv) pv.textContent = panText(sd.pan); } row.querySelector('[data-ias="on"]').checked = sd.on !== false; });
     var lv = $('[data-iam="level"]'); if (lv && lv !== dragging) { lv.value = M.dbToFader(q.level); $(".ia-mdb").textContent = db(q.level); }
     var mu = $('.ia-mixed [data-ia="mute"]'); if (mu) { mu.textContent = q.mute ? "Muted" : "Mute"; mu.classList.toggle("danger", q.mute); mu.classList.toggle("on", q.mute); }
   }
@@ -114,12 +115,20 @@
 
   // ------------------------------------------------------------------ events
   var root = $("#inearsRoot");
-  root.addEventListener("pointerdown", function (e) { if (e.target.type === "range") dragging = e.target; });
-  document.addEventListener("pointerup", function () { dragging = null; });
+  // a pan back to the centre: a double-click, or holding it still
+  var panHold = null;
+  function centrePan(t) { var row = t.closest(".ie-ch"); if (!row) return; t.value = 0; var pv = t.parentNode.querySelector(".ie-panv"); if (pv) pv.textContent = "C"; X.op({ op: "send", m: selMix, i: Number(row.dataset.i), patch: { pan: 0 } }); }
+  root.addEventListener("pointerdown", function (e) {
+    if (e.target.type === "range") dragging = e.target;
+    if (e.target.dataset && e.target.dataset.ias === "pan") { var t = e.target, v0 = t.value; clearTimeout(panHold && panHold.t); panHold = { x0: e.clientX, t: setTimeout(function () { if (panHold && Math.abs(Number(t.value) - Number(v0)) < 0.06) centrePan(t); panHold = null; }, 600) }; }
+  });
+  root.addEventListener("pointermove", function (e) { if (panHold && Math.abs(e.clientX - panHold.x0) > 8) { clearTimeout(panHold.t); panHold = null; } });
+  root.addEventListener("dblclick", function (e) { if (e.target.dataset && e.target.dataset.ias === "pan") centrePan(e.target); });
+  document.addEventListener("pointerup", function () { if (panHold) { clearTimeout(panHold.t); panHold = null; } dragging = null; });
   root.addEventListener("input", function (e) {
     var t = e.target, s = S(); if (!s || !isAdmin()) return;
     if (t.dataset.ias === "level") { var row = t.closest(".ie-ch"), i = Number(row.dataset.i), d = Math.round(M.faderToDb(Number(t.value)) * 10) / 10; row.querySelector(".ie-db").textContent = db(d); send("s" + selMix + ":" + i, { op: "send", m: selMix, i: i, patch: { level: d } }); }
-    else if (t.dataset.ias === "pan") { var i2 = Number(t.closest(".ie-ch").dataset.i); send("p" + selMix + ":" + i2, { op: "send", m: selMix, i: i2, patch: { pan: Number(t.value) } }); }
+    else if (t.dataset.ias === "pan") { var i2 = Number(t.closest(".ie-ch").dataset.i), pv0 = t.parentNode.querySelector(".ie-panv"); if (pv0) pv0.textContent = panText(t.value); send("p" + selMix + ":" + i2, { op: "send", m: selMix, i: i2, patch: { pan: Number(t.value) } }); }
     else if (t.dataset.iam === "level") { var d2 = Math.round(M.faderToDb(Number(t.value)) * 10) / 10; $(".ia-mdb").textContent = db(d2); send("m" + selMix, { op: "mix", m: selMix, patch: { level: d2 } }); }
   });
   root.addEventListener("change", function (e) {

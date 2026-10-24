@@ -89,7 +89,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.5.0"
+APP_VERSION = "9.6.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -2849,13 +2849,40 @@ class MiniScreen:
             return o[0]
         return value
 
-    def fader(self, g, hits, box, label, value, action, valtext=None, dim=False):
+    @staticmethod
+    def pan_text(p):
+        """Pan as people read it: L 30 / C / R 30."""
+        p = float(p or 0)
+        n = int(round(abs(p) * 100))
+        return "C" if n < 2 else ("L %d" if p < 0 else "R %d") % n
+
+    def pan_fader(self, g, hits, box, pan, action):
+        """PAN beside a track's level: a centre mark and a bar that grows from the middle. Dragging moves it; a
+        double-tap puts it back in the centre (a single tap doesn't jump it)."""
+        C = self.COL
+        x0, y0, x1, y1 = box
+        key = action["name"] + "|" + json.dumps(action.get("args") or {}, sort_keys=True)
+        v = max(0.0, min(1.0, float(self.slider_value(key, (float(pan or 0) + 1) / 2))))
+        cy = (y0 + y1) / 2
+        self.text(g, (x0 + 1, cy - 8), "PAN", self.F["tiny"], C["muted"])
+        self.text(g, (x0 + 1, cy + 7), self.pan_text(v * 2 - 1), self.F["sub"], C["text"], "lm", 34)
+        bx0, bx1 = x0 + 38, x1 - 6
+        mid = (bx0 + bx1) / 2
+        g.rounded_rectangle([bx0, cy - 4, bx1, cy + 4], 4, fill=C["track"])
+        fx = bx0 + (bx1 - bx0) * v
+        if abs(fx - mid) > 2:
+            g.rectangle([min(fx, mid), cy - 4, max(fx, mid), cy + 4], fill=C["accent"])
+        g.line([mid, cy - 9, mid, cy + 9], fill=C["muted"], width=1)
+        g.ellipse([fx - 7, cy - 7, fx + 7, cy + 7], fill=C["text"], outline=C["bg"])
+        hits.append(([int(bx0 - 8), int(y0), int(bx1 + 6), int(y1)], dict(action, slider=[bx0, bx1], key=key, pan=True)))
+
+    def fader(self, g, hits, box, label, value, action, valtext=None, dim=False, label_w=118):
         """A row: its name on the left, a bar to slide across (tap or drag)."""
         C = self.COL
         x0, y0, x1, y1 = box
         key = action["name"] + "|" + json.dumps(action.get("args") or {}, sort_keys=True)
         v = max(0.0, min(1.0, float(self.slider_value(key, value) or 0)))
-        lw = 118
+        lw = label_w
         self.text(g, (x0 + 2, (y0 + y1) / 2), label, self.F["label"], C["muted"] if dim else C["text"], "lm", lw - 6)
         bx0, bx1, cy = x0 + lw, x1 - 44, (y0 + y1) / 2
         g.rounded_rectangle([bx0, cy - 5, bx1, cy + 5], 5, fill=C["track"])
@@ -3097,21 +3124,25 @@ class MiniScreen:
         C, W, H = self.COL, self.w, self.h
         m = d.get("mini") or {}
         lv = m.get("levels") or {}
-        rows = [("Tracks (all)", {"name": "tracksLevel"}, lv.get("tracks", 0.85), None, None),
-                ("Click", {"name": "clickLevel"}, lv.get("click", 0.85), None, None)]
+        rows = [("Tracks (all)", {"name": "tracksLevel"}, lv.get("tracks", 0.85), None, None, None),
+                ("Click", {"name": "clickLevel"}, lv.get("click", 0.85), None, None, None)]
         for s in m.get("stems") or []:
             rows.append((s.get("name") or "Track", {"name": "stemLevel", "args": {"index": s.get("i", 0)}}, min(1.0, (s.get("gain") or 0) / 1.3),
-                         {"name": "stemMute", "args": {"index": s.get("i", 0)}}, bool(s.get("mute"))))
+                         {"name": "stemMute", "args": {"index": s.get("i", 0)}}, bool(s.get("mute")), s))
         shown, page, pages = self.paged("mix", rows, 6)
         self.chips(g, hits, "tracks", pager=("mix", page, pages) if pages > 1 else None)
         y = 76
         rh = (H - 46 - 76) / 6
-        for label, action, value, mute, muted in shown:
+        for label, action, value, mute, muted, stem in shown:
             x0 = 6
             if mute is not None:
                 self.button(g, hits, [6, y + 3, 38, y + rh - 3], "M", mute, on=muted, radius=7, font=self.F["label"])
                 x0 = 44
-            self.fader(g, hits, [x0, y, W - 6, y + rh], label, value, action, dim=bool(muted))
+            if stem is not None:   # a track: its level, and its PAN on the right
+                self.fader(g, hits, [x0, y, W - 124, y + rh], label, value, action, dim=bool(muted), label_w=100)
+                self.pan_fader(g, hits, [W - 118, y, W - 6, y + rh], stem.get("pan") or 0, {"name": "stemPan", "args": {"index": stem.get("i", 0)}})
+            else:
+                self.fader(g, hits, [x0, y, W - 6, y + rh], label, value, action, dim=bool(muted))
             y += rh
         if not (m.get("stems") or []):
             self.text(g, (W / 2, H - 70), "This song has no tracks yet", self.F["sub"], C["muted"], "mm")
@@ -3180,6 +3211,12 @@ class MiniScreen:
                 hits.append(([72, y0, W - 72, y1], {"local": "say", "text": locked + (" - this sound is muted until the plan is active." if keys else " - its locked pedals are bypassed until the plan is active.")}))
         lv = ins.get("levelDb") or 0
         self.fader(g, hits, [6, 190, W - 6, 230], "Instrument level", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
+        if ins.get("kind") in ("electric", "acoustic", "bass"):   # play any sound: the guitar plays the chosen keys sound / a synth
+            third = (W - 12 - 8) / 3.0
+            self.button(g, hits, [6, 236, 6 + third, H - 46], "TUNER", {"name": "tuner"}, on=bool(ins.get("tuner")))
+            self.button(g, hits, [10 + third, 236, 10 + 2 * third, H - 46], "PLAY ANY", {"name": "playAnyToggle"}, on=bool(ins.get("playAny")))
+            self.button(g, hits, [14 + 2 * third, 236, W - 6, H - 46], "PEDALS", {"local": "sub", "tab": "instrument", "value": "pedals"})
+            return
         self.button(g, hits, [6, 236, W / 2 - 3, H - 46], "TUNER", {"name": "tuner"}, on=bool(ins.get("tuner")))
         self.button(g, hits, [W / 2 + 3, 236, W - 6, H - 46], "PEDALS", {"local": "sub", "tab": "instrument", "value": "pedals"})
 
@@ -3471,6 +3508,20 @@ class MiniScreen:
             return None
         if action.get("local"):
             self.local(action)
+            return action
+        if action.get("pan"):   # a pan: a double-tap centres it; a single tap waits for a drag (no jump)
+            now = time.monotonic()
+            last = getattr(self, "pan_tap", None)
+            self.active, self.drag_at = action, now
+            if last and last[0] == action["key"] and now - last[1] < 0.45:
+                self.pan_tap = None
+                self.active = None
+                self.override[action["key"]] = (0.5, now)
+                if self.driver:
+                    self.driver.emit({"type": "action", "name": action["name"], "args": dict(action.get("args") or {}, pan=0), "value": 0.5, "from_": "screen"})
+                    self.driver.schedule_mini_render()
+            else:
+                self.pan_tap = (action["key"], now)
             return action
         if action.get("slider"):
             self.active, self.drag_at = action, time.monotonic()
@@ -6887,7 +6938,13 @@ class NetAudio:
     # ----- the packets
     def set_info(self, message):
         names = [str(n)[:40] for n in (message.get("channels") or [])][:64]
-        self.sources[0] = {"channels": names, "rate": int(message.get("rate") or 48000)}
+        pans = []
+        for p in (message.get("pans") or [])[:len(names)]:   # (each channel's pan: Central Control's channel starts there)
+            try:
+                pans.append(max(-1.0, min(1.0, round(float(p), 2))))
+            except (TypeError, ValueError):
+                pans.append(0.0)
+        self.sources[0] = {"channels": names, "pans": pans + [0.0] * (len(names) - len(pans)), "rate": int(message.get("rate") or 48000)}
         self.broadcast_info()
 
     def broadcast_info(self):

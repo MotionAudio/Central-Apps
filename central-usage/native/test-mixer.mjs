@@ -14,14 +14,14 @@ const bin = process.argv[2] || path.join(here, "build", "cu-mixer" + (process.pl
 
 function engine(args) {
   const p = spawn(bin, args, { stdio: ["pipe", "pipe", "inherit"] });
-  let buf = Buffer.alloc(0); const events = []; const waiters = []; const taps = {};
+  let buf = Buffer.alloc(0); const events = []; const waiters = []; const taps = {}; const caps = {};   // caps[tap] = [] keeps that tap's audio
   p.stdout.on("data", (c) => {
     buf = Buffer.concat([buf, c]);
     while (buf.length >= 5) {
       const n = buf.readUInt32LE(1); if (buf.length < 5 + n) break;
       const t = String.fromCharCode(buf[0]), body = buf.subarray(5, 5 + n); buf = buf.subarray(5 + n);
       if (t === "J") { const e = JSON.parse(body.toString("utf8")); events.push(e); waiters.slice().forEach((w) => { if (w.test(e)) { waiters.splice(waiters.indexOf(w), 1); w.resolve(e); } }); }
-      else if (t === "A") { const tap = body[0]; taps[tap] = (taps[tap] || 0) + 1; }
+      else if (t === "A") { const tap = body[0]; taps[tap] = (taps[tap] || 0) + 1; if (caps[tap]) caps[tap].push(Buffer.from(body.subarray(3))); }
     }
   });
   const cmd = (o) => { const b = Buffer.from(JSON.stringify(o)), h = Buffer.alloc(5); h[0] = 74; h.writeUInt32LE(b.length, 1); p.stdin.write(Buffer.concat([h, b])); };
@@ -30,7 +30,7 @@ function engine(args) {
   const wait = (test, ms = 8000) => new Promise((resolve, reject) => { const hit = events.find((e) => !e._used && test(e)); if (hit) { hit._used = true; return resolve(hit); } const w = { test: (e) => !e._used && test(e) && (e._used = true), resolve }; waiters.push(w); setTimeout(() => reject(new Error("timeout waiting for event")), ms); });
   const meters = async (pred, ms = 6000) => { const t0 = Date.now(); for (;;) { const m = await wait((e) => e.ev === "meters" && !e._seen, 3000); m._seen = true; if (pred(m)) return m; if (Date.now() - t0 > ms) return m; } };
   const exited = new Promise((r) => p.on("exit", r));
-  return { p, cmd, net, wait, meters, taps, exited, quit: () => { cmd({ cmd: "quit" }); setTimeout(() => p.kill(), 800); } };
+  return { p, cmd, net, wait, meters, taps, caps, events, exited, quit: () => { cmd({ cmd: "quit" }); setTimeout(() => p.kill(), 800); } };
 }
 // a WAV written by the engine: header fields, and its samples (24 bit) as floats per channel
 function readWav(file) {
@@ -167,6 +167,96 @@ await check("a second start while recording is refused; a stop when idle says so
 });
 t.quit();
 fs.rmSync(recRoot, { recursive: true, force: true });
+
+// ---- channel processing (gate, the second EQ mid), the FX returns (reverb, delay) and the stream mix
+const x = engine(["--backend", "null", "--capture", "NULL#8", "--playback", "NULL#8", "--block", "256"]);
+await x.wait((v) => v.ev === "status");
+const ch = (i, o) => x.cmd(Object.assign({ cmd: "input", i, src: 1, ch: i, fader: -90, pan: 0 }, o));
+const FLAT_EQ = [1, 100, 0, 1000, 0, 1, 8000, 0];
+const REV = (on, ret, decay) => ({ cmd: "fx", rev: [on, decay || 2, 0, 0.5, 100, 1, ret] });
+await check("status says what this engine has: gate, 4-band EQ, FX, the stream mix (tap 65)", async () => {
+  const st2 = x.events.find((v) => v.ev === "status"); assert.deepEqual(st2.features, ["gate", "eq4", "fx", "stream"]); assert.equal(st2.streamTap, 65);
+});
+await check("gate: a quiet signal under the threshold is closed down by its range (-40 dB); a loud one passes untouched", async () => {
+  x.cmd({ cmd: "testgen", ch: 0, freq: 300, level: 0.01 });   // -40 dBFS
+  ch(0, { gate: [1, -30, -40, 0.5, 0, 50] });
+  const shut = await x.meters((m) => m.in[0] < 0.0003 && m.gate[0] > 30);
+  assert.ok(shut.in[0] < 0.0003, "closed: " + shut.in[0]); assert.ok(shut.gate[0] > 30 && shut.gate[0] < 41, "gate meter " + shut.gate[0]);
+  x.cmd({ cmd: "testgen", ch: 0, freq: 300, level: 0.3 });
+  const open = await x.meters((m) => Math.abs(m.in[0] - 0.3) < 0.02 && m.gate[0] < 1);
+  assert.ok(Math.abs(open.in[0] - 0.3) < 0.02, "open: " + open.in[0]);
+  ch(0, { gate: [1, -30, -90, 0.5, 0, 50] }); x.cmd({ cmd: "testgen", ch: 0, freq: 300, level: 0.01 });
+  const hard = await x.meters((m) => m.in[0] < 0.00001); assert.ok(hard.in[0] < 0.00001, "range -90: fully shut " + hard.in[0]);
+  x.cmd({ cmd: "testgen", ch: 0, level: 0 });
+});
+await check("EQ: the second mid (+12 dB at 1 kHz) lifts a 1 kHz tone 4x; off when its gain is 0", async () => {
+  x.cmd({ cmd: "testgen", ch: 1, freq: 1000, level: 0.1 });
+  ch(1, { eq: FLAT_EQ.concat([1000, 12, 1]) });
+  const up = await x.meters((m) => m.in[1] > 0.35); assert.ok(up.in[1] > 0.37 && up.in[1] < 0.42, "lifted " + up.in[1]);
+  ch(1, { eq: FLAT_EQ.concat([1000, 0, 1]) });
+  const flat = await x.meters((m) => Math.abs(m.in[1] - 0.1) < 0.005); assert.ok(Math.abs(flat.in[1] - 0.1) < 0.005, "flat " + flat.in[1]);
+});
+await check("reverb: a channel's send (post fader) rings on after the tone stops - in the main mix and in an in-ear mix with a reverb return; not in one without", async () => {
+  ch(1, { fader: 0, fx: [0, -90] });
+  x.cmd(REV(1, 0, 2.5));
+  for (const m of [0, 1]) x.cmd({ cmd: "mix", m, level: 0, mute: 0, outL: -1, outR: -1, stereo: 1, tap: 0, used: 1, rRev: m === 0 ? 0 : -90 });
+  await x.meters((m) => m.fx[0] > 0.01);
+  x.cmd({ cmd: "testgen", ch: 1, level: 0 });
+  await sleep(250);
+  const tail = await x.meters((m) => m.in[1] < 0.001);
+  assert.ok(tail.in[1] < 0.001, "the tone is gone: " + tail.in[1]);
+  assert.ok(tail.main[0] > 0.002 && tail.fx[0] > 0.002, "the main mix still rings: " + tail.main[0] + " fx " + tail.fx[0]);
+  assert.ok(tail.mix[0] > 0.002, "mix 1 (return 0 dB) rings: " + tail.mix[0]); assert.ok(tail.mix[2] < 0.0005, "mix 2 (no return) is quiet: " + tail.mix[2]);   // (two numbers per mix: L, R)
+  // the fader moves the send: fader all the way down, nothing reaches the reverb
+  x.cmd({ cmd: "testgen", ch: 1, freq: 1000, level: 0.1 }); ch(1, { fader: -90, fx: [0, -90] });
+  await sleep(300); const none = await x.meters((m) => m.fx[0] < 0.0005, 4000); assert.ok(none.fx[0] < 0.0005, "post fader: " + none.fx[0]);
+  x.cmd({ cmd: "testgen", ch: 1, level: 0 }); x.cmd(REV(0, -90));
+});
+await check("delay: a click comes back once, 250 ms later (12000 samples), at the return level", async () => {
+  x.cmd({ cmd: "net", src: 0, channels: 1, rate: 48000, latency: 40 });
+  x.cmd({ cmd: "input", i: 2, src: 2, ch: 0, fader: 0, pan: 0, fx: [-90, 0] });
+  x.cmd({ cmd: "fx", dly: [1, 250, 250, 0, 20000, 20, 0, 0] });
+  x.cmd({ cmd: "main", level: 0, mute: 0, outL: -1, outR: -1, stereo: 1, tap: 1, used: 1 });
+  x.caps[0] = [];
+  let sent = 0; const tick = setInterval(() => { const n = 480, b = Buffer.alloc(n * 2); if (sent === 40) b.writeInt16LE(Math.round(0.8 * 32767), 100); sent++; x.net(0, 1, n, b); }, 10);
+  try { await sleep(1500); } finally { clearInterval(tick); }
+  const pcm = Buffer.concat(x.caps[0]); delete x.caps[0];
+  const hits = []; for (let k = 0; k < pcm.length / 4; k++) { const v = pcm.readInt16LE(k * 4) / 32767; if (Math.abs(v) > 0.3 && (!hits.length || k - hits[hits.length - 1].k > 1000)) hits.push({ k, v }); }
+  assert.equal(hits.length, 2, "the click and one echo: " + JSON.stringify(hits));
+  assert.ok(Math.abs(hits[1].k - hits[0].k - 12000) <= 2, "echo after " + (hits[1].k - hits[0].k) + " samples");
+  assert.ok(Math.abs(hits[1].v - hits[0].v) < 0.05, "the same level: " + hits[0].v + " / " + hits[1].v);
+  x.cmd({ cmd: "fx", dly: [0, 250, 250, 0, 20000, 20, -90, 0] }); x.cmd({ cmd: "input", i: 2, src: 0 });
+});
+await check("stream mix: its own levels (the main fader down, the stream still hears the channel), its mute, its tap (65)", async () => {
+  x.cmd({ cmd: "testgen", ch: 3, freq: 440, level: 0.2 });
+  ch(3, { fader: -90 });
+  x.cmd({ cmd: "stream", level: 0, mute: 0, outL: 4, outR: 5, tap: 1, used: 1, comp: [0, -20, 4, 10, 150, 0] });
+  x.cmd({ cmd: "ssend", i: 3, level: 0, pan: 0, on: 1 });
+  const on = await x.meters((m) => m.stream[0] > 0.18 && m.main[0] < 0.005);
+  assert.ok(Math.abs(on.stream[0] - 0.2) < 0.02 && Math.abs(on.stream[1] - 0.2) < 0.02, "stream " + on.stream); assert.ok(on.main[0] < 0.005, "the main mix doesn't have it: " + on.main[0]);
+  await sleep(300); assert.ok(x.taps[65] > 2, "stream tap messages: " + x.taps[65]);
+  x.cmd({ cmd: "stream", level: 0, mute: 1, outL: 4, outR: 5, tap: 1, used: 1 });
+  const off = await x.meters((m) => m.stream[0] < 0.001); assert.ok(off.stream[0] < 0.001, "muted " + off.stream[0]);
+  ch(3, { fader: 0 }); const mainOnly = await x.meters((m) => m.main[0] > 0.18); assert.ok(mainOnly.stream[0] < 0.001, "the main fader doesn't open the stream: " + mainOnly.stream[0]);
+  ch(3, { fader: -90 });
+});
+await check("stream mix: its compressor (glue) pulls a loud mix down; the limiter keeps it under -1 dBFS", async () => {
+  x.cmd({ cmd: "testgen", ch: 3, freq: 440, level: 0.5 });
+  x.cmd({ cmd: "stream", level: 0, mute: 0, outL: 4, outR: 5, tap: 1, used: 1, comp: [1, -20, 4, 5, 100, 0] });
+  const c = await x.meters((m) => m.streamGr > 6 && m.stream[0] < 0.2); assert.ok(c.streamGr > 6 && c.streamGr < 12, "gain reduction " + c.streamGr); assert.ok(c.stream[0] < 0.2, "level " + c.stream[0]);
+  x.cmd({ cmd: "stream", level: 10, mute: 0, outL: 4, outR: 5, tap: 1, used: 1, comp: [0, -20, 4, 5, 100, 0] });
+  const lim = await x.meters((m) => m.stream[0] > 0.8); assert.ok(lim.stream[0] <= 0.895, "limited " + lim.stream[0]);
+  x.cmd({ cmd: "stream", level: 0, mute: 0, outL: 4, outR: 5, tap: 1, used: 1, comp: [0, -20, 4, 5, 100, 0] }); x.cmd({ cmd: "testgen", ch: 3, freq: 440, level: 0.2 });
+});
+await check("the stream mix records as its own stereo program (prog 65 -> stream.wav)", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cu-stream-"));
+  const before = await x.meters((m) => Math.abs(m.stream[0] - 0.2) < 0.005 && m.streamGr < 0.1); assert.ok(Math.abs(before.stream[0] - 0.2) < 0.005, "stream before " + before.stream[0]);
+  x.cmd({ cmd: "rec", on: 1, dir, files: "", ins: [], prog: 65 }); await x.wait((v) => v.ev === "rec" && v.state === "recording");
+  await sleep(1200); x.cmd({ cmd: "rec", on: 0 }); await x.wait((v) => v.ev === "rec" && v.state === "stopped");
+  const w = readWav(path.join(dir, "stream.wav")); assert.equal(w.ch, 2); assert.ok(Math.abs(w.peak[0] - 0.2) < 0.02 && Math.abs(w.peak[1] - 0.2) < 0.02, "stream.wav " + w.peak);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+x.quit();
 
 const s = engine(["--backend", "internal"]);
 await check("internal clock still works (no device)", async () => { const x = await s.wait((v) => v.ev === "status"); assert.equal(x.backend, "internal"); assert.equal(x.inputs, 0); await s.wait((v) => v.ev === "meters"); });

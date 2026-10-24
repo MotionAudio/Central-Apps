@@ -50,6 +50,14 @@
   .fader { position:relative; height:7vh; touch-action:none; cursor:pointer; } .fader i { position:absolute; left:0; right:0; top:50%; height:1.6vh; margin-top:-.8vh; border-radius:1vh; background:var(--track); overflow:hidden; } .fader i b { position:absolute; left:0; top:0; bottom:0; background:var(--accent); }
   .fader em { position:absolute; top:50%; width:4.4vh; height:4.4vh; margin:-2.2vh 0 0 -2.2vh; border-radius:50%; background:var(--text); }
   .row.dim .fader i b { background:var(--line); }
+  /* PAN beside a track's level: a centre mark, the bar grows from the middle; double-tap or hold = centre */
+  .row.stem { grid-template-columns:auto 22% 1fr 8vw 24vw; }
+  .panbox { display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; column-gap:1vh; align-items:center; min-width:0; }
+  .panbox small { grid-row:1 / 3; font-size:2.4vh; font-weight:800; letter-spacing:.06em; color:var(--muted); }
+  .panbox .fader { height:5vh; } .panbox .fader i::after { content:""; position:absolute; left:50%; top:-.6vh; bottom:-.6vh; width:2px; margin-left:-1px; background:var(--muted); }
+  .panbox .fader i { overflow:visible; }
+  .panbox .fader em { width:3.6vh; height:3.6vh; margin:-1.8vh 0 0 -1.8vh; }
+  .panbox .pv { font-size:2.6vh; color:var(--text); font-weight:700; text-align:center; font-variant-numeric:tabular-nums; }
   .songs .song { display:grid; grid-template-columns:5vh 1fr auto 3vh; align-items:center; gap:1.4vh; border:1px solid var(--line); border-radius:1.6vh; background:var(--btn); padding:0 1.6vh; font-size:3.8vh; text-align:left; min-height:0; overflow:hidden; }
   .songs .song span:first-child { color:var(--muted); } .songs .song.on { background:var(--sel); border-color:var(--accent); } .songs .song .k { color:var(--muted); } .songs .song .t { width:1.6vh; height:1.6vh; border-radius:50%; background:var(--accent); }
   .songs .song b { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
@@ -111,6 +119,12 @@
     return '<div class="row' + (dim ? " dim" : "") + '">' + (mute ? '<button class="mute' + (mute.on ? " on" : "") + '" data-act="' + mute.act + '" data-args=\'' + esc(JSON.stringify(mute.args)) + "'>M</button>" : '<span class="nomute"></span>') +
       '<span class="nm">' + esc(label) + '</span><div class="fader" data-fader="' + esc(act) + '" data-args=\'' + esc(JSON.stringify(args || {})) + '\'><i><b style="width:' + (v * 100).toFixed(1) + '%"></b></i><em style="left:' + (v * 100).toFixed(1) + '%"></em></div><span class="val">' + esc(valtext != null ? valtext : Math.round(v * 100) + "%") + "</span></div>";
   }
+  function panText(v) { v = Number(v) || 0; var n = Math.round(Math.abs(v) * 100); return n < 2 ? "C" : (v < 0 ? "L " : "R ") + n; }
+  function panBox(s) {
+    var key = "stemPan|" + JSON.stringify({ index: s.i }), v = Math.max(0, Math.min(1, fval(key, ((Number(s.pan) || 0) + 1) / 2))), p = v * 2 - 1;
+    var lo = Math.min(v, .5) * 100, hi = Math.max(v, .5) * 100;
+    return '<div class="panbox"><small>PAN</small><div class="fader pan" data-fader="stemPan" data-args=\'' + esc(JSON.stringify({ index: s.i })) + '\'><i><b style="left:' + lo.toFixed(1) + "%;width:" + (hi - lo).toFixed(1) + '%"></b></i><em style="left:' + (v * 100).toFixed(1) + '%"></em></div><span class="pv">' + panText(p) + "</span></div>";
+  }
   function db(v) { v = Number(v) || 0; return (v > 0 ? "+" : "") + v + " dB"; }
   var LOCK = '<span class="lock"><svg viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="8" rx="1.6" fill="currentColor"/><path d="M5.2 7V5.2a2.8 2.8 0 0 1 5.6 0V7" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>';
   var noticeTimer = 0;
@@ -137,9 +151,12 @@
     },
     tracks_mix: function (d) {
       var m = d.mini || {}, lv = m.levels || {};
-      var rows = [["Tracks (all)", "tracksLevel", {}, lv.tracks, null], ["Click", "clickLevel", {}, lv.click, null]].concat((m.stems || []).map(function (s) { return [s.name || "Track", "stemLevel", { index: s.i }, Math.min(1, (s.gain || 0) / 1.3), { act: "stemMute", args: { index: s.i }, on: !!s.mute }]; }));
+      var rows = [["Tracks (all)", "tracksLevel", {}, lv.tracks, null], ["Click", "clickLevel", {}, lv.click, null]].concat((m.stems || []).map(function (s) { return [s.name || "Track", "stemLevel", { index: s.i }, Math.min(1, (s.gain || 0) / 1.3), { act: "stemMute", args: { index: s.i }, on: !!s.mute }, s]; }));
       var pg = paged("mix", rows, 6);
-      return chips("tracks", pg) + '<div class="content rows" style="grid-template-rows:repeat(6,1fr)">' + pg.items.map(function (r) { return fader(r[0], r[1], r[2], r[3], null, r[4], r[4] && r[4].on); }).join("") + "</div>";
+      return chips("tracks", pg) + '<div class="content rows" style="grid-template-rows:repeat(6,1fr)">' + pg.items.map(function (r) {
+        var h = fader(r[0], r[1], r[2], r[3], null, r[4], r[4] && r[4].on);
+        return h.replace('<div class="row', '<div class="row stem').replace(/<\/div>$/, (r[5] ? panBox(r[5]) : "<span></span>") + "</div>");   // (every row the same columns: the levels line up)
+      }).join("") + "</div>";
     },
     tracks_songs: function (d) {
       var songs = (d.songs || []).map(function (s, i) { return Object.assign({ index: i }, s); }), cur = d.song ? d.song.index : -1;
@@ -211,10 +228,26 @@
   function send(name, args, value) { if (C.actionValue) C.actionValue(name, args, value); else C.action(name, args); }
   var dragging = null, lastSend = 0;
   function faderValue(el, x) { var r = el.getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / Math.max(1, r.width))); }
-  function setFader(el, v) { var b = el.querySelector("b"), em = el.querySelector("em"); if (b) b.style.width = (v * 100).toFixed(1) + "%"; if (em) em.style.left = (v * 100).toFixed(1) + "%"; }
+  function setFader(el, v) {
+    var b = el.querySelector("b"), em = el.querySelector("em");
+    if (b && el.classList.contains("pan")) { var lo = Math.min(v, .5) * 100, hi = Math.max(v, .5) * 100; b.style.left = lo.toFixed(1) + "%"; b.style.width = (hi - lo).toFixed(1) + "%"; var pv = el.parentNode.querySelector(".pv"); if (pv) pv.textContent = panText(v * 2 - 1); }
+    else if (b) b.style.width = (v * 100).toFixed(1) + "%";
+    if (em) em.style.left = (v * 100).toFixed(1) + "%";
+  }
+  // a pan back to the centre: a double-tap, or holding it still
+  var lastPanTap = { el: null, t: 0 }, panHold = null;
+  function centrePan(f) { var args = JSON.parse(f.dataset.args || "{}"); override["stemPan|" + JSON.stringify(args)] = { v: .5, t: Date.now() }; setFader(f, .5); send("stemPan", Object.assign({}, args, { pan: 0 }), .5); dragging = null; }
   function faderSend(el, v, force) { var args = JSON.parse(el.dataset.args || "{}"), act = el.dataset.fader; override[act + "|" + JSON.stringify(args)] = { v: v, t: Date.now() }; setFader(el, v); var now = Date.now(); if (force || now - lastSend > 40) { lastSend = now; send(act, args, v); } }
   document.addEventListener("pointerdown", function (e) {
     var f = e.target.closest("[data-fader]");
+    if (f && f.classList.contains("pan")) {
+      e.preventDefault(); var now = Date.now();
+      if (lastPanTap.el === f.dataset.args && now - lastPanTap.t < 400) { lastPanTap = { el: null, t: 0 }; clearTimeout(panHold && panHold.t); panHold = null; centrePan(f); return; }
+      lastPanTap = { el: f.dataset.args, t: now };
+      dragging = f; try { f.setPointerCapture(e.pointerId); } catch (_) { }
+      clearTimeout(panHold && panHold.t); panHold = { x0: e.clientX, t: setTimeout(function () { if (panHold && dragging === f) centrePan(f); panHold = null; }, 650) };
+      return;   // (a tap doesn't jump the pan: it moves when dragged)
+    }
     if (f) { e.preventDefault(); dragging = f; try { f.setPointerCapture(e.pointerId); } catch (_) { } faderSend(f, faderValue(f, e.clientX), true); return; }
     var t = e.target.closest("[data-tab]"); if (t) { ui.tab = t.dataset.tab; keep(); render(); if (ui.tab === "settings") info(); return; }
     var s = e.target.closest("[data-sub]"); if (s) { if (ui.tab === "pads") return; ui.sub[ui.tab] = s.dataset.sub; keep(); render(); return; }
@@ -224,8 +257,15 @@
     var args = {}; try { args = JSON.parse(b.dataset.args || "{}"); } catch (_) { }
     C.action(b.dataset.act, args);
   });
-  document.addEventListener("pointermove", function (e) { if (dragging) faderSend(dragging, faderValue(dragging, e.clientX)); });
-  function up(e) { if (!dragging) return; faderSend(dragging, faderValue(dragging, e.clientX), true); dragging = null; render(); }
+  document.addEventListener("pointermove", function (e) {
+    if (!dragging) return;
+    if (panHold) { if (Math.abs(e.clientX - panHold.x0) < 8) return; clearTimeout(panHold.t); panHold = null; }
+    faderSend(dragging, faderValue(dragging, e.clientX));
+  });
+  function up(e) {
+    if (panHold) { clearTimeout(panHold.t); panHold = null; dragging = null; return; }   // (a tap on the pan: nothing moved)
+    if (!dragging) return; faderSend(dragging, faderValue(dragging, e.clientX), true); dragging = null; render();
+  }
   document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up);
 })();
 </script>

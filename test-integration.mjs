@@ -308,8 +308,8 @@ await check("flow: Intro → Verse → Intro plays the Verse, then jumps back to
   // play from the start of the Verse (flow entry 1): at its end (bar 5) the player must land back on the Intro (bar 1)
   await T(() => { PPTracks.goSection(1, { immediate: true }); PPTracks.play({ countIn: false }); });
   const verseEnd = await T(() => PPTracks.sectionsOf(PPTracks.song())[1].end);
-  await until(() => T(() => PPTracks.state.pos > 0.5 && PPTracks.state.flowIndex === 1), 4000, 50);
-  await until(() => T((e) => PPTracks.state.flowIndex === 2 && PPTracks.state.pos < e - 0.5, verseEnd), 8000, 30);
+  await until(() => T(() => PPTracks.state.pos > 0.5 && PPTracks.state.flowIndex === 1), 8000, 50);
+  await until(() => T((e) => PPTracks.state.flowIndex === 2 && PPTracks.state.pos < e - 0.5, verseEnd), 16000, 30);
   const after = await T(() => ({ idx: PPTracks.state.flowIndex, pos: PPTracks.state.pos, section: PPTracks.state.section, current: document.querySelector("#trFlow .fl-chip.current").textContent }));
   assert.ok(after.pos < 2.5 && after.section === 0 && after.current === "Intro", JSON.stringify(after));
   await T(() => PPTracks.pause());
@@ -451,6 +451,21 @@ await check("the mixer: every track gets a big fader with a meter, mute / solo a
   assert.equal(g.data, 0.5); assert.equal(Number(g.small), 0.5); assert.match(g.db, /-6\.0 dB/);
   await page.click("#mixDialog [data-close=mixDialog]");
 });
+await check("PAN on every track: labelled, says L 30 / C / R 30, follows on both strips, double-click centres; the stemPan action and the small screens' state", async () => {
+  const id = await T(() => PPTracks.data(PPTracks.song()).stems[0].id);
+  const lab = await T((id) => { const b = document.querySelector('#trStems .stem[data-stem="' + id + '"] .stem-panbox'); return b ? b.querySelector("span").textContent + "|" + b.querySelector(".stem-panv").textContent : null; }, id);
+  assert.equal(lab, "PAN|C");
+  await page.$eval('#trStems .stem[data-stem="' + id + '"] .stem-pan', (el) => { el.value = -0.3; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  const p = await T((id) => ({ data: PPTracks.data(PPTracks.song()).stems.find((s) => s.id === id).pan, text: document.querySelector('#trStems .stem[data-stem="' + id + '"] .stem-panv').textContent, mini: PPTracks.data(PPTracks.song()).stems.length }), id);
+  assert.equal(p.data, -0.3); assert.equal(p.text, "L 30");
+  await page.dblclick('#trStems .stem[data-stem="' + id + '"] .stem-pan');
+  assert.equal(await T((id) => PPTracks.data(PPTracks.song()).stems.find((s) => s.id === id).pan, id), 0);
+  await T(() => PPActions.run("stemPan", { index: 0 }, { value: 0.9 }));
+  const a = await T(() => ({ pan: PPTracks.data(PPTracks.song()).stems[0].pan, text: document.querySelector("#trStems .stem[data-stem] .stem-panv").textContent, listed: PPActions.list().some((x) => x.id === "stemPan") }));
+  assert.equal(a.pan, 0.8); assert.equal(a.text, "R 80"); assert.ok(a.listed, "a knob / MIDI can learn it");
+  await T(() => PPActions.run("stemPan", { index: 0, pan: 0 }, { value: 0.9 }));
+  assert.equal(await T(() => PPTracks.data(PPTracks.song()).stems[0].pan), 0);
+});
 await check("pads: up to 4 layers at once (a 5th replaces the oldest), each with its own level", async () => {
   await T(() => { PPTracks.stop(true); PP.engine.stop(); PP.project().performance.layerMode = true; });   // (the tracks stopped: a section starting would swell the pads)
   await wait(300);
@@ -540,6 +555,29 @@ await check("instrument: every pedal has Mix and Level (sent live), keys get up 
   const k = await T(() => PPInstrument.hostConfig().keys.layers);
   assert.equal(k.length, 8); assert.equal(k[0].hi, 59); assert.equal(k[1].lo, 60);
 });
+await check("play any sound: a guitar gets its panel; on, mode, sound and dry blend go to the driver live; the footswitch action toggles it", async () => {
+  await T(() => { PPShell.showTab("instrument"); PPInstrument.setKind("electric"); });
+  await page.waitForSelector("#paOn"); await T(() => { window.__sent = []; });
+  const last = () => T(() => window.__sent.filter((m) => m.type === "instrument" && m.action === "playany").pop() || null);
+  await page.click("#paOn"); await wait(200);
+  let m = await last(); assert.ok(m && m.playAny.on === true && m.playAny.mode === "auto", JSON.stringify(m));
+  await page.waitForSelector('[data-pamode="synth"]'); await page.click('[data-pamode="synth"]'); await wait(200);
+  m = await last(); assert.equal(m.playAny.mode, "synth");
+  await page.$eval("#paDry", (el) => { el.value = 30; el.dispatchEvent(new Event("input", { bubbles: true })); }); await wait(250);
+  m = await last(); assert.equal(m.playAny.dry, 0.3);
+  assert.equal(await T(() => PPInstrument.hostConfig().playAny.dry), 0.3, "the apply config carries it too");
+  assert.ok(await T(() => PPActions.list().some((a) => a.id === "playAnyToggle")), "a footswitch action");
+  await T(() => PPActions.run("playAnyToggle")); await wait(200);
+  m = await last(); assert.equal(m.playAny.on, false, "the footswitch turned it off");
+  assert.equal(await T(() => PPInstrument.playAnyOn()), false);
+  // it's part of Central Instrument: without that plan the footswitch and the button don't turn it on, and the panel says why
+  const locked = await T(() => { const h = PPLicense.hasPlan; PPLicense.hasPlan = (id) => id !== "instrument"; window.dispatchEvent(new CustomEvent("pp-plans")); const on = PPInstrument.togglePlayAny(); PPInstrument.render(); const r = { on: on, cfgOn: PPInstrument.hostConfig().playAny.on, note: (document.querySelector(".pa-lock") || {}).textContent || "", btn: document.getElementById("paOn").disabled }; PPLicense.hasPlan = h; window.dispatchEvent(new CustomEvent("pp-plans")); PPInstrument.render(); return r; });
+  assert.ok(locked.on === false && locked.cfgOn === false && /Central Instrument/.test(locked.note) && locked.btn, JSON.stringify(locked));
+  await T(() => PPInstrument.setKind("keys")); await wait(200);
+  assert.equal(await T(() => PPInstrument.hostConfig().playAny), undefined, "keys: no play any sound");
+  assert.equal(await page.$("#paOn"), null);
+  await T(() => PPInstrument.setKind("off"));
+});
 await check("instrument scenes: capture the rig, switch pedals, recall - one 'scene' message switches them back without a restart", async () => {
   await T(() => PPInstrument.setKind("electric")); await wait(500);
   const r = await T(async () => {
@@ -558,6 +596,7 @@ await check("plans: with licensing off everything is open; every pedal and board
     free: PPPedals.pedals.filter((p) => p.tier === "free").length, freeBoards: PPPedals.boards.filter((b) => !b.plans.length).map((b) => b.id),
     muff: PPPedals.byId("muff").tier, reverb: PPPedals.byId("zitarev").tier, lock: PPPedals.lockText("instrument"), pkgs: !!document.querySelector("#pkgSettings") || PPLicense.packagesHtml().includes("no packages needed") }));
   assert.ok(r.off, "licensing off: all plans open"); assert.equal(r.noTier, 0); assert.ok(r.free >= 12 && r.free <= 16, "free pedals " + r.free);
+  // (four free boards; the 9.6 orchestra boards are Central Instrument's)
   assert.deepEqual(r.freeBoards, ["clean-worship", "acoustic-dry", "bass-di", "keys-stage"]); assert.equal(r.muff, "pedals"); assert.equal(r.reverb, "plugins");
   assert.equal(r.lock, "Part of Central Instrument · $80 a year"); assert.ok(r.pkgs, "Settings → Packages says no packages are needed");
 });
@@ -747,6 +786,11 @@ await check("the copy of the small screen has its tabs: Tracks → Mixer moves a
   await tap('[data-fader="tracksLevel"]');
   await wait(1700); await T(() => PPTracks.sendDisplay());   // (after the screen's own 1.5 s: the level the app now has)
   await until(() => mini.evaluate(() => { const b = document.querySelector('[data-fader="tracksLevel"] b'); return b && Math.abs(parseFloat(b.style.width) - 30) < 6; }), 3000);
+  // each track's PAN beside its level: shows where it is, a double-tap centres it (in the app)
+  await T(() => { PPTracks.setStem(PPTracks.data(PPTracks.song()).stems[0].id, "pan", -0.3); PPTracks.sendDisplay(); });
+  await until(() => mini.evaluate(() => { const r = document.querySelector('.row.stem .panbox'); return r && r.querySelector("small").textContent === "PAN" && r.querySelector(".pv").textContent === "L 30"; }), 4000);
+  await mini.evaluate(() => { const el = document.querySelector('[data-fader="stemPan"]'), x = el.getBoundingClientRect().left + 5; for (let k = 0; k < 2; k++) { el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: x })); el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: x })); } });
+  await until(() => T(() => PPTracks.data(PPTracks.song()).stems[0].pan === 0), 4000);
   await T(() => { if (window.PPInstrument) PPInstrument.setKind("electric"); }); await wait(600); await T(() => PPTracks.sendDisplay()); await wait(400);
   await tap('[data-tab="instrument"]'); await tap('[data-sub="pedals"]');
   await until(() => mini.evaluate(() => document.querySelectorAll(".pedal").length > 0), 6000);

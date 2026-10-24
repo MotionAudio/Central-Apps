@@ -49,9 +49,17 @@ const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-video-ud-"));
 fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", role: "admin", name: "Video desk" }));
 fs.writeFileSync(path.join(userData, "video.json"), JSON.stringify({ record: { dir: recDir }, stream: { preset: "720p30", bitrate: 2500, encoder: "auto" } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
+// (9.5: Central Control needs a key - with no website yet, its default A key)
+async function passKey(p, key) {
+  await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 }).catch(() => { });
+  if (!(await p.evaluate(() => !!document.getElementById("licWiz")))) return;
+  await p.evaluate((k) => { localStorage.setItem("cc-license", JSON.stringify({ key: k, kind: k[0], app: k[0] === "U" ? "usage" : "control", okAt: Date.now(), production: "Test church", isDefault: true })); }, key);
+  await p.reload(); await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 });
+}
 const app = await electron.launch({ executablePath: exe, args: [path.join(app0, "main.js"), "--no-sandbox", "--user-data-dir=" + userData, "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream", "--ignore-gpu-blocklist", "--enable-unsafe-swiftshader"],
   env: Object.assign({}, process.env, { CU_FFMPEG: FF, CU_VIDEO_PHONE_PORT: String(BASE + 3), CC_UPDATE_API: "http://127.0.0.1:9/none", CU_MODE: "admin", CU_ROLE: "admin" }) });
 const cu = await app.firstWindow(); const errs = []; cu.on("pageerror", (e) => errs.push(String(e))); cu.on("console", (m) => { if (m.type() === "error" && !/favicon|ERR_CONNECTION|Failed to load resource|WebSocket/.test(m.text())) errs.push("console: " + m.text()); });
+await passKey(cu, "ADEF-AULT-KEY0-2026");
 await cu.waitForFunction(() => window.CentralUsage && window.CUVideo && window.CUVideoTab);
 await cu.evaluate(() => { const p = document.getElementById("modePick"); if (p) p.remove(); CentralUsage.showTab("video"); });
 const ready = await until(() => cu.evaluate(() => CUVideoTab.state.ready || CUVideoTab.state.error), 15000);
@@ -207,6 +215,35 @@ await check("the audio helper opens a source, meters it and reports", async () =
   const st = await until(() => cu.evaluate(() => CUVideoTab.state.audio.status && CUVideoTab.state.audio.status.sources[0].running ? CUVideoTab.state.audio.status : null), 6000);
   assert.ok(st && st.delay === 80, JSON.stringify(st));
   assert.ok(await cu.evaluate(() => !!CUVideoTab.state.audio.meters));
+});
+
+await check("the Stream mix as the stream's sound: the sound desk's mix (here pushed by the page) goes into the stream, delayed by the A/V offset", async () => {
+  const before = fs.existsSync(recDir) ? fs.readdirSync(recDir).filter((f) => f.endsWith(".mp4")) : [];
+  await cu.evaluate(() => CUVideo.config({ audio: { use: 2, delay: 200 } }).then((c) => { CUVideoTab.state.cfg = c; }));
+  await cu.evaluate(() => CUVideo.record(true)); await sleep(1500);   // (silence first: the stream keeps going with nothing from the desk)
+  await cu.evaluate(() => new Promise((done) => {   // 3 s of a 440 Hz tone, 20 ms at a time, like the audio host sends it
+    let ph = 0, sent = 0; const t0 = performance.now();
+    const t = setInterval(() => {   // (whatever the page's timers do: always as much as the time that went by)
+      const due = Math.min(144000, Math.floor((performance.now() - t0) * 48)), n = due - sent; if (n <= 0) return;
+      const b = new Int16Array(n * 2); for (let f = 0; f < n; f++) { const v = Math.round(0.5 * 32767 * Math.sin(ph)); b[f * 2] = v; b[f * 2 + 1] = v; ph += 2 * Math.PI * 440 / 48000; }
+      CUVideo.mixPcm(new Uint8Array(b.buffer)); sent = due; if (sent >= 144000) { clearInterval(t); done(); }
+    }, 20);
+  }));
+  const speed = parseFloat(await cu.evaluate(() => CUVideo.status().then((s) => s.encoder && s.encoder.speed || "0"))) || 0;   // (a busy test machine encodes slower than real time)
+  await sleep(1500); await cu.evaluate(() => CUVideo.record(false)); await sleep(2500);
+  await cu.evaluate(() => CUVideo.config({ audio: { use: 0, delay: 80 } }).then((c) => { CUVideoTab.state.cfg = c; }));
+  const file = (fs.readdirSync(recDir).filter((f) => f.endsWith(".mp4") && before.indexOf(f) < 0))[0]; assert.ok(file, "no new recording");
+  const j = probe(path.join(recDir, file)); assert.ok(j && j.streams.some((s) => s.codec_type === "audio") && Number(j.format.duration) > (speed >= 0.95 ? 4 : 2), JSON.stringify(j) + " speed " + speed);
+  const vd = spawnSync(FF, ["-hide_banner", "-nostats", "-i", path.join(recDir, file), "-map", "0:a", "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8" }).stderr;
+  const max = Number((/max_volume: (-?[\d.]+) dB/.exec(vd) || [])[1]); assert.ok(max > -12, "the tone is in the stream: max " + max + " dB");
+  // before the tone: silence (nothing from the desk yet - the stream kept going)
+  const sd = spawnSync(FF, ["-hide_banner", "-nostats", "-i", path.join(recDir, file), "-map", "0:a", "-af", "silencedetect=n=-30dB:d=0.1", "-f", "null", "-"], { encoding: "utf8" }).stderr;
+  const ends = [...sd.matchAll(/silence_end: ([\d.]+)/g)].map((m) => Number(m[1])), starts = [...sd.matchAll(/silence_start: ([\d.]+)/g)].map((m) => Number(m[1]));
+  assert.ok(starts[0] === 0 && ends[0] > 0.1, "silence first: " + sd.match(/silence_(start|end): [\d.]+/g));
+  if (speed >= 0.95) {   // 3 s of tone went in: one piece of about 3 s in the stream (not stretched, not chopped up) - when the encoder keeps up
+    const toneFrom = ends[0], toneTo = starts.find((s) => s > toneFrom);
+    assert.ok(toneTo && toneTo - toneFrom > 2.6 && toneTo - toneFrom < 3.6, "the tone: " + toneFrom + " to " + toneTo + " s (" + sd.match(/silence_(start|end): [\d.]+/g) + ")");
+  } else console.log("      (this machine encodes at " + speed + "x: the tone's length isn't checked)");
 });
 
 console.log("NDI:");

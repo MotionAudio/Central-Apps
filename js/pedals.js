@@ -282,6 +282,30 @@
     ["widener", "Stereo Widener", "util", MDA + "Stereo", { Width: "width", Delay: "delay", Mod: "mod", Rate: "rate" }],
     ["auto-pan", "Auto Pan", "trem", MDA + "RoundPan", { Pan: "pan", Speed: "auto" }],
     ["hard-limit", "Hard Limiter", "util", SWH + "hardLimiter", { Limit: "limit_db", Wet: "wet_gain" }],
+    // ---- 9.6: more studio tools and pedals (Ardour's ACE, LSP, Zam, DISTRHO, Fons Adriaensen's fomp, Rubber Band - all
+    // GPL / LGPL plugins installed from Raspberry Pi OS / Debian, the same way as the ones above)
+    ["ace-comp", "ACE Compressor", "comp", "urn:ardour:a-comp", { Threshold: "thr", Ratio: "rat", Attack: "att", Release: "rel", Knee: "kn", Makeup: "mak" }, { values: { thr: -18 } }],
+    ["ace-exp", "ACE Expander / Gate", "comp", "urn:ardour:a-exp", { Threshold: "thr", Ratio: "rat", Attack: "att", Release: "rel" }],
+    ["lsp-comp", "LSP Compressor", "comp", LSP + "compressor_mono", { Threshold: "al", Ratio: "cr", Attack: "at", Release: "rt", Knee: "kn", Makeup: "mk" }],
+    ["lsp-gate", "LSP Gate", "comp", LSP + "gate_mono", { Threshold: "gt", Reduction: "gr", Attack: "at", Release: "rt" }],
+    ["zam-multicomp", "Zam 3-Band Compressor", "studio", "urn:zamaudio:ZaMultiComp", { "Low thresh": "thr1", "Mid thresh": "thr2", "High thresh": "thr3", "Low/mid split": "xover1", "Mid/high split": "xover2", Output: "globalgain" }],
+    ["ace-eq", "ACE 6-Band EQ", "eq", "urn:ardour:a-eq", { "Low shelf": "gl", "Low mid": "g1", Mid: "g2", Presence: "g3", Air: "g4", "High shelf": "gh", Output: "master" }],
+    ["dpf-3band", "3-Band EQ", "eq", "http://distrho.sf.net/plugins/3BandEQ", { Low: "low", Mid: "mid", High: "high", Output: "master" }],
+    ["fomp-para", "4-Band Parametric", "eq", "http://drobilla.net/plugins/fomp/parametric1", { "Band 1": "gain_1", "Freq 1": "freq_1", "Band 2": "gain_2", "Freq 2": "freq_2", "Band 3": "gain_3", "Freq 3": "freq_3", "Band 4": "gain_4", "Freq 4": "freq_4", Output: "gain" }, { values: { filter: 1, sec_1: 1, sec_2: 1, sec_3: 1, sec_4: 1 } }],
+    ["ace-delay", "ACE Delay", "delay", "urn:ardour:a-delay", { Time: "time", Feedback: "feedback", Mix: "drywet", Tone: "lpf" }, { tempo: "time", values: { drywet: 30 } }],
+    ["mverb", "MVerb Hall", "reverb", "http://distrho.sf.net/plugins/MVerb", { Mix: "mix", Decay: "decay", Size: "size", Damping: "damping", Predelay: "predelay" }, { values: { mix: 30 } }],
+    ["gigaverb", "Gigaverb Cathedral", "reverb", "http://distrho.sf.net/plugins/MaGigaverb", { Time: "revtime", Room: "roomsize", Damping: "damping", Tail: "tail", Early: "early", Dry: "dry" }, { values: { revtime: 6 } }],
+    ["ace-reverb", "ACE Reverb", "reverb", "urn:ardour:a-reverb", { Mix: "blend", Room: "roomsz" }],
+    ["zita-rev", "Zita Room Reverb", "reverb", "http://drobilla.net/plugins/fomp/reverb", { Mix: "out_mix", "Low decay": "rt_low", "Mid decay": "rt_mid", Damping: "damping", Predelay: "delay" }, { values: { out_mix: 0.3 } }],
+    ["pingpong", "Ping Pong Pan", "trem", "http://distrho.sf.net/plugins/PingPongPan", { Rate: "freq", Width: "width" }],
+    ["zam-autosat", "Auto Saturation", "boost", "urn:zamaudio:ZamAutoSat", {}],
+    ["soulforce", "Soul Force (wavefolder drive)", "dist", "http://www.niallmoody.com/ndcplugs/soulforce.htm", { Shape: "shape", Feedback: "fback" }],
+    ["bitcrush", "Bit Crusher", "dist", "http://distrho.sf.net/plugins/MaBitcrush", { Bits: "resolution" }],
+    ["fomp-autowah", "Auto-Wah", "wah", "http://drobilla.net/plugins/fomp/autowah", { Drive: "drive", Decay: "decay", Range: "range", Freq: "freq", Mix: "mix" }],
+    ["cs-chorus", "CS Chorus", "mod", "http://drobilla.net/plugins/fomp/cs_chorus1", { Delay: "delay", Rate: "mod_freq_1", Depth: "mod_amp_1", "Rate 2": "mod_freq_2", "Depth 2": "mod_amp_2" }],
+    ["cs-phaser", "CS Phaser", "mod", "http://drobilla.net/plugins/fomp/cs_phaser1_lfo", { Rate: "lfo_freq", Depth: "mod_gain", Stages: "sections", Feedback: "fb_gain", Mix: "out_mix" }, { values: { sections: 4, fb_gain: 0.3, out_mix: 0.5 } }],
+    ["rb-pitch", "Pitch Shifter (Rubber Band)", "pitch", "http://breakfastquay.com/rdf/lv2-rubberband#mono", { Semitones: "semitones", Octaves: "octaves", Cents: "cents", Mix: "wetdry" }],
+    ["ma-pitch", "Granular Pitch", "pitch", "http://distrho.sf.net/plugins/MaPitchshift", { Ratio: "ratio", Window: "window", Blur: "blur" }],
   ];
   // ---- the plans (yearly, per person): which plan unlocks each pedal. "free" ones come with every Central Pedal and app.
   var PLANS = {
@@ -322,13 +346,21 @@
     { id: "worship-grand", name: "Worship Grand", kind: "keys", sound: "salamander|ydp|grand piano|concert grand|grand", chain: [["calfcomp", { Threshold: 0.25, Ratio: 2.5 }], ["calfeq5", {}], ["dfly-hall", { Decay: 2.8, Late: 22 }]] },
     { id: "ambient-keys", name: "Ambient Keys", kind: "keys", sound: "sweep pad|new age|bowed|choir|pad", chain: [["gxchorus", { Level: 0.35 }], ["digdelay", { Feedback: 55, Mix: 35 }], ["dfly-hall", { Decay: 7.5, Late: 35 }]] },
     { id: "fingerstyle-bass", name: "Bass: Fingerstyle", kind: "bass", chain: [["calfgate", {}], ["studio-eq", { hp_freq: 32, p1_gain: -2.5, p1_freq: 250, p1_q: 1, p3_gain: 2.5, p3_freq: 1800, lp_freq: 7000 }], ["x42-comp", { threshold: -24, Ratio: 0.7, attack: 0.025, release: 0.18 }], ["calfbass", { Amount: 0.35 }]] },
-    { id: "clean-strat", name: "Clean Strat-ish", kind: "electric", chain: [["gxcomp", {}], ["chump", { Gain: 0.25, Tone: 0.65 }], ["gxcab", {}], ["tubetrem", { Depth: 0.25 }], ["gxchorus", { Level: 0.2 }], ["digdelay", { Feedback: 25, Mix: 18 }], ["dfly-hall", { Decay: 1.8 }]] }
+    { id: "clean-strat", name: "Clean Strat-ish", kind: "electric", chain: [["gxcomp", {}], ["chump", { Gain: 0.25, Tone: 0.65 }], ["gxcab", {}], ["tubetrem", { Depth: 0.25 }], ["gxchorus", { Level: 0.2 }], ["digdelay", { Feedback: 25, Mix: 18 }], ["dfly-hall", { Decay: 1.8 }]] },
+    // ---- 9.6: the orchestra (VSCO 2: CE - free with every app, so "soundPlan: free") and boards for the new pedals
+    { id: "worship-strings", name: "Worship Strings", kind: "keys", sound: "worship strings|violins|string", soundPlan: "instrument", chain: [["calfeq5", {}], ["dfly-hall", { Decay: 3.6, Late: 25 }]] },
+    { id: "cello-pad", name: "Cello Pad", kind: "keys", sound: "cello pad|cellos|cello", soundPlan: "instrument", chain: [["gxchorus", { Level: 0.15 }], ["dfly-hall", { Decay: 6.5, Late: 30 }]] },
+    { id: "brass-swell", name: "Brass Swell", kind: "keys", sound: "brass swell|french horn|brass", soundPlan: "instrument", chain: [["calfcomp", { Threshold: 0.3, Ratio: 2 }], ["dfly-hall", { Decay: 2.6 }]] },
+    { id: "flute-lead", name: "Flute Lead", kind: "keys", sound: "flute lead|flute", soundPlan: "instrument", chain: [["digdelay", { Feedback: 30, Mix: 20 }], ["dfly-hall", { Decay: 2.2 }]] },
+    { id: "studio-keys-ace", name: "Studio: Warm Keys", kind: "keys", chain: [["ace-eq", { "Low mid": -2, Air: 1.5 }], ["ace-comp", { Threshold: -20, Ratio: 3 }], ["mverb", { Mix: 22, Decay: 55 }]] },
+    { id: "funk-wah", name: "Auto-Wah Funk", kind: "electric", chain: [["gxcomp", {}], ["fomp-autowah", { Drive: 4, Range: 0.7 }], ["gxamp", {}], ["gxcab", {}], ["cs-phaser", { Rate: 0.6 }]] },
+    { id: "bass-octave-down", name: "Bass: Octave Down", kind: "bass", chain: [["calfgate", {}], ["gxcomp", {}], ["rb-pitch", { Octaves: -1, Mix: 0.5 }], ["calfbass", {}]] }
   ];
   var BY_ID = {}; pedals.forEach(function (p) { BY_ID[p.id] = p; });
   function byId(id) { return BY_ID[id] || null; }
   // a board needs the plans of its pedals (a board of free pedals is free)
   function boardPlans(board) { var need = []; ((board && board.chain) || []).forEach(function (item) { var p = item && !(item[0] === "plug") ? byId(item[0] || item.pedal) : null; if (p && p.tier !== "free" && need.indexOf(p.tier) < 0) need.push(p.tier); }); return need; }
-  BOARDS.forEach(function (b) { b.plans = boardPlans(b); if (b.sound && b.plans.indexOf("keys") < 0) b.plans.unshift("keys"); b.tier = b.plans.length ? b.plans[0] : "free"; });
+  BOARDS.forEach(function (b) { b.plans = boardPlans(b); var sp = b.soundPlan || "keys"; if (b.sound && sp !== "free" && b.plans.indexOf(sp) < 0) b.plans.unshift(sp); b.tier = b.plans.length ? b.plans[0] : "free"; });
 
   // ---- keys & instrument sounds: a bank's own tier (get-sounds.sh lists it), else by what the sound is
   var INSTRUMENT_CATS = { "Guitars & harp": 1, Bass: 1, "Brass & winds": 1, Strings: 1 };

@@ -88,6 +88,8 @@
   def("balance", "Pads ↔ Tracks balance", "Tracks", "continuous", function (a, v) { if (T()) T().balance(v); });
   def("tempoPercent", "Tracks tempo (50–150 %)", "Tracks", "continuous", function (a, v) { if (T()) T().setTempoPercent(50 + v * 100); });
   def("stemLevel", "Stem N level", "Tracks", "continuous", function (a, v) { var s = T() && T().song(); if (!s) return; var st = T().data(s).stems[Number(a && a.index) || 0]; if (st) { T().setStem(st.id, "gain", v * 1.3); T().render(); } }, { arg: "stem" });
+  // pan: a knob / slider 0..1 = left..right (the middle is the centre); args.pan (-1..1) says it exactly (the small screens' CENTRE)
+  def("stemPan", "Stem N pan (left / right)", "Tracks", "continuous", function (a, v) { var s = T() && T().song(); if (!s) return; var st = T().data(s).stems[Number(a && a.index) || 0]; if (!st) return; var p = a && a.pan != null ? Number(a.pan) : v * 2 - 1; p = Math.max(-1, Math.min(1, Math.abs(p) < 0.02 ? 0 : p)); T().setStem(st.id, "pan", Math.round(p * 100) / 100); T().renderStems(); }, { arg: "stem" });
   def("texture1Level", "Texture 1 level", "Textures", "continuous", function (a, v) { if (X()) X().setLevel(0, v); });
   def("texture2Level", "Texture 2 level", "Textures", "continuous", function (a, v) { if (X()) X().setLevel(1, v); });
   // ---- instrument (the pedalboard / keys on the Instrument tab)
@@ -102,6 +104,10 @@
   def("instrumentKind", "Instrument: switch electric / acoustic / bass / keys / off", "Instrument", "trigger", function () { if (!I()) return; var order = ["electric", "acoustic", "bass", "keys", "off"], k = I().state().kind; I().setKind(order[(order.indexOf(k) + 1) % order.length]); });
   def("instrumentAuto", "Instrument: Auto set-up", "Instrument", "trigger", function () { if (I()) I().autoSetup(); });
   def("instrumentExpression", "Instrument: expression (wah / volume pedal)", "Instrument", "continuous", function (a, v) { if (I()) I().expression(v); });
+  // play any sound: the guitar / bass / acoustic plays the chosen keys sound (notes) or a guitar synth (chords)
+  def("playAnyToggle", "Play any sound on / off", "Instrument", "trigger", function () { if (I() && I().togglePlayAny) I().togglePlayAny(); }, { led: function () { return I() && I().playAnyOn && I().playAnyOn() ? "on" : "off"; } });
+  def("playAnyMode", "Play any sound: Auto / Notes / Synth (next)", "Instrument", "trigger", function () { if (I() && I().stepPlayAnyMode) I().stepPlayAnyMode(1); });
+  def("playAnyDry", "Play any sound: dry guitar blend", "Instrument", "continuous", function (a, v) { if (I() && I().setPlayAny) I().setPlayAny({ dry: v }); });
   // the small touch screen: pick the instrument by name, an EQ / compressor knob (0-1), a track's mute
   def("instrumentKindSet", "Instrument: pick electric / acoustic / bass / keys / off", "Instrument", "trigger", function (a) { var k = String(a && a.kind || ""); if (I() && /^(electric|acoustic|bass|keys|off)$/.test(k)) I().setKind(k); }, { hidden: true });
   def("pedalKnob", "Instrument: a pedal's knob", "Instrument", "continuous", function (a, v) { if (I() && a && a.uid && a.sym) I().setKnob(String(a.uid), String(a.sym), v); }, { hidden: true });

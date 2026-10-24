@@ -28,7 +28,7 @@
   if (HOST) HOST.on(function (st) { L.hostStatus = st; emit("status", st); if (L.kind === "local" && st.engine) L.info = st.engine; });
   async function useLocal() {
     if (L.link) { L.link.close(); L.link = null; }
-    L.kind = "local"; L.error = null;
+    L.kind = "local"; L.error = null; counts = {};
     try { var r = await NATIVE.get(); L.state = M.normalize(r.state); L.pi = r.pi || []; L.info = r.info; } catch (e) { L.error = e.message; }
     try { L.hostStatus = await HOST.status(); } catch (_) { }
     emit("state", L.state); emit("status", L.hostStatus);
@@ -37,7 +37,7 @@
     var addr = hostAddress(), code = CU.store.get("adminCode", "");
     if (L.link && L.remoteAddr === addr + "|" + code) return;
     if (L.link) { L.link.close(); L.link = null; }
-    L.kind = "remote"; L.state = null; L.remoteAddr = addr + "|" + code; L.error = null;
+    L.kind = "remote"; L.state = null; L.remoteAddr = addr + "|" + code; L.error = null; counts = {};
     if (!addr) { L.error = "No audio host yet: one admin computer turns on \"This computer is the audio host\" (I/O tab)."; emit("state", null); return; }
     if (!code) { L.error = "Enter the audio host's admin code (I/O tab) to mix from this computer."; emit("state", null); return; }
     var link = L.link = IE.link({ url: "ws://" + addr + "/ws", role: "admin", code: code, id: "admin-" + IE.deviceId(), name: (CU.config() || {}).name || "Admin", hello: function () { return { cuRole: CU.role ? CU.role() : "admin", jobs: CU.jobs ? CU.jobs() : [] }; } });
@@ -51,7 +51,7 @@
     link.on("audio", function (pcm, frames, ch, rate, tap) { emit("audio", pcm, frames, ch, rate, tap); });
     ["talkers", "talkAck", "talkAudio", "recState"].forEach(function (ev) { link.on(ev, function (a, b, c) { emit(ev, a, b, c); }); });
   }
-  function useNone() { if (L.link) { L.link.close(); L.link = null; } L.kind = "none"; L.state = null; emit("state", null); }
+  function useNone() { if (L.link) { L.link.close(); L.link = null; } L.kind = "none"; L.state = null; counts = {}; emit("state", null); }
   function choose() { if (!(CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main")) return useNone(); if (isHost()) { if (L.kind !== "local") useLocal(); } else useRemote(); }
   CU.on("mode", choose); CU.on("audioHost", function () { if (L.kind !== "local") choose(); });
   CU.on("role", function () { if (L.link) L.link.send({ type: "who", cuRole: CU.role(), jobs: CU.jobs ? CU.jobs() : [] }); });   // (the desk hears the users' talkback)
@@ -60,12 +60,18 @@
     if (L.kind === "remote" && L.link) return L.link.op(o);
     return false;
   }
+  // several parts of the page can listen to the same tap (the Mix tab's headphones, the Video tab's stream sound, the
+  // virtual cable): it opens with the first and closes with the last
+  var counts = {};
   function listen(tap, onOff, opt) {
-    if (L.kind === "local") return NATIVE.listen(tap === "main" ? 0 : tap + 1, onOff);
+    var k = String(tap), n = counts[k] || 0; counts[k] = Math.max(0, n + (onOff ? 1 : -1));
+    if (onOff ? n > 0 : counts[k] > 0) return true;
+    if (L.kind === "local") return NATIVE.listen(tapNumber(tap), onOff);
     if (L.kind === "remote" && L.link) return L.link.listen(tap, onOff, opt);
   }
-  // the engine's tap numbers: 0 main, 1..48 mixes; the remote link uses "main" or the mix index
-  window.CUMix = { on: on, op: op, listen: listen, choose: choose, refresh: function () { L.remoteAddr = ""; choose(); },
+  // the engine's tap numbers: 0 main, 1..64 mixes, 65 the stream mix; the remote link uses "main", the mix index or "stream"
+  function tapNumber(tap) { return tap === "main" ? 0 : tap === "stream" ? M.MAXMIX + 1 : Number(tap) + 1; }
+  window.CUMix = { on: on, op: op, listen: listen, tapNumber: tapNumber, choose: choose, refresh: function () { L.remoteAddr = ""; choose(); },
     get state() { return L.state; }, get pi() { return L.pi; }, get meters() { return L.meters; }, get kind() { return L.kind; }, get error() { return L.error; }, get hostStatus() { return L.hostStatus; }, get info() { return L.info; },
     link: function () { return L.link; },
     connected: function () { return L.kind === "local" ? !!L.state : !!(L.link && L.link.connected()); }, isHost: isHost, hostAddress: hostAddress,

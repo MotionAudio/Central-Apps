@@ -86,6 +86,7 @@
         <span id="lxShowInfo" class="muted"></span><span class="muted small" id="lxSaveState"></span><span class="spacer"></span>
         <label>Snap <select id="lxSnap"><option value="bar">bar</option><option value="beat">beat</option><option value="half">½ beat</option><option value="quarter">¼ beat</option></select></label><label>When stopped <select id="lxStopped"></select></label>
         <span class="lx-showbtns"><button id="lxPreview" title="Play the song here (not on the Central Pedal) to program along">▶ Preview here</button><button id="lxRec" title="While the song plays, everything you press (presets, flashes, light colours) is recorded on the timeline. Record again over any part to replace it.">● Record</button><button id="lxAuto" title="Make the cues from the sections and the hits">✨ Auto show</button><button id="lxClear">Clear</button></span></div>
+      <div class="lx-auto" id="lxAutoPanel" hidden></div>
       <canvas id="lxTimeline" class="lx-timeline"></canvas>
       <div class="lx-cue" id="lxCue"></div>
       <div class="lx-lights" id="lxLights"></div>
@@ -161,11 +162,13 @@
   <script src="talkback.js"></script>
   <script src="fixturelib.js"></script>
   <script src="lights-ai.js"></script>
+  <script src="lights-auto.js"></script>
   <script src="lights.js"></script>
   <script src="vendor/three.min.js"></script>
   <script src="lights3d.js"></script>
   <script src="timecode.js"></script>
   <script src="updates.js"></script>
+  <script src="mix-stream.js"></script>
   <script src="mix.js"></script>
   <script src="inears.js"></script>
   <script src="slides.js"></script>

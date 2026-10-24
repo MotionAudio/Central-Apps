@@ -64,13 +64,13 @@ for old in "$HERE"/pad-pedal-os.img "$HERE"/pad-pedal-os.img.xz; do
 done
 FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js
        js/textures.js js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js
-       instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh
+       instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py
        companion/index.html companion/lyrics.html companion/stage.html companion/upload.html companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css
        pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session pad-pedal-audio-config
        xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf pad-pedal-safe-mode pad-pedal.sudoers
        starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2 fonts/inter-latin-ext.woff2 fonts/OFL.txt fonts/archivo-latin.woff2 fonts/archivo-latin-ext.woff2 fonts/OFL-Archivo.txt
        README.md wiring.html
-       central-usage/app/app.js central-usage/app/center-link.js central-usage/app/devices.js central-usage/app/lock.js central-usage/app/services-tab.js central-usage/app/countdown.js central-usage/app/chords.js central-usage/app/fixturelib.js central-usage/app/index.html central-usage/app/inear-client.js central-usage/app/inear-ui.js central-usage/app/inear.css central-usage/app/inears.js central-usage/app/instrument-shim.js central-usage/app/instrument-tab.js central-usage/app/instrument.html central-usage/app/io.js central-usage/app/lights-ai.js central-usage/app/lights.js central-usage/app/lyrics-listen.js central-usage/app/mix.js central-usage/app/mixer-model.js central-usage/app/mixlink.js central-usage/app/output.html central-usage/app/parts-tab.js central-usage/app/phone.html central-usage/app/remote.html central-usage/app/roles.js central-usage/app/settings.js central-usage/app/slides.js central-usage/app/style.css central-usage/app/timecode.js central-usage/app/updates.js central-usage/app/video.css central-usage/app/video.js  central-usage/build/icon.png)
+       central-usage/app/app.js central-usage/app/center-link.js central-usage/app/devices.js central-usage/app/lock.js central-usage/app/services-tab.js central-usage/app/countdown.js central-usage/app/chords.js central-usage/app/fixturelib.js central-usage/app/index.html central-usage/app/inear-client.js central-usage/app/inear-ui.js central-usage/app/inear.css central-usage/app/inears.js central-usage/app/instrument-shim.js central-usage/app/instrument-tab.js central-usage/app/instrument.html central-usage/app/io.js central-usage/app/lights-ai.js central-usage/app/lights-auto.js central-usage/app/lights.js central-usage/app/lyrics-listen.js central-usage/app/mix.js central-usage/app/mixer-model.js central-usage/app/mixlink.js central-usage/app/output.html central-usage/app/parts-tab.js central-usage/app/phone.html central-usage/app/remote.html central-usage/app/roles.js central-usage/app/settings.js central-usage/app/slides.js central-usage/app/style.css central-usage/app/timecode.js central-usage/app/updates.js central-usage/app/video.css central-usage/app/video.js  central-usage/build/icon.png)
 for f in "${FILES[@]}"; do
   [ -f "$HERE/$f" ] || die "missing $f - keep all the Central Pedal OS files in one folder"
 done
@@ -84,7 +84,7 @@ if [ "$ARCH" != "aarch64" ] && [ ! -x /usr/bin/qemu-aarch64-static ]; then NEED+
 if [ ${#NEED[@]} -gt 0 ]; then
   say "Installing: xz-utils fdisk e2fsprogs curl qemu-user-static binfmt-support"
   apt-get update
-  apt-get install -y xz-utils fdisk e2fsprogs curl util-linux
+  apt-get install -y xz-utils fdisk e2fsprogs curl util-linux python3-numpy
   [ "$ARCH" = "aarch64" ] || apt-get install -y qemu-user-static binfmt-support \
     || apt-get install -y qemu-user-binfmt
 fi
@@ -192,6 +192,9 @@ cp "$HERE"/central-usage/app/*.js "$HERE"/central-usage/app/*.html "$HERE"/centr
 [ -f "$HERE/central-pedal-control/build/icon.png" ] && mkdir -p "$MNT/tmp/pad-pedal-src/central-pedal-control/build" && cp "$HERE/central-pedal-control/build/icon.png" "$MNT/tmp/pad-pedal-src/central-pedal-control/build/"
 # pre-rendered spoken cue words, so the build works without espeak-ng too
 [ -d "$HERE/cues" ] && cp -r "$HERE/cues" "$MNT/tmp/pad-pedal-src/cues"
+# play any sound: its plugin for the Pi (bin/, in the release zip) and its C sources
+[ -d "$HERE/bin" ] && cp -r "$HERE/bin" "$MNT/tmp/pad-pedal-src/bin"
+[ -d "$HERE/central-usage/native/playany" ] && mkdir -p "$MNT/tmp/pad-pedal-src/central-usage/native/playany" && cp "$HERE"/central-usage/native/playany/*.[ch] "$MNT/tmp/pad-pedal-src/central-usage/native/playany/"
 # the sound banks fetched above (setup-pi.sh moves them into /opt/pad-pedal/sounds)
 if [ "$SOUNDS" != "none" ]; then
   mkdir -p "$MNT/tmp/pad-pedal-src/sounds"; cp "$HERE"/sounds/*.sf2 "$HERE"/sounds/*.txt "$HERE"/sounds/*README* "$HERE"/sounds/*LICENSE* "$MNT/tmp/pad-pedal-src/sounds/" 2>/dev/null || true

@@ -8,6 +8,7 @@
  *   {"action":"scene",pedals,keys,levelDb} {"action":"input",input} {"action":"level",levelDb}
  *   {"action":"keys",keys} {"action":"note",note,on,velocity} {"action":"routing",routing}
  *   {"action":"midi","data":[status,d1,d2]}   (a MIDI keyboard; the app forwards it)
+ *   {"action":"playany","playAny":{on, patch, mode, dry, sensitivity, volume}}   play any sound (playany/): the guitar plays a keys sound
  *
  * Every pedal of the catalogue is played by a built-in effect of its kind (drive, fuzz, compressor, gate,
  * EQ, wah, chorus / flanger / phaser / rotary, tremolo / vibrato, octave, delay, reverb, amp, cabinet,
@@ -48,6 +49,7 @@
 #include "vendor/tsf.h"
 #include "vendor/cJSON.h"
 #include "plughost/plughost.h"
+#include "playany/playany.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -456,6 +458,29 @@ static void keys_event_rt(Ev e) {
   }
 }
 
+/* ------------------------------------------------------------------ play any sound: the guitar (bass, acoustic) plays any keys sound
+ * playany/playany.c follows the input: single notes become notes for a SoundFont (its own channel, PA_CH, of the
+ * chosen bank), chords go to its synth mode. The control thread sets playNext; the audio thread takes it. */
+#define PA_CH 15
+typedef struct { int on, mode, tone, lo, hi, bankIx, bank, prog; float dry, sens, volume; } PlayCfg;
+static PlayCfg playNext, playRt; static _Atomic int playDirty; static PlayAny *pa; static double paFs;
+static float paIn[MAXBLOCK], paSynth[MAXBLOCK], paKeys[MAXBLOCK * 2]; static PaEvent paEv[256]; static PaInfo paInfoNow;
+static void playany_rt_apply(void) {   /* audio thread */
+  PlayCfg old = playRt; playRt = playNext;
+  if (!pa) return;
+  if (old.on && old.bankIx >= 0 && (!playRt.on || playRt.bankIx != old.bankIx)) tsf_channel_note_off_all(banks[old.bankIx].t, PA_CH);
+  if (!playRt.on) { pa_reset(pa); return; }
+  pa_set_mode(pa, playRt.mode); pa_set_sensitivity(pa, playRt.sens); pa_set_tone(pa, playRt.tone); pa_set_range(pa, playRt.lo, playRt.hi); pa_set_channel(pa, PA_CH);
+  if (playRt.mode == PA_SYNTH && playRt.bankIx >= 0) tsf_channel_note_off_all(banks[playRt.bankIx].t, PA_CH);
+  if (playRt.bankIx >= 0) { tsf *t = banks[playRt.bankIx].t; tsf_channel_set_bank_preset(t, PA_CH, playRt.bank, playRt.prog); tsf_channel_set_volume(t, PA_CH, 1); tsf_channel_set_pitchrange(t, PA_CH, 2); }
+}
+static void playany_event_rt(PaEvent e) {
+  if (playRt.bankIx < 0) return; tsf *t = banks[playRt.bankIx].t; int st = e.status & 0xF0;
+  if (st == 0x90 && e.d2) tsf_channel_note_on(t, PA_CH, e.d1, e.d2 / 127.0f);
+  else if (st == 0x80 || st == 0x90) tsf_channel_note_off(t, PA_CH, e.d1);
+  else if (st == 0xE0) tsf_channel_set_pitchwheel(t, PA_CH, e.d1 | e.d2 << 7);
+}
+
 /* ------------------------------------------------------------------ the running rig */
 static char kind[16] = "off"; static Chain *chainLive; static Chain *graveyard[8]; static int nGrave;
 static _Atomic(Chain *) chainNext;
@@ -470,6 +495,8 @@ static void data_cb(ma_device *d, void *out, const void *in, ma_uint32 n) {
   (void)d; uint64_t t0 = pl_now_ns(); float *fo = out; const float *fi = in;
   Chain *nx = atomic_exchange(&chainNext, NULL); if (nx) { if (chainLive && nGrave < 8) graveyard[nGrave++] = chainLive; chainLive = nx; }
   if (atomic_exchange(&keysDirty, 0)) keys_apply_rt();
+  if (atomic_exchange(&playDirty, 0)) playany_rt_apply();
+  int playing = playRt.on && pa && strcmp(kind, "keys") != 0;
   int isKeys = !strcmp(kind, "keys");
   for (ma_uint32 done = 0; done < n;) {
     int k = (int)(n - done > MAXBLOCK ? MAXBLOCK : n - done);
@@ -492,6 +519,12 @@ static void data_cb(ma_device *d, void *out, const void *in, ma_uint32 n) {
         float a = fabsf(bufL[i]); if (a > inPeak) inPeak = a;
       }
       if (ttLevel > 0) { double w = 2 * M_PI * ttFreq / FS; for (int i = 0; i < k; i++) { float v = ttLevel * (float)sin(ttPh); ttPh += w; bufL[i] += v; bufR[i] += v; } if (ttPh > 1e6) ttPh = fmod(ttPh, 2 * M_PI); }
+      if (playing) {   /* play any sound: follow the input (before the gate - the note's tail tells when it ends) */
+        for (int i = 0; i < k; i++) paIn[i] = inChannel == 2 ? 0.5f * (bufL[i] + bufR[i]) : bufL[i];
+        int ne = pa_process(pa, paIn, paSynth, k, paEv, 256);
+        for (int e = 0; e < ne; e++) playany_event_rt(paEv[e]);
+        pa_info(pa, &paInfoNow);
+      }
       Chain *c = chainLive;
       if (c && c->gateOn) {   /* the input gate */
         float thr = db2lin(c->gateDb);
@@ -500,6 +533,11 @@ static void data_cb(ma_device *d, void *out, const void *in, ma_uint32 n) {
     } else { memset(bufL, 0, sizeof(float) * k); memset(bufR, 0, sizeof(float) * k); }
     Chain *c = chainLive;
     if (c) for (int x = 0; x < c->n; x++) fx_run(&c->fx[x], bufL, bufR, k);
+    if (playing && fi && capCh > 0) {   /* the guitar with its pedals at the dry blend, the chosen sound, the synth mode */
+      int keysOn = playRt.bankIx >= 0; if (keysOn) tsf_render_float(banks[playRt.bankIx].t, paKeys, k, 0);
+      float dry = playRt.dry, v = playRt.volume;
+      for (int i = 0; i < k; i++) { float kl = keysOn ? paKeys[i * 2] : 0, kr = keysOn ? paKeys[i * 2 + 1] : 0; if (!isfinite(kl)) kl = 0; if (!isfinite(kr)) kr = 0; bufL[i] = bufL[i] * dry + (kl + paSynth[i]) * v; bufR[i] = bufR[i] * dry + (kr + paSynth[i]) * v; }
+    }
     if (fo) {
       for (int i = 0; i < k; i++) {
         float l = bufL[i] * levelGain, r = bufR[i] * levelGain; float a = fmaxf(fabsf(l), fabsf(r)); if (a > outPeak) outPeak = a;
@@ -552,6 +590,7 @@ static int dev_start(int wantCapture) {
   if (wantCapture) { cfg.capture.pDeviceID = capId; cfg.capture.format = ma_format_f32; cfg.capture.channels = 0; }
   if (ma_device_init(&ctx, &cfg, &dev) != MA_SUCCESS) { snprintf(devError, sizeof devError, "the audio device could not be opened"); return 0; }
   FS = dev.sampleRate; capCh = wantCapture ? (int)dev.capture.channels : 0; playCh = (int)dev.playback.channels; if (playCh < 1) playCh = 2;
+  if (!pa || paFs != FS) { if (pa) pa_free(pa); pa = pa_new(FS); paFs = FS; atomic_store(&playDirty, 1); }   /* (play any sound, at this rate) */
   if (outFirst >= playCh) outFirst = 0;
   devOpen = 1;
   if (ma_device_start(&dev) != MA_SUCCESS) { dev_stop(); snprintf(devError, sizeof devError, "the audio device could not start"); return 0; }
@@ -649,6 +688,7 @@ static void status(void) {
   if (running) cJSON_AddNumberToObject(s, "latencyMs", BLOCK * 2 / FS * 1000 + 5); else cJSON_AddNullToObject(s, "latencyMs");
   cJSON *irs = cJSON_AddArrayToObject(s, "irs"); char ud[1100]; user_dir(ud, sizeof ud, "ir"); list_dir(ud, add_ir, irs);
   cJSON_AddNumberToObject(s, "maxKeyLayers", MAXLAYERS); cJSON_AddBoolToObject(s, "looper", 0);
+  { cJSON *q = cJSON_AddObjectToObject(s, "playAny"); cJSON_AddBoolToObject(q, "available", 1); cJSON_AddBoolToObject(q, "on", playNext.on); cJSON_AddStringToObject(q, "engine", "cu-rig"); }
   cJSON_AddNumberToObject(s, "cpu", cpuLoad); cJSON_AddStringToObject(s, "engine", "cu-rig");
   /* the musician's own plugins */
   cJSON_AddStringToObject(s, "pluginFormats", ph_formats());
@@ -734,6 +774,23 @@ static void keys_set(cJSON *k) {
   keysCfg = nk; atomic_store(&keysDirty, 1);   /* (a plain copy: the audio thread picks the flag up before it reads the layers again) */
 }
 static cJSON *lastConfig;
+/* play any sound's settings (control thread): {on, patch {file, bank, prog, name}, mode "auto" | "notes" | "synth",
+   dry 0..1, sensitivity 0..1, volume 0..1.5} - the range of notes from the instrument (bass lower) */
+static void playany_set(cJSON *pc, const char *forKind) {
+  PlayCfg n; memset(&n, 0, sizeof n); n.bankIx = -1;
+  n.on = cJSON_IsObject(pc) && cJSON_IsTrue(cJSON_GetObjectItem(pc, "on")) && strcmp(forKind, "keys") && strcmp(forKind, "off");
+  const char *mode = cJSON_IsObject(pc) ? str(pc, "mode", "auto") : "auto"; n.mode = !strcmp(mode, "notes") ? PA_NOTES : !strcmp(mode, "synth") ? PA_SYNTH : PA_AUTO;
+  n.dry = cJSON_IsObject(pc) ? clampf((float)num(pc, "dry", 0), 0, 1) : 0; n.sens = cJSON_IsObject(pc) ? clampf((float)num(pc, "sensitivity", 0.5), 0, 1) : 0.5f; n.volume = cJSON_IsObject(pc) ? clampf((float)num(pc, "volume", 1), 0, 1.5f) : 1;
+  int bass = !strcmp(forKind, "bass"); n.lo = bass ? 23 : 40; n.hi = bass ? 67 : 88;
+  cJSON *patch = cJSON_IsObject(pc) ? cJSON_GetObjectItem(pc, "patch") : NULL, *fallback = NULL;
+  const char *file = patch ? str(patch, "file", "") : ""; FILE *test = file[0] ? fopen(file, "rb") : NULL;
+  if (test) fclose(test); else if (n.on && n.mode != PA_SYNTH) { fallback = default_patch(); patch = fallback; file = patch ? str(patch, "file", "") : ""; }
+  if (n.on && file[0] && n.mode != PA_SYNTH) { n.bankIx = bank_for(file); n.bank = (int)num(patch, "bank", 0); n.prog = (int)num(patch, "prog", 0); }
+  if (n.on && n.mode != PA_SYNTH && n.bankIx < 0 && !lastError[0]) snprintf(lastError, sizeof lastError, "play any sound: no SoundFont bank for the sound - add .sf2 files to %s", dataDir);
+  const char *name = patch ? str(patch, "name", "") : ""; n.tone = pa_tone_for_name(name[0] ? name : file);
+  cJSON_Delete(fallback);
+  playNext = n; atomic_store(&playDirty, 1);
+}
 static void plugs_keep(void) {   /* the plugin host keeps the plugins the newest chain and layers use, and saves + lets go of the rest */
   const char *slots[MAXFX + MAXLAYERS]; char names[MAXLAYERS][24]; int n = 0;
   Chain *c = atomic_load(&chainNext); if (!c) c = chainLive;
@@ -750,7 +807,7 @@ static void apply(cJSON *config) {
   levelGain = db2lin(num(c, "levelDb", 0)); inGain = input ? db2lin(num(input, "gainDb", 0)) : 1;
   const char *chs = input ? str(input, "channel", "L") : "L"; inChannel = !strcmp(chs, "stereo") ? 2 : !strcmp(chs, "R") ? 1 : 0;
   routing(cJSON_GetObjectItem(c, "routing"));
-  if (!strcmp(k, "off")) { dev_stop(); snprintf(kind, sizeof kind, "off"); running = 0; chain_swap(NULL); keys_drop_plugins(); plugs_keep(); return; }
+  if (!strcmp(k, "off")) { dev_stop(); snprintf(kind, sizeof kind, "off"); running = 0; chain_swap(NULL); keys_drop_plugins(); plugs_keep(); playany_set(NULL, "off"); return; }
   int keysKind = !strcmp(k, "keys");
   const char *want = input ? str(input, "device", "auto") : "auto"; int reopen = !devOpen || strcmp(kind, k) != 0 || (!keysKind && strcmp(want, devIn) != 0);
   snprintf(devIn, sizeof devIn, "%s", want);
@@ -759,6 +816,7 @@ static void apply(cJSON *config) {
   else if (!devOpen) keys_drop_plugins();
   chain_swap(chain_from(cJSON_GetObjectItem(c, "chain"), input, keysKind));
   plugs_keep();
+  playany_set(cJSON_GetObjectItem(c, "playAny"), k);
   if (reopen) { running = dev_start(!keysKind); if (!running && !lastError[0]) snprintf(lastError, sizeof lastError, "%s", devError); }
 }
 
@@ -799,6 +857,12 @@ static void handle(cJSON *m) {
   if (!strcmp(a, "note")) { int on = cJSON_IsTrue(cJSON_GetObjectItem(m, "on")); push_ev(on ? 0x90 : 0x80, (int)num(m, "note", 60), on ? (int)num(m, "velocity", 100) : 0); return; }
   if (!strcmp(a, "midi")) { cJSON *d = cJSON_GetObjectItem(m, "data"); if (cJSON_GetArraySize(d) >= 2) push_ev((int)cJSON_GetNumberValue(cJSON_GetArrayItem(d, 0)), (int)cJSON_GetNumberValue(cJSON_GetArrayItem(d, 1)), cJSON_GetArraySize(d) > 2 ? (int)cJSON_GetNumberValue(cJSON_GetArrayItem(d, 2)) : 0); return; }
   if (!strcmp(a, "routing")) { routing(cJSON_GetObjectItem(m, "routing")); return; }
+  if (!strcmp(a, "playany")) {   /* play any sound, live (the footswitch, the Instrument tab) */
+    cJSON *pc = cJSON_GetObjectItem(m, "playAny"); if (!cJSON_IsObject(pc)) return;
+    if (lastConfig) { cJSON_DeleteItemFromObject(lastConfig, "playAny"); cJSON_AddItemToObject(lastConfig, "playAny", cJSON_Duplicate(pc, 1)); }
+    if (strstr(lastError, "play any")) lastError[0] = 0;
+    playany_set(pc, kind); status(); return;
+  }
   if (!strcmp(a, "testtone")) { ttFreq = (float)num(m, "freq", 220); ttLevel = (float)num(m, "level", 0); return; }
   if (!strcmp(a, "rescan")) { cJSON_Delete(catCache); catCache = NULL; status(); return; }
   /* the musician's own plugins */
@@ -811,7 +875,8 @@ static void handle(cJSON *m) {
   if (!strcmp(a, "pluginEditor")) { char slot[24]; clean_uid(str(m, "uid", ""), slot); int open = ph_editor(slot, cJSON_IsFalse(cJSON_GetObjectItem(m, "open")) ? 0 : 1); cJSON *o = cJSON_CreateObject(); cJSON_AddStringToObject(o, "type", "pluginEditor"); cJSON_AddStringToObject(o, "uid", str(m, "uid", "")); cJSON_AddBoolToObject(o, "open", open); if (!open && !cJSON_IsFalse(cJSON_GetObjectItem(m, "open"))) cJSON_AddStringToObject(o, "error", ph_has_editor(slot) ? "The plugin's window did not open." : "This plugin has no window of its own here."); emit_json(o); cJSON_Delete(o); return; }
   if (!strcmp(a, "pluginSave")) { ph_save_all(); return; }
   if (!strcmp(a, "pluginCopyState")) { char from[24], to[24]; clean_uid(str(m, "from", ""), from); clean_uid(str(m, "to", ""), to); int ok = ph_copy_state(from, to); cJSON *o = cJSON_CreateObject(); cJSON_AddStringToObject(o, "type", "pluginCopyState"); cJSON_AddStringToObject(o, "from", str(m, "from", "")); cJSON_AddStringToObject(o, "to", str(m, "to", "")); cJSON_AddBoolToObject(o, "ok", ok); emit_json(o); cJSON_Delete(o); return; }
-  if (!strcmp(a, "meters")) { cJSON *o = cJSON_CreateObject(); cJSON_AddStringToObject(o, "type", "instrumentMeters"); cJSON_AddNumberToObject(o, "in", inPeak); cJSON_AddNumberToObject(o, "out", outPeak); cJSON_AddNumberToObject(o, "cpu", cpuLoad); { Chain *c = chainLive; if (c) { cJSON *g = NULL; for (int i = 0; i < c->n; i++) { Fx *x = &c->fx[i]; if (x->type == FX_SCOMP || x->type == FX_SLIMIT || x->type == FX_SDEESS) { if (!g) g = cJSON_AddObjectToObject(o, "gr"); cJSON_AddNumberToObject(g, x->uid, isfinite(x->gr) ? (double)x->gr : 0); } } } }   /* gain reduction (dB) of the Studio dynamics */ inPeak = outPeak = 0; emit_json(o); cJSON_Delete(o); return; }
+  if (!strcmp(a, "meters")) { cJSON *o = cJSON_CreateObject(); cJSON_AddStringToObject(o, "type", "instrumentMeters"); cJSON_AddNumberToObject(o, "in", inPeak); cJSON_AddNumberToObject(o, "out", outPeak); cJSON_AddNumberToObject(o, "cpu", cpuLoad); { Chain *c = chainLive; if (c) { cJSON *g = NULL; for (int i = 0; i < c->n; i++) { Fx *x = &c->fx[i]; if (x->type == FX_SCOMP || x->type == FX_SLIMIT || x->type == FX_SDEESS) { if (!g) g = cJSON_AddObjectToObject(o, "gr"); cJSON_AddNumberToObject(g, x->uid, isfinite(x->gr) ? (double)x->gr : 0); } } } }   /* gain reduction (dB) of the Studio dynamics */ if (playRt.on) { cJSON *q = cJSON_AddObjectToObject(o, "playAny"); PaInfo in = paInfoNow; cJSON_AddStringToObject(q, "state", in.state == PA_NOTE ? "note" : in.state == PA_CHORD ? "synth" : "idle"); cJSON_AddNumberToObject(q, "note", in.note); cJSON_AddNumberToObject(q, "voices", in.voices); }
+    inPeak = outPeak = 0; emit_json(o); cJSON_Delete(o); return; }
 }
 
 static char *read_file(const char *path) { FILE *f = fopen(path, "rb"); if (!f) return NULL; fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET); char *s = malloc((size_t)n + 1); if (fread(s, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(s); return NULL; } s[n] = 0; fclose(f); return s; }

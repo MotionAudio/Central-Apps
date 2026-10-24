@@ -22,6 +22,7 @@ module.exports = function exposeVideo() {
     openRecordings: () => ipcRenderer.invoke("video-open-recordings"),
     stats: () => ipcRenderer.invoke("video-stats"),
     tally: (map) => ipcRenderer.send("video-tally", map),
+    mixPcm: (pcm) => ipcRenderer.send("video-mix-pcm", pcm),   // the stream mix from the audio host on another computer (int16 stereo 48 kHz)
     on: (fn) => ipcRenderer.on("video-event", (_e, ev) => fn(ev))
   });
 };

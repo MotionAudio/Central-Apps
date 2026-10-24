@@ -139,6 +139,11 @@ button.on { background: color-mix(in srgb, var(--accent), transparent 70%); bord
 .mx-meter { position: relative; width: 10px; background: var(--well); border-radius: 4px; overflow: hidden; } .mx-meter i { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(0deg, #6FCF97, #6FCF97 70%, #F5CF72 85%, #ff6b4a); } .mx-meter b { position: absolute; left: 0; right: 0; top: 0; height: 0; background: rgba(255, 120, 120, .8); }
 .mx-fader { writing-mode: vertical-lr; direction: rtl; width: 34px; height: 200px; accent-color: var(--accent); }
 .mx-db { text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); } .mx-pan { width: 100%; accent-color: var(--blue); }
+/* PAN, labelled, with where it is (L 30 / C / R 30) - on the Mix tab strips (the in-ear channels: inear.css) */
+.mx-panbox { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px; margin: 0; min-width: 0; cursor: pointer; }
+.mx-panbox > span { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--muted); }
+.mx-panv { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 2.8em; text-align: right; }
+.mx-panbox { grid-template-columns: 1fr auto; row-gap: 2px; } .mx-panbox .mx-pan { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
 .mx-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; } .mx-btns button { padding: 4px 0; font-size: 11px; font-weight: 800; } .mx-strip select { width: 100%; font-size: 11px; padding: 3px; }
 .mx-detail { gap: 12px; } .mx-dhead { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .mx-dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .mx-dcol { display: grid; gap: 6px; align-content: start; } .mx-dcol h4 { margin: 0; } .mx-sl { display: grid !important; grid-template-columns: 90px 1fr 70px; align-items: center; gap: 8px; } .mx-sl output { font-size: 12px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -368,3 +373,30 @@ input[type=checkbox] { accent-color: var(--accent); }
 .lx-side { grid-template-rows: auto auto auto; align-content: start; }
 /* the bar under the stage plot: the buttons stay together on one line and wrap as a group */
 .lx-showbar .lx-showbtns { display: inline-flex; gap: 8px; flex-wrap: nowrap; }
+/* the smart Auto: the song's feel and each section's (intimate warm, mid blue, upbeat magenta) */
+.lx-auto { display: grid; gap: 8px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.lx-auto-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; } .lx-auto-head .lx-auto-set { margin-left: auto; }
+.lx-feel { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 650; font-size: 12px; border: 1px solid currentColor; }
+.lx-feel-intimate { --feel: #ffb36b; } .lx-feel-mid { --feel: #6f8cff; } .lx-feel-upbeat { --feel: #ff4fb0; }
+.lx-feel.lx-feel-intimate, .lx-feel.lx-feel-mid, .lx-feel.lx-feel-upbeat { color: var(--feel); }
+.lx-auto-secs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.lx-ausec { flex: 0 0 auto; display: grid; gap: 4px; min-width: 112px; padding: 6px; border-radius: 8px; background: var(--panel2); border-top: 3px solid var(--feel); }
+.lx-ausec button { padding: 3px 6px; font-size: 12px; text-align: left; white-space: nowrap; }
+.lx-ausec select { font-size: 11px; padding: 3px 6px; }
+.lx-energy { display: block; height: 5px; border-radius: 3px; background: var(--well); overflow: hidden; } .lx-energy b { display: block; height: 100%; background: var(--feel); }
+/* Mix: gate / FX on the strips, the stream mix on the faders, the reverb & delay and stream mix cards (mix-stream.js) */
+.mx-layer button { padding: 5px 12px; } .mx-layer button.on { background: var(--accent); color: var(--accentText); border-color: var(--accent); } .mx-layer button.on.stream { background: var(--blue); border-color: var(--blue); color: #0B1520; }
+.mx-strip.streaming { border-top-color: var(--blue); background: linear-gradient(180deg, rgba(141,181,222,.10), rgba(141,181,222,0) 40%), #17191E; } .mx-strip.streaming .mx-src { color: var(--blue); }
+.mx-h4 { margin-top: 8px !important; }
+.mx-extra { display: grid; gap: 12px; } .mx-extra:empty { display: none; }
+.mx-fxhead { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; justify-content: space-between; margin-bottom: 10px; } .mx-fxhead h3 { margin: 0; display: flex; gap: 10px; align-items: center; }
+.mx-fxm { display: inline-block; vertical-align: middle; width: 70px; height: 6px; border-radius: 3px; background: var(--well); position: relative; overflow: hidden; } .mx-fxm::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--v, 0%); background: var(--ok); transition: width .08s linear; }
+.mx-fxpre { gap: 6px; } .mx-fxpre button { padding: 3px 9px; font-size: 12px; }
+.mx-iefx { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(90px, 1.2fr) minmax(90px, 1.2fr); gap: 4px 8px; align-items: center; font-size: 12px; } .mx-iefx > b { color: var(--muted); font-size: 11px; font-weight: 650; } .mx-iefx > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-iefx label { display: grid; grid-template-columns: minmax(40px, 1fr) 58px; gap: 4px; align-items: center; } .mx-iefx output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.mx-stream { border-color: rgba(141,181,222,.35); }
+.mx-onair { background: #C8463F; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 3px 8px; border-radius: 999px; animation: mxAir 1.6s ease-in-out infinite; } @keyframes mxAir { 50% { opacity: .65; } } @media (prefers-reduced-motion: reduce) { .mx-onair { animation: none; } }
+.mx-smeter { display: grid; gap: 3px; } .mx-smeter i { display: block; height: 8px; width: 0; border-radius: 3px; background: linear-gradient(90deg, #3FBF78 0, #4FCB86 70%, #F5CF72 88%, #EF4B4B 100%); background-size: 100% 100%; transition: width .08s linear; } .mx-smeter { background: var(--well); padding: 3px; border-radius: 5px; }
+.mx-dest { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); } .mx-dest input { width: 170px; max-width: 100%; } .mx-dest select { width: auto; }
+.mx-chip { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--well); color: var(--muted); } .mx-chip.live { background: rgba(111,207,151,.18); color: var(--ok); } .mx-chip.error, .mx-chip.reconnecting { background: rgba(239,107,99,.16); color: var(--danger); } .mx-chip.connecting, .mx-chip.starting { color: var(--chord); }
+.mx-where .warn a { color: inherit; text-decoration: underline; }

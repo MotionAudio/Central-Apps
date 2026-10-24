@@ -1,6 +1,6 @@
 #!/bin/bash
 # The keys sounds that come with Central Control and Central Pedal on Windows / macOS (the built-in rig):
-# eleven free SoundFont banks from FreePats, all CC0 (public domain). About 175 MB.
+# eleven free SoundFont banks from FreePats and the VSCO 2: CE orchestra, all CC0 (public domain). About 270 MB.
 #   bash tools/fetch-builtin-sounds.sh <target folder>        (needs curl, and 7z or bsdtar)
 set -euo pipefail
 DEST="${1:?usage: fetch-builtin-sounds.sh <target folder>}"; mkdir -p "$DEST"
@@ -30,9 +30,29 @@ for entry in "${BANKS[@]}"; do
   sf="$(find "$x" -iname '*.sf2' | head -1)"; [ -n "$sf" ] || { echo "no .sf2 in $url" >&2; exit 1; }
   mv "$sf" "$DEST/$name"; echo "got $name ($(du -h "$DEST/$name" | cut -f1))"
 done
+# the orchestra (strings, brass, woodwinds) from VS Chamber Orchestra 2: CE (CC0), made into SoundFonts by
+# sounds-vsco.py (about 95 MB; BUILTIN_ORCHESTRA=0 leaves it out). Free in every app (tiers.txt), as Versilian asks.
+ORCH=0
+if [ "${BUILTIN_ORCHESTRA:-1}" != "0" ]; then
+  HERE="$(cd "$(dirname "$0")/.." && pwd)"
+  PY="$(command -v python3 || command -v python || true)"
+  if [ -n "$PY" ]; then
+    "$PY" -c "import numpy" 2>/dev/null || "$PY" -m pip install --quiet numpy 2>/dev/null || "$PY" -m pip install --quiet --user numpy 2>/dev/null || true
+    if "$PY" -c "import numpy" 2>/dev/null && "$PY" "$HERE/sounds-vsco.py" "$TMP/vsco" "$DEST"; then
+      ORCH=1
+      { echo "# file prefix | plan | license | name"; for v in VSCO-Strings VSCO-Brass VSCO-Woodwinds; do echo "$v|instrument|CC0|${v/-/ }"; done; } > "$DEST/tiers.txt"
+    else echo "(no orchestra: python3 with numpy is needed)"; fi
+  fi
+fi
 cat > "$DEST/SOUNDS-LICENSE.txt" <<'TXT'
 The keys sounds in this folder are from FreePats (https://freepats.zenvoid.org), released under CC0 1.0
 (public domain): Upright Piano KW (+ Bright), FM Piano 1, Drawbar Organ Emulation, Synth Strings 1, Synth Pad Choir,
 Synth Bass and Lead, Finger Bass YR, Synth Brass 1, Concert Harp, Kalimba.
 Add your own .sf2 banks in the app's data folder (sounds/sf2).
 TXT
+if [ "$ORCH" = 1 ]; then cat >> "$DEST/SOUNDS-LICENSE.txt" <<'TXT'
+VSCO Strings, VSCO Brass and VSCO Woodwinds are made from VS Chamber Orchestra 2: Community Edition by Versilian
+Studios (https://github.com/sgossner/VSCO-2-CE), CC0 1.0 - recorded by Sam Gossner and Simon Dalzell, sample cutting
+by Elan Hickler / Soundemote. They come free with the app; the samples are not sold on their own.
+TXT
+fi

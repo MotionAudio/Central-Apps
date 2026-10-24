@@ -7,7 +7,7 @@
 // usual ports (8765/8766/8080/8081). To run beside another copy on the same machine, give the whole run its
 // own network:  sudo bash ../tools/netns-run.sh xvfb-run -a node test-host.mjs
 import { _electron as electron, chromium } from "playwright";
-import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
+import { spawn, spawnSync } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url)), root = process.env.CC_ROOT || path.join(here, "..");
 const HOST_PORT = Number(process.env.CU_TEST_HOST_PORT || 18092);
@@ -36,8 +36,16 @@ const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-host-ud-"));
 fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", name: "Desk", host: { enabled: true, port: HOST_PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "ethernet", latency: 80 }, recordDir: path.join(userData, "rec") }));
 fs.writeFileSync(path.join(userData, "mixer.json"), JSON.stringify({ device: { backend: "internal", buffer: 256 } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
+// (9.5: Central Control needs a key - with no website yet, its default A key)
+async function passKey(p, key) {
+  await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 }).catch(() => { });
+  if (!(await p.evaluate(() => !!document.getElementById("licWiz")))) return;
+  await p.evaluate((k) => { localStorage.setItem("cc-license", JSON.stringify({ key: k, kind: k[0], app: k[0] === "U" ? "usage" : "control", okAt: Date.now(), production: "Test church", isDefault: true })); }, key);
+  await p.reload(); await p.waitForFunction(() => window.PPLicense && PPLicense.app && PPLicense.app(), null, { timeout: 15000 });
+}
 const app = await electron.launch({ executablePath: exe, args: [path.join(here, "main.js"), "--no-sandbox", "--user-data-dir=" + userData], env: Object.assign({}, process.env, { CC_UPDATE_API: "http://127.0.0.1:9" }) });
 const cu = await app.firstWindow(); cu.on("pageerror", (e) => errs.push("cu: " + e));
+await passKey(cu, "ADEF-AULT-KEY0-2026");
 await cu.waitForFunction(() => window.CentralUsage && window.CUMix && window.CU && window.CU.host);
 await cu.evaluate((c) => { CentralUsage.prefs.code = c; CentralUsage.store.set("code", c); CentralUsage.connect("127.0.0.1"); }, code);
 
@@ -67,10 +75,83 @@ await check("Mix tab: a strip per track; a fader move and the EQ go to the engin
   const saved = await until(() => { try { const j = JSON.parse(fs.readFileSync(path.join(userData, "mixer.json"), "utf8")); return j.inputs && j.inputs[k].fader === -12 ? j : null; } catch (_) { return null; } }, 4000);
   assert.ok(saved);
 });
+await check("Mix tab: every strip has a labelled PAN that says L 30 / C / R 30; a double-click centres it", async () => {
+  const k = await cu.evaluate(() => CUMix.state.inputs.findIndex((x) => x.name === "Keys"));
+  const sel = '.mx-strip[data-i="' + k + '"] [data-mx="pan"]';
+  assert.equal(await cu.evaluate((k) => { const b = document.querySelector('.mx-strip[data-i="' + k + '"] .mx-panbox'); return b && b.querySelector("span").textContent + "|" + b.querySelector(".mx-panv").textContent; }, k), "PAN|C");
+  await cu.$eval(sel, (el) => { el.value = "0.3"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  await until(() => cu.evaluate((k) => CUMix.state.inputs[k].pan === 0.3, k), 3000);
+  assert.equal(await cu.evaluate((k) => document.querySelector('.mx-strip[data-i="' + k + '"] .mx-panv').textContent, k), "R 30");
+  await cu.dblclick(sel);
+  await until(() => cu.evaluate((k) => CUMix.state.inputs[k].pan === 0, k), 3000);
+});
+await check("a Central Pedal track starts at the pan it has on the pedal", async () => {
+  const { Engine } = (await import(path.join(here, "engine.js"))).default;
+  const eng = new Engine({ dir: fs.mkdtempSync(path.join(os.tmpdir(), "cu-pan-")) });
+  eng.setPiStream({ 0: { channels: ["Bass", "Pads L", "Pads R"], pans: [-0.4, -1, 1] } }, 0);
+  const got = ["Bass", "Pads L", "Pads R"].map((n) => (eng.state.inputs.find((x) => x.name === n) || {}).pan);
+  assert.deepEqual(got, [-0.4, -1, 1]);
+});
 await check("tracks out: each track on its own output (direct) is chosen on the Mix tab", async () => {
   await cu.evaluate(() => CUMix.op({ op: "trackOut", value: "direct", first: 2 }));
   await until(() => cu.evaluate(() => CUMix.state.trackOut === "direct" && document.querySelector('[name="mxOut"][value="direct"]').checked), 3000);
   await cu.evaluate(() => CUMix.op({ op: "trackOut", value: "sum", first: 2 }));
+});
+await check("channel processing: a preset (Lead vocal) fills the gate, the 4-band EQ, the compressor and the FX sends; G / EQ / C / FX light up", async () => {
+  const k = await cu.evaluate(() => CUMix.state.inputs.findIndex((x) => x.name === "Keys"));
+  await cu.evaluate((k) => { document.querySelector('.mx-strip[data-i="' + k + '"] [data-mx="fx"]').click(); }, k);
+  await cu.waitForSelector('[data-mxd="preset"]', { timeout: 3000 });
+  await cu.selectOption('[data-mxd="preset"]', "vocal");
+  const x = await until(() => cu.evaluate((k) => { const x = CUMix.state.inputs[k]; return x.comp.on && x.fx.rev === -12 ? x : null; }, k), 3000);
+  assert.ok(x.eq.on && x.eq.m2f === 3500 && x.eq.m2g === 2.5 && x.hpf === 100 && x.fx.dly === -20, JSON.stringify(x));
+  await cu.evaluate((k) => CUMix.op({ op: "input", i: k, patch: { gate: { on: true, thr: -50 } } }), k);
+  const lit = await until(() => cu.evaluate((k) => { const s = document.querySelector('.mx-strip[data-i="' + k + '"]'); return ["gate", "eq", "comp", "fx"].every((b) => s.querySelector('[data-mx="' + b + '"]').classList.contains("on")) ? true : null; }, k), 3000);
+  assert.ok(lit);
+  assert.ok(await cu.evaluate(() => !!document.querySelector(".mx-gt") && document.querySelectorAll('[data-mxd^="eq.m2"]').length === 3), "the gate and the second mid in the channel panel");
+});
+await check("reverb & delay: the card sets them; the delay follows the song's tempo (a quarter note at the Central Pedal's BPM)", async () => {
+  await cu.waitForSelector(".mx-fxcard", { timeout: 3000 });
+  await cu.click('.mx-fxcard [data-fxq="hall"]');
+  await until(() => cu.evaluate(() => CUMix.state.fx.rev.decay === 2.4), 3000);
+  const bpm = await until(() => cu.evaluate(() => { const d = CentralUsage.state.display; return d && d.bpm ? Number(d.bpm) : null; }), 6000);
+  const dly = await until(() => cu.evaluate((b) => Math.abs(CUMix.state.fx.dly.bpm - b) < 0.2 ? CUMix.state.fx.dly : null, bpm), 5000);
+  const ms = await cu.evaluate((d) => CUMixer.delayMs(d), dly); assert.ok(Math.abs(ms - 60000 / bpm) < 1, ms + " ms: " + JSON.stringify(dly));
+  const meters = await cu.evaluate(() => CUMix.meters); assert.ok(Array.isArray(meters.gate) && Array.isArray(meters.fx) && Array.isArray(meters.stream), Object.keys(meters).join(","));
+});
+await check("stream mix: 'Faders: Stream mix' moves the stream's own levels (the room doesn't change); 'Start from the main mix' copies them; its meters move", async () => {
+  const k = await cu.evaluate(() => CUMix.state.inputs.findIndex((x) => x.name === "Kick"));
+  const roomBefore = await cu.evaluate((k) => CUMix.state.inputs[k].fader, k);
+  await cu.click('[data-mx-layer="stream"]'); await cu.waitForSelector(".mx-strip.streaming", { timeout: 3000 });
+  await cu.evaluate((k) => { const f = document.querySelector('.mx-strip[data-i="' + k + '"] [data-mx="fader"]'); f.value = String(CUMixer.dbToFader(-6)); f.dispatchEvent(new Event("input", { bubbles: true })); }, k);
+  const sd = await until(() => cu.evaluate((k) => { const s = CUMix.state.stream.sends[k]; return s && Math.abs(s.level + 6) < 0.2 ? s : null; }, k), 3000);
+  assert.ok(sd); assert.equal(await cu.evaluate((k) => CUMix.state.inputs[k].fader, k), roomBefore, "the room's fader didn't move");
+  cu.once("dialog", (d) => d.accept()); await cu.click('[data-sm="copy"]');
+  const n = await until(() => cu.evaluate(() => { const s = CUMix.state.stream.sends; return Object.keys(s).length >= 2 ? Object.keys(s).length : null; }), 3000); assert.ok(n >= 2);
+  const m = await until(() => cu.evaluate(() => CUMix.meters && CUMix.meters.stream && CUMix.meters.stream[0] > 0.01 ? CUMix.meters.stream : null), 6000); assert.ok(m, "stream meters");
+  await cu.click('[data-mx-layer="main"]');
+});
+await check("stream mix out: live to a file (a test destination) with a still picture - video and the stream mix's sound in it", async () => {
+  const out = path.join(userData, "live-test.flv");
+  await cu.evaluate((f) => CU.streamOut.call({ action: "config", patch: { destinations: [{ kind: "file", url: f }] } }), out);
+  const id = await cu.evaluate(() => CU.streamOut.call({}).then((s) => s.destinations[0].id));
+  await cu.evaluate((i) => CU.streamOut.call({ action: "live", id: i, on: true }), id);
+  const live = await until(() => cu.evaluate(() => CU.streamOut.call({}).then((s) => s.live ? s : null)), 15000); assert.ok(live, "live");
+  assert.ok(await until(() => cu.evaluate(() => !document.querySelector(".mx-onair").hidden), 4000), "ON AIR shows");
+  await new Promise((r) => setTimeout(r, 4000));
+  await cu.evaluate((i) => CU.streamOut.call({ action: "live", id: i, on: false }), id); await new Promise((r) => setTimeout(r, 3500));
+  const pr = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,codec_name:format=duration", "-of", "json", out], { encoding: "utf8" }); const j = JSON.parse(pr.stdout || "{}");
+  assert.ok(j.streams && j.streams.some((s) => s.codec_name === "h264") && j.streams.some((s) => s.codec_name === "aac") && Number(j.format.duration) > 2, pr.stdout + pr.stderr);
+  const vd = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", out, "-map", "0:a", "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8" }).stderr; const max = Number((/max_volume: (-?[\d.]+) dB/.exec(vd) || [])[1]);
+  assert.ok(max > -40, "the stream mix is in it: max " + max + " dB");
+});
+await check("stream mix out: the virtual sound device (Linux) - made with PipeWire / PulseAudio when it's there, a clear message when it isn't", async () => {
+  const st = await cu.evaluate(() => CU.streamOut.call({ action: "virtual", on: true }));
+  const hasPactl = spawnSync("sh", ["-c", "command -v pactl && command -v pacat"]).status === 0 && spawnSync("pactl", ["info"]).status === 0;
+  if (hasPactl) {
+    assert.equal(st.virtual.state, "on", JSON.stringify(st.virtual));
+    assert.ok(/central_control_stream_mic/.test(spawnSync("pactl", ["list", "short", "sources"], { encoding: "utf8" }).stdout), "the microphone is listed");
+  } else assert.ok(st.virtual.state === "error" && /pulseaudio-utils|PipeWire/.test(st.virtual.error), JSON.stringify(st.virtual));
+  const off = await cu.evaluate(() => CU.streamOut.call({ action: "virtual", on: false })); assert.equal(off.virtual.state, "off");
 });
 console.log("In-ears:");
 const phone = await browser.newPage(); phone.on("pageerror", (e) => errs.push("phone: " + e));
@@ -90,6 +171,26 @@ await check("the phone sets its own levels (they reach the audio host) and hears
   await phone.waitForFunction(() => /buffer \d+ ms/.test((document.querySelector(".ie-stats") || {}).textContent || ""), null, { timeout: 8000 });
   const mine = await until(() => cu.evaluate(() => CUMix.meters && CUMix.meters.mix[4] > 0.01 ? CUMix.meters.mix[4] : null), 6000); assert.ok(mine > 0.01);
 });
+await check("the phone's mix is stereo: every channel has a labelled PAN; the user switches their own mix to Mono (pan goes) and back", async () => {
+  await until(() => phone.evaluate(() => document.querySelectorAll(".ie-ch .ie-panbox .ie-pan").length >= 2 && document.querySelector('[data-ie="stereo"]').classList.contains("on")), 4000);
+  assert.equal(await phone.evaluate(() => document.querySelector(".ie-ch .ie-panbox span").textContent), "PAN");
+  await phone.evaluate(() => { const r = [...document.querySelectorAll(".ie-ch")].find((x) => x.querySelector(".ie-name").textContent === "Kick").querySelector(".ie-pan"); r.value = "-0.5"; r.dispatchEvent(new Event("input", { bubbles: true })); });
+  await until(() => cu.evaluate(() => { const k = CUMix.state.inputs.findIndex((x) => x.name === "Kick"), s = CUMix.state.mixes[2].sends[k]; return s && s.pan === -0.5; }), 4000);
+  assert.equal(await phone.evaluate(() => [...document.querySelectorAll(".ie-ch")].find((x) => x.querySelector(".ie-name").textContent === "Kick").querySelector(".ie-panv").textContent), "L 50");
+  await phone.click('[data-ie="mono"]');
+  await until(() => cu.evaluate(() => CUMix.state.mixes[2].stereo === false), 4000);
+  await until(() => phone.evaluate(() => document.querySelectorAll(".ie-ch .ie-pan").length === 0 && document.querySelectorAll(".ie-ch .ie-mono").length >= 2), 4000);
+  await phone.click('[data-ie="stereo"]');
+  await until(() => cu.evaluate(() => CUMix.state.mixes[2].stereo === true), 4000);
+  await until(() => phone.evaluate(() => document.querySelectorAll(".ie-ch .ie-pan").length >= 2), 4000);
+});
+await check("the phone's own reverb and delay: off at first, the user turns their reverb up (in their mix only)", async () => {
+  await until(() => phone.evaluate(() => document.querySelectorAll(".ie-fx [data-ie-fx]").length === 2), 4000);
+  assert.equal(await phone.evaluate(() => document.querySelector('.ie-fx [data-ie-fx="rRev"]').parentNode.querySelector("output").textContent), "off");
+  await phone.evaluate(() => { const r = document.querySelector('.ie-fx [data-ie-fx="rRev"]'); r.value = "0.75"; r.dispatchEvent(new Event("input", { bubbles: true })); });
+  await until(() => cu.evaluate(() => CUMix.state.mixes[2].rRev > -20), 4000);
+  assert.equal(await cu.evaluate(() => CUMix.state.mixes.filter((q, m) => m !== 2).every((q) => q.rRev === -90)), true, "only their mix");
+});
 await check("a phone can't change someone else's mix or the channels", async () => {
   const ok = await phone.evaluate(() => new Promise((res) => { const ws = new WebSocket("ws://" + location.host + "/ws"); ws.onopen = () => { ws.send(JSON.stringify({ type: "hello", role: "user", code: "1111", id: "other", name: "Other" })); setTimeout(() => { ws.send(JSON.stringify({ type: "op", op: { op: "send", m: 2, i: 0, patch: { level: 6 } } })); ws.send(JSON.stringify({ type: "op", op: { op: "input", i: 0, patch: { fader: 6 } } })); }, 200); }; const got = []; ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.type === "refused") got.push(m.error); if (got.length === 2) res(got); }; setTimeout(() => res(got), 3000); }));
   assert.equal(ok.length, 2, JSON.stringify(ok));
@@ -97,6 +198,12 @@ await check("a phone can't change someone else's mix or the channels", async () 
 await check("the admin's In-ears tab shows who has which mix", async () => {
   await cu.evaluate(() => CentralUsage.showTab("inears")); await cu.waitForSelector(".ia-mix", { timeout: 5000 });
   const t = await cu.evaluate(() => document.querySelector('.ia-mix[data-ia-mix="2"]').textContent); assert.match(t, /Sam/);
+  // the desk sees every channel's PAN in a stereo mix (labelled, L 50 / C / R 50), none in a mono one
+  await cu.click('.ia-mix[data-ia-mix="2"]');
+  await until(() => cu.evaluate(() => { const v = [...document.querySelectorAll(".ia-mixed .ie-ch")].map((r) => (r.querySelector(".ie-panv") || {}).textContent); return v.includes("L 50") && v.every((x) => x); }), 4000);
+  await cu.evaluate(() => CUMix.op({ op: "mix", m: 2, patch: { stereo: false } }));
+  await until(() => cu.evaluate(() => document.querySelectorAll(".ia-mixed .ie-pan").length === 0 && document.querySelectorAll(".ia-mixed .ie-mono").length > 0), 4000);
+  await cu.evaluate(() => CUMix.op({ op: "mix", m: 2, patch: { stereo: true } }));
 });
 await check("64 stereo mixes: the model, the In-ears grid, and Mix 64 mixes and meters", async () => {
   assert.equal(await cu.evaluate(() => CUMix.state.mixes.length), 64);
@@ -130,6 +237,8 @@ await check("recording the service writes a WAV of the main mix", async () => {
   const st = await cu.evaluate(() => CU.mixer.record({ on: false }));
   assert.ok(st.saved && fs.existsSync(st.saved), JSON.stringify(st)); assert.ok(fs.statSync(st.saved).size > 48000 * 4, "size " + fs.statSync(st.saved).size);
   assert.equal(fs.readFileSync(st.saved).toString("latin1", 0, 4), "RIFF");
+  const sm = path.join(path.dirname(st.saved), "Stream mix.wav");   // the stream mix has channels in it: recorded next to the program
+  assert.ok(fs.existsSync(sm) && fs.statSync(sm).size > 48000 * 4, "Stream mix.wav " + (fs.existsSync(sm) ? fs.statSync(sm).size : "missing"));
 });
 console.log("Lights:");
 await check("the lights get the song from the hub: waveform, and the music's level from the engine", async () => {

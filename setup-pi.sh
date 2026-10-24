@@ -41,12 +41,12 @@ warn() { printf '    WARNING: %s\n' "$*" >&2; }
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)."; exit 1; }
 for f in index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js js/textures.js \
          js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js \
-         instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
+         instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
          companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css \
          pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session \
          pad-pedal-audio-config xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf \
          pad-pedal-safe-mode pad-pedal.sudoers starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2 fonts/archivo-latin.woff2 \
-         central-usage/app/app.js central-usage/app/center-link.js central-usage/app/devices.js central-usage/app/lock.js central-usage/app/services-tab.js central-usage/app/countdown.js central-usage/app/chords.js central-usage/app/fixturelib.js central-usage/app/index.html central-usage/app/inear-client.js central-usage/app/inear-ui.js central-usage/app/inear.css central-usage/app/inears.js central-usage/app/instrument-shim.js central-usage/app/instrument-tab.js central-usage/app/instrument.html central-usage/app/io.js central-usage/app/lights-ai.js central-usage/app/lights.js central-usage/app/lyrics-listen.js central-usage/app/mix.js central-usage/app/mixer-model.js central-usage/app/mixlink.js central-usage/app/output.html central-usage/app/parts-tab.js central-usage/app/phone.html central-usage/app/remote.html central-usage/app/roles.js central-usage/app/settings.js central-usage/app/slides.js central-usage/app/style.css central-usage/app/timecode.js central-usage/app/updates.js central-usage/app/video.css central-usage/app/video.js  central-usage/build/icon.png; do
+         central-usage/app/app.js central-usage/app/center-link.js central-usage/app/devices.js central-usage/app/lock.js central-usage/app/services-tab.js central-usage/app/countdown.js central-usage/app/chords.js central-usage/app/fixturelib.js central-usage/app/index.html central-usage/app/inear-client.js central-usage/app/inear-ui.js central-usage/app/inear.css central-usage/app/inears.js central-usage/app/instrument-shim.js central-usage/app/instrument-tab.js central-usage/app/instrument.html central-usage/app/io.js central-usage/app/lights-ai.js central-usage/app/lights-auto.js central-usage/app/lights.js central-usage/app/lyrics-listen.js central-usage/app/mix.js central-usage/app/mixer-model.js central-usage/app/mixlink.js central-usage/app/output.html central-usage/app/parts-tab.js central-usage/app/phone.html central-usage/app/remote.html central-usage/app/roles.js central-usage/app/settings.js central-usage/app/slides.js central-usage/app/style.css central-usage/app/timecode.js central-usage/app/updates.js central-usage/app/video.css central-usage/app/video.js  central-usage/build/icon.png; do
   [ -f "$SRC/$f" ] || { echo "Missing $f next to setup-pi.sh"; exit 1; }
 done
 
@@ -75,7 +75,7 @@ python3 -c "import smbus" 2>/dev/null || python3 -c "import smbus2" 2>/dev/null 
 
 step "Instrument: free guitar pedal / amp plugins (LV2, LADSPA) and the keys engine (FluidSynth)"
 # 600+ plugins: Guitarix, Calf, LSP, x42, Zam, Dragonfly, mda, swh, Invada, TAP, CAPS... ~175 MB
-INSTRUMENT_PKGS="guitarix-lv2 calf-plugins lsp-plugins-lv2 x42-plugins zam-plugins dragonfly-reverb mda-lv2 swh-lv2 invada-studio-plugins-lv2 tap-plugins caps wah-plugins rev-plugins fil-plugins abgate eq10q ir.lv2 autotalent zita-at1 fluidsynth fluid-soundfont-gm lilv-utils p7zip-full"
+INSTRUMENT_PKGS="guitarix-lv2 calf-plugins lsp-plugins-lv2 x42-plugins zam-plugins dragonfly-reverb mda-lv2 dpf-plugins-lv2 fomp rubberband-lv2 ardour-lv2-plugins swh-lv2 invada-studio-plugins-lv2 tap-plugins caps wah-plugins rev-plugins fil-plugins abgate eq10q ir.lv2 autotalent zita-at1 fluidsynth fluid-soundfont-gm lilv-utils p7zip-full"
 apt-get install -y --no-install-recommends $INSTRUMENT_PKGS >/dev/null 2>&1 && echo "    + $INSTRUMENT_PKGS" || {
   warn "some instrument packages did not install; trying them one by one"
   for pkg in $INSTRUMENT_PKGS; do apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1 && echo "    + $pkg" || echo "    (skipped $pkg)"; done
@@ -138,8 +138,12 @@ install -m 755 "$SRC/pedal-driver.py"        /opt/pad-pedal/pedal-driver.py
 install -m 644 "$SRC/instrument_host.py"     /opt/pad-pedal/instrument_host.py
 install -m 644 "$SRC/sources.py"            /opt/pad-pedal/sources.py
 install -m 644 "$SRC/instrument-plugins.json" /opt/pad-pedal/instrument-plugins.json
+# play any sound: its plugin (built by CI for arm64) and its C sources (the driver builds it from them if it is missing)
+[ -d "$SRC/bin" ] && { rm -rf /opt/pad-pedal/bin; cp -r "$SRC/bin" /opt/pad-pedal/bin; chmod -R a+rX /opt/pad-pedal/bin; }
+[ -d "$SRC/central-usage/native/playany" ] && install -d -m 755 /opt/pad-pedal/central-usage/native/playany && install -m 644 "$SRC"/central-usage/native/playany/*.c "$SRC"/central-usage/native/playany/*.h /opt/pad-pedal/central-usage/native/playany/
 install -m 644 "$SRC/screens.json"           /opt/pad-pedal/screens.json
 install -m 755 "$SRC/get-sounds.sh"          /opt/pad-pedal/get-sounds.sh
+install -m 755 "$SRC/sounds-vsco.py"         /opt/pad-pedal/sounds-vsco.py
 install -d -m 755 /opt/pad-pedal/sounds
 if ls "$SRC"/sounds/*.sf2 >/dev/null 2>&1; then
   # inside the image build the staging folder is thrown away afterwards, so move the (big) banks instead of copying;

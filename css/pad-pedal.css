@@ -146,6 +146,11 @@ svg.notation .n-tab { font: bold 11px sans-serif; fill: #111; } svg.notation .n-
 .in-keys { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--panel); display: flex; flex-direction: column; gap: 8px; } .in-keys > .row.spread { align-items: start; } .in-keys > .row.spread > div { flex: 1; } .in-keys input { width: 240px; flex: 0 0 auto; } .in-keys .st-nav { display: flex; flex-wrap: wrap; gap: 6px; } .in-keys .st-chip { flex: 0 0 auto; }
 .keys-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; max-height: 34vh; overflow: auto; } .keys-item { text-align: left; display: grid; padding: 8px 10px; } .keys-item b { font-size: 13px; } .keys-item small { color: var(--muted); font-size: 11px; } .keys-item.on { background: var(--accent); color: var(--accentText); border-color: var(--accent); } .keys-item.on small { color: var(--accentText); }
 .keys-extra { display: flex; gap: 14px; flex-wrap: wrap; align-items: end; } .keys-extra label { min-width: 160px; }
+/* play any sound (a guitar plays any keys sound): its panel on the Instrument tab */
+.in-playany { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--panel); display: flex; flex-direction: column; gap: 8px; } .in-playany.on { border-color: var(--accent, #e0a03a); box-shadow: inset 4px 0 0 var(--accent, #e0a03a); }
+.in-playany > .row.spread { align-items: start; } .in-playany > .row.spread > div:first-child { flex: 1; } .in-playany h3 { margin: 0; } .in-playany .pa-now { min-width: 120px; text-align: right; }
+.in-playany .pa-bar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; } .in-playany .pa-bar label { min-width: 170px; } .in-playany #paSound { max-width: 300px; }
+.pa-modes { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; } .pa-modes button { border: 0; border-radius: 0; padding: 7px 12px; } .pa-modes button.on { background: var(--accent); color: var(--accentText); }
 .keys-kbd { position: relative; height: 96px; overflow-x: auto; } .kk { position: absolute; top: 0; padding: 0; border-radius: 0 0 5px 5px; } .kk.white { width: 29px; height: 92px; background: #eef2f6; color: #223; border: 1px solid #99a; display: flex; align-items: end; justify-content: center; font-size: 10px; } .kk.black { width: 18px; height: 56px; background: #1b2838; border: 1px solid #000; z-index: 2; } .kk.down { background: var(--accent) !important; }
 .in-foot { font-size: 12px; } .in-foot .warn { color: var(--danger); } .in-off { font-size: 15px; max-width: 760px; }
 @media (max-width: 700px) { .in-kind { min-width: 44%; } }
@@ -205,6 +210,11 @@ svg.notation .n-tab { font: bold 11px sans-serif; fill: #111; } svg.notation .n-
 .mix-strips .stem-meter { width: 10px; }
 .mix-strips .stem-btns button { padding: 8px 12px; font-size: 14px; }
 .mix-strips .stem-pan { width: 80px; height: 20px; }
+/* PAN: labelled, with where it is (L 30 / C / R 30) */
+.stem-panbox { display: grid; justify-items: center; gap: 1px; margin: 0; cursor: pointer; }
+.stem-panbox > span { font-size: 9px; font-weight: 800; letter-spacing: .06em; color: var(--muted); }
+.stem-panv { font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); min-width: 3.2em; text-align: center; }
+.mix-strips .stem-panbox > span { font-size: 11px; } .mix-strips .stem-panv { font-size: 12px; }
 .mix-strips .stem-db { font-size: 12px; }
 .mix-strips .stem.bus { background: var(--panel2); border-top-color: var(--blue); }
 .mix-strips .bus-fader { writing-mode: vertical-lr; direction: rtl; width: 40px; height: 100%; padding: 0; }
@@ -362,6 +372,10 @@ input[type=range]:focus-visible { outline: none; } input[type=range]:focus-visib
 .stem-fader::-webkit-slider-runnable-track, .bus-fader::-webkit-slider-runnable-track { width: 6px; height: auto; }
 .stem-fader::-webkit-slider-thumb, .bus-fader::-webkit-slider-thumb { width: 30px; height: 16px; margin-top: 0; margin-left: -12px;
   background: linear-gradient(180deg, transparent 7px, rgba(20,16,8,.85) 7px, rgba(20,16,8,.85) 9px, transparent 9px), linear-gradient(180deg, #7D848F, #ECE9E2 42%, #C3C7CD 58%, #6E7682); }
+/* pan: a small round knob on a track with a centre mark, not a fader cap */
+input.stem-pan { min-height: 20px; }
+input.stem-pan::-webkit-slider-runnable-track { height: 4px; background: linear-gradient(90deg, #1B1E23, #060708 49%, #9AA1AB 49%, #9AA1AB 51%, #060708 51%, #1B1E23); }
+input.stem-pan::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #F4F1EA, #A9AEB6 60%, #6E7682); }
 .stem { background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0) 30%), #17191E; border-color: #2A2F37; box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 6px 16px -8px rgba(0,0,0,.7); }
 .stem-meter { background: repeating-linear-gradient(0deg, #0A0B0D 0 2px, #16191D 2px 4px); border: 0; box-shadow: inset 0 0 0 1px #000; border-radius: 2px; }
 .stem-meter i, .stem-meter i.hot { background: linear-gradient(0deg, #3FBF78 0, #4FCB86 62%, #F5CF72 80%, #F08A4B 90%, #EF4B4B 100%); background-size: 100% 90px; background-position: bottom; -webkit-mask: repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 4px); mask: repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 4px); }

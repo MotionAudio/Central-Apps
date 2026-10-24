@@ -184,6 +184,7 @@ const svc = require("./services")(app, () => win);
 // the Video tab: cameras in, Main / Stream out, streaming, NDI, stream audio
 const videoSvc = require("./video-service").setup({
   ipcMain, getWin: () => win, userData: app.getPath("userData"), app, screen: require("electron").screen, BrowserWindow,
+  mixTap: (fn, on) => svc.streamTap(fn, on),   // the stream mix as the stream's sound, when this computer is the audio host
   binDir: app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native", "build")
 });
 if (process.platform === "darwin") app.whenReady().then(() => { try { require("electron").systemPreferences.askForMediaAccess("camera"); } catch (_) { } });

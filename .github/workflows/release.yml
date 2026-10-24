@@ -54,10 +54,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { pattern: installers-*, path: staging, merge-multiple: true }
+      - uses: actions/download-artifact@v4
+        with: { name: natives-pi, path: bin }   # play any sound's plugin for the Pi (bin/linux-aarch64/...): into central-control-source.zip
       - name: Make the release files
         run: |
           mkdir -p central-usage/dist
           find staging -type f \( -name 'CentralControl-*' -o -name 'central-usage-*' -o -name 'CentralUsage-*' -o -name 'central-pedal-control-*' -o -name 'central-services-*' \) -exec mv {} central-usage/dist/ \;
+          ls bin/linux-aarch64/central-playany.lv2/central-playany.so >/dev/null || { echo "::error::the Pi's play-any plugin is missing"; exit 1; }
           bash make-release.sh "$VER"
           for want in "CentralControl-*-win-x64.exe" "CentralControl-*-mac-arm64.dmg" "CentralControl-*-mac-x64.dmg" "CentralControl-*-amd64.deb" "CentralControl-*-x86_64.AppImage" \
                       "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" "central-usage-*-x86_64.AppImage" "central-control-source.zip" \

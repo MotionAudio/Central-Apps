@@ -57,7 +57,7 @@ function frames(stream, fn) {
   });
 }
 
-module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, screen, BrowserWindow }) {
+module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, screen, BrowserWindow, mixTap }) {
   // the outputs are drawn by the page: keep it running at full speed when the window is minimised or covered
   // (setup() runs before the app is ready, when these switches still apply)
   if (app && app.commandLine && !app.isReady()) { app.commandLine.appendSwitch("disable-renderer-backgrounding"); app.commandLine.appendSwitch("disable-backgrounding-occluded-windows"); app.commandLine.appendSwitch("disable-background-timer-throttling"); }
@@ -302,7 +302,7 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
     const bin = cuVideo(); if (!bin) return null;
     const proc = spawn(bin, ["audio"], { stdio: ["pipe", "pipe", "ignore"], windowsHide: true }); audio = proc; proc.stdin.on("error", () => { });
     frames(proc.stdout, (t, p) => {
-      if (t === "A") { if (audioSink && audioSink.writable && audioSink.writableLength < 1 << 20) audioSink.write(p); return; }
+      if (t === "A") { if (cfg.audio.use !== 2 && audioSink && audioSink.writable && audioSink.writableLength < 1 << 20) audioSink.write(p); return; }
       if (t !== "J") return;
       let m; try { m = JSON.parse(p.toString("utf8")); } catch (_) { return; }
       if (m.ev === "meters") send({ type: "audioMeters", peak: m.peak, live: m.live });
@@ -314,6 +314,49 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
     return proc;
   }
   const audioCmd = (o) => { const p = audioStart(); if (p && p.stdin.writable) p.stdin.write(JSON.stringify(o) + "\n"); };
+  // ---- the third sound source: the stream mix from the sound desk (Central Control's audio host - this computer, through
+  // its engine, or another one, through the Mix tab's link: the page passes it on). It arrives in bursts (the network, the
+  // page): a buffer holds "delay" ms of it (at least 100 - that is also what lines it up with the cameras) and the
+  // encoder gets it at a steady real-time pace; when the desk goes quiet (or never started) the gap is silence.
+  const mix = { on: false, local: false, chunks: [], have: 0, primed: false, timer: null, t0: 0, written: 0, peak: [0, 0], meterAt: 0, got: 0 };
+  const target = () => Math.max(100, Math.min(2000, cfg.audio.delay | 0)) * 48;   // frames held
+  function mixIn(buf) {   // int16 stereo 48 kHz from the stream mix
+    if (!mix.on) return;
+    mix.got = Date.now();
+    for (let k = 0; k + 3 < buf.length; k += 4) { const l = Math.abs(buf.readInt16LE(k)) / 32768, r = Math.abs(buf.readInt16LE(k + 2)) / 32768; if (l > mix.peak[0]) mix.peak[0] = l; if (r > mix.peak[1]) mix.peak[1] = r; }
+    mix.chunks.push(buf); mix.have += buf.length / 4;
+    while (mix.have > target() + 300 * 48 && mix.chunks.length > 1) { mix.have -= mix.chunks.shift().length / 4; }   // (too far behind - a stall, or two clocks drifting: catch up)
+  }
+  function take(n) {   // n frames from the buffer (silence for whatever isn't there)
+    const out = Buffer.alloc(n * 4); let off = 0;
+    while (off < out.length && mix.chunks.length) { const c = mix.chunks[0], k = Math.min(c.length, out.length - off); c.copy(out, off, 0, k); off += k; if (k === c.length) mix.chunks.shift(); else mix.chunks[0] = c.subarray(k); }
+    mix.have -= off / 4; return out;
+  }
+  function mixPump() {
+    const now = Date.now(), n = Math.round((now - mix.t0) * 48) - mix.written;
+    if (n > 0) {
+      if (!mix.primed && mix.have >= target()) mix.primed = true;
+      const data = mix.primed ? take(n) : Buffer.alloc(n * 4);
+      if (mix.primed && mix.have <= 0) mix.primed = false;   // (ran dry: fill up to the delay again before it plays on)
+      mix.written += n;
+      if (audioSink && audioSink.writable && audioSink.writableLength < 1 << 20) audioSink.write(data);
+    }
+    if (now - mix.meterAt > 100) { mix.meterAt = now; send({ type: "mixMeters", peak: mix.peak.slice(), receiving: now - mix.got < 500, local: mix.local }); mix.peak = [0, 0]; }
+  }
+  function mixSync() {
+    const want = cfg.audio.use === 2 && !!audioSink;
+    if (want === mix.on) return;
+    mix.on = want;
+    if (want) {
+      mix.local = !!(mixTap && mixTap(mixIn, true));
+      if (!mix.local) send({ type: "mixAudio", on: true });   // (the page listens to the audio host's stream mix and passes it on)
+      mix.chunks = []; mix.have = 0; mix.primed = false; mix.t0 = Date.now(); mix.written = 0; clearInterval(mix.timer); mix.timer = setInterval(mixPump, 10);
+    } else {
+      if (mix.local && mixTap) mixTap(mixIn, false); else send({ type: "mixAudio", on: false });
+      mix.local = false; clearInterval(mix.timer); mix.timer = null; mix.chunks = []; mix.have = 0;
+    }
+  }
+  ipcMain.on("video-mix-pcm", (_e, b) => { if (b) mixIn(Buffer.isBuffer(b) ? b : Buffer.from(b.buffer ? Buffer.from(b.buffer, b.byteOffset, b.byteLength) : b)); });
   function audioApply() {
     const a = cfg.audio;
     a.sources.forEach((s, i) => audioCmd({ cmd: "source", slot: i, device: s.device || "", l: s.l | 0, r: s.r | 0, gain: Number(s.gain) || 0, on: s.on === false ? 0 : 1 }));
@@ -359,7 +402,7 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
     const want = cfg.stream.encoder && cfg.stream.encoder !== "auto" ? cfg.stream.encoder : null, e = probeEncoders();
     const encoder = want && e.list.includes(want) ? want : e.best;
     if (!encoder) { enc.error = "No H.264 encoder in this ffmpeg."; sendStream(); return false; }
-    const useAudio = !!cuVideo();
+    const useAudio = !!cuVideo() || cfg.audio.use === 2;
     const args = ["-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:2", "-stats_period", "1",
       "-thread_queue_size", "64", "-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", w + "x" + h, "-framerate", String(fps), "-use_wallclock_as_timestamps", "1", "-i", "pipe:0"];
     if (useAudio) args.push("-thread_queue_size", "256", "-f", "s16le", "-ar", "48000", "-ac", "2", "-use_wallclock_as_timestamps", "1", "-i", "pipe:3");
@@ -373,19 +416,19 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
     const proc = spawn(bin, args, { stdio: ["pipe", "pipe", "pipe", "pipe"], windowsHide: true });
     Object.assign(enc, { proc, w, h, fps, encoder, stats: {}, started: Date.now(), error: null });
     proc.stdin.on("error", () => { }); if (proc.stdio[3]) proc.stdio[3].on("error", () => { });
-    if (useAudio) { audioStart(); audioSink = proc.stdio[3]; }
+    if (useAudio) { if (cfg.audio.use !== 2) audioStart(); audioSink = proc.stdio[3]; mixSync(); }
     proc.stdout.on("data", (b) => { for (const r of relays.values()) if (r.proc && r.proc.stdin.writable && r.proc.stdin.writableLength < 8 << 20) r.proc.stdin.write(b); });
     let errTail = "";
     lines(proc.stderr, (l) => { const m = /^(\w+)=(.*)$/.exec(l); if (m) { enc.stats[m[1]] = m[2].trim(); if (m[1] === "progress") sendStream(); } else errTail = (errTail + l + "\n").slice(-500); });
     proc.on("exit", (code) => {
       if (enc.proc !== proc) return;
-      enc.proc = null; audioSink = null; enc.error = code ? (errTail.trim().split("\n").pop() || "the encoder stopped (" + code + ")") : null;
+      enc.proc = null; audioSink = null; mixSync(); enc.error = code ? (errTail.trim().split("\n").pop() || "the encoder stopped (" + code + ")") : null;
       for (const id of [...relays.keys()]) relayStop(id, id !== "record");
       sendStream();
     });
     sendStream(); return true;
   }
-  function encStop() { const p = enc.proc; enc.proc = null; audioSink = null; if (p) { try { p.stdin.end(); } catch (_) { } setTimeout(() => { try { p.kill(); } catch (_) { } }, 1500); } sendStream(); }
+  function encStop() { const p = enc.proc; enc.proc = null; audioSink = null; mixSync(); if (p) { try { p.stdin.end(); } catch (_) { } setTimeout(() => { try { p.kill(); } catch (_) { } }, 1500); } sendStream(); }
   function destUrl(d) {
     const k = String(d.key || "").trim(), base = String(d.url || (DEST_KINDS[d.kind] || {}).url || "").trim().replace(/\/+$/, "");
     if (d.kind === "srt") return base;
@@ -493,7 +536,11 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
   ipcMain.handle("video-config", (_e, patch) => {
     patch = patch || {};
     for (const k of ["multiview", "main", "stream", "record", "lyrics", "transition", "phones"]) if (patch[k]) cfg[k] = Object.assign({}, cfg[k], patch[k]);
-    if (patch.audio) { cfg.audio = Object.assign({}, cfg.audio, patch.audio); if (audio) audioApply(); }
+    if (patch.audio) {
+      const wasMix = cfg.audio.use === 2; cfg.audio = Object.assign({}, cfg.audio, patch.audio); if (audio) audioApply();
+      if ((cfg.audio.use === 2) !== wasMix && enc.proc) { encStop(); setTimeout(syncRelays, 1800); }   // (the encoder's sound comes from another place: it restarts, the destinations reconnect)
+      mixSync();
+    }
     if (patch.sources) { cfg.sources = patch.sources.map((s) => Object.assign({}, s, { id: s.id || nextId() })); for (const s of cfg.sources) if (procs.has(s.id) && wants.get(s.id)) { stopFf(s.id); startFf(s, wants.get(s.id)); } }
     if (patch.destinations) { cfg.destinations = patch.destinations.map((d) => Object.assign({ on: false }, d, { id: d.id || "d" + crypto.randomBytes(3).toString("hex") })); syncRelays(); }
     if (patch.stream && (patch.stream.preset || patch.stream.encoder || patch.stream.bitrate) && enc.proc) { encStop(); setTimeout(syncRelays, 1800); }

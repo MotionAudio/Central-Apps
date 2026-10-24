@@ -17,6 +17,7 @@ const { Engine } = require("./engine");
 const { Host } = require("./host");
 const { PiAudio } = require("./piaudio");
 const { Recorder } = require("./recorder");
+const { StreamOut } = require("./streamout");
 const { Talk, isDesk } = require("./talk");
 const { findFfmpeg } = require("./video-service");
 const { Center, BEACON_PORT, salted } = require("./center");
@@ -57,7 +58,8 @@ module.exports = function services(app, getWin) {
   const engine = new Engine({ dir: userData, bin: path.join(binDir, "cu-mixer" + EXE) });
   const talk = new Talk({ engine });
   const recorder = new Recorder({ engine, bin: path.join(binDir, "cu-mixer" + EXE), ffmpeg: () => findFfmpeg(binDir), dir: () => cfg.recordDir });
-  const host = new Host({ engine, talk, recorder, appDir: path.join(__dirname, "app"), cfg: () => ({ name: cfg.name, userCode: cfg.host.userCode, adminCode: cfg.host.adminCode }), extra: () => ({}) });
+  const streamOut = new StreamOut({ engine, ffmpeg: () => findFfmpeg(binDir), dir: userData });   // the stream mix: a virtual sound device, going live with a still picture
+  const host = new Host({ engine, talk, recorder, appDir: path.join(__dirname, "app"), cfg: () => ({ name: cfg.name, userCode: cfg.host.userCode, adminCode: cfg.host.adminCode }), extra: () => { const s = streamOut.status(); return { streamOut: { live: s.live, virtual: s.virtual.on && s.virtual.state === "on", destinations: s.destinations.map((d) => ({ label: d.label, status: d.status })) } }; } });
   const pi = new PiAudio(engine, 0), pi2 = new PiAudio(engine, 2);   // the track player, and one more pedal (the instrument rig) on its own channels
   let piTarget = { address: "", code: "", extra: null };
   function hostStatus() { return { cfg, engine: engine.info(), server: host.status(), pi: pi.status(), pi2: Object.assign(pi2.status(), { pedal: piTarget.extra && piTarget.extra.name || null }), recorder: recorder.state() }; }
@@ -266,6 +268,17 @@ module.exports = function services(app, getWin) {
     } catch (e) { return recErr(e); }
   });
   ipcMain.handle("open-recordings", () => { fs.mkdirSync(cfg.recordDir, { recursive: true }); shell.openPath(cfg.recordDir); return true; });
+  // ---- the stream mix out of this computer (streamout.js) and the delay's tempo
+  streamOut.on("status", (s) => send("stream-out", s));
+  ipcMain.handle("stream-out", (_e, a) => {
+    a = a || {};
+    if (a.action === "virtual") return streamOut.setVirtual(!!a.on);
+    if (a.action === "live") return streamOut.setLive(a.id || "all", !!a.on);
+    if (a.action === "config") return streamOut.config(a.patch);
+    if (a.action === "picture") { const r = dialog.showOpenDialogSync(getWin(), { title: "A picture for the stream (your logo)", properties: ["openFile"], filters: [{ name: "Pictures", extensions: ["png", "jpg", "jpeg"] }] }); return streamOut.config({ picture: r && r[0] ? r[0] : a.clear ? "" : streamOut.cfg.picture }); }
+    return streamOut.status();
+  });
+  ipcMain.handle("mixer-tempo", (_e, bpm) => engine.setTempo(bpm));
 
   // ---- talkback (talk.js): this computer's own talk (as the audio host) goes straight in; the users' talkback
   // to the desk plays here when this computer is the desk (the main admin, or an admin with the Mix job)
@@ -413,7 +426,9 @@ module.exports = function services(app, getWin) {
 
   return {
     start() { applyHost(); applyCenter(); setTimeout(() => { try { recorder.repairAll(); } catch (_) { } }, 3000); },   // (a recording a crash cut short: its files repaired)
-    stop() { try { center && center.stop(); } catch (_) { } try { recorder.stop().catch(() => { }); } catch (_) { } talk.close(); host.stop(); engine.stop(); pi.close(); ndiStop(); if (inst) inst.kill(); if (ai.proc) ai.proc.kill(); if (outputs.screen && !outputs.screen.isDestroyed()) outputs.screen.close(); },
+    // the stream mix for the Video tab on this computer: true when this computer is the audio host (its engine's tap)
+    streamTap(fn, on) { if (!engine.wanted && on) return false; engine.tap(65, fn, !!on); return true; },
+    stop() { try { center && center.stop(); } catch (_) { } try { streamOut.stop(); } catch (_) { } try { recorder.stop().catch(() => { }); } catch (_) { } talk.close(); host.stop(); engine.stop(); pi.close(); ndiStop(); if (inst) inst.kill(); if (ai.proc) ai.proc.kill(); if (outputs.screen && !outputs.screen.isDestroyed()) outputs.screen.close(); },
     cfg: () => cfg
   };
 };
