@@ -53,6 +53,16 @@ try {
   ok(await page.$$eval("#planCards .tier", (x) => x.length) === 4 && /Central Keys/.test(await page.textContent("#planCards")) && /\$50/.test(await page.textContent("#planCards")) && /\$220/.test(await page.textContent("#planAll")) && await page.$$eval("#planBundles .bundle-row", (x) => x.length) === 5 && /package key/.test(await page.textContent("#plans")),
     "the store: sound plans (four, all four for $220, five church bundles), each a package key");
   ok((await page.$$eval(".keydefs dt", (d) => d.map((x) => x.textContent))).join() === "P,A,U,S,Slots", "the key legend: P, A, U, S (sound plan packages) and Slots (Central Services)");
+  // Downloads is public: anyone gets every app (no keys shown until signed in; keys come by email and on Account)
+  await page.evaluate(() => { location.hash = "downloads"; }); await page.waitForSelector("#downloads:not([hidden]) .dl-card", { timeout: 6000 }).catch(() => {});
+  { const t = await page.textContent("#downloads"), n = await page.$$eval("#downloads .dl-card", (x) => x.length), btns = await page.$$eval("#downloads a.btn", (x) => x.map((b) => b.textContent));
+    ok(n === 5 && /Central Pedal Control/.test(t) && /Central Control/.test(t) && /Central Usage/.test(t) && /Central Services/.test(t) && /one line, no questions/.test(t) && /Account page and in your email/.test(t) && /Sign in to see your keys/.test(t) && !/[PAU][A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(t) && btns.some((b) => /Download Central Usage/.test(b)),
+      "Downloads, signed out: every app (pedal, Pedal Control, Control, Usage, Services) with its download and install steps, where the keys come from, no keys", { n, btns }); }
+  await shot("downloads-public", true);
+  await page.evaluate(() => { location.hash = ""; }); await page.waitForTimeout(200);
+  // (the subscription card doesn't stick on a phone: a card taller than the screen must scroll away)
+  { const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 } }), ph = await ctx2.newPage(); await ph.goto(base + "/#tracks", { waitUntil: "networkidle" });
+    ok(await ph.$eval(".plan", (e) => getComputedStyle(e).position) === "static", "on a phone the Central Tracks subscription card scrolls with the page"); await ctx2.close(); }
   ok(await page.$$eval(".system img", (imgs) => imgs.every((i) => i.complete && i.naturalWidth > 0)) && await page.$eval("#pedalBuy img", (i) => i.naturalWidth > 0), "the app icons load");
   await shot("store", true);
   ok(!(await page.$("#packs [data-add=ultra-plus10]").then((b) => b.click()).then(() => page.textContent("#cartBtn"))).includes("1"), "Ultra's 10 more slots can't go in the cart without the Ultra pack");
@@ -117,9 +127,9 @@ try {
   ok(/The keys are yours/.test(await page.textContent(".modal")) && /Downloads/.test(await page.textContent(".modal")) && !(await page.$("#coChurch")), "Just me: the keys are yours, on your Downloads page and in your email");
   await shot("cart-just-me");
   await page.click("#clear"); await page.waitForTimeout(200);
-  ok(/Open your downloads/.test(await page.textContent("#acctBody")), "the Account page links to Your downloads");
+  ok(/Open Downloads/.test(await page.textContent("#acctBody")) && /Your keys and downloads/.test(await page.textContent("#acctBody")), "the Account page shows your keys and links to Downloads");
   await page.evaluate(() => { location.hash = "downloads"; }); await page.waitForSelector("#downloads:not([hidden]) .dl-card", { timeout: 6000 }).catch(() => {});
-  ok(await page.isVisible("#downloads") && /Your downloads/.test(await page.textContent("#downloads")) && /Settings → Packages → Add a package/.test(await page.textContent("#downloads")), "the Downloads page: here, the trial's package key and where to paste it", await page.textContent("#downloads"));
+  ok(await page.isVisible("#downloads") && /Downloads/.test(await page.textContent("#downloads")) && /Settings → Packages → Add a package/.test(await page.textContent("#downloads")), "the Downloads page: here, the trial's package key and where to paste it", await page.textContent("#downloads"));
   await shot("downloads", true);
   await page.evaluate(() => { location.hash = "account"; }); await page.waitForTimeout(300);
   ok(!(await page.isVisible("#downloads")), "...and it goes away when you go somewhere else");

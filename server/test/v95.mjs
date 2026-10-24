@@ -318,6 +318,8 @@ try {
   const dlMail = to(E("solo")).filter((m) => /Your downloads and keys/.test(m.subject)).pop();
   ok(dlMail && /CENTRAL USAGE/.test(dlMail.text) && /U[A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(dlMail.text) && /motionaudio\.github\.io\/Central-Apps\/#usage/.test(dlMail.text) && /Run anyway/.test(dlMail.text) && /install\.sh \| bash -s usage/.test(dlMail.text)
     && /ships to Sam Solo, 12 Hymn St, Nashville TN 37201, US/.test(dlMail.text) && /Central Pedal Setup/.test(dlMail.text) && /CENTRAL PEDAL CONTROL/.test(dlMail.text), "the buyer's email: each key, its download link, how to install it, and the pedal's address and phone setup", dlMail && dlMail.text);
+  const pubDl = await j("GET", "/downloads/apps");
+  ok(pubDl.apps.length === 3 && pubDl.apps.every((a) => a.keys.length === 0 && a.download && a.steps.windows) && pubDl.services && /account/.test(pubDl.services.note) && pubDl.pedalSetup.length, "anyone can see every app's download and install steps (no sign-in, no keys)");
   const dl = await j("GET", "/downloads", null, solo);
   const dlU = dl.apps.find((a) => a.kind === "U"), dlP = dl.apps.find((a) => a.kind === "P");
   ok(dlU && dlP && dlU.keys.length === 1 && /#usage$/.test(dlU.download) && dlU.steps.windows.length && dlU.steps.mac.length && dlU.steps.android && /bash -s usage/.test(dlU.linuxCommand) && /Safari/.test(dlU.phone)
