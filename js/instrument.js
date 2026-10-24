@@ -110,7 +110,7 @@
   function hostConfig() {
     var c = cfg(), k = kind();
     return { kind: k, input: { device: c.input.device || "auto", channel: c.input.channel || "L", gainDb: c.input.gain || 0, gateOn: c.input.gate > -90, gateDb: c.input.gate != null ? c.input.gate : -70 }, chain: resolvedChain(k),
-      keys: hostKeys(c), levelDb: c.output.level || 0, routing: project().routing || {}, looper: !!(window.PPLooper && window.PPLooper.armed()), playAny: hostPlayAny(c, k) };
+      keys: hostKeys(c), levelDb: outLevel(), routing: project().routing || {}, looper: !!(window.PPLooper && window.PPLooper.armed()), playAny: hostPlayAny(c, k) };
   }
   // ---- play any sound: a guitar, bass or acoustic plays any keys sound. Single notes (lead lines) are tracked and play the
   // chosen sound; chords play a guitar-synth sound (no note detection, so it follows at once). Auto switches between them.
@@ -504,7 +504,7 @@
       if (el.dataset.ctl) { var parts = el.dataset.ctl.split("|"), item = chainFor(k).filter(function (q) { return q.uid === parts[0]; })[0], pedal = item && PED.byId(item.pedal); if (!pedal) return; var ctl = controlsOf(pedal).filter(function (q) { return q.sym === parts[1]; })[0]; if (!ctl) return; var v = el.type === "checkbox" ? (el.checked ? 1 : 0) : el.tagName === "SELECT" ? Number(el.value) : denorm(ctl, Number(el.value) / 1000); item.values[ctl.sym] = v; if (out) out.textContent = fmt(ctl, v); send({ type: "instrument", action: "set", uid: item.uid, sym: ctl.sym, value: v }); PP.persistSoon(); var svg = root.querySelector('svg.pedal[data-uid="' + item.uid + '"]'); if (svg) svg.outerHTML = pedalSvg(item, pedal, chainFor(k).indexOf(item), true); return; }
       if (el.id === "inGain") { c.input.gain = Number(el.value); if (out) out.textContent = el.value + " dB"; inputSoon(); }
       else if (el.id === "inGate") { c.input.gate = Number(el.value); if (out) out.textContent = el.value + " dB"; inputSoon(); }
-      else if (el.id === "inOut") { c.output.level = Number(el.value); if (out) out.textContent = el.value + " dB"; send({ type: "instrument", action: "level", levelDb: c.output.level }); PP.persistSoon(); }
+      else if (el.id === "inOut") { c.output.level = Number(el.value); if (out) out.textContent = el.value + " dB"; send({ type: "instrument", action: "level", levelDb: outLevel() }); PP.persistSoon(); }
       else if (el.id === "inTranspose") { c.keys.transpose = Number(el.value); if (out) out.textContent = el.value; keysSoon(); }
       else if (el.dataset.pmix || el.dataset.plevel) { var pu = el.dataset.pmix || el.dataset.plevel, pit = chainFor(k).filter(function (q) { return q.uid === pu; })[0]; if (!pit) return; if (el.dataset.pmix) { pit.mix = Number(el.value) / 100; if (out) out.textContent = el.value + "%"; } else { pit.levelDb = Number(el.value); if (out) out.textContent = el.value + " dB"; } send({ type: "instrument", action: "pedalmix", uid: pit.uid, mix: pit.mix == null ? 1 : pit.mix, levelDb: pit.levelDb || 0 }); PP.persistSoon(); }
       else if (el.dataset.klvol != null) { var lv = layers(c)[Number(el.dataset.klvol)]; if (lv) { lv.volume = Number(el.value) / 100; if (out) out.textContent = el.value; keysLive(); } }
@@ -630,7 +630,7 @@
     el.addEventListener("click", function (e) { if (e.target.id === "tnClose") toggleTuner(); });
     el.addEventListener("change", function (e) {
       if (e.target.id === "tnRef") { cfg().tunerRef = clamp(Number(e.target.value) || 440, 425, 455); PP.persistSoon(); }
-      if (e.target.id === "tnMute") { cfg().tunerMute = e.target.checked; PP.persistSoon(); if (tunerOn) send({ type: "instrument", action: "level", levelDb: e.target.checked ? -120 : (cfg().output.level || 0) }); el.querySelector("small").textContent = e.target.checked ? "TUNER · instrument muted" : "TUNER · instrument still playing"; }
+      if (e.target.id === "tnMute") { cfg().tunerMute = e.target.checked; PP.persistSoon(); if (tunerOn) send({ type: "instrument", action: "level", levelDb: e.target.checked ? -120 : outLevel() }); el.querySelector("small").textContent = e.target.checked ? "TUNER · instrument muted" : "TUNER · instrument still playing"; }
     });
     return el;
   }
@@ -656,7 +656,7 @@
     var want = typeof force === "boolean" ? force : !tunerOn; if (want === tunerOn) return tunerOn;
     if (want && window.PPShell && ["instrument", "live"].indexOf(window.PPShell.currentTab()) < 0) window.PPShell.showTab("instrument");   // (the LIVE screen shows its own tuner)
     tunerOn = want;
-    if (cfg().tunerMute !== false || !tunerOn) send({ type: "instrument", action: "level", levelDb: tunerOn ? -120 : (cfg().output.level || 0) });
+    if (cfg().tunerMute !== false || !tunerOn) send({ type: "instrument", action: "level", levelDb: tunerOn ? -120 : outLevel() });
     var box = tunerBox(); box.classList.toggle("on", tunerOn); tunerSmooth = null;
     box.querySelector("small").textContent = cfg().tunerMute !== false ? "TUNER · instrument muted" : "TUNER · instrument still playing";
     miniAt = 0; send({ type: "tunerView", on: tunerOn, note: "–", cents: null });
@@ -691,6 +691,7 @@
     var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0], pt = (layers(c)[0] || {}).patch || c.keys.patch, so = soundOf(pt);
     return { board: b && boardLocked(b) ? lockText(boardMissing(b)) : null, patch: so && tierLocked(so.tier) ? lockText(so.tier) : null };
   }
+  function outLevel() { return window.PPActions && window.PPActions.muted && window.PPActions.muted("instrument") ? -90 : (cfg().output.level || 0); }   // (Bus levels & mutes: the instrument muted from a button)
   function state() { var c = cfg(); return { kind: c.kind, tuner: tunerOn, board: c.boards[c.kind], patch: c.keys.patch, get levelDb() { return c.output.level || 0; }, set levelDb(v) { c.output.level = v; if (onTab()) { var el = $("#inOut"); if (el) { el.value = v; var o = el.parentNode.querySelector("output"); if (o) o.textContent = v + " dB"; } } } }; }
   // a board from Central Tracks (or a file): { name, kind, chain: [[pedalId, { knob: value }], …] } becomes one of "your boards"
   function addBoard(data, fallbackName, quiet) {

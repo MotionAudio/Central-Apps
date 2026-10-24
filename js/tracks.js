@@ -1029,7 +1029,7 @@
         songId: s ? s.id : null,
         lyrics: ls, chart: s && s.chart ? { id: s.chart.id, name: s.chart.name, page: (x && x.sec.page) || 1, pageCount: s.chart.pageCount || 1 } : null,
         projector: { fontSize: proj.fontSize || 7, blank: !!proj.blank, showNext: proj.showNext !== false, align: proj.align || "center", theme: proj.theme || "dark", showSection: proj.showSection !== false },
-        pads: p.pads.map(function (pad, i) { return { name: pad.name, playing: engine.playingIndexes().indexOf(i) > -1, selected: i === PP.selected() }; }),
+        pads: p.pads.map(function (pad, i) { return { name: pad.name, playing: engine.playingIndexes().indexOf(i) > -1, selected: i === PP.selected(), level: PP.padLevelOf ? PP.padLevelOf(pad) : 72 }; }),
         mini: miniState(p, t),
         performance: p.performance, frozen: !!engine.frozen, click: t ? !!t.click.on : true, cues: t ? !!t.cues.on : true, textures: (p.textures || []).map(function (c) { return { on: !!c.enabled, name: window.PPTextures ? window.PPTextures.byId(c.texture).name : c.texture }; })
       };
