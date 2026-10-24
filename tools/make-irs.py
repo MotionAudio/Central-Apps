@@ -37,6 +37,22 @@ CABS = [
     ("Central Bass 8x10", dict(hp=(42, 0.8), res=(65, 5, 1.2), peaks=[(250, 2, 1.0), (600, -2, 1.0), (1800, 2, 1.2)], lp=(3800, 6), ripple=1.6, seed=23, room=(0.7, 0.05))),
 ]
 
+
+def _variants(cabs):
+    """Two more microphone placements of every guitar cabinet: "Edge" (off the cone's centre - darker, softer
+    presence) and "Room" (a step back - the room's first reflections)."""
+    out = []
+    for name, s in cabs:
+        if "Bass" in name:
+            continue
+        edge = dict(s, lp=(s["lp"][0] * 0.78, s["lp"][1]), peaks=[(f, db - 2.0 if f > 1500 else db, qq) for f, db, qq in s["peaks"]], seed=s["seed"] + 100, room=s.get("room"))
+        room = dict(s, lp=(s["lp"][0] * 0.9, s["lp"][1]), seed=s["seed"] + 200, room=None, rooms=[(2.8, 0.28), (5.6, 0.18), (9.1, 0.11), (14.3, 0.06)])
+        out += [(name + " Edge", edge), (name + " Room", room)]
+    return out
+
+
+CABS = CABS + _variants(CABS)
+
 # acoustic bodies (for a piezo pickup: puts the wood and air back): modes (Hz, dB, decay ms), brightness, seed
 BODIES = [
     ("Central Acoustic Dreadnought Body", dict(modes=[(98, 9, 38), (196, 7, 26), (230, 4, 22), (395, 3, 16), (560, 2, 12), (840, 2, 9), (1250, 1, 7)], bright=0.55, seed=31)),
@@ -95,8 +111,7 @@ def fade(x, ms=12):
 def make_cab(spec):
     f = np.fft.rfftfreq(FFT, 1.0 / SR)
     ir = min_phase(cab_curve(f, spec))[:N]
-    if spec.get("room"):
-        ms, lvl = spec["room"]
+    for ms, lvl in ([spec["room"]] if spec.get("room") else []) + list(spec.get("rooms") or []):
         d = int(ms * SR / 1000)
         refl = np.zeros(N)
         refl[d:] = ir[:N - d] * lvl

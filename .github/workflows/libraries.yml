@@ -2,7 +2,8 @@
 # publishes them on the GitHub release tagged "libraries" (made if it isn't there, its files replaced if it is), with
 # libraries-index.json (what the website's /v1/libraries and the apps read) and SHA256SUMS.
 #
-# Runs by hand (Actions -> Sound libraries -> Run workflow) and whenever a library's sources change on main.
+# Runs by hand (Actions -> Sound libraries -> Run workflow) and whenever a library's sources change on main or on
+# release/9.8.0 (so the files are built before that release).
 # The "libraries" release is a pre-release and never "latest", so the apps' update checks (which read the latest
 # release) never see it.
 #
@@ -28,10 +29,14 @@ on:
         required: false
         default: ""
   push:
-    branches: [main]
+    branches: [main, release/9.8.0]   # (release/9.8.0: the files are built before the release)
     paths:
       - libraries/**
       - tools/sounds-vcsl.py
+      - tools/sounds-sfz.py
+      - tools/sfz_render.py
+      - tools/make-pads.py
+      - tools/vcsl-names.txt
       - tools/make-irs.py
       - tools/build-libraries.py
       - tools/build-libraries.sh
@@ -45,7 +50,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 150
+    timeout-minutes: 300
     env:
       WORK: ${{ github.workspace }}/work
       OUT: ${{ github.workspace }}/dist/libraries
@@ -54,12 +59,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Tools
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-numpy fluidsynth >/dev/null
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-numpy fluidsynth ffmpeg >/dev/null
       - name: Cache the VCSL downloads and built sounds
         uses: actions/cache@v4
         with:
           path: work/sounds
-          key: libraries-sounds-${{ hashFiles('tools/sounds-vcsl.py', 'sounds-vsco.py') }}
+          key: libraries-sounds-${{ hashFiles('tools/sounds-vcsl.py', 'tools/sounds-sfz.py', 'tools/sfz_render.py', 'tools/make-pads.py', 'sounds-vsco.py') }}
       - name: Build the libraries
         run: bash tools/build-libraries.sh "$OUT"
       - name: Check every SoundFont plays (FluidSynth loads it)

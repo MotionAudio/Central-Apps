@@ -260,7 +260,7 @@ def installed_lv2_uris(dirs=None):
 
 
 _TIERS_CACHE = {}
-BANK_TIER_NAMES = ("free", "keys", "instrument")
+BANK_TIER_NAMES = ("free", "keys", "instrument", "plugins", "pedals")   # (a sound library can be any plan: Central Plugins has textures)
 
 
 def bank_tiers(folder):
