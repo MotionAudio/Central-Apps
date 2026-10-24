@@ -221,6 +221,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 9.7.0:** A factory test on the first start of a card built by hand (every switch, knob, screen, output and input, Pass / Fail, a report); unplugging it makes the next start the customer's phone setup, without the screen step; outputs: 1–2 the jack, 3–4 the DAC, 5+ a USB interface, each bus mono or stereo, several on one output.
+
 **New in version 9.6.2:** A Central Pedal that doesn't start writes a report to its SD card (central-pedal-log.txt, readable on any computer) and its screen says why instead of showing a login prompt.
 
 **New in version 9.6.1:** The SD card built by hand starts with the blue 3.5" screen on (HDMI 1 stays the full app).
