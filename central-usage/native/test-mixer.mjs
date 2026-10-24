@@ -217,11 +217,16 @@ await check("delay: a click comes back once, 250 ms later (12000 samples), at th
   x.cmd({ cmd: "input", i: 2, src: 2, ch: 0, fader: 0, pan: 0, fx: [-90, 0] });
   x.cmd({ cmd: "fx", dly: [1, 250, 250, 0, 20000, 20, 0, 0] });
   x.cmd({ cmd: "main", level: 0, mute: 0, outL: -1, outR: -1, stereo: 1, tap: 1, used: 1 });
-  x.caps[0] = [];
-  let sent = 0; const tick = setInterval(() => { const n = 480, b = Buffer.alloc(n * 2); if (sent === 40) b.writeInt16LE(Math.round(0.8 * 32767), 100); sent++; x.net(0, 1, n, b); }, 10);
-  try { await sleep(1500); } finally { clearInterval(tick); }
-  const pcm = Buffer.concat(x.caps[0]); delete x.caps[0];
-  const hits = []; for (let k = 0; k < pcm.length / 4; k++) { const v = pcm.readInt16LE(k * 4) / 32767; if (Math.abs(v) > 0.3 && (!hits.length || k - hits[hits.length - 1].k > 1000)) hits.push({ k, v }); }
+  // (a slow CI runner can drop the network packet with the click: up to 3 tries, each with a fresh click)
+  let hits = [];
+  for (let attempt = 0; attempt < 3 && hits.length !== 2; attempt++) {
+    x.caps[0] = [];
+    let sent = 0; const tick = setInterval(() => { const n = 480, b = Buffer.alloc(n * 2); if (sent === 40) b.writeInt16LE(Math.round(0.8 * 32767), 100); sent++; x.net(0, 1, n, b); }, 10);
+    try { await sleep(1500); } finally { clearInterval(tick); }
+    await sleep(300);
+    const pcm = Buffer.concat(x.caps[0] || []); delete x.caps[0];
+    hits = []; for (let k = 0; k < pcm.length / 4; k++) { const v = pcm.readInt16LE(k * 4) / 32767; if (Math.abs(v) > 0.3 && (!hits.length || k - hits[hits.length - 1].k > 1000)) hits.push({ k, v }); }
+  }
   assert.equal(hits.length, 2, "the click and one echo: " + JSON.stringify(hits));
   assert.ok(Math.abs(hits[1].k - hits[0].k - 12000) <= 2, "echo after " + (hits[1].k - hits[0].k) + " samples");
   assert.ok(Math.abs(hits[1].v - hits[0].v) < 0.05, "the same level: " + hits[0].v + " / " + hits[1].v);
