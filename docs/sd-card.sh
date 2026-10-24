@@ -14,6 +14,106 @@ fail() { printf '\n\033[1;31m%s\033[0m\n' "$*" >&2; FAILED=1; exit 1; }
 # never stop without saying why
 trap 'rc=$?; [ "$rc" -ne 0 ] && [ -z "${FAILED:-}" ] && printf "\n\033[1;31mThe SD card maker stopped (line %s, code %s). Run the line again; if it stops at the same place, send a photo of this window.\033[0m\n" "$LINENO" "$rc" >&2' EXIT
 ask()  { local q="$1" def="${2:-}" a; printf '%s' "$q" > /dev/tty; IFS= read -r a < /dev/tty || true; printf '%s' "${a:-$def}"; }
+# ---- progress bars: the whole build (by its steps, with the time left) and each download (MB done of MB total)
+progress_build() {   # pid log workdir srcdir sounds
+  python3 - "$@" > /dev/tty 2>/dev/null <<'PY' || true
+import os, re, subprocess, sys, time, shutil
+pid, log, work, src, sounds = int(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+# rough minutes per step on a first build (the bar moves by these; the time left is measured as it goes)
+W = [("Checking build tools", 1), ("Installing:", 2), ("Downloading Raspberry Pi OS", 4), ("Using cached download", 0.1), ("Unpacking base image", 2),
+     ("Fetching the free keyboard sound banks", 4 if sounds == "small" else 9), ("Making room", 1), ("Mounting image", 0.3), ("No FAT driver", 0.1),
+     ("Installing Central Pedal inside the image", 25), ("Sanity-checking", 0.5), ("Cleaning up", 2), ("Compressing", 3), ("Done", 0)]
+TOTAL = sum(w for _, w in W if not _.startswith(("Using cached", "Installing:", "No FAT", "Compressing")))
+ansi = re.compile(r"\x1b\[[0-9;]*m")
+totals = {}
+def url_for(part):
+    name = os.path.basename(part)[:-5]
+    try:
+        if name.startswith("raspios"):
+            m = re.search(r'BASE_URL="\$\{BASE_URL:-([^}]+)\}"', open(os.path.join(src, "build-image.sh")).read()); return m and m.group(1)
+        for f in ("get-sounds.sh", "sounds-vsco.py"):
+            for u in re.findall(r'https?://[^\s"|\']+', open(os.path.join(src, f)).read()):
+                if u.rstrip("/").endswith("/" + name): return u
+    except OSError:
+        pass
+    return None
+def total_of(part):
+    if part not in totals:
+        totals[part] = 0
+        u = url_for(part)
+        if u:
+            try:
+                h = subprocess.run(["curl", "-sIL", "--max-time", "15", u], capture_output=True, text=True).stdout
+                v = [int(x) for x in re.findall(r"(?im)^content-length:\s*(\d+)", h)]
+                totals[part] = v[-1] if v else 0
+            except Exception:
+                pass
+    return totals[part]
+def newest_part():
+    best, bt = None, 0
+    for root, _, files in os.walk(work):
+        for f in files:
+            if f.endswith(".part"):
+                p = os.path.join(root, f)
+                try:
+                    t = os.path.getmtime(p)
+                except OSError:
+                    continue
+                if t > bt and time.time() - t < 20:
+                    best, bt = p, t
+    return best
+def mb(n): return "%.0f MB" % (n / 1e6) if n < 1e9 else "%.2f GB" % (n / 1e9)
+def bar(f, n=24): f = max(0.0, min(1.0, f)); k = int(round(f * n)); return "[" + "#" * k + "-" * (n - k) + "]"
+t0 = time.time(); step, step_t0, done_w, spin = "starting", time.time(), 0.0, "|/-\\"; i = 0
+while True:
+    alive = os.path.exists("/proc/%d" % pid)
+    try:
+        lines = [ansi.sub("", l) for l in open(log, errors="replace") if "==>" in l]
+    except OSError:
+        lines = []
+    main = [l.split("==>", 1)[1].strip() for l in lines]
+    cur = next((x for x in reversed(main) if any(x.startswith(k) for k, _ in W)), "starting")
+    detail = main[-1] if main and main[-1] != cur else ""
+    if cur != step:
+        step, step_t0 = cur, time.time()
+        idx = next((j for j, (k, _) in enumerate(W) if cur.startswith(k)), -1)
+        done_w = sum(w for k, w in W[:max(idx, 0)] if not k.startswith(("Using cached", "Installing:", "No FAT", "Compressing")) and any(m.startswith(k) for m in main))
+    sw = next((w for k, w in W if step.startswith(k)), 1)
+    part = newest_part(); dl = ""
+    frac = min(0.95, (time.time() - step_t0) / 60.0 / max(sw, 0.1))
+    if part:
+        have = os.path.getsize(part) if os.path.exists(part) else 0; tot = total_of(part)
+        dl = "  %s%s downloaded" % (mb(have), (" of " + mb(tot)) if tot else "")
+        if tot and step.startswith("Downloading"): frac = have / tot
+    pct = min(0.99, (done_w + frac * sw) / TOTAL) if alive else 1.0
+    el = time.time() - t0
+    left = "" if pct < 0.03 or not alive else "  ~%d min left" % max(1, round(el * (1 - pct) / pct / 60))
+    cols = shutil.get_terminal_size((100, 20)).columns
+    text = " %s %s %3d%%%s%s  %s" % (spin[i % 4], bar(pct, 20), round(pct * 100), left, dl, (detail or step))
+    sys.stdout.write("\r\x1b[K" + text[:cols - 1]); sys.stdout.flush(); i += 1
+    if not alive:
+        sys.stdout.write("\n"); break
+    time.sleep(1)
+PY
+}
+progress_write() {   # pid bytes-total
+  python3 - "$@" > /dev/tty 2>/dev/null <<'PY' || true
+import os, sys, time, shutil
+pid, total = int(sys.argv[1]), int(sys.argv[2]); t0 = time.time()
+def bar(f, n=30): f = max(0.0, min(1.0, f)); k = int(round(f * n)); return "[" + "#" * k + "-" * (n - k) + "]"
+while os.path.exists("/proc/%d" % pid):
+    try:
+        w = int([l.split()[1] for l in open("/proc/%d/io" % pid) if l.startswith("wchar")][0])
+    except Exception:
+        w = 0
+    f = w / total if total else 0; el = time.time() - t0
+    left = ("  ~%d min left" % max(1, round(el * (1 - f) / f / 60))) if 0.03 < f < 1 else ("  finishing (making sure it's all on the card)" if f >= 1 else "")
+    text = " %s %3d%%  %.2f GB of %.2f GB%s" % (bar(f), round(min(f, 1) * 100), w / 1e9, total / 1e9, left)
+    sys.stdout.write("\r\x1b[K" + text[:shutil.get_terminal_size((100, 20)).columns - 1]); sys.stdout.flush()
+    time.sleep(1)
+sys.stdout.write("\n")
+PY
+}
 
 [ "$(id -u)" -eq 0 ] || fail "Run it with sudo:   curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash"
 [ -r /dev/tty ] || fail "Run it in a Terminal window."
@@ -95,13 +195,7 @@ else
   TFT=none SOUNDS="$SOUNDS" \
     OUT="$IMG" CACHE="$WORK/cache" bash "$SRC/build-image.sh" > "$WORK/build.log" 2>&1 &
   pid=$!
-  spin='|/-\'; i=0; t0=$(date +%s)
-  while kill -0 "$pid" 2>/dev/null; do
-    step="$(grep -E '^.\[1;32m==>' "$WORK/build.log" 2>/dev/null | tail -1 | sed -E 's/.*==> //; s/\x1b\[[0-9;]*m//g' | cut -c1-60 || true)"
-    printf '\r   %s  %3d min  %-60s' "${spin:i++%4:1}" $(( ($(date +%s) - t0) / 60 )) "${step:-starting}" > /dev/tty
-    sleep 2
-  done
-  printf '\n' > /dev/tty
+  progress_build "$pid" "$WORK/build.log" "$WORK" "$SRC" "$SOUNDS"
   wait "$pid" || { tail -n 25 "$WORK/build.log"; fail "The build stopped - the lines above say why (all of it: $WORK/build.log)."; }
   [ -f "$IMG" ] || fail "The build finished but there's no image - see $WORK/build.log"
 fi
@@ -112,7 +206,10 @@ while [ ! -b "$DEV" ]; do
 done
 for part in $(lsblk -lnpo NAME "$DEV" | tail -n +2); do umount "$part" 2>/dev/null || true; done
 say "Writing the card (a few minutes)"
-dd if="$IMG" of="$DEV" bs=4M status=progress conv=fsync
+dd if="$IMG" of="$DEV" bs=4M conv=fsync status=none &
+ddpid=$!
+progress_write "$ddpid" "$(stat -c %s "$IMG")"
+wait "$ddpid" || fail "Writing the card didn't work - try another card reader or card, and run the line again (the image is kept, so it's quick)."
 sync
 command -v eject >/dev/null && eject "$DEV" 2>/dev/null || true
 say "Done - the card is ready."
