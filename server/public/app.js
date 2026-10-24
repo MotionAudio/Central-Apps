@@ -193,23 +193,27 @@ function renderRack() {
 // Your own plans (one package key, emailed to you) or a church bundle (a key for each person, given out on Teams).
 // They're yearly, so they check out on their own, apart from the store's one-time things.
 const planCart = { plans: [], bundle: 0 };
-const planIds = () => cfg.planIds || ["keys", "plugins", "instrument", "pedals"];
-const planName = (id) => (id === "all" ? (cfg.planAll || {}).name || "All four sound plans" : (cfg.plans[id] || {}).name || id);
-const planListText = (ids) => (planIds().every((id) => ids.includes(id)) ? "All four sound plans" : planIds().filter((id) => ids.includes(id)).map(planName).join(", "));
-const ownPlanCents = () => (planCart.plans.includes("all") ? cfg.planAll.cents : planCart.plans.reduce((a, id) => a + ((cfg.plans[id] || {}).cents || 0), 0));
+// (9.8) Central Pads comes with every other plan ($40 on its own): with another plan in the cart it's included, not charged
+const planIds = () => cfg.planIds || ["keys", "plugins", "instrument", "pedals", "pads"];
+const mainPlanIds = () => planIds().filter((id) => id !== "pads");
+const planName = (id) => (id === "all" ? (cfg.planAll || {}).name || "All sound plans" : (cfg.plans[id] || {}).name || id);
+const planListText = (ids) => (mainPlanIds().every((id) => ids.includes(id)) ? "All sound plans (with Central Pads)" : planIds().filter((id) => ids.includes(id)).map(planName).join(", ") + (ids.some((id) => id !== "pads") ? " (with Central Pads)" : ""));
+const padsIncluded = () => planCart.plans.some((id) => id !== "pads");
+const chargedPlans = () => planCart.plans.filter((id) => !(id === "pads" && padsIncluded()));
+const ownPlanCents = () => (planCart.plans.includes("all") ? cfg.planAll.cents : chargedPlans().reduce((a, id) => a + ((cfg.plans[id] || {}).cents || 0), 0));
 const longDate = (d) => new Date(d).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 const firstYear = (c) => (cfg.sale ? Math.round((c * (100 - cfg.sale.percent)) / 100) : c);   // (a sale is off a plan's first year)
 function renderPlans() {
   if (!cfg.plans || !$("#planCards")) return;
-  const inCart = (id) => planCart.plans.includes(id) || planCart.plans.includes("all"), ids = planIds();
+  const inCart = (id) => planCart.plans.includes(id) || planCart.plans.includes("all"), ids = planIds(), padsWith = (id) => id === "pads" && padsIncluded();
   $("#planCards").style.setProperty("--n", ids.length);
   $("#planCards").innerHTML = ids.map((id) => {
     const p = cfg.plans[id], k = "plan." + id;
     return `<div class="tier"><div class="tier-head"><h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3></div><p class="who" ${ed(k + ".what")}>${T(k + ".what", p.what)}</p>
-      <div class="price">${cfg.sale ? `<s>${dollars(p.cents / 100)}</s> <span class="now">${dollars(firstYear(p.cents) / 100)}</span><small>the first year</small>` : `<span data-price="plan-${id}">${dollars(p.cents / 100)}</span><small>a year</small>`}</div><button class="btn ghost" data-plan="${id}"${inCart(id) ? " disabled" : ""}>${inCart(id) ? "In your cart" : "Add to cart"}</button></div>`;
+      <div class="price">${cfg.sale ? `<s>${dollars(p.cents / 100)}</s> <span class="now">${dollars(firstYear(p.cents) / 100)}</span><small>the first year</small>` : `<span data-price="plan-${id}">${dollars(p.cents / 100)}</span><small>a year</small>`}</div>${id === "pads" ? `<p class="muted" style="margin:0;font-size:.85rem" ${ed("plan.pads.note")}>${T("plan.pads.note", "Included in every other plan.")}</p>` : ""}<button class="btn ghost" data-plan="${id}"${inCart(id) || padsWith(id) ? " disabled" : ""}>${padsWith(id) ? "Included" : inCart(id) ? "In your cart" : "Add to cart"}</button></div>`;
   }).join("");
-  const sum = ids.reduce((a, id) => a + cfg.plans[id].cents, 0), all = planCart.plans.includes("all");
-  $("#planAll").innerHTML = `<div class="plan-all"><div><b ${ed("plan.all.name")}>${T("plan.all.name", "All four")}</b><span ${ed("plan.all.what")}>${T("plan.all.what", "Central Keys, Central Plugins, Central Instrument and Central Pedals on one package key.")}</span></div>
+  const sum = mainPlanIds().reduce((a, id) => a + cfg.plans[id].cents, 0), all = planCart.plans.includes("all");
+  $("#planAll").innerHTML = `<div class="plan-all"><div><b ${ed("plan.all.name")}>${T("plan.all.name", "All plans")}</b><span ${ed("plan.all.what")}>${T("plan.all.what", "Central Keys, Central Plugins, Central Instrument, Central Pedals and Central Pads on one package key.")}</span></div>
     <div class="price">${sum > firstYear(cfg.planAll.cents) ? `<s>${dollars(sum / 100)}</s> ` : ""}<span class="now">${dollars(firstYear(cfg.planAll.cents) / 100)}</span><small>${cfg.sale ? "the first year" : "a year"}</small></div><button class="btn" data-plan="all"${all ? " disabled" : ""}>${all ? "In your cart" : "Add to cart"}</button></div>`;
   const usd = (c) => "$" + (c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 });
   $("#planBundles").innerHTML = Object.entries(cfg.planBundles || {}).map(([n, c]) => `<div class="bundle-row"><b>${n} people</b><span class="muted">${usd(Math.round(c / n))} a person</span><div class="price">${cfg.sale ? `<s>${usd(c)}</s> <span class="now">${usd(firstYear(c))}</span><small>the first year</small>` : `${usd(c)}<small>a year</small>`}</div>
@@ -217,7 +221,7 @@ function renderPlans() {
 }
 $("#store").addEventListener("click", (e) => {
   const p = e.target.closest("[data-plan]"), b = e.target.closest("[data-bundle]");
-  if (p && !p.disabled) { const id = p.dataset.plan; planCart.plans = id === "all" ? ["all"] : planCart.plans.filter((x) => x !== "all").concat(id); updateCartBtn(); renderPlans(); toast("Added to cart"); }
+  if (p && !p.disabled) { const id = p.dataset.plan; planCart.plans = id === "all" ? ["all"] : planCart.plans.filter((x) => x !== "all" && !(id !== "pads" && x === "pads")).concat(id); updateCartBtn(); renderPlans(); toast(id !== "pads" && id !== "all" ? "Added to cart (with Central Pads)" : "Added to cart"); }
   if (b && !b.disabled) { planCart.bundle = Number(b.dataset.bundle); updateCartBtn(); renderPlans(); toast("Added to cart (one bundle at a time)"); }
 });
 // the plans' part of the cart
@@ -227,14 +231,15 @@ function planCartHtml() {
   const why = byCode ? promo.code : cfg.sale ? cfg.sale.name : "";
   const own = ownPlanCents(), b = planCart.bundle, bc = b ? (cfg.planBundles || {})[b] || 0 : 0;
   const off = (c) => Math.round((c * pc) / 100);
-  const rows = planCart.plans.map((id) => `<div><span>${esc(planName(id))} <button class="qbtn" data-plrm="${id}" aria-label="Take it out">×</button></span><span>${money((id === "all" ? cfg.planAll.cents : cfg.plans[id].cents) / 100)} a year</span></div>`).join("");
-  const cheaper = !planCart.plans.includes("all") && planCart.plans.length > 1 && own >= cfg.planAll.cents;
+  const rows = chargedPlans().map((id) => `<div><span>${esc(planName(id))} <button class="qbtn" data-plrm="${id}" aria-label="Take it out">×</button></span><span>${money((id === "all" ? cfg.planAll.cents : cfg.plans[id].cents) / 100)} a year</span></div>`).join("") +
+    (padsIncluded() && !planCart.plans.includes("all") && cfg.plans.pads ? `<div><span class="muted">${esc(planName("pads"))}</span><span class="muted">included</span></div>` : "");
+  const cheaper = !planCart.plans.includes("all") && chargedPlans().length > 1 && own >= cfg.planAll.cents;
   return `<div class="cart-plans"><div><b>Sound plans</b> <span class="muted" style="font-size:.88rem">· yearly, renewing · a package key by email, to paste in Settings → Packages</span></div>
     ${rows ? `<div class="lines">${rows}${pc ? `<div class="saved"><span>${esc(why)} · ${pc}% off the first year</span><span>−${money(off(own) / 100)}</span></div>` : ""}<div class="total"><span>Your plans, the first year</span><span>${money((own - off(own)) / 100)}</span></div></div>
-      ${cheaper ? `<p class="ok-note" style="margin:0">All four is ${dollars(cfg.planAll.cents / 100)} a year, no more than these. <button class="btn small ghost" id="plAll">Switch to all four</button></p>` : ""}
+      ${cheaper ? `<p class="ok-note" style="margin:0">All plans is ${dollars(cfg.planAll.cents / 100)} a year, no more than these. <button class="btn small ghost" id="plAll">Switch to all plans</button></p>` : ""}
       <div><button class="btn" id="plGo">${me ? "Check out your plans" : "Sign in"}</button></div>` : ""}
     ${b ? `<div class="lines"><div><span>Sound plans for ${b} people <button class="qbtn" data-plrm="bundle" aria-label="Take it out">×</button></span><span>${money(bc / 100)} a year</span></div>${pc ? `<div class="saved"><span>${esc(why)} · ${pc}% off the first year</span><span>−${money(off(bc) / 100)}</span></div>` : ""}</div>
-      <p class="muted" style="margin:0;font-size:.9rem">${b} package keys with all four plans${me && me.church ? ", for " + esc(me.church.name) : ""}. You give them out on the Teams page.</p><div><button class="btn" id="bnGo">${me ? "Check out the bundle" : "Sign in"}</button></div>` : ""}</div>`;
+      <p class="muted" style="margin:0;font-size:.9rem">${b} package keys with all the plans (Central Pads too)${me && me.church ? ", for " + esc(me.church.name) : ""}. You give them out on the Teams page.</p><div><button class="btn" id="bnGo">${me ? "Check out the bundle" : "Sign in"}</button></div>` : ""}</div>`;
 }
 function wirePlanCart() {
   document.querySelectorAll("[data-plrm]").forEach((x) => (x.onclick = () => { const id = x.dataset.plrm; if (id === "bundle") planCart.bundle = 0; else planCart.plans = planCart.plans.filter((p) => p !== id); updateCartBtn(); renderPlans(); openCart(); }));
@@ -660,7 +665,7 @@ async function showDownloads(thanks) {
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">${PLATFORM !== "ipad" ? `<a class="btn" href="${esc(sv.download)}" target="_blank" rel="noopener">Download ${esc(sv.name)}</a>` : ""}<a class="btn ghost" href="${esc(sv.web)}">Open it in the browser</a></div></div>`;
   const pkgCard = d && d.packages.length ? `<div class="dl-card"><div class="dl-head"><div><h3>Sound plans</h3><span class="muted">Package keys</span></div></div>
     <div class="dl-keys">${d.packages.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)} <span class="muted">· ${esc(k.plans)}${k.church ? " · from " + esc(k.church) : ""} · until ${esc(longDate(k.until))}</span></div>`).join("")}</div>
-    <p style="margin:0">In any app (Central Pedal, Central Pedal Control, Central Control, Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 2} devices at a time.</p></div>` : "";
+    <p style="margin:0">In any app (Central Pedal, Central Pedal Control, Central Control, Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 3} of your devices at a time, each a different app (say Central Usage, Central Control and a Central Pedal).</p></div>` : "";
   const libSection = librariesHtml(libs, d);
   const mine = d ? d.apps : [], kinds = mine.map((a) => a.kind), rest = pub.apps.filter((a) => kinds.indexOf(a.kind) < 0);
   const yours = d && (mine.length || d.pedals.length || d.packages.length);
@@ -691,11 +696,11 @@ function librariesHtml(libs, d) {
     const opened = have ? (have.has(l.plan) ? `<span class="ok" style="font-size:.9rem">✓ Your ${esc(l.planName)} plan opens this library.</span>` : `<span class="muted" style="font-size:.9rem">Not in your plans yet. <a href="#plans">Get ${esc(l.planName)}</a></span>`) : "";
     return `<div class="dl-card lib-card" data-lib="${esc(l.id)}"><div class="dl-head"><div><h3>${esc(l.title)}</h3><span class="muted">Version ${esc(l.version)} · ${l.approximate ? "about " : ""}${esc(libSize(l.size || 0))}</span></div></div>
       ${l.summary ? `<p style="margin:0">${esc(l.summary)}</p>` : ""}
-      <details><summary>What's in it</summary>${sounds}${list("Presets", c.presets)}${list("Boards", c.boards)}${list("Impulse responses (IR loader)", c.irs)}${(l.credits || []).length ? `<p class="muted" style="font-size:.82rem;margin:.6rem 0 0">${l.credits.map(esc).join("<br>")}</p>` : ""}</details>
-      <div class="dl-keys"><span class="muted" style="font-size:.9rem">Needs ${esc(l.planName)} (${esc(price)} a year) - your package key comes by email and is on your Account page. In any app: <b>Settings → Packages</b>, add the key, then <b>Libraries → Install</b> (or download it here and use <b>Install from a file…</b>).</span>${opened ? "<br>" + opened : ""}</div>
+      <details><summary>What's in it</summary>${sounds}${list("Presets", c.presets)}${list("Boards", c.boards)}${list("Impulse responses (IR loader)", c.irs)}${list("Pads (every key)", c.pads)}${(l.credits || []).length ? `<p class="muted" style="font-size:.82rem;margin:.6rem 0 0">${l.credits.map(esc).join("<br>")}</p>` : ""}</details>
+      <div class="dl-keys"><span class="muted" style="font-size:.9rem">Needs ${esc(l.planName)} (${esc(price)} a year${l.plan === "pads" ? ", or any other plan: they all include it" : ""}) - your package key comes by email and is on your Account page. In any app: <b>Settings → Packages</b>, add the key, then <b>Libraries → Install</b> (or download it here and use <b>Install from a file…</b>).</span>${opened ? "<br>" + opened : ""}</div>
       ${l.ready ? `<a class="btn" href="${esc(l.url)}" rel="noopener" download>Download ${esc(l.title)}</a>` : `<span class="muted" style="font-size:.9rem">Coming soon: this library is being built.</span>`}</div>`;
   };
-  return `<h3 class="dl-h" id="libraries">Sound libraries</h3><p class="muted" style="margin:-.3rem 0 .8rem">Sounds, presets, boards and impulse responses for each sound plan. Anyone can download them; they open with the plan's package key.</p><div class="dl-grid">${libs.libraries.map(card).join("")}</div>`;
+  return `<h3 class="dl-h" id="libraries">Sound libraries</h3><p class="muted" style="margin:-.3rem 0 .8rem">Sounds, pads, presets, boards and impulse responses for each sound plan. Anyone can download them; they open with the plan's package key (Central Pads opens with any plan).</p><div class="dl-grid">${libs.libraries.map(card).join("")}</div>`;
 }
 // renewing your own ("Just me") Central Control or Central Usage keys: ten more releases each, billed to you
 function renewMine(keys, cents) {
@@ -728,7 +733,7 @@ function showNext(o) {
 async function renderPackages() {
   const el = $("#pkgCard"); if (!el) return;
   let r; try { r = await api("GET", "/packages/mine"); } catch (e) { el.innerHTML = `<h3>Sound plans</h3><div class="err">${esc(e.message)}</div>`; return; }
-  const how = `<p class="muted" style="margin:0;font-size:.9rem">On each device (Central Pedal, Central Pedal Control, Central Control or Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. A key works on ${cfg.packageDevices || 2} devices at a time.</p>`;
+  const how = `<p class="muted" style="margin:0;font-size:.9rem">On each device (Central Pedal, Central Pedal Control, Central Control or Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. A key works on ${cfg.packageDevices || 3} of your devices at a time, each a different app (say Central Usage, Central Control and a Central Pedal; never two of the same).</p>`;
   if (!r.packages.length) { el.innerHTML = `<h3>Sound plans</h3><p class="muted" style="margin:0">No sound plans yet. <a href="#plans">See the plans</a>: you get a package key by email, then paste it in any app's Settings → Packages.</p>`; return; }
   el.innerHTML = `<h3>Sound plans</h3><div class="pkgs">${r.packages.map((p) => `<div class="pkg${p.ok ? "" : " ended"}">
       <div class="pkg-top"><code style="user-select:all">${esc(p.key)}</code><button class="btn small ghost" data-pkcopy="${esc(p.key)}">Copy</button></div>
@@ -748,10 +753,10 @@ async function renderTeamPackages() {
   const el = $("#teamPkgs"); if (!el) return;
   let r; try { r = await api("GET", "/church/packages"); } catch (e) { el.innerHTML = `<div class="err">${esc(e.message)}</div>`; return; }
   const head = `<h4>Sound plan package keys <span class="muted">${r.trialUntil ? "free trial: one for anyone, until " + esc(longDate(r.trialUntil)) : r.total ? r.given + " of " + r.total + " given · " + r.free + " free" : "none yet"}</span></h4>`;
-  if (!r.keys.length && !r.trialUntil) { el.innerHTML = `<section class="team">${head}<p class="muted" style="margin:0">A bundle gives you a package key with all four sound plans for each person, a year. <a href="#plans">See the bundles</a>.</p></section>`; return; }
+  if (!r.keys.length && !r.trialUntil) { el.innerHTML = `<section class="team">${head}<p class="muted" style="margin:0">A bundle gives you a package key with all the sound plans (Central Pads too) for each person, a year. <a href="#plans">See the bundles</a>.</p></section>`; return; }
   const given = r.keys.filter((k) => k.holder), canGive = (r.free > 0 || r.trialUntil) && r.people.length;
   el.innerHTML = `<section class="team">${head}
-    <p class="muted" style="margin:0;font-size:.9rem">Give someone a key: they get it by email and paste it in Settings → Packages on their devices (${cfg.packageDevices || 2} at a time). Take it back and their copy stops working; a new key takes its place for the next person.</p>
+    <p class="muted" style="margin:0;font-size:.9rem">Give someone a key: they get it by email and paste it in Settings → Packages on their devices (${cfg.packageDevices || 3} at a time, each a different app). Take it back and their copy stops working; a new key takes its place for the next person.</p>
     ${given.map((k) => `<div class="tm tmem"><div class="tmwho"><div class="tmname"><b>${esc(k.holder.name || k.holder.email)}</b>${k.trial ? ' <span class="muted">· trial</span>' : ""}</div><div class="tmsub muted">${esc(k.holder.email)} · <code>${esc(k.key)}</code> · ${k.devices.length ? k.devices.map((d) => esc(d.name)).join(", ") : "not added yet"}</div></div>
       <div class="tacts"><button class="btn small ghost" data-pkres="${esc(k.key)}">Resend</button><button class="btn small ghost" data-pkback="${esc(k.key)}" data-pkname="${esc(k.holder.name || k.holder.email)}">Take back</button></div></div>`).join("")}
     ${canGive ? `<div class="codeline"><label>Give a package key to<select id="pkWho">${r.people.map((p) => `<option value="${esc(p.email)}">${esc(p.name ? p.name + " · " + p.email : p.email)}</option>`).join("")}</select></label><button class="btn small" id="pkGive">Give and email it</button></div>`
@@ -842,9 +847,9 @@ async function renderPrices() {
     <details><summary>Discount codes</summary><table class="ktable"><tr><th>Code</th><th>What</th><th>On</th><th></th></tr>
       ${Object.entries(P.DISCOUNTS).map(([c, x]) => `<tr><td><code>${esc(c)}</code></td><td>${x.trial ? `free trial, ${inp("DISCOUNTS." + c + ".days", x.days, 55)} days` : `${inp("DISCOUNTS." + c + ".percent", x.percent, 55)}% off (not the pedal) <label style="display:inline-flex;gap:.25rem;align-items:center;font-size:.85rem"><input type="checkbox" data-ppplans="${esc(c)}" style="width:auto"${x.plans !== false ? " checked" : ""}> and a sound plan's first year</label>`} <span class="muted">${esc(x.label)}</span></td><td><input type="checkbox" data-ppon="${esc(c)}" style="width:auto"${x.on !== false ? " checked" : ""}></td><td><button class="btn small ghost" data-ppdel="${esc(c)}">Delete</button></td></tr>`).join("")}</table>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><label>New code<input id="ppCode" style="width:120px;text-transform:uppercase"></label><label>Kind<select id="ppKind" style="width:auto"><option value="percent">% off (not the pedal)</option><option value="trial">free trial (days)</option></select></label><label>Amount<input id="ppAmt" style="width:70px" placeholder="10"></label><button class="btn small ghost" id="ppAdd">Add</button></div></details>
-    <details><summary>Sound plans (a year)</summary><p class="muted" style="margin:.3rem 0;font-size:.85rem">Each plan comes as a package key. A church bundle is all four plans for that many people.</p><div style="display:grid;gap:.4rem">
+    <details><summary>Sound plans (a year)</summary><p class="muted" style="margin:.3rem 0;font-size:.85rem">Each plan comes as a package key. A church bundle is all the plans for that many people. Central Pads comes with every plan.</p><div style="display:grid;gap:.4rem">
       ${Object.entries(P.PLANS || {}).map(([id, p]) => `<label>${esc(p.name)} $${inp("PLANS." + id + ".cents", d(p.cents))}</label>`).join("")}
-      <label>${esc((P.PLAN_ALL || {}).name || "All four")} $${inp("PLAN_ALL.cents", d((P.PLAN_ALL || {}).cents || 0))}</label>
+      <label>${esc((P.PLAN_ALL || {}).name || "All plans")} $${inp("PLAN_ALL.cents", d((P.PLAN_ALL || {}).cents || 0))}</label>
       ${Object.entries(P.PLAN_BUNDLES || {}).map(([n, c]) => `<label>Bundle for ${esc(n)} people $${inp("PLAN_BUNDLES." + n, d(c))}</label>`).join("")}</div></details>
     <details><summary>Central Tracks star prices</summary>${[1, 2, 3, 4, 5].map((n) => `<label style="display:inline-grid;margin-right:.5rem">${n}★ $${inp("STAR_PRICE_CENTS." + n, d(P.STAR_PRICE_CENTS[n]), 60)}</label>`).join("")}</details>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="ppSave">Save prices</button><button class="btn ghost" id="ppReset">Back to the starting prices</button></div><div class="err" id="ppErr"></div>`;
@@ -1154,7 +1159,7 @@ async function handleHash() {
   } else if (h === "plans-done") {
     const bundle = !!planCart.bundle; planCart.plans = []; planCart.bundle = 0; updateCartBtn(); renderPlans(); history.replaceState(null, "", "#account");
     modal(`<h3>Thank you!</h3><p style="margin:0">${bundle ? "Your church's package keys are on the <b>Teams</b> card: give one to each person, and they get it by email." : "Your package key is on its way by email, and it's on your Account page under <b>Sound plans</b>."}</p>
-      <p class="muted" style="margin:0">On each device: <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 2} devices at a time, and renews every year.</p><button class="btn" data-close>OK</button>`);
+      <p class="muted" style="margin:0">On each device: <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 3} of your devices at a time, each a different app, and renews every year.</p><button class="btn" data-close>OK</button>`);
     setTimeout(refreshMe, 2500);
   } else if (h === "subscribed") { toast("Welcome to Central Tracks Unlimited! Add anything you like."); setTimeout(refreshMe, 2500); }
   else if (h.startsWith("bought-")) { toast("Thanks! It's in your storage now."); setTimeout(loadTracks, 2500); }
@@ -1168,7 +1173,7 @@ async function handleHash() {
 async function renderDefaultKeys() {
   let host = $("#defKeysCard"); if (!host) { $("#acctBody .acct").insertAdjacentHTML("beforeend", `<div class="card wide" id="defKeysCard"></div>`); host = $("#defKeysCard"); }
   let r; try { r = await api("GET", "/admin/default-keys"); } catch (e) { host.innerHTML = `<h3>Default keys</h3><div class="err">${esc(e.message)}</div>`; return; }
-  const names = { P: "Central Pedal Control", A: "Central Control", U: "Central Usage", S: "Sound plans (all four, a package key)" };
+  const names = { P: "Central Pedal Control", A: "Central Control", U: "Central Usage", S: "Sound plans (all of them, a package key)" };
   host.innerHTML = `<h3>Default keys · Motion Audio staff</h3>
     <p class="muted" style="margin:0;font-size:.92rem">One shared key per app, so the apps work before every church has its own: any number of devices, updates always, no Central Tracks Unlimited. Switch them off and the apps ask for a real key at their next check (they're told it was a temporary key).</p>
     <div class="slots-big"><b>${r.on ? "On" : "Off"}</b><span>${r.on ? "the default keys work" : "the default keys don't work"}</span></div>

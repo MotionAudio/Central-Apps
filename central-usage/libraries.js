@@ -17,8 +17,9 @@ const zlib = require("node:zlib");
 const https = require("node:https");
 const http = require("node:http");
 
-const PLANS = ["keys", "instrument", "plugins", "pedals"];
-const KINDS = ["sound", "board", "preset", "ir", "click"];
+const PLANS = ["keys", "instrument", "plugins", "pedals", "pads"];
+const KINDS = ["sound", "board", "preset", "ir", "click", "pad"];
+const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
 const ID_RE = /^[a-z0-9-]{3,60}$/, VERSION_RE = /^\d+(\.\d+){0,3}$/, SHA_RE = /^[0-9a-f]{64}$/;
 
@@ -174,7 +175,7 @@ class Libraries {
     const id = man.id, tier = man.plan;
     if (this.record(id)) this.remove(id, true);
     const rec = { id, plan: tier, version: String(man.version), title: String(man.title || id).slice(0, 80), summary: String(man.summary || "").slice(0, 400), installedAt: new Date().toISOString().slice(0, 19),
-      source: source === "file" ? "file" : "website", sounds: [], irs: [], clicks: [], boards: [], presets: [], tier };
+      source: source === "file" ? "file" : "website", sounds: [], irs: [], clicks: [], pads: [], boards: [], presets: [], tier };
     const soundLines = [], irLines = [], sounds = [], irs = [];
     for (const it of man.items) {
       const data = z.read(it.file);
@@ -197,6 +198,11 @@ class Libraries {
       } else if (it.kind === "click") {
         const dir = path.join(this.root, id, "clicks"); fs.mkdirSync(dir, { recursive: true });
         const f = path.join(dir, safeName(it.file, "click.wav")); fs.writeFileSync(f, data); rec.clicks.push({ name: String(it.name || "").slice(0, 60), file: f, tier });
+      } else if (it.kind === "pad") {   // (Central Pads: one loop per style and key, for the pad pedal)
+        const key = String(it.key || ""), style = String(it.name || "Pad").slice(0, 60);
+        if (!PAD_KEYS.includes(key) || data.slice(0, 4).toString() !== "RIFF") throw new Error("a pad in that library isn't a key's WAV loop");
+        const dir = path.join(this.root, id, "pads", safeName(style.replace(/ /g, "-"), "pad")); fs.mkdirSync(dir, { recursive: true });
+        const f = path.join(dir, key.replace("#", "s") + ".wav"); fs.writeFileSync(f, data); rec.pads.push({ name: style, key, file: f, tier });
       }
     }
     if (sounds.length) tiersSet(this.sf2Dir, id, soundLines);   // (the plans first: the engine sees each sound locked as it arrives)
@@ -204,7 +210,7 @@ class Libraries {
     fs.mkdirSync(this.sf2Dir, { recursive: true }); fs.mkdirSync(this.irDir, { recursive: true });
     for (const [name, data] of sounds) { const f = path.join(this.sf2Dir, name); fs.writeFileSync(f + ".part", data); fs.renameSync(f + ".part", f); rec.sounds.push(f); }
     for (const [name, data] of irs) { const f = path.join(this.irDir, name); fs.writeFileSync(f + ".part", data); fs.renameSync(f + ".part", f); rec.irs.push(f); }
-    rec.counts = { sound: rec.sounds.length, ir: rec.irs.length, board: rec.boards.length, preset: rec.presets.length, click: rec.clicks.length };
+    rec.counts = { sound: rec.sounds.length, ir: rec.irs.length, board: rec.boards.length, preset: rec.presets.length, click: rec.clicks.length, pad: new Set(rec.pads.map((x) => x.name)).size };
     const rf = path.join(this.root, id + ".json"); fs.writeFileSync(rf + ".part", JSON.stringify(rec, null, 1)); fs.renameSync(rf + ".part", rf);
     this.send({ type: "instrument", action: "rescan" }); this.send({ type: "instrument", action: "status" });
     return rec;

@@ -13,7 +13,7 @@
 //  - Identity: publishers verify their ID once before their first upload.
 //  - Tax: off (automatic_tax false) until it's set up; every price already includes tax and carries a tax code.
 import Stripe from "stripe";
-import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE, DISCOUNTS, RENEWAL, TAX_CODES, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PLAN_INTERVAL } from "./config.js";
+import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE, DISCOUNTS, RENEWAL, TAX_CODES, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PLAN_INTERVAL, PADS_PLAN, withPads } from "./config.js";
 import { q, one, pool } from "./db.js";
 import { churchOf, createChurch, personalChurch, issueKeys, canon, pretty } from "./licenses.js";
 import { sendDownloadsEmail } from "./downloads.js";
@@ -247,21 +247,23 @@ async function closePlanCheckouts(who, keep, code) {
     AND (CASE WHEN kind='bundle' THEN 'c' || church_id ELSE 'u' || user_id END)=$3`, [code, keep, who]);
   for (const o of open) { await stripe.checkout.sessions.expire(o.session_id).catch(() => { }); await q("UPDATE plan_subs SET status='incomplete_expired' WHERE id=$1 AND stripe_sub IS NULL", [o.id]); }
 }
-// your own plans: { plans: ["keys", "plugins"] } or "all" (all four for less). Billed to you, renews every year.
+// your own plans: { plans: ["keys", "plugins"] } or "all" (all of them for less). Each plan includes Central Pads ($40 on
+// its own). Billed to you, renews every year.
 export async function planCheckout(user, want, code, only) {
   if (!user) throw err("Sign in first: a sound plan is yours, in every app you sign in to.", 401);
   const list = (Array.isArray(want) ? want : [want]).map((x) => String(x || ""));
-  const ids = list.includes("all") ? PLAN_IDS.slice() : PLAN_IDS.filter((id) => list.includes(id));
+  let ids = list.includes("all") ? PLAN_IDS.slice() : PLAN_IDS.filter((id) => list.includes(id));
+  if (ids.some((id) => id !== PADS_PLAN)) ids = ids.filter((id) => id !== PADS_PLAN);   // (Central Pads comes with every other plan)
   if (!ids.length) throw err("Pick a sound plan.");
-  const all = ids.length === PLAN_IDS.length;
+  const all = PLAN_IDS.filter((id) => id !== PADS_PLAN).every((id) => ids.includes(id));
   const held = await q(`SELECT plans, ${PLAN_END} AS ends FROM plan_subs WHERE kind='person' AND user_id=$1 AND ${PLAN_LIVE}`, [user.id]);
-  const dup = ids.filter((id) => held.some((h) => h.plans.includes(id)));
-  if (dup.length) throw err("You already have " + dup.map((id) => PLANS[id].name).join(" and ") + ". It renews by itself; manage it on your Account page.", 409);
+  const dup = ids.filter((id) => held.some((h) => withPads(h.plans).includes(id)));
+  if (dup.length) throw err("You already have " + dup.map((id) => PLANS[id].name).join(" and ") + (dup.includes(PADS_PLAN) ? " (it comes with your other plan)" : "") + ". It renews by itself; manage it on your Account page.", 409);
   const disc = await planDiscount(code, "u" + user.id);
   const cents = all ? PLAN_ALL.cents : ids.reduce((a, id) => a + PLANS[id].cents, 0);
   if (only === "check") return { ok: true, plans: ids, cents, percent: disc ? disc.percent : 0, sale: (disc && disc.sale) || undefined };
   needStripe();
-  const row = await one("INSERT INTO plan_subs (kind,user_id,plans,seats,cents,code) VALUES ('person',$1,$2,1,$3,$4) RETURNING id", [user.id, ids, cents, (disc && disc.code) || null]);
+  const row = await one("INSERT INTO plan_subs (kind,user_id,plans,seats,cents,code) VALUES ('person',$1,$2,1,$3,$4) RETURNING id", [user.id, withPads(ids), cents, (disc && disc.code) || null]);
   const s = await stripe.checkout.sessions.create({
     ...STUDIO, mode: "subscription", payment_method_collection: "always",
     customer: await customerFor(user),
@@ -275,7 +277,7 @@ export async function planCheckout(user, want, code, only) {
   await closePlanCheckouts("u" + user.id, row.id, disc && disc.code);
   return remember(s, "plans", { user, items: { planSub: row.id, plans: ids }, code: disc && disc.code });
 }
-// a church bundle: all four plans for N people, a year, billed to the church (its church account, main admins, admins)
+// a church bundle: all the plans for N people, a year, billed to the church (its church account, main admins, admins)
 export async function bundleCheckout(user, seats, code, only) {
   if (!user) throw err("Sign in first.", 401);
   const church = await churchOf(user.id);

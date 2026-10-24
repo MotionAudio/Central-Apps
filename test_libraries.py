@@ -89,7 +89,7 @@ def main():
 def run(tmp):
     print("The library definitions:")
     defs = BUILD.load_definitions()
-    check("four libraries, one for each plan", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pedals", "plugins"], [l["plan"] for l in defs])
+    check("five libraries, one for each plan (Central Pads too)", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pedals", "plugins"], [l["plan"] for l in defs])
     node = subprocess.run(["node", "-e", "const P=require('./js/pedals.js');console.log(JSON.stringify(P.pedals.map(p=>[p.id,p.tier,Object.keys(p.knobs),!!p.opts.irFile])))"], cwd=HERE, capture_output=True, text=True)
     pedals = {p[0]: p for p in json.loads(node.stdout)}
     bad = []
@@ -197,12 +197,35 @@ def run(tmp):
     check("a pad note is one exact loop (no seam where it repeats)", len(x) == int(PADS.LOOP * PADS.SR) and seam < 4 * float(np.median(np.abs(np.diff(x)))) + 1e-4, seam)
     check("every pad's partials sit on whole cycles of the loop", all(abs(PADS.q(f) * PADS.LOOP - round(PADS.q(f) * PADS.LOOP)) < 1e-9 for f, *_r in PADS.partials("aah", 220.0)))
     check("the textures bank is a Central Plugins sound; the pads Central Keys", dict((b[0], b[1]) for b in PADS.BANKS) == {"Central Keys Pads": "keys", "Central Plugins Textures": "plugins"})
+    # Central Pads (9.8, tools/make-pad-loops.py): the quick (frequency-domain) pad note sounds like the summed sines, loops exactly
+    LOOPS = load("make_pad_loops", "tools/make-pad-loops.py")
+    fast = LOOPS.pad_note_fast("warm", 57, 7)
+    xf = np.fft.rfft(np.asarray(x, np.float64)); ff = np.fft.rfft(fast)
+    same = float(np.corrcoef(np.abs(xf), np.abs(ff))[0, 1])
+    ext = np.concatenate([fast, fast])
+    seam = abs(float(ext[len(fast)]) - float(ext[len(fast) - 1]))
+    check("Central Pads: the quick pad note has the same spectrum as the summed sines (same partials, same movement)", same > 0.98, same)
+    check("...and is one exact loop", len(fast) == len(x) and seam < 4 * float(np.median(np.abs(np.diff(fast)))) + 1e-4, seam)
+    ploops = LOOPS.build(os.path.join(tmp, "padloops"), styles=["Worship"], keys=["C", "F#"], log=lambda *a: None)
+    import wave as _wave
+    with _wave.open(os.path.join(ploops, LOOPS.loop_file("Worship", "F#"))) as w:
+        frames = np.frombuffer(w.readframes(w.getnframes()), "<i2").reshape(-1, 2) / 32768.0
+        okw = w.getnchannels() == 2 and w.getframerate() == PADS.SR and w.getnframes() == int(PADS.LOOP * PADS.SR)
+    peak = float(np.max(np.abs(frames)))
+    spec = np.abs(np.fft.rfft(frames[:, 0]))
+    f0 = np.argmax(spec[: int(400 * PADS.LOOP)]) / PADS.LOOP   # (the strongest low partial: F#3 185 Hz or its octave / fifth)
+    check("Central Pads: a key's loop is a stereo WAV of the loop's length, about -6 dBFS, in its key (F#: Fs.wav)", okw and 0.45 < peak < 0.52 and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
+          and any(abs(f0 - 185.0 * m) < 6 for m in (0.5, 1, 1.5, 2, 3)), (okw, peak, f0))
+    check("Central Pads: 12 styles, the same ones the library lists", len(LOOPS.STYLES) == 12 and LOOPS.NAMES == [p["name"] for p in by["pads"]["pads"]], LOOPS.NAMES)
 
     print("\nThe zips (tools/build-libraries.py):")
     snd = os.path.join(tmp, "sounds")
     os.makedirs(snd)
     for s in want:
         tiny_sf2(os.path.join(snd, BUILD.sound_file(s)), s)
+    for pd in by["pads"]["pads"]:   # (Central Pads: a tiny loop per style and key)
+        for k in BUILD.PAD_KEYS:
+            LOOPS.loop_wav(os.path.join(snd, "pad-loops", BUILD.pad_loop_file(pd["name"], k)), np.zeros(64, np.float32), np.zeros(64, np.float32))
     out = os.path.join(tmp, "out")
     index = BUILD.build_all(snd, ir_dir, out, base_url="https://example.test/libs", log=lambda *a: None)
     zips = sorted(f for f in os.listdir(out) if f.endswith(".zip"))
@@ -216,7 +239,7 @@ def run(tmp):
                 ok_items &= hashlib.sha256(data).hexdigest() == it["sha256"] and it["kind"] in libraries.KINDS
                 tiers_ok &= it["tier"] == man["plan"] == e["plan"]
             files_ok &= "CREDITS.txt" in zf.namelist()
-            if any(i["kind"] in ("sound", "ir") for i in man["items"]):
+            if any(i["kind"] in ("sound", "ir", "pad") for i in man["items"]):
                 cr = zf.read("sounds/CREDITS.txt").decode()
                 files_ok &= all(s["url"] in cr and s["license"] in cr for s in man["sources"]) and bool(man["sources"])
     check("each manifest lists its items with their sha256, every one with the library's plan; CREDITS.txt, and sounds/CREDITS.txt with every source's license and URL", ok_items and tiers_ok and files_ok)
@@ -275,6 +298,16 @@ def run(tmp):
     gcat = native_rig.bank_plans([{"file": p, "name": "x"} for p in grec["sounds"]])
     check("Central Plugins' textures bank keeps the plugins plan (a sound bank can belong to any plan)", gcat and all(b.get("tier") == "plugins" for b in gcat), gcat)
     store.remove("central-plugins-library")
+    pads_e = [e for e in index["libraries"] if e["plan"] == "pads"][0]
+    check("Central Pads' zip: every style in all 12 keys, with the pads plan", pads_e["counts"]["pad"] == 12 and len(pads_e["contents"]["pads"]) == 12, pads_e["counts"])
+    drec = store.install_file(os.path.join(out, pads_e["file"]), expected_sha256=pads_e["sha256"])
+    styles = store.pads()
+    f_fs = store.pad_file("central-pads-library", "Worship", "F#")
+    check("Central Pads installs: 12 pad styles, each in all 12 keys, with the pads plan", drec["counts"]["pad"] == 12 and len(styles) == 12 and all(len(x["keys"]) == 12 and x["tier"] == "pads" for x in styles), [(x["name"], len(x["keys"])) for x in styles])
+    check("...a style's loop in a key is found (F# -> Fs.wav, inside the library's own folder)", f_fs and f_fs.endswith(os.path.join("Worship", "Fs.wav")) and os.path.isfile(f_fs), f_fs)
+    check("...nothing outside it is (a made-up library, style or key)", not store.pad_file("../x", "Worship", "C") and not store.pad_file("central-pads-library", "Nope", "C") and not store.pad_file("central-pads-library", "Worship", "H"))
+    store.remove("central-pads-library")
+    check("...and Remove takes the loops away", not store.pads() and not os.path.exists(f_fs))
     old_max = BUILD.MAX_ZIP
     BUILD.MAX_ZIP = 1000
     try:

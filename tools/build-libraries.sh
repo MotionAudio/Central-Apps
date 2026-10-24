@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Central Pedal - builds the sound libraries (Central Keys, Central Instrument, Central Plugins, Central Pedals) the same
+# Central Pedal - builds the sound libraries (Central Keys, Central Instrument, Central Plugins, Central Pedals, Central Pads) the same
 # way CI does (.github/workflows/libraries.yml), on this computer:
 #   1. the VCSL SoundFonts (tools/sounds-vcsl.py - downloads about 2 GB of WAVs, one at a time, deleting each once used)
 #   2. the SFZ libraries' SoundFonts (tools/sounds-sfz.py - drum kits, guitars, basses, saxes; about 1.5 GB of samples)
-#   3. the pads and textures (tools/make-pads.py - synthesised, plus a few VCSL cymbals)
+#   3. the pads and textures (tools/make-pads.py - synthesised, plus a few VCSL cymbals) and Central Pads' loops
+#      (tools/make-pad-loops.py - synthesised, every style in every key)
 #   4. the cabinet / acoustic-body impulse responses (tools/make-irs.py - made here, nothing downloaded)
 #   5. the zips, libraries-index.json and SHA256SUMS (tools/build-libraries.py)
 #
@@ -27,9 +28,10 @@ echo "2/5  SFZ libraries (drum kits, guitars, basses, saxes - sfzinstruments / K
 python3 "$HERE/tools/sounds-sfz.py" "$WORK/cache" "$WORK/sounds"
 echo "3/5  pads and textures (synthesised; VCSL cymbals) -> $WORK/sounds"
 python3 "$HERE/tools/make-pads.py" "$WORK/cache" "$WORK/sounds"
+python3 "$HERE/tools/make-pad-loops.py" "$WORK/pad-loops"
 echo "4/5  impulse responses -> $WORK/irs"
 python3 "$HERE/tools/make-irs.py" "$WORK/irs"
 echo "5/5  zips -> $OUT"
-python3 "$HERE/tools/build-libraries.py" --sounds "$WORK/sounds" --irs "$WORK/irs" --out "$OUT" --base-url "$BASE" ${ONLY:+--only "$ONLY"}
+python3 "$HERE/tools/build-libraries.py" --sounds "$WORK/sounds" --irs "$WORK/irs" --pads "$WORK/pad-loops" --out "$OUT" --base-url "$BASE" ${ONLY:+--only "$ONLY"}
 ( cd "$OUT" && sha256sum -c SHA256SUMS >/dev/null ) && echo "    SHA256SUMS checked"
 echo "Done: $OUT"

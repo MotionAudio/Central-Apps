@@ -35,7 +35,7 @@ function clean(e, base, own) {
     file, size: Math.max(0, Math.round(Number(e.size) || 0)), approximate: !!e.approximate || !sha256, sha256, url, ready: !!sha256,
     contents: {
       sounds: (Array.isArray(c.sounds) ? c.sounds : []).slice(0, 40).map((s) => ({ name: str(s && s.name, 80), presets: names(s && s.presets, 200), license: str(s && s.license, 60) })),
-      presets: names(c.presets, 200), boards: names(c.boards, 200), irs: names(c.irs, 200),
+      presets: names(c.presets, 200), boards: names(c.boards, 200), irs: names(c.irs, 200), pads: names(c.pads, 60),
     },
     credits: names(e.credits, 20),
   };
