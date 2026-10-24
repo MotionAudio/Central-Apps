@@ -22,6 +22,7 @@ const { Talk, isDesk } = require("./talk");
 const { findFfmpeg } = require("./video-service");
 const { Center, BEACON_PORT, salted } = require("./center");
 const hubsync = require("./hubsync");
+const { Libraries } = require("./libraries");
 const dgram = require("node:dgram");
 
 function which(cmd) {
@@ -358,7 +359,7 @@ module.exports = function services(app, getWin) {
     try { fs.mkdirSync(path.join(userData, "instrument", "sounds", "sf2"), { recursive: true }); fs.mkdirSync(path.join(userData, "instrument", "sounds", "ir"), { recursive: true }); } catch (_) { }
     instAlt = pedalOk && rigOk ? (instKind === "pedal" ? "rig" : "pedal") : "";
     inst = spawn(cmd, args, { stdio: ["pipe", "pipe", "ignore"], windowsHide: true }); instBuf = "";
-    inst.stdout.on("data", (b) => { instBuf += b; let i; while ((i = instBuf.indexOf("\n")) >= 0) { const line = instBuf.slice(0, i); instBuf = instBuf.slice(i + 1); try { const m = JSON.parse(line); if (m && m.type === "instrumentStatus" && instAlt) m.engineAlt = instAlt; send("inst-msg", m); } catch (_) { } } });
+    inst.stdout.on("data", (b) => { instBuf += b; let i; while ((i = instBuf.indexOf("\n")) >= 0) { const line = instBuf.slice(0, i); instBuf = instBuf.slice(i + 1); try { const m = JSON.parse(line); if (m && m.type === "instrumentStatus" && instAlt) m.engineAlt = instAlt; if (m && m.type === "instrumentStatus") libs.applyTiers(m); send("inst-msg", m); } catch (_) { } } });
     const me = inst;
     inst.stdin.on("error", () => { }); inst.on("error", () => { if (inst === me) inst = null; });
     inst.on("exit", (code, sig) => {
@@ -385,6 +386,24 @@ module.exports = function services(app, getWin) {
     if (instStart() && inst) inst.stdin.write(JSON.stringify(msg) + "\n");
   });
   ipcMain.handle("inst-stop", () => { if (inst) { instStopping = true; inst.once("exit", () => { instStopping = false; }); try { inst.stdin.end(); setTimeout(() => { if (inst) inst.kill(); }, 1500); } catch (_) { } } return true; });
+
+  // ------------------------------------------------------------------ the sound libraries (Settings → Packages → Libraries)
+  // installed into the instrument's own sound folders; each keeps its plan (libraries.js)
+  const libs = new Libraries({ dir: userData, send: (m) => { if (inst) try { inst.stdin.write(JSON.stringify(m) + "\n"); } catch (_) { } } });
+  const libOut = (r) => ({ ok: true, installed: libs.listing(), record: r && r.id ? { id: r.id, version: r.version, counts: r.counts } : undefined });
+  const libErr = (e) => ({ ok: false, error: e.message || String(e), installed: libs.listing() });
+  ipcMain.handle("lib-list", () => ({ ok: true, installed: libs.listing(), progress: libs.progress }));
+  ipcMain.handle("lib-install", async (_e, a) => {
+    a = a || {};
+    try { return libOut(await libs.installUrl(String(a.url || ""), String(a.sha256 || ""), String(a.id || "library"), Number(a.size) || 0, (p) => send("lib-progress", { id: a.id, done: p.done, total: p.total, state: p.state }))); } catch (e) { return libErr(e); }
+  });
+  ipcMain.handle("lib-install-file", async (_e, a) => {
+    const r = await dialog.showOpenDialog(getWin(), { title: "A sound library (.zip from the Downloads page)", properties: ["openFile"], filters: [{ name: "Sound library", extensions: ["zip"] }] });
+    if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true, installed: libs.listing() };
+    const sha = a && a.byFile && a.byFile[path.basename(r.filePaths[0])];   // (a file named as a listed library: checked against its sha256 too)
+    try { return libOut(libs.installFile(r.filePaths[0], sha || null, "file")); } catch (e) { return libErr(e); }
+  });
+  ipcMain.handle("lib-remove", (_e, id) => { try { libs.remove(String(id || "")); return libOut(null); } catch (e) { return libErr(e); } });
 
   // ------------------------------------------------------------------ the lights' local AI model (optional)
   const ai = { dir: path.join(userData, "models"), proc: null, port: 8093, download: null, ready: false, error: null };

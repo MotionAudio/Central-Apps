@@ -288,6 +288,20 @@ def bank_tiers(folder):
     return tiers
 
 
+def ir_tiers(folder):
+    """{IR file name without .wav: plan} from the tiers.txt a sound library writes next to its impulse responses."""
+    out = {}
+    try:
+        with open(os.path.join(folder, "tiers.txt"), encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                parts = line.strip().split("|")
+                if len(parts) >= 2 and parts[0] and not parts[0].startswith("#") and parts[1] in ("free", "keys", "instrument", "plugins", "pedals"):
+                    out[parts[0]] = parts[1]
+    except OSError:
+        pass
+    return out
+
+
 def build_sf2_from_wavs(folder, out_path, name=None):
     """Turn a folder of WAVs named by note (C4.wav, F#3.wav, 60.wav...) into a one-preset SoundFont."""
     samples = []
@@ -541,9 +555,13 @@ class InstrumentHost:
     def ir_list(self):
         out = []
         if os.path.isdir(self.ir_dir):
+            tiers = ir_tiers(self.ir_dir)   # (a sound library's IRs keep its plan)
             for fn in sorted(os.listdir(self.ir_dir)):
                 if fn.lower().endswith((".wav", ".flac", ".aif", ".aiff")):
-                    out.append({"name": os.path.splitext(fn)[0].replace("_", " "), "file": os.path.join(self.ir_dir, fn)})
+                    item = {"name": os.path.splitext(fn)[0].replace("_", " "), "file": os.path.join(self.ir_dir, fn)}
+                    if tiers.get(os.path.splitext(fn)[0]):
+                        item["tier"] = tiers[os.path.splitext(fn)[0]]
+                    out.append(item)
         return out
 
     def keys_catalog(self):
@@ -552,7 +570,7 @@ class InstrumentHost:
         for d in SF2_DIRS + [self.sf2_user_dir]:
             if not os.path.isdir(d):
                 continue
-            tiers = bank_tiers(d) if d != self.sf2_user_dir else {}
+            tiers = bank_tiers(d)   # (the user folder too: the sound libraries write their banks' plans there - libraries.py)
             for fn in sorted(os.listdir(d)):
                 if not fn.lower().endswith((".sf2", ".sf3")):
                     continue
@@ -573,8 +591,8 @@ class InstrumentHost:
                     for pr in presets:
                         if pr["name"].strip().lower() in ("instrument", "preset", "untitled", "new preset", "default"):
                             pr["name"] = bank_name
-                    bank = {"file": path, "name": bank_name, "presets": presets[:512], "user": d == self.sf2_user_dir}
                     tier = tiers.get(base.split(" - ")[0]) if " - " in base else None
+                    bank = {"file": path, "name": bank_name, "presets": presets[:512], "user": d == self.sf2_user_dir and not tier}   # (a library's bank isn't "yours")
                     if tier:
                         bank["tier"] = tier   # (which plan opens it: free, keys or instrument - get-sounds.sh lists them)
                     out.append(bank)

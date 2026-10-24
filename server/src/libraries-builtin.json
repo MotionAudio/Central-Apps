@@ -1,0 +1,256 @@
+{
+ "_about": "Written by tools/build-libraries.py --write-builtin from libraries/libraries.json: what /v1/libraries lists until libraries-index.json is published.",
+ "libraries": [
+  {
+   "id": "central-keys-library",
+   "plan": "keys",
+   "planName": "Central Keys",
+   "title": "Central Keys Library",
+   "version": "1.0",
+   "summary": "An upright piano, an FM piano, a clavisynth and a harpsichord; a pipe organ, a quiet organ and a positive organ; vibraphone, marimba, glockenspiel, tubular bells and hand chimes - with worship-ready presets.",
+   "file": "central-keys-library-1.0.zip",
+   "size": 150000000,
+   "approximate": true,
+   "sha256": null,
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-keys-library-1.0.zip",
+   "contents": {
+    "sounds": [
+     {
+      "name": "Central Keys Pianos",
+      "presets": [
+       "Upright Piano",
+       "Soft Upright",
+       "FM Piano",
+       "FM Piano & Upright",
+       "Clavisynth",
+       "Harpsichord"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Keys Organs",
+      "presets": [
+       "Pipe Organ",
+       "Pipe Organ (manual only)",
+       "Quiet Organ",
+       "Organ Swell",
+       "Positive Organ"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Keys Mallets",
+      "presets": [
+       "Vibraphone",
+       "Vibraphone (hard mallets)",
+       "Marimba",
+       "Glockenspiel",
+       "Tubular Bells",
+       "Hand Chimes",
+       "Chime Pad",
+       "Vibes & Chimes"
+      ],
+      "license": "CC0 1.0"
+     }
+    ],
+    "presets": [
+     "Upright Ballad",
+     "Felt Upright Ambient",
+     "FM Ballad EP",
+     "Harpsichord Chamber",
+     "Sanctuary Organ",
+     "Quiet Prayer Organ",
+     "Organ Swell Pad",
+     "Vibes Lounge",
+     "Marimba Groove",
+     "Glock Sparkle",
+     "Christmas Bells",
+     "Chime Pad"
+    ],
+    "boards": [],
+    "irs": []
+   },
+   "counts": {
+    "sound": 3,
+    "board": 0,
+    "preset": 12,
+    "ir": 0,
+    "click": 0
+   },
+   "credits": [
+    "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+   ]
+  },
+  {
+   "id": "central-instrument-library",
+   "plan": "instrument",
+   "planName": "Central Instrument",
+   "title": "Central Instrument Library",
+   "version": "1.0",
+   "summary": "Folk and concert harps, kalimba and strumstick; recorders, harmonica, tenor sax and ocarina; hand and orchestral percussion kits - with presets to play from keys or your instrument.",
+   "file": "central-instrument-library-1.0.zip",
+   "size": 105000000,
+   "approximate": true,
+   "sha256": null,
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-instrument-library-1.0.zip",
+   "contents": {
+    "sounds": [
+     {
+      "name": "Central Instrument Harps",
+      "presets": [
+       "Folk Harp",
+       "Concert Harp",
+       "Harp Pad",
+       "Kalimba",
+       "Strumstick"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Instrument Winds",
+      "presets": [
+       "Alto Recorder",
+       "Tenor Recorder",
+       "Recorder Consort",
+       "Harmonica",
+       "Tenor Sax",
+       "Ocarina"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Instrument Percussion",
+      "presets": [
+       "Hand Percussion",
+       "Orchestral Percussion"
+      ],
+      "license": "CC0 1.0"
+     }
+    ],
+    "presets": [
+     "Worship Harp",
+     "Harp Pad Swell",
+     "Celtic Folk Harp",
+     "Kalimba Lullaby",
+     "Strumstick Folk",
+     "Recorder Consort",
+     "Harmonica Folk",
+     "Tenor Sax Ballad",
+     "Ocarina Air",
+     "Hand Percussion",
+     "Orchestral Percussion"
+    ],
+    "boards": [],
+    "irs": []
+   },
+   "counts": {
+    "sound": 3,
+    "board": 0,
+    "preset": 11,
+    "ir": 0,
+    "click": 0
+   },
+   "credits": [
+    "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+   ]
+  },
+  {
+   "id": "central-plugins-library",
+   "plan": "plugins",
+   "planName": "Central Plugins",
+   "title": "Central Plugins Library",
+   "version": "1.0",
+   "summary": "Mix-ready boards built from the Central Plugins effects: ambient electric, dotted-eighth leads, studio electric, acoustic and bass channel strips, piano and pad polish.",
+   "file": "central-plugins-library-1.0.zip",
+   "size": 100000,
+   "approximate": true,
+   "sha256": null,
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-plugins-library-1.0.zip",
+   "contents": {
+    "sounds": [],
+    "presets": [],
+    "boards": [
+     "Plugins: Worship Electric Ambience",
+     "Plugins: Dotted-Eighth Lead",
+     "Plugins: Swell Pad (electric)",
+     "Plugins: Clean Studio Electric",
+     "Plugins: Acoustic Sanctuary",
+     "Plugins: Acoustic Big Room",
+     "Plugins: Bass Modern DI",
+     "Plugins: Bass Warm and Round",
+     "Plugins: Keys Wide Pad",
+     "Plugins: Keys Piano Polish",
+     "Plugins: Keys Room for Vocals"
+    ],
+    "irs": []
+   },
+   "counts": {
+    "sound": 0,
+    "board": 11,
+    "preset": 0,
+    "ir": 0,
+    "click": 0
+   },
+   "credits": []
+  },
+  {
+   "id": "central-pedals-library",
+   "plan": "pedals",
+   "planName": "Central Pedals",
+   "title": "Central Pedals Library",
+   "version": "1.0",
+   "summary": "14 cabinet and acoustic-body impulse responses for the IR loader, and pedalboards that use them: worship crunch, edge delay, vintage and modern stacks, fuzz swells, bass rigs and acoustic bodies.",
+   "file": "central-pedals-library-1.0.zip",
+   "size": 200000,
+   "approximate": true,
+   "sha256": null,
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pedals-library-1.0.zip",
+   "contents": {
+    "sounds": [],
+    "presets": [],
+    "boards": [
+     "Pedals: Worship Crunch 2x12",
+     "Pedals: Edge Delay 1x12",
+     "Pedals: Vintage Stack 4x12",
+     "Pedals: Modern Rhythm 4x12",
+     "Pedals: Fuzz Swell Tweed",
+     "Pedals: Tremolo Chapel Combo",
+     "Pedals: Closed Back Classic",
+     "Pedals: Bass 4x10 Grit",
+     "Pedals: Bass Vintage 1x15",
+     "Pedals: Bass Octave 8x10",
+     "Pedals: Acoustic Dreadnought",
+     "Pedals: Acoustic Parlor",
+     "Pedals: Nylon Warm",
+     "Pedals: Jumbo Strum"
+    ],
+    "irs": [
+     "Central 1x12 Open Back",
+     "Central 2x12 Closed Back",
+     "Central 2x12 Worship Smooth",
+     "Central 4x12 Vintage",
+     "Central 4x12 Modern Tight",
+     "Central 1x10 Small Combo",
+     "Central 2x10 Tweed",
+     "Central Bass 4x10",
+     "Central Bass 1x15",
+     "Central Bass 8x10",
+     "Central Acoustic Dreadnought Body",
+     "Central Acoustic Jumbo Body",
+     "Central Acoustic Parlor Body",
+     "Central Acoustic Nylon Body"
+    ]
+   },
+   "counts": {
+    "sound": 0,
+    "board": 14,
+    "preset": 0,
+    "ir": 14,
+    "click": 0
+   },
+   "credits": [
+    "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+   ]
+  }
+ ]
+}

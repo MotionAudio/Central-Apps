@@ -148,7 +148,9 @@
     if (!pkLive(p)) return { text: "needs the internet to check (last checked " + (p.okAt ? new Date(p.okAt).toLocaleDateString() : "never") + ")", bad: true };
     return { text: "active · checked " + new Date(p.okAt).toLocaleDateString(), bad: false };
   }
-  function packagesHtml(cls) {
+  // Settings → Packages, with Libraries under it (js/libraries.js: the sound libraries of the plans you have)
+  function packagesHtml(cls) { return pkSectionHtml(cls) + (window.PPLibraries && window.PPLibraries.html ? window.PPLibraries.html(cls) : ""); }
+  function pkSectionHtml(cls) {
     var rows = pk.list.map(function (p) {
       var s = pkStatus(p), names = PLAN_IDS.filter(function (id) { return p.plans && p.plans[id]; }).map(function (id) { var t = pkTime(p.plans[id]); return esc(PLAN_NAMES[id]) + (t !== Infinity ? " until " + esc(new Date(t).toLocaleDateString()) : ""); });
       return '<li><b>' + (names.join(" · ") || "No plans") + (p.isDefault || p.key === DEFAULT_KEYS.S ? " · Default package (temporary)" : "") + '</b><br><span class="muted">' + esc(p.key.slice(0, 4) + "-••••-••••-" + p.key.slice(-4)) + (p.holder ? " · " + esc(p.holder) : "") + (p.church ? " · " + esc(p.church) : "") + ' · </span><span class="' + (s.bad ? "bad" : "ok") + '">' + esc(s.text) + '</span> <button class="link" data-pkg-remove="' + esc(p.key) + '"' + (pk.busy ? " disabled" : "") + ">Remove</button></li>";
@@ -160,7 +162,7 @@
       (!on() ? '<p class="muted">Every sound, board and pedal is open until the Motion Audio website opens. For now the default package key, <b>' + DEFAULT_KEYS.S + "</b>, opens every plan.</p>"
         : '<p class="muted">Sound plans: Central Keys (pianos, synths, pads), Central Plugins (EQ, compressors, reverb, delay), Central Instrument (basses, guitars, strings, brass, winds) and Central Pedals (drive, fuzz, wah, modulation, amps, cabs). Each is a yearly package with its own key. ' + (onPedal() ? "Packages here are kept by the Central Pedal, so its screens and Pedal Control see them too." : "") + "</p>") + form + "</section>";
   }
-  function pkRedraw() { var el2 = document.getElementById("pkgSettings"); if (el2) { var keep = el2.querySelector("#pkgKey"), v = keep ? keep.value : ""; el2.outerHTML = packagesHtml(el2.className); var k2 = document.getElementById("pkgKey"); if (k2 && v && !pk.busy && !/^Added/.test(pk.msg)) k2.value = v; } }
+  function pkRedraw() { var el2 = document.getElementById("pkgSettings"); if (el2) { var keep = el2.querySelector("#pkgKey"), v = keep ? keep.value : ""; el2.outerHTML = pkSectionHtml(el2.className); var k2 = document.getElementById("pkgKey"); if (k2 && v && !pk.busy && !/^Added/.test(pk.msg)) k2.value = v; } }
   document.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("[data-pkg],[data-pkg-remove]"); if (!b) return;
     if (b.dataset.pkgRemove) { pkRelease(b.dataset.pkgRemove); return; }

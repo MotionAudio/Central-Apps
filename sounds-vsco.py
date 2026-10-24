@@ -234,8 +234,13 @@ def name20(s):
     return s.encode("latin-1", "replace")[:19].ljust(20, b"\0")
 
 
-def write_sf2(path, bank_name, samples, instruments, presets):
-    """samples: [{name, pcm, sr, root, s, e}]; instruments: [{name, zones: [{gens...}]}]; presets: [{name, prog, zones}]"""
+VSCO_COPYRIGHT = "CC0 1.0 - VS Chamber Orchestra 2: CE by Versilian Studios"
+VSCO_COMMENT = "Built for Central Pedal from VSCO 2: CE (github.com/sgossner/VSCO-2-CE), mono, looped."
+
+
+def write_sf2(path, bank_name, samples, instruments, presets, copyright=VSCO_COPYRIGHT, comment=VSCO_COMMENT):
+    """samples: [{name, pcm, sr, root, s, e}]; instruments: [{name, zones: [{gens...}]}]; presets: [{name, prog, zones}]
+    (copyright / comment: the bank's ICOP / ICMT texts - tools/sounds-vcsl.py writes its own)"""
     smpl, shdr, pos = [], b"", 0
     for sm in samples:
         smpl.append(sm["pcm"].tobytes())
@@ -276,8 +281,7 @@ def write_sf2(path, bank_name, samples, instruments, presets):
     pmod = struct.pack("<HHhHH", 0, 0, 0, 0, 0)
 
     info = (b"INFO" + chunk(b"ifil", struct.pack("<HH", 2, 1)) + chunk(b"isng", zstr("EMU8000")) + chunk(b"INAM", zstr(bank_name))
-            + chunk(b"ICOP", zstr("CC0 1.0 - VS Chamber Orchestra 2: CE by Versilian Studios"))
-            + chunk(b"ICMT", zstr("Built for Central Pedal from VSCO 2: CE (github.com/sgossner/VSCO-2-CE), mono, looped.")))
+            + chunk(b"ICOP", zstr(copyright)) + chunk(b"ICMT", zstr(comment)))
     sdta = b"sdta" + chunk(b"smpl", b"".join(smpl))
     pdta = b"pdta" + b"".join(chunk(c, d) for c, d in ((b"phdr", phdr), (b"pbag", pbags), (b"pmod", pmod), (b"pgen", pgen),
                                                     (b"inst", inst), (b"ibag", ibags), (b"imod", imod), (b"igen", igen), (b"shdr", shdr)))

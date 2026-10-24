@@ -26,6 +26,9 @@ export const config = {
     secretKey: env.R2_SECRET_ACCESS_KEY || "",
     localDir: env.LOCAL_STORAGE_DIR || "./data/files",
   },
+  // the sound libraries (libraries.js): where their zips and libraries-index.json are downloaded from. Today the GitHub
+  // release "libraries" (the apps repository's CI publishes it); later the Cloudflare R2 bucket's public address.
+  librariesBaseUrl: (env.LIBRARIES_BASE_URL || "https://github.com/MotionAudio/central-apps/releases/download/libraries").trim().replace(/\/+$/, ""),
 };
 
 // Prices (cents), tax included. Change them on the website's price page (staff), or here for the defaults.

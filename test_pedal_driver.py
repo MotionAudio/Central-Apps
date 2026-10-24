@@ -1111,6 +1111,78 @@ async def main():
             status3, body3 = http("http://127.0.0.1:18766/upload?kind=soundzip&name=Bad.zip", data=b"not a zip at all", method="PUT")
             check("...and a zip with .sf2 banks adds each one; a broken zip is refused", made2.get("banks") == 1 and os.path.exists(made2.get("file", "")) and json.loads(body3).get("error"), (body[:200], body3[:200]))
 
+            # 9.8: the sound libraries (Settings → Packages → Libraries) - from a file, from the website's list, removed
+            print("\nSound libraries:")
+            import hashlib
+            sf2 = open(os.path.join(media_root, "Stick Bank.sf2"), "rb").read()
+            irb = io.BytesIO()
+            with wave.open(irb, "wb") as w:
+                w.setnchannels(1); w.setsampwidth(2); w.setframerate(48000); w.writeframes(struct.pack("<h", 20000) + b"\0\0" * 511)
+            board = json.dumps({"name": "Library Board", "kind": "keys", "chain": [["dfly-hall", {"Decay": 3}]], "sound": "stick"}).encode()
+            def libzip(version, tamper=False):
+                items = [{"kind": "sound", "name": "Test Keys", "file": "sounds/Test Keys - central-keys-library.sf2", "tier": "keys", "sha256": hashlib.sha256(sf2).hexdigest(), "license": "CC0 1.0"},
+                         {"kind": "ir", "name": "Test Cab", "file": "irs/Test Cab.wav", "tier": "keys", "sha256": hashlib.sha256(irb.getvalue()).hexdigest()},
+                         {"kind": "preset", "name": "Library Board", "file": "presets/library-board.json", "tier": "keys", "sha256": hashlib.sha256(board).hexdigest()}]
+                b = io.BytesIO()
+                with zipfile.ZipFile(b, "w", zipfile.ZIP_DEFLATED) as zf:
+                    zf.writestr("manifest.json", json.dumps({"format": 1, "id": "central-keys-library", "plan": "keys", "version": version, "title": "Central Keys Library", "items": items}))
+                    zf.writestr(items[0]["file"], sf2 + (b"x" if tamper else b""))
+                    zf.writestr(items[1]["file"], irb.getvalue())
+                    zf.writestr(items[2]["file"], board)
+                return b.getvalue()
+            status, body = http("http://127.0.0.1:18766/libraries")
+            check("GET /libraries: available, nothing installed yet", status == 200 and json.loads(body).get("available") and json.loads(body).get("installed") == [], body[:200])
+            z1 = libzip("1.0")
+            status, body = http("http://127.0.0.1:18766/libraries/file?name=central-keys-library-1.0.zip&sha256=" + "0" * 64, data=z1, method="PUT")
+            check("Install from a file: a zip that doesn't match the website's checksum is refused", status == 400 and "checksum" in json.loads(body).get("error", ""), body[:200])
+            status, body = http("http://127.0.0.1:18766/libraries/file?name=x.zip", data=libzip("1.0", tamper=True), method="PUT")
+            check("...and so is one whose sound doesn't match its manifest", status == 400 and "damaged" in json.loads(body).get("error", ""), body[:200])
+            status, body = http("http://127.0.0.1:18766/libraries/file?name=x.zip", data=z1, method="PUT", headers={"Origin": "http://evil.example"})
+            check("...and a web page other than the app can't install one", status == 403)
+            status, body = http("http://127.0.0.1:18766/libraries/file?name=central-keys-library-1.0.zip&sha256=" + hashlib.sha256(z1).hexdigest(), data=z1, method="PUT")
+            got = json.loads(body) if status == 200 else {}
+            sf2_dir = os.path.join(root, "data", "sounds", "sf2")
+            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0}
+                  and os.path.exists(os.path.join(sf2_dir, "Test Keys - central-keys-library.sf2")), body[:300])
+            tiers = open(os.path.join(sf2_dir, "tiers.txt")).read() if os.path.exists(os.path.join(sf2_dir, "tiers.txt")) else ""
+            check("...each keeping the library's plan (tiers.txt)", "Test Keys|keys|CC0 1.0|central-keys-library" in tiers, tiers)
+            await ws.send(json.dumps({"type": "instrument", "action": "status"}))
+            st = await next_message(lambda m: m["type"] == "instrumentStatus" and any(b.get("name") == "Test Keys" for b in m.get("keysCatalog", [])), 6.0)
+            bank = [b for b in (st or {}).get("keysCatalog", []) if b.get("name") == "Test Keys"]
+            irs = [i for i in (st or {}).get("irs", []) if i.get("name") == "Test Cab"]
+            check("the Instrument tab lists the library's bank with its plan (keys, not the user's own) and its IR with its plan", bank and bank[0].get("tier") == "keys" and not bank[0].get("user") and irs and irs[0].get("tier") == "keys", (bank, irs))
+            # from the website's list: downloaded, checked, installed (a newer version replaces the older one)
+            z2 = libzip("1.1")
+            class Zips(BaseHTTPRequestHandler):
+                def log_message(self, *a): pass
+                def do_GET(self):
+                    data = z2 if self.path.endswith("1.1.zip") else b""
+                    self.send_response(200 if data else 404); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+            zsrv = ThreadingHTTPServer(("127.0.0.1", 18097), Zips)
+            threading.Thread(target=zsrv.serve_forever, daemon=True).start()
+            jp = lambda path, b: http("http://127.0.0.1:18766" + path, data=json.dumps(b).encode(), headers={"Content-Type": "application/json"})
+            status, body = jp("/libraries/install", {"id": "central-keys-library", "url": "http://127.0.0.1:18097/central-keys-library-1.1.zip", "sha256": "f" * 64, "size": len(z2)})
+            for _ in range(50):
+                await asyncio.sleep(0.1)
+                job = json.loads(http("http://127.0.0.1:18766/libraries")[1])["jobs"].get("central-keys-library", {})
+                if job.get("state") in ("done", "failed"):
+                    break
+            check("Install from the list: a download that doesn't match its checksum is refused (the installed version stays)", job.get("state") == "failed" and "checksum" in (job.get("error") or "")
+                  and json.loads(http("http://127.0.0.1:18766/libraries")[1])["installed"][0]["version"] == "1.0", job)
+            status, body = jp("/libraries/install", {"id": "central-keys-library", "url": "http://127.0.0.1:18097/central-keys-library-1.1.zip", "sha256": hashlib.sha256(z2).hexdigest(), "size": len(z2)})
+            for _ in range(50):
+                await asyncio.sleep(0.1)
+                job = json.loads(http("http://127.0.0.1:18766/libraries")[1])["jobs"].get("central-keys-library", {})
+                if job.get("state") in ("done", "failed"):
+                    break
+            inst = json.loads(http("http://127.0.0.1:18766/libraries")[1])["installed"]
+            check("...and a good one updates the library to 1.1 (its preset comes with it for the Instrument page)", job.get("state") == "done" and inst and inst[0]["version"] == "1.1" and inst[0]["presets"][0]["name"] == "Library Board" and inst[0]["presets"][0]["tier"] == "keys", (job, inst))
+            zsrv.shutdown()
+            status, body = jp("/libraries/remove", {"id": "central-keys-library"})
+            tiers = open(os.path.join(sf2_dir, "tiers.txt")).read()
+            check("Remove takes the library's sound, IR and plan lines away", status == 200 and json.loads(body).get("installed") == [] and not os.path.exists(os.path.join(sf2_dir, "Test Keys - central-keys-library.sf2"))
+                  and "central-keys-library" not in tiers and not os.path.exists(os.path.join(root, "data", "sounds", "ir", "Test Cab.wav")), (body[:200], tiers))
+
         print("\nPlanning Center and track packs:")
         pco_srv = ThreadingHTTPServer(("127.0.0.1", 18099), MockPCO)
         threading.Thread(target=pco_srv.serve_forever, daemon=True).start()

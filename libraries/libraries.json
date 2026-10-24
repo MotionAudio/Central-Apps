@@ -1,0 +1,1319 @@
+{
+ "_about": "The sound libraries, one per plan. tools/build-libraries.py turns each into <id>-<version>.zip with a manifest.json (sounds: tools/sounds-vcsl.py, IRs: tools/make-irs.py); .github/workflows/libraries.yml builds and publishes them. Raise a library's version when its content changes.",
+ "libraries": [
+  {
+   "id": "central-keys-library",
+   "approxMB": 150,
+   "plan": "keys",
+   "version": "1.0",
+   "title": "Central Keys Library",
+   "summary": "An upright piano, an FM piano, a clavisynth and a harpsichord; a pipe organ, a quiet organ and a positive organ; vibraphone, marimba, glockenspiel, tubular bells and hand chimes - with worship-ready presets.",
+   "sounds": [
+    {
+     "name": "Central Keys Pianos",
+     "source": "vcsl",
+     "license": "CC0 1.0",
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+    },
+    {
+     "name": "Central Keys Organs",
+     "source": "vcsl",
+     "license": "CC0 1.0",
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+    },
+    {
+     "name": "Central Keys Mallets",
+     "source": "vcsl",
+     "license": "CC0 1.0",
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+    }
+   ],
+   "presets": [
+    {
+     "name": "Upright Ballad",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.25,
+        "Ratio": 2
+       }
+      ],
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.4,
+        "Late": 20
+       }
+      ]
+     ],
+     "sound": "upright piano|central keys pianos"
+    },
+    {
+     "name": "Felt Upright Ambient",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.12
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 40,
+        "Mix": 25
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 5.5,
+        "Late": 32
+       }
+      ]
+     ],
+     "sound": "soft upright|upright piano"
+    },
+    {
+     "name": "FM Ballad EP",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.3
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2
+       }
+      ]
+     ],
+     "sound": "fm piano"
+    },
+    {
+     "name": "Harpsichord Chamber",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.8
+       }
+      ]
+     ],
+     "sound": "harpsichord"
+    },
+    {
+     "name": "Sanctuary Organ",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 4.5,
+        "Late": 30
+       }
+      ]
+     ],
+     "sound": "pipe organ|central keys organs"
+    },
+    {
+     "name": "Quiet Prayer Organ",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.5,
+        "Late": 24
+       }
+      ]
+     ],
+     "sound": "quiet organ|pipe organ"
+    },
+    {
+     "name": "Organ Swell Pad",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.2
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 6,
+        "Late": 35
+       }
+      ]
+     ],
+     "sound": "organ swell|quiet organ"
+    },
+    {
+     "name": "Vibes Lounge",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.18
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.0
+       }
+      ]
+     ],
+     "sound": "vibraphone"
+    },
+    {
+     "name": "Marimba Groove",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.6
+       }
+      ]
+     ],
+     "sound": "marimba"
+    },
+    {
+     "name": "Glock Sparkle",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 35,
+        "Mix": 22
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3
+       }
+      ]
+     ],
+     "sound": "glockenspiel"
+    },
+    {
+     "name": "Christmas Bells",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 4
+       }
+      ]
+     ],
+     "sound": "tubular bells"
+    },
+    {
+     "name": "Chime Pad",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 50,
+        "Mix": 30
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 7,
+        "Late": 38
+       }
+      ]
+     ],
+     "sound": "chime pad|hand chimes"
+    }
+   ]
+  },
+  {
+   "id": "central-instrument-library",
+   "approxMB": 105,
+   "plan": "instrument",
+   "version": "1.0",
+   "title": "Central Instrument Library",
+   "summary": "Folk and concert harps, kalimba and strumstick; recorders, harmonica, tenor sax and ocarina; hand and orchestral percussion kits - with presets to play from keys or your instrument.",
+   "sounds": [
+    {
+     "name": "Central Instrument Harps",
+     "source": "vcsl",
+     "license": "CC0 1.0",
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+    },
+    {
+     "name": "Central Instrument Winds",
+     "source": "vcsl",
+     "license": "CC0 1.0",
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+    },
+    {
+     "name": "Central Instrument Percussion",
+     "source": "vcsl",
+     "license": "CC0 1.0",
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+    }
+   ],
+   "presets": [
+    {
+     "name": "Worship Harp",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.2,
+        "Late": 26
+       }
+      ]
+     ],
+     "sound": "concert harp"
+    },
+    {
+     "name": "Harp Pad Swell",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.15
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 6
+       }
+      ]
+     ],
+     "sound": "harp pad|concert harp"
+    },
+    {
+     "name": "Celtic Folk Harp",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.4
+       }
+      ]
+     ],
+     "sound": "folk harp"
+    },
+    {
+     "name": "Kalimba Lullaby",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 30,
+        "Mix": 20
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.5
+       }
+      ]
+     ],
+     "sound": "kalimba"
+    },
+    {
+     "name": "Strumstick Folk",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.6
+       }
+      ]
+     ],
+     "sound": "strumstick"
+    },
+    {
+     "name": "Recorder Consort",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2
+       }
+      ]
+     ],
+     "sound": "recorder consort|alto recorder"
+    },
+    {
+     "name": "Harmonica Folk",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.2
+       }
+      ]
+     ],
+     "sound": "harmonica"
+    },
+    {
+     "name": "Tenor Sax Ballad",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.3,
+        "Ratio": 2.5
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.6
+       }
+      ]
+     ],
+     "sound": "tenor sax"
+    },
+    {
+     "name": "Ocarina Air",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 28,
+        "Mix": 18
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3
+       }
+      ]
+     ],
+     "sound": "ocarina"
+    },
+    {
+     "name": "Hand Percussion",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.2
+       }
+      ]
+     ],
+     "sound": "hand percussion"
+    },
+    {
+     "name": "Orchestral Percussion",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 3
+       }
+      ]
+     ],
+     "sound": "orchestral percussion"
+    }
+   ]
+  },
+  {
+   "id": "central-plugins-library",
+   "approxMB": 0.1,
+   "plan": "plugins",
+   "version": "1.0",
+   "title": "Central Plugins Library",
+   "summary": "Mix-ready boards built from the Central Plugins effects: ambient electric, dotted-eighth leads, studio electric, acoustic and bass channel strips, piano and pad polish.",
+   "sounds": [],
+   "boards": [
+    {
+     "name": "Plugins: Worship Electric Ambience",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "booster",
+       {}
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 45,
+        "Mix": 30
+       }
+      ],
+      [
+       "calfvdelay",
+       {}
+      ],
+      [
+       "shimmer",
+       {}
+      ],
+      [
+       "gxamp",
+       {}
+      ],
+      [
+       "gxcab",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Dotted-Eighth Lead",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ts9",
+       {
+        "Drive": 0.35
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 40,
+        "Mix": 35
+       }
+      ],
+      [
+       "ace-delay",
+       {}
+      ],
+      [
+       "gxamp",
+       {}
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "mverb",
+       {
+        "Mix": 20
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Swell Pad (electric)",
+     "kind": "electric",
+     "chain": [
+      [
+       "volume",
+       {}
+      ],
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "shimmer",
+       {}
+      ],
+      [
+       "echocat",
+       {}
+      ],
+      [
+       "zitarev",
+       {}
+      ],
+      [
+       "gxamp",
+       {}
+      ],
+      [
+       "gxcab",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Clean Studio Electric",
+     "kind": "electric",
+     "chain": [
+      [
+       "ace-comp",
+       {
+        "Threshold": -20,
+        "Ratio": 3
+       }
+      ],
+      [
+       "gxamp",
+       {}
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "studio-eq",
+       {}
+      ],
+      [
+       "dfly-plate",
+       {}
+      ],
+      [
+       "x42-limiter",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Acoustic Sanctuary",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "studio-eq",
+       {}
+      ],
+      [
+       "x42-comp",
+       {}
+      ],
+      [
+       "dfly-plate",
+       {}
+      ],
+      [
+       "x42-limiter",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Acoustic Big Room",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "zitarev",
+       {}
+      ],
+      [
+       "x42-limiter",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Bass Modern DI",
+     "kind": "bass",
+     "chain": [
+      [
+       "calfgate",
+       {}
+      ],
+      [
+       "x42-comp",
+       {}
+      ],
+      [
+       "studio-eq",
+       {}
+      ],
+      [
+       "calfbass",
+       {}
+      ],
+      [
+       "x42-limiter",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Bass Warm and Round",
+     "kind": "bass",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ace-eq",
+       {
+        "Low mid": -2
+       }
+      ],
+      [
+       "calfbass",
+       {
+        "Amount": 0.3
+       }
+      ],
+      [
+       "lsp-limiter",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Keys Wide Pad",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "widener",
+       {}
+      ],
+      [
+       "mverb",
+       {
+        "Mix": 30
+       }
+      ],
+      [
+       "x42-limiter",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Keys Piano Polish",
+     "kind": "keys",
+     "chain": [
+      [
+       "studio-eq",
+       {}
+      ],
+      [
+       "ace-comp",
+       {
+        "Threshold": -20,
+        "Ratio": 3
+       }
+      ],
+      [
+       "dfly-plate",
+       {}
+      ],
+      [
+       "x42-limiter",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Keys Room for Vocals",
+     "kind": "keys",
+     "chain": [
+      [
+       "ace-eq",
+       {
+        "Mid": -3,
+        "Presence": -2
+       }
+      ],
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-room",
+       {}
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "central-pedals-library",
+   "approxMB": 0.2,
+   "plan": "pedals",
+   "version": "1.0",
+   "title": "Central Pedals Library",
+   "summary": "14 cabinet and acoustic-body impulse responses for the IR loader, and pedalboards that use them: worship crunch, edge delay, vintage and modern stacks, fuzz swells, bass rigs and acoustic bodies.",
+   "sounds": [],
+   "irs": [
+    {
+     "name": "Central 1x12 Open Back",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central 2x12 Closed Back",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central 2x12 Worship Smooth",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central 4x12 Vintage",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central 4x12 Modern Tight",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central 1x10 Small Combo",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central 2x10 Tweed",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central Bass 4x10",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central Bass 1x15",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central Bass 8x10",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central Acoustic Dreadnought Body",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central Acoustic Jumbo Body",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central Acoustic Parlor Body",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    },
+    {
+     "name": "Central Acoustic Nylon Body",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+    }
+   ],
+   "boards": [
+    {
+     "name": "Pedals: Worship Crunch 2x12",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ts9",
+       {
+        "Drive": 0.4
+       }
+      ],
+      [
+       "jcm800",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 2x12 Worship Smooth"
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 35,
+        "Mix": 25
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Edge Delay 1x12",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ts9",
+       {
+        "Drive": 0.25
+       }
+      ],
+      [
+       "chump",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 1x12 Open Back"
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 45,
+        "Mix": 40
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.6
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Vintage Stack 4x12",
+     "kind": "electric",
+     "chain": [
+      [
+       "ts9",
+       {
+        "Drive": 0.5
+       }
+      ],
+      [
+       "jcm800",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 4x12 Vintage"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Modern Rhythm 4x12",
+     "kind": "electric",
+     "chain": [
+      [
+       "calfgate",
+       {}
+      ],
+      [
+       "ts9",
+       {
+        "Drive": 0.2,
+        "Level": 0.8
+       }
+      ],
+      [
+       "metalhead",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 4x12 Modern Tight"
+       }
+      ],
+      [
+       "calfeq5",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Fuzz Swell Tweed",
+     "kind": "electric",
+     "chain": [
+      [
+       "volume",
+       {}
+      ],
+      [
+       "muff",
+       {}
+      ],
+      [
+       "gxchorus",
+       {
+        "Level": 0.25
+       }
+      ],
+      [
+       "chump",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 2x10 Tweed"
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 50,
+        "Mix": 35
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 5
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Tremolo Chapel Combo",
+     "kind": "electric",
+     "chain": [
+      [
+       "chump",
+       {}
+      ],
+      [
+       "tubetrem",
+       {
+        "Depth": 0.4
+       }
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 1x10 Small Combo"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.8
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Closed Back Classic",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ds1",
+       {}
+      ],
+      [
+       "gxamp",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 2x12 Closed Back"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Bass 4x10 Grit",
+     "kind": "bass",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "mole",
+       {}
+      ],
+      [
+       "alembic",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central Bass 4x10"
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Bass Vintage 1x15",
+     "kind": "bass",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "alembic",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central Bass 1x15"
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Bass Octave 8x10",
+     "kind": "bass",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "oc2",
+       {}
+      ],
+      [
+       "alembic",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central Bass 8x10"
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Acoustic Dreadnought",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "feedback-killer",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central Acoustic Dreadnought Body"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Acoustic Parlor",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central Acoustic Parlor Body"
+       }
+      ],
+      [
+       "gxchorus",
+       {
+        "Level": 0.1
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Nylon Warm",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central Acoustic Nylon Body"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.4
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Jumbo Strum",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "acoustic-sim",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central Acoustic Jumbo Body"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2
+       }
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

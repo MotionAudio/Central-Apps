@@ -636,7 +636,9 @@ async function showDownloads(thanks) {
   const el = dlSection(true); if (!el) return;
   el.innerHTML = `<h2>Downloads</h2><p class="muted">Loading…</p>`; $("#downloads").scrollIntoView({ behavior: "smooth" });
   let pub, d = null;
+  const libsP = api("GET", "/libraries").catch(() => null);   // (the sound libraries: the rest of the page doesn't wait on them)
   try { pub = await api("GET", "/downloads/apps"); if (me) d = await api("GET", "/downloads"); } catch (e) { el.innerHTML = `<h2>Downloads</h2><p class="err">${esc(e.message)}</p>`; return; }
+  const libs = await libsP;
   const renewal = (d && d.renewalCents) || 2000;
   const others = (a) => Object.keys(PLATFORM_NAME).filter((p) => p !== PLATFORM && (p !== "android" || a.steps.android) && (p !== "ipad" || a.phone));
   const keyNote = (a) => `<div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(a.name)} asks for its key (it starts with <b>${esc(a.kind)}</b>) the first time it opens. Buy one in the <a href="#store">store</a>, or your church sends you yours by email. Your keys are always on your Account page and in your email.</span></div>`;
@@ -659,6 +661,7 @@ async function showDownloads(thanks) {
   const pkgCard = d && d.packages.length ? `<div class="dl-card"><div class="dl-head"><div><h3>Sound plans</h3><span class="muted">Package keys</span></div></div>
     <div class="dl-keys">${d.packages.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)} <span class="muted">· ${esc(k.plans)}${k.church ? " · from " + esc(k.church) : ""} · until ${esc(longDate(k.until))}</span></div>`).join("")}</div>
     <p style="margin:0">In any app (Central Pedal, Central Pedal Control, Central Control, Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 2} devices at a time.</p></div>` : "";
+  const libSection = librariesHtml(libs, d);
   const mine = d ? d.apps : [], kinds = mine.map((a) => a.kind), rest = pub.apps.filter((a) => kinds.indexOf(a.kind) < 0);
   const yours = d && (mine.length || d.pedals.length || d.packages.length);
   const all = `<div class="dl-grid">${d && d.pedals.length ? "" : pedalPublic}${rest.map(appCard).join("")}${servicesCard}</div>`;
@@ -666,6 +669,7 @@ async function showDownloads(thanks) {
     ${!me ? `<p style="margin:0 0 1rem"><a class="btn small" href="#account">Sign in to see your keys here</a></p>` : ""}
     ${yours ? `<h3 class="dl-h">Yours</h3><div class="dl-grid">${d.pedals.map(pedalCard).join("")}${mine.map(appCard).join("")}${pkgCard}</div><h3 class="dl-h">Every other app</h3>` : me ? `<p class="muted">No keys here yet. Keys your church gives you come by email; keys you buy for yourself ("Just me") show up here and in your email. <a href="#store">Visit the store</a>.</p>` : ""}
     ${all}
+    ${libSection}
     <p class="muted" style="font-size:.9rem">Every app is also on the <a href="${esc(pub.appsUrl)}" target="_blank" rel="noopener">download page</a>. <a href="${esc(pub.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.</p><div class="err" id="dlErr"></div>`;
   wireCopies(el);
   el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], renewal)));
@@ -673,6 +677,25 @@ async function showDownloads(thanks) {
     if (!confirm("Release this key from its devices? They stop working until the key is typed again.")) return;
     try { await api("POST", "/church/release", { key: b.dataset.dlrel }); toast("Released. Type it on the device you want."); showDownloads(); } catch (e) { $("#dlErr").textContent = e.message; }
   }));
+}
+// the sound libraries (one per plan): anyone can download them, the plan's package key opens them in the apps.
+// Signed in: which ones your plans open.
+const libSize = (n) => (n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : n >= 1e6 ? Math.round(n / 1e6) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB");
+function librariesHtml(libs, d) {
+  if (!libs || !Array.isArray(libs.libraries) || !libs.libraries.length) return "";
+  const have = d ? new Set((d.packages || []).flatMap((k) => k.planIds || [])) : null;
+  const list = (title, arr) => (arr && arr.length ? `<div style="margin-top:.4rem"><b style="font-size:.9rem">${esc(title)}</b><div class="muted" style="font-size:.88rem">${arr.map(esc).join(" · ")}</div></div>` : "");
+  const card = (l) => {
+    const price = dollars((l.planCents || 0) / 100), c = l.contents || {};
+    const sounds = (c.sounds || []).map((s) => `<div style="margin-top:.4rem"><b style="font-size:.9rem">${esc(s.name)}</b> <span class="muted" style="font-size:.82rem">${esc(s.license || "")}</span><div class="muted" style="font-size:.88rem">${(s.presets || []).map(esc).join(" · ")}</div></div>`).join("");
+    const opened = have ? (have.has(l.plan) ? `<span class="ok" style="font-size:.9rem">✓ Your ${esc(l.planName)} plan opens this library.</span>` : `<span class="muted" style="font-size:.9rem">Not in your plans yet. <a href="#plans">Get ${esc(l.planName)}</a></span>`) : "";
+    return `<div class="dl-card lib-card" data-lib="${esc(l.id)}"><div class="dl-head"><div><h3>${esc(l.title)}</h3><span class="muted">Version ${esc(l.version)} · ${l.approximate ? "about " : ""}${esc(libSize(l.size || 0))}</span></div></div>
+      ${l.summary ? `<p style="margin:0">${esc(l.summary)}</p>` : ""}
+      <details><summary>What's in it</summary>${sounds}${list("Presets", c.presets)}${list("Boards", c.boards)}${list("Impulse responses (IR loader)", c.irs)}${(l.credits || []).length ? `<p class="muted" style="font-size:.82rem;margin:.6rem 0 0">${l.credits.map(esc).join("<br>")}</p>` : ""}</details>
+      <div class="dl-keys"><span class="muted" style="font-size:.9rem">Needs ${esc(l.planName)} (${esc(price)} a year) - your package key comes by email and is on your Account page. In any app: <b>Settings → Packages</b>, add the key, then <b>Libraries → Install</b> (or download it here and use <b>Install from a file…</b>).</span>${opened ? "<br>" + opened : ""}</div>
+      ${l.ready ? `<a class="btn" href="${esc(l.url)}" rel="noopener" download>Download ${esc(l.title)}</a>` : `<span class="muted" style="font-size:.9rem">Coming soon: this library is being built.</span>`}</div>`;
+  };
+  return `<h3 class="dl-h" id="libraries">Sound libraries</h3><p class="muted" style="margin:-.3rem 0 .8rem">Sounds, presets, boards and impulse responses for each sound plan. Anyone can download them; they open with the plan's package key.</p><div class="dl-grid">${libs.libraries.map(card).join("")}</div>`;
 }
 // renewing your own ("Just me") Central Control or Central Usage keys: ten more releases each, billed to you
 function renewMine(keys, cents) {

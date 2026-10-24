@@ -29,7 +29,10 @@
   // the sound plans (Central Keys, Plugins, Instrument, Pedals): which are active, for the locks in the frame
   function postPlans() { var L = window.PPLicense; post({ type: "plans", on: !!(L && L.on && L.on()), plans: L && L.plans ? L.plans() : {} }); }
   window.addEventListener("pp-plans", postPlans);
-  if (frame) frame.addEventListener("load", function () { setTimeout(postPlans, 0); });
+  // the sound libraries installed on this computer (Settings → Packages → Libraries): their presets and boards, for the frame
+  function postLibraries() { var L = window.CU && window.CU.libraries; if (L && L.list) L.list().then(function (r) { post({ type: "libraries", libraries: (r && r.installed) || [] }); }).catch(function () { }); }
+  window.addEventListener("pp-libraries", postLibraries);
+  if (frame) frame.addEventListener("load", function () { setTimeout(postPlans, 0); setTimeout(postLibraries, 0); });
   CU.on("tab", function (t) {
     if (t !== "instrument" || !frame) return;
     if (!loaded) { loaded = true; if (NAT) NAT.start(); frame.src = frame.dataset.src; }

@@ -81,6 +81,11 @@ try:
 except Exception:  # noqa: BLE001
     native_rig = None
 try:
+    import libraries as sound_libraries  # the sound libraries (Settings → Packages → Libraries)
+except Exception as _error:  # noqa: BLE001
+    sound_libraries = None
+    logging.getLogger("pedal-driver").info("sound libraries unavailable: %s", _error)
+try:
     import sources  # Planning Center + track packs (MultiTracks.com, Loop Community)
 except Exception as _error:
     sources = None
@@ -1403,6 +1408,8 @@ class LocalServer:
                     return self.send_json(404, {"error": "unknown"})
                 if p == "/status":
                     return self.send_json(200, driver.system_status())
+                if p == "/libraries":   # the sound libraries installed here, and any being installed
+                    return self.send_json(200, library_state(driver))
                 if p == "/library":
                     return self.send_json(200, {"songs": driver.library.listing(), "root": driver.library.root})
                 if p.startswith("/pco/") and driver.pco:
@@ -1445,8 +1452,23 @@ class LocalServer:
             def do_PUT(self):
                 url = urllib.parse.urlparse(self.path)
                 query = urllib.parse.parse_qs(url.query)
-                if url.path in ("/practice/file", "/split/upload") and not local_origin_ok(self.headers):
+                if url.path in ("/practice/file", "/split/upload", "/libraries/file") and not local_origin_ok(self.headers):
                     return self.send_json(403, {"error": "only the app can do that"})
+                if url.path == "/libraries/file":   # Install from a file…: a library zip (checked against ?sha256= when the app knows it)
+                    st = library_store(driver)
+                    if not st:
+                        self.body(1)
+                        return self.send_json(500, {"error": "sound libraries aren't available here"})
+                    data = self.body(1536 * 1024 * 1024)
+                    if not data:
+                        return self.send_json(400, {"error": "empty file (or too big)"})
+                    sha = (query.get("sha256") or [""])[0] or None
+                    try:
+                        rec = st.install_bytes(data, expected_sha256=sha, source="file")
+                    except ValueError as error:
+                        return self.send_json(400, {"error": str(error)})
+                    library_installed(driver, rec)
+                    return self.send_json(200, {"ok": True, "record": {"id": rec["id"], "version": rec["version"], "counts": rec.get("counts")}, "installed": st.listing()})
                 if url.path == "/practice/file":   # one practice mix (a WAV, or the playlist) from the app
                     q1 = lambda k, dflt="": (query.get(k) or [dflt])[0]
                     try:
@@ -1600,6 +1622,20 @@ class LocalServer:
                     except (ValueError, OSError) as error:
                         return self.send_json(400, {"error": str(error)})
                     return self.send_json(404, {"error": "unknown"})
+                if url.path in ("/libraries/install", "/libraries/remove"):   # a sound library: from the website's list / taken away
+                    if not local_origin_ok(self.headers):
+                        return self.send_json(403, {"error": "only the app can do that"})
+                    payload = self.json_body() or {}
+                    if not library_store(driver):
+                        return self.send_json(500, {"error": "sound libraries aren't available here"})
+                    try:
+                        if url.path == "/libraries/install":
+                            return self.send_json(200, library_install_async(driver, payload))
+                        reply = library_store(driver).remove(str(payload.get("id") or ""))
+                        library_installed(driver, None)
+                        return self.send_json(200, dict(reply, installed=library_store(driver).listing()))
+                    except ValueError as error:
+                        return self.send_json(400, {"error": str(error)})
                 if url.path == "/chart/text":
                     try:
                         payload = json.loads(self.body(1 << 22).decode() or "{}")
@@ -5026,6 +5062,60 @@ def first_usb(media_roots):
             if os.path.ismount(full) and os.path.realpath(full) != "/" and not d.startswith(".") and d not in ("Macintosh HD", "Recovery", "Preboot", "VM", "Data") and os.access(full, os.W_OK):
                 return full
     return None
+
+
+def library_store(driver):
+    """The sound libraries installed here (libraries.py), into this device's instrument sounds."""
+    st = getattr(driver, "_library_store", None)
+    if sound_libraries and (st is None or st.instrument is not driver.instrument):
+        st = sound_libraries.LibraryStore(driver.config["data_root"], driver.instrument)
+        driver._library_store = st
+        driver._library_jobs = getattr(driver, "_library_jobs", {})
+    return st
+
+
+def library_state(driver):
+    st = library_store(driver)
+    if not st:
+        return {"available": False, "installed": [], "jobs": {}}
+    jobs = {}
+    for lib_id, job in list(getattr(driver, "_library_jobs", {}).items()):
+        j = dict(job)
+        j.update(st.progress.get(lib_id) or {})
+        jobs[lib_id] = j
+    return {"available": True, "installed": st.listing(), "jobs": jobs}
+
+
+def library_installed(driver, rec):
+    """After an install or a removal: the Instrument page's sounds and IRs refresh themselves."""
+    try:
+        if driver.instrument:
+            driver.emit(driver.instrument.status())
+        driver.emit({"type": "libraries", "installed": library_store(driver).listing()})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def library_install_async(driver, payload):
+    """Downloads and installs a library from the website's list in the background (GET /libraries shows how it goes)."""
+    st = library_store(driver)
+    lib_id = str(payload.get("id") or "")
+    if not st or not re.match(r"^[a-z0-9-]{3,60}$", lib_id):
+        raise ValueError("no such library")
+    jobs = driver._library_jobs
+    if (jobs.get(lib_id) or {}).get("state") in ("downloading", "installing"):
+        return {"ok": True, "started": False, "busy": True}
+    jobs[lib_id] = {"state": "downloading", "done": 0, "total": int(payload.get("size") or 0), "error": None}
+
+    def run():
+        try:
+            rec = st.install_url(str(payload.get("url") or ""), str(payload.get("sha256") or ""), lib_id, int(payload.get("size") or 0))
+            jobs[lib_id] = {"state": "done", "version": rec["version"], "counts": rec.get("counts"), "error": None}
+            library_installed(driver, rec)
+        except Exception as error:  # noqa: BLE001
+            jobs[lib_id] = {"state": "failed", "error": str(error)}
+    threading.Thread(target=run, daemon=True, name="library-" + lib_id).start()
+    return {"ok": True, "started": True}
 
 
 def local_origin_ok(headers):
