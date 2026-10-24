@@ -3361,7 +3361,8 @@ class MiniScreen:
             state = "playing" if pad.get("playing") else "selected" if pad.get("selected") else "idle"
             g.rounded_rectangle(box, 10, fill=C[state], outline=C["accent"] if state == "playing" else C["line"])
             self.text(g, (x0 + 8, y0 + 5), str(i + 1), self.F["sub"], C["accent"] if state == "playing" else C["muted"])
-            self.text(g, (x0 + 8, y0 + ch - 7), pad.get("name"), self.F["label"], C["text"], "ld", cw - 14)
+            self.text(g, (x0 + 8, y0 + ch - 16), pad.get("name"), self.F["label"], C["text"], "ld", cw - 14)
+            self.pad_volume(g, hits, [x0 + 8, y0 + ch - 12, x0 + cw - 8, y0 + ch - 3], i, pad.get("level"))   # (before the pad: a drag here never plays it)
             hits.append((box, {"name": "pad", "args": {"index": i}}))
         bx, by, bw = 308, gy, W - 308 - 6
         if d.get("tracksMode"):
@@ -3382,6 +3383,22 @@ class MiniScreen:
             r, c = divmod(i, 2)
             x0, y0 = bx + c * (bw / 2 + 2), by + r * (bh + 4)
             self.button(g, hits, [x0, y0, x0 + bw / 2 - 2, y0 + bh], label, action, on=on, font=self.F["sub"] if len(label) > 8 else self.F["btn"])
+
+    def pad_volume(self, g, hits, box, index, level):
+        """A pad's own volume along the bottom of its button: a thin bar with a knob. Slide it to change; a tap alone
+        doesn't jump it (and never plays the pad)."""
+        C = self.COL
+        x0, y0, x1, y1 = box
+        action = {"name": "padVolume", "args": {"index": index}}
+        key = action["name"] + "|" + json.dumps(action["args"], sort_keys=True)
+        v = max(0.0, min(1.0, float(self.slider_value(key, (72 if level is None else float(level)) / 100.0) or 0)))
+        cy = (y0 + y1) / 2
+        g.rounded_rectangle([x0, cy - 3, x1, cy + 3], 3, fill=C["track"])
+        fx = x0 + (x1 - x0) * v
+        if fx > x0 + 3:
+            g.rounded_rectangle([x0, cy - 3, fx, cy + 3], 3, fill=C["accent"])
+        g.ellipse([fx - 6, cy - 6, fx + 6, cy + 6], fill=C["text"], outline=C["bg"])
+        hits.append(([int(x0 - 4), int(y0 - 2), int(x1 + 4), int(y1 + 2)], dict(action, slider=[x0, x1], key=key, nojump=True)))
 
     # ----- TRACKS ---------------------------------------------------------------------------------------------------
     def page_tracks(self, g, hits, d):
@@ -3834,7 +3851,8 @@ class MiniScreen:
             return action
         if action.get("slider"):
             self.active, self.drag_at = action, time.monotonic()
-            self.send_value(action, x)
+            if not action.get("nojump"):   # (a pad's volume: only a slide changes it)
+                self.send_value(action, x)
             return action
         if self.driver:
             self.driver.emit({"type": "action", "name": action["name"], "args": action.get("args") or {}, "from_": "screen"})

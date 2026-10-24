@@ -426,3 +426,13 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 .rt-mode { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; } .rt-mode button.on { background: var(--accent); color: var(--ontext, #1A1408); border-color: var(--accent); } .rt-custom { font-size: .85em; color: var(--muted); }
 .rt-shared { color: var(--accent); }
 .audio-dev-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; max-width: calc(100vw - 32px); padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+/* each pad's own volume, under the pad on the Pad screen (the same value as the pad's Level) */
+.pf-cell { display: flex; flex-direction: column; gap: 4px; min-height: 0; min-width: 0; }
+.pf-cell > .pf-pad { flex: 1 1 auto; min-height: 0; width: 100%; }
+.pf-vol { display: grid; grid-template-columns: auto minmax(0, 1fr) 2.4em; align-items: center; gap: 8px; padding: 0 6px; min-height: 30px; touch-action: none; }
+.pf-vol span { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: var(--muted); }
+.pf-vol input[type=range] { width: 100%; min-height: 30px; }
+.pf-vol output { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
+/* moving around the screen with buttons / knobs (screen-nav.js): a ring you can see from the stage */
+.nav-active .nav-focus { outline: 3px solid var(--accent, #E2C27E) !important; outline-offset: 3px; box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent, #E2C27E), transparent 70%) !important; position: relative; z-index: 5; }
+@media (prefers-reduced-motion: no-preference) { .nav-active .nav-focus { transition: outline-offset .12s; } }

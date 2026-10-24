@@ -519,6 +519,24 @@ async def main():
               and len(_taps) == 1 and _taps[0]["args"] == {"index": 0, "pan": 0} and abs(_taps[0]["value"] - 0.5) < 1e-6
               and driver_mod.MiniScreen.pan_text(-0.3) == "L 30" and driver_mod.MiniScreen.pan_text(0.01) == "C" and driver_mod.MiniScreen.pan_text(1) == "R 100",
               (ph, n_tap, dragged, _taps))
+        # each pad's own volume: a thin bar along the bottom of the pad - a tap neither plays the pad nor jumps it, a slide sets it
+        mini.local({"local": "tab", "value": "pads"})
+        disp_v = dict(disp, pads=[{"name": "Pad %d" % (i + 1), "level": 50 if i == 1 else 72} for i in range(8)])
+        mini.render(disp_v)
+        pv = mini.hit_test(150, 113)
+        pad_top = mini.hit_test(150, 70)
+        _taps.clear(); mini.active = None
+        mini.tap(*_raw(150, 113))
+        n_pv_tap = len(_taps)
+        mini.drag_at = 0
+        mini.drag(*_raw(int(pv["slider"][0] + (pv["slider"][1] - pv["slider"][0]) * 0.9) if pv else 150, 113))
+        pv_drag = list(_taps)
+        mini.active = None
+        check("small screen: each pad has its own volume bar - a tap doesn't play the pad or jump it, a slide sets that pad's volume (padVolume)",
+              pv and pv.get("name") == "padVolume" and pv.get("args") == {"index": 1} and pad_top == {"name": "pad", "args": {"index": 1}}
+              and n_pv_tap == 0 and len(pv_drag) == 1 and pv_drag[0]["name"] == "padVolume" and pv_drag[0]["args"] == {"index": 1} and pv_drag[0]["value"] > 0.8
+              and mini.hit_test(60, 100) == {"name": "pad", "args": {"index": 0}},
+              (pv, pad_top, n_pv_tap, pv_drag))
         _src0 = driver.netaudio.sources.get(0)
         driver.netaudio.set_info({"channels": ["Drums", "Bass", "Click + cues"], "pans": [0.25, "x"], "rate": 48000})
         check("the tracks' pans go with their names to Central Control (a missing or bad one is centre)",

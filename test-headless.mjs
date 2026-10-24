@@ -133,6 +133,19 @@ await check("tapping a big pad plays it, tapping it again fades it", async () =>
   await page.click('[data-pf-pad="5"]'); await wait(50);
   assert.equal(await T(() => __test.playingIndex()), -1);
 });
+await check("each big pad has its own volume slider: sliding it sets that pad's level and doesn't play the pad", async () => {
+  assert.equal(await page.locator("#pfPads [data-pf-vol]").count(), 8);
+  const box = await page.locator('[data-pf-vol="3"]').boundingBox();
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
+  await page.mouse.down(); await page.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2, { steps: 8 }); await page.mouse.up(); await wait(100);
+  const lv = await T(() => PP.project().pads[3].level);
+  assert.ok(lv >= 80, "pad 4 level " + lv);
+  assert.equal(await T(() => __test.playingIndex()), -1, "the slider must not play the pad");
+  assert.equal(await page.textContent('[data-pf-volout="3"]'), String(lv));
+  await T(() => PPActions.run("padVolume", { index: 3 }, { value: 0.3 }));
+  assert.equal(await T(() => PP.project().pads[3].level), 30);
+  assert.equal(await T(() => document.querySelector('[data-pf-vol="3"]').value), "30");
+});
 await check("dragging the Reverb knob up raises it", async () => {
   await hw({ type: "knob", id: "reverb", value: 0.5 });
   const box = await page.locator('[data-knob="reverb"]').boundingBox();
@@ -151,6 +164,71 @@ await check("knob settings survive a reload", async () => {
   await page.reload(); await page.waitForFunction(() => window.__test);
   assert.equal(await T(() => __test.performance().volume), 0.66);
   assert.equal(await T(() => __test.isPerforming()), true, "should reopen in Perform mode");
+});
+await check("buttons / knobs: tabs, moving around the screen, bus levels & mutes, pad volumes are in the lists", async () => {
+  const ids = await T(() => ({ t: PPActions.list("trigger").map((a) => a.id), c: PPActions.list("continuous").map((a) => a.id), s: PPActions.list("step").map((a) => a.id) }));
+  for (const id of ["tabNext", "tabPrev", "tabPads", "tabTracks", "tabInstrument", "tabSettings", "navUp", "navDown", "navLeft", "navRight", "navOk", "navBack", "navScrollDown", "muteTracks", "mutePads", "muteClick", "muteInstrument", "busMute"]) assert.ok(ids.t.includes(id), "trigger " + id);
+  for (const id of ["padVolume", "levelTracks", "levelPads", "levelClick", "levelInstrument", "busLevel", "navScroll", "navValue", "tabKnob"]) assert.ok(ids.c.includes(id), "continuous " + id);
+  for (const id of ["stepTab", "stepFocus", "stepScroll", "stepValue"]) assert.ok(ids.s.includes(id), "step " + id);
+});
+await check("tabs from a button: straight to Settings, next / previous, back to Pad", async () => {
+  await T(() => PPActions.run("tabSettings"));
+  assert.equal(await T(() => PPShell.currentTab()), "settings");
+  await T(() => PPActions.run("tabPrev"));
+  assert.equal(await T(() => PPShell.currentTab()), "io");
+  await T(() => PPActions.run("tabNext")); await T(() => PPActions.run("tabNext"));
+  assert.ok(["live", "pads"].includes(await T(() => PPShell.currentTab())), "after the last tab comes the first");
+  await T(() => PPActions.run("tab", { tab: "tracks" }));
+  assert.equal(await T(() => PPShell.currentTab()), "tracks");
+  await T(() => PPActions.run("tabPads"));
+  assert.equal(await T(() => PPShell.currentTab()), "pads");
+});
+await check("moving around the screen: a ring on the highlighted control, right moves along, OK presses it", async () => {
+  await T(() => document.querySelector('.nav-tab[data-tab="tracks"]').focus());
+  await T(() => PPActions.run("navRight"));
+  assert.equal(await T(() => document.activeElement.dataset.tab), "instrument");
+  assert.equal(await T(() => document.activeElement.classList.contains("nav-focus") && document.body.classList.contains("nav-active")), true);
+  const ring = await T(() => getComputedStyle(document.querySelector(".nav-focus")).outlineStyle);
+  assert.equal(ring, "solid");
+  await T(() => PPActions.run("navOk"));
+  assert.equal(await T(() => PPShell.currentTab()), "instrument");
+  await T(() => PPActions.run("navLeft"));
+  assert.equal(await T(() => document.activeElement.dataset.tab), "tracks");
+  await T(() => PPActions.run("navDown"));
+  assert.notEqual(await T(() => document.activeElement.dataset.tab || ""), "tracks", "down leaves the tab row");
+  // a knob on a highlighted slider changes it
+  await T(() => PPActions.run("tabPads")); await wait(100);
+  await T(() => { const el = document.querySelector('[data-pf-vol="2"]'); el.focus(); });
+  await T(() => PPActions.run("navValue", {}, { value: 0.5 }));
+  assert.equal(await T(() => PP.project().pads[2].level), 50);
+  await T(() => PPActions.run("navRight"));
+  assert.equal(await T(() => PP.project().pads[2].level) > 50, true, "right on a slider turns it up");
+  await T(() => PPActions.run("navBack"));
+  assert.equal(await T(() => !!document.querySelector(".nav-focus")), false);
+});
+await check("bus levels & mutes: a mute silences that bus (never saved) and comes back; levels set each bus", async () => {
+  await hw({ type: "pad", index: 0 }); await wait(300); await T(() => __test.engine.panic());   // (the audio engine starts with the first sound)
+  await T(() => PPActions.run("muteTracks")); await wait(250);
+  assert.equal(await T(() => PPActions.muted("tracks")), true);
+  assert.ok(await T(() => PP.engine.tracksOut.gain.value) < 0.05, "tracks muted");
+  assert.ok(await T(() => PP.engine.outGain.gain.value) > 0.9, "muting the tracks leaves the pads playing");
+  await T(() => PPActions.run("muteTracks")); await wait(250);
+  assert.ok(await T(() => PP.engine.tracksOut.gain.value) > 0.9, "tracks back");
+  await T(() => PPActions.run("busMute", { bus: "pad" })); await wait(250);
+  assert.ok(await T(() => PP.engine.outGain.gain.value) < 0.05, "pads muted");
+  assert.ok(await T(() => PP.engine.tracksOut.gain.value) > 0.9, "muting the pads leaves the tracks playing (they're independent)");
+  await T(() => PPActions.run("mutePads")); await wait(250);
+  assert.ok(await T(() => PP.engine.outGain.gain.value) > 0.9, "pads back");
+  await T(() => PPActions.run("levelClick", {}, { value: 0.4 }));
+  assert.equal(await T(() => PPTracks.levels.click), 0.4);
+  await T(() => PPActions.run("muteClick"));
+  assert.equal(await T(() => PPTracks.levels.click), 0);
+  await T(() => PPActions.run("levelClick", {}, { value: 0.6 }));
+  assert.equal(await T(() => PPTracks.levels.click), 0, "still muted while the knob moves");
+  await T(() => PPActions.run("muteClick"));
+  assert.equal(await T(() => PPTracks.levels.click), 0.6, "unmuted at the knob's new level");
+  await T(() => PPActions.run("levelPads", {}, { value: 0.7 }));
+  assert.equal(await T(() => PP.project().performance.volume), 0.7);
 });
 if (shotDir) {
   for (const [w, h] of [[800, 480], [1280, 800], [390, 844]]) {
