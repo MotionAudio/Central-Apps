@@ -165,8 +165,8 @@ plan_name() { case "$1" in free) echo "free with every Central Pedal and app";; 
     echo "  License: CC0 1.0    Plan: $(plan_name "$VSCO_TIER")"
     echo "  Source:  https://github.com/sgossner/VSCO-2-CE (VS Chamber Orchestra 2: Community Edition, SFZ)"
     echo "  Author:  Versilian Studios - recorded by Sam Gossner and Simon Dalzell, sample cutting by Elan Hickler / Soundemote."
-    echo "           Made into a looped mono SoundFont for Central Pedal by sounds-vsco.py. Free with every Central Pedal"
-    echo "           and app, as Versilian asks (the samples are not sold on their own)."
+    echo "           Made into a looped mono SoundFont for Central Pedal by sounds-vsco.py. Part of $(plan_name "$VSCO_TIER")"
+    echo "           (the CC0 samples themselves are not sold on their own)."
     echo
   done
   echo "General MIDI banks installed with the system (their sounds are sorted into Central Keys or Central Instrument):"

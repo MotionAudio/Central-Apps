@@ -63,6 +63,8 @@ jobs:
           bash tools/ci-run.sh "lights auto test" node central-usage/test-lights-auto.mjs
           python3 -c "import numpy" 2>/dev/null || python3 -m pip install --quiet numpy
           bash tools/ci-run.sh "library test (pedals, plans, the orchestra builder)" python3 test_library.py
+          bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py
+          bash tools/ci-run.sh "sound library installer test (computers)" node central-usage/test-libraries.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
       - name: Built-in sounds
         run: bash tools/fetch-builtin-sounds.sh central-usage/native/sounds

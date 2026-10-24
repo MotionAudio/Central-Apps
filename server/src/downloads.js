@@ -55,7 +55,7 @@ export async function downloadsFor(user, onlyOrder) {
   let packages = [];
   if (!onlyOrder) {
     const rows = await packageRows(email, user.id);
-    packages = rows.filter((k) => keyState(k).ok).map((k) => ({ key: prettyPackage(k.key), plans: planNames(k.plans), until: k.ends, trial: k.trial, church: k.sub_kind === "bundle" || k.trial ? k.church : null }));
+    packages = rows.filter((k) => keyState(k).ok).map((k) => ({ key: prettyPackage(k.key), plans: planNames(k.plans), planIds: PLAN_IDS.filter((id) => k.plans.includes(id)), until: k.ends, trial: k.trial, church: k.sub_kind === "bundle" || k.trial ? k.church : null }));
   }
   return { apps, pedals, renewalCents: RENEWAL.cents, pedalSetup: PEDAL_SETUP, packages, appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
 }

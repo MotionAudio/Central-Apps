@@ -31,6 +31,7 @@
     var d = e.data; if (!d || d.cu !== "inst") return; var m = d.msg || {};
     if (m.type === "shown") { if (window.PPInstrument) window.PPInstrument.show(); return; }
     if (m.type === "plans") { var was = JSON.stringify(plans); plans = { on: !!m.on, list: m.plans || {} }; if (was !== JSON.stringify(plans)) window.dispatchEvent(new CustomEvent("pp-plans")); return; }
+    if (m.type === "libraries") { if (window.PPInstrument && window.PPInstrument.syncLibraries) window.PPInstrument.syncLibraries(m.libraries || []); return; }   // (the sound libraries installed on this computer: their presets and boards)
     window.PPFeatures.emit(m);
   });
 })();

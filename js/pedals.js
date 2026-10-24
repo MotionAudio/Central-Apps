@@ -366,8 +366,8 @@
   var INSTRUMENT_CATS = { "Guitars & harp": 1, Bass: 1, "Brass & winds": 1, Strings: 1 };
   function soundTier(sound) {
     if (!sound) return "free";
+    if (sound.bankTier) return sound.bankTier;   // (a bank with its plan in tiers.txt: get-sounds.sh's, or a sound library's - even in the user folder)
     if (sound.user || sound.plugin) return "free";   // (the musician's own banks, Central Tracks sounds and plugins)
-    if (sound.bankTier) return sound.bankTier;
     if (/synth|\bfm\b|analog|saw|square/i.test(sound.name || "")) return "keys";
     return INSTRUMENT_CATS[sound.category] ? "instrument" : "keys";
   }
