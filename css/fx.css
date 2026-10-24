@@ -32,3 +32,6 @@
 .fx-lock { margin: 0 16px 6px; padding: 8px 10px; border-radius: 10px; background: rgba(141,181,222,.12); font-size: 12.5px; }
 .fx-foot { padding: 0 16px 14px; margin: 0; }
 @media (max-width: 520px) { .fx-body { grid-template-columns: 1fr; } }
+/* the full pad editor without Central Plugins */
+label.fx-locked { opacity: .5; } label.fx-locked select, label.fx-locked input { cursor: not-allowed; }
+.fx-basic-amount.hidden { display: none; }

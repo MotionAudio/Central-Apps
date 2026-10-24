@@ -118,12 +118,12 @@ await check("tapping a pad's FX opens its panel and doesn't play the pad", async
   await T(() => PP.engine.stop()); await wait(100);
   await page.click('#pfPads [data-fx-pad="1"]');
   const r = await T(() => ({ open: document.getElementById("fxDialog").open, title: document.querySelector("#fxDialog h3").textContent, playing: __test.playingIndex(), gate: !![...document.querySelectorAll("#fxDialog header")].find((h) => /Gate/.test(h.textContent)) }));
-  assert.ok(r.open); assert.match(r.title, /Pad 2/); assert.equal(r.playing, -1); assert.equal(r.gate, false);
+  assert.ok(r.open); assert.match(r.title, /Pad 2/); assert.equal(r.playing, -1); assert.equal(r.gate, true);
 });
 await check("a pad preset sets the pad's own chain (Warm pad)", async () => {
   await page.click('#fxDialog [data-fx-preset="Warm pad"]');
   const e = await T(() => PP.project().pads[1].effects);
-  assert.equal(e.reverb.enabled, true); assert.equal(e.reverb.type, "hall"); assert.equal(e.reverb.wet, 35); assert.equal(e.eq.bands[4].gain, -3); assert.equal(e.eq.bands[1].gain, 2);
+  assert.equal(e.reverb.enabled, true); assert.equal(e.reverb.type, "room"); assert.equal(e.reverb.wet, 35); assert.equal(e.reverb.decay, 5.9); assert.equal(e.eq.bands[4].gain, -3); assert.equal(e.eq.bands[1].gain, 2);
 });
 await check("the pad's compressor amount drives its compressor", async () => {
   await T(() => { const box = document.querySelector('#fxDialog [data-fx="comp.on"]'); box.checked = true; box.dispatchEvent(new Event("change", { bubbles: true })); const r = document.querySelector('#fxDialog [data-fx="comp.amount"]'); r.value = 80; r.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -146,6 +146,80 @@ await check("the pads bus chain sits between the pads and the mix", async () => 
   await T(() => { const box = document.querySelector('#fxDialog [data-fx="on"]'); box.checked = false; box.dispatchEvent(new Event("change", { bubbles: true })); document.getElementById("fxDialog").close(); });
   assert.equal(await T(() => PPFx.busChain("pads").inserted), false);
 });
+
+console.log("\nPads without Central Plugins (the better effects are locked):");
+const LOCK = () => T(() => { if (!PPPedals.__has) PPPedals.__has = PPPedals.has; PPPedals.has = (t) => t !== "plugins"; PPFx.planCheck(); });
+const UNLOCK = () => T(() => { if (PPPedals.__has) PPPedals.has = PPPedals.__has; PPFx.planCheck(); });
+await T(() => { PP.engine.stop(); });
+await check("a starter pad plays its hall as a room of about the same length (and keeps the hall saved)", async () => {
+  await LOCK();
+  const r = await T(async () => {
+    await PP.engine.ensure();
+    const pad = PP.defaultPad(0), e = PPFx.padEffects(pad);
+    function tail(buf) {   // seconds until the smoothed level is 40 dB under its peak
+      const d = buf.getChannelData(0), sr = buf.sampleRate, win = Math.round(sr * 0.05), lv = [];
+      for (let i = 0; i + win <= d.length; i += win) { let s = 0; for (let k = i; k < i + win; k++) s += d[k] * d[k]; lv.push(Math.sqrt(s / win)); }
+      const pk = Math.max(...lv); let last = 0; lv.forEach((v, i) => { if (v > pk / 100) last = i; }); return (last + 1) * 0.05;
+    }
+    return { saved: pad.effects.reverb.type, type: e.reverb.type, decay: e.reverb.decay, wet: e.reverb.wet, hall: tail(PP.engine.impulse("hall", 4.2)), room: tail(PP.engine.impulse("room", e.reverb.decay)), eqSame: JSON.stringify(e.eq.bands.map((b) => b.gain)) === JSON.stringify(pad.effects.eq.bands.map((b) => b.gain)) };
+  });
+  assert.equal(r.saved, "hall"); assert.equal(r.type, "room"); assert.equal(r.wet, 32); assert.ok(r.eqSame, "flat EQ stays flat");
+  assert.ok(Math.abs(r.room - r.hall) / r.hall < 0.25, "tail: room " + r.room + " s, hall " + r.hall + " s");
+});
+await check("a pad saved with the better effects keeps them, and plays the basic version while locked", async () => {
+  const r = await T(async () => {
+    const pad = PP.project().pads[2], e = pad.effects;
+    e.eq.bands[2].enabled = true; e.eq.bands[2].gain = 6; e.eq.bands[5].enabled = true; e.eq.bands[5].freq = 8000;
+    Object.assign(e.compressor, { enabled: true, type: "FET", threshold: -34, ratio: 8 }); delete e.compressor.amount;
+    Object.assign(e.reverb, { enabled: true, type: "cathedral", shimmer: 40, decay: 5 }); Object.assign(e.delay, { enabled: true, division: "1.5", type: "pingpong", tone: 3000, send: 30 });
+    const x = PPFx.padEffects(pad);
+    PP.setSelectedPad(2); PP.triggerPad(2); await new Promise((res) => setTimeout(res, 300));
+    const v = PP.engine.active, heard = { shimmer: v.shimmerGain.gain.value, pp: v.ppIn.gain.value, ir: v.convolver.buffer === PP.engine.impulse("room", 5 * 1.25) };
+    return { saved: { b2: e.eq.bands[2].enabled, b5: e.eq.bands[5].enabled, ct: e.compressor.type, th: e.compressor.threshold, rt: e.reverb.type, sh: e.reverb.shimmer, dv: e.delay.division, dt: e.delay.type },
+      basic: { b2: x.eq.bands[2].enabled, b5: x.eq.bands[5].enabled, ct: x.compressor.type, th: x.compressor.threshold, rt: x.reverb.type, sh: x.reverb.shimmer, dv: x.delay.division, dt: x.delay.type }, heard };
+  });
+  assert.deepEqual(r.saved, { b2: true, b5: true, ct: "FET", th: -34, rt: "cathedral", sh: 40, dv: "1.5", dt: "pingpong" });
+  assert.deepEqual(r.basic, { b2: false, b5: false, ct: "VCA", th: -30, rt: "room", sh: 0, dv: "1", dt: "regular" });
+  assert.ok(r.heard.shimmer < 0.01, "no shimmer heard"); assert.ok(r.heard.pp < 0.01, "no ping-pong heard"); assert.ok(r.heard.ir, "the room reverb");
+});
+await check("…and they come back as soon as the plan is active", async () => {
+  await UNLOCK(); await wait(300);
+  const r = await T(() => { const v = PP.engine.active; return { shimmer: v.shimmerGain.gain.value, pp: v.ppIn.gain.value, ir: v.convolver.buffer === PP.engine.impulse("cathedral", 5) }; });
+  assert.ok(r.shimmer > 0.1, "shimmer back"); assert.ok(r.pp > 0.5, "ping-pong back"); assert.ok(r.ir, "cathedral back");
+  await LOCK();
+});
+await check("the full pad editor locks the same settings, with a basic compressor amount", async () => {
+  const r = await T(() => {
+    PP.setPerformMode(false); PP.setSelectedPad(2); PP.loadForm(); PPFx.lockEditor();
+    const opt = (path, v) => document.querySelector('select[data-path="' + path + '"] option[value="' + v + '"]');
+    const amt = document.getElementById("fxPadAmount");
+    return { thr: document.querySelector('[data-path="effects.compressor.threshold"]').disabled, shimmer: document.querySelector('[data-path="effects.reverb.shimmer"]').disabled,
+      room: opt("effects.reverb.type", "room").disabled, plate: opt("effects.reverb.type", "plate").disabled && /🔒/.test(opt("effects.reverb.type", "plate").textContent),
+      quarter: opt("effects.delay.division", "1").disabled, dotted: opt("effects.delay.division", ".75").disabled, band3: /🔒/.test(document.getElementById("eqBand").options[2].textContent), band2: /🔒/.test(document.getElementById("eqBand").options[1].textContent),
+      amount: !!amt && !amt.closest("label").classList.contains("hidden"), note: !!document.getElementById("fxEditorLock") };
+  });
+  assert.deepEqual(r, { thr: true, shimmer: true, room: false, plate: true, quarter: false, dotted: true, band3: true, band2: false, amount: true, note: true });
+  await UNLOCK();
+  const u = await T(() => ({ thr: document.querySelector('[data-path="effects.compressor.threshold"]').disabled, note: !!document.getElementById("fxEditorLock"), amountHidden: document.getElementById("fxPadAmount").closest("label").classList.contains("hidden"), plate: document.querySelector('select[data-path="effects.reverb.type"] option[value="plate"]').disabled }));
+  assert.deepEqual(u, { thr: false, note: false, amountHidden: true, plate: false });
+  await T(() => { PP.setPerformMode(true); PP.engine.stop(); });
+});
+await check("the pad quick panel: hall, plate and cathedral are locked, the gate and the basics are free", async () => {
+  await LOCK();
+  const r = await T(() => { PPFx.openPad(0); const o = (v) => document.querySelector('#fxDialog [data-fx="reverb.type"] option[value="' + v + '"]'); const res = { room: o("room").disabled, hall: /🔒/.test(o("hall").textContent), gate: !document.querySelector('#fxDialog [data-fx="gate.threshold"]').disabled, warm: document.querySelector('#fxDialog [data-fx-preset="Warm pad"]').classList.contains("locked"), hallPad: document.querySelector('#fxDialog [data-fx-preset="Hall pad"]').classList.contains("locked") }; document.getElementById("fxDialog").close(); return res; });
+  assert.deepEqual(r, { room: false, hall: true, gate: true, warm: false, hallPad: true });
+  await UNLOCK();
+});
+await check("a pad's gate closes when the sound is under its threshold", async () => {
+  const r = await T(async () => {
+    const pad = PP.project().pads[0]; pad.effects.gate = { enabled: true, threshold: 0 }; PP.engine.stop(); PP.triggerPad(0);
+    await new Promise((res) => setTimeout(res, 500)); const closed = PP.engine.active.gateGain.gain.value;
+    pad.effects.gate.enabled = false; PP.engine.update(pad); await new Promise((res) => setTimeout(res, 200)); const open = PP.engine.active.gateGain.gain.value;
+    delete pad.effects.gate; PP.engine.stop(); return { closed, open };
+  });
+  assert.ok(r.closed < 0.05, "closed " + r.closed); assert.ok(r.open > 0.95, "open " + r.open);
+});
+
 await check("no page errors", () => assert.deepEqual(errors, []));
 
 await browser.close();

@@ -73,9 +73,10 @@
     P("Big hall", { reverb: { on: true, type: "hall", send: 18, size: 20 } }, true)
   ];
   var PAD_PRESETS = [
-    P("Clean pad", { eq: { on: true, lowCut: 40, low: 0, mid: 0, high: 0 }, comp: { on: false }, reverb: { on: true, type: "room", send: 18 }, delay: { on: false } }),
-    P("Warm pad", { eq: { on: true, lowCut: 50, low: 2, mid: -1, high: -3 }, comp: { on: false }, reverb: { on: true, type: "hall", send: 35 }, delay: { on: false } }),
-    P("Bright pad", { eq: { on: true, lowCut: 90, low: -1, mid: 0, high: 3 }, comp: { on: false }, reverb: { on: true, type: "hall", send: 30 }, delay: { on: false } }),
+    P("Clean pad", { eq: { on: true, lowCut: 40, low: 0, mid: 0, high: 0 }, comp: { on: false }, reverb: { on: true, type: "room", send: 22 }, delay: { on: false } }),
+    P("Hall pad", { eq: { on: true, lowCut: 50 }, reverb: { on: true, type: "hall", send: 34 }, delay: { on: false } }, true),
+    P("Warm pad", { eq: { on: true, lowCut: 50, low: 2, mid: -1, high: -3 }, comp: { on: false }, reverb: { on: true, type: "room", send: 35, size: 20 }, delay: { on: false } }),
+    P("Bright pad", { eq: { on: true, lowCut: 90, low: -1, mid: 0, high: 3 }, comp: { on: false }, reverb: { on: true, type: "room", send: 30, size: 10 }, delay: { on: false } }),
     P("Cathedral shimmer", { eq: { on: true, lowCut: 80, high: 1 }, reverb: { on: true, type: "cathedral", send: 45, size: 30, shimmer: 35 }, delay: { on: false } }, true),
     P("Wide ambient", { eq: { on: true, lowCut: 70 }, reverb: { on: true, type: "hall", send: 38 }, delay: { on: true, time: "1/4.", send: 22, feedback: 40, pingpong: true, tone: 4500 }, width: 170 }, true),
     P("Tape warmth", { eq: { on: true, lowCut: 45, low: 2, high: -4 }, comp: { on: true, amount: 30 }, reverb: { on: true, type: "plate", send: 25 }, drive: 25 }, true)
@@ -102,6 +103,8 @@
     fx.comp = { on: !!c.enabled, amount: c.amount == null ? 35 : c.amount, mode: c.quick === "full" ? "full" : "basic", threshold: c.threshold, ratio: c.ratio, attack: c.attack, release: c.release, makeup: c.makeup || 0, knee: c.knee };
     fx.reverb = { on: !!r.enabled, type: r.type || "hall", send: r.wet == null ? 30 : r.wet, size: Math.round(((r.decay || 4.2) - 4.5) / 3.5 * 50) };
     fx.delay = { on: !!d.enabled, time: divName(d.division), send: d.send == null ? 25 : d.send, feedback: d.feedback == null ? 30 : d.feedback, pingpong: d.type === "pingpong", tone: d.tone || 6000 };
+    var g = e.gate || {};
+    fx.gate = { on: !!g.enabled, threshold: g.threshold == null ? -45 : g.threshold, mode: g.mode === "full" ? "full" : "basic", range: g.range == null ? -80 : g.range, attack: g.attack == null ? 1 : g.attack, hold: g.hold == null ? 40 : g.hold, release: g.release == null ? 120 : g.release };
     fx.preset = pad.fxPreset || "";
     return fx;
   }
@@ -110,17 +113,18 @@
     e.eq.enabled = !!fx.eq.on;
     if (b[0]) { b[0].enabled = fx.eq.lowCut > 25; if (fx.eq.lowCut > 25) b[0].freq = clamp(fx.eq.lowCut, 20, 400); }
     if (b[1]) { b[1].enabled = true; b[1].gain = clamp(fx.eq.low, -12, 12); }
-    if (b[3]) { b[3].enabled = true; b[3].gain = clamp(fx.eq.mid, -12, 12); if (isPro) b[3].freq = clamp(fx.eq.midFreq, 200, 8000); }
+    if (b[3]) { b[3].enabled = true; b[3].gain = clamp(fx.eq.mid, -12, 12); b[3].freq = clamp(fx.eq.midFreq, 200, 8000); }
     if (b[4]) { b[4].enabled = true; b[4].gain = clamp(fx.eq.high, -12, 12); }
     if (isPro) {
       if (b[5]) { b[5].enabled = fx.eq.highCut < 19500; b[5].freq = clamp(fx.eq.highCut, 2000, 20000); }
       var pb = fx.eq.bands && fx.eq.bands[0]; if (b[2] && pb) { b[2].enabled = !!pb.on; b[2].type = "peaking"; b[2].freq = clamp(pb.freq, 40, 16000); b[2].gain = clamp(pb.gain, -12, 12); b[2].q = clamp(pb.q, 0.3, 6); }
     }
-    var c = e.compressor; c.enabled = !!fx.comp.on; c.amount = fx.comp.amount; c.quick = isPro && fx.comp.mode === "full" ? "full" : "basic";
-    var cp = core.compParams(fx.comp, isPro); if (cp) { c.threshold = Math.round(cp.threshold); c.ratio = Math.round(cp.ratio * 10) / 10; c.attack = cp.attack; c.release = cp.release; c.makeup = Math.round(cp.makeup * 10) / 10; c.knee = cp.knee; }
-    var r = e.reverb, okType = isPro || fx.reverb.type === "room" || fx.reverb.type === "hall" || fx.reverb.type === r.type;
+    // (without Central Plugins only the amount is written: the full settings saved before stay for when the plan is back)
+    var c = e.compressor; c.enabled = !!fx.comp.on; c.amount = fx.comp.amount; if (isPro) c.quick = fx.comp.mode === "full" ? "full" : "basic";
+    var cp = isPro ? core.compParams(fx.comp, true) : null; if (cp) { c.threshold = Math.round(cp.threshold); c.ratio = Math.round(cp.ratio * 10) / 10; c.attack = cp.attack; c.release = cp.release; c.makeup = Math.round(cp.makeup * 10) / 10; c.knee = cp.knee; }
+    var r = e.reverb, okType = isPro || fx.reverb.type === "room" || fx.reverb.type === r.type;
     r.enabled = !!fx.reverb.on; r.wet = clamp(fx.reverb.send, 0, 100); if (okType) r.type = fx.reverb.type;
-    if (isPro) r.decay = Math.round(clamp(4.5 + fx.reverb.size / 50 * 3.5, 1, 8) * 10) / 10;
+    r.decay = Math.round(clamp(4.5 + fx.reverb.size / 50 * 3.5, 1, 8) * 10) / 10;
     if (fx.reverb.shimmer != null && isPro) r.shimmer = fx.reverb.shimmer;
     var d = e.delay, okTime = isPro || fx.delay.time === "1/4" || fx.delay.time === "1/8";
     d.enabled = !!fx.delay.on; d.send = clamp(fx.delay.send, 0, 100); d.feedback = clamp(fx.delay.feedback, 0, isPro ? 90 : 60); d.sync = true;
@@ -130,8 +134,111 @@
       if (extra.width != null) { e.width.enabled = true; e.width.width = extra.width; }
       if (extra.drive != null) { e.drive.enabled = true; e.drive.type = "tape"; e.drive.amount = extra.drive; }
     }
+    var g = e.gate = e.gate || {}; g.enabled = !!fx.gate.on; g.threshold = clamp(fx.gate.threshold, -80, 0);
+    if (isPro) { g.mode = fx.gate.mode === "full" ? "full" : "basic"; g.range = fx.gate.range; g.attack = fx.gate.attack; g.hold = fx.gate.hold; g.release = fx.gate.release; }
     pad.fxPreset = fx.preset || "";
   }
+
+  // ------------------------------------------------------------- pads without Central Plugins: what is heard
+  // The pad keeps every setting it was saved with; while the plan isn't active it plays the nearest basic version:
+  // EQ low cut / low / mid / high (no band 3, no high cut, standard shapes and widths), the compressor's one amount,
+  // a room reverb (longer, so a pad made with the hall still sounds as big; no shimmer), a 1/4 or 1/8 delay.
+  var BASIC_BANDS = { 0: ["highpass", 0.7], 1: ["lowshelf", 0.8], 3: ["peaking", 1.1], 4: ["highshelf", 0.8] };
+  var ROOM_FOR = 1.25;   // a room's tail dies away faster than a hall's: this much longer gives about the same length
+  function amountFromThreshold(t) { return clamp((-6 - Number(t)) / 0.24, 0, 100); }
+  function padEffects(pad) {
+    var e = pad && pad.effects; if (!e || pro()) return e;
+    var x = JSON.parse(JSON.stringify(e));
+    if (x.eq && Array.isArray(x.eq.bands)) x.eq.bands.forEach(function (b, i) {
+      var basic = BASIC_BANDS[i]; if (!b) return;
+      if (!basic) { b.enabled = false; return; }
+      b.type = basic[0]; b.q = basic[1]; if (i !== 0) b.slope = 12; else b.slope = Math.min(24, Number(b.slope) || 12);
+      b.gain = clamp(b.gain || 0, -12, 12);
+    });
+    var c = x.compressor;
+    if (c && c.enabled) { var cp = core.compParams({ on: true, amount: c.amount != null ? c.amount : amountFromThreshold(c.threshold) }, false); c.type = "VCA"; c.threshold = cp.threshold; c.ratio = cp.ratio; c.attack = cp.attack; c.release = cp.release; c.knee = cp.knee; c.makeup = cp.makeup; c.mix = 100; }
+    var r = x.reverb;
+    if (r) { if (r.type !== "room") { r.type = "room"; r.decay = clamp((Number(r.decay) || 3) * ROOM_FOR, 0.5, 8); } r.shimmer = 0; }
+    var d = x.delay;
+    if (d) { var v = Number(d.division || 0.5); d.division = v >= 0.75 ? "1" : ".5"; d.type = "regular"; d.tone = 6000; }
+    var g = x.gate;
+    if (g) { g.mode = "basic"; g.range = -80; g.attack = 1; g.hold = 40; g.release = 120; }
+    return x;
+  }
+  // a pad's gate (most useful on the audio input pad): one shared timer looks at each gated voice every 10 ms
+  var gated = [], gateTimer = null;
+  function padGate(voice, g) {
+    if (!voice || !voice.gateGain) return;
+    var c = voice.ctx, now = c.currentTime;
+    if (!g || !g.enabled) {
+      if (voice.__gate) { voice.__gate = null; gated = gated.filter(function (v) { return v !== voice; }); voice.gateGain.gain.setTargetAtTime(1, now, 0.005); }
+      return;
+    }
+    var p = core.gateParams({ on: true, threshold: g.threshold, mode: g.mode, range: g.range, attack: g.attack, hold: g.hold, release: g.release }, pro());
+    var st = voice.__gate;
+    if (!st) { var an = c.createAnalyser(); an.fftSize = 256; voice.input.connect(an); st = voice.__gate = { an: an, buf: new Float32Array(256), open: true, held: 0 }; gated.push(voice); }
+    st.p = p; st.thr = Math.pow(10, p.threshold / 20); st.floor = Math.pow(10, p.range / 20);
+    if (!gateTimer) gateTimer = setInterval(gateTick, 10);
+  }
+  function gateTick() {
+    gated = gated.filter(function (v) { return v.__gate && !v.stopped; });
+    if (!gated.length) { clearInterval(gateTimer); gateTimer = null; return; }
+    gated.forEach(function (v) {
+      var st = v.__gate, buf = st.buf, pk = 0; st.an.getFloatTimeDomainData(buf);
+      for (var i = 0; i < buf.length; i++) { var a = buf[i] < 0 ? -buf[i] : buf[i]; if (a > pk) pk = a; }
+      var now = v.ctx.currentTime;
+      if (pk > st.thr) { st.held = st.p.hold; if (!st.open) { st.open = true; v.gateGain.gain.setTargetAtTime(1, now, st.p.attack / 3000); } }
+      else if (st.held > 0) st.held -= 10;
+      else if (st.open) { st.open = false; v.gateGain.gain.setTargetAtTime(st.floor, now, st.p.release / 3000); }
+    });
+  }
+
+  // ------------------------------------------------------------- the full pad editor: the same locks
+  var LOCKED_PATHS = ["effects.compressor.type", "effects.compressor.threshold", "effects.compressor.ratio", "effects.compressor.attack", "effects.compressor.release", "effects.compressor.knee", "effects.compressor.makeup", "effects.compressor.mix",
+    "effects.reverb.shimmer", "effects.delay.type", "effects.delay.tone"];
+  var BASIC_OPTIONS = { "effects.reverb.type": ["room"], "effects.delay.division": ["1", ".5"] };
+  function optionName(o) { if (o.__name == null) o.__name = o.textContent.replace(LOCK, ""); return o.__name; }
+  function lockEditor() {
+    var isPro = pro(), pad = PP.currentPad && PP.currentPad();
+    LOCKED_PATHS.forEach(function (path) {
+      document.querySelectorAll('[data-path="' + path + '"]').forEach(function (el) { el.disabled = !isPro; var lab = el.closest("label"); if (lab) { lab.classList.toggle("fx-locked", !isPro); lab.title = isPro ? "" : lockText(); } });
+    });
+    Object.keys(BASIC_OPTIONS).forEach(function (path) {
+      document.querySelectorAll('select[data-path="' + path + '"] option').forEach(function (o) {
+        var basic = BASIC_OPTIONS[path].some(function (v) { return v === o.value || Number(v) === Number(o.value); }), lk = !isPro && !basic;
+        o.textContent = (lk ? LOCK : "") + optionName(o); o.disabled = lk && !o.selected;
+      });
+    });
+    var bandSel = document.getElementById("eqBand");
+    if (bandSel) [].forEach.call(bandSel.options, function (o, i) { var lk = !isPro && !BASIC_BANDS[i]; o.textContent = (lk ? LOCK : "") + optionName(o); });
+    var band = bandSel ? Number(bandSel.value) || 0 : 0, bandLocked = !isPro && !BASIC_BANDS[band];
+    ["eqType", "eqQ", "eqSlope"].forEach(function (id) { var el = document.getElementById(id); if (el) { el.disabled = !isPro; var lab = el.closest("label"); if (lab) lab.classList.toggle("fx-locked", !isPro); } });
+    ["eqFreq", "eqGain"].forEach(function (id) { var el = document.getElementById(id); if (el) el.disabled = bandLocked; });
+    // the compressor's one basic control, and a line saying what plays
+    var comp = document.querySelector('[data-path="effects.compressor.enabled"]'), amt = document.getElementById("fxPadAmount");
+    if (!isPro && comp && !amt) {
+      var lab2 = document.createElement("label"); lab2.className = "fx-basic-amount"; lab2.innerHTML = 'Amount <span class="control-line"><input id="fxPadAmount" type="range" min="0" max="100" step="1"><output></output></span>';
+      var after = comp.closest("label") || comp; after.insertAdjacentElement("afterend", lab2); amt = document.getElementById("fxPadAmount");
+    }
+    if (amt) { var wrap = amt.closest("label"); wrap.classList.toggle("hidden", isPro); if (pad && pad.effects && pad.effects.compressor) { var a = pad.effects.compressor.amount != null ? pad.effects.compressor.amount : amountFromThreshold(pad.effects.compressor.threshold); amt.value = a; wrap.querySelector("output").textContent = Math.round(a) + "%"; } }
+    var note = document.getElementById("fxEditorLock");
+    if (!isPro) {
+      if (!note) { var chain = document.getElementById("chainList"); if (chain && chain.parentNode) { note = document.createElement("p"); note.id = "fxEditorLock"; note.className = "fx-lock"; chain.parentNode.insertBefore(note, chain.nextSibling); } }
+      if (note) note.textContent = LOCK + lockText() + ": EQ bands 3 and 6, band shapes and widths, every compressor control, the hall, plate, cathedral and spring reverbs, shimmer, dotted and other delay times, ping-pong and the repeat tone. A pad saved with them keeps them, and plays the basic version until the plan is active.";
+    } else if (note) note.remove();
+  }
+  document.addEventListener("input", function (e) {
+    if (e.target.id !== "fxPadAmount") return; var pad = PP.currentPad && PP.currentPad(); if (!pad) return;
+    pad.effects.compressor.amount = Number(e.target.value); e.target.closest("label").querySelector("output").textContent = Math.round(e.target.value) + "%";
+    PP.persistSoon(); try { engine.update(pad); } catch (_) { }
+  });
+  document.addEventListener("change", function (e) { if (e.target.id === "eqBand") setTimeout(lockEditor, 0); });
+  var editorObserver = new MutationObserver(function () { lockEditor(); });
+  function watchEditor() { ["#chainList", "#eqBand"].forEach(function (sel) { var el = document.querySelector(sel); if (el && !el.__fxLock) { el.__fxLock = true; editorObserver.observe(el, { childList: true }); } }); lockEditor(); }
+  // the plan can change while the app is open (a key added, or one ending): the editor, the pads and the buses follow
+  var lastPro = pro();
+  function planCheck() { var now = pro(); if (now === lastPro) return false; lastPro = now; lockEditor(); try { (engine.voices ? engine.voices() : []).forEach(function (v) { v.apply(v.pad); }); } catch (_) { } busesApply(); return true; }
+  setInterval(planCheck, 3000);
 
   // ------------------------------------------------------------- tracks: render, keep, swap into the player
   var T = function () { return window.PPTracks; };
@@ -274,20 +381,20 @@
       '<button class="fx-close" data-fx-close aria-label="Close">✕</button></div>' +
       '<div class="fx-presets">' + presets.map(function (p) { var lk = p.pro && !isPro; return '<button data-fx-preset="' + esc(p.name) + '" class="' + (fx.preset === p.name ? "on" : "") + (lk ? " locked" : "") + '"' + (lk ? ' title="' + esc(lockText()) + '"' : "") + ">" + (lk ? LOCK : "") + esc(p.name) + "</button>"; }).join("") + "</div>" +
       '<div class="fx-body' + (fx.on ? "" : " off") + '">' +
-      (kind === "stem" ? '<section><header>' + toggle("Gate", "gate.on") + (isPro ? '<label class="fx-mode"><input type="checkbox" data-fx-full="gate"' + (fullGate ? " checked" : "") + '> every control</label>' : "") + "</header>" +
+      (kind !== "bus" ? '<section><header>' + toggle("Gate", "gate.on") + (isPro ? '<label class="fx-mode"><input type="checkbox" data-fx-full="gate"' + (fullGate ? " checked" : "") + '> every control</label>' : "") + "</header>" +
         row("Threshold", "gate.threshold", -80, 0, 1, "dB") +
         (fullGate ? row("Range", "gate.range", -80, 0, 1, "dB", { pro: true }) + row("Attack", "gate.attack", 0.1, 50, 0.1, "ms", { pro: true }) + row("Hold", "gate.hold", 0, 500, 5, "ms", { pro: true }) + row("Release", "gate.release", 5, 2000, 5, "ms", { pro: true }) : "") + "</section>" : "") +
       '<section><header>' + toggle("EQ", "eq.on") + "</header>" +
         row("Low cut", "eq.lowCut", 0, 400, 5, "Hz") + row("Low", "eq.low", -12, 12, 0.5, "dB") + row("Mid", "eq.mid", -12, 12, 0.5, "dB") +
-        row("Mid frequency", "eq.midFreq", 200, 8000, 10, "Hz", { pro: kind === "pad" }) + row("High", "eq.high", -12, 12, 0.5, "dB") +
+        row("Mid frequency", "eq.midFreq", 200, 8000, 10, "Hz") + row("High", "eq.high", -12, 12, 0.5, "dB") +
         row("High cut", "eq.highCut", 2000, 20000, 100, "Hz", { pro: true }) +
         (fx.eq.bands || []).slice(0, kind === "pad" ? 1 : 2).map(function (b, i) { return '<div class="fx-band">' + (isPro ? toggle("Band " + (i + 1), "eq.bands." + i + ".on") : '<span class="fx-lockline">' + LOCK + "Band " + (i + 1) + "</span>") + row("Frequency", "eq.bands." + i + ".freq", 40, 16000, 10, "Hz", { pro: true }) + row("Gain", "eq.bands." + i + ".gain", -12, 12, 0.5, "dB", { pro: true }) + row("Width (Q)", "eq.bands." + i + ".q", 0.3, 6, 0.1, "", { pro: true }) + "</div>"; }).join("") + "</section>" +
       '<section><header>' + toggle("Compressor", "comp.on") + (isPro ? '<label class="fx-mode"><input type="checkbox" data-fx-full="comp"' + (fullComp ? " checked" : "") + '> every control</label>' : "") + "</header>" +
         (fullComp ? row("Threshold", "comp.threshold", -60, 0, 1, "dB", { pro: true }) + row("Ratio", "comp.ratio", 1, 20, 0.1, ":1", { pro: true }) + row("Attack", "comp.attack", 0.1, 300, 0.1, "ms", { pro: true }) + row("Release", "comp.release", 10, 3000, 10, "ms", { pro: true }) + row("Make-up", "comp.makeup", -12, 24, 0.5, "dB", { pro: true })
           : row("Amount", "comp.amount", 0, 100, 1, "%")) + "</section>" +
       '<section><header>' + toggle("Reverb", "reverb.on") + "</header>" +
-        select("Type", "reverb.type", [["room", "Room"], ["hall", "Hall", kind !== "pad"], ["plate", "Plate", true], ["cathedral", "Cathedral", true]]) +
-        row(kind === "pad" ? "Wet" : "Send", "reverb.send", 0, 100, 1, "%") + row("Size", "reverb.size", -50, 50, 1, "", { pro: true }) + "</section>" +
+        select("Type", "reverb.type", [["room", "Room"], ["hall", "Hall", true], ["plate", "Plate", true], ["cathedral", "Cathedral", true]]) +
+        row(kind === "pad" ? "Wet" : "Send", "reverb.send", 0, 100, 1, "%") + row(kind === "pad" ? "Length" : "Size", "reverb.size", -50, 50, 1, "", { pro: kind !== "pad" }) + "</section>" +
       '<section><header>' + toggle("Delay", "delay.on") + "</header>" +
         select("Time (follows the tempo)", "delay.time", [["1/4", "1/4"], ["1/8", "1/8"], ["1/4.", "1/4 dotted", true], ["1/8.", "1/8 dotted", true], ["1/2", "1/2", true], ["1/16", "1/16", true]]) +
         row("Send", "delay.send", 0, 100, 1, "%") + row("Repeats", "delay.feedback", 0, isPro ? 90 : 60, 1, "%") +
@@ -378,10 +485,10 @@
   }
   var observer = new MutationObserver(function () { if (!decorating) decorate(); });
   function watch() { ["#trStems", "#mixStrips", "#pfPads", "#padList"].forEach(function (sel) { var el = document.querySelector(sel); if (el && !el.__fxWatched) { el.__fxWatched = true; observer.observe(el, { childList: true }); } }); decorate(); }
-  watch();
-  document.addEventListener("pp-stems", function () { watch(); busesApply(); });
+  watch(); watchEditor();
+  document.addEventListener("pp-stems", function () { watch(); watchEditor(); busesApply(); });
 
   window.PPFx = { stemFor: stemFor, open: open, openStem: function (id) { var t = stemTarget(id); if (t) open(t); return !!t; }, openPad: function (i) { var t = padTarget(i); if (t) open(t); return !!t; }, openBus: function (b) { open(busTarget(b)); },
     defaults: defaultFx, presets: { stem: STEM_PRESETS, pad: PAD_PRESETS, bus: BUS_PRESETS }, plan: function (s, st) { return stemPlan(s, st); }, busFx: busFx, setBusFx: function (b, fx) { setBusFx(b, fx); busApply(b); }, busChain: function (b) { return buses[b] || null; },
-    padToFx: padToFx, fxToPad: fxToPad, stats: function () { return stats; }, pending: function () { return Object.keys(busy).length; }, decorate: decorate, isPro: pro, applyPreset: applyPreset };
+    padToFx: padToFx, fxToPad: fxToPad, padEffects: padEffects, padGate: padGate, lockEditor: lockEditor, planCheck: planCheck, stats: function () { return stats; }, pending: function () { return Object.keys(busy).length; }, decorate: decorate, isPro: pro, applyPreset: applyPreset };
 })();
