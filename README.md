@@ -210,6 +210,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 9.6.2:** A Central Pedal that doesn't start writes a report to its SD card (central-pedal-log.txt, readable on any computer) and its screen says why instead of showing a login prompt.
+
 **New in version 9.6.1:** The SD card built by hand starts with the blue 3.5" screen on (HDMI 1 stays the full app); the one-line maker is unchanged.
 
 **New in version 9.6.0:** A labelled PAN on every track and channel (pedal, small screen, Pedal Control, Central Control) and stereo in-ears with pan for everyone; Central Control gets a gate, 4-band EQ, compressor and reverb / delay sends on every channel, and a live Stream mix (interface outputs, a virtual device for OBS, straight to YouTube / Facebook, or with the video); smarter auto lighting (intimate / mid / upbeat per song and section, following the music live); play any sound (a guitar or bass plays any sound); an orchestra and 22 new pedals.

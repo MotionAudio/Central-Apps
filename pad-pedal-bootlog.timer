@@ -1,0 +1,10 @@
+[Unit]
+Description=Central Pedal start-up report, 1 and 4 minutes after each start
+
+[Timer]
+OnBootSec=1min
+OnBootSec=4min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

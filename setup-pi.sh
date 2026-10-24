@@ -43,7 +43,7 @@ for f in index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/r
          js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js \
          instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
          companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css \
-         pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session \
+         pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-bootlog pad-pedal-bootlog.service pad-pedal-bootlog.timer pad-pedal-system pad-pedal-session \
          pad-pedal-audio-config xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf \
          pad-pedal-safe-mode pad-pedal.sudoers starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2 fonts/archivo-latin.woff2 \
          central-usage/app/app.js central-usage/app/center-link.js central-usage/app/devices.js central-usage/app/lock.js central-usage/app/services-tab.js central-usage/app/countdown.js central-usage/app/chords.js central-usage/app/fixturelib.js central-usage/app/index.html central-usage/app/inear-client.js central-usage/app/inear-ui.js central-usage/app/inear.css central-usage/app/inears.js central-usage/app/instrument-shim.js central-usage/app/instrument-tab.js central-usage/app/instrument.html central-usage/app/io.js central-usage/app/lights-ai.js central-usage/app/lights-auto.js central-usage/app/lights.js central-usage/app/lyrics-listen.js central-usage/app/mix.js central-usage/app/mixer-model.js central-usage/app/mixlink.js central-usage/app/output.html central-usage/app/parts-tab.js central-usage/app/phone.html central-usage/app/remote.html central-usage/app/roles.js central-usage/app/settings.js central-usage/app/slides.js central-usage/app/style.css central-usage/app/timecode.js central-usage/app/updates.js central-usage/app/video.css central-usage/app/video.js  central-usage/build/icon.png; do
@@ -217,11 +217,13 @@ rm -f /tmp/pad-pedal.sudoers
 install -m 644 "$SRC/pad-pedal-driver.service"      /etc/systemd/system/pad-pedal-driver.service
 install -m 644 "$SRC/pad-pedal-firstboot.service"   /etc/systemd/system/pad-pedal-firstboot.service
 install -m 644 "$SRC/pad-pedal-wifi-import.service" /etc/systemd/system/pad-pedal-wifi-import.service
+install -m 755 "$SRC/pad-pedal-bootlog" /opt/pad-pedal/pad-pedal-bootlog
+install -m 644 "$SRC/pad-pedal-bootlog.service" "$SRC/pad-pedal-bootlog.timer" /etc/systemd/system/
 sed -i "s/^User=.*/User=$KIOSK_USER/; s#XDG_RUNTIME_DIR=/run/user/1000#XDG_RUNTIME_DIR=/run/user/$KIOSK_UID#" /etc/systemd/system/pad-pedal-driver.service
 for group in gpio i2c spi input video audio render plugdev; do
   getent group "$group" >/dev/null || groupadd -r "$group"
 done
-systemctl enable pad-pedal-driver.service pad-pedal-firstboot.service pad-pedal-wifi-import.service
+systemctl enable pad-pedal-driver.service pad-pedal-firstboot.service pad-pedal-wifi-import.service pad-pedal-bootlog.timer
 systemctl enable ssh >/dev/null 2>&1 || systemctl enable sshd >/dev/null 2>&1 || true
 systemctl enable avahi-daemon >/dev/null 2>&1 || true
 

@@ -67,7 +67,7 @@ FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css css/live.css js/li
        js/textures.js js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js
        instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py
        companion/index.html companion/lyrics.html companion/stage.html companion/upload.html companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css
-       pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-system pad-pedal-session pad-pedal-audio-config
+       pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-bootlog pad-pedal-bootlog.service pad-pedal-bootlog.timer pad-pedal-system pad-pedal-session pad-pedal-audio-config
        xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf pad-pedal-safe-mode pad-pedal.sudoers
        starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2 fonts/inter-latin-ext.woff2 fonts/OFL.txt fonts/archivo-latin.woff2 fonts/archivo-latin-ext.woff2 fonts/OFL-Archivo.txt
        README.md wiring.html
