@@ -89,7 +89,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.5.0"
+APP_VERSION = "9.6.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
