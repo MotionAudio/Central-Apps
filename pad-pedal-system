@@ -9,6 +9,7 @@
 #   pad-pedal-system dac on|off                 the I2S DAC board (PCM5102A, "hifiberry-dac") for click / cues
 #   pad-pedal-system audio hdmi|nohdmi usbfirst|jackfirst   which cards join the combined output (applied at login)
 #   pad-pedal-system hostname <name>            rename the Pad Pedal (<name>.local)
+#   pad-pedal-system factory-done               the factory test is over: its marker leaves the boot partition
 #   pad-pedal-system setup-ap start [name]|stop|status   phone setup: the pedal's own Wi-Fi "Central Pedal Setup"
 #   pad-pedal-system wifi-import                import /boot/firmware/pad-pedal-wifi.txt into NetworkManager
 #   pad-pedal-system update <zip>               install a central-control-source zip (from a USB stick) over /opt/pad-pedal
@@ -215,12 +216,21 @@ PY
         nmcli connection modify padpedal-wifi connection.autoconnect yes connection.autoconnect-priority 10 connection.autoconnect-retries 0 >/dev/null 2>&1 || true
         echo "$out" ;;
       forget) nmcli connection delete padpedal-wifi >/dev/null 2>&1 || true; echo "forgotten" ;;
+      forget-all)   # (after the factory test: every Wi-Fi the tester used goes; the customer picks theirs)
+        nmcli -t -f NAME,TYPE connection show 2>/dev/null | while IFS= read -r line; do
+          name="${line%:*}"; kind="${line##*:}"
+          case "$kind" in 802-11-wireless|wifi) [ "$name" = central-setup ] || nmcli connection delete "$name" >/dev/null 2>&1 || true ;; esac
+        done
+        boot_rw; rm -f "$BOOT/pad-pedal-wifi.txt"; echo "every Wi-Fi forgotten" ;;
       country)
         cc="$(echo "${3:-}" | tr -cd 'A-Za-z' | tr a-z A-Z | cut -c1-2)"
         [ ${#cc} = 2 ] || { echo "usage: $0 wifi country <two letters>" >&2; exit 1; }
         install -d /etc/pad-pedal; echo "$cc" > /etc/pad-pedal/wifi-country; wifi_radio; echo "Wi-Fi country: $cc" ;;
-      *) echo "usage: $0 wifi scan|status|connect [hidden]|forget|country <CC>" >&2; exit 1 ;;
+      *) echo "usage: $0 wifi scan|status|connect [hidden]|forget|forget-all|country <CC>" >&2; exit 1 ;;
     esac ;;
+  factory-done)
+    # the factory test is over (the pedal was unplugged after it): its marker leaves the boot partition
+    boot_rw; rm -f "$BOOT/central-factory-test"; sync; echo "factory test done" ;;
   setup-ap)
     # Phone setup: the pedal makes its own open Wi-Fi "Central Pedal Setup" (10.42.0.1). Every name a phone looks up
     # answers 10.42.0.1, so the phone opens the setup page (the driver serves it on port 80) by itself.
@@ -389,5 +399,5 @@ PY
     echo "tft=$(grep -oE '^dtoverlay=(waveshare35a|waveshare35b|waveshare35c|piscreen|tft35a|tinylcd35|pitft35-resistive)' "$CONFIG" | head -1 | cut -d= -f2)"
     echo "dac=$(grep -q '^dtoverlay=hifiberry-dac' "$CONFIG" && echo on || echo off)"
     cat "$DATA/audio.json" 2>/dev/null || true ;;
-  *) echo "usage: $0 safe-mode|screen|tft|wifi|setup-ap|dac|audio|hostname|wifi-import|update|restart-app|boot-tune|status" >&2; exit 1 ;;
+  *) echo "usage: $0 safe-mode|screen|tft|wifi|setup-ap|factory-done|dac|audio|hostname|wifi-import|update|restart-app|boot-tune|status" >&2; exit 1 ;;
 esac

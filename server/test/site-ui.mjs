@@ -56,7 +56,7 @@ try {
   // Downloads is public: anyone gets every app (no keys shown until signed in; keys come by email and on Account)
   await page.evaluate(() => { location.hash = "downloads"; }); await page.waitForSelector("#downloads:not([hidden]) .dl-card", { timeout: 6000 }).catch(() => {});
   { const t = await page.textContent("#downloads"), n = await page.$$eval("#downloads .dl-card", (x) => x.length), btns = await page.$$eval("#downloads a.btn", (x) => x.map((b) => b.textContent));
-    ok(n === 5 && /Central Pedal Control/.test(t) && /Central Control/.test(t) && /Central Usage/.test(t) && /Central Services/.test(t) && /one line, no questions/.test(t) && /Account page and in your email/.test(t) && /Sign in to see your keys/.test(t) && !/[PAU][A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(t) && btns.some((b) => /Download Central Usage/.test(b)),
+    ok(n === 5 && /Central Pedal Control/.test(t) && /Central Control/.test(t) && /Central Usage/.test(t) && /Central Services/.test(t) && /Central Pedal Setup/.test(t) && !/sd-card|one line/.test(t) && /Account page and in your email/.test(t) && /Sign in to see your keys/.test(t) && !/[PAU][A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(t) && btns.some((b) => /Download Central Usage/.test(b)),
       "Downloads, signed out: every app (pedal, Pedal Control, Control, Usage, Services) with its download and install steps, where the keys come from, no keys", { n, btns }); }
   await shot("downloads-public", true);
   await page.evaluate(() => { location.hash = ""; }); await page.waitForTimeout(200);

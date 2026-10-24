@@ -210,6 +210,7 @@
   function emit(m) { (listeners[m.type] || []).forEach(function (fn) { try { fn(m); } catch (error) { console.warn("listener failed", m.type, error); } }); }
   function handleHardware(m) {
     emit(m);
+    if ((m.type === "control" || m.type === "action") && window.PPFactory && window.PPFactory.active()) return;   // (the factory test: presses are tested, not played)
     switch (m.type) {
       case "control": if (window.PPActions) window.PPActions.onControl(m); break;
       case "action": if (window.PPActions) window.PPActions.run(m.name, m.args, { from: m.from || "satellite", value: typeof m.value === "number" ? m.value : null, delta: typeof m.delta === "number" ? m.delta : 0 }); break;

@@ -28,7 +28,8 @@ PI_HOSTNAME="${PI_HOSTNAME:-}"
 WIFI_SSID="${WIFI_SSID:-}"
 WIFI_PASS="${WIFI_PASS:-}"
 WIFI_COUNTRY="${WIFI_COUNTRY:-US}"
-TFT="${TFT:-rpi35-xpt2046}"   # (the common blue 3.5" screen; none = no small screen; any id from screens.json)
+TFT="${TFT:-rpi35-xpt2046}"
+FACTORY="${FACTORY:-0}"         # 1: the next start is the factory test (build-image.sh puts it on the card itself)   # (the common blue 3.5" screen; none = no small screen; any id from screens.json)
 I2S_DAC="${I2S_DAC:-on}"
 IN_CHROOT="${IN_CHROOT:-0}"
 DISABLE_FIRSTBOOT_WIZARD="${DISABLE_FIRSTBOOT_WIZARD:-0}"
@@ -39,7 +40,7 @@ step() { printf '\n==> %s\n' "$*"; }
 warn() { printf '    WARNING: %s\n' "$*" >&2; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)."; exit 1; }
-for f in index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js js/textures.js \
+for f in index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/factory-test.js js/pedal-job.js js/touch-wifi.js js/shell.js js/textures.js \
          js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js \
          instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
          companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css \
@@ -287,6 +288,7 @@ if [ -s /tmp/pad-pedal-tft-driver ]; then
   install -d "$(dirname "$CONFIG")/overlays"
   curl -fsSL -o "$(dirname "$CONFIG")/overlays/$dname.dtbo" "$durl" || warn "couldn't download the $dname screen driver - pick the screen again in Settings → Touch screen once the pedal is online"
 fi
+if [ "$FACTORY" = 1 ] && [ -z "${IN_CHROOT:-}" ]; then echo "factory test on the next start" > "$(dirname "$CONFIG")/central-factory-test"; fi
 if [ -n "$TFT_LINES" ]; then while IFS= read -r line; do [ -n "$line" ] && { grep -qxF "$line" "$CONFIG" || echo "$line" >> "$CONFIG"; }; done <<< "$TFT_LINES"; fi   # (HDMI 1 keeps the full app)
 grep -q '^enable_uart=0' "$CONFIG" || echo 'enable_uart=0' >> "$CONFIG"
 sed -i -E 's/ ?console=serial0,[0-9]+//' "$CMDLINE"
