@@ -14,7 +14,7 @@
 # Settings come from environment variables (all optional):
 #   KIOSK_USER=pi  KIOSK_PASS=...  PI_HOSTNAME=padpedal
 #   WIFI_SSID=...  WIFI_PASS=...   WIFI_COUNTRY=US
-#   TFT=none|waveshare35a|...      (the 3.5" SPI touch screen; System menu can change it later)
+#   TFT=rpi35-xpt2046|none|<id>    the small touch screen (default: the blue 3.5"; ids in screens.json; Settings can change it)
 #   I2S_DAC=on|off                 (PCM5102A click / cue output on GPIO 18/19/21)
 #   SAFE_MODE=on|off               (image builds: power-cut safe mode from first boot)
 #   DISABLE_FIRSTBOOT_WIZARD=0|1
@@ -28,7 +28,7 @@ PI_HOSTNAME="${PI_HOSTNAME:-}"
 WIFI_SSID="${WIFI_SSID:-}"
 WIFI_PASS="${WIFI_PASS:-}"
 WIFI_COUNTRY="${WIFI_COUNTRY:-US}"
-TFT="${TFT:-none}"
+TFT="${TFT:-rpi35-xpt2046}"   # (the common blue 3.5" screen; none = no small screen; any id from screens.json)
 I2S_DAC="${I2S_DAC:-on}"
 IN_CHROOT="${IN_CHROOT:-0}"
 DISABLE_FIRSTBOOT_WIZARD="${DISABLE_FIRSTBOOT_WIZARD:-0}"
@@ -172,15 +172,39 @@ if [ -f /etc/pad-pedal/hardware.json ]; then
 else
   install -m 644 "$SRC/hardware.json" /etc/pad-pedal/hardware.json
 fi
-python3 - "$TFT" "$I2S_DAC" <<'PY'
+# the small screen: an id from screens.json (older names: piscreen = the blue 3.5", waveshare35a), its config.txt lines
+# are written below; hardware.json gets its touch panel and calibration, as Settings → Touch screen would
+TFT_LINES="$(python3 - "$TFT" "$I2S_DAC" "$SRC/screens.json" <<'PY'
 import json, sys
 path = "/etc/pad-pedal/hardware.json"
 cfg = json.load(open(path))
-cfg["tft_overlay"] = sys.argv[1] if sys.argv[1] != "none" else "none"
-if sys.argv[1] != "none": cfg["tft_overlay_choice"] = sys.argv[1]
-cfg["i2s_dac"] = sys.argv[2] != "off"
+tft, dac, catalog = sys.argv[1], sys.argv[2], sys.argv[3]
+sid = {"piscreen": "rpi35-xpt2046", "tft35a": "waveshare35a"}.get(tft, tft)
+try:
+    screens = json.load(open(catalog, encoding="utf-8")).get("screens") or []
+except Exception:
+    screens = []
+s = next((x for x in screens if x.get("id") == sid), None) if sid != "none" else None
+if s and s.get("kind") == "spi":
+    cfg.update({"touch_screen": sid, "touch_screen_last": sid, "tft_overlay": sid, "tft_overlay_choice": sid})
+    mini = dict(cfg.get("mini_screen") or {})
+    mini["touch"] = s.get("touch") or ""
+    if s.get("calibration"):
+        mini["calibration"] = s["calibration"]
+    mini["fb_size"] = s.get("res") or [480, 320]
+    cfg["mini_screen"] = mini
+    print("\n".join(s.get("config") or []))
+    if s.get("driver"):   # (the maker's overlay: fetched below, as Settings → Touch screen does)
+        open("/tmp/pad-pedal-tft-driver", "w").write("%s %s\n" % (s["driver"]["name"], s["driver"]["url"]))
+elif sid != "none":   # (an overlay name screens.json doesn't know: as before)
+    cfg["tft_overlay"] = cfg["tft_overlay_choice"] = sid
+    print("dtparam=spi=on\ndtoverlay=%s:rotate=90" % sid)
+else:
+    cfg["tft_overlay"] = "none"
+cfg["i2s_dac"] = dac != "off"
 json.dump(cfg, open(path, "w"), indent=2)
 PY
+)"
 sed -nE 's/^APP_VERSION = "([^"]+)".*/\1/p' "$SRC/pedal-driver.py" | head -1 > /etc/pad-pedal/version
 echo "$WIFI_COUNTRY" > /etc/pad-pedal/wifi-country
 echo "$KIOSK_USER" > /etc/pad-pedal/kiosk-user
@@ -258,7 +282,12 @@ grep -q '^dtparam=i2c_arm=on' "$CONFIG" || echo 'dtparam=i2c_arm=on' >> "$CONFIG
 grep -q '^i2c-dev' /etc/modules 2>/dev/null || echo 'i2c-dev' >> /etc/modules
 grep -q '^dtparam=audio=on' "$CONFIG" || echo 'dtparam=audio=on' >> "$CONFIG"
 if [ "$I2S_DAC" != "off" ]; then grep -q '^dtoverlay=hifiberry-dac' "$CONFIG" || echo 'dtoverlay=hifiberry-dac' >> "$CONFIG"; fi
-if [ "$TFT" != "none" ]; then grep -q '^dtparam=spi=on' "$CONFIG" || echo 'dtparam=spi=on' >> "$CONFIG"; echo "dtoverlay=$TFT:rotate=90" >> "$CONFIG"; fi
+if [ -s /tmp/pad-pedal-tft-driver ]; then
+  read -r dname durl < /tmp/pad-pedal-tft-driver; rm -f /tmp/pad-pedal-tft-driver
+  install -d "$(dirname "$CONFIG")/overlays"
+  curl -fsSL -o "$(dirname "$CONFIG")/overlays/$dname.dtbo" "$durl" || warn "couldn't download the $dname screen driver - pick the screen again in Settings → Touch screen once the pedal is online"
+fi
+if [ -n "$TFT_LINES" ]; then while IFS= read -r line; do [ -n "$line" ] && { grep -qxF "$line" "$CONFIG" || echo "$line" >> "$CONFIG"; }; done <<< "$TFT_LINES"; fi   # (HDMI 1 keeps the full app)
 grep -q '^enable_uart=0' "$CONFIG" || echo 'enable_uart=0' >> "$CONFIG"
 sed -i -E 's/ ?console=serial0,[0-9]+//' "$CMDLINE"
 

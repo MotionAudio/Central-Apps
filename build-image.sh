@@ -17,7 +17,8 @@
 #   WIFI_SSID="Church WiFi" WIFI_PASS="secret" WIFI_COUNTRY=US
 #   PEDAL_KEY=PXXX-XXXX-XXXX-XXXX     this pedal's P license key (from the website: the order, or Keys · staff);
 #                                   the pedal offers it when it first opens. (Or put pad-pedal-key.txt on the card later.)
-#   TFT=none|waveshare35a|piscreen  the 3.5" SPI touch screen (default: none; the System menu can turn it on later)
+#   TFT=rpi35-xpt2046|none|<id>     the small touch screen (default: the blue 3.5" XPT2046 board, HDMI 1 still shows
+#                                   the full app; none = no small screen; ids in screens.json; Settings can change it)
 #   I2S_DAC=on|off                  PCM5102A click / instrument output board (default: on)
 #   SAFE_MODE=on|off                power-cut safe mode from first boot (default: on)
 #   SOUNDS=full|small|none          keys sound banks: all (1.6 GB), without the Salamander grand, or none
@@ -47,7 +48,7 @@ WIFI_SSID="${WIFI_SSID:-}"
 WIFI_PASS="${WIFI_PASS:-}"
 WIFI_COUNTRY="${WIFI_COUNTRY:-US}"
 PEDAL_KEY="${PEDAL_KEY:-}"
-TFT="${TFT:-none}"
+TFT="${TFT:-rpi35-xpt2046}"
 I2S_DAC="${I2S_DAC:-on}"
 SAFE_MODE="${SAFE_MODE:-on}"
 EXTRA_MB="${EXTRA_MB:-}"           # how much to grow the system partition; worked out from the sound banks unless set
