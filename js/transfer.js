@@ -1,6 +1,10 @@
 /* Central Pedal - Upload / Download between Central Pedal Control (the editor on a Mac or an iPad) and a Central
  * Pedal (the Raspberry Pi).
  *
+ * A set (the usual Upload): Central Pedal Control keeps every song, track, pad and sound; the pedal holds one set at a
+ * time - its songs with their tracks, its pads' sounds and only the keys / instrument sounds those songs use. Uploading
+ * a set replaces the one on the pedal (pedals, plugins, the free sounds and sound libraries there stay). The files go in
+ * 8 MB pieces and the same file is never sent twice; nothing on the pedal changes until all of it has arrived.
  * In Central Pedal Control: ⇪ Upload sends what you pick - the songs (with their tracks), the pads and sounds,
  * the controls, the instrument, the setups, the look, and (if you want) the outputs and screens - to a Central
  * Pedal on the network, with its pairing PIN. ⇩ Download brings the same things back from it.
@@ -152,19 +156,34 @@
       '<label>Central Pedal<input data-cp="host" list="cpHosts" placeholder="padpedal.local or 192.168.1.50" value="' + esc(cur.host || "") + '"><datalist id="cpHosts">' + list.map(function (x) { return '<option value="' + esc(x.host) + '">' + esc(x.name) + "</option>"; }).join("") + "</datalist></label>" +
       '<label>Its pairing PIN<input data-cp="pin" inputmode="numeric" maxlength="4" autocomplete="off" type="password" value="' + esc(cur.pin || "") + '"></label>' +
       '<label class="toggle"><input type="checkbox" data-cp="keep"' + (cur.pin ? " checked" : "") + "> Remember the PIN on this " + esc(deviceName()) + "</label>" +
+      (dir === "up" ? '<fieldset class="cp-mode"><label class="toggle"><input type="radio" name="cpMode" data-cpmode="set" checked> <b>Upload this set</b><small>"' + esc(project().name || "This setlist") + '" (' + n + ' songs) with its tracks, its pads and the keys / instrument sounds its songs use. It replaces the set on the pedal; this ' + esc(deviceName()) + ' keeps everything. Pedals and plugins stay on the pedal.</small></label>' +
+        '<label class="toggle"><input type="radio" name="cpMode" data-cpmode="pick"> <b>Pick what to send</b><small>Add songs to the pedal\'s setlist, or send only settings</small></label></fieldset>' : "") +
       '<fieldset class="cp-parts"><legend>' + (dir === "up" ? "Send" : "Bring back") + "</legend>" + PARTS.map(function (x) { return '<label class="toggle"><input type="checkbox" data-part="' + x[0] + '"' + (x[3] ? " checked" : "") + "> <b>" + esc(x[1]) + "</b>" + (x[0] === "songs" && dir === "up" ? " (" + n + ")" : "") + (x[2] ? "<small>" + esc(x[2]) + "</small>" : "") + "</label>"; }).join("") + "</fieldset>" +
-      '<label>Songs<select data-cp="songMode"><option value="replace">Replace the setlist ' + (dir === "up" ? "on the pedal" : "here") + '</option><option value="add">Add to it (same songs are updated)</option></select></label>' +
+      '<label data-cp="songModeRow">Songs<select data-cp="songMode"><option value="replace">Replace the setlist ' + (dir === "up" ? "on the pedal" : "here") + '</option><option value="add">Add to it (same songs are updated)</option></select></label>' +
       '<div class="cp-progress hidden"><div class="cp-bar"><i></i></div><p class="small" data-cp="msg"></p></div>' +
+      '<div class="cp-review hidden"></div>' +
       '<div class="row"><button class="primary" type="button" data-cp="go">' + (dir === "up" ? "⇪ Upload" : "⇩ Download") + "</button></div>" +
-      (dir === "up" ? '<p class="muted small">The Central Pedal shows what arrived and applies it when you say so (never while it plays). Tracks travel as their original files; over Wi-Fi a big setlist takes a few minutes - a network cable is faster.</p>' : '<p class="muted small">What is here is replaced by the Central Pedal\'s.</p>') + "</form>";
+      (dir === "up" ? '<p class="muted small" data-cp="upNote">The Central Pedal shows what arrived and applies it when you say so (never while it plays). Tracks travel as their original files; over Wi-Fi a big setlist takes a few minutes - a network cable is faster.</p>' : '<p class="muted small">What is here is replaced by the Central Pedal\'s.</p>') + "</form>";
+    plan = null;
     d.showModal();
+    if (dir === "up") setMode();
+  }
+  function isSetMode() { var r = dialog().querySelector("[data-cpmode=set]"); return !!(r && r.checked && dialog().dataset.dir === "up"); }
+  function setMode() {   // a set always takes its songs, pads and instrument (with their sounds); the rest is up to you
+    var d = dialog(), on = isSetMode();
+    SET_FIXED.forEach(function (k) { var cb = d.querySelector('[data-part="' + k + '"]'); if (cb) { if (on) cb.checked = true; cb.disabled = on; } });
+    var row = d.querySelector("[data-cp=songModeRow]"); if (row) row.classList.toggle("hidden", on);
+    var note = d.querySelector("[data-cp=upNote]"); if (note) note.textContent = on ? "Only what the pedal doesn't have yet is sent, in pieces: if the Wi-Fi drops, press Upload again and it carries on. The pedal keeps its set until all of it has arrived, then switches as soon as nothing is playing." : "The Central Pedal shows what arrived and applies it when you say so (never while it plays). Tracks travel as their original files; over Wi-Fi a big setlist takes a few minutes - a network cable is faster.";
+    var rv = d.querySelector(".cp-review"); if (rv) rv.classList.add("hidden"); plan = null;
   }
   function say(msg, frac, bad) { var d = dialog(), box = $(".cp-progress", d); PP.setStatus(msg); if (!box) return; box.classList.remove("hidden"); $("[data-cp=msg]", d).textContent = msg; $("[data-cp=msg]", d).classList.toggle("warn", !!bad); if (frac != null) $(".cp-bar i", d).style.width = Math.round(frac * 100) + "%"; }
   function picked() { return Array.prototype.slice.call(dialog().querySelectorAll("[data-part]:checked")).map(function (x) { return x.dataset.part; }); }
   async function onClick(e) {
+    if (e.target.matches && e.target.matches("[data-cpmode]")) { setMode(); return; }
     var b = e.target.closest && e.target.closest("[data-cp]"); if (!b) return;
     if (b.dataset.cp === "close") { if (busy) e.preventDefault(); return; }
-    if (b.dataset.cp !== "go" || busy) return;
+    if (b.dataset.cp === "bringback" && !busy) { e.preventDefault(); var dd = dialog(); remember($("[data-cp=host]", dd).value.trim(), null, $("[data-cp=pin]", dd).value.trim(), true); dd.close(); open("down"); return; }
+    if ((b.dataset.cp !== "go" && b.dataset.cp !== "send") || busy) return;
     e.preventDefault();
     var d = dialog(), host = $("[data-cp=host]", d).value.trim(), pin = $("[data-cp=pin]", d).value.trim(), parts = picked(), dir = d.dataset.dir, mode = $("[data-cp=songMode]", d).value;
     if (!host) return say("Type the Central Pedal's name or address (its Settings → Companion devices shows it).", null, true);
@@ -172,10 +191,140 @@
     if (!parts.length) return say("Pick something to " + (dir === "up" ? "send" : "bring back") + ".", null, true);
     busy = true; b.disabled = true;
     try {
-      if (dir === "up") await upload(host, pin, parts, mode); else await download(host, pin, parts, mode);
+      if (dir === "up" && isSetMode()) { if (b.dataset.cp === "send" && plan && plan.host === host) await sendSet(plan); else await prepareSet(host, pin, parts); }
+      else if (dir === "up") await upload(host, pin, parts, mode); else await download(host, pin, parts, mode);
       remember(host, null, pin, $("[data-cp=keep]", d).checked);
     } catch (error) { say(String(error && error.message || error), null, true); }
     finally { busy = false; b.disabled = false; }
+  }
+
+  // ------------------------------------------------------------- a set (Central Pedal Control → the pedal)
+  var SET_FIXED = ["songs", "pads", "instrument"], CHUNK = 8 << 20, MARGIN = 64 << 20, plan = null;
+  function PEDS() { return window.PPPedals; }
+  function mb(n) { n = n || 0; return n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : (n / 1e6).toFixed(n >= 1e8 || !n ? 0 : 1) + " MB"; }
+  function isBank(f) { return typeof f === "string" && /\.(sf2|sf3)$/i.test(f); }
+  function walkFiles(v, fn) {   // every "file" in settings / songs (not the tracks: those travel as files of their own)
+    if (!v || typeof v !== "object") return;
+    if (Array.isArray(v)) { v.forEach(function (x) { walkFiles(x, fn); }); return; }
+    Object.keys(v).forEach(function (k) { if (k === "tracks") return; var x = v[k]; if (k === "file" && typeof x === "string") { var r = fn(x); if (r !== undefined) v[k] = r; } else walkFiles(x, fn); });
+  }
+  async function sha256(blob) {
+    try { if (!(window.crypto && crypto.subtle)) return ""; var dg = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()); return Array.prototype.map.call(new Uint8Array(dg), function (x) { return ("0" + x.toString(16)).slice(-2); }).join(""); }
+    catch (_) { return ""; }
+  }
+  function sleep(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
+  function packSet(extra) {
+    var parts = SET_FIXED.concat((extra || []).filter(function (x) { return SET_FIXED.indexOf(x) < 0; })), p = project(), pkg = pack(parts), ids = {};
+    pkg.mode = "set"; pkg.songMode = "replace"; pkg.set = { name: p.name || "Set", setlistId: p.setlistId || null };
+    function add(list) { (list || []).forEach(function (pad) { if (pad && pad.sampleId) ids[pad.sampleId] = 1; }); }
+    add(p.pads); add(p.globalPads); (p.songs || []).forEach(function (sg) { if (sg && sg.padSet) add(sg.padSet.pads); });
+    // only the pad sounds the set uses (and the sound list holds just those)
+    pkg.settings.library = (p.library || []).filter(function (x) { return x && ids[x.id]; }).map(clone);
+    pkg.settings.globalPads = clone(p.globalPads || null); pkg.settings.usingSongPads = p.usingSongPads || null;
+    pkg.samples = Object.keys(ids).map(function (id) { return { fid: "sm-" + id.replace(/[^A-Za-z0-9_-]/g, ""), sampleId: id }; });
+    var refs = {}; walkFiles(pkg.settings, function (f) { if (isBank(f)) refs[f] = 1; }); walkFiles(pkg.songs, function (f) { if (isBank(f)) refs[f] = 1; });
+    pkg.bankRefs = Object.keys(refs); pkg.banks = [];
+    return pkg;
+  }
+  async function prepareSet(host, pin, extra) {
+    var url = base(host), resume = store("cpc-resume") || {};
+    say("Connecting to " + host + "…", 0);
+    var begin = await post(url + "/api/pedal/begin", { code: pin, from: deviceName(), mode: "set", resume: resume.host === host ? resume.token : "" });
+    if (begin.free == null) throw new Error("That Central Pedal has an older version: update it (Settings → Software updates), then upload the set.");
+    store("cpc-resume", { host: host, token: begin.token });
+    var pkg = packSet(extra), have = {}, pedalBanks = begin.banks || {}, items = [], locked = [], skipped = [];
+    (begin.have || []).forEach(function (h) { have[h] = 1; });
+    for (var b = 0; b < pkg.bankRefs.length; b++) {   // the keys / instrument sounds the songs use
+      var path = pkg.bankRefs[b], info = null; say("Looking at the sounds… " + (b + 1) + " of " + pkg.bankRefs.length, null);
+      try { var r = await fetch(MEDIA + "/set/bank-info?path=" + encodeURIComponent(path), { cache: "no-store" }); if (r.ok) info = await r.json(); } catch (_) { }
+      if (!info) continue;   // (not a sound of this device's: the pedal uses its own copy, by name)
+      if (info.tier && PEDS() && PEDS().has && !PEDS().has(info.tier)) { locked.push(info.name); continue; }
+      if (pedalBanks[String(info.name).toLowerCase()] === info.size && !have[info.sha]) continue;   // (the pedal has it: a free sound, a library there)
+      var bref = { fid: "bk-" + String(info.sha || b).slice(0, 24), name: info.name, path: path, size: info.size, sha: info.sha || "", tier: info.tier || null };
+      if (!pkg.banks.some(function (x) { return x.fid === bref.fid; })) { pkg.banks.push(bref); items.push({ kind: "bank", ref: bref }); }
+    }
+    for (var i = 0; i < pkg.samples.length; i++) {
+      var sm = pkg.samples[i]; say("Looking at the pad sounds… " + (i + 1) + " of " + pkg.samples.length, null);
+      var bl = await PP.getBlob(sm.sampleId); if (!bl || !bl.size) { sm.skip = true; continue; }
+      sm.size = bl.size; sm.sha = await sha256(bl); items.push({ kind: "sample", ref: sm });
+    }
+    pkg.samples = pkg.samples.filter(function (x) { return !x.skip; });
+    for (var j = 0; j < pkg.stems.length; j++) {
+      var st = pkg.stems[j]; say("Looking at the tracks… " + (j + 1) + " of " + pkg.stems.length + ": " + st.name, j / Math.max(1, pkg.stems.length));
+      var blob = await stemBlob(st); if (!blob || !blob.size) { st.skip = true; skipped.push(st.name); continue; }
+      st.size = blob.size; st.sha = await sha256(blob); items.push({ kind: "stem", ref: st }); blob = null;
+    }
+    pkg.stems = pkg.stems.filter(function (x) { return !x.skip; });
+    var got = begin.received || {}, send = items.filter(function (it) { return !(it.ref.sha && have[it.ref.sha]); });
+    var sizeOf = function (list) { return list.reduce(function (a, it) { return a + (it.ref.size || 0); }, 0); };
+    var toSend = sizeOf(send) - send.reduce(function (a, it) { return a + Math.min(got[it.ref.fid] || 0, it.ref.size || 0); }, 0);
+    plan = { url: url, host: host, begin: begin, pkg: pkg, items: items, send: send, locked: locked, skipped: skipped, toSend: toSend, all: sizeOf(items), reused: sizeOf(items) - sizeOf(send) };
+    renderReview(plan);
+    say(plan.fits ? "Ready: check what goes, then Send the set." : "This set doesn't fit on the pedal.", 0, !plan.fits);
+    return plan;
+  }
+  function renderReview(P) {
+    var d = dialog(), box = $(".cp-review", d), ls = P.begin.loadedSet, c = {};
+    P.items.forEach(function (it) { var x = c[it.kind] = c[it.kind] || { n: 0, s: 0 }; x.n++; x.s += it.ref.size || 0; });
+    function line(k, label) { var x = c[k] || { n: 0, s: 0 }; return "<li><b>" + x.n + "</b> " + label + (x.n ? " · " + mb(x.s) : "") + "</li>"; }
+    P.fits = P.toSend + MARGIN <= (P.begin.free || 0);
+    box.innerHTML = '<h3>' + esc(P.pkg.set.name) + ' → ' + esc(P.begin.name || P.host) + "</h3>" +
+      '<ul class="plain cp-what"><li><b>' + P.pkg.songs.length + "</b> songs</li>" + line("stem", "tracks") + line("sample", "pad sounds") + line("bank", "keys / instrument sounds") + "</ul>" +
+      "<p>" + (P.reused ? mb(P.reused) + " of it is on the pedal already and isn't sent again. " : "") + "To send: <b>" + mb(P.toSend) + "</b> · the pedal has " + mb(P.begin.free) + " free.</p>" +
+      (P.fits ? "" : '<p class="warn">This set doesn\'t fit: it needs ' + mb(P.toSend + MARGIN) + " and the pedal has " + mb(P.begin.free) + " free. Take some songs out of the set, or put a bigger card in the pedal.</p>") +
+      (P.locked.length ? '<p class="muted small">Not sent - their plan isn\'t on this ' + esc(deviceName()) + ": " + esc(P.locked.join(", ")) + "</p>" : "") +
+      (P.skipped.length ? '<p class="muted small">No audio here for: ' + esc(P.skipped.join(", ")) + "</p>" : "") +
+      (ls ? '<p class="small">On the pedal now: <b>' + esc(ls.name || "a set") + "</b> from " + esc(ls.from || "?") + ", " + esc(new Date((ls.at || 0) * 1000).toLocaleString()) + " - this set replaces it.</p>" : "") +
+      (ls && ls.changed ? '<p class="warn">"' + esc(ls.name || "The set") + '" was changed on the pedal after it was uploaded. Those changes are lost when this set replaces it. <button type="button" data-cp="bringback">⇩ Bring them back first</button></p>' : "") +
+      '<div class="row"><button class="primary" type="button" data-cp="send"' + (P.fits ? "" : " disabled") + ">⇪ Send the set</button></div>";
+    box.classList.remove("hidden");
+  }
+  async function sendFiles(P, list) {
+    var tok = encodeURIComponent(P.begin.token), got = P.begin.received || {}, total = Math.max(1, P.toSend), done = 0;
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i], ref = it.ref, label = it.kind === "sample" ? "a pad sound" : ref.name;
+      var blob = it.kind === "sample" ? await PP.getBlob(ref.sampleId) : it.kind === "bank" ? await (await fetch(MEDIA + "/set/bank?path=" + encodeURIComponent(ref.path))).blob() : await stemBlob(ref);
+      if (!blob || !blob.size) throw new Error("Could not read " + label + " on this " + deviceName() + ".");
+      var start = Math.min(got[ref.fid] || 0, blob.size), off = start, tries = 0, bad = 0;
+      while (true) {
+        var piece = blob.slice(off, Math.min(blob.size, off + CHUNK)), r = null, j = {};
+        say("Sending " + (i + 1) + " of " + list.length + ": " + label + " · " + mb(done + off - start) + " of " + mb(total), (done + off - start) / total);
+        try {
+          r = await fetch(P.url + "/api/pedal/chunk?token=" + tok + "&id=" + encodeURIComponent(ref.fid) + "&offset=" + off + "&total=" + blob.size + "&kind=" + it.kind +
+            "&name=" + encodeURIComponent(ref.name || ref.fid) + "&song=" + encodeURIComponent(ref.song || "") + "&sha=" + encodeURIComponent(ref.sha || ""),
+            { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: piece });
+          try { j = await r.json(); } catch (_) { j = {}; }
+        } catch (_) { r = null; }
+        if (r && r.ok) { tries = 0; off = j.size != null ? j.size : off + piece.size; if (j.done || off >= blob.size) break; continue; }
+        if (r && r.status === 409) { off = j.size || 0; if (off < start) start = off; continue; }
+        if (r && r.status === 422) { if (++bad > 3) throw new Error(label + " keeps arriving damaged - check the Wi-Fi, then press Upload again."); off = start = 0; continue; }
+        if (r && r.status !== 502 && r.status !== 503 && r.status !== 504) throw new Error(j.error || ("The Central Pedal said " + r.status));
+        if (++tries > 8) throw new Error("Lost the connection to the pedal while sending " + label + ". Press Upload again - it carries on where it stopped.");
+        say("The connection dropped - trying again (" + tries + ")…", null, true);
+        await sleep(Math.min(15000, 1000 * Math.pow(2, tries - 1)));
+      }
+      done += blob.size - start; got[ref.fid] = blob.size;
+    }
+  }
+  async function sendSet(P) {
+    var tok = encodeURIComponent(P.begin.token);
+    if (!P.fits) throw new Error("This set doesn't fit on the pedal.");
+    await sendFiles(P, P.send);
+    say("Sending the setlist and settings…", 1);
+    var pkg = clone(P.pkg); pkg.stems.forEach(function (x) { delete x.path; });   // (paths on this computer mean nothing there; a sound's path finds its place there)
+    for (var k = 0; k < 2; k++) {
+      var r = await fetch(P.url + "/api/pedal/commit?token=" + tok, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pkg) }), j = {};
+      try { j = await r.json(); } catch (_) { }
+      if (r.ok) break;
+      if (r.status === 409 && j.missing && k === 0) {   // (the pedal's set changed meanwhile: send what it lacks)
+        var more = P.items.filter(function (it) { return j.missing.indexOf(it.ref.fid) > -1; }); P.toSend = more.reduce(function (a, it) { return a + (it.ref.size || 0); }, 0);
+        await sendFiles(P, more); continue;
+      }
+      throw new Error(j.error || ("The Central Pedal said " + r.status));
+    }
+    store("cpc-resume", null); plan = null;
+    var rv = $(".cp-review", dialog()); if (rv) rv.classList.add("hidden");
+    say("✓ " + P.pkg.set.name + " is on " + (P.begin.name || P.host) + " (" + P.pkg.songs.length + " songs, " + mb(P.toSend) + " sent). The pedal switches to it as soon as nothing is playing." + (P.skipped.length ? " (No audio here for: " + P.skipped.join(", ") + ")" : ""), 1);
   }
   async function upload(host, pin, parts, mode) {
     var url = base(host);
@@ -217,16 +366,21 @@
   }
 
   // ------------------------------------------------------------- the Central Pedal: an upload arrived / a download asked
-  var pending = null, bar = null;
-  F.on("pedalUpload", function (m) { pending = m; showBar(); });
+  var pending = null, bar = null, applying = false;
+  F.on("pedalUpload", function (m) { pending = m; showBar(); if (m.set) setTimeout(autoApply, 1200); });
+  function autoApply() {   // a set switches by itself as soon as nothing plays (and the service lock is off)
+    if (!pending || !pending.set || applying || isControl() || (T() && T().isPlaying()) || (window.PPLive && window.PPLive.locked && window.PPLive.locked())) return;
+    var b = bar && bar.querySelector('[data-ar="apply"]'); if (b) onBar({ target: b });
+  }
   function showBar() {
     if (!pending) { if (bar) bar.remove(); bar = null; return; }
     if (!bar) { bar = document.createElement("div"); bar.className = "cp-arrived"; document.body.appendChild(bar); bar.addEventListener("click", onBar); }
     var sm = pending.summary || {}, playing = T() && T().isPlaying();
+    if (pending.set) { bar.innerHTML = "<b>⇪ New set from " + esc(pending.from || "Central Pedal Control") + ":</b> " + esc(pending.set) + " · " + ((sm.songs || []).length) + " songs" + ' <span class="sp"></span>' + (playing ? '<span class="muted small">switches when you stop playing</span>' : "") + '<button class="primary" data-ar="apply"' + (playing ? " disabled" : "") + '>Switch now</button><button data-ar="drop">Keep the old set</button>'; return; }
     bar.innerHTML = "<b>⇪ From " + esc(pending.from || "Central Pedal Control") + ":</b> " + (sm.songs && sm.songs.length ? sm.songs.length + " songs" : "") + (sm.settings && sm.settings.length ? (sm.songs && sm.songs.length ? " · " : "") + sm.settings.filter(function (x) { return x !== "songs"; }).map(function (x) { return (PARTS.filter(function (q) { return q[0] === x; })[0] || [x, x])[1]; }).join(", ") : "") +
       ' <span class="sp"></span>' + (playing ? '<span class="muted small">applies when you stop playing</span>' : "") + '<button class="primary" data-ar="apply"' + (playing ? " disabled" : "") + '>Apply now</button><button data-ar="later">Later</button><button data-ar="drop">Discard</button>';
   }
-  setInterval(function () { if (pending && bar) { var dis = !!(T() && T().isPlaying()), btn = bar.querySelector('[data-ar="apply"]'); if (btn && btn.disabled !== dis) showBar(); } }, 1000);
+  setInterval(function () { if (pending && bar && !applying) { var dis = !!(T() && T().isPlaying()), btn = bar.querySelector('[data-ar="apply"]'); if (btn && btn.disabled !== dis) showBar(); if (pending.set) autoApply(); } }, 1000);
   async function onBar(e) {
     var b = e.target.closest && e.target.closest("[data-ar]"); if (!b) return;
     if (b.dataset.ar === "later") { bar.classList.add("hidden"); setTimeout(function () { if (bar) bar.classList.remove("hidden"); }, 5 * 60000); return; }
@@ -234,6 +388,16 @@
     if (T() && T().isPlaying()) return;
     if (window.PPLive && window.PPLive.locked()) { PP.setStatus("Unlock the service lock first"); return; }
     var tok = pending.token; b.disabled = true;
+    if (pending.set) {
+      applying = true;
+      var show = function (m, f) { bar.innerHTML = "<b>⇪ Switching to " + esc(pending.set) + "…</b> " + esc(m) + ' <span class="cp-bar"><i style="width:' + Math.round((f || 0) * 100) + '%"></i></span>'; };
+      try {
+        var rs = await applySet(tok, show);
+        pending = null; bar.innerHTML = "<b>✓ Set loaded:</b> " + rs.songs + " songs" + (rs.notHere && rs.notHere.length ? ' · <span class="warn">not on this pedal: ' + esc(rs.notHere.join(", ")) + "</span>" : "") + ". Restarting the screen…";
+        setTimeout(function () { location.reload(); }, 1500);
+      } catch (error) { applying = false; pending = null; bar.innerHTML = '<b class="warn">The new set could not be loaded - the old one stays:</b> ' + esc(error.message || String(error)) + ' <button data-ar="drop">Close</button>'; }
+      return;
+    }
     try {
       var j = await (await fetch(MEDIA + "/pedal/package?token=" + encodeURIComponent(tok), { cache: "no-store" })).json();
       if (!j || !j.package) throw new Error("the upload is gone - send it again");
@@ -243,6 +407,66 @@
       setTimeout(function () { location.reload(); }, 1500);
     } catch (error) { bar.innerHTML = '<b class="warn">Could not apply:</b> ' + esc(error.message || String(error)) + ' <button data-ar="drop">Close</button>'; }
   }
+  // a set: the driver puts its files in place (next to the old set's), the app switches to it, then the driver removes
+  // what the old set brought that nothing uses now. A failure before the switch leaves the old set as it was.
+  async function applySet(tok, show) {
+    var enc = encodeURIComponent(tok);
+    var j = await (await fetch(MEDIA + "/pedal/package?token=" + enc, { cache: "no-store" })).json();
+    if (!j || !j.package) throw new Error("the upload is gone - send it again");
+    var pkg = j.package;
+    show("Putting the files in place…", 0.02);
+    var r = await fetch(MEDIA + "/pedal/set-commit?token=" + enc, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }), c = {};
+    try { c = await r.json(); } catch (_) { }
+    if (!r.ok) throw new Error(c.error || ("the driver said " + r.status));
+    var map = c.bankMap || {}; function fix(f) { return isBank(f) && map[f] ? map[f] : undefined; }
+    walkFiles(pkg.settings, fix); walkFiles(pkg.songs, fix);
+    pkg.samples = (pkg.samples || []).filter(function (x) { return !x.reuse; });   // (the app has those already)
+    var fetchFile = async function (fid) { var rr = await fetch(MEDIA + "/pedal/file?token=" + enc + "&id=" + encodeURIComponent(fid)); return rr.ok ? await rr.blob() : null; };
+    var res = await apply(pkg, c.files || {}, fetchFile, show, { songs: "replace" });
+    var dn = await fetch(MEDIA + "/pedal/set-done?token=" + enc, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ missing: c.notHere || [], digest: setDigest() }) }), dj = {};
+    try { dj = await dn.json(); } catch (_) { }
+    for (var i = 0; i < (dj.dropSamples || []).length; i++) { try { if (PP.deleteBlob) await PP.deleteBlob(dj.dropSamples[i]); } catch (_) { } }
+    res.notHere = c.notHere || [];
+    return res;
+  }
+
+  // the set this pedal holds: by the project's name at the top, and in the setlist
+  var loadedSet = null;
+  function showLoadedSet(st) {
+    loadedSet = st || null;
+    if (isControl()) return;
+    var chip = document.getElementById("loadedSetChip"), name = document.getElementById("projectName");
+    if (!chip && name && name.parentNode) { chip = document.createElement("span"); chip.id = "loadedSetChip"; chip.className = "cp-set-chip"; name.parentNode.insertBefore(chip, name.nextSibling); }
+    var text = st ? "Set from " + (st.from || "?") + " · " + new Date((st.at || 0) * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + (st.changed ? " · changed here" : "") : "";
+    if (chip) { chip.textContent = text; chip.title = st ? '"' + (st.name || "Set") + '" - uploaded from Central Pedal Control (' + (st.songs || 0) + " songs, " + mb(st.bytes) + ")" + (st.changed ? ". Changed here since: bring it back with ⇩ in Central Pedal Control, or the next upload replaces it." : "") : ""; chip.classList.toggle("hidden", !st); }
+    var rows = document.getElementById("setlistRows"), line = document.getElementById("loadedSetLine");
+    if (!line && rows && rows.parentNode) { line = document.createElement("p"); line.id = "loadedSetLine"; line.className = "muted small"; rows.parentNode.insertBefore(line, rows); }
+    if (line) { line.textContent = st ? 'This pedal holds the set "' + (st.name || "Set") + '" from ' + (st.from || "?") + " (" + new Date((st.at || 0) * 1000).toLocaleString() + ")." + (st.changed ? " It was changed here since - bring it back with ⇩ in Central Pedal Control before the next upload replaces it." : "") : ""; line.classList.toggle("hidden", !st); }
+  }
+  F.on("hello", function (m) { showLoadedSet(m.loadedSet); fetchLoadedSet(); });
+  function fetchLoadedSet() { if (isControl() || !driverOn()) return; fetch(MEDIA + "/pedal/loaded-set", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j && "set" in j) showLoadedSet(j.set); }).catch(function () { }); }
+  var tries = 0; setTimeout(function first() { if (isControl()) return; if (driverOn()) fetchLoadedSet(); else if (++tries < 60) setTimeout(first, 1000); }, 800);
+  F.on("loadedSet", function (m) { showLoadedSet(m.set); });
+  // edits here to the set (its songs and pads) - so the next upload can say so before it replaces them. The digest
+  // takes the pads as the app fills them in (a song's own pads get their defaults the first time it plays).
+  function setDigest() {
+    var p = project(), norm = function (list) { return (list || []).map(function (pad, i) { return PP.mergePad ? PP.mergePad(pad, i) : pad; }); };
+    var songs = (p.songs || []).map(function (sg) { var c2 = clone(sg) || {}; if (c2.padSet) { delete c2.padSet.normalized; if (c2.padSet.pads) c2.padSet.pads = norm(c2.padSet.pads); } return c2; });
+    var text = JSON.stringify({ songs: songs, pads: norm(p.usingSongPads && p.globalPads ? p.globalPads : p.pads) }), h = 2166136261;
+    for (var i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return text.length + "-" + h.toString(16);
+  }
+  function setState(body) { return fetch(MEDIA + "/pedal/set-state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.set) showLoadedSet(j.set); }).catch(function () { }); }
+  function checkEdits() {
+    var st = loadedSet; if (!st || isControl() || !driverOn() || applying || pending) return null;
+    var dg = setDigest(), grace = window.CP_SET_GRACE != null ? window.CP_SET_GRACE : 120;   // (the first two minutes: the app settling in)
+    if (!st.digest || st.rebase || (dg !== st.digest && Date.now() / 1000 - (st.at || 0) < grace)) return setState({ digest: dg });
+    if (dg !== st.digest && !st.changed) return setState({ changed: true });
+    return null;
+  }
+  setInterval(checkEdits, 10000);
+  (function () { var st = document.createElement("style"); st.textContent = ".cp-set-chip{display:inline-block;margin:0 8px;padding:3px 10px;border-radius:999px;border:1px solid var(--line,#343A44);font-size:12px;color:var(--muted,#9AA1AB);white-space:nowrap}.cp-review{border:1px solid var(--line,#343A44);border-radius:12px;padding:10px 14px;margin:8px 0}.cp-review h3{margin:2px 0 6px}.cp-what{display:flex;flex-wrap:wrap;gap:4px 18px;padding:0;margin:0 0 6px;list-style:none}.cp-mode small{display:block}"; document.head.appendChild(st); })();
+
   // a Download: pack here, hand the files to the driver, then the package
   F.on("pedalExport", async function (m) {
     var tok = encodeURIComponent(m.token), parts = (m.want && m.want.length ? m.want : PARTS.map(function (x) { return x[0]; })).filter(function (x) { return KEYS[x]; });
@@ -318,5 +542,6 @@
   }
   addButtons();
   setTimeout(markMode, 1500);
-  window.PPTransfer = { live: liveDialog, goLive: goLive, open: open, pack: pack, apply: apply, isControl: isControl, pcmToWav: pcmToWav, upload: upload, download: download, pending: function () { return pending; } };
+  window.PPTransfer = { live: liveDialog, goLive: goLive, open: open, pack: pack, apply: apply, isControl: isControl, pcmToWav: pcmToWav, upload: upload, download: download, pending: function () { return pending; },
+    packSet: packSet, prepareSet: prepareSet, sendSet: sendSet, applySet: applySet, loadedSet: function () { return loadedSet; }, plan: function () { return plan; }, checkEdits: checkEdits, setDigest: setDigest, review: renderReview };
 })();
