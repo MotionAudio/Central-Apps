@@ -147,7 +147,7 @@ await check("key + button changes the key display", async () => {
   assert.notEqual(await page.textContent("#pfKey"), before);
 });
 await check("knob settings survive a reload", async () => {
-  await hw({ type: "knob", id: "volume", value: 0.66 }); await wait(250);
+  await hw({ type: "knob", id: "volume", value: 0.66 }); await wait(250); await T(() => PP.persistNow());   // (saved before the reload, not on a timer that can lose the race)
   await page.reload(); await page.waitForFunction(() => window.__test);
   assert.equal(await T(() => __test.performance().volume), 0.66);
   assert.equal(await T(() => __test.isPerforming()), true, "should reopen in Perform mode");
@@ -330,6 +330,28 @@ await check("Settings tab opens and explains safe mode needs the Pi", async () =
   const rows = await page.$$eval("#routingMatrix select[data-rt]", (l) => l.map((s) => s.dataset.rt));
   assert.deepEqual(rows, ["tracks", "pad", "click", "instrument"]);
   await page.click('[data-tab="pads"]');
+});
+await check("outputs: 1-2 the Pi's jack, 3-4 the DAC; quick set-ups (4 mono, 2 stereo), each bus mono or a stereo pair, buses can share an output, a USB interface adds outputs", async () => {
+  const r = await page.evaluate(async () => {
+    PPFeatures.handleHardware({ type: "systemStatus", audio: { channels: ["Headphone jack L", "Headphone jack R", "DAC board L", "DAC board R", "USB out 1", "USB out 2"], hdmi: false, usbFirst: false } });
+    PPShell.showTab("settings"); await new Promise((ok) => setTimeout(ok, 100));
+    const R = () => JSON.stringify(PP.project().routing.buses), out = {};
+    out.def = PPSettings.routingSummary().mode;
+    document.querySelector('[data-rtpreset="stereo2"]').click(); await new Promise((ok) => setTimeout(ok, 50));
+    out.stereo2 = R(); out.shared = PPSettings.routingSummary().buses.find((b) => b.id === "tracks").shared.join();
+    const sel = document.querySelector('#routingMatrix select[data-rt="click"]'); sel.value = "5s"; sel.dispatchEvent(new Event("change", { bubbles: true })); await new Promise((ok) => setTimeout(ok, 50));
+    out.custom = PPSettings.routingSummary(); out.opts = [...document.querySelectorAll('#routingMatrix select[data-rt="pad"] option')].map((o) => o.value);
+    PPSettings.stepBus("instrument", 1); out.stepped = PP.project().routing.buses.instrument;
+    document.querySelector('[data-rtpreset="mono4"]').click(); await new Promise((ok) => setTimeout(ok, 50)); out.back = R();
+    PPShell.showTab("pads"); return out;
+  });
+  assert.equal(r.def, "mono4", "4 mono outputs by default");
+  assert.equal(r.stereo2, JSON.stringify({ tracks: { ch: 1, st: true }, pad: { ch: 1, st: true }, click: { ch: 3, st: true }, instrument: { ch: 3, st: true } }));
+  assert.equal(r.shared, "Pads", "tracks and pads share 1-2 (mixed there)");
+  assert.equal(r.custom.mode, "custom"); assert.match(r.custom.buses.find((b) => b.id === "click").out, /^5–6 stereo/);
+  assert.deepEqual(r.opts, ["0", "1", "2", "3", "4", "5", "6", "1s", "3s", "5s"], "Off, each of the 6 outputs, each stereo pair");
+  assert.deepEqual(r.stepped, { ch: 5, st: true }, "the small screen steps a bus to the next choice (3–4 stereo → 5–6 stereo)");
+  assert.equal(r.back, JSON.stringify({ tracks: { ch: 1, st: false }, pad: { ch: 2, st: false }, click: { ch: 3, st: false }, instrument: { ch: 4, st: false } }));
 });
 
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));

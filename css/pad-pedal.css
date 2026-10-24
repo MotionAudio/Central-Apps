@@ -421,3 +421,8 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 .port-list { list-style: none; margin: 4px 0 0; padding: 0; max-height: 10.5em; overflow-y: auto; display: grid; gap: 2px; }
 .port-list li { overflow-wrap: anywhere; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,.04); color: var(--text); }
 .ts-quick { white-space: normal; text-align: left; justify-self: start; }
+
+/* output routing: quick set-ups and shared outputs */
+.rt-mode { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; } .rt-mode button.on { background: var(--accent); color: var(--ontext, #1A1408); border-color: var(--accent); } .rt-custom { font-size: .85em; color: var(--muted); }
+.rt-shared { color: var(--accent); }
+.audio-dev-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; max-width: calc(100vw - 32px); padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,.4); }

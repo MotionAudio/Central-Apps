@@ -192,7 +192,7 @@ if [ -f "$IMG" ] && [ "${REBUILD:-0}" != 1 ]; then
 else
   say "Building $(basename "$IMG") (the long part - leave this window open)"
   find "$WORK" -maxdepth 1 -name "central-pedal-*.img" ! -name "central-pedal-$VER*.img" -delete   # (an older version's image never gets written by mistake)
-  TFT=none SOUNDS="$SOUNDS" \
+  TFT=none FACTORY=0 SOUNDS="$SOUNDS" \
     OUT="$IMG" CACHE="$WORK/cache" bash "$SRC/build-image.sh" > "$WORK/build.log" 2>&1 &
   pid=$!
   progress_build "$pid" "$WORK/build.log" "$WORK" "$SRC" "$SOUNDS"

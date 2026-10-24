@@ -215,28 +215,22 @@ your songs and settings stay.
 No internet on the Pi? Put the newest `central-control-source.zip` on a USB stick and use
 **Settings → Update software from USB…**.
 
-### A fresh SD card
-**The easy way: one line.** Put the SD card in your Ubuntu PC, open a terminal and paste:
+### Starting a Central Pedal
+**Starting a Central Pedal** (it arrives with its card in, tested):
 
-```bash
-curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash
-```
+1. Plug in the power and your outputs. A screen on HDMI 1 is optional.
+2. On your phone, connect to the Wi-Fi **Central Pedal Setup**. The setup page opens by itself (or go to
+   http://10.42.0.1).
+3. Pick the church Wi-Fi and type its password.
+4. Type a 4-digit code: with Central Control, the main admin's code (that pairs the pedal with it); otherwise any
+   4 digits. Central Pedal Control uses the same code.
+5. Press **Upload**. The pedal joins the Wi-Fi and is ready. A wrong password? *Central Pedal Setup* comes back in
+   about a minute and the page says what happened.
 
-It asks nothing but which card (and ERASE to be sure), then downloads, builds and writes the card by itself
-(about 45 minutes the first time). Every sound fits on a 32 GB card; a 16 GB card gets all but the big grand piano.
+Later (a new building), **Settings → Wi-Fi → Turn the setup Wi-Fi on** runs it again.
 
-**First start: set it up from a phone.** Put the card in the Pi and plug in the power. With no network, the pedal
-makes its own Wi-Fi, **Central Pedal Setup**. Join it on a phone and the setup page opens by itself (or go to
-http://10.42.0.1). Pick the church Wi-Fi, the touch screen and the 4-digit code, then **Upload**:
-
-- If you use Central Control, type the main admin's code: that pairs the pedal with it.
-- If not, pick any 4 digits. Central Pedal Control connects with the same code.
-
-The pedal joins the Wi-Fi, downloads the screen's driver and restarts once. A wrong password? *Central Pedal Setup*
-comes back in about a minute and the page says what happened. Later (a new building), **Settings → Wi-Fi → Turn the
-setup Wi-Fi on** runs it again; it also comes back by itself when the saved Wi-Fi is gone for two minutes.
-
-**By hand:** build the image on your Ubuntu PC (40–60 minutes the first time, about 15 GB free):
+### Building an SD card by hand
+For the people who build the pedals. Build the image on your Ubuntu PC (40–60 minutes the first time, about 15 GB free):
 
 ```bash
 mkdir -p ~/Downloads/central && cd ~/Downloads/central
@@ -253,7 +247,16 @@ screen). Leave out the Wi-Fi and the pedal does the phone setup (**Central Pedal
 
 Flash it with **Raspberry Pi Imager** → Choose OS → **Use custom** → the `.img` → your SD
 card. When it asks about *OS customisation*, choose **No**. The first boot takes about a
-minute longer and restarts once; the screen then shows *Central Pedal* and its version.
+minute longer and restarts once, then opens the factory test.
+
+**The factory test.** The card starts in the factory test: plug a screen into HDMI 1, a
+keyboard and a mouse. It checks every footswitch (its LED blinks), knob, slider and the expression pedal, the small
+touch screen (a test pattern, its 4 corners, calibration), the outputs, the instrument input, MIDI, Wi-Fi,
+temperature, power, storage and the sound banks, and you can pick a different touch screen there (the pedal restarts
+and comes back into the test). **Save report** keeps `factory-report.json` on the pedal; **Finish**, then unplug it.
+The next start is the customer's first start: the Wi-Fi used in the test is forgotten, the touch screen stays, and it
+asks for the church Wi-Fi on their phone (**Central Pedal Setup**). `FACTORY=0` builds a card without the test.
+
 
 More options for the image (screen, password, sounds) are in [README.md](README.md).
 

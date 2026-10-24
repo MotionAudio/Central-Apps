@@ -89,7 +89,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.6.2"
+APP_VERSION = "9.7.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -2045,6 +2045,237 @@ SETUP_SSID = "Central Pedal Setup"
 SETUP_IP = "10.42.0.1"
 
 
+FACTORY_MARKERS = ("/boot/firmware/central-factory-test", "/boot/central-factory-test")
+FACTORY_CORNERS = ("tl", "tr", "bl", "br")
+
+
+class Factory:
+    """The factory test, on a card built by hand (build-image.sh puts central-factory-test on the boot partition).
+    The first start is the factory test: a checklist on HDMI 1 (keyboard and mouse) - footswitches, knobs, the small
+    screen, outputs, the instrument input, MIDI, Wi-Fi, health - and the touch screen can be changed there. Restarts the
+    test itself asks for (a new touch screen, Restart) come back into the test. Any other start - the pedal was unplugged
+    - is the customer's first start: the Wi-Fi used in the test is forgotten, the touch screen is kept, and the pedal
+    asks for the church Wi-Fi on the phone ("Central Pedal Setup") straight away.
+    data/factory.json: {"state": "factory" | "customer", "boot": the start it belongs to, "continue": true (the next
+    start stays in the test), "finished", "firstBoot" (the customer hasn't set it up yet), "screen"}"""
+
+    def __init__(self, driver, markers=None, bid=None):
+        self.driver = driver
+        self.path = os.path.join(driver.config["data_root"], "factory.json")
+        self.markers = tuple(markers if markers is not None else (driver.config.get("factory_markers") or FACTORY_MARKERS))
+        self.pattern = False        # the small screen shows the test pattern (touch the 4 corners)
+        self.corners = set()
+        self.led_until = {}
+        self.state = "none"
+        try:
+            self.state = self.decide(bid)
+        except Exception as error:   # (the pedal always starts, whatever the file says)
+            log.warning("factory: %s", error)
+
+    def load(self):
+        return read_json(self.path, {}) or {}
+
+    def save(self, j):
+        try:
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            write_json(self.path, j)
+        except Exception as error:
+            log.warning("factory: could not save (%s)", error)
+
+    def decide(self, bid=None):
+        bid = bid or boot_id()
+        j = self.load()
+        if not j:
+            if any(os.path.exists(p) for p in self.markers):
+                self.save({"state": "factory", "boot": bid, "started": time.time()})
+                log.info("factory test: the first start of a card built by hand")
+                return "factory"
+            return "none"
+        if j.get("state") == "factory":
+            if j.get("boot") == bid:
+                return "factory"            # (the driver restarted, the pedal didn't)
+            if j.get("continue"):
+                j.pop("continue", None)
+                j["boot"] = bid
+                self.save(j)
+                return "factory"            # (a restart the test asked for: a new touch screen)
+            self.to_customer(j)
+            return "customer"
+        return j.get("state") or "none"
+
+    def to_customer(self, j=None):
+        """Unplugged after the test: the customer's first start. Wi-Fi from the test forgotten, the touch screen kept."""
+        d = self.driver
+        j = dict(j if j is not None else self.load())
+        if os.path.exists(SYSTEM_SCRIPT):
+            run(["sudo", "-n", SYSTEM_SCRIPT, "wifi", "forget-all"], timeout=30)
+            run(["sudo", "-n", SYSTEM_SCRIPT, "factory-done"], timeout=30)
+        root = d.config["data_root"]
+        for name in ("code", "code-chosen", "center.json", "license-state.json"):   # (the customer picks their own code)
+            try:
+                os.remove(os.path.join(root, name))
+            except OSError:
+                pass
+        if hasattr(d, "load_code"):
+            try:
+                d.code = d.load_code()
+            except Exception:
+                pass
+        sid = touch_screen_id(d.config)
+        self.save({"state": "customer", "firstBoot": True, "screen": sid if sid != "off" else None, "since": time.time(),
+                   "tested": bool(j.get("report")), "finished": bool(j.get("finished"))})
+        log.info("factory test over: the customer's first start (touch screen kept: %s)", sid)
+
+    # ----- what the pedal is now
+    @property
+    def on(self):
+        return self.state == "factory"
+
+    def first_boot(self):
+        return self.state == "customer" and bool(self.load().get("firstBoot"))
+
+    def screen_set(self):
+        return self.state == "customer" and bool(self.load().get("screen"))
+
+    def setup_done(self):
+        j = self.load()
+        if j.get("firstBoot"):
+            j["firstBoot"] = False
+            self.save(j)
+
+    def continue_next(self):
+        """The next start (a restart the test asks for) stays in the factory test."""
+        if self.on:
+            j = self.load()
+            j["continue"] = True
+            self.save(j)
+
+    def info(self):
+        j = self.load()
+        return {"state": self.state, "on": self.on, "finished": bool(j.get("finished")), "firstBoot": self.first_boot(),
+                "screenSet": self.screen_set(), "pattern": self.pattern, "corners": sorted(self.corners)}
+
+    # ----- the test page's questions
+    def status(self, scan=False):
+        d = self.driver
+        root = d.config["data_root"]
+        banks = []
+        for folder in ("/opt/pad-pedal/sounds", os.path.join(d.config.get("app_root") or "", "sounds")):
+            try:
+                banks += [f for f in os.listdir(folder) if f.lower().endswith(SF2_EXTENSIONS)]
+            except OSError:
+                pass
+        sid = touch_screen_id(d.config)
+        scr = screen_by_id(d.config.get("app_root"), sid) if sid != "off" else None
+        wifi = wifi_status(scan=scan) if shutil.which("nmcli") else {"available": False, "networks": [], "error": "NetworkManager is not installed."}
+        mini = getattr(d, "mini", None)
+        leds = getattr(d, "leds", {}) or {}
+        return {"type": "factoryStatus", **self.info(), "version": APP_VERSION, "health": pi_health(root), "banks": sorted(set(banks)),
+                "inputs": d.config.get("inputs") or [], "leds": sorted(leds), "ledFollows": {k: (v.get("follows") or k) for k, v in leds.items()},
+                "midiPorts": d.midi.ports() if getattr(d, "midi", None) else {"inputs": [], "outputs": []}, "soundCards": sound_cards(),
+                "wifi": {"available": wifi.get("available"), "networks": len(wifi.get("networks") or []), "error": wifi.get("error")},
+                "touchScreen": sid, "touchScreenName": (scr or {}).get("name") or ("No touch screen" if sid == "off" else sid),
+                "touchScreens": screens_catalog(d.config.get("app_root")), "miniScreen": bool(mini and mini.available and mini.fb_present()),
+                "miniTouch": getattr(mini, "touch_name", None) if mini else None, "framebuffers": framebuffers(),
+                "report": read_json(os.path.join(root, "factory-report.json"), None)}
+
+    def blink(self, led_id, seconds=2.0):
+        """Blink one LED for a moment (whatever the app had it doing), then back to the app's state."""
+        d = self.driver
+        entry = (getattr(d, "leds", {}) or {}).get(led_id)
+        if not entry:
+            return False
+        try:
+            entry["led"].blink(on_time=0.12, off_time=0.12, background=True)
+        except Exception:
+            return False
+        until = time.monotonic() + seconds
+        self.led_until[led_id] = until
+
+        def back():
+            time.sleep(seconds + 0.05)
+            if self.led_until.get(led_id) == until:
+                self.led_until.pop(led_id, None)
+                d.update_leds()
+        threading.Thread(target=back, daemon=True).start()
+        return True
+
+    def corner(self, c):
+        if c in FACTORY_CORNERS and self.pattern:
+            self.corners.add(c)
+            self.announce()
+
+    def set_pattern(self, on):
+        self.pattern = bool(on) and self.on
+        self.corners = set()
+        self.announce()
+
+    def report(self, results):
+        root = self.driver.config["data_root"]
+        rep = {"saved": time.strftime("%Y-%m-%d %H:%M:%S"), "version": APP_VERSION, "hostname": socket.gethostname(), "device": device_id(),
+               "touchScreen": touch_screen_id(self.driver.config), "results": results if isinstance(results, dict) else {}}
+        write_json(os.path.join(root, "factory-report.json"), rep)
+        j = self.load()
+        j["report"] = rep["saved"]
+        self.save(j)
+        return rep
+
+    def finish(self):
+        j = self.load()
+        j["finished"] = True
+        self.save(j)
+        self.pattern = False
+        self.announce()
+
+    def announce(self):
+        d = self.driver
+        if getattr(d, "loop", None) is not None:
+            try:
+                d.loop.call_soon_threadsafe(d.emit, {"type": "factory", **self.info()})
+                d.loop.call_soon_threadsafe(d.schedule_mini_render, True)
+            except Exception:
+                pass
+
+    def handle(self, message, ws):
+        """{type: "factory", action: status | scan | led | pattern | corner | report | finish | screen | restart}"""
+        d = self.driver
+        a = message.get("action")
+        if a in ("status", "scan"):
+            def go():
+                st = self.status(scan=a == "scan")
+                if d.loop is not None:
+                    if ws is not None:
+                        d.loop.call_soon_threadsafe(d.send_to, ws, st)
+                    else:
+                        d.loop.call_soon_threadsafe(d.emit, st)
+            threading.Thread(target=go, daemon=True).start()
+            return
+        if a == "led":
+            self.blink(str(message.get("id") or ""), float(message.get("seconds") or 2))
+        elif a == "pattern":
+            self.set_pattern(message.get("on"))
+        elif a == "corner":
+            self.corner(str(message.get("corner") or ""))
+        elif a == "report":
+            rep = self.report(message.get("results"))
+            if ws is not None:
+                d.send_to(ws, {"type": "factoryReport", "ok": True, "report": rep})
+        elif a == "finish":
+            self.finish()
+        elif a == "screen":   # a different touch screen: set it, and come back into the test after the restart
+            result = d.set_touch_screen(str(message.get("value") or "off"))
+            if result.get("ok"):
+                self.continue_next()
+            if ws is not None:
+                d.send_to(ws, dict(result, type="factoryScreen"))
+            if result.get("ok") and message.get("restart") and not d.config.get("simulated"):
+                run_privileged("/usr/sbin/shutdown", "-r", "now")
+        elif a == "restart":   # (back into the test afterwards)
+            self.continue_next()
+            if not d.config.get("simulated"):
+                run_privileged("/usr/sbin/shutdown", "-r", "now")
+
+
 class PhoneSetup:
     """Phone setup: a Central Pedal with no network makes its own open Wi-Fi, "Central Pedal Setup". A phone that joins
     it opens the setup page by itself (every name answers 10.42.0.1 and port 80 sends everything to /setup): pick the
@@ -2096,10 +2327,21 @@ class PhoneSetup:
         """At start and whenever the pedal has been offline a while: the setup Wi-Fi."""
         if not self.available():
             return
-        time.sleep(15)
+        fx = getattr(self.driver, "factory", None)
+        while fx is not None and fx.on and not self.stopping:   # (the factory test: the tester's own network, no setup Wi-Fi)
+            time.sleep(5)
+        if fx is not None and fx.first_boot() and not self.online():
+            time.sleep(3)   # (the customer's first start after the factory test: ask for the Wi-Fi straight away)
+            if not self.online() and not self.saved_wifi():
+                self.start("the customer's first start")
+        else:
+            time.sleep(15)
         offline_since = None
         while not self.stopping:
             try:
+                if fx is not None and fx.on:
+                    time.sleep(5)
+                    continue
                 if self.on:
                     quiet = time.monotonic() - max(self.since, self.last_seen)
                     if not self.busy and quiet > self.RETRY_SAVED and self.saved_wifi():
@@ -2223,7 +2465,10 @@ class PhoneSetup:
                 connected = wifi_status().get("connected")
             except Exception:
                 connected = None
-        return {"setupWifi": self.on, "local": bool(local and self.on), "networks": self.networks if self.on else (wifi_status(scan=True).get("networks") or []),
+        fx = getattr(d, "factory", None)
+        screen_set = bool(fx and fx.screen_set())
+        return {"setupWifi": self.on, "local": bool(local and self.on), "screenSet": screen_set,
+                "screenName": (screen_by_id(d.config.get("app_root"), current) or {}).get("name") if current != "off" else "No touch screen", "networks": self.networks if self.on else (wifi_status(scan=True).get("networks") or []),
                 "connected": connected, "screens": screens, "screen": current if current != "off" else ("rpi35-xpt2046" if not d.config.get("touch_screen") else "off"),
                 "codeChosen": d.code_chosen(), "center": d.center_link.info() if getattr(d, "center_link", None) else None,
                 "error": self.error, "busy": self.busy, "joined": self.joined, "name": socket.gethostname(), "version": APP_VERSION}
@@ -2277,6 +2522,8 @@ class PhoneSetup:
                     return
                 self.joined = ssid
                 log.info("phone setup: joined %s", ssid)
+                if getattr(d, "factory", None):
+                    d.factory.setup_done()
             restart = False
             if sid and sid != touch_screen_id(d.config):
                 r = d.set_touch_screen(sid)
@@ -2967,13 +3214,37 @@ class MiniScreen:
             box = [W - 110, H - 50, W - 10, H - 10]
             hits = []
             self.button(g, hits, box, "DONE", {"name": "tuner"}, fill=(21, 42, 67))
+        fx = getattr(self.driver, "factory", None)
+        if fx and fx.on and fx.pattern:
+            # the factory test: colour bars, a grid, and the 4 corners to touch
+            hits = []
+            bars = [(255, 255, 255), (255, 220, 0), (0, 220, 220), (0, 200, 0), (220, 0, 220), (230, 30, 30), (30, 60, 230), (0, 0, 0)]
+            bw = W / len(bars)
+            for i, col in enumerate(bars):
+                g.rectangle([int(i * bw), 0, int((i + 1) * bw), H], fill=col)
+            for x in range(0, W, 40):
+                g.line([x, 0, x, H], fill=(70, 70, 70), width=1)
+            for y in range(0, H, 40):
+                g.line([0, y, W, y], fill=(70, 70, 70), width=1)
+            g.rectangle([0, 0, W - 1, H - 1], outline=(255, 255, 255), width=2)
+            box = [W / 2 - 150, H / 2 - 34, W / 2 + 150, H / 2 + 34]
+            g.rounded_rectangle(box, radius=10, fill=(17, 19, 23))
+            self.text(g, (W / 2, H / 2 - 12), "FACTORY TEST", self.F["title"], C["accent"], "mm")
+            self.text(g, (W / 2, H / 2 + 12), "Touch the 4 corners  (%d / 4)" % len(fx.corners), self.F["btn"], C["text"], "mm")
+            r = 26
+            for cid, (cx, cy) in (("tl", (r + 6, r + 6)), ("tr", (W - r - 6, r + 6)), ("bl", (r + 6, H - r - 6)), ("br", (W - r - 6, H - r - 6))):
+                done = cid in fx.corners
+                g.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(34, 128, 92) if done else (17, 19, 23), outline=(255, 255, 255), width=3)
+                g.line([cx - 10, cy, cx + 10, cy], fill=(255, 255, 255), width=2)
+                g.line([cx, cy - 10, cx, cy + 10], fill=(255, 255, 255), width=2)
+                hits.append(([cx - r - 18, cy - r - 18, cx + r + 18, cy + r + 18], {"local": "factoryCorner", "corner": cid}))
         ps = getattr(self.driver, "phone_setup", None)
-        if ps and (ps.on or ps.busy):
+        if ps and (ps.on or ps.busy) and not (fx and fx.on):
             # phone setup takes the whole small screen: what to do on the phone
             g.rectangle([0, 0, W, H], fill=C["bg"])
             self.text(g, (14, 12), "Set up with your phone", self.F["title"], C["text"])
             lines = (["The pedal is joining the Wi-Fi…"] if ps.busy else
-                     ["1. On your phone, join the Wi-Fi", "    \"%s\"" % SETUP_SSID, "2. The setup page opens by itself", "    (or go to %s)" % SETUP_IP, "3. Pick the Wi-Fi, screen and code,", "    then Upload"])
+                     ["Please connect to", "    \"%s\"" % SETUP_SSID, "on your phone's Wi-Fi.", "The setup page opens by itself", "    (or go to %s)" % SETUP_IP, "Pick the church Wi-Fi and a code."])
             for i, line in enumerate(lines):
                 self.text(g, (14, 52 + i * 27), line, self.F["btn"], C["accent"] if line.startswith("    \"") else C["text"])
             if ps.error:
@@ -3447,6 +3718,8 @@ class MiniScreen:
             self.driver.system_action({"action": "displays", "config": {"hdmi%d" % n: opts[(i + int(a.get("d") or 1)) % len(opts)]}}, None)
         elif kind == "restartScreens" and self.driver:
             self.driver.system_action({"action": "restartSession"}, None)
+        elif kind == "factoryCorner" and self.driver and getattr(self.driver, "factory", None):
+            self.driver.factory.corner(a.get("corner"))
         elif kind == "setupStop" and self.driver and getattr(self.driver, "phone_setup", None):
             threading.Thread(target=self.driver.phone_setup.stop, daemon=True).start()
         elif kind == "calibrate" and self.driver:
@@ -7095,6 +7368,7 @@ class PedalDriver:
         self.cu_roles = CuRoles(self, os.path.join(data_root, "cu-roles.json"))
         self.service_plan = ServicePlan(self, os.path.join(data_root, "services.json"))
         self.center_link = CenterLink(self, os.path.join(data_root, "center.json"))
+        self.factory = Factory(self)
         self.phone_setup = PhoneSetup(self)
         self.service_log = ServiceLog(os.path.join(data_root, "service-log"))
         self.transfer = PedalTransfer(self)
@@ -7237,6 +7511,8 @@ class PedalDriver:
             "lanWsPort": self.config["lan_ws_port"],
             "leds": sorted(self.leds),
             "adcs": ["0x%02x" % a for a, adc in self.adcs.items() if adc],
+            "factory": self.factory.info() if getattr(self, "factory", None) else None,
+            "phoneSetup": self.phone_setup.status() if getattr(self, "phone_setup", None) else None,
         }
 
     async def broadcast(self, message, lan=False):
@@ -7460,6 +7736,8 @@ class PedalDriver:
                 playing = [] if not isinstance(p, int) or p < 0 else [p]
             self.state["playing"] = [int(i) for i in playing]
             self.state["selected"] = int(message.get("selected", 0))
+        elif kind == "factory" and getattr(self, "factory", None):
+            self.factory.handle(message, ws)
         elif kind == "pairCode":
             result = self.set_code(message.get("pin"))
             self.send_to(ws, dict(result, type="pairCodeReply"))
@@ -7812,6 +8090,38 @@ class PedalDriver:
         threading.Timer(2.0, lambda: run(["sudo", "-n", "/usr/local/sbin/pad-pedal-system", "restart-app"], timeout=30)).start()
         return {"ok": True, "message": out.strip()[-400:]}
 
+    def usb_audio_cards(self):
+        """The USB audio interfaces plugged in now (from /proc/asound/cards)."""
+        return sorted(c.split(" ", 1)[1].split(" - ", 1)[-1].strip() for c in sound_cards() if "USB-Audio" in c)
+
+    def audio_devices_changed(self):
+        """A USB interface plugged in (or out) since the screens started: its outputs are used once the screens restart
+        (the combined output is made when they start). None when nothing changed."""
+        now = self.usb_audio_cards()
+        planned = [c.get("desc") or c.get("name") or "" for c in self.audio_config().get("cards") or [] if c.get("kind") == "usb"]
+        if bool(now) == bool(planned) and len(now) == len(planned):
+            return None
+        return {"type": "audioDevicesChanged", "usb": now, "inUse": planned,
+                "message": ("%s is plugged in: restart the screens to use its outputs (from 5 up)." % now[0]) if now and not planned else
+                           ("The USB interface is unplugged: restart the screens to go back to the jack and the DAC board.") if planned and not now else
+                           "The USB interfaces changed: restart the screens to use them."}
+
+    def watch_audio_devices(self):
+        if not os.path.exists(SYSTEM_SCRIPT):
+            return
+        time.sleep(20)
+        last = None
+        while True:
+            try:
+                ch = self.audio_devices_changed()
+                key = json.dumps(ch, sort_keys=True) if ch else None
+                if key != last and self.loop is not None:
+                    last = key
+                    self.loop.call_soon_threadsafe(self.emit, ch or {"type": "audioDevicesChanged", "usb": self.usb_audio_cards(), "settled": True})
+            except Exception as error:
+                log.debug("audio devices: %s", error)
+            time.sleep(4)
+
     def audio_config(self):
         cfg = read_json(os.path.join(self.config["data_root"], "audio.json"), {"hdmi": False, "usbFirst": False})
         chans = read_json(os.path.join(self.config["data_root"], "audio-channels.json"), {})
@@ -7987,6 +8297,8 @@ class PedalDriver:
                 run_privileged("/usr/sbin/shutdown", "-h", "now")
             elif action == "reboot":
                 log.info("restarting (requested from the app)")
+                if getattr(self, "factory", None):
+                    self.factory.continue_next()   # (during the factory test: back into the test)
                 run_privileged("/usr/sbin/shutdown", "-r", "now")
             elif action == "audio":
                 cfg = {"hdmi": bool(message.get("hdmi")), "usbFirst": bool(message.get("usbFirst"))}
@@ -8203,7 +8515,10 @@ class PedalDriver:
 
     # ----- LEDs ---------------------------------------------------------------
     def update_leds(self):
+        held = getattr(getattr(self, "factory", None), "led_until", {})
         for led_id, entry in self.leds.items():
+            if led_id in held:   # (the factory test is blinking it)
+                continue
             state = self.led_states.get(entry.get("follows") or led_id, "off")
             led = entry["led"]
             try:
@@ -8438,6 +8753,7 @@ class PedalDriver:
             log.debug("displays: %s", error)
         threading.Thread(target=self.auto_touch_screen, daemon=True).start()
         threading.Thread(target=self.phone_setup.watch, daemon=True).start()
+        threading.Thread(target=self.watch_audio_devices, daemon=True).start()
         self.start_gpio()
         self.start_analog()
         tasks = []

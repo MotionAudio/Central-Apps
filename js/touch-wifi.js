@@ -91,7 +91,7 @@
       document.body.appendChild(d);
       d.addEventListener("click", function (e) { if (e.target.closest("[data-wf=phoneOff]")) d.close(); });
     }
-    d.innerHTML = "<h2>Set up with your phone</h2><ol><li>On your phone, join the Wi-Fi <b>" + esc(phone.ssid || "Central Pedal Setup") + "</b>.</li><li>The setup page opens by itself (or go to " + esc(phone.address || "http://10.42.0.1/") + ").</li><li>Pick the church Wi-Fi, the touch screen and the 4-digit code, then Upload.</li></ol>" +
+    d.innerHTML = "<h2>Please connect to <b>" + esc(phone.ssid || "Central Pedal Setup") + "</b> on your phone's Wi-Fi</h2><ol><li>The setup page opens by itself (or go to " + esc(phone.address || "http://10.42.0.1/") + ").</li><li>Pick the church Wi-Fi and type its password.</li><li>Type the 4-digit code, then Upload. The pedal connects to the internet by itself.</li></ol>" +
       (phone.error ? '<p class="warn">' + esc(phone.error) + "</p>" : "") +
       '<p class="muted small">Or set the Wi-Fi up here: Not now, then Settings → Wi-Fi.</p><div class="row"><button data-wf="phoneOff">Not now</button></div>';
     if (!d.open) d.showModal();

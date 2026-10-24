@@ -50,35 +50,73 @@
     var out = []; for (var i = 1; i <= n; i++) out.push(list && list[i - 1] ? i + " · " + list[i - 1] : "Output " + i);
     return out;
   }
+  // each bus goes to one output (mono) or a pair (stereo); several buses can share an output (they're mixed there).
+  // Presets: 4 mono (1 tracks · 2 pads · 3 click · 4 instrument) or 2 stereo (tracks + pads on 1-2, click + instrument on 3-4).
+  var PRESET_ROUTES = {
+    mono4: { tracks: { ch: 1, st: false }, pad: { ch: 2, st: false }, click: { ch: 3, st: false }, instrument: { ch: 4, st: false } },
+    stereo2: { tracks: { ch: 1, st: true }, pad: { ch: 1, st: true }, click: { ch: 3, st: true }, instrument: { ch: 3, st: true } }
+  };
+  function routeOptions(n) {   // [{v: "3" | "1s", ch, st, label}]: Off, every output, every stereo pair
+    var names = channelNames(), out = [{ v: "0", ch: 0, st: false, label: "Off" }];
+    for (var c = 1; c <= n; c++) out.push({ v: String(c), ch: c, st: false, label: names[c - 1] });
+    for (var p = 1; p < n; p += 2) out.push({ v: p + "s", ch: p, st: true, label: p + "–" + (p + 1) + " stereo" + pairName(names, p) });
+    return out;
+  }
+  function pairName(names, p) { var a = (names[p - 1] || "").replace(/^\d+ · /, "").replace(/ (L|left)$/i, ""), b = (names[p] || "").replace(/^\d+ · /, "").replace(/ (R|right)$/i, ""); return a && a === b ? " · " + a : ""; }
+  function busValue(b) { return !b || !b.ch ? "0" : b.ch + (b.st ? "s" : ""); }
+  function busOut(b) { if (!b || !b.ch) return "Off"; var names = channelNames(); return b.st ? b.ch + "–" + (b.ch + 1) + " stereo" + pairName(names, b.ch) : names[b.ch - 1] || "Output " + b.ch; }
+  function presetOf(r) { var hit = Object.keys(PRESET_ROUTES).filter(function (k) { var p = PRESET_ROUTES[k]; return BUSES.every(function (b) { var x = r.buses[b[0]] || {}; return (x.ch || 0) === p[b[0]].ch && !!x.st === p[b[0]].st; }); })[0]; return hit || "custom"; }
+  function sharing(r, bus) {   // the other buses on (part of) the same outputs
+    var me = r.buses[bus]; if (!me || !me.ch) return [];
+    var mine = me.st ? [me.ch, me.ch + 1] : [me.ch];
+    return BUSES.filter(function (b) { if (b[0] === bus) return false; var o = r.buses[b[0]]; if (!o || !o.ch) return false; var theirs = o.st ? [o.ch, o.ch + 1] : [o.ch]; return theirs.some(function (c) { return mine.indexOf(c) >= 0; }); }).map(function (b) { return b[1]; });
+  }
   function renderRouting(into) {
     var root = into || $("#routingMatrix"); if (!root) return;
-    var r = project().routing, names = channelNames(), live = engine.routing || {}, stereo = r.mode === "stereo";
-    root.innerHTML = '<div class="rt-mode"><label class="toggle"><input type="radio" name="rtMode" value="mono4"' + (!stereo ? " checked" : "") + "> Four mono outputs (recommended)</label><label class=\"toggle\"><input type=\"radio\" name=\"rtMode\" value=\"stereo\"" + (stereo ? " checked" : "") + "> Stereo pairs (each bus on two outputs)</label></div>" +
-      '<table class="rt-table"><thead><tr><th>Bus</th><th>Output' + (stereo ? "s" : "") + "</th><th>Now</th><th></th></tr></thead><tbody>" +
+    var r = project().routing, n = channelNames().length, opts = routeOptions(n), live = engine.routing || {}, pre = presetOf(r);
+    root.innerHTML = '<div class="rt-mode"><span class="muted">Quick set-ups:</span>' +
+      '<button class="' + (pre === "mono4" ? "on" : "") + '" data-rtpreset="mono4" title="1 tracks · 2 pads · 3 click + voice · 4 instrument">4 mono outputs</button>' +
+      '<button class="' + (pre === "stereo2" ? "on" : "") + '" data-rtpreset="stereo2" title="Tracks + pads on 1–2 · click + instrument on 3–4">2 stereo outputs</button>' +
+      (pre === "custom" ? '<span class="rt-custom">Your own</span>' : "") + "</div>" +
+      '<table class="rt-table"><thead><tr><th>Bus</th><th>Goes to</th><th>Now</th></tr></thead><tbody>' +
       BUSES.map(function (b) {
-        var ch = r.buses[b[0]] ? r.buses[b[0]].ch : 0, now = b[0] === "instrument" ? (connected() ? (ch > 0 ? "channel " + ch + (stereo ? "-" + (ch + 1) : "") : "off") : "on the Pi only") : (live.buses && live.buses[b[0]] ? (live.buses[b[0]] === "off" ? "off" : "channel " + live.buses[b[0]]) : "—");
-        return '<tr><td><b>' + b[1] + '</b><br><small>' + b[2] + '</small></td><td><select data-rt="' + b[0] + '"><option value="0"' + (ch === 0 ? " selected" : "") + ">Off</option>" + names.map(function (n, i) { var c = i + 1; if (stereo && c + 1 > names.length) return ""; return '<option value="' + c + '"' + (ch === c ? " selected" : "") + ">" + esc(stereo ? c + "-" + (c + 1) + " · " + n.replace(/^\d+ · /, "") : n) + "</option>"; }).join("") + "</select></td><td><small>" + esc(now) + "</small></td><td>" + (b[0] === "instrument" ? "" : '<button data-rt-test="' + b[0] + '" title="Half a second of tone on this bus">♪ Test</button>') + "</td></tr>";
+        var bus = r.buses[b[0]] || { ch: 0 }, shared = sharing(r, b[0]), now = b[0] === "instrument" ? (connected() ? (bus.ch > 0 ? busOut(bus) : "off") : "on the Pi only") : (live.buses && live.buses[b[0]] ? (live.buses[b[0]] === "off" ? "off" : live.buses[b[0]]) : "—");
+        var cur = busValue(bus), has = opts.some(function (o) { return o.v === cur; });
+        return '<tr><td><b>' + b[1] + '</b><br><small>' + b[2] + '</small></td><td><select data-rt="' + b[0] + '">' + (has ? "" : '<option value="' + cur + '" selected>' + esc(busOut(bus)) + " (not connected)</option>") +
+          '<optgroup label="One output (mono)">' + opts.filter(function (o) { return !o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" +
+          (n >= 2 ? '<optgroup label="A pair (stereo)">' + opts.filter(function (o) { return o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" : "") +
+          "</select>" + (shared.length ? '<br><small class="rt-shared">mixed with ' + esc(shared.join(" and ")) + "</small>" : "") + "</td><td>" + esc(now) + "</td></tr>";
       }).join("") + "</tbody></table>" +
-      '<p class="muted">' + (live.mode === "stereo2" ? "This device only has 2 outputs: tracks and pads share them; the click uses the fallback chosen under Output device. On the Central Pedal the jack + DAC (+ USB interface) give 4 or more." : "Default cables: 1 = headphone jack left (tracks), 2 = jack right (pads), 3 = DAC left (click + voice to the in-ear mix), 4 = DAC right (instrument). A USB interface adds channels 5 and up.") + "</p>";
+      '<p class="muted">' + (live.mode === "stereo2" ? "This device only has 2 outputs: tracks and pads share them; the click uses the fallback chosen under Output device. On the Central Pedal the jack + DAC (+ USB interface) give 4 or more." : "On the Central Pedal: 1–2 are the Pi's own headphone jack (left, right), 3–4 the DAC board. A USB audio interface adds its outputs from 5 up, as soon as it's plugged in. Several buses on one output are mixed there.") + "</p>";
   }
+  function setBus(bus, v) { var r = project().routing, s = String(v || "0"); r.buses[bus] = { ch: parseInt(s, 10) || 0, st: /s$/.test(s) }; r.mode = presetOf(r) === "stereo2" ? "stereo2" : presetOf(r) === "mono4" ? "mono4" : "custom"; }
+  function applyRouting() { var r = project().routing; engine.routeOutput(); PP.persistSoon(); renderRouting(); if (window.PPIO) window.PPIO.render(); send({ type: "routing", routing: r }); }   // (the Pi links the native instrument chain to its output)
   function onRouting(e) {
     var el = e.target, r = project().routing;
-    if (el.name === "rtMode") { r.mode = el.value; }
-    else if (el.dataset.rt) { r.buses[el.dataset.rt] = { ch: Number(el.value) || 0 }; }
+    if (el.dataset && el.dataset.rtpreset) { var p = PRESET_ROUTES[el.dataset.rtpreset]; BUSES.forEach(function (b) { r.buses[b[0]] = { ch: p[b[0]].ch, st: p[b[0]].st }; }); r.mode = el.dataset.rtpreset; }
+    else if (el.dataset && el.dataset.rt) setBus(el.dataset.rt, el.value);
     else return;
-    engine.routeOutput(); PP.persistSoon(); renderRouting(); if (window.PPIO) window.PPIO.render();
-    send({ type: "routing", routing: r }); // the Pi links the native instrument chain to its channel
+    applyRouting();
   }
+  document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("[data-rtpreset]"); if (b) onRouting({ target: b }); });
 
-  // the small touch screen's Settings: step a bus to the next / previous output (0 = off)
+  // a USB audio interface plugged in (or out) while the pedal is on: its outputs need the screens restarted
+  F.on("audioDevicesChanged", function (m) {
+    var bar = document.getElementById("audioDevBar");
+    if (m.settled || !m.message) { if (bar) bar.remove(); return; }
+    if (!bar) { bar = document.createElement("div"); bar.id = "audioDevBar"; bar.className = "audio-dev-bar"; document.body.appendChild(bar); }
+    bar.innerHTML = "<span>" + esc(m.message) + '</span><button class="primary" data-adb="restart">Restart the screens</button><button data-adb="later">Later</button>';
+    bar.onclick = function (e) { var b = e.target.closest("[data-adb]"); if (!b) return; if (b.dataset.adb === "restart") { if (window.PPTracks && window.PPTracks.isPlaying && window.PPTracks.isPlaying() && !confirm("Something is playing. Restart the screens now?")) return; PP.persistNow(); send({ type: "system", action: "restartSession" }); } bar.remove(); };
+  });
+
+  // the small touch screen's Settings: step a bus through Off, every output, every stereo pair
   function stepBus(bus, delta) {
     var r = project().routing; if (!BUSES.some(function (b) { return b[0] === bus; })) return false;
-    var n = channelNames().length, max = r.mode === "stereo" ? n - 1 : n, ch = r.buses[bus] ? r.buses[bus].ch || 0 : 0;
-    ch = (ch + (delta < 0 ? -1 : 1) + max + 1) % (max + 1);
-    r.buses[bus] = { ch: ch }; engine.routeOutput(); PP.persistSoon(); renderRouting(); if (window.PPIO) window.PPIO.render();
-    send({ type: "routing", routing: r }); return true;
+    var opts = routeOptions(channelNames().length), i = opts.map(function (o) { return o.v; }).indexOf(busValue(r.buses[bus]));
+    var o = opts[((i < 0 ? 0 : i) + (delta < 0 ? -1 : 1) + opts.length) % opts.length];
+    setBus(bus, o.v); applyRouting(); return true;
   }
-  function routingSummary() { var r = project().routing, names = channelNames(); return { mode: r.mode === "stereo" ? "stereo" : "mono4", buses: BUSES.map(function (b) { var ch = r.buses[b[0]] ? r.buses[b[0]].ch || 0 : 0; return { id: b[0], name: b[1], ch: ch, out: ch ? names[ch - 1] || "Output " + ch : "Off" }; }) }; }
+  function routingSummary() { var r = project().routing; return { mode: presetOf(r), buses: BUSES.map(function (b) { var x = r.buses[b[0]] || {}; return { id: b[0], name: b[1], ch: x.ch || 0, st: !!x.st, out: busOut(x), shared: sharing(r, b[0]) }; }) }; }
 
   // ------------------------------------------------------------- sub-navigation
   var GROUPS = [["all", "All"], ["look", "Appearance"], ["setups", "Saved setups"], ["audio", "Audio"], ["midi", "MIDI & tempo"], ["screens", "Screens"], ["network", "Wi-Fi & devices"], ["system", "System"]];

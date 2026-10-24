@@ -17,6 +17,10 @@
 #   WIFI_SSID="Church WiFi" WIFI_PASS="secret" WIFI_COUNTRY=US
 #   PEDAL_KEY=PXXX-XXXX-XXXX-XXXX     this pedal's P license key (from the website: the order, or Keys · staff);
 #                                   the pedal offers it when it first opens. (Or put pad-pedal-key.txt on the card later.)
+#   FACTORY=1|0                     1 (default): the first start is the factory test on HDMI 1 (keyboard and mouse:
+#                                   footswitches, knobs, small screen, outputs, input, MIDI, Wi-Fi, health; change the
+#                                   touch screen there). Unplug it afterwards: the next start is the customer's first start
+#                                   ("Central Pedal Setup" on their phone). 0: no factory test.
 #   TFT=rpi35-xpt2046|none|<id>     the small touch screen (default: the blue 3.5" XPT2046 board, HDMI 1 still shows
 #                                   the full app; none = no small screen; ids in screens.json; Settings can change it)
 #   I2S_DAC=on|off                  PCM5102A click / instrument output board (default: on)
@@ -54,6 +58,8 @@ SAFE_MODE="${SAFE_MODE:-on}"
 EXTRA_MB="${EXTRA_MB:-}"           # how much to grow the system partition; worked out from the sound banks unless set
 SOUNDS="${SOUNDS:-full}"        # full | small (no 1.2 GB Salamander grand) | none
 COMPRESS="${COMPRESS:-0}"
+FACTORY="${FACTORY:-1}"         # 1: the first start is the factory test (HDMI 1, keyboard and mouse); unplugged after it, the
+                                # next start is the customer's (phone setup). 0: straight to the customer's start.
 
 say()  { printf '\n\033[1;32m==> %s\033[0m\n' "$*"; }
 die()  { printf '\n\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
@@ -63,7 +69,7 @@ say "Building Central Pedal OS $VER from $HERE"
 for old in "$HERE"/pad-pedal-os.img "$HERE"/pad-pedal-os.img.xz; do
   [ -e "$old" ] && printf '    note: %s is an image from an OLDER version (before 7.1) - delete it so it never gets flashed by mistake\n' "$(basename "$old")"
 done
-FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/pedal-job.js js/touch-wifi.js js/shell.js
+FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/factory-test.js js/pedal-job.js js/touch-wifi.js js/shell.js
        js/textures.js js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js
        instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py
        companion/index.html companion/lyrics.html companion/stage.html companion/upload.html companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css
@@ -218,6 +224,10 @@ chroot "$MNT" /usr/bin/env -i HOME=/root TERM=xterm LANG=C.UTF-8 \
   WIFI_SSID="$WIFI_SSID" WIFI_PASS="$WIFI_PASS" WIFI_COUNTRY="$WIFI_COUNTRY" TFT="$TFT" I2S_DAC="$I2S_DAC" SAFE_MODE="$SAFE_MODE" \
   /bin/bash /tmp/pad-pedal-src/setup-pi.sh
 
+if [ "$FACTORY" = 1 ]; then   # the factory test on the first start (pedal-driver.py: Factory)
+  printf 'Central Pedal factory test: the first start tests the pedal on HDMI 1. Unplug it afterwards: the next start is the customer'"'"'s.\n' > "$BOOTMNT/central-factory-test"
+  echo "    factory test on the first start"
+fi
 if [ -n "$PEDAL_KEY" ]; then   # this pedal's license key, on the boot partition (the driver offers it to the app)
   printf '%s\n' "$PEDAL_KEY" > "$BOOTMNT/pad-pedal-key.txt"
   echo "    license key put on the card"

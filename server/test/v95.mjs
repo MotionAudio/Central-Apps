@@ -323,8 +323,8 @@ try {
   const dl = await j("GET", "/downloads", null, solo);
   const dlU = dl.apps.find((a) => a.kind === "U"), dlP = dl.apps.find((a) => a.kind === "P");
   ok(dlU && dlP && dlU.keys.length === 1 && /#usage$/.test(dlU.download) && dlU.steps.windows.length && dlU.steps.mac.length && dlU.steps.android && /bash -s usage/.test(dlU.linuxCommand) && /Safari/.test(dlU.phone)
-    && dl.pedals.length === 1 && /Nashville/.test(dl.pedals[0].shipsTo) && dl.pedalSetup.some((s) => /Central Pedal Setup/.test(s)) && /#making-your-own-sd-card$/.test(dl.sdCard),
-    "Downloads: a card per app (download link, steps for each computer and phone, the key) and the pedal (where it ships, the phone setup, the SD card guide)", dl);
+    && dl.pedals.length === 1 && /Nashville/.test(dl.pedals[0].shipsTo) && dl.pedalSetup.some((s) => /Central Pedal Setup/.test(s)) && dl.sdCard === undefined,
+    "Downloads: a card per app (download link, steps for each computer and phone, the key) and the pedal (where it ships, the phone setup; no SD card maker)", dl);
   const sUse = await useKey(dlU.keys[0].key, "usage");
   ok(sUse.ok && (await j("POST", "/license/link", { key: dlU.keys[0].key, device: sUse.device }, solo)).ok && !(await j("GET", "/me", null, solo)).church, "the key works and signs in with the buyer's account; still no church");
   ok((await j("POST", "/church/release", { key: dlU.keys[0].key }, solo)).ok && (await check(dlU.keys[0].key, sUse.device)).ok === false, "the buyer can release their own key (Downloads → Release)");

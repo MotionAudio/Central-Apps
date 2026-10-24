@@ -135,25 +135,28 @@ flowchart LR
 
 1. **Install the apps.** The [download page](https://motionaudio.github.io/Central-Apps/) picks the right file for
    your device. Step-by-step help and Linux commands are in [INSTALL.md](INSTALL.md).
-2. **Set up the Central Pedal.** Build the SD card image on an Ubuntu PC ([details below](#the-raspberry-pi-image)),
-   flash it and boot. It goes straight to the Central Pedal screen.
+2. **Set up the Central Pedal.** It arrives with its card in: plug it in and set it up from your phone
+   ([details below](#the-raspberry-pi-image)).
 3. **Get your songs ready** anywhere in Central Pedal Control, then press **⇪ Upload** with the pedal's name and PIN.
 4. **Bring in the team.** The main admin installs Central Control, and the pedals and every musician's device pair
    with it.
 
 ### The Raspberry Pi image
 
-**The easy way:** put the SD card in your Ubuntu PC, open Terminal and run
+**Starting a Central Pedal** (it arrives with its card in, tested):
 
-```bash
-curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash
-```
+1. Plug in the power and your outputs. A screen on HDMI 1 is optional.
+2. On your phone, connect to the Wi-Fi **Central Pedal Setup**. The setup page opens by itself (or go to
+   http://10.42.0.1).
+3. Pick the church Wi-Fi and type its password.
+4. Type a 4-digit code: with Central Control, the main admin's code (that pairs the pedal with it); otherwise any
+   4 digits. Central Pedal Control uses the same code.
+5. Press **Upload**. The pedal joins the Wi-Fi and is ready. A wrong password? *Central Pedal Setup* comes back in
+   about a minute and the page says what happened.
 
-No questions: put the card in, pick it and type ERASE. It downloads the newest Central Pedal, builds
-`central-pedal-<version>.img` (every sound on a 32 GB card, all but the big grand piano on 16 GB) and writes it.
-The first time the pedal starts with no network it makes its own Wi-Fi, **Central Pedal Setup**: join it on a phone
-and the setup page opens (or go to http://10.42.0.1). Pick the church Wi-Fi, the touch screen and the 4-digit code
-(the main admin's, or any 4 digits; Central Pedal Control uses the same one), then Upload. By hand, from this folder:
+Later (a new building), **Settings → Wi-Fi → Turn the setup Wi-Fi on** runs it again.
+
+**Building a card by hand** (for the people who build the pedals), from this folder:
 
 1. **Build it** on your Ubuntu PC. The first build takes 40–60 minutes and needs internet and about 15 GB free:
 
@@ -167,16 +170,24 @@ and the setup page opens (or go to http://10.42.0.1). Pick the church Wi-Fi, the
      - The common blue 3.5" touch screen (XPT2046) is on from the first boot, and HDMI 1 still shows the full app
        (change either in Settings). `TFT=none` for no small screen, or another screen's id from `screens.json`
        (for example `TFT=waveshare35b`).
-     - No `WIFI_SSID`: the pedal makes its own Wi-Fi, **Central Pedal Setup**, for a phone (as with the one line).
+     - No `WIFI_SSID`: the pedal makes its own Wi-Fi, **Central Pedal Setup**, for a phone.
+     - `FACTORY=0`: no factory test on the first start (see below).
      - `I2S_DAC=off`, `SAFE_MODE=off`, `WIFI_COUNTRY=US`, `COMPRESS=1`
      - `SOUNDS=small` skips the 1.2 GB grand piano; `SOUNDS=none` leaves out the keys sound banks.
    - Use a 16 GB card or bigger.
 2. **Flash it** with Raspberry Pi Imager: *Choose OS → Use custom*, then pick the `.img`. Answer **No** to *OS
    customisation*.
-3. **Boot.** The first boot takes about a minute longer and restarts once. After that, every boot goes straight to the
-   Central Pedal. The start-up screen and the top-right of the app show the version.
+3. **Boot.** The first boot takes about a minute longer and restarts once, then opens the factory test.
 4. **Wire the controls** with `wiring.html`. Every part is optional, and the Learn tab can move any button or knob to
    any pin. A guitar needs a USB audio interface; a keyboard needs a USB MIDI port.
+
+**The factory test.** A card built with `build-image.sh` starts in the factory test: plug a screen into HDMI 1, a
+keyboard and a mouse. It checks every footswitch (its LED blinks), knob, slider and the expression pedal, the small
+touch screen (a test pattern, its 4 corners, calibration), the outputs, the instrument input, MIDI, Wi-Fi,
+temperature, power, storage and the sound banks, and you can pick a different touch screen there (the pedal restarts
+and comes back into the test). **Save report** keeps `factory-report.json` on the pedal; **Finish**, then unplug it.
+The next start is the customer's first start: the Wi-Fi used in the test is forgotten, the touch screen stays, and it
+asks for the church Wi-Fi on their phone (**Central Pedal Setup**). `FACTORY=0` builds a card without the test.
 
 **Other Wi-Fi later:** put `pad-pedal-wifi.txt` (the network name on line 1, the password on line 2) on the card's
 `bootfs` partition, or use Settings → Wi-Fi on the screen. Maintenance login: `ssh pi@padpedal.local`.
@@ -210,15 +221,17 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 9.7.0:** A factory test on the first start of a card built by hand (every switch, knob, screen, output and input, Pass / Fail, a report); unplugging it makes the next start the customer's phone setup, without the screen step; outputs: 1–2 the jack, 3–4 the DAC, 5+ a USB interface, each bus mono or stereo, several on one output.
+
 **New in version 9.6.2:** A Central Pedal that doesn't start writes a report to its SD card (central-pedal-log.txt, readable on any computer) and its screen says why instead of showing a login prompt.
 
-**New in version 9.6.1:** The SD card built by hand starts with the blue 3.5" screen on (HDMI 1 stays the full app); the one-line maker is unchanged.
+**New in version 9.6.1:** The SD card built by hand starts with the blue 3.5" screen on (HDMI 1 stays the full app).
 
 **New in version 9.6.0:** A labelled PAN on every track and channel (pedal, small screen, Pedal Control, Central Control) and stereo in-ears with pan for everyone; Central Control gets a gate, 4-band EQ, compressor and reverb / delay sends on every channel, and a live Stream mix (interface outputs, a virtual device for OBS, straight to YouTube / Facebook, or with the video); smarter auto lighting (intimate / mid / upbeat per song and section, following the music live); play any sound (a guitar or bass plays any sound); an orchestra and 22 new pedals.
 
-**New in version 9.5.0:** Sound plans (Central Keys, Plugins, Instrument and Pedals, yearly, a package key pasted in Settings → Packages; church bundles) with a free starter set and more sounds; Central Tracks sells sounds, pedal boards and click sounds; Central Pedal needs no key; the SD card maker asks nothing and a new pedal is set up from a phone (Wi-Fi "Central Pedal Setup"); the website's Downloads page after you buy, and emails with keys for everyone a church adds.
+**New in version 9.5.0:** Sound plans (Central Keys, Plugins, Instrument and Pedals, yearly, a package key pasted in Settings → Packages; church bundles) with a free starter set and more sounds; Central Tracks sells sounds, pedal boards and click sounds; Central Pedal needs no key; a new pedal is set up from a phone (Wi-Fi "Central Pedal Setup"); the website's Downloads page after you buy, and emails with keys for everyone a church adds.
 
-**New in version 9.4.2:** Steadier taps on the small 3.5" screen; HDMI 1 always shows the full app; a one-line SD card maker (`curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash`) and the image is now named central-pedal.
+**New in version 9.4.2:** Steadier taps on the small 3.5" screen; HDMI 1 always shows the full app; the image is now named central-pedal.
 
 **New in version 9.4.1:** The small 3.5" screen's Settings get a Touch page: pick which touch screen it is, calibrate the touch, and flip it 180°.
 

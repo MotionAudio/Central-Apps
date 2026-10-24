@@ -65,7 +65,8 @@
   });
   F.on("hello", function (m) {
     info = m; render();
-    if (m.pedalControl) return;   // (Central Pedal Control: an editor, it does not pair with the main admin)
+    if (m.pedalControl) return;
+    if ((m.factory && (m.factory.on || m.factory.firstBoot)) || (m.phoneSetup && m.phoneSetup.on)) return;   // (the factory test, and the customer's first start: the code is picked on the phone)   // (Central Pedal Control: an editor, it does not pair with the main admin)
     var c = m.center || {};
     // the main admin refused the PIN (or unpaired this Central Pedal): ask for the right one
     if (m.codeChosen !== false && (c.state === "wrongPin" || c.state === "removed") && c.error !== shownErr) { shownErr = c.error; var dd = $("#pinDialog"); if (!dd || !dd.open) dialog(false, c.error); return; }
