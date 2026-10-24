@@ -224,7 +224,7 @@
     function voiceLabel(v){return isCpad(v)?"Central Pads · "+v.slice(v.indexOf("/")+1):v;}
     function cpadLocked(){var L=window.PPLicense;return !!(L&&typeof L.hasPlan==="function"&&!L.hasPlan("pads"));}
     function cpadKey(key){var m=/^([A-G])([#b♯♭]?)/.exec(String(key||"C").trim());if(!m)return "C";var k=m[1]+(m[2]==="♯"?"#":m[2]==="♭"?"b":m[2]);return FLAT_TO_SHARP[k]||k;}
-    function loadCpads(){if(!/^(127\.0\.0\.1|localhost)$/.test(location.hostname)||!window.fetch)return;fetch("http://127.0.0.1:8766/libraries/pads",{cache:"no-store"}).then(function(r){return r.ok?r.json():{pads:[]};}).then(function(j){cpads=Array.isArray(j&&j.pads)?j.pads:[];try{refreshVoiceOptions();renderPads();}catch(_){}}).catch(function(){});}
+    function loadCpads(){if(!/^(127\.0\.0\.1|localhost)$/.test(location.hostname)||!window.fetch)return;fetch("http://127.0.0.1:8766/libraries/pads",{cache:"no-store"}).then(function(r){return r.ok?r.json():{pads:[]};}).then(function(j){var next=Array.isArray(j&&j.pads)?j.pads:[];if(JSON.stringify(next)===JSON.stringify(cpads))return;cpads=next;try{refreshVoiceOptions();}catch(_){}}).catch(function(){});}
     function chordFor(pad){var name=pad.chord&&pad.chord!=="auto"?pad.chord:profileFor(pad.voice).chord;return CHORDS[name]||CHORDS.fifth;}
     function activeSong(){return project.songs[project.songIndex]||null;}
     function playKeyFor(pad){var song=activeSong();return song?song.key:pad.key;}
