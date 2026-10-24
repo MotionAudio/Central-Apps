@@ -147,7 +147,7 @@ await check("key + button changes the key display", async () => {
   assert.notEqual(await page.textContent("#pfKey"), before);
 });
 await check("knob settings survive a reload", async () => {
-  await hw({ type: "knob", id: "volume", value: 0.66 }); await wait(250);
+  await hw({ type: "knob", id: "volume", value: 0.66 }); await wait(250); await T(() => PP.persistNow());   // (saved before the reload, not on a timer that can lose the race)
   await page.reload(); await page.waitForFunction(() => window.__test);
   assert.equal(await T(() => __test.performance().volume), 0.66);
   assert.equal(await T(() => __test.isPerforming()), true, "should reopen in Perform mode");
