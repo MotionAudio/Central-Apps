@@ -164,7 +164,10 @@ and the setup page opens (or go to http://10.42.0.1). Pick the church Wi-Fi, the
      `central-control-source.zip` into. Delete older images so they can't be flashed by mistake.
    - Options:
      - `PI_PASS=...`, `PI_HOSTNAME=...`
-     - `TFT=waveshare35a`: the 3.5" screen is on from the first boot.
+     - The common blue 3.5" touch screen (XPT2046) is on from the first boot, and HDMI 1 still shows the full app
+       (change either in Settings). `TFT=none` for no small screen, or another screen's id from `screens.json`
+       (for example `TFT=waveshare35b`).
+     - No `WIFI_SSID`: the pedal makes its own Wi-Fi, **Central Pedal Setup**, for a phone (as with the one line).
      - `I2S_DAC=off`, `SAFE_MODE=off`, `WIFI_COUNTRY=US`, `COMPRESS=1`
      - `SOUNDS=small` skips the 1.2 GB grand piano; `SOUNDS=none` leaves out the keys sound banks.
    - Use a 16 GB card or bigger.
@@ -904,7 +907,7 @@ On the Tracks tab: `Space` play / pause · `←` `→` previous / next section �
 
 ## Already have Raspberry Pi OS Lite on a card?
 Copy this folder to the Pi and run `sudo bash install-kiosk.sh` (add
-`TFT=waveshare35a` for the 3.5" screen), then reboot. Everything works except
+`TFT=none` if there's no small 3.5" screen; the blue one is on by default), then reboot. Everything works except
 safe mode, which needs the separate `/data` partition that the image creates.
 `bash get-sounds.sh sounds` first if you want the free keys sound banks.
 
