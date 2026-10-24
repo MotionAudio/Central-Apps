@@ -319,6 +319,17 @@ def slug(text):
     return text
 
 
+def file_sha256(path, chunk=1 << 20):
+    h = hashlib.sha256()
+    with open(path, "rb") as handle:
+        while True:
+            block = handle.read(chunk)
+            if not block:
+                break
+            h.update(block)
+    return h.hexdigest()
+
+
 def safe_name(name):
     name = os.path.basename(name or "").strip().replace("\\", "_")
     name = re.sub(r"[^A-Za-z0-9 ._\-()&'+#,]", "_", name)
@@ -1438,6 +1449,16 @@ class LocalServer:
                     return self.send_json(200, {"drives": out})
                 if p == "/api/whoami":   # (Central Pedal Control's Mac app checks that the driver on this port is its own)
                     return self.send_json(200, {"pedalControl": PEDAL_CONTROL, "appVersion": APP_VERSION})
+                if p == "/pedal/loaded-set":
+                    return self.send_json(200, {"set": driver.transfer.loaded_set()})
+                if p in ("/set/bank", "/set/bank-info"):   # Central Pedal Control: a keys / instrument sound a set uses
+                    bank = driver.transfer.bank_known((query.get("path") or [""])[0])
+                    if not bank:
+                        return self.send_json(404, {"error": "not a sound here"})
+                    if p == "/set/bank":
+                        return self.send_file(bank["file"], "application/octet-stream")
+                    return self.send_json(200, {"file": bank["file"], "name": os.path.basename(bank["file"]), "size": os.path.getsize(bank["file"]),
+                                                "sha": driver.transfer.sha_cached(bank["file"]), "tier": bank.get("tier") or None})
                 if p == "/pedal/package":   # an upload from Central Pedal Control, for the app here to apply
                     pk = driver.transfer.local_package((query.get("token") or [""])[0])
                     return self.send_json(200, pk) if pk else self.send_json(404, {"error": "no such upload"})
@@ -1574,6 +1595,19 @@ class LocalServer:
                         return self.send_json(code_, reply)
                     pkg = self.json_body(64 << 20)
                     code_, reply = driver.transfer.export_done(token, pkg)
+                    if code_ == 200 and isinstance(pkg, dict) and not pkg.get("error") and "songs" in (pkg.get("parts") or []):
+                        driver.transfer.set_brought_back()   # (the set's changes made here are in Central Pedal Control now)
+                    return self.send_json(code_, reply)
+                if url.path in ("/pedal/set-commit", "/pedal/set-done", "/pedal/set-state"):   # the app here and its set
+                    q = urllib.parse.parse_qs(url.query)
+                    token = (q.get("token") or [""])[0]
+                    if url.path == "/pedal/set-state":
+                        code_, reply = driver.transfer.set_state(self.json_body() or {})
+                    elif url.path == "/pedal/set-commit":
+                        self.body(1 << 16)   # (read what came with it: a body left unread spoils the next request)
+                        code_, reply = driver.transfer.set_commit(token)
+                    else:
+                        code_, reply = driver.transfer.set_done(token, self.json_body() or {})
                     return self.send_json(code_, reply)
                 if url.path.startswith("/pco/") or url.path.startswith("/pack/"):
                     payload = self.json_body()
@@ -1984,6 +2018,11 @@ class CompanionServer:
                         except Exception:
                             payload = {}
                         code_, reply = tr.begin(payload, "out" if url.path == "/api/pedal/export" else "in")
+                        return self.send_json(code_, reply)
+                    if url.path == "/api/pedal/chunk":   # a piece of a set's file (resumable)
+                        g = lambda k: (query.get(k) or [""])[0]
+                        code_, reply = tr.put_chunk(token, g("id"), g("offset"), g("total"), self.body(tr.CHUNK_MAX),
+                                                    {"kind": g("kind"), "name": g("name"), "song": g("song"), "sha": g("sha")})
                         return self.send_json(code_, reply)
                     if url.path == "/api/pedal/file":
                         code_, reply = tr.put_file(token, (query.get("id") or [""])[0], (query.get("name") or [""])[0], (query.get("song") or [""])[0], (query.get("kind") or ["stem"])[0], self.body())
@@ -3010,6 +3049,18 @@ class UsbInputs:
 # ---------------------------------------------------------------------------
 # The 3.5" SPI touch screen (framebuffer + ADS7846 touch)
 # ---------------------------------------------------------------------------
+def set_line(driver):
+    """"Sunday AM · from Mac · Oct 24 9:12" - the set this pedal holds (uploaded from Central Pedal Control)."""
+    try:
+        st = driver.transfer.loaded_set() if driver and getattr(driver, "transfer", None) else None
+    except Exception:
+        st = None
+    if not st:
+        return ""
+    when = time.strftime("%b %d %H:%M", time.localtime(st.get("at") or 0))
+    return "%s · from %s · %s%s" % (st.get("name") or "Set", st.get("from") or "?", when, " · changed here" if st.get("changed") else "")
+
+
 class MiniScreen:
     """The small touch screen on the GPIO pins (/dev/fb1): Pads, Tracks, Instrument and Settings tabs, drawn here and
     touched through its own panel. Taps run the app's actions; the tabs, pages and HDMI choices are the screen's own."""
@@ -3479,6 +3530,7 @@ class MiniScreen:
             y += rh
         if not songs:
             self.text(g, (W / 2, 170), "The setlist is empty", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 196), "Upload a set from Central Pedal Control", self.F["sub"], C["muted"], "mm")
 
     # ----- INSTRUMENT -----------------------------------------------------------------------------------------------
     def page_instrument(self, g, hits, d):
@@ -3697,11 +3749,14 @@ class MiniScreen:
         except Exception:
             code = ""
         lines = [("Central Pedal", APP_VERSION), ("Address", ", ".join(addrs[:2]) or "not on a network"), ("Pairing code", code or "–")]
+        ls = set_line(self.driver)
+        if ls:
+            lines.append(("Set", ls))
         try:
             pk = package_lines(read_json(os.path.join(self.driver.config["data_root"], "packages.json"), [])) if self.driver else []
         except Exception:
             pk = []
-        lines += [("Packages" if i == 0 else "", v) for i, v in enumerate(pk[:2])] or [("Packages", "none - free sounds and pedals")]
+        lines += [("Packages" if i == 0 else "", v) for i, v in enumerate(pk[:1 if ls else 2])] or [("Packages", "none - free sounds and pedals")]
         y = 80
         for k, v in lines:
             self.text(g, (10, y), k, self.F["label"], C["muted"])
@@ -6487,16 +6542,345 @@ class PedalTransfer:
         payload = payload or {}
         if not self.driver.code_ok(payload.get("code")):
             return 403, {"error": "That PIN is not right - it is this Central Pedal's pairing PIN (its Settings, or its screen)."}
+        sender = str(payload.get("from") or "Central Pedal Control")[:60]
+        is_set = kind == "in" and payload.get("mode") == "set"
         with self.lock:
             self._prune()
-            token = secrets.token_hex(16)
-            self.entries[token] = {"kind": kind, "made": time.time(), "from": str(payload.get("from") or "Central Pedal Control")[:60],
-                                   "files": {}, "package": None, "ready": False, "want": payload.get("want") if isinstance(payload.get("want"), list) else None}
+            old = self.entries.get(str(payload.get("resume") or ""))
+            if is_set and old and old["kind"] == "in" and old.get("set") and old["from"] == sender and not old.get("applied"):
+                token = str(payload["resume"])   # (the same upload again: what already arrived stays)
+                old["made"] = time.time()
+                old["package"] = None
+            else:
+                token = secrets.token_hex(16)
+                self.entries[token] = {"kind": kind, "made": time.time(), "from": sender, "set": is_set, "meta": {},
+                                       "files": {}, "package": None, "ready": False, "want": payload.get("want") if isinstance(payload.get("want"), list) else None}
             os.makedirs(os.path.join(self.root, token), exist_ok=True)
         if kind == "out":
             self.driver.emit({"type": "pedalExport", "token": token, "from": self.entries[token]["from"], "want": self.entries[token]["want"]})
         sync = getattr(self.driver, "sync", None)
-        return 200, {"token": token, "name": sync.name if sync else socket.gethostname(), "appVersion": APP_VERSION}
+        out = {"token": token, "name": sync.name if sync else socket.gethostname(), "appVersion": APP_VERSION}
+        if is_set:
+            cur = self.current_set()
+            out.update({"free": self.free_bytes(), "loadedSet": self.loaded_set(), "received": self.received(token), "banks": self.bank_sizes(),
+                        "have": sorted(set((cur.get("index") or {}).keys()) | set((cur.get("samples") or {}).values()))})
+        return 200, out
+
+    # ----- a set: one setlist with its tracks, pads and sounds at a time -----------------------------------------
+    # Central Pedal Control keeps the songs, tracks, pads and sounds; an upload of a set replaces the one here. The
+    # files arrive in pieces into this upload's own folder (nothing here changes while they come in: a dropped
+    # Wi-Fi leaves the set that's here working, and pressing Upload again continues where it stopped). When the app
+    # here applies it, the files go in next to the old set's, the songs switch, and only then is what the old set
+    # brought (and the new one doesn't use) removed. Pedals, plugins, the free sounds and the sound libraries
+    # installed here are never touched: only what an upload of a set brought is removed.
+    CHUNK_MAX = 32 << 20
+    MARGIN = 64 << 20   # (room left on the card after an upload)
+
+    def set_file(self):
+        return os.path.join(self.driver.config["data_root"], "current-set.json")
+
+    def current_set(self):
+        cur = read_json(self.set_file(), {})
+        return cur if isinstance(cur, dict) else {}
+
+    def free_bytes(self):
+        try:
+            return shutil.disk_usage(self.driver.config["data_root"]).free
+        except OSError:
+            return 0
+
+    def project_now(self):
+        return read_json(os.path.join(self.driver.config["data_root"], "project.json"), {})
+
+    def loaded_set(self):
+        cur = self.current_set()
+        if not cur.get("at"):
+            return None
+        out = {k: cur.get(k) for k in ("name", "from", "at", "songs", "files", "bytes", "missing", "digest")}
+        out["changed"] = bool(cur.get("changed"))
+        out["rebase"] = bool(cur.get("rebase"))
+        return out
+
+    def set_state(self, payload):
+        """The app here: the set's songs and pads were edited here (changed) or its digest (what "unchanged" is)."""
+        cur = self.current_set()
+        if not cur.get("at") or not isinstance(payload, dict):
+            return 404, {"error": "no set here"}
+        if payload.get("digest"):
+            cur["digest"], cur["changed"], cur["rebase"] = str(payload["digest"])[:80], False, False
+        if payload.get("changed") and not cur.get("changed"):
+            cur["changed"] = True
+            log.info("the set %r was changed on this pedal", cur.get("name"))
+        write_json(self.set_file(), cur)
+        self.driver.emit({"type": "loadedSet", "set": self.loaded_set()})
+        return 200, {"ok": True, "set": self.loaded_set()}
+
+    def received(self, token):
+        """{file id: bytes here} for an upload (whole files and the part of one that was coming in)."""
+        d = os.path.join(self.root, str(token))
+        out = {}
+        try:
+            for f in os.listdir(d):
+                if f == "package.json":
+                    continue
+                out[f[:-5] if f.endswith(".part") else f] = os.path.getsize(os.path.join(d, f))
+        except OSError:
+            pass
+        return out
+
+    def put_chunk(self, token, fid, offset, total, data, meta):
+        e = self._entry(token, "in")
+        if not e:
+            return 403, {"error": "This upload is too old - press Upload again."}
+        fid = re.sub(r"[^A-Za-z0-9_.-]", "", str(fid or ""))[:80]
+        try:
+            offset, total = int(offset), int(total)
+        except (TypeError, ValueError):
+            return 400, {"error": "offset / total"}
+        if not fid or fid == "package.json" or total <= 0 or len(data) > self.CHUNK_MAX or not data:
+            return 400, {"error": "empty"}
+        d = os.path.join(self.root, token)
+        part, final = os.path.join(d, fid + ".part"), os.path.join(d, fid)
+        e.setdefault("meta", {})[fid] = {k: str(meta.get(k) or "")[:200] for k in ("kind", "name", "song", "sha")}
+        if os.path.isfile(final) and os.path.getsize(final) == total:
+            e["files"][fid] = final
+            return 200, {"ok": True, "size": total, "done": True}
+        have = os.path.getsize(part) if os.path.isfile(part) else 0
+        if offset != have:
+            return 409, {"error": "offset", "size": have}
+        if self.free_bytes() < len(data) + self.MARGIN:
+            return 507, {"error": "The Central Pedal's card is full - it has %d MB free." % (self.free_bytes() >> 20)}
+        with open(part, "ab") as fh:
+            fh.write(data)
+        size = have + len(data)
+        if size > total:
+            os.remove(part)
+            return 400, {"error": "more than the file's size", "size": 0}
+        if size < total:
+            return 200, {"ok": True, "size": size}
+        sha = e["meta"][fid]["sha"]
+        if re.match(r"^[0-9a-f]{64}$", sha) and file_sha256(part) != sha:
+            os.remove(part)
+            return 422, {"error": "the file arrived damaged - it is sent again", "size": 0}
+        os.replace(part, final)
+        e["files"][fid] = final
+        return 200, {"ok": True, "size": size, "done": True}
+
+    def resolve_set(self, e, package):
+        """The files of a set package that this upload doesn't carry because the pedal has them already (the same
+        sha-256 in the set that's here): where they are here. Returns the file ids still missing."""
+        cur = self.current_set()
+        index = cur.get("index") or {}
+        samples = cur.get("samples") or {}
+        missing = []
+        for ref in (package.get("stems") or []) + (package.get("banks") or []):
+            fid = str(ref.get("fid") or "")
+            if fid in e["files"] and os.path.isfile(e["files"][fid]):
+                continue
+            path = index.get(str(ref.get("sha") or ""))
+            if path and os.path.isfile(path):
+                e["files"][fid] = path
+                e.setdefault("reused", {})[fid] = path
+            else:
+                missing.append(fid)
+        for ref in package.get("samples") or []:
+            fid = str(ref.get("fid") or "")
+            if fid in e["files"] and os.path.isfile(e["files"][fid]):
+                continue
+            if ref.get("sha") and samples.get(str(ref.get("sampleId"))) == ref.get("sha"):
+                ref["reuse"] = True   # (the app here has that sound already)
+            else:
+                missing.append(fid)
+        return missing
+
+    def _place(self, folder, name, src, sha):
+        """Put an arrived file into a folder under its name; the same file there already is used as it is; another
+        file with that name stays, and this one gets " (2)"."""
+        os.makedirs(folder, exist_ok=True)
+        target = os.path.join(folder, safe_name(name))
+        base, ext = os.path.splitext(target)
+        n = 2
+        while os.path.exists(target):
+            if os.path.getsize(target) == os.path.getsize(src) and file_sha256(target) == (sha or file_sha256(src)):
+                os.remove(src)
+                return target
+            target = "%s (%d)%s" % (base, n, ext)
+            n += 1
+        shutil.move(src, target)
+        return target
+
+    def set_commit(self, token):
+        """The app here applies a set: its files go in next to the old set's (nothing is removed yet). Returns
+        {files: {file id: path here}, bankMap: {path on the sending device: path here}, notHere: [bank names]}."""
+        e = self._entry(token, "in")
+        if not e or not e.get("package"):
+            return 404, {"error": "the upload is gone - send it again"}
+        pkg = e["package"]
+        missing = self.resolve_set(e, pkg)
+        if missing:
+            return 409, {"error": "%d file(s) did not arrive - send the set again" % len(missing), "missing": missing}
+        inst = getattr(self.driver, "instrument", None)
+        sf2_dir = getattr(inst, "sf2_user_dir", None) or os.path.join(self.driver.config["data_root"], "sounds", "sf2")
+        placed = dict(e.get("placed") or {})
+        reused = e.get("reused") or {}
+        for ref in pkg.get("stems") or []:
+            fid = ref.get("fid")
+            src = e["files"].get(fid)
+            if fid in placed and placed[fid] and os.path.isfile(placed[fid]):
+                continue
+            if fid in reused or not src:
+                placed[fid] = src
+                continue
+            sid = re.sub(r"[^A-Za-z0-9_-]", "", str(ref.get("song") or ""))[:64] or "upload"
+            placed[fid] = self._place(self.driver.library.song_dir(sid), ref.get("name") or fid, src, ref.get("sha"))
+        bank_map, tiers_lines = {}, []
+        for ref in pkg.get("banks") or []:
+            fid = ref.get("fid")
+            src = e["files"].get(fid)
+            if not (fid in placed and placed[fid] and os.path.isfile(placed[fid])):
+                placed[fid] = src if (fid in reused or not src) else self._place(sf2_dir, ref.get("name") or (str(fid) + ".sf2"), src, ref.get("sha"))
+            if placed[fid] and ref.get("path"):
+                bank_map[ref["path"]] = placed[fid]
+            tier = re.sub(r"[^a-z]", "", str(ref.get("tier") or ""))
+            base = os.path.splitext(os.path.basename(placed[fid] or ""))[0]
+            if tier and " - " in base:
+                tiers_lines.append("%s|%s|set|central-set" % (base.split(" - ")[0], tier))   # (its plan still opens it here)
+        if tiers_lines:
+            tpath = os.path.join(sf2_dir, "tiers.txt")
+            try:
+                with open(tpath, encoding="utf-8") as fh:
+                    have = set(line.split("|")[0] for line in fh.read().splitlines() if "|" in line)
+            except OSError:
+                have = set()
+            new = [line for line in tiers_lines if line.split("|")[0] not in have]
+            if new:
+                with open(tpath, "a", encoding="utf-8") as fh:
+                    fh.write("".join(line + "\n" for line in new))
+        # the sounds the set uses that the pedal has already (the free ones, a library installed here): by file name
+        catalog = []
+        try:
+            if inst is not None:
+                catalog = inst.keys_catalog() if hasattr(inst, "keys_catalog") else ((inst.status() or {}).get("keysCatalog") or [])
+        except Exception as error:
+            log.debug("set: keys catalog: %s", error)
+        by_name = {}
+        for b in catalog:
+            f = b.get("file") or ""
+            by_name.setdefault(os.path.basename(f).lower(), f)
+        not_here = []
+        for path in pkg.get("bankRefs") or []:
+            if path in bank_map:
+                continue
+            here = by_name.get(os.path.basename(str(path)).lower())
+            if here:
+                bank_map[path] = here
+            else:
+                not_here.append(os.path.basename(str(path)))
+        e["placed"] = placed
+        return 200, {"files": {k: v for k, v in placed.items() if v}, "bankMap": bank_map, "notHere": sorted(set(not_here))}
+
+    def set_done(self, token, payload):
+        """The app here has switched to the new set: remember it, then remove what the old set brought that nothing
+        uses now. Returns the old set's pad sounds the app can drop."""
+        e = self._entry(token, "in")
+        if not e or not e.get("package") or e.get("placed") is None:
+            return 404, {"error": "the upload is gone"}
+        pkg = e["package"]
+        placed = e.get("placed") or {}
+        old = self.current_set()
+        index = {}
+        for ref in (pkg.get("stems") or []) + (pkg.get("banks") or []):
+            path = placed.get(ref.get("fid"))
+            if path and ref.get("sha"):
+                index[str(ref["sha"])] = path
+        samples = {}
+        for ref in pkg.get("samples") or []:
+            if ref.get("sampleId") and ref.get("sha"):
+                samples[str(ref["sampleId"])] = str(ref["sha"])
+        files = sorted(set(v for v in placed.values() if v))
+        project = self.project_now()
+        text = json.dumps(project)
+        removed, drop = 0, []
+        keep = set(os.path.realpath(p) for p in files)
+        for path in old.get("filesList") or []:
+            real = os.path.realpath(path)
+            if real in keep or path in text or real in text or not os.path.isfile(real):
+                continue
+            try:
+                if self.driver.library.inside(real):
+                    self.driver.library.remove(real)
+                else:
+                    os.remove(real)
+                removed += 1
+            except OSError as error:
+                log.warning("set: could not remove %s: %s", path, error)
+        for sid in old.get("samples") or {}:
+            if sid not in samples and sid not in text:
+                drop.append(sid)
+        size = 0
+        for path in files:
+            try:
+                size += os.path.getsize(path)
+            except OSError:
+                pass
+        info = pkg.get("set") or {}
+        rec = {"name": str(info.get("name") or (pkg.get("settings") or {}).get("name") or "Set")[:80],
+               "setlistId": info.get("setlistId"), "from": e["from"], "at": time.time(),
+               "songs": len(pkg.get("songs") or []), "files": len(files), "bytes": size, "index": index, "samples": samples,
+               "filesList": files, "missing": [str(x)[:80] for x in ((payload or {}).get("missing") or [])][:50],
+               "digest": str((payload or {}).get("digest") or "")[:80], "changed": False}
+        write_json(self.set_file(), rec)
+        e["applied"] = True
+        shutil.rmtree(os.path.join(self.root, token), ignore_errors=True)
+        self.driver.emit({"type": "loadedSet", "set": self.loaded_set()})
+        return 200, {"ok": True, "removed": removed, "dropSamples": drop, "set": self.loaded_set()}
+
+    def bank_known(self, path):
+        """A keys / instrument sound bank this device lists (its catalog) - the only files /set/bank hands out."""
+        inst = getattr(self.driver, "instrument", None)
+        if not path or inst is None:
+            return None
+        try:
+            catalog = inst.keys_catalog() if hasattr(inst, "keys_catalog") else ((inst.status() or {}).get("keysCatalog") or [])
+        except Exception:
+            return None
+        real = os.path.realpath(path)
+        for b in catalog:
+            f = b.get("file") or ""
+            if f and os.path.realpath(f) == real and os.path.isfile(real):
+                return dict(b, file=real)
+        return None
+
+    def bank_sizes(self):
+        """{file name (lower case): bytes} of the keys / instrument sounds here - one with the same name and size
+        isn't sent again."""
+        inst = getattr(self.driver, "instrument", None)
+        out = {}
+        try:
+            catalog = (inst.keys_catalog() if hasattr(inst, "keys_catalog") else ((inst.status() or {}).get("keysCatalog") or [])) if inst is not None else []
+            for b in catalog:
+                f = b.get("file") or ""
+                if os.path.isfile(f):
+                    out[os.path.basename(f).lower()] = os.path.getsize(f)
+        except Exception as error:
+            log.debug("set: banks: %s", error)
+        return out
+
+    def sha_cached(self, path):
+        st = os.stat(path)
+        key = "%s|%d|%d" % (path, st.st_size, int(st.st_mtime))
+        cache = self.__dict__.setdefault("_sha", {})
+        if key not in cache:
+            cache[key] = file_sha256(path)
+        return cache[key]
+
+    def set_brought_back(self):
+        """The set here went back to Central Pedal Control (a Download): it counts as unchanged again."""
+        cur = self.current_set()
+        if cur.get("at"):
+            cur["changed"], cur["rebase"] = False, True   # (the app here takes what it has now as the set's content)
+            write_json(self.set_file(), cur)
+            self.driver.emit({"type": "loadedSet", "set": self.loaded_set()})
 
     def put_file(self, token, fid, name, song, kind, data, out=False):
         e = self._entry(token, "out" if out else "in")
@@ -6522,10 +6906,14 @@ class PedalTransfer:
             return 403, {"error": "unknown or old token"}
         if not isinstance(package, dict):
             return 400, {"error": "no package"}
+        if e.get("set"):
+            missing = self.resolve_set(e, package)
+            if missing:
+                return 409, {"error": "%d file(s) did not arrive" % len(missing), "missing": missing}
         e["package"] = package
         write_json(os.path.join(self.root, token, "package.json"), package)
         songs = package.get("songs") or []
-        self.driver.emit({"type": "pedalUpload", "token": token, "from": e["from"], "summary": {
+        self.driver.emit({"type": "pedalUpload", "token": token, "from": e["from"], "set": (package.get("set") or {}).get("name") if e.get("set") else None, "summary": {
             "songs": [str((s or {}).get("name") or "")[:80] for s in songs][:200], "settings": [str(x) for x in (package.get("parts") or [])][:20],
             "files": len(e["files"])}})
         return 200, {"ok": True}
@@ -7590,6 +7978,7 @@ class PedalDriver:
             "licenseKey": preset_license_key(self.config["data_root"]),
             "licenseState": read_json(os.path.join(self.config["data_root"], "license-state.json"), None),
             "packages": read_json(os.path.join(self.config["data_root"], "packages.json"), []),
+            "loadedSet": self.transfer.loaded_set() if getattr(self, "transfer", None) else None,
             "deviceId": device_id(),
             "hostname": socket.gethostname(),
             "midi": bool(self.midi and self.midi.available),
