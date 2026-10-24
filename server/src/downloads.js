@@ -84,6 +84,19 @@ export async function sendDownloadsEmail(userId, orderId) {
   return sendMail(user.email, "Your downloads and keys - Motion Audio", t.join("\n"), h.join(""));
 }
 
+// the public Downloads page: anyone can download every app; the keys come with a purchase (Account and email)
+export function publicDownloads() {
+  const apps = ["P", "A", "U"].map((k) => {
+    const a = APPS[k];
+    return { kind: k, name: a.name, icon: a.icon, download: APPS_URL + "#" + a.anchor, runsOn: a.runsOn, devices: a.devices, phone: a.phone,
+      steps: steps(a), linuxCommand: "curl -fsSL " + APPS_URL + "install.sh | bash -s " + a.linux, guide: config.publicUrl + INSTALL, keys: [] };
+  });
+  const services = { name: "Central Services", icon: "central-services", download: APPS_URL + "#central-services", runsOn: "Windows, Mac, Linux, Android and any web browser",
+    web: config.publicUrl + "/services/", note: "No key: sign in with your Motion Audio account. Your church gives you a slot." };
+  return { apps, services, pedalSetup: PEDAL_SETUP, sdCard: config.publicUrl + INSTALL + "#making-your-own-sd-card", appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
+}
+
 export function routes(api, { wrap, requireUser }) {
   api.get("/downloads", requireUser, wrap(async (req, res) => res.json(await downloadsFor(req.user))));
+  api.get("/downloads/apps", wrap(async (req, res) => res.json(publicDownloads())));   // (no sign-in: what anyone can download)
 }

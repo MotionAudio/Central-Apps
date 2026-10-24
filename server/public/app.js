@@ -577,7 +577,7 @@ async function renderAccount(note) {
   }
   $("#acctTitle").textContent = me.name ? "Hi, " + me.name : "Your account";
   body.innerHTML = `<div class="acct">${me.emailConfirmed ? "" : `<div class="card wide confirm-card"><h3>Confirm your email</h3><p style="margin:0">We sent a link to <b>${esc(me.email)}</b>. Your receipts, keys, invites and password resets go there, so checkout waits until it's confirmed.</p><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="cfAgain">Send it again</button></div></div>`}
-    <div class="card wide dl-link"><h3>Your downloads</h3><p class="muted" style="margin:0">Your apps, how to install them on each computer or phone, and your keys.</p><a class="btn small" href="#downloads" style="justify-self:start">Open your downloads</a><div id="myRenew"></div></div>
+    <div class="card wide dl-link"><h3>Your keys and downloads</h3><p class="muted" style="margin:0">Your keys (they're in your email too), and every app with how to install it.</p><div id="myRenew"></div><a class="btn small" href="#downloads" style="justify-self:start">Open Downloads</a></div>
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
     ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
@@ -634,29 +634,41 @@ function stepsHtml(a, p) {
 }
 async function showDownloads(thanks) {
   const el = dlSection(true); if (!el) return;
-  if (!me) { el.innerHTML = `<h2>Your downloads</h2><p class="muted">Sign in to see your apps, how to install them, and your keys.</p><a class="btn" href="#account">Sign in</a>`; $("#downloads").scrollIntoView({ behavior: "smooth" }); return; }
-  el.innerHTML = `<h2>Your downloads</h2><p class="muted">Loading…</p>`; $("#downloads").scrollIntoView({ behavior: "smooth" });
-  let d; try { d = await api("GET", "/downloads"); } catch (e) { el.innerHTML = `<h2>Your downloads</h2><p class="err">${esc(e.message)}</p>`; return; }
+  el.innerHTML = `<h2>Downloads</h2><p class="muted">Loading…</p>`; $("#downloads").scrollIntoView({ behavior: "smooth" });
+  let pub, d = null;
+  try { pub = await api("GET", "/downloads/apps"); if (me) d = await api("GET", "/downloads"); } catch (e) { el.innerHTML = `<h2>Downloads</h2><p class="err">${esc(e.message)}</p>`; return; }
+  const renewal = (d && d.renewalCents) || 2000;
   const others = (a) => Object.keys(PLATFORM_NAME).filter((p) => p !== PLATFORM && (p !== "android" || a.steps.android) && (p !== "ipad" || a.phone));
+  const keyNote = (a) => `<div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(a.name)} asks for its key (it starts with <b>${esc(a.kind)}</b>) the first time it opens. Buy one in the <a href="#store">store</a>, or your church sends you yours by email. Your keys are always on your Account page and in your email.</span></div>`;
   const appCard = (a) => `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(a.icon)}.svg" alt=""><div><h3>${esc(a.name)}</h3><span class="muted">${esc(a.runsOn)}${a.phone ? " · " + (a.kind === "U" ? "iPhone and iPad in Safari" : "iPad in Safari") : ""}</span></div></div>
-    <div class="dl-keys">${a.keys.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)}${k.inUse ? ` <span class="muted">· on ${k.inUse} device${k.inUse === 1 ? "" : "s"}</span> <button class="btn small ghost" data-dlrel="${esc(k.key)}">Release</button>` : ""}
-      ${k.updatesUntil && k.updatesUntil !== "forever" ? `<span class="muted" style="font-size:.88rem;flex-basis:100%">Updates through ${esc(k.updatesUntil)}${k.renewable ? ` · <button class="btn small ghost" data-renewme="${esc(k.key)}">Renew: ten more releases, ${dollars(d.renewalCents / 100)}</button>` : ""}</span>` : ""}</div>`).join("")}
-      <span class="muted" style="font-size:.9rem">Type ${a.keys.length > 1 ? "a key" : "it"} when the app first opens (${esc(a.devices)} per key).</span></div>
+    ${a.keys.length ? `<div class="dl-keys">${a.keys.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)}${k.inUse ? ` <span class="muted">· on ${k.inUse} device${k.inUse === 1 ? "" : "s"}</span> <button class="btn small ghost" data-dlrel="${esc(k.key)}">Release</button>` : ""}
+      ${k.updatesUntil && k.updatesUntil !== "forever" ? `<span class="muted" style="font-size:.88rem;flex-basis:100%">Updates through ${esc(k.updatesUntil)}${k.renewable ? ` · <button class="btn small ghost" data-renewme="${esc(k.key)}">Renew: ten more releases, ${dollars(renewal / 100)}</button>` : ""}</span>` : ""}</div>`).join("")}
+      <span class="muted" style="font-size:.9rem">Type ${a.keys.length > 1 ? "a key" : "it"} when the app first opens (${esc(a.devices)} per key).</span></div>` : keyNote(a)}
     ${PLATFORM !== "ipad" && !(PLATFORM === "android" && !a.steps.android) ? `<a class="btn" href="${esc(a.download)}" target="_blank" rel="noopener">Download ${esc(a.name)}</a>` : ""}
     <div><b style="font-size:.92rem">On ${esc(PLATFORM_NAME[PLATFORM])}</b>${stepsHtml(a, PLATFORM)}</div>
     <details><summary>Other computers and phones</summary>${others(a).map((p) => `<div style="margin-top:.5rem"><b style="font-size:.92rem">${esc(PLATFORM_NAME[p])}</b>${stepsHtml(a, p)}</div>`).join("")}<p style="margin:.5rem 0 0"><a href="${esc(a.guide)}">The full install guide</a></p></details></div>`;
   const pedalCard = (p) => `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">${p.held ? "Being checked before it ships" : p.shipsTo ? "Ships to " + esc(p.shipsTo) : "Ships to the address you gave"}</span></div></div>
-    <p style="margin:0">It comes with its software on it and needs no key. When it arrives, set it up from your phone:</p><ol class="steps">${d.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
-    <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home. Making your own SD card instead? <a href="${esc(d.sdCard)}">One line, no questions</a>.</p></div>`;
-  const pkgCard = d.packages.length ? `<div class="dl-card"><div class="dl-head"><div><h3>Sound plans</h3><span class="muted">Package keys</span></div></div>
+    <p style="margin:0">It comes with its software on it and needs no key. When it arrives, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+    <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home. Making your own SD card instead? <a href="${esc(pub.sdCard)}">One line, no questions</a>.</p></div>`;
+  const pedalPublic = `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">Raspberry Pi 4 · needs no key</span></div></div>
+    <p style="margin:0">A built pedal comes with its software on it. Building your own? Make its SD card on an Ubuntu PC with <a href="${esc(pub.sdCard)}">one line, no questions</a>, then set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol></div>`;
+  const sv = pub.services;
+  const servicesCard = `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(sv.icon)}.svg" alt=""><div><h3>${esc(sv.name)}</h3><span class="muted">${esc(sv.runsOn)}</span></div></div>
+    <div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(sv.note)}</span></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">${PLATFORM !== "ipad" ? `<a class="btn" href="${esc(sv.download)}" target="_blank" rel="noopener">Download ${esc(sv.name)}</a>` : ""}<a class="btn ghost" href="${esc(sv.web)}">Open it in the browser</a></div></div>`;
+  const pkgCard = d && d.packages.length ? `<div class="dl-card"><div class="dl-head"><div><h3>Sound plans</h3><span class="muted">Package keys</span></div></div>
     <div class="dl-keys">${d.packages.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)} <span class="muted">· ${esc(k.plans)}${k.church ? " · from " + esc(k.church) : ""} · until ${esc(longDate(k.until))}</span></div>`).join("")}</div>
     <p style="margin:0">In any app (Central Pedal, Central Pedal Control, Central Control, Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 2} devices at a time.</p></div>` : "";
-  const none = !d.apps.length && !d.pedals.length && !d.packages.length;
-  el.innerHTML = `<div class="sec-head"><h2>Your downloads</h2><p>${esc(thanks || "Your apps, how to install them, and your keys.")}</p></div>
-    ${none ? `<p class="muted">No keys here yet. Keys your church gives you come by email; keys you buy for yourself ("Just me") show up here. <a href="#store">Visit the store</a>.</p>` : `<div class="dl-grid">${d.pedals.map(pedalCard).join("")}${d.apps.map(appCard).join("")}${pkgCard}</div>`}
-    <p class="muted" style="font-size:.9rem">Every app is also on the <a href="${esc(d.appsUrl)}" target="_blank" rel="noopener">download page</a>. <a href="${esc(d.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.</p><div class="err" id="dlErr"></div>`;
+  const mine = d ? d.apps : [], kinds = mine.map((a) => a.kind), rest = pub.apps.filter((a) => kinds.indexOf(a.kind) < 0);
+  const yours = d && (mine.length || d.pedals.length || d.packages.length);
+  const all = `<div class="dl-grid">${d && d.pedals.length ? "" : pedalPublic}${rest.map(appCard).join("")}${servicesCard}</div>`;
+  el.innerHTML = `<div class="sec-head"><h2>Downloads</h2><p>${esc(thanks || (me ? "Your apps and keys first, then every other app." : "Download any of the apps. Each one asks for its key the first time it opens: after you buy, your keys are on your Account page and in your email. Central Pedal and Central Services need no key."))}</p></div>
+    ${!me ? `<p style="margin:0 0 1rem"><a class="btn small" href="#account">Sign in to see your keys here</a></p>` : ""}
+    ${yours ? `<h3 class="dl-h">Yours</h3><div class="dl-grid">${d.pedals.map(pedalCard).join("")}${mine.map(appCard).join("")}${pkgCard}</div><h3 class="dl-h">Every other app</h3>` : me ? `<p class="muted">No keys here yet. Keys your church gives you come by email; keys you buy for yourself ("Just me") show up here and in your email. <a href="#store">Visit the store</a>.</p>` : ""}
+    ${all}
+    <p class="muted" style="font-size:.9rem">Every app is also on the <a href="${esc(pub.appsUrl)}" target="_blank" rel="noopener">download page</a>. <a href="${esc(pub.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.</p><div class="err" id="dlErr"></div>`;
   wireCopies(el);
-  el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], d.renewalCents)));
+  el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], renewal)));
   el.querySelectorAll("[data-dlrel]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Release this key from its devices? They stop working until the key is typed again.")) return;
     try { await api("POST", "/church/release", { key: b.dataset.dlrel }); toast("Released. Type it on the device you want."); showDownloads(); } catch (e) { $("#dlErr").textContent = e.message; }
@@ -666,13 +678,14 @@ async function showDownloads(thanks) {
 function renewMine(keys, cents) {
   openCheckout("Renew " + keys.length + " key" + (keys.length === 1 ? "" : "s"), "Ten more releases of updates for each, " + dollars((cents || 2000) / 100) + " a key, billed to you. The app keeps working either way.", () => api("POST", "/checkout/renew", { keys, for: "me" }));
 }
-// the Account page's Your downloads card: your own keys whose updates you can renew
+// the Account page's Your keys card: every key you have (apps and sound plans), to copy; your own you can renew
 async function renderMyRenewals() {
   const el = $("#myRenew"); if (!el) return;
   let d; try { d = await api("GET", "/downloads"); } catch (_) { return; }
-  const mine = d.apps.flatMap((a) => a.keys.filter((k) => k.renewable).map((k) => Object.assign({ app: a.name }, k)));
-  if (!mine.length) return;
-  el.innerHTML = `<div style="display:grid;gap:.3rem">${mine.map((k) => `<div class="tm"><span><b>${esc(k.app)}</b> <code>${esc(k.key)}</code> <span class="muted">· updates through ${esc(k.updatesUntil)}</span></span><button class="btn small ghost" data-renewme="${esc(k.key)}">Renew (${dollars(d.renewalCents / 100)})</button></div>`).join("")}</div>`;
+  const keys = d.apps.flatMap((a) => a.keys.map((k) => Object.assign({ app: a.name }, k))), pk = d.packages || [];
+  if (!keys.length && !pk.length) { el.innerHTML = `<p class="muted" style="margin:0;font-size:.9rem">No keys yet. Keys you buy show up here and in your email; your church sends you yours by email.</p>`; return; }
+  el.innerHTML = `<div style="display:grid;gap:.3rem">${keys.map((k) => `<div class="tm"><span><b>${esc(k.app)}</b> <code>${esc(k.key)}</code>${k.updatesUntil && k.updatesUntil !== "forever" ? ` <span class="muted">· updates through ${esc(k.updatesUntil)}</span>` : ""}</span><span>${copyBtn(k.key)}${k.renewable ? ` <button class="btn small ghost" data-renewme="${esc(k.key)}">Renew (${dollars(d.renewalCents / 100)})</button>` : ""}</span></div>`).join("")}${pk.map((k) => `<div class="tm"><span><b>${esc(k.plans)}</b> <code>${esc(k.key)}</code> <span class="muted">· until ${esc(longDate(k.until))}</span></span><span>${copyBtn(k.key)}</span></div>`).join("")}</div>`;
+  wireCopies(el);
   el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], d.renewalCents)));
 }
 // a church's purchase: next, add your people (each gets their app, how to install it and their key by email)
