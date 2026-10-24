@@ -114,9 +114,9 @@ for entry in "${BANKS[@]}"; do
 done
 
 # ---- the orchestra: VS Chamber Orchestra 2: CE (SFZ + WAV, CC0) made into three SoundFonts here (looped, mono)
-# Its readme asks that the samples not be sold on their own: they come free with every Central Pedal and app
-# (VSCO_TIER below), never as part of a paid plan.
-VSCO_TIER="${VSCO_TIER:-free}"
+# Part of Central Instrument (VSCO_TIER below). Its readme asks that the samples not be sold on their own: they are
+# only ever inside the apps, with the plan, never sold as a sample pack.
+VSCO_TIER="${VSCO_TIER:-instrument}"
 VSCO_BANKS=("VSCO Strings|VSCO-Strings" "VSCO Brass|VSCO-Brass" "VSCO Woodwinds|VSCO-Woodwinds")
 if [ "${NO_ORCHESTRA:-0}" != "1" ] && { [ -z "${ONLY:-}" ] || [[ ",$ONLY," == *",VSCO,"* ]]; }; then
   wanted=$((wanted+3))

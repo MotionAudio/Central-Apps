@@ -570,6 +570,9 @@ await check("play any sound: a guitar gets its panel; on, mode, sound and dry bl
   await T(() => PPActions.run("playAnyToggle")); await wait(200);
   m = await last(); assert.equal(m.playAny.on, false, "the footswitch turned it off");
   assert.equal(await T(() => PPInstrument.playAnyOn()), false);
+  // it's part of Central Instrument: without that plan the footswitch and the button don't turn it on, and the panel says why
+  const locked = await T(() => { const h = PPLicense.hasPlan; PPLicense.hasPlan = (id) => id !== "instrument"; window.dispatchEvent(new CustomEvent("pp-plans")); const on = PPInstrument.togglePlayAny(); PPInstrument.render(); const r = { on: on, cfgOn: PPInstrument.hostConfig().playAny.on, note: (document.querySelector(".pa-lock") || {}).textContent || "", btn: document.getElementById("paOn").disabled }; PPLicense.hasPlan = h; window.dispatchEvent(new CustomEvent("pp-plans")); PPInstrument.render(); return r; });
+  assert.ok(locked.on === false && locked.cfgOn === false && /Central Instrument/.test(locked.note) && locked.btn, JSON.stringify(locked));
   await T(() => PPInstrument.setKind("keys")); await wait(200);
   assert.equal(await T(() => PPInstrument.hostConfig().playAny), undefined, "keys: no play any sound");
   assert.equal(await page.$("#paOn"), null);
@@ -593,8 +596,8 @@ await check("plans: with licensing off everything is open; every pedal and board
     free: PPPedals.pedals.filter((p) => p.tier === "free").length, freeBoards: PPPedals.boards.filter((b) => !b.plans.length).map((b) => b.id),
     muff: PPPedals.byId("muff").tier, reverb: PPPedals.byId("zitarev").tier, lock: PPPedals.lockText("instrument"), pkgs: !!document.querySelector("#pkgSettings") || PPLicense.packagesHtml().includes("no packages needed") }));
   assert.ok(r.off, "licensing off: all plans open"); assert.equal(r.noTier, 0); assert.ok(r.free >= 12 && r.free <= 16, "free pedals " + r.free);
-  // (four free boards, plus the 9.6 orchestra boards: their sounds come free with every app)
-  assert.deepEqual(r.freeBoards, ["clean-worship", "acoustic-dry", "bass-di", "keys-stage", "worship-strings", "cello-pad", "brass-swell", "flute-lead"]); assert.equal(r.muff, "pedals"); assert.equal(r.reverb, "plugins");
+  // (four free boards; the 9.6 orchestra boards are Central Instrument's)
+  assert.deepEqual(r.freeBoards, ["clean-worship", "acoustic-dry", "bass-di", "keys-stage"]); assert.equal(r.muff, "pedals"); assert.equal(r.reverb, "plugins");
   assert.equal(r.lock, "Part of Central Instrument · $80 a year"); assert.ok(r.pkgs, "Settings → Packages says no packages are needed");
 });
 await check("plans: a saved board keeps a locked pedal, bypassed with a lock and its plan; the footswitch, Add pedal and board stepping skip what's locked", async () => {

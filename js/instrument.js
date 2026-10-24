@@ -115,18 +115,22 @@
   function hostPlayAny(c, k) {
     if (!GUITARS[k || kind()]) return undefined;
     var pa = paCfg(c), patch = pa.patch && !pa.patch.plugin ? { file: pa.patch.file, bank: pa.patch.bank, prog: pa.patch.prog, name: pa.patch.name } : null;
-    return { on: !!pa.on, patch: patch, mode: pa.mode || "auto", dry: pa.dry == null ? 0 : pa.dry, sensitivity: pa.sensitivity == null ? 0.5 : pa.sensitivity, volume: pa.volume == null ? 1 : pa.volume };
+    if (patch && soundLocked(pa.patch)) patch = null;   // (a sound from a plan that ended: the synth still works, the notes stay quiet)
+    return { on: !!pa.on && !paLocked(), patch: patch, mode: pa.mode || "auto", dry: pa.dry == null ? 0 : pa.dry, sensitivity: pa.sensitivity == null ? 0.5 : pa.sensitivity, volume: pa.volume == null ? 1 : pa.volume };
   }
   var paTimer = 0;
   function paSend(now) { clearTimeout(paTimer); var go = function () { var hp = hostPlayAny(cfg(), kind()); if (hp) send({ type: "instrument", action: "playany", playAny: hp }); PP.persistSoon(); if (window.PPActions) window.PPActions.sendLeds(); }; if (now) go(); else paTimer = setTimeout(go, 80); }
-  function playAnyOn() { return GUITARS[kind()] ? !!paCfg().on : false; }
+  function paLocked() { return tierLocked("instrument"); }   // (play any sound is part of Central Instrument)
+  function playAnyOn() { return GUITARS[kind()] && !paLocked() ? !!paCfg().on : false; }
   function setPlayAny(o) {
+    if (o && o.on && paLocked()) { PP.setStatus("Play any sound: " + lockText("instrument")); o = Object.assign({}, o, { on: false }); }
     var pa = paCfg(); Object.keys(o || {}).forEach(function (key) { pa[key] = o[key]; });
     if (pa.on && !pa.patch && catalog.keys.length) { var p = catalog.keys.filter(function (q) { return /grand|piano/i.test(q.name); })[0] || catalog.keys[0]; pa.patch = { id: p.id, file: p.file, bank: p.bank, prog: p.prog, name: p.name }; }
     paSend(o && (o.on != null || o.mode != null || o.patch)); if (onTab()) render(); return pa;
   }
   function togglePlayAny() {
     if (!GUITARS[kind()]) { PP.setStatus("Play any sound works with an electric, acoustic or bass guitar"); return false; }
+    if (paLocked()) { PP.setStatus("Play any sound: " + lockText("instrument")); return false; }
     var pa = setPlayAny({ on: !paCfg().on }); PP.setStatus("Play any sound " + (pa.on ? "on: " + (pa.mode === "synth" ? "guitar synth" : (pa.patch ? pa.patch.name : "a piano")) : "off")); return pa.on;
   }
   function stepPlayAnyMode(d) { var pa = paCfg(), i = PA_MODES.findIndex(function (m) { return m[0] === (pa.mode || "auto"); }), m = PA_MODES[(i + (d || 1) + PA_MODES.length) % PA_MODES.length]; setPlayAny({ mode: m[0] }); PP.setStatus("Play any sound: " + m[1] + " (" + m[2] + ")"); }
@@ -136,10 +140,10 @@
     return (cur || !catalog.keys.length ? "" : '<option value="">— choose a sound —</option>') + order.map(function (g) { return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (p) { return '<option value="' + esc(p.id) + '"' + (cur && cur.id === p.id ? " selected" : "") + ">" + esc(p.name) + "</option>"; }).join("") + "</optgroup>"; }).join("");
   }
   function playAnyPanel(c) {
-    var pa = paCfg(c), st = status.playAny || {}, avail = !connected() || st.available !== false, mode = pa.mode || "auto";
+    var pa = paCfg(c), st = status.playAny || {}, locked = paLocked(), avail = (!connected() || st.available !== false) && !locked, mode = pa.mode || "auto";
     return '<section class="in-playany' + (pa.on ? " on" : "") + '"><div class="row spread"><div><h3>Play any sound</h3><p class="muted">Your ' + (kind() === "bass" ? "bass" : "guitar") + " plays any sound: single notes play the sound you pick (piano, bass, synth, strings…); chords play a guitar synth that follows them at once.</p></div>" +
       '<div class="se-row"><span class="pa-now muted small" data-panow>' + (pa.on ? "" : "") + '</span><button class="pf-btn pa-on' + (pa.on ? " on" : "") + '" id="paOn"' + (avail ? "" : " disabled") + '><small>PLAY ANY SOUND</small><b>' + (pa.on ? "ON" : "OFF") + "</b></button></div></div>" +
-      (avail ? "" : '<p class="warn small">Not available on this system yet (its plugin is missing).</p>') +
+      (locked ? '<p class="warn small pa-lock">🔒 ' + esc(lockText("instrument")) + "</p>" : avail ? "" : '<p class="warn small">Not available on this system yet (its plugin is missing).</p>') +
       '<div class="in-bar pa-bar"><label>Sound<select id="paSound">' + (catalog.keys.length ? paSoundOptions(pa.patch) : '<option value="">' + (connected() ? "No sounds found yet" : "The sound list comes from the Pi") + "</option>") + "</select></label>" +
       '<label>Mode<span class="seg pa-modes">' + PA_MODES.map(function (m) { return '<button class="' + (mode === m[0] ? "on" : "") + '" data-pamode="' + m[0] + '" title="' + esc(m[2]) + '">' + m[1] + "</button>"; }).join("") + "</span></label>" +
       '<label>Dry guitar <span class="control-line"><input type="range" id="paDry" min="0" max="100" step="1" value="' + Math.round((pa.dry || 0) * 100) + '"><output>' + Math.round((pa.dry || 0) * 100) + "%</output></span></label>" +

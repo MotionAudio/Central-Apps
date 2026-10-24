@@ -40,7 +40,7 @@ if [ "${BUILTIN_ORCHESTRA:-1}" != "0" ]; then
     "$PY" -c "import numpy" 2>/dev/null || "$PY" -m pip install --quiet numpy 2>/dev/null || "$PY" -m pip install --quiet --user numpy 2>/dev/null || true
     if "$PY" -c "import numpy" 2>/dev/null && "$PY" "$HERE/sounds-vsco.py" "$TMP/vsco" "$DEST"; then
       ORCH=1
-      { echo "# file prefix | plan | license | name"; for v in VSCO-Strings VSCO-Brass VSCO-Woodwinds; do echo "$v|free|CC0|${v/-/ }"; done; } > "$DEST/tiers.txt"
+      { echo "# file prefix | plan | license | name"; for v in VSCO-Strings VSCO-Brass VSCO-Woodwinds; do echo "$v|instrument|CC0|${v/-/ }"; done; } > "$DEST/tiers.txt"
     else echo "(no orchestra: python3 with numpy is needed)"; fi
   fi
 fi

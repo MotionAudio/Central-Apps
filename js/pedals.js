@@ -348,10 +348,10 @@
     { id: "fingerstyle-bass", name: "Bass: Fingerstyle", kind: "bass", chain: [["calfgate", {}], ["studio-eq", { hp_freq: 32, p1_gain: -2.5, p1_freq: 250, p1_q: 1, p3_gain: 2.5, p3_freq: 1800, lp_freq: 7000 }], ["x42-comp", { threshold: -24, Ratio: 0.7, attack: 0.025, release: 0.18 }], ["calfbass", { Amount: 0.35 }]] },
     { id: "clean-strat", name: "Clean Strat-ish", kind: "electric", chain: [["gxcomp", {}], ["chump", { Gain: 0.25, Tone: 0.65 }], ["gxcab", {}], ["tubetrem", { Depth: 0.25 }], ["gxchorus", { Level: 0.2 }], ["digdelay", { Feedback: 25, Mix: 18 }], ["dfly-hall", { Decay: 1.8 }]] },
     // ---- 9.6: the orchestra (VSCO 2: CE - free with every app, so "soundPlan: free") and boards for the new pedals
-    { id: "worship-strings", name: "Worship Strings", kind: "keys", sound: "worship strings|violins|string", soundPlan: "free", chain: [["calfeq5", {}], ["dfly-hall", { Decay: 3.6, Late: 25 }]] },
-    { id: "cello-pad", name: "Cello Pad", kind: "keys", sound: "cello pad|cellos|cello", soundPlan: "free", chain: [["gxchorus", { Level: 0.15 }], ["dfly-hall", { Decay: 6.5, Late: 30 }]] },
-    { id: "brass-swell", name: "Brass Swell", kind: "keys", sound: "brass swell|french horn|brass", soundPlan: "free", chain: [["calfcomp", { Threshold: 0.3, Ratio: 2 }], ["dfly-hall", { Decay: 2.6 }]] },
-    { id: "flute-lead", name: "Flute Lead", kind: "keys", sound: "flute lead|flute", soundPlan: "free", chain: [["digdelay", { Feedback: 30, Mix: 20 }], ["dfly-hall", { Decay: 2.2 }]] },
+    { id: "worship-strings", name: "Worship Strings", kind: "keys", sound: "worship strings|violins|string", soundPlan: "instrument", chain: [["calfeq5", {}], ["dfly-hall", { Decay: 3.6, Late: 25 }]] },
+    { id: "cello-pad", name: "Cello Pad", kind: "keys", sound: "cello pad|cellos|cello", soundPlan: "instrument", chain: [["gxchorus", { Level: 0.15 }], ["dfly-hall", { Decay: 6.5, Late: 30 }]] },
+    { id: "brass-swell", name: "Brass Swell", kind: "keys", sound: "brass swell|french horn|brass", soundPlan: "instrument", chain: [["calfcomp", { Threshold: 0.3, Ratio: 2 }], ["dfly-hall", { Decay: 2.6 }]] },
+    { id: "flute-lead", name: "Flute Lead", kind: "keys", sound: "flute lead|flute", soundPlan: "instrument", chain: [["digdelay", { Feedback: 30, Mix: 20 }], ["dfly-hall", { Decay: 2.2 }]] },
     { id: "studio-keys-ace", name: "Studio: Warm Keys", kind: "keys", chain: [["ace-eq", { "Low mid": -2, Air: 1.5 }], ["ace-comp", { Threshold: -20, Ratio: 3 }], ["mverb", { Mix: 22, Decay: 55 }]] },
     { id: "funk-wah", name: "Auto-Wah Funk", kind: "electric", chain: [["gxcomp", {}], ["fomp-autowah", { Drive: 4, Range: 0.7 }], ["gxamp", {}], ["gxcab", {}], ["cs-phaser", { Rate: 0.6 }]] },
     { id: "bass-octave-down", name: "Bass: Octave Down", kind: "bass", chain: [["calfgate", {}], ["gxcomp", {}], ["rb-pitch", { Octaves: -1, Mix: 0.5 }], ["calfbass", {}]] }

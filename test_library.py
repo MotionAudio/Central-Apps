@@ -98,7 +98,7 @@ def t_plans():
     assert not wrong, wrong
     boards = {b["id"]: b for b in BOARDS}
     for i in ("worship-strings", "cello-pad", "brass-swell", "flute-lead"):
-        assert boards[i]["plans"] == [] and boards[i]["tier"] == "free", (i, boards[i]["plans"])
+        assert boards[i]["plans"] == ["instrument"], (i, boards[i]["plans"])   # (the orchestra is Central Instrument's)
     assert boards["studio-keys-ace"]["plans"] == ["plugins"], boards["studio-keys-ace"]["plans"]
     assert boards["worship-grand"]["plans"][0] == "keys", "a board bringing a Central Keys sound still needs Central Keys"
 
@@ -220,17 +220,17 @@ def t_banks_list():
     assert all(len(n) <= 19 for n in names), "SoundFont names are 19 characters at most"
     with open(os.path.join(HERE, "get-sounds.sh")) as handle:
         gs = handle.read()
-    assert "sounds-vsco.py" in gs and 'VSCO_TIER="${VSCO_TIER:-free}"' in gs
+    assert "sounds-vsco.py" in gs and 'VSCO_TIER="${VSCO_TIER:-instrument}"' in gs
 
 
 def t_rig_plans():
     tmp = tempfile.mkdtemp(prefix="rig-")
     try:
         with open(os.path.join(tmp, "tiers.txt"), "w") as handle:
-            handle.write("# prefix | plan\nVSCO-Strings|free|CC0|VSCO Strings\n")
+            handle.write("# prefix | plan\nVSCO-Strings|instrument|CC0|VSCO Strings\n")
         cat = [{"file": os.path.join(tmp, "VSCO-Strings - VSCO-Strings.sf2"), "presets": []}, {"file": os.path.join(tmp, "Kalimba.sf2"), "presets": []}]
         native_rig.bank_plans(cat)
-        assert cat[0].get("tier") == "free" and "tier" not in cat[1], cat
+        assert cat[0].get("tier") == "instrument" and "tier" not in cat[1], cat
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
