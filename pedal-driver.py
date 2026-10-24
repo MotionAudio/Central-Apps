@@ -33,7 +33,7 @@ Protocol (JSON over ws://127.0.0.1:8765).  Driver -> app:
 App -> driver:
   role {role}  state {playing, playingAll, selected}  display {...}  leds {states, bpm}
   inputs {inputs, save}  learn {target, kind, allowKeyboard}  learnCancel
-  system {action: status|safeMode|shutdown|reboot|wifi|audio|screen|displays|restartSession|hostname}
+  system {action: status|safeMode|shutdown|reboot|wifi|audio|dac|screen|displays|restartSession|hostname}
   link {enabled, bpm, playing}   midiClock {bpm, running}   midiOut {messages:[{data, at}]}
 
 Every part is optional: anything not wired, or any library that is missing,
@@ -8394,6 +8394,10 @@ class PedalDriver:
                 cfg = {"hdmi": bool(message.get("hdmi")), "usbFirst": bool(message.get("usbFirst"))}
                 write_json(os.path.join(self.config["data_root"], "audio.json"), cfg)
                 run_privileged(SYSTEM_SCRIPT, "audio", "hdmi" if cfg["hdmi"] else "nohdmi", "usbfirst" if cfg["usbFirst"] else "jackfirst")
+            elif action == "dac" and value in ("on", "off"):   # the DAC board (outputs 3-4): its overlay, after a restart
+                self.config["i2s_dac"] = value == "on"
+                self.save_config()
+                run_privileged(SYSTEM_SCRIPT, "dac", value)
             elif action == "phoneSetup":
                 ps = self.phone_setup
                 threading.Thread(target=(ps.stop if value == "off" else lambda: ps.start("asked in the app")), daemon=True).start()

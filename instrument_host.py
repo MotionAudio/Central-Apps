@@ -368,6 +368,16 @@ def build_sf2_from_wavs(folder, out_path, name=None):
 
 
 # ---------------------------------------------------------------- PipeWire helpers
+
+def fit_channel(ch, stereo, available):
+    """(ch, stereo, wanted) - an output that isn't there (no DAC board: 3-4; a USB interface unplugged: 5 up) plays on
+    1-2 instead of nowhere. wanted is the channel asked for when it was moved, else 0."""
+    if ch <= 0 or available <= 0:
+        return ch, stereo, 0
+    if ch <= available:
+        return ch, stereo and ch < available, 0
+    return 1, available >= 2, ch
+
 class PW:
     def __init__(self, env):
         self.env = env
@@ -432,6 +442,7 @@ class InstrumentHost:
         self.driver = driver
         self.data_root = data_root
         self.app_root = app_root
+        self.output_fallback = 0   # the output asked for when it isn't there (it plays on 1-2)
         self.dir = os.path.join(data_root, "instrument")
         os.makedirs(self.dir, exist_ok=True)
         self.sf2_user_dir = os.path.join(data_root, "sounds", "sf2")
@@ -655,7 +666,7 @@ class InstrumentHost:
         return {"type": "instrumentStatus", "available": self.available, "running": self.running, "kind": self.config.get("kind", "off"), "error": self.error,
                 "input": self.input_desc, "inputs": inputs, "midiInputs": [m for m in midi_inputs if KEYS_PORT_NAME not in m], "keysCatalog": self.keys_catalog(), "keysEngine": self.keys_engine,
                 "plugins": self.plugins_for_app(), "latencyMs": 128 / 48.0 if self.running else None,
-                "irs": self.ir_list(), "maxKeyLayers": MAX_KEY_LAYERS, "looper": bool(self.config.get("looper")),
+                "irs": self.ir_list(), "maxKeyLayers": MAX_KEY_LAYERS, "outputFallback": self.output_fallback, "looper": bool(self.config.get("looper")),
                 "playAny": {"available": bool(self.find_playany(build=False) or (shutil.which("cc") or shutil.which("gcc"))), "on": bool(playany_settings(self.config.get("playAny"), self.config.get("kind"))["on"]) and self.playany_in_chain, "engine": "plugin"}}
 
     def plugins_for_app(self):
@@ -1186,11 +1197,14 @@ context.modules = [
         # sink ports are ordered by channel position in our combined sink: index = channel - 1
         order = ["FL", "FR", "FC", "LFE", "RL", "RR", "SL", "SR"] + ["AUX%d" % i for i in range(0, 32)]
         sink_in.sort(key=lambda p: order.index(p["name"].split("_")[-1]) if p["name"].split("_")[-1] in order else 99)
-        targets = [sink_in[ch - 1]] if ch - 1 < len(sink_in) else []
+        ch, stereo, self.output_fallback = fit_channel(ch, stereo, len(sink_in))
+        targets = [sink_in[ch - 1]] if 0 < ch <= len(sink_in) else []
         if stereo and ch < len(sink_in):
             targets.append(sink_in[ch])
         if not targets:
             raise RuntimeError("output channel %d does not exist on this device" % ch)
+        if self.output_fallback:
+            log.info("instrument: output %d isn't connected - playing on 1-2", self.output_fallback)
         self.link_to(outs, targets)
         if self.playany_fluid and name == "guitar":   # play any sound's notes (FluidSynth) go to the same channel(s)
             synth = next((n for n in self.pw.nodes(objs) if n["name"] == "padpedal-keys-synth"), None)
