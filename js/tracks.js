@@ -392,6 +392,7 @@
     for (var i = 0; i < t.stems.length; i++) {
       var st = t.stems[i], rec = await getStem(st.id);
       if (!rec) { st.missing = true; continue; }
+      if (st.fx && st.fx.on && window.PPFx) { var fxRec = await window.PPFx.stemFor(s, st, rec); if (fxRec) rec = fxRec; }   // (its effects, rendered - js/fx.js)
       var L = rec.L.slice(0), R = rec.R ? rec.R.slice(0) : null;
       stems.push({ id: st.id, L: new Int16Array(L), R: R ? new Int16Array(R) : null, gain: st.gain, pan: st.pan, mute: st.mute, solo: st.solo, role: st.role, bus: st.bus, out: -1 });
       transfer.push(L); if (R) transfer.push(R);
