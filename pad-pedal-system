@@ -77,10 +77,11 @@ wifi_radio() {
 #             Wi-Fi comes up in the background, so nothing waits for "network online". Bluetooth is not used
 #             anywhere (only its services are off - the disable-bt overlay would take GPIO 14/15, two buttons).
 #             avahi (padpedal.local), NetworkManager, ssh, timesyncd, fsck of /data stay as they are.
-BOOT_TUNE_CONFIG="boot_delay=0 initial_turbo=30 disable_splash=1"
+BOOT_TUNE_CONFIG="boot_delay=0 initial_turbo=60 disable_splash=1 camera_auto_detect=0"   # (the pedal has no camera: not probing for one saves a moment)
 BOOT_TUNE_CMDLINE="quiet loglevel=3 logo.nologo consoleblank=0"
 BOOT_TUNE_OFF="NetworkManager-wait-online.service systemd-networkd-wait-online.service apt-daily.timer apt-daily-upgrade.timer man-db.timer
-               e2scrub_reap.service ModemManager.service triggerhappy.service triggerhappy.socket hciuart.service bluetooth.service keyboard-setup.service"
+               e2scrub_reap.service ModemManager.service triggerhappy.service triggerhappy.socket hciuart.service bluetooth.service keyboard-setup.service
+               rpi-eeprom-update.service sshswitch.service rsyslog.service"   # (Settings → Software updates updates the pedal; the journal keeps the logs)
 config_all() {  # config_all key value -> key=value for every Pi model (an existing key=... is replaced, else added under [all])
   local key="$1" value="$2" last
   grep -qE "^$key=$value\$" "$CONFIG" && return 0

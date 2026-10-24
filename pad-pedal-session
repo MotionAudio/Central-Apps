@@ -80,11 +80,13 @@ hdmi_sig() {
 any_hdmi() { grep -qx connected "$DRM"/card*-HDMI-A-*/status 2>/dev/null; }
 have_hdmi_ports() { ls "$DRM"/card*-HDMI-A-*/status >/dev/null 2>&1; }
 
-# A computer monitor can take several seconds to wake up and say what it is. Starting before that
-# gives a 1024x768 guess - a blurry picture that doesn't fill the screen. So wait for it (up to 20 s).
+# A computer monitor can take a few seconds to wake up and say what it is. Starting before that gives a 1024x768
+# guess, so wait for it a little - not long: a monitor that answers later is picked up by the screen watch below and
+# the layout is redone. With the small GPIO screen (it doesn't need X) HDMI is optional, so hardly wait at all.
+HDMI_WAIT=16; [ "$TOUCHKIND" = spi ] && HDMI_WAIT=4   # (half-seconds)
 if [ "$TOUCHKIND" != dsi ] && have_hdmi_ports && ! any_hdmi; then
   echo "waiting for a screen on HDMI…"
-  for _ in $(seq 1 40); do any_hdmi && break; sleep 0.5; done
+  for _ in $(seq 1 "$HDMI_WAIT"); do any_hdmi && break; sleep 0.5; done
   any_hdmi || echo "no screen yet - starting anyway; the layout is redone as soon as one is plugged in"
 fi
 
@@ -262,7 +264,7 @@ layout
 [ -z "$AUDIO_PID" ] || wait "$AUDIO_PID"
 start_engine
 start_window 1
-if [ -n "$SEC" ]; then sleep 2; start_window 2; fi
+if [ -n "$SEC" ]; then sleep 0.5; start_window 2; fi
 # Chromium sometimes keeps its window a pixel short of the screen: once it is up, put it exactly in place
 ( sleep 6; place_window 1; [ -n "$SEC" ] && place_window 2 ) &
 
