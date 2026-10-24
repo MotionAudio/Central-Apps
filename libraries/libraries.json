@@ -3,29 +3,76 @@
  "libraries": [
   {
    "id": "central-keys-library",
-   "approxMB": 150,
+   "approxMB": 420,
    "plan": "keys",
    "version": "1.0",
    "title": "Central Keys Library",
-   "summary": "An upright piano, an FM piano, a clavisynth and a harpsichord; a pipe organ, a quiet organ and a positive organ; vibraphone, marimba, glockenspiel, tubular bells and hand chimes - with worship-ready presets.",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; nine pads (warm, air, choir aah / ooh, shimmer, strings, glass, swell, worship) - with worship-ready presets.",
    "sounds": [
     {
      "name": "Central Keys Pianos",
      "source": "vcsl",
      "license": "CC0 1.0",
-     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+     "sources": [
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
     },
     {
      "name": "Central Keys Organs",
      "source": "vcsl",
      "license": "CC0 1.0",
-     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+     "sources": [
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
     },
     {
      "name": "Central Keys Mallets",
      "source": "vcsl",
      "license": "CC0 1.0",
-     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+     "sources": [
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Central Keys Grand Pianos",
+     "source": "vcsl",
+     "license": "CC0 1.0",
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+     "sources": [
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Central Keys Pads",
+     "source": "make-pads",
+     "license": "Motion Audio - sold with Central Keys",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Keys",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
     }
    ],
    "presets": [
@@ -254,34 +301,368 @@
       ]
      ],
      "sound": "chime pad|hand chimes"
+    },
+    {
+     "name": "Sunday Grand",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.25,
+        "Ratio": 2.5
+       }
+      ],
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.6,
+        "Late": 22
+       }
+      ]
+     ],
+     "sound": "concert grand|central keys grand pianos"
+    },
+    {
+     "name": "Intimate Grand",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.4,
+        "Late": 30
+       }
+      ]
+     ],
+     "sound": "soft grand|concert grand"
+    },
+    {
+     "name": "Studio Grand Bright",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.3,
+        "Ratio": 2
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.8
+       }
+      ]
+     ],
+     "sound": "studio grand"
+    },
+    {
+     "name": "Warm Worship Pad",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.2
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 6.5,
+        "Late": 36
+       }
+      ]
+     ],
+     "sound": "worship pad|warm pad"
+    },
+    {
+     "name": "Air Pad Wash",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 55,
+        "Mix": 30
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 8,
+        "Late": 40
+       }
+      ]
+     ],
+     "sound": "air pad"
+    },
+    {
+     "name": "Choir Aah",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 4.5,
+        "Late": 30
+       }
+      ]
+     ],
+     "sound": "choir aah"
+    },
+    {
+     "name": "Choir Ooh (soft)",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 5,
+        "Late": 34
+       }
+      ]
+     ],
+     "sound": "choir ooh"
+    },
+    {
+     "name": "Shimmer Pad Bed",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 45,
+        "Mix": 25
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 7.5,
+        "Late": 38
+       }
+      ]
+     ],
+     "sound": "shimmer pad"
+    },
+    {
+     "name": "String Pad Swell",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.15
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 4
+       }
+      ]
+     ],
+     "sound": "string pad"
+    },
+    {
+     "name": "Glass Pad",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 5
+       }
+      ]
+     ],
+     "sound": "glass pad"
+    },
+    {
+     "name": "Slow Swell Pad",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 6,
+        "Late": 35
+       }
+      ]
+     ],
+     "sound": "swell pad"
+    },
+    {
+     "name": "Xylophone Bright",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.4
+       }
+      ]
+     ],
+     "sound": "xylophone"
+    },
+    {
+     "name": "Church Bells",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 4.5,
+        "Late": 30
+       }
+      ]
+     ],
+     "sound": "church bells"
     }
    ]
   },
   {
    "id": "central-instrument-library",
-   "approxMB": 105,
+   "approxMB": 520,
    "plan": "instrument",
    "version": "1.0",
    "title": "Central Instrument Library",
-   "summary": "Folk and concert harps, kalimba and strumstick; recorders, harmonica, tenor sax and ocarina; hand and orchestral percussion kits - with presets to play from keys or your instrument.",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument.",
    "sounds": [
     {
      "name": "Central Instrument Harps",
      "source": "vcsl",
      "license": "CC0 1.0",
-     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+     "sources": [
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
     },
     {
      "name": "Central Instrument Winds",
      "source": "vcsl",
      "license": "CC0 1.0",
-     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+     "sources": [
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
     },
     {
      "name": "Central Instrument Percussion",
      "source": "vcsl",
      "license": "CC0 1.0",
-     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+     "sources": [
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Central Instrument World",
+     "source": "vcsl",
+     "license": "CC0 1.0",
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+     "sources": [
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Central Instrument Drum Kits",
+     "source": "sfz",
+     "license": "CC0 1.0",
+     "credit": "Virtuosity Drums; Big Rusty Drums and Unruly Drums by Karoryfer Samples - CC0 1.0",
+     "sources": [
+      {
+       "text": "Virtuosity Drums - Austin McMahon, recorded at Virtuosity Musical Instruments, Boston",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/virtuosity_drums/tree/9f04cf9a734527edfbb0a4eee1f674e45bbf71bc"
+      },
+      {
+       "text": "Big Rusty Drums - Karoryfer Samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.big-rusty-drums/tree/f07ce00df34a46b6b08375be56fe116cf15782bc"
+      },
+      {
+       "text": "Unruly Drums - Karoryfer Samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.unruly-drums/tree/9bf75c2a1392f190cd1c264645653629f0b3a097"
+      }
+     ]
+    },
+    {
+     "name": "Central Instrument Guitars and Basses",
+     "source": "sfz",
+     "license": "CC0 1.0",
+     "credit": "Black And Green Guitars, Emily Guitar, Meatbass, Growlybass, Big Little Bass by Karoryfer Samples - CC0 1.0",
+     "sources": [
+      {
+       "text": "Black And Green Guitars - Karoryfer Samples (Brian Wood)",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.black-and-green-guitars/tree/b3b3249d37dc977a1a297bd2dc053e6d9b6b805c"
+      },
+      {
+       "text": "Emily Guitar - Karoryfer Samples (D. Smolken)",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.emilyguitar/tree/b4920dc662fd9cad6dcaccdeecffdd91c8725d8c"
+      },
+      {
+       "text": "Meatbass - Karoryfer Samples (Drogomir Smolken, Ludwik Zamenhof)",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.meatbass/tree/ac9e859564bda286ab5ec672d00ff1aa2fef2895"
+      },
+      {
+       "text": "Growlybass - Karoryfer Samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.growlybass/tree/4f483268fc66b5a6d5781d421c0d11b8d08d3fc6"
+      },
+      {
+       "text": "Big Little Bass - Karoryfer Samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.big-little-bass/tree/4e92bdf54dcd2d6cfad968cc90542d5461c9b9fc"
+      }
+     ]
+    },
+    {
+     "name": "Central Instrument Saxophones",
+     "source": "sfz",
+     "license": "CC0 1.0",
+     "credit": "Weresax and Bear Sax by Karoryfer Samples - CC0 1.0",
+     "sources": [
+      {
+       "text": "Weresax - Karoryfer Samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.weresax/tree/a4d756b21d2a573aca0d840cce7e71ba5effd4c6"
+      },
+      {
+       "text": "Bear Sax - Karoryfer Samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.bear-sax/tree/7abb3c652525a15dfac80e1b5dfbba9964ee568f"
+      }
+     ]
     }
    ],
    "presets": [
@@ -467,17 +848,358 @@
       ]
      ],
      "sound": "orchestral percussion"
+    },
+    {
+     "name": "Worship Kit (brushes)",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.4
+       }
+      ]
+     ],
+     "sound": "brushes kit"
+    },
+    {
+     "name": "Studio Kit",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.2
+       }
+      ]
+     ],
+     "sound": "studio kit"
+    },
+    {
+     "name": "Rock Kit",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.3,
+        "Ratio": 3
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.0
+       }
+      ]
+     ],
+     "sound": "rusty rock kit"
+    },
+    {
+     "name": "Unruly Kit",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.0
+       }
+      ]
+     ],
+     "sound": "unruly kit"
+    },
+    {
+     "name": "Upright Jazz Bass",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "calfeq5",
+       {}
+      ]
+     ],
+     "sound": "upright bass"
+    },
+    {
+     "name": "Bowed Bass Drone",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.5,
+        "Late": 28
+       }
+      ]
+     ],
+     "sound": "upright bass (bowed)"
+    },
+    {
+     "name": "Fingerstyle Jazz Bass",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "calfbass",
+       {
+        "Amount": 0.3
+       }
+      ]
+     ],
+     "sound": "jazz bass"
+    },
+    {
+     "name": "Hollowbody Bass",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "calfeq5",
+       {}
+      ]
+     ],
+     "sound": "acoustic bass"
+    },
+    {
+     "name": "Clean Hollowbody",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.15
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 30,
+        "Mix": 18
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2
+       }
+      ]
+     ],
+     "sound": "hollowbody guitar"
+    },
+    {
+     "name": "Archtop Jazz Guitar",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.6
+       }
+      ]
+     ],
+     "sound": "archtop guitar"
+    },
+    {
+     "name": "Clean Electric Strums",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 25,
+        "Mix": 15
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2
+       }
+      ]
+     ],
+     "sound": "electric guitar clean"
+    },
+    {
+     "name": "Alto Sax Ballad",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.3,
+        "Ratio": 2.5
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.6
+       }
+      ]
+     ],
+     "sound": "alto sax"
+    },
+    {
+     "name": "Baritone Sax Groove",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.4
+       }
+      ]
+     ],
+     "sound": "baritone sax"
+    },
+    {
+     "name": "Sax Section",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2
+       }
+      ]
+     ],
+     "sound": "sax section"
+    },
+    {
+     "name": "Chromatic Harmonica",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.6
+       }
+      ]
+     ],
+     "sound": "chromatic harmonica"
+    },
+    {
+     "name": "Saxello",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2
+       }
+      ]
+     ],
+     "sound": "saxello"
+    },
+    {
+     "name": "Dan Tranh Meditation",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 30,
+        "Mix": 20
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.5
+       }
+      ]
+     ],
+     "sound": "dan tranh (zither)"
+    },
+    {
+     "name": "Bowed Psaltery Air",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 4.5,
+        "Late": 30
+       }
+      ]
+     ],
+     "sound": "bowed psaltery"
+    },
+    {
+     "name": "Balafon & Mbira",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.8
+       }
+      ]
+     ],
+     "sound": "balafon|mbira"
     }
    ]
   },
   {
    "id": "central-plugins-library",
-   "approxMB": 0.1,
+   "approxMB": 12,
    "plan": "plugins",
    "version": "1.0",
    "title": "Central Plugins Library",
-   "summary": "Mix-ready boards built from the Central Plugins effects: ambient electric, dotted-eighth leads, studio electric, acoustic and bass channel strips, piano and pad polish.",
-   "sounds": [],
+   "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish.",
+   "sounds": [
+    {
+     "name": "Central Plugins Textures",
+     "source": "make-pads",
+     "license": "Motion Audio + CC0 1.0",
+     "credit": "Motion Audio (synthesised); cymbals, gong and bass drum from VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Plugins",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    }
+   ],
    "boards": [
     {
      "name": "Plugins: Worship Electric Ambience",
@@ -793,6 +1515,222 @@
        {}
       ]
      ]
+    },
+    {
+     "name": "Plugins: Pad Wash (keys)",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "widener",
+       {}
+      ],
+      [
+       "calfvdelay",
+       {}
+      ],
+      [
+       "zitarev",
+       {}
+      ],
+      [
+       "x42-limiter",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Shimmer Keys",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "shimmer",
+       {}
+      ],
+      [
+       "mverb",
+       {
+        "Mix": 25
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Ambient Guitar Swells",
+     "kind": "electric",
+     "chain": [
+      [
+       "volume",
+       {}
+      ],
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "calfvdelay",
+       {}
+      ],
+      [
+       "shimmer",
+       {}
+      ],
+      [
+       "zitarev",
+       {}
+      ],
+      [
+       "gxamp",
+       {}
+      ],
+      [
+       "gxcab",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Tight Rhythm Electric",
+     "kind": "electric",
+     "chain": [
+      [
+       "calfgate",
+       {}
+      ],
+      [
+       "ace-comp",
+       {
+        "Threshold": -18,
+        "Ratio": 4
+       }
+      ],
+      [
+       "ts9",
+       {
+        "Drive": 0.3
+       }
+      ],
+      [
+       "gxamp",
+       {}
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "studio-eq",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Acoustic Plate Ballad",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "ace-eq",
+       {
+        "Low mid": -2,
+        "Air": 1.5
+       }
+      ],
+      [
+       "dfly-plate",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Acoustic Ducked Delay",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "duckdelay",
+       {}
+      ],
+      [
+       "dfly-room",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Bass Glue",
+     "kind": "bass",
+     "chain": [
+      [
+       "calfgate",
+       {}
+      ],
+      [
+       "ace-comp",
+       {
+        "Threshold": -22,
+        "Ratio": 3
+       }
+      ],
+      [
+       "dpf-3band",
+       {}
+      ],
+      [
+       "x42-limiter",
+       {}
+      ]
+     ]
+    }
+   ],
+   "presets": [
+    {
+     "name": "Plugins: Ambient Drone Bed",
+     "kind": "keys",
+     "chain": [
+      [
+       "shimmer",
+       {}
+      ],
+      [
+       "zitarev",
+       {}
+      ]
+     ],
+     "sound": "ambient drone"
+    },
+    {
+     "name": "Plugins: Transitions (risers and swells)",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 35,
+        "Mix": 20
+       }
+      ],
+      [
+       "mverb",
+       {
+        "Mix": 25
+       }
+      ]
+     ],
+     "sound": "transitions"
     }
    ]
   },
@@ -802,92 +1740,372 @@
    "plan": "pedals",
    "version": "1.0",
    "title": "Central Pedals Library",
-   "summary": "14 cabinet and acoustic-body impulse responses for the IR loader, and pedalboards that use them: worship crunch, edge delay, vintage and modern stacks, fuzz swells, bass rigs and acoustic bodies.",
+   "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies.",
    "sounds": [],
    "irs": [
     {
      "name": "Central 1x12 Open Back",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central 2x12 Closed Back",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central 2x12 Worship Smooth",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central 4x12 Vintage",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central 4x12 Modern Tight",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central 1x10 Small Combo",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central 2x10 Tweed",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central Bass 4x10",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central Bass 1x15",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central Bass 8x10",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central Acoustic Dreadnought Body",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central Acoustic Jumbo Body",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central Acoustic Parlor Body",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     },
     {
      "name": "Central Acoustic Nylon Body",
      "source": "make-irs",
      "license": "Motion Audio - sold with Central Pedals",
-     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 1x12 Open Back Edge",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 1x12 Open Back Room",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 2x12 Closed Back Edge",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 2x12 Closed Back Room",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 2x12 Worship Smooth Edge",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 2x12 Worship Smooth Room",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 4x12 Vintage Edge",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 4x12 Vintage Room",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 4x12 Modern Tight Edge",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 4x12 Modern Tight Room",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 1x10 Small Combo Edge",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 1x10 Small Combo Room",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 2x10 Tweed Edge",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
+    },
+    {
+     "name": "Central 2x10 Tweed Room",
+     "source": "make-irs",
+     "license": "Motion Audio - sold with Central Pedals",
+     "credit": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pedals",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+      }
+     ]
     }
    ],
    "boards": [
@@ -1309,6 +2527,256 @@
        "dfly-hall",
        {
         "Decay": 2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Worship Lead Room 2x12",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ts9",
+       {
+        "Drive": 0.35
+       }
+      ],
+      [
+       "jcm800",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 2x12 Worship Smooth Room"
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 40,
+        "Mix": 30
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.5
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Dark Edge Vintage",
+     "kind": "electric",
+     "chain": [
+      [
+       "ts9",
+       {
+        "Drive": 0.45
+       }
+      ],
+      [
+       "jcm800",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 4x12 Vintage Edge"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Modern Tight Room",
+     "kind": "electric",
+     "chain": [
+      [
+       "calfgate",
+       {}
+      ],
+      [
+       "metalhead",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 4x12 Modern Tight Room"
+       }
+      ],
+      [
+       "calfeq5",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Tweed Edge Blues",
+     "kind": "electric",
+     "chain": [
+      [
+       "ts9",
+       {
+        "Drive": 0.5
+       }
+      ],
+      [
+       "chump",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 2x10 Tweed Edge"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.8
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Open Back Room Ambient",
+     "kind": "electric",
+     "chain": [
+      [
+       "volume",
+       {}
+      ],
+      [
+       "gxchorus",
+       {
+        "Level": 0.2
+       }
+      ],
+      [
+       "chump",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 1x12 Open Back Room"
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 55,
+        "Mix": 35
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 6
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Small Combo Edge Trem",
+     "kind": "electric",
+     "chain": [
+      [
+       "chump",
+       {}
+      ],
+      [
+       "tubetrem",
+       {
+        "Depth": 0.35
+       }
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 1x10 Small Combo Edge"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.4
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Closed Back Edge Crunch",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ds1",
+       {}
+      ],
+      [
+       "gxamp",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 2x12 Closed Back Edge"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Fuzz Room Wall",
+     "kind": "electric",
+     "chain": [
+      [
+       "muff",
+       {}
+      ],
+      [
+       "gxamp",
+       {}
+      ],
+      [
+       "ir-cab",
+       {},
+       {
+        "ir": "Central 4x12 Vintage Room"
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3
        }
       ]
      ]

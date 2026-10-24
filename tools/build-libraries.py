@@ -31,6 +31,7 @@ DEFAULT_BASE = "https://github.com/MotionAudio/central-apps/releases/download/li
 PLANS = {"keys": "Central Keys", "instrument": "Central Instrument", "plugins": "Central Plugins", "pedals": "Central Pedals"}
 KINDS = ("sound", "board", "preset", "ir", "click")
 FORMAT = 1
+MAX_ZIP = int(1.5e9)   # (a library zip stays under 1.5 GB: downloads on church Wi-Fi, the Pi's card)
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)   # (every entry gets the same date: the same content makes the same zip)
 
 
@@ -147,10 +148,15 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
             blobs.append((arc, data))
     if not items:
         raise ValueError("%s: nothing to pack" % lib["id"])
+    sources = source_lines(lib, missing)
     manifest = {"format": FORMAT, "id": lib["id"], "plan": tier, "planName": PLANS[tier], "version": str(lib["version"]), "title": lib["title"],
-                "summary": lib.get("summary", ""), "items": items, "credits": credits, "built": datetime.date.today().isoformat()}
-    credit_txt = "%s %s - part of %s\n\n%s\n\nEverything here opens with %s: anyone can download it, the plan's package key unlocks it.\n\n%s\n" % (
-        lib["title"], lib["version"], PLANS[tier], lib.get("summary", ""), PLANS[tier], "\n".join("- " + c for c in credits) or "")
+                "summary": lib.get("summary", ""), "items": items, "credits": credits, "sources": sources, "built": datetime.date.today().isoformat()}
+    credit_txt = "%s %s - part of %s\n\n%s\n\nEverything here opens with %s: anyone can download it, the plan's package key unlocks it.\n\n%s\n\nSources (license, where it is):\n%s\n" % (
+        lib["title"], lib["version"], PLANS[tier], lib.get("summary", ""), PLANS[tier], "\n".join("- " + c for c in credits) or "",
+        "\n".join("- %s: %s - %s - %s" % (s["item"], s["text"], s["license"], s["url"]) for s in sources) or "- (all made by Motion Audio)")
+    if any(i["kind"] in ("sound", "ir") for i in items):   # (sounds/CREDITS.txt: every source of every sound and IR, with its license and URL)
+        blobs.append(("sounds/CREDITS.txt", ("Sources of the sounds and impulse responses in %s %s\n\n%s\n" % (lib["title"], lib["version"], "\n".join(
+            "%s\n    %s\n    License: %s\n    %s" % (s["item"], s["text"], s["license"], s["url"]) for s in sources))).encode()))
     name = "%s-%s.zip" % (lib["id"], lib["version"])
     path = os.path.join(out_dir, name)
     os.makedirs(out_dir, exist_ok=True)
@@ -173,6 +179,8 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
         for arc, src in files:
             put(arc, src=src)
     os.replace(path + ".part", path)
+    if os.path.getsize(path) > MAX_ZIP:
+        raise ValueError("%s is %.2f GB - a library stays under %.1f GB (split it, or leave something out)" % (name, os.path.getsize(path) / 1e9, MAX_ZIP / 1e9))
     count = {k: sum(1 for i in items if i["kind"] == k) for k in KINDS}
     log("    %-34s %6.1f MB  %s%s" % (name, os.path.getsize(path) / 1e6, ", ".join("%d %ss" % (v, k) for k, v in count.items() if v),
                                      ("   (left out, not built: %s)" % ", ".join(missing)) if missing else ""))
@@ -184,16 +192,37 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
     }
     return {"id": lib["id"], "plan": tier, "planName": PLANS[tier], "title": lib["title"], "version": str(lib["version"]), "summary": lib.get("summary", ""),
             "file": name, "size": os.path.getsize(path), "sha256": sha256_file(path), "contents": contents, "counts": count, "credits": credits,
-            "unpacked": sum(i["size"] for i in items)}
+            "sources": sources, "unpacked": sum(i["size"] for i in items)}
+
+
+def source_lines(lib, missing=()):
+    """[{item, text, license, url}] - every source of the library's sounds and IRs (what it is, its license, where)."""
+    out = []
+    for s in (lib.get("sounds") or []) + (lib.get("irs") or []):
+        if s["name"] in missing:
+            continue
+        for src in s.get("sources") or []:
+            out.append({"item": s["name"], "text": src.get("text", ""), "license": src.get("license", ""), "url": src.get("url", "")})
+    return out
+
+
+def _load(rel, name):
+    import importlib.util
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    spec = importlib.util.spec_from_file_location(name, os.path.join(ROOT, rel))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def vcsl_presets():
-    """{bank name: [preset names]} from tools/sounds-vcsl.py (what each VCSL SoundFont will hold, before it's built)."""
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("sounds_vcsl", os.path.join(ROOT, "tools", "sounds-vcsl.py"))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return {name: [p[0] for p in presets] for name, _tier, presets in mod.BANKS}
+    """{bank name: [preset names]} from the bank builders (sounds-vcsl.py, sounds-sfz.py, make-pads.py) - what each
+    SoundFont will hold, before it's built."""
+    out = {}
+    for rel, name in (("tools/sounds-vcsl.py", "sounds_vcsl"), ("tools/sounds-sfz.py", "sounds_sfz")):
+        out.update({b[0]: [p[0] for p in b[2]] for b in _load(rel, name).BANKS})
+    out.update({b[0]: list(b[2]) for b in _load("tools/make-pads.py", "make_pads").BANKS})
+    return out
 
 
 def builtin_list(definitions=DEFINITIONS, base_url=DEFAULT_BASE):
@@ -209,7 +238,8 @@ def builtin_list(definitions=DEFINITIONS, base_url=DEFAULT_BASE):
         name = "%s-%s.zip" % (lib["id"], lib["version"])
         out.append({"id": lib["id"], "plan": lib["plan"], "planName": PLANS[lib["plan"]], "title": lib["title"], "version": str(lib["version"]), "summary": lib.get("summary", ""),
                     "file": name, "size": int(lib.get("approxMB", 1) * 1e6), "approximate": True, "sha256": None, "url": base_url.rstrip("/") + "/" + name,
-                    "contents": contents, "counts": count, "credits": sorted({s.get("credit", "") for s in (lib.get("sounds") or []) + (lib.get("irs") or []) if s.get("credit")})})
+                    "contents": contents, "counts": count, "credits": sorted({s.get("credit", "") for s in (lib.get("sounds") or []) + (lib.get("irs") or []) if s.get("credit")}),
+                    "sources": source_lines(lib)})
     return out
 
 

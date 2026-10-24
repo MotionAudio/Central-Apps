@@ -69,6 +69,21 @@ INSTR = {
     "hmc": dict(folder=AE + "Free Aerophones/Harmonica-Hohner-Special20-C", inc=r"\.wav$", exc=r"(?i)rel|bend|trill", kind="sus"),
     "sax": dict(folder=AE + "Reed Aerophones/Tenor Saxophone", inc=r"^Non-Vibrato/.*_rr1\.wav$", kind="sus"),
     "oca": dict(folder=AE + "Edge-blown Aerophones/Ocarina, Typical", inc=r"\.wav$", exc=r"(?i)rel|stac", kind="sus"),
+    # 9.8, more: grand pianos, mallets, world instruments, more winds
+    "stw": dict(folder=ZI + "Grand Piano, Steinway B", inc=r"^Sus/.*_rr1\.wav$", kind="decay", cut=7.0),
+    "kaw": dict(folder=ZI + "Grand Piano, Kawai", inc=r"^Sustains/.*_rr1_Player\.wav$", kind="decay", cut=7.0),
+    "tx1": dict(folder=EL + "Piano 1", inc=r"\.wav$", kind="decay", cut=5.0),
+    "xyl": dict(folder=ID + "Xylophone", inc=r"^Medium Mallets/.*_01_far\.wav$", kind="decay", cut=2.5),
+    "tbl1": dict(folder=ID + "Tubular Bells 1", inc=r"_rr1\.wav$", kind="decay", cut=7.0),
+    "bal": dict(folder=ID + "Balafon", inc=r"^Soft Mallet/.*_rr1_", kind="decay", cut=3.0),
+    "dan": dict(folder=ZI + "Dan Tranh", inc=r"^Normal/.*_(f|ff)_1\.wav$", kind="decay", cut=4.0),
+    "dantrem": dict(folder=ZI + "Dan Tranh", inc=r"^Tremolo/.*\.wav$", kind="sus"),
+    "psb": dict(folder=ZI + "Psaltery, Bowed and Plucked", inc=r"^LongBow/.*_rr1\.wav$", kind="sus"),
+    "psp": dict(folder=ZI + "Psaltery, Bowed and Plucked", inc=r"^Pluck/.*_rr1\.wav$", kind="decay", cut=4.0),
+    "mbira": dict(folder="Idiophones/Plucked Idiophones/Mbira dzaVadzimu Nyamaropa, Zimbabwe, Low B", inc=r"\.wav$", kind="decay", cut=4.0),
+    "kal2": dict(folder="Idiophones/Plucked Idiophones/Kalimba, Kenya", inc=r"\.wav$", kind="decay", cut=4.0),
+    "hm64": dict(folder=AE + "Free Aerophones/Harmonica-Hohner-Super64", inc=r"^Sustains/Normal/.*\.wav$", kind="sus"),
+    "sxl": dict(folder=AE + "Reed Aerophones/Saxello", inc=r"^Non-Vibrato/.*_rr1\.wav$", kind="sus"),
 }
 
 # kits: (General MIDI key, folder, pattern, seconds kept) - one key each, its dynamic layers across the velocity range
@@ -118,6 +133,15 @@ BANKS = [
         ("Hand Chimes", [("chm", 0, 127, 0.002, 1.6, 0)]),
         ("Chime Pad", [("chm", 0, 127, 0.45, 3.0, 0), ("vibs", 0, 127, 0.3, 2.5, -6)]),
         ("Vibes & Chimes", [("vibs", 0, 127, 0.002, 1.2, -1), ("chm", 55, 127, 0.002, 1.8, -5)]),
+        ("Xylophone", [("xyl", 0, 127, 0.002, 0.4, -1)]),
+        ("Church Bells", [("tbl1", 0, 127, 0.002, 2.5, 0)]),
+    ]),
+    ("Central Keys Grand Pianos", "keys", [
+        ("Concert Grand (Steinway B)", [("stw", 0, 127, 0.002, 0.5, 0)]),
+        ("Studio Grand (Kawai)", [("kaw", 0, 127, 0.002, 0.5, 0)]),
+        ("Soft Grand", [("stw", 0, 127, 0.02, 1.3, -1)]),
+        ("Grand & FM Piano", [("kaw", 0, 127, 0.002, 0.6, -2), ("tx1", 0, 127, 0.002, 0.8, -6)]),
+        ("FM Piano 2", [("tx1", 0, 127, 0.002, 0.6, 0)]),
     ]),
     ("Central Instrument Harps", "instrument", [
         ("Folk Harp", [("hrp", 0, 127, 0.002, 1.2, 0)]),
@@ -133,6 +157,17 @@ BANKS = [
         ("Harmonica", [("hmc", 0, 127, 0.02, 0.2, 0)]),
         ("Tenor Sax", [("sax", 0, 127, 0.03, 0.25, 0)]),
         ("Ocarina", [("oca", 0, 127, 0.03, 0.3, 0)]),
+        ("Chromatic Harmonica", [("hm64", 0, 127, 0.02, 0.2, 0)]),
+        ("Saxello", [("sxl", 0, 127, 0.03, 0.25, 0)]),
+    ]),
+    ("Central Instrument World", "instrument", [
+        ("Dan Tranh (zither)", [("dan", 0, 127, 0.002, 0.8, 0)]),
+        ("Dan Tranh Tremolo", [("dantrem", 0, 127, 0.05, 0.6, 0)]),
+        ("Bowed Psaltery", [("psb", 0, 127, 0.15, 1.2, 0)]),
+        ("Plucked Psaltery", [("psp", 0, 127, 0.002, 1.0, 0)]),
+        ("Balafon", [("bal", 0, 127, 0.002, 0.5, 0)]),
+        ("Mbira", [("mbira", 0, 127, 0.002, 0.8, 0)]),
+        ("Kalimba (Kenya)", [("kal2", 0, 127, 0.002, 0.8, 0)]),
     ]),
     ("Central Instrument Percussion", "instrument", [
         ("Hand Percussion", "kit", HAND_KIT),

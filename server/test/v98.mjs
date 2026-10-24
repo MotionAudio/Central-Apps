@@ -72,7 +72,7 @@ try {
   const bk = b.libraries && b.libraries.find((x) => x.id === "central-keys-library");
   ok(b.source === "built-in" && b.libraries.length === 4 && bk && bk.ready === false && bk.sha256 === null && bk.approximate === true && bk.url === "http://127.0.0.1:1/nothing-here/central-keys-library-1.0.zip",
     "no index (not published yet, or unreachable): the built-in list - not ready, no sha256, an estimated size, at LIBRARIES_BASE_URL", bk);
-  ok(bk && bk.contents.sounds.length === 3 && bk.contents.sounds[0].presets.includes("Upright Piano") && b.libraries.find((x) => x.id === "central-pedals-library").contents.irs.length === 14,
+  ok(bk && bk.contents.sounds.length >= 3 && bk.contents.sounds[0].presets.includes("Upright Piano") && b.libraries.find((x) => x.id === "central-pedals-library").contents.irs.length >= 14,
     "the built-in list still says what's in each (sounds with their presets, boards, IRs)", bk && bk.contents);
   const plans = (await get(port, "/config")).plans || {};
   ok(plans.keys && plans.keys.cents === 5000 && plans.instrument.cents === 8000, "the plans and prices are unchanged", plans);
@@ -106,7 +106,7 @@ try {
     await page2.goto("http://127.0.0.1:" + (port + 1) + "/#downloads");
     await page2.waitForSelector("#libraries", { timeout: 8000 }).catch(() => {});
     const t2 = await page2.$$eval(".lib-card", (els) => els.map((e) => ({ text: e.textContent.replace(/\s+/g, " "), btn: !!e.querySelector("a.btn") })));
-    ok(t2.length === 4 && t2.every((c) => !c.btn && /Coming soon/.test(c.text)) && /about 150 MB/.test(t2[0].text), "not published yet: the cards say what's coming (about 150 MB), no Download button", t2.map((c) => c.text.slice(0, 80)));
+    ok(t2.length === 4 && t2.every((c) => !c.btn && /Coming soon/.test(c.text)) && /about \d+ MB/.test(t2[0].text), "not published yet: the cards say what's coming (an estimated size), no Download button", t2.map((c) => c.text.slice(0, 80)));
     ok(!errors.length, "no page errors", errors);
   }
 } catch (e) {

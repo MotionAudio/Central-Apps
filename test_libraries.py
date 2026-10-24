@@ -41,6 +41,8 @@ def load(name, rel):
     return mod
 
 
+sys.path.insert(0, os.path.join(HERE, "tools"))
+import sfz_render as VCSL_R  # noqa: E402
 VCSL = load("sounds_vcsl", "tools/sounds-vcsl.py")
 IRS = load("make_irs", "tools/make-irs.py")
 BUILD = load("build_libraries", "tools/build-libraries.py")
@@ -135,7 +137,7 @@ def run(tmp):
             fr = np.fft.rfftfreq(16384, 1 / 48000)
             rolled.append(spec[fr > 9000].sum() < 0.05 * spec[(fr > 200) & (fr < 4000)].sum())
     check("each is mono, 48 kHz, 24-bit, 2048 samples (within the rig's 4096)", shapes == {(1, 48000, 2048)}, shapes)
-    check("the cabinets roll off above the speaker's range", all(rolled) and len(rolled) == 10, rolled)
+    check("the cabinets (centre, edge and room microphones) roll off above the speaker's range", all(rolled) and len(rolled) == len([f for f in files if "Body" not in f]) >= 20, rolled)
     again = os.path.join(tmp, "irs2")
     IRS.main(again)
     check("the same files every build", all(open(os.path.join(ir_dir, f), "rb").read() == open(os.path.join(again, f), "rb").read() for f in files))
@@ -159,9 +161,42 @@ def run(tmp):
         check("every instrument and kit sound finds its samples in the VCSL list", not empty and not kits, (empty, kits))
     else:
         print("  - (no tools/vcsl-names.txt: the VCSL file list isn't checked here; CI builds the banks)")
-    banks = {b[0] for b in VCSL.BANKS}
+    banks = set(BUILD.vcsl_presets())   # (every bank builder: VCSL, the SFZ libraries, the pads and textures)
     want = {s["name"] for l in defs for s in l.get("sounds") or []}
     check("every sound the libraries list is a bank the builder makes", want <= banks, want - banks)
+
+    print("\nThe SFZ reader (tools/sfz_render.py):")
+    files_sfz = {
+        "P/kit.sfz": '#include "maps/keys.sfz"\n<control>\nset_cc101=127\nset_cc4=0\n// a comment\n<global> loop_mode=one_shot amplitude_oncc101=100 locc101=1\n#include "maps/kick.sfz"\n'
+                     '<global>\n<group> key=$HH sw_last=24 sw_default=24\n<region> sample=../S/hh closed.wav hicc4=60\n<region> sample=../S/hh_open.wav locc4=61\n'
+                     '<group> key=$HH sw_last=25\n<region> sample=../S/hh_sw2.wav\n<region> sample=../S/rel.wav key=40 trigger=release\n',
+        "P/maps/keys.sfz": "#define $KICK 36\n#define $HH 42\n",
+        "P/maps/kick.sfz": "<master> volume=-6\n<group> key=$KICK\n<region> sample=..\\S\\kick_v1_rr1.wav hivel=63\n<region> sample=../S/kick_v1_rr2.wav hivel=63 seq_position=2\n"
+                           "<region> sample=../S/kick_v2.wav lovel=64 volume=0\n<region> sample=../S/kick_oh.wav lovel=64 amplitude=50\n<region> sample=../S/kick_x.wav lorand=0.5\n",
+    }
+    sfz = VCSL_R.Sfz(lambda p: files_sfz[p], "P/kit.sfz")
+    act = sfz.active()
+    paths = sorted(sfz.sample_path(r) for r in act)
+    check("#include / #define, backslashes, the default key switch and controllers, first round robin, attack triggers only",
+          paths == ["S/hh closed.wav", "S/kick_oh.wav", "S/kick_v1_rr1.wav", "S/kick_v2.wav"], paths)
+    check("layers at a key, and each region's level (volume overridden in the region, amplitude, amplitude_oncc at its default)",
+          sfz.layers(act, 36) == [(1, 63), (64, 127)] and abs(sfz.gain([r for r in act if "kick_v1" in r["sample"]][0]) - 10 ** (-6 / 20)) < 1e-6
+          and abs(sfz.gain([r for r in act if "kick_oh" in r["sample"]][0]) - 0.5 * 10 ** (-6 / 20)) < 1e-6, sfz.layers(act, 36))
+    tone = lambda f: (np.sin(2 * np.pi * f * np.arange(4410) / 44100) * 0.5).astype(np.float32)
+    mix = VCSL_R.render_note(sfz, act, 36, 100, lambda p: (tone(100), 44100))
+    check("a note mixes every microphone that sounds there (kick + overhead, at their levels)", mix is not None and abs(float(np.max(np.abs(mix[0]))) - 0.5 * (1 + 0.5 * 10 ** (-6 / 20))) < 0.02, mix and float(np.max(np.abs(mix[0]))))
+    SFZB = load("sounds_sfz", "tools/sounds-sfz.py")
+    check("every SFZ library is CC0 at a pinned commit, and every instrument a bank uses is defined", all(len(c) == 40 for _r, c, _t in SFZB.SOURCES.values()) and SFZB.LICENSE == "CC0 1.0"
+          and all(layer[0] in SFZB.INSTR for _b, _p, presets in SFZB.BANKS for _n, layers in presets for layer in layers))
+
+    print("\nThe pads and textures (tools/make-pads.py):")
+    PADS = load("make_pads", "tools/make-pads.py")
+    x = PADS.pad_note("warm", 57, 7)
+    ext = np.concatenate([x, x])
+    seam = abs(float(ext[len(x)]) - float(ext[len(x) - 1]))
+    check("a pad note is one exact loop (no seam where it repeats)", len(x) == int(PADS.LOOP * PADS.SR) and seam < 4 * float(np.median(np.abs(np.diff(x)))) + 1e-4, seam)
+    check("every pad's partials sit on whole cycles of the loop", all(abs(PADS.q(f) * PADS.LOOP - round(PADS.q(f) * PADS.LOOP)) < 1e-9 for f, *_r in PADS.partials("aah", 220.0)))
+    check("the textures bank is a Central Plugins sound; the pads Central Keys", dict((b[0], b[1]) for b in PADS.BANKS) == {"Central Keys Pads": "keys", "Central Plugins Textures": "plugins"})
 
     print("\nThe zips (tools/build-libraries.py):")
     snd = os.path.join(tmp, "sounds")
@@ -181,7 +216,10 @@ def run(tmp):
                 ok_items &= hashlib.sha256(data).hexdigest() == it["sha256"] and it["kind"] in libraries.KINDS
                 tiers_ok &= it["tier"] == man["plan"] == e["plan"]
             files_ok &= "CREDITS.txt" in zf.namelist()
-    check("each manifest lists its items with their sha256, every one with the library's plan; CREDITS.txt inside", ok_items and tiers_ok and files_ok)
+            if any(i["kind"] in ("sound", "ir") for i in man["items"]):
+                cr = zf.read("sounds/CREDITS.txt").decode()
+                files_ok &= all(s["url"] in cr and s["license"] in cr for s in man["sources"]) and bool(man["sources"])
+    check("each manifest lists its items with their sha256, every one with the library's plan; CREDITS.txt, and sounds/CREDITS.txt with every source's license and URL", ok_items and tiers_ok and files_ok)
     sums = dict(reversed(line.split("  ")) for line in open(os.path.join(out, "SHA256SUMS")).read().splitlines())
     check("SHA256SUMS matches the zips and the index", all(hashlib.sha256(open(os.path.join(out, f), "rb").read()).hexdigest() == sums.get(f) for f in zips + ["libraries-index.json"]), sums)
     e0 = index["libraries"][0]
@@ -196,6 +234,7 @@ def run(tmp):
         stopped = True
     check("a sound that wasn't built stops the build (not a library missing its sounds)", stopped)
 
+    NK = len(by["keys"]["sounds"])
     print("\nThe installer (libraries.py) - the computers' rig folders:")
     data_root = os.path.join(tmp, "data")
     rig = native_rig.NativeRig(None, data_root, tmp, binary=None)   # (no rig program: just its folders)
@@ -222,14 +261,29 @@ def run(tmp):
         refused = "damaged" in str(error)
     check("a sound whose sha256 doesn't match the manifest is refused", refused and not store.installed())
     rec = store.install_file(kzip, expected_sha256=keys["sha256"])
-    check("Central Keys installs: its three banks and its presets", rec["counts"]["sound"] == 3 and rec["counts"]["preset"] == len(by["keys"]["presets"]) and all(os.path.isfile(p) for p in rec["sounds"]), rec["counts"])
+    check("Central Keys installs: all its banks and its presets", rec["counts"]["sound"] == NK and rec["counts"]["preset"] == len(by["keys"]["presets"]) and all(os.path.isfile(p) for p in rec["sounds"]), rec["counts"])
     catalog = [{"file": p, "name": "x"} for p in rec["sounds"]]
     native_rig.bank_plans(catalog)
-    check("the rig's sound list gives each bank its plan (keys) - locked without Central Keys though anyone can download it", [b.get("tier") for b in catalog] == ["keys"] * 3, catalog)
+    check("the rig's sound list gives each bank its plan (keys) - locked without Central Keys though anyone can download it", [b.get("tier") for b in catalog] == ["keys"] * NK, catalog)
     check("presets come with the library's plan for the Instrument page", all(p["tier"] == "keys" and p["library"] == "central-keys-library" for p in rec["presets"]))
     prec = store.install_file(os.path.join(out, pedals_e["file"]), expected_sha256=pedals_e["sha256"])
     irs = native_rig.ir_plans([{"file": p} for p in prec["irs"]])
-    check("Central Pedals installs its IRs into the IR folder, each with the pedals plan", len(irs) == 14 and all(i.get("tier") == "pedals" for i in irs), irs[:2])
+    check("Central Pedals installs its IRs into the IR folder, each with the pedals plan", len(irs) == len(by["pedals"]["irs"]) and all(i.get("tier") == "pedals" for i in irs), irs[:2])
+
+    plug = [e for e in index["libraries"] if e["plan"] == "plugins"][0]
+    grec = store.install_file(os.path.join(out, plug["file"]), expected_sha256=plug["sha256"])
+    gcat = native_rig.bank_plans([{"file": p, "name": "x"} for p in grec["sounds"]])
+    check("Central Plugins' textures bank keeps the plugins plan (a sound bank can belong to any plan)", gcat and all(b.get("tier") == "plugins" for b in gcat), gcat)
+    store.remove("central-plugins-library")
+    old_max = BUILD.MAX_ZIP
+    BUILD.MAX_ZIP = 1000
+    try:
+        BUILD.build_all(snd, ir_dir, os.path.join(tmp, "out4"), only="central-keys-library", log=lambda *a: None)
+        big = False
+    except ValueError as error:
+        big = "under" in str(error)
+    BUILD.MAX_ZIP = old_max
+    check("a library over the size limit (1.5 GB) stops the build", big)
 
     print("\nThe installer - the Central Pedal's host:")
     host = instrument_host.InstrumentHost(None, os.path.join(tmp, "pi"), HERE)
@@ -237,9 +291,12 @@ def run(tmp):
     pstore.install_file(kzip, expected_sha256=keys["sha256"])
     pstore.install_file(os.path.join(out, pedals_e["file"]), expected_sha256=pedals_e["sha256"])
     cat = [b for b in host.keys_catalog() if b["file"].startswith(host.sf2_user_dir)]
-    check("its keys catalog lists the library's banks with the keys plan, not as the user's own", len(cat) == 3 and all(b.get("tier") == "keys" and not b.get("user") for b in cat), [(b["name"], b.get("tier"), b.get("user")) for b in cat])
+    check("its keys catalog lists the library's banks with the keys plan, not as the user's own", len(cat) == NK and all(b.get("tier") == "keys" and not b.get("user") for b in cat), [(b["name"], b.get("tier"), b.get("user")) for b in cat])
+    pstore.install_file(os.path.join(out, plug["file"]), expected_sha256=plug["sha256"])
+    tex = [b for b in host.keys_catalog() if b["name"].startswith("Central Plugins")]
+    check("...and the Central Plugins textures with the plugins plan", tex and all(b.get("tier") == "plugins" for b in tex), [(b["name"], b.get("tier")) for b in tex])
     pir = host.ir_list()
-    check("its IR list gives the library's IRs the pedals plan", len(pir) == 14 and all(i.get("tier") == "pedals" for i in pir), pir[:2])
+    check("its IR list gives the library's IRs the pedals plan", len(pir) == len(by["pedals"]["irs"]) and all(i.get("tier") == "pedals" for i in pir), pir[:2])
     tiny_sf2(os.path.join(host.sf2_user_dir, "My Own.sf2"), "My Own")
     mine = [b for b in host.keys_catalog() if b["name"] == "My Own"]
     check("the musician's own bank in the same folder stays theirs (free)", mine and mine[0].get("user") and not mine[0].get("tier"), mine)
@@ -258,7 +315,7 @@ def run(tmp):
                     dst.writestr(n, json.dumps(man) if n == "manifest.json" else src.read(n))
     r2 = store.install_file(newzip)
     tiers = open(os.path.join(rig.sf2_user_dir, "tiers.txt")).read()
-    check("a newer version replaces the older one (the bank it no longer has is gone, with its plan line)", r2["version"] == "1.1" and r2["counts"]["sound"] == 2 and not os.path.exists(os.path.join(rig.sf2_user_dir, os.path.basename(drop["file"])))
+    check("a newer version replaces the older one (the bank it no longer has is gone, with its plan line)", r2["version"] == "1.1" and r2["counts"]["sound"] == NK - 1 and not os.path.exists(os.path.join(rig.sf2_user_dir, os.path.basename(drop["file"])))
           and os.path.basename(drop["file"]).split(" - ")[0] not in tiers, tiers)
     check("libraries.newer compares versions", libraries.newer("1.10", "1.9") and not libraries.newer("1.0", "1.0"))
     store.remove("central-keys-library")
@@ -294,7 +351,7 @@ def run(tmp):
         refused = "published" in str(error)
     check("a library the website lists without a sha256 (not published yet) isn't downloaded", refused)
     r3 = store.install_url(url, keys["sha256"], "central-keys-library", len(payload))
-    check("a good download installs", r3["version"] == "1.0" and r3["counts"]["sound"] == 3 and r3["source"] == "website")
+    check("a good download installs", r3["version"] == "1.0" and r3["counts"]["sound"] == NK and r3["source"] == "website")
     srv.shutdown()
     leftovers = [f for f in os.listdir(store.root) if f.endswith(".zip")]
     check("no downloaded zip is left behind", not leftovers, leftovers)
