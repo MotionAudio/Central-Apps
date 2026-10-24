@@ -10,7 +10,9 @@ set -euo pipefail
 REPO="MotionAudio/Central-Apps"
 say()  { printf '\n\033[1;32m%s\033[0m\n' "$*"; }
 note() { printf '   %s\n' "$*"; }
-fail() { printf '\n\033[1;31m%s\033[0m\n' "$*" >&2; exit 1; }
+fail() { printf '\n\033[1;31m%s\033[0m\n' "$*" >&2; FAILED=1; exit 1; }
+# never stop without saying why
+trap 'rc=$?; [ "$rc" -ne 0 ] && [ -z "${FAILED:-}" ] && printf "\n\033[1;31mThe SD card maker stopped (line %s, code %s). Run the line again; if it stops at the same place, send a photo of this window.\033[0m\n" "$LINENO" "$rc" >&2' EXIT
 ask()  { local q="$1" def="${2:-}" a; printf '%s' "$q" > /dev/tty; IFS= read -r a < /dev/tty || true; printf '%s' "${a:-$def}"; }
 
 [ "$(id -u)" -eq 0 ] || fail "Run it with sudo:   curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash"
@@ -65,7 +67,9 @@ say "Downloading the newest Central Pedal"
 apt-get install -y -qq curl unzip ca-certificates >/dev/null
 API="https://api.github.com/repos/$REPO/releases/latest"
 REL="$(curl -fsSL "$API")" || fail "Couldn't reach GitHub - is this PC online?"
-TAG="$(printf '%s' "$REL" | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
+# (grep -m1 stops reading early: under pipefail that used to end the whole script without a word)
+TAG="$(printf '%s' "$REL" | python3 -c 'import json, sys; print(json.load(sys.stdin).get("tag_name", ""))' 2>/dev/null || true)"
+[ -n "$TAG" ] || fail "Couldn't read the newest version from GitHub - try again in a minute."
 ZIP_URL="https://github.com/$REPO/releases/download/$TAG/central-control-source.zip"
 SUMS_URL="https://github.com/$REPO/releases/download/$TAG/SHA256SUMS"
 note "Version ${TAG#v}"
