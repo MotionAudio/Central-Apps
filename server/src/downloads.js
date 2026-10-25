@@ -2,9 +2,9 @@
 // phone, and the key; a built pedal (where it ships, and its phone setup); your sound plan package keys. The website
 // shows it (#downloads) and a "Just me" buyer gets the same by email after paying.
 import { q, one } from "./db.js";
-import { config, PLANS, PLAN_IDS, RENEWAL } from "./config.js";
+import { config, PLANS, PLAN_IDS, RENEWAL, PADS_PLAN, withPads } from "./config.js";
 import { sendMail, escHtml } from "./mail.js";
-import { keyState, packageRows, pretty as prettyPackage } from "./plans.js";
+import { keyState, packageRows, pretty as prettyPackage, devicesRule } from "./plans.js";
 import { fmt } from "./versions.js";
 
 const APPS_URL = "https://motionaudio.github.io/Central-Apps/";
@@ -36,7 +36,7 @@ export const PEDAL_SETUP = [
   "Press Upload. The pedal joins the Wi-Fi and is ready.",
 ];
 const address = (s) => { if (!s) return null; const a = s.address || {}; return [s.name, a.line1, a.line2, [a.city, a.state, a.postal_code].filter(Boolean).join(" "), a.country].filter(Boolean).join(", "); };
-const planNames = (plans) => (PLAN_IDS.every((id) => plans.includes(id)) ? "All four sound plans" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(", "));
+const planNames = (plans0) => { const plans = withPads(plans0); return PLAN_IDS.filter((id) => id !== PADS_PLAN).every((id) => plans.includes(id)) ? "All sound plans (with Central Pads)" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(", "); };
 
 // everything for one person (onlyOrder: just what that order gave - the email after a purchase)
 export async function downloadsFor(user, onlyOrder) {
@@ -55,9 +55,9 @@ export async function downloadsFor(user, onlyOrder) {
   let packages = [];
   if (!onlyOrder) {
     const rows = await packageRows(email, user.id);
-    packages = rows.filter((k) => keyState(k).ok).map((k) => ({ key: prettyPackage(k.key), plans: planNames(k.plans), until: k.ends, trial: k.trial, church: k.sub_kind === "bundle" || k.trial ? k.church : null }));
+    packages = rows.filter((k) => keyState(k).ok).map((k) => ({ key: prettyPackage(k.key), plans: planNames(k.plans), planIds: PLAN_IDS.filter((id) => withPads(k.plans).includes(id)), until: k.ends, trial: k.trial, church: k.sub_kind === "bundle" || k.trial ? k.church : null }));
   }
-  return { apps, pedals, renewalCents: RENEWAL.cents, pedalSetup: PEDAL_SETUP, packages, appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
+  return { apps, pedals, renewalCents: RENEWAL.cents, pedalSetup: PEDAL_SETUP, packages, packageRule: devicesRule(), appsUrl: APPS_URL, guide: config.publicUrl + INSTALL };
 }
 
 // the email to a "Just me" buyer after paying: the same as the Downloads page, for what they just bought

@@ -392,6 +392,7 @@
     for (var i = 0; i < t.stems.length; i++) {
       var st = t.stems[i], rec = await getStem(st.id);
       if (!rec) { st.missing = true; continue; }
+      if (st.fx && st.fx.on && window.PPFx) { var fxRec = await window.PPFx.stemFor(s, st, rec); if (fxRec) rec = fxRec; }   // (its effects, rendered - js/fx.js)
       var L = rec.L.slice(0), R = rec.R ? rec.R.slice(0) : null;
       stems.push({ id: st.id, L: new Int16Array(L), R: R ? new Int16Array(R) : null, gain: st.gain, pan: st.pan, mute: st.mute, solo: st.solo, role: st.role, bus: st.bus, out: -1 });
       transfer.push(L); if (R) transfer.push(R);
@@ -1029,7 +1030,7 @@
         songId: s ? s.id : null,
         lyrics: ls, chart: s && s.chart ? { id: s.chart.id, name: s.chart.name, page: (x && x.sec.page) || 1, pageCount: s.chart.pageCount || 1 } : null,
         projector: { fontSize: proj.fontSize || 7, blank: !!proj.blank, showNext: proj.showNext !== false, align: proj.align || "center", theme: proj.theme || "dark", showSection: proj.showSection !== false },
-        pads: p.pads.map(function (pad, i) { return { name: pad.name, playing: engine.playingIndexes().indexOf(i) > -1, selected: i === PP.selected() }; }),
+        pads: p.pads.map(function (pad, i) { return { name: pad.name, playing: engine.playingIndexes().indexOf(i) > -1, selected: i === PP.selected(), level: PP.padLevelOf ? PP.padLevelOf(pad) : 72 }; }),
         mini: miniState(p, t),
         performance: p.performance, frozen: !!engine.frozen, click: t ? !!t.click.on : true, cues: t ? !!t.cues.on : true, textures: (p.textures || []).map(function (c) { return { on: !!c.enabled, name: window.PPTextures ? window.PPTextures.byId(c.texture).name : c.texture }; })
       };
@@ -1052,7 +1053,7 @@
       var st = I.state();
       ins = { kind: st.kind, kinds: I.kinds().map(function (k) { return [k[0], k[1]]; }), board: I.boardName(), patch: st.patch ? st.patch.name : "", tuner: !!st.tuner, levelDb: st.levelDb,
         pedals: I.pedalNames().slice(0, 18), knobs: I.miniKnobs ? I.miniKnobs() : [], playAny: I.playAnyOn ? I.playAnyOn() : false };
-      if (I.lockInfo) { var lk = I.lockInfo(); ins.boardLocked = lk.board || null; ins.patchLocked = lk.patch || null; }   // ("Part of Central Pedals · $50 a year" when a plan ended)
+      if (I.lockInfo) { var lk = I.lockInfo(); ins.boardLocked = lk.board || null; ins.patchLocked = lk.patch || null; }   // ("Part of Central Pedals · $70 a year" when a plan ended)
     }
     return { stems: t ? t.stems.map(function (q, i) { return { i: i, name: q.name, gain: Math.round((q.gain == null ? 1 : q.gain) * 1000) / 1000, pan: Math.round((Number(q.pan) || 0) * 100) / 100, mute: !!q.mute, role: q.role }; }) : [],
       levels: { tracks: Math.round(levels.tracks * 1000) / 1000, click: Math.round(levels.click * 1000) / 1000 }, volume: p.performance ? p.performance.volume : 1,

@@ -29,7 +29,7 @@
     var c = cfg(), board = allBoards().filter(function (b) { return b.id === boardId; })[0]; if (!board) return;
     c.boards[k] = boardId;
     if (k === "keys" && board.sound) pickBoardSound(c, board);
-    c.chains[k] = board.chain.map(function (item) { if (item[0] === "plug" && item[2] && item[2].plugin) return { uid: uid(), pedal: "plug", plugin: item[2].plugin, stateFrom: item[2].stateFrom || null, on: true, values: {} }; var pedal = PED.byId(item[0]); if (!pedal) return null; var values = Object.assign({}, pedal.opts.values || {}); Object.keys(item[1] || {}).forEach(function (label) { values[pedal.knobs[label] || label] = item[1][label]; }); return { uid: uid(), pedal: pedal.id, on: true, values: values }; }).filter(Boolean);
+    c.chains[k] = board.chain.map(function (item) { if (item[0] === "plug" && item[2] && item[2].plugin) return { uid: uid(), pedal: "plug", plugin: item[2].plugin, stateFrom: item[2].stateFrom || null, on: true, values: {} }; var pedal = PED.byId(item[0]); if (!pedal) return null; var values = Object.assign({}, pedal.opts.values || {}); Object.keys(item[1] || {}).forEach(function (label) { values[pedal.knobs[label] || label] = item[1][label]; }); var out = { uid: uid(), pedal: pedal.id, on: true, values: values }, x = item[2] || {}; if (pedal.opts.irFile && (x.file || x.ir)) { out.file = x.file || irByName(x.ir) || null; if (x.ir) out.irName = x.ir; } return out; }).filter(Boolean);
   }
   function pickBoardSound(c, board) {   // ("Worship Grand" brings a grand piano, "Ambient Keys" a pad: the first unlocked sound that matches)
     if (!catalog.keys.length) return false; var parts = String(board.sound).toLowerCase().split("|"), snd = null;
@@ -38,7 +38,7 @@
   }
   var CATS = [[/rhodes|wurli|e\.? ?piano|elec.*piano|\bep\b|fm[ _-]?piano|\bdx|tine|clav/i, "Electric pianos"], [/harp|guitar|nylon|banjo|sitar|koto|dulcimer|shamisen/i, "Guitars & harp"], [/grand|concert|steinway|yamaha|piano|upright|honky|salamander|ydp/i, "Pianos"], [/organ|drawbar|hammond|b3|church|pipe|rotary|accordion|harmonica/i, "Organs"], [/\bbass\b|bass ?yr|lately/i, "Bass"], [/brass|trumpet|horn|trombone|sax|tuba|oboe|flute|clarinet|bassoon|recorder|pan ?flute|whistle|ocarina/i, "Brass & winds"], [/pad|choir|voice|vox|aah|ooh|halo|atmos|sweep|new age|warm|bowed|space|dream/i, "Pads & choirs"], [/string|violin|cello|viola|orch|ensemble|tremolo str|pizz/i, "Strings"], [/bell|glock|vibra|marimba|celest|music box|tubular|kalimba|chime|xylo|timpani|steel dr|glass|hang\b|crystal/i, "Bells & mallets"], [/lead|square|saw|calliope|chiff|charang|fifth|synth|poly|wave/i, "Synths & leads"], [/steel/i, "Guitars & harp"]];
   function categoryOf(name) { for (var i = 0; i < CATS.length; i++) if (CATS[i][0].test(name)) return CATS[i][1]; return "Other"; }
-  function flattenKeys(banks) { var out = [], order = CATS.map(function (c) { return c[1]; }); banks.forEach(function (b) { (b.presets || []).forEach(function (pr) { var nm = pr.name || b.name; out.push({ id: b.file + "#" + pr.bank + ":" + pr.prog, file: b.file, bank: pr.bank, prog: pr.prog, name: nm, bankName: b.name + (b.user ? " (yours)" : ""), category: categoryOf(nm + " " + (b.presets.length < 4 ? b.name : "")), user: !!b.user, bankTier: b.tier || null }); }); });
+  function flattenKeys(banks) { var out = [], order = CATS.map(function (c) { return c[1]; }); banks.forEach(function (b) { (b.presets || []).forEach(function (pr) { var nm = pr.name || b.name; out.push({ id: b.file + "#" + pr.bank + ":" + pr.prog, file: b.file, bank: pr.bank, prog: pr.prog, name: nm, bankName: b.name + (b.user && !b.tier ? " (yours)" : ""), category: categoryOf(nm + " " + (b.presets.length < 4 ? b.name : "")), user: !!b.user && !b.tier, bankTier: b.tier || null }); }); });
     out.forEach(function (e) { e.tier = PED.soundTier ? PED.soundTier(e) : "free"; });
     out.sort(function (a, b) { var ca = a.user ? -1 : order.indexOf(a.category), cb = b.user ? -1 : order.indexOf(b.category); if (ca < 0 && !a.user) ca = 99; if (cb < 0 && !b.user) cb = 99; return ca - cb || a.name.localeCompare(b.name); }); return out; }
   var catalog = { plugins: {}, keys: [], inputs: [], midi: [], ready: false }, status = { running: false }, selected = null, showAdd = false, addCat = "all", addQuery = "", keysCat = "all", keysQuery = "", tunerOn = false;
@@ -47,7 +47,11 @@
   // Locked things stay in sight with a lock and the plan that opens them. A saved board with a locked pedal keeps it, bypassed
   // (the engine skips it) until the plan is active again; a keys layer with a locked sound stays, muted. Stepping skips them.
   function tierLocked(tier) { return !!(PED.has && !PED.has(tier)); }
-  function itemLocked(item) { if (!item || isPlug(item)) return false; var p = PED.byId(item.pedal); return !!(p && PED.pedalLocked && PED.pedalLocked(p)); }
+  function itemLocked(item) { if (!item || isPlug(item)) return false; var p = PED.byId(item.pedal); return !!(p && PED.pedalLocked && PED.pedalLocked(p)) || irLocked(item); }
+  // impulse responses: a library's IRs keep its plan (status.irs[].tier); a board from a library names its IR ("ir": name)
+  function irOf(item) { var f = item && (item.file || irByName(item.irName)); return f ? (status.irs || []).filter(function (x) { return x.file === f; })[0] || null : null; }
+  function irByName(name) { if (!name) return null; var n = String(name).toLowerCase(), hit = (status.irs || []).filter(function (x) { return String(x.name || "").toLowerCase() === n || String(x.file || "").toLowerCase().split(/[\\/]/).pop() === n + ".wav"; })[0]; return hit ? hit.file : null; }
+  function irLocked(item) { var ir = irOf(item); return !!(ir && ir.tier && tierLocked(ir.tier)); }
   function soundOf(patch) { if (!patch || patch.plugin) return null; for (var i = 0; i < catalog.keys.length; i++) if (catalog.keys[i].id === patch.id) return catalog.keys[i]; return null; }
   function soundLocked(patch) { var so = soundOf(patch); return !!(so && tierLocked(so.tier)); }
   function boardLocked(b) { return !!(b && PED.boardLocked && PED.boardLocked(b)); }
@@ -101,12 +105,12 @@
   function denorm(ctl, n) { n = clamp(n, 0, 1); var v = ctl.log && ctl.min > 0 ? ctl.min * Math.pow(ctl.max / ctl.min, n) : ctl.min + (ctl.max - ctl.min) * n; if (ctl.integer || ctl.enum) v = Math.round(v); if (ctl.toggled) v = n >= 0.5 ? 1 : 0; return v; }
   function fmt(ctl, v) { if (ctl.toggled) return v >= 0.5 ? "on" : "off"; if (ctl.sym === "Ratio" && ctl.min === 0 && ctl.max === 1 && !ctl.unit) return v >= 0.995 ? "∞ : 1" : (1 / (1 - v)).toFixed(1) + " : 1";   /* x42 darc: 0 = 1:1, 1 = limiting */ if (ctl.scale.length) { var sp = ctl.scale.filter(function (s) { return Math.abs(s[0] - v) < 1e-6; })[0]; if (sp) return sp[1]; } var a = Math.abs(v), t = a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2); return t + (ctl.unit ? " " + ctl.unit.replace(/^db$/, "dB").replace(/^hz$/, "Hz") : ""); }
   function resolvedChain(k) {
-    return chainFor(k).map(function (item) { if (isPlug(item)) return plugHost() ? { uid: item.uid, id: "plug", name: item.plugin.name, plugin: item.plugin, stateFrom: item.stateFrom || undefined, on: item.on !== false, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0 } : null; var pedal = PED.byId(item.pedal); if (!pedal) return null; var values = {}; controlsOf(pedal).forEach(function (ctl) { values[ctl.sym] = valueOf(item, ctl); }); return { uid: item.uid, id: pedal.id, name: pedal.name, uri: pedal.uri, on: item.on !== false && !itemLocked(item), locked: itemLocked(item) || undefined, values: values, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0, file: item.file || null }; }).filter(Boolean);
+    return chainFor(k).map(function (item) { if (isPlug(item)) return plugHost() ? { uid: item.uid, id: "plug", name: item.plugin.name, plugin: item.plugin, stateFrom: item.stateFrom || undefined, on: item.on !== false, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0 } : null; var pedal = PED.byId(item.pedal); if (!pedal) return null; var values = {}; controlsOf(pedal).forEach(function (ctl) { values[ctl.sym] = valueOf(item, ctl); }); return { uid: item.uid, id: pedal.id, name: pedal.name, uri: pedal.uri, on: item.on !== false && !itemLocked(item), locked: itemLocked(item) || undefined, values: values, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0, file: item.file || irByName(item.irName) || null }; }).filter(Boolean);
   }
   function hostConfig() {
     var c = cfg(), k = kind();
     return { kind: k, input: { device: c.input.device || "auto", channel: c.input.channel || "L", gainDb: c.input.gain || 0, gateOn: c.input.gate > -90, gateDb: c.input.gate != null ? c.input.gate : -70 }, chain: resolvedChain(k),
-      keys: hostKeys(c), levelDb: c.output.level || 0, routing: project().routing || {}, looper: !!(window.PPLooper && window.PPLooper.armed()), playAny: hostPlayAny(c, k) };
+      keys: hostKeys(c), levelDb: outLevel(), routing: project().routing || {}, looper: !!(window.PPLooper && window.PPLooper.armed()), playAny: hostPlayAny(c, k) };
   }
   // ---- play any sound: a guitar, bass or acoustic plays any keys sound. Single notes (lead lines) are tracked and play the
   // chosen sound; chords play a guitar-synth sound (no note detection, so it follows at once). Auto switches between them.
@@ -325,7 +329,7 @@
       (pedal.opts.expression ? '<label class="toggle"><input type="checkbox" data-expr="' + item.uid + '"' + (cfg().expression === item.uid ? " checked" : "") + "> Expression pedal moves " + esc((expressionCtl(pedal) || {}).label || "it") + "</label>" : "") +
       (pedal.opts.tempo || pedal.opts.tempoBpm ? '<button data-sync="' + item.uid + '">♩ Sync to song tempo</button>' : "") + '<button data-reset="' + item.uid + '">Reset</button></div></div>' +
       '<div class="in-mixlevel"><label>Mix <small>(dry ↔ pedal)</small><span class="control-line"><input type="range" min="0" max="100" step="1" data-pmix="' + item.uid + '" value="' + Math.round((item.mix == null ? 1 : item.mix) * 100) + '"><output>' + Math.round((item.mix == null ? 1 : item.mix) * 100) + '%</output></span></label><label>Level<span class="control-line"><input type="range" min="-30" max="12" step="0.5" data-plevel="' + item.uid + '" value="' + (item.levelDb || 0) + '"><output>' + (item.levelDb || 0) + ' dB</output></span></label></div>' +
-      (pedal.opts.irFile ? '<div class="in-ir"><label>Impulse response<select data-irfile="' + item.uid + '"><option value="">— choose an IR —</option>' + (status.irs || []).map(function (f) { return '<option value="' + esc(f.file) + '"' + (item.file === f.file ? " selected" : "") + ">" + esc(f.name) + "</option>"; }).join("") + '</select></label><button data-iradd="' + item.uid + '">+ Add IR from USB…</button><span class="muted small">A .wav cabinet or acoustic-body impulse (mono, 48 kHz best).</span></div>' : "") +
+      (pedal.opts.irFile ? '<div class="in-ir"><label>Impulse response<select data-irfile="' + item.uid + '"><option value="">— choose an IR —</option>' + (status.irs || []).map(function (f) { var lk = !!(f.tier && tierLocked(f.tier)); return '<option value="' + esc(f.file) + '"' + (item.file === f.file ? " selected" : lk ? " disabled" : "") + ">" + (lk ? "🔒 " : "") + esc(f.name) + (lk ? " · " + esc(lockText(f.tier)) : "") + "</option>"; }).join("") + '</select></label><button data-iradd="' + item.uid + '">+ Add IR from USB…</button><span class="muted small">A .wav cabinet or acoustic-body impulse (mono, 48 kHz best).</span></div>' : "") +
       (pedal.opts.graph === "eq" ? '<canvas class="eq-curve" data-eqc="' + item.uid + '" aria-label="EQ curve"></canvas>' : "") +
       (pedal.category === "studio" && pedal.opts.graph !== "eq" && status.engine === "cu-rig" ? '<div class="gr-meter" data-gr="' + item.uid + '"><span>Gain reduction</span><b><i></i></b><output>0.0 dB</output></div>' : "") +
       '<div class="in-controls">' + ctls.map(function (ctl) { var v = valueOf(item, ctl), key = item.uid + "|" + esc(ctl.sym); if (ctl.toggled) return '<label class="toggle"><input type="checkbox" data-ctl="' + key + '"' + (v >= 0.5 ? " checked" : "") + "> " + esc(ctl.label) + "</label>"; if (ctl.enum && ctl.scale.length) return "<label>" + esc(ctl.label) + '<select data-ctl="' + key + '">' + ctl.scale.map(function (s) { return '<option value="' + s[0] + '"' + (Math.abs(s[0] - v) < 1e-6 ? " selected" : "") + ">" + esc(s[1]) + "</option>"; }).join("") + "</select></label>"; return "<label>" + esc(ctl.label) + '<span class="control-line"><input type="range" min="0" max="1000" step="1" value="' + Math.round(norm(ctl, v) * 1000) + '" data-ctl="' + key + '"><output>' + esc(fmt(ctl, v)) + "</output></span></label>"; }).join("") + "</div></section>";
@@ -500,7 +504,7 @@
       if (el.dataset.ctl) { var parts = el.dataset.ctl.split("|"), item = chainFor(k).filter(function (q) { return q.uid === parts[0]; })[0], pedal = item && PED.byId(item.pedal); if (!pedal) return; var ctl = controlsOf(pedal).filter(function (q) { return q.sym === parts[1]; })[0]; if (!ctl) return; var v = el.type === "checkbox" ? (el.checked ? 1 : 0) : el.tagName === "SELECT" ? Number(el.value) : denorm(ctl, Number(el.value) / 1000); item.values[ctl.sym] = v; if (out) out.textContent = fmt(ctl, v); send({ type: "instrument", action: "set", uid: item.uid, sym: ctl.sym, value: v }); PP.persistSoon(); var svg = root.querySelector('svg.pedal[data-uid="' + item.uid + '"]'); if (svg) svg.outerHTML = pedalSvg(item, pedal, chainFor(k).indexOf(item), true); return; }
       if (el.id === "inGain") { c.input.gain = Number(el.value); if (out) out.textContent = el.value + " dB"; inputSoon(); }
       else if (el.id === "inGate") { c.input.gate = Number(el.value); if (out) out.textContent = el.value + " dB"; inputSoon(); }
-      else if (el.id === "inOut") { c.output.level = Number(el.value); if (out) out.textContent = el.value + " dB"; send({ type: "instrument", action: "level", levelDb: c.output.level }); PP.persistSoon(); }
+      else if (el.id === "inOut") { c.output.level = Number(el.value); if (out) out.textContent = el.value + " dB"; send({ type: "instrument", action: "level", levelDb: outLevel() }); PP.persistSoon(); }
       else if (el.id === "inTranspose") { c.keys.transpose = Number(el.value); if (out) out.textContent = el.value; keysSoon(); }
       else if (el.dataset.pmix || el.dataset.plevel) { var pu = el.dataset.pmix || el.dataset.plevel, pit = chainFor(k).filter(function (q) { return q.uid === pu; })[0]; if (!pit) return; if (el.dataset.pmix) { pit.mix = Number(el.value) / 100; if (out) out.textContent = el.value + "%"; } else { pit.levelDb = Number(el.value); if (out) out.textContent = el.value + " dB"; } send({ type: "instrument", action: "pedalmix", uid: pit.uid, mix: pit.mix == null ? 1 : pit.mix, levelDb: pit.levelDb || 0 }); PP.persistSoon(); }
       else if (el.dataset.klvol != null) { var lv = layers(c)[Number(el.dataset.klvol)]; if (lv) { lv.volume = Number(el.value) / 100; if (out) out.textContent = el.value; keysLive(); } }
@@ -626,7 +630,7 @@
     el.addEventListener("click", function (e) { if (e.target.id === "tnClose") toggleTuner(); });
     el.addEventListener("change", function (e) {
       if (e.target.id === "tnRef") { cfg().tunerRef = clamp(Number(e.target.value) || 440, 425, 455); PP.persistSoon(); }
-      if (e.target.id === "tnMute") { cfg().tunerMute = e.target.checked; PP.persistSoon(); if (tunerOn) send({ type: "instrument", action: "level", levelDb: e.target.checked ? -120 : (cfg().output.level || 0) }); el.querySelector("small").textContent = e.target.checked ? "TUNER · instrument muted" : "TUNER · instrument still playing"; }
+      if (e.target.id === "tnMute") { cfg().tunerMute = e.target.checked; PP.persistSoon(); if (tunerOn) send({ type: "instrument", action: "level", levelDb: e.target.checked ? -120 : outLevel() }); el.querySelector("small").textContent = e.target.checked ? "TUNER · instrument muted" : "TUNER · instrument still playing"; }
     });
     return el;
   }
@@ -652,7 +656,7 @@
     var want = typeof force === "boolean" ? force : !tunerOn; if (want === tunerOn) return tunerOn;
     if (want && window.PPShell && ["instrument", "live"].indexOf(window.PPShell.currentTab()) < 0) window.PPShell.showTab("instrument");   // (the LIVE screen shows its own tuner)
     tunerOn = want;
-    if (cfg().tunerMute !== false || !tunerOn) send({ type: "instrument", action: "level", levelDb: tunerOn ? -120 : (cfg().output.level || 0) });
+    if (cfg().tunerMute !== false || !tunerOn) send({ type: "instrument", action: "level", levelDb: tunerOn ? -120 : outLevel() });
     var box = tunerBox(); box.classList.toggle("on", tunerOn); tunerSmooth = null;
     box.querySelector("small").textContent = cfg().tunerMute !== false ? "TUNER · instrument muted" : "TUNER · instrument still playing";
     miniAt = 0; send({ type: "tunerView", on: tunerOn, note: "–", cents: null });
@@ -687,17 +691,45 @@
     var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0], pt = (layers(c)[0] || {}).patch || c.keys.patch, so = soundOf(pt);
     return { board: b && boardLocked(b) ? lockText(boardMissing(b)) : null, patch: so && tierLocked(so.tier) ? lockText(so.tier) : null };
   }
+  function outLevel() { return window.PPActions && window.PPActions.muted && window.PPActions.muted("instrument") ? -90 : (cfg().output.level || 0); }   // (Bus levels & mutes: the instrument muted from a button)
   function state() { var c = cfg(); return { kind: c.kind, tuner: tunerOn, board: c.boards[c.kind], patch: c.keys.patch, get levelDb() { return c.output.level || 0; }, set levelDb(v) { c.output.level = v; if (onTab()) { var el = $("#inOut"); if (el) { el.value = v; var o = el.parentNode.querySelector("output"); if (o) o.textContent = v + " dB"; } } } }; }
   // a board from Central Tracks (or a file): { name, kind, chain: [[pedalId, { knob: value }], …] } becomes one of "your boards"
-  function addBoard(data, fallbackName) {
+  function addBoard(data, fallbackName, quiet) {
     var b = data && data.board ? data.board : data; if (!b || !Array.isArray(b.chain)) throw new Error("that isn't a board (no pedals in it)");
     var k = ["electric", "acoustic", "bass", "keys"].indexOf(b.kind) >= 0 ? b.kind : "electric";
-    var chain = b.chain.map(function (it) { var id = Array.isArray(it) ? it[0] : it && (it.pedal || it.id), vals = Array.isArray(it) ? it[1] : it && it.values; if (!PED.byId(id)) return null; var v = {}; Object.keys(vals || {}).forEach(function (key) { var n = Number(vals[key]); if (isFinite(n)) v[String(key).slice(0, 40)] = n; }); return [id, v]; }).filter(Boolean).slice(0, 24);
+    var chain = b.chain.map(function (it) { var id = Array.isArray(it) ? it[0] : it && (it.pedal || it.id), vals = Array.isArray(it) ? it[1] : it && it.values, extra = Array.isArray(it) ? it[2] : it && it.extra; if (!PED.byId(id)) return null; var v = {}; Object.keys(vals || {}).forEach(function (key) { var n = Number(vals[key]); if (isFinite(n)) v[String(key).slice(0, 40)] = n; }); var x = {}; if (extra && typeof extra.ir === "string") x.ir = extra.ir.slice(0, 80); if (extra && typeof extra.file === "string") x.file = extra.file.slice(0, 400); return Object.keys(x).length ? [id, v, x] : [id, v]; }).filter(Boolean).slice(0, 24);
     if (!chain.length) throw new Error("none of that board's pedals are in this version");
     var c = cfg(), board = { id: "custom-" + uid(), name: String(b.name || fallbackName || "Board").slice(0, 60), kind: k, chain: chain, from: "central-tracks" };
     if (typeof b.sound === "string") board.sound = b.sound.slice(0, 80);
-    c.custom.push(board); PP.persistSoon(); if (onTab()) render(); return board;
+    // from a sound library: it keeps the library's plan (as well as its pedals' plans), and is replaced when the library updates
+    var lib = data && data.library ? data : b;
+    if (lib.library && /^[a-z0-9-]{3,60}$/.test(lib.library)) {
+      board.from = "library"; board.library = lib.library; board.libraryVersion = String(lib.libraryVersion || "");
+      var tier = ["keys", "instrument", "plugins", "pedals"].indexOf(lib.tier) >= 0 ? lib.tier : null, plans = PED.boardPlans ? PED.boardPlans(board) : [];
+      if (tier && plans.indexOf(tier) < 0) plans.unshift(tier);
+      board.plans = plans; board.tier = plans[0] || "free";
+      if (board.sound) board.soundPlan = tier || "keys";
+    }
+    c.custom.push(board); if (!quiet) { PP.persistSoon(); if (onTab()) render(); } return board;
   }
+  // the sound libraries installed here (Settings → Packages → Libraries): their presets and boards become "your boards",
+  // each keeping its library's plan. A new version replaces them; a removed library takes them away. (Once added, a
+  // board you delete stays deleted until the library's next version.)
+  function syncLibraries(list) {
+    if (!Array.isArray(list)) return 0;
+    var c = cfg(), want = {}, changed = 0; c.libs = c.libs && typeof c.libs === "object" ? c.libs : {};
+    list.forEach(function (l) { if (l && /^[a-z0-9-]{3,60}$/.test(l.id || "")) want[l.id] = l; });
+    Object.keys(c.libs).forEach(function (id) { if (!want[id] || want[id].version !== c.libs[id]) { var n = c.custom.length; c.custom = c.custom.filter(function (x) { return x.library !== id; }); changed += n - c.custom.length; delete c.libs[id]; } });
+    Object.keys(want).forEach(function (id) {
+      var l = want[id]; if (c.libs[id] === l.version) return;
+      c.custom = c.custom.filter(function (x) { return x.library !== id; });
+      (l.presets || []).concat(l.boards || []).forEach(function (b) { try { addBoard(Object.assign({}, b, { library: id, tier: l.plan, libraryVersion: l.version }), null, true); changed++; } catch (_) { } });
+      c.libs[id] = l.version; changed++;
+    });
+    if (changed) { PP.persistSoon(); if (onTab()) render(); }
+    return changed;
+  }
+  function removeLibraryBoards(libId) { var c = cfg(), n = c.custom.length; c.custom = c.custom.filter(function (x) { return x.library !== libId; }); if (c.libs) delete c.libs[libId]; if (c.custom.length !== n) { PP.persistSoon(); if (onTab()) render(); } return n - c.custom.length; }
   function setKind(k) { var c = cfg(); c.kind = k; selected = null; apply("kind"); PP.setStatus("Instrument: " + (KINDS.filter(function (q) { return q[0] === k; })[0] || ["", k])[1]); if (onTab()) render(); }
-  window.PPInstrument = { addBoard: addBoard, lockInfo: lockInfo, show: show, hide: hide, render: render, config: cfg, kind: kind, state: state, setKind: setKind, autoSetup: autoSetup, togglePedal: togglePedal, pedalOn: pedalOn, pedalNames: pedalNames, miniKnobs: miniKnobs, setKnob: setKnob, setInput: setInput, stepBoard: stepBoard, stepPatch: stepPatch, stepKind: stepKind, expression: expression, toggleTuner: toggleTuner, tunerToggle: toggleTuner, tunerOn: function () { return tunerOn; }, apply: apply, hostConfig: hostConfig, catalog: function () { return catalog; }, chain: chainFor, resolvedChain: resolvedChain, controlsOf: controlsOf, captureRig: captureRig, applyRig: applyRig, layers: layers, maxLayers: MAX_LAYERS, status: function () { return status; }, boardName: function () { var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0]; return b ? b.name : ""; }, kinds: function () { return KINDS; }, onTuner: function (fn) { tunerHooks.push(fn); }, togglePlayAny: togglePlayAny, playAnyOn: playAnyOn, setPlayAny: setPlayAny, stepPlayAnyMode: stepPlayAnyMode, playAny: function () { return paCfg(); } };
+  window.PPInstrument = { addBoard: addBoard, syncLibraries: syncLibraries, removeLibraryBoards: removeLibraryBoards, loadBoard: function (k, id) { loadBoard(k, id); }, lockInfo: lockInfo, show: show, hide: hide, render: render, config: cfg, kind: kind, state: state, setKind: setKind, autoSetup: autoSetup, togglePedal: togglePedal, pedalOn: pedalOn, pedalNames: pedalNames, miniKnobs: miniKnobs, setKnob: setKnob, setInput: setInput, stepBoard: stepBoard, stepPatch: stepPatch, stepKind: stepKind, expression: expression, toggleTuner: toggleTuner, tunerToggle: toggleTuner, tunerOn: function () { return tunerOn; }, apply: apply, hostConfig: hostConfig, catalog: function () { return catalog; }, chain: chainFor, resolvedChain: resolvedChain, controlsOf: controlsOf, captureRig: captureRig, applyRig: applyRig, layers: layers, maxLayers: MAX_LAYERS, status: function () { return status; }, boardName: function () { var c = cfg(), k = kind(), b = allBoards().filter(function (x) { return x.id === c.boards[k]; })[0]; return b ? b.name : ""; }, kinds: function () { return KINDS; }, onTuner: function (fn) { tunerHooks.push(fn); }, togglePlayAny: togglePlayAny, playAnyOn: playAnyOn, setPlayAny: setPlayAny, stepPlayAnyMode: stepPlayAnyMode, playAny: function () { return paCfg(); } };
 })();

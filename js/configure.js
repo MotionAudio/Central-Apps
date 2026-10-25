@@ -56,7 +56,8 @@
     if (a.arg === "scene") return '<input data-cf="arg-index" type="number" min="1" max="32" value="' + ((Number(args.index) || 0) + 1) + '" title="scene number (in the song)">';
     if (a.arg === "layer") return '<input data-cf="arg-index" type="number" min="1" max="8" value="' + ((Number(args.index) || 0) + 1) + '" title="layer number">';
     if (a.arg === "stem") return '<input data-cf="arg-index" type="number" min="1" max="24" value="' + ((Number(args.index) || 0) + 1) + '" title="stem number">';
-    if (a.arg === "tab") return '<select data-cf="arg-tab">' + ["live", "pads", "tracks", "instrument", "configure", "learn", "io", "settings"].map(function (t) { return '<option value="' + t + '"' + (args.tab === t ? " selected" : "") + ">" + t + "</option>"; }).join("") + "</select>";
+    if (a.arg === "tab") { var names = A.TAB_NAMES || {}; return '<select data-cf="arg-tab">' + ["live", "pads", "tracks", "instrument", "configure", "learn", "io", "settings"].map(function (t) { return '<option value="' + t + '"' + ((args.tab || "pads") === t ? " selected" : "") + ">" + esc(names[t] || t) + "</option>"; }).join("") + "</select>"; }
+    if (a.arg === "bus") return '<select data-cf="arg-bus">' + [["tracks", "Tracks"], ["pad", "Pads"], ["click", "Click + MD voice"], ["instrument", "Instrument"]].map(function (b) { return '<option value="' + b[0] + '"' + ((args.bus || "tracks") === b[0] ? " selected" : "") + ">" + b[1] + "</option>"; }).join("") + "</select>";
     if (a.arg === "cue") return '<input data-cf="arg-cue" value="' + esc(args.cue || "chorus") + '" placeholder="cue id">';
     return "";
   }

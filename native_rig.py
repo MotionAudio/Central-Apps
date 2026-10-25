@@ -32,7 +32,7 @@ def bank_plans(catalog):
                 with open(os.path.join(folder, "tiers.txt"), encoding="utf-8", errors="replace") as handle:
                     for line in handle:
                         parts = line.strip().split("|")
-                        if len(parts) >= 2 and parts[0] and not parts[0].startswith("#") and parts[1] in ("free", "keys", "instrument"):
+                        if len(parts) >= 2 and parts[0] and not parts[0].startswith("#") and parts[1] in ("free", "keys", "instrument", "plugins", "pedals"):
                             tiers[parts[0]] = parts[1]
             except OSError:
                 pass
@@ -42,6 +42,29 @@ def bank_plans(catalog):
         if tier and not b.get("tier"):
             b["tier"] = tier
     return catalog
+
+
+def ir_plans(irs):
+    """The plan of each impulse response the rig lists, from the tiers.txt a sound library writes next to its IRs."""
+    cache = {}
+    for ir in irs or []:
+        path = ir.get("file") or ""
+        folder = os.path.dirname(path)
+        if folder not in cache:
+            tiers = {}
+            try:
+                with open(os.path.join(folder, "tiers.txt"), encoding="utf-8", errors="replace") as handle:
+                    for line in handle:
+                        parts = line.strip().split("|")
+                        if len(parts) >= 2 and parts[0] and not parts[0].startswith("#") and parts[1] in ("free", "keys", "instrument", "plugins", "pedals"):
+                            tiers[parts[0]] = parts[1]
+            except OSError:
+                pass
+            cache[folder] = tiers
+        tier = cache[folder].get(os.path.splitext(os.path.basename(path))[0])
+        if tier and not ir.get("tier"):
+            ir["tier"] = tier
+    return irs
 
 
 def find_binary(app_root):
@@ -112,6 +135,7 @@ class NativeRig:
             if msg.get("type") == "instrumentStatus":
                 msg["midiInputs"] = list(self.midi_ports)
                 bank_plans(msg.get("keysCatalog"))
+                ir_plans(msg.get("irs"))
                 self.last = msg
                 self.kind = msg.get("kind") or "off"
             try:

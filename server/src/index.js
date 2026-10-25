@@ -22,6 +22,7 @@ import * as prices from "./prices.js";
 import * as content from "./content.js";
 import * as plans from "./plans.js";
 import * as downloads from "./downloads.js";
+import * as libraries from "./libraries.js";
 import * as defaultkeys from "./defaultkeys.js";
 
 const app = express();
@@ -86,6 +87,7 @@ content.routes(app, api, { wrap, requireUser });
 defaultkeys.routes(api, { wrap, requireUser });
 plans.routes(api, { wrap, requireUser });
 downloads.routes(api, { wrap, requireUser });
+libraries.routes(api, { wrap });
 function needConfirmed(u) { if (u && !u.email_confirmed) { const e = bad("Confirm your email first: we sent you a link (Account → Send it again)."); e.status = 403; e.needConfirm = true; throw e; } }
 
 api.post("/signup", wrap(async (req, res) => {

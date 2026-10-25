@@ -260,7 +260,7 @@ def installed_lv2_uris(dirs=None):
 
 
 _TIERS_CACHE = {}
-BANK_TIER_NAMES = ("free", "keys", "instrument")
+BANK_TIER_NAMES = ("free", "keys", "instrument", "plugins", "pedals")   # (a sound library can be any plan: Central Plugins has textures)
 
 
 def bank_tiers(folder):
@@ -286,6 +286,20 @@ def bank_tiers(folder):
         return {}
     _TIERS_CACHE[path] = (mtime, tiers)
     return tiers
+
+
+def ir_tiers(folder):
+    """{IR file name without .wav: plan} from the tiers.txt a sound library writes next to its impulse responses."""
+    out = {}
+    try:
+        with open(os.path.join(folder, "tiers.txt"), encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                parts = line.strip().split("|")
+                if len(parts) >= 2 and parts[0] and not parts[0].startswith("#") and parts[1] in ("free", "keys", "instrument", "plugins", "pedals"):
+                    out[parts[0]] = parts[1]
+    except OSError:
+        pass
+    return out
 
 
 def build_sf2_from_wavs(folder, out_path, name=None):
@@ -354,6 +368,16 @@ def build_sf2_from_wavs(folder, out_path, name=None):
 
 
 # ---------------------------------------------------------------- PipeWire helpers
+
+def fit_channel(ch, stereo, available):
+    """(ch, stereo, wanted) - an output that isn't there (no DAC board: 3-4; a USB interface unplugged: 5 up) plays on
+    1-2 instead of nowhere. wanted is the channel asked for when it was moved, else 0."""
+    if ch <= 0 or available <= 0:
+        return ch, stereo, 0
+    if ch <= available:
+        return ch, stereo and ch < available, 0
+    return 1, available >= 2, ch
+
 class PW:
     def __init__(self, env):
         self.env = env
@@ -418,6 +442,7 @@ class InstrumentHost:
         self.driver = driver
         self.data_root = data_root
         self.app_root = app_root
+        self.output_fallback = 0   # the output asked for when it isn't there (it plays on 1-2)
         self.dir = os.path.join(data_root, "instrument")
         os.makedirs(self.dir, exist_ok=True)
         self.sf2_user_dir = os.path.join(data_root, "sounds", "sf2")
@@ -541,9 +566,13 @@ class InstrumentHost:
     def ir_list(self):
         out = []
         if os.path.isdir(self.ir_dir):
+            tiers = ir_tiers(self.ir_dir)   # (a sound library's IRs keep its plan)
             for fn in sorted(os.listdir(self.ir_dir)):
                 if fn.lower().endswith((".wav", ".flac", ".aif", ".aiff")):
-                    out.append({"name": os.path.splitext(fn)[0].replace("_", " "), "file": os.path.join(self.ir_dir, fn)})
+                    item = {"name": os.path.splitext(fn)[0].replace("_", " "), "file": os.path.join(self.ir_dir, fn)}
+                    if tiers.get(os.path.splitext(fn)[0]):
+                        item["tier"] = tiers[os.path.splitext(fn)[0]]
+                    out.append(item)
         return out
 
     def keys_catalog(self):
@@ -552,7 +581,7 @@ class InstrumentHost:
         for d in SF2_DIRS + [self.sf2_user_dir]:
             if not os.path.isdir(d):
                 continue
-            tiers = bank_tiers(d) if d != self.sf2_user_dir else {}
+            tiers = bank_tiers(d)   # (the user folder too: the sound libraries write their banks' plans there - libraries.py)
             for fn in sorted(os.listdir(d)):
                 if not fn.lower().endswith((".sf2", ".sf3")):
                     continue
@@ -573,8 +602,8 @@ class InstrumentHost:
                     for pr in presets:
                         if pr["name"].strip().lower() in ("instrument", "preset", "untitled", "new preset", "default"):
                             pr["name"] = bank_name
-                    bank = {"file": path, "name": bank_name, "presets": presets[:512], "user": d == self.sf2_user_dir}
                     tier = tiers.get(base.split(" - ")[0]) if " - " in base else None
+                    bank = {"file": path, "name": bank_name, "presets": presets[:512], "user": d == self.sf2_user_dir and not tier}   # (a library's bank isn't "yours")
                     if tier:
                         bank["tier"] = tier   # (which plan opens it: free, keys or instrument - get-sounds.sh lists them)
                     out.append(bank)
@@ -637,7 +666,7 @@ class InstrumentHost:
         return {"type": "instrumentStatus", "available": self.available, "running": self.running, "kind": self.config.get("kind", "off"), "error": self.error,
                 "input": self.input_desc, "inputs": inputs, "midiInputs": [m for m in midi_inputs if KEYS_PORT_NAME not in m], "keysCatalog": self.keys_catalog(), "keysEngine": self.keys_engine,
                 "plugins": self.plugins_for_app(), "latencyMs": 128 / 48.0 if self.running else None,
-                "irs": self.ir_list(), "maxKeyLayers": MAX_KEY_LAYERS, "looper": bool(self.config.get("looper")),
+                "irs": self.ir_list(), "maxKeyLayers": MAX_KEY_LAYERS, "outputFallback": self.output_fallback, "looper": bool(self.config.get("looper")),
                 "playAny": {"available": bool(self.find_playany(build=False) or (shutil.which("cc") or shutil.which("gcc"))), "on": bool(playany_settings(self.config.get("playAny"), self.config.get("kind"))["on"]) and self.playany_in_chain, "engine": "plugin"}}
 
     def plugins_for_app(self):
@@ -1168,11 +1197,14 @@ context.modules = [
         # sink ports are ordered by channel position in our combined sink: index = channel - 1
         order = ["FL", "FR", "FC", "LFE", "RL", "RR", "SL", "SR"] + ["AUX%d" % i for i in range(0, 32)]
         sink_in.sort(key=lambda p: order.index(p["name"].split("_")[-1]) if p["name"].split("_")[-1] in order else 99)
-        targets = [sink_in[ch - 1]] if ch - 1 < len(sink_in) else []
+        ch, stereo, self.output_fallback = fit_channel(ch, stereo, len(sink_in))
+        targets = [sink_in[ch - 1]] if 0 < ch <= len(sink_in) else []
         if stereo and ch < len(sink_in):
             targets.append(sink_in[ch])
         if not targets:
             raise RuntimeError("output channel %d does not exist on this device" % ch)
+        if self.output_fallback:
+            log.info("instrument: output %d isn't connected - playing on 1-2", self.output_fallback)
         self.link_to(outs, targets)
         if self.playany_fluid and name == "guitar":   # play any sound's notes (FluidSynth) go to the same channel(s)
             synth = next((n for n in self.pw.nodes(objs) if n["name"] == "padpedal-keys-synth"), None)

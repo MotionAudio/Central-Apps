@@ -40,7 +40,7 @@ step() { printf '\n==> %s\n' "$*"; }
 warn() { printf '    WARNING: %s\n' "$*" >&2; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)."; exit 1; }
-for f in index.html css/pad-pedal.css css/parts.css css/live.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/factory-test.js js/pedal-job.js js/touch-wifi.js js/shell.js js/textures.js \
+for f in index.html css/pad-pedal.css css/parts.css css/live.css css/fx.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/screen-nav.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/factory-test.js js/pedal-job.js js/touch-wifi.js js/mini-bridge.js js/fx-dsp.js js/fx.js js/shell.js js/textures.js \
          js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/io.js \
          instrument_host.py sources.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
          companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css \

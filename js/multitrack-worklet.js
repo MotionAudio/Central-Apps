@@ -93,6 +93,10 @@ window.PP_MULTITRACK_WORKLET = function () {
           this.resetShifter();
           this.refreshGains(0);
           break;
+        // a track with its effects rendered (js/fx.js), or the plain one back when they're turned off: swapped in place
+        case "stemfx":
+          this.stems.forEach(function (s) { if (s.id === m.id && m.L) { s.L = m.L; s.R = m.R || m.L; s.fx = !!m.fx; } });
+          break;
         case "clear": this.stems = []; this.length = 0; this.pos = 0; this.playing = false; this.loop = null; this.jump = null; this.beats = null; this.cues = []; this.events = []; break;
         case "stem":
           this.stems.forEach(function (s) { if (s.id === m.id) { if (m.gain != null) s.gain = m.gain; if (m.pan != null) s.pan = m.pan; if (m.mute != null) s.mute = !!m.mute; if (m.solo != null) s.solo = !!m.solo; if (m.role) s.role = m.role; if (m.bus) s.bus = m.bus === "click" ? "click" : "music"; if (m.out != null) s.out = m.out >= 0 ? m.out : -1; } });

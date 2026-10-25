@@ -29,6 +29,8 @@ services:
         sync: false
       - key: R2_SECRET_ACCESS_KEY
         sync: false
+      - key: LIBRARIES_BASE_URL  # the sound libraries' zips (empty: the GitHub release "libraries"; later the R2 bucket's public address)
+        sync: false
       - key: RESEND_API_KEY      # email (Teams invites, schedule requests): resend.com → API Keys
         sync: false
       - key: MAIL_FROM           # e.g. Motion Audio <team@your-domain.com> (a domain verified in Resend)

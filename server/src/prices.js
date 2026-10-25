@@ -3,7 +3,7 @@
 // site_settings and laid over config.js's defaults - the same objects everything else uses, so a change takes effect
 // at once (and on every start).
 import { q, one } from "./db.js";
-import { PRODUCTS, SUBSCRIPTION, STAR_PRICE_CENTS, RENEWAL, DISCOUNTS, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES } from "./config.js";
+import { PRODUCTS, SUBSCRIPTION, STAR_PRICE_CENTS, RENEWAL, DISCOUNTS, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PLANS_95 } from "./config.js";
 import { isAdmin } from "./auth.js";
 import { requireStep } from "./signin.js";
 
@@ -19,11 +19,19 @@ function replaceInto(target, src, order) {
   for (const k of Object.keys(target)) delete target[k];
   for (const k of first.concat(keys.filter((k) => !first.includes(k)))) target[k] = copy[k];
 }
+// (9.8) a list saved with the 9.5 plan prices still on it: today's (each plan +$20 with Central Pads in it)
+function upgrade95(d) {
+  const P = d.PLANS || {}, old = ["keys", "plugins", "instrument", "pedals"].every((id) => P[id] && P[id].cents === PLANS_95[id]);
+  if (old && !P.pads) { d.PLANS = DEFAULTS.PLANS; if ((d.PLAN_ALL || {}).cents === PLANS_95.all) d.PLAN_ALL = DEFAULTS.PLAN_ALL; }
+  if (d.PLAN_BUNDLES && JSON.stringify(Object.entries(d.PLAN_BUNDLES).map(([n, c]) => [Number(n), c])) === JSON.stringify(Object.entries(PLANS_95.bundles).map(([n, c]) => [Number(n), c]))) d.PLAN_BUNDLES = DEFAULTS.PLAN_BUNDLES;
+  return d;
+}
 function apply(data) {
-  const d = Object.assign({}, DEFAULTS, data || {});
+  const d = upgrade95(Object.assign({}, DEFAULTS, data || {}));
   replaceInto(PRODUCTS, d.PRODUCTS, DEFAULTS.PRODUCTS); replaceInto(SUBSCRIPTION, d.SUBSCRIPTION); replaceInto(STAR_PRICE_CENTS, d.STAR_PRICE_CENTS);
   replaceInto(RENEWAL, d.RENEWAL); replaceInto(DISCOUNTS, d.DISCOUNTS, DEFAULTS.DISCOUNTS);
   replaceInto(PLANS, d.PLANS, DEFAULTS.PLANS); replaceInto(PLAN_ALL, d.PLAN_ALL); replaceInto(PLAN_BUNDLES, d.PLAN_BUNDLES);   // (a price list from before 9.5: the plans' starting prices)
+  for (const id of PLAN_IDS) if (!PLANS[id]) PLANS[id] = JSON.parse(JSON.stringify(DEFAULTS.PLANS[id]));   // (a list from before a plan was added)
 }
 // (a price list saved before 9.3 - three church packs, Central Services monthly - gives way to today's store)
 export async function loadPrices() { const r = await one("SELECT data FROM site_settings WHERE name='prices'"); if (r && r.data && r.data.PRODUCTS && !r.data.PRODUCTS["pack-small"]) apply(r.data); else apply(null); }
@@ -50,10 +58,10 @@ function clean(b) {
     else { const pc = Math.round(Number(x.percent)); if (!(pc >= 1 && pc <= 100)) throw bad(code + ": 1% to 100% off."); D[code] = { percent: pc, label: String(x.label || pc + "% off").slice(0, 80), on: x.on !== false }; if (x.plans === false) D[code].plans = false; }   // (plans: false - not on sound plans)
   }
   const star = {}; for (let i = 1; i <= 5; i++) star[i] = cents((b.STAR_PRICE_CENTS || {})[i], i + "-star tracks");
-  // sound plans (yearly): each plan, all four, and the church bundles (all four for N people). Left out: kept as they are.
+  // sound plans (yearly): each plan, all of them, and the church bundles (all of them for N people). Left out: kept as they are.
   const bp = b.PLANS || PLANS, plans = {};
   for (const id of PLAN_IDS) { const p = bp[id] || PLANS[id] || DEFAULTS.PLANS[id]; plans[id] = { name: String(p.name || DEFAULTS.PLANS[id].name).trim().slice(0, 80), cents: cents(p.cents, p.name || id), what: String(p.what || DEFAULTS.PLANS[id].what).slice(0, 300) }; }
-  const ba = b.PLAN_ALL || PLAN_ALL, all = { name: String(ba.name || DEFAULTS.PLAN_ALL.name).slice(0, 80), cents: cents(ba.cents, "All four sound plans") };
+  const ba = b.PLAN_ALL || PLAN_ALL, all = { name: String(ba.name || DEFAULTS.PLAN_ALL.name).slice(0, 80), cents: cents(ba.cents, "All sound plans") };
   const bundles = {};
   for (const [n0, c] of Object.entries(b.PLAN_BUNDLES || PLAN_BUNDLES)) { const n = Math.round(Number(n0)); if (!(n >= 1 && n <= 500)) throw bad("A bundle is for 1 to 500 people."); bundles[n] = cents(c, "Sound plans for " + n + " people"); }
   if (!Object.keys(bundles).length) throw bad("Keep at least one church bundle.");

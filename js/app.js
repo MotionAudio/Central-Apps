@@ -1,5 +1,6 @@
   (function () {
     "use strict";
+    var APP_VERSION="9.8.0"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
     var STORAGE="pad-pedal-seamless-v3", DB_NAME="pad-pedal-samples-v3", DB_STORE="samples", KEYS=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"], STOCK_VOICES=["Warm Pad","Ambient Pad","Worship Swell","Dream Choir","Heavenly Pad","Soft Strings","Shimmer Pad","Gentle Pluck"], EQ_COLORS=["#61e7b2","#7caeff","#ffcf66","#ff8b8b","#d998ff","#64e5f0"];
     var PAD_COUNT=8;
     var selected=0, editingInput=false, editingBand=0, currentWaveBuffer=null, waveDrag=null, wavePeaks=new Map(), saveTimer=0, trimRestartTimer=0, project;
@@ -29,11 +30,12 @@
     function defaultPad(index){var names=["Warm Pad","Ambient Clouds","Worship Swell","Dream Choir","Soft Strings","Shimmer Pad","Gentle Pluck","Cinematic Swell"], voices=["Warm Pad","Ambient Pad","Worship Swell","Dream Choir","Soft Strings","Shimmer Pad","Gentle Pluck","Cinematic Swell"];return {id:id(),name:names[index]||"Pad "+(index+1),key:"C",rootKey:"C",voice:voices[index]||"Warm Pad",chord:"auto",sampleId:null,level:72,crossfade:160,trimStart:0,trimEnd:1,loop:true,octaves:{sub:0,up:0},swell:{attack:0,breathe:0,rate:.08},effects:defaultEffects()};}
     function defaultInput(){var p=defaultPad(0);p.id="input";p.name="Audio input";p.isInput=true;p.enabled=false;p.voice="Input";p.level=80;p.effects.reverb.wet=28;return p;}
     function defaultPerformance(){return {volume:.85,tone:1,reverb:.5,fade:.5,morph:.5,exprTarget:"swell",layerMode:false};}
-    function defaultRouting(){return {mode:"mono4",buses:{tracks:{ch:1},pad:{ch:2},click:{ch:3},instrument:{ch:4}},clickFallback:"off",mainDevice:null,clickDevice:null};}
+    function defaultRouting(){return {mode:"mono4",buses:{tracks:{ch:1},pad:{ch:2},click:{ch:3},instrument:{ch:4}},clickFallback:"mix",mainDevice:null,clickDevice:null,fbv:2};}
     function normalizeRouting(r){var d=defaultRouting();if(!r||typeof r!=="object")return d;
       if(!r.mode){ // v4 routing (clickMode) -> v5
         var cm=r.clickMode||"auto";d.clickFallback=cm==="mix"||cm==="split"||cm==="device"||cm==="off"?cm:"off";d.mainDevice=r.mainDevice||null;d.clickDevice=r.clickDevice||null;return d;}
-      var out={mode:["stereo","stereo2","custom"].indexOf(r.mode)>-1?r.mode:"mono4",buses:{},clickFallback:["off","mix","split","device"].indexOf(r.clickFallback)>-1?r.clickFallback:"off",mainDevice:r.mainDevice||null,clickDevice:r.clickDevice||null};
+      var out={mode:["stereo","stereo2","all12","custom"].indexOf(r.mode)>-1?r.mode:"mono4",buses:{},clickFallback:["off","mix","split","device"].indexOf(r.clickFallback)>-1?r.clickFallback:"mix",mainDevice:r.mainDevice||null,clickDevice:r.clickDevice||null,fbv:2};
+      if(r.fbv!==2&&out.clickFallback==="off")out.clickFallback="mix"; // (9.8: "off" was only the old default - on a 2-output device the click is heard on 1-2 unless you pick Nowhere again)
       Object.keys(d.buses).forEach(function(k){var b=r.buses&&r.buses[k];var ch=b&&isFinite(Number(b.ch))?Math.round(Number(b.ch)):d.buses[k].ch;var st=b&&typeof b.st==="boolean"?b.st:out.mode==="stereo";out.buses[k]={ch:clamp(ch,0,32),st:st};});return out;}
     function defaultProject(){return {version:6,setlistId:id(),tracksMode:false,textures:[],routing:defaultRouting(),audio:{sampleRate:0,latency:"interactive"},instrument:{},midiOut:{},link:{enabled:false},mapping:{},projector:{},display:{},name:"My Central Pedal set",selected:0,theme:{bg:"#111317",panel:"#1A1D22",text:"#ECE7DD",accent:"#E2C27E",blue:"#8DB5DE",line:"#343A44"},pads:Array.from({length:PAD_COUNT},function(_,i){return defaultPad(i);}),library:[],performance:defaultPerformance(),tempo:{bpm:72},songs:[],songIndex:-1,input:defaultInput(),midi:{channel:0,clock:true}};}
     function mergeInto(base,saved){
@@ -67,6 +69,13 @@
     function mirrorSoon(){clearTimeout(mirrorTimer);mirrorTimer=setTimeout(mirrorNow,1500);}
     function mirrorNow(){var b=window.__pedalBridge;if(!b||!b.connected||!localStorage.getItem(STORAGE))return;if(mirrorBusy){mirrorDirty=true;return;}mirrorBusy=true;fetch("http://127.0.0.1:8766/project",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(project)}).catch(function(){}).then(function(){mirrorBusy=false;if(mirrorDirty){mirrorDirty=false;mirrorSoon();}});}
     // a browser with no project yet (new card, restored backup) takes the driver's copy
+    // The driver says which version is installed. After a software update (or a page Chromium kept from before it)
+    // the page reloads once to the version just installed - its screens, settings and routing match the driver again.
+    var firstDriverVersion="";
+    function checkAppVersion(v){if(!v||typeof v!=="string")return;if(!firstDriverVersion)firstDriverVersion=v;var mine=APP_VERSION||firstDriverVersion;if(v===mine&&v===firstDriverVersion)return;
+      try{if(sessionStorage.getItem("pp-reloaded-for")===v)return;sessionStorage.setItem("pp-reloaded-for",v);}catch(_){return;}
+      try{persistNow();}catch(_){}setStatus("Central Pedal "+v+" is installed - loading it…");
+      setTimeout(function(){var q=new URLSearchParams(location.search);q.set("v",v);location.replace(location.pathname+"?"+q.toString()+location.hash);},600);}
     function adoptDriverProject(){var b=window.__pedalBridge;if(!b||!b.connected)return;if(localStorage.getItem(STORAGE))return;fetch("http://127.0.0.1:8766/project",{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).then(function(j){if(j&&Array.isArray(j.pads)&&!localStorage.getItem(STORAGE)){localStorage.setItem(STORAGE,JSON.stringify(j));location.reload();}}).catch(function(){});} function currentPad(){return editingInput?project.input:project.pads[selected];}
     function getPath(obj,path){return path.split(".").reduce(function(value,part){return value==null?undefined:value[part];},obj);} function setPath(obj,path,value){var parts=path.split("."),target=obj;parts.slice(0,-1).forEach(function(part){target=target[part];});target[parts[parts.length-1]]=value;} function controlValue(control){if(control.type==="checkbox")return control.checked;if(control.type==="range"||control.type==="number")return Number(control.value);return control.value;}
     function formatValue(path,value){
@@ -80,6 +89,7 @@
     var sampleMemory=new Map(), decodedSamples=new Map(), dbPromise;
     function openDb(){if(dbPromise)return dbPromise;dbPromise=new Promise(function(resolve){if(!window.indexedDB){resolve(null);return;}var req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=function(){req.result.createObjectStore(DB_STORE);};req.onsuccess=function(){resolve(req.result);};req.onerror=function(){resolve(null);};});return dbPromise;}
     async function storeBlob(sampleId,blob){sampleMemory.set(sampleId,blob);var db=await openDb();if(!db)return;await new Promise(function(resolve){var tx=db.transaction(DB_STORE,"readwrite");tx.objectStore(DB_STORE).put(blob,sampleId);tx.oncomplete=resolve;tx.onerror=resolve;});}
+    async function deleteBlob(sampleId){sampleMemory.delete(sampleId);decodedSamples.delete(sampleId);var db=await openDb();if(!db)return;await new Promise(function(resolve){var tx=db.transaction(DB_STORE,"readwrite");tx.objectStore(DB_STORE).delete(sampleId);tx.oncomplete=resolve;tx.onerror=resolve;});}
     async function getBlob(sampleId){if(sampleMemory.has(sampleId))return sampleMemory.get(sampleId);var db=await openDb();if(!db)return null;return new Promise(function(resolve){var tx=db.transaction(DB_STORE,"readonly"),request=tx.objectStore(DB_STORE).get(sampleId);request.onsuccess=function(){if(request.result)sampleMemory.set(sampleId,request.result);resolve(request.result||null);};request.onerror=function(){resolve(null);};});}
     async function clearBlobs(){sampleMemory.clear();decodedSamples.clear();var db=await openDb();if(!db)return;await new Promise(function(resolve){var tx=db.transaction(DB_STORE,"readwrite");tx.objectStore(DB_STORE).clear();tx.oncomplete=resolve;tx.onerror=resolve;});}
     function dataUrl(blob){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(reader.result);};reader.onerror=reject;reader.readAsDataURL(blob);});} function dataUrlBlob(url){var parts=url.split(","),match=parts[0].match(/data:(.*?);base64/),type=match?match[1]:"application/octet-stream",bytes=atob(parts[1]||""),array=new Uint8Array(bytes.length);for(var i=0;i<bytes.length;i++)array[i]=bytes.charCodeAt(i);return new Blob([array],{type:type});}
@@ -216,6 +226,15 @@
     STOCK_VOICES=Object.keys(PAD_LIBRARY);
     function noteIndex(key){return Math.max(0,KEYS.indexOf(key));}
     function profileFor(voice){return PAD_LIBRARY[voice]||PAD_LIBRARY["Warm Pad"];}
+    // (9.8) Central Pads: the library's pad loops - one per style and key, installed on this Central Pedal - as voices
+    // "cpad:<library id>/<style>". A pad plays the loop of the song's key as it is (no pitch shifting). Without the plan
+    // (Central Pads, or any plan - they all include it) the pad plays the Warm Pad voice instead.
+    var CPAD="cpad:",cpads=[],FLAT_TO_SHARP={Db:"C#",Eb:"D#",Gb:"F#",Ab:"G#",Bb:"A#",Cb:"B",Fb:"E"};
+    function isCpad(v){return typeof v==="string"&&v.indexOf(CPAD)===0;}
+    function voiceLabel(v){return isCpad(v)?"Central Pads · "+v.slice(v.indexOf("/")+1):v;}
+    function cpadLocked(){var L=window.PPLicense;return !!(L&&typeof L.hasPlan==="function"&&!L.hasPlan("pads"));}
+    function cpadKey(key){var m=/^([A-G])([#b♯♭]?)/.exec(String(key||"C").trim());if(!m)return "C";var k=m[1]+(m[2]==="♯"?"#":m[2]==="♭"?"b":m[2]);return FLAT_TO_SHARP[k]||k;}
+    function loadCpads(){if(!/^(127\.0\.0\.1|localhost)$/.test(location.hostname)||!window.fetch)return;fetch("http://127.0.0.1:8766/libraries/pads",{cache:"no-store"}).then(function(r){return r.ok?r.json():{pads:[]};}).then(function(j){var next=Array.isArray(j&&j.pads)?j.pads:[];if(JSON.stringify(next)===JSON.stringify(cpads))return;cpads=next;try{refreshVoiceOptions();}catch(_){}}).catch(function(){});}
     function chordFor(pad){var name=pad.chord&&pad.chord!=="auto"?pad.chord:profileFor(pad.voice).chord;return CHORDS[name]||CHORDS.fifth;}
     function activeSong(){return project.songs[project.songIndex]||null;}
     function playKeyFor(pad){var song=activeSong();return song?song.key:pad.key;}
@@ -316,13 +335,16 @@
       this.routing={mode:multi?r.mode:"stereo2",channels:maxCh,wanted:r.mode,need:need,buses:{}};
       if(multi){var n=Math.min(maxCh,Math.max(2,need));try{c.destination.channelCount=n;c.destination.channelCountMode="explicit";c.destination.channelInterpretation="discrete";}catch(_){}
         var m=this.merger=c.createChannelMerger(n);this.routeNodes.push(m);
-        Object.keys(buses).forEach(function(k){var ch=r.buses[k]?r.buses[k].ch:0,node=buses[k];if(!(ch>0)||ch>n){self.routing.buses[k]="off";return;}
-          if(stOf(k)&&ch<n){var sp=c.createChannelSplitter(2);node.connect(sp);sp.connect(m,0,ch-1);sp.connect(m,1,ch);self.routeNodes.push(sp);self.routing.buses[k]=ch+"-"+(ch+1);}
+        self.routing.fallback={};
+        Object.keys(buses).forEach(function(k){var ch=r.buses[k]?r.buses[k].ch:0,node=buses[k],st=stOf(k);if(!(ch>0)){self.routing.buses[k]="off";return;}
+          if(ch>n){self.routing.fallback[k]=ch;ch=1;st=true;} // (an output that isn't there - no DAC board, the USB interface unplugged: heard on 1-2)
+          if(st&&ch<n){var sp=c.createChannelSplitter(2);node.connect(sp);sp.connect(m,0,ch-1);sp.connect(m,1,ch);self.routeNodes.push(sp);self.routing.buses[k]=ch+"-"+(ch+1);}
           else{var mono=c.createGain();mono.channelCount=1;mono.channelCountMode="explicit";mono.channelInterpretation="speakers";node.connect(mono);mono.connect(m,0,ch-1);self.routeNodes.push(mono);self.routing.buses[k]=String(ch);}});
         self.routing.direct={};directs.forEach(function(d){if(d.ch<=n){d.node.connect(m,0,d.ch-1);self.routing.direct[d.id]=d.ch;}});
         m.connect(c.destination);}
       else{try{if(c.destination.channelCount!==2){c.destination.channelCount=2;c.destination.channelCountMode="explicit";c.destination.channelInterpretation="speakers";}}catch(_){}
-        var fb=r.clickFallback||"off";this.routing.buses={tracks:"1-2",pad:"1-2",click:fb};
+        var fb=r.clickFallback||"mix";this.routing.buses={tracks:"1-2",pad:"1-2",click:fb==="mix"?"1-2":fb,instrument:"1-2"};this.routing.fallback={};
+        Object.keys(r.buses).forEach(function(k){var b=r.buses[k];if(b&&b.ch>2&&(k!=="click"||fb==="mix"))self.routing.fallback[k]=b.ch;});
         if(fb==="split"){var m2=this.merger=c.createChannelMerger(2),mono2=c.createGain(),cm=c.createGain();mono2.channelCount=1;mono2.channelCountMode="explicit";cm.channelCount=1;cm.channelCountMode="explicit";this.outGain.connect(mono2);this.tracksOut.connect(mono2);mono2.connect(m2,0,0);this.clickBus.connect(cm);cm.connect(m2,0,1);m2.connect(c.destination);this.routeNodes.push(m2,mono2,cm);}
         else{this.outGain.connect(c.destination);this.tracksOut.connect(c.destination);if(this.loopOut)this.loopOut.connect(c.destination);
           if(fb==="mix")this.clickBus.connect(c.destination);else if(fb==="device")this.clickToDevice();}}
@@ -337,6 +359,14 @@
     AudioEngine.prototype.testBus=function(bus){var c=this.context();var node={tracks:this.tracksBus,pad:this.mainMix,click:this.clickBus}[bus];if(!node)return;var o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value={tracks:440,pad:330,click:880}[bus]||440;
       g.gain.setValueAtTime(0,c.currentTime);g.gain.linearRampToValueAtTime(.25,c.currentTime+.02);g.gain.setValueAtTime(.25,c.currentTime+.5);g.gain.linearRampToValueAtTime(0,c.currentTime+.6);o.connect(g).connect(node);o.start();o.stop(c.currentTime+.65);if(c.state!=="running")c.resume();};
     AudioEngine.prototype.ensure=async function(){var ctx=this.context();if(ctx.state!=="running")await ctx.resume();return ctx;};
+    // a Central Pads loop in a key (decoded once; marked so the voice plays it at its own pitch) - null when locked or missing
+    AudioEngine.prototype.getPadLoop=async function(voice,key){
+      if(cpadLocked()){setStatus("Central Pads opens with a sound plan (every plan includes it): playing Warm Pad");return null;}
+      var id=voice.slice(CPAD.length),slash=id.indexOf("/"),k=cpadKey(key),memo=voice+"|"+k;if(slash<1)return null;
+      if(decodedSamples.has(memo))return decodedSamples.get(memo);
+      try{var r=await fetch("http://127.0.0.1:8766/libraries/pad?lib="+encodeURIComponent(id.slice(0,slash))+"&style="+encodeURIComponent(id.slice(slash+1))+"&key="+encodeURIComponent(k));if(!r.ok)throw new Error(r.status);
+        var buffer=await this.context().decodeAudioData(await r.arrayBuffer());buffer.__fixedKey=true;decodedSamples.set(memo,buffer);return buffer;}
+      catch(_){setStatus(voiceLabel(voice)+" isn't installed on this Central Pedal (Settings → Packages → Libraries): playing Warm Pad");return null;}};
     AudioEngine.prototype.getBuffer=async function(sampleId){if(!sampleId)return null;if(decodedSamples.has(sampleId))return decodedSamples.get(sampleId);var blob=await getBlob(sampleId);if(!blob)return null;var ctx=this.context();try{var buffer=await ctx.decodeAudioData((await blob.arrayBuffer()).slice(0));decodedSamples.set(sampleId,buffer);return buffer;}catch(_){return null;}};
     // Algorithmic reverb impulses: early reflections + a tail whose highs die faster than its lows.
     AudioEngine.prototype.impulse=function(type,decay){
@@ -369,7 +399,7 @@
     AudioEngine.prototype.release=function(voice,seconds,now){voice.fadeOut(now,seconds);voice.dispose(now+seconds+.08);this.track(voice,now+seconds+.08);};
     // opts.layer: add on top of what is playing (or fade this pad out if it is already playing)
     AudioEngine.prototype.playPad=async function(index,overrideKey,opts){
-      opts=opts||{};var request=++this.playRequest,pad=project.pads[index],ctx=await this.ensure(),buffer=pad.sampleId?await this.getBuffer(pad.sampleId):null;
+      opts=opts||{};var request=++this.playRequest,pad=project.pads[index],ctx=await this.ensure(),buffer=pad.sampleId?await this.getBuffer(pad.sampleId):isCpad(pad.voice)?await this.getPadLoop(pad.voice,overrideKey||playKeyFor(pad)):null;
       if(request!==this.playRequest)return;
       if(pad.sampleId&&!buffer){setStatus("Could not load "+((sampleFor(pad.sampleId)||{}).name||"this sample")+". Re-import the file.");return;}
       var key=overrideKey||playKeyFor(pad),now=ctx.currentTime+.004,seconds=opts.fade>0?opts.fade:fadeSeconds(pad),engine=this;
@@ -443,12 +473,12 @@
     //   -> chorus -> tremolo/pan -> width -> fade -> mix -> level -> master
     //   sends: delay (regular or true ping-pong), reverb (+ shimmer), texture
     // =================================================================
-    function Voice(engine,pad,buffer,key,liveSource){this.engine=engine;this.ctx=engine.ctx;this.pad=pad;this.buffer=buffer;this.key=key;this.liveSource=liveSource||null;this.rate=buffer?Math.pow(2,(noteIndex(key)-noteIndex(pad.rootKey))/12):1;this.sources=[];this.oscillators=[];this.layerTimers=[];this.stopped=false;this.build();this.apply(pad);}
+    function Voice(engine,pad,buffer,key,liveSource){this.engine=engine;this.ctx=engine.ctx;this.pad=pad;this.buffer=buffer;this.key=key;this.liveSource=liveSource||null;this.rate=buffer?(buffer.__fixedKey?1:Math.pow(2,(noteIndex(key)-noteIndex(pad.rootKey))/12)):1;this.sources=[];this.oscillators=[];this.layerTimers=[];this.stopped=false;this.build();this.apply(pad);}
     Voice.prototype.param=function(param,value,time){if(!param)return;var t=time==null?this.ctx.currentTime:time;param.cancelScheduledValues(t);param.setTargetAtTime(value,t,.012);};
     Voice.prototype.osc=function(type,freq){var o=this.ctx.createOscillator();o.type=type;o.frequency.value=freq;this.oscillators.push(o);return o;};
     Voice.prototype.build=function(){
       var c=this.ctx,self=this;function G(v){var g=c.createGain();g.gain.value=v==null?1:v;return g;}function F(type,f){var b=c.createBiquadFilter();b.type=type;if(f)b.frequency.value=f;return b;}
-      this.input=G(.0001);this.toneFilter=F("lowpass",5000);this.input.connect(this.toneFilter);
+      this.input=G(.0001);this.gateGain=G(1);this.toneFilter=F("lowpass",5000);this.input.connect(this.gateGain).connect(this.toneFilter);
       // EQ: 6 bands x up to 4 stages (for 24-48 dB/oct high/low pass)
       var last=this.toneFilter;this.eqFilters=[];for(var band=0;band<6;band++){var stack=[];for(var n=0;n<4;n++){var filter=F("peaking",1000);filter.gain.value=0;last.connect(filter);last=filter;stack.push(filter);}this.eqFilters.push(stack);}
       this.eqOut=last;this.compMeter=c.createAnalyser();this.compMeter.fftSize=1024;last.connect(this.compMeter);
@@ -503,8 +533,8 @@
     };
     Voice.prototype.identity=function(filter){filter.type="peaking";this.param(filter.gain,0);this.param(filter.frequency,1000);this.param(filter.Q,.707);};
     Voice.prototype.apply=function(pad){
-      this.pad=pad;var now=this.ctx.currentTime,fx=pad.effects,self=this,profile=profileFor(pad.voice),isSynth=!this.buffer&&!this.liveSource,P=function(param,v){self.param(param,v,now);};
-      P(this.toneFilter.frequency,isSynth?profile.tone:20000);P(this.levelGain.gain,clamp(pad.level,0,100)/100);
+      this.pad=pad;var now=this.ctx.currentTime,fx=window.PPFx&&window.PPFx.padEffects?window.PPFx.padEffects(pad):pad.effects,self=this,profile=profileFor(pad.voice),isSynth=!this.buffer&&!this.liveSource,P=function(param,v){self.param(param,v,now);};
+      P(this.toneFilter.frequency,isSynth?profile.tone:20000);P(this.levelGain.gain,clamp(pad.level,0,100)/100);if(window.PPFx&&window.PPFx.padGate)window.PPFx.padGate(this,fx.gate);
       P(this.motionAmt.gain,isSynth?(profile.motion||0)*900:0);
       var sw=pad.swell||{};P(this.breath.frequency,clamp(sw.rate||.08,.02,1));P(this.breathAmp.gain,clamp(sw.breathe||0,0,100)/100*.22);P(this.breathTone.gain,clamp(sw.breathe||0,0,100)/100*500);
       var oct=pad.octaves||{};P(this.layerSub.gain,clamp(oct.sub||0,0,100)/100*(isSynth?.55:.7));P(this.layerUp.gain,clamp(oct.up||0,0,100)/100*(isSynth?.3:.5));
@@ -590,8 +620,8 @@
     var engine=new AudioEngine();
 
     function sampleFor(sampleId){return project.library.find(function(sample){return sample.id===sampleId;})||null;}
-    function refreshVoiceOptions(){var select=document.querySelector("#voice"),pad=currentPad(),options=STOCK_VOICES.map(function(voice){return '<option value="'+voice+'">'+voice+"</option>";});if(project.library.length){options.push('<optgroup label="Imported voices">');project.library.forEach(function(sample){options.push('<option value="sample:'+sample.id+'">'+escapeHtml(sample.name)+"</option>");});options.push("</optgroup>");}select.innerHTML=options.join("");select.value=pad.sampleId?"sample:"+pad.sampleId:pad.voice;if(select.value==="")select.value=pad.voice||"Warm Pad";}
-    function renderPads(){renderPerform();if(window.__pedalBridge)window.__pedalBridge.sendState();var playing=engine.active?engine.active.pad.id:null;document.querySelector("#padList").innerHTML=project.pads.map(function(pad,index){var cls="pad"+(index===selected?" active":"")+(pad.id===playing?" playing":""),source=pad.sampleId?(sampleFor(pad.sampleId)||{}).name||"Imported audio":pad.voice;return '<button class="'+cls+'" data-pad="'+index+'"><b>PAD '+(index+1)+'</b><span>'+escapeHtml(pad.name)+" · "+pad.key.replace("#","♯")+" · "+escapeHtml(source)+"</span></button>";}).join("");}
+    function refreshVoiceOptions(){var select=document.querySelector("#voice"),pad=currentPad(),options=STOCK_VOICES.map(function(voice){return '<option value="'+voice+'">'+voice+"</option>";});if(cpads.length||isCpad(pad.voice)){var lk=cpadLocked();options.push('<optgroup label="Central Pads'+(lk?" (needs a sound plan)":"")+'">');cpads.forEach(function(c){options.push('<option value="'+escapeHtml(CPAD+c.id)+'">'+(lk?"🔒 ":"")+escapeHtml(c.name)+"</option>");});if(isCpad(pad.voice)&&!cpads.some(function(c){return CPAD+c.id===pad.voice;}))options.push('<option value="'+escapeHtml(pad.voice)+'">'+escapeHtml(voiceLabel(pad.voice))+" (not installed)</option>");options.push("</optgroup>");}if(project.library.length){options.push('<optgroup label="Imported voices">');project.library.forEach(function(sample){options.push('<option value="sample:'+sample.id+'">'+escapeHtml(sample.name)+"</option>");});options.push("</optgroup>");}select.innerHTML=options.join("");select.value=pad.sampleId?"sample:"+pad.sampleId:pad.voice;if(select.value==="")select.value=pad.voice||"Warm Pad";}
+    function renderPads(){renderPerform();if(window.__pedalBridge)window.__pedalBridge.sendState();var playing=engine.active?engine.active.pad.id:null;document.querySelector("#padList").innerHTML=project.pads.map(function(pad,index){var cls="pad"+(index===selected?" active":"")+(pad.id===playing?" playing":""),source=pad.sampleId?(sampleFor(pad.sampleId)||{}).name||"Imported audio":voiceLabel(pad.voice);return '<button class="'+cls+'" data-pad="'+index+'"><b>PAD '+(index+1)+'</b><span>'+escapeHtml(pad.name)+" · "+pad.key.replace("#","♯")+" · "+escapeHtml(source)+"</span></button>";}).join("");}
     function renderLibrary(){var root=document.querySelector("#library");if(!project.library.length){root.innerHTML="<small>No imported audio yet.</small>";return;}root.innerHTML=project.library.map(function(sample){return '<button data-library="'+sample.id+'" title="Load this sound into the selected pad">'+escapeHtml(sample.name)+" · root "+sample.rootKey.replace("#","♯")+"</button>";}).join("");}
     var CHAIN=[["eq","EQ"],["compressor","Compressor"],["drive","Drive"],["filter","Auto-filter"],["phaser","Phaser"],["chorus","Chorus"],["tremolo","Tremolo / pan"],["width","Width"],["delay","Delay"],["reverb","Reverb"],["texture","Texture"],["lfo","LFO"]];
     function renderChain(){var root=document.querySelector("#chainList");if(!root)return;var fx=currentPad().effects;root.innerHTML='<div class="live">'+(currentPad().isInput?"Audio input":"Pad sound")+"</div>"+CHAIN.map(function(c){var on=fx[c[0]].enabled;var extra=c[0]==="reverb"&&on&&fx.reverb.shimmer>0?" + shimmer":c[0]==="compressor"&&on?" · "+(COMP_TYPES[fx.compressor.type]||COMP_TYPES.VCA).label:"";return '<div class="'+(on?"live":"")+'" data-chain="'+c[0]+'">'+c[1]+extra+"</div>";}).join("")+"<div>Output</div>";}
@@ -652,7 +682,7 @@
     document.querySelector("#waveform").addEventListener("pointerdown",wavePointer);document.querySelector("#waveform").addEventListener("pointermove",wavePointer);document.querySelector("#waveform").addEventListener("pointerup",wavePointer);document.querySelector("#waveform").addEventListener("pointercancel",wavePointer);
     var eqDrag=null;function eqPointer(event){var canvas=document.querySelector("#eqGraph"),rect=canvas.getBoundingClientRect(),p=currentPad(),x=event.clientX-rect.left,y=event.clientY-rect.top;if(event.type==="pointerdown"){var nearest=0,distance=Infinity;p.effects.eq.bands.forEach(function(band,index){var bx=xForFreq(band.freq,rect.width),by=yForGain((band.type==="highpass"||band.type==="lowpass")?0:band.gain,rect.height),d=Math.hypot(x-bx,y-by);if(d<distance){distance=d;nearest=index;}});if(distance>28)return;editingBand=nearest;eqDrag=nearest;canvas.setPointerCapture(event.pointerId);renderEqEditor();}if(eqDrag==null)return;var band=p.effects.eq.bands[eqDrag];band.freq=freqForX(x,rect.width);if(band.type!=="highpass"&&band.type!=="lowpass")band.gain=gainForY(y,rect.height);renderEqEditor();engine.update(p);persistSoon();if(event.type==="pointerup"||event.type==="pointercancel")eqDrag=null;}
     document.querySelector("#eqGraph").addEventListener("pointerdown",eqPointer);document.querySelector("#eqGraph").addEventListener("pointermove",eqPointer);document.querySelector("#eqGraph").addEventListener("pointerup",eqPointer);document.querySelector("#eqGraph").addEventListener("pointercancel",eqPointer);window.addEventListener("resize",function(){drawEq();renderWaveform();});
-    project=loadProject();selected=project.selected;keyOptions(document.querySelector("#padKey"));keyOptions(document.querySelector("#rootKey"));applyTheme();loadForm();waveAnimation(0);
+    project=loadProject();selected=project.selected;keyOptions(document.querySelector("#padKey"));keyOptions(document.querySelector("#rootKey"));applyTheme();loadForm();waveAnimation(0);loadCpads();window.addEventListener("pp-libraries",loadCpads);window.addEventListener("pp-plans",function(){try{refreshVoiceOptions();}catch(_){}});
 
     // =================================================================
     // Perform view: big touch pads, key +/-, Volume/Tone/Reverb/Fade
@@ -670,7 +700,14 @@
     function updateKnobs(){if(!KNOBS)return;KNOBS.forEach(function(k){updateKnob(k.id);});}
     function setPerformance(id,value){if(!(id in project.performance))return;project.performance[id]=clamp(value,0,1);engine.applyPerformance();updateKnob(id);persistSoon();}
     function setExpression(value){if(engine.morph){project.performance.morph=clamp(value,0,1);engine.setMorph(value);if(window.PPFeatures)window.PPFeatures.renderPerformExtras();return;}engine.setSwell(value);var bar=document.querySelector("#pfExpr");if(bar)bar.style.width=Math.round(clamp(value,0,1)*100)+"%";}
-    function renderPerform(){if(window.PPScenes)window.PPScenes.layersChanged();var root=document.querySelector("#pfPads");if(!root||!project)return;var playingList=engine.playingIndexes();root.innerHTML=project.pads.map(function(pad,i){var src=pad.sampleId?((sampleFor(pad.sampleId)||{}).name||"Imported audio"):pad.voice;return '<button class="pf-pad'+(playingList.indexOf(i)>-1?" playing":"")+(i===selected?" selected":"")+'" style="--padc:'+(window.PPColors?window.PPColors.pad(i):"")+'" data-pf-pad="'+i+'"><span class="n">'+(i+1)+"</span><b>"+escapeHtml(pad.name)+"</b><small>"+playKeyFor(pad).replace("#","♯")+" · "+escapeHtml(src)+"</small></button>";}).join("");var stopBtn=document.querySelector("#pfStop");if(stopBtn)stopBtn.querySelector("small").textContent=engine.active?"fade out":"again = cut";document.querySelector("#pfKey").textContent=playKeyFor(currentPad()).replace("#","♯");if(window.PPFeatures)window.PPFeatures.renderPerformExtras();document.querySelector("#pfProject").textContent=project.name;updateKnobs();}
+    var padVolDrag=false;
+    function padLevelOf(pad){var v=Number(pad&&pad.level);return isFinite(v)?Math.round(clamp(v,0,100)):72;}
+    // one pad's own volume (0-100, the same value as the pad's Level and the "padLevel" knob): the sound, the form, every slider showing it
+    function setPadLevel(index,level){var pad=project.pads[index];if(!pad)return;pad.level=Math.round(clamp(Number(level)||0,0,100));engine.update(pad);persistSoon();
+      document.querySelectorAll('[data-pf-vol="'+index+'"]').forEach(function(el){if(Number(el.value)!==pad.level)el.value=pad.level;});document.querySelectorAll('[data-pf-volout="'+index+'"]').forEach(function(el){el.textContent=pad.level;});
+      if(index===selected&&!editingInput){var lv=document.querySelector("#level");if(lv&&document.activeElement!==lv)lv.value=pad.level;var lo=document.querySelector("#levelOut");if(lo)lo.textContent=pad.level+"%";}}
+    function renderPerform(){if(window.PPScenes)window.PPScenes.layersChanged();var root=document.querySelector("#pfPads");if(!root||!project)return;var playingList=engine.playingIndexes();if(padVolDrag){root.querySelectorAll("[data-pf-pad]").forEach(function(b){var i=Number(b.dataset.pfPad);b.classList.toggle("playing",playingList.indexOf(i)>-1);b.classList.toggle("selected",i===selected);});}   // (dragging a pad's volume: don't rebuild under the finger)
+      else root.innerHTML=project.pads.map(function(pad,i){var src=pad.sampleId?((sampleFor(pad.sampleId)||{}).name||"Imported audio"):voiceLabel(pad.voice),lv=padLevelOf(pad);return '<div class="pf-cell"><button class="pf-pad'+(playingList.indexOf(i)>-1?" playing":"")+(i===selected?" selected":"")+'" style="--padc:'+(window.PPColors?window.PPColors.pad(i):"")+'" data-pf-pad="'+i+'"><span class="n">'+(i+1)+"</span><b>"+escapeHtml(pad.name)+"</b><small>"+playKeyFor(pad).replace("#","♯")+" · "+escapeHtml(src)+'</small></button><label class="pf-vol" title="Pad '+(i+1)+' volume"><span aria-hidden="true">VOL</span><input type="range" min="0" max="100" step="1" value="'+lv+'" data-pf-vol="'+i+'" aria-label="Pad '+(i+1)+' volume"><output data-pf-volout="'+i+'">'+lv+"</output></label></div>";}).join("");var stopBtn=document.querySelector("#pfStop");if(stopBtn)stopBtn.querySelector("small").textContent=engine.active?"fade out":"again = cut";document.querySelector("#pfKey").textContent=playKeyFor(currentPad()).replace("#","♯");if(window.PPFeatures)window.PPFeatures.renderPerformExtras();document.querySelector("#pfProject").textContent=project.name;updateKnobs();}
     // Tap a pad = play it (crossfading from whatever is playing). Tap the playing pad again = fade it out.
     function triggerPad(index,opts){index=clamp(index,0,PAD_COUNT-1);opts=opts||{};if(window.PPFeatures&&window.PPFeatures.interceptPad(index))return;var layer=opts.layer||project.performance.layerMode,playing=engine.voiceFor(index);
       if(layer){selected=index;editingInput=false;engine.playPad(index,null,{layer:true});return;}
@@ -681,7 +718,9 @@
     (function wirePerform(){
       var pads=document.querySelector("#pfPads"),knobs=document.querySelector("#pfKnobs"),drag=null;
       function hit(event){var b=event.target.closest("[data-pf-pad],[data-pf-stop]");if(!b)return;if(b.dataset.pfStop)engine.stop();else triggerPad(Number(b.dataset.pfPad));}
-      pads.addEventListener("pointerdown",function(event){if(event.button>0)return;event.preventDefault();hit(event);});
+      pads.addEventListener("pointerdown",function(event){if(event.button>0)return;if(event.target.closest(".pf-vol")){padVolDrag=true;return;}event.preventDefault();hit(event);});
+      pads.addEventListener("input",function(event){var el=event.target.closest("[data-pf-vol]");if(el)setPadLevel(Number(el.dataset.pfVol),Number(el.value));});
+      ["pointerup","pointercancel"].forEach(function(type){document.addEventListener(type,function(){if(padVolDrag){padVolDrag=false;renderPerform();}});});
       pads.addEventListener("click",function(event){if(event.detail===0)hit(event);}); // keyboard Enter/Space on a focused pad
       knobs.addEventListener("pointerdown",function(event){var el=event.target.closest("[data-knob]");if(!el)return;event.preventDefault();el.focus();drag={id:el.dataset.knob,y:event.clientY,v:project.performance[el.dataset.knob]};el.setPointerCapture(event.pointerId);});
       knobs.addEventListener("pointermove",function(event){if(drag)setPerformance(drag.id,drag.v+(drag.y-event.clientY)/180);});
@@ -715,7 +754,7 @@
         if (!message || typeof message !== "object") return;
         switch (message.type) {
           case "hello":
-            this.connected = true; this.info = message; this.showStatus(); adoptDriverProject(); mirrorSoon();
+            this.connected = true; this.info = message; this.showStatus(); checkAppVersion(message.appVersion); adoptDriverProject(); mirrorSoon();
             if (!this.roleSent && this.socket && this.socket.readyState === 1) { this.roleSent = true; try { this.socket.send(JSON.stringify({ type: "role", role: "app" })); } catch (_) {} }
             else { this.sendState(); setStatus("Connected to the Central Pedal"); }
             if (window.PPFeatures) window.PPFeatures.handleHardware(message);
@@ -767,12 +806,12 @@
     document.querySelector("#inputEnabled").addEventListener("change",async function(e){var ok=await engine.setInput(e.target.checked);if(!ok&&e.target.checked)e.target.checked=false;persistSoon();renderInputPad();renderChain();});
 
     // ---- internal API for the feature modules (graphics.js, features.js) ----
-    window.PP={engine:engine,project:function(){return project;},currentPad:currentPad,selected:function(){return selected;},isEditingInput:function(){return editingInput;},editingBand:function(){return editingBand;},
+    window.PP={appVersion:APP_VERSION,engine:engine,project:function(){return project;},currentPad:currentPad,selected:function(){return selected;},isEditingInput:function(){return editingInput;},editingBand:function(){return editingBand;},
       setSelectedPad:setSelectedPad,triggerPad:triggerPad,changeKey:changeKey,setStatus:setStatus,persistSoon:persistSoon,persistNow:persistNow,mirrorNow:mirrorNow,adoptDriverProject:adoptDriverProject,renderPads:renderPads,loadForm:loadForm,renderChain:renderChain,
       setPerformance:setPerformance,setExpression:setExpression,isPerforming:isPerforming,setPerformMode:setPerformMode,playingIndex:playingIndex,activeSong:activeSong,playKeyFor:playKeyFor,
       clamp:clamp,escapeHtml:escapeHtml,KEYS:KEYS,noteIndex:noteIndex,COMP_TYPES:COMP_TYPES,compSettings:compSettings,compOutDb:compOutDb,shaperCurve:shaperCurve,biquadDb:biquadDb,logFreqs:logFreqs,drawSpectrum:drawSpectrum,
-      tempoBpm:tempoBpm,syncedRate:syncedRate,DIVISIONS:DIVISIONS,fadeSeconds:fadeSeconds,toneHz:toneHz,graphGeometry:graphGeometry,redrawEq:drawEq,importFile:importFile,sampleFor:sampleFor,storeBlob:storeBlob,getBlob:getBlob,id:id,
-      PAD_COUNT:PAD_COUNT,PAD_LIBRARY:PAD_LIBRARY,defaultPad:defaultPad,mergePad:mergePad,renderPerform:renderPerform,toggleSelected:toggleSelected,applyTheme:applyTheme,smoothParam:smoothParam,setStatus:setStatus,chordFor:chordFor};
+      tempoBpm:tempoBpm,syncedRate:syncedRate,DIVISIONS:DIVISIONS,fadeSeconds:fadeSeconds,toneHz:toneHz,graphGeometry:graphGeometry,redrawEq:drawEq,importFile:importFile,sampleFor:sampleFor,storeBlob:storeBlob,getBlob:getBlob,deleteBlob:deleteBlob,id:id,
+      PAD_COUNT:PAD_COUNT,PAD_LIBRARY:PAD_LIBRARY,defaultPad:defaultPad,mergePad:mergePad,renderPerform:renderPerform,toggleSelected:toggleSelected,setPadLevel:setPadLevel,padLevelOf:padLevelOf,applyTheme:applyTheme,smoothParam:smoothParam,setStatus:setStatus,chordFor:chordFor};
 
     buildKnobs();
     var startPerforming = location.hash === "#perform";

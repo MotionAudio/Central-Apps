@@ -90,7 +90,7 @@ const completed = (session, sub) => hook("checkout.session.completed", { id: ses
 const subEvent = (type, sub, status, md, end, extra) => hook(type, Object.assign({ id: sub, object: "subscription", status, metadata: md, items: { data: [{ id: "si_" + sub, current_period_end: end }] }, cancel_at_period_end: false }, extra || {}));
 const day = 864e5, yearOn = () => Math.floor((Date.now() + 365 * day) / 1000);
 const near = (iso, ms, slack) => !!iso && Math.abs(new Date(iso).getTime() - ms) < (slack || 120e3);
-const ALL = ["keys", "plugins", "instrument", "pedals"];
+const ALL = ["keys", "plugins", "instrument", "pedals", "pads"];   // (9.8: Central Pads, in every plan)
 let keyN = 0;
 const KEYABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const newKeyStr = (kind) => kind + Array.from({ length: 15 }, (_, i) => KEYABC[(S + i * 7 + ++keyN * 13) % KEYABC.length]).join("");
@@ -106,20 +106,22 @@ try {
 
   // ---------------------------------------------------------------- the prices
   const cfg = await j("GET", "/config");
-  ok(cfg.plans.keys.cents === 5000 && cfg.plans.plugins.cents === 12000 && cfg.plans.instrument.cents === 8000 && cfg.plans.pedals.cents === 5000 && cfg.planAll.cents === 22000
-    && cfg.plans.keys.name === "Central Keys" && cfg.plans.pedals.name === "Central Pedals" && cfg.planIds.join() === ALL.join() && cfg.packageDevices === 2,
-    "the plans: Central Keys $50, Central Plugins $120, Central Instrument $80, Central Pedals $50 a year; all four $220; a package works on 2 devices", { plans: cfg.plans, all: cfg.planAll });
-  ok(JSON.stringify(cfg.planBundles) === JSON.stringify({ 4: 68000, 8: 136000, 12: 184000, 16: 257000, 20: 290000 }), "church bundles: 4 $680, 8 $1,360, 12 $1,840, 16 $2,570, 20 $2,900 a year", cfg.planBundles);
+  ok(cfg.plans.keys.cents === 7000 && cfg.plans.plugins.cents === 14000 && cfg.plans.instrument.cents === 10000 && cfg.plans.pedals.cents === 7000 && cfg.plans.pads.cents === 4000 && cfg.planAll.cents === 24000
+    && cfg.plans.keys.name === "Central Keys" && cfg.plans.pedals.name === "Central Pedals" && cfg.plans.pads.name === "Central Pads" && cfg.planIds.join() === ALL.join() && cfg.packageDevices === 3,
+    "the plans (9.8): Central Keys $70, Central Plugins $140, Central Instrument $100, Central Pedals $70, Central Pads $40 a year; all of them $240; a package works on 3 devices", { plans: cfg.plans, all: cfg.planAll });
+  ok(JSON.stringify(cfg.planBundles) === JSON.stringify({ 4: 70000, 8: 138000, 12: 186000, 16: 259000, 20: 292000 }), "church bundles: 4 $700, 8 $1,380, 12 $1,860, 16 $2,590, 20 $2,920 a year", cfg.planBundles);
   ok(["Sound", "Board", "Click"].every((k) => cfg.trackKinds.includes(k)) && cfg.itemKinds.Board.ext.join() === "json", "Central Tracks takes Sound, Board and Click too", cfg.trackKinds);
 
   // ---------------------------------------------------------------- a person's own plans: a package key
   const pat = await account("pat"), patId = (await one("SELECT id FROM users WHERE email=$1", [E("pat")])).id;
   const pk = await j("POST", "/checkout/plans/check", { plans: ["keys", "plugins"] }, pat);
-  ok(pk.ok && pk.cents === 17000 && pk.plans.join() === "keys,plugins", "Central Keys + Central Plugins: $170 a year", pk);
+  ok(pk.ok && pk.cents === 21000 && pk.plans.join() === "keys,plugins", "Central Keys + Central Plugins: $210 a year", pk);
+  const pkp = await j("POST", "/checkout/plans/check", { plans: ["keys", "pads"] }, pat), pads = await j("POST", "/checkout/plans/check", { plans: ["pads"] }, pat);
+  ok(pkp.ok && pkp.cents === 7000 && pkp.plans.join() === "keys" && pads.ok && pads.cents === 4000 && pads.plans.join() === "pads", "Central Pads comes with Central Keys (not charged twice); on its own it's $40", { pkp, pads });
   ok((await j("POST", "/checkout/plans", { plans: ["nope"] }, pat))._status === 400, "an unknown plan is refused");
   const co = await j("POST", "/checkout/plans", { plans: ["keys", "plugins"] }, pat), s1 = lastSession(), L1 = s1.line_items;
   ok(co.clientSecret && s1.mode === "subscription" && s1.ui_mode === "form" && L1.length === 2 && L1.every((x) => x.price_data.recurring.interval === "year" && x.price_data.tax_behavior === "inclusive")
-    && L1[0].price_data.unit_amount === "5000" && L1[0].price_data.product_data.name === "Central Keys" && L1[1].price_data.unit_amount === "12000" && /^cus_/.test(s1.customer) && !s1.discounts,
+    && L1[0].price_data.unit_amount === "7000" && L1[0].price_data.product_data.name === "Central Keys" && L1[1].price_data.unit_amount === "14000" && /^cus_/.test(s1.customer) && !s1.discounts,
     "the payment form: two yearly lines, tax included, billed to the person", s1);
   const md1 = s1.subscription_data.metadata;
   ok(md1.kind === "plans" && md1.plans === "keys,plugins" && Number(md1.plan_sub_id) > 0 && /\/#plans-done$/.test(s1.return_url), "the subscription is marked as a sound plan (not Central Tracks)", md1);
@@ -130,9 +132,9 @@ try {
   await subEvent("customer.subscription.created", "sub_pat_" + S, "incomplete", md1, yearOn());   // (and late, out of order)
   let mine = await j("GET", "/packages/mine", null, pat);
   const patPkg = mine.packages[0], patMail = to(E("pat")).filter((m) => /package key/i.test(m.subject)).pop();
-  ok(mine.packages.length === 1 && /^S[A-Z0-9]{3}(-[A-Z0-9]{4}){3}$/.test(patPkg.key) && patPkg.plans.join() === "keys,plugins" && patPkg.ok && patPkg.from === "own" && patPkg.renews && near(patPkg.end, Date.now() + 365 * day, day),
+  ok(mine.packages.length === 1 && /^S[A-Z0-9]{3}(-[A-Z0-9]{4}){3}$/.test(patPkg.key) && patPkg.plans.join() === "keys,plugins,pads" && patPkg.ok && patPkg.from === "own" && patPkg.renews && near(patPkg.end, Date.now() + 365 * day, day),
     "paid: one package key (S…) with Central Keys and Central Plugins for a year, renewing (a late 'incomplete' doesn't switch it off)", mine);
-  ok(patMail && mailedKey(E("pat")) === patPkg.key && /Your package key: Central Keys and Central Plugins/.test(patMail.subject) && /Settings → Packages → Add a package/.test(patMail.text),
+  ok(patMail && mailedKey(E("pat")) === patPkg.key && /Your package key: Central Keys and Central Plugins and Central Pads/.test(patMail.subject) && /3 of your devices at a time, each a different app/.test(patMail.text) && /Settings → Packages → Add a package/.test(patMail.text),
     "the key is emailed to the buyer, with how to add it (Settings → Packages)", patMail && { s: patMail.subject, t: patMail.text });
   const endTs = Math.floor((Date.now() + 400 * day) / 1000);
   await subEvent("customer.subscription.updated", "sub_pat_" + S, "active", md1, endTs);
@@ -140,13 +142,27 @@ try {
 
   // the apps: Settings → Packages
   const a1 = await pkg(patPkg.key.toLowerCase(), "usage");
-  ok(a1.ok === true && a1.key === patPkg.key && Object.keys(a1.plans).join() === "keys,plugins" && near(a1.plans.keys, endTs * 1000, 2000) && /^\d{4}-\d\d-\d\dT.*Z$/.test(a1.plans.plugins) && a1.holder === "pat" && a1.church === "",
-    "Add a package: { ok, key, plans: { keys, plugins: ISO end }, holder, church }", a1);
+  ok(a1.ok === true && a1.key === patPkg.key && Object.keys(a1.plans).join() === "keys,plugins,pads" && near(a1.plans.keys, endTs * 1000, 2000) && /^\d{4}-\d\d-\d\dT.*Z$/.test(a1.plans.plugins) && a1.holder === "pat" && a1.church === "",
+    "Add a package: { ok, key, plans: { keys, plugins, pads: ISO end }, holder, church }", a1);
   const a2 = await pkg(patPkg.key, "control"), a3 = await pkg(patPkg.key, "pedal");
-  ok(a2.ok && a3.ok === false && /already on .* 2 devices/.test(a3.error) && !a3.plans, "a package key works on 2 devices at a time (the third is told where it is)", a3);
+  ok(a2.ok && a3.ok, "(9.8) a package key works on 3 devices, each a different app: Central Usage, Central Control and a Central Pedal", { a2, a3 });
+  const a3b = await pkg(patPkg.key, "pedal");
+  ok(a3b.ok === false && /already on a Central Pedal/.test(a3b.error) && !a3b.plans, "...never two of the same app (a second pedal is told where it is)", a3b);
+  const a3c = await pkg(patPkg.key, "pedal-control");
+  ok(a3c.ok === false && /already on .*3 of your devices/.test(a3c.error), "...and 3 at a time (a fourth app is told where it is)", a3c);
   ok((await j("POST", "/package/release", { key: patPkg.key, deviceId: a1.deviceId })).ok, "Release on a device");
-  const a4 = await pkg(patPkg.key, "pedal");
-  ok(a4.ok, "...frees it for another (Central Pedal needs no P key for its packages)", a4);
+  const a4 = await pkg(patPkg.key, "pedal-control");
+  ok(a4.ok, "...frees it for another", a4);
+  const strangerKey = newKeyStr("U"), strangerId = (await one("SELECT id FROM users WHERE email=$1", [E("pat")])).id;
+  const other = await account("otherholder"), otherId = (await one("SELECT id FROM users WHERE email=$1", [E("otherholder")])).id;
+  await q("INSERT INTO licenses (key,product,kind,user_id,updates_until) VALUES ($1,'made','U',$2,105)", [strangerKey, otherId]);
+  await j("POST", "/package/release", { key: patPkg.key, deviceId: a4.deviceId });
+  const wrong = await j("POST", "/package/activate", { key: patPkg.key, deviceId: "dev-other-" + S, app: "pedal-control", licenseKey: strangerKey });
+  ok(wrong.ok === false && /someone else's key/.test(wrong.error), "a device whose own key is someone else's can't use the package (the holder's own devices only)", wrong);
+  const ownKey = newKeyStr("U");
+  await q("INSERT INTO licenses (key,product,kind,user_id,updates_until) VALUES ($1,'made','U',$2,105)", [ownKey, strangerId]);
+  const okOwn = await j("POST", "/package/activate", { key: patPkg.key, deviceId: a4.deviceId, app: "pedal-control", licenseKey: ownKey });
+  ok(okOwn.ok && other, "...the holder's own key is fine", okOwn);
   const c1 = await j("POST", "/package/check", { keys: [patPkg.key, "SAAA-BBBB-CCCC-DDDD"], deviceId: a4.deviceId });
   ok(c1.packages.length === 2 && c1.packages[0].ok && c1.packages[0].plans.keys && near(c1.packages[0].end, endTs * 1000, 2000) && c1.packages[1].ok === false && /isn't right/.test(c1.packages[1].error),
     "check: { packages: [{ key, ok, plans, end, error? }] }, for several keys at once", c1);
@@ -154,7 +170,7 @@ try {
   ok(rel.ok === false && /released from this device/.test(rel.error), "a device it was released from is told to add it again", rel);
   ok((await pkg("PXXX-XXXX-XXXX-XXXX", "usage")).ok === false && (await pkg(patPkg.key, "nope")).ok === false, "a P key isn't a package; an unknown app is refused");
   const mineDev = (await j("GET", "/packages/mine", null, pat)).packages[0];
-  ok(mineDev.devices.length === 2 && mineDev.devices.some((d) => d.app === "Central Pedal"), "the Account page lists the devices it's on", mineDev.devices);
+  ok(mineDev.devices.length === 3 && mineDev.devices.some((d) => d.app === "Central Pedal") && mineDev.max === 3 && mineDev.oneEach, "the Account page lists the devices it's on", mineDev.devices);
   ok((await j("POST", "/packages/release", { key: patPkg.key, device: a2.deviceId }, pat)).ok && (await pkgCheck(patPkg.key, a2.deviceId)).ok === false, "...and releases one (a lost device)");
   ok((await j("POST", "/packages/release", { key: patPkg.key }, await account("stranger")))._status === 403, "...only the person whose it is (or their church)");
 
@@ -185,9 +201,9 @@ try {
   // all four, with BETATEST off the first year
   const co2 = await j("POST", "/checkout/plans", { plans: "all", code: "betatest" }, pat), s2 = lastSession();
   const coupon = calls.filter((c) => c.path === "/v1/coupons").pop();
-  ok(co2.clientSecret && s2.line_items.length === 1 && s2.line_items[0].price_data.unit_amount === "22000" && s2.line_items[0].price_data.product_data.name === "All four sound plans"
+  ok(co2.clientSecret && s2.line_items.length === 1 && s2.line_items[0].price_data.unit_amount === "24000" && s2.line_items[0].price_data.product_data.name === "All sound plans"
     && s2.discounts[0].coupon === "MA-BETATEST-50-FIRST-YEAR" && coupon.body.percent_off === "50" && coupon.body.duration === "once",
-    "all four: one $220 line; BETATEST is 50% off the first year (a coupon that applies once)", { s2, coupon: coupon.body });
+    "all of them: one $240 line; BETATEST is 50% off the first year (a coupon that applies once)", { s2, coupon: coupon.body });
   await completed(co2.session, "sub_pat_all_" + S);
   const allKey = mailedKey(E("pat")), aa = await pkg(allKey, "usage");
   ok(allKey && allKey !== patPkg.key && aa.ok && ALL.every((id) => aa.plans[id]), "a new package key with all four plans", aa);
@@ -215,13 +231,13 @@ try {
   const noBundle = await j("POST", "/church/packages/give", { email: E("ula") }, O);
   ok(noBundle._status === 402, "no bundle yet: no keys to give", noBundle);
   const b8 = await j("POST", "/checkout/plan-bundle", { seats: 8 }, O), s3 = lastSession(), md3 = s3.subscription_data.metadata;
-  ok(b8.clientSecret && s3.line_items[0].price_data.unit_amount === "136000" && s3.line_items[0].price_data.recurring.interval === "year" && /^Sound plans for 8 people - Grace 95/.test(s3.line_items[0].price_data.product_data.name)
-    && md3.kind === "plans" && md3.church_id === String(cid) && md3.seats === "8", "a bundle for 8: $1,360 a year, billed to the church", s3);
+  ok(b8.clientSecret && s3.line_items[0].price_data.unit_amount === "138000" && s3.line_items[0].price_data.recurring.interval === "year" && /^Sound plans for 8 people - Grace 95/.test(s3.line_items[0].price_data.product_data.name)
+    && md3.kind === "plans" && md3.church_id === String(cid) && md3.seats === "8", "a bundle for 8: $1,380 a year, billed to the church", s3);
   ok(calls.some((c) => c.path === "/v1/customers" && c.body.metadata && c.body.metadata.church_id === String(cid)), "...on the church's own Stripe customer");
   await completed(b8.session, "sub_b8_" + S);
   let tp = await j("GET", "/church/packages", null, O);
   ok(tp.total === 8 && tp.free === 8 && tp.keys.length === 8 && tp.keys.every((k) => k.plans.join() === ALL.join() && k.ok && !k.holder) && tp.people.some((p) => p.email === E("ula")) && tp.people.some((p) => p.email === E("amy")),
-    "Teams: 8 package keys with all four plans, nobody's yet; the church's people are listed to give them to", tp);
+    "Teams: 8 package keys with every plan, nobody's yet; the church's people are listed to give them to", tp);
   ok((await j("GET", "/church/packages", null, ula))._status === 403, "a user doesn't hand out keys");
   const g1 = await j("POST", "/church/packages/give", { email: E("ula") }, amy);
   const ulaKey = mailedKey(E("ula")), ulaMail = to(E("ula")).filter((m) => /package key/i.test(m.subject)).pop();
@@ -297,7 +313,7 @@ try {
   const pr = await account("refund");
   const cr = await j("POST", "/checkout/plans", { plans: ["instrument"] }, pr); await completed(cr.session, "sub_rf_" + S);
   const rk = mailedKey(E("refund")), rka = await pkg(rk, "usage");
-  ok(rka.ok && Object.keys(rka.plans).join() === "instrument", "Central Instrument, paid: its key works", rka);
+  ok(rka.ok && Object.keys(rka.plans).join() === "instrument,pads", "Central Instrument, paid: its key works (with Central Pads)", rka);
   invoicePays["pi_rf_" + S] = "in_rf_" + S; invoiceSubs["in_rf_" + S] = "sub_rf_" + S;
   await hook("charge.refunded", { id: "ch_rf", object: "charge", refunded: true, payment_intent: "pi_rf_" + S });
   ok((await pkgCheck(rk, rka.deviceId)).ok === false && calls.some((c) => c.method === "DELETE" && c.path === "/v1/subscriptions/sub_rf_" + S), "refunded: the package ends and Stripe stops renewing it");
@@ -360,7 +376,7 @@ try {
   // ---------------------------------------------------------------- the price page
   const st = (await finish(await j("POST", "/signup", { email: STAFF, password: "password123" }), STAFF)).token;
   const pp = await j("GET", "/admin/prices", null, st);
-  ok(pp.prices.PLANS.keys.cents === 5000 && pp.prices.PLAN_BUNDLES[16] === 257000 && pp.defaults.PLAN_ALL.cents === 22000, "staff see the plan prices on the price page", pp.prices.PLAN_ALL);
+  ok(pp.prices.PLANS.keys.cents === 7000 && pp.prices.PLANS.pads.cents === 4000 && pp.prices.PLAN_BUNDLES[16] === 259000 && pp.defaults.PLAN_ALL.cents === 24000, "staff see the plan prices on the price page", pp.prices.PLAN_ALL);
   const np = JSON.parse(JSON.stringify(pp.prices));
   np.PLANS.keys.cents = 6000; np.PLAN_ALL.cents = 23000; np.PLAN_BUNDLES = { 4: 70000, 8: 136000 }; np.DISCOUNTS.BETATEST.plans = false;
   ok((await j("POST", "/admin/prices", { prices: np }, st)).ok, "staff change Central Keys to $60, all four to $230, two bundle sizes, and BETATEST off plans");
@@ -373,7 +389,16 @@ try {
   ok((await j("GET", "/config")).plans.keys.cents === 6000, "saving a price list without the plans keeps them as they are");
   await j("POST", "/admin/prices", { reset: true }, st);
   const c3 = await j("GET", "/config");
-  ok(c3.plans.keys.cents === 5000 && c3.planAll.cents === 22000 && c3.planBundles[20] === 290000, "Back to the starting prices");
+  ok(c3.plans.keys.cents === 7000 && c3.planAll.cents === 24000 && c3.planBundles[20] === 292000, "Back to the starting prices");
+  // (9.8) a price list saved with the 9.5 prices moves to today's (each plan +$20, with Central Pads)
+  const old95 = JSON.parse(JSON.stringify(pp.prices)); delete old95.PLANS.pads;
+  Object.assign(old95.PLANS.keys, { cents: 5000 }); Object.assign(old95.PLANS.plugins, { cents: 12000 }); Object.assign(old95.PLANS.instrument, { cents: 8000 }); Object.assign(old95.PLANS.pedals, { cents: 5000 });
+  old95.PLAN_ALL.cents = 22000; old95.PLAN_BUNDLES = { 4: 68000, 8: 136000, 12: 184000, 16: 257000, 20: 290000 };
+  await q("INSERT INTO site_settings (name, data) VALUES ('prices', $1) ON CONFLICT (name) DO UPDATE SET data=EXCLUDED.data", [old95]);
+  const { loadPrices } = await import("../src/prices.js"); await loadPrices();
+  const { PLANS: P98, PLAN_ALL: A98, PLAN_BUNDLES: B98 } = await import("../src/config.js");
+  ok(P98.keys.cents === 7000 && P98.pads && P98.pads.cents === 4000 && A98.cents === 24000 && B98[4] === 70000, "a price list saved with the 9.5 prices moves to the 9.8 ones", { P98, A98, B98 });
+  await j("POST", "/admin/prices", { reset: true }, st);
 
   // ---------------------------------------------------------------- a sale on the website: off a plan's first year too
   await j("POST", "/admin/sale", { name: "Spring sale", percent: 20, banner: "20% off" }, st);
@@ -383,8 +408,8 @@ try {
   ok(sc.ok && sc.percent === 20 && sc.sale === "Spring sale", "a live sale comes off a plan with no code typed", sc);
   await j("POST", "/checkout/plans", { plans: "all" }, sp);
   const ss = lastSession(), sCoupon = calls.filter((c) => c.path === "/v1/coupons").pop().body;
-  ok(ss.discounts[0].coupon === "MA-SALE-SPRINGSALE-20-FIRST-YEAR" && sCoupon.percent_off === "20" && sCoupon.duration === "once" && /Spring sale: 20% off the first year/.test(sCoupon.name) && ss.line_items[0].price_data.unit_amount === "22000",
-    "...as a coupon on the first year (the yearly price stays $220)", { d: ss.discounts, sCoupon });
+  ok(ss.discounts[0].coupon === "MA-SALE-SPRINGSALE-20-FIRST-YEAR" && sCoupon.percent_off === "20" && sCoupon.duration === "once" && /Spring sale: 20% off the first year/.test(sCoupon.name) && ss.line_items[0].price_data.unit_amount === "24000",
+    "...as a coupon on the first year (the yearly price stays $240)", { d: ss.discounts, sCoupon });
   const sb = await j("POST", "/checkout/plans/check", { plans: ["keys"], code: "BETATEST" }, sp);
   ok(sb.percent === 50 && !sb.sale, "a typed code wins over the sale (they don't stack)", sb);
   ok((await j("POST", "/checkout/plan-bundle/check", { seats: 4 }, O)).percent === 20, "the sale is off a church bundle's first year too");

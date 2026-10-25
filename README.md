@@ -221,6 +221,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 9.8.0:** Central Pads ($40 a year, in every other plan for $20 more) and a package key on 3 of your devices (each a different app); Central Pedal Control keeps the songs and uploads one set to the pedal (only that set's tracks, pads and sounds); gate, EQ, compressor, reverb and delay on every track, pad and bus (basics free, the better ones with Central Plugins); a volume on every pad; buttons, knobs and sliders switch tabs, move around the screen and set or mute each bus; much more on the 3.5" screen and quicker touch; sound on the headphone jack fixed; a clean, quicker start-up; bigger sound libraries.
+
 **New in version 9.7.0:** A factory test on the first start of a card built by hand (every switch, knob, screen, output and input, Pass / Fail, a report); unplugging it makes the next start the customer's phone setup, without the screen step; outputs: 1–2 the jack, 3–4 the DAC, 5+ a USB interface, each bus mono or stereo, several on one output.
 
 **New in version 9.6.2:** A Central Pedal that doesn't start writes a report to its SD card (central-pedal-log.txt, readable on any computer) and its screen says why instead of showing a login prompt.

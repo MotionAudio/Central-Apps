@@ -598,7 +598,7 @@ await check("plans: with licensing off everything is open; every pedal and board
   assert.ok(r.off, "licensing off: all plans open"); assert.equal(r.noTier, 0); assert.ok(r.free >= 12 && r.free <= 16, "free pedals " + r.free);
   // (four free boards; the 9.6 orchestra boards are Central Instrument's)
   assert.deepEqual(r.freeBoards, ["clean-worship", "acoustic-dry", "bass-di", "keys-stage"]); assert.equal(r.muff, "pedals"); assert.equal(r.reverb, "plugins");
-  assert.equal(r.lock, "Part of Central Instrument · $80 a year"); assert.ok(r.pkgs, "Settings → Packages says no packages are needed");
+  assert.equal(r.lock, "Part of Central Instrument · $100 a year"); assert.ok(r.pkgs, "Settings → Packages says no packages are needed");
 });
 await check("plans: a saved board keeps a locked pedal, bypassed with a lock and its plan; the footswitch, Add pedal and board stepping skip what's locked", async () => {
   const r = await T(async () => {
@@ -620,8 +620,8 @@ await check("plans: a saved board keeps a locked pedal, bypassed with a lock and
   });
   assert.deepEqual(r.host, [["muff", false, true], ["booster", true, false], ["zitarev", true, false]]); assert.equal(r.sentOff, false, "the engine gets it bypassed");
   assert.equal(r.svgLocked, 1); assert.ok(/Central Pedals/.test(r.svgText) && /bypassed/.test(r.svgText), r.svgText);
-  assert.equal(r.toggled, false); assert.deepEqual(r.names[0], [false, "Part of Central Pedals · $50 a year"]); assert.ok(/Central Pedals/.test(r.info.board || ""), JSON.stringify(r.info));
-  assert.deepEqual(r.dis, { modern: true, clean: false, cur: false }); assert.ok(/Part of Central Pedals · \$50 a year/.test(r.addText), r.addText); assert.equal(r.lenAfterAdd, 3, "a locked pedal isn't added");
+  assert.equal(r.toggled, false); assert.deepEqual(r.names[0], [false, "Part of Central Pedals · $70 a year"]); assert.ok(/Central Pedals/.test(r.info.board || ""), JSON.stringify(r.info));
+  assert.deepEqual(r.dis, { modern: true, clean: false, cur: false }); assert.ok(/Part of Central Pedals · \$70 a year/.test(r.addText), r.addText); assert.equal(r.lenAfterAdd, 3, "a locked pedal isn't added");
   assert.deepEqual(r.seen, ["ambient-swell", "clean-worship"], "stepping lands only on open boards");
 });
 await check("plans: keys sounds carry their bank's tier (or by what they are); a locked sound is listed with its plan, muted in a saved layer and skipped by patch stepping", async () => {
@@ -642,13 +642,18 @@ await check("plans: keys sounds carry their bank's tier (or by what they are); a
     return { tiers, layerOn, lockedItems, muted, info, visited: [...visited].sort() };
   });
   assert.deepEqual(r.tiers, { "Upright Piano KW": "free", "Salamander Grand": "keys", Cello: "instrument", "Rhodes EP": "keys", "Synth Bass 1": "keys", "Fingered Bass": "instrument", "My Pad": "free" });
-  assert.equal(r.layerOn, false, "a saved layer with a locked sound is muted"); assert.ok(/muted · Part of Central Keys · \$50 a year/.test(r.muted), r.muted); assert.ok(/Central Keys/.test(r.info.patch || ""));
+  assert.equal(r.layerOn, false, "a saved layer with a locked sound is muted"); assert.ok(/muted · Part of Central Keys · \$70 a year/.test(r.muted), r.muted); assert.ok(/Central Keys/.test(r.info.patch || ""));
   assert.equal(r.lockedItems.length, 3); assert.ok(r.lockedItems.every((t) => /Part of Central Keys/.test(t)), r.lockedItems.join(" | "));
   assert.deepEqual(r.visited, ["Cello", "Fingered Bass", "My Pad", "Upright Piano KW"]);
 });
 await check("plans: with Central Keys back, \"Worship Grand\" brings its grand piano; the small screens hear what's locked", async () => {
   const r = await T(async () => {
-    PPLicense.hasPlan = () => true; window.dispatchEvent(new CustomEvent("pp-plans")); await new Promise((ok) => setTimeout(ok, 50));
+    PPLicense.hasPlan = () => true; window.dispatchEvent(new CustomEvent("pp-plans")); await new Promise((ok) => setTimeout(ok, 300));
+    // (the plan change re-applies the instrument; the simulated driver may answer with its own sound list - put the test's back)
+    PPFeatures.emit({ type: "instrumentStatus", available: true, running: true, kind: "keys", inputs: [], midiInputs: [], keysCatalog: [
+      { file: "/s/Upright-Piano-KW - u.sf2", name: "Upright Piano KW", tier: "free", presets: [{ name: "Upright Piano KW", bank: 0, prog: 0 }] },
+      { file: "/s/Salamander-Grand-Piano - s.sf2", name: "Salamander Grand Piano", tier: "keys", presets: [{ name: "Salamander Grand", bank: 0, prog: 0 }] }] });
+    await new Promise((ok) => setTimeout(ok, 50));
     const sel = document.querySelector("#inBoard"); sel.value = "worship-grand"; sel.dispatchEvent(new Event("change", { bubbles: true }));
     const out = { patch: PPInstrument.layers()[0].patch.name, on: PPInstrument.hostConfig().keys.layers[0].on, board: PPInstrument.config().boards.keys };
     PPLicense.hasPlan = (id) => id !== "pedals"; PPInstrument.setKind("electric"); const c = PPInstrument.config(); c.chains.electric = [{ uid: "lk1", pedal: "muff", on: true, values: {} }]; c.boards.electric = "fuzz-wall";
@@ -660,7 +665,7 @@ await check("plans: with Central Keys back, \"Worship Grand\" brings its grand p
     return out;
   });
   assert.equal(r.board, "worship-grand"); assert.equal(r.patch, "Salamander Grand"); assert.equal(r.on, true);
-  assert.deepEqual(r.mini, { locked: "Part of Central Pedals · $50 a year", board: "Part of Central Pedals · $50 a year" });
+  assert.deepEqual(r.mini, { locked: "Part of Central Pedals · $70 a year", board: "Part of Central Pedals · $70 a year" });
 });
 await check("Central Tracks: a Board installs as one of your boards, a Click (zip of two WAVs) as a click sound - both straight from the download", async () => {
   const r = await T(async () => {

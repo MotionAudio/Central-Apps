@@ -72,7 +72,7 @@
   def("texture1", "Texture 1 on / off", "Textures", "trigger", function () { if (X()) X().toggle(0); }, { led: function () { return X() && X().channels()[0].enabled ? "on" : "off"; } });
   def("texture2", "Texture 2 on / off", "Textures", "trigger", function () { if (X()) X().toggle(1); }, { led: function () { return X() && X().channels()[1].enabled ? "on" : "off"; } });
   def("performEdit", "Switch Perform / Edit screen", "Screens", "trigger", function () { PP.setPerformMode(!PP.isPerforming()); });
-  def("tab", "Show tab (Pad / Tracks / Instrument / …)", "Screens", "trigger", function (a) { if (window.PPShell) window.PPShell.showTab((a && a.tab) || "pads"); }, { arg: "tab" });
+  def("tab", "Tabs: show a tab (pick which)", "Tabs", "trigger", function (a) { showTab((a && a.tab) || "pads"); }, { arg: "tab", led: function (a) { return curTab() === ((a && a.tab) || "pads") ? "on" : "off"; } });
   def("sayCue", "Say a cue word now", "Tracks", "trigger", function (a) { if (T()) T().say((a && a.cue) || "chorus"); }, { arg: "cue" });
   // ---- continuous (knobs, sliders, expression, MIDI CC)
   def("volume", "Master volume", "Pads", "continuous", function (a, v) { PP.setPerformance("volume", v); });
@@ -121,7 +121,7 @@
     if (window.__pedalBridge && window.__pedalBridge.send) { window.__pedalBridge.send({ type: "system", action: "displays", config: cfg }); window.__pedalBridge.send({ type: "system", action: "status" }); }
   }, { hidden: true });
   def("stemMute", "Tracks: stem N mute on / off", "Tracks", "trigger", function (a) { var s = T() && T().song(); if (!s) return; var st = T().data(s).stems[Number(a && a.index) || 0]; if (st) { T().setStem(st.id, "mute", !st.mute); T().render(); } }, { arg: "stem" });
-  def("instrumentLevel", "Instrument: output level", "Instrument", "continuous", function (a, v) { if (!I()) return; var s = I().state(); s.levelDb = Math.round((-30 + v * 42) * 2) / 2; PP.persistSoon(); if (window.__pedalBridge && window.__pedalBridge.send) window.__pedalBridge.send({ type: "instrument", action: "level", levelDb: s.levelDb }); });
+  def("instrumentLevel", "Instrument: output level", "Instrument", "continuous", function (a, v) { if (!I()) return; var s = I().state(); s.levelDb = Math.round((-30 + v * 42) * 2) / 2; PP.persistSoon(); sendInstrumentLevel(); });
   def("stepPedal", "Encoder: next / previous board preset", "Instrument", "step", function (a, d) { if (I()) I().stepBoard(d); });
   def("stepPatch", "Encoder: next / previous keys sound", "Instrument", "step", function (a, d) { if (I()) I().stepPatch(d); });
   // ---- looper (Instrument)
@@ -158,6 +158,77 @@
   def("stepSection", "Encoder: change section", "Tracks", "step", function (a, d) { if (T()) { if (d > 0) T().nextSection(); else T().prevSection(); } });
   def("stepPad", "Encoder: select pad", "Pads", "step", function (a, d) { PP.setSelectedPad((PP.selected() + d + PP.PAD_COUNT) % PP.PAD_COUNT, false); });
   def("stepVolume", "Encoder: master volume", "Pads", "step", function (a, d) { PP.setPerformance("volume", project().performance.volume + d * .03); });
+
+  // ---- tabs: next / previous, or straight to one (the top row: LIVE · PAD · TRACKS · INSTRUMENT · … · SETTINGS)
+  var TAB_NAMES = { live: "LIVE", pads: "Pad", tracks: "Tracks", instrument: "Instrument", configure: "Configure", learn: "Learn", io: "I/O", settings: "Settings" };
+  function curTab() { return window.PPShell ? window.PPShell.currentTab() : "pads"; }
+  function showTab(t) { if (window.PPShell) window.PPShell.showTab(t); }
+  function tabOrder() { var list = Array.prototype.map.call(document.querySelectorAll(".nav-tab[data-tab]"), function (b) { return b.getClientRects().length ? b.dataset.tab : null; }).filter(Boolean); return list.length ? list : Object.keys(TAB_NAMES); }
+  function stepTab(d) { var o = tabOrder(), i = o.indexOf(curTab()); showTab(o[((i < 0 ? 0 : i) + (d < 0 ? -1 : 1) + o.length) % o.length]); }
+  def("tabNext", "Tabs: next tab", "Tabs", "trigger", function () { stepTab(1); });
+  def("tabPrev", "Tabs: previous tab", "Tabs", "trigger", function () { stepTab(-1); });
+  ["pads", "tracks", "instrument", "settings", "live"].forEach(function (t) {
+    def("tab" + t.charAt(0).toUpperCase() + t.slice(1), "Tabs: show " + TAB_NAMES[t], "Tabs", "trigger", function () { showTab(t); }, { led: function () { return curTab() === t ? "on" : "off"; } });
+  });
+  def("stepTab", "Encoder: change tab", "Tabs", "step", function (a, d) { stepTab(d); });
+  def("tabKnob", "Knob: pick a tab (turn through them)", "Tabs", "continuous", function (a, v) { var o = tabOrder(), t = o[Math.min(o.length - 1, Math.floor(v * o.length))]; if (t && t !== curTab()) showTab(t); });
+
+  // ---- move around the screen without touching it (screen-nav.js): a ring shows what's highlighted
+  function N() { return window.PPNav; }
+  def("navUp", "Screen: move up", "Move around the screen", "trigger", function () { if (N()) N().move("up"); });
+  def("navDown", "Screen: move down", "Move around the screen", "trigger", function () { if (N()) N().move("down"); });
+  def("navLeft", "Screen: move left (on a slider or list: one down)", "Move around the screen", "trigger", function () { if (N()) N().move("left"); });
+  def("navRight", "Screen: move right (on a slider or list: one up)", "Move around the screen", "trigger", function () { if (N()) N().move("right"); });
+  def("navOk", "Screen: OK (press what's highlighted)", "Move around the screen", "trigger", function () { if (N()) N().ok(); });
+  def("navBack", "Screen: back (close what's open)", "Move around the screen", "trigger", function () { if (N()) N().back(); });
+  def("navNext", "Screen: next control (in reading order)", "Move around the screen", "trigger", function () { if (N()) N().step(1); });
+  def("navPrev", "Screen: previous control", "Move around the screen", "trigger", function () { if (N()) N().step(-1); });
+  def("navScrollDown", "Screen: scroll down", "Move around the screen", "trigger", function () { if (N()) N().scrollBy(1); });
+  def("navScrollUp", "Screen: scroll up", "Move around the screen", "trigger", function () { if (N()) N().scrollBy(-1); });
+  def("navScroll", "Knob: scroll the screen (top ↔ bottom)", "Move around the screen", "continuous", function (a, v) { if (N()) N().scrollTo(v); });
+  def("navValue", "Knob: change the highlighted slider / list", "Move around the screen", "continuous", function (a, v) { if (N()) N().setValue(v); });
+  def("stepFocus", "Encoder: move the highlight (next / previous)", "Move around the screen", "step", function (a, d) { if (N()) N().step(d); });
+  def("stepScroll", "Encoder: scroll the screen", "Move around the screen", "step", function (a, d) { if (N()) N().scrollBy(d * 0.4); });
+  def("stepValue", "Encoder: change the highlighted slider / list", "Move around the screen", "step", function (a, d) { var el = N() && N().current(); if (el && (el.matches("input[type=range], input[type=number]") || el.tagName === "SELECT")) N().nudge(el, d); });
+
+  // ---- each bus: a level and a mute. Tracks, pads (+ textures and the audio input), click + MD voice, instrument.
+  // (Mutes last until they're turned off or the app restarts - they're never saved, so a pedal never starts silent.)
+  var BUS_NAMES = { tracks: "Tracks", pad: "Pads", click: "Click + MD voice", instrument: "Instrument" };
+  var mutes = {}, clickHeld = null;
+  function busLevel(bus) {
+    if (bus === "tracks") return T() ? T().levels.tracks : 0.85;
+    if (bus === "click") return clickHeld != null ? clickHeld : T() ? T().levels.click : 0.85;
+    if (bus === "pad") return project().performance.volume;
+    if (bus === "instrument") { var lv = I() ? Number(I().state().levelDb) || 0 : 0; return (lv + 30) / 42; }
+    return 0;
+  }
+  function sendInstrumentLevel() { var s = I() && I().state(); if (s && window.__pedalBridge && window.__pedalBridge.send) window.__pedalBridge.send({ type: "instrument", action: "level", levelDb: mutes.instrument ? -90 : s.levelDb || 0 }); }
+  function applyMute(bus) {
+    var on = !!mutes[bus], c = engine.ctx, now = c ? c.currentTime : 0;
+    if (bus === "tracks" && c && engine.tracksOut) PP.smoothParam(engine.tracksOut.gain, on ? 0 : 1, now);
+    else if (bus === "pad" && c && engine.outGain) PP.smoothParam(engine.outGain.gain, on ? 0 : 1, now);
+    else if (bus === "click" && T()) { if (on) { if (clickHeld == null) clickHeld = T().levels.click; T().setLevel("click", 0); } else if (clickHeld != null) { var back = clickHeld; clickHeld = null; T().setLevel("click", back); } }
+    else if (bus === "instrument") sendInstrumentLevel();
+  }
+  function setBusLevel(bus, v) {
+    v = clamp(Number(v) || 0, 0, 1);
+    if (bus === "tracks") { if (T()) T().setLevel("tracks", v); }
+    else if (bus === "click") { if (clickHeld != null) clickHeld = v; else if (T()) T().setLevel("click", v); }
+    else if (bus === "pad") PP.setPerformance("volume", v);
+    else if (bus === "instrument" && I()) { var s = I().state(); s.levelDb = Math.round((-30 + v * 42) * 2) / 2; PP.persistSoon(); sendInstrumentLevel(); }
+  }
+  function toggleMute(bus) { if (!BUS_NAMES[bus]) return; mutes[bus] = !mutes[bus]; applyMute(bus); if (PP.setStatus) PP.setStatus(BUS_NAMES[bus] + (mutes[bus] ? " muted" : " back on")); }
+  engine.hooks = engine.hooks || []; engine.hooks.push(function () { Object.keys(mutes).forEach(function (b) { if (mutes[b]) setTimeout(function () { applyMute(b); }, 0); }); });   // (a restarted audio engine keeps the mutes)
+  def("busLevel", "Bus level (pick the bus)", "Bus levels & mutes", "continuous", function (a, v) { setBusLevel(String(a && a.bus || "tracks"), v); }, { arg: "bus" });
+  def("busMute", "Bus mute on / off (pick the bus)", "Bus levels & mutes", "trigger", function (a) { toggleMute(String(a && a.bus || "tracks")); }, { arg: "bus", led: function (a) { return mutes[String(a && a.bus || "tracks")] ? "on" : "off"; } });
+  Object.keys(BUS_NAMES).forEach(function (b) {
+    var id = b === "pad" ? "Pads" : b.charAt(0).toUpperCase() + b.slice(1);
+    def("level" + id, BUS_NAMES[b] + ": level", "Bus levels & mutes", "continuous", function (a, v) { setBusLevel(b, v); });
+    def("mute" + id, BUS_NAMES[b] + ": mute on / off", "Bus levels & mutes", "trigger", function () { toggleMute(b); }, { led: function () { return mutes[b] ? "on" : "off"; } });
+  });
+
+  // ---- each pad's own volume (the pad's Level - the same as its slider on the Pad screen and the 3.5" screen)
+  def("padVolume", "Pad N volume", "Pads", "continuous", function (a, v) { if (PP.setPadLevel) PP.setPadLevel(Number(a && a.index) || 0, v * 100); }, { arg: "pad" });
 
   // ---- default mapping: ONE layout for everything (12 buttons, 6 knobs, 2 sliders, expression, encoder).
   // Pads follow the tracks when a song has tracks, so there is no separate pad / tracks layout any more.
@@ -243,5 +314,5 @@
   function modeChanged() { lastLeds = ""; sendLedsSoon(); if (window.PPConfigure) window.PPConfigure.render(); }
 
   function list(kind) { return Object.keys(ACTIONS).map(function (k) { return ACTIONS[k]; }).filter(function (a) { return !a.hidden && (!kind || a.kind === kind || a.id === "none"); }); }   // (hidden: the small screen's own)
-  window.PPActions = { ACTIONS: ACTIONS, list: list, run: run, onControl: onControl, midiInput: midiInput, mapping: mapping, defaults: defaults, mode: mode, sendLeds: sendLedsSoon, modeChanged: modeChanged, entryFor: entryFor };
+  window.PPActions = { ACTIONS: ACTIONS, list: list, muted: function (b) { return !!mutes[b]; }, busLevel: busLevel, setBusLevel: setBusLevel, toggleMute: toggleMute, TAB_NAMES: TAB_NAMES, run: run, onControl: onControl, midiInput: midiInput, mapping: mapping, defaults: defaults, mode: mode, sendLeds: sendLedsSoon, modeChanged: modeChanged, entryFor: entryFor };
 })();

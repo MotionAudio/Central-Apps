@@ -435,7 +435,7 @@ async def main():
         check("the 3.5\" framebuffer was drawn (480x320 RGB565, not blank)", len(fb) == 480 * 320 * 2 and any(fb), len(fb))
         hit = driver.mini.hit_test(60, 100)
         check("touching pad 1 on the small screen -> action pad 1", hit == {"name": "pad", "args": {"index": 0}}, hit)
-        hit = driver.mini.hit_test(340, 70)
+        hit = driver.mini.hit_test(340, 100)
         check("touching the transport button -> playPause", hit == {"name": "playPause"}, hit)
         # the panel's real order in one report: BTN_TOUCH 1, then ABS_X / ABS_Y, then SYN - each tap at its own place
         import types as _types
@@ -453,7 +453,7 @@ async def main():
             ay = cal.get("ymin", 200) + fy * (cal.get("ymax", 3900) - cal.get("ymin", 200))
             return (int(ay), int(ax)) if cal.get("swap", True) else (int(ax), int(ay))
         _evs = []
-        for px, py in ((60, 100), (340, 70)):
+        for px, py in ((60, 100), (340, 100)):
             rx, ry = _raw(px, py)
             _evs += [_E(1, 330, 1), _E(3, 0, rx), _E(3, 1, ry), _E(0, 0, 0), _E(3, 0, rx + 3), _E(0, 0, 0), _E(1, 330, 0), _E(0, 0, 0)]
         class _Dev:
@@ -519,6 +519,25 @@ async def main():
               and len(_taps) == 1 and _taps[0]["args"] == {"index": 0, "pan": 0} and abs(_taps[0]["value"] - 0.5) < 1e-6
               and driver_mod.MiniScreen.pan_text(-0.3) == "L 30" and driver_mod.MiniScreen.pan_text(0.01) == "C" and driver_mod.MiniScreen.pan_text(1) == "R 100",
               (ph, n_tap, dragged, _taps))
+        # (the pad grid starts at y 76 since the 3.5" got its Pads/Key/Sound tabs)
+        # each pad's own volume: a thin bar along the bottom of the pad - a tap neither plays the pad nor jumps it, a slide sets it
+        mini.local({"local": "tab", "value": "pads"})
+        disp_v = dict(disp, pads=[{"name": "Pad %d" % (i + 1), "level": 50 if i == 1 else 72} for i in range(8)])
+        mini.render(disp_v)
+        pv = mini.hit_test(150, 131)
+        pad_top = mini.hit_test(150, 95)
+        _taps.clear(); mini.active = None
+        mini.tap(*_raw(150, 131))
+        n_pv_tap = len(_taps)
+        mini.drag_at = 0
+        mini.drag(*_raw(int(pv["slider"][0] + (pv["slider"][1] - pv["slider"][0]) * 0.9) if pv else 150, 131))
+        pv_drag = list(_taps)
+        mini.active = None
+        check("small screen: each pad has its own volume bar - a tap doesn't play the pad or jump it, a slide sets that pad's volume (padVolume)",
+              pv and pv.get("name") == "padVolume" and pv.get("args") == {"index": 1} and pad_top == {"name": "pad", "args": {"index": 1}}
+              and n_pv_tap == 0 and len(pv_drag) == 1 and pv_drag[0]["name"] == "padVolume" and pv_drag[0]["args"] == {"index": 1} and pv_drag[0]["value"] > 0.8
+              and mini.hit_test(60, 105) == {"name": "pad", "args": {"index": 0}},
+              (pv, pad_top, n_pv_tap, pv_drag))
         _src0 = driver.netaudio.sources.get(0)
         driver.netaudio.set_info({"channels": ["Drums", "Bass", "Click + cues"], "pans": [0.25, "x"], "rate": 48000})
         check("the tracks' pans go with their names to Central Control (a missing or bad one is centre)",
@@ -611,6 +630,137 @@ async def main():
         check("...and the tuner while it is up on the Instrument tab; DONE turns it off", driver.mini.hit_test(420, 290) == {"name": "tuner"} and img.getpixel((240, 100)) == (4, 9, 16))
         driver.handle_app_message({"type": "tunerView", "on": False})
         driver.mini.render(driver.display)
+        # ---- 9.8: more to do on the small screen, and quicker to answer
+        print("\nThe small screen: Key, Sound, Click · Tempo, Wi-Fi, Controls, the lists, the keyboard, quicker drawing:")
+        mini = driver.mini
+        _sent = []
+        _real_emit2, _sched2 = driver.emit, driver.schedule_mini_render
+        driver.emit = lambda m, lan=False: _sent.append(m)
+        driver.schedule_mini_render = lambda force=False: None
+        _wc, _ws = driver_mod.wifi_connect, driver_mod.wifi_status
+        _joins = []
+        driver_mod.wifi_connect = lambda ssid, pw, hidden=False: (_joins.append((ssid, pw)) or (True, "Connected"))
+        driver_mod.wifi_status = lambda scan=False: {"connected": "Church Wi-Fi", "signal": 70, "addresses": ["10.0.0.5"], "networks": [
+            {"ssid": "Church Wi-Fi", "signal": 70, "security": "WPA2", "active": True}, {"ssid": "Guest", "signal": 40, "security": "", "active": False}]}
+        try:
+            # PADS → Key: every key at once (G now: A is two up), a tap sends the step
+            dk = dict(disp, key="G", tracksMode=False)
+            mini.overlay = None
+            mini.tab, mini.sub["pads"] = "pads", "key"
+            mini.render(dk)
+            a_hit, g_hit = mini.hit_test(279, 155), mini.hit_test(122, 155)
+            _sent.clear()
+            mini.tap(*_raw(279, 155))
+            step = [m for m in _sent if m.get("type") == "action"]
+            check("small screen: PADS → Key shows all 12 keys - a tap goes straight there (stepKey by the difference), the current one is lit",
+                  a_hit == {"name": "stepKey", "delta": 2} and g_hit is None and step and step[0]["name"] == "stepKey" and step[0].get("delta") == 2, (a_hit, g_hit, step))
+            mini.sub["pads"] = "sound"
+            mini.render(dict(dk, performance={"volume": 0.8, "reverb": 0.4, "tone": 1, "fade": 0.5}))
+            rev, frz = mini.hit_test(300, 124), mini.hit_test(60, 250)
+            check("...PADS → Sound: volume, reverb, tone and fade faders; freeze, layer and the two textures",
+                  rev and rev.get("name") == "reverb" and frz == {"name": "freeze"}, (rev, frz))
+            mini.sub["pads"] = "pads"
+            # TRACKS → Click · Tempo
+            mini.tab, mini.sub["tracks"] = "tracks", "tempo"
+            mini.render(dict(disp, mini=dict(disp["mini"], tempoPercent=95)))
+            tempo, tapb, click = mini.hit_test(300, 94), mini.hit_test(417, 138), mini.hit_test(80, 240)
+            check("...TRACKS → Click · Tempo: the tempo fader, ±5 %, 100 %, tap; the click on / off and its level, cues, count-in",
+                  tempo and tempo.get("name") == "tempoPercent" and tapb == {"name": "tap"} and click == {"name": "toggleClick"}, (tempo, tapb, click))
+            # SETTINGS → Controls: tap a control, pick from the list the app sends; the app hears the pick
+            mini.lists["controls"] = {"items": [{"id": "b1", "name": "Button 1", "kind": "trigger", "action": "pad", "label": "Play pad 1"}]}
+            mini.tab, mini.sub["settings"] = "settings", "controls"
+            mini.render(disp)
+            row = mini.hit_test(240, 100)
+            _sent.clear()
+            mini.local(row)
+            asked = [m for m in _sent if m.get("type") == "miniRequest"]
+            driver.handle_app_message({"type": "miniList", "what": "actions", "kind": "trigger", "items": [{"id": "none", "label": "— nothing —"}, {"id": "tap", "label": "Tap tempo", "sub": "Tempo"}]})
+            mini.render(disp)
+            pick = mini.hit_test(240, 135)
+            _sent.clear()
+            mini.local(pick)
+            picked = [m for m in _sent if m.get("type") == "miniPick"]
+            check("...SETTINGS → Controls: a control opens the list of what it can do (asked from the app), a pick goes back to the app",
+                  row and row.get("local") == "list" and row.get("target") == "b1" and asked and asked[0]["what"] == "actions" and asked[0]["kind"] == "trigger"
+                  and pick and pick.get("id") == "tap" and picked == [{"type": "miniPick", "what": "actions", "id": "tap", "target": "b1"}] and mini.overlay is None,
+                  (row, asked, pick, picked))
+            # INSTRUMENT → Sound: tap the board's name for the whole list
+            mini.tab, mini.sub["instrument"] = "instrument", "sound"
+            mini.render(disp)
+            blist = mini.hit_test(240, 150)
+            check("...INSTRUMENT → Sound: tapping the board (or keys sound) opens its list", blist and blist.get("local") == "list" and blist.get("what") == "boards", blist)
+            # the keyboard: a package key, typed and sent to the app; its answer is shown
+            mini.local({"local": "keys", "purpose": "package", "title": "key"})
+            for ch in "sabc-1234defg5678x":
+                mini.local({"local": "kb", "k": ch})
+            mini.render(disp)
+            okb = mini.hit_test(440, 300)
+            _sent.clear()
+            mini.local(okb)
+            pk_sent = [m for m in _sent if m.get("type") == "miniPackage"]
+            driver.handle_app_message({"type": "miniResult", "text": "Package added: SABC-1234-DEFG-5678"})
+            check("...ADD KEY: a keyboard on the small screen; the package key goes to the app (16 letters, dashes added) and its answer shows",
+                  okb == {"local": "kbOk"} and pk_sent == [{"type": "miniPackage", "key": "SABC-1234-DEFG-5678"}] and mini.notice.startswith("Package added"), (okb, pk_sent, mini.notice))
+            # SETTINGS → Wi-Fi: an open network joins with a tap, a locked one asks for its password first
+            mini.tab, mini.sub["settings"] = "settings", "wifi"
+            mini.wifi, mini.wifi_at = driver_mod.wifi_status(), time.monotonic()
+            mini.render(disp)
+            guest = mini.hit_test(240, 166)
+            mini.local(guest)
+            mini.local({"local": "wifiPick", "ssid": "Office", "secure": True, "active": False})
+            for ch in "pw":
+                mini.local({"local": "kb", "k": ch})
+            mini.local({"local": "kbOk"})
+            for _ in range(40):
+                if len(_joins) >= 2:
+                    break
+                time.sleep(0.05)
+            check("...SETTINGS → Wi-Fi: the networks around; an open one joins with a tap, a locked one with the password typed on the keyboard",
+                  guest and guest.get("local") == "wifiPick" and guest.get("ssid") == "Guest" and sorted(_joins) == [("Guest", ""), ("Office", "pw")], (guest, _joins))
+            # quicker: words drawn once and stamped again; only the rows that changed go to the screen; a pressed button lights at once
+            mini.overlay = None
+            mini.tab, mini.sub["tracks"] = "tracks", "play"
+            dt = dict(disp, tracksMode=True, playing=True, pos=83)
+            mini.render(dt); mini._full_at = 0; mini.push()
+            full = mini.last_push_bytes
+            mini.render(dict(dt, pos=84)); mini.push()
+            tick = mini.last_push_bytes
+            with open(mini.fb, "rb") as handle:
+                on_screen = handle.read()
+            same = on_screen == mini.to_rgb565(mini.image)
+            cached = len(getattr(mini, "_tcache", {})) > 20
+            pbox = mini.hit_box(252, 160)[1]
+            mini.press_feedback(pbox)
+            pressed = mini.last_push_bytes
+            with open(mini.fb, "rb") as handle:
+                lit = handle.read() != on_screen
+            near = mini.hit_box(pbox[0] - 4, (pbox[1] + pbox[3]) // 2)[0]
+            far = mini.hit_box(200, 20)[0]
+            check("...quicker drawing: the clock ticking sends only its rows (%d of %d bytes), the picture on the screen is still exact; words are drawn once" % (tick, full),
+                  full == 480 * 320 * 2 and 0 < tick < 480 * 2 * 40 and same and cached, (full, tick, same, cached))
+            check("...a pressed button lights up at once (only its rows); a touch a few pixels off a button still counts, one far from any doesn't",
+                  lit and 0 < pressed <= (pbox[3] - pbox[1] + 2) * 960 and near is not None and far is None, (lit, pressed, near, far))
+            # the 3.5" screen's config.txt line brought up to date on an older card (same screen only)
+            cfg_txt = os.path.join(root, "config-test.txt")
+            _ts = driver.config.get("touch_screen")
+            driver.config["touch_screen"] = "rpi35-xpt2046"
+            block = "# central-pedal-screen begin\n[all]\n%s\n# central-pedal-screen end\n"
+            res = []
+            for lines in (["dtparam=spi=on", "dtoverlay=piscreen,speed=16000000,rotate=90"], ["dtparam=spi=on", "dtoverlay=piscreen,speed=16000000,rotate=90,fps=50"], ["dtparam=spi=on", "dtoverlay=waveshare35a:rotate=90"]):
+                with open(cfg_txt, "w") as handle:
+                    handle.write("arm_64bit=1\n" + block % "\n".join(lines))
+                res.append(driver.refresh_screen_lines(cfg_txt))
+            if _ts is None:
+                driver.config.pop("touch_screen", None)
+            else:
+                driver.config["touch_screen"] = _ts
+            check("an older card's 3.5\" screen line gets fps=50 (20 → 50 updates a second); a current one is left, another screen's lines aren't touched",
+                  res == [True, False, None], res)
+        finally:
+            driver.emit, driver.schedule_mini_render = _real_emit2, _sched2
+            driver_mod.wifi_connect, driver_mod.wifi_status = _wc, _ws
+            mini.overlay, mini.tab = None, "pads"
+            mini.lists.clear()
         status, body = http("http://127.0.0.1:18080/api/display")
         check("companion HTTP /api/display returns the same state", status == 200 and json.loads(body)["song"]["key"] == "G")
         status, body = http("http://127.0.0.1:18080/")
@@ -1110,6 +1260,82 @@ async def main():
             made2 = json.loads(body) if status == 200 else {}
             status3, body3 = http("http://127.0.0.1:18766/upload?kind=soundzip&name=Bad.zip", data=b"not a zip at all", method="PUT")
             check("...and a zip with .sf2 banks adds each one; a broken zip is refused", made2.get("banks") == 1 and os.path.exists(made2.get("file", "")) and json.loads(body3).get("error"), (body[:200], body3[:200]))
+
+            # 9.8: the sound libraries (Settings → Packages → Libraries) - from a file, from the website's list, removed
+            print("\nSound libraries:")
+            import hashlib
+            sf2 = open(os.path.join(media_root, "Stick Bank.sf2"), "rb").read()
+            irb = io.BytesIO()
+            with wave.open(irb, "wb") as w:
+                w.setnchannels(1); w.setsampwidth(2); w.setframerate(48000); w.writeframes(struct.pack("<h", 20000) + b"\0\0" * 511)
+            board = json.dumps({"name": "Library Board", "kind": "keys", "chain": [["dfly-hall", {"Decay": 3}]], "sound": "stick"}).encode()
+            def libzip(version, tamper=False):
+                items = [{"kind": "sound", "name": "Test Keys", "file": "sounds/Test Keys - central-keys-library.sf2", "tier": "keys", "sha256": hashlib.sha256(sf2).hexdigest(), "license": "CC0 1.0"},
+                         {"kind": "ir", "name": "Test Cab", "file": "irs/Test Cab.wav", "tier": "keys", "sha256": hashlib.sha256(irb.getvalue()).hexdigest()},
+                         {"kind": "preset", "name": "Library Board", "file": "presets/library-board.json", "tier": "keys", "sha256": hashlib.sha256(board).hexdigest()}]
+                b = io.BytesIO()
+                with zipfile.ZipFile(b, "w", zipfile.ZIP_DEFLATED) as zf:
+                    zf.writestr("manifest.json", json.dumps({"format": 1, "id": "central-keys-library", "plan": "keys", "version": version, "title": "Central Keys Library", "items": items}))
+                    zf.writestr(items[0]["file"], sf2 + (b"x" if tamper else b""))
+                    zf.writestr(items[1]["file"], irb.getvalue())
+                    zf.writestr(items[2]["file"], board)
+                return b.getvalue()
+            status, body = http("http://127.0.0.1:18766/libraries")
+            check("GET /libraries: available, nothing installed yet", status == 200 and json.loads(body).get("available") and json.loads(body).get("installed") == [], body[:200])
+            status, body = http("http://127.0.0.1:18766/libraries/pads")
+            check("GET /libraries/pads: the Central Pads styles installed here (none yet)", status == 200 and json.loads(body) == {"pads": []}, body[:200])
+            status, body = http("http://127.0.0.1:18766/libraries/pad?lib=central-pads-library&style=Warm&key=C")
+            check("GET /libraries/pad: a loop that isn't installed is a 404", status == 404, body[:200])
+            z1 = libzip("1.0")
+            status, body = http("http://127.0.0.1:18766/libraries/file?name=central-keys-library-1.0.zip&sha256=" + "0" * 64, data=z1, method="PUT")
+            check("Install from a file: a zip that doesn't match the website's checksum is refused", status == 400 and "checksum" in json.loads(body).get("error", ""), body[:200])
+            status, body = http("http://127.0.0.1:18766/libraries/file?name=x.zip", data=libzip("1.0", tamper=True), method="PUT")
+            check("...and so is one whose sound doesn't match its manifest", status == 400 and "damaged" in json.loads(body).get("error", ""), body[:200])
+            status, body = http("http://127.0.0.1:18766/libraries/file?name=x.zip", data=z1, method="PUT", headers={"Origin": "http://evil.example"})
+            check("...and a web page other than the app can't install one", status == 403)
+            status, body = http("http://127.0.0.1:18766/libraries/file?name=central-keys-library-1.0.zip&sha256=" + hashlib.sha256(z1).hexdigest(), data=z1, method="PUT")
+            got = json.loads(body) if status == 200 else {}
+            sf2_dir = os.path.join(root, "data", "sounds", "sf2")
+            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0, "pad": 0}
+                  and os.path.exists(os.path.join(sf2_dir, "Test Keys - central-keys-library.sf2")), body[:300])
+            tiers = open(os.path.join(sf2_dir, "tiers.txt")).read() if os.path.exists(os.path.join(sf2_dir, "tiers.txt")) else ""
+            check("...each keeping the library's plan (tiers.txt)", "Test Keys|keys|CC0 1.0|central-keys-library" in tiers, tiers)
+            await ws.send(json.dumps({"type": "instrument", "action": "status"}))
+            st = await next_message(lambda m: m["type"] == "instrumentStatus" and any(b.get("name") == "Test Keys" for b in m.get("keysCatalog", [])), 6.0)
+            bank = [b for b in (st or {}).get("keysCatalog", []) if b.get("name") == "Test Keys"]
+            irs = [i for i in (st or {}).get("irs", []) if i.get("name") == "Test Cab"]
+            check("the Instrument tab lists the library's bank with its plan (keys, not the user's own) and its IR with its plan", bank and bank[0].get("tier") == "keys" and not bank[0].get("user") and irs and irs[0].get("tier") == "keys", (bank, irs))
+            # from the website's list: downloaded, checked, installed (a newer version replaces the older one)
+            z2 = libzip("1.1")
+            class Zips(BaseHTTPRequestHandler):
+                def log_message(self, *a): pass
+                def do_GET(self):
+                    data = z2 if self.path.endswith("1.1.zip") else b""
+                    self.send_response(200 if data else 404); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+            zsrv = ThreadingHTTPServer(("127.0.0.1", 18097), Zips)
+            threading.Thread(target=zsrv.serve_forever, daemon=True).start()
+            jp = lambda path, b: http("http://127.0.0.1:18766" + path, data=json.dumps(b).encode(), headers={"Content-Type": "application/json"})
+            status, body = jp("/libraries/install", {"id": "central-keys-library", "url": "http://127.0.0.1:18097/central-keys-library-1.1.zip", "sha256": "f" * 64, "size": len(z2)})
+            for _ in range(50):
+                await asyncio.sleep(0.1)
+                job = json.loads(http("http://127.0.0.1:18766/libraries")[1])["jobs"].get("central-keys-library", {})
+                if job.get("state") in ("done", "failed"):
+                    break
+            check("Install from the list: a download that doesn't match its checksum is refused (the installed version stays)", job.get("state") == "failed" and "checksum" in (job.get("error") or "")
+                  and json.loads(http("http://127.0.0.1:18766/libraries")[1])["installed"][0]["version"] == "1.0", job)
+            status, body = jp("/libraries/install", {"id": "central-keys-library", "url": "http://127.0.0.1:18097/central-keys-library-1.1.zip", "sha256": hashlib.sha256(z2).hexdigest(), "size": len(z2)})
+            for _ in range(50):
+                await asyncio.sleep(0.1)
+                job = json.loads(http("http://127.0.0.1:18766/libraries")[1])["jobs"].get("central-keys-library", {})
+                if job.get("state") in ("done", "failed"):
+                    break
+            inst = json.loads(http("http://127.0.0.1:18766/libraries")[1])["installed"]
+            check("...and a good one updates the library to 1.1 (its preset comes with it for the Instrument page)", job.get("state") == "done" and inst and inst[0]["version"] == "1.1" and inst[0]["presets"][0]["name"] == "Library Board" and inst[0]["presets"][0]["tier"] == "keys", (job, inst))
+            zsrv.shutdown()
+            status, body = jp("/libraries/remove", {"id": "central-keys-library"})
+            tiers = open(os.path.join(sf2_dir, "tiers.txt")).read()
+            check("Remove takes the library's sound, IR and plan lines away", status == 200 and json.loads(body).get("installed") == [] and not os.path.exists(os.path.join(sf2_dir, "Test Keys - central-keys-library.sf2"))
+                  and "central-keys-library" not in tiers and not os.path.exists(os.path.join(root, "data", "sounds", "ir", "Test Cab.wav")), (body[:200], tiers))
 
         print("\nPlanning Center and track packs:")
         pco_srv = ThreadingHTTPServer(("127.0.0.1", 18099), MockPCO)

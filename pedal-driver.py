@@ -33,7 +33,7 @@ Protocol (JSON over ws://127.0.0.1:8765).  Driver -> app:
 App -> driver:
   role {role}  state {playing, playingAll, selected}  display {...}  leds {states, bpm}
   inputs {inputs, save}  learn {target, kind, allowKeyboard}  learnCancel
-  system {action: status|safeMode|shutdown|reboot|wifi|audio|screen|displays|restartSession|hostname}
+  system {action: status|safeMode|shutdown|reboot|wifi|audio|dac|screen|displays|restartSession|hostname}
   link {enabled, bpm, playing}   midiClock {bpm, running}   midiOut {messages:[{data, at}]}
 
 Every part is optional: anything not wired, or any library that is missing,
@@ -50,6 +50,7 @@ import hmac
 import io
 import json
 import logging
+import math
 import mimetypes
 import os
 import random
@@ -81,6 +82,11 @@ try:
 except Exception:  # noqa: BLE001
     native_rig = None
 try:
+    import libraries as sound_libraries  # the sound libraries (Settings → Packages → Libraries)
+except Exception as _error:  # noqa: BLE001
+    sound_libraries = None
+    logging.getLogger("pedal-driver").info("sound libraries unavailable: %s", _error)
+try:
     import sources  # Planning Center + track packs (MultiTracks.com, Loop Community)
 except Exception as _error:
     sources = None
@@ -89,7 +95,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.7.0"
+APP_VERSION = "9.8.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -211,7 +217,7 @@ def boot_id():
 
 
 # screens.json as it shipped with this driver: used when the file can't be found or read (tests keep them the same)
-BUILTIN_SCREENS_JSON = r'''{"_about":"Central Pedal touch screens. kind: spi = a small screen on the GPIO pins (Central Pedal draws its own remote on it; HDMI 1 can show a copy), hdmi = a touch monitor on HDMI 1 (shows the app; its touch is USB), dsi = a screen on the ribbon-cable display port (shows the app). config = lines for config.txt; video = the mode forced on HDMI 1 when the screen does not say its size; driver = the maker's overlay, downloaded when the screen is picked (built-in ones need nothing). pins = GPIO pins the screen uses (kept free of buttons).","groups":[{"id":"spi","name":"Small screens on the GPIO pins (2.2\" - 4\")"},{"id":"hdmi","name":"HDMI touch screens (USB touch)"},{"id":"dsi","name":"Ribbon-cable (DSI) touch screens"}],"screens":[{"id":"rpi35-xpt2046","kind":"spi","size":3.5,"res":[480,320],"name":"3.5\" RPi Display - XPT2046 touch (the common blue board)","also":"LCDwiki MPI3501, Waveshare 3.5\" (A) and its clones (Kuman, OSOYOO, Elegoo, iUniker, Quimat...), 480\u00d7320, ILI9486","config":["dtparam=spi=on","dtoverlay=piscreen,speed=16000000,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25],"calibration":{"xmin":200,"xmax":3900,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":true}},{"id":"waveshare35a","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (A) - Waveshare's own driver","also":"the same board as above, with the overlay from Waveshare's LCD-show","config":["dtparam=spi=on","dtoverlay=waveshare35a:rotate=90"],"driver":{"name":"waveshare35a","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35a-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) IPS","config":["dtparam=spi=on","dtoverlay=waveshare35b:rotate=90"],"driver":{"name":"waveshare35b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b-v2","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) Rev 2.0","config":["dtparam=spi=on","dtoverlay=waveshare35b-v2:rotate=90"],"driver":{"name":"waveshare35b-v2","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-v2-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35c","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (C) high speed","config":["dtparam=spi=on","dtoverlay=waveshare35c:rotate=90"],"driver":{"name":"waveshare35c","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35c-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"piscreen2r","kind":"spi","size":3.5,"res":[480,320],"name":"OzzMaker PiScreen 2 (3.5\")","config":["dtparam=spi=on","dtoverlay=piscreen2r,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"pitft35","kind":"spi","size":3.5,"res":[480,320],"name":"Adafruit PiTFT 3.5\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=25"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"tinylcd35","kind":"spi","size":3.5,"res":[480,320],"name":"TinyLCD 3.5\"","config":["dtparam=spi=on","dtoverlay=tinylcd35,touch,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,5,25]},{"id":"mz61581","kind":"spi","size":3.2,"res":[480,320],"name":"Tontec 3.2\" / 3.5\" (MZ61581)","config":["dtparam=spi=on","dtoverlay=mz61581,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,4,15,18,25]},{"id":"waveshare32b","kind":"spi","size":3.2,"res":[320,240],"name":"Waveshare 3.2\" (B)","config":["dtparam=spi=on","dtoverlay=waveshare32b:rotate=270"],"driver":{"name":"waveshare32b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare32b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,22,27]},{"id":"pitft28r","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft28-resistive,rotate=90,speed=64000000,fps=30"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"pitft28c","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (capacitive)","config":["dtparam=spi=on","dtparam=i2c_arm=on","dtoverlay=pitft28-capacitive,rotate=90,speed=64000000,fps=30"],"touch":"EP0110M09|ft6236|ft6x06","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":0,"xmax":240,"ymin":0,"ymax":320,"swap":true,"flip_x":false,"flip_y":true}},{"id":"rpi-display","kind":"spi","size":2.8,"res":[320,240],"name":"Watterott RPi-Display 2.8\"","config":["dtparam=spi=on","dtoverlay=rpi-display,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,18,23,24,25]},{"id":"hy28b","kind":"spi","size":2.8,"res":[320,240],"name":"HY28B 2.8\"","config":["dtparam=spi=on","dtoverlay=hy28b,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,18,25]},{"id":"pitft22","kind":"spi","size":2.2,"res":[320,240],"name":"Adafruit PiTFT 2.2\" (no touch - buttons only)","config":["dtparam=spi=on","dtoverlay=pitft22,rotate=270,speed=32000000,fps=30"],"touch":"","pins":[7,8,9,10,11,25]},{"id":"hdmi-auto","kind":"hdmi","name":"HDMI touch screen - any size (it says its own size)","also":"most screens sold for the Pi: Waveshare, Elecrow, SunFounder, ROADOM, the official monitors","config":[]},{"id":"hdmi-35","kind":"hdmi","size":3.5,"res":[480,320],"name":"3.5\" HDMI touch (MPI3508) 480\u00d7320","config":[],"video":"480x320M@60"},{"id":"hdmi-4","kind":"hdmi","size":4,"res":[800,480],"name":"4\" HDMI touch (MPI4008) 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-5","kind":"hdmi","size":5,"res":[800,480],"name":"5\" HDMI touch 800\u00d7480 (Waveshare 5\", Elecrow, MPI5008)","config":[],"video":"800x480M@60"},{"id":"hdmi-7-800","kind":"hdmi","size":7,"res":[800,480],"name":"7\" HDMI touch 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-7-1024","kind":"hdmi","size":7,"res":[1024,600],"name":"7\" HDMI touch 1024\u00d7600 (Waveshare 7\" C, Elecrow, SunFounder)","config":[],"video":"1024x600M@60"},{"id":"hdmi-10","kind":"hdmi","size":10.1,"res":[1280,800],"name":"10.1\" HDMI touch 1280\u00d7800","config":[],"video":"1280x800M@60"},{"id":"dsi-rpi7","kind":"dsi","size":7,"res":[800,480],"name":"Raspberry Pi Touch Display 7\" (the original)","also":"and the Waveshare 4.3\" / 5\" / 7\" DSI screens made to work like it","config":["dtoverlay=vc4-kms-dsi-7inch"]},{"id":"dsi-rpi2-7","kind":"dsi","size":7,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (7\")","config":["dtoverlay=vc4-kms-dsi-ili9881-7inch,rotation=90"]},{"id":"dsi-rpi2-5","kind":"dsi","size":5,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (5\")","config":["dtoverlay=vc4-kms-dsi-ili9881-5inch,rotation=90"]},{"id":"dsi-ws-28","kind":"dsi","size":2.8,"res":[480,640],"name":"Waveshare 2.8\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,2_8_inch"]},{"id":"dsi-ws-34","kind":"dsi","size":3.4,"res":[800,800],"name":"Waveshare 3.4\" round DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,3_4_inch"]},{"id":"dsi-ws-40","kind":"dsi","size":4,"res":[480,800],"name":"Waveshare 4\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,4_0_inch"]},{"id":"dsi-ws-50","kind":"dsi","size":5,"res":[720,1280],"name":"Waveshare 5\" DSI (720\u00d71280)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,5_0_inch"]},{"id":"dsi-ws-70c","kind":"dsi","size":7,"res":[1024,600],"name":"Waveshare 7\" DSI (C) 1024\u00d7600","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_0_inchC"]},{"id":"dsi-ws-79","kind":"dsi","size":7.9,"res":[400,1280],"name":"Waveshare 7.9\" DSI (bar)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_9_inch"]},{"id":"dsi-ws-101","kind":"dsi","size":10.1,"res":[800,1280],"name":"Waveshare 10.1\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,10_1_inch"]}]}'''
+BUILTIN_SCREENS_JSON = r'''{"_about":"Central Pedal touch screens. kind: spi = a small screen on the GPIO pins (Central Pedal draws its own remote on it; HDMI 1 can show a copy), hdmi = a touch monitor on HDMI 1 (shows the app; its touch is USB), dsi = a screen on the ribbon-cable display port (shows the app). config = lines for config.txt; video = the mode forced on HDMI 1 when the screen does not say its size; driver = the maker's overlay, downloaded when the screen is picked (built-in ones need nothing). pins = GPIO pins the screen uses (kept free of buttons).","groups":[{"id":"spi","name":"Small screens on the GPIO pins (2.2\" - 4\")"},{"id":"hdmi","name":"HDMI touch screens (USB touch)"},{"id":"dsi","name":"Ribbon-cable (DSI) touch screens"}],"screens":[{"id":"rpi35-xpt2046","kind":"spi","size":3.5,"res":[480,320],"name":"3.5\" RPi Display - XPT2046 touch (the common blue board)","also":"LCDwiki MPI3501, Waveshare 3.5\" (A) and its clones (Kuman, OSOYOO, Elegoo, iUniker, Quimat...), 480\u00d7320, ILI9486","config":["dtparam=spi=on","dtoverlay=piscreen,speed=16000000,rotate=90,fps=50"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25],"calibration":{"xmin":200,"xmax":3900,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":true}},{"id":"waveshare35a","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (A) - Waveshare's own driver","also":"the same board as above, with the overlay from Waveshare's LCD-show","config":["dtparam=spi=on","dtoverlay=waveshare35a:rotate=90"],"driver":{"name":"waveshare35a","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35a-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) IPS","config":["dtparam=spi=on","dtoverlay=waveshare35b:rotate=90"],"driver":{"name":"waveshare35b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b-v2","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) Rev 2.0","config":["dtparam=spi=on","dtoverlay=waveshare35b-v2:rotate=90"],"driver":{"name":"waveshare35b-v2","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-v2-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35c","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (C) high speed","config":["dtparam=spi=on","dtoverlay=waveshare35c:rotate=90"],"driver":{"name":"waveshare35c","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35c-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"piscreen2r","kind":"spi","size":3.5,"res":[480,320],"name":"OzzMaker PiScreen 2 (3.5\")","config":["dtparam=spi=on","dtoverlay=piscreen2r,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"pitft35","kind":"spi","size":3.5,"res":[480,320],"name":"Adafruit PiTFT 3.5\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=25"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"tinylcd35","kind":"spi","size":3.5,"res":[480,320],"name":"TinyLCD 3.5\"","config":["dtparam=spi=on","dtoverlay=tinylcd35,touch,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,5,25]},{"id":"mz61581","kind":"spi","size":3.2,"res":[480,320],"name":"Tontec 3.2\" / 3.5\" (MZ61581)","config":["dtparam=spi=on","dtoverlay=mz61581,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,4,15,18,25]},{"id":"waveshare32b","kind":"spi","size":3.2,"res":[320,240],"name":"Waveshare 3.2\" (B)","config":["dtparam=spi=on","dtoverlay=waveshare32b:rotate=270"],"driver":{"name":"waveshare32b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare32b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,22,27]},{"id":"pitft28r","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft28-resistive,rotate=90,speed=64000000,fps=30"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"pitft28c","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (capacitive)","config":["dtparam=spi=on","dtparam=i2c_arm=on","dtoverlay=pitft28-capacitive,rotate=90,speed=64000000,fps=30"],"touch":"EP0110M09|ft6236|ft6x06","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":0,"xmax":240,"ymin":0,"ymax":320,"swap":true,"flip_x":false,"flip_y":true}},{"id":"rpi-display","kind":"spi","size":2.8,"res":[320,240],"name":"Watterott RPi-Display 2.8\"","config":["dtparam=spi=on","dtoverlay=rpi-display,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,18,23,24,25]},{"id":"hy28b","kind":"spi","size":2.8,"res":[320,240],"name":"HY28B 2.8\"","config":["dtparam=spi=on","dtoverlay=hy28b,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,18,25]},{"id":"pitft22","kind":"spi","size":2.2,"res":[320,240],"name":"Adafruit PiTFT 2.2\" (no touch - buttons only)","config":["dtparam=spi=on","dtoverlay=pitft22,rotate=270,speed=32000000,fps=30"],"touch":"","pins":[7,8,9,10,11,25]},{"id":"hdmi-auto","kind":"hdmi","name":"HDMI touch screen - any size (it says its own size)","also":"most screens sold for the Pi: Waveshare, Elecrow, SunFounder, ROADOM, the official monitors","config":[]},{"id":"hdmi-35","kind":"hdmi","size":3.5,"res":[480,320],"name":"3.5\" HDMI touch (MPI3508) 480\u00d7320","config":[],"video":"480x320M@60"},{"id":"hdmi-4","kind":"hdmi","size":4,"res":[800,480],"name":"4\" HDMI touch (MPI4008) 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-5","kind":"hdmi","size":5,"res":[800,480],"name":"5\" HDMI touch 800\u00d7480 (Waveshare 5\", Elecrow, MPI5008)","config":[],"video":"800x480M@60"},{"id":"hdmi-7-800","kind":"hdmi","size":7,"res":[800,480],"name":"7\" HDMI touch 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-7-1024","kind":"hdmi","size":7,"res":[1024,600],"name":"7\" HDMI touch 1024\u00d7600 (Waveshare 7\" C, Elecrow, SunFounder)","config":[],"video":"1024x600M@60"},{"id":"hdmi-10","kind":"hdmi","size":10.1,"res":[1280,800],"name":"10.1\" HDMI touch 1280\u00d7800","config":[],"video":"1280x800M@60"},{"id":"dsi-rpi7","kind":"dsi","size":7,"res":[800,480],"name":"Raspberry Pi Touch Display 7\" (the original)","also":"and the Waveshare 4.3\" / 5\" / 7\" DSI screens made to work like it","config":["dtoverlay=vc4-kms-dsi-7inch"]},{"id":"dsi-rpi2-7","kind":"dsi","size":7,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (7\")","config":["dtoverlay=vc4-kms-dsi-ili9881-7inch,rotation=90"]},{"id":"dsi-rpi2-5","kind":"dsi","size":5,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (5\")","config":["dtoverlay=vc4-kms-dsi-ili9881-5inch,rotation=90"]},{"id":"dsi-ws-28","kind":"dsi","size":2.8,"res":[480,640],"name":"Waveshare 2.8\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,2_8_inch"]},{"id":"dsi-ws-34","kind":"dsi","size":3.4,"res":[800,800],"name":"Waveshare 3.4\" round DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,3_4_inch"]},{"id":"dsi-ws-40","kind":"dsi","size":4,"res":[480,800],"name":"Waveshare 4\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,4_0_inch"]},{"id":"dsi-ws-50","kind":"dsi","size":5,"res":[720,1280],"name":"Waveshare 5\" DSI (720\u00d71280)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,5_0_inch"]},{"id":"dsi-ws-70c","kind":"dsi","size":7,"res":[1024,600],"name":"Waveshare 7\" DSI (C) 1024\u00d7600","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_0_inchC"]},{"id":"dsi-ws-79","kind":"dsi","size":7.9,"res":[400,1280],"name":"Waveshare 7.9\" DSI (bar)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_9_inch"]},{"id":"dsi-ws-101","kind":"dsi","size":10.1,"res":[800,1280],"name":"Waveshare 10.1\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,10_1_inch"]}]}'''
 
 
 def builtin_screens():
@@ -312,6 +318,17 @@ def slug(text):
     text = re.sub(r"\(.*?\)", "", str(text or "")).lower()
     text = re.sub(r"[^a-z0-9]+", "-", text).strip("-")
     return text
+
+
+def file_sha256(path, chunk=1 << 20):
+    h = hashlib.sha256()
+    with open(path, "rb") as handle:
+        while True:
+            block = handle.read(chunk)
+            if not block:
+                break
+            h.update(block)
+    return h.hexdigest()
 
 
 def safe_name(name):
@@ -656,7 +673,7 @@ def read_json(path, default):
         return default
 
 
-PLAN_NAMES = {"keys": "Central Keys", "plugins": "Central Plugins", "instrument": "Central Instrument", "pedals": "Central Pedals"}
+PLAN_NAMES = {"keys": "Central Keys", "plugins": "Central Plugins", "instrument": "Central Instrument", "pedals": "Central Pedals", "pads": "Central Pads"}
 
 
 def clean_packages(items):
@@ -690,7 +707,7 @@ def package_lines(items, now=None):
                 ends.append(datetime.datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp())
             except Exception:
                 pass
-        names = ", ".join(PLAN_NAMES[k] for k in ("keys", "plugins", "instrument", "pedals") if k in plans) or "no plans"
+        names = ", ".join(PLAN_NAMES[k] for k in ("keys", "plugins", "instrument", "pedals", "pads") if k in plans) or "no plans"
         stale = p.get("okAt") and now - p["okAt"] / 1000.0 > 14 * 86400
         if p.get("ok") is False:
             state = p.get("error") or "not valid"
@@ -1403,6 +1420,16 @@ class LocalServer:
                     return self.send_json(404, {"error": "unknown"})
                 if p == "/status":
                     return self.send_json(200, driver.system_status())
+                if p == "/libraries":   # the sound libraries installed here, and any being installed
+                    return self.send_json(200, library_state(driver))
+                if p == "/libraries/pads":   # Central Pads: the pad styles installed here (the pad pedal's voice list)
+                    st = library_store(driver)
+                    return self.send_json(200, {"pads": st.pads() if st else []})
+                if p == "/libraries/pad":   # one pad style's loop in one key: ?lib=<library id>&style=<name>&key=C#
+                    st = library_store(driver)
+                    qs = urllib.parse.parse_qs(url.query)
+                    f = st.pad_file((qs.get("lib") or [""])[0], (qs.get("style") or [""])[0], (qs.get("key") or [""])[0]) if st else None
+                    return self.send_file(f, "audio/wav", cache=True) if f else self.send_json(404, {"error": "no such pad"})
                 if p == "/library":
                     return self.send_json(200, {"songs": driver.library.listing(), "root": driver.library.root})
                 if p.startswith("/pco/") and driver.pco:
@@ -1431,6 +1458,16 @@ class LocalServer:
                     return self.send_json(200, {"drives": out})
                 if p == "/api/whoami":   # (Central Pedal Control's Mac app checks that the driver on this port is its own)
                     return self.send_json(200, {"pedalControl": PEDAL_CONTROL, "appVersion": APP_VERSION})
+                if p == "/pedal/loaded-set":
+                    return self.send_json(200, {"set": driver.transfer.loaded_set()})
+                if p in ("/set/bank", "/set/bank-info"):   # Central Pedal Control: a keys / instrument sound a set uses
+                    bank = driver.transfer.bank_known((query.get("path") or [""])[0])
+                    if not bank:
+                        return self.send_json(404, {"error": "not a sound here"})
+                    if p == "/set/bank":
+                        return self.send_file(bank["file"], "application/octet-stream")
+                    return self.send_json(200, {"file": bank["file"], "name": os.path.basename(bank["file"]), "size": os.path.getsize(bank["file"]),
+                                                "sha": driver.transfer.sha_cached(bank["file"]), "tier": bank.get("tier") or None})
                 if p == "/pedal/package":   # an upload from Central Pedal Control, for the app here to apply
                     pk = driver.transfer.local_package((query.get("token") or [""])[0])
                     return self.send_json(200, pk) if pk else self.send_json(404, {"error": "no such upload"})
@@ -1445,8 +1482,23 @@ class LocalServer:
             def do_PUT(self):
                 url = urllib.parse.urlparse(self.path)
                 query = urllib.parse.parse_qs(url.query)
-                if url.path in ("/practice/file", "/split/upload") and not local_origin_ok(self.headers):
+                if url.path in ("/practice/file", "/split/upload", "/libraries/file") and not local_origin_ok(self.headers):
                     return self.send_json(403, {"error": "only the app can do that"})
+                if url.path == "/libraries/file":   # Install from a file…: a library zip (checked against ?sha256= when the app knows it)
+                    st = library_store(driver)
+                    if not st:
+                        self.body(1)
+                        return self.send_json(500, {"error": "sound libraries aren't available here"})
+                    data = self.body(1536 * 1024 * 1024)
+                    if not data:
+                        return self.send_json(400, {"error": "empty file (or too big)"})
+                    sha = (query.get("sha256") or [""])[0] or None
+                    try:
+                        rec = st.install_bytes(data, expected_sha256=sha, source="file")
+                    except ValueError as error:
+                        return self.send_json(400, {"error": str(error)})
+                    library_installed(driver, rec)
+                    return self.send_json(200, {"ok": True, "record": {"id": rec["id"], "version": rec["version"], "counts": rec.get("counts")}, "installed": st.listing()})
                 if url.path == "/practice/file":   # one practice mix (a WAV, or the playlist) from the app
                     q1 = lambda k, dflt="": (query.get(k) or [dflt])[0]
                     try:
@@ -1552,6 +1604,19 @@ class LocalServer:
                         return self.send_json(code_, reply)
                     pkg = self.json_body(64 << 20)
                     code_, reply = driver.transfer.export_done(token, pkg)
+                    if code_ == 200 and isinstance(pkg, dict) and not pkg.get("error") and "songs" in (pkg.get("parts") or []):
+                        driver.transfer.set_brought_back()   # (the set's changes made here are in Central Pedal Control now)
+                    return self.send_json(code_, reply)
+                if url.path in ("/pedal/set-commit", "/pedal/set-done", "/pedal/set-state"):   # the app here and its set
+                    q = urllib.parse.parse_qs(url.query)
+                    token = (q.get("token") or [""])[0]
+                    if url.path == "/pedal/set-state":
+                        code_, reply = driver.transfer.set_state(self.json_body() or {})
+                    elif url.path == "/pedal/set-commit":
+                        self.body(1 << 16)   # (read what came with it: a body left unread spoils the next request)
+                        code_, reply = driver.transfer.set_commit(token)
+                    else:
+                        code_, reply = driver.transfer.set_done(token, self.json_body() or {})
                     return self.send_json(code_, reply)
                 if url.path.startswith("/pco/") or url.path.startswith("/pack/"):
                     payload = self.json_body()
@@ -1600,6 +1665,20 @@ class LocalServer:
                     except (ValueError, OSError) as error:
                         return self.send_json(400, {"error": str(error)})
                     return self.send_json(404, {"error": "unknown"})
+                if url.path in ("/libraries/install", "/libraries/remove"):   # a sound library: from the website's list / taken away
+                    if not local_origin_ok(self.headers):
+                        return self.send_json(403, {"error": "only the app can do that"})
+                    payload = self.json_body() or {}
+                    if not library_store(driver):
+                        return self.send_json(500, {"error": "sound libraries aren't available here"})
+                    try:
+                        if url.path == "/libraries/install":
+                            return self.send_json(200, library_install_async(driver, payload))
+                        reply = library_store(driver).remove(str(payload.get("id") or ""))
+                        library_installed(driver, None)
+                        return self.send_json(200, dict(reply, installed=library_store(driver).listing()))
+                    except ValueError as error:
+                        return self.send_json(400, {"error": str(error)})
                 if url.path == "/chart/text":
                     try:
                         payload = json.loads(self.body(1 << 22).decode() or "{}")
@@ -1948,6 +2027,11 @@ class CompanionServer:
                         except Exception:
                             payload = {}
                         code_, reply = tr.begin(payload, "out" if url.path == "/api/pedal/export" else "in")
+                        return self.send_json(code_, reply)
+                    if url.path == "/api/pedal/chunk":   # a piece of a set's file (resumable)
+                        g = lambda k: (query.get(k) or [""])[0]
+                        code_, reply = tr.put_chunk(token, g("id"), g("offset"), g("total"), self.body(tr.CHUNK_MAX),
+                                                    {"kind": g("kind"), "name": g("name"), "song": g("song"), "sha": g("sha")})
                         return self.send_json(code_, reply)
                     if url.path == "/api/pedal/file":
                         code_, reply = tr.put_file(token, (query.get("id") or [""])[0], (query.get("name") or [""])[0], (query.get("song") or [""])[0], (query.get("kind") or ["stem"])[0], self.body())
@@ -2974,6 +3058,18 @@ class UsbInputs:
 # ---------------------------------------------------------------------------
 # The 3.5" SPI touch screen (framebuffer + ADS7846 touch)
 # ---------------------------------------------------------------------------
+def set_line(driver):
+    """"Sunday AM · from Mac · Oct 24 9:12" - the set this pedal holds (uploaded from Central Pedal Control)."""
+    try:
+        st = driver.transfer.loaded_set() if driver and getattr(driver, "transfer", None) else None
+    except Exception:
+        st = None
+    if not st:
+        return ""
+    when = time.strftime("%b %d %H:%M", time.localtime(st.get("at") or 0))
+    return "%s · from %s · %s%s" % (st.get("name") or "Set", st.get("from") or "?", when, " · changed here" if st.get("changed") else "")
+
+
 class MiniScreen:
     """The small touch screen on the GPIO pins (/dev/fb1): Pads, Tracks, Instrument and Settings tabs, drawn here and
     touched through its own panel. Taps run the app's actions; the tabs, pages and HDMI choices are the screen's own."""
@@ -2991,7 +3087,11 @@ class MiniScreen:
         self.tab, self.sub, self.pages, self.override = "pads", {}, {}, {}
         self.active, self.drag_at, self.confirm, self.confirm_at = None, 0.0, None, 0.0
         self.pick_screen, self.touch_msg = None, ""
-        self.notice, self.notice_at = "", 0.0   # (a line along the bottom for a few seconds: "Part of Central Pedals · $50 a year…")
+        self.notice, self.notice_at = "", 0.0   # (a line along the bottom for a few seconds: "Part of Central Pedals · $70 a year…")
+        self.overlay = None    # a list to pick from (boards, sounds, what a button does) or the keyboard, over the page
+        self.lists = {}        # what the app sent for those lists: {what: {"items": [...], ...}}
+        self.wifi, self.wifi_at, self.wifi_busy, self.wifi_msg = None, 0.0, False, ""
+        self.update_msg, self.update_ready = "", False
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -3014,9 +3114,11 @@ class MiniScreen:
            "idle": (22, 42, 66), "selected": (31, 68, 110), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (52, 58, 68),
            "btn": (35, 39, 46), "on": (226, 194, 126), "ontext": (26, 20, 8), "warn": (255, 190, 110), "track": (46, 51, 60)}
     TABS = [("pads", "PADS"), ("tracks", "TRACKS"), ("instrument", "INSTRUMENT"), ("settings", "SETTINGS")]
-    SUBS = {"tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist")],
+    SUBS = {"pads": [("pads", "Pads"), ("key", "Key"), ("sound", "Sound")],
+            "tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist"), ("tempo", "Click · Tempo")],
             "instrument": [("sound", "Sound"), ("pedals", "Pedals"), ("eq", "EQ · Comp"), ("tune", "Tuner · Level")],
-            "settings": [("audio", "In & out"), ("screens", "Screens"), ("touch", "Touch"), ("system", "System")]}
+            "settings": [("audio", "Audio"), ("wifi", "Wi-Fi"), ("controls", "Controls"), ("screens", "Screens"), ("touch", "Touch"), ("system", "System")]}
+    KEY_NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
     HDMI1 = [("app", "Central Pedal app"), ("touch", "Copy of this screen"), ("lyrics", "Lyrics"), ("charts", "Chord charts"), ("stage", "Stage display"), ("slides", "Slides")]
     HDMI2 = [("lyrics", "Lyrics"), ("slides", "Slides & lyrics"), ("stage", "Stage display"), ("charts", "Chord charts"), ("touch", "Copy of this screen"), ("app", "Central Pedal app"), ("off", "Nothing")]
     KIND_SHORT = {"electric": "Electric", "acoustic": "Acoustic", "bass": "Bass", "keys": "Keys", "off": "Off"}
@@ -3055,14 +3157,34 @@ class MiniScreen:
         self.font, self.small, self.big = self.F["btn"], self.F["sub"], self.F["num"]
 
     # ----- small drawing helpers ------------------------------------------------------------------------------------
+    # Text is most of the drawing time (FreeType draws every letter each time): each word's picture is kept and
+    # stamped again, so a redraw costs a few milliseconds even on a Pi 3.
+    TEXT_CACHE = 4000
+
+    def text_width(self, g, text, font):
+        cache = self.__dict__.setdefault("_wcache", {})
+        key = (text, id(font))
+        w = cache.get(key)
+        if w is None:
+            w = g.textlength(text, font=font)
+            if len(cache) > self.TEXT_CACHE:
+                cache.clear()
+            cache[key] = w
+        return w
+
     def fit(self, g, text, font, width):
         text = str(text or "")
         try:
-            if g.textlength(text, font=font) <= width:
+            if self.text_width(g, text, font) <= width:
                 return text
-            while text and g.textlength(text + "…", font=font) > width:
-                text = text[:-1]
-            return text.rstrip() + "…"
+            lo, hi = 0, len(text)   # the longest start that fits with "…" (halving, not a letter at a time)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if self.text_width(g, text[:mid] + "…", font) <= width:
+                    lo = mid
+                else:
+                    hi = mid - 1
+            return text[:lo].rstrip() + "…"
         except Exception:
             n = max(1, int(width / 7))
             return text if len(text) <= n else text[: n - 1] + "…"
@@ -3070,6 +3192,25 @@ class MiniScreen:
     def text(self, g, xy, text, font, fill, anchor="la", width=None):
         if width:
             text = self.fit(g, text, font, width)
+        text = str(text if text is not None else "")
+        if not text:
+            return
+        try:
+            cache = self.__dict__.setdefault("_tcache", {})
+            x, y = float(xy[0]), float(xy[1])
+            start = (round(x - math.floor(x), 2), round(y - math.floor(y), 2))   # (the same sub-pixel place as drawing it afresh)
+            key = (text, id(font), anchor, start)
+            hit = cache.get(key)
+            if hit is None:
+                hit = font.getmask2(text, "L", anchor=anchor, start=start)
+                if len(cache) > self.TEXT_CACHE:
+                    cache.clear()
+                cache[key] = hit
+            mask, off = hit
+            g.draw.draw_bitmap((int(math.floor(x)) + off[0], int(math.floor(y)) + off[1]), mask, g._getink(fill)[0])
+            return
+        except Exception:
+            pass
         try:
             g.text(xy, text, font=font, fill=fill, anchor=anchor)
         except Exception:
@@ -3178,12 +3319,17 @@ class MiniScreen:
         d = d or {}
         self.header(g, d)
         tab = self.tab if self.tab in dict(self.TABS) else "pads"
+        ov = self.overlay
         try:
-            getattr(self, "page_" + tab)(g, hits, d)
+            if ov:
+                getattr(self, "overlay_" + ov["kind"])(g, hits, d)
+            else:
+                getattr(self, "page_" + tab)(g, hits, d)
         except Exception as error:   # (a page with odd data never blanks the screen)
             log.debug("small screen page %s: %s", tab, error)
             self.text(g, (W / 2, H / 2), "…", self.F["num"], C["muted"], "mm")
-        self.tabbar(g, hits, tab)
+        if not (ov and ov["kind"] == "keys"):
+            self.tabbar(g, hits, tab)
         if self.notice and time.monotonic() - self.notice_at < self.NOTICE_S:
             g.rounded_rectangle([4, H - 88, W - 4, H - 46], 9, fill=(40, 34, 20), outline=C["accent"], width=2)
             self.lock_icon(g, 12, H - 79, 22, C["accent"])
@@ -3308,9 +3454,13 @@ class MiniScreen:
 
     # ----- PADS: the 8 pads + STOP, and the 8 buttons (transport when tracks are on) ---------------------------------
     def page_pads(self, g, hits, d):
+        sub = self.sub.get("pads", "pads")
+        if sub != "pads":
+            return getattr(self, "pads_" + sub)(g, hits, d)
         C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "pads")
         pads = d.get("pads") or []
-        gx, gy, gw, gh = 6, 46, 296, H - 46 - 46
+        gx, gy, gw, gh = 6, 76, 296, H - 46 - 76
         cw, ch = (gw - 2 * 5) / 3, (gh - 2 * 5) / 3
         for i in range(9):
             r, c = divmod(i, 3)
@@ -3325,7 +3475,8 @@ class MiniScreen:
             state = "playing" if pad.get("playing") else "selected" if pad.get("selected") else "idle"
             g.rounded_rectangle(box, 10, fill=C[state], outline=C["accent"] if state == "playing" else C["line"])
             self.text(g, (x0 + 8, y0 + 5), str(i + 1), self.F["sub"], C["accent"] if state == "playing" else C["muted"])
-            self.text(g, (x0 + 8, y0 + ch - 7), pad.get("name"), self.F["label"], C["text"], "ld", cw - 14)
+            self.text(g, (x0 + 8, y0 + ch - 16), pad.get("name"), self.F["label"], C["text"], "ld", cw - 14)
+            self.pad_volume(g, hits, [x0 + 8, y0 + ch - 12, x0 + cw - 8, y0 + ch - 3], i, pad.get("level"))   # (before the pad: a drag here never plays it)
             hits.append((box, {"name": "pad", "args": {"index": i}}))
         bx, by, bw = 308, gy, W - 308 - 6
         if d.get("tracksMode"):
@@ -3346,6 +3497,76 @@ class MiniScreen:
             r, c = divmod(i, 2)
             x0, y0 = bx + c * (bw / 2 + 2), by + r * (bh + 4)
             self.button(g, hits, [x0, y0, x0 + bw / 2 - 2, y0 + bh], label, action, on=on, font=self.F["sub"] if len(label) > 8 else self.F["btn"])
+
+    def pad_volume(self, g, hits, box, index, level):
+        """A pad's own volume along the bottom of its button: a thin bar with a knob. Slide it to change; a tap alone
+        doesn't jump it (and never plays the pad)."""
+        C = self.COL
+        x0, y0, x1, y1 = box
+        action = {"name": "padVolume", "args": {"index": index}}
+        key = action["name"] + "|" + json.dumps(action["args"], sort_keys=True)
+        v = max(0.0, min(1.0, float(self.slider_value(key, (72 if level is None else float(level)) / 100.0) or 0)))
+        cy = (y0 + y1) / 2
+        g.rounded_rectangle([x0, cy - 3, x1, cy + 3], 3, fill=C["track"])
+        fx = x0 + (x1 - x0) * v
+        if fx > x0 + 3:
+            g.rounded_rectangle([x0, cy - 3, fx, cy + 3], 3, fill=C["accent"])
+        g.ellipse([fx - 6, cy - 6, fx + 6, cy + 6], fill=C["text"], outline=C["bg"])
+        hits.append(([int(x0 - 4), int(y0 - 2), int(x1 + 4), int(y1 + 2)], dict(action, slider=[x0, x1], key=key, nojump=True)))
+
+    @classmethod
+    def key_index(cls, key):
+        """C = 0 … B = 11 from "G", "F#m", "Bb", "E♭" (None when it can't be read)."""
+        m = re.match(r"\s*([A-Ga-g])([#♯b♭]?)", str(key or ""))
+        if not m:
+            return None
+        n = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}[m.group(1).upper()]
+        return (n + (1 if m.group(2) in ("#", "♯") else -1 if m.group(2) in ("b", "♭") else 0)) % 12
+
+    def pads_key(self, g, hits, d):
+        """Every key at once: a tap goes straight to it (playing tracks shift with it)."""
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "pads")
+        key = d.get("key") or (d.get("song") or {}).get("key")
+        cur = self.key_index(key)
+        minor = bool(re.match(r"\s*[A-Ga-g][#♯b♭]?m(?!aj)", str(key or "")))
+        cw, kh = (W - 12 - 5 * 4) / 6, 50
+        for i, name in enumerate(self.KEY_NAMES):
+            r, c = divmod(i, 6)
+            x, y = 6 + c * (cw + 4), 76 + r * (kh + 4)
+            delta = ((i - cur + 6) % 12) - 6 if cur is not None else None
+            action = None if delta == 0 else {"name": "stepKey", "delta": delta} if delta is not None else None
+            self.button(g, hits, [x, y, x + cw, y + kh], name + ("m" if minor else ""), action, on=cur == i,
+                        font=self.F["num"] if len(name) == 1 and not minor else self.F["title"])
+        y = 76 + 2 * (kh + 4) + 4
+        half = (W - 12 - 5) / 2
+        self.button(g, hits, [6, y, 6 + half, y + 46], "KEY −", {"name": "keyDown"}, sub="a half step down")
+        self.button(g, hits, [11 + half, y, W - 6, y + 46], "KEY +", {"name": "keyUp"}, sub="a half step up")
+        self.text(g, (W / 2, H - 56), "The pads change key at once; playing tracks shift with them.", self.F["sub"], C["muted"], "mm", W - 16)
+
+    def pads_sound(self, g, hits, d):
+        """How the pads sound: volume, reverb, tone, fade - and freeze, layer and the two textures."""
+        W, H = self.w, self.h
+        self.chips(g, hits, "pads")
+        perf = d.get("performance") or {}
+        vol = (d.get("mini") or {}).get("volume")
+        rows = [("Pads volume", "volume", perf.get("volume", vol if vol is not None else 0.85)), ("Reverb", "reverb", perf.get("reverb", 0.5)),
+                ("Tone", "tone", perf.get("tone", 1)), ("Fade time", "fade", perf.get("fade", 0.5))]
+        y, rh = 76, 32
+        for label, name, value in rows:
+            value = float(value or 0)
+            vt = ("dark" if value < 0.2 else "bright" if value > 0.8 else "%d%%" % round(value * 100)) if name == "tone" else None
+            self.fader(g, hits, [6, y, W - 6, y + rh], label, value, {"name": name}, valtext=vt)
+            y += rh
+        tex = d.get("textures") or []
+        buttons = [("FREEZE", {"name": "freeze"}, bool(d.get("frozen")), "hold the sound"), ("LAYER", {"name": "layer"}, bool(perf.get("layerMode")), "stack pads")]
+        for n in (0, 1):
+            t = tex[n] if n < len(tex) else {}
+            buttons.append(("TEXTURE %d" % (n + 1), {"name": "texture%d" % (n + 1)}, bool(t.get("on")), t.get("name") or "off"))
+        bw = (W - 12 - 3 * 5) / 4
+        for i, (label, action, on, sub) in enumerate(buttons):
+            x = 6 + i * (bw + 5)
+            self.button(g, hits, [x, y + 6, x + bw, H - 46], label, action, on=on, sub=sub, font=self.F["label"])
 
     # ----- TRACKS ---------------------------------------------------------------------------------------------------
     def page_tracks(self, g, hits, d):
@@ -3379,11 +3600,10 @@ class MiniScreen:
             hits.append(([int(x), y0, int(x + cw), y1], {"name": "goSection", "args": {"index": s["index"]}}))
         loop = d.get("loop") if d.get("loop") is not None else -1
         buttons = [("PAUSE" if d.get("playing") else "PLAY", {"name": "playPause"}, bool(d.get("playing")), None),
-                   ("START", {"name": "startOver"}, False, None), ("SECTION ›", {"name": "nextSection"}, False, None),
-                   ("REPEAT", {"name": "repeatSection"}, loop >= 0, None),
-                   ("CLICK", {"name": "toggleClick"}, bool(d.get("click", True)), None),
-                   ("KEY −", {"name": "keyDown"}, False, None), ("KEY +", {"name": "keyUp"}, False, None),
-                   ("NEXT SONG", {"name": "nextSong"}, False, None)]
+                   ("STOP", {"name": "stopTracks"}, False, None), ("‹ SECTION", {"name": "prevSection"}, False, None),
+                   ("SECTION ›", {"name": "nextSection"}, False, None),
+                   ("REPEAT", {"name": "repeatSection"}, loop >= 0, None), ("START", {"name": "startOver"}, False, "from the top"),
+                   ("‹ SONG", {"name": "prevSong"}, False, None), ("NEXT SONG", {"name": "nextSong"}, False, None)]
         gy0, gy1 = 114, H - 46
         bw, bh = (W - 12 - 3 * 5) / 4, (gy1 - gy0 - 5) / 2
         for i, (label, action, on, sub) in enumerate(buttons):
@@ -3443,6 +3663,28 @@ class MiniScreen:
             y += rh
         if not songs:
             self.text(g, (W / 2, 170), "The setlist is empty", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 196), "Upload a set from Central Pedal Control", self.F["sub"], C["muted"], "mm")
+
+    def tracks_tempo(self, g, hits, d):
+        """The click and the tempo: tempo %, back to 100, ±5 %, tap; click on / off and its level, voice cues, count-in."""
+        W, H = self.w, self.h
+        self.chips(g, hits, "tracks")
+        m = d.get("mini") or {}
+        pct = float(m.get("tempoPercent") if m.get("tempoPercent") is not None else round((d.get("speed") or 1) * 100))
+        self.fader(g, hits, [6, 76, W - 6, 112], "Tempo", (pct - 50) / 100.0, {"name": "tempoPercent"}, valtext="%d%%" % round(pct), label_w=70)
+        bw = (W - 12 - 3 * 5) / 4
+        for i, (label, action, sub) in enumerate((("− 5%", {"name": "slower"}, "same pitch"), ("100%", {"name": "tempoReset"}, "as recorded"),
+                                                   ("+ 5%", {"name": "faster"}, "same pitch"), ("TAP", {"name": "tap"}, "%d BPM" % round(d.get("bpm") or 0)))):
+            x = 6 + i * (bw + 5)
+            self.button(g, hits, [x, 116, x + bw, 160], label, action, sub=sub, on=label == "100%" and round(pct) == 100)
+        lv = m.get("levels") or {}
+        self.fader(g, hits, [6, 166, W - 6, 202], "Click level", lv.get("click", 0.85), {"name": "clickLevel"}, dim=not d.get("click", True), label_w=100)
+        third = (W - 12 - 10) / 3
+        for i, (label, action, on, sub) in enumerate((("CLICK", {"name": "toggleClick"}, bool(d.get("click", True)), "on" if d.get("click", True) else "off"),
+                                                       ("VOICE CUES", {"name": "toggleCues"}, bool(d.get("cues", True)), "on" if d.get("cues", True) else "off"),
+                                                       ("COUNT-IN", {"name": "countIn"}, False, "off · 1 · 2 bars"))):
+            x = 6 + i * (third + 5)
+            self.button(g, hits, [x, 208, x + third, H - 46], label, action, on=on, sub=sub)
 
     # ----- INSTRUMENT -----------------------------------------------------------------------------------------------
     def page_instrument(self, g, hits, d):
@@ -3480,6 +3722,9 @@ class MiniScreen:
                 self.lock_icon(g, 80, y0 + 6, 16, C["accent"])
                 self.text(g, (W / 2, y0 + 54), ("muted · " if keys else "locked pedals bypassed · ") + locked, self.F["tiny"], C["accent"], "mm", W - 156)
                 hits.append(([72, y0, W - 72, y1], {"local": "say", "text": locked + (" - this sound is muted until the plan is active." if keys else " - its locked pedals are bypassed until the plan is active.")}))
+            else:   # the whole list: tap the name
+                self.text(g, (W / 2, y0 + 56), "tap for the list", self.F["tiny"], C["muted"], "mm")
+                hits.append(([72, y0, W - 72, y1], {"local": "list", "what": "patches" if keys else "boards", "title": "Keys sounds" if keys else "Boards"}))
         lv = ins.get("levelDb") or 0
         self.fader(g, hits, [6, 190, W - 6, 230], "Instrument level", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
         if ins.get("kind") in ("electric", "acoustic", "bass"):   # play any sound: the guitar plays the chosen keys sound / a synth
@@ -3546,10 +3791,16 @@ class MiniScreen:
         self.button(g, hits, [6, 76, W - 6, 132], "TUNER", {"name": "tuner"}, on=bool(ins.get("tuner")), sub="the instrument is muted while it's up", font=self.F["title"])
         lv = ins.get("levelDb") or 0
         self.fader(g, hits, [6, 140, W - 6, 182], "Instrument level", (lv + 30) / 42.0, {"name": "instrumentLevel"}, valtext="%+g dB" % lv)
-        vol = (d.get("mini") or {}).get("volume")
-        if vol is None:
-            vol = (d.get("performance") or {}).get("volume", 1)
-        self.fader(g, hits, [6, 186, W - 6, 228], "Pads volume", vol or 0, {"name": "volume"})
+        if ins.get("kind") in ("electric", "acoustic", "bass"):   # play any sound: on / off and its mode
+            mode = str((self.lists.get("instrument") or {}).get("mode") or "")
+            half = (W - 12 - 5) / 2
+            self.button(g, hits, [6, 186, 6 + half, 228], "PLAY ANY", {"name": "playAnyToggle"}, on=bool(ins.get("playAny")), sub="any sound from the guitar")
+            self.button(g, hits, [11 + half, 186, W - 6, 228], "MODE: " + (mode.title() if mode else "…"), {"local": "pick", "what": "playAnyMode", "id": "next"}, sub="Auto · Notes · Synth")
+        else:
+            vol = (d.get("mini") or {}).get("volume")
+            if vol is None:
+                vol = (d.get("performance") or {}).get("volume", 1)
+            self.fader(g, hits, [6, 186, W - 6, 228], "Pads volume", vol or 0, {"name": "volume"})
         self.button(g, hits, [6, 234, W - 6, H - 46], "AUTO SET-UP", {"name": "instrumentAuto"}, sub="listens to you play and sets the gain")
 
     # ----- SETTINGS -------------------------------------------------------------------------------------------------
@@ -3582,7 +3833,7 @@ class MiniScreen:
             self.button(g, hits, [W - 42, y + 3, W - 6, y + rh - 3], "›", {"name": "busOutput", "args": {"bus": b.get("id"), "delta": 1}}, radius=7)
             y += rh
         if not rt:
-            self.text(g, (W / 2, 200), "Outputs: set on the Central Pedal app (Settings → Audio)", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 200), "Outputs: set them in the Central Pedal app, Settings - Audio", self.F["sub"], C["muted"], "mm")
 
     def settings_screens(self, g, hits, d):
         C, W, H = self.COL, self.w, self.h
@@ -3648,6 +3899,145 @@ class MiniScreen:
         self.button(g, hits, [6, 208, 6 + bw, H - 46], "CALIBRATE", {"local": "calibrate"}, sub="touch the two crosses")
         self.button(g, hits, [6 + bw + 5, 208, W - 6, H - 46], "FLIP 180°", {"local": "flip"}, on=flipped, sub="upside down" if flipped else "for a screen mounted upside down")
 
+    # ----- SETTINGS → Wi-Fi: the networks around; an open or saved one joins with a tap, a new one asks its password
+    WIFI_PER = 3
+
+    def wifi_refresh(self, scan=False, force=False):
+        if self.wifi_busy or (not force and self.wifi is not None and time.monotonic() - self.wifi_at < 20):
+            return
+        self.wifi_busy = True
+
+        def work():
+            try:
+                self.wifi = wifi_status(scan=scan)
+            except Exception as error:
+                self.wifi = {"error": str(error)[:80], "networks": []}
+            self.wifi_at, self.wifi_busy = time.monotonic(), False
+            if self.driver:
+                self.driver.schedule_mini_render(force=True)
+        threading.Thread(target=work, daemon=True).start()
+
+    def settings_wifi(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        st = self.wifi
+        if st is None or time.monotonic() - self.wifi_at > 20:
+            self.wifi_refresh()
+        st = st or {}
+        nets = st.get("networks") or []
+        shown, page, pages = self.paged("wifi", nets, self.WIFI_PER)
+        self.chips(g, hits, "settings")
+        if st.get("connected"):
+            line = "Connected to %s · %s%%" % (st["connected"], st.get("signal") or 0)
+        elif st.get("error"):
+            line = st["error"]
+        else:
+            line = "Looking…" if self.wifi_busy or not st else "Not connected"
+        addrs = ", ".join((st.get("addresses") or [])[:2])
+        self.text(g, (8, 84), line, self.F["label"], C["text"] if st.get("connected") else C["warn"], "lm", W - 16)
+        self.text(g, (8, 102), self.wifi_msg or (addrs and "Address " + addrs) or "", self.F["sub"], C["accent"] if self.wifi_msg else C["muted"], "lm", W - 16)
+        y, rh = 114, 36
+        for n in shown:
+            on = bool(n.get("active"))
+            box = [6, y, W - 6, y + rh - 4]
+            g.rounded_rectangle(box, 8, fill=C["selected"] if on else C["btn"], outline=C["accent"] if on else C["line"])
+            if n.get("security"):
+                self.lock_icon(g, 14, y + 8, 15, C["muted"])
+            self.text(g, (38, y + (rh - 4) / 2), n.get("ssid") or "", self.F["name"], C["text"], "lm", W - 150)
+            bars = max(1, min(4, int((n.get("signal") or 0) / 25) + 1))
+            for b in range(4):
+                bx = W - 96 + b * 7
+                g.rectangle([bx, y + rh - 12 - (b + 1) * 4, bx + 4, y + rh - 12], fill=C["accent"] if b < bars else C["track"])
+            self.text(g, (W - 14, y + (rh - 4) / 2), "joined" if on else "join", self.F["sub"], C["accent"] if on else C["muted"], "rm")
+            hits.append(([int(v) for v in box], {"local": "wifiPick", "ssid": n.get("ssid"), "secure": bool(n.get("security")), "active": on}))
+            y += rh
+        if not nets:
+            self.text(g, (W / 2, 160), "Looking for Wi-Fi…" if self.wifi_busy else "No Wi-Fi found - tap SCAN", self.F["sub"], C["muted"], "mm")
+        pw = 54 if pages > 1 else 0
+        half = (W - 12 - 5 - 2 * (pw + 5 if pw else 0)) / 2
+        x = 6
+        if pw:
+            self.button(g, hits, [x, 226, x + pw, H - 46], "‹", {"local": "page", "key": "wifi", "d": -1} if page > 0 else None, font=self.F["num"], color=C["text"] if page > 0 else C["line"])
+            x += pw + 5
+        self.button(g, hits, [x, 226, x + half, H - 46], "SCAN", {"local": "wifiScan"}, sub="look again")
+        self.button(g, hits, [x + half + 5, 226, x + 2 * half + 5, H - 46], "PHONE SETUP", {"local": "phoneSetup"}, sub="set it up from a phone")
+        if pw:
+            self.button(g, hits, [W - 6 - pw, 226, W - 6, H - 46], "›", {"local": "page", "key": "wifi", "d": 1} if page < pages - 1 else None, font=self.F["num"], color=C["text"] if page < pages - 1 else C["line"])
+
+    def wifi_join(self, ssid, password):
+        self.wifi_msg = "Joining %s…" % ssid
+
+        def work():
+            try:
+                ok, text = wifi_connect(ssid, password)
+            except Exception as error:
+                ok, text = False, str(error)[:80]
+            self.wifi_msg = ("Joined %s" % ssid) if ok else (text or "Couldn't join %s" % ssid)
+            if self.driver:
+                self.driver.emit({"type": "wifiResult", "ok": ok, "message": text, "ssid": ssid})
+            self.wifi_busy = False
+            self.wifi_refresh(force=True)
+        threading.Thread(target=work, daemon=True).start()
+
+    def run_update(self, install=False):
+        """Settings → System: look for a new version, then INSTALL (asked twice) - the same as Settings → Software updates."""
+        up = getattr(self.driver, "updater", None)
+        if not up:
+            self.update_msg = "not on this pedal"
+            return
+        if getattr(up, "busy", False):
+            self.update_msg = "busy - a moment…"
+            return
+        self.update_msg = "installing - the pedal restarts its app" if install else "looking…"
+
+        def work():
+            up.busy = True
+            try:
+                if install:
+                    if not up.latest:
+                        up.check()
+                    res = self.driver.software_update(up.download())
+                    self.update_ready = False
+                    self.update_msg = "installed - restarting…" if res.get("ok") else "not installed: " + str(res.get("error") or "")[:60]
+                else:
+                    st = up.check()
+                    self.update_ready = str(st.get("latest")) if st.get("available") and st.get("hasPi") else False
+                    self.update_msg = ("%s is ready - tap INSTALL" % st.get("latest")) if self.update_ready else (st.get("error") or "up to date (%s)" % APP_VERSION)
+            except Exception as error:
+                self.update_msg = "couldn't: %s" % str(error)[:60]
+            finally:
+                up.busy = False
+                self.driver.emit(up.status())
+                self.driver.schedule_mini_render(force=True)
+        threading.Thread(target=work, daemon=True).start()
+
+    # ----- SETTINGS → Controls: what each button, knob and slider does (tap one, pick from the list)
+    def settings_controls(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        data = self.lists.get("controls")
+        self.want("controls")
+        items = (data or {}).get("items") or []
+        shown, page, pages = self.paged("controls", items, 4)
+        self.chips(g, hits, "settings")
+        if data is None:
+            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            return
+        if pages > 1:   # ‹ 1/5 › along the bottom
+            yb = H - 46 - 34
+            self.button(g, hits, [6, yb, 120, H - 46], "‹ PREV", {"local": "page", "key": "controls", "d": -1} if page > 0 else None, color=C["text"] if page > 0 else C["line"])
+            self.text(g, (W / 2, yb + 17), "%d / %d" % (page + 1, pages), self.F["label"], C["muted"], "mm")
+            self.button(g, hits, [W - 120, yb, W - 6, H - 46], "MORE ›", {"local": "page", "key": "controls", "d": 1} if page < pages - 1 else None, color=C["text"] if page < pages - 1 else C["line"])
+        y, rh = 76, (H - 46 - 76 - 38) / 4
+        for it in shown:
+            box = [6, y + 2, W - 6, y + rh - 2]
+            g.rounded_rectangle(box, 8, fill=C["btn"], outline=C["line"])
+            self.text(g, (16, (box[1] + box[3]) / 2), it.get("name") or it.get("id"), self.F["name"], C["text"], "lm", 130)
+            none = (it.get("action") or "none") == "none"
+            self.text(g, (W - 30, (box[1] + box[3]) / 2), it.get("label") or "", self.F["label"], C["muted"] if none else C["accent"], "rm", W - 190)
+            self.text(g, (W - 14, (box[1] + box[3]) / 2), "›", self.F["title"], C["muted"], "rm")
+            hits.append(([int(v) for v in box], {"local": "list", "what": "actions", "kind": it.get("kind") or "trigger", "target": it.get("id"),
+                                                 "current": it.get("action"), "title": (it.get("name") or it.get("id")) + " does…"}))
+            y += rh
+
     def settings_system(self, g, hits, d):
         C, W, H = self.COL, self.w, self.h
         self.chips(g, hits, "settings")
@@ -3661,22 +4051,135 @@ class MiniScreen:
         except Exception:
             code = ""
         lines = [("Central Pedal", APP_VERSION), ("Address", ", ".join(addrs[:2]) or "not on a network"), ("Pairing code", code or "–")]
+        ls = set_line(self.driver)
+        if ls:
+            lines.append(("Set", ls))
         try:
             pk = package_lines(read_json(os.path.join(self.driver.config["data_root"], "packages.json"), [])) if self.driver else []
         except Exception:
             pk = []
-        lines += [("Packages" if i == 0 else "", v) for i, v in enumerate(pk[:2])] or [("Packages", "none - free sounds and pedals")]
+        lines += [("Packages" if i == 0 else "", v) for i, v in enumerate(pk[:1 if ls else 2])] or [("Packages", "none - free sounds and pedals")]
+        up = getattr(self.driver, "updater", None) if self.driver else None
+        lines.append(("Updates", self.update_msg or ("tap UPDATES to look" if up else "not on this pedal")))
         y = 80
         for k, v in lines:
             self.text(g, (10, y), k, self.F["label"], C["muted"])
-            self.text(g, (130, y), v, self.F["label"], C["text"], "la", W - 140)
-            y += 22
-        self.text(g, (130, y), "Add a package in the app or Pedal Control", self.F["sub"], C["muted"], "la", W - 140)
-        bw = (W - 12 - 10) / 3
-        by0, by1 = H - 46 - 64, H - 50
-        self.button(g, hits, [6, by0, 6 + bw, by1], "CALIBRATE", {"local": "calibrate"}, sub="the touch")
-        self.button(g, hits, [6 + bw + 5, by0, 6 + 2 * bw + 5, by1], "RESTART", {"local": "reboot"}, on=self.confirm == "reboot", sub="tap again" if self.confirm == "reboot" else "the pedal")
-        self.button(g, hits, [6 + 2 * bw + 10, by0, W - 6, by1], "SHUT DOWN", {"local": "shutdown"}, on=self.confirm == "shutdown", fill=C["stop"], sub="tap again" if self.confirm == "shutdown" else "safely")
+            self.text(g, (130, y), v, self.F["label"], C["accent"] if k == "Updates" and self.update_ready else C["text"], "la", W - 140)
+            y += 21
+        bw = (W - 12 - 15) / 4
+        by0, by1 = H - 46 - 62, H - 50
+        x = [6 + i * (bw + 5) for i in range(4)]
+        if self.update_ready:
+            self.button(g, hits, [x[0], by0, x[0] + bw, by1], "INSTALL", {"local": "update", "install": True}, on=self.confirm == "update", sub="tap again" if self.confirm == "update" else self.update_ready)
+        else:
+            self.button(g, hits, [x[0], by0, x[0] + bw, by1], "UPDATES", {"local": "update"}, sub="look now")
+        self.button(g, hits, [x[1], by0, x[1] + bw, by1], "ADD KEY", {"local": "keys", "purpose": "package", "title": "Type the package key (SXXX-XXXX-XXXX-XXXX)"}, sub="a package")
+        self.button(g, hits, [x[2], by0, x[2] + bw, by1], "RESTART", {"local": "reboot"}, on=self.confirm == "reboot", sub="tap again" if self.confirm == "reboot" else "the pedal")
+        self.button(g, hits, [x[3], by0, W - 6, by1], "SHUT DOWN", {"local": "shutdown"}, on=self.confirm == "shutdown", fill=C["stop"], sub="tap again" if self.confirm == "shutdown" else "safely")
+
+    # ----- over the page: a list to pick from, or the keyboard ------------------------------------------------------
+    def want(self, what, kind=None, every=4.0):
+        """Ask the app for a list (sounds, boards, what a button can do…), at most every few seconds."""
+        key = what + (":" + kind if kind else "")
+        asked = self.__dict__.setdefault("_asked", {})
+        if self.driver and time.monotonic() - asked.get(key, 0) > every:
+            asked[key] = time.monotonic()
+            self.driver.emit({"type": "miniRequest", "what": what, "kind": kind})
+
+    def list_key(self, ov):
+        return ov["what"] + (":" + ov["akind"] if ov.get("akind") else "")
+
+    def overlay_list(self, g, hits, d):
+        C, W, H = self.COL, self.w, self.h
+        ov = self.overlay
+        key = self.list_key(ov)
+        data = self.lists.get(key)
+        items = (data or {}).get("items") or []
+        cur = ov.get("current") if ov.get("current") is not None else (data or {}).get("current")
+        if data is not None and not ov.get("placed"):   # (opens at the page with the current one on it)
+            ov["placed"] = True
+            at = next((i for i, it in enumerate(items) if it.get("id") == cur), 0)
+            self.pages["list:" + key] = at // 5
+        shown, page, pages = self.paged("list:" + key, items, 5)
+        self.button(g, hits, [6, 44, 86, 70], "‹ BACK", {"local": "back"}, radius=13, font=self.F["label"])
+        self.text(g, (96, 57), ov.get("title") or "", self.F["name"], C["text"], "lm", W - 96 - (104 if pages > 1 else 8))
+        if pages > 1:
+            self.button(g, hits, [W - 98, 44, W - 66, 70], "‹", {"local": "page", "key": "list:" + key, "d": -1} if page > 0 else None, radius=13, color=C["text"] if page > 0 else C["line"])
+            self.text(g, (W - 50, 57), "%d/%d" % (page + 1, pages), self.F["sub"], C["muted"], "mm")
+            self.button(g, hits, [W - 38, 44, W - 6, 70], "›", {"local": "page", "key": "list:" + key, "d": 1} if page < pages - 1 else None, radius=13, color=C["text"] if page < pages - 1 else C["line"])
+        if data is None:
+            self.want(ov["what"], ov.get("akind"), every=2.0)
+            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            return
+        if not items:
+            self.text(g, (W / 2, 170), "Nothing to pick here", self.F["sub"], C["muted"], "mm")
+            return
+        y, rh = 76, (H - 46 - 76) / 5
+        for it in shown:
+            on = it.get("id") == cur
+            box = [6, y + 2, W - 6, y + rh - 2]
+            g.rounded_rectangle(box, 8, fill=C["selected"] if on else C["bar"] if it.get("locked") else C["btn"], outline=C["accent"] if on else C["line"])
+            cy = (box[1] + box[3]) / 2
+            x = 14
+            if it.get("locked"):
+                self.lock_icon(g, x, cy - 8, 15, C["accent"])
+                x += 22
+            self.text(g, (x, cy), it.get("label") or it.get("id"), self.F["name"], C["muted"] if it.get("locked") else C["text"], "lm", W - x - 150)
+            self.text(g, (W - 14, cy), it.get("locked") or it.get("sub") or "", self.F["sub"], C["accent"] if it.get("locked") else C["muted"], "rm", 140)
+            if it.get("locked"):
+                hits.append(([int(v) for v in box], {"local": "say", "text": str(it.get("locked")) + " - it opens with that plan."}))
+            else:
+                hits.append(([int(v) for v in box], {"local": "pick", "what": ov["what"], "id": it.get("id"), "target": ov.get("target"), "label": it.get("label")}))
+            y += rh
+
+    KB_ROWS = {"abc": ["1234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm-._"],
+               "ABC": ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM-._"],
+               "sym": ["1234567890", "!@#$%^&*()", "=+[]{};:'", '",<>/?~|\\`']}
+
+    def kb_shown(self):
+        ov = self.overlay
+        v = ov.get("value") or ""
+        if ov.get("purpose") == "package":
+            return "-".join(v[i:i + 4] for i in range(0, len(v), 4))
+        return v
+
+    def overlay_keys(self, g, hits, d):
+        """A keyboard for a Wi-Fi password or a package key (keys 44 px wide, the field on top)."""
+        C, W, H = self.COL, self.w, self.h
+        ov = self.overlay
+        g.rectangle([0, 40, W, H], fill=C["bg"])
+        g.rounded_rectangle([6, 44, W - 6, 80], 8, fill=C["bar"], outline=C["accent"])
+        shown = self.kb_shown()
+        if shown:
+            shown = self.fit(g, shown, self.F["title"], W - 40) if self.text_width(g, shown, self.F["title"]) > W - 40 else shown
+            self.text(g, (16, 62), shown, self.F["title"], C["text"], "lm")
+            cx = 18 + self.text_width(g, shown, self.F["title"])
+            g.rectangle([cx, 52, cx + 1, 72], fill=C["accent"])
+        else:
+            self.text(g, (16, 62), ov.get("title") or "", self.F["label"], C["muted"], "lm", W - 32)
+        mode = ov.get("mode") or "abc"
+        rows = self.KB_ROWS[mode]
+        top, rh, gap = 86, 42, 4
+        kw = (W - 12 - 9 * gap) / 10
+        for r, row in enumerate(rows):
+            y = top + r * (rh + gap)
+            x = 6
+            for ch in row:
+                self.button(g, hits, [x, y, x + kw, y + rh], ch, {"local": "kb", "k": ch}, font=self.F["title"], radius=7)
+                x += kw + gap
+            if len(row) < 10:   # (a short row ends with ⌫)
+                self.button(g, hits, [x, y, W - 6, y + rh], "DEL", {"local": "kbDel"}, radius=7, font=self.F["label"])
+        y = top + 4 * (rh + gap)
+        cols = [("ABC" if mode == "abc" else "abc", {"local": "kbMode", "mode": "ABC" if mode == "abc" else "abc"}, 64),
+                ("#+=", {"local": "kbMode", "mode": "sym" if mode != "sym" else "abc"}, 56), ("space", {"local": "kb", "k": " "}, 0),
+                ("DEL", {"local": "kbDel"}, 56), ("CANCEL", {"local": "back"}, 76), ("OK", {"local": "kbOk"}, 76)]
+        fixed = sum(c[2] for c in cols) + gap * (len(cols) - 1)
+        x = 6
+        for label, action, wdt in cols:
+            wdt = wdt or (W - 12 - fixed)
+            self.button(g, hits, [x, y, x + wdt, H - 4], label, action, on=label == "OK", radius=7,
+                        font=self.F["label"] if len(label) > 2 else self.F["title"])
+            x += wdt + gap
 
     # ----- what a touch does ----------------------------------------------------------------------------------------
     NOTICE_S = 3.5
@@ -3704,9 +4207,70 @@ class MiniScreen:
             self.say(a.get("text"))
         elif kind == "tab":
             self.tab = a.get("value") or "pads"
+            self.overlay = None
         elif kind == "sub":
             self.tab = a.get("tab") or self.tab
             self.sub[self.tab] = a.get("value")
+            self.overlay = None
+            if self.tab == "settings" and a.get("value") == "wifi":
+                self.wifi_refresh(force=True)
+            if self.tab == "instrument" and a.get("value") == "tune":
+                self.want("instrument", every=0)
+        elif kind == "list":
+            self.overlay = {"kind": "list", "what": a.get("what"), "akind": a.get("kind"), "title": a.get("title"), "target": a.get("target"), "current": a.get("current")}
+            self.lists.pop(self.list_key(self.overlay), None)   # (always the app's newest list)
+            self.want(a.get("what"), a.get("kind"), every=0)
+        elif kind == "back":
+            self.overlay = None
+        elif kind == "pick" and self.driver:
+            self.driver.emit({"type": "miniPick", "what": a.get("what"), "id": a.get("id"), "target": a.get("target")})
+            if a.get("what") != "playAnyMode":
+                self.overlay = None
+                if a.get("label"):
+                    self.say(("Now: " if a.get("what") == "actions" else "") + str(a.get("label")))
+        elif kind == "wifiScan":
+            self.wifi_msg = ""
+            self.wifi_refresh(scan=True, force=True)
+        elif kind == "wifiPick" and self.driver:
+            if a.get("active"):
+                self.wifi_msg = "Already joined %s" % a.get("ssid")
+            elif a.get("secure"):
+                self.overlay = {"kind": "keys", "purpose": "wifi", "ssid": a.get("ssid"), "value": "", "mode": "abc", "title": "Password for %s" % a.get("ssid")}
+            else:
+                self.wifi_join(a.get("ssid"), "")
+        elif kind == "phoneSetup" and self.driver and getattr(self.driver, "phone_setup", None):
+            threading.Thread(target=lambda: self.driver.phone_setup.start("asked on the small screen"), daemon=True).start()
+        elif kind == "keys":
+            self.overlay = {"kind": "keys", "purpose": a.get("purpose"), "value": "", "mode": "ABC" if a.get("purpose") == "package" else "abc", "title": a.get("title")}
+        elif kind == "kb" and self.overlay and self.overlay.get("kind") == "keys":
+            ov, ch = self.overlay, str(a.get("k") or "")
+            if ov.get("purpose") == "package":
+                ch = re.sub(r"[^A-Z0-9]", "", ch.upper())
+                if len(ov["value"]) < 16:
+                    ov["value"] += ch
+            elif len(ov["value"]) < 64:
+                ov["value"] += ch
+        elif kind == "kbDel" and self.overlay and self.overlay.get("kind") == "keys":
+            self.overlay["value"] = self.overlay["value"][:-1]
+        elif kind == "kbMode" and self.overlay and self.overlay.get("kind") == "keys":
+            self.overlay["mode"] = a.get("mode") if a.get("mode") in self.KB_ROWS else "abc"
+        elif kind == "kbOk" and self.overlay and self.overlay.get("kind") == "keys" and self.driver:
+            ov, self.overlay = self.overlay, None
+            if ov.get("purpose") == "wifi":
+                self.tab, self.sub["settings"] = "settings", "wifi"
+                self.wifi_join(ov.get("ssid"), ov.get("value") or "")
+            elif ov.get("purpose") == "package":
+                if len(ov.get("value") or "") != 16 or not ov["value"].startswith("S"):
+                    self.say("A package key has 16 letters and digits and starts with S.")
+                else:
+                    self.driver.emit({"type": "miniPackage", "key": "-".join(ov["value"][i:i + 4] for i in range(0, 16, 4))})
+                    self.say("Checking the key…")
+        elif kind == "update" and self.driver:
+            if a.get("install") and not (self.confirm == "update" and time.monotonic() - self.confirm_at < 5):
+                self.confirm, self.confirm_at = "update", time.monotonic()
+            else:
+                self.confirm = None
+                self.run_update(bool(a.get("install")))
         elif kind == "page":
             self.pages[a.get("key")] = self.pages.get(a.get("key"), 0) + int(a.get("d") or 0)
         elif kind == "hdmi" and self.driver:
@@ -3775,10 +4339,12 @@ class MiniScreen:
             self.driver.touch_calibration_point(raw_x, raw_y)
             return None
         x, y = self.map_touch(raw_x, raw_y)
-        action = self.hit_test(x, y)
+        action, box = self.hit_box(x, y)
         self.active = None
         if not action:
             return None
+        if not action.get("slider") and self.fb_present():
+            self.press_feedback(box)
         if action.get("local"):
             self.local(action)
             return action
@@ -3798,37 +4364,109 @@ class MiniScreen:
             return action
         if action.get("slider"):
             self.active, self.drag_at = action, time.monotonic()
-            self.send_value(action, x)
+            if not action.get("nojump"):   # (a pad's volume: only a slide changes it)
+                self.send_value(action, x)
             return action
         if self.driver:
-            self.driver.emit({"type": "action", "name": action["name"], "args": action.get("args") or {}, "from_": "screen"})
+            msg = {"type": "action", "name": action["name"], "args": action.get("args") or {}, "from_": "screen"}
+            if action.get("delta"):
+                msg["delta"] = action["delta"]
+            self.driver.emit(msg)
         return action
 
     def drag(self, raw_x, raw_y):
-        """A finger sliding on a fader: its value follows (about 25 a second)."""
+        """A finger sliding on a fader: its value follows (about 40 a second; a wobble of a pixel or two is ignored)."""
         a = self.active
-        if not a or time.monotonic() - self.drag_at < 0.04:
+        if not a or time.monotonic() - self.drag_at < 0.025:
+            return None
+        x, _ = self.map_touch(raw_x, raw_y)
+        if a.get("drag_x") is not None and abs(x - a["drag_x"]) < 2:
             return None
         self.drag_at = time.monotonic()
-        x, _ = self.map_touch(raw_x, raw_y)
+        a["drag_x"] = x
         return self.send_value(a, x)
 
-    def push(self):
-        if not self.available or self.image is None or not self.fb_present():
+    FULL_PUSH_S = 30.0   # (now and then the whole picture again, in case something else drew on the screen)
+
+    def push(self, img=None):
+        """Put the picture on the screen. Only the rows that changed since the last one are written: the screen's
+        driver sends just those over SPI (a whole 480×320 picture takes ~150 ms at 16 MHz, a clock tick ~15 ms)."""
+        img = img if img is not None else self.image
+        if not self.available or img is None or not self.fb_present():
             return False
-        img = self.image
         if self.spec.get("rotate"):
             img = img.rotate(int(self.spec["rotate"]), expand=True)
         size = self.fb_size()
         if size and tuple(size) != img.size:   # a 320×240 screen: the same picture, scaled
             img = img.resize(tuple(size), getattr(self.Image, "LANCZOS", 1))
+        data = self.to_rgb565(img)
+        w, h = img.size
+        row = w * 2
+        stride = self.fb_stride() or row
+        plock = self.__dict__.setdefault("_push_lock", threading.Lock())
+        with plock:
+            prev = getattr(self, "_last_fb", None)
+            full = prev is None or len(prev) != len(data) or stride != row or time.monotonic() - getattr(self, "_full_at", 0.0) > self.FULL_PUSH_S
+            r0, r1 = 0, h
+            if not full:
+                rows = self.changed_rows(prev, data, w, h)
+                if rows is None:
+                    self.last_push_bytes = 0
+                    return True
+                r0, r1 = rows
+            try:
+                with open(self.fb, "r+b") as handle:
+                    if stride == row:
+                        handle.seek(r0 * row)
+                        handle.write(data[r0 * row:r1 * row])
+                    else:   # (a framebuffer with padded lines: line by line)
+                        for y in range(r0, r1):
+                            handle.seek(y * stride)
+                            handle.write(data[y * row:(y + 1) * row])
+                self._last_fb = data
+                self.last_push_bytes = (r1 - r0) * row
+                if full:
+                    self._full_at = time.monotonic()
+                return True
+            except Exception as error:
+                self._last_fb = None
+                log.debug("framebuffer write failed (%s)", error)
+                return False
+
+    @staticmethod
+    def changed_rows(prev, data, w, h):
+        """(first, last + 1) of the rows that differ, or None when nothing did."""
         try:
-            with open(self.fb, "r+b") as handle:
-                handle.write(self.to_rgb565(img))
-            return True
-        except Exception as error:
-            log.debug("framebuffer write failed (%s)", error)
+            import numpy as np
+            a = np.frombuffer(data, dtype="<u2").reshape(h, w)
+            b = np.frombuffer(prev, dtype="<u2").reshape(h, w)
+            rows = np.flatnonzero((a != b).any(axis=1))
+            return (int(rows[0]), int(rows[-1]) + 1) if rows.size else None
+        except Exception:
+            row = w * 2
+            diff = [y for y in range(h) if data[y * row:(y + 1) * row] != prev[y * row:(y + 1) * row]]
+            return (diff[0], diff[-1] + 1) if diff else None
+
+    def fb_stride(self):
+        if getattr(self, "_fb_stride", None) is None:
+            try:
+                with open("/sys/class/graphics/%s/stride" % os.path.basename(self.fb)) as fh:
+                    self._fb_stride = int(fh.read().strip() or 0)
+            except (OSError, ValueError):
+                self._fb_stride = 0
+        return self._fb_stride
+
+    def press_feedback(self, box):
+        """The pressed button lights up at once - before the app has answered (that redraw follows a moment later)."""
+        if not self.available or self.image is None:
             return False
+        with self.lock:
+            img = self.image.copy()
+        g = self.ImageDraw.Draw(img)
+        x0, y0, x1, y1 = [int(v) for v in box]
+        g.rounded_rectangle([x0, y0, x1, y1], 9, outline=self.COL["accent"], width=3)
+        g.rounded_rectangle([x0 + 3, y0 + 3, x1 - 3, y1 - 3], 7, outline=(255, 244, 214), width=1)
+        return self.push(img)
 
     def fb_size(self):
         """The framebuffer's own size (/sys/class/graphics/fbN/virtual_size), else the picked screen's."""
@@ -3861,11 +4499,24 @@ class MiniScreen:
             return bytes(out)
 
     def hit_test(self, x, y):
+        return self.hit_box(x, y)[0]
+
+    def hit_box(self, x, y):
+        """The button under a point (and its box). A touch that lands just outside one (a resistive panel's few
+        pixels of error) still counts for the nearest button within 6 px."""
         with self.lock:
-            for box, action in self.hits:
-                if box[0] <= x <= box[2] and box[1] <= y <= box[3]:
-                    return action
-        return None
+            hits = list(self.hits)
+        for box, action in hits:
+            if box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                return action, box
+        best, near = None, 6.0
+        for box, action in hits:
+            dx = max(box[0] - x, 0, x - box[2])
+            dy = max(box[1] - y, 0, y - box[3])
+            d = math.hypot(dx, dy)
+            if d <= near:
+                best, near = (action, box), d
+        return best or (None, None)
 
     def map_touch(self, raw_x, raw_y):
         c = self.spec.get("calibration") or {}
@@ -3930,7 +4581,7 @@ class MiniScreen:
                             # A resistive panel's first readings jump while the finger settles: the tap goes off on the
                             # middle of the first few (about 30 ms), not on the very first one.
                             samples.append((x, y))
-                            if len(samples) >= 4 or time.monotonic() - down_at > 0.05:
+                            if len(samples) >= 3 or time.monotonic() - down_at > 0.03:
                                 pending = False
                                 self.tap(*self.steady(samples))
                         elif down and self.active:
@@ -5026,6 +5677,60 @@ def first_usb(media_roots):
             if os.path.ismount(full) and os.path.realpath(full) != "/" and not d.startswith(".") and d not in ("Macintosh HD", "Recovery", "Preboot", "VM", "Data") and os.access(full, os.W_OK):
                 return full
     return None
+
+
+def library_store(driver):
+    """The sound libraries installed here (libraries.py), into this device's instrument sounds."""
+    st = getattr(driver, "_library_store", None)
+    if sound_libraries and (st is None or st.instrument is not driver.instrument):
+        st = sound_libraries.LibraryStore(driver.config["data_root"], driver.instrument)
+        driver._library_store = st
+        driver._library_jobs = getattr(driver, "_library_jobs", {})
+    return st
+
+
+def library_state(driver):
+    st = library_store(driver)
+    if not st:
+        return {"available": False, "installed": [], "jobs": {}}
+    jobs = {}
+    for lib_id, job in list(getattr(driver, "_library_jobs", {}).items()):
+        j = dict(job)
+        j.update(st.progress.get(lib_id) or {})
+        jobs[lib_id] = j
+    return {"available": True, "installed": st.listing(), "jobs": jobs}
+
+
+def library_installed(driver, rec):
+    """After an install or a removal: the Instrument page's sounds and IRs refresh themselves."""
+    try:
+        if driver.instrument:
+            driver.emit(driver.instrument.status())
+        driver.emit({"type": "libraries", "installed": library_store(driver).listing()})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def library_install_async(driver, payload):
+    """Downloads and installs a library from the website's list in the background (GET /libraries shows how it goes)."""
+    st = library_store(driver)
+    lib_id = str(payload.get("id") or "")
+    if not st or not re.match(r"^[a-z0-9-]{3,60}$", lib_id):
+        raise ValueError("no such library")
+    jobs = driver._library_jobs
+    if (jobs.get(lib_id) or {}).get("state") in ("downloading", "installing"):
+        return {"ok": True, "started": False, "busy": True}
+    jobs[lib_id] = {"state": "downloading", "done": 0, "total": int(payload.get("size") or 0), "error": None}
+
+    def run():
+        try:
+            rec = st.install_url(str(payload.get("url") or ""), str(payload.get("sha256") or ""), lib_id, int(payload.get("size") or 0))
+            jobs[lib_id] = {"state": "done", "version": rec["version"], "counts": rec.get("counts"), "error": None}
+            library_installed(driver, rec)
+        except Exception as error:  # noqa: BLE001
+            jobs[lib_id] = {"state": "failed", "error": str(error)}
+    threading.Thread(target=run, daemon=True, name="library-" + lib_id).start()
+    return {"ok": True, "started": True}
 
 
 def local_origin_ok(headers):
@@ -6397,16 +7102,345 @@ class PedalTransfer:
         payload = payload or {}
         if not self.driver.code_ok(payload.get("code")):
             return 403, {"error": "That PIN is not right - it is this Central Pedal's pairing PIN (its Settings, or its screen)."}
+        sender = str(payload.get("from") or "Central Pedal Control")[:60]
+        is_set = kind == "in" and payload.get("mode") == "set"
         with self.lock:
             self._prune()
-            token = secrets.token_hex(16)
-            self.entries[token] = {"kind": kind, "made": time.time(), "from": str(payload.get("from") or "Central Pedal Control")[:60],
-                                   "files": {}, "package": None, "ready": False, "want": payload.get("want") if isinstance(payload.get("want"), list) else None}
+            old = self.entries.get(str(payload.get("resume") or ""))
+            if is_set and old and old["kind"] == "in" and old.get("set") and old["from"] == sender and not old.get("applied"):
+                token = str(payload["resume"])   # (the same upload again: what already arrived stays)
+                old["made"] = time.time()
+                old["package"] = None
+            else:
+                token = secrets.token_hex(16)
+                self.entries[token] = {"kind": kind, "made": time.time(), "from": sender, "set": is_set, "meta": {},
+                                       "files": {}, "package": None, "ready": False, "want": payload.get("want") if isinstance(payload.get("want"), list) else None}
             os.makedirs(os.path.join(self.root, token), exist_ok=True)
         if kind == "out":
             self.driver.emit({"type": "pedalExport", "token": token, "from": self.entries[token]["from"], "want": self.entries[token]["want"]})
         sync = getattr(self.driver, "sync", None)
-        return 200, {"token": token, "name": sync.name if sync else socket.gethostname(), "appVersion": APP_VERSION}
+        out = {"token": token, "name": sync.name if sync else socket.gethostname(), "appVersion": APP_VERSION}
+        if is_set:
+            cur = self.current_set()
+            out.update({"free": self.free_bytes(), "loadedSet": self.loaded_set(), "received": self.received(token), "banks": self.bank_sizes(),
+                        "have": sorted(set((cur.get("index") or {}).keys()) | set((cur.get("samples") or {}).values()))})
+        return 200, out
+
+    # ----- a set: one setlist with its tracks, pads and sounds at a time -----------------------------------------
+    # Central Pedal Control keeps the songs, tracks, pads and sounds; an upload of a set replaces the one here. The
+    # files arrive in pieces into this upload's own folder (nothing here changes while they come in: a dropped
+    # Wi-Fi leaves the set that's here working, and pressing Upload again continues where it stopped). When the app
+    # here applies it, the files go in next to the old set's, the songs switch, and only then is what the old set
+    # brought (and the new one doesn't use) removed. Pedals, plugins, the free sounds and the sound libraries
+    # installed here are never touched: only what an upload of a set brought is removed.
+    CHUNK_MAX = 32 << 20
+    MARGIN = 64 << 20   # (room left on the card after an upload)
+
+    def set_file(self):
+        return os.path.join(self.driver.config["data_root"], "current-set.json")
+
+    def current_set(self):
+        cur = read_json(self.set_file(), {})
+        return cur if isinstance(cur, dict) else {}
+
+    def free_bytes(self):
+        try:
+            return shutil.disk_usage(self.driver.config["data_root"]).free
+        except OSError:
+            return 0
+
+    def project_now(self):
+        return read_json(os.path.join(self.driver.config["data_root"], "project.json"), {})
+
+    def loaded_set(self):
+        cur = self.current_set()
+        if not cur.get("at"):
+            return None
+        out = {k: cur.get(k) for k in ("name", "from", "at", "songs", "files", "bytes", "missing", "digest")}
+        out["changed"] = bool(cur.get("changed"))
+        out["rebase"] = bool(cur.get("rebase"))
+        return out
+
+    def set_state(self, payload):
+        """The app here: the set's songs and pads were edited here (changed) or its digest (what "unchanged" is)."""
+        cur = self.current_set()
+        if not cur.get("at") or not isinstance(payload, dict):
+            return 404, {"error": "no set here"}
+        if payload.get("digest"):
+            cur["digest"], cur["changed"], cur["rebase"] = str(payload["digest"])[:80], False, False
+        if payload.get("changed") and not cur.get("changed"):
+            cur["changed"] = True
+            log.info("the set %r was changed on this pedal", cur.get("name"))
+        write_json(self.set_file(), cur)
+        self.driver.emit({"type": "loadedSet", "set": self.loaded_set()})
+        return 200, {"ok": True, "set": self.loaded_set()}
+
+    def received(self, token):
+        """{file id: bytes here} for an upload (whole files and the part of one that was coming in)."""
+        d = os.path.join(self.root, str(token))
+        out = {}
+        try:
+            for f in os.listdir(d):
+                if f == "package.json":
+                    continue
+                out[f[:-5] if f.endswith(".part") else f] = os.path.getsize(os.path.join(d, f))
+        except OSError:
+            pass
+        return out
+
+    def put_chunk(self, token, fid, offset, total, data, meta):
+        e = self._entry(token, "in")
+        if not e:
+            return 403, {"error": "This upload is too old - press Upload again."}
+        fid = re.sub(r"[^A-Za-z0-9_.-]", "", str(fid or ""))[:80]
+        try:
+            offset, total = int(offset), int(total)
+        except (TypeError, ValueError):
+            return 400, {"error": "offset / total"}
+        if not fid or fid == "package.json" or total <= 0 or len(data) > self.CHUNK_MAX or not data:
+            return 400, {"error": "empty"}
+        d = os.path.join(self.root, token)
+        part, final = os.path.join(d, fid + ".part"), os.path.join(d, fid)
+        e.setdefault("meta", {})[fid] = {k: str(meta.get(k) or "")[:200] for k in ("kind", "name", "song", "sha")}
+        if os.path.isfile(final) and os.path.getsize(final) == total:
+            e["files"][fid] = final
+            return 200, {"ok": True, "size": total, "done": True}
+        have = os.path.getsize(part) if os.path.isfile(part) else 0
+        if offset != have:
+            return 409, {"error": "offset", "size": have}
+        if self.free_bytes() < len(data) + self.MARGIN:
+            return 507, {"error": "The Central Pedal's card is full - it has %d MB free." % (self.free_bytes() >> 20)}
+        with open(part, "ab") as fh:
+            fh.write(data)
+        size = have + len(data)
+        if size > total:
+            os.remove(part)
+            return 400, {"error": "more than the file's size", "size": 0}
+        if size < total:
+            return 200, {"ok": True, "size": size}
+        sha = e["meta"][fid]["sha"]
+        if re.match(r"^[0-9a-f]{64}$", sha) and file_sha256(part) != sha:
+            os.remove(part)
+            return 422, {"error": "the file arrived damaged - it is sent again", "size": 0}
+        os.replace(part, final)
+        e["files"][fid] = final
+        return 200, {"ok": True, "size": size, "done": True}
+
+    def resolve_set(self, e, package):
+        """The files of a set package that this upload doesn't carry because the pedal has them already (the same
+        sha-256 in the set that's here): where they are here. Returns the file ids still missing."""
+        cur = self.current_set()
+        index = cur.get("index") or {}
+        samples = cur.get("samples") or {}
+        missing = []
+        for ref in (package.get("stems") or []) + (package.get("banks") or []):
+            fid = str(ref.get("fid") or "")
+            if fid in e["files"] and os.path.isfile(e["files"][fid]):
+                continue
+            path = index.get(str(ref.get("sha") or ""))
+            if path and os.path.isfile(path):
+                e["files"][fid] = path
+                e.setdefault("reused", {})[fid] = path
+            else:
+                missing.append(fid)
+        for ref in package.get("samples") or []:
+            fid = str(ref.get("fid") or "")
+            if fid in e["files"] and os.path.isfile(e["files"][fid]):
+                continue
+            if ref.get("sha") and samples.get(str(ref.get("sampleId"))) == ref.get("sha"):
+                ref["reuse"] = True   # (the app here has that sound already)
+            else:
+                missing.append(fid)
+        return missing
+
+    def _place(self, folder, name, src, sha):
+        """Put an arrived file into a folder under its name; the same file there already is used as it is; another
+        file with that name stays, and this one gets " (2)"."""
+        os.makedirs(folder, exist_ok=True)
+        target = os.path.join(folder, safe_name(name))
+        base, ext = os.path.splitext(target)
+        n = 2
+        while os.path.exists(target):
+            if os.path.getsize(target) == os.path.getsize(src) and file_sha256(target) == (sha or file_sha256(src)):
+                os.remove(src)
+                return target
+            target = "%s (%d)%s" % (base, n, ext)
+            n += 1
+        shutil.move(src, target)
+        return target
+
+    def set_commit(self, token):
+        """The app here applies a set: its files go in next to the old set's (nothing is removed yet). Returns
+        {files: {file id: path here}, bankMap: {path on the sending device: path here}, notHere: [bank names]}."""
+        e = self._entry(token, "in")
+        if not e or not e.get("package"):
+            return 404, {"error": "the upload is gone - send it again"}
+        pkg = e["package"]
+        missing = self.resolve_set(e, pkg)
+        if missing:
+            return 409, {"error": "%d file(s) did not arrive - send the set again" % len(missing), "missing": missing}
+        inst = getattr(self.driver, "instrument", None)
+        sf2_dir = getattr(inst, "sf2_user_dir", None) or os.path.join(self.driver.config["data_root"], "sounds", "sf2")
+        placed = dict(e.get("placed") or {})
+        reused = e.get("reused") or {}
+        for ref in pkg.get("stems") or []:
+            fid = ref.get("fid")
+            src = e["files"].get(fid)
+            if fid in placed and placed[fid] and os.path.isfile(placed[fid]):
+                continue
+            if fid in reused or not src:
+                placed[fid] = src
+                continue
+            sid = re.sub(r"[^A-Za-z0-9_-]", "", str(ref.get("song") or ""))[:64] or "upload"
+            placed[fid] = self._place(self.driver.library.song_dir(sid), ref.get("name") or fid, src, ref.get("sha"))
+        bank_map, tiers_lines = {}, []
+        for ref in pkg.get("banks") or []:
+            fid = ref.get("fid")
+            src = e["files"].get(fid)
+            if not (fid in placed and placed[fid] and os.path.isfile(placed[fid])):
+                placed[fid] = src if (fid in reused or not src) else self._place(sf2_dir, ref.get("name") or (str(fid) + ".sf2"), src, ref.get("sha"))
+            if placed[fid] and ref.get("path"):
+                bank_map[ref["path"]] = placed[fid]
+            tier = re.sub(r"[^a-z]", "", str(ref.get("tier") or ""))
+            base = os.path.splitext(os.path.basename(placed[fid] or ""))[0]
+            if tier and " - " in base:
+                tiers_lines.append("%s|%s|set|central-set" % (base.split(" - ")[0], tier))   # (its plan still opens it here)
+        if tiers_lines:
+            tpath = os.path.join(sf2_dir, "tiers.txt")
+            try:
+                with open(tpath, encoding="utf-8") as fh:
+                    have = set(line.split("|")[0] for line in fh.read().splitlines() if "|" in line)
+            except OSError:
+                have = set()
+            new = [line for line in tiers_lines if line.split("|")[0] not in have]
+            if new:
+                with open(tpath, "a", encoding="utf-8") as fh:
+                    fh.write("".join(line + "\n" for line in new))
+        # the sounds the set uses that the pedal has already (the free ones, a library installed here): by file name
+        catalog = []
+        try:
+            if inst is not None:
+                catalog = inst.keys_catalog() if hasattr(inst, "keys_catalog") else ((inst.status() or {}).get("keysCatalog") or [])
+        except Exception as error:
+            log.debug("set: keys catalog: %s", error)
+        by_name = {}
+        for b in catalog:
+            f = b.get("file") or ""
+            by_name.setdefault(os.path.basename(f).lower(), f)
+        not_here = []
+        for path in pkg.get("bankRefs") or []:
+            if path in bank_map:
+                continue
+            here = by_name.get(os.path.basename(str(path)).lower())
+            if here:
+                bank_map[path] = here
+            else:
+                not_here.append(os.path.basename(str(path)))
+        e["placed"] = placed
+        return 200, {"files": {k: v for k, v in placed.items() if v}, "bankMap": bank_map, "notHere": sorted(set(not_here))}
+
+    def set_done(self, token, payload):
+        """The app here has switched to the new set: remember it, then remove what the old set brought that nothing
+        uses now. Returns the old set's pad sounds the app can drop."""
+        e = self._entry(token, "in")
+        if not e or not e.get("package") or e.get("placed") is None:
+            return 404, {"error": "the upload is gone"}
+        pkg = e["package"]
+        placed = e.get("placed") or {}
+        old = self.current_set()
+        index = {}
+        for ref in (pkg.get("stems") or []) + (pkg.get("banks") or []):
+            path = placed.get(ref.get("fid"))
+            if path and ref.get("sha"):
+                index[str(ref["sha"])] = path
+        samples = {}
+        for ref in pkg.get("samples") or []:
+            if ref.get("sampleId") and ref.get("sha"):
+                samples[str(ref["sampleId"])] = str(ref["sha"])
+        files = sorted(set(v for v in placed.values() if v))
+        project = self.project_now()
+        text = json.dumps(project)
+        removed, drop = 0, []
+        keep = set(os.path.realpath(p) for p in files)
+        for path in old.get("filesList") or []:
+            real = os.path.realpath(path)
+            if real in keep or path in text or real in text or not os.path.isfile(real):
+                continue
+            try:
+                if self.driver.library.inside(real):
+                    self.driver.library.remove(real)
+                else:
+                    os.remove(real)
+                removed += 1
+            except OSError as error:
+                log.warning("set: could not remove %s: %s", path, error)
+        for sid in old.get("samples") or {}:
+            if sid not in samples and sid not in text:
+                drop.append(sid)
+        size = 0
+        for path in files:
+            try:
+                size += os.path.getsize(path)
+            except OSError:
+                pass
+        info = pkg.get("set") or {}
+        rec = {"name": str(info.get("name") or (pkg.get("settings") or {}).get("name") or "Set")[:80],
+               "setlistId": info.get("setlistId"), "from": e["from"], "at": time.time(),
+               "songs": len(pkg.get("songs") or []), "files": len(files), "bytes": size, "index": index, "samples": samples,
+               "filesList": files, "missing": [str(x)[:80] for x in ((payload or {}).get("missing") or [])][:50],
+               "digest": str((payload or {}).get("digest") or "")[:80], "changed": False}
+        write_json(self.set_file(), rec)
+        e["applied"] = True
+        shutil.rmtree(os.path.join(self.root, token), ignore_errors=True)
+        self.driver.emit({"type": "loadedSet", "set": self.loaded_set()})
+        return 200, {"ok": True, "removed": removed, "dropSamples": drop, "set": self.loaded_set()}
+
+    def bank_known(self, path):
+        """A keys / instrument sound bank this device lists (its catalog) - the only files /set/bank hands out."""
+        inst = getattr(self.driver, "instrument", None)
+        if not path or inst is None:
+            return None
+        try:
+            catalog = inst.keys_catalog() if hasattr(inst, "keys_catalog") else ((inst.status() or {}).get("keysCatalog") or [])
+        except Exception:
+            return None
+        real = os.path.realpath(path)
+        for b in catalog:
+            f = b.get("file") or ""
+            if f and os.path.realpath(f) == real and os.path.isfile(real):
+                return dict(b, file=real)
+        return None
+
+    def bank_sizes(self):
+        """{file name (lower case): bytes} of the keys / instrument sounds here - one with the same name and size
+        isn't sent again."""
+        inst = getattr(self.driver, "instrument", None)
+        out = {}
+        try:
+            catalog = (inst.keys_catalog() if hasattr(inst, "keys_catalog") else ((inst.status() or {}).get("keysCatalog") or [])) if inst is not None else []
+            for b in catalog:
+                f = b.get("file") or ""
+                if os.path.isfile(f):
+                    out[os.path.basename(f).lower()] = os.path.getsize(f)
+        except Exception as error:
+            log.debug("set: banks: %s", error)
+        return out
+
+    def sha_cached(self, path):
+        st = os.stat(path)
+        key = "%s|%d|%d" % (path, st.st_size, int(st.st_mtime))
+        cache = self.__dict__.setdefault("_sha", {})
+        if key not in cache:
+            cache[key] = file_sha256(path)
+        return cache[key]
+
+    def set_brought_back(self):
+        """The set here went back to Central Pedal Control (a Download): it counts as unchanged again."""
+        cur = self.current_set()
+        if cur.get("at"):
+            cur["changed"], cur["rebase"] = False, True   # (the app here takes what it has now as the set's content)
+            write_json(self.set_file(), cur)
+            self.driver.emit({"type": "loadedSet", "set": self.loaded_set()})
 
     def put_file(self, token, fid, name, song, kind, data, out=False):
         e = self._entry(token, "out" if out else "in")
@@ -6432,10 +7466,14 @@ class PedalTransfer:
             return 403, {"error": "unknown or old token"}
         if not isinstance(package, dict):
             return 400, {"error": "no package"}
+        if e.get("set"):
+            missing = self.resolve_set(e, package)
+            if missing:
+                return 409, {"error": "%d file(s) did not arrive" % len(missing), "missing": missing}
         e["package"] = package
         write_json(os.path.join(self.root, token, "package.json"), package)
         songs = package.get("songs") or []
-        self.driver.emit({"type": "pedalUpload", "token": token, "from": e["from"], "summary": {
+        self.driver.emit({"type": "pedalUpload", "token": token, "from": e["from"], "set": (package.get("set") or {}).get("name") if e.get("set") else None, "summary": {
             "songs": [str((s or {}).get("name") or "")[:80] for s in songs][:200], "settings": [str(x) for x in (package.get("parts") or [])][:20],
             "files": len(e["files"])}})
         return 200, {"ok": True}
@@ -7500,6 +8538,7 @@ class PedalDriver:
             "licenseKey": preset_license_key(self.config["data_root"]),
             "licenseState": read_json(os.path.join(self.config["data_root"], "license-state.json"), None),
             "packages": read_json(os.path.join(self.config["data_root"], "packages.json"), []),
+            "loadedSet": self.transfer.loaded_set() if getattr(self, "transfer", None) else None,
             "deviceId": device_id(),
             "hostname": socket.gethostname(),
             "midi": bool(self.midi and self.midi.available),
@@ -7775,6 +8814,15 @@ class PedalDriver:
                 self.schedule_mini_render(force=True)
             else:
                 self.send_to(ws, {"type": "packages", "packages": read_json(path, [])})
+        elif kind == "miniList":   # the small screen's lists (sounds, boards, what a control does…), from the app
+            if self.mini:
+                what = str(message.get("what") or "") + (":" + str(message["kind"]) if message.get("kind") else "")
+                self.mini.lists[what] = {k: v for k, v in message.items() if k not in ("type", "what", "kind")}
+                self.schedule_mini_render(force=True)
+        elif kind == "miniResult":
+            if self.mini and message.get("text"):
+                self.mini.say(str(message["text"])[:120])
+                self.schedule_mini_render(force=True)
         elif kind == "tunerView":
             self.tuner_view = {k: message.get(k) for k in ("note", "cents", "on")} if message.get("on") else None
             self.schedule_mini_render()
@@ -8129,6 +9177,38 @@ class PedalDriver:
         cfg["cards"] = chans.get("cards") or []
         return cfg
 
+    def refresh_screen_lines(self, config_txt=None):
+        """A card made before its screen's config.txt lines changed (9.8: the 3.5" screen updates 50 times a second,
+        not 20) gets the new lines - they take effect at the next start. Only the same screen's own block is touched.
+        True = rewritten, False = already current, None = nothing to do here."""
+        c = self.config
+        if config_txt is None and (c.get("simulated") or not os.path.exists(SYSTEM_SCRIPT)):
+            return None
+        sid = touch_screen_id(c)
+        s = screen_by_id(c.get("app_root"), sid) if sid != "off" else None
+        if not s or s.get("kind") != "spi":
+            return None
+        path = config_txt or next((p for p in ("/boot/firmware/config.txt", "/boot/config.txt") if os.path.isfile(p)), None)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                text = handle.read()
+        except (OSError, TypeError):
+            return None
+        m = re.search(r"^# central-pedal-screen begin\n(.*?)^# central-pedal-screen end$", text, re.M | re.S)
+        if not m:
+            return None
+        have = [ln.strip() for ln in m.group(1).splitlines() if ln.strip() and ln.strip() != "[all]"]
+        want = list(s.get("config") or [])
+        if have == want:
+            return False
+        overlays = lambda lines: [re.split(r"[:,]", ln[len("dtoverlay="):])[0] for ln in lines if ln.startswith("dtoverlay=")]
+        if overlays(have) != overlays(want):
+            return None   # (another screen's lines, or edited by hand: left alone)
+        if config_txt is None:
+            ok = run_privileged(SYSTEM_SCRIPT, "screen", sid)
+            log.info("touch screen %s: config.txt lines brought up to date%s", sid, " (next start)" if ok else " - failed")
+        return True
+
     def auto_touch_screen(self, wait=8.0):
         """A Pi with nothing on HDMI or the ribbon port, and no touch screen picked yet, most likely has the common 3.5"
         GPIO screen - which stays white until its driver is on. Turn that one on (once) and restart. Picking a screen
@@ -8304,6 +9384,10 @@ class PedalDriver:
                 cfg = {"hdmi": bool(message.get("hdmi")), "usbFirst": bool(message.get("usbFirst"))}
                 write_json(os.path.join(self.config["data_root"], "audio.json"), cfg)
                 run_privileged(SYSTEM_SCRIPT, "audio", "hdmi" if cfg["hdmi"] else "nohdmi", "usbfirst" if cfg["usbFirst"] else "jackfirst")
+            elif action == "dac" and value in ("on", "off"):   # the DAC board (outputs 3-4): its overlay, after a restart
+                self.config["i2s_dac"] = value == "on"
+                self.save_config()
+                run_privileged(SYSTEM_SCRIPT, "dac", value)
             elif action == "phoneSetup":
                 ps = self.phone_setup
                 threading.Thread(target=(ps.stop if value == "off" else lambda: ps.start("asked in the app")), daemon=True).start()
@@ -8722,21 +9806,26 @@ class PedalDriver:
         if not (self.mini and self.mini.available):
             return
         now = time.monotonic()
-        if not force and now - self.last_mini_render < 0.1:
+        if not force and now - self.last_mini_render < 0.05:
             if self.mini_timer is None and self.loop:
-                self.mini_timer = self.loop.call_later(0.12, lambda: self.schedule_mini_render(True))
+                self.mini_timer = self.loop.call_later(0.06, lambda: self.schedule_mini_render(True))
             return
         self.mini_timer = None
         self.last_mini_render = now
+        if getattr(self, "_mini_wake", None) is None:
+            self._mini_wake = threading.Event()
 
-        def work():
-            try:
-                self.mini.render(self.display)
-                self.mini.push()
-            except Exception as error:
-                log.debug("mini render failed (%s)", error)
-
-        threading.Thread(target=work, daemon=True).start()
+            def worker():   # one drawing thread: a burst of changes draws once, with the newest state
+                while True:
+                    self._mini_wake.wait()
+                    self._mini_wake.clear()
+                    try:
+                        self.mini.render(self.display)
+                        self.mini.push()
+                    except Exception as error:
+                        log.debug("mini render failed (%s)", error)
+            threading.Thread(target=worker, daemon=True, name="mini-screen").start()
+        self._mini_wake.set()
 
     # ----- lifecycle ----------------------------------------------------------
     async def run(self, stop_event=None):
@@ -8752,6 +9841,7 @@ class PedalDriver:
         except Exception as error:
             log.debug("displays: %s", error)
         threading.Thread(target=self.auto_touch_screen, daemon=True).start()
+        threading.Thread(target=self.refresh_screen_lines, daemon=True).start()
         threading.Thread(target=self.phone_setup.watch, daemon=True).start()
         threading.Thread(target=self.watch_audio_devices, daemon=True).start()
         self.start_gpio()

@@ -118,6 +118,25 @@ await check("hello from the driver -> the 'Central Pedal' connected badge", asyn
   await hw({ type: "hello", pads: 7, knobs: ["volume"], expression: true, encoder: true });
   assert.equal(await T(() => document.querySelector("#pfHw").classList.contains("on")), true);
 });
+await check("the small screen's lists: the controls and what each does, what a button can do; a pick there changes the button", async () => {
+  const before = await T(() => JSON.stringify(PPActions.mapping().b1 || null));
+  // (all in one go: the app's own reconnect timer may swap the socket between two calls)
+  const sent = await T(() => {
+    const out = [], keep = __pedalBridge.socket;
+    __pedalBridge.socket = { readyState: 1, send: (s) => out.push(JSON.parse(s)) };
+    __pedalBridge.handleMessage({ type: "miniRequest", what: "controls" });
+    __pedalBridge.handleMessage({ type: "miniRequest", what: "actions", kind: "continuous" });
+    __pedalBridge.handleMessage({ type: "miniPick", what: "actions", id: "tap", target: "b1" });
+    __pedalBridge.socket = keep;
+    return out.filter((m) => m.type === "miniList");
+  });
+  const ctl = sent.find((m) => m.what === "controls"), act = sent.find((m) => m.what === "actions"), again = sent.filter((m) => m.what === "controls");
+  assert.ok(ctl && ctl.items.length >= 20 && ctl.items.some((i) => i.id === "k1" && i.kind === "continuous"), JSON.stringify(ctl && ctl.items.slice(0, 3)));
+  assert.ok(act && act.kind === "continuous" && act.items.some((i) => i.id === "volume") && !act.items.some((i) => i.id === "tap"));
+  assert.equal(await T(() => PPActions.mapping().b1.action), "tap");
+  assert.ok(again.length === 2 && again[1].items.find((i) => i.id === "b1").action === "tap");
+  await T((b) => { const m = PPActions.mapping(); if (b === "null") delete m.b1; else m.b1 = JSON.parse(b); }, before);
+});
 
 console.log("\nPerform screen:");
 await check("encoder hold -> switches to the Perform screen", async () => {
@@ -132,6 +151,19 @@ await check("tapping a big pad plays it, tapping it again fades it", async () =>
   assert.equal(await page.locator('[data-pf-pad="5"].playing').count(), 1);
   await page.click('[data-pf-pad="5"]'); await wait(50);
   assert.equal(await T(() => __test.playingIndex()), -1);
+});
+await check("each big pad has its own volume slider: sliding it sets that pad's level and doesn't play the pad", async () => {
+  assert.equal(await page.locator("#pfPads [data-pf-vol]").count(), 8);
+  const box = await page.locator('[data-pf-vol="3"]').boundingBox();
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
+  await page.mouse.down(); await page.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2, { steps: 8 }); await page.mouse.up(); await wait(100);
+  const lv = await T(() => PP.project().pads[3].level);
+  assert.ok(lv >= 80, "pad 4 level " + lv);
+  assert.equal(await T(() => __test.playingIndex()), -1, "the slider must not play the pad");
+  assert.equal(await page.textContent('[data-pf-volout="3"]'), String(lv));
+  await T(() => PPActions.run("padVolume", { index: 3 }, { value: 0.3 }));
+  assert.equal(await T(() => PP.project().pads[3].level), 30);
+  assert.equal(await T(() => document.querySelector('[data-pf-vol="3"]').value), "30");
 });
 await check("dragging the Reverb knob up raises it", async () => {
   await hw({ type: "knob", id: "reverb", value: 0.5 });
@@ -151,6 +183,71 @@ await check("knob settings survive a reload", async () => {
   await page.reload(); await page.waitForFunction(() => window.__test);
   assert.equal(await T(() => __test.performance().volume), 0.66);
   assert.equal(await T(() => __test.isPerforming()), true, "should reopen in Perform mode");
+});
+await check("buttons / knobs: tabs, moving around the screen, bus levels & mutes, pad volumes are in the lists", async () => {
+  const ids = await T(() => ({ t: PPActions.list("trigger").map((a) => a.id), c: PPActions.list("continuous").map((a) => a.id), s: PPActions.list("step").map((a) => a.id) }));
+  for (const id of ["tabNext", "tabPrev", "tabPads", "tabTracks", "tabInstrument", "tabSettings", "navUp", "navDown", "navLeft", "navRight", "navOk", "navBack", "navScrollDown", "muteTracks", "mutePads", "muteClick", "muteInstrument", "busMute"]) assert.ok(ids.t.includes(id), "trigger " + id);
+  for (const id of ["padVolume", "levelTracks", "levelPads", "levelClick", "levelInstrument", "busLevel", "navScroll", "navValue", "tabKnob"]) assert.ok(ids.c.includes(id), "continuous " + id);
+  for (const id of ["stepTab", "stepFocus", "stepScroll", "stepValue"]) assert.ok(ids.s.includes(id), "step " + id);
+});
+await check("tabs from a button: straight to Settings, next / previous, back to Pad", async () => {
+  await T(() => PPActions.run("tabSettings"));
+  assert.equal(await T(() => PPShell.currentTab()), "settings");
+  await T(() => PPActions.run("tabPrev"));
+  assert.equal(await T(() => PPShell.currentTab()), "io");
+  await T(() => PPActions.run("tabNext")); await T(() => PPActions.run("tabNext"));
+  assert.ok(["live", "pads"].includes(await T(() => PPShell.currentTab())), "after the last tab comes the first");
+  await T(() => PPActions.run("tab", { tab: "tracks" }));
+  assert.equal(await T(() => PPShell.currentTab()), "tracks");
+  await T(() => PPActions.run("tabPads"));
+  assert.equal(await T(() => PPShell.currentTab()), "pads");
+});
+await check("moving around the screen: a ring on the highlighted control, right moves along, OK presses it", async () => {
+  await T(() => document.querySelector('.nav-tab[data-tab="tracks"]').focus());
+  await T(() => PPActions.run("navRight"));
+  assert.equal(await T(() => document.activeElement.dataset.tab), "instrument");
+  assert.equal(await T(() => document.activeElement.classList.contains("nav-focus") && document.body.classList.contains("nav-active")), true);
+  const ring = await T(() => getComputedStyle(document.querySelector(".nav-focus")).outlineStyle);
+  assert.equal(ring, "solid");
+  await T(() => PPActions.run("navOk"));
+  assert.equal(await T(() => PPShell.currentTab()), "instrument");
+  await T(() => PPActions.run("navLeft"));
+  assert.equal(await T(() => document.activeElement.dataset.tab), "tracks");
+  await T(() => PPActions.run("navDown"));
+  assert.notEqual(await T(() => document.activeElement.dataset.tab || ""), "tracks", "down leaves the tab row");
+  // a knob on a highlighted slider changes it
+  await T(() => PPActions.run("tabPads")); await wait(100);
+  await T(() => { const el = document.querySelector('[data-pf-vol="2"]'); el.focus(); });
+  await T(() => PPActions.run("navValue", {}, { value: 0.5 }));
+  assert.equal(await T(() => PP.project().pads[2].level), 50);
+  await T(() => PPActions.run("navRight"));
+  assert.equal(await T(() => PP.project().pads[2].level) > 50, true, "right on a slider turns it up");
+  await T(() => PPActions.run("navBack"));
+  assert.equal(await T(() => !!document.querySelector(".nav-focus")), false);
+});
+await check("bus levels & mutes: a mute silences that bus (never saved) and comes back; levels set each bus", async () => {
+  await hw({ type: "pad", index: 0 }); await wait(300); await T(() => __test.engine.panic());   // (the audio engine starts with the first sound)
+  await T(() => PPActions.run("muteTracks")); await wait(250);
+  assert.equal(await T(() => PPActions.muted("tracks")), true);
+  assert.ok(await T(() => PP.engine.tracksOut.gain.value) < 0.05, "tracks muted");
+  assert.ok(await T(() => PP.engine.outGain.gain.value) > 0.9, "muting the tracks leaves the pads playing");
+  await T(() => PPActions.run("muteTracks")); await wait(250);
+  assert.ok(await T(() => PP.engine.tracksOut.gain.value) > 0.9, "tracks back");
+  await T(() => PPActions.run("busMute", { bus: "pad" })); await wait(250);
+  assert.ok(await T(() => PP.engine.outGain.gain.value) < 0.05, "pads muted");
+  assert.ok(await T(() => PP.engine.tracksOut.gain.value) > 0.9, "muting the pads leaves the tracks playing (they're independent)");
+  await T(() => PPActions.run("mutePads")); await wait(250);
+  assert.ok(await T(() => PP.engine.outGain.gain.value) > 0.9, "pads back");
+  await T(() => PPActions.run("levelClick", {}, { value: 0.4 }));
+  assert.equal(await T(() => PPTracks.levels.click), 0.4);
+  await T(() => PPActions.run("muteClick"));
+  assert.equal(await T(() => PPTracks.levels.click), 0);
+  await T(() => PPActions.run("levelClick", {}, { value: 0.6 }));
+  assert.equal(await T(() => PPTracks.levels.click), 0, "still muted while the knob moves");
+  await T(() => PPActions.run("muteClick"));
+  assert.equal(await T(() => PPTracks.levels.click), 0.6, "unmuted at the knob's new level");
+  await T(() => PPActions.run("levelPads", {}, { value: 0.7 }));
+  assert.equal(await T(() => PP.project().performance.volume), 0.7);
 });
 if (shotDir) {
   for (const [w, h] of [[800, 480], [1280, 800], [390, 844]]) {
@@ -353,6 +450,55 @@ await check("outputs: 1-2 the Pi's jack, 3-4 the DAC; quick set-ups (4 mono, 2 s
   assert.deepEqual(r.stepped, { ch: 5, st: true }, "the small screen steps a bus to the next choice (3–4 stereo → 5–6 stereo)");
   assert.equal(r.back, JSON.stringify({ tracks: { ch: 1, st: false }, pad: { ch: 2, st: false }, click: { ch: 3, st: false }, instrument: { ch: 4, st: false } }));
 });
+await check("only the headphone jack (no DAC board): a bus on 3-4 is heard on 1-2 and the table says so; 'Everything on 1-2'; the DAC board can be switched off", async () => {
+  const r = await page.evaluate(async () => {
+    const sent = []; const b = window.__pedalBridge, was = b.send; b.send = function (m) { sent.push(m); };
+    PPFeatures.handleHardware({ type: "systemStatus", i2sDac: true, audio: { channels: ["Headphone jack L", "Headphone jack R"], hdmi: false, usbFirst: false } });
+    PPShell.showTab("settings"); await new Promise((ok) => setTimeout(ok, 100));
+    document.querySelector('[data-rtpreset="mono4"]').click(); await new Promise((ok) => setTimeout(ok, 50));
+    const out = {};
+    out.nowClick = [...document.querySelectorAll("#routingMatrix tbody tr")].find((tr) => /Click/.test(tr.textContent)).lastElementChild.textContent;
+    out.clickLive = PP.engine.routing.buses.click; out.fallback = PP.engine.routing.fallback; out.fb = PP.project().routing.clickFallback;
+    out.note = document.querySelector("#routingMatrix p.muted").textContent;
+    document.querySelector('[data-rtpreset="all12"]').click(); await new Promise((ok) => setTimeout(ok, 50));
+    out.all12 = PPSettings.routingSummary();
+    const dac = document.querySelector("#routingMatrix [data-rtdac]"); out.dacChecked = dac && dac.checked;
+    if (dac) { dac.checked = false; dac.dispatchEvent(new Event("change", { bubbles: true })); }
+    out.sent = sent.filter((m) => m.action === "dac"); b.send = was;
+    document.querySelector('[data-rtpreset="mono4"]').click();
+    PPFeatures.handleHardware({ type: "systemStatus", audio: { channels: [] } });
+    PPShell.showTab("pads"); return out;
+  });
+  assert.match(r.nowClick, /1–2 · 3 isn't connected/, "the click row: " + r.nowClick);
+  assert.equal(r.fb, "mix", "on a 2-output device the click is heard on 1-2 by default");
+  assert.equal(r.clickLive, "1-2");
+  assert.equal(r.fallback.click, 3); assert.equal(r.fallback.instrument, 4);
+  assert.match(r.note, /2 outputs, the headphone jack: everything plays on 1–2/);
+  assert.equal(r.all12.mode, "all12"); assert.ok(r.all12.buses.every((x) => x.ch === 1 && x.st), "everything stereo on 1-2");
+  assert.equal(r.dacChecked, true, "the DAC board switch shows what the pedal has");
+  assert.deepEqual(r.sent.map((m) => m.value), ["off"], "unticking turns the DAC board off");
+});
+await check("old saved routing: the click's old default 'off' becomes 'heard on 1-2' once; picking Nowhere again stays", async () => {
+  const r = await page.evaluate(() => {
+    const rt = PP.project().routing, keep = JSON.stringify(rt);
+    PP.project().routing = { mode: "mono4", buses: { tracks: { ch: 1 }, pad: { ch: 2 }, click: { ch: 3 }, instrument: { ch: 4 } }, clickFallback: "off" };
+    PP.engine.routeOutput(); const migrated = PP.project().routing.clickFallback;
+    PP.project().routing.clickFallback = "off"; PP.engine.routeOutput(); const kept = PP.project().routing.clickFallback;
+    PP.project().routing = JSON.parse(keep); PP.engine.routeOutput(); return { migrated, kept };
+  });
+  assert.deepEqual(r, { migrated: "mix", kept: "off" });
+});
+await check("a page older than its Central Pedal reloads once to the version just installed (not again for the same version)", async () => {
+  const p5 = await browser.newPage(); await p5.goto("file://" + pagePath); await p5.waitForFunction(() => window.__pedalBridge && window.PPShell);
+  const same = await p5.evaluate(() => { window.__pedalBridge.handleMessage({ type: "hello", appVersion: PP.appVersion }); return new Promise((ok) => setTimeout(() => ok(location.search), 900)); });
+  assert.equal(same, "", "same version: no reload");
+  await Promise.all([p5.waitForNavigation({ timeout: 5000 }), p5.evaluate(() => window.__pedalBridge.handleMessage({ type: "hello", appVersion: "99.1.0" }))]);
+  assert.match(p5.url(), /[?&]v=99\.1\.0/);
+  await p5.waitForFunction(() => window.__pedalBridge && window.PPShell);
+  const again = await p5.evaluate(() => { window.__pedalBridge.handleMessage({ type: "hello", appVersion: "99.1.0" }); return new Promise((ok) => setTimeout(() => ok(sessionStorage.getItem("pp-reloaded-for")), 900)); });
+  assert.equal(again, "99.1.0"); assert.match(p5.url(), /[?&]v=99\.1\.0$/, "no second reload for the same version");
+  await p5.close();
+});
 
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));
 
@@ -435,7 +581,7 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     const r = await R(() => ({ keys: PPLicense.hasPlan("keys"), inst: PPLicense.hasPlan("instrument"), plugins: PPLicense.hasPlan("plugins"), plans: Object.keys(PPLicense.plans()).sort(), saved: window.__sent.filter((m) => m.type === "packages" && m.action === "save").pop(), text: document.getElementById("pkgSettings").textContent, events: window.__plansEvents }));
     assert.ok(/starts with S/.test(bad) && nCalls === 0, bad);
     assert.deepEqual(act, { key: "SABC-DEFG-HJKL-MNPQ", deviceId: "pedal-0123456789ab", app: "pedal" });
-    assert.ok(r.keys && r.inst && !r.plugins, JSON.stringify(r)); assert.deepEqual(r.plans, ["instrument", "keys"]);
+    assert.ok(r.keys && r.inst && !r.plugins, JSON.stringify(r)); assert.deepEqual(r.plans, ["instrument", "keys", "pads"]);   // (9.8: Central Pads comes with every plan)
     assert.ok(r.saved && r.saved.packages.length === 1 && r.saved.packages[0].key === "SABC-DEFG-HJKL-MNPQ", JSON.stringify(r.saved));
     assert.ok(/Central Keys until/.test(r.text) && /active/.test(r.text) && r.events >= 1, r.text);
   });
@@ -468,7 +614,7 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     await p4.fill("#pkgKey", "SDEF-AULT-KEY0-2026"); await p4.click('[data-pkg="add"]'); await wait(200);
     const r = await p4.evaluate(() => ({ list: PPLicense.packages(), text: document.getElementById("pkgSettings").textContent, saved: window.__sent.filter((m) => m.type === "packages").pop() }));
     assert.equal(wiz, null); assert.equal(open, true); assert.match(refused, /website isn't open\. Use the default key for now/);
-    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pedals", "plugins"]); assert.match(r.text, /Default package \(temporary\)/);
+    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pads", "pedals", "plugins"]); assert.match(r.text, /Default package \(temporary\)/);
     assert.ok(r.saved && r.saved.packages[0].key === "SDEF-AULT-KEY0-2026", "kept with the pedal's driver");
     await p4.close(); fs.rmSync(tmp4, { force: true });
   });

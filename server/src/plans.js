@@ -7,11 +7,12 @@
 //    working and a new one takes its place, ready for someone else.
 //  - A free trial (TRIALRUN, 7FREE) gives trial package keys with all four plans until the trial ends.
 // On any device (Central Pedal, Central Pedal Control, Central Control, Central Usage): Settings → Packages → Add a
-// package, paste the key. It works on PACKAGE_DEVICES devices at a time. The apps use /v1/package/activate, /check and
+// package, paste the key. It works on PACKAGE_DEVICES devices at a time, all the holder's, each a different app (one
+// Central Usage + one Central Control + one pedal, say - never two pedals). (9.8) Central Pads comes with every plan. The apps use /v1/package/activate, /check and
 // /release (below); they check again every few days.
 import crypto from "node:crypto";
 import { q, one, pool } from "./db.js";
-import { config, PLANS, PLAN_IDS, PACKAGE_DEVICES } from "./config.js";
+import { config, PLANS, PLAN_IDS, PACKAGE_DEVICES, PADS_PLAN, withPads } from "./config.js";
 import { requireStep } from "./signin.js";
 import { sendMail, escHtml, mailOn } from "./mail.js";
 import { defaultKind, defaultKeysOn, defaultOffMessage, DEFAULT_CHURCH, DEFAULT_END } from "./defaultkeys.js";
@@ -27,7 +28,9 @@ export const pretty = (k) => { const c = canon(k); return c.length === 16 ? c.ma
 function newPackageKey() { let s = "S"; for (let i = 0; i < 15; i++) s += ABC[crypto.randomInt(ABC.length)]; return s; }
 const day = (d) => new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: config.timeZone || "America/Chicago" });
 const APPS = { pedal: "Central Pedal", "pedal-control": "Central Pedal Control", control: "Central Control", usage: "Central Usage" };
-const planNames = (plans) => (PLAN_IDS.every((id) => plans.includes(id)) ? "all four sound plans" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(" and "));
+const MAIN_PLANS = PLAN_IDS.filter((id) => id !== PADS_PLAN);
+const planNames = (plans0) => { const plans = withPads(plans0); return MAIN_PLANS.every((id) => plans.includes(id)) ? "all the sound plans" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(" and "); };
+export const devicesRule = () => PACKAGE_DEVICES + " of your devices at a time, each a different app (for example Central Usage, Central Control and a Central Pedal)";
 
 // a subscription counts while Stripe says it's on and it's paid through a date still ahead. A renewal that didn't go
 // through (past_due) keeps it 14 more days while Stripe tries the card again.
@@ -50,7 +53,8 @@ export function keyState(k) {
   if (k.closed_at) return { ok: false, error: "This package's church was closed." };
   if (!k.live) return { ok: false, end: k.ends ? new Date(k.ends).toISOString() : null, error: k.ends ? (k.trial ? "This free trial package ended on " + day(k.ends) + ". Get sound plans on the website's store." : "This package ended on " + day(k.ends) + ". Renew it on your account page.") : "This package isn't paid for yet. Finish the checkout on the website." };
   const end = new Date(k.ends).toISOString();
-  return { ok: true, plans: Object.fromEntries(PLAN_IDS.filter((id) => k.plans.includes(id)).map((id) => [id, end])), end };
+  const has = withPads(k.plans);
+  return { ok: true, plans: Object.fromEntries(PLAN_IDS.filter((id) => has.includes(id)).map((id) => [id, end])), end };
 }
 
 // ---------------------------------------------------------------- making and giving keys
@@ -71,7 +75,7 @@ export async function sendPackage(key, how) {
   const lead = how === "bought" ? "Thanks for getting " + what + "! Here's your package key."
     : k.trial ? (k.church || "Your church") + "'s free trial includes " + what + " until " + day(k.ends) + ". Here's your package key."
     : (k.church || "Your church") + " gave you " + what + ". Here's your package key.";
-  const steps = "On any of your devices - Central Pedal, Central Pedal Control, Central Control or Central Usage - open Settings → Packages → Add a package, and paste it. It works on " + PACKAGE_DEVICES + " devices at a time.";
+  const steps = "On any of your devices - Central Pedal, Central Pedal Control, Central Control or Central Usage - open Settings → Packages → Add a package, and paste it. It works on " + devicesRule() + ".";
   const text = "Hi" + (name ? " " + name : "") + ",\n\n" + lead + "\n\n    " + pretty(k.key) + "\n\n" + steps + "\n\n" + (k.trial ? "" : "It's yours until " + day(k.ends) + (k.sub_kind === "person" && !k.cancel_at_period_end ? ", and it renews by itself every year" : "") + ". ") + "It's on your account page too: " + link + "\n\nTalk soon,\nThe Motion Audio team\n";
   const html = '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px"><p>Hi' + (name ? " " + escHtml(name) : "") + ",</p><p>" + escHtml(lead) + "</p>" +
     '<p><code style="font:600 20px ui-monospace,monospace;letter-spacing:.05em">' + escHtml(pretty(k.key)) + "</code></p><p>" + escHtml(steps) + "</p>" +
@@ -96,7 +100,7 @@ export async function issuePackages(subId) {
   if (person) for (const k of made) await sendPackage(k, "bought");
   return made;
 }
-// a free trial: a package key with all four plans until the trial ends (for someone, or for the Teams page to give)
+// a free trial: a package key with all the plans until the trial ends (for someone, or for the Teams page to give)
 export async function mintTrialPackage(church, holder) {
   const client = await pool.connect();
   try { return await insertKey(client, { plans: PLAN_IDS, church_id: church.id, trial: true, ends_at: church.trial_until, holder_email: holder && holder.email, holder_name: holder && holder.name }); }
@@ -139,6 +143,16 @@ export async function tracksUnlimitedFor(l) {
   return !!(m && isMain(m.role));
 }
 
+// the email of the person a device's own license key (P, A or U) belongs to - null for a default key, a church's spare key
+// or no key (the Central Pedal needs none)
+async function licenseOwner(key) {
+  const c = canon(key); if (c.length !== 16 || defaultKind(key)) return null;
+  const l = await one("SELECT * FROM licenses WHERE key=$1 OR regexp_replace(upper(key),'[^A-Z0-9]','','g')=$1 LIMIT 1", [c]);
+  if (!l || l.revoked) return null;
+  const p = await keyPerson(l);
+  return p && !p.churchKey && p.email ? String(p.email).toLowerCase() : null;
+}
+
 // ---------------------------------------------------------------- the API
 export function routes(api, { wrap, requireUser }) {
   // wrong keys: 30 from one address in 15 minutes and it waits (right keys don't count)
@@ -166,10 +180,14 @@ export function routes(api, { wrap, requireUser }) {
       if (!k) miss(req);
       if (!st.ok) { await client.query("ROLLBACK"); return res.json({ ok: false, error: st.error }); }
       const devs = (await client.query("SELECT * FROM package_devices WHERE key=$1", [k.key])).rows, here = devs.some((d) => d.device_id === b.deviceId), others = devs.filter((d) => d.device_id !== b.deviceId);
-      if (!here && others.length >= PACKAGE_DEVICES) {
-        await client.query("ROLLBACK");
-        return res.json({ ok: false, error: "This package is already on " + others.map((d) => "“" + (d.device_name || APPS[d.app] || "another device") + "”").join(" and ") + " (it works on " + PACKAGE_DEVICES + " devices at a time). Release it on one of them (Settings → Packages) or on your account page, then try again." });
-      }
+      const no = async (error) => { await client.query("ROLLBACK"); return res.json({ ok: false, error }); };
+      // the same person's devices: when this device has a license key that's someone's, it must be the package's holder
+      const owner = await licenseOwner(b.licenseKey);
+      if (owner && k.holder_email && owner !== String(k.holder_email).toLowerCase())
+        return await no("This package is " + (k.holder_name || k.holder_email) + "'s, and this " + APPS[app] + " uses someone else's key (" + owner + "). A package works on its holder's own devices.");
+      const same = others.find((d) => d.app === app);
+      if (!here && same) return await no("This package is already on a " + APPS[app] + " (“" + (same.device_name || APPS[app]) + "”). It works on " + devicesRule() + ". Release it there (Settings → Packages) or on your account page, then try again.");
+      if (!here && others.length >= PACKAGE_DEVICES) return await no("This package is already on " + others.map((d) => "“" + (d.device_name || APPS[d.app] || "another device") + "”").join(", ").replace(/, ([^,]*)$/, " and $1") + " (it works on " + devicesRule() + "). Release it on one of them (Settings → Packages) or on your account page, then try again.");
       await client.query(`INSERT INTO package_devices (key,device_id,app,device_name) VALUES ($1,$2,$3,$4)
         ON CONFLICT (key,device_id) DO UPDATE SET app=EXCLUDED.app, device_name=EXCLUDED.device_name, last_seen=now()`, [k.key, b.deviceId, app, String(b.deviceName || "").trim().slice(0, 80) || APPS[app]]);
       await client.query("COMMIT");
@@ -198,10 +216,10 @@ export function routes(api, { wrap, requireUser }) {
   // ---- the Account page: my package keys (bought, or given to me), their devices
   const keyOut = (k, devs) => {
     const st = keyState(k);
-    return { key: pretty(k.key), plans: k.plans, ok: st.ok, end: k.ends ? new Date(k.ends).toISOString() : null, error: st.ok ? undefined : st.error, trial: k.trial,
+    return { key: pretty(k.key), plans: withPads(k.plans), ok: st.ok, end: k.ends ? new Date(k.ends).toISOString() : null, error: st.ok ? undefined : st.error, trial: k.trial,
       from: k.trial ? "trial" : k.sub_kind === "bundle" ? "church" : "own", church: k.church || null, renews: k.sub_kind === "person" && st.ok && !k.cancel_at_period_end && k.sub_status !== "past_due", pastDue: k.sub_status === "past_due",
       holder: k.holder_email ? { email: k.holder_email, name: k.holder_name } : null,
-      devices: devs.map((d) => ({ id: d.device_id, name: d.device_name || APPS[d.app] || "a device", app: APPS[d.app] || d.app, lastSeen: d.last_seen })), max: PACKAGE_DEVICES };
+      devices: devs.map((d) => ({ id: d.device_id, name: d.device_name || APPS[d.app] || "a device", app: APPS[d.app] || d.app, lastSeen: d.last_seen })), max: PACKAGE_DEVICES, oneEach: true };
   };
   api.get("/packages/mine", requireUser, wrap(async (req, res) => {
     const rows = await packageRows(req.user.email, req.user.id);

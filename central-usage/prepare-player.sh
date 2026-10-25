@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; DST="$ROOT/central-usage/player-src"
 rm -rf "$DST"; mkdir -p "$DST"
 cd "$ROOT"
-cp -r index.html css js companion cues fonts hardware.json instrument-plugins.json instrument_host.py native_rig.py pedal-driver.py sources.py screens.json "$DST/"
+cp -r index.html css js companion cues fonts hardware.json instrument-plugins.json instrument_host.py native_rig.py libraries.py pedal-driver.py sources.py screens.json "$DST/"
 [ -f starting.html ] && cp starting.html "$DST/"
 mkdir -p "$ROOT/central-usage/driver-dist"
 echo "player app copied into $DST"

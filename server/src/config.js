@@ -26,6 +26,9 @@ export const config = {
     secretKey: env.R2_SECRET_ACCESS_KEY || "",
     localDir: env.LOCAL_STORAGE_DIR || "./data/files",
   },
+  // the sound libraries (libraries.js): where their zips and libraries-index.json are downloaded from. Today the GitHub
+  // release "libraries" (the apps repository's CI publishes it); later the Cloudflare R2 bucket's public address.
+  librariesBaseUrl: (env.LIBRARIES_BASE_URL || "https://github.com/MotionAudio/central-apps/releases/download/libraries").trim().replace(/\/+$/, ""),
 };
 
 // Prices (cents), tax included. Change them on the website's price page (staff), or here for the defaults.
@@ -70,21 +73,29 @@ export const TAX_CODES = { software: "txcd_10202003", tangible: "txcd_99999999",
 export const SUBSCRIPTION = { name: "Central Tracks Unlimited", cents: 7700, interval: "month" };
 // Sound plans (9.5): yearly. Each opens a part of the sounds in the apps (the starter set stays free). Buying one gives
 // a package key (S + 15 letters and digits, like P7K3-9QXM-…), emailed and on the Account page; the person pastes it in
-// any app's Settings → Packages → Add a package. A church bundle gives N package keys with all four plans, handed out on
-// the Teams page. A free trial (TRIALRUN, 7FREE) gives trial package keys with all four. Staff change prices on the
+// any app's Settings → Packages → Add a package. A church bundle gives N package keys with all the plans, handed out on
+// the Teams page. A free trial (TRIALRUN, 7FREE) gives trial package keys with all the plans. Staff change prices on the
 // price page.
 export const PLANS = {
-  keys: { name: "Central Keys", cents: 5000, what: "Pianos and synths" },
-  plugins: { name: "Central Plugins", cents: 12000, what: "EQ, compressors, reverb, delay and more, in Central Usage and Central Pedal" },
-  instrument: { name: "Central Instrument", cents: 8000, what: "Instrument sounds other than keys: bass and guitar sounds, and what the play-anything input turns your instrument into" },
-  pedals: { name: "Central Pedals", cents: 5000, what: "Guitar pedals for anything with a 1/4\" or 1/8\" input: electric, bass, acoustic, keys, cello" },
+  keys: { name: "Central Keys", cents: 7000, what: "Pianos and synths, plus Central Pads" },
+  plugins: { name: "Central Plugins", cents: 14000, what: "EQ, compressors, reverb, delay and more on tracks, pads, channels and the instrument, in Central Control, Central Usage and Central Pedal, plus Central Pads" },
+  instrument: { name: "Central Instrument", cents: 10000, what: "Instrument sounds other than keys: bass and guitar sounds, and what the play-anything input turns your instrument into, plus Central Pads" },
+  pedals: { name: "Central Pedals", cents: 7000, what: "Guitar pedals for anything with a 1/4\" or 1/8\" input: electric, bass, acoustic, keys, cello, plus Central Pads" },
+  pads: { name: "Central Pads", cents: 4000, what: "Pads in every key for the pad pedal: warm, air, choir, shimmer, strings and more" },
 };
-export const PLAN_IDS = ["keys", "plugins", "instrument", "pedals"];
-export const PLAN_ALL = { name: "All four sound plans", cents: 22000 };
-// church bundles: all four plans for this many people, a year (a package key each, given and taken back on Teams)
-export const PLAN_BUNDLES = { 4: 68000, 8: 136000, 12: 184000, 16: 257000, 20: 290000 };
+export const PLAN_IDS = ["keys", "plugins", "instrument", "pedals", "pads"];
+// (9.8) Central Pads comes with every other plan: a key with any of the four opens the pads too
+export const PADS_PLAN = "pads";
+export const withPads = (plans) => { const l = (plans || []).filter((id) => PLAN_IDS.includes(id)); return l.some((id) => id !== PADS_PLAN) && !l.includes(PADS_PLAN) ? l.concat(PADS_PLAN) : l; };
+export const PLAN_ALL = { name: "All sound plans", cents: 24000 };
+// church bundles: all the plans for this many people, a year (a package key each, given and taken back on Teams)
+export const PLAN_BUNDLES = { 4: 70000, 8: 138000, 12: 186000, 16: 259000, 20: 292000 };
+// the 9.5 prices (before Central Pads): a price list saved with exactly these moves to today's
+export const PLANS_95 = { keys: 5000, plugins: 12000, instrument: 8000, pedals: 5000, all: 22000, bundles: { 4: 68000, 8: 136000, 12: 184000, 16: 257000, 20: 290000 } };
 export const PLAN_INTERVAL = "year";
-export const PACKAGE_DEVICES = 2;   // a package key works on this many devices at a time (like a U key)
+// a package key works on this many devices at a time, all with the same account (email), each a different app:
+// any 3 of Central Pedal, Central Pedal Control, Central Control and Central Usage (never 2 pedals or 2 Usages)
+export const PACKAGE_DEVICES = 3;
 export const STAR_PRICE_CENTS = { 1: 500, 2: 1000, 3: 1500, 4: 2000, 5: 3000 };
 // Central Tracks kinds: recordings (Pad, Multitrack, Prime) and, since 9.5, things the apps install: a Sound (an .sf2,
 // or a zip of samples: a keys or instrument sound), a Board (a pedal board preset, JSON) and a Click (a click and

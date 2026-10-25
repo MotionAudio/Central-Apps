@@ -308,11 +308,13 @@
     ["ma-pitch", "Granular Pitch", "pitch", "http://distrho.sf.net/plugins/MaPitchshift", { Ratio: "ratio", Window: "window", Blur: "blur" }],
   ];
   // ---- the plans (yearly, per person): which plan unlocks each pedal. "free" ones come with every Central Pedal and app.
+  // (9.8) every plan includes Central Pads ($40 a year on its own)
   var PLANS = {
-    keys: { name: "Central Keys", price: "$50 a year", what: "pianos, electric pianos, organs, synths and pads" },
-    plugins: { name: "Central Plugins", price: "$120 a year", what: "EQ, compressors, reverb, delay and mix effects" },
-    instrument: { name: "Central Instrument", price: "$80 a year", what: "basses, guitars, strings, brass and winds to play from your guitar" },
-    pedals: { name: "Central Pedals", price: "$50 a year", what: "drive, fuzz, wah, modulation, pitch, amps, cabs and acoustic pedals" }
+    keys: { name: "Central Keys", price: "$70 a year", what: "pianos, electric pianos, organs, synths and pads, with Central Pads" },
+    plugins: { name: "Central Plugins", price: "$140 a year", what: "EQ, compressors, reverb, delay and mix effects on tracks, pads, channels and the instrument, with Central Pads" },
+    instrument: { name: "Central Instrument", price: "$100 a year", what: "basses, guitars, strings, brass and winds to play from your guitar, with Central Pads" },
+    pedals: { name: "Central Pedals", price: "$70 a year", what: "drive, fuzz, wah, modulation, pitch, amps, cabs and acoustic pedals, with Central Pads" },
+    pads: { name: "Central Pads", price: "$40 a year", what: "pads in every key for the pad pedal (also in every other plan)" }
   };
   var TIER_OF_CATEGORY = { comp: "plugins", eq: "plugins", delay: "plugins", reverb: "plugins", studio: "plugins", util: "plugins",
     boost: "pedals", dist: "pedals", fuzz: "pedals", wah: "pedals", mod: "pedals", trem: "pedals", pitch: "pedals", amp: "pedals", cab: "pedals", acoustic: "pedals" };
@@ -366,8 +368,8 @@
   var INSTRUMENT_CATS = { "Guitars & harp": 1, Bass: 1, "Brass & winds": 1, Strings: 1 };
   function soundTier(sound) {
     if (!sound) return "free";
+    if (sound.bankTier) return sound.bankTier;   // (a bank with its plan in tiers.txt: get-sounds.sh's, or a sound library's - even in the user folder)
     if (sound.user || sound.plugin) return "free";   // (the musician's own banks, Central Tracks sounds and plugins)
-    if (sound.bankTier) return sound.bankTier;
     if (/synth|\bfm\b|analog|saw|square/i.test(sound.name || "")) return "keys";
     return INSTRUMENT_CATS[sound.category] ? "instrument" : "keys";
   }

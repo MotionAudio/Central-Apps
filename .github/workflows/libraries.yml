@@ -1,0 +1,125 @@
+# Builds the sound libraries - one zip per plan (Central Keys, Central Instrument, Central Plugins, Central Pedals) - and
+# publishes them on the GitHub release tagged "libraries" (made if it isn't there, its files replaced if it is), with
+# libraries-index.json (what the website's /v1/libraries and the apps read) and SHA256SUMS.
+#
+# Runs by hand (Actions -> Sound libraries -> Run workflow) and whenever a library's sources change on main or on
+# release/9.8.0 (so the files are built before that release).
+# The "libraries" release is a pre-release and never "latest", so the apps' update checks (which read the latest
+# release) never see it.
+#
+# Where the zips are downloaded from: the website's LIBRARIES_BASE_URL (Render -> Environment). Today that is this
+# release: https://github.com/MotionAudio/central-apps/releases/download/libraries
+#
+# Cloudflare R2, later: the last step below copies the zips to an R2 bucket. It is off until it is set up:
+#   1. Cloudflare -> R2 -> Create bucket (e.g. central-libraries); Settings -> Public access: connect a custom domain
+#      (e.g. libraries.motionaudio.com) or allow the r2.dev URL.
+#   2. R2 -> Manage API tokens -> Create token, "Object Read & Write" on that bucket. Then in GitHub -> Settings ->
+#      Secrets and variables -> Actions, add the secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+#      (never paste them anywhere else).
+#   3. Add the repository variable R2_UPLOAD = on (Settings -> Secrets and variables -> Actions -> Variables), and set
+#      R2_PUBLIC_URL to the bucket's public address, so the index points there.
+#   4. On Render set LIBRARIES_BASE_URL to that same public address and redeploy. The apps and the website then download
+#      from Cloudflare; the GitHub release stays as a copy.
+name: Sound libraries
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Build one library only (its id, e.g. central-pads-library) - empty: all of them"
+        required: false
+        default: ""
+  push:
+    branches: [main, release/9.8.0]   # (release/9.8.0: the files are built before the release)
+    paths:
+      - libraries/**
+      - tools/sounds-vcsl.py
+      - tools/sounds-sfz.py
+      - tools/sfz_render.py
+      - tools/make-pads.py
+      - tools/make-pad-loops.py
+      - tools/vcsl-names.txt
+      - tools/make-irs.py
+      - tools/build-libraries.py
+      - tools/build-libraries.sh
+      - sounds-vsco.py
+      - .github/workflows/libraries.yml
+permissions:
+  contents: write
+concurrency:
+  group: libraries
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 300
+    env:
+      WORK: ${{ github.workspace }}/work
+      OUT: ${{ github.workspace }}/dist/libraries
+      LIBRARIES_BASE_URL: ${{ vars.R2_UPLOAD == 'on' && vars.R2_PUBLIC_URL || 'https://github.com/MotionAudio/central-apps/releases/download/libraries' }}
+      ONLY: ${{ github.event.inputs.only }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-numpy fluidsynth ffmpeg >/dev/null
+      - name: Cache the VCSL downloads and built sounds
+        uses: actions/cache@v4
+        with:
+          path: work/sounds
+          key: libraries-sounds-${{ hashFiles('tools/sounds-vcsl.py', 'tools/sounds-sfz.py', 'tools/sfz_render.py', 'tools/make-pads.py', 'sounds-vsco.py') }}
+      - name: Build the libraries
+        run: bash tools/build-libraries.sh "$OUT"
+      - name: Check every SoundFont plays (FluidSynth loads it)
+        run: |
+          for f in work/sounds/*.sf2; do
+            fluidsynth -ni -F /tmp/check.wav "$f" >out.txt 2>&1 || true   # (no MIDI file: it loads the bank and stops)
+            if grep -qiE "error|not a soundfont" out.txt; then echo "$f:"; cat out.txt; exit 1; fi
+          done
+      - name: Publish on the "libraries" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="Sound libraries for Central Keys, Central Instrument, Central Plugins, Central Pedals and Central Pads. Anyone can download them; they open with the plan's package key (Settings -> Packages in any app). libraries-index.json lists what's in each. Built from ${GITHUB_SHA::7}."
+          if gh release view libraries >/dev/null 2>&1; then
+            gh release edit libraries --prerelease --latest=false --title "Sound libraries" --notes "$NOTES"
+          else
+            gh release create libraries --prerelease --latest=false --title "Sound libraries" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi
+          # (one library rebuilt: the others' files stay; the index and SHA256SUMS list what was built this time plus what's there)
+          if [ -n "$ONLY" ]; then
+            gh release download libraries -p libraries-index.json -D old || true
+            python3 - "$OUT" old/libraries-index.json <<'PY'
+          import hashlib, json, os, sys
+          out, old = sys.argv[1], sys.argv[2]
+          new = json.load(open(os.path.join(out, "libraries-index.json")))
+          if os.path.isfile(old):
+              ids = {e["id"] for e in new["libraries"]}
+              new["libraries"] = [e for e in json.load(open(old)).get("libraries", []) if e["id"] not in ids] + new["libraries"]
+          json.dump(new, open(os.path.join(out, "libraries-index.json"), "w"), indent=1)
+          with open(os.path.join(out, "SHA256SUMS"), "w") as f:
+              for e in new["libraries"]:
+                  f.write("%s  %s\n" % (e["sha256"], e["file"]))
+              f.write("%s  libraries-index.json\n" % hashlib.sha256(open(os.path.join(out, "libraries-index.json"), "rb").read()).hexdigest())
+          PY
+          fi
+          gh release upload libraries "$OUT"/*.zip "$OUT/libraries-index.json" "$OUT/SHA256SUMS" --clobber
+          echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/libraries"
+          ls -l "$OUT"
+
+      # ---- Cloudflare R2 (OFF until set up - see the top of this file). Turn on with the repository variable R2_UPLOAD = on.
+      - name: Copy to Cloudflare R2 (disabled until R2_UPLOAD = on)
+        if: ${{ vars.R2_UPLOAD == 'on' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          [ -n "$R2_ACCOUNT_ID" ] && [ -n "$R2_BUCKET" ] || { echo "R2 secrets missing (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET)"; exit 1; }
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          for f in "$OUT"/*.zip; do
+            aws s3 cp "$f" "s3://${R2_BUCKET}/$(basename "$f")" --endpoint-url "$ENDPOINT" --content-type application/zip
+          done
+          aws s3 cp "$OUT/SHA256SUMS" "s3://${R2_BUCKET}/SHA256SUMS" --endpoint-url "$ENDPOINT" --content-type text/plain
+          # (the index last: the apps only see a new version once its zip is there)
+          aws s3 cp "$OUT/libraries-index.json" "s3://${R2_BUCKET}/libraries-index.json" --endpoint-url "$ENDPOINT" --content-type application/json --cache-control "max-age=300"

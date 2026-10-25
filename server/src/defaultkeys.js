@@ -2,7 +2,7 @@
 // them off on the staff page ("Default keys: on/off", saved in site_settings 'default_keys'); then the apps are told it
 // was a temporary key at their next check and ask for a real one. They aren't rows in the database: no church, any
 // number of devices, no end, updates always, no Central Tracks Unlimited. P, A and U work on /v1/license/...; S (all
-// four sound plans) on /v1/package/....
+// sound plans) on /v1/package/....
 import { one, q } from "./db.js";
 import { config, DEFAULT_KEYS } from "./config.js";
 import { isAdmin } from "./auth.js";

@@ -74,19 +74,25 @@
     if (r.tracksUnlimited !== undefined) st.tracksUnlimited = !!r.tracksUnlimited;
     tellUpdater(); plansChanged();
   }
-  // ---- packages: the sound plans (Central Keys, Central Plugins, Central Instrument, Central Pedals), yearly, each bought as a
-  // package key (SXXX-XXXX-XXXX-XXXX) added in Settings → Packages. A package names the plans it opens and each one's end date.
+  // ---- packages: the sound plans (Central Keys, Central Plugins, Central Instrument, Central Pedals, Central Pads), yearly,
+  // each bought as a package key (SXXX-XXXX-XXXX-XXXX) added in Settings → Packages. A package names the plans it opens and
+  // each one's end date. (9.8) Central Pads comes with every other plan: a package with any of the four opens the pads too.
+  // A key works on 3 of its holder's devices, each a different app (one Central Usage, one Central Control, one pedal...).
   // They're checked on the website when added, when the app opens online and every few hours; one keeps working offline for
   // 14 days after its last good check (never past its end date). The Central Pedal keeps them with its driver (packages.json),
   // so the app, Pedal Control and both small screens see the same ones; the computers keep their own.
   // With licensing off (no website set) every plan is open.
-  var PLAN_IDS = ["keys", "plugins", "instrument", "pedals"], PK_LS = "cc-packages", OFFLINE_DAYS = 14;
-  var PLAN_NAMES = { keys: "Central Keys", plugins: "Central Plugins", instrument: "Central Instrument", pedals: "Central Pedals" };
+  var PLAN_IDS = ["keys", "plugins", "instrument", "pedals", "pads"], PK_LS = "cc-packages", OFFLINE_DAYS = 14;
+  var PLAN_NAMES = { keys: "Central Keys", plugins: "Central Plugins", instrument: "Central Instrument", pedals: "Central Pedals", pads: "Central Pads" };
   var pk = { list: [], msg: "", busy: false };
   try { pk.list = JSON.parse(localStorage.getItem(PK_LS) || "[]") || []; } catch (_) { pk.list = []; }
   function onPedal() { return app === "pedal" || app === "pedal-control"; }   // (the packages belong to the Central Pedal)
   function pkDevice() { var b = window.__pedalBridge, id = onPedal() && b && b.info && b.info.deviceId; return id && /^[A-Za-z0-9-]{8,80}$/.test(id) ? id : deviceId(); }
-  function cleanPlans(p) { var out = {}; if (p && typeof p === "object") PLAN_IDS.forEach(function (id) { if (p[id]) out[id] = String(p[id]); }); return out; }
+  function cleanPlans(p) {
+    var out = {}; if (p && typeof p === "object") PLAN_IDS.forEach(function (id) { if (p[id]) out[id] = String(p[id]); });
+    if (!out.pads) { var last = ""; PLAN_IDS.forEach(function (id) { if (id !== "pads" && out[id] && (!last || pkTime(out[id]) > pkTime(last))) last = out[id]; }); if (last) out.pads = last; }   // (Central Pads comes with every plan)
+    return out;
+  }
   function pkTime(iso) { var t = new Date(iso).getTime(); return isNaN(t) ? Infinity : t; }
   function pkLive(p) { return !!(p && p.ok !== false && p.okAt && Date.now() - p.okAt < OFFLINE_DAYS * DAY); }
   function planActive(id) { return pk.list.some(function (p) { return pkLive(p) && p.plans && p.plans[id] && Date.now() < pkTime(p.plans[id]); }); }
@@ -114,7 +120,7 @@
     }
     pk.busy = true; pk.msg = ""; pkRedraw();
     try {
-      var r = await call("/package/activate", { key: pretty(c), deviceId: pkDevice(), app: app });
+      var r = await call("/package/activate", { key: pretty(c), deviceId: pkDevice(), app: app, licenseKey: st && st.key && !isDefault(st.key) ? st.key : undefined });   // (a package works on its holder's own devices)
       if (!r.ok) throw new Error(r.error || "That key didn't work.");
       var item = { key: r.key || pretty(c), plans: cleanPlans(r.plans), holder: r.holder || "", church: r.church || "", okAt: Date.now() };
       pk.list = pk.list.filter(function (p) { return p.key !== item.key; }).concat([item]);
@@ -148,7 +154,9 @@
     if (!pkLive(p)) return { text: "needs the internet to check (last checked " + (p.okAt ? new Date(p.okAt).toLocaleDateString() : "never") + ")", bad: true };
     return { text: "active · checked " + new Date(p.okAt).toLocaleDateString(), bad: false };
   }
-  function packagesHtml(cls) {
+  // Settings → Packages, with Libraries under it (js/libraries.js: the sound libraries of the plans you have)
+  function packagesHtml(cls) { return pkSectionHtml(cls) + (window.PPLibraries && window.PPLibraries.html ? window.PPLibraries.html(cls) : ""); }
+  function pkSectionHtml(cls) {
     var rows = pk.list.map(function (p) {
       var s = pkStatus(p), names = PLAN_IDS.filter(function (id) { return p.plans && p.plans[id]; }).map(function (id) { var t = pkTime(p.plans[id]); return esc(PLAN_NAMES[id]) + (t !== Infinity ? " until " + esc(new Date(t).toLocaleDateString()) : ""); });
       return '<li><b>' + (names.join(" · ") || "No plans") + (p.isDefault || p.key === DEFAULT_KEYS.S ? " · Default package (temporary)" : "") + '</b><br><span class="muted">' + esc(p.key.slice(0, 4) + "-••••-••••-" + p.key.slice(-4)) + (p.holder ? " · " + esc(p.holder) : "") + (p.church ? " · " + esc(p.church) : "") + ' · </span><span class="' + (s.bad ? "bad" : "ok") + '">' + esc(s.text) + '</span> <button class="link" data-pkg-remove="' + esc(p.key) + '"' + (pk.busy ? " disabled" : "") + ">Remove</button></li>";
@@ -158,9 +166,9 @@
       (pk.msg ? '<p class="small">' + esc(pk.msg) + "</p>" : "");
     return '<section class="' + (cls || "") + '" data-st="packages" id="pkgSettings"><h3>Packages</h3>' +
       (!on() ? '<p class="muted">Every sound, board and pedal is open until the Motion Audio website opens. For now the default package key, <b>' + DEFAULT_KEYS.S + "</b>, opens every plan.</p>"
-        : '<p class="muted">Sound plans: Central Keys (pianos, synths, pads), Central Plugins (EQ, compressors, reverb, delay), Central Instrument (basses, guitars, strings, brass, winds) and Central Pedals (drive, fuzz, wah, modulation, amps, cabs). Each is a yearly package with its own key. ' + (onPedal() ? "Packages here are kept by the Central Pedal, so its screens and Pedal Control see them too." : "") + "</p>") + form + "</section>";
+        : '<p class="muted">Sound plans: Central Keys (pianos, synths), Central Plugins (EQ, compressors, reverb, delay on tracks, pads, channels and the instrument), Central Instrument (basses, guitars, strings, brass, winds), Central Pedals (drive, fuzz, wah, modulation, amps, cabs) and Central Pads (pads in every key for the pad pedal - it comes with every other plan too). Each is a yearly package with its own key, for 3 of your devices - each a different app (say Central Usage, Central Control and a Central Pedal). ' + (onPedal() ? "Packages here are kept by the Central Pedal, so its screens and Pedal Control see them too." : "") + "</p>") + form + "</section>";
   }
-  function pkRedraw() { var el2 = document.getElementById("pkgSettings"); if (el2) { var keep = el2.querySelector("#pkgKey"), v = keep ? keep.value : ""; el2.outerHTML = packagesHtml(el2.className); var k2 = document.getElementById("pkgKey"); if (k2 && v && !pk.busy && !/^Added/.test(pk.msg)) k2.value = v; } }
+  function pkRedraw() { var el2 = document.getElementById("pkgSettings"); if (el2) { var keep = el2.querySelector("#pkgKey"), v = keep ? keep.value : ""; el2.outerHTML = pkSectionHtml(el2.className); var k2 = document.getElementById("pkgKey"); if (k2 && v && !pk.busy && !/^Added/.test(pk.msg)) k2.value = v; } }
   document.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("[data-pkg],[data-pkg-remove]"); if (!b) return;
     if (b.dataset.pkgRemove) { pkRelease(b.dataset.pkgRemove); return; }

@@ -26,7 +26,20 @@ exec >>"$LOG" 2>&1
 echo "=== session start $(date)"
 
 xset -dpms; xset s off; xset s noblank
-unclutter -idle 1 -root >/dev/null 2>&1 &
+# the pointer: hidden for the touch screens, shown whenever a real mouse is plugged in (Settings → Screens → Mouse cursor)
+mouse_plugged() {   # a device with relative axes and a mouse handler (a touch screen has absolute axes only)
+  awk 'BEGIN { RS = ""; f = 1 } /H: Handlers=[^\n]*mouse/ && /B: REL=[0-9a-f]*[1-9a-f]/ { f = 0 } END { exit f }' /proc/bus/input/devices 2>/dev/null
+}
+UNCLUTTER_PID=""
+pointer_watch() {
+  local want=hide
+  case "${CURSOR:-auto}" in always) want=show ;; never) want=hide ;; *) mouse_plugged && want=show ;; esac
+  if [ "$want" = hide ]; then
+    { [ -n "$UNCLUTTER_PID" ] && kill -0 "$UNCLUTTER_PID" 2>/dev/null; } || { unclutter -idle 1 -root >/dev/null 2>&1 & UNCLUTTER_PID=$!; }
+  elif [ -n "$UNCLUTTER_PID" ]; then
+    kill "$UNCLUTTER_PID" 2>/dev/null; UNCLUTTER_PID=""
+  fi
+}
 xsetroot -solid '#08111d' 2>/dev/null
 
 # ---- audio: 4-channel output (music 1-2 on the jack / USB, click 3-4 on the I2S DAC)
@@ -80,11 +93,13 @@ hdmi_sig() {
 any_hdmi() { grep -qx connected "$DRM"/card*-HDMI-A-*/status 2>/dev/null; }
 have_hdmi_ports() { ls "$DRM"/card*-HDMI-A-*/status >/dev/null 2>&1; }
 
-# A computer monitor can take several seconds to wake up and say what it is. Starting before that
-# gives a 1024x768 guess - a blurry picture that doesn't fill the screen. So wait for it (up to 20 s).
+# A computer monitor can take a few seconds to wake up and say what it is. Starting before that gives a 1024x768
+# guess, so wait for it a little - not long: a monitor that answers later is picked up by the screen watch below and
+# the layout is redone. With the small GPIO screen (it doesn't need X) HDMI is optional, so hardly wait at all.
+HDMI_WAIT=16; [ "$TOUCHKIND" = spi ] && HDMI_WAIT=4   # (half-seconds)
 if [ "$TOUCHKIND" != dsi ] && have_hdmi_ports && ! any_hdmi; then
   echo "waiting for a screen on HDMI…"
-  for _ in $(seq 1 40); do any_hdmi && break; sleep 0.5; done
+  for _ in $(seq 1 "$HDMI_WAIT"); do any_hdmi && break; sleep 0.5; done
   any_hdmi || echo "no screen yet - starting anyway; the layout is redone as soon as one is plugged in"
 fi
 
@@ -260,9 +275,10 @@ start_engine() {
 
 layout
 [ -z "$AUDIO_PID" ] || wait "$AUDIO_PID"
+pointer_watch
 start_engine
 start_window 1
-if [ -n "$SEC" ]; then sleep 2; start_window 2; fi
+if [ -n "$SEC" ]; then sleep 0.5; start_window 2; fi
 # Chromium sometimes keeps its window a pixel short of the screen: once it is up, put it exactly in place
 ( sleep 6; place_window 1; [ -n "$SEC" ] && place_window 2 ) &
 
@@ -271,6 +287,7 @@ LAST_HDMI="$(hdmi_sig)"; LAST_CFG="$(md5sum < "$DATA/displays.json" 2>/dev/null)
 CONTENT="$HDMI1|$HDMI2|$SCALE|$CURSOR|$TOUCHKIND"
 while kill -0 "$PID1" 2>/dev/null; do
   sleep "${CC_WATCH_EVERY:-2}"
+  pointer_watch
   NOW_HDMI="$(hdmi_sig)"; NOW_CFG="$(md5sum < "$DATA/displays.json" 2>/dev/null)"
   [ "$NOW_HDMI" = "$LAST_HDMI" ] && [ "$NOW_CFG" = "$LAST_CFG" ] && continue
   if [ "$NOW_CFG" != "$LAST_CFG" ]; then
