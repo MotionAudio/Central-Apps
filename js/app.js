@@ -461,7 +461,7 @@
     Voice.prototype.osc=function(type,freq){var o=this.ctx.createOscillator();o.type=type;o.frequency.value=freq;this.oscillators.push(o);return o;};
     Voice.prototype.build=function(){
       var c=this.ctx,self=this;function G(v){var g=c.createGain();g.gain.value=v==null?1:v;return g;}function F(type,f){var b=c.createBiquadFilter();b.type=type;if(f)b.frequency.value=f;return b;}
-      this.input=G(.0001);this.toneFilter=F("lowpass",5000);this.input.connect(this.toneFilter);
+      this.input=G(.0001);this.gateGain=G(1);this.toneFilter=F("lowpass",5000);this.input.connect(this.gateGain).connect(this.toneFilter);
       // EQ: 6 bands x up to 4 stages (for 24-48 dB/oct high/low pass)
       var last=this.toneFilter;this.eqFilters=[];for(var band=0;band<6;band++){var stack=[];for(var n=0;n<4;n++){var filter=F("peaking",1000);filter.gain.value=0;last.connect(filter);last=filter;stack.push(filter);}this.eqFilters.push(stack);}
       this.eqOut=last;this.compMeter=c.createAnalyser();this.compMeter.fftSize=1024;last.connect(this.compMeter);
@@ -516,8 +516,8 @@
     };
     Voice.prototype.identity=function(filter){filter.type="peaking";this.param(filter.gain,0);this.param(filter.frequency,1000);this.param(filter.Q,.707);};
     Voice.prototype.apply=function(pad){
-      this.pad=pad;var now=this.ctx.currentTime,fx=pad.effects,self=this,profile=profileFor(pad.voice),isSynth=!this.buffer&&!this.liveSource,P=function(param,v){self.param(param,v,now);};
-      P(this.toneFilter.frequency,isSynth?profile.tone:20000);P(this.levelGain.gain,clamp(pad.level,0,100)/100);
+      this.pad=pad;var now=this.ctx.currentTime,fx=window.PPFx&&window.PPFx.padEffects?window.PPFx.padEffects(pad):pad.effects,self=this,profile=profileFor(pad.voice),isSynth=!this.buffer&&!this.liveSource,P=function(param,v){self.param(param,v,now);};
+      P(this.toneFilter.frequency,isSynth?profile.tone:20000);P(this.levelGain.gain,clamp(pad.level,0,100)/100);if(window.PPFx&&window.PPFx.padGate)window.PPFx.padGate(this,fx.gate);
       P(this.motionAmt.gain,isSynth?(profile.motion||0)*900:0);
       var sw=pad.swell||{};P(this.breath.frequency,clamp(sw.rate||.08,.02,1));P(this.breathAmp.gain,clamp(sw.breathe||0,0,100)/100*.22);P(this.breathTone.gain,clamp(sw.breathe||0,0,100)/100*500);
       var oct=pad.octaves||{};P(this.layerSub.gain,clamp(oct.sub||0,0,100)/100*(isSynth?.55:.7));P(this.layerUp.gain,clamp(oct.up||0,0,100)/100*(isSynth?.3:.5));
