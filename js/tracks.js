@@ -1053,7 +1053,7 @@
       var st = I.state();
       ins = { kind: st.kind, kinds: I.kinds().map(function (k) { return [k[0], k[1]]; }), board: I.boardName(), patch: st.patch ? st.patch.name : "", tuner: !!st.tuner, levelDb: st.levelDb,
         pedals: I.pedalNames().slice(0, 18), knobs: I.miniKnobs ? I.miniKnobs() : [], playAny: I.playAnyOn ? I.playAnyOn() : false };
-      if (I.lockInfo) { var lk = I.lockInfo(); ins.boardLocked = lk.board || null; ins.patchLocked = lk.patch || null; }   // ("Part of Central Pedals · $50 a year" when a plan ended)
+      if (I.lockInfo) { var lk = I.lockInfo(); ins.boardLocked = lk.board || null; ins.patchLocked = lk.patch || null; }   // ("Part of Central Pedals · $70 a year" when a plan ended)
     }
     return { stems: t ? t.stems.map(function (q, i) { return { i: i, name: q.name, gain: Math.round((q.gain == null ? 1 : q.gain) * 1000) / 1000, pan: Math.round((Number(q.pan) || 0) * 100) / 100, mute: !!q.mute, role: q.role }; }) : [],
       levels: { tracks: Math.round(levels.tracks * 1000) / 1000, click: Math.round(levels.click * 1000) / 1000 }, volume: p.performance ? p.performance.volume : 1,

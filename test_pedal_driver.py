@@ -1282,6 +1282,10 @@ async def main():
                 return b.getvalue()
             status, body = http("http://127.0.0.1:18766/libraries")
             check("GET /libraries: available, nothing installed yet", status == 200 and json.loads(body).get("available") and json.loads(body).get("installed") == [], body[:200])
+            status, body = http("http://127.0.0.1:18766/libraries/pads")
+            check("GET /libraries/pads: the Central Pads styles installed here (none yet)", status == 200 and json.loads(body) == {"pads": []}, body[:200])
+            status, body = http("http://127.0.0.1:18766/libraries/pad?lib=central-pads-library&style=Warm&key=C")
+            check("GET /libraries/pad: a loop that isn't installed is a 404", status == 404, body[:200])
             z1 = libzip("1.0")
             status, body = http("http://127.0.0.1:18766/libraries/file?name=central-keys-library-1.0.zip&sha256=" + "0" * 64, data=z1, method="PUT")
             check("Install from a file: a zip that doesn't match the website's checksum is refused", status == 400 and "checksum" in json.loads(body).get("error", ""), body[:200])
@@ -1292,7 +1296,7 @@ async def main():
             status, body = http("http://127.0.0.1:18766/libraries/file?name=central-keys-library-1.0.zip&sha256=" + hashlib.sha256(z1).hexdigest(), data=z1, method="PUT")
             got = json.loads(body) if status == 200 else {}
             sf2_dir = os.path.join(root, "data", "sounds", "sf2")
-            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0}
+            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0, "pad": 0}
                   and os.path.exists(os.path.join(sf2_dir, "Test Keys - central-keys-library.sf2")), body[:300])
             tiers = open(os.path.join(sf2_dir, "tiers.txt")).read() if os.path.exists(os.path.join(sf2_dir, "tiers.txt")) else ""
             check("...each keeping the library's plan (tiers.txt)", "Test Keys|keys|CC0 1.0|central-keys-library" in tiers, tiers)

@@ -673,7 +673,7 @@ def read_json(path, default):
         return default
 
 
-PLAN_NAMES = {"keys": "Central Keys", "plugins": "Central Plugins", "instrument": "Central Instrument", "pedals": "Central Pedals"}
+PLAN_NAMES = {"keys": "Central Keys", "plugins": "Central Plugins", "instrument": "Central Instrument", "pedals": "Central Pedals", "pads": "Central Pads"}
 
 
 def clean_packages(items):
@@ -707,7 +707,7 @@ def package_lines(items, now=None):
                 ends.append(datetime.datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp())
             except Exception:
                 pass
-        names = ", ".join(PLAN_NAMES[k] for k in ("keys", "plugins", "instrument", "pedals") if k in plans) or "no plans"
+        names = ", ".join(PLAN_NAMES[k] for k in ("keys", "plugins", "instrument", "pedals", "pads") if k in plans) or "no plans"
         stale = p.get("okAt") and now - p["okAt"] / 1000.0 > 14 * 86400
         if p.get("ok") is False:
             state = p.get("error") or "not valid"
@@ -1422,6 +1422,14 @@ class LocalServer:
                     return self.send_json(200, driver.system_status())
                 if p == "/libraries":   # the sound libraries installed here, and any being installed
                     return self.send_json(200, library_state(driver))
+                if p == "/libraries/pads":   # Central Pads: the pad styles installed here (the pad pedal's voice list)
+                    st = library_store(driver)
+                    return self.send_json(200, {"pads": st.pads() if st else []})
+                if p == "/libraries/pad":   # one pad style's loop in one key: ?lib=<library id>&style=<name>&key=C#
+                    st = library_store(driver)
+                    qs = urllib.parse.parse_qs(url.query)
+                    f = st.pad_file((qs.get("lib") or [""])[0], (qs.get("style") or [""])[0], (qs.get("key") or [""])[0]) if st else None
+                    return self.send_file(f, "audio/wav", cache=True) if f else self.send_json(404, {"error": "no such pad"})
                 if p == "/library":
                     return self.send_json(200, {"songs": driver.library.listing(), "root": driver.library.root})
                 if p.startswith("/pco/") and driver.pco:
@@ -3079,7 +3087,7 @@ class MiniScreen:
         self.tab, self.sub, self.pages, self.override = "pads", {}, {}, {}
         self.active, self.drag_at, self.confirm, self.confirm_at = None, 0.0, None, 0.0
         self.pick_screen, self.touch_msg = None, ""
-        self.notice, self.notice_at = "", 0.0   # (a line along the bottom for a few seconds: "Part of Central Pedals · $50 a year…")
+        self.notice, self.notice_at = "", 0.0   # (a line along the bottom for a few seconds: "Part of Central Pedals · $70 a year…")
         self.overlay = None    # a list to pick from (boards, sounds, what a button does) or the keyboard, over the page
         self.lists = {}        # what the app sent for those lists: {what: {"items": [...], ...}}
         self.wifi, self.wifi_at, self.wifi_busy, self.wifi_msg = None, 0.0, False, ""

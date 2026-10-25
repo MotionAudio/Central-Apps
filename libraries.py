@@ -1,5 +1,5 @@
 """Central Pedal - installs the sound libraries (9.8): one zip per sound plan (Central Keys, Central Instrument,
-Central Plugins, Central Pedals) from the website's list (/v1/libraries -> a download) or from a file.
+Central Plugins, Central Pedals, Central Pads) from the website's list (/v1/libraries -> a download) or from a file.
 
 Anyone can download a library; what it holds only opens with its plan. So every item keeps its library's plan:
   * sounds (.sf2) go into the keys sounds (the instrument host's own folder - the Pi's FluidSynth or the computers'
@@ -7,7 +7,9 @@ Anyone can download a library; what it holds only opens with its plan. So every 
     read: the app shows the sound locked without the plan;
   * impulse responses (.wav) go into the IR folder, with the same kind of tiers.txt line;
   * presets and boards are handed to the app (PPInstrument.addBoard), which keeps the library's plan on them;
-  * clicks are kept in <data>/libraries/<id>/clicks.
+  * clicks are kept in <data>/libraries/<id>/clicks;
+  * pads (Central Pads: one loop per style and key) are kept in <data>/libraries/<id>/pads/<style>/<key>.wav - the pad
+    pedal lists them (/libraries/pads) and plays the file of the song's key (/libraries/pad?...).
 A download is checked against the sha256 the list gives before anything is unpacked (a mismatch is refused), and every
 item against the sha256 in the library's manifest.json. Installing a newer version replaces the older one; Remove takes
 everything a library added away again. What's installed is kept in <data>/libraries/<id>.json."""
@@ -25,8 +27,9 @@ import zipfile
 
 log = logging.getLogger("pedal-driver.libraries")
 
-PLANS = ("keys", "instrument", "plugins", "pedals")
-KINDS = ("sound", "board", "preset", "ir", "click")
+PLANS = ("keys", "instrument", "plugins", "pedals", "pads")
+KINDS = ("sound", "board", "preset", "ir", "click", "pad")
+PAD_KEYS = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 MAX_DOWNLOAD = 2 * 1024 ** 3        # a library zip
 MAX_ITEM = 700 * 1024 * 1024        # one file inside it
 MAX_TOTAL = 2 * 1024 ** 3           # everything inside it, unpacked
@@ -128,6 +131,30 @@ class LibraryStore:
     def listing(self):
         """What the app's Libraries panel shows: each installed library with its boards and presets (to add as boards)."""
         return [{k: r.get(k) for k in ("id", "plan", "version", "title", "summary", "installedAt", "counts", "boards", "presets", "source")} for r in self.installed()]
+
+    def pads(self):
+        """The installed pad styles (Central Pads): [{"id": "<library>/<style>", "name", "library", "tier", "keys": [..]}]."""
+        out = []
+        for r in self.installed():
+            styles = {}
+            for pd in r.get("pads") or []:
+                st = styles.setdefault(pd["name"], {"id": "%s/%s" % (r["id"], pd["name"]), "name": pd["name"], "library": r["id"], "tier": r.get("plan"), "keys": []})
+                if os.path.isfile(pd.get("file") or ""):
+                    st["keys"].append(pd["key"])
+            out.extend(s for s in styles.values() if s["keys"])
+        return out
+
+    def pad_file(self, lib_id, style, key):
+        """The loop of one pad style in one key - only a file this library installed - or None."""
+        if not ID_RE.match(str(lib_id or "")) or key not in PAD_KEYS:
+            return None
+        rec = self.record(lib_id) or {}
+        base = os.path.realpath(os.path.join(self.root, lib_id, "pads"))
+        for pd in rec.get("pads") or []:
+            if pd.get("name") == style and pd.get("key") == key:
+                real = os.path.realpath(pd.get("file") or "")
+                return real if real.startswith(base + os.sep) and os.path.isfile(real) else None
+        return None
 
     # ----- install -------------------------------------------------------------------
     def download(self, url, sha256, lib_id="library", size_hint=0):
@@ -245,7 +272,7 @@ class LibraryStore:
         if old:
             self.remove(lib_id, keep_record=True)
         rec = {"id": lib_id, "plan": tier, "version": str(man["version"]), "title": str(man.get("title") or lib_id)[:80], "summary": str(man.get("summary") or "")[:400],
-               "installedAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "source": source if source == "file" else "website", "sounds": [], "irs": [], "clicks": [],
+               "installedAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "source": source if source == "file" else "website", "sounds": [], "irs": [], "clicks": [], "pads": [],
                "boards": [], "presets": [], "tier": tier}
         sound_lines, ir_lines = [], []
         sounds, irs = [], []
@@ -288,6 +315,17 @@ class LibraryStore:
                 with open(p, "wb") as handle:
                     handle.write(data)
                 rec["clicks"].append({"name": str(it.get("name") or "")[:60], "file": p, "tier": tier})
+            elif kind == "pad":
+                key = str(it.get("key") or "")
+                if key not in PAD_KEYS or not data[:4] == b"RIFF":
+                    raise LibraryError("a pad in that library isn't a key's WAV loop")
+                style = str(it.get("name") or "Pad")[:60]
+                folder = os.path.join(self.root, lib_id, "pads", safe_name(style.replace(" ", "-"), "pad"))
+                os.makedirs(folder, exist_ok=True)
+                p = os.path.join(folder, key.replace("#", "s") + ".wav")
+                with open(p, "wb") as handle:
+                    handle.write(data)
+                rec["pads"].append({"name": style, "key": key, "file": p, "tier": tier})
         # the plan lines first (a host that looks at the folder as a sound arrives already sees it locked), then the files
         if sounds:
             tiers_lines_set(inst.sf2_user_dir, lib_id, sound_lines)
@@ -303,7 +341,8 @@ class LibraryStore:
             self._write_record(rec_partial)
             self.remove(lib_id)
             raise LibraryError("couldn't add the library's files (%s)" % error)
-        rec["counts"] = {"sound": len(rec["sounds"]), "ir": len(rec["irs"]), "board": len(rec["boards"]), "preset": len(rec["presets"]), "click": len(rec["clicks"])}
+        rec["counts"] = {"sound": len(rec["sounds"]), "ir": len(rec["irs"]), "board": len(rec["boards"]), "preset": len(rec["presets"]), "click": len(rec["clicks"]),
+                         "pad": len({x["name"] for x in rec["pads"]})}
         self._write_record(rec)
         log.info("library %s %s installed (%s)", lib_id, rec["version"], rec["counts"])
         return rec

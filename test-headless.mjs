@@ -581,7 +581,7 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     const r = await R(() => ({ keys: PPLicense.hasPlan("keys"), inst: PPLicense.hasPlan("instrument"), plugins: PPLicense.hasPlan("plugins"), plans: Object.keys(PPLicense.plans()).sort(), saved: window.__sent.filter((m) => m.type === "packages" && m.action === "save").pop(), text: document.getElementById("pkgSettings").textContent, events: window.__plansEvents }));
     assert.ok(/starts with S/.test(bad) && nCalls === 0, bad);
     assert.deepEqual(act, { key: "SABC-DEFG-HJKL-MNPQ", deviceId: "pedal-0123456789ab", app: "pedal" });
-    assert.ok(r.keys && r.inst && !r.plugins, JSON.stringify(r)); assert.deepEqual(r.plans, ["instrument", "keys"]);
+    assert.ok(r.keys && r.inst && !r.plugins, JSON.stringify(r)); assert.deepEqual(r.plans, ["instrument", "keys", "pads"]);   // (9.8: Central Pads comes with every plan)
     assert.ok(r.saved && r.saved.packages.length === 1 && r.saved.packages[0].key === "SABC-DEFG-HJKL-MNPQ", JSON.stringify(r.saved));
     assert.ok(/Central Keys until/.test(r.text) && /active/.test(r.text) && r.events >= 1, r.text);
   });
@@ -614,7 +614,7 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     await p4.fill("#pkgKey", "SDEF-AULT-KEY0-2026"); await p4.click('[data-pkg="add"]'); await wait(200);
     const r = await p4.evaluate(() => ({ list: PPLicense.packages(), text: document.getElementById("pkgSettings").textContent, saved: window.__sent.filter((m) => m.type === "packages").pop() }));
     assert.equal(wiz, null); assert.equal(open, true); assert.match(refused, /website isn't open\. Use the default key for now/);
-    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pedals", "plugins"]); assert.match(r.text, /Default package \(temporary\)/);
+    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pads", "pedals", "plugins"]); assert.match(r.text, /Default package \(temporary\)/);
     assert.ok(r.saved && r.saved.packages[0].key === "SDEF-AULT-KEY0-2026", "kept with the pedal's driver");
     await p4.close(); fs.rmSync(tmp4, { force: true });
   });

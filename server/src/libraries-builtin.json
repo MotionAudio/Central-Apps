@@ -109,14 +109,16 @@
      "Church Bells"
     ],
     "boards": [],
-    "irs": []
+    "irs": [],
+    "pads": []
    },
    "counts": {
     "sound": 5,
     "board": 0,
     "preset": 25,
     "ir": 0,
-    "click": 0
+    "click": 0,
+    "pad": 0
    },
    "credits": [
     "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
@@ -281,14 +283,16 @@
      "Balafon & Mbira"
     ],
     "boards": [],
-    "irs": []
+    "irs": [],
+    "pads": []
    },
    "counts": {
     "sound": 7,
     "board": 0,
     "preset": 30,
     "ir": 0,
-    "click": 0
+    "click": 0,
+    "pad": 0
    },
    "credits": [
     "Black And Green Guitars, Emily Guitar, Meatbass, Growlybass, Big Little Bass by Karoryfer Samples - CC0 1.0",
@@ -430,14 +434,16 @@
      "Plugins: Acoustic Ducked Delay",
      "Plugins: Bass Glue"
     ],
-    "irs": []
+    "irs": [],
+    "pads": []
    },
    "counts": {
     "sound": 1,
     "board": 18,
     "preset": 2,
     "ir": 0,
-    "click": 0
+    "click": 0,
+    "pad": 0
    },
    "credits": [
     "Motion Audio (synthesised); cymbals, gong and bass drum from VCSL by Versilian Studios (CC0 1.0)"
@@ -525,14 +531,16 @@
      "Central 1x10 Small Combo Room",
      "Central 2x10 Tweed Edge",
      "Central 2x10 Tweed Room"
-    ]
+    ],
+    "pads": []
    },
    "counts": {
     "sound": 0,
     "board": 22,
     "preset": 0,
     "ir": 28,
-    "click": 0
+    "click": 0,
+    "pad": 0
    },
    "credits": [
     "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
@@ -705,6 +713,124 @@
      "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
      "license": "Motion Audio - sold with Central Pedals",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    }
+   ]
+  },
+  {
+   "id": "central-pads-library",
+   "plan": "pads",
+   "planName": "Central Pads",
+   "title": "Central Pads Library",
+   "version": "1.0",
+   "summary": "12 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, shimmer, strings, glass, swell, worship, ambient drone, deep and heaven. Each is a seamless stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too.",
+   "file": "central-pads-library-1.0.zip",
+   "size": 110000000,
+   "approximate": true,
+   "sha256": null,
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pads-library-1.0.zip",
+   "contents": {
+    "sounds": [],
+    "presets": [],
+    "boards": [],
+    "irs": [],
+    "pads": [
+     "Warm",
+     "Air",
+     "Choir Aah",
+     "Choir Ooh",
+     "Shimmer",
+     "Strings",
+     "Glass",
+     "Swell",
+     "Worship",
+     "Ambient Drone",
+     "Deep",
+     "Heaven"
+    ]
+   },
+   "counts": {
+    "sound": 0,
+    "board": 0,
+    "preset": 0,
+    "ir": 0,
+    "click": 0,
+    "pad": 12
+   },
+   "credits": [
+    "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)"
+   ],
+   "sources": [
+    {
+     "item": "Warm",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Air",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Choir Aah",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Choir Ooh",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Shimmer",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Strings",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Glass",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Swell",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Worship",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Ambient Drone",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Deep",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Heaven",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
     }
    ]
   }

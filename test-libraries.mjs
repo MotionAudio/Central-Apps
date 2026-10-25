@@ -140,10 +140,10 @@ try {
   const p3 = await browser.newPage();
   await p3.goto(settingsPage("offline", `window.PP_LICENSE_CONFIG = { server: "", required: true }; window.CU = { libraries: { list: function () { return Promise.resolve({ installed: [] }); } } };`));
   await p3.evaluate(() => { PPLicense.init({ app: "control" }); document.getElementById("set").innerHTML = PPLicense.packagesHtml(); });
-  await p3.waitForFunction(() => document.querySelectorAll("#libSettings li[data-lib]").length === 4, null, { timeout: 5000 });
-  await check("the built-in list: the four libraries, not installable from the list (Install from a file…)", async () => {
+  await p3.waitForFunction(() => document.querySelectorAll("#libSettings li[data-lib]").length === 5, null, { timeout: 5000 });
+  await check("the built-in list: the five libraries (Central Pads too), not installable from the list (Install from a file…)", async () => {
     const r = await p3.evaluate(() => ({ dis: [...document.querySelectorAll("[data-lib-install]")].every((b) => b.disabled), n: document.querySelectorAll("[data-lib-install]").length, text: document.getElementById("libSettings").textContent, file: !!document.querySelector("[data-lib-file]") }));
-    assert.ok(r.n === 4 && r.dis && r.file && /Not published yet/.test(r.text) && /Install from a file/.test(r.text), r.text);
+    assert.ok(r.n === 5 && /Central Pads Library/.test(r.text) && r.dis && r.file && /Not published yet/.test(r.text) && /Install from a file/.test(r.text), r.text);
   });
 
   // ------------------------------------------------------------- the Instrument page

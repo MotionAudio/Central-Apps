@@ -2,13 +2,15 @@
 
 One library per sound plan, each a versioned zip with a `manifest.json`, `CREDITS.txt` and `sounds/CREDITS.txt` (every
 source of every sound and IR: what it is, its license, its URL). Anyone can download them (the website's Downloads page,
-or Settings → Packages → Libraries in any app); what's inside only opens with the plan's package key.
+or Settings → Packages → Libraries in any app); what's inside only opens with the plan's package key. Central Pads comes
+with every other plan, so its library opens with any package key.
 
 | Library | Plan | Sound banks (presets) | Sources and licenses | Size (est.) |
 |---|---|---|---|---|
 | Central Keys Library 1.0 | Central Keys | **Grand Pianos** (Concert Grand - Steinway B, Studio Grand - Kawai, Soft Grand, Grand & FM, FM Piano 2), **Pianos** (Upright, Soft Upright, FM Piano, FM & Upright, Clavisynth, Harpsichord), **Organs** (Pipe Organ with pedals, manual only, Quiet, Swell, Positive), **Mallets** (Vibraphone soft / hard, Marimba, Xylophone, Glockenspiel, Tubular Bells, Church Bells, Hand Chimes, Chime Pad, Vibes & Chimes), **Pads** (Warm, Air, Choir Aah, Choir Ooh, Shimmer, String, Glass, Swell, Worship) + 25 presets | VCSL (CC0 1.0); pads made by us | about 420 MB |
 | Central Instrument Library 1.0 | Central Instrument | **Drum Kits** (Studio, Rusty Rock, Unruly, Brushes), **Guitars and Basses** (Gretsch hollowbody, Hofner archtop, clean electric, upright bass plucked / bowed, jazz bass, hollowbody bass), **Saxophones** (alto, baritone, sax section), **Harps**, **Winds** (recorders, harmonicas, tenor sax, saxello, ocarina), **World** (dan tranh, psaltery bowed / plucked, balafon, mbira, kalimba), **Percussion** (hand and orchestral kits) + 30 presets | VCSL (CC0); Virtuosity Drums, Karoryfer Big Rusty Drums, Unruly Drums, Black And Green Guitars, Emily Guitar, Meatbass, Growlybass, Big Little Bass, Weresax, Bear Sax (all CC0 1.0, sfzinstruments on GitHub) | about 520 MB |
 | Central Plugins Library 1.0 | Central Plugins | **Textures** (Ambient Drone; Transitions: risers, downlifter, sub drop, cymbal swells, reverse cymbal / crash / gong, impact, wind, shimmer hit) + 2 presets and 18 boards | made by us; cymbals, gong, bass drum from VCSL (CC0) | about 12 MB |
+| Central Pads Library 1.0 | Central Pads (and every other plan) | 12 pads for the pad pedal - Warm, Air, Choir Aah, Choir Ooh, Shimmer, Strings, Glass, Swell, Worship, Ambient Drone, Deep, Heaven - each a seamless 6-second stereo loop of the key's chord (root, fifth, octave) in all 12 keys (`pads/<style>/<key>.wav`, C# as `Cs`); the pad pedal plays the song's key as it is, no pitch shifting | made by us (`tools/make-pads.py`, synthesised, no recording) | about 110 MB |
 | Central Pedals Library 1.0 | Central Pedals | 28 impulse responses for the IR loader (7 guitar cabinets × centre / edge / room mic, 3 bass cabinets, 4 acoustic bodies) + 22 boards that use them | made by us (`tools/make-irs.py`, no recording) | under 1 MB |
 
 Every source was checked on its own page:
@@ -63,6 +65,9 @@ at the top of `.github/workflows/libraries.yml`.
 
 - The Central Pedal: its driver (`libraries.py`): `GET /libraries`, `POST /libraries/install` (url, sha256, size from
   the website's list), `PUT /libraries/file` (Install from a file…), `POST /libraries/remove` - local app only.
+  Central Pads: `GET /libraries/pads` (the installed styles and their keys - the pad pedal's voice list, "Central Pads")
+  and `GET /libraries/pad?lib=&style=&key=` (one loop, a WAV). A pad set to a Central Pads voice plays the loop of the
+  song's key; without a plan it plays the free Warm Pad voice instead.
 - Computers (Central Control / Central Usage): `central-usage/libraries.js` in the app, into the built-in rig's folders.
 - Both check the download's sha256 before unpacking, every file's sha256 from the manifest, and write each sound's and
   IR's plan to its folder's `tiers.txt` (any plan - Central Plugins has a sound bank too); the app keeps the plan on the

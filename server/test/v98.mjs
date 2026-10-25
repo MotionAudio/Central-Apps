@@ -1,6 +1,6 @@
 // 9.8: the sound libraries on the website - GET /v1/libraries (no sign-in) from the published libraries-index.json at
 // LIBRARIES_BASE_URL, or the built-in list when it isn't there (ready: false, no sha256), and the Downloads page's
-// "Sound libraries" section (what's in each, its size, Download, "Needs Central Keys ($50 a year)...", and for someone
+// "Sound libraries" section (what's in each, its size, Download, "Needs Central Keys ($70 a year)...", and for someone
 // signed in which ones their plans open). Makes its own database and drops it at the end.
 //   node test/v98.mjs postgres://postgres@127.0.0.1:55432/postgres [port]      (the page part needs Playwright)
 import { spawn } from "node:child_process";
@@ -62,20 +62,20 @@ try {
   ok(r._status === 200 && r.source === "index" && r.libraries.length === 4, "from the published libraries-index.json: the four libraries (entries that aren't one are left out)", r.libraries && r.libraries.map((x) => x.id));
   ok(k && k.plan === "keys" && k.title === "Central Keys Library" && k.version === "1.0" && k.size === 151234567 && k.sha256 === sha("a") && k.url === "https://cdn.example.test/central-keys-library-1.0.zip" && k.ready === true,
     "each with id, plan, title, version, size, sha256, url", k);
-  ok(k && k.contents.sounds[0].presets.join() === "Upright Piano,FM Piano" && k.contents.presets[0] === "Upright Ballad" && k.planName === "Central Keys" && k.planCents === 5000, "and what's inside, with its plan's name and price ($50)", k && k.contents);
+  ok(k && k.contents.sounds[0].presets.join() === "Upright Piano,FM Piano" && k.contents.presets[0] === "Upright Ballad" && k.planName === "Central Keys" && k.planCents === 7000, "and what's inside, with its plan's name and price ($70)", k && k.contents);
   const ins = r.libraries.find((x) => x.id === "central-instrument-library");
   ok(ins && ins.url === CDN + "/central-instrument-library-1.0.zip", "a download address that isn't https is replaced by LIBRARIES_BASE_URL + its file", ins && ins.url);
-  ok(r.plans && r.plans.pedals.cents === 5000 && r.plans.plugins.cents === 12000 && /max-age/.test(r._cache || ""), "the plans' prices come along; the answer can be cached a little", r.plans);
+  ok(r.plans && r.plans.pedals.cents === 7000 && r.plans.plugins.cents === 14000 && r.plans.pads.cents === 4000 && /max-age/.test(r._cache || ""), "the plans' prices come along; the answer can be cached a little", r.plans);
   const hits = indexHits; await get(port, "/libraries"); await get(port, "/libraries");
   ok(indexHits === hits, "the index is read again only every few minutes (cached)", { before: hits, after: indexHits });
   const b = await get(port + 1, "/libraries");
   const bk = b.libraries && b.libraries.find((x) => x.id === "central-keys-library");
-  ok(b.source === "built-in" && b.libraries.length === 4 && bk && bk.ready === false && bk.sha256 === null && bk.approximate === true && bk.url === "http://127.0.0.1:1/nothing-here/central-keys-library-1.0.zip",
+  ok(b.source === "built-in" && b.libraries.length === 5 && b.libraries.some((l) => l.id === "central-pads-library" && l.plan === "pads" && l.contents.pads.length === 12) && bk && bk.ready === false && bk.sha256 === null && bk.approximate === true && bk.url === "http://127.0.0.1:1/nothing-here/central-keys-library-1.0.zip",
     "no index (not published yet, or unreachable): the built-in list - not ready, no sha256, an estimated size, at LIBRARIES_BASE_URL", bk);
   ok(bk && bk.contents.sounds.length >= 3 && bk.contents.sounds[0].presets.includes("Upright Piano") && b.libraries.find((x) => x.id === "central-pedals-library").contents.irs.length >= 14,
     "the built-in list still says what's in each (sounds with their presets, boards, IRs)", bk && bk.contents);
   const plans = (await get(port, "/config")).plans || {};
-  ok(plans.keys && plans.keys.cents === 5000 && plans.instrument.cents === 8000, "the plans and prices are unchanged", plans);
+  ok(plans.keys && plans.keys.cents === 7000 && plans.instrument.cents === 10000 && plans.pads.cents === 4000, "the plans and prices are unchanged", plans);
 
   // ---- the Downloads page
   let pw; try { pw = createRequire(import.meta.url)("playwright"); } catch (_) { pw = null; }
@@ -91,7 +91,7 @@ try {
     const ck = cards.find((c) => c.id === "central-keys-library") || {};
     ok(cards.length === 4, "a Sound libraries section with the four libraries", cards.map((c) => c.id));
     ok(/Version 1\.0 · 151 MB/.test(ck.text) && /Upright Piano · FM Piano/.test(ck.text) && /Upright Ballad/.test(ck.text), "each card: version, size and what's in it", ck.text);
-    ok(/Needs Central Keys \(\$50 a year\) - your package key comes by email and is on your Account page/.test(ck.text), "\"Needs Central Keys ($50 a year) - your package key comes by email and is on your Account page\"", ck.text);
+    ok(/Needs Central Keys \(\$70 a year\) - your package key comes by email and is on your Account page/.test(ck.text), "\"Needs Central Keys ($70 a year) - your package key comes by email and is on your Account page\"", ck.text);
     ok(ck.href === "https://cdn.example.test/central-keys-library-1.0.zip" && /Download Central Keys Library/.test(ck.text), "a Download button straight to the zip (anyone can download it)", ck.href);
     ok(!/Your Central Keys plan opens/.test(ck.text) && !/Not in your plans yet/.test(ck.text), "signed out: nothing about your plans");
     const signedIn = await page.evaluate(async () => {
@@ -106,7 +106,7 @@ try {
     await page2.goto("http://127.0.0.1:" + (port + 1) + "/#downloads");
     await page2.waitForSelector("#libraries", { timeout: 8000 }).catch(() => {});
     const t2 = await page2.$$eval(".lib-card", (els) => els.map((e) => ({ text: e.textContent.replace(/\s+/g, " "), btn: !!e.querySelector("a.btn") })));
-    ok(t2.length === 4 && t2.every((c) => !c.btn && /Coming soon/.test(c.text)) && /about \d+ MB/.test(t2[0].text), "not published yet: the cards say what's coming (an estimated size), no Download button", t2.map((c) => c.text.slice(0, 80)));
+    ok(t2.length === 5 && t2.every((c) => !c.btn && /Coming soon/.test(c.text)) && /about \d+ MB/.test(t2[0].text), "not published yet: the cards say what's coming (an estimated size), no Download button", t2.map((c) => c.text.slice(0, 80)));
     ok(!errors.length, "no page errors", errors);
   }
 } catch (e) {

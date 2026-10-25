@@ -1,5 +1,5 @@
 {
- "_about": "The sound libraries, one per plan. tools/build-libraries.py turns each into <id>-<version>.zip with a manifest.json (sounds: tools/sounds-vcsl.py, IRs: tools/make-irs.py); .github/workflows/libraries.yml builds and publishes them. Raise a library's version when its content changes.",
+ "_about": "The sound libraries, one per plan. tools/build-libraries.py turns each into <id>-<version>.zip with a manifest.json (sounds: tools/sounds-vcsl.py, IRs: tools/make-irs.py, pad loops: tools/make-pads.py); .github/workflows/libraries.yml builds and publishes them. Raise a library's version when its content changes.",
  "libraries": [
   {
    "id": "central-keys-library",
@@ -2779,6 +2779,160 @@
         "Decay": 3
        }
       ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "central-pads-library",
+   "approxMB": 110,
+   "plan": "pads",
+   "version": "1.0",
+   "title": "Central Pads Library",
+   "summary": "12 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, shimmer, strings, glass, swell, worship, ambient drone, deep and heaven. Each is a seamless stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too.",
+   "pads": [
+    {
+     "name": "Warm",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Air",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Choir Aah",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Choir Ooh",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Shimmer",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Strings",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Glass",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Swell",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Worship",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Ambient Drone",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Deep",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Heaven",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
      ]
     }
    ]
