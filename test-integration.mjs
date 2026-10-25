@@ -648,7 +648,12 @@ await check("plans: keys sounds carry their bank's tier (or by what they are); a
 });
 await check("plans: with Central Keys back, \"Worship Grand\" brings its grand piano; the small screens hear what's locked", async () => {
   const r = await T(async () => {
-    PPLicense.hasPlan = () => true; window.dispatchEvent(new CustomEvent("pp-plans")); await new Promise((ok) => setTimeout(ok, 50));
+    PPLicense.hasPlan = () => true; window.dispatchEvent(new CustomEvent("pp-plans")); await new Promise((ok) => setTimeout(ok, 300));
+    // (the plan change re-applies the instrument; the simulated driver may answer with its own sound list - put the test's back)
+    PPFeatures.emit({ type: "instrumentStatus", available: true, running: true, kind: "keys", inputs: [], midiInputs: [], keysCatalog: [
+      { file: "/s/Upright-Piano-KW - u.sf2", name: "Upright Piano KW", tier: "free", presets: [{ name: "Upright Piano KW", bank: 0, prog: 0 }] },
+      { file: "/s/Salamander-Grand-Piano - s.sf2", name: "Salamander Grand Piano", tier: "keys", presets: [{ name: "Salamander Grand", bank: 0, prog: 0 }] }] });
+    await new Promise((ok) => setTimeout(ok, 50));
     const sel = document.querySelector("#inBoard"); sel.value = "worship-grand"; sel.dispatchEvent(new Event("change", { bubbles: true }));
     const out = { patch: PPInstrument.layers()[0].patch.name, on: PPInstrument.hostConfig().keys.layers[0].on, board: PPInstrument.config().boards.keys };
     PPLicense.hasPlan = (id) => id !== "pedals"; PPInstrument.setKind("electric"); const c = PPInstrument.config(); c.chains.electric = [{ uid: "lk1", pedal: "muff", on: true, values: {} }]; c.boards.electric = "fuzz-wall";
