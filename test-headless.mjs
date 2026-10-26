@@ -245,6 +245,55 @@ await check("buttons / knobs: tabs, moving around the screen, bus levels & mutes
   for (const id of ["padVolume", "levelTracks", "levelPads", "levelClick", "levelInstrument", "busLevel", "navScroll", "navValue", "tabKnob"]) assert.ok(ids.c.includes(id), "continuous " + id);
   for (const id of ["stepTab", "stepFocus", "stepScroll", "stepValue"]) assert.ok(ids.s.includes(id), "step " + id);
 });
+await check("looper: three loops - the LOOPER tab, its actions, when a loop starts and how long it is", async () => {
+  const r = await T(() => {
+    const ids = [].concat(PPActions.list("trigger"), PPActions.list("continuous"), PPActions.list("step")).map((a) => a.id);
+    const P = PPLooper.plan, rate = 48000, base = { bars: 4, countIn: false, bpm: 120, bpb: 4, now: 1, rate, master: 0, song: null };
+    const free = P(Object.assign({}, base, { mode: "auto" }));
+    const ci = P(Object.assign({}, base, { mode: "auto", bars: 2, countIn: true }));
+    const song = P(Object.assign({}, base, { mode: "auto", song: { at: 99, len: 384000, bars: 4 } }));
+    const fol = P(Object.assign({}, base, { mode: "auto", master: 96000 }));
+    const tempo = P(Object.assign({}, base, { mode: "song", bars: 1, bpm: 60, bpb: 3, now: 0 }));
+    const fr = P(Object.assign({}, base, { mode: "free", countIn: true, song: { at: 5, len: 6, bars: 1 } }));
+    PPShell.showTab("looper");
+    const tab = document.querySelectorAll("#looperRoot .lp-track").length === 3 && document.querySelectorAll("#looperRoot .lp-ring").length === 3 && !!document.querySelector('[data-tab="looper"]');
+    PPShell.showTab("pads"); PPActions.run("tabLooper"); const cur = PPShell.currentTab(); PPShell.showTab("pads");
+    PPLooper.setMode("free"); PPLooper.setBars(8); PPLooper.toggle(2, "rev"); PPLooper.select(2);
+    const c = JSON.parse(JSON.stringify(PPLooper.config())); const parts = PPSetups.PARTS.slice();
+    PPLooper.setMode("auto"); PPLooper.setBars(4); PPLooper.toggle(2, "rev"); PPLooper.select(0);
+    const sum = PPLooper.summary();
+    return { ids, free, ci, song, fol, tempo, fr, tab, cur, c, parts, sum };
+  });
+  for (const id of ["looperPedal", "looperRec", "looperTrackStop", "looperTrackUndo", "looperTrackRedo", "looperTrackClear", "looperTrackMute", "looperTrackReverse", "looperTrackHalf", "looperTrackSource",
+    "looperTrackLevel", "looperTrackPan", "looperSelect", "looperSelectNext", "looperPlayAll", "looperStopAll", "looperClearAll", "looperMode", "looperBars", "looperCountIn", "stepLoop", "tabLooper",
+    "looperMain", "looperStop", "looperUndo", "looperClear", "looperLevel"]) assert.ok(r.ids.includes(id), "action " + id);
+  assert.equal(r.free.how, "free"); assert.equal(r.free.len, 0);
+  assert.equal(r.ci.how, "countin"); assert.equal(r.ci.at, 3 * 48000); assert.equal(r.ci.len, 2 * 2 * 48000); assert.deepEqual(r.ci.click, { from: 48960, to: 144000, every: 24000, bpb: 4 });
+  assert.equal(r.song.how, "song"); assert.equal(r.song.at, 99); assert.equal(r.song.len, 384000);
+  assert.equal(r.fol.how, "follow"); assert.equal(r.fol.len, 0); assert.ok(r.fol.quant);
+  assert.equal(r.tempo.how, "tempo"); assert.equal(r.tempo.len, 3 * 48000); assert.equal(r.tempo.at, 960);
+  assert.equal(r.fr.how, "free");
+  assert.ok(r.tab, "the LOOPER tab shows three loops"); assert.equal(r.cur, "looper");
+  assert.equal(r.c.mode, "free"); assert.equal(r.c.bars, 8); assert.equal(r.c.sel, 2); assert.equal(r.c.tracks[2].rev, true); assert.ok(r.parts.includes("looper"), "saved setups keep the looper");
+  assert.equal(r.sum.tracks.length, 3); assert.equal(r.sum.mode, "auto"); assert.equal(r.sum.sel, 0);
+});
+await check("looper output: the Looper bus follows the Instrument, or goes to its own output (Settings → Output routing)", async () => {
+  const r = await T(async () => {
+    await PP.engine.ensure();
+    const box = document.createElement("div"); document.body.appendChild(box); PPSettings.renderRouting(box);
+    const sel = box.querySelector('select[data-rt="looper"]'), opts = sel ? Array.from(sel.options).map((o) => o.value) : [];
+    PP.engine.routeOutput(); const follow = JSON.parse(JSON.stringify(PP.project().routing.buses.looper));
+    sel.value = "3"; PPSettings.onRouting({ target: sel }); const own = JSON.parse(JSON.stringify(PP.project().routing.buses.looper));
+    const mode = PP.project().routing.mode;
+    sel.value = "f"; PPSettings.onRouting({ target: sel }); PP.engine.routeOutput(); const back = JSON.parse(JSON.stringify(PP.project().routing.buses.looper));
+    box.remove();
+    return { opts, follow, own, back, ins: PP.project().routing.buses.instrument, mode };
+  });
+  assert.ok(r.opts[0] === "f" && r.opts.includes("3"), JSON.stringify(r.opts));
+  assert.equal(r.follow.follow, true); assert.equal(r.follow.ch, r.ins.ch);
+  assert.equal(r.own.follow, false); assert.equal(r.own.ch, 3); assert.notEqual(r.mode, undefined);
+  assert.equal(r.back.follow, true); assert.equal(r.back.ch, r.ins.ch);
+});
 await check("tabs from a button: straight to Settings, next / previous, back to Pad", async () => {
   await T(() => PPActions.run("tabSettings"));
   assert.equal(await T(() => PPShell.currentTab()), "settings");
@@ -480,7 +529,7 @@ await check("Settings tab opens and explains safe mode needs the Pi", async () =
   assert.ok(!(await page.$eval("#tabSettings", (e) => e.classList.contains("hidden"))), "settings tab shown");
   assert.match(await page.textContent("#safeText"), /Central Pedal \(Raspberry Pi\) itself/);
   const rows = await page.$$eval("#routingMatrix select[data-rt]", (l) => l.map((s) => s.dataset.rt));
-  assert.deepEqual(rows, ["tracks", "pad", "click", "instrument"]);
+  assert.deepEqual(rows, ["tracks", "pad", "click", "instrument", "looper"], "the four buses and the looper (which follows the instrument unless it has its own output)");
   await page.click('[data-tab="pads"]');
 });
 await check("outputs: 1-2 the Pi's jack, 3-4 the DAC; quick set-ups (4 mono, 2 stereo), each bus mono or a stereo pair, buses can share an output, a USB interface adds outputs", async () => {
@@ -498,12 +547,12 @@ await check("outputs: 1-2 the Pi's jack, 3-4 the DAC; quick set-ups (4 mono, 2 s
     PPShell.showTab("pads"); return out;
   });
   assert.equal(r.def, "mono4", "4 mono outputs by default");
-  assert.equal(r.stereo2, JSON.stringify({ tracks: { ch: 1, st: true }, pad: { ch: 1, st: true }, click: { ch: 3, st: true }, instrument: { ch: 3, st: true } }));
+  assert.equal(r.stereo2, JSON.stringify({ tracks: { ch: 1, st: true }, pad: { ch: 1, st: true }, click: { ch: 3, st: true }, instrument: { ch: 3, st: true }, looper: { ch: 3, st: true, follow: true } }));
   assert.equal(r.shared, "Pads", "tracks and pads share 1-2 (mixed there)");
   assert.equal(r.custom.mode, "custom"); assert.match(r.custom.buses.find((b) => b.id === "click").out, /^5–6 stereo/);
   assert.deepEqual(r.opts, ["0", "1", "2", "3", "4", "5", "6", "1s", "3s", "5s"], "Off, each of the 6 outputs, each stereo pair");
   assert.deepEqual(r.stepped, { ch: 5, st: true }, "the small screen steps a bus to the next choice (3–4 stereo → 5–6 stereo)");
-  assert.equal(r.back, JSON.stringify({ tracks: { ch: 1, st: false }, pad: { ch: 2, st: false }, click: { ch: 3, st: false }, instrument: { ch: 4, st: false } }));
+  assert.equal(r.back, JSON.stringify({ tracks: { ch: 1, st: false }, pad: { ch: 2, st: false }, click: { ch: 3, st: false }, instrument: { ch: 4, st: false }, looper: { ch: 4, st: false, follow: true } }));
 });
 await check("only the headphone jack (no DAC board): a bus on 3-4 is heard on 1-2 and the table says so; 'Everything on 1-2'; the DAC board can be switched off", async () => {
   const r = await page.evaluate(async () => {

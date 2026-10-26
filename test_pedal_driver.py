@@ -690,6 +690,38 @@ async def main():
         mini.tab = "pads"
         check("...the INSTRUMENT tab's pedals switch on / off; SETTINGS → In & out steps an output",
               ped == {"name": "pedalToggle", "args": {"index": 0}} and bus and bus.get("name") == "busOutput" and bus["args"] == {"bus": "tracks", "delta": 1}, (ped, bus))
+        # the LOOPER tab: three loops - each one's switches, the main switch's loop, the mix and the set-up
+        lp_d = dict(disp, mini=dict(disp.get("mini") or {}, looper={"on": True, "sel": 1, "mode": "auto", "bars": 4, "countIn": False, "tracks": [
+            {"s": "playing", "secs": 8.0, "f": 0.5, "bars": 4, "bar": 3, "undo": True, "redo": False, "level": 0.9, "pan": 0, "mute": False, "rev": False, "half": False, "src": "inst"},
+            {"s": "empty", "secs": 0, "f": 0, "undo": False, "redo": False, "level": 0.9, "pan": 0, "mute": False, "rev": False, "half": False, "src": "inst"},
+            {"s": "stopped", "secs": 4.0, "f": 0, "undo": False, "redo": True, "level": 0.6, "pan": 0.2, "mute": True, "rev": True, "half": False, "src": "both"}]}))
+        _sched2 = driver.schedule_mini_render
+        driver.schedule_mini_render = lambda force=False: None
+        mini.render(lp_d)
+        lp_tab = mini.hit_test(330, 305)
+        mini.local(lp_tab)
+        mini.local({"local": "sub", "tab": "looper", "value": "loops"})
+        mini.render(lp_d)
+        lp_rec2 = mini.hit_test(220, 150)       # loop 2's REC
+        lp_card1 = mini.hit_test(60, 95)        # loop 1's card: the main switch works it
+        lp_undo1 = mini.hit_test(355, 95)       # loop 1: UNDO
+        lp_redo3 = mini.hit_test(355, 200)      # loop 3: nothing to undo, REDO
+        lp_stop2 = mini.hit_test(300, 150)      # loop 2 is empty: no STOP
+        lp_main = mini.hit_test(60, 250)        # the selected loop's switch
+        mini.local({"local": "sub", "tab": "looper", "value": "mix"})
+        mini.render(lp_d)
+        lp_lvl = mini.hit_test(200, 92)
+        mini.local({"local": "sub", "tab": "looper", "value": "setup"})
+        mini.render(lp_d)
+        lp_mode = mini.hit_test(100, 100)
+        mini.tab = "pads"
+        driver.schedule_mini_render = _sched2
+        check("small screen: a LOOPER tab - each loop's REC / STOP / UNDO / REDO, a tap on a loop picks the main switch's loop, levels, the timing",
+              lp_tab == {"local": "tab", "value": "looper"} and lp_rec2 == {"name": "looperRec", "args": {"index": 1}} and lp_card1 == {"name": "looperSelect", "args": {"index": 0}}
+              and lp_undo1 == {"name": "looperTrackUndo", "args": {"index": 0}} and lp_redo3 == {"name": "looperTrackRedo", "args": {"index": 2}} and lp_stop2 is None
+              and lp_main == {"name": "looperRec", "args": {"index": -1}} and lp_lvl and lp_lvl.get("name") == "looperTrackLevel" and lp_lvl.get("args") == {"index": 0}
+              and lp_mode == {"name": "looperMode"},
+              (lp_tab, lp_rec2, lp_card1, lp_undo1, lp_redo3, lp_stop2, lp_main, lp_lvl, lp_mode))
         # the plans: a pedal, board, sound or knob whose plan isn't active is dimmed with a lock; a tap says which plan opens it
         lock_txt = "Part of Central Pedals · $50 a year"
         ins_l = {"kind": "electric", "kinds": [["electric", "Electric"], ["keys", "Keys"]], "board": "Fuzz Wall", "boardLocked": lock_txt, "levelDb": 0,

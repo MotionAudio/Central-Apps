@@ -3204,11 +3204,13 @@ class MiniScreen:
     # ----- the look (the same colours as the app's "Copy of the small touch screen" page) -------------------------
     COL = {"bg": (17, 19, 23), "bar": (26, 29, 34), "text": (236, 231, 221), "muted": (154, 161, 171), "accent": (226, 194, 126),
            "idle": (22, 42, 66), "selected": (31, 68, 110), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (52, 58, 68),
-           "btn": (35, 39, 46), "on": (226, 194, 126), "ontext": (26, 20, 8), "warn": (255, 190, 110), "track": (46, 51, 60)}
-    TABS = [("pads", "PADS"), ("tracks", "TRACKS"), ("instrument", "INSTRUMENT"), ("settings", "SETTINGS")]
+           "btn": (35, 39, 46), "on": (226, 194, 126), "ontext": (26, 20, 8), "warn": (255, 190, 110), "track": (46, 51, 60),
+           "lp_rec": (229, 72, 77), "lp_dub": (245, 165, 36), "lp_play": (48, 164, 108), "lp_stop": (141, 181, 222)}
+    TABS = [("pads", "PADS"), ("tracks", "TRACKS"), ("instrument", "INSTRUMENT"), ("looper", "LOOPER"), ("settings", "SETTINGS")]
     SUBS = {"pads": [("pads", "Pads"), ("key", "Key"), ("sound", "Sound"), ("fx", "Effects")],
             "tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist"), ("fx", "Effects"), ("scenes", "Scenes"), ("tempo", "Tempo")],
             "instrument": [("sound", "Sound"), ("pedals", "Pedals"), ("eq", "EQ · Comp"), ("tune", "Tuner · Level")],
+            "looper": [("loops", "Loops"), ("mix", "Mix"), ("setup", "Setup")],
             "settings": [("audio", "Audio"), ("wifi", "Wi-Fi"), ("controls", "Controls"), ("screens", "Screens"), ("touch", "Touch"), ("system", "System")]}
     KEY_NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
     HDMI1 = [("app", "Central Pedal app"), ("touch", "Copy of this screen"), ("lyrics", "Lyrics"), ("charts", "Chord charts"), ("stage", "Stage display"), ("slides", "Slides")]
@@ -4129,6 +4131,119 @@ class MiniScreen:
         self.button(g, hits, [6, 234, W - 6, H - 46], "AUTO SET-UP", {"name": "instrumentAuto"}, sub="listens to you play and sets the gain")
 
     # ----- SETTINGS -------------------------------------------------------------------------------------------------
+    # ----- LOOPER: three loops - each with its state, where it is, and its switches -----------------------------
+    LP_LABEL = {"empty": "REC", "armed": "WAIT", "recording": "RECORDING", "playing": "PLAYING", "dubbing": "OVERDUB", "stopped": "STOPPED"}
+    LP_NEXT = {"empty": "record", "armed": "cancel", "recording": "close loop", "playing": "overdub", "dubbing": "play", "stopped": "play"}
+    LP_SRC = {"inst": "Instrument", "input": "Audio input", "both": "Both"}
+    LP_MODE = {"auto": ("Auto", "with the song when it plays"), "song": ("Tempo", "always N bars"), "free": ("Free", "tap to start and close")}
+
+    def lp_color(self, state):
+        C = self.COL
+        return {"armed": C["lp_rec"], "recording": C["lp_rec"], "dubbing": C["lp_dub"], "playing": C["lp_play"], "stopped": C["lp_stop"]}.get(state)
+
+    def page_looper(self, g, hits, d):
+        lp = (d.get("mini") or {}).get("looper")
+        sub = self.sub.get("looper", "loops")
+        if not lp:
+            self.chips(g, hits, "looper")
+            self.text(g, (self.w / 2, 170), "The looper isn't ready yet", self.F["sub"], self.COL["muted"], "mm")
+            return
+        if lp.get("on") is False:
+            self.chips(g, hits, "looper")
+            self.text(g, (self.w / 2, 160), "The looper is off", self.F["title"], self.COL["text"], "mm")
+            self.text(g, (self.w / 2, 186), "Turn it on in the app: LOOPER tab → Looper on", self.F["sub"], self.COL["muted"], "mm")
+            return
+        getattr(self, "looper_" + sub)(g, hits, d, lp)
+
+    def looper_loops(self, g, hits, d, lp):
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "looper")
+        tracks = lp.get("tracks") or []
+        sel = int(lp.get("sel") or 0)
+        y, rh = 76, 46
+        for i in range(3):
+            t = tracks[i] if i < len(tracks) else {"s": "empty"}
+            s, col = t.get("s") or "empty", self.lp_color(t.get("s"))
+            # the loop: its state, where it is, its length (a tap: the main switch works this loop)
+            box = [6, y, 176, y + rh]
+            fill = tuple(int(c * 0.30 + C["bg"][n] * 0.70) for n, c in enumerate(col)) if col else C["btn"]
+            g.rounded_rectangle(box, 9, fill=fill, outline=C["accent"] if i == sel else C["line"], width=3 if i == sel else 1)
+            self.text(g, (14, y + 13), "LOOP %d" % (i + 1), self.F["label"], C["accent"] if i == sel else C["text"])
+            state = {"empty": "empty", "armed": "waiting", "recording": "rec", "playing": "play", "dubbing": "dub", "stopped": "stopped"}.get(s, s)
+            self.text(g, (88, y + 13), state, self.F["sub"], C["text"] if col else C["muted"], "la", 50)
+            right = ("bar %s/%s" % (t.get("bar"), t.get("bars"))) if t.get("bar") and t.get("bars") else ("%s s" % t.get("secs") if t.get("secs") else "")
+            self.text(g, (170, y + 13), right, self.F["sub"], C["muted"], "ra", 60)
+            bx0, bx1, by = 14, 168, y + 34
+            g.rounded_rectangle([bx0, by - 3, bx1, by + 3], 3, fill=C["track"])
+            f = max(0.0, min(1.0, float(t.get("f") or 0)))
+            if col and f > 0.01:
+                g.rounded_rectangle([bx0, by - 3, bx0 + (bx1 - bx0) * f, by + 3], 3, fill=col)
+            hits.append((box, {"name": "looperSelect", "args": {"index": i}}))
+            # its switches
+            self.button(g, hits, [180, y, 268, y + rh], self.LP_LABEL.get(s, "REC"), {"name": "looperRec", "args": {"index": i}},
+                        fill=col or C["btn"], sub=self.LP_NEXT.get(s, ""), font=self.F["label"], color=(255, 255, 255) if col else None)
+            self.button(g, hits, [272, y, 326, y + rh], "PLAY" if s == "stopped" else "STOP", {"name": "looperTrackStop", "args": {"index": i}} if s != "empty" else None,
+                        font=self.F["sub"], color=None if s != "empty" else C["line"])
+            if t.get("undo") or not t.get("redo"):
+                self.button(g, hits, [330, y, 384, y + rh], "UNDO", {"name": "looperTrackUndo", "args": {"index": i}} if t.get("undo") else None,
+                            font=self.F["sub"], color=None if t.get("undo") else C["line"])
+            else:
+                self.button(g, hits, [330, y, 384, y + rh], "REDO", {"name": "looperTrackRedo", "args": {"index": i}}, font=self.F["sub"])
+            self.button(g, hits, [388, y, 434, y + rh], "CLR", {"name": "looperTrackClear", "args": {"index": i}} if s != "empty" else None,
+                        font=self.F["sub"], color=None if s != "empty" else C["line"])
+            self.button(g, hits, [438, y, W - 6, y + rh], "M", {"name": "looperTrackMute", "args": {"index": i}}, on=bool(t.get("mute")), font=self.F["label"])
+            y += rh + 4
+        cur = tracks[sel] if sel < len(tracks) else {"s": "empty"}
+        bw = (W - 12 - 3 * 5) / 4
+        y0, y1 = 228, H - 46
+        buttons = [(self.LP_LABEL.get(cur.get("s"), "REC"), {"name": "looperRec", "args": {"index": -1}}, "loop %d" % (sel + 1), self.lp_color(cur.get("s"))),
+                   ("PLAY ALL", {"name": "looperPlayAll"}, "every loop", None), ("STOP ALL", {"name": "looperStopAll"}, "every loop", None),
+                   ("CLEAR ALL", {"name": "looperClearAll"}, "every loop", None)]
+        for i, (label, action, sub, col) in enumerate(buttons):
+            x = 6 + i * (bw + 5)
+            self.button(g, hits, [x, y0, x + bw, y1], label, action, sub=sub, fill=col or C["btn"], color=(255, 255, 255) if col else None)
+
+    def looper_mix(self, g, hits, d, lp):
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "looper")
+        tracks = lp.get("tracks") or []
+        y, rh = 76, (H - 46 - 76) / 3
+        for i in range(3):
+            t = tracks[i] if i < len(tracks) else {}
+            top = y + 2
+            self.button(g, hits, [6, top + 2, 38, top + 30], "M", {"name": "looperTrackMute", "args": {"index": i}}, on=bool(t.get("mute")), radius=7, font=self.F["label"])
+            self.fader(g, hits, [44, top, W - 124, top + 32], "Loop %d" % (i + 1), min(1.0, float(t.get("level", 0.9)) / 1.2),
+                       {"name": "looperTrackLevel", "args": {"index": i}}, valtext="%d%%" % round(float(t.get("level", 0.9)) * 100), dim=bool(t.get("mute")), label_w=62)
+            self.pan_fader(g, hits, [W - 118, top, W - 6, top + 32], t.get("pan") or 0, {"name": "looperTrackPan", "args": {"index": i}})
+            by0, by1 = top + 35, y + rh - 3
+            third = (W - 50 - 10) / 3
+            for j, (label, action, on) in enumerate((("REVERSE", {"name": "looperTrackReverse", "args": {"index": i}}, bool(t.get("rev"))),
+                                                     ("½ SPEED", {"name": "looperTrackHalf", "args": {"index": i}}, bool(t.get("half"))),
+                                                     ("from " + self.LP_SRC.get(t.get("src") or "inst", "Instrument").lower(), {"name": "looperTrackSource", "args": {"index": i}}, False))):
+                x = 44 + j * (third + 5)
+                self.button(g, hits, [x, by0, x + third, by1], label, action, on=on, font=self.F["sub"], radius=7)
+            y += rh
+
+    def looper_setup(self, g, hits, d, lp):
+        C, W, H = self.COL, self.w, self.h
+        self.chips(g, hits, "looper")
+        mode = self.LP_MODE.get(lp.get("mode") or "auto", self.LP_MODE["auto"])
+        bars = int(lp.get("bars") or 4)
+        sel = int(lp.get("sel") or 0)
+        half = (W - 12 - 5) / 2
+        rows = [(("TIMING: " + mode[0].upper(), {"name": "looperMode"}, mode[1], False),
+                 ("LENGTH: %d BAR%s" % (bars, "" if bars == 1 else "S"), {"name": "looperBars"}, "1 · 2 · 4 · 8 · 16", False)),
+                (("COUNT-IN", {"name": "looperCountIn"}, "on - one bar of clicks" if lp.get("countIn") else "off", bool(lp.get("countIn"))),
+                 ("MAIN SWITCH: LOOP %d" % (sel + 1), {"name": "looperSelectNext"}, "tap for the next loop", False))]
+        y = 78
+        for row in rows:
+            for j, (label, action, sub, on) in enumerate(row):
+                x = 6 + j * (half + 5)
+                self.button(g, hits, [x, y, x + half, y + 60], label, action, on=on, sub=sub)
+            y += 66
+        self.text(g, (W / 2, y + 12), "The first loop sets the length; the others stay in step.", self.F["sub"], C["muted"], "mm", W - 16)
+        self.text(g, (W / 2, y + 30), "A footswitch on \"Looper pedal\": tap rec/play/dub · double tap stop · hold clear", self.F["sub"], C["muted"], "mm", W - 16)
+
     def page_settings(self, g, hits, d):
         sub = self.sub.get("settings", "audio")
         getattr(self, "settings_" + sub)(g, hits, d)

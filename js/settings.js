@@ -97,11 +97,25 @@
           '<optgroup label="One output (mono)">' + opts.filter(function (o) { return !o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" +
           (n >= 2 ? '<optgroup label="A pair (stereo)">' + opts.filter(function (o) { return o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" : "") +
           "</select>" + (shared.length ? '<br><small class="rt-shared">mixed with ' + esc(shared.join(" and ")) + "</small>" : "") + "</td><td>" + esc(now) + "</td></tr>";
-      }).join("") + "</tbody></table>" +
+      }).join("") + looperRow(r, opts, n, live, avail) + "</tbody></table>" +
       '<p class="muted">' + (avail <= 2 ? (onPi() ? "This Central Pedal has 2 outputs, the headphone jack: everything plays on 1–2. " : "This device has 2 outputs: everything plays on 1–2. ") + "A bus set to an output that isn't connected is heard on 1–2 (the click: see Output device). On the Central Pedal 3–4 are the DAC board and a USB audio interface adds 5 up." : "1–2 are the Pi's own headphone jack (left, right), 3–4 the DAC board. A USB audio interface adds its outputs from 5 up, as soon as it's plugged in. Several buses on one output are mixed there; a bus set to an output that isn't connected is heard on 1–2.") + "</p>" +
       (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- changes after a restart; without the board, untick this so 3–4 aren't offered</small></label>" : "");
   }
-  function setBus(bus, v) { var r = project().routing, s = String(v || "0"); r.buses[bus] = { ch: parseInt(s, 10) || 0, st: /s$/.test(s) }; r.mode = presetOf(r); }
+  // the looper (LOOPER tab): on the instrument's output, or one of its own
+  function looperRow(r, opts, n, live, avail) {
+    var bus = r.buses.looper || { follow: true }, follow = bus.follow !== false, cur = follow ? "f" : busValue(bus), ins = r.buses.instrument || { ch: 0 };
+    var eff = follow ? ins : bus, now = live.buses && live.buses.looper ? (live.buses.looper === "off" ? "off" : live.buses.looper) : (eff.ch > 0 ? busOut(eff) : "off");
+    if (eff.ch > 0 && eff.ch > avail) now = "1–2 · " + (eff.st ? eff.ch + "–" + (eff.ch + 1) + " aren't" : eff.ch + " isn't") + " connected";
+    return '<tr><td><b>Looper</b><br><small>the loop pedal (LOOPER tab)</small></td><td><select data-rt="looper"><option value="f"' + (follow ? " selected" : "") + ">Same as Instrument (" + esc(busOut(ins)) + ")</option>" +
+      '<optgroup label="One output (mono)">' + opts.filter(function (o) { return !o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" +
+      (n >= 2 ? '<optgroup label="A pair (stereo)">' + opts.filter(function (o) { return o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" : "") +
+      "</select></td><td>" + esc(now) + "</td></tr>";
+  }
+  function setBus(bus, v) {
+    var r = project().routing, s = String(v || "0");
+    if (bus === "looper") { r.buses.looper = s === "f" ? { follow: true } : { ch: parseInt(s, 10) || 0, st: /s$/.test(s), follow: false }; return; }
+    r.buses[bus] = { ch: parseInt(s, 10) || 0, st: /s$/.test(s) }; r.mode = presetOf(r);
+  }
   function applyRouting() { var r = project().routing; engine.routeOutput(); PP.persistSoon(); renderRouting(); if (window.PPIO) window.PPIO.render(); send({ type: "routing", routing: r }); }   // (the Pi links the native instrument chain to its output)
   function onRouting(e) {
     var el = e.target, r = project().routing;
