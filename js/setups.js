@@ -12,8 +12,8 @@
   var esc = PP.escapeHtml;
   function $(s) { return document.querySelector(s); }
   function project() { return PP.project(); }
-  var PARTS = ["mapping", "performance", "instrument", "textures", "theme", "projector"];
-  var PART_NAMES = { mapping: "buttons, knobs & sliders", performance: "volume / tone / reverb / fade", instrument: "instrument (boards, pedals, keys)", textures: "textures", theme: "colours", projector: "projector look" };
+  var PARTS = ["mapping", "performance", "instrument", "looper", "textures", "theme", "projector"];
+  var PART_NAMES = { mapping: "buttons, knobs & sliders", performance: "volume / tone / reverb / fade", instrument: "instrument (boards, pedals, keys)", looper: "looper set-up", textures: "textures", theme: "colours", projector: "projector look" };
 
   function list() { var p = project(); if (!Array.isArray(p.setups)) p.setups = []; return p.setups; }
   function songMap() { var p = project(); if (!p.songSetups || typeof p.songSetups !== "object") p.songSetups = {}; return p.songSetups; }
@@ -39,6 +39,7 @@
     if (d.mapping) p.mapping = d.mapping;
     if (d.performance) Object.keys(d.performance).forEach(function (k) { var v = d.performance[k]; if (typeof v === "number" && typeof p.performance[k] === "number") PP.setPerformance(k, v); else if (k !== "morph") p.performance[k] = v; });
     if (d.instrument) p.instrument = d.instrument;
+    if (d.looper && typeof d.looper === "object") { p.looper = d.looper; if (window.PPLooper && window.PPLooper.applyConfig) window.PPLooper.applyConfig(); }
     if (Array.isArray(d.textures)) {
       // the texture choices and levels come back; what is sounding right now keeps sounding (or stays off)
       var now = Array.isArray(p.textures) ? p.textures : [];

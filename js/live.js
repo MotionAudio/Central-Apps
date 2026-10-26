@@ -185,7 +185,7 @@
       [engine.tracksBus.gain, engine.clickBus && engine.clickBus.gain].forEach(function (g) { if (!g) return; try { g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0.0001, now + seconds); } catch (_) { } });
     } else if (T() && T().isPlaying()) { T().stop(false); }
     if (engine.voices().length) { any = true; fadePads(seconds); }
-    var L = window.PPLooper; if (L && L.state && L.state().state === "playing") L.stop();
+    var L = window.PPLooper; if (L && L.anyPlaying && L.anyPlaying()) L.stopAll();
     if (!any) { PP.setStatus("Nothing is playing"); return; }
     PP.setStatus("Safe stop: fading out…"); note("safeStop");
     safeStop.timer = setTimeout(function () { finishSafeStop(false); }, seconds * 1000 + 80);

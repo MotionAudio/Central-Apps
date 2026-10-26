@@ -436,3 +436,34 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 /* moving around the screen with buttons / knobs (screen-nav.js): a ring you can see from the stage */
 .nav-active .nav-focus { outline: 3px solid var(--accent, #E2C27E) !important; outline-offset: 3px; box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent, #E2C27E), transparent 70%) !important; position: relative; z-index: 5; }
 @media (prefers-reduced-motion: no-preference) { .nav-active .nav-focus { transition: outline-offset .12s; } }
+
+/* ---------- LOOPER tab: three loops, each a ring with its main switch in the middle ---------- */
+.looper-tab { display: grid; gap: 12px; }
+.lp-top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; } .lp-top h2 { margin: 0 8px 0 0; }
+.lp-modes { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.lp-modes button { border: 0; border-radius: 0; background: transparent; padding: 8px 16px; font-weight: 700; }
+.lp-modes button.on { background: var(--accent); color: var(--accentText); }
+.lp-bars select { margin-left: 6px; } .lp-help { margin: 0; }
+.lp-tracks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .lp-tracks { grid-template-columns: minmax(0, 1fr); } }
+.lp-track { --lp: var(--line); border: 2px solid var(--line); border-radius: 16px; background: var(--panel); padding: 12px; display: grid; gap: 10px; }
+.lp-track.sel { border-color: var(--accent); }
+.lp-track.st-recording, .lp-track.st-armed { --lp: #e5484d; } .lp-track.st-dubbing { --lp: #f5a524; } .lp-track.st-playing { --lp: #30a46c; } .lp-track.st-stopped { --lp: #8DB5DE; }
+.lp-track.muted .lp-ringbox { opacity: .45; }
+.lp-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lp-num { font-weight: 800; letter-spacing: .04em; padding: 6px 12px; border-radius: 999px; }
+.lp-track.sel .lp-num { background: var(--accent); color: var(--accentText); border-color: var(--accent); }
+.lp-sub { color: var(--muted); font-size: 13px; text-align: right; }
+.lp-ringbox { position: relative; width: min(100%, 230px); aspect-ratio: 1; margin: 0 auto; }
+.lp-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.lp-ring circle { fill: none; stroke-width: 7; } .lp-ring-bg { stroke: var(--line); }
+.lp-ring-fg { stroke: var(--lp); stroke-linecap: round; transition: stroke-dashoffset .1s linear; }
+.lp-big { position: absolute; inset: 14%; border-radius: 50%; display: grid; place-content: center; gap: 2px; text-align: center; background: color-mix(in srgb, var(--lp) 22%, var(--panel2, var(--panel))); border: 2px solid var(--lp); }
+.lp-big b { font-size: clamp(20px, 2.6vw, 30px); } .lp-big small { color: var(--muted); } .lp-big em { font-style: normal; font-weight: 700; font-size: 13px; min-height: 1.2em; }
+.lp-track.st-armed .lp-big { animation: lpblink .5s steps(2) infinite; }
+.lp-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; } .lp-row button { padding: 9px 4px; font-weight: 700; font-size: 13px; }
+.lp-row button.tg.on { background: var(--accent); color: var(--accentText); border-color: var(--accent); }
+.lp-slider { display: grid; grid-template-columns: 44px 1fr 40px; align-items: center; gap: 6px; font-size: 13px; } .lp-slider output { text-align: right; color: var(--muted); }
+.lp-src { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 6px; font-size: 13px; }
+.lp-all { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; } .lp-allbtn { padding: 16px; font-size: 18px; font-weight: 800; border-radius: 14px; }
+.lp-off { padding: 20px; }

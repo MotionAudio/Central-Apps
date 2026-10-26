@@ -1057,7 +1057,7 @@
     }
     return { stems: t ? t.stems.map(function (q, i) { return { i: i, name: q.name, gain: Math.round((q.gain == null ? 1 : q.gain) * 1000) / 1000, pan: Math.round((Number(q.pan) || 0) * 100) / 100, mute: !!q.mute, role: q.role }; }) : [],
       levels: { tracks: Math.round(levels.tracks * 1000) / 1000, click: Math.round(levels.click * 1000) / 1000 }, volume: p.performance ? p.performance.volume : 1,
-      tempoPercent: t ? t.tempoPercent : 100, instrument: ins,
+      tempoPercent: t ? t.tempoPercent : 100, instrument: ins, looper: window.PPLooper && window.PPLooper.summary ? window.PPLooper.summary() : null,
       routing: window.PPSettings && window.PPSettings.routingSummary ? window.PPSettings.routingSummary() : null,
       input: I ? (function () { var c = I.config(); return { gain: c.input.gain || 0, channel: c.input.channel || "L", device: c.input.device || "auto" }; })() : null };
   }

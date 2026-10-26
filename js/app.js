@@ -1,6 +1,6 @@
   (function () {
     "use strict";
-    var APP_VERSION="9.8.0"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
+    var APP_VERSION="9.9.0"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
     var STORAGE="pad-pedal-seamless-v3", DB_NAME="pad-pedal-samples-v3", DB_STORE="samples", KEYS=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"], STOCK_VOICES=["Warm Pad","Ambient Pad","Worship Swell","Dream Choir","Heavenly Pad","Soft Strings","Shimmer Pad","Gentle Pluck"], EQ_COLORS=["#61e7b2","#7caeff","#ffcf66","#ff8b8b","#d998ff","#64e5f0"];
     var PAD_COUNT=8;
     var selected=0, editingInput=false, editingBand=0, currentWaveBuffer=null, waveDrag=null, wavePeaks=new Map(), saveTimer=0, trimRestartTimer=0, project;
@@ -36,7 +36,9 @@
         var cm=r.clickMode||"auto";d.clickFallback=cm==="mix"||cm==="split"||cm==="device"||cm==="off"?cm:"off";d.mainDevice=r.mainDevice||null;d.clickDevice=r.clickDevice||null;return d;}
       var out={mode:["stereo","stereo2","all12","custom"].indexOf(r.mode)>-1?r.mode:"mono4",buses:{},clickFallback:["off","mix","split","device"].indexOf(r.clickFallback)>-1?r.clickFallback:"mix",mainDevice:r.mainDevice||null,clickDevice:r.clickDevice||null,fbv:2};
       if(r.fbv!==2&&out.clickFallback==="off")out.clickFallback="mix"; // (9.8: "off" was only the old default - on a 2-output device the click is heard on 1-2 unless you pick Nowhere again)
-      Object.keys(d.buses).forEach(function(k){var b=r.buses&&r.buses[k];var ch=b&&isFinite(Number(b.ch))?Math.round(Number(b.ch)):d.buses[k].ch;var st=b&&typeof b.st==="boolean"?b.st:out.mode==="stereo";out.buses[k]={ch:clamp(ch,0,32),st:st};});return out;}
+      Object.keys(d.buses).forEach(function(k){var b=r.buses&&r.buses[k];var ch=b&&isFinite(Number(b.ch))?Math.round(Number(b.ch)):d.buses[k].ch;var st=b&&typeof b.st==="boolean"?b.st:out.mode==="stereo";out.buses[k]={ch:clamp(ch,0,32),st:st};});
+      // the looper: on the instrument's output unless it has its own (Settings, Output routing)
+      var lb=r.buses&&r.buses.looper;out.buses.looper=lb&&lb.follow===false&&isFinite(Number(lb.ch))?{ch:clamp(Math.round(Number(lb.ch)),0,32),st:typeof lb.st==="boolean"?lb.st:out.mode==="stereo",follow:false}:{ch:out.buses.instrument.ch,st:out.buses.instrument.st,follow:true};return out;}
     function defaultProject(){return {version:6,setlistId:id(),tracksMode:false,textures:[],routing:defaultRouting(),audio:{sampleRate:0,latency:"interactive"},instrument:{},midiOut:{},link:{enabled:false},mapping:{},projector:{},display:{},name:"My Central Pedal set",selected:0,theme:{bg:"#111317",panel:"#1A1D22",text:"#ECE7DD",accent:"#E2C27E",blue:"#8DB5DE",line:"#343A44"},pads:Array.from({length:PAD_COUNT},function(_,i){return defaultPad(i);}),library:[],performance:defaultPerformance(),tempo:{bpm:72},songs:[],songIndex:-1,input:defaultInput(),midi:{channel:0,clock:true}};}
     function mergeInto(base,saved){
       if(!saved||typeof saved!=="object")return base;
@@ -328,7 +330,7 @@
       var self=this;[this.outGain,this.tracksOut,this.clickBus].forEach(function(n){try{n.disconnect();}catch(_){}});
       (this.routeNodes||[]).forEach(function(n){try{n.disconnect();}catch(_){}});this.routeNodes=[];this.merger=null;
       var maxCh=Math.max(1,c.destination.maxChannelCount||2),need=0,stOf=function(k){return !!(r.buses[k]&&r.buses[k].st);};
-      var buses={tracks:this.tracksOut,pad:this.outGain,click:this.clickBus};if(this.loopOut){try{this.loopOut.disconnect();}catch(_){}buses.instrument=this.loopOut;}var directs=(this.directOuts||[]).filter(function(d){return d.node&&d.ch>0;});
+      var buses={tracks:this.tracksOut,pad:this.outGain,click:this.clickBus};if(this.loopOut){try{this.loopOut.disconnect();}catch(_){}buses.looper=this.loopOut;}var directs=(this.directOuts||[]).filter(function(d){return d.node&&d.ch>0;});
       directs.forEach(function(d){try{d.node.disconnect();}catch(_){}need=Math.max(need,d.ch);});
       Object.keys(buses).forEach(function(k){var ch=r.buses[k]?r.buses[k].ch:0;if(ch>0)need=Math.max(need,ch+(stOf(k)?1:0));});
       var multi=maxCh>2&&need>2;
@@ -343,7 +345,7 @@
         self.routing.direct={};directs.forEach(function(d){if(d.ch<=n){d.node.connect(m,0,d.ch-1);self.routing.direct[d.id]=d.ch;}});
         m.connect(c.destination);}
       else{try{if(c.destination.channelCount!==2){c.destination.channelCount=2;c.destination.channelCountMode="explicit";c.destination.channelInterpretation="speakers";}}catch(_){}
-        var fb=r.clickFallback||"mix";this.routing.buses={tracks:"1-2",pad:"1-2",click:fb==="mix"?"1-2":fb,instrument:"1-2"};this.routing.fallback={};
+        var fb=r.clickFallback||"mix";this.routing.buses={tracks:"1-2",pad:"1-2",click:fb==="mix"?"1-2":fb,instrument:"1-2",looper:"1-2"};this.routing.fallback={};
         Object.keys(r.buses).forEach(function(k){var b=r.buses[k];if(b&&b.ch>2&&(k!=="click"||fb==="mix"))self.routing.fallback[k]=b.ch;});
         if(fb==="split"){var m2=this.merger=c.createChannelMerger(2),mono2=c.createGain(),cm=c.createGain();mono2.channelCount=1;mono2.channelCountMode="explicit";cm.channelCount=1;cm.channelCountMode="explicit";this.outGain.connect(mono2);this.tracksOut.connect(mono2);mono2.connect(m2,0,0);this.clickBus.connect(cm);cm.connect(m2,0,1);m2.connect(c.destination);this.routeNodes.push(m2,mono2,cm);}
         else{this.outGain.connect(c.destination);this.tracksOut.connect(c.destination);if(this.loopOut)this.loopOut.connect(c.destination);

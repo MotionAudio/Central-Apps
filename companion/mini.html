@@ -19,7 +19,7 @@
   .dot { width:2.4vh; height:2.4vh; border-radius:50%; background:var(--accent); opacity:0; align-self:center; } .dot.on { opacity:1; animation:pulse 1.2s infinite; } @keyframes pulse { 50% { opacity:.3; } }
   .body { padding:1.4vh 1.2vh; min-height:0; display:grid; grid-template-rows:auto 1fr; gap:1.4vh; }
   .body.nochips { grid-template-rows:1fr; }
-  .tabs { display:grid; grid-template-columns:repeat(4,1fr); background:var(--bar); border-top:1px solid var(--line); }
+  .tabs { display:grid; grid-template-columns:repeat(5,1fr); background:var(--bar); border-top:1px solid var(--line); }
   .tabs button { background:none; border:0; border-top:.9vh solid transparent; color:var(--muted); font-size:3.8vh; font-weight:750; font-stretch:85%; }
   .tabs button.on { background:var(--btn); color:var(--accent); border-top-color:var(--accent); }
   .chips { display:flex; gap:1vh; min-width:0; } .chips button { flex:1; min-width:0; height:7.6vh; border-radius:4vh; border:1px solid var(--line); background:var(--bar); font-size:3.6vh; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -38,6 +38,20 @@
   .pad.selected { background:var(--sel); } .pad.playing { background:var(--play); border-color:var(--accent); } .pad.playing small { color:var(--accent); }
   .pad.stop { background:var(--stop); border-color:#82414b; justify-content:center; align-items:center; font-weight:800; font-size:4vh; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(4,1fr); gap:1vh; min-height:0; } .grid2 .btn { font-size:3.2vh; }
+  /* looper: three loops */
+  .lprows { display:grid; grid-template-rows:repeat(3,1fr) 1.1fr; gap:1.2vh; min-height:0; }
+  .lprow { display:grid; grid-template-columns:34% 19% 1fr 1fr 1fr 9vh; gap:1vh; min-height:0; }
+  .lpcard { border:1px solid var(--line); border-radius:2vh; background:var(--btn); padding:1vh 1.6vh; display:grid; grid-template-columns:auto 1fr auto; grid-template-rows:1fr auto; align-items:center; column-gap:1.4vh; text-align:left; min-width:0; --c:var(--line); }
+  .lpcard.sel { border:.5vh solid var(--accent); } .lpcard b { font-size:3.6vh; } .lpcard span { font-size:3vh; color:var(--muted); } .lpcard em { font-style:normal; font-size:2.8vh; color:var(--muted); }
+  .lpcard i { grid-column:1 / -1; height:1.2vh; border-radius:1vh; background:var(--track); overflow:hidden; } .lpcard i u { display:block; height:100%; background:var(--c); }
+  .lp-recording, .lp-armed { --c:#e5484d; } .lp-dubbing { --c:#f5a524; } .lp-playing { --c:#30a46c; } .lp-stopped { --c:#8DB5DE; }
+  .lpcard.lp-recording, .lpcard.lp-armed, .lpcard.lp-dubbing, .lpcard.lp-playing, .lpcard.lp-stopped { background:color-mix(in srgb, var(--c) 30%, var(--bg)); }
+  .btn.lpmain { background:var(--c, var(--btn)); color:#fff; } .btn.lpmain.lp-empty { background:var(--btn); color:var(--text); }
+  .btn:disabled { color:var(--line); }
+  .lpall { display:grid; grid-template-columns:repeat(4,1fr); gap:1.2vh; min-height:0; }
+  .lpmix { display:grid; grid-template-rows:repeat(3,1fr); gap:1.4vh; min-height:0; } .lpmix > div { display:grid; grid-template-rows:1fr 1fr; gap:.6vh; min-height:0; }
+  .lpmix .lpbtns { display:grid; grid-template-columns:repeat(3,1fr); gap:1vh; padding-left:9.4vh; } .lpmix .btn { font-size:3vh; border-radius:1.6vh; }
+  .lpsetup { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr auto; gap:1.4vh; min-height:0; } .lpsetup .empty { grid-column:1 / -1; font-size:3vh; }
   /* tracks */
   .secs { display:grid; grid-template-columns:repeat(5,1fr); gap:1vh; height:9vh; } .secs .btn { font-size:3.4vh; border-radius:1.8vh; }
   .grid4 { display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:1fr 1fr; gap:1.2vh; min-height:0; }
@@ -97,8 +111,8 @@
 <script>
 (function () {
   var C = window.PPCompanion, esc = C.esc, $ = function (s) { return document.querySelector(s); };
-  var TABS = [["pads", "PADS"], ["tracks", "TRACKS"], ["instrument", "INSTRUMENT"], ["settings", "SETTINGS"]];
-  var SUBS = { tracks: [["play", "Play"], ["mix", "Mixer"], ["songs", "Setlist"]], instrument: [["sound", "Sound"], ["pedals", "Pedals"], ["eq", "EQ · Comp"], ["tune", "Tuner · Level"]], settings: [["audio", "In & out"], ["screens", "Screens"], ["system", "System"]] };
+  var TABS = [["pads", "PADS"], ["tracks", "TRACKS"], ["instrument", "INSTRUMENT"], ["looper", "LOOPER"], ["settings", "SETTINGS"]];
+  var SUBS = { tracks: [["play", "Play"], ["mix", "Mixer"], ["songs", "Setlist"]], instrument: [["sound", "Sound"], ["pedals", "Pedals"], ["eq", "EQ · Comp"], ["tune", "Tuner · Level"]], looper: [["loops", "Loops"], ["mix", "Mix"], ["setup", "Setup"]], settings: [["audio", "In & out"], ["screens", "Screens"], ["system", "System"]] };
   var KINDS = { electric: "Electric", acoustic: "Acoustic", bass: "Bass", keys: "Keys", off: "Off" };
   var HDMI = { app: "Central Pedal app", touch: "Copy of the small screen", mini: "Copy of the small screen", lyrics: "Lyrics", charts: "Chord charts", stage: "Stage display", slides: "Slides", off: "Nothing" };
   var ui = { tab: "pads", sub: {}, pages: {} }, last = null, override = {};
@@ -133,7 +147,39 @@
     n.innerHTML = LOCK + esc(text); n.style.display = ""; clearTimeout(noticeTimer); noticeTimer = setTimeout(function () { n.style.display = "none"; }, 3500);
   }
 
+  var LP_LABEL = { empty: "REC", armed: "WAIT", recording: "RECORDING", playing: "PLAYING", dubbing: "OVERDUB", stopped: "STOPPED" };
+  var LP_NEXT = { empty: "record", armed: "cancel", recording: "close loop", playing: "overdub", dubbing: "play", stopped: "play" };
+  var LP_SRC = { inst: "instrument", input: "audio input", both: "both" };
+  var LP_MODE = { auto: ["AUTO", "with the song when it plays"], song: ["TEMPO", "always N bars"], free: ["FREE", "tap to start and close"] };
+  function lpBtn(label, act, args, sub, cls, on) { return '<button class="btn' + (on ? " on" : "") + (cls ? " " + cls : "") + '"' + (act ? ' data-act="' + act + '" data-args=\'' + esc(JSON.stringify(args || {})) + "'" : " disabled") + ">" + esc(label) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</button>"; }
   var PAGES = {
+    looper_loops: function (d, lp) {
+      var tr = lp.tracks || [], sel = lp.sel || 0, cur = tr[sel] || { s: "empty" };
+      var rows = [0, 1, 2].map(function (i) {
+        var t = tr[i] || { s: "empty" }, s = t.s || "empty", right = t.bar && t.bars ? "bar " + t.bar + "/" + t.bars : t.secs ? t.secs + " s" : "";
+        return '<div class="lprow"><button class="lpcard lp-' + s + (i === sel ? " sel" : "") + '" data-act="looperSelect" data-args=\'{"index":' + i + "}'><b>LOOP " + (i + 1) + "</b><span>" + esc(s === "empty" ? "empty" : s === "armed" ? "waiting" : s) + "</span><em>" + esc(right) + '</em><i><u style="width:' + (s === "empty" ? 0 : Math.round((t.f || 0) * 100)) + '%"></u></i></button>' +
+          lpBtn(LP_LABEL[s] || "REC", "looperRec", { index: i }, LP_NEXT[s], "lpmain lp-" + s) +
+          lpBtn(s === "stopped" ? "PLAY" : "STOP", s === "empty" ? null : "looperTrackStop", { index: i }) +
+          (t.undo || !t.redo ? lpBtn("UNDO", t.undo ? "looperTrackUndo" : null, { index: i }) : lpBtn("REDO", "looperTrackRedo", { index: i })) +
+          lpBtn("CLEAR", s === "empty" ? null : "looperTrackClear", { index: i }) + lpBtn("M", "looperTrackMute", { index: i }, null, "", !!t.mute) + "</div>";
+      }).join("");
+      var all = lpBtn(LP_LABEL[cur.s] || "REC", "looperRec", { index: -1 }, "loop " + (sel + 1), "lpmain lp-" + (cur.s || "empty")) + lpBtn("PLAY ALL", "looperPlayAll", {}, "every loop") + lpBtn("STOP ALL", "looperStopAll", {}, "every loop") + lpBtn("CLEAR ALL", "looperClearAll", {}, "every loop");
+      return chips("looper") + '<div class="content lprows">' + rows + '<div class="lpall">' + all + "</div></div>";
+    },
+    looper_mix: function (d, lp) {
+      var tr = lp.tracks || [];
+      return chips("looper") + '<div class="content lpmix">' + [0, 1, 2].map(function (i) {
+        var t = tr[i] || {}, lv = t.level == null ? 0.9 : t.level;
+        return "<div>" + fader("Loop " + (i + 1), "looperTrackLevel", { index: i }, Math.min(1, lv / 1.2), Math.round(lv * 100) + "%", { act: "looperTrackMute", args: { index: i }, on: !!t.mute }, !!t.mute) +
+          '<div class="lpbtns">' + lpBtn("REVERSE", "looperTrackReverse", { index: i }, null, "", !!t.rev) + lpBtn("½ SPEED", "looperTrackHalf", { index: i }, null, "", !!t.half) + lpBtn("from " + (LP_SRC[t.src] || "instrument"), "looperTrackSource", { index: i }) + "</div></div>";
+      }).join("") + "</div>";
+    },
+    looper_setup: function (d, lp) {
+      var m = LP_MODE[lp.mode] || LP_MODE.auto, bars = lp.bars || 4, sel = lp.sel || 0;
+      return chips("looper") + '<div class="content lpsetup">' + lpBtn("TIMING: " + m[0], "looperMode", {}, m[1]) + lpBtn("LENGTH: " + bars + " BAR" + (bars === 1 ? "" : "S"), "looperBars", {}, "1 · 2 · 4 · 8 · 16") +
+        lpBtn("COUNT-IN", "looperCountIn", {}, lp.countIn ? "on - one bar of clicks" : "off", "", !!lp.countIn) + lpBtn("MAIN SWITCH: LOOP " + (sel + 1), "looperSelectNext", {}, "tap for the next loop") +
+        '<div class="empty">The first loop sets the length; the others stay in step.</div></div>';
+    },
     pads: function (d) {
       var tracks = !!d.tracksMode, perf = d.performance || {};
       var pads = (d.pads || []).slice(0, 8).map(function (p, i) { return '<button class="pad' + (p.playing ? " playing" : p.selected ? " selected" : "") + '" data-act="pad" data-args=\'{"index":' + i + "}'><small>" + (i + 1) + "</small><b>" + esc(p.name) + "</b></button>"; }).join("") + '<button class="pad stop" data-act="stop">STOP</button>';
@@ -216,6 +262,7 @@
     else {
       var sub = ui.sub[tab] || SUBS[tab][0][0], ins = (d.mini || {}).instrument;
       if (tab === "instrument" && !ins) html = chips("instrument") + '<div class="empty">The instrument isn\'t ready yet</div>';
+      else if (tab === "looper") { var lp = (d.mini || {}).looper; html = !lp ? chips("looper") + '<div class="empty">The looper isn\'t ready yet</div>' : lp.on === false ? chips("looper") + '<div class="empty">The looper is off (LOOPER tab in the app)</div>' : PAGES["looper_" + sub](d, lp); }
       else html = PAGES[tab + "_" + sub](d, ins);
     }
     var body = $("#body"); body.classList.toggle("nochips", tab === "pads"); body.innerHTML = html;

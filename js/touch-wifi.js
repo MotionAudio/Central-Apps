@@ -43,7 +43,7 @@
       '<label>Screen<select data-ts="pick"><option value="off"' + (sel === "off" ? " selected" : "") + ">No touch screen" + (cur === "off" ? "  ✓ now" : "") + "</option>" + groups + "</select></label>" + info +
       '<div class="row"><button class="primary" data-ts="apply"' + (sel === cur && !pending ? " disabled" : "") + ">Use this screen</button>" +
       (pending ? '<button data-ts="restart">Restart now</button>' : "") +
-      (now && now.kind === "spi" ? '<button data-ts="calibrate"' + (st.miniScreen ? "" : " disabled") + ">Calibrate its touch</button>" : "") + "</div>" +
+      (now && now.kind === "spi" ? '<button data-ts="calibrate"' + (st.miniScreen ? "" : " disabled") + ">Calibrate its touch</button>" + '<button data-ts="touchTest"' + (st.miniScreen ? "" : " disabled") + ">Test its touch</button>" : "") + "</div>" +
       (tsMsg ? '<p class="small ' + (/^✓/.test(tsMsg) ? "" : "warn") + '">' + esc(tsMsg) + "</p>" : "") +
       '<p class="muted small">Not sure which one? The blue 3.5" board with "XPT2046 Touch Controller" printed on the back is the first one (3.5" RPi Display). Something wrong after the restart? Plug in an HDMI monitor and pick another screen, or "No touch screen".</p></section>';
   }
@@ -119,7 +119,8 @@
     } else if (b.dataset.ts === "restart") {
       if (window.PPTracks && window.PPTracks.isPlaying && window.PPTracks.isPlaying() && !confirm("Something is playing. Restart the Central Pedal now?")) return;
       PP.persistNow(); send({ type: "system", action: "reboot" }); PP.setStatus("Restarting…");
-    } else if (b.dataset.ts === "calibrate") { send({ type: "hardware", action: "calibrateTouch" }); PP.setStatus("Touch the two crosses on the small screen"); }
+    } else if (b.dataset.ts === "calibrate") { send({ type: "hardware", action: "calibrateTouch" }); PP.setStatus("Touch the five crosses on the small screen, then tap the dot and SAVE"); }
+    else if (b.dataset.ts === "touchTest") { send({ type: "hardware", action: "touchTest" }); PP.setStatus("Touch test on the small screen: dots where you tap, its numbers at the top"); }
     else if (a === "phoneOn") { send({ type: "system", action: "phoneSetup", value: "on" }); PP.setStatus("Turning the setup Wi-Fi on…"); }
     else if (a === "phoneOff") { send({ type: "system", action: "phoneSetup", value: "off" }); if (phone) phone.on = false; phoneDialog(); rerender(); }
     else if (a === "scan") { wfMsg = "Scanning…"; wfBusy = true; rerender(); send({ type: "system", action: "wifi" }); setTimeout(function () { if (wfMsg === "Scanning…") { wfMsg = ""; wfBusy = false; rerender(); } }, 20000); }

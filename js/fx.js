@@ -403,12 +403,15 @@
       '<p class="muted small fx-foot">' + (kind === "stem" ? "Made once into a processed copy of the track (a few seconds; the Pi does no extra work while it plays). The tracks still play on their own, with or without pads." : kind === "pad" ? 'The pad\'s own chain. <button class="link" data-fx-full-editor>Full pad editor…</button>' : "On every " + (target.bus === "tracks" ? "track of every song" : "pad") + ", live.") + "</p>";
   }
   function open(t) { target = t; draw(); var d = dialog(); if (!d.open) { try { d.showModal(); } catch (_) { d.setAttribute("open", ""); } } }
-  function commit(rerender) {
-    var fx = target.fx;
-    if (target.kind === "stem") { target.stem.fx = fx; PP.persistSoon(); stemChanged(target.song, target.stem); }
-    else if (target.kind === "pad") { fxToPad(fx, target.pad, target.extra); target.extra = null; PP.persistSoon(); try { engine.update(target.pad); } catch (_) { } }
-    else { setBusFx(target.bus, fx); PP.persistSoon(); busApply(target.bus); }
+  function commitTo(t) {
+    var fx = t.fx;
+    if (t.kind === "stem") { t.stem.fx = fx; PP.persistSoon(); stemChanged(t.song, t.stem); }
+    else if (t.kind === "pad") { fxToPad(fx, t.pad, t.extra); t.extra = null; PP.persistSoon(); try { engine.update(t.pad); } catch (_) { } }
+    else { setBusFx(t.bus, fx); PP.persistSoon(); busApply(t.bus); }
     decorate();
+  }
+  function commit(rerender) {
+    commitTo(target);
     if (rerender) draw();
   }
   function onInput(e) {
@@ -488,7 +491,93 @@
   watch(); watchEditor();
   document.addEventListener("pp-stems", function () { watch(); watchEditor(); busesApply(); });
 
+  // ------------------------------------------------------------- the small 3.5" screen (js/mini-bridge.js)
+  // The same effects without the panel: which tracks / pads have them, and for one of them its presets, every effect
+  // on / off and the main amount of each (the basic versions; the better ones keep their lock).
+  var REVERBS = [["room", "Room"], ["hall", "Hall", true], ["plate", "Plate", true], ["cathedral", "Cathedral", true]];
+  var TIMES = [["1/4", "1/4"], ["1/8", "1/8"], ["1/4.", "1/4 dotted", true], ["1/8.", "1/8 dotted", true], ["1/2", "1/2", true], ["1/16", "1/16", true]];
+  function miniTarget(id) {
+    var m = /^(stem|pad|bus):(.+)$/.exec(String(id || "")); if (!m) return null;
+    if (m[1] === "stem") return stemTarget(m[2]);
+    if (m[1] === "pad") return /^\d+$/.test(m[2]) ? padTarget(Number(m[2])) : null;
+    return m[2] === "tracks" || m[2] === "pads" ? busTarget(m[2]) : null;
+  }
+  function onText(on, preset) { return on ? (preset || "on") : "off"; }
+  function miniTargets(which) {
+    if (which === "pads") {
+      var bp = busFx("pads");
+      return [{ id: "bus:pads", label: "All pads (pads bus)", on: !!bp.on, sub: onText(bp.on, bp.preset) }].concat((project().pads || []).map(function (pad, i) { var on = padFxOn(pad); return { id: "pad:" + i, label: "Pad " + (i + 1) + " · " + pad.name, on: on, sub: onText(on, pad.fxPreset) }; }));
+    }
+    var s = PP.activeSong && PP.activeSong(), stems = s && T() ? T().data(s).stems || [] : [], bt = busFx("tracks");
+    return [{ id: "bus:tracks", label: "All tracks (tracks bus)", on: !!bt.on, sub: onText(bt.on, bt.preset) }].concat(stems.map(function (st) { var fx = st.fx || {}; return { id: "stem:" + st.id, label: st.name, on: !!fx.on, sub: onText(fx.on, fx.preset) }; }));
+  }
+  function choiceName(list, v) { var o = list.filter(function (x) { return String(x[0]) === String(v); })[0]; return o ? o[1] : String(v); }
+  function miniRows(t) {
+    var fx = t.fx, isPro = pro(), fullComp = fx.comp.mode === "full" && isPro, rows = [];
+    function R(o) { o.value = Number(get2(fx, o.path)); o.text = fmt(o.value, o.unit); rows.push(o); }
+    if (t.kind !== "bus") R({ fx: "gate", label: "Gate", toggle: "gate.on", on: !!fx.gate.on, path: "gate.threshold", min: -80, max: 0, unit: "dB" });
+    R({ fx: "eq", label: "EQ low", toggle: "eq.on", on: !!fx.eq.on, path: "eq.low", min: -12, max: 12, unit: "dB" });
+    R({ fx: "eq", label: "EQ mid", on: !!fx.eq.on, path: "eq.mid", min: -12, max: 12, unit: "dB" });
+    R({ fx: "eq", label: "EQ high", on: !!fx.eq.on, path: "eq.high", min: -12, max: 12, unit: "dB" });
+    R(fullComp ? { fx: "comp", label: "Compressor", toggle: "comp.on", on: !!fx.comp.on, path: "comp.threshold", min: -60, max: 0, unit: "dB" }
+      : { fx: "comp", label: "Compressor", toggle: "comp.on", on: !!fx.comp.on, path: "comp.amount", min: 0, max: 100, unit: "%" });
+    R({ fx: "reverb", label: "Reverb", toggle: "reverb.on", on: !!fx.reverb.on, path: "reverb.send", min: 0, max: 100, unit: "%",
+      choice: { path: "reverb.type", name: choiceName(REVERBS, fx.reverb.type), more: !isPro } });
+    R({ fx: "delay", label: "Delay", toggle: "delay.on", on: !!fx.delay.on, path: "delay.send", min: 0, max: 100, unit: "%",
+      choice: { path: "delay.time", name: choiceName(TIMES, fx.delay.time), more: !isPro } });
+    return rows;
+  }
+  function get2(fx, path) { var o = fx; path.split(".").forEach(function (k) { o = o == null ? undefined : o[k]; }); return o; }
+  function set2(fx, path, v) { var o = fx, ks = path.split("."); for (var i = 0; i < ks.length - 1; i++) { if (o[ks[i]] == null) o[ks[i]] = {}; o = o[ks[i]]; } o[ks[ks.length - 1]] = v; }
+  function miniState(id) {
+    var t = miniTarget(id); if (!t) return null; var isPro = pro();
+    // (a pad's effects are always its own chain: no master on / off for a pad)
+    return { id: id, name: t.name, kind: t.kind, master: t.kind !== "pad", on: t.kind === "pad" ? true : !!t.fx.on, preset: t.fx.preset || "", pro: isPro, lock: isPro ? "" : lockText(), rows: miniRows(t) };
+  }
+  function miniPresets(id) {
+    var t = miniTarget(id); if (!t) return null; var isPro = pro();
+    return { items: presetsFor(t.kind).map(function (p) { return { id: p.name, label: p.name, sub: p.pro ? "Central Plugins" : "basic", locked: p.pro && !isPro ? lockText() : null }; }), current: t.fx.preset || null };
+  }
+  // op: {preset}, {toggle: "on" | "eq.on"…}, {cycle: "reverb.type" | "delay.time"}, {path, v} (v 0..1 along the row's range).
+  // Returns true, or the plan's lock line when what was asked needs Central Plugins.
+  function miniApply(id, op) {
+    var t = miniTarget(id); if (!t || !op) return false;
+    var fx = t.fx, isPro = pro();
+    if (op.preset != null) {
+      var p = presetsFor(t.kind).filter(function (q) { return q.name === op.preset; })[0]; if (!p) return false;
+      if (p.pro && !isPro) return lockText();
+      t.fx = applyPreset(fx, p); if (t.kind === "pad") t.extra = { width: p.s.width, drive: p.s.drive };
+    } else if (op.toggle) {
+      if (op.toggle === "on" ? t.kind === "pad" : !/^(gate|eq|comp|reverb|delay)\.on$/.test(op.toggle)) return false;
+      if (op.toggle === "gate.on" && t.kind === "bus") return false;
+      set2(fx, op.toggle, !get2(fx, op.toggle));
+      if (op.toggle !== "on") { fx.preset = ""; if (get2(fx, op.toggle)) fx.on = true; }
+    } else if (op.cycle) {
+      var list = op.cycle === "reverb.type" ? REVERBS : op.cycle === "delay.time" ? TIMES : null; if (!list) return false;
+      var cur = String(get2(fx, op.cycle)), open = list.filter(function (o) { return !o[2] || isPro || String(o[0]) === cur; });
+      var i = open.map(function (o) { return String(o[0]); }).indexOf(cur), next = open[(i + 1) % open.length];
+      if (String(next[0]) === cur) return isPro ? true : lockText();   // (only the basic one: the others need Central Plugins)
+      set2(fx, op.cycle, next[0]); fx.preset = "";
+      set2(fx, op.cycle.split(".")[0] + ".on", true); fx.on = true;
+    } else if (op.path) {
+      var row = miniRows(t).filter(function (r) { return r.path === op.path; })[0]; if (!row) return false;
+      var v = row.min + clamp(op.v, 0, 1) * (row.max - row.min), step = row.unit === "%" ? 1 : 0.5;
+      set2(fx, op.path, Math.round(v / step) * step); fx.preset = "";
+      if (row.toggle && !get2(fx, row.toggle)) set2(fx, row.toggle, true);
+      if (!fx.on) fx.on = true;
+    } else return false;
+    commitTo(t);
+    // the panel open on the big screen for the same thing shows the change
+    var d = document.getElementById("fxDialog");
+    if (d && d.open && target) {
+      var same = target.kind === t.kind && (t.kind === "stem" ? target.stem === t.stem : t.kind === "pad" ? target.padIndex === t.padIndex : target.bus === t.bus);
+      if (same) { var again = miniTarget(id); if (again) { target = again; draw(); } }
+    }
+    return true;
+  }
+
   window.PPFx = { stemFor: stemFor, open: open, openStem: function (id) { var t = stemTarget(id); if (t) open(t); return !!t; }, openPad: function (i) { var t = padTarget(i); if (t) open(t); return !!t; }, openBus: function (b) { open(busTarget(b)); },
     defaults: defaultFx, presets: { stem: STEM_PRESETS, pad: PAD_PRESETS, bus: BUS_PRESETS }, plan: function (s, st) { return stemPlan(s, st); }, busFx: busFx, setBusFx: function (b, fx) { setBusFx(b, fx); busApply(b); }, busChain: function (b) { return buses[b] || null; },
-    padToFx: padToFx, fxToPad: fxToPad, padEffects: padEffects, padGate: padGate, lockEditor: lockEditor, planCheck: planCheck, stats: function () { return stats; }, pending: function () { return Object.keys(busy).length; }, decorate: decorate, isPro: pro, applyPreset: applyPreset };
+    padToFx: padToFx, fxToPad: fxToPad, padEffects: padEffects, padGate: padGate, lockEditor: lockEditor, planCheck: planCheck, stats: function () { return stats; }, pending: function () { return Object.keys(busy).length; }, decorate: decorate, isPro: pro, applyPreset: applyPreset,
+    mini: { targets: miniTargets, state: miniState, presets: miniPresets, apply: miniApply } };
 })();

@@ -8,7 +8,7 @@
   "screens": [
     { "id": "rpi35-xpt2046", "kind": "spi", "size": 3.5, "res": [480, 320], "name": "3.5\" RPi Display - XPT2046 touch (the common blue board)",
       "also": "LCDwiki MPI3501, Waveshare 3.5\" (A) and its clones (Kuman, OSOYOO, Elegoo, iUniker, Quimat...), 480×320, ILI9486",
-      "config": ["dtparam=spi=on", "dtoverlay=piscreen,speed=16000000,rotate=90,fps=50"], "touch": "ADS7846", "pins": [7, 8, 9, 10, 11, 17, 24, 25],
+      "config": ["dtparam=spi=on", "dtoverlay=piscreen,speed=16000000,rotate=90,fps=50,xohms=40"], "touch": "ADS7846", "pins": [7, 8, 9, 10, 11, 17, 24, 25],
       "calibration": { "xmin": 200, "xmax": 3900, "ymin": 200, "ymax": 3900, "swap": true, "flip_x": false, "flip_y": true } },
     { "id": "waveshare35a", "kind": "spi", "size": 3.5, "res": [480, 320], "name": "Waveshare 3.5\" (A) - Waveshare's own driver",
       "also": "the same board as above, with the overlay from Waveshare's LCD-show",

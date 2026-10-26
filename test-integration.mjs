@@ -717,6 +717,56 @@ await check("looper: records a loop from the instrument, closes it, plays it, ov
   });
   assert.deepEqual(r.states, [true, true, true, true, true, true]); assert.ok(r.len > r.rate * 0.3 && r.len < r.rate * 1.5, "loop length " + r.len); assert.ok(r.undone);
 });
+await check("looper: three loops - the second closes on a whole number of the first; it plays; mute / reverse / half speed; stop all, play all, clear all", async () => {
+  const r = await T(async () => {
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const ctx = PP.engine.ctx, osc = ctx.createOscillator(); osc.frequency.value = 330; osc.start();
+    await PPLooper.useNode(osc); PPLooper.setMode("free"); PPLooper.config().countIn = false; PPLooper.clearAll(); await sleep(100);
+    const ws = async (i, want) => { for (let k = 0; k < 100; k++) { if (PPLooper.stateOf(i) === want) return true; await sleep(50); } return false; };
+    const out = [];
+    await PPLooper.track(0); out.push(await ws(0, "recording")); await sleep(600); await PPLooper.track(0); out.push(await ws(0, "playing"));
+    const l0 = PPLooper.tracks()[0].len;
+    await PPLooper.track(1); out.push(await ws(1, "recording")); await sleep(l0 / ctx.sampleRate * 1000 * 1.75); await PPLooper.track(1); out.push(await ws(1, "playing"));
+    const l1 = PPLooper.tracks()[1].len;
+    const an = ctx.createAnalyser(); PP.engine.loopOut.connect(an); await sleep(250);
+    const buf = new Float32Array(an.fftSize); an.getFloatTimeDomainData(buf); const rms = Math.sqrt(buf.reduce((a, v) => a + v * v, 0) / buf.length);
+    PPLooper.toggle(1, "rev"); PPLooper.toggle(1, "half"); PPLooper.toggle(0, "mute"); await sleep(50);
+    const sum = PPLooper.summary();
+    PPLooper.stopAll(); out.push((await ws(0, "stopped")) && (await ws(1, "stopped")));
+    PPLooper.playAll(); out.push((await ws(0, "playing")) && (await ws(1, "playing")));
+    await PPLooper.track(0); out.push(await ws(0, "dubbing")); await sleep(200); await PPLooper.track(0); out.push(await ws(0, "playing"));
+    PPLooper.trackUndo(0); await sleep(100); const undone = !PPLooper.tracks()[0].u && PPLooper.tracks()[0].r;
+    PPLooper.trackRedo(0); await sleep(100); const redone = PPLooper.tracks()[0].u && !PPLooper.tracks()[0].r;
+    PPLooper.clearAll(); out.push((await ws(0, "empty")) && (await ws(1, "empty")));
+    an.disconnect(); osc.stop(); PPLooper.toggle(1, "rev"); PPLooper.toggle(1, "half"); PPLooper.toggle(0, "mute"); PPLooper.setMode("auto");
+    return { out, l0, l1, rms, rate: ctx.sampleRate, undone, redone, flags: [sum.tracks[1].rev, sum.tracks[1].half, sum.tracks[0].mute] };
+  });
+  assert.deepEqual(r.out, [true, true, true, true, true, true, true, true, true]);
+  assert.ok(r.l0 > r.rate * 0.4 && r.l0 < r.rate * 1.4, "loop 1 " + r.l0); assert.equal(r.l1, 2 * r.l0, "loop 2 is two of loop 1");
+  assert.ok(r.rms > 0.01, "the loops are heard " + r.rms); assert.ok(r.undone && r.redone, "undo / redo"); assert.deepEqual(r.flags, [true, true, true]);
+});
+await check("looper pedal (one footswitch): tap records, tap closes, a double tap stops every loop (and takes back the overdub its first tap started), holding clears", async () => {
+  const r = await T(async () => {
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const ctx = PP.engine.ctx, osc = ctx.createOscillator(); osc.frequency.value = 440; osc.start();
+    await PPLooper.useNode(osc); PPLooper.setMode("free"); PPLooper.select(2);
+    const ws = async (want) => { for (let k = 0; k < 100; k++) { if (PPLooper.stateOf(2) === want) return true; await sleep(50); } return false; };
+    const out = [];
+    try {
+    PPLooper.pedalPress({ from: "screen" }); out.push(await ws("recording")); await sleep(500);
+    PPLooper.pedalPress({ from: "screen" }); out.push(await ws("playing")); await sleep(500);
+    PPLooper.pedalPress({ from: "screen" }); PPLooper.pedalPress({ from: "screen" }); out.push(await ws("stopped"));
+    const noDub = !PPLooper.tracks()[2].u;
+    await sleep(500);
+    PPActions.run("looperPedal"); await sleep(1200); out.push(await ws("empty"));   // (a footswitch held down)
+    PPActions.run("looperPedal"); PPActions.ACTIONS.looperPedal.release(); out.push(await ws("recording")); await sleep(300); PPLooper.pedalPress({ from: "screen" }); await sleep(500);
+    const led = PPActions.ACTIONS.looperPedal.led();
+    PPLooper.clearAll(); out.push(await ws("empty"));
+    return { out, noDub, led };
+    } finally { PPLooper.clearAll(); osc.stop(); PPLooper.select(0); PPLooper.setMode("auto"); }
+  });
+  assert.deepEqual(r.out, [true, true, true, true, true, true]); assert.ok(r.noDub, "the double tap's overdub was taken back"); assert.ok(["on", "blink", "beat", "off"].includes(r.led));
+});
 await check("updates: a newer release asks 'Update available - update now?'; Yes waits until nothing is playing; No closes it", async () => {
   await T(() => { PPTracks.stop(true); PP.engine.stop(); }); await wait(300);
   await T(() => { PPShell.showTab("pads"); PP.triggerPad(0); }); await until(() => T(() => PP.engine.voices().length > 0), 5000);

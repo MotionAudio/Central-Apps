@@ -219,5 +219,5 @@
   document.addEventListener("click", function (e) { if (e.target.closest("#syncOpen")) { e.preventDefault(); open("setlists"); } });
   F.on("hello", function () { setTimeout(function () { get("/sync/status").then(function (s) { if (s) { status = s; line(); } }); PP.persistSoon(); }, 1200); });
 
-  window.PPSync = { ask: ask, open: open, openSetlist: openSetlist, askDelete: askDelete, linked: function () { return !!(status && status.linked); }, status: function () { return status; } };
+  window.PPSync = { ask: ask, open: open, openSetlist: openSetlist, askDelete: askDelete, addSong: addSong, linked: function () { return !!(status && status.linked); }, status: function () { return status; } };
 })();

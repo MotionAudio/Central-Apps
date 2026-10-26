@@ -1,7 +1,7 @@
 {
   "name": "central-services-mobile",
   "private": true,
-  "version": "9.8.0",
+  "version": "9.9.0",
   "description": "Central Services for iPhone, iPad and Android: your church's schedule - worship and production teams, who is asked, who said yes or no.",
   "license": "MIT",
   "scripts": {

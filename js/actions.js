@@ -23,7 +23,7 @@
     if (hasTracks()) T().togglePlay(); else PP.toggleSelected();
   }, { led: function () { return anythingPlaying() ? "on" : "off"; } });
   def("stopAll", "Stop all: tracks, pads (fade) and the looper", "Transport", "trigger", function () {
-    if (T() && T().isPlaying()) T().stop(false); engine.stop(); var L2 = window.PPLooper; if (L2 && L2.state().state !== "empty") L2.stop();
+    if (T() && T().isPlaying()) T().stop(false); engine.stop(); var L2 = window.PPLooper; if (L2 && L2.anyPlaying && L2.anyPlaying()) L2.stopAll();
   });
   def("nextSongStop", "Skip to the next song (stops what's playing)", "Transport", "trigger", function () { if (T() && T().isPlaying()) T().stop(false); F.stepSong(1); });
   def("prevSongStop", "Back to the previous song (stops what's playing)", "Transport", "trigger", function () { if (T() && T().isPlaying()) T().stop(false); F.stepSong(-1); });
@@ -124,13 +124,38 @@
   def("instrumentLevel", "Instrument: output level", "Instrument", "continuous", function (a, v) { if (!I()) return; var s = I().state(); s.levelDb = Math.round((-30 + v * 42) * 2) / 2; PP.persistSoon(); sendInstrumentLevel(); });
   def("stepPedal", "Encoder: next / previous board preset", "Instrument", "step", function (a, d) { if (I()) I().stepBoard(d); });
   def("stepPatch", "Encoder: next / previous keys sound", "Instrument", "step", function (a, d) { if (I()) I().stepPatch(d); });
-  // ---- looper (Instrument)
+  // ---- the looper (LOOPER tab): three loops. "Loop N" picks one, or "the selected loop" (the main switch's)
   function L() { return window.PPLooper; }
-  def("looperMain", "Looper: record / play / overdub", "Looper", "trigger", function () { if (L()) L().main(); }, { led: function () { var st = L() ? L().state().state : "empty"; return st === "recording" || st === "dubbing" ? "blink" : st === "playing" ? "on" : st === "armed" ? "beat" : "off"; } });
-  def("looperStop", "Looper: stop / play", "Looper", "trigger", function () { if (!L()) return; var st = L().state().state; if (st === "stopped") L().play(); else L().stop(); }, { led: function () { return L() && L().state().state === "stopped" ? "on" : "off"; } });
-  def("looperUndo", "Looper: undo the last overdub", "Looper", "trigger", function () { if (L()) L().undo(); });
-  def("looperClear", "Looper: clear", "Looper", "trigger", function () { if (L()) L().clear(); });
-  def("looperLevel", "Looper: level", "Looper", "continuous", function (a, v) { if (L()) L().setLevel(v * 1.2); });
+  function li(a) { var n = Number(a && a.index); return isFinite(n) && n >= 0 && n < 3 ? n : -1; }
+  function ledOf(st) { return st === "recording" || st === "dubbing" ? "blink" : st === "playing" ? "on" : st === "armed" ? "beat" : "off"; }
+  function loopFlag(a, k) { var c = L() && L().config(), i = li(a) < 0 && c ? c.sel : li(a); return c && c.tracks[i] && c.tracks[i][k] ? "on" : "off"; }
+  def("looperPedal", "Looper pedal: tap record / play / overdub · double tap stop all · hold clear", "Looper", "trigger", function (a, v, info) { if (L()) L().pedalPress(info); }, { release: function () { if (L()) L().pedalRelease(); }, led: function () { return L() ? ledOf(L().stateOf(-1)) : "off"; } });
+  def("looperRec", "Looper: loop N record / play / overdub", "Looper", "trigger", function (a) { if (L()) L().track(li(a)); }, { arg: "loop", led: function (a) { return L() ? ledOf(L().stateOf(li(a))) : "off"; } });
+  def("looperTrackStop", "Looper: loop N stop / play", "Looper", "trigger", function (a) { if (L()) L().trackStopPlay(li(a)); }, { arg: "loop", led: function (a) { return L() && L().stateOf(li(a)) === "stopped" ? "on" : "off"; } });
+  def("looperTrackUndo", "Looper: loop N undo", "Looper", "trigger", function (a) { if (L()) L().trackUndo(li(a)); }, { arg: "loop" });
+  def("looperTrackRedo", "Looper: loop N redo", "Looper", "trigger", function (a) { if (L()) L().trackRedo(li(a)); }, { arg: "loop" });
+  def("looperTrackClear", "Looper: loop N clear", "Looper", "trigger", function (a) { if (L()) L().trackClear(li(a)); }, { arg: "loop" });
+  def("looperTrackMute", "Looper: loop N mute on / off", "Looper", "trigger", function (a) { if (L()) L().toggle(li(a), "mute"); }, { arg: "loop", led: function (a) { return loopFlag(a, "mute"); } });
+  def("looperTrackReverse", "Looper: loop N reverse on / off", "Looper", "trigger", function (a) { if (L()) L().toggle(li(a), "rev"); }, { arg: "loop", led: function (a) { return loopFlag(a, "rev"); } });
+  def("looperTrackHalf", "Looper: loop N half speed on / off", "Looper", "trigger", function (a) { if (L()) L().toggle(li(a), "half"); }, { arg: "loop", led: function (a) { return loopFlag(a, "half"); } });
+  def("looperTrackSource", "Looper: loop N records instrument / audio input / both (next)", "Looper", "trigger", function (a) { if (L()) L().stepSource(li(a)); }, { arg: "loop" });
+  def("looperTrackLevel", "Looper: loop N level", "Looper", "continuous", function (a, v) { if (L()) L().setLevel(v * 1.2, li(a) < 0 ? L().selected() : li(a)); }, { arg: "loop" });
+  def("looperTrackPan", "Looper: loop N pan (left / right)", "Looper", "continuous", function (a, v) { if (L()) L().setPan(a && a.pan != null ? Number(a.pan) : v * 2 - 1, li(a) < 0 ? L().selected() : li(a)); }, { arg: "loop" });
+  def("looperSelect", "Looper: the main switch works loop N", "Looper", "trigger", function (a) { if (L()) L().select(li(a) < 0 ? 0 : li(a)); }, { arg: "loop", led: function (a) { return L() && L().selected() === (li(a) < 0 ? 0 : li(a)) ? "on" : "off"; } });
+  def("looperSelectNext", "Looper: the main switch works the next loop", "Looper", "trigger", function () { if (L()) L().selectStep(1); });
+  def("looperPlayAll", "Looper: play every loop", "Looper", "trigger", function () { if (L()) L().playAll(); }, { led: function () { return L() && L().anyPlaying() ? "on" : "off"; } });
+  def("looperStopAll", "Looper: stop every loop", "Looper", "trigger", function () { if (L()) L().stopAll(); });
+  def("looperClearAll", "Looper: clear every loop", "Looper", "trigger", function () { if (L()) L().clearAll(); });
+  def("looperMode", "Looper: timing Auto / Tempo / Free (next)", "Looper", "trigger", function () { if (L()) L().stepMode(); });
+  def("looperBars", "Looper: loop length 1 / 2 / 4 / 8 / 16 bars (next)", "Looper", "trigger", function () { if (L()) L().cycleBars(); });
+  def("looperCountIn", "Looper: count-in on / off", "Looper", "trigger", function () { if (L()) L().toggleCountIn(); }, { led: function () { return L() && L().config().countIn ? "on" : "off"; } });
+  def("stepLoop", "Encoder: pick the loop the main switch works", "Looper", "step", function (a, d) { if (L()) L().selectStep(d); });
+  // (the first looper's actions: loop 1)
+  def("looperMain", "Looper: loop 1 record / play / overdub", "Looper", "trigger", function () { if (L()) L().main(0); }, { led: function () { return L() ? ledOf(L().state().state) : "off"; } });
+  def("looperStop", "Looper: loop 1 stop / play", "Looper", "trigger", function () { if (L()) L().trackStopPlay(0); }, { led: function () { return L() && L().state().state === "stopped" ? "on" : "off"; } });
+  def("looperUndo", "Looper: loop 1 undo the last overdub", "Looper", "trigger", function () { if (L()) L().undo(0); });
+  def("looperClear", "Looper: loop 1 clear", "Looper", "trigger", function () { if (L()) L().clear(0); });
+  def("looperLevel", "Looper: level of every loop", "Looper", "continuous", function (a, v) { if (L()) L().setLevel(v * 1.2); });
   // ---- scenes (per song: pad layers, track mix, instrument) and the mixer
   function S() { return window.PPScenes; }
   def("sceneNext", "Scene: next scene of this song", "Scenes", "trigger", function () { if (S()) S().step(1); });
@@ -160,14 +185,14 @@
   def("stepVolume", "Encoder: master volume", "Pads", "step", function (a, d) { PP.setPerformance("volume", project().performance.volume + d * .03); });
 
   // ---- tabs: next / previous, or straight to one (the top row: LIVE · PAD · TRACKS · INSTRUMENT · … · SETTINGS)
-  var TAB_NAMES = { live: "LIVE", pads: "Pad", tracks: "Tracks", instrument: "Instrument", configure: "Configure", learn: "Learn", io: "I/O", settings: "Settings" };
+  var TAB_NAMES = { live: "LIVE", pads: "Pad", tracks: "Tracks", instrument: "Instrument", looper: "Looper", configure: "Configure", learn: "Learn", io: "I/O", settings: "Settings" };
   function curTab() { return window.PPShell ? window.PPShell.currentTab() : "pads"; }
   function showTab(t) { if (window.PPShell) window.PPShell.showTab(t); }
   function tabOrder() { var list = Array.prototype.map.call(document.querySelectorAll(".nav-tab[data-tab]"), function (b) { return b.getClientRects().length ? b.dataset.tab : null; }).filter(Boolean); return list.length ? list : Object.keys(TAB_NAMES); }
   function stepTab(d) { var o = tabOrder(), i = o.indexOf(curTab()); showTab(o[((i < 0 ? 0 : i) + (d < 0 ? -1 : 1) + o.length) % o.length]); }
   def("tabNext", "Tabs: next tab", "Tabs", "trigger", function () { stepTab(1); });
   def("tabPrev", "Tabs: previous tab", "Tabs", "trigger", function () { stepTab(-1); });
-  ["pads", "tracks", "instrument", "settings", "live"].forEach(function (t) {
+  ["pads", "tracks", "instrument", "looper", "settings", "live"].forEach(function (t) {
     def("tab" + t.charAt(0).toUpperCase() + t.slice(1), "Tabs: show " + TAB_NAMES[t], "Tabs", "trigger", function () { showTab(t); }, { led: function () { return curTab() === t ? "on" : "off"; } });
   });
   def("stepTab", "Encoder: change tab", "Tabs", "step", function (a, d) { stepTab(d); });
