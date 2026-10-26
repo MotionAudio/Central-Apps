@@ -137,6 +137,61 @@ await check("the small screen's lists: the controls and what each does, what a b
   assert.ok(again.length === 2 && again[1].items.find((i) => i.id === "b1").action === "tap");
   await T((b) => { const m = PPActions.mapping(); if (b === "null") delete m.b1; else m.b1 = JSON.parse(b); }, before);
 });
+await check("the small screen's setlist, effects and scenes: a song moves / comes out, effects on / off, amounts and presets (the better ones need Central Plugins)", async () => {
+  const r = await T(() => {
+    const out = [], keep = __pedalBridge.socket;
+    __pedalBridge.socket = { readyState: 1, send: (s) => out.push(JSON.parse(s)) };
+    const p = PP.project(), saved = p.songs, savedIdx = p.songIndex, savedBus = JSON.stringify((p.busFx || {}).pads || null), pad0 = JSON.parse(JSON.stringify(p.pads[0]));
+    const res = {};
+    try {
+      p.songs = [{ id: "m1", name: "One", key: "C", bpm: 70, pad: -1, notes: "", scenes: [{ id: "sc1", name: "Intro" }, { id: "sc2", name: "Chorus" }] }, { id: "m2", name: "Two", key: "D", bpm: 70, pad: -1, notes: "" }, { id: "m3", name: "Three", key: "E", bpm: 70, pad: -1, notes: "" }];
+      p.songIndex = 0;
+      __pedalBridge.handleMessage({ type: "miniPick", what: "setlistMove", id: 0, target: 1 });
+      res.order1 = p.songs.map((x) => x.id).join(); res.idx1 = p.songIndex;
+      __pedalBridge.handleMessage({ type: "miniPick", what: "setlistRemove", id: 2 });
+      res.order2 = p.songs.map((x) => x.id).join();
+      p.songIndex = 1;
+      __pedalBridge.handleMessage({ type: "miniRequest", what: "scenes" });
+      __pedalBridge.handleMessage({ type: "miniRequest", what: "fxTargets", kind: "pads" });
+      __pedalBridge.handleMessage({ type: "miniRequest", what: "fx", kind: "bus:pads" });
+      __pedalBridge.handleMessage({ type: "miniRequest", what: "fx", kind: "pad:0" });
+      res.lists = out.filter((m) => m.type === "miniList");
+      res.result = out.filter((m) => m.type === "miniResult").map((m) => m.text);
+      const comp0 = PPFx.busFx("pads").comp.on;
+      PPActions.run("fxToggle", { target: "bus:pads", path: "comp.on" });
+      PPActions.run("fxValue", { target: "bus:pads", path: "eq.low" }, { value: 1 });
+      const bus = PPFx.busFx("pads");
+      res.comp = [comp0, bus.comp.on]; res.low = bus.eq.low; res.busOn = bus.on;
+      res.bad = [PPFx.mini.apply("bus:pads", { toggle: "gate.on" }), PPFx.mini.apply("pad:0", { toggle: "on" }), PPFx.mini.apply("nope:1", { toggle: "on" }), PPFx.mini.apply("bus:pads", { path: "eq.lowCut", v: 1 })];
+      res.pro = PPFx.isPro();
+      const before = PPFx.busFx("pads").reverb.type;
+      res.cycle = [before, PPFx.mini.apply("bus:pads", { cycle: "reverb.type" }), PPFx.busFx("pads").reverb.type];
+      res.presets = PPFx.mini.presets("pad:0");
+      res.warm = PPFx.mini.apply("pad:0", { preset: "Warm pad" }); res.padPreset = p.pads[0].fxPreset;
+      res.hall = PPFx.mini.apply("pad:0", { preset: "Hall pad" });
+    } finally {
+      p.songs = saved; p.songIndex = savedIdx;
+      PPFx.setBusFx("pads", savedBus === "null" ? PPFx.defaults() : JSON.parse(savedBus));
+      p.pads[0].effects = pad0.effects; p.pads[0].fxPreset = pad0.fxPreset;
+      __pedalBridge.socket = keep;
+    }
+    return res;
+  });
+  assert.equal(r.order1, "m2,m1,m3"); assert.equal(r.idx1, 1, "the song playing stays the current one");
+  assert.equal(r.order2, "m2,m1");
+  assert.ok(r.result.some((t) => /Three/.test(t) && /song library/.test(t)), JSON.stringify(r.result));
+  const sc = r.lists.find((m) => m.what === "scenes"), tg = r.lists.find((m) => m.what === "fxTargets"), fb = r.lists.find((m) => m.what === "fx" && m.kind === "bus:pads"), fp = r.lists.find((m) => m.what === "fx" && m.kind === "pad:0");
+  assert.ok(sc && sc.items.length === 2 && sc.items[1].label === "Chorus", JSON.stringify(sc));
+  assert.ok(tg && tg.kind === "pads" && tg.items[0].id === "bus:pads" && tg.items.length === 1 + (await T(() => PP.project().pads.length)), JSON.stringify(tg && tg.items.slice(0, 2)));
+  assert.ok(fb && fb.state.master === true && !fb.state.rows.some((x) => x.fx === "gate") && fb.state.rows.some((x) => x.path === "reverb.send" && x.choice), JSON.stringify(fb && fb.state));
+  assert.ok(fp && fp.state.master === false && fp.state.rows[0].fx === "gate", JSON.stringify(fp && fp.state.rows[0]));
+  assert.deepEqual(r.comp.map(Boolean), [!!r.comp[0], !r.comp[0]]); assert.equal(r.low, 12); assert.equal(r.busOn, true);
+  assert.deepEqual(r.bad, [false, false, false, false], "a bus has no gate, a pad no master switch; unknown targets and paths are refused");
+  if (r.pro) { assert.equal(r.cycle[1], true); assert.notEqual(r.cycle[2], r.cycle[0]); assert.equal(r.hall, true); }
+  else { assert.ok(typeof r.cycle[1] === "string" && /Central Plugins/.test(r.cycle[1]), JSON.stringify(r.cycle)); assert.ok(typeof r.hall === "string" && /Central Plugins/.test(r.hall)); assert.ok(r.presets.items.some((i) => i.locked)); }
+  assert.equal(r.warm, true); assert.equal(r.padPreset, "Warm pad");
+  assert.ok(r.presets.items.some((i) => i.id === "Warm pad" && !i.locked));
+});
 
 console.log("\nPerform screen:");
 await check("encoder hold -> switches to the Perform screen", async () => {

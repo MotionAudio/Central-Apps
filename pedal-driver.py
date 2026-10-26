@@ -3183,6 +3183,7 @@ class MiniScreen:
         self.tmode = None
         self.dragf = TouchFilter()
         self.tstats = {"device": None, "presses": 0, "taps": 0, "rate": 0.0, "jitter": 0.0, "tapMs": 0.0, "pressure": None, "last": 0.0}
+        self.song_edit = False   # (the setlist page's EDIT: move songs, take them out)
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -3205,8 +3206,8 @@ class MiniScreen:
            "idle": (22, 42, 66), "selected": (31, 68, 110), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (52, 58, 68),
            "btn": (35, 39, 46), "on": (226, 194, 126), "ontext": (26, 20, 8), "warn": (255, 190, 110), "track": (46, 51, 60)}
     TABS = [("pads", "PADS"), ("tracks", "TRACKS"), ("instrument", "INSTRUMENT"), ("settings", "SETTINGS")]
-    SUBS = {"pads": [("pads", "Pads"), ("key", "Key"), ("sound", "Sound")],
-            "tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist"), ("tempo", "Click · Tempo")],
+    SUBS = {"pads": [("pads", "Pads"), ("key", "Key"), ("sound", "Sound"), ("fx", "Effects")],
+            "tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist"), ("fx", "Effects"), ("scenes", "Scenes"), ("tempo", "Tempo")],
             "instrument": [("sound", "Sound"), ("pedals", "Pedals"), ("eq", "EQ · Comp"), ("tune", "Tuner · Level")],
             "settings": [("audio", "Audio"), ("wifi", "Wi-Fi"), ("controls", "Controls"), ("screens", "Screens"), ("touch", "Touch"), ("system", "System")]}
     KEY_NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
@@ -3736,31 +3737,258 @@ class MiniScreen:
             self.text(g, (W / 2, H - 70), "This song has no tracks yet", self.F["sub"], C["muted"], "mm")
 
     def tracks_songs(self, g, hits, d):
+        """The setlist: tap a song to go to it; ‹ SONG, NEXT ›, START SET (song 1); + ADD from the song library (A–Z);
+        EDIT: move a song up / down or take it out of this setlist (✕ twice - it stays in the song library)."""
         C, W, H = self.COL, self.w, self.h
         songs = d.get("songs") or []
         cur = (d.get("song") or {}).get("index")
+        per = 4
         if cur is not None and self.pages.get("songs_cur") != cur:
             self.pages["songs_cur"] = cur
-            self.pages["songs"] = int(cur) // 6
+            self.pages["songs"] = int(cur) // per
         items = [dict(s, index=i) for i, s in enumerate(songs)]
-        shown, page, pages = self.paged("songs", items, 6)
+        shown, page, pages = self.paged("songs", items, per)
         self.chips(g, hits, "tracks", pager=("songs", page, pages) if pages > 1 else None)
-        y, rh = 76, (H - 46 - 76) / 6
+        edit = bool(self.song_edit)
+        held = set_line(self.driver)
+        line = ("Set: " + held) if held else "Setlist · %d song%s" % (len(songs), "" if len(songs) == 1 else "s")
+        self.text(g, (8, 84), line, self.F["sub"], C["muted"], "lm", W - 16)
+        y, rh = 92, 36
+        armed = self.confirm if (self.confirm or "").startswith("rm:") and time.monotonic() - self.confirm_at < 4 else None
         for s in shown:
             on = s["index"] == cur
-            box = [6, y + 2, W - 6, y + rh - 2]
+            right = W - 6 - (3 * 44 if edit else 0)
+            box = [6, y + 2, right, y + rh - 2]
             g.rounded_rectangle(box, 8, fill=C["selected"] if on else C["btn"], outline=C["accent"] if on else C["line"])
-            self.text(g, (16, (box[1] + box[3]) / 2), str(s["index"] + 1), self.F["label"], C["accent"] if on else C["muted"], "lm")
-            self.text(g, (44, (box[1] + box[3]) / 2), s.get("name") or "Song", self.F["name"], C["text"], "lm", W - 44 - 70)
-            self.text(g, (W - 30, (box[1] + box[3]) / 2), s.get("key") or "", self.F["label"], C["muted"], "rm")
+            cy = (box[1] + box[3]) / 2
+            self.text(g, (16, cy), str(s["index"] + 1), self.F["label"], C["accent"] if on else C["muted"], "lm")
+            self.text(g, (44, cy), s.get("name") or "Song", self.F["name"], C["text"], "lm", right - 44 - 50)
+            self.text(g, (right - 24, cy), s.get("key") or "", self.F["label"], C["muted"], "rm")
             if s.get("hasTracks"):   # (a dot: the song has tracks)
-                cy = (box[1] + box[3]) / 2
-                g.ellipse([W - 22, cy - 4, W - 14, cy + 4], fill=C["accent"])
-            hits.append((list(map(int, box)), {"name": "loadSong", "args": {"index": s["index"]}}))
+                g.ellipse([right - 16, cy - 4, right - 8, cy + 4], fill=C["accent"])
+            hits.append(([6, int(y), int(right), int(y + rh)], {"name": "loadSong", "args": {"index": s["index"]}}))   # (the whole row height: easier to hit)
+            if edit:
+                i = s["index"]
+                x = right + 4
+                self.icon_button(g, hits, [x, y + 2, x + 40, y + rh - 2], "up", {"local": "pick", "what": "setlistMove", "id": i, "target": -1, "quiet": True} if i > 0 else None, tall=(y, y + rh))
+                self.icon_button(g, hits, [x + 44, y + 2, x + 84, y + rh - 2], "down", {"local": "pick", "what": "setlistMove", "id": i, "target": 1, "quiet": True} if i < len(songs) - 1 else None, tall=(y, y + rh))
+                self.icon_button(g, hits, [x + 88, y + 2, W - 6, y + rh - 2], "x", {"local": "rmSong", "index": i}, fill=C["stop"] if armed == "rm:%d" % i else None, tall=(y, y + rh))
             y += rh
         if not songs:
-            self.text(g, (W / 2, 170), "The setlist is empty", self.F["sub"], C["muted"], "mm")
-            self.text(g, (W / 2, 196), "Upload a set from Central Pedal Control", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 150), "The setlist is empty", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 172), "+ ADD a song from the library, or upload a set from Central Pedal Control", self.F["sub"], C["muted"], "mm", W - 20)
+        bw = (W - 12 - 4 * 4) / 5
+        for i, (label, action, on) in enumerate((("‹ SONG", {"name": "prevSong"}, False), ("NEXT ›", {"name": "nextSong"}, False),
+                                                  ("START SET", {"name": "loadSong", "args": {"index": 0}} if songs else None, False),
+                                                  ("+ ADD", {"local": "list", "what": "library", "title": "Song library", "az": True}, False),
+                                                  ("DONE" if edit else "EDIT", {"local": "songEdit"}, edit))):
+            x = 6 + i * (bw + 4)
+            self.button(g, hits, [x, 240, x + bw, H - 46], label, action, on=on, font=self.F["label"], color=None if action else C["line"])
+
+    def icon_button(self, g, hits, box, icon, action, fill=None, tall=None):
+        """A button with a drawn sign (the screen's font has no arrows): up, down, x. tall: (y0, y1) the touch area
+        reaches (the whole row, not only the drawn button)."""
+        C = self.COL
+        g.rounded_rectangle(box, 8, fill=fill or C["btn"], outline=C["line"])
+        col = C["text"] if action is not None else C["line"]
+        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        if icon == "up":
+            g.polygon([(cx - 8, cy + 5), (cx + 8, cy + 5), (cx, cy - 6)], fill=col)
+        elif icon == "down":
+            g.polygon([(cx - 8, cy - 5), (cx + 8, cy - 5), (cx, cy + 6)], fill=col)
+        else:
+            g.line([cx - 6, cy - 6, cx + 6, cy + 6], fill=col, width=3)
+            g.line([cx - 6, cy + 6, cx + 6, cy - 6], fill=col, width=3)
+        if action is not None:
+            hits.append(([int(box[0]), int(tall[0] if tall else box[1]), int(box[2]), int(tall[1] if tall else box[3])], action))
+
+    def library_items(self):
+        """The song library (every song on this pedal), A–Z; the ones already in the setlist say so."""
+        sync = getattr(self.driver, "sync", None) if self.driver else None
+        try:
+            listing = sync.songs_listing() if sync else []
+        except Exception:
+            listing = []
+        inset = {x.get("id") for x in ((self.driver.display or {}).get("songs") if self.driver else None) or []}
+        out = []
+        for x in listing:
+            if not x.get("here", True):
+                continue
+            bits = [x.get("key") or "", ("%d tracks" % x["stems"]) if x.get("stems") else ""]
+            there = x.get("id") in inset
+            out.append({"id": x.get("id"), "label": x.get("name") or "Song", "sub": "in the setlist" if there else " · ".join(b for b in bits if b), "inset": there})
+        return out
+
+    def local_list(self, what):
+        """The lists the screen fills itself (no need to ask the app): the song library, what HDMI 1 / 2 can show."""
+        if what == "library":
+            self.lists["library"] = {"items": self.library_items(), "at": time.monotonic()}
+        elif what in ("hdmi1", "hdmi2") and self.driver:
+            n = 1 if what == "hdmi1" else 2
+            cur = self.driver.displays_config().get("hdmi%d" % n) or ("app" if n == 1 else "lyrics")
+            self.lists[what] = {"items": [{"id": k, "label": v} for k, v in (self.HDMI1 if n == 1 else self.HDMI2)], "current": "touch" if cur == "mini" else cur}
+        else:
+            return False
+        return True
+
+    # ----- effects: every track (stem), every pad, the tracks bus and the pads bus (js/fx.js through mini-bridge.js) ----
+    def tracks_fx(self, g, hits, d):
+        self.fx_targets(g, hits, d, "tracks")
+
+    def pads_fx(self, g, hits, d):
+        self.fx_targets(g, hits, d, "pads")
+
+    def fx_targets(self, g, hits, d, which):
+        C, W, H = self.COL, self.w, self.h
+        key = "fxTargets:" + which
+        if which == "tracks" and self.pages.get("fxt_song") != d.get("songId"):   # (another song: its own tracks)
+            self.pages["fxt_song"] = d.get("songId")
+            self.lists.pop(key, None)
+            self.want("fxTargets", which, every=0)
+        self.want("fxTargets", which, every=3.0)
+        data = self.lists.get(key)
+        items = (data or {}).get("items") or []
+        shown, page, pages = self.paged("fxt:" + which, items, 5)
+        self.chips(g, hits, "tracks" if which == "tracks" else "pads", pager=("fxt:" + which, page, pages) if pages > 1 else None)
+        if data is None:
+            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            return
+        y, rh = 76, (H - 46 - 76) / 5
+        for it in shown:
+            box = [6, y + 2, W - 6, y + rh - 2]
+            on = bool(it.get("on"))
+            g.rounded_rectangle(box, 8, fill=C["btn"], outline=C["accent"] if on else C["line"])
+            cy = (box[1] + box[3]) / 2
+            g.ellipse([14, cy - 5, 24, cy + 5], fill=C["accent"] if on else C["track"])
+            self.text(g, (34, cy), it.get("label") or "", self.F["name"], C["text"], "lm", W - 34 - 150)
+            self.text(g, (W - 34, cy), it.get("sub") or "", self.F["sub"], C["accent"] if on else C["muted"], "rm", 130)
+            self.text(g, (W - 14, cy), "›", self.F["title"], C["muted"], "rm")
+            hits.append(([6, int(y), W - 6, int(y + rh)], {"local": "fxOpen", "target": it.get("id"), "title": it.get("label")}))
+            y += rh
+        if which == "tracks" and len(items) <= 1:
+            self.text(g, (W / 2, y + 20), "This song has no tracks yet - the tracks bus still works", self.F["sub"], C["muted"], "mm", W - 20)
+
+    FX_TOGGLE = {"gate": "GATE", "eq": "EQ", "comp": "COMP", "reverb": "REVERB", "delay": "DELAY"}
+    FX_LABEL = {"gate.threshold": "Threshold", "eq.low": "Low", "eq.mid": "Mid", "eq.high": "High", "comp.amount": "Amount",
+                "comp.threshold": "Threshold", "reverb.send": "Send", "delay.send": "Send"}
+
+    def overlay_fx(self, g, hits, d):
+        """One track's / pad's / bus's effects: on / off and the preset, then each effect - on / off and its main amount
+        (the reverb's type and the delay's time step on with a tap; the better ones say Central Plugins)."""
+        C, W, H = self.COL, self.w, self.h
+        ov = self.overlay
+        tid = ov.get("target") or ""
+        self.want("fx", tid, every=3.0)
+        st = (self.lists.get("fx:" + tid) or {}).get("state")
+        rows = [{"head": True}] + list((st or {}).get("rows") or [])
+        shown, page, pages = self.paged("fx:" + tid, rows, 5)
+        self.button(g, hits, [6, 44, 86, 70], "‹ BACK", {"local": "back"}, radius=13, font=self.F["label"])
+        self.text(g, (96, 57), (st or {}).get("name") or ov.get("title") or "Effects", self.F["name"], C["text"], "lm", W - 96 - (104 if pages > 1 else 8))
+        if pages > 1:
+            self.button(g, hits, [W - 98, 44, W - 66, 70], "‹", {"local": "page", "key": "fx:" + tid, "d": -1} if page > 0 else None, radius=13, color=C["text"] if page > 0 else C["line"])
+            self.text(g, (W - 50, 57), "%d/%d" % (page + 1, pages), self.F["sub"], C["muted"], "mm")
+            self.button(g, hits, [W - 38, 44, W - 6, 70], "›", {"local": "page", "key": "fx:" + tid, "d": 1} if page < pages - 1 else None, radius=13, color=C["text"] if page < pages - 1 else C["line"])
+        if not st:
+            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            return
+        master = bool(st.get("on"))
+        y, rh = 76, (H - 46 - 76) / 5
+        for r in shown:
+            if r.get("head"):
+                x = 6
+                if st.get("master"):
+                    self.button(g, hits, [6, y + 3, 74, y + rh - 3], "ON" if master else "OFF", {"name": "fxToggle", "args": {"target": tid, "path": "on"}}, on=master, radius=8)
+                    x = 80
+                lock = st.get("lock")
+                self.button(g, hits, [x, y + 3, W - 6, y + rh - 3], "Preset: " + (st.get("preset") or "your own"),
+                            {"local": "list", "what": "fxPresets", "kind": tid, "target": tid, "title": "Presets", "stack": True, "current": st.get("preset")},
+                            sub=("pro presets: " + lock) if lock else "tap to pick one", radius=8)
+                y += rh
+                continue
+            on = bool(r.get("on")) and master
+            if r.get("toggle"):
+                self.button(g, hits, [6, y + 3, 74, y + rh - 3], self.FX_TOGGLE.get(r.get("fx"), "ON"), {"name": "fxToggle", "args": {"target": tid, "path": r["toggle"]}},
+                            on=bool(r.get("on")), radius=8, font=self.F["label"])
+            ch = r.get("choice")
+            right = W - 84 if ch else W - 6
+            lo, hi = float(r.get("min", 0)), float(r.get("max", 1))
+            v = (float(r.get("value") or 0) - lo) / max(1e-9, hi - lo)
+            self.fader(g, hits, [80, y, right, y + rh], self.FX_LABEL.get(r.get("path"), r.get("label") or ""), v,
+                       {"name": "fxValue", "args": {"target": tid, "path": r.get("path")}}, valtext=r.get("text"), dim=not on, label_w=72)
+            if ch:   # (a small lock: the other types / times come with Central Plugins - a tap says so)
+                self.button(g, hits, [W - 80, y + 3, W - 6, y + rh - 3], ch.get("name") or "", {"name": "fxCycle", "args": {"target": tid, "path": ch.get("path")}},
+                            sub="tap: next", radius=8, font=self.F["label"])
+                if ch.get("more"):
+                    self.lock_icon(g, W - 19, y + 6, 10, C["accent"])
+            y += rh
+
+    # ----- scenes and screens -----------------------------------------------------------------------------------------
+    def tracks_scenes(self, g, hits, d):
+        """This song's scenes (recall one, previous / next), lyrics previous / next, the projector blank and what HDMI 1 / 2
+        show (picked from a list: a change restarts the screens once)."""
+        C, W, H = self.COL, self.w, self.h
+        if self.pages.get("scenes_song") != d.get("songId"):
+            self.pages["scenes_song"] = d.get("songId")
+            self.pages["scenes"] = 0
+            self.lists.pop("scenes", None)
+            self.want("scenes", every=0)
+        self.want("scenes", every=3.0)
+        data = self.lists.get("scenes") or {}
+        items = data.get("items") or []
+        cur = data.get("current")
+        shown, page, pages = self.paged("scenes", items, 6)
+        self.chips(g, hits, "tracks", pager=("scenes", page, pages) if pages > 1 else None)
+        cw, ch = (W - 12 - 2 * 5) / 3, 38
+        if not items:
+            self.text(g, (W / 2, 106), "This song has no scenes yet" if "items" in data else "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 126), "Make them in the song editor → Scenes", self.F["sub"], C["muted"], "mm")
+        for j, sc in enumerate(shown):
+            r, c = divmod(j, 3)
+            x, y = 6 + c * (cw + 5), 76 + r * (ch + 4)
+            self.button(g, hits, [x, y, x + cw, y + ch], sc.get("label") or "Scene", {"local": "pick", "what": "scenes", "id": sc.get("id"), "label": sc.get("label"), "quiet": True},
+                        on=sc.get("id") == cur, radius=8, font=self.F["label"])
+        ls = d.get("lyrics") or {}
+        lsub = ("page %d of %d" % (int(ls.get("page") or 0) + 1, ls["pages"])) if ls.get("pages") else (ls.get("section") or "")
+        bw = (W - 12 - 3 * 5) / 4
+        for i, (label, action, sub) in enumerate((("‹ SCENE", {"name": "scenePrev"}, None), ("SCENE ›", {"name": "sceneNext"}, None),
+                                                   ("‹ LYRICS", {"name": "lyricsPrev"}, lsub or None), ("LYRICS ›", {"name": "lyricsNext"}, lsub or None))):
+            x = 6 + i * (bw + 5)
+            self.button(g, hits, [x, 164, x + bw, 206], label, action, sub=sub)
+        disp = self.driver.displays_config() if self.driver else {}
+        names = []
+        for n, opts in ((1, self.HDMI1), (2, self.HDMI2)):
+            cur_h = disp.get("hdmi%d" % n) or ("app" if n == 1 else "lyrics")
+            names.append(dict(opts).get("touch" if cur_h == "mini" else cur_h, cur_h))
+        blank = bool((d.get("projector") or {}).get("blank"))
+        third = (W - 12 - 10) / 3
+        for i, (label, action, on, sub) in enumerate((("BLANK", {"name": "projectorBlank"}, blank, "projector " + ("blank" if blank else "showing")),
+                                                       ("HDMI 1", {"local": "list", "what": "hdmi1", "title": "HDMI 1 shows"}, False, names[0]),
+                                                       ("HDMI 2", {"local": "list", "what": "hdmi2", "title": "HDMI 2 shows"}, False, names[1]))):
+            x = 6 + i * (third + 5)
+            self.button(g, hits, [x, 212, x + third, H - 46], label, action, on=on, sub=sub)
+
+    def overlay_letters(self, g, hits, d):
+        """Jump the list to a letter (the letters with no song are dimmed)."""
+        C, W, H = self.COL, self.w, self.h
+        ov = self.overlay
+        parent = ov.get("parent") or {}
+        items = (self.lists.get(self.list_key(parent)) or {}).get("items") or [] if parent.get("what") else []
+        have = {self.initial(it.get("label")) for it in items}
+        self.button(g, hits, [6, 44, 86, 70], "‹ BACK", {"local": "back"}, radius=13, font=self.F["label"])
+        self.text(g, (96, 57), "Jump to a letter", self.F["name"], C["text"], "lm")
+        letters = [chr(c) for c in range(65, 91)] + ["#"]
+        cw, ch, gap = (W - 12 - 6 * 4) / 7, (H - 46 - 76 - 3 * 4) / 4, 4
+        for i, L in enumerate(letters):
+            r, c = divmod(i, 7)
+            x, y = 6 + c * (cw + gap), 76 + r * (ch + gap)
+            ok = L in have
+            self.button(g, hits, [x, y, x + cw, y + ch], L, {"local": "letter", "letter": L} if ok else None, font=self.F["title"], radius=8,
+                        color=None if ok else C["line"])
+
+    @staticmethod
+    def initial(label):
+        c = str(label or "").strip()[:1].upper()
+        return c if "A" <= c <= "Z" else "#"
 
     def tracks_tempo(self, g, hits, d):
         """The click and the tempo: tempo %, back to 100, ±5 %, tap; click on / off and its level, voice cues, count-in."""
@@ -4199,9 +4427,17 @@ class MiniScreen:
             ov["placed"] = True
             at = next((i for i, it in enumerate(items) if it.get("id") == cur), 0)
             self.pages["list:" + key] = at // 5
+        if ov["what"] == "library" and time.monotonic() - (data or {}).get("at", 0) > 3:   # (a song copied in meanwhile shows up)
+            self.local_list("library")
+            data = self.lists.get(key)
+            items = (data or {}).get("items") or []
         shown, page, pages = self.paged("list:" + key, items, 5)
         self.button(g, hits, [6, 44, 86, 70], "‹ BACK", {"local": "back"}, radius=13, font=self.F["label"])
-        self.text(g, (96, 57), ov.get("title") or "", self.F["name"], C["text"], "lm", W - 96 - (104 if pages > 1 else 8))
+        az = bool(ov.get("az")) and len(items) > 5
+        self.text(g, (96, 57), ov.get("title") or "", self.F["name"], C["text"], "lm", W - 96 - (104 if pages > 1 else 8) - (54 if az else 0))
+        if az:
+            ax = W - (152 if pages > 1 else 56)
+            self.button(g, hits, [ax, 44, ax + 48, 70], "A–Z", {"local": "letters"}, radius=13, font=self.F["label"])
         if pages > 1:
             self.button(g, hits, [W - 98, 44, W - 66, 70], "‹", {"local": "page", "key": "list:" + key, "d": -1} if page > 0 else None, radius=13, color=C["text"] if page > 0 else C["line"])
             self.text(g, (W - 50, 57), "%d/%d" % (page + 1, pages), self.F["sub"], C["muted"], "mm")
@@ -4211,7 +4447,9 @@ class MiniScreen:
             self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
             return
         if not items:
-            self.text(g, (W / 2, 170), "Nothing to pick here", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 170), "No songs on this pedal yet" if ov["what"] == "library" else "Nothing to pick here", self.F["sub"], C["muted"], "mm")
+            if ov["what"] == "library":
+                self.text(g, (W / 2, 192), "Upload a set from Central Pedal Control", self.F["sub"], C["muted"], "mm")
             return
         y, rh = 76, (H - 46 - 76) / 5
         for it in shown:
@@ -4227,6 +4465,8 @@ class MiniScreen:
             self.text(g, (W - 14, cy), it.get("locked") or it.get("sub") or "", self.F["sub"], C["accent"] if it.get("locked") else C["muted"], "rm", 140)
             if it.get("locked"):
                 hits.append(([int(v) for v in box], {"local": "say", "text": str(it.get("locked")) + " - it opens with that plan."}))
+            elif it.get("inset"):
+                hits.append(([int(v) for v in box], {"local": "say", "text": "\"%s\" is already in the setlist" % (it.get("label") or "")}))
             else:
                 hits.append(([int(v) for v in box], {"local": "pick", "what": ov["what"], "id": it.get("id"), "target": ov.get("target"), "label": it.get("label")}))
             y += rh
@@ -4316,17 +4556,58 @@ class MiniScreen:
             if self.tab == "instrument" and a.get("value") == "tune":
                 self.want("instrument", every=0)
         elif kind == "list":
-            self.overlay = {"kind": "list", "what": a.get("what"), "akind": a.get("kind"), "title": a.get("title"), "target": a.get("target"), "current": a.get("current")}
+            # (stack: a list over another overlay - BACK and a pick go back to it, e.g. the presets over a track's effects)
+            self.overlay = {"kind": "list", "what": a.get("what"), "akind": a.get("kind"), "title": a.get("title"), "target": a.get("target"), "current": a.get("current"),
+                            "az": a.get("az"), "parent": self.overlay if a.get("stack") else None}
             self.lists.pop(self.list_key(self.overlay), None)   # (always the app's newest list)
-            self.want(a.get("what"), a.get("kind"), every=0)
+            if self.local_list(a.get("what")):
+                if a.get("what") == "library":
+                    self.pages["list:library"] = 0
+            else:
+                self.want(a.get("what"), a.get("kind"), every=0)
         elif kind == "back":
-            self.overlay = None
+            self.overlay = (self.overlay or {}).get("parent")
+        elif kind == "letters" and self.overlay and self.overlay.get("kind") == "list":
+            self.overlay = {"kind": "letters", "parent": self.overlay}
+        elif kind == "letter" and self.overlay and self.overlay.get("kind") == "letters":
+            parent = self.overlay.get("parent") or {}
+            key = self.list_key(parent)
+            items = (self.lists.get(key) or {}).get("items") or []
+            at = next((i for i, it in enumerate(items) if self.initial(it.get("label")) == a.get("letter")), None)
+            if at is not None:
+                self.pages["list:" + key] = at // 5
+            self.overlay = parent
+        elif kind == "fxOpen":
+            tid = str(a.get("target") or "")
+            self.overlay = {"kind": "fx", "target": tid, "title": a.get("title")}
+            self.lists.pop("fx:" + tid, None)
+            self.pages["fx:" + tid] = 0
+            self.want("fx", tid, every=0)
+        elif kind == "songEdit":
+            self.song_edit = not self.song_edit
+            self.confirm = None
+        elif kind == "rmSong" and self.driver:
+            tag = "rm:%d" % int(a.get("index") or 0)
+            if self.confirm == tag and time.monotonic() - self.confirm_at < 4:
+                self.confirm = None
+                self.driver.emit({"type": "miniPick", "what": "setlistRemove", "id": int(a.get("index") or 0)})
+            else:
+                self.confirm, self.confirm_at = tag, time.monotonic()
+                self.say("Tap X again to take it out of the setlist (it stays in the song library)")
+        elif kind == "pick" and a.get("what") in ("hdmi1", "hdmi2") and self.driver:
+            n = 1 if a.get("what") == "hdmi1" else 2
+            self.overlay = (self.overlay or {}).get("parent")
+            if (self.lists.get(a.get("what")) or {}).get("current") != a.get("id"):
+                self.driver.system_action({"action": "displays", "config": {"hdmi%d" % n: a.get("id")}}, None)
+                self.say("HDMI %d: %s - the screens restart (the sound keeps playing)" % (n, a.get("label") or a.get("id")))
         elif kind == "pick" and self.driver:
             self.driver.emit({"type": "miniPick", "what": a.get("what"), "id": a.get("id"), "target": a.get("target")})
-            if a.get("what") != "playAnyMode":
-                self.overlay = None
+            if a.get("what") != "playAnyMode" and not a.get("quiet"):
+                self.overlay = (self.overlay or {}).get("parent")
                 if a.get("label"):
-                    self.say(("Now: " if a.get("what") == "actions" else "") + str(a.get("label")))
+                    self.say(("Now: " if a.get("what") == "actions" else "Added: " if a.get("what") == "library" else "") + str(a.get("label")))
+            elif a.get("what") == "scenes" and a.get("label"):
+                self.say("Scene: %s" % a.get("label"))
         elif kind == "wifiScan":
             self.wifi_msg = ""
             self.wifi_refresh(scan=True, force=True)
