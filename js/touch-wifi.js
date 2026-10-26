@@ -43,7 +43,7 @@
       '<label>Screen<select data-ts="pick"><option value="off"' + (sel === "off" ? " selected" : "") + ">No touch screen" + (cur === "off" ? "  ✓ now" : "") + "</option>" + groups + "</select></label>" + info +
       '<div class="row"><button class="primary" data-ts="apply"' + (sel === cur && !pending ? " disabled" : "") + ">Use this screen</button>" +
       (pending ? '<button data-ts="restart">Restart now</button>' : "") +
-      (now && now.kind === "spi" ? '<button data-ts="calibrate"' + (st.miniScreen ? "" : " disabled") + ">Calibrate its touch</button><button data-ts="touchTest"' + (st.miniScreen ? "" : " disabled") + ">Test its touch</button>" : "") + "</div>" +
+      (now && now.kind === "spi" ? '<button data-ts="calibrate"' + (st.miniScreen ? "" : " disabled") + ">Calibrate its touch</button>" + '<button data-ts="touchTest"' + (st.miniScreen ? "" : " disabled") + ">Test its touch</button>" : "") + "</div>" +
       (tsMsg ? '<p class="small ' + (/^✓/.test(tsMsg) ? "" : "warn") + '">' + esc(tsMsg) + "</p>" : "") +
       '<p class="muted small">Not sure which one? The blue 3.5" board with "XPT2046 Touch Controller" printed on the back is the first one (3.5" RPi Display). Something wrong after the restart? Plug in an HDMI monitor and pick another screen, or "No touch screen".</p></section>';
   }
