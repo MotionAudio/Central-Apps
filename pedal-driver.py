@@ -217,7 +217,7 @@ def boot_id():
 
 
 # screens.json as it shipped with this driver: used when the file can't be found or read (tests keep them the same)
-BUILTIN_SCREENS_JSON = r'''{"_about":"Central Pedal touch screens. kind: spi = a small screen on the GPIO pins (Central Pedal draws its own remote on it; HDMI 1 can show a copy), hdmi = a touch monitor on HDMI 1 (shows the app; its touch is USB), dsi = a screen on the ribbon-cable display port (shows the app). config = lines for config.txt; video = the mode forced on HDMI 1 when the screen does not say its size; driver = the maker's overlay, downloaded when the screen is picked (built-in ones need nothing). pins = GPIO pins the screen uses (kept free of buttons).","groups":[{"id":"spi","name":"Small screens on the GPIO pins (2.2\" - 4\")"},{"id":"hdmi","name":"HDMI touch screens (USB touch)"},{"id":"dsi","name":"Ribbon-cable (DSI) touch screens"}],"screens":[{"id":"rpi35-xpt2046","kind":"spi","size":3.5,"res":[480,320],"name":"3.5\" RPi Display - XPT2046 touch (the common blue board)","also":"LCDwiki MPI3501, Waveshare 3.5\" (A) and its clones (Kuman, OSOYOO, Elegoo, iUniker, Quimat...), 480\u00d7320, ILI9486","config":["dtparam=spi=on","dtoverlay=piscreen,speed=16000000,rotate=90,fps=50"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25],"calibration":{"xmin":200,"xmax":3900,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":true}},{"id":"waveshare35a","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (A) - Waveshare's own driver","also":"the same board as above, with the overlay from Waveshare's LCD-show","config":["dtparam=spi=on","dtoverlay=waveshare35a:rotate=90"],"driver":{"name":"waveshare35a","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35a-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) IPS","config":["dtparam=spi=on","dtoverlay=waveshare35b:rotate=90"],"driver":{"name":"waveshare35b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b-v2","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) Rev 2.0","config":["dtparam=spi=on","dtoverlay=waveshare35b-v2:rotate=90"],"driver":{"name":"waveshare35b-v2","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-v2-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35c","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (C) high speed","config":["dtparam=spi=on","dtoverlay=waveshare35c:rotate=90"],"driver":{"name":"waveshare35c","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35c-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"piscreen2r","kind":"spi","size":3.5,"res":[480,320],"name":"OzzMaker PiScreen 2 (3.5\")","config":["dtparam=spi=on","dtoverlay=piscreen2r,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"pitft35","kind":"spi","size":3.5,"res":[480,320],"name":"Adafruit PiTFT 3.5\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=25"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"tinylcd35","kind":"spi","size":3.5,"res":[480,320],"name":"TinyLCD 3.5\"","config":["dtparam=spi=on","dtoverlay=tinylcd35,touch,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,5,25]},{"id":"mz61581","kind":"spi","size":3.2,"res":[480,320],"name":"Tontec 3.2\" / 3.5\" (MZ61581)","config":["dtparam=spi=on","dtoverlay=mz61581,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,4,15,18,25]},{"id":"waveshare32b","kind":"spi","size":3.2,"res":[320,240],"name":"Waveshare 3.2\" (B)","config":["dtparam=spi=on","dtoverlay=waveshare32b:rotate=270"],"driver":{"name":"waveshare32b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare32b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,22,27]},{"id":"pitft28r","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft28-resistive,rotate=90,speed=64000000,fps=30"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"pitft28c","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (capacitive)","config":["dtparam=spi=on","dtparam=i2c_arm=on","dtoverlay=pitft28-capacitive,rotate=90,speed=64000000,fps=30"],"touch":"EP0110M09|ft6236|ft6x06","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":0,"xmax":240,"ymin":0,"ymax":320,"swap":true,"flip_x":false,"flip_y":true}},{"id":"rpi-display","kind":"spi","size":2.8,"res":[320,240],"name":"Watterott RPi-Display 2.8\"","config":["dtparam=spi=on","dtoverlay=rpi-display,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,18,23,24,25]},{"id":"hy28b","kind":"spi","size":2.8,"res":[320,240],"name":"HY28B 2.8\"","config":["dtparam=spi=on","dtoverlay=hy28b,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,18,25]},{"id":"pitft22","kind":"spi","size":2.2,"res":[320,240],"name":"Adafruit PiTFT 2.2\" (no touch - buttons only)","config":["dtparam=spi=on","dtoverlay=pitft22,rotate=270,speed=32000000,fps=30"],"touch":"","pins":[7,8,9,10,11,25]},{"id":"hdmi-auto","kind":"hdmi","name":"HDMI touch screen - any size (it says its own size)","also":"most screens sold for the Pi: Waveshare, Elecrow, SunFounder, ROADOM, the official monitors","config":[]},{"id":"hdmi-35","kind":"hdmi","size":3.5,"res":[480,320],"name":"3.5\" HDMI touch (MPI3508) 480\u00d7320","config":[],"video":"480x320M@60"},{"id":"hdmi-4","kind":"hdmi","size":4,"res":[800,480],"name":"4\" HDMI touch (MPI4008) 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-5","kind":"hdmi","size":5,"res":[800,480],"name":"5\" HDMI touch 800\u00d7480 (Waveshare 5\", Elecrow, MPI5008)","config":[],"video":"800x480M@60"},{"id":"hdmi-7-800","kind":"hdmi","size":7,"res":[800,480],"name":"7\" HDMI touch 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-7-1024","kind":"hdmi","size":7,"res":[1024,600],"name":"7\" HDMI touch 1024\u00d7600 (Waveshare 7\" C, Elecrow, SunFounder)","config":[],"video":"1024x600M@60"},{"id":"hdmi-10","kind":"hdmi","size":10.1,"res":[1280,800],"name":"10.1\" HDMI touch 1280\u00d7800","config":[],"video":"1280x800M@60"},{"id":"dsi-rpi7","kind":"dsi","size":7,"res":[800,480],"name":"Raspberry Pi Touch Display 7\" (the original)","also":"and the Waveshare 4.3\" / 5\" / 7\" DSI screens made to work like it","config":["dtoverlay=vc4-kms-dsi-7inch"]},{"id":"dsi-rpi2-7","kind":"dsi","size":7,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (7\")","config":["dtoverlay=vc4-kms-dsi-ili9881-7inch,rotation=90"]},{"id":"dsi-rpi2-5","kind":"dsi","size":5,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (5\")","config":["dtoverlay=vc4-kms-dsi-ili9881-5inch,rotation=90"]},{"id":"dsi-ws-28","kind":"dsi","size":2.8,"res":[480,640],"name":"Waveshare 2.8\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,2_8_inch"]},{"id":"dsi-ws-34","kind":"dsi","size":3.4,"res":[800,800],"name":"Waveshare 3.4\" round DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,3_4_inch"]},{"id":"dsi-ws-40","kind":"dsi","size":4,"res":[480,800],"name":"Waveshare 4\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,4_0_inch"]},{"id":"dsi-ws-50","kind":"dsi","size":5,"res":[720,1280],"name":"Waveshare 5\" DSI (720\u00d71280)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,5_0_inch"]},{"id":"dsi-ws-70c","kind":"dsi","size":7,"res":[1024,600],"name":"Waveshare 7\" DSI (C) 1024\u00d7600","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_0_inchC"]},{"id":"dsi-ws-79","kind":"dsi","size":7.9,"res":[400,1280],"name":"Waveshare 7.9\" DSI (bar)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_9_inch"]},{"id":"dsi-ws-101","kind":"dsi","size":10.1,"res":[800,1280],"name":"Waveshare 10.1\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,10_1_inch"]}]}'''
+BUILTIN_SCREENS_JSON = r'''{"_about":"Central Pedal touch screens. kind: spi = a small screen on the GPIO pins (Central Pedal draws its own remote on it; HDMI 1 can show a copy), hdmi = a touch monitor on HDMI 1 (shows the app; its touch is USB), dsi = a screen on the ribbon-cable display port (shows the app). config = lines for config.txt; video = the mode forced on HDMI 1 when the screen does not say its size; driver = the maker's overlay, downloaded when the screen is picked (built-in ones need nothing). pins = GPIO pins the screen uses (kept free of buttons).","groups":[{"id":"spi","name":"Small screens on the GPIO pins (2.2\" - 4\")"},{"id":"hdmi","name":"HDMI touch screens (USB touch)"},{"id":"dsi","name":"Ribbon-cable (DSI) touch screens"}],"screens":[{"id":"rpi35-xpt2046","kind":"spi","size":3.5,"res":[480,320],"name":"3.5\" RPi Display - XPT2046 touch (the common blue board)","also":"LCDwiki MPI3501, Waveshare 3.5\" (A) and its clones (Kuman, OSOYOO, Elegoo, iUniker, Quimat...), 480\u00d7320, ILI9486","config":["dtparam=spi=on","dtoverlay=piscreen,speed=16000000,rotate=90,fps=50,xohms=40"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25],"calibration":{"xmin":200,"xmax":3900,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":true}},{"id":"waveshare35a","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (A) - Waveshare's own driver","also":"the same board as above, with the overlay from Waveshare's LCD-show","config":["dtparam=spi=on","dtoverlay=waveshare35a:rotate=90"],"driver":{"name":"waveshare35a","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35a-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) IPS","config":["dtparam=spi=on","dtoverlay=waveshare35b:rotate=90"],"driver":{"name":"waveshare35b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35b-v2","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (B) Rev 2.0","config":["dtparam=spi=on","dtoverlay=waveshare35b-v2:rotate=90"],"driver":{"name":"waveshare35b-v2","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35b-v2-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"waveshare35c","kind":"spi","size":3.5,"res":[480,320],"name":"Waveshare 3.5\" (C) high speed","config":["dtparam=spi=on","dtoverlay=waveshare35c:rotate=90"],"driver":{"name":"waveshare35c","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare35c-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"piscreen2r","kind":"spi","size":3.5,"res":[480,320],"name":"OzzMaker PiScreen 2 (3.5\")","config":["dtparam=spi=on","dtoverlay=piscreen2r,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,24,25]},{"id":"pitft35","kind":"spi","size":3.5,"res":[480,320],"name":"Adafruit PiTFT 3.5\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft35-resistive,rotate=90,speed=32000000,fps=25"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"tinylcd35","kind":"spi","size":3.5,"res":[480,320],"name":"TinyLCD 3.5\"","config":["dtparam=spi=on","dtoverlay=tinylcd35,touch,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,5,25]},{"id":"mz61581","kind":"spi","size":3.2,"res":[480,320],"name":"Tontec 3.2\" / 3.5\" (MZ61581)","config":["dtparam=spi=on","dtoverlay=mz61581,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,4,15,18,25]},{"id":"waveshare32b","kind":"spi","size":3.2,"res":[320,240],"name":"Waveshare 3.2\" (B)","config":["dtparam=spi=on","dtoverlay=waveshare32b:rotate=270"],"driver":{"name":"waveshare32b","url":"https://raw.githubusercontent.com/waveshare/LCD-show/master/waveshare32b-overlay.dtb"},"touch":"ADS7846","pins":[7,8,9,10,11,17,22,27]},{"id":"pitft28r","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (resistive)","config":["dtparam=spi=on","dtoverlay=pitft28-resistive,rotate=90,speed=64000000,fps=30"],"touch":"stmpe","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":300,"xmax":3800,"ymin":200,"ymax":3900,"swap":true,"flip_x":false,"flip_y":false}},{"id":"pitft28c","kind":"spi","size":2.8,"res":[320,240],"name":"Adafruit PiTFT 2.8\" (capacitive)","config":["dtparam=spi=on","dtparam=i2c_arm=on","dtoverlay=pitft28-capacitive,rotate=90,speed=64000000,fps=30"],"touch":"EP0110M09|ft6236|ft6x06","pins":[7,8,9,10,11,24,25],"calibration":{"xmin":0,"xmax":240,"ymin":0,"ymax":320,"swap":true,"flip_x":false,"flip_y":true}},{"id":"rpi-display","kind":"spi","size":2.8,"res":[320,240],"name":"Watterott RPi-Display 2.8\"","config":["dtparam=spi=on","dtoverlay=rpi-display,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,18,23,24,25]},{"id":"hy28b","kind":"spi","size":2.8,"res":[320,240],"name":"HY28B 2.8\"","config":["dtparam=spi=on","dtoverlay=hy28b,rotate=90"],"touch":"ADS7846","pins":[7,8,9,10,11,17,18,25]},{"id":"pitft22","kind":"spi","size":2.2,"res":[320,240],"name":"Adafruit PiTFT 2.2\" (no touch - buttons only)","config":["dtparam=spi=on","dtoverlay=pitft22,rotate=270,speed=32000000,fps=30"],"touch":"","pins":[7,8,9,10,11,25]},{"id":"hdmi-auto","kind":"hdmi","name":"HDMI touch screen - any size (it says its own size)","also":"most screens sold for the Pi: Waveshare, Elecrow, SunFounder, ROADOM, the official monitors","config":[]},{"id":"hdmi-35","kind":"hdmi","size":3.5,"res":[480,320],"name":"3.5\" HDMI touch (MPI3508) 480\u00d7320","config":[],"video":"480x320M@60"},{"id":"hdmi-4","kind":"hdmi","size":4,"res":[800,480],"name":"4\" HDMI touch (MPI4008) 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-5","kind":"hdmi","size":5,"res":[800,480],"name":"5\" HDMI touch 800\u00d7480 (Waveshare 5\", Elecrow, MPI5008)","config":[],"video":"800x480M@60"},{"id":"hdmi-7-800","kind":"hdmi","size":7,"res":[800,480],"name":"7\" HDMI touch 800\u00d7480","config":[],"video":"800x480M@60"},{"id":"hdmi-7-1024","kind":"hdmi","size":7,"res":[1024,600],"name":"7\" HDMI touch 1024\u00d7600 (Waveshare 7\" C, Elecrow, SunFounder)","config":[],"video":"1024x600M@60"},{"id":"hdmi-10","kind":"hdmi","size":10.1,"res":[1280,800],"name":"10.1\" HDMI touch 1280\u00d7800","config":[],"video":"1280x800M@60"},{"id":"dsi-rpi7","kind":"dsi","size":7,"res":[800,480],"name":"Raspberry Pi Touch Display 7\" (the original)","also":"and the Waveshare 4.3\" / 5\" / 7\" DSI screens made to work like it","config":["dtoverlay=vc4-kms-dsi-7inch"]},{"id":"dsi-rpi2-7","kind":"dsi","size":7,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (7\")","config":["dtoverlay=vc4-kms-dsi-ili9881-7inch,rotation=90"]},{"id":"dsi-rpi2-5","kind":"dsi","size":5,"res":[720,1280],"name":"Raspberry Pi Touch Display 2 (5\")","config":["dtoverlay=vc4-kms-dsi-ili9881-5inch,rotation=90"]},{"id":"dsi-ws-28","kind":"dsi","size":2.8,"res":[480,640],"name":"Waveshare 2.8\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,2_8_inch"]},{"id":"dsi-ws-34","kind":"dsi","size":3.4,"res":[800,800],"name":"Waveshare 3.4\" round DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,3_4_inch"]},{"id":"dsi-ws-40","kind":"dsi","size":4,"res":[480,800],"name":"Waveshare 4\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,4_0_inch"]},{"id":"dsi-ws-50","kind":"dsi","size":5,"res":[720,1280],"name":"Waveshare 5\" DSI (720\u00d71280)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,5_0_inch"]},{"id":"dsi-ws-70c","kind":"dsi","size":7,"res":[1024,600],"name":"Waveshare 7\" DSI (C) 1024\u00d7600","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_0_inchC"]},{"id":"dsi-ws-79","kind":"dsi","size":7.9,"res":[400,1280],"name":"Waveshare 7.9\" DSI (bar)","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,7_9_inch"]},{"id":"dsi-ws-101","kind":"dsi","size":10.1,"res":[800,1280],"name":"Waveshare 10.1\" DSI","config":["dtoverlay=vc4-kms-dsi-waveshare-panel,10_1_inch"]}]}'''
 
 
 def builtin_screens():
@@ -3070,6 +3070,92 @@ def set_line(driver):
     return "%s · from %s · %s%s" % (st.get("name") or "Set", st.get("from") or "?", when, " · changed here" if st.get("changed") else "")
 
 
+# ---------------------------------------------------------------------------
+# The 3.5" screen's touch panel (a resistive ADS7846 / XPT2046): calibration and smoothing
+# ---------------------------------------------------------------------------
+def touch_affine_fit(raw_pts, screen_pts):
+    """Least-squares affine map from the panel's raw numbers to screen pixels: x = a·rx + b·ry + c, y = d·rx + e·ry + f.
+    Five points (4 corners + the centre) cover a panel that is swapped, turned, mirrored or a little skewed.
+    Returns ([a, b, c, d, e, f], rms error in pixels), or (None, None) when the points don't span the panel."""
+    n = len(raw_pts)
+    if n < 3 or n != len(screen_pts):
+        return None, None
+    mx = sum(p[0] for p in raw_pts) / float(n)   # (centred raw numbers keep the sums well-conditioned)
+    my = sum(p[1] for p in raw_pts) / float(n)
+    pts = [(rx - mx, ry - my) for rx, ry in raw_pts]
+    sxx = sum(u * u for u, _ in pts); sxy = sum(u * v for u, v in pts); syy = sum(v * v for _, v in pts)
+    det = sxx * syy - sxy * sxy
+    if det <= 1e-6 * max(1.0, sxx * syy):
+        return None, None
+    out = []
+    for k in (0, 1):
+        t = [p[k] for p in screen_pts]
+        tm = sum(t) / float(n)
+        su = sum(u * (ti - tm) for (u, _), ti in zip(pts, t))
+        sv = sum(v * (ti - tm) for (_, v), ti in zip(pts, t))
+        a = (su * syy - sv * sxy) / det
+        b = (sv * sxx - su * sxy) / det
+        out += [a, b, tm - a * mx - b * my]
+    err = 0.0
+    for (rx, ry), (sx, sy) in zip(raw_pts, screen_pts):
+        err += (out[0] * rx + out[1] * ry + out[2] - sx) ** 2 + (out[3] * rx + out[4] * ry + out[5] - sy) ** 2
+    return [round(v, 7) for v in out], math.sqrt(err / n)
+
+
+def touch_press_point(samples):
+    """Where a held touch was, from all its readings: the middle value of each, leaving out the first readings (the
+    finger still settling) and the last ones (lifting off - a resistive panel's readings wander then)."""
+    pts = list(samples)
+    if len(pts) >= 8:
+        pts = pts[2:-3]
+    elif len(pts) >= 3:
+        pts = pts[1:]
+    if not pts:
+        return None
+    xs, ys = sorted(p[0] for p in pts), sorted(p[1] for p in pts)
+    return xs[len(xs) // 2], ys[len(ys) // 2]
+
+
+class TouchFilter:
+    """A finger sliding on the panel, in screen pixels: steady but without lag you can feel.
+    - the middle of the last 3 readings (one wild reading - often the one as the finger lifts - never gets through)
+    - a reading far from the last one is held back until the next one agrees (a real fast move gets through a
+      reading later; a spike never does)
+    - small wobbles are smoothed, real moves are followed at once (the smoothing gets lighter the faster it moves)"""
+    WINDOW = 3
+    JUMP = 48.0      # px in one reading (~8 ms) - further than a finger moves
+    SETTLE = 6.0     # px: slower than this is smoothed
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.win, self.out, self.suspect, self.at = [], None, None, 0.0
+
+    def add(self, x, y, now=None):
+        now = time.monotonic() if now is None else now
+        if self.at and now - self.at > 0.15:   # (a new touch)
+            self.reset()
+        self.at = now
+        if self.out is not None and math.hypot(x - self.out[0], y - self.out[1]) > self.JUMP:
+            s = self.suspect
+            if s is None or math.hypot(x - s[0], y - s[1]) > self.JUMP / 2:
+                self.suspect = (x, y)
+                return None
+            self.win = [s]   # (two readings agree: the finger really moved there)
+        self.suspect = None
+        self.win = (self.win + [(x, y)])[-self.WINDOW:]
+        xs, ys = sorted(p[0] for p in self.win), sorted(p[1] for p in self.win)
+        mx, my = xs[len(xs) // 2], ys[len(ys) // 2]
+        if self.out is None:
+            self.out = (float(mx), float(my))
+        else:
+            d = math.hypot(mx - self.out[0], my - self.out[1])
+            a = max(0.35, min(1.0, d / self.SETTLE))
+            self.out = (self.out[0] + (mx - self.out[0]) * a, self.out[1] + (my - self.out[1]) * a)
+        return self.out
+
+
 class MiniScreen:
     """The small touch screen on the GPIO pins (/dev/fb1): Pads, Tracks, Instrument and Settings tabs, drawn here and
     touched through its own panel. Taps run the app's actions; the tabs, pages and HDMI choices are the screen's own."""
@@ -3092,6 +3178,11 @@ class MiniScreen:
         self.lists = {}        # what the app sent for those lists: {what: {"items": [...], ...}}
         self.wifi, self.wifi_at, self.wifi_busy, self.wifi_msg = None, 0.0, False, ""
         self.update_msg, self.update_ready = "", False
+        # the touch panel: a full-screen touch mode (calibrate / check / test) when not None, the slide smoothing,
+        # and what the panel has been doing (the Touch test page and the start-up report show it)
+        self.tmode = None
+        self.dragf = TouchFilter()
+        self.tstats = {"device": None, "presses": 0, "taps": 0, "rate": 0.0, "jitter": 0.0, "tapMs": 0.0, "pressure": None, "last": 0.0}
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -3401,6 +3492,12 @@ class MiniScreen:
             hits = []
             if not ps.busy:
                 self.button(g, hits, [W - 130, H - 50, W - 10, H - 10], "NOT NOW", {"local": "setupStop"}, fill=(21, 42, 67))
+        if self.tmode:   # calibrating / checking / testing the touch: the whole screen until it's done
+            hits = []
+            try:
+                self.draw_tmode(g, hits)
+            except Exception as error:
+                log.debug("touch page: %s", error)
         with self.lock:
             self.image = img
             self.hits = hits
@@ -3894,10 +3991,12 @@ class MiniScreen:
         else:
             touch = getattr(self, "touch_name", None)
             self.text(g, (W / 2, (by0 + by1) / 2), ("Touch panel found: " + touch) if touch else "Touch panel not found yet", self.F["label"], C["text"] if touch else C["warn"], "mm", W - 16)
-        bw = (W - 12 - 5) / 2
+        bw = (W - 12 - 10) / 3
         flipped = int((self.spec or {}).get("rotate") or 0) == 180
-        self.button(g, hits, [6, 208, 6 + bw, H - 46], "CALIBRATE", {"local": "calibrate"}, sub="touch the two crosses")
-        self.button(g, hits, [6 + bw + 5, 208, W - 6, H - 46], "FLIP 180°", {"local": "flip"}, on=flipped, sub="upside down" if flipped else "for a screen mounted upside down")
+        cal = (self.spec or {}).get("calibration") or {}
+        self.button(g, hits, [6, 208, 6 + bw, H - 46], "CALIBRATE", {"local": "calibrate"}, sub="5 crosses, then a check" if not cal.get("affine") else "done - again: 5 crosses")
+        self.button(g, hits, [6 + bw + 5, 208, 6 + 2 * bw + 5, H - 46], "TEST TOUCH", {"local": "touchTest"}, sub="dots and numbers")
+        self.button(g, hits, [6 + 2 * bw + 10, 208, W - 6, H - 46], "FLIP 180°", {"local": "flip"}, on=flipped, sub="upside down" if flipped else "screen upside down")
 
     # ----- SETTINGS → Wi-Fi: the networks around; an open or saved one joins with a tap, a new one asks its password
     WIFI_PER = 3
@@ -4286,8 +4385,20 @@ class MiniScreen:
             self.driver.factory.corner(a.get("corner"))
         elif kind == "setupStop" and self.driver and getattr(self.driver, "phone_setup", None):
             threading.Thread(target=self.driver.phone_setup.stop, daemon=True).start()
-        elif kind == "calibrate" and self.driver:
-            self.driver.start_touch_calibration()
+        elif kind == "calibrate":
+            self.start_calibration()
+            return
+        elif kind == "touchTest":
+            self.start_test()
+            return
+        elif kind == "tmSave":
+            self.cal_finish(True)
+            return
+        elif kind == "tmRedo":
+            self.start_calibration()
+            return
+        elif kind == "tmDone":
+            self.set_tmode(None)
             return
         elif kind == "tsPick":
             ids = [x[0] for x in self.screen_list()]
@@ -4312,6 +4423,9 @@ class MiniScreen:
             mini["rotate"] = 0 if int(mini.get("rotate") or 0) == 180 else 180
             cal = dict(mini.get("calibration") or {})
             cal["flip_x"], cal["flip_y"] = not cal.get("flip_x", False), not cal.get("flip_y", False)
+            A = cal.get("affine")
+            if isinstance(A, list) and len(A) == 6:   # (x -> W-1-x, y -> H-1-y)
+                cal["affine"] = [-A[0], -A[1], self.w - 1 - A[2], -A[3], -A[4], self.h - 1 - A[5]]
             mini["calibration"] = cal
             self.spec = mini
             self.driver.save_config()
@@ -4334,10 +4448,10 @@ class MiniScreen:
         return v
 
     def tap(self, raw_x, raw_y):
-        """One touch on the panel (raw panel numbers): a calibration point, or the button under it."""
-        if self.driver and self.driver.touch_calibrating:
-            self.driver.touch_calibration_point(raw_x, raw_y)
-            return None
+        """One touch on the panel (raw panel numbers): the button under it - or, calibrating / testing, that page's."""
+        if self.tmode:
+            return self.tmode_tap(raw_x, raw_y)
+        self.dragf.reset()
         x, y = self.map_touch(raw_x, raw_y)
         action, box = self.hit_box(x, y)
         self.active = None
@@ -4375,11 +4489,19 @@ class MiniScreen:
         return action
 
     def drag(self, raw_x, raw_y):
-        """A finger sliding on a fader: its value follows (about 40 a second; a wobble of a pixel or two is ignored)."""
+        """A finger sliding on a fader: its value follows (about 40 a second). Every reading goes through the
+        smoothing (TouchFilter: a wild reading never moves it, a wobble of a pixel or two is ignored)."""
         a = self.active
-        if not a or time.monotonic() - self.drag_at < 0.025:
+        if not a:
             return None
-        x, _ = self.map_touch(raw_x, raw_y)
+        x, y = self.map_touch(raw_x, raw_y)
+        if self.__dict__.get("_drag_for") is not a:   # (a new fader: the smoothing starts again)
+            self._drag_for = a
+            self.dragf.reset()
+        f = self.dragf.add(x, y)
+        if f is None or time.monotonic() - self.drag_at < 0.025:
+            return None
+        x = int(round(f[0]))
         if a.get("drag_x") is not None and abs(x - a["drag_x"]) < 2:
             return None
         self.drag_at = time.monotonic()
@@ -4520,6 +4642,11 @@ class MiniScreen:
 
     def map_touch(self, raw_x, raw_y):
         c = self.spec.get("calibration") or {}
+        A = c.get("affine")
+        if isinstance(A, (list, tuple)) and len(A) == 6:   # (calibrated with the 5 crosses)
+            x = A[0] * raw_x + A[1] * raw_y + A[2]
+            y = A[3] * raw_x + A[4] * raw_y + A[5]
+            return int(round(min(max(x, 0), self.w - 1))), int(round(min(max(y, 0), self.h - 1)))
         if c.get("swap", True):
             raw_x, raw_y = raw_y, raw_x
         x = (raw_x - c.get("xmin", 200)) / max(1, c.get("xmax", 3900) - c.get("xmin", 200))
@@ -4537,6 +4664,13 @@ class MiniScreen:
         want = [w.strip().lower() for w in str(self.spec.get("touch") if self.spec.get("touch") is not None else "ADS7846").split("|") if w.strip()]
         if not want:
             return   # a screen without touch
+        try:   # (Python hands the CPU between threads every 5 ms: sooner, so a touch never waits long behind a redraw)
+            sys.setswitchinterval(min(sys.getswitchinterval(), 0.002))
+        except Exception:
+            pass
+        abs_x = (ev.ecodes.ABS_X, getattr(ev.ecodes, "ABS_MT_POSITION_X", -1))
+        abs_y = (ev.ecodes.ABS_Y, getattr(ev.ecodes, "ABS_MT_POSITION_Y", -1))
+        abs_p = getattr(ev.ecodes, "ABS_PRESSURE", -1)
         while not usb.stop_flag.is_set():
             dev = None
             try:
@@ -4553,9 +4687,10 @@ class MiniScreen:
                 continue
             log.info("3.5\" touch panel: %s", dev.name)
             self.touch_name = dev.name
-            x = y = None
+            self.tstats["device"] = dev.name
+            x = y = pressure = None
             down = pending = False
-            samples, down_at = [], 0.0
+            samples, press, down_at = [], [], 0.0
             try:
                 for event in dev.read_loop():
                     if usb.stop_flag.is_set():
@@ -4563,20 +4698,26 @@ class MiniScreen:
                     # The panel sends "touched" before the place it was touched (both in one report): the tap is acted
                     # on at the end of the report, with this touch's place - not the last one's (or none at all).
                     if event.type == ev.ecodes.EV_ABS:
-                        if event.code in (ev.ecodes.ABS_X, getattr(ev.ecodes, "ABS_MT_POSITION_X", -1)):
+                        if event.code in abs_x:
                             x = event.value
-                        elif event.code in (ev.ecodes.ABS_Y, getattr(ev.ecodes, "ABS_MT_POSITION_Y", -1)):
+                        elif event.code in abs_y:
                             y = event.value
+                        elif event.code == abs_p:
+                            pressure = event.value
                     elif event.type == ev.ecodes.EV_KEY and event.code == ev.ecodes.BTN_TOUCH:
                         if event.value == 1 and not down:
                             down = pending = True
-                            samples, down_at = [], time.monotonic()
+                            samples, press, down_at = [], [], time.monotonic()
                         elif event.value == 0:
-                            if pending and samples:   # (a very quick tap: what was read so far)
+                            if pending and samples:   # (a very quick, light tap: what was read so far still counts)
                                 self.tap(*self.steady(samples))
+                                self.note_tap(down_at)
+                            self.released(press, down_at, pressure)
                             down = pending = False
                             self.active = None
                     elif event.type == ev.ecodes.EV_SYN and x is not None and y is not None:
+                        if down:
+                            press.append((x, y))
                         if pending:
                             # A resistive panel's first readings jump while the finger settles: the tap goes off on the
                             # middle of the first few (about 30 ms), not on the very first one.
@@ -4584,11 +4725,255 @@ class MiniScreen:
                             if len(samples) >= 3 or time.monotonic() - down_at > 0.03:
                                 pending = False
                                 self.tap(*self.steady(samples))
+                                self.note_tap(down_at)
                         elif down and self.active:
                             self.drag(x, y)   # (a finger sliding along a fader)
+                        elif down and self.tmode and self.tmode.get("kind") == "test":
+                            self.test_reading(x, y)
             except Exception as error:
                 log.debug("touch loop ended (%s)", error)
                 time.sleep(2)
+
+    # ----- what the panel is doing (the Touch test page, the start-up report) ----------------------------------------
+    TOUCH_STATS_FILE = "/tmp/central-pedal-touch.json"
+
+    def note_tap(self, down_at):
+        self.tstats["taps"] += 1
+        self.tstats["tapMs"] = round((time.monotonic() - down_at) * 1000.0, 1)
+
+    def released(self, press, down_at, pressure=None):
+        """A finger lifted: readings per second and - when it was held still - how far its readings wandered (px).
+        Calibrating, it was one of the crosses."""
+        now = time.monotonic()
+        st = self.tstats
+        st["presses"] += 1
+        st["last"] = now
+        dur = now - down_at
+        if len(press) >= 4 and dur > 0.06:
+            st["rate"] = round(len(press) / dur, 1)
+        if pressure is not None:
+            st["pressure"] = pressure
+        pts = [self.map_touch(*p) for p in (press[2:-3] if len(press) >= 10 else [])]
+        if pts:
+            mx, my = sum(p[0] for p in pts) / float(len(pts)), sum(p[1] for p in pts) / float(len(pts))
+            far = max(math.hypot(p[0] - mx, p[1] - my) for p in pts)
+            if far < 25:   # (held still, not a slide)
+                st["jitter"] = round(math.sqrt(sum((p[0] - mx) ** 2 + (p[1] - my) ** 2 for p in pts) / len(pts)), 1)
+        if self.tmode and self.tmode.get("kind") == "cal":
+            self.calibration_press(press)
+        elif self.tmode and self.tmode.get("kind") == "test":
+            self.redraw()
+        if now - self.__dict__.get("_stats_at", 0.0) > 2.0:
+            self._stats_at = now
+            self.write_touch_stats()
+
+    def write_touch_stats(self):
+        try:
+            cal = (self.spec or {}).get("calibration") or {}
+            how = ("5 crosses, fit %s px" % cal.get("rms")) if cal.get("affine") else ("2 crosses (older)" if cal.get("xmin") is not None and cal.get("at") else "the screen's defaults")
+            with open(self.TOUCH_STATS_FILE, "w") as fh:
+                json.dump(dict(self.tstats, at=int(time.time()), calibration=how), fh)
+        except (OSError, TypeError, ValueError):
+            pass
+
+    # ----- touch modes: CALIBRATE (5 crosses), then CHECK (tap the dot), and TEST (dots and numbers) -----------------
+    # Each takes the whole small screen until it's done (the app's redraws don't wipe it).
+    CAL_MARGIN = 28
+    CAL_MAX_RMS = 12.0   # px: the 5 crosses must agree this well, else one touch was off - again
+    CHECK_OK = 10.0      # px from the dot: "good"
+
+    def cal_targets(self):
+        m, W, H = self.CAL_MARGIN, self.w, self.h
+        return [(m, m), (W - 1 - m, m), (W - 1 - m, H - 1 - m), (m, H - 1 - m), ((W - 1) // 2, (H - 1) // 2)]
+
+    def check_target(self):
+        return int(self.w * 0.3), int(self.h * 0.42)
+
+    def redraw(self):
+        if self.driver:
+            self.driver.schedule_mini_render(force=True)
+
+    def set_tmode(self, mode, timeout=None):
+        self.tmode = mode
+        with self.lock:   # (the page underneath's buttons can't be hit before the touch page is drawn)
+            self.hits = []
+        if self.driver:
+            self.driver.touch_calibrating = bool(mode and mode.get("kind") == "cal")
+        self.dragf.reset()
+        if mode is not None and timeout:
+            gen = self.__dict__.get("_tgen", 0) + 1
+            self._tgen = gen
+            mode["gen"] = gen
+            tm = threading.Timer(timeout, self._tmode_timeout, args=(gen,))
+            tm.daemon = True
+            tm.start()
+        self.redraw()
+
+    def _tmode_timeout(self, gen):
+        t = self.tmode
+        if not t or t.get("gen") != gen:
+            return
+        if t["kind"] == "test" and time.monotonic() - self.tstats.get("last", 0.0) < 60:
+            self.set_tmode(t, 30)   # (still being used)
+        elif t["kind"] == "check":   # nobody pressed SAVE or REDO: keep it when it is good, else the one from before
+            marks = t.get("marks") or []
+            self.cal_finish(t.get("rms", 99) <= 8 and (not marks or marks[-1][2] <= self.CHECK_OK))
+        else:
+            self.set_tmode(None)
+
+    def _set_cal(self, cal):
+        spec = self.spec if isinstance(self.spec, dict) else {}
+        if cal:
+            spec["calibration"] = cal
+        else:
+            spec.pop("calibration", None)
+        self.spec = spec
+
+    def start_calibration(self):
+        if not self.available:
+            return
+        t = self.tmode or {}
+        prev = t["prev"] if "prev" in t else dict((self.spec or {}).get("calibration") or {})
+        self._set_cal(prev)   # (a REDO, or calibrating again from the app mid-check: back to the one before)
+        self.set_tmode({"kind": "cal", "points": [], "prev": prev, "msg": ""}, 120)
+
+    def calibration_press(self, press):
+        t = self.tmode
+        if not t or t.get("kind") != "cal":
+            return
+        pt = touch_press_point(press)
+        if pt is None or len(press) < 3:
+            t["msg"] = "Hold your finger on the cross a moment"
+            self.redraw()
+            return
+        t["points"].append(pt)
+        t["msg"] = ""
+        if len(t["points"]) < 5:
+            self.redraw()
+            return
+        A, rms = touch_affine_fit(t["points"], self.cal_targets())
+        if A is None or rms > self.CAL_MAX_RMS:
+            t["points"] = []
+            t["msg"] = "One touch was off - once more, from the first cross"
+            self.redraw()
+            return
+        cal = dict(t["prev"])
+        cal.update({"affine": A, "points": 5, "rms": round(rms, 1), "at": int(time.time())})
+        self._set_cal(cal)   # (live for the check: the dot and SAVE / REDO already use it)
+        self.set_tmode({"kind": "check", "cal": cal, "prev": t["prev"], "rms": rms, "marks": []}, 45)
+
+    def cal_finish(self, save):
+        t = self.tmode or {}
+        if t.get("kind") != "check":
+            self.set_tmode(None)
+            return
+        cal = t["cal"] if save else t["prev"]
+        self._set_cal(cal)
+        if save and self.driver:
+            ms = self.driver.config.get("mini_screen")
+            if ms is None:
+                self.driver.config["mini_screen"] = self.spec
+            elif ms is not self.spec:
+                ms["calibration"] = cal
+            self.driver.save_config()
+        if self.driver:
+            self.driver.emit({"type": "touchCalibrated", "calibration": cal, "saved": bool(save)})
+        self.write_touch_stats()
+        self.set_tmode(None)
+
+    def start_test(self):
+        if self.available:
+            self.set_tmode({"kind": "test", "dots": [], "trail": [], "raw": []}, 90)
+
+    def test_reading(self, raw_x, raw_y):
+        t = self.tmode
+        x, y = self.map_touch(raw_x, raw_y)
+        t["raw"] = (t["raw"] + [(x, y)])[-80:]
+        f = self.dragf.add(x, y)
+        if f is not None:
+            t["trail"] = (t["trail"] + [f])[-80:]
+        if self.driver:
+            self.driver.schedule_mini_render()
+
+    def tmode_tap(self, raw_x, raw_y):
+        t = self.tmode
+        if t["kind"] == "cal":
+            return None   # (a cross counts when the finger lifts: from all its readings, not the first few)
+        x, y = self.map_touch(raw_x, raw_y)
+        action, box = self.hit_box(x, y)
+        if action and action.get("local"):
+            if self.fb_present():
+                self.press_feedback(box)
+            self.local(action)
+            return action
+        if t["kind"] == "check":
+            tx, ty = self.check_target()
+            t["marks"] = (t["marks"] + [(x, y, math.hypot(x - tx, y - ty))])[-4:]
+        elif t["kind"] == "test":
+            self.dragf.reset()
+            self.dragf.add(x, y)
+            t["dots"] = (t["dots"] + [(x, y)])[-12:]
+            t["raw"], t["trail"] = [], []
+        self.redraw()
+        return None
+
+    def draw_tmode(self, g, hits):
+        C, W, H, t = self.COL, self.w, self.h, self.tmode
+        g.rectangle([0, 0, W, H], fill=C["bg"])
+        kind = t["kind"]
+        if kind == "cal":
+            targets = self.cal_targets()
+            n = len(t["points"])
+            for px, py in targets[:n]:
+                g.ellipse([px - 4, py - 4, px + 4, py + 4], fill=C["playing"])
+            px, py = targets[min(n, 4)]
+            g.ellipse([px - 15, py - 15, px + 15, py + 15], outline=C["accent"], width=2)
+            g.line([px - 22, py, px + 22, py], fill=C["text"], width=2)
+            g.line([px, py - 22, px, py + 22], fill=C["text"], width=2)
+            cy = H // 2 - 70 if n == 4 else H // 2
+            self.text(g, (W / 2, cy - 12), "Touch the cross (%d of 5)" % (n + 1), self.F["title"], C["text"], "mm")
+            self.text(g, (W / 2, cy + 12), "with a fingertip - hold still a moment, then lift", self.F["sub"], C["muted"], "mm")
+            if t.get("msg"):
+                self.text(g, (W / 2, cy + 34), t["msg"], self.F["label"], C["warn"], "mm", W - 90)
+        elif kind == "check":
+            tx, ty = self.check_target()
+            self.text(g, (14, 16), "Check the touch", self.F["title"], C["text"])
+            self.text(g, (14, 40), "Tap the dot. A ring shows where your tap landed.", self.F["sub"], C["muted"])
+            g.ellipse([tx - 7, ty - 7, tx + 7, ty + 7], fill=C["accent"])
+            for i, (mx, my, d) in enumerate(t["marks"]):
+                last = i == len(t["marks"]) - 1
+                col = (C["playing"] if d <= self.CHECK_OK else C["warn"]) if last else C["line"]
+                g.ellipse([mx - 11, my - 11, mx + 11, my + 11], outline=col, width=3 if last else 1)
+            if t["marks"]:
+                d = t["marks"][-1][2]
+                good = d <= self.CHECK_OK
+                self.text(g, (W * 0.58, ty - 10), "%d px off" % round(d), self.F["num"], C["playing"] if good else C["warn"], "lm")
+                self.text(g, (W * 0.58, ty + 16), "good - tap SAVE" if good else "too far - tap REDO", self.F["label"], C["text"], "lm")
+            else:
+                self.text(g, (W * 0.58, ty), "the 5 crosses agree to %.1f px" % t.get("rms", 0), self.F["label"], C["muted"], "lm", W * 0.4)
+            bw = (W - 18) / 2
+            self.button(g, hits, [6, H - 64, 6 + bw, H - 8], "SAVE", {"local": "tmSave"}, on=True, sub="use this calibration")
+            self.button(g, hits, [12 + bw, H - 64, W - 6, H - 8], "REDO", {"local": "tmRedo"}, sub="the 5 crosses again")
+        else:   # test
+            st = self.tstats
+            for rx, ry in t["raw"]:
+                g.point((rx, ry), fill=C["muted"])
+            if len(t["trail"]) > 1:
+                g.line([(int(a), int(b)) for a, b in t["trail"]], fill=C["accent"], width=2)
+            for i, (dx, dy) in enumerate(t["dots"]):
+                last = i == len(t["dots"]) - 1
+                r = 6 if last else 4
+                g.ellipse([dx - r, dy - r, dx + r, dy + r], fill=C["accent"] if last else C["selected"])
+            self.text(g, (10, 14), "Touch test", self.F["title"], C["text"])
+            cal = (self.spec or {}).get("calibration") or {}
+            lines = ["%s readings a second - a tap goes off after %s ms" % (int(st["rate"]) if st["rate"] else "-", int(st["tapMs"]) if st["tapMs"] else "-"),
+                     "held still it wanders %s px%s" % (st["jitter"] if st["jitter"] else "-", ("  - pressure %s" % st["pressure"]) if st.get("pressure") is not None else ""),
+                     "calibrated with 5 crosses" if cal.get("affine") else "not calibrated yet - tap CALIBRATE"]
+            for i, line in enumerate(lines):
+                self.text(g, (10, 38 + i * 16), line, self.F["sub"], C["muted"] if i < 2 or cal.get("affine") else C["warn"], "la", W - 220 if i == 0 else None)
+            self.button(g, hits, [W - 206, 6, W - 106, 44], "CALIBRATE", {"local": "calibrate"})
+            self.button(g, hits, [W - 100, 6, W - 6, 44], "DONE", {"local": "tmDone"}, on=True)
+            self.text(g, (W / 2, H - 14), "touch and slide anywhere: a dot where you tap, the line is what a fader gets", self.F["tiny"], C["muted"], "mm")
 
     @staticmethod
     def steady(samples):
@@ -4598,18 +4983,8 @@ class MiniScreen:
         xs, ys = sorted(p[0] for p in pts), sorted(p[1] for p in pts)
         return xs[len(xs) // 2], ys[len(ys) // 2]
 
-    def draw_calibration(self, step):
-        img = self.Image.new("RGB", (self.w, self.h), self.COL["bg"])
-        g = self.ImageDraw.Draw(img)
-        pts = [(20, 20), (self.w - 20, self.h - 20)]
-        g.text((self.w / 2 - 90, self.h / 2 - 10), "Touch the cross (%d of 2)" % (step + 1), font=self.font, fill=self.COL["text"])
-        px, py = pts[min(step, 1)]
-        g.line([px - 12, py, px + 12, py], fill=self.COL["accent"], width=2)
-        g.line([px, py - 12, px, py + 12], fill=self.COL["accent"], width=2)
-        with self.lock:
-            self.image = img
-            self.hits = []
-        self.push()
+    def draw_calibration(self, step):   # (older callers: the 5-cross calibration)
+        self.start_calibration()
 
 
 class _ExpanderLed:
@@ -8951,6 +9326,8 @@ class PedalDriver:
             action = message.get("action")
             if action == "calibrateTouch":
                 self.start_touch_calibration()
+            elif action == "touchTest":
+                self.start_touch_test()
             elif action == "get":
                 self.send_to(ws, {"type": "hardware", "config": self.config})
             elif action == "save":
@@ -9436,6 +9813,8 @@ class PedalDriver:
                     run_privileged(SYSTEM_SCRIPT, "hostname", name)
             elif action == "calibrateTouch":
                 self.start_touch_calibration()
+            elif action == "touchTest":
+                self.start_touch_test()
             reply()
 
         threading.Thread(target=worker, daemon=True).start()
@@ -9566,36 +9945,17 @@ class PedalDriver:
 
     # ----- touch calibration ---------------------------------------------------
     def start_touch_calibration(self):
-        if not (self.mini and self.mini.available):
-            return
-        self.touch_calibrating = True
-        self.touch_points = []
-        self.mini.draw_calibration(0)
+        """The 3.5" screen's touch: 5 crosses (corners and centre), then a check - tap the dot, SAVE or REDO."""
+        if self.mini and self.mini.available:
+            self.mini.start_calibration()
 
-    def touch_calibration_point(self, raw_x, raw_y):
-        self.touch_points.append((raw_x, raw_y))
-        if len(self.touch_points) < 2:
-            self.mini.draw_calibration(1)
-            return
-        (x1, y1), (x2, y2) = self.touch_points
-        cal = dict((self.config.get("mini_screen") or {}).get("calibration") or {})
-        swap = abs(x2 - x1) < abs(y2 - y1)
-        if swap:
-            x1, y1, x2, y2 = y1, x1, y2, x2
-        W, H = self.mini.w, self.mini.h
-        fx, fy = 20 / (W - 1), 20 / (H - 1)
-        span_x = (x2 - x1) / (1 - 2 * fx)
-        span_y = (y2 - y1) / (1 - 2 * fy)
-        cal.update({"swap": swap, "flip_x": span_x < 0, "flip_y": span_y < 0})
-        xmin, xmax = (x1 - fx * span_x, x1 + (1 - fx) * span_x)
-        ymin, ymax = (y1 - fy * span_y, y1 + (1 - fy) * span_y)
-        cal.update({"xmin": int(min(xmin, xmax)), "xmax": int(max(xmin, xmax)), "ymin": int(min(ymin, ymax)), "ymax": int(max(ymin, ymax))})
-        self.config.setdefault("mini_screen", {})["calibration"] = cal
-        self.mini.spec["calibration"] = cal
-        self.touch_calibrating = False
-        self.save_config()
-        self.emit({"type": "touchCalibrated", "calibration": cal})
-        self.schedule_mini_render(force=True)
+    def touch_calibration_point(self, raw_x, raw_y):   # (one cross by hand: older callers and tests)
+        if self.mini:
+            self.mini.calibration_press([(raw_x, raw_y)] * 3)
+
+    def start_touch_test(self):
+        if self.mini and self.mini.available:
+            self.mini.start_test()
 
     # ----- LEDs ---------------------------------------------------------------
     def update_leds(self):
@@ -9816,6 +10176,10 @@ class PedalDriver:
             self._mini_wake = threading.Event()
 
             def worker():   # one drawing thread: a burst of changes draws once, with the newest state
+                try:   # (it gives way to the touch panel's thread and the sound: a tap is read first, then drawn)
+                    os.setpriority(os.PRIO_PROCESS, threading.get_native_id(), 5)
+                except (AttributeError, OSError):
+                    pass
                 while True:
                     self._mini_wake.wait()
                     self._mini_wake.clear()

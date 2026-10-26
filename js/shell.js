@@ -189,7 +189,7 @@
     if (b.dataset.wifi) { var ssid = b.dataset.wifi; PP.ask("Password for " + ssid + " (leave empty if it has none)", { password: true, ok: "Connect" }).then(function (pw) { if (pw === null) return; send({ type: "system", action: "wifi", ssid: ssid, password: pw }); PP.setStatus("Connecting to " + ssid + "…"); }); return; }
     if (b.dataset.sys === "wifiScan") { send({ type: "system", action: "wifi" }); PP.setStatus("Scanning Wi-Fi…"); }
     if (b.dataset.sys === "applyScreens") { if (busyPlaying() && !confirm("Something is playing - restarting the screens stops the sound for a few seconds. Restart them now?")) return; send({ type: "system", action: "restartSession" }); PP.setStatus("Restarting the screens…"); return; }
-    if (b.dataset.sys === "calibrate") { send({ type: "hardware", action: "calibrateTouch" }); PP.setStatus("Touch the two crosses on the small screen"); return; }
+    if (b.dataset.sys === "calibrate") { send({ type: "hardware", action: "calibrateTouch" }); PP.setStatus("Touch the five crosses on the small screen, then tap the dot and SAVE"); return; }
     if (b.dataset.sys === "screen") { if (!confirm((status && status.screen35 ? "Turn the 3.5-inch screen off" : "Turn the 3.5-inch screen on") + "? Central Pedal will restart.")) return; send({ type: "system", action: "screen", value: status && status.screen35 ? "off" : "on" }); }
   }
   function wire() {

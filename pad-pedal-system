@@ -86,6 +86,16 @@ BOOT_TUNE_CMDLINE="quiet loglevel=3 logo.nologo consoleblank=0 vt.global_cursor_
 BOOT_TUNE_OFF="NetworkManager-wait-online.service systemd-networkd-wait-online.service apt-daily.timer apt-daily-upgrade.timer man-db.timer
                e2scrub_reap.service ModemManager.service triggerhappy.service triggerhappy.socket hciuart.service bluetooth.service keyboard-setup.service
                rpi-eeprom-update.service sshswitch.service rsyslog.service"   # (Settings → Software updates updates the pedal; the journal keeps the logs)
+touch_light_taps() {
+  # The blue 3.5" screen (piscreen overlay): its touch chip drops every reading of a touch lighter than "x-plate
+  # ohms 100 / pressure 255" (ads7846 driver: Rt > pressure-max is ignored), so a light tap is never seen at all.
+  # 40 ohms lets a light fingertip through; the app's own smoothing takes care of the noisier readings.
+  grep -qE '^dtoverlay=piscreen(,|$)' "$CONFIG" || return 0
+  grep -qE '^dtoverlay=piscreen(,[^ ]*)?,xohms=' "$CONFIG" && return 0
+  boot_rw
+  sed -i -E 's/^(dtoverlay=piscreen(,[^ ]*)?)$/\1,xohms=40/' "$CONFIG"
+  echo "  config.txt: piscreen xohms=40 (light taps count)"
+}
 config_all() {  # config_all key value -> key=value for every Pi model (an existing key=... is replaced, else added under [all])
   local key="$1" value="$2" last
   grep -qE "^$key=$value\$" "$CONFIG" && return 0
@@ -420,6 +430,7 @@ PY
     for kv in $BOOT_TUNE_CONFIG; do config_all "${kv%%=*}" "${kv#*=}"; done
     for arg in $BOOT_TUNE_CMDLINE; do cmdline_arg "$arg"; done
     console_tty3
+    touch_light_taps
     tune_root /
     # safe mode: the running system is a throw-away copy - make the change on the real partition too
     if [ "$(awk '$2=="/" {print $3; exit}' /proc/mounts)" = "overlay" ] && mountpoint -q /media/root-ro && [ -n "$(tune_wanted /media/root-ro)" ]; then

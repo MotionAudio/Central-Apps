@@ -569,6 +569,121 @@ async def main():
               flip == {"local": "flip"} and rot1 == 180 and cal1.get("flip_x") != cal0.get("flip_x", False) and cal1.get("flip_y") != cal0.get("flip_y", False)
               and driver.config["mini_screen"].get("rotate") == 0 and nxt == {"local": "tsPick", "d": 1} and picked != touch_screen_id_before and use == {"local": "tsApply"},
               (flip, rot1, cal0, cal1, nxt, picked, use))
+        # ---- the touch panel (9.9): 5-cross calibration + check, light taps, smoothing, the touch test page
+        _W, _H = mini.w, mini.h
+        def _panel(px, py):   # a made-up panel: axes swapped, one mirrored, a little skewed (the raw numbers for a screen point)
+            return (int(round(3880 - py / (_H - 1) * 3620 + 0.03 * px)), int(round(260 + px / (_W - 1) * 3560 + 0.02 * py)))
+        _tg = mini.cal_targets()
+        _A, _rms = driver_mod.touch_affine_fit([_panel(*p) for p in _tg], _tg)
+        _back = [(_A[0] * rx + _A[1] * ry + _A[2], _A[3] * rx + _A[4] * ry + _A[5]) for rx, ry in (_panel(100, 50), _panel(400, 280))]
+        check("touch: the 5-cross calibration fits a swapped, mirrored, skewed panel to within a pixel (least squares)",
+              _A and _rms < 1.0 and abs(_back[0][0] - 100) < 1.5 and abs(_back[0][1] - 50) < 1.5 and abs(_back[1][0] - 400) < 1.5 and abs(_back[1][1] - 280) < 1.5
+              and driver_mod.touch_affine_fit([(1000, 1000)] * 5, _tg) == (None, None), (_A, _rms, _back))
+        check("touch: a held touch's place leaves out the first readings (settling) and the last ones (lifting off)",
+              driver_mod.touch_press_point([(0, 0), (900, 900), (2000, 1500), (2002, 1501), (1998, 1499), (2001, 1500), (2000, 1502), (3900, 100), (50, 3000), (10, 10)]) == (2000, 1500))
+        _f = driver_mod.TouchFilter()
+        _t = 100.0
+        _outs = []
+        for _x in (100, 102, 99, 101, 400, 100, 103, 101):   # a still finger with a wild reading in the middle
+            _t += 0.008
+            _outs.append(_f.add(_x, 50, _t))
+        _seen = [o[0] for o in _outs if o]
+        _f.reset()
+        _jump = []
+        for _x in (100, 100, 220, 222, 224):   # a real fast move: through a reading later
+            _t += 0.008
+            _jump.append(_f.add(_x, 50, _t))
+        check("touch: a fader's readings are smoothed - a still finger stays within 2 px, a wild reading never gets through, a real move does a reading later",
+              _outs[4] is None and max(_seen) - min(_seen) <= 2.5 and max(_seen) < 105 and _jump[2] is None and _jump[3] and _jump[3][0] > 200 and _jump[4][0] > 218,
+              (_outs, _jump))
+        # the calibration on the small screen: 5 crosses (each a noisy press), the check page (tap the dot), SAVE
+        _cal_before = dict((mini.spec or {}).get("calibration") or {})
+        _cfg_before = dict((driver.config.get("mini_screen") or {}).get("calibration") or {})
+        _saves = []
+        _real_save = driver.save_config
+        driver.save_config = lambda: _saves.append(1)
+        mini.local({"local": "calibrate"})
+        _cal_page = mini.render(disp)
+        _cal_hits = list(mini.hits)
+        _cal_on = mini.tmode and mini.tmode["kind"] == "cal" and driver.touch_calibrating
+        for _i, (_px, _py) in enumerate(_tg):
+            _rx, _ry = _panel(_px, _py)
+            _press = [(_rx + 300, _ry - 250), (_rx + 40, _ry)] + [(_rx + (_k % 3) - 1, _ry + (_k % 2)) for _k in range(8)] + [(_rx - 500, _ry + 700), (3900, 100), (0, 0)]
+            if _i == 2:
+                mini.calibration_press([(_rx, _ry)])   # (too short: "hold your finger on it")
+            mini.calibration_press(_press)
+        _chk = mini.tmode
+        _tx, _ty = mini.check_target()
+        mini.render(disp)
+        _save_hit = mini.hit_test(_W * 0.25, _H - 30)
+        mini.tap(*_panel(_tx + 3, _ty - 2))
+        _mark = (mini.tmode or {}).get("marks")
+        mini.tap(*_panel(int(_W * 0.25), _H - 30))   # SAVE, tapped through the new calibration
+        _saved_cal = dict((driver.config.get("mini_screen") or {}).get("calibration") or {})
+        _mapped = mini.map_touch(*_panel(240, 160))
+        check("touch: CALIBRATE shows 5 crosses over the app's redraws, a too-short press asks again, then the check page - tap the dot, SAVE keeps it",
+              _cal_on and _cal_page is not None and _cal_hits == [] and _chk and _chk["kind"] == "check" and _chk["rms"] < 2
+              and _save_hit == {"local": "tmSave"} and _mark and _mark[-1][2] < 6 and mini.tmode is None and not driver.touch_calibrating
+              and _saved_cal.get("affine") and _saved_cal.get("points") == 5 and _saves and abs(_mapped[0] - 240) <= 2 and abs(_mapped[1] - 160) <= 2,
+              (_cal_on, _cal_hits, _chk and _chk.get("rms"), _save_hit, _mark, _saved_cal, _mapped))
+        # REDO / not saved: the calibration from before comes back
+        _good = dict(_saved_cal)
+        mini.local({"local": "calibrate"})
+        for _px, _py in _tg:
+            _rx, _ry = _panel(_px + 9, _py - 7)   # (a different panel this time)
+            mini.calibration_press([(_rx, _ry)] * 6)
+        _redo_live = dict(mini.spec.get("calibration") or {})
+        mini.cal_finish(False)
+        check("touch: a calibration that isn't saved (REDO, or no SAVE in time) puts the one from before back",
+              _redo_live.get("affine") != _good.get("affine") and (mini.spec.get("calibration") or {}).get("affine") == _good.get("affine") and mini.tmode is None,
+              (_redo_live.get("affine"), mini.spec.get("calibration")))
+        # FLIP 180° turns a 5-cross calibration with the picture
+        _fx0 = mini.map_touch(*_panel(100, 50))
+        mini.local({"local": "flip"})
+        _fx1 = mini.map_touch(*_panel(100, 50))
+        mini.local({"local": "flip"})
+        check("touch: FLIP 180° turns a 5-cross calibration with the picture",
+              abs(_fx1[0] - (_W - 1 - _fx0[0])) <= 1 and abs(_fx1[1] - (_H - 1 - _fx0[1])) <= 1 and mini.map_touch(*_panel(100, 50)) == _fx0, (_fx0, _fx1))
+        # the touch test page: dots where you tap, a line where you slide, DONE
+        mini.local({"local": "sub", "tab": "settings", "value": "touch"})
+        mini.render(disp)
+        _test_hit = mini.hit_test(240, 240)
+        mini.local(_test_hit)
+        mini.tap(*_panel(200, 200))
+        for _k in range(6):
+            mini.test_reading(*_panel(200 + _k * 4, 200))
+        mini.released([_panel(200 + _k * 4, 200) for _k in range(12)], time.monotonic() - 0.2, 180)
+        _tpage = mini.render(disp)
+        _tdots = list(mini.tmode["dots"]) if mini.tmode else []
+        _done = mini.hit_test(_W - 50, 25)
+        mini.tap(*_panel(_W - 50, 25))
+        check("touch: SETTINGS → Touch → TEST TOUCH: a dot where you tap, a line where you slide, its numbers, DONE",
+              _test_hit == {"local": "touchTest"} and _tpage is not None and len(_tdots) == 1 and _done == {"local": "tmDone"} and mini.tmode is None
+              and mini.tstats["rate"] > 0 and mini.tstats["pressure"] == 180, (_test_hit, _tdots, _done, mini.tstats))
+        # a light, quick tap (one reading, lifted at once) still counts; readings before the first one of a press aren't reused
+        _evs2 = []
+        for px, py in ((60, 100), (340, 100)):
+            rx, ry = _raw(px, py)
+            _evs2 += [_E(1, 330, 1), _E(3, 0, rx), _E(3, 1, ry), _E(3, 24, 40), _E(0, 0, 0), _E(1, 330, 0), _E(0, 0, 0)]
+        _evs[:] = _evs2
+        _stop.clear()
+        _taps.clear()
+        _cal_now = dict(mini.spec.get("calibration") or {})
+        mini._set_cal(dict(cal))   # (the screen's defaults again: _raw() makes their numbers)
+        mini.render(dict(driver.display or {}))
+        mini.tab = "pads"
+        mini.render(dict(driver.display or {}))
+        _ec.ABS_PRESSURE = 24
+        driver.mini.touch_loop(_fake)
+        check("touch: a light, quick tap (one reading, then lifted) still counts - pad 1, then play",
+              [t.get("name") for t in _taps] == ["pad", "playPause"], _taps)
+        mini._set_cal(_cal_before or None)
+        if driver.config.get("mini_screen") is not None:
+            if _cfg_before:
+                driver.config["mini_screen"]["calibration"] = _cfg_before
+            else:
+                driver.config["mini_screen"].pop("calibration", None)
+        driver.save_config = _real_save
         mini.pick_screen = None
         driver.emit = _real_emit
         driver.schedule_mini_render = _sched
@@ -746,7 +861,7 @@ async def main():
             driver.config["touch_screen"] = "rpi35-xpt2046"
             block = "# central-pedal-screen begin\n[all]\n%s\n# central-pedal-screen end\n"
             res = []
-            for lines in (["dtparam=spi=on", "dtoverlay=piscreen,speed=16000000,rotate=90"], ["dtparam=spi=on", "dtoverlay=piscreen,speed=16000000,rotate=90,fps=50"], ["dtparam=spi=on", "dtoverlay=waveshare35a:rotate=90"]):
+            for lines in (["dtparam=spi=on", "dtoverlay=piscreen,speed=16000000,rotate=90"], ["dtparam=spi=on", "dtoverlay=piscreen,speed=16000000,rotate=90,fps=50"], ["dtparam=spi=on", "dtoverlay=piscreen,speed=16000000,rotate=90,fps=50,xohms=40"], ["dtparam=spi=on", "dtoverlay=waveshare35a:rotate=90"]):
                 with open(cfg_txt, "w") as handle:
                     handle.write("arm_64bit=1\n" + block % "\n".join(lines))
                 res.append(driver.refresh_screen_lines(cfg_txt))
@@ -754,8 +869,8 @@ async def main():
                 driver.config.pop("touch_screen", None)
             else:
                 driver.config["touch_screen"] = _ts
-            check("an older card's 3.5\" screen line gets fps=50 (20 → 50 updates a second); a current one is left, another screen's lines aren't touched",
-                  res == [True, False, None], res)
+            check("an older card's 3.5\" screen line gets fps=50 (20 → 50 updates a second) and xohms=40 (light taps, 9.9); a current one is left, another screen's lines aren't touched",
+                  res == [True, True, False, None], res)
         finally:
             driver.emit, driver.schedule_mini_render = _real_emit2, _sched2
             driver_mod.wifi_connect, driver_mod.wifi_status = _wc, _ws

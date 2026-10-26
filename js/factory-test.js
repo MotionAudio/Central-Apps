@@ -38,7 +38,7 @@
   });
   F.on("factoryReport", function (m) { saved = m.report; busy = ""; PP.setStatus("Report saved: factory-report.json"); schedule(); });
   F.on("factoryScreen", function (m) { busy = m.ok ? "Restarting with " + (m.name || "the new screen") + " - the test comes back by itself." : ""; if (!m.ok) PP.setStatus(m.error || "The screen wasn't set."); schedule(); });
-  F.on("touchCalibrated", function () { PP.setStatus("Touch calibrated"); });
+  F.on("touchCalibrated", function (m) { PP.setStatus(m && m.saved === false ? "Touch calibration not saved - the one from before is back" : "Touch calibrated"); });
   F.on("control", function (m) {
     if (!active()) return;
     var spec = inputs().filter(function (i) { return i.id === m.id; })[0], k = spec ? kindOf(spec) : "button";
@@ -151,7 +151,7 @@
     if (b.dataset.ftPlay) { playOut(b.dataset.ftPlay); return; }
     var a = b.dataset.ft;
     if (a === "pattern") send({ type: "factory", action: "pattern", on: !(st && st.pattern) });
-    else if (a === "calibrate") { send({ type: "hardware", action: "calibrateTouch" }); PP.setStatus("Touch the two crosses on the small screen"); }
+    else if (a === "calibrate") { send({ type: "hardware", action: "calibrateTouch" }); PP.setStatus("Touch the five crosses on the small screen, then tap the dot and SAVE"); }
     else if (a === "screen") { var v = (dlg.querySelector("#ftScreen") || {}).value || "off"; if (!confirm("Use this touch screen? The pedal restarts and comes back into this test.")) return; busy = "Setting up the screen…"; send({ type: "factory", action: "screen", value: v, restart: true }); render(); }
     else if (a === "listen") listen();
     else if (a === "scan") { send({ type: "factory", action: "scan" }); }
