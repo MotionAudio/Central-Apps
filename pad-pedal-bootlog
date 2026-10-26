@@ -21,6 +21,8 @@ KU="$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)"; KH="$(getent passw
   echo; echo "== network"; nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev 2>&1; nmcli -t connection show 2>&1; ip -br addr 2>&1
   echo; echo "== disks"; lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINT 2>&1; df -h / /data 2>&1; findmnt /data 2>&1
   echo; echo "== screens the kernel sees"; ls /sys/class/graphics/ 2>&1; for f in /sys/class/drm/card*-*/status; do echo "$f: $(cat "$f")"; done 2>/dev/null; grep -E '^(dtoverlay|dtparam)' "$BOOT/config.txt" 2>&1
+  echo; echo "== 3.5\" touch (readings a second, how far a still finger wanders in px, tap delay, calibration)"
+  awk 'BEGIN { RS = "" } /ADS7846|XPT2046|[Tt]ouch/' /proc/bus/input/devices 2>&1 | grep -E '^(N|H|B: ABS)' ; cat /tmp/central-pedal-touch.json 2>/dev/null || echo "(not touched since the start)"; echo
   echo; echo "== sound (cards, levels, the combined output the app plays into)"
   cat /proc/asound/cards 2>&1; aplay -l 2>&1 | grep -E "^card"
   for c in $(sed -nE 's/^ *([0-9]+) \[.*/\1/p' /proc/asound/cards 2>/dev/null); do echo "-- mixer card $c"; amixer -c "$c" 2>&1 | grep -E "Simple mixer|Playback|Mono:|Front" | head -8; done
