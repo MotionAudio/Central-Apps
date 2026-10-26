@@ -752,6 +752,7 @@ await check("looper pedal (one footswitch): tap records, tap closes, a double ta
     await PPLooper.useNode(osc); PPLooper.setMode("free"); PPLooper.select(2);
     const ws = async (want) => { for (let k = 0; k < 100; k++) { if (PPLooper.stateOf(2) === want) return true; await sleep(50); } return false; };
     const out = [];
+    try {
     PPLooper.pedalPress({ from: "screen" }); out.push(await ws("recording")); await sleep(500);
     PPLooper.pedalPress({ from: "screen" }); out.push(await ws("playing")); await sleep(500);
     PPLooper.pedalPress({ from: "screen" }); PPLooper.pedalPress({ from: "screen" }); out.push(await ws("stopped"));
@@ -761,8 +762,8 @@ await check("looper pedal (one footswitch): tap records, tap closes, a double ta
     PPActions.run("looperPedal"); PPActions.ACTIONS.looperPedal.release(); out.push(await ws("recording")); await sleep(300); PPLooper.pedalPress({ from: "screen" }); await sleep(500);
     const led = PPActions.ACTIONS.looperPedal.led();
     PPLooper.clearAll(); out.push(await ws("empty"));
-    osc.stop(); PPLooper.select(0); PPLooper.setMode("auto");
     return { out, noDub, led };
+    } finally { PPLooper.clearAll(); osc.stop(); PPLooper.select(0); PPLooper.setMode("auto"); }
   });
   assert.deepEqual(r.out, [true, true, true, true, true, true]); assert.ok(r.noDub, "the double tap's overdub was taken back"); assert.ok(["on", "blink", "beat", "off"].includes(r.led));
 });

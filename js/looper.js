@@ -370,14 +370,17 @@
     var i = cfg().sel, now = Date.now(), prev = stateOf(i);
     clearTimeout(holdTimer);
     if (now - pedalLast.at < DOUBLE_MS && pedalLast.i === i) {   // the second tap of a double tap
-      pedalLast.at = 0;
-      if (pedalLast.prev === "playing") post("cancelDub", i);   // (the first tap had started an overdub: take it back)
-      if (pedalLast.prev === "empty" || (pedalLast.prev === "armed")) clear(i);
-      stopAll(); return "stopAll";
+      var first = pedalLast; pedalLast = { at: 0, prev: "", i: i };
+      Promise.resolve(first.busy).then(function () {   // (after what the first tap did has reached the looper)
+        if (first.prev === "playing") post("cancelDub", i);   // (the first tap had started an overdub: take it back)
+        if (first.prev === "empty" || first.prev === "armed") clear(i);
+        stopAll();
+      });
+      return "stopAll";
     }
     pedalLast = { at: now, prev: prev, i: i };
-    if (!(info && info.from)) holdTimer = setTimeout(function () { pedalLast.at = 0; clear(i); }, HOLD_MS);   // (a footswitch: held down)
-    main(i); return "main";
+    if (!(info && info.from)) holdTimer = setTimeout(function () { var b = pedalLast.busy; pedalLast.at = 0; Promise.resolve(b).then(function () { clear(i); }); }, HOLD_MS);   // (a footswitch: held down)
+    pedalLast.busy = main(i).catch(function () { }); return "main";
   }
   function pedalRelease() { clearTimeout(holdTimer); }
 
