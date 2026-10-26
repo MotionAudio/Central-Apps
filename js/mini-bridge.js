@@ -1,7 +1,7 @@
 /* Central Pedal - what the small 3.5" screen asks the app for: the lists it shows (keys sounds, boards, what a
  * button / knob / slider can do, the controls and what each does now) and what a pick there changes. The driver
  * draws the screen; it sends {miniRequest}, {miniPick} and {miniPackage}, and this answers with {miniList} and
- * {miniResult}. Everything goes through the same project as the big screen, so both stay in step. */
+ * {miniResult}. Also the setlist (move, take out, add from the library), the scenes and every track's / pad's effects. Everything goes through the same project as the big screen, so both stay in step. */
 (function () {
   "use strict";
   var PP = window.PP, F = window.PPFeatures, A = window.PPActions; if (!PP || !F || !A) return;
@@ -36,6 +36,12 @@
     var k = ins.kind(), c = ins.config(), all = (P.boards || []).concat(c.custom || []).filter(function (b) { return b.kind === k; });
     return { items: all.map(function (b) { var lk = P.boardLocked && P.boardLocked(b); return { id: b.id, label: b.name, sub: b.custom ? "yours" : "", locked: lk ? P.lockText(P.missing(b.plans || P.boardPlans(b))) : null }; }), current: (c.boards || {})[k] || null };
   }
+  // effects (js/fx.js): which tracks / pads have them, one target's effects, its presets
+  function FX() { return window.PPFx && window.PPFx.mini; }
+  function scenes() {
+    var S = window.PPScenes; if (!S) return { items: [] };
+    return { items: S.scenes().map(function (sc, i) { return { id: i, label: sc.name || "Scene " + (i + 1), sub: S.describe ? S.describe(sc) : "" }; }), current: S.activeIndex() };
+  }
   function instrument() { var ins = I(), pa = ins && ins.playAny ? ins.playAny() : null; return { mode: pa ? pa.mode || "auto" : "", dry: pa ? pa.dry || 0 : 0 }; }
 
   function answer(what, kind) {
@@ -45,10 +51,45 @@
     else if (what === "patches") Object.assign(m, patches());
     else if (what === "boards") Object.assign(m, boards());
     else if (what === "instrument") Object.assign(m, instrument());
+    else if (what === "scenes") Object.assign(m, scenes());
+    else if (what === "fxTargets" && FX()) { m.kind = kind === "pads" ? "pads" : "tracks"; m.items = FX().targets(m.kind); }
+    else if (what === "fx" && FX()) { m.kind = String(kind || ""); m.state = FX().state(m.kind); }
+    else if (what === "fxPresets" && FX()) { m.kind = String(kind || ""); Object.assign(m, FX().presets(m.kind) || { items: [] }); }
     else return;
     send(m);
   }
   F.on("miniRequest", function (m) { answer(m.what, m.kind); });
+
+  // the small screen's effects rows: an amount (a fader), an effect on / off, the reverb type / delay time (next).
+  // Hidden actions - not in the lists of what a button can do.
+  var fxTimer = {};
+  function fxAnswer(id) {   // (a fader sends ~40 a second: the new state goes back at most every 120 ms)
+    if (fxTimer[id]) return;
+    fxTimer[id] = setTimeout(function () { delete fxTimer[id]; answer("fx", id); answer("fxTargets", /^(pad|bus:pads)/.test(id) ? "pads" : "tracks"); }, 120);
+  }
+  function fxRun(id, op) {
+    if (!FX()) return;
+    var r = FX().apply(String(id || ""), op);
+    if (typeof r === "string") send({ type: "miniResult", text: r });
+    fxAnswer(String(id || ""));
+  }
+  A.ACTIONS.fxValue = { id: "fxValue", label: "Effects: an amount (small screen)", group: "Effects", kind: "continuous", hidden: true, run: function (a, v) { if (a && a.target && a.path) fxRun(a.target, { path: String(a.path), v: Number(v) || 0 }); } };
+  A.ACTIONS.fxToggle = { id: "fxToggle", label: "Effects: on / off (small screen)", group: "Effects", kind: "trigger", hidden: true, run: function (a) { if (a && a.target && a.path) fxRun(a.target, { toggle: String(a.path) }); } };
+  A.ACTIONS.fxCycle = { id: "fxCycle", label: "Effects: next reverb type / delay time (small screen)", group: "Effects", kind: "trigger", hidden: true, run: function (a) { if (a && a.target && a.path) fxRun(a.target, { cycle: String(a.path) }); } };
+
+  // the setlist from the small screen: move a song up / down, take one out (of this setlist only), add one from the library
+  function setlistMove(i, d) {
+    var p = PP.project(), songs = p.songs, j = i + (d < 0 ? -1 : 1); if (!songs[i] || j < 0 || j >= songs.length) return;
+    var cur = songs[p.songIndex]; songs.splice(j, 0, songs.splice(i, 1)[0]); p.songIndex = cur ? songs.indexOf(cur) : p.songIndex;
+    PP.persistSoon(); F.renderSetlist(); F.renderPerformExtras();
+  }
+  function setlistRemove(i) {
+    var p = PP.project(), songs = p.songs, cur = songs[p.songIndex]; if (!songs[i]) return;
+    var nm = songs[i].name; songs.splice(i, 1);
+    p.songIndex = cur && songs.indexOf(cur) >= 0 ? songs.indexOf(cur) : Math.min(p.songIndex, songs.length - 1);
+    PP.persistSoon(); F.renderSetlist(); F.renderPerformExtras();
+    send({ type: "miniResult", text: "\"" + nm + "\" is out of the setlist (it stays in the song library)" });
+  }
 
   F.on("miniPick", function (m) {
     var ins = I();
@@ -66,6 +107,17 @@
       ins.loadBoard(k, m.id); ins.apply("board"); PP.persistSoon(); if (ins.render) ins.render();
     } else if (m.what === "playAnyMode" && ins && ins.stepPlayAnyMode) {
       ins.stepPlayAnyMode(1); answer("instrument");
+    } else if (m.what === "fxPresets" && m.target) {
+      fxRun(m.target, { preset: String(m.id || "") });
+    } else if (m.what === "scenes" && window.PPScenes) {
+      window.PPScenes.recallIndex(Number(m.id) || 0); answer("scenes");
+    } else if (m.what === "library" && m.id) {
+      if (window.PPSync && window.PPSync.addSong) window.PPSync.addSong(String(m.id));
+      else send({ type: "miniResult", text: "Add songs in the app (♫ Setlist → Song library)." });
+    } else if (m.what === "setlistMove") {
+      setlistMove(Number(m.id), Number(m.target) || 1);
+    } else if (m.what === "setlistRemove") {
+      setlistRemove(Number(m.id));
     }
     if (window.PPTracks && window.PPTracks.sendDisplay) window.PPTracks.sendDisplay();
   });

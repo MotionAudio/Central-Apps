@@ -756,6 +756,174 @@ async def main():
                 driver.config["touch_screen"] = _ts
             check("an older card's 3.5\" screen line gets fps=50 (20 → 50 updates a second); a current one is left, another screen's lines aren't touched",
                   res == [True, False, None], res)
+
+            # ---- 9.9: the setlist, the song library, effects, scenes and screens from the small screen
+            def hit_where(pred):
+                return next(((box, a) for box, a in mini.hits if pred(a)), (None, None))
+
+            def tall(box):
+                return box is not None and box[3] - box[1] >= 34
+            songs6 = [{"id": "s%d" % i, "name": n, "key": k, "hasTracks": i % 2 == 0} for i, (n, k) in
+                      enumerate([("Way Maker", "E"), ("Goodness of God", "A"), ("Holy Forever", "C"), ("Firm Foundation", "D"), ("Gratitude", "B"), ("King of Kings", "D")])]
+            ds = dict(disp, songs=songs6, song={"name": "Goodness of God", "key": "A", "index": 1})
+            driver.display = ds
+            mini.overlay, mini.song_edit, mini.confirm = None, False, None
+            mini.tab, mini.sub["tracks"] = "tracks", "songs"
+            mini.render(ds)
+            row0_box, row0 = hit_where(lambda a: a.get("name") == "loadSong" and a.get("args") == {"index": 0})
+            rows_on_page = [a for _, a in mini.hits if a.get("name") == "loadSong"]
+            start_box = next((b for b, a in mini.hits if a.get("name") == "loadSong" and a["args"] == {"index": 0} and b[1] >= 236), None)
+            nxt_box, nxt = hit_where(lambda a: a.get("name") == "nextSong")
+            add_box, add = hit_where(lambda a: a.get("local") == "list" and a.get("what") == "library")
+            check("small screen: TRACKS → Setlist - 4 songs a page (tap one to go to it), then ‹ SONG, NEXT ›, START SET (song 1), + ADD and EDIT, all finger-sized",
+                  len(rows_on_page) == 5 and tall(row0_box) and start_box is not None and nxt == {"name": "nextSong"} and add and add.get("az") and tall(add_box) and tall(nxt_box),
+                  (rows_on_page, row0_box, start_box, nxt_box, add))
+            # + ADD: the song library (from this pedal's songs, A–Z), the ones in the setlist say so; A–Z jumps; a pick goes to the app
+            _sl = driver.sync.songs_listing
+            lib = [{"id": "s%d" % i if i < 2 else "lib-%d" % i, "name": n, "key": "G", "stems": 3 if i < 2 else 0, "here": True} for i, n in
+                   enumerate(["Way Maker", "Goodness of God", "Amazing Grace", "Build My Life", "Cornerstone", "Great Are You Lord", "Here Again", "Living Hope", "O Praise the Name", "What a Beautiful Name", "Zion"])]
+            lib[2]["id"], lib[3]["id"] = "lib-a", "lib-b"
+            driver.sync.songs_listing = lambda: sorted(lib, key=lambda x: x["name"].lower())
+            try:
+                mini.local(add)
+                mini.render(ds)
+                items = (mini.lists.get("library") or {}).get("items") or []
+                az_box, az = hit_where(lambda a: a.get("local") == "letters")
+                in_set = [it for it in items if it.get("inset")]
+                say_box, say_hit = hit_where(lambda a: a.get("local") == "say" and "already in the setlist" in a.get("text", ""))
+                mini.local(az)
+                mini.render(ds)
+                w_box, w_hit = hit_where(lambda a: a.get("local") == "letter" and a.get("letter") == "W")
+                q_box, q_hit = hit_where(lambda a: a.get("local") == "letter" and a.get("letter") == "Q")
+                mini.local(w_hit)
+                back_to = (mini.overlay or {}).get("what")
+                mini.render(ds)
+                on_page = [a.get("label") for _, a in mini.hits if a.get("local") == "pick" and a.get("what") == "library"]
+                mini.pages["list:library"] = 0
+                mini.render(ds)
+                pick_box, pick = hit_where(lambda a: a.get("local") == "pick" and a.get("id") == "lib-a")
+                _sent.clear()
+                mini.local(pick)
+                lib_pick = [m for m in _sent if m.get("type") == "miniPick"]
+                check("...+ ADD: the song library A–Z (11 songs, two pages); the ones already in the setlist say so; A–Z jumps to W; a pick goes to the app (added to the setlist)",
+                      len(items) == 11 and [it["label"] for it in items][:2] == ["Amazing Grace", "Build My Life"] and len(in_set) == 2 and say_hit and az and w_hit and q_hit is None
+                      and back_to == "library" and "What a Beautiful Name" in on_page and lib_pick == [{"type": "miniPick", "what": "library", "id": "lib-a", "target": None}]
+                      and mini.overlay is None and mini.notice.startswith("Added: Amazing Grace"),
+                      (len(items), in_set, az, w_hit, q_hit, back_to, on_page, lib_pick, mini.overlay, mini.notice))
+            finally:
+                driver.sync.songs_listing = _sl
+            # EDIT: move a song up / down; X twice takes it out of the setlist
+            mini.overlay = None
+            mini.local({"local": "songEdit"})
+            mini.render(ds)
+            up0 = [a for _, a in mini.hits if a.get("what") == "setlistMove" and a.get("id") == 0 and a.get("target") == -1]
+            down1_box, down1 = hit_where(lambda a: a.get("what") == "setlistMove" and a.get("id") == 1 and a.get("target") == 1)
+            rm2_box, rm2 = hit_where(lambda a: a.get("local") == "rmSong" and a.get("index") == 2)
+            _sent.clear()
+            mini.local(down1)
+            moved = [m for m in _sent if m.get("type") == "miniPick"]
+            _sent.clear()
+            mini.local(rm2)
+            first = [m for m in _sent if m.get("type") == "miniPick"]
+            mini.local(rm2)
+            second = [m for m in _sent if m.get("type") == "miniPick"]
+            mini.local({"local": "songEdit"})
+            check("...EDIT: the first song can't go up, the others move up / down; X once asks, X again takes it out of the setlist (only)",
+                  not up0 and moved == [{"type": "miniPick", "what": "setlistMove", "id": 1, "target": 1}] and first == [] and second == [{"type": "miniPick", "what": "setlistRemove", "id": 2}]
+                  and tall(down1_box) and tall(rm2_box) and mini.song_edit is False,
+                  (up0, moved, first, second, down1_box, rm2_box))
+            # Effects: TRACKS → Effects lists the tracks bus and each track (from the app); a row opens its effects
+            mini.tab, mini.sub["tracks"] = "tracks", "fx"
+            _sent.clear()
+            mini.render(dict(ds, songId="song-x"))
+            asked_t = [m for m in _sent if m.get("type") == "miniRequest" and m.get("what") == "fxTargets"]
+            driver.handle_app_message({"type": "miniList", "what": "fxTargets", "kind": "tracks", "items": [
+                {"id": "bus:tracks", "label": "All tracks (tracks bus)", "on": False, "sub": "off"}, {"id": "stem:v1", "label": "Vocals", "on": True, "sub": "Vocal stem"}]})
+            mini.render(dict(ds, songId="song-x"))
+            voc_box, voc = hit_where(lambda a: a.get("local") == "fxOpen" and a.get("target") == "stem:v1")
+            _sent.clear()
+            mini.local(voc)
+            asked_fx = [m for m in _sent if m.get("type") == "miniRequest"]
+            state = {"id": "stem:v1", "name": "Vocals", "kind": "stem", "master": True, "on": True, "preset": "", "pro": False, "lock": "Part of Central Plugins · $140 a year",
+                     "rows": [{"fx": "gate", "label": "Gate", "toggle": "gate.on", "on": False, "path": "gate.threshold", "min": -80, "max": 0, "value": -45, "text": "-45 dB"},
+                              {"fx": "eq", "label": "EQ low", "toggle": "eq.on", "on": True, "path": "eq.low", "min": -12, "max": 12, "value": 0, "text": "0 dB"},
+                              {"fx": "eq", "label": "EQ mid", "on": True, "path": "eq.mid", "min": -12, "max": 12, "value": -2, "text": "-2 dB"},
+                              {"fx": "eq", "label": "EQ high", "on": True, "path": "eq.high", "min": -12, "max": 12, "value": 2.5, "text": "+2.5 dB"},
+                              {"fx": "comp", "label": "Compressor", "toggle": "comp.on", "on": True, "path": "comp.amount", "min": 0, "max": 100, "value": 45, "text": "45%"},
+                              {"fx": "reverb", "label": "Reverb", "toggle": "reverb.on", "on": True, "path": "reverb.send", "min": 0, "max": 100, "value": 14, "text": "14%", "choice": {"path": "reverb.type", "name": "Room", "more": True}},
+                              {"fx": "delay", "label": "Delay", "toggle": "delay.on", "on": False, "path": "delay.send", "min": 0, "max": 100, "value": 8, "text": "8%", "choice": {"path": "delay.time", "name": "1/8", "more": True}}]}
+            driver.handle_app_message({"type": "miniList", "what": "fx", "kind": "stem:v1", "state": state})
+            mini.render(ds)
+            master_box, master = hit_where(lambda a: a.get("name") == "fxToggle" and a["args"] == {"target": "stem:v1", "path": "on"})
+            preset_box, preset = hit_where(lambda a: a.get("local") == "list" and a.get("what") == "fxPresets")
+            gate_box, gate = hit_where(lambda a: a.get("name") == "fxToggle" and a["args"].get("path") == "gate.on")
+            low_box, low = hit_where(lambda a: a.get("name") == "fxValue" and a["args"].get("path") == "eq.low")
+            pager = [a for _, a in mini.hits if a.get("local") == "page" and a.get("key") == "fx:stem:v1"]
+            _sent.clear()
+            mini.tap(*_raw(int(low["slider"][0] + (low["slider"][1] - low["slider"][0]) * 0.75), (low_box[1] + low_box[3]) // 2))
+            val = [m for m in _sent if m.get("type") == "action"]
+            check("...TRACKS → Effects: the tracks bus and every track (asked from the app); a track opens its effects - ON / OFF, the preset, then each effect on / off with its main amount",
+                  asked_t and voc and tall(voc_box) and asked_fx and asked_fx[0] == {"type": "miniRequest", "what": "fx", "kind": "stem:v1"} and master and preset and preset.get("stack")
+                  and gate and low and tall(gate_box) and pager and val and val[0]["name"] == "fxValue" and val[0]["args"] == {"target": "stem:v1", "path": "eq.low"} and 0.7 < val[0]["value"] < 0.8,
+                  (asked_t, voc, asked_fx, master, preset, gate, low, pager, val))
+            # page 2: the reverb's type / the delay's time step on (the better ones say Central Plugins)
+            mini.local(pager[-1])
+            mini.render(ds)
+            rtype_box, rtype = hit_where(lambda a: a.get("name") == "fxCycle" and a["args"].get("path") == "reverb.type")
+            # the presets: a list over the effects (locked ones say which plan); a pick goes to the app and back to the effects
+            mini.local(preset)
+            driver.handle_app_message({"type": "miniList", "what": "fxPresets", "kind": "stem:v1", "items": [{"id": "Clean", "label": "Clean"}, {"id": "Vocal stem", "label": "Vocal stem"},
+                                                                                                          {"id": "Lead vocal · plate", "label": "Lead vocal · plate", "locked": "Part of Central Plugins · $140 a year"}]})
+            mini.render(ds)
+            locked_p = [a for _, a in mini.hits if a.get("local") == "say" and "Central Plugins" in a.get("text", "")]
+            vp_box, vp = hit_where(lambda a: a.get("local") == "pick" and a.get("id") == "Vocal stem")
+            _sent.clear()
+            mini.local(vp)
+            p_pick = [m for m in _sent if m.get("type") == "miniPick"]
+            back_fx = (mini.overlay or {}).get("kind")
+            mini.local({"local": "back"})
+            check("...the reverb type steps on with a tap; the presets open over the effects - a locked one says Central Plugins, a pick goes to the app and comes back to the effects, BACK to the list",
+                  rtype and tall(rtype_box) and locked_p and p_pick == [{"type": "miniPick", "what": "fxPresets", "id": "Vocal stem", "target": "stem:v1"}] and back_fx == "fx" and mini.overlay is None,
+                  (rtype, locked_p, p_pick, back_fx, mini.overlay))
+            mini.tab, mini.sub["pads"] = "pads", "fx"
+            _sent.clear()
+            mini.render(ds)
+            asked_p = [m for m in _sent if m.get("type") == "miniRequest" and m.get("what") == "fxTargets" and m.get("kind") == "pads"]
+            mini.sub["pads"] = "pads"
+            check("...PADS → Effects asks for the pads bus and every pad", bool(asked_p), _sent)
+            # Scenes and screens
+            mini.tab, mini.sub["tracks"] = "tracks", "scenes"
+            _sent.clear()
+            dsc = dict(ds, songId="song-y", lyrics={"page": 0, "pages": 3, "section": "Verse 1"}, projector={"blank": True})
+            mini.render(dsc)
+            asked_s = [m for m in _sent if m.get("type") == "miniRequest" and m.get("what") == "scenes"]
+            driver.handle_app_message({"type": "miniList", "what": "scenes", "items": [{"id": 0, "label": "Intro"}, {"id": 1, "label": "Verse"}, {"id": 2, "label": "Big chorus"}], "current": 1})
+            mini.render(dsc)
+            sc_box, sc = hit_where(lambda a: a.get("what") == "scenes" and a.get("id") == 2)
+            on_scene = next((b for b, a in mini.hits if a.get("what") == "scenes" and a.get("id") == 1), None)
+            lyr = [a for _, a in mini.hits if a.get("name") in ("lyricsNext", "lyricsPrev", "sceneNext", "scenePrev")]
+            blank_box, blank = hit_where(lambda a: a.get("name") == "projectorBlank")
+            h1_box, h1 = hit_where(lambda a: a.get("local") == "list" and a.get("what") == "hdmi1")
+            _sent.clear()
+            mini.local(sc)
+            sc_pick = [m for m in _sent if m.get("type") == "miniPick"]
+            _sa = driver.system_action
+            _sys = []
+            driver.system_action = lambda m, ws=None: _sys.append(m)
+            try:
+                mini.local(h1)
+                mini.render(dsc)
+                cur_h1 = (mini.lists.get("hdmi1") or {}).get("current")
+                lyr_box, lyr_hit = hit_where(lambda a: a.get("local") == "pick" and a.get("what") == "hdmi1" and a.get("id") == "lyrics")
+                mini.local(lyr_hit)
+            finally:
+                driver.system_action = _sa
+            check("...TRACKS → Scenes: this song's scenes (the active one lit, a tap recalls), scene and lyrics ‹ ›, BLANK, and HDMI 1 / 2 picked from a list (one restart)",
+                  asked_s and sc and tall(sc_box) and sc_pick == [{"type": "miniPick", "what": "scenes", "id": 2, "target": None}] and on_scene is not None and len(lyr) == 4
+                  and blank and tall(blank_box) and h1 and cur_h1 in ("app", "touch", "lyrics", "charts", "stage", "slides") and lyr_hit
+                  and (_sys == [{"action": "displays", "config": {"hdmi1": "lyrics"}}] or (cur_h1 == "lyrics" and _sys == [])) and mini.overlay is None,
+                  (asked_s, sc, sc_pick, lyr, blank, h1, cur_h1, _sys, mini.overlay))
+            driver.display = disp
         finally:
             driver.emit, driver.schedule_mini_render = _real_emit2, _sched2
             driver_mod.wifi_connect, driver_mod.wifi_status = _wc, _ws
