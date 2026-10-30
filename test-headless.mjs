@@ -40,6 +40,10 @@ page.on("pageerror", (e) => errors.push(String(e)));
 
 await page.goto("file://" + pagePath);
 await page.waitForFunction(() => window.__test && window.__pedalBridge);
+// (no driver here: stop the bridge's reconnect loop - it retries every 250 ms for the page's first 20 s, and a failed
+// try's close event would put back "not connected" or drop the stand-in socket these checks put in its place)
+await page.evaluate(() => { window.__pedalBridge.connect = function () { }; });
+await page.waitForTimeout(400);
 await page.evaluate(() => { if (window.PPShell) window.PPShell.showTab("pads"); });   // (it opens on LIVE; these checks are about the Pad tab)
 const T = (fn, arg) => page.evaluate(fn, arg);
 const hw = (msg) => T((m) => window.__pedalBridge.handleMessage(m), msg);
