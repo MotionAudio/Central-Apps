@@ -1,6 +1,8 @@
 // The lights' AI helper as it comes in the installer (10.0): starts its llama-server with its model, asks it what
 // the Lighting tab's "Tell it the show" asks (the same system prompt), and checks the answer is the steps the
 // lighting engine takes (JSON it can read, with a section and something to light). About a minute on a CI runner.
+// (On GitHub's Apple-chip Macs the graphics chip is a slow stand-in, so there it answers on the processor: -ngl 0.
+// A real Mac uses its graphics chip.)
 //   node tools/smoke-lights-ai.mjs <folder with llama-server[.exe] and the .gguf model>
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
@@ -13,10 +15,10 @@ const exe = path.join(dir, process.platform === "win32" ? "llama-server.exe" : "
 for (const f of [exe, model]) if (!fs.existsSync(f)) { console.error("missing: " + f); process.exit(1); }
 const A = require(path.join(here, "..", "central-usage", "app", "lights-ai.js")).CULightsAI;   // (it sets itself on "this": module.exports here)
 const port = 18000 + Math.floor(Math.random() * 1000);
-const proc = spawn(exe, ["-m", model, "--port", String(port), "--host", "127.0.0.1", "-c", "4096"], { stdio: ["ignore", "ignore", "pipe"] });
+const proc = spawn(exe, ["-m", model, "--port", String(port), "--host", "127.0.0.1", "-c", "4096"].concat(process.env.CI && process.platform === "darwin" ? ["-ngl", "0"] : []), { stdio: ["ignore", "ignore", "pipe"] });
 let err = ""; proc.stderr.on("data", (c) => { err = (err + c).slice(-4000); });
 const get = (p) => new Promise((r) => http.get({ host: "127.0.0.1", port, path: p }, (res) => { res.resume(); r(res.statusCode); }).on("error", () => r(0)));
-const post = (p, body) => new Promise((r, j) => { const b = JSON.stringify(body); const q = http.request({ host: "127.0.0.1", port, path: p, method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(b) } }, (res) => { let s = ""; res.on("data", (c) => { s += c; }); res.on("end", () => r(s)); }); q.on("error", j); q.setTimeout(180000, () => q.destroy(new Error("timeout"))); q.end(b); });
+const post = (p, body) => new Promise((r, j) => { const b = JSON.stringify(body); const q = http.request({ host: "127.0.0.1", port, path: p, method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(b) } }, (res) => { let s = ""; res.on("data", (c) => { s += c; }); res.on("end", () => r(s)); }); q.on("error", j); q.setTimeout(300000, () => q.destroy(new Error("timeout (no answer in 5 minutes)"))); q.end(b); });
 let fail = "";
 try {
   let up = 0; for (let i = 0; i < 240 && up !== 200; i++) { await new Promise((r) => setTimeout(r, 500)); up = await get("/health"); }
