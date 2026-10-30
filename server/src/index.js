@@ -28,6 +28,7 @@ import * as demo from "./demo.js";
 import * as getfile from "./getfile.js";
 import * as purchases from "./purchases.js";
 import * as hymns from "./hymns.js";
+import * as setlists from "./setlists.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -93,6 +94,15 @@ plans.routes(api, { wrap, requireUser });
 downloads.routes(api, { wrap, requireUser });
 purchases.routes(api, { wrap, requireUser });   // (10.0: the account icon → Purchases)
 libraries.routes(api, { wrap });
+// a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first
+setlists.routes(api, { wrap, requireUser, addTrack: async (u, id) => {
+  const t = await liveTrack(id);
+  if (await owns(u.id, t)) return t;
+  if (!(await pay.isSubscribed(u))) { const e = bad("Buy this song first, or subscribe to Central Tracks Unlimited and add any song.", 402); e.checkoutUrl = config.publicUrl + "/#buy-" + t.id; throw e; }
+  await q("INSERT INTO library (user_id,track_id,how) VALUES ($1,$2,'subscription') ON CONFLICT DO NOTHING", [u.id, t.id]);
+  await q("INSERT INTO earnings (publisher_id,track_id,buyer_id,reason,cents) VALUES ($1,$2,$3,'subscriber_add',0) ON CONFLICT DO NOTHING", [t.publisher_id, t.id, u.id]);
+  return t;
+} });
 function needConfirmed(u) { if (u && !u.email_confirmed) { const e = bad("Confirm your email first: we sent you a link (Account → Send it again)."); e.status = 403; e.needConfirm = true; throw e; } }
 
 api.post("/signup", wrap(async (req, res) => {

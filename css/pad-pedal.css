@@ -479,3 +479,8 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 .lp-off { padding: 20px; }
 /* Settings → Audio → Test sound (js/soundtest.js) */
 .st-check { margin: 8px 0 4px; padding-left: 18px; font-size: 13px; display: grid; gap: 3px; } .st-tones button.on { border-color: var(--accent); color: var(--accent); }
+/* setlists (10.0): Load setlist · Create new · Add songs */
+.sl-big { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0; } .sl-big button { min-height: 52px; font-size: 16px; font-weight: 700; } .sl-big button.on { outline: 2px solid var(--accent); }
+.sl-chips { display: flex; flex-wrap: wrap; gap: 6px; } .sl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel2, rgba(255,255,255,.04)); } .sl-chip button { width: auto; min-height: 0; padding: 2px 8px; }
+.sl-people { max-height: 34vh; overflow: auto; } .sl-qr svg { width: 220px; height: 220px; background: #fff; border-radius: 8px; } .sl-wait { min-height: 1.4em; } .sl-msg { color: var(--accent); }
+@media (max-width: 520px) { .sl-big { grid-template-columns: 1fr; } }

@@ -83,6 +83,9 @@
     var h = '<div class="card dv-pedals"><div class="dv-ph"><h3>Tracks, charts &amp; lyrics</h3><span class="dv-now">' + (play ? "Playing from <b>" + esc(play.local ? "this computer (player window)" : play.name) + "</b> " + (play.online ? '<span class="dv-ok">● online</span>' : '<span class="warn">● offline</span>') : '<span class="warn">No track player yet</span>') + "</span>" +
       (canOpen ? '<button class="' + (local && local.online ? "" : "primary") + '" data-dv="openPlayer">' + (local && local.online ? "Show the player window" : "▶ Open the player on this computer") + "</button>" + (local && local.online ? '<button data-dv="stopPlayer">Stop the player</button>' : "") : "") + "</div>";
     if (playerMsg) h += '<p class="small ' + (/^✓/.test(playerMsg) ? "muted" : "warn") + '">' + playerMsg + "</p>";
+    if (canOpen || pedals.length) h += '<label class="dv-host small">Where the tracks run <select data-dv="tracksHost"><option value="computer"' + (v.tracksHost !== "pedal" ? " selected" : "") + ">On this computer: it keeps the songs, the pedals control them</option>" +
+      '<option value="pedal"' + (v.tracksHost === "pedal" ? " selected" : "") + ">On a Central Pedal: it keeps one setlist at a time</option></select></label>" +
+      '<p class="muted small">' + (v.tracksHost === "pedal" ? "The pedal plays the tracks. Upload a set to it from Central Pedal Control, or open a setlist on it." : "While the player window is open it plays the tracks. If it's closed, a pedal plays them, and the window takes them back once that pedal isn't playing.") + "</p>";
     if (!pedals.length) h += '<p class="muted small">Open the player here and this computer runs the tracks, charts and lyrics (it is built into Central Control). Or add a Central Pedal (Raspberry Pi): on its screen type the pairing PIN <b class="io-code">' + esc(pin) + "</b> - it takes over the tracks, and you pick what each pedal does.</p>";
     else {
       h += '<table class="dv-table dv-ptable"><thead><tr><th></th><th>Central Pedal</th><th>Job</th><th>Status</th><th></th></tr></thead><tbody>' + pedals.map(function (p) {
@@ -139,6 +142,7 @@
     var t = e.target; if (!t.closest || !t.closest("#devicesRoot")) return;
     if (t.dataset.dvRole) { pendingRole[t.dataset.dvRole] = t.value; return; }
     if (t.dataset.dvTg) { var rg = await R().request("talkGroup", { target: t.dataset.dvTg, group: t.value }); if (!rg.ok) alert(rg.error || "Not changed."); render(); return; }
+    if (t.dataset.dv === "tracksHost") { var rt = await R().request("tracksHost", { mode: t.value }); if (!rt.ok) alert(rt.error || "Not changed."); render(); return; }
     if (t.dataset.dv === "backupLocal") { var rb = await R().request("backupLocal", { on: t.checked }); if (!rb.ok) alert(rb.error || "Not changed."); render(); return; }
     if (t.dataset.dvPjob) { var rj = await R().request("pedalJob", { target: t.dataset.dvPjob, job: t.value }); if (!rj.ok) alert(rj.error || "Not changed."); render(); return; }
     if (t.dataset.dvJob) {

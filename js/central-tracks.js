@@ -98,6 +98,7 @@
       got.forEach(function (file) { if (muted[file.name.replace(/\.[^.]+$/, "").toLowerCase()]) file._mute = true; });
     }
     var s = T.findSongByName(t.title) || T.newSong(t.title), d = T.data(s);
+    if (t.id != null) s.ctId = String(t.id);   // (10.0: a setlist on the website knows its songs by this)
     if (t.key) s.key = t.key; if (t.bpm) { s.bpm = t.bpm; d.grid.bpm = t.bpm; }
     if (songFile) applySongFile(s, songFile);
     st.log = songFile ? "Adding the tracks…" : "Analysing (tempo, key, beats)…"; rerender();
@@ -263,5 +264,6 @@
     body.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.id === "ctQ") { st.q = e.target.value.trim(); st.kind = $("#ctKind").value; refresh(); } });
   }
   wire();
-  window.PPCentralTracks = { render: render, refresh: refresh, state: st, install: install, unzip: unzip, readSongFile: readSongFile, applySongFile: applySongFile };
+  window.PPCentralTracks = { render: render, refresh: refresh, state: st, install: install, unzip: unzip, readSongFile: readSongFile, applySongFile: applySongFile,
+    api: api, base: base, signedIn: function () { return !preview() && !!cfg().token; }, showSignIn: function () { st.signIn = true; rerender(); } };
 })();

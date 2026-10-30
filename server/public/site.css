@@ -476,3 +476,7 @@ table.tracks .stars{font-size:.92rem;letter-spacing:0}
 .pu-btns { display: flex; gap: .5rem; flex-wrap: wrap; }
 .pu-status { font-size: .8rem; font-weight: 600; padding: .15rem .55rem; border-radius: 999px; background: rgba(30,140,90,.12); color: #17633f; }
 .pu-status.off { background: rgba(18,22,28,.08); color: #5b6470; }
+/* setlists (10.0): the songs already in the setlist on "Add songs" */
+.sl-songs{margin:0 0 1rem;padding-left:1.4rem;display:grid;gap:.35rem}
+.sl-songs li{line-height:1.5}
+.sl-songs .btn{margin-left:.5rem}

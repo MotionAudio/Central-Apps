@@ -10,7 +10,7 @@ const { Center } = require("./center.js");
 const WebSocket = require("ws");
 
 let fails = 0;
-const ok = (c, msg) => { console.log((c ? "ok   " : "FAIL ") + msg); if (!c) fails++; };
+const ok = (c, msg, d) => { console.log((c ? "ok   " : "FAIL ") + msg + (c || d === undefined ? "" : "  -- " + JSON.stringify(d).slice(0, 600))); if (!c) fails++; };
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "center-"));
 const center = new Center({ port: 0, dataDir: dir, beacon: false });
 await center.start();
@@ -190,14 +190,18 @@ ok(r && r.ok && r.role === "pedal", "the Central Pedal pairs with the PIN");
 ok(!!(await pd.wait((m) => m.type === "services" && m.run)), "the Central Pedal gets the running service");
 let pr = await pd.wait((m) => m.type === "pedalRole" && m.job === "player");
 ok(pr && pr.youPlay, "the first Central Pedal (here: the main admin's own player window) is the track player");
-// a Central Pedal on the network is added: it takes over playing, the main admin's window keeps the library
+// a Central Pedal on the network is added: 10.0 - the main admin's window keeps the songs and plays them, the pedal controls it
 const fake2 = { readyState: 1, send() { } };
 const r2 = center.handle(fake2, { id: null, auth: false, main: false, ip: "10.0.0.5", loopback: false }, { action: "join", id: "pedal-2", role: "pedal", name: "Stage pedal", pair: "0915", pedal: { port: 8080, wsPort: 8081 } });
-ok(r2 && r2.ok && center.devices["pedal-2"].pedalJob === "player" && center.devices["pedal-1"].pedalJob === "backup", "an added pedal takes over the tracks; the main admin's window becomes the backup player");
+ok(r2 && r2.ok && center.tracksHost === "computer" && center.devices["pedal-2"].pedalJob === "controller" && center.devices["pedal-1"].pedalJob === "player", "an added pedal controls the tracks: the main admin's window keeps playing them (where the tracks run: this computer)");
+// picking the pedal as the track player says the tracks run on the pedal: it takes over, the window becomes the backup player
+main.q.length = 0; main.send({ type: "cuRole", action: "pedalJob", id: "dMain", target: "pedal-2", job: "player" });
+await main.wait((m) => m.type === "cuRoleReply" && m.action === "pedalJob");
+ok(center.tracksHost === "pedal" && center.devices["pedal-2"].pedalJob === "player" && center.devices["pedal-1"].pedalJob === "backup", "the main admin picks the pedal as the player: it takes over the tracks; the window becomes the backup player");
 pd.q.length = 0; pr = await pd.wait((m) => m.type === "pedalRole" && m.job === "backup");
 ok(pr && pr.player && pr.player.address === "10.0.0.5" && pr.peers.some((x) => x.id === "pedal-2"), "the window hears who plays now (and links its songs to it)");
-v = await main.wait((m) => m.type === "cuRoles" && (m.pedals || []).length === 2);
-ok(v && v.pedals[0].id === "pedal-2" && v.pedals[0].job === "player", "the main admin sees both pedals, the player first");
+v = await main.wait((m) => m.type === "cuRoles" && (m.pedals || []).length === 2 && m.pedals.some((x) => x.id === "pedal-2" && x.job === "player"));
+ok(v && v.pedals[0].id === "pedal-2" && v.pedals[0].job === "player", "the main admin sees both pedals, the player first", v && v.pedals);
 pd.q.length = 0; main.send({ type: "cuRole", action: "pedalJob", id: "dMain", target: "pedal-1", job: "player" });
 pr = await pd.wait((m) => m.type === "pedalRole" && m.job === "player");
 ok(pr && center.devices["pedal-2"].pedalJob === "controller", "one click: the window plays again, the stage pedal becomes a foot controller");
@@ -236,6 +240,25 @@ ok(!!v, "the pedal's health shows on the main admin");
 main.send({ type: "cuRole", action: "assign", id: "dMain", target: "pedal-1", role: "admin" });
 r = await main.wait((m) => m.type === "cuRoleReply" && m.action === "assign");
 ok(r && !r.ok, "the Central Pedal cannot be given another role");
+
+// 10.0 "where the tracks run: this computer": the window plays; closed, a pedal plays; open again, it takes them back
+// once that pedal isn't playing
+main.q.length = 0; main.send({ type: "cuRole", action: "tracksHost", id: "dMain", mode: "computer" });
+r = await main.wait((m) => m.type === "cuRoleReply" && m.action === "tracksHost");
+center.setPedalJob("pedal-2", "controller");
+ok(r && r.ok && center.tracksHost === "computer" && center.playerId() === "pedal-1", "the main admin says the tracks run on this computer: the window plays");
+const winWs = [...center.clients].find(([, c]) => c.id === "pedal-1");
+center.clients.delete(winWs[0]); center.clients.set(fake2, { id: "pedal-2", auth: true, ip: "10.0.0.5" });
+ok(center.autoHost() && center.playerId() === "pedal-2", "the player window is closed: the stage pedal plays the tracks");
+center.clients.set(winWs[0], winWs[1]);
+center.health["pedal-2"] = { playing: true, at: Date.now() };
+ok(!center.autoHost() && center.playerId() === "pedal-2", "the window is back mid-song: the pedal keeps playing");
+center.health["pedal-2"] = { playing: false, at: Date.now() };
+ok(center.autoHost() && center.playerId() === "pedal-1" && center.devices["pedal-2"].pedalJob === "controller", "...and once nothing plays, the window takes the tracks back; the pedal controls them again");
+r = center.handle(fake2, { id: "pedal-2", auth: true, ip: "10.0.0.5" }, { action: "tracksHost", id: "pedal-2", mode: "pedal" });
+ok(r && !r.ok && center.tracksHost === "computer", "only the main admin decides where the tracks run");
+center.clients.delete(fake2);
+center.setPedalJob("pedal-2", "instrument");
 
 // the pairing PIN changes: online devices (the pedal too) switch over
 main.send({ type: "cuRole", action: "setPair", id: "dMain", pair: "2468" });
