@@ -6,13 +6,15 @@
  * The driver (pedal-driver.py, InstrumentHost) runs the audio. */
 (function () {
   "use strict";
+  // on the Central Pedal itself (its own page), or in an app on a computer (Central Usage / Central Control)
+  function onPedalHere() { return /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && !window.CCDesktop && !window.CUApp && !/[?&]player=1/.test(location.search); }
   // the instrument's start-up errors, in words a musician can act on (the raw text stays under Details)
   function errText(e) {
     e = String(e || "");
-    if (/host is down|can't connect|cannot connect|pipewire|pw\.conf|module-filter/i.test(e)) return "The sound system isn't running, so the instrument can't start. Restart the pedal; if it keeps happening, send us the start-up report (Settings → System).";
-    if (/no (usb )?(audio )?interface|no such device|input.*not found|capture/i.test(e)) return "No audio input found. Plug your guitar into a USB audio interface on the pedal, then pick it under Input.";
-    if (/plugin|lv2|not installed/i.test(e)) return "One of the pedals on this board isn't installed on this Central Pedal. Take it off the board or pick another board.";
-    return "The instrument couldn't start. Try another board, or restart the pedal.";
+    if (/host is down|can't connect|cannot connect|pipewire|pw\.conf|module-filter/i.test(e)) return (onPedalHere() ? "The sound system isn't running, so the instrument can't start. Restart the pedal; if it keeps happening, send us the start-up report (Settings → System)." : "The sound system isn't running, so the instrument can't start. Close the app and open it again.");
+    if (/no (usb )?(audio )?interface|no such device|input.*not found|capture/i.test(e)) return "No audio input found. Plug your guitar into a USB audio interface, then pick it under Input.";
+    if (/plugin|lv2|not installed/i.test(e)) return "One of the pedals on this board isn't installed here. Take it off the board or pick another board.";
+    return "The instrument couldn't start. Try another board, or restart.";
   }
   var PP = window.PP, F = window.PPFeatures, PED = window.PPPedals; if (!PP || !F || !PED) return;
   var esc = PP.escapeHtml, clamp = PP.clamp;
@@ -316,7 +318,7 @@
     var boards = allBoards().filter(function (b) { return b.kind === k; });
     root.innerHTML =
       '<div class="in-head"><div class="in-kinds">' + KINDS.map(function (q) { return '<button class="pf-btn in-kind' + (k === q[0] ? " on" : "") + '" data-kind="' + q[0] + '"><small>' + esc(q[2]) + "</small><b>" + esc(q[1]) + "</b></button>"; }).join("") + '</div><div class="in-status">' + statusLine() + "</div></div>" +
-      (k === "off" ? '<p class="muted in-off">Pick what you\'re playing. A guitar or bass plugs into a USB audio interface on the pedal; a keyboard plugs into a USB port. It has its own output (Settings → Output routing), and it never gets in the way of the pads or tracks.</p>' :
+      (k === "off" ? '<p class="muted in-off">Pick what you\'re playing. ' + (onPedalHere() ? "A guitar or bass plugs into a USB audio interface on the pedal, and a keyboard into one of its USB ports. It has its own output (Settings → Output routing), so it never gets in the way of the pads or tracks." : "A guitar or bass plugs into an audio interface on this computer, and a keyboard into a USB port. Pick the interface's input below.") + '</p>' :
         '<div class="in-bar"><label>Board<select id="inBoard">' + boards.map(function (b) { var lk = boardLocked(b); return '<option value="' + b.id + '"' + (c.boards[k] === b.id ? " selected" : "") + (lk && c.boards[k] !== b.id ? " disabled" : "") + ">" + esc(b.name) + (lk ? " · locked: " + esc(boardMissing(b).map(planName).join(" + ")) : "") + "</option>"; }).join("") + '<option value="__custom">Save this board as…</option></select></label>' +
         (k !== "keys" ?
           '<label>Input<select id="inInput"><option value="auto">Auto (USB interface)</option>' + catalog.inputs.map(function (i) { return '<option value="' + esc(i.id) + '"' + (c.input.device === i.id ? " selected" : "") + ">" + esc(i.name) + "</option>"; }).join("") + '</select></label><label>Input channel<select id="inChannel">' + inputChannelOptions(c.input).map(function (o) { return '<option value="' + o[0] + '"' + (c.input.channel === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>" +

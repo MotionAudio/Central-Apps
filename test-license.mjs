@@ -61,7 +61,7 @@ await check("Central Pedal Control opens on the setup: internet ✓, then the pr
   await until(() => T(() => !!document.getElementById("licWiz")), 10000);
   await until(() => T(() => !!document.getElementById("lwProd")), 8000);
   const steps = await T(() => Array.from(document.querySelectorAll("#licWiz .lw-steps span")).map((s) => s.textContent));
-  assert.deepEqual(steps, ["✓ Internet", "2. Production", "3. License key", "4. Account"]);
+  assert.deepEqual(steps, ["✓ Internet", "2. Church", "3. License key", "4. Account"]);
   await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await wait(300);
   assert.ok(await T(() => document.getElementById("licWiz") && document.getElementById("licWiz").open), "Escape (twice) doesn't skip it");
 });

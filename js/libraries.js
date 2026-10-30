@@ -115,13 +115,13 @@
   // ------------------------------------------------------------- the panel
   function rowHtml(lib, rec) {
     var be = st.backend, job = st.jobs[lib.id], open = hasPlan(lib.plan), id = esc(lib.id);
-    var status = rec ? "Installed · version " + esc(rec.version) : lib.ready === false ? "Not published yet" : "Not installed";
+    var status = rec ? "Installed · version " + esc(rec.version) : lib.ready === false ? "Coming soon - you can install it here once it's out" : "Not installed";
     var upd = rec && lib.version && newer(lib.version, rec.version) && lib.ready !== false;
     var btns = "";
     if (be && job && (job.state === "downloading" || job.state === "installing")) {
       btns = '<progress max="' + (job.total || 1) + '" value="' + (job.done || 0) + '"></progress> <span class="muted small">' + (job.state === "installing" ? "Installing…" : size(job.done) + (job.total ? " of " + size(job.total) : "")) + "</span>";
     } else if (be) {
-      if (!rec && open) btns += '<button class="primary" data-lib-install="' + id + '"' + (st.busy || lib.ready === false ? " disabled" : "") + ">Install</button>";
+      if (!rec && open && lib.ready !== false) btns += '<button class="primary" data-lib-install="' + id + '"' + (st.busy ? " disabled" : "") + ">Install</button>";
       if (upd && open) btns += '<button class="primary" data-lib-install="' + id + '"' + (st.busy ? " disabled" : "") + ">Update to " + esc(lib.version) + "</button>";
       if (rec) btns += '<button data-lib-remove="' + id + '"' + (st.busy ? " disabled" : "") + ">Remove</button>";
     } else if (lib.url && lib.ready !== false) btns = '<a href="' + esc(lib.url) + '" target="_blank" rel="noopener">Download</a>';
