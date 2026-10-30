@@ -221,6 +221,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 9.9.1:** The 3.5" Effects pages show the effects at once; the Pad tab no longer goes blank when you scroll; the headphone jack gets the sound, with a Test sound page; a USB audio interface works for inputs and outputs.
+
 **New in version 9.9.0:** A loop pedal - a LOOPER tab on the pedal, in Central Pedal Control and on the 3.5" screen, with three loops (record, overdub, undo, redo, reverse, half speed, level, pan) worked from one footswitch and in time with the song; the 3.5" touch takes light taps, lands where you touch (5-point calibration with a check) and has smooth sliders; the setlist, effects and scenes from the 3.5" screen.
 
 **New in version 9.8.0:** Central Pads ($40 a year, in every other plan for $20 more) and a package key on 3 of your devices (each a different app); Central Pedal Control keeps the songs and uploads one set to the pedal (only that set's tracks, pads and sounds); gate, EQ, compressor, reverb and delay on every track, pad and bus (basics free, the better ones with Central Plugins); a volume on every pad; buttons, knobs and sliders switch tabs, move around the screen and set or mute each bus; much more on the 3.5" screen and quicker touch; sound on the headphone jack fixed; a clean, quicker start-up; bigger sound libraries.

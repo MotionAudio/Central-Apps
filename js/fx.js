@@ -38,6 +38,7 @@
     Object.keys(over).forEach(function (k) {
       var v = over[k];
       if (Array.isArray(v)) base[k] = v.map(function (x, i) { return x && typeof x === "object" ? merge(Object.assign({}, (base[k] || [])[i] || {}), x) : x; });
+      else if (v == null && base[k] && typeof base[k] === "object") return;   // (a part saved empty by an older version: keep the default)
       else if (v && typeof v === "object" && base[k] && typeof base[k] === "object") base[k] = merge(base[k], v);
       else base[k] = v;
     });
@@ -509,7 +510,7 @@
       return [{ id: "bus:pads", label: "All pads (pads bus)", on: !!bp.on, sub: onText(bp.on, bp.preset) }].concat((project().pads || []).map(function (pad, i) { var on = padFxOn(pad); return { id: "pad:" + i, label: "Pad " + (i + 1) + " · " + pad.name, on: on, sub: onText(on, pad.fxPreset) }; }));
     }
     var s = PP.activeSong && PP.activeSong(), stems = s && T() ? T().data(s).stems || [] : [], bt = busFx("tracks");
-    return [{ id: "bus:tracks", label: "All tracks (tracks bus)", on: !!bt.on, sub: onText(bt.on, bt.preset) }].concat(stems.map(function (st) { var fx = st.fx || {}; return { id: "stem:" + st.id, label: st.name, on: !!fx.on, sub: onText(fx.on, fx.preset) }; }));
+    return [{ id: "bus:tracks", label: "All tracks (tracks bus)", on: !!bt.on, sub: onText(bt.on, bt.preset) }].concat(stems.map(function (st) { var fx = st.fx || {}; return { id: "stem:" + st.id, label: st.name || "Track", on: !!fx.on, sub: onText(fx.on, fx.preset) }; }));
   }
   function choiceName(list, v) { var o = list.filter(function (x) { return String(x[0]) === String(v); })[0]; return o ? o[1] : String(v); }
   function miniRows(t) {

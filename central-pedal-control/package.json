@@ -1,7 +1,7 @@
 {
   "name": "central-pedal-control",
   "productName": "Central Pedal Control",
-  "version": "9.9.0",
+  "version": "9.9.1",
   "description": "Central Pedal Control: the Central Pedal app on your computer, tablet or phone - set up songs, tracks, pads, controls and the instrument, then upload them to the Central Pedal.",
   "homepage": "https://motionaudio.github.io/Central-Apps/",
   "main": "main.js",
