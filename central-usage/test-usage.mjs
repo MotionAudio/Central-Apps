@@ -412,11 +412,11 @@ await check("a computer set up as Admin without the role PIN waits; the main adm
 await check("service lock: the main admin locks everyone - the user's I/O tab and settings close; unlock brings them back", async () => {
   await mainP.click("#devicesRoot [data-dv='lockAll']");
   await userP.waitForFunction(() => document.body.classList.contains("svc-locked"), null, { timeout: 6000 });
-  assert.ok(!(await tabsShown(userP)).includes("io"), await tabsShown(userP));
+  assert.ok(!(await tabsShown(userP)).split(",").includes("io"), await tabsShown(userP));
   assert.equal(await mainP.evaluate(() => document.body.classList.contains("svc-locked")), false, "the main admin is never locked");
   await mainP.waitForSelector("#devicesRoot [data-dv='lockAll'].on"); await mainP.click("#devicesRoot [data-dv='lockAll']");
   await userP.waitForFunction(() => !document.body.classList.contains("svc-locked"), null, { timeout: 6000 });
-  assert.ok((await tabsShown(userP)).includes("io"));
+  assert.ok((await tabsShown(userP)).split(",").includes("io"));
 });
 await check("manual lock: nothing changes (the User 2 switch is refused) until the lock is held for 2 seconds", async () => {
   await userP.click("#mlBtn"); assert.ok(await userP.evaluate(() => document.body.classList.contains("man-locked")));
