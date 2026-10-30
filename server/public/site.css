@@ -451,3 +451,28 @@ table.tracks .stars{font-size:.92rem;letter-spacing:0}
 @media (max-width:480px){.modal{padding:1.15rem}.modal .btn{flex:1 1 auto}}
 
 .dl-h{margin:1.4rem 0 .6rem;font-size:1.05rem}
+
+/* (10.0) the account icon and its menu; Purchases */
+.acct-menu { position: relative; display: inline-flex; }
+.acct-icon { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line, #d6d9de); background: transparent; color: inherit; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.acct-icon svg { width: 20px; height: 20px; }
+.acct-icon:hover, .acct-icon[aria-expanded="true"] { background: rgba(18,22,28,.06); }
+.acct-icon:focus-visible { outline: 2px solid var(--brass, #b08d57); outline-offset: 2px; }
+.acct-drop { position: absolute; right: 0; top: calc(100% + 6px); min-width: 200px; background: #fff; color: #12161C; border-radius: 8px; box-shadow: 0 8px 28px rgba(18,22,28,.18); padding: .35rem; display: grid; z-index: 50; }
+.acct-drop[hidden] { display: none; }
+.acct-drop a, .acct-drop button { display: block; text-align: left; padding: .55rem .75rem; border-radius: 6px; color: inherit; text-decoration: none; background: none; border: 0; font: inherit; cursor: pointer; }
+.acct-drop a:hover, .acct-drop button:hover, .acct-drop a:focus-visible, .acct-drop button:focus-visible { background: rgba(18,22,28,.07); outline: none; }
+.acct-who { padding: .45rem .75rem .5rem; font-size: .85rem; color: #5b6470; border-bottom: 1px solid rgba(18,22,28,.08); margin-bottom: .25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pu-list { display: grid; gap: 1rem; }
+.pu-card { background: #fff; color: #12161C; border-radius: 10px; padding: 1.1rem 1.2rem; box-shadow: 0 1px 3px rgba(18,22,28,.1); display: grid; gap: .8rem; }
+.pu-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: baseline; }
+.pu-head h3 { margin: 0; font-size: 1.1rem; }
+.pu-meta { font-size: .9rem; color: #5b6470; }
+.pu-part { border-top: 1px solid rgba(18,22,28,.08); padding-top: .8rem; display: grid; gap: .5rem; }
+.pu-part h4 { margin: 0; font-size: .98rem; display: flex; align-items: center; gap: .5rem; }
+.pu-part h4 img { width: 26px; height: 26px; }
+.pu-key { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.pu-key code { font: 600 1rem ui-monospace, Menlo, Consolas, monospace; letter-spacing: .03em; }
+.pu-btns { display: flex; gap: .5rem; flex-wrap: wrap; }
+.pu-status { font-size: .8rem; font-weight: 600; padding: .15rem .55rem; border-radius: 999px; background: rgba(30,140,90,.12); color: #17633f; }
+.pu-status.off { background: rgba(18,22,28,.08); color: #5b6470; }

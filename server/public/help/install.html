@@ -15,7 +15,7 @@
 <article class="doc">
 <h2 id="before-you-start">Before you start</h2>
 
-<p class="lead">Every app is on the <a href="https://motionaudio.github.io/Central-Apps/">download page</a>, which picks the right file for the device you open it on. Install the apps for your role, sign in, type your key, and they update themselves from then on.</p>
+<p class="lead">Every app is on the <a href="/#downloads">download page</a>, which picks the right file for the device you open it on. Install the apps for your role, sign in, type your key, and they update themselves from then on.</p>
 <div class="tblwrap"><table class="tbl"><thead><tr><th>App</th><th>Windows</th><th>Mac</th><th>Linux</th><th>Android</th><th>iPhone and iPad</th></tr></thead><tbody>
 <tr><td><b>Central Control</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td></td><td></td></tr>
 <tr><td><b>Central Usage</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>In Safari today</td></tr>
@@ -28,7 +28,7 @@
 <h2 id="windows">Windows</h2>
 
 <ol class="steps">
-<li><b>Download the <code>.exe</code></b> for your app from the <a href="https://motionaudio.github.io/Central-Apps/">download page</a> (Windows 10 or 11, 64-bit).</li>
+<li><b>Download the <code>.exe</code></b> for your app from the <a href="/#downloads">download page</a> (Windows 10 or 11, 64-bit).</li>
 <li><b>Open it.</b> Windows says <i>"Windows protected your PC"</i>.</li>
 <li><b>Click More info, then Run anyway.</b> It installs and opens by itself.</li>
 </ol>
@@ -48,14 +48,14 @@
 
 <p>The easy way: open Terminal (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> on Ubuntu), paste the line for your app, press Enter and type your password when it asks. It finds the newest version, checks the download, and installs it with everything the app needs. Ubuntu, Debian, Mint and Pop!_OS get the <code>.deb</code>; any other Linux gets the AppImage in <code>~/Applications</code> with a menu entry. Run the same line again any time to reinstall or update.</p>
 <h3 id="central-control">Central Control</h3>
-<div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control</code><button type="button">Copy</button></div>
+<div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s control</code><button type="button">Copy</button></div>
 <p>Then open <b>Central Control</b> from your app menu, or type <code>central-control</code>. Since 9.3.1 the package and the program are both called <code>central-control</code>. Installing it fixes old menu entries and desktop icons that still pointed at the old name.</p>
 <h3 id="central-usage">Central Usage</h3>
-<div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage</code><button type="button">Copy</button></div>
+<div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s usage</code><button type="button">Copy</button></div>
 <h3 id="central-pedal-control">Central Pedal Control</h3>
-<div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control</code><button type="button">Copy</button></div>
+<div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s pedal-control</code><button type="button">Copy</button></div>
 <h3 id="central-services">Central Services</h3>
-<div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services</code><button type="button">Copy</button></div>
+<div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s services</code><button type="button">Copy</button></div>
 <h3>By hand</h3>
 <ul>
 <li><b>A <code>.deb</code></b>: download it from the download page, then <code>sudo apt install ./&lt;the file&gt;.deb</code> in the folder you saved it to. The <code>./</code> matters. Each app installs next to the others.</li>
@@ -67,7 +67,7 @@
 
 <p>Central Usage, Central Pedal Control and Central Services run on Android 6 or newer.</p>
 <ol class="steps">
-<li><b>On the phone or tablet,</b> open the <a href="https://motionaudio.github.io/Central-Apps/">download page</a> and tap <b>Download</b> for Android.</li>
+<li><b>On the phone or tablet,</b> open the <a href="/#downloads">download page</a> and tap <b>Download</b> for Android.</li>
 <li><b>Open the <code>.apk</code></b> from Downloads or the browser's notification.</li>
 <li><b>Allow installs from your browser</b>: Android asks once. Settings → turn on <b>Allow from this source</b> → back → <b>Install</b>.</li>
 <li><b>Open the app on the church Wi-Fi.</b> Central Usage: tap <b>Find the main admin</b>. Central Pedal Control: set up your songs, then Upload to the pedal.</li>
@@ -107,7 +107,7 @@
 <tr><td><b>P</b></td><td>Central Pedal Control (the pedal itself needs no key)</td><td>Two</td><td>Forever</td></tr>
 <tr><td><b>A</b></td><td>Central Control (main admins and admins)</td><td>One computer</td><td>Ten full releases, then $20 renews ten more</td></tr>
 <tr><td><b>U</b></td><td>Central Usage (users)</td><td>Two (say, church and home)</td><td>Ten full releases, then $20 renews ten more</td></tr>
-<tr><td><b>S</b></td><td>A sound plans package (any app: Settings → Packages → Add a package)</td><td>Two at a time</td><td>As long as the plan: it renews every year</td></tr>
+<tr><td><b>S</b></td><td>A sound plans package (any app: Settings → Packages → Add a package)</td><td>3 of your own devices, each a different app</td><td>As long as the plan: it renews every year</td></tr>
 </tbody></table></div>
 <p>Buy at 9.4 and an A or U key gets every update through 10.4, fixes included. The apps never stop working if you don't renew; they keep the version they have. To move a key, <b>Release key</b> in the app's Settings → License, or on the website.</p>
 
@@ -134,10 +134,12 @@
 <footer class="on-stage"><div class="wrap">
   <div><a class="logo" href="/"><span style="color:var(--brass-hi)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
     <p class="apps">Made for worship teams, by Motion Audio. Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Tracks.</p></div>
-  <div class="links"><a href="/apps/">The apps</a><a href="/help/install.html">Install</a><a href="/help/accounts.html">Accounts</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/#support">Talk to us</a><a href="https://motionaudio.github.io/Central-Apps/">Downloads</a></div>
+  <div class="links"><a href="/apps/">The apps</a><a href="/help/install.html">Install</a><a href="/help/accounts.html">Accounts</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/#support">Talk to us</a><a href="/#downloads">Downloads</a></div>
   <div class="fine">&copy; 2026 Motion Audio. Prices in US dollars, tax included.</div>
 </div></footer>
 <script>
+// the install line has this website's own address in it
+document.querySelectorAll(".site-origin").forEach(function (s) { if (/^https?:$/.test(location.protocol)) s.textContent = location.origin; });
 // screenshots that aren't there yet stay out of the way; the table of contents follows the reading
 document.querySelectorAll("figure.shot img").forEach(function (i) { function miss() { i.closest("figure").classList.add("missing"); } if (i.complete && !i.naturalWidth) miss(); i.addEventListener("error", miss); });
 document.querySelectorAll(".cmd button").forEach(function (b) { b.addEventListener("click", function () { var t = b.parentNode.querySelector("code").textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1600); }).catch(function () { b.textContent = "Select it"; }); }); });

@@ -21,6 +21,8 @@
   <nav>
     <a href="/apps/" data-edit="nav.apps">Apps</a><a href="#store" data-edit="nav.store">Store</a><a href="#tracks" data-edit="nav.tracks">Central Tracks</a><a href="#publish" data-edit="nav.publish">Publish</a><a href="#downloads" data-edit="nav.downloads">Downloads</a><a href="/help/" data-edit="nav.help">Help</a><a href="/services/" data-edit="nav.services">Central Services</a>
     <a href="#account" id="acctLink">Sign in</a>
+    <span class="acct-menu" id="acctMenu" hidden><button class="acct-icon" id="acctIcon" type="button" aria-label="Your account" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c1.6-4 4.6-6 8-6s6.4 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <div class="acct-drop" id="acctDrop" role="menu" hidden><div class="acct-who" id="acctWho"></div><a href="#account" role="menuitem">Account</a><a href="#purchases" role="menuitem">Purchases</a><a href="#downloads" role="menuitem">Downloads</a><button type="button" role="menuitem" id="acctOut">Sign out</button></div></span>
     <button class="btn ghost small cartbtn" id="cartBtn">Cart <span class="count">0</span></button>
   </nav>
 </div></header>
@@ -41,6 +43,7 @@
 </div></div>
 
 <section id="downloads" class="band" hidden><div class="wrap"><div id="dlBody"></div></div></section>
+<section id="purchases" class="band" hidden><div class="wrap"><div id="puBody"></div></div></section>
 
 <section id="store" data-section="store"><div class="wrap">
   <div class="sec-head"><h2 data-edit="store.title">Everything your team needs, nothing it doesn&rsquo;t</h2>
@@ -153,7 +156,7 @@
 <footer class="on-stage"><div class="wrap">
   <div><a class="logo" href="#"><span style="color:var(--brass-hi)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
     <p class="apps" data-edit="footer.about">Made for worship teams, by Motion Audio. Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Tracks.</p></div>
-  <div class="links"><a href="/apps/">The apps</a><a href="/help/">Help and manuals</a><a href="/help/install.html">Install</a><a href="/help/accounts.html">How accounts work</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="#support">Talk to us</a><a href="https://motionaudio.github.io/Central-Apps/">Downloads</a></div>
+  <div class="links"><a href="/apps/">The apps</a><a href="/help/">Help and manuals</a><a href="/help/install.html">Install</a><a href="/help/accounts.html">How accounts work</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="#support">Talk to us</a><a href="/#downloads">Downloads</a></div>
   <div class="fine" data-edit="footer.fine">&copy; 2026 Motion Audio. Prices in US dollars.</div>
 </div></footer>
 

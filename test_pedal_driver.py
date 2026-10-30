@@ -723,7 +723,7 @@ async def main():
               and lp_mode == {"name": "looperMode"},
               (lp_tab, lp_rec2, lp_card1, lp_undo1, lp_redo3, lp_stop2, lp_main, lp_lvl, lp_mode))
         # the plans: a pedal, board, sound or knob whose plan isn't active is dimmed with a lock; a tap says which plan opens it
-        lock_txt = "Part of Central Pedals · $50 a year"
+        lock_txt = "Part of Central Pedals · $70 a year"
         ins_l = {"kind": "electric", "kinds": [["electric", "Electric"], ["keys", "Keys"]], "board": "Fuzz Wall", "boardLocked": lock_txt, "levelDb": 0,
                  "pedals": [{"index": 0, "name": "Big Muff", "on": False, "color": "#8e44ad", "locked": lock_txt}, {"index": 1, "name": "Clean Booster", "on": True, "color": "#3f9f5a"}],
                  "knobs": [{"uid": "u1", "sym": "ls_level", "pedal": "Calf 5-band EQ", "label": "Low shelf", "value": 0.5, "text": "0 dB", "on": False, "locked": "Part of Central Plugins · $120 a year"}]}

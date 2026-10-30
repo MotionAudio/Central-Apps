@@ -4,6 +4,7 @@
 // password signs that account out everywhere else (sign-ins from before it stop working) and signs it in here.
 // Reminders (runReminders, every hour - index.js): Teams invites nobody answered (after 3 days, again after 7), and
 // Central Services' day-before email (accepted: "you're serving tomorrow"; not answered: "please answer").
+import { isDemoEmail } from "./demo.js";
 import crypto from "node:crypto";
 import { q, one, pool } from "./db.js";
 import { config } from "./config.js";
@@ -25,6 +26,7 @@ export function routes(api, { wrap, brake }) {
     brake(req);
     const email = String(req.body.email || "").trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw bad("Enter the email of your account.");
+    if (isDemoEmail(email)) throw bad("The demo account's password can't be changed.", 403);
     if (!mailOn) throw bad("The website can't send email yet, so it can't reset passwords. Ask Motion Audio for help.", 503);
     const u = await one("SELECT * FROM users WHERE email=$1", [email]);
     if (u) {
@@ -85,6 +87,7 @@ export function routes(api, { wrap, brake }) {
   api.post("/account/delete", requireUser, wrap(async (req, res) => {
     brake(req);
     const u = req.user;
+    if (isDemoEmail(u.email)) throw bad("The demo account can't be deleted. Staff switch it off with the default keys.", 403);
     if (!checkPassword(String(req.body.password || ""), u.pass_hash)) throw bad("That password isn't right.", 403);
     const c = await churchOf(u.id);
     const otherMain = c && isMain(c.role) ? await one("SELECT 1 FROM church_members WHERE church_id=$1 AND user_id<>$2 AND role IN ('owner','church')", [c.id, u.id]) : null;

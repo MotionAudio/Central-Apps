@@ -152,8 +152,11 @@ name, the key, then the account.
 - **Everyone in the church** sees how many keys are left. The main admin and admins also see every key, the device
   it's on, the people, and a **Release** button (for a lost or broken device). On a working device: Settings →
   License → Release key.
-- **Prices** are at the top of `src/config.js` (`PRODUCTS`): the built pedal $250, Central Pedal Control $50, admin
-  $50, user $20 ($10 for churches with a pack), Small / Medium / Large church packs $400 / $600 / $850.
+- **Prices** are at the top of `src/config.js` (`PRODUCTS`, `PLANS`), and staff change them on the website's price page:
+  the built pedal $250, Central Pedal Control $50, admin $50, user $20, the Lite / Regular / Plus / Ultra packs
+  $250 / $350 / $500 / $700. Sound plans a year: Central Keys $70, Central Plugins $140, Central Instrument $100,
+  Central Pedals $70 (each with Central Pads), Central Pads $40, all of them $240; church bundles for 4 / 8 / 12 / 16 /
+  20 people $700 / $1,380 / $1,860 / $2,590 / $2,920.
 - **A pedal you build and ship.** A store order for a pedal or a pack already has its P key (on the order and on the
   church's page): use that one. For a pedal sold another way, sign in with an `ADMIN_EMAILS` address, go to Account
   → *Keys · Motion Audio staff* and make a P key for the customer's church (their admin code). Then put the key on

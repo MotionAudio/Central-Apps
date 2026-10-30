@@ -12,6 +12,7 @@ import { q, one } from "./db.js";
 import { config } from "./config.js";
 import { makeToken, isAdmin, checkPassword } from "./auth.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
+import { isDemoUser } from "./demo.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const hash = (t) => crypto.createHash("sha256").update(String(t)).digest("hex");
@@ -51,6 +52,7 @@ async function phoneNotice(user, phone) {
 }
 export async function needsCode(user) {
   if (!smsOn && !mailOn) return false;
+  if (isDemoUser(user)) return false;   // (the demo account's password is shared on purpose: it has no phone and gets no email)
   if (isAdmin(user)) return true;
   const m = await one("SELECT role FROM church_members WHERE user_id=$1", [user.id]);
   return !!(m && (m.role === "church" || m.role === "owner" || m.role === "admin"));
@@ -144,6 +146,7 @@ export function routes(api, { wrap, brake, requireUser }) {
   // Account → Change phone: signed in, the password, then a code texted to the new number (until Twilio: saved as is)
   api.post("/account/phone", requireUser, wrap(async (req, res) => {
     brake(req);
+    if (isDemoUser(req.user)) throw bad("The demo account can't have a phone.", 403);
     if (!checkPassword(String(req.body.password || ""), req.user.pass_hash)) throw bad("That password isn't right.", 403);
     await requireStep(req);
     const phone = cleanPhone(req.body.phone); if (!phone) throw bad("Enter your mobile number, for example 555-123-4567.");

@@ -24,6 +24,9 @@ import * as plans from "./plans.js";
 import * as downloads from "./downloads.js";
 import * as libraries from "./libraries.js";
 import * as defaultkeys from "./defaultkeys.js";
+import * as demo from "./demo.js";
+import * as getfile from "./getfile.js";
+import * as purchases from "./purchases.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -87,6 +90,7 @@ content.routes(app, api, { wrap, requireUser });
 defaultkeys.routes(api, { wrap, requireUser });
 plans.routes(api, { wrap, requireUser });
 downloads.routes(api, { wrap, requireUser });
+purchases.routes(api, { wrap, requireUser });   // (10.0: the account icon → Purchases)
 libraries.routes(api, { wrap });
 function needConfirmed(u) { if (u && !u.email_confirmed) { const e = bad("Confirm your email first: we sent you a link (Account → Send it again)."); e.status = 403; e.needConfirm = true; throw e; } }
 
@@ -122,6 +126,7 @@ api.post("/login", wrap(async (req, res) => {
   brake(req);
   const u = await one("SELECT * FROM users WHERE email=$1 AND deleted_at IS NULL", [String(req.body.email || "").trim().toLowerCase()]);
   if (!u || !checkPassword(String(req.body.password || ""), u.pass_hash)) throw bad("That email and password don't match.", 401);
+  if (demo.isDemoUser(u) && !(await defaultkeys.defaultKeysOn())) throw bad("The demo account is switched off.", 403);   // (it goes with the default keys)
   res.json(await signin.issue(u, req.body));   // (the main admin and admins: a code to their phone on a new device)
 }));
 trials.routes(api, { wrap, brake, requireUser, needConfirmed });
@@ -351,6 +356,7 @@ api.post("/admin/tracks/:id/status", requireUser, wrap(async (req, res) => {
 }));
 
 app.use("/v1", api);
+getfile.routes(app, { wrap });   // (10.0: /download/<app>/<platform>, /download/library/<id>, /install.sh - our address, GitHub behind it)
 app.get("/health", (_req, res) => { res.setHeader("Access-Control-Allow-Origin", "*"); res.json({ ok: true, payments: !!pay.stripe, storage: store.usingR2 ? "r2" : "local" }); });   // (the apps' "is the internet there?")
 // the home page with the site's own address filled in (the picture a shared link shows needs a full address)
 let homeHtml = null;
@@ -375,6 +381,7 @@ process.on("unhandledRejection", (e) => { console.error("unhandled:", e); suppor
 process.on("uncaughtException", (e) => { console.error("crash:", e); support.recordError({ source: "website", internal: true, message: "Crash: " + e.message, stack: e.stack }).finally(() => process.exit(1)); setTimeout(() => process.exit(1), 5000).unref(); });
 await migrate();
 await prices.loadPrices();
+await demo.seedDemo().catch((e) => console.error("demo account:", e.message));   // (10.0: Riverstone Church (demo), while the default keys are on)
 setInterval(() => prices.loadPrices().catch(() => { }), 5 * 60e3).unref();   // (another server changed them)
 if (process.env.REMINDERS !== "off") acct.startReminders();   // (every hour: invites nobody answered, the day before a service)
 app.listen(config.port, () => console.log("Motion Audio server on " + config.publicUrl + " (storage: " + (store.usingR2 ? "R2" : "local folder") + ", payments: " + (pay.stripe ? "on" : "off") + ")"));
