@@ -435,7 +435,7 @@
   function html() {
     var c = cfg(), i = c.sel, t = st.tracks[i] || { s: "empty" };
     if (c.enabled === false) return '<section class="looper off" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">off</small></h3><button data-lp="goTab">LOOPER tab ›</button></div></section>';
-    return '<section class="looper" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">' + st.tracks.map(function (x, j) { return "loop " + (j + 1) + " " + (x.s === "empty" ? "–" : x.s); }).join(" · ") + '</small></h3><button data-lp="goTab">LOOPER tab ›</button></div>' +
+    return '<section class="looper" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">' + (st.tracks.every(function (x) { return x.s === "empty"; }) ? "all three loops are empty" : st.tracks.map(function (x, j) { return "loop " + (j + 1) + ": " + (x.s === "empty" ? "empty" : x.s); }).join(" · ")) + '</small></h3><button data-lp="goTab">LOOPER tab ›</button></div>' +
       '<div class="lp-btns"><button class="pf-btn lp-main st-' + t.s + '" id="lpMain" data-lp="main" data-i="' + i + '"><small>LOOP ' + (i + 1) + " · REC / PLAY / DUB</small><b>" + LABEL[t.s] + '</b></button><button class="pf-btn" data-lp="stopAll"><small>EVERY LOOP</small><b>STOP</b></button><button class="pf-btn" data-lp="undo" data-i="' + i + '"' + (t.u ? "" : " disabled") + '><small>LAST DUB</small><b>UNDO</b></button><button class="pf-btn" data-lp="clear" data-i="' + i + '"><small>LOOP ' + (i + 1) + "</small><b>CLEAR</b></button></div></section>";
   }
   function render() {

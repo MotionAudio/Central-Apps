@@ -108,7 +108,7 @@
         var lrn = learning && learning.target === i.id, ml = midiLearn && midiLearn.target === i.id;
         return '<div class="ln-row' + (lrn || ml ? " learning" : "") + '" data-input-id="' + i.id + '" data-learn="' + i.id + '"><i class="dot"></i><input data-ln="name" value="' + esc(i.name) + '"><small>' + esc(wiringText(i)) + '</small><button data-ln="' + (i.midi || i.key ? "relearn" : "learn") + '">' + (lrn || ml ? "Press it now… (cancel)" : "Learn") + '</button><button data-ln="del" class="danger">✕</button></div>';
       }).join("");
-    $("#lnMouse").textContent = devices.mouse ? "Mouse connected: the cursor is shown." : "No mouse: the cursor is hidden (touch).";
+    $("#lnMouse").textContent = devices.mouse ? "A mouse is plugged in, so the pointer shows." : "No mouse plugged in, so the pointer is hidden for the touch screen.";
     drawHeader();
   }
   function drawHeader() {

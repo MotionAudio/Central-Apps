@@ -259,28 +259,28 @@
   <section id="tabInstrument" class="toptab hidden" aria-label="Instrument"><div id="instrumentRoot"></div></section>
   <section id="tabLooper" class="toptab hidden" aria-label="Looper"><div id="looperRoot" class="looper-tab"></div></section>
   <section id="tabConfigure" class="toptab hidden" aria-label="Configure">
-    <div class="cf-head"><h2>Configure</h2><p class="muted">What each button, knob, slider and pedal does. Give a knob, slider or the encoder the <b>Touch select</b> job, then tap any setting on the screen and that knob changes it.</p></div>
-    <div class="cf-head"><span class="muted" id="cfNow">One layout for everything: each button, knob and slider does the same thing whether a song has tracks or not (the pads follow the tracks). A button can also do something else when held.</span><span style="flex:1"></span><button id="cfReset">Reset to the default layout</button></div>
+    <div class="cf-head"><h2>Configure</h2><p class="muted">Pick what each button, knob, slider and pedal does. Tip: give a knob the <b>Touch select</b> job, then tap any setting on the screen and that knob changes it.</p></div>
+    <div class="cf-head"><span class="muted" id="cfNow">Each button, knob and slider does the same job in every song. A button can also do a second job when you hold it.</span><span style="flex:1"></span><button id="cfReset">Reset to the default layout</button></div>
     <div class="cf-head" id="cfSetup"></div>
     <div class="cf-rows" id="cfRows"></div>
-    <p class="muted">Buttons: the first action happens on press, the hold action after holding for a second. Knobs / sliders / expression: pick a continuous control. Encoder: a step action for turning, plus press and hold actions. Learned USB and MIDI inputs appear here too.</p>
+    <p class="muted">A button's first job happens when you press it, its hold job after you hold it for a second. Knobs, sliders and expression pedals set a level. The encoder steps through something when you turn it, and has its own press and hold jobs. Controls you added on the Learn tab show up here too.</p>
   </section>
   <section id="tabLearn" class="toptab hidden" aria-label="Learn">
     <div class="cf-head"><h2>Learn</h2><p class="muted" id="lnStatus"></p></div>
     <div class="ln-grid">
       <div>
-        <h3>Control board inputs</h3><p class="muted">Wire a button, knob or slider to any usable pin, press Learn, then press or turn it: the Central Pedal finds the pin or ADS1115 channel by itself. The defaults below match the wiring diagram.</p>
-        <div id="lnBoard"></div>
-        <div class="se-row"><button id="lnResetBoard">Reset to default pins</button><span class="muted" id="lnMouse"></span></div>
-        <h3 style="margin-top:14px">Your pedals, controllers and keys</h3><p class="muted">MIDI footswitches, pedals, knobs and sliders, or a key on the computer's keyboard. Press <b>Add new control</b>, say what it is, name it, then press it, turn it or slide it when we ask. After that, give it a job on the Configure tab.</p>
+        <h3>Your pedals, controllers and keys</h3><p class="muted">Plug in a MIDI footswitch, expression pedal, knob, slider or Stream Deck, or use a key on a computer keyboard. Press <b>Add new control</b>, say whether it's a button, knob or slider, give it a name, then press, turn or slide it when asked. Then give it a job on the Configure tab.</p>
         <div id="lnUsb"></div>
         <div class="se-row"><button class="primary" id="lnAddNew">+ Add new control</button><button id="lnAddUsbButton">+ USB pedal or game pad button</button><button id="lnAddUsbKnob">+ USB knob / pedal</button><button id="lnAddMidiButton" hidden>+ Add MIDI button</button><button id="lnAddMidiKnob" hidden>+ Add MIDI knob / pedal</button></div>
+        <h3 style="margin-top:18px">The pedal's own buttons, knobs and sliders</h3><p class="muted">These are wired inside the pedal. If you wired one to a different pin, press its Learn button and then press, turn or slide it, and the pedal finds the pin by itself. The defaults match the wiring diagram.</p>
+        <div id="lnBoard"></div>
+        <div class="se-row"><button id="lnResetBoard">Reset to default pins</button><span class="muted" id="lnMouse"></span></div>
       </div>
-      <div><h3>Default wiring</h3><p class="muted">Buttons: pin → switch → GND. Knobs and sliders: 3.3 V – wiper → ADS1115 – GND. LEDs on the MCP23017. Full guide with the I2S DAC and the 3.5-inch screen: <a href="wiring.html" target="_blank">wiring.html</a></p><div id="lnDiagram"></div></div>
+      <div><h3>Default wiring</h3><p class="muted">For whoever builds the pedal. Buttons: pin → switch → GND. Knobs and sliders: 3.3 V – wiper → ADS1115 – GND. LEDs go on the MCP23017. The full guide, with the DAC board and the 3.5" screen, is in <a href="wiring.html" target="_blank">the wiring guide</a>.</p><div id="lnDiagram"></div></div>
     </div>
   </section>
   <dialog id="mixDialog" class="mix-dialog"><div class="row spread mix-head"><div><h2>Mixer</h2><p class="muted" id="mixTitle"></p></div><div class="se-row"><div id="mixScenes" class="mix-scenes"></div><button data-close="mixDialog" class="primary">Done</button></div></div><div class="mix-strips" id="mixStrips"></div></dialog>
-  <dialog id="songDialog"><div class="row spread"><div><h2>Song editor</h2><p class="muted">Tracks, tempo grid, sections, click, cues, lyrics and chart for this song.</p></div><div class="se-row"><button class="danger" id="seDeleteSong">Delete song</button><button data-close="songDialog">Done</button></div></div>
+  <dialog id="songDialog"><div class="row spread"><div><h2>Song editor</h2><p class="muted">Everything about this song: its tracks, tempo, sections, click, voice cues, lyrics and chart.</p></div><div class="se-row"><button class="danger" id="seDeleteSong">Delete song</button><button data-close="songDialog" autofocus>Done</button></div></div>
     <div class="se-grid">
       <section><h3>Song</h3><label>Name<input id="seName" data-se="name"></label><label>Key (pads and tracks play in)<select id="seKey" data-se="key"></select></label><label>Original key of the tracks<select id="seOrigKey" data-se="origKey"></select></label><label>MIDI program on load (blank = song number)<input id="seProgram" data-se="program" type="number" min="0" max="127"></label><label>ProPresenter presentation<input id="sePresentation" data-se="presentation" placeholder="same as the song name"></label><label>When the song ends<select id="seAfter" data-se="after"><option value="stop">Stop here</option><option value="ready">Go to the next song (stopped, ready)</option><option value="play">Play the next song after a gap</option><option value="segue">Segue: next song starts as this one ends</option></select></label><div class="se-row" id="seAfterOpts"><label>Gap (s)<input id="seGap" data-se="gap" type="number" min="0" max="30" step=".5"></label><label>Crossfade (s, 0 = gapless)<input id="seOverlap" data-se="overlap" type="number" min="0" max="30" step=".5"></label></div></section>
       <section><h3>Tracks (stems or one file)</h3><div id="seStems"></div><div class="se-row"><button class="primary" id="seAddStems">+ Add from USB / SD / uploads</button><button id="seAddFile">+ Add files…</button></div><p class="muted">WAV, MP3, FLAC, OGG, M4A, AIFF. A file named "click" goes to the click output; "guide" is the spoken guide.</p></section>

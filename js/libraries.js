@@ -128,7 +128,7 @@
     var what = rec && rec.counts ? [["sound", "sound bank"], ["pad", "pad style"], ["preset", "preset"], ["board", "board"], ["ir", "impulse response"]].filter(function (k) { return rec.counts[k[0]]; }).map(function (k) { return rec.counts[k[0]] + " " + k[1] + (rec.counts[k[0]] === 1 ? "" : "s"); }).join(", ") : "";
     return '<li data-lib="' + id + '"><b>' + esc(lib.title || planName(lib.plan) + " Library") + '</b> <span class="muted">· ' + esc(planName(lib.plan)) + (lib.size ? " · " + (lib.approximate ? "about " : "") + size(lib.size) : "") + "</span><br>" +
       '<span class="' + (rec ? "ok" : "muted") + '">' + status + "</span>" + (what ? ' <span class="muted small">(' + esc(what) + ")</span>" : "") + (rec && !open ? ' <span class="bad">· locked: needs ' + esc(planName(lib.plan)) + "</span>" : "") +
-      (lib.summary && !rec ? '<br><span class="muted small">' + esc(lib.summary) + "</span>" : "") + (btns ? '<div class="row">' + btns + "</div>" : "") + "</li>";
+      (lib.summary && !rec ? '<details class="lib-what"><summary>What\'s in it</summary><span class="muted small">' + esc(lib.summary) + "</span></details>" : "") + (btns ? '<div class="row">' + btns + "</div>" : "") + "</li>";
   }
   function html(cls) {
     if (!st.list && !st.loading) setTimeout(function () { load(false); }, 0);

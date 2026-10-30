@@ -69,7 +69,7 @@
 
   function renderSetlist() {
     var p = project(), el = $("#lvSetlist");
-    el.innerHTML = '<div class="lv-h">SETLIST <small>' + p.songs.length + " songs</small></div>" + (p.songs.length ? p.songs.map(function (s, i) {
+    el.innerHTML = '<div class="lv-h">SETLIST <small>' + p.songs.length + (p.songs.length === 1 ? " song" : " songs") + "</small></div>" + (p.songs.length ? p.songs.map(function (s, i) {
       var cur = i === p.songIndex, tr = hasTracks(s), sure = armed.key === "song" + i && Date.now() - armed.at < 3000;
       return '<button class="lv-row' + (cur ? " now" : "") + (sure ? " sure" : "") + '" data-lv="song" data-i="' + i + '"><span class="n">' + (i + 1) + "</span><span class=\"t\"><b title=\"" + esc(s.name) + "\">" + esc(s.name) + "</b><small>" + esc(String(s.key || "").replace("#", "♯")) + " · " + (s.bpm || "–") + " BPM" + (tr ? "" : " · pads only") + "</small></span>" + (sure ? '<em>tap again</em>' : (tr ? '<i class="ok" title="tracks loaded">●</i>' : '<i title="no tracks">○</i>')) + "</button>";
     }).join("") : '<p class="muted small">No setlist yet.' + (locked ? "" : ' <button data-lv="setlist">♫ Make the setlist</button>') + "</p>");
@@ -271,7 +271,7 @@
     if (!p.songs.length) add("warn", "No setlist", "Add the songs for this service.", { label: "Setlist", act: "setlist" });
     else {
       var noTracks = p.songs.filter(function (s) { return !hasTracks(s); }), noSec = p.songs.filter(function (s) { return hasTracks(s) && !sections(s).length; }), noClick = p.songs.filter(function (s) { var t = tdata(s); return hasTracks(s) && t.click && t.click.on === false; });
-      if (!noTracks.length) add("ok", "Every song has its tracks", p.songs.length + " songs");
+      if (!noTracks.length) add("ok", "Every song has its tracks", p.songs.length + (p.songs.length === 1 ? " song" : " songs"));
       else add(noTracks.length === p.songs.length && !p.tracksMode ? "ok" : "warn", noTracks.length + " of " + p.songs.length + " songs have no tracks", noTracks.map(function (s) { return s.name; }).join(", ") + " - they play pads only.");
       if (noSec.length) add("warn", "Songs without sections", noSec.map(function (s) { return s.name; }).join(", ") + " - the section buttons and cues need them.");
       if (noClick.length) add("info", "Click turned off in " + noClick.length + " song" + (noClick.length > 1 ? "s" : ""), noClick.map(function (s) { return s.name; }).join(", "));

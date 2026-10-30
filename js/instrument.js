@@ -6,6 +6,14 @@
  * The driver (pedal-driver.py, InstrumentHost) runs the audio. */
 (function () {
   "use strict";
+  // the instrument's start-up errors, in words a musician can act on (the raw text stays under Details)
+  function errText(e) {
+    e = String(e || "");
+    if (/host is down|can't connect|cannot connect|pipewire|pw\.conf|module-filter/i.test(e)) return "The sound system isn't running, so the instrument can't start. Restart the pedal; if it keeps happening, send us the start-up report (Settings → System).";
+    if (/no (usb )?(audio )?interface|no such device|input.*not found|capture/i.test(e)) return "No audio input found. Plug your guitar into a USB audio interface on the pedal, then pick it under Input.";
+    if (/plugin|lv2|not installed/i.test(e)) return "One of the pedals on this board isn't installed on this Central Pedal. Take it off the board or pick another board.";
+    return "The instrument couldn't start. Try another board, or restart the pedal.";
+  }
   var PP = window.PP, F = window.PPFeatures, PED = window.PPPedals; if (!PP || !F || !PED) return;
   var esc = PP.escapeHtml, clamp = PP.clamp;
   function $(s, r) { return (r || document).querySelector(s); }
@@ -320,7 +328,7 @@
         '<div class="in-boardwrap"><div class="pb-chain" id="pbChain">' + chain.map(function (item, i) { var pedal = pedalOf(item); return pedal ? '<div class="pb-slot" data-slot="' + item.uid + '">' + pedalSvg(item, pedal, i, selected === item.uid) + '<div class="pb-tools"><button data-move="' + item.uid + ':-1" title="Move left">◀</button><button data-del="' + item.uid + '" title="Remove">✕</button><button data-move="' + item.uid + ':1" title="Move right">▶</button></div></div>' : ""; }).join("") + '<button class="pb-add" id="pbAdd">＋<small>Add pedal</small></button></div></div>' +
         (selected ? detailPanel(chain.filter(function (i) { return i.uid === selected; })[0]) : '<p class="muted">Tap a pedal to edit its knobs; tap its footswitch to bypass it. Footswitches on the board can do the same (Configure tab → "Pedal 1…8 on / off").</p>') +
         (showAdd ? addPanel() : "") + (window.PPLooper ? window.PPLooper.html() : "") +
-        '<div class="in-foot muted">' + (connected() ? (status.pluginCount ? status.pluginCount + " plugins installed on this Pi · " : "") + (status.latencyMs != null ? "about " + Math.round(status.latencyMs) + " ms in to out · " : "") + (status.error ? '<b class="warn">' + esc(status.error) + "</b>" : "native chain " + (status.running ? "running" : "idle")) : "On the Central Pedal itself the chain runs natively on the Pi; on a computer this is a preview of the board.") +
+        '<div class="in-foot muted">' + (connected() ? (status.pluginCount ? status.pluginCount + " plugins installed on this Pi · " : "") + (status.latencyMs != null ? "about " + Math.round(status.latencyMs) + " ms in to out · " : "") + (status.error ? '<b class="warn">' + esc(errText(status.error)) + '</b> <details class="in-err"><summary>Details</summary><code>' + esc(status.error) + "</code></details>" : (status.running ? "the instrument is running" : "the instrument is resting")) : "On the Central Pedal the board runs on the pedal itself. Here on a computer you can set it up and hear a preview.") +
         (status.engineAlt === "rig" ? ' · <button class="link" id="engineSwitch" data-engine="rig">Use your own plugins (VST3, CLAP, LV2): switch to the computer engine</button>' : status.engineAlt === "pedal" ? ' · <button class="link" id="engineSwitch" data-engine="pedal">Switch to the Central Pedal engine (its own LV2 pedals; your plugins rest)</button>' : "") + "</div>");
     if (k !== "off" && k !== "keys") startMeter(); else stopMeter();
     drawEqCurves();
@@ -329,7 +337,7 @@
   function statusLine() {
     var k = kind(); if (k === "off") return '<span class="dot off"></span> Instrument off';
     var s = status, r = project().routing || {}, outCh = r.buses && r.buses.instrument ? r.buses.instrument.ch : 4;
-    var txt = !connected() ? "Preview (not on the Pi)" : s.available === false ? "Not available on this system" : s.error ? "Problem: " + (s.error.length > 90 ? s.error.slice(0, 88) + "…" : s.error) : !s.running ? "Starting…" : (k === "keys" ? (s.midiInputs && s.midiInputs.length ? "Keyboard: " + s.midiInputs.join(", ") : "No MIDI keyboard found - plug one into the Pi") + " · " + (s.keysEngine || "") : (s.input ? "In: " + s.input : "No USB audio interface found - plug one in")) + " · out channel " + outCh;
+    var txt = !connected() ? "Preview (not on the Pi)" : s.available === false ? "Not available on this system" : s.error ? errText(s.error) : !s.running ? "Starting…" : (k === "keys" ? (s.midiInputs && s.midiInputs.length ? "Keyboard: " + s.midiInputs.join(", ") : "No MIDI keyboard found - plug one into the Pi") + " · " + (s.keysEngine || "") : (s.input ? "In: " + s.input : "No USB audio interface found - plug one in")) + " · out channel " + outCh;
     return '<span class="dot' + (connected() && s.running && !s.error ? "" : " off") + '"></span> ' + esc(txt);
   }
   function detailPanel(item) {
