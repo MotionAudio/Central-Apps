@@ -146,9 +146,9 @@
       if (t.dataset.dvJob === "general" && t.checked) box.querySelectorAll("[data-dv-job]").forEach(function (x) { x.checked = x.dataset.dvJob === "general"; });
       else if (t.checked) { var g = box.querySelector('[data-dv-job="general"]'); if (g) g.checked = false; }
       box.querySelectorAll("[data-dv-job]").forEach(function (x) { if (x.checked) picked.push(x.dataset.dvJob); });
-      var r = t.hasAttribute("data-mine") ? await R().request("myJobs", { jobs: picked }) : await R().request("jobs", { target: t.dataset.id, jobs: picked });
+      var r = t.hasAttribute("data-mine") ? await R().request("myJobs", { jobs: picked, jobsV: 2 }) : await R().request("jobs", { target: t.dataset.id, jobs: picked, jobsV: 2 });
       if (!r.ok) alert(r.error || "Not changed.");
-      else if (t.hasAttribute("data-mine")) await CU.setJobs(r.jobs || picked);
+      else if (t.hasAttribute("data-mine")) await CU.setJobs(r.jobs || picked, r.jobsAt);
     }
   });
   document.addEventListener("click", async function (e) {

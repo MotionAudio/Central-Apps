@@ -62,7 +62,36 @@ const as = await a.wait((m) => m.type === "cuRoleAssigned");
 ok(as && as.role === "admin", "the main admin approves: Admin");
 main.send({ type: "cuRole", action: "jobs", id: "dMain", target: "dAdmin", jobs: ["lighting"] });
 const aj = await a.wait((m) => m.type === "cuRoleAssigned" && m.jobs);
-ok(aj && aj.jobs[0] === "lighting", "jobs reach the admin");
+ok(aj && aj.jobs[0] === "lights", "jobs reach the admin (an older computer's \"lighting\" is the Lights job)");
+
+// (10.0) jobs: an admin computer picks its own; two computers with the same job - the center says which one runs it
+main.send({ type: "cuRole", action: "myJobs", id: "dMain", jobs: ["general"], jobsV: 2 });
+await main.wait((m) => m.type === "cuRoleReply" && m.action === "myJobs");
+a.send({ type: "cuRole", action: "myJobs", id: "dAdmin", jobs: ["lights", "slides", "lyrics"], jobsV: 2 });
+let rj = await a.wait((m) => m.type === "cuRoleReply" && m.action === "myJobs");
+ok(rj && rj.ok && rj.jobs.join() === "lyrics,lights,slides", "an admin picks its own jobs (Lights, Slides, Lyrics): " + JSON.stringify(rj));
+let rv = await a.wait((m) => m.type === "cuRoles" && m.runners && m.runners.lights && m.runners.lights.id === "dAdmin");
+ok(rv && rv.runners.lights.id === "dAdmin" && rv.runners.cameras && rv.runners.cameras.id === "dMain" && !rv.runners.lights.ask,
+  "...it runs them; the main admin (doing everything) runs the rest - cameras, in-ears, tracks, the stream");
+const a2 = await client();
+a2.send({ type: "cuRole", action: "join", id: "dAdmin2", name: "Booth", role: "admin", pair: "0915", pin: "4321", jobs: ["lights"], jobsV: 2, jobsAt: Date.now() });
+await a2.wait((m) => m.type === "cuRoleReply" && m.action === "join");
+rv = await a2.wait((m) => m.type === "cuRoles" && m.runners && m.runners.lights && m.runners.lights.others.length === 1);
+ok(rv && rv.runners.lights.ask && rv.runners.lights.id === "dAdmin" && rv.runners.lights.others[0].id === "dAdmin2", "a second computer picks Lights at its setup: both are asked which one runs it (Lights PC until then)");
+a2.send({ type: "cuRole", action: "runJob", id: "dAdmin2", job: "lights", target: "dAdmin2" });
+rj = await a2.wait((m) => m.type === "cuRoleReply" && m.action === "runJob");
+rv = await a.wait((m) => m.type === "cuRoles" && m.runners && m.runners.lights && m.runners.lights.id === "dAdmin2");
+ok(rj && rj.ok && rv && !rv.runners.lights.ask && rv.runners.lights.others[0].id === "dAdmin", "...Booth says it runs them: everyone hears, nobody is asked again");
+a2.send({ type: "cuRole", action: "runJob", id: "dAdmin2", job: "cameras", target: "dAdmin2" });
+rj = await a2.wait((m) => m.type === "cuRoleReply" && m.action === "runJob");
+ok(rj && !rj.ok, "...a computer can't take a job it doesn't have");
+a2.close(); await sleep(200);
+rv = await a.wait((m) => m.type === "cuRoles" && m.runners && m.runners.lights && m.runners.lights.id === "dAdmin");
+ok(!!rv, "Booth goes off: the Lights PC runs the lights again by itself");
+// an older pick doesn't undo a newer one: the main admin set the jobs while the computer was off
+a.send({ type: "cuRole", action: "hello", id: "dAdmin", name: "Lights PC", role: "admin", code: "0915", jobs: ["cameras"], jobsV: 2, jobsAt: 1000 });
+await sleep(300);
+ok(center.jobsOf("dAdmin").join() === "lyrics,lights,slides", "a computer coming back with an older pick keeps the newer one");
 
 // Central Usage (the musicians' app): it can't be an admin; the Devices tab says which app a device runs
 const mu = await client();

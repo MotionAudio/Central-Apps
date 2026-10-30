@@ -224,11 +224,11 @@
   function smartOn() { return !!(rig.auto.smart && window.CULightsAuto); }
   function smartData() {
     if (!smartOn()) return null;
-    var feel = show.feel || {}, key = JSON.stringify([song.id, song.bpm, song.key, song.duration, song.secKey, song.overview.length, (song.hits || []).length, song.drumHits ? Object.keys(song.drumHits).map(function (k) { return (song.drumHits[k] || []).length; }).join(",") : "", feel]);
+    var feel = show.feel || {}, rs = window.CULightsAuto.rigSummary(rig), key = JSON.stringify([song.id, song.bpm, song.key, song.duration, song.secKey, song.overview.length, (song.hits || []).length, song.drumHits ? Object.keys(song.drumHits).map(function (k) { return (song.drumHits[k] || []).length; }).join(",") : "", feel, (song.words || []).length, rs]);
     if (smart.key !== key || !smart.analysis) {
       var A = window.CULightsAuto;
-      smart.analysis = A.analyse({ bpm: song.bpm, key: song.key, duration: song.duration, sections: song.sections, overview: song.overview, hits: song.hits, drumHits: song.drumHits, stems: song.stems }, { song: feel.song, sections: feel.sections });
-      smart.built = A.buildLooks(smart.analysis, "auto:" + (song.id || "song"));
+      smart.analysis = A.analyse({ bpm: song.bpm, key: song.key, duration: song.duration, sections: song.sections, overview: song.overview, hits: song.hits, drumHits: song.drumHits, stems: song.stems, words: song.words }, { song: feel.song, sections: feel.sections });
+      smart.built = A.buildLooks(smart.analysis, "auto:" + (song.id || "song"), rs);
       smart.key = key;
     }
     return smart;
@@ -327,6 +327,7 @@
     if (!song.sections.length && h.sections) song.sections = h.sections.map(function (s) { return { name: s.name, start: s.start, end: s.end, bar: s.bar, color: s.color, type: s.type }; });
     else song.sections.forEach(function (s) { var m = (h.sections || []).filter(function (x) { return x.name === s.name && Math.abs(x.start - s.start) < 0.5; })[0]; if (m) { s.color = m.color; s.type = m.type; } });
     if (h.key) song.key = h.key; if (h.bpm && !song.bpm) song.bpm = h.bpm; song.stems = (h.stems || []).map(function (s) { return { name: s.name, role: s.role }; });
+    song.words = h.music && Array.isArray(h.music.words) ? h.music.words.filter(function (w) { return w && String(w.text || "").trim(); }) : [];   // (10.0: sung parts keep faces up)
     song.hasTracks = !!h.hasTracks; dirty();
   }
 
@@ -360,7 +361,8 @@
     }
     // a strobe locked to the song: Central Control flashes it on the bar / beat / ½ / ¼ / ⅛ (the light's own strobe stays open)
     var sync = g.strobe > 0 && g.strobeSync && g.strobeSync !== "free" ? SYNC_BEATS[g.strobeSync] : null, swStrobe = false;
-    if (sync != null) { var every = sync || (song.bpb || 4), sp2 = beats / every, fr2 = sp2 - Math.floor(sp2), on = fr2 * every * 60 / (song.bpm || 100) < Math.max(0.03, 0.06 * (1 - g.strobe) + 0.02); dim *= on ? 1 : 0; swStrobe = true; }
+    if (sync != null) { var every = safeEvery(sync || (song.bpb || 4)), sp2 = beats / every, fr2 = sp2 - Math.floor(sp2), on = fr2 * every * 60 / (song.bpm || 100) < Math.max(0.03, 0.06 * (1 - g.strobe) + 0.02); dim *= on ? 1 : 0; swStrobe = true; }
+    else if (g.strobe > 0 && safeStrobes()) { var hz0 = window.CULightsAuto ? window.CULightsAuto.safeHz(2 + g.strobe * 18) : 3; dim *= ((performance.now() / 1000) * hz0) % 1 < 0.3 ? 1 : 0; swStrobe = true; }   // (10.0: never the light's own fast strobe)
     var pan = g.pan == null ? 0.5 : g.pan, tilt = g.tilt == null ? 0.5 : g.tilt;
     var spread = n > 1 ? (idx / (n - 1) - 0.5) : 0; pan = clamp(pan + spread * (g.fan || 0), 0, 1);
     var ang = 2 * Math.PI * (beats / (speed * 4) + (g.offset == null ? 1 : g.offset) * idx / Math.max(2, n));
@@ -376,9 +378,13 @@
   }
   // a strobe flashed by Central Control (the hits' bursts, the Strobe button): on/off at a rate, or on the song's grid
   function softStrobe(rate, sync, beats, now) {
-    if (sync && SYNC_BEATS[sync] != null) { var every = SYNC_BEATS[sync] || (song.bpb || 4), p = beats / every; return (p - Math.floor(p)) * every * 60 / (song.bpm || 100) < 0.035; }
-    var hz = 2 + clamp(rate, 0, 1) * 18; return ((now / 1000) * hz) % 1 < 0.3;
+    if (sync && SYNC_BEATS[sync] != null) { var every = safeEvery(SYNC_BEATS[sync] || (song.bpb || 4)), p = beats / every; return (p - Math.floor(p)) * every * 60 / (song.bpm || 100) < 0.035; }
+    var hz = 2 + clamp(rate, 0, 1) * 18; if (safeStrobes() && window.CULightsAuto) hz = window.CULightsAuto.safeHz(hz); return ((now / 1000) * hz) % 1 < 0.3;
   }
+  // (10.0) Safe strobes (Settings on the Strobe panel, on unless switched off): no light flashes more than 3 times a
+  // second - a strobe locked to the ⅛ notes of a fast song goes to the ¼ notes, and so on
+  function safeStrobes() { return !(rig.strobe && rig.strobe.safe === false); }
+  function safeEvery(every) { if (!safeStrobes()) return every; var beatLen = 60 / (song.bpm || 100); while (every * beatLen < 1 / 3 - 1e-6) every *= 2; return every; }
   function mix(a, b, p) { var o = {}; for (var k in a) o[k] = a[k] + (b[k] - a[k]) * p; if (p >= 0.5) o.strobe = b.strobe; else o.strobe = a.strobe; return o; }
   function overState(st, o) {   // a light's own colour / level (the list under the stage plot, or a recorded light cue)
     var s = Object.assign({}, st);
@@ -415,9 +421,13 @@
     a.peak = Math.max(e, a.peak * 0.9995, 0.02); a.level = clamp(e / a.peak, 0, 1);
     if (rig.audio.onsets && playingNow() && !(song.hits && song.hits.length) && a.onsets != null && m.onsets > a.onsets) {
       var look = "hit";
-      if (smartOn()) { var sec = smartSectionAt(posNow()), kind = sec ? window.CULightsAuto.onsetFlash(sec.style, sec.energy) : "soft"; look = kind ? smart.built.flash[kind] : null; }   // (intimate: no flashes from the music)
+      var sec = null;
+      if (smartOn()) { sec = smartSectionAt(posNow()); var kind = sec ? window.CULightsAuto.onsetFlash(sec.style, sec.energy) : "soft"; look = kind ? smart.built.flash[kind] : null; }   // (intimate: no flashes from the music)
+      if (look && window.CULightsAuto && !window.CULightsAuto.flashGate(live.gate || (live.gate = {}), performance.now(), sec ? sec.style : "upbeat")) look = null;   // (10.0: 3 a second at most)
       if (look) live.flash = { look: look, until: performance.now() + 140, len: 140 };
     }
+    // (10.0) the beat of the room's sound, for a song with no timeline (a band playing live)
+    if (a.onsets != null && m.onsets > a.onsets && window.CULightsAuto) { live.beat = live.beat || window.CULightsAuto.beatTracker(); live.beat.onset(performance.now() / 1000, 1); }
     a.onsets = m.onsets;
     return a.level;
   }
@@ -434,6 +444,7 @@
     var unis = {}, colors = {}, cellColors = {};
     // the strobes: the Strobe button (held), and a burst on each hit (a flash preset firing) when "on the hits" is on
     var anyStrobe = rig.fixtures.some(isStrobe), holdOn = !!live.strobeHold, burstOn = !!(fl && rig.strobe.onHits && fl.look && fl.look.flash && !fl.look.soft);
+    if (window.CULightsAuto) { live.burst = live.burst || {}; if (holdOn || burstOn) { if (!window.CULightsAuto.burstAllowed(live.burst, now, safeStrobes())) { holdOn = false; burstOn = false; } } else window.CULightsAuto.burstStop(live.burst); }
     // the smart Auto's live layer: the music's level breathes the lights (gently when intimate), upbeat songs pulse on
     // the beat, builds rise through to the next section
     var mods = null;
@@ -441,7 +452,9 @@
       var sec = smartSectionAt(t);
       if (sec) {
         var bbNow = barBeatAt(t), now2 = performance.now();
-        smart.live.ctx = { style: sec.style, energy: sec.energy, trend: sec.trend, progress: sec.end > sec.start ? (t - sec.start) / (sec.end - sec.start) : 0, level: lvl, beatFrac: beats - Math.floor(beats), downbeat: bbNow.beat < 2, playing: true, dt: smart.live.at ? Math.min(0.2, (now2 - smart.live.at) / 1000) : 0.025, state: smart.live.state };
+        var bf = beats - Math.floor(beats), down = bbNow.beat < 2;
+        if (!song.hasTracks && !song.bars.length && live.beat) { var lb = live.beat.at(now2 / 1000); if (lb && lb.confidence >= 0.3) { bf = lb.beatFrac; down = lb.downbeat; } }   // (10.0: no timeline - the room's own beat)
+        smart.live.ctx = { style: sec.style, energy: sec.energy, trend: sec.trend, progress: sec.end > sec.start ? (t - sec.start) / (sec.end - sec.start) : 0, level: lvl, beatFrac: bf, downbeat: down, playing: true, dt: smart.live.at ? Math.min(0.2, (now2 - smart.live.at) / 1000) : 0.025, state: smart.live.state };
         mods = window.CULightsAuto.liveMod(smart.live.ctx); smart.live.state = smart.live.ctx.state; smart.live.at = now2; smart.live.style = sec.style;
       }
     }
@@ -500,11 +513,23 @@
   // the frame loop: 40 per second; DMX goes out only when something changed (plus a keep-alive each second)
   var lastSent = "", lastSentAt = 0;
   function outputsOn() { return rig.outputs.some(function (o) { return o.mode !== "off"; }); }
+  // (10.0) two computers with the Lights job: only the one that runs it sends to the lights; the other one shows the
+  // same show (and can take over from the banner)
+  function runsLights() { return !(CU.runs && CU.runs("lights") === false); }
+  function runBanner() {
+    var view = document.getElementById("view-lights"); if (!view) return;
+    var el = document.getElementById("lxRunBanner"), r = CU.runners ? CU.runners().lights : null;
+    if (runsLights() || !r) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement("div"); el.id = "lxRunBanner"; el.className = "lx-run-banner"; view.insertBefore(el, view.firstChild); }
+    el.innerHTML = "<span><b>" + String(r.name || "Another computer").replace(/[&<>"']/g, "") + "</b> runs the lights. This computer follows the same show but doesn't send anything to the lights.</span><button>Run them here</button>";
+    el.querySelector("button").onclick = function () { if (window.CURoles && window.CURoles.runHere) window.CURoles.runHere("lights"); };
+  }
+  CU.on("runners", runBanner);
   function tick() {
     var unis = render(), now = performance.now();
     rig.outputs.forEach(function (o) { if (!unis[String(o.universe)]) unis[String(o.universe)] = new Uint8Array(512); });   // a universe with an output but no fixtures still goes out (dark)
     var key = Object.keys(unis).map(function (u) { return u + ":" + Array.prototype.join.call(unis[u], ","); }).join("|");
-    if (DMX && outputsOn() && (key !== lastSent || now - lastSentAt > 1000)) { var plain = {}; Object.keys(unis).forEach(function (u) { plain[u] = Array.from(unis[u]); }); DMX.frame(plain); lastSent = key; lastSentAt = now; }
+    if (DMX && outputsOn() && runsLights() && (key !== lastSent || now - lastSentAt > 1000)) { var plain = {}; Object.keys(unis).forEach(function (u) { plain[u] = Array.from(unis[u]); }); DMX.frame(plain); lastSent = key; lastSentAt = now; }
     clickTick();
     if (visible()) drawLive();
   }
@@ -979,7 +1004,9 @@
     root.innerHTML = '<p class="muted small">' + (n ? n + " strobe" + (n === 1 ? "" : "s") + " in the rig (strobe fixtures, and lights in Strobes / blinders)." : "No strobes in the rig yet: add a strobe fixture, or put lights in Strobes / blinders. Until then the Strobe button flashes every light.") + "</p>" +
       '<label class="toggle"><input type="checkbox" data-sb="onHits"' + (S2.onHits ? " checked" : "") + "> Strobe burst on the hits (a flash preset firing: the song's hits, the drum hits, the H key)</label>" +
       '<div class="row"><label>Strobe button <select data-sb="button">' + [["free", "Free (at the Strobe rate)"], ["beat", "Locked to the beat"], ["half", "Locked to ½ beats"], ["quarter", "Locked to ¼ beats"], ["eighth", "Locked to ⅛ beats"]].map(function (o) { return '<option value="' + o[0] + '"' + (S2.button === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + '</select></label><label>Strobe rate <input type="range" min="0" max="1" step="0.01" data-sb="rate" value="' + S2.rate + '"></label></div>' +
-      '<p class="muted small">In a preset: each group\'s Strobe sets the rate and brightness, and "Strobe timing" locks it to the bar, beat, ½, ¼ or ⅛ of the song. Hold the Strobe button (or S) to strobe live.</p>';
+      '<p class="muted small">In a preset: each group\'s Strobe sets the rate and brightness, and "Strobe timing" locks it to the bar, beat, ½, ¼ or ⅛ of the song. Hold the Strobe button (or S) to strobe live.</p>' +
+      '<label class="toggle"><input type="checkbox" data-sb="safe"' + (S2.safe !== false ? " checked" : "") + "> Safe strobes: never more than 3 flashes a second, and a break after 2 seconds of strobing</label>" +
+      '<p class="muted small">Fast flashing can bring on seizures in people with photosensitive epilepsy, so leave this on unless you know your room. With it on, the lights\' own strobe channel isn\'t used: Central Control does the flashing at a safe speed.</p>';
   }
   function renderAudio() {
     var root = $("#lxAudio"); if (!root) return; var a = rig.audio, X = window.CUMix, has = !!(X && X.meters && X.meters.bands);

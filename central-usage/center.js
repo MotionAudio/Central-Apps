@@ -28,7 +28,18 @@ const { WebSocketServer } = require("ws");
 
 const ROLES = ["main", "admin", "user1", "user2", "pedal"];
 const ADMIN_TIER = ["main", "admin"];
-const JOBS = ["general", "lighting", "production", "mix", "inears", "slides"];
+// (10.0) what an admin computer does: any of seven jobs, or general (all of them). Several computers can have the
+// same job; the center says which one runs it (jobRunner) - the others show it but don't send anything out.
+const JOBS = ["general", "lyrics", "lights", "cameras", "inears", "tracks", "stream", "slides"];
+const WORK = JOBS.slice(1);
+const OLD_JOBS = { lighting: ["lights"], production: ["cameras"], mix: ["tracks", "stream"], slides: ["slides", "lyrics"], inears: ["inears"] };   // (before 10.0)
+function normJobs(list, v) {
+  if (!Array.isArray(list) || !list.length || list.includes("general")) return ["general"];
+  const out = [];
+  for (const j of list) for (const k of (v === 2 ? (WORK.includes(j) ? [j] : []) : (OLD_JOBS[j] || (WORK.includes(j) ? [j] : [])))) if (!out.includes(k)) out.push(k);
+  out.sort((a, b) => WORK.indexOf(a) - WORK.indexOf(b));
+  return !out.length || out.length === WORK.length ? ["general"] : out;
+}
 // what each Central Pedal does (the main admin picks it on the Devices tab):
 //   player      plays the tracks, sends the charts and lyrics - one at a time; every Central Control follows it
 //   controller  a foot controller: its buttons start / stop, change song and section on the player
@@ -59,7 +70,8 @@ class Center {
     let j = {}; try { j = JSON.parse(fs.readFileSync(this.file, "utf8")); } catch (_) { }
     this.main = j.main || null;                     // { id, name, tokenSalt, tokenHash, pinSalt, pinHash }
     this.pair = four(j.pair) ? String(j.pair) : ""; // the pairing PIN (every device joins with it)
-    this.devices = j.devices || {};                 // id -> { name, role, jobs, paired, lastSeen, wantsAdmin, pedal }
+    this.devices = j.devices || {};                 // id -> { name, role, jobs, jobsV, jobsAt, paired, lastSeen, wantsAdmin, pedal }
+    this.jobRunner = Object.assign({}, j.jobRunner || {});   // job -> the device id that runs it (when several have it)
     this.lock = { all: !!(j.lock && j.lock.all), devices: Object.assign({}, (j.lock && j.lock.devices) || {}) };
     this.services = Array.isArray(j.services) ? j.services.map((s) => this.cleanService(s)).slice(0, MAX_SERVICES) : [];
     this.run = j.run || null;
@@ -80,7 +92,7 @@ class Center {
   on(fn) { this.listeners.push(fn); }
   emit(ev) { for (const fn of this.listeners) { try { fn(ev); } catch (_) { } } }
   save() {
-    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run, backup: this.backup, hubKey: this.hubKey, gen: this.gen, standby: this.standby })); fs.renameSync(tmp, this.file); } catch (_) { }
+    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run, backup: this.backup, hubKey: this.hubKey, gen: this.gen, standby: this.standby, jobRunner: this.jobRunner })); fs.renameSync(tmp, this.file); } catch (_) { }
   }
 
   // ----------------------------------------------------------------------------- the server
@@ -226,7 +238,7 @@ class Center {
   }
   deviceView(id) {
     const d = this.devices[id] || {}; let h = this.health[id] || null; if (h && Date.now() - h.at > 20000) h = null;
-    return { id, name: d.name || "", role: d.role || null, jobs: d.jobs || ["general"], paired: !!d.paired, online: this.online(id), lastSeen: d.lastSeen || 0,
+    return { id, name: d.name || "", role: d.role || null, jobs: normJobs(d.jobs, d.jobsV), jobsAt: d.jobsAt || 0, paired: !!d.paired, online: this.online(id), lastSeen: d.lastSeen || 0,
       claimsMain: !!d.claimsMain, locked: this.isLocked(id), wantsAdmin: !!d.wantsAdmin, health: h, talkGroup: this.talkGroup(id), edition: d.edition || null };
   }
   // the main admin's talkback groups: users are in the Band, admins in Production, unless the main admin moved them
@@ -242,6 +254,7 @@ class Center {
       youAreMain: this.isMain(info), lockAll: !!this.lock.all, pedal: this.pedalInfo(info), centerName: this.mainName(), audioHost: this.publicAudioHost() };
     const codes = (this.audioHost && this.audioHost.codes) || null, myRole = info.id && this.devices[info.id] ? this.devices[info.id].role : null;
     if (codes && ADMIN_TIER.includes(myRole)) v.hostCodes = { admin: codes.adminCode, user: codes.userCode };
+    if (ADMIN_TIER.includes(myRole) || v.youAreMain) v.runners = this.runners();
     else if (codes && (myRole === "user1" || myRole === "user2")) v.hostCodes = { user: codes.userCode };
     if (v.youAreMain) {
       v.devices = Object.keys(this.devices).filter((k) => k !== info.id).map((k) => this.deviceView(k)).sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
@@ -254,6 +267,27 @@ class Center {
     return v;
   }
   push() { for (const [ws, info] of this.clients) if (info.id) this.sendTo(ws, this.viewFor(info)); this.tellPedals(); this.emit({ type: "status" }); }
+  // (10.0) the jobs: a computer's own pick (at setup, or in Settings), or the main admin's. The newer one wins.
+  setJobs(d, list, at, v) { d.jobs = normJobs(list, v === 2 ? 2 : undefined); d.jobsV = 2; d.jobsAt = Number(at) || Date.now(); }
+  jobsOf(id) { const d = this.devices[id] || {}; return normJobs(d.jobs, d.jobsV); }
+  // who runs each job now: of the admin computers that are on, the ones that picked it (else the ones doing everything);
+  // the one picked to run it, else the main admin, else the one that picked it first. ask: two or more picked it and nobody has
+  // said which one runs it yet - each of them shows the question.
+  runners() {
+    const mainId = this.main ? this.main.id : null, out = {};
+    const online = Object.keys(this.devices).filter((k) => ADMIN_TIER.includes(this.devices[k].role) && this.online(k));
+    const nm = (k) => (this.devices[k] && this.devices[k].name) || "";
+    for (const job of WORK) {
+      const picked = [], all = [];
+      for (const k of online) { const js = this.jobsOf(k); if (js.includes(job)) picked.push(k); else if (js.includes("general")) all.push(k); }
+      const at = (k) => (this.devices[k] && this.devices[k].jobsAt) || 0;   // (the one that had it first keeps it: a computer joining later never takes over by itself)
+      const pool = (picked.length ? picked : all).sort((a, b) => ((b === mainId) - (a === mainId)) || at(a) - at(b) || nm(a).localeCompare(nm(b)));
+      if (!pool.length) continue;
+      const chosen = this.jobRunner[job], runner = pool.includes(chosen) ? chosen : pool[0];
+      out[job] = { id: runner, name: nm(runner), others: pool.filter((k) => k !== runner).map((k) => ({ id: k, name: nm(k) })), ask: picked.length > 1 && !picked.includes(chosen) };
+    }
+    return out;
+  }
   pushMainSoon() { const now = Date.now(); if (now - this.pushAt < 500) return; this.pushAt = now; for (const [ws, info] of this.clients) if (this.isMain(info)) this.sendTo(ws, this.viewFor(info)); }
   tick() {
     this.pushMainSoon();
@@ -293,6 +327,7 @@ class Center {
           if (!pinOk) { want = "user1"; pending = true; }
         }
         Object.assign(d, { name: name || d.name || (want === "pedal" ? "Central Pedal" : "Central Control"), role: want, paired: true, lastSeen: now });
+        if (Array.isArray(m.jobs) && (want === "admin" || d.wantsAdmin || pending) && (Number(m.jobsAt) || 0) > (d.jobsAt || 0)) this.setJobs(d, m.jobs, m.jobsAt, m.jobsV);
         if (pending) d.wantsAdmin = true; else delete d.wantsAdmin;
         delete d.claimsMain; delete this.fails[id];
         if (want === "pedal") { d.pedal = this.pedalFields(m, info); this.firstJob(id); }
@@ -317,6 +352,7 @@ class Center {
           }
           const d = this.devices[id] || (this.devices[id] = {});
           Object.assign(d, { name: this.main.name, role: "main", paired: true, lastSeen: now }); delete d.claimsMain;
+          if (Array.isArray(m.jobs) && (Number(m.jobsAt) || 0) > (d.jobsAt || 0)) this.setJobs(d, m.jobs, m.jobsAt, m.jobsV);
         } else {
           info.id = id; const d = this.devices[id] || (this.devices[id] = {});
           Object.assign(d, { name: name || d.name || "Central Control", role: "admin", claimsMain: true, lastSeen: now });
@@ -338,6 +374,7 @@ class Center {
       if (dd.role === "main" && (!this.main || this.main.id !== id)) dd.role = "admin";
       if (claim === "pedal" || dd.role === "pedal") { dd.role = "pedal"; dd.pedal = this.pedalFields(m, info); this.firstJob(id); }
       delete dd.claimsMain; dd.name = name || dd.name || "Central Control"; dd.lastSeen = now;
+      if (Array.isArray(m.jobs) && ADMIN_TIER.includes(dd.role) && (Number(m.jobsAt) || 0) > (dd.jobsAt || 0)) this.setJobs(dd, m.jobs, m.jobsAt, m.jobsV);
       if (edition) { dd.edition = edition; if (edition === "usage" && (dd.role === "admin" || dd.role === "main")) { dd.role = "user1"; delete dd.wantsAdmin; } }
       this.save(); this.push(); this.welcome(ws); return null;
     }
@@ -372,9 +409,18 @@ class Center {
       delete this.devices[id]; this.save(); this.push(); return R({ ok: true });
     }
     if (action === "myJobs") {
-      if (!main) return R({ ok: false, error: "Only the main admin." });
-      const jobs = (m.jobs || []).filter((j) => JOBS.includes(j)); d.jobs = !jobs.length || jobs.includes("general") ? ["general"] : jobs;
-      this.save(); this.push(); return R({ ok: true, jobs: d.jobs });
+      if (!main && !ADMIN_TIER.includes(d.role)) return R({ ok: false, error: "Jobs are for the main admin's and the admins' computers." });
+      this.setJobs(d, m.jobs, Date.now(), m.jobsV);
+      this.save(); this.push(); return R({ ok: true, jobs: d.jobs, jobsAt: d.jobsAt });
+    }
+    if (action === "runJob") {   // (10.0) two computers have the same job: which one runs it
+      const job = String(m.job || ""), target = idOf(m.target || id), t = this.devices[target];
+      if (!WORK.includes(job)) return R({ ok: false, error: "No such job." });
+      if (!t || !ADMIN_TIER.includes(t.role)) return R({ ok: false, error: "That computer isn't on the admin side." });
+      const mine = this.jobsOf(id), theirs = this.jobsOf(target);
+      if (!main && !(mine.includes(job) || mine.includes("general"))) return R({ ok: false, error: "Only the main admin, or a computer with that job, picks who runs it." });
+      if (!(theirs.includes(job) || theirs.includes("general"))) return R({ ok: false, error: (t.name || "That computer") + " doesn't have that job." });
+      this.jobRunner[job] = target; this.save(); this.push(); return R({ ok: true, job, runner: target });
     }
     if (action === "standby") {   // keep the other main admin's computer in sync (one at a time)
       if (!main) return R({ ok: false, error: "Only the main admin." });
@@ -444,7 +490,7 @@ class Center {
         t.role = m.role; delete t.claimsMain; delete t.wantsAdmin; tell({ role: m.role });
         if (m.role !== "admin" && this.standby && this.standby.id === target) { this.standby = null; for (const tw of this.socketsOf(target)) this.sendTo(tw, { type: "standbyCleared", from: "center", hub: this.hubKey }); }   // (only an admin computer keeps the copy)
       }
-      else if (action === "jobs") { const jobs = (m.jobs || []).filter((j) => JOBS.includes(j)); t.jobs = !jobs.length || jobs.includes("general") ? ["general"] : jobs; tell({ role: t.role, jobs: t.jobs }); }
+      else if (action === "jobs") { this.setJobs(t, m.jobs, Date.now(), m.jobsV); tell({ role: t.role, jobsAt: t.jobsAt, jobs: t.jobs }); }
       else if (action === "rename") { t.name = clean(m.newName) || t.name; tell({ name: t.name, role: t.role }); }
       else { if (t.role === "pedal" && t.pedalJob === "player") this.setPedalJob(target, "standby"); if (this.standby && this.standby.id === target) { this.standby = null; for (const tw of this.socketsOf(target)) this.sendTo(tw, { type: "standbyCleared", from: "center", hub: this.hubKey }); } delete this.devices[target]; tell({ role: null, removed: true }); }
       this.save(); this.push(); return R({ ok: true });
