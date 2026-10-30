@@ -3779,10 +3779,11 @@ class MiniScreen:
         if not songs:
             self.text(g, (W / 2, 150), "The setlist is empty", self.F["sub"], C["muted"], "mm")
             self.text(g, (W / 2, 172), "+ ADD a song from the library, or upload a set from Central Pedal Control", self.F["sub"], C["muted"], "mm", W - 20)
-        bw = (W - 12 - 4 * 4) / 5
+        bw = (W - 12 - 5 * 4) / 6
         for i, (label, action, on) in enumerate((("‹ SONG", {"name": "prevSong"}, False), ("NEXT ›", {"name": "nextSong"}, False),
-                                                  ("START SET", {"name": "loadSong", "args": {"index": 0}} if songs else None, False),
+                                                  ("START", {"name": "loadSong", "args": {"index": 0}} if songs else None, False),
                                                   ("+ ADD", {"local": "list", "what": "library", "title": "Song library", "az": True}, False),
+                                                  ("SETS", {"local": "list", "what": "setlists", "title": "Load setlist"}, False),
                                                   ("DONE" if edit else "EDIT", {"local": "songEdit"}, edit))):
             x = 6 + i * (bw + 4)
             self.button(g, hits, [x, 240, x + bw, H - 46], label, action, on=on, font=self.F["label"], color=None if action else C["line"])
@@ -3825,6 +3826,15 @@ class MiniScreen:
         """The lists the screen fills itself (no need to ask the app): the song library, what HDMI 1 / 2 can show."""
         if what == "library":
             self.lists["library"] = {"items": self.library_items(), "at": time.monotonic()}
+        elif what == "setlists":   # (10.0: Load setlist - the setlists this pedal knows; the open one is marked)
+            sync = getattr(self.driver, "sync", None) if self.driver else None
+            try:
+                listing = sync.setlists_listing() if sync else []
+            except Exception:
+                listing = []
+            cur = getattr(sync, "current", None)
+            self.lists["setlists"] = {"items": [{"id": x["id"], "label": x.get("name") or "Setlist", "sub": "%d song%s%s" % (x.get("count", 0), "" if x.get("count") == 1 else "s", " · open now" if x["id"] == cur else "")} for x in listing],
+                                      "current": cur}
         elif what in ("hdmi1", "hdmi2") and self.driver:
             n = 1 if what == "hdmi1" else 2
             cur = self.driver.displays_config().get("hdmi%d" % n) or ("app" if n == 1 else "lyrics")

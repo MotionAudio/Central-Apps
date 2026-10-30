@@ -979,6 +979,27 @@ async def main():
                   not up0 and moved == [{"type": "miniPick", "what": "setlistMove", "id": 1, "target": 1}] and first == [] and second == [{"type": "miniPick", "what": "setlistRemove", "id": 2}]
                   and tall(down1_box) and tall(rm2_box) and mini.song_edit is False,
                   (up0, moved, first, second, down1_box, rm2_box))
+            # 10.0: SETS - Load setlist from the small screen: the setlists this pedal knows; a pick opens it in the app
+            mini.overlay = None
+            mini.render(ds)
+            sets_box, sets_hit = hit_where(lambda a: a.get("local") == "list" and a.get("what") == "setlists")
+            _ls = driver.sync.setlists_listing
+            driver.sync.setlists_listing = lambda: [{"id": "slA", "name": "Sunday", "count": 3}, {"id": "slB", "name": "Wednesday", "count": 1}]
+            try:
+                mini.local(sets_hit)
+                mini.render(ds)
+                sl_items = (mini.lists.get("setlists") or {}).get("items") or []
+                slb_box, slb = hit_where(lambda a: a.get("local") == "pick" and a.get("what") == "setlists" and a.get("id") == "slB")
+                _sent.clear()
+                if slb:
+                    mini.local(slb)
+                sl_pick = [m for m in _sent if m.get("type") == "miniPick"]
+            finally:
+                driver.sync.setlists_listing = _ls
+            check("...SETS (10.0): Load setlist on the small screen - the pedal's setlists; a tap opens one in the app",
+                  sets_hit and tall(sets_box) and [x["label"] for x in sl_items] == ["Sunday", "Wednesday"] and sl_items[1]["sub"].startswith("1 song") and slb and tall(slb_box)
+                  and sl_pick == [{"type": "miniPick", "what": "setlists", "id": "slB", "target": None}] and mini.overlay is None,
+                  (sets_hit, sets_box, sl_items, slb, sl_pick, mini.overlay))
             # Effects: TRACKS → Effects lists the tracks bus and each track (from the app); a row opens its effects
             mini.tab, mini.sub["tracks"] = "tracks", "fx"
             _sent.clear()

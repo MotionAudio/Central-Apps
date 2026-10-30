@@ -114,6 +114,8 @@
     } else if (m.what === "library" && m.id) {
       if (window.PPSync && window.PPSync.addSong) window.PPSync.addSong(String(m.id));
       else send({ type: "miniResult", text: "Add songs in the app (♫ Setlist → Song library)." });
+    } else if (m.what === "setlists" && m.id) {   // (10.0: Load setlist on the small screen)
+      if (window.PPSync && window.PPSync.openSetlist) window.PPSync.openSetlist(String(m.id)).then(function () { send({ type: "miniResult", text: "Opened \"" + PP.project().name + "\"" }); if (window.PPTracks && window.PPTracks.sendDisplay) window.PPTracks.sendDisplay(); });
     } else if (m.what === "setlistMove") {
       setlistMove(Number(m.id), Number(m.target) || 1);
     } else if (m.what === "setlistRemove") {
