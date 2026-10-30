@@ -1015,6 +1015,8 @@ await check("touch select: pick-up - the knob far below the setting only shows a
   await until(() => T(() => PPTouchSelect.held().k3.caught));
   await sim({ sim: "knob", id: "k3", value: 0.3 });
   await until(() => T(() => Math.abs(PP.currentPad().level - 30) <= 1));   // the knob reading is smoothed: within a step
+  // (the slider follows on the next frame: wait for it rather than reading both in the middle of a step)
+  await until(() => T(() => Number(document.querySelector("#level").value) === PP.currentPad().level), 3000);
   assert.equal(await T(() => Number(document.querySelector("#level").value)), await T(() => PP.currentPad().level));
 });
 await check("touch select: it stays until another setting is tapped; tapping that one again lets it go", async () => {
