@@ -145,7 +145,7 @@
 
   function onMessage(m) {
     if (m.type === "hello") { state.hostname = m.hostname || state.hostname; state.interfaces = m.interfaces || []; state.audioHost = m.audioHost || null; state.netAudio = m.netAudio || null; state.appVersion = m.appVersion || ""; setConn("connected to " + state.hostname, ""); fire("hello", m); fire("audioHost", state.audioHost); }
-    else if (m.type === "auth") { var was = state.authed; state.authed = !!m.ok; if (!m.ok && prefs.code && !m.for) { prefs.code = ""; store.set("code", ""); alert("That pairing code was refused. Check it in Central Pedal → Settings."); } if (state.authed && !was) fire("authed", true); }
+    else if (m.type === "auth") { var was = state.authed; state.authed = !!m.ok; if (!m.ok && prefs.code && !m.for) { prefs.code = ""; store.set("code", ""); var refused = "The Central Pedal didn't accept that pairing PIN. Check the PIN on the pedal (Settings) and type it again."; if (window.CURoles && window.CURoles.toast) window.CURoles.toast(refused); else alert(refused); } if (state.authed && !was) fire("authed", true); }
     else if (m.type === "audioHost") { state.audioHost = m.host || null; fire("audioHost", state.audioHost); }
     else if (m.type === "hub") fire("hub", m);
     else if (m.type === "refused") fire("refused", m);

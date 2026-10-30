@@ -15,10 +15,10 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   var view = null, waiting = {}, notice = "";
   var DESC = {
-    main: "Runs everything and gives every other computer its role. There is one.",
-    admin: "Any of the jobs - lyrics, lights, cameras, in-ears, tracks, the live stream mix, slides. You pick them for this computer; the main admin can change them.",
-    user1: "Chord chart · instrument · lyrics · my in-ear mix",
-    user2: "Lyrics · chord chart for my instrument · my in-ear mix"
+    main: "Runs the team and tells every other computer what it does. A church has one.",
+    admin: "Runs one or more jobs, like lyrics, lights or cameras. You pick them for this computer, and the main admin can change them.",
+    user1: "For a musician: chord chart, instrument, lyrics and their own in-ear mix",
+    user2: "For a singer or a tablet on a stand: lyrics, a chord chart and their own in-ear mix"
   };
 
   function devId() {
@@ -137,8 +137,8 @@
     } finally { repairing = false; }
   }
   // ------------------------------------------------------------- (10.0) what this computer does
-  var JOB_HELP = { lyrics: "words on the screens and the stage display", lights: "the DMX lights, the auto show", cameras: "the video switcher and the cameras",
-    inears: "everyone's in-ear mixes", tracks: "the tracks mixer and the Central Pedal's tracks", stream: "the live stream's own sound mix", slides: "the slides and the countdown" };
+  var JOB_HELP = { lyrics: "words on the screens and the stage display", lights: "the stage lights and the auto light show", cameras: "the video switcher and the cameras",
+    inears: "everyone's in-ear mixes", tracks: "the tracks and their mixer", stream: "a separate sound mix for the live stream", slides: "the slides and the countdown" };
   function jobsPicker(sel, attr) {
     var all = sel.indexOf("general") >= 0;
     return '<div class="rp-jobs">' + CU.jobList.map(function (x) {
