@@ -13,6 +13,10 @@
   function db(v) { return v <= -90 ? "-∞" : (v > 0 ? "+" : "") + Number(v).toFixed(1); }
   var sel = CU.store.get("mxSel", -1), showAll = CU.store.get("mxAll", false), dragging = null, structKey = "", wave = [], rec = null;
   var layer = CU.store.get("mxLayer", "main");   // what the faders move: "main" (the room) or "stream" (the stream mix's own levels)
+  // (10.0) a computer that only does the live stream's mix: its faders are the stream's from the start
+  function streamOnly() { var j = CU.jobs ? CU.jobs() : ["general"]; return (CU.role() === "admin" || CU.role() === "main") && j.indexOf("stream") >= 0 && j.indexOf("tracks") < 0; }
+  if (streamOnly()) layer = "stream";
+  CU.on("jobs", function () { if (streamOnly() && layer !== "stream") { layer = "stream"; CU.store.set("mxLayer", layer); } });
   function onStream() { return layer === "stream"; }
   function ss(i) { return (S().stream && S().stream.sends[i]) || { level: -90, pan: 0, on: true }; }
   function fxUsed(x) { return x.fx && (x.fx.rev > -90 || x.fx.dly > -90); }

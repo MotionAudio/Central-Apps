@@ -110,6 +110,14 @@ jobs:
           bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh python pedal-driver.py
           PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-usage/driver-dist
           bash tools/ci-run.sh "bundled driver smoke test" bash tools/smoke-driver.sh central-usage/driver-dist/pedal-driver/pedal-driver
+      - uses: actions/cache@v4
+        with: { path: central-usage/native/ai, key: "lights-ai-linux-x64-qwen2.5-0.5b-q4km-9217f5d-llama-b11600" }
+      - name: The lights' AI helper (10.0, in the installer) - the model and llama-server
+        timeout-minutes: 40
+        run: |
+          bash tools/ci-run.sh "lights AI model" bash tools/fetch-lights-ai.sh central-usage/native/ai
+          [ -x central-usage/native/ai/llama-server ] || bash tools/ci-run.sh "build llama-server" bash tools/build-llama-server.sh central-usage/native/ai
+          ls -la central-usage/native/ai
       - name: Central Control
         working-directory: central-usage
         run: |
@@ -131,6 +139,7 @@ jobs:
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$R/native"
           ls "$R/player/pedal-driver.py" "$R/player/index.html" "$R/player/screens.json" > /dev/null && "$R/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "the player is in the app"
           bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js central-usage/dist/linux-unpacked/central-control "$R"
+          bash tools/ci-run.sh "lights AI helper (packed)" node tools/smoke-lights-ai.mjs "$R/ai"
           ls -la central-usage/dist/ | grep -E "deb|AppImage"
           [ "$(dpkg-deb -f central-usage/dist/CentralControl-*-amd64.deb Package)" = central-control ] || { echo "::error::Central Control's .deb is the package central-control (since 9.3.1)"; exit 1; }
           dpkg-deb -c central-usage/dist/CentralControl-*-amd64.deb | grep -q "./opt/Central Control/central-control$" || { echo "::error::Central Control should install /opt/Central Control/central-control"; exit 1; }
@@ -144,6 +153,7 @@ jobs:
           bash ../tools/ci-run.sh "electron-builder (Central Usage)" npx electron-builder --config usage-builder.js --linux deb AppImage --x64 --publish never
           test -x dist/linux-unpacked/centralusage || { echo "::error::no centralusage program"; exit 1; }
           if [ -e dist/linux-unpacked/resources/player ]; then echo "::error::Central Usage must not carry the player window"; exit 1; fi
+          if [ -e dist/linux-unpacked/resources/ai ]; then echo "::error::Central Usage must not carry the lights' AI helper (it's the admins')"; exit 1; fi
           [ "$(dpkg-deb -f dist/CentralUsage-*-amd64.deb Package)" = centralusage ] || { echo "::error::Central Usage's .deb must be its own package (centralusage)"; exit 1; }
           [ -z "$(dpkg-deb -f dist/CentralUsage-*-amd64.deb Conflicts)" ] || { echo "::error::Central Usage must not remove other packages"; exit 1; }
           bash ../tools/check-linux-deb.sh dist/CentralUsage-*-amd64.deb "Central Usage"
@@ -212,6 +222,14 @@ jobs:
         run: |
           PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-usage/driver-dist
           bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-usage/driver-dist/pedal-driver/pedal-driver.exe
+      - uses: actions/cache@v4
+        with: { path: central-usage/native/ai, key: "lights-ai-win-x64-qwen2.5-0.5b-q4km-9217f5d-llama-b11600" }
+      - name: The lights' AI helper (10.0, in the installer) - the model and llama-server
+        timeout-minutes: 40
+        run: |
+          bash tools/ci-run.sh "lights AI model" bash tools/fetch-lights-ai.sh central-usage/native/ai
+          [ -x central-usage/native/ai/llama-server.exe ] || bash tools/ci-run.sh "build llama-server" bash tools/build-llama-server.sh central-usage/native/ai
+          ls -la central-usage/native/ai
       - name: Central Control
         working-directory: central-usage
         run: |
@@ -231,6 +249,7 @@ jobs:
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$R/native"
           ls "$R/sounds/"*.sf2 | head -3
           ls "$R/player/pedal-driver.py" > /dev/null && "$R/driver/pedal-driver/pedal-driver.exe" --help > /dev/null && echo "the player is in the app"
+          bash tools/ci-run.sh "lights AI helper (packed)" node tools/smoke-lights-ai.mjs "$R/ai"
           bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "central-usage/dist/win-unpacked/Central Control.exe" "$R"
           ls -la central-usage/dist/*.exe
       - name: Central Usage (the musicians' app)
@@ -302,6 +321,14 @@ jobs:
         run: |
           PYTHON=python bash tools/ci-run.sh "bundle the driver" bash tools/build-driver.sh central-usage/driver-dist
           bash tools/ci-run.sh "driver smoke test" bash tools/smoke-driver.sh central-usage/driver-dist/pedal-driver/pedal-driver
+      - uses: actions/cache@v4
+        with: { path: central-usage/native/ai, key: "lights-ai-mac-${{ matrix.arch }}-qwen2.5-0.5b-q4km-9217f5d-llama-b11600" }
+      - name: The lights' AI helper (10.0, in the installer) - the model and llama-server
+        timeout-minutes: 40
+        run: |
+          bash tools/ci-run.sh "lights AI model" bash tools/fetch-lights-ai.sh central-usage/native/ai
+          [ -x central-usage/native/ai/llama-server ] || ARCH=${{ matrix.cpu }} bash tools/ci-run.sh "build llama-server" bash tools/build-llama-server.sh central-usage/native/ai
+          ls -la central-usage/native/ai
       - name: Central Control
         working-directory: central-usage
         run: |
@@ -319,6 +346,7 @@ jobs:
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$U/Contents/Resources/native"
           ls "$U/Contents/Resources/player/pedal-driver.py" > /dev/null && "$U/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "the player is in the app"
           bash tools/ci-run.sh "transformers" node tools/smoke-transformers.js "$U/Contents/MacOS/Central Control" "$U/Contents/Resources"
+          bash tools/ci-run.sh "lights AI helper (packed)" node tools/smoke-lights-ai.mjs "$U/Contents/Resources/ai"
           ls -la central-usage/dist/*.dmg
       - name: Central Usage (the musicians' app)
         working-directory: central-usage

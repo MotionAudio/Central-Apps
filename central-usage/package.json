@@ -199,6 +199,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "native/ai",
+        "to": "ai",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "afterPack": "build/after-pack.js",

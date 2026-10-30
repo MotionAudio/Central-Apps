@@ -9,9 +9,14 @@ Each computer has a role. The first time it starts it asks: **Main admin** or **
   4-digit **PIN** and a **pairing code** (Settings → This computer) and the
   **People and devices** list, where it gives every other computer its role and,
   for admins, their **jobs**.
-* **Admin**: **Lighting · Video · Mix · In-ears · Lyrics · Slides · I/O**, or only
-  the tabs for the jobs the main admin gives it (any mix of Lighting, Production
-  (cameras), Mix, In-ears, Slides & lyrics; *General* = all of them).
+* **Admin**: as many as you like. When Central Control is first opened it asks for
+  the church's name, the key, and then **what this computer will do**: any mix of
+  Lyrics, Lights, Cameras, In-ears, Tracks, the live stream's audio mix and Slides
+  (all seven on one computer, or one each on seven). It shows only those tabs; change
+  them in Settings → This computer (the main admin can too). One key per computer
+  covers everything it does. When two computers have the same job, both are asked
+  which one runs it; the other follows along without sending anything out (the
+  lights, for example, only go out from one computer).
 * **User 1** (a musician): **Chord chart (or any instrument's part) · Instrument ·
   Lyrics · In-ears (my mix) · I/O**
 * **User 2**: **Lyrics · Chord chart (any instrument) · In-ears (my mix)**

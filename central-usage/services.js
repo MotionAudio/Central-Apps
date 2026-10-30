@@ -231,7 +231,12 @@ module.exports = function services(app, getWin) {
     }
     if (cfg.role === "main" && patch.newPin) mainKeys().pin = /^\d{4}$/.test(String(patch.newPin)) ? String(patch.newPin) : code4();
     if (cfg.role === "main" && patch.newPair) mainKeys().pair = /^\d{4}$/.test(String(patch.newPair)) ? String(patch.newPair) : code4();
-    if (Array.isArray(patch.jobs)) cfg.jobs = patch.jobs.filter((j) => ["general", "lighting", "production", "mix", "inears", "slides"].includes(j));
+    // (10.0) seven jobs - lyrics, lights, cameras, in-ears, tracks, the live stream's mix, slides - or general (all);
+    // jobsV 2 marks the new names (a list saved before 10.0 keeps its old names until the app reads it)
+    if (Array.isArray(patch.jobs)) {
+      const names = patch.jobsV === 2 ? ["general", "lyrics", "lights", "cameras", "inears", "tracks", "stream", "slides"] : ["general", "lighting", "production", "mix", "inears", "slides"];
+      cfg.jobs = patch.jobs.filter((j) => names.includes(j)); cfg.jobsV = patch.jobsV === 2 ? 2 : undefined; cfg.jobsAt = Number(patch.jobsAt) || Date.now();
+    }
     if (patch.host) Object.assign(cfg.host, patch.host);
     if (patch.newUserCode) cfg.host.userCode = code4(); if (patch.newAdminCode) cfg.host.adminCode = code4();
     if (patch.piAudio) Object.assign(cfg.piAudio, patch.piAudio);
@@ -405,11 +410,16 @@ module.exports = function services(app, getWin) {
   });
   ipcMain.handle("lib-remove", (_e, id) => { try { libs.remove(String(id || "")); return libOut(null); } catch (e) { return libErr(e); } });
 
-  // ------------------------------------------------------------------ the lights' local AI model (optional)
-  const ai = { dir: path.join(userData, "models"), proc: null, port: 8093, download: null, ready: false, error: null };
-  const MODEL = { name: "Qwen2.5 0.5B Instruct (Q4_K_M, about 400 MB)", file: "qwen2.5-0.5b-instruct-q4_k_m.gguf", url: "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf" };
-  function aiServer() { return which("llama-server") || (fs.existsSync(path.join(ai.dir, "llama-server")) ? path.join(ai.dir, "llama-server") : null); }
-  function aiStatus() { const f = path.join(ai.dir, MODEL.file); return { model: MODEL.name, downloaded: fs.existsSync(f), server: aiServer(), running: !!ai.proc, ready: ai.ready, download: ai.download, error: ai.error }; }
+  // ------------------------------------------------------------------ the lights' local AI model
+  // (10.0) it comes with Central Control: the model and llama-server are in the app's resources/ai folder (built by
+  // tools/fetch-lights-ai.sh and tools/build-llama-server.sh). A copy downloaded by an older version, or a llama-server
+  // installed on the computer, still works when the bundled one isn't there (a build from source, a trimmed install).
+  const ai = { dir: path.join(userData, "models"), bundled: app.isPackaged ? path.join(process.resourcesPath, "ai") : path.join(__dirname, "native", "ai"), proc: null, port: 8093, download: null, ready: false, error: null };
+  const MODEL = { name: "Qwen2.5 0.5B Instruct (Q4_K_M, about 470 MB)", file: "qwen2.5-0.5b-instruct-q4_k_m.gguf", url: "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf" };
+  const SERVER_EXE = process.platform === "win32" ? "llama-server.exe" : "llama-server";
+  function aiModelFile() { const b = path.join(ai.bundled, MODEL.file); return fs.existsSync(b) ? b : path.join(ai.dir, MODEL.file); }
+  function aiServer() { const b = path.join(ai.bundled, SERVER_EXE); if (fs.existsSync(b)) return b; return which("llama-server") || (fs.existsSync(path.join(ai.dir, SERVER_EXE)) ? path.join(ai.dir, SERVER_EXE) : null); }
+  function aiStatus() { const f = aiModelFile(); return { model: MODEL.name, downloaded: fs.existsSync(f), bundled: f.startsWith(ai.bundled) && fs.existsSync(f), server: aiServer(), serverBundled: !!aiServer() && aiServer().startsWith(ai.bundled), running: !!ai.proc, ready: ai.ready, download: ai.download, error: ai.error }; }
   function get(url, depth) { return new Promise((resolve, reject) => { const lib = url.startsWith("https:") ? https : http; lib.get(url, { headers: { "User-Agent": "central-usage" } }, (res) => { if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && (depth || 0) < 6) { res.resume(); return resolve(get(new URL(res.headers.location, url).toString(), (depth || 0) + 1)); } if (res.statusCode !== 200) { res.resume(); return reject(new Error("HTTP " + res.statusCode)); } resolve(res); }).on("error", reject); }); }
   ipcMain.handle("ai-status", () => aiStatus());
   ipcMain.handle("ai-download", async () => {
@@ -423,20 +433,23 @@ module.exports = function services(app, getWin) {
     } catch (e) { ai.download = { active: false }; ai.error = "Download failed: " + e.message; try { fs.unlinkSync(part); } catch (_) { } }
     send("ai-status", aiStatus()); return aiStatus();
   });
-  ipcMain.handle("ai-remove", () => { try { fs.unlinkSync(path.join(ai.dir, MODEL.file)); } catch (_) { } if (ai.proc) ai.proc.kill(); return aiStatus(); });
+  ipcMain.handle("ai-remove", () => { try { fs.unlinkSync(path.join(ai.dir, MODEL.file)); } catch (_) { } if (ai.proc) ai.proc.kill(); return aiStatus(); });   // (only a downloaded copy: the bundled one stays with the app)
   function aiStart() {
     return new Promise((resolve) => {
       if (ai.proc && ai.ready) return resolve(true);
-      const bin = aiServer(), model = path.join(ai.dir, MODEL.file);
+      const bin = aiServer(), model = aiModelFile();
       if (!bin) { ai.error = "llama-server (llama.cpp) is not installed on this computer."; return resolve(false); }
       if (!fs.existsSync(model)) { ai.error = "The model is not downloaded yet."; return resolve(false); }
       if (!ai.proc) { ai.ready = false; ai.proc = spawn(bin, ["-m", model, "--port", String(ai.port), "--host", "127.0.0.1", "-c", "4096"], { stdio: "ignore" }); ai.proc.on("exit", () => { ai.proc = null; ai.ready = false; }); }
       let tries = 0; const t = setInterval(() => { http.get("http://127.0.0.1:" + ai.port + "/health", (res) => { res.resume(); if (res.statusCode === 200) { clearInterval(t); ai.ready = true; resolve(true); } }).on("error", () => { }); if (++tries > 120) { clearInterval(t); ai.error = "The model did not start."; resolve(false); } }, 500);
     });
   }
-  ipcMain.handle("ai-ask", async (_e, system, user) => {
+  ipcMain.handle("ai-ask", async (_e, system, user, schema) => {
     if (!(await aiStart())) return { error: ai.error };
-    const body = JSON.stringify({ messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.2, max_tokens: 1200 });
+    // (10.0) the answer is held to the steps' own shape (a JSON schema the server turns into a grammar): a small model then
+    // can't answer in a shape the lighting engine doesn't read
+    const fmt = schema && typeof schema === "object" ? { type: "json_schema", json_schema: { name: "steps", schema } } : { type: "json_object" };
+    const body = JSON.stringify({ messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.2, max_tokens: 1500, response_format: fmt });
     return new Promise((resolve) => {
       const req = http.request({ host: "127.0.0.1", port: ai.port, path: "/v1/chat/completions", method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } }, (res) => { let s = ""; res.on("data", (c) => { s += c; }); res.on("end", () => { try { const j = JSON.parse(s); resolve({ text: j.choices[0].message.content }); } catch (e) { resolve({ error: "bad answer from the model" }); } }); });
       req.on("error", (e) => resolve({ error: e.message })); req.setTimeout(60000, () => { req.destroy(); resolve({ error: "the model took too long" }); }); req.end(body);

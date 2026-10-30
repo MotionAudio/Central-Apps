@@ -14,13 +14,17 @@
   function visible() { return CU.prefs.tab === "settings"; }
   function mb(n) { return Math.round((n || 0) / 1048576); }
   function aiCard() {
-    if (!NAT || !NAT.ai) return '<section class="card"><h3>Lights: AI model (optional)</h3><p class="muted">Works in the Central Control app.</p></section>';
-    var a = ai || {}, d = a.download || {};
-    return '<section class="card"><h3>Lights: AI model (optional)</h3><p class="muted">The Lighting tab\'s "Tell it the show" box understands plain words by itself (colours, levels, the groups and lights, sections, effects, the hits). A small local AI model can also read freer sentences - it runs on this computer, nothing goes to the internet.</p>' +
-      '<table class="io-t"><tr><td>Model</td><td>' + esc(a.model || "") + " - " + (a.downloaded ? "✓ downloaded" : d.active ? "downloading… " + mb(d.got) + (d.total ? " / " + mb(d.total) : "") + " MB" : "not downloaded") + "</td></tr>" +
+    if (!NAT || !NAT.ai) return '<section class="card"><h3>Lights: the AI helper</h3><p class="muted">Works in the Central Control app.</p></section>';
+    var a = ai || {}, d = a.download || {}, inBox = a.bundled && a.serverBundled;
+    // (10.0) it comes with Central Control: nothing to download or install
+    if (inBox) return '<section class="card"><h3>Lights: the AI helper</h3><p class="muted">The Lighting tab\'s "Tell it the show" box understands plain words by itself (colours, levels, the groups and lights, sections, effects, the hits). The AI helper that came with Central Control also reads looser sentences, like "make the bridge feel like a sunrise". It runs on this computer; nothing goes online.</p>' +
+      '<p class="small">✓ Ready - ' + esc(a.model || "") + (a.running ? " · running" : "") + "</p>" + (a.error ? '<p class="warn small">' + esc(a.error) + "</p>" : "") +
+      '<label class="toggle"><input type="checkbox" data-st="ai-use"' + (CU.store.get("aiUse", true) ? " checked" : "") + "> Use it</label></section>";
+    return '<section class="card"><h3>Lights: the AI helper</h3><p class="muted">The Lighting tab\'s "Tell it the show" box understands plain words by itself (colours, levels, the groups and lights, sections, effects, the hits). The AI helper also reads looser sentences. It runs on this computer; nothing goes online. It normally comes with Central Control; this copy doesn\'t have it, so it can be downloaded here.</p>' +
+      '<table class="io-t"><tr><td>Model</td><td>' + esc(a.model || "") + " - " + (a.downloaded ? "✓ here" : d.active ? "downloading… " + mb(d.got) + (d.total ? " / " + mb(d.total) : "") + " MB" : "not downloaded") + "</td></tr>" +
       "<tr><td>llama.cpp</td><td>" + (a.server ? "✓ " + esc(a.server) : 'not found - install <b>llama-server</b> (llama.cpp: your distribution\'s package, or github.com/ggml-org/llama.cpp)') + "</td></tr>" +
       (a.error ? '<tr><td></td><td class="warn">' + esc(a.error) + "</td></tr>" : "") + "</table>" +
-      '<div class="row">' + (a.downloaded ? '<button data-st="ai-remove">Remove the model</button>' : '<button data-st="ai-download"' + (d.active ? " disabled" : "") + ">Download the model (about 400 MB)</button>") + '<label class="toggle"><input type="checkbox" data-st="ai-use"' + (CU.store.get("aiUse", true) ? " checked" : "") + "> Use it when it is ready</label></div></section>";
+      '<div class="row">' + (a.downloaded ? (a.bundled ? "" : '<button data-st="ai-remove">Remove the model</button>') : '<button data-st="ai-download"' + (d.active ? " disabled" : "") + ">Download the model (about 470 MB)</button>") + '<label class="toggle"><input type="checkbox" data-st="ai-use"' + (CU.store.get("aiUse", true) ? " checked" : "") + "> Use it when it's ready</label></div></section>";
   }
   function mixCard() {   // where the tracks go out of the audio interface (also on the Mix tab)
     var X = window.CUMix, st = X && X.state; if (CU.mode() !== "admin") return "";

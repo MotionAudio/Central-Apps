@@ -10,7 +10,7 @@ b.appId = "org.centralcontrol.musicians";
 b.productName = FILE;   // (the app's file: CentralUsage.app / CentralUsage.exe - it can sit next to Central Control)
 b.extraMetadata = { edition: "usage", productName: FILE, description: "Central Usage: the chord chart, your instrument, the lyrics and your in-ear mix - for the musicians of a Central Pedal team." };
 b.artifactName = FILE + "-${version}-${arch}.${ext}";
-b.extraResources = (b.extraResources || []).filter((r) => !/player-src|driver-dist/.test(r.from));   // (the player window is the main admin's)
+b.extraResources = (b.extraResources || []).filter((r) => !/player-src|driver-dist|native\/ai/.test(r.from));   // (the player window and the lights' AI model are the admins')
 b.mac.artifactName = FILE + "-${version}-mac-${arch}.${ext}";
 b.dmg = Object.assign({}, b.dmg, { artifactName: FILE + "-${version}-mac-${arch}.${ext}" });
 b.mac.extendInfo = Object.assign({}, b.mac.extendInfo, {
