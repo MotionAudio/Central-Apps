@@ -211,7 +211,7 @@
     var songs = d.songs || [], s = currentSong();
     $("#songName").textContent = s ? (s.index + 1) + ". " + s.name : (songs.length ? "No song selected" : "No songs yet");
     $("#songMeta").textContent = s ? C.pretty(songKeyNow()) + " · " + (d.bpm || s.bpm || "–") + " BPM" + (d.section && prefs.follow ? " · " + d.section.name : "") + (d.tracksMode ? (d.playing ? " · ▶ " : " · ❚❚ ") + fmtTime(d.pos) : "") : "";
-    var pick = $("#songPick"), names = songs.map(function (q) { return q.name; }).join("|"); if (pick.dataset.names !== names) { pick.dataset.names = names; pick.innerHTML = '<option value="-1">— follow the Central Pedal —</option>' + songs.map(function (q, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(q.name) + "</option>"; }).join(""); } pick.value = String(prefs.follow ? -1 : state.pickedSong);
+    var pick = $("#songPick"), names = songs.map(function (q) { return q.name; }).join("|"); if (pick.dataset.names !== names) { pick.dataset.names = names; pick.innerHTML = '<option value="-1">The song playing now</option>' + songs.map(function (q, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(q.name) + "</option>"; }).join(""); } pick.value = String(prefs.follow ? -1 : state.pickedSong);
     var secs = prefs.follow ? (d.sections || []) : [], cur = d.section ? d.section.index : -1, skey = secs.map(function (q) { return q.name; }).join("|") + "#" + cur;
     if ($("#sections").dataset.key !== skey) { $("#sections").dataset.key = skey; $("#sections").innerHTML = secs.map(function (q, i) { return '<button data-sec="' + i + '" class="' + (i === cur ? "current" : i === cur + 1 ? "next" : "") + '">' + esc(q.name) + "</button>"; }).join(""); var cb = $("#sections .current"); if (cb) cb.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
     var want = s && s.chart ? (s.chart.id || s.chart) : null; if (typeof want === "object" && want) want = want.id;
@@ -312,7 +312,7 @@
   fillInstruments(); wire(); showTab(prefs.tab); connect(); initMidi();
   (async function () {   // this computer's settings live in the app (cu.json); in a plain browser: local storage
     if (window.CU && window.CU.config) { try { var c = await window.CU.config.get(); if (c) { cuCfg = c; if (c.mode) store.set("mode", c.mode); if (c.role) store.set("role", c.role); if (c.jobs) { store.set("jobs", c.jobs); store.set("jobsV", c.jobsV || null); store.set("jobsAt", c.jobsAt || 0); } } } catch (_) { } }
-    if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Control";
+    if (!cuCfg.name) cuCfg.name = store.get("name", "") || (EDITION === "usage" ? "" : "Central Control");   // (a phone with no name yet: its in-ear mix asks for one, not "Central Control")
     if (!role()) askMode(); applyMode(); fire("ready");
   })();
   function syncedPrefs() { var o = {}; SYNCED.forEach(function (k) { var v = store.get(k, undefined); if (v !== undefined) o[k] = v; }); return o; }

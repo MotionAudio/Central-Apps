@@ -98,7 +98,7 @@
     if (userUi) { userUi.destroy(); userUi = null; }
     userKey = key;
     if (!addr || !code) {
-      root.innerHTML = '<div class="card ie-setup"><h3>My in-ear mix</h3><p class="muted">The sound desk\'s audio host makes everyone\'s in-ear mix. ' + (addr ? "Found it: <b>" + esc(addr) + "</b>." : CU.state.connected ? "No audio host yet - ask the sound desk to turn it on." : "Connect to the Central Pedal first (top right); the audio host is found through it.") + '</p>' +
+      root.innerHTML = '<div class="card ie-setup"><h3>My in-ear mix</h3><p class="muted">Your in-ear mix comes from the audio host at the sound desk. ' + (addr ? "Found it: <b>" + esc(addr) + "</b>." : CU.state.connected ? "It isn't on yet, so ask the sound desk to turn it on." : "Connect to the Central Pedal first (top right). The audio host is found through it.") + '</p>' +
         '<label>Your name<input data-iu="name" value="' + esc(name) + '" placeholder="Sarah (vocals)"></label><label>In-ear code<input data-iu="code" value="' + esc(code) + '" inputmode="numeric" placeholder="4 digits from the sound desk"></label>' +
         '<details><summary class="muted small">Audio host address (only if it isn\'t found)</summary><input data-iu="addr" value="' + esc(CU.store.get("hostAddr", "")) + '" placeholder="192.168.1.20:8092"></details><button class="primary" data-iu="go">Continue</button></div>';
       return;
