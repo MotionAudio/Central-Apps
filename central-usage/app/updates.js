@@ -8,8 +8,13 @@
   function $(s) { return document.querySelector(s); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   var st = { current: "", available: false }, dismissed = null;
+  var waitingForPage = false;
   function render() {
-    var d = $("#updDialog"); if (!d) return;
+    var d = $("#updDialog");
+    if (!d) {   // (the answer can come before the page has its dialogs - this script loads above them): draw once it has
+      if (document.readyState === "loading" && !waitingForPage) { waitingForPage = true; document.addEventListener("DOMContentLoaded", function () { waitingForPage = false; render(); }, { once: true }); }
+      return;
+    }
     $("#updInfo").textContent = "Central Control " + (st.current || "") + (st.lastCheck ? " · last checked " + new Date(st.lastCheck * 1000).toLocaleString() : "") + (st.kind === "appimage" ? " · AppImage" : st.kind === "deb" ? " · installed package" : "");
     if (document.activeElement !== $("#updRepo")) $("#updRepo").value = st.repo || ""; $("#updAuto").checked = st.auto !== false; if ($("#updAutoInstall")) $("#updAutoInstall").checked = st.autoInstall !== false;
     $("#updState").textContent = st.busy ? "Downloading… " + Math.round((st.progress || 0) * 100) + "%" : st.error || (st.available ? "Version " + st.latest + " is ready." + (st.notes ? " " + st.notes.split("\n")[0].slice(0, 200) : "") : st.latest ? "Up to date." : "");
@@ -79,7 +84,8 @@
   }
   function cfgNow() { return { repo: $("#updRepo").value.trim(), auto: $("#updAuto").checked, autoInstall: $("#updAutoInstall") ? $("#updAutoInstall").checked : true }; }
   function open() { var d = $("#updDialog"); if (!d) return; if (!d.open) d.showModal(); UP && UP.status().then(function (s) { st = s; render(); }); }
-  if ($("#updAsk")) $("#updAsk").addEventListener("cancel", function () { dismissed = st.latest; setTimeout(render, 0); });
+  function onCancel() { $("#updAsk").addEventListener("cancel", function () { dismissed = st.latest; setTimeout(render, 0); }); }
+  if ($("#updAsk")) onCancel(); else document.addEventListener("DOMContentLoaded", function () { if ($("#updAsk")) onCancel(); }, { once: true });
   if (UP) {
     UP.on(function (s) { st = s; render(); });
     UP.status().then(function (s) { st = s; render(); });
