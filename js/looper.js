@@ -398,7 +398,7 @@
   // ------------------------------------------------------------------ the LOOPER tab
   var LABEL = { empty: "REC", armed: "WAIT…", recording: "● REC", playing: "▶ PLAY", dubbing: "● DUB", stopped: "■ STOP" };
   var NEXT = { empty: "record", armed: "cancel", recording: "close the loop", playing: "overdub", dubbing: "play", stopped: "play" };
-  var MODES = [["auto", "Auto", "in time with the song when it plays, free when not"], ["song", "Tempo", "always N bars at the tempo"], ["free", "Free", "tap to start, tap to close"]];
+  var MODES = [["auto", "Auto", "In time with the song while it plays, free when nothing is playing"], ["song", "Tempo", "Always a set number of bars at the tempo"], ["free", "Free", "Tap to start, tap again to close the loop"]];
   function ring(i, f, cls) {
     var r = 46, C = 2 * Math.PI * r;
     return '<svg class="lp-ring" viewBox="0 0 110 110" aria-hidden="true"><circle cx="55" cy="55" r="' + r + '" class="lp-ring-bg"/><circle cx="55" cy="55" r="' + r + '" class="lp-ring-fg ' + cls + '" data-lpring="' + i + '" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + (C * (1 - (f || 0))).toFixed(1) + '"/></svg>';
@@ -425,10 +425,10 @@
       '<label class="lp-bars">Length<select data-lpset="bars">' + [1, 2, 4, 8, 16].map(function (b) { return '<option value="' + b + '"' + (c.bars === b ? " selected" : "") + ">" + b + " bar" + (b === 1 ? "" : "s") + "</option>"; }).join("") + "</select></label>" +
       '<label class="toggle"><input type="checkbox" data-lpset="countIn"' + (c.countIn ? " checked" : "") + "> Count-in (one bar of clicks)</label>" +
       '<label class="toggle lp-onoff"><input type="checkbox" data-lpset="enabled" checked> Looper on</label></div>' +
-      '<p class="muted small lp-help">' + esc(MODES.filter(function (x) { return x[0] === m; })[0][2]) + ". The first loop sets the length; the others close on a whole number of it and stay in step. The tracks and pads keep playing.</p>" +
+      '<p class="muted small lp-help">' + esc(MODES.filter(function (x) { return x[0] === m; })[0][2]) + ". The first loop sets the length and the others stay in step with it. Your tracks and pads keep playing.</p>" +
       '<div class="lp-tracks">' + [0, 1, 2].map(trackCard).join("") + "</div>" +
       '<div class="lp-all"><button class="lp-allbtn" data-lp="playAll">▶ PLAY ALL</button><button class="lp-allbtn" data-lp="stopAll">■ STOP ALL</button><button class="lp-allbtn danger" data-lp="clearAll">CLEAR ALL</button></div>' +
-      '<p class="muted small">One footswitch can run it like a looper pedal: Configure → "Looper pedal" (tap: record / play / overdub · double tap: stop all · hold: clear). Each loop also has its own actions, and knobs / sliders can set each loop\'s level. The loops play on the Looper output (Settings → Output routing; the instrument\'s output unless you pick another).</p>';
+      '<p class="muted small">To run it from one footswitch like a looper pedal, give a button the "Looper pedal" job on the Configure tab: tap to record, play and overdub, double-tap to stop, hold to clear. Each loop also has its own jobs for buttons, knobs and sliders. The loops play on the instrument\'s output unless you pick another one in Settings → Output routing.</p>';
   }
   function renderTab() { var root = $("#looperRoot"); if (root) root.innerHTML = tabHtml(); }
   // the strip on the Instrument tab: the main switch of the selected loop, and the way to the LOOPER tab

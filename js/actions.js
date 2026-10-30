@@ -16,19 +16,19 @@
   def("none", "— nothing —", "General", "trigger", function () { });
   function hasTracks() { var t = T(); if (!t) return false; var s = t.song(); return !!(s && t.data(s).stems && t.data(s).stems.length); }
   function anythingPlaying() { return (T() && T().isPlaying()) || engine.voices().length > 0; }
-  def("playAll", "Play all: tracks (pads follow) - or the song's pad when there are no tracks", "Transport", "trigger", function () {
+  def("playAll", "Play: the tracks with the song's pad, or just the pad if there are no tracks", "Transport", "trigger", function () {
     if (hasTracks()) { if (!T().isPlaying()) T().play(); } else if (!engine.voices().length) PP.toggleSelected();
   }, { led: function () { return anythingPlaying() ? "on" : "off"; } });
   def("playPauseAll", "Play / pause all", "Transport", "trigger", function () {
     if (hasTracks()) T().togglePlay(); else PP.toggleSelected();
   }, { led: function () { return anythingPlaying() ? "on" : "off"; } });
-  def("stopAll", "Stop all: tracks, pads (fade) and the looper", "Transport", "trigger", function () {
+  def("stopAll", "Stop everything: tracks, pads (they fade) and the looper", "Transport", "trigger", function () {
     if (T() && T().isPlaying()) T().stop(false); engine.stop(); var L2 = window.PPLooper; if (L2 && L2.anyPlaying && L2.anyPlaying()) L2.stopAll();
   });
   def("nextSongStop", "Skip to the next song (stops what's playing)", "Transport", "trigger", function () { if (T() && T().isPlaying()) T().stop(false); F.stepSong(1); });
   def("prevSongStop", "Back to the previous song (stops what's playing)", "Transport", "trigger", function () { if (T() && T().isPlaying()) T().stop(false); F.stepSong(-1); });
   def("pad", "Play pad", "Pads", "trigger", function (a) { PP.triggerPad(Number(a && a.index) || 0); }, { arg: "pad", led: function (a) { var i = Number(a && a.index) || 0; return engine.playingIndexes().indexOf(i) > -1 ? "on" : i === PP.selected() && !engine.voices().length ? "blink" : "off"; } });
-  def("padLayer", "Layer pad (stack)", "Pads", "trigger", function (a) { PP.triggerPad(Number(a && a.index) || 0, { layer: true }); }, { arg: "pad", led: function (a) { return engine.playingIndexes().indexOf(Number(a && a.index) || 0) > -1 ? "on" : "off"; } });
+  def("padLayer", "Add a pad on top (layer)", "Pads", "trigger", function (a) { PP.triggerPad(Number(a && a.index) || 0, { layer: true }); }, { arg: "pad", led: function (a) { return engine.playingIndexes().indexOf(Number(a && a.index) || 0) > -1 ? "on" : "off"; } });
   def("padHold", "Pad while held", "Pads", "trigger", function (a) { var i = Number(a && a.index) || 0; if (engine.playingIndexes().indexOf(i) < 0) PP.triggerPad(i, { layer: engine.voices().length > 0 }); }, { arg: "pad", release: function (a) { var i = Number(a && a.index) || 0; if (engine.voiceFor(i)) engine.playPad(i, null, { layer: true }); }, led: function (a) { return engine.playingIndexes().indexOf(Number(a && a.index) || 0) > -1 ? "on" : "off"; } });
   def("playSelected", "Play / fade the selected pad", "Pads", "trigger", function () { PP.toggleSelected(); }, { led: function () { return engine.voices().length ? "on" : "off"; } });
   def("selectNextPad", "Select next pad (no sound)", "Pads", "trigger", function () { PP.setSelectedPad((PP.selected() + 1) % PP.PAD_COUNT, false); });
@@ -38,7 +38,7 @@
   def("freeze", "Freeze on / off", "Pads", "trigger", function () { F.toggleFreeze(); }, { led: function () { return engine.frozen ? "on" : "off"; } });
   def("freezeHold", "Freeze while held", "Pads", "trigger", function () { if (!engine.frozen) F.toggleFreeze(); }, { release: function () { if (engine.frozen) F.toggleFreeze(); }, led: function () { return engine.frozen ? "on" : "off"; } });
   def("layer", "Layer mode on / off", "Pads", "trigger", function () { F.toggleLayerMode(); }, { led: function () { return project().performance.layerMode ? "on" : "off"; } });
-  def("morph", "Morph (pick A, B)", "Pads", "trigger", function () { F.morphButton(); }, { led: function () { return engine.morph ? "on" : "off"; } });
+  def("morph", "Morph between two pads (pick A, then B)", "Pads", "trigger", function () { F.morphButton(); }, { led: function () { return engine.morph ? "on" : "off"; } });
   def("tap", "Tap tempo", "Tempo", "trigger", function () { F.tap(); }, { led: function () { return "beat"; } });
   def("keyUp", "Key up", "Key", "trigger", function () { if (T() && T().isActive()) T().shiftKey(1); else PP.changeKey(1); });
   def("keyDown", "Key down", "Key", "trigger", function () { if (T() && T().isActive()) T().shiftKey(-1); else PP.changeKey(-1); });
@@ -59,7 +59,7 @@
   def("flowRepeat", "Flow: this section once more", "Tracks", "trigger", function () { if (T()) T().flowRepeat(); });
   def("flowSkip", "Flow: skip the next section", "Tracks", "trigger", function () { if (T()) T().flowSkip(); });
   def("flowToggle", "Flow: follow the arrangement on / off", "Tracks", "trigger", function () { if (T()) T().setFlowOn(!T().flowActive(T().song())); }, { led: function () { return T() && T().flowActive(T().song()) ? "on" : "off"; } });
-  def("queueArm", "Flow: then press a section button = play it next", "Tracks", "trigger", function () { if (T()) T().armQueue(); });
+  def("queueArm", "Flow: the next section button you press plays next", "Tracks", "trigger", function () { if (T()) T().armQueue(); });
   def("toggleTracks", "Tracks mode on / off", "Tracks", "trigger", function () { if (T()) T().setTracksMode(!project().tracksMode); }, { led: function () { return project().tracksMode ? "on" : "off"; } });
   def("toggleClick", "Click on / off", "Tracks", "trigger", function () { if (T()) T().toggleClick(); }, { led: function () { var s = T() && T().song(); return s && T().data(s).click.on ? "on" : "off"; } });
   def("toggleCues", "Voice cues on / off", "Tracks", "trigger", function () { if (T()) T().toggleCues(); }, { led: function () { var s = T() && T().song(); return s && T().data(s).cues.on ? "on" : "off"; } });
@@ -218,7 +218,7 @@
 
   // ---- each bus: a level and a mute. Tracks, pads (+ textures and the audio input), click + MD voice, instrument.
   // (Mutes last until they're turned off or the app restarts - they're never saved, so a pedal never starts silent.)
-  var BUS_NAMES = { tracks: "Tracks", pad: "Pads", click: "Click + MD voice", instrument: "Instrument" };
+  var BUS_NAMES = { tracks: "Tracks", pad: "Pads", click: "Click + cue voice", instrument: "Instrument" };
   var mutes = {}, clickHeld = null;
   function busLevel(bus) {
     if (bus === "tracks") return T() ? T().levels.tracks : 0.85;

@@ -865,7 +865,7 @@
     if (song()) pushAll(song());
     if (window.PPActions) window.PPActions.modeChanged();
     render(); sendDisplay();
-    PP.setStatus(p.tracksMode ? "Tracks ON: buttons and knobs use the Tracks layout, pads follow the song" : "Tracks OFF: pads use the setlist song key");
+    PP.setStatus(p.tracksMode ? "Tracks on: the song's tracks play, and its pad comes in with them" : "Tracks off: the pads play on their own, in the song's key");
   }
 
   // ------------------------------------------------------------- songs: load / import / uploads

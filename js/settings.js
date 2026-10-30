@@ -43,7 +43,7 @@
   }
 
   // ------------------------------------------------------------- routing matrix
-  var BUSES = [["tracks", "Tracks", "songs / stems (mono sum)"], ["pad", "Pads", "pads + textures + audio input"], ["click", "Click + MD voice", "metronome and spoken cues (in-ears)"], ["instrument", "Instrument", "guitar / keys (native chain on the Pi)"]];
+  var BUSES = [["tracks", "Tracks", "the song's tracks, mixed"], ["pad", "Pads", "pads + textures + audio input"], ["click", "Click + cue voice", "metronome and spoken cues (in-ears)"], ["instrument", "Instrument", "guitar / keys (native chain on the Pi)"]];
   function channelNames() {
     var st = F.systemStatus && F.systemStatus(), list = st && st.audio && st.audio.channels;
     var n = Math.max(engine.ctx ? (engine.ctx.destination.maxChannelCount || 2) : 2, list ? list.length : 0, 4);

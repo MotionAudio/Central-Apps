@@ -525,7 +525,7 @@ def wifi_status(scan=False):
     status = {"connected": None, "signal": None, "addresses": ip_addresses(), "networks": [], "available": shutil.which("nmcli") is not None,
               "country": (open("/etc/pad-pedal/wifi-country").read().strip() if os.path.exists("/etc/pad-pedal/wifi-country") else "US"), "error": None}
     if not status["available"]:
-        status["error"] = "NetworkManager is not installed."
+        status["error"] = "Wi-Fi can't be set up on this system."
         return status
     if _wifi_helper():
         code, out, err = run(["sudo", "-n", SYSTEM_SCRIPT, "wifi", "scan" if scan else "status"], timeout=40 if scan else 15)
