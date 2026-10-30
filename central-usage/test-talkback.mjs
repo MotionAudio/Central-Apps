@@ -170,7 +170,7 @@ await check("I/O tab: the Listening & recording card has the control and the fol
   await shot(cu, "6-io-card");
 });
 await check("an admin on another computer starts and stops the audio host's recording from its Mix tab", async () => {
-  await booth.evaluate(() => CentralUsage.setJobs(["mix", "inears"])); await booth.evaluate(() => CentralUsage.showTab("mix"));
+  await booth.evaluate(() => CentralUsage.setJobs(["tracks", "inears"])); await booth.evaluate(() => CentralUsage.showTab("mix"));
   await booth.waitForSelector("#mixRoot .rec-ctl [data-rec='go']", { timeout: 6000 });
   await booth.fill("#mixRoot [data-rec='name']", "From the booth"); await booth.click("#mixRoot [data-rec='go']");
   await until(() => cu.evaluate(() => CU.recorder.state().then((s) => s.recording && /From the booth/.test(s.folder))), 6000);

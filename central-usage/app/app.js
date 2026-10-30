@@ -52,7 +52,7 @@
   function tabsFor(r) {
     var hide = window.CULock && window.CULock.hiddenTabs ? window.CULock.hiddenTabs() : [];   // the main admin's service lock
     var keep = function (list) { return hide.length ? list.filter(function (t) { return hide.indexOf(t) < 0; }) : list; };
-    if (WEB) return keep(MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io" && t !== "studio"; }));   // a phone / tablet browser: the user side, no native parts
+    if (WEB) return keep(MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io" && t !== "studio" && t !== "controls"; }));   // a phone / tablet browser: the user side, no native parts (and no MIDI / keys / Stream Deck to set up)
     if (r !== "admin" && r !== "main") return keep(MODES[r]);
     // admins - and the main admin too - work by their jobs: everything (production manager), or only lighting, mix…
     var j = jobs(); if (j[0] === "general") return keep(MODES[r]);
