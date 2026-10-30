@@ -34,7 +34,7 @@
   function render() {
     var root = $("#settingsRoot"); if (!root || !visible()) return;
     var c = CU.config() || {}, m = CU.mode(), usage = CU.edition && CU.edition() === "usage", admin = m === "admin" && !usage;
-    root.innerHTML = '<div class="io-grid">' +
+    var html = '<div class="io-grid">' +
       (window.PPLicense ? window.PPLicense.settingsHtml("card") : "") +
       (window.CUColors ? window.CUColors.card() : "") +
       (window.CURoles ? window.CURoles.card() : "") +
@@ -44,6 +44,10 @@
       (admin && window.CULyricsListen ? window.CULyricsListen.card() : "") +
       '<section class="card"><h3>Updates</h3><p class="muted">' + esc(CU.appName) + ' looks for a new version once a day and installs it only when you say so.</p><button data-st="updates">Check for updates…</button></section>' +
       '<section class="card"><h3>About</h3><p>' + esc(CU.appName) + " " + esc(version && version.app || "") + '</p><p class="muted small">' + (usage ? "For the musicians and singers on the team: your chord chart, your instrument, the lyrics and your own in-ear mix." : "For the people running the service: lights, slides and lyrics, the tracks mixer, the in-ear mixes and the cameras.") + "</p></section></div>";
+    // redraw only when something changed, and never under someone typing (a half-typed package key or name stays)
+    if (root.__h === html) return;
+    var f = document.activeElement; if (f && root.contains(f) && /^(INPUT|TEXTAREA)$/.test(f.tagName) && f.type !== "checkbox" && f.type !== "radio" && f.type !== "range") return;
+    root.__h = html; root.innerHTML = html;
   }
   var root = $("#settingsRoot");
   root.addEventListener("change", async function (e) {
