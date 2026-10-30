@@ -29,7 +29,7 @@
   // ---- this computer's role: the main admin (one), admins, User 1 and User 2 - which tabs it has.
   // mode() is the side (admin / user) the tab modules check; role() is the exact role.
   var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"],
-    user1: ["chart", "instrument", "lyrics", "inears", "io", "controls", "settings"], user2: ["lyrics", "chart", "inears", "controls", "settings"] };
+    user1: ["chart", "instrument", "studio", "lyrics", "inears", "io", "controls", "settings"], user2: ["lyrics", "chart", "inears", "controls", "settings"] };
   // (10.0) what this computer does - picked when it's set up (Settings → This computer changes it; the main admin can
   // too): any of seven jobs, or all of them (General). One computer can do all seven, or seven computers one each.
   var JOB_TABS = { lyrics: ["lyrics"], lights: ["lights"], cameras: ["video"], inears: ["inears"], tracks: ["mix"], stream: ["mix"], slides: ["slides"] };
@@ -52,7 +52,7 @@
   function tabsFor(r) {
     var hide = window.CULock && window.CULock.hiddenTabs ? window.CULock.hiddenTabs() : [];   // the main admin's service lock
     var keep = function (list) { return hide.length ? list.filter(function (t) { return hide.indexOf(t) < 0; }) : list; };
-    if (WEB) return keep(MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io"; }));   // a phone / tablet browser: the user side, no native parts
+    if (WEB) return keep(MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io" && t !== "studio"; }));   // a phone / tablet browser: the user side, no native parts
     if (r !== "admin" && r !== "main") return keep(MODES[r]);
     // admins - and the main admin too - work by their jobs: everything (production manager), or only lighting, mix…
     var j = jobs(); if (j[0] === "general") return keep(MODES[r]);

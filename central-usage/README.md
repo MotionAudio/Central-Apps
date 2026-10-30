@@ -18,7 +18,7 @@ Each computer has a role. The first time it starts it asks: **Main admin** or **
   which one runs it; the other follows along without sending anything out (the
   lights, for example, only go out from one computer).
 * **User 1** (a musician): **Chord chart (or any instrument's part) · Instrument ·
-  Lyrics · In-ears (my mix) · I/O**
+  Studio · Lyrics · In-ears (my mix) · I/O**
 * **User 2**: **Lyrics · Chord chart (any instrument) · In-ears (my mix)**
 
 A new computer chooses **Join** and types the main admin's pairing code; it starts
@@ -225,6 +225,25 @@ A light controller in the style of Lightkey that follows the song:
   the keys, so it needs `python3`, `fluidsynth` and the LV2 plugins.
 * **Lyrics**: big, with what comes next.
 
+## Studio (User 1)
+
+A place to write and record parts, like Logic or Ableton, for the people who play.
+
+* **Up to four MIDI devices at once** - keyboards, drum pads, a Launchpad, a looper. Each one plays the track
+  you've picked, or always the same track. A Launchpad can play the grid instead, with its pads lit to match.
+  No keyboard with you? Tick **Computer keys** and play with A W S E D F T G Y H U J K.
+* **Tracks**: instrument tracks (any sound on this computer, up to four sounds layered, split across the keyboard
+  or by how hard you play), drum tracks and audio tracks (your microphone or instrument input).
+* **Grid**: clips in slots, rows you can play as a whole. A clip starts on the next bar (or beat, or at once).
+  **Timeline**: clips laid out in bars, moved and stretched by dragging; a clip made longer repeats.
+* **Editing**: a piano roll with a velocity lane, step rows for drums, quantize, transpose, ×2, undo and redo.
+* **Recording**: count-in, click, loop, overdub; into a grid slot or onto the timeline.
+* **Mixer**: volume, pan, mute, solo and the same effects as the Central Pedal's tracks (gate, EQ, compressor,
+  reverb, delay). The basic ones are free; the better ones, and the better sounds, come with the sound plans.
+* **Export** the timeline as one WAV, or a WAV per track (stems). Songs are saved on this computer.
+* What you play live goes through **cu-studio**, a small native player, so you hear it with only a few
+  milliseconds of delay. Recorded parts play back in the page, with their effects.
+
 ## Lyrics + chords from the vocal (Admin)
 
 **Lyrics tab → ♫ Lyrics + chords from the vocal** listens to the vocal track of the
@@ -290,4 +309,8 @@ are loaded at run time.
 * `node native/test-mixer.mjs` covers the engine alone, including the talkback
   mix-in and dim, the recorded WAVs and `cu-mixer --repair`.
 * `xvfb-run -a node test-app.mjs` covers the phone remote and the updater.
+* `xvfb-run -a node test-studio.mjs` covers the Studio: SoundFont reading, timing and pitch of what's
+  played (rendered and measured), effects with and without Central Plugins, sound plans, MIDI devices and
+  a Launchpad, recording MIDI and audio, the editors, exports and saving, then the real app's sound list,
+  project files and cu-studio. `node native/test-studio-native.mjs native/build/cu-studio` tests the player alone.
 * `node test-dmx.mjs` covers the packets and one output per universe.

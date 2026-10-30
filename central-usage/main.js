@@ -191,7 +191,9 @@ const videoSvc = require("./video-service").setup({
   binDir: app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native", "build")
 });
 if (process.platform === "darwin") app.whenReady().then(() => { try { require("electron").systemPreferences.askForMediaAccess("camera"); } catch (_) { } });
-require("./asr").setupAsr({ ipcMain, app, getWin: () => win });   // lyrics from a vocal track (speech model on this computer)
+require("./asr").setupAsr({ ipcMain, app, getWin: () => win });
+require("./studio").setup({ ipcMain, app, getWin: () => win, binDir: app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native", "build"),   // the Studio tab: sounds, projects, the low-delay player
+  soundsDir: app.isPackaged ? path.join(process.resourcesPath, "sounds") : path.join(__dirname, "native", "sounds") });   // lyrics from a vocal track (speech model on this computer)
 app.on("before-quit", () => { try { dmx.blackout(); } catch (_) { } try { svc.stop(); } catch (_) { } });
 ipcMain.handle("version", () => ({ app: app.getVersion(), electron: process.versions.electron }));
 // how this computer is doing, for the main admin's Devices tab
