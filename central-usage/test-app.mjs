@@ -33,7 +33,7 @@ await win.waitForFunction(() => window.CULights && window.CU && window.CU.remote
 // no website yet: Central Control asks for its A key (the production's name, then the key); only the default A key works
 await check("Central Control opens on its key setup with no website; a key for another app and a random key are refused with the right words", async () => {
   await win.waitForSelector("dialog#licWiz[open] #lwProd", { timeout: 10000 });
-  assert.deepEqual(await win.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)), ["1. Production", "2. License key"]);
+  assert.deepEqual(await win.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)), ["1. Church", "2. License key"]);
   await win.fill("#lwProd", "Grace Church"); await win.click('#licWiz [data-lw="prod"]'); await win.waitForSelector("#lwKey");
   await win.fill("#lwKey", "PDEF-AULT-KEY0-2026"); await win.click('#licWiz [data-lw="key"]');
   assert.match(await win.textContent("#licWiz .bad"), /That's a P key .*Central Control needs a key that starts with A\./);
