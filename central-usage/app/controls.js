@@ -182,7 +182,7 @@
         '<div class="ctl-btns"><button data-ctl="relearn" data-id="' + i.id + '">Learn again</button><button data-ctl="del" data-id="' + i.id + '" title="Remove">✕</button></div></div>';
     }).join("");
     root.innerHTML = '<div class="ctl-wrap"><section class="card"><h3>Your controls</h3>' +
-      '<p class="muted">Footswitches, expression pedals, knobs and sliders on a MIDI controller, or a key on this computer\'s keyboard. Add one, tell us what kind it is and give it a name, then press it, turn it or slide it when we ask. Then pick what it does.</p>' +
+      '<p class="muted">Use footswitches, expression pedals, knobs and sliders on a MIDI controller, or keys on this computer\'s keyboard. Add one, say what kind it is and give it a name, then press, turn or slide it when asked. After that, pick what it does.</p>' +
       '<p class="small muted">' + (S.midi.available() ? (ports.length ? "MIDI devices here: " + ports.map(function (p) { return esc(S.shortPort(p.name).replace(/(^|\s)\S/g, function (c) { return c.toUpperCase(); })); }).join(", ") : "No MIDI devices plugged in yet. Keys on the keyboard still work.") : "MIDI isn't available here. Keys on the keyboard still work.") + "</p>" +
       '<div class="row"><button class="primary" data-ctl="add">+ Add new control</button></div>' +
       (rows ? '<div class="ctl-list">' + rows + "</div>" : '<p class="muted">Nothing learned yet.</p>') + "</section>" +

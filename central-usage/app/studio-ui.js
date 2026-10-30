@@ -145,7 +145,7 @@
   function curClip() { var c = ui.clip && P().clips[ui.clip]; return c || null; }
   function clipPanel(t) {
     var c = curClip();
-    if (!c) return '<div class="st-empty"><p><b>No clip picked.</b> Click a clip on the grid or the timeline to edit it.</p><p class="muted">To make one: arm a track (●), then press ● on an empty slot and play - or double-click an empty slot (or an empty spot on the timeline) for a blank clip you can draw in.</p></div>';
+    if (!c) return '<div class="st-empty"><p><b>No clip picked.</b> Click a clip on the grid or the timeline to edit it.</p><p class="muted">To make one, arm a track (●), press ● on an empty slot and play. Or double-click an empty slot, or an empty spot on the timeline, for a blank clip you can draw notes in.</p></div>';
     var p = P(), owner = trackOfClip(c.id) || t, bpb = S.beatsPerBar();
     var bar = '<div class="st-ctools"><input class="st-cname-in" id="stClipName" value="' + esc(c.name) + '" placeholder="Clip name"><label>Length <select id="stClipLen">' + [1, 2, 4, 8, 16, 32].map(function (b) { return '<option value="' + b * bpb + '"' + (Math.abs(c.len - b * bpb) < 0.01 ? " selected" : "") + ">" + b + (b === 1 ? " bar" : " bars") + "</option>"; }).join("") + (([1, 2, 4, 8, 16, 32].some(function (b) { return Math.abs(c.len - b * bpb) < 0.01; })) ? "" : '<option selected value="' + c.len + '">' + Math.round(c.len / bpb * 100) / 100 + " bars</option>") + "</select></label>" +
       (c.kind === "midi" ? '<button id="stQuant" title="Move the notes to the snap grid">Quantize</button><select id="stQStr" aria-label="Quantize strength"><option value="1">100%</option><option value="0.75">75%</option><option value="0.5">50%</option></select><button id="stDouble" title="Make the clip twice as long, the notes copied">×2</button><label>New notes <select id="stVel"><option value="70">soft</option><option value="100" selected>medium</option><option value="122">hard</option></select></label><button id="stTranspose" data-dir="1" title="Every note a semitone up">♯</button><button id="stTranspose2" data-dir="-1" title="Every note a semitone down">♭</button>' : "") +
@@ -168,7 +168,7 @@
     c.notes.forEach(function (n, i) { var rr = top - n.p; if (rr < 0 || rr >= rows) return; h += '<div class="st-note' + (ui.selNote === i ? " sel" : "") + '" data-note="' + i + '" style="left:' + n.s * z + "px;width:" + Math.max(3, n.d * z - 1) + "px;top:" + rr * rowH + "px;opacity:" + (0.45 + n.v / 127 * 0.55) + '"><i class="st-nres" data-nres="' + i + '"></i></div>'; });
     h += '<i class="st-prhead" id="stPrHead"></i></div><div class="st-vel" id="stVelLane" style="width:' + w + 'px">';
     c.notes.forEach(function (n, i) { h += '<i class="st-velbar" data-vel="' + i + '" style="left:' + n.s * z + "px;height:" + Math.round(n.v / 127 * 100) + '%" title="Velocity ' + n.v + '"></i>'; });
-    h += '</div></div><div class="st-pr-side"><button data-prz="1.4" title="Zoom in">+</button><button data-prz="0.7" title="Zoom out">−</button><button data-prv="12" title="Up an octave">▲</button><button data-prv="-12" title="Down an octave">▼</button></div></div><p class="muted small st-hint">Click to add a note · drag to move · drag its right edge to make it longer · double-click to remove · the bars underneath set how hard each note plays.</p>';
+    h += '</div></div><div class="st-pr-side"><button data-prz="1.4" title="Zoom in">+</button><button data-prz="0.7" title="Zoom out">−</button><button data-prv="12" title="Up an octave">▲</button><button data-prv="-12" title="Down an octave">▼</button></div></div><p class="muted small st-hint">Click to add a note and drag to move it. Drag its right edge to make it longer, and double-click to remove it. The bars underneath set how hard each note plays.</p>';
     return h;
   }
   function drumEditor(c) {
@@ -180,11 +180,11 @@
       for (var i = 0; i < n; i++) { var at = i * step, hit = c.notes.filter(function (x) { return x.p === r[0] && Math.abs(x.s - at) < step / 2; })[0], beatStart = Math.abs(at % 1) < 1e-6, barStart = Math.abs(at % S.beatsPerBar()) < 1e-6; h += '<button class="st-step' + (hit ? " on" : "") + (hit && hit.v > 110 ? " acc" : "") + (beatStart ? " beat" : "") + (barStart ? " barst" : "") + '" data-step="' + i + '" data-dn="' + r[0] + '" title="' + esc(r[1]) + " · step " + (i + 1) + (hit ? " · velocity " + hit.v : "") + '"></button>'; }
       h += "</div>";
     });
-    return h + '</div><p class="muted small st-hint">Click a step to add or remove a hit · right-click a hit to make it an accent · change Snap for 1/8 or 1/32 steps.</p>';
+    return h + '</div><p class="muted small st-hint">Click a step to add or remove a hit, and right-click a hit to make it louder. Change Snap for 1/8 or 1/32 steps.</p>';
   }
   // ---- the track's sound: layers (split, layer, velocity zones)
   function soundPanel(t) {
-    if (t.kind === "audio") return '<div class="st-sound"><p><b>Audio track</b> · records your microphone or instrument input.</p><label>Input <select id="stAudioIn"><option value="">The computer\'s default input</option></select></label><p class="muted small">Arm it (●) and press record. If you hear yourself late, use headphones and turn off monitoring in your operating system - the recording is lined up with the click either way.</p></div>';
+    if (t.kind === "audio") return '<div class="st-sound"><p><b>Audio track</b> · records your microphone or instrument input.</p><label>Input <select id="stAudioIn"><option value="">The computer\'s default input</option></select></label><p class="muted small">Arm it (●) and press record. If you hear yourself late, use headphones and turn off monitoring in your computer\'s sound settings. The recording lines up with the click either way.</p></div>';
     var L = t.layers, h = '<div class="st-sound"><div class="st-layers">';
     L.forEach(function (l, i) {
       var s = SND.byId(l.sound), lk = s && SND.locked(s);

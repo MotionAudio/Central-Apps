@@ -32,9 +32,9 @@ label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted)
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent); } .dot.off { background: #4A515C; box-shadow: none; } .dot.warn { background: var(--chord); box-shadow: 0 0 6px var(--chord); }
 .view { display: none; flex: 1; min-height: 0; flex-direction: column; } .view.active { display: flex; }
 .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--line); } .bar select { max-width: 320px; } .written { margin-left: auto; font-weight: 700; color: var(--chord); }
-.sections { display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px; scrollbar-width: thin; border-bottom: 1px solid var(--line); } .sections button { flex: 0 0 auto; padding: 6px 12px; } .sections button.current { background: var(--blue); color: #071321; border-color: var(--blue); font-weight: 800; } .sections button.next { border-color: var(--blue); }
+.sections { flex: 0 0 auto; display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px; scrollbar-width: thin; border-bottom: 1px solid var(--line); } .sections button { flex: 0 0 auto; padding: 6px 12px; } .sections button.current { background: var(--blue); color: #071321; border-color: var(--blue); font-weight: 800; } .sections button.next { border-color: var(--blue); }
 .chart { flex: 1; overflow: auto; padding: 16px 20px 60vh; font-size: var(--chart-size, 18px); line-height: 1.45; font-family: ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace; }
-.chart .csec { margin: 0 0 22px; padding: 10px 12px; border-left: 4px solid transparent; border-radius: 8px; transition: background .25s, border-color .25s; }
+.chart .csec { width: fit-content; min-width: 100%; box-sizing: border-box; margin: 0 0 22px; padding: 10px 12px; border-left: 4px solid transparent; border-radius: 8px; transition: background .25s, border-color .25s; }
 .chart .csec.current { background: color-mix(in srgb, var(--blue), transparent 85%); border-left-color: var(--blue); } .chart .csec.next { border-left-color: color-mix(in srgb, var(--blue), transparent 55%); }
 .chart h4 { margin: 0 0 6px; font: 800 .75em/1.2 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--blue); }
 .chart .cl { white-space: nowrap; min-height: 1.2em; } .chart .tok { display: inline-grid; grid-template-rows: 1.2em 1.35em; vertical-align: top; } .chart .ch { color: var(--chord); font-weight: 800; } .chart .ly { color: var(--text); }
@@ -148,7 +148,7 @@ button.on { background: color-mix(in srgb, var(--accent), transparent 70%); bord
 .mx-panbox { grid-template-columns: 1fr auto; row-gap: 2px; } .mx-panbox .mx-pan { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
 .mx-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; } .mx-btns button { padding: 4px 0; font-size: 11px; font-weight: 800; } .mx-strip select { width: 100%; font-size: 11px; padding: 3px; }
 .mx-detail { gap: 12px; } .mx-dhead { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .mx-dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-.mx-dcol { display: grid; gap: 6px; align-content: start; } .mx-dcol h4 { margin: 0; } .mx-sl { display: grid !important; grid-template-columns: 90px 1fr 70px; align-items: center; gap: 8px; } .mx-sl output { font-size: 12px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.mx-dcol { display: grid; gap: 6px; align-content: start; } .mx-dcol h4 { margin: 0; } .mx-sl { display: grid !important; grid-template-columns: 90px 1fr 70px; align-items: center; gap: 8px; } .mx-sl input[type=range], .mx-sl select { width: 100%; min-width: 0; } .mx-sl output { font-size: 12px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
 .mx-curve { width: 100%; height: 90px; background: var(--bg2); border-radius: 8px; border: 1px solid var(--line); }
 .mx-gr { position: relative; height: 16px; background: var(--well); border-radius: 4px; overflow: hidden; } .mx-gr i { position: absolute; right: 0; top: 0; bottom: 0; width: 0; background: rgba(255, 120, 120, .8); } .mx-gr span { position: absolute; left: 6px; top: 1px; font-size: 10px; color: var(--muted); }
 /* in-ears (admin) */
@@ -429,7 +429,7 @@ input[type=checkbox] { accent-color: var(--accent); }
 .cl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
 .cl-one { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; padding: 4px 6px; border-radius: 8px; border: 1px solid transparent; } .cl-one.changed { border-color: var(--line2); }
 .cl-one input[type=color] { width: 34px; height: 26px; padding: 0; border-radius: 6px; cursor: pointer; }
-.cl-sample { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
+.cl-sample { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); } .cl-sample button { pointer-events: none; }   /* (a preview of the colours, not buttons to press) */
 .cl-s-panel { padding: 6px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); } .cl-s-chord { font: 700 18px ui-monospace, monospace; color: var(--chord); }
 .cl-s-meter { width: 120px; height: 8px; border-radius: 4px; background: var(--well); overflow: hidden; } .cl-s-meter i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--meterLow) 0 60%, var(--meterMid) 60% 85%, var(--meterHigh) 85%); }
 /* (10.0) what this computer does: the setup step, Settings → This computer, "who runs it", the Lights banner */
@@ -438,6 +438,7 @@ input[type=checkbox] { accent-color: var(--accent); }
 .rp-job { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); cursor: pointer; color: var(--text); }
 .rp-job span { display: grid; gap: 2px; } .rp-job small { color: var(--muted); font-size: 11.5px; line-height: 1.35; }
 .rp-job.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); } .rp-job input { margin-top: 2px; }
+.rp-step label.rp-job { display: flex; align-items: flex-start; margin: 0; } .rp-job span { align-content: start; }   /* (the setup window's labels are stacked; a job card keeps its box beside the words) */
 .rl-jobs-card { margin: 12px 0; } .rl-jobs-card h4 { margin: 0 0 4px; }
 .rl-ask, .lx-run-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .rl-ask { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 60; max-width: min(760px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 14px; border: 1px solid var(--accent); background: var(--panel); box-shadow: 0 12px 40px rgba(0,0,0,.5); }

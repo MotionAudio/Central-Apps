@@ -36,7 +36,7 @@
     var c = saved(), vars = current();
     return '<section class="card cl-card"><h3>Colours</h3><p class="muted">Start from a look, then change any colour you like. Everything changes as you go, so the app itself is the preview.</p>' +
       '<div class="cl-presets">' + T.PRESETS.map(function (p) { var d = T.derive(p.base, "control"); return '<button class="cl-chip' + (c.preset === p.id && !Object.keys(c.custom || {}).length ? " on" : "") + '" data-cl-preset="' + p.id + '" style="--c1:' + d.bg + ";--c2:" + d.panel + ";--c3:" + d.accent + ";--c4:" + d.blue + '"><i></i>' + esc(p.name) + "</button>"; }).join("") + "</div>" +
-      '<div class="cl-sample" aria-hidden="true"><span class="cl-s-panel"><b>Sample</b> <span class="muted">small text</span></span><button>Button</button><button class="primary">Play</button><span class="cl-s-meter"><i></i></span><span class="cl-s-chord">G</span></div>' +
+      '<div class="cl-sample" aria-hidden="true"><span class="cl-s-panel"><b>Sample</b> <span class="muted">small text</span></span><button tabindex="-1">Button</button><button class="primary" tabindex="-1">Play</button><span class="cl-s-meter"><i></i></span><span class="cl-s-chord">G</span></div>' +
       GROUPS.map(function (g) { return "<h4>" + esc(g[0]) + '</h4><div class="cl-grid">' + g[1].map(function (k) { return '<label class="cl-one' + (c.custom && c.custom[k[0]] ? " changed" : "") + '"><input type="color" data-cl="' + k[0] + '" value="' + esc(T.hex(vars[k[0]]) || "#000000") + '"><span>' + esc(k[1]) + "</span></label>"; }).join("") + "</div>"; }).join("") +
       '<div class="row"><button data-cl-reset' + (isDefault() ? " disabled" : "") + '>Back to our colours</button></div></section>';
   }

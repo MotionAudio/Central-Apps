@@ -73,7 +73,7 @@
   }
   function mode() { var r = role(); return r === "main" || r === "admin" ? "admin" : r ? "user" : null; }
   function applyMode() {
-    var r = role() || "user1", m = mode() || "user", allowed = tabsFor(r);
+    var r = role() || (EDITION === "control" ? "admin" : "user1"), m = r === "main" || r === "admin" ? "admin" : "user", allowed = tabsFor(r);   // (not set up yet: Central Control shows the admin side behind its setup window, Central Usage the musician's)
     document.body.dataset.mode = m; document.body.dataset.role = r; document.body.dataset.jobs = m === "admin" ? jobs().join(" ") : "";
     document.querySelectorAll("#tabs [data-tab]").forEach(function (b) { b.hidden = allowed.indexOf(b.dataset.tab) < 0; });
     if (allowed.indexOf(prefs.tab) < 0) showTab(allowed[0]);
@@ -145,7 +145,7 @@
 
   function onMessage(m) {
     if (m.type === "hello") { state.hostname = m.hostname || state.hostname; state.interfaces = m.interfaces || []; state.audioHost = m.audioHost || null; state.netAudio = m.netAudio || null; state.appVersion = m.appVersion || ""; setConn("connected to " + state.hostname, ""); fire("hello", m); fire("audioHost", state.audioHost); }
-    else if (m.type === "auth") { var was = state.authed; state.authed = !!m.ok; if (!m.ok && prefs.code && !m.for) { prefs.code = ""; store.set("code", ""); alert("That pairing code was refused. Check it in Central Pedal → Settings."); } if (state.authed && !was) fire("authed", true); }
+    else if (m.type === "auth") { var was = state.authed; state.authed = !!m.ok; if (!m.ok && prefs.code && !m.for) { prefs.code = ""; store.set("code", ""); var refused = "The Central Pedal didn't accept that pairing PIN. Check the PIN on the pedal (Settings) and type it again."; if (window.CURoles && window.CURoles.toast) window.CURoles.toast(refused); else alert(refused); } if (state.authed && !was) fire("authed", true); }
     else if (m.type === "audioHost") { state.audioHost = m.host || null; fire("audioHost", state.audioHost); }
     else if (m.type === "hub") fire("hub", m);
     else if (m.type === "refused") fire("refused", m);
@@ -211,7 +211,7 @@
     var songs = d.songs || [], s = currentSong();
     $("#songName").textContent = s ? (s.index + 1) + ". " + s.name : (songs.length ? "No song selected" : "No songs yet");
     $("#songMeta").textContent = s ? C.pretty(songKeyNow()) + " · " + (d.bpm || s.bpm || "–") + " BPM" + (d.section && prefs.follow ? " · " + d.section.name : "") + (d.tracksMode ? (d.playing ? " · ▶ " : " · ❚❚ ") + fmtTime(d.pos) : "") : "";
-    var pick = $("#songPick"), names = songs.map(function (q) { return q.name; }).join("|"); if (pick.dataset.names !== names) { pick.dataset.names = names; pick.innerHTML = '<option value="-1">— follow the Central Pedal —</option>' + songs.map(function (q, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(q.name) + "</option>"; }).join(""); } pick.value = String(prefs.follow ? -1 : state.pickedSong);
+    var pick = $("#songPick"), names = songs.map(function (q) { return q.name; }).join("|"); if (pick.dataset.names !== names) { pick.dataset.names = names; pick.innerHTML = '<option value="-1">The song playing now</option>' + songs.map(function (q, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(q.name) + "</option>"; }).join(""); } pick.value = String(prefs.follow ? -1 : state.pickedSong);
     var secs = prefs.follow ? (d.sections || []) : [], cur = d.section ? d.section.index : -1, skey = secs.map(function (q) { return q.name; }).join("|") + "#" + cur;
     if ($("#sections").dataset.key !== skey) { $("#sections").dataset.key = skey; $("#sections").innerHTML = secs.map(function (q, i) { return '<button data-sec="' + i + '" class="' + (i === cur ? "current" : i === cur + 1 ? "next" : "") + '">' + esc(q.name) + "</button>"; }).join(""); var cb = $("#sections .current"); if (cb) cb.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
     var want = s && s.chart ? (s.chart.id || s.chart) : null; if (typeof want === "object" && want) want = want.id;
@@ -312,7 +312,7 @@
   fillInstruments(); wire(); showTab(prefs.tab); connect(); initMidi();
   (async function () {   // this computer's settings live in the app (cu.json); in a plain browser: local storage
     if (window.CU && window.CU.config) { try { var c = await window.CU.config.get(); if (c) { cuCfg = c; if (c.mode) store.set("mode", c.mode); if (c.role) store.set("role", c.role); if (c.jobs) { store.set("jobs", c.jobs); store.set("jobsV", c.jobsV || null); store.set("jobsAt", c.jobsAt || 0); } } } catch (_) { } }
-    if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Control";
+    if (!cuCfg.name) cuCfg.name = store.get("name", "") || (EDITION === "usage" ? "" : "Central Control");   // (a phone with no name yet: its in-ear mix asks for one, not "Central Control")
     if (!role()) askMode(); applyMode(); fire("ready");
   })();
   function syncedPrefs() { var o = {}; SYNCED.forEach(function (k) { var v = store.get(k, undefined); if (v !== undefined) o[k] = v; }); return o; }

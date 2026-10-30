@@ -40,7 +40,7 @@ async function driverIsOurs() { try { const r = await fetch("http://127.0.0.1:" 
 async function startDriver() {
   if (await portOpen(PORT)) {
     if (await driverIsOurs()) return true;
-    await dialog.showMessageBox({ type: "warning", title: "Central Pedal Control", message: "Central Control's player window is open on this computer.", detail: "They share the same place on this computer. Close the player window (Central Control → Devices → Stop) and open Central Pedal Control again." });
+    await dialog.showMessageBox({ type: "warning", title: "Central Pedal Control", message: "Central Control's player window is open on this computer.", detail: "Both keep their songs in the same place on this computer, so only one can be open at a time. Close the player window (Central Control → Devices → Stop), then open Central Pedal Control again." });
     return false;
   }
   const bundled = bundledDriver(), py = bundled ? null : python();
@@ -96,7 +96,7 @@ function menu() {
       { label: "Check for updates…", click: async () => { const st = await updater.check(); updateEvent(); dialog.showMessageBox(win, { type: "info", title: "Updates", message: st.available ? "Central Pedal Control " + st.latest + " is available." : "Central Pedal Control is up to date (" + app.getVersion() + ")." }); } },
       { label: "Download page", click: () => (win ? win.webContents.executeJavaScript("window.PPLicense && PPLicense.downloadsUrl ? PPLicense.downloadsUrl() : ''") : Promise.resolve("")).catch(() => "").then((u) => shell.openExternal(/^https:\/\//.test(u) ? u : "https://motionaudio.github.io/Central-Apps/")) },   // (the website's Downloads page once it's open)
       { label: "Contact technical support…", click: () => win && win.webContents.executeJavaScript("!!(window.PPLicense && PPLicense.on() && (PPLicense.support(), true))").then((ok) => { if (!ok) dialog.showMessageBox(win, { type: "info", title: "Technical support", message: "Technical support opens here once the Motion Audio website is online.", detail: "Until then, use the contact on the download page." }); }).catch(() => { }) },
-      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Pedal Control " + app.getVersion(), detail: "The Central Pedal app on this computer: make the setlist, import tracks, set up pads, controls and the instrument - then Upload them to the Central Pedal.\nElectron " + process.versions.electron }) } ] }
+      { label: "About", click: () => dialog.showMessageBox(win, { type: "info", title: "About", message: "Central Pedal Control " + app.getVersion(), detail: "The Central Pedal app for your computer. Build your setlists, bring in tracks, and set up the pads, controls and instrument, then upload them to your Central Pedal. With a pedal linked, this computer can also play the tracks while the pedal controls them.\nElectron " + process.versions.electron }) } ] }
   ]));
 }
 
@@ -122,7 +122,7 @@ app.whenReady().then(async () => {
   allowPermissions(); menu();
   const ok = await startDriver();
   createWindow(ok ? "http://127.0.0.1:" + PORT + "/app/#resume" : "file://" + path.join(APP_ROOT, "index.html") + "#resume");
-  if (!ok && driverLog) dialog.showMessageBox(win, { type: "warning", title: "The driver did not start", message: "Importing track packs, charts and the library are off. Editing pads, songs and settings and Upload still work.", detail: driverLog });
+  if (!ok && driverLog) dialog.showMessageBox(win, { type: "warning", title: "Part of Central Pedal Control didn't start", message: "You can still edit pads, songs and settings and upload them. Bringing in track packs, charts and the library won't work until it starts. The details below can help support.", detail: driverLog });
 });
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => { if (driver) { try { driver.kill(); } catch (_) { } } });

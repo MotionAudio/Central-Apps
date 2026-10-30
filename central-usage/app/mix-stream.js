@@ -39,7 +39,7 @@
   function fxCard() {
     var r = S().fx.rev, d = S().fx.dly, ms = M.delayMs(d), synced = d.sync !== "ms";
     var used = S().mixes.map(function (q, m) { return { q: q, m: m }; }).filter(function (o) { return o.q.ownerId || o.q.wired || Object.keys(o.q.sends).length || o.q.rRev > -90 || o.q.rDly > -90; });
-    return '<section class="card mx-fxcard"><div class="mx-fxhead"><h3>Reverb &amp; delay</h3><span class="muted small">Two shared effects, like a console\'s: each channel sends to them (FX on its strip); they come back into the main mix, the stream mix and any in-ear mix that wants them.</span></div>' +
+    return '<section class="card mx-fxcard"><div class="mx-fxhead"><h3>Reverb &amp; delay</h3><span class="muted small">Shared by every channel, like on a sound desk. Turn up FX on a channel\'s strip to send it here; the effect comes back into the main mix, the stream mix and any in-ear mix that asks for it.</span></div>' +
       '<div class="mx-dgrid"><div class="mx-dcol"><h4><label class="toggle"><input type="checkbox" data-fxk="rev.on"' + (r.on ? " checked" : "") + '> Reverb</label> <i class="mx-fxm" data-fxm="0"></i></h4>' +
       sl("Decay", "rev.decay", 0.2, 12, 0.1, r.decay, F.s) + sl("Pre-delay", "rev.pre", 0, 200, 1, r.pre, F.ms) + sl("Darker", "rev.damp", 0, 1, 0.01, r.damp, F.pct) + sl("Low cut", "rev.lowcut", 20, 1000, 5, r.lowcut, F.hz) + sl("Width", "rev.width", 0, 1, 0.01, r.width, F.pct) + sl("Return (main)", "rev.ret", -90, 10, 0.5, r.ret, F.db) +
       '<div class="row mx-fxpre"><span class="muted small">Quick:</span><button data-fxq="room">Room</button><button data-fxq="hall">Hall</button><button data-fxq="plate">Plate</button><button data-fxq="worship">Big worship</button></div></div>' +
@@ -57,7 +57,7 @@
   function outOptions(cur) { var st = X.kind === "local" ? (X.hostStatus && X.hostStatus.engine && X.hostStatus.engine.status) : (X.info && X.info.status), names = (st && st.playbackNames) || [], h = '<option value="-1"' + (cur < 0 ? " selected" : "") + ">—</option>"; for (var o = 0; o < Math.max(names.length, cur + 1); o++) h += '<option value="' + o + '"' + (o === cur ? " selected" : "") + ">Out " + (o + 1) + (names[o] ? " · " + esc(names[o].replace(/^.*:/, "")) : "") + "</option>"; return h; }
   function streamCard() {
     var q = S().stream, c = q.comp, n = Object.keys(q.sends).length;
-    return '<section class="card mx-stream"><div class="mx-fxhead"><h3>Stream mix <span class="mx-onair" hidden>● ON AIR</span></h3><span class="muted small">Its own mix for the live stream: the room doesn\'t change. ' + (n ? n + " channel" + (n === 1 ? "" : "s") + " in it." : "Nothing in it yet.") + "</span>" +
+    return '<section class="card mx-stream"><div class="mx-fxhead"><h3>Stream mix <span class="mx-onair" hidden>● ON AIR</span></h3><span class="muted small">A separate mix just for the live stream. Changing it doesn\'t change what the room hears. ' + (n ? n + " channel" + (n === 1 ? "" : "s") + " in it." : "Nothing in it yet.") + "</span>" +
       '<span class="row"><button data-sm="copy" title="Every channel\'s fader, pan and mute from the main mix">Start from the main mix</button><button data-sm="faders" class="' + (CU.store.get("mxLayer", "main") === "stream" ? "on" : "") + '">Levels on the faders</button></span></div>' +
       '<div class="mx-dgrid"><div class="mx-dcol"><h4>Master</h4><div class="mx-smeter"><i data-smm="0"></i><i data-smm="1"></i></div>' +
       sl("Level", "st.level", -90, 10, 0.5, q.level, F.db) + '<label class="toggle"><input type="checkbox" data-smk="mute"' + (q.mute ? " checked" : "") + "> Muted</label>" +
@@ -65,7 +65,7 @@
       '<div class="row"><label>L <select data-smk="outL">' + outOptions(q.outL) + '</select></label><label>R <select data-smk="outR">' + outOptions(q.outR) + '</select></label></div><p class="muted small">An output pair of the interface: to a streaming computer, a video switcher or a recorder.</p></div>' +
       '<div class="mx-dcol"><h4><label class="toggle"><input type="checkbox" data-smk="comp.on"' + (c.on ? " checked" : "") + '> Compressor</label> <small class="muted">holds the stream level steady</small></h4><div class="mx-gr mx-sgr"><i></i><span>gain reduction</span></div>' +
       sl("Threshold", "st.comp.thr", -60, 0, 0.5, c.thr, F.db) + sl("Ratio", "st.comp.ratio", 1, 20, 0.5, c.ratio, function (v) { return Number(v).toFixed(1) + ":1"; }) + sl("Attack", "st.comp.att", 0.1, 200, 0.1, c.att, function (v) { return Number(v).toFixed(1) + " ms"; }) + sl("Release", "st.comp.rel", 5, 2000, 5, c.rel, F.ms) + sl("Make-up", "st.comp.makeup", 0, 24, 0.5, c.makeup, F.db) +
-      '<p class="muted small">A limiter after it keeps the stream under -1 dBFS.</p><label class="toggle"><input type="checkbox" data-smk="record"' + (q.record !== false ? " checked" : "") + "> Record it with the service (Stream mix.wav and .mp3)</label></div>" +
+      '<p class="muted small">A limiter after it stops the stream from ever getting too loud and distorting.</p><label class="toggle"><input type="checkbox" data-smk="record"' + (q.record !== false ? " checked" : "") + "> Record it with the service (Stream mix.wav and .mp3)</label></div>" +
       '<div class="mx-dcol mx-where" id="mxWhere">' + whereHtml() + "</div></div></section>";
   }
   function chip(st) { var t = { live: "● live", connecting: "connecting…", reconnecting: "reconnecting…", error: "✕", off: "off", starting: "starting…" }[st] || st; return '<span class="mx-chip ' + esc(st) + '">' + esc(t) + "</span>"; }
@@ -73,7 +73,7 @@
     if (!local()) {
       var r = remoteOut;
       return "<h4>Where it goes</h4>" + (r ? (r.virtual ? "<p>Virtual device on the audio host: on</p>" : "") + (r.destinations || []).map(function (d) { return "<p>" + esc(d.label) + " " + chip(d.status) + "</p>"; }).join("") : "") +
-        '<p class="muted small">Going live, the virtual device and stream keys are set on the audio host computer. With cameras on this computer: Video tab → Audio → <b>Stream mix</b>.</p>';
+        '<p class="muted small">Going live, the virtual microphone and the stream keys are set up on the audio host computer. If this computer has the cameras: Video tab → Audio → <b>Stream mix</b>.</p>';
     }
     var o = out || { virtual: {}, destinations: [], kinds: {} }, v = o.virtual || {}, plat = o.platform || (navigator.platform || "").toLowerCase();
     var linux = plat === "linux" || /linux/i.test(plat);

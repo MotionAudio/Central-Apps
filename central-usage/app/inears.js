@@ -40,7 +40,7 @@
     if (X.kind !== "local") return '<div class="card ia-info"><b>Mixing on the audio host ' + esc(X.hostAddress()) + '</b><span class="muted small">The in-ear code and the phone address are shown on the audio host.</span></div>';
     var srv = hs.server || {}, users = (srv.clients || []).filter(function (c) { return c.role === "user"; });
     return '<div class="card ia-info"><div><b>In-ear code <span class="ia-code">' + esc(cfg.host && cfg.host.userCode) + '</span></b> <button data-ia="newcode">New code</button></div>' +
-      '<div class="muted small">Musicians: Central Control in User mode finds this computer by itself; phones open ' + (srv.addresses || []).map(function (a) { return "<b>http://" + esc(a) + ":" + (srv.port || 8092) + "/</b>"; }).join(" or ") + "</div>" +
+      '<div class="muted small">Musicians\' Central Usage finds this computer by itself. On a phone, open ' + (srv.addresses || []).map(function (a) { return "<b>http://" + esc(a) + ":" + (srv.port || 8092) + "/</b>"; }).join(" or ") + "</div>" +
       '<div class="muted small">' + (users.length ? users.length + " connected: " + users.map(function (u) { return esc(u.name) + (u.listening.length ? " 🎧" : ""); }).join(", ") : "Nobody connected yet.") + "</div></div>";
   }
   function channelsCard() {
@@ -98,7 +98,7 @@
     if (userUi) { userUi.destroy(); userUi = null; }
     userKey = key;
     if (!addr || !code) {
-      root.innerHTML = '<div class="card ie-setup"><h3>My in-ear mix</h3><p class="muted">The sound desk\'s audio host makes everyone\'s in-ear mix. ' + (addr ? "Found it: <b>" + esc(addr) + "</b>." : CU.state.connected ? "No audio host yet - ask the sound desk to turn it on." : "Connect to the Central Pedal first (top right); the audio host is found through it.") + '</p>' +
+      root.innerHTML = '<div class="card ie-setup"><h3>My in-ear mix</h3><p class="muted">Your in-ear mix comes from the audio host at the sound desk. ' + (addr ? "Found it: <b>" + esc(addr) + "</b>." : CU.state.connected ? "It isn't on yet, so ask the sound desk to turn it on." : "Connect to the Central Pedal first (top right). The audio host is found through it.") + '</p>' +
         '<label>Your name<input data-iu="name" value="' + esc(name) + '" placeholder="Sarah (vocals)"></label><label>In-ear code<input data-iu="code" value="' + esc(code) + '" inputmode="numeric" placeholder="4 digits from the sound desk"></label>' +
         '<details><summary class="muted small">Audio host address (only if it isn\'t found)</summary><input data-iu="addr" value="' + esc(CU.store.get("hostAddr", "")) + '" placeholder="192.168.1.20:8092"></details><button class="primary" data-iu="go">Continue</button></div>';
       return;

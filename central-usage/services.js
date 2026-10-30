@@ -46,6 +46,7 @@ module.exports = function services(app, getWin) {
   const cfgFile = path.join(userData, "cu.json");
   let cfg = { mode: null, name: os.hostname().replace(/\.local$/, ""), host: { enabled: false, port: 8092, userCode: code4(), adminCode: code4() }, piAudio: { transport: "off", latency: 60 }, analysis: "pi", recordDir: path.join(app.getPath("music") || os.homedir(), "Central Usage Recordings") };
   try { const saved = JSON.parse(fs.readFileSync(cfgFile, "utf8")); cfg = Object.assign(cfg, saved, { host: Object.assign(cfg.host, saved.host || {}), piAudio: Object.assign(cfg.piAudio, saved.piAudio || {}) }); } catch (_) { }
+  if (!cfg.recordDir) cfg.recordDir = path.join(app.getPath("music") || os.homedir(), "Central Usage Recordings");   // (an empty folder saved by an older version: back to the usual one)
   function saveCfg() { try { fs.mkdirSync(userData, { recursive: true }); fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 1)); } catch (_) { } }
   if (process.env.CU_MODE) cfg.mode = process.env.CU_MODE;   // tests
   if (process.env.CU_ROLE) cfg.role = process.env.CU_ROLE;
