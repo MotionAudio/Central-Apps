@@ -65,6 +65,10 @@ class Center {
     this.run = j.run || null;
     // the main admin's player window: while a Central Pedal plays, it is the backup player (follows silently, takes over)
     this.backup = Object.assign({ localIsBackup: true }, j.backup || {});
+    // 10.0: where the tracks run. "computer": the main admin's player window keeps the songs and plays them, and the
+    // Central Pedals control it - while the window is closed, a pedal plays (and hands back when nothing plays).
+    // "pedal": a Central Pedal plays, as before 10.0.
+    this.tracksHost = j.tracksHost === "pedal" ? "pedal" : "computer";
     // the church's hub: its id stays the same when the hub moves to the other main admin's computer (hubsync.js); gen goes
     // up each time, so an old hub that comes back after a takeover hears a newer one and steps down
     this.hubKey = /^[0-9a-f]{16,64}$/.test(j.hubKey || "") ? j.hubKey : crypto.randomBytes(12).toString("hex");
@@ -80,7 +84,7 @@ class Center {
   on(fn) { this.listeners.push(fn); }
   emit(ev) { for (const fn of this.listeners) { try { fn(ev); } catch (_) { } } }
   save() {
-    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run, backup: this.backup, hubKey: this.hubKey, gen: this.gen, standby: this.standby })); fs.renameSync(tmp, this.file); } catch (_) { }
+    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run, backup: this.backup, tracksHost: this.tracksHost, hubKey: this.hubKey, gen: this.gen, standby: this.standby })); fs.renameSync(tmp, this.file); } catch (_) { }
   }
 
   // ----------------------------------------------------------------------------- the server
@@ -198,7 +202,8 @@ class Center {
   firstJob(id) {
     const d = this.devices[id]; if (!d || d.pedalJob) return;
     const cur = this.playerId();
-    if (!cur) d.pedalJob = "player";
+    if (this.tracksHost === "computer" && cur && cur !== id && (this.devices[cur].pedal || {}).local && this.online(cur)) d.pedalJob = "controller";   // (10.0: the computer keeps playing; the pedal controls it)
+    else if (!cur) d.pedalJob = "player";
     else if (!(d.pedal || {}).local && (this.devices[cur].pedal || {}).local) { this.devices[cur].pedalJob = this.backup.localIsBackup ? "backup" : "standby"; d.pedalJob = "player"; }
     else d.pedalJob = "controller";
   }
@@ -247,7 +252,7 @@ class Center {
       v.devices = Object.keys(this.devices).filter((k) => k !== info.id).map((k) => this.deviceView(k)).sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
       v.pairPin = this.pair; v.pedalHealth = (this.pedalInfo() && this.health[this.pedalInfo().id]) || null;
       v.pedals = this.pedalIds().map((k) => this.pedalView(k, info)).sort((a, b) => (a.job !== "player") - (b.job !== "player") || (b.online - a.online) || a.name.localeCompare(b.name));
-      v.pedalJobs = PEDAL_JOBS; v.backupLocal = !!this.backup.localIsBackup;
+      v.pedalJobs = PEDAL_JOBS; v.backupLocal = !!this.backup.localIsBackup; v.tracksHost = this.tracksHost;
       v.standby = this.standbyView();
     }
     if (this.standby && info.id === this.standby.id) v.youAreStandby = true;
@@ -255,7 +260,25 @@ class Center {
   }
   push() { for (const [ws, info] of this.clients) if (info.id) this.sendTo(ws, this.viewFor(info)); this.tellPedals(); this.emit({ type: "status" }); }
   pushMainSoon() { const now = Date.now(); if (now - this.pushAt < 500) return; this.pushAt = now; for (const [ws, info] of this.clients) if (this.isMain(info)) this.sendTo(ws, this.viewFor(info)); }
+  // 10.0 "computer": the player window plays while it's open; while it's closed a Central Pedal plays; the window
+  // takes the tracks back once that pedal isn't playing. Returns true when it changed who plays.
+  autoHost() {
+    if (this.tracksHost !== "computer") return false;
+    const ids = this.pedalIds(), local = ids.find((k) => (this.devices[k].pedal || {}).local), cur = this.playerId();
+    const busy = (k) => { const h = this.health[k]; return !!(h && h.playing && Date.now() - h.at < 20000); };
+    if (local && this.online(local)) {
+      if (cur === local || (cur && this.online(cur) && busy(cur))) return false;
+      this.setPedalJob(local, "player");
+      return true;
+    }
+    if (cur && cur !== local && this.online(cur)) return false;
+    const pick = ids.filter((k) => k !== local && this.online(k)).sort((a, b) => (this.devices[b].lastSeen || 0) - (this.devices[a].lastSeen || 0))[0];
+    if (!pick || pick === cur) return false;
+    this.setPedalJob(pick, "player");
+    return true;
+  }
   tick() {
+    if (this.autoHost()) { this.save(); this.push(); }
     this.pushMainSoon();
     const now = Date.now();
     for (const [ws, c] of this.clients) if (c.talk && now - c.talk.last > 6000) this.talkEnd(ws, c);   // (a computer that went quiet mid-talk)
@@ -428,8 +451,17 @@ class Center {
     }
     if (action === "pedalJob") {
       if (!main) return R({ ok: false, error: "Only the main admin gives the Central Pedals their jobs." });
-      if (!this.setPedalJob(idOf(m.target), m.job)) return R({ ok: false, error: "No such Central Pedal, or no such job." });
+      const tg = idOf(m.target);
+      if (!this.setPedalJob(tg, m.job)) return R({ ok: false, error: "No such Central Pedal, or no such job." });
+      if (m.job === "player") this.tracksHost = ((this.devices[tg] || {}).pedal || {}).local ? "computer" : "pedal";   // (picking who plays says where the tracks run)
       this.save(); this.push(); return R({ ok: true });
+    }
+    if (action === "tracksHost") {   // 10.0: "computer" (the player window plays, the pedals control it) or "pedal"
+      if (!main) return R({ ok: false, error: "Only the main admin decides where the tracks run." });
+      if (!["computer", "pedal"].includes(m.mode)) return R({ ok: false, error: "computer or pedal" });
+      this.tracksHost = m.mode;
+      if (m.mode === "pedal") { const cur = this.playerId(); if (cur && ((this.devices[cur] || {}).pedal || {}).local) { const p = this.pedalIds().find((k) => !((this.devices[k].pedal || {}).local) && this.online(k)); if (p) this.setPedalJob(p, "player"); } }
+      this.autoHost(); this.save(); this.push(); return R({ ok: true, mode: this.tracksHost });
     }
     if (["assign", "rename", "remove", "jobs", "approve"].includes(action)) {
       if (!main) return R({ ok: false, error: "Only the main admin changes other devices." });

@@ -71,6 +71,7 @@
       st.log = "Downloaded " + (i + 1) + "/" + files.length; rerender();
     }
     var s = T.findSongByName(t.title) || T.newSong(t.title), d = T.data(s);
+    if (t.id != null) s.ctId = String(t.id);   // (10.0: a setlist on the website knows its songs by this)
     if (t.key) s.key = t.key; if (t.bpm) { s.bpm = t.bpm; d.grid.bpm = t.bpm; }
     st.log = "Analysing (tempo, key, beats)…"; rerender();
     await T.importFilesIntoSong(s, got, { analyze: true });
@@ -234,5 +235,6 @@
     body.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.id === "ctQ") { st.q = e.target.value.trim(); st.kind = $("#ctKind").value; refresh(); } });
   }
   wire();
-  window.PPCentralTracks = { render: render, refresh: refresh, state: st, install: install, unzip: unzip };
+  window.PPCentralTracks = { render: render, refresh: refresh, state: st, install: install, unzip: unzip,
+    api: api, base: base, signedIn: function () { return !preview() && !!cfg().token; }, showSignIn: function () { st.signIn = true; rerender(); } };
 })();

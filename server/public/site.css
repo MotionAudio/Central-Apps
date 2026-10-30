@@ -451,3 +451,7 @@ table.tracks .stars{font-size:.92rem;letter-spacing:0}
 @media (max-width:480px){.modal{padding:1.15rem}.modal .btn{flex:1 1 auto}}
 
 .dl-h{margin:1.4rem 0 .6rem;font-size:1.05rem}
+/* setlists (10.0): the songs already in the setlist on "Add songs" */
+.sl-songs{margin:0 0 1rem;padding-left:1.4rem;display:grid;gap:.35rem}
+.sl-songs li{line-height:1.5}
+.sl-songs .btn{margin-left:.5rem}

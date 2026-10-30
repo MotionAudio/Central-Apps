@@ -56,10 +56,15 @@
     else if (job === "instrument") main += ' <span class="pj-sub">your instrument only - the tracks play on ' + esc(playerName()) + "</span>";
     else if (job === "backup") main += " " + (window.PPBackup ? window.PPBackup.barHtml(playerName(), c.remote) : "");
     else main += ' <span class="pj-sub">keeps the song library - the tracks play on ' + esc(playerName()) + "</span>";
-    bar.innerHTML = main + ' <small class="pj-by">set by the main admin' + (c.name ? " (" + esc(c.name) + ")" : "") + "</small>";
+    bar.innerHTML = main + (c.via === "pedal-control" ? ' <small class="pj-by">the tracks are stored and run on ' + esc(playerName()) + " (Central Pedal Control) · this pedal plays them again if that computer goes away</small>"
+      : ' <small class="pj-by">set by the main admin' + (c.name ? " (" + esc(c.name) + ")" : "") + "</small>");
   }
   F.on("hello", function (m) { center = m.center || null; player = center && center.player; set(m.pedalJob || "player"); });
-  F.on("pedalRole", function (m) { player = m.player || null; render(); });
+  F.on("pedalRole", function (m) {
+    player = m.player || null;
+    if (m.via === "pedal-control") { center = Object.assign({}, center || {}, { via: "pedal-control", player: player, remote: false }); set(m.job || "player"); return; }
+    render();
+  });
   F.on("playerDisplay", function (m) { shown = m; render(); });
   F.on("forwardFailed", function () { note("Not connected to the track player - the button did nothing."); });
 
