@@ -192,6 +192,35 @@ await check("the small screen's setlist, effects and scenes: a song moves / come
   assert.equal(r.warm, true); assert.equal(r.padPreset, "Warm pad");
   assert.ok(r.presets.items.some((i) => i.id === "Warm pad" && !i.locked));
 });
+await check("the small screen never waits on the app: every answer comes back (an old project's empty effects part, a failing list), and the lists are pushed when the app connects, then only what changed", async () => {
+  const r = await T(() => {
+    const out = [], keep = __pedalBridge.socket, p = PP.project(), savedBus = p.busFx, wasConn = __pedalBridge.connected, savedFxPreset = p.pads[0].fxPreset, targets = PPFx.mini.targets;
+    __pedalBridge.socket = { readyState: 1, send: (s) => out.push(JSON.parse(s)) };
+    const ask = (what, kind) => { out.length = 0; __pedalBridge.handleMessage({ type: "miniRequest", what, kind }); return out.filter((m) => m.type === "miniList"); };
+    const res = {};
+    try {
+      p.busFx = { tracks: { on: true, eq: null } };
+      res.old = ask("fx", "bus:tracks").map((m) => !!(m.state && m.state.rows.length));
+      PPFx.mini.targets = () => { throw new Error("boom"); };
+      res.fail = ask("fxTargets", "pads").map((m) => ({ kind: m.kind, n: m.items.length, err: m.error }));
+      PPFx.mini.targets = targets;
+      __pedalBridge.connected = true;
+      out.length = 0; PPMiniBridge.push(true); const all = out.filter((m) => m.type === "miniPush")[0];
+      out.length = 0; PPMiniBridge.push(false); res.again = out.length;
+      p.pads[0].fxPreset = savedFxPreset === "Warm pad" ? "Bright pad" : "Warm pad";
+      out.length = 0; PPMiniBridge.push(false); const ch = out.filter((m) => m.type === "miniPush")[0];
+      res.keys = all ? Object.keys(all.lists) : []; res.changed = ch ? Object.keys(ch.lists).sort() : [];
+    } finally {
+      PPFx.mini.targets = targets; p.busFx = savedBus; p.pads[0].fxPreset = savedFxPreset; __pedalBridge.connected = wasConn; __pedalBridge.socket = keep;
+    }
+    return res;
+  });
+  assert.deepEqual(r.old, [true], "an effects part saved empty keeps its defaults");
+  assert.deepEqual(r.fail, [{ kind: "pads", n: 0, err: "boom" }], "a list that fails is still answered (empty, with the reason)");
+  for (const k of ["fxTargets:tracks", "fxTargets:pads", "fx:bus:tracks", "fx:bus:pads", "fx:pad:0", "scenes", "controls"]) assert.ok(r.keys.includes(k), k + " in " + r.keys.join());
+  assert.equal(r.again, 0, "nothing changed: nothing sent");
+  assert.deepEqual(r.changed, ["fx:pad:0", "fxTargets:pads"]);
+});
 
 console.log("\nPerform screen:");
 await check("encoder hold -> switches to the Perform screen", async () => {
