@@ -1096,7 +1096,7 @@ async def main():
                 scen = [a.get("label") for _, a in mini.hits if a.get("what") == "scenes"]
                 mini.local({"local": "fxOpen", "target": "stem:v1", "title": "Vocals"})
                 mini.render(dz)
-                comp_hit = next((a for _, a in mini.hits if a.get("name") == "fxValue" and (a.get("args") or {}).get("path") == "comp.amount"), None)
+                comp_hit = next((a for _, a in mini.hits if a.get("name") == "fxValue" and (a.get("args") or {}).get("path") == "eq.low"), None)   # (the first page of its effects, drawn from the copy)
                 st_copy = mini.copy_state("stem:v1", "song-z")
                 mini.overlay = None
                 check("small screen, no app answer yet: TRACKS → Effects lists the tracks bus and every track at once, PADS → Effects every pad, Scenes this song's scenes - from the saved project",
@@ -1898,7 +1898,7 @@ async def main():
                 if self.path.startswith("/v1/"):
                     return self.reply(None, raw=b"")
                 if self.path == "/repos/church/cc/releases/latest":
-                    return self.reply({"tag_name": "v9.9.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
+                    return self.reply({"tag_name": "v99.0.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
                                        "assets": [{"name": "central-control-source.zip", "browser_download_url": "http://127.0.0.1:18098/dl/central-control-source.zip"},
                                                   {"name": "SHA256SUMS", "browser_download_url": "http://127.0.0.1:18098/dl/SHA256SUMS"}]})
                 if self.path == "/dl/central-control-source.zip":
@@ -1940,7 +1940,7 @@ async def main():
         check("opening the app makes the Central Pedal look for a newer release right away", upm and upm["available"], upm)
         await send({"type": "updates", "action": "check"})
         upm = await next_message(lambda m: m["type"] == "updateStatus" and m.get("latest"), 5.0)
-        check("the daily check finds a newer release (9.9.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "9.9.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
+        check("the daily check finds a newer release (99.0.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "99.0.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
         path_ok = driver.updater.download()
         check("the download is checked against SHA256SUMS and kept in /data", os.path.exists(path_ok) and open(path_ok, "rb").read() == rel_state["zip"], path_ok)
         rel_state["zip"] = rel_state["zip"] + b"tampered"
