@@ -90,8 +90,11 @@ def sf2_presets(path):
 
 def find_preset(path, *words):
     """The first preset whose name holds every word (any case): (bank, program, name), or None."""
+    phrase = " ".join(words).lower()
     for bank, prog, name in sf2_presets(path):
-        if all(w.lower() in name.lower() for w in words):
+        n = name.lower()
+        # (a SoundFont keeps 19-20 characters of a name: "Electric Guitar Clean" is stored as "Electric Guitar Cle")
+        if all(w.lower() in n for w in words) or (len(n) >= 19 and phrase.startswith(n)):
             return bank, prog, name
     return None
 
