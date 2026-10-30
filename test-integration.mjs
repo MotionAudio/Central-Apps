@@ -917,11 +917,13 @@ await check("the app's own text box (the PC app has no prompt()): a pasted chord
   assert.equal(await p, text);
   const c = T(() => PP.ask("name")); await page.waitForSelector("dialog.pp-ask[open] input"); await page.keyboard.press("Escape"); assert.equal(await c, null);
 });
-await check("...and Learn → + Add MIDI button asks for the name and adds it", async () => {
-  await T(() => PPShell.showTab("learn")); await page.waitForSelector("#lnAddMidiButton");
-  await T(() => document.querySelector("#lnAddMidiButton").click());
-  await page.waitForSelector("dialog.pp-ask[open] input"); await page.fill("dialog.pp-ask input", "Next song footswitch"); await page.click("dialog.pp-ask button.primary");
-  await until(() => T(() => (PP.project().inputs || []).some((i) => i.name === "Next song footswitch" && i.midi)));
+await check("...and Learn → + Add new control asks what it is and its name, then learns it from the MIDI the driver passes on", async () => {
+  await T(() => PPShell.showTab("learn")); await page.waitForSelector("#lnAddNew");
+  await page.click("#lnAddNew"); await page.click("dialog.cs-learn [data-cs-kind=button]");
+  await page.fill("dialog.cs-learn [data-cs=name]", "Next song footswitch"); await page.click("dialog.cs-learn [data-cs=toName]");
+  await T(() => PPFeatures.handleHardware({ type: "midi", data: [0x90, 62, 110], port: "FCB1010 MIDI 1" }));
+  await page.waitForSelector("dialog.cs-learn .cs-got"); await page.click("dialog.cs-learn [data-cs=save]");
+  await until(() => T(() => (PP.project().inputs || []).some((i) => i.name === "Next song footswitch" && i.midi && i.midi.number === 62)));
   await page.keyboard.press("Escape"); await T(() => { document.querySelectorAll("dialog[open]").forEach((d) => d.close()); PPShell.showTab("tracks"); });
 });
 console.log("\nCentral Control link:");

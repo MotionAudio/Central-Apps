@@ -604,6 +604,69 @@ await check("a page older than its Central Pedal reloads once to the version jus
   await p5.close();
 });
 
+await check("Learn → Add new control: a MIDI knob (name it, turn it left, then right) and a footswitch learned in the window, then given jobs on Configure", async () => {
+  await page.evaluate(() => PPShell.showTab("learn"));
+  await page.click("#lnAddNew"); await page.waitForSelector("dialog.cs-learn[open] [data-cs-kind=knob]");
+  await page.click("dialog.cs-learn [data-cs-kind=knob]"); await page.fill("dialog.cs-learn [data-cs=name]", "Pad volume knob"); await page.click("dialog.cs-learn [data-cs=toName]");
+  assert.match(await page.textContent("dialog.cs-learn .cs-big"), /all the way to the left/);
+  const midi = (d, port) => page.evaluate(([d, port]) => PPFeatures.handleHardware({ type: "midi", data: d, port }), [d, port]);
+  await midi([0xB0, 21, 30], "nanoKONTROL2 MIDI 1"); await midi([0xB0, 21, 2], "nanoKONTROL2 MIDI 1");
+  await page.click("dialog.cs-learn [data-cs=next]"); assert.match(await page.textContent("dialog.cs-learn .cs-big"), /all the way to the right/);
+  await midi([0xB0, 21, 80], "nanoKONTROL2 MIDI 1"); await midi([0xB0, 21, 126], "nanoKONTROL2 MIDI 1");
+  await page.click("dialog.cs-learn [data-cs=next]"); await page.waitForSelector("dialog.cs-learn .cs-got"); await page.click("dialog.cs-learn [data-cs=save]");
+  const knob = await page.evaluate(() => PP.project().inputs.find((i) => i.name === "Pad volume knob"));
+  assert.equal(knob.kind, "knob"); assert.deepEqual([knob.midi.msg, knob.midi.number, knob.midi.lo, knob.midi.hi], ["cc", 21, 2, 126]);
+  // a footswitch: a note
+  await page.click("#lnAddNew"); await page.click("dialog.cs-learn [data-cs-kind=button]"); await page.click("dialog.cs-learn [data-cs=toName]");
+  await midi([0x90, 64, 100], "FCB1010"); await page.waitForSelector("dialog.cs-learn .cs-got"); await page.click("dialog.cs-learn [data-cs=save]");
+  const fs1 = await page.evaluate(() => PP.project().inputs.find((i) => i.name === "Footswitch 1"));
+  assert.ok(fs1 && fs1.midi.msg === "note" && fs1.midi.number === 64, JSON.stringify(fs1));
+  assert.ok(await page.evaluate(() => (PP.project().midiInputs || []).length >= 2), "kept with the learned controls");
+  // jobs: the knob sets the master volume, the footswitch the next song
+  const r = await page.evaluate(([k, f]) => {
+    const m = PPActions.mapping(); m[k] = { action: "volume" }; m[f] = { action: "tap" };
+    let taps = 0; const orig = PPActions.ACTIONS.tap.run; PPActions.ACTIONS.tap.run = () => { taps++; };
+    PPFeatures.handleHardware({ type: "midi", data: [0xB0, 21, 64], port: "nanoKONTROL2:nanoKONTROL2 MIDI 1 20:0" });
+    const vol = PP.project().performance.volume;
+    PPFeatures.handleHardware({ type: "midi", data: [0x90, 64, 100], port: "FCB1010" }); PPFeatures.handleHardware({ type: "midi", data: [0x80, 64, 0], port: "FCB1010" });
+    PPFeatures.handleHardware({ type: "midi", data: [0x90, 64, 100], port: "Some other device" });
+    PPActions.ACTIONS.tap.run = orig;
+    return { vol, taps };
+  }, [knob.id, fs1.id]);
+  assert.ok(Math.abs(r.vol - 0.5) < 0.02, "the knob's middle is half: " + r.vol); assert.equal(r.taps, 1, "the footswitch, only from its own device");
+});
+await check("...a key on the computer's keyboard as a control (its own job wins over the app's shortcut; typing in a box doesn't fire it)", async () => {
+  await page.click("#lnAddNew"); await page.click("dialog.cs-learn [data-cs-kind=button]"); await page.fill("dialog.cs-learn [data-cs=name]", "Next song key"); await page.click("dialog.cs-learn [data-cs=toName]");
+  await page.keyboard.press("F9"); await page.waitForSelector("dialog.cs-learn .cs-got");
+  assert.match(await page.textContent("dialog.cs-learn"), /Key F9/); await page.click("dialog.cs-learn [data-cs=save]");
+  const r = await page.evaluate(() => { const k = PP.project().inputs.find((i) => i.name === "Next song key"); PPActions.mapping()[k.id] = { action: "tap" }; window.__t = 0; window.__o = PPActions.ACTIONS.tap.run; PPActions.ACTIONS.tap.run = () => { window.__t++; }; return k; });
+  assert.deepEqual(r.key.code, "F9");
+  await page.keyboard.press("F9");
+  await page.evaluate(() => { const i = document.createElement("input"); i.id = "__typing"; document.body.appendChild(i); i.focus(); });
+  await page.keyboard.press("F9");
+  const n = await page.evaluate(() => { document.getElementById("__typing").remove(); PPActions.ACTIONS.tap.run = window.__o; return window.__t; });
+  assert.equal(n, 1);
+  await page.evaluate(() => { const p = PP.project(); p.inputs = p.inputs.filter((i) => !i.midi && !i.key); p.midiInputs = []; PPConfigure.render(); PPShell.showTab("pads"); });
+});
+await check("Settings → Colours: a preset sets every screen colour, track colours change, the 3.5\" screen gets them, and 'Back to our colours' undoes it all", async () => {
+  await page.evaluate(() => { window.__mini = []; const b = window.__pedalBridge, o = b.send; window.__miniOrig = o; b.connected = true; b.send = function (m) { if (m && m.type === "miniTheme") window.__mini.push(m); return o ? o.call(this, m) : true; }; PPShell.showTab("settings"); });
+  await page.waitForSelector("#themePresets [data-preset]");
+  await page.click('#themePresets [data-preset="6"]');   // Daylight
+  const day = await page.evaluate(() => ({ t: Object.assign({}, PP.project().theme), bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(), field: getComputedStyle(document.documentElement).getPropertyValue("--field").trim() }));
+  assert.equal(day.bg.toLowerCase(), "#f2f5f8"); assert.ok(day.t.muted && day.t.accentText && day.t.field, JSON.stringify(day.t));
+  await page.evaluate(() => { const el = document.querySelector('[data-clr-trk="drums"]'); el.value = "#00ff00"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  const trk = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--trk-drums").trim());
+  assert.equal(trk, "#00ff00");
+  const mini = await page.evaluate(() => window.__mini.slice(-1)[0]);
+  assert.ok(mini && mini.colors && mini.colors.bg.toLowerCase() === "#f2f5f8", JSON.stringify(mini));
+  page.once("dialog", (d) => d.accept());
+  await page.click('[data-clr-reset="all"]');
+  await page.waitForFunction(() => window.__mini.length && window.__mini[window.__mini.length - 1].colors === null, null, { timeout: 3000 }).catch(() => null);
+  const back = await page.evaluate(() => ({ t: PP.project().theme, bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(), trk: getComputedStyle(document.documentElement).getPropertyValue("--trk-drums").trim(), mini: window.__mini.map((m) => m.colors && m.colors.bg) }));
+  assert.equal(back.bg.toUpperCase(), "#111317"); assert.equal(back.trk, ""); assert.equal(back.mini[back.mini.length - 1], null, "the 3.5\" screen back to its own look: " + JSON.stringify(back));
+  await page.evaluate(() => { window.__pedalBridge.send = window.__miniOrig; window.__pedalBridge.connected = false; PPShell.showTab("pads"); });
+});
+
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));
 
 // ---- the license keys before the website opens: Central Pedal Control asks for its key (production name, then the key);

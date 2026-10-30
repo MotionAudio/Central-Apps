@@ -32,6 +32,7 @@
     var c = CU.config() || {}, m = CU.mode(), usage = CU.edition && CU.edition() === "usage", admin = m === "admin" && !usage;
     root.innerHTML = '<div class="io-grid">' +
       (window.PPLicense ? window.PPLicense.settingsHtml("card") : "") +
+      (window.CUColors ? window.CUColors.card() : "") +
       (window.CURoles ? window.CURoles.card() : "") +
       (window.CUHubStandby ? window.CUHubStandby.card() : "") +
       mixCard() +

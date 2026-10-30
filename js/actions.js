@@ -307,18 +307,51 @@
   var flashTimers = {};
   function flash(id) { var el = document.querySelector('[data-input-id="' + id + '"]'); if (!el) return; el.classList.add("live"); clearTimeout(flashTimers[id]); flashTimers[id] = setTimeout(function () { el.classList.remove("live"); }, 350); }
 
-  // ---- MIDI-learned inputs: {midi:{type:"note"|"cc"|"pc", number, channel}}
-  function midiInput(d) {
-    if (window.PPConfigure && window.PPConfigure.midiLearn(d)) return true;
-    var inputs = (window.PPConfigure && window.PPConfigure.inputs()) || [];
-    var st = d[0], type = st & 0xF0, ch = (st & 0x0F) + 1, handled = false;
-    inputs.forEach(function (spec) {
-      var mi = spec.midi; if (!mi || (mi.channel && mi.channel !== ch)) return;
-      if (mi.type === "note" && (type === 0x90 || type === 0x80) && d[1] === mi.number) { var on = type === 0x90 && d[2] > 0; onControl({ id: spec.id, event: on ? "press" : "release" }); handled = true; }
-      else if (mi.type === "cc" && type === 0xB0 && d[1] === mi.number) { if (spec.kind === "button") { onControl({ id: spec.id, event: d[2] >= 64 ? "press" : "release" }); } else onControl({ id: spec.id, value: d[2] / 127 }); handled = true; }
-      else if (mi.type === "pc" && type === 0xC0 && d[1] === mi.number) { onControl({ id: spec.id, event: "press" }); setTimeout(function () { onControl({ id: spec.id, event: "release" }); }, 80); handled = true; }
+  // ---- controls the app learned itself (control-surface.js): MIDI ({midi: {msg, number, channel, port, lo, hi}}, older
+  // ones {type, number, channel}) and computer keys ({key: {code, ctrl, shift, alt, meta}})
+  function learnedInputs() { return ((window.PPConfigure && window.PPConfigure.inputs()) || []).filter(function (i) { return i.midi || i.key; }); }
+  function hit(spec, r) {
+    if (!r) return false;
+    if (r.event === "tap") { onControl({ id: spec.id, event: "press" }); setTimeout(function () { onControl({ id: spec.id, event: "release" }); }, 80); }
+    else if (r.event) onControl({ id: spec.id, event: r.event });
+    else if (typeof r.value === "number") onControl({ id: spec.id, value: spec.invert ? 1 - r.value : r.value });
+    return true;
+  }
+  var holdTimers = {};
+  function pressWithHold(spec, ev) {   // a learned button: press / hold / release like the footswitches
+    if (ev === "press") { clearTimeout(holdTimers[spec.id]); holdTimers[spec.id] = setTimeout(function () { delete holdTimers[spec.id]; onControl({ id: spec.id, event: "hold" }); }, 600); }
+    else if (ev === "release") { clearTimeout(holdTimers[spec.id]); delete holdTimers[spec.id]; }
+  }
+  function midiInput(d, port) {
+    var S = window.CCSurface;
+    if (window.PPConfigure && window.PPConfigure.midiLearn(d, port)) return true;
+    if (!S) return false;
+    var e = S.parse(d, port), handled = false; if (!e) return false;
+    learnedInputs().forEach(function (spec) {
+      if (!spec.midi) return;
+      var r = S.match(spec, e); if (!r) return;
+      if (spec.kind === "button" && r.event && r.event !== "tap") pressWithHold(spec, r.event);
+      handled = hit(spec, r) || handled;
     });
     return handled;
+  }
+  var keysDown = {};
+  function keyInput(e, down) {
+    var S = window.CCSurface; if (!S || e.repeat || S.learning() || S.typing(e)) return false;
+    var handled = false;
+    learnedInputs().forEach(function (spec) {
+      if (!spec.key) return;
+      var r = S.matchKey(spec, e, down); if (!r) return;
+      if (!down && !keysDown[spec.id]) return;
+      if (down) keysDown[spec.id] = true; else delete keysDown[spec.id];
+      pressWithHold(spec, r.event); hit(spec, r); handled = true;
+    });
+    if (handled) { e.preventDefault(); e.stopPropagation(); }
+    return handled;
+  }
+  if (typeof document !== "undefined") {
+    document.addEventListener("keydown", function (e) { keyInput(e, true); }, true);
+    document.addEventListener("keyup", function (e) { keyInput(e, false); }, true);
   }
 
   // ---- LEDs
@@ -328,9 +361,15 @@
     Object.keys(m).forEach(function (id) { var e = m[id], a = ACTIONS[e.action]; states[id] = a && a.led ? a.led(e.args || {}) : "off"; });
     return states;
   }
+  function midiLeds(states) {   // a learned MIDI button's light follows what it does (on / blinking = on)
+    var S = window.CCSurface; if (!S) return;
+    learnedInputs().forEach(function (spec) { if (spec.midi && spec.kind === "button" && spec.ledOff !== true) S.feedback(spec, states[spec.id] === "on" || states[spec.id] === "blink", spec.id); });
+  }
   function sendLeds() {
+    var states0 = null;
+    try { states0 = ledStates(); midiLeds(states0); } catch (_) { }
     var b = window.__pedalBridge; if (!b || !b.connected) return;
-    var states = ledStates(), s = JSON.stringify(states) + project().tempo.bpm;
+    var states = states0 || ledStates(), s = JSON.stringify(states) + project().tempo.bpm;
     if (s === lastLeds) return; lastLeds = s;
     b.send({ type: "leds", states: states, bpm: project().tempo.bpm });
   }
@@ -339,5 +378,5 @@
   function modeChanged() { lastLeds = ""; sendLedsSoon(); if (window.PPConfigure) window.PPConfigure.render(); }
 
   function list(kind) { return Object.keys(ACTIONS).map(function (k) { return ACTIONS[k]; }).filter(function (a) { return !a.hidden && (!kind || a.kind === kind || a.id === "none"); }); }   // (hidden: the small screen's own)
-  window.PPActions = { ACTIONS: ACTIONS, list: list, muted: function (b) { return !!mutes[b]; }, busLevel: busLevel, setBusLevel: setBusLevel, toggleMute: toggleMute, TAB_NAMES: TAB_NAMES, run: run, onControl: onControl, midiInput: midiInput, mapping: mapping, defaults: defaults, mode: mode, sendLeds: sendLedsSoon, modeChanged: modeChanged, entryFor: entryFor };
+  window.PPActions = { ACTIONS: ACTIONS, list: list, muted: function (b) { return !!mutes[b]; }, busLevel: busLevel, setBusLevel: setBusLevel, toggleMute: toggleMute, TAB_NAMES: TAB_NAMES, run: run, onControl: onControl, midiInput: midiInput, keyInput: keyInput, mapping: mapping, defaults: defaults, mode: mode, sendLeds: sendLedsSoon, modeChanged: modeChanged, entryFor: entryFor };
 })();

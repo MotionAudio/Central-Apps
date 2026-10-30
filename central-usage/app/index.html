@@ -24,7 +24,7 @@
     <div class="brand"><svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg><b>Central Control</b><span id="connInfo">not connected</span></div>
     <nav class="tabs" id="tabs">
       <button class="tab" data-tab="devices">Devices</button><button class="tab" data-tab="service">Service</button><button class="tab" data-tab="chart">Chord chart</button><button class="tab" data-tab="instrument">Instrument</button><button class="tab" data-tab="lights">Lighting</button><button class="tab" data-tab="mix">Mix</button>
-      <button class="tab" data-tab="inears">In-ears</button><button class="tab" data-tab="lyrics">Lyrics</button><button class="tab" data-tab="slides">Slides</button><button class="tab" data-tab="video">Video</button><button class="tab" data-tab="io">I/O</button><button class="tab" data-tab="settings" title="Settings">⚙</button>
+      <button class="tab" data-tab="inears">In-ears</button><button class="tab" data-tab="lyrics">Lyrics</button><button class="tab" data-tab="slides">Slides</button><button class="tab" data-tab="video">Video</button><button class="tab" data-tab="io">I/O</button><button class="tab" data-tab="controls">Controls</button><button class="tab" data-tab="settings" title="Settings">⚙</button>
     </nav>
     <div class="role-chip" id="roleChip"></div>
     <div class="cd-chip" id="cdChip" hidden></div>
@@ -65,6 +65,7 @@
   <section class="view" id="view-service"><div id="serviceRoot" class="pad-view"></div></section>
   <section class="view" id="view-video"><div id="videoRoot" class="pad-view"></div></section>
   <section class="view" id="view-io"><div id="ioRoot" class="pad-view"></div></section>
+  <section class="view" id="view-controls"><div id="controlsRoot" class="pad-view"></div></section>
   <section class="view" id="view-settings"><div id="settingsRoot" class="pad-view"></div></section>
 
   <section class="view" id="view-lights">
@@ -186,6 +187,11 @@
   <script src="shared/license.js"></script>
   <script src="shared/libraries.js"></script>
   <script src="settings.js"></script>
+  <script src="shared/theme.js"></script>
+  <script src="theme-ui.js"></script>
+  <script src="shared/control-surface.js"></script>
+  <script src="controls.js"></script>
+  <script src="shared/streamdeck.js"></script>
   <dialog id="updDialog"><h2>Updates</h2><p class="muted" id="updInfo"></p>
     <label>Update source (GitHub owner/repo)<input id="updRepo" placeholder="MotionAudio/Central-Apps"></label>
     <label class="toggle"><input type="checkbox" id="updAuto" checked> Look for updates every time the app opens (and once a day)</label>

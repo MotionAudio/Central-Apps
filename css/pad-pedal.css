@@ -197,8 +197,8 @@ svg.notation .n-tab { font: bold 11px sans-serif; fill: #111; } svg.notation .n-
 .stem-meter i.hot { background: linear-gradient(0deg, var(--accent), #F5CF72); } .stem-meter i.clip { background: var(--danger); }
 .stem-fwrap .stem-fader { height: 100%; }
 .stem { border-top: 3px solid var(--line); }
-.stem.role-drums { border-top-color: #ff8a5c; } .stem.role-bass { border-top-color: #b98cff; } .stem.role-keys { border-top-color: #5cc8ff; } .stem.role-guitar { border-top-color: #ffd15c; }
-.stem.role-vocals { border-top-color: #ff6fae; } .stem.role-guide, .stem.role-click { border-top-color: #9aa7b8; } .stem.role-music { border-top-color: var(--accent); }
+.stem.role-drums { border-top-color: var(--trk-drums, #ff8a5c); } .stem.role-bass { border-top-color: var(--trk-bass, #b98cff); } .stem.role-keys { border-top-color: var(--trk-keys, #5cc8ff); } .stem.role-guitar { border-top-color: var(--trk-guitar, #ffd15c); }
+.stem.role-vocals { border-top-color: var(--trk-vocals, #ff6fae); } .stem.role-guide, .stem.role-click { border-top-color: var(--trk-click, #9aa7b8); } .stem.role-music { border-top-color: var(--trk-music, var(--accent)); }
 .mix-dialog { width: min(98vw, 1600px); max-width: 98vw; height: min(94vh, 900px); max-height: 94vh; display: none; padding: 14px; }
 .mix-dialog[open] { display: flex; flex-direction: column; }
 .mix-head { flex: 0 0 auto; gap: 10px; flex-wrap: wrap; }

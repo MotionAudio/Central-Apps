@@ -271,9 +271,9 @@
         <h3>Control board inputs</h3><p class="muted">Wire a button, knob or slider to any usable pin, press Learn, then press or turn it: the Central Pedal finds the pin or ADS1115 channel by itself. The defaults below match the wiring diagram.</p>
         <div id="lnBoard"></div>
         <div class="se-row"><button id="lnResetBoard">Reset to default pins</button><span class="muted" id="lnMouse"></span></div>
-        <h3 style="margin-top:14px">USB pedals, controllers and MIDI</h3><p class="muted">Plug a USB foot pedal, game pad or MIDI foot controller into the Pi, add a button, press Learn and hit it. Then give it a job on the Configure tab.</p>
+        <h3 style="margin-top:14px">Your pedals, controllers and keys</h3><p class="muted">MIDI footswitches, pedals, knobs and sliders, or a key on the computer's keyboard. Press <b>Add new control</b>, say what it is, name it, then press it, turn it or slide it when we ask. After that, give it a job on the Configure tab.</p>
         <div id="lnUsb"></div>
-        <div class="se-row"><button class="primary" id="lnAddUsbButton">+ Add new USB button</button><button id="lnAddUsbKnob">+ Add USB knob / pedal</button><button id="lnAddMidiButton">+ Add MIDI button</button><button id="lnAddMidiKnob">+ Add MIDI knob / pedal</button></div>
+        <div class="se-row"><button class="primary" id="lnAddNew">+ Add new control</button><button id="lnAddUsbButton">+ USB pedal or game pad button</button><button id="lnAddUsbKnob">+ USB knob / pedal</button><button id="lnAddMidiButton" hidden>+ Add MIDI button</button><button id="lnAddMidiKnob" hidden>+ Add MIDI knob / pedal</button></div>
       </div>
       <div><h3>Default wiring</h3><p class="muted">Buttons: pin → switch → GND. Knobs and sliders: 3.3 V – wiper → ADS1115 – GND. LEDs on the MCP23017. Full guide with the I2S DAC and the 3.5-inch screen: <a href="wiring.html" target="_blank">wiring.html</a></p><div id="lnDiagram"></div></div>
     </div>
@@ -335,6 +335,8 @@
   <script src="js/app.js"></script>
   <script src="js/colors.js"></script>
   <script src="js/graphics.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/control-surface.js"></script>
   <script src="js/features.js"></script>
   <script src="js/textures.js"></script>
   <script src="js/analysis-worker.js"></script>

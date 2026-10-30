@@ -220,7 +220,11 @@
       var b = e.target.closest("[data-preset],[data-rt-test],[data-st-group],#audioApply,#bkBackup,#bkRestore,#bkUpdate,#bkRefresh,[data-bk-to],[data-bk-restore],[data-bk-update]"); if (!b) return;
       if (b.id === "bkBackup") bkShow("backup"); else if (b.id === "bkRestore") bkShow("restore"); else if (b.id === "bkUpdate") bkShow("update"); else if (b.id === "bkRefresh") bkShow(bk.mode || "backup");
       else if (b.dataset.bkTo) bkBackupTo(b.dataset.bkTo); else if (b.dataset.bkRestore) bkRestoreFrom(b.dataset.bkRestore); else if (b.dataset.bkUpdate) bkUpdateFrom(b.dataset.bkUpdate);
-      else if (b.dataset.preset != null) { Object.assign(project().theme, PRESETS[Number(b.dataset.preset)].theme); PP.applyTheme(); PP.persistSoon(); renderPresets(); if (window.PPColors) window.PPColors.render(); }
+      else if (b.dataset.preset != null) {   // a preset sets every screen colour (the ones it doesn't name come from the ones it does)
+        var pt = PRESETS[Number(b.dataset.preset)].theme;
+        project().theme = window.CCTheme ? Object.assign(window.CCTheme.derive(pt, "pedal"), pt) : Object.assign(project().theme || {}, pt);
+        PP.applyTheme(); PP.persistSoon(); renderPresets(); if (window.PPColors) { window.PPColors.render(); window.PPColors.apply(); }
+      }
       else if (b.dataset.rtTest) engine.testBus(b.dataset.rtTest);
       else if (b.dataset.stGroup) { group = b.dataset.stGroup; renderNav(); }
       else if (b.id === "audioApply") { PP.persistNow(); PP.setStatus("Restarting the audio engine…"); setTimeout(function () { location.reload(); }, 150); }

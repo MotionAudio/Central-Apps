@@ -1071,6 +1071,19 @@ async def main():
                   and (_sys == [{"action": "displays", "config": {"hdmi1": "lyrics"}}] or (cur_h1 == "lyrics" and _sys == [])) and mini.overlay is None,
                   (asked_s, sc, sc_pick, lyr, blank, h1, cur_h1, _sys, mini.overlay))
             driver.display = disp
+            # 10.0: Settings → Colours in the app - the 3.5" screen takes the same colours, kept for the next start; None = our look
+            _cfg_saved = driver.save_config
+            driver.save_config = lambda: True
+            try:
+                driver.handle_app_message({"type": "miniTheme", "colors": {"bg": "#f2f5f8", "text": "#102033", "accent": "#0f9d72", "nope": "#123456", "bar": "not a colour"}})
+                themed = (mini.COL["bg"], mini.COL["text"], mini.COL["accent"], mini.COL["bar"], driver.config.get("mini_theme", {}).get("bg"))
+                mini.render(disp)
+                driver.handle_app_message({"type": "miniTheme", "colors": None})
+                back = (mini.COL["bg"], "mini_theme" in driver.config)
+            finally:
+                driver.save_config = _cfg_saved
+            check("the small screen follows the app's colours (Settings → Colours), keeps them for the next start, and goes back to its own look",
+                  themed == ((242, 245, 248), (16, 32, 51), (15, 157, 114), driver_mod.MiniScreen.COL["bar"], "#f2f5f8") and back == (driver_mod.MiniScreen.COL["bg"], False), (themed, back))
         finally:
             driver.emit, driver.schedule_mini_render = _real_emit2, _sched2
             driver_mod.wifi_connect, driver_mod.wifi_status = _wc, _ws

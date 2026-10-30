@@ -2648,6 +2648,13 @@ def midi_port_wanted(name):
     return bool(client) and "Through" not in name and not client.startswith("RtMidi")
 
 
+def midi_short_name(n):
+    """'nanoKONTROL2:nanoKONTROL2 MIDI 1 20:0' and 'nanoKONTROL2 MIDI 1' are the same device (control-surface.js shortPort)."""
+    n = re.sub(r"\s+\d+:\d+$", "", re.sub(r" \(out\)$", "", str(n or "")))
+    i = n.find(":")
+    return (n[i + 1:].strip() if i > 0 and n[i + 1:].strip() else n).lower()
+
+
 class Midi:
     """All USB MIDI inputs / outputs (hot-plugged), scheduled sends, MIDI clock out."""
 
@@ -2743,9 +2750,14 @@ class Midi:
     def send_raw(self, message, port=None):
         sent = 0
         with self.lock:
-            for name, out in self.outputs.items():
-                if port and port != name:
-                    continue
+            names = list(self.outputs.keys())
+            if port and port not in self.outputs:   # (an input's name: the output of the same device)
+                want = midi_short_name(port)
+                names = [n for n in names if midi_short_name(n) == want]
+            elif port:
+                names = [port]
+            for name in names:
+                out = self.outputs[name]
                 try:
                     out.send(message)
                     sent += 1
@@ -3184,6 +3196,11 @@ class MiniScreen:
         self.dragf = TouchFilter()
         self.tstats = {"device": None, "presses": 0, "taps": 0, "rate": 0.0, "jitter": 0.0, "tapMs": 0.0, "pressure": None, "last": 0.0}
         self.song_edit = False   # (the setlist page's EDIT: move songs, take them out)
+        self.COL = dict(MiniScreen.COL)   # (this screen's colours: the app's Settings → Colours can change them)
+        try:
+            self.set_theme((getattr(driver, "config", None) or {}).get("mini_theme"))
+        except Exception:
+            pass
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -3282,6 +3299,26 @@ class MiniScreen:
         except Exception:
             n = max(1, int(width / 7))
             return text if len(text) <= n else text[: n - 1] + "…"
+
+    @staticmethod
+    def _rgb(value):
+        v = str(value or "").strip().lstrip("#")
+        if len(v) == 3:
+            v = "".join(c * 2 for c in v)
+        if len(v) != 6 or any(c not in "0123456789abcdefABCDEF" for c in v):
+            return None
+        return (int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16))
+
+    def set_theme(self, colors):
+        """The app's colours (Settings → Colours): background, panels, text, accent... None = our own look."""
+        col = dict(MiniScreen.COL)
+        for k, v in (colors or {}).items():
+            rgb = self._rgb(v)
+            if k in col and rgb:
+                col[k] = rgb
+        changed = col != self.COL
+        self.COL = col
+        return changed
 
     def text(self, g, xy, text, font, fill, anchor="la", width=None):
         if width:
@@ -9607,6 +9644,17 @@ class PedalDriver:
             self.display = message
             self.emit(message, lan=True)
             self.schedule_mini_render()
+        elif kind == "miniTheme":
+            # Settings → Colours in the app: the 3.5" screen uses the same colours (None: our own look)
+            colors = message.get("colors") if isinstance(message.get("colors"), dict) else None
+            if colors != self.config.get("mini_theme"):
+                if colors:
+                    self.config["mini_theme"] = {k: str(v)[:9] for k, v in colors.items() if isinstance(k, str)}
+                else:
+                    self.config.pop("mini_theme", None)
+                self.save_config()
+            if self.mini and self.mini.set_theme(self.config.get("mini_theme")):
+                self.schedule_mini_render(True)
         elif kind == "leds":
             self.led_states = message.get("states") or {}
             if message.get("bpm"):
@@ -9651,6 +9699,11 @@ class PedalDriver:
             # Central Control (lighting computers) generate their own MIDI clock from this
             self.lan_clock = {"bpm": message.get("bpm"), "running": bool(message.get("running")), "t": int(time.monotonic() * 1000)}
             self.emit(dict(self.lan_clock, type="clock"), lan=True)
+        elif kind == "midiLed":
+            # a learned MIDI button's light (control-surface.js): back to the device it came from, never to the lights
+            if self.midi:
+                for m in message.get("messages") or []:
+                    self.midi.send_bytes(m.get("data") or [], m.get("port") or None)
         elif kind == "midiOut":
             if self.midi:
                 self.midi.send_messages(message.get("messages") or [])

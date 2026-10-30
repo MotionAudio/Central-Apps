@@ -28,8 +28,8 @@
   function fire(type, a, b) { (bus[type] || []).forEach(function (fn) { try { fn(a, b); } catch (e) { console.warn("listener", type, e); } }); }
   // ---- this computer's role: the main admin (one), admins, User 1 and User 2 - which tabs it has.
   // mode() is the side (admin / user) the tab modules check; role() is the exact role.
-  var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"],
-    user1: ["chart", "instrument", "lyrics", "inears", "io", "settings"], user2: ["lyrics", "chart", "inears", "settings"] };
+  var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"],
+    user1: ["chart", "instrument", "lyrics", "inears", "io", "controls", "settings"], user2: ["lyrics", "chart", "inears", "controls", "settings"] };
   // an admin's jobs (given by the main admin): only those tabs, or General = every admin tab
   var JOB_TABS = { lighting: ["lights"], production: ["video"], mix: ["mix"], inears: ["inears"], slides: ["slides", "lyrics"] };
   var JOB_NAMES = { general: "Everything (production manager)", lighting: "Lighting", production: "Production (cameras)", mix: "Mix", inears: "In-ears", slides: "Slides & lyrics" };
@@ -42,7 +42,7 @@
     // admins - and the main admin too - work by their jobs: everything (production manager), or only lighting, mix…
     var j = jobs(); if (j[0] === "general") return keep(MODES[r]);
     var want = {}; j.forEach(function (x) { JOB_TABS[x].forEach(function (t) { want[t] = 1; }); });
-    return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "settings" || t === "devices" || t === "service"; }));
+    return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "controls" || t === "settings" || t === "devices" || t === "service"; }));
   }
   var ROLE_NAMES = { main: "Main admin", admin: "Admin", user1: "User 1", user2: "User 2" };
   // which app this is: Central Control (the main admin and admins) or Central Usage (musicians: User 1 / User 2 -
