@@ -163,6 +163,9 @@ dialog.ss-dialog { width: min(820px, calc(100vw - 16px)); }
 .pm h3, .ss h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .pm-grid, .ss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 12px; }
 .pm-grid label, .ss-grid label, .pm section > label, .ss section > label { display: grid; gap: 3px; font-size: 13px; color: var(--muted); }
+/* a tick box and its words on one line (the grid above put the box over the words) */
+.pm label.toggle, .ss label.toggle, .pm-grid label.toggle, .ss-grid label.toggle { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.pm label.toggle input, .ss label.toggle input { width: auto; margin: 0; flex: 0 0 auto; }
 .pm-songs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; max-height: 26vh; overflow: auto; }
 .pm-scroll { overflow-x: auto; }
 .pm-mixes { border-collapse: collapse; font-size: 12px; min-width: 900px; } .pm-mixes th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px; white-space: nowrap; }

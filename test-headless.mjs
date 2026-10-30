@@ -610,7 +610,7 @@ await check("only the headphone jack (no DAC board): a bus on 3-4 is heard on 1-
   assert.equal(r.fb, "mix", "on a 2-output device the click is heard on 1-2 by default");
   assert.equal(r.clickLive, "1-2");
   assert.equal(r.fallback.click, 3); assert.equal(r.fallback.instrument, 4);
-  assert.match(r.note, /2 outputs, the headphone jack: everything plays on 1–2/);
+  assert.match(r.note, /only has its headphone jack \(outputs 1–2\), so everything plays there/);
   assert.equal(r.all12.mode, "all12"); assert.ok(r.all12.buses.every((x) => x.ch === 1 && x.st), "everything stereo on 1-2");
   assert.equal(r.dacChecked, true, "the DAC board switch shows what the pedal has");
   assert.deepEqual(r.sent.map((m) => m.value), ["off"], "unticking turns the DAC board off");
@@ -740,7 +740,7 @@ console.log("\nLicense keys with no website (default keys):");
   await p3.goto("file://" + pagePath); await p3.waitForFunction(() => window.PPLicense && window.PPShell);
   await check("Central Pedal Control opens on the setup with no website: the production's name, then the key (no internet or account steps)", async () => {
     await p3.waitForSelector("dialog#licWiz[open]", { timeout: 8000 });
-    const steps = await p3.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)); assert.deepEqual(steps, ["1. Production", "2. License key"]);
+    const steps = await p3.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)); assert.deepEqual(steps, ["1. Church", "2. License key"]);
     await p3.fill("#lwProd", "Grace Church"); await p3.click('#licWiz [data-lw="prod"]'); await p3.waitForSelector("#lwKey");
     assert.match(await p3.textContent("#licWiz"), /PDEF-AULT-KEY0-2026/);
   });

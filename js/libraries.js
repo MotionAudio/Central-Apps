@@ -115,20 +115,20 @@
   // ------------------------------------------------------------- the panel
   function rowHtml(lib, rec) {
     var be = st.backend, job = st.jobs[lib.id], open = hasPlan(lib.plan), id = esc(lib.id);
-    var status = rec ? "Installed · version " + esc(rec.version) : lib.ready === false ? "Not published yet" : "Not installed";
+    var status = rec ? "Installed · version " + esc(rec.version) : lib.ready === false ? "Coming soon - you can install it here once it's out" : "Not installed";
     var upd = rec && lib.version && newer(lib.version, rec.version) && lib.ready !== false;
     var btns = "";
     if (be && job && (job.state === "downloading" || job.state === "installing")) {
       btns = '<progress max="' + (job.total || 1) + '" value="' + (job.done || 0) + '"></progress> <span class="muted small">' + (job.state === "installing" ? "Installing…" : size(job.done) + (job.total ? " of " + size(job.total) : "")) + "</span>";
     } else if (be) {
-      if (!rec && open) btns += '<button class="primary" data-lib-install="' + id + '"' + (st.busy || lib.ready === false ? " disabled" : "") + ">Install</button>";
+      if (!rec && open && lib.ready !== false) btns += '<button class="primary" data-lib-install="' + id + '"' + (st.busy ? " disabled" : "") + ">Install</button>";
       if (upd && open) btns += '<button class="primary" data-lib-install="' + id + '"' + (st.busy ? " disabled" : "") + ">Update to " + esc(lib.version) + "</button>";
       if (rec) btns += '<button data-lib-remove="' + id + '"' + (st.busy ? " disabled" : "") + ">Remove</button>";
     } else if (lib.url && lib.ready !== false) btns = '<a href="' + esc(lib.url) + '" target="_blank" rel="noopener">Download</a>';
     var what = rec && rec.counts ? [["sound", "sound bank"], ["pad", "pad style"], ["preset", "preset"], ["board", "board"], ["ir", "impulse response"]].filter(function (k) { return rec.counts[k[0]]; }).map(function (k) { return rec.counts[k[0]] + " " + k[1] + (rec.counts[k[0]] === 1 ? "" : "s"); }).join(", ") : "";
     return '<li data-lib="' + id + '"><b>' + esc(lib.title || planName(lib.plan) + " Library") + '</b> <span class="muted">· ' + esc(planName(lib.plan)) + (lib.size ? " · " + (lib.approximate ? "about " : "") + size(lib.size) : "") + "</span><br>" +
       '<span class="' + (rec ? "ok" : "muted") + '">' + status + "</span>" + (what ? ' <span class="muted small">(' + esc(what) + ")</span>" : "") + (rec && !open ? ' <span class="bad">· locked: needs ' + esc(planName(lib.plan)) + "</span>" : "") +
-      (lib.summary && !rec ? '<br><span class="muted small">' + esc(lib.summary) + "</span>" : "") + (btns ? '<div class="row">' + btns + "</div>" : "") + "</li>";
+      (lib.summary && !rec ? '<details class="lib-what"><summary>What\'s in it</summary><span class="muted small">' + esc(lib.summary) + "</span></details>" : "") + (btns ? '<div class="row">' + btns + "</div>" : "") + "</li>";
   }
   function html(cls) {
     if (!st.list && !st.loading) setTimeout(function () { load(false); }, 0);

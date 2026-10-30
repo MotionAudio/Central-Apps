@@ -59,7 +59,7 @@
     if (a.arg === "stem") return '<input data-cf="arg-index" type="number" min="1" max="24" value="' + ((Number(args.index) || 0) + 1) + '" title="stem number">';
     if (a.arg === "loop") { var li = Number(args.index); li = isFinite(li) && li >= 0 && li < 3 ? li : -1; return '<select data-cf="arg-index" title="which loop">' + [[0, "the selected loop"], [1, "loop 1"], [2, "loop 2"], [3, "loop 3"]].map(function (o) { return '<option value="' + o[0] + '"' + (li + 1 === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>"; }
     if (a.arg === "tab") { var names = A.TAB_NAMES || {}; return '<select data-cf="arg-tab">' + ["live", "pads", "tracks", "instrument", "looper", "configure", "learn", "io", "settings"].map(function (t) { return '<option value="' + t + '"' + ((args.tab || "pads") === t ? " selected" : "") + ">" + esc(names[t] || t) + "</option>"; }).join("") + "</select>"; }
-    if (a.arg === "bus") return '<select data-cf="arg-bus">' + [["tracks", "Tracks"], ["pad", "Pads"], ["click", "Click + MD voice"], ["instrument", "Instrument"]].map(function (b) { return '<option value="' + b[0] + '"' + ((args.bus || "tracks") === b[0] ? " selected" : "") + ">" + b[1] + "</option>"; }).join("") + "</select>";
+    if (a.arg === "bus") return '<select data-cf="arg-bus">' + [["tracks", "Tracks"], ["pad", "Pads"], ["click", "Click + cue voice"], ["instrument", "Instrument"]].map(function (b) { return '<option value="' + b[0] + '"' + ((args.bus || "tracks") === b[0] ? " selected" : "") + ">" + b[1] + "</option>"; }).join("") + "</select>";
     if (a.arg === "cue") return '<input data-cf="arg-cue" value="' + esc(args.cue || "chorus") + '" placeholder="cue id">';
     return "";
   }
@@ -108,7 +108,7 @@
         var lrn = learning && learning.target === i.id, ml = midiLearn && midiLearn.target === i.id;
         return '<div class="ln-row' + (lrn || ml ? " learning" : "") + '" data-input-id="' + i.id + '" data-learn="' + i.id + '"><i class="dot"></i><input data-ln="name" value="' + esc(i.name) + '"><small>' + esc(wiringText(i)) + '</small><button data-ln="' + (i.midi || i.key ? "relearn" : "learn") + '">' + (lrn || ml ? "Press it now… (cancel)" : "Learn") + '</button><button data-ln="del" class="danger">✕</button></div>';
       }).join("");
-    $("#lnMouse").textContent = devices.mouse ? "Mouse connected: the cursor is shown." : "No mouse: the cursor is hidden (touch).";
+    $("#lnMouse").textContent = devices.mouse ? "A mouse is plugged in, so the pointer shows." : "No mouse plugged in, so the pointer is hidden for the touch screen.";
     drawHeader();
   }
   function drawHeader() {

@@ -703,12 +703,12 @@ class _PublicDns:
 def explain_network_error(error):
     text = str(error)
     if "Errno -3" in text or "Errno -2" in text or "Name or service not known" in text or "name resolution" in text:
-        return "no internet here: the Central Pedal could not find github.com (DNS). Connect it to a Wi-Fi or network with internet (Settings → Wi-Fi), then Check now - or update from a USB stick"
+        return "No internet here, so the pedal can't look for updates. Connect it to a Wi-Fi network with internet (Settings → Wi-Fi), then press Check now. You can also update from a USB stick."
     if "Errno 101" in text or "unreachable" in text:
-        return "no internet here (network unreachable). Connect it to a Wi-Fi or network with internet, then Check now - or update from a USB stick"
+        return "No internet here, so the pedal can't look for updates. Connect it to a network with internet, then press Check now. You can also update from a USB stick."
     if "timed out" in text:
-        return "the update server did not answer in time (slow or no internet) - it tries again by itself"
-    return "could not reach the update server (%s)" % text[:120]
+        return "The update check took too long (the internet is slow or down). It tries again by itself."
+    return "Couldn't reach Motion Audio to look for updates. It tries again by itself, or you can update from a USB stick."
 
 
 class Updater:

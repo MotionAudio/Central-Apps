@@ -525,7 +525,7 @@ def wifi_status(scan=False):
     status = {"connected": None, "signal": None, "addresses": ip_addresses(), "networks": [], "available": shutil.which("nmcli") is not None,
               "country": (open("/etc/pad-pedal/wifi-country").read().strip() if os.path.exists("/etc/pad-pedal/wifi-country") else "US"), "error": None}
     if not status["available"]:
-        status["error"] = "NetworkManager is not installed."
+        status["error"] = "Wi-Fi can't be set up on this system."
         return status
     if _wifi_helper():
         code, out, err = run(["sudo", "-n", SYSTEM_SCRIPT, "wifi", "scan" if scan else "status"], timeout=40 if scan else 15)
@@ -3462,10 +3462,13 @@ class MiniScreen:
         self.COL = col
         return changed
 
+    # characters the screen's font (Archivo) has no shape for: drawn as their nearest look-alike instead of a box
+    GLYPH_FALLBACK = str.maketrans({"→": "›", "←": "‹", "⌫": "‹", "▲": "^", "▼": "v", "♭": "b", "♯": "#", "✕": "×", "✓": "", "↔": "–"})
+
     def text(self, g, xy, text, font, fill, anchor="la", width=None):
+        text = str(text if text is not None else "").translate(self.GLYPH_FALLBACK)
         if width:
             text = self.fit(g, text, font, width)
-        text = str(text if text is not None else "")
         if not text:
             return
         try:
@@ -3612,9 +3615,9 @@ class MiniScreen:
             # the touch-select knob: which setting it holds, and which way to turn to pick it up
             g.rectangle([0, H - 42, W, H], fill=(10, 40, 30))
             g.line([0, H - 42, W, H - 42], fill=C["accent"], width=2)
-            g.text((8, H - 37), self.clip(ts.get("label"), 46), font=self.font, fill=C["text"])
+            g.text((8, H - 37), self.clip(str(ts.get("label") or "").translate(self.GLYPH_FALLBACK), 46), font=self.font, fill=C["text"])
             pick = ts.get("pickup")
-            sub = ("turn UP ▲ to pick it up" if pick == "up" else "turn DOWN ▼ to pick it up" if pick == "down" else str(ts.get("value") or ""))
+            sub = ("turn it UP to pick it up" if pick == "up" else "turn it DOWN to pick it up" if pick == "down" else str(ts.get("value") or ""))
             g.text((8, H - 19), self.clip(sub, 48), font=self.small, fill=(255, 210, 120) if pick else C["accent"])
         tv = getattr(self.driver, "tuner_view", None)
         if tv and tv.get("on"):
@@ -4142,7 +4145,7 @@ class MiniScreen:
         cw, ch = (W - 12 - 2 * 5) / 3, 38
         if not items:
             self.text(g, (W / 2, 106), "This song has no scenes yet", self.F["sub"], C["muted"], "mm")
-            self.text(g, (W / 2, 126), "Make them in the song editor → Scenes", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 126), "Add them in the song editor, under Scenes", self.F["sub"], C["muted"], "mm")
         for j, sc in enumerate(shown):
             r, c = divmod(j, 3)
             x, y = 6 + c * (cw + 5), 76 + r * (ch + 4)
@@ -4350,7 +4353,7 @@ class MiniScreen:
         if lp.get("on") is False:
             self.chips(g, hits, "looper")
             self.text(g, (self.w / 2, 160), "The looper is off", self.F["title"], self.COL["text"], "mm")
-            self.text(g, (self.w / 2, 186), "Turn it on in the app: LOOPER tab → Looper on", self.F["sub"], self.COL["muted"], "mm")
+            self.text(g, (self.w / 2, 186), "Turn it on in the app's LOOPER tab (Looper on)", self.F["sub"], self.COL["muted"], "mm")
             return
         getattr(self, "looper_" + sub)(g, hits, d, lp)
 
@@ -5242,6 +5245,10 @@ class MiniScreen:
             return self.tmode_tap(raw_x, raw_y)
         self.dragf.reset()
         x, y = self.map_touch(raw_x, raw_y)
+        return self.tap_xy(x, y)
+
+    def tap_xy(self, x, y):
+        """A tap at a place on the screen (pixels): the button there does its job."""
         action, box = self.hit_box(x, y)
         self.active = None
         if not action:

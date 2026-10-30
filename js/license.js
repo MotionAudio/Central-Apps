@@ -173,7 +173,7 @@
       '<div class="row"><input id="pkgKey" placeholder="SXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" style="text-transform:uppercase"><button class="primary" data-pkg="add"' + (pk.busy ? " disabled" : "") + '>Add a package</button>' + (pk.list.length && on() ? '<button data-pkg="check"' + (pk.busy ? " disabled" : "") + ">Check now</button>" : "") + "</div>" +
       (pk.msg ? '<p class="small">' + esc(pk.msg) + "</p>" : "");
     return '<section class="' + (cls || "") + '" data-st="packages" id="pkgSettings"><h3>Packages</h3>' +
-      (!on() ? '<p class="muted">Every sound, board and pedal is open until the Motion Audio website opens. For now the default package key, <b>' + DEFAULT_KEYS.S + "</b>, opens every plan.</p>"
+      (!on() ? '<p class="muted">For now every sound, board and pedal is open to everyone. Once the Motion Audio website is up, you add the key from your sound plan here.</p>'
         : '<p class="muted">Sound plans: Central Keys (pianos, synths), Central Plugins (EQ, compressors, reverb, delay on tracks, pads, channels and the instrument), Central Instrument (basses, guitars, strings, brass, winds), Central Pedals (drive, fuzz, wah, modulation, amps, cabs) and Central Pads (pads in every key for the pad pedal - it comes with every other plan too). Each is a yearly package with its own key, for 3 of your devices - each a different app (say Central Usage, Central Control and a Central Pedal). ' + (onPedal() ? "Packages here are kept by the Central Pedal, so its screens and Pedal Control see them too." : "") + "</p>") + form + "</section>";
   }
   function pkRedraw() { var el2 = document.getElementById("pkgSettings"); if (el2) { var keep = el2.querySelector("#pkgKey"), v = keep ? keep.value : ""; el2.outerHTML = pkSectionHtml(el2.className); var k2 = document.getElementById("pkgKey"); if (k2 && v && !pk.busy && !/^Added/.test(pk.msg)) k2.value = v; } }
@@ -219,7 +219,7 @@
   }
 
   // ------------------------------------------------------------- the setup screen
-  var STEPS = ["Internet", "Production", "License key", "Account"];
+  var STEPS = ["Internet", "Church", "License key", "Account"];
   function css() {
     if (document.getElementById("licCss")) return;
     var s = document.createElement("style"); s.id = "licCss";
@@ -249,8 +249,8 @@
         : '<p class="bad">We can’t reach the Motion Audio website right now.</p><p class="muted">Check that this ' + (app === "pedal" ? "pedal" : "device") + ' is on the internet. If it is, we might be busy for a moment: give it a minute and try again.</p>' + (app === "pedal" ? wifiPanel() : "")) : "<p>Checking the internet…</p>";
       btns = (ui.net === false ? '<button data-lw="retry">Try again</button>' : "") + '<button class="primary" data-lw="next"' + (ui.net === true ? "" : " disabled") + ">Next</button>";
     } else if (s === 1) {
-      body = '<label>Your church or production’s name<input id="lwProd" value="' + esc((st && st.production) || opts.production || "") + '" placeholder="Grace Church" autocomplete="organization"></label>' +
-        '<p class="muted">It names this setup on this ' + (app === "pedal" ? "pedal" : "device") + ". Your keys and your people are on your church's account on the Motion Audio website.</p>";
+      body = '<label>Your church’s name<input id="lwProd" value="' + esc((st && st.production) || opts.production || "") + '" placeholder="Grace Church" autocomplete="organization"></label>' +
+        '<p class="muted">It names this setup on this ' + (app === "pedal" ? "pedal" : "device") + ". Your keys and your team are on your church's account on the Motion Audio website.</p>";
       btns = (on() ? '<button data-lw="back">Back</button>' : "") + '<button class="primary" data-lw="prod">Next</button>';
     } else if (s === 2) {
       body = (st && st.blocked ? '<p class="bad">' + esc(st.blocked) + "</p>" : "") +

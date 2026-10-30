@@ -300,7 +300,7 @@
   var systemStatus = null;
   function renderSystem() {
     var s = systemStatus, connected = bridge() && bridge().connected;
-    $("#sysInfo").textContent = connected ? "Central Pedal OS" + (s && s.hostname ? " · " + s.hostname : "") : "Running in a browser (not on the Central Pedal hardware)";
+    $("#sysInfo").textContent = connected ? "This Central Pedal" + (s && s.hostname ? " (" + s.hostname + ")" : "") : "Running in a browser, not on a Central Pedal";
     var safe = $("#safeToggle"), text = $("#safeText");
     if (!connected || !s) { text.textContent = "Only available on the Central Pedal (Raspberry Pi) itself."; safe.disabled = true; safe.textContent = "Safe mode"; }
     else {
