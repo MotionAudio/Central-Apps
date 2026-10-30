@@ -368,7 +368,7 @@ await check("another computer picks User 1 and pairs with the pairing PIN (wrong
   await userP.waitForFunction(() => CentralUsage.role() === "user1" && !document.getElementById("modePick"), null, { timeout: 6000 });
   assert.equal(await userP.evaluate(() => CentralUsage.prefs.code), code);
   await userP.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.authed, null, { timeout: 10000 });   // found the Central Pedal through the main admin
-  assert.equal(await tabsShown(userP), "chart,instrument,inears,lyrics,io,settings");
+  assert.equal(await tabsShown(userP), "chart,instrument,studio,inears,lyrics,io,settings");
 });
 await check("the user flips to User 2 from the top bar: lyrics, chart, in-ears, settings", async () => {
   await userP.click("#roleChip [data-chip='user2']"); await userP.waitForFunction(() => CentralUsage.role() === "user2", null, { timeout: 5000 });
@@ -397,7 +397,7 @@ await check("Devices tab: the main admin sees it online with its connection heal
 await check("Devices tab: Change role moves it back to User 1", async () => {
   await mainP.selectOption("#devicesRoot tr:has-text('Keys') [data-dv-role]", "user1"); await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv='apply']");
   await userP.waitForFunction(() => CentralUsage.role() === "user1", null, { timeout: 5000 });
-  assert.equal(await tabsShown(userP), "chart,instrument,inears,lyrics,io,settings");
+  assert.equal(await tabsShown(userP), "chart,instrument,studio,inears,lyrics,io,settings");
 });
 await check("a computer set up as Admin without the role PIN waits; the main admin allows it on the Devices tab", async () => {
   const adminP = await cuPage("admin2"); await adminP.waitForFunction(() => window.CUCenter.connected(), null, { timeout: 6000 });

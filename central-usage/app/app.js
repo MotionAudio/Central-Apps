@@ -29,7 +29,7 @@
   // ---- this computer's role: the main admin (one), admins, User 1 and User 2 - which tabs it has.
   // mode() is the side (admin / user) the tab modules check; role() is the exact role.
   var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"],
-    user1: ["chart", "instrument", "lyrics", "inears", "io", "settings"], user2: ["lyrics", "chart", "inears", "settings"] };
+    user1: ["chart", "instrument", "studio", "lyrics", "inears", "io", "settings"], user2: ["lyrics", "chart", "inears", "settings"] };
   // an admin's jobs (given by the main admin): only those tabs, or General = every admin tab
   var JOB_TABS = { lighting: ["lights"], production: ["video"], mix: ["mix"], inears: ["inears"], slides: ["slides", "lyrics"] };
   var JOB_NAMES = { general: "Everything (production manager)", lighting: "Lighting", production: "Production (cameras)", mix: "Mix", inears: "In-ears", slides: "Slides & lyrics" };
@@ -37,7 +37,7 @@
   function tabsFor(r) {
     var hide = window.CULock && window.CULock.hiddenTabs ? window.CULock.hiddenTabs() : [];   // the main admin's service lock
     var keep = function (list) { return hide.length ? list.filter(function (t) { return hide.indexOf(t) < 0; }) : list; };
-    if (WEB) return keep(MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io"; }));   // a phone / tablet browser: the user side, no native parts
+    if (WEB) return keep(MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io" && t !== "studio"; }));   // a phone / tablet browser: the user side, no native parts
     if (r !== "admin" && r !== "main") return keep(MODES[r]);
     // admins - and the main admin too - work by their jobs: everything (production manager), or only lighting, mix…
     var j = jobs(); if (j[0] === "general") return keep(MODES[r]);

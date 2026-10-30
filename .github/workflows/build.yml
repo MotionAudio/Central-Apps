@@ -5,7 +5,7 @@
 #   Central Control        Linux, Windows, Mac - the main admin and admins       CentralControl-* (the release adds central-usage-* copies)
 #   Central Usage          Mac, Windows, Linux, Android + the iPhone / iPad project  CentralUsage-*, central-usage-mobile
 # Central Control and Central Usage are one code base (central-usage/; usage-builder.js packs Central Usage), with
-# the native helpers (cu-mixer, cu-ndi, cu-rig, cu-video), the pinned ffmpeg, the built-in sounds and the offline
+# the native helpers (cu-mixer, cu-ndi, cu-rig, cu-studio, cu-video), the pinned ffmpeg, the built-in sounds and the offline
 # speech model's runtime; Central Control also carries the player window (the Central Pedal app and its driver).
 # Used by release.yml (every release ships all of them); also runs by itself on the work branches and by hand.
 #
@@ -56,6 +56,7 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
+          bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           make -C central-usage/native build/test-playany-plugin
           bash tools/ci-run.sh "play any sound: plugin test" central-usage/native/build/test-playany-plugin central-usage/native/build/central-playany.lv2/central-playany.so central-usage/native/playany/central-playany.lv2/central-playany.ttl
@@ -203,6 +204,7 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer.exe
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig.exe
+          bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio.exe
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany.exe
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
@@ -294,6 +296,7 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
+          bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
       - name: Bundle the driver for the player window (PyInstaller) and smoke test it
