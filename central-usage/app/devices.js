@@ -135,7 +135,8 @@
           '<td class="dv-acts"><button data-dv="apply" data-id="' + esc(d.id) + '">Change role</button><button data-dv="' + (d.locked ? "unlock" : "lock") + '" data-id="' + esc(d.id) + '">' + (d.locked ? "Unlock" : "Lock") + '</button><button data-dv="rename" data-id="' + esc(d.id) + '">Rename</button><button class="danger" data-dv="remove" data-id="' + esc(d.id) + '">Remove</button></td></tr>';
       }).join("") : '<tr><td colspan="7" class="muted">No other devices yet. On each one choose Admin, User 1 or User 2 and type the pairing PIN <b>' + esc(v.pairPin || ((R() && R().keys()) || {}).pair || "") + "</b>.</td></tr>") + "</tbody></table>";
     h += '<p class="muted small">Connection is good, fair or poor, going by the delay to this computer, the in-ear buffer, the processor and the battery. Lock keeps a device\'s I/O tab, settings and setup closed during the service, but it still does its job. Talk group sets who hears your TALK: the Band or Production. Everyone else\'s talkback only comes to your headphones. Anyone can also lock their own device with 🔓 at the top.</p></div>';
-    root.innerHTML = h;
+    if (root.__h === h) return;   // (the center's updates come every few seconds: redraw only what changed, so a click or an open list isn't lost)
+    root.__h = h; root.innerHTML = h;
   }
   var pendingRole = {};
   document.addEventListener("change", async function (e) {

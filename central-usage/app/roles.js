@@ -402,7 +402,7 @@
     else if (a === "devices") CU.showTab("devices");
     else if (a === "centerAddr") { var ad = await CU.askText("The main admin's address (empty = find it by itself):", window.CUCenter ? window.CUCenter.address() : ""); if (ad != null && window.CUCenter) window.CUCenter.setAddress(ad); }
     else if (a === "forget") {
-      if (!confirm("Forget this computer's role? It goes back to the first-launch choice." + (CU.role() === "main" ? "\n\nThis computer stops being the main admin; another computer can then become it." : ""))) return true;
+      if (!confirm("Start this computer's setup again? It forgets the role it has now." + (CU.role() === "main" ? "\n\nThis computer stops being the main admin, so another computer can take that over." : ""))) return true;
       var extra = CU.role() === "main" ? { token: (keys() || {}).token } : {};
       if (linked()) { var r = await request("forget", extra); if (!r.ok) { alert(r.error || "Not changed."); return true; } }
       notice = ""; if (!(NAT && NAT.config)) CU.store.set("mainKeys", null);

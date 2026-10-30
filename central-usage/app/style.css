@@ -429,7 +429,7 @@ input[type=checkbox] { accent-color: var(--accent); }
 .cl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
 .cl-one { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; padding: 4px 6px; border-radius: 8px; border: 1px solid transparent; } .cl-one.changed { border-color: var(--line2); }
 .cl-one input[type=color] { width: 34px; height: 26px; padding: 0; border-radius: 6px; cursor: pointer; }
-.cl-sample { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
+.cl-sample { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); } .cl-sample button { pointer-events: none; }   /* (a preview of the colours, not buttons to press) */
 .cl-s-panel { padding: 6px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); } .cl-s-chord { font: 700 18px ui-monospace, monospace; color: var(--chord); }
 .cl-s-meter { width: 120px; height: 8px; border-radius: 4px; background: var(--well); overflow: hidden; } .cl-s-meter i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--meterLow) 0 60%, var(--meterMid) 60% 85%, var(--meterHigh) 85%); }
 /* (10.0) what this computer does: the setup step, Settings → This computer, "who runs it", the Lights banner */

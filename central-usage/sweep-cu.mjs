@@ -101,6 +101,9 @@ async function run(c) {
     await setSize(s);
     for (const t of tabs) {
       await enter(t); cur = c.name + " " + t + " " + s[0]; await shot(c.name + "-" + t + "-" + s[0]);
+      // buttons that get redrawn by themselves while nobody touches anything (a click can land between the press and the release and be lost)
+      const churn = await win.evaluate(() => new Promise((res) => { const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }; const list = [...document.querySelectorAll("button, select, input")].filter(vis); setTimeout(() => res({ n: list.length, gone: list.filter((el) => !el.isConnected).map((el) => (el.textContent || el.id || el.name || el.className || "").trim().slice(0, 30)).slice(0, 8), goneN: list.filter((el) => !el.isConnected).length }), 1500); })).catch(() => null);
+      if (churn && churn.goneN) report.churn = (report.churn || []).concat([{ where: cur, of: churn.n, gone: churn.goneN, eg: churn.gone }]);
       if (subs[t] && await win.evaluate(() => !!(window.CULights && CULights.showSub))) for (const sub of subs[t]) { await win.evaluate((v) => CULights.showSub(v), sub); await win.waitForTimeout(300); await shot(c.name + "-" + t + "-" + sub + "-" + s[0]); }
     }
   }
@@ -153,5 +156,5 @@ if (!ONLY.length || ONLY.includes("phone")) {
   await ph.screenshot({ path: path.join(shots, "phone-first.png") });
 }
 fs.writeFileSync(path.join(shots, "report.json"), JSON.stringify(report, null, 1));
-console.log(JSON.stringify({ errors: report.errors.length, dead: report.dead.length, obscured: report.obscured.length, dialogs: report.dialogs.length, overflow: report.overflow.length, ok: report.ok, skipped: report.skipped, shots: report.shots.length }));
+console.log(JSON.stringify({ churn: (report.churn || []).length, errors: report.errors.length, dead: report.dead.length, obscured: report.obscured.length, dialogs: report.dialogs.length, overflow: report.overflow.length, ok: report.ok, skipped: report.skipped, shots: report.shots.length }));
 await b.close(); drv.kill(); process.exit(0);
