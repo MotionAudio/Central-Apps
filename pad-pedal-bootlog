@@ -32,10 +32,14 @@ KU="$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)"; KH="$(getent passw
     echo "-- PipeWire"; "${PW[@]}" systemctl --user is-active pipewire.service pipewire-pulse.service wireplumber.service 2>&1 | paste -sd' '
     echo "-- sinks (default: $("${PW[@]}" pactl get-default-sink 2>&1))"; "${PW[@]}" pactl list short sinks 2>&1
     "${PW[@]}" pactl list sinks 2>&1 | grep -E "^Sink|Name:|Mute:|^\s+Volume:|Channel Map:" | head -40
-    echo "-- playing now"; "${PW[@]}" pactl list short sink-inputs 2>&1
+    echo "-- playing now (which app, into which output)"; "${PW[@]}" pactl list short sink-inputs 2>&1
+    "${PW[@]}" pactl list sink-inputs 2>&1 | grep -E "^Sink Input|^\s+Sink:|application.name|media.name|Mute:|^\s+Volume:" | head -30
+    echo "-- inputs (sources)"; "${PW[@]}" pactl list short sources 2>&1
+    echo "-- wpctl status"; "${PW[@]}" wpctl status 2>&1 | sed -n '/^Audio/,/^Video/p' | head -45
     echo "-- links"; "${PW[@]}" pw-link -l 2>&1 | head -40
   fi
-  echo "-- generated config"; cat "$KH/.config/pipewire/pipewire.conf.d/padpedal.conf" 2>&1; cat /data/pad-pedal/audio-channels.json /data/pad-pedal/audio.json 2>&1; echo
+  echo "-- headphone jack switched on in config.txt: $(grep -cE '^dtparam=audio=on' "$BOOT/config.txt" 2>/dev/null) line(s)"
+  echo "-- generated config"; cat "$KH/.config/pipewire/pipewire.conf.d/padpedal.conf" "$KH/.config/wireplumber/wireplumber.conf.d/padpedal.conf" 2>&1; cat /data/pad-pedal/audio-channels.json /data/pad-pedal/audio.json 2>&1; echo
   echo "-- audio set-up at login"; grep -hE "^audio" /tmp/pad-pedal-session.log /tmp/pad-pedal-x.log 2>/dev/null | tail -6
   echo; echo "== kernel messages (errors, screen, touch, sound)"; dmesg 2>&1 | grep -iE "error|fail|fbtft|fb1|spi|ads7846|under-voltage|snd|bcm2835|hifiberry|pcm5102" | tail -60
 } > "$OUT.tmp" 2>&1

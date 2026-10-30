@@ -398,6 +398,13 @@ def main():
         assert back and back[0]["name"] == "My Bank", back
     check("SoundFont reading and 'folder of WAVs named by note' -> .sf2 writing round-trip", t_sf2_tools)
 
+    def t_input_ports():
+        ip = instrument_host.input_ports
+        assert ip("L", 2) == (0, None, "input 1") and ip("R", 2) == (1, None, "input 2") and ip("stereo", 2) == (0, 1, "inputs 1 + 2")
+        assert ip("3", 4) == (2, None, "input 3") and ip("3-4", 4) == (2, 3, "inputs 3 + 4"), (ip("3", 4), ip("3-4", 4))
+        assert ip("5", 2) == (0, None, "input 1") and ip("3-4", 2) == (0, 1, "inputs 1 + 2") and ip("R", 1) == (0, None, "input 1")
+    check("a USB interface's inputs: any input (3) or a pair (3-4); one the device doesn't have falls back to input 1", t_input_ports)
+
     host.stop_all()
     shutil.rmtree(data, ignore_errors=True)
     print("\n%s" % ("ALL INSTRUMENT HOST CHECKS PASSED" if not failed else "%d CHECK(S) FAILED" % failed))

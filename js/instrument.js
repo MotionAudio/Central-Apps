@@ -41,6 +41,15 @@
   function flattenKeys(banks) { var out = [], order = CATS.map(function (c) { return c[1]; }); banks.forEach(function (b) { (b.presets || []).forEach(function (pr) { var nm = pr.name || b.name; out.push({ id: b.file + "#" + pr.bank + ":" + pr.prog, file: b.file, bank: pr.bank, prog: pr.prog, name: nm, bankName: b.name + (b.user && !b.tier ? " (yours)" : ""), category: categoryOf(nm + " " + (b.presets.length < 4 ? b.name : "")), user: !!b.user && !b.tier, bankTier: b.tier || null }); }); });
     out.forEach(function (e) { e.tier = PED.soundTier ? PED.soundTier(e) : "free"; });
     out.sort(function (a, b) { var ca = a.user ? -1 : order.indexOf(a.category), cb = b.user ? -1 : order.indexOf(b.category); if (ca < 0 && !a.user) ca = 99; if (cb < 0 && !b.user) cb = 99; return ca - cb || a.name.localeCompare(b.name); }); return out; }
+  // the input's channels to pick from: 1 and 2 (and both), or every input of a bigger USB interface and its pairs
+  function inputChannelOptions(inp) {
+    var dev = catalog.inputs.filter(function (i) { return i.id === inp.device; })[0] || (inp.device === "auto" || !inp.device ? catalog.inputs.filter(function (i) { return i.usb; })[0] : null);
+    var n = Math.max(2, Math.min(32, (dev && dev.channels) || 2)), out = [["L", "Input 1 (left)"], ["R", "Input 2 (right)"], ["stereo", "Inputs 1 + 2 (stereo)"]];
+    for (var i = 3; i <= n; i++) out.push([String(i), "Input " + i]);
+    for (var p = 3; p < n; p += 2) out.push([p + "-" + (p + 1), "Inputs " + p + " + " + (p + 1) + " (stereo)"]);
+    if (inp.channel && !out.some(function (o) { return o[0] === String(inp.channel); })) out.push([String(inp.channel), "Input " + inp.channel + " (not on this device)"]);
+    return out;
+  }
   var catalog = { plugins: {}, keys: [], inputs: [], midi: [], ready: false }, status = { running: false }, selected = null, showAdd = false, addCat = "all", addQuery = "", keysCat = "all", keysQuery = "", tunerOn = false;
 
   // ------------------------------------------------------------- the plans (Central Keys / Plugins / Instrument / Pedals)
@@ -302,7 +311,7 @@
       (k === "off" ? '<p class="muted in-off">Pick an instrument. A guitar goes into any USB audio interface plugged into the Pi (¼″ jack); a keyboard into a USB MIDI port. Its sound leaves on output 4 by default (Settings → Output routing) - the pads and tracks are never in its way.</p>' :
         '<div class="in-bar"><label>Board<select id="inBoard">' + boards.map(function (b) { var lk = boardLocked(b); return '<option value="' + b.id + '"' + (c.boards[k] === b.id ? " selected" : "") + (lk && c.boards[k] !== b.id ? " disabled" : "") + ">" + esc(b.name) + (lk ? " · locked: " + esc(boardMissing(b).map(planName).join(" + ")) : "") + "</option>"; }).join("") + '<option value="__custom">Save this board as…</option></select></label>' +
         (k !== "keys" ?
-          '<label>Input<select id="inInput"><option value="auto">Auto (USB interface)</option>' + catalog.inputs.map(function (i) { return '<option value="' + esc(i.id) + '"' + (c.input.device === i.id ? " selected" : "") + ">" + esc(i.name) + "</option>"; }).join("") + '</select></label><label>Input channel<select id="inChannel">' + [["L", "Left / input 1"], ["R", "Right / input 2"], ["stereo", "Both (stereo)"]].map(function (o) { return '<option value="' + o[0] + '"' + (c.input.channel === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>" +
+          '<label>Input<select id="inInput"><option value="auto">Auto (USB interface)</option>' + catalog.inputs.map(function (i) { return '<option value="' + esc(i.id) + '"' + (c.input.device === i.id ? " selected" : "") + ">" + esc(i.name) + "</option>"; }).join("") + '</select></label><label>Input channel<select id="inChannel">' + inputChannelOptions(c.input).map(function (o) { return '<option value="' + o[0] + '"' + (c.input.channel === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>" +
           '<label>Input gain <span class="control-line"><input type="range" id="inGain" min="-20" max="40" step="1" value="' + c.input.gain + '"><output>' + c.input.gain + ' dB</output></span></label><label>Noise gate <span class="control-line"><input type="range" id="inGate" min="-90" max="-20" step="1" value="' + c.input.gate + '"><output>' + c.input.gate + " dB</output></span></label>" :
           '<label>MIDI keyboard<select id="inMidi"><option value="auto">Auto (any USB MIDI)</option>' + catalog.midi.map(function (m) { return '<option value="' + esc(m) + '"' + (c.keys.midi === m ? " selected" : "") + ">" + esc(m) + "</option>"; }).join("") + '</select></label><label>Transpose <span class="control-line"><input type="range" id="inTranspose" min="-12" max="12" step="1" value="' + (c.keys.transpose || 0) + '"><output>' + (c.keys.transpose || 0) + '</output></span></label><label>Velocity<select id="inVel">' + [["soft", "Soft touch"], ["normal", "Normal"], ["hard", "Hard"], ["fixed", "Fixed (organ)"]].map(function (o) { return '<option value="' + o[0] + '"' + (c.keys.velocity === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>") +
         '<label>Output level <span class="control-line"><input type="range" id="inOut" min="-40" max="12" step="1" value="' + c.output.level + '"><output>' + c.output.level + ' dB</output></span></label>' +
@@ -543,7 +552,7 @@
       if (plugHost() && !plugs.asked) { plugs.asked = true; send({ type: "instrument", action: "plugins", scan: true, folders: cfg().pluginFolders || [] }); }
       if (m.pluginSlots) Object.keys(plugs.open).forEach(function (id) { var si = m.pluginSlots[id]; if (si) plugs.open[id] = !!si.open; });
       if (m.plugins) catalog.plugins = m.plugins;
-      catalog.inputs = (m.inputs || []).map(function (i) { return { id: i.name, name: (i.desc || i.name) + (i.channels ? " · " + i.channels + " in" : "") }; });
+      catalog.inputs = (m.inputs || []).map(function (i) { return { id: i.name, name: (i.desc || i.name) + (i.channels ? " · " + i.channels + " in" : ""), channels: i.channels || 2, usb: /usb/i.test(i.name) }; });
       catalog.midi = m.midiInputs || []; catalog.keys = flattenKeys(m.keysCatalog || []); catalog.ready = true;
       if (pendingPatchFile) { var np = catalog.keys.filter(function (p) { return p.file === pendingPatchFile; })[0]; if (np) { pendingPatchFile = null; var cc = cfg(); cc.keys.patch = { id: np.id, file: np.file, bank: np.bank, prog: np.prog, name: np.name }; keysQuery = ""; keysCat = "all"; if (kind() === "keys") send({ type: "instrument", action: "keys", keys: hostConfig().keys }); PP.persistSoon(); } }
       var s = $(".in-status"); if (s) s.innerHTML = statusLine();

@@ -630,6 +630,138 @@ def pi_health(data_root):
     return out
 
 
+# ---- the Pi's sound path (9.9.1): what the app plays into, where that goes, and a tone straight on each card ----------
+def pulse_env():
+    env = dict(os.environ)
+    env.setdefault("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
+    return env
+
+
+def pactl_short(what):
+    """pactl list short <what> -> [[columns]]"""
+    code, out, _ = run(["pactl", "list", "short", what], timeout=8, env=pulse_env())
+    return [line.split("\t") for line in out.splitlines() if line.strip()] if code == 0 else []
+
+
+def app_sink_inputs():
+    """The app's (Chromium's) streams: [{"id", "sink": sink index, "sinkName"}]."""
+    clients = {c[0]: (c[2] if len(c) > 2 else "") for c in pactl_short("clients")}
+    sinks = {s[0]: s[1] for s in pactl_short("sinks") if len(s) > 1}
+    out = []
+    for si in pactl_short("sink-inputs"):
+        if len(si) > 2 and re.search(r"(?i)chrom", clients.get(si[2], "")):
+            out.append({"id": si[0], "sink": si[1], "sinkName": sinks.get(si[1], "")})
+    return out
+
+
+def steer_app_audio():
+    """Every app stream into the combined output (padpedal_out). A stream remembered on another device - HDMI, from
+    before the combined output existed - played where nobody listens while the app's meters moved. Returns how many
+    were moved. (Only the app's own streams: the instrument chain links its channels itself.)"""
+    names = [s[1] for s in pactl_short("sinks") if len(s) > 1]
+    if "padpedal_out" not in names:
+        return 0
+    moved = 0
+    for si in app_sink_inputs():
+        if si["sinkName"] and si["sinkName"] != "padpedal_out":
+            code, _, _ = run(["pactl", "move-sink-input", si["id"], "padpedal_out"], timeout=8, env=pulse_env())
+            if code == 0:
+                moved += 1
+                log.info("sound: the app was playing on %s - moved to the combined output", si["sinkName"])
+    return moved
+
+
+def jack_mixer():
+    """The headphone jack's ALSA mixer ("PCM" / "Headphone"): {"card", "control", "text", "muted"} or None."""
+    try:
+        lines = open("/proc/asound/cards").read().splitlines()
+    except OSError:
+        lines = []
+    for line in lines:
+        m = re.match(r"\s*(\d+)\s+\[(\S+)\s*\]", line)
+        if m and re.match(r"(?i)headphones|bcm2835", m.group(2)):
+            for control in ("PCM", "Headphone", "Master"):
+                code, out, _ = run(["amixer", "-c", m.group(1), "sget", control], timeout=5)
+                if code == 0:
+                    vals = re.findall(r"\[(-?[\d.]+dB)\]", out)
+                    return {"card": int(m.group(1)), "control": control, "text": vals[0] if vals else "", "muted": "[off]" in out}
+            return {"card": int(m.group(1)), "control": "", "text": "", "muted": False}
+    return None
+
+
+def audio_path_check(data_root, fix=True):
+    """Where the sound goes, in plain words, for Settings → Audio → Test sound (and the problems found / fixed)."""
+    found, fixed = [], []
+    cards = sound_cards()
+    has_jack = any(re.match(r"(?i)headphones|bcm2835", c) for c in cards)
+    cfg_txt = ""
+    for path in ("/boot/firmware/config.txt", "/boot/config.txt"):
+        try:
+            cfg_txt = open(path).read()
+            break
+        except OSError:
+            pass
+    if not has_jack:
+        found.append("The headphone jack isn't switched on (there's no Headphones sound card)."
+                     + ("" if re.search(r"(?m)^dtparam=audio=on", cfg_txt) else " config.txt is missing dtparam=audio=on - it's added now; restart the pedal."))
+        if fix and not re.search(r"(?m)^dtparam=audio=on", cfg_txt) and os.path.exists(SYSTEM_SCRIPT):
+            if run_privileged(SYSTEM_SCRIPT, "jack", "on"):
+                fixed.append("Switched the headphone jack on (after a restart).")
+    sinks = [s[1] for s in pactl_short("sinks") if len(s) > 1]
+    code, default, _ = run(["pactl", "get-default-sink"], timeout=5, env=pulse_env())
+    default = default.strip()
+    chans = read_json(os.path.join(data_root, "audio-channels.json"), {}) or {}
+    if "padpedal_out" not in sinks:
+        found.append("The combined output (padpedal_out) isn't there. Restart the screens (Settings → Screens → Apply) to make it again.")
+    elif default != "padpedal_out":
+        found.append("The default output was %s, not the combined output." % (default or "nothing"))
+        if fix and run(["pactl", "set-default-sink", "padpedal_out"], timeout=5, env=pulse_env())[0] == 0:
+            fixed.append("Made the combined output the default again.")
+    streams = app_sink_inputs()
+    elsewhere = [si["sinkName"] for si in streams if si["sinkName"] and si["sinkName"] != "padpedal_out"]
+    if elsewhere and "padpedal_out" in sinks:
+        found.append("The app was playing into %s." % ", ".join(sorted(set(elsewhere))))
+        if fix and steer_app_audio():
+            fixed.append("Moved the app's sound to the combined output.")
+    jm = jack_mixer()
+    if jm and jm.get("muted"):
+        found.append("The headphone jack was muted.")
+        if fix and run(["amixer", "-q", "-c", str(jm["card"]), "sset", jm["control"] or "PCM", "0dB", "unmute"], timeout=5)[0] == 0:
+            fixed.append("Turned the headphone jack on, at full level.")
+    planned = chans.get("cards")
+    if has_jack and planned is not None and not any((c or {}).get("kind") == "jack" for c in planned):
+        found.append("The headphone jack isn't part of the combined output. Restart the screens to add it.")
+    return {"type": "audioCheck", "cards": cards, "sinks": sinks, "default": default, "appStreams": streams, "channels": chans.get("channels") or [],
+            "planned": planned or [], "jack": jm, "found": found, "fixed": fixed, "ok": not found}
+
+
+def card_tone(sink, seconds=0.7, freq=660):
+    """A tone straight on one sound card's own sink (not through the app): tells a cable or headphone problem apart
+    from an app routing one."""
+    import math
+    import struct
+    import wave
+    path = "/tmp/pad-pedal-tone-%d.wav" % freq
+    if not os.path.exists(path):
+        rate = 48000
+        n = int(rate * seconds)
+        frames = bytearray()
+        for i in range(n):
+            env = min(1.0, i / 960.0, (n - i) / 960.0)
+            v = int(0.3 * env * 32767 * math.sin(2 * math.pi * freq * i / rate))
+            frames += struct.pack("<hh", v, v)
+        with wave.open(path, "wb") as w:
+            w.setnchannels(2)
+            w.setsampwidth(2)
+            w.setframerate(rate)
+            w.writeframes(bytes(frames))
+    for cmd in (["pw-play", "--target", sink, path], ["paplay", "-d", sink, path]):
+        if shutil.which(cmd[0]):
+            code, _, err = run(cmd, timeout=10, env=pulse_env())
+            return code == 0, err.strip()
+    return False, "no pw-play / paplay"
+
+
 def sound_cards():
     cards = []
     try:
@@ -10178,7 +10310,14 @@ class PedalDriver:
             return
         time.sleep(20)
         last = None
+        tick = 0
         while True:
+            tick += 1
+            if tick % 3 == 1:   # (every ~12 s: the app's sound stays on the combined output - see steer_app_audio)
+                try:
+                    steer_app_audio()
+                except Exception as error:
+                    log.debug("sound steer: %s", error)
             try:
                 ch = self.audio_devices_changed()
                 key = json.dumps(ch, sort_keys=True) if ch else None
@@ -10403,6 +10542,20 @@ class PedalDriver:
                 cfg = {"hdmi": bool(message.get("hdmi")), "usbFirst": bool(message.get("usbFirst"))}
                 write_json(os.path.join(self.config["data_root"], "audio.json"), cfg)
                 run_privileged(SYSTEM_SCRIPT, "audio", "hdmi" if cfg["hdmi"] else "nohdmi", "usbfirst" if cfg["usbFirst"] else "jackfirst")
+            elif action == "audioCheck":   # Settings → Audio → Test sound: where the app's sound goes (and fix what's off)
+                self.emit(audio_path_check(self.config["data_root"], fix=message.get("fix", True) is not False))
+                return
+            elif action == "audioCardTest":   # a tone straight on each sound card, one after the other
+                planned = (read_json(os.path.join(self.config["data_root"], "audio-channels.json"), {}) or {}).get("cards") or []
+                sinks = [s[1] for s in pactl_short("sinks") if len(s) > 1 and s[1].startswith("alsa_output")]
+                for name in sinks:
+                    desc = next((c.get("desc") for c in planned if c.get("name") == name), None) or name
+                    self.emit({"type": "audioCardTest", "sink": name, "desc": desc, "busy": True})
+                    ok, err = card_tone(name)
+                    self.emit({"type": "audioCardTest", "sink": name, "desc": desc, "ok": ok, "error": err})
+                    time.sleep(0.4)
+                self.emit({"type": "audioCardTest", "done": True, "count": len(sinks)})
+                return
             elif action == "dac" and value in ("on", "off"):   # the DAC board (outputs 3-4): its overlay, after a restart
                 self.config["i2s_dac"] = value == "on"
                 self.save_config()
