@@ -48,7 +48,10 @@ function createWindow() {
 function allowPermissions() {
   const ok = (p) => ["midi", "midiSysex", "media", "notifications", "fullscreen", "speaker-selection", "audioCapture"].includes(p);
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(ok(permission)));
-  session.defaultSession.setPermissionCheckHandler((_wc, permission) => ok(permission));
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => ok(permission) || permission === "hid");
+  // an Elgato Stream Deck (WebHID, Controls tab) is the app's to use, without asking
+  session.defaultSession.on("select-hid-device", (event, details, callback) => { event.preventDefault(); const d = details.deviceList.find((x) => x.vendorId === 0x0fd9); callback(d ? d.deviceId : ""); });
+  session.defaultSession.setDevicePermissionHandler((details) => details.deviceType === "hid" && details.device && details.device.vendorId === 0x0fd9);
 }
 
 function menu() {
