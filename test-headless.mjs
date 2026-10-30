@@ -740,7 +740,7 @@ console.log("\nLicense keys with no website (default keys):");
   await p3.goto("file://" + pagePath); await p3.waitForFunction(() => window.PPLicense && window.PPShell);
   await check("Central Pedal Control opens on the setup with no website: the production's name, then the key (no internet or account steps)", async () => {
     await p3.waitForSelector("dialog#licWiz[open]", { timeout: 8000 });
-    const steps = await p3.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)); assert.deepEqual(steps, ["1. Production", "2. License key"]);
+    const steps = await p3.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)); assert.deepEqual(steps, ["1. Church", "2. License key"]);
     await p3.fill("#lwProd", "Grace Church"); await p3.click('#licWiz [data-lw="prod"]'); await p3.waitForSelector("#lwKey");
     assert.match(await p3.textContent("#licWiz"), /PDEF-AULT-KEY0-2026/);
   });
