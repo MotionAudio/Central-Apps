@@ -12,7 +12,7 @@
   "use strict";
   var PP = window.PP;
   var H = window.CCHost || (PP && window.PPFeatures && PP.project ? {
-    store: function () { return PP.project(); }, persist: function () { H.persist(); }, status: function (t) { H.status(t); }, ask: function (a, b) { return H.ask(a, b); },
+    store: function () { return PP.project(); }, persist: function () { PP.persistSoon(); }, status: function (t) { PP.setStatus(t); }, ask: function (a, b) { return PP.ask(a, b); },
     esc: PP.escapeHtml, actions: function () { return window.PPActions; }, inputs: function () { return window.PPConfigure ? window.PPConfigure.inputs() : null; },
     rerender: function () { if (window.PPShell && window.PPShell.currentTab() === "settings") window.PPShell.renderSystemExtras(); },
     changed: function () { if (window.PPActions) window.PPActions.modeChanged(); },
