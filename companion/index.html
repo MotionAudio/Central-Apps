@@ -7,29 +7,36 @@
 <meta name="theme-color" content="#111317">
 <title>Central Pedal charts</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/cu/shared/parts.css">
 </head>
 <body>
 <header class="top">
   <div class="title"><b id="song">Waiting for the Central Pedal…</b><span id="meta"></span></div>
   <div class="keybpm"><div><small>KEY</small><b class="key" id="key">–</b></div><div><small>BPM</small><b id="bpm">–</b></div></div>
   <span class="badge" id="conn">connecting</span>
-  <button id="follow" class="on" title="Follow the Central Pedal's song and section">Follow</button>
-  <button id="menu">☰</button>
+  <button id="follow" class="on" title="Follow the song and section the Central Pedal is on">Follow</button>
+  <button id="menu" aria-label="Settings">☰</button>
 </header>
 <div class="sections" id="sections"></div>
 <div id="settings" class="wrap hidden">
   <div class="card">
-    <h2>This device</h2>
+    <h2>What this screen shows</h2>
     <div class="settings">
+      <label>Show<select id="type"></select></label>
+      <label id="instWrap">My instrument<select id="instrument"></select></label>
+      <label id="capoWrap">Capo<select id="capo"></select></label>
+      <label id="partWrap" hidden>Sheet music for<select id="part"></select></label>
+      <label id="clefWrap" hidden>Clef<select id="clef"></select></label>
       <label>Song (when not following)<select id="songPick"></select></label>
       <label>Chart zoom<input id="zoom" type="range" min="60" max="160" value="100"></label>
-      <label>Lyrics size (text charts)<input id="lyr" type="range" min="13" max="30" value="17"></label>
-      <label class="muted" style="align-self:end"><span><input id="invert" type="checkbox"> Dark chart (invert PDF pages)</span></label>
-      <label class="muted" style="align-self:end"><span><input id="remote" type="checkbox"> Show remote buttons</span></label>
+      <label>Text size<input id="lyr" type="range" min="13" max="30" value="17"></label>
+      <label class="muted" style="align-self:end"><span><input id="invert" type="checkbox"> Dark pages (for PDF charts)</span></label>
+      <label class="muted" style="align-self:end"><span><input id="remote" type="checkbox"> Show the remote buttons</span></label>
     </div>
-    <p class="muted" style="margin:10px 0 0">Open <b id="lyricsLink">/lyrics</b> on a laptop at the projector for lyrics only, <b id="uploadLink">/upload</b> to send songs and charts here, <b id="remoteLink">/remote</b> for a full remote. Add this page to your home screen for a full-screen view.</p>
+    <p class="muted" style="margin:10px 0 0">Everyone picks their own: the chart follows the song, the section, the key and the tempo the Central Pedal is playing. Open <b id="lyricsLink">/lyrics</b> on the projector laptop for words only, <b id="uploadLink">/upload</b> to send songs and charts here, <b id="remoteLink">/remote</b> for a full remote. Add this page to your home screen to see it full screen.</p>
   </div>
 </div>
+<p class="sheet-note" id="note" hidden></p>
 <main id="chart"><div class="empty">Connecting to the Central Pedal…</div></main>
 <nav class="dock hidden" id="dock">
   <button data-act="prevSection">◀ Section</button>
@@ -38,72 +45,138 @@
   <button data-act="nextSong">Next song ▶▶</button>
 </nav>
 <script src="common.js"></script>
+<script src="/cu/shared/chords.js"></script>
+<script src="/cu/shared/notation.js"></script>
+<script src="/cu/shared/parts.js"></script>
+<script src="/cu/shared/sheets.js"></script>
 <script>
 (function () {
-  var C = window.PPCompanion, esc = C.esc;
+  var C = window.PPCompanion, esc = C.esc, S = window.PPSheets, CH = window.PPChords;
   var $ = function (s) { return document.querySelector(s); };
   var follow = true, pickedSong = -1, chartId = null, chartInfo = null, lastSectionKey = null, lastSongKey = null, prefs = {};
+  var sheet = null, drawnKey = "", drawn = null;
   try { prefs = JSON.parse(localStorage.getItem("pp-charts") || "{}"); } catch (_) { }
-  if (prefs.zoom) $("#zoom").value = prefs.zoom; if (prefs.lyr) $("#lyr").value = prefs.lyr; $("#invert").checked = !!prefs.invert; $("#remote").checked = !!prefs.remote;
-  function savePrefs() { prefs = { zoom: $("#zoom").value, lyr: $("#lyr").value, invert: $("#invert").checked, remote: $("#remote").checked }; try { localStorage.setItem("pp-charts", JSON.stringify(prefs)); } catch (_) { } applyPrefs(); }
+  prefs.type = prefs.type || "chords"; prefs.instrument = prefs.instrument || "concert"; prefs.capo = prefs.capo == null ? "auto" : prefs.capo; prefs.part = prefs.part || "keys"; prefs.clef = prefs.clef || "auto";
+
+  // the pickers: what to show, the instrument (its key and capo), the sheet music part and its clef
+  function opts(list, cur) { return list.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(o[0]) === String(cur) ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join(""); }
+  $("#type").innerHTML = opts((S ? S.TYPES : [["chords", "Chord chart"]]).concat([["pages", "The uploaded pages (PDF / photo)"]]), prefs.type);
+  $("#instrument").innerHTML = opts(CH ? CH.INSTRUMENTS.map(function (i) { return [i.id, i.name]; }) : [["concert", "Concert pitch"]], prefs.instrument);
+  $("#capo").innerHTML = opts([["auto", "Easiest shapes"]].concat([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) { return [String(n), n ? "Capo " + n : "No capo"]; })), prefs.capo);
+  $("#part").innerHTML = opts(S ? S.sheetParts() : [], prefs.part);
+  $("#clef").innerHTML = opts(S ? S.CLEFS : [], prefs.clef);
+  if ($("#zoom")) { if (prefs.zoom) $("#zoom").value = prefs.zoom; if (prefs.lyr) $("#lyr").value = prefs.lyr; $("#invert").checked = !!prefs.invert; $("#remote").checked = !!prefs.remote; }
+  function showPickers() {
+    var t = prefs.type, inst = CH ? CH.instrument(prefs.instrument) : null;
+    $("#instWrap").hidden = t === "sheet" || t === "pages" || t === "lyrics";
+    $("#capoWrap").hidden = $("#instWrap").hidden || !(inst && inst.capo);
+    $("#partWrap").hidden = t !== "sheet"; $("#clefWrap").hidden = t !== "sheet";
+  }
+  function savePrefs() {
+    prefs = { zoom: $("#zoom").value, lyr: $("#lyr").value, invert: $("#invert").checked, remote: $("#remote").checked, type: $("#type").value, instrument: $("#instrument").value, capo: $("#capo").value, part: $("#part").value, clef: $("#clef").value };
+    try { localStorage.setItem("pp-charts", JSON.stringify(prefs)); } catch (_) { }
+    applyPrefs(); showPickers(); drawnKey = ""; lastSectionKey = null; render(C.state);
+  }
   function applyPrefs() { $("#chart").style.setProperty("--zoom", $("#zoom").value); document.documentElement.style.setProperty("--lyr", $("#lyr").value + "px"); $("#chart").classList.toggle("invert", $("#invert").checked); $("#dock").classList.toggle("hidden", !$("#remote").checked); var p = $("#chart").querySelector(".pages"); if (p) p.style.maxWidth = (900 * $("#zoom").value / 100) + "px"; }
-  ["zoom", "lyr", "invert", "remote"].forEach(function (id) { $("#" + id).addEventListener("input", savePrefs); $("#" + id).addEventListener("change", savePrefs); });
+  ["zoom", "lyr", "invert", "remote", "type", "instrument", "capo", "part", "clef"].forEach(function (id) { $("#" + id).addEventListener("change", savePrefs); if (id === "zoom" || id === "lyr") $("#" + id).addEventListener("input", applyPrefs); });
   $("#menu").addEventListener("click", function () { $("#settings").classList.toggle("hidden"); });
-  $("#follow").addEventListener("click", function () { follow = !follow; $("#follow").classList.toggle("on", follow); if (follow) { pickedSong = -1; render(C.state); } });
+  $("#follow").addEventListener("click", function () { follow = !follow; $("#follow").classList.toggle("on", follow); if (follow) { pickedSong = -1; drawnKey = ""; render(C.state); } });
   $("#dock").addEventListener("click", function (e) { var b = e.target.closest("[data-act]"); if (b) C.action(b.dataset.act); });
-  $("#songPick").addEventListener("change", function (e) { pickedSong = Number(e.target.value); follow = false; $("#follow").classList.remove("on"); render(C.state); });
+  $("#songPick").addEventListener("change", function (e) { pickedSong = Number(e.target.value); follow = pickedSong < 0; $("#follow").classList.toggle("on", follow); drawnKey = ""; render(C.state); });
   $("#sections").addEventListener("click", function (e) { var b = e.target.closest("[data-sec]"); if (!b) return; if (C.hasCode() || confirm("Jump the Central Pedal to this section? (needs the pairing code)")) C.action("goSection", { index: Number(b.dataset.sec) }); });
   ["lyricsLink", "uploadLink", "remoteLink"].forEach(function (id) { $("#" + id).textContent = location.origin + "/" + id.replace("Link", ""); });
 
+  // the uploaded file itself (PDF pages, a photo) - and the chart of a song the Central Pedal isn't on (not following)
   async function loadChart(id) {
     chartId = id; chartInfo = null; lastSectionKey = null;
-    if (!id) { $("#chart").innerHTML = '<div class="empty">This song has no chord chart yet.<br><small>Upload one at ' + esc(location.origin) + '/upload (PDF, text or a photo).</small></div>'; return; }
+    if (!id) { chartInfo = null; return; }
     try { var r = await fetch(C.api("/charts/" + encodeURIComponent(id) + "/chart.json"), { cache: "no-store" }); chartInfo = await r.json(); } catch (_) { chartInfo = null; }
-    if (!chartInfo || chartId !== id) { $("#chart").innerHTML = '<div class="empty">Could not load the chart.</div>'; return; }
-    if (chartInfo.pageCount > 0) {
-      var html = '<div class="pages">';
-      for (var n = 1; n <= chartInfo.pageCount; n++) html += '<div class="pg" data-page="' + n + '"><img src="' + C.api("/charts/" + encodeURIComponent(id) + "/page-" + n + ".png") + '" alt="page ' + n + '"><small>' + n + " / " + chartInfo.pageCount + "</small></div>";
-      $("#chart").innerHTML = html + "</div>";
-    } else {
-      $("#chart").innerHTML = '<div class="textchart">' + (chartInfo.sections || []).map(function (s, i) { return '<section data-tsec="' + i + '"><h4>' + esc(s.name) + "</h4><p>" + esc((s.lines || []).join("\n")) + "</p></section>"; }).join("") + "</div>";
+    if (chartId !== id) return;
+    drawnKey = ""; render(C.state);
+  }
+  function pagesHtml() {
+    if (!chartInfo || !(chartInfo.pageCount > 0)) return "";
+    var html = '<div class="pages">';
+    for (var n = 1; n <= chartInfo.pageCount; n++) html += '<div class="pg" data-page="' + n + '"><img src="' + C.api("/charts/" + encodeURIComponent(chartId) + "/page-" + n + ".png") + '" alt="page ' + n + '"><small>' + n + " / " + chartInfo.pageCount + "</small></div>";
+    return html + "</div>";
+  }
+  // a song's chart from a chart file only (no sheet: a song picked by hand while not following)
+  function fileSheet(song) {
+    if (!chartInfo) return null;
+    var text = chartInfo.text || (chartInfo.sections || []).map(function (s) { return "[" + s.name + "]\n" + (s.lines || []).join("\n") + "\n"; }).join("\n");
+    return { id: song && song.id, name: song ? song.name : chartInfo.name, key: (song && song.key) || chartInfo.key || "C", origKey: chartInfo.key || null, bpm: chartInfo.bpm || 0, tempo: 100, bpb: 4, bars: 1, sections: [], chords: [], chartText: text, mode: /m$/.test(chartInfo.key || "") ? "minor" : "major" };
+  }
+  function draw(sh, d) {
+    var type = prefs.type, wantPages = type === "pages" || (!sh || !(S && S.textOf(sh))) && chartInfo && chartInfo.pageCount > 0;
+    var key = [type, prefs.instrument, prefs.capo, prefs.part, prefs.clef, sh ? sh.sig || sh.name : "-", chartId, chartInfo ? chartInfo.pageCount : -1, wantPages, Math.round(($("#chart").clientWidth || 800) / 80)].join("|");
+    if (key === drawnKey) return; drawnKey = key; lastSectionKey = null; drawn = null;
+    $("#note").hidden = true;
+    if (wantPages) {
+      var ph = pagesHtml();
+      $("#chart").innerHTML = ph || '<div class="empty">This song has no uploaded pages.<br><small>Upload a PDF or a photo at ' + esc(location.origin) + '/upload, or pick another way to show it in ☰.</small></div>';
+      applyPrefs(); return;
     }
+    if (!S || !sh) { $("#chart").innerHTML = '<div class="empty">This song has no chord chart yet.<br><small>Upload one at ' + esc(location.origin) + '/upload (PDF, text or a photo).</small></div>'; return; }
+    var out = S.render(sh, { type: type, instrument: prefs.instrument, capo: prefs.capo, part: prefs.part, clef: prefs.clef }, { width: Math.max(320, Math.min(1100, ($("#chart").clientWidth || 800) - 32)) });
+    drawn = out;
+    // (the chart keeps its spacing with white-space: pre, so the words stay plain text - easy to search and copy)
+    $("#chart").innerHTML = type === "sheet" ? '<div class="sheetmusic pt-paper">' + out.html + "</div>" : '<div class="textchart">' + out.html.replace(/&nbsp;/g, " ") + "</div>";
+    if (out.note) { $("#note").textContent = out.note; $("#note").hidden = false; }
     applyPrefs();
-    lastSectionKey = null;
-    if (C.state.display) render(C.state);
   }
   function render(st) {
     var d = st.display;
     $("#conn").textContent = st.connected ? (st.authed ? "paired" : "live") : "reconnecting"; $("#conn").classList.toggle("on", st.connected);
     if (!d) return;
+    if (d.sheet !== undefined) sheet = d.sheet;   // (only sent when the song's chart changes)
     var songs = d.songs || [], idx = follow ? (d.song ? d.song.index : -1) : pickedSong, song = idx >= 0 ? songs[idx] : null;
-    var pick = $("#songPick"); if (pick.options.length !== songs.length + 1 || pick.dataset.names !== songs.map(function (s) { return s.name; }).join("|")) { pick.innerHTML = '<option value="-1">— follow the Central Pedal —</option>' + songs.map(function (s, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(s.name) + "</option>"; }).join(""); pick.dataset.names = songs.map(function (s) { return s.name; }).join("|"); }
+    var pick = $("#songPick"), names = songs.map(function (s) { return s.name; }).join("|");
+    if (pick.dataset.names !== names) { pick.dataset.names = names; pick.innerHTML = '<option value="-1">— follow the Central Pedal —</option>' + songs.map(function (s, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(s.name) + "</option>"; }).join(""); }
     pick.value = String(follow ? -1 : pickedSong);
     if (follow && d.song) {
+      var tempoNow = d.speed && d.speed !== 1 ? Math.round((d.bpm || d.song.bpm) * d.speed) : (d.bpm || d.song.bpm);
       $("#song").textContent = (d.song.index + 1) + ". " + d.song.name; $("#meta").textContent = (d.section ? d.section.name + " · " : "") + (d.tracksMode ? (d.playing ? "▶ " : "❚❚ ") + C.fmtTime(d.pos) + (d.bar ? " · bar " + d.bar : "") : "pads");
-      $("#key").textContent = C.keyName(d.key || d.song.key); $("#bpm").textContent = d.bpm || d.song.bpm;
+      $("#key").textContent = C.keyName(d.song.key || d.key); $("#bpm").textContent = tempoNow;
       $("#playBtn").textContent = d.playing ? "Pause" : "Play";
       var secs = d.sections || [], cur = d.section ? d.section.index : -1;
       var skey = secs.map(function (s) { return s.name; }).join("|") + "#" + cur;
       if ($("#sections").dataset.key !== skey) { $("#sections").dataset.key = skey; $("#sections").innerHTML = secs.map(function (s, i) { return '<button data-sec="' + i + '" class="' + (i === cur ? "current" : i === cur + 1 ? "next" : "") + '">' + esc(s.name) + "</button>"; }).join(""); var b = $("#sections .current"); if (b) b.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
       var want = d.song.chart ? d.song.chart.id : null;
-      if (want !== chartId || lastSongKey !== d.song.name) { lastSongKey = d.song.name; loadChart(want); }
-      var page = d.chart ? d.chart.page : (d.section ? d.section.page : 0), sectionKey = cur + ":" + page;
-      if (sectionKey !== lastSectionKey) { lastSectionKey = sectionKey; scrollToSection(cur, page); }
+      if (want !== chartId || lastSongKey !== d.song.name) { lastSongKey = d.song.name; chartInfo = null; loadChart(want); }
+      var sh = sheet && (sheet.id === d.songId || sheet.name === d.song.name) ? sheet : fileSheet(d.song);
+      draw(sh, d);
+      var page = d.chart ? d.chart.page : (d.section ? d.section.page : 0), sectionKey = cur + ":" + page + ":" + drawnKey;
+      if (sectionKey !== lastSectionKey) { lastSectionKey = sectionKey; scrollToSection(sh, cur, page); }
     } else if (!follow) {
       $("#song").textContent = song ? (idx + 1) + ". " + song.name : "No song"; $("#meta").textContent = "not following"; $("#key").textContent = song ? C.keyName(song.key) : "–"; $("#bpm").textContent = "–";
-      $("#sections").innerHTML = ""; var cid = song ? song.chart : null; if (cid !== chartId || lastSongKey !== (song && song.name)) { lastSongKey = song && song.name; loadChart(cid); }
+      $("#sections").innerHTML = ""; $("#sections").dataset.key = "";
+      var cid = song ? song.chart : null; if (cid !== chartId || lastSongKey !== (song && song.name)) { lastSongKey = song && song.name; chartInfo = null; loadChart(cid); }
+      draw(sheet && song && sheet.id === song.id ? sheet : fileSheet(song), d);
     } else {
-      $("#song").textContent = songs.length ? "No song selected on the Central Pedal" : "No songs in the setlist yet"; $("#meta").textContent = ""; $("#sections").innerHTML = ""; if (chartId !== null || !$("#chart").innerHTML) { chartId = null; $("#chart").innerHTML = '<div class="empty">Pick a song on the Central Pedal (or turn Follow off and choose one here).</div>'; }
+      $("#song").textContent = songs.length ? "No song picked on the Central Pedal" : "No songs in the setlist yet"; $("#meta").textContent = ""; $("#sections").innerHTML = ""; $("#sections").dataset.key = "";
+      if (chartId !== null || !drawnKey.startsWith("none")) { chartId = null; drawnKey = "none"; $("#note").hidden = true; $("#chart").innerHTML = '<div class="empty">Pick a song on the Central Pedal (or turn Follow off and choose one here).</div>'; }
     }
   }
-  function scrollToSection(index, page) {
+  function scrollToSection(sh, index, page) {
     var el = null;
-    if (chartInfo && chartInfo.pageCount > 0) { var pages = document.querySelectorAll(".pg"); pages.forEach(function (p) { p.classList.remove("current"); }); el = document.querySelector('.pg[data-page="' + Math.max(1, page || 1) + '"]'); if (el) el.classList.add("current"); }
-    else { var secs = document.querySelectorAll("[data-tsec]"); secs.forEach(function (s) { s.classList.remove("current"); }); var name = C.state.display && C.state.display.section ? C.state.display.section.name : null; secs.forEach(function (s) { if (chartInfo && chartInfo.sections[s.dataset.tsec] && name && norm(chartInfo.sections[s.dataset.tsec].name) === norm(name)) { s.classList.add("current"); el = el || s; } }); }
-    if (el && follow) { var top = el.getBoundingClientRect().top + window.scrollY - 96; window.scrollTo({ top: top, behavior: "smooth" }); }
+    var pages = document.querySelectorAll(".pg");
+    if (pages.length) { pages.forEach(function (p) { p.classList.remove("current"); }); el = document.querySelector('.pg[data-page="' + Math.max(1, page || 1) + '"]'); if (el) el.classList.add("current"); }
+    else if (prefs.type === "sheet") {
+      // sheet music: the system with the section's first bar
+      var bar = sh && sh.sections && sh.sections[index] ? sh.sections[index].bar : 0, nums = Array.from(document.querySelectorAll(".sheetmusic .n-num"));
+      el = nums.filter(function (n) { return Number(n.textContent) === bar; })[0]; el = el ? el.closest(".pt-system") || el : null;
+      document.querySelectorAll(".sheetmusic .pt-system").forEach(function (x) { x.classList.toggle("current", x === el); });
+    } else {
+      var secs = document.querySelectorAll(".textchart section"); secs.forEach(function (s) { s.classList.remove("current"); });
+      var k = drawn && drawn.parsed && S ? S.chartSectionFor(sh, drawn.parsed, index) : -1;
+      if (k < 0 && C.state.display && C.state.display.section) { var name = norm(C.state.display.section.name); secs.forEach(function (s, i) { if (k < 0 && norm(s.dataset.name) === name) k = i; }); }
+      if (k >= 0 && secs[k]) { el = secs[k]; el.classList.add("current"); }
+    }
+    if (el && follow) { var top = el.getBoundingClientRect().top + window.scrollY - 110; window.scrollTo({ top: top, behavior: "smooth" }); }
   }
   function norm(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
-  applyPrefs();
+  window.addEventListener("resize", function () { clearTimeout(window.__rz); window.__rz = setTimeout(function () { drawnKey = ""; render(C.state); }, 250); });
+  applyPrefs(); showPickers();
   C.on(render);
 })();
 </script>

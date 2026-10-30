@@ -429,6 +429,35 @@ async def main():
                     hit = mm
                     break
             check("the MIDI hits go to Central Control over the network with the Pi's clock (for the lights)", hit and hit["messages"][0]["data"] == [0x90, 60, 127] and isinstance(hit.get("t"), int), hit)
+        # 10.0: the song's sheet (chart, sections, key played) travels once, when it changes; a screen that opens later
+        # (a phone, the HDMI lyrics window after a restart) still gets it with its first display state
+        sheet = {"id": "song-gitf", "name": "Great Is Thy Faithfulness", "key": "A", "keyShift": 2, "sections": [{"id": "v", "name": "Verse 1", "bar": 1, "bars": 8}], "chartText": "[Verse 1]\n[G]Great is thy"}
+        await send(dict(display, songId="song-gitf", sheet=sheet))
+        await asyncio.sleep(0.15)
+        await send(dict(display, songId="song-gitf", pos=90))
+        await asyncio.sleep(0.15)
+        async with websockets.connect("ws://127.0.0.1:18081") as late:
+            await asyncio.wait_for(late.recv(), 2)   # hello
+            first = None
+            for _ in range(4):
+                mm = json.loads(await asyncio.wait_for(late.recv(), 2))
+                if mm.get("type") == "display":
+                    first = mm
+                    break
+            check("a chart screen that joins late gets the song's sheet with its first display state (key as played, sections, chart)",
+                  first and first.get("pos") == 90 and (first.get("sheet") or {}).get("key") == "A" and "Great is thy" in (first.get("sheet") or {}).get("chartText", ""), first and {k: first.get(k) for k in ("pos", "sheet")})
+        await send(dict(display, songId="song-other"))
+        await asyncio.sleep(0.15)
+        async with websockets.connect("ws://127.0.0.1:18081") as late2:
+            await asyncio.wait_for(late2.recv(), 2)
+            first2 = None
+            for _ in range(4):
+                mm = json.loads(await asyncio.wait_for(late2.recv(), 2))
+                if mm.get("type") == "display":
+                    first2 = mm
+                    break
+            check("...but not another song's sheet", first2 and "sheet" not in first2, first2 and first2.get("sheet"))
+        await send(display)
         await asyncio.sleep(0.4)
         with open(config["mini_screen"]["fb"], "rb") as handle:
             fb = handle.read()

@@ -53,23 +53,52 @@
 
   // ---------------------------------------------------------------- the lyric chart
   function clean(t) { return String(t || "").replace(/\s+/g, " ").trim(); }
+  // what the speech model hears that isn't a sung word: [Music], (applause), ♪, and the sign-offs it makes up in
+  // quiet stretches ("Thank you for watching")
+  var NOT_WORDS = /^(\[[^\]]*\]|\([^)]*\)|♪+|♫+|\*+[^*]*\*+|-+)$/;
+  var MADE_UP = /^(thank you( so much)?( for watching)?|thanks for watching|please subscribe|subtitles by.*|transcribed by.*|amara\.org.*)[.!]*$/i;
+  function tidyWords(words) {
+    var out = [];
+    (words || []).forEach(function (w) {
+      var text = clean(w && w.text).replace(/^["“”]+|["“”]+$/g, "");
+      if (!text || NOT_WORDS.test(text)) return;
+      text = text.replace(/\bi\b/g, "I").replace(/\bi'(m|ll|ve|d)\b/gi, function (m, x) { return "I'" + x.toLowerCase(); });
+      var prev = out[out.length - 1];
+      // the same word twice in a row, almost at once, is the model stuttering (a held "Holy, holy" is further apart)
+      if (prev && prev.text.toLowerCase().replace(/[^a-z']/g, "") === text.toLowerCase().replace(/[^a-z']/g, "") && w.start - (prev.end || prev.start) < 0.12) { prev.end = Math.max(prev.end || prev.start, w.end || w.start); return; }
+      out.push({ text: text, start: w.start, end: w.end == null ? w.start + 0.3 : w.end });
+    });
+    // a made-up sign-off spread over a few words
+    for (var i = 0; i < out.length; i++) { for (var n = 6; n >= 2; n--) { if (i + n > out.length) continue; var phrase = out.slice(i, i + n).map(function (x) { return x.text; }).join(" "); if (MADE_UP.test(phrase)) { out.splice(i, n); i--; break; } } }
+    return out.filter(function (w) { return !MADE_UP.test(w.text); });
+  }
+  function capFirst(line) { return line.replace(/^(\W*)([a-z])/, function (m, a, b) { return a + b.toUpperCase(); }); }
   function chartFromWords(words, opts) {
-    opts = opts || {}; words = (words || []).filter(function (w) { return clean(w.text); });
+    opts = opts || {}; words = tidyWords(words);
+    var bars = (opts.bars || []).slice().sort(function (a, b) { return a - b; });   // bar start times (s): lines like to start on a bar
+    function nearBar(t) { for (var k = 0; k < bars.length; k++) { if (Math.abs(bars[k] - t) < 0.22) return true; if (bars[k] > t + 0.3) break; } return false; }
     var secs = (opts.sections || []).slice().sort(function (a, b) { return a.start - b.start; });
     if (!secs.length || secs[0].start > (words[0] ? words[0].start : 0) + 0.5) secs.unshift({ name: secs.length ? "Intro" : "Verse 1", start: 0 });
     var chords = (opts.chords || []).filter(function (c) { return c.label && c.label !== "N"; }).slice().sort(function (a, b) { return a.start - b.start; });
+    // a chord that only flickers past (shorter than minChord seconds, default a little under half a second) isn't written
+    var minChord = opts.minChord != null ? opts.minChord : 0.45;
+    chords = chords.filter(function (c, k) { var end = c.end != null ? c.end : (chords[k + 1] ? chords[k + 1].start : c.start + 2); return end - c.start >= minChord || chords.length === 1; })
+      .filter(function (c, k, all) { var p = all[k - 1]; return !p || label(p) !== label(c); });
+    var Ch = global.PPChords, flats = Ch && opts.key ? Ch.keyPrefersFlats(opts.key) : false;
+    function spell(c) { var l = label(c); if (!Ch) return l; var o = Ch.parse(l); return o ? Ch.format(o, flats) : l; }
     var lines = ["{title: " + (opts.title || "Untitled") + "}"]; if (opts.key) lines.push("{key: " + opts.key + "}"); lines.push("");
     secs.forEach(function (sec, si) {
       var end = si + 1 < secs.length ? secs[si + 1].start : Infinity;
       var ws = words.filter(function (w) { return w.start >= sec.start - 0.05 && w.start < end - 0.05; });
       var cs = chords.filter(function (c) { return c.start >= sec.start - 0.1 && c.start < end - 0.1; });
       lines.push("[" + sec.name + "]");
-      if (!ws.length) { if (cs.length) lines.push("| " + cs.map(function (c) { return label(c); }).join(" | ") + " |"); lines.push(""); return; }
+      if (!ws.length) { if (cs.length) lines.push("| " + cs.map(spell).join(" | ") + " |"); lines.push(""); return; }
       // phrases: break at a breath (gap), or when a line gets long
       var phrases = [], cur = [];
       ws.forEach(function (w, i) {
         var prev = ws[i - 1], gapS = prev ? w.start - (prev.end || prev.start) : 0;
-        if (cur.length && (gapS > 0.9 || (cur.length >= 8 && gapS > 0.3) || cur.length >= 12)) { phrases.push(cur); cur = []; }
+        // a new line: at a breath, at a pause that falls on a bar line once the line has a few words, or when it gets long
+        if (cur.length && (gapS > 0.9 || (cur.length >= 4 && gapS > 0.35 && nearBar(w.start)) || (cur.length >= 8 && gapS > 0.3) || cur.length >= 12)) { phrases.push(cur); cur = []; }
         cur.push({ text: clean(w.text), start: w.start, end: w.end, chords: [] });
       });
       if (cur.length) phrases.push(cur);
@@ -82,9 +111,9 @@
         if (!target) { var lastP = phrases[phrases.length - 1]; target = lastP[lastP.length - 1]; target.after = (target.after || []).concat([c]); return; }
         if (phrases[0][0] === target && c.start < target.start - 2.5) before.push(c); else target.chords.push(c);
       });
-      if (before.length) lines.push("| " + before.map(label).join(" | ") + " |");
+      if (before.length) lines.push("| " + before.map(spell).join(" | ") + " |");
       phrases.forEach(function (ph) {
-        lines.push(ph.map(function (w) { var lead = w.chords.length ? w.chords.map(function (c) { return "[" + label(c) + "]"; }).join("") : ""; var tail = w.after ? " " + w.after.map(function (c) { return "[" + label(c) + "]"; }).join("") : ""; return lead + w.text + tail; }).join(" "));
+        lines.push(capFirst(ph.map(function (w) { var lead = w.chords.length ? w.chords.map(function (c) { return "[" + spell(c) + "]"; }).join("") : ""; var tail = w.after ? " " + w.after.map(function (c) { return "[" + spell(c) + "]"; }).join("") : ""; return lead + w.text + tail; }).join(" ")).replace(/^((?:\[[^\]]*\])*)(\W*)([a-z])/, function (m, a, b, c) { return a + b + c.toUpperCase(); }));
       });
       lines.push("");
     });
@@ -92,7 +121,7 @@
   }
   function label(c) { return c.label + (c.bass && String(c.label).indexOf("/") < 0 ? "/" + c.bass : ""); }
 
-  var out = { available: available, listen: listen, voiced: voiced, to16k: to16k, chartFromWords: chartFromWords, api: api };
+  var out = { available: available, listen: listen, voiced: voiced, to16k: to16k, chartFromWords: chartFromWords, tidyWords: tidyWords, api: api };
   global.PPLyricsAI = out;
   if (typeof module !== "undefined" && module.exports) module.exports = out;
 })(typeof window !== "undefined" ? window : globalThis);

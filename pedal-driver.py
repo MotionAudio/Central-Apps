@@ -9532,6 +9532,7 @@ class PedalDriver:
         self.slide = {"type": "slide", "kind": "none"}
         self.state = {"playing": [], "selected": 0}
         self.display = {}
+        self.display_sheet = None
         self.learn = None
         self.scan_devices = []
         self.analog_baseline = {}
@@ -9762,7 +9763,11 @@ class PedalDriver:
             await ws.send(json.dumps(self.lan_hello()))
             if self.slide.get("kind") != "none":
                 await ws.send(json.dumps(self.slide))
-            await ws.send(json.dumps(dict(self.display, type="display")) if self.display else json.dumps({"type": "display", "song": None}))
+            first = dict(self.display, type="display") if self.display else {"type": "display", "song": None}
+            sheet = getattr(self, "display_sheet", None)
+            if sheet and self.display and sheet.get("id") == self.display.get("songId"):
+                first["sheet"] = sheet   # (the song's chart travels only when it changes: a screen that joins late gets it here)
+            await ws.send(json.dumps(first))
             if getattr(self, "lan_clock", None):
                 await ws.send(json.dumps(dict(self.lan_clock, type="clock")))
             async for raw in ws:
@@ -9978,6 +9983,8 @@ class PedalDriver:
         elif kind == "display":
             # the heavy parts (beat grid, hits) only travel when they change; keep the last ones for late joiners
             prev = self.display or {}
+            if "sheet" in message:
+                self.display_sheet = message.get("sheet")   # (charts, lyrics, sections for every chart screen)
             if "grid" not in message and prev.get("songId") == message.get("songId"):
                 for k in ("grid", "hits"):
                     if k in prev:

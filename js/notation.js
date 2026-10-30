@@ -57,6 +57,13 @@
   // ---------------------------------------------------------------- standard notation
   function clefPath(kind, x, y, S) { // x = left edge, y = top staff line, S = line spacing
     function P(px, py) { return (x + px * S).toFixed(1) + " " + (y + py * S).toFixed(1); }
+    if (kind === "alto" || kind === "tenor") {   // the C clef: its middle points at middle C (alto: the middle line, tenor: the 4th line)
+      var cy = kind === "alto" ? 2 : 1;
+      return '<rect class="n-glyph" x="' + (x + 0.3 * S).toFixed(1) + '" y="' + (y + (cy - 2) * S).toFixed(1) + '" width="' + (0.55 * S).toFixed(1) + '" height="' + (4 * S).toFixed(1) + '"/>' +
+        '<rect class="n-glyph" x="' + (x + 1.15 * S).toFixed(1) + '" y="' + (y + (cy - 2) * S).toFixed(1) + '" width="' + (0.18 * S).toFixed(1) + '" height="' + (4 * S).toFixed(1) + '"/>' +
+        '<path class="n-glyphs" fill="none" stroke-width="' + (0.3 * S) + '" stroke-linecap="round" d="M' + P(1.35, cy) + ' L' + P(1.8, cy - 0.35) + ' C' + P(2.1, cy - 1.9) + ' ' + P(3.7, cy - 2.2) + ' ' + P(3.6, cy - 1.1) + ' C' + P(3.5, cy - 0.3) + ' ' + P(2.6, cy - 0.5) + ' ' + P(2.7, cy - 1.0) +
+        ' M' + P(1.35, cy) + ' L' + P(1.8, cy + 0.35) + ' C' + P(2.1, cy + 1.9) + ' ' + P(3.7, cy + 2.2) + ' ' + P(3.6, cy + 1.1) + ' C' + P(3.5, cy + 0.3) + ' ' + P(2.6, cy + 0.5) + ' ' + P(2.7, cy + 1.0) + '"/>';
+    }
     if (kind === "bass") return '<path class="n-glyphs" fill="none" stroke-width="' + (0.32 * S) + '" stroke-linecap="round" d="M' + P(0.55, 1.45) + ' C' + P(0.55, 0.25) + ' ' + P(1.55, -0.15) + ' ' + P(2.25, 0.1) + ' C' + P(3.25, 0.45) + ' ' + P(3.3, 1.7) + ' ' + P(2.55, 2.5) + ' C' + P(2.05, 3.05) + ' ' + P(1.45, 3.55) + ' ' + P(0.75, 4.0) + '"/><circle class="n-glyph" cx="' + (x + 0.78 * S) + '" cy="' + (y + 1.45 * S) + '" r="' + (0.3 * S) + '"/><circle class="n-glyph" cx="' + (x + 3.55 * S) + '" cy="' + (y + 0.5 * S) + '" r="' + (0.22 * S) + '"/><circle class="n-glyph" cx="' + (x + 3.55 * S) + '" cy="' + (y + 1.5 * S) + '" r="' + (0.22 * S) + '"/>';
     return '<path class="n-glyphs" fill="none" stroke-width="' + (0.26 * S) + '" stroke-linecap="round" stroke-linejoin="round" d="M' + P(2.35, 5.6) + ' C' + P(2.4, 6.45) + ' ' + P(1.15, 6.5) + ' ' + P(1.2, 5.85) + ' M' + P(2.35, 5.6) + ' L' + P(2.35, -1.6) + ' C' + P(2.35, -2.7) + ' ' + P(3.45, -2.2) + ' ' + P(3.15, -1.05) + ' C' + P(2.85, 0.0) + ' ' + P(1.15, 1.15) + ' ' + P(1.0, 2.35) + ' C' + P(0.9, 3.35) + ' ' + P(1.9, 4.0) + ' ' + P(2.75, 3.65) + ' C' + P(3.5, 3.3) + ' ' + P(3.35, 2.15) + ' ' + P(2.5, 2.0) + ' C' + P(1.75, 1.9) + ' ' + P(1.35, 2.55) + ' ' + P(1.75, 2.95) + '"/><circle class="n-glyph" cx="' + (x + 1.5 * S) + '" cy="' + (y + 5.85 * S) + '" r="' + (0.3 * S) + '"/>';
   }
@@ -72,8 +79,8 @@
     opts = opts || {}; var sig = keySig(opts.key), accSig = sigAccidentals(sig), L = layout(notes, opts), S = opts.spacing || 8;
     var lowest = 127, highest = 0; notes.forEach(function (n) { lowest = Math.min(lowest, n.midi); highest = Math.max(highest, n.midi); });
     var clef = opts.clef && opts.clef !== "auto" ? opts.clef : (notes.length && (lowest + highest) / 2 < 60 ? "bass" : "treble");
-    // staff position: steps above the bottom line (treble bottom line = E4 = step 0; bass bottom line = G2)
-    var refStep = clef === "bass" ? 2 * 7 + 4 : 4 * 7 + 2; // octave*7 + letter index
+    // staff position: steps above the bottom line (treble bottom line = E4 = step 0; bass G2; alto F3; tenor D3)
+    var refStep = { bass: 2 * 7 + 4, alto: 3 * 7 + 3, tenor: 3 * 7 + 1 }[clef] || 4 * 7 + 2; // octave*7 + letter index
     function stepOf(sp) { return sp.oct * 7 + sp.letter - refStep; }
     var off = opts.barOffset || 0, lyr = opts.lyrics || null;
     var lineGap = S * (lyr ? 16 : 13), left = 10, out = [], width = opts.width || 760, y0 = (opts.title ? 30 : 8) + S * 3.9, clefW = S * 5, sigW = Math.abs(sig) * S * 1.1 + (sig ? S : 0), tsW = S * 3;
@@ -85,7 +92,8 @@
       out.push(clefPath(clef, x + 2, top, S)); x += clefW;
       // key signature
       var order = sig > 0 ? SHARP_ORDER : FLAT_ORDER, treblePos = sig > 0 ? [8, 5, 9, 6, 3, 7, 4] : [4, 7, 3, 6, 2, 5, 1], bassPos = treblePos.map(function (p) { return p - 2; });
-      for (var a = 0; a < Math.abs(sig); a++) { var step = (clef === "bass" ? bassPos : treblePos)[a], yy = top + 4 * S - step * S / 2; out.push(accidentalPath(sig > 0 ? 1 : -1, x + S * 0.5, yy, S)); x += S * 1.1; }
+      var altoPos = treblePos.map(function (p) { return p - 1; }), tenorPos = sig > 0 ? [2, 6, 3, 7, 4, 8, 5] : treblePos.map(function (p) { return p + 1; });
+      for (var a = 0; a < Math.abs(sig); a++) { var step = (clef === "bass" ? bassPos : clef === "alto" ? altoPos : clef === "tenor" ? tenorPos : treblePos)[a], yy = top + 4 * S - step * S / 2; out.push(accidentalPath(sig > 0 ? 1 : -1, x + S * 0.5, yy, S)); x += S * 1.1; }
       if (sig) x += S;
       if (li === 0 && opts.showTime !== false) { out.push('<text class="n-ts" x="' + x + '" y="' + (top + 2 * S - 1) + '">' + L.bpb + '</text><text class="n-ts" x="' + x + '" y="' + (top + 4 * S - 1) + '">4</text>'); }
       x += tsW;

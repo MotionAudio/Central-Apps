@@ -41,7 +41,7 @@
       if (!words.length) throw new Error("no words heard in " + voc.name);
       var m = hub.music || {}, g = hub.grid || {}, period = 60 / (g.bpm || hub.bpm || 100), bars = g.bars || [];
       var chords = (m.chords || []).map(function (c2) { var t0 = bars[c2.bar - 1]; if (t0 == null) t0 = (bars[0] || 0) + (c2.bar - 1) * (hub.bpb || 4) * period; return { start: t0 + (c2.beat - 1) * period, label: c2.label, bass: c2.bass }; });
-      var text = L.chartFromWords(words, { title: hub.name || s.name, key: (d && d.key) || hub.key, chords: chords, sections: (hub.sections || []).map(function (q) { return { name: q.name, start: q.start }; }) });
+      var text = L.chartFromWords(words, { title: hub.name || s.name, key: (d && d.key) || hub.key, chords: chords, bars: bars, sections: (hub.sections || []).map(function (q) { return { name: q.name, start: q.start }; }) });
       info("Sending the chart to the Central Pedal…");
       var up = await fetch(CU.api("/upload?kind=charts&code=" + encodeURIComponent(CU.prefs.code) + "&song=" + encodeURIComponent(hub.name || s.name) + "&name=" + encodeURIComponent((hub.name || s.name) + " (lyrics + chords).txt")), { method: "POST", body: text });
       if (!up.ok) throw new Error("the chart was not saved (" + up.status + ")");
