@@ -35,6 +35,7 @@ body.tab-pads .toptab { display: none; }
 .sec.looping { box-shadow: 0 0 0 2px var(--accent); } .sec.pending { box-shadow: 0 0 0 2px #F5CF72; }
 .tr-transport { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; }
 .tr-transport .pf-btn { min-height: clamp(52px, 9vh, 76px); min-width: 0; }
+.tr-transport #trKeyShow:disabled { opacity: 1; cursor: default; background: transparent; border-style: dashed; }
 .pf-btn.big { grid-column: span 2; } .pf-btn.on.play { background: var(--accent); color: var(--accentText); }
 .tr-stems { display: flex; gap: 8px; overflow-x: auto; padding: 6px 2px; min-height: 150px; }
 .tr-mixcard { padding: 10px 12px; } .tr-mixcard .mix-strips { min-height: 280px; }

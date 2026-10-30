@@ -1189,7 +1189,7 @@
     $("#trLoop").classList.toggle("on", state.loop >= 0);
     $("#trClick").classList.toggle("on", !!(t && t.click.on)); $("#trCues").classList.toggle("on", !!(t && t.cues.on));
     $("#trCountIn").querySelector("b").textContent = t ? (t.countIn ? t.countIn + (t.countIn === 1 ? " bar" : " bars") : "off") : "—";
-    $("#trKeyVal").textContent = s ? keyName(s.key) : "—"; $("#trTempoVal").innerHTML = "<small>TEMPO</small><b>" + (t ? t.tempoPercent + "%" : "—") + "</b>";
+    $("#trKeyVal").textContent = s ? keyName(s.key) : "No song"; $("#trTempoVal").innerHTML = "<small>TEMPO</small><b>" + (t ? t.tempoPercent + "%" : "No song") + "</b>";
     var lk = $("#trLink"); if (lk) { lk.classList.toggle("on", !!(project().link && project().link.enabled)); lk.querySelector("small").textContent = linkStatus.peers ? linkStatus.peers + " peer" + (linkStatus.peers === 1 ? "" : "s") : "LINK"; }
     var lv = $("#trLevels"); if (lv) lv.innerHTML = [["tracks", "Tracks"], ["click", "Click"], ["cue", "Cues"]].map(function (k) { return '<label>' + k[1] + '<span class="control-line"><input type="range" min="0" max="1" step=".01" data-trlevel="' + k[0] + '" value="' + levels[k[0]] + '"><output>' + Math.round(levels[k[0]] * 100) + "%</output></span></label>"; }).join("");
   }
