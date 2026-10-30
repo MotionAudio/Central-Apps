@@ -1611,7 +1611,7 @@ async def main():
             status, body = http("http://127.0.0.1:18766/libraries/file?name=central-keys-library-1.0.zip&sha256=" + hashlib.sha256(z1).hexdigest(), data=z1, method="PUT")
             got = json.loads(body) if status == 200 else {}
             sf2_dir = os.path.join(root, "data", "sounds", "sf2")
-            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0, "pad": 0}
+            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0, "pad": 0, "loop": 0}
                   and os.path.exists(os.path.join(sf2_dir, "Test Keys - central-keys-library.sf2")), body[:300])
             tiers = open(os.path.join(sf2_dir, "tiers.txt")).read() if os.path.exists(os.path.join(sf2_dir, "tiers.txt")) else ""
             check("...each keeping the library's plan (tiers.txt)", "Test Keys|keys|CC0 1.0|central-keys-library" in tiers, tiers)
@@ -1815,7 +1815,7 @@ async def main():
                 if self.path.startswith("/v1/"):
                     return self.reply(None, raw=b"")
                 if self.path == "/repos/church/cc/releases/latest":
-                    return self.reply({"tag_name": "v9.9.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
+                    return self.reply({"tag_name": "v99.9.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
                                        "assets": [{"name": "central-control-source.zip", "browser_download_url": "http://127.0.0.1:18098/dl/central-control-source.zip"},
                                                   {"name": "SHA256SUMS", "browser_download_url": "http://127.0.0.1:18098/dl/SHA256SUMS"}]})
                 if self.path == "/dl/central-control-source.zip":
@@ -1857,7 +1857,7 @@ async def main():
         check("opening the app makes the Central Pedal look for a newer release right away", upm and upm["available"], upm)
         await send({"type": "updates", "action": "check"})
         upm = await next_message(lambda m: m["type"] == "updateStatus" and m.get("latest"), 5.0)
-        check("the daily check finds a newer release (9.9.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "9.9.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
+        check("the daily check finds a newer release (99.9.0, always ahead of this version) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "99.9.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
         path_ok = driver.updater.download()
         check("the download is checked against SHA256SUMS and kept in /data", os.path.exists(path_ok) and open(path_ok, "rb").read() == rel_state["zip"], path_ok)
         rel_state["zip"] = rel_state["zip"] + b"tampered"
