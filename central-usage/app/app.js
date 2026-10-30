@@ -131,7 +131,7 @@
     else if (m.type === "audioHost") { state.audioHost = m.host || null; fire("audioHost", state.audioHost); }
     else if (m.type === "hub") fire("hub", m);
     else if (m.type === "refused") fire("refused", m);
-    else if (m.type === "display") { state.display = m; render(); }
+    else if (m.type === "display") { if (m.sheet !== undefined) state.sheet = m.sheet; state.display = m; render(); }   // (the song's sheet only comes when it changes)
     else if (m.type === "pong") onPong(m);
     else if (m.type === "midi") onMidi(m);
     else if (m.type === "clock") onClock(m);
@@ -145,7 +145,10 @@
   $("#tabs").addEventListener("click", function (e) { var b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); });
 
   // ------------------------------------------------------------- chart
-  var chartId = null, chartInfo = null, parsed = null, lastSectionKey = null, lastSongKey = null;
+  var chartId = null, chartInfo = null, parsed = null, lastSectionKey = null, lastSongKey = null, lastSheetText = "";
+  // the song the Central Pedal is on, as its sheet: the chart text with every section edit, key change and new chart
+  // already in it (a chart file is only used when the sheet has no chart, e.g. a PDF)
+  function sheetText() { var d = state.display, sh = state.sheet; if (!prefs.follow || !d || !sh || !window.PPSheets || !d.songId || sh.id !== d.songId) return ""; return window.PPSheets.textOf(sh) || ""; }
   function fillInstruments() {
     var sel = $("#instrument"); sel.innerHTML = C.INSTRUMENTS.map(function (i) { return '<option value="' + i.id + '"' + (prefs.instrument === i.id ? " selected" : "") + ">" + esc(i.name) + "</option>"; }).join("");
     fillShapes();
@@ -194,7 +197,10 @@
     var secs = prefs.follow ? (d.sections || []) : [], cur = d.section ? d.section.index : -1, skey = secs.map(function (q) { return q.name; }).join("|") + "#" + cur;
     if ($("#sections").dataset.key !== skey) { $("#sections").dataset.key = skey; $("#sections").innerHTML = secs.map(function (q, i) { return '<button data-sec="' + i + '" class="' + (i === cur ? "current" : i === cur + 1 ? "next" : "") + '">' + esc(q.name) + "</button>"; }).join(""); var cb = $("#sections .current"); if (cb) cb.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
     var want = s && s.chart ? (s.chart.id || s.chart) : null; if (typeof want === "object" && want) want = want.id;
-    if (want !== chartId || lastSongKey !== (s && s.name + "|" + songKeyNow())) { lastSongKey = s && s.name + "|" + songKeyNow(); if (want !== chartId) loadChart(want); else renderChart(); }
+    var st = sheetText();
+    if (st) {
+      if (st !== lastSheetText || lastSongKey !== (s && s.name + "|" + songKeyNow())) { lastSheetText = st; lastSongKey = s && s.name + "|" + songKeyNow(); chartId = want; chartInfo = { text: st, pageCount: 0, key: state.sheet.origKey || state.sheet.key }; parsed = C.parseChart(st); renderChart(); }
+    } else if (lastSheetText || want !== chartId || lastSongKey !== (s && s.name + "|" + songKeyNow())) { var was = lastSheetText; lastSheetText = ""; lastSongKey = s && s.name + "|" + songKeyNow(); if (want !== chartId || was) loadChart(want); else renderChart(); }
     highlightSection(); renderLyrics();
     $("#liveBpm").textContent = d.bpm || "–"; $("#liveBar").textContent = d.bar || "–";
   }

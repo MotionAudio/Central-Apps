@@ -187,6 +187,8 @@
     if (bassStem) { if (progress) progress("Listening to the bass…"); try { bassMix = await T.mixdown(s, function (st) { return st.id === bassStem.id; }); } catch (_) { bassMix = null; } }
     var res = await T.workerJob("chords", mix.mono, mix.rate, { beats: beats, beatsPerBar: g.bpb, phase: phase, key: key, mode: mode, bass: bassMix ? bassMix.mono : null, bassRate: bassMix ? bassMix.rate : null });
     res.chords.forEach(function (c) { var tb = T.timeToBar(s, c.start + 0.01); c.bar = tb.bar; c.beat = tb.beat; });
+    // without the flickers: a passing chord shorter than a beat, a push into the next bar, one beat it wasn't sure of
+    if (global.PPSheets) res.chords = global.PPSheets.tidyChords(res.chords, g.bpb);
     t.chords = res.chords; t.chordsKey = key;
     var totalBars = Math.max(1, T.timeToBar(s, t.duration).bar);
     var secs = t.sections.slice().sort(function (a, b) { return a.bar - b.bar; }).map(function (x) { return { name: x.name, bar: x.bar, lyrics: x.lyrics && !/\|/.test(x.lyrics) ? x.lyrics : "" }; });

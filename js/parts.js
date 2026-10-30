@@ -388,7 +388,7 @@
   }
   function render(part, view, opts) {
     opts = opts || {}; var ctx = opts.ctx || {}, width = opts.width || 900, per = Math.max(2, Math.min(6, Math.floor(width / 190)));
-    var o = { width: width, barsPerLine: per, clef: part.clef !== "auto" ? part.clef : null };
+    var o = { width: width, barsPerLine: per, clef: opts.clef && opts.clef !== "auto" ? opts.clef : part.clef !== "auto" ? part.clef : null };   // (a musician can pick their own clef)
     view = view && part.views.indexOf(view) >= 0 ? view : part.views[0];
     var head = '<div class="pt-head"><b>' + esc(part.name) + "</b>" + (part.shift ? ' <span class="muted small">written in ' + esc(C ? C.pretty(part.writtenKey) : part.writtenKey) + " (sounds in " + esc(C ? C.pretty(part.key) : part.key) + ")</span>" : "") +
       ' <span class="pt-src ' + part.source + '">' + (part.source === "stem" ? "from the " + esc(part.stemName) + " track" : part.kind === "chart" ? "chart" : "written from the chords") + "</span></div>" +
@@ -403,6 +403,9 @@
   }
 
   // ---------------------------------------------------------------- the song's context (Central Pedal side)
+  function shiftLabel(label, n, key) { if (!n || !C || !label || label === "N") return label; try { return C.transpose(label, n, C.keyPrefersFlats(key || "C")); } catch (_) { return label; } }
+  function shiftNote(note, n, key) { if (!n || !C) return note; var i = C.noteIndex(note); return i < 0 ? note : C.noteName(i + n + 1200, C.keyPrefersFlats(key || "C")); }
+  function shiftTranscriptions(tr, n) { var out = {}; Object.keys(tr).forEach(function (k) { var x = tr[k]; out[k] = x && Array.isArray(x.notes) ? Object.assign({}, x, { notes: x.notes.map(function (q) { return Object.assign({}, q, { midi: q.midi + n }); }) }) : x; }); return out; }
   function contextOf(s, t, g, extra) {
     extra = extra || {}; if (!s) return null;
     var bpb = (g && g.bpb) || (t && t.grid && t.grid.bpb) || 4, bars = 1;
@@ -410,16 +413,17 @@
     (t && t.chords || []).forEach(function (c) { bars = Math.max(bars, c.bar); });
     (t && t.sections || []).forEach(function (q) { bars = Math.max(bars, q.bar); });
     var first = g && g.bars && g.bars.length ? g.bars[0] : 0, period = g && g.period ? g.period : 60 / (s.bpm || 100);
-    var toBeat = function (sec) { return (sec - first) / period; };
+    var toBeat = function (sec) { return (sec - first) / period; }, ks = t && t.keyShift ? Math.round(t.keyShift) : 0;
     return {
       name: s.name, key: s.key, mode: t && t.originalMode, bpb: bpb, bpm: s.bpm, bars: bars,
-      chords: (t && t.chords || []).map(function (c) { return { bar: c.bar, beat: c.beat, label: c.label, bass: c.bass || null }; }),
+      // what was heard in the tracks moves with them when they play in another key (keyShift: semitones from the recording)
+      chords: (t && t.chords || []).map(function (c) { return { bar: c.bar, beat: c.beat, label: shiftLabel(c.label, ks, s.key), bass: c.bass ? shiftNote(c.bass, ks, s.key) : null }; }),
       sections: (t && t.sections || []).map(function (q) { return { name: q.name, bar: q.bar }; }),
       hits: (t && t.hits || []).map(function (h) { return Math.round(toBeat(h) * 4) / 4; }).filter(function (b) { return b >= 0; }),
       words: (t && t.words || []).map(function (w) { return { beat: Math.round(toBeat(w.start) * 4) / 4, text: w.text }; }).filter(function (w) { return w.beat >= 0; }),
       chartText: extra.chartText || (t && t.chartText) || "",
       stems: (t && t.stems || []).map(function (st) { return { id: st.id, name: st.name, role: st.role || "" }; }),
-      transcriptions: t && t.transcriptions || {}, drums: t && t.drums || null
+      transcriptions: ks ? shiftTranscriptions(t && t.transcriptions || {}, ks) : (t && t.transcriptions || {}), drums: t && t.drums || null
     };
   }
 
