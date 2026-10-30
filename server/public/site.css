@@ -55,7 +55,7 @@ nav a{text-decoration:none;color:var(--ink-2);padding:.3rem 0;border-bottom:1px 
 nav a:hover{color:var(--ink);border-bottom-color:var(--ink)}
 .cartbtn .count{display:inline-grid;place-items:center;min-width:1.45rem;height:1.45rem;padding:0 .35rem;border-radius:99px;background:var(--ink);color:#fff;font-size:.78rem;font-variant-numeric:tabular-nums}
 .cartbtn.has .count{background:var(--brass);}
-@media (max-width:760px){header.top .wrap{position:relative;padding-block:.55rem 0;gap:.2rem;min-height:0}.logo{min-height:44px}nav{margin:0;padding:0 0 .45rem;width:100%;flex-wrap:wrap;gap:0 1.1rem;font-size:.92rem}nav a{white-space:nowrap;padding:.45rem 0}nav .cartbtn{position:absolute;top:.55rem;right:max(20px,env(safe-area-inset-right,0px))}}
+@media (max-width:760px){html{scroll-padding-top:150px}header.top .wrap{position:relative;padding-block:.55rem 0;gap:.2rem;min-height:0}.logo{min-height:44px}nav{margin:0;padding:0 0 .45rem;width:100%;flex-wrap:wrap;gap:0 1.1rem;font-size:.92rem}nav a{white-space:nowrap;padding:.45rem 0}nav .cartbtn{position:absolute;top:.55rem;right:max(20px,env(safe-area-inset-right,0px))}}
 
 /* the stage: the hero, in the apps' own graphite */
 .on-stage{background:var(--stage);color:var(--on-stage)}
@@ -469,7 +469,8 @@ table.tracks .stars{font-size:.92rem;letter-spacing:0}
 .pu-head h3 { margin: 0; font-size: 1.1rem; }
 .pu-meta { font-size: .9rem; color: #5b6470; }
 .pu-part { border-top: 1px solid rgba(18,22,28,.08); padding-top: .8rem; display: grid; gap: .5rem; }
-.pu-part h4 { margin: 0; font-size: .98rem; display: flex; align-items: center; gap: .5rem; }
+.pu-part h4 { margin: 0; font-size: .98rem; display: flex; align-items: center; gap: .1rem .5rem; flex-wrap: wrap; }
+.pu-part h4 > span { flex-basis: 100%; padding-left: calc(26px + .5rem); }
 .pu-part h4 img { width: 26px; height: 26px; }
 .pu-key { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .pu-key code { font: 600 1rem ui-monospace, Menlo, Consolas, monospace; letter-spacing: .03em; }

@@ -67,7 +67,7 @@ export async function available() {
 export const simplePage = (title, bodyHtml) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} - Motion Audio</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/fonts/fonts.css">
 <style>body{margin:0;font:400 17px/1.6 Archivo,"Helvetica Neue",Arial,system-ui,sans-serif;color:#12161C;background:#F4F5F6;display:grid;place-items:center;min-height:100vh;padding:20px;box-sizing:border-box}
-main{max-width:30rem;width:100%;padding:2rem;background:#fff;border:1px solid #E1E4E8;border-radius:16px}h1{font-size:1.4rem;line-height:1.25;font-stretch:110%;margin:1.2rem 0 .5rem}p{margin:0 0 .8rem;color:#434C59}
+main{max-width:30rem;width:100%;box-sizing:border-box;padding:2rem;background:#fff;border:1px solid #E1E4E8;border-radius:16px}h1{font-size:1.4rem;line-height:1.25;font-stretch:110%;margin:1.2rem 0 .5rem}p{margin:0 0 .8rem;color:#434C59}
 a{color:#12161C;text-underline-offset:.18em}.home{display:inline-flex;align-items:center;gap:.5rem;font-weight:600;font-stretch:110%;text-decoration:none}.home img{width:26px;height:26px}
 .btn{display:inline-block;margin-top:.4rem;padding:.6rem 1rem;border-radius:8px;background:#12161C;color:#fff;text-decoration:none;font-weight:600}</style></head>
 <body><main><a class="home" href="/"><img src="/brand/glyph-motion-audio.svg" alt="">Motion Audio</a><h1>${title}</h1>${bodyHtml}</main></body></html>`;
