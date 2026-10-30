@@ -369,6 +369,28 @@ def build_sf2_from_wavs(folder, out_path, name=None):
 
 # ---------------------------------------------------------------- PipeWire helpers
 
+def input_ports(chan, available):
+    """The input channel(s) the instrument listens to: "L" / "R" / "stereo" (inputs 1-2), "3" (any input of a bigger
+    USB interface) or "3-4" (a pair). -> (first port index, second port index or None, label). An input the device
+    doesn't have falls back to input 1."""
+    n = max(1, int(available or 1))
+    m = re.match(r"^(\d+)-(\d+)$", chan or "")
+    if chan == "stereo" or m:
+        a, b = (0, 1) if chan == "stereo" else (int(m.group(1)) - 1, int(m.group(2)) - 1)
+        if 0 <= a < n and 0 <= b < n and n > 1:
+            return a, b, "inputs %d + %d" % (a + 1, b + 1)
+        return 0, (1 if n > 1 else None), "inputs 1 + 2" if n > 1 else "input 1"
+    if chan == "R":
+        i = 1
+    elif chan and chan.isdigit():
+        i = int(chan) - 1
+    else:
+        i = 0
+    if not 0 <= i < n:
+        i = 0
+    return i, None, "input %d" % (i + 1)
+
+
 def fit_channel(ch, stereo, available):
     """(ch, stereo, wanted) - an output that isn't there (no DAC board: 3-4; a USB interface unplugged: 5 up) plays on
     1-2 instead of nowhere. wanted is the channel asked for when it was moved, else 0."""
@@ -1024,7 +1046,7 @@ context.modules = [
             pa = self.playany_for_chain()
             if not (pa and pa["on"] and pa["mode"] != 2 and self.playany_fluid):   # (FluidSynth stays only when it plays for play any sound)
                 self.stop_keys()
-            stereo = inp.get("channel") == "stereo"
+            stereo = inp.get("channel") == "stereo" or bool(re.match(r"^\d+-\d+$", str(inp.get("channel") or "")))
             conf = self.chain_conf("guitar", chain, 2 if stereo else 1, inp.get("gainDb", 0), {"on": inp.get("gateOn", True), "db": inp.get("gateDb", -65)}, self.config.get("levelDb", 0), playany=pa)
             self.start_chain("guitar", conf)
             self.playany_in_chain = bool(pa)
@@ -1147,14 +1169,14 @@ context.modules = [
         ins = [p for p in ins if "monitor" not in p["name"]]
         if not outs or not ins:
             raise RuntimeError("input device has no ports yet")
-        chan = (self.config.get("input") or {}).get("channel") or "L"
-        if chan == "stereo" and len(ins) >= 2:
-            self.pw.link(outs[0]["id"], ins[0]["id"])
-            self.pw.link((outs[1] if len(outs) > 1 else outs[0])["id"], ins[1]["id"])
+        chan = str((self.config.get("input") or {}).get("channel") or "L")
+        first, second, label = input_ports(chan, len(outs))
+        if second is not None and len(ins) >= 2:
+            self.pw.link(outs[first]["id"], ins[0]["id"])
+            self.pw.link(outs[second]["id"], ins[1]["id"])
         else:
-            pick = outs[1] if chan == "R" and len(outs) > 1 else outs[0]
-            self.pw.link(pick["id"], ins[0]["id"])
-        self.input_desc = "%s (%s)" % (src["desc"], "both" if chan == "stereo" else "input 2" if chan == "R" else "input 1")
+            self.pw.link(outs[first]["id"], ins[0]["id"])
+        self.input_desc = "%s (%s)" % (src["desc"], label)
 
     def output_channel(self):
         r = self.config.get("routing") or {}
@@ -1238,7 +1260,7 @@ context.modules = [
         if not node or not uid or sym is None:
             return
         uid = re.sub(r"[^A-Za-z0-9]", "", str(uid))[:12]
-        stereo = self.config.get("kind") == "keys" or (self.config.get("input") or {}).get("channel") == "stereo"
+        stereo = self.config.get("kind") == "keys" or (self.config.get("input") or {}).get("channel") == "stereo" or bool(re.match(r"^\d+-\d+$", str((self.config.get("input") or {}).get("channel") or "")))
         item = next((it for it in (self.config.get("chain") or []) if re.sub(r"[^A-Za-z0-9]", "", str(it.get("uid", "")))[:12] == uid), None)
         if item and item.get("uri") == STUDIO_EQ_URI:   # the Studio EQ: its knobs move PipeWire's own filters
             params = {}

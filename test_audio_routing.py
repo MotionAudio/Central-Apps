@@ -87,7 +87,38 @@ def t_fit_channel():
     assert ih.fit_channel(0, False, 2) == (0, False, 0), "off stays off"
 
 
+def t_card_ids():
+    # trixie can name the Pi 4's jack after the firmware mailbox: the ALSA card behind the sink still says Headphones
+    jack = ("alsa_output.platform-fe00b840.mailbox.stereo-fallback", "Built-in Audio Stereo", 2, "Headphones|bcm2835 Headphones||")
+    hdmi = ("alsa_output.platform-fef00700.hdmi.hdmi-stereo", "Built-in Audio Digital Stereo (HDMI)", 2, "vc4hdmi0|vc4-hdmi-0||")
+    usb = ("alsa_output.usb-Focusrite_Scarlett_2i2-00.analog-stereo", "Scarlett 2i2 USB", 2, "USB|Scarlett 2i2 USB||usb")
+    usbdac = ("alsa_output.usb-Generic_USB_DAC-00.analog-stereo", "USB DAC", 2, "DAC|USB DAC||usb")
+    assert cfgmod.kind_of(jack) == "jack" and cfgmod.kind_of(hdmi) == "hdmi0" and cfgmod.kind_of(usb) == "usb" and cfgmod.kind_of(usbdac) == "usb"
+    planned, pos = cfgmod.plan([hdmi, jack], {"hdmi": False})
+    assert [p[0] for p in planned] == ["jack"] and planned[0][1] == jack[0] and pos == ["FL", "FR"], planned
+    planned, pos = cfgmod.plan([hdmi, usb, jack], {"hdmi": False, "usbFirst": True})
+    assert [p[0] for p in planned] == ["usb", "jack"] and len(pos) == 4, planned
+    assert cfgmod.channel_names(planned, pos)[:2] == ["Scarlett 2i2 USB L", "Scarlett 2i2 USB R"], cfgmod.channel_names(planned, pos)
+
+
+def t_forget_targets():
+    import tempfile
+    home = tempfile.mkdtemp()
+    st = os.path.join(home, ".local", "state", "wireplumber")
+    os.makedirs(st)
+    with open(os.path.join(st, "stream-properties"), "w") as handle:
+        handle.write("[stream-properties]\nOutput/Audio:application.name:Chromium={\"volume\":1.0, \"target\":\"alsa_output.platform-fef00700.hdmi.hdmi-stereo\"}\n"
+                     "Output/Audio:application.name:Other={\"volume\":0.5}\n")
+    assert cfgmod.forget_stream_targets(home) is True
+    left = open(os.path.join(st, "stream-properties")).read()
+    assert "hdmi" not in left and "Other" in left, left
+    assert "restore-target = false" in open(os.path.join(home, ".config", "wireplumber", "wireplumber.conf.d", "padpedal.conf")).read()
+    assert cfgmod.forget_stream_targets(home) is False   # (nothing left to change: no restart)
+
+
 print("Sound set-up (Pi):")
+check("the ALSA card names the jack / HDMI / USB, whatever PipeWire calls the sink (a USB DAC is USB)", t_card_ids)
+check("WirePlumber no longer sends the app to a device it remembers (HDMI): the setting, and the old entry forgotten", t_forget_targets)
 check("only the headphone jack: a 2-channel output on the jack (HDMI left out)", t_jack_only)
 check("jack + DAC board: 4 channels, jack first", t_jack_dac)
 check("waits until every card has its sink (HDMI comes first) - the jack is never left out", t_waits_for_the_jack)

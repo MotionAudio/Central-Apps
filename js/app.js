@@ -1,6 +1,6 @@
   (function () {
     "use strict";
-    var APP_VERSION="9.9.0"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
+    var APP_VERSION="9.9.1"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
     var STORAGE="pad-pedal-seamless-v3", DB_NAME="pad-pedal-samples-v3", DB_STORE="samples", KEYS=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"], STOCK_VOICES=["Warm Pad","Ambient Pad","Worship Swell","Dream Choir","Heavenly Pad","Soft Strings","Shimmer Pad","Gentle Pluck"], EQ_COLORS=["#61e7b2","#7caeff","#ffcf66","#ff8b8b","#d998ff","#64e5f0"];
     var PAD_COUNT=8;
     var selected=0, editingInput=false, editingBand=0, currentWaveBuffer=null, waveDrag=null, wavePeaks=new Map(), saveTimer=0, trimRestartTimer=0, project;
@@ -360,6 +360,14 @@
     // A short test tone on one bus, so you can hear which cable is which.
     AudioEngine.prototype.testBus=function(bus){var c=this.context();var node={tracks:this.tracksBus,pad:this.mainMix,click:this.clickBus}[bus];if(!node)return;var o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value={tracks:440,pad:330,click:880}[bus]||440;
       g.gain.setValueAtTime(0,c.currentTime);g.gain.linearRampToValueAtTime(.25,c.currentTime+.02);g.gain.setValueAtTime(.25,c.currentTime+.5);g.gain.linearRampToValueAtTime(0,c.currentTime+.6);o.connect(g).connect(node);o.start();o.stop(c.currentTime+.65);if(c.state!=="running")c.resume();};
+    // A tone straight on one output channel (Settings → Audio → Test sound), past the buses and the routing: if this is
+    // heard and a pad isn't, it's the routing; if this isn't heard either, it's the device or the cable.
+    AudioEngine.prototype.testChannel=function(ch){var c=this.context(),d=c.destination,max=Math.max(1,d.maxChannelCount||2);ch=Math.max(1,Math.min(max,Number(ch)||1));
+      var n=Math.max(2,ch,d.channelCount||2),self=this;if(n>(d.channelCount||2)){try{d.channelCount=n;d.channelCountMode="explicit";d.channelInterpretation="discrete";}catch(_){}}
+      var m=c.createChannelMerger(n),o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=[523.25,659.25,783.99,1046.5,587.33,698.46,880,1174.66][(ch-1)%8];
+      g.gain.setValueAtTime(0,c.currentTime);g.gain.linearRampToValueAtTime(.3,c.currentTime+.03);g.gain.setValueAtTime(.3,c.currentTime+.7);g.gain.linearRampToValueAtTime(0,c.currentTime+.8);
+      o.connect(g);g.connect(m,0,ch-1);m.connect(d);o.start();o.stop(c.currentTime+.85);if(c.state!=="running")c.resume();
+      setTimeout(function(){try{m.disconnect();}catch(_){}if(n>2&&!self.merger)self.routeOutput();},1000);return{channel:ch,channels:max};};
     AudioEngine.prototype.ensure=async function(){var ctx=this.context();if(ctx.state!=="running")await ctx.resume();return ctx;};
     // a Central Pads loop in a key (decoded once; marked so the voice plays it at its own pitch) - null when locked or missing
     AudioEngine.prototype.getPadLoop=async function(voice,key){
@@ -465,9 +473,14 @@
       var pad=project.input;pad.enabled=!!on;
       if(!on){if(this.inputVoice){var v=this.inputVoice,now=this.ctx.currentTime;v.fadeOut(now,.3);v.dispose(now+.4);this.inputVoice=null;}if(this.inputStream){this.inputStream.getTracks().forEach(function(t){t.stop();});this.inputStream=null;}setStatus("Audio input off");return true;}
       await this.ensure();
-      try{this.inputStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,latency:0}});}
-      catch(error){pad.enabled=false;setStatus("No audio input available: "+(error&&error.name||"blocked"));return false;}
-      var node=this.ctx.createMediaStreamSource(this.inputStream),voice=new Voice(this,pad,null,pad.key,node),t=this.ctx.currentTime+.01;voice.start(t);voice.fadeIn(t,.15);this.inputVoice=voice;setStatus("Audio input on");return true;};
+      // which input: Settings → Audio → Audio input (a USB interface, its input 1, 2 or both) - else the system's default
+      var src=project.inputSource||{},base={echoCancellation:false,noiseSuppression:false,autoGainControl:false,latency:0,channelCount:{ideal:2}};
+      try{this.inputStream=await navigator.mediaDevices.getUserMedia({audio:src.deviceId?Object.assign({deviceId:{exact:src.deviceId}},base):base});}
+      catch(error){if(src.deviceId){try{this.inputStream=await navigator.mediaDevices.getUserMedia({audio:base});setStatus("The chosen audio input isn't there - using the default one");}catch(_){}}
+        if(!this.inputStream){pad.enabled=false;setStatus("No audio input available: "+(error&&error.name||"blocked"));return false;}}
+      var node=this.ctx.createMediaStreamSource(this.inputStream);
+      if(src.channel==="1"||src.channel==="2"){var sp=this.ctx.createChannelSplitter(2),one=this.ctx.createGain();one.channelCount=1;one.channelCountMode="explicit";node.connect(sp);sp.connect(one,src.channel==="2"?1:0);node=one;}
+      var voice=new Voice(this,pad,null,pad.key,node),t=this.ctx.currentTime+.01;voice.start(t);voice.fadeIn(t,.15);this.inputVoice=voice;setStatus("Audio input on");return true;};
 
     // =================================================================
     // Voice: one pad (or the input) running through its own full chain

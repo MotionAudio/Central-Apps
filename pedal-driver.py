@@ -95,7 +95,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.9.0"
+APP_VERSION = "9.9.1"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -628,6 +628,138 @@ def pi_health(data_root):
         pass
     out["simulated"] = os.environ.get("CC_PLAYER") == "1"
     return out
+
+
+# ---- the Pi's sound path (9.9.1): what the app plays into, where that goes, and a tone straight on each card ----------
+def pulse_env():
+    env = dict(os.environ)
+    env.setdefault("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid())
+    return env
+
+
+def pactl_short(what):
+    """pactl list short <what> -> [[columns]]"""
+    code, out, _ = run(["pactl", "list", "short", what], timeout=8, env=pulse_env())
+    return [line.split("\t") for line in out.splitlines() if line.strip()] if code == 0 else []
+
+
+def app_sink_inputs():
+    """The app's (Chromium's) streams: [{"id", "sink": sink index, "sinkName"}]."""
+    clients = {c[0]: (c[2] if len(c) > 2 else "") for c in pactl_short("clients")}
+    sinks = {s[0]: s[1] for s in pactl_short("sinks") if len(s) > 1}
+    out = []
+    for si in pactl_short("sink-inputs"):
+        if len(si) > 2 and re.search(r"(?i)chrom", clients.get(si[2], "")):
+            out.append({"id": si[0], "sink": si[1], "sinkName": sinks.get(si[1], "")})
+    return out
+
+
+def steer_app_audio():
+    """Every app stream into the combined output (padpedal_out). A stream remembered on another device - HDMI, from
+    before the combined output existed - played where nobody listens while the app's meters moved. Returns how many
+    were moved. (Only the app's own streams: the instrument chain links its channels itself.)"""
+    names = [s[1] for s in pactl_short("sinks") if len(s) > 1]
+    if "padpedal_out" not in names:
+        return 0
+    moved = 0
+    for si in app_sink_inputs():
+        if si["sinkName"] and si["sinkName"] != "padpedal_out":
+            code, _, _ = run(["pactl", "move-sink-input", si["id"], "padpedal_out"], timeout=8, env=pulse_env())
+            if code == 0:
+                moved += 1
+                log.info("sound: the app was playing on %s - moved to the combined output", si["sinkName"])
+    return moved
+
+
+def jack_mixer():
+    """The headphone jack's ALSA mixer ("PCM" / "Headphone"): {"card", "control", "text", "muted"} or None."""
+    try:
+        lines = open("/proc/asound/cards").read().splitlines()
+    except OSError:
+        lines = []
+    for line in lines:
+        m = re.match(r"\s*(\d+)\s+\[(\S+)\s*\]", line)
+        if m and re.match(r"(?i)headphones|bcm2835", m.group(2)):
+            for control in ("PCM", "Headphone", "Master"):
+                code, out, _ = run(["amixer", "-c", m.group(1), "sget", control], timeout=5)
+                if code == 0:
+                    vals = re.findall(r"\[(-?[\d.]+dB)\]", out)
+                    return {"card": int(m.group(1)), "control": control, "text": vals[0] if vals else "", "muted": "[off]" in out}
+            return {"card": int(m.group(1)), "control": "", "text": "", "muted": False}
+    return None
+
+
+def audio_path_check(data_root, fix=True):
+    """Where the sound goes, in plain words, for Settings → Audio → Test sound (and the problems found / fixed)."""
+    found, fixed = [], []
+    cards = sound_cards()
+    has_jack = any(re.match(r"(?i)headphones|bcm2835", c) for c in cards)
+    cfg_txt = ""
+    for path in ("/boot/firmware/config.txt", "/boot/config.txt"):
+        try:
+            cfg_txt = open(path).read()
+            break
+        except OSError:
+            pass
+    if not has_jack:
+        found.append("The headphone jack isn't switched on (there's no Headphones sound card)."
+                     + ("" if re.search(r"(?m)^dtparam=audio=on", cfg_txt) else " config.txt is missing dtparam=audio=on - it's added now; restart the pedal."))
+        if fix and not re.search(r"(?m)^dtparam=audio=on", cfg_txt) and os.path.exists(SYSTEM_SCRIPT):
+            if run_privileged(SYSTEM_SCRIPT, "jack", "on"):
+                fixed.append("Switched the headphone jack on (after a restart).")
+    sinks = [s[1] for s in pactl_short("sinks") if len(s) > 1]
+    code, default, _ = run(["pactl", "get-default-sink"], timeout=5, env=pulse_env())
+    default = default.strip()
+    chans = read_json(os.path.join(data_root, "audio-channels.json"), {}) or {}
+    if "padpedal_out" not in sinks:
+        found.append("The combined output (padpedal_out) isn't there. Restart the screens (Settings → Screens → Apply) to make it again.")
+    elif default != "padpedal_out":
+        found.append("The default output was %s, not the combined output." % (default or "nothing"))
+        if fix and run(["pactl", "set-default-sink", "padpedal_out"], timeout=5, env=pulse_env())[0] == 0:
+            fixed.append("Made the combined output the default again.")
+    streams = app_sink_inputs()
+    elsewhere = [si["sinkName"] for si in streams if si["sinkName"] and si["sinkName"] != "padpedal_out"]
+    if elsewhere and "padpedal_out" in sinks:
+        found.append("The app was playing into %s." % ", ".join(sorted(set(elsewhere))))
+        if fix and steer_app_audio():
+            fixed.append("Moved the app's sound to the combined output.")
+    jm = jack_mixer()
+    if jm and jm.get("muted"):
+        found.append("The headphone jack was muted.")
+        if fix and run(["amixer", "-q", "-c", str(jm["card"]), "sset", jm["control"] or "PCM", "0dB", "unmute"], timeout=5)[0] == 0:
+            fixed.append("Turned the headphone jack on, at full level.")
+    planned = chans.get("cards")
+    if has_jack and planned is not None and not any((c or {}).get("kind") == "jack" for c in planned):
+        found.append("The headphone jack isn't part of the combined output. Restart the screens to add it.")
+    return {"type": "audioCheck", "cards": cards, "sinks": sinks, "default": default, "appStreams": streams, "channels": chans.get("channels") or [],
+            "planned": planned or [], "jack": jm, "found": found, "fixed": fixed, "ok": not found}
+
+
+def card_tone(sink, seconds=0.7, freq=660):
+    """A tone straight on one sound card's own sink (not through the app): tells a cable or headphone problem apart
+    from an app routing one."""
+    import math
+    import struct
+    import wave
+    path = "/tmp/pad-pedal-tone-%d.wav" % freq
+    if not os.path.exists(path):
+        rate = 48000
+        n = int(rate * seconds)
+        frames = bytearray()
+        for i in range(n):
+            env = min(1.0, i / 960.0, (n - i) / 960.0)
+            v = int(0.3 * env * 32767 * math.sin(2 * math.pi * freq * i / rate))
+            frames += struct.pack("<hh", v, v)
+        with wave.open(path, "wb") as w:
+            w.setnchannels(2)
+            w.setsampwidth(2)
+            w.setframerate(rate)
+            w.writeframes(bytes(frames))
+    for cmd in (["pw-play", "--target", sink, path], ["paplay", "-d", sink, path]):
+        if shutil.which(cmd[0]):
+            code, _, err = run(cmd, timeout=10, env=pulse_env())
+            return code == 0, err.strip()
+    return False, "no pw-play / paplay"
 
 
 def sound_cards():
@@ -3184,6 +3316,8 @@ class MiniScreen:
         self.dragf = TouchFilter()
         self.tstats = {"device": None, "presses": 0, "taps": 0, "rate": 0.0, "jitter": 0.0, "tapMs": 0.0, "pressure": None, "last": 0.0}
         self.song_edit = False   # (the setlist page's EDIT: move songs, take them out)
+        self.lists_saving = None
+        self.load_lists()
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -3844,17 +3978,17 @@ class MiniScreen:
         C, W, H = self.COL, self.w, self.h
         key = "fxTargets:" + which
         if which == "tracks" and self.pages.get("fxt_song") != d.get("songId"):   # (another song: its own tracks)
+            self.lists.pop(key, None)   # (the copy may be another song's: the saved project has this one's until the app sends it)
             self.pages["fxt_song"] = d.get("songId")
-            self.lists.pop(key, None)
             self.want("fxTargets", which, every=0)
         self.want("fxTargets", which, every=3.0)
         data = self.lists.get(key)
+        if data is None or (data.get("error") and not data.get("items")):   # (nothing from the app yet: the saved project's)
+            data = {"items": self.copy_targets(which, d.get("songId"))}
+            self.retry_soon()
         items = (data or {}).get("items") or []
         shown, page, pages = self.paged("fxt:" + which, items, 5)
         self.chips(g, hits, "tracks" if which == "tracks" else "pads", pager=("fxt:" + which, page, pages) if pages > 1 else None)
-        if data is None:
-            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
-            return
         y, rh = 76, (H - 46 - 76) / 5
         for it in shown:
             box = [6, y + 2, W - 6, y + rh - 2]
@@ -3881,7 +4015,12 @@ class MiniScreen:
         ov = self.overlay
         tid = ov.get("target") or ""
         self.want("fx", tid, every=3.0)
-        st = (self.lists.get("fx:" + tid) or {}).get("state")
+        entry = self.lists.get("fx:" + tid)
+        st = (entry or {}).get("state")
+        if not st:   # (nothing from the app yet, or it doesn't know this one: the saved project's)
+            st = self.copy_state(tid, d.get("songId"))
+            if entry is None or not st:
+                self.retry_soon()
         rows = [{"head": True}] + list((st or {}).get("rows") or [])
         shown, page, pages = self.paged("fx:" + tid, rows, 5)
         self.button(g, hits, [6, 44, 86, 70], "‹ BACK", {"local": "back"}, radius=13, font=self.F["label"])
@@ -3891,7 +4030,8 @@ class MiniScreen:
             self.text(g, (W - 50, 57), "%d/%d" % (page + 1, pages), self.F["sub"], C["muted"], "mm")
             self.button(g, hits, [W - 38, 44, W - 6, 70], "›", {"local": "page", "key": "fx:" + tid, "d": 1} if page < pages - 1 else None, radius=13, color=C["text"] if page < pages - 1 else C["line"])
         if not st:
-            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 160), "This one isn't in the song any more", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 182), "Go back and pick it again from the list", self.F["sub"], C["muted"], "mm")
             return
         master = bool(st.get("on"))
         y, rh = 76, (H - 46 - 76) / 5
@@ -3936,13 +4076,17 @@ class MiniScreen:
             self.want("scenes", every=0)
         self.want("scenes", every=3.0)
         data = self.lists.get("scenes") or {}
+        if "items" not in data:   # (nothing from the app yet: this song's scenes from the saved project)
+            song = self.saved_song(self.saved_project(), d.get("songId")) or {}
+            data = {"items": [{"id": i, "label": sc.get("name") or "Scene %d" % (i + 1)} for i, sc in enumerate(song.get("scenes") or []) if isinstance(sc, dict)]}
+            self.retry_soon()
         items = data.get("items") or []
         cur = data.get("current")
         shown, page, pages = self.paged("scenes", items, 6)
         self.chips(g, hits, "tracks", pager=("scenes", page, pages) if pages > 1 else None)
         cw, ch = (W - 12 - 2 * 5) / 3, 38
         if not items:
-            self.text(g, (W / 2, 106), "This song has no scenes yet" if "items" in data else "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 106), "This song has no scenes yet", self.F["sub"], C["muted"], "mm")
             self.text(g, (W / 2, 126), "Make them in the song editor → Scenes", self.F["sub"], C["muted"], "mm")
         for j, sc in enumerate(shown):
             r, c = divmod(j, 3)
@@ -4460,8 +4604,10 @@ class MiniScreen:
         items = (data or {}).get("items") or []
         shown, page, pages = self.paged("controls", items, 4)
         self.chips(g, hits, "settings")
-        if data is None:
-            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+        if data is None:   # (the very first start: the app hasn't sent them yet - it does when it's up, in a few seconds)
+            self.retry_soon()
+            self.text(g, (W / 2, 160), "Getting the list of controls…", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 182), "It shows up here as soon as the app has started", self.F["sub"], C["muted"], "mm")
             return
         if pages > 1:   # ‹ 1/5 › along the bottom
             yb = H - 46 - 34
@@ -4528,6 +4674,197 @@ class MiniScreen:
             asked[key] = time.monotonic()
             self.driver.emit({"type": "miniRequest", "what": what, "kind": kind})
 
+    # ----- the driver's own copy of the lists: the app sends them when it connects and when they change (miniPush);
+    # kept on the card, so after a restart the screen shows them at once, before the app is even up
+    LISTS_FILE = "mini-lists.json"
+
+    def lists_path(self):
+        root = self.driver.config.get("data_root") if self.driver and getattr(self.driver, "config", None) else None
+        return os.path.join(root, self.LISTS_FILE) if root else None
+
+    def load_lists(self):
+        path = self.lists_path()
+        saved = read_json(path, {}) if path else {}
+        if isinstance(saved, dict):
+            for key, value in saved.items():
+                if isinstance(value, dict):
+                    self.lists.setdefault(str(key), value)
+
+    def save_lists(self):
+        path = self.lists_path()
+        if not path or self.lists_saving is not None:
+            return
+
+        def write():
+            self.lists_saving = None
+            keep = {k: v for k, v in list(self.lists.items()) if k != "library" and not k.startswith(("hdmi", "fxPresets:"))}
+            try:
+                write_json(path, keep)
+            except Exception as error:
+                log.debug("small screen lists not saved (%s)", error)
+        self.lists_saving = threading.Timer(2.0, write)
+        self.lists_saving.daemon = True
+        self.lists_saving.start()
+
+    def retry_soon(self, seconds=2.5):
+        """Nothing to show yet: draw again in a moment (asking again on the way), instead of waiting for something else
+        to redraw the screen."""
+        drv = self.driver
+        if not drv or not getattr(drv, "loop", None) or getattr(self, "_retry_at", 0) > time.monotonic():
+            return
+        self._retry_at = time.monotonic() + seconds
+        try:
+            drv.loop.call_soon_threadsafe(drv.loop.call_later, seconds, lambda: drv.schedule_mini_render(True))
+        except RuntimeError:
+            pass
+
+    def kept_edit(self, m):
+        """An effects change made here while no app page is running: shown on the screen straight away (the app gets it
+        when it's back)."""
+        self.say("Kept - it goes in as soon as the Central Pedal app is running")
+        args = m.get("args") or {}
+        tid = str(args.get("target") or m.get("target") or "")
+        entry = self.lists.get("fx:" + tid)
+        st = (entry or {}).get("state")
+        if not st:
+            return
+        path = str(args.get("path") or "")
+        if m.get("name") == "fxToggle":
+            if path == "on":
+                st["on"] = not st.get("on")
+            for r in st.get("rows") or []:
+                if r.get("toggle") == path or (path.endswith(".on") and r.get("fx") == path[:-3] and "toggle" not in r):
+                    r["on"] = not r.get("on")
+        elif m.get("name") == "fxValue":
+            for r in st.get("rows") or []:
+                if r.get("path") == path:
+                    v = r.get("min", 0) + float(m.get("value") or 0) * (r.get("max", 1) - r.get("min", 0))
+                    r["value"] = v
+                    r["text"] = self.fx_text(v, "dB" if r.get("fx") in ("gate", "eq") or path.endswith("threshold") else "%")
+        elif m.get("type") == "miniPick":
+            st["preset"] = str(m.get("id") or "")
+        self.save_lists()
+
+    # ----- effects from the project the driver already has (project.json, saved by the app) when no list came yet
+    FX_DEFAULT = {"on": False, "preset": "",
+                  "gate": {"on": False, "threshold": -45}, "eq": {"on": True, "low": 0, "mid": 0, "high": 0},
+                  "comp": {"on": False, "amount": 35}, "reverb": {"on": False, "type": "room", "send": 15},
+                  "delay": {"on": False, "time": "1/8", "send": 12}}
+    REVERB_NAMES = {"room": "Room", "hall": "Hall", "plate": "Plate", "cathedral": "Cathedral"}
+    DIV_NAMES = {2.0: "1/2", 1.0: "1/4", 0.5: "1/8", 0.25: "1/16", 1.5: "1/4.", 0.75: "1/8."}
+
+    @staticmethod
+    def fx_text(v, unit):
+        v = float(v or 0)
+        if unit == "dB":
+            r = round(v * 10) / 10
+            return ("+" if r > 0 else "") + ("%g" % r) + " dB"
+        return "%d%%" % round(v)
+
+    @classmethod
+    def fx_merge(cls, base, over):
+        out = json.loads(json.dumps(base))
+        for k, v in (over or {}).items() if isinstance(over, dict) else []:
+            if v is None and isinstance(out.get(k), dict):
+                continue
+            out[k] = cls.fx_merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+        return out
+
+    def saved_project(self):
+        root = self.driver.config.get("data_root") if self.driver and getattr(self.driver, "config", None) else None
+        p = read_json(os.path.join(root, "project.json"), {}) if root else {}
+        return p if isinstance(p, dict) else {}
+
+    def saved_song(self, p, song_id=None):
+        songs = [s for s in (p.get("songs") or []) if isinstance(s, dict)]
+        hit = next((s for s in songs if song_id and s.get("id") == song_id), None)
+        if hit is None:
+            i = p.get("songIndex")
+            hit = songs[i] if isinstance(i, int) and 0 <= i < len(songs) else None
+        return hit
+
+    def pad_fx(self, pad):
+        e = pad.get("effects") or {}
+        eq, c, r, dl, gt = e.get("eq") or {}, e.get("compressor") or {}, e.get("reverb") or {}, e.get("delay") or {}, e.get("gate") or {}
+        b = eq.get("bands") or []
+        gain = lambda i: float((b[i] or {}).get("gain") or 0) if len(b) > i and isinstance(b[i], dict) else 0.0
+        try:
+            div = self.DIV_NAMES.get(float(dl.get("division")), "1/8")
+        except (TypeError, ValueError):
+            div = "1/8"
+        return {"on": True, "preset": pad.get("fxPreset") or "",
+                "gate": {"on": bool(gt.get("enabled")), "threshold": gt.get("threshold", -45) if gt.get("threshold") is not None else -45},
+                "eq": {"on": eq.get("enabled") is not False, "low": gain(1), "mid": gain(3), "high": gain(4)},
+                "comp": {"on": bool(c.get("enabled")), "amount": 35 if c.get("amount") is None else c.get("amount")},
+                "reverb": {"on": bool(r.get("enabled")), "type": r.get("type") or "hall", "send": 30 if r.get("wet") is None else r.get("wet")},
+                "delay": {"on": bool(dl.get("enabled")), "time": div, "send": 25 if dl.get("send") is None else dl.get("send")}}
+
+    @staticmethod
+    def pad_fx_on(pad):
+        e = pad.get("effects") or {}
+        return bool(pad.get("fxPreset")) or bool((e.get("compressor") or {}).get("enabled")) or bool((e.get("delay") or {}).get("enabled"))
+
+    def copy_targets(self, which, song_id=None):
+        """The bus and every track (or pad), with on / off and the preset, from the saved project."""
+        p = self.saved_project()
+        on_text = lambda on, preset: (preset or "on") if on else "off"
+        bus = self.fx_merge(self.FX_DEFAULT, (p.get("busFx") or {}).get(which))
+        if which == "pads":
+            items = [{"id": "bus:pads", "label": "All pads (pads bus)", "on": bool(bus.get("on")), "sub": on_text(bus.get("on"), bus.get("preset"))}]
+            for i, pad in enumerate(p.get("pads") or []):
+                if isinstance(pad, dict):
+                    on = self.pad_fx_on(pad)
+                    items.append({"id": "pad:%d" % i, "label": "Pad %d · %s" % (i + 1, pad.get("name") or ""), "on": on, "sub": on_text(on, pad.get("fxPreset"))})
+            return items
+        items = [{"id": "bus:tracks", "label": "All tracks (tracks bus)", "on": bool(bus.get("on")), "sub": on_text(bus.get("on"), bus.get("preset"))}]
+        song = self.saved_song(p, song_id)
+        for st in ((song or {}).get("tracks") or {}).get("stems") or []:
+            if isinstance(st, dict) and st.get("id") is not None:
+                fx = st.get("fx") or {}
+                items.append({"id": "stem:%s" % st["id"], "label": st.get("name") or "Track", "on": bool(fx.get("on")), "sub": on_text(fx.get("on"), fx.get("preset"))})
+        return items
+
+    def copy_state(self, tid, song_id=None):
+        """One target's effects from the saved project (the basic controls; the app fills in the rest when it's up)."""
+        p = self.saved_project()
+        kind, _, rest = str(tid).partition(":")
+        name, fx = None, None
+        if kind == "bus" and rest in ("tracks", "pads"):
+            name, fx = ("Tracks bus (all tracks)" if rest == "tracks" else "Pads bus (all pads)"), self.fx_merge(self.FX_DEFAULT, (p.get("busFx") or {}).get(rest))
+        elif kind == "pad" and rest.isdigit():
+            pads = p.get("pads") or []
+            i = int(rest)
+            if i < len(pads) and isinstance(pads[i], dict):
+                name, fx = "Pad %d · %s" % (i + 1, pads[i].get("name") or ""), self.fx_merge(self.FX_DEFAULT, self.pad_fx(pads[i]))
+        elif kind == "stem":
+            song = self.saved_song(p, song_id)
+            st = next((s for s in ((song or {}).get("tracks") or {}).get("stems") or [] if isinstance(s, dict) and str(s.get("id")) == rest), None)
+            if st:
+                name, fx = st.get("name") or "Track", self.fx_merge(self.FX_DEFAULT, st.get("fx"))
+        if fx is None:
+            return None
+        rows = []
+        if kind != "bus":
+            rows.append({"fx": "gate", "label": "Gate", "toggle": "gate.on", "on": bool(fx["gate"].get("on")), "path": "gate.threshold", "min": -80, "max": 0, "value": fx["gate"].get("threshold", -45)})
+        for band, label in (("low", "EQ low"), ("mid", "EQ mid"), ("high", "EQ high")):
+            row = {"fx": "eq", "label": label, "on": bool(fx["eq"].get("on")), "path": "eq." + band, "min": -12, "max": 12, "value": fx["eq"].get(band, 0)}
+            if band == "low":
+                row["toggle"] = "eq.on"
+            rows.append(row)
+        rows.append({"fx": "comp", "label": "Compressor", "toggle": "comp.on", "on": bool(fx["comp"].get("on")), "path": "comp.amount", "min": 0, "max": 100, "value": fx["comp"].get("amount", 35)})
+        rows.append({"fx": "reverb", "label": "Reverb", "toggle": "reverb.on", "on": bool(fx["reverb"].get("on")), "path": "reverb.send", "min": 0, "max": 100, "value": fx["reverb"].get("send", 15),
+                     "choice": {"path": "reverb.type", "name": self.REVERB_NAMES.get(fx["reverb"].get("type"), str(fx["reverb"].get("type") or "Room"))}})
+        rows.append({"fx": "delay", "label": "Delay", "toggle": "delay.on", "on": bool(fx["delay"].get("on")), "path": "delay.send", "min": 0, "max": 100, "value": fx["delay"].get("send", 12),
+                     "choice": {"path": "delay.time", "name": str(fx["delay"].get("time") or "1/8")}})
+        for r in rows:
+            try:
+                r["value"] = float(r["value"])
+            except (TypeError, ValueError):
+                r["value"] = float(r["min"])
+            r["text"] = self.fx_text(r["value"], "dB" if r["fx"] in ("gate", "eq") else "%")
+        return {"id": tid, "name": name, "kind": kind, "master": kind != "pad", "on": True if kind == "pad" else bool(fx.get("on")), "preset": fx.get("preset") or "",
+                "pro": True, "lock": "", "rows": rows, "fromCopy": True}
+
     def list_key(self, ov):
         return ov["what"] + (":" + ov["akind"] if ov.get("akind") else "")
 
@@ -4557,9 +4894,11 @@ class MiniScreen:
             self.button(g, hits, [W - 98, 44, W - 66, 70], "‹", {"local": "page", "key": "list:" + key, "d": -1} if page > 0 else None, radius=13, color=C["text"] if page > 0 else C["line"])
             self.text(g, (W - 50, 57), "%d/%d" % (page + 1, pages), self.F["sub"], C["muted"], "mm")
             self.button(g, hits, [W - 38, 44, W - 6, 70], "›", {"local": "page", "key": "list:" + key, "d": 1} if page < pages - 1 else None, radius=13, color=C["text"] if page < pages - 1 else C["line"])
-        if data is None:
+        if data is None:   # (the very first start: the app hasn't sent this list yet)
             self.want(ov["what"], ov.get("akind"), every=2.0)
-            self.text(g, (W / 2, 170), "Waiting for the Central Pedal app…", self.F["sub"], C["muted"], "mm")
+            self.retry_soon(2.0)
+            self.text(g, (W / 2, 160), "Getting the list…", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 182), "It shows up here as soon as the app has started", self.F["sub"], C["muted"], "mm")
             return
         if not items:
             self.text(g, (W / 2, 170), "No songs on this pedal yet" if ov["what"] == "library" else "Nothing to pick here", self.F["sub"], C["muted"], "mm")
@@ -4694,8 +5033,7 @@ class MiniScreen:
             self.overlay = parent
         elif kind == "fxOpen":
             tid = str(a.get("target") or "")
-            self.overlay = {"kind": "fx", "target": tid, "title": a.get("title")}
-            self.lists.pop("fx:" + tid, None)
+            self.overlay = {"kind": "fx", "target": tid, "title": a.get("title")}   # (drawn at once from the copy; the app's answer freshens it)
             self.pages["fx:" + tid] = 0
             self.want("fx", tid, every=0)
         elif kind == "songEdit":
@@ -9140,6 +9478,9 @@ class PedalDriver:
         self.i2c_bus = i2c_bus
         self.fb_override = fb_override
         self.clients = set()
+        self.app_clients = set()    # (the app pages: the ones that send the small screen's lists)
+        self.app_seen = False       # (an app page that sends them has been here: a change kept while it's away goes in when it's back)
+        self.mini_pending = []      # the small screen's effects changes made while no app page was there
         self.lan_clients = {}
         self.loop = None
         self.devices = []
@@ -9339,7 +9680,36 @@ class PedalDriver:
                 else:
                     self.clients.discard(ws)
 
+    MINI_FX_EDITS = ("fxValue", "fxToggle", "fxCycle")
+
+    def mini_fx_edit(self, message):
+        t = message.get("type")
+        return (t == "action" and message.get("name") in self.MINI_FX_EDITS) or (t == "miniPick" and message.get("what") == "fxPresets")
+
+    def app_page(self, ws):
+        """An app page sent the small screen's lists: the effects changes kept while no app page was here go to it now."""
+        if ws is None or ws in self.app_clients:
+            return
+        self.app_clients.add(ws)
+        self.app_seen = True
+        pending, self.mini_pending = self.mini_pending, []
+        for m in pending:
+            self.send_to(ws, m)
+        if pending:
+            log.info("small screen: %d effects change%s made while the app was away sent to it", len(pending), "" if len(pending) == 1 else "s")
+
     def emit(self, message, lan=False):
+        # an effects change on the small screen while no app page is here (it plays the sound): kept, and sent when one
+        # connects (a value slid several times is kept once, at its last place)
+        if self.mini_fx_edit(message) and not self.app_clients and (self.app_seen or not self.clients):
+            m = dict(message)
+            if "from_" in m:
+                m["from"] = m.pop("from_")
+            same = lambda o: o.get("type") == m.get("type") and o.get("name") == m.get("name") and m.get("name") == "fxValue" and o.get("args") == m.get("args")
+            self.mini_pending = [o for o in self.mini_pending if not same(o)][-40:] + [m]
+            if self.mini:
+                self.mini.kept_edit(m)
+            return
         if self.loop is None:
             return
         if "from_" in message:
@@ -9375,6 +9745,7 @@ class PedalDriver:
                     log.warning("bad message %r (%s)", raw[:200], error)
         finally:
             self.clients.discard(ws)
+            self.app_clients.discard(ws)
             log.info("app disconnected")
 
     def public_audio_host(self):
@@ -9585,10 +9956,17 @@ class PedalDriver:
                 self.schedule_mini_render(force=True)
             else:
                 self.send_to(ws, {"type": "packages", "packages": read_json(path, [])})
-        elif kind == "miniList":   # the small screen's lists (sounds, boards, what a control does…), from the app
+        elif kind in ("miniList", "miniPush"):   # the small screen's lists (effects, scenes, sounds, boards, controls…), from the app
+            self.app_page(ws)
             if self.mini:
-                what = str(message.get("what") or "") + (":" + str(message["kind"]) if message.get("kind") else "")
-                self.mini.lists[what] = {k: v for k, v in message.items() if k not in ("type", "what", "kind")}
+                if kind == "miniPush":   # (sent when the app connects and whenever a list changes: the screen never waits)
+                    for key, value in (message.get("lists") or {}).items():
+                        if isinstance(value, dict):
+                            self.mini.lists[str(key)] = {k: v for k, v in value.items() if k != "kind"}
+                else:
+                    what = str(message.get("what") or "") + (":" + str(message["kind"]) if message.get("kind") else "")
+                    self.mini.lists[what] = {k: v for k, v in message.items() if k not in ("type", "what", "kind")}
+                self.mini.save_lists()
                 self.schedule_mini_render(force=True)
         elif kind == "miniResult":
             if self.mini and message.get("text"):
@@ -9932,7 +10310,14 @@ class PedalDriver:
             return
         time.sleep(20)
         last = None
+        tick = 0
         while True:
+            tick += 1
+            if tick % 3 == 1:   # (every ~12 s: the app's sound stays on the combined output - see steer_app_audio)
+                try:
+                    steer_app_audio()
+                except Exception as error:
+                    log.debug("sound steer: %s", error)
             try:
                 ch = self.audio_devices_changed()
                 key = json.dumps(ch, sort_keys=True) if ch else None
@@ -10157,6 +10542,20 @@ class PedalDriver:
                 cfg = {"hdmi": bool(message.get("hdmi")), "usbFirst": bool(message.get("usbFirst"))}
                 write_json(os.path.join(self.config["data_root"], "audio.json"), cfg)
                 run_privileged(SYSTEM_SCRIPT, "audio", "hdmi" if cfg["hdmi"] else "nohdmi", "usbfirst" if cfg["usbFirst"] else "jackfirst")
+            elif action == "audioCheck":   # Settings → Audio → Test sound: where the app's sound goes (and fix what's off)
+                self.emit(audio_path_check(self.config["data_root"], fix=message.get("fix", True) is not False))
+                return
+            elif action == "audioCardTest":   # a tone straight on each sound card, one after the other
+                planned = (read_json(os.path.join(self.config["data_root"], "audio-channels.json"), {}) or {}).get("cards") or []
+                sinks = [s[1] for s in pactl_short("sinks") if len(s) > 1 and s[1].startswith("alsa_output")]
+                for name in sinks:
+                    desc = next((c.get("desc") for c in planned if c.get("name") == name), None) or name
+                    self.emit({"type": "audioCardTest", "sink": name, "desc": desc, "busy": True})
+                    ok, err = card_tone(name)
+                    self.emit({"type": "audioCardTest", "sink": name, "desc": desc, "ok": ok, "error": err})
+                    time.sleep(0.4)
+                self.emit({"type": "audioCardTest", "done": True, "count": len(sinks)})
+                return
             elif action == "dac" and value in ("on", "off"):   # the DAC board (outputs 3-4): its overlay, after a restart
                 self.config["i2s_dac"] = value == "on"
                 self.save_config()

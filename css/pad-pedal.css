@@ -17,7 +17,7 @@ body.tab-pads .toptab { display: none; }
 .link { background: none; border: 0; color: var(--blue); text-decoration: underline; padding: 0; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
 .dot.off { background: #4A515C; box-shadow: none; }
-.live { outline: 2px solid var(--blue) !important; }
+[data-input-id].live, .input-pad.live { outline: 2px solid var(--blue) !important; }
 .code { font-size: 1.4em; letter-spacing: .2em; }
 .qr { margin: 8px 0; } .qr svg { width: 150px; height: 150px; background: #fff; border-radius: 8px; padding: 4px; }
 .wifi-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; } .wifi-list button { display: flex; gap: 8px; align-items: center; } .wifi-list button.on { border-color: var(--accent); } .wifi-list small { color: var(--muted); }
@@ -467,3 +467,5 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 .lp-src { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 6px; font-size: 13px; }
 .lp-all { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; } .lp-allbtn { padding: 16px; font-size: 18px; font-weight: 800; border-radius: 14px; }
 .lp-off { padding: 20px; }
+/* Settings → Audio → Test sound (js/soundtest.js) */
+.st-check { margin: 8px 0 4px; padding-left: 18px; font-size: 13px; display: grid; gap: 3px; } .st-tones button.on { border-color: var(--accent); color: var(--accent); }

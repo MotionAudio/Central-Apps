@@ -44,8 +44,21 @@
   }
   function instrument() { var ins = I(), pa = ins && ins.playAny ? ins.playAny() : null; return { mode: pa ? pa.mode || "auto" : "", dry: pa ? pa.dry || 0 : 0 }; }
 
-  function answer(what, kind) {
+  // one list for the small screen (null: not one this page answers). Never throws: a part that fails is answered
+  // empty, with the reason, so the screen never waits for an answer that isn't coming.
+  function build(what, kind) {
     var m = { type: "miniList", what: what };
+    try { if (!fill(m, what, kind)) return null; }
+    catch (error) {
+      console.warn("small screen: " + what + " failed", error);
+      m.error = String((error && error.message) || error).slice(0, 120);
+      if (what === "fx" || what === "fxPresets") { m.kind = String(kind || ""); if (what === "fx") m.state = null; else m.items = []; }
+      else { if (what === "fxTargets") m.kind = kind === "pads" ? "pads" : "tracks"; m.items = []; }
+    }
+    return m;
+  }
+  function answer(what, kind) { var m = build(what, kind); if (m) send(m); }
+  function fill(m, what, kind) {
     if (what === "controls") m.items = controls();
     else if (what === "actions") { m.kind = kind || "trigger"; m.items = actions(m.kind); }
     else if (what === "patches") Object.assign(m, patches());
@@ -55,9 +68,34 @@
     else if (what === "fxTargets" && FX()) { m.kind = kind === "pads" ? "pads" : "tracks"; m.items = FX().targets(m.kind); }
     else if (what === "fx" && FX()) { m.kind = String(kind || ""); m.state = FX().state(m.kind); }
     else if (what === "fxPresets" && FX()) { m.kind = String(kind || ""); Object.assign(m, FX().presets(m.kind) || { items: [] }); }
-    else return;
-    send(m);
+    else if (/^fx/.test(what) && !FX()) throw new Error("the effects are still starting");
+    else return false;
+    return true;
   }
+
+  // The small screen draws from the driver's copy of these lists, so they're sent when this page connects and
+  // whenever they change (checked every 1.5 s; the long lists every 6 s) - the screen never waits for an answer.
+  var pushed = {}, pushTick = 0;
+  function pushLists(all) {
+    var b = window.__pedalBridge; if (!b || !b.connected) return 0;
+    var keys = [["fxTargets", "tracks"], ["fxTargets", "pads"], ["scenes"], ["instrument"]];
+    if (all || pushTick % 4 === 0) keys = keys.concat([["controls"], ["patches"], ["boards"], ["actions", "trigger"], ["actions", "continuous"]]);
+    var lists = {}, n = 0;
+    function add(key, m) { var sig = JSON.stringify(m); if (all || pushed[key] !== sig) { pushed[key] = sig; lists[key] = m; n++; } }
+    keys.forEach(function (k) {
+      var m = build(k[0], k[1]); if (!m) return;
+      delete m.type; delete m.what;
+      if (k[0] === "fxTargets") (m.items || []).forEach(function (it) {   // (and each track's / pad's / bus's own effects)
+        var f = build("fx", it.id); if (!f) return; delete f.type; delete f.what; add("fx:" + it.id, f);
+      });
+      add(k[0] + (m.kind ? ":" + m.kind : ""), m);
+    });
+    if (n) send({ type: "miniPush", lists: lists });
+    return n;
+  }
+  F.on("hello", function () { pushed = {}; setTimeout(function () { pushLists(true); }, 300); });
+  setInterval(function () { pushTick++; try { pushLists(false); } catch (error) { console.warn("small screen lists", error); } }, 1500);
+  window.PPMiniBridge = { push: pushLists, build: build };
   F.on("miniRequest", function (m) { answer(m.what, m.kind); });
 
   // the small screen's effects rows: an amount (a fader), an effect on / off, the reverb type / delay time (next).

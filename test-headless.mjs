@@ -192,6 +192,35 @@ await check("the small screen's setlist, effects and scenes: a song moves / come
   assert.equal(r.warm, true); assert.equal(r.padPreset, "Warm pad");
   assert.ok(r.presets.items.some((i) => i.id === "Warm pad" && !i.locked));
 });
+await check("the small screen never waits on the app: every answer comes back (an old project's empty effects part, a failing list), and the lists are pushed when the app connects, then only what changed", async () => {
+  const r = await T(() => {
+    const out = [], keep = __pedalBridge.socket, p = PP.project(), savedBus = p.busFx, wasConn = __pedalBridge.connected, savedFxPreset = p.pads[0].fxPreset, targets = PPFx.mini.targets;
+    __pedalBridge.socket = { readyState: 1, send: (s) => out.push(JSON.parse(s)) };
+    const ask = (what, kind) => { out.length = 0; __pedalBridge.handleMessage({ type: "miniRequest", what, kind }); return out.filter((m) => m.type === "miniList"); };
+    const res = {};
+    try {
+      p.busFx = { tracks: { on: true, eq: null } };
+      res.old = ask("fx", "bus:tracks").map((m) => !!(m.state && m.state.rows.length));
+      PPFx.mini.targets = () => { throw new Error("boom"); };
+      res.fail = ask("fxTargets", "pads").map((m) => ({ kind: m.kind, n: m.items.length, err: m.error }));
+      PPFx.mini.targets = targets;
+      __pedalBridge.connected = true;
+      out.length = 0; PPMiniBridge.push(true); const all = out.filter((m) => m.type === "miniPush")[0];
+      out.length = 0; PPMiniBridge.push(false); res.again = out.length;
+      p.pads[0].fxPreset = savedFxPreset === "Warm pad" ? "Bright pad" : "Warm pad";
+      out.length = 0; PPMiniBridge.push(false); const ch = out.filter((m) => m.type === "miniPush")[0];
+      res.keys = all ? Object.keys(all.lists) : []; res.changed = ch ? Object.keys(ch.lists).sort() : [];
+    } finally {
+      PPFx.mini.targets = targets; p.busFx = savedBus; p.pads[0].fxPreset = savedFxPreset; __pedalBridge.connected = wasConn; __pedalBridge.socket = keep;
+    }
+    return res;
+  });
+  assert.deepEqual(r.old, [true], "an effects part saved empty keeps its defaults");
+  assert.deepEqual(r.fail, [{ kind: "pads", n: 0, err: "boom" }], "a list that fails is still answered (empty, with the reason)");
+  for (const k of ["fxTargets:tracks", "fxTargets:pads", "fx:bus:tracks", "fx:bus:pads", "fx:pad:0", "scenes", "controls"]) assert.ok(r.keys.includes(k), k + " in " + r.keys.join());
+  assert.equal(r.again, 0, "nothing changed: nothing sent");
+  assert.deepEqual(r.changed, ["fx:pad:0", "fxTargets:pads"]);
+});
 
 console.log("\nPerform screen:");
 await check("encoder hold -> switches to the Perform screen", async () => {
@@ -581,6 +610,35 @@ await check("only the headphone jack (no DAC board): a bus on 3-4 is heard on 1-
   assert.equal(r.all12.mode, "all12"); assert.ok(r.all12.buses.every((x) => x.ch === 1 && x.st), "everything stereo on 1-2");
   assert.equal(r.dacChecked, true, "the DAC board switch shows what the pedal has");
   assert.deepEqual(r.sent.map((m) => m.value), ["off"], "unticking turns the DAC board off");
+});
+await check("Settings → Audio → Test sound: a tone on each output, 'Check where the sound goes' and 'Play on each sound card' show what the pedal found; the Audio input's device and input", async () => {
+  const r = await page.evaluate(async () => {
+    const sent = []; const b = window.__pedalBridge, was = b.send, wasC = b.connected; b.send = function (m) { sent.push(m); return true; }; b.connected = true;   // (the pedal's driver)
+    PPFeatures.handleHardware({ type: "systemStatus", audio: { channels: ["Headphone jack L", "Headphone jack R"], hdmi: false, usbFirst: false } });
+    PPShell.showTab("settings"); await new Promise((ok) => setTimeout(ok, 100));
+    const out = {}, tones = [...document.querySelectorAll('#soundTest [data-stt="ch"]')];
+    out.tones = tones.map((x) => x.textContent);
+    const tc = PP.engine.testChannel, played = []; PP.engine.testChannel = function (ch) { played.push(ch); return tc.call(this, ch); };
+    tones[1].click(); await new Promise((ok) => setTimeout(ok, 30)); out.played = played; PP.engine.testChannel = tc;
+    document.querySelector('#soundTest [data-stt="check"]').click();
+    PPFeatures.handleHardware({ type: "audioCheck", planned: [{ kind: "jack", name: "alsa_output.x", desc: "Headphone jack", channels: 2 }], default: "padpedal_out", appStreams: [{ id: "101", sinkName: "padpedal_out" }],
+      jack: { muted: false, text: "0.00dB" }, found: ["The app was playing into alsa_output.platform-fef00700.hdmi.hdmi-stereo."], fixed: ["Moved the app's sound to the combined output."], ok: false });
+    out.check = document.querySelector("#soundTest").textContent;
+    document.querySelector('#soundTest [data-stt="cards"]').click();
+    PPFeatures.handleHardware({ type: "audioCardTest", sink: "alsa_output.x", desc: "Headphone jack", ok: true });
+    PPFeatures.handleHardware({ type: "audioCardTest", done: true, count: 1 });
+    out.cards = document.querySelector("#soundTest").textContent;
+    const ch = document.querySelector('#audioInputSec [data-stt="inCh"]'); ch.value = "2"; ch.dispatchEvent(new Event("change", { bubbles: true }));
+    out.input = Object.assign({}, PP.project().inputSource); out.hasDev = !!document.querySelector('#audioInputSec [data-stt="inDev"]');
+    out.sent = sent.filter((m) => m.type === "system").map((m) => m.action); b.send = was; b.connected = wasC;
+    PP.project().inputSource = {}; PPShell.showTab("pads"); return out;
+  });
+  assert.deepEqual(r.tones, ["▶ 1 · Headphone jack L", "▶ 2 · Headphone jack R"]);
+  assert.deepEqual(r.played, [2], "the tone goes to output 2");
+  assert.ok(r.sent.includes("audioCheck") && r.sent.includes("audioCardTest"), JSON.stringify(r.sent));
+  assert.match(r.check, /The app plays into: the combined output/); assert.match(r.check, /playing into alsa_output.platform-fef00700/); assert.match(r.check, /✓ Moved the app's sound/);
+  assert.match(r.cards, /✓ Headphone jack/);
+  assert.equal(r.input.channel, "2"); assert.ok(r.hasDev);
 });
 await check("old saved routing: the click's old default 'off' becomes 'heard on 1-2' once; picking Nowhere again stays", async () => {
   const r = await page.evaluate(() => {

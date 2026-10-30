@@ -1071,6 +1071,89 @@ async def main():
                   and (_sys == [{"action": "displays", "config": {"hdmi1": "lyrics"}}] or (cur_h1 == "lyrics" and _sys == [])) and mini.overlay is None,
                   (asked_s, sc, sc_pick, lyr, blank, h1, cur_h1, _sys, mini.overlay))
             driver.display = disp
+
+            # ---- 9.9.1: the effects show at once - from the saved project, then the app's copy - never "waiting"
+            pj = os.path.join(driver.config["data_root"], "project.json")
+            _pj_old = open(pj, "rb").read() if os.path.isfile(pj) else None
+            with open(pj, "w") as handle:
+                json.dump({"songIndex": 0, "busFx": {"tracks": {"on": True, "preset": "Warm", "eq": None}},
+                           "songs": [{"id": "song-z", "name": "Z", "scenes": [{"name": "Intro"}, {"name": "Big chorus"}],
+                                      "tracks": {"stems": [{"id": "v1", "name": "Vocals", "fx": {"on": True, "preset": "Vocal stem", "comp": {"on": True, "amount": 60}}}, {"id": "d1", "name": "Drums"}]}}],
+                           "pads": [{"name": "Warm", "fxPreset": "Warm pad", "effects": {"reverb": {"enabled": True, "wet": 40}}}, {"name": "Air"}]}, handle)
+            try:
+                for k in [k for k in mini.lists if k.startswith(("fx", "scenes"))]:
+                    mini.lists.pop(k)
+                dz = dict(disp, songId="song-z")
+                mini.overlay = None
+                mini.tab, mini.sub["tracks"] = "tracks", "fx"
+                mini.render(dz)
+                rows_t = [(a.get("target"), a.get("title")) for _, a in mini.hits if a.get("local") == "fxOpen"]
+                mini.tab, mini.sub["pads"] = "pads", "fx"
+                mini.render(dz)
+                rows_p = [a.get("target") for _, a in mini.hits if a.get("local") == "fxOpen"]
+                mini.tab, mini.sub["tracks"] = "tracks", "scenes"
+                mini.render(dz)
+                scen = [a.get("label") for _, a in mini.hits if a.get("what") == "scenes"]
+                mini.local({"local": "fxOpen", "target": "stem:v1", "title": "Vocals"})
+                mini.render(dz)
+                comp_hit = next((a for _, a in mini.hits if a.get("name") == "fxValue" and (a.get("args") or {}).get("path") == "eq.low"), None)   # (the first page of its effects, drawn from the copy)
+                st_copy = mini.copy_state("stem:v1", "song-z")
+                mini.overlay = None
+                check("small screen, no app answer yet: TRACKS → Effects lists the tracks bus and every track at once, PADS → Effects every pad, Scenes this song's scenes - from the saved project",
+                      rows_t == [("bus:tracks", "All tracks (tracks bus)"), ("stem:v1", "Vocals"), ("stem:d1", "Drums")] and rows_p == ["bus:pads", "pad:0", "pad:1"]
+                      and scen == ["Intro", "Big chorus"] and comp_hit is not None and st_copy and st_copy["preset"] == "Vocal stem"
+                      and next(r for r in st_copy["rows"] if r["path"] == "comp.amount")["value"] == 60,
+                      (rows_t, rows_p, scen, comp_hit, st_copy and st_copy.get("preset")))
+                # the app's copy: sent when it connects and on every change; kept on the card for the next start
+                fake_ws = object()
+                driver.handle_app_message({"type": "miniPush", "lists": {"fxTargets:tracks": {"kind": "tracks", "items": [{"id": "bus:tracks", "label": "All tracks (tracks bus)", "on": False, "sub": "off"}, {"id": "stem:v1", "label": "Vocals (app)", "on": True, "sub": "Vocal stem"}]},
+                                                                         "fx:stem:v1": {"kind": "stem:v1", "state": dict(st_copy, name="Vocals (app)", fromCopy=False)}}}, fake_ws)
+                mini.tab, mini.sub["tracks"] = "tracks", "fx"
+                mini.render(dz)
+                rows_t2 = [a.get("title") for _, a in mini.hits if a.get("local") == "fxOpen"]
+                if mini.lists_saving is not None:
+                    mini.lists_saving.join(5)
+                fresh = driver_mod.MiniScreen(driver, {"enabled": True}, os.path.join(driver.config["data_root"], "fb-test"))
+                check("...the app's pushed copy is drawn at once, marks that page as the app, and is kept on the card (a new start has it before the app is up)",
+                      rows_t2 == ["All tracks (tracks bus)", "Vocals (app)"] and fake_ws in driver.app_clients
+                      and (fresh.lists.get("fx:stem:v1") or {}).get("state", {}).get("name") == "Vocals (app)" and "fxTargets:tracks" in fresh.lists,
+                      (rows_t2, fake_ws in driver.app_clients, list(fresh.lists)[:8]))
+                # a change made on the small screen while no app page is there: kept, shown, then sent when an app connects
+                _replayed = []
+                _send_to = driver.send_to
+                driver.send_to = lambda ws, m: _replayed.append((ws, m))
+                _clients, _apps, _seen, _pend = set(driver.clients), set(driver.app_clients), driver.app_seen, list(driver.mini_pending)
+                driver.clients.clear(); driver.app_clients.clear(); driver.app_seen = True; driver.mini_pending = []
+                try:
+                    on_before = next(r for r in mini.lists["fx:stem:v1"]["state"]["rows"] if r.get("toggle") == "comp.on")["on"]
+                    driver_mod.PedalDriver.emit(driver, {"type": "action", "name": "fxToggle", "args": {"target": "stem:v1", "path": "comp.on"}, "from_": "screen"})
+                    driver_mod.PedalDriver.emit(driver, {"type": "action", "name": "fxValue", "args": {"target": "stem:v1", "path": "comp.amount"}, "value": 0.2, "from_": "screen"})
+                    driver_mod.PedalDriver.emit(driver, {"type": "action", "name": "fxValue", "args": {"target": "stem:v1", "path": "comp.amount"}, "value": 0.9, "from_": "screen"})
+                    kept = list(driver.mini_pending)
+                    rows_now = mini.lists["fx:stem:v1"]["state"]["rows"]
+                    comp_row = next(r for r in rows_now if r.get("path") == "comp.amount")
+                    note = mini.notice
+                    app2 = object()
+                    driver.handle_app_message({"type": "miniPush", "lists": {}}, app2)
+                    check("...a change made while the app isn't running is kept (a slid value once, at its last place), shown on the screen, and sent to the app when it connects",
+                          [m["name"] for m in kept] == ["fxToggle", "fxValue"] and kept[1]["value"] == 0.9 and kept[0].get("from") == "screen"
+                          and next(r for r in rows_now if r.get("toggle") == "comp.on")["on"] is (not on_before) and abs(comp_row["value"] - 90) < 0.01 and comp_row["text"] == "90%"
+                          and note.startswith("Kept") and [m["name"] for ws, m in _replayed if ws is app2] == ["fxToggle", "fxValue"] and driver.mini_pending == [],
+                          (kept, comp_row, note, _replayed))
+                finally:
+                    driver.send_to = _send_to
+                    driver.clients.update(_clients); driver.app_clients.clear(); driver.app_clients.update(_apps)
+                    driver.app_seen, driver.mini_pending = _seen, _pend
+            finally:
+                if _pj_old is None:
+                    os.remove(pj)
+                else:
+                    with open(pj, "wb") as handle:
+                        handle.write(_pj_old)
+                for k in [k for k in mini.lists if k.startswith(("fx", "scenes"))]:
+                    mini.lists.pop(k)
+                mini.overlay = None
+            driver.display = disp
         finally:
             driver.emit, driver.schedule_mini_render = _real_emit2, _sched2
             driver_mod.wifi_connect, driver_mod.wifi_status = _wc, _ws
@@ -1815,7 +1898,7 @@ async def main():
                 if self.path.startswith("/v1/"):
                     return self.reply(None, raw=b"")
                 if self.path == "/repos/church/cc/releases/latest":
-                    return self.reply({"tag_name": "v9.9.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
+                    return self.reply({"tag_name": "v99.0.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
                                        "assets": [{"name": "central-control-source.zip", "browser_download_url": "http://127.0.0.1:18098/dl/central-control-source.zip"},
                                                   {"name": "SHA256SUMS", "browser_download_url": "http://127.0.0.1:18098/dl/SHA256SUMS"}]})
                 if self.path == "/dl/central-control-source.zip":
@@ -1857,7 +1940,7 @@ async def main():
         check("opening the app makes the Central Pedal look for a newer release right away", upm and upm["available"], upm)
         await send({"type": "updates", "action": "check"})
         upm = await next_message(lambda m: m["type"] == "updateStatus" and m.get("latest"), 5.0)
-        check("the daily check finds a newer release (9.9.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "9.9.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
+        check("the daily check finds a newer release (99.0.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "99.0.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
         path_ok = driver.updater.download()
         check("the download is checked against SHA256SUMS and kept in /data", os.path.exists(path_ok) and open(path_ok, "rb").read() == rel_state["zip"], path_ok)
         rel_state["zip"] = rel_state["zip"] + b"tampered"
@@ -2318,6 +2401,29 @@ async def main():
         _, body_ = http("http://127.0.0.1:18766/split/config", json.dumps({"packages": "--index-url http://evil/ demucs", "python": "3.12; rm"}).encode())
         sc2 = json.loads(body_ or b"{}")
         check("...and packages that are options or URLs are refused", sc2["settings"]["packages"] == "demucs==4.0.1 soundfile" and sc2["settings"]["python"] == "3.12", sc2)
+
+    # ---- 9.9.1: the sound path - the app's stream stuck on HDMI is moved to the combined output; Test sound says so
+    calls = []
+    fake = {"sinks": [["40", "alsa_output.platform-fef00700.hdmi.hdmi-stereo"], ["41", "alsa_output.platform-bcm2835_audio.stereo-fallback"], ["55", "padpedal_out"]],
+            "clients": [["7", "protocol-native.c", "Chromium"], ["9", "protocol-native.c", "pw-cat"]],
+            "sink-inputs": [["101", "40", "7", "protocol-native.c", "float32le 2ch 48000Hz"], ["102", "41", "9", "protocol-native.c", "s16le"]]}
+    _ps, _run = driver_mod.pactl_short, driver_mod.run
+    driver_mod.pactl_short = lambda what: fake.get(what, [])
+
+    def fake_run(cmd, timeout=20, **kw):
+        calls.append(cmd)
+        if cmd[:2] == ["pactl", "get-default-sink"]:
+            return 0, "alsa_output.platform-fef00700.hdmi.hdmi-stereo\n", ""
+        return 0, "", ""
+    driver_mod.run = fake_run
+    try:
+        chk = driver_mod.audio_path_check(os.path.join(root, "data"), fix=True)
+    finally:
+        driver_mod.pactl_short, driver_mod.run = _ps, _run
+    moved = [c for c in calls if c[:2] == ["pactl", "move-sink-input"]]
+    check("sound: Test sound finds the app playing into HDMI and the default output wrong - makes the combined output the default and moves the app there (only the app's stream)",
+          moved == [["pactl", "move-sink-input", "101", "padpedal_out"]] and ["pactl", "set-default-sink", "padpedal_out"] in calls
+          and any("HDMI" in f or "hdmi" in f for f in chk["found"]) and len(chk["fixed"]) == 2 and chk["ok"] is False, (moved, chk))
 
     stop_event.set()
     await asyncio.wait_for(server_task, 5)
