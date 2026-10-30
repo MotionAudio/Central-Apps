@@ -124,7 +124,7 @@ try {
   await page.click("#rack [data-add=user]"); await page.click("#cartBtn"); await page.waitForSelector(".modal [name=coFor]");
   ok(await page.isChecked("[name=coFor][value=church]"), "signed in as the church: the cart asks who it's for (a church or team, picked)");
   await page.check("[name=coFor][value=me]"); await page.waitForTimeout(250);
-  ok(/The keys are yours/.test(await page.textContent(".modal")) && /Downloads/.test(await page.textContent(".modal")) && !(await page.$("#coChurch")), "Just me: the keys are yours, on your Downloads page and in your email");
+  ok(/The keys are yours/.test(await page.textContent(".modal")) && /Purchases/.test(await page.textContent(".modal")) && !(await page.$("#coChurch")), "Just me: the keys are yours, under Purchases and in your email");
   await shot("cart-just-me");
   await page.click("#clear"); await page.waitForTimeout(200);
   ok(/Open Downloads/.test(await page.textContent("#acctBody")) && /Your keys and downloads/.test(await page.textContent("#acctBody")), "the Account page shows your keys and links to Downloads");
