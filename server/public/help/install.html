@@ -49,7 +49,7 @@
 <p>The easy way: open Terminal (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> on Ubuntu), paste the line for your app, press Enter and type your password when it asks. It finds the newest version, checks the download, and installs it with everything the app needs. Ubuntu, Debian, Mint and Pop!_OS get the <code>.deb</code>; any other Linux gets the AppImage in <code>~/Applications</code> with a menu entry. Run the same line again any time to reinstall or update.</p>
 <h3 id="central-control">Central Control</h3>
 <div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s control</code><button type="button">Copy</button></div>
-<p>Then open <b>Central Control</b> from your app menu, or type <code>central-control</code>. Since 9.3.1 the package and the program are both called <code>central-control</code>. Installing it fixes old menu entries and desktop icons that still pointed at the old name.</p>
+<p>Then open <b>Central Control</b> from your app menu, or type <code>central-control</code>. Installing it also fixes any old menu entries and desktop icons.</p>
 <h3 id="central-usage">Central Usage</h3>
 <div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s usage</code><button type="button">Copy</button></div>
 <h3 id="central-pedal-control">Central Pedal Control</h3>
@@ -93,11 +93,11 @@
 <li><b>Press Upload.</b> The pedal joins the Wi-Fi and is ready. If the password was wrong, "Central Pedal Setup" comes back in about a minute and the page says why.</li>
 </ol>
 <p>More in <a href="/apps/central-pedal.html#first-time-on">First time on</a>.</p>
-<p>Updates arrive by themselves: the pedal looks every time it starts and installs a new version after a 10-second notice, never while something plays. With no internet, put the newest <code>central-control-source.zip</code> from the download page on a USB stick and use Settings → <b>Update software from USB…</b>.</p>
+<p>Updates arrive by themselves: the pedal looks every time it starts and installs a new version after a 10-second notice, never while something plays. With no internet at church, <a href="/download/pedal/usb">download the pedal update</a>, copy it to a USB stick, and on the pedal use Settings → <b>Update software from USB…</b>.</p>
 
 <h2 id="signing-in-and-your-key">Signing in and your key</h2>
 
-<p>The first time an app opens, it asks for your Motion Audio account and your key. Your key is in the email your main admin's invite sent you, and on the website under Account → Your church.</p>
+<p>The first time an app opens, it asks for your key and your Motion Audio account. Your key is in the email you got when you bought it or when your church invited you, and on the website under your account icon → <b>Purchases</b>. Central Control also asks for your church's name and which jobs this computer will do.</p>
 <ol class="steps">
 <li><b>Sign in.</b> Use the account your invite email made. Admins can share one account if your church wants; each user has their own. Main admins and admins also get a code by text on a new device.</li>
 <li><b>Type your key</b>: 16 letters and digits.</li>
