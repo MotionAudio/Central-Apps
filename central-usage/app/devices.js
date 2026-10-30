@@ -83,7 +83,10 @@
     var h = '<div class="card dv-pedals"><div class="dv-ph"><h3>Tracks, charts &amp; lyrics</h3><span class="dv-now">' + (play ? "Playing from <b>" + esc(play.local ? "this computer (player window)" : play.name) + "</b> " + (play.online ? '<span class="dv-ok">● online</span>' : '<span class="warn">● offline</span>') : '<span class="warn">No track player yet</span>') + "</span>" +
       (canOpen ? '<button class="' + (local && local.online ? "" : "primary") + '" data-dv="openPlayer">' + (local && local.online ? "Show the player window" : "▶ Open the player on this computer") + "</button>" + (local && local.online ? '<button data-dv="stopPlayer">Stop the player</button>' : "") : "") + "</div>";
     if (playerMsg) h += '<p class="small ' + (/^✓/.test(playerMsg) ? "muted" : "warn") + '">' + playerMsg + "</p>";
-    if (!pedals.length) h += '<p class="muted small">Open the player here and this computer runs the tracks, charts and lyrics (it is built into Central Control). Or add a Central Pedal (Raspberry Pi): on its screen type the pairing PIN <b class="io-code">' + esc(pin) + "</b> - it takes over the tracks, and you pick what each pedal does.</p>";
+    if (canOpen || pedals.length) h += '<label class="dv-host small">Where the tracks run <select data-dv="tracksHost"><option value="computer"' + (v.tracksHost !== "pedal" ? " selected" : "") + ">On this computer: it keeps the songs, the pedals control them</option>" +
+      '<option value="pedal"' + (v.tracksHost === "pedal" ? " selected" : "") + ">On a Central Pedal: it keeps one setlist at a time</option></select></label>" +
+      '<p class="muted small">' + (v.tracksHost === "pedal" ? "The pedal plays the tracks. Upload a set to it from Central Pedal Control, or open a setlist on it." : "While the player window is open it plays the tracks. If it's closed, a pedal plays them, and the window takes them back once that pedal isn't playing.") + "</p>";
+    if (!pedals.length) h += '<p class="muted small">Open the player and this computer runs the tracks, charts and lyrics itself. Or add a Central Pedal: type the pairing PIN <b class="io-code">' + esc(pin) + "</b> on its screen, then pick what each pedal does.</p>";
     else {
       h += '<table class="dv-table dv-ptable"><thead><tr><th></th><th>Central Pedal</th><th>Job</th><th>Status</th><th></th></tr></thead><tbody>' + pedals.map(function (p) {
         var hl = p.health || {}, st = [];
@@ -95,7 +98,7 @@
           '<td class="dv-acts"><button data-dv="rename" data-id="' + esc(p.id) + '">Rename</button><button class="danger" data-dv="remove" data-id="' + esc(p.id) + '">Unpair</button></td></tr>';
       }).join("") + "</tbody></table>";
       h += '<label class="toggle small"><input type="checkbox" data-dv="backupLocal"' + (v.backupLocal !== false ? " checked" : "") + "><span>While a Central Pedal plays, this computer's player window is the <b>backup player</b>: it follows the song silently and takes over if the Central Pedal stops mid-song. Its timing is in the player window's Settings → Backup player.</span></label>";
-      h += '<p class="muted small">One track player at a time - every Central Control and phone follows it, and changes over by itself when you pick another. Foot controllers drive the track player; instrument rigs only play their own instrument. Songs, tracks, charts and setlists are copied to every pedal. Add another Central Pedal with the pairing PIN <b>' + esc(pin) + "</b>.</p>";
+      h += '<p class="muted small">Only one thing plays the tracks at a time, and every Central Control and phone follows it. Pick another and everyone switches over by itself. Foot controllers run the track player; an instrument rig only plays its own instrument. Songs, tracks, charts and setlists are copied to every pedal. To add another Central Pedal, type the pairing PIN <b>' + esc(pin) + "</b>.</p>";
     }
     return h + "</div>";
   }
@@ -116,10 +119,10 @@
     h += '<div class="dv-top"><div class="dv-sum"><b>' + on.length + "</b> of " + list.length + " device" + (list.length === 1 ? "" : "s") + " online</div>" +
       '<button class="dv-lockall' + (v.lockAll ? " on" : "") + '" data-dv="lockAll">' + (v.lockAll ? "🔒 Locked for the service - unlock" : "🔓 Lock everyone for the service") + "</button></div>";
     h += pedalsCard(v);
-    if (window.CUCenter && !window.CUCenter.connected()) h += '<p class="warn">The center on this computer is not running - restart Central Control (is another program using port 8095?).</p>';
+    if (window.CUCenter && !window.CUCenter.connected()) h += '<p class="warn">The part of Central Control that connects everyone isn\'t running here. Restart Central Control. If that doesn\'t fix it, another program may be using port 8095.</p>';
     if (wants.length) h += '<div class="dv-asks">' + wants.map(function (d) { return '<div class="dv-ask"><b>' + esc(d.name) + "</b> wants to be an admin <button class=\"primary\" data-dv=\"allow\" data-id=\"" + esc(d.id) + '">Allow</button><button data-dv="deny" data-id="' + esc(d.id) + '">Keep as ' + esc(CU.roleName(d.role)) + "</button></div>"; }).join("") + "</div>";
     h += standbyCard(v, list);
-    h += '<div class="dv-me card"><h3>This computer (main admin)</h3><p class="muted small">Your own job: everything (production manager), or only what you run - e.g. lighting when someone else has the cameras.</p>' + jobsBox("me", me.jobs || CU.jobs(), true) + "</div>";
+    h += '<div class="dv-me card"><h3>This computer (main admin)</h3><p class="muted small">What this computer does: everything, or just the jobs you run here (say, the lights while someone else has the cameras).</p>' + jobsBox("me", me.jobs || CU.jobs(), true) + "</div>";
     h += '<table class="dv-table"><thead><tr><th></th><th>Device</th><th>Role</th><th title="Who hears the main admin&#39;s Band talk or Production talk">Talk group</th><th>Connection</th><th>Last seen</th><th></th></tr></thead><tbody>' +
       (list.length ? list.map(function (d) {
         var g = grade(d);
@@ -131,14 +134,16 @@
           '<td class="muted small">' + (d.online ? "now" : ago(d.lastSeen)) + "</td>" +
           '<td class="dv-acts"><button data-dv="apply" data-id="' + esc(d.id) + '">Change role</button><button data-dv="' + (d.locked ? "unlock" : "lock") + '" data-id="' + esc(d.id) + '">' + (d.locked ? "Unlock" : "Lock") + '</button><button data-dv="rename" data-id="' + esc(d.id) + '">Rename</button><button class="danger" data-dv="remove" data-id="' + esc(d.id) + '">Remove</button></td></tr>';
       }).join("") : '<tr><td colspan="7" class="muted">No other devices yet. On each one choose Admin, User 1 or User 2 and type the pairing PIN <b>' + esc(v.pairPin || ((R() && R().keys()) || {}).pair || "") + "</b>.</td></tr>") + "</tbody></table>";
-    h += '<p class="muted small">Connection: good / fair / poor from the round trip to this computer, the in-ear buffer, the CPU and the battery. Lock keeps the I/O tab, settings and set-up pages closed on that device during the service (it can still do its job). Talk group: who hears your TALK to the Band or to Production (everyone else\'s talkback comes to your headphones only). Each person can also lock their own device (🔓 at the top).</p></div>';
-    root.innerHTML = h;
+    h += '<p class="muted small">Connection is good, fair or poor, going by the delay to this computer, the in-ear buffer, the processor and the battery. Lock keeps a device\'s I/O tab, settings and setup closed during the service, but it still does its job. Talk group sets who hears your TALK: the Band or Production. Everyone else\'s talkback only comes to your headphones. Anyone can also lock their own device with 🔓 at the top.</p></div>';
+    if (root.__h === h) return;   // (the center's updates come every few seconds: redraw only what changed, so a click or an open list isn't lost)
+    root.__h = h; root.innerHTML = h;
   }
   var pendingRole = {};
   document.addEventListener("change", async function (e) {
     var t = e.target; if (!t.closest || !t.closest("#devicesRoot")) return;
     if (t.dataset.dvRole) { pendingRole[t.dataset.dvRole] = t.value; return; }
     if (t.dataset.dvTg) { var rg = await R().request("talkGroup", { target: t.dataset.dvTg, group: t.value }); if (!rg.ok) alert(rg.error || "Not changed."); render(); return; }
+    if (t.dataset.dv === "tracksHost") { var rt = await R().request("tracksHost", { mode: t.value }); if (!rt.ok) alert(rt.error || "Not changed."); render(); return; }
     if (t.dataset.dv === "backupLocal") { var rb = await R().request("backupLocal", { on: t.checked }); if (!rb.ok) alert(rb.error || "Not changed."); render(); return; }
     if (t.dataset.dvPjob) { var rj = await R().request("pedalJob", { target: t.dataset.dvPjob, job: t.value }); if (!rj.ok) alert(rj.error || "Not changed."); render(); return; }
     if (t.dataset.dvJob) {
@@ -146,9 +151,9 @@
       if (t.dataset.dvJob === "general" && t.checked) box.querySelectorAll("[data-dv-job]").forEach(function (x) { x.checked = x.dataset.dvJob === "general"; });
       else if (t.checked) { var g = box.querySelector('[data-dv-job="general"]'); if (g) g.checked = false; }
       box.querySelectorAll("[data-dv-job]").forEach(function (x) { if (x.checked) picked.push(x.dataset.dvJob); });
-      var r = t.hasAttribute("data-mine") ? await R().request("myJobs", { jobs: picked }) : await R().request("jobs", { target: t.dataset.id, jobs: picked });
+      var r = t.hasAttribute("data-mine") ? await R().request("myJobs", { jobs: picked, jobsV: 2 }) : await R().request("jobs", { target: t.dataset.id, jobs: picked, jobsV: 2 });
       if (!r.ok) alert(r.error || "Not changed.");
-      else if (t.hasAttribute("data-mine")) await CU.setJobs(r.jobs || picked);
+      else if (t.hasAttribute("data-mine")) await CU.setJobs(r.jobs || picked, r.jobsAt);
     }
   });
   document.addEventListener("click", async function (e) {

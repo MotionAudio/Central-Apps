@@ -5,7 +5,7 @@
 (function () {
   "use strict";
   var PP = window.PP, T = window.PPTracks, P = window.PPParts; if (!PP || !T || !P) return;
-  var ui = { inst: "chords", view: null }, busy = false;
+  var ui = { inst: "chords", view: null, clef: "auto" }, busy = false;
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function ctxNow() { var s = T.song(); if (!s) return null; var t = T.data(s); return P.contextOf(s, t, t.stems.length ? T.grid(s) : null, { chartText: t.chartText || "" }); }
@@ -14,10 +14,10 @@
     d = document.createElement("dialog"); d.id = "partsDialog"; d.className = "parts-dialog";
     var groups = {}; P.INSTRUMENTS.forEach(function (i) { (groups[i.group] = groups[i.group] || []).push(i); });
     d.innerHTML = '<div class="row spread"><div><h2>Parts</h2><p class="muted" id="ptInfo"></p></div><div class="se-row"><button class="primary" id="ptListen">♫ Listen to every track</button><button id="ptLyrics" hidden>✎ Lyrics + chords from the vocal</button><button data-close="partsDialog">Done</button></div></div>' +
-      '<div class="pt-bar"><label>Instrument <select id="ptInst">' + Object.keys(groups).map(function (g) { return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (i) { return '<option value="' + i.id + '">' + esc(i.name) + "</option>"; }).join("") + "</optgroup>"; }).join("") + '</select></label><nav class="tabs" id="ptViews"></nav><span class="muted small" id="ptStatus"></span></div>' +
+      '<div class="pt-bar"><label>Instrument <select id="ptInst">' + Object.keys(groups).map(function (g) { return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (i) { return '<option value="' + i.id + '">' + esc(i.name) + "</option>"; }).join("") + "</optgroup>"; }).join("") + '</select></label><nav class="tabs" id="ptViews"></nav><label id="ptClefWrap" hidden>Clef <select id="ptClef">' + (window.PPSheets ? window.PPSheets.CLEFS : [["auto", "Usual"]]).map(function (c) { return '<option value="' + c[0] + '">' + esc(c[1]) + "</option>"; }).join("") + '</select></label><span class="muted small" id="ptStatus"></span></div>' +
       '<div class="pt-body" id="ptBody"></div>';
     document.body.appendChild(d);
-    d.addEventListener("change", function (e) { if (e.target.id === "ptInst") { ui.inst = e.target.value; ui.view = null; paint(); } });
+    d.addEventListener("change", function (e) { if (e.target.id === "ptInst") { ui.inst = e.target.value; ui.view = null; paint(); } else if (e.target.id === "ptClef") { ui.clef = e.target.value; paint(); } });
     d.addEventListener("click", function (e) {
       var b = e.target.closest("button"); if (!b) return;
       if (b.dataset.view) { ui.view = b.dataset.view; paint(); }
@@ -42,7 +42,8 @@
     if (!part.views.length) part.views = ["chart"];
     var view = ui.view && part.views.indexOf(ui.view) >= 0 ? ui.view : part.views[0];
     $("#ptViews", d).innerHTML = part.views.length > 1 ? part.views.map(function (v) { return '<button class="tab' + (v === view ? " active" : "") + '" data-view="' + v + '">' + ({ chart: "Chart", notation: "Notation", tab: "Tab", drums: "Drum chart" }[v] || v) + "</button>"; }).join("") : "";
-    var body = $("#ptBody", d); body.innerHTML = P.render(part, view, { ctx: ctx, width: Math.max(640, body.clientWidth - 24) });
+    $("#ptClefWrap", d).hidden = view !== "notation" || part.kind === "grand";
+    var body = $("#ptBody", d); body.innerHTML = P.render(part, view, { ctx: ctx, width: Math.max(640, body.clientWidth - 24), clef: ui.clef });
   }
   // which job each track gets
   function jobFor(st) {
@@ -95,8 +96,11 @@
       var words = await LA.listen(mono, PP.engine.context().sampleRate, function (m) { status.textContent = m + " (" + voc.name + ")"; });
       if (!words.length) throw new Error("no words heard in " + voc.name);
       var g = T.grid(s), barT = function (bar, beat) { var t0 = g.bars[bar - 1]; if (t0 == null) t0 = (g.bars[0] || 0) + (bar - 1) * g.bpb * g.period; return t0 + ((beat || 1) - 1) * g.period; };
-      var chords = (t.chords || []).map(function (c) { return { start: c.start != null ? c.start : barT(c.bar, c.beat), label: c.label, bass: c.bass }; });
-      var text = LA.chartFromWords(words, { title: s.name, key: s.key, chords: chords, sections: t.sections.map(function (q) { return { name: q.name, start: barT(q.bar, 1) }; }) });
+      var chords = (t.chords || []).map(function (c) { return { start: c.start != null ? c.start : barT(c.bar, c.beat), end: c.end, label: c.label, bass: c.bass }; });
+      // the words and chords are where the recording is: the chart is written in the recording's key, and every screen
+      // moves it to the key the song is played in (and to each musician's instrument)
+      var recKey = t.chordsKey || t.originalKey || s.key;
+      var text = LA.chartFromWords(words, { title: s.name, key: recKey + (t.originalMode === "minor" && !/m$/.test(recKey) ? "m" : ""), chords: chords, bars: g.bars, sections: t.sections.map(function (q) { return { name: q.name, start: barT(q.bar, 1) }; }) });
       t.words = words; t.chartText = text;
       status.textContent = "Saving the chart…";
       var saved = null; try { saved = await (await fetch("http://127.0.0.1:8766/chart/text", { method: "POST", body: JSON.stringify({ name: s.name + " (lyrics + chords)", text: text }) })).json(); } catch (_) { saved = null; }

@@ -35,6 +35,7 @@ export async function uploadUrl(key, contentType) {
   return config.publicUrl + "/local-files/" + encodeURI(key) + "?op=put&exp=" + exp + "&sig=" + localSig("put", key, exp);
 }
 export async function downloadUrl(key, fileName) {
+  if (/^https:\/\//.test(String(key || ""))) return key;   // (a file kept elsewhere, as it is: the Central Tracks hymns on the release - hymns.js)
   if (usingR2) return getSignedUrl(s3, new GetObjectCommand({ Bucket: S.bucket, Key: key, ResponseContentDisposition: 'attachment; filename="' + String(fileName || "track").replace(/["\\\r\n]/g, "") + '"' }), { expiresIn: 3600 });
   const exp = Date.now() + 3600e3;
   return config.publicUrl + "/local-files/" + encodeURI(key) + "?op=get&exp=" + exp + "&sig=" + localSig("get", key, exp);

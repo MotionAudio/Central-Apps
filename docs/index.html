@@ -2,6 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+// (10.0) This page is only a stand-in until the Motion Audio website is online. When it is, put its address here (the
+// same one as SERVER in js/license.js) and everyone who opens this page goes straight to the website's Downloads page.
+var SITE = "";
+if (SITE) location.replace(SITE.replace(/\/+$/, "") + "/#downloads");
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Central apps downloads</title>
 <meta name="description" content="Download the five Central apps: Central Pedal (Raspberry Pi), Central Pedal Control (Mac, Windows, Linux, iPad, iPhone, Android), Central Control (Windows, Mac, Linux), Central Services and Central Usage (Mac, Windows, Linux, Android, iPhone, iPad).">
@@ -81,7 +87,7 @@
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap"><a class="logo" href="https://motionaudio.github.io/Central-Apps/"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg>Motion Audio</a><nav><a href="#linux">Install on Linux</a><a href="#first-run">Opening it the first time</a><a href="#pi">Raspberry Pi</a><a id="notesTop" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Release notes</a></nav></div></header>
+<header class="top"><div class="wrap"><a class="logo" href="./"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg>Motion Audio</a><nav><a href="#linux">Install on Linux</a><a href="#first-run">Opening it the first time</a><a href="#pi">Raspberry Pi</a></nav></div></header>
 <div class="stage"><div class="wrap">
   <div>
     <h1>Download the Central apps</h1>
@@ -215,7 +221,7 @@ xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"   # Cen
 
 </main>
 <footer><div class="wrap">
-    <p>Installed apps update themselves from here. <a id="notes" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Release notes</a> · <a id="sums" href="https://github.com/MotionAudio/Central-Apps/releases/latest">SHA256SUMS</a> · <a href="https://github.com/MotionAudio/Central-Apps">Source (MIT)</a></p>
+    <p>Installed apps keep themselves up to date. Questions? Write to Motion Audio support from any app (Help → Contact technical support).</p>
 </div></footer>
 <script>
 (function () {
@@ -238,7 +244,6 @@ xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"   # Cen
       var cu = ver("CentralControl-*-win-x64.exe", /^CentralControl-([\d.]+)-.*$/) || ver("central-usage-*-win-x64.exe", /^central-usage-([\d.]+)-.*$/), us = ver("CentralUsage-*-win-x64.exe", /^CentralUsage-([\d.]+)-.*$/), cs = ver("central-services-*-amd64.deb", /^central-services-([\d.]+)-.*$/);
       var same = [cu, us, cs].every(function (x) { return !x || x === v; });   // (from 9.0 every app has the same version)
       document.getElementById("ver").textContent = (same ? "Version " + v : "Central Pedal " + v + (cu ? " · Central Control " + cu : "") + (us ? " · Central Usage " + us : "") + (cs ? " · Central Services " + cs : "")) + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
-      document.getElementById("notes").href = rel.html_url || RELEASES; if (urls.SHA256SUMS) document.getElementById("sums").href = urls.SHA256SUMS;
       // (releases before 9.2.1 have Central Control under its old file names, central-usage-*)
       document.querySelectorAll("[data-file]").forEach(function (a) { var n = match(names, a.dataset.file) || (/^CentralControl-/.test(a.dataset.file) ? match(names, a.dataset.file.replace(/^CentralControl-/, "central-usage-")) : null); if (n) { a.href = urls[n]; a.title = n; a.removeAttribute("aria-disabled"); } else { a.setAttribute("aria-disabled", "true"); a.title = "Not in this release yet"; } });
       var arch = plat === "mac" ? await macArch() : "x64", pc = "Download for Mac (" + (arch === "arm64" ? "Apple Silicon" : "Intel") + ")";
@@ -253,8 +258,7 @@ xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"   # Cen
       if (pcFile) setHero("heroPc", "heroPcText", urls[pcFile], plat === "android" ? "Download for Android" : pick[1]); else if (plat === "ios") setHero("heroPc", "heroPcText", "#pedal-control", "Coming to the App Store");
     })
     .catch(function (e) {
-      document.getElementById("ver").textContent = "Couldn't reach GitHub (" + e.message + ") - every file is on the releases page";
-      document.querySelectorAll("[data-file]").forEach(function (a) { a.href = RELEASES; a.removeAttribute("aria-disabled"); });
+      document.getElementById("ver").textContent = "We couldn't find the newest version just now. Please refresh the page in a minute.";
     });
 })();
 </script>

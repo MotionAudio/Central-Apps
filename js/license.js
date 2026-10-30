@@ -46,7 +46,14 @@
   function keysOn() { return !!REQUIRED; }   // (a key is needed - with or without the website)
   var DEFAULT_KEYS = { P: "PDEF-AULT-KEY0-2026", A: "ADEF-AULT-KEY0-2026", U: "UDEF-AULT-KEY0-2026", S: "SDEF-AULT-KEY0-2026" };
   var NOT_OPEN = "This key can't be checked yet - the Motion Audio website isn't open. Use the default key for now.";
-  function isDefault(key) { var c = pretty(key); return Object.keys(DEFAULT_KEYS).some(function (k) { return DEFAULT_KEYS[k] === c; }); }
+  function isDefault(key) { var c = pretty(key); return Object.keys(DEFAULT_KEYS).some(function (k) { return DEFAULT_KEYS[k] === c; }) || isDemo(c); }
+  // (10.0) the demo church: built-in keys like the default ones, for showing the apps to a church. Each plan key opens
+  // its plan (and Central Pads, like the real plans). Staff switch them off with the default keys.
+  var DEMO_CHURCH = "Riverstone Church (demo)";
+  var DEMO_KEYS = { P: "PDMO-RVST-PCTL-2026", A: "ADMO-RVST-ADMN-2026", U: "UDMO-RVST-USER-2026" };
+  var DEMO_PACKAGES = { "SDMO-RVST-ALL0-2026": ["keys", "plugins", "instrument", "pedals", "pads"], "SDMO-RVST-KEYS-2026": ["keys", "pads"], "SDMO-RVST-PLUG-2026": ["plugins", "pads"],
+    "SDMO-RVST-INST-2026": ["instrument", "pads"], "SDMO-RVST-PEDL-2026": ["pedals", "pads"], "SDMO-RVST-PADS-2026": ["pads"] };
+  function isDemo(key) { var c = pretty(key); return Object.keys(DEMO_KEYS).some(function (k) { return DEMO_KEYS[k] === c; }) || !!DEMO_PACKAGES[c]; }
   async function call(path, body, token) {
     var h = { "Content-Type": "application/json" }; if (token) h.Authorization = "Bearer " + token;
     var ctl = window.AbortController ? new AbortController() : null, t = ctl ? setTimeout(function () { ctl.abort(); }, 12000) : 0;
@@ -113,10 +120,11 @@
     var c = String(key || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (c.length !== 16 || c[0] !== "S") { pk.msg = "A package key has 16 letters and digits and starts with S (SXXX-XXXX-XXXX-XXXX)."; return pkRedraw(); }
     if (!on()) {   // (no website yet: only the default package key, with every plan)
-      if (pretty(c) !== DEFAULT_KEYS.S) { pk.msg = NOT_OPEN; return pkRedraw(); }
-      var all = {}; PLAN_IDS.forEach(function (id) { all[id] = "default"; });
-      pk.list = pk.list.filter(function (p) { return p.key !== DEFAULT_KEYS.S; }).concat([{ key: DEFAULT_KEYS.S, plans: all, holder: "", church: "", okAt: Date.now(), isDefault: true }]);
-      pk.msg = "Added the default package (temporary): every plan."; return pkSave();
+      var demoPlans = DEMO_PACKAGES[pretty(c)];
+      if (pretty(c) !== DEFAULT_KEYS.S && !demoPlans) { pk.msg = NOT_OPEN; return pkRedraw(); }
+      var all = {}; (demoPlans || PLAN_IDS).forEach(function (id) { all[id] = "default"; });
+      pk.list = pk.list.filter(function (p) { return p.key !== pretty(c); }).concat([{ key: pretty(c), plans: all, holder: "", church: demoPlans ? DEMO_CHURCH : "", okAt: Date.now(), isDefault: true, isDemo: !!demoPlans }]);
+      pk.msg = demoPlans ? "Added the demo package: " + demoPlans.map(function (id) { return PLAN_NAMES[id]; }).join(", ") + "." : "Added the default package (temporary): every plan."; return pkSave();
     }
     pk.busy = true; pk.msg = ""; pkRedraw();
     try {
@@ -159,13 +167,13 @@
   function pkSectionHtml(cls) {
     var rows = pk.list.map(function (p) {
       var s = pkStatus(p), names = PLAN_IDS.filter(function (id) { return p.plans && p.plans[id]; }).map(function (id) { var t = pkTime(p.plans[id]); return esc(PLAN_NAMES[id]) + (t !== Infinity ? " until " + esc(new Date(t).toLocaleDateString()) : ""); });
-      return '<li><b>' + (names.join(" · ") || "No plans") + (p.isDefault || p.key === DEFAULT_KEYS.S ? " · Default package (temporary)" : "") + '</b><br><span class="muted">' + esc(p.key.slice(0, 4) + "-••••-••••-" + p.key.slice(-4)) + (p.holder ? " · " + esc(p.holder) : "") + (p.church ? " · " + esc(p.church) : "") + ' · </span><span class="' + (s.bad ? "bad" : "ok") + '">' + esc(s.text) + '</span> <button class="link" data-pkg-remove="' + esc(p.key) + '"' + (pk.busy ? " disabled" : "") + ">Remove</button></li>";
+      return '<li><b>' + (names.join(" · ") || "No plans") + (p.isDemo || isDemo(p.key) ? " · Demo package" : p.isDefault || p.key === DEFAULT_KEYS.S ? " · Default package (temporary)" : "") + '</b><br><span class="muted">' + esc(p.key.slice(0, 4) + "-••••-••••-" + p.key.slice(-4)) + (p.holder ? " · " + esc(p.holder) : "") + (p.church ? " · " + esc(p.church) : "") + ' · </span><span class="' + (s.bad ? "bad" : "ok") + '">' + esc(s.text) + '</span> <button class="link" data-pkg-remove="' + esc(p.key) + '"' + (pk.busy ? " disabled" : "") + ">Remove</button></li>";
     }).join("");
     var form = (rows ? '<ul class="plain pkg-list">' + rows + "</ul>" : '<p class="muted">No packages yet: the free sounds and pedals are open.</p>') +
       '<div class="row"><input id="pkgKey" placeholder="SXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" style="text-transform:uppercase"><button class="primary" data-pkg="add"' + (pk.busy ? " disabled" : "") + '>Add a package</button>' + (pk.list.length && on() ? '<button data-pkg="check"' + (pk.busy ? " disabled" : "") + ">Check now</button>" : "") + "</div>" +
       (pk.msg ? '<p class="small">' + esc(pk.msg) + "</p>" : "");
     return '<section class="' + (cls || "") + '" data-st="packages" id="pkgSettings"><h3>Packages</h3>' +
-      (!on() ? '<p class="muted">Every sound, board and pedal is open until the Motion Audio website opens. For now the default package key, <b>' + DEFAULT_KEYS.S + "</b>, opens every plan.</p>"
+      (!on() ? '<p class="muted">For now every sound, board and pedal is open to everyone. Once the Motion Audio website is up, you add the key from your sound plan here.</p>'
         : '<p class="muted">Sound plans: Central Keys (pianos, synths), Central Plugins (EQ, compressors, reverb, delay on tracks, pads, channels and the instrument), Central Instrument (basses, guitars, strings, brass, winds), Central Pedals (drive, fuzz, wah, modulation, amps, cabs) and Central Pads (pads in every key for the pad pedal - it comes with every other plan too). Each is a yearly package with its own key, for 3 of your devices - each a different app (say Central Usage, Central Control and a Central Pedal). ' + (onPedal() ? "Packages here are kept by the Central Pedal, so its screens and Pedal Control see them too." : "") + "</p>") + form + "</section>";
   }
   function pkRedraw() { var el2 = document.getElementById("pkgSettings"); if (el2) { var keep = el2.querySelector("#pkgKey"), v = keep ? keep.value : ""; el2.outerHTML = pkSectionHtml(el2.className); var k2 = document.getElementById("pkgKey"); if (k2 && v && !pk.busy && !/^Added/.test(pk.msg)) k2.value = v; } }
@@ -211,7 +219,7 @@
   }
 
   // ------------------------------------------------------------- the setup screen
-  var STEPS = ["Internet", "Production", "License key", "Account"];
+  var STEPS = ["Internet", "Church", "License key", "Account"];
   function css() {
     if (document.getElementById("licCss")) return;
     var s = document.createElement("style"); s.id = "licCss";
@@ -241,14 +249,14 @@
         : '<p class="bad">We can’t reach the Motion Audio website right now.</p><p class="muted">Check that this ' + (app === "pedal" ? "pedal" : "device") + ' is on the internet. If it is, we might be busy for a moment: give it a minute and try again.</p>' + (app === "pedal" ? wifiPanel() : "")) : "<p>Checking the internet…</p>";
       btns = (ui.net === false ? '<button data-lw="retry">Try again</button>' : "") + '<button class="primary" data-lw="next"' + (ui.net === true ? "" : " disabled") + ">Next</button>";
     } else if (s === 1) {
-      body = '<label>Your church or production’s name<input id="lwProd" value="' + esc((st && st.production) || opts.production || "") + '" placeholder="Grace Church" autocomplete="organization"></label>' +
-        '<p class="muted">It names this setup on this ' + (app === "pedal" ? "pedal" : "device") + ". Your keys and your people are on your church's account on the Motion Audio website.</p>";
+      body = '<label>Your church’s name<input id="lwProd" value="' + esc((st && st.production) || opts.production || "") + '" placeholder="Grace Church" autocomplete="organization"></label>' +
+        '<p class="muted">It names this setup on this ' + (app === "pedal" ? "pedal" : "device") + ". Your keys and your team are on your church's account on the Motion Audio website.</p>";
       btns = (on() ? '<button data-lw="back">Back</button>' : "") + '<button class="primary" data-lw="prod">Next</button>';
     } else if (s === 2) {
       body = (st && st.blocked ? '<p class="bad">' + esc(st.blocked) + "</p>" : "") +
         '<label><span>License key - it starts with <b>' + kind + "</b> · " + esc({ P: "Central Pedal / Central Pedal Control", A: "Central Control (admins)", U: "Central Usage (users)" }[kind]) + '</span><input id="lwKey" class="lw-key" maxlength="29" value="' + esc(pretty(ui.key || (st && st.key) || opts.presetKey || "")) + '" placeholder="' + kind + 'XXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"></label>' +
         '<label>This device’s name (so you know it on the website)<input id="lwDev" value="' + esc(ui.devName || (st && st.deviceName) || opts.deviceName || NAME_OF[app]) + '"></label>' +
-        (!on() ? '<p class="muted">The Motion Audio website isn’t open yet: for now use the default key, <b>' + esc(DEFAULT_KEYS[kind]) + "</b>.</p>" : "") +
+        (!on() ? '<p class="muted">The Motion Audio website isn’t open yet. For now use the default key, <b>' + esc(DEFAULT_KEYS[kind]) + "</b>" + (DEMO_KEYS[kind] ? ", or the demo church’s key, <b>" + esc(DEMO_KEYS[kind]) + "</b>" : "") + ".</p>" : "") +
         '<p class="muted">Your key is in the email your church sent you, and on your church’s page on our website. ' + (kind === "A" || app === "pedal" ? "It works on one device at a time" : "It works on two devices (for example the church’s and your own) with the same account and the same settings") + '; Settings → License → Release key frees a device for another.</p>';
       btns = '<button data-lw="back">Back</button><button class="primary" data-lw="key"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Checking…" : "Use this key") + "</button>";
     } else if (s === 3 && ui.two) {   // an admin account: the phone (first time), then the code sent to it
@@ -299,8 +307,9 @@
     if (c.length < 12 || c.length > 24) { ui.msg = "A key has 16 letters and digits."; return draw(); }
     if (c.length === 16 && c[0] !== KIND_OF[app]) { ui.msg = "That's " + (KIND_NAME[c[0]] ? (c[0] === "A" ? "an " : "a ") + KIND_NAME[c[0]] : "not a key for this app") + ". " + NAME_OF[app] + " needs a key that starts with " + KIND_OF[app] + "."; return draw(); }
     if (!on()) {   // (the website isn't open yet: only the default key works, on any number of devices, with no end)
-      if (pretty(c) !== DEFAULT_KEYS[KIND_OF[app]]) { ui.msg = NOT_OPEN; return draw(); }
-      st = Object.assign(st || {}, { key: pretty(c), kind: KIND_OF[app], app: app, church: "", okAt: Date.now(), recheckDays: 30, deviceName: dn || NAME_OF[app], blocked: null, isDefault: true, updatesUntil: null, updatesUntilText: "forever", expiresAt: null, trial: false });
+      var demo = pretty(c) === DEMO_KEYS[KIND_OF[app]];
+      if (pretty(c) !== DEFAULT_KEYS[KIND_OF[app]] && !demo) { ui.msg = NOT_OPEN; return draw(); }
+      st = Object.assign(st || {}, { key: pretty(c), kind: KIND_OF[app], app: app, church: demo ? DEMO_CHURCH : "", isDemo: demo, okAt: Date.now(), recheckDays: 30, deviceName: dn || NAME_OF[app], blocked: null, isDefault: true, updatesUntil: null, updatesUntilText: "forever", expiresAt: null, trial: false });
       save(st); tellUpdater(); ui.msg = ""; finish(); if (opts.onChange) try { opts.onChange(); } catch (_) { } return;
     }
     ui.busy = true; ui.msg = ""; draw();
@@ -381,12 +390,12 @@
     if (!keysOn() || app === "pedal") return packagesHtml(cls);   // (the Central Pedal has no license key of its own: just its packages)
     var s = st || {};
     if (!on()) return packagesHtml(cls) + '<section class="' + (cls || "") + '" data-st="license" id="licSettings"><h3>License</h3>' +
-      (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p><p class=\"muted\">Key <code>" + esc(s.key) + "</code>" + (s.isDefault || isDefault(s.key) ? " · <b>Default key (temporary)</b>" : "") + (s.production ? " · " + esc(s.production) : "") + "</p>" +
+      (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p><p class=\"muted\">Key <code>" + esc(s.key) + "</code>" + (isDemo(s.key) ? " · <b>Demo key</b>" : s.isDefault || isDefault(s.key) ? " · <b>Default key (temporary)</b>" : "") + (s.church ? " · " + esc(s.church) : "") + (s.production ? " · " + esc(s.production) : "") + "</p>" +
         '<p class="muted">The Motion Audio website isn’t open yet. When it is, this device checks its key there; a default key then needs replacing with your church’s own key.</p><div class="row"><button data-lic="release">Release key</button></div>'
         : '<p class="bad">No key on this device.</p><button data-lic="enter">Enter a key</button>') + "</section>";
     return packagesHtml(cls) + '<section class="' + (cls || "") + '" data-st="license" id="licSettings"><h3>License</h3>' +
       (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p>" +
-        '<p class="muted">Key <code>' + esc(s.key ? s.key.slice(0, 4) + "-••••-••••-" + s.key.slice(-4) : "") + "</code>" + (s.isDefault || isDefault(s.key) ? " · <b>Default key (temporary)</b>" : "") + (s.church ? " · " + esc(s.church) : "") + (s.production ? " · " + esc(s.production) : "") +
+        '<p class="muted">Key <code>' + esc(s.key ? s.key.slice(0, 4) + "-••••-••••-" + s.key.slice(-4) : "") + "</code>" + (isDemo(s.key) ? " · <b>Demo key</b>" : s.isDefault || isDefault(s.key) ? " · <b>Default key (temporary)</b>" : "") + (s.church ? " · " + esc(s.church) : "") + (s.production ? " · " + esc(s.production) : "") +
         " · this device: " + esc(s.deviceName || "") + " · checked " + new Date(s.okAt).toLocaleDateString() + " (works offline " + daysLeft() + " more days)" + (s.account && s.account.email ? " · account " + esc(s.account.email) : "") + "</p>" +
         (s.trial && s.expiresAt ? '<p class="muted">Free trial until ' + esc(new Date(s.expiresAt).toLocaleDateString()) + ". After that, enter a key your church bought. Everything you made here stays.</p>"
           : s.kind === "P" || s.updatesUntilText === "forever" ? '<p class="muted">Updates: forever.</p>'
@@ -545,7 +554,10 @@
     if (!st || !st.key) { if (o2 && o2.saved && o2.saved.key) { st = o2.saved; try { localStorage.setItem(LS, JSON.stringify(st)); } catch (_) { } if (complete()) { close(); recheck(); return; } } }
     if (el) draw();
   }
-  window.PPLicense = { init: init, update: update, complete: function () { return complete(); }, on: on, licensed: licensed, state: function () { return st; }, server: base, settingsHtml: settingsHtml, release: release, recheck: recheck, open: open,
+  // (10.0) the Downloads page people are sent to: the website's own, once it's open (until then the Motion Audio download
+  // page the releases keep)
+  function downloadsUrl() { return base() ? base() + "/#downloads" : "https://motionaudio.github.io/Central-Apps/"; }
+  window.PPLicense = { downloadsUrl: downloadsUrl, init: init, update: update, complete: function () { return complete(); }, on: on, licensed: licensed, state: function () { return st; }, server: base, settingsHtml: settingsHtml, release: release, recheck: recheck, open: open,
     whenReady: function (f) { if (ready) f(); else waiters.push(f); }, deviceId: deviceId, pretty: pretty, app: function () { return app; },
     plans: plans, hasPlan: hasPlan, planName: function (id) { return PLAN_NAMES[id] || id; }, tracksUnlimited: tracksUnlimited,
     packages: function () { return pk.list.slice(); }, packagesHtml: packagesHtml, checkPackages: checkPackages, addPackage: pkActivate, removePackage: pkRelease,

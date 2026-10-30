@@ -221,6 +221,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 10.0.0:** Setlists (load, create with your team, add songs from the website) with the computer running the tracks; charts and lyrics that follow the tracks, read your way; a Central Control setup window with jobs per computer and smarter lights; a Studio in Central Usage; learn any control and change every colour in all four apps; hymn tracks and more sounds, pads, loops and pedals; Purchases on the website.
+
 **New in version 9.9.1:** The 3.5" Effects pages show the effects at once; the Pad tab no longer goes blank when you scroll; the headphone jack gets the sound, with a Test sound page; a USB audio interface works for inputs and outputs.
 
 **New in version 9.9.0:** A loop pedal - a LOOPER tab on the pedal, in Central Pedal Control and on the 3.5" screen, with three loops (record, overdub, undo, redo, reverse, half speed, level, pan) worked from one footswitch and in time with the song; the 3.5" touch takes light taps, lands where you touch (5-point calibration with a check) and has smooth sliders; the setlist, effects and scenes from the 3.5" screen.

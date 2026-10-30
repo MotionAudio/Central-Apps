@@ -28,21 +28,36 @@
   function fire(type, a, b) { (bus[type] || []).forEach(function (fn) { try { fn(a, b); } catch (e) { console.warn("listener", type, e); } }); }
   // ---- this computer's role: the main admin (one), admins, User 1 and User 2 - which tabs it has.
   // mode() is the side (admin / user) the tab modules check; role() is the exact role.
-  var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "settings"],
-    user1: ["chart", "instrument", "lyrics", "inears", "io", "settings"], user2: ["lyrics", "chart", "inears", "settings"] };
-  // an admin's jobs (given by the main admin): only those tabs, or General = every admin tab
-  var JOB_TABS = { lighting: ["lights"], production: ["video"], mix: ["mix"], inears: ["inears"], slides: ["slides", "lyrics"] };
-  var JOB_NAMES = { general: "Everything (production manager)", lighting: "Lighting", production: "Production (cameras)", mix: "Mix", inears: "In-ears", slides: "Slides & lyrics" };
-  function jobs() { var j = cuCfg.jobs; return Array.isArray(j) && j.length && j.indexOf("general") < 0 ? j.filter(function (x) { return JOB_TABS[x]; }) : ["general"]; }
+  var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"],
+    user1: ["chart", "instrument", "studio", "lyrics", "inears", "io", "controls", "settings"], user2: ["lyrics", "chart", "inears", "controls", "settings"] };
+  // (10.0) what this computer does - picked when it's set up (Settings → This computer changes it; the main admin can
+  // too): any of seven jobs, or all of them (General). One computer can do all seven, or seven computers one each.
+  var JOB_TABS = { lyrics: ["lyrics"], lights: ["lights"], cameras: ["video"], inears: ["inears"], tracks: ["mix"], stream: ["mix"], slides: ["slides"] };
+  var JOB_NAMES = { general: "Everything", lyrics: "Lyrics", lights: "Lights", cameras: "Cameras", inears: "In-ears", tracks: "Tracks", stream: "Live stream audio mix", slides: "Slides" };
+  var JOB_LIST = ["lyrics", "lights", "cameras", "inears", "tracks", "stream", "slides"];
+  // the jobs as they were named before 10.0 (a computer set up then keeps doing the same things)
+  var OLD_JOBS = { lighting: ["lights"], production: ["cameras"], mix: ["tracks", "stream"], slides: ["slides", "lyrics"], inears: ["inears"] };
+  function normJobs(j, v) {
+    if (!Array.isArray(j) || !j.length || j.indexOf("general") >= 0) return ["general"];
+    var out = []; j.forEach(function (x) { (v === 2 ? (JOB_TABS[x] ? [x] : []) : (OLD_JOBS[x] || (JOB_TABS[x] ? [x] : []))).forEach(function (y) { if (out.indexOf(y) < 0) out.push(y); }); });
+    out.sort(function (a, b) { return JOB_LIST.indexOf(a) - JOB_LIST.indexOf(b); });
+    return out.length === JOB_LIST.length ? ["general"] : out.length ? out : ["general"];
+  }
+  function jobs() { return normJobs(cuCfg.jobs, cuCfg.jobsV); }
+  // who runs each job when several computers have it (the center decides; Settings and the banner change it).
+  // runs(job): true here, false on another computer, undefined when nobody's said (one computer, or not linked yet)
+  var runners = {};
+  function setRunners(r) { runners = r && typeof r === "object" ? r : {}; fire("runners", runners); }
+  function runs(job) { var r = runners[job]; if (!r) return undefined; var me = window.CURoles && window.CURoles.devId ? window.CURoles.devId() : null; return !me ? undefined : r.id === me; }
   function tabsFor(r) {
     var hide = window.CULock && window.CULock.hiddenTabs ? window.CULock.hiddenTabs() : [];   // the main admin's service lock
     var keep = function (list) { return hide.length ? list.filter(function (t) { return hide.indexOf(t) < 0; }) : list; };
-    if (WEB) return keep(MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io"; }));   // a phone / tablet browser: the user side, no native parts
+    if (WEB) return keep(MODES[r === "user2" ? "user2" : "user1"].filter(function (t) { return t !== "instrument" && t !== "io" && t !== "studio" && t !== "controls"; }));   // a phone / tablet browser: the user side, no native parts (and no MIDI / keys / Stream Deck to set up)
     if (r !== "admin" && r !== "main") return keep(MODES[r]);
     // admins - and the main admin too - work by their jobs: everything (production manager), or only lighting, mix…
     var j = jobs(); if (j[0] === "general") return keep(MODES[r]);
     var want = {}; j.forEach(function (x) { JOB_TABS[x].forEach(function (t) { want[t] = 1; }); });
-    return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "settings" || t === "devices" || t === "service"; }));
+    return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "controls" || t === "settings" || t === "devices" || t === "service"; }));
   }
   var ROLE_NAMES = { main: "Main admin", admin: "Admin", user1: "User 1", user2: "User 2" };
   // which app this is: Central Control (the main admin and admins) or Central Usage (musicians: User 1 / User 2 -
@@ -50,7 +65,7 @@
   var EDITION = (window.CU && window.CU.edition) || (function () { var q = null; try { q = new URLSearchParams(location.search).get("edition"); } catch (_) { } return q === "usage" || q === "control" ? q : WEB ? "usage" : "all"; })();   // ("all": a plain page from the files - tests)
   // two apps: Central Control is for the main admin and admins, Central Usage for the musicians (User 1 / User 2)
   function roleAllowed(r) { if (r === null) return true; if (EDITION === "usage") return r === "user1" || r === "user2"; if (EDITION === "control") return r === "main" || r === "admin"; return true; }
-  var cuCfg = { mode: store.get("mode", null), role: store.get("role", null), jobs: store.get("jobs", null), name: store.get("name", "") };
+  var cuCfg = { mode: store.get("mode", null), role: store.get("role", null), jobs: store.get("jobs", null), jobsV: store.get("jobsV", null), jobsAt: store.get("jobsAt", 0), name: store.get("name", "") };
   function role() {
     var r = cuCfg.role;
     if (MODES[r]) return r;
@@ -58,8 +73,8 @@
   }
   function mode() { var r = role(); return r === "main" || r === "admin" ? "admin" : r ? "user" : null; }
   function applyMode() {
-    var r = role() || "user1", m = mode() || "user", allowed = tabsFor(r);
-    document.body.dataset.mode = m; document.body.dataset.role = r;
+    var r = role() || (EDITION === "control" ? "admin" : "user1"), m = r === "main" || r === "admin" ? "admin" : "user", allowed = tabsFor(r);   // (not set up yet: Central Control shows the admin side behind its setup window, Central Usage the musician's)
+    document.body.dataset.mode = m; document.body.dataset.role = r; document.body.dataset.jobs = m === "admin" ? jobs().join(" ") : "";
     document.querySelectorAll("#tabs [data-tab]").forEach(function (b) { b.hidden = allowed.indexOf(b.dataset.tab) < 0; });
     if (allowed.indexOf(prefs.tab) < 0) showTab(allowed[0]);
     send({ type: "client", app: "central-usage", edition: EDITION, mode: m, role: r, name: cuCfg.name || (EDITION === "usage" ? "Central Usage" : "Central Control") });
@@ -74,10 +89,13 @@
     var pick = document.getElementById("modePick"); if (pick && r && !pick.dataset.keep) pick.remove();   // (the main admin's setup keeps going)
     if (r) applyMode(); else askMode();
   }
-  async function setJobs(j) {
-    cuCfg.jobs = j; store.set("jobs", j);
-    if (window.CU && window.CU.config) { try { cuCfg = await window.CU.config.set({ jobs: j }); } catch (_) { } }
-    applyMode();
+  // at: when the jobs were picked (the newer pick wins between this computer and the center); from the center it's the
+  // center's own time, so a choice the main admin made while this computer was off isn't undone when it comes back
+  async function setJobs(j, at) {
+    j = normJobs(j, 2); var when = at || Date.now();
+    cuCfg.jobs = j; cuCfg.jobsV = 2; cuCfg.jobsAt = when; store.set("jobs", j); store.set("jobsV", 2); store.set("jobsAt", when);
+    if (window.CU && window.CU.config) { try { cuCfg = await window.CU.config.set({ jobs: j, jobsV: 2, jobsAt: when }); } catch (_) { } }
+    applyMode(); fire("jobs", j);
   }
   function setMode(m) { return setRole(m === "admin" ? "admin" : m === "user" ? "user1" : m); }
   function askMode() { if (window.CURoles) window.CURoles.firstLaunch(); }
@@ -127,11 +145,11 @@
 
   function onMessage(m) {
     if (m.type === "hello") { state.hostname = m.hostname || state.hostname; state.interfaces = m.interfaces || []; state.audioHost = m.audioHost || null; state.netAudio = m.netAudio || null; state.appVersion = m.appVersion || ""; setConn("connected to " + state.hostname, ""); fire("hello", m); fire("audioHost", state.audioHost); }
-    else if (m.type === "auth") { var was = state.authed; state.authed = !!m.ok; if (!m.ok && prefs.code && !m.for) { prefs.code = ""; store.set("code", ""); alert("That pairing code was refused. Check it in Central Pedal → Settings."); } if (state.authed && !was) fire("authed", true); }
+    else if (m.type === "auth") { var was = state.authed; state.authed = !!m.ok; if (!m.ok && prefs.code && !m.for) { prefs.code = ""; store.set("code", ""); var refused = "The Central Pedal didn't accept that pairing PIN. Check the PIN on the pedal (Settings) and type it again."; if (window.CURoles && window.CURoles.toast) window.CURoles.toast(refused); else alert(refused); } if (state.authed && !was) fire("authed", true); }
     else if (m.type === "audioHost") { state.audioHost = m.host || null; fire("audioHost", state.audioHost); }
     else if (m.type === "hub") fire("hub", m);
     else if (m.type === "refused") fire("refused", m);
-    else if (m.type === "display") { state.display = m; render(); }
+    else if (m.type === "display") { if (m.sheet !== undefined) state.sheet = m.sheet; state.display = m; render(); }   // (the song's sheet only comes when it changes)
     else if (m.type === "pong") onPong(m);
     else if (m.type === "midi") onMidi(m);
     else if (m.type === "clock") onClock(m);
@@ -145,7 +163,10 @@
   $("#tabs").addEventListener("click", function (e) { var b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); });
 
   // ------------------------------------------------------------- chart
-  var chartId = null, chartInfo = null, parsed = null, lastSectionKey = null, lastSongKey = null;
+  var chartId = null, chartInfo = null, parsed = null, lastSectionKey = null, lastSongKey = null, lastSheetText = "";
+  // the song the Central Pedal is on, as its sheet: the chart text with every section edit, key change and new chart
+  // already in it (a chart file is only used when the sheet has no chart, e.g. a PDF)
+  function sheetText() { var d = state.display, sh = state.sheet; if (!prefs.follow || !d || !sh || !window.PPSheets || !d.songId || sh.id !== d.songId) return ""; return window.PPSheets.textOf(sh) || ""; }
   function fillInstruments() {
     var sel = $("#instrument"); sel.innerHTML = C.INSTRUMENTS.map(function (i) { return '<option value="' + i.id + '"' + (prefs.instrument === i.id ? " selected" : "") + ">" + esc(i.name) + "</option>"; }).join("");
     fillShapes();
@@ -190,11 +211,14 @@
     var songs = d.songs || [], s = currentSong();
     $("#songName").textContent = s ? (s.index + 1) + ". " + s.name : (songs.length ? "No song selected" : "No songs yet");
     $("#songMeta").textContent = s ? C.pretty(songKeyNow()) + " · " + (d.bpm || s.bpm || "–") + " BPM" + (d.section && prefs.follow ? " · " + d.section.name : "") + (d.tracksMode ? (d.playing ? " · ▶ " : " · ❚❚ ") + fmtTime(d.pos) : "") : "";
-    var pick = $("#songPick"), names = songs.map(function (q) { return q.name; }).join("|"); if (pick.dataset.names !== names) { pick.dataset.names = names; pick.innerHTML = '<option value="-1">— follow the Central Pedal —</option>' + songs.map(function (q, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(q.name) + "</option>"; }).join(""); } pick.value = String(prefs.follow ? -1 : state.pickedSong);
+    var pick = $("#songPick"), names = songs.map(function (q) { return q.name; }).join("|"); if (pick.dataset.names !== names) { pick.dataset.names = names; pick.innerHTML = '<option value="-1">The song playing now</option>' + songs.map(function (q, i) { return '<option value="' + i + '">' + (i + 1) + ". " + esc(q.name) + "</option>"; }).join(""); } pick.value = String(prefs.follow ? -1 : state.pickedSong);
     var secs = prefs.follow ? (d.sections || []) : [], cur = d.section ? d.section.index : -1, skey = secs.map(function (q) { return q.name; }).join("|") + "#" + cur;
     if ($("#sections").dataset.key !== skey) { $("#sections").dataset.key = skey; $("#sections").innerHTML = secs.map(function (q, i) { return '<button data-sec="' + i + '" class="' + (i === cur ? "current" : i === cur + 1 ? "next" : "") + '">' + esc(q.name) + "</button>"; }).join(""); var cb = $("#sections .current"); if (cb) cb.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
     var want = s && s.chart ? (s.chart.id || s.chart) : null; if (typeof want === "object" && want) want = want.id;
-    if (want !== chartId || lastSongKey !== (s && s.name + "|" + songKeyNow())) { lastSongKey = s && s.name + "|" + songKeyNow(); if (want !== chartId) loadChart(want); else renderChart(); }
+    var st = sheetText();
+    if (st) {
+      if (st !== lastSheetText || lastSongKey !== (s && s.name + "|" + songKeyNow())) { lastSheetText = st; lastSongKey = s && s.name + "|" + songKeyNow(); chartId = want; chartInfo = { text: st, pageCount: 0, key: state.sheet.origKey || state.sheet.key }; parsed = C.parseChart(st); renderChart(); }
+    } else if (lastSheetText || want !== chartId || lastSongKey !== (s && s.name + "|" + songKeyNow())) { var was = lastSheetText; lastSheetText = ""; lastSongKey = s && s.name + "|" + songKeyNow(); if (want !== chartId || was) loadChart(want); else renderChart(); }
     highlightSection(); renderLyrics();
     $("#liveBpm").textContent = d.bpm || "–"; $("#liveBar").textContent = d.bar || "–";
   }
@@ -287,8 +311,8 @@
   }
   fillInstruments(); wire(); showTab(prefs.tab); connect(); initMidi();
   (async function () {   // this computer's settings live in the app (cu.json); in a plain browser: local storage
-    if (window.CU && window.CU.config) { try { var c = await window.CU.config.get(); if (c) { cuCfg = c; if (c.mode) store.set("mode", c.mode); if (c.role) store.set("role", c.role); if (c.jobs) store.set("jobs", c.jobs); } } catch (_) { } }
-    if (!cuCfg.name) cuCfg.name = store.get("name", "") || "Central Control";
+    if (window.CU && window.CU.config) { try { var c = await window.CU.config.get(); if (c) { cuCfg = c; if (c.mode) store.set("mode", c.mode); if (c.role) store.set("role", c.role); if (c.jobs) { store.set("jobs", c.jobs); store.set("jobsV", c.jobsV || null); store.set("jobsAt", c.jobsAt || 0); } } } catch (_) { } }
+    if (!cuCfg.name) cuCfg.name = store.get("name", "") || (EDITION === "usage" ? "" : "Central Control");   // (a phone with no name yet: its in-ear mix asks for one, not "Central Control")
     if (!role()) askMode(); applyMode(); fire("ready");
   })();
   function syncedPrefs() { var o = {}; SYNCED.forEach(function (k) { var v = store.get(k, undefined); if (v !== undefined) o[k] = v; }); return o; }
@@ -301,7 +325,7 @@
     } catch (_) { }
     fire("prefsSynced", d);
   }
-  window.CentralUsage = { state: state, prefs: prefs, syncedPrefs: syncedPrefs, applySyncedPrefs: applySyncedPrefs, syncName: syncName, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, edition: function () { return EDITION; }, appName: EDITION === "usage" ? "Central Usage" : "Central Control", roleAllowed: roleAllowed, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
+  window.CentralUsage = { state: state, prefs: prefs, syncedPrefs: syncedPrefs, applySyncedPrefs: applySyncedPrefs, syncName: syncName, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, edition: function () { return EDITION; }, appName: EDITION === "usage" ? "Central Usage" : "Central Control", roleAllowed: roleAllowed, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, jobList: JOB_LIST, jobTabs: JOB_TABS, normJobs: normJobs, jobsAt: function () { return cuCfg.jobsAt || 0; }, runs: runs, runners: function () { return runners; }, setRunners: setRunners, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
     midiSend: function (d, at) { midiSend(d, at); }, midiSysex: function (d) { if (midi && midi.sysexEnabled) midiSend(d); } };
   (function () { var hb = document.querySelector(".brand b"); if (hb) hb.textContent = window.CentralUsage.appName; if (EDITION === "usage") document.title = "Central Usage"; })();   // (the header says which app this is)
 })();

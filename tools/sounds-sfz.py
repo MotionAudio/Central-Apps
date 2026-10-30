@@ -43,6 +43,8 @@ SOURCES = {
     "bigbass": ("sfzinstruments/karoryfer.big-little-bass", "4e92bdf54dcd2d6cfad968cc90542d5461c9b9fc", "Big Little Bass - Karoryfer Samples (Washburn AB95)"),
     "weresax": ("sfzinstruments/karoryfer.weresax", "a4d756b21d2a573aca0d840cce7e71ba5effd4c6", "Weresax - Karoryfer Samples (alto saxophone)"),
     "bearsax": ("sfzinstruments/karoryfer.bear-sax", "7abb3c652525a15dfac80e1b5dfbba9964ee568f", "Bear Sax - Karoryfer Samples (1926 Conn baritone saxophone)"),
+    # 10.0 (LICENSE: CC0 1.0; readme: "Royalty-free for all commercial and non-commercial use")
+    "ergo": ("sfzinstruments/karoryfer.ergo", "c3232f03608e07e4e274c8ad9a1a4c32885f75c4", "Ergo electric upright bass - Karoryfer Samples (played and mapped by D. Smolken)"),
 }
 LICENSE = "CC0 1.0"
 
@@ -62,6 +64,8 @@ INSTR = {
     "bigbass": dict(src="bigbass", program="Programs/01-big_little_pluck.sfz", kind="decay", keys=(23, 72), cut=3.5, layers=3, exclude=r"(?i)noise|release|rel_"),
     "altosax": dict(src="weresax", program="Programs/Sax.sfz", kind="sus", keys=(40, 90), layers=2, exclude=r"(?i)noise|breath|key|release|rel_"),
     "barisax": dict(src="bearsax", program="Programs/2-solo-poly.sfz", kind="sus", keys=(24, 70), layers=2, exclude=r"(?i)noise|breath|growl|sub_|release|rel_"),
+    "ergopizz": dict(src="ergo", program="ergo_pizz.sfz", kind="decay", keys=(24, 72), cut=3.5, layers=3, exclude=r"(?i)noise|release|rel_|slap"),
+    "ergoarco": dict(src="ergo", program="ergo_arco.sfz", kind="sus", keys=(24, 72), layers=2, exclude=r"(?i)noise|release|rel_"),
 }
 
 # bank -> (plan, presets: (name, [(instrument, key lo, key hi, attack, release or None, dB)]))
@@ -80,6 +84,8 @@ BANKS = [
         ("Upright Bass (bowed)", [("arco", 0, 127, 0.08, 0.5, 0)]),
         ("Jazz Bass", [("jazzbass", 0, 127, 0.002, 0.25, 0)]),
         ("Acoustic Bass (hollowbody)", [("bigbass", 0, 127, 0.002, 0.3, 0)]),
+        ("Electric Upright Bass", [("ergopizz", 0, 127, 0.002, 0.3, 0)]),
+        ("Electric Upright Bass (bowed)", [("ergoarco", 0, 127, 0.07, 0.45, 0)]),
     ]),
     ("Central Instrument Saxophones", "instrument", [
         ("Alto Sax", [("altosax", 0, 127, 0.03, 0.3, 0)]),

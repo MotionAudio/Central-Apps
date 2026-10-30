@@ -70,7 +70,7 @@ try {
   ok(indexHits === hits, "the index is read again only every few minutes (cached)", { before: hits, after: indexHits });
   const b = await get(port + 1, "/libraries");
   const bk = b.libraries && b.libraries.find((x) => x.id === "central-keys-library");
-  ok(b.source === "built-in" && b.libraries.length === 5 && b.libraries.some((l) => l.id === "central-pads-library" && l.plan === "pads" && l.contents.pads.length === 12) && bk && bk.ready === false && bk.sha256 === null && bk.approximate === true && bk.url === "http://127.0.0.1:1/nothing-here/central-keys-library-1.0.zip",
+  ok(b.source === "built-in" && b.libraries.length === 5 && b.libraries.some((l) => l.id === "central-pads-library" && l.plan === "pads" && l.contents.pads.length >= 12) && bk && bk.ready === false && bk.sha256 === null && bk.approximate === true && /^http:\/\/127\.0\.0\.1:1\/nothing-here\/central-keys-library-\d+\.\d+\.zip$/.test(bk.url),
     "no index (not published yet, or unreachable): the built-in list - not ready, no sha256, an estimated size, at LIBRARIES_BASE_URL", bk);
   ok(bk && bk.contents.sounds.length >= 3 && bk.contents.sounds[0].presets.includes("Upright Piano") && b.libraries.find((x) => x.id === "central-pedals-library").contents.irs.length >= 14,
     "the built-in list still says what's in each (sounds with their presets, boards, IRs)", bk && bk.contents);
@@ -92,7 +92,7 @@ try {
     ok(cards.length === 4, "a Sound libraries section with the four libraries", cards.map((c) => c.id));
     ok(/Version 1\.0 · 151 MB/.test(ck.text) && /Upright Piano · FM Piano/.test(ck.text) && /Upright Ballad/.test(ck.text), "each card: version, size and what's in it", ck.text);
     ok(/Needs Central Keys \(\$70 a year\) - your package key comes by email and is on your Account page/.test(ck.text), "\"Needs Central Keys ($70 a year) - your package key comes by email and is on your Account page\"", ck.text);
-    ok(ck.href === "https://cdn.example.test/central-keys-library-1.0.zip" && /Download Central Keys Library/.test(ck.text), "a Download button straight to the zip (anyone can download it)", ck.href);
+    ok(/\/download\/library\/central-keys-library$/.test(ck.href) && /Download Central Keys Library/.test(ck.text), "a Download button (our own link, on to the zip; anyone can download it)", ck.href);
     ok(!/Your Central Keys plan opens/.test(ck.text) && !/Not in your plans yet/.test(ck.text), "signed out: nothing about your plans");
     const signedIn = await page.evaluate(async () => {
       const libs = await (await fetch("/v1/libraries")).json(), d = document.createElement("div");

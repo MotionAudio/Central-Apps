@@ -33,7 +33,7 @@ await win.waitForFunction(() => window.CULights && window.CU && window.CU.remote
 // no website yet: Central Control asks for its A key (the production's name, then the key); only the default A key works
 await check("Central Control opens on its key setup with no website; a key for another app and a random key are refused with the right words", async () => {
   await win.waitForSelector("dialog#licWiz[open] #lwProd", { timeout: 10000 });
-  assert.deepEqual(await win.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)), ["1. Production", "2. License key"]);
+  assert.deepEqual(await win.$$eval("#licWiz .lw-steps span", (l) => l.map((s) => s.textContent)), ["1. Church", "2. License key"]);
   await win.fill("#lwProd", "Grace Church"); await win.click('#licWiz [data-lw="prod"]'); await win.waitForSelector("#lwKey");
   await win.fill("#lwKey", "PDEF-AULT-KEY0-2026"); await win.click('#licWiz [data-lw="key"]');
   assert.match(await win.textContent("#licWiz .bad"), /That's a P key .*Central Control needs a key that starts with A\./);
@@ -146,6 +146,44 @@ await check("the main admin's computer is the center: it starts when this comput
   const still = await win.evaluate(async () => { await CentralUsage.setRole("user1"); return (await CU.config.get()).role; }).catch(() => null);
   assert.notEqual(still, "user1", "Central Control refuses User 1");
   await assert.rejects(() => fetch("http://127.0.0.1:18095/api/center"));
+});
+await check("Controls tab: Add new control learns a MIDI footswitch and a computer key, each gets a job (next tab, show the Lyrics tab) and does it", async () => {
+  await win.evaluate(() => CentralUsage.showTab("controls")); await win.waitForSelector('#controlsRoot [data-ctl="add"]');
+  await win.click('#controlsRoot [data-ctl="add"]'); await win.click("dialog.cs-learn [data-cs-kind=button]");
+  await win.fill("dialog.cs-learn [data-cs=name]", "Left footswitch"); await win.click("dialog.cs-learn [data-cs=toName]");
+  await win.evaluate(() => CUControls.midiIn([0x90, 60, 100], "FS-3X MIDI 1")); await win.waitForSelector("dialog.cs-learn .cs-got"); await win.click("dialog.cs-learn [data-cs=save]");
+  const fs1 = await win.evaluate(() => CUControls.inputs().find((i) => i.name === "Left footswitch"));
+  assert.ok(fs1 && fs1.midi && fs1.midi.number === 60, JSON.stringify(fs1));
+  await win.selectOption('#controlsRoot select[data-ctl="action"][data-id="' + fs1.id + '"]', "tabNext");
+  const before = await win.evaluate(() => CentralUsage.prefs.tab);
+  await win.evaluate(() => { CUControls.midiIn([0x90, 60, 100], "FS-3X MIDI 1"); CUControls.midiIn([0x80, 60, 0], "FS-3X MIDI 1"); });
+  const after = await win.evaluate(() => CentralUsage.prefs.tab);
+  assert.notEqual(after, before, "the footswitch moved to the next tab");
+  // a key on the keyboard: L shows the Lyrics tab
+  await win.evaluate(() => CentralUsage.showTab("controls")); await win.waitForSelector('#controlsRoot [data-ctl="add"]');
+  await win.click('#controlsRoot [data-ctl="add"]'); await win.click("dialog.cs-learn [data-cs-kind=button]"); await win.click("dialog.cs-learn [data-cs=toName]");
+  await win.keyboard.press("KeyL"); await win.waitForSelector("dialog.cs-learn .cs-got"); await win.click("dialog.cs-learn [data-cs=save]");
+  const k = await win.evaluate(() => CUControls.inputs().find((i) => i.key));
+  assert.equal(k.key.code, "KeyL");
+  await win.selectOption('#controlsRoot select[data-ctl="action"][data-id="' + k.id + '"]', "tab");
+  await win.selectOption('#controlsRoot select[data-ctl="arg-tab"][data-id="' + k.id + '"]', "lyrics");
+  await win.keyboard.press("KeyL"); await win.waitForTimeout(100);
+  assert.equal(await win.evaluate(() => CentralUsage.prefs.tab), "lyrics");
+  // saved on this computer, and the Stream Deck's settings are on the same tab
+  await win.evaluate(() => CentralUsage.showTab("controls")); await win.waitForSelector('#controlsRoot [data-ctl="add"]');
+  assert.ok(await win.evaluate(() => (CentralUsage.store.get("controls", {}).inputs || []).length === 2 || new Promise((r) => setTimeout(() => r((CentralUsage.store.get("controls", {}).inputs || []).length === 2), 400))));
+  assert.match(await win.textContent("#controlsRoot"), /Stream Deck/);
+});
+await check("Settings → Colours: a preset changes the whole app, one colour can be changed by itself, 'Back to our colours' puts our look back", async () => {
+  await win.evaluate(() => CentralUsage.showTab("settings")); await win.waitForSelector(".cl-card [data-cl-preset=daylight]");
+  await win.click(".cl-card [data-cl-preset=daylight]");
+  const day = await win.evaluate(() => ({ bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(), text: getComputedStyle(document.documentElement).getPropertyValue("--text").trim() }));
+  assert.deepEqual(day, { bg: "#f2f5f8", text: "#102033" });
+  await win.evaluate(() => { const el = document.querySelector('.cl-card [data-cl="accent"]'); el.value = "#ff0000"; el.dispatchEvent(new Event("input", { bubbles: true })); });
+  assert.equal(await win.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim()), "#ff0000");
+  win.once("dialog", (d) => d.accept()); await win.click(".cl-card [data-cl-reset]");
+  const back = await win.evaluate(() => ({ inline: document.documentElement.style.getPropertyValue("--bg"), bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() }));
+  assert.equal(back.inline, ""); assert.equal(back.bg.toUpperCase(), "#111317");
 });
 await app.close(); gh.close();
 console.log(failures ? "\n" + failures + " CHECK(S) FAILED" : "\nALL CENTRAL USAGE APP CHECKS PASSED"); process.exit(failures ? 1 : 0);

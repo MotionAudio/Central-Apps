@@ -95,7 +95,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "9.9.1"
+APP_VERSION = "10.0.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -525,7 +525,7 @@ def wifi_status(scan=False):
     status = {"connected": None, "signal": None, "addresses": ip_addresses(), "networks": [], "available": shutil.which("nmcli") is not None,
               "country": (open("/etc/pad-pedal/wifi-country").read().strip() if os.path.exists("/etc/pad-pedal/wifi-country") else "US"), "error": None}
     if not status["available"]:
-        status["error"] = "NetworkManager is not installed."
+        status["error"] = "Wi-Fi can't be set up on this system."
         return status
     if _wifi_helper():
         code, out, err = run(["sudo", "-n", SYSTEM_SCRIPT, "wifi", "scan" if scan else "status"], timeout=40 if scan else 15)
@@ -1557,6 +1557,14 @@ class LocalServer:
                 if p == "/libraries/pads":   # Central Pads: the pad styles installed here (the pad pedal's voice list)
                     st = library_store(driver)
                     return self.send_json(200, {"pads": st.pads() if st else []})
+                if p == "/libraries/loops":   # 10.0: the loops installed here (drum loops at a tempo, ambient loops in a key) for the texture channels
+                    st = library_store(driver)
+                    return self.send_json(200, {"loops": st.loops() if st and hasattr(st, "loops") else []})
+                if p == "/libraries/loop":   # one loop's WAV: ?lib=<library id>&file=<set>/<file>
+                    st = library_store(driver)
+                    qs = urllib.parse.parse_qs(url.query)
+                    f = st.loop_file((qs.get("lib") or [""])[0], (qs.get("file") or [""])[0]) if st and hasattr(st, "loop_file") else None
+                    return self.send_file(f, "audio/wav", cache=True) if f else self.send_json(404, {"error": "no such loop"})
                 if p == "/libraries/pad":   # one pad style's loop in one key: ?lib=<library id>&style=<name>&key=C#
                     st = library_store(driver)
                     qs = urllib.parse.parse_qs(url.query)
@@ -2780,6 +2788,13 @@ def midi_port_wanted(name):
     return bool(client) and "Through" not in name and not client.startswith("RtMidi")
 
 
+def midi_short_name(n):
+    """'nanoKONTROL2:nanoKONTROL2 MIDI 1 20:0' and 'nanoKONTROL2 MIDI 1' are the same device (control-surface.js shortPort)."""
+    n = re.sub(r"\s+\d+:\d+$", "", re.sub(r" \(out\)$", "", str(n or "")))
+    i = n.find(":")
+    return (n[i + 1:].strip() if i > 0 and n[i + 1:].strip() else n).lower()
+
+
 class Midi:
     """All USB MIDI inputs / outputs (hot-plugged), scheduled sends, MIDI clock out."""
 
@@ -2875,9 +2890,14 @@ class Midi:
     def send_raw(self, message, port=None):
         sent = 0
         with self.lock:
-            for name, out in self.outputs.items():
-                if port and port != name:
-                    continue
+            names = list(self.outputs.keys())
+            if port and port not in self.outputs:   # (an input's name: the output of the same device)
+                want = midi_short_name(port)
+                names = [n for n in names if midi_short_name(n) == want]
+            elif port:
+                names = [port]
+            for name in names:
+                out = self.outputs[name]
                 try:
                     out.send(message)
                     sent += 1
@@ -3318,6 +3338,11 @@ class MiniScreen:
         self.song_edit = False   # (the setlist page's EDIT: move songs, take them out)
         self.lists_saving = None
         self.load_lists()
+        self.COL = dict(MiniScreen.COL)   # (this screen's colours: the app's Settings → Colours can change them)
+        try:
+            self.set_theme((getattr(driver, "config", None) or {}).get("mini_theme"))
+        except Exception:
+            pass
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
@@ -3417,10 +3442,33 @@ class MiniScreen:
             n = max(1, int(width / 7))
             return text if len(text) <= n else text[: n - 1] + "…"
 
+    @staticmethod
+    def _rgb(value):
+        v = str(value or "").strip().lstrip("#")
+        if len(v) == 3:
+            v = "".join(c * 2 for c in v)
+        if len(v) != 6 or any(c not in "0123456789abcdefABCDEF" for c in v):
+            return None
+        return (int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16))
+
+    def set_theme(self, colors):
+        """The app's colours (Settings → Colours): background, panels, text, accent... None = our own look."""
+        col = dict(MiniScreen.COL)
+        for k, v in (colors or {}).items():
+            rgb = self._rgb(v)
+            if k in col and rgb:
+                col[k] = rgb
+        changed = col != self.COL
+        self.COL = col
+        return changed
+
+    # characters the screen's font (Archivo) has no shape for: drawn as their nearest look-alike instead of a box
+    GLYPH_FALLBACK = str.maketrans({"→": "›", "←": "‹", "⌫": "‹", "▲": "^", "▼": "v", "♭": "b", "♯": "#", "✕": "×", "✓": "", "↔": "–"})
+
     def text(self, g, xy, text, font, fill, anchor="la", width=None):
+        text = str(text if text is not None else "").translate(self.GLYPH_FALLBACK)
         if width:
             text = self.fit(g, text, font, width)
-        text = str(text if text is not None else "")
         if not text:
             return
         try:
@@ -3567,9 +3615,9 @@ class MiniScreen:
             # the touch-select knob: which setting it holds, and which way to turn to pick it up
             g.rectangle([0, H - 42, W, H], fill=(10, 40, 30))
             g.line([0, H - 42, W, H - 42], fill=C["accent"], width=2)
-            g.text((8, H - 37), self.clip(ts.get("label"), 46), font=self.font, fill=C["text"])
+            g.text((8, H - 37), self.clip(str(ts.get("label") or "").translate(self.GLYPH_FALLBACK), 46), font=self.font, fill=C["text"])
             pick = ts.get("pickup")
-            sub = ("turn UP ▲ to pick it up" if pick == "up" else "turn DOWN ▼ to pick it up" if pick == "down" else str(ts.get("value") or ""))
+            sub = ("turn it UP to pick it up" if pick == "up" else "turn it DOWN to pick it up" if pick == "down" else str(ts.get("value") or ""))
             g.text((8, H - 19), self.clip(sub, 48), font=self.small, fill=(255, 210, 120) if pick else C["accent"])
         tv = getattr(self.driver, "tuner_view", None)
         if tv and tv.get("on"):
@@ -3913,10 +3961,11 @@ class MiniScreen:
         if not songs:
             self.text(g, (W / 2, 150), "The setlist is empty", self.F["sub"], C["muted"], "mm")
             self.text(g, (W / 2, 172), "+ ADD a song from the library, or upload a set from Central Pedal Control", self.F["sub"], C["muted"], "mm", W - 20)
-        bw = (W - 12 - 4 * 4) / 5
+        bw = (W - 12 - 5 * 4) / 6
         for i, (label, action, on) in enumerate((("‹ SONG", {"name": "prevSong"}, False), ("NEXT ›", {"name": "nextSong"}, False),
-                                                  ("START SET", {"name": "loadSong", "args": {"index": 0}} if songs else None, False),
+                                                  ("START", {"name": "loadSong", "args": {"index": 0}} if songs else None, False),
                                                   ("+ ADD", {"local": "list", "what": "library", "title": "Song library", "az": True}, False),
+                                                  ("SETS", {"local": "list", "what": "setlists", "title": "Load setlist"}, False),
                                                   ("DONE" if edit else "EDIT", {"local": "songEdit"}, edit))):
             x = 6 + i * (bw + 4)
             self.button(g, hits, [x, 240, x + bw, H - 46], label, action, on=on, font=self.F["label"], color=None if action else C["line"])
@@ -3959,6 +4008,15 @@ class MiniScreen:
         """The lists the screen fills itself (no need to ask the app): the song library, what HDMI 1 / 2 can show."""
         if what == "library":
             self.lists["library"] = {"items": self.library_items(), "at": time.monotonic()}
+        elif what == "setlists":   # (10.0: Load setlist - the setlists this pedal knows; the open one is marked)
+            sync = getattr(self.driver, "sync", None) if self.driver else None
+            try:
+                listing = sync.setlists_listing() if sync else []
+            except Exception:
+                listing = []
+            cur = getattr(sync, "current", None)
+            self.lists["setlists"] = {"items": [{"id": x["id"], "label": x.get("name") or "Setlist", "sub": "%d song%s%s" % (x.get("count", 0), "" if x.get("count") == 1 else "s", " · open now" if x["id"] == cur else "")} for x in listing],
+                                      "current": cur}
         elif what in ("hdmi1", "hdmi2") and self.driver:
             n = 1 if what == "hdmi1" else 2
             cur = self.driver.displays_config().get("hdmi%d" % n) or ("app" if n == 1 else "lyrics")
@@ -4087,7 +4145,7 @@ class MiniScreen:
         cw, ch = (W - 12 - 2 * 5) / 3, 38
         if not items:
             self.text(g, (W / 2, 106), "This song has no scenes yet", self.F["sub"], C["muted"], "mm")
-            self.text(g, (W / 2, 126), "Make them in the song editor → Scenes", self.F["sub"], C["muted"], "mm")
+            self.text(g, (W / 2, 126), "Add them in the song editor, under Scenes", self.F["sub"], C["muted"], "mm")
         for j, sc in enumerate(shown):
             r, c = divmod(j, 3)
             x, y = 6 + c * (cw + 5), 76 + r * (ch + 4)
@@ -4295,7 +4353,7 @@ class MiniScreen:
         if lp.get("on") is False:
             self.chips(g, hits, "looper")
             self.text(g, (self.w / 2, 160), "The looper is off", self.F["title"], self.COL["text"], "mm")
-            self.text(g, (self.w / 2, 186), "Turn it on in the app: LOOPER tab → Looper on", self.F["sub"], self.COL["muted"], "mm")
+            self.text(g, (self.w / 2, 186), "Turn it on in the app's LOOPER tab (Looper on)", self.F["sub"], self.COL["muted"], "mm")
             return
         getattr(self, "looper_" + sub)(g, hits, d, lp)
 
@@ -5187,6 +5245,10 @@ class MiniScreen:
             return self.tmode_tap(raw_x, raw_y)
         self.dragf.reset()
         x, y = self.map_touch(raw_x, raw_y)
+        return self.tap_xy(x, y)
+
+    def tap_xy(self, x, y):
+        """A tap at a place on the screen (pixels): the button there does its job."""
         action, box = self.hit_box(x, y)
         self.active = None
         if not action:
@@ -5814,8 +5876,13 @@ class SongSync:
         self.clock = int(st.get("clock") or 0)
         self.hidden = set(st.get("hidden") or [])        # songs deleted on this device only
         self.known = st.get("known") or {}               # device id -> name (for "made on")
-        self.kind = "pc" if driver.config.get("simulated") or driver.config.get("sync_kind") == "pc" else "pi"
-        self.stems_mode = driver.config.get("sync_stems") or ("all" if self.kind == "pc" else "setlists")
+        self.kind = driver.config.get("sync_kind") if driver.config.get("sync_kind") in ("pc", "pi") else ("pc" if driver.config.get("simulated") else "pi")
+        # which songs' stems a device keeps: a computer all of them; a Pi only the open setlist's (10.0 - one setlist
+        # at a time on the card; the others come back from the computer when they're opened again). "setlists" = the
+        # stems of every song in any setlist (before 10.0).
+        self.stems_mode = driver.config.get("sync_stems") or ("all" if self.kind == "pc" else "current")
+        self.current = None                               # the setlist open here (from the app's saves)
+        self.pruning = False
         self.lock = threading.RLock()
         self.songs = self._load_all("songs")
         self.setlists = self._load_all("setlists")
@@ -5949,6 +6016,9 @@ class SongSync:
                 self._save("songs", {"id": sid, "rev": self.tick(rec and rec.get("rev")), "ts": now, "by": self.id, "hash": digest, "deleted": False, "song": portable})
                 changed = True
             slid = self.safe_id(project.get("setlistId"))
+            opened = bool(slid) and slid != self.current
+            if slid:
+                self.current = slid
             if slid:
                 body = {"name": str(project.get("name") or "Setlist")[:120], "songIds": ids}
                 rec = self.setlists.get(slid)
@@ -5959,6 +6029,91 @@ class SongSync:
                 self.save_state()
         if changed:
             self.poke_peers()
+        if opened and self.stems_mode == "current":
+            threading.Thread(target=self.keep_one_setlist, daemon=True, name="sync-prune").start()
+
+    # ----- 10.0: a Pi keeps one setlist's tracks; a computer stores and runs the rest ----------------------
+    def runs_tracks(self):
+        """Central Pedal Control on a computer runs the tracks for a linked pedal (the pedal is its foot controller)."""
+        return bool(PEDAL_CONTROL and self.driver.config.get("run_tracks", True))
+
+    def wanted_ids(self):
+        """The songs whose stems this device keeps (None = every song)."""
+        if self.stems_mode == "all":
+            return None
+        if self.stems_mode == "current":
+            rec = self.setlists.get(self.current or "")
+            return set(((rec or {}).get("setlist") or {}).get("songIds") or []) if rec and not rec.get("deleted") else set()
+        return self.setlist_song_ids()
+
+    def tracks_host(self):
+        """The linked computer (Central Pedal Control) that runs the tracks now, or None: online, linked, and it says so."""
+        if self.kind != "pi" or not self.group:
+            return None
+        now = time.time()
+        with self.lock:
+            best = None
+            for pid, p in self.peers.items():
+                if p.get("group") != self.group["id"] or not p.get("tracks") or not p.get("address"):
+                    continue
+                if not (p.get("static") or now - p.get("seen", 0) < 15):
+                    continue
+                if best is None or p.get("seen", 0) > best[1].get("seen", 0):
+                    best = (pid, p)
+            if not best:
+                return None
+            pid, p = best
+            return {"id": pid, "name": p.get("name") or "Central Pedal Control", "address": p["address"], "port": int(p.get("port") or 8080),
+                    "wsPort": int(p.get("ws") or 8081), "online": True, "kind": "pedal-control"}
+
+    def host_check(self):
+        """A Pi: a linked Central Pedal Control that runs the tracks came or went - this pedal controls it, or plays again."""
+        link = getattr(self.driver, "center_link", None)
+        if link is not None and self.kind == "pi":
+            try:
+                link.set_pc_player(self.tracks_host())
+            except Exception as error:
+                log.debug("sync: tracks host check (%s)", error)
+
+    def on_computer(self, sid):
+        """A linked computer has this song (it keeps every song's tracks), so the Pi can let its copy go."""
+        for p in self.peers.values():
+            if self.group and p.get("group") == self.group["id"] and p.get("kind") == "pc" and sid in (p.get("songIds") or ()):
+                return True
+        return False
+
+    def keep_one_setlist(self):
+        """A new setlist is open on a Pi: the tracks of songs that aren't in it are removed here - only when a linked
+        computer has them (they come back from it when that setlist is opened again). Songs that are only on this Pi stay."""
+        if self.kind != "pi" or self.pruning:
+            return
+        self.pruning = True
+        try:
+            time.sleep(float(self.driver.config.get("sync_prune_delay", 2)))   # (the app saves a few times when a setlist opens)
+            wanted = self.wanted_ids() or set()
+            freed, kept = 0, 0
+            with self.lock:
+                for sid, rec in list(self.songs.items()):
+                    if rec.get("deleted") or sid in wanted or rec.get("missing"):
+                        continue
+                    song = rec.get("song") or {}
+                    stems = [k for k in self.asset_keys(song) if k.startswith("library/")]
+                    if not stems:
+                        continue
+                    if not self.on_computer(sid):
+                        kept += 1
+                        continue
+                    self.drop_files(dict(song, id=sid), keep=wanted)
+                    rec["missing"] = stems
+                    self._save("songs", rec)
+                    freed += 1
+            if freed:
+                log.info("sync: one setlist on this Pi - the tracks of %d other song%s removed here (the computer keeps them)", freed, "" if freed == 1 else "s")
+            self.activity["kept"] = kept
+            self.emit_status()
+            self.wake.set()    # (the open setlist's tracks come over now if they aren't here)
+        finally:
+            self.pruning = False
 
     def touch(self, sid):
         """A file that belongs to a song changed (its light show): a new version, so the others fetch it."""
@@ -6053,11 +6208,14 @@ class SongSync:
         self.poke_peers()
         return {"ok": True}
 
-    def drop_files(self, song):
-        """Remove a song's stems here unless another song still uses them."""
+    def drop_files(self, song, keep=None):
+        """Remove a song's stems here unless another song still uses them (keep: only these songs count - and the
+        songs only this device has - when a Pi lets the other setlists' tracks go)."""
         used = set()
         for rid, rec in self.songs.items():
             if rid != song.get("id") and not rec.get("deleted") and rid not in self.hidden:
+                if keep is not None and rid not in keep and (rec.get("missing") or self.on_computer(rid)):
+                    continue
                 used.update(self.asset_keys(rec.get("song") or {}))
         for key in self.asset_keys(song):
             if key.startswith("library/") and key not in used:
@@ -6082,7 +6240,7 @@ class SongSync:
 
     def index(self):
         with self.lock:
-            return {"id": self.id, "name": self.name, "kind": self.kind,
+            return {"id": self.id, "name": self.name, "kind": self.kind, "host": {"tracks": self.runs_tracks(), "wsPort": int(self.driver.config.get("lan_ws_port") or 8081)},
                     "songs": {k: [r.get("rev", 0), r.get("ts", 0), r.get("by", ""), bool(r.get("deleted"))] for k, r in self.songs.items() if k not in self.hidden or r.get("deleted")},
                     "setlists": {k: [r.get("rev", 0), r.get("ts", 0), r.get("by", ""), bool(r.get("deleted"))] for k, r in self.setlists.items()},
                     "names": dict(self.known, **{self.id: self.name})}
@@ -6161,8 +6319,9 @@ class SongSync:
             for pid, p in self.peers.items():
                 online = p.get("static") or now - p.get("seen", 0) < 15
                 peers.append({"id": pid, "name": p.get("name", ""), "address": p.get("address"), "port": p.get("port"), "kind": p.get("kind"), "online": bool(online),
-                              "linked": bool(self.group and p.get("group") == self.group["id"]), "lastSync": p.get("lastSync"), "error": p.get("error")})
+                              "linked": bool(self.group and p.get("group") == self.group["id"]), "lastSync": p.get("lastSync"), "error": p.get("error"), "runsTracks": bool(p.get("tracks"))})
             return {"type": "sync", "event": "status", "id": self.id, "name": self.name, "kind": self.kind, "linked": bool(self.group), "stems": self.stems_mode,
+                    "current": self.current, "runsTracks": self.runs_tracks(), "tracksHost": self.tracks_host(), "keptOnlyHere": self.activity.get("kept", 0),
                     "peers": sorted(peers, key=lambda x: (not x["linked"], x["name"].lower())), "activity": dict(self.activity),
                     "songs": sum(1 for r in self.songs.values() if not r.get("deleted")), "setlists": sum(1 for r in self.setlists.values() if not r.get("deleted"))}
 
@@ -6184,7 +6343,8 @@ class SongSync:
 
     def beacon(self):
         return json.dumps({"cc": "central-control", "id": self.id, "name": self.name, "kind": self.kind, "port": int(self.driver.config["lan_port"]),
-                           "group": self.group["id"] if self.group else None, "v": APP_VERSION}).encode()
+                           "group": self.group["id"] if self.group else None, "v": APP_VERSION,
+                           "tracks": self.runs_tracks(), "ws": int(self.driver.config.get("lan_ws_port") or 8081)}).encode()
 
     def udp_loop(self):
         try:
@@ -6201,8 +6361,11 @@ class SongSync:
         except OSError as e:
             log.warning("sync: no UDP beacon (%s)", e)
             return
-        last = 0
+        last = checked = 0
         while not self.stopping:
+            if time.time() - checked > 2:
+                checked = time.time()
+                self.host_check()
             if time.time() - last > 4:
                 last = time.time()
                 for target in ("255.255.255.255", "127.255.255.255"):
@@ -6226,7 +6389,8 @@ class SongSync:
             with self.lock:
                 p = self.peers.setdefault(j["id"], {})
                 fresh = not p.get("seen")
-                p.update({"name": str(j.get("name") or "")[:60], "address": addr[0], "port": int(j.get("port") or 8080), "group": j.get("group"), "kind": j.get("kind"), "seen": time.time(), "version": j.get("v")})
+                p.update({"name": str(j.get("name") or "")[:60], "address": addr[0], "port": int(j.get("port") or 8080), "group": j.get("group"), "kind": j.get("kind"), "seen": time.time(), "version": j.get("v"),
+                          "tracks": bool(j.get("tracks")), "ws": int(j.get("ws") or 8081)})
                 if j.get("name"):
                     self.known[j["id"]] = str(j["name"])[:60]
             if fresh:
@@ -6268,6 +6432,7 @@ class SongSync:
                     peer["error"] = str(e)[:200]
                     log.info("sync from %s failed: %s", peer.get("name"), e)
             self.fill_missing()
+            self.host_check()
             self.emit_status()
 
     def pull(self, peer):
@@ -6275,6 +6440,11 @@ class SongSync:
         if idx.get("id") and peer.get("static"):
             peer["name"] = idx.get("name") or peer["name"]
             peer["kind"] = idx.get("kind")
+        host = idx.get("host") if isinstance(idx.get("host"), dict) else {}
+        peer["tracks"] = bool(host.get("tracks"))
+        if host.get("wsPort"):
+            peer["ws"] = int(host["wsPort"])
+        peer["songIds"] = set(k for k, v in (idx.get("songs") or {}).items() if not (isinstance(v, list) and len(v) > 3 and v[3]))
         with self.lock:
             for did, nm in (idx.get("names") or {}).items():
                 if did != self.id and nm:
@@ -6290,7 +6460,7 @@ class SongSync:
                         rec.pop("assets", None)
                         self._save("setlists", rec)
                     self.driver.emit({"type": "sync", "event": "setlist", "setlist": None if rec.get("deleted") else dict(rec["setlist"], id=slid), "id": slid, "deleted": bool(rec.get("deleted"))})
-        wanted = self.setlist_song_ids()
+        wanted = self.wanted_ids() or set()
         for sid, ver in (idx.get("songs") or {}).items():
             mine = self.songs.get(sid)
             if not _newer(ver, mine and [mine.get("rev", 0), mine.get("ts", 0), mine.get("by", "")]):
@@ -6369,7 +6539,7 @@ class SongSync:
         """A song that joined a setlist on a Pi gets its stems now."""
         if not self.group:
             return
-        wanted = self.setlist_song_ids() if self.stems_mode != "all" else None
+        wanted = self.wanted_ids()
         for sid, rec in list(self.songs.items()):
             if not rec.get("missing") or rec.get("deleted") or sid in self.hidden:
                 continue
@@ -8909,6 +9079,7 @@ class CenterLink:
         self.remote = None         # controller: the socket to the player
         self.remote_key = ""
         self.player_display = None
+        self.pc_player = None      # 10.0: no main admin, but a linked Central Pedal Control runs the tracks - this pedal controls it
         self._save()
 
     def _save(self):
@@ -8916,15 +9087,39 @@ class CenterLink:
 
     def info(self):
         t = self.target or {}
-        p = self.player or {}
+        p = self.player_now() or {}
         return {"state": self.state, "name": self.name, "address": t.get("host") if self.connected else None, "port": t.get("port") if self.connected else None,
-                "error": self.error, "configured": self.address or "", "job": self.job if self.paired else "player",
-                "player": {"name": p.get("name"), "address": p.get("address"), "online": bool(p.get("online"))} if p and self.paired else None,
-                "remote": bool(self.remote is not None), "paired": bool(self.paired)}
+                "error": self.error, "configured": self.address or "", "job": self.job_now(),
+                "player": {"name": p.get("name"), "address": p.get("address"), "online": bool(p.get("online")), "kind": p.get("kind")} if p else None,
+                "remote": bool(self.remote is not None), "paired": bool(self.paired), "via": "pedal-control" if (self.pc_player and not self.paired) else ("center" if self.paired else None)}
 
     def job_now(self):
-        """What this Central Pedal does right now: on its own (not paired) it always plays."""
-        return self.job if self.paired else "player"
+        """What this Central Pedal does right now: paired with a main admin, what it says; else, while a linked Central
+        Pedal Control runs the tracks, the foot controller for it; on its own it plays."""
+        if self.paired:
+            return self.job
+        return "controller" if self.pc_player else "player"
+
+    def player_now(self):
+        return self.player if self.paired else self.pc_player
+
+    def set_pc_player(self, host):
+        """The song sync found (or lost) a linked Central Pedal Control that runs the tracks."""
+        if self.paired:   # (a main admin decides; Central Control's own player window is the computer then)
+            host = None
+        def key(h):
+            return ((h or {}).get("address"), (h or {}).get("wsPort"))
+        if key(host) == key(self.pc_player):
+            return
+        was = self.pc_player
+        self.pc_player = dict(host) if host else None
+        if host:
+            log.info("tracks: %s (Central Pedal Control) runs the tracks - this Central Pedal controls them", host.get("name"))
+        else:
+            log.info("tracks: %s is gone - this Central Pedal plays the tracks again", (was or {}).get("name") or "Central Pedal Control")
+        self.driver.emit({"type": "pedalRole", "job": self.job_now(), "player": self.pc_player, "center": None, "via": "pedal-control"})
+        self.driver.emit(self.driver.hello())
+        self.follow_player()
 
     def set_state(self, state, error=""):
         if state == self.state and error == self.error:
@@ -9057,6 +9252,7 @@ class CenterLink:
                 song = (self.driver.display or {}).get("song") or {}
                 if isinstance(song, dict) and song.get("name"):
                     h["song"] = str(song.get("name"))[:50]
+                h["playing"] = bool((self.driver.display or {}).get("playing"))   # (the main admin hands the tracks back only when nothing plays)
                 self.send({"type": "cuRole", "action": "health", "id": self.id, "health": h})
 
     def on_role(self, m):
@@ -9095,8 +9291,8 @@ class CenterLink:
 
     # ----- foot controller: this pedal's buttons drive the player
     def follow_player(self):
-        p = self.player or {}
-        want = "%s:%s" % (p.get("address"), p.get("wsPort") or 8081) if self.job in ("controller", "backup") and p.get("address") and p.get("online") else ""
+        p = self.player_now() or {}
+        want = "%s:%s" % (p.get("address"), p.get("wsPort") or 8081) if self.job_now() in ("controller", "backup") and p.get("address") and p.get("online") else ""
         if want == self.remote_key:
             return
         self.remote_key = want
@@ -9125,7 +9321,7 @@ class CenterLink:
             self.driver.emit(self.driver.hello())
             try:
                 await ws.send(json.dumps({"type": "client", "app": "central-pedal", "mode": "controller", "name": socket.gethostname()}))
-                await ws.send(json.dumps({"type": "auth", "code": self.driver.code}))
+                await ws.send(json.dumps({"type": "auth", "code": self.remote_code()}))
                 async for raw in ws:
                     if self.remote_key != key:
                         break
@@ -9163,12 +9359,20 @@ class CenterLink:
         self.send({"type": "cuRole", "action": "takeover", "id": self.id})
         return True
 
+    def remote_code(self):
+        """How this pedal proves itself to the player: the main admin's pairing PIN (paired), or the song-sync link it
+        shares with Central Pedal Control (that computer has its own pairing code)."""
+        if self.paired or not self.pc_player:
+            return self.driver.code
+        g = getattr(self.driver.sync, "group", None) or {}
+        return "sync:" + g.get("key", "") if g.get("key") else self.driver.code
+
     def forward(self, message):
         """An action from this pedal's buttons, for the player (controller job)."""
         ws = self.remote
         if ws is None:
             return False
-        out = {"type": "action", "name": str(message.get("name") or "")[:40], "args": message.get("args") or {}, "code": self.driver.code}
+        out = {"type": "action", "name": str(message.get("name") or "")[:40], "args": message.get("args") or {}, "code": self.remote_code()}
         for k in ("value", "delta"):
             if isinstance(message.get(k), (int, float)):
                 out[k] = message[k]
@@ -9532,6 +9736,7 @@ class PedalDriver:
         self.slide = {"type": "slide", "kind": "none"}
         self.state = {"playing": [], "selected": 0}
         self.display = {}
+        self.display_sheet = None
         self.learn = None
         self.scan_devices = []
         self.analog_baseline = {}
@@ -9565,8 +9770,25 @@ class PedalDriver:
             pass
         return code
 
+    def tracks_host_info(self):
+        """Where the tracks run, for the app's Setlists panel: here, or on a computer this pedal controls."""
+        link = getattr(self, "center_link", None)
+        sync = getattr(self, "sync", None)
+        me = "pedal-control" if PEDAL_CONTROL else "player" if os.environ.get("CC_PLAYER") == "1" else ("pc" if sync and sync.kind == "pc" else "pi")
+        job = link.job_now() if link else "player"
+        p = (link.player_now() if link else None) or {}
+        controllers = sorted(set(str(c.get("name") or "a Central Pedal")[:40] for c in self.lan_clients.values() if c.get("app") == "central-pedal" and c.get("mode") == "controller" and c.get("auth")))
+        return {"me": me, "plays": job == "player", "job": job, "player": {"name": p.get("name"), "kind": p.get("kind") or ("center" if link and link.paired else None), "online": bool(p.get("online"))} if job != "player" and p else None,
+                "via": ("pedal-control" if link and link.pc_player and not link.paired else "center" if link and link.paired else None),
+                "controllers": controllers, "oneSetlist": bool(sync and sync.stems_mode == "current"), "runTracks": bool(sync and sync.runs_tracks()),
+                "keptOnlyHere": (sync.activity.get("kept", 0) if sync else 0)}
+
     def code_ok(self, code):
-        return str(code or "").strip() == self.code
+        code = str(code or "").strip()
+        if code.startswith("sync:"):   # a Central Pedal linked with this one (the song sync's shared key): its foot controller
+            g = getattr(getattr(self, "sync", None), "group", None) or {}
+            return bool(g.get("key")) and hmac.compare_digest(code[5:], g["key"])
+        return code == self.code
 
     def pedal_health(self):
         """The pedal's own numbers for the main admin's Devices tab."""
@@ -9651,6 +9873,7 @@ class PedalDriver:
             "licenseState": read_json(os.path.join(self.config["data_root"], "license-state.json"), None),
             "packages": read_json(os.path.join(self.config["data_root"], "packages.json"), []),
             "loadedSet": self.transfer.loaded_set() if getattr(self, "transfer", None) else None,
+            "tracksHost": self.tracks_host_info(),
             "deviceId": device_id(),
             "hostname": socket.gethostname(),
             "midi": bool(self.midi and self.midi.available),
@@ -9762,7 +9985,11 @@ class PedalDriver:
             await ws.send(json.dumps(self.lan_hello()))
             if self.slide.get("kind") != "none":
                 await ws.send(json.dumps(self.slide))
-            await ws.send(json.dumps(dict(self.display, type="display")) if self.display else json.dumps({"type": "display", "song": None}))
+            first = dict(self.display, type="display") if self.display else {"type": "display", "song": None}
+            sheet = getattr(self, "display_sheet", None)
+            if sheet and self.display and sheet.get("id") == self.display.get("songId"):
+                first["sheet"] = sheet   # (the song's chart travels only when it changes: a screen that joins late gets it here)
+            await ws.send(json.dumps(first))
             if getattr(self, "lan_clock", None):
                 await ws.send(json.dumps(dict(self.lan_clock, type="clock")))
             async for raw in ws:
@@ -9931,6 +10158,12 @@ class PedalDriver:
         elif kind == "forwardAction":   # a foot controller's button, for the Central Pedal that plays
             if not self.center_link.forward(message):
                 self.send_to(ws, {"type": "forwardFailed", "name": message.get("name"), "error": "Not connected to the Central Pedal that plays."})
+        elif kind == "tracksHost":   # 10.0: Central Pedal Control runs the tracks for a linked pedal (on by default)
+            if message.get("action") == "set" and PEDAL_CONTROL:
+                self.config["run_tracks"] = bool(message.get("on"))
+                self.save_config()
+                self.sync.emit_status()
+            self.send_to(ws, dict(self.tracks_host_info(), type="tracksHost"))
         elif kind == "touchSelect":
             # what a touch-select knob holds right now (shown on the 3.5" screen)
             self.touch_select = {k: message.get(k) for k in ("knob", "label", "value", "pickup")} if message.get("label") else None
@@ -9978,6 +10211,8 @@ class PedalDriver:
         elif kind == "display":
             # the heavy parts (beat grid, hits) only travel when they change; keep the last ones for late joiners
             prev = self.display or {}
+            if "sheet" in message:
+                self.display_sheet = message.get("sheet")   # (charts, lyrics, sections for every chart screen)
             if "grid" not in message and prev.get("songId") == message.get("songId"):
                 for k in ("grid", "hits"):
                     if k in prev:
@@ -9985,6 +10220,17 @@ class PedalDriver:
             self.display = message
             self.emit(message, lan=True)
             self.schedule_mini_render()
+        elif kind == "miniTheme":
+            # Settings → Colours in the app: the 3.5" screen uses the same colours (None: our own look)
+            colors = message.get("colors") if isinstance(message.get("colors"), dict) else None
+            if colors != self.config.get("mini_theme"):
+                if colors:
+                    self.config["mini_theme"] = {k: str(v)[:9] for k, v in colors.items() if isinstance(k, str)}
+                else:
+                    self.config.pop("mini_theme", None)
+                self.save_config()
+            if self.mini and self.mini.set_theme(self.config.get("mini_theme")):
+                self.schedule_mini_render(True)
         elif kind == "leds":
             self.led_states = message.get("states") or {}
             if message.get("bpm"):
@@ -10029,6 +10275,11 @@ class PedalDriver:
             # Central Control (lighting computers) generate their own MIDI clock from this
             self.lan_clock = {"bpm": message.get("bpm"), "running": bool(message.get("running")), "t": int(time.monotonic() * 1000)}
             self.emit(dict(self.lan_clock, type="clock"), lan=True)
+        elif kind == "midiLed":
+            # a learned MIDI button's light (control-surface.js): back to the device it came from, never to the lights
+            if self.midi:
+                for m in message.get("messages") or []:
+                    self.midi.send_bytes(m.get("data") or [], m.get("port") or None)
         elif kind == "midiOut":
             if self.midi:
                 self.midi.send_messages(message.get("messages") or [])

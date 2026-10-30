@@ -53,8 +53,8 @@ try {
   const add = await j("POST", "/church/team", { section: "user", members: [{ name: "Ana", email: "ana" + S + "@hope.test", role: "Bass" }, { name: "Ben", email: "ben" + S + "@hope.test", role: "Keys" }, { name: "x", email: "nope" }] }, T);
   const anaMail = mail("ana" + S + "@hope.test")[0];
   ok(add.results.filter((r) => r.ok && r.sent).length === 2 && add.results[2].ok === false, "Done sends each new user an email (a bad address is refused)", add.results);
-  ok(anaMail && anaMail.auth === "Bearer re_test" && /Central Usage/.test(anaMail.body.subject) && anaMail.body.text.includes(add.results[0].key) && /Central-Apps\/#usage\b/.test(anaMail.body.text) && /Central Services: \S+#central-services/.test(anaMail.body.text) && /#invite-/.test(anaMail.body.text) && /as Bass/.test(anaMail.body.text),
-    "...with the link to make their account, the Central Usage download (its section of the page), their U key and Central Services", anaMail && anaMail.body);
+  ok(anaMail && anaMail.auth === "Bearer re_test" && /Central Usage/.test(anaMail.body.subject) && anaMail.body.text.includes(add.results[0].key) && /Download Central Usage: https:\/\/motion\.test\/#downloads\b/.test(anaMail.body.text) && /Central Services: \S+#downloads/.test(anaMail.body.text) && !/github/i.test(anaMail.body.text) && /#invite-/.test(anaMail.body.text) && /as Bass/.test(anaMail.body.text),
+    "...with the link to make their account, the Downloads page on our own website, their U key and Central Services", anaMail && anaMail.body);
   const team = await j("GET", "/church/team", null, T);
   ok(team.sections.user.length === 2 && team.sections.user.every((m) => m.status === "invited") && team.free.user === 4 && team.free.admin === 3, "the Teams page shows who's invited and how many keys are left", team);
   const adm = await j("POST", "/church/team", { section: "admin", members: [{ name: "Sam", email: "sam" + S + "@hope.test", role: "Lights" }, { name: "Liz", email: "liz" + S + "@hope.test", role: "Sound" }, { name: "Kai", email: "kai" + S + "@hope.test", role: "Video" }, { name: "Max", email: "max" + S + "@hope.test" }] }, T);

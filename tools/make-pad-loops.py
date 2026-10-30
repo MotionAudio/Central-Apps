@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Central Pedal - Central Pads (9.8): the pad pedal's pads, synthesised here (no one else's recording).
 
-  <out>/<Style>/<Key>.wav - 12 styles in all 12 keys, each a stereo chord (root, fifth, octave) LOOP seconds long that
+  <out>/<Style>/<Key>.wav - 20 styles (12 since 9.8, 8 more in 10.0) in all 12 keys, each a stereo chord (root, fifth, octave) LOOP seconds long that
   repeats without a seam. The pad pedal plays the file of the song's key as it is (no pitch shifting). C# is "Cs" in a
   file name (no # in a file name or a web address).
 
@@ -40,8 +40,67 @@ STYLES = [
     ("Ambient Drone", [("drone", -1, 1.0), ("air", 0, 0.3)], (0, 7)),
     ("Deep", [("warm", -1, 1.0), ("swell", 0, 0.5)], (0, 7, 12)),
     ("Heaven", [("aah", 1, 0.5), ("shimmer", 1, 0.6), ("string", 0, 0.6)], (0, 7, 12)),
+    # 10.0: eight more (their voices are below, in EXTRA_VOICES - make-pads.py stays as it was, so its banks aren't rebuilt)
+    ("Felt", [("felt", 0, 1.0), ("warm", -1, 0.35)], (0, 7, 12)),
+    ("Organ", [("drawbar", 0, 1.0), ("drawbar", -1, 0.45)], (0, 7, 12)),
+    ("Analog", [("analog", 0, 1.0), ("analog", -1, 0.5)], (0, 7, 12)),
+    ("Bowed", [("bowed", -1, 1.0), ("bowed", 0, 0.7)], (0, 7, 12)),
+    ("Bells", [("bellpad", 1, 0.7), ("warm", 0, 0.7)], (0, 7, 12)),
+    ("Choir Hum", [("hum", 0, 1.0), ("warm", -1, 0.3)], (0, 7, 12)),
+    ("Cinematic", [("drone", -1, 0.8), ("bowed", 0, 0.6), ("shimmer", 1, 0.35), ("air", 1, 0.25)], (0, 7, 12)),
+    ("Morning", [("felt", 0, 0.8), ("air", 1, 0.35), ("glass", 1, 0.3)], (0, 7, 12, 14)),
 ]
 NAMES = [s[0] for s in STYLES]
+
+
+HUM = [(250, 70, 1.0), (2200, 300, 0.08)]   # (a hummed "mm": one low resonance and a little air)
+
+
+def extra_partials(kind, f0):
+    """The 10.0 styles' voices: [(frequency, amplitude, movement Hz, movement depth)], like make-pads' partials()."""
+    out, nyq = [], 0.45 * SR
+    if kind == "felt":       # soft and round: a few harmonics, falling fast
+        for k in range(1, 9):
+            if f0 * k < nyq:
+                out.append((f0 * k, 1.0 / k ** 2.2, (k % 3 + 1) / LOOP, 0.15))
+    elif kind == "drawbar":  # an organ's drawbars: 16', 8', 5 1/3', 4', 2 2/3', 2'
+        for r, a in ((0.5, 0.5), (1, 1.0), (1.5, 0.55), (2, 0.6), (3, 0.35), (4, 0.3)):
+            if f0 * r < nyq:
+                out.append((f0 * r, a, 6 / LOOP, 0.06))    # (a slow, shallow chorus)
+    elif kind == "analog":   # a bright detuned saw with a gentle low-pass
+        for k in range(1, 160):
+            if f0 * k > nyq:
+                break
+            out.append((f0 * k, (1.0 / k) / (1 + (k / 18.0) ** 3), (k % 4 + 1) / LOOP, 0.3))
+    elif kind == "bowed":    # a bowed low string: strong low harmonics, two body resonances, slow bow movement
+        for k in range(1, 60):
+            f = f0 * k
+            if f > nyq:
+                break
+            body = 1.0 + 0.8 * math.exp(-0.5 * ((f - 500) / 180.0) ** 2) + 0.4 * math.exp(-0.5 * ((f - 2800) / 600.0) ** 2)
+            out.append((f, body / k ** 0.9 / (1 + (k / 12.0) ** 2), (k % 5 + 1) / LOOP, 0.35))
+    elif kind == "bellpad":  # a soft bell's inharmonic partials, held
+        for r, a in ((1, 1.0), (2.0, 0.4), (2.76, 0.35), (4.07, 0.2), (5.40, 0.12), (6.8, 0.06)):
+            if f0 * r < nyq:
+                out.append((f0 * r, a, (int(r * 3) % 4 + 1) / LOOP, 0.4))
+    elif kind == "hum":
+        for k in range(1, 60):
+            f = f0 * k
+            if f > nyq:
+                break
+            out.append((f, (1.0 / k ** 0.8) * (0.05 + MP.formant(f, HUM)), (k % 3 + 1) / LOOP, 0.2))
+    return out
+
+
+EXTRA_VOICES = {"felt": (-4, 4), "drawbar": (-3, 3), "analog": (-10, -3, 3, 10), "bowed": (-8, 0, 8), "bellpad": (0, 5), "hum": (-9, -3, 3, 9)}
+
+
+def voices(kind):
+    return MP.VOICES.get(kind) or EXTRA_VOICES[kind]
+
+
+def partials(kind, f0):
+    return extra_partials(kind, f0) if kind in EXTRA_VOICES else MP.partials(kind, f0)
 
 
 def say(*a):
@@ -64,9 +123,9 @@ def pad_note_fast(kind, note, seed):
         elif k < n // 2:
             spec[k] += amp * n / 2 * complex(math.cos(phase), math.sin(phase))
     f0 = 440.0 * 2 ** ((note - 69) / 12.0)
-    for cents in MP.VOICES[kind]:
+    for cents in voices(kind):
         fv = f0 * 2 ** (cents / 1200.0)
-        for f, a, mv, depth in MP.partials(kind, fv):
+        for f, a, mv, depth in partials(kind, fv):
             fq, ph, ps = MP.q(f), rng.uniform(0, 2 * math.pi), rng.uniform(0, 2 * math.pi)
             add(fq, a * (1 - depth / 2), ph - math.pi / 2)            # a (1 - d/2) sin(w t + ph)
             add(fq - mv, -a * depth / 4, ph - ps)                     # - (a d/2) sin(m t + ps) sin(w t + ph), as two cosines

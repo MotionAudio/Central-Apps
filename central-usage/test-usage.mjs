@@ -351,7 +351,7 @@ await check("first launch: Main admin / Admin / User 1 / User 2; the main admin'
   assert.equal(keys.pair, code); assert.equal(keys.pin, "9876");
   assert.match(await mainP.textContent("#modePick .rp-done"), new RegExp(keys.pin)); await mainP.click("#modePick [data-rp='close']");
   await mainP.waitForFunction(() => CURoles.view() && CURoles.view().youAreMain, null, { timeout: 5000 });
-  assert.equal(await tabsShown(mainP), "devices,service,lights,mix,inears,lyrics,slides,video,io,settings");
+  assert.equal(await tabsShown(mainP), "devices,service,lights,mix,inears,lyrics,slides,video,io,controls,settings");
 });
 await check("the Central Pedal pairs with the main admin; the main admin is told where it is and connects to it (songs, charts, lyrics, tracks)", async () => {
   try { await mainP.waitForFunction(() => CURoles.view() && CURoles.view().pedal && CURoles.view().pedal.online, null, { timeout: 15000 }); }
@@ -368,11 +368,11 @@ await check("another computer picks User 1 and pairs with the pairing PIN (wrong
   await userP.waitForFunction(() => CentralUsage.role() === "user1" && !document.getElementById("modePick"), null, { timeout: 6000 });
   assert.equal(await userP.evaluate(() => CentralUsage.prefs.code), code);
   await userP.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.authed, null, { timeout: 10000 });   // found the Central Pedal through the main admin
-  assert.equal(await tabsShown(userP), "chart,instrument,inears,lyrics,io,settings");
+  assert.equal(await tabsShown(userP), "chart,instrument,studio,inears,lyrics,io,controls,settings");
 });
 await check("the user flips to User 2 from the top bar: lyrics, chart, in-ears, settings", async () => {
   await userP.click("#roleChip [data-chip='user2']"); await userP.waitForFunction(() => CentralUsage.role() === "user2", null, { timeout: 5000 });
-  assert.equal(await tabsShown(userP), "chart,inears,lyrics,settings");
+  assert.equal(await tabsShown(userP), "chart,inears,lyrics,controls,settings");
 });
 await check("becoming an admin needs the main admin's role PIN (wrong PIN refused)", async () => {
   await userP.click('[data-tab="settings"]'); await userP.waitForSelector("#settingsRoot input[name='rlRole'][value='admin']");
@@ -384,20 +384,41 @@ await check("becoming an admin needs the main admin's role PIN (wrong PIN refuse
   await userP.click("#settingsRoot input[name='rlRole'][value='admin']");
   await userP.waitForFunction(() => CentralUsage.role() === "admin", null, { timeout: 5000 });
 });
-await check("Devices tab: the main admin sees it online with its connection health, gives it jobs (Lighting + Production) - it then shows only those tabs", async () => {
+await check("Devices tab: the main admin sees it online with its connection health, gives it jobs (Lights + Cameras) - it then shows only those tabs", async () => {
   await mainP.click('[data-tab="devices"]'); await mainP.waitForSelector("#devicesRoot tr:has-text('Keys')", { timeout: 6000 });
   await mainP.waitForFunction(() => { const tr = [...document.querySelectorAll("#devicesRoot tr")].find((x) => /Keys/.test(x.textContent)); return tr && /good|fair|poor/.test(tr.querySelector(".dv-g").textContent); }, null, { timeout: 15000 });
   await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv='jobs']");
-  await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv-job='lighting']"); await mainP.waitForTimeout(400);
-  await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv-job='production']");
-  try { await userP.waitForFunction(() => JSON.stringify(CentralUsage.jobs()) === '["lighting","production"]', null, { timeout: 5000 }); }
+  await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv-job='lights']"); await mainP.waitForTimeout(400);
+  await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv-job='cameras']");
+  try { await userP.waitForFunction(() => JSON.stringify(CentralUsage.jobs()) === '["lights","cameras"]', null, { timeout: 5000 }); }
   catch (e) { throw new Error("jobs " + await userP.evaluate(() => JSON.stringify([CentralUsage.jobs(), CentralUsage.role()])) + " main view " + await mainP.evaluate(() => JSON.stringify(CURoles.view().devices))); }
-  assert.equal(await tabsShown(userP), "lights,video,io,settings");
+  assert.equal(await tabsShown(userP), "lights,video,io,controls,settings");
+});
+await check("10.0: Central Control's setup asks what the computer will do (any of 7 jobs) after Main admin / Admin; Settings shows them and who runs each", async () => {
+  const c = await b.newContext({ viewport: { width: 1280, height: 800 } }), p = await c.newPage();
+  p.on("pageerror", (e) => errs.push("setup10:" + e));
+  await p.addInitScript(() => { try { localStorage.setItem("cc-license", JSON.stringify({ key: "ADEF-AULT-KEY0-2026", kind: "A", app: "control", okAt: Date.now(), production: "Grace Harbor Church", isDefault: true })); localStorage.setItem("cu-centerHost", JSON.stringify("127.0.0.1:1")); } catch (_) { } });
+  await p.goto("file://" + path.join(here, "app", "index.html") + "?edition=control"); await p.waitForFunction(() => window.CentralUsage && window.CURoles && document.querySelector("#modePick"));
+  await p.waitForFunction(() => /Grace Harbor Church/.test(document.querySelector("#modePick .rp-church").textContent), null, { timeout: 8000 }).catch(() => { });
+  assert.match(await p.textContent("#modePick .rp-church") + " " + await p.evaluate(() => JSON.stringify([!!window.PPLicense, window.PPLicense && window.PPLicense.state()])), /Grace Harbor Church/);
+  await p.fill("#modePick [data-rp='name']", "Booth"); await p.click("#modePick [data-rp='admin']");
+  await p.waitForSelector("#modePick [data-step='jobs']:not([hidden])");
+  assert.equal(await p.locator("#modePick [data-rp-job]").count(), 7);
+  for (const j of ["lights", "cameras", "inears", "tracks", "stream"]) await p.uncheck(`#modePick [data-rp-job='${j}']`);
+  await p.click("#modePick [data-rp='jobsNext']");
+  await p.waitForSelector("#modePick [data-step='join']:not([hidden])");
+  assert.equal(await p.evaluate(() => JSON.stringify(CentralUsage.jobs())), '["lyrics","slides"]');
+  await p.click("#modePick [data-rp='later']"); await p.waitForFunction(() => CentralUsage.role() === "admin" && !document.getElementById("modePick"));
+  assert.equal(await tabsShown(p), "lyrics,slides,io,controls,settings");
+  await p.click('[data-tab="settings"]'); await p.waitForSelector(".rl-jobs-card [data-rl-myjob='lights']");
+  await p.check(".rl-jobs-card [data-rl-myjob='lights']"); await p.waitForFunction(() => CentralUsage.jobs().indexOf("lights") >= 0);
+  assert.equal(await tabsShown(p), "lights,lyrics,slides,io,controls,settings");
+  await c.close();
 });
 await check("Devices tab: Change role moves it back to User 1", async () => {
   await mainP.selectOption("#devicesRoot tr:has-text('Keys') [data-dv-role]", "user1"); await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv='apply']");
   await userP.waitForFunction(() => CentralUsage.role() === "user1", null, { timeout: 5000 });
-  assert.equal(await tabsShown(userP), "chart,instrument,inears,lyrics,io,settings");
+  assert.equal(await tabsShown(userP), "chart,instrument,studio,inears,lyrics,io,controls,settings");
 });
 await check("a computer set up as Admin without the role PIN waits; the main admin allows it on the Devices tab", async () => {
   const adminP = await cuPage("admin2"); await adminP.waitForFunction(() => window.CUCenter.connected(), null, { timeout: 6000 });
@@ -412,11 +433,11 @@ await check("a computer set up as Admin without the role PIN waits; the main adm
 await check("service lock: the main admin locks everyone - the user's I/O tab and settings close; unlock brings them back", async () => {
   await mainP.click("#devicesRoot [data-dv='lockAll']");
   await userP.waitForFunction(() => document.body.classList.contains("svc-locked"), null, { timeout: 6000 });
-  assert.ok(!(await tabsShown(userP)).includes("io"), await tabsShown(userP));
+  assert.ok(!(await tabsShown(userP)).split(",").includes("io"), await tabsShown(userP));
   assert.equal(await mainP.evaluate(() => document.body.classList.contains("svc-locked")), false, "the main admin is never locked");
   await mainP.waitForSelector("#devicesRoot [data-dv='lockAll'].on"); await mainP.click("#devicesRoot [data-dv='lockAll']");
   await userP.waitForFunction(() => !document.body.classList.contains("svc-locked"), null, { timeout: 6000 });
-  assert.ok((await tabsShown(userP)).includes("io"));
+  assert.ok((await tabsShown(userP)).split(",").includes("io"));
 });
 await check("manual lock: nothing changes (the User 2 switch is refused) until the lock is held for 2 seconds", async () => {
   await userP.click("#mlBtn"); assert.ok(await userP.evaluate(() => document.body.classList.contains("man-locked")));

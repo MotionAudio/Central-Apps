@@ -1,5 +1,6 @@
 # Central Usage native helpers:
 #   cu-mixer  the audio engine (JACK on Linux; Windows / macOS / Linux audio devices through miniaudio)
+#   cu-studio the Studio tab's live sound: notes played on a MIDI keyboard, at low latency (SoundFonts, miniaudio)
 #   cu-ndi    the NDI sender (the NDI runtime is loaded at run time)
 #   cu-rig    the instrument rig for Windows / macOS (built-in effects + SoundFont keys), and the musician's own
 #             plugins on every computer (plughost/: VST3, CLAP; Audio Units on macOS; LV2 on Linux) - C++
@@ -66,9 +67,11 @@ PLAYANY :=
 ifeq ($(PLAT),linux)
   PLAYANY := $(OUT)/central-playany.lv2/central-playany.so
 endif
-all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY)
+all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/cu-studio$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY)
 $(OUT)/cu-mixer$(EXE): cu-mixer.c plat.h
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-mixer.c $(LIBS)
+$(OUT)/cu-studio$(EXE): cu-studio.c plat.h $(OUT)/obj/cJSON.o
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-studio.c $(OUT)/obj/cJSON.o $(LIBS)
 $(OUT)/cu-ndi$(EXE): cu-ndi.c plat.h
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-ndi.c $(NDILIBS)
 # cu-rig: C (the rig) + C++ / Objective-C++ (the plugin host), linked as C++
@@ -98,7 +101,7 @@ playany: $(OUT)/test-playany$(EXE) $(PLAYANY)
 $(OUT)/rig-map.json: ../../js/pedals.js ../../instrument-plugins.json ../../tools/make-rig-map.js
 	mkdir -p $(OUT) && node ../../tools/make-rig-map.js $@
 test: all $(if $(PLAYANY),$(OUT)/test-playany-plugin)
-	$(OUT)/test-playany$(EXE) && $(if $(PLAYANY),$(OUT)/test-playany-plugin $(PLAYANY) playany/central-playany.lv2/central-playany.ttl &&) node test-mixer.mjs $(OUT)/cu-mixer$(EXE) && node test-rig.mjs $(OUT)/cu-rig$(EXE)
+	$(OUT)/test-playany$(EXE) && $(if $(PLAYANY),$(OUT)/test-playany-plugin $(PLAYANY) playany/central-playany.lv2/central-playany.ttl &&) node test-mixer.mjs $(OUT)/cu-mixer$(EXE) && node test-rig.mjs $(OUT)/cu-rig$(EXE) && node test-studio-native.mjs $(OUT)/cu-studio$(EXE)
 clean:
 	rm -rf build build-*
 .PHONY: all test clean playany

@@ -19,7 +19,8 @@
 <p>The main admin's copy is the <b>hub</b>. Every other computer, phone, tablet and Central Pedal pairs with it, and it holds the team together: who has which role, which jobs each admin has, the service lock and the services with their run orders. With no Central Pedal at all, the hub plays the tracks, charts and lyrics itself in its player window.</p>
 <ul>
 <li><b>Main admin</b> (up to two per church): everything, plus the pairing PIN, the role PIN and the Devices tab where every device gets its role and jobs.</li>
-<li><b>Admin</b>: the tabs for the jobs the main admin gives it: Lighting, Production (cameras), Mix, In-ears, or Slides &amp; lyrics. <i>General</i> means all of them.</li>
+<li><b>Admin</b>: only the tabs for the jobs that computer does. There are seven jobs: Lyrics, Lights, Cameras, In-ears, Tracks, Live stream audio mix and Slides. One computer can do all seven, or seven computers can do one each, or anything in between. A church that doesn't use cameras just leaves that job out.</li>
+<li>One A key covers one computer, whatever jobs it does, and you can have as many admins as you like.</li>
 </ul>
 <p>Musicians and singers use <a href="/apps/central-usage.html">Central Usage</a> instead. It has their chart, lyrics, instrument and in-ear mix, and it can't be made an admin.</p>
 
@@ -34,8 +35,9 @@
 <p>Set up the main admin's computer first. It's usually the sound desk computer, and it has to be open during the service.</p>
 <h3>The main admin's computer (the hub)</h3>
 <ol class="steps">
-<li><b>Install and open Central Control.</b> The first time, it asks for your Motion Audio account and your A key. Sign in with the church's account or your own.</li>
+<li><b>Install and open Central Control.</b> The first time, it asks for your church's name and your A key, then your Motion Audio account. Sign in with the church's account or your own.</li>
 <li><b>Choose Main admin.</b> Give the computer a name people will recognise, like <i>Sound desk</i>.</li>
+<li><b>Pick what this computer will do</b>: any of Lyrics, Lights, Cameras, In-ears, Tracks, Live stream audio mix and Slides, or <b>All of them</b>. You can change this later in Settings → This computer.</li>
 <li><b>Pick its inputs and outputs.</b> Do this when the computer is the sound desk and has the audio interface.</li>
 <li><b>Choose two different 4-digit PINs.</b> The <b>pairing PIN</b> is shared with everyone: every device types it to join. The <b>role PIN</b> is only yours: it's what moves a computer between the user side and the admin side.</li>
 <li><b>Add tracks.</b> On the Devices tab, press <b>▶ Open the player on this computer</b>, or pair a Central Pedal. The player window is the Central Pedal app built into Central Control; nothing else to install.</li>
@@ -43,15 +45,17 @@
 <h3>Every other admin computer</h3>
 <ol class="steps">
 <li><b>Install Central Control and sign in</b> with your account and your A key.</li>
-<li><b>Choose Admin</b> and give the computer a name (<i>Lights</i>, <i>Cameras</i>…).</li>
+<li><b>Choose Admin</b>, give the computer a name (<i>Lights</i>, <i>Cameras</i>…) and pick its jobs.</li>
 <li><b>Type the pairing PIN.</b> It finds the main admin's computer on the network by itself. If it doesn't, type the hub's address: it's in the main admin's Settings → This computer.</li>
-<li><b>Wait for your jobs.</b> Without the role PIN, the computer starts as User 1 and the main admin is asked to make it an admin. The main admin allows it on the Devices tab and picks its jobs.</li>
+<li><b>Wait for the main admin to let you in.</b> Without the role PIN, the computer starts as User 1 and the main admin is asked to make it an admin. The main admin allows it on the Devices tab.</li>
+<li><b>If two computers pick the same job,</b> both are asked which one runs it. If that computer goes offline, the other one takes over by itself. Settings → This computer shows who runs each job, with a <b>Run it here</b> button.</li>
 </ol>
 <div class="note"><p>Phones and tablets can open the user side straight from the hub: <code>http://&lt;hub address&gt;:8095/cu/</code> in Safari or Chrome. Musicians get the full app with <a href="/apps/central-usage.html">Central Usage</a>.</p></div>
 
 <h2 id="the-tabs">The tabs</h2>
 
-<p>The tabs along the top are <b>Devices</b>, <b>Service</b>, <b>Lighting</b>, <b>Mix</b>, <b>In-ears</b>, <b>Lyrics</b>, <b>Slides</b>, <b>Video</b>, <b>I/O</b> and <b>⚙</b> (Settings). An admin only sees the tabs for its jobs. <kbd>F1</kbd>–<kbd>F9</kbd> switch tabs.</p>
+<p>The tabs along the top are <b>Devices</b>, <b>Service</b>, <b>Lighting</b>, <b>Mix</b>, <b>In-ears</b>, <b>Lyrics</b>, <b>Slides</b>, <b>Video</b>, <b>I/O</b>, <b>Controls</b> and <b>⚙</b> (Settings). An admin only sees the tabs for its jobs. <kbd>F1</kbd>–<kbd>F9</kbd> switch tabs.</p>
+<p>The <b>Controls</b> tab lets a MIDI controller, footswitch, Stream Deck or computer key do any job in Central Control. Press <b>Add new control</b>, pick Button, Knob or Slider, name it, then press it once (or turn or slide it from one end to the other). Then give it a job. Settings → Colours changes the colours of everything, with a button to go back to ours.</p>
 <p>The top bar always has your <b>countdown</b>: to the service, and to your own next part (<i>Lights: Sermon in 4:10</i>, <i>you're on</i>), with a warning a minute before. Tap it for the run order with your parts marked.</p>
 
 <h2 id="devices">Devices</h2>
@@ -63,6 +67,7 @@
 <li>Next to each one: <b>Change role</b>, <b>Jobs</b>, <b>Lock</b> / <b>Unlock</b>, <b>Rename</b> and <b>Remove</b>. Remove sends a device back to its first-launch setup.</li>
 <li><b>Talk group</b>: who hears the main admin's Band talk or Production talk. Users start in the Band, admins in Production.</li>
 <li><b>What each Central Pedal does</b>: <i>Track player</i> plays the tracks and sends the charts and lyrics (one at a time; everyone follows it), <i>Foot controller</i> drives the track player from its footswitches and knobs, <i>Instrument rig</i> plays only its own instrument, and <i>Backup player</i> follows the track player silently and takes over if it stops. You can add as many pedals as you like.</li>
+<li><b>Where the tracks run</b>: on <i>this computer</i> (the default) the player window plays the tracks and any Central Pedals act as foot controllers, so the Pi has less to do. Close the player window and a pedal takes over; open it again and it takes the tracks back as soon as nothing is playing. Or choose <i>a Central Pedal</i> to let the pedal play.</li>
 <li><b>▶ Open the player on this computer</b>: the hub plays the tracks itself when no Central Pedal does.</li>
 <li><b>Service lock</b>: one button locks every device, or one at a time. The I/O tab, settings, fixtures, lighting outputs and video sources close; everything used during the service keeps working.</li>
 <li><b>Second main admin's computer</b>: <b>Keep … in sync</b>. See <a href="#the-second-main-admin-s-computer">The second main admin's computer</a>.</li>
@@ -94,6 +99,8 @@
 <ul>
 <li>The <b>timeline</b> shows the song's waveform, its sections in their colours, the hits as yellow lines, and your cues. Click the timeline to add a cue; drag a cue to move it. It snaps to the bar, beat, ½ beat or ¼ beat.</li>
 <li>Each song has a <b>mode</b>: <i>Auto</i> (the sections and hits run the lights), <i>Semi-auto</i> (the same, with your own cues on top) or <i>Manual</i> (only your cues).</li>
+<li><b>Auto</b> reads each song as intimate, mid or upbeat, finds the beat and the start of each bar (even from a live band with no tracks), and builds through the song: each chorus a little bigger, a soft chorus after the bridge, and the last full chorus as the peak. Faces stay lit while someone sings. It works with whatever lights you have.</li>
+<li><b>Safe strobes</b> are on unless you turn them off in the Strobe panel: never more than 3 flashes a second, and a rest after 2 seconds of strobing.</li>
 <li><b>Tell it the show</b>: type something like <i>"dimmers blue 20% for the verse, then chorus full white, strobes on the hits"</i> and it makes the presets and the cues.</li>
 <li><b>● Record</b>: while the song plays (on the pedal, or <b>▶ Preview here</b>), everything you press goes on the timeline. Record again over any part to replace just that part.</li>
 <li><b>Lights</b>: every light under the plot. Change one light's colour and level live, then <b>+ Cue with these colours</b>.</li>
@@ -117,7 +124,8 @@
 <p>The mixer runs on one admin computer, the <b>audio host</b>: on the I/O tab, choose <b>This computer is the audio host</b>. It receives every track from the Central Pedal on its own channel, together with the click, the pads, the tracks mix and the instrument.</p>
 <figure class="shot"><img src="/img/apps/cc-mix.webp" alt="The Mix tab: a channel strip for every track with fader, meter, pan, mute, EQ and compressor" loading="lazy"><figcaption>Mix: a strip for every track. A track keeps its settings from song to song because channels are matched by name.</figcaption></figure>
 <ul>
-<li>Every track has a strip: fader, meter, pan, mute, high-pass, a 3-band EQ with its curve and a compressor with a gain-reduction meter. Click a strip's name for the details.</li>
+<li>Every track has a strip: fader, meter, pan and mute, then a high-pass, a gate, a 4-band EQ and a compressor, plus sends to one shared reverb and one shared delay (the delay follows the song's tempo). There are presets for lead vocal, speech, acoustic, kick, snare and more. Click a strip's name for the details.</li>
+<li><b>Stream mix</b>: a separate mix for the live stream, with its own level and pan for every channel, its own compressor and a limiter. Send it to an output pair, a virtual sound device for OBS or Zoom, straight to YouTube or Facebook, or into the Video tab's stream.</li>
 <li><b>Tracks out</b>: summed to two outputs of the interface, or each track on its own output.</li>
 <li>A track keeps its settings from song to song: "Drums" stays "Drums".</li>
 <li><b>Listen here</b> plays the main mix or any in-ear mix on this computer's headphones.</li>
@@ -154,7 +162,7 @@
 <figure class="shot"><img src="/img/apps/cc-io.webp" alt="The I/O tab laid out as the signal flows: In, This computer, Out" loading="lazy"><figcaption>I/O: laid out the way the signal flows, from In to This computer to Out.</figcaption></figure>
 <p><b>I/O</b> is laid out the way the signal flows: <b>1 In</b> (the Central Pedal, its audio, MIDI) → <b>2 This computer</b> (audio host, interface or Dante, listening) → <b>3 Out</b> (screens and lights). Under <i>Audio from the Central Pedal</i>, pick the same connection the pedal uses: Ethernet (the best), Wi-Fi (a little more delay; set the buffer) or an audio interface cabled in.</p>
 <figure class="shot"><img src="/img/apps/cc-settings.webp" alt="Settings: This computer, with its name, role, address and PINs" loading="lazy"><figcaption>Settings → This computer: its name, role and address, and on the main admin the PINs.</figcaption></figure>
-<p><b>Settings</b> (⚙) has this computer's name and role, and on the main admin the pairing PIN, the role PIN and the hub's address. It also has the optional AI model for the lights, the speech model for lyrics, the license (with Release key and Contact support) and updates. <b>Forget role</b> puts a computer back to the first question.</p>
+<p><b>Settings</b> (⚙) has this computer's name and role, and on the main admin the pairing PIN, the role PIN and the hub's address. It also has the lights' AI helper (it comes with the app, so there's nothing to download), the speech model for lyrics, the license (with Release key and Contact support) and updates. <b>Forget role</b> puts a computer back to the first question.</p>
 
 <h2 id="the-second-main-admin-s-computer">The second main admin's computer</h2>
 
@@ -188,7 +196,8 @@
 <li><b>"The center on this computer did not start."</b> Another program is using port 8095. Close it, or restart the computer, then open Central Control again.</li>
 <li><b>Two computers both set up as main admin.</b> On the one that shouldn't be, Settings → <b>Forget role</b>, and set it up as an admin.</li>
 <li><b>No sound from the pedal in the mixer.</b> The pedal's I/O tab and this computer's I/O tab must use the same connection (Ethernet, Wi-Fi or audio interface), and this computer must be the audio host.</li>
-<li><b>Linux: the app won't open from the menu after an update.</b> Run the install line again (see <a href="/help/install.html#linux">Linux</a>). Since 9.3.1 the program is <code>central-control</code>; old menu entries and desktop icons are fixed when it installs.</li>
+<li><b>Linux: the app won't open from the menu after an update.</b> Run the install line again (see <a href="/help/install.html#linux">Linux</a>). It fixes old menu entries and desktop icons as it installs.</li>
+<li><b>Two computers both think they run the lights.</b> Only the one shown in Settings → This computer sends to the lights. The other shows a <b>Run them here</b> button.</li>
 <li><b>Still stuck?</b> Settings → License → <b>Contact support</b>. A real person on our team reads every message.</li>
 </ul>
 
@@ -196,7 +205,7 @@
 <footer class="on-stage"><div class="wrap">
   <div><a class="logo" href="/"><span style="color:var(--brass-hi)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
     <p class="apps">Made for worship teams, by Motion Audio. Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Tracks.</p></div>
-  <div class="links"><a href="/apps/">The apps</a><a href="/help/install.html">Install</a><a href="/help/accounts.html">Accounts</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/#support">Talk to us</a><a href="https://motionaudio.github.io/Central-Apps/">Downloads</a></div>
+  <div class="links"><a href="/apps/">The apps</a><a href="/help/install.html">Install</a><a href="/help/accounts.html">Accounts</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/#support">Talk to us</a><a href="/#downloads">Downloads</a></div>
   <div class="fine">&copy; 2026 Motion Audio. Prices in US dollars, tax included.</div>
 </div></footer>
 <script>

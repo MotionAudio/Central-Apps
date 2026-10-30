@@ -102,7 +102,7 @@ try {
   ok(s1.ui_mode === "form" && s1.integration_identifier === "custom_embedded_web_0001" && s1.billing_address_collection === "auto" && s1.automatic_tax.enabled === "false" && s1.phone_number_collection.enabled === "false" && /\/#order-done-\{CHECKOUT_SESSION_ID\}$/.test(s1.return_url) && !s1.success_url,
     "Checkout Studio settings: the embedded form, address when needed, no phone, Stripe Tax off, a return link", s1);
   const byName = (re) => L.find((x) => re.test(x.price_data.product_data.name));
-  const ul = byName(/^Central-Apps Ultra/), add = byName(/10 more/), ped = byName(/Central Pedal \(built/), slot = byName(/^Central Services slot/);
+  const ul = byName(/^Ultra pack/), add = byName(/10 more/), ped = byName(/Central Pedal \(built/), slot = byName(/^Central Services slot/);
   ok(ul.price_data.unit_amount === "35000" && add.price_data.unit_amount === "1750" && slot.price_data.unit_amount === "250" && slot.quantity === "2" && ped.price_data.unit_amount === "25000" && /BETATEST/.test(ul.price_data.product_data.name) && !/BETATEST/.test(ped.price_data.product_data.name),
     "BETATEST: half off the pack, its 10 more slots and the slots; the built pedal stays $250", L.map((x) => x.price_data.product_data.name + " " + x.price_data.unit_amount));
   ok(L.every((x) => x.price_data.tax_behavior === "inclusive" && x.price_data.currency === "usd") && ped.price_data.product_data.tax_code === "txcd_99999999" && ul.price_data.product_data.tax_code === "txcd_10202003",
@@ -123,7 +123,7 @@ try {
   ok((await j("GET", "/discount/BETATEST", null, T)).used, "BETATEST is used up for this church");
   ok(await paid("cs_nobody_" + S, "pi_x") === 200, "a paid event for a checkout this server didn't start changes nothing (no error)");
   const twice = await j("POST", "/checkout/store", { items: { "ultra-plus10": 1 } }, T);
-  ok(twice._status === 400 && /goes with Central-Apps Ultra/.test(twice.error), "the Ultra's 10 more slots: one for each Ultra pack (this one has them)", twice);
+  ok(twice._status === 400 && /goes with Ultra pack/.test(twice.error), "the Ultra's 10 more slots: one for each Ultra pack (this one has them)", twice);
 
   // ---------------------------------------------------------------- refunds, disputes, fraud warnings
   const small = await j("POST", "/checkout/store", { items: { admin: 1, "services-slot": 3 } }, T);

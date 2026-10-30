@@ -5,13 +5,24 @@
  * orientation are settings too (Settings → Stream Deck).
  * It talks to the Stream Deck over WebHID: the Central Pedal's Chromium is allowed by a policy (pad-pedal-system
  * boot-tune), the desktop apps allow it themselves; elsewhere "Connect a Stream Deck" asks once.
- * Keys are inputs "sd<page>-<key>" in the same mapping as the footswitches, so Configure / Learn show them too. */
+ * Keys are inputs "sd<page>-<key>" in the same mapping as the footswitches, so Configure / Learn show them too.
+ * Central Control and Central Usage use this file too (controls.js gives it window.CCHost: their own actions,
+ * mapping and storage); in the Central Pedal app the host is the app itself (below). */
 (function () {
   "use strict";
-  var PP = window.PP, F = window.PPFeatures; if (!PP || !F) return;
-  var esc = PP.escapeHtml;
-  function A() { return window.PPActions; }
-  function project() { return PP.project(); }
+  var PP = window.PP;
+  var H = window.CCHost || (PP && window.PPFeatures && PP.project ? {
+    store: function () { return PP.project(); }, persist: function () { PP.persistSoon(); }, status: function (t) { PP.setStatus(t); }, ask: function (a, b) { return PP.ask(a, b); },
+    esc: PP.escapeHtml, actions: function () { return window.PPActions; }, inputs: function () { return window.PPConfigure ? window.PPConfigure.inputs() : null; },
+    rerender: function () { if (window.PPShell && window.PPShell.currentTab() === "settings") window.PPShell.renderSystemExtras(); },
+    changed: function () { if (window.PPActions) window.PPActions.modeChanged(); },
+    label: function (e) { if (e.action === "pad") { var pad = PP.project().pads[(e.args && e.args.index) || 0]; return pad ? pad.name : "Pad"; } if (e.action === "playPauseAll") return window.PPTracks && window.PPTracks.isPlaying() ? "Pause" : "Play"; return null; },
+    sectionAttrs: 'data-st="midi"', note: 'Keys are also on the Configure tab ("Stream Deck key …"), next to the footswitches. Page keys: give a key "Stream Deck: next page". The settings travel with Upload (Buttons, knobs and MIDI).'
+  } : null);
+  if (!H) return;
+  var esc = H.esc;
+  function A() { return H.actions(); }
+  function project() { return H.store(); }
   function $(s, r) { return (r || document).querySelector(s); }
 
   // the Stream Decks (USB product id) - gen2: JPEG pictures; mini: BMP
@@ -61,7 +72,7 @@
   var MINI = [0, 1, 2, 3, 4, 6];   // (6 keys: play, safe stop, sections, vamp, next song)
   function defaultLayout(n, page) {
     var m = A() && A().mapping(), c = cfg();
-    var list = n <= 6 ? MINI.map(function (i) { return DEFAULTS[i]; }) : DEFAULTS.slice(0, n);
+    var defs = H.defaults || DEFAULTS, list = n <= 6 ? (H.defaults ? defs.slice(0, n) : MINI.map(function (i) { return defs[i]; })) : defs.slice(0, n);
     for (var k = 0; k < n; k++) {
       var id = keyId(page, k), d = list[k];
       if (!d) { m[id] = { action: "none" }; continue; }
@@ -69,10 +80,10 @@
       if (d[0] === "playPauseAll") m[id].hold = { action: "stopAll" };
       c.keys[id] = { label: d[2], icon: d[3] };
     }
-    PP.persistSoon();
+    H.persist();
   }
   function ensureInputs() {
-    var inputs = window.PPConfigure ? window.PPConfigure.inputs() : null, c = cfg(), n = keyCount(), m = A() && A().mapping(); if (!inputs || !m) return;
+    var inputs = H.inputs(), c = cfg(), n = keyCount(), m = A() && A().mapping(); if (!inputs || !m) return;
     var have = {}; inputs.forEach(function (i) { have[i.id] = i; });
     c.pages.forEach(function (pg, p) {
       var fresh = true;
@@ -86,15 +97,15 @@
   var dev = null;   // { hid, model, states: [], holdTimers: {}, lastPic: {} }
   function supported() { return !!(navigator.hid && navigator.hid.getDevices); }
   async function openDevice(hid) {
-    var m = MODELS[hid.productId]; if (!m) { PP.setStatus("This Stream Deck (" + hid.productName + ") is not one Central Pedal knows yet"); return; }
-    try { if (!hid.opened) await hid.open(); } catch (error) { PP.setStatus("Could not open the Stream Deck: " + error.message); return; }
+    var m = MODELS[hid.productId]; if (!m) { H.status("This Stream Deck (" + hid.productName + ") is not one Central Pedal knows yet"); return; }
+    try { if (!hid.opened) await hid.open(); } catch (error) { H.status("Could not open the Stream Deck: " + error.message); return; }
     dev = { hid: hid, model: m, states: new Array(m.keys).fill(false), holdTimers: {}, lastPic: {}, lastPress: Date.now(), dimmed: false };
     var c = cfg(); c.lastKeys = m.keys; c.lastCols = m.cols;
     hid.addEventListener("inputreport", onReport);
     try { await brightness(c.brightness); } catch (_) { }
-    ensureInputs(); PP.persistSoon();
+    ensureInputs(); H.persist();
     redraw(true);
-    PP.setStatus(m.name + " connected");
+    H.status(m.name + " connected");
     rerender();
   }
   async function connectAllowed() {
@@ -102,12 +113,12 @@
     try { var list = await navigator.hid.getDevices(); var d = list.filter(function (x) { return x.vendorId === VENDOR && MODELS[x.productId]; })[0]; if (d && (!dev || dev.hid !== d)) await openDevice(d); } catch (_) { }
   }
   async function requestDevice() {
-    if (!supported()) { PP.setStatus("Stream Deck needs Chrome / Edge or the Central apps (WebHID)"); return; }
-    try { var list = await navigator.hid.requestDevice({ filters: [{ vendorId: VENDOR }] }); if (list && list[0]) await openDevice(list[0]); } catch (error) { PP.setStatus("No Stream Deck picked"); }
+    if (!supported()) { H.status("Stream Deck needs Chrome / Edge or the Central apps (WebHID)"); return; }
+    try { var list = await navigator.hid.requestDevice({ filters: [{ vendorId: VENDOR }] }); if (list && list[0]) await openDevice(list[0]); } catch (error) { H.status("No Stream Deck picked"); }
   }
   if (supported()) {
     navigator.hid.addEventListener("connect", function () { setTimeout(connectAllowed, 300); });
-    navigator.hid.addEventListener("disconnect", function (e) { if (dev && e.device === dev.hid) { dev = null; PP.setStatus("Stream Deck unplugged"); rerender(); } });
+    navigator.hid.addEventListener("disconnect", function (e) { if (dev && e.device === dev.hid) { dev = null; H.status("Stream Deck unplugged"); rerender(); } });
   }
   function bytes(n) { return new Uint8Array(n); }
   async function brightness(pct) {
@@ -144,9 +155,8 @@
   function labelOf(id) {
     var a = A(), k = cfg().keys[id] || {}, e = a && a.entryFor(id); if (k.label != null && k.label !== "") return k.label;
     if (!e || !a.ACTIONS[e.action]) return "";
-    if (e.action === "pad") { var pad = project().pads[(e.args && e.args.index) || 0]; return pad ? pad.name : "Pad"; }
-    if (e.action === "playPauseAll") return window.PPTracks && window.PPTracks.isPlaying() ? "Pause" : "Play";
-    return a.ACTIONS[e.action].label.replace(/^(Tracks|Instrument|Flow|Keys|Looper|Rehearse|Setlist|Scene): /, "").split(/[(:,-]/)[0].trim().slice(0, 14);
+    var own = H.label ? H.label(e) : null; if (own) return own;
+    return a.ACTIONS[e.action].label.replace(/^(Tracks|Instrument|Flow|Keys|Looper|Rehearse|Setlist|Scene|Lights|Slides|Mix|Tabs|Video|Talkback): /, "").split(/[(:,-]/)[0].trim().slice(0, 14);
   }
   function draw(id, size, blinkOn) {
     var c = cfg(), k = c.keys[id] || {}, st = stateOf(id), on = st === "on" || (st === "blink" && blinkOn), none = st === "none";
@@ -216,13 +226,13 @@
   }, 500);
 
   // ------------------------------------------------------------- pages (actions any key / pedal can do)
-  function setPage(p) { var c = cfg(); c.page = (p + c.pages.length) % c.pages.length; PP.persistSoon(); if (dev) { dev.lastPic = {}; redraw(true); } PP.setStatus("Stream Deck: " + (c.pages[c.page].name || "page " + (c.page + 1))); rerender(); }
+  function setPage(p) { var c = cfg(); c.page = (p + c.pages.length) % c.pages.length; H.persist(); if (dev) { dev.lastPic = {}; redraw(true); } H.status("Stream Deck: " + (c.pages[c.page].name || "page " + (c.page + 1))); rerender(); }
   function addActions() {
     var a = A(); if (!a || a.ACTIONS.sdPageNext) return;
     a.ACTIONS.sdPageNext = { id: "sdPageNext", label: "Stream Deck: next page", group: "Stream Deck", kind: "trigger", run: function () { setPage(cfg().page + 1); } };
     a.ACTIONS.sdPagePrev = { id: "sdPagePrev", label: "Stream Deck: previous page", group: "Stream Deck", kind: "trigger", run: function () { setPage(cfg().page - 1); } };
     a.ACTIONS.sdPage = { id: "sdPage", label: "Stream Deck: go to page N", group: "Stream Deck", kind: "trigger", arg: "scene", run: function (args) { setPage(Number(args && args.index) || 0); } };
-    a.ACTIONS.sdBrightness = { id: "sdBrightness", label: "Stream Deck: brightness", group: "Stream Deck", kind: "continuous", run: function (_a, v) { cfg().brightness = Math.round(v * 100); brightness(cfg().brightness).catch(function () { }); PP.persistSoon(); } };
+    a.ACTIONS.sdBrightness = { id: "sdBrightness", label: "Stream Deck: brightness", group: "Stream Deck", kind: "continuous", run: function (_a, v) { cfg().brightness = Math.round(v * 100); brightness(cfg().brightness).catch(function () { }); H.persist(); } };
   }
 
   // ------------------------------------------------------------- Settings → Stream Deck
@@ -235,7 +245,7 @@
   function settingsHtml() {
     var c = cfg(), n = keyCount(), cc = cols(), a = A(), id = keyId(c.page, Math.min(selKey, n - 1)), e = (a && a.entryFor(id)) || { action: "none" }, k = c.keys[id] || {}, act = a && a.ACTIONS[e.action];
     var grid = ""; for (var i = 0; i < n; i++) { var kid = keyId(c.page, i), st = stateOf(kid), kk = c.keys[kid] || {}; grid += '<button class="sd-key' + (i === selKey ? " sel" : "") + (st === "on" ? " on" : "") + '" data-sd="key" data-i="' + i + '" style="--c:' + esc(kk.color || c.colors.idle) + ";--o:" + esc(kk.onColor || c.colors.on) + '"><i>' + esc(kk.icon || "") + "</i><small>" + esc(labelOf(kid)) + "</small></button>"; }
-    return '<section data-st="midi" class="sd"><h3>Stream Deck</h3>' +
+    return '<section ' + (H.sectionAttrs || "") + ' class="sd' + (H.sectionClass ? " " + H.sectionClass : "") + '"><h3>Stream Deck</h3>' +
       '<p class="small">' + (dev ? "✓ <b>" + esc(dev.model.name) + "</b> (" + dev.model.keys + " keys)" : supported() ? '<span class="muted">No Stream Deck connected.</span> <button data-sd="connect">Connect a Stream Deck</button>' : '<span class="muted">This browser can\'t reach a Stream Deck (WebHID) - the Central Pedal and the Central apps can.</span>') + "</p>" +
       '<div class="row sd-pages">' + c.pages.map(function (pg, p) { return '<button data-sd="page" data-i="' + p + '"' + (p === c.page ? ' class="on"' : "") + ">" + esc(pg.name || "Page " + (p + 1)) + "</button>"; }).join("") + '<button data-sd="addPage" title="Add a page">＋</button>' + (c.pages.length > 1 ? '<button data-sd="renamePage">Rename</button><button data-sd="delPage">Remove page</button>' : '<button data-sd="renamePage">Rename</button>') + "</div>" +
       '<div class="sd-main"><div class="sd-grid" style="grid-template-columns:repeat(' + cc + ',1fr)">' + grid + "</div>" +
@@ -255,11 +265,11 @@
       '<label>Key colour<input type="color" data-sd="cIdle" value="' + esc(c.colors.idle) + '"></label><label>On colour<input type="color" data-sd="cOn" value="' + esc(c.colors.on) + '"></label>' +
       '<label>Picture rotation<select data-sd="rotation">' + ["auto", "0", "90", "180", "270"].map(function (x) { return '<option value="' + x + '"' + (String(c.rotation) === x ? " selected" : "") + ">" + (x === "auto" ? "Automatic" : x + "°") + "</option>"; }).join("") + "</select></label>" +
       '<label>Picture flip<select data-sd="flip">' + [["auto", "Automatic"], ["none", "None"], ["h", "Left ↔ right"], ["v", "Upside down"], ["both", "Both"]].map(function (x) { return '<option value="' + x[0] + '"' + (c.flip === x[0] ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + "</select></label></div>" +
-      '<p class="muted small">Keys are also on the Configure tab ("Stream Deck key …"), next to the footswitches. Page keys: give a key "Stream Deck: next page". The settings travel with Upload (Buttons, knobs and MIDI).</p></section>';
+      '<p class="muted small">' + esc(H.note || "") + "</p></section>";
   }
-  function rerender() { if (window.PPShell && window.PPShell.currentTab() === "settings") window.PPShell.renderSystemExtras(); }
+  function rerender() { H.rerender(); }
   function mapEntry() { var c = cfg(), id = keyId(c.page, selKey), m = A().mapping(); return { id: id, m: m, e: m[id] || (m[id] = { action: "none" }), k: c.keys[id] || (c.keys[id] = {}) }; }
-  function changed() { PP.persistSoon(); if (dev) redraw(true); if (window.PPActions) window.PPActions.modeChanged(); rerender(); }
+  function changed() { H.persist(); if (dev) redraw(true); H.changed(); rerender(); }
   document.addEventListener("click", async function (e) {
     var b = e.target.closest && e.target.closest("[data-sd]"); if (!b || b.tagName === "SELECT" || b.tagName === "INPUT") return;
     var a = b.dataset.sd, c = cfg();
@@ -267,7 +277,7 @@
     if (a === "key") { selKey = Number(b.dataset.i); return rerender(); }
     if (a === "page") return setPage(Number(b.dataset.i));
     if (a === "addPage") { c.pages.push({ name: "Page " + (c.pages.length + 1) }); ensureInputs(); return setPage(c.pages.length - 1); }
-    if (a === "renamePage") { var nm = await PP.ask("Name of this page", { value: c.pages[c.page].name || "" }); if (nm) { c.pages[c.page].name = nm.trim().slice(0, 20); changed(); } return; }
+    if (a === "renamePage") { var nm = await H.ask("Name of this page", { value: c.pages[c.page].name || "" }); if (nm) { c.pages[c.page].name = nm.trim().slice(0, 20); changed(); } return; }
     if (a === "delPage") { if (!confirm("Remove the page \"" + (c.pages[c.page].name || "") + "\"?")) return; c.pages.splice(c.page, 1); c.page = 0; changed(); return; }
     if (a === "clearKey") { var me = mapEntry(); me.m[me.id] = { action: "none" }; delete c.keys[me.id]; return changed(); }
     if (a === "resetPage") { defaultLayout(keyCount(), c.page); return changed(); }

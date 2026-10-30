@@ -24,6 +24,11 @@ import * as plans from "./plans.js";
 import * as downloads from "./downloads.js";
 import * as libraries from "./libraries.js";
 import * as defaultkeys from "./defaultkeys.js";
+import * as demo from "./demo.js";
+import * as getfile from "./getfile.js";
+import * as purchases from "./purchases.js";
+import * as hymns from "./hymns.js";
+import * as setlists from "./setlists.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -87,7 +92,17 @@ content.routes(app, api, { wrap, requireUser });
 defaultkeys.routes(api, { wrap, requireUser });
 plans.routes(api, { wrap, requireUser });
 downloads.routes(api, { wrap, requireUser });
+purchases.routes(api, { wrap, requireUser });   // (10.0: the account icon → Purchases)
 libraries.routes(api, { wrap });
+// a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first
+setlists.routes(api, { wrap, requireUser, addTrack: async (u, id) => {
+  const t = await liveTrack(id);
+  if (await owns(u.id, t)) return t;
+  if (!(await pay.isSubscribed(u))) { const e = bad("Buy this song first, or subscribe to Central Tracks Unlimited and add any song.", 402); e.checkoutUrl = config.publicUrl + "/#buy-" + t.id; throw e; }
+  await q("INSERT INTO library (user_id,track_id,how) VALUES ($1,$2,'subscription') ON CONFLICT DO NOTHING", [u.id, t.id]);
+  await q("INSERT INTO earnings (publisher_id,track_id,buyer_id,reason,cents) VALUES ($1,$2,$3,'subscriber_add',0) ON CONFLICT DO NOTHING", [t.publisher_id, t.id, u.id]);
+  return t;
+} });
 function needConfirmed(u) { if (u && !u.email_confirmed) { const e = bad("Confirm your email first: we sent you a link (Account → Send it again)."); e.status = 403; e.needConfirm = true; throw e; } }
 
 api.post("/signup", wrap(async (req, res) => {
@@ -122,6 +137,7 @@ api.post("/login", wrap(async (req, res) => {
   brake(req);
   const u = await one("SELECT * FROM users WHERE email=$1 AND deleted_at IS NULL", [String(req.body.email || "").trim().toLowerCase()]);
   if (!u || !checkPassword(String(req.body.password || ""), u.pass_hash)) throw bad("That email and password don't match.", 401);
+  if (demo.isDemoUser(u) && !(await defaultkeys.defaultKeysOn())) throw bad("The demo account is switched off.", 403);   // (it goes with the default keys)
   res.json(await signin.issue(u, req.body));   // (the main admin and admins: a code to their phone on a new device)
 }));
 trials.routes(api, { wrap, brake, requireUser, needConfirmed });
@@ -351,6 +367,7 @@ api.post("/admin/tracks/:id/status", requireUser, wrap(async (req, res) => {
 }));
 
 app.use("/v1", api);
+getfile.routes(app, { wrap });   // (10.0: /download/<app>/<platform>, /download/library/<id>, /install.sh - our address, GitHub behind it)
 app.get("/health", (_req, res) => { res.setHeader("Access-Control-Allow-Origin", "*"); res.json({ ok: true, payments: !!pay.stripe, storage: store.usingR2 ? "r2" : "local" }); });   // (the apps' "is the internet there?")
 // the home page with the site's own address filled in (the picture a shared link shows needs a full address)
 let homeHtml = null;
@@ -359,6 +376,11 @@ app.get(["/", "/index.html"], (_req, res, next) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8"); res.setHeader("Cache-Control", "no-cache"); res.send(homeHtml);
 });
 app.use(express.static(path.join(here, "..", "public"), { extensions: ["html"] }));
+// a page that isn't there: our own page, not the bare "Cannot GET" (the API still answers in JSON)
+app.use((req, res, next) => {
+  if ((req.method !== "GET" && req.method !== "HEAD") || req.path.startsWith("/v1") || !req.accepts("html")) return next();
+  res.status(404).type("html").send(getfile.simplePage("We can't find that page", `<p>The link may be old, or the page has moved. Everything is still on the home page: the apps, the store, Central Tracks and your account.</p><a class="btn" href="/">Go to the home page</a>`));
+});
 
 app.use((err, req, res, _next) => {
   const status = err.status || (err.type === "StripeSignatureVerificationError" ? 400 : 500);
@@ -375,6 +397,8 @@ process.on("unhandledRejection", (e) => { console.error("unhandled:", e); suppor
 process.on("uncaughtException", (e) => { console.error("crash:", e); support.recordError({ source: "website", internal: true, message: "Crash: " + e.message, stack: e.stack }).finally(() => process.exit(1)); setTimeout(() => process.exit(1), 5000).unref(); });
 await migrate();
 await prices.loadPrices();
+await demo.seedDemo().catch((e) => console.error("demo account:", e.message));   // (10.0: Riverstone Church (demo), while the default keys are on)
 setInterval(() => prices.loadPrices().catch(() => { }), 5 * 60e3).unref();   // (another server changed them)
 if (process.env.REMINDERS !== "off") acct.startReminders();   // (every hour: invites nobody answered, the day before a service)
+if (process.env.HYMNS !== "off") hymns.start();   // (the Central Tracks hymns from their published index: at start and every hour)
 app.listen(config.port, () => console.log("Motion Audio server on " + config.publicUrl + " (storage: " + (store.usingR2 ? "R2" : "local folder") + ", payments: " + (pay.stripe ? "on" : "off") + ")"));

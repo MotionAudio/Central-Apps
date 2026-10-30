@@ -11,13 +11,14 @@
   "use strict";
   var PP = window.PP, F = window.PPFeatures, T = window.PPTracks; if (!PP || !F || !T) return;
   var esc = PP.escapeHtml, LS = "central-tracks";
+  // (10.0: the preview shows Motion Audio's own hymn multitracks - public-domain hymns in our arrangements, hymns/hymns.json)
   var PREVIEW = [
-    { id: "p1", title: "Goodness of God - Ambient Pad", artist: "Hannah R.", kind: "Pad", key: "A", bpm: 63, price: 6.99 },
-    { id: "p2", title: "Build My Life - Full Stems", artist: "North Room Music", kind: "Multitrack", key: "G", bpm: 68, price: 24.99 },
-    { id: "p3", title: "Holy Forever - Prime Track", artist: "Motion Audio", kind: "Prime", key: "C", bpm: 72, price: 14.99 },
-    { id: "p4", title: "Firm Foundation - Click & Guide", artist: "J. Alvarez", kind: "Multitrack", key: "B", bpm: 73, price: 19.99 },
-    { id: "p5", title: "Warm Swell Pad (all 12 keys)", artist: "Motion Audio", kind: "Pad", key: "", bpm: 0, price: 9.99 },
-    { id: "p6", title: "Same God - Full Stems", artist: "North Room Music", kind: "Multitrack", key: "D", bpm: 76, price: 24.99 },
+    { id: "p1", title: "Amazing Grace", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 72, price: 20 },
+    { id: "p2", title: "Joyful, Joyful, We Adore Thee", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 100, price: 20 },
+    { id: "p3", title: "Come, Thou Fount of Every Blessing", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 84, price: 20 },
+    { id: "p4", title: "Be Thou My Vision", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 72, price: 20 },
+    { id: "p5", title: "Doxology (Praise God, from Whom All Blessings Flow)", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 76, price: 20 },
+    { id: "p6", title: "Warm Swell Pad (all 12 keys)", artist: "Motion Audio", kind: "Pad", key: "", bpm: 0, price: 9.99 },
     { id: "p7", title: "Felt Upright (sampled)", artist: "Grace Hill Keys", kind: "Sound", key: "", bpm: 0, price: 4.99, stars: 4 },
     { id: "p8", title: "Worship Lead Board (ambient)", artist: "M. Ortiz", kind: "Board", key: "", bpm: 0, price: 1.99, stars: 3 },
     { id: "p9", title: "Rimshot & Shaker Click", artist: "Motion Audio", kind: "Click", key: "", bpm: 0, price: 0.99, stars: 5 }
@@ -60,20 +61,49 @@
     return list.filter(function (t) { return (!st.kind || t.kind === st.kind) && (t.title + " " + t.artist + " " + t.key).toLowerCase().indexOf(q) >= 0; });
   }
 
+  // A song file that comes with a track (role "song", 10.0 - the Motion Audio hymns): its exact tempo, meter and key, the
+  // sections with their lyrics, the chords and the chord chart - so nothing has to be guessed from the audio. Stems it
+  // names as muted (the click and guide: the app makes its own) start muted.
+  function readSongFile(text) {
+    try { var j = JSON.parse(text); return j && j.kind === "central-tracks-song" && Array.isArray(j.sections) ? j : null; } catch (e) { return null; }
+  }
+  function applySongFile(s, j) {
+    var d = T.data(s), bpm = Number(j.bpm) || s.bpm || 72, bpb = Math.max(2, Math.min(12, Math.round(Number(j.bpb) || 4))), beat = 60 / bpm;
+    if (j.key) { s.key = j.key; d.originalKey = j.key.replace(/m$/, ""); d.originalMode = /m$/.test(j.key) ? "minor" : "major"; }
+    s.bpm = bpm; d.grid = Object.assign(d.grid || {}, { mode: "fitted", bpm: bpm, first: 0, bpb: bpb });
+    d.sections = j.sections.filter(function (x) { return x && x.name && x.bar >= 1; }).map(function (x) {
+      return { id: PP.id(), name: String(x.name).slice(0, 40), bar: Math.round(x.bar), pad: -1, transition: "inherit", cue: "auto", lyrics: String(x.lyrics || "").slice(0, 4000), page: 0 };
+    });
+    var at = function (c) { return ((c.bar - 1) * bpb + ((c.beat || 1) - 1)) * beat; };
+    var list = (Array.isArray(j.chords) ? j.chords : []).filter(function (c) { return c && c.label && c.bar >= 1; });
+    d.chords = list.map(function (c, i) { return { label: String(c.label), bass: c.bass || null, bar: c.bar, beat: c.beat || 1, start: at(c), end: i + 1 < list.length ? at(list[i + 1]) : d.duration || at(c) + bpb * beat }; });
+    d.chordsKey = j.key || s.key;
+    if (j.chartText) d.chartText = String(j.chartText).slice(0, 60000);
+    if (j.credits) s.notes = s.notes || [j.credits.words ? "Words: " + j.credits.words : "", j.credits.music ? "Music: " + j.credits.music : "", j.credits.arrangement || ""].filter(Boolean).join("\n");
+  }
+
   // a track the server hands over (files with download URLs) becomes a song on this device
   async function intoSong(t, files) {
     st.log = "Downloading " + files.length + " file" + (files.length === 1 ? "" : "s") + "…"; rerender();
-    var got = [];
+    var got = [], songFile = null;
     for (var i = 0; i < files.length; i++) {
       var f = files[i], r = await fetch(f.url); if (!r.ok) throw new Error("download failed (" + r.status + ")");
+      if (f.role === "song" || /(^|[-_.])song\.json$/i.test(f.name || "")) { songFile = readSongFile(await r.text()); st.log = "Downloaded " + (i + 1) + "/" + files.length; rerender(); continue; }
       var file = new File([await r.blob()], f.name || ("track-" + (i + 1) + ".wav"));
       if (f.role) file._role = f.role; got.push(file);
       st.log = "Downloaded " + (i + 1) + "/" + files.length; rerender();
     }
+    if (songFile) {   // (the stems it says start muted)
+      var muted = {}; (songFile.stems || []).forEach(function (x) { if (x && x.mute) muted[String(x.name).toLowerCase()] = 1; });
+      got.forEach(function (file) { if (muted[file.name.replace(/\.[^.]+$/, "").toLowerCase()]) file._mute = true; });
+    }
     var s = T.findSongByName(t.title) || T.newSong(t.title), d = T.data(s);
+    if (t.id != null) s.ctId = String(t.id);   // (10.0: a setlist on the website knows its songs by this)
     if (t.key) s.key = t.key; if (t.bpm) { s.bpm = t.bpm; d.grid.bpm = t.bpm; }
-    st.log = "Analysing (tempo, key, beats)…"; rerender();
-    await T.importFilesIntoSong(s, got, { analyze: true });
+    if (songFile) applySongFile(s, songFile);
+    st.log = songFile ? "Adding the tracks…" : "Analysing (tempo, key, beats)…"; rerender();
+    await T.importFilesIntoSong(s, got, { analyze: !songFile, sections: songFile ? false : undefined });
+    if (songFile) applySongFile(s, songFile);   // (again after the import: its exact grid, sections and chords stay)
     if (t.key) s.key = t.key;   // the publisher's key wins over the detected one
     var p = PP.project(); F.loadSong(p.songs.indexOf(s)); PP.persistNow(); T.render(); T.pushAll && T.pushAll(s);
     t.owned = true; st.log = "✓ " + t.title + " is in storage (" + got.length + " track" + (got.length === 1 ? "" : "s") + ").";
@@ -234,5 +264,6 @@
     body.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target.id === "ctQ") { st.q = e.target.value.trim(); st.kind = $("#ctKind").value; refresh(); } });
   }
   wire();
-  window.PPCentralTracks = { render: render, refresh: refresh, state: st, install: install, unzip: unzip };
+  window.PPCentralTracks = { render: render, refresh: refresh, state: st, install: install, unzip: unzip, readSongFile: readSongFile, applySongFile: applySongFile,
+    api: api, base: base, signedIn: function () { return !preview() && !!cfg().token; }, showSignIn: function () { st.signIn = true; rerender(); } };
 })();

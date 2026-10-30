@@ -162,12 +162,13 @@
     var song = PP.activeSong(); if (song) song.key = key; else PP.currentPad().key = key;
     PP.persistSoon(); var playing = engine.playingIndexes(); engine.playPad(playing.length ? playing[0] : PP.selected()); PP.renderPads();
   }
-  function handleMidi(d, t) {
+  function handleMidi(d, t, port) {
     if (!d || !d.length) return;
     var st = d[0], type = st & 0xF0, ch = (st & 0x0F) + 1, want = Number(project().midi.channel) || 0;
     if (st === 0xF8) { midiClock(t || performance.now()); return; }
+    if (window.CCSurface && window.CCSurface.feedMidi(d, port)) return;   // (the Learn window is open: it takes the message)
     if (window.PPScenes && window.PPScenes.midiInput(d)) return;
-    if (window.PPActions && window.PPActions.midiInput && window.PPActions.midiInput(d)) return;
+    if (window.PPActions && window.PPActions.midiInput && window.PPActions.midiInput(d, port)) return;
     if (st >= 0xF0 || (want && ch !== want)) return;
     if (type === 0x90 && d[2] > 0) { playInKey(PP.KEYS[d[1] % 12]); return; }
     if (type === 0xC0) { if (d[1] < PP.PAD_COUNT) PP.triggerPad(d[1]); return; }
@@ -193,13 +194,22 @@
   // in a short list that scrolls when there are many
   function portName(n) { var out = / \(out\)$/.test(n); n = String(n).replace(/ \(out\)$/, "").replace(/\s+\d+:\d+$/, ""); var i = n.indexOf(":"); return (i > 0 && n.slice(i + 1).trim() ? n.slice(i + 1).trim() : n) + (out ? " (out)" : ""); }
   function portList(names, empty) { return names && names.length ? '<ul class="port-list">' + names.map(function (n) { return '<li title="' + esc(n) + '">' + esc(portName(n)) + "</li>"; }).join("") + "</ul>" : '<span class="muted">' + esc(empty || "none") + "</span>"; }
+  // a learned MIDI button's light (control-surface.js): through the Pi's driver when it reads the MIDI devices, else Web MIDI
+  if (window.CCSurface) window.CCSurface.setLedOut(function (port, data) {
+    var info = bridge() && bridge().info;
+    if (info && info.midi && bridge().connected) return bridge().send({ type: "midiLed", messages: [{ data: data, port: port || "" }] });
+    if (!webMidi) return false;
+    var want = window.CCSurface.shortPort(port), sent = false;
+    webMidi.outputs.forEach(function (o) { if (!want || window.CCSurface.shortPort(o.name) === want) { try { o.send(data); sent = true; } catch (_) { } } });
+    return sent;
+  });
   function startWebMidi() {
     var info = bridge() && bridge().info;
     if (info && info.midi) return; // the Pi's driver already reads MIDI devices
     if (!navigator.requestMIDIAccess || webMidi) return;
     navigator.requestMIDIAccess({ sysex: false }).then(function (access) {
       webMidi = access;
-      function attach() { var names = []; access.inputs.forEach(function (input) { input.onmidimessage = function (e) { handleMidi(e.data, e.timeStamp); }; names.push(input.name); }); midiPorts = names; renderSystem(); }
+      function attach() { var names = []; access.inputs.forEach(function (input) { input.onmidimessage = function (e) { handleMidi(e.data, e.timeStamp, input.name); }; names.push(input.name); }); midiPorts = names; renderSystem(); }
       access.onstatechange = attach; attach();
     }).catch(function () {});
   }
@@ -220,7 +230,7 @@
       case "freeze": toggleFreeze(); break;
       case "nextSong": stepSong(1); break;
       case "prevSong": stepSong(-1); break;
-      case "midi": handleMidi(m.data, performance.now()); break;
+      case "midi": handleMidi(m.data, performance.now(), m.port); break;
       case "tempo":
         if (m.source === "link") { if (project().link && project().link.enabled && !(window.PPTracks && window.PPTracks.isPlaying())) setTempo(m.bpm, "link"); }
         else if (project().midi.clock) { lastClockAt = performance.now(); setTempo(m.bpm, "MIDI clock"); }
@@ -290,7 +300,7 @@
   var systemStatus = null;
   function renderSystem() {
     var s = systemStatus, connected = bridge() && bridge().connected;
-    $("#sysInfo").textContent = connected ? "Central Pedal OS" + (s && s.hostname ? " · " + s.hostname : "") : "Running in a browser (not on the Central Pedal hardware)";
+    $("#sysInfo").textContent = connected ? "This Central Pedal" + (s && s.hostname ? " (" + s.hostname + ")" : "") : "Running in a browser, not on a Central Pedal";
     var safe = $("#safeToggle"), text = $("#safeText");
     if (!connected || !s) { text.textContent = "Only available on the Central Pedal (Raspberry Pi) itself."; safe.disabled = true; safe.textContent = "Safe mode"; }
     else {

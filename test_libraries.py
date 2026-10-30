@@ -216,7 +216,7 @@ def run(tmp):
     f0 = np.argmax(spec[: int(400 * PADS.LOOP)]) / PADS.LOOP   # (the strongest low partial: F#3 185 Hz or its octave / fifth)
     check("Central Pads: a key's loop is a stereo WAV of the loop's length, about -6 dBFS, in its key (F#: Fs.wav)", okw and 0.45 < peak < 0.52 and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
           and any(abs(f0 - 185.0 * m) < 6 for m in (0.5, 1, 1.5, 2, 3)), (okw, peak, f0))
-    check("Central Pads: 12 styles, the same ones the library lists", len(LOOPS.STYLES) == 12 and LOOPS.NAMES == [p["name"] for p in by["pads"]["pads"]], LOOPS.NAMES)
+    check("Central Pads: 20 styles (12, and 8 more in 10.0), the same ones the library lists", len(LOOPS.STYLES) == 20 and LOOPS.NAMES == [p["name"] for p in by["pads"]["pads"]], LOOPS.NAMES)
 
     print("\nThe zips (tools/build-libraries.py):")
     snd = os.path.join(tmp, "sounds")
@@ -226,6 +226,12 @@ def run(tmp):
     for pd in by["pads"]["pads"]:   # (Central Pads: a tiny loop per style and key)
         for k in BUILD.PAD_KEYS:
             LOOPS.loop_wav(os.path.join(snd, "pad-loops", BUILD.pad_loop_file(pd["name"], k)), np.zeros(64, np.float32), np.zeros(64, np.float32))
+    for lib in defs:   # (10.0: the loops - a tiny one per set; tools/make-loops.py's own checks are in test_content.py)
+        for ls in lib.get("loops") or []:
+            os.makedirs(os.path.join(snd, "loops", ls["set"]), exist_ok=True)
+            LOOPS.loop_wav(os.path.join(snd, "loops", ls["set"], "one.wav"), np.zeros(64, np.float32), np.zeros(64, np.float32))
+            with open(os.path.join(snd, "loops", ls["set"], "index.json"), "w") as handle:
+                json.dump([{"name": "One", "file": "one.wav", "bpm": 90, "meter": 4, "bars": 2}], handle)
     out = os.path.join(tmp, "out")
     index = BUILD.build_all(snd, ir_dir, out, base_url="https://example.test/libs", log=lambda *a: None)
     zips = sorted(f for f in os.listdir(out) if f.endswith(".zip"))
@@ -299,11 +305,11 @@ def run(tmp):
     check("Central Plugins' textures bank keeps the plugins plan (a sound bank can belong to any plan)", gcat and all(b.get("tier") == "plugins" for b in gcat), gcat)
     store.remove("central-plugins-library")
     pads_e = [e for e in index["libraries"] if e["plan"] == "pads"][0]
-    check("Central Pads' zip: every style in all 12 keys, with the pads plan", pads_e["counts"]["pad"] == 12 and len(pads_e["contents"]["pads"]) == 12, pads_e["counts"])
+    check("Central Pads' zip: all 20 styles in all 12 keys, with the pads plan", pads_e["counts"]["pad"] == len(by["pads"]["pads"]) == 20 and len(pads_e["contents"]["pads"]) == 20, pads_e["counts"])
     drec = store.install_file(os.path.join(out, pads_e["file"]), expected_sha256=pads_e["sha256"])
     styles = store.pads()
     f_fs = store.pad_file("central-pads-library", "Worship", "F#")
-    check("Central Pads installs: 12 pad styles, each in all 12 keys, with the pads plan", drec["counts"]["pad"] == 12 and len(styles) == 12 and all(len(x["keys"]) == 12 and x["tier"] == "pads" for x in styles), [(x["name"], len(x["keys"])) for x in styles])
+    check("Central Pads installs: 20 pad styles, each in all 12 keys, with the pads plan", drec["counts"]["pad"] == 20 and len(styles) == 20 and all(len(x["keys"]) == 12 and x["tier"] == "pads" for x in styles), [(x["name"], len(x["keys"])) for x in styles])
     check("...a style's loop in a key is found (F# -> Fs.wav, inside the library's own folder)", f_fs and f_fs.endswith(os.path.join("Worship", "Fs.wav")) and os.path.isfile(f_fs), f_fs)
     check("...nothing outside it is (a made-up library, style or key)", not store.pad_file("../x", "Worship", "C") and not store.pad_file("central-pads-library", "Nope", "C") and not store.pad_file("central-pads-library", "Worship", "H"))
     store.remove("central-pads-library")
@@ -384,7 +390,7 @@ def run(tmp):
         refused = "published" in str(error)
     check("a library the website lists without a sha256 (not published yet) isn't downloaded", refused)
     r3 = store.install_url(url, keys["sha256"], "central-keys-library", len(payload))
-    check("a good download installs", r3["version"] == "1.0" and r3["counts"]["sound"] == NK and r3["source"] == "website")
+    check("a good download installs", r3["version"] == by["keys"]["version"] and r3["counts"]["sound"] == NK and r3["source"] == "website")
     srv.shutdown()
     leftovers = [f for f in os.listdir(store.root) if f.endswith(".zip")]
     check("no downloaded zip is left behind", not leftovers, leftovers)

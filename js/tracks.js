@@ -865,7 +865,7 @@
     if (song()) pushAll(song());
     if (window.PPActions) window.PPActions.modeChanged();
     render(); sendDisplay();
-    PP.setStatus(p.tracksMode ? "Tracks ON: buttons and knobs use the Tracks layout, pads follow the song" : "Tracks OFF: pads use the setlist song key");
+    PP.setStatus(p.tracksMode ? "Tracks on: the song's tracks play, and its pad comes in with them" : "Tracks off: the pads play on their own, in the song's key");
   }
 
   // ------------------------------------------------------------- songs: load / import / uploads
@@ -988,10 +988,29 @@
         chart.sections.forEach(function (cs) { var m = t.sections.filter(function (x) { return slug(x.name) === slug(cs.name) && !x.lyrics; })[0]; if (m) { m.lyrics = (cs.lines || []).join("\n"); m.page = cs.page || 0; } });
       }
     }
+    // a text chart (not PDF pages) is the song's chart text too: every chart screen draws it with the chords, in each
+    // musician's key (a chart that's only pages keeps whatever chart text the song had, like one heard from the tracks)
+    if (!chart.pageCount && chart.id) {
+      var txt = typeof chart.text === "string" ? chart.text : null;
+      if (txt === null) { try { var r = await fetch(MEDIA + "/charts/" + encodeURIComponent(chart.id) + "/chart.json", { cache: "no-store" }); var j = r.ok ? await r.json() : null; txt = j && typeof j.text === "string" ? j.text : ""; } catch (_) { txt = ""; } }
+      if (txt && txt.trim()) t.chartText = txt;
+    }
     PP.persistSoon(); render(); sendDisplay();
   }
+  // a section's words: its own lyrics, or (when it has none) the words under the same heading in the song's chart
+  // text - so a chart with lyrics, or one written from the vocal, puts words on the lyric screens straight away
+  var chartLyricsCache = { text: null, list: null };
+  function chartLyricsFor(s, sec) {
+    var t = data(s), C = window.PPChords; if (!t || !t.chartText || !C || !sec) return "";
+    if (chartLyricsCache.text !== t.chartText) { chartLyricsCache.text = t.chartText; try { chartLyricsCache.list = C.lyricsOf(C.parseChart(t.chartText)); } catch (_) { chartLyricsCache.list = []; } }
+    var list = chartLyricsCache.list || [], norm = function (n) { return String(n || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }, name = norm(sec.name), nth = 0;
+    sectionsOf(s).some(function (q) { if (q.sec === sec) return true; if (norm(q.sec.name) === name) nth++; return false; });
+    var hits = list.filter(function (q) { return norm(q.name) === name && q.lines.length; }); if (!hits.length) hits = list.filter(function (q) { return norm(q.name).replace(/\d+$/, "") === name.replace(/\d+$/, "") && q.lines.length; });
+    var h = hits[Math.min(nth, hits.length - 1)]; return h ? h.lines.join("\n") : "";
+  }
   function lyricsPages(sec, perPage) {
-    var lines = (sec && sec.lyrics ? sec.lyrics.split("\n") : []).map(function (l) { return l.trim(); }).filter(Boolean), pages = [];
+    var text = sec && sec.lyrics ? sec.lyrics : (sec && song() ? chartLyricsFor(song(), sec) : "");
+    var lines = (text ? text.split("\n") : []).map(function (l) { return l.trim(); }).filter(Boolean), pages = [];
     for (var i = 0; i < lines.length; i += perPage) pages.push(lines.slice(i, i + perPage));
     return pages;
   }
@@ -1040,12 +1059,16 @@
         msg.grid = g ? { bpm: Math.round((s.bpm || 0) * 10) / 10, bpb: g.bpb, bars: g.bars.slice(0, 600).map(function (b) { return Math.round(b * 1000) / 1000; }), barBeats: g.barBeats ? g.barBeats.slice(0, 600) : [] } : null;
         msg.hits = t && t.hits ? t.hits.slice(0, 400).map(function (h) { return Math.round(h * 1000) / 1000; }) : [];
       }
+      // the song's sheet (chart, chords, sections with their bars, the key it's played in): only when it changes
+      var shKey = s && window.PPSheets ? [s.id, s.name, s.key, s.bpm, t.keyShift, t.tempoPercent, t.originalKey, t.duration, (t.chartText || "").length, hashText(t.chartText || ""), (t.chords || []).length, JSON.stringify(t.sections), t.flowOn ? JSON.stringify(t.flow || []) : "", g ? g.bars.length + ":" + g.bpb : 0].join("|") : "none";
+      if (shKey !== lastSheetKey) { lastSheetKey = shKey; msg.sheet = s && window.PPSheets ? window.PPSheets.sheetOf(s, t, g) : null; }
       send(msg);
       if (window.PPSatellite) window.PPSatellite.local(msg);
     }, 20);
   }
-  var lastHeavyKey = null;
-  F.on("hello", function () { lastHeavyKey = null; sendDisplay(); });
+  var lastHeavyKey = null, lastSheetKey = null;
+  function hashText(x) { var h = 0; for (var i = 0; i < x.length; i += 7) h = (h * 31 + x.charCodeAt(i)) | 0; return h; }
+  F.on("hello", function () { lastHeavyKey = null; lastSheetKey = null; sendDisplay(); });
   // what the small touch screen's Tracks and Instrument tabs show: the stems (level, mute), the levels, the instrument
   function miniState(p, t) {
     var I = window.PPInstrument, ins = null;
@@ -1166,7 +1189,7 @@
     $("#trLoop").classList.toggle("on", state.loop >= 0);
     $("#trClick").classList.toggle("on", !!(t && t.click.on)); $("#trCues").classList.toggle("on", !!(t && t.cues.on));
     $("#trCountIn").querySelector("b").textContent = t ? (t.countIn ? t.countIn + (t.countIn === 1 ? " bar" : " bars") : "off") : "—";
-    $("#trKeyVal").textContent = s ? keyName(s.key) : "—"; $("#trTempoVal").innerHTML = "<small>TEMPO</small><b>" + (t ? t.tempoPercent + "%" : "—") + "</b>";
+    $("#trKeyVal").textContent = s ? keyName(s.key) : "No song"; $("#trTempoVal").innerHTML = "<small>TEMPO</small><b>" + (t ? t.tempoPercent + "%" : "No song") + "</b>";
     var lk = $("#trLink"); if (lk) { lk.classList.toggle("on", !!(project().link && project().link.enabled)); lk.querySelector("small").textContent = linkStatus.peers ? linkStatus.peers + " peer" + (linkStatus.peers === 1 ? "" : "s") : "LINK"; }
     var lv = $("#trLevels"); if (lv) lv.innerHTML = [["tracks", "Tracks"], ["click", "Click"], ["cue", "Cues"]].map(function (k) { return '<label>' + k[1] + '<span class="control-line"><input type="range" min="0" max="1" step=".01" data-trlevel="' + k[0] + '" value="' + levels[k[0]] + '"><output>' + Math.round(levels[k[0]] * 100) + "%</output></span></label>"; }).join("");
   }
@@ -1256,8 +1279,11 @@
     $("#seAnalysis").textContent = t.analysis ? "Detected: " + Math.round(t.analysis.bpm * 10) / 10 + " BPM · " + keyName(t.analysis.key) + " " + t.analysis.mode + " (" + Math.round(t.analysis.keyConfidence * 100) + "% sure) · grid " + (t.analysis.grid && t.analysis.grid.steady ? "steady (±" + t.analysis.grid.residualMs + " ms)" : "varies, following the drums") + " · " + t.hits.length + " big hits" : "Not analyzed yet.";
     $("#seStems").innerHTML = t.stems.length ? t.stems.map(function (st) { return '<div class="se-stem" data-stem="' + st.id + '"><input data-sef="name" value="' + esc(st.name) + '"><select data-sef="role">' + ["music", "drums", "bass", "keys", "guitar", "vocals", "guide", "click"].map(function (r) { return '<option' + (r === st.role ? " selected" : "") + ">" + r + "</option>"; }).join("") + '</select><select data-sef="bus"><option value="music"' + (st.bus !== "click" ? " selected" : "") + '>main out</option><option value="click"' + (st.bus === "click" ? " selected" : "") + '>click out</option></select><button data-sef="del" class="danger">✕</button></div>'; }).join("") : '<p class="muted">No tracks yet.</p>';
     var secs = t.sections.slice().sort(function (a, b) { return a.bar - b.bar; });
+    var totalBars = songBars(s), lenOf = {}; if (window.PPSheets) window.PPSheets.lengths(secs, totalBars).forEach(function (q, i, all) { lenOf[q.id] = { bars: q.bars, last: i === all.length - 1 }; });
+    chartNames = {}; secs.forEach(function (q) { chartNames[q.id] = q.name; });
+    renderRuler(s, t, secs, totalBars);
     $("#seSections").innerHTML = secs.length ? secs.map(function (sec) {
-      return '<div class="se-sec" data-secid="' + sec.id + '"><div class="se-sec-head"><input data-secf="name" value="' + esc(sec.name) + '" aria-label="Section name"><label>bar <input data-secf="bar" type="number" min="1" step="1" value="' + sec.bar + '"></label><label class="se-note" title="Shown on the stage display and in Central Control (e.g. drums out, key change, all in)">note <input data-secf="note" value="' + esc(sec.note || "") + '" placeholder="drums out, build…"></label><label>pad <select data-secf="pad">' + padOptions(sec.pad) + '</select></label><label title="How loud the pads are in this section (auto: from the name - verse softer, chorus full)">pad level <select data-secf="padLevel">' + ['', 0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110].map(function (v) { return '<option value="' + v + '"' + (String(sec.padLevel == null ? "" : sec.padLevel) === String(v) ? " selected" : "") + ">" + (v === "" ? "auto (" + Math.round(sectionSwell(Object.assign({}, sec, { padLevel: null })) * 100) + "%)" : v + "%") + "</option>"; }).join("") + '</select></label><label>in <select data-secf="transition"><option value="inherit"' + (sec.transition === "inherit" ? " selected" : "") + '>song default</option><option value="swell"' + (sec.transition === "swell" ? " selected" : "") + '>swell</option><option value="crossfade"' + (sec.transition === "crossfade" ? " selected" : "") + '>crossfade</option><option value="cut"' + (sec.transition === "cut" ? " selected" : "") + '>cut</option></select></label><label>cue <select data-secf="cue">' + cueOptions(sec.cue) + '</select></label>' + (sec.cue && sec.cue.indexOf("say:") === 0 ? '<input data-secf="cueText" value="' + esc(sec.cue.slice(4)) + '" placeholder="words to say">' : "") + '<label>page <input data-secf="page" type="number" min="0" step="1" value="' + (sec.page || 0) + '" title="chart page (0 = auto)"></label><label>scene <select data-secf="scene"><option value="">—</option>' + (s.scenes || []).map(function (sc) { return '<option value="' + sc.id + '"' + (sec.scene === sc.id ? " selected" : "") + ">" + esc(sc.name) + "</option>"; }).join("") + '</select></label><label title="ProPresenter: slide number to show when this section starts (or next)">slide <input data-secf="slide" value="' + esc(sec.slide == null ? "" : String(sec.slide)) + '" placeholder="—" style="width:56px"></label><button data-secf="go" title="Jump here">▶</button><button data-secf="here" title="Set the start to the playhead">⌖</button><button data-secf="del" class="danger">✕</button></div><textarea data-secf="lyrics" rows="2" placeholder="Lyrics for this section (one line per line)">' + esc(sec.lyrics || "") + "</textarea></div>";
+      return '<div class="se-sec" data-secid="' + sec.id + '"><div class="se-sec-head"><input data-secf="name" value="' + esc(sec.name) + '" aria-label="Section name"><label>bar <input data-secf="bar" type="number" min="1" step="1" value="' + sec.bar + '"></label><label title="' + (lenOf[sec.id] && lenOf[sec.id].last ? "The last section runs to the end of the song" : "How many bars long - the next section moves to match") + '">bars <input data-secf="bars" type="number" min="1" step="1" value="' + (lenOf[sec.id] ? lenOf[sec.id].bars : 1) + '"' + (lenOf[sec.id] && lenOf[sec.id].last ? " disabled" : "") + '></label><label class="se-note" title="Shown on the stage display and in Central Control (e.g. drums out, key change, all in)">note <input data-secf="note" value="' + esc(sec.note || "") + '" placeholder="drums out, build…"></label><label>pad <select data-secf="pad">' + padOptions(sec.pad) + '</select></label><label title="How loud the pads are in this section (auto: from the name - verse softer, chorus full)">pad level <select data-secf="padLevel">' + ['', 0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110].map(function (v) { return '<option value="' + v + '"' + (String(sec.padLevel == null ? "" : sec.padLevel) === String(v) ? " selected" : "") + ">" + (v === "" ? "auto (" + Math.round(sectionSwell(Object.assign({}, sec, { padLevel: null })) * 100) + "%)" : v + "%") + "</option>"; }).join("") + '</select></label><label>in <select data-secf="transition"><option value="inherit"' + (sec.transition === "inherit" ? " selected" : "") + '>song default</option><option value="swell"' + (sec.transition === "swell" ? " selected" : "") + '>swell</option><option value="crossfade"' + (sec.transition === "crossfade" ? " selected" : "") + '>crossfade</option><option value="cut"' + (sec.transition === "cut" ? " selected" : "") + '>cut</option></select></label><label>cue <select data-secf="cue">' + cueOptions(sec.cue) + '</select></label>' + (sec.cue && sec.cue.indexOf("say:") === 0 ? '<input data-secf="cueText" value="' + esc(sec.cue.slice(4)) + '" placeholder="words to say">' : "") + '<label>page <input data-secf="page" type="number" min="0" step="1" value="' + (sec.page || 0) + '" title="chart page (0 = auto)"></label><label>scene <select data-secf="scene"><option value="">—</option>' + (s.scenes || []).map(function (sc) { return '<option value="' + sc.id + '"' + (sec.scene === sc.id ? " selected" : "") + ">" + esc(sc.name) + "</option>"; }).join("") + '</select></label><label title="ProPresenter: slide number to show when this section starts (or next)">slide <input data-secf="slide" value="' + esc(sec.slide == null ? "" : String(sec.slide)) + '" placeholder="—" style="width:56px"></label><button data-secf="go" title="Jump here">▶</button><button data-secf="here" title="Set the start to the playhead">⌖</button><button data-secf="split" title="Split this section in two">Split</button><button data-secf="del" class="danger" title="Take this section out (its bars and words join the one before)">✕</button></div><textarea data-secf="lyrics" rows="2" placeholder="Lyrics for this section (one line per line)">' + esc(sec.lyrics || "") + "</textarea></div>";
     }).join("") : '<p class="muted">No sections. Add them, create them automatically, or import a chord chart.</p>';
     $("#seChart").innerHTML = '<option value="">— none —</option>' + charts.map(function (c) { return '<option value="' + c.id + '"' + (s.chart && s.chart.id === c.id ? " selected" : "") + ">" + esc(c.name) + " (" + c.pageCount + " p)</option>"; }).join("");
     $("#seHits").textContent = t.hits.length + " hit" + (t.hits.length === 1 ? "" : "s") + (t.autoHits ? " (automatic)" : " (yours)");
@@ -1289,20 +1315,62 @@
   function editorSection(e) {
     var s = song(); if (!s) return; var t = data(s), row = e.target.closest("[data-secid]"); if (!row) return;
     var sec = t.sections.filter(function (q) { return q.id === row.dataset.secid; })[0], f = e.target.dataset.secf; if (!sec || !f) return;
+    var before = sectionNames(t);
     if (e.type === "click") {
-      if (f === "del") { t.sections = t.sections.filter(function (q) { return q !== sec; }); }
+      if (f === "del") { if (window.PPSheets) window.PPSheets.remove(t, sec.id); else t.sections = t.sections.filter(function (q) { return q !== sec; }); syncChartText(t, before); }
+      else if (f === "split") { var ns = window.PPSheets ? window.PPSheets.add(t, sec.bar, "New section", songBars(s)) : null; if (!ns) { PP.setStatus("This section is only one bar long - there's nothing to split."); return; } syncChartText(t, before); }
       else if (f === "go") { var idx = sectionsOf(s).map(function (q) { return q.sec.id; }).indexOf(sec.id); goSection(idx, { immediate: true }); return; }
       else if (f === "here") { sec.bar = timeToBar(s, state.pos).bar; }
       else return;
     } else {
       if (f === "scene") { sec.scene = e.target.value; PP.persistSoon(); return; }
       if (f === "slide") { var sv = e.target.value.trim(); sec.slide = sv === "" ? null : (/^next$/i.test(sv) ? "next" : Math.max(1, Math.round(Number(sv)) || 1)); PP.persistSoon(); return; }
-      if (f === "name") sec.name = e.target.value; else if (f === "bar") sec.bar = Math.max(1, Math.round(Number(e.target.value) || 1)); else if (f === "pad") sec.pad = Number(e.target.value); else if (f === "note") sec.note = e.target.value.slice(0, 80); else if (f === "padLevel") sec.padLevel = e.target.value === "" ? null : Number(e.target.value);
+      if (f === "bars") { var r = window.PPSheets ? window.PPSheets.setLength(t, sec.id, e.target.value, songBars(s)) : { ok: false, why: "" }; if (r.why) PP.setStatus(r.why); }
+      else if (f === "name") { sec.name = e.target.value; if (e.type === "change") { syncChartText(t, before.map(function (q) { return { id: q.id, name: chartNames[q.id] != null ? chartNames[q.id] : q.name }; })); chartNames[sec.id] = sec.name; } } else if (f === "bar") sec.bar = Math.max(1, Math.round(Number(e.target.value) || 1)); else if (f === "pad") sec.pad = Number(e.target.value); else if (f === "note") sec.note = e.target.value.slice(0, 80); else if (f === "padLevel") sec.padLevel = e.target.value === "" ? null : Number(e.target.value);
       else if (f === "transition") sec.transition = e.target.value; else if (f === "cue") { sec.cue = e.target.value; } else if (f === "cueText") sec.cue = "say:" + e.target.value; else if (f === "page") sec.page = Math.max(0, Math.round(Number(e.target.value) || 0)); else if (f === "lyrics") sec.lyrics = e.target.value;
       if (f === "lyrics" || f === "name" || f === "cueText") { PP.persistSoon(); if (f !== "lyrics") pushCues(s); sendDisplay(); return; }
     }
     gridCache.key = null; PP.persistSoon(); pushAll(s); render(); sendDisplay();
-    if (e.type === "click" || f === "cue") renderEditor();
+    if (e.type === "click" || f === "cue" || f === "bars" || f === "bar") renderEditor();
+  }
+  // ---- sections and the chart stay in step: a section renamed, added or taken out changes the chart's headings too
+  var chartNames = {};
+  function sectionNames(t) { return t.sections.slice().sort(function (a, b) { return a.bar - b.bar; }).map(function (q) { return { id: q.id, name: q.name }; }); }
+  function syncChartText(t, before) { if (!window.PPSheets || !t.chartText) return; var nt = window.PPSheets.syncChart(t.chartText, before, sectionNames(t)); if (nt !== t.chartText) t.chartText = nt; }
+  function songBars(s) { var t = data(s); if (!t) return 1; var n = t.duration ? timeToBar(s, Math.max(0, t.duration - 0.001)).bar : 1; (t.sections || []).forEach(function (q) { n = Math.max(n, q.bar); }); return Math.max(1, n); }
+  // the bar ruler over the sections: every bar marked (numbers every few bars), each section a coloured block;
+  // drag the edge between two sections to move where the second one starts (it snaps to bars)
+  var rulerDrag = null;
+  function renderRuler(s, t, secs, total) {
+    var box = $("#seRuler"); if (!box) { var list = $("#seSections"); if (!list) return; box = document.createElement("div"); box.id = "seRuler"; box.className = "se-ruler"; list.parentNode.insertBefore(box, list); bindRuler(box); }
+    if (!secs.length || !window.PPSheets) { box.innerHTML = ""; box.hidden = true; return; }
+    box.hidden = false;
+    var L = window.PPSheets.lengths(secs, total), all = L.reduce(function (a, q) { return a + q.bars; }, 0) + (L.length ? L[0].bar - 1 : 0), C = window.PPColors;
+    var pct = function (b) { return (b / Math.max(1, all) * 100).toFixed(3) + "%"; }, nums = [], every = all > 96 ? 8 : all > 40 ? 4 : all > 16 ? 2 : 1;
+    for (var b = 1; b <= all; b += every) nums.push('<span class="se-rnum" style="left:' + pct(b - 1) + '">' + b + "</span>");
+    box.style.setProperty("--bars", all);
+    box.innerHTML = '<div class="se-rnums">' + nums.join("") + "</div>" + '<div class="se-rtrack">' + L.map(function (q, i) {
+      return '<div class="se-rblock" style="left:' + pct(q.bar - 1) + ";width:" + pct(q.bars) + ";--secc:" + (C ? C.section(q.name) : "#5a7896") + '" title="' + esc(q.name) + ": bars " + q.bar + "–" + (q.bar + q.bars - 1) + '"><b>' + esc(q.name) + "</b><small>" + q.bars + (q.bars === 1 ? " bar" : " bars") + "</small></div>" +
+        (i > 0 ? '<div class="se-redge" data-edge="' + q.id + '" style="left:' + pct(q.bar - 1) + '" title="Drag to move where ' + esc(q.name) + ' starts"></div>' : "");
+    }).join("") + "</div>";
+  }
+  function bindRuler(box) {
+    box.addEventListener("pointerdown", function (e) { var ed = e.target.closest("[data-edge]"); if (!ed) return; e.preventDefault(); rulerDrag = { id: ed.dataset.edge, el: ed }; try { box.setPointerCapture(e.pointerId); } catch (_) { } });
+    box.addEventListener("pointermove", function (e) { if (!rulerDrag) return; var r = box.querySelector(".se-rtrack").getBoundingClientRect(), all = Number(box.style.getPropertyValue("--bars")) || 1; var bar = Math.round(clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1) * all) + 1; rulerDrag.bar = bar; rulerDrag.el.style.left = ((bar - 1) / all * 100) + "%"; });
+    function done() {
+      if (!rulerDrag) return; var d = rulerDrag; rulerDrag = null; if (!d.bar) return;
+      moveSectionStart(d.id, d.bar);
+    }
+    box.addEventListener("pointerup", done); box.addEventListener("pointercancel", function () { rulerDrag = null; renderEditor(); });
+  }
+  // where a section starts, kept between its neighbours (used by the ruler and by the tests)
+  function moveSectionStart(id, bar) {
+    var s = song(), t = s && data(s); if (!t) return false;
+    var sorted = t.sections.slice().sort(function (a, b) { return a.bar - b.bar; }), i = sorted.map(function (q) { return q.id; }).indexOf(id); if (i < 1) return false;
+    var lo = sorted[i - 1].bar + 1, hi = i + 1 < sorted.length ? sorted[i + 1].bar - 1 : songBars(s);
+    sorted[i].bar = Math.max(lo, Math.min(hi, Math.round(bar)));
+    gridCache.key = null; PP.persistSoon(); pushAll(s); render(); sendDisplay(); renderEditor();
+    return sorted[i].bar;
   }
   async function editorStem(e) {
     var s = song(); if (!s) return; var t = data(s), row = e.target.closest("[data-stem]"); if (!row) return;
@@ -1445,7 +1513,7 @@
     d.addEventListener("change", function (e) { if (e.target.dataset.se) editorField(e); else if (e.target.dataset.secf) editorSection(e); else if (e.target.dataset.sef) editorStem(e); });
     d.addEventListener("input", function (e) { if (e.target.dataset.secf === "lyrics" || e.target.dataset.secf === "name" || e.target.dataset.secf === "note") editorSection(e); });
     d.addEventListener("click", function (e) { if (e.target.dataset.secf) editorSection(e); else if (e.target.dataset.sef === "del") editorStem(e); });
-    $("#seAddSection").addEventListener("click", function () { var s = song(), t = data(s); t.sections.push({ id: PP.id(), name: "Section " + (t.sections.length + 1), bar: timeToBar(s, state.pos).bar, pad: -1, transition: "inherit", cue: "auto", lyrics: "", page: 0 }); gridCache.key = null; pushAll(s); PP.persistSoon(); renderEditor(); render(); });
+    $("#seAddSection").addEventListener("click", function () { var s = song(), t = data(s), before = sectionNames(t), bar = timeToBar(s, state.pos).bar; if (window.PPSheets) { if (!window.PPSheets.add(t, bar, "Section " + (t.sections.length + 1), songBars(s))) { PP.setStatus("There's already a section starting on bar " + bar + "."); return; } syncChartText(t, before); } else t.sections.push({ id: PP.id(), name: "Section " + (t.sections.length + 1), bar: bar, pad: -1, transition: "inherit", cue: "auto", lyrics: "", page: 0 }); gridCache.key = null; pushAll(s); PP.persistSoon(); renderEditor(); render(); sendDisplay(); });
     $("#seAutoSections").addEventListener("click", function () { autoSections(song()); pushAll(song()); renderEditor(); render(); });
     $("#seClearSections").addEventListener("click", function () { if (confirm("Remove all sections?")) { data(song()).sections = []; pushAll(song()); PP.persistSoon(); renderEditor(); render(); } });
     $("#seAnalyze").addEventListener("click", reanalyze);
@@ -1502,7 +1570,7 @@
   F.on("hello", function () { loadCueList().then(function () { preloadCountVoice(); }); refreshCharts().then(render); if (project().link && project().link.enabled) send({ type: "link", enabled: true, bpm: song() ? song().bpm : project().tempo.bpm, playing: state.playing }); sendDisplay(); });
 
   // public
-  window.PPTracks = { addClickSet: addClickSet, clickSets: clickSets,
+  window.PPTracks = { addClickSet: addClickSet, clickSets: clickSets, moveSectionStart: moveSectionStart, songBars: songBars,
     state: state, song: song, data: data, grid: grid, pushAll: pushAll, beatsInBar: beatsInBar, flowEntries: flowEntries, flowActive: flowActive, setFlowOn: setFlowOn, queueSection: queueSection, flowRepeat: flowRepeat, flowSkip: flowSkip, flowReset: flowReset, armQueue: function () { queueArmed = !queueArmed; renderFlow(); }, sectionsOf: sectionsOf, sectionAt: sectionAt, timeToBar: timeToBar, barStart: barStart,
     play: play, pause: pause, stop: stop, togglePlay: togglePlay, seek: seek, goSection: goSection, nextSection: nextSection, prevSection: prevSection, restartSection: restartSection, startOver: startOver,
     toggleLoop: toggleLoop, setLoop: setLoop, shiftKey: shiftKey, setTempoPercent: setTempoPercent, setTracksMode: setTracksMode, isPlaying: function () { return state.playing; }, isActive: isActive,

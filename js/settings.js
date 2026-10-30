@@ -43,7 +43,7 @@
   }
 
   // ------------------------------------------------------------- routing matrix
-  var BUSES = [["tracks", "Tracks", "songs / stems (mono sum)"], ["pad", "Pads", "pads + textures + audio input"], ["click", "Click + MD voice", "metronome and spoken cues (in-ears)"], ["instrument", "Instrument", "guitar / keys (native chain on the Pi)"]];
+  var BUSES = [["tracks", "Tracks", "the song's tracks, mixed"], ["pad", "Pads", "pads + textures + audio input"], ["click", "Click + cue voice", "metronome and spoken cues (in-ears)"], ["instrument", "Instrument", "guitar / keys (native chain on the Pi)"]];
   function channelNames() {
     var st = F.systemStatus && F.systemStatus(), list = st && st.audio && st.audio.channels;
     var n = Math.max(engine.ctx ? (engine.ctx.destination.maxChannelCount || 2) : 2, list ? list.length : 0, 4);
@@ -98,7 +98,7 @@
           (n >= 2 ? '<optgroup label="A pair (stereo)">' + opts.filter(function (o) { return o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" : "") +
           "</select>" + (shared.length ? '<br><small class="rt-shared">mixed with ' + esc(shared.join(" and ")) + "</small>" : "") + "</td><td>" + esc(now) + "</td></tr>";
       }).join("") + looperRow(r, opts, n, live, avail) + "</tbody></table>" +
-      '<p class="muted">' + (avail <= 2 ? (onPi() ? "This Central Pedal has 2 outputs, the headphone jack: everything plays on 1–2. " : "This device has 2 outputs: everything plays on 1–2. ") + "A bus set to an output that isn't connected is heard on 1–2 (the click: see Output device). On the Central Pedal 3–4 are the DAC board and a USB audio interface adds 5 up." : "1–2 are the Pi's own headphone jack (left, right), 3–4 the DAC board. A USB audio interface adds its outputs from 5 up, as soon as it's plugged in. Several buses on one output are mixed there; a bus set to an output that isn't connected is heard on 1–2.") + "</p>" +
+      '<p class="muted">' + (avail <= 2 ? (onPi() ? "Right now this Central Pedal only has its headphone jack (outputs 1–2), so everything plays there. " : "This device has 2 outputs, so everything plays on 1–2. ") + "Anything set to an output that isn't there is played on 1–2 instead. With a DAC board, 3–4 are its outputs; a USB audio interface adds 5 and up." : "1–2 are the headphone jack (left, right) and 3–4 the DAC board. A USB audio interface adds its outputs from 5 up as soon as it's plugged in. Parts sent to the same output are mixed together, and anything set to an output that isn't there plays on 1–2.") + "</p>" +
       (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- changes after a restart; without the board, untick this so 3–4 aren't offered</small></label>" : "");
   }
   // the looper (LOOPER tab): on the instrument's output, or one of its own
@@ -220,7 +220,11 @@
       var b = e.target.closest("[data-preset],[data-rt-test],[data-st-group],#audioApply,#bkBackup,#bkRestore,#bkUpdate,#bkRefresh,[data-bk-to],[data-bk-restore],[data-bk-update]"); if (!b) return;
       if (b.id === "bkBackup") bkShow("backup"); else if (b.id === "bkRestore") bkShow("restore"); else if (b.id === "bkUpdate") bkShow("update"); else if (b.id === "bkRefresh") bkShow(bk.mode || "backup");
       else if (b.dataset.bkTo) bkBackupTo(b.dataset.bkTo); else if (b.dataset.bkRestore) bkRestoreFrom(b.dataset.bkRestore); else if (b.dataset.bkUpdate) bkUpdateFrom(b.dataset.bkUpdate);
-      else if (b.dataset.preset != null) { Object.assign(project().theme, PRESETS[Number(b.dataset.preset)].theme); PP.applyTheme(); PP.persistSoon(); renderPresets(); if (window.PPColors) window.PPColors.render(); }
+      else if (b.dataset.preset != null) {   // a preset sets every screen colour (the ones it doesn't name come from the ones it does)
+        var pt = PRESETS[Number(b.dataset.preset)].theme;
+        project().theme = window.CCTheme ? Object.assign(window.CCTheme.derive(pt, "pedal"), pt) : Object.assign(project().theme || {}, pt);
+        PP.applyTheme(); PP.persistSoon(); renderPresets(); if (window.PPColors) { window.PPColors.render(); window.PPColors.apply(); }
+      }
       else if (b.dataset.rtTest) engine.testBus(b.dataset.rtTest);
       else if (b.dataset.stGroup) { group = b.dataset.stGroup; renderNav(); }
       else if (b.id === "audioApply") { PP.persistNow(); PP.setStatus("Restarting the audio engine…"); setTimeout(function () { location.reload(); }, 150); }

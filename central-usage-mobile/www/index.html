@@ -22,7 +22,7 @@
 <div class="card">
   <svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg>
   <h1>Central Usage</h1>
-  <p>Your chord chart, the lyrics, your instrument and your in-ear mix - from the main admin's computer on this Wi-Fi.</p>
+  <p>Your chord chart, lyrics, instrument and in-ear mix, straight from the main admin's computer on this Wi-Fi.</p>
   <button id="find">Find the main admin</button>
   <label for="host">Or its address</label>
   <input id="host" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="the main admin's computer, or padpedal.local">
@@ -61,7 +61,7 @@
   }
   function fail() { say("Not found. Check you're on the same Wi-Fi, or type the main admin's address (Central Control → Settings → This computer shows it).", true); }
   $("find").addEventListener("click", find);
-  $("go").addEventListener("click", function () { var h = $("host").value.trim(); if (!h) return; say("Connecting…"); probe(h).then(open).catch(function () { say("Nothing answers at " + h + ".", true); }); });
+  $("go").addEventListener("click", function () { var h = $("host").value.trim(); if (!h) return; say("Connecting…"); probe(h).then(open).catch(function () { say("Nothing answered at " + h + ". Check the address and that you're on the same Wi-Fi.", true); }); });
   $("host").addEventListener("keydown", function (e) { if (e.key === "Enter") $("go").click(); });
   $("host").value = saved();
   if (saved()) { say("Connecting to " + saved() + "…"); probe(saved()).then(open).catch(function () { say(""); }); }

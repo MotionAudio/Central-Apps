@@ -302,14 +302,80 @@
     if (p.noise) { var n = ctx.createBufferSource(); n.buffer = noiseBuffer(ctx, "pink"); n.loop = true; var lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = p.noiseLp; var g2 = ctx.createGain(); g2.gain.value = p.noise; n.connect(lp).connect(g2).connect(out); n.start(); nodes.push(n); }
     return { nodes: nodes };
   }
-  var FAMILIES = { noise: makeNoise, crackle: makeCrackle, drops: makeDrops, grains: makeGrains, drone: makeDrone, pulse: makePulse, static: makeStatic, hum: makeHum };
+  // ---------------------------------------------------------------- 10.0: loops from the sound libraries
+  // Drum loops (Central Instrument) play the file nearest the song's tempo, sped up or slowed to fit it; ambient loops
+  // (Central Pads) play the file of the song's key. They come from this Central Pedal's installed libraries (the driver's
+  // /libraries/loops); a loop whose plan this device doesn't have stays quiet and says which plan it's part of.
+  var DRIVER = "http://127.0.0.1:8766", KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], loopBufs = {};
+  function loopBuffer(ctx, lib, file) {
+    var k = lib + "|" + file;
+    if (!loopBufs[k]) {
+      loopBufs[k] = fetch(DRIVER + "/libraries/loop?lib=" + encodeURIComponent(lib) + "&file=" + encodeURIComponent(file)).then(function (r) { if (!r.ok) throw new Error("loop " + r.status); return r.arrayBuffer(); }).then(function (b) { return ctx.decodeAudioData(b); });
+      loopBufs[k].catch(function () { delete loopBufs[k]; });
+    }
+    return loopBufs[k];
+  }
+  function loopFile(p, root, bpm) {
+    if (p.keyed) { var key = KEY_NAMES[((root % 12) + 12) % 12]; return p.files.filter(function (f) { return f.key === key; })[0] || p.files[0]; }
+    return p.files.slice().sort(function (a, b) { return Math.abs(Math.log((bpm || 90) / a.bpm)) - Math.abs(Math.log((bpm || 90) / b.bpm)); })[0];
+  }
+  function loopRate(f, bpm) { return f && f.bpm ? clamp((bpm || f.bpm) / f.bpm, 0.6, 1.6) : 1; }
+  function makeLibLoop(ctx, p, out, root, bpm) {
+    var state = { nodes: [], file: null, dead: false, bpm: bpm };
+    var L = window.PPLicense;
+    if (p.tier && L && L.hasPlan && !L.hasPlan(p.tier)) { PP.setStatus(p.name + " is part of " + (L.planName ? L.planName(p.tier) : p.tier) + " - add its package in Settings → Packages"); return state; }
+    state.nodes.push({ stop: function () { state.dead = true; } });   // (stopping before the file arrives: it never starts)
+    function play(f) {
+      if (!f || (state.file && state.file.file === f.file)) return;
+      state.file = f;
+      loopBuffer(ctx, p.lib, f.file).then(function (buf) {
+        if (state.dead || state.file !== f) return;
+        var s = ctx.createBufferSource(), g = ctx.createGain(), now = ctx.currentTime;
+        s.buffer = buf; s.loop = true; s.playbackRate.value = loopRate(f, state.bpm);
+        g.gain.value = 0; s.connect(g).connect(out); s.start(); g.gain.setTargetAtTime(1, now, 0.25);
+        state.nodes.filter(function (n) { return n.buffer; }).forEach(function (n) { try { n.stop(now + 0.8); } catch (_) { } });
+        state.nodes = state.nodes.filter(function (n) { return !n.buffer; }).concat([s]);
+      }).catch(function () { PP.setStatus("Couldn't load the loop " + p.name); });
+    }
+    play(loopFile(p, root, bpm));
+    state.setRoot = function (r) { if (p.keyed) play(loopFile(p, r, state.bpm)); };
+    state.setTempo = function (t) {
+      if (p.keyed || !t) return; state.bpm = t;
+      var f = loopFile(p, 0, t);
+      if (state.file && f.file !== state.file.file) play(f);
+      else state.nodes.forEach(function (n) { if (n.playbackRate) n.playbackRate.setTargetAtTime(loopRate(state.file, t), ctx.currentTime, 0.1); });
+    };
+    return state;
+  }
+  function makeNone() { return { nodes: [] }; }
+  var FAMILIES = { noise: makeNoise, crackle: makeCrackle, drops: makeDrops, grains: makeGrains, drone: makeDrone, pulse: makePulse, static: makeStatic, hum: makeHum, libloop: makeLibLoop, none: makeNone };
+  // a texture by id; a library loop that isn't (or isn't yet) installed here stays chosen and quiet
+  function defOf(id) { return BY_ID[id] || { id: id, name: "Library loop (not installed here)", cat: "Library loops", family: "none", p: {} }; }
+  var libSig = "";
+  function loadLibraryLoops() {
+    if (!/^(127\.0\.0\.1|localhost)$/.test(location.hostname) || !window.fetch) return;
+    fetch(DRIVER + "/libraries/loops", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : { loops: [] }; }).then(function (j) {
+      var list = Array.isArray(j && j.loops) ? j.loops : [], sig = JSON.stringify(list);
+      if (sig === libSig) return; libSig = sig;
+      for (var i = LIBRARY.length - 1; i >= 0; i--) if (/^lib:/.test(LIBRARY[i].id)) { delete BY_ID[LIBRARY[i].id]; LIBRARY.splice(i, 1); }
+      var L = window.PPLicense;
+      list.forEach(function (lp) {
+        var files = (lp.files || []).filter(function (f) { return f && f.file; }); if (!files.length) return;
+        var keyed = files.some(function (f) { return f.key; }), plan = L && L.planName ? L.planName(lp.tier) : lp.tier;
+        var t = { id: "lib:" + lp.id, name: lp.name + (keyed ? "" : " (" + files.map(function (f) { return f.bpm; }).join(" / ") + " BPM)"), cat: (lp.group || "Library loops") + " - " + plan, family: "libloop",
+          p: { lib: lp.library, name: lp.name, tier: lp.tier, keyed: keyed, files: files, base: 48 } };
+        LIBRARY.push(t); BY_ID[t.id] = t;
+      });
+      render(); apply();
+    }).catch(function () { });
+  }
 
   // ---------------------------------------------------------------- channels
   function defaultChannel(i) { return { enabled: false, texture: i === 0 ? "rain-soft" : "shimmer-dust", level: 35, highPass: 40, lowPass: 16000, keyFollow: true }; }
   function channels() {
     var p = PP.project();
     if (!Array.isArray(p.textures) || p.textures.length !== 2) p.textures = [defaultChannel(0), defaultChannel(1)];
-    p.textures.forEach(function (c, i) { var d = defaultChannel(i); Object.keys(d).forEach(function (k) { if (c[k] === undefined) c[k] = d[k]; }); if (!BY_ID[c.texture]) c.texture = d.texture; });
+    p.textures.forEach(function (c, i) { var d = defaultChannel(i); Object.keys(d).forEach(function (k) { if (c[k] === undefined) c[k] = d[k]; }); if (!BY_ID[c.texture] && !/^lib:/.test(c.texture || "")) c.texture = d.texture; });
     return p.textures;
   }
   var live = [null, null], lastRoot = null, lastBpm = null;
@@ -327,7 +393,7 @@
     var chans = channels(), now = engine.ctx.currentTime, root = rootMidi(0), bpm = PP.tempoBpm();
     chans.forEach(function (c, i) {
       var ch = live[i]; if (!ch) return;
-      var def = BY_ID[c.texture];
+      var def = defOf(c.texture);
       if (!c.enabled) { ch.gain.gain.setTargetAtTime(0, now, .4); if (ch.src) setTimeout(function () { if (!channels()[i].enabled) stopSource(ch); }, 1500); return; }
       if (!ch.src || ch.id !== c.texture) {
         stopSource(ch);
@@ -341,13 +407,13 @@
   }
   function followKey() {
     if (!engine.ctx) return;
-    channels().forEach(function (c, i) { var ch = live[i]; if (!ch || !ch.src || !ch.src.setRoot || !c.keyFollow) return; var def = BY_ID[c.texture], r = (def.p.base || 48) + PP.noteIndex(PP.playKeyFor(PP.currentPad())); if (r !== ch.root) { ch.root = r; ch.src.setRoot(r); } });
+    channels().forEach(function (c, i) { var ch = live[i]; if (!ch || !ch.src || !ch.src.setRoot || !c.keyFollow) return; var def = defOf(c.texture), r = (def.p.base || 48) + PP.noteIndex(PP.playKeyFor(PP.currentPad())); if (r !== ch.root) { ch.root = r; ch.src.setRoot(r); } });
   }
   function followTempo() {
     if (!engine.ctx) return; var bpm = PP.tempoBpm(); if (bpm === lastBpm) return; lastBpm = bpm;
     live.forEach(function (ch) { if (ch && ch.src && ch.src.setTempo) ch.src.setTempo(bpm); });
   }
-  function toggle(i) { var c = channels()[i]; c.enabled = !c.enabled; if (c.enabled) engine.ensure().then(apply); else apply(); PP.persistSoon(); render(); PP.setStatus("Texture " + (i + 1) + (c.enabled ? ": " + BY_ID[c.texture].name : " off")); }
+  function toggle(i) { var c = channels()[i]; c.enabled = !c.enabled; if (c.enabled) engine.ensure().then(apply); else apply(); PP.persistSoon(); render(); PP.setStatus("Texture " + (i + 1) + (c.enabled ? ": " + defOf(c.texture).name : " off")); }
   function setLevel(i, v) { channels()[i].level = Math.round(clamp(v, 0, 1) * 100); apply(); PP.persistSoon(); render(); }
 
   // ---------------------------------------------------------------- UI
@@ -366,7 +432,7 @@
         '<label>Low cut <span class="control-line"><input type="range" min="20" max="2000" step="5" data-tfield="highPass" value="' + c.highPass + '"><output>' + c.highPass + " Hz</output></span></label>" +
         '<label>High cut <span class="control-line"><input type="range" min="500" max="20000" step="50" data-tfield="lowPass" value="' + c.lowPass + '"><output>' + (c.lowPass >= 1000 ? (c.lowPass / 1000).toFixed(1) + " kHz" : c.lowPass + " Hz") + "</output></span></label></div>";
     }).join("");
-    [0, 1].forEach(function (i) { var b = document.querySelector("#pfTex" + (i + 1)); if (b) { b.classList.toggle("on", !!channels()[i].enabled); b.querySelector("small").textContent = BY_ID[channels()[i].texture].name; } });
+    [0, 1].forEach(function (i) { var b = document.querySelector("#pfTex" + (i + 1)); if (b) { b.classList.toggle("on", !!channels()[i].enabled); b.querySelector("small").textContent = defOf(channels()[i].texture).name; } });
   }
   document.addEventListener("input", function (e) {
     var el = e.target, row = el.closest && el.closest("[data-tex]"); if (!row || !el.dataset.tfield) return;
@@ -380,6 +446,8 @@
   [0, 1].forEach(function (i) { var b = document.querySelector("#pfTex" + (i + 1)); if (b) b.addEventListener("click", function () { toggle(i); }); });
   setInterval(function () { followKey(); followTempo(); }, 400);
   render();
+  loadLibraryLoops();
+  setInterval(loadLibraryLoops, 30000);   // (a library installed or removed meanwhile)
 
-  window.PPTextures = { LIBRARY: LIBRARY, channels: channels, apply: apply, toggle: toggle, setLevel: setLevel, render: render, byId: function (id) { return BY_ID[id]; } };
+  window.PPTextures = { LIBRARY: LIBRARY, channels: channels, apply: apply, toggle: toggle, setLevel: setLevel, render: render, byId: function (id) { return BY_ID[id]; }, loadLibraryLoops: loadLibraryLoops, loopFile: loopFile, loopRate: loopRate };
 })();

@@ -413,6 +413,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS church_members_one_church_account ON church_me
 -- 9.5: buying "Just me": the keys belong to a personal row (personal, owner_id = the person), each key given to its
 -- buyer at once. Nobody is a member of it, so the person can still be in a church (or join one later).
 ALTER TABLE churches ADD COLUMN IF NOT EXISTS personal BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS demo BOOLEAN NOT NULL DEFAULT FALSE;   -- (10.0) the demo church: it sends no email
 CREATE UNIQUE INDEX IF NOT EXISTS churches_one_personal ON churches (owner_id) WHERE personal;
 
 -- 9.5: sound plans (yearly): Central Keys, Central Plugins, Central Instrument, Central Pedals. One row per Stripe
@@ -484,3 +485,21 @@ CREATE TABLE IF NOT EXISTS plan_code_uses (
 ALTER TABLE tracks DROP CONSTRAINT IF EXISTS tracks_kind_check;
 ALTER TABLE tracks ADD CONSTRAINT tracks_kind_check CHECK (kind IN ('Pad','Multitrack','Prime','Sound','Board','Click'));
 ALTER TABLE tracks ADD COLUMN IF NOT EXISTS item_format TEXT;   -- sf2, zip, json
+-- Setlists (10.0): a church's setlists, so every device sees the earlier ones. "team" is who plays it (people from the
+-- church's Central Services teams, at most as many as its slots); "songs" are Central Tracks songs added from the
+-- website ([{ trackId, title, key, bpm, kind, addedBy, at }]). Someone without a church keeps their own (church_id NULL).
+CREATE TABLE IF NOT EXISTS setlists (
+  id          BIGSERIAL PRIMARY KEY,
+  church_id   BIGINT REFERENCES churches(id) ON DELETE CASCADE,
+  owner_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  team        JSONB NOT NULL DEFAULT '[]',
+  songs       JSONB NOT NULL DEFAULT '[]',
+  service_at  TIMESTAMPTZ,
+  deleted     BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by  TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS setlists_church ON setlists (church_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS setlists_owner ON setlists (owner_id, updated_at DESC);

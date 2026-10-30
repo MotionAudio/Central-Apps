@@ -15,10 +15,10 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   var view = null, waiting = {}, notice = "";
   var DESC = {
-    main: "Runs everything and gives every other computer its role. There is one.",
-    admin: "Lighting · production (cameras) · track mixing · in-ear mixes · slides & lyrics - the jobs the main admin gives it",
-    user1: "Chord chart · instrument · lyrics · my in-ear mix",
-    user2: "Lyrics · chord chart for my instrument · my in-ear mix"
+    main: "Runs the team and tells every other computer what it does. A church has one.",
+    admin: "Runs one or more jobs, like lyrics, lights or cameras. You pick them for this computer, and the main admin can change them.",
+    user1: "For a musician: chord chart, instrument, lyrics and their own in-ear mix",
+    user2: "For a singer or a tablet on a stand: lyrics, a chord chart and their own in-ear mix"
   };
 
   function devId() {
@@ -48,6 +48,7 @@
     var mp = document.getElementById("modePick"); if (r === "main" && ((mp && mp.dataset.keep === "1" && !mp.dataset.ready) || CU.store.get("mainSetupPending", false))) return;   // the main admin's setup: not before its PINs are picked
     var m = { type: "cuRole", action: "hello", id: devId(), name: name(), role: r, edition: CU.edition ? CU.edition() : undefined };
     if (r === "main") { var k = keys() || {}; m.token = k.token; m.pin = k.pin; m.pair = k.pair; if (CU.prefs.code) m.code = CU.prefs.code; }
+    if ((r === "main" || r === "admin") && CU.jobsAt && CU.jobsAt() > 0) { m.jobs = CU.jobs(); m.jobsV = 2; m.jobsAt = CU.jobsAt(); }
     CU.send(m);
   }
   function request(action, extra) {
@@ -84,7 +85,8 @@
         if (m.hostCodes.admin && m.hostCodes.admin !== CU.store.get("adminCode", "")) { CU.store.set("adminCode", m.hostCodes.admin); if (window.CUMix && window.CUMix.refresh) window.CUMix.refresh(); }
       }
       // the center's list wins (the main admin may have changed it while this computer was off)
-      if (m.you && m.you.jobs && JSON.stringify(m.you.jobs) !== JSON.stringify(CU.jobs())) CU.setJobs(m.you.jobs);
+      if (m.you && m.you.jobs && JSON.stringify(m.you.jobs) !== JSON.stringify(CU.jobs()) && (m.you.jobsAt || 0) >= (CU.jobsAt ? CU.jobsAt() : 0)) CU.setJobs(m.you.jobs, m.you.jobsAt);
+      if (CU.setRunners) { CU.setRunners(m.runners || {}); askWhoRuns(m.runners || {}); }
       var mine = CU.role(), theirs = m.you && m.you.role;
       if (theirs && mine !== "main" && theirs !== mine && theirs !== "main") {
         if (mine === "admin" && theirs === "user1" && m.hasMain) notice = "There is a main admin (" + m.mainName + "), so this computer starts as User 1. Ask them, or enter their PIN below.";
@@ -96,7 +98,7 @@
       if (m.removed) { notice = ""; CU.setRole(null); toast((m.by || "The main admin") + " removed this computer. Choose how it is used."); }
       else {
         if (m.name && NAT && NAT.config) NAT.config.set({ name: m.name }).then(function (c) { CU.setConfig(c); });
-        if (m.jobs) { CU.setJobs(m.jobs); toast((m.by || "The main admin") + " set this computer's jobs: " + jobText(m.jobs) + "."); }
+        if (m.jobs) { CU.setJobs(m.jobs, m.jobsAt); toast((m.by || "The main admin") + " set this computer's jobs: " + jobText(m.jobs) + "."); }
         if (m.role && m.role !== CU.role()) { CU.setRole(m.role); toast((m.by || "The main admin") + " made this computer " + CU.roleName(m.role) + "."); }
         else if (m.approved === false) toast((m.by || "The main admin") + " kept this computer as " + CU.roleName(CU.role()) + ".");
       }
@@ -134,6 +136,46 @@
       toast(j.pending ? "Paired as User 1 - the main admin is asked to make this computer an admin." : "Paired as " + CU.roleName(j.role || r) + ".");
     } finally { repairing = false; }
   }
+  // ------------------------------------------------------------- (10.0) what this computer does
+  var JOB_HELP = { lyrics: "words on the screens and the stage display", lights: "the stage lights and the auto light show", cameras: "the video switcher and the cameras",
+    inears: "everyone's in-ear mixes", tracks: "the tracks and their mixer", stream: "a separate sound mix for the live stream", slides: "the slides and the countdown" };
+  function jobsPicker(sel, attr) {
+    var all = sel.indexOf("general") >= 0;
+    return '<div class="rp-jobs">' + CU.jobList.map(function (x) {
+      var on = all || sel.indexOf(x) >= 0;
+      return '<label class="rp-job' + (on ? " on" : "") + '"><input type="checkbox" ' + attr + '="' + x + '"' + (on ? " checked" : "") + '><span><b>' + esc(CU.jobNames[x]) + "</b><small>" + esc(JOB_HELP[x] || "") + "</small></span></label>";
+    }).join("") + "</div>";
+  }
+  function pickedIn(box, attr) { var out = []; box.querySelectorAll("[" + attr + "]").forEach(function (x) { if (x.checked) out.push(x.getAttribute(attr)); }); return out; }
+  // two or more computers picked the same job and nobody has said which one runs it: ask on each of them
+  var asked = {};
+  function askWhoRuns(rs) {
+    var me = devId(), bar = document.getElementById("rlAsk"), job = Object.keys(rs).filter(function (j) { var x = rs[j]; return x.ask && !asked[j] && (x.id === me || x.others.some(function (o) { return o.id === me; })); })[0];
+    if (!job) { if (bar) bar.remove(); return; }
+    var x = rs[job], list = [{ id: x.id, name: x.name }].concat(x.others);
+    if (!bar) { bar = document.createElement("div"); bar.id = "rlAsk"; bar.className = "audio-dev-bar rl-ask"; document.body.appendChild(bar); }
+    bar.innerHTML = "<span><b>" + esc(CU.jobNames[job]) + "</b> is set up on " + list.length + " computers. Which one runs it? The others show it but don't send anything out.</span>" +
+      list.map(function (o) { return '<button data-rl-run="' + esc(job) + '" data-id="' + esc(o.id) + '"' + (o.id === x.id ? ' class="primary"' : "") + ">" + (o.id === me ? "This one" : esc(o.name || "the other one")) + "</button>"; }).join("") +
+      '<button data-rl-run-later="' + esc(job) + '">Later</button>';
+    bar.onclick = async function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.rlRunLater) { asked[b.dataset.rlRunLater] = true; bar.remove(); return; }
+      var r = await request("runJob", { job: b.dataset.rlRun, target: b.dataset.id }); if (!r.ok) toast(r.error || "Not changed."); else bar.remove();
+    };
+  }
+  async function runHere(job) { var r = await request("runJob", { job: job, target: devId() }); if (!r.ok) toast(r.error || "Not changed."); else toast("This computer runs " + CU.jobNames[job].toLowerCase() + " now."); }
+  // Settings → This computer: the jobs, and which computer runs each one
+  function jobsCard() {
+    var j = CU.jobs(), rs = CU.runners ? CU.runners() : {}, me = devId(), mineList = j[0] === "general" ? CU.jobList : j;
+    var rows = mineList.map(function (x) {
+      var r = rs[x], who = !r ? '<span class="muted">this computer</span>' : r.id === me ? '<span class="dv-ok">runs here</span>' + (r.others.length ? ' <span class="muted small">(also on ' + r.others.map(function (o) { return esc(o.name); }).join(", ") + ")</span>" : "")
+        : 'runs on <b>' + esc(r.name || "another computer") + '</b> <button class="mini" data-rl="runhere" data-job="' + x + '">Run it here</button>';
+      return "<tr><td>" + esc(CU.jobNames[x]) + "</td><td>" + who + "</td></tr>";
+    }).join("");
+    return '<div class="rl-jobs-card"><h4>What this computer does</h4>' + jobsPicker(j, "data-rl-myjob") +
+      '<p class="muted small">One Central Control key covers everything this computer does. Tick all seven to do it all here, or share the jobs out between computers.</p>' +
+      (rows ? '<table class="io-t">' + rows + "</table>" : "") + "</div>";
+  }
   function jobText(j) { return (j || ["general"]).map(function (x) { return CU.jobNames[x] || x; }).join(", "); }
   function toast(text) {
     var t = document.createElement("div"); t.className = "role-toast"; t.textContent = text; document.body.appendChild(t);
@@ -150,25 +192,30 @@
     var d = document.createElement("div"); d.id = "modePick"; d.className = "mode-pick";
     var USAGE = CU.edition && CU.edition() === "usage", CONTROL = !!(CU.edition && CU.edition() === "control");
     var opt = function (r, title, text, small, hide) { return '<button data-rp="' + r + '"' + (hide ? " hidden" : "") + "><b>" + title + "</b><span>" + text + "</span>" + (small ? "<small>" + small + "</small>" : "") + "</button>"; };
+    var lic = window.PPLicense && window.PPLicense.state ? window.PPLicense.state() || {} : {}, church = lic.production || lic.church || (CU.config() || {}).production || "";
     d.innerHTML = '<div class="mode-box"><h2>Set up this computer</h2>' +
+      (CONTROL ? '<p class="rp-church">' + (church ? "<b>" + esc(church) + "</b>" : "Your church") + (lic.key ? ' · key <code>' + esc(String(lic.key).slice(0, 4)) + "-…-" + esc(String(lic.key).slice(-4)) + "</code> ✓" : "") + "</p>" : "") +
       '<div class="rp-step" data-step="1"><label class="rp-name">This computer\'s name <input data-rp="name" value="' + esc(name() === "Central Control" ? "" : name()) + '" placeholder="Sound desk / Lights / Sarah\'s laptop"></label>' +
-      '<div class="mode-opts rp-roles' + (CU.web || USAGE ? " web" : "") + '">' + opt("main", "Main admin", "Set up first. Picks the pairing PIN and gives every other device its role.", "usually the sound desk", CU.web || USAGE) +
-      opt("admin", "Admin", "Lighting, cameras, mix, in-ears, slides & lyrics - the jobs the main admin gives it.", "", CU.web || USAGE) +
+      '<div class="mode-opts rp-roles' + (CU.web || USAGE ? " web" : "") + '">' + opt("main", "Main admin", "Set this one up first. It picks the pairing PIN and tells every other device what it does.", "usually the sound desk", CU.web || USAGE) +
+      opt("admin", "Admin", "Runs one or more jobs, like lyrics, lights or cameras. You'll pick which ones next.", "", CU.web || USAGE) +
       opt("user1", "User 1", DESC.user1, "a musician", CONTROL) + opt("user2", "User 2", DESC.user2, "a singer / a tablet on a stand", CONTROL) + "</div>" +
-      (CONTROL ? '<p class="muted small rp-other">A musician\'s computer, tablet or phone? It gets <b>Central Usage</b> (Mac, Windows, iPad, iPhone, Android) - chord chart, instrument, lyrics and their in-ear mix.</p>' : "") +
+      (CONTROL ? '<p class="muted small rp-other">A musician\'s computer, tablet or phone? It gets <b>Central Usage</b> (Mac, Windows, iPad, iPhone or Android). That\'s where their chord chart, instrument, lyrics and in-ear mix are.</p>' : "") +
       (USAGE ? '<p class="muted small rp-other">Lighting, mixing, slides and the main admin are in <b>Central Control</b> (Windows, Mac, Linux).</p>' : "") + "</div>" +
+      // (10.0) Central Control: what this computer will do
+      '<div class="rp-step" data-step="jobs" hidden><h3>What will this computer do?</h3><p class="muted small">Tick everything this computer will run. One computer can do it all, or each job can have its own computer. You can change this later in Settings → This computer.</p>' +
+      jobsPicker(["general"], "data-rp-job") + '<div class="row"><button class="primary" data-rp="jobsNext">Next</button><button data-rp="jobsAll">All of them</button><button data-rp="back">Back</button></div></div>' +
       // main admin: inputs and outputs
-      '<div class="rp-step" data-step="io" hidden><h3>Inputs and outputs</h3><p class="muted small">Is this computer the sound desk - the one with the audio interface or Dante that makes the in-ear mixes? Pick its inputs and outputs. You can change all of it later on the I/O tab.</p><div class="rp-io" id="rpIo"></div>' +
+      '<div class="rp-step" data-step="io" hidden><h3>Inputs and outputs</h3><p class="muted small">Is this the computer at the sound desk, with the audio interface that makes the in-ear mixes? Pick its inputs and outputs here. You can change them any time on the I/O tab.</p><div class="rp-io" id="rpIo"></div>' +
       '<div class="row"><button class="primary" data-rp="ioNext">Next</button><button data-rp="ioSkip">Not the sound desk - skip</button></div></div>' +
       // main admin: the PINs
       '<div class="rp-step" data-step="pins" hidden><h3>Your PINs</h3>' +
-      '<label>Pairing PIN - every other device joins with it <input data-rp="pair" inputmode="numeric" maxlength="4" placeholder="e.g. 0915" autocomplete="off"></label>' +
-      '<label>Role PIN - only you; it changes roles (user ↔ admin) <input data-rp="pin" inputmode="numeric" maxlength="4" placeholder="4 digits, not the same" autocomplete="off"></label>' +
-      '<p class="muted small">Pair your Central Pedal (if you have one) with the same pairing PIN on its screen. Without one, everything but songs, charts, lyrics and tracks works.</p><div class="row"><button class="primary" data-rp="pinsGo">Finish</button><button data-rp="back">Back</button></div></div>' +
+      '<label>Pairing PIN (every other device joins with it) <input data-rp="pair" inputmode="numeric" maxlength="4" placeholder="e.g. 0915" autocomplete="off"></label>' +
+      '<label>Role PIN (just yours: it switches a device between user and admin) <input data-rp="pin" inputmode="numeric" maxlength="4" placeholder="4 digits, not the same" autocomplete="off"></label>' +
+      '<p class="muted small">If you have a Central Pedal, type the same pairing PIN on its screen. Without one, everything works except songs, charts, lyrics and tracks.</p><div class="row"><button class="primary" data-rp="pinsGo">Finish</button><button data-rp="back">Back</button></div></div>' +
       // everyone else: the pairing PIN
       '<div class="rp-step" data-step="join" hidden><h3 data-rp-title></h3><label>Pairing PIN <input data-rp="joinPin" inputmode="numeric" maxlength="4" placeholder="the main admin\'s 4 digits" autocomplete="off"></label>' +
       '<details class="rp-addr"><summary class="small">Main admin not found by itself?</summary><label>Its address <input data-rp="centerHost" placeholder="192.168.1.20" autocomplete="off"></label></details>' +
-      '<label class="rp-adminpin" hidden>Main admin\'s role PIN <small class="muted">(optional - without it the main admin approves you)</small><input data-rp="rolePin" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
+      '<label class="rp-adminpin" hidden>Main admin\'s role PIN <small class="muted">(optional: without it, the main admin approves you)</small><input data-rp="rolePin" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
       '<div class="row"><button class="primary" data-rp="go">Pair</button><button data-rp="back">Back</button><a href="#" data-rp="later">' + (CONTROL ? "Not now - start as an admin" : "Not now - start as User 1") + '</a></div></div>' +
       '<p class="rp-msg warn"></p><div class="rp-done" hidden></div></div>';
     document.body.appendChild(d);
@@ -189,6 +236,12 @@
     d.addEventListener("click", async function (e) {
       var b = e.target.closest("[data-rp]"); if (!b || b.tagName === "INPUT") return; e.preventDefault();
       var a = b.dataset.rp;
+      if ((a === "main" || a === "admin") && CONTROL && !d.dataset.jobsDone) { want = a; await saveName(); step("jobs"); return; }   // (10.0: the jobs first)
+      if (a === "jobsAll") { d.querySelectorAll("[data-rp-job]").forEach(function (x) { x.checked = true; x.closest(".rp-job").classList.add("on"); }); return; }
+      if (a === "jobsNext") {
+        var picked = pickedIn(d, "data-rp-job"); if (!picked.length) return msg("Pick at least one job - or All of them.");
+        await CU.setJobs(picked); d.dataset.jobsDone = "1"; a = want;
+      }
       if (a === "main") {
         want = "main"; await saveName(); d.dataset.keep = "1"; CU.store.set("mainSetupPending", true); await CU.setRole("main"); step("io");   // (main now, so the inputs and outputs can be set; it pairs once the PINs are picked)
         if (window.CUIO && window.CUIO.mountSetup) window.CUIO.mountSetup($("#rpIo", d)); else $("#rpIo", d).innerHTML = '<p class="muted">Set the audio interface later on the I/O tab.</p>';
@@ -199,7 +252,7 @@
       } else if (a === "ioNext" || a === "ioSkip") {
         if (a === "ioSkip" && NAT && NAT.config) { var c0 = CU.config() || {}; if (c0.host && c0.host.enabled) CU.setConfig(await NAT.config.set({ host: { enabled: false } })); }
         step("pins"); $('[data-rp="pair"]', d).focus();
-      } else if (a === "back") { if (want === "main" && !d.dataset.ready) { delete d.dataset.keep; CU.store.set("mainSetupPending", false); await CU.setRole(null); document.body.appendChild(d); } want = null; step(1); }
+      } else if (a === "back") { delete d.dataset.jobsDone; if (want === "main" && !d.dataset.ready) { delete d.dataset.keep; CU.store.set("mainSetupPending", false); await CU.setRole(null); document.body.appendChild(d); } want = null; step(1); }
       else if (a === "later") { await saveName(); await CU.setRole(CONTROL ? "admin" : "user1"); d.remove(); }
       else if (a === "close") d.remove();
       else if (a === "pinsGo") {
@@ -220,8 +273,8 @@
         var done = $(".rp-done", d); d.querySelectorAll(".rp-step").forEach(function (x) { x.hidden = true; }); done.hidden = false; msg("");
         done.innerHTML = '<p>This computer is the <b>main admin</b>.</p><table class="io-t"><tr><td>Pairing PIN</td><td><b class="io-code">' + esc(pair) + '</b> <span class="muted small">every other device joins with it</span></td></tr>' +
           '<tr><td>Role PIN</td><td><b class="io-code">' + esc(pin) + '</b> <span class="muted small">only you - changes roles</span></td></tr></table>' +
-          (view && view.pedal ? '<p class="small">Central Pedal: <b>' + esc(view.pedal.name) + "</b> paired.</p>" : '<p class="muted small">No Central Pedal yet - everything but songs, charts, lyrics and tracks works now. When it is on this network, type the same pairing PIN on its screen.</p>') +
-          '<p class="muted small">Both are in Settings → This computer. The Devices tab shows every device, its role and how its connection is doing.</p><button class="primary" data-rp="close">OK</button>';
+          (view && view.pedal ? '<p class="small">Central Pedal: <b>' + esc(view.pedal.name) + "</b> paired.</p>" : '<p class="muted small">No Central Pedal yet. Everything works except songs, charts, lyrics and tracks. When it\'s on this network, type the same pairing PIN on its screen.</p>') +
+          '<p class="muted small">You\'ll find both in Settings → This computer. The Devices tab shows every device, what it does and how its connection is doing.</p><button class="primary" data-rp="close">OK</button>';
         CU.showTab("devices");
       }
       else if (a === "go") {
@@ -229,6 +282,7 @@
         if (!(await connectFirst())) { $(".rp-addr", d).open = true; return msg("The main admin's computer was not found on this network. Is Central Control open on it (set up as the main admin)? Check the Wi-Fi, or type its address below."); }
         msg("Pairing…");
         var extra = { pair: code, code: code, role: want }; var rp = $('[data-rp="rolePin"]', d).value.trim(); if (want === "admin" && rp) extra.pin = rp;
+        if (want === "admin" && CU.jobsAt && CU.jobsAt() > 0) { extra.jobs = CU.jobs(); extra.jobsV = 2; extra.jobsAt = CU.jobsAt(); }
         var r2 = await request("join", extra);
         if (!r2.ok) return msg(r2.error || "Could not pair.");
         if (r2.code) { CU.prefs.code = r2.code; CU.store.set("code", r2.code); CU.send({ type: "auth", code: r2.code }); }
@@ -236,6 +290,14 @@
         toast(r2.pending ? "Paired as User 1 - the main admin is asked to make this computer an admin." : "Paired as " + CU.roleName(r2.role || "user1") + ".");
       }
     });
+    d.addEventListener("change", function (e) { var j = e.target.closest(".rp-job"); if (j) j.classList.toggle("on", e.target.checked); });
+    // the key window (church name, key) comes first; once it's done, its answers show at the top of this one
+    // (the key window's script can load after this one: wait for it)
+    var fillChurch = function () {
+      var l = window.PPLicense.state() || {}, el = $(".rp-church", d); if (!el) return;
+      el.innerHTML = (l.production || l.church ? "<b>" + esc(l.production || l.church) + "</b>" : "Your church") + (l.key ? ' · key <code>' + esc(String(l.key).slice(0, 4)) + "-…-" + esc(String(l.key).slice(-4)) + "</code> ✓" : "");
+    };
+    if (CONTROL) (function wait(n) { if (window.PPLicense && window.PPLicense.whenReady) window.PPLicense.whenReady(fillChurch); else if (n < 40) setTimeout(function () { wait(n + 1); }, 250); })(0);
     d.addEventListener("keydown", function (e) { if (e.key !== "Enter") return; var k = e.target.dataset.rp; if (k === "joinPin" || k === "rolePin") $('[data-rp="go"]', d).click(); if (k === "pair" || k === "pin") $('[data-rp="pinsGo"]', d).click(); });
   }
   // the reply to our own hello (main admin): resolves once the pedal answered (or nothing came - fine)
@@ -255,9 +317,9 @@
     if (r === "main") {
       h += '<table class="io-t"><tr><td>Pairing PIN</td><td><b class="io-code">' + esc(k.pair) + '</b> <button data-rl="setPair">Change…</button><div class="muted small">Every device joins with it (the Central Pedal too).</div></td></tr>' +
         '<tr><td>Role PIN</td><td><b class="io-code" data-rl="pinShow">' + esc(k.pin) + '</b> <button data-rl="setPin">Change…</button><div class="muted small">Only you: it moves a computer between user and admin.</div></td></tr></table>' +
-        '<p class="muted small">Every device, its role, its jobs and its connection are on the <button class="linkish" data-rl="devices">Devices</button> tab. This computer is the center: every device (and the Central Pedal) pairs with it, so keep Central Control open here during the service.</p>' + centerLine();
+        jobsCard() + '<p class="muted small">Every device, its role, its jobs and its connection are on the <button class="linkish" data-rl="devices">Devices</button> tab. This computer is the center: every device (and the Central Pedal) pairs with it, so keep Central Control open here during the service.</p>' + centerLine();
     } else if (r === "admin") {
-      h += '<p class="small">Jobs: <b>' + esc(jobText(CU.jobs())) + '</b> <span class="muted">(set by the main admin)</span></p>';
+      h += jobsCard();
       h += '<div class="io-opts">' + roleRadio("admin", r) + (CU.edition && CU.edition() === "control" ? "" : roleRadio("user1", r, true) + roleRadio("user2", r, true)) + "</div>" + addrLine();
     } else {
       if (CU.edition && CU.edition() === "control") h += '<p class="small">Central Control is for the main admin and admins. Musicians and singers use <b>Central Usage</b>.</p><div class="io-opts">' + roleRadio("admin", r, !!v.hasMain) + "</div>";   // (a Central Control set to User 1 / 2 before 9.2.1)
@@ -265,7 +327,7 @@
       if (CU.web) h += '<p class="muted small">On a phone or tablet: User 1 (chart, lyrics, my in-ear mix) or User 2. Lighting, mixing and slides are on a computer with Central Control.</p>';
       if (!CU.web) h += addrLine();
     }
-    h += '<div class="row"><button data-rl="forget">Forget role…</button><span class="muted small">' + (CU.edition && CU.edition() === "usage" ? "Back to the first-launch choice (User 1 or User 2)." : "Back to the first-launch choice. Use it if two computers were set up as the main admin.") + '</span></div></section>';
+    h += '<div class="row"><button data-rl="forget">Forget role…</button><span class="muted small">' + (CU.edition && CU.edition() === "usage" ? "Start this computer's setup again (User 1 or User 2)." : "Start this computer's setup again. Use it if two computers were both set up as the main admin.") + '</span></div></section>';
     return h;
   }
   // where the main admin is (everyone else) / the center on this computer (the main admin)
@@ -293,6 +355,13 @@
   function paint() { if (window.CUSettings && CU.prefs.tab === "settings") window.CUSettings.render(); chip(); }
 
   async function onSettingsChange(t) {
+    if (t.hasAttribute && t.hasAttribute("data-rl-myjob")) {   // (10.0) this computer's own jobs
+      var box = t.closest(".rp-jobs"), picked = pickedIn(box, "data-rl-myjob");
+      if (!picked.length) { t.checked = true; toast("A computer needs at least one job."); return true; }
+      await CU.setJobs(picked);
+      if (linked()) { var rj = await request("myJobs", { jobs: CU.jobs(), jobsV: 2 }); if (rj.ok && rj.jobsAt) await CU.setJobs(rj.jobs, rj.jobsAt); }
+      paint(); return true;
+    }
     if (t.name === "rlRole") {
       var want = t.value, cur = CU.role(), same = (cur === "user1" || cur === "user2") && (want === "user1" || want === "user2");
       var extra = { role: want };
@@ -314,13 +383,14 @@
       if (t.dataset.rlJob === "general" && t.checked) row.querySelectorAll("[data-rl-job]").forEach(function (x) { x.checked = x.dataset.rlJob === "general"; });
       else if (t.checked) { var g = row.querySelector('[data-rl-job="general"]'); if (g) g.checked = false; }
       row.querySelectorAll("[data-rl-job]").forEach(function (x) { if (x.checked) picked.push(x.dataset.rlJob); });
-      var rj = await request("jobs", { target: id, jobs: picked }); if (!rj.ok) alert(rj.error || "Not changed."); paint(); return true;
+      var rj = await request("jobs", { target: id, jobs: picked, jobsV: 2 }); if (!rj.ok) alert(rj.error || "Not changed."); paint(); return true;
     }
     if (t.dataset.rlRole) { var r2 = await request("assign", { target: t.dataset.rlRole, role: t.value }); if (!r2.ok) alert(r2.error || "Not changed."); paint(); return true; }
     return false;
   }
   async function onSettingsClick(b) {
     var a = b.dataset.rl; if (!a) return false;
+    if (a === "runhere") { await runHere(b.dataset.job); paint(); return true; }
     if (a === "setPin") { var p = await CU.askText("New role PIN (4 digits, not the pairing PIN):", ""); if (p != null) { p = p.trim(); if (!/^\d{4}$/.test(p)) alert("The PIN is 4 digits."); else if (p === (keys() || {}).pair) alert("Use a different PIN from the pairing PIN."); else await setKeys({ newPin: p }); } }
     else if (a === "setPair") {
       var np = await CU.askText("New pairing PIN (4 digits). Devices online now switch over by themselves; the others ask for it:", ""); if (np == null) return true; np = np.trim();
@@ -332,7 +402,7 @@
     else if (a === "devices") CU.showTab("devices");
     else if (a === "centerAddr") { var ad = await CU.askText("The main admin's address (empty = find it by itself):", window.CUCenter ? window.CUCenter.address() : ""); if (ad != null && window.CUCenter) window.CUCenter.setAddress(ad); }
     else if (a === "forget") {
-      if (!confirm("Forget this computer's role? It goes back to the first-launch choice." + (CU.role() === "main" ? "\n\nThis computer stops being the main admin; another computer can then become it." : ""))) return true;
+      if (!confirm("Start this computer's setup again? It forgets the role it has now." + (CU.role() === "main" ? "\n\nThis computer stops being the main admin, so another computer can take that over." : ""))) return true;
       var extra = CU.role() === "main" ? { token: (keys() || {}).token } : {};
       if (linked()) { var r = await request("forget", extra); if (!r.ok) { alert(r.error || "Not changed."); return true; } }
       notice = ""; if (!(NAT && NAT.config)) CU.store.set("mainKeys", null);
@@ -358,7 +428,7 @@
   CU.on("role", function () { chip(); hello(); });
   CU.on("ready", function () { if (CU.role() === "main" && CU.store.get("mainSetupPending", false)) { CU.store.set("mainSetupPending", false); CU.setRole(null); return; } if (!CU.role()) firstLaunch(); chip(); });   // a main admin setup left half-way starts again
 
-  window.CURoles = { linked: linked, firstLaunch: firstLaunch, card: card, jobText: jobText, toast: toast, devId: devId, view: function () { return view; }, onSettingsChange: onSettingsChange, onSettingsClick: onSettingsClick, request: request, keys: keys, hello: hello };
+  window.CURoles = { linked: linked, firstLaunch: firstLaunch, card: card, jobText: jobText, toast: toast, devId: devId, runHere: runHere, jobsCard: jobsCard, view: function () { return view; }, onSettingsChange: onSettingsChange, onSettingsClick: onSettingsClick, request: request, keys: keys, hello: hello };
   if (!CU.role()) firstLaunch();
   chip();
 })();

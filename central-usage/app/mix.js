@@ -13,6 +13,10 @@
   function db(v) { return v <= -90 ? "-∞" : (v > 0 ? "+" : "") + Number(v).toFixed(1); }
   var sel = CU.store.get("mxSel", -1), showAll = CU.store.get("mxAll", false), dragging = null, structKey = "", wave = [], rec = null;
   var layer = CU.store.get("mxLayer", "main");   // what the faders move: "main" (the room) or "stream" (the stream mix's own levels)
+  // (10.0) a computer that only does the live stream's mix: its faders are the stream's from the start
+  function streamOnly() { var j = CU.jobs ? CU.jobs() : ["general"]; return (CU.role() === "admin" || CU.role() === "main") && j.indexOf("stream") >= 0 && j.indexOf("tracks") < 0; }
+  if (streamOnly()) layer = "stream";
+  CU.on("jobs", function () { if (streamOnly() && layer !== "stream") { layer = "stream"; CU.store.set("mxLayer", layer); } });
   function onStream() { return layer === "stream"; }
   function ss(i) { return (S().stream && S().stream.sends[i]) || { level: -90, pan: 0, on: true }; }
   function fxUsed(x) { return x.fx && (x.fx.rev > -90 || x.fx.dly > -90); }
@@ -83,7 +87,7 @@
       '<div class="mx-dcol"><h4><label class="toggle"><input type="checkbox" data-mxd="comp.on"' + (c.on ? " checked" : "") + '> Compressor</label></h4><div class="mx-gr"><i></i><span>gain reduction</span></div>' +
       slider("Threshold", "comp.thr", -60, 0, 0.5, c.thr, dbs) + slider("Ratio", "comp.ratio", 1, 20, 0.5, c.ratio, function (v) { return Number(v).toFixed(1) + ":1"; }) + slider("Attack", "comp.att", 0.1, 200, 0.1, c.att, function (v) { return Number(v).toFixed(1) + " ms"; }) + slider("Release", "comp.rel", 5, 2000, 5, c.rel, function (v) { return Math.round(v) + " ms"; }) + slider("Make-up", "comp.makeup", 0, 24, 0.5, c.makeup, dbs) + "</div>" +
       '<div class="mx-dcol"><h4>FX sends <small class="muted">after the fader</small></h4>' + slider("Reverb", "fx.rev", -90, 10, 0.5, fx.rev, fxdb) + slider("Delay", "fx.dly", -90, 10, 0.5, fx.dly, fxdb) +
-      '<p class="muted small">The reverb and the delay are shared, like a console\'s: set them up under "Reverb & delay" below.</p>' +
+      '<p class="muted small">The reverb and delay are shared by every channel, like on a sound desk. Set them up under "Reverb & delay" below.</p>' +
       '<h4 class="mx-h4">In the stream mix</h4>' + slider("Level", "ss.level", -90, 10, 0.5, sd.level, fxdb) + slider("Pan", "ss.pan", -1, 1, 0.05, sd.pan, function (v) { v = Number(v); return Math.abs(v) < 0.02 ? "C" : (v < 0 ? "L " : "R ") + Math.round(Math.abs(v) * 100); }) +
       '<label class="toggle"><input type="checkbox" data-mxd="ss.on"' + (sd.on !== false ? " checked" : "") + "> On in the stream</label></div></div>";
   }

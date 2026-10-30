@@ -167,17 +167,33 @@
   }
   // ---- the optional model: it answers with the same steps as JSON
   function systemPrompt(ctx) {
-    return "You turn a church lighting operator's sentence into JSON steps for a lighting controller. Reply with JSON only: {\"steps\":[{\"section\":\"intro|verse|prechorus|chorus|bridge|tag|instrumental|breakdown|outro|all\",\"num\":null,\"targets\":[{\"target\":\"<a group: front, back, beam, house, fx, haze, all - or a light name>\",\"colors\":[\"#rrggbb\"],\"level\":0.0-1.0,\"effect\":\"none|pulse|chase|alternate|breathe|rainbow|wipe|bounce|sparkle|sweep|circle|figure8|flicker|flash|strobe\",\"speed\":beats}],\"hits\":{\"targets\":[same as targets]} or null,\"fade\":beats or null}]}. " +
+    return "You turn a church lighting operator's sentence into JSON steps for a lighting controller. Reply with JSON only: {\"steps\":[{\"section\":\"intro|verse|prechorus|chorus|bridge|tag|instrumental|breakdown|outro|all\",\"num\":null,\"targets\":[{\"target\":\"<a group: front (faces), back (washes), beam (movers), house, fx (strobes), haze, all - or a light name>\",\"colors\":[\"<a colour name: red, blue, amber, white, warm white...>\"],\"level\":0.0-1.0,\"effect\":\"none|pulse|chase|alternate|breathe|rainbow|wipe|bounce|sparkle|sweep|circle|figure8|flicker|flash|strobe\",\"speed\":beats}],\"hits\":{\"targets\":[same as targets]} or null,\"fade\":beats or null}]}. " +
       "Lights in the rig: " + (ctx.fixtures || []).map(function (f) { return f.name + " (" + f.group + ")"; }).join(", ") + ". Sections in the song: " + (ctx.sections || []).map(function (s) { return s.name; }).join(", ") + ".";
   }
+  // (10.0) the shape of an answer, as a JSON schema: the AI helper's server turns it into a grammar, so even a small
+  // model answers with these steps and these names (the groups, this rig's lights, the sections, the effects)
+  var SECTIONS = ["intro", "verse", "prechorus", "chorus", "bridge", "tag", "instrumental", "breakdown", "outro", "all"];
+  var FX_NAMES = ["none", "pulse", "chase", "alternate", "breathe", "rainbow", "wipe", "bounce", "sparkle", "sweep", "circle", "figure8", "flicker", "flash", "strobe"];
+  function jsonSchema(ctx) {
+    var names = ["front", "back", "beam", "house", "fx", "haze", "all"];
+    (ctx.fixtures || []).forEach(function (f) { var n = norm(f.name); if (n && names.indexOf(n) < 0) names.push(n); });
+    var target = { type: "object", properties: { target: { type: "string", enum: names.slice(0, 80) }, colors: { type: "array", items: { type: "string", enum: Object.keys(COLORS) }, maxItems: 2 },
+      level: { type: "number", minimum: 0, maximum: 1 }, effect: { type: "string", enum: FX_NAMES }, speed: { type: "number", minimum: 0.25, maximum: 16 } }, required: ["target", "colors", "level", "effect"], additionalProperties: false };
+    return { type: "object", properties: { steps: { type: "array", minItems: 1, maxItems: 8, items: { type: "object", properties: {
+      section: { type: "string", enum: SECTIONS }, num: { type: ["integer", "null"] }, targets: { type: "array", minItems: 1, maxItems: 4, items: target },
+      hits: { type: ["object", "null"], properties: { targets: { type: "array", items: target, maxItems: 3 } }, required: ["targets"], additionalProperties: false }, fade: { type: ["number", "null"] } },
+      required: ["section", "targets"], additionalProperties: false } } }, required: ["steps"], additionalProperties: false };
+  }
+  // a colour the model gave: #rrggbb, or one of the names it was offered
+  function colorOf(c) { if (/^#[0-9a-f]{6}$/i.test(c)) return c; var n = norm(c); return COLORS[n] || null; }
   function fromModel(json, ctx) {   // validate what the model said
     var steps = []; if (!json || !Array.isArray(json.steps)) return null;
     json.steps.slice(0, 20).forEach(function (s) {
       var sec = ["intro", "verse", "prechorus", "chorus", "bridge", "tag", "instrumental", "breakdown", "outro", "all"].indexOf(s.section) >= 0 ? s.section : null; if (!sec) return;
-      function tgs(list) { return (Array.isArray(list) ? list : []).slice(0, 12).map(function (t) { var tg = findTarget(norm(t.target || "").split(" "), 0, ctx) || (/^all$/.test(t.target) ? { kind: "all", name: "all" } : null); if (!tg) return null; return { target: tg, colors: (t.colors || []).filter(function (c) { return /^#[0-9a-f]{6}$/i.test(c); }).slice(0, 2), level: typeof t.level === "number" ? Math.max(0, Math.min(1, t.level)) : null, effect: EFFECTS.some(function (e) { return e[0] === t.effect; }) || t.effect === "strobe" ? t.effect : null, speed: typeof t.speed === "number" ? Math.max(0.25, Math.min(16, t.speed)) : null, position: null }; }).filter(Boolean); }
+      function tgs(list) { return (Array.isArray(list) ? list : []).slice(0, 12).map(function (t) { var tg = findTarget(norm(t.target || "").split(" "), 0, ctx) || (/^all$/.test(t.target) ? { kind: "all", name: "all" } : null); if (!tg) return null; return { target: tg, colors: (t.colors || []).map(colorOf).filter(Boolean).slice(0, 2), level: typeof t.level === "number" && !(t.level <= 0 && (t.colors || []).length) ? Math.max(0, Math.min(1, t.level)) : null, effect: EFFECTS.some(function (e) { return e[0] === t.effect; }) || t.effect === "strobe" ? t.effect : null, speed: typeof t.speed === "number" ? Math.max(0.25, Math.min(16, t.speed)) : null, position: null }; }).filter(Boolean); }
       steps.push({ section: sec, num: typeof s.num === "number" ? s.num : null, label: sec === "all" ? "the whole song" : sec + (s.num ? " " + s.num : ""), targets: tgs(s.targets), hits: s.hits && s.hits.targets ? { targets: tgs(s.hits.targets) } : null, fade: typeof s.fade === "number" ? Math.max(0, Math.min(64, s.fade)) : null });
     });
     return steps.length ? steps : null;
   }
-  root.CULightsAI = { parse: parse, build: build, systemPrompt: systemPrompt, fromModel: fromModel, COLORS: COLORS, typeOfSection: typeOfSection };
+  root.CULightsAI = { parse: parse, build: build, systemPrompt: systemPrompt, jsonSchema: jsonSchema, fromModel: fromModel, COLORS: COLORS, typeOfSection: typeOfSection };
 })(typeof window !== "undefined" ? window : this);

@@ -7,15 +7,16 @@
   var CU = window.CentralUsage, P = window.PPParts; if (!CU || !P) return;
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  var part = CU.store.get("part", "chart"), view = CU.store.get("partView", ""), cache = {}, loading = null, shown = "";
+  var part = CU.store.get("part", "chart"), view = CU.store.get("partView", ""), clef = CU.store.get("partClef", "auto"), cache = {}, loading = null, shown = "";
+  var CLEFS = window.PPSheets ? window.PPSheets.CLEFS : [["auto", "Usual for the instrument"], ["treble", "Treble"], ["bass", "Bass"], ["alto", "Alto (viola)"], ["tenor", "Tenor"]];
   var bar = $("#view-chart .bar"), chart = $("#chart"); if (!bar || !chart) return;
   // the picker, next to the instrument (transposition) picker
   var groups = {}; P.INSTRUMENTS.forEach(function (i) { if (i.id !== "chords" && i.id !== "nashville") (groups[i.group] = groups[i.group] || []).push(i); });
   var label = document.createElement("label"); label.id = "partWrap"; label.className = "part-pick";
-  label.innerHTML = 'Part <select id="partPick"><option value="chart">Chord chart</option>' + Object.keys(groups).map(function (g) { return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (i) { return '<option value="' + i.id + '">' + esc(i.name) + "</option>"; }).join("") + "</optgroup>"; }).join("") + '</select><span id="partViews" class="part-views"></span>';
+  label.innerHTML = 'Part <select id="partPick"><option value="chart">Chord chart</option>' + Object.keys(groups).map(function (g) { return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (i) { return '<option value="' + i.id + '">' + esc(i.name) + "</option>"; }).join("") + "</optgroup>"; }).join("") + '</select><span id="partViews" class="part-views"></span><select id="partClef" title="Clef for the sheet music" hidden>' + CLEFS.map(function (c) { return '<option value="' + c[0] + '">' + esc(c[0] === "auto" ? "Clef: usual" : c[1] + " clef") + "</option>"; }).join("") + "</select>";
   bar.insertBefore(label, bar.firstChild.nextSibling);
   var box = document.createElement("div"); box.id = "partView"; box.className = "part-view"; box.hidden = true; chart.parentNode.insertBefore(box, chart.nextSibling);
-  $("#partPick").value = part;
+  $("#partPick").value = part; $("#partClef").value = clef;
 
   function song() { var d = CU.state.display; if (!d || !d.song) return null; var songs = d.songs || []; var s = songs[d.song.index] || {}; return { id: s.id || d.song.id, name: s.name || d.song.name }; }
   async function music(s) {
@@ -34,16 +35,18 @@
   async function paint(force) {
     var on = part !== "chart"; box.hidden = !on; chart.hidden = on; $("#partViews").innerHTML = "";
     var shapes = $("#shapesWrap"), inst = $("#instrument"); if (inst) inst.closest("label").hidden = on; if (shapes && on) shapes.hidden = true;
+    $("#partClef").hidden = true;
     if (!on) { shown = ""; return; }
     var s = song(); if (!s) { box.innerHTML = '<div class="empty">No song on the Central Pedal yet.</div>'; return; }
-    var key = (s.id || s.name) + "|" + part + "|" + view; if (!force && key === shown) return;
+    var key = (s.id || s.name) + "|" + part + "|" + view + "|" + clef; if (!force && key === shown) return;
     var my = loading = {}; box.innerHTML = box.innerHTML || '<div class="empty">Writing the part…</div>';
     var ctx = await music(s); if (loading !== my) return;
     if (!ctx) { box.innerHTML = '<div class="empty">The Central Pedal has not shared this song\'s music yet (it does a few seconds after the song changes). Charts made there, and tracks it has listened to, become the parts here.</div>'; shown = ""; return; }
     var dk = CU.state.display && CU.state.display.key; if (dk && dk !== ctx.key) ctx = Object.assign({}, ctx, { key: dk, chords: transposeChords(ctx.chords, ctx.key, dk) });
     var p = P.build(ctx, part), v = view && p.views.indexOf(view) >= 0 ? view : p.views[0];
     $("#partViews").innerHTML = p.views.length > 1 ? p.views.map(function (x) { return '<button class="' + (x === v ? "on" : "") + '" data-pv="' + x + '">' + ({ chart: "Chart", notation: "Notation", tab: "Tab", drums: "Drums" }[x] || x) + "</button>"; }).join("") : "";
-    box.innerHTML = P.render(p, v, { ctx: ctx, width: Math.max(560, box.clientWidth || chart.clientWidth || 900) - 30, shape: CU.prefs.shapes });
+    $("#partClef").hidden = v !== "notation" || p.kind === "grand";
+    box.innerHTML = P.render(p, v, { ctx: ctx, width: Math.max(560, box.clientWidth || chart.clientWidth || 900) - 30, shape: CU.prefs.shapes, clef: clef });
     shown = key;
   }
   // the Central Pedal can play the song in another key (key up / down): the parts follow it
@@ -54,6 +57,7 @@
     return chords.map(function (c) { return Object.assign({}, c, { label: C.transpose(c.label, shift, flats), bass: c.bass ? C.transpose(c.bass, shift, flats) : c.bass }); });
   }
   $("#partPick").addEventListener("change", function (e) { part = e.target.value; CU.store.set("part", part); view = ""; paint(true); });
+  $("#partClef").addEventListener("change", function (e) { clef = e.target.value; CU.store.set("partClef", clef); paint(true); });
   $("#partViews").addEventListener("click", function (e) { var b = e.target.closest("[data-pv]"); if (!b) return; view = b.dataset.pv; CU.store.set("partView", view); paint(true); });
   var lastSong = "";
   CU.on("message", function (m) {

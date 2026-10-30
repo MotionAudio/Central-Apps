@@ -9,7 +9,7 @@
 import crypto from "node:crypto";
 import { q, one, pool } from "./db.js";
 import { config, KEY_KINDS, LICENSE_RECHECK_DAYS, MAIN_ADMINS_MAX, DEFAULT_KEYS } from "./config.js";
-import { defaultKind, defaultKeysOn, defaultOffMessage, DEFAULT_CHURCH } from "./defaultkeys.js";
+import { defaultKind, defaultKeysOn, defaultOffMessage, isDemoKey, builtinChurch, prettyKey } from "./defaultkeys.js";
 import { isAdmin } from "./auth.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
 import { requireStep } from "./signin.js";
@@ -21,7 +21,8 @@ const APP_KIND = { pedal: "P", "pedal-control": "P", control: "A", usage: "U" };
 const APP_NAME = { pedal: "Central Pedal", "pedal-control": "Central Pedal Control", control: "Central Control", usage: "Central Usage" };
 const SECTION = { admin: { kind: "A", app: "Central Control", role: "admin", anchor: "control" }, user: { kind: "U", app: "Central Usage", role: "user", anchor: "usage" },
   pedal: { kind: "P", app: "Central Pedal Control", role: "user", anchor: "pedal-control" } };
-const APPS_URL = "https://motionaudio.github.io/Central-Apps/";
+// (10.0) the downloads are on our own website (getfile.js), never a GitHub page
+const DL = (anchor) => config.publicUrl + "/#downloads";
 
 export function newKey(kind) {
   let s = kind;
@@ -118,6 +119,7 @@ function inviteLink(token) { return config.publicUrl + "/#invite-" + token; }
 const installUrl = () => config.publicUrl + "/help/install.html#before-you-start";
 // how: undefined (the first email, or Resend), "reminder" (nobody answered yet), "moved" (to another team: new app and key)
 async function sendInvite(inv, church, how) {
+  if (church && church.demo) return { sent: false, why: "The demo church doesn't send emails." };   // (10.0: its password is shared)
   const s = SECTION[inv.section], link = inviteLink(inv.token), owner = inv.section === "owner", joined = !!inv.user_id;
   const key = inv.key ? pretty(inv.key) : "", step1 = joined ? "Sign in with your account" : "Make your account";
   const subject = (how === "reminder" ? "Reminder: " : "") + (owner ? "You're a main admin of " + church.name + " - Motion Audio"
@@ -126,17 +128,17 @@ async function sendInvite(inv, church, how) {
     : "Welcome to the team! " + church.name + " added you" + (inv.role_text ? " as " + inv.role_text : "") + ", and we've got everything ready for you." + (how === "reminder" ? " Your key is waiting for you." : "");
   const text = (inv.name ? "Hi " + inv.name + ",\n\n" : "Hi,\n\n") + (owner
     ? church.name + " made you a main admin on Motion Audio. Thanks for taking care of your team." + (how === "reminder" ? " The invite is still waiting for you." : "") + "\n\n1. Make your account (or sign in): " + link + "\n"
-    : lead + "\n\n1. " + step1 + ": " + link + "\n2. Download " + s.app + ": " + APPS_URL + "#" + s.anchor +
-      "\n3. Open it, connect to Wi-Fi, and enter your key: " + key + "\n" + (inv.section === "user" || inv.section === "pedal" ? "\nYour key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.\n" : "")) +
-    ((church.services_slots || 0) > 0 || trialActive(church) ? "\nYour church's schedule is in Central Services: " + APPS_URL + "#central-services - sign in with the same account.\n" : "") +
+    : lead + "\n\n1. " + step1 + ": " + link + "\n2. Download " + s.app + ": " + DL(s.anchor) +
+      "\n3. Open it, connect to Wi-Fi, and enter your key: " + key + "\n" + (inv.section === "admin" ? "4. Pick what your computer will do: lyrics, lights, cameras, in-ears, tracks, the stream mix or slides (as many as you like).\n" : "") + (inv.section === "user" || inv.section === "pedal" ? "\nYour key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.\n" : "")) +
+    ((church.services_slots || 0) > 0 || trialActive(church) ? "\nYour church's schedule is in Central Services: " + DL("central-services") + " - sign in with the same account.\n" : "") +
     "\nTalk soon,\nThe Motion Audio team\n";
   const html = '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px">' + (inv.name ? "<p>Hi " + escHtml(inv.name) + ",</p>" : "<p>Hi,</p>") + (owner
     ? "<p><b>" + escHtml(church.name) + "</b> made you a main admin on Motion Audio." + (how === "reminder" ? " The invite is still waiting." : "") + "</p><p><a href=\"" + escHtml(link) + "\" style=\"display:inline-block;background:#12161C;color:#fff;padding:12px 20px;border-radius:6px;font-weight:600;text-decoration:none\">Make your account</a></p>"
     : "<p>" + escHtml(lead) + "</p><ol>" +
-      "<li><a href=\"" + escHtml(link) + "\">" + step1 + "</a></li><li><a href=\"" + APPS_URL + "#" + s.anchor + "\">Download " + escHtml(s.app) + "</a></li>" +
-      "<li>Open it, connect to Wi-Fi, and enter your key:<br><code style=\"font:600 18px ui-monospace,monospace;letter-spacing:.05em\">" + escHtml(key) + "</code></li></ol>" +
+      "<li><a href=\"" + escHtml(link) + "\">" + step1 + "</a></li><li><a href=\"" + DL(s.anchor) + "\">Download " + escHtml(s.app) + "</a></li>" +
+      "<li>Open it, connect to Wi-Fi, and enter your key:<br><code style=\"font:600 18px ui-monospace,monospace;letter-spacing:.05em\">" + escHtml(key) + "</code></li>" + (inv.section === "admin" ? "<li>Pick what your computer will do: lyrics, lights, cameras, in-ears, tracks, the stream mix or slides (as many as you like).</li>" : "") + "</ol>" +
       (inv.section !== "admin" ? "<p style=\"color:#555\">Your key works on two of your devices (for example one at church and one at home), signed in with your account - your settings go with you.</p>" : "")) +
-    ((church.services_slots || 0) > 0 || trialActive(church) ? "<p>Your church's schedule is in <a href=\"" + APPS_URL + "#central-services\">Central Services</a> - sign in with the same account.</p>" : "") + "<p>Talk soon,<br>The Motion Audio team</p></div>";
+    ((church.services_slots || 0) > 0 || trialActive(church) ? "<p>Your church's schedule is in <a href=\"" + DL("central-services") + "\">Central Services</a> - sign in with the same account.</p>" : "") + "<p>Talk soon,<br>The Motion Audio team</p></div>";
   const r = await sendMail(inv.email, subject, text.replace(/(\n2\. Download [^\n]+)/, "$1\n   How to install it: " + installUrl(inv.section)), html.replace(/(Download [^<]+<\/a>)<\/li>/, "$1 (<a href=\"" + escHtml(installUrl(inv.section)) + "\">how to install it</a>)</li>"));
   await q("UPDATE invites SET sent_at=now(), sent_ok=$1 WHERE id=$2", [r.sent, inv.id]);
   return r;
@@ -195,9 +197,12 @@ export async function remindInvites() {
 }
 
 // a default key's answer: no church of its own, updates always, no end, no Central Tracks Unlimited
-function defaultReply(kind, activate) {
-  return Object.assign({ ok: true }, activate ? { key: DEFAULT_KEYS[kind] } : {}, { kind, church: DEFAULT_CHURCH, recheckDays: LICENSE_RECHECK_DAYS }, activate ? { account: null } : {},
-    { updatesUntil: null, updatesUntilText: "forever", expiresAt: null, trial: false, tracksUnlimited: false, defaultKey: true });
+// (10.0) the demo church's keys answer the same way, with its name; its P and A keys have Central Tracks Unlimited (the demo
+// church subscribes), like a real church's pedal and main admins
+function defaultReply(kind, activate, key) {
+  const demo = isDemoKey(key);
+  return Object.assign({ ok: true }, activate ? { key: demo ? prettyKey(key) : DEFAULT_KEYS[kind] } : {}, { kind, church: builtinChurch(key), recheckDays: LICENSE_RECHECK_DAYS }, activate ? { account: null } : {},
+    { updatesUntil: null, updatesUntilText: "forever", expiresAt: null, trial: false, tracksUnlimited: demo && kind !== "U", defaultKey: true, demoKey: demo });
 }
 // what a key tells its app: how far its updates go (null: forever), and when a trial key stops
 function coverage(l) { return { updatesUntil: l.kind === "P" ? null : l.updates_until, updatesUntilText: l.kind === "P" ? "forever" : fmt(l.updates_until), expiresAt: l.expires_at || null, trial: !!l.trial }; }
@@ -231,7 +236,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     if (dk && dk !== "S") {
       if (!(await defaultKeysOn())) throw bad(defaultOffMessage(), 403);
       if (dk !== want) throw bad("That's a " + (KEY_KINDS[dk] || "different") + " key. " + APP_NAME[app] + " needs " + (want === "P" ? "a P key" : want === "A" ? "an A key (admin)" : "a U key (user)") + ".", 400);
-      return res.json(defaultReply(dk, true));
+      return res.json(defaultReply(dk, true, b.key));
     }
     const name = String(b.deviceName || "").trim().slice(0, 80) || APP_NAME[app];
     const client = await pool.connect();
@@ -262,7 +267,7 @@ export function routes(api, { wrap, brake, requireUser }) {
   api.post("/license/check", wrap(async (req, res) => {
     keyBrake(req);
     const b = req.body || {}, dev = device(b), dk = defaultKind(b.key);
-    if (dk && dk !== "S") return res.json((await defaultKeysOn()) ? defaultReply(dk) : { ok: false, reason: "invalid", message: defaultOffMessage() });   // (switched off: the app asks for a real key)
+    if (dk && dk !== "S") return res.json((await defaultKeysOn()) ? defaultReply(dk, false, b.key) : { ok: false, reason: "invalid", message: defaultOffMessage() });   // (switched off: the app asks for a real key)
     const l = await findKey(b.key);
     if (!l || l.revoked) { miss(req); return res.json({ ok: false, reason: "invalid" }); }
     if (l.church_id && (await one("SELECT closed_at FROM churches WHERE id=$1", [l.church_id])).closed_at) return res.json({ ok: false, reason: "invalid" });   // (its church was closed)
@@ -313,7 +318,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     if (!inv) throw bad("That invite isn't valid any more. Ask your main admin to send it again.", 404);
     const s = SECTION[inv.section];
     res.json({ church: inv.church, name: inv.name, email: inv.email, section: inv.section, role: inv.role_text, used: !!inv.user_id,
-      app: s ? s.app : null, download: s ? APPS_URL + "#" + s.anchor : null, key: inv.key ? pretty(inv.key) : null });
+      app: s ? s.app : null, download: s ? DL(s.anchor) : null, key: inv.key ? pretty(inv.key) : null });
   }));
   api.post("/invite/accept", requireUser, wrap(async (req, res) => res.json(Object.assign({ ok: true }, await acceptInvite(req.user, req.body.token)))));
 

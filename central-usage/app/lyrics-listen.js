@@ -41,7 +41,7 @@
       if (!words.length) throw new Error("no words heard in " + voc.name);
       var m = hub.music || {}, g = hub.grid || {}, period = 60 / (g.bpm || hub.bpm || 100), bars = g.bars || [];
       var chords = (m.chords || []).map(function (c2) { var t0 = bars[c2.bar - 1]; if (t0 == null) t0 = (bars[0] || 0) + (c2.bar - 1) * (hub.bpb || 4) * period; return { start: t0 + (c2.beat - 1) * period, label: c2.label, bass: c2.bass }; });
-      var text = L.chartFromWords(words, { title: hub.name || s.name, key: (d && d.key) || hub.key, chords: chords, sections: (hub.sections || []).map(function (q) { return { name: q.name, start: q.start }; }) });
+      var text = L.chartFromWords(words, { title: hub.name || s.name, key: (d && d.key) || hub.key, chords: chords, bars: bars, sections: (hub.sections || []).map(function (q) { return { name: q.name, start: q.start }; }) });
       info("Sending the chart to the Central Pedal…");
       var up = await fetch(CU.api("/upload?kind=charts&code=" + encodeURIComponent(CU.prefs.code) + "&song=" + encodeURIComponent(hub.name || s.name) + "&name=" + encodeURIComponent((hub.name || s.name) + " (lyrics + chords).txt")), { method: "POST", body: text });
       if (!up.ok) throw new Error("the chart was not saved (" + up.status + ")");
@@ -55,7 +55,7 @@
   function card() {
     if (!L.available() || !NAT || !NAT.asr) return "";
     var a = st || {}, models = a.models || [], cur = models.filter(function (m) { return m.key === a.model; })[0] || {}, dl = a.download;
-    return '<section class="card"><h3>Lyrics from the vocal (speech model)</h3><p class="muted">Hears the words sung in a song\'s vocal track and writes the lyric chart with the chords (Lyrics tab → "Lyrics + chords from the vocal"). Runs on this computer - nothing goes to the internet after the one download.</p>' +
+    return '<section class="card"><h3>Lyrics from the vocal (speech model)</h3><p class="muted">Hears the words sung in a song\'s vocal track and writes the lyric chart with the chords (Lyrics tab → "Lyrics + chords from the vocal"). It runs on this computer; after the first download nothing goes online.</p>' +
       '<table class="io-t"><tr><td>Model</td><td><select data-asr="model">' + models.map(function (m) { return '<option value="' + m.key + '"' + (m.key === a.model ? " selected" : "") + ">" + esc(m.label) + (m.downloaded ? " ✓" : "") + "</option>"; }).join("") + "</select></td></tr>" +
       '<tr><td>Language</td><td><select data-asr="language">' + LANGS.map(function (l) { return '<option value="' + l[0] + '"' + (l[0] === (a.language || "") ? " selected" : "") + ">" + l[1] + "</option>"; }).join("") + "</select></td></tr>" +
       "<tr><td>Status</td><td>" + (dl ? "downloading… " + Math.round((dl.got || 0) / 1048576) + (dl.total ? " / " + Math.round(dl.total / 1048576) : "") + " MB" : cur.downloaded ? "✓ ready" : "not downloaded") + (a.error ? ' <span class="warn">' + esc(a.error) + "</span>" : "") + "</td></tr></table>" +

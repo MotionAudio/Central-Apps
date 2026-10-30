@@ -429,6 +429,35 @@ async def main():
                     hit = mm
                     break
             check("the MIDI hits go to Central Control over the network with the Pi's clock (for the lights)", hit and hit["messages"][0]["data"] == [0x90, 60, 127] and isinstance(hit.get("t"), int), hit)
+        # 10.0: the song's sheet (chart, sections, key played) travels once, when it changes; a screen that opens later
+        # (a phone, the HDMI lyrics window after a restart) still gets it with its first display state
+        sheet = {"id": "song-gitf", "name": "Great Is Thy Faithfulness", "key": "A", "keyShift": 2, "sections": [{"id": "v", "name": "Verse 1", "bar": 1, "bars": 8}], "chartText": "[Verse 1]\n[G]Great is thy"}
+        await send(dict(display, songId="song-gitf", sheet=sheet))
+        await asyncio.sleep(0.15)
+        await send(dict(display, songId="song-gitf", pos=90))
+        await asyncio.sleep(0.15)
+        async with websockets.connect("ws://127.0.0.1:18081") as late:
+            await asyncio.wait_for(late.recv(), 2)   # hello
+            first = None
+            for _ in range(4):
+                mm = json.loads(await asyncio.wait_for(late.recv(), 2))
+                if mm.get("type") == "display":
+                    first = mm
+                    break
+            check("a chart screen that joins late gets the song's sheet with its first display state (key as played, sections, chart)",
+                  first and first.get("pos") == 90 and (first.get("sheet") or {}).get("key") == "A" and "Great is thy" in (first.get("sheet") or {}).get("chartText", ""), first and {k: first.get(k) for k in ("pos", "sheet")})
+        await send(dict(display, songId="song-other"))
+        await asyncio.sleep(0.15)
+        async with websockets.connect("ws://127.0.0.1:18081") as late2:
+            await asyncio.wait_for(late2.recv(), 2)
+            first2 = None
+            for _ in range(4):
+                mm = json.loads(await asyncio.wait_for(late2.recv(), 2))
+                if mm.get("type") == "display":
+                    first2 = mm
+                    break
+            check("...but not another song's sheet", first2 and "sheet" not in first2, first2 and first2.get("sheet"))
+        await send(display)
         await asyncio.sleep(0.4)
         with open(config["mini_screen"]["fb"], "rb") as handle:
             fb = handle.read()
@@ -723,7 +752,7 @@ async def main():
               and lp_mode == {"name": "looperMode"},
               (lp_tab, lp_rec2, lp_card1, lp_undo1, lp_redo3, lp_stop2, lp_main, lp_lvl, lp_mode))
         # the plans: a pedal, board, sound or knob whose plan isn't active is dimmed with a lock; a tap says which plan opens it
-        lock_txt = "Part of Central Pedals · $50 a year"
+        lock_txt = "Part of Central Pedals · $70 a year"
         ins_l = {"kind": "electric", "kinds": [["electric", "Electric"], ["keys", "Keys"]], "board": "Fuzz Wall", "boardLocked": lock_txt, "levelDb": 0,
                  "pedals": [{"index": 0, "name": "Big Muff", "on": False, "color": "#8e44ad", "locked": lock_txt}, {"index": 1, "name": "Clean Booster", "on": True, "color": "#3f9f5a"}],
                  "knobs": [{"uid": "u1", "sym": "ls_level", "pedal": "Calf 5-band EQ", "label": "Low shelf", "value": 0.5, "text": "0 dB", "on": False, "locked": "Part of Central Plugins · $120 a year"}]}
@@ -979,6 +1008,27 @@ async def main():
                   not up0 and moved == [{"type": "miniPick", "what": "setlistMove", "id": 1, "target": 1}] and first == [] and second == [{"type": "miniPick", "what": "setlistRemove", "id": 2}]
                   and tall(down1_box) and tall(rm2_box) and mini.song_edit is False,
                   (up0, moved, first, second, down1_box, rm2_box))
+            # 10.0: SETS - Load setlist from the small screen: the setlists this pedal knows; a pick opens it in the app
+            mini.overlay = None
+            mini.render(ds)
+            sets_box, sets_hit = hit_where(lambda a: a.get("local") == "list" and a.get("what") == "setlists")
+            _ls = driver.sync.setlists_listing
+            driver.sync.setlists_listing = lambda: [{"id": "slA", "name": "Sunday", "count": 3}, {"id": "slB", "name": "Wednesday", "count": 1}]
+            try:
+                mini.local(sets_hit)
+                mini.render(ds)
+                sl_items = (mini.lists.get("setlists") or {}).get("items") or []
+                slb_box, slb = hit_where(lambda a: a.get("local") == "pick" and a.get("what") == "setlists" and a.get("id") == "slB")
+                _sent.clear()
+                if slb:
+                    mini.local(slb)
+                sl_pick = [m for m in _sent if m.get("type") == "miniPick"]
+            finally:
+                driver.sync.setlists_listing = _ls
+            check("...SETS (10.0): Load setlist on the small screen - the pedal's setlists; a tap opens one in the app",
+                  sets_hit and tall(sets_box) and [x["label"] for x in sl_items] == ["Sunday", "Wednesday"] and sl_items[1]["sub"].startswith("1 song") and slb and tall(slb_box)
+                  and sl_pick == [{"type": "miniPick", "what": "setlists", "id": "slB", "target": None}] and mini.overlay is None,
+                  (sets_hit, sets_box, sl_items, slb, sl_pick, mini.overlay))
             # Effects: TRACKS → Effects lists the tracks bus and each track (from the app); a row opens its effects
             mini.tab, mini.sub["tracks"] = "tracks", "fx"
             _sent.clear()
@@ -1154,6 +1204,19 @@ async def main():
                     mini.lists.pop(k)
                 mini.overlay = None
             driver.display = disp
+            # 10.0: Settings → Colours in the app - the 3.5" screen takes the same colours, kept for the next start; None = our look
+            _cfg_saved = driver.save_config
+            driver.save_config = lambda: True
+            try:
+                driver.handle_app_message({"type": "miniTheme", "colors": {"bg": "#f2f5f8", "text": "#102033", "accent": "#0f9d72", "nope": "#123456", "bar": "not a colour"}})
+                themed = (mini.COL["bg"], mini.COL["text"], mini.COL["accent"], mini.COL["bar"], driver.config.get("mini_theme", {}).get("bg"))
+                mini.render(disp)
+                driver.handle_app_message({"type": "miniTheme", "colors": None})
+                back = (mini.COL["bg"], "mini_theme" in driver.config)
+            finally:
+                driver.save_config = _cfg_saved
+            check("the small screen follows the app's colours (Settings → Colours), keeps them for the next start, and goes back to its own look",
+                  themed == ((242, 245, 248), (16, 32, 51), (15, 157, 114), driver_mod.MiniScreen.COL["bar"], "#f2f5f8") and back == (driver_mod.MiniScreen.COL["bg"], False), (themed, back))
         finally:
             driver.emit, driver.schedule_mini_render = _real_emit2, _sched2
             driver_mod.wifi_connect, driver_mod.wifi_status = _wc, _ws
@@ -1694,7 +1757,7 @@ async def main():
             status, body = http("http://127.0.0.1:18766/libraries/file?name=central-keys-library-1.0.zip&sha256=" + hashlib.sha256(z1).hexdigest(), data=z1, method="PUT")
             got = json.loads(body) if status == 200 else {}
             sf2_dir = os.path.join(root, "data", "sounds", "sf2")
-            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0, "pad": 0}
+            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0, "pad": 0, "loop": 0}
                   and os.path.exists(os.path.join(sf2_dir, "Test Keys - central-keys-library.sf2")), body[:300])
             tiers = open(os.path.join(sf2_dir, "tiers.txt")).read() if os.path.exists(os.path.join(sf2_dir, "tiers.txt")) else ""
             check("...each keeping the library's plan (tiers.txt)", "Test Keys|keys|CC0 1.0|central-keys-library" in tiers, tiers)

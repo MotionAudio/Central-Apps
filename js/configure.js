@@ -34,7 +34,8 @@
   function wiringText(i) {
     if (i.streamdeck) return "Stream Deck";
     if (i.usb) return "USB " + (i.usb.name || "") + " · " + (i.usb.codeName || ("key " + i.usb.code) || ("axis " + i.usb.abs));
-    if (i.midi) return "MIDI " + i.midi.type.toUpperCase() + " " + i.midi.number + (i.midi.channel ? " ch" + i.midi.channel : "");
+    if (i.key) return window.CCSurface ? window.CCSurface.describe(i) : "Key " + i.key.code;
+    if (i.midi) return window.CCSurface ? window.CCSurface.describe(i) : "MIDI " + String(i.midi.msg || i.midi.type).toUpperCase() + " " + i.midi.number + (i.midi.channel ? " ch" + i.midi.channel : "");
     if (i.kind === "encoder") return i.gpio_a != null ? "GPIO " + i.gpio_a + " / " + i.gpio_b + (i.gpio_button != null ? " · push GPIO " + i.gpio_button : "") : "not wired";
     if (i.gpio != null) return "GPIO " + i.gpio + " (pin " + (BCM_TO_PIN[i.gpio] || "?") + ")";
     if (i.adc) return "ADS1115 " + i.adc.address + " · A" + i.adc.channel;
@@ -42,7 +43,7 @@
   }
   function saveInputs() {
     var list = inputs(); PP.persistSoon();
-    send({ type: "inputs", inputs: list.filter(function (i) { return !i.streamdeck; }).map(function (i) { var o = {}; Object.keys(i).forEach(function (k) { if (k !== "active" && k !== "midi") o[k] = i[k]; }); return o; }), save: true });
+    send({ type: "inputs", inputs: list.filter(function (i) { return !i.streamdeck && !i.midi && !i.key; }).map(function (i) { var o = {}; Object.keys(i).forEach(function (k) { if (k !== "active" && k !== "midi") o[k] = i[k]; }); return o; }), save: true });
   }
 
   // ---------------------------------------------------------------- Configure
@@ -58,7 +59,7 @@
     if (a.arg === "stem") return '<input data-cf="arg-index" type="number" min="1" max="24" value="' + ((Number(args.index) || 0) + 1) + '" title="stem number">';
     if (a.arg === "loop") { var li = Number(args.index); li = isFinite(li) && li >= 0 && li < 3 ? li : -1; return '<select data-cf="arg-index" title="which loop">' + [[0, "the selected loop"], [1, "loop 1"], [2, "loop 2"], [3, "loop 3"]].map(function (o) { return '<option value="' + o[0] + '"' + (li + 1 === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>"; }
     if (a.arg === "tab") { var names = A.TAB_NAMES || {}; return '<select data-cf="arg-tab">' + ["live", "pads", "tracks", "instrument", "looper", "configure", "learn", "io", "settings"].map(function (t) { return '<option value="' + t + '"' + ((args.tab || "pads") === t ? " selected" : "") + ">" + esc(names[t] || t) + "</option>"; }).join("") + "</select>"; }
-    if (a.arg === "bus") return '<select data-cf="arg-bus">' + [["tracks", "Tracks"], ["pad", "Pads"], ["click", "Click + MD voice"], ["instrument", "Instrument"]].map(function (b) { return '<option value="' + b[0] + '"' + ((args.bus || "tracks") === b[0] ? " selected" : "") + ">" + b[1] + "</option>"; }).join("") + "</select>";
+    if (a.arg === "bus") return '<select data-cf="arg-bus">' + [["tracks", "Tracks"], ["pad", "Pads"], ["click", "Click + cue voice"], ["instrument", "Instrument"]].map(function (b) { return '<option value="' + b[0] + '"' + ((args.bus || "tracks") === b[0] ? " selected" : "") + ">" + b[1] + "</option>"; }).join("") + "</select>";
     if (a.arg === "cue") return '<input data-cf="arg-cue" value="' + esc(args.cue || "chorus") + '" placeholder="cue id">';
     return "";
   }
@@ -97,17 +98,17 @@
     var root = $("#lnBoard"); if (!root) return;
     var list = inputs(), reserved = hello ? hello.reservedPins || [] : [];
     $("#lnStatus").textContent = connected() ? "Control board connected" + (hello && hello.screen35 ? " · 3.5-inch screen on (GPIO " + SCREEN_PINS.join(", ") + " reserved)" : "") + (hello && hello.soundCards && hello.soundCards.some(function (c) { return /hifiberry/i.test(c); }) ? " · I2S DAC found" : "") : "Not connected to the Central Pedal (learning works on the Central Pedal itself).";
-    root.innerHTML = list.filter(function (i) { return !i.usb && !i.midi; }).map(function (i) {
+    root.innerHTML = list.filter(function (i) { return !i.usb && !i.midi && !i.key && !i.streamdeck; }).map(function (i) {
       var lrn = learning && learning.target === i.id;
       return '<div class="ln-row' + (lrn ? " learning" : "") + '" data-input-id="' + i.id + '" data-learn="' + i.id + '"><i class="dot' + (i.active === false ? " off" : "") + '"></i><b>' + esc(i.name) + '</b><small>' + esc(wiringText(i)) + (i.gpio != null && reserved.indexOf(i.gpio) > -1 ? " · pin taken by the screen / DAC" : "") + '</small><button data-ln="learn"' + (!connected() ? " disabled" : "") + ">" + (lrn ? "Press / turn it now… (cancel)" : "Learn") + "</button></div>";
     }).join("");
     var usb = $("#lnUsb");
     usb.innerHTML = (devices.usb.length ? "<p class=\"muted\">Plugged in: " + devices.usb.map(function (d) { return esc(d.name) + (d.pedal ? " (pedal)" : d.keyboard ? " (keyboard)" : d.mouse ? " (mouse)" : ""); }).join(", ") + "</p>" : '<p class="muted">' + (connected() ? "No USB pedals or controllers found. Plug one into the Pi." : "Shows USB devices when connected to the Central Pedal.") + "</p>") +
-      list.filter(function (i) { return i.usb || i.midi; }).map(function (i) {
+      list.filter(function (i) { return i.usb || i.midi || i.key; }).map(function (i) {
         var lrn = learning && learning.target === i.id, ml = midiLearn && midiLearn.target === i.id;
-        return '<div class="ln-row' + (lrn || ml ? " learning" : "") + '" data-input-id="' + i.id + '" data-learn="' + i.id + '"><i class="dot"></i><input data-ln="name" value="' + esc(i.name) + '"><small>' + esc(wiringText(i)) + '</small><button data-ln="' + (i.midi ? "midilearn" : "learn") + '">' + (lrn || ml ? "Press it now… (cancel)" : "Learn") + '</button><button data-ln="del" class="danger">✕</button></div>';
+        return '<div class="ln-row' + (lrn || ml ? " learning" : "") + '" data-input-id="' + i.id + '" data-learn="' + i.id + '"><i class="dot"></i><input data-ln="name" value="' + esc(i.name) + '"><small>' + esc(wiringText(i)) + '</small><button data-ln="' + (i.midi || i.key ? "relearn" : "learn") + '">' + (lrn || ml ? "Press it now… (cancel)" : "Learn") + '</button><button data-ln="del" class="danger">✕</button></div>';
       }).join("");
-    $("#lnMouse").textContent = devices.mouse ? "Mouse connected: the cursor is shown." : "No mouse: the cursor is hidden (touch).";
+    $("#lnMouse").textContent = devices.mouse ? "A mouse is plugged in, so the pointer shows." : "No mouse plugged in, so the pointer is hidden for the touch screen.";
     drawHeader();
   }
   function drawHeader() {
@@ -156,7 +157,9 @@
     if (Array.isArray(m.inputs) && m.inputs.length) { project().inputs = m.inputs.map(function (i) { var o = {}; Object.keys(i).forEach(function (k) { if (k !== "needs_free") o[k] = i[k]; }); return o; }); keepMidiInputs(); PP.persistSoon(); }
     renderLearn(); renderConfigure();
   });
-  function keepMidiInputs() { var saved = (project().midiInputs || []); project().inputs = inputs().filter(function (i) { return !i.midi; }).concat(saved); }
+  // the controls the app learned itself (MIDI and computer keys) are kept in midiInputs: the driver only knows the board and USB ones
+  function learnedOnly() { return inputs().filter(function (i) { return i.midi || i.key; }); }
+  function keepMidiInputs() { var saved = (project().midiInputs || []); project().inputs = inputs().filter(function (i) { return !i.midi && !i.key; }).concat(saved); }
   F.on("devices", function (m) { devices = m; renderLearn(); if (window.PPShell) window.PPShell.setPointer(!!m.mouse); });
   async function addUsb(kind) {
     var name = await PP.ask(kind === "button" ? "Name for the new button (e.g. Next section)" : "Name for the new USB knob / pedal", kind === "button" ? "USB pedal " + (inputs().filter(function (i) { return i.usb; }).length + 1) : "USB knob");
@@ -165,24 +168,30 @@
     inputs().push(spec); A.mapping()[id] = { action: "none" };
     PP.persistSoon(); renderLearn(); startLearn(id, kind);
   }
-  async function addMidi(kind) {
-    var name = await PP.ask(kind === "button" ? "Name for the new MIDI button" : "Name for the new MIDI knob / pedal", kind === "button" ? "MIDI button" : "MIDI knob");
-    if (name === null) return;
-    var id = "m" + Date.now().toString(36), spec = { id: id, name: name || id, kind: kind, midi: { type: kind === "button" ? "note" : "cc", number: 0, channel: 0 } };
-    inputs().push(spec); project().midiInputs = (project().midiInputs || []).concat([spec]); A.mapping()[id] = { action: "none" };
-    PP.persistSoon(); renderLearn(); startMidiLearn(id);
+  // ---- Add new control: what kind it is (button, knob, slider), its name, then press / turn / slide it (control-surface.js)
+  function countOf(kind) { return learnedOnly().filter(function (i) { return i.kind === kind; }).length + 1; }
+  function defaultName(kind) { return kind === "knob" ? "Knob " + countOf("knob") : kind === "slider" ? "Slider " + countOf("slider") : "Footswitch " + countOf("button"); }
+  function saveLearned(spec, got) {
+    delete spec.midi; delete spec.key;
+    if (got.key) spec.key = got.key; else spec.midi = got.midi;
+    project().midiInputs = learnedOnly(); PP.persistSoon();
+    PP.setStatus(spec.name + " learned: " + wiringText(spec)); renderLearn(); renderConfigure();
   }
-  function startMidiLearn(id) { if (midiLearn && midiLearn.target === id) { midiLearn = null; renderLearn(); return; } midiLearn = { target: id }; PP.setStatus("Press / move the MIDI control now"); renderLearn(); }
-  function midiLearnMessage(d) {
-    if (!midiLearn) return false;
-    var spec = byId(midiLearn.target), type = d[0] & 0xF0, ch = (d[0] & 0x0F) + 1; if (!spec) { midiLearn = null; return false; }
-    if (type === 0x90 && d[2] > 0) spec.midi = { type: "note", number: d[1], channel: ch };
-    else if (type === 0xB0) spec.midi = { type: "cc", number: d[1], channel: ch };
-    else if (type === 0xC0) spec.midi = { type: "pc", number: d[1], channel: ch };
-    else return true;
-    midiLearn = null; project().midiInputs = inputs().filter(function (i) { return i.midi; }); PP.persistSoon(); PP.setStatus(spec.name + " learned: " + wiringText(spec)); renderLearn(); renderConfigure();
-    return true;
+  async function addLearned(kind) {
+    if (!window.CCSurface) return;
+    var r = await window.CCSurface.learn({ kinds: kind ? [kind] : ["button", "knob", "slider"], kind: kind || null, keys: true, defaultName: defaultName, title: "Add a control" });
+    if (!r) return;
+    var id = (r.spec.key ? "k" : "m") + Date.now().toString(36), spec = { id: id, name: r.name || defaultName(r.kind), kind: r.kind };
+    inputs().push(spec); A.mapping()[id] = { action: "none" };
+    saveLearned(spec, r.spec);
   }
+  async function relearn(id) {
+    var spec = byId(id); if (!spec || !window.CCSurface) return;
+    var r = await window.CCSurface.learn({ kind: spec.kind === "button" ? "button" : spec.kind === "slider" || spec.kind === "expression" ? "slider" : "knob", name: spec.name, keys: true });
+    if (r) { spec.name = r.name || spec.name; saveLearned(spec, r.spec); }
+  }
+  function addMidi(kind) { return addLearned(kind === "button" ? "button" : "knob"); }
+  function midiLearnMessage(d, port) { return !!(window.CCSurface && window.CCSurface.feedMidi(d, port)); }
   function wire() {
     if (!$("#cfRows")) return;
     $("#cfRows").addEventListener("change", onConfigure);
@@ -192,17 +201,18 @@
       var b = e.target.closest("[data-ln]"), row = e.target.closest("[data-learn]"); if (!b || !row) return;
       var id = row.dataset.learn, spec = byId(id);
       if (b.dataset.ln === "learn") startLearn(id, spec.kind);
-      else if (b.dataset.ln === "midilearn") startMidiLearn(id);
-      else if (b.dataset.ln === "del") { project().inputs = inputs().filter(function (i) { return i.id !== id; }); project().midiInputs = inputs().filter(function (i) { return i.midi; }); delete A.mapping()[id]; saveInputs(); renderLearn(); renderConfigure(); }
+      else if (b.dataset.ln === "relearn" || b.dataset.ln === "midilearn") relearn(id);
+      else if (b.dataset.ln === "del") { project().inputs = inputs().filter(function (i) { return i.id !== id; }); project().midiInputs = learnedOnly(); delete A.mapping()[id]; saveInputs(); renderLearn(); renderConfigure(); }
     });
     $("#lnUsb").addEventListener("change", function (e) { var row = e.target.closest("[data-learn]"); if (row && e.target.dataset.ln === "name") { var spec = byId(row.dataset.learn); if (spec) { spec.name = e.target.value; saveInputs(); renderConfigure(); } } });
     $("#lnAddUsbButton").addEventListener("click", function () { addUsb("button"); });
     $("#lnAddUsbKnob").addEventListener("click", function () { addUsb("knob"); });
+    $("#lnAddNew").addEventListener("click", function () { addLearned(null); });
     $("#lnAddMidiButton").addEventListener("click", function () { addMidi("button"); });
     $("#lnAddMidiKnob").addEventListener("click", function () { addMidi("knob"); });
-    $("#lnResetBoard").addEventListener("click", function () { if (!confirm("Put the board inputs back to the default pins?")) return; project().inputs = JSON.parse(JSON.stringify(DEFAULT_INPUTS)).concat(inputs().filter(function (i) { return i.usb || i.midi; })); saveInputs(); renderLearn(); renderConfigure(); });
+    $("#lnResetBoard").addEventListener("click", function () { if (!confirm("Put the board inputs back to the default pins?")) return; project().inputs = JSON.parse(JSON.stringify(DEFAULT_INPUTS)).concat(inputs().filter(function (i) { return i.usb || i.midi || i.key; })); saveInputs(); renderLearn(); renderConfigure(); });
     keepMidiInputs();
   }
   wire(); renderConfigure(); renderLearn();
-  window.PPConfigure = { inputs: inputs, render: function () { renderConfigure(); renderLearn(); }, midiLearn: midiLearnMessage, devices: function () { return devices; }, hello: function () { return hello; }, DEFAULT_INPUTS: DEFAULT_INPUTS, BCM_TO_PIN: BCM_TO_PIN };
+  window.PPConfigure = { inputs: inputs, addLearned: addLearned, relearn: relearn, render: function () { renderConfigure(); renderLearn(); }, midiLearn: midiLearnMessage, devices: function () { return devices; }, hello: function () { return hello; }, DEFAULT_INPUTS: DEFAULT_INPUTS, BCM_TO_PIN: BCM_TO_PIN };
 })();

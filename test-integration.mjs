@@ -697,6 +697,30 @@ await check("Central Tracks: a Board installs as one of your boards, a Click (zi
   assert.ok(r.click && r.click.name === "Rimshot Click" && /^set:/.test(r.click.id) && r.click.hi && r.click.lo, JSON.stringify(r));
   assert.ok(/click sound/.test(r.log), r.log);
 });
+await check("Central Tracks (10.0): a hymn multitrack with its song file becomes a song with its exact tempo, meter, sections, lyrics, chords and chart; its click and guide start muted", async () => {
+  const r = await T(async () => {
+    function wav(seconds, freq) { const sr = 22050, n = Math.round(seconds * sr), b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, s) => [...s].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+      w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(6000 * Math.sin(2 * Math.PI * freq * i / sr)), true); return new Blob([b], { type: "audio/wav" }); }
+    const song = { format: 1, kind: "central-tracks-song", title: "Test Hymn", key: "D", bpm: 90, bpb: 3, duration: 24,
+      sections: [{ name: "Intro", bar: 1, bars: 2, lyrics: "" }, { name: "Verse 1", bar: 3, bars: 4, lyrics: "Be Thou my Vision, O Lord of my heart;\nnaught be all else to me" }],
+      chords: [{ label: "D", bass: null, bar: 1, beat: 1 }, { label: "G", bass: null, bar: 2, beat: 1 }, { label: "A", bass: null, bar: 4, beat: 3 }],
+      chartText: "{title: Test Hymn}\n{key: D}\n\nVerse 1\n[D]Be Thou my [G]Vision\n", stems: [{ name: "Keys", role: "keys", mute: false }, { name: "Click", role: "click", mute: true }],
+      credits: { words: "Eleanor Hull (1912)", music: "SLANE", arrangement: "Motion Audio" } };
+    const files = [{ name: "Keys.wav", role: "keys", url: URL.createObjectURL(wav(16, 220)) }, { name: "Click.wav", role: "click", url: URL.createObjectURL(wav(16, 1000)) },
+      { name: "song.json", role: "song", url: URL.createObjectURL(new Blob([JSON.stringify(song)], { type: "application/json" })) }];
+    await PPCentralTracks.install({ id: "h1", kind: "Multitrack", title: "Test Hymn", key: "D", bpm: 90 }, files);
+    const s = PP.project().songs.find((x) => x.name === "Test Hymn"), t = PPTracks.data(s);
+    return { key: s.key, bpm: s.bpm, grid: { bpm: t.grid.bpm, bpb: t.grid.bpb, first: t.grid.first, mode: t.grid.mode }, sections: t.sections.map((x) => [x.name, x.bar, x.lyrics.split("\n")[0]]),
+      chords: t.chords.map((c) => [c.label, c.bar, c.beat, Math.round(c.start * 1000) / 1000]), chart: /\[G\]Vision/.test(t.chartText || ""),
+      stems: t.stems.map((x) => [x.name, x.role, !!x.mute]), notes: s.notes, log: PPCentralTracks.state.log };
+  });
+  assert.deepEqual(r.grid, { bpm: 90, bpb: 3, first: 0, mode: "fitted" }); assert.equal(r.key, "D"); assert.equal(r.bpm, 90);
+  assert.deepEqual(r.sections, [["Intro", 1, ""], ["Verse 1", 3, "Be Thou my Vision, O Lord of my heart;"]]);
+  assert.deepEqual(r.chords, [["D", 1, 1, 0], ["G", 2, 1, 2], ["A", 4, 3, 7.333]]);   // (bar 4 beat 3 at 90 BPM in 3/4: 11 beats in)
+  assert.ok(r.chart && /Words: Eleanor Hull/.test(r.notes || ""), JSON.stringify(r));
+  assert.deepEqual(r.stems.map((x) => x[1] + ":" + x[2]).sort(), ["click:true", "keys:false"], JSON.stringify(r.stems));
+});
 await check("looper: records a loop from the instrument, closes it, plays it, overdubs, undoes and clears", async () => {
   const r = await T(async () => {
     const ctx = PP.engine.ctx, osc = ctx.createOscillator(); osc.frequency.value = 220; osc.start();
@@ -819,6 +843,76 @@ await check("a chart uploaded over Wi-Fi gives the song its lyrics and sections"
   await until(() => T(() => { const s = PPTracks.song(); return s.chart && PPTracks.data(s).sections.some(x => /first verse/.test(x.lyrics)); }), 8000);
 });
 await check("...and the charts page shows the chart text with the current section highlighted", async () => { await T(() => { PPTracks.goSection(0, { immediate: true }); }); await until(() => charts.evaluate(() => /first verse line/.test(document.body.textContent)), 8000); await until(() => charts.evaluate(() => !!document.querySelector(".textchart section.current")), 8000); });
+// 10.0: charts follow the tracks and each musician picks how to read them; the song editor's sections have bars
+await check("10.0: the charts page draws the uploaded chart with its chords, in the key the song is played in, and moves with a key change", async () => {
+  const chordsShown = () => charts.evaluate(() => Array.from(document.querySelectorAll(".textchart .ch")).map((b) => b.textContent.trim()).filter(Boolean));
+  await until(async () => (await chordsShown()).indexOf("G") >= 0, 8000);
+  const was = await T(() => { const s = PPTracks.song(), t = PPTracks.data(s); return { key: s.key, orig: t.originalKey || null, shift: t.keyShift || 0 }; });
+  try {
+    await T(() => { const s = PPTracks.song(), t = PPTracks.data(s); t.originalKey = "G"; s.key = "A"; t.keyShift = 2; PPTracks.sendDisplay(); });
+    await until(async () => { const c = await chordsShown(); return c.indexOf("A") >= 0 && c.indexOf("E") >= 0 && c.indexOf("G") < 0 && await charts.evaluate(() => /Key of A/.test(document.querySelector("#note").textContent)); }, 8000);
+  } finally { await T((w) => { const s = PPTracks.song(), t = PPTracks.data(s); s.key = w.key; t.originalKey = w.orig; t.keyShift = w.shift; PPTracks.sendDisplay(); }, was); }
+});
+await check("...each musician picks: a guitar with a capo, a B♭ horn, numbers, sheet music in the alto clef (kept on that phone)", async () => {
+  await charts.evaluate(() => { const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event("change", { bubbles: true })); }; set("type", "chords"); set("instrument", "guitar"); set("capo", "3"); });
+  await until(() => charts.evaluate(() => /capo 3/.test(document.querySelector("#note").textContent)), 4000);
+  await charts.evaluate(() => { const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event("change", { bubbles: true })); }; set("instrument", "Bb"); });
+  await until(() => charts.evaluate(() => /written in/.test(document.querySelector("#note").textContent) && document.getElementById("capoWrap").hidden), 4000);
+  await charts.evaluate(() => { const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event("change", { bubbles: true })); }; set("type", "numbers"); });
+  await until(() => charts.evaluate(() => /Numbers in/.test(document.querySelector("#note").textContent)), 4000);
+  await charts.evaluate(() => { const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event("change", { bubbles: true })); }; set("type", "sheet"); set("part", "violin"); set("clef", "alto"); });
+  await until(() => charts.evaluate(() => !!document.querySelector(".sheetmusic svg.notation") && !document.getElementById("clefWrap").hidden), 6000);
+  const kept = await charts.evaluate(() => JSON.parse(localStorage.getItem("pp-charts") || "{}"));
+  assert.equal(kept.type, "sheet"); assert.equal(kept.clef, "alto"); assert.equal(kept.part, "violin");
+  await charts.evaluate(() => { const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event("change", { bubbles: true })); }; set("type", "chords"); set("instrument", "concert"); });
+  await until(() => charts.evaluate(() => !!document.querySelector(".textchart section.current")), 8000);
+});
+await check("...the next song: the chart changes by itself (the sheet comes with the song)", async () => {
+  const other = await T(() => { const p = PP.project(), i = p.songIndex; const j = (i + 1) % p.songs.length; return { i, j, name: p.songs[j].name }; });
+  if (other.j === other.i) return;
+  await T((j) => PPFeatures.loadSong(j), other.j);
+  await until(() => charts.evaluate((n) => document.querySelector("#song").textContent.indexOf(n) >= 0 && !/first verse line/.test(document.querySelector("#chart").textContent), other.name), 8000);
+  await T((i) => PPFeatures.loadSong(i), other.i);
+  await until(() => charts.evaluate(() => /first verse line/.test(document.querySelector("#chart").textContent)), 8000);
+  // (back to what the next checks expect: Test Song playing)
+  await wait(400); await T(() => { PPTracks.goSection(0, { immediate: true }); PPTracks.play({ countIn: false }); }); await until(() => T(() => PPTracks.isPlaying()), 5000);
+});
+await check("10.0 song editor: a bar ruler over the sections; a section's length in bars moves the next one; split and take out keep the flow and the chart in step", async () => {
+  const r = await T(async () => {
+    const s = PPTracks.song(), t = PPTracks.data(s), out = {};
+    const before = JSON.parse(JSON.stringify({ sections: t.sections, flow: t.flow, flowOn: t.flowOn, chartText: t.chartText }));
+    t.sections = [{ id: "sA", name: "Verse 1", bar: 1, pad: -1, transition: "inherit", cue: "auto", lyrics: "This is the first verse line", page: 0 }, { id: "sB", name: "Chorus", bar: 5, pad: -1, transition: "inherit", cue: "auto", lyrics: "", page: 0 }, { id: "sC", name: "Bridge", bar: 9, pad: -1, transition: "inherit", cue: "auto", lyrics: "", page: 0 }];
+    t.flow = ["sA", "sB", "sC", "sB"]; t.flowOn = true; t.chartText = "{key: G}\n[Verse 1]\n[G]This is the first verse line\n\n[Chorus]\n[C]Sing the chorus\n\n[Bridge]\n[Em]Bridge words\n";
+    PPTracks.openEditor(); await new Promise((r) => setTimeout(r, 150));
+    out.ruler = document.querySelectorAll("#seRuler .se-rblock").length; out.edges = document.querySelectorAll("#seRuler .se-redge").length; out.nums = document.querySelectorAll("#seRuler .se-rnum").length;
+    const barsIn = (id) => document.querySelector('[data-secid="' + id + '"] input[data-secf="bars"]');
+    out.lenVerse = barsIn("sA").value; out.lastDisabled = barsIn("sC").disabled;
+    barsIn("sA").value = "6"; barsIn("sA").dispatchEvent(new Event("change", { bubbles: true })); await new Promise((r) => setTimeout(r, 100));
+    out.chorusAfter = t.sections.find((q) => q.id === "sB").bar; out.bridgeAfter = t.sections.find((q) => q.id === "sC").bar;
+    out.moved = PPTracks.moveSectionStart("sC", 8); out.cantPass = PPTracks.moveSectionStart("sC", 3);
+    document.querySelector('[data-secid="sA"] [data-secf="split"]').click(); await new Promise((r) => setTimeout(r, 100));
+    out.afterSplit = t.sections.slice().sort((a, b) => a.bar - b.bar).map((q) => q.name + "@" + q.bar);
+    out.chartHasNew = /\[New section\]/.test(t.chartText);
+    document.querySelector('[data-secid="sB"] [data-secf="del"]').click(); await new Promise((r) => setTimeout(r, 100));
+    out.flow = t.flow.slice(); out.chartHasChorus = /Sing the chorus/.test(t.chartText); out.names = t.sections.map((q) => q.name);
+    const nameIn = document.querySelector('[data-secid="sC"] input[data-secf="name"]'); nameIn.value = "Bridge (all in)"; nameIn.dispatchEvent(new Event("input", { bubbles: true })); nameIn.dispatchEvent(new Event("change", { bubbles: true }));
+    out.renamed = /\[Bridge \(all in\)\]\n\[Em\]Bridge words/.test(t.chartText);
+    document.getElementById("songDialog").close();
+    Object.assign(t, before); PPTracks.pushAll(s); PPTracks.render(); PPTracks.sendDisplay();
+    return out;
+  });
+  assert.equal(r.ruler, 3); assert.equal(r.edges, 2); assert.ok(r.nums >= 3, JSON.stringify(r));
+  assert.equal(r.lenVerse, "4"); assert.equal(r.lastDisabled, true);
+  assert.equal(r.chorusAfter, 7, "a 6-bar verse: the chorus starts on bar 7"); assert.equal(r.bridgeAfter, 9, "the bridge stays");
+  assert.equal(r.moved, 8); assert.equal(r.cantPass, 8, "a section can't be dragged before the one ahead of it");
+  assert.deepEqual(r.afterSplit, ["Verse 1@1", "New section@4", "Chorus@7", "Bridge@8"]); assert.ok(r.chartHasNew);
+  assert.deepEqual(r.flow, ["sA", "sC"], "the chorus left the flow"); assert.equal(r.chartHasChorus, false); assert.deepEqual(r.names.sort(), ["Bridge", "New section", "Verse 1"]);
+  assert.ok(r.renamed, "the chart's heading follows a rename");
+});
+await check("...lyric screens use the chart's words when a section has none of its own", async () => {
+  const r = await T(() => { const s = PPTracks.song(), t = PPTracks.data(s), keep = t.sections.map((q) => q.lyrics), keepChart = t.chartText; t.sections.forEach((q) => { q.lyrics = ""; }); t.chartText = "[" + t.sections[0].name + "]\n[G]Words from the chart\n"; PPTracks.goSection(0, { immediate: true }); const ls = PPTracks.lyricsState(); t.sections.forEach((q, i) => { q.lyrics = keep[i]; }); t.chartText = keepChart; PPTracks.sendDisplay(); return ls.lines; });
+  assert.deepEqual(r, ["Words from the chart"]);
+});
 const lyrics = await ctx.newPage();
 await lyrics.goto("http://127.0.0.1:8080/lyrics");
 await check("the projector lyrics page shows the lyrics of the section that is playing (no chords)", async () => { await T(() => { PPTracks.goSection(0, { immediate: true }); }); await until(() => lyrics.evaluate(() => /first verse line/.test(document.querySelector(".lines") ? document.querySelector(".lines").textContent : "")), 8000); assert.equal(await lyrics.evaluate(() => /G\s+D/.test(document.body.textContent)), false); });
@@ -917,11 +1011,13 @@ await check("the app's own text box (the PC app has no prompt()): a pasted chord
   assert.equal(await p, text);
   const c = T(() => PP.ask("name")); await page.waitForSelector("dialog.pp-ask[open] input"); await page.keyboard.press("Escape"); assert.equal(await c, null);
 });
-await check("...and Learn → + Add MIDI button asks for the name and adds it", async () => {
-  await T(() => PPShell.showTab("learn")); await page.waitForSelector("#lnAddMidiButton");
-  await T(() => document.querySelector("#lnAddMidiButton").click());
-  await page.waitForSelector("dialog.pp-ask[open] input"); await page.fill("dialog.pp-ask input", "Next song footswitch"); await page.click("dialog.pp-ask button.primary");
-  await until(() => T(() => (PP.project().inputs || []).some((i) => i.name === "Next song footswitch" && i.midi)));
+await check("...and Learn → + Add new control asks what it is and its name, then learns it from the MIDI the driver passes on", async () => {
+  await T(() => PPShell.showTab("learn")); await page.waitForSelector("#lnAddNew");
+  await page.click("#lnAddNew"); await page.click("dialog.cs-learn [data-cs-kind=button]");
+  await page.fill("dialog.cs-learn [data-cs=name]", "Next song footswitch"); await page.click("dialog.cs-learn [data-cs=toName]");
+  await T(() => PPFeatures.handleHardware({ type: "midi", data: [0x90, 62, 110], port: "FCB1010 MIDI 1" }));
+  await page.waitForSelector("dialog.cs-learn .cs-got"); await page.click("dialog.cs-learn [data-cs=save]");
+  await until(() => T(() => (PP.project().inputs || []).some((i) => i.name === "Next song footswitch" && i.midi && i.midi.number === 62)));
   await page.keyboard.press("Escape"); await T(() => { document.querySelectorAll("dialog[open]").forEach((d) => d.close()); PPShell.showTab("tracks"); });
 });
 console.log("\nCentral Control link:");

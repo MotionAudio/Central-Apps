@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Central Pedal manual · Motion Audio</title><meta name="description" content="The Central Pedal manual: first time on, the LIVE screen, pads, footswitches, outputs and screens, updates and troubleshooting.">
+<title>Central Pedal manual · Motion Audio</title><meta name="description" content="The Central Pedal manual: first time on, setlists, the LIVE screen, pads and effects, the looper, footswitches, outputs, the touch screen, updates and troubleshooting.">
 <meta name="theme-color" content="#15181D">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -10,125 +10,163 @@
   <a class="logo" href="/" style="color:var(--ink)"><span style="color:var(--brass)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
   <nav><a href="/apps/" class="on" aria-current="page">Apps</a><a href="/#store">Store</a><a href="/#tracks">Central Tracks</a><a href="/help/">Help</a><a href="/services/">Central Services</a><a href="/#account">Account</a></nav>
 </div></header>
-<div class="page-head on-stage"><div class="wrap"><div class="crumbs"><a href="/apps/">The apps</a></div><img class="icon" src="/brand/central-pedal.svg" alt=""><h1>Central Pedal</h1><p class="lede">Pads, multitracks, charts, lyrics and a guitar and keys rig, played from a touch screen and twelve footswitches. Built by us, shipped ready to play.</p></div><div class="wrap facts-wrap"><dl class="facts"><div><dt>Who uses it</dt><dd>The worship leader or keys player, on stage</dd></div><div><dt>Price</dt><dd>$250, built and shipped</dd></div><div><dt>Key</dt><dd>None needed, updates forever</dd></div><div><dt>Inside</dt><dd>Raspberry Pi 4</dd></div></dl></div></div>
-<main class="wrap man"><aside class="toc" aria-label="On this page"><b>On this page</b><ol><li><a href="#what-it-is">What it is</a></li><li><a href="#sounds-you-add">Sounds you add</a></li><li><a href="#first-time-on">First time on</a></li><li><a href="#on-stage-live">On stage: LIVE</a></li><li><a href="#pads">Pads</a></li><li><a href="#footswitches-knobs-and-midi">Footswitches, knobs and MIDI</a></li><li><a href="#outputs-and-screens">Outputs and screens</a></li><li><a href="#the-small-touch-screen">The small touch screen</a></li><li><a href="#updates-backups-and-power-cuts">Updates, backups and power cuts</a></li><li><a href="#troubleshooting">Troubleshooting</a></li></ol></aside>
+<div class="page-head on-stage"><div class="wrap"><div class="crumbs"><a href="/apps/">The apps</a></div><img class="icon" src="/brand/central-pedal.svg" alt=""><h1>Central Pedal</h1><p class="lede">Pads, multitracks, charts, lyrics, a looper and a guitar and keys rig, played with your feet and a touch screen. We build it and ship it ready to play.</p></div><div class="wrap facts-wrap"><dl class="facts"><div><dt>Who uses it</dt><dd>The worship leader or keys player, on stage</dd></div><div><dt>Price</dt><dd>$250, built and shipped</dd></div><div><dt>Key</dt><dd>None needed, updates forever</dd></div><div><dt>Inside</dt><dd>Raspberry Pi 4</dd></div></dl></div></div>
+<main class="wrap man"><aside class="toc" aria-label="On this page"><b>On this page</b><ol><li><a href="#what-it-is">What it is</a></li><li><a href="#sounds-you-add">Sounds you add</a></li><li><a href="#first-time-on">First time on</a></li><li><a href="#setlists">Setlists and songs</a></li><li><a href="#on-stage-live">On stage: LIVE</a></li><li><a href="#pads">Pads and effects</a></li><li><a href="#looper">Looper</a></li><li><a href="#footswitches-knobs-and-midi">Footswitches, knobs and MIDI</a></li><li><a href="#outputs-and-screens">Outputs and sound</a></li><li><a href="#the-small-touch-screen">The 3.5" touch screen</a></li><li><a href="#updates-backups-and-power-cuts">Updates, backups and power cuts</a></li><li><a href="#troubleshooting">Troubleshooting</a></li></ol></aside>
 <article class="doc">
 <h2 id="what-it-is">What it is</h2>
 
-<p class="lead">Central Pedal is the pedal on stage. It plays ambient pads and multitracks (stems, the click, spoken cues), shows chord charts and lyrics, and is a guitar, bass and keys rig, all from a touch screen and your feet.</p>
-<p>We build it on a Raspberry Pi 4 and ship it ready to play, with its software installed. It boots straight into the Central Pedal app in about 15 seconds.</p>
+<p class="lead">Central Pedal is the pedal on stage. It plays your pads and multitracks (stems, the click and spoken cues), shows chord charts and lyrics, loops, and turns into a guitar, bass or keys rig. You run all of it with your feet and a small touch screen.</p>
+<p>We build each one on a Raspberry Pi 4, put the software on it, test it and ship it ready to play. When you switch it on it goes straight into the Central Pedal app.</p>
 <ul>
-<li><b>12 footswitches</b>, <b>6 knobs</b> and <b>2 sliders</b>, plus an optional expression pedal and a small touch screen.</li>
-<li><b>Four outputs</b>: tracks, pads, the click with spoken cues (for the band, never the house) and your guitar or keys.</li>
-<li><b>Two HDMI ports</b> for the app, lyrics, charts or the stage display, and USB for MIDI keyboards, foot controllers, a Stream Deck, an audio interface and USB sticks.</li>
+<li><b>12 footswitches</b>, <b>6 knobs</b> and <b>2 sliders</b>, plus a socket for an expression pedal and a 3.5" touch screen.</li>
+<li><b>Outputs 1 and 2</b> on the Pi's headphone jack, <b>3 and 4</b> on the DAC board if yours has one, and more from a USB audio interface. You choose what goes where.</li>
+<li><b>Two HDMI ports</b> for the app, lyrics, charts or the stage display. USB takes MIDI keyboards, foot controllers, a Stream Deck, an audio interface and USB sticks.</li>
 </ul>
-<p>You get songs ready for it at home with <a href="/apps/central-pedal-control.html">Central Pedal Control</a>, the same app on your computer, then Upload them.</p>
+<p>If you have a computer, <a href="/apps/central-pedal-control.html">Central Pedal Control</a> keeps your songs and plays the tracks, and the pedal becomes its foot controller. Without one, the pedal plays everything itself.</p>
 
 <h2 id="sounds-you-add">Sounds you add</h2>
 
-<p>The pedal needs no key: it's yours, with every update, and its starter sounds are free. More pianos, synths, instrument sounds, plugins, pedals and pads come with the <a href="/#plans">sound plans</a>. Each plan is a <b>package key</b> you get by email (it's on your account page too): on the pedal, open <b>Settings → Packages → Add a package</b> and paste it. A package key works on three of your devices at a time, each a different app, so the same one can go on your pedal, your Central Control computer and your Central Usage tablet. Every plan includes <b>Central Pads</b>: pads in every key for the pad pedal (Settings → Packages → Libraries installs them).</p>
-<p><a href="/apps/central-pedal-control.html">Central Pedal Control</a> still uses a <b>P key</b>, on two devices, with every update forever.</p>
+<p>The pedal needs no key. It's yours, with every update, and the starter sounds are free.</p>
+<p>The <a href="/#plans">sound plans</a> add pianos, synths, instruments, effects, guitar pedals and pads. Each plan comes as a <b>package key</b> by email, and it's under Purchases on your account too. On the pedal, go to <b>Settings → Packages → Add a package</b> and paste it, then <b>Libraries → Install</b>.</p>
+<p>One package key works on three of your devices, each a different app: say your pedal, your Central Control computer and your Central Usage tablet. Every plan includes <b>Central Pads</b>, pads in every key made for this pedal.</p>
 
 <h2 id="first-time-on">First time on</h2>
 
-<p>Your pedal arrives with its card in and its software on it, tested, with its touch screen set up. You set it up from your phone.</p>
+<p>Your pedal arrives with its card in and its software on it. You set it up from your phone.</p>
 <ol class="steps">
 <li><b>Plug in</b> the power and your outputs. A screen on HDMI 1 (the micro-HDMI port next to the power socket) is optional.</li>
-<li><b>On your phone, connect to the Wi-Fi "Central Pedal Setup".</b> The pedal makes it the first time it starts. The setup page opens by itself (if it doesn't, go to <code>http://10.42.0.1</code>).</li>
+<li><b>On your phone, join the Wi-Fi "Central Pedal Setup".</b> The pedal makes it the first time it starts. The setup page opens by itself. If it doesn't, go to <code>http://10.42.0.1</code>.</li>
 <li><b>Pick the church Wi-Fi and type its password.</b></li>
-<li><b>Type a 4-digit code.</b> If you use Central Control, type the main admin's code: that pairs the pedal with it. If not, pick any 4 digits. Central Pedal Control uses the same code to Upload songs.</li>
-<li><b>Press Upload.</b> The pedal joins the Wi-Fi and is ready. If the password was wrong, "Central Pedal Setup" comes back in about a minute and the page says why.</li>
-<li><b>With Central Control,</b> the main admin then picks what the pedal does on the Devices tab: track player, foot controller, instrument rig or backup player.</li>
+<li><b>Type a 4-digit code.</b> If your church uses Central Control, type the main admin's code so the pedal pairs with it. If not, pick any four digits. Central Pedal Control uses the same code.</li>
+<li><b>Press Upload.</b> The pedal joins the Wi-Fi and it's ready. If the password was wrong, "Central Pedal Setup" comes back after about a minute and the page tells you why.</li>
 </ol>
-<p>To run the setup again (a new building, a new Wi-Fi): <b>Settings → Wi-Fi → Turn the setup Wi-Fi on</b>.</p>
-<div class="note"><p>A Central Pedal on its own, with no Central Control, works too: it plays your tracks and pads and shows the charts and lyrics on its screens and on phones.</p></div>
+<p>To run the setup again, for a new building or a new Wi-Fi: <b>Settings → Wi-Fi → Turn the setup Wi-Fi on</b>.</p>
+
+<h2 id="setlists">Setlists and songs</h2>
+
+<p>Open <b>Setlist</b> and you'll see three buttons:</p>
+<ul>
+<li><b>Load setlist</b> shows the setlists your church has made before. Tap one to open it.</li>
+<li><b>Create new</b>: give it a name and a day, and add the people playing. You can search your Central Services teams.</li>
+<li><b>Add songs</b> opens the website on that setlist. On the pedal it shows a QR code you scan with your phone. Songs you own go straight in. With Central Tracks Unlimited any song does. Anything else you buy first.</li>
+</ul>
+<p>If a computer runs Central Pedal Control or Central Control, it keeps the songs and plays them, and the pedal only stores what it's playing. With no computer, the pedal keeps one setlist at a time. When you open another one, it clears the old songs, except any that only exist on the pedal.</p>
+<p>When the song or the section changes, the lyrics and charts change with it on every screen.</p>
 
 <h2 id="on-stage-live">On stage: LIVE</h2>
 
 <figure class="shot"><img src="/img/apps/pedal-live.webp" alt="The LIVE screen: the setlist on the left, the song&#x27;s sections in colour, the transport and the pads" loading="lazy"><figcaption>LIVE: the setlist, the song's sections, the transport, the pads and the instrument on one screen.</figcaption></figure>
 <p>LIVE (<kbd>F8</kbd>) is the screen for the service.</p>
 <ul>
-<li><b>The setlist</b> on the left (● means the song has its tracks). Tap a song to load it; while something plays, tap twice.</li>
-<li><b>The song</b>: its number, key, BPM, time left, what's next, and Click / Cues.</li>
-<li><b>The sections</b> in order, sized by length and coloured. The one playing fills up as it goes; tap one to jump there on the bar.</li>
-<li><b>◀ Prev section</b>, <b>▶ Play / Pause</b>, <b>Next section ▶</b>, <b>⟲ Vamp</b> (repeat this section until pressed again), <b>■ Safe Stop</b> (fades the tracks and pads out over 2.5 seconds; press again to stop at once) and <b>Next song</b>.</li>
-<li>The pads (tap to crossfade), the instrument with the tuner, and the meters.</li>
+<li><b>The setlist</b> is on the left. A ● means the song has its tracks. Tap a song to load it; while something is playing, tap it twice.</li>
+<li><b>The song</b>: its number, key, tempo, time left, what's next, and Click / Cues.</li>
+<li><b>The sections</b> in order, sized by length. The one playing fills up as it goes. Tap one to jump there on the next bar.</li>
+<li><b>◀ Prev section</b>, <b>▶ Play / Pause</b>, <b>Next section ▶</b>, <b>⟲ Vamp</b> (repeat this section until you press it again), <b>■ Safe Stop</b> (fades tracks and pads out over 2.5 seconds; press again to stop at once) and <b>Next song</b>.</li>
+<li>The pads, the instrument with its tuner, and the meters.</li>
 </ul>
+<p>Tracks play without pads, and pads play without tracks. Use whichever you need.</p>
 <h3>Before the service</h3>
 <ul>
-<li><b>Ready check</b> looks at everything that could go wrong: the sound, the outputs (a click in the main mix is flagged), every song's tracks and sections, the temperature, power supply, storage and memory, and the pairing. Each problem has a button to fix it where it can.</li>
-<li><b>🔒 Lock for service</b> locks the other tabs, the mixer and set-up actions. Playing, sections, pads, the instrument and the tuner keep working. Unlock with the pedal's pairing PIN.</li>
+<li><b>Ready check</b> looks for anything that could go wrong: the sound, the outputs (it warns you if the click would reach the room), every song's tracks and sections, temperature, power, storage and pairing. Most problems have a button to fix them.</li>
+<li><b>🔒 Lock for service</b> locks the other tabs and the set-up actions. Playing, sections, pads, the instrument and the tuner keep working. Unlock it with the pedal's pairing PIN.</li>
 </ul>
 <h3>After the service</h3>
-<p><b>📋 Report</b> shows what happened: songs played, playing time, songs stopped early, safe stops, audio dropouts and the hottest temperature, every song's sections and how it ended, and everything minute by minute. <b>⬇ Download</b> saves it as text.</p>
+<p><b>📋 Report</b> shows how it went: the songs played, songs stopped early, safe stops, audio dropouts, the hottest temperature, and everything minute by minute. <b>⬇ Download</b> saves it as a text file.</p>
 
-<h2 id="pads">Pads</h2>
+<h2 id="pads">Pads and effects</h2>
 
 <figure class="shot"><img src="/img/apps/pedal-pads.webp" alt="The Pad screen: eight pads, key and texture controls, and the effects" loading="lazy"><figcaption>Pad: eight pads per song, in any key, with textures and effects.</figcaption></figure>
-<p>Eight pads per song: tap to crossfade, tap again to fade out. Built-in pads play in any key with no samples; imported pads (MP3, WAV, FLAC, OGG, M4A, AIFF) have their key detected and are pitch-shifted to the song's key. Two texture channels with 100+ presets, effects on every pad, octave layers, auto-swell, freeze, and with <b>LAYER</b> on, up to four pads at once.</p>
+<p>Each song has eight pads. Tap one to crossfade to it, tap it again to fade it out. Each pad has its own volume slider, and sliding it never starts the pad.</p>
+<p>The built-in pads play in any key. A pad you import (MP3, WAV, FLAC, OGG, M4A or AIFF) has its key detected and is shifted to the song's key. Under the pads are two texture channels (rain, drones, risers and more), plus octave layers, auto-swell and freeze. Turn on <b>LAYER</b> to play up to four pads at once.</p>
+<h3>Effects on tracks and pads</h3>
+<p>Every track, every pad, and the whole tracks and pads groups can have a gate, EQ, compressor, reverb and delay. The basic version of each is free. Central Plugins adds more EQ bands, full compressor controls, bigger reverbs, tempo delays and the pro presets. A track's effects are worked out once and saved, so they cost the Pi nothing while it plays.</p>
+
+<h2 id="looper">Looper</h2>
+
+<p>LOOPER (<kbd>F9</kbd>) turns the pedal into a loop pedal with three loops. Each loop can record, overdub, undo, redo, play reversed or at half speed, and has its own level and pan. It records the instrument, the audio input, or both.</p>
+<ul>
+<li><b>One footswitch does it all.</b> Tap to record, tap to play, tap again to overdub. Double-tap stops, and holding it for a second clears the loop.</li>
+<li><b>In time with the song.</b> While tracks or the click are playing, a loop is a set number of bars and starts on the bar line. With nothing playing, you tap to start and tap again to close the loop. The first loop sets the length and the others follow it.</li>
+<li>The looper has its own row in Settings → Output routing. It never stops your tracks or pads.</li>
+</ul>
 
 <h2 id="footswitches-knobs-and-midi">Footswitches, knobs and MIDI</h2>
 
-<p>Every footswitch, knob and slider has an action in the Pad layout and another in the Tracks layout, with a separate action when held. Change them on the <b>Configure</b> tab; the LEDs follow (on, off, or blinking on the beat).</p>
+<p>Every footswitch, knob and slider can do anything in the app: play a pad, switch tabs, move around the screen, set a level, mute a group, run the looper, change a pedal on your board. Each has one job in the Pad layout and another in the Tracks layout, plus a separate job when you hold it. Set them on the <b>Configure</b> tab. The LEDs follow along (on, off, or blinking with the beat).</p>
+<h3>Adding your own controls</h3>
+<p>Go to <b>Learn → Add new control</b>, pick <b>Button</b>, <b>Knob</b> or <b>Slider</b>, give it a name, then:</p>
 <ul>
-<li><b>Learn</b> adds a new control: name it, press Learn, then press the pedal. It works with USB foot controllers, any HID pedal or keyboard key, and MIDI notes, CCs and program changes.</li>
+<li>for a button: press it once;</li>
+<li>for a knob: turn it all the way left, then all the way right;</li>
+<li>for a slider: slide it all the way down, then all the way up.</li>
+</ul>
+<p>It's saved under its name, and you can give it any job on the Configure tab. This works with MIDI foot controllers and footswitches, USB pedals, and any key on a computer keyboard.</p>
+<ul>
 <li><b>MIDI keyboards</b> play the pads in that key, or the keys sounds on the Instrument tab. CC 64 holds freeze or sustain, and MIDI clock sets the tempo.</li>
-<li><b>Elgato Stream Deck</b>: Settings → Stream Deck → <b>Connect a Stream Deck</b>, with your own keys and pages.</li>
-<li>Keyboard shortcuts: <kbd>F1</kbd>–<kbd>F8</kbd> the tabs, <kbd>1</kbd>–<kbd>8</kbd> pads, <kbd>Space</kbd> stop (play / pause on Tracks), <kbd>[</kbd> <kbd>]</kbd> previous and next song, <kbd>←</kbd> <kbd>→</kbd> sections.</li>
+<li><b>Stream Deck</b>: Settings → Stream Deck → <b>Connect a Stream Deck</b>, then lay out your own keys and pages.</li>
+<li><b>Keyboard</b>: <kbd>F1</kbd>–<kbd>F9</kbd> switch tabs, <kbd>1</kbd>–<kbd>8</kbd> play pads, <kbd>Space</kbd> stops (or plays and pauses on Tracks), <kbd>[</kbd> <kbd>]</kbd> go to the previous and next song, and <kbd>←</kbd> <kbd>→</kbd> move between sections.</li>
 </ul>
+<p>The colours are yours to change too: Settings → Colours, with a few ready-made looks and a button to go back to ours.</p>
 
-<h2 id="outputs-and-screens">Outputs and screens</h2>
+<h2 id="outputs-and-screens">Outputs and sound</h2>
 
-<div class="tblwrap"><table class="tbl"><thead><tr><th>Output</th><th>What</th><th>Where (by default)</th></tr></thead><tbody>
-<tr><td>1</td><td>Tracks (every stem but the click and guide)</td><td>3.5 mm jack, left</td></tr>
-<tr><td>2</td><td>Pads and textures</td><td>3.5 mm jack, right</td></tr>
-<tr><td>3</td><td>Click and spoken cues</td><td>The DAC, left</td></tr>
-<tr><td>4</td><td>Guitar or keys</td><td>The DAC, right</td></tr>
+<div class="tblwrap"><table class="tbl"><thead><tr><th>Outputs</th><th>Where</th></tr></thead><tbody>
+<tr><td>1 and 2</td><td>The Pi's 3.5 mm headphone jack (left and right)</td></tr>
+<tr><td>3 and 4</td><td>The DAC board, if your pedal has one</td></tr>
+<tr><td>5 and up</td><td>A USB audio interface, as soon as it's plugged in</td></tr>
 </tbody></table></div>
-<p>A USB interface adds its outputs after those. Settings → Output routing moves any of them to any channel, or switches to stereo pairs, with a test tone for each.</p>
+<p>In <b>Settings → Output routing</b> you send the tracks, pads, click, instrument and looper to any output, on one channel or a stereo pair. Several can share an output. The quick set-ups are <i>4 mono outputs</i>, <i>2 stereo outputs</i> and <i>Everything on 1–2</i>. Anything sent to an output that isn't there plays on 1–2 instead, and Settings tells you.</p>
+<p><b>A USB audio interface</b> works both ways. Its outputs become 5 and up, or you can make it the main output. Its inputs can feed the instrument and the pads' audio input; pick which inputs in Settings → Audio.</p>
+<p><b>Settings → Audio → Test sound</b> plays a tone on each output, shows where the sound is going (and fixes it if it's wrong), and can play a tone straight from the Pi to check the cable and headphones.</p>
+<h3>Screens</h3>
 <ul>
-<li><b>HDMI 1</b> shows the app (or a big copy of the small touch screen with its four tabs, lyrics or charts). <b>HDMI 2</b> shows lyrics for the projector by default, or charts, the stage display, slides from Central Control, or nothing. Settings → Screens.</li>
-<li>The <b>stage display</b> shows the song, key and tempo, the section with a bar countdown, what's next, the lyrics and the beat, readable from across the stage.</li>
-<li><b>Phones and tablets</b> on the same Wi-Fi: open <code>http://padpedal.local:8080</code> or scan the QR code in Settings, for charts, lyrics, a remote and an upload page. Viewing is free; controlling needs the pairing PIN.</li>
+<li><b>HDMI 1</b> shows the app, a big copy of the 3.5" screen, lyrics or charts. <b>HDMI 2</b> shows lyrics for the projector, or charts, the stage display, slides from Central Control, or nothing. Choose in Settings → Screens.</li>
+<li>The <b>stage display</b> shows the song, key and tempo, the section with a bar countdown, what's next, the lyrics and the beat, big enough to read across the stage.</li>
+<li><b>Phones and tablets</b> on the same Wi-Fi can open <code>http://padpedal.local:8080</code> (or scan the QR code in Settings) for charts, lyrics, a remote and an upload page. Anyone can look; changing things needs the pairing PIN.</li>
+<li>Each musician picks how they read the chart: chords, numbers or sheet music, for their own instrument and clef, with a capo if they want one. Charts follow key and tempo changes.</li>
 </ul>
 
-<h2 id="the-small-touch-screen">The small touch screen</h2>
-<p>The 3.5" touch screen on the pedal has four tabs along its bottom edge. Tap a fader or drag along it; Restart and Shut down ask for a second tap.</p>
+<h2 id="the-small-touch-screen">The 3.5" touch screen</h2>
+<p>The touch screen on the pedal has five tabs along the bottom. Tap a fader or drag along it. Restart and Shut down ask you to tap twice.</p>
 <div class="tblwrap"><table class="tbl"><thead><tr><th>Tab</th><th>What's on it</th></tr></thead><tbody>
-<tr><td>Pads</td><td>The 8 pads and Stop, with Tap, Freeze, Key, Layer and Next song (or the transport when tracks are on).</td></tr>
-<tr><td>Tracks</td><td><b>Play</b>: the song's sections, play / pause, start, next section, repeat, click, key, next song. <b>Mixer</b>: the tracks and click levels, and every track's level and mute. <b>Setlist</b>: tap a song to load it.</td></tr>
-<tr><td>Instrument</td><td><b>Sound</b>: electric, acoustic, bass, keys or off, the board or keys sound, the level. <b>Pedals</b>: every pedal on the board, on or off. <b>EQ · Comp</b>: the EQ, compressor and studio pedals' knobs as faders. <b>Tuner · Level</b>: the tuner, the instrument level, the pads volume, Auto set-up.</td></tr>
-<tr><td>Settings</td><td><b>In &amp; out</b>: input gain, input L or R, the instrument level, and which output each of tracks, pads, click and instrument goes to. <b>Screens</b>: what HDMI 1 and HDMI 2 show. <b>Touch</b>: which touch screen this is, calibrate the touch, flip it 180° for a screen mounted upside down. <b>System</b>: the version, address and pairing code; calibrate the touch, restart, shut down.</td></tr>
+<tr><td>Pads</td><td><b>Pads</b>: the eight pads, each with a volume bar, and Stop. <b>Key</b>: all twelve keys. <b>Sound</b>: volume, reverb, tone, fade, freeze, layer and the textures. <b>Effects</b>: the effects on each pad and on all pads.</td></tr>
+<tr><td>Tracks</td><td><b>Play</b>: the sections and the transport. <b>Mixer</b>: each track's level and mute. <b>Setlist</b>: go to a song, start the set, add songs from an A–Z list, change the order, or open another setlist with SETS. <b>Effects</b>: the effects on each track and on all tracks. <b>Scenes</b>: this song's scenes, lyrics pages, projector blank and what HDMI 1 and 2 show. <b>Tempo</b>: tempo, tap, the click and its level, voice cues and count-in.</td></tr>
+<tr><td>Instrument</td><td><b>Sound</b>: electric, acoustic, bass, keys or off, and any board or keys sound from the list. <b>Pedals</b>: each pedal on the board, on or off. <b>EQ · Comp</b>: the EQ and compressor knobs as faders. <b>Tuner · Level</b>: the tuner, levels and Auto set-up.</td></tr>
+<tr><td>Looper</td><td><b>Loops</b>: the three loops and the main record button. <b>Mix</b>: each loop's level and pan. <b>Setup</b>: timing, length and count-in.</td></tr>
+<tr><td>Settings</td><td><b>Audio</b>: inputs and which output each group goes to. <b>Wi-Fi</b>: join a network with the on-screen keyboard, or start the phone setup. <b>Controls</b>: what each button, knob and slider does. <b>Screens</b>: what HDMI 1 and 2 show. <b>Touch</b>: calibrate, test the touch, or flip the screen. <b>System</b>: the version, updates, adding a package key, restart and shut down.</td></tr>
 </tbody></table></div>
-<p>HDMI 1 and HDMI 2 show what Settings → Screens says. Pick <i>Copy of the small touch screen</i> for the same four tabs, big, on a monitor or TV.</p>
+<p><b>If taps land in the wrong place</b>, go to Settings → Touch → <b>Calibrate</b>. Tap the five crosses (the four corners and the middle), then tap the dot to check it, and press Save. <b>Test touch</b> shows dots where you touch, so you can see how it's doing.</p>
 
 <h2 id="updates-backups-and-power-cuts">Updates, backups and power cuts</h2>
 
 <ul>
-<li><b>Updates</b>: the pedal looks each time it starts and installs a new version after a 10-second notice, never while something plays. Or Settings → Software updates → <b>Install</b>. Every download is checked before it's installed, and your songs and settings stay.</li>
-<li><b>No internet at church?</b> Put the newest <code>central-control-source.zip</code> from the download page on a USB stick and use Settings → <b>Update software from USB…</b>.</li>
+<li><b>Updates</b>: the pedal checks each time it starts and installs a new version after a 10-second notice, never while something is playing. You can also go to Settings → Software updates → <b>Install</b>. Every download is checked before it's installed, and your songs and settings stay.</li>
+<li><b>No internet at church?</b> Put the newest pedal update from the Downloads page on a USB stick and use Settings → <b>Update software from USB…</b>.</li>
 <li><b>Back up to USB stick</b> saves your songs and their audio, charts, lyrics, pads, sounds, light shows, setlists and settings. <b>Restore from USB…</b> puts a backup back.</li>
-<li><b>Power-cut safe mode</b> is on by default: the system runs read-only from memory, so pulling the plug can't damage it. Your songs and settings are on a separate part of the card that keeps saving normally.</li>
+<li><b>Power-cut safe mode</b> is on from the start. The system runs read-only from memory, so pulling the plug can't damage it. Your songs and settings live on a separate part of the card that saves as normal.</li>
 </ul>
 
 <h2 id="troubleshooting">Troubleshooting</h2>
 
 <ul>
+<li><b>It says it's playing but there's no sound.</b> Go to Settings → Audio → Test sound → <b>Check where the sound goes</b>. It shows where the sound is going and fixes it if it can. If <b>Play on each sound card</b> is silent on the headphone jack too, check the headphones, the cable and the socket.</li>
+<li><b>Taps on the 3.5" screen are off, or light taps are missed.</b> Calibrate it: Settings → Touch → Calibrate.</li>
+<li><b>The start-up report says "under-voltage"</b>, or the pedal feels slow. The power supply is too weak. Use the official Raspberry Pi 5.1 V 3 A supply.</li>
 <li><b>Blurry text on the screen.</b> Settings → Screens → Resolution → <i>Automatic</i>, or the one marked <i>native</i>.</li>
 <li><b>The edges are cut off on a TV.</b> Turn on the TV's "Just scan", "1:1" or "Screen fit" setting, or use <i>Edges cut off?</i> in Settings → Screens.</li>
-<li><b>A small touch screen on the pins stays white.</b> Its driver isn't on yet. With nothing on HDMI and no screen picked, the pedal turns on the common 3.5" screen by itself and restarts once. If it stays white, open the pedal from a phone or computer on the same Wi-Fi (<code>http://padpedal.local:8080</code>, or its address with <code>:8080</code>), go to <b>Settings → Touch screen</b>, pick your screen (try <i>3.5" RPi Display – XPT2046</i>, then <i>Waveshare 3.5" (A)</i>, then <i>(B)</i>) and restart. You can also do it with an HDMI monitor plugged in.</li>
-<li><b>No picture.</b> Use the micro-HDMI port next to the power socket for HDMI 1. The pedal waits up to 20 seconds for a slow monitor and lays out a screen plugged in later by itself.</li>
-<li><b>Ready check says the click is in the main mix.</b> On a two-output device the congregation would hear it. Use a 4-output interface, or route the click to its own output.</li>
-<li><b>Wi-Fi won't connect.</b> Settings → Wi-Fi says why (wrong password, out of range). Hidden networks are under <i>Other network…</i>. Check the Wi-Fi country too. Or set it up again from your phone: <b>Turn the setup Wi-Fi on</b> and join "Central Pedal Setup".</li>
-<li><b>A package won't add.</b> A package key works on three of your devices at a time, one of each app (not two pedals): release it on one (Settings → Packages, or on your account page on the website). If it says the package ended, renew it on your account page; a key from your church that was taken back stops working, so ask your main admin for yours.</li>
-<li><b>Upload from Central Pedal Control can't find it.</b> Both need to be on the same network; type <code>padpedal.local</code> or the pedal's address, and its pairing PIN.</li>
+<li><b>The 3.5" screen stays white.</b> Its driver isn't on yet. From a phone or computer on the same Wi-Fi, open <code>http://padpedal.local:8080</code>, go to <b>Settings → Touch screen</b>, pick your screen (try <i>3.5" RPi Display – XPT2046</i> first, then <i>Waveshare 3.5" (A)</i>, then <i>(B)</i>) and restart. An HDMI monitor works for this too.</li>
+<li><b>No picture.</b> Use the micro-HDMI port next to the power socket for HDMI 1. A monitor plugged in later is picked up by itself.</li>
+<li><b>Wi-Fi won't connect.</b> Settings → Wi-Fi tells you why (wrong password, out of range). Hidden networks are under <i>Other network…</i>. You can also start over from your phone: <b>Turn the setup Wi-Fi on</b> and join "Central Pedal Setup".</li>
+<li><b>A package key won't add.</b> It works on three of your devices, each a different app, so it can't go on two pedals. Release it from one (Settings → Packages, or Purchases on the website). If it says the plan ended, renew it on the website. If your church gave you the key and took it back, ask your main admin.</li>
+<li><b>Central Pedal Control can't find the pedal.</b> Both need to be on the same network. Type <code>padpedal.local</code> or the pedal's address, and its pairing PIN.</li>
+<li><b>Still stuck?</b> The pedal writes a start-up report to its card, <code>central-pedal-log.txt</code>. Put the card in a computer, open the "bootfs" drive, and send us that file from <a href="/#support">Talk to us</a>.</li>
 </ul>
 
 </article></main>
 <footer class="on-stage"><div class="wrap">
   <div><a class="logo" href="/"><span style="color:var(--brass-hi)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
     <p class="apps">Made for worship teams, by Motion Audio. Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Tracks.</p></div>
-  <div class="links"><a href="/apps/">The apps</a><a href="/help/install.html">Install</a><a href="/help/accounts.html">Accounts</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/#support">Talk to us</a><a href="https://motionaudio.github.io/Central-Apps/">Downloads</a></div>
+  <div class="links"><a href="/apps/">The apps</a><a href="/help/install.html">Install</a><a href="/help/accounts.html">Accounts</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refunds">Refunds</a><a href="/#support">Talk to us</a><a href="/#downloads">Downloads</a></div>
   <div class="fine">&copy; 2026 Motion Audio. Prices in US dollars, tax included.</div>
 </div></footer>
 <script>
