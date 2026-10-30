@@ -1,6 +1,6 @@
   (function () {
     "use strict";
-    var APP_VERSION="9.9.0"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
+    var APP_VERSION="9.9.1"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
     var STORAGE="pad-pedal-seamless-v3", DB_NAME="pad-pedal-samples-v3", DB_STORE="samples", KEYS=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"], STOCK_VOICES=["Warm Pad","Ambient Pad","Worship Swell","Dream Choir","Heavenly Pad","Soft Strings","Shimmer Pad","Gentle Pluck"], EQ_COLORS=["#61e7b2","#7caeff","#ffcf66","#ff8b8b","#d998ff","#64e5f0"];
     var PAD_COUNT=8;
     var selected=0, editingInput=false, editingBand=0, currentWaveBuffer=null, waveDrag=null, wavePeaks=new Map(), saveTimer=0, trimRestartTimer=0, project;
