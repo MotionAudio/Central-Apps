@@ -292,10 +292,12 @@
     });
     d.addEventListener("change", function (e) { var j = e.target.closest(".rp-job"); if (j) j.classList.toggle("on", e.target.checked); });
     // the key window (church name, key) comes first; once it's done, its answers show at the top of this one
-    if (CONTROL && window.PPLicense && window.PPLicense.whenReady) window.PPLicense.whenReady(function () {
+    // (the key window's script can load after this one: wait for it)
+    var fillChurch = function () {
       var l = window.PPLicense.state() || {}, el = $(".rp-church", d); if (!el) return;
       el.innerHTML = (l.production || l.church ? "<b>" + esc(l.production || l.church) + "</b>" : "Your church") + (l.key ? ' · key <code>' + esc(String(l.key).slice(0, 4)) + "-…-" + esc(String(l.key).slice(-4)) + "</code> ✓" : "");
-    });
+    };
+    if (CONTROL) (function wait(n) { if (window.PPLicense && window.PPLicense.whenReady) window.PPLicense.whenReady(fillChurch); else if (n < 40) setTimeout(function () { wait(n + 1); }, 250); })(0);
     d.addEventListener("keydown", function (e) { if (e.key !== "Enter") return; var k = e.target.dataset.rp; if (k === "joinPin" || k === "rolePin") $('[data-rp="go"]', d).click(); if (k === "pair" || k === "pin") $('[data-rp="pinsGo"]', d).click(); });
   }
   // the reply to our own hello (main admin): resolves once the pedal answered (or nothing came - fine)

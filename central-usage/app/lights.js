@@ -1035,7 +1035,7 @@
     var res = A.parse(text, ctx), steps = res.steps, how = "";
     var AI = window.CU && window.CU.ai;
     if (AI && store.get("aiUse", true)) {
-      try { var st = await AI.status(); if (st.downloaded && st.server) { out.textContent = "Asking the model…"; var ans = await AI.ask(A.systemPrompt(ctx), text); if (ans && ans.text) { var j = null; try { j = JSON.parse((ans.text.match(/\{[\s\S]*\}/) || [""])[0]); } catch (_) { } var ms = A.fromModel(j, ctx); if (ms && ms.length >= steps.length) { steps = ms; how = " (AI model)"; } } } } catch (_) { }
+      try { var st = await AI.status(); if (st.downloaded && st.server) { out.textContent = "Asking the model…"; var ans = await AI.ask(A.systemPrompt(ctx), text, A.jsonSchema ? A.jsonSchema(ctx) : undefined); if (ans && ans.text) { var j = null; try { j = JSON.parse((ans.text.match(/\{[\s\S]*\}/) || [""])[0]); } catch (_) { } var ms = A.fromModel(j, ctx); if (ms && ms.length > steps.length) { steps = ms; how = " (AI helper)"; }   /* (10.0: only when it understood more than the built-in reading did) */ } } } catch (_) { }
     }
     if (!steps.length) { out.textContent = "I didn't find anything to do in that. Try: \"back blue 40% for the verse, chorus full white, strobes on the hits\"."; return; }
     var plan = A.build(steps, ctx);

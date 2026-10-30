@@ -23,8 +23,8 @@ try {
   if (up !== 200) throw new Error("llama-server did not start\n" + err);
   const ctx = { fixtures: [{ id: "f1", name: "Front L", group: "front" }, { id: "f2", name: "Back 1", group: "back" }, { id: "f3", name: "Mover L", group: "beam" }], groups: [["front", "Front / faces"], ["back", "Back / wash"], ["beam", "Movers"], ["fx", "Strobes"]], sections: [{ name: "Verse 1" }, { name: "Chorus" }, { name: "Bridge" }] };
   const t0 = Date.now();
-  const raw = await post("/v1/chat/completions", { messages: [{ role: "system", content: A.systemPrompt(ctx) }, { role: "user", content: "verse soft blue washes, chorus full white with movers sweeping, bridge warm amber" }], temperature: 0.2, max_tokens: 800 });
-  const text = JSON.parse(raw).choices[0].message.content, json = JSON.parse((text.match(/\{[\s\S]*\}/) || ["null"])[0]);
+  const raw = await post("/v1/chat/completions", { messages: [{ role: "system", content: A.systemPrompt(ctx) }, { role: "user", content: "verse soft blue washes, chorus full white with movers sweeping, bridge warm amber" }], temperature: 0.2, max_tokens: 1500, response_format: { type: "json_schema", json_schema: { name: "steps", schema: A.jsonSchema(ctx) } } });   // (the same as the app: the steps' own shape)
+  const text = JSON.parse(raw).choices[0].message.content; let json = null; try { json = JSON.parse((text.match(/\{[\s\S]*\}/) || ["null"])[0]); } catch (e) { throw new Error(e.message + " - the answer: " + text.slice(-600)); }
   const steps = A.fromModel(json, ctx) || [];
   console.log("answered in " + ((Date.now() - t0) / 1000).toFixed(1) + " s; " + steps.length + " steps: " + JSON.stringify(steps).slice(0, 300));
   if (!steps.length || !steps.some((s) => s.targets && s.targets.length)) fail = "the model's answer gave no usable steps: " + text.slice(0, 400);

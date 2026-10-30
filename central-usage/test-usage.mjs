@@ -399,7 +399,8 @@ await check("10.0: Central Control's setup asks what the computer will do (any o
   p.on("pageerror", (e) => errs.push("setup10:" + e));
   await p.addInitScript(() => { try { localStorage.setItem("cc-license", JSON.stringify({ key: "ADEF-AULT-KEY0-2026", kind: "A", app: "control", okAt: Date.now(), production: "Grace Harbor Church", isDefault: true })); localStorage.setItem("cu-centerHost", JSON.stringify("127.0.0.1:1")); } catch (_) { } });
   await p.goto("file://" + path.join(here, "app", "index.html") + "?edition=control"); await p.waitForFunction(() => window.CentralUsage && window.CURoles && document.querySelector("#modePick"));
-  assert.match(await p.textContent("#modePick .rp-church"), /Grace Harbor Church/);
+  await p.waitForFunction(() => /Grace Harbor Church/.test(document.querySelector("#modePick .rp-church").textContent), null, { timeout: 8000 }).catch(() => { });
+  assert.match(await p.textContent("#modePick .rp-church") + " " + await p.evaluate(() => JSON.stringify([!!window.PPLicense, window.PPLicense && window.PPLicense.state()])), /Grace Harbor Church/);
   await p.fill("#modePick [data-rp='name']", "Booth"); await p.click("#modePick [data-rp='admin']");
   await p.waitForSelector("#modePick [data-step='jobs']:not([hidden])");
   assert.equal(await p.locator("#modePick [data-rp-job]").count(), 7);

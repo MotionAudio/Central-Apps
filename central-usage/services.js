@@ -444,9 +444,12 @@ module.exports = function services(app, getWin) {
       let tries = 0; const t = setInterval(() => { http.get("http://127.0.0.1:" + ai.port + "/health", (res) => { res.resume(); if (res.statusCode === 200) { clearInterval(t); ai.ready = true; resolve(true); } }).on("error", () => { }); if (++tries > 120) { clearInterval(t); ai.error = "The model did not start."; resolve(false); } }, 500);
     });
   }
-  ipcMain.handle("ai-ask", async (_e, system, user) => {
+  ipcMain.handle("ai-ask", async (_e, system, user, schema) => {
     if (!(await aiStart())) return { error: ai.error };
-    const body = JSON.stringify({ messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.2, max_tokens: 1200 });
+    // (10.0) the answer is held to the steps' own shape (a JSON schema the server turns into a grammar): a small model then
+    // can't answer in a shape the lighting engine doesn't read
+    const fmt = schema && typeof schema === "object" ? { type: "json_schema", json_schema: { name: "steps", schema } } : { type: "json_object" };
+    const body = JSON.stringify({ messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.2, max_tokens: 1500, response_format: fmt });
     return new Promise((resolve) => {
       const req = http.request({ host: "127.0.0.1", port: ai.port, path: "/v1/chat/completions", method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } }, (res) => { let s = ""; res.on("data", (c) => { s += c; }); res.on("end", () => { try { const j = JSON.parse(s); resolve({ text: j.choices[0].message.content }); } catch (e) { resolve({ error: "bad answer from the model" }); } }); });
       req.on("error", (e) => resolve({ error: e.message })); req.setTimeout(60000, () => { req.destroy(); resolve({ error: "the model took too long" }); }); req.end(body);
