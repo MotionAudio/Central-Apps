@@ -37,13 +37,13 @@ export const config = {
 // admin on the church's page). slots: Central Services slots - one person on the church's teams each; when someone is
 // taken off the teams, their slot is free for someone else. addonFor: only with that pack (one for each).
 export const PRODUCTS = {
-  "pack-lite": { name: "Central-Apps Lite", cents: 25000, pack: true, keys: { P: 1, A: 3, U: 6 }, slots: 15 },
-  "pack-regular": { name: "Central-Apps Regular", cents: 35000, pack: true, keys: { P: 1, A: 4, U: 8 }, slots: 18 },
-  "pack-plus": { name: "Central-Apps Plus", cents: 50000, pack: true, keys: { P: 1, A: 5, U: 10 }, slots: 20 },
-  "pack-ultra": { name: "Central-Apps Ultra", cents: 70000, pack: true, keys: { P: 1, A: 6, U: 16 }, slots: 30 },
-  "ultra-plus10": { name: "Ultra: 10 more Central Services slots", cents: 3500, keys: {}, slots: 10, addonFor: "pack-ultra" },
-  admin: { name: "Central Admin key", cents: 5000, keys: { A: 1 } },
-  user: { name: "Central User key", cents: 2000, keys: { U: 1 } },
+  "pack-lite": { name: "Lite pack", cents: 25000, pack: true, keys: { P: 1, A: 3, U: 6 }, slots: 15 },
+  "pack-regular": { name: "Regular pack", cents: 35000, pack: true, keys: { P: 1, A: 4, U: 8 }, slots: 18 },
+  "pack-plus": { name: "Plus pack", cents: 50000, pack: true, keys: { P: 1, A: 5, U: 10 }, slots: 20 },
+  "pack-ultra": { name: "Ultra pack", cents: 70000, pack: true, keys: { P: 1, A: 6, U: 16 }, slots: 30 },
+  "ultra-plus10": { name: "10 more Central Services slots (Ultra pack)", cents: 3500, keys: {}, slots: 10, addonFor: "pack-ultra" },
+  admin: { name: "Central Control key (admin)", cents: 5000, keys: { A: 1 } },
+  user: { name: "Central Usage key (user)", cents: 2000, keys: { U: 1 } },
   "services-slot": { name: "Central Services slot", cents: 500, keys: {}, slots: 1 },
   "pedal-control": { name: "Central Pedal Control", cents: 5000, keys: { P: 1 } },
   pedal: { name: "Central Pedal (built, software installed)", cents: 25000, ships: true, hardware: true, keys: { P: 1 } },

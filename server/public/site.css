@@ -55,7 +55,7 @@ nav a{text-decoration:none;color:var(--ink-2);padding:.3rem 0;border-bottom:1px 
 nav a:hover{color:var(--ink);border-bottom-color:var(--ink)}
 .cartbtn .count{display:inline-grid;place-items:center;min-width:1.45rem;height:1.45rem;padding:0 .35rem;border-radius:99px;background:var(--ink);color:#fff;font-size:.78rem;font-variant-numeric:tabular-nums}
 .cartbtn.has .count{background:var(--brass);}
-@media (max-width:760px){header.top .wrap{position:relative;padding-block:.55rem 0;gap:.2rem;min-height:0}.logo{min-height:44px}nav{margin:0;padding:0 0 .35rem;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:1.15rem;font-size:.92rem;-webkit-overflow-scrolling:touch}nav::-webkit-scrollbar{display:none}nav a{white-space:nowrap;padding:.55rem 0}nav .cartbtn{position:absolute;top:.55rem;right:max(20px,env(safe-area-inset-right,0px))}}
+@media (max-width:760px){header.top .wrap{position:relative;padding-block:.55rem 0;gap:.2rem;min-height:0}.logo{min-height:44px}nav{margin:0;padding:0 0 .45rem;width:100%;flex-wrap:wrap;gap:0 1.1rem;font-size:.92rem}nav a{white-space:nowrap;padding:.45rem 0}nav .cartbtn{position:absolute;top:.55rem;right:max(20px,env(safe-area-inset-right,0px))}}
 
 /* the stage: the hero, in the apps' own graphite */
 .on-stage{background:var(--stage);color:var(--on-stage)}
@@ -166,12 +166,12 @@ section{padding-block:clamp(3.5rem,8vw,6rem)}
 .bundles{border-top:1px solid var(--ink)}
 .bundle-row{display:grid;grid-template-columns:minmax(0,1fr) 9rem 13rem 11.5rem;gap:1rem;align-items:center;padding:.8rem 0;border-bottom:1px solid var(--line)}
 .bundle-row .price{font-size:1.25rem;white-space:nowrap;text-align:right}.bundle-row .price small{margin-left:.3rem;font-size:.75rem}.bundle-row .btn{justify-self:end}
-@media (max-width:760px){.plan-all{grid-template-columns:1fr auto}.plan-all .btn{grid-column:1/-1;justify-self:start}.bundle-row{grid-template-columns:1fr auto;gap:.3rem 1rem}.bundle-row .muted{grid-row:2}.bundle-row .btn{grid-row:2;grid-column:2}}
+@media (max-width:760px){.plan-all{grid-template-columns:1fr;gap:.7rem}.plan-all .btn{justify-self:start}.bundle-row{grid-template-columns:1fr auto;gap:.3rem 1rem}.bundle-row .muted{grid-row:2}.bundle-row .btn{grid-row:2;grid-column:2}}
 .cart-plans{display:grid;gap:.6rem;padding-top:.6rem;border-top:1px solid var(--line)}
-.pkgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem}
+.pkgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:.8rem}
 .pkg{display:grid;gap:.35rem;padding:.8rem .9rem;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper)}
 .pkg.ended{opacity:.75}
-.pkg-top{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.pkg-top code{font-weight:600;letter-spacing:.04em}
+.pkg-top{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.pkg-top code{font-weight:600;letter-spacing:.02em;white-space:nowrap}
 .demo-btn{margin-left:.4rem;padding:.1rem .5rem;font-size:.78rem;vertical-align:middle}
 
 /* Your downloads (#downloads): a card per app, the pedal, the sound plans */

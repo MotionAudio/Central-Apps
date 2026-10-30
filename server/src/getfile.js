@@ -19,11 +19,12 @@ export const APP_FILES = {
   "control": { name: "Central Control", files: { windows: /^CentralControl-.*-win-x64\.exe$/, mac: /^CentralControl-.*-mac-arm64\.dmg$/, "mac-intel": /^CentralControl-.*-mac-x64\.dmg$/, linux: /^CentralControl-.*-x86_64\.AppImage$/, "linux-deb": /^CentralControl-.*-amd64\.deb$/ } },
   "usage": { name: "Central Usage", files: { windows: /^CentralUsage-.*-win-x64\.exe$/, mac: /^CentralUsage-.*-mac-arm64\.dmg$/, "mac-intel": /^CentralUsage-.*-mac-x64\.dmg$/, linux: /^CentralUsage-.*-x86_64\.AppImage$/, "linux-deb": /^CentralUsage-.*-amd64\.deb$/, android: /^CentralUsage-.*\.apk$/ } },
   "pedal-control": { name: "Central Pedal Control", files: { windows: /^central-pedal-control-.*-win-x64\.exe$/, mac: /^central-pedal-control-.*-mac-arm64\.dmg$/, "mac-intel": /^central-pedal-control-.*-mac-x64\.dmg$/, linux: /^central-pedal-control-.*-x86_64\.AppImage$/, "linux-deb": /^central-pedal-control-.*-amd64\.deb$/, android: /^central-pedal-control-.*\.apk$/ } },
+  "pedal": { name: "Central Pedal update", files: { usb: /^central-control-source\.zip$/ } },   // (for a pedal with no internet: Settings → Update software from USB…)
   "services": { name: "Central Services", files: { windows: /^central-services-.*-win-x64\.exe$/, mac: /^central-services-.*-mac-arm64\.dmg$/, "mac-intel": /^central-services-.*-mac-x64\.dmg$/, linux: /^central-services-.*-x86_64\.AppImage$/, "linux-deb": /^central-services-.*-amd64\.deb$/, android: /^central-services-.*\.apk$/ } },
 };
 // key kinds and the app names the rest of the site uses
 export const APP_OF_KIND = { A: "control", U: "usage", P: "pedal-control" };
-export const PLATFORM_NAMES = { windows: "Windows", mac: "Mac (Apple silicon)", "mac-intel": "Mac (Intel)", linux: "Linux (AppImage)", "linux-deb": "Ubuntu / Debian (.deb)", android: "Android" };
+export const PLATFORM_NAMES = { windows: "Windows", mac: "Mac (Apple silicon)", "mac-intel": "Mac (Intel)", linux: "Linux (AppImage)", "linux-deb": "Ubuntu / Debian (.deb)", android: "Android", usb: "a USB stick" };
 // our own link for an app on a platform
 export const appLink = (app, platform) => config.publicUrl + "/download/" + app + "/" + platform;
 export const libraryLink = (id) => config.publicUrl + "/download/library/" + encodeURIComponent(id);
@@ -62,9 +63,15 @@ export async function available() {
   } catch (_) { return { version: null, apps: Object.fromEntries(Object.keys(APP_FILES).map((id) => [id, platformsOf(id)])) }; }
 }
 
-const sorry = (what) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Download - Motion Audio</title>
-<style>body{margin:0;font:16px/1.5 "Helvetica Neue",Arial,system-ui,sans-serif;color:#12161C;background:#F6F7F9;display:grid;place-items:center;min-height:100vh}main{max-width:30rem;padding:2rem;background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(18,22,28,.12)}a{color:#12161C}</style></head>
-<body><main><h1 style="font-size:1.3rem;margin:0 0 .5rem">${what}</h1><p>Please try again in a minute. If it keeps happening, write to us from the Help page and we'll send you the file.</p><p><a href="/#downloads">Back to Downloads</a></p></main></body></html>`;
+// a small page in the site's own look (download problems, a page that isn't there)
+export const simplePage = (title, bodyHtml) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} - Motion Audio</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/fonts/fonts.css">
+<style>body{margin:0;font:400 17px/1.6 Archivo,"Helvetica Neue",Arial,system-ui,sans-serif;color:#12161C;background:#F4F5F6;display:grid;place-items:center;min-height:100vh;padding:20px;box-sizing:border-box}
+main{max-width:30rem;width:100%;padding:2rem;background:#fff;border:1px solid #E1E4E8;border-radius:16px}h1{font-size:1.4rem;line-height:1.25;font-stretch:110%;margin:1.2rem 0 .5rem}p{margin:0 0 .8rem;color:#434C59}
+a{color:#12161C;text-underline-offset:.18em}.home{display:inline-flex;align-items:center;gap:.5rem;font-weight:600;font-stretch:110%;text-decoration:none}.home img{width:26px;height:26px}
+.btn{display:inline-block;margin-top:.4rem;padding:.6rem 1rem;border-radius:8px;background:#12161C;color:#fff;text-decoration:none;font-weight:600}</style></head>
+<body><main><a class="home" href="/"><img src="/brand/glyph-motion-audio.svg" alt="">Motion Audio</a><h1>${title}</h1>${bodyHtml}</main></body></html>`;
+const sorry = (what) => simplePage(what, `<p>Try again in a minute. If it still doesn't work, write to us from the Help page and we'll send you the file another way.</p><a class="btn" href="/#downloads">Back to Downloads</a>`);
 
 export function routes(app, { wrap }) {
   app.get("/download/library/:id", wrap(async (req, res) => {

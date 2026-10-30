@@ -107,7 +107,7 @@ try {
   ok(anon.status === 401, "buying needs an account (the keys go to a church)");
   const nopack = await j("POST", "/signup", { email: "np" + stamp + "@church.test", password: "password123", churchName: "No Pack Church" });
   const cheat = await j("POST", "/checkout/store", { items: { "pack-ultra": "0.5", "ultra-plus10": 1 } }, nopack.body.token);
-  ok(cheat.status === 400 && /goes with Central-Apps Ultra/.test(cheat.body.error), "half an Ultra pack doesn't unlock its 10 more slots", cheat.body);
+  ok(cheat.status === 400 && /goes with Ultra pack/.test(cheat.body.error), "half an Ultra pack doesn't unlock its 10 more slots", cheat.body);
   const cfgj = (await j("GET", "/config")).body;
   ok(cfgj.products["pack-lite"].cents === 25000 && cfgj.products["pack-regular"].cents === 35000 && cfgj.products["pack-plus"].cents === 50000 && cfgj.products["pack-ultra"].cents === 70000 && !cfgj.products["pack-lite"].ships && cfgj.products.pedal.cents === 25000 && cfgj.products["pedal-control"].cents === 5000 && cfgj.products.admin.cents === 5000 && cfgj.products.user.cents === 2000 && !cfgj.products["user-pack"] && cfgj.products["pack-ultra"].keys.U === 16, "prices: pedal $250, Pedal Control $50, admin $50, user $20, packs (no pedal) $250 / $350 / $500 / $700", cfgj.products);
 

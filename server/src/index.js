@@ -376,6 +376,11 @@ app.get(["/", "/index.html"], (_req, res, next) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8"); res.setHeader("Cache-Control", "no-cache"); res.send(homeHtml);
 });
 app.use(express.static(path.join(here, "..", "public"), { extensions: ["html"] }));
+// a page that isn't there: our own page, not the bare "Cannot GET" (the API still answers in JSON)
+app.use((req, res, next) => {
+  if ((req.method !== "GET" && req.method !== "HEAD") || req.path.startsWith("/v1") || !req.accepts("html")) return next();
+  res.status(404).type("html").send(getfile.simplePage("We can't find that page", `<p>The link may be old, or the page has moved. Everything is still on the home page: the apps, the store, Central Tracks and your account.</p><a class="btn" href="/">Go to the home page</a>`));
+});
 
 app.use((err, req, res, _next) => {
   const status = err.status || (err.type === "StripeSignatureVerificationError" ? 400 : 500);

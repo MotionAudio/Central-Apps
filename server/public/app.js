@@ -1,7 +1,7 @@
 // Motion Audio website: store, Central Tracks library, publishing and accounts, all through the /v1 API.
 "use strict";
 const $ = (s) => document.querySelector(s);
-const money = (n) => "$" + Number(n || 0).toFixed(2);
+const money = (n) => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const TIER = { 1: 5, 2: 10, 3: 15, 4: 20, 5: 30 };
 const starHtml = (n) => `<span class="stars" aria-label="${n} of 5 stars">${"★".repeat(n)}<span class="off">${"★".repeat(5 - n)}</span></span>`;
@@ -20,7 +20,7 @@ async function api(method, path, body) {
 }
 function setToken(t) { token = t; try { t ? localStorage.setItem("ma-token", t) : localStorage.removeItem("ma-token"); } catch {} if (window.SiteContent && window.SiteContent.checkEditor) window.SiteContent.checkEditor(); }
 
-function toast(m) { const d = document.createElement("div"); d.className = "toast"; d.textContent = m; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }
+function toast(m) { document.querySelectorAll(".toast").forEach((t) => t.remove()); const d = document.createElement("div"); d.className = "toast"; d.setAttribute("role", "status"); d.textContent = m; document.body.appendChild(d); setTimeout(() => d.remove(), 3200); }   // (one at a time: a new one replaces the last)
 function modal(html) {
   $("#modalHost").innerHTML = `<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
   $("#modalHost .modal-bg").addEventListener("click", (e) => { if (e.target.classList.contains("modal-bg") || e.target.closest("[data-close]")) closeModal(); });
@@ -261,7 +261,7 @@ function wirePlanCart() {
 const subPrice = () => (cfg.subscription && cfg.subscription.cents ? cfg.subscription.cents / 100 : 77);
 function renderPlanPrice() {
   const el = $("#planPrice"); if (el) el.innerHTML = `<span data-price="subscription">${dollars(subPrice())}</span><small> / month</small>`;
-  const note = $("#exPoolNote"); if (note) note.textContent = "The pool part assumes 100 subscribers that month (a " + money(subPrice() * 100 * 0.5) + " pool).";
+  const note = $("#exPoolNote"); if (note) note.textContent = "This counts the pool as if 100 churches subscribed that month (a " + money(subPrice() * 100 * 0.5) + " pool).";
   if (typeof renderSub === "function") renderSub(); if (typeof calc === "function") calc();
 }
 const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0) + planCart.plans.length + (planCart.bundle ? 1 : 0);
@@ -295,7 +295,7 @@ function openCart(note) {
   }).join("");
   const why = promo && promo.percent ? esc(promo.code) + " · " + esc(promo.label) : cfg.sale ? esc(cfg.sale.name) + " · " + cfg.sale.percent + "% off" : "";
   const trial = promo && promo.trial, storePart = ids.length || trial;
-  // who it's for: "Just me" (the keys are yours at once: your Downloads page and an email) or a church or team (handed
+  // who it's for: "Just me" (the keys are yours at once: Purchases and an email) or a church or team (handed
   // out on the Teams page). Packs and Central Services slots are for a church or team.
   const churchOnly = ids.some((id) => P_(id).pack || P_(id).addonFor || P_(id).slots);
   if (!forWho && me) forWho = me.church && isStaffRole(me.church.role) ? "church" : "me";
@@ -311,7 +311,7 @@ function openCart(note) {
     <div class="${note && /^✓/.test(note) ? "ok-note" : "err"}" id="pcErr">${esc(note || "")}</div>
     ${trial ? `<div class="card" style="border-color:var(--brass)"><b>${esc(promo.label)}</b><span class="muted" style="font-size:.9rem">Everything for ${promo.days} days, no payment: as many admin, user and Pedal Control keys as you like, Central Services, Central Tracks Unlimited and all four sound plans (package keys by email). Then the trial keys stop and the apps ask for a key you bought (your songs and settings stay). One free trial per church.</span></div>` : ""}
     ${whoHtml}
-    ${!storePart ? "" : !me ? `<p class="muted" style="margin:0">Sign in or make an account first: your keys go to your account, or your church's.</p>` : forMe ? `<p class="muted" style="margin:0;font-size:.9rem">The keys are yours${me.church ? ", not " + esc(me.church.name) + "'s" : ""}: right after paying they're on your <b>Downloads</b> page, with how to install each app, and in your email.</p>` : trial && me && !me.church ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label>` : needChurch ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label><p class="muted" style="margin:0;font-size:.9rem">This makes your church's account, with you as its main admin. Your admins and users join it with its codes.</p>` : `<p class="muted" style="margin:0;font-size:.9rem">The keys go to <b>${esc(me.church.name)}</b>.</p>`}
+    ${!storePart ? "" : !me ? `<p class="muted" style="margin:0">Sign in or make an account first: your keys go to your account, or your church's.</p>` : forMe ? `<p class="muted" style="margin:0;font-size:.9rem">The keys are yours${me.church ? ", not " + esc(me.church.name) + "'s" : ""}: as soon as you've paid they're under your account icon → <b>Purchases</b>, with the downloads and how to install each app. We email them to you too.</p>` : trial && me && !me.church ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label>` : needChurch ? `<label>Your church or production's name<input id="coChurch" placeholder="Grace Church"></label><p class="muted" style="margin:0;font-size:.9rem">This makes your church's account, with you as its main admin. Your admins and users join it with its codes.</p>` : `<p class="muted" style="margin:0;font-size:.9rem">The keys go to <b>${esc(me.church.name)}</b>.</p>`}
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">${storePart ? `<button class="btn" id="checkout">${me ? (hasPlans ? "Check out the store items" : "Check out") : "Sign in"}</button>` : ""}<button class="btn ghost" id="clear">Empty cart</button></div><div class="err" id="coErr"></div>`);
   $("#clear").onclick = () => { for (const k in cart) delete cart[k]; planCart.plans = []; planCart.bundle = 0; updateCartBtn(); renderRack(); closeModal(); };
   wirePlanCart();
@@ -707,9 +707,9 @@ async function showDownloads(thanks) {
     <details><summary>Other computers and phones</summary>${others(a).map((p) => `<div style="margin-top:.5rem"><b style="font-size:.92rem">${esc(PLATFORM_NAME[p])}</b>${stepsHtml(a, p)}</div>`).join("")}<p style="margin:.5rem 0 0"><a href="${esc(a.guide)}">The full install guide</a></p></details></div>`;
   const pedalCard = (p) => `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">${p.held ? "Being checked before it ships" : p.shipsTo ? "Ships to " + esc(p.shipsTo) : "Ships to the address you gave"}</span></div></div>
     <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
-    <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home.</p></div>`;
+    <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home.</p><p class="muted" style="margin:0;font-size:.9rem">No internet at church? <a href="/download/pedal/usb">Download the pedal update</a>, copy it to a USB stick, and on the pedal use Settings → Update software from USB….</p></div>`;
   const pedalPublic = `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">Raspberry Pi 4 · needs no key</span></div></div>
-    <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol></div>`;
+    <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol><p class="muted" style="margin:0;font-size:.9rem">No internet at church? <a href="/download/pedal/usb">Download the pedal update</a>, copy it to a USB stick, and on the pedal use Settings → Update software from USB….</p></div>`;
   const sv = pub.services;
   const servicesCard = `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(sv.icon)}.svg" alt=""><div><h3>${esc(sv.name)}</h3><span class="muted">${esc(sv.runsOn)}</span></div></div>
     <div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(sv.note)}</span></div>
