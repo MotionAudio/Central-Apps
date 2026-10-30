@@ -413,6 +413,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS church_members_one_church_account ON church_me
 -- 9.5: buying "Just me": the keys belong to a personal row (personal, owner_id = the person), each key given to its
 -- buyer at once. Nobody is a member of it, so the person can still be in a church (or join one later).
 ALTER TABLE churches ADD COLUMN IF NOT EXISTS personal BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE churches ADD COLUMN IF NOT EXISTS demo BOOLEAN NOT NULL DEFAULT FALSE;   -- (10.0) the demo church: it sends no email
 CREATE UNIQUE INDEX IF NOT EXISTS churches_one_personal ON churches (owner_id) WHERE personal;
 
 -- 9.5: sound plans (yearly): Central Keys, Central Plugins, Central Instrument, Central Pedals. One row per Stripe

@@ -56,7 +56,7 @@ function menu() {
     { label: "Help", submenu: [
       { label: "Check for updates…", click: async () => { const st = await updater.check(); updateEvent(); dialog.showMessageBox(win, { type: "info", title: "Updates", message: st.available ? "Central Services " + st.latest + " is available - ⚙ App installs it." : st.error ? st.error : "Central Services is up to date (" + app.getVersion() + ")." }); } },
       { label: "Contact technical support…", click: () => win && win.webContents.executeJavaScript("window.CentralServices && CentralServices.support()").catch(() => { }) },
-      { label: "Download page", click: () => shell.openExternal("https://motionaudio.github.io/Central-Apps/#central-services") }] }
+      { label: "Download page", click: () => (win ? win.webContents.executeJavaScript("window.CS_SERVER || ''") : Promise.resolve("")).catch(() => "").then((s) => shell.openExternal(/^https:\/\//.test(s) ? s.replace(/\/+$/, "") + "/#downloads" : "https://motionaudio.github.io/Central-Apps/")) }] }   // (the website's Downloads page once it's open)
   ]));
 }
 

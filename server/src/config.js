@@ -65,6 +65,13 @@ export const KEY_KINDS = { P: "Central Pedal / Central Pedal Control", A: "Centr
 export const LICENSE_RECHECK_DAYS = 30;
 // default keys, one per kind, for now (staff switch them off on the staff page: see defaultkeys.js)
 export const DEFAULT_KEYS = { P: "PDEF-AULT-KEY0-2026", A: "ADEF-AULT-KEY0-2026", U: "UDEF-AULT-KEY0-2026", S: "SDEF-AULT-KEY0-2026" };
+// (10.0) the demo church: built-in keys like the default ones (the same staff switch turns them off), to show the apps
+// to a church. The plan keys open their own plan (and Central Pads, like the real plans).
+export const DEMO_CHURCH = "Riverstone Church (demo)";
+export const DEMO_KEYS = { P: "PDMO-RVST-PCTL-2026", A: "ADMO-RVST-ADMN-2026", U: "UDMO-RVST-USER-2026" };
+export const DEMO_PACKAGES = { "SDMO-RVST-ALL0-2026": ["keys", "plugins", "instrument", "pedals", "pads"], "SDMO-RVST-KEYS-2026": ["keys", "pads"], "SDMO-RVST-PLUG-2026": ["plugins", "pads"],
+  "SDMO-RVST-INST-2026": ["instrument", "pads"], "SDMO-RVST-PEDL-2026": ["pedals", "pads"], "SDMO-RVST-PADS-2026": ["pads"] };
+export const DEMO_ACCOUNT = { email: "riverstone-demo@motionaudio.org", password: "Riverstone-Demo-2026", name: "Riverstone demo" };
 export const MAIN_ADMINS_MAX = 2;
 // Central Services: slots bought once (packs come with some). Each person on the church's teams takes one.
 export const SERVICES_LIMITS = { teamsPerKind: 4, schedulers: 4, people: 1000 };

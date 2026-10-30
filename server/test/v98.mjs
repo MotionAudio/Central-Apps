@@ -92,7 +92,7 @@ try {
     ok(cards.length === 4, "a Sound libraries section with the four libraries", cards.map((c) => c.id));
     ok(/Version 1\.0 · 151 MB/.test(ck.text) && /Upright Piano · FM Piano/.test(ck.text) && /Upright Ballad/.test(ck.text), "each card: version, size and what's in it", ck.text);
     ok(/Needs Central Keys \(\$70 a year\) - your package key comes by email and is on your Account page/.test(ck.text), "\"Needs Central Keys ($70 a year) - your package key comes by email and is on your Account page\"", ck.text);
-    ok(ck.href === "https://cdn.example.test/central-keys-library-1.0.zip" && /Download Central Keys Library/.test(ck.text), "a Download button straight to the zip (anyone can download it)", ck.href);
+    ok(/\/download\/library\/central-keys-library$/.test(ck.href) && /Download Central Keys Library/.test(ck.text), "a Download button (our own link, on to the zip; anyone can download it)", ck.href);
     ok(!/Your Central Keys plan opens/.test(ck.text) && !/Not in your plans yet/.test(ck.text), "signed out: nothing about your plans");
     const signedIn = await page.evaluate(async () => {
       const libs = await (await fetch("/v1/libraries")).json(), d = document.createElement("div");

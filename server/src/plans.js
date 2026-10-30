@@ -15,8 +15,8 @@ import { q, one, pool } from "./db.js";
 import { config, PLANS, PLAN_IDS, PACKAGE_DEVICES, PADS_PLAN, withPads } from "./config.js";
 import { requireStep } from "./signin.js";
 import { sendMail, escHtml, mailOn } from "./mail.js";
-import { defaultKind, defaultKeysOn, defaultOffMessage, DEFAULT_CHURCH, DEFAULT_END } from "./defaultkeys.js";
-const defaultPackage = () => ({ ok: true, plans: Object.fromEntries(PLAN_IDS.map((id) => [id, DEFAULT_END])), end: DEFAULT_END });
+import { defaultKind, defaultKeysOn, defaultOffMessage, DEFAULT_END, demoPlans, builtinChurch } from "./defaultkeys.js";
+const defaultPackage = (key) => ({ ok: true, plans: Object.fromEntries((demoPlans(key) || PLAN_IDS).map((id) => [id, DEFAULT_END])), end: DEFAULT_END });   // (a demo plan key: just its plans)
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const isMain = (role) => role === "church" || role === "owner";
@@ -34,7 +34,7 @@ export const devicesRule = () => PACKAGE_DEVICES + " of your devices at a time, 
 
 // a subscription counts while Stripe says it's on and it's paid through a date still ahead. A renewal that didn't go
 // through (past_due) keeps it 14 more days while Stripe tries the card again.
-const endOf = (p) => `(CASE WHEN ${p}status='past_due' THEN LEAST(${p}period_end, COALESCE(${p}past_due_since, now()) + interval '14 days') ELSE ${p}period_end END)`;
+export const endOf = (p) => `(CASE WHEN ${p}status='past_due' THEN LEAST(${p}period_end, COALESCE(${p}past_due_since, now()) + interval '14 days') ELSE ${p}period_end END)`;
 export const PLAN_END = endOf("");
 export const PLAN_LIVE = "status IN ('active','trialing','past_due') AND period_end IS NOT NULL AND " + PLAN_END + " > now()";
 // a package key with what decides it: ends (the date its plans end, or ended), live
@@ -71,15 +71,15 @@ async function insertKey(client, row) {
 // the email with a package key (to the buyer, or to the person the church gave it to)
 export async function sendPackage(key, how) {
   const k = await findKey(key); if (!k || !k.holder_email) return { sent: false, why: "nobody to send it to" };
-  const name = k.holder_name, what = planNames(k.plans), link = config.publicUrl + "/#account";
+  const name = k.holder_name, what = planNames(k.plans), link = config.publicUrl + "/#purchases";
   const lead = how === "bought" ? "Thanks for getting " + what + "! Here's your package key."
     : k.trial ? (k.church || "Your church") + "'s free trial includes " + what + " until " + day(k.ends) + ". Here's your package key."
     : (k.church || "Your church") + " gave you " + what + ". Here's your package key.";
   const steps = "On any of your devices - Central Pedal, Central Pedal Control, Central Control or Central Usage - open Settings → Packages → Add a package, and paste it. It works on " + devicesRule() + ".";
-  const text = "Hi" + (name ? " " + name : "") + ",\n\n" + lead + "\n\n    " + pretty(k.key) + "\n\n" + steps + "\n\n" + (k.trial ? "" : "It's yours until " + day(k.ends) + (k.sub_kind === "person" && !k.cancel_at_period_end ? ", and it renews by itself every year" : "") + ". ") + "It's on your account page too: " + link + "\n\nTalk soon,\nThe Motion Audio team\n";
+  const text = "Hi" + (name ? " " + name : "") + ",\n\n" + lead + "\n\n    " + pretty(k.key) + "\n\n" + steps + "\n\n" + (k.trial ? "" : "It's yours until " + day(k.ends) + (k.sub_kind === "person" && !k.cancel_at_period_end ? ", and it renews by itself every year" : "") + ". ") + "It's always under your account icon → Purchases on the website, with the plan's sound library to download: " + link + "\n\nTalk soon,\nThe Motion Audio team\n";
   const html = '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px"><p>Hi' + (name ? " " + escHtml(name) : "") + ",</p><p>" + escHtml(lead) + "</p>" +
     '<p><code style="font:600 20px ui-monospace,monospace;letter-spacing:.05em">' + escHtml(pretty(k.key)) + "</code></p><p>" + escHtml(steps) + "</p>" +
-    "<p>" + (k.trial ? "" : "It's yours until <b>" + escHtml(day(k.ends)) + "</b>" + (k.sub_kind === "person" && !k.cancel_at_period_end ? ", and it renews by itself every year" : "") + ". ") + 'It\'s on your <a href="' + escHtml(link) + '">account page</a> too.</p><p>Talk soon,<br>The Motion Audio team</p></div>';
+    "<p>" + (k.trial ? "" : "It's yours until <b>" + escHtml(day(k.ends)) + "</b>" + (k.sub_kind === "person" && !k.cancel_at_period_end ? ", and it renews by itself every year" : "") + ". ") + 'It\'s always under <a href="' + escHtml(link) + '">Purchases</a> on the website (your account icon), with the plan\'s sound library to download.</p><p>Talk soon,<br>The Motion Audio team</p></div>';
   return sendMail(k.holder_email, (how === "bought" ? "Your package key: " : "Your package key from " + (k.church || "your church") + ": ") + (what[0].toUpperCase() + what.slice(1)), text, html);
 }
 // a paid checkout: its keys (once, however often Stripe repeats itself). A person's key is theirs and emailed to them;
@@ -170,7 +170,7 @@ export function routes(api, { wrap, requireUser }) {
     if (braked(req)) return res.json({ ok: false, error: "Too many wrong keys. Wait a few minutes and try again." });
     if (!devOk(b.deviceId)) return res.json({ ok: false, error: "This device has no id yet. Restart the app and try again." });
     const app = String(b.app || ""); if (!APPS[app]) return res.json({ ok: false, error: "Unknown app." });
-    if (defaultKind(b.key) === "S") return res.json((await defaultKeysOn()) ? Object.assign({ key: pretty(b.key) }, defaultPackage(), { holder: "", church: DEFAULT_CHURCH, trial: false, defaultKey: true }) : { ok: false, error: defaultOffMessage() });   // (the default package key: all four plans while staff keep it on)
+    if (defaultKind(b.key) === "S") return res.json((await defaultKeysOn()) ? Object.assign({ key: pretty(b.key) }, defaultPackage(b.key), { holder: "", church: builtinChurch(b.key), trial: false, defaultKey: true, demoKey: !!demoPlans(b.key) }) : { ok: false, error: defaultOffMessage() });   // (the default package key: all four plans while staff keep it on)
     const client = await pool.connect(); let k, st;
     try {
       await client.query("BEGIN");
@@ -198,7 +198,7 @@ export function routes(api, { wrap, requireUser }) {
   api.post("/package/check", wrap(async (req, res) => {
     const b = req.body || {}, keys = (Array.isArray(b.keys) ? b.keys : []).slice(0, 20), out = [];
     for (const key of keys) {
-      if (defaultKind(key) === "S") { const on = await defaultKeysOn(); out.push(on ? Object.assign({ key: pretty(key) }, defaultPackage()) : { key: pretty(key), ok: false, plans: {}, end: null, error: defaultOffMessage() }); continue; }
+      if (defaultKind(key) === "S") { const on = await defaultKeysOn(); out.push(on ? Object.assign({ key: pretty(key) }, defaultPackage(key)) : { key: pretty(key), ok: false, plans: {}, end: null, error: defaultOffMessage() }); continue; }
       const k = await findKey(key), st = keyState(k);
       if (!k) miss(req);
       if (st.ok && !(await one("SELECT 1 FROM package_devices WHERE key=$1 AND device_id=$2", [k.key, String(b.deviceId || "")]))) { out.push({ key: pretty(key), ok: false, plans: {}, end: st.end, error: "This package was released from this device. Add it again (Settings → Packages → Add a package)." }); continue; }

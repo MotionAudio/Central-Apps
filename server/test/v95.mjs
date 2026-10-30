@@ -332,13 +332,13 @@ try {
   const soKeys = await q("SELECT l.kind, l.user_id, l.assigned_email FROM licenses l JOIN orders o ON o.id=l.order_id WHERE o.stripe_session=$1 ORDER BY kind", [so.session]);
   ok(soOrder.personal === true && soOrder.church === null && soKeys.length === 2 && soKeys.every((k) => Number(k.user_id) === Number(soloId) && k.assigned_email === E("solo")), "paid: every key is the buyer's at once (no Teams handout); the order says it's personal", { soOrder, soKeys });
   const dlMail = to(E("solo")).filter((m) => /Your downloads and keys/.test(m.subject)).pop();
-  ok(dlMail && /CENTRAL USAGE/.test(dlMail.text) && /U[A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(dlMail.text) && /motionaudio\.github\.io\/Central-Apps\/#usage/.test(dlMail.text) && /Run anyway/.test(dlMail.text) && /install\.sh \| bash -s usage/.test(dlMail.text)
+  ok(dlMail && /CENTRAL USAGE/.test(dlMail.text) && /U[A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(dlMail.text) && /\/download\/usage\/windows/.test(dlMail.text) && !/github/i.test(dlMail.text) && /#purchases/.test(dlMail.text) && /Run anyway/.test(dlMail.text) && /install\.sh \| bash -s usage/.test(dlMail.text)
     && /ships to Sam Solo, 12 Hymn St, Nashville TN 37201, US/.test(dlMail.text) && /Central Pedal Setup/.test(dlMail.text) && /CENTRAL PEDAL CONTROL/.test(dlMail.text), "the buyer's email: each key, its download link, how to install it, and the pedal's address and phone setup", dlMail && dlMail.text);
   const pubDl = await j("GET", "/downloads/apps");
   ok(pubDl.apps.length === 3 && pubDl.apps.every((a) => a.keys.length === 0 && a.download && a.steps.windows) && pubDl.services && /account/.test(pubDl.services.note) && pubDl.pedalSetup.length, "anyone can see every app's download and install steps (no sign-in, no keys)");
   const dl = await j("GET", "/downloads", null, solo);
   const dlU = dl.apps.find((a) => a.kind === "U"), dlP = dl.apps.find((a) => a.kind === "P");
-  ok(dlU && dlP && dlU.keys.length === 1 && /#usage$/.test(dlU.download) && dlU.steps.windows.length && dlU.steps.mac.length && dlU.steps.android && /bash -s usage/.test(dlU.linuxCommand) && /Safari/.test(dlU.phone)
+  ok(dlU && dlP && dlU.keys.length === 1 && /#downloads$/.test(dlU.download) && /\/download\/usage\/windows$/.test(dlU.links.windows) && /\/download\/usage\/android$/.test(dlU.links.android) && dlU.steps.windows.length && dlU.steps.mac.length && dlU.steps.android && /bash -s usage/.test(dlU.linuxCommand) && /Safari/.test(dlU.phone)
     && dl.pedals.length === 1 && /Nashville/.test(dl.pedals[0].shipsTo) && dl.pedalSetup.some((s) => /Central Pedal Setup/.test(s)) && dl.sdCard === undefined,
     "Downloads: a card per app (download link, steps for each computer and phone, the key) and the pedal (where it ships, the phone setup; no SD card maker)", dl);
   const sUse = await useKey(dlU.keys[0].key, "usage");

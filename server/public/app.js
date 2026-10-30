@@ -5,7 +5,6 @@ const money = (n) => "$" + Number(n || 0).toFixed(2);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const TIER = { 1: 5, 2: 10, 3: 15, 4: 20, 5: 30 };
 const starHtml = (n) => `<span class="stars" aria-label="${n} of 5 stars">${"★".repeat(n)}<span class="off">${"★".repeat(5 - n)}</span></span>`;
-const APPS_URL = "https://motionaudio.github.io/Central-Apps/";
 
 let token = null; try { token = localStorage.getItem("ma-token"); } catch {}
 let me = null, cfg = { payments: false }, tracks = [];
@@ -335,7 +334,7 @@ function openCart(note) {
         return modal(`<h3>Your free trial has started!</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>: unlimited keys, Central Services, Central Tracks Unlimited and all four sound plans.</p>
           ${t.packageKey ? `<p style="margin:0">Your sound plans package key (it's in your email too): <code style="user-select:all;font-weight:600">${esc(t.packageKey)}</code>. In any app: <b>Settings → Packages → Add a package</b>, and paste it. Give your team theirs on the <b>Teams</b> card.</p>` : ""}
           <p style="margin:0">Make keys as you need them: on the <b>Teams</b> card add your admins, users and Pedal Control people (each gets an email with their key), or press <b>+ Admin key</b>, <b>+ User key</b> or <b>+ Pedal Control key</b> on your church's page.</p>
-          <p class="muted" style="margin:0;font-size:.9rem">Get the apps at <a href="${APPS_URL}" target="_blank" rel="noopener">${APPS_URL}</a>.</p><a class="btn" href="#account" data-close>Go to my church</a>`);
+          <p class="muted" style="margin:0;font-size:.9rem">Get the apps on the <a href="#downloads" data-close>Downloads</a> page.</p><a class="btn" href="#account" data-close>Go to my church</a>`);
       } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
     }
     const body = { items: cart, for: forMe ? "me" : "church", church: needChurch && $("#coChurch") ? $("#coChurch").value.trim() : undefined, code: promo && promo.percent ? promo.code : undefined };
@@ -561,6 +560,7 @@ function signInForm(note) {
 async function renderAccount(note) {
   const body = $("#acctBody");
   $("#signOut").hidden = !me; $("#acctLink").textContent = me ? "Account" : "Sign in";
+  $("#acctLink").hidden = !!me; if ($("#acctMenu")) { $("#acctMenu").hidden = !me; $("#acctWho").textContent = me ? (me.name ? me.name + " · " : "") + me.email : ""; }
   if (!me) {
     $("#acctTitle").textContent = "Sign in";
     body.innerHTML = signInForm(note);
@@ -582,12 +582,12 @@ async function renderAccount(note) {
   }
   $("#acctTitle").textContent = me.name ? "Hi, " + me.name : "Your account";
   body.innerHTML = `<div class="acct">${me.emailConfirmed ? "" : `<div class="card wide confirm-card"><h3>Confirm your email</h3><p style="margin:0">We sent a link to <b>${esc(me.email)}</b>. Your receipts, keys, invites and password resets go there, so checkout waits until it's confirmed.</p><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="cfAgain">Send it again</button></div></div>`}
-    <div class="card wide dl-link"><h3>Your keys and downloads</h3><p class="muted" style="margin:0">Your keys (they're in your email too), and every app with how to install it.</p><div id="myRenew"></div><a class="btn small" href="#downloads" style="justify-self:start">Open Downloads</a></div>
+    <div class="card wide dl-link"><h3>Your keys and downloads</h3><p class="muted" style="margin:0">Your keys (they're in your email too), and every app with how to install it.</p><div id="myRenew"></div><div style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn small" href="#purchases">Purchases</a><a class="btn small ghost" href="#downloads">Open Downloads</a></div></div>
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
     ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
-      <a class="btn ghost small" href="${APPS_URL}" target="_blank" rel="noopener" style="justify-self:start">Download the apps</a></div>
+      <a class="btn ghost small" href="#downloads" style="justify-self:start">Download the apps</a></div>
     <div class="card wide" id="pkgCard"><h3>Sound plans</h3><div class="muted">Loading…</div></div>
     ${me.church ? `<div class="card" id="slotsCard"><h3>Central Services</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
@@ -637,6 +637,57 @@ function stepsHtml(a, p) {
   if (p === "android" && !a.steps.android) return `<p class="muted" style="margin:0">${esc(a.name)} runs on ${esc(a.runsOn)}: open this page on one of those to install it.</p>`;
   return `<ol class="steps">${a.steps[p].map((s) => `<li>${esc(s)}</li>`).join("")}</ol>${p === "linux" ? `<div class="cmd"><code>${esc(a.linuxCommand)}</code>${copyBtn(a.linuxCommand)}</div>` : ""}`;
 }
+// (10.0) the download buttons: our own links (/download/<app>/<platform>), the one for this computer first
+const PLAT_ORDER = { windows: ["windows"], mac: ["mac", "mac-intel"], linux: ["linux-deb", "linux"], android: ["android"], ipad: [] };
+const PLAT_LABEL = { windows: "Windows", mac: "Mac (Apple silicon)", "mac-intel": "Mac (Intel)", linux: "Linux (AppImage)", "linux-deb": "Ubuntu / Debian", android: "Android" };
+function dlLink(a) { const l = a.links || {}; const p = (PLAT_ORDER[PLATFORM] || []).find((x) => l[x]); return p ? l[p] : null; }
+function otherFiles(a) {
+  const l = a.links || {}, mine = dlLink(a), rest = Object.keys(l).filter((p) => l[p] !== mine);
+  return rest.length ? `<p class="muted" style="margin:0;font-size:.88rem">Other computers: ${rest.map((p) => `<a href="${esc(l[p])}">${esc(PLAT_LABEL[p] || p)}</a>`).join(" · ")}</p>` : "";
+}
+function dlButtons(a) {
+  const u = PLATFORM !== "ipad" && !(PLATFORM === "android" && !a.steps.android) ? dlLink(a) : null;
+  return (u ? `<a class="btn" href="${esc(u)}">Download ${esc(a.name)}${PLATFORM === "mac" ? " for Mac" : PLATFORM === "windows" ? " for Windows" : ""}</a>` : "") + otherFiles(a);
+}
+// ---------------------------------------------------------------- Purchases (#purchases): the account icon → Purchases
+// Everything you bought, newest first: what it is, the keys (Copy), a Download button for each app or sound library it
+// covers, how to install it, and when it renews. Keys your church gave you are there too.
+function puSection(on) { const s = $("#purchases"); if (!s) return null; s.hidden = !on; return $("#puBody"); }
+async function showPurchases(thanks) {
+  const el = puSection(true); if (!el) return;
+  if (!me) { el.innerHTML = `<div class="sec-head"><h2>Purchases</h2><p>Sign in to see what you've bought, your keys and your downloads.</p></div><a class="btn" href="#account">Sign in</a>`; return; }
+  el.innerHTML = `<h2>Purchases</h2><p class="muted">Loading…</p>`; $("#purchases").scrollIntoView({ behavior: "smooth" });
+  let d; try { d = await api("GET", "/purchases"); } catch (e) { el.innerHTML = `<h2>Purchases</h2><p class="err">${esc(e.message)}</p>`; return; }
+  const date = (x) => (x ? new Date(x).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "");
+  const keyRow = (k) => `<div class="pu-key"><code>${esc(k.key)}</code>${copyBtn(k.key)}${k.who ? `<span class="muted" style="font-size:.88rem">for ${esc(k.who)}</span>` : ""}${k.inUse ? `<span class="muted" style="font-size:.88rem">· on ${k.inUse} device${k.inUse === 1 ? "" : "s"}</span>` : ""}${k.updatesUntil && k.updatesUntil !== "forever" ? `<span class="muted" style="font-size:.88rem">· updates through ${esc(k.updatesUntil)}</span>` : ""}${k.expiresAt ? `<span class="muted" style="font-size:.88rem">· free until ${esc(date(k.expiresAt))}</span>` : ""}</div>`;
+  const appPart = (a) => `<div class="pu-part"><h4><img src="/brand/${esc(a.icon)}.svg" alt="">${esc(a.name)} <span class="muted" style="font-weight:400;font-size:.88rem">${esc(a.runsOn)}</span></h4>
+    ${a.keys.map(keyRow).join("")}<p class="muted" style="margin:0;font-size:.9rem">Type the key the first time ${esc(a.name)} opens (${esc(a.devices)} per key).</p>
+    <div class="pu-btns">${dlButtons(a)}</div>
+    <details><summary>How to install it</summary><div style="margin-top:.4rem">${stepsHtml(a, PLATFORM)}</div>${Object.keys(PLATFORM_NAME).filter((p) => p !== PLATFORM && (p !== "android" || a.steps.android) && (p !== "ipad" || a.phone)).map((p) => `<div style="margin-top:.5rem"><b style="font-size:.92rem">${esc(PLATFORM_NAME[p])}</b>${stepsHtml(a, p)}</div>`).join("")}</details></div>`;
+  const pkgPart = (p) => `<div class="pu-part"><h4>Package key${p.packages.length > 1 ? "s" : ""}</h4>${p.oneKey ? `<p style="margin:0">${esc(p.oneKey)}</p>` : ""}
+    ${p.packages.map((k) => `<div class="pu-key"><code>${esc(k.key)}</code>${copyBtn(k.key)}<span class="muted" style="font-size:.88rem">${esc(k.plans)}${k.who ? " · for " + esc(k.who) : ""}${k.until ? " · until " + esc(date(k.until)) : ""}</span></div>`).join("")}
+    <p class="muted" style="margin:0;font-size:.9rem">In any app: <b>Settings → Packages → Add a package</b>, and paste the key. Then <b>Libraries → Install</b>, or download the library here and use <b>Install from a file…</b></p>
+    ${p.libraries.length ? `<div class="pu-btns">${p.libraries.map((l) => `<a class="btn ghost small" href="${esc(l.link)}">Download ${esc(l.name)}</a>`).join("")}</div>` : ""}</div>`;
+  const pedalPart = (p) => `<div class="pu-part"><h4><img src="/brand/central-pedal.svg" alt="">Central Pedal</h4><p style="margin:0">${p.held ? "We're checking the order before it ships." : p.shipsTo ? "It ships to " + esc(p.shipsTo) + "." : "It ships to the address you gave."} It arrives ready, with its software on the card, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${p.setup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol></div>`;
+  const card = (p) => `<div class="pu-card" data-pu="${esc(p.id)}"><div class="pu-head"><div><h3>${esc(p.title)}</h3><div class="pu-meta">${[p.date ? date(p.date) : "", p.church ? esc(p.church) : "", p.total ? dollars(p.total) + (p.type === "subscription" ? " a month" : p.type === "plan" ? " a year" : "") : "", p.slots ? p.slots + " Central Services slots" : ""].filter(Boolean).join(" · ")}</div></div>
+      <span class="pu-status${p.status === "active" || p.status === "paid" ? "" : " off"}">${esc(p.status === "paid" || p.status === "active" ? (p.type === "order" ? "Paid" : "Active") : p.status === "review" ? "Being checked" : p.status === "refunded" ? "Refunded" : p.status === "canceled" ? "Ended" : p.status)}</span></div>
+    ${p.renewText ? `<p class="muted" style="margin:0;font-size:.92rem">${esc(p.renewText)}${p.renews ? " Next renewal: " + esc(date(p.renews)) + "." : ""}</p>` : ""}
+    ${p.pedal ? pedalPart(p.pedal) : ""}${(p.apps || []).map(appPart).join("")}${(p.packages || []).length ? pkgPart(p) : ""}</div>`;
+  el.innerHTML = `<div class="sec-head"><h2>Purchases</h2><p>${esc(thanks || "Everything you've bought, with its keys and downloads. Keys your church gave you are here too.")}</p></div>
+    ${d.purchases.length ? `<div class="pu-list">${d.purchases.map(card).join("")}</div>` : `<p class="muted">Nothing here yet. Keys your church gives you come by email and show up here; things you buy for yourself too. <a href="#store">Visit the store</a>.</p>`}
+    <p class="muted" style="font-size:.9rem;margin-top:1rem">Every app is free to download on the <a href="#downloads">Downloads</a> page. <a href="${esc(d.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.</p>`;
+  wireCopies(el);
+}
+// the account icon's menu (signed in)
+(function () {
+  const icon = $("#acctIcon"), drop = $("#acctDrop"); if (!icon || !drop) return;
+  const close = () => { drop.hidden = true; icon.setAttribute("aria-expanded", "false"); };
+  icon.addEventListener("click", (e) => { e.stopPropagation(); const open = drop.hidden; drop.hidden = !open; icon.setAttribute("aria-expanded", String(open)); if (open) { const f = drop.querySelector("a"); if (f) f.focus(); } });
+  drop.addEventListener("click", (e) => { if (e.target.closest("a,button")) close(); });
+  document.addEventListener("click", (e) => { if (!e.target.closest("#acctMenu")) close(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !drop.hidden) { close(); icon.focus(); } });
+  const out = $("#acctOut"); if (out) out.addEventListener("click", () => { const so = $("#signOut"); if (so) so.click(); });
+})();
 async function showDownloads(thanks) {
   const el = dlSection(true); if (!el) return;
   el.innerHTML = `<h2>Downloads</h2><p class="muted">Loading…</p>`; $("#downloads").scrollIntoView({ behavior: "smooth" });
@@ -651,7 +702,7 @@ async function showDownloads(thanks) {
     ${a.keys.length ? `<div class="dl-keys">${a.keys.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)}${k.inUse ? ` <span class="muted">· on ${k.inUse} device${k.inUse === 1 ? "" : "s"}</span> <button class="btn small ghost" data-dlrel="${esc(k.key)}">Release</button>` : ""}
       ${k.updatesUntil && k.updatesUntil !== "forever" ? `<span class="muted" style="font-size:.88rem;flex-basis:100%">Updates through ${esc(k.updatesUntil)}${k.renewable ? ` · <button class="btn small ghost" data-renewme="${esc(k.key)}">Renew: ten more releases, ${dollars(renewal / 100)}</button>` : ""}</span>` : ""}</div>`).join("")}
       <span class="muted" style="font-size:.9rem">Type ${a.keys.length > 1 ? "a key" : "it"} when the app first opens (${esc(a.devices)} per key).</span></div>` : keyNote(a)}
-    ${PLATFORM !== "ipad" && !(PLATFORM === "android" && !a.steps.android) ? `<a class="btn" href="${esc(a.download)}" target="_blank" rel="noopener">Download ${esc(a.name)}</a>` : ""}
+    ${dlButtons(a)}
     <div><b style="font-size:.92rem">On ${esc(PLATFORM_NAME[PLATFORM])}</b>${stepsHtml(a, PLATFORM)}</div>
     <details><summary>Other computers and phones</summary>${others(a).map((p) => `<div style="margin-top:.5rem"><b style="font-size:.92rem">${esc(PLATFORM_NAME[p])}</b>${stepsHtml(a, p)}</div>`).join("")}<p style="margin:.5rem 0 0"><a href="${esc(a.guide)}">The full install guide</a></p></details></div>`;
   const pedalCard = (p) => `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">${p.held ? "Being checked before it ships" : p.shipsTo ? "Ships to " + esc(p.shipsTo) : "Ships to the address you gave"}</span></div></div>
@@ -662,7 +713,7 @@ async function showDownloads(thanks) {
   const sv = pub.services;
   const servicesCard = `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(sv.icon)}.svg" alt=""><div><h3>${esc(sv.name)}</h3><span class="muted">${esc(sv.runsOn)}</span></div></div>
     <div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(sv.note)}</span></div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap">${PLATFORM !== "ipad" ? `<a class="btn" href="${esc(sv.download)}" target="_blank" rel="noopener">Download ${esc(sv.name)}</a>` : ""}<a class="btn ghost" href="${esc(sv.web)}">Open it in the browser</a></div></div>`;
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">${PLATFORM !== "ipad" && dlLink(sv) ? `<a class="btn" href="${esc(dlLink(sv))}">Download ${esc(sv.name)}</a>` : ""}<a class="btn ghost" href="${esc(sv.web)}">Open it in the browser</a></div>${otherFiles(sv)}</div>`;
   const pkgCard = d && d.packages.length ? `<div class="dl-card"><div class="dl-head"><div><h3>Sound plans</h3><span class="muted">Package keys</span></div></div>
     <div class="dl-keys">${d.packages.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)} <span class="muted">· ${esc(k.plans)}${k.church ? " · from " + esc(k.church) : ""} · until ${esc(longDate(k.until))}</span></div>`).join("")}</div>
     <p style="margin:0">In any app (Central Pedal, Central Pedal Control, Central Control, Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 3} of your devices at a time, each a different app (say Central Usage, Central Control and a Central Pedal).</p></div>` : "";
@@ -675,7 +726,7 @@ async function showDownloads(thanks) {
     ${yours ? `<h3 class="dl-h">Yours</h3><div class="dl-grid">${d.pedals.map(pedalCard).join("")}${mine.map(appCard).join("")}${pkgCard}</div><h3 class="dl-h">Every other app</h3>` : me ? `<p class="muted">No keys here yet. Keys your church gives you come by email; keys you buy for yourself ("Just me") show up here and in your email. <a href="#store">Visit the store</a>.</p>` : ""}
     ${all}
     ${libSection}
-    <p class="muted" style="font-size:.9rem">Every app is also on the <a href="${esc(pub.appsUrl)}" target="_blank" rel="noopener">download page</a>. <a href="${esc(pub.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.</p><div class="err" id="dlErr"></div>`;
+    <p class="muted" style="font-size:.9rem"><a href="${esc(pub.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.${me ? ' Your keys, with what each one is for, are under <a href="#purchases">Purchases</a>.' : ""}</p><div class="err" id="dlErr"></div>`;
   wireCopies(el);
   el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], renewal)));
   el.querySelectorAll("[data-dlrel]").forEach((b) => (b.onclick = async () => {
@@ -698,7 +749,7 @@ function librariesHtml(libs, d) {
       ${l.summary ? `<p style="margin:0">${esc(l.summary)}</p>` : ""}
       <details><summary>What's in it</summary>${sounds}${list("Presets", c.presets)}${list("Boards", c.boards)}${list("Impulse responses (IR loader)", c.irs)}${list("Pads (every key)", c.pads)}${(l.credits || []).length ? `<p class="muted" style="font-size:.82rem;margin:.6rem 0 0">${l.credits.map(esc).join("<br>")}</p>` : ""}</details>
       <div class="dl-keys"><span class="muted" style="font-size:.9rem">Needs ${esc(l.planName)} (${esc(price)} a year${l.plan === "pads" ? ", or any other plan: they all include it" : ""}) - your package key comes by email and is on your Account page. In any app: <b>Settings → Packages</b>, add the key, then <b>Libraries → Install</b> (or download it here and use <b>Install from a file…</b>).</span>${opened ? "<br>" + opened : ""}</div>
-      ${l.ready ? `<a class="btn" href="${esc(l.url)}" rel="noopener" download>Download ${esc(l.title)}</a>` : `<span class="muted" style="font-size:.9rem">Coming soon: this library is being built.</span>`}</div>`;
+      ${l.ready ? `<a class="btn" href="/download/library/${encodeURIComponent(l.id)}">Download ${esc(l.title)}</a>` : `<span class="muted" style="font-size:.9rem">Coming soon: this library is being built.</span>`}</div>`;
   };
   return `<h3 class="dl-h" id="libraries">Sound libraries</h3><p class="muted" style="margin:-.3rem 0 .8rem">Sounds, pads, presets, boards and impulse responses for each sound plan. Anyone can download them; they open with the plan's package key (Central Pads opens with any plan).</p><div class="dl-grid">${libs.libraries.map(card).join("")}</div>`;
 }
@@ -1137,8 +1188,10 @@ function renderAll() { renderSub(); renderPayout(); renderAccount(); loadTracks(
 // ---------------------------------------------------------------- returning from Stripe
 async function handleHash() {
   const h = location.hash.slice(1);
-  if (h === "downloads") return showDownloads();
+  if (h === "downloads") { if ($("#purchases")) $("#purchases").hidden = true; return showDownloads(); }
+  if (h === "purchases") { if ($("#downloads")) $("#downloads").hidden = true; return showPurchases(); }
   if (!h.startsWith("order-done-") && $("#downloads")) $("#downloads").hidden = true;   // (the Downloads view shows only when it's asked for)
+  if ($("#purchases")) $("#purchases").hidden = true;
   if (h.startsWith("invite-")) return showInvite(h.slice(7));
   if (h.startsWith("reset-")) return showReset(h.slice(6));
   if (h.startsWith("confirm-")) { try { const r = await api("POST", "/account/confirm", { token: h.slice(8) }); history.replaceState(null, "", "#account"); await refreshMe(); modal(`<h3>Email confirmed</h3><p style="margin:0">${esc(r.email)} is confirmed. Thanks!</p><button class="btn" data-close>OK</button>`); } catch (e) { modal(`<h3>Confirm your email</h3><p class="err" style="margin:0">${esc(e.message)}</p><button class="btn" data-close>OK</button>`); } return; }
@@ -1150,15 +1203,15 @@ async function handleHash() {
       const o = await api("GET", "/orders/" + encodeURIComponent(session)).catch(() => ({ pending: true }));
       if (!o.pending) {
         closeModal(); await refreshMe().catch(() => {});
-        history.replaceState(null, "", o.personal ? "#downloads" : location.pathname);
-        return o.personal ? showDownloads("Thank you! Here's everything you just bought, and how to install it. It's in your email too.") : showNext(o);   // ("Just me": your downloads; a church: next, add your people)
+        history.replaceState(null, "", o.personal ? "#purchases" : location.pathname);
+        return o.personal ? showPurchases("Thank you! Here's what you just bought: your keys, the downloads and how to install them. We emailed it to you too, and it's always here under your account icon → Purchases.") : showNext(o);   // ("Just me": your downloads; a church: next, add your people)
       }
       await new Promise((r) => setTimeout(r, 2000));
     }
     modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your payment went through. Your keys are on their way: refresh this page in a minute and you'll see them.</p><button class="btn" data-close>OK</button>`);
   } else if (h === "plans-done") {
     const bundle = !!planCart.bundle; planCart.plans = []; planCart.bundle = 0; updateCartBtn(); renderPlans(); history.replaceState(null, "", "#account");
-    modal(`<h3>Thank you!</h3><p style="margin:0">${bundle ? "Your church's package keys are on the <b>Teams</b> card: give one to each person, and they get it by email." : "Your package key is on its way by email, and it's on your Account page under <b>Sound plans</b>."}</p>
+    modal(`<h3>Thank you!</h3><p style="margin:0">${bundle ? "Your church's package keys are on the <b>Teams</b> card: give one to each person, and they get it by email." : "Your package key is on its way by email. It's also under your account icon → <a href=\"#purchases\" data-close>Purchases</a>, with the plan's sound library to download."}</p>
       <p class="muted" style="margin:0">On each device: <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 3} of your devices at a time, each a different app, and renews every year.</p><button class="btn" data-close>OK</button>`);
     setTimeout(refreshMe, 2500);
   } else if (h === "subscribed") { toast("Welcome to Central Tracks Unlimited! Add anything you like."); setTimeout(refreshMe, 2500); }
@@ -1178,6 +1231,8 @@ async function renderDefaultKeys() {
     <p class="muted" style="margin:0;font-size:.92rem">One shared key per app, so the apps work before every church has its own: any number of devices, updates always, no Central Tracks Unlimited. Switch them off and the apps ask for a real key at their next check (they're told it was a temporary key).</p>
     <div class="slots-big"><b>${r.on ? "On" : "Off"}</b><span>${r.on ? "the default keys work" : "the default keys don't work"}</span></div>
     <table class="ktable"><tr><th>App</th><th>Key</th></tr>${Object.entries(r.keys).map(([k, v]) => `<tr><td>${esc(names[k] || k)}</td><td><code style="user-select:all">${esc(v)}</code></td></tr>`).join("")}</table>
+    ${r.demo ? `<p style="margin:.4rem 0 0"><b>${esc(r.demo.church)}</b>: keys for showing the apps to a church. The same switch turns them off, and its demo account only works while they're on.</p>
+    <table class="ktable"><tr><th>For</th><th>Key</th></tr>${Object.entries(r.demo.keys).map(([k, v]) => `<tr><td>${esc(names[k] || k)}</td><td><code style="user-select:all">${esc(v)}</code></td></tr>`).join("")}${Object.entries(r.demo.packages).map(([k, plans]) => `<tr><td>${esc(plans.map((id) => (cfg.plans && cfg.plans[id] ? cfg.plans[id].name : id)).join(", "))}</td><td><code style="user-select:all">${esc(k)}</code></td></tr>`).join("")}</table>` : ""}
     <div><button class="btn small${r.on ? " ghost" : ""}" id="dkToggle">${r.on ? "Switch them off" : "Switch them on"}</button></div><div class="err" id="dkErr"></div>`;
   $("#dkToggle").onclick = async () => {
     if (r.on && !confirm("Switch the default keys off? Every app using one asks for a real key at its next check.")) return;

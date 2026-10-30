@@ -84,7 +84,7 @@ try {
   ok((await j("POST", "/license/check", { key: oldKey, device: "dev-cal-" + S })).ok === false, "...and the old key stops working on his tablet");
   ok((await j("GET", "/me", null, cal.token)).church.role === "admin", "...he's an admin in the church now");
   const mvMail = last(E("cal"));
-  ok(/moved you to Central Control/.test(mvMail.subject) && mvMail.text.includes(mv.key) && /#control\b/.test(mvMail.text) && /Sign in with your account/.test(mvMail.text), "...and his email has Central Control's download, the new key, and says to sign in", mvMail.subject);
+  ok(/moved you to Central Control/.test(mvMail.subject) && mvMail.text.includes(mv.key) && /\/#downloads\b/.test(mvMail.text) && !/github/i.test(mvMail.text) && /Sign in with your account/.test(mvMail.text), "...and his email has Central Control's download, the new key, and says to sign in", mvMail.subject);
   ok((await j("POST", "/license/activate", { key: mv.key, device: "dev-cal-" + S, deviceName: "Cal's laptop", app: "control" })).ok && (await j("POST", "/license/link", { key: mv.key, device: "dev-cal-" + S }, cal.token)).ok, "...the new key works in Central Control with his account");
   const back = await j("POST", "/church/team/move", { id: calId, section: "user" }, T);
   ok(back.ok && /^U/.test(back.key) && (await j("GET", "/me", null, cal.token)).church.role === "user", "moving back to Users makes him a user again", back);
