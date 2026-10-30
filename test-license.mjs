@@ -76,7 +76,8 @@ await check("...a wrong kind of key is caught before it is sent; with the websit
   assert.match(await T(() => document.querySelector("#licWiz .bad").textContent), /needs a key that starts with P/);
   const sent = []; const onReq = (r) => { if (/\/v1\/license\/activate$/.test(r.url())) sent.push(r.postDataJSON()); }; page.on("request", onReq);
   await page.fill("#lwKey", "PDEF-AULT-KEY0-2026"); await page.click('#licWiz [data-lw="key"]');
-  await until(() => sent.length > 0 && T(() => !!document.getElementById("lwKey") && !document.querySelector('#licWiz [data-lw="key"]').disabled), 8000);
+  // (the website answers: it either took the default key - on to the account step, no key box any more - or refused it)
+  await until(() => sent.length > 0 && T(() => { const b = document.querySelector('#licWiz [data-lw="key"]'); return !document.getElementById("lwKey") || (b && !b.disabled); }), 8000);
   page.off("request", onReq); assert.equal(sent[0].key, "PDEF-AULT-KEY0-2026", "the website decides (staff can switch the default keys off)");
   await T(() => { const s = PPLicense.state(); if (s && s.key === "PDEF-AULT-KEY0-2026") { localStorage.removeItem("cc-license"); } });   // (if the website took it, start over without it)
   if (!(await T(() => !!document.getElementById("lwKey")))) { await page.reload(); await until(() => T(() => !!document.getElementById("lwProd") || !!document.getElementById("lwKey")), 10000); if (await T(() => !!document.getElementById("lwProd"))) { await page.fill("#lwProd", "Grace Church"); await page.click('#licWiz [data-lw="prod"]'); } }
