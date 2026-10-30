@@ -224,6 +224,11 @@ FLAGS=(--kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubbl
        --disable-component-update --disable-background-networking --disable-sync --disable-default-apps --no-default-browser-check
        --disable-breakpad --disable-domain-reliability --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages
        ${CC_BROWSER_FLAGS:-})
+# The Pi's GPU (9.9.1): Chromium's default budget for drawn tiles is small on the Pi; a long page on a 1080p monitor can
+# run past it and leave parts blank until they're drawn again. A bigger budget (the Pi 4 shares its RAM with the GPU).
+if grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null; then
+  FLAGS+=(--force-gpu-mem-available-mb="${CC_GPU_MEM_MB:-384}")
+fi
 clean_profile() { sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' "$1/Default/Preferences" 2>/dev/null; }
 clean_profile "$PROFILE"; clean_profile "$PROFILE2"
 

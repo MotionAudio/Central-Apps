@@ -1815,7 +1815,7 @@ async def main():
                 if self.path.startswith("/v1/"):
                     return self.reply(None, raw=b"")
                 if self.path == "/repos/church/cc/releases/latest":
-                    return self.reply({"tag_name": "v9.9.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
+                    return self.reply({"tag_name": "v99.0.0", "body": "Faster scenes\nand more", "published_at": "2026-11-01T10:00:00Z",
                                        "assets": [{"name": "central-control-source.zip", "browser_download_url": "http://127.0.0.1:18098/dl/central-control-source.zip"},
                                                   {"name": "SHA256SUMS", "browser_download_url": "http://127.0.0.1:18098/dl/SHA256SUMS"}]})
                 if self.path == "/dl/central-control-source.zip":
@@ -1857,7 +1857,7 @@ async def main():
         check("opening the app makes the Central Pedal look for a newer release right away", upm and upm["available"], upm)
         await send({"type": "updates", "action": "check"})
         upm = await next_message(lambda m: m["type"] == "updateStatus" and m.get("latest"), 5.0)
-        check("the daily check finds a newer release (9.9.0) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "9.9.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
+        check("the daily check finds a newer release (99.0.0, always newer than this one) with a Pi update in it, and its notes", upm and upm["available"] and upm["latest"] == "99.0.0" and upm["hasPi"] and upm["notes"].startswith("Faster"), upm)
         path_ok = driver.updater.download()
         check("the download is checked against SHA256SUMS and kept in /data", os.path.exists(path_ok) and open(path_ok, "rb").read() == rel_state["zip"], path_ok)
         rel_state["zip"] = rel_state["zip"] + b"tampered"
@@ -2318,6 +2318,29 @@ async def main():
         _, body_ = http("http://127.0.0.1:18766/split/config", json.dumps({"packages": "--index-url http://evil/ demucs", "python": "3.12; rm"}).encode())
         sc2 = json.loads(body_ or b"{}")
         check("...and packages that are options or URLs are refused", sc2["settings"]["packages"] == "demucs==4.0.1 soundfile" and sc2["settings"]["python"] == "3.12", sc2)
+
+    # ---- 9.9.1: the sound path - the app's stream stuck on HDMI is moved to the combined output; Test sound says so
+    calls = []
+    fake = {"sinks": [["40", "alsa_output.platform-fef00700.hdmi.hdmi-stereo"], ["41", "alsa_output.platform-bcm2835_audio.stereo-fallback"], ["55", "padpedal_out"]],
+            "clients": [["7", "protocol-native.c", "Chromium"], ["9", "protocol-native.c", "pw-cat"]],
+            "sink-inputs": [["101", "40", "7", "protocol-native.c", "float32le 2ch 48000Hz"], ["102", "41", "9", "protocol-native.c", "s16le"]]}
+    _ps, _run = driver_mod.pactl_short, driver_mod.run
+    driver_mod.pactl_short = lambda what: fake.get(what, [])
+
+    def fake_run(cmd, timeout=20, **kw):
+        calls.append(cmd)
+        if cmd[:2] == ["pactl", "get-default-sink"]:
+            return 0, "alsa_output.platform-fef00700.hdmi.hdmi-stereo\n", ""
+        return 0, "", ""
+    driver_mod.run = fake_run
+    try:
+        chk = driver_mod.audio_path_check(os.path.join(root, "data"), fix=True)
+    finally:
+        driver_mod.pactl_short, driver_mod.run = _ps, _run
+    moved = [c for c in calls if c[:2] == ["pactl", "move-sink-input"]]
+    check("sound: Test sound finds the app playing into HDMI and the default output wrong - makes the combined output the default and moves the app there (only the app's stream)",
+          moved == [["pactl", "move-sink-input", "101", "padpedal_out"]] and ["pactl", "set-default-sink", "padpedal_out"] in calls
+          and any("HDMI" in f or "hdmi" in f for f in chk["found"]) and len(chk["fixed"]) == 2 and chk["ok"] is False, (moved, chk))
 
     stop_event.set()
     await asyncio.wait_for(server_task, 5)

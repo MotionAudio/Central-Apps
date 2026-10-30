@@ -14,6 +14,7 @@
 #   pad-pedal-system wifi-import                import /boot/firmware/pad-pedal-wifi.txt into NetworkManager
 #   pad-pedal-system update <zip>               install a central-control-source zip (from a USB stick) over /opt/pad-pedal
 #   pad-pedal-system restart-app                restart the driver and the screens (after an update)
+#   pad-pedal-system jack on|off                the Pi's headphone jack (dtparam=audio=on)
 #   pad-pedal-system boot-tune                  faster start-up (firmware / kernel settings, unneeded services off)
 #   pad-pedal-system status
 set -euo pipefail
@@ -314,6 +315,9 @@ PY
     sed -i -E '/^dtoverlay=hifiberry-dac$/d' "$CONFIG"
     [ "${2:-on}" = "on" ] && echo "dtoverlay=hifiberry-dac" >> "$CONFIG"
     sync; echo "I2S DAC: ${2:-on} (takes effect after a restart)" ;;
+  jack)   # the Pi's headphone jack (its sound card exists only with dtparam=audio=on), after a restart
+    if [ "${2:-on}" = on ]; then config_all "dtparam=audio" on; else boot_rw; sed -i -E '/^dtparam=audio=on$/d' "$CONFIG"; fi
+    sync; echo "headphone jack: ${2:-on} (takes effect after a restart)" ;;
   audio)
     install -d -m 775 -o "$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)" "$DATA"
     hdmi=false; [ "${2:-}" = "hdmi" ] && hdmi=true
@@ -428,6 +432,7 @@ PY
       (timeout 900 apt-get install -y --no-install-recommends ffmpeg >/dev/null 2>&1 &) || true
     fi
     for kv in $BOOT_TUNE_CONFIG; do config_all "${kv%%=*}" "${kv#*=}"; done
+    config_all "dtparam=audio" on   # (the headphone jack's sound card - outputs 1-2)
     for arg in $BOOT_TUNE_CMDLINE; do cmdline_arg "$arg"; done
     console_tty3
     touch_light_taps
@@ -444,5 +449,5 @@ PY
     echo "tft=$(grep -oE '^dtoverlay=(waveshare35a|waveshare35b|waveshare35c|piscreen|tft35a|tinylcd35|pitft35-resistive)' "$CONFIG" | head -1 | cut -d= -f2)"
     echo "dac=$(grep -q '^dtoverlay=hifiberry-dac' "$CONFIG" && echo on || echo off)"
     cat "$DATA/audio.json" 2>/dev/null || true ;;
-  *) echo "usage: $0 safe-mode|screen|tft|wifi|setup-ap|factory-done|dac|audio|hostname|wifi-import|update|restart-app|boot-tune|status" >&2; exit 1 ;;
+  *) echo "usage: $0 safe-mode|screen|tft|wifi|setup-ap|factory-done|dac|jack|audio|hostname|wifi-import|update|restart-app|boot-tune|status" >&2; exit 1 ;;
 esac

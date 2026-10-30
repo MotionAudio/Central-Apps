@@ -582,6 +582,35 @@ await check("only the headphone jack (no DAC board): a bus on 3-4 is heard on 1-
   assert.equal(r.dacChecked, true, "the DAC board switch shows what the pedal has");
   assert.deepEqual(r.sent.map((m) => m.value), ["off"], "unticking turns the DAC board off");
 });
+await check("Settings → Audio → Test sound: a tone on each output, 'Check where the sound goes' and 'Play on each sound card' show what the pedal found; the Audio input's device and input", async () => {
+  const r = await page.evaluate(async () => {
+    const sent = []; const b = window.__pedalBridge, was = b.send, wasC = b.connected; b.send = function (m) { sent.push(m); return true; }; b.connected = true;   // (the pedal's driver)
+    PPFeatures.handleHardware({ type: "systemStatus", audio: { channels: ["Headphone jack L", "Headphone jack R"], hdmi: false, usbFirst: false } });
+    PPShell.showTab("settings"); await new Promise((ok) => setTimeout(ok, 100));
+    const out = {}, tones = [...document.querySelectorAll('#soundTest [data-stt="ch"]')];
+    out.tones = tones.map((x) => x.textContent);
+    const tc = PP.engine.testChannel, played = []; PP.engine.testChannel = function (ch) { played.push(ch); return tc.call(this, ch); };
+    tones[1].click(); await new Promise((ok) => setTimeout(ok, 30)); out.played = played; PP.engine.testChannel = tc;
+    document.querySelector('#soundTest [data-stt="check"]').click();
+    PPFeatures.handleHardware({ type: "audioCheck", planned: [{ kind: "jack", name: "alsa_output.x", desc: "Headphone jack", channels: 2 }], default: "padpedal_out", appStreams: [{ id: "101", sinkName: "padpedal_out" }],
+      jack: { muted: false, text: "0.00dB" }, found: ["The app was playing into alsa_output.platform-fef00700.hdmi.hdmi-stereo."], fixed: ["Moved the app's sound to the combined output."], ok: false });
+    out.check = document.querySelector("#soundTest").textContent;
+    document.querySelector('#soundTest [data-stt="cards"]').click();
+    PPFeatures.handleHardware({ type: "audioCardTest", sink: "alsa_output.x", desc: "Headphone jack", ok: true });
+    PPFeatures.handleHardware({ type: "audioCardTest", done: true, count: 1 });
+    out.cards = document.querySelector("#soundTest").textContent;
+    const ch = document.querySelector('#audioInputSec [data-stt="inCh"]'); ch.value = "2"; ch.dispatchEvent(new Event("change", { bubbles: true }));
+    out.input = Object.assign({}, PP.project().inputSource); out.hasDev = !!document.querySelector('#audioInputSec [data-stt="inDev"]');
+    out.sent = sent.filter((m) => m.type === "system").map((m) => m.action); b.send = was; b.connected = wasC;
+    PP.project().inputSource = {}; PPShell.showTab("pads"); return out;
+  });
+  assert.deepEqual(r.tones, ["▶ 1 · Headphone jack L", "▶ 2 · Headphone jack R"]);
+  assert.deepEqual(r.played, [2], "the tone goes to output 2");
+  assert.ok(r.sent.includes("audioCheck") && r.sent.includes("audioCardTest"), JSON.stringify(r.sent));
+  assert.match(r.check, /The app plays into: the combined output/); assert.match(r.check, /playing into alsa_output.platform-fef00700/); assert.match(r.check, /✓ Moved the app's sound/);
+  assert.match(r.cards, /✓ Headphone jack/);
+  assert.equal(r.input.channel, "2"); assert.ok(r.hasDev);
+});
 await check("old saved routing: the click's old default 'off' becomes 'heard on 1-2' once; picking Nowhere again stays", async () => {
   const r = await page.evaluate(() => {
     const rt = PP.project().routing, keep = JSON.stringify(rt);
