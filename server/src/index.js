@@ -24,6 +24,7 @@ import * as plans from "./plans.js";
 import * as downloads from "./downloads.js";
 import * as libraries from "./libraries.js";
 import * as defaultkeys from "./defaultkeys.js";
+import * as hymns from "./hymns.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -377,4 +378,5 @@ await migrate();
 await prices.loadPrices();
 setInterval(() => prices.loadPrices().catch(() => { }), 5 * 60e3).unref();   // (another server changed them)
 if (process.env.REMINDERS !== "off") acct.startReminders();   // (every hour: invites nobody answered, the day before a service)
+if (process.env.HYMNS !== "off") hymns.start();   // (the Central Tracks hymns from their published index: at start and every hour)
 app.listen(config.port, () => console.log("Motion Audio server on " + config.publicUrl + " (storage: " + (store.usingR2 ? "R2" : "local folder") + ", payments: " + (pay.stripe ? "on" : "off") + ")"));

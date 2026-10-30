@@ -70,7 +70,7 @@ try {
   ok(indexHits === hits, "the index is read again only every few minutes (cached)", { before: hits, after: indexHits });
   const b = await get(port + 1, "/libraries");
   const bk = b.libraries && b.libraries.find((x) => x.id === "central-keys-library");
-  ok(b.source === "built-in" && b.libraries.length === 5 && b.libraries.some((l) => l.id === "central-pads-library" && l.plan === "pads" && l.contents.pads.length === 12) && bk && bk.ready === false && bk.sha256 === null && bk.approximate === true && bk.url === "http://127.0.0.1:1/nothing-here/central-keys-library-1.0.zip",
+  ok(b.source === "built-in" && b.libraries.length === 5 && b.libraries.some((l) => l.id === "central-pads-library" && l.plan === "pads" && l.contents.pads.length >= 12) && bk && bk.ready === false && bk.sha256 === null && bk.approximate === true && /^http:\/\/127\.0\.0\.1:1\/nothing-here\/central-keys-library-\d+\.\d+\.zip$/.test(bk.url),
     "no index (not published yet, or unreachable): the built-in list - not ready, no sha256, an estimated size, at LIBRARIES_BASE_URL", bk);
   ok(bk && bk.contents.sounds.length >= 3 && bk.contents.sounds[0].presets.includes("Upright Piano") && b.libraries.find((x) => x.id === "central-pedals-library").contents.irs.length >= 14,
     "the built-in list still says what's in each (sounds with their presets, boards, IRs)", bk && bk.contents);

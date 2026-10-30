@@ -54,7 +54,7 @@ try {
   await check("not a library: refused with a plain message", async () => { assert.throws(() => libs.installFile(write("x.zip", Buffer.from("hello")), null, "file"), /isn't a library file/); });
   await check("installs: the bank into the rig's SoundFont folder, the IR into its IR folder, the board kept with its plan; the rig rescans", async () => {
     const r = libs.installFile(f10, sha(z10), "file");
-    assert.deepEqual(r.counts, { sound: 1, ir: 1, board: 1, preset: 0, click: 0, pad: 0 });
+    assert.deepEqual(r.counts, { sound: 1, ir: 1, board: 1, preset: 0, click: 0, pad: 0, loop: 0 });
     assert.ok(fs.existsSync(path.join(sf2Dir, "Central Keys Pianos - central-keys-pianos.sf2")) && fs.existsSync(path.join(irDir, "Central 1x12 Open Back.wav")));
     assert.equal(libs.listing()[0].boards[0].tier, "keys"); assert.ok(sent.some((m) => m.action === "rescan"));
   });

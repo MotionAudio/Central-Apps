@@ -1425,6 +1425,14 @@ class LocalServer:
                 if p == "/libraries/pads":   # Central Pads: the pad styles installed here (the pad pedal's voice list)
                     st = library_store(driver)
                     return self.send_json(200, {"pads": st.pads() if st else []})
+                if p == "/libraries/loops":   # 10.0: the loops installed here (drum loops at a tempo, ambient loops in a key) for the texture channels
+                    st = library_store(driver)
+                    return self.send_json(200, {"loops": st.loops() if st and hasattr(st, "loops") else []})
+                if p == "/libraries/loop":   # one loop's WAV: ?lib=<library id>&file=<set>/<file>
+                    st = library_store(driver)
+                    qs = urllib.parse.parse_qs(url.query)
+                    f = st.loop_file((qs.get("lib") or [""])[0], (qs.get("file") or [""])[0]) if st and hasattr(st, "loop_file") else None
+                    return self.send_file(f, "audio/wav", cache=True) if f else self.send_json(404, {"error": "no such loop"})
                 if p == "/libraries/pad":   # one pad style's loop in one key: ?lib=<library id>&style=<name>&key=C#
                     st = library_store(driver)
                     qs = urllib.parse.parse_qs(url.query)

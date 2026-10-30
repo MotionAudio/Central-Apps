@@ -18,7 +18,7 @@ const https = require("node:https");
 const http = require("node:http");
 
 const PLANS = ["keys", "instrument", "plugins", "pedals", "pads"];
-const KINDS = ["sound", "board", "preset", "ir", "click", "pad"];
+const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop"];
 const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
 const ID_RE = /^[a-z0-9-]{3,60}$/, VERSION_RE = /^\d+(\.\d+){0,3}$/, SHA_RE = /^[0-9a-f]{64}$/;
@@ -164,7 +164,7 @@ class Libraries {
     if (!Array.isArray(man.items) || !man.items.length) throw new Error("that library has nothing in it");
     let total = 0;
     for (const it of man.items) {
-      if (!it || !KINDS.includes(it.kind) || typeof it.file !== "string" || !z.has(it.file)) throw new Error("that library lists a file it doesn't have");
+      if (!it || typeof it.kind !== "string" || typeof it.file !== "string" || !z.has(it.file)) throw new Error("that library lists a file it doesn't have");   // (a kind a newer version knows is left out below)
       if (z.size(it.file) > MAX_ITEM) throw new Error("a file in that library is too big");
       total += z.size(it.file);
     }
@@ -175,9 +175,10 @@ class Libraries {
     const id = man.id, tier = man.plan;
     if (this.record(id)) this.remove(id, true);
     const rec = { id, plan: tier, version: String(man.version), title: String(man.title || id).slice(0, 80), summary: String(man.summary || "").slice(0, 400), installedAt: new Date().toISOString().slice(0, 19),
-      source: source === "file" ? "file" : "website", sounds: [], irs: [], clicks: [], pads: [], boards: [], presets: [], tier };
+      source: source === "file" ? "file" : "website", sounds: [], irs: [], clicks: [], pads: [], loops: [], boards: [], presets: [], tier };
     const soundLines = [], irLines = [], sounds = [], irs = [];
     for (const it of man.items) {
+      if (!KINDS.includes(it.kind)) continue;   // (from a newer library: left out)
       const data = z.read(it.file);
       if (it.sha256 && sha256(data) !== String(it.sha256).toLowerCase()) throw new Error((it.name || it.file) + " in that library is damaged (its checksum doesn't match) - nothing was installed");
       const lic = String(it.license || "").replace(/[|\r\n]+/g, " ").slice(0, 60);
@@ -203,6 +204,14 @@ class Libraries {
         if (!PAD_KEYS.includes(key) || data.slice(0, 4).toString() !== "RIFF") throw new Error("a pad in that library isn't a key's WAV loop");
         const dir = path.join(this.root, id, "pads", safeName(style.replace(/ /g, "-"), "pad")); fs.mkdirSync(dir, { recursive: true });
         const f = path.join(dir, key.replace("#", "s") + ".wav"); fs.writeFileSync(f, data); rec.pads.push({ name: style, key, file: f, tier });
+      } else if (it.kind === "loop") {   // (10.0: drum loops at a tempo, ambient loops in a key - kept with the library)
+        if (data.slice(0, 4).toString() !== "RIFF") throw new Error("a loop in that library isn't a WAV file");
+        const set = safeName(String(it.set || "loops"), "loops"), dir = path.join(this.root, id, "loops", set); fs.mkdirSync(dir, { recursive: true });
+        const f = path.join(dir, safeName(it.file, "loop.wav")); fs.writeFileSync(f, data);
+        const e = { name: String(it.name || "Loop").slice(0, 60), set, group: String(it.group || "Loops").slice(0, 40), file: f, tier };
+        ["bpm", "meter", "bars", "seconds"].forEach((k) => { if (typeof it[k] === "number" && it[k] > 0 && it[k] < 1000) e[k] = it[k]; });
+        if (PAD_KEYS.includes(it.key)) e.key = it.key;
+        rec.loops.push(e);
       }
     }
     if (sounds.length) tiersSet(this.sf2Dir, id, soundLines);   // (the plans first: the engine sees each sound locked as it arrives)
@@ -210,7 +219,8 @@ class Libraries {
     fs.mkdirSync(this.sf2Dir, { recursive: true }); fs.mkdirSync(this.irDir, { recursive: true });
     for (const [name, data] of sounds) { const f = path.join(this.sf2Dir, name); fs.writeFileSync(f + ".part", data); fs.renameSync(f + ".part", f); rec.sounds.push(f); }
     for (const [name, data] of irs) { const f = path.join(this.irDir, name); fs.writeFileSync(f + ".part", data); fs.renameSync(f + ".part", f); rec.irs.push(f); }
-    rec.counts = { sound: rec.sounds.length, ir: rec.irs.length, board: rec.boards.length, preset: rec.presets.length, click: rec.clicks.length, pad: new Set(rec.pads.map((x) => x.name)).size };
+    rec.counts = { sound: rec.sounds.length, ir: rec.irs.length, board: rec.boards.length, preset: rec.presets.length, click: rec.clicks.length, pad: new Set(rec.pads.map((x) => x.name)).size,
+      loop: new Set(rec.loops.map((x) => x.set + "/" + x.name)).size };
     const rf = path.join(this.root, id + ".json"); fs.writeFileSync(rf + ".part", JSON.stringify(rec, null, 1)); fs.renameSync(rf + ".part", rf);
     this.send({ type: "instrument", action: "rescan" }); this.send({ type: "instrument", action: "status" });
     return rec;
