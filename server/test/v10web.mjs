@@ -96,7 +96,7 @@ try {
   await q("INSERT INTO package_keys (key,plans,plan_sub_id,user_id,holder_email,holder_name) VALUES ($1,$2,$3,$4,$5,'Bea')", ["SWEB" + String(S).slice(-12), ["keys"], sub.id, bu.id, buyer]);
   const bp = await j("GET", "/purchases", null, b.token);
   const ord = bp.purchases.find((x) => x.type === "order"), plan = bp.purchases.find((x) => x.type === "plan");
-  ok(ord && /Central User key/.test(ord.title) && ord.apps.length === 2 && ord.apps.find((x) => x.kind === "U").keys[0].updatesUntil === "10.4" && ord.apps.find((x) => x.kind === "P").links.android === "https://motion.test/download/pedal-control/android"
+  ok(ord && /Central Usage key/.test(ord.title) && ord.apps.length === 2 && ord.apps.find((x) => x.kind === "U").keys[0].updatesUntil === "10.4" && ord.apps.find((x) => x.kind === "P").links.android === "https://motion.test/download/pedal-control/android"
     && ord.apps.every((x) => x.steps.windows && /install\.sh \| bash -s/.test(x.linuxCommand) && x.linuxCommand.startsWith("curl -fsSL https://motion.test/install.sh")),
     "an order: what it was, each app's keys, download links on our address, install steps and the Linux line", ord);
   ok(plan && /Central Keys/.test(plan.title) && plan.packages.length === 1 && plan.libraries.map((x) => x.plan).join() === "keys,pads" && plan.libraries[0].link === "https://motion.test/download/library/keys" && plan.renews && /One key opens everything/.test(plan.oneKey),
@@ -141,7 +141,7 @@ try {
       ok(JSON.stringify(items) === JSON.stringify(["Account", "Purchases", "Downloads", "Sign out"]) && /Bea/.test(await page.textContent("#acctWho")), "its menu: Account, Purchases, Downloads, Sign out (with who's signed in)", items);
       await page.click('#acctDrop a[href="#purchases"]'); await page.waitForSelector("#purchases:not([hidden]) .pu-card", { timeout: 8000 });
       const t = await page.textContent("#purchases"), dl = await page.$$eval("#purchases a.btn", (x) => x.map((e) => e.getAttribute("href")));
-      ok(/Central User key/.test(t) && /Package key/.test(t) && /One key opens everything/.test(t) && /Next renewal/.test(t) && /UWEB/.test(t) && dl.some((h) => /\/download\/(usage|pedal-control)\//.test(h)) && dl.some((h) => /\/download\/library\/keys$/.test(h)) && dl.every((h) => !/github/i.test(h)),
+      ok(/Central Usage key/.test(t) && /Package key/.test(t) && /One key opens everything/.test(t) && /Next renewal/.test(t) && /UWEB/.test(t) && dl.some((h) => /\/download\/(usage|pedal-control)\//.test(h)) && dl.some((h) => /\/download\/library\/keys$/.test(h)) && dl.every((h) => !/github/i.test(h)),
         "Purchases: the order and the plan, their keys, our own download buttons, the library, the renewal date", { dl });
       ok(await page.isHidden("#acctDrop") && (await page.$$("#purchases [data-copy]")).length >= 3, "the menu closed; each key has Copy");
       if (process.env.SHOTS) { await page.locator("#purchases").screenshot({ path: process.env.SHOTS + "/purchases.png" }); await page.click("#acctIcon"); await page.screenshot({ path: process.env.SHOTS + "/menu.png", clip: { x: 640, y: 0, width: 640, height: 320 } }); await page.click("#acctIcon"); }
