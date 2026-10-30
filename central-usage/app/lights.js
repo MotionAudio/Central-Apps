@@ -797,7 +797,7 @@
     el.hidden = false;
     var A = window.CULightsAuto, sd = smartData(), names = A.STYLE_NAME, opt = function (cur, det) { return '<option value="auto"' + (!cur ? " selected" : "") + ">Detected" + (det ? " (" + names[det] + ")" : "") + "</option>" + A.STYLES.map(function (s) { return '<option value="' + s + '"' + (cur === s ? " selected" : "") + ">" + names[s] + "</option>"; }).join(""); };
     var head = '<div class="lx-auto-head"><b>Auto lighting</b><select data-ax="engine" title="Smart: each song is lit for its feel, with every light, and follows the music live. Classic: one preset per section name."><option value="smart"' + (rig.auto.smart ? " selected" : "") + '>Smart</option><option value="classic"' + (!rig.auto.smart ? " selected" : "") + ">Classic</option></select>";
-    if (!sd) { el.innerHTML = head + '<span class="muted small">One preset per section name, the hits flash, the music breathes the lights.</span></div>'; return; }
+    if (!sd) { el.innerHTML = head + '<span class="muted small">Picks a preset for each section, flashes on the hits and lets the lights move with the music.</span></div>'; return; }
     var a = sd.analysis, feel = show.feel || {};
     head += '<span class="lx-feel lx-feel-' + a.style + '">' + esc(names[a.style]) + "</span>" +
       '<span class="muted small">' + (a.overridden ? "set by you · detected " + esc(names[a.detected]) : "from " + esc(a.why.join(" · ") || "the sections")) + (a.key ? " · " + esc(a.key) : "") + "</span>" +

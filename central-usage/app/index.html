@@ -107,14 +107,14 @@
     <button class="lx-chatfab" id="lxChatOpen" title="Tell it the show in plain words">💬 Tell it</button>
     <div class="lx-chatwin" id="lxChatWin" hidden>
       <div class="lx-chathead"><b>Tell it the show</b><button id="lxChatClose" title="Close">✕</button></div>
-      <div class="lx-chatlog" id="lxChatLog"><div class="lx-msg bot">Say what the lights should do, e.g. "dimmers blue 20%, red and shimmers 30% blue for the verse, then chorus full white, strobes on the hits".</div></div>
+      <div class="lx-chatlog" id="lxChatLog"><div class="lx-msg bot">Say what the lights should do, for example "dimmers blue 20%, red and shimmers 30% blue for the verse, then chorus full white, strobes on the hits".</div></div>
       <div class="lx-chatin"><textarea id="lxChatIn" rows="2" placeholder="Tell it the show…"></textarea><button id="lxChatGo" class="primary">Send</button></div>
       <span class="muted small" id="lxChatOut"></span>
     </div>
 
     <div class="lx-view" data-lxv="fixtures" hidden>
       <div class="card"><h3>Add fixtures</h3><div class="row"><label>Type <select id="lxAddProfile"></select></label><label>How many <input id="lxAddCount" type="number" min="1" max="48" value="1" style="width:70px"></label><label>Name <input id="lxAddName" placeholder="Back wash"></label><label>Group <select id="lxAddGroup"></select></label><label>Universe <input id="lxAddUni" type="number" min="1" max="64" value="1" style="width:70px"></label><label>First address <input id="lxAddAddr" type="number" min="1" max="512" value="1" style="width:80px"></label><button class="primary" id="lxAddBtn">Add</button></div>
-        <p class="muted small">Set the same DMX address (and mode / channel count) on each fixture's display. Drag fixtures on the Show tab's stage plot to where they hang. "Find" flashes one fixture.</p></div>
+        <p class="muted small">Set each light's DMX address (and its mode or channel count) on its own display to match what's here. Drag the lights on the Show tab's stage plot to where they hang. "Find" flashes one light so you can spot it.</p></div>
       <div class="card"><h3>Fixture library</h3><div id="lxLib"></div></div>
       <div id="lxFixTable"></div>
       <div class="row" style="margin-top:10px"><button id="lxRigSave">Save rig to a file…</button><button id="lxRigOpen">Open rig file…</button><button id="lxRigReset">Example rig</button></div>
@@ -124,7 +124,7 @@
       <div class="lights">
         <div class="card">
           <h3>DMX outputs (lights straight from this computer)</h3>
-          <p class="muted small">Every universe can go out its own way: a USB-DMX interface, Art-Net or sACN. Fixtures are patched to a universe on the Fixtures tab.</p>
+          <p class="muted small">Each universe can go out its own way: a USB-DMX interface, Art-Net or sACN. You choose which universe each light is on in the Fixtures tab.</p>
           <div id="lxOutputs"></div>
           <div class="row"><button id="lxAddOutput">+ Another universe</button><button id="lxRescan">Look for USB-DMX again</button></div>
           <p class="muted" id="lxOutState">DMX output is off.</p>
@@ -132,7 +132,7 @@
         </div>
         <div class="card">
           <h3>MIDI output (Lightkey, QLC+, a console)</h3>
-          <p class="muted">The Central Pedal's light hits, section notes and program changes arrive over the network, lined up with its tracks, and leave here on this port - use it with or instead of the DMX output.</p>
+          <p class="muted">The Central Pedal's light cues (hits, section changes, song changes) arrive over the network in time with its tracks and go out of this MIDI port. Use it with the DMX output or instead of it.</p>
           <label>MIDI output <select id="midiOut"><option value="">— choose a port —</option></select></label>
           <label class="toggle"><input type="checkbox" id="sendClock" checked> Send MIDI clock (24 ppq) + start / stop</label>
           <label>Timing offset <span class="inline"><input type="range" id="offsetMs" min="-300" max="300" step="5" value="0"><output id="offsetOut">0 ms</output></span></label>

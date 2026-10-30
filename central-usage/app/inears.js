@@ -40,7 +40,7 @@
     if (X.kind !== "local") return '<div class="card ia-info"><b>Mixing on the audio host ' + esc(X.hostAddress()) + '</b><span class="muted small">The in-ear code and the phone address are shown on the audio host.</span></div>';
     var srv = hs.server || {}, users = (srv.clients || []).filter(function (c) { return c.role === "user"; });
     return '<div class="card ia-info"><div><b>In-ear code <span class="ia-code">' + esc(cfg.host && cfg.host.userCode) + '</span></b> <button data-ia="newcode">New code</button></div>' +
-      '<div class="muted small">Musicians: Central Control in User mode finds this computer by itself; phones open ' + (srv.addresses || []).map(function (a) { return "<b>http://" + esc(a) + ":" + (srv.port || 8092) + "/</b>"; }).join(" or ") + "</div>" +
+      '<div class="muted small">Musicians\' Central Usage finds this computer by itself. On a phone, open ' + (srv.addresses || []).map(function (a) { return "<b>http://" + esc(a) + ":" + (srv.port || 8092) + "/</b>"; }).join(" or ") + "</div>" +
       '<div class="muted small">' + (users.length ? users.length + " connected: " + users.map(function (u) { return esc(u.name) + (u.listening.length ? " 🎧" : ""); }).join(", ") : "Nobody connected yet.") + "</div></div>";
   }
   function channelsCard() {

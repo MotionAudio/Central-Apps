@@ -17,7 +17,7 @@
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   var visible = function () { return CU.prefs.tab === "video"; };
   if (!V) {
-    root.innerHTML = '<div class="card"><h3>Video</h3><p class="muted">The video switcher works in the Central Control app on a computer (it needs the cameras, the encoder and the outputs of the computer).</p></div>';
+    root.innerHTML = '<div class="card"><h3>Video</h3><p class="muted">The video switcher needs the Central Control app on a computer, because it uses that computer\'s cameras and outputs.</p></div>';
     return;
   }
 
@@ -503,7 +503,7 @@
     var capd = S.captureDevices.length ? S.captureDevices.map(function (d) { var have = cfgSources().some(function (s) { return s.kind === "capture" && s.deviceId === d.id; }); return '<button data-addcap="' + esc(d.id) + '"' + (have ? " disabled" : "") + ">" + (have ? "✓ " : "+ ") + esc(d.label) + "</button>"; }).join("") : '<p class="muted small">No capture devices or webcams found.</p>';
     return '<div class="vd-grid"><section class="card wide"><h3>Cameras (' + cfgSources().length + " / " + MAX_SOURCES + ")</h3>" +
       (rows ? '<table class="io-t vd-srcs">' + rows + "</table>" : '<p class="muted">No cameras yet.</p>') + "</section>" +
-      '<section class="card"><h3>NDI on the network</h3><div class="vd-adds">' + ndi + '</div><label>Sources on other networks (IP addresses, comma separated) <input data-ndi="extra" placeholder="10.0.5.20, 10.0.5.21"></label><p class="muted small">Needs the free NDI Tools (ndi.video). The multiview uses each camera\'s low-bandwidth stream; what is in a preview or on air comes in full quality.</p></section>' +
+      '<section class="card"><h3>NDI on the network</h3><div class="vd-adds">' + ndi + '</div><label>Sources on other networks (IP addresses, comma separated) <input data-ndi="extra" placeholder="10.0.5.20, 10.0.5.21"></label><p class="muted small">Needs the free NDI Tools (ndi.video). The camera grid uses each camera\'s small stream to save the network; whatever is in preview or on air comes in at full quality.</p></section>' +
       '<section class="card"><h3>USB / HDMI capture and webcams</h3><div class="vd-adds">' + capd + '</div><button data-sa="rescan">Look again</button></section>' +
       '<section class="card"><h3>IP camera, encoder or media file</h3><label>Name <input data-new="name" placeholder="Camera 3 - wide"></label>' +
       '<label>Address <input data-new="url" placeholder="srt://10.0.0.21:9000 · rtsp://user:pass@10.0.0.21/stream1 · rtmp://…"></label>' +
@@ -523,12 +523,12 @@
     }).join("");
     return '<div class="vd-grid"><section class="card wide"><h3>Where the stream goes</h3>' + (dests ? '<table class="io-t vd-dests"><tr class="muted small"><td>On</td><td>Service</td><td>Name</td><td>Address</td><td>Key</td><td>Status</td><td></td></tr>' + dests + "</table>" : '<p class="muted">No destinations yet.</p>') +
       '<div class="row"><button data-da="add" data-kind="youtube">+ YouTube</button><button data-da="add" data-kind="facebook">+ Facebook</button><button data-da="add" data-kind="rtmp">+ RTMP / RTMPS</button><button data-da="add" data-kind="srt">+ SRT</button><span class="spacer"></span><button class="primary" data-da="all-on">Go live on all</button><button data-da="all-off">Stop all</button></div>' +
-      '<p class="muted small">Each destination runs on its own: one can drop and reconnect without the others noticing. Your upload speed has to carry all of them (bitrate × destinations).</p></section>' +
+      '<p class="muted small">Each destination runs on its own, so one can drop and reconnect without the others noticing. Your internet upload has to carry all of them at once.</p></section>' +
       '<section class="card"><h3>Quality</h3><label>Picture <select data-sc="preset">' + Object.keys(S.init.presets).map(function (k) { return '<option value="' + k + '"' + (c.preset === k ? " selected" : "") + ">" + k + "</option>"; }).join("") + '</select></label>' +
       '<label>Video bitrate <input type="number" data-sc="bitrate" min="800" max="20000" step="100" value="' + (c.bitrate || 6000) + '"> kbps</label><label>Audio bitrate <select data-sc="audioBitrate">' + [96, 128, 160, 192, 256].map(function (b) { return '<option' + ((c.audioBitrate || 160) === b ? " selected" : "") + ">" + b + "</option>"; }).join("") + '</select> kbps</label>' +
       '<label>Encoder <select data-sc="encoder"><option value="auto">Automatic' + (enc.best ? " (" + esc(enc.best) + ")" : "") + "</option>" + enc.list.map(function (e) { return '<option value="' + e + '"' + (c.encoder === e ? " selected" : "") + ">" + e + "</option>"; }).join("") + "</select></label>" +
       '<p class="muted small">' + (enc.list.length ? "Found: " + esc(enc.list.join(", ")) + ". A graphics card's encoder (NVENC, Quick Sync, VideoToolbox, AMF, VAAPI) leaves the processor free." : S.encoders ? "No H.264 encoder found." : "Checking the encoders…") + "</p></section>" +
-      '<section class="card"><h3>Recording</h3><p class="muted small">Records the stream output (picture and its sound) as MP4. It plays even if the computer stops in the middle.</p><div class="row"><button data-da="rec">● Record</button><button data-da="folder">Open the folder</button></div><p class="small" data-recstat></p></section>' +
+      '<section class="card"><h3>Recording</h3><p class="muted small">Records what goes out on the stream, picture and sound, as an MP4. The file still plays even if the computer stops halfway.</p><div class="row"><button data-da="rec">● Record</button><button data-da="folder">Open the folder</button></div><p class="small" data-recstat></p></section>' +
       '<section class="card"><h3>To OBS / vMix / Streamlabs on this computer</h3><label class="toggle"><input type="checkbox" data-ndiout="stream"' + (S.cfg.stream.ndi ? " checked" : "") + '> NDI source "Central Control Stream"</label><label class="toggle"><input type="checkbox" data-ndiout="main"' + (S.cfg.main.ndi ? " checked" : "") + '> NDI source "Central Control Main"</label><p class="small" data-ndistat></p>' +
       '<p class="muted small">In OBS add an NDI Source (the free DistroAV plugin) and pick it; the sound comes in through OBS as usual. Needs NDI Tools.</p></section></div>';
   }
@@ -553,7 +553,7 @@
     var mixCard = '<section class="card vd-asrc' + (a.use === 2 ? " on" : "") + '"><h3><label class="toggle"><input type="radio" name="vdUse" value="2"' + (a.use === 2 ? " checked" : "") + "> Stream mix</label></h3>" +
       '<p class="muted small">The Mix tab\'s stream mix, straight from the sound desk (Central Control\'s audio host - this computer or another one): no cable, no interface channels. Its levels, compressor and reverb are on the Mix tab ("Faders: Stream mix").</p>' +
       '<div class="vd-meter"><i data-mixmeter="0"></i></div><div class="vd-meter"><i data-mixmeter="1"></i></div><p class="small muted" data-mixstat>' + (a.use === 2 ? "Starts with the stream (or the recording)." : "") + "</p></section>";
-    return '<div class="vd-grid">' + srcCard(0) + srcCard(1) + mixCard + '<section class="card"><h3>The stream\'s sound</h3><p class="muted small">The stream uses the source that is ticked. Usually: A = the sound desk\'s main L / R, B = a separate stream mix from the desk, or the Stream mix straight from Central Control. This does not change the sound in the room.</p>' +
+    return '<div class="vd-grid">' + srcCard(0) + srcCard(1) + mixCard + '<section class="card"><h3>The stream\'s sound</h3><p class="muted small">The stream uses whichever source is ticked. Usually A is the sound desk\'s main left and right, B is a separate stream mix from the desk, or you use the Stream mix straight from Central Control. None of this changes the sound in the room.</p>' +
       '<label>Delay (to line the sound up with the cameras) <input type="range" data-a="delay" min="0" max="' + (a.use === 2 ? 2000 : 1000) + '" step="10" value="' + (a.delay | 0) + '"><output>' + (a.delay | 0) + ' ms</output></label>' +
       '<p class="muted small">Audio system: ' + esc(S.audio.backend || "…") + '. Dante: install Audinate\'s Dante Virtual Soundcard (Windows / Mac, its own licence) or use a Dante card that shows up as a sound card; its channels appear here like any interface.</p><button data-a="rescan">Look for devices again</button></section></div>';
   }
@@ -580,7 +580,7 @@
   // ---- Lyrics & slides
   function overlaysHtml() {
     var l = S.cfg.lyrics;
-    return '<div class="vd-grid"><section class="card"><h3>Lyrics lower third</h3><p class="muted small">The words come from the Central Pedal as it moves through the song. Press LYRICS on Main or Stream to show them; lines cross-fade, a new section fades out and in.</p>' +
+    return '<div class="vd-grid"><section class="card"><h3>Lyrics lower third</h3><p class="muted small">The words come from the Central Pedal as the song moves along. Press LYRICS on Main or Stream to show them. Lines fade from one to the next, and a new section fades out and back in.</p>' +
       '<label>Font <select data-ly="font">' + ["Inter", "Arial", "Helvetica", "Georgia", "Verdana", "Trebuchet MS", "Montserrat", "Open Sans"].map(function (f) { return "<option" + (l.font === f ? " selected" : "") + ">" + f + "</option>"; }).join("") + "</select></label>" +
       '<label>Size <input type="range" data-ly="size" min="2.5" max="10" step="0.25" value="' + l.size + '"><output>' + l.size + '% of the height</output></label>' +
       '<label>Text colour <input type="color" data-ly="color" value="' + esc(l.color) + '"></label>' +
@@ -589,7 +589,7 @@
       '<div class="row"><label>Position <select data-ly="position"><option value="bottom"' + (l.position === "bottom" ? " selected" : "") + '>Bottom</option><option value="middle"' + (l.position === "middle" ? " selected" : "") + '>Middle</option><option value="top"' + (l.position === "top" ? " selected" : "") + '>Top</option></select></label><label>Lines <select data-ly="lines">' + [1, 2, 3, 4].map(function (n) { return "<option" + ((l.lines | 0) === n ? " selected" : "") + ">" + n + "</option>"; }).join("") + "</select></label></div>" +
       '<div class="row"><label class="toggle"><input type="checkbox" data-ly="shadow"' + (l.shadow ? " checked" : "") + '> Shadow</label><label class="toggle"><input type="checkbox" data-ly="upper"' + (l.upper ? " checked" : "") + '> CAPITALS</label><label>Fade <input type="number" data-ly="fade" min="0" max="3" step="0.1" value="' + l.fade + '" style="width:64px"> s</label></div>' +
       '<p class="muted small">Now: ' + (S.lyr.lines.length ? esc(S.lyr.lines.join(" / ")) : "no lyrics on the Central Pedal right now") + "</p></section>" +
-      '<section class="card"><h3>Slides on the outputs</h3><p class="muted small">Whatever is on the Slides tab can go on Main and / or the Stream (the Slides menu on each output): full screen, or over the camera - "over the camera" keys out the black, so text slides and lower thirds sit on the picture. Slides is also a tile on the multiview to cut to like a camera.</p>' +
+      '<section class="card"><h3>Slides on the outputs</h3><p class="muted small">Whatever is on the Slides tab can go on Main, the Stream or both (use the Slides menu on each). Show it full screen, or over the camera: that drops the black background, so text slides and name captions sit on top of the picture. Slides is also a tile in the camera grid you can cut to like a camera.</p>' +
       '<label class="toggle"><input type="checkbox" data-mvslides' + (S.cfg.multiview.slides !== false ? " checked" : "") + '> Show Slides on the multiview</label>' +
       '<label>Keying: black below <input type="range" data-ly="keyLo" min="0" max="0.4" step="0.01" value="' + (l.keyLo == null ? 0.04 : l.keyLo) + '"></label><label>fully shown above <input type="range" data-ly="keyHi" min="0.02" max="0.6" step="0.01" value="' + (l.keyHi == null ? 0.16 : l.keyHi) + '"></label></section></div>';
   }
@@ -602,7 +602,7 @@
       '<table class="io-t"><tr><td>Camera code</td><td><b class="io-code">' + esc(p.code || "") + '</b> <button data-ph="newcode">New code</button></td></tr>' +
       "<tr><td>On the phone, open</td><td>" + (p.start || []).map(function (u) { return "<b>" + esc(u) + "</b>"; }).join("<br>") + "</td></tr></table>" +
       '<ol class="small"><li>On the phone (same Wi-Fi) open the address above.</li><li>Once per phone: install the certificate it offers. iPhone / iPad: Settings → <b>Profile Downloaded</b> → Install, then Settings → General → About → <b>Certificate Trust Settings</b> → turn on "Central Control local CA".</li><li>Tap <b>Open the camera page</b>, give it a name and the camera code, Start. It appears here as a camera.</li></ol>' +
-      '<p class="muted small">Phones send H.264 (or JPEG on older phones) at 720p or 1080p. Keep the phone plugged in; the page keeps the screen awake. The phone shows a red ON AIR light when it is live.</p></section>' +
+      '<p class="muted small">Phones send 720p or 1080p video. Keep the phone plugged in; the page keeps its screen on. The phone shows a red ON AIR light when it\'s live.</p></section>' +
       '<section class="card"><h3>Connected</h3>' + ((p.connected || []).length ? (p.connected || []).map(function (c) { return "<p>● " + esc(c.name) + "</p>"; }).join("") : '<p class="muted">No phones right now.</p>') + "</section></div>";
   }
 

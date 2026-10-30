@@ -73,7 +73,7 @@
   }
   function mode() { var r = role(); return r === "main" || r === "admin" ? "admin" : r ? "user" : null; }
   function applyMode() {
-    var r = role() || "user1", m = mode() || "user", allowed = tabsFor(r);
+    var r = role() || (EDITION === "control" ? "admin" : "user1"), m = r === "main" || r === "admin" ? "admin" : "user", allowed = tabsFor(r);   // (not set up yet: Central Control shows the admin side behind its setup window, Central Usage the musician's)
     document.body.dataset.mode = m; document.body.dataset.role = r; document.body.dataset.jobs = m === "admin" ? jobs().join(" ") : "";
     document.querySelectorAll("#tabs [data-tab]").forEach(function (b) { b.hidden = allowed.indexOf(b.dataset.tab) < 0; });
     if (allowed.indexOf(prefs.tab) < 0) showTab(allowed[0]);

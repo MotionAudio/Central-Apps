@@ -148,7 +148,7 @@ button.on { background: color-mix(in srgb, var(--accent), transparent 70%); bord
 .mx-panbox { grid-template-columns: 1fr auto; row-gap: 2px; } .mx-panbox .mx-pan { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
 .mx-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; } .mx-btns button { padding: 4px 0; font-size: 11px; font-weight: 800; } .mx-strip select { width: 100%; font-size: 11px; padding: 3px; }
 .mx-detail { gap: 12px; } .mx-dhead { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .mx-dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-.mx-dcol { display: grid; gap: 6px; align-content: start; } .mx-dcol h4 { margin: 0; } .mx-sl { display: grid !important; grid-template-columns: 90px 1fr 70px; align-items: center; gap: 8px; } .mx-sl output { font-size: 12px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.mx-dcol { display: grid; gap: 6px; align-content: start; } .mx-dcol h4 { margin: 0; } .mx-sl { display: grid !important; grid-template-columns: 90px 1fr 70px; align-items: center; gap: 8px; } .mx-sl input[type=range], .mx-sl select { width: 100%; min-width: 0; } .mx-sl output { font-size: 12px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
 .mx-curve { width: 100%; height: 90px; background: var(--bg2); border-radius: 8px; border: 1px solid var(--line); }
 .mx-gr { position: relative; height: 16px; background: var(--well); border-radius: 4px; overflow: hidden; } .mx-gr i { position: absolute; right: 0; top: 0; bottom: 0; width: 0; background: rgba(255, 120, 120, .8); } .mx-gr span { position: absolute; left: 6px; top: 1px; font-size: 10px; color: var(--muted); }
 /* in-ears (admin) */
@@ -438,6 +438,7 @@ input[type=checkbox] { accent-color: var(--accent); }
 .rp-job { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); cursor: pointer; color: var(--text); }
 .rp-job span { display: grid; gap: 2px; } .rp-job small { color: var(--muted); font-size: 11.5px; line-height: 1.35; }
 .rp-job.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); } .rp-job input { margin-top: 2px; }
+.rp-step label.rp-job { display: flex; align-items: flex-start; margin: 0; } .rp-job span { align-content: start; }   /* (the setup window's labels are stacked; a job card keeps its box beside the words) */
 .rl-jobs-card { margin: 12px 0; } .rl-jobs-card h4 { margin: 0 0 4px; }
 .rl-ask, .lx-run-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .rl-ask { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 60; max-width: min(760px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 14px; border: 1px solid var(--accent); background: var(--panel); box-shadow: 0 12px 40px rgba(0,0,0,.5); }

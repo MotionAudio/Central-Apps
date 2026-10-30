@@ -196,26 +196,26 @@
     d.innerHTML = '<div class="mode-box"><h2>Set up this computer</h2>' +
       (CONTROL ? '<p class="rp-church">' + (church ? "<b>" + esc(church) + "</b>" : "Your church") + (lic.key ? ' · key <code>' + esc(String(lic.key).slice(0, 4)) + "-…-" + esc(String(lic.key).slice(-4)) + "</code> ✓" : "") + "</p>" : "") +
       '<div class="rp-step" data-step="1"><label class="rp-name">This computer\'s name <input data-rp="name" value="' + esc(name() === "Central Control" ? "" : name()) + '" placeholder="Sound desk / Lights / Sarah\'s laptop"></label>' +
-      '<div class="mode-opts rp-roles' + (CU.web || USAGE ? " web" : "") + '">' + opt("main", "Main admin", "Set up first. Picks the pairing PIN and gives every other device its role.", "usually the sound desk", CU.web || USAGE) +
-      opt("admin", "Admin", "Runs some or all of the jobs: lyrics, lights, cameras, in-ears, tracks, the stream mix, slides. You pick them next.", "", CU.web || USAGE) +
+      '<div class="mode-opts rp-roles' + (CU.web || USAGE ? " web" : "") + '">' + opt("main", "Main admin", "Set this one up first. It picks the pairing PIN and tells every other device what it does.", "usually the sound desk", CU.web || USAGE) +
+      opt("admin", "Admin", "Runs one or more jobs, like lyrics, lights or cameras. You'll pick which ones next.", "", CU.web || USAGE) +
       opt("user1", "User 1", DESC.user1, "a musician", CONTROL) + opt("user2", "User 2", DESC.user2, "a singer / a tablet on a stand", CONTROL) + "</div>" +
-      (CONTROL ? '<p class="muted small rp-other">A musician\'s computer, tablet or phone? It gets <b>Central Usage</b> (Mac, Windows, iPad, iPhone, Android) - chord chart, instrument, lyrics and their in-ear mix.</p>' : "") +
+      (CONTROL ? '<p class="muted small rp-other">A musician\'s computer, tablet or phone? It gets <b>Central Usage</b> (Mac, Windows, iPad, iPhone or Android). That\'s where their chord chart, instrument, lyrics and in-ear mix are.</p>' : "") +
       (USAGE ? '<p class="muted small rp-other">Lighting, mixing, slides and the main admin are in <b>Central Control</b> (Windows, Mac, Linux).</p>' : "") + "</div>" +
       // (10.0) Central Control: what this computer will do
-      '<div class="rp-step" data-step="jobs" hidden><h3>What will this computer do?</h3><p class="muted small">Pick everything it will run. One computer can do all of it, or each job can have its own computer. You can change this later in Settings → This computer.</p>' +
+      '<div class="rp-step" data-step="jobs" hidden><h3>What will this computer do?</h3><p class="muted small">Tick everything this computer will run. One computer can do it all, or each job can have its own computer. You can change this later in Settings → This computer.</p>' +
       jobsPicker(["general"], "data-rp-job") + '<div class="row"><button class="primary" data-rp="jobsNext">Next</button><button data-rp="jobsAll">All of them</button><button data-rp="back">Back</button></div></div>' +
       // main admin: inputs and outputs
-      '<div class="rp-step" data-step="io" hidden><h3>Inputs and outputs</h3><p class="muted small">Is this computer the sound desk - the one with the audio interface or Dante that makes the in-ear mixes? Pick its inputs and outputs. You can change all of it later on the I/O tab.</p><div class="rp-io" id="rpIo"></div>' +
+      '<div class="rp-step" data-step="io" hidden><h3>Inputs and outputs</h3><p class="muted small">Is this the computer at the sound desk, with the audio interface that makes the in-ear mixes? Pick its inputs and outputs here. You can change them any time on the I/O tab.</p><div class="rp-io" id="rpIo"></div>' +
       '<div class="row"><button class="primary" data-rp="ioNext">Next</button><button data-rp="ioSkip">Not the sound desk - skip</button></div></div>' +
       // main admin: the PINs
       '<div class="rp-step" data-step="pins" hidden><h3>Your PINs</h3>' +
-      '<label>Pairing PIN - every other device joins with it <input data-rp="pair" inputmode="numeric" maxlength="4" placeholder="e.g. 0915" autocomplete="off"></label>' +
-      '<label>Role PIN - only you; it changes roles (user ↔ admin) <input data-rp="pin" inputmode="numeric" maxlength="4" placeholder="4 digits, not the same" autocomplete="off"></label>' +
-      '<p class="muted small">Pair your Central Pedal (if you have one) with the same pairing PIN on its screen. Without one, everything but songs, charts, lyrics and tracks works.</p><div class="row"><button class="primary" data-rp="pinsGo">Finish</button><button data-rp="back">Back</button></div></div>' +
+      '<label>Pairing PIN (every other device joins with it) <input data-rp="pair" inputmode="numeric" maxlength="4" placeholder="e.g. 0915" autocomplete="off"></label>' +
+      '<label>Role PIN (just yours: it switches a device between user and admin) <input data-rp="pin" inputmode="numeric" maxlength="4" placeholder="4 digits, not the same" autocomplete="off"></label>' +
+      '<p class="muted small">If you have a Central Pedal, type the same pairing PIN on its screen. Without one, everything works except songs, charts, lyrics and tracks.</p><div class="row"><button class="primary" data-rp="pinsGo">Finish</button><button data-rp="back">Back</button></div></div>' +
       // everyone else: the pairing PIN
       '<div class="rp-step" data-step="join" hidden><h3 data-rp-title></h3><label>Pairing PIN <input data-rp="joinPin" inputmode="numeric" maxlength="4" placeholder="the main admin\'s 4 digits" autocomplete="off"></label>' +
       '<details class="rp-addr"><summary class="small">Main admin not found by itself?</summary><label>Its address <input data-rp="centerHost" placeholder="192.168.1.20" autocomplete="off"></label></details>' +
-      '<label class="rp-adminpin" hidden>Main admin\'s role PIN <small class="muted">(optional - without it the main admin approves you)</small><input data-rp="rolePin" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
+      '<label class="rp-adminpin" hidden>Main admin\'s role PIN <small class="muted">(optional: without it, the main admin approves you)</small><input data-rp="rolePin" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
       '<div class="row"><button class="primary" data-rp="go">Pair</button><button data-rp="back">Back</button><a href="#" data-rp="later">' + (CONTROL ? "Not now - start as an admin" : "Not now - start as User 1") + '</a></div></div>' +
       '<p class="rp-msg warn"></p><div class="rp-done" hidden></div></div>';
     document.body.appendChild(d);
@@ -273,8 +273,8 @@
         var done = $(".rp-done", d); d.querySelectorAll(".rp-step").forEach(function (x) { x.hidden = true; }); done.hidden = false; msg("");
         done.innerHTML = '<p>This computer is the <b>main admin</b>.</p><table class="io-t"><tr><td>Pairing PIN</td><td><b class="io-code">' + esc(pair) + '</b> <span class="muted small">every other device joins with it</span></td></tr>' +
           '<tr><td>Role PIN</td><td><b class="io-code">' + esc(pin) + '</b> <span class="muted small">only you - changes roles</span></td></tr></table>' +
-          (view && view.pedal ? '<p class="small">Central Pedal: <b>' + esc(view.pedal.name) + "</b> paired.</p>" : '<p class="muted small">No Central Pedal yet - everything but songs, charts, lyrics and tracks works now. When it is on this network, type the same pairing PIN on its screen.</p>') +
-          '<p class="muted small">Both are in Settings → This computer. The Devices tab shows every device, its role and how its connection is doing.</p><button class="primary" data-rp="close">OK</button>';
+          (view && view.pedal ? '<p class="small">Central Pedal: <b>' + esc(view.pedal.name) + "</b> paired.</p>" : '<p class="muted small">No Central Pedal yet. Everything works except songs, charts, lyrics and tracks. When it\'s on this network, type the same pairing PIN on its screen.</p>') +
+          '<p class="muted small">You\'ll find both in Settings → This computer. The Devices tab shows every device, what it does and how its connection is doing.</p><button class="primary" data-rp="close">OK</button>';
         CU.showTab("devices");
       }
       else if (a === "go") {
@@ -327,7 +327,7 @@
       if (CU.web) h += '<p class="muted small">On a phone or tablet: User 1 (chart, lyrics, my in-ear mix) or User 2. Lighting, mixing and slides are on a computer with Central Control.</p>';
       if (!CU.web) h += addrLine();
     }
-    h += '<div class="row"><button data-rl="forget">Forget role…</button><span class="muted small">' + (CU.edition && CU.edition() === "usage" ? "Back to the first-launch choice (User 1 or User 2)." : "Back to the first-launch choice. Use it if two computers were set up as the main admin.") + '</span></div></section>';
+    h += '<div class="row"><button data-rl="forget">Forget role…</button><span class="muted small">' + (CU.edition && CU.edition() === "usage" ? "Start this computer's setup again (User 1 or User 2)." : "Start this computer's setup again. Use it if two computers were both set up as the main admin.") + '</span></div></section>';
     return h;
   }
   // where the main admin is (everyone else) / the center on this computer (the main admin)

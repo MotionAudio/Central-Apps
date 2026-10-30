@@ -55,7 +55,7 @@
   function card() {
     if (!L.available() || !NAT || !NAT.asr) return "";
     var a = st || {}, models = a.models || [], cur = models.filter(function (m) { return m.key === a.model; })[0] || {}, dl = a.download;
-    return '<section class="card"><h3>Lyrics from the vocal (speech model)</h3><p class="muted">Hears the words sung in a song\'s vocal track and writes the lyric chart with the chords (Lyrics tab → "Lyrics + chords from the vocal"). Runs on this computer - nothing goes to the internet after the one download.</p>' +
+    return '<section class="card"><h3>Lyrics from the vocal (speech model)</h3><p class="muted">Hears the words sung in a song\'s vocal track and writes the lyric chart with the chords (Lyrics tab → "Lyrics + chords from the vocal"). It runs on this computer; after the first download nothing goes online.</p>' +
       '<table class="io-t"><tr><td>Model</td><td><select data-asr="model">' + models.map(function (m) { return '<option value="' + m.key + '"' + (m.key === a.model ? " selected" : "") + ">" + esc(m.label) + (m.downloaded ? " ✓" : "") + "</option>"; }).join("") + "</select></td></tr>" +
       '<tr><td>Language</td><td><select data-asr="language">' + LANGS.map(function (l) { return '<option value="' + l[0] + '"' + (l[0] === (a.language || "") ? " selected" : "") + ">" + l[1] + "</option>"; }).join("") + "</select></td></tr>" +
       "<tr><td>Status</td><td>" + (dl ? "downloading… " + Math.round((dl.got || 0) / 1048576) + (dl.total ? " / " + Math.round(dl.total / 1048576) : "") + " MB" : cur.downloaded ? "✓ ready" : "not downloaded") + (a.error ? ' <span class="warn">' + esc(a.error) + "</span>" : "") + "</td></tr></table>" +
