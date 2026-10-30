@@ -138,12 +138,14 @@
     if (sig === this.sig) return; this.sig = sig;
     var now = c.currentTime;
     if (!plan) { if (this.chain) { try { this.input.disconnect(); } catch (_) { } this.input.connect(this.post); this.chain.dispose(); this.chain = null; } return; }
-    if (!this.chain) { this.chain = new Chain(c, this.gateOk); try { this.input.disconnect(); } catch (_) { } this.input.connect(this.chain.input); this.chain.output.connect(this.post); }
+    var wantGate = !!(plan.gate && this.gateOk);   // (the gate only joins the chain when it's on: it runs for every sample)
+    if (this.chain && this.chain.hasGate !== wantGate) { try { this.input.disconnect(); } catch (_) { } this.chain.dispose(); this.chain = null; }
+    if (!this.chain) { this.chain = new Chain(c, wantGate); try { this.input.disconnect(); } catch (_) { } this.input.connect(this.chain.input); this.chain.output.connect(this.post); }
     this.chain.apply(plan, now);
   };
   function Chain(c, gateOk) {
     function G(v) { var g = c.createGain(); g.gain.value = v == null ? 1 : v; return g; }
-    this.c = c; this.input = G(); this.output = G(); var last = this.input;
+    this.c = c; this.input = G(); this.output = G(); var last = this.input; this.hasGate = !!gateOk;
     if (gateOk) { try { this.gate = new AudioWorkletNode(c, "cu-gate", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] }); last.connect(this.gate); last = this.gate; } catch (_) { this.gate = null; } }
     this.eq = []; for (var i = 0; i < 7; i++) { var f = c.createBiquadFilter(); f.type = "peaking"; f.gain.value = 0; last.connect(f); last = f; this.eq.push(f); }
     this.comp = c.createDynamicsCompressor(); this.makeup = G(); this.compIn = G(1); this.compBypass = G(0);

@@ -81,11 +81,11 @@
     g.gain.value = 0; g.connect(dest);
     function osc(type, f, det, level, to) { var o = ctx.createOscillator(), og = ctx.createGain(); o.type = type; o.frequency.value = f; o.detune.value = det || 0; og.gain.value = level; o.connect(og).connect(to || g); o.start(t); oscs.push(o); nodes.push(og); return o; }
     var rel = 0.25, peak = 0.3 * v;
-    if (kind === "keys") { osc("triangle", mtof(note), 0, 0.6); osc("sine", mtof(note) * 2, 3, 0.25); osc("sine", mtof(note) * 4, -4, 0.06); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + 0.005); g.gain.setTargetAtTime(peak * 0.25, t + 0.01, 0.6); rel = 0.35; }
-    else if (kind === "pad") { var f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 1400; f.Q.value = 0.5; f.connect(g); nodes.push(f); osc("sawtooth", mtof(note), -8, 0.22, f); osc("sawtooth", mtof(note), 8, 0.22, f); osc("sine", mtof(note) / 2, 0, 0.2, f); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak * 0.8, t + 0.6); rel = 1.4; }
+    if (kind === "keys") { osc("triangle", mtof(note), 0, 0.6); osc("sine", mtof(note) * 2, 3, 0.25); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + 0.005); g.gain.setTargetAtTime(peak * 0.25, t + 0.01, 0.6); rel = 0.35; }
+    else if (kind === "pad") { var f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 1400; f.Q.value = 0.5; f.connect(g); nodes.push(f); osc("sawtooth", mtof(note), -8, 0.26, f); osc("sawtooth", mtof(note), 8, 0.26, f); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak * 0.8, t + 0.6); rel = 1.4; }
     else if (kind === "bass") { var fb = ctx.createBiquadFilter(); fb.type = "lowpass"; fb.frequency.setValueAtTime(1800, t); fb.frequency.setTargetAtTime(380, t, 0.08); fb.connect(g); nodes.push(fb); osc("square", mtof(note), 0, 0.3, fb); osc("sine", mtof(note) / 2, 0, 0.6, fb); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak * 1.2, t + 0.004); g.gain.setTargetAtTime(peak * 0.7, t + 0.01, 0.3); rel = 0.12; }
     else { var fl = ctx.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = 4200; fl.Q.value = 2; fl.connect(g); nodes.push(fl); osc("sawtooth", mtof(note), 0, 0.3, fl); osc("square", mtof(note), 5, 0.15, fl); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak * 0.8, t + 0.01); rel = 0.2; }
-    return { g: g, oscs: oscs, rel: rel, start: t, release: function (w) { var at = Math.max(w, ctx.currentTime); try { g.gain.cancelAndHoldAtTime(at); } catch (_) { g.gain.cancelScheduledValues(at); } g.gain.setTargetAtTime(0, at, rel / 4); oscs.forEach(function (o) { try { o.stop(at + rel * 1.5 + 0.05); } catch (_) { } }); },
+    return { g: g, oscs: oscs, sources: oscs, nodes: nodes, rel: rel, start: t, release: function (w) { var at = Math.max(w, ctx.currentTime); try { g.gain.cancelAndHoldAtTime(at); } catch (_) { g.gain.cancelScheduledValues(at); } g.gain.setTargetAtTime(0, at, rel / 4); oscs.forEach(function (o) { try { o.stop(at + rel * 1.5 + 0.05); } catch (_) { } }); },
       kill: function (w) { var at = Math.max(w || 0, ctx.currentTime); g.gain.cancelScheduledValues(at); g.gain.setValueAtTime(0, at); oscs.forEach(function (o) { try { o.stop(at + 0.01); } catch (_) { } }); } };
   }
   // the Basic Kit: General MIDI drum notes (36 kick, 38/40 snare, 37 rim, 39 clap, 42/44 closed hat, 46 open hat, 49/57 crash, 51/59 ride, toms 41-50)
@@ -103,7 +103,7 @@
     else if (note === 51 || note === 59 || note === 53) { noise(0.8, "bandpass", 5200, 1.5, 0.25); tone(3100, 3000, 0.6, 0.05, "square"); }
     else if (note >= 41 && note <= 50) { var f = 70 + (note - 41) * 18; tone(f * 1.6, f, 0.35, 0.7); }
     else tone(mtof(note), mtof(note), 0.15, 0.3, "triangle");
-    return { start: t, excl: note === 42 || note === 44 || note === 46 ? 1 : 0, release: function () { }, kill: function (w) { var at = Math.max(w || 0, ctx.currentTime); srcs.forEach(function (s) { try { s.stop(at + 0.01); } catch (_) { } }); } };
+    return { start: t, sources: srcs, excl: note === 42 || note === 44 || note === 46 ? 1 : 0, release: function () { }, kill: function (w) { var at = Math.max(w || 0, ctx.currentTime); srcs.forEach(function (s) { try { s.stop(at + 0.01); } catch (_) { } }); } };
   }
 
   // ------------------------------------------------------------- a track's instrument: its layers (split, layer, velocity zones)
@@ -138,12 +138,18 @@
       else v = sf2Voice(ctx, L, n, vel, when, lg);
       if (!v) { lg.disconnect(); return; }
       v.layerGain = lg; out.push(v);
+      // when the voice has finished, its nodes leave the graph (thousands of finished notes would otherwise stay connected and cost time on every block)
+      var srcs = v.sources || [], left = srcs.length, done = function () { if (--left > 0) return; try { lg.disconnect(); } catch (_) { } if (lp) try { lp.disconnect(); } catch (_) { } (v.nodes || []).forEach(function (n) { try { n.disconnect(); } catch (_) { } }); var i = self.voices.indexOf(v); if (i >= 0) self.voices.splice(i, 1); };
+      srcs.forEach(function (src) { src.addEventListener("ended", done); });
       if (v.excl) self.voices.forEach(function (o) { if (o !== v && o.excl === v.excl && o.layer === L) o.kill(v.start); });
       v.layer = L;
     });
     var voice = { parts: out, note: note, start: when };
-    this.voices = this.voices.concat(out).slice(-160);
-    if (this.voices.length > 150) this.voices.slice(0, 20).forEach(function (o) { o.kill(when); });
+    this.voices = this.voices.concat(out);
+    if (this.voices.length > 256 && !(window.OfflineAudioContext && ctx instanceof OfflineAudioContext)) {   // (too many at once while playing: the oldest that have started go; an export schedules everything up front)
+      var old = this.voices.filter(function (o) { return o.start <= when; }).slice(0, 32); old.forEach(function (o) { o.kill(when); });
+      this.voices = this.voices.filter(function (o) { return old.indexOf(o) < 0; });
+    }
     return voice;
   };
   Instrument.prototype.noteOff = function (voice, when) { if (voice) voice.parts.forEach(function (p) { p.release(when || 0); }); };
@@ -173,7 +179,7 @@
       if (r.excl) excl = r.excl;
       parts.push({ src: src, g: g, r: r });
     });
-    return { start: t, excl: excl, release: function (w) { var at = Math.max(w, ctx.currentTime); parts.forEach(function (p) { try { p.g.gain.cancelAndHoldAtTime(at); } catch (_) { p.g.gain.cancelScheduledValues(at); } p.g.gain.setTargetAtTime(0, at, Math.max(0.005, p.r.release / 5)); try { p.src.stop(at + p.r.release + 0.1); } catch (_) { } }); },
+    return { start: t, excl: excl, sources: parts.map(function (p) { return p.src; }), release: function (w) { var at = Math.max(w, ctx.currentTime); parts.forEach(function (p) { try { p.g.gain.cancelAndHoldAtTime(at); } catch (_) { p.g.gain.cancelScheduledValues(at); } p.g.gain.setTargetAtTime(0, at, Math.max(0.005, p.r.release / 5)); try { p.src.stop(at + p.r.release + 0.1); } catch (_) { } }); },
       kill: function (w) { var at = Math.max(w || 0, ctx.currentTime); parts.forEach(function (p) { p.g.gain.cancelScheduledValues(at); p.g.gain.setTargetAtTime(0, at, 0.004); try { p.src.stop(at + 0.03); } catch (_) { } }); } };
   }
   window.CUStudioSounds = { list: list, byId: byId, locked: locked, lockText: lockText, refresh: refresh, addBank: addBank, BUILTIN: BUILTIN, CAT_ORDER: CAT_ORDER, categoryOf: categoryOf,
