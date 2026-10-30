@@ -9,7 +9,10 @@ Anyone can download a library; what it holds only opens with its plan. So every 
   * presets and boards are handed to the app (PPInstrument.addBoard), which keeps the library's plan on them;
   * clicks are kept in <data>/libraries/<id>/clicks;
   * pads (Central Pads: one loop per style and key) are kept in <data>/libraries/<id>/pads/<style>/<key>.wav - the pad
-    pedal lists them (/libraries/pads) and plays the file of the song's key (/libraries/pad?...).
+    pedal lists them (/libraries/pads) and plays the file of the song's key (/libraries/pad?...);
+  * loops (10.0: drum loops at a tempo, ambient loops in a key) are kept in <data>/libraries/<id>/loops/<set>/<file> -
+    the texture channels list them (/libraries/loops) and play them (/libraries/loop?...).
+An item of a kind this version doesn't know (from a newer library) is left out; the rest installs.
 A download is checked against the sha256 the list gives before anything is unpacked (a mismatch is refused), and every
 item against the sha256 in the library's manifest.json. Installing a newer version replaces the older one; Remove takes
 everything a library added away again. What's installed is kept in <data>/libraries/<id>.json."""
@@ -28,7 +31,7 @@ import zipfile
 log = logging.getLogger("pedal-driver.libraries")
 
 PLANS = ("keys", "instrument", "plugins", "pedals", "pads")
-KINDS = ("sound", "board", "preset", "ir", "click", "pad")
+KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop")
 PAD_KEYS = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 MAX_DOWNLOAD = 2 * 1024 ** 3        # a library zip
 MAX_ITEM = 700 * 1024 * 1024        # one file inside it
@@ -144,6 +147,36 @@ class LibraryStore:
             out.extend(s for s in styles.values() if s["keys"])
         return out
 
+    def loops(self):
+        """The installed loops (10.0), one entry per groove / style: [{"id": "<library>/<set>/<name>", "name", "group",
+        "library", "tier", "files": [{"file": id, "bpm"?, "meter"?, "bars"?, "key"?}]}] - a file's id is its name in the
+        library (what /libraries/loop takes)."""
+        out = {}
+        for r in self.installed():
+            for lp in r.get("loops") or []:
+                if not os.path.isfile(lp.get("file") or ""):
+                    continue
+                k = "%s/%s/%s" % (r["id"], lp.get("set"), lp.get("name"))
+                e = out.setdefault(k, {"id": k, "name": lp.get("name"), "group": lp.get("group"), "set": lp.get("set"), "library": r["id"], "tier": r.get("plan"), "files": []})
+                f = {"file": "%s/%s" % (lp.get("set"), os.path.basename(lp["file"]))}
+                for x in ("bpm", "meter", "bars", "key", "seconds"):
+                    if x in lp:
+                        f[x] = lp[x]
+                e["files"].append(f)
+        return list(out.values())
+
+    def loop_file(self, lib_id, file_id):
+        """One loop's WAV (file_id "<set>/<file>") - only a file this library installed - or None."""
+        if not ID_RE.match(str(lib_id or "")) or not re.match(r"^[\w.-]{1,60}/[\w.-]{1,120}$", str(file_id or "")):
+            return None
+        rec = self.record(lib_id) or {}
+        base = os.path.realpath(os.path.join(self.root, lib_id, "loops"))
+        for lp in rec.get("loops") or []:
+            if "%s/%s" % (lp.get("set"), os.path.basename(lp.get("file") or "")) == file_id:
+                real = os.path.realpath(lp.get("file") or "")
+                return real if real.startswith(base + os.sep) and os.path.isfile(real) else None
+        return None
+
     def pad_file(self, lib_id, style, key):
         """The loop of one pad style in one key - only a file this library installed - or None."""
         if not ID_RE.match(str(lib_id or "")) or key not in PAD_KEYS:
@@ -255,7 +288,7 @@ class LibraryStore:
         total = 0
         names = set(zf.namelist())
         for it in items:
-            if not isinstance(it, dict) or it.get("kind") not in KINDS or not isinstance(it.get("file"), str) or it["file"] not in names:
+            if not isinstance(it, dict) or not isinstance(it.get("kind"), str) or not isinstance(it.get("file"), str) or it["file"] not in names:
                 raise LibraryError("that library lists a file it doesn't have")
             info = zf.getinfo(it["file"])
             if info.file_size > MAX_ITEM:
@@ -273,10 +306,12 @@ class LibraryStore:
             self.remove(lib_id, keep_record=True)
         rec = {"id": lib_id, "plan": tier, "version": str(man["version"]), "title": str(man.get("title") or lib_id)[:80], "summary": str(man.get("summary") or "")[:400],
                "installedAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "source": source if source == "file" else "website", "sounds": [], "irs": [], "clicks": [], "pads": [],
-               "boards": [], "presets": [], "tier": tier}
+               "loops": [], "boards": [], "presets": [], "tier": tier}
         sound_lines, ir_lines = [], []
         sounds, irs = [], []
         for it in man["items"]:
+            if it["kind"] not in KINDS:   # (a kind a newer version knows: left out)
+                continue
             data = zf.read(it["file"])
             if it.get("sha256") and sha256_bytes(data) != str(it["sha256"]).lower():
                 raise LibraryError("%s in that library is damaged (its checksum doesn't match) - nothing was installed" % it.get("name", it["file"]))
@@ -326,6 +361,22 @@ class LibraryStore:
                 with open(p, "wb") as handle:
                     handle.write(data)
                 rec["pads"].append({"name": style, "key": key, "file": p, "tier": tier})
+            elif kind == "loop":
+                if not data[:4] == b"RIFF":
+                    raise LibraryError("a loop in that library isn't a WAV file")
+                lset = safe_name(str(it.get("set") or "loops"), "loops")
+                folder = os.path.join(self.root, lib_id, "loops", lset)
+                os.makedirs(folder, exist_ok=True)
+                p = os.path.join(folder, safe_name(it["file"], "loop.wav"))
+                with open(p, "wb") as handle:
+                    handle.write(data)
+                entry = {"name": str(it.get("name") or "Loop")[:60], "set": lset, "group": str(it.get("group") or "Loops")[:40], "file": p, "tier": tier}
+                for k in ("bpm", "meter", "bars", "seconds"):
+                    if isinstance(it.get(k), (int, float)) and 0 < it[k] < 1000:
+                        entry[k] = it[k]
+                if it.get("key") in PAD_KEYS:
+                    entry["key"] = it["key"]
+                rec["loops"].append(entry)
         # the plan lines first (a host that looks at the folder as a sound arrives already sees it locked), then the files
         if sounds:
             tiers_lines_set(inst.sf2_user_dir, lib_id, sound_lines)
@@ -342,7 +393,7 @@ class LibraryStore:
             self.remove(lib_id)
             raise LibraryError("couldn't add the library's files (%s)" % error)
         rec["counts"] = {"sound": len(rec["sounds"]), "ir": len(rec["irs"]), "board": len(rec["boards"]), "preset": len(rec["presets"]), "click": len(rec["clicks"]),
-                         "pad": len({x["name"] for x in rec["pads"]})}
+                         "pad": len({x["name"] for x in rec["pads"]}), "loop": len({(x["set"], x["name"]) for x in rec["loops"]})}
         self._write_record(rec)
         log.info("library %s %s installed (%s)", lib_id, rec["version"], rec["counts"])
         return rec

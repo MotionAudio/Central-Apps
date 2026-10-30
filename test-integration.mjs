@@ -697,6 +697,30 @@ await check("Central Tracks: a Board installs as one of your boards, a Click (zi
   assert.ok(r.click && r.click.name === "Rimshot Click" && /^set:/.test(r.click.id) && r.click.hi && r.click.lo, JSON.stringify(r));
   assert.ok(/click sound/.test(r.log), r.log);
 });
+await check("Central Tracks (10.0): a hymn multitrack with its song file becomes a song with its exact tempo, meter, sections, lyrics, chords and chart; its click and guide start muted", async () => {
+  const r = await T(async () => {
+    function wav(seconds, freq) { const sr = 22050, n = Math.round(seconds * sr), b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, s) => [...s].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+      w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(6000 * Math.sin(2 * Math.PI * freq * i / sr)), true); return new Blob([b], { type: "audio/wav" }); }
+    const song = { format: 1, kind: "central-tracks-song", title: "Test Hymn", key: "D", bpm: 90, bpb: 3, duration: 24,
+      sections: [{ name: "Intro", bar: 1, bars: 2, lyrics: "" }, { name: "Verse 1", bar: 3, bars: 4, lyrics: "Be Thou my Vision, O Lord of my heart;\nnaught be all else to me" }],
+      chords: [{ label: "D", bass: null, bar: 1, beat: 1 }, { label: "G", bass: null, bar: 2, beat: 1 }, { label: "A", bass: null, bar: 4, beat: 3 }],
+      chartText: "{title: Test Hymn}\n{key: D}\n\nVerse 1\n[D]Be Thou my [G]Vision\n", stems: [{ name: "Keys", role: "keys", mute: false }, { name: "Click", role: "click", mute: true }],
+      credits: { words: "Eleanor Hull (1912)", music: "SLANE", arrangement: "Motion Audio" } };
+    const files = [{ name: "Keys.wav", role: "keys", url: URL.createObjectURL(wav(16, 220)) }, { name: "Click.wav", role: "click", url: URL.createObjectURL(wav(16, 1000)) },
+      { name: "song.json", role: "song", url: URL.createObjectURL(new Blob([JSON.stringify(song)], { type: "application/json" })) }];
+    await PPCentralTracks.install({ id: "h1", kind: "Multitrack", title: "Test Hymn", key: "D", bpm: 90 }, files);
+    const s = PP.project().songs.find((x) => x.name === "Test Hymn"), t = PPTracks.data(s);
+    return { key: s.key, bpm: s.bpm, grid: { bpm: t.grid.bpm, bpb: t.grid.bpb, first: t.grid.first, mode: t.grid.mode }, sections: t.sections.map((x) => [x.name, x.bar, x.lyrics.split("\n")[0]]),
+      chords: t.chords.map((c) => [c.label, c.bar, c.beat, Math.round(c.start * 1000) / 1000]), chart: /\[G\]Vision/.test(t.chartText || ""),
+      stems: t.stems.map((x) => [x.name, x.role, !!x.mute]), notes: s.notes, log: PPCentralTracks.state.log };
+  });
+  assert.deepEqual(r.grid, { bpm: 90, bpb: 3, first: 0, mode: "fitted" }); assert.equal(r.key, "D"); assert.equal(r.bpm, 90);
+  assert.deepEqual(r.sections, [["Intro", 1, ""], ["Verse 1", 3, "Be Thou my Vision, O Lord of my heart;"]]);
+  assert.deepEqual(r.chords, [["D", 1, 1, 0], ["G", 2, 1, 2], ["A", 4, 3, 7.333]]);   // (bar 4 beat 3 at 90 BPM in 3/4: 11 beats in)
+  assert.ok(r.chart && /Words: Eleanor Hull/.test(r.notes || ""), JSON.stringify(r));
+  assert.deepEqual(r.stems.map((x) => x[1] + ":" + x[2]).sort(), ["click:true", "keys:false"], JSON.stringify(r.stems));
+});
 await check("looper: records a loop from the instrument, closes it, plays it, overdubs, undoes and clears", async () => {
   const r = await T(async () => {
     const ctx = PP.engine.ctx, osc = ctx.createOscillator(); osc.frequency.value = 220; osc.start();

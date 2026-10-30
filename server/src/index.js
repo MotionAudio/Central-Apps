@@ -27,6 +27,7 @@ import * as defaultkeys from "./defaultkeys.js";
 import * as demo from "./demo.js";
 import * as getfile from "./getfile.js";
 import * as purchases from "./purchases.js";
+import * as hymns from "./hymns.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -384,4 +385,5 @@ await prices.loadPrices();
 await demo.seedDemo().catch((e) => console.error("demo account:", e.message));   // (10.0: Riverstone Church (demo), while the default keys are on)
 setInterval(() => prices.loadPrices().catch(() => { }), 5 * 60e3).unref();   // (another server changed them)
 if (process.env.REMINDERS !== "off") acct.startReminders();   // (every hour: invites nobody answered, the day before a service)
+if (process.env.HYMNS !== "off") hymns.start();   // (the Central Tracks hymns from their published index: at start and every hour)
 app.listen(config.port, () => console.log("Motion Audio server on " + config.publicUrl + " (storage: " + (store.usingR2 ? "R2" : "local folder") + ", payments: " + (pay.stripe ? "on" : "off") + ")"));

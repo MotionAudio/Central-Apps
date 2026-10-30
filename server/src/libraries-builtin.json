@@ -6,13 +6,13 @@
    "plan": "keys",
    "planName": "Central Keys",
    "title": "Central Keys Library",
-   "version": "1.0",
-   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; nine pads (warm, air, choir aah / ooh, shimmer, strings, glass, swell, worship) - with worship-ready presets.",
-   "file": "central-keys-library-1.0.zip",
-   "size": 420000000,
+   "version": "1.1",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; nine pads (warm, air, choir aah / ooh, shimmer, strings, glass, swell, worship) - with worship-ready presets; and ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, pluck, electric bells).",
+   "file": "central-keys-library-1.1.zip",
+   "size": 450000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-keys-library-1.0.zip",
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-keys-library-1.1.zip",
    "contents": {
     "sounds": [
      {
@@ -79,6 +79,22 @@
        "Worship Pad"
       ],
       "license": "Motion Audio - sold with Central Keys"
+     },
+     {
+      "name": "Central Keys Synths",
+      "presets": [
+       "Saw Lead",
+       "Square Lead",
+       "Soft Lead",
+       "Synth Brass",
+       "Super Saw",
+       "String Machine",
+       "Sub Bass",
+       "Synth Bass",
+       "Pluck",
+       "Electric Bells"
+      ],
+      "license": "Motion Audio"
      }
     ],
     "presets": [
@@ -106,22 +122,32 @@
      "Glass Pad",
      "Slow Swell Pad",
      "Xylophone Bright",
-     "Church Bells"
+     "Church Bells",
+     "Worship Saw Lead",
+     "Big Synth Brass",
+     "Super Saw Anthem",
+     "String Machine Pad",
+     "Sub Bass (keys left hand)",
+     "Plucky Arp",
+     "Electric Bells"
     ],
     "boards": [],
     "irs": [],
-    "pads": []
+    "pads": [],
+    "loops": []
    },
    "counts": {
-    "sound": 5,
+    "sound": 6,
     "board": 0,
-    "preset": 25,
+    "preset": 32,
     "ir": 0,
     "click": 0,
-    "pad": 0
+    "pad": 0,
+    "loop": 0
    },
    "credits": [
     "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+    "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)",
     "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
    ],
    "sources": [
@@ -154,6 +180,12 @@
      "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
      "license": "Motion Audio - sold with Central Keys",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Central Keys Synths",
+     "text": "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Keys",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-synths.py"
     }
    ]
   },
@@ -162,13 +194,13 @@
    "plan": "instrument",
    "planName": "Central Instrument",
    "title": "Central Instrument Library",
-   "version": "1.0",
-   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument.",
-   "file": "central-instrument-library-1.0.zip",
-   "size": 520000000,
+   "version": "1.1",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and ten drum loops for the texture channels (worship eighths, big ride, half-time, four on the floor, sixteenths, toms, brushes, waltz) at 70 and 100 BPM.",
+   "file": "central-instrument-library-1.1.zip",
+   "size": 560000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-instrument-library-1.0.zip",
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-instrument-library-1.1.zip",
    "contents": {
     "sounds": [
      {
@@ -236,7 +268,9 @@
        "Upright Bass",
        "Upright Bass (bowed)",
        "Jazz Bass",
-       "Acoustic Bass (hollowbody)"
+       "Acoustic Bass (hollowbody)",
+       "Electric Upright Bass",
+       "Electric Upright Bass (bowed)"
       ],
       "license": "CC0 1.0"
      },
@@ -284,7 +318,19 @@
     ],
     "boards": [],
     "irs": [],
-    "pads": []
+    "pads": [],
+    "loops": [
+     "Drum loops: Worship Eighths",
+     "Drum loops: Big Ride",
+     "Drum loops: Rim and Hat",
+     "Drum loops: Half-Time",
+     "Drum loops: Four on the Floor",
+     "Drum loops: Driving Sixteenths",
+     "Drum loops: Toms Build",
+     "Drum loops: Brushes Ballad",
+     "Drum loops: Waltz",
+     "Drum loops: Brushes Waltz"
+    ]
    },
    "counts": {
     "sound": 7,
@@ -292,10 +338,12 @@
     "preset": 30,
     "ir": 0,
     "click": 0,
-    "pad": 0
+    "pad": 0,
+    "loop": 10
    },
    "credits": [
     "Black And Green Guitars, Emily Guitar, Meatbass, Growlybass, Big Little Bass by Karoryfer Samples - CC0 1.0",
+    "Drum loops played by Motion Audio (tools/make-loops.py) on the library's drum kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums - CC0 1.0)",
     "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
     "Virtuosity Drums; Big Rusty Drums and Unruly Drums by Karoryfer Samples - CC0 1.0",
     "Weresax and Bear Sax by Karoryfer Samples - CC0 1.0"
@@ -384,6 +432,18 @@
      "text": "Bear Sax - Karoryfer Samples",
      "license": "CC0 1.0",
      "url": "https://github.com/sfzinstruments/karoryfer.bear-sax/tree/7abb3c652525a15dfac80e1b5dfbba9964ee568f"
+    },
+    {
+     "item": "Drum loops",
+     "text": "Grooves written and rendered by Motion Audio (tools/make-loops.py)",
+     "license": "Motion Audio - sold with Central Instrument",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-loops.py"
+    },
+    {
+     "item": "Drum loops",
+     "text": "Drum samples: sfzinstruments / Karoryfer kits (see the Drum Kits bank)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments"
     }
    ]
   },
@@ -392,13 +452,13 @@
    "plan": "plugins",
    "planName": "Central Plugins",
    "title": "Central Plugins Library",
-   "version": "1.0",
+   "version": "1.1",
    "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish.",
-   "file": "central-plugins-library-1.0.zip",
+   "file": "central-plugins-library-1.1.zip",
    "size": 12000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-plugins-library-1.0.zip",
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-plugins-library-1.1.zip",
    "contents": {
     "sounds": [
      {
@@ -432,18 +492,24 @@
      "Plugins: Tight Rhythm Electric",
      "Plugins: Acoustic Plate Ballad",
      "Plugins: Acoustic Ducked Delay",
-     "Plugins: Bass Glue"
+     "Plugins: Bass Glue",
+     "Plugins: Acoustic Broadcast",
+     "Plugins: Keys Glue (3-band)",
+     "Plugins: Tight Bass",
+     "Plugins: Quiet Room Electric"
     ],
     "irs": [],
-    "pads": []
+    "pads": [],
+    "loops": []
    },
    "counts": {
     "sound": 1,
-    "board": 18,
+    "board": 22,
     "preset": 2,
     "ir": 0,
     "click": 0,
-    "pad": 0
+    "pad": 0,
+    "loop": 0
    },
    "credits": [
     "Motion Audio (synthesised); cymbals, gong and bass drum from VCSL by Versilian Studios (CC0 1.0)"
@@ -468,13 +534,13 @@
    "plan": "pedals",
    "planName": "Central Pedals",
    "title": "Central Pedals Library",
-   "version": "1.0",
+   "version": "1.1",
    "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies.",
-   "file": "central-pedals-library-1.0.zip",
+   "file": "central-pedals-library-1.1.zip",
    "size": 200000,
    "approximate": true,
    "sha256": null,
-   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pedals-library-1.0.zip",
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pedals-library-1.1.zip",
    "contents": {
     "sounds": [],
     "presets": [],
@@ -500,7 +566,11 @@
      "Pedals: Open Back Room Ambient",
      "Pedals: Small Combo Edge Trem",
      "Pedals: Closed Back Edge Crunch",
-     "Pedals: Fuzz Room Wall"
+     "Pedals: Fuzz Room Wall",
+     "Pedals: Ladder Swell Lead",
+     "Pedals: Lo-Fi Ambient",
+     "Pedals: Jet Flanger Crunch",
+     "Pedals: Octave Glitch"
     ],
     "irs": [
      "Central 1x12 Open Back",
@@ -532,15 +602,17 @@
      "Central 2x10 Tweed Edge",
      "Central 2x10 Tweed Room"
     ],
-    "pads": []
+    "pads": [],
+    "loops": []
    },
    "counts": {
     "sound": 0,
-    "board": 22,
+    "board": 26,
     "preset": 0,
     "ir": 28,
     "click": 0,
-    "pad": 0
+    "pad": 0,
+    "loop": 0
    },
    "credits": [
     "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)"
@@ -721,13 +793,13 @@
    "plan": "pads",
    "planName": "Central Pads",
    "title": "Central Pads Library",
-   "version": "1.0",
-   "summary": "12 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, shimmer, strings, glass, swell, worship, ambient drone, deep and heaven. Each is a seamless stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too.",
-   "file": "central-pads-library-1.0.zip",
-   "size": 110000000,
+   "version": "1.1",
+   "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is a seamless stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too Plus three ambient loops for the texture channels - Sparkle, Drift and Breath - in every key.",
+   "file": "central-pads-library-1.1.zip",
+   "size": 240000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pads-library-1.0.zip",
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pads-library-1.1.zip",
    "contents": {
     "sounds": [],
     "presets": [],
@@ -745,7 +817,20 @@
      "Worship",
      "Ambient Drone",
      "Deep",
-     "Heaven"
+     "Heaven",
+     "Felt",
+     "Organ",
+     "Analog",
+     "Bowed",
+     "Bells",
+     "Choir Hum",
+     "Cinematic",
+     "Morning"
+    ],
+    "loops": [
+     "Ambient loops: Sparkle",
+     "Ambient loops: Drift",
+     "Ambient loops: Breath"
     ]
    },
    "counts": {
@@ -754,9 +839,11 @@
     "preset": 0,
     "ir": 0,
     "click": 0,
-    "pad": 12
+    "pad": 20,
+    "loop": 3
    },
    "credits": [
+    "Ambient loops made by Motion Audio (tools/make-loops.py: synthesised, no recording)",
     "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)"
    ],
    "sources": [
@@ -831,6 +918,60 @@
      "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
      "license": "Motion Audio - sold as Central Pads (and with every other plan)",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Felt",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Organ",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Analog",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Bowed",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Bells",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Choir Hum",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Cinematic",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Morning",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Ambient loops",
+     "text": "Made by Motion Audio (tools/make-loops.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pads",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-loops.py"
     }
    ]
   }

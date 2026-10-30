@@ -29,14 +29,19 @@ on:
         required: false
         default: ""
   push:
-    branches: [main, release/9.8.0]   # (release/9.8.0: the files are built before the release)
+    branches: [main, release/9.8.0, release/10.0.0]   # (a release branch: the files are built before that release)
     paths:
       - libraries/**
+      - hymns/**
       - tools/sounds-vcsl.py
       - tools/sounds-sfz.py
       - tools/sfz_render.py
       - tools/make-pads.py
       - tools/make-pad-loops.py
+      - tools/make-synths.py
+      - tools/make-loops.py
+      - tools/make-hymns.py
+      - tools/midi_render.py
       - tools/vcsl-names.txt
       - tools/make-irs.py
       - tools/build-libraries.py
@@ -57,10 +62,11 @@ jobs:
       OUT: ${{ github.workspace }}/dist/libraries
       LIBRARIES_BASE_URL: ${{ vars.R2_UPLOAD == 'on' && vars.R2_PUBLIC_URL || 'https://github.com/MotionAudio/central-apps/releases/download/libraries' }}
       ONLY: ${{ github.event.inputs.only }}
+      HYMNS_BASE_URL: ${{ vars.R2_UPLOAD == 'on' && vars.R2_HYMNS_URL || 'https://github.com/MotionAudio/central-apps/releases/download/central-tracks' }}
     steps:
       - uses: actions/checkout@v4
       - name: Tools
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-numpy fluidsynth ffmpeg >/dev/null
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-numpy fluidsynth ffmpeg libmp3lame0 >/dev/null
       - name: Cache the VCSL downloads and built sounds
         uses: actions/cache@v4
         with:
@@ -104,6 +110,26 @@ jobs:
           gh release upload libraries "$OUT"/*.zip "$OUT/libraries-index.json" "$OUT/SHA256SUMS" --clobber
           echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/libraries"
           ls -l "$OUT"
+
+      # ---- Central Tracks hymns (10.0): public-domain hymns in our arrangements, played on the sounds built above
+      - name: Central Tracks hymns (stems, song files, previews)
+        if: ${{ env.ONLY == '' }}
+        run: |
+          python3 sounds-vsco.py work/cache work/orchestra || echo "(no orchestra: the strings stem uses the String Pad)"
+          python3 tools/make-hymns.py --sounds work/sounds --orchestra work/orchestra --out dist/hymns --base-url "$HYMNS_BASE_URL"
+      - name: Publish the hymns on the "central-tracks" release
+        if: ${{ env.ONLY == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="Central Tracks hymns: public-domain hymns in Motion Audio's own arrangements (stems, song files with sections, lyrics and chords, previews). The website lists them in Central Tracks from hymns-index.json. Built from ${GITHUB_SHA::7}."
+          if gh release view central-tracks >/dev/null 2>&1; then
+            gh release edit central-tracks --prerelease --latest=false --title "Central Tracks hymns" --notes "$NOTES"
+          else
+            gh release create central-tracks --prerelease --latest=false --title "Central Tracks hymns" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi
+          gh release upload central-tracks dist/hymns/release/* --clobber
+          echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/central-tracks"
 
       # ---- Cloudflare R2 (OFF until set up - see the top of this file). Turn on with the repository variable R2_UPLOAD = on.
       - name: Copy to Cloudflare R2 (disabled until R2_UPLOAD = on)

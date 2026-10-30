@@ -1723,7 +1723,7 @@ async def main():
             status, body = http("http://127.0.0.1:18766/libraries/file?name=central-keys-library-1.0.zip&sha256=" + hashlib.sha256(z1).hexdigest(), data=z1, method="PUT")
             got = json.loads(body) if status == 200 else {}
             sf2_dir = os.path.join(root, "data", "sounds", "sf2")
-            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0, "pad": 0}
+            check("Install from a file: the sound, the IR and the preset are added", status == 200 and got.get("record", {}).get("counts") == {"sound": 1, "ir": 1, "board": 0, "preset": 1, "click": 0, "pad": 0, "loop": 0}
                   and os.path.exists(os.path.join(sf2_dir, "Test Keys - central-keys-library.sf2")), body[:300])
             tiers = open(os.path.join(sf2_dir, "tiers.txt")).read() if os.path.exists(os.path.join(sf2_dir, "tiers.txt")) else ""
             check("...each keeping the library's plan (tiers.txt)", "Test Keys|keys|CC0 1.0|central-keys-library" in tiers, tiers)

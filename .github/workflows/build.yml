@@ -64,6 +64,7 @@ jobs:
           python3 -c "import numpy" 2>/dev/null || python3 -m pip install --quiet numpy
           bash tools/ci-run.sh "library test (pedals, plans, the orchestra builder)" python3 test_library.py
           bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py
+          bash tools/ci-run.sh "10.0 content test (hymns, synths, pads, loops, new pedals)" python3 test_content.py
           bash tools/ci-run.sh "Pi sound set-up test (the jack is never left out, outputs that aren't there play on 1-2)" python3 test_audio_routing.py
           bash tools/ci-run.sh "sound library installer test (computers)" node central-usage/test-libraries.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build

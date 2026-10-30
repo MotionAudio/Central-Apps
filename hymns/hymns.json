@@ -1,0 +1,146 @@
+{
+ "_about": "Central Tracks hymns: public-domain words and tunes (published before 1929, and every writer dead more than 70 years, so they're free to use in the US and abroad), in our own modern arrangements. tools/make-hymns.py renders each into stems (drums, bass, keys, pad, electric guitar, strings, click, guide), a song file (sections, lyrics, chords, chart) and a preview mix. Format: chords = one entry per bar (\"G\", or several chords with the beat they start on: \"G D@4\"); a section's progression is a name or \"name:from-to\" (bars, 1-based); lyrics = the pickup, then one entry per bar, split by |; ~ joins a word across bars, / ends a lyric line, ^ marks where a bar's next chord falls.",
+ "hymns": [
+  {
+   "id": "amazing-grace",
+   "title": "Amazing Grace",
+   "words": "John Newton (1779); last verse anonymous (1829)",
+   "music": "NEW BRITAIN, American folk melody (1829)",
+   "public_domain": {"words": 1829, "music": 1829, "writers_died": 1807},
+   "key": "G", "bpm": 72, "meter": 3,
+   "chords": {
+    "verse": ["G", "G", "C", "G", "G", "Em", "D", "D", "G", "G7", "C", "G", "Em", "D", "G", "G"],
+    "intro": ["G", "G", "C", "G", "Em", "D", "G", "G"],
+    "outro": ["G", "G", "C", "G", "Em", "D", "G", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "A~|mazing|grace how|sweet the|sound / that|saved a|wretch like|me. /|I|once was|lost but|now am|found, / was|blind but|now I|see. /|",
+    "Verse 2": "'Twas|grace that|taught my|heart to|fear, / and|grace my|fears re~|lieved. /|How|precious|did that|grace ap~|pear / the|hour I|first be~|lieved. /|",
+    "Verse 3": "Through|many|dangers,|toils and|snares / I|have al~|ready|come; /|'Tis|grace hath|brought me|safe thus|far, / and|grace will|lead me|home. /|",
+    "Verse 4": "The|Lord has|promised|good to|me, / His|word my|hope se~|cures; /|He|will my|shield and|portion|be / as|long as|life en~|dures. /|",
+    "Verse 5": "When|we've been|there ten|thousand|years, / bright|shining|as the|sun, /|we've|no less|days to|sing God's|praise / than|when we'd|first be~|gun. /|"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "lyrics": "Verse 4", "energy": 1},
+    {"name": "Verse 5", "chords": "verse", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Outro", "chords": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "joyful-joyful",
+   "title": "Joyful, Joyful, We Adore Thee",
+   "words": "Henry van Dyke (1907)",
+   "music": "HYMN TO JOY, Ludwig van Beethoven (1824), adapted by Edward Hodges",
+   "public_domain": {"words": 1907, "music": 1824, "writers_died": 1933},
+   "key": "G", "bpm": 100, "meter": 4,
+   "chords": {
+    "verse": ["G", "G D@4", "G", "G D@3", "G", "G D@4", "G", "D G@3", "D G@3", "D G@3", "D G@3", "C D@3", "G", "G D@4", "G", "D G@3"],
+    "intro": ["G", "C", "G", "D", "G", "C", "D", "G"],
+    "outro": ["G", "C", "G", "D", "G", "C", "D G@3", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|Joyful, joyful,|we adore ^Thee, /|God of glory,|Lord of ^love; /|Hearts unfold like|flowers before ^Thee, /|opening to the|sun a^bove. /|Melt the ^clouds of|sin and ^sadness; /|drive the ^dark of|doubt a^way; /|Giver of im~|mortal glad^ness, /|fill us with the|light of ^day! /",
+    "Verse 2": "|All Thy works with|joy surround ^Thee, /|earth and heaven re~|flect Thy ^rays; /|stars and angels|sing around ^Thee, /|center of un~|broken ^praise. /|Field and ^forest,|vale and ^mountain, /|flowery ^meadow,|flashing ^sea, /|singing bird and|flowing foun^tain /|call us to re~|joice in ^Thee. /",
+    "Verse 3": "|Thou art giving|and forgiv^ing, /|ever blessing,|ever ^blest, /|wellspring of the|joy of liv^ing, /|ocean depth of|happy ^rest! /|Thou our ^Father,|Christ our ^Brother, /|all who ^live in|love are ^Thine; /|teach us how to|love each oth^er, /|lift us to the|joy di^vine. /",
+    "Verse 4": "|Mortals, join the|happy cho^rus /|which the morning|stars be^gan; /|Father love is|reigning o'er ^us, /|brother love binds|man to ^man. /|Ever ^singing,|march we ^onward, /|victors ^in the|midst of ^strife; /|joyful music|leads us sun^ward /|in the triumph|song of ^life. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "energy": 1},
+    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "energy": 3},
+    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Verse 4", "chords": "verse", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Outro", "chords": "outro", "energy": 2}
+   ]
+  },
+  {
+   "id": "come-thou-fount",
+   "title": "Come, Thou Fount of Every Blessing",
+   "words": "Robert Robinson (1758)",
+   "music": "NETTLETON, Wyeth's Repository of Sacred Music (1813)",
+   "public_domain": {"words": 1758, "music": 1813, "writers_died": 1858},
+   "key": "D", "bpm": 84, "meter": 3,
+   "chords": {
+    "verse": ["D", "D", "G", "D", "D", "D", "A", "D", "D", "D", "G", "D", "D", "D", "A", "D", "G", "D", "Em", "A", "G", "D", "A", "A", "D", "D", "G", "D", "D", "D", "A", "D"],
+    "intro": ["D", "D", "G", "D", "D", "D", "A", "D"],
+    "outro": ["D", "D", "G", "D", "D", "A", "D", "D"]
+   },
+   "lyrics": {
+    "Verse 1": "|Come, Thou|Fount of|every|blessing, /|tune my|heart to|sing Thy|grace; /|streams of|mercy,|never|ceasing, /|call for|songs of|loudest|praise. /|Teach me|some me~|lodious|sonnet, /|sung by|flaming|tongues a~|bove. /|Praise the|mount! I'm|fixed up~|on it, /|mount of|Thy re~|deeming|love. /",
+    "Verse 2": "|Here I|raise my|Eben~|ezer; /|hither|by Thy|help I'm|come; /|and I|hope, by|Thy good|pleasure, /|safely|to ar~|rive at|home. /|Jesus|sought me|when a|stranger, /|wandering|from the|fold of|God; /|He, to|rescue|me from|danger, /|inter~|posed His|precious|blood. /",
+    "Verse 3": "|O to|grace how|great a|debtor /|daily|I'm con~|strained to|be! /|Let Thy|goodness,|like a|fetter, /|bind my|wandering|heart to|Thee. /|Prone to|wander,|Lord, I|feel it, /|prone to|leave the|God I|love; /|here's my|heart, O|take and|seal it, /|seal it|for Thy|courts a~|bove. /",
+    "Tag": "|here's my|heart, O|take and|seal it, /|seal it|for Thy|courts a~|bove. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Tag", "chords": "verse:25-32", "lyrics": "Tag", "energy": 1},
+    {"name": "Outro", "chords": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "be-thou-my-vision",
+   "title": "Be Thou My Vision",
+   "words": "Irish, 8th century; translated by Mary E. Byrne (1905), put into verse by Eleanor H. Hull (1912)",
+   "music": "SLANE, Irish folk melody",
+   "public_domain": {"words": 1912, "music": 1909, "writers_died": 1935},
+   "key": "D", "bpm": 72, "meter": 3,
+   "chords": {
+    "verse": ["D", "G", "D", "A", "G", "D", "Bm", "A", "D", "G", "A", "Bm", "G", "D", "A", "D"],
+    "intro": ["D", "G", "D", "A", "G", "D", "A", "D"],
+    "outro": ["G", "D", "A", "D", "G", "D", "A", "D"]
+   },
+   "lyrics": {
+    "Verse 1": "|Be Thou my|Vision, O|Lord of my|heart; /|naught be all|else to me,|save that Thou|art. /|Thou my best|Thought, by|day or by|night, /|waking or|sleeping, Thy|presence my|light. /",
+    "Verse 2": "|Be Thou my|Wisdom, and|Thou my true|Word; /|I ever|with Thee and|Thou with me,|Lord; /|Thou my great|Father, and|I Thy true|son; /|Thou in me|dwelling, and|I with Thee|one. /",
+    "Verse 3": "|Riches I|heed not, nor|man's empty|praise, /|Thou mine in~|heritance,|now and al~|ways: /|Thou and Thou|only, first|in my|heart, /|High King of|Heaven, my|treasure Thou|art. /",
+    "Verse 4": "|High King of|Heaven, my|victory|won, /|may I reach|Heaven's joys,|O bright Heaven's|Sun! /|Heart of my|own heart, what~|ever be~|fall, /|still be my|Vision, O|Ruler of|all. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Interlude", "chords": "intro", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Outro", "chords": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "doxology",
+   "title": "Doxology (Praise God, from Whom All Blessings Flow)",
+   "words": "Thomas Ken (1674)",
+   "music": "OLD HUNDREDTH, Genevan Psalter (1551), attributed to Louis Bourgeois",
+   "public_domain": {"words": 1674, "music": 1551, "writers_died": 1711},
+   "key": "G", "bpm": 76, "meter": 4,
+   "chords": {
+    "verse": ["G D@4", "Em D@3", "G", "G D@3", "C D@3", "G D@4", "Em D@3", "G", "Em D@3", "G D@2 G@3"],
+    "amen": ["C", "G"],
+    "intro": ["G", "C", "G", "D", "Em", "C", "D", "G"],
+    "outro": ["G", "C", "G", "C", "G", "G"]
+   },
+   "lyrics": {
+    "Doxology": "|Praise God, ^from|whom all ^blessings|flow; / Praise|Him, all ^creatures|here be^low; /|Praise Him ^a~|bove, ye ^heavenly|host; / Praise|Father, ^Son, and|Ho^ly ^Ghost. /",
+    "Amen": "|A~|men. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "lyrics": "Doxology", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "lyrics": "Doxology", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "lyrics": "Doxology", "energy": 3},
+    {"name": "Tag", "chords": "amen", "lyrics": "Amen", "energy": 1},
+    {"name": "Outro", "chords": "outro", "energy": 0}
+   ]
+  }
+ ]
+}

@@ -5,7 +5,8 @@ Pedals, Central Pads) from libraries/libraries.json into versioned zips the webs
     python3 tools/build-libraries.py --sounds DIR --irs DIR --out DIR [--base-url URL] [--only ID] [--allow-missing]
 
 --sounds: the SoundFonts tools/sounds-vcsl.py built; --irs: the impulses tools/make-irs.py made; --pads: the pad loops
-tools/make-pads.py made (default: <sounds>/pad-loops).
+tools/make-pads.py made (default: <sounds>/pad-loops); --loops: the loops tools/make-loops.py made, <set>/index.json each
+(default: <sounds>/loops; 10.0).
 --base-url: where the zips will be downloaded from (written into the index; default: the GitHub release "libraries").
 --allow-missing: leave out a sound that wasn't built (tests) instead of stopping.
 
@@ -30,7 +31,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFINITIONS = os.path.join(ROOT, "libraries", "libraries.json")
 DEFAULT_BASE = "https://github.com/MotionAudio/central-apps/releases/download/libraries"
 PLANS = {"keys": "Central Keys", "instrument": "Central Instrument", "plugins": "Central Plugins", "pedals": "Central Pedals", "pads": "Central Pads"}
-KINDS = ("sound", "board", "preset", "ir", "click", "pad")
+KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop")
 PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
@@ -116,11 +117,33 @@ def load_definitions(path=DEFINITIONS):
     return libs
 
 
-def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=print, pads_dir=None):
+def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=print, pads_dir=None, loops_dir=None):
     """Writes <id>-<version>.zip; returns its index entry (without the url)."""
     tier = lib["plan"]
     items, files, credits, missing = [], [], [], []
     pads_dir = pads_dir or os.path.join(sounds_dir or "", "pad-loops")
+    loops_dir = loops_dir or os.path.join(sounds_dir or "", "loops")
+    for ls in lib.get("loops") or []:   # (10.0: a set of loops tools/make-loops.py made - <loops>/<set>/index.json lists them)
+        listing = os.path.join(loops_dir or "", ls["set"], "index.json")
+        if not os.path.isfile(listing):
+            if allow_missing:
+                missing.append(ls["name"])
+                continue
+            raise FileNotFoundError("%s: the loops %s weren't made (%s)" % (lib["id"], ls["set"], listing))
+        with open(listing, encoding="utf-8") as handle:
+            entries = json.load(handle)
+        for e in entries:
+            src = os.path.join(loops_dir, ls["set"], e["file"])
+            arc = "loops/%s/%s" % (ls["set"], e["file"])
+            item = {"kind": "loop", "name": e["name"], "set": ls["set"], "group": ls["name"], "file": arc, "tier": tier, "size": os.path.getsize(src), "sha256": sha256_file(src),
+                    "license": ls.get("license", ""), "credit": ls.get("credit", "")}
+            for k in ("bpm", "meter", "bars", "key", "seconds"):
+                if e.get(k) is not None:
+                    item[k] = e[k]
+            items.append(item)
+            files.append((arc, src))
+        if ls.get("credit") and ls["credit"] not in credits:
+            credits.append(ls["credit"])
     for pad in lib.get("pads") or []:   # (a pad style: one loop per key)
         got = 0
         for key in PAD_KEYS:
@@ -179,7 +202,7 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
     credit_txt = "%s %s - part of %s\n\n%s\n\nEverything here opens with %s: anyone can download it, the plan's package key unlocks it.\n\n%s\n\nSources (license, where it is):\n%s\n" % (
         lib["title"], lib["version"], PLANS[tier], lib.get("summary", ""), PLANS[tier], "\n".join("- " + c for c in credits) or "",
         "\n".join("- %s: %s - %s - %s" % (s["item"], s["text"], s["license"], s["url"]) for s in sources) or "- (all made by Motion Audio)")
-    if any(i["kind"] in ("sound", "ir", "pad") for i in items):   # (sounds/CREDITS.txt: every source of every sound and IR, with its license and URL)
+    if any(i["kind"] in ("sound", "ir", "pad", "loop") for i in items):   # (sounds/CREDITS.txt: every source of every sound and IR, with its license and URL)
         blobs.append(("sounds/CREDITS.txt", ("Sources of the sounds and impulse responses in %s %s\n\n%s\n" % (lib["title"], lib["version"], "\n".join(
             "%s\n    %s\n    License: %s\n    %s" % (s["item"], s["text"], s["license"], s["url"]) for s in sources))).encode()))
     name = "%s-%s.zip" % (lib["id"], lib["version"])
@@ -208,6 +231,7 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
         raise ValueError("%s is %.2f GB - a library stays under %.1f GB (split it, or leave something out)" % (name, os.path.getsize(path) / 1e9, MAX_ZIP / 1e9))
     count = {k: sum(1 for i in items if i["kind"] == k) for k in KINDS}
     count["pad"] = len({i["name"] for i in items if i["kind"] == "pad"})   # (pad styles, each in every key)
+    count["loop"] = len({(i["set"], i["name"]) for i in items if i["kind"] == "loop"})   # (loops: each groove / style once, whatever its tempos or keys)
     log("    %-34s %6.1f MB  %s%s" % (name, os.path.getsize(path) / 1e6, ", ".join("%d %ss" % (v, k) for k, v in count.items() if v),
                                      ("   (left out, not built: %s)" % ", ".join(missing)) if missing else ""))
     contents = {
@@ -216,6 +240,7 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
         "boards": [i["name"] for i in items if i["kind"] == "board"],
         "irs": [i["name"] for i in items if i["kind"] == "ir"],
         "pads": sorted({i["name"] for i in items if i["kind"] == "pad"}, key=[p["name"] for p in lib.get("pads") or []].index),
+        "loops": list(dict.fromkeys("%s: %s" % (i["group"], i["name"]) for i in items if i["kind"] == "loop")),
     }
     return {"id": lib["id"], "plan": tier, "planName": PLANS[tier], "title": lib["title"], "version": str(lib["version"]), "summary": lib.get("summary", ""),
             "file": name, "size": os.path.getsize(path), "sha256": sha256_file(path), "contents": contents, "counts": count, "credits": credits,
@@ -225,7 +250,7 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
 def source_lines(lib, missing=()):
     """[{item, text, license, url}] - every source of the library's sounds and IRs (what it is, its license, where)."""
     out = []
-    for s in (lib.get("sounds") or []) + (lib.get("irs") or []) + (lib.get("pads") or []):
+    for s in (lib.get("sounds") or []) + (lib.get("irs") or []) + (lib.get("pads") or []) + (lib.get("loops") or []):
         if s["name"] in missing:
             continue
         for src in s.get("sources") or []:
@@ -249,7 +274,16 @@ def vcsl_presets():
     for rel, name in (("tools/sounds-vcsl.py", "sounds_vcsl"), ("tools/sounds-sfz.py", "sounds_sfz")):
         out.update({b[0]: [p[0] for p in b[2]] for b in _load(rel, name).BANKS})
     out.update({b[0]: list(b[2]) for b in _load("tools/make-pads.py", "make_pads").BANKS})
+    synths = _load("tools/make-synths.py", "make_synths")
+    out[synths.NAME] = [s[0] for s in synths.SOUNDS]
     return out
+
+
+def loop_names(lib):
+    """What a library's loops will be, before they're made (tools/make-loops.py's lists)."""
+    ml = _load("tools/make-loops.py", "make_loops")
+    names = {"drums": [g[0] for g in ml.GROOVES], "ambient": list(ml.AMBIENT)}
+    return ["%s: %s" % (ls["name"], n) for ls in lib.get("loops") or [] for n in names.get(ls["set"], [])]
 
 
 def builtin_list(definitions=DEFINITIONS, base_url=DEFAULT_BASE):
@@ -260,23 +294,24 @@ def builtin_list(definitions=DEFINITIONS, base_url=DEFAULT_BASE):
     for lib in load_definitions(definitions):
         sounds = [{"name": s["name"], "presets": banks.get(s["name"], []), "license": s.get("license", "")} for s in lib.get("sounds") or []]
         contents = {"sounds": sounds, "presets": [b["name"] for b in lib.get("presets") or []], "boards": [b["name"] for b in lib.get("boards") or []],
-                    "irs": [i["name"] for i in lib.get("irs") or []], "pads": [p["name"] for p in lib.get("pads") or []]}
-        count = {"sound": len(sounds), "board": len(contents["boards"]), "preset": len(contents["presets"]), "ir": len(contents["irs"]), "click": 0, "pad": len(contents["pads"])}
+                    "irs": [i["name"] for i in lib.get("irs") or []], "pads": [p["name"] for p in lib.get("pads") or []], "loops": loop_names(lib)}
+        count = {"sound": len(sounds), "board": len(contents["boards"]), "preset": len(contents["presets"]), "ir": len(contents["irs"]), "click": 0, "pad": len(contents["pads"]),
+                 "loop": len(contents["loops"])}
         name = "%s-%s.zip" % (lib["id"], lib["version"])
         out.append({"id": lib["id"], "plan": lib["plan"], "planName": PLANS[lib["plan"]], "title": lib["title"], "version": str(lib["version"]), "summary": lib.get("summary", ""),
                     "file": name, "size": int(lib.get("approxMB", 1) * 1e6), "approximate": True, "sha256": None, "url": base_url.rstrip("/") + "/" + name,
-                    "contents": contents, "counts": count, "credits": sorted({s.get("credit", "") for s in (lib.get("sounds") or []) + (lib.get("irs") or []) + (lib.get("pads") or []) if s.get("credit")}),
+                    "contents": contents, "counts": count, "credits": sorted({s.get("credit", "") for s in (lib.get("sounds") or []) + (lib.get("irs") or []) + (lib.get("pads") or []) + (lib.get("loops") or []) if s.get("credit")}),
                     "sources": source_lines(lib)})
     return out
 
 
-def build_all(sounds_dir, irs_dir, out_dir, base_url=DEFAULT_BASE, only=None, allow_missing=False, definitions=DEFINITIONS, log=print, pads_dir=None):
+def build_all(sounds_dir, irs_dir, out_dir, base_url=DEFAULT_BASE, only=None, allow_missing=False, definitions=DEFINITIONS, log=print, pads_dir=None, loops_dir=None):
     libs = load_definitions(definitions)
     entries = []
     for lib in libs:
         if only and lib["id"] != only:
             continue
-        e = build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=allow_missing, log=log, pads_dir=pads_dir)
+        e = build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=allow_missing, log=log, pads_dir=pads_dir, loops_dir=loops_dir)
         e["url"] = base_url.rstrip("/") + "/" + e["file"]
         entries.append(e)
     index = {"format": FORMAT, "base": base_url.rstrip("/"), "built": datetime.date.today().isoformat(), "libraries": entries}
@@ -297,7 +332,7 @@ def main(argv):
             opt["allow_missing"] = True
             i += 1
             continue
-        if a in ("--sounds", "--irs", "--pads", "--out", "--base-url", "--only", "--definitions", "--write-builtin") and i + 1 < len(argv):
+        if a in ("--sounds", "--irs", "--pads", "--loops", "--out", "--base-url", "--only", "--definitions", "--write-builtin") and i + 1 < len(argv):
             opt[a[2:].replace("-", "_")] = argv[i + 1]
             i += 2
             continue
@@ -312,7 +347,8 @@ def main(argv):
     if not opt.get("out"):
         print(__doc__)
         return 2
-    build_all(opt.get("sounds"), opt.get("irs"), opt["out"], opt.get("base_url") or DEFAULT_BASE, opt.get("only"), opt.get("allow_missing", False), opt.get("definitions") or DEFINITIONS, pads_dir=opt.get("pads"))
+    build_all(opt.get("sounds"), opt.get("irs"), opt["out"], opt.get("base_url") or DEFAULT_BASE, opt.get("only"), opt.get("allow_missing", False), opt.get("definitions") or DEFINITIONS,
+              pads_dir=opt.get("pads"), loops_dir=opt.get("loops"))
     return 0
 
 
