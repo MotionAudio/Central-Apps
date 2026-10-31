@@ -9,6 +9,10 @@
 //     locked without the plan, though anyone can download them; presets and boards go to the Instrument page with the plan;
 //   * a newer version replaces the older one; Remove takes everything the library added away again.
 // What's installed is kept in <userData>/libraries/<id>.json.
+// (10.1) Community plugins (kind "plugin", from Make & sell: checked and reviewed by Motion Audio) unpack into
+// <userData>/libraries/community-plugins/<id>/ only while this computer's "Allow community plugins" switch is on (off by
+// default), every program file matching the sha256 the review recorded; the rig loads them walled off
+// (community-sandbox.js). revoke() takes away what the website's revoke list names.
 "use strict";
 const fs = require("node:fs");
 const path = require("node:path");
@@ -18,7 +22,8 @@ const https = require("node:https");
 const http = require("node:http");
 
 const PLANS = ["keys", "instrument", "plugins", "pedals", "pads"];
-const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop"];
+const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin"];
+const PLUGIN_FORMATS = ["lv2", "vst3", "clap", "component"], MAX_PLUGIN = 300 * 1024 * 1024;
 const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
 const INDEX_URL = process.env.CC_LIBRARIES_INDEX || "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/libraries-index.json";
@@ -41,13 +46,14 @@ function readZip(file) {
       if (cd.readUInt32LE(p) !== 0x02014b50) throw new Error("a damaged zip");
       const method = cd.readUInt16LE(p + 10), csize = cd.readUInt32LE(p + 20), usize = cd.readUInt32LE(p + 24);
       const nlen = cd.readUInt16LE(p + 28), xlen = cd.readUInt16LE(p + 30), clen = cd.readUInt16LE(p + 32), off = cd.readUInt32LE(p + 42);
-      const name = cd.toString("utf8", p + 46, p + 46 + nlen);
-      entries.set(name, { name, method, csize, usize, off });
+      const name = cd.toString("utf8", p + 46, p + 46 + nlen), attr = cd.readUInt32LE(p + 38);
+      entries.set(name, { name, method, csize, usize, off, link: ((attr >>> 16) & 0o170000) === 0o120000 });
       p += 46 + nlen + xlen + clen;
     }
     return {
       names: () => Array.from(entries.keys()),
       has: (n) => entries.has(n),
+      isLink: (n) => !!(entries.get(n) || {}).link,
       size: (n) => (entries.get(n) || {}).usize || 0,
       read(n) {
         const e = entries.get(n); if (!e) throw new Error("no " + n + " in the zip");
@@ -101,7 +107,48 @@ class Libraries {
   }
   record(id) { try { return JSON.parse(fs.readFileSync(path.join(this.root, id + ".json"), "utf8")); } catch (_) { return null; } }
   installed() { return fs.readdirSync(this.root).filter((f) => f.endsWith(".json")).map((f) => this.record(f.slice(0, -5))).filter((r) => r && r.id); }
-  listing() { return this.installed().map((r) => ({ id: r.id, plan: r.plan, version: r.version, title: r.title, summary: r.summary, installedAt: r.installedAt, counts: r.counts, boards: r.boards, presets: r.presets, source: r.source })); }
+  listing() { return this.installed().map((r) => ({ id: r.id, plan: r.plan, version: r.version, title: r.title, summary: r.summary, installedAt: r.installedAt, counts: r.counts, boards: r.boards, presets: r.presets, source: r.source, community: r.community, plugins: r.plugins })); }
+
+  // ----- (10.1) community plugins: this computer's switch, and the website's revoke list
+  pluginsDir() { return path.join(this.root, "community-plugins"); }
+  pluginsAllowed() { try { return JSON.parse(fs.readFileSync(path.join(this.root, "community-plugins.json"), "utf8")).on === true; } catch (_) { return false; } }
+  setPluginsAllowed(on) { fs.writeFileSync(path.join(this.root, "community-plugins.json"), JSON.stringify({ on: on === true, changed: new Date().toISOString().slice(0, 19) })); return this.pluginsAllowed(); }
+  revoke(ids, hashes) {
+    const named = new Set(ids || []), bad = new Set((hashes || []).map((h) => String(h).toLowerCase()).filter((h) => SHA_RE.test(h))), gone = [];
+    for (const r of this.installed()) {
+      const hit = named.has(r.id) || (bad.size && (r.plugins || []).some((pl) => (pl.binaries || []).some((b) => bad.has(b.sha256))));
+      if (hit) { try { this.remove(r.id); gone.push(r.id); } catch (_) { } }
+    }
+    return gone;
+  }
+  _unpackPlugin(id, it, data) {
+    if (!this.pluginsAllowed()) throw new Error("community plugins are off on this computer - switch on Allow community plugins first");
+    const fmt = String(it.format || ""), bundle = safeName(it.bundle, "");
+    if (!PLUGIN_FORMATS.includes(fmt) || !bundle) throw new Error("a plugin in that library isn't a plugin bundle");
+    const want = new Map((Array.isArray(it.binaries) ? it.binaries : []).filter((b) => b && b.name).map((b) => [String(b.name), String(b.sha256 || "").toLowerCase()]));
+    if (!want.size) throw new Error("a plugin in that library has no checked program files");
+    const dest = path.join(this.pluginsDir(), id), tmp = path.join(this.root, ".plugin-" + crypto.randomBytes(6).toString("hex") + ".zip");
+    fs.rmSync(dest, { recursive: true, force: true }); fs.mkdirSync(dest, { recursive: true });
+    const real = fs.realpathSync(dest), seen = new Map();
+    fs.writeFileSync(tmp, data);
+    let z = null;
+    try {
+      try { z = readZip(tmp); } catch (_) { throw new Error("a plugin in that library can't be unpacked"); }
+      let total = 0;
+      for (const n of z.names()) {
+        if (n.endsWith("/")) continue;
+        if (z.isLink(n)) throw new Error("a plugin in that library has a link in it");
+        const parts = n.replace(/\\/g, "/").split("/").filter(Boolean);
+        if (!parts.length || n.startsWith("/") || parts.some((x) => x === "." || x === "..")) throw new Error("a plugin in that library has a file outside its folder");
+        total += z.size(n); if (total > MAX_PLUGIN) throw new Error("a plugin in that library is too big");
+        const out = path.resolve(dest, ...parts); if (!out.startsWith(real + path.sep)) throw new Error("a plugin in that library has a file outside its folder");
+        const body = z.read(n); fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, body, { mode: want.has(parts.join("/")) ? 0o755 : 0o644 });
+        seen.set(parts.join("/"), sha256(body));
+      }
+      for (const [n, h] of want) if (seen.get(n) !== h) throw new Error("a plugin's program file doesn't match what Motion Audio checked - nothing was installed");
+    } catch (e) { fs.rmSync(dest, { recursive: true, force: true }); throw e; } finally { if (z) z.close(); try { fs.unlinkSync(tmp); } catch (_) { } }
+    return { name: String(it.name || bundle).slice(0, 80), format: fmt, platform: String(it.platform || ""), bundle, path: path.join(dest, bundle), binaries: Array.from(want, ([name, sha]) => ({ name, sha256: sha })) };
+  }
 
   // the plans on the engine's sound and IR lists (the rig doesn't read tiers.txt itself)
   applyTiers(msg) {
@@ -205,7 +252,8 @@ class Libraries {
     const id = man.id, tier = man.plan;
     if (this.record(id)) this.remove(id, true);
     const rec = { id, plan: tier, version: String(man.version), title: String(man.title || id).slice(0, 80), summary: String(man.summary || "").slice(0, 400), installedAt: new Date().toISOString().slice(0, 19),
-      source: source === "file" ? "file" : "website", sounds: [], irs: [], clicks: [], pads: [], loops: [], boards: [], presets: [], tier };
+      source: source === "file" ? "file" : "website", sounds: [], irs: [], clicks: [], pads: [], loops: [], boards: [], presets: [], plugins: [], tier };
+    if (man.community && typeof man.community === "object") rec.community = { item: man.community.item, creator: String(man.community.creator || "").slice(0, 80), kind: String(man.community.kind || "").slice(0, 20) };   // (10.1: from Make & sell)
     const soundLines = [], irLines = [], sounds = [], irs = [];
     for (const it of man.items) {
       if (!KINDS.includes(it.kind)) continue;   // (from a newer library: left out)
@@ -242,6 +290,8 @@ class Libraries {
         ["bpm", "meter", "bars", "seconds"].forEach((k) => { if (typeof it[k] === "number" && it[k] > 0 && it[k] < 1000) e[k] = it[k]; });
         if (PAD_KEYS.includes(it.key)) e.key = it.key;
         rec.loops.push(e);
+      } else if (it.kind === "plugin") {   // (10.1: a community plugin - only with the switch on)
+        rec.plugins.push(this._unpackPlugin(id, it, data));
       }
     }
     if (sounds.length) tiersSet(this.sf2Dir, id, soundLines);   // (the plans first: the engine sees each sound locked as it arrives)
@@ -251,6 +301,7 @@ class Libraries {
     for (const [name, data] of irs) { const f = path.join(this.irDir, name); fs.writeFileSync(f + ".part", data); fs.renameSync(f + ".part", f); rec.irs.push(f); }
     rec.counts = { sound: rec.sounds.length, ir: rec.irs.length, board: rec.boards.length, preset: rec.presets.length, click: rec.clicks.length, pad: new Set(rec.pads.map((x) => x.name)).size,
       loop: new Set(rec.loops.map((x) => x.set + "/" + x.name)).size };
+    if (rec.plugins.length) rec.counts.plugin = rec.plugins.length;   // (10.1: community plugins)
     const rf = path.join(this.root, id + ".json"); fs.writeFileSync(rf + ".part", JSON.stringify(rec, null, 1)); fs.renameSync(rf + ".part", rf);
     this.send({ type: "instrument", action: "rescan" }); this.send({ type: "instrument", action: "status" });
     return rec;
@@ -262,6 +313,7 @@ class Libraries {
     for (const f of (rec.sounds || []).concat(rec.irs || [])) { const r = path.resolve(f); if (ok.some((d) => r.startsWith(d + path.sep))) try { fs.unlinkSync(r); } catch (_) { } }
     tiersSet(this.sf2Dir, id, []); tiersSet(this.irDir, id, []);
     fs.rmSync(path.join(this.root, id), { recursive: true, force: true });
+    fs.rmSync(path.join(this.pluginsDir(), id), { recursive: true, force: true });
     if (!keepRecord) try { fs.unlinkSync(path.join(this.root, id + ".json")); } catch (_) { }
     this.send({ type: "instrument", action: "rescan" }); this.send({ type: "instrument", action: "status" });
     return { ok: true, id };

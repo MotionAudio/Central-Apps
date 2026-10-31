@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("CU", {
   health: () => ipcRenderer.invoke("sys-health"),
   onMenu: (fn) => ipcRenderer.on("menu", (_e, name, arg) => fn(name, arg)),
   platform: process.platform,
+  arch: process.arch,   // (10.1: which build of a community plugin to download)
   edition: (process.argv.find((a) => a.startsWith("--cu-edition=")) || "--cu-edition=control").split("=")[1],   // "control" (admins) or "usage" (musicians)
   // DMX output (USB-DMX Pro, Art-Net, sACN) - the page renders the universes, the main process sends them
   dmx: {
@@ -49,7 +50,7 @@ contextBridge.exposeInMainWorld("CU", {
   inst: { start: () => ipcRenderer.invoke("inst-start"), send: (m) => ipcRenderer.send("inst-send", m), stop: () => ipcRenderer.invoke("inst-stop"), on: (fn) => ipcRenderer.on("inst-msg", (_e, m) => fn(m)) },
   ai: { status: () => ipcRenderer.invoke("ai-status"), download: () => ipcRenderer.invoke("ai-download"), remove: () => ipcRenderer.invoke("ai-remove"), ask: (system, user, schema) => ipcRenderer.invoke("ai-ask", system, user, schema), on: (fn) => ipcRenderer.on("ai-status", (_e, st) => fn(st)) },
   asr: { status: () => ipcRenderer.invoke("asr-status"), config: (patch) => ipcRenderer.invoke("asr-config", patch), download: () => ipcRenderer.invoke("asr-download"), remove: () => ipcRenderer.invoke("asr-remove"), run: (job) => ipcRenderer.invoke("asr-run", job), on: (fn) => ipcRenderer.on("asr-event", (_e, m) => fn(m)) },
-  libraries: { list: () => ipcRenderer.invoke("lib-list"), index: () => ipcRenderer.invoke("lib-index"), install: (lib) => ipcRenderer.invoke("lib-install", lib), installFile: (o) => ipcRenderer.invoke("lib-install-file", o), remove: (id) => ipcRenderer.invoke("lib-remove", id), onProgress: (fn) => ipcRenderer.on("lib-progress", (_e, p) => fn(p)) },
+  libraries: { list: () => ipcRenderer.invoke("lib-list"), index: () => ipcRenderer.invoke("lib-index"), install: (lib) => ipcRenderer.invoke("lib-install", lib), installFile: (o) => ipcRenderer.invoke("lib-install-file", o), remove: (id) => ipcRenderer.invoke("lib-remove", id), community: (o) => ipcRenderer.invoke("lib-community", o), onProgress: (fn) => ipcRenderer.on("lib-progress", (_e, p) => fn(p)) },
   // the Studio tab (studio.js): sound banks, projects, exports, and cu-studio (what you play, with almost no delay)
   studio: { catalog: () => ipcRenderer.invoke("studio-catalog"), read: (file, offset, length) => ipcRenderer.invoke("studio-read", file, offset, length),
     list: () => ipcRenderer.invoke("studio-list"), load: (id) => ipcRenderer.invoke("studio-load", id), save: (id, json, audio) => ipcRenderer.invoke("studio-save", id, json, audio),

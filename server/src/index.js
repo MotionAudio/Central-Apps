@@ -29,6 +29,7 @@ import * as getfile from "./getfile.js";
 import * as purchases from "./purchases.js";
 import * as hymns from "./hymns.js";
 import * as setlists from "./setlists.js";
+import * as creators from "./creators.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -94,6 +95,7 @@ plans.routes(api, { wrap, requireUser });
 downloads.routes(api, { wrap, requireUser });
 purchases.routes(api, { wrap, requireUser });   // (10.0: the account icon → Purchases)
 libraries.routes(api, { wrap });
+creators.routes(api, app, { wrap, requireUser });   // (10.1: makers and their uploads, the community items, the review site)
 // a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first
 setlists.routes(api, { wrap, requireUser, addTrack: async (u, id) => {
   const t = await liveTrack(id);
@@ -145,7 +147,7 @@ api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
   const c = await lic.churchOf(u.id);
   const payoutsReady = u.connect_account && !u.connect_ready ? await pay.refreshConnect(u) : !!u.connect_ready;   // (back from Stripe's payout setup)
-  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), payoutsReady, payoutsStarted: !!u.connect_account,
+  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), reviewer: await creators.isReviewer(u), payoutsReady, payoutsStarted: !!u.connect_account,
     idStatus: u.id_status, idRequired: !!(config.stripe.requireIdToPublish && pay.stripe),
     emailConfirmed: !!u.email_confirmed, phone: u.phone ? signin.maskPhone(u.phone) : null, phoneConfirmed: u.phone_confirmed, twoStep: await signin.needsCode(u),
     church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, owned: await pay.ownedCounts(c.id), hasServices: (c.services_slots || 0) > 0 || lic.trialActive(c), servicesSlots: c.services_slots || 0, subscribed: c.subscribed, trialUntil: lic.trialActive(c) ? c.trial_until : null, trialUsed: !!c.trial_code } : null });
@@ -257,13 +259,14 @@ api.post("/publish", requireUser, wrap(async (req, res) => {
   const tmp = await store.fetchToTemp(b.mix.key);
   let g; try { g = await gradeAudio(tmp); } finally { fs.rm(path.dirname(tmp), { recursive: true, force: true }, () => {}); }
   if (item && g.info.duration > DEMO_MAX_SECONDS + 0.5) throw bad("Keep the demo clip under " + Math.round(DEMO_MAX_SECONDS / 60) + " minutes: it's a taste of the " + b.kind.toLowerCase() + ".");
-  const t = await one(`INSERT INTO tracks (publisher_id,title,artist,kind,song_key,bpm,stars,price_cents,grade_report,rights_ok,item_format)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10) RETURNING *`,
-    [u.id, title, artist, b.kind, String(b.key || "").slice(0, 8), Math.max(0, Math.min(400, Number(b.bpm) || 0)), g.stars, STAR_PRICE_CENTS[g.stars], JSON.stringify(g.checks), format]);
+  const held = (await creators.settings()).holdTracks;   // (10.1: a review admin approves it and sets its stars, when staff hold new uploads)
+  const t = await one(`INSERT INTO tracks (publisher_id,title,artist,kind,song_key,bpm,stars,price_cents,grade_report,rights_ok,item_format,status)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10,$11) RETURNING *`,
+    [u.id, title, artist, b.kind, String(b.key || "").slice(0, 8), Math.max(0, Math.min(400, Number(b.bpm) || 0)), g.stars, STAR_PRICE_CENTS[g.stars], JSON.stringify(g.checks), format, held ? "review" : "live"]);
   await q("INSERT INTO track_files (track_id,name,role,storage_key,is_mix) VALUES ($1,$2,$3,$4,TRUE)", [t.id, String(b.mix.name || (item ? "Demo" : "Mix")).slice(0, 200), item ? "demo" : "", b.mix.key]);
   if (item) await q("INSERT INTO track_files (track_id,name,role,storage_key,is_mix) VALUES ($1,$2,'item',$3,FALSE)", [t.id, String(b.item.name).slice(0, 200), b.item.key]);
   for (const s of stems) await q("INSERT INTO track_files (track_id,name,role,storage_key,is_mix) VALUES ($1,$2,$3,$4,FALSE)", [t.id, String(s.name || "Stem").slice(0, 200), ROLES.includes(s.role) ? s.role : "", s.key]);
-  res.json({ track: trackOut({ ...t, owned: true, mine: true }), grade: g });
+  res.json({ track: { ...trackOut({ ...t, owned: true, mine: true }), status: t.status }, grade: g, waiting: t.status === "review" });
 }));
 // a Sound (.sf2 or a zip of samples), a Board (a JSON preset) or a Click (a zip of WAVs): the right size, and really that
 // kind of file (an .sf2 starts RIFF....sfbk, a zip PK; a Board is a JSON object). Answers its format.

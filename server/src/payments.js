@@ -19,6 +19,7 @@ import { churchOf, createChurch, personalChurch, issueKeys, canon, pretty } from
 import { sendDownloadsEmail } from "./downloads.js";
 import { fmt, COVER_RELEASES } from "./versions.js";
 import { PLAN_LIVE, PLAN_END, issuePackages } from "./plans.js";
+import { recordPlanPayment, reversePlanPayment } from "./creators.js";
 
 function err(msg, status = 400, extra) { const e = new Error(msg); e.status = status; return Object.assign(e, extra || {}); }
 const S = config.stripe;
@@ -412,6 +413,12 @@ export async function handleWebhook(rawBody, signature) {
         await q("INSERT INTO subscription_payments (invoice_id,user_id,cents,paid_at,payment_intent) VALUES ($1,$2,$3,to_timestamp($4),$5) ON CONFLICT DO NOTHING",
           [o.id, u ? u.id : null, o.amount_paid, (o.status_transitions && o.status_transitions.paid_at) || Math.floor(Date.now() / 1000), paidBy ? String(paidBy.payment.payment_intent) : (o.payment_intent ? String(o.payment_intent) : null)]);
       }
+      if (o.amount_paid > 0 && invoiceKind(o) === "plans") {   // (10.1) sound plan money: the packs' income, shared with the creators each month
+        const d = (o.parent && o.parent.subscription_details) || {}, subRef = d.subscription || o.subscription, sub = subRef ? (typeof subRef === "string" ? subRef : subRef.id) : null;
+        const md = (d.metadata) || {};
+        const ps = await one("SELECT id, plans FROM plan_subs WHERE stripe_sub=$1 OR id=$2 ORDER BY (stripe_sub=$1) DESC NULLS LAST LIMIT 1", [sub || "", Number(md.plan_sub_id) || 0]);
+        await recordPlanPayment(o, ps ? ps.id : null, ps ? ps.plans : String(md.plans || "").split(",").filter(Boolean));
+      }
       break;
     case "invoice.payment_failed":
       console.warn("subscription payment failed", o.id, o.customer);   // (Stripe retries and emails; subscription.updated changes access)
@@ -552,7 +559,8 @@ export async function reverse(paymentIntent, why) {
   const inv = await stripe.invoices.retrieve(invoiceId);
   const subRef = inv.parent && inv.parent.subscription_details && inv.parent.subscription_details.subscription, sub = subRef ? (typeof subRef === "string" ? subRef : subRef.id) : null;
   const plan = sub ? await one("SELECT id FROM plan_subs WHERE stripe_sub=$1", [sub]) : null;
-  if (plan) {   // a sound plan paid back (refund or dispute): it ends now
+  if (plan) {   // a sound plan paid back (refund or dispute): it ends now, and stops counting in the creators' pool
+    await reversePlanPayment(invoiceId);
     await q("UPDATE plan_subs SET status='canceled', ended_at=COALESCE(ended_at, now()) WHERE id=$1", [plan.id]);
     await stripe.subscriptions.cancel(sub).catch((e) => console.warn("cancel:", e.message));
     return;

@@ -10,6 +10,11 @@ export const config = {
   alertEmail: (env.ALERT_EMAIL || env.SUPPORT_EMAIL || "").trim(),   // (error alerts somewhere else, if wanted)
   sms: { sid: env.TWILIO_ACCOUNT_SID || "", token: env.TWILIO_AUTH_TOKEN || "", from: env.TWILIO_FROM || "", api: env.TWILIO_API_URL || "https://api.twilio.com" },
   adminEmails: (env.ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+  // (10.1) the owner: the website's main admin - changes anything (prices, the creators' share, content, users) and
+  // picks the review admins. Built in, besides ADMIN_EMAILS; signs up like anyone (email confirmation + phone code).
+  ownerEmails: ["samuelbarfieldofficial@gmail.com"].concat(String(env.OWNER_EMAILS || "").split(",")).map((s) => s.trim().toLowerCase()).filter((s, i, a) => s && a.indexOf(s) === i),   // (10.1: the website's owner, built in; OWNER_EMAILS adds more)
+  // (10.1) the review site's address: only staff have the link (not linked from the public pages, not indexed)
+  reviewPath: "/" + String(env.REVIEW_PATH || "").replace(/^\/+|\/+$/g, ""),
   stripe: {
     secret: env.STRIPE_SECRET_KEY || "",                 // sk_... or a restricted rk_... key (SETUP.md lists its permissions)
     publishable: env.STRIPE_PUBLISHABLE_KEY || "",       // pk_...: the payment form on the page, and the payout settings

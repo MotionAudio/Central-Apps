@@ -44,7 +44,7 @@ const KEY_SQL = `SELECT k.*, c.name AS church, c.closed_at, s.status AS sub_stat
   FROM package_keys k LEFT JOIN plan_subs s ON s.id=k.plan_sub_id LEFT JOIN churches c ON c.id=k.church_id`;
 // a person's package keys: bought by them, or given to them
 export const packageRows = (email, userId) => q(KEY_SQL + " WHERE NOT k.revoked AND (k.holder_email=$1 OR (k.user_id=$2 AND k.church_id IS NULL)) ORDER BY k.created_at DESC", [String(email || "").toLowerCase(), userId]);
-const findKey = async (key) => { const c = canon(key); return c.length === 16 && c[0] === "S" ? one(KEY_SQL + " WHERE k.key=$1", [c]) : null; };
+export const findKey = async (key) => { const c = canon(key); return c.length === 16 && c[0] === "S" ? one(KEY_SQL + " WHERE k.key=$1", [c]) : null; };
 
 // what a key gives now: { ok, plans: { keys: "<ISO end>" }, end, error }
 export function keyState(k) {

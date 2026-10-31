@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<title>Review · Motion Audio</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/create/maker.css">
+<meta name="theme-color" content="#111317">
+<style>
+.rv-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.rv-why{display:grid;gap:.4rem}.rv-why textarea{min-height:64px}
+.rv-head{display:flex;gap:.6rem;align-items:baseline;flex-wrap:wrap;justify-content:space-between}
+.rv-two{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:.9rem}
+@media (max-width:760px){.rv-two{grid-template-columns:1fr}}
+.rv-hash{font-size:.76rem;color:var(--muted);word-break:break-all}
+.rv-sugg{font-size:.82rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<!-- The review site (10.1): its own address that only staff are given; staff sign-in (with the phone code) and the
+     review admin role are checked by the server on every call. Nothing here is linked from the public pages. -->
+<header class="top">
+  <a class="home" href="/"><img src="/brand/glyph-motion-audio.svg" alt="">Motion Audio</a>
+  <h1>Review</h1>
+  <div class="who" id="who"></div>
+</header>
+<nav class="tabs" id="tabs" hidden></nav>
+<main id="main"><div class="card"><p class="muted" style="margin:0">Loading…</p></div></main>
+<script src="/create/upload.js"></script>
+<script>
+(function () {
+  "use strict";
+  var M = window.Maker, main = document.getElementById("main"), tabs = document.getElementById("tabs"), who = document.getElementById("who");
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function when(d) { return d ? new Date(d).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : ""; }
+  function size(b) { b = Number(b) || 0; return b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
+  var STAR_PRICE = { 1: 5, 2: 10, 3: 15, 4: 20, 5: 30 };
+  var S = { me: null, tab: "waiting", data: null, msg: "", err: "" };
+  var TABS = [["waiting", "Waiting"], ["live", "Live"], ["rejected", "Rejected"], ["pulled", "Taken down"], ["reports", "Reports"], ["blocked", "Blocked files"]];
+  var OWNER_TABS = [["admins", "Review admins"], ["share", "Creators' share"], ["settings", "Settings"], ["pools", "Pools"]];
+
+  function start() {
+    M.api("GET", "/review/me").then(function (me) {
+      S.me = me;
+      if (!me.signedIn) return gate("Sign in with your Motion Audio account to continue.", true);
+      if (!me.reviewer) return gate("This page is for Motion Audio staff.", false);
+      if (!me.stepped) return gate("Staff confirm their sign-in with a code sent to their phone. Sign out and sign in again on the website, then come back to this address.", true);
+      who.textContent = me.email + (me.owner ? " · main admin" : " · review admin");
+      tabs.hidden = false; load();
+    }).catch(function (e) { gate(e.message, true); });
+  }
+  function gate(text, canSignIn) {
+    main.innerHTML = '<div class="card center"><h2>Review</h2><p class="muted" style="margin:0">' + esc(text) + "</p>" + (canSignIn ? '<div class="row"><button class="primary" id="signIn">Sign in</button></div>' : "") + "</div>";
+    if (canSignIn) $("#signIn").onclick = function () { M.signIn(location.pathname); };
+  }
+  function drawTabs(counts) {
+    var all = TABS.concat(S.me.owner ? OWNER_TABS : []);
+    tabs.innerHTML = all.map(function (t) { var n = t[0] === "waiting" && counts ? counts.items + counts.tracks : t[0] === "reports" && counts ? counts.reports : 0; return '<button data-tab="' + t[0] + '" class="' + (S.tab === t[0] ? "on" : "") + '">' + t[1] + (n ? '<span class="count">' + n + "</span>" : "") + "</button>"; }).join("");
+  }
+  tabs.addEventListener("click", function (e) { var b = e.target.closest("[data-tab]"); if (b) { S.tab = b.dataset.tab; S.msg = S.err = ""; load(); } });
+  function load() {
+    var t = S.tab, path = ["waiting", "live", "rejected", "pulled"].indexOf(t) >= 0 ? "/review/queue?status=" + t : { reports: "/review/reports", blocked: "/review/blocked", admins: "/review/admins", share: "/review/share", settings: "/review/share", pools: "/review/pools" }[t];
+    main.innerHTML = '<div class="card"><p class="muted" style="margin:0">Loading…</p></div>';
+    M.api("GET", path).then(function (d) { S.data = d; if (d.counts) S.counts = d.counts; drawTabs(S.counts); draw(); })
+      .catch(function (e) { drawTabs(S.counts); main.innerHTML = '<div class="card"><p class="err" style="margin:0">' + esc(e.message) + "</p></div>"; });
+  }
+  function note() { return (S.msg ? '<div class="card"><p class="okmsg" style="margin:0">' + esc(S.msg) + "</p></div>" : "") + (S.err ? '<div class="card"><p class="err" style="margin:0">' + esc(S.err) + "</p></div>" : ""); }
+  function act(path, body, done) { S.err = ""; return M.api("POST", path, body).then(function (r) { S.msg = done || "Done."; load(); return r; }).catch(function (e) { S.err = e.message; S.msg = ""; draw(); }); }
+  function draw() {
+    var t = S.tab;
+    if (["waiting", "live", "rejected", "pulled"].indexOf(t) >= 0) return drawQueue();
+    ({ reports: drawReports, blocked: drawBlocked, admins: drawAdmins, share: drawShare, settings: drawSettings, pools: drawPools })[t]();
+  }
+
+  // ------------------------------------------------------------- the queue: community items and Central Tracks
+  function starPicker(name, val) { return '<span class="stars" data-stars="' + name + '" data-val="' + (val || 0) + '">' + [1, 2, 3, 4, 5].map(function (n) { return '<button type="button" data-n="' + n + '" class="' + (n <= (val || 0) ? "on" : "") + '" aria-label="' + n + ' stars">★</button>'; }).join("") + "</span>"; }
+  function drawQueue() {
+    var d = S.data, waiting = S.tab === "waiting";
+    var empty = !d.items.length && !d.tracks.length;
+    main.innerHTML = note() + (empty ? '<div class="card"><p class="muted" style="margin:0">' + (waiting ? "Nothing is waiting for review." : "Nothing here.") + "</p></div>" : "") +
+      d.items.map(itemCard).join("") + d.tracks.map(trackCard).join("");
+    $$("[data-stars]").forEach(function (sp) { sp.addEventListener("click", function (e) { var b = e.target.closest("[data-n]"); if (!b) return; sp.dataset.val = b.dataset.n; $$("button", sp).forEach(function (x) { x.classList.toggle("on", +x.dataset.n <= +b.dataset.n); }); var pr = sp.parentNode.querySelector("[data-price]"); if (pr) pr.textContent = "$" + STAR_PRICE[b.dataset.n] + " single sale"; }); });
+    $$("[data-do]").forEach(function (b) { b.onclick = function () { doIt(b); }; });
+  }
+  function itemCard(it) {
+    var waiting = it.status === "waiting", live = it.status === "live";
+    return '<div class="card" data-item="' + it.id + '"><div class="rv-head"><h2>' + esc(it.title) + ' <span class="st ' + it.status + '">' + esc({ waiting: "Waiting for review", live: "Live", rejected: "Rejected", pulled: "Taken down" }[it.status] || it.status) + "</span></h2><span class=\"muted small\">" + esc(it.kindName) + " · " + esc(it.packName) + " · sent " + when(it.submitted) + "</span></div>" +
+      '<div class="rv-two"><div style="display:grid;gap:.55rem;min-width:0;align-content:start">' +
+        '<div class="meta"><span>By <b style="color:var(--fg)">' + esc(it.creator) + "</b> (" + esc(it.creatorEmail) + ")</span>" + (it.key ? "<span>Key " + esc(it.key) + "</span>" : "") + (it.bpm ? "<span>" + it.bpm + " BPM</span>" : "") + (it.bars ? "<span>" + it.bars + " bars</span>" : "") + (it.tags.length ? "<span>" + esc(it.tags.join(", ")) + "</span>" : "") + (it.madeInStudio ? "<span>Made in the studio</span>" : "") + "<span>" + it.downloads + " downloads</span></div>" +
+        (it.description ? '<p style="margin:0">' + esc(it.description) + "</p>" : "") +
+        (it.demo ? '<audio controls preload="none" src="' + esc(it.demo) + '"></audio>' : '<p class="muted small" style="margin:0">No demo clip (download the files to try it).</p>') +
+        '<h3>Files</h3><div class="files">' + it.files.map(function (f) { return "<div>" + esc({ source: "Uploaded", demo: "Demo", package: "Package (what the apps install)" }[f.role]) + (f.platform ? " · " + esc(f.platform) : "") + ': <a href="' + esc(f.url) + '">' + esc(f.name) + "</a> " + size(f.bytes) + (f.sha256 ? '<div class="rv-hash">sha256 ' + esc(f.sha256) + "</div>" : "") + (f.binaries && f.binaries.length ? f.binaries.map(function (b) { return '<div class="rv-hash">program ' + esc(b.name) + " · " + esc(b.sha256) + "</div>"; }).join("") : "") + "</div>"; }).join("") + "</div>" +
+        (it.reports && it.reports.length ? '<h3>Reports</h3><div class="files">' + it.reports.map(function (r) { return "<div>" + esc(r.reason) + ' <span class="muted">· ' + esc(r.reporter) + " · " + when(r.created_at) + "</span></div>"; }).join("") + "</div>" : "") +
+      '</div><div style="display:grid;gap:.6rem;align-content:start">' +
+        '<h3>Automatic checks</h3><ul class="checks">' + (it.checks || []).map(function (c) { return '<li class="' + (c.ok ? "" : "bad") + '">' + esc(c.text) + "</li>"; }).join("") + "</ul>" +
+        (it.autoStars ? '<span class="rv-sugg">The demo clip\'s sound quality suggests ' + it.autoStars + " stars.</span>" : "") +
+        (it.reason ? '<p class="err" style="margin:0">' + esc(it.reason) + "</p>" : "") +
+        (it.kind === "plugin" ? '<span class="label-plugin">Apps show: ' + esc(it.label) + "</span>" : "") +
+        '<label>Stars (weight in the pool: downloads × stars)' + starPicker("i" + it.id, it.stars || it.autoStars || 0) + "</label>" +
+        (waiting || it.status !== "live" ? '<div class="rv-actions"><button class="ok" data-do="approve" data-id="' + it.id + '">Approve' + (waiting ? "" : " again") + "</button></div>" : '<div class="rv-actions"><button data-do="stars" data-id="' + it.id + '">Save stars</button></div>') +
+        (waiting ? '<div class="rv-why"><textarea placeholder="Why it can\'t go out yet (the creator gets this by email)" data-why="' + it.id + '"></textarea><div class="rv-actions"><button class="no" data-do="reject" data-id="' + it.id + '">Reject</button></div></div>' : "") +
+        (live ? '<div class="rv-why"><textarea placeholder="Why it\'s being taken down (the creator gets this by email)" data-why="' + it.id + '"></textarea>' + (it.kind === "plugin" ? '<label class="check"><input type="checkbox" data-block="' + it.id + '"><span>Also block its program files everywhere (by sha256)</span></label>' : "") + '<div class="rv-actions"><button class="no" data-do="pull" data-id="' + it.id + '">Take it down</button><span class="muted small">It comes off every device (the apps check the revoke list).</span></div></div>' : "") +
+      "</div></div></div>";
+  }
+  function trackCard(t) {
+    var waiting = t.status === "review";
+    return '<div class="card" data-track="' + t.id + '"><div class="rv-head"><h2>' + esc(t.title) + ' <span class="st ' + t.status + '">' + esc({ review: "Waiting for review", live: "Live", hidden: "Taken down", removed: "Rejected" }[t.status] || t.status) + '</span></h2><span class="muted small">Central Tracks · ' + esc(t.kind) + " · " + when(t.created) + "</span></div>" +
+      '<div class="rv-two"><div style="display:grid;gap:.55rem;min-width:0;align-content:start"><div class="meta"><span>' + esc(t.artist) + "</span><span>By <b style=\"color:var(--fg)\">" + esc(t.publisher) + "</b> (" + esc(t.publisherEmail) + ")</span>" + (t.key ? "<span>Key " + esc(t.key) + "</span>" : "") + (t.bpm ? "<span>" + t.bpm + " BPM</span>" : "") + "</div>" +
+        (t.files[0] ? '<audio controls preload="none" src="' + esc(t.files[0].url) + '"></audio>' : "") +
+        '<div class="files">' + t.files.map(function (f) { return '<div><a href="' + esc(f.url) + '">' + esc(f.name) + "</a>" + (f.mix ? " (mix)" : f.role ? " · " + esc(f.role) : "") + "</div>"; }).join("") + "</div></div>" +
+      '<div style="display:grid;gap:.6rem;align-content:start"><h3>Automatic grade</h3><ul class="checks">' + (t.grade || []).map(function (c) { return '<li class="' + (c.ok ? "" : "bad") + '">' + esc(c.text) + "</li>"; }).join("") + "</ul>" +
+        (t.note ? '<p class="err" style="margin:0">' + esc(t.note) + "</p>" : "") +
+        '<label>Stars (set the price)' + starPicker("t" + t.id, t.stars) + '<span class="muted small" data-price>$' + STAR_PRICE[t.stars] + " single sale</span></label>" +
+        '<div class="rv-actions">' + (waiting || t.status !== "live" ? '<button class="ok" data-do="tapprove" data-id="' + t.id + '">Approve</button>' : '<button data-do="tstars" data-id="' + t.id + '">Save stars</button>') + "</div>" +
+        (waiting || t.status === "live" ? '<div class="rv-why"><textarea placeholder="' + (waiting ? "Why it can't go out yet" : "Why it's being taken down") + ' (the publisher gets this by email)" data-whyt="' + t.id + '"></textarea><div class="rv-actions"><button class="no" data-do="treject" data-id="' + t.id + '">' + (waiting ? "Reject" : "Take it down") + "</button></div></div>" : "") +
+      "</div></div></div>";
+  }
+  function doIt(b) {
+    var id = b.dataset.id, d = b.dataset.do, track = d.charAt(0) === "t";
+    var stars = +(($('[data-stars="' + (track ? "t" : "i") + id + '"]') || {}).dataset || {}).val || 0;
+    var why = ($(track ? '[data-whyt="' + id + '"]' : '[data-why="' + id + '"]') || {}).value || "";
+    if (d === "approve") return act("/review/items/" + id + "/approve", { stars: stars }, "Approved with " + stars + " stars: it's live, and the creator was emailed.");
+    if (d === "stars") return act("/review/items/" + id + "/stars", { stars: stars }, "Stars saved.");
+    if (d === "reject") return act("/review/items/" + id + "/reject", { reason: why }, "Rejected: the creator was emailed the reason.");
+    if (d === "pull") { if (!confirm("Take it down? It comes off every device it's installed on.")) return; return act("/review/items/" + id + "/pull", { reason: why, block: !!($('[data-block="' + id + '"]') || {}).checked }, "Taken down: it's on the revoke list, and the creator was emailed."); }
+    if (d === "tapprove") return act("/review/tracks/" + id + "/approve", { stars: stars }, "Approved with " + stars + " stars.");
+    if (d === "tstars") return act("/review/tracks/" + id + "/stars", { stars: stars }, "Stars and price saved.");
+    if (d === "treject") return act("/review/tracks/" + id + "/reject", { reason: why }, "Done: the publisher was emailed.");
+  }
+
+  // ------------------------------------------------------------- reports and blocked files
+  function drawReports() {
+    var r = S.data.reports;
+    main.innerHTML = note() + '<div class="card"><h2>Reports</h2>' + (r.length ? '<div class="scroll"><table><thead><tr><th>When</th><th>Item</th><th>What\'s wrong</th><th>From</th></tr></thead><tbody>' + r.map(function (x) { return "<tr><td>" + when(x.created_at) + "</td><td>" + esc(x.title) + ' <span class="st ' + x.status + '">' + esc(x.status) + "</span><br><span class=\"muted small\">" + esc(x.kind) + " #" + x.item_id + "</span></td><td>" + esc(x.reason) + "</td><td>" + esc(x.reporter) + (x.device ? '<br><span class="muted small">' + esc(x.device) + "</span>" : "") + "</td></tr>"; }).join("") + "</tbody></table></div>" : '<p class="muted" style="margin:0">No reports.</p>') + "</div>";
+  }
+  function drawBlocked() {
+    var h = S.data.hashes;
+    main.innerHTML = note() + '<div class="card"><h2>Blocked files</h2><p class="muted" style="margin:0">Files nobody can upload, and that the apps remove (a plugin\'s program file), by sha256.</p>' +
+      '<form class="grid2" id="blkForm"><label>sha256<input id="blkHash" placeholder="64 letters and digits"></label><label>Why<input id="blkWhy"></label><div class="row"><button class="primary">Block it</button></div></form>' +
+      (h.length ? '<div class="scroll"><table><thead><tr><th>sha256</th><th>Why</th><th>By</th><th></th></tr></thead><tbody>' + h.map(function (x) { return '<tr><td class="rv-hash">' + esc(x.sha256) + "</td><td>" + esc(x.why) + "</td><td>" + esc(x.added_by) + " · " + when(x.added_at) + "</td><td>" + (S.me.owner ? '<button class="small" data-unblock="' + esc(x.sha256) + '">Unblock</button>' : "") + "</td></tr>"; }).join("") + "</tbody></table></div>" : "") + "</div>";
+    $("#blkForm").onsubmit = function (e) { e.preventDefault(); act("/review/blocked", { sha256: $("#blkHash").value, why: $("#blkWhy").value }, "Blocked."); };
+    $$("[data-unblock]").forEach(function (b) { b.onclick = function () { act("/review/blocked", { sha256: b.dataset.unblock, remove: true }, "Unblocked."); }; });
+  }
+
+  // ------------------------------------------------------------- the main admin's pages
+  function drawAdmins() {
+    var d = S.data;
+    main.innerHTML = note() + '<div class="card"><h2>Review admins</h2><p class="muted" style="margin:0">Review admins can listen to, grade, approve, reject and take down uploads. They can\'t change prices, the creators\' share, users or anything else. They sign in with their own account and confirm it with a code sent to their phone.</p>' +
+      '<form class="row" id="raForm"><input id="raEmail" type="email" placeholder="their account\'s email" style="flex:1;min-width:220px"><button class="primary">Add</button></form>' +
+      '<div class="scroll"><table><thead><tr><th>Email</th><th>Added by</th><th></th></tr></thead><tbody>' +
+        d.staff.map(function (e) { return "<tr><td>" + esc(e) + '</td><td class="muted">Main admin (always)</td><td></td></tr>'; }).join("") +
+        d.admins.map(function (a) { return "<tr><td>" + esc(a.email) + "</td><td>" + esc(a.added_by) + " · " + when(a.added_at) + '</td><td><button class="small no" data-rm="' + esc(a.email) + '">Remove</button></td></tr>'; }).join("") +
+      "</tbody></table></div></div>";
+    $("#raForm").onsubmit = function (e) { e.preventDefault(); act("/review/admins", { email: $("#raEmail").value }, "Added."); };
+    $$("[data-rm]").forEach(function (b) { b.onclick = function () { if (confirm("Remove " + b.dataset.rm + " as a review admin?")) act("/review/admins", { email: b.dataset.rm, remove: true }, "Removed."); }; });
+  }
+  function pct(v) { return Math.round(Number(v) * 1000) / 10 + "%"; }
+  function drawShare() {
+    var d = S.data, nextMonth = (function () { var p = d.month.split("-").map(Number); return new Date(Date.UTC(p[0], p[1], 1)).toISOString().slice(0, 7); })();
+    main.innerHTML = note() + '<div class="card"><h2>Creators\' share</h2><p class="muted" style="margin:0">Each month this share of each sound plan\'s money (a yearly payment counts 1/12 a month) is split among creators by downloads × stars. Motion Audio\'s own sounds count in the total, and keep their part. A change starts in the month you pick; months already worked out stay as they were.</p>' +
+      '<div class="scroll"><table><thead><tr><th>Sound plan</th><th>This month (' + esc(d.month) + ')</th><th>Next month</th></tr></thead><tbody>' + d.packs.map(function (p) { return "<tr><td>" + esc(p.name) + "</td><td><b>" + pct(d.current[p.id]) + "</b></td><td>" + pct(d.nextMonth[p.id]) + "</td></tr>"; }).join("") + "</tbody></table></div>" +
+      '<form class="grid3" id="shForm"><label>Sound plan<select id="shPack"><option value="all">All of them</option>' + d.packs.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + "</option>"; }).join("") + '</select></label><label>Creators\' share (%)<input id="shPct" type="number" min="0" max="100" step="0.5" value="75"></label><label>From the month<input id="shFrom" type="month" value="' + nextMonth + '" min="' + d.month + '"></label><label>Note<input id="shNote" placeholder="why (for the history)"></label><div class="row"><button class="primary">Save</button></div></form></div>' +
+      '<div class="card"><h3>History</h3>' + (d.history.length ? '<div class="scroll"><table><thead><tr><th>Changed</th><th>Sound plan</th><th>Share</th><th>From</th><th>By</th><th>Note</th></tr></thead><tbody>' + d.history.map(function (h) { return "<tr><td>" + when(h.changed_at) + "</td><td>" + esc(h.pack) + "</td><td>" + pct(h.share) + "</td><td>" + esc(h.from_month) + "</td><td>" + esc(h.changed_by) + "</td><td>" + esc(h.note) + "</td></tr>"; }).join("") + "</tbody></table></div>" : '<p class="muted" style="margin:0">No changes yet: every plan is at 75%.</p>') + "</div>";
+    $("#shForm").onsubmit = function (e) { e.preventDefault(); act("/review/share", { pack: $("#shPack").value, percent: +$("#shPct").value, fromMonth: $("#shFrom").value, note: $("#shNote").value }, "Saved."); };
+  }
+  function drawSettings() {
+    var s = S.data.settings;
+    main.innerHTML = note() + '<form class="card" id="stForm"><h2>Settings</h2>' +
+      '<label class="check"><input type="checkbox" id="stHold"' + (s.holdTracks ? " checked" : "") + '><span>Hold new Central Tracks uploads for review (otherwise they go live at once with the machine\'s stars, and can still be graded and taken down here)</span></label>' +
+      '<div class="grid3"><label>Stars for Motion Audio\'s own sounds in the pool<input id="stOff" type="number" min="1" max="5" value="' + s.officialStars + '"></label><label>Minimum payout ($)<input id="stMin" type="number" min="1" step="1" value="' + s.minPayoutCents / 100 + '"></label></div>' +
+      '<div class="row"><button class="primary">Save</button></div></form>';
+    $("#stForm").onsubmit = function (e) { e.preventDefault(); act("/review/settings", { holdTracks: $("#stHold").checked, officialStars: +$("#stOff").value, minPayout: +$("#stMin").value }, "Saved."); };
+  }
+  function drawPools() {
+    var d = S.data, m = function (c) { return "$" + (Number(c || 0) / 100).toFixed(2); };
+    main.innerHTML = note() + '<div class="card"><h2>Pools</h2><p class="muted" style="margin:0">This month\'s money so far, per sound plan: ' + Object.keys(d.income).map(function (k) { return esc(k) + " " + m(d.income[k]); }).join(" · ") + ". Each month's pool is worked out with the payouts on the 1st.</p>" +
+      (d.pools.length ? '<div class="scroll"><table><thead><tr><th>Month</th><th>Plan</th><th>Money</th><th>Share</th><th>Creators\' pot</th><th>All downloads × stars</th><th>Motion Audio\'s</th></tr></thead><tbody>' + d.pools.map(function (p) { return "<tr><td>" + esc(p.month) + "</td><td>" + esc(p.pack) + "</td><td>" + m(p.income) + "</td><td>" + pct(p.share) + "</td><td>" + m(p.pot) + "</td><td>" + p.total_weight + "</td><td>" + p.motion_weight + "</td></tr>"; }).join("") + "</tbody></table></div>" : '<p class="muted" style="margin:0">No months worked out yet.</p>') + "</div>";
+  }
+  start();
+})();
+</script>
+</body>
+</html>
