@@ -54,11 +54,15 @@
       else if (a === "listen" && me) { if (listening) stopListening(); else startListening(); }
       else if (a === "retry") { refused = null; connect(); }
     });
+    // (10.0.1) the team's talk: the music in this mix dips while someone talks (talkback.js calls it; 0 = back up)
+    var duckDb = 0;
+    window.CUInEarDuck = function (db) { duckDb = Number(db) || 0; if (player) player.setGain(duckDb ? Math.pow(10, duckDb / 20) : 1); };
     async function startListening() {
       var me = mine(); if (!me) return;
       if (!player) player = IE.player({ latency: latency, sinkId: sink });
       window.CUInEarStats = function () { return player && listening ? player.stats() : null; };   // for the main admin's Devices tab
       await player.start(); listening = true;
+      if (duckDb) player.setGain(Math.pow(10, duckDb / 20));
       link.listen(me.m, true, { rate: opt.rate || 48000 }); render();
     }
     function stopListening() { var me = mine(); if (listening && link && me) link.listen(me.m, false); listening = false; if (player) { player.stop(); player = null; } render(); }

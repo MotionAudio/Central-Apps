@@ -1,4 +1,4 @@
-/* Central Control - the Mix tab, under the channels: "Reverb & delay" (the two shared FX, and how much of each every
+/* Central Control - the Online mix tab, under the channels: "Reverb & delay" (the two shared FX, and how much of each every
  * in-ear mix hears) and "Stream mix" (the live stream's own mix: its master, compressor, outputs, and where it goes -
  * an output pair, a virtual sound device for OBS / Zoom on this computer, live online with a still picture, the Video
  * tab's stream, the service recording). Its channel levels are on the faders with "Faders: Stream mix" (mix.js).

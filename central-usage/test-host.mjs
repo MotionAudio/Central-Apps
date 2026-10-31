@@ -33,7 +33,7 @@ await pi.evaluate(() => { PPTracks.goSection(0, { immediate: true }); PPTracks.p
 
 // ---- Central Control: admin, audio host
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-host-ud-"));
-fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", name: "Desk", host: { enabled: true, port: HOST_PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "ethernet", latency: 80 }, recordDir: path.join(userData, "rec") }));
+fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", jobsPicked: true, name: "Desk", host: { enabled: true, port: HOST_PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "ethernet", latency: 80 }, recordDir: path.join(userData, "rec") }));
 fs.writeFileSync(path.join(userData, "mixer.json"), JSON.stringify({ device: { backend: "internal", buffer: 256 } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
 // (9.5: Central Control needs a key - with no website yet, its default A key)

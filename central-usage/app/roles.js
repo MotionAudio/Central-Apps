@@ -41,6 +41,51 @@
   }
   function name() { return (CU.config() || {}).name || CU.store.get("name", "") || "Central Control"; }
 
+  // ------------------------------------------------------------- (10.0.1) the main admin's admin code
+  // Four digits only the main admin knows (picked at setup; it used to be called the role PIN). Changing what a
+  // computer does, switching its role and starting its setup again all ask for it. The center checks it; when the
+  // center can't be reached, this computer checks it against the salted copy the center gave it.
+  function hasCode() { var v = view || {}; return CU.role() === "main" ? !!(keys() || {}).pin : !!(v.hasAdminCode || CU.store.get("adminCheck", null)); }
+  async function sha256hex(t) {
+    if (!(window.crypto && crypto.subtle)) return "";
+    var b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+    return Array.prototype.map.call(new Uint8Array(b), function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
+  }
+  async function codeOkHere(pin) {
+    if (CU.role() === "main") return String(pin) === String((keys() || {}).pin || "");
+    var c = CU.store.get("adminCheck", null); if (!c || !c.salt) return null;   // (null: can't tell here)
+    return (await sha256hex(c.salt + ":" + String(pin))) === c.hash;
+  }
+  // asks for the code; resolves with it when it's right, null when cancelled or wrong (it says which)
+  async function askAdminCode(why) {
+    if (!hasCode()) return "";
+    var pin = await CU.askText((why || "This needs the admin code") + " - the main admin's 4 digits:", "");
+    if (pin == null) return null; pin = pin.trim();
+    if (!/^\d{4}$/.test(pin)) { alert("The admin code is 4 digits."); return null; }
+    if (linked() && CU.role() !== "main") { var r = await request("checkCode", { pin: pin }); if (!r.ok) { alert(r.error || "That's not the admin code."); return null; } return pin; }
+    var here = await codeOkHere(pin);
+    if (here === null) { alert("Connect to the main admin's computer first - it checks the admin code."); return null; }
+    if (!here) { alert("That's not the admin code. Only the main admin knows it."); return null; }
+    return pin;
+  }
+  // forgot the code: with the website open, the main admin signs in to the church account; before that, only the main
+  // admin's own computer can set a new one
+  async function forgotCode() {
+    if (CU.role() !== "main") { alert("Only the main admin can reset the admin code - on the main admin's computer (Settings → This computer → Forgot it?)."); return; }
+    var L = window.PPLicense, server = L && L.server ? L.server() : "";
+    if (server) {
+      var email = await CU.askText("Reset the admin code: sign in with the church's main admin account. Email:", ""); if (!email) return;
+      var pw = await CU.askText("Password for " + email.trim() + ":", ""); if (pw == null) return;
+      var ok = false, err = "";
+      try { var res = await fetch(server.replace(/\/$/, "") + "/v1/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim(), password: pw, device: devId() }) }); var j = await res.json().catch(function () { return {}; }); ok = res.ok && !!(j.token || j.step); err = j.error || ""; } catch (e) { err = "The website could not be reached."; }
+      if (!ok) { alert(err || "That account didn't sign in."); return; }
+    } else if (!confirm("The Motion Audio website isn't open yet, so the admin code is reset here, on the main admin's computer. Set a new one now?")) return;
+    var p = await CU.askText("New admin code (4 digits, not the pairing PIN):", ""); if (p == null) return; p = p.trim();
+    if (!/^\d{4}$/.test(p)) { alert("The admin code is 4 digits."); return; }
+    if (p === (keys() || {}).pair) { alert("Use a different code from the pairing PIN."); return; }
+    await setKeys({ newPin: p }); toast("The admin code is changed.");
+  }
+
   // ------------------------------------------------------------- talking to the center (the main admin's computer)
   function linked() { return window.CUCenter ? window.CUCenter.connected() : CU.state.connected; }
   function hello() {
@@ -49,6 +94,7 @@
     var m = { type: "cuRole", action: "hello", id: devId(), name: name(), role: r, edition: CU.edition ? CU.edition() : undefined };
     if (r === "main") { var k = keys() || {}; m.token = k.token; m.pin = k.pin; m.pair = k.pair; if (CU.prefs.code) m.code = CU.prefs.code; }
     if ((r === "main" || r === "admin") && CU.jobsAt && CU.jobsAt() > 0) { m.jobs = CU.jobs(); m.jobsV = 2; m.jobsAt = CU.jobsAt(); }
+    if (CU.store.get("jobsPicked", false)) m.jobsPicked = true;
     CU.send(m);
   }
   function request(action, extra) {
@@ -80,6 +126,7 @@
         var k1 = keys() || {}; if (m.pairPin && k1.pair !== m.pairPin) setKeys({ newPair: m.pairPin });   // the pedal's PIN is the pairing PIN
         if (m.pairPin && CU.prefs.code !== m.pairPin) { CU.prefs.code = m.pairPin; CU.store.set("code", m.pairPin); }
       }
+      if (m.adminCheck && JSON.stringify(m.adminCheck) !== JSON.stringify(CU.store.get("adminCheck", null))) CU.store.set("adminCheck", m.adminCheck);
       if (m.hostCodes) {
         if (m.hostCodes.user && m.hostCodes.user !== CU.store.get("userCode", "")) CU.store.set("userCode", m.hostCodes.user);
         if (m.hostCodes.admin && m.hostCodes.admin !== CU.store.get("adminCode", "")) { CU.store.set("adminCode", m.hostCodes.admin); if (window.CUMix && window.CUMix.refresh) window.CUMix.refresh(); }
@@ -182,6 +229,37 @@
     setTimeout(function () { t.classList.add("out"); }, 4500); setTimeout(function () { t.remove(); }, 5200);
   }
 
+  // ------------------------------------------------------------- (10.0.1) the jobs step for a computer set up before 10.0
+  // It was set up as the main admin or an admin before computers had jobs, so the 10.0 setup window never showed: it
+  // asks once now. The main admin also picks its admin code here (the role PIN of before was never shown to it).
+  function askJobs() {
+    if (document.getElementById("jobsPick") || document.getElementById("modePick")) return;
+    var main = CU.role() === "main", d = document.createElement("div"); d.id = "jobsPick"; d.className = "mode-pick";
+    var cur = CU.jobs();
+    d.innerHTML = '<div class="mode-box"><h2>What will this computer do?</h2><p class="muted small">New in Central Control 10: each computer runs only the jobs you pick here. One computer can do everything, or each job can have its own computer.</p>' +
+      jobsPicker(cur[0] === "general" ? [] : cur, "data-jp-job") +
+      (main ? '<label class="rp-code">Your admin code <small class="muted">(4 digits only you know - it\'s needed later to change what a computer does, switch its role or start its setup again)</small><input data-jp="pin" inputmode="numeric" maxlength="4" placeholder="4 digits, not the pairing PIN" autocomplete="off"></label>' : "") +
+      '<div class="row"><button class="primary" data-jp="save">Save</button><button data-jp="all">All of them</button></div><p class="rp-msg warn"></p></div>';
+    document.body.appendChild(d);
+    var msg = function (t) { d.querySelector(".rp-msg").textContent = t || ""; };
+    d.addEventListener("change", function (e) { var j = e.target.closest(".rp-job"); if (j) j.classList.toggle("on", e.target.checked); });
+    d.addEventListener("click", async function (e) {
+      var b = e.target.closest("[data-jp]"); if (!b || b.tagName === "INPUT") return; e.preventDefault();
+      if (b.dataset.jp === "all") { d.querySelectorAll("[data-jp-job]").forEach(function (x) { x.checked = true; x.closest(".rp-job").classList.add("on"); }); return; }
+      var picked = pickedIn(d, "data-jp-job"); if (!picked.length) return msg("Pick at least one job - or All of them.");
+      if (main) {
+        var pin = d.querySelector('[data-jp="pin"]').value.trim();
+        if (!/^\d{4}$/.test(pin)) return msg("The admin code is 4 digits.");
+        if (pin === (keys() || {}).pair) return msg("Use a different code from the pairing PIN (everyone knows that one).");
+        await setKeys({ newPin: pin });
+      }
+      await CU.setJobs(picked); CU.store.set("jobsPicked", true);
+      if (linked()) { var rj = await request("myJobs", { jobs: CU.normJobs(picked, 2), jobsV: 2 }); if (rj.ok && rj.jobsAt) await CU.setJobs(rj.jobs, rj.jobsAt); }
+      d.remove(); toast("This computer does: " + jobText(CU.jobs()) + "." + (main ? " Your admin code is saved." : ""));
+      paint();
+    });
+  }
+
   // ------------------------------------------------------------- first launch: the setup
   // The main admin is set up first: its name, the inputs and outputs (when it is the sound desk), the 4-digit pairing
   // PIN every other device uses, and its own role PIN (for changing roles). Every other computer picks Admin, User 1
@@ -210,12 +288,12 @@
       // main admin: the PINs
       '<div class="rp-step" data-step="pins" hidden><h3>Your PINs</h3>' +
       '<label>Pairing PIN (every other device joins with it) <input data-rp="pair" inputmode="numeric" maxlength="4" placeholder="e.g. 0915" autocomplete="off"></label>' +
-      '<label>Role PIN (just yours: it switches a device between user and admin) <input data-rp="pin" inputmode="numeric" maxlength="4" placeholder="4 digits, not the same" autocomplete="off"></label>' +
+      '<label>Admin code (only you know it: it\'s needed to change what a computer does, switch its role or start its setup again) <input data-rp="pin" inputmode="numeric" maxlength="4" placeholder="4 digits, not the pairing PIN" autocomplete="off"></label>' +
       '<p class="muted small">If you have a Central Pedal, type the same pairing PIN on its screen. Without one, everything works except songs, charts, lyrics and tracks.</p><div class="row"><button class="primary" data-rp="pinsGo">Finish</button><button data-rp="back">Back</button></div></div>' +
       // everyone else: the pairing PIN
       '<div class="rp-step" data-step="join" hidden><h3 data-rp-title></h3><label>Pairing PIN <input data-rp="joinPin" inputmode="numeric" maxlength="4" placeholder="the main admin\'s 4 digits" autocomplete="off"></label>' +
       '<details class="rp-addr"><summary class="small">Main admin not found by itself?</summary><label>Its address <input data-rp="centerHost" placeholder="192.168.1.20" autocomplete="off"></label></details>' +
-      '<label class="rp-adminpin" hidden>Main admin\'s role PIN <small class="muted">(optional: without it, the main admin approves you)</small><input data-rp="rolePin" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
+      '<label class="rp-adminpin" hidden>Main admin\'s admin code <small class="muted">(optional: without it, the main admin approves you)</small><input data-rp="rolePin" inputmode="numeric" maxlength="4" autocomplete="off"></label>' +
       '<div class="row"><button class="primary" data-rp="go">Pair</button><button data-rp="back">Back</button><a href="#" data-rp="later">' + (CONTROL ? "Not now - start as an admin" : "Not now - start as User 1") + '</a></div></div>' +
       '<p class="rp-msg warn"></p><div class="rp-done" hidden></div></div>';
     document.body.appendChild(d);
@@ -240,7 +318,7 @@
       if (a === "jobsAll") { d.querySelectorAll("[data-rp-job]").forEach(function (x) { x.checked = true; x.closest(".rp-job").classList.add("on"); }); return; }
       if (a === "jobsNext") {
         var picked = pickedIn(d, "data-rp-job"); if (!picked.length) return msg("Pick at least one job - or All of them.");
-        await CU.setJobs(picked); d.dataset.jobsDone = "1"; a = want;
+        await CU.setJobs(picked); CU.store.set("jobsPicked", true); d.dataset.jobsDone = "1"; a = want;
       }
       if (a === "main") {
         want = "main"; await saveName(); d.dataset.keep = "1"; CU.store.set("mainSetupPending", true); await CU.setRole("main"); step("io");   // (main now, so the inputs and outputs can be set; it pairs once the PINs are picked)
@@ -258,8 +336,8 @@
       else if (a === "pinsGo") {
         var pair = $('[data-rp="pair"]', d).value.trim(), pin = $('[data-rp="pin"]', d).value.trim();
         if (!four(pair)) return msg("The pairing PIN is 4 digits.");
-        if (!four(pin)) return msg("The role PIN is 4 digits.");
-        if (pin === pair) return msg("Use two different PINs: the pairing PIN is shared with everyone, the role PIN is only yours.");
+        if (!four(pin)) return msg("The admin code is 4 digits.");
+        if (pin === pair) return msg("Use two different codes: the pairing PIN is shared with everyone, the admin code is only yours.");
         d.dataset.keep = "1"; d.dataset.ready = "1"; CU.store.set("mainSetupPending", false); if (CU.role() !== "main") await CU.setRole("main");
         await setKeys({ newPair: pair, newPin: pin });
         CU.prefs.code = pair; CU.store.set("code", pair);
@@ -272,7 +350,7 @@
         } else { msg("The center on this computer did not start (is another program using port 8095?). Restart Central Control and try again."); return; }
         var done = $(".rp-done", d); d.querySelectorAll(".rp-step").forEach(function (x) { x.hidden = true; }); done.hidden = false; msg("");
         done.innerHTML = '<p>This computer is the <b>main admin</b>.</p><table class="io-t"><tr><td>Pairing PIN</td><td><b class="io-code">' + esc(pair) + '</b> <span class="muted small">every other device joins with it</span></td></tr>' +
-          '<tr><td>Role PIN</td><td><b class="io-code">' + esc(pin) + '</b> <span class="muted small">only you - changes roles</span></td></tr></table>' +
+          '<tr><td>Admin code</td><td><b class="io-code">' + esc(pin) + '</b> <span class="muted small">only you - changes jobs, roles and setups. Remember it.</span></td></tr></table>' +
           (view && view.pedal ? '<p class="small">Central Pedal: <b>' + esc(view.pedal.name) + "</b> paired.</p>" : '<p class="muted small">No Central Pedal yet. Everything works except songs, charts, lyrics and tracks. When it\'s on this network, type the same pairing PIN on its screen.</p>') +
           '<p class="muted small">You\'ll find both in Settings → This computer. The Devices tab shows every device, what it does and how its connection is doing.</p><button class="primary" data-rp="close">OK</button>';
         CU.showTab("devices");
@@ -282,7 +360,7 @@
         if (!(await connectFirst())) { $(".rp-addr", d).open = true; return msg("The main admin's computer was not found on this network. Is Central Control open on it (set up as the main admin)? Check the Wi-Fi, or type its address below."); }
         msg("Pairing…");
         var extra = { pair: code, code: code, role: want }; var rp = $('[data-rp="rolePin"]', d).value.trim(); if (want === "admin" && rp) extra.pin = rp;
-        if (want === "admin" && CU.jobsAt && CU.jobsAt() > 0) { extra.jobs = CU.jobs(); extra.jobsV = 2; extra.jobsAt = CU.jobsAt(); }
+        if (want === "admin" && CU.jobsAt && CU.jobsAt() > 0) { extra.jobs = CU.jobs(); extra.jobsV = 2; extra.jobsAt = CU.jobsAt(); if (CU.store.get("jobsPicked", false)) extra.jobsPicked = true; }
         var r2 = await request("join", extra);
         if (!r2.ok) return msg(r2.error || "Could not pair.");
         if (r2.code) { CU.prefs.code = r2.code; CU.store.set("code", r2.code); CU.send({ type: "auth", code: r2.code }); }
@@ -316,7 +394,7 @@
     if (v.conflict && v.conflict.length > 1) h += '<p class="warn">Two computers say they are the main admin: ' + v.conflict.map(function (x) { return "<b>" + esc(x.name) + "</b>" + (x.registered ? " (the one in charge)" : ""); }).join(" and ") + '. On the one that should not be, use <b>Forget role</b> below.</p>';
     if (r === "main") {
       h += '<table class="io-t"><tr><td>Pairing PIN</td><td><b class="io-code">' + esc(k.pair) + '</b> <button data-rl="setPair">Change…</button><div class="muted small">Every device joins with it (the Central Pedal too).</div></td></tr>' +
-        '<tr><td>Role PIN</td><td><b class="io-code" data-rl="pinShow">' + esc(k.pin) + '</b> <button data-rl="setPin">Change…</button><div class="muted small">Only you: it moves a computer between user and admin.</div></td></tr></table>' +
+        '<tr><td>Admin code</td><td><b class="io-code">••••</b> <button data-rl="setPin">Change…</button> <button class="linkish" data-rl="forgotPin">Forgot it?</button><div class="muted small">Only you know it: it\'s needed to change what a computer does, switch its role or start its setup again.</div></td></tr></table>' +
         jobsCard() + '<p class="muted small">Every device, its role, its jobs and its connection are on the <button class="linkish" data-rl="devices">Devices</button> tab. This computer is the center: every device (and the Central Pedal) pairs with it, so keep Central Control open here during the service.</p>' + centerLine();
     } else if (r === "admin") {
       h += jobsCard();
@@ -358,20 +436,26 @@
     if (t.hasAttribute && t.hasAttribute("data-rl-myjob")) {   // (10.0) this computer's own jobs
       var box = t.closest(".rp-jobs"), picked = pickedIn(box, "data-rl-myjob");
       if (!picked.length) { t.checked = true; toast("A computer needs at least one job."); return true; }
-      await CU.setJobs(picked);
-      if (linked()) { var rj = await request("myJobs", { jobs: CU.jobs(), jobsV: 2 }); if (rj.ok && rj.jobsAt) await CU.setJobs(rj.jobs, rj.jobsAt); }
+      var jpin = "";
+      if (CU.store.get("jobsPicked", false)) { jpin = await askAdminCode("Changing what this computer does needs the admin code"); if (jpin == null) { if (window.CUSettings) { var rt = document.getElementById("settingsRoot"); if (rt) rt.__h = ""; } paint(); return true; } }
+      if (linked()) {
+        var rj = await request("myJobs", { jobs: CU.normJobs(picked, 2), jobsV: 2, pin: jpin });
+        if (!rj.ok) { alert(rj.error || "Not changed."); var rt2 = document.getElementById("settingsRoot"); if (rt2) rt2.__h = ""; paint(); return true; }
+        await CU.setJobs(rj.jobs || picked, rj.jobsAt);
+      } else await CU.setJobs(picked);
+      CU.store.set("jobsPicked", true); toast("This computer now does: " + jobText(CU.jobs()) + ".");
       paint(); return true;
     }
     if (t.name === "rlRole") {
       var want = t.value, cur = CU.role(), same = (cur === "user1" || cur === "user2") && (want === "user1" || want === "user2");
       var extra = { role: want };
       if (!same && view && view.hasMain) {
-        var pin = await CU.askText(want === "admin" ? "The main admin's role PIN (or leave it empty to ask the main admin):" : "The main admin's role PIN (4 digits):", "");
+        var pin = await CU.askText(want === "admin" ? "The main admin's admin code (or leave it empty to ask the main admin):" : "The main admin's admin code (4 digits):", "");
         if (pin == null) { paint(); return true; } extra.pin = pin.trim(); if (!extra.pin && want === "admin") extra.ask = true;
       }
       if (!linked()) {
         if (same || !(view && view.hasMain)) { await CU.setRole(want); paint(); return true; }
-        alert("Connect to the main admin's computer first - it checks the PIN."); paint(); return true;
+        alert("Connect to the main admin's computer first - it checks the admin code."); paint(); return true;
       }
       var r = await request("set", extra);
       if (r.ok && r.pending) toast("Asked the main admin to make this computer an admin.");
@@ -391,11 +475,15 @@
   async function onSettingsClick(b) {
     var a = b.dataset.rl; if (!a) return false;
     if (a === "runhere") { await runHere(b.dataset.job); paint(); return true; }
-    if (a === "setPin") { var p = await CU.askText("New role PIN (4 digits, not the pairing PIN):", ""); if (p != null) { p = p.trim(); if (!/^\d{4}$/.test(p)) alert("The PIN is 4 digits."); else if (p === (keys() || {}).pair) alert("Use a different PIN from the pairing PIN."); else await setKeys({ newPin: p }); } }
+    if (a === "forgotPin") { await forgotCode(); paint(); return true; }
+    if (a === "setPin") {
+      if ((await askAdminCode("Changing the admin code needs the one you have now")) == null) { paint(); return true; }
+      var p = await CU.askText("New admin code (4 digits, not the pairing PIN):", ""); if (p != null) { p = p.trim(); if (!/^\d{4}$/.test(p)) alert("The admin code is 4 digits."); else if (p === (keys() || {}).pair) alert("Use a different code from the pairing PIN."); else { await setKeys({ newPin: p }); toast("The admin code is changed."); } }
+    }
     else if (a === "setPair") {
       var np = await CU.askText("New pairing PIN (4 digits). Devices online now switch over by themselves; the others ask for it:", ""); if (np == null) return true; np = np.trim();
       if (!/^\d{4}$/.test(np)) { alert("The PIN is 4 digits."); return true; }
-      if (np === (keys() || {}).pin) { alert("Use a different PIN from your role PIN."); return true; }
+      if (np === (keys() || {}).pin) { alert("Use a different PIN from your admin code."); return true; }
       var rs = await request("setPair", { pair: np }); if (!rs.ok) { alert(rs.error || "Not changed."); return true; }
       await setKeys({ newPair: np }); CU.prefs.code = np; CU.store.set("code", np); toast("Pairing PIN is now " + np + ".");
     }
@@ -403,7 +491,8 @@
     else if (a === "centerAddr") { var ad = await CU.askText("The main admin's address (empty = find it by itself):", window.CUCenter ? window.CUCenter.address() : ""); if (ad != null && window.CUCenter) window.CUCenter.setAddress(ad); }
     else if (a === "forget") {
       if (!confirm("Start this computer's setup again? It forgets the role it has now." + (CU.role() === "main" ? "\n\nThis computer stops being the main admin, so another computer can take that over." : ""))) return true;
-      var extra = CU.role() === "main" ? { token: (keys() || {}).token } : {};
+      var fpin = await askAdminCode("Starting this computer's setup again needs the admin code"); if (fpin == null) return true;
+      var extra = CU.role() === "main" ? { token: (keys() || {}).token } : { pin: fpin };
       if (linked()) { var r = await request("forget", extra); if (!r.ok) { alert(r.error || "Not changed."); return true; } }
       notice = ""; if (!(NAT && NAT.config)) CU.store.set("mainKeys", null);
       await CU.setRole(null);
@@ -428,7 +517,11 @@
   CU.on("role", function () { chip(); hello(); });
   CU.on("ready", function () { if (CU.role() === "main" && CU.store.get("mainSetupPending", false)) { CU.store.set("mainSetupPending", false); CU.setRole(null); return; } if (!CU.role()) firstLaunch(); chip(); });   // a main admin setup left half-way starts again
 
-  window.CURoles = { linked: linked, firstLaunch: firstLaunch, card: card, jobText: jobText, toast: toast, devId: devId, runHere: runHere, jobsCard: jobsCard, view: function () { return view; }, onSettingsChange: onSettingsChange, onSettingsClick: onSettingsClick, request: request, keys: keys, hello: hello };
+  // (10.0.1) a Central Control set up before 10.0 (main admin or admin): ask once what it does (this file loads after app.js)
+  function needsJobs() { var r = CU.role(), c = CU.config() || {}; return !!(CU.edition && CU.edition() === "control" && (r === "main" || r === "admin") && !CU.store.get("jobsPicked", false) && !c.jobsPicked && !CU.store.get("mainSetupPending", false)); }
+  CU.on("ready", function () { if (needsJobs()) askJobs(); });
+  if (!(NAT && NAT.config)) setTimeout(function () { if (needsJobs()) askJobs(); }, 300);   // (in the app, "ready" comes once its settings are read)
+  window.CURoles = { linked: linked, firstLaunch: firstLaunch, askJobs: askJobs, askAdminCode: askAdminCode, forgotCode: forgotCode, card: card, jobText: jobText, toast: toast, devId: devId, runHere: runHere, jobsCard: jobsCard, view: function () { return view; }, onSettingsChange: onSettingsChange, onSettingsClick: onSettingsClick, request: request, keys: keys, hello: hello };
   if (!CU.role()) firstLaunch();
   chip();
 })();

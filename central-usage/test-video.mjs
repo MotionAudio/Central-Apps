@@ -46,7 +46,7 @@ const srtSrv = listen(["-i", "srt://127.0.0.1:" + (BASE + 6) + "?mode=listener&l
 
 // ---- Central Control
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), "cu-video-ud-"));
-fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", role: "admin", name: "Video desk" }));
+fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", role: "admin", jobsPicked: true, name: "Video desk" }));
 fs.writeFileSync(path.join(userData, "video.json"), JSON.stringify({ record: { dir: recDir }, stream: { preset: "720p30", bitrate: 2500, encoder: "auto" } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
 // (9.5: Central Control needs a key - with no website yet, its default A key)

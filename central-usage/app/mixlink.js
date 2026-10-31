@@ -60,7 +60,7 @@
     if (L.kind === "remote" && L.link) return L.link.op(o);
     return false;
   }
-  // several parts of the page can listen to the same tap (the Mix tab's headphones, the Video tab's stream sound, the
+  // several parts of the page can listen to the same tap (the Online mix tab's headphones, the Video tab's stream sound, the
   // virtual cable): it opens with the first and closes with the last
   var counts = {};
   function listen(tap, onOff, opt) {

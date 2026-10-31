@@ -71,7 +71,8 @@ try {
     assert.deepEqual(libs.listing(), []); assert.ok(!fs.existsSync(path.join(irDir, "Central 1x12 Open Back.wav")) && !/central-keys-library/.test(fs.readFileSync(path.join(irDir, "tiers.txt"), "utf8")));
   });
   // downloads (a redirect, as GitHub's release downloads do)
-  const srv = http.createServer((req, res) => { if (req.url === "/go") { res.writeHead(302, { Location: "/central-keys-library-1.0.zip" }); return res.end(); } res.writeHead(200, { "Content-Length": z10.length }); res.end(z10); });
+  const IDX = { base: "http://127.0.0.1:0/rel", built: "2026-10-30", libraries: [{ id: "central-keys-library", plan: "keys", title: "Central Keys Library", version: "1.1", file: "central-keys-library-1.1.zip", size: 450e6, sha256: "A".repeat(64) }, { id: "x", plan: "keys", file: "x.zip", sha256: "a".repeat(64) }, { id: "central-pads-library", plan: "pads", file: "p.zip" }] };
+  const srv = http.createServer((req, res) => { if (req.url === "/idx") { res.writeHead(302, { Location: "/rel/libraries-index.json" }); return res.end(); } if (req.url === "/rel/libraries-index.json") { res.writeHead(200, { "Content-Type": "application/json" }); return res.end(JSON.stringify(IDX)); } if (req.url === "/go") { res.writeHead(302, { Location: "/central-keys-library-1.0.zip" }); return res.end(); } res.writeHead(200, { "Content-Length": z10.length }); res.end(z10); });
   await new Promise((r) => srv.listen(0, "127.0.0.1", r));
   const u = "http://127.0.0.1:" + srv.address().port + "/go";
   await check("a download that doesn't match its sha256 is refused (nothing installed, no file left)", async () => {
@@ -83,6 +84,12 @@ try {
     const prog = []; const r = await libs.installUrl(u, sha(z10), "central-keys-library", z10.length, (p) => prog.push(p.done));
     assert.equal(r.version, "1.0"); assert.equal(r.source, "website"); assert.ok(prog.length && prog[prog.length - 1] === z10.length, prog);
   });
+  await check("(10.0.1) the published release's list: read through GitHub's redirect, each library ready with its url (base + file), size and sha256; broken entries left out", async () => {
+    const j = await libs.index("http://127.0.0.1:" + srv.address().port + "/idx");
+    assert.equal(j.source, "release"); assert.equal(j.libraries.length, 1);
+    assert.deepEqual(j.libraries[0], { id: "central-keys-library", plan: "keys", title: "Central Keys Library", version: "1.1", summary: "", file: "central-keys-library-1.1.zip", size: 450e6, sha256: "a".repeat(64), url: "http://127.0.0.1:0/rel/central-keys-library-1.1.zip", ready: true });
+  });
+  await check("(10.0.1) no internet: the list says so plainly", async () => { await assert.rejects(libs.index("http://127.0.0.1:1/none.json"), /check the internet/); });
   srv.close();
 } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 console.log(failures ? "\n" + failures + " FAILED" : "\nALL LIBRARY INSTALLER CHECKS PASSED");

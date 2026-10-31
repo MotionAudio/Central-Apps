@@ -29,7 +29,7 @@ const crashed = path.join(recDir, "2026-01-04 09.30 - Crashed"); fs.mkdirSync(cr
   fs.writeFileSync(path.join(crashed, "In 01.wav"), Buffer.concat([h, Buffer.alloc(48000 * 3, 7)])); fs.writeFileSync(path.join(crashed, ".recording"), "{}"); }
 
 // ---- Central Control: the main admin, the audio host
-fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", role: "main", name: "Desk", host: { enabled: true, port: PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "off" }, recordDir: recDir }));
+fs.writeFileSync(path.join(userData, "cu.json"), JSON.stringify({ mode: "admin", role: "main", jobsPicked: true, name: "Desk", host: { enabled: true, port: PORT, userCode: "1111", adminCode: "2222" }, piAudio: { transport: "off" }, recordDir: recDir }));
 fs.writeFileSync(path.join(userData, "mixer.json"), JSON.stringify({ device: { backend: "null", capture: "NULL#4", playback: "NULL#4", buffer: 256 } }));
 const exe = [process.env.ELECTRON_PATH, path.join(here, "node_modules", "electron", "dist", "electron")].filter((p) => p && fs.existsSync(p))[0];
 // (9.5: Central Control needs a key - with no website yet, its default A key)
@@ -43,13 +43,14 @@ const app = await electron.launch({ executablePath: exe, args: [path.join(here, 
 const cu = await app.firstWindow(); const errs = []; cu.on("pageerror", (e) => errs.push("host: " + e));
 await passKey(cu, "ADEF-AULT-KEY0-2026");
 await cu.waitForFunction(() => window.CentralUsage && window.CUMix && window.CUTalk && window.CURecUI && window.CU && window.CU.recorder);
+await cu.evaluate(() => CUTalk.setMode("groups"));   // (10.0.1: the party line is the default; these checks are the groups way)
 await until(() => cu.evaluate(() => CUMix.kind === "local" && CUMix.state && CUMix.hostStatus && CUMix.hostStatus.engine && CUMix.hostStatus.engine.status && CUMix.hostStatus.engine.status.inputs === 4), 15000);
 // two mixes that go somewhere (wired to the test outputs): Mix 3 and Mix 5
 await cu.evaluate(() => { CUMix.op({ op: "mix", m: 2, patch: { wired: true, outL: 0, outR: 1 } }); CUMix.op({ op: "mix", m: 4, patch: { wired: true, outL: 2, outR: 3, name: "Bass" } }); });
 const browser = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium", args: FAKE });
 async function cuPage(label, store) {   // the app's page in a browser (another computer), set up through its local storage
   const c = await browser.newContext({ viewport: { width: 1280, height: 800 } }); await c.grantPermissions(["microphone"]).catch(() => { });
-  await c.addInitScript((s) => { Object.keys(s).forEach((k) => localStorage.setItem("cu-" + k, JSON.stringify(s[k]))); }, store);
+  await c.addInitScript((s) => { Object.keys(s).forEach((k) => localStorage.setItem("cu-" + k, JSON.stringify(s[k]))); }, Object.assign({ tbMode: "groups", jobsPicked: true }, store));
   await c.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "ADEF-AULT-KEY0-2026", kind: "A", app: "control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });
   const p = await c.newPage(); p.on("pageerror", (e) => errs.push(label + ": " + e));
   await p.goto("file://" + path.join(here, "app", "index.html")); await p.waitForFunction(() => window.CentralUsage && window.CUTalk);

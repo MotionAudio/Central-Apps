@@ -21,6 +21,7 @@ const PLANS = ["keys", "instrument", "plugins", "pedals", "pads"];
 const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop"];
 const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
+const INDEX_URL = process.env.CC_LIBRARIES_INDEX || "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/libraries-index.json";
 const ID_RE = /^[a-z0-9-]{3,60}$/, VERSION_RE = /^\d+(\.\d+){0,3}$/, SHA_RE = /^[0-9a-f]{64}$/;
 
 // ---------------------------------------------------------------- a small zip reader (stored / deflated entries)
@@ -112,6 +113,35 @@ class Libraries {
     }
     for (const ir of msg.irs || []) { const t = tiersOf(ir.file)[path.basename(ir.file || "").replace(/\.[^.]+$/, "")]; if (t && !ir.tier) ir.tier = t; }
     return msg;
+  }
+
+  // ----- (10.0.1) the published list: while the website isn't open, straight from the "libraries" release (its index has
+  // each zip's size and sha256); the website's own list wins once it's open (js/libraries.js asks it first)
+  index(url) {
+    url = String(url || INDEX_URL);
+    if (this._index && this._index.url === url && Date.now() - this._index.at < 10 * 60e3) return Promise.resolve(this._index.data);
+    return new Promise((resolve, reject) => {
+      const get = (u, hops) => {
+        const lib = u.startsWith("https:") ? https : http;
+        const req = lib.get(u, { headers: { "User-Agent": "central-control" }, timeout: 20000 }, (res) => {
+          if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location && hops < 6) { res.resume(); return get(new URL(res.headers.location, u).toString(), hops + 1); }
+          if (res.statusCode !== 200) { res.resume(); return reject(new Error("the library list answered " + res.statusCode)); }
+          const parts = []; let n = 0;
+          res.on("data", (b) => { n += b.length; if (n > 4 << 20) { req.destroy(); return reject(new Error("the library list is too big")); } parts.push(b); });
+          res.on("end", () => {
+            let j; try { j = JSON.parse(Buffer.concat(parts).toString("utf8")); } catch (_) { return reject(new Error("the library list can't be read")); }
+            const base = String(j.base || u.replace(/[?#].*$/, "").replace(/\/[^/]*$/, ""));   // (the zips sit next to the index, where the redirect ended)
+            const list = (Array.isArray(j.libraries) ? j.libraries : []).filter((l) => l && ID_RE.test(l.id || "") && PLANS.includes(l.plan) && SHA_RE.test(String(l.sha256 || "").toLowerCase()) && l.file)
+              .map((l) => ({ id: l.id, plan: l.plan, title: l.title || l.id, version: String(l.version || ""), summary: l.summary || "", file: l.file, size: Number(l.size) || 0, sha256: String(l.sha256).toLowerCase(), url: base.replace(/\/$/, "") + "/" + encodeURIComponent(l.file), ready: true }));
+            const data = { ok: true, source: "release", built: j.built || "", libraries: list };
+            this._index = { url, at: Date.now(), data }; resolve(data);
+          });
+        });
+        req.on("timeout", () => req.destroy(new Error("no answer")));
+        req.on("error", (e) => reject(new Error("the library list didn't come (" + e.message + ") - check the internet")));
+      };
+      get(url, 0);
+    });
   }
 
   // ----- install

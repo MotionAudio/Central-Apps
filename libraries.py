@@ -25,6 +25,7 @@ import re
 import shutil
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 import zipfile
 
@@ -39,6 +40,39 @@ MAX_TOTAL = 2 * 1024 ** 3           # everything inside it, unpacked
 ID_RE = re.compile(r"^[a-z0-9-]{3,60}$")
 VERSION_RE = re.compile(r"^\d+(\.\d+){0,3}$")
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
+# 10.0.1: while the website isn't open, the list (with each zip's size and sha256) comes straight from the published
+# "libraries" release; the page asks the driver for it (GitHub's download redirect has no CORS header)
+INDEX_URL = os.environ.get("CC_LIBRARIES_INDEX", "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/libraries-index.json")
+_index_cache = {}
+
+
+def release_index(url=None, timeout=20, max_age=600):
+    """The published libraries' list: [{id, plan, title, version, summary, file, size, sha256, url, ready}]."""
+    url = url or INDEX_URL
+    hit = _index_cache.get(url)
+    if hit and time.time() - hit[0] < max_age:
+        return hit[1]
+    req = urllib.request.Request(url, headers={"User-Agent": "central-pedal"})
+    with urllib.request.urlopen(req, timeout=timeout) as res:   # (urllib follows GitHub's redirect)
+        raw = res.read(4 * 1024 * 1024 + 1)
+        final = res.geturl() or url   # (the zips sit next to the index, where the redirect ended)
+    if len(raw) > 4 * 1024 * 1024:
+        raise ValueError("the library list is too big")
+    j = json.loads(raw.decode("utf-8"))
+    base = str(j.get("base") or final.rsplit("/", 1)[0]).rstrip("/")
+    out = []
+    for lib in j.get("libraries") or []:
+        if not isinstance(lib, dict):
+            continue
+        sha = str(lib.get("sha256") or "").lower()
+        if not ID_RE.match(str(lib.get("id") or "")) or lib.get("plan") not in PLANS or not SHA_RE.match(sha) or not lib.get("file"):
+            continue
+        out.append({"id": lib["id"], "plan": lib["plan"], "title": lib.get("title") or lib["id"], "version": str(lib.get("version") or ""),
+                    "summary": lib.get("summary") or "", "file": lib["file"], "size": int(lib.get("size") or 0), "sha256": sha,
+                    "url": base + "/" + urllib.parse.quote(str(lib["file"])), "ready": True})
+    data = {"ok": True, "source": "release", "built": j.get("built") or "", "libraries": out}
+    _index_cache[url] = (time.time(), data)
+    return data
 
 
 def version_key(v):

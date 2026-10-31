@@ -313,7 +313,8 @@
   (async function () {   // this computer's settings live in the app (cu.json); in a plain browser: local storage
     if (window.CU && window.CU.config) { try { var c = await window.CU.config.get(); if (c) { cuCfg = c; if (c.mode) store.set("mode", c.mode); if (c.role) store.set("role", c.role); if (c.jobs) { store.set("jobs", c.jobs); store.set("jobsV", c.jobsV || null); store.set("jobsAt", c.jobsAt || 0); } } } catch (_) { } }
     if (!cuCfg.name) cuCfg.name = store.get("name", "") || (EDITION === "usage" ? "" : "Central Control");   // (a phone with no name yet: its in-ear mix asks for one, not "Central Control")
-    if (!role()) askMode(); applyMode(); fire("ready");
+    if (!role()) askMode();
+    applyMode(); fire("ready");
   })();
   function syncedPrefs() { var o = {}; SYNCED.forEach(function (k) { var v = store.get(k, undefined); if (v !== undefined) o[k] = v; }); return o; }
   function applySyncedPrefs(d) {
