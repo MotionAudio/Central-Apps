@@ -116,7 +116,7 @@ await check("lighting: light bars (each cell its own colour), strobes (button, b
   await cu.evaluate(() => { CULights.rig().auto.smart = false; CULights.dirty(); });
   const cues = await cu.evaluate(() => CULights.cuesNow().filter((c) => c.kind === "look").map((c) => c.look + "@" + c.bar));
   assert.ok(cues[0] === "verse@1" && cues.some((c) => /^chorus@/.test(c)) && /^blackout@/.test(cues[cues.length - 1]), cues.join(" "));
-  assert.ok(await cu.evaluate(() => document.querySelectorAll("#lxPalette .lx-look").length >= 12));
+  assert.ok(await cu.evaluate(() => document.querySelectorAll("#lxPalette [data-slot]").length === 10 && document.querySelectorAll("#lxPalette .lx-look").length === 10 && document.querySelectorAll("#lxLookList .lx-look").length >= 12), "10 quick buttons filled from the presets; every preset under All presets");
 });
 await check("lighting: a look becomes the right DMX values (dimmer + RGBW pars, moving heads)", async () => {
   await cu.evaluate(() => { CULights.goLook("chorus"); CULights.live.manualFrom = CULights.lookById("chorus"); });
@@ -271,15 +271,82 @@ await check("lighting modes: Auto runs the automatic cues only, Manual only your
 await check("songs: a song of your own (no tracks) with scenes on bars - programmed at 93 BPM, at 112 BPM every scene moves with it", async () => {
   await cu.evaluate(() => { const rig = CULights.rig(); rig.localSongs.push({ id: "cu-test", name: "Spontaneous", bpm: 93, bpb: 4 }); CULights.showSub("songs"); });
   assert.deepEqual(await cu.evaluate(() => [...document.querySelectorAll("#lxNav [data-lx]")].map((b) => b.textContent)), ["Show", "Fixtures", "Output"]);
-  assert.ok(await cu.evaluate(() => !document.querySelector('[data-lxv="show"]').hidden && !!document.querySelector('#lxRight #lxSongs') && !!document.querySelector('#lxRight #lxLookList') && document.querySelector('#lxLookList').children.length >= 10), "songs and presets are on the right of the Show view");
+  assert.ok(await cu.evaluate(() => !document.querySelector('[data-lxv="show"]').hidden && !!document.querySelector('#lxRight #lxSongs') && !!document.querySelector('#lxRLooks #lxLookList') && document.querySelector('#lxLookList').children.length >= 10), "songs on the right under the stage, all presets below");
   await cu.click('[data-ls-pick="cu-test"]'); await cu.waitForSelector('[data-ls="scene"]', { timeout: 5000 });
-  await cu.click('[data-ls="scene"]'); await cu.click('[data-ls="scene"]');
+  // Add scene → the presets pop up; picking one adds the scene with that preset
+  for (let i = 0; i < 2; i++) { await cu.click('[data-ls="scene"]'); await cu.waitForSelector("#lxPick:not([hidden]) [data-pk-item]", { timeout: 3000 }); await cu.click("#lxPick [data-pk-item]:nth-child(" + (i + 1) + ")"); }
+  assert.ok(await cu.evaluate(() => document.querySelector("#lxPick").hidden), "the picker closes after a pick");
   await cu.waitForFunction(() => document.querySelectorAll(".lx-scenes tbody tr").length === 2);
   await cu.evaluate(() => { const i = document.querySelector('.lx-scenes tbody tr:nth-child(2) [data-scf="bar"]'); i.value = "5"; i.dispatchEvent(new Event("change", { bubbles: true })); });
   await cu.click('[data-ls="program"]');
   const t = await cu.evaluate(() => { const S = CULights.song; const a = CULights.timeOf(5, 1); S.bpm = 112; const b = CULights.timeOf(5, 1); return { id: S.id, local: S.local, a, b, scenes: CULights.show().cues.length }; });
   assert.equal(t.id, "cu-test"); assert.ok(t.local); assert.ok(Math.abs(t.a - 16 * 60 / 93) < 0.01 && Math.abs(t.b - 16 * 60 / 112) < 0.01, JSON.stringify(t));
   await cu.waitForFunction(() => CULights.show().cues.filter((c) => c.kind === "look").length === 2, null, { timeout: 5000 });
+});
+await check("scenes: Delete asks 'Are you sure?' - Cancel keeps the scene, OK deletes it", async () => {
+  await cu.evaluate(() => CULights.showSub("songs")); await cu.waitForSelector(".lx-scenes [data-sc-del]", { timeout: 4000 });
+  const n = () => cu.evaluate(() => CULights.show().cues.filter((c) => c.kind === "look").length);
+  const n0 = await n(); let asked = "";
+  cu.once("dialog", (d) => { asked = d.message(); d.dismiss(); }); await cu.click('.lx-scenes [data-sc-del="0"]'); await cu.waitForTimeout(150);
+  assert.match(asked, /Delete scene 1/); assert.equal(await n(), n0, "Cancel keeps it");
+  cu.once("dialog", (d) => d.accept()); await cu.click('.lx-scenes [data-sc-del="0"]');
+  await cu.waitForFunction((k) => CULights.show().cues.filter((c) => c.kind === "look").length === k - 1, n0, { timeout: 3000 });
+  await cu.evaluate(() => CULights.addScene("chorus"));   // (put one back for the checks after)
+});
+await check("pause: the click here stops where it is and Carry on resumes from that bar (not from the top)", async () => {
+  await cu.evaluate(() => CULights.showSub("show"));
+  const pos = () => cu.evaluate(() => { const S = CULights.song; return S.playing ? S.pos + (performance.now() - S.at) / 1000 * (S.speed || 1) : S.pos; });
+  assert.ok(await cu.evaluate(() => document.querySelector("#lxPause").disabled), "nothing to pause yet");
+  await cu.click("#lxPreview"); await cu.waitForFunction(() => CULights.song.playing && !document.querySelector("#lxPause").disabled, null, { timeout: 3000 });
+  await cu.waitForTimeout(900); await cu.click("#lxPause");
+  const p1 = await pos(); assert.ok(p1 > 0.5, "it ran " + p1); assert.equal(await cu.evaluate(() => CULights.paused() && CULights.paused().kind), "click");
+  await cu.waitForTimeout(500); assert.ok(Math.abs((await pos()) - p1) < 0.05, "it holds while paused"); assert.match(await cu.textContent("#lxPause"), /Carry on/);
+  await cu.click("#lxPause"); await cu.waitForTimeout(400);
+  const p2 = await pos(); assert.ok(p2 > p1 + 0.2 && p2 < p1 + 1.5, "carried on from " + p1 + " to " + p2); assert.equal(await cu.evaluate(() => CULights.paused()), null);
+  await cu.click("#lxPreview"); await cu.waitForFunction(() => !CULights.song.playing, null, { timeout: 3000 });
+  // with the tracks playing on the pedal, Pause holds the lights (the band plays on)
+  const h = await cu.evaluate(() => { const S = CULights.song; S.playing = true; S.at = performance.now(); S.pos = 4; CULights.pause(); const k = CULights.paused() && CULights.paused().kind, fr = !!CULights.live.frozen; CULights.pause(); const after = CULights.paused(); S.playing = false; return { k, fr, after, frozen: !!CULights.live.frozen }; });
+  assert.deepEqual(h, { k: "hold", fr: true, after: null, frozen: false });
+});
+await check("quick buttons: 10 slots; a preset dragged in lands in its slot, slot onto slot swaps, ✕ empties it, and it is saved", async () => {
+  await cu.evaluate(() => CULights.showSub("show"));
+  assert.equal(await cu.evaluate(() => document.querySelectorAll("#lxPalette [data-slot]").length), 10);
+  const r = await cu.evaluate(() => {
+    const drag = (src, dst) => { const dt = new DataTransfer(); src.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: dt })); dst.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt })); dst.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt })); };
+    const slot = (i) => document.querySelector('#lxPalette [data-slot="' + i + '"]');
+    CULights.setQuick(0, "chorus"); CULights.setQuick(3, null); const was0 = CULights.quick()[0];
+    drag(document.querySelector('#lxLookList [data-edit-look="bridge"]'), slot(3)); const a = CULights.quick()[3];
+    drag(slot(0), slot(3)); const b = CULights.quick().slice(0, 4);
+    slot(0).querySelector("[data-x]").click(); const c = CULights.quick()[0];
+    const saved = JSON.parse(localStorage.getItem("cu-rig") || "{}").quick;
+    return { a, b, was0, c, saved, empty: !!slot(0).dataset.empty };
+  });
+  assert.equal(r.a, "bridge"); assert.equal(r.b[0], "bridge"); assert.equal(r.b[3], r.was0); assert.equal(r.c, null); assert.ok(r.empty); assert.equal(r.saved && r.saved[3], r.was0);
+});
+await check("presets per section: each part's presets show next to the songs and switch as the song moves; clicking one plays it", async () => {
+  const r = await cu.evaluate(async () => {
+    const L = CULights, S = L.song, sh = L.show(); S.sections = [{ name: "Verse 1", start: 0, end: 10 }, { name: "Chorus", start: 10, end: 20 }, { name: "Verse 2", start: 20, end: 30 }];
+    sh.sets = { perSection: true, song: [], sections: {} }; const kv = (() => { S.pos = 1; S.playing = false; return L.nowSecKey(); })(); S.pos = 12; const kc = L.nowSecKey();
+    sh.sets.sections[kv] = ["verse", "worship"]; sh.sets.sections[kc] = ["chorus"]; L.dirty(); L.renderSecPresets();
+    const shown = () => [...document.querySelectorAll("#lxSecList [data-look]")].map((b) => b.dataset.look);
+    const inChorus = shown(); S.pos = 25; await new Promise((res) => setTimeout(res, 450)); const inVerse = shown();
+    document.querySelector('#lxSecList [data-look="worship"]').click(); const live = L.live.manual && L.live.manual.id;
+    sh.sets.perSection = false; sh.sets.song = ["hit"]; L.renderSecPresets(); const whole = shown();
+    return { kv, kc, inChorus, inVerse, live, whole, heading: document.querySelector("#lxSecPresets h3").textContent };
+  });
+  assert.equal(r.kv, "verse"); assert.equal(r.kc, "chorus"); assert.deepEqual(r.inChorus, ["chorus"]); assert.deepEqual(r.inVerse, ["verse", "worship"]); assert.equal(r.live, "worship"); assert.deepEqual(r.whole, ["hit"]); assert.match(r.heading, /song/i);
+  await cu.evaluate(() => { CULights.show().sets = { perSection: false, song: [], sections: {} }; CULights.song.sections = []; CULights.song.pos = 0; CULights.goLook("worship"); });
+});
+await check("setlists: the worship leader's setlist imports its songs (title, tempo, key) - a song with no tracks here becomes one of yours", async () => {
+  const r = await cu.evaluate(() => {
+    const L = CULights; L.importSetlist({ id: "sl-test", name: "Sunday test", songs: [{ trackId: "trk-grace", title: "Amazing Grace Test", bpm: 72, key: "G" }, { trackId: "trk-way", title: "Way Maker Test", bpm: 68, key: "E" }] });
+    const set = L.curSet(), mine = L.rig().localSongs.filter((s) => /Test$/.test(s.name));
+    return { name: set.name, source: set.source, n: set.songs.length, mine: mine.map((s) => s.name + "@" + s.bpm + ":" + s.key), first: L.song.id === set.songs[0].localId || document.querySelector("#lxSongs").textContent.includes("Amazing Grace Test"), listed: document.querySelector("#lxSongs").textContent.includes("Way Maker Test") };
+  });
+  assert.equal(r.name, "Sunday test"); assert.equal(r.source, "cloud"); assert.equal(r.n, 2); assert.deepEqual(r.mine, ["Amazing Grace Test@72:G", "Way Maker Test@68:E"]); assert.ok(r.first && r.listed, JSON.stringify(r));
+  // importing it again doesn't duplicate the songs; Save setlist keeps it here
+  const again = await cu.evaluate(() => { CULights.importSetlist({ id: "sl-test", name: "Sunday test", songs: [{ trackId: "trk-grace", title: "Amazing Grace Test", bpm: 72 }] }); CULights.saveSet(); return { mine: CULights.rig().localSongs.filter((s) => /Test$/.test(s.name)).length, saved: CULights.rig().lxSets.some((x) => x.name === "Sunday test") }; });
+  assert.deepEqual(again, { mine: 2, saved: true });
 });
 await check("record: presets pressed while the song plays land on its timeline; recording again over a part replaces only that part", async () => {
   const r = await cu.evaluate(async () => {
