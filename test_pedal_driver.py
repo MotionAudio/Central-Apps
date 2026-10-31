@@ -1204,6 +1204,52 @@ async def main():
                     mini.lists.pop(k)
                 mini.overlay = None
             driver.display = disp
+            # 10.0.1: a mouse click on the app on HDMI shows on the 3.5" screen - the same tab, the matching button lit for
+            # a moment (found on the tab's other page when it isn't on this one); a finger on the 3.5" a moment ago wins
+            _sent3, _em3, _sc3 = [], driver.emit, driver.schedule_mini_render
+            driver.emit = lambda m, lan=False: _sent3.append(m)
+            driver.schedule_mini_render = lambda force=False: None
+            try:
+                import time as _t
+                mini.overlay, mini.touched_at, mini.flash = None, -99.0, None
+                mini.tab, mini.sub["tracks"] = "pads", "mix"
+                dm = dict(disp, tracksMode=True)
+                driver.handle_app_message({"type": "miniMirror", "tab": "tracks", "press": {"name": "nextSection"}})
+                img = mini.render(dm)
+                box = next((b for b, a in mini.hits if a.get("name") == "nextSection"), None)
+                lit = box is not None and img.getpixel((int(box[0]) + 1, int((box[1] + box[3]) / 2))) == mini.COL["accent"]
+                view = [m for m in _sent3 if m.get("type") == "miniView"]
+                check("a mouse click on the HDMI app (SECTION ›) switches the 3.5\" to TRACKS, finds the button on the Play page and lights it; the HDMI copy is told too",
+                      mini.tab == "tracks" and mini.sub.get("tracks") == "play" and lit and view and view[-1]["tab"] == "tracks" and view[-1]["press"] == {"name": "nextSection"},
+                      (mini.tab, mini.sub.get("tracks"), box, lit, view))
+                mini.flash["until"] = 0
+                img = mini.render(dm)
+                check("...and the light goes off again", mini.flash is None and img.getpixel((int(box[0]) + 1, int((box[1] + box[3]) / 2))) != mini.COL["accent"])
+                mini.sub["pads"] = "pads"
+                driver.handle_app_message({"type": "miniMirror", "tab": "pads", "press": {"name": "pad", "args": {"index": 4}}})
+                mini.render(dm)
+                fl = mini.flash
+                check("...a pad clicked over there lights pad 5 here", mini.tab == "pads" and fl and fl["found"], fl)
+                mini.sub["tracks"] = "mix"
+                driver.handle_app_message({"type": "miniMirror", "tab": "tracks", "press": {"name": "noSuchButton"}})
+                mini.render(dm)
+                check("...a button this screen doesn't have: just the tab, back on the page it was on", mini.tab == "tracks" and mini.sub.get("tracks") == "mix" and mini.flash is None,
+                      (mini.tab, mini.sub.get("tracks"), mini.flash))
+                driver.handle_app_message({"type": "miniMirror", "tab": "settings", "sub": "wifi"})
+                at_settings = (mini.tab, mini.sub.get("settings"))
+                mini.tab = "pads"
+                mini.tap_xy(-60, -60)   # (a finger on the 3.5" - nothing under it)
+                n = len(_sent3)
+                driver.handle_app_message({"type": "miniMirror", "tab": "looper", "press": {"name": "looperPlayAll"}})
+                fingered = mini.tab
+                mini.touched_at = _t.monotonic() - 5
+                driver.handle_app_message({"type": "miniMirror", "tab": "learn"})
+                check("...a Settings group picks that page; a finger on the 3.5\" a moment ago wins (the click doesn't move it); a tab it doesn't have changes nothing",
+                      at_settings == ("settings", "wifi") and fingered == "pads" and len(_sent3) == n and mini.tab == "pads", (at_settings, fingered, _sent3[n:]))
+            finally:
+                driver.emit, driver.schedule_mini_render = _em3, _sc3
+                mini.flash, mini.touched_at, mini.overlay = None, -99.0, None
+                mini.tab = "pads"
             # 10.0: Settings → Colours in the app - the 3.5" screen takes the same colours, kept for the next start; None = our look
             _cfg_saved = driver.save_config
             driver.save_config = lambda: True
@@ -2016,6 +2062,21 @@ async def main():
         await send({"type": "updates", "action": "install"})
         inst = await next_message(lambda m: m["type"] == "updateStatus" and not m.get("busy") and m.get("error"), 6.0)
         check("Install on a PC stops safely after the checks (it needs the Pi's root helper)", inst and ("checksum" in inst["error"] or "Central Pedal itself" in inst["error"]), inst)
+        # 10.0.1: a pedal left on all week looks again every 3 hours (it was once a day, decided when the app opened),
+        # 10 minutes after a failed look (no internet yet); the failure is in the status the app shows with Try again
+        up_ = driver.updater
+        _lc, _err = up_.cfg.get("lastCheck"), up_.error
+        try:
+            up_.error = None
+            up_.cfg["lastCheck"] = time.time() - 2 * 3600
+            two_h = up_.due()
+            up_.cfg["lastCheck"] = time.time() - 3 * 3600 - 60
+            three_h = up_.due()
+            up_.error, up_.cfg["lastCheck"] = "no internet", time.time() - 11 * 60
+            after_fail = up_.due()
+        finally:
+            up_.cfg["lastCheck"], up_.error = _lc, _err
+        check("updates: looked for again after 3 hours (not 2), and 10 minutes after a failed look", not two_h and three_h and after_fail, (two_h, three_h, after_fail))
 
         ir_src = os.path.join(media_root, "Celestion V30.wav")
         with open(ir_src, "wb") as handle:

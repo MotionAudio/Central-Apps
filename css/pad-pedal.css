@@ -496,3 +496,21 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 .drum-notes label { display: grid; gap: 3px; } .drum-notes input[type=number] { width: 100%; min-width: 64px; }
 /* Settings → Libraries: what's in each one folds away */
 .lib-what { margin-top: 2px; } .lib-what summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+
+/* Settings (10.0.1): one group at a time - the list down the left, the group's cards in even columns on the right
+   (CSS columns: each card as tall as its content, no gaps under short cards), text big enough to read on a TV */
+#tabSettings .st-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; align-items: start; }
+#tabSettings .st-side { position: sticky; top: 8px; display: flex; flex-direction: column; gap: 6px; flex-wrap: nowrap; }
+#tabSettings .st-side .st-chip { text-align: left; padding: 12px 14px; font-size: 15px; border-radius: 10px; white-space: normal; }
+#tabSettings .sys-grid.st-cols { display: block; columns: 2 540px; column-gap: 18px; max-width: 1500px; }
+#tabSettings .sys-grid.st-cols > section, #tabSettings .sys-grid.st-cols > #sysExtra > section { break-inside: avoid; margin: 0 0 18px; grid-row-end: auto !important; font-size: 15px; }
+#tabSettings .sys-grid.st-cols > section.wide, #tabSettings .sys-grid.st-cols > #sysExtra > section.wide { column-span: all; }
+#tabSettings .sys-grid.st-cols section h3 { font-size: 18px; }
+#tabSettings .sys-grid.st-cols section .muted, #tabSettings .sys-grid.st-cols section small { font-size: 14px; line-height: 1.45; }
+#tabSettings .sys-grid.st-cols section.hidden { display: none; }
+@media (max-width: 1000px) {
+  #tabSettings .st-layout { grid-template-columns: minmax(0, 1fr); }
+  #tabSettings .st-side { position: static; flex-direction: row; flex-wrap: wrap; }
+  #tabSettings .st-side .st-chip { padding: 8px 12px; font-size: 13px; }
+}
+#tabSettings .sys-grid.st-cols.one-col { columns: 1; max-width: 1280px; }

@@ -305,7 +305,7 @@
     if (!connected || !s) { text.textContent = "Only available on the Central Pedal (Raspberry Pi) itself."; safe.disabled = true; safe.textContent = "Safe mode"; }
     else {
       safe.disabled = !s.safeModeAvailable;
-      text.textContent = !s.safeModeAvailable ? "Not available on this system." : s.safeModePending ? "Change saved. It takes effect after a restart." : s.safeMode ? "ON: the system can't be damaged by pulling the plug. Your pads, songs and sounds still save normally." : "OFF: shut down before unplugging, or turn safe mode on.";
+      text.textContent = !s.safeModeAvailable ? "Not available on this system." : s.safeModePending ? "Saved - the pedal restarts by itself to switch it." : s.safeMode ? "ON: the system can't be damaged by pulling the plug. Your pads, songs and sounds still save normally." : "OFF: shut down before unplugging, or turn safe mode on.";
       safe.textContent = s.safeMode ? "Turn safe mode off" : "Turn safe mode on";
       safe.dataset.want = s.safeMode ? "off" : "on";
     }
@@ -320,7 +320,14 @@
   $("#midiChannel").addEventListener("change", function (e) { project().midi.channel = Number(e.target.value); PP.persistSoon(); });
   $("#midiClock").addEventListener("change", function (e) { project().midi.clock = e.target.checked; PP.persistSoon(); });
   $("#sysBpm").addEventListener("change", function (e) { setTempo(Number(e.target.value) || 72, "manual"); });
-  $("#safeToggle").addEventListener("click", function (e) { if (sendToDriver({ type: "system", action: "safeMode", value: e.target.dataset.want })) { $("#safeText").textContent = "Working…"; } });
+  $("#safeToggle").addEventListener("click", function (e) {
+    var want = e.target.dataset.want;
+    if (sendToDriver({ type: "system", action: "safeMode", value: want })) {
+      $("#safeText").textContent = "Working…";
+      // safe mode only changes when the Pi starts: it restarts by itself (after a countdown, never while music plays)
+      setTimeout(function () { if (window.PPAutoRestart) window.PPAutoRestart.ask("safe mode " + (want === "on" ? "on" : "off")); }, 1200);
+    }
+  });
   $("#sysShutdown").addEventListener("click", function () { PP.persistNow(); if (sendToDriver({ type: "system", action: "shutdown" })) PP.setStatus("Shutting down. Wait for the screen to go dark before unplugging."); });
   $("#sysReboot").addEventListener("click", function () { PP.persistNow(); sendToDriver({ type: "system", action: "reboot" }); });
 

@@ -32,6 +32,7 @@
       if (m.type === "display") { state.display = m; notify(); }
       else if (m.type === "hello") { state.hostname = m.hostname || ""; newVersion(m.appVersion); notify(); }
       else if (m.type === "slide") { state.slide = m; notify(); }
+      else if (m.type === "miniView") { state.miniView = m; notify(); }   // (10.0.1) a mouse click on the pedal's big screen (mini.html follows it)
       else if (m.type === "auth") { state.authed = !!m.ok; if (!m.ok && code) { try { localStorage.removeItem("pp-code"); } catch (_) { } code = ""; } notify(); }
     };
     socket.onclose = function () { state.connected = false; state.authed = false; notify(); clearInterval(pingTimer); setTimeout(connect, retry); };
