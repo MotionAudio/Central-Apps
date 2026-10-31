@@ -170,4 +170,34 @@
     var ok = (L.packages() || []).some(function (p) { return p.key === key; });
     send({ type: "miniResult", text: ok ? "Package added: " + key : "That key didn't work - check it, or add it in the app (Settings → Packages)." });
   });
+  // (10.0.1) A click on the app on the pedal's own HDMI screen shows on the 3.5" screen too: the same tab, and the matching
+  // button there lit for a moment (the driver finds it on whichever page of the tab has it, and an HDMI "Copy of this
+  // screen" follows as well). Only on the pedal itself - not Pedal Control on a computer, not a remote browser - and a
+  // finger on the 3.5" a moment ago wins (the driver keeps that).
+  var MINI_TABS = { pads: 1, tracks: 1, instrument: 1, looper: 1, settings: 1 };
+  var TRACK_IDS = { trPlay: "playPause", trStop: "stopTracks", trPrevSec: "prevSection", trNextSec: "nextSection", trPrevSong: "prevSong", trNextSong: "nextSong",
+    trKeyUp: "keyUp", trKeyDown: "keyDown", trClick: "toggleClick", trStartOver: "startOver", trLoop: "repeatSection" };
+  var LOOP_ACTS = { main: "looperRec", stopPlay: "looperTrackStop", undo: "looperTrackUndo", redo: "looperTrackRedo", clear: "looperTrackClear", mute: "looperTrackMute",
+    rev: "looperTrackReverse", half: "looperTrackHalf", playAll: "looperPlayAll", stopAll: "looperStopAll" };
+  var ST_SUB = { audio: "audio", network: "wifi", screens: "screens", system: "system", midi: "controls" };
+  function onPedalScreen() {
+    if (!/^(127\.0\.0\.1|localhost)$/.test(location.hostname) || window.CP_CONTROL || (window.CCDesktop && window.CCDesktop.pedalControl)) return false;
+    var b = window.__pedalBridge; return !!(b && b.connected && !(b.info && b.info.pedalControl));
+  }
+  function mirrorFor(el) {   // what a clicked element is on the 3.5" screen: {tab, sub, press}
+    var cur = window.PPShell && window.PPShell.currentTab ? window.PPShell.currentTab() : "", n;
+    var nav = el.closest(".nav-tab[data-tab]"); if (nav) return MINI_TABS[nav.dataset.tab] ? { tab: nav.dataset.tab } : null;
+    var pad = el.closest("[data-pad]"); if (pad && /^\d+$/.test(pad.dataset.pad)) return { tab: "pads", press: { name: "pad", args: { index: +pad.dataset.pad } } };
+    var tr = el.closest("button[id]"); if (tr && TRACK_IDS[tr.id]) return { tab: MINI_TABS[cur] && cur !== "settings" ? cur : "tracks", press: { name: TRACK_IDS[tr.id] } };
+    var lp = el.closest("[data-lp]");
+    if (lp && LOOP_ACTS[lp.dataset.lp]) { n = lp.dataset.i; return { tab: "looper", press: { name: LOOP_ACTS[lp.dataset.lp], args: n != null && n !== "" ? { index: +n } : {} } }; }
+    var stg = el.closest("[data-st-group]"); if (stg) return { tab: "settings", sub: ST_SUB[stg.dataset.stGroup] };
+    return null;
+  }
+  window.PPMiniMirror = { mirrorFor: mirrorFor };
+  document.addEventListener("click", function (e) {
+    if (!e.isTrusted || !e.detail || !onPedalScreen()) return;   // (a real click or tap on this screen - not a key press or a script)
+    var t = e.target && e.target.closest ? e.target : null, m = t && mirrorFor(t); if (!m) return;
+    send({ type: "miniMirror", tab: m.tab, sub: m.sub || null, press: m.press || null });
+  }, true);
 })();
