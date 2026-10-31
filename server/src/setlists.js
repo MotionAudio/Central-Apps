@@ -71,6 +71,7 @@ function cleanSongs(list) {
     if (x && x.key) s.key = text(x.key, 12);
     const bpm = Math.round(Number(x && x.bpm) || 0); if (bpm > 0 && bpm < 400) s.bpm = bpm;
     if (x && x.kind) s.kind = text(x.kind, 20);
+    if (x && x.tracks) s.tracks = true;   // (10.0.1: an app's own song that has multitracks - Central Services shows it)
     if (x && x.addedBy) s.addedBy = text(x.addedBy, 200);
     if (x && x.at) s.at = text(x.at, 40);
     return s;
@@ -82,7 +83,8 @@ export function routes(api, { wrap, requireUser, addTrack }) {
   api.get("/setlists", requireUser, wrap(async (req, res) => {
     const s = await scope(req);
     const rows = await q("SELECT * FROM setlists WHERE NOT deleted AND " + s.where + " ORDER BY updated_at DESC LIMIT 200", [s.arg]);
-    res.json({ setlists: rows.map((r) => setlistOut(r)), church: s.c ? s.c.name : null, teamMax: teamMax(s.c) });
+    // (?full=1: each setlist's songs too - Central Services shows every service's setlist with its keys, tempos and tracks)
+    res.json({ setlists: rows.map((r) => setlistOut(r, req.query.full === "1")), church: s.c ? s.c.name : null, teamMax: teamMax(s.c) });
   }));
   // who can be on a setlist's team (search by name or email), and how many there can be
   api.get("/setlists/people", requireUser, wrap(async (req, res) => {

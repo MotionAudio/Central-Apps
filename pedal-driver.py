@@ -1585,6 +1585,13 @@ class LocalServer:
                     return self.send_json(200, driver.system_status())
                 if p == "/libraries":   # the sound libraries installed here, and any being installed
                     return self.send_json(200, library_state(driver))
+                if p == "/libraries/index":   # 10.0.1: the published libraries' list (the website's own list wins once it's open)
+                    if not sound_libraries:
+                        return self.send_json(200, {"ok": False, "error": "libraries aren't available here", "libraries": []})
+                    try:
+                        return self.send_json(200, sound_libraries.release_index())
+                    except Exception as error:  # noqa: BLE001
+                        return self.send_json(200, {"ok": False, "error": "the library list didn't come (%s) - check the internet" % error, "libraries": []})
                 if p == "/libraries/pads":   # Central Pads: the pad styles installed here (the pad pedal's voice list)
                     st = library_store(driver)
                     return self.send_json(200, {"pads": st.pads() if st else []})

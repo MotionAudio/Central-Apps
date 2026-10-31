@@ -21,7 +21,7 @@
   function persistNow() { clearTimeout(saveTimer); CU.store.set(KEY, data); }
 
   // ------------------------------------------------------------- what a control can do
-  var ACTIONS = {}, TAB_LABEL = { devices: "Devices", service: "Service", chart: "Chord chart", instrument: "Instrument", lights: "Lighting", mix: "Mix", inears: "In-ears", lyrics: "Lyrics", slides: "Slides", video: "Video", io: "I/O", controls: "Controls", settings: "Settings" };
+  var ACTIONS = {}, TAB_LABEL = { devices: "Devices", service: "Service", chart: "Chord chart", instrument: "Instrument", lights: "Lighting", mix: "Online mix", inears: "In-ears", lyrics: "Lyrics", slides: "Slides", video: "Video", io: "I/O", controls: "Controls", settings: "Settings" };
   function def(id, label, group, kind, run, extra) { ACTIONS[id] = Object.assign({ id: id, label: label, group: group, kind: kind, run: run }, extra || {}); }
   function admin() { return CU.mode() === "admin"; }
   function tabs() { var r = CU.role(); return r && CU.tabsFor ? CU.tabsFor(r) : Object.keys(TAB_LABEL); }
@@ -69,10 +69,10 @@
   def("lightsLook", "Lights: look N (from the Show tab)", "Lights", "trigger", function (a) { var s = lightsState(), l = s && s.looks[Number(a && a.index) || 0]; if (l) lightsCmd({ cmd: "look", id: l.id }); }, { admin: true, arg: "number", led: function (a) { var s = lightsState(), l = s && s.looks[Number(a && a.index) || 0]; return l && l.live ? "on" : "off"; } });
   def("lightsMaster", "Lights: master level", "Lights", "continuous", function (a, v) { lightsCmd({ cmd: "fader", id: "master", value: v }); }, { admin: true });
   // mix (admins, when this computer has the mixer)
-  def("mixMainLevel", "Mix: tracks mix level", "Mix", "continuous", function (a, v) { mixOp({ op: "main", patch: { level: toDb(v) } }); }, { admin: true });
-  def("mixMainMute", "Mix: mute the tracks mix", "Mix", "trigger", function () { var s = mix(); mixOp({ op: "main", patch: { mute: !(s && s.main && s.main.mute) } }); }, { admin: true, led: function () { var s = mix(); return s && s.main && s.main.mute ? "on" : "off"; } });
-  def("mixChannelLevel", "Mix: channel N level", "Mix", "continuous", function (a, v) { mixOp({ op: "input", i: Number(a && a.index) || 0, patch: { fader: toDb(v) } }); }, { admin: true, arg: "number" });
-  def("mixChannelMute", "Mix: mute channel N", "Mix", "trigger", function (a) { var i = Number(a && a.index) || 0, s = mix(), inp = s && s.inputs && s.inputs[i]; mixOp({ op: "input", i: i, patch: { mute: !(inp && inp.mute) } }); }, { admin: true, arg: "number", led: function (a) { var s = mix(), inp = s && s.inputs && s.inputs[Number(a && a.index) || 0]; return inp && inp.mute ? "on" : "off"; } });
+  def("mixMainLevel", "Online mix: tracks mix level", "Online mix", "continuous", function (a, v) { mixOp({ op: "main", patch: { level: toDb(v) } }); }, { admin: true });
+  def("mixMainMute", "Online mix: mute the tracks mix", "Online mix", "trigger", function () { var s = mix(); mixOp({ op: "main", patch: { mute: !(s && s.main && s.main.mute) } }); }, { admin: true, led: function () { var s = mix(); return s && s.main && s.main.mute ? "on" : "off"; } });
+  def("mixChannelLevel", "Online mix: channel N level", "Online mix", "continuous", function (a, v) { mixOp({ op: "input", i: Number(a && a.index) || 0, patch: { fader: toDb(v) } }); }, { admin: true, arg: "number" });
+  def("mixChannelMute", "Online mix: mute channel N", "Online mix", "trigger", function (a) { var i = Number(a && a.index) || 0, s = mix(), inp = s && s.inputs && s.inputs[i]; mixOp({ op: "input", i: i, patch: { mute: !(inp && inp.mute) } }); }, { admin: true, arg: "number", led: function (a) { var s = mix(), inp = s && s.inputs && s.inputs[Number(a && a.index) || 0]; return inp && inp.mute ? "on" : "off"; } });
   // talkback
   def("talkHold", "Talkback: talk while held", "Talkback", "trigger", function () { if (window.CUTalk) window.CUTalk.on(); }, { release: function () { if (window.CUTalk) window.CUTalk.off(); }, led: function () { var t = window.CUTalk && window.CUTalk.state(); return t && t.on ? "on" : "off"; } });
   def("talkToggle", "Talkback: on / off", "Talkback", "trigger", function () { var T = window.CUTalk; if (!T) return; if (T.state().on) T.off(); else T.on(); }, { led: function () { var t = window.CUTalk && window.CUTalk.state(); return t && t.on ? "on" : "off"; } });

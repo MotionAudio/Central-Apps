@@ -1,4 +1,4 @@
-/* Central Control - the Mix tab (admin): the Central Pedal's tracks, each on its own channel, mixed here.
+/* Central Control - the Online mix tab (admin): the Central Pedal's tracks, each on its own channel, mixed here.
  * Faders, pan, mute, high-pass, gate, 4-band EQ, compressor and two FX sends (reverb, delay) per channel - with
  * presets (Lead vocal, Kick, ...); out of the audio interface summed (main L/R) or each track on its own output.
  * "Faders: Stream mix" puts the stream mix's own levels on the faders (the live stream's mix: mix-stream.js draws
@@ -75,7 +75,7 @@
     if (sel < 0 || !S().inputs[sel]) return '<p class="muted">Click a channel\'s name for its high-pass, EQ and compressor.</p>';
     var x = S().inputs[sel], e = x.eq, c = x.comp, g = x.gate || {}, fx = x.fx || { rev: -90, dly: -90 }, sd = ss(sel), hz = function (v) { return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + " kHz" : Math.round(v) + " Hz"; }, dbs = function (v) { return (v > 0 ? "+" : "") + Number(v).toFixed(1) + " dB"; }, ms = function (v) { return (v < 10 ? Number(v).toFixed(1) : Math.round(v)) + " ms"; };
     var fxdb = function (v) { return v <= -90 ? "off" : dbs(v); };
-    return '<div class="mx-dhead"><input data-mxd="name" value="' + esc(x.name) + '" placeholder="Name"><input type="color" data-mxd="color" value="' + esc(x.color || "#E2C27E") + '" title="Colour"><select data-mxd="group"><option value="tracks"' + (x.group === "tracks" ? " selected" : "") + '>Tracks (Mix tab)</option><option value="band"' + (x.group !== "tracks" ? " selected" : "") + '>Band / mic</option></select><label class="toggle"><input type="checkbox" data-mxd="show"' + (x.show !== false ? " checked" : "") + '> Shown to the in-ear users</label>' +
+    return '<div class="mx-dhead"><input data-mxd="name" value="' + esc(x.name) + '" placeholder="Name"><input type="color" data-mxd="color" value="' + esc(x.color || "#E2C27E") + '" title="Colour"><select data-mxd="group"><option value="tracks"' + (x.group === "tracks" ? " selected" : "") + '>Tracks (Online mix tab)</option><option value="band"' + (x.group !== "tracks" ? " selected" : "") + '>Band / mic</option></select><label class="toggle"><input type="checkbox" data-mxd="show"' + (x.show !== false ? " checked" : "") + '> Shown to the in-ear users</label>' +
       '<label>Start from <select data-mxd="preset"><option value="">a preset…</option>' + (M.PRESETS || []).map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + "</option>"; }).join("") + '</select></label><span class="muted small">' + esc(srcLabel(x)) + '</span><button data-mxd="close">Close</button></div>' +
       '<div class="mx-dgrid"><div class="mx-dcol"><h4>Input</h4>' + slider("Trim", "trim", -24, 24, 0.5, x.trim, dbs) + '<label class="toggle"><input type="checkbox" data-mxd="phase"' + (x.phase ? " checked" : "") + "> Polarity flip</label>" + slider("High-pass", "hpf", 0, 400, 5, x.hpf, function (v) { return v > 0 ? Math.round(v) + " Hz" : "off"; }) +
       '<h4 class="mx-h4"><label class="toggle"><input type="checkbox" data-mxd="gate.on"' + (g.on ? " checked" : "") + '> Gate</label></h4><div class="mx-gr mx-gt"><i></i><span>closed by</span></div>' +
@@ -93,9 +93,9 @@
   }
   function render(force) {
     var root = $("#mixRoot"); if (!root || !visible()) return;
-    if (!(CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main")) { root.innerHTML = '<div class="card"><p>The Mix tab is on admin computers.</p></div>'; return; }
+    if (!(CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main")) { root.innerHTML = '<div class="card"><p>The Online mix tab is on admin computers.</p></div>'; return; }
     var s = S();
-    if (!s) { root.innerHTML = '<div class="card mx-empty"><h3>Mix</h3><p>' + esc(X.error || "Connecting to the mixer…") + '</p><p class="muted">One admin computer is the audio host: it gets the Central Pedal\'s tracks and makes the mixes. Set it up on the I/O tab.</p><button data-mx-go="io">Open I/O</button></div>'; structKey = ""; return; }
+    if (!s) { root.innerHTML = '<div class="card mx-empty"><h3>Online mix</h3><p>' + esc(X.error || "Connecting to the mixer…") + '</p><p class="muted">One admin computer is the audio host: it gets the Central Pedal\'s tracks and makes the mixes. Set it up on the I/O tab.</p><button data-mx-go="io">Open I/O</button></div>'; structKey = ""; return; }
     var list = stripInputs(), key = JSON.stringify([list, s.trackOut, list.map(function (i) { return s.inputs[i].name + s.inputs[i].color + active(s.inputs[i]); }), sel, outNames().length, X.kind, layer]);
     if (!force && key === structKey && root.querySelector(".mx-strips")) { update(); return; }
     structKey = key;

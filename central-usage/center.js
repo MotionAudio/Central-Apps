@@ -259,7 +259,12 @@ class Center {
       youAreMain: this.isMain(info), lockAll: !!this.lock.all, pedal: this.pedalInfo(info), centerName: this.mainName(), audioHost: this.publicAudioHost() };
     const codes = (this.audioHost && this.audioHost.codes) || null, myRole = info.id && this.devices[info.id] ? this.devices[info.id].role : null;
     if (codes && ADMIN_TIER.includes(myRole)) v.hostCodes = { admin: codes.adminCode, user: codes.userCode };
-    if (ADMIN_TIER.includes(myRole) || v.youAreMain) v.runners = this.runners();
+    if (ADMIN_TIER.includes(myRole) || v.youAreMain) {
+      v.runners = this.runners();
+      // (10.0.1) the main admin's admin code: its salted hash, so an admin computer can check it when the center is out of reach
+      if (this.main && this.main.pinHash) v.adminCheck = { salt: this.main.pinSalt, hash: this.main.pinHash };
+      v.hasAdminCode = !!(this.main && this.main.pinHash);
+    }
     else if (codes && (myRole === "user1" || myRole === "user2")) v.hostCodes = { user: codes.userCode };
     if (v.youAreMain) {
       v.devices = Object.keys(this.devices).filter((k) => k !== info.id).map((k) => this.deviceView(k)).sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
@@ -273,6 +278,7 @@ class Center {
   }
   push() { for (const [ws, info] of this.clients) if (info.id) this.sendTo(ws, this.viewFor(info)); this.tellPedals(); this.emit({ type: "status" }); }
   // (10.0) the jobs: a computer's own pick (at setup, or in Settings), or the main admin's. The newer one wins.
+  adminCodeOk(pin) { return !!(this.main && this.main.pinHash && salted(String(pin || "").trim(), this.main.pinSalt) === this.main.pinHash); }
   setJobs(d, list, at, v) { d.jobs = normJobs(list, v === 2 ? 2 : undefined); d.jobsV = 2; d.jobsAt = Number(at) || Date.now(); }
   jobsOf(id) { const d = this.devices[id] || {}; return normJobs(d.jobs, d.jobsV); }
   // who runs each job now: of the admin computers that are on, the ones that picked it (else the ones doing everything);
@@ -351,6 +357,7 @@ class Center {
         }
         Object.assign(d, { name: name || d.name || (want === "pedal" ? "Central Pedal" : "Central Control"), role: want, paired: true, lastSeen: now });
         if (Array.isArray(m.jobs) && (want === "admin" || d.wantsAdmin || pending) && (Number(m.jobsAt) || 0) > (d.jobsAt || 0)) this.setJobs(d, m.jobs, m.jobsAt, m.jobsV);
+        if (m.jobsPicked) d.jobsPicked = true;
         if (pending) d.wantsAdmin = true; else delete d.wantsAdmin;
         delete d.claimsMain; delete this.fails[id];
         if (want === "pedal") { d.pedal = this.pedalFields(m, info); this.firstJob(id); }
@@ -376,6 +383,7 @@ class Center {
           const d = this.devices[id] || (this.devices[id] = {});
           Object.assign(d, { name: this.main.name, role: "main", paired: true, lastSeen: now }); delete d.claimsMain;
           if (Array.isArray(m.jobs) && (Number(m.jobsAt) || 0) > (d.jobsAt || 0)) this.setJobs(d, m.jobs, m.jobsAt, m.jobsV);
+          if (m.jobsPicked) d.jobsPicked = true;
         } else {
           info.id = id; const d = this.devices[id] || (this.devices[id] = {});
           Object.assign(d, { name: name || d.name || "Central Control", role: "admin", claimsMain: true, lastSeen: now });
@@ -398,6 +406,7 @@ class Center {
       if (claim === "pedal" || dd.role === "pedal") { dd.role = "pedal"; dd.pedal = this.pedalFields(m, info); this.firstJob(id); }
       delete dd.claimsMain; dd.name = name || dd.name || "Central Control"; dd.lastSeen = now;
       if (Array.isArray(m.jobs) && ADMIN_TIER.includes(dd.role) && (Number(m.jobsAt) || 0) > (dd.jobsAt || 0)) this.setJobs(dd, m.jobs, m.jobsAt, m.jobsV);
+      if (m.jobsPicked && ADMIN_TIER.includes(dd.role)) dd.jobsPicked = true;
       if (edition) { dd.edition = edition; if (edition === "usage" && (dd.role === "admin" || dd.role === "main")) { dd.role = "user1"; delete dd.wantsAdmin; } }
       this.save(); this.push(); this.welcome(ws); return null;
     }
@@ -424,7 +433,13 @@ class Center {
       }
       d.role = want; delete d.claimsMain; delete d.wantsAdmin; delete this.fails[id]; this.save(); this.push(); return R({ ok: true, role: want });
     }
+    if (action === "checkCode") {   // (10.0.1) is this the main admin's admin code? (before an "undo" on this computer)
+      if (this.locked(id)) return R({ ok: false, error: "Too many wrong codes - wait a minute." });
+      if (!this.adminCodeOk(m.pin)) { this.wrong(id); return R({ ok: false, error: "That's not the admin code. Only the main admin knows it." }); }
+      delete this.fails[id]; return R({ ok: true });
+    }
     if (action === "forget") {
+      if (!(this.main && this.main.id === id) && this.main && this.main.pinHash && !this.adminCodeOk(m.pin)) { this.wrong(id); return R({ ok: false, error: "Forgetting this computer's setup needs the admin code." }); }
       if (this.main && this.main.id === id) {
         if (salted(String(m.token || ""), this.main.tokenSalt) !== this.main.tokenHash) return R({ ok: false, error: "Only the main admin itself can give up the role." });
         this.main = null; info.main = false;
@@ -433,7 +448,12 @@ class Center {
     }
     if (action === "myJobs") {
       if (!main && !ADMIN_TIER.includes(d.role)) return R({ ok: false, error: "Jobs are for the main admin's and the admins' computers." });
-      this.setJobs(d, m.jobs, Date.now(), m.jobsV);
+      // (10.0.1) the first choice is free; changing it afterwards takes the main admin's admin code
+      if (d.jobsPicked && this.main && this.main.pinHash) {
+        if (this.locked(id)) return R({ ok: false, error: "Too many wrong codes - wait a minute." });
+        if (!this.adminCodeOk(m.pin)) { this.wrong(id); return R({ ok: false, needCode: true, error: "Changing what this computer does needs the admin code." }); }
+      }
+      this.setJobs(d, m.jobs, Date.now(), m.jobsV); d.jobsPicked = true; delete this.fails[id];
       this.save(); this.push(); return R({ ok: true, jobs: d.jobs, jobsAt: d.jobsAt });
     }
     if (action === "runJob") {   // (10.0) two computers have the same job: which one runs it
@@ -544,7 +564,9 @@ class Center {
     if (!m.on) { this.talkEnd(ws, info); return R({ ok: true, on: false }); }
     const name = clean(m.name) || this.devices[info.id].name || "Someone";
     let to = [], group = null;
-    if (m.to === "group") {
+    if (m.to === "team") {   // (10.0.1) the party line: everyone paired hears it (not the Central Pedal, not the talker)
+      to = Object.keys(this.devices).filter((k) => k !== info.id && this.devices[k].paired !== false && this.devices[k].role !== "pedal");
+    } else if (m.to === "group") {
       if (!this.isMain(info)) return R({ ok: false, error: "Only the main admin talks to the Band or Production." });
       group = TALK_GROUPS.includes(m.group) ? m.group : null; if (!group) return R({ ok: false, error: "Band or Production?" });
       const want = new Set((Array.isArray(m.devices) ? m.devices : []).map(idOf));
@@ -555,7 +577,7 @@ class Center {
       to = [this.main.id];
     }
     if (info.talk) this.talkEnd(ws, info, true);
-    info.talk = { to, group, name, kind: m.to === "group" ? "group" : "main", since: Date.now(), last: Date.now() };
+    info.talk = { to, group, name, kind: m.to === "team" ? "team" : m.to === "group" ? "group" : "main", since: Date.now(), last: Date.now() };
     const online = to.filter((k) => this.online(k));
     const note = { type: "talkFrom", on: true, id: info.id, name, group, kind: info.talk.kind };
     for (const k of online) for (const w of this.socketsOf(k)) this.sendTo(w, note);

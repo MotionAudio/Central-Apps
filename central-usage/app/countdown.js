@@ -11,7 +11,7 @@
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   var JOB_ROLES = { lights: ["lighting"], cameras: ["production"], tracks: ["mix"], stream: ["mix"], inears: ["inears"], slides: ["slides"], lyrics: ["lyrics"] };   // (10.0 jobs -> the service plan's roles)
-  var NAMES = { lighting: "Lights", production: "Cameras", slides: "Slides", lyrics: "Lyrics", mix: "Mix", inears: "In-ears", band: "Band" };
+  var NAMES = { lighting: "Lights", production: "Cameras", slides: "Slides", lyrics: "Lyrics", mix: "Online mix", inears: "In-ears", band: "Band" };
   var warned = {}, lastRun = null, popOpen = false;
   function S() { return window.CUServices ? window.CUServices.state() : { services: [], run: null, offset: 0 }; }
   function fmt(sec) { return window.CUServices ? window.CUServices.fmt(sec) : String(Math.round(sec)); }

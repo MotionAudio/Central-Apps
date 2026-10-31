@@ -370,6 +370,18 @@ def run(tmp):
             pass
 
         def do_GET(self):
+            if self.path == "/idx":   # (10.0.1) the published release's list, behind a redirect like GitHub's
+                self.send_response(302)
+                self.send_header("Location", "/rel/libraries-index.json")
+                self.end_headers()
+                return
+            if self.path == "/rel/libraries-index.json":
+                body = json.dumps({"libraries": [dict(keys, sha256=keys["sha256"].upper()), {"id": "central-pads-library", "plan": "pads", "file": "p.zip"}]}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
             self.send_response(200)
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
@@ -377,6 +389,13 @@ def run(tmp):
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     url = "http://127.0.0.1:%d/%s" % (srv.server_address[1], keys["file"])
+    idx = libraries.release_index("http://127.0.0.1:%d/idx" % srv.server_address[1])
+    rel = idx["libraries"]
+    check("(10.0.1) the published release's list (through its redirect): each library ready, its url = the index's folder + file, unpublished ones left out",
+          idx["source"] == "release" and len(rel) == 1 and rel[0]["ready"] and rel[0]["sha256"] == keys["sha256"] and rel[0]["url"] == "http://127.0.0.1:%d/rel/%s" % (srv.server_address[1], keys["file"]), [(r["url"], r["sha256"], len(rel)) for r in rel])
+    r0 = store.install_url(rel[0]["url"], rel[0]["sha256"], rel[0]["id"], rel[0]["size"])
+    check("(10.0.1) a library from the release's list downloads and installs", r0["version"] == keys["version"])
+    store.remove("central-keys-library")
     try:
         store.install_url(url, "e" * 64, "central-keys-library")
         refused = False

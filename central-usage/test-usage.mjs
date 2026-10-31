@@ -528,6 +528,7 @@ await check("Service tab: the main admin adds a service and starts it - the user
 });
 await check("talkback: the main admin talks to the Band (the user's computer plays it); the user's talkback reaches only the main admin; a device moved to Production stops hearing Band talk", async () => {
   await mainP.waitForFunction(() => (CURoles.view().devices || []).some((d) => d.name === "Keys" && d.online && d.talkGroup === "band"), null, { timeout: 6000 });
+  await mainP.evaluate(() => CUTalk.setMode("groups")); await userP.evaluate(() => CUTalk.setMode("groups"));   // (10.0.1: the party line is the default; this is the groups way)
   await mainP.evaluate(() => CUTalk.setGroup("band"));
   assert.ok(await mainP.evaluate(() => !!document.querySelector('#tbTop [data-tb-group="band"].on') && !!document.querySelector('#tbTop [data-tb-group="production"]')), "Band / Production next to TALK");
   await mainP.evaluate(() => CUTalk.on());
@@ -548,9 +549,57 @@ await check("talkback: the main admin talks to the Band (the user's computer pla
   await mainP.waitForFunction(() => !CUTalk.state().on && /Nobody in the Band/.test(CUTalk.state().error), null, { timeout: 5000 });
   await mainP.evaluate(() => { const tr = [...document.querySelectorAll("#devicesRoot tr")].find((x) => /Keys/.test(x.textContent)); const sel = tr.querySelector("select[data-dv-tg]"); sel.value = "band"; sel.dispatchEvent(new Event("change", { bubbles: true })); });
 });
+await check("(10.0.1) the party line is the default: the user's Talk (top right) reaches the main admin, who sees who is talking", async () => {
+  await mainP.evaluate(() => CUTalk.setMode("team")); await userP.evaluate(() => CUTalk.setMode("team"));
+  await userP.waitForSelector("#tbTop.tb-team [data-tb-talk='team']", { timeout: 4000 });
+  assert.ok(await mainP.evaluate(() => !!document.querySelector("#tbTop.tb-team [data-tb-talk='team']")), "the main admin has the team Talk button too");
+  const order = await userP.evaluate(() => getComputedStyle(document.getElementById("tbTop")).order); assert.equal(order, "10", "the Talk button sits at the top right");
+  await userP.evaluate(() => CUTalk.on());
+  try { await userP.waitForFunction(() => CUTalk.state().on && CUTalk.state().sending && CUTalk.state().receivers >= 1, null, { timeout: 8000 }); }
+  catch (e) { throw new Error("team talk: " + await userP.evaluate(() => JSON.stringify(CUTalk.state()))); }
+  await mainP.waitForFunction(() => CUTalk.state().incoming.some((x) => x.kind === "team"), null, { timeout: 8000 });
+  await mainP.waitForFunction(() => /Keys|User/.test((document.querySelector("#tbTop .tb-who") || {}).textContent || ""), null, { timeout: 8000 });
+  await userP.evaluate(() => CUTalk.off());
+  await mainP.click('[data-tab="settings"]'); await mainP.waitForSelector("#settingsRoot .tb-settings [data-tb-mode='groups']", { timeout: 4000 });
+  assert.match(await mainP.textContent("#settingsRoot .tb-settings"), /party line/);
+});
+await check("(10.0.1) changing what this computer does asks for the admin code: a wrong one changes nothing, the right one does", async () => {
+  await mainP.evaluate(() => { CentralUsage.store.set("jobsPicked", true); window.__alerts = []; window.alert = (t) => window.__alerts.push(t); CentralUsage.askText = () => Promise.resolve("9999"); });
+  await mainP.click('[data-tab="settings"]'); await mainP.waitForSelector("#settingsRoot [data-rl-myjob='lights']", { timeout: 4000 });
+  const before = await mainP.evaluate(() => JSON.stringify(CentralUsage.jobs()));
+  await mainP.evaluate(() => { const box = document.querySelector("#settingsRoot [data-rl-myjob='lights']"); box.checked = !box.checked; box.dispatchEvent(new Event("change", { bubbles: true })); });
+  await mainP.waitForTimeout(500);
+  assert.equal(await mainP.evaluate(() => JSON.stringify(CentralUsage.jobs())), before, "unchanged with a wrong code");
+  assert.match(await mainP.evaluate(() => window.__alerts.join(" ")), /admin code/);
+  const code = await mainP.evaluate(() => CURoles.keys().pin);
+  await mainP.evaluate((c) => { CentralUsage.askText = () => Promise.resolve(c); }, code);
+  await mainP.evaluate(() => { document.querySelectorAll("#settingsRoot [data-rl-myjob]").forEach((x) => { x.checked = x.dataset.rlMyjob === "lights" || x.dataset.rlMyjob === "lyrics"; }); const box = document.querySelector("#settingsRoot [data-rl-myjob='lights']"); box.dispatchEvent(new Event("change", { bubbles: true })); });
+  await mainP.waitForFunction(() => JSON.stringify(CentralUsage.jobs()) === JSON.stringify(["lyrics", "lights"]), null, { timeout: 5000 });
+  // everything again, for the checks after this one
+  await mainP.evaluate(() => { document.querySelectorAll("#settingsRoot [data-rl-myjob]").forEach((x) => { x.checked = true; }); document.querySelector("#settingsRoot [data-rl-myjob='lights']").dispatchEvent(new Event("change", { bubbles: true })); });
+  await mainP.waitForFunction(() => CentralUsage.jobs()[0] === "general", null, { timeout: 5000 });
+});
+await check("(10.0.1) a Central Control set up before 10.0 (an admin, no jobs picked) asks what it does on its first start; then shows only those tabs", async () => {
+  const c = await b.newContext({ viewport: { width: 1280, height: 800 } }), p = await c.newPage(); p.on("pageerror", (e) => errs.push("old:" + e));
+  await p.addInitScript(() => { try { localStorage.setItem("cu-mode", JSON.stringify("admin")); localStorage.setItem("cu-role", JSON.stringify("admin")); localStorage.setItem("cu-name", JSON.stringify("Old lights PC")); localStorage.setItem("cc-license", JSON.stringify({ key: "ADEF-AULT-KEY0-2026", kind: "A", app: "control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });
+  await p.goto("file://" + path.join(here, "app", "index.html") + "?edition=control"); await p.waitForFunction(() => window.CentralUsage && window.CURoles);
+  await p.waitForSelector("#jobsPick [data-jp-job='lights']", { timeout: 6000 });
+  await p.check("#jobsPick [data-jp-job='lights']"); await p.click("#jobsPick [data-jp='save']");
+  await p.waitForFunction(() => !document.getElementById("jobsPick") && JSON.stringify(CentralUsage.jobs()) === JSON.stringify(["lights"]) && CentralUsage.store.get("jobsPicked", false), null, { timeout: 5000 });
+  const tabs = await p.evaluate(() => CentralUsage.tabsFor("admin")); assert.ok(tabs.includes("lights") && !tabs.includes("lyrics") && !tabs.includes("mix"), tabs.join(","));
+  await p.reload(); await p.waitForFunction(() => window.CentralUsage && window.CURoles); await p.waitForTimeout(600);
+  assert.equal(await p.evaluate(() => !!document.getElementById("jobsPick")), false, "asked only once");
+  await c.close();
+});
 await check("Forget role on the main admin goes back to the first-launch choice", async () => {
   await mainP.click('[data-tab="settings"]'); await mainP.waitForSelector("#settingsRoot [data-rl='forget']");
-  await mainP.evaluate(() => { window.confirm = () => true; }); await mainP.click("#settingsRoot [data-rl='forget']");
+  // (10.0.1) it asks for the admin code first: a wrong one keeps everything as it is
+  await mainP.evaluate(() => { window.confirm = () => true; window.__alerts = []; window.alert = (t) => window.__alerts.push(t); CentralUsage.askText = () => Promise.resolve("9999"); });
+  await mainP.click("#settingsRoot [data-rl='forget']"); await mainP.waitForTimeout(400);
+  assert.equal(await mainP.evaluate(() => CentralUsage.role()), "main", "a wrong admin code doesn't forget the setup");
+  assert.match(await mainP.evaluate(() => window.__alerts.join(" ")), /admin code/);
+  const code = await mainP.evaluate(() => CURoles.keys().pin);
+  await mainP.evaluate((c) => { CentralUsage.askText = () => Promise.resolve(c); }, code); await mainP.click("#settingsRoot [data-rl='forget']");
   await mainP.waitForSelector("#modePick [data-rp='main']", { timeout: 5000 }); assert.equal(await mainP.evaluate(() => CentralUsage.role()), null);
 });
 await check("iPhone / iPad: Central Control opens from the Central Pedal (http://pi:8080/cu/), joins as a user, shows the user tabs and the parts", async () => {

@@ -21,15 +21,17 @@
   function canTalk() { return CU.role() === "main"; }   // to the Band / Production: the main admin only
   function isUser() { var r = CU.role(); return r === "user1" || r === "user2"; }
   function isDesk() { return CU.role() === "main"; }     // everyone's talkback ends up in the main admin's headphones
-  function kindHere() { var r = CU.role(); return r === "main" ? "group" : r ? "main" : null; }
+  // (10.0.1) one party line for the whole team by default: everyone's Talk button reaches everyone else, in their
+  // in-ears or headphones. "Groups" keeps the older way (the main admin to the Band / Production, others to the main admin).
+  function kindHere() { var r = CU.role(); if (!r) return null; if (prefs.mode !== "groups") return "team"; return r === "main" ? "group" : "main"; }
   var GROUPS = { band: "Band", production: "Production" }, GICON = { band: "🎸", production: "🎬" };
   function mainName() { var v = window.CURoles && window.CURoles.view(); return (v && v.mainName) || "the main admin"; }
   function myName() { return (CU.config() || {}).name || CU.store.get("name", "") || (isUser() ? "Someone" : "Sound desk"); }
   function micAllowed() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && window.isSecureContext !== false; }
 
   // ------------------------------------------------------------------ settings (this computer)
-  var prefs = { group: CU.store.get("tbGroup", "band"), targets: CU.store.get("tbTargets", { all: true, mixes: [] }), dim: CU.store.get("tbDim", { on: true, db: -12 }), mic: CU.store.get("tbMic", "mic"), micDev: CU.store.get("tbMicDev", "") };
-  function save() { CU.store.set("tbGroup", prefs.group); CU.store.set("tbTargets", prefs.targets); CU.store.set("tbDim", prefs.dim); CU.store.set("tbMic", prefs.mic); CU.store.set("tbMicDev", prefs.micDev); }
+  var prefs = { mode: CU.store.get("tbMode", "team"), group: CU.store.get("tbGroup", "band"), targets: CU.store.get("tbTargets", { all: true, mixes: [] }), dim: CU.store.get("tbDim", { on: true, db: -12 }), mic: CU.store.get("tbMic", "mic"), micDev: CU.store.get("tbMicDev", "") };
+  function save() { CU.store.set("tbMode", prefs.mode); CU.store.set("tbGroup", prefs.group); CU.store.set("tbTargets", prefs.targets); CU.store.set("tbDim", prefs.dim); CU.store.set("tbMic", prefs.mic); CU.store.set("tbMicDev", prefs.micDev); }
   function targets() { return prefs.targets.all ? { all: true, mixes: [] } : { all: false, mixes: (prefs.targets.mixes || []).slice() }; }
   function mixLabel(m) { var s = X && X.state, q = s && s.mixes[m]; return "Mix " + (m + 1) + (q ? " · " + (q.owner || q.name) : ""); }
   function targetText() { if (prefs.group !== "custom") return "the " + GROUPS[prefs.group]; var t = targets(); if (t.all) return "every in-ear mix"; if (!t.mixes.length) return "nobody yet - pick mixes"; return t.mixes.map(mixLabel).join(", "); }
@@ -157,7 +159,9 @@
     if (T.on || !kind) return;
     T.on = true; T.latched = false; T.kind = kind; T.err = ""; T.note = ""; T.since = Date.now(); T.receivers = null; T.ways = []; T.key = null; paint();
     var plan = [], dim = prefs.dim.on ? Number(prefs.dim.db) || -12 : 0;
-    if (kind === "main") {
+    if (kind === "team") {
+      plan.push({ w: centerWay({ to: "team" }) }); T.to = "everyone";
+    } else if (kind === "main") {
       plan.push({ w: centerWay({ to: "main" }) }); T.to = mainName();
     } else if (kind === "group" && prefs.group === "custom") {   // (chosen in-ear mixes)
       var wc = way("inears"); if (!wc) return fail(X && X.error ? X.error : "Not connected to the audio host.");
@@ -185,6 +189,7 @@
     T.ways = started; T.receivers = rec; mic.sending = !input;
     if (errors.length) T.note = "Not everyone: " + errors[0];
     else if (kind === "main" && rec === 0) T.note = mainName() + " is not connected right now.";
+    else if (kind === "team" && rec === 0) T.note = "Nobody else is connected right now.";
     paint();
   }
   function sendFrame(pcm) { T.ways.forEach(function (w) { try { w.audio(pcm); } catch (_) { } }); }
@@ -242,17 +247,25 @@
     if (m.type !== "talkFrom") return;
     if (m.on) incoming[m.id] = { name: m.name, group: m.group, kind: m.kind, player: (incoming[m.id] || {}).player || null, timer: 0 };
     else if (incoming[m.id]) { var x = incoming[m.id]; if (x.player) x.player.stop(); clearTimeout(x.timer); delete incoming[m.id]; }
-    paint();
+    duck(); paint();
   });
   CU.on("centerTalk", function (a) {
     var x = incoming[a.id] || (incoming[a.id] = { name: "Someone", player: null, timer: 0 });
     heard.frames += a.frames;
     if (!x.player) { x.player = IE.player({ latency: 60, sinkId: window.CUListen ? window.CUListen.sink() : "" }); x.player.start(); paint(); }
     x.player.push(a.pcm, a.frames, 1, a.rate || RATE);
-    clearTimeout(x.timer); x.timer = setTimeout(function () { if (x.player) x.player.stop(); x.player = null; paint(); }, 1500);
+    clearTimeout(x.timer); x.timer = setTimeout(function () { if (x.player) x.player.stop(); x.player = null; duck(); paint(); }, 1500);
+    duck();
   });
+  // the music in this device's own in-ear mix dips while someone talks (Settings -> Talk: "Dim the music")
+  var ducked = false;
+  function duck() {
+    var talking = Object.keys(incoming).some(function (k) { return incoming[k].player; }), want = talking && prefs.dim.on;
+    if (want === ducked) return; ducked = want;
+    if (window.CUInEarDuck) window.CUInEarDuck(want ? Number(prefs.dim.db) || -12 : 0);
+  }
   function incomingText() {
-    return Object.keys(incoming).filter(function (k) { return incoming[k].player || incoming[k].kind; }).map(function (k) { var x = incoming[k]; return "🔊 " + esc(x.name) + (x.kind === "group" ? " → the " + esc(GROUPS[x.group] || "group") : " talking to you"); }).join(" · ");
+    return Object.keys(incoming).filter(function (k) { return incoming[k].player || incoming[k].kind; }).map(function (k) { var x = incoming[k]; return "🔊 " + esc(x.name) + (x.kind === "team" ? " is talking" : x.kind === "group" ? " → the " + esc(GROUPS[x.group] || "group") : " talking to you"); }).join(" · ");
   }
   if (X) X.on("talkAudio", function (pcm, frames, rate) { if (X.kind === "remote") deskAudio(pcm, frames, rate); });
   function othersText() {
@@ -283,6 +296,23 @@
       '<label>Mic <select data-tb="mic">' + micOptions() + '</select></label><select data-tb="micdev" title="Which microphone of this computer"' + (prefs.mic !== "mic" ? " hidden" : "") + '><option value="">Default microphone</option></select><span class="tb-level" title="Mic level"><i></i></span></div>' +
       '<div class="tb-line"><span class="tb-msg"></span><span class="tb-others muted small"></span></div></div></div>';
   }
+  function modeLine() {
+    return '<div class="tb-line"><b>Talk to</b><span class="tb-groups" role="radiogroup"><button data-tb-mode="team" role="radio" aria-checked="' + (prefs.mode !== "groups") + '" class="' + (prefs.mode !== "groups" ? "on" : "") + '">Everyone</button><button data-tb-mode="groups" role="radio" aria-checked="' + (prefs.mode === "groups") + '" class="' + (prefs.mode === "groups" ? "on" : "") + '">Groups</button></span>' +
+      '<span class="muted small">' + (prefs.mode === "groups" ? "The main admin talks to the Band or Production; everyone else talks to the main admin." : "One party line: everyone on the team hears everyone, in their in-ears or headphones.") + "</span></div>";
+  }
+  function micLine() {
+    return '<div class="tb-line"><label>Mic <select data-tb="mic">' + micOptions() + '</select></label><select data-tb="micdev" title="Which microphone of this computer"' + (prefs.mic !== "mic" ? " hidden" : "") + '><option value="">Default microphone</option></select><span class="tb-level" title="Mic level"><i></i></span>' +
+      '<label class="toggle"><input type="checkbox" data-tb="dim"' + (prefs.dim.on ? " checked" : "") + '> Dim the music while someone talks</label><select data-tb="dimdb">' + [-6, -12, -18, -24].map(function (d) { return '<option value="' + d + '"' + (Number(prefs.dim.db) === d ? " selected" : "") + ">" + d + " dB</option>"; }).join("") + "</select></div>";
+  }
+  function teamPanel() {
+    return '<div class="tb-row"><button class="tb-talk" data-tb-talk="team" title="Hold to talk · a quick tap keeps it on (tap again to stop)"' + (micAllowed() ? "" : " disabled") + '>🎙 TALK</button>' +
+      '<div class="tb-side">' + modeLine() + micLine() + '<div class="tb-line"><span class="tb-msg"></span><span class="tb-others muted small"></span></div></div></div>';
+  }
+  // Settings -> Talk (the same controls as the In-ears panel)
+  function card() {
+    if (!kindHere()) return "";
+    return '<section class="card tb-panel tb-settings"><h3>Talk</h3><p class="muted small">The Talk button is at the top right. Hold it to talk; a quick tap keeps it on until you tap again. Plug in a headset or microphone and pick it here.</p>' + modeLine() + micLine() + "</section>";
+  }
   function userPanel() {
     return '<div class="tb-row"><button class="tb-talk tb-desk" data-tb-talk="main" title="Hold to talk · a quick tap keeps it on"' + (micAllowed() ? "" : " disabled") + '>🎙 Talk to ' + esc(mainName()) + '</button><div class="tb-side"><span class="tb-msg"></span><span class="tb-level" title="Mic level"><i></i></span>' +
       '<span class="muted small">Only the main admin hears it, in their headphones' + (micAllowed() ? "" : " (on this phone the microphone needs the Central Control app)") + '.</span><span class="tb-others muted small"></span></div></div>';
@@ -291,7 +321,7 @@
   function render() {
     var kind = kindHere(), s = X && X.state;
     var gb = kind === "group" ? ["band", "production"].map(function (g) { return groupPlan(g).names.join(","); }) : null;
-    var key = JSON.stringify([kind, s ? s.mixes.map(function (q) { return (q.owner || q.name) + (q.ownerId || ""); }) : null, panelOpen, prefs.group, X && X.kind, ((X && X.hostStatus && X.hostStatus.engine && X.hostStatus.engine.status) || {}).inputs, prefs.mic, gb, mainName()]);
+    var key = JSON.stringify([prefs.mode, kind, s ? s.mixes.map(function (q) { return (q.owner || q.name) + (q.ownerId || ""); }) : null, panelOpen, prefs.group, X && X.kind, ((X && X.hostStatus && X.hostStatus.engine && X.hostStatus.engine.status) || {}).inputs, prefs.mic, gb, mainName()]);
     if (key !== structKey) {
       structKey = key;
       // the top bar
@@ -299,15 +329,16 @@
       if (!kind) { if (top) top.remove(); }
       else {
         if (!top) { top = document.createElement("div"); top.id = "tbTop"; top.className = "tb-top"; var hdr = document.querySelector("header.top"), song = document.getElementById("songBox"); if (hdr) hdr.insertBefore(top, song || null); }
-        top.innerHTML = (kind === "group" ? groupButtons(true) : "") + '<button class="tb-talk tb-mini" data-tb-talk="' + kind + '" title="' + (kind === "main" ? "Talk to " + esc(mainName()) : "Talk to the " + (GROUPS[prefs.group] || "chosen mixes")) + ' - hold to talk, a quick tap keeps it on"' + (kind === "main" && !micAllowed() ? " disabled" : "") + ">🎙 " + (kind === "main" ? "Main admin" : "TALK") + "</button>";
+        top.classList.toggle("tb-team", kind === "team");
+        top.innerHTML = (kind === "group" ? groupButtons(true) : "") + '<span class="tb-who muted small" aria-live="polite"></span><button class="tb-talk tb-mini" data-tb-talk="' + kind + '" title="' + (kind === "team" ? "Talk to everyone on the team" : kind === "main" ? "Talk to " + esc(mainName()) : "Talk to the " + (GROUPS[prefs.group] || "chosen mixes")) + ' - hold to talk, a quick tap keeps it on"' + ((kind === "main" || kind === "team") && !micAllowed() ? " disabled" : "") + ">🎙 " + (kind === "team" ? "Talk" : kind === "main" ? "Main admin" : "TALK") + "</button>";
       }
       // the panels: In-ears (admins and users), Mix (admins)
       [["view-inears", "inearsRoot"], ["view-mix", "mixRoot"]].forEach(function (v) {
         var view = document.getElementById(v[0]), root = document.getElementById(v[1]); if (!view || !root) return;
-        var p = view.querySelector(".tb-panel"), want = kind === "group" || (kind === "main" && v[0] === "view-inears");
+        var p = view.querySelector(".tb-panel"), want = kind === "group" || kind === "team" || (kind === "main" && v[0] === "view-inears");
         if (!want) { if (p) p.remove(); return; }
         if (!p) { p = document.createElement("div"); p.className = "tb-panel"; view.insertBefore(p, root); }
-        p.classList.toggle("tb-user", kind === "main"); p.innerHTML = kind === "main" ? userPanel() : adminPanel();
+        p.classList.toggle("tb-user", kind === "main"); p.innerHTML = kind === "team" ? teamPanel() : kind === "main" ? userPanel() : adminPanel().replace('<div class="tb-side">', '<div class="tb-side">' + modeLine());
       });
       fillMicDevices();
     }
@@ -326,7 +357,7 @@
     var on = T.on, kind = T.kind || kindHere();
     document.querySelectorAll("[data-tb-talk]").forEach(function (b) {
       b.classList.toggle("onair", on); b.classList.toggle("latched", on && T.latched);
-      var base = b.classList.contains("tb-mini") ? (b.dataset.tbTalk === "main" ? "🎙 Main admin" : "🎙 TALK") : b.dataset.tbTalk === "main" ? "🎙 Talk to " + mainName() : "🎙 TALK";
+      var base = b.classList.contains("tb-mini") ? (b.dataset.tbTalk === "team" ? "🎙 Talk" : b.dataset.tbTalk === "main" ? "🎙 Main admin" : "🎙 TALK") : b.dataset.tbTalk === "main" ? "🎙 Talk to " + mainName() : "🎙 TALK";
       b.textContent = on ? (b.classList.contains("tb-mini") ? "● ON AIR" : "● ON AIR" + (T.latched ? " · tap to stop" : "")) : base;
       b.setAttribute("aria-pressed", on ? "true" : "false");
     });
@@ -334,7 +365,7 @@
     var banner = document.getElementById("tbOnAir");
     if (on) {
       if (!banner) { banner = document.createElement("div"); banner.id = "tbOnAir"; banner.className = "tb-banner"; banner.setAttribute("role", "status"); document.body.appendChild(banner); }
-      banner.innerHTML = "<b>● ON AIR</b> <span>" + (kind === "main" ? "talking to " + esc(mainName()) : "talking to " + esc(T.to || targetText())) + (T.latched ? " · tap TALK to stop" : "") + "</span>";
+      banner.innerHTML = "<b>● ON AIR</b> <span>" + (kind === "team" ? "everyone on the team hears you" : kind === "main" ? "talking to " + esc(mainName()) : "talking to " + esc(T.to || targetText())) + (T.latched ? " · tap Talk to stop" : "") + "</span>";
     } else if (banner) banner.remove();
     var msg = T.err ? '<span class="bad">' + esc(T.err) + "</span>" : T.note ? '<span class="warn">' + esc(T.note) + "</span>" : on && !T.ways.length ? '<span class="muted">connecting…</span>' : "";
     document.querySelectorAll(".tb-msg").forEach(function (el) { el.innerHTML = msg; });
@@ -343,6 +374,9 @@
     if (inc && !on) { if (!hb) { hb = document.createElement("div"); hb.id = "tbHeard"; hb.className = "tb-banner tb-heard"; hb.setAttribute("role", "status"); document.body.appendChild(hb); } hb.innerHTML = inc; }
     else if (hb) hb.remove();
     document.querySelectorAll(".tb-others").forEach(function (el) { el.innerHTML = others; });
+    var who = Object.keys(incoming).filter(function (k) { return incoming[k].player || incoming[k].kind; }).map(function (k) { return incoming[k].name; });
+    document.querySelectorAll(".tb-who").forEach(function (el) { el.textContent = who.length ? "🔊 " + who.join(", ") : ""; });
+    document.querySelectorAll("[data-tb-mode]").forEach(function (b) { var on3 = (b.dataset.tbMode === "groups") === (prefs.mode === "groups"); b.classList.toggle("on", on3); b.setAttribute("aria-checked", on3 ? "true" : "false"); });
     document.querySelectorAll(".tb-to").forEach(function (el) { el.textContent = ""; });
     document.querySelectorAll("[data-tb-group]").forEach(function (b) { var on2 = b.dataset.tbGroup === prefs.group; b.classList.toggle("on", on2); b.setAttribute("aria-checked", on2 ? "true" : "false"); });
     // the panels' controls follow the settings (changed on the other tab's panel, or through CUTalk)
@@ -368,7 +402,11 @@
     else return;
     save(); render(); restartIfOn();
   });
-  document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("[data-tb-group]"); if (!b) return; setGroup(b.dataset.tbGroup); });
+  document.addEventListener("click", function (e) {
+    var mb = e.target.closest && e.target.closest("[data-tb-mode]"); if (mb) { setMode(mb.dataset.tbMode); return; }
+    var b = e.target.closest && e.target.closest("[data-tb-group]"); if (!b) return; setGroup(b.dataset.tbGroup);
+  });
+  function setMode(m) { m = m === "groups" ? "groups" : "team"; if (prefs.mode === m) return; if (T.on) talkOff(); prefs.mode = m; save(); structKey = ""; render(); if (window.CUSettings) window.CUSettings.render(); }
   function setGroup(g) { if (!GROUPS[g] && g !== "custom") return; if (prefs.group === g) return; prefs.group = g; save(); structKey = ""; render(); restartIfOn(); }
   function restartIfOn() { if (T.on && T.kind === "group") { var latched = T.latched; talkOff(); talkOn("group").then(function () { T.latched = latched; paint(); }); } }   // (who hears it changed mid-talk)
 
@@ -386,6 +424,7 @@
     group: function () { return prefs.group; }, setGroup: setGroup,
     targets: targets, setTargets: function (t) { prefs.targets = { all: !!t.all, mixes: (t.mixes || []).slice() }; prefs.group = "custom"; save(); render(); restartIfOn(); },
     setDim: function (d) { prefs.dim = { on: !!d.on, db: d.db == null ? -12 : Number(d.db) }; save(); render(); },
-    setMic: function (m) { prefs.mic = m; save(); render(); }, render: render
+    setMic: function (m) { prefs.mic = m; save(); render(); }, render: render,
+    mode: function () { return prefs.mode; }, setMode: setMode, card: card
   };
 })();

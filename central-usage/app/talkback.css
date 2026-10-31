@@ -37,3 +37,8 @@ button.mini { padding: 2px 8px; font-size: 12px; }
 .tb-groups.mini button { padding: 4px 9px; font-size: 12px; }
 .tb-top { display: inline-flex; gap: 6px; align-items: center; }
 .tb-banner.tb-heard { background: #2C313A; border-color: #8DB5DE; }
+/* (10.0.1) the team talk button sits at the top right, with who is talking beside it */
+.top > .tb-top.tb-team { order: 10; margin-left: 8px; }
+.tb-top .tb-who:empty { display: none; }
+.tb-top .tb-who { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent, #E2C27E); }
+.tb-settings .tb-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
