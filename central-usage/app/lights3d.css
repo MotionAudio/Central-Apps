@@ -14,7 +14,9 @@
 /* the light's panel (left) and the stage panel (right): floating cards */
 .lx3d-panel, .lx3d-stage { grid-row: 2 / 4; align-self: end; width: min(330px, calc(100% - 16px)); max-height: 100%; overflow: auto; box-sizing: border-box; display: grid; gap: 8px; padding: 10px 12px 12px; background: rgba(20,22,27,.94); border: 1px solid var(--line2); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.5); backdrop-filter: blur(8px); }
 .lx3d-panel { justify-self: start; }
-.lx3d-stage { justify-self: end; width: min(420px, calc(100% - 16px)); grid-row: 2 / 4; }
+.lx3d-stage { justify-self: end; width: min(460px, calc(100% - 16px)); grid-row: 2 / 4; }
+.lx3d-stage select { width: 100%; box-sizing: border-box; min-width: 0; }
+.lx3d-stage .lx3d-trusses input[type=number] { padding: 4px 3px; }
 .lx3d-panel[hidden], .lx3d-stage[hidden] { display: none; }
 .lx3d-ph { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .lx3d-ph b { font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

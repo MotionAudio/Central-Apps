@@ -27,6 +27,7 @@
     renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = T.SRGBColorSpace;
+    if (T.ACESFilmicToneMapping) { renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.25; }
     ok = true;
   } catch (e) {
     host.hidden = true; var svg = document.getElementById("lxPlot"); if (svg) svg.hidden = false;
@@ -45,13 +46,16 @@
   function canvasTex(w, h, draw) { var c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); var t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; return t; }
   var poolTex = canvasTex(128, 128, function (g, w, h) { var gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.35, "rgba(255,255,255,.55)"); gr.addColorStop(0.75, "rgba(255,255,255,.12)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
   var glowTex = canvasTex(64, 64, function (g, w, h) { var gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.25, "rgba(255,255,255,.6)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
-  var boardsTex = canvasTex(512, 512, function (g, w, h) { g.fillStyle = "#17191e"; g.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 32) { g.fillStyle = "rgba(255,255,255," + (0.012 + ((y / 32) % 3) * 0.006) + ")"; g.fillRect(0, y, w, 31); g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(0, y + 31, w, 1); } });
+  var boardsTex = canvasTex(512, 512, function (g, w, h) { g.fillStyle = "#1d2026"; g.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 32) { g.fillStyle = "rgba(255,255,255," + (0.012 + ((y / 32) % 3) * 0.006) + ")"; g.fillRect(0, y, w, 31); g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(0, y + 31, w, 1); } });
   boardsTex.wrapS = boardsTex.wrapT = T.RepeatWrapping;
   var M = {
-    floor: new T.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.95 }),
+    floor: new T.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.82, metalness: 0.15 }),
     deck: new T.MeshStandardMaterial({ color: 0xffffff, map: boardsTex, roughness: 0.8 }),
-    deckSide: new T.MeshStandardMaterial({ color: 0x0f1114, roughness: 0.9 }),
-    wall: new T.MeshStandardMaterial({ color: 0x0a0b0e, roughness: 1 }),
+    deckSide: new T.MeshStandardMaterial({ color: 0x16181d, roughness: 0.85 }),
+    wall: new T.MeshStandardMaterial({ color: 0x0a0b0e, roughness: 1, emissive: 0x000000 }),
+    riser: new T.MeshStandardMaterial({ color: 0x1a1c21, roughness: 0.75 }),
+    screen: new T.MeshBasicMaterial({ color: 0x0d1626 }),
+    screenFrame: new T.MeshStandardMaterial({ color: 0x050608, roughness: 0.6 }),
     seat: new T.MeshStandardMaterial({ color: 0x15171c, roughness: 0.9 }),
     truss: new T.MeshStandardMaterial({ color: 0x9aa1ab, metalness: 0.75, roughness: 0.35 }),
     body: new T.MeshStandardMaterial({ color: 0x1d2027, metalness: 0.4, roughness: 0.5 }),
@@ -71,6 +75,7 @@
 
   // ------------------------------------------------------------- the room: stage deck, floor, back wall, trusses, seats
   function stage() { return L.rig().stage; }
+  var screenMesh = null;
   function buildRoom() {
     var st = stage(), k = JSON.stringify(st); if (k === roomKey) return; roomKey = k;
     while (roomGroup.children.length) { var c = roomGroup.children.pop(); if (c.geometry && c.geometry !== planeGeo) c.geometry.dispose(); }
@@ -78,7 +83,14 @@
     var floor = new T.Mesh(new T.PlaneGeometry(roomW, D + R + 3), M.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, (R - D - 3) / 2 + 0); roomGroup.add(floor);
     if (deck > 0.001) { var box = new T.Mesh(new T.BoxGeometry(W, deck, D), [M.deckSide, M.deckSide, M.deck, M.deckSide, M.deckSide, M.deckSide]); box.position.set(0, deck / 2, -D / 2); M.deck.map.repeat.set(W / 4, D / 4); roomGroup.add(box); }
     else { var top = new T.Mesh(new T.PlaneGeometry(W, D), M.deck); top.rotation.x = -Math.PI / 2; top.position.set(0, 0.002, -D / 2); roomGroup.add(top); }
-    var edge = new T.Mesh(new T.BoxGeometry(W, 0.012, 0.03), lip); edge.position.set(0, deck + 0.006, 0); roomGroup.add(edge);
+    var shape = st.shape || "rect", hdeck = Math.max(deck, 0.02);
+    if (shape === "thrust") { var tw = clamp(st.thrustW || W * 0.4, 1, W), td = clamp(st.thrustD || 2.5, 0.5, 12), tb = new T.Mesh(new T.BoxGeometry(tw, hdeck, td), [M.deckSide, M.deckSide, M.deck, M.deckSide, M.deckSide, M.deckSide]); tb.position.set(0, hdeck / 2, td / 2); roomGroup.add(tb); var te = new T.Mesh(new T.BoxGeometry(tw, 0.012, 0.03), lip); te.position.set(0, hdeck + 0.006, td); roomGroup.add(te); [-1, 1].forEach(function (sd) { var ts = new T.Mesh(new T.BoxGeometry(0.03, 0.012, td), lip); ts.position.set(sd * tw / 2, hdeck + 0.006, td / 2); roomGroup.add(ts); }); [-1, 1].forEach(function (sd) { var fe = new T.Mesh(new T.BoxGeometry((W - tw) / 2, 0.012, 0.03), lip); fe.position.set(sd * (tw / 2 + (W - tw) / 4), deck + 0.006, 0); roomGroup.add(fe); }); }
+    else if (shape === "round") { var ad = clamp(st.apronD || W * 0.22, 0.5, 10), ap = new T.Mesh(new T.CylinderGeometry(1, 1, hdeck, 48, 1, false, -Math.PI / 2, Math.PI), [M.deckSide, M.deck, M.deckSide]); ap.scale.set(W / 2, 1, ad); ap.position.set(0, hdeck / 2, 0); roomGroup.add(ap); var ring = new T.Mesh(new T.TorusGeometry(1, 0.012, 4, 48, Math.PI), lip); ring.rotation.set(Math.PI / 2, 0, 0); ring.scale.set(W / 2, ad, 1); ring.position.set(0, hdeck + 0.006, 0); roomGroup.add(ring); }
+    if (shape === "rect") { var edge = new T.Mesh(new T.BoxGeometry(W, 0.012, 0.03), lip); edge.position.set(0, deck + 0.006, 0); roomGroup.add(edge); }
+    (st.risers || []).forEach(function (r) { var rw = Math.max(0.5, r.w || 2.4), rd = Math.max(0.5, r.d || 2.4), rh = Math.max(0.1, r.h || 0.4), rb = new T.Mesh(new T.BoxGeometry(rw, rh, rd), [M.riser, M.riser, M.deck, M.riser, M.riser, M.riser]); rb.position.set(r.x || 0, deck + rh / 2, -(r.z != null ? r.z : D * 0.7)); roomGroup.add(rb); var re = new T.Mesh(new T.BoxGeometry(rw, 0.01, 0.025), lip); re.position.set(r.x || 0, deck + rh + 0.005, -(r.z != null ? r.z : D * 0.7) + rd / 2); roomGroup.add(re); });
+    if (st.screen && st.screen.on) { var sw = clamp(st.screen.w || W * 0.5, 1, 30), sh = clamp(st.screen.h || sw * 9 / 16, 0.5, 15), sy = clamp(st.screen.y != null ? st.screen.y : deck + 2.2, 0, 12) + sh / 2, sx = st.screen.x || 0;
+      var fr = new T.Mesh(new T.BoxGeometry(sw + 0.16, sh + 0.16, 0.05), M.screenFrame); fr.position.set(sx, sy, -D - 0.57); roomGroup.add(fr);
+      var scr = new T.Mesh(new T.PlaneGeometry(sw, sh), M.screen); scr.position.set(sx, sy, -D - 0.54); roomGroup.add(scr); screenMesh = scr; } else screenMesh = null;
     var wall = new T.Mesh(new T.PlaneGeometry(roomW, 9), M.wall); wall.position.set(0, 4.5, -D - 0.6); roomGroup.add(wall);
     // the audience: rows of seats
     var cols = Math.max(4, Math.floor((W + 2) / 0.6)), rows = Math.max(1, Math.floor((R - 3) / 1.0)), seat = new T.BoxGeometry(0.46, 0.45, 0.46);
@@ -177,7 +189,7 @@
     var st = stage(), W = st.width, D = st.depth, deck = Math.max(0, st.deck), best = 40, surf = null;
     if (d.y < -1e-4) {
       var tDeck = (deck - o3.y) / d.y, hx = o3.x + d.x * tDeck, hz = o3.z + d.z * tDeck;
-      if (tDeck > 0 && Math.abs(hx) <= W / 2 && hz <= 0 && hz >= -D) { best = tDeck; surf = "deck"; }
+      if (tDeck > 0 && onDeck(hx, hz)) { best = tDeck; surf = "deck"; }
       else { var tF = -o3.y / d.y; if (tF > 0 && tF < best) { best = tF; surf = "floor"; } }
     }
     if (d.z < -1e-4) { var tW = (-D - 0.6 - o3.z) / d.z; if (tW > 0 && tW < best) { best = tW; surf = "wall"; } }
@@ -224,12 +236,16 @@
         }
       });
     });
+    var wr = 0, wg = 0, wb = 0, wn = 0;
+    rig.fixtures.forEach(function (f) { if (f.group !== "back" && f.group !== "beam") return; var st = live.fixtureColor[f.id]; if (!st) return; var c = colourOf(st, f); wr += c.r * c.k; wg += c.g * c.k; wb += c.b * c.k; wn++; });
+    if (wn) { var wk = 0.03 / Math.max(1, wn * 0.5); M.wall.emissive.setRGB(wr * wk, wg * wk, wb * wk); } else M.wall.emissive.setRGB(0, 0, 0);
+    if (screenMesh) { var tnow = performance.now() / 1000; screenMesh.material.color.setRGB(0.05 + 0.02 * Math.sin(tnow * 0.4), 0.09 + 0.02 * Math.sin(tnow * 0.31 + 1), 0.16 + 0.03 * Math.sin(tnow * 0.27 + 2)); }
     placeCamera(); renderer.render(scene, camera); drawLabels();
   }
 
   // ------------------------------------------------------------- the camera: turn, slide, zoom; views
   var cam = Object.assign({ yaw: 0.6, pitch: 0.42, dist: 12, tx: 0, ty: 1.8, tz: -3 }, store.cam || {});
-  var big = !!store.big; function applyBig() { var m = host.closest(".lx-showmain"); if (m) m.classList.toggle("lx-big", big); var b = ui.querySelector("[data-big3]"); if (b) { b.textContent = big ? "Smaller" : "Bigger"; b.setAttribute("aria-pressed", String(big)); } }
+  var big = false; function applyBig() { var v = ui.querySelector(".lx3d-sizev"); if (v) v.textContent = (L.rig().stageH || 440) + " px"; }
   function placeCamera() {
     var cp = Math.cos(cam.pitch);
     camera.position.set(cam.tx + cam.dist * Math.sin(cam.yaw) * cp, cam.ty + cam.dist * Math.sin(cam.pitch), cam.tz + cam.dist * Math.cos(cam.yaw) * cp);
@@ -242,7 +258,7 @@
     side: function () { var st = stage(); return { yaw: Math.PI / 2, pitch: 0.12, dist: Math.max(14, (st.depth + 8) * 1.3), tx: 0, ty: 2.5, tz: -st.depth / 2 + 2 }; }
   };
   // the panels need room: in a small view, picking a light or opening the stage settings makes the view bigger
-  function roomy() { if (!big && host.clientHeight < 430) { big = true; applyBig(); keep(); lastW = 0; } }
+  function roomy() { if (host.clientHeight < 430 && L.stageSize) { L.stageSize(520); applyBig(); lastW = 0; } }
   function view(name) { Object.assign(cam, VIEWS[name]()); keep(); frame(); }
   var lastW = 0, lastH = 0;
   function resize() {
@@ -302,20 +318,26 @@
     drag = null; canvas.style.cursor = hover ? "grab" : "default"; frame();
   });
   canvas.addEventListener("wheel", function (e) { e.preventDefault(); cam.dist = clamp(cam.dist * Math.pow(1.0015, e.deltaY), 2.5, 80); keep(); frame(); }, { passive: false });
-  function surfaceAt(x, z) { var st = stage(); return Math.abs(x) <= st.width / 2 && z <= 0 && z >= -st.depth ? Math.max(0, st.deck) : 0; }
+  function onDeck(x, z) {   // is this spot on the stage (its main part, a thrust or a round front)?
+    var st = stage(), W = st.width, D = st.depth; if (Math.abs(x) <= W / 2 && z <= 0 && z >= -D) return true;
+    if (st.shape === "thrust") { var tw = st.thrustW || W * 0.4, td = st.thrustD || 2.5; return Math.abs(x) <= tw / 2 && z > 0 && z <= td; }
+    if (st.shape === "round") { var ad = st.apronD || W * 0.22, a = x / (W / 2), b = z / ad; return z > 0 && a * a + b * b <= 1; }
+    return false;
+  }
+  function surfaceAt(x, z) { var st = stage(), deck = Math.max(0, st.deck); if (!onDeck(x, z)) return 0; var top = deck; (st.risers || []).forEach(function (r) { var rz = -(r.z != null ? r.z : st.depth * 0.7); if (Math.abs(x - (r.x || 0)) <= (r.w || 2.4) / 2 && Math.abs(z - rz) <= (r.d || 2.4) / 2) top = Math.max(top, deck + (r.h || 0.4)); }); return top; }
   function fixtureById(id) { return L.rig().fixtures.filter(function (f) { return f.id === id; })[0] || null; }
   function paintSelection() { Object.keys(fixtures).forEach(function (id) { fixtures[id].sel.visible = id === selected; }); }
 
   // ------------------------------------------------------------- the overlay: views, names, stage, the light's panel
   ui.innerHTML = '<div class="lx3d-bar"><div class="lx3d-views" role="group" aria-label="View">' +
     [["audience", "Audience"], ["corner", "Corner"], ["top", "Top"], ["side", "Side"]].map(function (v) { return '<button data-v3="' + v[0] + '">' + v[1] + "</button>"; }).join("") + '</div>' +
-    '<label class="toggle lx3d-names"><input type="checkbox" data-n3' + (showNames ? " checked" : "") + '> Names</label><button data-stage3>Stage &amp; trusses</button><button data-big3 aria-pressed="false">Bigger</button></div>' +
+    '<label class="toggle lx3d-names"><input type="checkbox" data-n3' + (showNames ? " checked" : "") + '> Names</label><button data-stage3>Stage &amp; trusses</button><span class="lx3d-views" role="group" aria-label="Size"><button data-size3="-1" title="Make the 3D stage smaller">−</button><button data-size3="0" title="The 3D stage\'s height (click for the standard size)" class="lx3d-sizev">Size</button><button data-size3="1" title="Make the 3D stage bigger">+</button></span></div>' +
     '<div class="lx3d-panel" id="lx3dPanel" hidden></div><div class="lx3d-stage" id="lx3dStage" hidden></div>' +
     '<p class="lx3d-hint">Drag to turn · right-drag to slide · wheel to zoom · click a light to place it</p>';
   ui.addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;
     if (b.dataset.v3) view(b.dataset.v3);
-    else if (b.hasAttribute("data-big3")) { big = !big; applyBig(); keep(); lastW = 0; frame(); }
+    else if (b.dataset.size3 != null) { var d0 = Number(b.dataset.size3), h0 = L.rig().stageH || 440; L.stageSize(d0 === 0 ? 440 : h0 + d0 * 80); applyBig(); lastW = 0; frame(); }
     else if (b.hasAttribute("data-stage3")) { var sp = $("#lx3dStage"); sp.hidden = !sp.hidden; if (!sp.hidden) { roomy(); selected = null; paintSelection(); renderPanel(); renderStage(); } }
     else if (b.dataset.p3) panelAction(b.dataset.p3);
     else if (b.dataset.s3) stageAction(b.dataset.s3, b);
@@ -378,23 +400,36 @@
     el.innerHTML = '<div class="lx3d-ph"><b>Stage &amp; trusses</b><button class="mini" data-s3="close" title="Close" aria-label="Close">✕</button></div>' +
       '<div class="lx3d-row"><label>Stage width (m)<input type="number" min="2" max="40" step="0.5" data-sf="width" value="' + st.width + '"></label><label>Stage depth (m)<input type="number" min="1" max="25" step="0.5" data-sf="depth" value="' + st.depth + '"></label></div>' +
       '<div class="lx3d-row"><label>Stage height (m)<input type="number" min="0" max="2" step="0.05" data-sf="deck" value="' + st.deck + '"></label><label>Room in front (m)<input type="number" min="4" max="60" step="1" data-sf="room" value="' + (st.room || 14) + '"></label></div>' +
+      '<div class="lx3d-row"><label>Shape<select data-sf="shape">' + [["rect", "Rectangle"], ["thrust", "Thrust (a runway out front)"], ["round", "Round front"]].map(function (o) { return '<option value="' + o[0] + '"' + ((st.shape || "rect") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label></div>" + '<div class="lx3d-row">' +
+      (st.shape === "thrust" ? '<label>Thrust width (m)<input type="number" min="1" max="40" step="0.5" data-sf="thrustW" value="' + (st.thrustW || Math.round(st.width * 0.4 * 2) / 2) + '"></label><label>Thrust length (m)<input type="number" min="0.5" max="12" step="0.5" data-sf="thrustD" value="' + (st.thrustD || 2.5) + '"></label>' : st.shape === "round" ? '<label>Round front depth (m)<input type="number" min="0.5" max="10" step="0.25" data-sf="apronD" value="' + (st.apronD || Math.round(st.width * 0.22 * 4) / 4) + '"></label>' : "") + "</div>" +
+      '<b class="small">Risers</b><table class="lx3d-trusses"><thead><tr><th>Riser</th><th title="From stage centre (m): negative = stage right">Across</th><th title="From the front edge, upstage (m)">Back</th><th title="Width (m)">W</th><th title="Depth (m)">D</th><th title="Height (m)">H</th><th></th></tr></thead><tbody>' +
+      (st.risers || []).map(function (r, i) { return '<tr data-ri="' + i + '"><td><input data-sf="r-name" value="' + esc(r.name || "Riser") + '"></td><td><input type="number" step="0.25" data-sf="r-x" value="' + (r.x || 0) + '"></td><td><input type="number" step="0.25" data-sf="r-z" value="' + (r.z != null ? r.z : Math.round(st.depth * 0.7 * 4) / 4) + '"></td><td><input type="number" min="0.5" step="0.25" data-sf="r-w" value="' + (r.w || 2.4) + '"></td><td><input type="number" min="0.5" step="0.25" data-sf="r-d" value="' + (r.d || 2.4) + '"></td><td><input type="number" min="0.1" step="0.05" data-sf="r-h" value="' + (r.h || 0.4) + '"></td><td><button class="mini" data-s3="r-del" title="Remove this riser" aria-label="Remove this riser">✕</button></td></tr>'; }).join("") + "</tbody></table>" +
+      '<div class="lx3d-row"><button data-s3="r-add">+ Riser</button><button data-s3="r-drums">+ Drum riser</button></div>' +
+      '<div class="lx3d-row"><label class="toggle"><input type="checkbox" data-sf="screen-on"' + (st.screen && st.screen.on ? " checked" : "") + "> A screen on the back wall</label>" + (st.screen && st.screen.on ? '<label>Screen width (m)<input type="number" min="1" max="30" step="0.25" data-sf="screen-w" value="' + (st.screen.w || Math.round(st.width * 0.5 * 4) / 4) + '"></label><label>Bottom edge (m)<input type="number" min="0" max="12" step="0.1" data-sf="screen-y" value="' + (st.screen.y != null ? st.screen.y : Math.round((st.deck + 2.2) * 10) / 10) + '"></label>' : "") + "</div>" +
+      '<div class="lx3d-row"><label>3D view height (px)<input type="number" min="240" max="900" step="20" data-sf="view-h" value="' + (L.rig().stageH || 440) + '"></label></div>' +
       '<table class="lx3d-trusses"><thead><tr><th>Truss</th><th title="From the stage\'s front edge. Negative: out over the audience.">From the front (m)</th><th>Height (m)</th><th>Width (m)</th><th></th></tr></thead><tbody>' +
       (st.trusses || []).map(function (t, i) { return '<tr data-ti="' + i + '"><td><input data-sf="t-name" value="' + esc(t.name) + '"></td><td><input type="number" step="0.25" data-sf="t-d" value="' + t.d + '"></td><td><input type="number" min="1" max="15" step="0.25" data-sf="t-h" value="' + t.h + '"></td><td><input type="number" min="1" max="40" step="0.5" data-sf="t-width" value="' + (t.width || st.width) + '"></td><td><button class="mini" data-s3="t-del" title="Remove this truss" aria-label="Remove this truss">✕</button></td></tr>'; }).join("") + "</tbody></table>" +
       '<div class="lx3d-row"><button data-s3="t-add">+ Truss</button><button data-s3="reset">Standard stage</button></div><p class="muted small">Lights on a truss move with it.</p>';
   }
   function stageField(el) {
     var st = stage(), k = el.dataset.sf, v = el.value;
-    if (k.indexOf("t-") === 0) {
+    if (k === "shape") { st.shape = v; renderStage(); }
+    else if (k === "view-h") { L.stageSize(Number(v) || 440); applyBig(); lastW = 0; frame(); return; }
+    else if (k.indexOf("screen-") === 0) { st.screen = st.screen || { on: false }; var sk = k.slice(7); st.screen[sk] = sk === "on" ? el.checked : Number(v) || 0; if (sk === "on") renderStage(); }
+    else if (k.indexOf("r-") === 0) { var r0 = (st.risers || [])[Number(el.closest("[data-ri]").dataset.ri)], rk = k.slice(2); if (!r0) return; r0[rk] = rk === "name" ? v : Number(v) || 0; }
+    else if (k.indexOf("t-") === 0) {
       var t = st.trusses[Number(el.closest("[data-ti]").dataset.ti)], f2 = k.slice(2); if (!t) return;
       t[f2] = f2 === "name" ? v : Number(v) || 0;
       L.rig().fixtures.forEach(function (f) { if (f.mount === t.id) { f.pos.y = t.h - 0.35; f.pos.z = -t.d; } });
-    } else st[k] = Number(v) || 0;
+    } else if (k !== "shape" && k.indexOf("screen-") !== 0 && k.indexOf("r-") !== 0) st[k] = Number(v) || 0;
     L.rig().fixtures.forEach(function (f) { if (f.mount === "floor") f.pos.y = surfaceAt(f.pos.x, f.pos.z); });
     L.saveRig(); roomKey = ""; frame();
   }
   function stageAction(a, b) {
     var st = stage();
     if (a === "close") { $("#lx3dStage").hidden = true; return; }
+    if (a === "r-add" || a === "r-drums") { st.risers = st.risers || []; st.risers.push(a === "r-drums" ? { name: "Drum riser", x: 0, z: Math.round(st.depth * 0.72 * 4) / 4, w: 2.4, d: 2.4, h: 0.4 } : { name: "Riser " + (st.risers.length + 1), x: st.risers.length % 2 ? 2.5 : -2.5, z: Math.round(st.depth * 0.6 * 4) / 4, w: 2, d: 1.2, h: 0.2 }); }
+    else if (a === "r-del") { st.risers.splice(Number(b.closest("[data-ri]").dataset.ri), 1); }
     if (a === "t-add") { var last = st.trusses[st.trusses.length - 1]; st.trusses.push({ id: "t" + Math.random().toString(36).slice(2, 7), name: "Truss " + (st.trusses.length + 1), d: last ? Math.round((last.d + 1.5) * 4) / 4 : 2, h: last ? last.h : 5, width: st.width }); }
     else if (a === "t-del") { var i = Number(b.closest("[data-ti]").dataset.ti), t = st.trusses[i], used = L.rig().fixtures.filter(function (f) { return f.mount === t.id; }); if (used.length && !confirm(used.length + " light" + (used.length === 1 ? " hangs" : "s hang") + " on the " + t.name + ". Remove it? They go to the floor.")) return; used.forEach(function (f) { f.mount = "floor"; f.pos.y = surfaceAt(f.pos.x, f.pos.z); }); st.trusses.splice(i, 1); fixKey = ""; }
     else if (a === "reset") { if (!confirm("Go back to a standard 10 × 6 m stage with three trusses? Lights on trusses that go away move to the floor.")) return; var keepT = L.defaultStage(); L.rig().stage = keepT; L.rig().fixtures.forEach(function (f) { var t = L.trussById(f.mount); if (t) { f.pos.y = t.h - 0.35; f.pos.z = -t.d; } else if (f.mount !== "house") { f.mount = "floor"; f.pos.y = surfaceAt(f.pos.x, f.pos.z); } }); fixKey = ""; }
@@ -405,5 +440,5 @@
   applyBig();
   if (window.ResizeObserver) new ResizeObserver(function () { if (L.isShowing()) frame(); }).observe(host);
   window.CULights3D = { active: function () { return ok; }, frame: frame, rebuild: function () { fixKey = ""; roomKey = ""; if (L.isShowing()) frame(); }, view: view, select: function (id) { selected = id; paintSelection(); if (id) roomy(); renderPanel(); frame(); }, big: function () { return big; },
-    selected: function () { return selected; }, count: function () { return Object.keys(fixtures).length; }, emitters: function (id) { var o = fixtures[id]; return o ? o.emitters.length : 0; }, camera: function () { return cam; } };
+    selected: function () { return selected; }, sizeLabel: applyBig, count: function () { return Object.keys(fixtures).length; }, emitters: function (id) { var o = fixtures[id]; return o ? o.emitters.length : 0; }, camera: function () { return cam; } };
 })();
