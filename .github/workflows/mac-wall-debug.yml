@@ -1,0 +1,29 @@
+# Temporary: the community plugin wall on macOS only (deleted once it passes)
+name: Mac wall debug
+on:
+  push:
+    branches: [debug/mac-wall]
+permissions:
+  contents: read
+jobs:
+  wall:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { cpu: arm64, runner: macos-15 }
+          - { cpu: x86_64, runner: macos-15-intel }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Build
+        run: |
+          make -C central-usage/native -j4 ARCH="-arch ${{ matrix.cpu }}"
+          make -C central-usage/native build/test-bridge ARCH="-arch ${{ matrix.cpu }}"
+      - name: Rig test (makes the rig map)
+        run: node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig || true
+      - name: Wall test
+        timeout-minutes: 10
+        run: node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
