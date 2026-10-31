@@ -75,7 +75,7 @@ await cover(94, "9.4.1", "9.4.1", "9.6.0", "already on 9.4.1, covered through 9.
   ok(/software sources is broken/.test(Updater.debReason("W: GPG error: https://ppa.example noble InRelease: NO_PUBKEY ABC\nE: The repository 'https://ppa.example noble InRelease' is not signed.")), "a broken software source is explained");
   ok(Updater.debReason("") === "", "nothing to go on: no made-up reason");
   ok(/DEBIAN_FRONTEND=noninteractive/.test(Updater.DEB_SCRIPT) && /DPkg::Lock::Timeout=300/.test(Updater.DEB_SCRIPT) && /--force-confold/.test(Updater.DEB_SCRIPT) && /--no-install-recommends/.test(Updater.DEB_SCRIPT) && /dpkg -i/.test(Updater.DEB_SCRIPT), "the script asks nothing, waits for the lock, keeps config files, and falls back to dpkg");
-  if (process.platform === "linux") {
+  if (real.platform === "linux") {   // (the real machine: earlier checks pretend to be other systems)
     const T = fs.mkdtempSync(path.join(os.tmpdir(), "deb-")), bin = path.join(T, "bin"); fs.mkdirSync(bin);
     const w = (n, body) => { fs.writeFileSync(path.join(bin, n), "#!/bin/sh\n" + body + "\n"); fs.chmodSync(path.join(bin, n), 0o755); };
     // state file: what's installed; APT_MODE picks how apt-get behaves
