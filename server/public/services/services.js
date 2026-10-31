@@ -1,7 +1,10 @@
 /* Central Services - the church's schedule (the website at /services/, and the app on iPhone, iPad, Mac, Windows, Linux
  * and Android, which carries this same page). Sign in: the account says who you are - a scheduler (the main admin and
  * up to 3 more) makes teams and services and asks people; everyone else sees their requests (accept / decline) and the
- * whole schedule: every worship and production team, each person's name, role, and yes / no / not yet. */
+ * whole schedule: every worship and production team, each person's name, role, and yes / no / not yet.
+ * 10.0.1: the church's setlists (made in Central Control / Pedal Control, kept on the church account) show here - on
+ * the service they're for (same day) and under Setlists: songs in order with key, tempo and whether it has tracks,
+ * and the setlist's team. */
 (function () {
   "use strict";
   // the website: the same address this page came from; the apps set window.CS_SERVER (their copy of this page is local)
@@ -11,7 +14,7 @@
   var DESK = window.CSDesktop && window.CSDesktop.updates;   // (the Mac / Windows / Linux app: updates; phones and tablets update from their store)
   var LS = "cs-token";
   var token = null; try { token = localStorage.getItem(LS); } catch (_) { }
-  var st = { me: null, board: null, tab: "mine", msg: "", err: "", busy: false, form: null, editTeam: null, signup: false, two: null, editSongs: null };
+  var st = { me: null, board: null, tab: "mine", msg: "", err: "", busy: false, form: null, editTeam: null, signup: false, two: null, editSongs: null, setlists: null };
   function $(s) { return document.querySelector(s); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function deviceId() { var d = null; try { d = localStorage.getItem("cs-device"); if (!d) { d = "cs-" + Array.from(crypto.getRandomValues(new Uint8Array(12)), function (x) { return ("0" + x.toString(16)).slice(-2); }).join(""); localStorage.setItem("cs-device", d); } } catch (_) { } return d || ""; }
@@ -44,6 +47,8 @@
     try {
       st.me = await api("GET", "/services/me");
       st.board = st.me.church && st.me.hasServices ? await api("GET", "/services/board") : null;
+      st.setlists = null;
+      if (st.board) { try { var sl = await api("GET", "/setlists?full=1"); st.setlists = sl.church ? sl.setlists || [] : []; } catch (_) { st.setlists = []; } }
       st.err = "";
       if (st.board && st.me.role !== "scheduler" && ["new"].indexOf(st.tab) >= 0) st.tab = "mine";
       // first load after signing in: the account decides where it opens - the main admin and admins on the whole
@@ -82,7 +87,7 @@
   function header() {
     var m = st.me, sched = m.role === "scheduler", who = { church: "Church account", owner: "Main admin", admin: "Admin", user: "User" }[m.churchRole] || "Team member";
     return '<header><h1>' + esc(m.church || "Central Services") + '</h1><span class="muted small">Central Services</span><div class="who"><span>' + esc(m.name || m.email) + '</span><span class="badge' + (m.churchRole === "church" || m.churchRole === "owner" || m.churchRole === "admin" ? " adm" : "") + '" data-role="' + esc(m.churchRole || "") + '">' + who + "</span>" + (sched ? '<span class="badge sched">Scheduler</span>' : "") + '<button class="small" data-a="refresh" title="Refresh">↻</button><button class="small" data-a="logout">Sign out</button></div></header>' +
-      '<nav>' + [["mine", "My requests"], ["schedule", "Schedule"], ["away", "Away"], ["teams", "Teams"]].concat(sched ? [["new", "+ New service"]] : []).concat([["account", "Account"]]).concat(APP ? [["app", "⚙ App"]] : []).map(function (t) { return '<button class="' + (st.tab === t[0] ? "on" : "") + '" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</nav>";
+      '<nav>' + [["mine", "My requests"], ["schedule", "Schedule"], ["setlists", "Setlists"], ["away", "Away"], ["teams", "Teams"]].concat(sched ? [["new", "+ New service"]] : []).concat([["account", "Account"]]).concat(APP ? [["app", "⚙ App"]] : []).map(function (t) { return '<button class="' + (st.tab === t[0] ? "on" : "") + '" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</nav>";
   }
   function mine() {
     var b = st.board, list = [];
@@ -109,7 +114,7 @@
     var away = awayOn(s.day);
     return '<div class="card svc"><div class="row" style="justify-content:space-between"><div><div class="when">' + esc(when(s.startsAt)) + "</div><div>" + esc(s.title) + "</div>" + (s.notes ? '<div class="muted small">' + esc(s.notes) + "</div>" : "") + "</div>" +
       '<div class="small muted">' + c.accepted + " yes · " + c.declined + " no · " + c.pending + " not yet</div></div>" +
-      songsBlock(s, sched) +
+      songsBlock(s, sched) + setlistBlock(setlistFor(s)) +
       (away.length ? '<div class="small muted">Away that day: ' + away.map(function (b) { return esc(b.name || b.email); }).join(", ") + "</div>" : "") +
       (cols ? '<div class="teams">' + cols + "</div>" : '<p class="muted small" style="margin:0">Nobody asked yet.</p>') +
       (sched ? '<div class="row"><button class="small" data-ask="' + s.id + '">Ask more people</button><button class="small no" data-delsvc="' + s.id + '">Delete</button></div>' : "") + "</div>";
@@ -180,6 +185,49 @@
     return '<div class="songs">' + (list.length ? '<b class="small">Songs</b><ol class="small">' + list.map(function (x) { return "<li>" + esc(x.title) + (x.key ? ' <span class="muted">· ' + esc(x.key) + "</span>" : "") + (x.bpm ? ' <span class="muted">· ' + x.bpm + " BPM</span>" : "") + (x.notes ? ' <span class="muted">· ' + esc(x.notes) + "</span>" : "") + "</li>"; }).join("") + "</ol>" : "") +
       (sched ? '<button class="small" data-editsongs="' + s.id + '">' + (list.length ? "Edit songs" : "+ Add songs") + "</button>" : "") + "</div>";
   }
+  // ---- setlists (10.0.1): the church's setlists from Central Control / Pedal Control, with their songs and team
+  function dayOf(d) { var x = new Date(d); return x.getFullYear() + "-" + ("0" + (x.getMonth() + 1)).slice(-2) + "-" + ("0" + x.getDate()).slice(-2); }
+  function setlistFor(s) {   // the setlist for this service: the one set for the same day (the newest if there are more)
+    var day = dayOf(s.startsAt);
+    return (st.setlists || []).filter(function (x) { return x.serviceAt && dayOf(x.serviceAt) === day; })[0] || null;
+  }
+  function tracksOf(x) {   // what the song brings: multitracks, a pad, or just the song (no tracks)
+    if (!x.trackId && !x.tracks) return { cls: "none", label: "No tracks" };   // (a Central Tracks song, or an app song with its multitracks)
+    if (x.kind === "Pad") return { cls: "pad", label: "Pad" };
+    return { cls: "yes", label: x.kind === "Prime" ? "Prime tracks" : "Tracks" };
+  }
+  function setlistSongs(sl) {
+    var songs = sl.songs || [];
+    if (!songs.length) return '<p class="muted small" style="margin:0">No songs in it yet.</p>';
+    return '<ol class="setlist">' + songs.map(function (x) {
+      var t = tracksOf(x);
+      return '<li><span class="t">' + esc(x.title) + '</span><span class="k" title="Key">' + (x.key ? esc(x.key) : '<span class="muted">-</span>') + '</span><span class="b" title="Tempo">' + (x.bpm ? x.bpm + " BPM" : '<span class="muted">-</span>') + '</span><span class="trk ' + t.cls + '">' + t.label + "</span></li>";
+    }).join("") + "</ol>";
+  }
+  function setlistTeam(sl) {
+    var team = sl.team || [];
+    return team.length ? '<div class="small"><span class="muted">Team:</span> ' + team.map(function (p) { return esc(p.name || p.email) + (p.role ? ' <span class="muted">(' + esc(p.role) + ")</span>" : ""); }).join(", ") + "</div>" : '<div class="small muted">No team picked for this setlist.</div>';
+  }
+  function setlistSummary(sl) {
+    var songs = sl.songs || [], withTracks = songs.filter(function (x) { return x.trackId || x.tracks; }).length;
+    return songs.length + " song" + (songs.length === 1 ? "" : "s") + (songs.length ? " · " + withTracks + " with tracks" : "");
+  }
+  function setlistBlock(sl) {
+    if (!sl) return "";
+    return '<div class="setlist-box" data-setlist="' + esc(sl.id) + '"><div class="row" style="justify-content:space-between"><b class="small">Setlist: ' + esc(sl.name) + '</b><span class="muted small">' + setlistSummary(sl) + "</span></div>" + setlistSongs(sl) + setlistTeam(sl) + "</div>";
+  }
+  function setlistsView() {
+    var all = st.setlists || [], now = Date.now() - 12 * 3600e3;
+    var coming = all.filter(function (x) { return x.serviceAt && new Date(x.serviceAt) >= now; }).sort(function (a, b) { return new Date(a.serviceAt) - new Date(b.serviceAt); });
+    var rest = all.filter(function (x) { return coming.indexOf(x) < 0; });
+    var card = function (sl) {
+      return '<div class="card svc" data-setlist="' + esc(sl.id) + '"><div class="row" style="justify-content:space-between"><div>' + (sl.serviceAt ? '<div class="when">' + esc(when(sl.serviceAt)) + "</div>" : "") + "<div><b>" + esc(sl.name) + '</b></div></div><span class="muted small">' + setlistSummary(sl) + "</span></div>" + setlistSongs(sl) + setlistTeam(sl) + "</div>";
+    };
+    if (st.setlists === null) return '<div class="card"><h2>Setlists</h2><p class="muted" style="margin:0">Loading…</p></div>';
+    if (!all.length) return '<div class="card"><h2>Setlists</h2><p class="muted" style="margin:0">No setlists yet. Make one in Central Control or Pedal Control (Setlist → Create new): it shows here with its songs, keys, tempos, tracks and team.</p></div>';
+    return '<div class="card"><h2>Setlists</h2>' + (coming.length ? coming.map(card).join("") : '<p class="muted small" style="margin:0">None set for an upcoming service.</p>') +
+      (rest.length ? '<details' + (coming.length ? "" : " open") + '><summary class="small">' + (coming.length ? "Other setlists" : "All setlists") + " (" + rest.length + ')</summary><div style="display:grid;gap:.65rem;margin-top:.5rem">' + rest.map(card).join("") + "</div></details>" : "") + "</div>";
+  }
   function parseSongs(text) {   // "Title, Key, BPM" a line
     return String(text || "").split("\n").map(function (l) { var p = l.split(/\s*[,;|]\s*|\s+-\s+/); return { title: (p[0] || "").trim(), key: (p[1] || "").trim(), bpm: Number((p[2] || "").replace(/[^0-9.]/g, "")) || 0 }; }).filter(function (x) { return x.title; });
   }
@@ -220,7 +268,7 @@
     else if (!st.me.hasServices) h += '<div class="card"><h2>' + esc(st.me.church) + '</h2><p style="margin:0">Your church doesn\'t have Central Services yet. A main admin or admin gets it on the Motion Audio website: every pack comes with slots for your team, or add them for $5 a person, once.</p></div>';
     if (st.tab === "app") h += appSettings();
     else if (st.tab === "account" || st.tab === "support") h += accountCard() + (st.tab === "support" ? supportCard() : "");
-    else if (st.board) h += st.tab === "schedule" ? schedule() : st.tab === "teams" ? teams() : st.tab === "away" ? awayView() : st.tab === "new" ? newService() : st.tab.indexOf("ask-") === 0 ? newService(st.tab.slice(4)) : mine();
+    else if (st.board) h += st.tab === "schedule" ? schedule() : st.tab === "setlists" ? setlistsView() : st.tab === "teams" ? teams() : st.tab === "away" ? awayView() : st.tab === "new" ? newService() : st.tab.indexOf("ask-") === 0 ? newService(st.tab.slice(4)) : mine();
     h += (st.msg ? '<div class="okmsg">' + esc(st.msg) + "</div>" : "") + (st.err ? '<div class="err">' + esc(st.err) + "</div>" : "") + "</main>";
     root.innerHTML = h;
     if (keepId && document.getElementById(keepId)) { var n = document.getElementById(keepId); n.value = keepVal; try { n.focus(); } catch (_) { } }

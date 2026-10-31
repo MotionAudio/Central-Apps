@@ -130,6 +130,25 @@ try {
     const signIn = await page.evaluate(() => ({ hash: location.hash, after: sessionStorage.getItem("ma-after-signin") }));
     ok(signIn.after === "#setlist-" + sid, "signed out: it asks to sign in first, then comes back to the setlist", signIn);
     ok(!errors.length, "no errors on the page", errors);
+
+    // 10.0.1: Central Services shows each service's setlist (same day): songs, keys, tempos, which have tracks, the team
+    console.log("Central Services shows the setlists (10.0.1):");
+    r = await j("GET", "/setlists?full=1", null, keys.tok);
+    ok(r.setlists[0].songs && r.setlists[0].songs.length === 2, "the list can carry each setlist's songs (?full=1)", r.setlists[0]);
+    await q("INSERT INTO services (church_id,title,starts_at) VALUES ($1,'Sunday 9:00','2026-11-01T15:00:00Z')", [church.id]);
+    const cs = await browser.newPage(); const csErr = []; cs.on("pageerror", (e) => csErr.push(e.message));
+    await cs.goto(base + "/services/"); await cs.evaluate((t) => localStorage.setItem("cs-token", t), keys.tok); await cs.reload();
+    await cs.waitForSelector("nav [data-tab=setlists]", { timeout: 15000 });
+    await cs.click("nav [data-tab=schedule]"); await cs.waitForSelector(".svc .setlist-box", { timeout: 8000 });
+    const onSvc = await cs.evaluate(() => { const b = document.querySelector(".svc .setlist-box"); return { head: b.querySelector("b").textContent, rows: [...b.querySelectorAll("ol.setlist li")].map((l) => l.textContent.replace(/\s+/g, " ").trim()), team: b.textContent }; });
+    ok(/Setlist: Sunday Nov 1 \(9:00\)/.test(onSvc.head) && onSvc.rows.length === 2 && /Our Own Song.*No tracks/.test(onSvc.rows[0]) && /Amazing Grace\s*G\s*72 BPM\s*Tracks/.test(onSvc.rows[1]) && /Team: Bea Bass \(Bass\)/.test(onSvc.team),
+      "the service shows its setlist: each song with key, tempo and whether it has tracks, and the setlist's team", onSvc);
+    await cs.click("nav [data-tab=setlists]"); await cs.waitForSelector("main .card .card[data-setlist]", { timeout: 5000 });
+    const tab = await cs.evaluate(() => document.querySelector("main .card .card[data-setlist]").textContent.replace(/\s+/g, " "));
+    ok(/Sunday Nov 1 \(9:00\)/.test(tab) && /2 songs · 1 with tracks/.test(tab), "the Setlists tab lists the church's setlists (upcoming first)", tab);
+    await cs.setViewportSize({ width: 1100, height: 900 }); await cs.click("nav [data-tab=schedule]");
+    if (process.env.SHOTS) await cs.screenshot({ path: path.join(process.env.SHOTS, "services-setlist.png"), fullPage: true });
+    ok(!csErr.length, "no errors on Central Services", csErr);
   }
   r = await j("POST", "/setlists/" + sid + "/remove", null, lead.tok);
   const left = await j("GET", "/setlists", null, keys.tok);

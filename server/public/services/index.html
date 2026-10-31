@@ -37,6 +37,10 @@ label{display:grid;gap:.3rem;font-size:.88rem;color:var(--muted)}input[type=chec
 .songs ol{margin:.2rem 0 .3rem;padding-left:1.3rem}.songs{display:grid;gap:.2rem}.songs button{justify-self:start}details summary{cursor:pointer}a{color:var(--accent-hi)}
 .center{max-width:430px;margin:8vh auto;padding:1.4rem}.center::before{content:"";display:block;width:40px;height:40px;margin-bottom:.4rem;background:var(--accent);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='black' stroke-width='9' stroke-linecap='round'%3E%3Cpath d='M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80'/%3E%3Cpath d='M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='black' stroke-width='9' stroke-linecap='round'%3E%3Cpath d='M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80'/%3E%3Cpath d='M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
 .pick{display:flex;gap:.45rem;align-items:center;font-size:.92rem;color:var(--fg)}.pick input{width:auto}
+.setlist-box{border:1px solid var(--line);border-radius:12px;padding:.6rem .7rem;display:grid;gap:.35rem;background:#15181D}
+ol.setlist{margin:0;padding-left:1.4rem;display:grid;gap:.15rem}ol.setlist li{font-size:.92rem}ol.setlist li>span{display:inline-block;vertical-align:baseline}
+ol.setlist .t{min-width:min(14rem,45vw);margin-right:.6rem}ol.setlist .k{min-width:3.2rem;font-variant-numeric:tabular-nums}ol.setlist .b{min-width:5rem;font-variant-numeric:tabular-nums;color:var(--muted)}
+.trk{font-size:.74rem;font-weight:600;padding:.02rem .5rem;border-radius:99px;border:1px solid currentColor;white-space:nowrap}.trk.yes{color:var(--ok)}.trk.pad{color:var(--accent-hi)}.trk.none{color:var(--muted);border-color:var(--line)}
 /* layout: the tabs and the cards share one column; phones get the menu in one sliding row */
 nav{max-width:920px}main{max-width:calc(920px + 2rem)}
 .team .p+.p{border-top:1px solid #22262D}.team .p{padding:.3rem 0}
