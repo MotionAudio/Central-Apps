@@ -12,8 +12,10 @@ plugin is hosted in its own process, started through command() below, which wrap
   * it dies with the driver (--die-with-parent) and can't take over the terminal (--new-session);
   * a seccomp filter (when the python3-seccomp package is there - it is on the Central Pedal image) refuses
     ptrace, mount, kernel modules, bpf, keyrings, namespaces, perf and opening internet / netlink / raw sockets.
-What is NOT done yet (see docs/COMMUNITY-PLUGINS.md): the live chain doesn't route audio through such a process yet, so
-community plugins installed on the Central Pedal are kept and can be scanned walled off, but aren't played live.
+Played live (10.1, docs/COMMUNITY-PLUGINS.md): the community stage (cm-pwnode, started by instrument_host.py) builds the
+same wall in C (plughost/fmt_remote.cpp) around each plugin's cm-plugbridge process, and passes its audio over shared
+memory - no PipeWire socket needed inside. This module is the Python version of the wall, for tools that run a plugin
+host of their own (it is what test_community.py checks).
 """
 import os
 import shutil

@@ -162,7 +162,7 @@ try {
   await check("macOS: sandbox-exec, deny by default - no network, no launching programs, reads only the system, audio parts and the plugin, writes only its own temp folder", async () => {
     const w = SB.wrap("/Apps/cu-rig", ["--scan-one", "vst3", "/p/Shimmer.vst3"], { platform: "darwin", pluginDir: "/p", tmpDir: "/t/x" }), prof = w.args[1];
     assert.equal(w.cmd, "/usr/bin/sandbox-exec"); assert.equal(w.args[0], "-p"); assert.deepEqual(w.args.slice(2), ["/Apps/cu-rig", "--scan-one", "vst3", "/p/Shimmer.vst3"]);
-    assert.ok(/\(deny default\)/.test(prof) && /\(deny network\*\)/.test(prof) && /\(deny process-exec\*\)/.test(prof) && /\(subpath "\/p"\)/.test(prof) && /file-write\* \(subpath "\/t\/x"\)/.test(prof) && !/file-write\*[^\n]*\/p"/.test(prof), prof);
+    assert.ok(/\(deny default\)/.test(prof) && /\(deny network\*\)/.test(prof) && /\(allow process-exec \(literal "\/Apps\/cu-rig"\)\)/.test(prof) && !/allow process-exec\*/.test(prof) && /\(subpath "\/p"\)/.test(prof) && /file-write\* \(subpath "\/t\/x"\)/.test(prof) && !/file-write\*[^\n]*\/p"/.test(prof), prof);
   });
   await check("Linux: bubblewrap - own namespaces, no capabilities, read-only system and plugin, only the PipeWire socket", async () => {
     const w = SB.wrap("/opt/cu-rig", ["--scan-one", "lv2", "/p/S.lv2"], { platform: "linux", pluginDir: "/p", runtimeDir: "/run/user/1000" }), s = w.args.join(" ");

@@ -162,6 +162,8 @@
           "cu-ndi.exe",
           "cu-rig",
           "cu-rig.exe",
+          "cm-plugbridge",
+          "cm-pwnode",
           "rig-map.json",
           "central-playany.lv2/**",
           "cu-video",

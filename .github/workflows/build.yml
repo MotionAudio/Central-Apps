@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: Compilers
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix gcc-aarch64-linux-gnu p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev   # (C++ for the plugin host; the X11, lilv and suil headers for Linux; arm64 C for the Pi's play-any plugin)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix gcc-aarch64-linux-gnu p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev g++-aarch64-linux-gnu libpipewire-0.3-dev bubblewrap   # (C++ for the plugin host; the X11, lilv and suil headers for Linux; arm64 C / C++ for the Pi's play-any plugin and community stage; PipeWire's headers; bubblewrap for the community plugin wall's test)
       - name: Build (Linux x64, Windows x64) - the rig map comes from js/pedals.js here
         run: |
           bash tools/ci-run.sh "native build (Linux)" make -C central-usage/native -j4
@@ -44,9 +44,13 @@ jobs:
           mv central-usage/native/build/cu-video.exe central-usage/native/build-win/
           bash tools/ci-run.sh "play any sound: the Pi's plugin (Linux arm64)" make -C central-usage/native CC=aarch64-linux-gnu-gcc OUT=build-linux-arm64 playany
           file central-usage/native/build-linux-arm64/central-playany.lv2/central-playany.so | grep -q aarch64 || { echo "::error::the arm64 play-any plugin is not arm64"; exit 1; }
+          bash tools/ci-run.sh "community plugins: the Pi's walled-off host and stage (Linux arm64)" make -C central-usage/native CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ OUT=build-linux-arm64 bridge
+          file central-usage/native/build-linux-arm64/cm-plugbridge | grep -q aarch64 || { echo "::error::the arm64 cm-plugbridge is not arm64"; exit 1; }
           mkdir -p bin/linux-aarch64 bin/linux-x86_64
           cp -r central-usage/native/build-linux-arm64/central-playany.lv2 bin/linux-aarch64/
           cp -r central-usage/native/build/central-playany.lv2 bin/linux-x86_64/
+          cp central-usage/native/build-linux-arm64/cm-plugbridge central-usage/native/build-linux-arm64/cm-pwnode bin/linux-aarch64/
+          cp central-usage/native/build/cm-plugbridge central-usage/native/build/cm-pwnode bin/linux-x86_64/
           node -e 'const m=require("./central-usage/native/build/rig-map.json"),P=require("./js/pedals.js");const miss=P.pedals.filter(p=>!m[p.id]).map(p=>p.id);if(miss.length){console.log("::error::pedals missing from the rig map: "+miss.join(", "));process.exit(1)}console.log("rig map: "+Object.keys(m).length+" pedals, all of js/pedals.js")'
       - name: ffmpeg (pinned, checksum-checked)
         run: |
@@ -56,6 +60,8 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
+          make -C central-usage/native build/test-bridge
+          bash tools/ci-run.sh "community plugin wall test (round trip, crash / hang / heavy bypass, no network or files, revoke live)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           make -C central-usage/native build/test-playany-plugin
@@ -322,6 +328,8 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
+          make -C central-usage/native build/test-bridge ARCH="-arch ${{ matrix.cpu }}"
+          bash tools/ci-run.sh "community plugin wall test (sandbox-exec)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
