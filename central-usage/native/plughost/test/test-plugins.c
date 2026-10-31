@@ -41,7 +41,7 @@ static double probe(void) {
     FILE *t = fopen(target, "r"); if (t) { bits |= 2; fclose(t); }
     char w[1100]; snprintf(w, sizeof w, "%s.written", target); int fd = open(w, O_WRONLY | O_CREAT | O_TRUNC, 0644); if (fd >= 0) { bits |= 4; close(fd); }
   }
-  pid_t pid = fork(); if (pid == 0) { execl("/bin/true", "true", (char *)NULL); _exit(127); }
+  pid_t pid = fork(); if (pid == 0) { execl("/usr/bin/true", "true", (char *)NULL); execl("/bin/true", "true", (char *)NULL); _exit(127); }   /* (macOS has only /usr/bin/true) */
   if (pid > 0) { int st = 0; waitpid(pid, &st, 0); if (WIFEXITED(st) && WEXITSTATUS(st) == 0) bits |= 8; }
   return bits;
 }

@@ -58,9 +58,28 @@ console.log("Community plugins, walled off (" + process.platform + "):");
 {
   const s = setup("bridge");
   // (sanity: the probe can do what it says - outside the wall it reads and writes the musician's file)
-  const r = spawnSync(tb, [s.libs, s.data], { encoding: "utf8", timeout: 240000 });
+  const r = spawnSync(tb, [s.libs, s.data], { encoding: "utf8", timeout: 240000, env: Object.assign({}, process.env, { CM_WALL_DEBUG: "1" }) });
   for (const line of (r.stdout || "").split("\n")) { if (line.startsWith("ok ")) ok(line.slice(3)); else if (line.startsWith("FAIL ")) bad(line.slice(5)); }
   if (r.status !== 0 && !/summary/.test(r.stdout || "")) bad("test-bridge ended early: " + (r.error || r.signal || r.status) + "\n" + (r.stderr || "").slice(-2000));
+  if (failures && process.platform === "darwin") macWhy(r.stderr || "");
+}
+// (macOS) why the walled-off host didn't start: its own errors, the profile run by hand, the sandbox's refusals, a crash report
+function macWhy(stderr) {
+  const say = (title, text) => console.error("    (" + title + ")\n      " + String(text || "").trim().slice(-3000).replace(/\n/g, "\n      "));
+  say("test-bridge stderr", stderr.slice(-3000));
+  const m = /cm-wall: profile (\S+) exe (\S+) plugin (\S+)/.exec(stderr);
+  if (m) {
+    const plain = spawnSync(m[2], [], { encoding: "utf8", timeout: 20000 }); say("cm-plugbridge with no arguments, no wall: status " + plain.status + " signal " + plain.signal, plain.stderr);
+    if (fs.existsSync(m[1])) {
+      say("the profile", fs.readFileSync(m[1], "utf8"));
+      const walled = spawnSync("/usr/bin/sandbox-exec", ["-f", m[1], m[2]], { encoding: "utf8", timeout: 20000 }); say("cm-plugbridge with no arguments, walled: status " + walled.status + " signal " + walled.signal, walled.stderr);
+      const tr = spawnSync("/usr/bin/sandbox-exec", ["-f", m[1], "/usr/bin/true"], { encoding: "utf8", timeout: 20000 }); say("/usr/bin/true walled (should be refused): status " + tr.status, tr.stderr);
+    }
+  }
+  const lg = spawnSync("/usr/bin/log", ["show", "--last", "5m", "--style", "compact", "--predicate", 'sender == "Sandbox" OR eventMessage CONTAINS "cm-plugbridge"'], { encoding: "utf8", timeout: 60000 });
+  say("the sandbox's log", (lg.stdout || "").split("\n").filter((l) => /deny|cm-plugbridge/i.test(l)).slice(-60).join("\n"));
+  const dr = path.join(os.homedir(), "Library/Logs/DiagnosticReports");
+  try { for (const f of fs.readdirSync(dr).filter((f) => /cm-plugbridge/.test(f)).slice(-2)) say("crash report " + f, fs.readFileSync(path.join(dr, f), "utf8").slice(0, 3000)); } catch (_) { }
 }
 
 // ---- 2. through cu-rig, the way the apps use it

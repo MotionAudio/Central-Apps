@@ -94,7 +94,20 @@ static std::string macProfile(const std::string &pluginDir, const std::string &t
          "  (subpath " + sbString(exeDir) + ") (subpath " + sbString(pluginDir) + "))\n"
          "(allow file-read* file-write* (subpath " + sbString(tmpDir) + "))\n"
          "(allow file-write-data (literal \"/dev/null\"))\n"
-         "(allow mach-lookup (global-name \"com.apple.system.logger\"))\n";
+         // what dyld and libSystem need to start any program: mapping code (the system's, the host's and the plugin's own
+         // folder - nothing the plugin could write), the root folder's listing, the shared memory the rig handed over, its
+         // own process info and the system's logging / notification / preference services (none of them reach the
+         // network or the musician's files)
+         "(allow file-map-executable (subpath \"/System\") (subpath \"/usr/lib\") (subpath \"/Library/Apple\") (subpath " + sbString(exeDir) + ") (subpath " + sbString(pluginDir) + "))\n"
+         "(allow file-read* (literal \"/\") (literal \"/private\") (literal \"/private/var\") (subpath \"/Library/Apple\") (subpath \"/private/var/db/eligibilityd\")\n"
+         "  (literal \"/private/etc/localtime\") (subpath \"/private/etc/ssl\") (literal \"/dev/dtracehelper\"))\n"
+         "(allow file-ioctl (literal \"/dev/dtracehelper\"))\n"
+         "(allow ipc-posix-shm-read-data ipc-posix-shm-write-data ipc-posix-shm-read-metadata)\n"
+         "(allow process-info* (target self))\n"
+         "(allow mach-lookup (global-name \"com.apple.system.logger\") (global-name \"com.apple.system.notification_center\") (global-name \"com.apple.logd\")\n"
+         "  (global-name \"com.apple.cfprefsd.daemon\") (global-name \"com.apple.cfprefsd.agent\") (global-name \"com.apple.system.opendirectoryd.libinfo\")\n"
+         "  (global-name \"com.apple.diagnosticd\") (global-name \"com.apple.trustd.agent\") (global-name \"com.apple.coreservices.launchservicesd\"))\n"
+         "(allow user-preference-read)\n";
 }
 #endif
 
@@ -119,6 +132,7 @@ static bool wallArgv(const std::string &format, const std::string &id, const std
   std::string tmp = fs::canonical(fs::u8path(t.data()), ec).u8string(); tmpOut = tmp;
   std::string rexe = fs::canonical(fs::u8path(exe), ec).u8string();
   av = { "/usr/bin/env", "-i", "TMPDIR=" + tmp, "HOME=" + tmp, "PATH=/usr/bin:/bin", "/usr/bin/sandbox-exec", "-p", macProfile(real, tmp, rexe), rexe, format, id, real + "/" + rest };
+  if (getenv("CM_WALL_DEBUG")) { std::string pf = tmp + ".sb"; FILE *f = fopen(pf.c_str(), "w"); if (f) { fputs(macProfile(real, tmp, rexe).c_str(), f); fclose(f); } fprintf(stderr, "cm-wall: profile %s exe %s plugin %s\n", pf.c_str(), rexe.c_str(), (real + "/" + rest).c_str()); }
   return true;
 #else
   (void)format; (void)id; (void)rest; (void)av; (void)tmpOut; (void)real;
