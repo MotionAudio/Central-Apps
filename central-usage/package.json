@@ -1,7 +1,7 @@
 {
   "name": "central-usage",
   "productName": "Central Control",
-  "version": "10.0.1",
+  "version": "10.1.0",
   "description": "Lighting (DMX + MIDI), the tracks mixer, in-ear mixes, slides, chord charts, lyrics and the instrument - the companion of Central Pedal. A native desktop app.",
   "main": "main.js",
   "author": {
@@ -49,6 +49,7 @@
       "center.js",
       "hubsync.js",
       "libraries.js",
+      "community-sandbox.js",
       "player.js",
       "studio.js",
       "!**/node_modules/onnxruntime-node/bin/napi-v3/*/*/libonnxruntime_providers_{cuda,tensorrt}.so"
@@ -161,6 +162,8 @@
           "cu-ndi.exe",
           "cu-rig",
           "cu-rig.exe",
+          "cm-plugbridge",
+          "cm-pwnode",
           "rig-map.json",
           "central-playany.lv2/**",
           "cu-video",

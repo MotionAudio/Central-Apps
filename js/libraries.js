@@ -6,6 +6,10 @@
  *   on the Central Pedal through its driver (libraries.py), on a computer through the app (central-usage/libraries.js,
  *   into the built-in rig's sound folders). Update when the website lists a newer version; Remove; Install from a file…
  *   (a zip from the website's Downloads page). Every installed item keeps its library's plan: locked without it.
+ * 10.0.1: while the website isn't open, the list comes straight from the published "libraries" release
+ *   (libraries-index.json: each 1.1 zip with its size and sha256) - asked through the installer (the app's main process /
+ *   the driver: GitHub's download redirect has no CORS header) - so Install downloads with a progress bar; Install from a
+ *   file… is the small secondary way.
  * The same file runs in every app (Central Control / Usage get a copy in app/shared/ - prepare-shared.sh). */
 (function () {
   "use strict";
@@ -48,13 +52,27 @@
     try { if (window.PPInstrument && window.PPInstrument.syncLibraries) window.PPInstrument.syncLibraries(st.installed); } catch (_) { }
     try { window.dispatchEvent(new CustomEvent("pp-libraries", { detail: { installed: st.installed } })); } catch (_) { }
   }
+  function builtinList(offline) { return { source: "built-in", offline: !!offline, libraries: BUILTIN.map(function (x) { return Object.assign({ ready: false, approximate: true }, x); }) }; }
+  // the published "libraries" release's list, through the installer (or straight, where the browser allows it)
+  function releaseList() {
+    var be = backend(), p;
+    if (be === "cu" && window.CU.libraries.index) p = window.CU.libraries.index();
+    else if (be === "driver") p = api("/libraries/index");
+    else return Promise.resolve(null);
+    return p.then(function (j) { return j && j.ok !== false && Array.isArray(j.libraries) && j.libraries.length ? { source: "release", libraries: j.libraries } : null; }, function () { return null; });
+  }
   function websiteList() {
     var l = L(), base = l && l.server ? l.server() : "";
-    if (!base) return Promise.resolve({ source: "built-in", libraries: BUILTIN.map(function (x) { return Object.assign({ ready: false, approximate: true }, x); }) });
+    var fallback = function (offline) { return releaseList().then(function (r) { return r || builtinList(offline); }); };
+    if (!base) return fallback(false);
     var ctl = window.AbortController ? new AbortController() : null, t = ctl ? setTimeout(function () { ctl.abort(); }, 12000) : 0;
     return fetch(base + "/v1/libraries", { cache: "no-store", signal: ctl ? ctl.signal : undefined }).then(function (r) { clearTimeout(t); if (!r.ok) throw new Error("the website answered " + r.status); return r.json(); })
-      .then(function (j) { return { source: j.source === "index" ? "website" : "website-built-in", libraries: Array.isArray(j.libraries) ? j.libraries : [] }; })
-      .catch(function () { clearTimeout(t); return { source: "built-in", offline: true, libraries: BUILTIN.map(function (x) { return Object.assign({ ready: false, approximate: true }, x); }) }; });
+      .then(function (j) {
+        var list = Array.isArray(j.libraries) ? j.libraries : [];
+        if (j.source === "index" && list.some(function (x) { return x.ready !== false && x.sha256; })) return { source: "website", libraries: list };
+        return fallback(false);   // (the website is up but has nothing published yet: the release has)
+      })
+      .catch(function () { clearTimeout(t); return fallback(true); });
   }
   function load(force) {
     if (st.loading || (!force && st.list && Date.now() - st.loadedAt < 5 * 60e3)) return Promise.resolve();
@@ -76,7 +94,8 @@
   function fail(e) { st.busy = false; st.msg = e && e.message ? e.message : String(e); redraw(); }
   function install(id) {
     var lib = listed(id); if (!lib) return;
-    if (!lib.ready || !lib.sha256) { st.msg = "This library isn't published yet. When it is, it installs from here; until then use Install from a file… with the zip from the website's Downloads page."; return redraw(); }
+    if (!lib.ready || !lib.sha256) { st.msg = st.source.indexOf("built-in") === 0 ? "The library list didn't come - check the internet and press Check for new versions. (Or use Install from a file… with the zip.)" : "This library isn't published yet."; return redraw(); }
+    if (!hasPlan(lib.plan)) { st.msg = lib.title + " opens with " + planName(lib.plan) + ": add its plan key above first."; return redraw(); }
     var be = backend(); st.busy = true; st.msg = "Downloading " + lib.title + "…"; st.jobs[id] = { state: "downloading", done: 0, total: lib.size || 0 }; redraw();
     var payload = { id: lib.id, url: lib.url, sha256: lib.sha256, size: lib.size };
     if (be === "cu") return window.CU.libraries.install(payload).then(function (r) { delete st.jobs[id]; done(r, lib.title + " " + lib.version + " is installed."); }, fail);
@@ -115,7 +134,7 @@
   // ------------------------------------------------------------- the panel
   function rowHtml(lib, rec) {
     var be = st.backend, job = st.jobs[lib.id], open = hasPlan(lib.plan), id = esc(lib.id);
-    var status = rec ? "Installed · version " + esc(rec.version) : lib.ready === false ? "Coming soon - you can install it here once it's out" : "Not installed";
+    var status = rec ? "Installed · version " + esc(rec.version) : lib.ready === false ? (st.source.indexOf("built-in") === 0 ? "Not installed - waiting for the library list" : "Coming soon - you can install it here once it's out") : "Not installed";
     var upd = rec && lib.version && newer(lib.version, rec.version) && lib.ready !== false;
     var btns = "";
     if (be && job && (job.state === "downloading" || job.state === "installing")) {
@@ -137,11 +156,11 @@
     st.installed.forEach(function (r) { if (!mine.some(function (x) { return x.id === r.id; })) mine.push({ id: r.id, plan: r.plan, title: r.title, version: r.version, ready: false }); });
     var rows = mine.map(function (lib) { return rowHtml(lib, st.installed.filter(function (r) { return r.id === lib.id; })[0] || null); }).join("");
     var others = (st.list || []).filter(function (x) { return mine.indexOf(x) < 0; }).map(function (x) { return esc(x.title) + " (" + esc(planName(x.plan)) + ")"; });
-    var intro = '<p class="muted">Sounds, presets, boards and impulse responses for your sound plans. Anyone can download them; each opens with its plan' + (be ? ", and installs here in one step." : ": install them on the Central Pedal or in Central Control / Central Usage on a computer.") + "</p>";
+    var intro = '<p class="muted">Sounds, presets, boards and impulse responses for your sound plans. Each downloads from online and opens with its plan key' + (be ? " - press Install." : ": install them on the Central Pedal or in Central Control / Central Usage on a computer.") + "</p>";
     var body = !st.list ? '<p class="muted">Loading the libraries…</p>' : (rows ? '<ul class="plain pkg-list lib-list">' + rows + "</ul>" : '<p class="muted">No libraries for this device\'s plans yet. Add a package above to see yours.</p>');
     var foot = (others.length ? '<p class="muted small">With other plans: ' + others.join(", ") + ".</p>" : "") +
-      (st.source.indexOf("built-in") === 0 ? '<p class="muted small">' + (st.source === "built-in-offline" ? "The website didn't answer: this is the list that came with the app." : "The website isn't open yet: download a library from its Downloads page later and use Install from a file….") + "</p>" : "") +
-      (be ? '<div class="row"><button data-lib-file' + (st.busy ? " disabled" : "") + '>Install from a file…</button><button data-lib-refresh' + (st.busy ? " disabled" : "") + ">Check for new versions</button></div>" : "") + (st.msg ? '<p class="small">' + esc(st.msg) + "</p>" : "");
+      (st.source.indexOf("built-in") === 0 ? '<p class="muted small">The library list didn\'t come (no internet?): this is the list that came with the app. Press Check for new versions to try again.</p>' : "") +
+      (be ? '<div class="row"><button data-lib-refresh' + (st.busy ? " disabled" : "") + '>Check for new versions</button> <button class="linkish small" data-lib-file' + (st.busy ? " disabled" : "") + ' title="A library zip you already have">Install from a file…</button></div>' : "") + (st.msg ? '<p class="small">' + esc(st.msg) + "</p>" : "");
     return '<section class="' + (cls || "") + '" data-st="libraries" id="libSettings"><h3>Libraries</h3>' + intro + body + foot + "</section>";
   }
   function redraw() { var el = document.getElementById("libSettings"); if (el) el.outerHTML = html(el.className); }
@@ -153,9 +172,15 @@
     else { st.msg = "Checking…"; redraw(); load(true).then(function () { st.msg = ""; redraw(); }); }
   });
   window.addEventListener("pp-plans", function () { redraw(); });
+  var drawT = 0;
+  if (window.CU && window.CU.libraries && window.CU.libraries.onProgress) window.CU.libraries.onProgress(function (p) {
+    if (!p || !p.id || !st.busy) return;
+    st.jobs[p.id] = { state: p.state === "installing" || p.state === "unpacking" ? "installing" : "downloading", done: Number(p.done) || 0, total: Number(p.total) || (st.jobs[p.id] || {}).total || 0 };
+    if (!drawT) drawT = setTimeout(function () { drawT = 0; redraw(); }, 150);
+  });
   // the Central Pedal: its installed libraries' presets and boards on the Instrument page from the start
   setTimeout(function () { if (backend() === "driver") installedNow().then(function (r) { st.installed = r.installed; boardsChanged(); }).catch(function () { }); }, 2500);
   if (window.PPFeatures && window.PPFeatures.on) window.PPFeatures.on("libraries", function (m) { if (m && Array.isArray(m.installed)) { st.installed = m.installed; redraw(); boardsChanged(); } });
 
-  window.PPLibraries = { html: html, load: load, install: install, remove: remove, installFile: installFile, state: function () { return st; }, builtin: BUILTIN, newer: newer, backend: backend };
+  window.PPLibraries = { html: html, load: load, install: install, remove: remove, installFile: installFile, state: function () { return st; }, builtin: BUILTIN, newer: newer, backend: backend, releaseList: releaseList };
 })();

@@ -53,7 +53,17 @@ struct Plug {
   virtual bool openEditor() { return false; }                              // creates `editor` and attaches the plugin's view
   virtual void closeEditor() {}
   virtual void idle() {}                                                   // the main loop, ~30 times a second
+  bool community = false;                                                  // (10.1) a community plugin, walled off in its own process
+  virtual std::string bypassed() { return ""; }                            // why it plays dry now ("" while it plays): crashed, stopped responding...
 };
+
+// ---- (10.1) community plugins (Make & sell): never loaded in this process - each runs in cm-plugbridge, walled off
+// (fmt_remote.cpp, bridge.h). isCommunity: the path is inside a library's community-plugins folder.
+bool isCommunity(const std::string &path);
+Plug *openRemote(const std::string &format, const std::string &id, const std::string &path, std::string &err);
+// in this process, without the slots (cm-plugbridge: the one plugin it hosts); an empty id is the bundle's first one
+Plug *openDirect(const std::string &format, const std::string &id, const std::string &path, std::string &err);
+void emitRaw(const std::string &json);   // one JSON line to the rig's app
 
 // the formats (each returns nullptr + err if it can't)
 Plug *openClap(const std::string &path, const std::string &id, std::string &err);

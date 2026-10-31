@@ -141,10 +141,52 @@ try {
   await p3.goto(settingsPage("offline", `window.PP_LICENSE_CONFIG = { server: "", required: true }; window.CU = { libraries: { list: function () { return Promise.resolve({ installed: [] }); } } };`));
   await p3.evaluate(() => { PPLicense.init({ app: "control" }); document.getElementById("set").innerHTML = PPLicense.packagesHtml(); });
   await p3.waitForFunction(() => document.querySelectorAll("#libSettings li[data-lib]").length === 5, null, { timeout: 5000 });
-  await check("the built-in list: the five libraries (Central Pads too), coming soon with no Install button (Install from a file…)", async () => {
+  await check("no list from online either (no internet): the built-in list, the five libraries (Central Pads too), no Install button; Install from a file… stays", async () => {
     const r = await p3.evaluate(() => ({ dis: [...document.querySelectorAll("[data-lib-install]")].every((b) => b.disabled), n: document.querySelectorAll("[data-lib-install]").length, text: document.getElementById("libSettings").textContent, file: !!document.querySelector("[data-lib-file]") }));
-    assert.ok(r.n === 0 && /Central Pads Library/.test(r.text) && r.file && /Coming soon/.test(r.text) && /Install from a file/.test(r.text), r.text);   // (not out yet: no Install button at all)
+    assert.ok(r.n === 0 && /Central Pads Library/.test(r.text) && r.file && /waiting for the library list/.test(r.text) && /Install from a file/.test(r.text), r.text);   // (no list: no Install button at all)
   });
+
+  // ------------------------------------------------------------- (10.0.1) no website yet: straight from the published "libraries" release
+  console.log("\nNo website yet - the published release (10.0.1):");
+  const REL = { ok: true, source: "release", libraries: LIST.libraries.map((l) => Object.assign({}, l, { url: "https://github.com/MotionAudio/central-apps/releases/download/libraries/" + l.file })) };
+  const p5 = await browser.newPage(); const e5 = []; p5.on("pageerror", (e) => e5.push(String(e)));
+  await p5.goto(settingsPage("release", `window.PP_LICENSE_CONFIG = { server: "", required: false };
+    window.__cu = []; var inst = [], prog = null; window.CU = { libraries: { list: function () { return Promise.resolve({ ok: true, installed: inst }); },
+      index: function () { window.__cu.push(["index"]); return Promise.resolve(${JSON.stringify(REL)}); },
+      onProgress: function (fn) { prog = fn; },
+      install: function (l) { window.__cu.push(["install", l]); return new Promise(function (res) {
+        prog({ id: l.id, done: 50000, total: 200000, state: "downloading" });
+        window.__finish = function () { inst = [{ id: l.id, plan: "pedals", version: "1.0", title: "Central Pedals Library", counts: { ir: 28 }, boards: [], presets: [] }]; res({ ok: true, installed: inst, record: { id: l.id, version: "1.0" } }); }; }); },
+      installFile: function () { return Promise.resolve({ canceled: true }); }, remove: function () { return Promise.resolve({ ok: true, installed: [] }); } } };`));
+  await p5.evaluate((pk) => { PPLicense.init({ app: "control" }); document.getElementById("set").innerHTML = PPLicense.packagesHtml(); }, { key: "SABC-DEFG-HJKL-MNPQ", plans: { pedals: future }, okAt: Date.now(), ok: true });
+  await p5.waitForFunction(() => document.querySelector('[data-lib-install="central-pedals-library"]'), null, { timeout: 5000 });
+  await check("the list comes from the release through the app (each library ready, with its size and checksum): an Install button for each", async () => {
+    const r = await p5.evaluate(() => ({ asked: window.__cu.some((c) => c[0] === "index"), src: PPLibraries.state().source, ids: [...document.querySelectorAll("#libSettings li[data-lib]")].map((e) => e.dataset.lib), text: document.getElementById("libSettings").textContent }));
+    assert.ok(r.asked && r.src === "release", JSON.stringify(r)); assert.equal(r.ids.length, 4);
+    assert.ok(/downloads from online and opens with its plan key/.test(r.text) && !/Coming soon/.test(r.text), r.text);
+  });
+  await check("Install downloads from the release (its url and sha256) and the progress bar moves; then it's installed", async () => {
+    await p5.click('[data-lib-install="central-pedals-library"]'); await wait(300);
+    const r = await p5.evaluate(() => ({ call: window.__cu.filter((c) => c[0] === "install").pop(), bar: (document.querySelector('#libSettings li[data-lib="central-pedals-library"] progress') || {}).value, text: document.getElementById("libSettings").textContent }));
+    assert.equal(r.call[1].url, "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pedals-library-1.0.zip"); assert.equal(r.call[1].sha256, SHA.pedals);
+    assert.equal(r.bar, 50000, r.text); assert.ok(/50 KB of 200 KB/.test(r.text), r.text);
+    await p5.evaluate(() => window.__finish()); await wait(300);
+    assert.ok(/Central Pedals Library 1\.0 is installed/.test(await p5.textContent("#libSettings")));
+  });
+  await check("Install from a file… is the small secondary button (after Check for new versions)", async () => {
+    const r = await p5.evaluate(() => { const f = document.querySelector("[data-lib-file]"), c = document.querySelector("[data-lib-refresh]"); return { small: f.classList.contains("linkish"), after: !!(c.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING) }; });
+    assert.ok(r.small && r.after, JSON.stringify(r));
+  });
+  await check("on the Central Pedal the list comes from its driver (/libraries/index)", async () => {
+    const p6 = await browser.newPage(); let asked = 0;
+    await p6.route("http://127.0.0.1:8766/**", (route) => { const u = new URL(route.request().url()); if (u.pathname === "/libraries/index") asked++; route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(u.pathname === "/libraries/index" ? REL : { available: true, installed: [], jobs: {} }) }); });
+    await p6.goto(settingsPage("pedal-release", `window.PP_LICENSE_CONFIG = { server: "", required: false };`));
+    await p6.evaluate(() => { PPLicense.init({ app: "pedal" }); document.getElementById("set").innerHTML = PPLicense.packagesHtml(); });
+    await p6.waitForFunction(() => document.querySelectorAll("[data-lib-install]").length === 4, null, { timeout: 5000 });
+    assert.ok(asked >= 1 && (await p6.evaluate(() => PPLibraries.state().source)) === "release");
+    await p6.close();
+  });
+  await check("no page errors (release)", async () => { assert.deepEqual(e5, []); });
 
   // ------------------------------------------------------------- the Instrument page
   console.log("\nThe Instrument page (a library's presets, boards, banks and IRs keep its plan):");
@@ -190,6 +232,35 @@ try {
     b = await B(); assert.deepEqual(b.map((x) => x.name + "@" + x.v).sort(), ["Felt Upright Ambient@1.1", "Pedals: Edge Delay 1x12@1.0", "Upright Ballad@1.1"]);
     await p4.evaluate((l) => PPInstrument.syncLibraries(l), [v2[0]]);
     b = await B(); assert.ok(!b.some((x) => x.lib === "central-pedals-library") && b.length === 2, JSON.stringify(b));
+  });
+  await check("(10.1) a community plugin from an installed library: Add pedal → Community, labelled, sent to the engine; a crash shows the bypassed notice and Try again; a library taken away takes it off the board", async () => {
+    const COMM = { id: "community-9", plan: "plugins", version: "1", community: { item: 9, creator: "Ben Pads", kind: "plugin" }, presets: [], boards: [],
+      plugins: [{ name: "Shimmer Verb", format: "clap", platform: "linux-x64", bundle: "Shimmer.clap", path: "/u/libraries/community-plugins/community-9/Shimmer.clap" }] };
+    const r = await p4.evaluate(async (libs) => {
+      const sent = []; window.addEventListener("message", (e) => { if (e.data && e.data.cu === "inst-out") sent.push(e.data.msg); });
+      const tick = (ms) => new Promise((ok) => setTimeout(ok, ms || 60));
+      PPFeatures.emit({ type: "instrumentStatus", available: true, running: true, engine: "cu-rig", pluginFormats: "clap", pluginSlots: {}, pluginErrors: {}, inputs: [], midiInputs: [], keysCatalog: [] });
+      PPInstrument.syncLibraries(libs); PPInstrument.setKind("electric"); PPInstrument.config().chains.electric = []; PPInstrument.render(); await tick();
+      document.querySelector("#pbAdd").click(); await tick();
+      const tab = document.querySelector('[data-addtab="community"]'); const tabText = tab ? tab.textContent : ""; if (tab) tab.click(); await tick();
+      const item = document.querySelector("[data-addcomm]"); const itemText = item ? item.textContent : ""; if (item) item.click(); await tick();
+      const it = PPInstrument.config().chains.electric[0] || {}, host = PPInstrument.resolvedChain("electric")[0] || {};
+      PPFeatures.emit({ type: "instrumentStatus", available: true, running: true, engine: "cu-rig", pluginFormats: "clap", pluginSlots: { [it.uid]: { name: "Shimmer Verb", community: true, editor: false } }, pluginErrors: {}, inputs: [], midiInputs: [], keysCatalog: [] }); await tick();
+      const svg = (document.querySelector('svg.pedal.community[data-uid="' + it.uid + '"]') || {}).textContent || "";
+      PPFeatures.emit({ type: "pluginBypassed", uid: it.uid, reason: "crashed", name: "Shimmer Verb" }); await tick();
+      const notice = (document.querySelector('[data-bypassed="' + it.uid + '"]') || {}).textContent || "", svg2 = (document.querySelector('svg.pedal[data-uid="' + it.uid + '"]') || {}).textContent || "";
+      const retry = document.querySelector('[data-plugretry="' + it.uid + '"]'); if (retry) retry.click(); await tick();
+      PPInstrument.syncLibraries(libs.filter((l) => l.id !== "community-9")); await tick();
+      return { tabText, itemText, plugin: it.plugin, host, svg, notice, svg2, retried: sent.some((m) => m.action === "pluginRestart" && m.uid === it.uid), after: PPInstrument.config().chains.electric.length };
+    }, LIBS.concat([COMM]));
+    assert.ok(/Community\s*1/.test(r.tabText), r.tabText);
+    assert.ok(/Shimmer Verb/.test(r.itemText) && /Community plugin - made by Ben Pads, checked by Motion Audio/.test(r.itemText), r.itemText);
+    assert.deepEqual([r.plugin.community, r.plugin.creator, r.plugin.path, r.plugin.id], [true, "Ben Pads", COMM.plugins[0].path, ""]);
+    assert.ok(r.host.id === "plug" && r.host.plugin.community === true, "the engine gets it: " + JSON.stringify(r.host));
+    assert.ok(/Community/.test(r.svg) && /by Ben Pads/.test(r.svg) && /ready/.test(r.svg), r.svg);
+    assert.ok(/It crashed, so it’s bypassed/.test(r.notice) && /Try again/.test(r.notice) && /bypassed/.test(r.svg2), r.notice + " | " + r.svg2);
+    assert.ok(r.retried, "Try again asks the engine to load it afresh");
+    assert.equal(r.after, 0, "its library taken away: it comes off the board");
   });
   await check("no page errors on the Instrument page", async () => { assert.deepEqual(e4, []); });
 } finally {

@@ -221,6 +221,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 10.1.0:** A new lighting page with the stage full width, Pause, quick slots and setlists; Talk into the in-ears from Central Control and Central Usage; libraries download from inside the apps; an admin code for changing a computer's job; sounds, plugins and pedals made by the community, checked by Motion Audio and included in the yearly packs, with their makers paid.
+
 **New in version 10.0.1:** Sound on the Central Pedal's headphone jack (always outputs 1-2); settings apply without turning the pedal off; the pedal updates itself; each HDMI port shows its own choice; Settings one group at a time; the 3.5" screen follows mouse clicks; Linux updates wait instead of failing; Central Usage is back to its normal size.
 
 **New in version 10.0.0:** Setlists (load, create with your team, add songs from the website) with the computer running the tracks; charts and lyrics that follow the tracks, read your way; a Central Control setup window with jobs per computer and smarter lights; a Studio in Central Usage; learn any control and change every colour in all four apps; hymn tracks and more sounds, pads, loops and pedals; Purchases on the website.

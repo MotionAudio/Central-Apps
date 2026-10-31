@@ -103,6 +103,16 @@
   function slotInfo(id) { return (status.pluginSlots || {})[id] || null; }
   function slotError(id) { return (status.pluginErrors || {})[id] || null; }
   function scanPlugins(force) { plugs.scan = { done: 0, total: 0, current: "" }; send({ type: "instrument", action: "plugins", scan: true, force: !!force, folders: cfg().pluginFolders || [] }); if (onTab()) render(); }
+  // (10.1) community plugins (Make & sell, checked by Motion Audio): installed with a library, played walled off in a
+  // process of their own - by the rig on computers (not Windows), by the community stage on the Central Pedal. Their
+  // item: plugin { format, id: "" (the bundle's plugin), path, name, vendor: creator, community: true, creator, library }.
+  var COMM_CAT = { name: "Community", color: "#2f9e8f" };
+  var comm = { list: [] };
+  function commHost() { return !!(status.available && status.pluginSlots && !(window.CU && window.CU.platform === "win32")); }
+  function isComm(item) { return !!(item && item.plugin && item.plugin.community); }
+  function playsHere(item) { return isComm(item) ? commHost() : plugHost(); }
+  var BYPASS = { crashed: "It crashed, so it’s bypassed – the sound goes on without it.", hung: "It stopped responding, so it’s bypassed – the sound goes on without it.", heavy: "It’s too heavy for this device, so it’s bypassed – the sound goes on without it.", revoked: "Motion Audio took it down, so it’s off and has come off this device.", off: "Community plugins are switched off on this device (Settings → Packages → Community).", stopped: "It stopped, so it’s bypassed." };
+  function commLabel(pl) { return "Community plugin - made by " + (pl.creator || pl.vendor || "a creator") + ", checked by Motion Audio"; }
 
   // ------------------------------------------------------------- plugin port info (generated from the OS image: js/plugin-ports.js; the Pi's live scan wins when present)
   var PORTS = window.PP_PLUGIN_PORTS || {}, KNOBS = window.PP_PEDAL_KNOBS || {};
@@ -124,7 +134,7 @@
   function denorm(ctl, n) { n = clamp(n, 0, 1); var v = ctl.log && ctl.min > 0 ? ctl.min * Math.pow(ctl.max / ctl.min, n) : ctl.min + (ctl.max - ctl.min) * n; if (ctl.integer || ctl.enum) v = Math.round(v); if (ctl.toggled) v = n >= 0.5 ? 1 : 0; return v; }
   function fmt(ctl, v) { if (ctl.toggled) return v >= 0.5 ? "on" : "off"; if (ctl.sym === "Ratio" && ctl.min === 0 && ctl.max === 1 && !ctl.unit) return v >= 0.995 ? "∞ : 1" : (1 / (1 - v)).toFixed(1) + " : 1";   /* x42 darc: 0 = 1:1, 1 = limiting */ if (ctl.scale.length) { var sp = ctl.scale.filter(function (s) { return Math.abs(s[0] - v) < 1e-6; })[0]; if (sp) return sp[1]; } var a = Math.abs(v), t = a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2); return t + (ctl.unit ? " " + ctl.unit.replace(/^db$/, "dB").replace(/^hz$/, "Hz") : ""); }
   function resolvedChain(k) {
-    return chainFor(k).map(function (item) { if (isPlug(item)) return plugHost() ? { uid: item.uid, id: "plug", name: item.plugin.name, plugin: item.plugin, stateFrom: item.stateFrom || undefined, on: item.on !== false, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0 } : null; var pedal = PED.byId(item.pedal); if (!pedal) return null; var values = {}; controlsOf(pedal).forEach(function (ctl) { values[ctl.sym] = valueOf(item, ctl); }); return { uid: item.uid, id: pedal.id, name: pedal.name, uri: pedal.uri, on: item.on !== false && !itemLocked(item), locked: itemLocked(item) || undefined, values: values, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0, file: item.file || irByName(item.irName) || null }; }).filter(Boolean);
+    return chainFor(k).map(function (item) { if (isPlug(item)) return playsHere(item) ? { uid: item.uid, id: "plug", name: item.plugin.name, plugin: item.plugin, stateFrom: item.stateFrom || undefined, on: item.on !== false, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0 } : null; var pedal = PED.byId(item.pedal); if (!pedal) return null; var values = {}; controlsOf(pedal).forEach(function (ctl) { values[ctl.sym] = valueOf(item, ctl); }); return { uid: item.uid, id: pedal.id, name: pedal.name, uri: pedal.uri, on: item.on !== false && !itemLocked(item), locked: itemLocked(item) || undefined, values: values, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0, file: item.file || irByName(item.irName) || null }; }).filter(Boolean);
   }
   function hostConfig() {
     var c = cfg(), k = kind();
@@ -216,31 +226,32 @@
 
   // a plugin pedal: its format on the corner, a little screen (loading / ready / a problem), the plugin's name and maker
   function plugSvg(item, pedal, idx, sel) {
-    var pl = pedal.plugin, w = 150, h = 190, on = item.on !== false, info = slotInfo(item.uid), err = slotError(item.uid), host = plugHost();
-    var state = !host ? "here: preview" : err ? "didn’t load" : info ? (info.instrument ? "instrument" : "ready") : "loading…";
-    var vendor = String(pl.vendor || ""), nm = pedal.name;
-    return '<svg class="pedal plug' + (sel ? " selected" : "") + (on ? "" : " off") + (err ? " err" : "") + '" viewBox="0 0 ' + w + " " + h + '" data-uid="' + item.uid + '" role="button" tabindex="0" aria-label="' + esc(nm + " (" + fmtName(pl.format) + " plugin)") + '">' +
-      '<defs><linearGradient id="g' + item.uid + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8d80e6"/><stop offset="1" stop-color="#4b3f9e"/></linearGradient></defs>' +
+    var pl = pedal.plugin, w = 150, h = 190, on = item.on !== false, info = slotInfo(item.uid), err = slotError(item.uid), host = playsHere(item), cm = !!pl.community, byp = info && info.bypassed;
+    var state = !host ? (cm ? "not on this device" : "here: preview") : err ? "didn’t load" : byp ? "bypassed" : info ? (info.instrument ? "instrument" : "ready") : "loading…";
+    var vendor = cm ? "by " + String(pl.creator || pl.vendor || "a creator") : String(pl.vendor || ""), nm = pedal.name, chip = cm ? "Community" : fmtName(pl.format);
+    return '<svg class="pedal plug' + (cm ? " community" : "") + (sel ? " selected" : "") + (on ? "" : " off") + (err || byp ? " err" : "") + '" viewBox="0 0 ' + w + " " + h + '" data-uid="' + item.uid + '" role="button" tabindex="0" aria-label="' + esc(nm + (cm ? " (community plugin, walled off)" : " (" + fmtName(pl.format) + " plugin)") + (byp ? ", bypassed" : "")) + '">' +
+      '<defs><linearGradient id="g' + item.uid + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + (cm ? "#47b9a8" : "#8d80e6") + '"/><stop offset="1" stop-color="' + (cm ? "#1f6d63" : "#4b3f9e") + '"/></linearGradient></defs>' +
       '<rect x="3" y="3" width="' + (w - 6) + '" height="' + (h - 6) + '" rx="12" fill="url(#g' + item.uid + ')" stroke="' + (sel ? "#fff" : "rgba(0,0,0,.5)") + '" stroke-width="' + (sel ? 3 : 1.5) + '"/>' +
       (on ? '<circle cx="' + (w - 18) + '" cy="18" r="9" fill="#ff4040" opacity=".3"/>' : "") + '<circle cx="' + (w - 18) + '" cy="18" r="5" fill="' + (on ? "#ff4040" : "#4a1a1a") + '" stroke="#200"/>' +
-      '<text x="12" y="23" class="pk-n">' + (idx + 1) + '</text><rect x="28" y="11" width="' + (fmtName(pl.format).length * 6.4 + 10) + '" height="16" rx="4" fill="rgba(0,0,0,.28)"/><text x="33" y="23" class="pk-fmt">' + esc(fmtName(pl.format)) + "</text>" +
+      '<text x="12" y="23" class="pk-n">' + (idx + 1) + '</text><rect x="28" y="11" width="' + (chip.length * 6.4 + 10) + '" height="16" rx="4" fill="rgba(0,0,0,.28)"' + (cm ? ' stroke="rgba(255,255,255,.75)" stroke-dasharray="3 2"' : "") + '/><text x="33" y="23" class="pk-fmt">' + esc(chip) + "</text>" +
       '<rect x="16" y="36" width="' + (w - 32) + '" height="62" rx="7" fill="#101218" stroke="rgba(255,255,255,.18)"/>' +
-      '<path d="M24 67 C 36 46, 46 46, 56 67 S 76 88, 86 67 S 106 46, 116 67 S 124 80, 126 76" fill="none" stroke="' + (err ? "#ef6b63" : on && info ? "#c9c1ff" : "#5b5675") + '" stroke-width="2.2" stroke-linecap="round"/>' +
+      '<path d="M24 67 C 36 46, 46 46, 56 67 S 76 88, 86 67 S 106 46, 116 67 S 124 80, 126 76" fill="none" stroke="' + (err || byp ? "#ef6b63" : on && info ? (cm ? "#bff3ea" : "#c9c1ff") : "#5b5675") + '" stroke-width="2.2" stroke-linecap="round"' + (byp ? ' stroke-dasharray="4 4"' : "") + "/>" +
       '<text x="' + (w / 2) + '" y="92" class="pk-state">' + esc(state) + "</text>" +
       '<text x="' + (w / 2) + '" y="' + (h - 62) + '" class="pk-vendor">' + esc(vendor.length > 24 ? vendor.slice(0, 23) + "…" : vendor) + "</text>" +
       '<rect x="12" y="' + (h - 52) + '" width="' + (w - 24) + '" height="22" rx="5" fill="rgba(255,255,255,.92)"/><text x="' + (w / 2) + '" y="' + (h - 37) + '" class="pk-name">' + esc(nm.length > 20 ? nm.slice(0, 19) + "…" : nm) + "</text>" +
       '<g class="pk-sw" data-sw="' + item.uid + '"><circle cx="' + (w / 2) + '" cy="' + (h - 17) + '" r="10" fill="#d8d8d8" stroke="#333" stroke-width="1.5"/><circle cx="' + (w / 2) + '" cy="' + (h - 17) + '" r="4.5" fill="#222"/></g></svg>';
   }
   function plugDetail(item, pedal) {
-    var pl = pedal.plugin, info = slotInfo(item.uid), err = slotError(item.uid), host = plugHost(), ps = plugs.params[item.uid] || null, open = !!(plugs.open[item.uid] || (info && info.open));
+    var pl = pedal.plugin, info = slotInfo(item.uid), err = slotError(item.uid), host = playsHere(item), cm = !!pl.community, byp = info && info.bypassed, ps = plugs.params[item.uid] || null, open = !!(plugs.open[item.uid] || (info && info.open));
     var mix = item.mix == null ? 1 : item.mix;
-    return '<section class="in-detail plug-detail" style="--pc:' + PLUG_CAT.color + '"><div class="row spread"><div><h3>' + esc(pedal.name) + '</h3><p class="muted">' + esc([pl.vendor, fmtName(pl.format) + " plugin"].filter(Boolean).join(" · ")) + '</p></div><div class="se-row"><label class="toggle"><input type="checkbox" data-on="' + item.uid + '"' + (item.on !== false ? " checked" : "") + "> On</label>" +
+    return '<section class="in-detail plug-detail' + (cm ? " community" : "") + '" style="--pc:' + (cm ? COMM_CAT.color : PLUG_CAT.color) + '"><div class="row spread"><div><h3>' + esc(pedal.name) + '</h3>' + (cm ? '<p><span class="cm-label">' + esc(commLabel(pl)) + '</span></p><p class="muted small">' + esc(fmtName(pl.format)) + " · runs walled off from the rest of the app</p>" : '<p class="muted">' + esc([pl.vendor, fmtName(pl.format) + " plugin"].filter(Boolean).join(" · ")) + "</p>") + '</div><div class="se-row"><label class="toggle"><input type="checkbox" data-on="' + item.uid + '"' + (item.on !== false ? " checked" : "") + "> On</label>" +
       (host && info && info.editor ? '<button class="primary" data-plugwin="' + item.uid + '">' + (open ? "Close its window" : "Open its window") + "</button>" : "") + "</div></div>" +
-      (err ? '<p class="plug-warn">This plugin didn’t load: ' + esc(err) + ". Is it still installed? Try Scan again under Add pedal → Your plugins.</p>" : "") +
-      (!host ? '<p class="muted">Plugins play on the computer they’re installed on, in the Instrument tab of Central Control or Central Usage. It stays on this board.</p>' : !info && !err ? '<p class="muted">Loading ' + esc(pedal.name) + "… big instruments can take a few seconds.</p>" : "") +
+      (byp ? '<p class="plug-warn" data-bypassed="' + item.uid + '">' + esc(BYPASS[byp] || BYPASS.stopped) + (/^(crashed|hung|heavy|stopped)$/.test(byp) ? ' <button data-plugretry="' + item.uid + '">Try again</button>' : "") + "</p>" : "") +
+      (err ? '<p class="plug-warn">This plugin didn’t load: ' + esc(err) + (cm ? "." : ". Is it still installed? Try Scan again under Add pedal → Your plugins.") + "</p>" : "") +
+      (!host ? '<p class="muted">' + (cm ? (window.CU && window.CU.platform === "win32" ? "Community plugins can’t run walled off on Windows yet, so this one stays off here. It plays on the Central Pedal, a Mac or Linux." : "Community plugins play where they’re installed (Settings → Packages → Community), walled off. It stays on this board.") : "Plugins play on the computer they’re installed on, in the Instrument tab of Central Control or Central Usage. It stays on this board.") + "</p>" : !info && !err ? '<p class="muted">Loading ' + esc(pedal.name) + "… big instruments can take a few seconds.</p>" : "") +
       '<div class="in-mixlevel"><label>Mix <small>(dry ↔ plugin)</small><span class="control-line"><input type="range" min="0" max="100" step="1" data-pmix="' + item.uid + '" value="' + Math.round(mix * 100) + '"><output>' + Math.round(mix * 100) + '%</output></span></label><label>Level<span class="control-line"><input type="range" min="-30" max="12" step="0.5" data-plevel="' + item.uid + '" value="' + (item.levelDb || 0) + '"><output>' + (item.levelDb || 0) + " dB</output></span></label></div>" +
-      (host && info ? '<div class="plug-params" data-ppfor="' + item.uid + '">' + plugParamsHtml(item.uid, ps) + "</div>" : "") +
-      (host && info ? '<p class="muted small">Its settings, including everything you change in its own window, are saved with it on this computer.</p>' : "") + "</section>";
+      (host && info && !byp ? '<div class="plug-params" data-ppfor="' + item.uid + '">' + plugParamsHtml(item.uid, ps) + "</div>" : "") +
+      (host && info ? '<p class="muted small">' + (cm ? "Its settings are saved with it on this device." : "Its settings, including everything you change in its own window, are saved with it on this computer.") + "</p>" : "") + "</section>";
   }
   function plugParamsHtml(id, ps) {
     if (!ps) return '<p class="muted small">Reading its controls…</p>';
@@ -354,8 +365,14 @@
       '<div class="in-controls">' + ctls.map(function (ctl) { var v = valueOf(item, ctl), key = item.uid + "|" + esc(ctl.sym); if (ctl.toggled) return '<label class="toggle"><input type="checkbox" data-ctl="' + key + '"' + (v >= 0.5 ? " checked" : "") + "> " + esc(ctl.label) + "</label>"; if (ctl.enum && ctl.scale.length) return "<label>" + esc(ctl.label) + '<select data-ctl="' + key + '">' + ctl.scale.map(function (s) { return '<option value="' + s[0] + '"' + (Math.abs(s[0] - v) < 1e-6 ? " selected" : "") + ">" + esc(s[1]) + "</option>"; }).join("") + "</select></label>"; return "<label>" + esc(ctl.label) + '<span class="control-line"><input type="range" min="0" max="1000" step="1" value="' + Math.round(norm(ctl, v) * 1000) + '" data-ctl="' + key + '"><output>' + esc(fmt(ctl, v)) + "</output></span></label>"; }).join("") + "</div></section>";
   }
   function addPanel() {
-    var host = plugHost(), nPlug = plugs.list.filter(function (p) { return p.kind === "effect"; }).length;
-    var tabs = host ? '<div class="add-tabs"><button class="st-chip' + (addTab !== "plugins" ? " on" : "") + '" data-addtab="pedals">Built-in pedals <small>' + PED.pedals.length + '</small></button><button class="st-chip' + (addTab === "plugins" ? " on" : "") + '" data-addtab="plugins">Your plugins <small>' + (plugs.scanned ? nPlug : "…") + "</small></button></div>" : "";
+    var host = plugHost(), nPlug = plugs.list.filter(function (p) { return p.kind === "effect"; }).length, ch = commHost() && comm.list.length > 0;
+    var tabs = host || ch ? '<div class="add-tabs"><button class="st-chip' + (addTab !== "plugins" && addTab !== "community" ? " on" : "") + '" data-addtab="pedals">Built-in pedals <small>' + PED.pedals.length + "</small></button>" + (host ? '<button class="st-chip' + (addTab === "plugins" ? " on" : "") + '" data-addtab="plugins">Your plugins <small>' + (plugs.scanned ? nPlug : "…") + "</small></button>" : "") + (ch ? '<button class="st-chip' + (addTab === "community" ? " on" : "") + '" data-addtab="community">Community <small>' + comm.list.length + "</small></button>" : "") + "</div>" : "";
+    if (ch && addTab === "community") {
+      var cq = addQuery.toLowerCase(), cl = comm.list.map(function (p, i) { return [p, i]; }).filter(function (x) { return !cq || (x[0].name + " " + x[0].creator).toLowerCase().indexOf(cq) > -1; });
+      return '<section class="in-add"><div class="row spread"><h3>Add a pedal</h3>' + tabs + '<input id="pbSearch" placeholder="Search community plugins…" value="' + esc(addQuery) + '"><button id="pbAddClose">Close</button></div>' +
+        '<p class="muted small">Plugins made by other musicians on Make &amp; sell, checked by Motion Audio. Each one runs walled off in a process of its own: if it crashes or stops responding it’s bypassed and the sound goes on.' + (status.engine === "cu-rig" ? "" : " On the Central Pedal they play after the board’s own pedals.") + "</p>" +
+        '<div class="pb-list plug-list">' + (cl.length ? cl.map(function (x) { return '<button class="pb-item plug-item comm-item" data-addcomm="' + x[1] + '"><b>' + esc(x[0].name) + '</b><small class="cm-label">' + esc(commLabel(x[0])) + "</small><small>" + esc(fmtName(x[0].format)) + "</small></button>"; }).join("") : '<p class="muted">Nothing matches.</p>') + "</div></section>";
+    }
     if (host && addTab === "plugins") return '<section class="in-add"><div class="row spread"><h3>Add a pedal</h3>' + tabs + '<input id="pbSearch" placeholder="Search your plugins…" value="' + esc(addQuery) + '"><button id="pbAddClose">Close</button></div>' + plugPanel("effect") + "</section>";
     var cats = Object.keys(PED.CATEGORIES), q = addQuery.toLowerCase();
     var list = PED.pedals.filter(function (p) { return (addCat === "all" || p.category === addCat) && (!q || (p.name + " " + (PED.CATEGORIES[p.category] || {}).name).toLowerCase().indexOf(q) > -1); });
@@ -493,6 +510,8 @@
       // the musician's own plugins
       if (b.dataset.addtab) { addTab = b.dataset.addtab; addCat = "all"; if (addTab === "plugins" && !plugs.scanned && !plugs.scan) scanPlugins(false); render(); var s2 = $("#pbSearch"); if (s2) s2.focus(); return; }
       if (b.dataset.addplug) { var pp = plugs.list.filter(function (q) { return q.key === b.dataset.addplug; })[0]; if (pp) { var pit = { uid: uid(), pedal: "plug", plugin: plugRef(pp), on: true, values: {} }; chain.push(pit); selected = pit.uid; showAdd = false; apply("add"); render(); PP.setStatus("Loading " + pp.name + "…"); } return; }
+      if (b.dataset.addcomm) { var cp = comm.list[Number(b.dataset.addcomm)]; if (cp) { var cit = { uid: uid(), pedal: "plug", plugin: { format: cp.format, id: "", path: cp.path, name: cp.name, vendor: cp.creator, community: true, creator: cp.creator, library: cp.library }, on: true, values: {} }; chain.push(cit); selected = cit.uid; showAdd = false; apply("add"); render(); PP.setStatus("Starting " + cp.name + " (walled off)…"); } return; }
+      if (b.dataset.plugretry) { send({ type: "instrument", action: "pluginRestart", uid: b.dataset.plugretry }); PP.setStatus("Trying it again…"); return; }
       if (b.dataset.plugwin || b.dataset.klwin) { var wid = b.dataset.plugwin || b.dataset.klwin, si = slotInfo(wid), isOpen = !!(plugs.open[wid] || (si && si.open)); send({ type: "instrument", action: "pluginEditor", uid: wid, open: !isOpen }); plugs.open[wid] = !isOpen; render(); return; }
       if (b.id === "plugScan") { scanPlugins(true); return; }
       if (b.id === "plugFolderAdd") { var fin = $("#plugFolder"), fv = fin && fin.value.trim(); if (fv) { var fl = c.pluginFolders = c.pluginFolders || []; if (fl.indexOf(fv) < 0) fl.push(fv); PP.persistSoon(); scanPlugins(false); } return; }
@@ -555,7 +574,7 @@
     function keyUp(e) { var kk = e.target.closest && e.target.closest(".kk"); if (!kk) return; kk.classList.remove("down"); send({ type: "instrument", action: "note", on: false, note: Number(kk.dataset.note), velocity: 0 }); }
     root.addEventListener("pointerup", keyUp); root.addEventListener("pointercancel", keyUp); root.addEventListener("pointerleave", keyUp, true);
     F.on("instrumentStatus", function (m) {
-      var sig = function (x) { return JSON.stringify([x.running, x.error, x.kind, (x.inputs || []).length, (x.keysCatalog || []).length, !!x.plugins, x.engine, x.engineAlt, Object.keys(x.pluginSlots || {}).sort(), x.pluginErrors || {}, x.playAny && x.playAny.available]); };
+      var sig = function (x) { return JSON.stringify([x.running, x.error, x.kind, (x.inputs || []).length, (x.keysCatalog || []).length, !!x.plugins, x.engine, x.engineAlt, Object.keys(x.pluginSlots || {}).sort().map(function (id) { return id + ":" + ((x.pluginSlots[id] || {}).bypassed || ""); }), x.pluginErrors || {}, x.playAny && x.playAny.available]); };
       var before = sig(status), hadEngine = status.available !== undefined, prevEngine = status.engine;
       status = m;
       if (hadEngine && prevEngine !== m.engine) setTimeout(function () { if (kind() !== "off") apply("engine"); }, 300);   // (switched engines: give the new one the board)
@@ -584,7 +603,13 @@
       (m.params || []).forEach(function (q) { var inp = box.querySelector('[data-pp="' + m.uid + "|" + q.id + '"]'); if (!inp) return; var o = inp.parentNode.querySelector("output"); if (o) o.textContent = tidyNum(q.text); if (inp !== a) inp.value = Math.round(q.value * 1000); });
     });
     F.on("pluginEditor", function (m) { plugs.open[m.uid] = !!m.open; if (m.error) PP.setStatus(m.error); if (onTab()) render(); });
-    setInterval(function () { if (!onTab() || !selected || !plugHost()) return; var it = chainFor(kind()).filter(function (q) { return q.uid === selected; })[0]; if (it && isPlug(it) && slotInfo(it.uid)) askParams(it.uid); }, 2000);   // (its own window may have moved them)
+    // (10.1) a community plugin was bypassed (crashed, stopped responding, too heavy) or stopped (taken down, switched off)
+    F.on("pluginBypassed", function (m) {
+      var si = (status.pluginSlots || {})[m.uid]; if (si) si.bypassed = m.reason;
+      PP.setStatus((m.name || "A community plugin") + ": " + (BYPASS[m.reason] || BYPASS.stopped));
+      send({ type: "instrument", action: "status" }); if (onTab()) render();
+    });
+    setInterval(function () { if (!onTab() || !selected) return; var it = chainFor(kind()).filter(function (q) { return q.uid === selected; })[0]; if (it && isPlug(it) && playsHere(it) && slotInfo(it.uid) && !slotInfo(it.uid).bypassed) askParams(it.uid); }, 2000);   // (its own window may have moved them)
     F.on("hello", function () { send({ type: "instrument", action: "status" }); setTimeout(function () { if (kind() !== "off") apply("connect"); }, 600); });
   }
   function show() { send({ type: "instrument", action: "status" }); render(); }
@@ -738,6 +763,12 @@
     if (!Array.isArray(list)) return 0;
     var c = cfg(), want = {}, changed = 0; c.libs = c.libs && typeof c.libs === "object" ? c.libs : {};
     list.forEach(function (l) { if (l && /^[a-z0-9-]{3,60}$/.test(l.id || "")) want[l.id] = l; });
+    // (10.1) the community plugins installed with them (Add pedal → Community); one whose library is gone (removed, or taken
+    // down by Motion Audio) comes off every board - the engine has already stopped it live
+    comm.list = [];
+    Object.keys(want).forEach(function (id) { var l = want[id]; if (!l.community || !Array.isArray(l.plugins)) return; l.plugins.forEach(function (p) { if (p && p.path && p.format) comm.list.push({ name: String(p.name || p.bundle || "Plugin"), format: p.format, path: p.path, creator: String(l.community.creator || ""), library: id }); }); });
+    var gone = 0; Object.keys(c.chains || {}).forEach(function (kk) { var ch = c.chains[kk]; if (!Array.isArray(ch)) return; var keep = ch.filter(function (it) { return !(isComm(it) && it.plugin.library && !want[it.plugin.library] && c.libs[it.plugin.library] !== undefined); }); gone += ch.length - keep.length; c.chains[kk] = keep; });
+    if (gone) { changed++; if (kind() !== "off") apply("community"); PP.setStatus(gone === 1 ? "A community plugin came off your board (it isn’t installed here any more)." : gone + " community plugins came off your boards (they aren’t installed here any more)."); }
     Object.keys(c.libs).forEach(function (id) { if (!want[id] || want[id].version !== c.libs[id]) { var n = c.custom.length; c.custom = c.custom.filter(function (x) { return x.library !== id; }); changed += n - c.custom.length; delete c.libs[id]; } });
     Object.keys(want).forEach(function (id) {
       var l = want[id]; if (c.libs[id] === l.version) return;

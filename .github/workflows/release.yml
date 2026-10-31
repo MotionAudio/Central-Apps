@@ -61,6 +61,7 @@ jobs:
           mkdir -p central-usage/dist
           find staging -type f \( -name 'CentralControl-*' -o -name 'central-usage-*' -o -name 'CentralUsage-*' -o -name 'central-pedal-control-*' -o -name 'central-services-*' \) -exec mv {} central-usage/dist/ \;
           ls bin/linux-aarch64/central-playany.lv2/central-playany.so >/dev/null || { echo "::error::the Pi's play-any plugin is missing"; exit 1; }
+          ls bin/linux-aarch64/cm-plugbridge bin/linux-aarch64/cm-pwnode >/dev/null || { echo "::error::the Pi's community plugin host (cm-plugbridge, cm-pwnode) is missing"; exit 1; }
           bash make-release.sh "$VER"
           for want in "CentralControl-*-win-x64.exe" "CentralControl-*-mac-arm64.dmg" "CentralControl-*-mac-x64.dmg" "CentralControl-*-amd64.deb" "CentralControl-*-x86_64.AppImage" \
                       "central-usage-*-win-x64.exe" "central-usage-*-mac-arm64.dmg" "central-usage-*-mac-x64.dmg" "central-usage-*-amd64.deb" "central-usage-*-x86_64.AppImage" "central-control-source.zip" \

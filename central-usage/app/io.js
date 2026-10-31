@@ -27,7 +27,7 @@
       radio("ioPi", "off", t, "Off", "no tracks here") + radio("ioPi", "ethernet", t, "Ethernet", hasEth || !CU.state.connected ? "a cable - the best" : "the Central Pedal has no Ethernet now") + radio("ioPi", "wifi", t, "Wi-Fi", hasWifi || !CU.state.connected ? "anywhere on the Wi-Fi, a little more delay" : "the Central Pedal has no Wi-Fi now") + radio("ioPi", "interface", t, "Audio interface", "its outputs cabled into this computer's interface") + "</div>" + warn +
       (t === "ethernet" || t === "wifi" ? '<div class="row"><label>Buffer <input type="range" min="20" max="300" step="10" data-io="latency" value="' + ((c.piAudio || {}).latency || 60) + '"><output>' + ((c.piAudio || {}).latency || 60) + ' ms</output></label><span class="muted small">smaller means less delay; raise it if the sound breaks up</span></div>' +
         '<table class="io-t"><tr><td>Status</td><td data-io-live="pi">' + piStatus() + "</td></tr>" + "<tr><td>Channels</td><td>" + (X && X.pi.length ? X.pi.map(function (n) { return esc(n.name); }).join(" · ") : '<span class="muted">none yet - they arrive when the Central Pedal has a song loaded</span>') + "</td></tr></table>" : "") +
-      (t === "interface" ? '<p class="muted">Pick the interface\'s inputs on the In-ears tab (Channels: source "Input n") and set them to "Tracks" to mix them on the Mix tab.</p>' : "") + "</section>";
+      (t === "interface" ? '<p class="muted">Pick the interface\'s inputs on the In-ears tab (Channels: source "Input n") and set them to "Tracks" to mix them on the Online mix tab.</p>' : "") + "</section>";
   }
   function piStatus() {   // the live line (updated in place every 2 s, so the controls around it stay put)
     var pi = hs && hs.pi || {}, m = X && X.meters, net = m && m.net && m.net[0];
@@ -103,7 +103,7 @@
   function listenCard() {   // (the record control: recorder.js)
     if (CU.mode() !== "admin") return "";
     return '<section class="card io-c"><h3>Listening &amp; recording</h3><label>Listen on <select data-io="sink"><option value="">This computer\'s output</option></select></label>' +
-      '<div class="io-rec" data-rec-slot data-rec-folder></div><p class="muted small">Records every input, the Central Pedal\'s tracks and the main mix as WAV files, plus an MP3 of the main mix. Play them back from the Mix tab.</p></section>';
+      '<div class="io-rec" data-rec-slot data-rec-folder></div><p class="muted small">Records every input, the Central Pedal\'s tracks and the main mix as WAV files, plus an MP3 of the main mix. Play them back from the Online mix tab.</p></section>';
   }
   function videoCard() {
     if (CU.mode() !== "admin") return "";

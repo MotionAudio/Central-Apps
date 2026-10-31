@@ -26,10 +26,10 @@
       (a.error ? '<tr><td></td><td class="warn">' + esc(a.error) + "</td></tr>" : "") + "</table>" +
       '<div class="row">' + (a.downloaded ? (a.bundled ? "" : '<button data-st="ai-remove">Remove the model</button>') : '<button data-st="ai-download"' + (d.active ? " disabled" : "") + ">Download the model (about 470 MB)</button>") + '<label class="toggle"><input type="checkbox" data-st="ai-use"' + (CU.store.get("aiUse", true) ? " checked" : "") + "> Use it when it's ready</label></div></section>";
   }
-  function mixCard() {   // where the tracks go out of the audio interface (also on the Mix tab)
+  function mixCard() {   // where the tracks go out of the audio interface (also on the Online mix tab)
     var X = window.CUMix, st = X && X.state; if (CU.mode() !== "admin") return "";
     if (!st) return '<section class="card"><h3>Tracks out of the interface</h3><p class="muted">This only matters on the computer that\'s the audio host (see the I/O tab).</p></section>';
-    return '<section class="card"><h3>Tracks out of the interface</h3><div class="io-opts"><label class="io-opt' + (st.trackOut !== "direct" ? " on" : "") + '"><input type="radio" name="stTrackOut" value="sum"' + (st.trackOut !== "direct" ? " checked" : "") + '><span><b>a) Mixed here, summed</b><small>faders, EQ, compressor on the Mix tab - out on two outputs (L / R)</small></span></label><label class="io-opt' + (st.trackOut === "direct" ? " on" : "") + '"><input type="radio" name="stTrackOut" value="direct"' + (st.trackOut === "direct" ? " checked" : "") + '><span><b>b) Each track on its own output</b><small>to the desk\'s inputs, one per track (from output ' + ((st.directFirst || 0) + 1) + ")</small></span></label></div><p class=\"muted small\">The outputs themselves are picked on the Mix tab.</p></section>";
+    return '<section class="card"><h3>Tracks out of the interface</h3><div class="io-opts"><label class="io-opt' + (st.trackOut !== "direct" ? " on" : "") + '"><input type="radio" name="stTrackOut" value="sum"' + (st.trackOut !== "direct" ? " checked" : "") + '><span><b>a) Mixed here, summed</b><small>faders, EQ, compressor on the Online mix tab - out on two outputs (L / R)</small></span></label><label class="io-opt' + (st.trackOut === "direct" ? " on" : "") + '"><input type="radio" name="stTrackOut" value="direct"' + (st.trackOut === "direct" ? " checked" : "") + '><span><b>b) Each track on its own output</b><small>to the desk\'s inputs, one per track (from output ' + ((st.directFirst || 0) + 1) + ")</small></span></label></div><p class=\"muted small\">The outputs themselves are picked on the Online mix tab.</p></section>";
   }
   function render() {
     var root = $("#settingsRoot"); if (!root || !visible()) return;
@@ -39,6 +39,7 @@
       (window.CUColors ? window.CUColors.card() : "") +
       (window.CURoles ? window.CURoles.card() : "") +
       (window.CUHubStandby ? window.CUHubStandby.card() : "") +
+      (window.CUTalk && window.CUTalk.card ? window.CUTalk.card() : "") +
       mixCard() +
       (admin ? aiCard() : "") +   // (the lighting's AI model and the lyrics-from-the-vocal model are admin work: not in Central Usage)
       (admin && window.CULyricsListen ? window.CULyricsListen.card() : "") +

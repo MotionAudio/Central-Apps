@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Studio · Motion Audio</title>
+<meta name="description" content="Write and record loops, pads and parts in your browser with a MIDI keyboard, then publish them to the Motion Audio sound plans.">
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/create/maker.css">
+<link rel="stylesheet" href="lib/studio.css">
+<meta name="theme-color" content="#111317">
+<style>
+/* the Central Usage Studio (lib/, the same files as the app) in the website's maker look */
+:root{--bg2:#16191E;--panel3:#2C313A;--text:var(--fg);--accentHi:var(--accent-hi);--accentText:var(--accent-fg);--dim:#6E7680}
+body{display:flex;flex-direction:column;min-height:100vh}
+#view-studio{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;margin:.8rem 1rem 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+#view-studio button{padding:.35rem .65rem;border-radius:8px;font-size:.88rem}
+#view-studio input,#view-studio select{width:auto;padding:.3rem .5rem;font-size:.88rem;border-radius:8px}
+#view-studio label{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:.35rem;font-size:.85rem}
+#view-studio label>input,#view-studio label>select{flex:0 0 auto}
+.top{position:relative}   /* (the studio uses the whole page: the header scrolls away) */
+.pub{margin:.8rem 1rem 1.5rem}
+.pub .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.55rem}
+.intro{margin:.8rem 1rem 0;display:flex;gap:.6rem 1rem;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="home" href="/"><img src="/brand/glyph-motion-audio.svg" alt="">Motion Audio</a>
+  <h1>Studio</h1>
+  <div class="who" id="who"><a href="/create/">Make &amp; sell</a></div>
+</header>
+<div class="intro"><span>Play with a MIDI keyboard (or your computer keys), record clips, put them on the timeline, then <b style="color:var(--fg)">Publish</b> it to a sound plan. Songs are saved in this browser.</span><a class="btn small primary" href="#publish" id="toPub">Publish ↓</a></div>
+<section class="view active" id="view-studio" aria-label="Studio"></section>
+<form class="card pub" id="publish" novalidate>
+  <h2>Publish</h2>
+  <p class="muted" style="margin:0">We render your timeline here in the browser and send it for review. After it's approved, everyone with the sound plan can use it, and you get a share of the plan's money for each download (downloads × the reviewer's stars).</p>
+  <div class="kinds" id="pubKinds">
+    <button type="button" class="kind on" data-k="loop"><b>Loop</b><span>The whole timeline mixed into one WAV loop, for Central Pads.</span></button>
+    <button type="button" class="kind" data-k="loopset"><b>Loop set</b><span>One WAV loop per track (drums, keys, bass…), for Central Pads.</span></button>
+    <button type="button" class="kind" data-k="board"><b>Pedal board</b><span>The selected track's effects as a pedal board preset, for Central Pedals.</span></button>
+  </div>
+  <div class="opts"><label>Name<input id="pName" maxlength="80"></label><label>Tags <span class="small">(commas)</span><input id="pTags" placeholder="worship, ambient"></label><label>About it<input id="pDesc" maxlength="300"></label></div>
+  <p class="muted small" id="pInfo" style="margin:0"></p>
+  <label class="check"><input type="checkbox" id="pRights"><span>I made this, or I have the rights to share and sell everything in it.</span></label>
+  <div class="progress" id="pProg" hidden><i></i></div>
+  <div class="row"><button class="primary" id="pSend">Publish for review</button><span class="muted small" id="pState"></span></div>
+  <div class="err" id="pErr"></div>
+</form>
+<script>
+  // the Studio tab expects the Central Usage app around it: here, the page is the tab
+  window.CentralUsage = { _tab: [], on: function (ev, fn) { if (ev === "tab") this._tab.push(fn); }, state: {} };
+</script>
+<script src="lib/fx-dsp.js"></script>
+<script src="lib/studio-midi.js"></script>
+<script src="lib/studio-sf2.js"></script>
+<script src="lib/studio-sounds.js"></script>
+<script src="lib/studio-engine.js"></script>
+<script src="lib/studio-ui.js"></script>
+<script src="/create/upload.js"></script>
+<script src="studio-publish.js"></script>
+</body>
+</html>

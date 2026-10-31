@@ -54,6 +54,7 @@ export async function needsCode(user) {
   if (!smsOn && !mailOn) return false;
   if (isDemoUser(user)) return false;   // (the demo account's password is shared on purpose: it has no phone and gets no email)
   if (isAdmin(user)) return true;
+  if (await one("SELECT 1 FROM review_admins WHERE email=$1", [String(user.email || "").toLowerCase()]).catch(() => null)) return true;   // (10.1: review admins confirm their sign-in too)
   const m = await one("SELECT role FROM church_members WHERE user_id=$1", [user.id]);
   return !!(m && (m.role === "church" || m.role === "owner" || m.role === "admin"));
 }

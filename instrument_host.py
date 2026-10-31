@@ -458,6 +458,101 @@ class PW:
         return r.returncode == 0
 
 
+# ---------------------------------------------------------------- (10.1) community plugins: the community stage
+COMMUNITY_MARK = "/community-plugins/"
+COMMUNITY_NODE = "cm-community"
+
+
+def community_items(chain):
+    """The board's community plugins (installed from Make & sell): {id: "plug", plugin: {format, id, path}} items whose
+    file is inside a library's community-plugins folder. They never load into the filter-chain: they play in the
+    community stage (cm-pwnode), each walled off in its own cm-plugbridge process, after the board's own pedals."""
+    return [it for it in chain or [] if isinstance(it, dict) and it.get("id") == "plug"
+            and COMMUNITY_MARK in str((it.get("plugin") or {}).get("path") or "").replace("\\", "/")]
+
+
+class CommunityStage:
+    """cm-pwnode (central-usage/native/cm-pwnode.c): one PipeWire node that plays the community plugins in series.
+    Started only while a board has community plugins on it; JSON lines in and out."""
+
+    def __init__(self, exe, data_dir, on_event):
+        self.exe, self.data_dir, self.on_event = exe, data_dir, on_event
+        self.proc = None
+        self.status = {}
+        self.bypassed = {}
+        self.waiting = {}   # uid -> [threading.Event, reply]
+        self.lock = threading.Lock()
+
+    def running(self):
+        return self.proc is not None and self.proc.poll() is None
+
+    def start(self):
+        if self.running():
+            return
+        os.makedirs(self.data_dir, exist_ok=True)
+        logf = open(os.path.join(self.data_dir, "cm-pwnode.log"), "w")
+        self.proc = subprocess.Popen([self.exe, "--data", self.data_dir, "--name", COMMUNITY_NODE], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                     stderr=logf, text=True, bufsize=1)
+        threading.Thread(target=self._read, args=(self.proc,), daemon=True).start()
+
+    def _read(self, proc):
+        for line in proc.stdout:
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                continue
+            t = msg.get("type")
+            if t == "communityStatus":
+                self.status = msg
+                for uid in list(self.bypassed):
+                    if not ((msg.get("slots") or {}).get(uid) or {}).get("bypassed"):
+                        self.bypassed.pop(uid, None)
+            elif t == "pluginBypassed":
+                self.bypassed[str(msg.get("uid"))] = str(msg.get("reason"))
+            elif t == "pluginParams":
+                with self.lock:
+                    w = self.waiting.get(str(msg.get("uid")))
+                if w:
+                    w[1] = msg
+                    w[0].set()
+            try:
+                self.on_event(msg)
+            except Exception as error:   # (the app's side never stops this reader)
+                log.debug("community stage event: %s", error)
+
+    def send(self, msg):
+        if not self.running():
+            return False
+        try:
+            self.proc.stdin.write(json.dumps(msg) + "\n")
+            self.proc.stdin.flush()
+            return True
+        except (OSError, ValueError):
+            return False
+
+    def params(self, uid, timeout=3.0):
+        ev = [threading.Event(), None]
+        with self.lock:
+            self.waiting[str(uid)] = ev
+        try:
+            if self.send({"action": "pluginParams", "uid": uid}):
+                ev[0].wait(timeout)
+            return ev[1] or {"type": "pluginParams", "uid": uid, "params": []}
+        finally:
+            with self.lock:
+                self.waiting.pop(str(uid), None)
+
+    def stop(self):
+        proc, self.proc = self.proc, None
+        self.status, self.bypassed = {}, {}
+        if proc and proc.poll() is None:
+            try:
+                proc.stdin.close()   # (it saves the plugins' states and quits)
+                proc.wait(timeout=3)
+            except (OSError, subprocess.TimeoutExpired):
+                proc.kill()
+
+
 # ---------------------------------------------------------------- the host
 class InstrumentHost:
     def __init__(self, driver, data_root, app_root):
@@ -492,6 +587,9 @@ class InstrumentHost:
         self.playany_so = None        # central-playany.so (found / built on first use)
         self.playany_in_chain = False  # the running guitar chain has the play-any plugin in it
         self.playany_fluid = False     # FluidSynth runs for play any sound (not for keys)
+        self.community = None          # (10.1) the community stage (cm-pwnode), while a board has community plugins
+        self.community_exe = None
+        self.community_error = None
 
     def probe_lv2(self):
         """True when libpipewire-module-filter-chain can host LV2 (PipeWire >= 1.4 or a build with lilv)."""
@@ -579,6 +677,73 @@ class InstrumentHost:
                     log.info("%d pedal plugin(s) not installed here (e.g. %s)", len(gone), gone[0])
             return cat
         return {}
+
+    # ----- (10.1) community plugins: the community stage ----------------------------
+    def find_community(self, build=True):
+        """cm-pwnode, with cm-plugbridge beside it: shipped (bin/linux-<arch>/ in the Pi release, the dev build), or built
+        here the first time (make, g++, and the lilv / PipeWire headers - setup-pi.sh installs them)."""
+        if self.community_exe and os.path.isfile(self.community_exe):
+            return self.community_exe
+        import platform
+        arch = platform.machine() or "aarch64"
+        roots = [r for r in (self.app_root, os.path.dirname(self.app_root or "")) if r]
+        built = os.path.join(self.dir, "bin-community")
+        cands = [os.path.join(r, "bin", "linux-" + arch) for r in roots] + [os.path.join(r, "central-usage", "native", "build") for r in roots] + [os.path.join(r, "native") for r in roots] + roots + [os.path.join(r, "build") for r in roots] + [built]   # (computers: native/ in the app, central-usage/native/build in a checkout)
+        for d in cands:
+            if os.path.isfile(os.path.join(d, "cm-pwnode")) and os.path.isfile(os.path.join(d, "cm-plugbridge")):
+                self.community_exe = os.path.join(d, "cm-pwnode")
+                return self.community_exe
+        if not build:
+            return None
+        src = next((d for d in [os.path.join(r, "central-usage", "native") for r in roots] + roots if os.path.isfile(os.path.join(d, "cm-pwnode.c"))), None)
+        if not src or not shutil.which("make") or not (shutil.which("g++") or shutil.which("c++")):
+            return None
+        r = run(["make", "-C", src, "OUT=" + built, os.path.join(built, "cm-plugbridge"), os.path.join(built, "cm-pwnode")], timeout=900)
+        if r.returncode != 0 or not os.path.isfile(os.path.join(built, "cm-pwnode")):
+            log.warning("community plugins: building the community stage failed: %s", (r.stderr or r.stdout or "").strip()[-300:])
+            return None
+        self.community_exe = os.path.join(built, "cm-pwnode")
+        return self.community_exe
+
+    def _community_event(self, msg):
+        if self.driver and msg.get("type") in ("pluginBypassed", "pluginParams"):
+            self.driver.emit(msg)
+        if msg.get("type") == "pluginBypassed":
+            self.emit_status()
+
+    @staticmethod
+    def _community_chain(items):
+        return {"action": "chain", "items": [{"uid": re.sub(r"[^A-Za-z0-9_-]", "", str(it.get("uid", "")))[:24], "plugin": it.get("plugin"), "on": it.get("on", True) is not False,
+                                              "mix": max(0.0, min(1.0, float(it.get("mix", 1) if it.get("mix") is not None else 1))), "stateFrom": it.get("stateFrom", "")} for it in items]}
+
+    def sync_community(self, chain):
+        """Start / update / stop the community stage for this board (its node is linked in link_output)."""
+        items = community_items(chain)
+        self.community_error = None
+        if not items:
+            if self.community:
+                self.community.stop()
+                self.community = None
+            self.node_ids.pop("community", None)
+            return
+        if not shutil.which("bwrap"):
+            self.community_error = "community plugins need bubblewrap to run walled off (update the software)"
+            return
+        exe = self.find_community()
+        if not exe:
+            self.community_error = "the community plugin host is missing on this pedal (update the software)"
+            return
+        if not self.community:
+            self.community = CommunityStage(exe, os.path.join(self.dir, "community"), self._community_event)
+        self.community.start()
+        self.community.send(self._community_chain(items))
+        for _ in range(40):   # its node appears once PipeWire has it
+            n = next((n for n in self.pw.nodes() if n["name"] == COMMUNITY_NODE), None)
+            if n:
+                self.node_ids["community"] = n["id"]
+                return
+            time.sleep(0.1)
+        self.community_error = (self.community.status or {}).get("error") or "the community plugins' node didn't appear"
 
     def plugin(self, uri):
         if uri == CONVOLVER_URI:   # the IR loader: PipeWire's own convolver (no plugin package needed)
@@ -689,7 +854,10 @@ class InstrumentHost:
                 "input": self.input_desc, "inputs": inputs, "midiInputs": [m for m in midi_inputs if KEYS_PORT_NAME not in m], "keysCatalog": self.keys_catalog(), "keysEngine": self.keys_engine,
                 "plugins": self.plugins_for_app(), "latencyMs": 128 / 48.0 if self.running else None,
                 "irs": self.ir_list(), "maxKeyLayers": MAX_KEY_LAYERS, "outputFallback": self.output_fallback, "looper": bool(self.config.get("looper")),
-                "playAny": {"available": bool(self.find_playany(build=False) or (shutil.which("cc") or shutil.which("gcc"))), "on": bool(playany_settings(self.config.get("playAny"), self.config.get("kind"))["on"]) and self.playany_in_chain, "engine": "plugin"}}
+                "playAny": {"available": bool(self.find_playany(build=False) or (shutil.which("cc") or shutil.which("gcc"))), "on": bool(playany_settings(self.config.get("playAny"), self.config.get("kind"))["on"]) and self.playany_in_chain, "engine": "plugin"},
+                # (10.1) community plugins, the same shape as the computers' rig: {uid: {name, community, bypassed}} / {uid: why}
+                "pluginSlots": dict((self.community.status or {}).get("slots") or {}) if self.community else {},
+                "pluginErrors": dict((self.community.status or {}).get("errors") or {}, **({"community": self.community_error} if self.community_error else {})) if (self.community or self.community_error) else {}}
 
     def plugins_for_app(self):
         """uri -> { controls: [...] } (only what the app needs)"""
@@ -753,6 +921,17 @@ class InstrumentHost:
         if action == "playany":
             self.config["playAny"] = message.get("playAny") or {}
             threading.Thread(target=self._playany_safe, daemon=True).start()
+            return
+        # (10.1) community plugins on the board: their quick controls, presets and "Try again"
+        if action in ("pluginParams", "pluginSet", "pluginRestart", "pluginSave"):
+            if not (self.community and self.community.running()):
+                if action == "pluginParams":
+                    reply({"type": "pluginParams", "uid": message.get("uid"), "params": []})
+                return
+            if action == "pluginParams":
+                threading.Thread(target=lambda: reply(self.community.params(message.get("uid"))), daemon=True).start()
+            else:
+                self.community.send({k: message.get(k) for k in ("action", "uid", "id", "value") if message.get(k) is not None})
 
     def _apply_safe(self):
         with self.lock:
@@ -867,6 +1046,8 @@ context.modules = [
                 prev[ch] = "gate%s:out_l" % ch
         for it in items:
             if not it.get("on", True) and it.get("skip"):
+                continue
+            if it.get("id") == "plug":   # (10.1) a community plugin: it plays in the community stage, walled off - never here
                 continue
             info = self.plugin(it.get("uri", ""))
             if not info:
@@ -1026,6 +1207,10 @@ context.modules = [
     def stop_all(self):
         for name in list(self.procs):
             self.stop_chain(name)
+        if self.community:
+            self.community.stop()
+            self.community = None
+        self.node_ids.pop("community", None)
         self.stop_keys()
         self.playany_in_chain = False
         self.running = False
@@ -1053,6 +1238,7 @@ context.modules = [
             self.link_input()
             if pa and pa["on"] and pa["mode"] != 2:
                 self.playany_sound(pa)
+            self.sync_community(chain)
             self.link_output()
             self.running = True
         elif kind == "keys":
@@ -1064,6 +1250,7 @@ context.modules = [
             conf = self.chain_conf("keys", chain, 2, 0, None, self.config.get("levelDb", 0))
             self.start_chain("keys", conf)
             self.link_keys()
+            self.sync_community(chain)
             self.link_output()
             self.running = True
 
@@ -1214,6 +1401,12 @@ context.modules = [
             return
         sink_in = self.sink_ports(objs)
         outs = self.ports_of(node_out, "out", objs)
+        comm = self.node_ids.get("community") if self.community and self.community.running() else None
+        if comm and any(n["id"] == comm for n in self.pw.nodes(objs)):   # (10.1) the board -> its community plugins -> the outputs
+            self.unlink_node(comm, "in", objs)
+            self.unlink_node(comm, "out", objs)
+            self.link_to(outs, [p for p in self.ports_of(comm, "in", objs) if "monitor" not in p["name"]])
+            outs = self.ports_of(comm, "out", objs)
         if not sink_in or not outs:
             raise RuntimeError("output sink not ready")
         # sink ports are ordered by channel position in our combined sink: index = channel - 1
@@ -1298,6 +1491,10 @@ context.modules = [
                     it["mix"] = max(0.0, min(1.0, float(mix)))
                 if level_db is not None:
                     it["levelDb"] = max(-60.0, min(12.0, float(level_db)))
+        if item is not None and item.get("id") == "plug":   # (10.1) a community plugin: switched / mixed in the community stage
+            if self.community and self.community.running():
+                self.community.send(self._community_chain(community_items(self.config.get("chain"))))
+            return
         if not node or item is None:
             return
         info = self.plugin(item.get("uri", ""))

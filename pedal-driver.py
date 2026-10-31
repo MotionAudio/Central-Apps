@@ -95,7 +95,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "10.0.1"
+APP_VERSION = "10.1.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -1585,6 +1585,13 @@ class LocalServer:
                     return self.send_json(200, driver.system_status())
                 if p == "/libraries":   # the sound libraries installed here, and any being installed
                     return self.send_json(200, library_state(driver))
+                if p == "/libraries/index":   # 10.0.1: the published libraries' list (the website's own list wins once it's open)
+                    if not sound_libraries:
+                        return self.send_json(200, {"ok": False, "error": "libraries aren't available here", "libraries": []})
+                    try:
+                        return self.send_json(200, sound_libraries.release_index())
+                    except Exception as error:  # noqa: BLE001
+                        return self.send_json(200, {"ok": False, "error": "the library list didn't come (%s) - check the internet" % error, "libraries": []})
                 if p == "/libraries/pads":   # Central Pads: the pad styles installed here (the pad pedal's voice list)
                     st = library_store(driver)
                     return self.send_json(200, {"pads": st.pads() if st else []})
@@ -1836,6 +1843,19 @@ class LocalServer:
                     except (ValueError, OSError) as error:
                         return self.send_json(400, {"error": str(error)})
                     return self.send_json(404, {"error": "unknown"})
+                if url.path == "/libraries/community":   # (10.1) the "Allow community plugins" switch, and the website's revoke list
+                    if not local_origin_ok(self.headers):
+                        return self.send_json(403, {"error": "only the app can do that"})
+                    payload = self.json_body() or {}
+                    st = library_store(driver)
+                    if not st:
+                        return self.send_json(500, {"error": "sound libraries aren't available here"})
+                    if "pluginsAllowed" in payload:
+                        st.set_plugins_allowed(payload.get("pluginsAllowed") is True)
+                    gone = st.revoke(payload.get("revokeIds") or [], payload.get("revokeHashes") or []) if ("revokeIds" in payload or "revokeHashes" in payload) else []
+                    if gone:
+                        library_installed(driver, None)
+                    return self.send_json(200, {"ok": True, "pluginsAllowed": st.plugins_allowed(), "revoked": gone, "installed": st.listing()})
                 if url.path in ("/libraries/install", "/libraries/remove"):   # a sound library: from the website's list / taken away
                     if not local_origin_ok(self.headers):
                         return self.send_json(403, {"error": "only the app can do that"})
@@ -7077,7 +7097,7 @@ def library_state(driver):
         j = dict(job)
         j.update(st.progress.get(lib_id) or {})
         jobs[lib_id] = j
-    return {"available": True, "installed": st.listing(), "jobs": jobs}
+    return {"available": True, "installed": st.listing(), "jobs": jobs, "pluginsAllowed": st.plugins_allowed()}
 
 
 def library_installed(driver, rec):

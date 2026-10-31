@@ -167,7 +167,7 @@
   // Settings is one group at a time (10.0.1): a list down the left, the group's cards on the right in tidy columns. (The
   // old "All" page put every card on one wall with big gaps and small text.) Each card's data-st says its group.
   var GROUPS = [["audio", "Sound", ["audio"]], ["look", "Appearance", ["look"]], ["setups", "Saved setups", ["setups"]], ["screens", "Screens & touch", ["screens"]],
-    ["midi", "MIDI, tempo & Stream Deck", ["midi"]], ["network", "Wi-Fi & devices", ["network"]], ["packages", "Packages & key", ["packages", "license", "libraries"]],
+    ["midi", "MIDI, tempo & Stream Deck", ["midi"]], ["network", "Wi-Fi & devices", ["network"]], ["packages", "Packages & key", ["packages", "license", "libraries", "community"]],
     ["software", "Updates & backup", ["software"]], ["system", "System", ["system"]]];
   var group = "audio";
   try { var g0 = localStorage.getItem("pad-pedal-st-group"); if (g0 && GROUPS.some(function (g) { return g[0] === g0; })) group = g0; } catch (_) { }

@@ -133,6 +133,17 @@ main.send({ type: "cuRole", action: "talkGroup", id: "dMain", target: "dUser", g
 v = await main.wait((m) => m.type === "cuRoles" && (m.devices || []).some((d) => d.id === "dUser" && d.talkGroup === "production"));
 ok(!!v, "the main admin moves a device to Production");
 main.send({ type: "cuRole", action: "talkGroup", id: "dMain", target: "dUser", group: "band" });
+// (10.0.1) the party line: a user talks, the main admin and the admin both hear it (and the talker doesn't hear itself)
+main.q.length = 0; a.q.length = 0; u.q.length = 0;
+u.send({ type: "talk", on: true, to: "team", name: "Keys", seq: 6 });
+r = await u.wait((m) => m.type === "talkReply" && m.seq === 6);
+ok(r && r.ok && r.receivers >= 2, "the team talk reaches everyone online (" + (r && r.receivers) + ")");
+ok(!!(await a.wait((m) => m.type === "talkFrom" && m.on && m.kind === "team" && m.name === "Keys")), "...the admin is told who is talking (team)");
+u.ws.send(mic);
+const ta = await a.wait((m) => m.type === "__bin"), tm = await main.wait((m) => m.type === "__bin");
+ok(ta && tm && ta.buf.subarray(5, 5 + ta.buf[4]).toString() === "dUser" && tm.buf.subarray(5, 5 + tm.buf[4]).toString() === "dUser", "...the mic frames reach the admin and the main admin");
+ok(!u.q.some((m) => m.type === "__bin"), "...not back to the one talking");
+u.send({ type: "talk", on: false, seq: 7 }); await a.wait((m) => m.type === "talkFrom" && !m.on);
 
 // a second "main admin" from another address is refused (only the computer the center runs on)
 const other = new Center({ port: 0, dataDir: fs.mkdtempSync(path.join(os.tmpdir(), "center-")), beacon: false });

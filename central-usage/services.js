@@ -399,6 +399,7 @@ module.exports = function services(app, getWin) {
   const libOut = (r) => ({ ok: true, installed: libs.listing(), record: r && r.id ? { id: r.id, version: r.version, counts: r.counts } : undefined });
   const libErr = (e) => ({ ok: false, error: e.message || String(e), installed: libs.listing() });
   ipcMain.handle("lib-list", () => ({ ok: true, installed: libs.listing(), progress: libs.progress }));
+  ipcMain.handle("lib-index", async () => { try { return await libs.index(); } catch (e) { return { ok: false, error: e.message || String(e), libraries: [] }; } });
   ipcMain.handle("lib-install", async (_e, a) => {
     a = a || {};
     try { return libOut(await libs.installUrl(String(a.url || ""), String(a.sha256 || ""), String(a.id || "library"), Number(a.size) || 0, (p) => send("lib-progress", { id: a.id, done: p.done, total: p.total, state: p.state }))); } catch (e) { return libErr(e); }
@@ -410,6 +411,15 @@ module.exports = function services(app, getWin) {
     try { return libOut(libs.installFile(r.filePaths[0], sha || null, "file")); } catch (e) { return libErr(e); }
   });
   ipcMain.handle("lib-remove", (_e, id) => { try { libs.remove(String(id || "")); return libOut(null); } catch (e) { return libErr(e); } });
+  // (10.1) community items: the "Allow community plugins" switch (this computer; off by default) and the website's revoke list
+  ipcMain.handle("lib-community", (_e, a) => {
+    a = a || {};
+    try {
+      if ("pluginsAllowed" in a) libs.setPluginsAllowed(a.pluginsAllowed === true);
+      const revoked = "revokeIds" in a || "revokeHashes" in a ? libs.revoke(a.revokeIds || [], a.revokeHashes || []) : [];
+      return { ok: true, pluginsAllowed: libs.pluginsAllowed(), revoked, installed: libs.listing() };
+    } catch (e) { return libErr(e); }
+  });
 
   // ------------------------------------------------------------------ the lights' local AI model
   // (10.0) it comes with Central Control: the model and llama-server are in the app's resources/ai folder (built by

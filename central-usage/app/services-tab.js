@@ -8,7 +8,7 @@
   var CU = window.CentralUsage; if (!CU) return;
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  var ROLE_LABEL = { lighting: "Lighting", production: "Cameras", slides: "Slides", lyrics: "Lyrics", mix: "Mix", inears: "In-ears", band: "Band" };
+  var ROLE_LABEL = { lighting: "Lighting", production: "Cameras", slides: "Slides", lyrics: "Lyrics", mix: "Online mix", inears: "In-ears", band: "Band" };
   var KIND_LABEL = { song: "Song", prayer: "Prayer", welcome: "Welcome", announcements: "Announcements", offering: "Offering", sermon: "Sermon", communion: "Communion", video: "Video", other: "Other" };
   var DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   var ALL = ["lighting", "production", "slides", "lyrics", "mix", "inears", "band"];

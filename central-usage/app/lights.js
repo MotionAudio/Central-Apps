@@ -182,6 +182,12 @@
   rig.localSongs = rig.localSongs || [];
   rig.defaultMode = rig.defaultMode || "semi";
   rig.groupLevel = rig.groupLevel || {};
+  // (10.0.1) the 10 quick buttons under Follow the show (preset ids; null = an empty slot), the 3D stage's height and the
+  // lighting setlists (the worship leader's, opened from the church account or the Central Pedal, or your own)
+  if (!Array.isArray(rig.quick)) rig.quick = rig.looks.filter(function (l) { return !l.flash; }).slice(0, 10).map(function (l) { return l.id; });
+  while (rig.quick.length < 10) rig.quick.push(null); rig.quick.length = 10;
+  rig.stageH = clamp(Number(rig.stageH) || 440, 240, 900);
+  rig.lxSets = Array.isArray(rig.lxSets) ? rig.lxSets : [];
   // lights from before the 3D stage: put each on the stage (from where it sat on the flat plot)
   function ensurePlaced() { var byGroup = {}; rig.fixtures.forEach(function (f) { (byGroup[f.group] = byGroup[f.group] || []).push(f); }); rig.fixtures.forEach(function (f) { if (!f.pos) { var list = byGroup[f.group]; placeFixture(f, list.indexOf(f), list.length); } }); }
   ensurePlaced();
@@ -273,9 +279,10 @@
   }
   function dirty() { effective = null; }
   async function loadShow(songId) {
-    show = { song: songId, cues: [], mode: rig.defaultMode, bpm: null, saved: true, loading: true, by: "" }; dirty(); renderShowPanel();
+    show = { song: songId, cues: [], mode: rig.defaultMode, bpm: null, saved: true, loading: true, by: "", sets: normSets(null) }; dirty(); renderShowPanel();
     var saved = null;
     try { var r = await fetch(CU.api("/lighting?song=" + encodeURIComponent(songId)), { cache: "no-store" }); if (r.ok) saved = await r.json(); } catch (_) { }
+    if (!saved || !Array.isArray(saved.cues)) saved = store.get("lxshow-" + songId, null);   // (no Central Pedal: the copy kept here)
     if (show.song !== songId) return;
     show.loading = false;
     if (saved && Array.isArray(saved.cues)) {
@@ -283,6 +290,7 @@
       else if (saved.auto) { show.mode = "auto"; show.cues = []; }             // 1.x: an automatic show was saved
       else { show.mode = saved.cues.length ? "manual" : rig.defaultMode; show.cues = saved.cues; }
       show.bpm = saved.bpm || null; show.by = saved.by || ""; show.feel = saved.feel && typeof saved.feel === "object" ? saved.feel : {};
+      show.sets = normSets(saved.sets);
       (saved.looks || []).forEach(function (l) { if (l && l.id && !rig.looks.some(function (x) { return x.id === l.id; })) rig.looks.push(l); });   // presets the chat box made travel with the show
       sortCues(show.cues);
     }
@@ -295,11 +303,13 @@
   async function saveShow() {
     if (!show.song) return;
     var code = CU.prefs.code;
-    if (!code) { $("#lxSaveState").textContent = "not saved - enter the pairing code (Code) to keep cues on the Central Pedal"; return; }
     var used = {}; show.cues.forEach(function (c) { if (c.look) used[c.look] = true; });
+    (show.sets && show.sets.song || []).concat([].concat.apply([], Object.keys((show.sets && show.sets.sections) || {}).map(function (k) { return show.sets.sections[k]; }))).forEach(function (id) { used[id] = true; });
     var looks = rig.looks.filter(function (l) { return used[l.id] && !l.builtIn; });
+    store.set("lxshow-" + show.song, { cues: show.cues, mode: show.mode, bpm: show.bpm || song.bpm, song: song.name, looks: looks, feel: show.feel || {}, sets: show.sets || null, updated: Date.now() });   // (works with no Central Pedal too)
+    if (!code) { if (CU.state.connected) { $("#lxSaveState").textContent = "kept on this computer - enter the pairing code (Code) to keep the cues on the Central Pedal too"; return; } show.saved = true; renderShowPanel(); return; }
     try {
-      var r = await fetch(CU.api("/lighting"), { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ song: show.song, code: code, by: "Central Control-" + selfId, show: { cues: show.cues, mode: show.mode, bpm: show.bpm || song.bpm, song: song.name, looks: looks, feel: show.feel || {} } }) });
+      var r = await fetch(CU.api("/lighting"), { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ song: show.song, code: code, by: "Central Control-" + selfId, show: { cues: show.cues, mode: show.mode, bpm: show.bpm || song.bpm, song: song.name, looks: looks, feel: show.feel || {}, sets: show.sets || null } }) });
       var j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
       show.saved = true; show.updated = j.updated;
     } catch (e) { $("#lxSaveState").textContent = "could not save: " + e.message; return; }
@@ -436,8 +446,10 @@
     rig.fixtures.forEach(function (f) { (groups[f.group] = groups[f.group] || []).push(f); });
     var base;
     if (live.manual) { var mp = clamp((now - live.manualAt) / 1000 / live.manualFade, 0, 1); base = { from: live.manualFrom || live.manual, to: live.manual, p: mp }; }
+    else if (live.frozen) base = live.frozen.base;   // (10.0.1) Pause: the show stays where it was
     else if (playing || live.hold) base = activeLooks(t);
     else base = { from: lookById(rig.stopped || "walkin"), to: lookById(rig.stopped || "walkin"), p: 1 };
+    if (live.frozen) playing = false;
     var fl = playing && !live.manual ? activeFlash(t) : null;
     if (live.flash && now < live.flash.until) fl = { look: lookById(live.flash.look), p: (live.flash.until - now) / live.flash.len };
     var cueOver = playing && !live.manual ? cueOverrides(t) : {}, lvl = playing ? audioLevel() : null, amt = rig.audio.amount;
@@ -537,6 +549,7 @@
 
   // ------------------------------------------------------------- from the Central Pedal
   function setSong(sid, name, secs, local) {
+    if (sid !== song.id) { secView = null; if (paused && paused.kind === "hold") clearPause(); }
     song.id = sid; song.name = name || ""; song.sections = secs || []; song.secKey = JSON.stringify(song.sections.map(function (s) { return [s.name, s.start]; })); song.local = !!local; song.overview = []; dirty();
     if (sid) { loadShow(sid); if (!local || hub.list.some(function (x) { return x.id === sid; })) hubSong(sid).then(function (h) { if (h) { applyHub(h); renderShowPanel(); } }); }
     else { show = { song: null, cues: [], mode: rig.defaultMode, saved: true }; renderShowPanel(); }
@@ -664,16 +677,17 @@
   function showSub(v) {
     var part = v === "songs" || v === "looks" ? v : null; if (part || ["show", "fixtures", "output"].indexOf(v) < 0) v = "show";
     showSubOnly(v);
-    if (part) { rightPanel(true); var sec = $(part === "songs" ? "#lxRSongs" : "#lxRLooks"); if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: "start" }); }
+    if (part) { var sec = $(part === "songs" ? "#lxRSongs" : "#lxRLooks"); if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: "start" }); }
   }
-  function rightPanel(on) { if (on != null) store.set("lxRight", !!on); var open = store.get("lxRight", true) !== false; var sv = $(".lx-showview"); if (sv) sv.classList.toggle("noright", !open); var b = $("#lxRightShow"); if (b) b.hidden = open; }
+  function rightPanel() { }   // (10.0.1: songs and presets sit under the stage now)
   function showSubOnly(v) { view = v; store.set("lxView", v); var fab = $("#lxChatOpen"); if (fab) fab.hidden = v !== "show"; if (v !== "show") chatOpen(false); $$("#lxNav [data-lx]").forEach(function (b) { b.classList.toggle("on", b.dataset.lx === v); }); $$(".lx-view").forEach(function (el) { el.hidden = el.dataset.lxv !== v; }); renderAll(); }
-  function renderAll() { if (view === "show") { renderPalette(); renderShowPanel(); renderFaders(); renderLights(); hubList(); renderSongs(); renderLooks(); rightPanel(); } else if (view === "fixtures") renderFixtures(); else if (view === "output") { renderOutput(); renderClick(); renderAudio(); renderStrobeSet(); renderRemote(); if (window.CUTimecode) window.CUTimecode.render(); } }
+  function renderAll() { if (view === "show") { applyStageH(); renderPalette(); renderShowPanel(); renderFaders(); renderLights(); hubList(); renderSongs(); renderLooks(); renderSecPresets(); } else if (view === "fixtures") renderFixtures(); else if (view === "output") { renderOutput(); renderClick(); renderAudio(); renderStrobeSet(); renderRemote(); if (window.CUTimecode) window.CUTimecode.render(); } }
 
   // ---- show view: stage plot, preset palette, faders, timeline, lights list
   function renderPalette() {
     var root = $("#lxPalette"); if (!root) return;
-    root.innerHTML = rig.looks.map(function (l) { return '<button class="lx-look' + (live.manual && live.manual.id === l.id ? " live" : "") + (selectedLook === l.id ? " sel" : "") + '" data-look="' + esc(l.id) + '" style="--sw:' + esc(l.swatch || "#888") + '"><i></i><span>' + esc(l.name) + "</span></button>"; }).join("");
+    var html = ""; for (var i = 0; i < 10; i++) { var l = quickLook(i); html += l ? lookButton(l, { x: i, attrs: ' data-slot="' + i + '"' }) : '<div class="lx-slot-empty" data-slot="' + i + '" data-empty="1">Drag a preset here</div>'; }
+    root.innerHTML = html;
     $("#lxFollow").classList.toggle("on", !live.manual); $("#lxBlackout").classList.toggle("on", live.blackout);
   }
   function renderFaders() {
@@ -685,8 +699,9 @@
   function drawLive() {
     if (view === "show") {
       drawPlot(); drawTimeline(); drawLights();
-      var cue = live.state && live.state.cue, txt = performance.now() - nowAt < 4000 && nowText ? nowText : live.manual ? "Live: " + live.manual.name + " (manual)" : rec ? "● Recording… (" + rec.cues.length + ")" : preview ? "▶ Preview here · " + fmtBB(posNow()) : !playingNow() ? "Stopped: " + lookById(rig.stopped || "walkin").name : cue ? "Cue: " + lookById(cue.look).name + (cue.label ? " · " + cue.label : "") : "No cue yet";
+      var cue = live.state && live.state.cue, txt = performance.now() - nowAt < 4000 && nowText ? nowText : paused ? "⏸ Paused at " + fmtBB(paused.pos) + (paused.kind === "hold" ? " - the lights hold, the tracks play on" : "") : live.manual ? "Live: " + live.manual.name + " (manual)" : rec ? "● Recording… (" + rec.cues.length + ")" : preview ? "▶ Preview here · " + fmtBB(posNow()) : !playingNow() ? "Stopped: " + lookById(rig.stopped || "walkin").name : cue ? "Cue: " + lookById(cue.look).name + (cue.label ? " · " + cue.label : "") : "No cue yet";
       var el = $("#lxNow"); if (el.textContent !== txt) el.textContent = txt;
+      var pb = $("#lxPause"); if (pb) { var dis = !canPause(); if (pb.disabled !== dis) pb.disabled = dis; }
     } else if (view === "output") drawMonitor();
   }
   function drawPlot() {
@@ -824,7 +839,8 @@
     $("#lxMode").value = mode;
     info.textContent = !show.song ? "No song." : show.loading ? "Loading the light show…" : (mode === "auto" ? "Automatic: the sections, the hits and the music" : mode === "semi" ? "Automatic + " + mine + " cue" + (mine === 1 ? "" : "s") + " of yours" : mine + " cue" + (mine === 1 ? "" : "s")) + " · " + (song.name || "") + (show.bpm && Math.abs(show.bpm - song.bpm) > 0.5 ? " · programmed at " + Math.round(show.bpm) + " BPM, playing at " + Math.round(song.bpm) + " - the cues follow the tempo" : "");
     $("#lxSaveState").textContent = show.saved ? (show.cues.length ? "saved on the Central Pedal" : "") : "saving…";
-    $("#lxPreview").textContent = preview ? "■ Stop preview" : (song.hasTracks === false || (!song.overview.length && !song.hasTracks) ? "▶ Run the click here" : "▶ Preview here"); $("#lxPreview").classList.toggle("on", !!preview || click.running);
+    $("#lxPreview").textContent = preview || (paused && paused.kind === "preview") ? "■ Stop preview" : paused && paused.kind === "click" ? "■ Stop the click" : click.running ? "■ Stop the click" : (song.hasTracks === false || (!song.overview.length && !song.hasTracks) ? "▶ Run the click here" : "▶ Preview here"); $("#lxPreview").classList.toggle("on", !!preview || click.running);
+    var pb = $("#lxPause"); if (pb) { pb.disabled = !canPause(); pb.textContent = paused ? "▶ Carry on" : "⏸ Pause"; pb.classList.toggle("on", !!paused); pb.title = paused ? "Carry on from " + fmtBB(paused.pos) : song.playing && !preview && !localRun ? "Hold the lights where they are (the tracks keep playing) - press again to follow the song" : "Pause the show where it is - press again to carry on from there"; }
     var rb = $("#lxRec"); rb.classList.toggle("rec", !!live.rec); rb.textContent = live.rec ? (rec ? "■ Stop recording" : "● Armed - play the song") : "● Record";
     var ins = $("#lxCue");
     if (!selectedCue || show.cues.indexOf(selectedCue) < 0) { selectedCue = null; ins.innerHTML = '<span class="muted">Click the timeline to add a cue with the selected preset (snap: ' + esc(rig.snap) + '). Click a cue to edit it, drag it to move it. The yellow lines are the hits.</span>'; return; }
@@ -854,25 +870,33 @@
   async function loadEdit(id) {
     if (show.song === id) { songEdit = { id: id, live: true }; renderSongs(); return; }
     songEdit = { id: id, cues: [], mode: rig.defaultMode, bpm: null, loading: true }; renderSongs();
-    try { var r = await fetch(CU.api("/lighting?song=" + encodeURIComponent(id)), { cache: "no-store" }); var j = r.ok ? await r.json() : {}; if (songEdit.id !== id) return; songEdit.cues = (j.cues || []).filter(function (c) { return !c.auto; }); songEdit.mode = j.mode || (j.auto ? "auto" : (j.cues || []).length ? "manual" : rig.defaultMode); songEdit.bpm = j.bpm || null; (j.looks || []).forEach(function (l) { if (l && l.id && !rig.looks.some(function (x) { return x.id === l.id; })) rig.looks.push(l); }); } catch (_) { }
-    songEdit.loading = false; renderSongs();
+    try { var r = await fetch(CU.api("/lighting?song=" + encodeURIComponent(id)), { cache: "no-store" }); var j = r.ok ? await r.json() : {}; if (songEdit.id !== id) return; if (!r.ok || !(j.cues || []).length) { var loc = store.get("lxshow-" + id, null); if (loc && (loc.cues || []).length) j = loc; } songEdit.cues = (j.cues || []).filter(function (c) { return !c.auto; }).concat(songEdit.cues || []); songEdit.mode = j.mode || (j.auto ? "auto" : (j.cues || []).length ? "manual" : rig.defaultMode); songEdit.bpm = j.bpm || null; (j.looks || []).forEach(function (l) { if (l && l.id && !rig.looks.some(function (x) { return x.id === l.id; })) rig.looks.push(l); }); } catch (_) { }
+    catch2(id); songEdit.loading = false; renderSongs();
+  }
+  function catch2(id) {   // (no Central Pedal at all: the fetch threw) the copy on this computer
+    if (songEdit.id !== id || songEdit.cues.length || CU.state.connected) return; var loc = store.get("lxshow-" + id, null);
+    if (loc) { songEdit.cues = (loc.cues || []).filter(function (c) { return !c.auto; }); songEdit.mode = loc.mode || songEdit.mode; songEdit.bpm = loc.bpm || songEdit.bpm; }
   }
   function editTarget() { return songEdit && songEdit.live ? show : songEdit; }
   async function saveEdit() {
     var e = songEdit; if (!e || e.live) { changed(); return; }
-    var code = CU.prefs.code; if (!code) { CU.askCode(); return; }
     var info = allSongs().filter(function (s) { return s.id === e.id; })[0] || {};
+    var prev = store.get("lxshow-" + e.id, {}) || {}; store.set("lxshow-" + e.id, Object.assign({}, prev, { cues: e.cues, mode: e.mode, bpm: e.bpm || info.bpm, song: info.name }));   // (kept here too: works with no Central Pedal)
+    var code = CU.prefs.code; if (!code) { if (CU.state.connected) CU.askCode(); return; }
     try { await fetch(CU.api("/lighting"), { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ song: e.id, code: code, by: "Central Control-" + selfId, show: { cues: e.cues, mode: e.mode, bpm: e.bpm || info.bpm, song: info.name } }) }); e.saved = true; } catch (_) { }
   }
   function renderSongs() {
     var root = $("#lxSongs"); if (!root) return;
     var list = allSongs(); if (!songSel && list.length) songSel = list[0].id;
     var s = list.filter(function (x) { return x.id === songSel; })[0];
-    if (s && (!songEdit || songEdit.id !== s.id)) { loadEdit(s.id); return; }
+    if (s && (!songEdit || songEdit.id !== s.id || !!songEdit.live !== (show.song === s.id))) { loadEdit(s.id); return; }   // (the song on the Show tab is edited live)
     var e = editTarget();
-    root.innerHTML = '<div class="lx-slist"><div class="row spread"><b>Songs</b><button data-ls="new">+ Song</button></div>' +
-      '<p class="muted small">On the Central Pedal</p>' + (hub.list.length ? hub.list.map(function (x) { return '<button class="lx-sitem' + (x.id === songSel ? " sel" : "") + (x.id === show.song ? " onair" : "") + '" data-ls-pick="' + esc(x.id) + '"><b>' + esc(x.name) + "</b><small>" + (x.hasTracks ? "tracks · " : "no tracks · ") + Math.round(x.bpm || 0) + " BPM" + (x.key ? " · " + esc(x.key) : "") + "</small></button>"; }).join("") : '<p class="muted small">' + (CU.state.connected ? "No songs yet." : "Connect to the Central Pedal.") + "</p>") +
-      '<p class="muted small">Yours (no tracks)</p>' + (rig.localSongs.length ? rig.localSongs.map(function (x) { return '<button class="lx-sitem' + (x.id === songSel ? " sel" : "") + '" data-ls-pick="' + esc(x.id) + '"><b>' + esc(x.name) + "</b><small>" + Math.round(x.bpm || 0) + " BPM · " + (x.bpb || 4) + "/4</small></button>"; }).join("") : '<p class="muted small">Add a song with + Song.</p>') + "</div>" +
+    var cs = curSet(), inSet = {}, setItems = setSongs().map(function (it) { var id = setSongId(it); inSet[id] = true; var info = list.filter(function (x) { return x.id === id; })[0] || { id: id, name: it.name, bpm: it.bpm }; return info; });
+    root.innerHTML = '<div class="lx-setbar"><b>' + (cs ? esc(cs.name) + ' <span class="lx-setsrc">' + (cs.source === "cloud" ? "the church's setlist" : cs.source === "pedal" ? "on the Central Pedal" : "your setlist") + "</span>" : "Songs") + '</b><button data-ls="setopen" title="A setlist the worship leader made (the church account or the Central Pedal), or one you saved">Open setlist</button><button data-ls="setnew">Build new setlist</button><button data-ls="setsave" title="Keep this setlist (and its songs\' lights) on this computer">Save setlist</button></div>' +
+      '<div class="lx-slist"><div class="row spread"><b>Songs</b><button data-ls="new" title="A song from the setlist, the Central Pedal, or a new one of your own">+ Song</button></div>' +
+      (cs ? '<p class="muted small">In this setlist</p>' + (setItems.length ? setItems.map(function (x, k) { return '<button class="lx-sitem' + (x.id === songSel ? " sel" : "") + (x.id === show.song ? " onair" : "") + '" data-ls-pick="' + esc(x.id) + '"><b>' + (k + 1) + ". " + esc(x.name) + "</b><small>" + (x.hasTracks ? "tracks · " : "") + Math.round(x.bpm || 0) + " BPM" + (x.key ? " · " + esc(x.key) : "") + "</small></button>"; }).join("") : '<p class="muted small">No songs yet - press + Song.</p>') : "") +
+      '<p class="muted small">' + (cs ? "Also on the Central Pedal" : "On the Central Pedal") + '</p>' + (hub.list.length ? hub.list.filter(function (x) { return !inSet[x.id]; }).map(function (x) { return '<button class="lx-sitem' + (x.id === songSel ? " sel" : "") + (x.id === show.song ? " onair" : "") + '" data-ls-pick="' + esc(x.id) + '"><b>' + esc(x.name) + "</b><small>" + (x.hasTracks ? "tracks · " : "no tracks · ") + Math.round(x.bpm || 0) + " BPM" + (x.key ? " · " + esc(x.key) : "") + "</small></button>"; }).join("") : '<p class="muted small">' + (CU.state.connected ? "No songs yet." : "Connect to the Central Pedal.") + "</p>") +
+      '<p class="muted small">' + (cs ? "Your other songs (no tracks)" : "Yours (no tracks)") + '</p>' + (rig.localSongs.length ? rig.localSongs.filter(function (x) { return !inSet[x.id]; }).map(function (x) { return '<button class="lx-sitem' + (x.id === songSel ? " sel" : "") + '" data-ls-pick="' + esc(x.id) + '"><b>' + esc(x.name) + "</b><small>" + Math.round(x.bpm || 0) + " BPM · " + (x.bpb || 4) + "/4</small></button>"; }).join("") : '<p class="muted small">Add a song with + Song.</p>') + "</div>" +
       '<div class="lx-sedit">' + (!s ? '<p class="muted">Pick a song.</p>' : songEditor(s, e)) + "</div>";
   }
   function songEditor(s, e) {
@@ -882,8 +906,13 @@
     return '<div class="row"><h3>' + esc(s.name) + "</h3>" + (s.from === "local" ? '<label>Name <input data-ls="name" value="' + esc(s.name) + '"></label><label>BPM <input type="number" min="30" max="300" step="0.5" data-ls="bpm" value="' + (s.bpm || 120) + '" style="width:80px"></label><label>Beats per bar <input type="number" min="2" max="12" data-ls="bpb" value="' + (s.bpb || 4) + '" style="width:60px"></label><button data-ls="del" class="danger">Delete song</button>' : '<span class="muted">' + Math.round(s.bpm || 0) + " BPM" + (s.key ? " · " + esc(s.key) : "") + (s.hasTracks ? " · with tracks" : " · no tracks (follows the Central Pedal's click)") + "</span>") + "</div>" +
       '<div class="row"><label>Mode <select data-ls="mode"><option value="auto"' + (e.mode === "auto" ? " selected" : "") + '>Auto - from the pedal\'s MIDI hits and the music</option><option value="semi"' + (e.mode === "semi" ? " selected" : "") + '>Semi-auto - automatic + these scenes</option><option value="manual"' + (e.mode === "manual" ? " selected" : "") + ">Scenes only</option></select></label>" +
       '<span class="muted small">' + (e.bpm && s.bpm && Math.abs(e.bpm - s.bpm) > 0.5 ? "Programmed at " + Math.round(e.bpm) + " BPM - played at " + Math.round(s.bpm) + ": every scene stays on its bar and beat." : "Scenes sit on bars and beats: at another tempo they move with it.") + "</span></div>" +
-      '<table class="lx-table lx-scenes"><thead><tr><th>#</th><th>Starts</th><th>Bar</th><th>Beat</th><th>Preset</th><th>Fade (beats)</th><th>Name</th><th></th></tr></thead><tbody>' + scenes.map(function (c, k) { return '<tr data-sc="' + k + '"><td>' + (k + 1) + '</td><td><select data-scf="at">' + secOpts(c) + '</select></td><td><input type="number" min="1" data-scf="bar" value="' + c.bar + '" style="width:70px"></td><td><input type="number" min="1" max="12" step="0.25" data-scf="beat" value="' + (c.beat || 1) + '" style="width:64px"></td><td><select data-scf="look">' + rig.looks.filter(function (l) { return !l.flash; }).map(function (l) { return '<option value="' + esc(l.id) + '"' + (l.id === c.look ? " selected" : "") + ">" + esc(l.name) + "</option>"; }).join("") + '</select></td><td><input type="number" min="0" max="64" step="0.5" data-scf="fade" value="' + (c.fade || 0) + '" style="width:64px"></td><td><input data-scf="label" value="' + esc(c.label || "") + '" placeholder="Verse lights"></td><td><button data-sc-del="' + k + '">✕</button></td></tr>'; }).join("") + "</tbody></table>" +
-      '<div class="row"><button data-ls="scene" class="primary">+ Scene</button>' + (s.id === show.song ? '<button data-ls="open">Open in the Show tab</button>' : '<button data-ls="program" title="Program it on the Show tab (with the preview / the click here) while the Central Pedal is on another song">Program it on the Show tab</button>') + '<span class="muted small">' + (e.cues.length - scenes.length ? (e.cues.length - scenes.length) + " flashes / light cues too (Show tab)" : "") + "</span></div>";
+      '<table class="lx-table lx-scenes"><thead><tr><th>#</th><th>Starts</th><th>Bar</th><th>Beat</th><th>Preset</th><th>Fade (beats)</th><th>Name</th><th></th></tr></thead><tbody>' + scenes.map(function (c, k) { return '<tr data-sc="' + k + '"><td>' + (k + 1) + '</td><td><select data-scf="at">' + secOpts(c) + '</select></td><td><input type="number" min="1" data-scf="bar" value="' + c.bar + '" style="width:70px"></td><td><input type="number" min="1" max="12" step="0.25" data-scf="beat" value="' + (c.beat || 1) + '" style="width:64px"></td><td><select data-scf="look">' + rig.looks.filter(function (l) { return !l.flash; }).map(function (l) { return '<option value="' + esc(l.id) + '"' + (l.id === c.look ? " selected" : "") + ">" + esc(l.name) + "</option>"; }).join("") + '</select></td><td><input type="number" min="0" max="64" step="0.5" data-scf="fade" value="' + (c.fade || 0) + '" style="width:64px"></td><td><input data-scf="label" value="' + esc(c.label || "") + '" placeholder="Verse lights"></td><td><button class="danger" data-sc-del="' + k + '" title="Delete this scene">Delete</button></td></tr>'; }).join("") + "</tbody></table>" +
+      '<div class="row"><button data-ls="scene" class="primary">+ Scene</button>' + (curSet() && setSongs().some(function (x) { return setSongId(x) === s.id; }) ? '<button data-ls="setrm" title="Take it out of this setlist (the song and its lights stay)">Out of the setlist</button>' : "") + (s.id === show.song ? '<button data-ls="open">Open in the Show tab</button>' : '<button data-ls="program" title="Program it on the Show tab (with the preview / the click here) while the Central Pedal is on another song">Program it on the Show tab</button>') + '<span class="muted small">' + (e.cues.length - scenes.length ? (e.cues.length - scenes.length) + " flashes / light cues too (Show tab)" : "") + "</span></div>";
+  }
+  function addScene(t, lookId) {
+    if (!t) return; var last = t.cues.filter(function (c) { return c.kind === "look"; }).pop(), bar = last ? last.bar + 4 : 1, l = lookById(lookId || "worship");
+    t.cues.push({ id: uid(), bar: bar, beat: 1, look: l.id, kind: "look", fade: l.fade != null ? l.fade : 2, label: "" }); sortCues(t.cues); if (t.mode === "auto") t.mode = "manual";
+    t.bpm = t.bpm || (allSongs().filter(function (x) { return x.id === songSel; })[0] || {}).bpm; dirty(); saveEdit(); renderSongs();
   }
   function programSong(id) {   // the Show tab works on this song (lights follow it) until the Central Pedal plays
     stopPreview(); var s = allSongs().filter(function (x) { return x.id === id; })[0]; if (!s) return;
@@ -896,7 +925,7 @@
   function renderLooks() {
     var list = $("#lxLookList"); if (!list) return;
     if (!editLook || rig.looks.indexOf(editLook) < 0) editLook = lookById(selectedLook);
-    list.innerHTML = rig.looks.map(function (l) { return '<button class="lx-look' + (l === editLook ? " sel" : "") + '" data-edit-look="' + esc(l.id) + '" style="--sw:' + esc(l.swatch || "#888") + '"><i></i><span>' + esc(l.name) + "</span></button>"; }).join("") + '<button class="lx-look add" data-a="look-new"><i></i><span>+ New preset</span></button>';
+    list.innerHTML = rig.looks.map(function (l) { return '<button class="lx-look' + (l === editLook ? " sel" : "") + '" data-edit-look="' + esc(l.id) + '" draggable="true" title="Click to edit it, drag it onto a quick button or into the song\'s presets" style="--sw:' + esc(l.swatch || "#888") + '"><i></i><span>' + esc(l.name) + "</span></button>"; }).join("") + '<button class="lx-look add" data-a="look-new"><i></i><span>+ New preset</span></button>';
     var l = editLook, ed = $("#lxLookEdit");
     ed.innerHTML = '<div class="row"><label>Name<input data-lk="name" value="' + esc(l.name) + '"></label><label>Button colour<input type="color" data-lk="swatch" value="' + esc(l.swatch || "#888888") + '"></label><label>Fade in (beats)<input type="number" min="0" max="64" step="0.5" data-lk="fade" value="' + (l.fade != null ? l.fade : 1) + '" style="width:70px"></label><label class="toggle"><input type="checkbox" data-lk="flash"' + (l.flash ? " checked" : "") + '> Flash preset (for hits)</label><button data-a="look-try">Try it live</button><button data-a="look-dup">Duplicate</button>' + (l.builtIn ? '<button data-a="look-reset">Reset</button>' : '<button data-a="look-del" class="danger">Delete</button>') + "</div>" +
       '<p class="muted small">Colour, level, motion (effect, movers) and timing (how often, depth, phase, fade) for each group. Every change plays live while "Try it live" is on.</p>' +
@@ -1050,15 +1079,187 @@
     out.textContent = "✓ " + plan.cues.length + " cues" + how + ": " + plan.summary + (plan.notes.length ? " · " + plan.notes.join(" ") : "") + unknown;
   }
 
+  // ------------------------------------------------------------- (10.0.1) pause, the quick buttons, presets per section, setlists
+  // Pause: a song playing here (Preview / the click here) stops where it is and carries on from there; the light show
+  // stays on the look it was on. When the Central Pedal plays the tracks, Pause holds the lights where they are (the
+  // band keeps playing) until it is pressed again.
+  var paused = null;   // { kind: "preview" | "click" | "hold", pos }
+  function canPause() { return !!paused || !!preview || localRun || click.running || song.playing; }
+  function pauseShow() {
+    if (paused) return resumeShow();
+    var t = posNow(), b = activeLooks(t);
+    if (preview) { var p0 = preview; p0.sources.forEach(function (x) { try { x.stop(); } catch (_) { } }); preview = null; song.pos = t; song.playing = false; paused = { kind: "preview", pos: t }; }
+    else if (localRun || click.running) { click.running = false; localRun = false; song.pos = t; song.playing = false; paused = { kind: "click", pos: t }; }
+    else if (song.playing) paused = { kind: "hold", pos: t };
+    else return;
+    live.frozen = { base: { from: b.to, to: b.to, p: 1, cue: b.cue }, at: t };
+    setNow("Paused at " + fmtBB(t)); renderShowPanel();
+  }
+  function resumeShow() {
+    var p0 = paused; paused = null; live.frozen = null; if (!p0) return;
+    if (p0.kind === "preview") startPreview(p0.pos);
+    else if (p0.kind === "click") { toggleFreeClick(true); localRun = true; song.pos = p0.pos; song.at = performance.now(); song.playing = true; song.speed = 1; }
+    setNow("Carrying on from " + fmtBB(p0.pos)); renderShowPanel();
+  }
+  function clearPause() { paused = null; live.frozen = null; }
+
+  // the 10 quick buttons: slots you drag presets into (and out of)
+  var DND = "text/x-lx-look";
+  function quickLook(i) { var id = rig.quick[i]; return id ? rig.looks.filter(function (l) { return l.id === id; })[0] || null : null; }
+  function setQuick(i, id) { if (i < 0 || i > 9) return; rig.quick[i] = id || null; saveRig(); renderPalette(); }
+  function lookButton(l, extra) { extra = extra || {}; return '<button class="lx-look' + (live.manual && live.manual.id === l.id ? " live" : "") + (selectedLook === l.id ? " sel" : "") + '" data-look="' + esc(l.id) + '"' + (extra.attrs || "") + ' draggable="true" style="--sw:' + esc(l.swatch || "#888") + '"><i></i><span>' + esc(l.name) + "</span>" + (extra.x != null ? '<b class="lx-slot-x" data-x="' + esc(extra.x) + '" title="Take it out" aria-label="Take it out">✕</b>' : "") + "</button>"; }
+
+  // presets per section: one set for the whole song, or a set for each kind of section (verse, chorus, bridge…)
+  function normSets(x) { x = x && typeof x === "object" ? x : {}; var o = { perSection: !!x.perSection, song: Array.isArray(x.song) ? x.song.filter(Boolean).slice(0, 24) : [], sections: {} }; var sc = x.sections && typeof x.sections === "object" ? x.sections : {}; Object.keys(sc).forEach(function (k) { if (Array.isArray(sc[k])) o.sections[k] = sc[k].filter(Boolean).slice(0, 24); }); return o; }
+  function secKey(name) { var t = secType(name || ""); return t && t !== "other" ? t : String(name || "other").toLowerCase().replace(/\s*\d+\s*$/, "").trim() || "other"; }
+  var SEC_LABEL = { intro: "Intro", verse: "Verse", prechorus: "Pre-chorus", chorus: "Chorus", bridge: "Bridge", tag: "Tag", instrumental: "Instrumental", breakdown: "Breakdown", outro: "Outro", other: "Other" };
+  function secLabel(k) { return SEC_LABEL[k] || (String(k).charAt(0).toUpperCase() + String(k).slice(1)); }
+  function sectionAtTime(t) { var list = song.sections || [], cur = null; for (var i = 0; i < list.length; i++) if (t >= (list[i].start || 0) - 1e-3) cur = list[i]; return cur; }
+  function songSecKeys() { var seen = {}, out = []; (song.sections || []).forEach(function (q) { var k = secKey(q.name); if (!seen[k]) { seen[k] = true; out.push(k); } }); return out; }
+  var secView = null;   // the part whose presets are shown (null: the one playing)
+  function nowSecKey() { var q = sectionAtTime(posNow()); return q ? secKey(q.name) : null; }
+  function secShownKey() { var st = show.sets || {}; return st.perSection ? (secView || nowSecKey() || songSecKeys()[0] || "other") : null; }
+  function setsList(k) { var st = show.sets = show.sets || normSets(null); if (!st.perSection) return st.song; k = k || secShownKey() || "other"; return (st.sections[k] = st.sections[k] || []); }
+  function secPresetIds() { var st = show.sets || normSets(null); return st.perSection ? (st.sections[secShownKey()] || []) : st.song; }
+  var lastSecShown = "";
+  function secSig() { var st = show.sets || {}; return [show.song, !!st.perSection, secShownKey(), nowSecKey(), secPresetIds().join(","), live.manual ? live.manual.id : ""].join("|"); }
+  function renderSecPresets() {
+    var root = $("#lxSecPresets"); if (!root) return;
+    lastSecShown = secSig();
+    if (!show.song) { root.innerHTML = '<h3>This song\'s presets</h3><p class="muted small">Pick a song first. Then put the presets you want to press while it plays here - one set for the whole song, or a set for each part.</p>'; return; }
+    var st = show.sets = show.sets || normSets(null), keys = songSecKeys(), now = nowSecKey(), k = secShownKey();
+    var list = secPresetIds().map(function (id) { return rig.looks.filter(function (l) { return l.id === id; })[0]; }).filter(Boolean);
+    root.innerHTML = '<div class="lx-secnow"><h3>' + (st.perSection ? "Presets for the " + esc(secLabel(k).toLowerCase()) : "This song's presets") + "</h3>" + (now ? '<span class="muted small">playing: ' + esc(secLabel(now).toLowerCase()) + "</span>" : "") + "</div>" +
+      '<div class="lx-secmode"><label class="toggle"><input type="radio" name="lxSecMode" data-sp="song"' + (st.perSection ? "" : " checked") + '> One set for the whole song</label><label class="toggle"><input type="radio" name="lxSecMode" data-sp="sections"' + (st.perSection ? " checked" : "") + "> A set for each part</label></div>" +
+      (st.perSection ? '<div class="lx-secchips">' + (keys.length ? keys : ["other"]).map(function (q) { return '<button data-sp-sec="' + esc(q) + '" class="' + (q === k ? "on" : "") + (q === now ? " now" : "") + '"' + (q === now ? ' title="Playing now"' : "") + ">" + esc(secLabel(q)) + "</button>"; }).join("") + (secView ? '<button data-sp-sec="" title="Show the part that is playing">Follow the song</button>' : "") + "</div>" : "") +
+      '<div class="lx-seclist" id="lxSecList" data-sp-drop="1">' + (list.length ? list.map(function (l, i) { return lookButton(l, { x: i, attrs: ' data-sp-i="' + i + '"' }); }).join("") : '<div class="lx-sec-empty">Drag presets here from All presets, or press + Add preset.</div>') + "</div>" +
+      '<div class="row"><button data-sp="add" class="primary">+ Add preset</button>' + (st.perSection && keys.length > 1 ? '<button data-sp="copy" title="Give every part the same presets as this one">Same for every part</button>' : "") + "</div>";
+  }
+  setInterval(function () { if (visible() && view === "show" && secSig() !== lastSecShown) renderSecPresets(); }, 300);
+
+  // the preset picker (Add scene, + Add preset): every preset as a button; and a list picker (Open setlist, + Song)
+  var pickDone = null;
+  function pickPreset(title, done, opts) {
+    opts = opts || {}; var el = $("#lxPick"); if (!el) return;
+    pickDone = done;
+    var looks = rig.looks.filter(function (l) { return opts.flash !== false || !l.flash; });
+    el.innerHTML = '<div class="lx-pickbox" role="dialog" aria-label="' + esc(title) + '"><div class="row"><h3>' + esc(title) + '</h3><span style="flex:1"></span><button data-pk="close">Cancel</button></div><div class="lx-palette">' + looks.map(function (l) { return '<button class="lx-look" data-pk-item="' + esc(l.id) + '" style="--sw:' + esc(l.swatch || "#888") + '"><i></i><span>' + esc(l.name) + "</span></button>"; }).join("") + "</div></div>";
+    el.hidden = false; var first = el.querySelector("[data-pk-item]"); if (first) first.focus();
+  }
+  function pickClose() { var el = $("#lxPick"); if (el) { el.hidden = true; el.innerHTML = ""; } pickDone = null; }
+  function pickList(title, groups, done) {
+    var el = $("#lxPick"); if (!el) return; pickDone = done;
+    el.innerHTML = '<div class="lx-pickbox" role="dialog" aria-label="' + esc(title) + '"><div class="row"><h3>' + esc(title) + '</h3><span style="flex:1"></span><button data-pk="close">Cancel</button></div>' +
+      groups.map(function (g) { return '<p class="muted small">' + esc(g.label) + "</p>" + (g.items.length ? '<div class="lx-picksongs">' + g.items.map(function (it) { return '<button data-pk-item="' + esc(it.key) + '"><b>' + esc(it.name) + "</b><small>" + esc(it.sub || "") + "</small></button>"; }).join("") + "</div>" : (g.empty ? '<p class="muted small">' + esc(g.empty) + "</p>" : "")); }).join("") + "</div>";
+    el.hidden = false;
+  }
+
+  // setlists: the worship leader's (the church account, the Central Pedal) or your own; the songs you light come from it
+  function curSet() { return rig.lxSet || null; }
+  function setSongs() { var cs = curSet(); return cs ? cs.songs || [] : []; }
+  function hubByName(name) { var n = String(name || "").trim().toLowerCase(); return hub.list.filter(function (h) { return String(h.name || "").trim().toLowerCase() === n; })[0] || null; }
+  function songFromSet(item) {   // a setlist's song -> a song here: the Central Pedal's (its tracks, sections and tempo) or one of yours
+    var h = item.hubId ? hub.list.filter(function (x) { return x.id === item.hubId; })[0] : hubByName(item.name);
+    if (h) { item.hubId = h.id; return h.id; }
+    if (item.hubId && !CU.state.connected) return item.hubId;
+    var nm = String(item.name || "").trim().toLowerCase();
+    var mine = rig.localSongs.filter(function (x) { return (item.localId && x.id === item.localId) || (item.trackId && x.trackId === item.trackId); })[0] || rig.localSongs.filter(function (x) { return nm && String(x.name || "").trim().toLowerCase() === nm; })[0];
+    if (mine && !mine.trackId && item.trackId) { mine.trackId = item.trackId; if (item.key && !mine.key) mine.key = item.key; }
+    if (!mine) { mine = { id: "cu-" + uid(), name: item.name || "Song", bpm: Math.round(item.bpm || 0) || 120, bpb: item.bpb || 4, key: item.key || "", trackId: item.trackId || "" }; rig.localSongs.push(mine); }
+    item.localId = mine.id; return mine.id;
+  }
+  function setSongId(item) { return item.hubId || item.localId || songFromSet(item); }
+  function useSet(set) { rig.lxSet = set; (set.songs || []).forEach(songFromSet); saveRig(); var first = set.songs && set.songs[0]; if (first) { songSel = setSongId(first); store.set("lxSong", songSel); songEdit = null; } renderSongs(); setNow("Setlist: " + set.name); }
+  function saveSet() { var cs = curSet(); if (!cs) { cs = rig.lxSet = { id: "ls-" + uid(), name: "Lighting setlist", source: "local", songs: [] }; } cs.saved = Date.now(); var i = rig.lxSets.map(function (x) { return x.id; }).indexOf(cs.id); var copy = JSON.parse(JSON.stringify(cs)); if (i >= 0) rig.lxSets[i] = copy; else rig.lxSets.unshift(copy); saveRig(); setNow("Saved the setlist: " + cs.name); renderSongs(); }
+  function lic() { return window.PPLicense || null; }
+  async function cloudSetlists() {
+    var L0 = lic(), st = L0 && L0.state && L0.state(), tok = st && st.account && st.account.token, base = L0 && L0.server && L0.server();
+    if (!base) return { list: [], why: "The worship leader's setlists show here once the Motion Audio website is open." };
+    if (!tok) return { list: [], why: "Sign in to the church account (Settings → License) to see the worship leader's setlists." };
+    try { var r = await fetch(base + "/v1/setlists", { headers: { Authorization: "Bearer " + tok }, cache: "no-store" }); var j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return { list: j.setlists || [], base: base, tok: tok }; }
+    catch (e) { return { list: [], why: "Could not reach the church account: " + e.message }; }
+  }
+  async function cloudSetlist(c, id) { var r = await fetch(c.base + "/v1/setlists/" + encodeURIComponent(id), { headers: { Authorization: "Bearer " + c.tok }, cache: "no-store" }); var j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j.setlist; }
+  async function openSetlist() {
+    var c = await cloudSetlists();
+    var groups = [
+      { label: "The church's setlists" + (c.why ? " - " + c.why : ""), items: c.list.map(function (x) { return { key: "cl:" + x.id, name: x.name || "Setlist", sub: (x.count || 0) + " songs" + (x.serviceAt ? " · " + String(x.serviceAt).slice(0, 10) : "") + (x.createdBy ? " · " + x.createdBy : "") }; }), empty: c.why ? "" : "No setlists yet." },
+      { label: "On the Central Pedal now", items: hub.list.length ? [{ key: "pedal", name: "The songs on the Central Pedal", sub: hub.list.length + " songs" }] : [], empty: CU.state.connected ? "No songs on the Central Pedal yet." : "Not connected to a Central Pedal." },
+      { label: "Saved here", items: rig.lxSets.map(function (x) { return { key: "ls:" + x.id, name: x.name, sub: (x.songs || []).length + " songs" + (x.source === "cloud" ? " · from the church account" : "") }; }), empty: "Nothing saved here yet - Save setlist keeps the one you're lighting." }];
+    pickList("Open a setlist", groups, async function (key) {
+      if (key === "pedal") { useSet({ id: "pedal", name: "On the Central Pedal", source: "pedal", songs: hub.list.map(function (h) { return { name: h.name, hubId: h.id, bpm: h.bpm, key: h.key }; }) }); return; }
+      if (/^ls:/.test(key)) { var keep = rig.lxSets.filter(function (x) { return "ls:" + x.id === key; })[0]; if (keep) useSet(JSON.parse(JSON.stringify(keep))); return; }
+      if (/^cl:/.test(key)) { try { var sl = await cloudSetlist(c, key.slice(3)); importSetlist(sl); } catch (e) { alert("Could not open that setlist: " + e.message); } }
+    });
+  }
+  function importSetlist(sl) { useSet({ id: "cl-" + sl.id, cloudId: sl.id, name: sl.name || "Setlist", source: "cloud", team: sl.team || [], songs: (sl.songs || []).map(function (x) { return { name: x.title || x.name, trackId: x.trackId, bpm: x.bpm, key: x.key }; }) }); }
+  async function buildSetlist() {
+    var name = CU.askText ? await CU.askText("Name the new setlist", "Sunday " + new Date().toLocaleDateString()) : prompt("Name the new setlist", "Sunday");
+    if (!name) return;
+    useSet({ id: "ls-" + uid(), name: String(name).slice(0, 80), source: "local", songs: [] });
+  }
+  function addSongToSet() {   // + Song: a song from the Central Pedal, one of yours, or a new one
+    var cs = curSet(), inSet = {}; setSongs().forEach(function (x) { inSet[x.hubId || x.localId || ""] = true; });
+    var fromPedal = hub.list.filter(function (h) { return !inSet[h.id]; }).map(function (h) { return { key: "hub:" + h.id, name: h.name, sub: (h.hasTracks ? "tracks · " : "no tracks · ") + Math.round(h.bpm || 0) + " BPM" + (h.key ? " · " + h.key : "") }; });
+    var mine = rig.localSongs.filter(function (x) { return !inSet[x.id]; }).map(function (x) { return { key: "loc:" + x.id, name: x.name, sub: Math.round(x.bpm || 0) + " BPM · yours" }; });
+    pickList("Add a song", [{ label: "A new song of your own (no tracks: you set the name and the tempo)", items: [{ key: "new", name: "+ New song", sub: "name, BPM and beats per bar" }] }, { label: "On the Central Pedal (with their tracks, sections and tempo)", items: fromPedal, empty: CU.state.connected ? "Every song on the Central Pedal is in this setlist." : "Connect to the Central Pedal to add its songs." }, { label: "Yours", items: mine, empty: "" }], function (key) {
+      var id = null;
+      if (key === "new") { var s0 = { id: "cu-" + uid(), name: "New song", bpm: Math.round(song.bpm || 120), bpb: 4 }; rig.localSongs.push(s0); id = s0.id; }
+      else if (/^hub:/.test(key)) id = key.slice(4); else if (/^loc:/.test(key)) id = key.slice(4);
+      if (!id) return;
+      if (cs) { var info = allSongs().filter(function (x) { return x.id === id; })[0] || {}; cs.songs = cs.songs || []; cs.songs.push(info.from === "cc" ? { name: info.name, hubId: id, bpm: info.bpm, key: info.key } : { name: info.name, localId: id, bpm: info.bpm }); }
+      saveRig(); songSel = id; store.set("lxSong", songSel); songEdit = null; renderSongs();
+    });
+  }
+
+  // the stage's size (the Size control on the 3D stage)
+  function applyStageH() { var v = $("#view-lights"); if (v) v.style.setProperty("--lx-stage-h", rig.stageH + "px"); if (window.CULights3D && CULights3D.sizeLabel) CULights3D.sizeLabel(); }
+  function stageSize(h) { rig.stageH = clamp(Math.round(h), 240, 900); saveRig(); applyStageH(); }
+
   // ------------------------------------------------------------- events
   function goLook(id) { var l = lookById(id); recordLook(l); if (l.flash) { live.flash = { look: l.id, until: performance.now() + 450, len: 450 }; return; } live.manualFrom = live.manual || (live.state && live.state.cue ? lookById(live.state.cue.look) : lookById(rig.stopped || "walkin")); live.manual = l; live.manualAt = performance.now(); live.manualFade = Math.max(0.05, (l.fade != null ? l.fade : 1) * 60 / (song.bpm || 100)); renderPalette(); }
   function wire() {
     $("#lxNav").addEventListener("click", function (e) { var b = e.target.closest("[data-lx]"); if (b) showSub(b.dataset.lx); });
-    $("#lxPalette").addEventListener("click", function (e) { var b = e.target.closest("[data-look]"); if (!b) return; selectedLook = b.dataset.look; store.set("lxLook", selectedLook); goLook(b.dataset.look); renderPalette(); });
+    // the quick buttons: press = play the preset; drag a preset in (from All presets, the song's presets or another
+    // slot); ✕ or dragging it out of the row empties the slot
+    var pal = $("#lxPalette");
+    pal.addEventListener("click", function (e) { var x = e.target.closest("[data-x]"); if (x) { e.stopPropagation(); setQuick(Number(x.dataset.x), null); return; } var b = e.target.closest("[data-look]"); if (!b) return; selectedLook = b.dataset.look; store.set("lxLook", selectedLook); goLook(b.dataset.look); renderPalette(); });
+    function dragLook(e) { var b = e.target.closest("[data-look],[data-edit-look]"); if (!b || !e.dataTransfer) return; var id = b.dataset.look || b.dataset.editLook; e.dataTransfer.setData(DND, JSON.stringify({ id: id, slot: b.dataset.slot != null ? Number(b.dataset.slot) : null, sp: b.dataset.spI != null ? Number(b.dataset.spI) : null })); e.dataTransfer.setData("text/plain", lookById(id).name); e.dataTransfer.effectAllowed = "copyMove"; }
+    function readDrag(e) { try { return JSON.parse(e.dataTransfer.getData(DND) || "null"); } catch (_) { return null; } }
+    function isLookDrag(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], DND) >= 0; }
+    document.addEventListener("dragstart", function (e) { if (e.target.closest && e.target.closest("#view-lights")) dragLook(e); });
+    pal.addEventListener("dragover", function (e) { if (!isLookDrag(e)) return; var t = e.target.closest("[data-slot]"); if (!t) return; e.preventDefault(); $$("#lxPalette .lx-dropping").forEach(function (x) { x.classList.remove("lx-dropping"); }); t.classList.add("lx-dropping"); });
+    pal.addEventListener("dragleave", function (e) { var t = e.target.closest("[data-slot]"); if (t) t.classList.remove("lx-dropping"); });
+    pal.addEventListener("drop", function (e) {
+      var t = e.target.closest("[data-slot]"), d = readDrag(e); if (!t || !d) return; e.preventDefault();
+      var to = Number(t.dataset.slot); if (d.slot != null && d.slot !== to) { var keep = rig.quick[to]; rig.quick[to] = rig.quick[d.slot]; rig.quick[d.slot] = keep; saveRig(); renderPalette(); }   // (swap two slots)
+      else setQuick(to, d.id);
+    });
+    pal.addEventListener("dragend", function (e) { var b = e.target.closest("[data-slot]"); if (b && e.dataTransfer && e.dataTransfer.dropEffect === "none" && !document.elementFromPoint(e.clientX, e.clientY)?.closest?.("#lxPalette")) setQuick(Number(b.dataset.slot), null); $$("#lxPalette .lx-dropping").forEach(function (x) { x.classList.remove("lx-dropping"); }); });
+    // this song's presets (or this part's): press = play, drop presets in, ✕ takes one out
+    var sp = $("#lxSecPresets");
+    sp.addEventListener("click", function (e) {
+      var x = e.target.closest("[data-x]"); if (x) { e.stopPropagation(); var L1 = setsList(); L1.splice(Number(x.dataset.x), 1); changed(); renderSecPresets(); return; }
+      var b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.look) { selectedLook = b.dataset.look; goLook(b.dataset.look); renderSecPresets(); return; }
+      if (b.dataset.spSec != null) { secView = b.dataset.spSec || null; renderSecPresets(); return; }
+      if (b.dataset.sp === "add") { pickPreset("Add a preset to " + (show.sets && show.sets.perSection ? "the " + secLabel(secShownKey()).toLowerCase() : "this song"), function (id) { var L2 = setsList(); if (L2.indexOf(id) < 0) L2.push(id); changed(); renderSecPresets(); }); return; }
+      if (b.dataset.sp === "copy") { var from = setsList().slice(); songSecKeys().forEach(function (k) { show.sets.sections[k] = from.slice(); }); changed(); renderSecPresets(); setNow("Every part has the same presets now"); }
+    });
+    sp.addEventListener("change", function (e) { var m = e.target.dataset.sp; if (m !== "song" && m !== "sections") return; show.sets = show.sets || normSets(null); var was = show.sets.perSection; show.sets.perSection = m === "sections"; if (show.sets.perSection && !was && show.sets.song.length) songSecKeys().forEach(function (k) { if (!(show.sets.sections[k] || []).length) show.sets.sections[k] = show.sets.song.slice(); }); changed(); renderSecPresets(); });
+    sp.addEventListener("dragover", function (e) { if (!isLookDrag(e) || !e.target.closest("#lxSecList")) return; e.preventDefault(); $("#lxSecList").classList.add("lx-dropping"); });
+    sp.addEventListener("dragleave", function (e) { var l3 = $("#lxSecList"); if (l3 && !l3.contains(e.relatedTarget)) l3.classList.remove("lx-dropping"); });
+    sp.addEventListener("drop", function (e) { var d = readDrag(e); if (!d || !e.target.closest("#lxSecList")) return; e.preventDefault(); var L3 = setsList(); if (d.sp != null) { var mv = L3.splice(d.sp, 1)[0], over = e.target.closest("[data-sp-i]"), at = over ? Number(over.dataset.spI) : L3.length; L3.splice(at, 0, mv); } else if (L3.indexOf(d.id) < 0) L3.push(d.id); changed(); renderSecPresets(); });
+    // the picker window
+    var pk = $("#lxPick");
+    pk.addEventListener("click", function (e) { if (e.target === pk) { pickClose(); return; } var b = e.target.closest("button"); if (!b) return; if (b.dataset.pk === "close") { pickClose(); return; } if (b.dataset.pkItem) { var done = pickDone; pickClose(); if (done) done(b.dataset.pkItem); } });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !pk.hidden) pickClose(); });
+    $("#lxPause").addEventListener("click", function () { pauseShow(); renderShowPanel(); });
     $("#lxFollow").addEventListener("click", function () { live.manual = null; renderPalette(); renderAutoPanel(); });
     $("#lxBlackout").addEventListener("click", function () { live.blackout = !live.blackout; renderPalette(); });
     $("#lxRec").addEventListener("click", function () { live.rec = !live.rec; if (!live.rec) finishRecording(); else if (playingNow()) rec = { from: posNow(), cues: [] }; renderShowPanel(); });
     $("#lxPreview").addEventListener("click", function () {
+      if (paused) { var pk = paused.kind; clearPause(); if (pk !== "hold") { renderShowPanel(); return; } }
       if (preview) stopPreview();
       else if (click.running) toggleFreeClick(false);
       else if (song.hasTracks !== false && (song.overview.length || (hub.detail[song.id] && hub.detail[song.id].hasTracks))) startPreview();
@@ -1098,9 +1299,6 @@
     $("#lxChatIn").addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
     $("#lxChatOpen").addEventListener("click", function () { chatOpen(true); });
     $("#lxChatClose").addEventListener("click", function () { chatOpen(false); });
-    $("#lxRight").addEventListener("click", function (e) { var b = e.target.closest("[data-lxr]"); if (b) { var sec = $(b.dataset.lxr === "songs" ? "#lxRSongs" : "#lxRLooks"); if (sec) sec.scrollIntoView({ block: "start", behavior: "smooth" }); } });
-    $("#lxRightHide").addEventListener("click", function () { rightPanel(false); });
-    $("#lxRightShow").addEventListener("click", function () { rightPanel(true); });
     var cv = $("#lxTimeline");
     cv.addEventListener("pointerdown", function (e) {
       var r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, c = cueAtPx(px, py);
@@ -1136,13 +1334,17 @@
     sv.addEventListener("click", function (e) {
       var b = e.target.closest("button"); if (!b) return; var t = editTarget();
       if (b.dataset.lsPick) { songSel = b.dataset.lsPick; store.set("lxSong", songSel); songEdit = null; renderSongs(); return; }
-      if (b.dataset.ls === "new") { var s = { id: "cu-" + uid(), name: "New song", bpm: Math.round(song.bpm || 120), bpb: 4 }; rig.localSongs.push(s); saveRig(); songSel = s.id; songEdit = null; renderSongs(); return; }
-      if (b.dataset.ls === "del") { if (!confirm("Delete this song (and its scenes)?")) return; rig.localSongs = rig.localSongs.filter(function (x) { return x.id !== songSel; }); saveRig(); songSel = null; songEdit = null; renderSongs(); return; }
+      if (b.dataset.ls === "new") { addSongToSet(); return; }
+      if (b.dataset.ls === "setopen") { openSetlist(); return; }
+      if (b.dataset.ls === "setnew") { buildSetlist(); return; }
+      if (b.dataset.ls === "setsave") { saveSet(); return; }
+      if (b.dataset.ls === "setrm") { var cs0 = curSet(); if (cs0) { cs0.songs = (cs0.songs || []).filter(function (x) { return setSongId(x) !== songSel; }); saveRig(); renderSongs(); } return; }
+      if (b.dataset.ls === "del") { if (!confirm("Delete this song (and its scenes)?")) return; rig.localSongs = rig.localSongs.filter(function (x) { return x.id !== songSel; }); if (curSet()) curSet().songs = setSongs().filter(function (x) { return x.localId !== songSel; }); saveRig(); songSel = null; songEdit = null; renderSongs(); return; }
       if (b.dataset.ls === "open") { showSub("show"); return; }
       if (b.dataset.ls === "program") { programSong(songSel); return; }
       if (!t) return;
-      if (b.dataset.ls === "scene") { var last = t.cues.filter(function (c) { return c.kind === "look"; }).pop(), bar = last ? last.bar + 4 : 1; t.cues.push({ id: uid(), bar: bar, beat: 1, look: "worship", kind: "look", fade: 2, label: "" }); sortCues(t.cues); if (t.mode === "auto") t.mode = "manual"; t.bpm = t.bpm || (allSongs().filter(function (x) { return x.id === songSel; })[0] || {}).bpm; dirty(); saveEdit(); renderSongs(); return; }
-      if (b.dataset.scDel != null) { var scenes = t.cues.filter(function (c) { return c.kind === "look" || c.kind == null; }), c2 = scenes[Number(b.dataset.scDel)]; t.cues.splice(t.cues.indexOf(c2), 1); dirty(); saveEdit(); renderSongs(); }
+      if (b.dataset.ls === "scene") { pickPreset("Add a scene: pick its preset", function (lookId) { addScene(editTarget(), lookId); }, { flash: false }); return; }
+      if (b.dataset.scDel != null) { var scenes = t.cues.filter(function (c) { return c.kind === "look" || c.kind == null; }), c2 = scenes[Number(b.dataset.scDel)]; if (!c2) return; if (!confirm("Delete scene " + (Number(b.dataset.scDel) + 1) + " (" + lookById(c2.look).name + " at bar " + c2.bar + ")?")) return; t.cues.splice(t.cues.indexOf(c2), 1); dirty(); saveEdit(); renderSongs(); }
     });
     sv.addEventListener("change", function (e) {
       var el = e.target, t = editTarget(), s = allSongs().filter(function (x) { return x.id === songSel; })[0];
@@ -1234,13 +1436,19 @@
       manual: !!live.manual, blackout: !!live.blackout, looks: rig.looks.map(function (l) { return { id: l.id, name: l.name, swatch: l.swatch, flash: !!l.flash, live: !!(live.manual && live.manual.id === l.id) }; }),
       faders: [{ id: "master", name: "Master", value: rig.master == null ? 1 : rig.master }].concat(GROUPS.filter(function (g) { return rig.fixtures.some(function (f) { return f.group === g[0]; }); }).map(function (g) { return { id: g[0], name: g[1], value: rig.groupLevel[g[0]] == null ? 1 : rig.groupLevel[g[0]] }; })) };
   }
+  function faderIds() { return ["master"].concat(GROUPS.filter(function (g) { return rig.fixtures.some(function (f) { return f.group === g[0]; }); }).map(function (g) { return g[0]; })); }
   function remoteCommand(c) {
     if (c.cmd === "look" && c.id) goLook(c.id);
     else if (c.cmd === "follow") live.manual = null;
     else if (c.cmd === "blackout") live.blackout = !live.blackout;
     else if (c.cmd === "strobe") live.strobeHold = !!c.on;
     else if (c.cmd === "flash") { live.flash = c.on ? { look: "hit", until: performance.now() + 100000, len: 100000 } : { look: "hit", until: performance.now() + 250, len: 250 }; if (c.on) recordFlash("hit"); }
-    else if (c.cmd === "fader" && c.id) { var v = clamp(Number(c.value) || 0, 0, 1); if (c.id === "master") rig.master = v; else rig.groupLevel[c.id] = v; saveRig(); if (view === "show") renderFaders(); }
+    else if (c.cmd === "pause") pauseShow();
+    else if (c.cmd === "quick") { var ql = quickLook(Number(c.index) || 0); if (ql) goLook(ql.id); }
+    else if (c.cmd === "secPreset") { var sid0 = secPresetIds()[Number(c.index) || 0]; if (sid0) goLook(sid0); }
+    else if (c.cmd === "nextPreset") { var ids0 = rig.quick.filter(Boolean), cur0 = live.manual ? ids0.indexOf(live.manual.id) : -1; if (ids0.length) goLook(ids0[(cur0 + (c.d < 0 ? ids0.length - 1 : 1)) % ids0.length]); }
+    else if (c.cmd === "faderN") { var fl0 = faderIds()[Number(c.index) || 0]; if (fl0) remoteCommand({ cmd: "fader", id: fl0, value: c.value }); return; }
+    else if (c.cmd === "fader" && c.id) { var v = clamp(Number(c.value) || 0, 0, 1); if (c.id === "master") rig.master = v; else if (c.id === "strobeRate") rig.strobe.rate = v; else rig.groupLevel[c.id] = v; saveRig(); if (view === "show") { var fi = document.querySelector('#lxFaders [data-fader="' + c.id + '"]'); if (fi && document.activeElement !== fi) fi.value = v; else if (!fi) renderFaders(); } }
     if (view === "show") renderPalette();
     if (RM) RM.state(remoteState());
   }
@@ -1259,6 +1467,22 @@
     document.addEventListener("click", async function (e) { if (e.target.id === "lxRmPin") { await RM.config({ newPin: true, enabled: remoteOn }); renderRemote(); } });
   }
 
+  // (10.0.1) jobs for MIDI fader boxes, footswitches and the Stream Deck (the Controls tab): every fader, the 10 quick
+  // buttons, this song's presets, Pause, next / previous preset
+  function controlJobs() {
+    var C = window.CUControls; if (!C || !C.ACTIONS) return setTimeout(controlJobs, 300);
+    var A = C.ACTIONS, add = function (id, label, kind, run, extra) { if (!A[id]) A[id] = Object.assign({ id: id, label: label, group: "Lights", kind: kind, run: run, admin: true }, extra || {}); };
+    add("lightsFaderN", "Lights: fader N (1 = master, then each group in order)", "continuous", function (a, v) { remoteCommand({ cmd: "faderN", index: Number(a && a.index) || 0, value: v }); }, { arg: "number" });
+    add("lightsStrobeRate", "Lights: strobe rate", "continuous", function (a, v) { remoteCommand({ cmd: "fader", id: "strobeRate", value: v }); });
+    add("lightsQuick", "Lights: quick button N (the 10 under Follow the show)", "trigger", function (a) { remoteCommand({ cmd: "quick", index: Number(a && a.index) || 0 }); }, { arg: "number", led: function (a) { var l = quickLook(Number(a && a.index) || 0); return l && live.manual && live.manual.id === l.id ? "on" : "off"; } });
+    add("lightsSongPreset", "Lights: this song's preset N (or this part's)", "trigger", function (a) { remoteCommand({ cmd: "secPreset", index: Number(a && a.index) || 0 }); }, { arg: "number", led: function (a) { var id = secPresetIds()[Number(a && a.index) || 0]; return id && live.manual && live.manual.id === id ? "on" : "off"; } });
+    add("lightsPause", "Lights: pause / carry on", "trigger", function () { remoteCommand({ cmd: "pause" }); }, { led: function () { return paused ? "on" : "off"; } });
+    add("lightsNextPreset", "Lights: next quick button", "trigger", function () { remoteCommand({ cmd: "nextPreset", d: 1 }); });
+    add("lightsPrevPreset", "Lights: previous quick button", "trigger", function () { remoteCommand({ cmd: "nextPreset", d: -1 }); });
+    if (C.render && CU.prefs.tab === "controls") C.render();
+  }
+  controlJobs();
+
   wire(); showSub(view);
   if (DMX && outputsOn()) DMX.configure({ outputs: rig.outputs });
   CU.on("authed", hubList); CU.on("hello", hubList);
@@ -1271,5 +1495,8 @@
     kindOf: kindOf, cellsOf: cellsOf, isStrobe: isStrobe, placeFixture: placeFixture, defaultAim: defaultAim, aimAt: aimAt, trussById: trussById, saveRig: saveRig, groups: GROUPS, defaultStage: defaultStage,
     identify: function (id) { live.identify = { id: id, until: performance.now() + 2500 }; }, isShowing: function () { return visible() && view === "show"; }, softStrobe: softStrobe,
     // the smart Auto
-    smart: smartData, smartSectionAt: smartSectionAt, setFeel: setFeel, renderAutoPanel: renderAutoPanel };
+    smart: smartData, smartSectionAt: smartSectionAt, setFeel: setFeel, renderAutoPanel: renderAutoPanel,
+    // 10.0.1
+    pause: pauseShow, paused: function () { return paused; }, quick: function () { return rig.quick.slice(); }, setQuick: setQuick, sets: function () { return show.sets; }, secPresetIds: secPresetIds, nowSecKey: nowSecKey, renderSecPresets: renderSecPresets,
+    importSetlist: importSetlist, useSet: useSet, saveSet: saveSet, curSet: curSet, addScene: function (lookId) { addScene(editTarget(), lookId); }, stageSize: stageSize, remoteCommand: remoteCommand, faderIds: faderIds };
 })();

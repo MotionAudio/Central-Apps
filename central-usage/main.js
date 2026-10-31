@@ -66,7 +66,7 @@ function menu() {
       { type: "separator" }, { role: "quit", label: "Quit " + APP_NAME } ] },
     { label: "View", submenu: [
       { label: "Chord chart", accelerator: "F1", click: () => send("tab", "chart") }, { label: "Lyrics", accelerator: "F2", click: () => send("tab", "lyrics") }, { label: "Lighting", accelerator: "F3", click: () => send("tab", "lights") },
-      { label: "Mix", accelerator: "F4", click: () => send("tab", "mix") }, { label: "In-ears", accelerator: "F5", click: () => send("tab", "inears") }, { label: "Slides", accelerator: "F6", click: () => send("tab", "slides") },
+      { label: "Online mix", accelerator: "F4", click: () => send("tab", "mix") }, { label: "In-ears", accelerator: "F5", click: () => send("tab", "inears") }, { label: "Slides", accelerator: "F6", click: () => send("tab", "slides") },
       { label: "Instrument", accelerator: "F7", click: () => send("tab", "instrument") }, { label: "I/O", accelerator: "F8", click: () => send("tab", "io") }, { label: "Settings", accelerator: "F9", click: () => send("tab", "settings") },
       { type: "separator" }, { label: "Bigger text", accelerator: "CmdOrCtrl+=", click: () => send("font", 1) }, { label: "Smaller text", accelerator: "CmdOrCtrl+-", click: () => send("font", -1) },
       { type: "separator" }, { role: "reload" }, { role: "toggleDevTools", label: "Developer tools" } ] },

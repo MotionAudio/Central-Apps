@@ -1,0 +1,103 @@
+/* Central Control - the Lighting tab's Show page (10.0.1): one scrolling page.
+ *   the bar (mode, play / pause / record / auto show)
+ *   the song's timeline (waveform, bars, cues)          full width
+ *   the 3D stage                                        full width, as tall as Settings → Stage size
+ *   quick buttons + faders | this section's presets | songs and setlists
+ *   all presets (and the preset editor)
+ *   every light
+ * Loaded after style.css and lights3d.css: everything here is scoped to #view-lights so it wins over the older rules. */
+#view-lights .lx-showview:not([hidden]) { display: block; overflow: auto; padding: 12px 14px 80px; }
+#view-lights .lx-showview .lx-showmain { display: flex; flex-direction: column; gap: 10px; overflow: visible; min-height: 0; }
+#view-lights .lx-showmain.lx-big { display: flex; }   /* (the old Bigger switch: the size setting does it now) */
+#view-lights .lx-showbar { order: 1; }
+#view-lights .lx-timeline { order: 2; height: 118px; flex: 0 0 auto; }
+#view-lights .lx-cue { order: 3; min-height: 0; }
+#view-lights .lx-top { order: 4; display: block; position: relative; min-height: 0; }
+#view-lights .lx-auto { order: 5; }   /* (the Auto panel under the stage: the timeline and the stage come first) */
+#view-lights .lx-top .lx-stage3d { width: 100%; height: var(--lx-stage-h, 440px); min-height: 220px; }
+#view-lights .lx-top .lx-plot { width: 100%; height: var(--lx-stage-h, 440px); }
+#view-lights .lx-under { order: 6; display: grid; grid-template-columns: minmax(380px, 1.05fr) minmax(260px, .8fr) minmax(420px, 1.35fr); gap: 12px; align-items: start; }
+#view-lights .lx-allpresets { order: 7; }
+#view-lights .lx-lights { order: 8; }
+
+/* the quick buttons, the faders */
+#view-lights .lx-side { display: grid; grid-template-rows: auto auto auto; gap: 10px; align-content: start; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); min-width: 0; }
+#view-lights .lx-side > .row { display: flex; flex-wrap: wrap; gap: 6px; }
+#view-lights .lx-quick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: 52px; gap: 6px; height: auto; min-height: 0; overflow: visible; scroll-snap-type: none; }
+#view-lights .lx-quick > * { height: 52px; min-height: 0; overflow: hidden; }
+#view-lights .lx-quick .lx-look { position: relative; padding: 6px 8px; font-size: 12.5px; line-height: 1.15; }
+#view-lights .lx-quick .lx-look span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+#view-lights .lx-quick .lx-slot-empty { display: grid; place-items: center; border: 1px dashed var(--line2, var(--line)); border-radius: 10px; color: var(--muted); font-size: 11px; text-align: center; padding: 4px; background: transparent; }
+#view-lights .lx-quick .lx-slot-x { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; min-height: 0; padding: 0; border-radius: 6px; font-size: 11px; line-height: 16px; opacity: 0; background: rgba(0,0,0,.55); border: 0; color: #fff; }
+#view-lights .lx-quick .lx-look:hover .lx-slot-x, #view-lights .lx-quick .lx-look:focus-within .lx-slot-x { opacity: 1; }
+#view-lights .lx-dropping { outline: 2px dashed var(--accent); outline-offset: 2px; }
+#view-lights .lx-faders { display: flex; gap: 8px; overflow-x: auto; padding-top: 4px; }
+#view-lights .lx-fader { flex: 1 1 0; min-width: 48px; }
+#view-lights .lx-fader input { height: 110px; }
+
+/* this section's presets */
+#view-lights .lx-secpresets { display: grid; gap: 8px; align-content: start; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); min-width: 0; min-height: 220px; }
+#view-lights .lx-secpresets h3 { margin: 0; font-size: 14px; }
+#view-lights .lx-secpresets .lx-secnow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+#view-lights .lx-secpresets .lx-secnow b { font-size: 15px; }
+#view-lights .lx-secchips { display: flex; flex-wrap: wrap; gap: 4px; }
+#view-lights .lx-secchips button { padding: 3px 9px; font-size: 12px; border-radius: 999px; }
+#view-lights .lx-secchips button.on { background: var(--accent); color: var(--accentText); border-color: var(--accent); }
+#view-lights .lx-secchips button.now::after { content: " ●"; color: var(--accentHi, var(--accent)); }
+#view-lights .lx-secchips button.on.now::after { color: inherit; }
+#view-lights .lx-seclist { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; min-height: 56px; padding: 4px; border-radius: 10px; }
+#view-lights .lx-seclist .lx-look { position: relative; min-height: 46px; }
+#view-lights .lx-seclist .lx-look .lx-slot-x { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; min-height: 0; padding: 0; font-size: 11px; line-height: 16px; border-radius: 6px; opacity: 0; background: rgba(0,0,0,.55); border: 0; color: #fff; }
+#view-lights .lx-seclist .lx-look:hover .lx-slot-x { opacity: 1; }
+#view-lights .lx-seclist .lx-sec-empty { grid-column: 1 / -1; color: var(--muted); font-size: 12px; padding: 8px; border: 1px dashed var(--line); border-radius: 10px; }
+#view-lights .lx-secmode { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+
+/* songs and setlists (the column on the right) */
+#view-lights .lx-rightpanel { overflow: visible; border: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: 12px; padding: 10px; margin: 0; background: var(--panel); min-width: 0; }
+#view-lights .lx-rightpanel .lx-rsec { margin: 0; }
+#view-lights .lx-rightpanel .lx-songs { display: grid; grid-template-columns: minmax(170px, 230px) minmax(0, 1fr); gap: 12px; }
+#view-lights .lx-setbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+#view-lights .lx-setbar b { font-size: 14px; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#view-lights .lx-setbar .lx-setsrc { color: var(--muted); font-size: 11px; font-weight: 400; }
+#view-lights .lx-slist { max-height: 420px; overflow: auto; }
+#view-lights .lx-sedit .row { flex-wrap: wrap; }
+#view-lights .lx-scenes { width: 100%; font-size: 12px; }
+#view-lights .lx-scenes td, #view-lights .lx-scenes th { padding: 3px 4px; }
+#view-lights .lx-scenes button.danger { padding: 3px 8px; font-size: 12px; }
+
+/* all presets: the buttons across, the editor under them */
+#view-lights .lx-allpresets { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--panel); }
+#view-lights .lx-allpresets h3 { margin: 0 0 8px; font-size: 14px; display: flex; gap: 10px; align-items: baseline; }
+#view-lights .lx-allpresets .lx-looks { display: grid; grid-template-columns: 1fr; gap: 10px; }
+#view-lights .lx-allpresets .lx-looks .lx-palette { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); max-height: none; }
+#view-lights .lx-allpresets .lx-look[draggable="true"] { cursor: grab; }
+#view-lights .lx-allpresets .lx-lookedit > .row { flex-wrap: wrap; }
+#view-lights .lx-allpresets .lx-groups { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+
+/* the preset picker (Add scene, + Add preset): a small window over the page */
+#view-lights .lx-pick { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(0,0,0,.45); }
+#view-lights .lx-pick[hidden] { display: none; }
+#view-lights .lx-pickbox { width: min(720px, calc(100vw - 32px)); max-height: min(80vh, 680px); overflow: auto; display: grid; gap: 10px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line2, var(--line)); border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.55); }
+#view-lights .lx-pickbox .lx-palette { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); max-height: none; }
+#view-lights .lx-pickbox .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#view-lights .lx-pickbox .lx-picksongs { display: grid; gap: 4px; }
+#view-lights .lx-pickbox .lx-picksongs button { display: grid; text-align: left; }
+#view-lights .lx-pickbox .lx-picksongs small { color: var(--muted); }
+#view-lights .lx-pickbox h3 { margin: 0; }
+
+/* the old right panel's show / hide buttons are gone */
+#view-lights .lx-rightshow, #view-lights .lx-rnav { display: none !important; }
+
+@media (max-width: 1500px) {
+  /* narrower screens: the quick buttons and this part's presets on the left, the songs on the right next to them */
+  #view-lights .lx-under { grid-template-columns: minmax(360px, 1fr) minmax(380px, 1fr); grid-template-areas: "side songs" "sec songs"; }
+  #view-lights .lx-under .lx-side { grid-area: side; }
+  #view-lights .lx-under .lx-secpresets { grid-area: sec; min-height: 0; }
+  #view-lights .lx-under .lx-rightpanel { grid-area: songs; align-self: stretch; }
+  #view-lights .lx-rightpanel .lx-songs { grid-template-columns: minmax(150px, 190px) minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  #view-lights .lx-under { grid-template-columns: 1fr; grid-template-areas: "side" "sec" "songs"; }
+  #view-lights .lx-rightpanel .lx-songs { grid-template-columns: 1fr; }
+  #view-lights .lx-quick { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}

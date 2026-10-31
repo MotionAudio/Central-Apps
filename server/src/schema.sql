@@ -503,3 +503,133 @@ CREATE TABLE IF NOT EXISTS setlists (
 );
 CREATE INDEX IF NOT EXISTS setlists_church ON setlists (church_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS setlists_owner ON setlists (owner_id, updated_at DESC);
+
+-- ---------------------------------------------------------------- creators (10.1)
+-- Anyone signed in makes or uploads samples, loops, pads, instruments, pedal boards and plugins. Every upload waits for
+-- a review admin (status 'waiting'), who checks it, grades it 1-5 stars and approves it ('live') or rejects it with a
+-- reason. A live item is part of its sound plan (pack): the apps install it like a library item, locked by the plan's
+-- key. Each month a share of each pack's money (staff set it; 75% to start) is split among creators by
+-- downloads x stars; Motion Audio's own items count in the total and keep their share.
+CREATE TABLE IF NOT EXISTS community_items (
+  id          BIGSERIAL PRIMARY KEY,
+  creator_id  BIGINT NOT NULL REFERENCES users(id),
+  kind        TEXT NOT NULL CHECK (kind IN ('sample','instrument','loop','pad','board','plugin')),
+  pack        TEXT NOT NULL CHECK (pack IN ('keys','instrument','plugins','pedals','pads')),
+  title       TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  tags        TEXT[] NOT NULL DEFAULT '{}',
+  song_key    TEXT NOT NULL DEFAULT '',
+  bpm         NUMERIC(6,2) NOT NULL DEFAULT 0,
+  bars        INTEGER NOT NULL DEFAULT 0,
+  status      TEXT NOT NULL DEFAULT 'uploading' CHECK (status IN ('uploading','waiting','live','rejected','pulled','removed')),
+  stars       SMALLINT CHECK (stars BETWEEN 1 AND 5),       -- the review admin's grade (sets the weight in the pool)
+  auto_stars  SMALLINT,                                     -- the machine's suggestion from the demo clip
+  checks      JSONB NOT NULL DEFAULT '[]',                  -- the automatic checks, per file / platform
+  rights_ok   BOOLEAN NOT NULL DEFAULT FALSE,
+  version     INTEGER NOT NULL DEFAULT 1,
+  made_in_studio BOOLEAN NOT NULL DEFAULT FALSE,
+  reason      TEXT,                                         -- why it was rejected or pulled (the creator sees it)
+  reviewed_by TEXT,
+  reviewed_at TIMESTAMPTZ,
+  submitted_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS community_items_pack ON community_items (pack, status);
+CREATE INDEX IF NOT EXISTS community_items_creator ON community_items (creator_id);
+-- its files: what was uploaded (source), the demo clip (demo), and the library zip the apps install (package; one per
+-- platform for a plugin)
+CREATE TABLE IF NOT EXISTS community_files (
+  id          BIGSERIAL PRIMARY KEY,
+  item_id     BIGINT NOT NULL REFERENCES community_items(id) ON DELETE CASCADE,
+  role        TEXT NOT NULL CHECK (role IN ('source','demo','package')),
+  platform    TEXT NOT NULL DEFAULT '',
+  name        TEXT NOT NULL,
+  storage_key TEXT NOT NULL,
+  bytes       BIGINT NOT NULL DEFAULT 0,
+  sha256      TEXT NOT NULL DEFAULT '',
+  binaries    JSONB NOT NULL DEFAULT '[]'                   -- a plugin's program files and their sha256 (the revoke list)
+);
+CREATE INDEX IF NOT EXISTS community_files_item ON community_files (item_id, role);
+-- a download that counts for the pool: once per item, per downloader (package key or account), per month
+CREATE TABLE IF NOT EXISTS pack_downloads (
+  month       TEXT NOT NULL,
+  pack        TEXT NOT NULL,
+  item_ref    TEXT NOT NULL,                                -- 'c<id>' a community item, or an official library's id
+  creator_id  BIGINT REFERENCES users(id),                  -- NULL: Motion Audio's own
+  stars       SMALLINT NOT NULL,
+  downloader  TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (month, item_ref, downloader)
+);
+-- the creators' share of each pack's money, as staff set it: the newest change taking effect by a month applies to it
+CREATE TABLE IF NOT EXISTS creator_share_changes (
+  id          BIGSERIAL PRIMARY KEY,
+  pack        TEXT NOT NULL,
+  share       NUMERIC(5,4) NOT NULL CHECK (share >= 0 AND share <= 1),
+  from_month  TEXT NOT NULL,                                -- 'YYYY-MM'
+  note        TEXT NOT NULL DEFAULT '',
+  changed_by  TEXT NOT NULL,
+  changed_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- sound plan money (Stripe invoice.paid for a plan subscription): the packs' income, spread over the 12 months it pays for
+CREATE TABLE IF NOT EXISTS plan_payments (
+  invoice_id  TEXT PRIMARY KEY,
+  plan_sub_id BIGINT REFERENCES plan_subs(id) ON DELETE SET NULL,
+  plans       TEXT[] NOT NULL,
+  cents       INTEGER NOT NULL,
+  payment_intent TEXT,
+  paid_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reversed    BOOLEAN NOT NULL DEFAULT FALSE,
+  reversed_at TIMESTAMPTZ
+);
+-- a month's pool per pack, and each creator's part of it (paid with the monthly payouts)
+CREATE TABLE IF NOT EXISTS pack_pools (
+  month       TEXT NOT NULL,
+  pack        TEXT NOT NULL,
+  income      INTEGER NOT NULL,
+  share       NUMERIC(5,4) NOT NULL,
+  pot         INTEGER NOT NULL,
+  total_weight INTEGER NOT NULL,
+  motion_weight INTEGER NOT NULL,
+  PRIMARY KEY (month, pack)
+);
+CREATE TABLE IF NOT EXISTS creator_shares (
+  month       TEXT NOT NULL,
+  pack        TEXT NOT NULL,
+  creator_id  BIGINT NOT NULL REFERENCES users(id),
+  downloads   INTEGER NOT NULL,
+  weight      INTEGER NOT NULL,
+  cents       INTEGER NOT NULL,
+  transfer_id TEXT,
+  PRIMARY KEY (month, pack, creator_id)
+);
+-- who reviews: Motion Audio staff (the owner, ADMIN_EMAILS) and the review admins the owner adds
+CREATE TABLE IF NOT EXISTS review_admins (
+  email       TEXT PRIMARY KEY,
+  added_by    TEXT NOT NULL,
+  added_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- files we refuse anywhere (a whole upload or a plugin's program file), by sha256
+CREATE TABLE IF NOT EXISTS blocked_hashes (
+  sha256      TEXT PRIMARY KEY,
+  why         TEXT NOT NULL DEFAULT '',
+  added_by    TEXT NOT NULL DEFAULT '',
+  added_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS community_reports (
+  id          BIGSERIAL PRIMARY KEY,
+  item_id     BIGINT NOT NULL REFERENCES community_items(id) ON DELETE CASCADE,
+  reporter    TEXT NOT NULL,
+  reason      TEXT NOT NULL,
+  device      TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Central Tracks uploads are reviewed too: 'review' waits for a review admin (when staff hold new tracks for review),
+-- who can also change the machine's stars on any track
+ALTER TABLE tracks DROP CONSTRAINT IF EXISTS tracks_status_check;
+ALTER TABLE tracks ADD CONSTRAINT tracks_status_check CHECK (status IN ('live','hidden','removed','review'));
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS review_note TEXT;
+-- the Central Tracks Unlimited pool is weighted by stars too (adds x stars)
+ALTER TABLE pool_shares ADD COLUMN IF NOT EXISTS weight INTEGER;

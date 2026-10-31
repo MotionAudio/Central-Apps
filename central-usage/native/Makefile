@@ -18,7 +18,9 @@ UNAME := $(shell uname -s)
 EXE :=
 CXXFLAGS ?= -O2 -std=c++17 -Wall -Wno-unused-parameter -Wno-missing-field-initializers -Wno-misleading-indentation -Wno-unknown-warning-option
 VST3 := vendor/vst3sdk/pluginterfaces/base/funknown.cpp vendor/vst3sdk/pluginterfaces/base/coreiids.cpp vendor/vst3sdk/public.sdk/source/vst/vstinitiids.cpp vendor/vst3sdk/public.sdk/source/common/commoniids.cpp
-PHSRC := plughost/host.cpp plughost/fmt_clap.cpp plughost/fmt_vst3.cpp $(VST3)
+PHSRC := plughost/host.cpp plughost/fmt_clap.cpp plughost/fmt_vst3.cpp plughost/fmt_remote.cpp $(VST3)
+# (10.1) community plugins: the rig's side of the bridge (C), and cm-plugbridge - one community plugin, walled off
+PHCSRC := plughost/bridge_client.c plughost/sha256.c
 PHFLAGS := -Ivendor/vst3sdk -DPH_VST3
 ifeq ($(TARGET),win)
   ifneq (,$(findstring MINGW,$(UNAME))$(findstring MSYS,$(UNAME)))
@@ -64,10 +66,16 @@ else
 endif
 OUT ?= build
 PLAYANY :=
+BRIDGE :=
 ifeq ($(PLAT),linux)
   PLAYANY := $(OUT)/central-playany.lv2/central-playany.so
+  BRIDGE := $(OUT)/cm-plugbridge $(OUT)/cm-pwnode
+  BRIDGELD ?= -static-libstdc++ -static-libgcc
 endif
-all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/cu-studio$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY)
+ifeq ($(PLAT),mac)
+  BRIDGE := $(OUT)/cm-plugbridge
+endif
+all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/cu-studio$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY) $(BRIDGE)
 $(OUT)/cu-mixer$(EXE): cu-mixer.c plat.h
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-mixer.c $(LIBS)
 $(OUT)/cu-studio$(EXE): cu-studio.c plat.h $(OUT)/obj/cJSON.o
@@ -86,8 +94,28 @@ $(OUT)/obj/cJSON.o: vendor/cJSON.c
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ vendor/cJSON.c
 $(OUT)/obj/playany.o: playany/playany.c playany/playany.h
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ playany/playany.c
-$(OUT)/cu-rig$(EXE): $(OUT)/obj/cu-rig.o $(OUT)/obj/cJSON.o $(OUT)/obj/playany.o $(PHOBJ)
+PHCOBJ := $(patsubst %,$(OUT)/obj/%.o,$(PHCSRC))
+$(OUT)/obj/plughost/%.c.o: plughost/%.c plughost/bridge.h plughost/sha256.h
+	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ $<
+$(OUT)/cu-rig$(EXE): $(OUT)/obj/cu-rig.o $(OUT)/obj/cJSON.o $(OUT)/obj/playany.o $(PHOBJ) $(PHCOBJ)
 	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) -o $@ $^ $(RIGLIBS)
+# cm-plugbridge: the plugin host without windows (gui_none.cpp) + the child's side of the bridge (bridge_main.cpp)
+BRIDGESRC := $(filter-out plughost/gui_x11.cpp plughost/gui_mac.mm plughost/gui_win.cpp,$(PHSRC)) plughost/gui_none.cpp plughost/bridge_main.cpp cm-plugbridge.cpp
+BRIDGEOBJ := $(patsubst %,$(OUT)/obj/%.o,$(BRIDGESRC))
+$(OUT)/obj/plughost/bridge_main.cpp.o $(OUT)/obj/plughost/fmt_remote.cpp.o $(OUT)/obj/cm-plugbridge.cpp.o: plughost/bridge.h plughost/sha256.h
+$(OUT)/cm-plugbridge: $(BRIDGEOBJ) $(OUT)/obj/cJSON.o $(PHCOBJ)
+	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) -o $@ $^ $(RIGLIBS) $(BRIDGELD)
+# cm-pwnode (Linux): the Central Pedal's community stage - a PipeWire node that plays community plugins through the
+# bridge (libpipewire is loaded at run time; only its headers are needed here)
+PWFLAGS := $(shell pkg-config --cflags libpipewire-0.3 2>/dev/null || echo -I/usr/include/pipewire-0.3 -I/usr/include/spa-0.2)
+$(OUT)/cm-pwnode: cm-pwnode.c plughost/bridge.h plughost/plughost.h $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -Wno-missing-field-initializers -Wno-unused-parameter $(PWFLAGS) -c -o $(OUT)/obj/cm-pwnode.o cm-pwnode.c && $(CXX) $(CXXFLAGS) -o $@ $(OUT)/obj/cm-pwnode.o $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o $(RIGLIBS) $(BRIDGELD)
+bridge: $(BRIDGE)
+# the wall's checks (never shipped): test-bridge drives the plugin host's API; test-plugin-wall.mjs sets up and runs it
+$(OUT)/test-bridge: plughost/test/test-bridge.cpp plughost/bridge.h plughost/ph.hpp $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o
+	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) $(PHFLAGS) -o $@ plughost/test/test-bridge.cpp $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o $(RIGLIBS)
+test-wall: all $(OUT)/test-bridge
+	node plughost/test/test-plugin-wall.mjs $(OUT)
 $(OUT)/test-plugins/central-test.clap: plughost/test/test-plugins.c plughost/test/test-vst3.cpp plughost/test/make-test-plugins.sh
 	CC="$(CC)" CXX="$(CXX)" bash plughost/test/make-test-plugins.sh $(OUT) $(PLAT) "$(ARCH)"
 # play any sound: its test (synthetic guitar notes, lead lines, chords), and on Linux the plugin for PipeWire
@@ -104,4 +132,4 @@ test: all $(if $(PLAYANY),$(OUT)/test-playany-plugin)
 	$(OUT)/test-playany$(EXE) && $(if $(PLAYANY),$(OUT)/test-playany-plugin $(PLAYANY) playany/central-playany.lv2/central-playany.ttl &&) node test-mixer.mjs $(OUT)/cu-mixer$(EXE) && node test-rig.mjs $(OUT)/cu-rig$(EXE) && node test-studio-native.mjs $(OUT)/cu-studio$(EXE)
 clean:
 	rm -rf build build-*
-.PHONY: all test clean playany
+.PHONY: all test clean playany bridge test-wall

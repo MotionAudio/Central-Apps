@@ -12,6 +12,11 @@ Anyone can download a library; what it holds only opens with its plan. So every 
     pedal lists them (/libraries/pads) and plays the file of the song's key (/libraries/pad?...);
   * loops (10.0: drum loops at a tempo, ambient loops in a key) are kept in <data>/libraries/<id>/loops/<set>/<file> -
     the texture channels list them (/libraries/loops) and play them (/libraries/loop?...).
+  * (10.1) community plugins (kind "plugin": a bundle zip from Make & sell, checked and reviewed by Motion Audio) are
+    unpacked into <data>/libraries/community-plugins/<id>/ - only while this device's "Allow community plugins" switch is
+    on (off by default), every program file checked against the sha256 the review recorded. The plugin hosts load that
+    folder walled off (community_sandbox.py), never in the live chain's own process. revoke() takes away anything on the
+    website's revoke list (an item Motion Audio pulled, or a program file it blocked).
 An item of a kind this version doesn't know (from a newer library) is left out; the rest installs.
 A download is checked against the sha256 the list gives before anything is unpacked (a mismatch is refused), and every
 item against the sha256 in the library's manifest.json. Installing a newer version replaces the older one; Remove takes
@@ -25,13 +30,16 @@ import re
 import shutil
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 import zipfile
 
 log = logging.getLogger("pedal-driver.libraries")
 
 PLANS = ("keys", "instrument", "plugins", "pedals", "pads")
-KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop")
+KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "plugin")
+PLUGIN_FORMATS = ("lv2", "vst3", "clap", "component")
+MAX_PLUGIN = 300 * 1024 * 1024    # a community plugin bundle, unpacked
 PAD_KEYS = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 MAX_DOWNLOAD = 2 * 1024 ** 3        # a library zip
 MAX_ITEM = 700 * 1024 * 1024        # one file inside it
@@ -39,6 +47,39 @@ MAX_TOTAL = 2 * 1024 ** 3           # everything inside it, unpacked
 ID_RE = re.compile(r"^[a-z0-9-]{3,60}$")
 VERSION_RE = re.compile(r"^\d+(\.\d+){0,3}$")
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
+# 10.0.1: while the website isn't open, the list (with each zip's size and sha256) comes straight from the published
+# "libraries" release; the page asks the driver for it (GitHub's download redirect has no CORS header)
+INDEX_URL = os.environ.get("CC_LIBRARIES_INDEX", "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/libraries-index.json")
+_index_cache = {}
+
+
+def release_index(url=None, timeout=20, max_age=600):
+    """The published libraries' list: [{id, plan, title, version, summary, file, size, sha256, url, ready}]."""
+    url = url or INDEX_URL
+    hit = _index_cache.get(url)
+    if hit and time.time() - hit[0] < max_age:
+        return hit[1]
+    req = urllib.request.Request(url, headers={"User-Agent": "central-pedal"})
+    with urllib.request.urlopen(req, timeout=timeout) as res:   # (urllib follows GitHub's redirect)
+        raw = res.read(4 * 1024 * 1024 + 1)
+        final = res.geturl() or url   # (the zips sit next to the index, where the redirect ended)
+    if len(raw) > 4 * 1024 * 1024:
+        raise ValueError("the library list is too big")
+    j = json.loads(raw.decode("utf-8"))
+    base = str(j.get("base") or final.rsplit("/", 1)[0]).rstrip("/")
+    out = []
+    for lib in j.get("libraries") or []:
+        if not isinstance(lib, dict):
+            continue
+        sha = str(lib.get("sha256") or "").lower()
+        if not ID_RE.match(str(lib.get("id") or "")) or lib.get("plan") not in PLANS or not SHA_RE.match(sha) or not lib.get("file"):
+            continue
+        out.append({"id": lib["id"], "plan": lib["plan"], "title": lib.get("title") or lib["id"], "version": str(lib.get("version") or ""),
+                    "summary": lib.get("summary") or "", "file": lib["file"], "size": int(lib.get("size") or 0), "sha256": sha,
+                    "url": base + "/" + urllib.parse.quote(str(lib["file"])), "ready": True})
+    data = {"ok": True, "source": "release", "built": j.get("built") or "", "libraries": out}
+    _index_cache[url] = (time.time(), data)
+    return data
 
 
 def version_key(v):
@@ -111,6 +152,93 @@ class LibraryStore:
         self.opener = opener or urllib.request.urlopen
         self.progress = {}   # id -> {"done": bytes, "total": bytes, "state": text}
 
+    # ----- (10.1) community plugins: the device's switch -------------------------------
+    def plugins_dir(self):
+        return os.path.join(self.root, "community-plugins")
+
+    def plugins_allowed(self):
+        try:
+            with open(os.path.join(self.root, "community-plugins.json"), encoding="utf-8") as handle:
+                return json.load(handle).get("on") is True
+        except (OSError, ValueError, AttributeError):
+            return False
+
+    def set_plugins_allowed(self, on):
+        with open(os.path.join(self.root, "community-plugins.json"), "w", encoding="utf-8") as handle:
+            json.dump({"on": bool(on), "changed": time.strftime("%Y-%m-%dT%H:%M:%S")}, handle)
+        return self.plugins_allowed()
+
+    def revoke(self, ids=(), hashes=()):
+        """The website's revoke list: removes the community items it names (library ids "community-<n>") and any
+        installed library holding a plugin program file whose sha256 it lists. Returns the ids taken away."""
+        gone, bad, named = [], {str(h).lower() for h in hashes or () if SHA_RE.match(str(h).lower())}, set(ids or ())
+        for rec in self.installed():
+            hit = rec["id"] in named
+            if not hit and bad:
+                hit = any(b.get("sha256") in bad for pl in rec.get("plugins") or [] for b in pl.get("binaries") or [])
+            if hit:
+                try:
+                    self.remove(rec["id"])
+                    gone.append(rec["id"])
+                except LibraryError:
+                    pass
+        if gone:
+            log.warning("community items taken away (revoke list): %s", ", ".join(gone))
+        return gone
+
+    def _unpack_plugin(self, lib_id, it, data):
+        """A plugin bundle zip -> <plugins dir>/<lib id>/<bundle>/: only regular files inside the bundle, no links,
+        every program file matching the sha256 Motion Audio's review recorded."""
+        if not self.plugins_allowed():
+            raise LibraryError("community plugins are off on this device - switch on Allow community plugins first")
+        fmt, bundle = str(it.get("format") or ""), safe_name(str(it.get("bundle") or ""), "")
+        if fmt not in PLUGIN_FORMATS or not bundle:
+            raise LibraryError("a plugin in that library isn't a plugin bundle")
+        want = {str(b.get("name")): str(b.get("sha256") or "").lower() for b in it.get("binaries") or [] if isinstance(b, dict)}
+        if not want:
+            raise LibraryError("a plugin in that library has no checked program files")
+        dest = os.path.join(self.plugins_dir(), lib_id)
+        shutil.rmtree(dest, ignore_errors=True)
+        os.makedirs(dest, exist_ok=True)
+        real_dest = os.path.realpath(dest)
+        total, seen = 0, {}
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                for info in zf.infolist():
+                    name = info.filename
+                    if info.is_dir():
+                        continue
+                    if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                        raise LibraryError("a plugin in that library has a link in it")
+                    parts = [x for x in name.replace("\\", "/").split("/") if x]
+                    if not parts or name.startswith("/") or any(x in (".", "..") for x in parts):
+                        raise LibraryError("a plugin in that library has a file outside its folder")
+                    total += info.file_size
+                    if total > MAX_PLUGIN:
+                        raise LibraryError("a plugin in that library is too big")
+                    out = os.path.realpath(os.path.join(dest, *parts))
+                    if not out.startswith(real_dest + os.sep):
+                        raise LibraryError("a plugin in that library has a file outside its folder")
+                    body = zf.read(info)
+                    os.makedirs(os.path.dirname(out), exist_ok=True)
+                    with open(out, "wb") as handle:
+                        handle.write(body)
+                    rel = "/".join(parts)
+                    os.chmod(out, 0o755 if rel in want else 0o644)
+                    seen[rel] = sha256_bytes(body)
+        except zipfile.BadZipFile:
+            shutil.rmtree(dest, ignore_errors=True)
+            raise LibraryError("a plugin in that library can't be unpacked")
+        except LibraryError:
+            shutil.rmtree(dest, ignore_errors=True)
+            raise
+        for name, sha in want.items():
+            if seen.get(name) != sha:
+                shutil.rmtree(dest, ignore_errors=True)
+                raise LibraryError("a plugin's program file doesn't match what Motion Audio checked - nothing was installed")
+        return {"name": str(it.get("name") or bundle)[:80], "format": fmt, "platform": str(it.get("platform") or ""), "bundle": bundle,
+                "path": os.path.join(dest, bundle), "binaries": [{"name": n, "sha256": h} for n, h in sorted(want.items())]}
+
     # ----- what's installed ------------------------------------------------------
     def record_path(self, lib_id):
         return os.path.join(self.root, lib_id + ".json")
@@ -133,7 +261,7 @@ class LibraryStore:
 
     def listing(self):
         """What the app's Libraries panel shows: each installed library with its boards and presets (to add as boards)."""
-        return [{k: r.get(k) for k in ("id", "plan", "version", "title", "summary", "installedAt", "counts", "boards", "presets", "source")} for r in self.installed()]
+        return [{k: r.get(k) for k in ("id", "plan", "version", "title", "summary", "installedAt", "counts", "boards", "presets", "source", "community", "plugins")} for r in self.installed()]
 
     def pads(self):
         """The installed pad styles (Central Pads): [{"id": "<library>/<style>", "name", "library", "tier", "keys": [..]}]."""
@@ -306,7 +434,9 @@ class LibraryStore:
             self.remove(lib_id, keep_record=True)
         rec = {"id": lib_id, "plan": tier, "version": str(man["version"]), "title": str(man.get("title") or lib_id)[:80], "summary": str(man.get("summary") or "")[:400],
                "installedAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "source": source if source == "file" else "website", "sounds": [], "irs": [], "clicks": [], "pads": [],
-               "loops": [], "boards": [], "presets": [], "tier": tier}
+               "loops": [], "boards": [], "presets": [], "plugins": [], "tier": tier}
+        if isinstance(man.get("community"), dict):   # (10.1: an item from Make & sell - who made it, for the label)
+            rec["community"] = {"item": man["community"].get("item"), "creator": str(man["community"].get("creator") or "")[:80], "kind": str(man["community"].get("kind") or "")[:20]}
         sound_lines, ir_lines = [], []
         sounds, irs = [], []
         for it in man["items"]:
@@ -377,6 +507,8 @@ class LibraryStore:
                 if it.get("key") in PAD_KEYS:
                     entry["key"] = it["key"]
                 rec["loops"].append(entry)
+            elif kind == "plugin":
+                rec["plugins"].append(self._unpack_plugin(lib_id, it, data))
         # the plan lines first (a host that looks at the folder as a sound arrives already sees it locked), then the files
         if sounds:
             tiers_lines_set(inst.sf2_user_dir, lib_id, sound_lines)
@@ -394,6 +526,8 @@ class LibraryStore:
             raise LibraryError("couldn't add the library's files (%s)" % error)
         rec["counts"] = {"sound": len(rec["sounds"]), "ir": len(rec["irs"]), "board": len(rec["boards"]), "preset": len(rec["presets"]), "click": len(rec["clicks"]),
                          "pad": len({x["name"] for x in rec["pads"]}), "loop": len({(x["set"], x["name"]) for x in rec["loops"]})}
+        if rec["plugins"]:
+            rec["counts"]["plugin"] = len(rec["plugins"])   # (10.1: community plugins)
         self._write_record(rec)
         log.info("library %s %s installed (%s)", lib_id, rec["version"], rec["counts"])
         return rec
@@ -429,6 +563,7 @@ class LibraryStore:
             except Exception:  # noqa: BLE001
                 pass
         shutil.rmtree(os.path.join(self.root, lib_id), ignore_errors=True)
+        shutil.rmtree(os.path.join(self.plugins_dir(), lib_id), ignore_errors=True)
         if not keep_record:
             try:
                 os.remove(self.record_path(lib_id))

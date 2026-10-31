@@ -36,6 +36,7 @@ namespace ph {
 static std::string gData = ".";
 static void (*gEmit)(const char *) = nullptr;
 void emitJson(cJSON *j) { char *s = cJSON_PrintUnformatted(j); if (gEmit && s) gEmit(s); free(s); }
+void emitRaw(const std::string &json) { if (gEmit) gEmit(json.c_str()); }
 
 void log(const char *fmt, ...) { va_list a; va_start(a, fmt); fputs("plughost: ", stderr); vfprintf(stderr, fmt, a); fputc('\n', stderr); va_end(a); }
 std::string lower(std::string s) { for (auto &c : s) c = (char)tolower((unsigned char)c); return s; }
@@ -138,6 +139,25 @@ static Plug *openAny(const std::string &format, const std::string &id, const std
 #endif
   err = format + " plugins don't work on this computer"; return nullptr;
 }
+// (cm-plugbridge) the one plugin it hosts; an empty id: the bundle's first plugin (an effect before an instrument)
+Plug *openDirect(const std::string &format, const std::string &idIn, const std::string &path, std::string &err) {
+  std::string id = idIn;
+  if (id.empty()) {
+    std::vector<ClassInfo> cls; std::string e;
+    if (format == "clap") scanClap(path, cls, e);
+#ifdef PH_VST3
+    else if (format == "vst3") scanVst3(path, cls, e);
+#endif
+#ifdef PH_LV2
+    else if (format == "lv2") { std::vector<ClassInfo> all; std::vector<std::string> paths; listLv2(all, paths); for (size_t i = 0; i < all.size(); i++) if (i < paths.size() && paths[i].compare(0, path.size(), path) == 0) cls.push_back(all[i]); if (cls.empty()) cls = all; }
+#endif
+    for (auto &c : cls) if (c.kind != "instrument") { id = c.id; break; }
+    if (id.empty() && !cls.empty()) id = cls[0].id;
+    if (id.empty()) { err = e.empty() ? "no plugin found in its folder" : e; return nullptr; }
+  }
+  Plug *p = openAny(format, id, path, err); if (p) { p->format = format; p->id = id; p->path = path; }
+  return p;
+}
 // ---- a plugin that crashed the rig while it loaded is paused until the next "Scan again"
 // (before loading, its key goes in plugin-loading.txt; a rig that starts and finds the file knows which one it was)
 static std::set<std::string> paused;
@@ -166,7 +186,17 @@ PhPlug *ph_get(const char *slot, const char *format, const char *id, const char 
     if (it->second->format == f && it->second->id == i) { it->second->refs++; return reinterpret_cast<PhPlug *>(it->second); }
     Plug *old = it->second; saveSlot(old); pool.erase(it); if (--old->refs == 0) destroy(old);
   }
+  if (isCommunity(pa)) {   // (10.1) someone else's program: in its own walled-off process, never in this one
+    std::string e; Plug *p = openRemote(f, i, pa, e);
+    if (!p) { if (err) snprintf(err, (size_t)errLen, "%s", e.c_str()); return nullptr; }
+    p->format = f; p->id = i; p->path = pa; p->slot = s; p->sampleRate = sr; p->maxBlock = maxBlock; p->community = true;
+    if (!p->start(sr, maxBlock, e)) { if (err) snprintf(err, (size_t)errLen, "%s", e.c_str()); delete p; return nullptr; }
+    std::vector<uint8_t> st;
+    if (readState(s, f, i, st) || (stateFrom && stateFrom[0] && readState(stateFrom, f, i, st))) { if (!p->loadState(st)) log("%s: its saved state did not load", p->name.c_str()); else if (!readState(s, f, i, st)) p->dirty = true; }
+    p->refs = 2; pool[s] = p; return reinterpret_cast<PhPlug *>(p);
+  }
   std::error_code ec; if (pa.empty() || (f != "au" && f != "lv2" && !fs::exists(P(pa), ec))) { std::string found = findPath(f, i); if (!found.empty()) pa = found; }
+  if (isCommunity(pa)) { if (err) snprintf(err, (size_t)errLen, "it is a community plugin, which only runs walled off"); return nullptr; }
   std::string key = f + ":" + i;
   if (paused.count(key)) { if (err) snprintf(err, (size_t)errLen, "it crashed the instrument engine the last time it started, so it is paused. Scan again (Add pedal, Your plugins) to give it another try"); return nullptr; }
   { std::error_code ec2; fs::create_directories(P(gData), ec2); std::ofstream lf(P(loadingFile()), std::ios::trunc); lf << key << "\n"; }
@@ -189,11 +219,16 @@ void ph_keep_only(const char *const *slots, int n) {
     it = pool.erase(it); if (--p->refs == 0) destroy(p);
   }
 }
+int ph_forget_slot(const char *slot) {   // the next ph_get for it loads it afresh (a bypassed community plugin: "Try again")
+  auto it = pool.find(slot ? slot : ""); if (it == pool.end()) return 0;
+  Plug *p = it->second; if (p->bypassed().empty()) saveSlot(p); pool.erase(it); if (--p->refs == 0) destroy(p); return 1;
+}
 int ph_is_instrument(PhPlug *p) { return p && PP(p)->instrument; }
 const char *ph_slot(PhPlug *p) { return p ? PP(p)->slot.c_str() : ""; }
 char *ph_slots_json(void) {
   cJSON *o = cJSON_CreateObject(); bool win = windowApi()[0] != 0;
-  for (auto &kv : pool) { Plug *p = kv.second; cJSON *e = cJSON_AddObjectToObject(o, kv.first.c_str()); cJSON_AddStringToObject(e, "name", p->name.c_str()); cJSON_AddStringToObject(e, "vendor", p->vendor.c_str()); cJSON_AddStringToObject(e, "format", p->format.c_str()); cJSON_AddBoolToObject(e, "instrument", p->instrument); cJSON_AddBoolToObject(e, "editor", win && p->hasEditor()); cJSON_AddBoolToObject(e, "open", p->editor != nullptr); cJSON_AddNumberToObject(e, "latency", p->latency()); }
+  for (auto &kv : pool) { Plug *p = kv.second; cJSON *e = cJSON_AddObjectToObject(o, kv.first.c_str()); cJSON_AddStringToObject(e, "name", p->name.c_str()); cJSON_AddStringToObject(e, "vendor", p->vendor.c_str()); cJSON_AddStringToObject(e, "format", p->format.c_str()); cJSON_AddBoolToObject(e, "instrument", p->instrument); cJSON_AddBoolToObject(e, "editor", win && p->hasEditor()); cJSON_AddBoolToObject(e, "open", p->editor != nullptr); cJSON_AddNumberToObject(e, "latency", p->latency());
+    if (p->community) { cJSON_AddBoolToObject(e, "community", 1); std::string b = p->bypassed(); if (!b.empty()) cJSON_AddStringToObject(e, "bypassed", b.c_str()); } }
   char *s = cJSON_PrintUnformatted(o); cJSON_Delete(o); return s;
 }
 const char *ph_name(PhPlug *p) { return p ? PP(p)->name.c_str() : ""; }
