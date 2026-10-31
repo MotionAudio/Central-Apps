@@ -1,7 +1,7 @@
 {
   "name": "central-services",
   "productName": "Central Services",
-  "version": "10.0.0",
+  "version": "10.0.1",
   "description": "Central Services: your church's schedule - worship and production teams, who is asked, who said yes or no.",
   "homepage": "https://motionaudio.github.io/Central-Apps/",
   "main": "main.js",
@@ -104,16 +104,16 @@
     },
     "deb": {
       "depends": [
-        "libgtk-3-0",
+        "libgtk-3-0 | libgtk-3-0t64",
         "libnotify4",
         "libnss3",
         "libxss1",
         "libxtst6",
         "xdg-utils",
-        "libatspi2.0-0",
+        "libatspi2.0-0 | libatspi2.0-0t64",
         "libuuid1",
         "libsecret-1-0",
-        "libasound2"
+        "libasound2 | libasound2t64"
       ],
       "afterInstall": "build/after-install.sh",
       "afterRemove": "build/after-remove.sh"

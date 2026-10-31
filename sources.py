@@ -786,8 +786,9 @@ class Updater:
         return self.status()
 
     def due(self):
-        # once a day; after a failed look (no internet yet - the Wi-Fi comes up after the app) again in 10 minutes
-        wait = 600 if self.error else 20 * 3600
+        # every 3 hours (a pedal that stays on all week still gets a new version the same day); after a failed look (no
+        # internet yet - the Wi-Fi comes up after the app) again in 10 minutes
+        wait = 600 if self.error else 3 * 3600
         return bool(self.cfg.get("auto")) and bool(self.cfg.get("repo")) and time.time() - (self.cfg.get("lastCheck") or 0) > wait
 
     def download(self):

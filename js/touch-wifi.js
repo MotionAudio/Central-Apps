@@ -37,7 +37,7 @@
     var pending = st.touchScreenPending, none = !(cat.screens || []).length, has35 = (cat.screens || []).some(function (x) { return x.id === "rpi35-xpt2046"; });
     return '<section data-st="screens" class="ts"><h3>Touch screen</h3>' +
       (none ? '<p class="warn small">The list of screens didn\'t load' + (cat.error ? " (" + esc(cat.error) + ")" : "") + '. Install the newest update (Settings → Software updates), then come back here.</p>' : "") +
-      '<p class="muted small">Now: <b>' + esc(now ? now.name : "none") + "</b>" + (pending ? ' <span class="warn">- restart to use the new screen</span>' : "") + "</p>" +
+      '<p class="muted small">Now: <b>' + esc(now ? now.name : "none") + "</b>" + (pending ? ' <span class="warn">- starts when the pedal restarts</span>' : "") + "</p>" +
       (has35 && sel !== "rpi35-xpt2046" && cur !== "rpi35-xpt2046" ? '<button data-ts="quick35" class="ts-quick">The blue 3.5" screen on the pins (XPT2046 on the back)</button>' : "") +
       spiState +
       '<label>Screen<select data-ts="pick"><option value="off"' + (sel === "off" ? " selected" : "") + ">No touch screen" + (cur === "off" ? "  ✓ now" : "") + "</option>" + groups + "</select></label>" + info +
@@ -48,9 +48,10 @@
       '<p class="muted small">Not sure which one? The blue 3.5" board with "XPT2046 Touch Controller" printed on the back is the first one (3.5" RPi Display). Something wrong after the restart? Plug in an HDMI monitor and pick another screen, or "No touch screen".</p></section>';
   }
   F.on("touchScreenResult", function (m) {
-    tsMsg = m.ok ? "✓ " + (m.name || "Saved") + " - restart the Central Pedal to use it." : (m.error || "Not changed.");
-    if (m.ok) { picked = null; if (lastStatus) { lastStatus.touchScreen = m.screen; lastStatus.touchKind = m.kind; lastStatus.touchScreenPending = true; } }
+    tsMsg = m.ok ? "✓ " + (m.name || "Saved") + (m.restart ? " - the pedal restarts by itself to start it." : ".") : (m.error || "Not changed.");
+    if (m.ok) { picked = null; if (lastStatus) { lastStatus.touchScreen = m.screen; lastStatus.touchKind = m.kind; lastStatus.touchScreenPending = !!m.restart; } }
     PP.setStatus(tsMsg); rerender(); send({ type: "system", action: "status" });
+    if (m.ok && m.restart && window.PPAutoRestart) window.PPAutoRestart.ask("the " + (m.name || "new touch screen"));   // (its driver loads when the Pi starts)
   });
 
   // ------------------------------------------------------------- Wi-Fi
@@ -117,8 +118,8 @@
       var id = picked || (lastStatus && lastStatus.touchScreen) || "off";
       tsMsg = "Setting up the screen…"; rerender(); send({ type: "system", action: "touchScreen", value: id });
     } else if (b.dataset.ts === "restart") {
-      if (window.PPTracks && window.PPTracks.isPlaying && window.PPTracks.isPlaying() && !confirm("Something is playing. Restart the Central Pedal now?")) return;
-      PP.persistNow(); send({ type: "system", action: "reboot" }); PP.setStatus("Restarting…");
+      if (window.PPAutoRestart) window.PPAutoRestart.ask("the new touch screen");
+      else { PP.persistNow(); send({ type: "system", action: "reboot" }); PP.setStatus("Restarting…"); }
     } else if (b.dataset.ts === "calibrate") { send({ type: "hardware", action: "calibrateTouch" }); PP.setStatus("Touch the five crosses on the small screen, then tap the dot and SAVE"); }
     else if (b.dataset.ts === "touchTest") { send({ type: "hardware", action: "touchTest" }); PP.setStatus("Touch test on the small screen: dots where you tap, its numbers at the top"); }
     else if (a === "phoneOn") { send({ type: "system", action: "phoneSetup", value: "on" }); PP.setStatus("Turning the setup Wi-Fi on…"); }

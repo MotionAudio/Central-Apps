@@ -64,5 +64,36 @@ await cover(94, "9.4.1", "9.4.1", "9.6.0", "already on 9.4.1, covered through 9.
   try { assert.equal(st.latest, "9.6.0"); assert.equal(st.beyond, null); console.log("  ✓ covered through 9.4, but 9.6.0 was released to all devices: it installs 9.6.0"); }
   catch (e) { failures++; console.error("  ✗ everyone: latest " + st.latest + ", beyond " + st.beyond); }
 }
+// Linux .deb (10.0.1): the install runs one script under the password prompt; it says why when it fails. Here a stand-in
+// "pkexec" runs the script with stand-in apt-get / dpkg / dpkg-deb / dpkg-query on PATH.
+{
+  const fs = require("node:fs"), path = require("node:path"), cp = require("node:child_process");
+  const ok = (cond, label, detail) => { if (cond) console.log("  ✓ " + label); else { failures++; console.error("  ✗ " + label + (detail ? ": " + detail : "")); } };
+  ok(/another software update was still running/.test(Updater.debReason("E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 1234 (unattended-upgr)")), "a held dpkg lock says another software update is running");
+  ok(/missing something it needs: .*libasound2/.test(Updater.debReason(" central-services : Depends: libasound2 but it is not installable\nE: Unable to correct problems, you have held broken packages.")), "a missing library is named");
+  ok(/already has one of its files/.test(Updater.debReason("dpkg: error processing archive x.deb (--unpack):\n trying to overwrite '/usr/bin/x', which is also in package y")), "a file another package owns is explained");
+  ok(/software sources is broken/.test(Updater.debReason("W: GPG error: https://ppa.example noble InRelease: NO_PUBKEY ABC\nE: The repository 'https://ppa.example noble InRelease' is not signed.")), "a broken software source is explained");
+  ok(Updater.debReason("") === "", "nothing to go on: no made-up reason");
+  ok(/DEBIAN_FRONTEND=noninteractive/.test(Updater.DEB_SCRIPT) && /DPkg::Lock::Timeout=300/.test(Updater.DEB_SCRIPT) && /--force-confold/.test(Updater.DEB_SCRIPT) && /--no-install-recommends/.test(Updater.DEB_SCRIPT) && /dpkg -i/.test(Updater.DEB_SCRIPT), "the script asks nothing, waits for the lock, keeps config files, and falls back to dpkg");
+  if (process.platform === "linux") {
+    const T = fs.mkdtempSync(path.join(os.tmpdir(), "deb-")), bin = path.join(T, "bin"); fs.mkdirSync(bin);
+    const w = (n, body) => { fs.writeFileSync(path.join(bin, n), "#!/bin/sh\n" + body + "\n"); fs.chmodSync(path.join(bin, n), 0o755); };
+    // state file: what's installed; APT_MODE picks how apt-get behaves
+    w("dpkg-deb", 'case "$3" in Package) echo central-services;; Version) echo 10.0.1;; esac');
+    w("dpkg-query", 'v="$(cat ' + T + '/installed 2>/dev/null)"; case "$2" in *Version*) printf %s "$v";; *Status*) [ -n "$v" ] && printf "install ok installed";; esac');
+    w("dpkg", 'case "$1" in --configure) exit 0;; -i) [ "$APT_MODE" = dpkgworks ] && echo 10.0.1 > ' + T + '/installed; exit 1;; esac');
+    w("apt-get", 'if [ "$1" = install ] && [ "$2" = -f ]; then exit 0; fi\ncase "$APT_MODE" in ok) echo "Setting up central-services (10.0.1) ..."; echo 10.0.1 > ' + T + '/installed; exit 0;; lock) echo "Waiting for cache lock: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 99 (unattended-upgr)" >&2; echo "E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 99 (unattended-upgr)" >&2; exit 100;; *) echo "E: Sub-process /usr/bin/dpkg returned an error code (1)" >&2; exit 100;; esac');
+    w("fake-pkexec", 'exec "$@"');
+    w("xdg-open", 'echo opened > ' + T + '/opened');
+    const deb = path.join(T, "x.deb"); fs.writeFileSync(deb, "x");
+    const env0 = process.env.PATH; process.env.PATH = bin + ":" + env0;
+    const run = async (mode) => { fs.rmSync(path.join(T, "installed"), { force: true }); fs.rmSync(path.join(T, "opened"), { force: true }); process.env.APT_MODE = mode; const u = new Updater({ product: "central-services", current: "10.0.0", dir: T }); const phases = []; try { await u.installDeb(path.join(bin, "fake-pkexec"), deb, () => phases.push(u.phase)); return { ok: true, phases }; } catch (e) { for (let i = 0; i < 30 && !fs.existsSync(path.join(T, "opened")); i++) await new Promise((z) => setTimeout(z, 100)); return { ok: false, msg: e.message, phases, opened: fs.existsSync(path.join(T, "opened")) }; } };
+    let r = await run("ok"); ok(r.ok, "apt-get installs it: done", JSON.stringify(r));
+    r = await run("dpkgworks"); ok(r.ok, "apt-get fails, dpkg -i + apt-get -f installs it: done", JSON.stringify(r));
+    r = await run("lock"); ok(!r.ok && /another software update was still running/.test(r.msg) && r.phases.includes("waiting") && r.opened && /software installer/.test(r.msg), "the lock never frees: it waited, says why, and opens the software installer", JSON.stringify(r));
+    r = await run("broken"); ok(!r.ok && /returned an error code/.test(r.msg), "anything else: apt-get's own words", JSON.stringify(r));
+    process.env.PATH = env0; delete process.env.APT_MODE;
+  }
+}
 gh.close(); as(real.platform, real.arch, real.appimage);
 console.log(failures ? "\n" + failures + " UPDATER CHECK(S) FAILED" : "\nALL UPDATER CHECKS PASSED"); process.exit(failures ? 1 : 0);

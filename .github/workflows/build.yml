@@ -133,6 +133,7 @@ jobs:
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never -c.extraMetadata.name=central-control
           node ../tools/check-packaged.js dist/linux-unpacked/resources/app.asar
+          node ../tools/check-asar-lean.js dist/linux-unpacked/resources/app.asar
       - name: Smoke test - the packed app (helpers, video, sounds, the player, the speech model's runtime)
         run: |
           R=central-usage/dist/linux-unpacked/resources
@@ -155,6 +156,8 @@ jobs:
           test -x dist/linux-unpacked/centralusage || { echo "::error::no centralusage program"; exit 1; }
           if [ -e dist/linux-unpacked/resources/player ]; then echo "::error::Central Usage must not carry the player window"; exit 1; fi
           if [ -e dist/linux-unpacked/resources/ai ]; then echo "::error::Central Usage must not carry the lights' AI helper (it's the admins')"; exit 1; fi
+          node ../tools/check-packaged.js dist/linux-unpacked/resources/app.asar
+          node ../tools/check-asar-lean.js dist/linux-unpacked/resources/app.asar --no-ai dist/linux-unpacked/resources
           [ "$(dpkg-deb -f dist/CentralUsage-*-amd64.deb Package)" = centralusage ] || { echo "::error::Central Usage's .deb must be its own package (centralusage)"; exit 1; }
           [ -z "$(dpkg-deb -f dist/CentralUsage-*-amd64.deb Conflicts)" ] || { echo "::error::Central Usage must not remove other packages"; exit 1; }
           bash ../tools/check-linux-deb.sh dist/CentralUsage-*-amd64.deb "Central Usage"
@@ -243,6 +246,7 @@ jobs:
           bash ../tools/ci-run.sh "hub sync test" node test-hubsync.mjs
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --win nsis --x64 --publish never
+          node ../tools/check-asar-lean.js dist/win-unpacked/resources/app.asar
       - name: Smoke test - the packed app (helpers, video, the player, sounds, the speech model's runtime)
         timeout-minutes: 10
         run: |
@@ -260,6 +264,7 @@ jobs:
           rm -rf dist/win-unpacked
           bash ../tools/ci-run.sh "electron-builder (Central Usage)" npx electron-builder --config usage-builder.js --win nsis --x64 --publish never
           ls dist/win-unpacked/CentralUsage.exe > /dev/null && ! ls dist/win-unpacked/resources/player > /dev/null 2>&1 && echo "Central Usage: no player window, as it should be"
+          node ../tools/check-asar-lean.js dist/win-unpacked/resources/app.asar --no-ai dist/win-unpacked/resources
           ls -la dist/*.exe
       - name: Central Pedal Control (Windows)
         run: |
@@ -340,6 +345,7 @@ jobs:
           npm install --no-audit --no-fund
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          node ../tools/check-asar-lean.js "$(ls -d dist/mac*/"Central Control.app")/Contents/Resources/app.asar"
       - name: Smoke test - the packed app (signed, helpers, video, the player, the speech model's runtime)
         timeout-minutes: 10
         run: |
@@ -357,6 +363,7 @@ jobs:
           rm -rf dist/mac*
           bash ../tools/ci-run.sh "electron-builder (Central Usage)" npx electron-builder --config usage-builder.js --mac dmg --${{ matrix.arch }} --publish never
           U=$(ls -d dist/mac*/CentralUsage.app); codesign --verify --deep "$U" && plutil -p "$U/Contents/Info.plist" | grep -q '"CFBundleDisplayName" => "Central Usage"' && echo "Central Usage: $U"
+          node ../tools/check-asar-lean.js "$U/Contents/Resources/app.asar" --no-ai "$U/Contents/Resources"
           ls -la dist/*.dmg
       - name: Central Pedal Control (Mac)
         run: |

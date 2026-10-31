@@ -665,12 +665,14 @@
   async function cueDelete(id) {
     try { var r = await fetch(MEDIA + "/cues/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }), j = await r.json(); cueCustom = j.custom || []; delete cueBuffers[id]; renderCueDialog(); if (song()) pushCues(song()); } catch (_) { }
   }
+  var noVoice = {};
   async function cueBuffer(id) {
     if (cueBuffers[id]) return cueBuffers[id];
-    if (!driverOn() && !cueListLoaded) return null;
+    if (noVoice[id] || (!driverOn() && !cueListLoaded)) return null;
     var url = id.indexOf("say:") === 0 ? MEDIA + "/tts?text=" + encodeURIComponent(id.slice(4)) : MEDIA + "/cues/" + id + ".wav";
     try {
       var r = await fetch(url, { cache: cueCustom.indexOf(id) >= 0 ? "no-cache" : "default" }); if (!r.ok) return null;
+      if (r.status === 204) { noVoice[id] = true; return null; }   // (the Pi has no speech engine for this word: don't ask again)
       var buf = await engine.ctx.decodeAudioData(await r.arrayBuffer()), m = mono(buf), peak = 0;
       for (var i = 0; i < m.length; i++) if (Math.abs(m[i]) > peak) peak = Math.abs(m[i]);
       if (peak > 0) for (var k = 0; k < m.length; k++) m[k] *= .8 / peak;

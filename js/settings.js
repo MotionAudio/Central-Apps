@@ -46,7 +46,9 @@
   var BUSES = [["tracks", "Tracks", "the song's tracks, mixed"], ["pad", "Pads", "pads + textures + audio input"], ["click", "Click + cue voice", "metronome and spoken cues (in-ears)"], ["instrument", "Instrument", "guitar / keys (native chain on the Pi)"]];
   function channelNames() {
     var st = F.systemStatus && F.systemStatus(), list = st && st.audio && st.audio.channels;
-    var n = Math.max(engine.ctx ? (engine.ctx.destination.maxChannelCount || 2) : 2, list ? list.length : 0, 4);
+    // the Central Pedal lists its real outputs (1-2 the headphone jack, 3-4 the DAC board when one is fitted, a USB
+    // interface from 5): only those are offered. Elsewhere, this device's channels (at least 4 to plan for the pedal).
+    var n = list && list.length ? list.length : Math.max(engine.ctx ? (engine.ctx.destination.maxChannelCount || 2) : 2, 4);
     var out = []; for (var i = 1; i <= n; i++) out.push(list && list[i - 1] ? i + " · " + list[i - 1] : "Output " + i);
     return out;
   }
@@ -99,7 +101,7 @@
           "</select>" + (shared.length ? '<br><small class="rt-shared">mixed with ' + esc(shared.join(" and ")) + "</small>" : "") + "</td><td>" + esc(now) + "</td></tr>";
       }).join("") + looperRow(r, opts, n, live, avail) + "</tbody></table>" +
       '<p class="muted">' + (avail <= 2 ? (onPi() ? "Right now this Central Pedal only has its headphone jack (outputs 1–2), so everything plays there. " : "This device has 2 outputs, so everything plays on 1–2. ") + "Anything set to an output that isn't there is played on 1–2 instead. With a DAC board, 3–4 are its outputs; a USB audio interface adds 5 and up." : "1–2 are the headphone jack (left, right) and 3–4 the DAC board. A USB audio interface adds its outputs from 5 up as soon as it's plugged in. Parts sent to the same output are mixed together, and anything set to an output that isn't there plays on 1–2.") + "</p>" +
-      (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- changes after a restart; without the board, untick this so 3–4 aren't offered</small></label>" : "");
+      (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- a DAC board can't be found by itself; leave this off when there's none, so nothing is sent to it</small></label>" : "");
   }
   // the looper (LOOPER tab): on the instrument's output, or one of its own
   function looperRow(r, opts, n, live, avail) {
@@ -125,19 +127,31 @@
     applyRouting();
   }
   document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("[data-rtpreset]"); if (b) onRouting({ target: b }); });
-  document.addEventListener("change", function (e) {   // the DAC board (outputs 3-4): its overlay on / off, after a restart
+  document.addEventListener("change", function (e) {   // the DAC board (outputs 3-4): the outputs are made again at once
     var el = e.target; if (!el || !el.hasAttribute || !el.hasAttribute("data-rtdac")) return;
     send({ type: "system", action: "dac", value: el.checked ? "on" : "off" });
-    PP.setStatus(el.checked ? "DAC board on: outputs 3–4 after the next restart." : "DAC board off: after the next restart everything plays on the headphone jack (1–2).");
+    PP.setStatus(el.checked ? "DAC board on - setting up outputs 3–4 now…" : "DAC board off - everything goes to the headphone jack (1–2) now…");
   });
+  F.on("audioReapplied", function (m) { PP.setStatus(m.ok ? "Outputs ready." : "Couldn't set up the outputs: " + (m.message || "")); renderRouting(); });
 
-  // a USB audio interface plugged in (or out) while the pedal is on: its outputs need the screens restarted
+  // a USB audio interface plugged in (or out) while the pedal is on: the outputs are made again by themselves - at once
+  // when nothing plays, else as soon as the music stops (the sound engine starts again with the new outputs)
+  var devWait = null;
+  function playingNow() { var T = window.PPTracks; return !!((T && T.isPlaying && T.isPlaying()) || (engine.voices && engine.voices().length)); }
+  function reapplyNow() { if (devWait) { clearInterval(devWait); devWait = null; } PP.setStatus("Setting up the outputs…"); send({ type: "system", action: "reapplyAudio" }); }
   F.on("audioDevicesChanged", function (m) {
     var bar = document.getElementById("audioDevBar");
     if (m.settled || !m.message) { if (bar) bar.remove(); return; }
+    if (!connected() || !onPi()) return;
+    if (!playingNow()) { if (bar) bar.remove(); reapplyNow(); return; }
     if (!bar) { bar = document.createElement("div"); bar.id = "audioDevBar"; bar.className = "audio-dev-bar"; document.body.appendChild(bar); }
-    bar.innerHTML = "<span>" + esc(m.message) + '</span><button class="primary" data-adb="restart">Restart the screens</button><button data-adb="later">Later</button>';
-    bar.onclick = function (e) { var b = e.target.closest("[data-adb]"); if (!b) return; if (b.dataset.adb === "restart") { if (window.PPTracks && window.PPTracks.isPlaying && window.PPTracks.isPlaying() && !confirm("Something is playing. Restart the screens now?")) return; PP.persistNow(); send({ type: "system", action: "restartSession" }); } bar.remove(); };
+    bar.innerHTML = "<span>" + esc(m.message.replace(/restart the screens to use (its|them)[^.]*\.?/i, "it's used as soon as the music stops.")) + '</span><button class="primary" data-adb="now">Use it now</button><button data-adb="later">Later</button>';
+    bar.onclick = function (e) { var b = e.target.closest("[data-adb]"); if (!b) return; if (b.dataset.adb === "now") reapplyNow(); else if (devWait) { clearInterval(devWait); devWait = null; } bar.remove(); };
+    if (!devWait) devWait = setInterval(function () { if (!playingNow()) { var b = document.getElementById("audioDevBar"); if (b) b.remove(); reapplyNow(); } }, 1500);
+  });
+  F.on("audioReapplied", function (m) {   // the sound engine starts again on the new outputs (its channel count is fixed when it starts)
+    if (!m.ok || !m.reload || playingNow()) return;
+    PP.persistNow(); setTimeout(function () { location.reload(); }, 300);
   });
 
   // the small touch screen's Settings: step a bus through Off, every output, every stereo pair
@@ -150,12 +164,25 @@
   function routingSummary() { var r = project().routing; return { mode: presetOf(r), buses: BUSES.map(function (b) { var x = r.buses[b[0]] || {}; return { id: b[0], name: b[1], ch: x.ch || 0, st: !!x.st, out: busOut(x), shared: sharing(r, b[0]) }; }) }; }
 
   // ------------------------------------------------------------- sub-navigation
-  var GROUPS = [["all", "All"], ["look", "Appearance"], ["setups", "Saved setups"], ["audio", "Audio"], ["midi", "MIDI & tempo"], ["screens", "Screens"], ["network", "Wi-Fi & devices"], ["system", "System"]];
-  var group = "all";
+  // Settings is one group at a time (10.0.1): a list down the left, the group's cards on the right in tidy columns. (The
+  // old "All" page put every card on one wall with big gaps and small text.) Each card's data-st says its group.
+  var GROUPS = [["audio", "Sound", ["audio"]], ["look", "Appearance", ["look"]], ["setups", "Saved setups", ["setups"]], ["screens", "Screens & touch", ["screens"]],
+    ["midi", "MIDI, tempo & Stream Deck", ["midi"]], ["network", "Wi-Fi & devices", ["network"]], ["packages", "Packages & key", ["packages", "license", "libraries"]],
+    ["software", "Updates & backup", ["software"]], ["system", "System", ["system"]]];
+  var group = "audio";
+  try { var g0 = localStorage.getItem("pad-pedal-st-group"); if (g0 && GROUPS.some(function (g) { return g[0] === g0; })) group = g0; } catch (_) { }
+  function groupOf(st) { var hit = GROUPS.filter(function (g) { return g[2].indexOf(st) >= 0; })[0]; return hit ? hit[0] : "system"; }
   function renderNav() {
     var nav = $("#stNav"); if (!nav) return;
-    nav.innerHTML = GROUPS.map(function (g) { return '<button class="st-chip' + (group === g[0] ? " on" : "") + '" data-st-group="' + g[0] + '">' + g[1] + "</button>"; }).join("");
-    document.querySelectorAll("#systemDialog > section, #sysExtra > section").forEach(function (sec) { sec.classList.toggle("hidden", group !== "all" && sec.dataset.st !== group); });
+    var cards = document.querySelectorAll("#systemDialog > section, #sysExtra > section"), has = {};
+    cards.forEach(function (sec) { var g = groupOf(sec.dataset.st || ""); has[g] = true; sec.classList.toggle("hidden", g !== group); });
+    if (!has[group] && cards.length) { group = "audio"; cards.forEach(function (sec) { sec.classList.toggle("hidden", groupOf(sec.dataset.st || "") !== group); }); }
+    // a group with a wide card (the routing table, updates…): every card full width, one under the other - a wide card
+    // in the middle of two columns leaves an empty half beside the card before it
+    var grid = $("#systemDialog"), wide = false;
+    cards.forEach(function (sec) { if (!sec.classList.contains("hidden") && sec.classList.contains("wide")) wide = true; });
+    if (grid) grid.classList.toggle("one-col", wide);
+    nav.innerHTML = GROUPS.filter(function (g) { return has[g[0]] || !cards.length; }).map(function (g) { return '<button class="st-chip' + (group === g[0] ? " on" : "") + '" data-st-group="' + g[0] + '">' + g[1] + "</button>"; }).join("");
   }
 
   // ------------------------------------------------------------- backup / restore / software update (USB stick)
@@ -226,7 +253,7 @@
         PP.applyTheme(); PP.persistSoon(); renderPresets(); if (window.PPColors) { window.PPColors.render(); window.PPColors.apply(); }
       }
       else if (b.dataset.rtTest) engine.testBus(b.dataset.rtTest);
-      else if (b.dataset.stGroup) { group = b.dataset.stGroup; renderNav(); }
+      else if (b.dataset.stGroup) { group = b.dataset.stGroup; try { localStorage.setItem("pad-pedal-st-group", group); } catch (_) { } renderNav(); var t = $("#tabSettings"); if (t && t.scrollIntoView) t.scrollTop = 0; window.scrollTo(0, 0); }
       else if (b.id === "audioApply") { PP.persistNow(); PP.setStatus("Restarting the audio engine…"); setTimeout(function () { location.reload(); }, 150); }
     });
     root.addEventListener("change", function (e) {
@@ -241,5 +268,12 @@
   }
   wire(); applyScale();
   F.on("update", function (m) { if (m.state === "failed") PP.setStatus("Update failed: " + (m.message || "")); });
-  window.PPSettings = { stepBus: stepBus, routingSummary: routingSummary, render: render, applyScale: applyScale, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
+  function showGroup(g) {   // open Settings at a group (a card's data-st works too: "network", "libraries"…)
+    var hit = GROUPS.filter(function (x) { return x[0] === g; })[0] || GROUPS.filter(function (x) { return x[2].indexOf(g) >= 0; })[0];
+    if (!hit) return false;
+    group = hit[0]; try { localStorage.setItem("pad-pedal-st-group", group); } catch (_) { }
+    if (window.PPShell && window.PPShell.currentTab && window.PPShell.currentTab() !== "settings") window.PPShell.showTab("settings");
+    renderNav(); return true;
+  }
+  window.PPSettings = { showGroup: showGroup, stepBus: stepBus, routingSummary: routingSummary, render: render, applyScale: applyScale, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
 })();

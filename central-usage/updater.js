@@ -100,7 +100,7 @@ class Updater {
   status() {
     const lt = this.latest || {};
     return { current: this.current, repo: this.cfg.repo, auto: this.cfg.auto, autoInstall: this.cfg.autoInstall !== false, lastCheck: this.cfg.lastCheck, latest: lt.version || null, notes: (lt.notes || "").slice(0, 2000),
-      available: !!(lt.version && newer(lt.version, this.current) && this.asset()), error: this.error, busy: this.busy, progress: this.progress, kind: this.kind(),
+      available: !!(lt.version && newer(lt.version, this.current) && this.asset()), error: this.error, busy: this.busy, progress: this.progress, kind: this.kind(), phase: this.phase || null, phaseText: this.phase ? this.phaseText || "" : "",
       beyond: this.beyond || null, limitText: this.cfg.limit == null ? "" : (this.cfg.limitText || fmtTenths(this.cfg.limit)) };
   }
   // once a day; after a failed look (no internet yet) again in 10 minutes
@@ -160,15 +160,72 @@ class Updater {
       }
       const pk = await new Promise((r) => execFile("sh", ["-c", "command -v pkexec"], (err, out) => r(!err && out.trim())));
       if (pk) {
-        await new Promise((resolve, reject) => { const p = spawn(pk, ["apt-get", "install", "-y", "--allow-downgrades", file], { stdio: "ignore" }); p.on("exit", (code) => code === 0 ? resolve() : reject(new Error(code === 126 || code === 127 ? "the password prompt was closed" : "apt-get stopped with code " + code))); p.on("error", reject); });
+        await this.installDeb(pk, file, onProgress);
         this.relaunchExec = debExec(process.execPath);
         return "restart";
       }
       spawn("xdg-open", [file], { detached: true, stdio: "ignore" }).unref();
       return "opened";
-    } finally { this.busy = false; }
+    } finally { this.busy = false; this.phase = null; }
   }
 }
+
+// Linux .deb, installed with the system's password prompt (one prompt for all of it). Run under pkexec there is no
+// terminal, so everything is told not to ask anything (noninteractive, keep the existing config files, assume yes).
+// apt-get waits up to 5 minutes for another software update (unattended-upgrades) to finish; if apt-get still fails,
+// dpkg installs the file and apt-get fills in what it needs. The words apt-get and dpkg printed are kept, so a failure
+// says why (10.0.1: before, only "apt-get stopped with code 100"). If it can't be installed at all, the .deb opens in
+// the software installer.
+const DEB_SCRIPT = [
+  'f="$1"; export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a APT_LISTCHANGES_FRONTEND=none',
+  'O="-o DPkg::Lock::Timeout=300 -o APT::Get::Assume-Yes=true -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"',
+  'pkg="$(dpkg-deb -f "$f" Package)"; want="$(dpkg-deb -f "$f" Version)"',
+  'have() { [ "$(dpkg-query -W -f=\'${Version}\' "$pkg" 2>/dev/null)" = "$want" ] && dpkg-query -W -f=\'${Status}\' "$pkg" 2>/dev/null | grep -q "install ok installed"; }',
+  'dpkg --configure -a --force-confdef --force-confold >/dev/null 2>&1 || true',   // (an update cut off earlier blocks every install until this runs)
+  'apt-get install -y --allow-downgrades --no-install-recommends $O "$f" </dev/null && have && exit 0',
+  'echo "@@ apt-get could not install it - trying dpkg"',
+  'dpkg -i --force-confdef --force-confold "$f" </dev/null; apt-get install -f -y --no-install-recommends $O </dev/null',
+  'have && exit 0',
+  'exit 3'
+].join("\n");
+function debReason(log) {
+  const lines = String(log || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const find = (re) => lines.filter((l) => re.test(l)).pop();
+  let l;
+  if ((l = find(/Could not get lock|held by process|Unable to acquire the dpkg frontend lock/))) return "another software update was still running on this computer (" + l.replace(/^E:\s*/, "").slice(0, 160) + "). Try again in a few minutes.";
+  if ((l = find(/trying to overwrite/))) return "another program already has one of its files: " + l.replace(/^dpkg:\s*/, "").slice(0, 200);
+  if (find(/Depends:|but it is not installable|but it is not going to be installed|nmet dependencies/)) {
+    const dep = find(/Depends:/); return "this computer is missing something it needs" + (dep ? ": " + dep.replace(/\s+/g, " ").slice(0, 200) : "") + ". Open Software Updater, install all updates, then try again.";
+  }
+  if ((l = find(/NO_PUBKEY|does not have a Release file|is not signed|Failed to fetch|Release file .* is not valid/))) return "one of this computer's software sources is broken (" + l.replace(/^[EW]:\s*/, "").slice(0, 160) + "). Turn it off in Software & Updates → Other Software, then try again.";
+  if (find(/No space left on device|not enough free space/i)) return "the disk is full - make some room, then try again.";
+  if ((l = find(/^E:|^dpkg: error|^dpkg: dependency problems/))) return l.replace(/^E:\s*/, "").slice(0, 220);
+  return "";
+}
+Updater.debReason = debReason;
+Updater.DEB_SCRIPT = DEB_SCRIPT;
+Updater.prototype.installDeb = async function (pk, file, onProgress) {
+  try { fs.chmodSync(file, 0o644); } catch (_) { }   // (apt reads a local .deb as the _apt user: it must be readable)
+  this.phase = "installing"; this.phaseText = "Installing…"; if (onProgress) onProgress(this.progress);
+  let log = "";
+  const code = await new Promise((resolve, reject) => {
+    const p = spawn(pk, ["sh", "-c", DEB_SCRIPT, "sh", file], { stdio: ["ignore", "pipe", "pipe"] });
+    const take = (c) => {
+      const t = String(c); log = (log + t).slice(-64000);
+      const waiting = /Waiting for cache lock|Could not get lock|held by process/.test(t);
+      if (waiting && this.phase !== "waiting") { this.phase = "waiting"; this.phaseText = "Waiting for another software update on this computer to finish…"; if (onProgress) onProgress(this.progress); }
+      else if (!waiting && this.phase === "waiting" && /Unpacking|Setting up|Preparing to unpack/.test(t)) { this.phase = "installing"; this.phaseText = "Installing…"; if (onProgress) onProgress(this.progress); }
+    };
+    p.stdout.on("data", take); p.stderr.on("data", take);
+    p.on("exit", resolve); p.on("error", reject);
+  });
+  this.lastLog = log;
+  if (code === 0) return;
+  if (code === 126 || code === 127) throw new Error("the password prompt was closed - nothing was changed");
+  const why = debReason(log) || "the system's installer stopped (code " + code + ")";
+  try { spawn("xdg-open", [file], { detached: true, stdio: "ignore" }).unref(); } catch (_) { }
+  throw new Error(why.replace(/[.!]?$/, ".") + " The new version is open in the software installer too - press Install there.");
+};
 
 // Linux .deb: the app's program after an update - the same file, or the new name in the same folder (Central Control's
 // program is central-control since 9.3.1; it was central-usage)

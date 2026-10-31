@@ -93,6 +93,7 @@
   .out { display:grid; grid-template-columns:30% 8vh 1fr 8vh; gap:1vh; align-items:center; } .out .nm { font-size:3.6vh; } .out .val { border:1px solid var(--line); border-radius:1.4vh; background:var(--bar); height:6.4vh; display:grid; place-content:center; font-size:3.4vh; white-space:nowrap; overflow:hidden; } .out .btn { height:6.4vh; font-size:4vh; border-radius:1.4vh; }
   .info { display:grid; grid-template-columns:auto 1fr; gap:1.4vh 4vh; font-size:3.8vh; align-content:start; } .info span { color:var(--muted); }
   @media (max-aspect-ratio: 1/1) { .bar .stat b { font-size:min(6.4vh, 8vw); } .padsgrid { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1.4fr) minmax(0,1fr); } .tabs button { font-size:min(3.8vh, 4vw); } }
+  .btn.mirrored, [data-act].mirrored { outline: 3px solid var(--accent, #3ddc97); outline-offset: -3px; box-shadow: inset 0 0 0 5px rgba(255, 244, 214, .5); }
 </style>
 </head>
 <body>
@@ -265,9 +266,34 @@
       else if (tab === "looper") { var lp = (d.mini || {}).looper; html = !lp ? chips("looper") + '<div class="empty">The looper isn\'t ready yet</div>' : lp.on === false ? chips("looper") + '<div class="empty">The looper is off (LOOPER tab in the app)</div>' : PAGES["looper_" + sub](d, lp); }
       else html = PAGES[tab + "_" + sub](d, ins);
     }
-    var body = $("#body"); body.classList.toggle("nochips", tab === "pads"); body.innerHTML = html;
+    var body = $("#body"); body.classList.toggle("nochips", tab === "pads"); body.innerHTML = html; relight();
   }
   C.on(function (st) { if (st.display) { last = st.display; if (!dragging) render(); } });
+  // (10.0.1) On one of the pedal's own HDMI screens ("Copy of this screen"), this page follows a mouse click on the
+  // app: the same tab, the matching button lit for a moment. A phone or tablet showing this page keeps its own tab.
+  var onPedal = /^(127\.0\.0\.1|localhost|::1|\[::1\])$/.test(location.hostname), seenView = 0, touchedAt = 0;
+  document.addEventListener("pointerdown", function () { touchedAt = Date.now(); }, true);
+  function sameArgs(el, args) { var have = {}; try { have = JSON.parse(el.dataset.args || "{}"); } catch (_) { } return Object.keys(args || {}).every(function (k) { return have[k] === args[k]; }); }
+  function findBtn(p) { return [].slice.call(document.querySelectorAll("#body [data-act]")).filter(function (el) { return el.dataset.act === p.name && sameArgs(el, p.args); })[0]; }
+  function follow(v) {
+    if (!onPedal || !v || !v.at || v.at === seenView || Date.now() - touchedAt < 1500) return;
+    seenView = v.at;
+    if (!TABS.some(function (t) { return t[0] === v.tab; })) return;
+    ui.tab = v.tab;
+    if (v.sub && SUBS[v.tab] && SUBS[v.tab].some(function (x) { return x[0] === v.sub; })) ui.sub[v.tab] = v.sub;
+    render();
+    if (!v.press || !v.press.name) return;
+    var el = findBtn(v.press);
+    if (!el && SUBS[v.tab]) {   // on another page of the tab: find the page that has it
+      var was = ui.sub[v.tab];
+      for (var i = 0; i < SUBS[v.tab].length && !el; i++) { ui.sub[v.tab] = SUBS[v.tab][i][0]; render(); el = findBtn(v.press); }
+      if (!el) { ui.sub[v.tab] = was; render(); }
+    }
+    if (el) { lit = { p: v.press, until: Date.now() + 450 }; relight(); setTimeout(function () { lit = null; var o = document.querySelector(".mirrored"); if (o) o.classList.remove("mirrored"); }, 460); }
+  }
+  var lit = null;   // (kept lit through redraws: the playing state redraws the page several times a second)
+  function relight() { if (!lit || Date.now() > lit.until) return; var el = findBtn(lit.p); if (el) el.classList.add("mirrored"); }
+  C.on(function (st) { if (st.miniView) follow(st.miniView); });
   // the pedal's own info (version, addresses, what each HDMI port shows) for the Settings tab
   function info() { fetch(C.api("/info"), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { C.state.info = j; if (ui.tab === "settings" && !dragging) render(); }).catch(function () { }); }
   info(); setInterval(info, 15000);

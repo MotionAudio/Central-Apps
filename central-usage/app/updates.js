@@ -17,7 +17,7 @@
     }
     $("#updInfo").textContent = "Central Control " + (st.current || "") + (st.lastCheck ? " · last checked " + new Date(st.lastCheck * 1000).toLocaleString() : "") + (st.kind === "appimage" ? " · AppImage" : st.kind === "deb" ? " · installed package" : "");
     if (document.activeElement !== $("#updRepo")) $("#updRepo").value = st.repo || ""; $("#updAuto").checked = st.auto !== false; if ($("#updAutoInstall")) $("#updAutoInstall").checked = st.autoInstall !== false;
-    $("#updState").textContent = st.busy ? "Downloading… " + Math.round((st.progress || 0) * 100) + "%" : st.error || (st.available ? "Version " + st.latest + " is ready." + (st.notes ? " " + st.notes.split("\n")[0].slice(0, 200) : "") : st.latest ? "Up to date." : "");
+    $("#updState").textContent = st.busy ? (st.phaseText || "Downloading… " + Math.round((st.progress || 0) * 100) + "%") : st.error || (st.available ? "Version " + st.latest + " is ready." + (st.notes ? " " + st.notes.split("\n")[0].slice(0, 200) : "") : st.latest ? "Up to date." : "");
     if (st.beyond && !st.busy && !st.error) $("#updState").textContent = (st.available ? "Version " + st.latest + " is ready. " : "") + "Version " + st.beyond + " is out. This key gets updates through " + (st.limitText || "its version") + "; this version keeps working. Renew the key ($20) on the website for ten more releases.";
     renewNote();
     $("#updInstall").hidden = !st.available; $("#updInstall").disabled = !!st.busy;

@@ -60,10 +60,12 @@ def t_waits_for_the_jack():
         return seq[i]
     old_s, old_c, old_sleep = cfgmod.pw_sinks, cfgmod.asound_cards, cfgmod.time.sleep
     cfgmod.pw_sinks, cfgmod.asound_cards, cfgmod.time.sleep = fake_sinks, (lambda: CARDS), (lambda s: None)
+    os.environ["CC_AUDIO_NO_OWN"] = "1"   # (the old way: every card from WirePlumber)
     try:
         sinks = cfgmod.wait_for_sinks({}, {"hdmi": False}, timeout=5)
     finally:
         cfgmod.pw_sinks, cfgmod.asound_cards, cfgmod.time.sleep = old_s, old_c, old_sleep
+        os.environ.pop("CC_AUDIO_NO_OWN", None)
     planned, pos = cfgmod.plan(sinks, {"hdmi": False})
     assert [p[0] for p in planned] == ["jack", "i2s"], planned
 
@@ -116,6 +118,50 @@ def t_forget_targets():
     assert cfgmod.forget_stream_targets(home) is False   # (nothing left to change: no restart)
 
 
+def _own(cards, cfg):
+    old = cfgmod.asound_cards
+    cfgmod.asound_cards = lambda: cards
+    try:
+        return cfgmod.own_cards(cfg)
+    finally:
+        cfgmod.asound_cards = old
+
+
+def t_dac_listed_first():
+    # 10.0.1: the DAC's card listed before the jack (and by WirePlumber with odd names): still jack 1-2, DAC 3-4
+    cards = [(0, "sndrpihifiberry"), (1, "Headphones"), (2, "vc4hdmi0"), (3, "vc4hdmi1")]
+    own = _own(cards, {"dac": True})
+    assert [o[0] for o in own] == ["jack", "i2s"], own
+    sinks = [(o[1], o[2], 2, o[3]) for o in own][::-1] + [HDMI0]
+    planned, pos = cfgmod.plan(sinks, {"hdmi": False, "dac": True})
+    names = cfgmod.channel_names(planned, pos)
+    assert names == ["Headphone jack L", "Headphone jack R", "DAC board L", "DAC board R"], names
+    text = cfgmod.config_text(planned, pos, own)
+    assert 'node.name = "padpedal_jack"' in text and 'api.alsa.path = "hw:CARD=Headphones,DEV=0"' in text and 'hw:CARD=sndrpihifiberry,DEV=0' in text, text
+    assert text.index("padpedal_jack") < text.index("padpedal_dac")
+    wp = cfgmod.wp_conf(own)
+    assert "device.disabled = true" in wp and "Headphones" in wp and "sndrpihifiberry" in wp, wp
+
+
+def t_no_dac():
+    # "A DAC board is fitted" off (the owner's pedal: the overlay was loaded, no board): the DAC is never used, 1-2 = jack
+    cards = [(0, "sndrpihifiberry"), (1, "Headphones"), (2, "vc4hdmi0")]
+    own = _own(cards, {"dac": False})
+    assert [o[0] for o in own] == ["jack"], own
+    planned, pos = cfgmod.plan([DAC, (own[0][1], own[0][2], 2, own[0][3]), HDMI0], {"hdmi": False, "dac": False})
+    assert [p[0] for p in planned] == ["jack"] and pos == ["FL", "FR"], planned
+    assert cfgmod.channel_names(planned, pos) == ["Headphone jack L", "Headphone jack R"]
+    assert "sndrpihifiberry" not in cfgmod.wp_conf(own)   # (WirePlumber keeps the DAC's card - nothing plays on it)
+
+
+def t_no_jack_card():
+    # a Pi with no jack (or it switched off): the DAC is first, nothing breaks
+    own = _own([(0, "sndrpihifiberry"), (1, "vc4hdmi0")], {"dac": True})
+    assert [o[0] for o in own] == ["i2s"], own
+    planned, pos = cfgmod.plan([(o[1], o[2], 2, o[3]) for o in own], {"hdmi": False, "dac": True})
+    assert [p[0] for p in planned] == ["i2s"] and cfgmod.channel_names(planned, pos)[0] == "DAC board L", planned
+
+
 print("Sound set-up (Pi):")
 check("the ALSA card names the jack / HDMI / USB, whatever PipeWire calls the sink (a USB DAC is USB)", t_card_ids)
 check("WirePlumber no longer sends the app to a device it remembers (HDMI): the setting, and the old entry forgotten", t_forget_targets)
@@ -124,5 +170,8 @@ check("jack + DAC board: 4 channels, jack first", t_jack_dac)
 check("waits until every card has its sink (HDMI comes first) - the jack is never left out", t_waits_for_the_jack)
 check("no known card: the output PipeWire has is used, not an empty combined output", t_fallback_card)
 check("instrument: an output that isn't there plays on 1-2", t_fit_channel)
+check("the DAC's card listed before the jack: the jack is still 1-2, the DAC 3-4, both opened straight on ALSA", t_dac_listed_first)
+check("no DAC board (switched off, overlay still loaded): nothing goes to the DAC, the jack is 1-2", t_no_dac)
+check("no headphone jack card: the DAC board is first", t_no_jack_card)
 print("%d passed, %d failed" % (passed, failed))
 sys.exit(1 if failed else 0)

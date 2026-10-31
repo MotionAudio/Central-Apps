@@ -330,7 +330,7 @@
   function bar() { var b = $("#csUpd"); if (!b) { b = document.createElement("div"); b.id = "csUpd"; b.className = "card"; b.style.cssText = "position:fixed;left:1rem;right:1rem;bottom:1rem;z-index:9;max-width:520px;margin:0 auto;box-shadow:0 8px 30px rgba(0,0,0,.25)"; document.body.appendChild(b); } return b; }
   function stopAuto() { if (autoTimer) { clearInterval(autoTimer); autoTimer = null; } var b = $("#csUpd"); if (b) b.remove(); }
   function installNow() {
-    var b = bar(); b.innerHTML = "<b>Installing Central Services " + esc(up.latest || "") + "…</b><span class=\"muted small\">The app restarts by itself.</span>";
+    var b = bar(); b.innerHTML = "<b>Installing Central Services " + esc(up.latest || "") + "…</b><span class=\"muted small\" id=\"csUpdNote\">The app restarts by itself.</span>";
     DESK.install().then(function (r) { if (r && r.ok === false) { b.innerHTML = '<span class="err">Update failed: ' + esc(r.error || "") + '</span><div class="row"><button class="small" data-a="upnot">Close</button></div>'; } });
   }
   function autoStart() {
@@ -344,7 +344,7 @@
     autoTimer = setInterval(function () { autoLeft--; if (autoLeft > 0) return paint(); clearInterval(autoTimer); autoTimer = null; installNow(); }, 1000);
   }
   if (DESK) {
-    DESK.on(function (r) { Object.assign(up, r); autoStart(); if (st.tab === "app") draw(); });
+    DESK.on(function (r) { Object.assign(up, r); var n = $("#csUpdNote"); if (n && r.busy) n.textContent = r.phaseText || (r.progress ? "Downloading… " + Math.round(r.progress * 100) + "%" : "The app restarts by itself."); autoStart(); if (st.tab === "app") draw(); });
     DESK.status().then(function (r) { Object.assign(up, r); autoStart(); });
   }
   window.CentralServices = { state: function () { return st; }, load: load, updates: function () { return up; }, support: function () { st.tab = "support"; draw(); } };

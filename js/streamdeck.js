@@ -17,7 +17,7 @@
     rerender: function () { if (window.PPShell && window.PPShell.currentTab() === "settings") window.PPShell.renderSystemExtras(); },
     changed: function () { if (window.PPActions) window.PPActions.modeChanged(); },
     label: function (e) { if (e.action === "pad") { var pad = PP.project().pads[(e.args && e.args.index) || 0]; return pad ? pad.name : "Pad"; } if (e.action === "playPauseAll") return window.PPTracks && window.PPTracks.isPlaying() ? "Pause" : "Play"; return null; },
-    sectionAttrs: 'data-st="midi"', note: 'Keys are also on the Configure tab ("Stream Deck key …"), next to the footswitches. Page keys: give a key "Stream Deck: next page". The settings travel with Upload (Buttons, knobs and MIDI).'
+    sectionAttrs: 'data-st="midi"', sectionClass: "wide", note: 'Keys are also on the Configure tab ("Stream Deck key …"), next to the footswitches. Page keys: give a key "Stream Deck: next page". The settings travel with Upload (Buttons, knobs and MIDI).'
   } : null);
   if (!H) return;
   var esc = H.esc;
