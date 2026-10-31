@@ -44,9 +44,15 @@ PhPlug *ph_get(const char *slot, const char *format, const char *id, const char 
 void ph_retain(PhPlug *p);
 void ph_release(PhPlug *p);
 void ph_keep_only(const char *const *slots, int n);
+/* (10.1) community plugins (a path inside a library's community-plugins folder) run walled off in their own process
+ * (cm-plugbridge, bridge.h); one that crashes, stops responding, is too heavy or is taken down plays dry from then on
+ * and says so: {"type":"pluginBypassed","uid":slot,"reason":"crashed"|...}. ph_forget_slot: the next ph_get loads it
+ * afresh ("Try again"). */
+int  ph_forget_slot(const char *slot);
 int  ph_is_instrument(PhPlug *p);
 const char *ph_slot(PhPlug *p);
-char *ph_slots_json(void);   /* the running plugins: {slot: {name, vendor, format, instrument, editor (has one), open (is open), latency}} */
+char *ph_slots_json(void);   /* the running plugins: {slot: {name, vendor, format, instrument, editor (has one), open (is open), latency,
+                                (10.1) community: true and bypassed: "crashed" | "hung" | "heavy" | "revoked" | "off" for community plugins}} */
 const char *ph_name(PhPlug *p);
 int  ph_latency(PhPlug *p);
 /* the audio thread: in may be NULL (instruments); out gets the plugin's main stereo output; midi goes to instruments */

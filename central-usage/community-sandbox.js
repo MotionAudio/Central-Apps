@@ -11,19 +11,21 @@
 //   Windows: not walled off yet. The plan is a restricted token at low integrity in a job object (no child processes, no
 //            writes outside its own folder), which needs native code in the plugin host; until then community plugins
 //            stay off on Windows (wrap() says why, and the app doesn't run them).
-// What is NOT done yet (docs/COMMUNITY-PLUGINS.md): the built-in rig (cu-rig) doesn't start its plugin scan or a plugin
-// host through wrap() yet - it hosts plugins in its own process - so installed community plugins are kept, not played.
+// Played live (10.1, docs/COMMUNITY-PLUGINS.md): the rig (cu-rig) never loads a community plugin itself - it builds this
+// same wall in C (native/plughost/fmt_remote.cpp) around a cm-plugbridge process per plugin, with an exception for
+// starting cm-plugbridge itself on macOS, and passes the audio over shared memory. wrap() is the JavaScript version,
+// for tools that start a plugin host of their own.
 "use strict";
 const fs = require("node:fs");
 const path = require("node:path");
 
 const sbString = (s) => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
-function macProfile(pluginDir, tmpDir) {
+function macProfile(pluginDir, tmpDir, exe) {
   return [
     "(version 1)",
     "(deny default)",
     "(deny network*)",
-    "(deny process-exec*)",
+    exe ? "(allow process-exec (literal " + sbString(exe) + "))" : "(deny process-exec*)",   // (only the host itself starts; nothing it starts can)
     "(allow process-fork)",
     "(allow signal (target self))",
     "(allow sysctl-read)",
@@ -52,7 +54,7 @@ function wrap(exe, args, o) {
   if (!pluginDir) throw new Error("no plugin folder");
   if (platform === "darwin") {
     const tmpDir = path.resolve(o.tmpDir || fs.mkdtempSync(path.join(require("node:os").tmpdir(), "cm-plugin-")));
-    return { cmd: "/usr/bin/sandbox-exec", args: ["-p", macProfile(pluginDir, tmpDir), exe].concat(args || []), tmpDir };
+    return { cmd: "/usr/bin/sandbox-exec", args: ["-p", macProfile(pluginDir, tmpDir, path.resolve(exe)), exe].concat(args || []), tmpDir };
   }
   if (platform === "linux") return { cmd: "bwrap", args: linuxArgs(pluginDir, o.runtimeDir === undefined ? process.env.XDG_RUNTIME_DIR : o.runtimeDir).concat(["--", exe], args || []) };
   return { unsupported: "Community plugins can't run walled off on Windows yet, so they stay off here." };

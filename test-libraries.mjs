@@ -191,6 +191,35 @@ try {
     await p4.evaluate((l) => PPInstrument.syncLibraries(l), [v2[0]]);
     b = await B(); assert.ok(!b.some((x) => x.lib === "central-pedals-library") && b.length === 2, JSON.stringify(b));
   });
+  await check("(10.1) a community plugin from an installed library: Add pedal → Community, labelled, sent to the engine; a crash shows the bypassed notice and Try again; a library taken away takes it off the board", async () => {
+    const COMM = { id: "community-9", plan: "plugins", version: "1", community: { item: 9, creator: "Ben Pads", kind: "plugin" }, presets: [], boards: [],
+      plugins: [{ name: "Shimmer Verb", format: "clap", platform: "linux-x64", bundle: "Shimmer.clap", path: "/u/libraries/community-plugins/community-9/Shimmer.clap" }] };
+    const r = await p4.evaluate(async (libs) => {
+      const sent = []; window.addEventListener("message", (e) => { if (e.data && e.data.cu === "inst-out") sent.push(e.data.msg); });
+      const tick = (ms) => new Promise((ok) => setTimeout(ok, ms || 60));
+      PPFeatures.emit({ type: "instrumentStatus", available: true, running: true, engine: "cu-rig", pluginFormats: "clap", pluginSlots: {}, pluginErrors: {}, inputs: [], midiInputs: [], keysCatalog: [] });
+      PPInstrument.syncLibraries(libs); PPInstrument.setKind("electric"); PPInstrument.config().chains.electric = []; PPInstrument.render(); await tick();
+      document.querySelector("#pbAdd").click(); await tick();
+      const tab = document.querySelector('[data-addtab="community"]'); const tabText = tab ? tab.textContent : ""; if (tab) tab.click(); await tick();
+      const item = document.querySelector("[data-addcomm]"); const itemText = item ? item.textContent : ""; if (item) item.click(); await tick();
+      const it = PPInstrument.config().chains.electric[0] || {}, host = PPInstrument.resolvedChain("electric")[0] || {};
+      PPFeatures.emit({ type: "instrumentStatus", available: true, running: true, engine: "cu-rig", pluginFormats: "clap", pluginSlots: { [it.uid]: { name: "Shimmer Verb", community: true, editor: false } }, pluginErrors: {}, inputs: [], midiInputs: [], keysCatalog: [] }); await tick();
+      const svg = (document.querySelector('svg.pedal.community[data-uid="' + it.uid + '"]') || {}).textContent || "";
+      PPFeatures.emit({ type: "pluginBypassed", uid: it.uid, reason: "crashed", name: "Shimmer Verb" }); await tick();
+      const notice = (document.querySelector('[data-bypassed="' + it.uid + '"]') || {}).textContent || "", svg2 = (document.querySelector('svg.pedal[data-uid="' + it.uid + '"]') || {}).textContent || "";
+      const retry = document.querySelector('[data-plugretry="' + it.uid + '"]'); if (retry) retry.click(); await tick();
+      PPInstrument.syncLibraries(libs.filter((l) => l.id !== "community-9")); await tick();
+      return { tabText, itemText, plugin: it.plugin, host, svg, notice, svg2, retried: sent.some((m) => m.action === "pluginRestart" && m.uid === it.uid), after: PPInstrument.config().chains.electric.length };
+    }, LIBS.concat([COMM]));
+    assert.ok(/Community\s*1/.test(r.tabText), r.tabText);
+    assert.ok(/Shimmer Verb/.test(r.itemText) && /Community plugin - made by Ben Pads, checked by Motion Audio/.test(r.itemText), r.itemText);
+    assert.deepEqual([r.plugin.community, r.plugin.creator, r.plugin.path, r.plugin.id], [true, "Ben Pads", COMM.plugins[0].path, ""]);
+    assert.ok(r.host.id === "plug" && r.host.plugin.community === true, "the engine gets it: " + JSON.stringify(r.host));
+    assert.ok(/Community/.test(r.svg) && /by Ben Pads/.test(r.svg) && /ready/.test(r.svg), r.svg);
+    assert.ok(/It crashed, so it’s bypassed/.test(r.notice) && /Try again/.test(r.notice) && /bypassed/.test(r.svg2), r.notice + " | " + r.svg2);
+    assert.ok(r.retried, "Try again asks the engine to load it afresh");
+    assert.equal(r.after, 0, "its library taken away: it comes off the board");
+  });
   await check("no page errors on the Instrument page", async () => { assert.deepEqual(e4, []); });
 } finally {
   await browser.close();

@@ -139,6 +139,22 @@ try:
         community_sandbox.command(os.path.join(root, "nope"), ["jalv"]); ok(False, "a missing folder")
     except ValueError:
         ok(True, "a missing plugin folder: refused")
+
+    print("played live on the Central Pedal (instrument_host.py: the community stage):")
+    import instrument_host  # noqa: E402
+    comm = {"uid": "cp1", "id": "plug", "plugin": {"format": "clap", "id": "x", "path": os.path.join(root, "libraries", "community-plugins", "community-9", "X.clap")}, "on": True, "mix": 1}
+    own = {"uid": "op1", "id": "plug", "plugin": {"format": "clap", "id": "y", "path": "/home/pi/.clap/Y.clap"}, "on": True}
+    pedal = {"uid": "ts", "id": "ts9", "uri": "builtin:none", "on": True, "values": {}}
+    ok([it["uid"] for it in instrument_host.community_items([pedal, comm, own])] == ["cp1"], "only community plugins (inside a library's community-plugins folder) go to the community stage")
+    host = instrument_host.InstrumentHost.__new__(instrument_host.InstrumentHost)
+    host.plugins, host.lv2 = {}, True
+    conf = instrument_host.InstrumentHost.chain_conf(host, "guitar", [comm], 1, 0, None, 0)
+    ok("X.clap" not in conf and "community" not in conf, "a community plugin never loads in the filter-chain (the pedal driver's own process tree)")
+    msg = instrument_host.InstrumentHost._community_chain([dict(comm, mix=3)])
+    ok(msg["action"] == "chain" and msg["items"][0]["uid"] == "cp1" and msg["items"][0]["mix"] == 1.0, "the stage gets the board's community plugins, in order", msg)
+    src = open(os.path.join(HERE, "instrument_host.py"), encoding="utf-8").read()
+    ok("self.sync_community(chain)" in src and 'self.ports_of(comm, "in", objs)' in src, "the stage is linked after the board, before the outputs")
+    ok("bubblewrap" in open(os.path.join(HERE, "setup-pi.sh"), encoding="utf-8").read(), "setup-pi.sh installs bubblewrap (the wall)")
 finally:
     shutil.rmtree(root, ignore_errors=True)
 print("\n" + (str(fails) + " FAILED" if fails else "all passed"))

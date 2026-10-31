@@ -76,7 +76,7 @@ python3 -c "import smbus" 2>/dev/null || python3 -c "import smbus2" 2>/dev/null 
 
 step "Instrument: free guitar pedal / amp plugins (LV2, LADSPA) and the keys engine (FluidSynth)"
 # 600+ plugins: Guitarix, Calf, LSP, x42, Zam, Dragonfly, mda, swh, Invada, TAP, CAPS... ~175 MB
-INSTRUMENT_PKGS="guitarix-lv2 calf-plugins lsp-plugins-lv2 x42-plugins zam-plugins dragonfly-reverb mda-lv2 dpf-plugins-lv2 fomp rubberband-lv2 ardour-lv2-plugins swh-lv2 invada-studio-plugins-lv2 tap-plugins caps wah-plugins rev-plugins fil-plugins abgate eq10q ir.lv2 autotalent zita-at1 fluidsynth fluid-soundfont-gm lilv-utils p7zip-full"
+INSTRUMENT_PKGS="guitarix-lv2 calf-plugins lsp-plugins-lv2 x42-plugins zam-plugins dragonfly-reverb mda-lv2 dpf-plugins-lv2 fomp rubberband-lv2 ardour-lv2-plugins swh-lv2 invada-studio-plugins-lv2 tap-plugins caps wah-plugins rev-plugins fil-plugins abgate eq10q ir.lv2 autotalent zita-at1 fluidsynth fluid-soundfont-gm lilv-utils p7zip-full bubblewrap liblilv-0-0 python3-seccomp"   # (bubblewrap: the wall community plugins run in - docs/COMMUNITY-PLUGINS.md)
 apt-get install -y --no-install-recommends $INSTRUMENT_PKGS >/dev/null 2>&1 && echo "    + $INSTRUMENT_PKGS" || {
   warn "some instrument packages did not install; trying them one by one"
   for pkg in $INSTRUMENT_PKGS; do apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1 && echo "    + $pkg" || echo "    (skipped $pkg)"; done
