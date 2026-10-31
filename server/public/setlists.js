@@ -40,7 +40,7 @@
       const act = inList(t.id) ? `<span class="added">In the setlist</span>`
         : t.owned || sub ? `<button class="btn small" data-sl-add="${esc(t.id)}">Add</button>`
         : `<button class="btn small ghost" data-sl-buy="${esc(t.id)}">Buy ${money(t.price)}</button>`;
-      return `<tr><td><div style="font-weight:600">${esc(t.title)}</div><div class="muted" style="font-size:.85rem">${esc(t.artist)}</div></td><td><span class="kind">${esc(t.kind)}</span></td>
+      return `<tr data-tr="${esc(t.id)}"><td><div style="font-weight:600">${esc(t.title)}</div><div class="muted" style="font-size:.85rem">${esc(t.artist)}</div></td><td><span class="kind">${esc(t.kind)}</span></td>
         <td class="num">${esc(t.key || "—")}</td><td class="num">${t.bpm || "—"}</td><td class="act">${act}</td></tr>`;
     }).join("");
   }

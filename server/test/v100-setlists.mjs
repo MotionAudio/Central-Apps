@@ -122,7 +122,8 @@ try {
     await page.waitForFunction(() => [...document.querySelectorAll(".sl-songs li")].some((l) => /Amazing Grace/.test(l.textContent)), null, { timeout: 8000 });
     r = await j("GET", "/setlists/" + sid, null, lead.tok);
     ok(r.setlist.songs.some((x) => x.trackId === String(t1.id)), "Add puts it in the setlist (the app downloads it from there)", r.setlist.songs);
-    const after = await page.evaluate(() => [...document.querySelectorAll("#slBody tr")].find((r) => /Amazing Grace/.test(r.textContent)).textContent);
+    // (by its id: the hymns the server ships have an "Amazing Grace" of their own)
+    const after = await page.evaluate((id) => document.querySelector('#slBody tr[data-tr="' + id + '"]').textContent, String(t1.id));
     ok(/In the setlist/.test(after), "...and the row says it's in the setlist", after);
     await page.evaluate(() => localStorage.removeItem("ma-token"));
     await page.goto(base + "/#setlist-" + sid); await page.reload();
