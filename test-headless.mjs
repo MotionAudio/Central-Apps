@@ -712,7 +712,8 @@ await check("...a key on the computer's keyboard as a control (its own job wins 
 });
 await check("Settings → Colours: a preset sets every screen colour, track colours change, the 3.5\" screen gets them, and 'Back to our colours' undoes it all", async () => {
   await page.evaluate(() => { window.__mini = []; const b = window.__pedalBridge, o = b.send; window.__miniOrig = o; b.connected = true; b.send = function (m) { if (m && m.type === "miniTheme") window.__mini.push(m); return o ? o.call(this, m) : true; }; PPShell.showTab("settings"); });
-  await page.waitForSelector("#themePresets [data-preset]");
+  await page.click('#stNav [data-st-group="look"]');   // (Settings shows one group at a time)
+  await page.waitForSelector("#themePresets [data-preset]", { state: "visible" });
   await page.click('#themePresets [data-preset="6"]');   // Daylight
   const day = await page.evaluate(() => ({ t: Object.assign({}, PP.project().theme), bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(), field: getComputedStyle(document.documentElement).getPropertyValue("--field").trim() }));
   assert.equal(day.bg.toLowerCase(), "#f2f5f8"); assert.ok(day.t.muted && day.t.accentText && day.t.field, JSON.stringify(day.t));
