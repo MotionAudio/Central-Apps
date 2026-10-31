@@ -451,7 +451,7 @@ module.exports = function services(app, getWin) {
       const bin = aiServer(), model = aiModelFile();
       if (!bin) { ai.error = "llama-server (llama.cpp) is not installed on this computer."; return resolve(false); }
       if (!fs.existsSync(model)) { ai.error = "The model is not downloaded yet."; return resolve(false); }
-      if (!ai.proc) { ai.ready = false; ai.proc = spawn(bin, ["-m", model, "--port", String(ai.port), "--host", "127.0.0.1", "-c", "4096"], { stdio: "ignore" }); ai.proc.on("exit", () => { ai.proc = null; ai.ready = false; }); }
+      if (!ai.proc) { ai.ready = false; ai.proc = spawn(bin, ["-m", model, "--port", String(ai.port), "--host", "127.0.0.1", "-c", "6144"], { stdio: "ignore" }); ai.proc.on("exit", () => { ai.proc = null; ai.ready = false; }); }
       let tries = 0; const t = setInterval(() => { http.get("http://127.0.0.1:" + ai.port + "/health", (res) => { res.resume(); if (res.statusCode === 200) { clearInterval(t); ai.ready = true; resolve(true); } }).on("error", () => { }); if (++tries > 120) { clearInterval(t); ai.error = "The model did not start."; resolve(false); } }, 500);
     });
   }
@@ -460,10 +460,10 @@ module.exports = function services(app, getWin) {
     // (10.0) the answer is held to the steps' own shape (a JSON schema the server turns into a grammar): a small model then
     // can't answer in a shape the lighting engine doesn't read
     const fmt = schema && typeof schema === "object" ? { type: "json_schema", json_schema: { name: "steps", schema } } : { type: "json_object" };
-    const body = JSON.stringify({ messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.2, max_tokens: 1500, response_format: fmt });
+    const body = JSON.stringify({ messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.2, max_tokens: 3000, response_format: fmt });
     return new Promise((resolve) => {
-      const req = http.request({ host: "127.0.0.1", port: ai.port, path: "/v1/chat/completions", method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } }, (res) => { let s = ""; res.on("data", (c) => { s += c; }); res.on("end", () => { try { const j = JSON.parse(s); resolve({ text: j.choices[0].message.content }); } catch (e) { resolve({ error: "bad answer from the model" }); } }); });
-      req.on("error", (e) => resolve({ error: e.message })); req.setTimeout(60000, () => { req.destroy(); resolve({ error: "the model took too long" }); }); req.end(body);
+      const req = http.request({ host: "127.0.0.1", port: ai.port, path: "/v1/chat/completions", method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } }, (res) => { let s = ""; res.on("data", (c) => { s += c; }); res.on("end", () => { try { const j = JSON.parse(s), c = j.choices[0]; if (c.finish_reason === "length") resolve({ error: "the model's answer was too long and got cut off" }); else resolve({ text: c.message.content }); } catch (e) { resolve({ error: "bad answer from the model" }); } }); });
+      req.on("error", (e) => resolve({ error: e.message })); req.setTimeout(120000, () => { req.destroy(); resolve({ error: "the model took too long" }); }); req.end(body);
     });
   });
 
