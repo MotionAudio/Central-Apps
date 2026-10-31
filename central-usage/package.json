@@ -50,6 +50,7 @@
       "hubsync.js",
       "libraries.js",
       "player.js",
+      "studio.js",
       "!**/node_modules/onnxruntime-node/bin/napi-v3/*/*/libonnxruntime_providers_{cuda,tensorrt}.so"
     ],
     "linux": {
@@ -70,22 +71,23 @@
       "maintainer": "Central Control <central-control@localhost>",
       "artifactName": "CentralControl-${version}-${arch}.${ext}",
       "files": [
+        "package.json",
         "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
         "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**"
       ]
     },
     "deb": {
       "depends": [
-        "libgtk-3-0",
+        "libgtk-3-0 | libgtk-3-0t64",
         "libnotify4",
         "libnss3",
         "libxss1",
         "libxtst6",
         "xdg-utils",
-        "libatspi2.0-0",
+        "libatspi2.0-0 | libatspi2.0-0t64",
         "libuuid1",
         "libsecret-1-0",
-        "libasound2"
+        "libasound2 | libasound2t64"
       ],
       "afterInstall": "build/after-install.sh",
       "afterRemove": "build/after-remove.sh",
@@ -125,6 +127,7 @@
         "CFBundleName": "Central Control"
       },
       "files": [
+        "package.json",
         "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**",
         "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**"
       ]
@@ -141,6 +144,7 @@
       "icon": "build/icon.png",
       "artifactName": "CentralControl-${version}-win-x64.${ext}",
       "files": [
+        "package.json",
         "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
         "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**"
       ]
