@@ -1560,7 +1560,14 @@ class LocalServer:
                     return self.send_file(driver.cues.path(p[6:-4] if p.endswith(".wav") else p[6:]), "audio/wav", cache=False)
                 if p == "/tts":
                     wav = driver.cues.tts((query.get("text") or [""])[0])
-                    return self.send_file(wav, "audio/wav", cache=True) if wav else self.send_json(404, {"error": "no speech engine"})
+                    if wav:
+                        return self.send_file(wav, "audio/wav", cache=True)
+                    # no speech engine on this machine (espeak-ng missing): "nothing to play", not an error the page logs
+                    self.send_response(204)
+                    self.cors()
+                    self.send_header("X-No-Speech", "1")
+                    self.end_headers()
+                    return None
                 if p == "/charts":
                     return self.send_json(200, {"charts": driver.charts.listing()})
                 if p.startswith("/charts/"):

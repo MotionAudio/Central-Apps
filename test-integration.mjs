@@ -136,7 +136,7 @@ await check("the PIN picked on the screen is saved on the Central Pedal; devices
   const ok = await fetch("http://127.0.0.1:8080/api/action", { method: "POST", body: JSON.stringify({ name: "none", code }) }); assert.equal(ok.status, 200);
 });
 await check("Settings shows the pairing PIN and can change it", async () => {
-  await T(() => PPShell.showTab("settings")); await page.waitForSelector("#pinChange");
+  await T(() => { PPShell.showTab("settings"); PPSettings.showGroup("network"); }); await page.waitForSelector("#pinChange", { state: "visible" });
   assert.match(await page.textContent("#pinSection"), /4826/);
   await page.click("#pinChange"); await page.waitForSelector("#pinDialog[open]");
   for (const k of ["4", "8", "2", "7"]) await page.click(`#pinDialog [data-pk="${k}"]`);
@@ -1143,7 +1143,7 @@ await check("touch select is a choice for knobs, sliders and the encoder on the 
   assert.ok(await T(() => !document.querySelector('#cfRows [data-input="b1"] select[data-cf="action"] option[value="touchSelect"]')));
 });
 await check("saved setups: save one, change things, bring it back with one tap", async () => {
-  await T(() => { PP.setPerformance("volume", 0.8); PPSetups.save("Sunday"); PP.setPerformance("volume", 0.2); PPActions.mapping().k1 = { action: "tone" }; PPActions.modeChanged(); PPShell.showTab("settings"); });
+  await T(() => { PP.setPerformance("volume", 0.8); PPSetups.save("Sunday"); PP.setPerformance("volume", 0.2); PPActions.mapping().k1 = { action: "tone" }; PPActions.modeChanged(); PPShell.showTab("settings"); PPSettings.showGroup("setups"); });
   await page.waitForSelector("#setupsSection [data-su-row] [data-su='apply']");
   await page.click("#setupsSection [data-su-row] [data-su='apply']");
   await until(() => T(() => Math.abs(PP.project().performance.volume - 0.8) < 0.01 && PPActions.mapping().k1.action === "volume"));

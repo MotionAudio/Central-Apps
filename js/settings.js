@@ -268,5 +268,12 @@
   }
   wire(); applyScale();
   F.on("update", function (m) { if (m.state === "failed") PP.setStatus("Update failed: " + (m.message || "")); });
-  window.PPSettings = { stepBus: stepBus, routingSummary: routingSummary, render: render, applyScale: applyScale, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
+  function showGroup(g) {   // open Settings at a group (a card's data-st works too: "network", "libraries"…)
+    var hit = GROUPS.filter(function (x) { return x[0] === g; })[0] || GROUPS.filter(function (x) { return x[2].indexOf(g) >= 0; })[0];
+    if (!hit) return false;
+    group = hit[0]; try { localStorage.setItem("pad-pedal-st-group", group); } catch (_) { }
+    if (window.PPShell && window.PPShell.currentTab && window.PPShell.currentTab() !== "settings") window.PPShell.showTab("settings");
+    renderNav(); return true;
+  }
+  window.PPSettings = { showGroup: showGroup, stepBus: stepBus, routingSummary: routingSummary, render: render, applyScale: applyScale, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
 })();
