@@ -410,6 +410,15 @@ module.exports = function services(app, getWin) {
     try { return libOut(libs.installFile(r.filePaths[0], sha || null, "file")); } catch (e) { return libErr(e); }
   });
   ipcMain.handle("lib-remove", (_e, id) => { try { libs.remove(String(id || "")); return libOut(null); } catch (e) { return libErr(e); } });
+  // (10.1) community items: the "Allow community plugins" switch (this computer; off by default) and the website's revoke list
+  ipcMain.handle("lib-community", (_e, a) => {
+    a = a || {};
+    try {
+      if ("pluginsAllowed" in a) libs.setPluginsAllowed(a.pluginsAllowed === true);
+      const revoked = "revokeIds" in a || "revokeHashes" in a ? libs.revoke(a.revokeIds || [], a.revokeHashes || []) : [];
+      return { ok: true, pluginsAllowed: libs.pluginsAllowed(), revoked, installed: libs.listing() };
+    } catch (e) { return libErr(e); }
+  });
 
   // ------------------------------------------------------------------ the lights' local AI model
   // (10.0) it comes with Central Control: the model and llama-server are in the app's resources/ai folder (built by

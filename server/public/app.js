@@ -513,8 +513,8 @@ $("#pubForm").addEventListener("submit", async (e) => {
       mix: up[0], stems: item ? [] : up.slice(1).map((s) => ({ ...s, role: guessRole(s.name) })), item: item ? up[up.length - 1] : undefined });
     grade = r.grade.stars; $("#gLabel").textContent = "Quality grade · final"; $("#gStars").innerHTML = starHtml(grade); showChecks(r.grade.checks, "text"); renderTiers(); calc();
     $("#pPrice").value = money(r.track.price);
-    msg.textContent = "Published: " + r.track.title + " · " + grade + "★ · " + money(r.track.price) + (me.payoutsReady ? "" : " · set up payouts to get paid");
-    toast("You're published! Your track is in Central Tracks."); e.target.reset(); $("#pKind").dispatchEvent(new Event("change")); grade = 0; $("#pubBtn").disabled = true; loadTracks(); refreshMe();
+    msg.textContent = (r.waiting ? "Sent for review: " + r.track.title + " · " + grade + "★ for now (the reviewer sets the final stars and price) · we'll email you when it's live" : "Published: " + r.track.title + " · " + grade + "★ · " + money(r.track.price)) + (me.payoutsReady ? "" : " · set up payouts to get paid");
+    toast(r.waiting ? "Sent! A reviewer checks every upload before it goes into Central Tracks." : "You're published! Your track is in Central Tracks.");   // (10.1: when staff hold new uploads for review) e.target.reset(); $("#pKind").dispatchEvent(new Event("change")); grade = 0; $("#pubBtn").disabled = true; loadTracks(); refreshMe();
   } catch (err) { msg.textContent = err.message; $("#pubBtn").disabled = false; }
 });
 $("#payoutBtn").onclick = async () => {
@@ -593,9 +593,10 @@ async function renderAccount(note) {
     <div class="card"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
     <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
+    ${me.reviewer ? `<div class="card wide" id="reviewCard"><h3>Review site · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); renderMyRenewals(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); renderDefaultKeys(); }
+  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); renderMyRenewals(); if (me.reviewer) renderReviewCard(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); renderDefaultKeys(); }
   if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "You're already confirmed." : "Sent! Check your inbox, and your spam folder just in case."); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
@@ -1160,6 +1161,14 @@ async function showInvite(token) {
     catch (err) { $("#ivErr").textContent = err.message; }
   };
 }
+// (10.1) the review site: its own address, only shown here to staff and review admins (never on a public page)
+async function renderReviewCard() {
+  const el = $("#reviewCard"); if (!el) return;
+  try {
+    const r = await api("GET", "/review/link");
+    el.innerHTML = `<h3>Review site · Motion Audio staff</h3><p class="muted" style="margin:0">Listen to, check and grade everything people upload (samples, loops, pads, instruments, boards, plugins and Central Tracks), approve or reject it, and take things down.${me.admin ? " As the main admin you also choose the review admins, the creators' share of each sound plan and the payout settings there." : ""} Keep this address to yourself: it isn't linked anywhere public.</p><div class="row" style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn small" href="${esc(r.url)}">Open the review site</a></div>`;
+  } catch (e) { el.innerHTML = `<h3>Review site · Motion Audio staff</h3><p class="muted" style="margin:0">${esc(e.message)}</p>`; }
+}
 async function renderStaff(qs) {
   const el = $("#staffCard"); if (!el) return;
   let list = []; try { list = (await api("GET", "/admin/keys?q=" + encodeURIComponent(qs || ""))).keys; } catch (e) { el.innerHTML = `<h3>Keys</h3><div class="err">${esc(e.message)}</div>`; return; }
@@ -1181,7 +1190,7 @@ $("#signOut").onclick = () => { setToken(null); me = null; renderAll(); toast("Y
 async function refreshMe() {
   if (!token) { me = null; } else { try { me = await api("GET", "/me"); } catch { me = null; } }
   renderAll();
-  if (me) { let back = null; try { back = sessionStorage.getItem("ma-after-signin"); sessionStorage.removeItem("ma-after-signin"); } catch {} if (back) { history.replaceState(null, "", back); handleHash(); } }   // (signed in to buy a track the apps sent)
+  if (me) { let back = null; try { back = sessionStorage.getItem("ma-after-signin"); sessionStorage.removeItem("ma-after-signin"); } catch {} if (back && /^\/[\w-]+\/$/.test(back)) { location.href = back; return; } if (back) { history.replaceState(null, "", back); handleHash(); } }   // (signed in to buy a track the apps sent; 10.1: or back to Make & sell, the studio or the review site)
 }
 function renderAll() { renderSub(); renderPayout(); renderAccount(); loadTracks(); renderRack(); }
 

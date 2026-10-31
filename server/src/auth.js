@@ -44,4 +44,7 @@ export function requireUser(req, res, next) {
   if (!req.user) return res.status(401).json({ error: "Sign in to Central Tracks" });
   next();
 }
-export function isAdmin(user) { return !!user && config.adminEmails.includes(user.email.toLowerCase()); }
+// staff: ADMIN_EMAILS and the owner (10.1). The built-in owner address only counts once its email is confirmed, so nobody
+// else can sign up with it first and get the staff tools.
+export function isOwner(user) { return !!user && user.email_confirmed !== false && config.ownerEmails.includes(user.email.toLowerCase()); }
+export function isAdmin(user) { return !!user && (config.adminEmails.includes(user.email.toLowerCase()) || isOwner(user)); }

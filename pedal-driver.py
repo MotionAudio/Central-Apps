@@ -1805,6 +1805,19 @@ class LocalServer:
                     except (ValueError, OSError) as error:
                         return self.send_json(400, {"error": str(error)})
                     return self.send_json(404, {"error": "unknown"})
+                if url.path == "/libraries/community":   # (10.1) the "Allow community plugins" switch, and the website's revoke list
+                    if not local_origin_ok(self.headers):
+                        return self.send_json(403, {"error": "only the app can do that"})
+                    payload = self.json_body() or {}
+                    st = library_store(driver)
+                    if not st:
+                        return self.send_json(500, {"error": "sound libraries aren't available here"})
+                    if "pluginsAllowed" in payload:
+                        st.set_plugins_allowed(payload.get("pluginsAllowed") is True)
+                    gone = st.revoke(payload.get("revokeIds") or [], payload.get("revokeHashes") or []) if ("revokeIds" in payload or "revokeHashes" in payload) else []
+                    if gone:
+                        library_installed(driver, None)
+                    return self.send_json(200, {"ok": True, "pluginsAllowed": st.plugins_allowed(), "revoked": gone, "installed": st.listing()})
                 if url.path in ("/libraries/install", "/libraries/remove"):   # a sound library: from the website's list / taken away
                     if not local_origin_ok(self.headers):
                         return self.send_json(403, {"error": "only the app can do that"})
@@ -6977,7 +6990,7 @@ def library_state(driver):
         j = dict(job)
         j.update(st.progress.get(lib_id) or {})
         jobs[lib_id] = j
-    return {"available": True, "installed": st.listing(), "jobs": jobs}
+    return {"available": True, "installed": st.listing(), "jobs": jobs, "pluginsAllowed": st.plugins_allowed()}
 
 
 def library_installed(driver, rec):

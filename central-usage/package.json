@@ -49,6 +49,7 @@
       "center.js",
       "hubsync.js",
       "libraries.js",
+      "community-sandbox.js",
       "player.js",
       "!**/node_modules/onnxruntime-node/bin/napi-v3/*/*/libonnxruntime_providers_{cuda,tensorrt}.so"
     ],

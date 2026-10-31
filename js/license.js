@@ -163,7 +163,7 @@
     return { text: "active · checked " + new Date(p.okAt).toLocaleDateString(), bad: false };
   }
   // Settings → Packages, with Libraries under it (js/libraries.js: the sound libraries of the plans you have)
-  function packagesHtml(cls) { return pkSectionHtml(cls) + (window.PPLibraries && window.PPLibraries.html ? window.PPLibraries.html(cls) : ""); }
+  function packagesHtml(cls) { return pkSectionHtml(cls) + (window.PPLibraries && window.PPLibraries.html ? window.PPLibraries.html(cls) : "") + (window.PPCommunity && window.PPCommunity.html ? window.PPCommunity.html(cls) : ""); }   // (10.1: and Community - js/community.js)
   function pkSectionHtml(cls) {
     var rows = pk.list.map(function (p) {
       var s = pkStatus(p), names = PLAN_IDS.filter(function (id) { return p.plans && p.plans[id]; }).map(function (id) { var t = pkTime(p.plans[id]); return esc(PLAN_NAMES[id]) + (t !== Infinity ? " until " + esc(new Date(t).toLocaleDateString()) : ""); });

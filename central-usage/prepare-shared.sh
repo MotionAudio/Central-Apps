@@ -8,7 +8,7 @@
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 mkdir -p "$HERE/app/shared" "$HERE/app/fonts"
-cp "$ROOT/js/instrument.js" "$ROOT/js/pedals.js" "$ROOT/js/plugin-ports.js" "$ROOT/js/notation.js" "$ROOT/js/parts.js" "$ROOT/js/sheets.js" "$ROOT/js/lyrics-ai.js" "$ROOT/js/license.js" "$ROOT/js/libraries.js" "$ROOT/js/fx-dsp.js" "$ROOT/js/control-surface.js" "$ROOT/js/streamdeck.js" "$ROOT/js/theme.js" "$HERE/app/shared/"
+cp "$ROOT/js/instrument.js" "$ROOT/js/pedals.js" "$ROOT/js/plugin-ports.js" "$ROOT/js/notation.js" "$ROOT/js/parts.js" "$ROOT/js/sheets.js" "$ROOT/js/lyrics-ai.js" "$ROOT/js/license.js" "$ROOT/js/libraries.js" "$ROOT/js/community.js" "$ROOT/js/fx-dsp.js" "$ROOT/js/control-surface.js" "$ROOT/js/streamdeck.js" "$ROOT/js/theme.js" "$HERE/app/shared/"
 cp "$ROOT/css/pad-pedal.css" "$ROOT/css/parts.css" "$HERE/app/shared/"
 cp "$ROOT/instrument_host.py" "$ROOT/instrument-plugins.json" "$HERE/native/"
 [ -f "$HERE/app/fonts/fonts.css" ] || cp "$ROOT/fonts/"* "$HERE/app/fonts/" 2>/dev/null || true
