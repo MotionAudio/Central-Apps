@@ -164,12 +164,25 @@
   function routingSummary() { var r = project().routing; return { mode: presetOf(r), buses: BUSES.map(function (b) { var x = r.buses[b[0]] || {}; return { id: b[0], name: b[1], ch: x.ch || 0, st: !!x.st, out: busOut(x), shared: sharing(r, b[0]) }; }) }; }
 
   // ------------------------------------------------------------- sub-navigation
-  var GROUPS = [["all", "All"], ["look", "Appearance"], ["setups", "Saved setups"], ["audio", "Audio"], ["midi", "MIDI & tempo"], ["screens", "Screens"], ["network", "Wi-Fi & devices"], ["system", "System"]];
-  var group = "all";
+  // Settings is one group at a time (10.0.1): a list down the left, the group's cards on the right in tidy columns. (The
+  // old "All" page put every card on one wall with big gaps and small text.) Each card's data-st says its group.
+  var GROUPS = [["audio", "Sound", ["audio"]], ["look", "Appearance", ["look"]], ["setups", "Saved setups", ["setups"]], ["screens", "Screens & touch", ["screens"]],
+    ["midi", "MIDI, tempo & Stream Deck", ["midi"]], ["network", "Wi-Fi & devices", ["network"]], ["packages", "Packages & key", ["packages", "license", "libraries"]],
+    ["software", "Updates & backup", ["software"]], ["system", "System", ["system"]]];
+  var group = "audio";
+  try { var g0 = localStorage.getItem("pad-pedal-st-group"); if (g0 && GROUPS.some(function (g) { return g[0] === g0; })) group = g0; } catch (_) { }
+  function groupOf(st) { var hit = GROUPS.filter(function (g) { return g[2].indexOf(st) >= 0; })[0]; return hit ? hit[0] : "system"; }
   function renderNav() {
     var nav = $("#stNav"); if (!nav) return;
-    nav.innerHTML = GROUPS.map(function (g) { return '<button class="st-chip' + (group === g[0] ? " on" : "") + '" data-st-group="' + g[0] + '">' + g[1] + "</button>"; }).join("");
-    document.querySelectorAll("#systemDialog > section, #sysExtra > section").forEach(function (sec) { sec.classList.toggle("hidden", group !== "all" && sec.dataset.st !== group); });
+    var cards = document.querySelectorAll("#systemDialog > section, #sysExtra > section"), has = {};
+    cards.forEach(function (sec) { var g = groupOf(sec.dataset.st || ""); has[g] = true; sec.classList.toggle("hidden", g !== group); });
+    if (!has[group] && cards.length) { group = "audio"; cards.forEach(function (sec) { sec.classList.toggle("hidden", groupOf(sec.dataset.st || "") !== group); }); }
+    // a group with a wide card (the routing table, updates…): every card full width, one under the other - a wide card
+    // in the middle of two columns leaves an empty half beside the card before it
+    var grid = $("#systemDialog"), wide = false;
+    cards.forEach(function (sec) { if (!sec.classList.contains("hidden") && sec.classList.contains("wide")) wide = true; });
+    if (grid) grid.classList.toggle("one-col", wide);
+    nav.innerHTML = GROUPS.filter(function (g) { return has[g[0]] || !cards.length; }).map(function (g) { return '<button class="st-chip' + (group === g[0] ? " on" : "") + '" data-st-group="' + g[0] + '">' + g[1] + "</button>"; }).join("");
   }
 
   // ------------------------------------------------------------- backup / restore / software update (USB stick)
@@ -240,7 +253,7 @@
         PP.applyTheme(); PP.persistSoon(); renderPresets(); if (window.PPColors) { window.PPColors.render(); window.PPColors.apply(); }
       }
       else if (b.dataset.rtTest) engine.testBus(b.dataset.rtTest);
-      else if (b.dataset.stGroup) { group = b.dataset.stGroup; renderNav(); }
+      else if (b.dataset.stGroup) { group = b.dataset.stGroup; try { localStorage.setItem("pad-pedal-st-group", group); } catch (_) { } renderNav(); var t = $("#tabSettings"); if (t && t.scrollIntoView) t.scrollTop = 0; window.scrollTo(0, 0); }
       else if (b.id === "audioApply") { PP.persistNow(); PP.setStatus("Restarting the audio engine…"); setTimeout(function () { location.reload(); }, 150); }
     });
     root.addEventListener("change", function (e) {
