@@ -46,7 +46,9 @@
   var BUSES = [["tracks", "Tracks", "the song's tracks, mixed"], ["pad", "Pads", "pads + textures + audio input"], ["click", "Click + cue voice", "metronome and spoken cues (in-ears)"], ["instrument", "Instrument", "guitar / keys (native chain on the Pi)"]];
   function channelNames() {
     var st = F.systemStatus && F.systemStatus(), list = st && st.audio && st.audio.channels;
-    var n = Math.max(engine.ctx ? (engine.ctx.destination.maxChannelCount || 2) : 2, list ? list.length : 0, 4);
+    // the Central Pedal lists its real outputs (1-2 the headphone jack, 3-4 the DAC board when one is fitted, a USB
+    // interface from 5): only those are offered. Elsewhere, this device's channels (at least 4 to plan for the pedal).
+    var n = list && list.length ? list.length : Math.max(engine.ctx ? (engine.ctx.destination.maxChannelCount || 2) : 2, 4);
     var out = []; for (var i = 1; i <= n; i++) out.push(list && list[i - 1] ? i + " · " + list[i - 1] : "Output " + i);
     return out;
   }
@@ -99,7 +101,7 @@
           "</select>" + (shared.length ? '<br><small class="rt-shared">mixed with ' + esc(shared.join(" and ")) + "</small>" : "") + "</td><td>" + esc(now) + "</td></tr>";
       }).join("") + looperRow(r, opts, n, live, avail) + "</tbody></table>" +
       '<p class="muted">' + (avail <= 2 ? (onPi() ? "Right now this Central Pedal only has its headphone jack (outputs 1–2), so everything plays there. " : "This device has 2 outputs, so everything plays on 1–2. ") + "Anything set to an output that isn't there is played on 1–2 instead. With a DAC board, 3–4 are its outputs; a USB audio interface adds 5 and up." : "1–2 are the headphone jack (left, right) and 3–4 the DAC board. A USB audio interface adds its outputs from 5 up as soon as it's plugged in. Parts sent to the same output are mixed together, and anything set to an output that isn't there plays on 1–2.") + "</p>" +
-      (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- changes after a restart; without the board, untick this so 3–4 aren't offered</small></label>" : "");
+      (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- a DAC board can't be found by itself; leave this off when there's none, so nothing is sent to it</small></label>" : "");
   }
   // the looper (LOOPER tab): on the instrument's output, or one of its own
   function looperRow(r, opts, n, live, avail) {
@@ -125,19 +127,31 @@
     applyRouting();
   }
   document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("[data-rtpreset]"); if (b) onRouting({ target: b }); });
-  document.addEventListener("change", function (e) {   // the DAC board (outputs 3-4): its overlay on / off, after a restart
+  document.addEventListener("change", function (e) {   // the DAC board (outputs 3-4): the outputs are made again at once
     var el = e.target; if (!el || !el.hasAttribute || !el.hasAttribute("data-rtdac")) return;
     send({ type: "system", action: "dac", value: el.checked ? "on" : "off" });
-    PP.setStatus(el.checked ? "DAC board on: outputs 3–4 after the next restart." : "DAC board off: after the next restart everything plays on the headphone jack (1–2).");
+    PP.setStatus(el.checked ? "DAC board on - setting up outputs 3–4 now…" : "DAC board off - everything goes to the headphone jack (1–2) now…");
   });
+  F.on("audioReapplied", function (m) { PP.setStatus(m.ok ? "Outputs ready." : "Couldn't set up the outputs: " + (m.message || "")); renderRouting(); });
 
-  // a USB audio interface plugged in (or out) while the pedal is on: its outputs need the screens restarted
+  // a USB audio interface plugged in (or out) while the pedal is on: the outputs are made again by themselves - at once
+  // when nothing plays, else as soon as the music stops (the sound engine starts again with the new outputs)
+  var devWait = null;
+  function playingNow() { var T = window.PPTracks; return !!((T && T.isPlaying && T.isPlaying()) || (engine.voices && engine.voices().length)); }
+  function reapplyNow() { if (devWait) { clearInterval(devWait); devWait = null; } PP.setStatus("Setting up the outputs…"); send({ type: "system", action: "reapplyAudio" }); }
   F.on("audioDevicesChanged", function (m) {
     var bar = document.getElementById("audioDevBar");
     if (m.settled || !m.message) { if (bar) bar.remove(); return; }
+    if (!connected() || !onPi()) return;
+    if (!playingNow()) { if (bar) bar.remove(); reapplyNow(); return; }
     if (!bar) { bar = document.createElement("div"); bar.id = "audioDevBar"; bar.className = "audio-dev-bar"; document.body.appendChild(bar); }
-    bar.innerHTML = "<span>" + esc(m.message) + '</span><button class="primary" data-adb="restart">Restart the screens</button><button data-adb="later">Later</button>';
-    bar.onclick = function (e) { var b = e.target.closest("[data-adb]"); if (!b) return; if (b.dataset.adb === "restart") { if (window.PPTracks && window.PPTracks.isPlaying && window.PPTracks.isPlaying() && !confirm("Something is playing. Restart the screens now?")) return; PP.persistNow(); send({ type: "system", action: "restartSession" }); } bar.remove(); };
+    bar.innerHTML = "<span>" + esc(m.message.replace(/restart the screens to use (its|them)[^.]*\.?/i, "it's used as soon as the music stops.")) + '</span><button class="primary" data-adb="now">Use it now</button><button data-adb="later">Later</button>';
+    bar.onclick = function (e) { var b = e.target.closest("[data-adb]"); if (!b) return; if (b.dataset.adb === "now") reapplyNow(); else if (devWait) { clearInterval(devWait); devWait = null; } bar.remove(); };
+    if (!devWait) devWait = setInterval(function () { if (!playingNow()) { var b = document.getElementById("audioDevBar"); if (b) b.remove(); reapplyNow(); } }, 1500);
+  });
+  F.on("audioReapplied", function (m) {   // the sound engine starts again on the new outputs (its channel count is fixed when it starts)
+    if (!m.ok || !m.reload || playingNow()) return;
+    PP.persistNow(); setTimeout(function () { location.reload(); }, 300);
   });
 
   // the small touch screen's Settings: step a bus through Off, every output, every stereo pair

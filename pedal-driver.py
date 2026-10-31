@@ -729,10 +729,34 @@ def audio_path_check(data_root, fix=True):
         if fix and run(["amixer", "-q", "-c", str(jm["card"]), "sset", jm["control"] or "PCM", "0dB", "unmute"], timeout=5)[0] == 0:
             fixed.append("Turned the headphone jack on, at full level.")
     planned = chans.get("cards")
-    if has_jack and planned is not None and not any((c or {}).get("kind") == "jack" for c in planned):
-        found.append("The headphone jack isn't part of the combined output. Restart the screens to add it.")
+    dac_on = (read_json(os.path.join(data_root, "audio.json"), {}) or {}).get("dac")
+    wrong = has_jack and planned is not None and (not planned or (planned[0] or {}).get("kind") != "jack")
+    if not wrong and dac_on is False and any((c or {}).get("kind") == "i2s" for c in (planned or [])):
+        wrong = True   # (the DAC is switched off but still part of the outputs)
+    if wrong:
+        found.append("The headphone jack wasn't on outputs 1-2 (a DAC board that isn't fitted was there instead)."
+                     if planned and any((c or {}).get("kind") == "i2s" for c in planned) else "The headphone jack wasn't part of the outputs.")
+        if fix:
+            ok, _text = reapply_audio()
+            if ok:
+                fixed.append("Made the outputs again: 1-2 the headphone jack" + (", 3-4 the DAC board" if dac_on else "") + ".")
+                chans = read_json(os.path.join(data_root, "audio-channels.json"), {}) or {}
+                planned = chans.get("cards")
     return {"type": "audioCheck", "cards": cards, "sinks": sinks, "default": default, "appStreams": streams, "channels": chans.get("channels") or [],
             "planned": planned or [], "jack": jm, "found": found, "fixed": fixed, "ok": not found}
+
+
+def reapply_audio(app_root=None):
+    """Make the combined output again now (what happens when the screens start): the outputs in their order - the jack
+    on 1-2, the DAC on 3-4 only when it's fitted, USB from 5. (ok, the script's last lines)"""
+    script = os.path.join(app_root or os.path.dirname(os.path.abspath(__file__)), "pad-pedal-audio-config")
+    if not os.path.exists(script):
+        return False, "pad-pedal-audio-config isn't installed"
+    code, out, err = run([sys.executable, script, "apply"], timeout=90, env=pulse_env())
+    lines = [ln for ln in (out + "\n" + err).splitlines() if ln.strip()]
+    if code == 0:
+        steer_app_audio()
+    return code == 0, "\n".join(lines[-4:])
 
 
 def card_tone(sink, seconds=0.7, freq=660):
@@ -10790,15 +10814,24 @@ class PedalDriver:
                     self.factory.continue_next()   # (during the factory test: back into the test)
                 run_privileged("/usr/sbin/shutdown", "-r", "now")
             elif action == "audio":
-                cfg = {"hdmi": bool(message.get("hdmi")), "usbFirst": bool(message.get("usbFirst"))}
-                write_json(os.path.join(self.config["data_root"], "audio.json"), cfg)
+                path = os.path.join(self.config["data_root"], "audio.json")
+                cfg = dict(read_json(path, {}) or {}, hdmi=bool(message.get("hdmi")), usbFirst=bool(message.get("usbFirst")))   # (keeps "dac")
+                write_json(path, cfg)
                 run_privileged(SYSTEM_SCRIPT, "audio", "hdmi" if cfg["hdmi"] else "nohdmi", "usbfirst" if cfg["usbFirst"] else "jackfirst")
+                message = dict(message, action="reapplyAudio")   # (and the outputs are made again now)
+            if action in ("audio", "reapplyAudio"):   # the outputs made again now (a USB interface came or went, a setting changed)
+                def again():
+                    ok, text = reapply_audio(self.config.get("app_root"))
+                    self.emit({"type": "audioReapplied", "ok": ok, "message": text, "reload": True})
+                    self.emit(self.system_status())
+                threading.Thread(target=again, daemon=True).start()
+                return
             elif action == "audioCheck":   # Settings → Audio → Test sound: where the app's sound goes (and fix what's off)
                 self.emit(audio_path_check(self.config["data_root"], fix=message.get("fix", True) is not False))
                 return
             elif action == "audioCardTest":   # a tone straight on each sound card, one after the other
                 planned = (read_json(os.path.join(self.config["data_root"], "audio-channels.json"), {}) or {}).get("cards") or []
-                sinks = [s[1] for s in pactl_short("sinks") if len(s) > 1 and s[1].startswith("alsa_output")]
+                sinks = [s[1] for s in pactl_short("sinks") if len(s) > 1 and (s[1].startswith("alsa_output") or s[1] in ("padpedal_jack", "padpedal_dac"))]
                 for name in sinks:
                     desc = next((c.get("desc") for c in planned if c.get("name") == name), None) or name
                     self.emit({"type": "audioCardTest", "sink": name, "desc": desc, "busy": True})
@@ -10807,10 +10840,18 @@ class PedalDriver:
                     time.sleep(0.4)
                 self.emit({"type": "audioCardTest", "done": True, "count": len(sinks)})
                 return
-            elif action == "dac" and value in ("on", "off"):   # the DAC board (outputs 3-4): its overlay, after a restart
+            elif action == "dac" and value in ("on", "off"):   # the DAC board (outputs 3-4): it can't be detected - this says so
                 self.config["i2s_dac"] = value == "on"
                 self.save_config()
-                run_privileged(SYSTEM_SCRIPT, "dac", value)
+                path = os.path.join(self.config["data_root"], "audio.json")
+                write_json(path, dict(read_json(path, {}) or {}, dac=value == "on"))   # (the outputs follow at once)
+                run_privileged(SYSTEM_SCRIPT, "dac", value)   # (its overlay, after a restart)
+
+                def again():
+                    ok, text = reapply_audio(self.config.get("app_root"))
+                    self.emit({"type": "audioReapplied", "ok": ok, "message": text})
+                    self.emit(self.system_status())
+                threading.Thread(target=again, daemon=True).start()
             elif action == "phoneSetup":
                 ps = self.phone_setup
                 threading.Thread(target=(ps.stop if value == "off" else lambda: ps.start("asked in the app")), daemon=True).start()

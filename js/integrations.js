@@ -40,22 +40,31 @@
     if ($("#updAuto")) $("#updAuto").checked = up.auto !== false;
     if ($("#updAutoInstall")) $("#updAutoInstall").checked = up.autoInstall !== false;
     var info = $("#updInfo"); if (info) info.textContent = "This Central Pedal: version " + (up.current || "?") + (up.lastCheck ? " · last checked " + new Date(up.lastCheck * 1000).toLocaleString() : "") + ".";
-    var st = $("#updState"); if (st) st.textContent = up.busy ? "Working…" : up.error ? up.error : up.available ? "Version " + up.latest + " is available." + (up.notes ? " " + up.notes.split("\n")[0].slice(0, 160) : "") : up.latest ? "Up to date." : "";
+    var st = $("#updState");
+    if (st) {
+      st.textContent = up.busy ? (up.phaseText ? up.phaseText : up.installing || up.progress ? (up.progress && up.progress < 1 ? "Downloading… " + Math.round(up.progress * 100) + "%" : "Downloading and installing - the app restarts by itself in a minute or two…") : "Looking for a new version…") : up.error ? (DESK ? String(up.error) : plainError(up.error)) : up.available ? "Version " + up.latest + " is available." + (up.notes ? " " + up.notes.split("\n")[0].slice(0, 160) : "") : up.latest ? "Up to date (version " + up.latest + " is the newest)." : "";
+      st.classList.toggle("warn", !!up.error && !up.busy);
+      var again = $("#updAgain");
+      if (up.error && !up.busy) { if (!again) { again = document.createElement("button"); again.id = "updAgain"; again.textContent = "Try again"; st.insertAdjacentElement("afterend", again); } again.classList.remove("hidden"); }
+      else if (again) again.classList.add("hidden");
+    }
     var ib = $("#updInstall"); if (ib) { ib.classList.toggle("hidden", !up.available); ib.disabled = !!up.busy; }
     autoStart();
     askIfNew();
     var b = banner(); b.classList.toggle("hidden", !(up.available && !up.dismissed && !(askEl && askEl.open)));
     b.innerHTML = '<b>Update ' + esc(up.latest || "") + ' is ready</b><span>' + (busyPlaying() ? "Install it after the service (stop the pads and tracks first)." : "Installs in about a minute; your songs and settings stay.") + '</span><button class="primary" data-upd="install"' + (up.busy || busyPlaying() ? " disabled" : "") + '>' + (up.busy ? "Installing…" : "Install") + '</button><button data-upd="later">Later</button>';
   }
-  // when the app opens and a newer version is there, it installs by itself after a 10-second notice ("Not now" skips
-  // it) - never while the pads or tracks play (then it asks). Decided once, on the first answer from the update server.
-  var openedAt = Date.now(), autoDecided = false, autoTimer = null, autoLeft = 0;
+  // a newer version installs by itself after a 10-second notice ("Not now" skips that version until the app opens
+  // again): when the app opens, or later when it's found (the pedal looks every few hours) - but only once nothing has
+  // played for a minute, never in the middle of a song.
+  var autoDecided = false, autoFor = null, autoTimer = null, autoLeft = 0, lastPlaying = 0;
   function autoStart() {
+    if (busyPlaying()) lastPlaying = Date.now();
     if (autoDecided || autoTimer || !up.current) return;
     if (/[?&]player=1/.test(location.search) || (!DESK && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) { autoDecided = true; return; }   // only the pedal's own screen (or this computer's app) installs
-    if (!up.latest && !up.available) { if (Date.now() - openedAt > 30 * 60 * 1000) autoDecided = true; return; }   // no answer yet (no internet yet)
-    autoDecided = true;
-    if (!up.available || up.busy || up.auto === false || up.autoInstall === false || up.dismissed || busyPlaying()) return;
+    if (!up.available || up.busy || up.auto === false || up.autoInstall === false || up.dismissed || autoFor === up.latest) return;
+    if (busyPlaying() || Date.now() - lastPlaying < 60000) return;   // (waits for a quiet minute, then it goes)
+    autoFor = up.latest;
     makeAsk(); asked = up.latest; autoLeft = 10;
     function paint() {
       askEl.innerHTML = '<h2>Updating Central Pedal</h2><p><b>Version ' + esc(up.latest || "") + '</b> installs in ' + autoLeft + ' s, then the app restarts (this one is ' + esc(up.current || "?") + ').</p>' +
@@ -69,6 +78,16 @@
       autoLeft--; if (autoLeft > 0) return paint();
       stopAuto(); askEl.close(); install(true);
     }, 1000);
+  }
+  // the update's error in words a person can act on (the full text stays in the pedal's log)
+  function plainError(e) {
+    e = String(e || "");
+    if (/name resolution|getaddrinfo|resolve|no internet|network is unreachable|timed out|timeout|urlopen|connection/i.test(e)) return "Couldn't reach the update server - check the pedal is on the internet (Settings → Wi-Fi), then Try again.";
+    if (/checksum|damaged/i.test(e)) return "The download came in damaged - nothing was changed. Try again.";
+    if (/no central-control-source/i.test(e)) return "That version has no update for the pedal yet. Try again later.";
+    if (/space|no space left/i.test(e)) return "The pedal is out of space for the update. Remove some songs or tracks, then Try again.";
+    if (/sudo|permission|not allowed/i.test(e)) return "The pedal couldn't install the update (" + e.slice(0, 120) + "). Try again; if it keeps failing, use Install from a USB stick.";
+    return "The update didn't install: " + e.slice(0, 200) + " - Try again.";
   }
   function stopAuto() { if (autoTimer) { clearInterval(autoTimer); autoTimer = null; } }
   // "Update available - update now?" Yes installs, No asks again the next time the app opens
@@ -99,13 +118,17 @@
   function install(already) {
     if (busyPlaying()) { PP.setStatus("Stop the pads and tracks first - updates never install while something plays."); return; }
     if (already !== true && !confirm("Install Central Pedal " + up.latest + " now? The app restarts; songs and settings are kept.")) return;
-    up.busy = true; renderUpd(); upSend("install"); PP.setStatus("Downloading the update…");
+    up.busy = true; up.installing = true; up.error = null; renderUpd(); upSend("install"); PP.setStatus("Downloading the update…");
   }
-  F.on("updateStatus", function (m) { if (DESK) return; var dismissed = up.dismissed && up.latest === m.latest; Object.assign(up, m); up.dismissed = dismissed; renderUpd(); });
-  F.on("update", function (m) { if (m.state === "done") PP.setStatus("Update installed - restarting…"); else if (m.state === "failed") PP.setStatus("Update failed: " + (m.message || "")); });
+  F.on("updateStatus", function (m) { if (DESK) return; var dismissed = up.dismissed && up.latest === m.latest; Object.assign(up, m); up.dismissed = dismissed; if (!m.busy) up.installing = false; renderUpd(); });
+  F.on("update", function (m) {
+    if (m.state === "done") PP.setStatus("Update installed - restarting…");
+    else if (m.state === "failed") { up.busy = false; up.installing = false; up.error = m.message || "update failed"; renderUpd(); PP.setStatus(plainError(up.error)); }
+  });
   document.addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;
-    if (b.id === "updCheck") { autoDecided = true; upSend("config", updCfg()); upSend("check"); up.busy = true; renderUpd(); }
+    if (b.id === "updCheck") { up.error = null; upSend("config", updCfg()); upSend("check"); up.busy = true; renderUpd(); }
+    else if (b.id === "updAgain") { up.error = null; if (up.available) install(true); else { upSend("check"); up.busy = true; renderUpd(); } }
     else if (b.id === "updInstall" || b.dataset.upd === "install") install();
     else if (b.dataset.upd === "later") { up.dismissed = true; renderUpd(); }
   });

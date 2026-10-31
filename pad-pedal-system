@@ -165,6 +165,44 @@ tune_root() {  # tune_root <root>  (/ = the running system; /media/root-ro = the
   done
 }
 
+complete_install() {  # files a newer version needs that an older update left out: from the newest downloaded zip
+  local zip
+  zip="$(ls -t "$DATA"/updates/central-control-source-*.zip 2>/dev/null | head -1)"
+  [ -n "$zip" ] || return 0
+  for f in libraries.py; do
+    [ -f "/opt/pad-pedal/$f" ] && continue
+    python3 - "$zip" "$f" "/opt/pad-pedal/$f" <<'PY' || continue
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+name = next((n for n in z.namelist() if n.endswith("/" + sys.argv[2]) and n.count("/") == 1), None)
+if not name:
+    sys.exit(1)
+open(sys.argv[3], "wb").write(z.read(name))
+PY
+    chmod 644 "/opt/pad-pedal/$f"
+    if [ "$(awk '$2=="/" {print $3; exit}' /proc/mounts)" = "overlay" ] && mountpoint -q /media/root-ro; then
+      mount -o remount,rw /media/root-ro && cp "/opt/pad-pedal/$f" "/media/root-ro/opt/pad-pedal/$f"; sync; mount -o remount,ro /media/root-ro || true
+    fi
+    echo "  added $f (left out by an older update)"
+  done
+}
+
+audio_json() {  # audio_json key true|false  -> one key of $DATA/audio.json, the others kept
+  local u; u="$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)"
+  install -d -m 775 -o "$u" "$DATA" 2>/dev/null || mkdir -p "$DATA"
+  python3 - "$DATA/audio.json" "$1" "$2" <<'PY'
+import json, sys
+path, key, val = sys.argv[1], sys.argv[2], sys.argv[3] == "true"
+try:
+    d = json.load(open(path))
+except Exception:
+    d = {"hdmi": False, "usbFirst": False}
+d[key] = val
+json.dump(d, open(path, "w"))
+PY
+  chown "$u" "$DATA/audio.json" 2>/dev/null || true
+}
+
 case "${1:-status}" in
   safe-mode)
     case "${2:-status}" in
@@ -310,20 +348,25 @@ PY
       echo "dtoverlay=$overlay:rotate=90" >> "$CONFIG"
     fi
     sync; echo "3.5-inch screen: $overlay (takes effect after a restart)" ;;
-  dac)
+  dac)   # the DAC board (outputs 3-4): it can't be detected, so this switch says whether one is fitted
     boot_rw
     sed -i -E '/^dtoverlay=hifiberry-dac$/d' "$CONFIG"
     [ "${2:-on}" = "on" ] && echo "dtoverlay=hifiberry-dac" >> "$CONFIG"
-    sync; echo "I2S DAC: ${2:-on} (takes effect after a restart)" ;;
+    audio_json dac "$([ "${2:-on}" = on ] && echo true || echo false)"   # (the outputs follow at once)
+    # load / unload the overlay now as well, so its sound card comes and goes without a restart (config.txt: every start)
+    if command -v dtoverlay >/dev/null; then
+      if [ "${2:-on}" = on ]; then dtoverlay -l 2>/dev/null | grep -q hifiberry-dac || timeout 10 dtoverlay hifiberry-dac 2>/dev/null || true
+      else timeout 10 dtoverlay -r hifiberry-dac 2>/dev/null || true; fi
+      sleep 1
+    fi
+    sync; echo "DAC board: ${2:-on}" ;;
   jack)   # the Pi's headphone jack (its sound card exists only with dtparam=audio=on), after a restart
     if [ "${2:-on}" = on ]; then config_all "dtparam=audio" on; else boot_rw; sed -i -E '/^dtparam=audio=on$/d' "$CONFIG"; fi
     sync; echo "headphone jack: ${2:-on} (takes effect after a restart)" ;;
   audio)
-    install -d -m 775 -o "$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)" "$DATA"
     hdmi=false; [ "${2:-}" = "hdmi" ] && hdmi=true
     usbfirst=false; [ "${3:-}" = "usbfirst" ] && usbfirst=true
-    printf '{"hdmi": %s, "usbFirst": %s}\n' "$hdmi" "$usbfirst" > "$DATA/audio.json"
-    chown "$(cat /etc/pad-pedal/kiosk-user 2>/dev/null || echo pi)" "$DATA/audio.json"
+    audio_json hdmi "$hdmi"; audio_json usbFirst "$usbfirst"   # (keeps "dac")
     echo "audio outputs: hdmi=$hdmi usbFirst=$usbfirst (applied when the screens restart)" ;;
   hostname)
     name="$(echo "${2:-}" | tr -cd 'a-z0-9-' | cut -c1-32)"
@@ -383,7 +426,7 @@ PY
       [ -d "$src/js/vendor" ] && install -m 644 "$src"/js/vendor/*.js "$R/opt/pad-pedal/js/vendor/"
       install -m 644 "$src"/companion/* "$R/opt/pad-pedal/companion/"
       [ -d "$src/cues" ] && install -m 644 "$src"/cues/*.wav "$R/opt/pad-pedal/cues/" 2>/dev/null || true
-      for f in wiring.html README.md instrument_host.py sources.py instrument-plugins.json screens.json; do [ -f "$src/$f" ] && install -m 644 "$src/$f" "$R/opt/pad-pedal/$f"; done
+      for f in wiring.html README.md instrument_host.py sources.py libraries.py instrument-plugins.json screens.json; do [ -f "$src/$f" ] && install -m 644 "$src/$f" "$R/opt/pad-pedal/$f"; done
       for f in pedal-driver.py get-sounds.sh sounds-vsco.py pad-pedal-session pad-pedal-audio-config firstboot.sh pad-pedal-bootlog; do [ -f "$src/$f" ] && install -m 755 "$src/$f" "$R/opt/pad-pedal/$f"; done
       # play any sound: its plugin (built by CI for arm64) and its C sources (built on the Pi if the plugin is missing)
       [ -d "$src/bin" ] && { rm -rf "$R/opt/pad-pedal/bin"; cp -r "$src/bin" "$R/opt/pad-pedal/bin"; chmod -R a+rX "$R/opt/pad-pedal/bin"; }
@@ -421,6 +464,9 @@ PY
     # the screens: the app reloads itself when the driver comes back
     echo "driver restarted" ;;
   boot-tune)
+    # (10.0.1) an update installed by an older helper left out files its list didn't name (libraries.py): take them
+    # from the newest downloaded update, into the running system and, under safe mode, the real partition too
+    complete_install 2>/dev/null || true
     install_touch_rules "$(cat /etc/pad-pedal/touch-ignore 2>/dev/null)" 2>/dev/null || true
     install_streamdeck_access 2>/dev/null || true
     # xinput ties an HDMI touch screen to its own screen (the session does it); fetched once when online

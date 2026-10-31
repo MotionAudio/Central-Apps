@@ -9,7 +9,10 @@ The app routes its buses (tracks, pads, click + MD voice) to any channel, and th
 native instrument chain is linked straight to its channel. Default cables:
   1 jack L = tracks   2 jack R = pads   3 DAC L = click + voice   4 DAC R = instrument
 
-/data/pad-pedal/audio.json: {"hdmi": false, "usbFirst": false}   (Settings → Output device)
+/data/pad-pedal/audio.json: {"hdmi": false, "usbFirst": false, "dac": true}   (Settings → Output device / Output routing)
+Outputs 1-2 are ALWAYS the headphone jack (when the Pi has one), 3-4 the DAC board - only when "A DAC board is fitted"
+is on (a PCM5102 board can't be detected: its sound card exists whenever its overlay is loaded, board or no board) -
+then a USB interface from 5 up. When PipeWire has no sink for the jack, one is made here straight on its ALSA card.
 The channel list is written to /data/pad-pedal/audio-channels.json for the Settings tab.
 
   pad-pedal-audio-config apply     write the PipeWire config, restart PipeWire, set the default sink
@@ -25,12 +28,22 @@ import time
 DATA = "/data/pad-pedal"
 LAYOUTS = {2: ["FL", "FR"], 4: ["FL", "FR", "RL", "RR"], 6: ["FL", "FR", "FC", "LFE", "RL", "RR"], 8: ["FL", "FR", "FC", "LFE", "RL", "RR", "SL", "SR"]}
 CARD_PATTERNS = [
-    ("jack", r"alsa_output\.platform-bcm2835_audio\..*|alsa_output\..*bcm2835.*|alsa_output\..*[Hh]eadphones.*", "Headphone jack", 2),
-    ("i2s", r"alsa_output\.platform-soc_sound\..*|alsa_output\..*hifiberry.*|alsa_output\..*sndrpihifiberry.*|alsa_output\.platform-.*i2s.*", "I2S DAC board", 2),
+    ("jack", r"padpedal_jack|alsa_output\.platform-bcm2835_audio\..*|alsa_output\..*bcm2835.*|alsa_output\..*[Hh]eadphones.*", "Headphone jack", 2),
+    ("i2s", r"alsa_output\.platform-soc_sound\..*|alsa_output\..*hifiberry.*|alsa_output\..*sndrpihifiberry.*|alsa_output\.platform-.*i2s.*", "DAC board", 2),
     ("usb", r"alsa_output\.usb-.*", "USB interface", None),
     ("hdmi0", r"alsa_output\.platform-fef00700\.hdmi\..*|alsa_output\..*hdmi.*0.*", "HDMI 1", 2),
     ("hdmi1", r"alsa_output\.platform-fef05700\.hdmi\..*|alsa_output\..*hdmi.*1.*", "HDMI 2", 2),
 ]
+
+
+def dac_overlay():
+    """True when config.txt loads the DAC board's overlay (what "A DAC board is fitted" sets)."""
+    for path in ("/boot/firmware/config.txt", "/boot/config.txt"):
+        try:
+            return any(re.match(r"^\s*dtoverlay=hifiberry-dac\b", ln) for ln in open(path))
+        except OSError:
+            continue
+    return False
 
 
 def settings():
@@ -40,6 +53,8 @@ def settings():
             cfg.update(json.load(handle))
     except Exception:
         pass
+    if "dac" not in cfg:
+        cfg["dac"] = dac_overlay()
     return cfg
 
 
@@ -101,6 +116,9 @@ def plan(sinks, cfg):
                 break
     if not cfg.get("hdmi"):
         cards = [c for c in cards if not c[0].startswith("hdmi")]
+    if not cfg.get("dac", True):   # no DAC board: nothing is ever sent to its (empty) sound card
+        cards = [c for c in cards if c[0] != "i2s"]
+    # the jack first (1-2), then the DAC (3-4), then USB (5+) - whatever order PipeWire lists them in
     order = ["usb", "jack", "i2s", "hdmi0", "hdmi1"] if cfg.get("usbFirst") else ["jack", "i2s", "usb", "hdmi0", "hdmi1"]
     cards.sort(key=lambda c: order.index(c[0]))
     total = sum(c[3] for c in cards)
@@ -131,7 +149,59 @@ def channel_names(planned, positions):
     return names
 
 
-def config_text(planned, positions):
+def jack_card():
+    """The headphone jack's ALSA card id ("Headphones"), when the Pi has one and it can play."""
+    for idx, cid in asound_cards():
+        if re.match(r"(?i)headphones|bcm2835", cid) and plays(idx):
+            return cid
+    return None
+
+
+def dac_card():
+    """The DAC board's ALSA card id ("sndrpihifiberry"), when its overlay is loaded."""
+    for idx, cid in asound_cards():
+        if re.search(r"(?i)hifiberry|sndrpi|pcm510|i2s", cid) and plays(idx):
+            return cid
+    return None
+
+
+JACK_NODE = "padpedal_jack"
+DAC_NODE = "padpedal_dac"
+
+
+def own_cards(cfg):
+    """The cards this script opens itself, straight on ALSA, instead of leaving them to WirePlumber (whose names, profiles
+    and remembered settings change between OS versions - the jack has gone silent that way): [(kind, node, desc, card id)].
+    The jack always; the DAC only when "A DAC board is fitted" is on."""
+    out = []
+    j = jack_card()
+    if j:
+        out.append(("jack", JACK_NODE, "Headphone jack", j, card_index(j)))
+    d = dac_card() if cfg.get("dac", True) else None
+    if d:
+        out.append(("i2s", DAC_NODE, "DAC board", d, card_index(d)))
+    return out
+
+
+def card_index(cid):
+    return next((idx for idx, c in asound_cards() if c == cid), -1)
+
+
+def card_names():
+    """{card id: card name} from /proc/asound/cards ("Headphones": "bcm2835 Headphones")."""
+    out = {}
+    try:
+        with open("/proc/asound/cards") as handle:
+            for line in handle:
+                m = re.match(r"\s*\d+\s+\[(\S+)\s*\]:\s*.*? - (.*)$", line)
+                if m:
+                    out[m.group(1)] = m.group(2).strip()
+    except OSError:
+        pass
+    return out
+
+
+def config_text(planned, positions, own=()):
     rules = []
     for kind, name, desc, ch, poss in planned:
         card_pos = ["FL", "FR"] if ch == 2 else [("AUX%d" % i) for i in range(ch)]
@@ -143,7 +213,7 @@ context.properties = {
   default.clock.min-quantum = 64
   default.clock.max-quantum = 2048
 }
-context.modules = [
+%(objects)scontext.modules = [
   { name = libpipewire-module-combine-stream
     args = {
       combine.mode = sink
@@ -158,7 +228,19 @@ context.modules = [
     }
   }
 ]
-""" % {"n": len(positions), "positions": " ".join(positions), "rules": "\n".join(rules)}
+""" % {"n": len(positions), "positions": " ".join(positions), "rules": "\n".join(rules), "objects": own_objects([o for o in own if any(p[1] == o[1] for p in planned)])}
+
+
+def own_objects(own):
+    """A sink on each card's ALSA device (the jack, the DAC): PipeWire opens them straight, the same way every time."""
+    if not own:
+        return ""
+    items = []
+    for kind, node, desc, cid, *_ in own:
+        items.append("""  { factory = adapter
+    args = { factory.name = api.alsa.pcm.sink node.name = "%s" node.description = "%s" media.class = "Audio/Sink"
+             api.alsa.path = "hw:CARD=%s,DEV=0" audio.channels = 2 audio.position = [ FL FR ] priority.session = 100 } }""" % (node, desc, cid))
+    return "context.objects = [\n" + "\n".join(items) + "\n]\n"
 
 
 def asound_cards():
@@ -192,7 +274,8 @@ def wait_for_sinks(env, cfg, timeout=20.0):
     """PipeWire makes the cards' sinks one by one, a few seconds after login (HDMI ones often first). Wait until every
     card we want has a sink - stopping at the first two sinks used to plan with only the HDMI ones, leave the headphone
     jack out and make a combined output with nothing behind it: no sound at all."""
-    want = len(wanted_cards(cfg))
+    mine_ids = set() if os.environ.get("CC_AUDIO_NO_OWN") or os.path.exists(os.path.join(DATA, "audio-no-own")) else {o[3] for o in own_cards(cfg)}
+    want = len([c for c in wanted_cards(cfg) if c[1] not in mine_ids])   # (the jack / DAC: opened here, not by WirePlumber)
     end, sinks = time.time() + timeout, []
     while True:
         sinks = pw_sinks(env)
@@ -232,7 +315,28 @@ wireplumber.settings = {
 """
 
 
-def forget_stream_targets(home):
+def wp_conf(own):
+    """WirePlumber's settings: no remembered outputs, and hands off the cards this script opens itself (both opening
+    one device makes it busy for one of them)."""
+    text = WP_CONF
+    if own:
+        cn = card_names()
+        matches = []
+        for o in own:
+            cid, idx = o[3], (o[4] if len(o) > 4 else -1)
+            if idx >= 0:
+                matches.append('{ api.alsa.path = "hw:%d" }' % idx)   # (this boot's card number: the config is made at every start)
+            matches.append('{ api.alsa.card.name = "%s" }' % cn.get(cid, cid))
+            matches.append('{ api.alsa.card.id = "%s" }' % cid)
+        text += """monitor.alsa.rules = [
+  { matches = [ %s ]
+    actions = { update-props = { device.disabled = true } } }
+]
+""" % " ".join(matches)
+    return text
+
+
+def forget_stream_targets(home, wp_text=WP_CONF):
     """WirePlumber remembers the device each app last played on and sends it back there, past the default output. Turn
     that off and forget a remembered device other than the combined output. True when something changed (restart it)."""
     changed = False
@@ -243,9 +347,9 @@ def forget_stream_targets(home):
         old = open(path).read()
     except OSError:
         old = ""
-    if old != WP_CONF:
+    if old != wp_text:
         with open(path, "w") as handle:
-            handle.write(WP_CONF)
+            handle.write(wp_text)
         changed = True
     state = os.path.join(home, ".local", "state", "wireplumber")
     for name in ("stream-properties", "restore-stream"):
@@ -276,6 +380,22 @@ def move_app_streams(env):
     for si in short("sink-inputs"):
         if len(si) > 2 and si[2] in chrome:
             subprocess.run(["pactl", "move-sink-input", si[0], "padpedal_out"], env=env, capture_output=True, timeout=10)
+
+
+def verify_own(env, own, timeout=8.0):
+    """Every sink this script made is there (after PipeWire restarted)."""
+    want = {o[1] for o in own}
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            out = subprocess.run(["pactl", "list", "short", "sinks"], env=env, capture_output=True, text=True, timeout=5).stdout
+        except Exception:
+            out = ""
+        have = {ln.split("\t")[1] for ln in out.splitlines() if "\t" in ln}
+        if want <= have:
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def usb_channels(index):
@@ -329,6 +449,11 @@ def apply():
         time.sleep(1.0)
     sinks = wait_for_sinks(env, cfg)
     print("audio: cards %s · sinks %s" % ([c[1] for c in asound_cards()], [s[0] for s in sinks]))
+    own = [] if os.environ.get("CC_AUDIO_NO_OWN") or os.path.exists(os.path.join(DATA, "audio-no-own")) else own_cards(cfg)
+    owned_kinds = {o[0] for o in own}
+    sinks = [(o[1], o[2], 2, o[3]) for o in own] + [sk for sk in sinks if kind_of(sk) not in owned_kinds and sk[0] not in (JACK_NODE, DAC_NODE)]
+    if own:
+        print("audio: opening %s straight on ALSA" % ", ".join("%s (%s)" % (o[2], o[3]) for o in own))
     planned, positions = plan(sinks, cfg)
     if not planned:
         planned, positions = fallback_cards(sinks)
@@ -337,7 +462,7 @@ def apply():
     target = os.path.join(home, ".config", "pipewire", "pipewire.conf.d")
     os.makedirs(target, exist_ok=True)
     path = os.path.join(target, "padpedal.conf")
-    text = config_text(planned, positions)
+    text = config_text(planned, positions, own)
     old = ""
     try:
         with open(path) as handle:
@@ -349,13 +474,19 @@ def apply():
     os.makedirs(DATA, exist_ok=True)
     with open(os.path.join(DATA, "audio-channels.json"), "w") as handle:
         json.dump({"channels": channel_names(planned, positions), "cards": [{"kind": p[0], "name": p[1], "desc": p[2], "channels": p[3]} for p in planned]}, handle)
-    if forget_stream_targets(home) or old != text:
+    if forget_stream_targets(home, wp_conf([o for o in own if any(p[1] == o[1] for p in planned)])) or old != text:
         subprocess.run(["systemctl", "--user", "restart", "pipewire.service", "pipewire-pulse.service", "wireplumber.service"], env=env, timeout=30)
     for _ in range(30):
         result = subprocess.run(["pactl", "set-default-sink", "padpedal_out"], env=env, capture_output=True, text=True)
         if result.returncode == 0:
             break
         time.sleep(0.5)
+    if own and not verify_own(env, own):
+        # (our own sinks didn't come up - an OS where the device can't be opened this way): give the cards back to
+        # WirePlumber and use its sinks, as before
+        print("audio: the jack / DAC sinks didn't come up - using WirePlumber's own")
+        open(os.path.join(DATA, "audio-no-own"), "w").close()
+        os.execv(sys.executable, [sys.executable, os.path.abspath(__file__), "apply"])
     unmute(env, planned)
     move_app_streams(env)
     print("audio: %d channels: %s" % (len(positions), ", ".join("%d %s" % (i + 1, n) for i, n in enumerate(channel_names(planned, positions)))))
