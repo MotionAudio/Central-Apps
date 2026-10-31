@@ -42,7 +42,7 @@ warn() { printf '    WARNING: %s\n' "$*" >&2; }
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)."; exit 1; }
 for f in index.html css/pad-pedal.css css/parts.css css/live.css css/fx.css js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/screen-nav.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/factory-test.js js/pedal-job.js js/touch-wifi.js js/mini-bridge.js js/fx-dsp.js js/fx.js js/shell.js js/soundtest.js js/textures.js \
          js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/sheets.js js/autorestart.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/setlists.js js/io.js \
-         instrument_host.py sources.py libraries.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
+         instrument_host.py sources.py libraries.py community_sandbox.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
          companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css \
          pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-bootlog pad-pedal-bootlog.service pad-pedal-bootlog.timer pad-pedal-system pad-pedal-session \
          pad-pedal-audio-config xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf \
@@ -67,7 +67,7 @@ apt-get install -y --no-install-recommends \
   i2c-tools alsa-utils poppler-utils espeak-ng fonts-dejavu-core avahi-daemon cloud-guest-utils rfkill
 apt-get install -y --no-install-recommends chromium \
   || apt-get install -y --no-install-recommends chromium-browser
-for optional in dnsmasq-base fonts-noto-color-emoji ffmpeg musescore-general-soundfont-small python3-lgpio python3-smbus python3-smbus2 python3-rpi-lgpio python3-mido python3-rtmidi overlayroot dbus-user-session; do
+for optional in dnsmasq-base fonts-noto-color-emoji ffmpeg musescore-general-soundfont-small python3-lgpio python3-smbus python3-smbus2 python3-rpi-lgpio python3-mido python3-rtmidi overlayroot dbus-user-session bubblewrap python3-seccomp; do
   apt-get install -y --no-install-recommends "$optional" >/dev/null 2>&1 \
     && echo "    + $optional" || echo "    (skipped $optional - not in this release)"
 done
@@ -139,6 +139,7 @@ install -m 755 "$SRC/pedal-driver.py"        /opt/pad-pedal/pedal-driver.py
 install -m 644 "$SRC/instrument_host.py"     /opt/pad-pedal/instrument_host.py
 install -m 644 "$SRC/sources.py"            /opt/pad-pedal/sources.py
 install -m 644 "$SRC/libraries.py"          /opt/pad-pedal/libraries.py   # (the sound libraries: Settings → Packages → Libraries)
+install -m 644 "$SRC/community_sandbox.py"  /opt/pad-pedal/community_sandbox.py   # (10.1: community plugins run walled off)
 install -m 644 "$SRC/instrument-plugins.json" /opt/pad-pedal/instrument-plugins.json
 # play any sound: its plugin (built by CI for arm64) and its C sources (the driver builds it from them if it is missing)
 [ -d "$SRC/bin" ] && { rm -rf /opt/pad-pedal/bin; cp -r "$SRC/bin" /opt/pad-pedal/bin; chmod -R a+rX /opt/pad-pedal/bin; }

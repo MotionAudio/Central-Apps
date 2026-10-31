@@ -169,7 +169,7 @@ complete_install() {  # files a newer version needs that an older update left ou
   local zip
   zip="$(ls -t "$DATA"/updates/central-control-source-*.zip 2>/dev/null | head -1)"
   [ -n "$zip" ] || return 0
-  for f in libraries.py; do
+  for f in libraries.py community_sandbox.py; do
     [ -f "/opt/pad-pedal/$f" ] && continue
     python3 - "$zip" "$f" "/opt/pad-pedal/$f" <<'PY' || continue
 import sys, zipfile
@@ -426,7 +426,7 @@ PY
       [ -d "$src/js/vendor" ] && install -m 644 "$src"/js/vendor/*.js "$R/opt/pad-pedal/js/vendor/"
       install -m 644 "$src"/companion/* "$R/opt/pad-pedal/companion/"
       [ -d "$src/cues" ] && install -m 644 "$src"/cues/*.wav "$R/opt/pad-pedal/cues/" 2>/dev/null || true
-      for f in wiring.html README.md instrument_host.py sources.py libraries.py instrument-plugins.json screens.json; do [ -f "$src/$f" ] && install -m 644 "$src/$f" "$R/opt/pad-pedal/$f"; done
+      for f in wiring.html README.md instrument_host.py sources.py libraries.py community_sandbox.py instrument-plugins.json screens.json; do [ -f "$src/$f" ] && install -m 644 "$src/$f" "$R/opt/pad-pedal/$f"; done
       for f in pedal-driver.py get-sounds.sh sounds-vsco.py pad-pedal-session pad-pedal-audio-config firstboot.sh pad-pedal-bootlog; do [ -f "$src/$f" ] && install -m 755 "$src/$f" "$R/opt/pad-pedal/$f"; done
       # play any sound: its plugin (built by CI for arm64) and its C sources (built on the Pi if the plugin is missing)
       [ -d "$src/bin" ] && { rm -rf "$R/opt/pad-pedal/bin"; cp -r "$src/bin" "$R/opt/pad-pedal/bin"; chmod -R a+rX "$R/opt/pad-pedal/bin"; }
