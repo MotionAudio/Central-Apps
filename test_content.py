@@ -169,7 +169,7 @@ def main():
             loops_ok &= seamless(x) and sr == PL.SR and len(x) == int(PL.LOOP * PL.SR) and 0.4 < float(np.max(np.abs(x))) < 0.55
             spec = np.abs(np.fft.rfft(x[:, 0]))
             f = np.argmax(spec[:int(800 * PL.LOOP)]) / PL.LOOP
-            keys_ok &= any(abs(f - 146.83 * m) < 5 for m in (0.25, 0.5, 1, 1.5, 2, 3, 4))   # (D: its root, fifth or an octave of them)
+            keys_ok &= any(abs(f - 146.83 * m) < 5 for m in (0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4))   # (D: its root, fifth or an octave of them)
         check(loops_ok, "each new style is a stereo seamless loop of %g s at about -6 dBFS" % PL.LOOP)
         check(keys_ok, "...in its key (D)")
         # (10.2) no two styles alike: their sound over time (spectrum, how it moves, how wide it is) compared pair by pair
