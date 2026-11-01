@@ -32,7 +32,11 @@
   function setToken(t) { token = t; try { if (t) localStorage.setItem(LS, t); else localStorage.removeItem(LS); } catch (_) { } }
   async function api(method, path, body) {
     var h = { "Content-Type": "application/json" }; if (token) h.Authorization = "Bearer " + token;
-    var r = await fetch(BASE + "/v1" + path, { method: method, headers: h, body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
+    // (10.1.1) no website address yet, or the website can't be reached: say so in plain words instead of "Failed to fetch"
+    if (!BASE && location.protocol.indexOf("http") !== 0) throw new Error("Central Services can't sign in yet: the Motion Audio website isn't online. If your church was given the website's address, enter it under ⚙ App settings.");
+    var r;
+    try { r = await fetch(BASE + "/v1" + path, { method: method, headers: h, body: body ? JSON.stringify(body) : undefined, cache: "no-store" }); }
+    catch (_) { throw new Error("Couldn't reach the Motion Audio website" + (BASE ? " at " + BASE.replace(/^https?:\/\//, "") : "") + ". Check this device is online. If the address is wrong, change it under ⚙ App settings."); }
     var j = await r.json().catch(function () { return {}; });
     if (r.status === 401 && token) { setToken(null); st.me = null; }
     if (!r.ok) { var e = new Error(j.error || "The website answered " + r.status); e.status = r.status; throw e; }
