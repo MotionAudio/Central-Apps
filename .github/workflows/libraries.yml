@@ -44,6 +44,8 @@ on:
       - tools/midi_render.py
       - tools/vcsl-names.txt
       - tools/make-irs.py
+      - tools/make-utility.py
+      - tools/make-fixture-library.py
       - tools/build-libraries.py
       - tools/build-libraries.sh
       - sounds-vsco.py
@@ -84,7 +86,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES="Sound libraries for Central Keys, Central Instrument, Central Plugins, Central Pedals and Central Pads. Anyone can download them; they open with the plan's package key (Settings -> Packages in any app). libraries-index.json lists what's in each. Built from ${GITHUB_SHA::7}."
+          NOTES="Libraries for Central Keys, Central Instrument, Central Plugins, Central Pedals, Central Pads and Central Utility, and the lights page's fixture library. Anyone can download them; they open with the plan's package key (Settings -> Packages in any app). libraries-index.json lists what's in each. Built from ${GITHUB_SHA::7}."
           if gh release view libraries >/dev/null 2>&1; then
             gh release edit libraries --prerelease --latest=false --title "Sound libraries" --notes "$NOTES"
           else
@@ -110,6 +112,19 @@ jobs:
           gh release upload libraries "$OUT"/*.zip "$OUT/libraries-index.json" "$OUT/SHA256SUMS" --clobber
           echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/libraries"
           ls -l "$OUT"
+
+      # ---- (10.2) the fixture library: the Open Fixture Library (MIT) and the QLC+ fixture definitions (Apache 2.0), as
+      # one file the lights page's "Update the fixture library" downloads (the apps carry a copy too)
+      - name: The fixture library
+        if: ${{ env.ONLY == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone -q --depth 1 https://github.com/OpenLightingProject/open-fixture-library work/ofl
+          git clone -q --depth 1 https://github.com/mcallegari/qlcplus work/qlcplus
+          python3 tools/make-fixture-library.py --ofl work/ofl --qlc work/qlcplus --out dist/fixture-library.json.gz \
+            --ofl-commit "$(git -C work/ofl rev-parse HEAD)" --qlc-commit "$(git -C work/qlcplus rev-parse HEAD)"
+          gh release upload libraries dist/fixture-library.json.gz --clobber
 
       # ---- Central Tracks hymns (10.0): public-domain hymns in our arrangements, played on the sounds built above
       - name: Central Tracks hymns (stems, song files, previews)

@@ -12,7 +12,7 @@ import { isDemoUser, demoPurchase } from "./demo.js";
 
 const pretty = (k) => { const c = String(k || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); return c.length === 16 ? c.match(/.{4}/g).join("-") : String(k); };
 const MAIN_PLANS = PLAN_IDS.filter((id) => id !== "pads");
-const planText = (ids) => (MAIN_PLANS.every((id) => ids.includes(id)) ? "All sound plans (with Central Pads)" : PLAN_IDS.filter((id) => ids.includes(id)).map((id) => PLANS[id].name).join(", "));
+const planText = (ids) => (MAIN_PLANS.every((id) => ids.includes(id)) ? "All plans (with Central Pads and Central Utility)" : PLAN_IDS.filter((id) => ids.includes(id)).map((id) => PLANS[id].name).join(", "));
 const address = (s) => { if (!s) return null; const a = s.address || {}; return [s.name, a.line1, a.line2, [a.city, a.state, a.postal_code].filter(Boolean).join(" "), a.country].filter(Boolean).join(", "); };
 
 // an app card: its download buttons (our own links), the install steps and the line for Linux

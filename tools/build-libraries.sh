@@ -32,9 +32,10 @@ python3 "$HERE/tools/make-pads.py" "$WORK/cache" "$WORK/sounds"
 python3 "$HERE/tools/make-synths.py" "$WORK/sounds"
 python3 "$HERE/tools/make-pad-loops.py" "$WORK/pad-loops"
 python3 "$HERE/tools/make-loops.py" --sounds "$WORK/sounds" --pads "$WORK/pad-loops" --out "$WORK/loops"
-echo "4/5  impulse responses -> $WORK/irs"
+echo "4/5  impulse responses -> $WORK/irs; Central Utility's clicks and lighting looks -> $WORK/utility"
 python3 "$HERE/tools/make-irs.py" "$WORK/irs"
+python3 "$HERE/tools/make-utility.py" "$WORK/utility"
 echo "5/5  zips -> $OUT"
-python3 "$HERE/tools/build-libraries.py" --sounds "$WORK/sounds" --irs "$WORK/irs" --pads "$WORK/pad-loops" --loops "$WORK/loops" --out "$OUT" --base-url "$BASE" ${ONLY:+--only "$ONLY"}
+python3 "$HERE/tools/build-libraries.py" --sounds "$WORK/sounds" --irs "$WORK/irs" --pads "$WORK/pad-loops" --loops "$WORK/loops" --utility "$WORK/utility" --out "$OUT" --base-url "$BASE" ${ONLY:+--only "$ONLY"}
 ( cd "$OUT" && sha256sum -c SHA256SUMS >/dev/null ) && echo "    SHA256SUMS checked"
 echo "Done: $OUT"

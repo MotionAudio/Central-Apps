@@ -21,8 +21,10 @@ const zlib = require("node:zlib");
 const https = require("node:https");
 const http = require("node:http");
 
-const PLANS = ["keys", "instrument", "plugins", "pedals", "pads"];
-const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin"];
+const PLANS = ["keys", "instrument", "plugins", "pedals", "pads", "utility"];
+// (10.2) Central Utility: lighting looks (the lights page lists them), slide templates, lyric backgrounds and graphics
+const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic"];
+const EXTRA_KINDS = { look: "looks", slide: "slides", background: "backgrounds", graphic: "graphics" };
 const PLUGIN_FORMATS = ["lv2", "vst3", "clap", "component"], MAX_PLUGIN = 300 * 1024 * 1024;
 const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
@@ -107,7 +109,7 @@ class Libraries {
   }
   record(id) { try { return JSON.parse(fs.readFileSync(path.join(this.root, id + ".json"), "utf8")); } catch (_) { return null; } }
   installed() { return fs.readdirSync(this.root).filter((f) => f.endsWith(".json")).map((f) => this.record(f.slice(0, -5))).filter((r) => r && r.id); }
-  listing() { return this.installed().map((r) => ({ id: r.id, plan: r.plan, version: r.version, title: r.title, summary: r.summary, installedAt: r.installedAt, counts: r.counts, boards: r.boards, presets: r.presets, source: r.source, community: r.community, plugins: r.plugins })); }
+  listing() { return this.installed().map((r) => ({ id: r.id, plan: r.plan, version: r.version, title: r.title, summary: r.summary, installedAt: r.installedAt, counts: r.counts, boards: r.boards, presets: r.presets, source: r.source, community: r.community, plugins: r.plugins, looks: r.looks || [] })); }
 
   // ----- (10.1) community plugins: this computer's switch, and the website's revoke list
   pluginsDir() { return path.join(this.root, "community-plugins"); }
@@ -276,7 +278,7 @@ class Libraries {
         rec[it.kind === "board" ? "boards" : "presets"].push({ name: String(b.name || it.name || "Board").slice(0, 60), kind: b.kind, chain: b.chain.slice(0, 24), sound: typeof b.sound === "string" ? b.sound : null, library: id, tier });
       } else if (it.kind === "click") {
         const dir = path.join(this.root, id, "clicks"); fs.mkdirSync(dir, { recursive: true });
-        const f = path.join(dir, safeName(it.file, "click.wav")); fs.writeFileSync(f, data); rec.clicks.push({ name: String(it.name || "").slice(0, 60), file: f, tier });
+        const f = path.join(dir, safeName(it.file, "click.wav")); fs.writeFileSync(f, data); rec.clicks.push(Object.assign({ name: String(it.name || "").slice(0, 60), file: f, tier }, it.role === "accent" || it.role === "beat" ? { role: it.role } : {}));
       } else if (it.kind === "pad") {   // (Central Pads: one loop per style and key, for the pad pedal)
         const key = String(it.key || ""), style = String(it.name || "Pad").slice(0, 60);
         if (!PAD_KEYS.includes(key) || data.slice(0, 4).toString() !== "RIFF") throw new Error("a pad in that library isn't a key's WAV loop");
@@ -292,6 +294,14 @@ class Libraries {
         rec.loops.push(e);
       } else if (it.kind === "plugin") {   // (10.1: a community plugin - only with the switch on)
         rec.plugins.push(this._unpackPlugin(id, it, data));
+      } else if (it.kind === "look") {   // (10.2: a lighting look - kept in the record for the lights page)
+        let l; try { l = JSON.parse(data.toString("utf8")); } catch (_) { throw new Error("a lighting look in that library can't be read"); }
+        if (!l || typeof l !== "object" || !l.g || typeof l.g !== "object") throw new Error("a lighting look in that library has no groups");
+        (rec.looks = rec.looks || []).push({ name: String(l.name || it.name || "Look").slice(0, 60), look: l, library: id, tier });
+      } else if (EXTRA_KINDS[it.kind]) {   // (10.2: slide templates, lyric backgrounds, graphics - files, for the slides and lyrics pages)
+        const dir = path.join(this.root, id, EXTRA_KINDS[it.kind]); fs.mkdirSync(dir, { recursive: true });
+        const f = path.join(dir, safeName(it.file, it.kind + ".json")); fs.writeFileSync(f, data);
+        (rec[EXTRA_KINDS[it.kind]] = rec[EXTRA_KINDS[it.kind]] || []).push({ name: String(it.name || it.kind).slice(0, 60), file: f, tier });
       }
     }
     if (sounds.length) tiersSet(this.sf2Dir, id, soundLines);   // (the plans first: the engine sees each sound locked as it arrives)
@@ -302,6 +312,7 @@ class Libraries {
     rec.counts = { sound: rec.sounds.length, ir: rec.irs.length, board: rec.boards.length, preset: rec.presets.length, click: rec.clicks.length, pad: new Set(rec.pads.map((x) => x.name)).size,
       loop: new Set(rec.loops.map((x) => x.set + "/" + x.name)).size };
     if (rec.plugins.length) rec.counts.plugin = rec.plugins.length;   // (10.1: community plugins)
+    for (const [kind, key] of Object.entries(EXTRA_KINDS)) if (rec[key] && rec[key].length) rec.counts[kind] = rec[key].length;
     const rf = path.join(this.root, id + ".json"); fs.writeFileSync(rf + ".part", JSON.stringify(rec, null, 1)); fs.renameSync(rf + ".part", rf);
     this.send({ type: "instrument", action: "rescan" }); this.send({ type: "instrument", action: "status" });
     return rec;

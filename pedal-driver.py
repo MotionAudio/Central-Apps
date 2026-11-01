@@ -829,7 +829,7 @@ def read_json(path, default):
         return default
 
 
-PLAN_NAMES = {"keys": "Central Keys", "plugins": "Central Plugins", "instrument": "Central Instrument", "pedals": "Central Pedals", "pads": "Central Pads"}
+PLAN_NAMES = {"keys": "Central Keys", "plugins": "Central Plugins", "instrument": "Central Instrument", "pedals": "Central Pedals", "pads": "Central Pads", "utility": "Central Utility"}
 
 
 def clean_packages(items):
@@ -863,7 +863,7 @@ def package_lines(items, now=None):
                 ends.append(datetime.datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp())
             except Exception:
                 pass
-        names = ", ".join(PLAN_NAMES[k] for k in ("keys", "plugins", "instrument", "pedals", "pads") if k in plans) or "no plans"
+        names = ", ".join(PLAN_NAMES[k] for k in ("keys", "plugins", "instrument", "pedals", "pads", "utility") if k in plans) or "no plans"
         stale = p.get("okAt") and now - p["okAt"] / 1000.0 > 14 * 86400
         if p.get("ok") is False:
             state = p.get("error") or "not valid"
@@ -1603,6 +1603,14 @@ class LocalServer:
                     qs = urllib.parse.parse_qs(url.query)
                     f = st.loop_file((qs.get("lib") or [""])[0], (qs.get("file") or [""])[0]) if st and hasattr(st, "loop_file") else None
                     return self.send_file(f, "audio/wav", cache=True) if f else self.send_json(404, {"error": "no such loop"})
+                if p == "/libraries/clicks":   # 10.2: the click sets installed here (Central Utility) for the songs' Click sound
+                    st = library_store(driver)
+                    return self.send_json(200, {"clicks": st.clicks() if st and hasattr(st, "clicks") else []})
+                if p == "/libraries/click":   # one click's WAV: ?lib=<library id>&file=<file>
+                    st = library_store(driver)
+                    qs = urllib.parse.parse_qs(url.query)
+                    f = st.click_file((qs.get("lib") or [""])[0], (qs.get("file") or [""])[0]) if st and hasattr(st, "click_file") else None
+                    return self.send_file(f, "audio/wav", cache=True) if f else self.send_json(404, {"error": "no such click"})
                 if p == "/libraries/pad":   # one pad style's loop in one key: ?lib=<library id>&style=<name>&key=C#
                     st = library_store(driver)
                     qs = urllib.parse.parse_qs(url.query)
