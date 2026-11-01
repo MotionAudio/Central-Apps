@@ -587,6 +587,25 @@ await check("outputs: 1-2 the Pi's jack, 3-4 the DAC; quick set-ups (4 mono, 2 s
   assert.deepEqual(r.stepped, { ch: 5, st: true }, "the small screen steps a bus to the next choice (3–4 stereo → 5–6 stereo)");
   assert.equal(r.back, JSON.stringify({ tracks: { ch: 1, st: false }, pad: { ch: 2, st: false }, click: { ch: 3, st: false }, instrument: { ch: 4, st: false }, looper: { ch: 4, st: false, follow: true } }));
 });
+await check("headphone jack buffer (10.1.1): Safe by default, the choice shows the pedal's setting, picking one sends it to the pedal at once", async () => {
+  const r = await page.evaluate(async () => {
+    const sent = []; const b = window.__pedalBridge, was = b.send; b.send = function (m) { sent.push(m); };
+    const was2 = b.connected; b.connected = true;
+    PPFeatures.handleHardware({ type: "systemStatus", audio: { channels: ["Headphone jack L", "Headphone jack R"], hdmi: false, usbFirst: false } });
+    PPShell.showTab("settings"); if (PPSettings.showGroup) PPSettings.showGroup("audio"); await new Promise((ok) => setTimeout(ok, 100));
+    const out = {}; let sel = document.querySelector('[data-sys="osJackBuffer"]');
+    out.there = !!sel; out.def = sel && sel.value; out.opts = sel ? [...sel.options].map((o) => o.value) : [];
+    PPFeatures.handleHardware({ type: "systemStatus", audio: { channels: ["Headphone jack L", "Headphone jack R"], hdmi: false, usbFirst: false, jackBuffer: "max" } });
+    await new Promise((ok) => setTimeout(ok, 100)); sel = document.querySelector('[data-sys="osJackBuffer"]'); out.shown = sel && sel.value;
+    sel.value = "low"; sel.dispatchEvent(new Event("change", { bubbles: true })); await new Promise((ok) => setTimeout(ok, 50));
+    out.sent = sent.filter((m) => m.type === "system" && m.action === "audio").map((m) => m.jackBuffer);
+    b.send = was; b.connected = was2; PPFeatures.handleHardware({ type: "systemStatus", audio: { channels: [] } }); PPShell.showTab("pads"); return out;
+  });
+  assert.equal(r.there, true, "the choice is under Output device");
+  assert.equal(r.def, "safe", "Safe by default"); assert.deepEqual(r.opts, ["low", "safe", "max"]);
+  assert.equal(r.shown, "max", "shows what the pedal has");
+  assert.deepEqual(r.sent, ["low"], "the change goes to the pedal straight away");
+});
 await check("only the headphone jack (no DAC board): a bus on 3-4 is heard on 1-2 and the table says so; 'Everything on 1-2'; the DAC board can be switched off", async () => {
   const r = await page.evaluate(async () => {
     const sent = []; const b = window.__pedalBridge, was = b.send; b.send = function (m) { sent.push(m); };
