@@ -722,3 +722,44 @@ float cmfx_param_from_norm(CmFx *fx, int i, float n) {
   return p->log ? (float)(p->min * cm_exp(n * cm_log(p->max / p->min))) : p->min + n * (p->max - p->min);
 }
 int cmfx_param_index(CmFx *fx, const char *id) { return paramIndex(fx, id); }
+
+/* ---------------------------------------------------------------- the block types, for the builder (so its palette
+ * always matches what this core plays): [{type, ports:[{name, audio, default, min, max}], out, choices:{name:[...]}}] */
+static int putS(char *o, int at, int cap, const char *s) { while (*s && at < cap - 1) o[at++] = *s++; o[at] = 0; return at; }
+static int putN(char *o, int at, int cap, double v) {
+  char b[40]; int n = 0;
+  if (v >= 1e8 || v <= -1e8) { at = putS(o, at, cap, v < 0 ? "-1e9" : "1e9"); return at; }
+  if (v < 0) { b[n++] = '-'; v = -v; }
+  long long ip = (long long)v; double fr = v - (double)ip; char dg[24]; int k = 0;
+  do { dg[k++] = (char)('0' + ip % 10); ip /= 10; } while (ip); while (k) b[n++] = dg[--k];
+  long long f = (long long)(fr * 1000000.0 + 0.5); if (f >= 1000000) f = 999999;
+  if (f) { b[n++] = '.'; char fd[7]; for (int i = 5; i >= 0; i--) { fd[i] = (char)('0' + f % 10); f /= 10; } int e = 6; while (e > 0 && fd[e - 1] == '0') e--; for (int i = 0; i < e; i++) b[n++] = fd[i]; }
+  b[n] = 0; return putS(o, at, cap, b);
+}
+const char *cmfx_types_json(void) {
+  static char o[12000]; int at = 0, cap = (int)sizeof o;
+  if (o[0]) return o;
+  at = putS(o, at, cap, "[");
+  for (int t = 0; t < B_NTYPES; t++) {
+    const TypeSpec *ts = &TYPES[t];
+    at = putS(o, at, cap, t ? ",{\"type\":\"" : "{\"type\":\""); at = putS(o, at, cap, ts->type); at = putS(o, at, cap, "\",\"out\":"); at = putS(o, at, cap, ts->hasOut ? "true" : "false");
+    at = putS(o, at, cap, ",\"ports\":[");
+    for (int p = 0; p < ts->nPorts; p++) {
+      const PortSpec *ps = &ts->ports[p];
+      at = putS(o, at, cap, p ? ",{\"name\":\"" : "{\"name\":\""); at = putS(o, at, cap, ps->name); at = putS(o, at, cap, "\",\"audio\":"); at = putS(o, at, cap, ps->audio ? "true" : "false");
+      if (!ps->audio) { at = putS(o, at, cap, ",\"default\":"); at = putN(o, at, cap, ps->def); at = putS(o, at, cap, ",\"min\":"); at = putN(o, at, cap, ps->lo); at = putS(o, at, cap, ",\"max\":"); at = putN(o, at, cap, ps->hi); }
+      at = putS(o, at, cap, "}");
+    }
+    at = putS(o, at, cap, "],\"choices\":{");
+    for (int e = 0; e < 2; e++) {
+      const char *name = e ? ts->e2 : ts->e1; const char *const *vals = e ? ts->v2 : ts->v1; if (!name) continue;
+      if (e && ts->e1) at = putS(o, at, cap, ",");
+      at = putS(o, at, cap, "\""); at = putS(o, at, cap, name); at = putS(o, at, cap, "\":[");
+      for (int i = 0; vals[i]; i++) { at = putS(o, at, cap, i ? ",\"" : "\""); at = putS(o, at, cap, vals[i]); at = putS(o, at, cap, "\""); }
+      at = putS(o, at, cap, "]");
+    }
+    at = putS(o, at, cap, "}}");
+  }
+  putS(o, at, cap, "]");
+  return o;
+}

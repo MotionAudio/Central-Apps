@@ -13,6 +13,7 @@
  *   CMFx.checkCode(text) -> { ok, error, line }
  *   CMFx.render(plugin, sampleRate, left, right, values) -> { left, right, status }   (Float32Arrays, offline)
  *   CMFx.Direct(plugin, sampleRate)                 a plugin played directly (process 128 at a time)
+ *   CMFx.types() -> [{type, out, ports:[{name, audio, default, min, max}], choices}]   the blocks this core plays
  * plugin: the parsed .cmfx.json object (or its text). */
 (function (root) {
   "use strict";
@@ -78,6 +79,8 @@
     var r = ex.cmw_check_code(p, t.length), err = r ? cstr(ex, ex.cmw_error()) : "";
     return { ok: !r, error: err, line: lineOf(err) };
   }
+  var typesCache = null;
+  function types() { if (!typesCache) { var ex = new WebAssembly.Instance(wasmModule(), {}).exports; typesCache = JSON.parse(cstr(ex, ex.cmw_types())); } return typesCache; }
   function render(plugin, sampleRate, left, right, values) {
     var d = new Direct(plugin, sampleRate);
     if (values) Object.keys(values).forEach(function (k) { d.setParam(k, values[k]); });
@@ -142,7 +145,10 @@
     opts = opts || {};
     var params = paramsOf(plugin), ids = params.map(function (q) { return q.id; }), values = params.map(function (q) { var v = opts.values && opts.values[q.id]; return v != null ? +v : null; });
     var input = ctx.createGain(), output = ctx.createGain(), wnode = null, dead = false, queue = [];
-    input.connect(output);   /* (straight through until the plugin runs) */
+    /* node is the input GainNode with its connect / disconnect pointed at the output: these reach the real ones */
+    var AN = typeof AudioNode !== "undefined" ? AudioNode.prototype : null;
+    var inConnect = function (to) { return AN ? AN.connect.call(input, to) : null; }, inDisconnect = function () { try { if (AN) AN.disconnect.call(input); } catch (_) { } };
+    inConnect(output);   /* (straight through until the plugin runs) */
     var node = input;
     node.connect = function () { return output.connect.apply(output, arguments); };
     node.disconnect = function () { return output.disconnect.apply(output, arguments); };
@@ -153,7 +159,7 @@
     };
     api.reset = function () { if (wnode) wnode.port.postMessage({ reset: true }); };
     api.dispose = function () {
-      dead = true; try { input.disconnect(); } catch (_) { } try { output.disconnect(); } catch (_) { }
+      dead = true; inDisconnect(); try { output.disconnect(); } catch (_) { }
       if (wnode) { try { wnode.port.postMessage({ dispose: true }); wnode.disconnect(); } catch (_) { } wnode = null; }
     };
     api.ready = prepare(ctx).then(function () {
@@ -168,7 +174,7 @@
           var d = e.data || {};
           if (d.ready && !dead) {
             wnode = w; queue.forEach(function (m) { w.port.postMessage(m); }); queue = [];
-            try { input.disconnect(); } catch (_) { } input.connect(w); w.connect(output); resolve(api);
+            inDisconnect(); inConnect(w); w.connect(output); resolve(api);
           } else if (d.error) { api.error = d.error; if (opts.onError) opts.onError(d.error); try { w.port.postMessage({ dispose: true }); } catch (_) { } resolve(api); }
           else if (d.status != null) { api.status = d.status; if (opts.onStatus) opts.onStatus(d.status); }
         };
@@ -177,7 +183,7 @@
     return api;
   }
 
-  var CMFx = { create: create, prepare: prepare, check: check, checkCode: checkCode, render: render, Direct: Direct, workletUrl: null, version: 1 };
+  var CMFx = { create: create, prepare: prepare, check: check, checkCode: checkCode, render: render, types: types, Direct: Direct, workletUrl: null, version: 1 };
   root.CMFx = CMFx;
   if (typeof module !== "undefined" && module.exports) module.exports = CMFx;
 })(typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : this);

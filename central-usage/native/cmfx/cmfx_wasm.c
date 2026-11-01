@@ -48,6 +48,7 @@ EXPORT(cmw_param_id) const char *cmw_param_id(CmFx *fx, int i) { return cmfx_par
 EXPORT(cmw_param_index) int cmw_param_index(CmFx *fx, const char *id) { return cmfx_param_index(fx, id); }
 EXPORT(cmw_set_param) void cmw_set_param(CmFx *fx, int i, float v) { cmfx_set_param(fx, i, v); }
 EXPORT(cmw_get_param) float cmw_get_param(CmFx *fx, int i) { return cmfx_param_get(fx, i); }
+EXPORT(cmw_types) const char *cmw_types(void) { return cmfx_types_json(); }
 EXPORT(cmw_check_code) int cmw_check_code(const char *code, int len) { lastErr[0] = 0; return cmfx_check_code(code, len, lastErr, sizeof lastErr); }
 /* a check of a whole plugin without keeping it (the builder's error line): 0 fine */
 EXPORT(cmw_check) int cmw_check(const char *json, int len, float sr) {

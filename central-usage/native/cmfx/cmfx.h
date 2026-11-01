@@ -54,6 +54,8 @@ const char *cmfx_status(CmFx *fx);
 
 /* only check code (the editor's error list): 0 fine, else err "line N: ..." */
 int cmfx_check_code(const char *code, int len, char *err, int errLen);
+/* the block types this core plays (JSON), for the builder's palette */
+const char *cmfx_types_json(void);
 
 #ifdef __cplusplus
 }
