@@ -16,6 +16,7 @@ natural decay, cut after a few seconds. Unpitched percussion becomes kits: one s
 --plan:  print what each bank would hold (and a size estimate) without downloading anything.
 Needs python3-numpy, git (for the list) and the internet (raw.githubusercontent.com)."""
 import importlib.util
+import math
 import os
 import re
 import subprocess
@@ -111,7 +112,7 @@ ORCH_KIT = [
 BANKS = [
     ("Central Keys Pianos", "keys", [
         ("Upright Piano", [("upr", 0, 127, 0.002, 0.45, 0)]),
-        ("Soft Upright", [("upr", 0, 127, 0.03, 1.2, -1)]),
+        ("Soft Upright", [("upr", 0, 127, 0.03, 1.2, 0, {"layers": "soft", "fc": 2800})]),
         ("FM Piano", [("fmp", 0, 127, 0.002, 0.6, 0)]),
         ("FM Piano & Upright", [("upr", 0, 127, 0.002, 0.6, -2), ("fmp", 0, 127, 0.002, 0.8, -5)]),
         ("Clavisynth", [("clv", 0, 127, 0.002, 0.25, 0)]),
@@ -121,7 +122,7 @@ BANKS = [
         ("Pipe Organ", [("orgp", 0, 47, 0.04, 0.5, -2), ("org", 48, 127, 0.04, 0.5, 0)]),
         ("Pipe Organ (manual only)", [("org", 0, 127, 0.04, 0.5, 0)]),
         ("Quiet Organ", [("orgq", 0, 127, 0.05, 0.6, 0)]),
-        ("Organ Swell", [("orgq", 0, 127, 0.9, 1.8, 0)]),
+        ("Organ Swell", [("orgq", 0, 127, 0.9, 1.8, 0, {"trem": (5.6, 45), "fc": 3500})]),
         ("Positive Organ", [("pos", 0, 127, 0.03, 0.4, 0)]),
     ]),
     ("Central Keys Mallets", "keys", [
@@ -131,7 +132,7 @@ BANKS = [
         ("Glockenspiel", [("glk", 0, 127, 0.002, 1.0, -2)]),
         ("Tubular Bells", [("tbl", 0, 127, 0.002, 2.0, 0)]),
         ("Hand Chimes", [("chm", 0, 127, 0.002, 1.6, 0)]),
-        ("Chime Pad", [("chm", 0, 127, 0.45, 3.0, 0), ("vibs", 0, 127, 0.3, 2.5, -6)]),
+        ("Chime Pad", [("chm", 0, 127, 0.45, 3.0, 0, {"fc": 4200}), ("vibs", 0, 127, 0.3, 2.5, -6, {"layers": "soft", "trem": (4.2, 30)})]),
         ("Vibes & Chimes", [("vibs", 0, 127, 0.002, 1.2, -1), ("chm", 55, 127, 0.002, 1.8, -5)]),
         ("Xylophone", [("xyl", 0, 127, 0.002, 0.4, -1)]),
         ("Church Bells", [("tbl1", 0, 127, 0.002, 2.5, 0)]),
@@ -139,14 +140,14 @@ BANKS = [
     ("Central Keys Grand Pianos", "keys", [
         ("Concert Grand (Steinway B)", [("stw", 0, 127, 0.002, 0.5, 0)]),
         ("Studio Grand (Kawai)", [("kaw", 0, 127, 0.002, 0.5, 0)]),
-        ("Soft Grand", [("stw", 0, 127, 0.02, 1.3, -1)]),
+        ("Soft Grand", [("stw", 0, 127, 0.02, 1.3, 0, {"layers": "soft", "fc": 3600})]),
         ("Grand & FM Piano", [("kaw", 0, 127, 0.002, 0.6, -2), ("tx1", 0, 127, 0.002, 0.8, -6)]),
         ("FM Piano 2", [("tx1", 0, 127, 0.002, 0.6, 0)]),
     ]),
     ("Central Instrument Harps", "instrument", [
         ("Folk Harp", [("hrp", 0, 127, 0.002, 1.2, 0)]),
         ("Concert Harp", [("chp", 0, 127, 0.002, 1.5, 0)]),
-        ("Harp Pad", [("chp", 0, 127, 0.25, 2.8, 0)]),
+        ("Harp Pad", [("chp", 0, 127, 0.25, 2.8, 0, {"fc": 2400})]),
         ("Kalimba", [("kal", 0, 127, 0.002, 0.8, 0)]),
         ("Strumstick", [("stm", 0, 127, 0.002, 0.6, 0)]),
     ]),
@@ -357,7 +358,7 @@ def build_instrument(iid, names, cache, samples):
         loaded = [(min(127, max(0, n + shift)), x, sr) for n, x, sr in loaded]
     ranges = key_ranges(sorted({n for n, _, _ in loaded}))
     gains = level(loaded, (0.0, 0.3) if spec["kind"] == "decay" else (0.4, 2.4))
-    zones = []
+    zones, layers = [], []
     for (n, x, sr), (_, vi, nl, local), g in zip(loaded, meta, gains):
         pcm, s, e = render(x, sr, spec["kind"], g, spec.get("cut", 3.5))
         samples.append({"name": "%s%d_%d" % (iid, n, len(samples)), "pcm": pcm, "sr": sr, "root": n, "s": s, "e": e})
@@ -366,11 +367,39 @@ def build_instrument(iid, names, cache, samples):
             z.append(("sampleModes", 1))
         z.append(("sampleID", len(samples) - 1))
         zones.append(z)
+        layers.append((vi, nl))
         try:
             os.remove(local)
         except OSError:
             pass
+    ZONE_LAYERS[iid] = layers
     return zones
+
+
+ZONE_LAYERS = {}   # instrument -> [(its dynamic layer, how many layers the note has)] beside its zones
+
+
+def soft_zones(zones, layers):
+    """A softer version of an instrument: its loudest dynamic layer left out, the others spread over every velocity
+    (so even a hard key plays the softer recordings - a gentler, darker sound, not just a quieter one)."""
+    out = []
+    for z, (vi, nl) in zip(zones, layers):
+        if nl == 1:
+            out.append(z)
+        elif vi < nl - 1:
+            out.append([z[0], ("velRange", vel_ranges(nl - 1)[vi])] + z[2:])
+    return out
+
+
+def colour(opt):
+    """A preset's own colour on its instrument: a low-pass (fc, Hz) and a tremolo (trem: rate Hz, depth in centibels)."""
+    gens = []
+    if opt.get("fc"):
+        gens.append(("initialFilterFc", int(round(1200 * math.log2(opt["fc"] / 8.176)))))
+    if opt.get("trem"):
+        rate, depth = opt["trem"]
+        gens += [("delayModLFO", V.tc(0.35)), ("freqModLFO", int(round(1200 * math.log2(rate / 8.176)))), ("modLfoToVolume", int(depth))]
+    return gens
 
 
 def build_kit(kit, names, cache, samples):
@@ -415,14 +444,17 @@ def build_bank(bank, names, cache, out_dir):
             pr_out.append({"name": pname, "prog": prog, "zones": [[("keyRange", (0, 127)), ("instrument", len(instruments) - 1)]]})
             continue
         pz = []
-        for iid, klo, khi, att, rel, db in preset[1]:
+        for layer in preset[1]:
+            iid, klo, khi, att, rel, db = layer[:6]
+            opt = layer[6] if len(layer) > 6 else {}
             if iid not in base:
                 V.say("  " + INSTR[iid]["folder"].split("/")[-1])
                 base[iid] = build_instrument(iid, names, cache, samples)
-            key = (iid, round(att, 3), round(rel, 3))
+            key = (iid, round(att, 3), round(rel, 3), repr(sorted(opt.items())))
             if key not in inst_index:
-                env = [("attackVolEnv", V.tc(att)), ("releaseVolEnv", V.tc(rel))]
-                instruments.append({"name": "%s %s" % (iid, len(instruments)), "zones": [z[:2] + env + [("reverbEffectsSend", 120)] + z[2:] for z in base[iid]]})
+                env = [("attackVolEnv", V.tc(att)), ("releaseVolEnv", V.tc(rel))] + colour(opt)
+                zones = soft_zones(base[iid], ZONE_LAYERS[iid]) if opt.get("layers") == "soft" else base[iid]
+                instruments.append({"name": "%s %s" % (iid, len(instruments)), "zones": [z[:2] + env + [("reverbEffectsSend", 120)] + z[2:] for z in zones]})
                 inst_index[key] = len(instruments) - 1
             z = [("keyRange", (klo, khi))]
             if db < 0:

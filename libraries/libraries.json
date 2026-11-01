@@ -3,11 +3,11 @@
  "libraries": [
   {
    "id": "central-keys-library",
-   "approxMB": 450,
+   "approxMB": 540,
    "plan": "keys",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Keys Library",
-   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; nine pads (warm, air, choir aah / ooh, shimmer, strings, glass, swell, worship) - with worship-ready presets; and ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, pluck, electric bells).",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; twelve stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark and bell) - with worship-ready presets; and ten synths made by us, each its own kind (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells).",
    "sounds": [
     {
      "name": "Central Keys Pianos",
@@ -515,6 +515,59 @@
      "sound": "swell pad"
     },
     {
+     "name": "Analog Sweep",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.2
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.0
+       }
+      ]
+     ],
+     "sound": "analog sweep pad|warm pad"
+    },
+    {
+     "name": "Dark Pad Bed",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 4.5,
+        "Late": 30
+       }
+      ]
+     ],
+     "sound": "dark pad|warm pad"
+    },
+    {
+     "name": "Bell Pad Sparkle",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 40,
+        "Mix": 25
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 5
+       }
+      ]
+     ],
+     "sound": "bell pad|glass pad"
+    },
+    {
      "name": "Xylophone Bright",
      "kind": "keys",
      "chain": [
@@ -687,7 +740,7 @@
    "id": "central-instrument-library",
    "approxMB": 560,
    "plan": "instrument",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Instrument Library",
    "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and ten drum loops for the texture channels (worship eighths, big ride, half-time, four on the floor, sixteenths, toms, brushes, waltz) at 70 and 100 BPM.",
    "sounds": [
@@ -1348,9 +1401,9 @@
   },
   {
    "id": "central-plugins-library",
-   "approxMB": 12,
+   "approxMB": 18,
    "plan": "plugins",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Plugins Library",
    "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish.",
    "sounds": [
@@ -2024,7 +2077,7 @@
    "id": "central-pedals-library",
    "approxMB": 0.2,
    "plan": "pedals",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Pedals Library",
    "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies.",
    "sounds": [],
@@ -3194,11 +3247,11 @@
   },
   {
    "id": "central-pads-library",
-   "approxMB": 240,
+   "approxMB": 420,
    "plan": "pads",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Pads Library",
-   "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is a seamless stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too Plus three ambient loops for the texture channels - Sparkle, Drift and Breath - in every key.",
+   "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is built its own way (its own voices, movement, stereo and reverb) and is a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too. Plus three ambient loops for the texture channels - Sparkle, Drift and Breath - in every key.",
    "pads": [
     {
      "name": "Warm",
