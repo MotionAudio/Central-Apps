@@ -98,7 +98,10 @@ export function publicDownloads() {
   });
   const services = { name: "Central Services", icon: "central-services", app: "services", download: DL_PAGE(), links: linksOf("services"), runsOn: "Windows, Mac, Linux, Android and any web browser",
     web: config.publicUrl + "/services/", note: "No key: sign in with your Motion Audio account. Your church gives you a slot." };
-  return { apps, services, pedalSetup: PEDAL_SETUP, appsUrl: DL_PAGE(), platformNames: PLATFORM_NAMES, guide: config.publicUrl + INSTALL };
+  // (10.2) Central Production: free, no key - the sound plans' packages open the better sounds in it
+  const production = { name: "Central Production", icon: "central-production", app: "production", download: DL_PAGE(), links: linksOf("production"), runsOn: "Windows, Mac, Linux and any web browser",
+    web: config.publicUrl + "/production/", linuxCommand: installLine("production"), note: "Free, no key. Make tracks, loops, samples, pads, instruments, plugins and pedal boards. Your sound plan's package key opens the better sounds in it." };
+  return { apps, services, production, pedalSetup: PEDAL_SETUP, appsUrl: DL_PAGE(), platformNames: PLATFORM_NAMES, guide: config.publicUrl + INSTALL };
 }
 
 export function routes(api, { wrap, requireUser }) {

@@ -1,0 +1,566 @@
+/* Central Pedal / Central Pedal Control / Central Control / Central Usage - the license key and the first-open setup.
+ * When an app first opens: 1. the internet (Wi-Fi on the Central Pedal), 2. the production's name, 3. the license key
+ * (P = Central Pedal and Central Pedal Control, A = Central Control for admins, U = Central Usage for users), 4. the
+ * account (admins can all share one account; each user has their own). The key works on one device at a time: it is
+ * checked on the Motion Audio website when it is entered (so it can't be used on another device too), again whenever
+ * the app opens online, and at least every 30 days (it keeps working 30 days without internet).
+ * Settings → License → Release key frees it for another device (the website can release it too, for a lost device).
+ * The same file runs in both apps (Central Control / Usage get a copy in app/shared/ - prepare-shared.sh).
+ * Keys are needed when REQUIRED is true (Central Pedal Control P, Central Control A, Central Usage U; the Central Pedal itself and the
+ * player window never need one). With no SERVER yet (the website isn't open) the setup is just the production's name and the key,
+ * and only the default keys work (PDEF-AULT-KEY0-2026 and its A / U twins; SDEF-AULT-KEY0-2026 for packages): any number of
+ * devices, no end, updates always. Once SERVER is set every key, the default ones too, is checked on the website (staff can turn
+ * the default keys off there; this device then asks for a real key at its next check). */
+(function () {
+  "use strict";
+  var SERVER = "";          // the Motion Audio website, e.g. "https://motion-audio.onrender.com" (empty: not open yet - the default keys)
+  var REQUIRED = true;      // (the apps need a key; false turns keys off, e.g. for tests)
+  var o = window.PP_LICENSE_CONFIG || {};   // (tests, or a build that points somewhere else)
+  if (o.server != null) SERVER = o.server;
+  if (o.required != null) REQUIRED = o.required;
+  var LS = "cc-license", DEV = "cc-device-id";
+  var KIND_OF = { pedal: "P", "pedal-control": "P", control: "A", usage: "U" };
+  var NAME_OF = { pedal: "Central Pedal", "pedal-control": "Central Pedal Control", control: "Central Control", usage: "Central Usage" };
+  var KIND_NAME = { P: "P key (Central Pedal / Central Pedal Control)", A: "A key (Central Control - admins)", U: "U key (Central Usage - users)" };
+  var DAY = 864e5;
+
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function load() { try { return JSON.parse(localStorage.getItem(LS) || "null"); } catch (_) { return null; } }
+  function save(s) { try { if (s) localStorage.setItem(LS, JSON.stringify(s)); else localStorage.removeItem(LS); } catch (_) { } if (opts && opts.persist) try { opts.persist(s); } catch (_) { } }   // (persist: the Central Pedal keeps a copy with its driver)
+  function deviceId() {
+    var d = null; try { d = localStorage.getItem(DEV); } catch (_) { }
+    var u = (location.search.match(/[?&]cudev=([A-Za-z0-9-]{8,80})/) || [])[1];   // (the phone app's own id: Central Usage comes from the main admin's address)
+    if (u && u !== d) { d = u; try { localStorage.setItem(DEV, d); } catch (_) { } }
+    var b = window.__pedalBridge, hw = (opts && opts.deviceId) || (b && b.info && b.info.deviceId);   // (the computer's own id from the driver: the same after a reinstall)
+    if (!d && hw && /^[A-Za-z0-9-]{8,80}$/.test(hw)) { d = hw; try { localStorage.setItem(DEV, d); } catch (_) { } }
+    if (!d || !/^[A-Za-z0-9-]{8,80}$/.test(d)) {
+      var a = new Uint8Array(12); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach(function (_, i) { a[i] = Math.random() * 256; });
+      d = "dev-" + Array.from(a).map(function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
+      try { localStorage.setItem(DEV, d); } catch (_) { }
+    }
+    return d;
+  }
+  function pretty(k) { var c = String(k || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 24); return c.replace(/(.{4})(?=.)/g, "$1-"); }
+  function base() { return String(SERVER || "").replace(/\/+$/, ""); }
+  function on() { return !!(base() && REQUIRED); }   // (the website checks keys and packages)
+  function keysOn() { return !!REQUIRED; }   // (a key is needed - with or without the website)
+  var DEFAULT_KEYS = { P: "PDEF-AULT-KEY0-2026", A: "ADEF-AULT-KEY0-2026", U: "UDEF-AULT-KEY0-2026", S: "SDEF-AULT-KEY0-2026" };
+  var NOT_OPEN = "This key can't be checked yet - the Motion Audio website isn't open. Use the default key for now.";
+  function isDefault(key) { var c = pretty(key); return Object.keys(DEFAULT_KEYS).some(function (k) { return DEFAULT_KEYS[k] === c; }) || isDemo(c); }
+  // (10.0) the demo church: built-in keys like the default ones, for showing the apps to a church. Each plan key opens
+  // its plan (and Central Pads, like the real plans). Staff switch them off with the default keys.
+  var DEMO_CHURCH = "Riverstone Church (demo)";
+  var DEMO_KEYS = { P: "PDMO-RVST-PCTL-2026", A: "ADMO-RVST-ADMN-2026", U: "UDMO-RVST-USER-2026" };
+  var DEMO_PACKAGES = { "SDMO-RVST-ALL0-2026": ["keys", "plugins", "instrument", "pedals", "pads"], "SDMO-RVST-KEYS-2026": ["keys", "pads"], "SDMO-RVST-PLUG-2026": ["plugins", "pads"],
+    "SDMO-RVST-INST-2026": ["instrument", "pads"], "SDMO-RVST-PEDL-2026": ["pedals", "pads"], "SDMO-RVST-PADS-2026": ["pads"] };
+  function isDemo(key) { var c = pretty(key); return Object.keys(DEMO_KEYS).some(function (k) { return DEMO_KEYS[k] === c; }) || !!DEMO_PACKAGES[c]; }
+  async function call(path, body, token) {
+    var h = { "Content-Type": "application/json" }; if (token) h.Authorization = "Bearer " + token;
+    var ctl = window.AbortController ? new AbortController() : null, t = ctl ? setTimeout(function () { ctl.abort(); }, 12000) : 0;
+    try {
+      var r = await fetch(base() + "/v1" + path, { method: body === undefined ? "GET" : "POST", headers: h, body: body === undefined ? undefined : JSON.stringify(body), cache: "no-store", signal: ctl ? ctl.signal : undefined });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) { var e = new Error(j.error || ("The website answered " + r.status)); e.status = r.status; throw e; }
+      return j;
+    } finally { clearTimeout(t); }
+  }
+  async function online() {   // (15 s: the website may be waking up)
+    try { var ctl = window.AbortController ? new AbortController() : null, t = ctl ? setTimeout(function () { ctl.abort(); }, 15000) : 0; var r = await fetch(base() + "/health", { cache: "no-store", signal: ctl ? ctl.signal : undefined }); clearTimeout(t); return r.ok; }
+    catch (_) { return false; }
+  }
+
+  // ------------------------------------------------------------- state
+  var app = null, opts = {}, st = load(), ui = { step: 0, msg: "", busy: false, net: null, signup: false }, el = null, ready = false, waiters = [];
+  // a trial key stops at its end even without internet; the app keeps the key's update coverage (null: forever)
+  function trialOver() { return !!(st && st.expiresAt && Date.now() >= new Date(st.expiresAt).getTime()); }
+  function licensed() { return !!(st && st.key && st.okAt && st.app && KIND_OF[st.app] === KIND_OF[app] && !st.blocked && !trialOver()); }
+  function keepCoverage(r) {
+    if (!r) return;
+    st.updatesUntil = r.updatesUntil != null ? r.updatesUntil : null; st.updatesUntilText = r.updatesUntilText || (r.updatesUntil == null ? "forever" : "");
+    st.expiresAt = r.expiresAt || null; st.trial = !!r.trial;
+    if (r.tracksUnlimited !== undefined) st.tracksUnlimited = !!r.tracksUnlimited;
+    tellUpdater(); plansChanged();
+  }
+  // ---- packages: the sound plans (Central Keys, Central Plugins, Central Instrument, Central Pedals, Central Pads), yearly,
+  // each bought as a package key (SXXX-XXXX-XXXX-XXXX) added in Settings → Packages. A package names the plans it opens and
+  // each one's end date. (9.8) Central Pads comes with every other plan: a package with any of the four opens the pads too.
+  // A key works on 3 of its holder's devices, each a different app (one Central Usage, one Central Control, one pedal...).
+  // They're checked on the website when added, when the app opens online and every few hours; one keeps working offline for
+  // 14 days after its last good check (never past its end date). The Central Pedal keeps them with its driver (packages.json),
+  // so the app, Pedal Control and both small screens see the same ones; the computers keep their own.
+  // With licensing off (no website set) every plan is open.
+  var PLAN_IDS = ["keys", "plugins", "instrument", "pedals", "pads"], PK_LS = "cc-packages", OFFLINE_DAYS = 14;
+  var PLAN_NAMES = { keys: "Central Keys", plugins: "Central Plugins", instrument: "Central Instrument", pedals: "Central Pedals", pads: "Central Pads" };
+  var pk = { list: [], msg: "", busy: false };
+  try { pk.list = JSON.parse(localStorage.getItem(PK_LS) || "[]") || []; } catch (_) { pk.list = []; }
+  function onPedal() { return app === "pedal" || app === "pedal-control"; }   // (the packages belong to the Central Pedal)
+  function pkDevice() { var b = window.__pedalBridge, id = onPedal() && b && b.info && b.info.deviceId; return id && /^[A-Za-z0-9-]{8,80}$/.test(id) ? id : deviceId(); }
+  function cleanPlans(p) {
+    var out = {}; if (p && typeof p === "object") PLAN_IDS.forEach(function (id) { if (p[id]) out[id] = String(p[id]); });
+    if (!out.pads) { var last = ""; PLAN_IDS.forEach(function (id) { if (id !== "pads" && out[id] && (!last || pkTime(out[id]) > pkTime(last))) last = out[id]; }); if (last) out.pads = last; }   // (Central Pads comes with every plan)
+    return out;
+  }
+  function pkTime(iso) { var t = new Date(iso).getTime(); return isNaN(t) ? Infinity : t; }
+  function pkLive(p) { return !!(p && p.ok !== false && p.okAt && Date.now() - p.okAt < OFFLINE_DAYS * DAY); }
+  function planActive(id) { return pk.list.some(function (p) { return pkLive(p) && p.plans && p.plans[id] && Date.now() < pkTime(p.plans[id]); }); }
+  function planEnd(id) { var e = 0; pk.list.forEach(function (p) { if (pkLive(p) && p.plans && p.plans[id]) e = Math.max(e, pkTime(p.plans[id])); }); return e; }
+  function hasPlan(id) {
+    if (!on()) return true;   // (licensing off: everything)
+    if (!id || id === "free") return true;
+    return planActive(id);
+  }
+  function plans() { var out = {}; PLAN_IDS.forEach(function (id) { if (hasPlan(id)) { var e = planEnd(id); out[id] = on() && e && e !== Infinity ? new Date(e).toISOString() : true; } }); return out; }
+  function pkSave(toDriver) {
+    try { localStorage.setItem(PK_LS, JSON.stringify(pk.list)); } catch (_) { }
+    var b = window.__pedalBridge; if (toDriver !== false && onPedal() && b && b.connected && b.send) b.send({ type: "packages", action: "save", packages: pk.list });
+    plansChanged(); pkRedraw();
+  }
+  function pkFromDriver(list) { if (!Array.isArray(list)) return; pk.list = list; try { localStorage.setItem(PK_LS, JSON.stringify(list)); } catch (_) { } plansChanged(); pkRedraw(); }
+  async function pkActivate(key) {
+    var c = String(key || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (c.length !== 16 || c[0] !== "S") { pk.msg = "A package key has 16 letters and digits and starts with S (SXXX-XXXX-XXXX-XXXX)."; return pkRedraw(); }
+    if (!on()) {   // (no website yet: only the default package key, with every plan)
+      var demoPlans = DEMO_PACKAGES[pretty(c)];
+      if (pretty(c) !== DEFAULT_KEYS.S && !demoPlans) { pk.msg = NOT_OPEN; return pkRedraw(); }
+      var all = {}; (demoPlans || PLAN_IDS).forEach(function (id) { all[id] = "default"; });
+      pk.list = pk.list.filter(function (p) { return p.key !== pretty(c); }).concat([{ key: pretty(c), plans: all, holder: "", church: demoPlans ? DEMO_CHURCH : "", okAt: Date.now(), isDefault: true, isDemo: !!demoPlans }]);
+      pk.msg = demoPlans ? "Added the demo package: " + demoPlans.map(function (id) { return PLAN_NAMES[id]; }).join(", ") + "." : "Added the default package (temporary): every plan."; return pkSave();
+    }
+    pk.busy = true; pk.msg = ""; pkRedraw();
+    try {
+      var r = await call("/package/activate", { key: pretty(c), deviceId: pkDevice(), app: app, licenseKey: st && st.key && !isDefault(st.key) ? st.key : undefined });   // (a package works on its holder's own devices)
+      if (!r.ok) throw new Error(r.error || "That key didn't work.");
+      var item = { key: r.key || pretty(c), plans: cleanPlans(r.plans), holder: r.holder || "", church: r.church || "", okAt: Date.now() };
+      pk.list = pk.list.filter(function (p) { return p.key !== item.key; }).concat([item]);
+      pk.msg = "Added: " + (Object.keys(item.plans).map(function (id) { return PLAN_NAMES[id]; }).join(", ") || "no plans") + ".";
+      pkSave();
+    } catch (e) { pk.msg = e.name === "AbortError" ? "The website didn't answer. Check the internet and try again." : e.message; }
+    pk.busy = false; pkRedraw();
+  }
+  async function pkRelease(key) {
+    pk.busy = true; pkRedraw();
+    try { if (!on()) throw new Error("no website"); await call("/package/release", { key: key, deviceId: pkDevice() }); pk.msg = "Removed. The key is free for another device."; }
+    catch (e) { pk.msg = "Removed from this device. The website didn't answer, so release the key there to use it on another device."; }
+    pk.list = pk.list.filter(function (p) { return p.key !== key; }); pk.busy = false; pkSave();
+  }
+  var pkChecking = false;
+  async function checkPackages() {
+    if (!on() || !pk.list.length || pkChecking) return; pkChecking = true;
+    try {
+      var r = await call("/package/check", { keys: pk.list.map(function (p) { return p.key; }), deviceId: pkDevice() }), by = {};
+      (r.packages || []).forEach(function (q) { by[q.key] = q; });
+      pk.list.forEach(function (p) { var q = by[p.key]; if (!q) return; if (q.ok) { p.ok = true; p.plans = cleanPlans(q.plans); p.end = q.end || ""; p.okAt = Date.now(); delete p.error; } else { p.ok = false; p.error = q.error || "not valid any more"; } });
+      pkSave();
+    } catch (_) { }   // (offline: they keep working until 14 days after the last good check)
+    pkChecking = false;
+  }
+  function pkStatus(p) {
+    if (p.ok === false) return { text: p.error || "not valid", bad: true };
+    if (!on()) return { text: "active" + (p.isDefault ? " (until the website opens and staff turn default keys off)" : ""), bad: false };
+    var ends = Object.keys(p.plans || {}).map(function (id) { return pkTime(p.plans[id]); }), last = ends.length ? Math.max.apply(null, ends) : 0;
+    if (last && last !== Infinity && last < Date.now()) return { text: "ended " + new Date(last).toLocaleDateString(), bad: true };
+    if (!pkLive(p)) return { text: "needs the internet to check (last checked " + (p.okAt ? new Date(p.okAt).toLocaleDateString() : "never") + ")", bad: true };
+    return { text: "active · checked " + new Date(p.okAt).toLocaleDateString(), bad: false };
+  }
+  // Settings → Packages, with Libraries under it (js/libraries.js: the sound libraries of the plans you have)
+  function packagesHtml(cls) { return pkSectionHtml(cls) + (window.PPLibraries && window.PPLibraries.html ? window.PPLibraries.html(cls) : "") + (window.PPCommunity && window.PPCommunity.html ? window.PPCommunity.html(cls) : ""); }   // (10.1: and Community - js/community.js)
+  function pkSectionHtml(cls) {
+    var rows = pk.list.map(function (p) {
+      var s = pkStatus(p), names = PLAN_IDS.filter(function (id) { return p.plans && p.plans[id]; }).map(function (id) { var t = pkTime(p.plans[id]); return esc(PLAN_NAMES[id]) + (t !== Infinity ? " until " + esc(new Date(t).toLocaleDateString()) : ""); });
+      return '<li><b>' + (names.join(" · ") || "No plans") + (p.isDemo || isDemo(p.key) ? " · Demo package" : p.isDefault || p.key === DEFAULT_KEYS.S ? " · Default package (temporary)" : "") + '</b><br><span class="muted">' + esc(p.key.slice(0, 4) + "-••••-••••-" + p.key.slice(-4)) + (p.holder ? " · " + esc(p.holder) : "") + (p.church ? " · " + esc(p.church) : "") + ' · </span><span class="' + (s.bad ? "bad" : "ok") + '">' + esc(s.text) + '</span> <button class="link" data-pkg-remove="' + esc(p.key) + '"' + (pk.busy ? " disabled" : "") + ">Remove</button></li>";
+    }).join("");
+    var form = (rows ? '<ul class="plain pkg-list">' + rows + "</ul>" : '<p class="muted">No packages yet: the free sounds and pedals are open.</p>') +
+      '<div class="row"><input id="pkgKey" placeholder="SXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" style="text-transform:uppercase"><button class="primary" data-pkg="add"' + (pk.busy ? " disabled" : "") + '>Add a package</button>' + (pk.list.length && on() ? '<button data-pkg="check"' + (pk.busy ? " disabled" : "") + ">Check now</button>" : "") + "</div>" +
+      (pk.msg ? '<p class="small">' + esc(pk.msg) + "</p>" : "");
+    return '<section class="' + (cls || "") + '" data-st="packages" id="pkgSettings"><h3>Packages</h3>' +
+      (!on() ? '<p class="muted">For now every sound, board and pedal is open to everyone. Once the Motion Audio website is up, you add the key from your sound plan here.</p>'
+        : '<p class="muted">Sound plans: Central Keys (pianos, synths), Central Plugins (EQ, compressors, reverb, delay on tracks, pads, channels and the instrument), Central Instrument (basses, guitars, strings, brass, winds), Central Pedals (drive, fuzz, wah, modulation, amps, cabs) and Central Pads (pads in every key for the pad pedal - it comes with every other plan too). Each is a yearly package with its own key, for 3 of your devices - each a different app (say Central Usage, Central Control and a Central Pedal). ' + (onPedal() ? "Packages here are kept by the Central Pedal, so its screens and Pedal Control see them too." : "") + "</p>") + form + "</section>";
+  }
+  function pkRedraw() { var el2 = document.getElementById("pkgSettings"); if (el2) { var keep = el2.querySelector("#pkgKey"), v = keep ? keep.value : ""; el2.outerHTML = pkSectionHtml(el2.className); var k2 = document.getElementById("pkgKey"); if (k2 && v && !pk.busy && !/^Added/.test(pk.msg)) k2.value = v; } }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-pkg],[data-pkg-remove]"); if (!b) return;
+    if (b.dataset.pkgRemove) { pkRelease(b.dataset.pkgRemove); return; }
+    if (b.dataset.pkg === "add") pkActivate((document.getElementById("pkgKey") || {}).value);
+    else if (b.dataset.pkg === "check") { pk.msg = "Checking…"; pkRedraw(); checkPackages().then(function () { pk.msg = ""; pkRedraw(); }); }
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target && e.target.id === "pkgKey") pkActivate(e.target.value); });
+  var planSig = null;
+  function plansChanged() {   // (tells the Instrument tab and the screens when a plan starts or ends)
+    var sig = JSON.stringify([on(), PLAN_IDS.map(hasPlan), !!(st && st.tracksUnlimited)]); if (sig === planSig) return; planSig = sig;
+    try { window.dispatchEvent(new CustomEvent("pp-plans", { detail: { plans: plans(), tracksUnlimited: tracksUnlimited() } })); } catch (_) { }
+  }
+  function tracksUnlimited() { return !on() || !!(st && st.tracksUnlimited); }
+  // Central Control and Central Usage on a computer: the updater installs only versions this key covers
+  function tellUpdater() {
+    try { if (window.CU && window.CU.updates && window.CU.updates.config && st && st.key) window.CU.updates.config({ limit: st.updatesUntil != null ? st.updatesUntil : null, limitText: st.updatesUntilText || "", everyone: everyone }); } catch (_) { }
+  }
+  // releases Motion Audio sent to every device (an emergency fix installs even past this key's updates)
+  var everyone = [];
+  async function learnEveryone() {
+    if (!on() || !(window.CU && window.CU.updates)) return;
+    try { var v = await call("/versions"); if (v && Array.isArray(v.everyone)) { everyone = v.everyone; tellUpdater(); } } catch (_) { }
+  }
+  function complete() { return licensed() && (!on() || !!(st.account && st.account.email)); }   // (no website yet: no account to sign in to)   // (the key and the account)
+  function daysLeft() { return st && st.okAt ? Math.max(0, Math.ceil(((st.recheckDays || 30) * DAY - (Date.now() - st.okAt)) / DAY)) : 0; }
+
+  // the check when the app opens (and every 6 hours): it keeps working offline for 30 days after the last good check
+  async function recheck() {
+    if (!on() || !st || !st.key) return;
+    try {
+      var r = await call("/license/check", { key: st.key, device: deviceId() });
+      if (r.ok) { st.okAt = Date.now(); st.church = r.church || st.church; st.recheckDays = r.recheckDays || 30; st.blocked = null; keepCoverage(r); save(st); }
+      else { st.blocked = r.reason === "expired" ? "Your church’s free trial ended" + (r.expiresAt ? " on " + new Date(r.expiresAt).toLocaleDateString() : "") + ". Enter a key your church bought to keep using " + NAME_OF[app] + " - your songs, setlists and settings are still here." : r.reason === "elsewhere" ? "This key is now used on “" + (r.device || "another device") + "”. Enter another key, or release it there." : r.reason === "released" ? "This key was released (on the website or another device). Enter it again, or another key." : "This key no longer works. Enter another key."; save(st); }
+    } catch (e) {
+      if (st.okAt && Date.now() - st.okAt > (st.recheckDays || 30) * DAY) { st.blocked = "Connect to the internet so this device can check its key (it hasn't been checked for " + (st.recheckDays || 30) + " days)."; save(st); }
+    }
+    plansChanged();
+    if (!complete()) open();
+    else if (el) close();
+  }
+
+  // ------------------------------------------------------------- the setup screen
+  var STEPS = ["Internet", "Church", "License key", "Account"];
+  function css() {
+    if (document.getElementById("licCss")) return;
+    var s = document.createElement("style"); s.id = "licCss";
+    s.textContent = "dialog#licWiz{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;z-index:2147483000;background:var(--bg,#111317);color:var(--text,#ece7dd);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;font:15px/1.45 system-ui,sans-serif;box-sizing:border-box}" +
+      "dialog#licWiz::backdrop{background:var(--bg,#111317)}" +
+      "#licWiz .lw{width:min(560px,100%);background:var(--panel,#101e31);border:1px solid var(--line,#343a44);border-radius:16px;padding:20px;display:grid;gap:12px}" +
+      "#licWiz h2{margin:0;font-size:21px}#licWiz .lw-steps{display:flex;gap:6px;flex-wrap:wrap}#licWiz .lw-steps span{font-size:12px;padding:3px 8px;border-radius:99px;border:1px solid var(--line,#343a44);color:var(--muted,#9aa1ab)}" +
+      "#licWiz .lw-steps span.on{background:var(--accent,#e2c27e);color:#1a1408;border-color:transparent}#licWiz .lw-steps span.done{color:var(--accent,#e2c27e)}" +
+      "#licWiz label{display:grid;gap:4px;font-size:14px;color:var(--muted,#9aa1ab)}#licWiz input,#licWiz select{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line,#343a44);background:#071321;color:inherit}" +
+      "#licWiz input.lw-key{font:600 20px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase}#licWiz .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}" +
+      "#licWiz button{font:inherit;padding:10px 16px;border-radius:10px;border:1px solid var(--line,#343a44);background:#23272e;color:inherit;cursor:pointer}#licWiz button.primary{background:var(--accent,#e2c27e);color:#1a1408;border-color:transparent;font-weight:600}" +
+      "#licWiz button:disabled{opacity:.5}#licWiz .muted{color:var(--muted,#9aa1ab);font-size:13px}#licWiz .bad{color:#ff8a8a}#licWiz .ok{color:var(--accent,#e2c27e)}#licWiz .wifi-list{display:grid;gap:6px;max-height:220px;overflow:auto}" +
+      "#licWiz .wifi-list button{text-align:left}#licWiz section{border:0;padding:0}#licWiz .tabs{display:flex;gap:6px}#licWiz .tabs button.on{border-color:var(--accent,#e2c27e)}";
+    s.textContent += s.textContent.replace(/#licWiz/g, "#licMini") + "#licWiz button.bad-btn,#licMini button.bad-btn,section button.bad-btn{background:#7f1d1d;border-color:#b91c1c;color:#fff}#licMini textarea{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line,#343a44);background:#071321;color:inherit}";
+    document.head.appendChild(s);
+  }
+  function wifiPanel() {   // the Central Pedal's own Wi-Fi list (js/touch-wifi.js does the connecting)
+    if (app !== "pedal" || !window.PPTouchWifi || !(window.__pedalBridge && window.__pedalBridge.connected)) return '<p class="muted">Connect this ' + (app === "usage" || app === "pedal-control" ? "device" : "computer") + " to Wi-Fi (or a cable) in its own settings, then press Try again.</p>";
+    return window.PPTouchWifi.wifiHtml(null, ui.wifi || null) || "";
+  }
+  function html() {
+    var s = ui.step, kind = KIND_OF[app], shown = STEPS.map(function (n, i) { return [n, i]; }).filter(function (x) { return on() || x[1] === 1 || x[1] === 2; }), head = '<h2>' + esc(NAME_OF[app] || "Central") + (st && st.blocked && s === 2 ? " - enter a key" : ": let’s get you set up") + "</h2>" +
+      '<div class="lw-steps">' + shown.map(function (x, j) { var i = x[1]; return '<span class="' + (i === s ? "on" : i < s ? "done" : "") + '">' + (i < s ? "✓ " : (j + 1) + ". ") + x[0] + "</span>"; }).join("") + "</div>";
+    var body = "", btns = "";
+    if (s === 0) {
+      body = ui.net === true ? '<p class="ok">✓ You’re online.</p>' : ui.net === false ? (navigator.onLine === false ? '<p class="bad">We can’t see the internet from here yet.</p>' + wifiPanel()
+        : '<p class="bad">We can’t reach the Motion Audio website right now.</p><p class="muted">Check that this ' + (app === "pedal" ? "pedal" : "device") + ' is on the internet. If it is, we might be busy for a moment: give it a minute and try again.</p>' + (app === "pedal" ? wifiPanel() : "")) : "<p>Checking the internet…</p>";
+      btns = (ui.net === false ? '<button data-lw="retry">Try again</button>' : "") + '<button class="primary" data-lw="next"' + (ui.net === true ? "" : " disabled") + ">Next</button>";
+    } else if (s === 1) {
+      body = '<label>Your church’s name<input id="lwProd" value="' + esc((st && st.production) || opts.production || "") + '" placeholder="Grace Church" autocomplete="organization"></label>' +
+        '<p class="muted">It names this setup on this ' + (app === "pedal" ? "pedal" : "device") + ". Your keys and your team are on your church's account on the Motion Audio website.</p>";
+      btns = (on() ? '<button data-lw="back">Back</button>' : "") + '<button class="primary" data-lw="prod">Next</button>';
+    } else if (s === 2) {
+      body = (st && st.blocked ? '<p class="bad">' + esc(st.blocked) + "</p>" : "") +
+        '<label><span>License key - it starts with <b>' + kind + "</b> · " + esc({ P: "Central Pedal / Central Pedal Control", A: "Central Control (admins)", U: "Central Usage (users)" }[kind]) + '</span><input id="lwKey" class="lw-key" maxlength="29" value="' + esc(pretty(ui.key || (st && st.key) || opts.presetKey || "")) + '" placeholder="' + kind + 'XXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"></label>' +
+        '<label>This device’s name (so you know it on the website)<input id="lwDev" value="' + esc(ui.devName || (st && st.deviceName) || opts.deviceName || NAME_OF[app]) + '"></label>' +
+        (!on() ? '<p class="muted">The Motion Audio website isn’t open yet. For now use the default key, <b>' + esc(DEFAULT_KEYS[kind]) + "</b>" + (DEMO_KEYS[kind] ? ", or the demo church’s key, <b>" + esc(DEMO_KEYS[kind]) + "</b>" : "") + ".</p>" : "") +
+        '<p class="muted">Your key is in the email your church sent you, and on your church’s page on our website. ' + (kind === "A" || app === "pedal" ? "It works on one device at a time" : "It works on two devices (for example the church’s and your own) with the same account and the same settings") + '; Settings → License → Release key frees a device for another.</p>';
+      btns = '<button data-lw="back">Back</button><button class="primary" data-lw="key"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Checking…" : "Use this key") + "</button>";
+    } else if (s === 3 && ui.two) {   // an admin account: the phone (first time), then the code sent to it
+      var t = ui.two;
+      body = t.step === "phone" ? '<p>Because you look after your church’s account, a new device needs a code from your phone too. Which mobile number should we text?</p><label>Mobile number<input id="lwPhone" type="tel" autocomplete="tel" placeholder="555-123-4567"></label>'
+        : '<p>We ' + (t.by === "email" ? "emailed" : "texted") + " a 6-digit code to <b>" + esc(t.to) + "</b>" + (t.both ? " and emailed another to you (adding a phone takes both)" : "") + '. They work for 10 minutes.</p><label>' + (t.both ? "Code from the text" : "Code") + '<input id="lwCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" class="lw-key"></label>' +
+          (t.both ? '<label>Code from the email<input id="lwECode" inputmode="numeric" maxlength="7" class="lw-key"></label>' : "");
+      btns = '<button data-lw="tcancel">Back</button>' + (t.step === "code" ? '<button data-lw="tagain"' + (ui.busy ? " disabled" : "") + ">Send again</button>" : "") + '<button class="primary" data-lw="' + (t.step === "phone" ? "tphone" : "tcode") + '"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "One moment…" : t.step === "phone" ? "Send the code" : "Sign in") + "</button>";
+    } else if (s === 3) {
+      var su = ui.signup;
+      body = '<p>' + (st && st.church ? "Key ✓ · <b>" + esc(st.church) + "</b>. " : "Key ✓. ") + (kind === "U" ? "Sign in with <b>your own</b> account (each user has their own)." : "Sign in with your church’s admin account (all admins can share one), or your own.") + "</p>" +
+        '<div class="tabs"><button data-lw="in" class="' + (su ? "" : "on") + '">Sign in</button><button data-lw="up" class="' + (su ? "on" : "") + '">Make an account</button></div>' +
+        (su ? '<label>Name<input id="lwName" autocomplete="name"></label>' : "") +
+        '<label>Email<input id="lwEmail" type="email" autocomplete="username" value="' + esc(ui.email || "") + '"></label><label>Password' + (su ? " (8+ characters)" : "") + '<input id="lwPass" type="password" autocomplete="' + (su ? "new-password" : "current-password") + '"></label>';
+      btns = (su ? "" : '<button data-lw="forgot"' + (ui.busy ? " disabled" : "") + ">Forgot password?</button>") + '<button class="primary" data-lw="acct"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "One moment…" : su ? "Make account" : "Sign in") + "</button>";
+    }
+    return '<div class="lw">' + head + body + (ui.msg ? '<p class="' + (/^✓/.test(ui.msg) ? "ok" : "bad") + '">' + esc(ui.msg) + "</p>" : "") + '<div class="row">' + btns + "</div></div>";
+  }
+  function draw() { if (!el) return; var a = document.activeElement, keep = a && el.contains(a) && a.tagName === "INPUT" ? a.id : null, val = keep ? a.value : null; el.innerHTML = html(); if (keep && document.getElementById(keep)) { var n = document.getElementById(keep); n.value = val; n.focus(); } }
+  function open() {
+    if (!keysOn()) return;
+    css();
+    if (!el) {   // (a modal dialog: on top of everything, nothing behind it can be touched)
+      el = document.createElement("dialog"); el.id = "licWiz"; document.body.appendChild(el); wire();
+      el.addEventListener("cancel", function (e) { e.preventDefault(); });   // (Escape doesn't skip it)
+      el.addEventListener("close", function () { var me = el; setTimeout(function () { if (me && me === el && !complete()) { try { me.showModal(); } catch (_) { } } }, 0); });   // (nor a second Escape, or Android's back)
+    }
+    if (!el.open) { try { el.showModal(); } catch (_) { el.setAttribute("open", ""); } }
+    if (licensed() && !(st.account && st.account.email)) ui.step = 3;   // (key done, the account not yet)
+    else if (st && trialOver()) { ui.step = 2; ui.key = ""; ui.msg = "Your church’s free trial ended. Enter a key your church bought to keep going - your songs, setlists and settings are all still here."; }
+    else if (st && st.blocked) ui.step = 0;
+    if (!on() && (ui.step === 0 || ui.step === 3)) ui.step = st && st.production ? 2 : 1;   // (no website yet: no internet check, no account)
+    draw();
+    if (ui.step === 0) checkNet();
+  }
+  function close() { if (el) { try { el.close(); } catch (_) { } el.remove(); el = null; } markReady(); }
+  function markReady() { if (ready) return; ready = true; waiters.splice(0).forEach(function (f) { try { f(); } catch (_) { } }); }
+  async function checkNet() {
+    ui.net = null; draw();
+    var ok = await online(); ui.net = ok; ui.msg = ""; draw();
+    if (!ok && app === "pedal" && window.PPFeatures) window.PPFeatures.sendToDriver({ type: "system", action: "wifi" });   // (the Wi-Fi list)
+    if (ok && ui.step === 0) { ui.step = st && st.production ? 2 : 1; draw(); }   // already online (Wi-Fi or a cable): the Wi-Fi step is skipped
+  }
+  async function useKey() {
+    var key = (document.getElementById("lwKey") || {}).value || "", dn = ((document.getElementById("lwDev") || {}).value || "").trim();
+    ui.key = key; ui.devName = dn;
+    var c = key.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (c.length < 12 || c.length > 24) { ui.msg = "A key has 16 letters and digits."; return draw(); }
+    if (c.length === 16 && c[0] !== KIND_OF[app]) { ui.msg = "That's " + (KIND_NAME[c[0]] ? (c[0] === "A" ? "an " : "a ") + KIND_NAME[c[0]] : "not a key for this app") + ". " + NAME_OF[app] + " needs a key that starts with " + KIND_OF[app] + "."; return draw(); }
+    if (!on()) {   // (the website isn't open yet: only the default key works, on any number of devices, with no end)
+      var demo = pretty(c) === DEMO_KEYS[KIND_OF[app]];
+      if (pretty(c) !== DEFAULT_KEYS[KIND_OF[app]] && !demo) { ui.msg = NOT_OPEN; return draw(); }
+      st = Object.assign(st || {}, { key: pretty(c), kind: KIND_OF[app], app: app, church: demo ? DEMO_CHURCH : "", isDemo: demo, okAt: Date.now(), recheckDays: 30, deviceName: dn || NAME_OF[app], blocked: null, isDefault: true, updatesUntil: null, updatesUntilText: "forever", expiresAt: null, trial: false });
+      save(st); tellUpdater(); ui.msg = ""; finish(); if (opts.onChange) try { opts.onChange(); } catch (_) { } return;
+    }
+    ui.busy = true; ui.msg = ""; draw();
+    try {
+      var r = await call("/license/activate", { key: key, device: deviceId(), deviceName: dn || NAME_OF[app], app: app, production: st && st.production });
+      st = Object.assign(st || {}, { key: r.key, kind: r.kind, app: app, church: r.church || "", okAt: Date.now(), recheckDays: r.recheckDays || 30, deviceName: dn || NAME_OF[app], blocked: null, isDefault: isDefault(r.key) });
+      keepCoverage(r);
+      save(st); ui.step = 3; ui.msg = "";
+      if (r.account && r.account.email && !ui.email) ui.email = r.account.email;   // (the key was given to this person: their email is filled in)
+      if (st.account && st.account.token) { await link(st.account.token).catch(function () { }); }
+    } catch (e) { ui.msg = e.name === "AbortError" ? "The website didn't answer. Check the internet and try again." : e.message; }
+    ui.busy = false; draw();
+    if (ui.step === 3 && st.account && st.account.email) finish();
+  }
+  async function link(token) { var r = await call("/license/link", { key: st.key, device: deviceId() }, token); if (r.church) st.church = r.church; return r; }
+  async function account() {
+    var email = ((document.getElementById("lwEmail") || {}).value || "").trim(), pw = (document.getElementById("lwPass") || {}).value || "", name = ((document.getElementById("lwName") || {}).value || "").trim();
+    ui.email = email;
+    if (!email || !pw) { ui.msg = "Enter your email and password."; return draw(); }
+    ui.busy = true; ui.msg = ""; draw();
+    try {
+      var r = await call(ui.signup ? "/signup" : "/login", ui.signup ? { email: email, password: pw, name: name, device: deviceId() } : { email: email, password: pw, device: deviceId() });
+      if (r.step) { ui.two = Object.assign(r, { email: email }); ui.busy = false; ui.msg = ""; return draw(); }   // (an admin: a code to the phone first)
+      await signedIn(email, r.token);
+    } catch (e) { ui.busy = false; ui.msg = e.message; draw(); }
+  }
+  async function signedIn(email, tok) {
+    await link(tok);
+    st.account = { email: email, token: tok }; save(st); ui.two = null;
+    shareToken(tok); setTimeout(pullAll, 0);   // (this account's settings come down now)
+    ui.busy = false; finish();
+  }
+  async function twoStep(a) {
+    var t = ui.two; if (!t) return;
+    var phone = ((document.getElementById("lwPhone") || {}).value || "").trim(), code = ((document.getElementById("lwCode") || {}).value || "").trim(), ecode = ((document.getElementById("lwECode") || {}).value || "").trim();   // (read before the window redraws)
+    ui.busy = true; ui.msg = ""; draw();
+    try {
+      if (a === "tphone") Object.assign(t, await call("/login/phone", { ticket: t.ticket, phone: phone }));
+      else if (a === "tagain") { Object.assign(t, await call("/login/resend", { ticket: t.ticket })); ui.msg = "✓ A new code is on its way."; }
+      else { var r = await call("/login/code", { ticket: t.ticket, code: code, emailCode: ecode || undefined }); return await signedIn(t.email, r.token); }
+    } catch (e) { ui.msg = e.message; if (e.status === 410) ui.two = null; }
+    ui.busy = false; draw();
+  }
+  // Forgot password: the website emails a link to set a new one (on any phone or computer); then sign in here with it
+  async function forgot() {
+    var email = ((document.getElementById("lwEmail") || {}).value || "").trim(); ui.email = email;
+    if (!email) { ui.msg = "Type your account's email first, then press Forgot password?"; return draw(); }
+    ui.busy = true; ui.msg = ""; draw();
+    try { var r = await call("/password/forgot", { email: email }); ui.msg = "✓ " + (r.message || "Check your email.") + " Open the link, set the new password, then sign in here with it."; }
+    catch (e) { ui.msg = e.name === "AbortError" ? "The website didn't answer. Check the internet and try again." : e.message; }
+    ui.busy = false; draw();
+  }
+  function shareToken(token) {   // the same account signs in to Central Tracks in Central Pedal / Central Pedal Control
+    if (app !== "pedal" && app !== "pedal-control") return;
+    try { var c = JSON.parse(localStorage.getItem("central-tracks") || "{}"); if (!c.server) c.server = base(); if (c.server === base()) c.token = token; localStorage.setItem("central-tracks", JSON.stringify(c)); } catch (_) { }
+  }
+  function finish() { ui.msg = ""; close(); if (opts.onReady) try { opts.onReady(st); } catch (_) { } }
+  function wire() {
+    el.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-lw]"); if (!b) return; var a = b.dataset.lw;
+      if (a === "retry") checkNet();
+      else if (a === "next") { ui.step = 1; draw(); }
+      else if (a === "back") { ui.step = Math.max(0, ui.step - 1); ui.msg = ""; draw(); }
+      else if (a === "prod") { var p = ((document.getElementById("lwProd") || {}).value || "").trim(); if (!p) { ui.msg = "Give it a name."; return draw(); } st = Object.assign(st || {}, { production: p }); save(st); if (opts.onProduction) try { opts.onProduction(p); } catch (_) { } ui.step = 2; ui.msg = ""; draw(); }
+      else if (a === "key") useKey();
+      else if (a === "in" || a === "up") { ui.signup = a === "up"; ui.msg = ""; draw(); }
+      else if (a === "acct") account();
+      else if (a === "forgot") forgot();
+      else if (a === "tphone" || a === "tcode" || a === "tagain") twoStep(a);
+      else if (a === "tcancel") { ui.two = null; ui.msg = ""; draw(); }
+    });
+    el.addEventListener("keydown", function (e) { if (e.key === "Enter") { var b = el.querySelector("button.primary"); if (b && !b.disabled) { e.preventDefault(); b.click(); } } });
+    el.addEventListener("input", function (e) { if (e.target.id === "lwKey") { var p0 = e.target.selectionStart, before = e.target.value; e.target.value = pretty(before); if (p0 === before.length) e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } });
+  }
+
+  // ------------------------------------------------------------- Settings → License
+  function settingsHtml(cls) {
+    if (!keysOn() || app === "pedal") return packagesHtml(cls);   // (the Central Pedal has no license key of its own: just its packages)
+    var s = st || {};
+    if (!on()) return packagesHtml(cls) + '<section class="' + (cls || "") + '" data-st="license" id="licSettings"><h3>License</h3>' +
+      (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p><p class=\"muted\">Key <code>" + esc(s.key) + "</code>" + (isDemo(s.key) ? " · <b>Demo key</b>" : s.isDefault || isDefault(s.key) ? " · <b>Default key (temporary)</b>" : "") + (s.church ? " · " + esc(s.church) : "") + (s.production ? " · " + esc(s.production) : "") + "</p>" +
+        '<p class="muted">The Motion Audio website isn’t open yet. When it is, this device checks its key there; a default key then needs replacing with your church’s own key.</p><div class="row"><button data-lic="release">Release key</button></div>'
+        : '<p class="bad">No key on this device.</p><button data-lic="enter">Enter a key</button>') + "</section>";
+    return packagesHtml(cls) + '<section class="' + (cls || "") + '" data-st="license" id="licSettings"><h3>License</h3>' +
+      (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p>" +
+        '<p class="muted">Key <code>' + esc(s.key ? s.key.slice(0, 4) + "-••••-••••-" + s.key.slice(-4) : "") + "</code>" + (isDemo(s.key) ? " · <b>Demo key</b>" : s.isDefault || isDefault(s.key) ? " · <b>Default key (temporary)</b>" : "") + (s.church ? " · " + esc(s.church) : "") + (s.production ? " · " + esc(s.production) : "") +
+        " · this device: " + esc(s.deviceName || "") + " · checked " + new Date(s.okAt).toLocaleDateString() + " (works offline " + daysLeft() + " more days)" + (s.account && s.account.email ? " · account " + esc(s.account.email) : "") + "</p>" +
+        (s.trial && s.expiresAt ? '<p class="muted">Free trial until ' + esc(new Date(s.expiresAt).toLocaleDateString()) + ". After that, enter a key your church bought. Everything you made here stays.</p>"
+          : s.kind === "P" || s.updatesUntilText === "forever" ? '<p class="muted">Updates: forever.</p>'
+          : s.updatesUntilText ? '<p class="muted">Updates through version ' + esc(s.updatesUntilText) + '. After that this version keeps working; renew the key ($20) on the website for ten more releases.</p>' : "") +
+        '<div class="row"><button data-lic="release">Release key</button>' + (s.account && s.account.email ? '<button data-lic="signout">Sign out of the account</button>' : '<button data-lic="account">Sign in</button>') + "</div>" +
+        '<p class="muted">Release key frees it for another device; this one asks for a key again. For a lost or broken device, release its key on the website (your church’s page).</p>'
+        : '<p class="bad">No key on this device.</p><button data-lic="enter">Enter a key</button>') +
+      '<div class="row"><button data-lic="support">Contact support</button><a href="' + esc(base()) + '/privacy" target="_blank" rel="noopener">Privacy policy</a> · <a href="' + esc(base()) + '/terms" target="_blank" rel="noopener">Terms</a>' +
+      (s.account && s.account.email ? '<button data-lic="delete" class="bad-btn">Delete my account</button>' : "") + "</div></section>";
+  }
+  // a small window over everything (Contact support, Delete my account)
+  function mini(html, onAct) {
+    css();
+    var d = document.getElementById("licMini"); if (d) d.remove();
+    d = document.createElement("dialog"); d.id = "licMini"; d.className = "lw-mini"; document.body.appendChild(d);
+    d.innerHTML = '<div class="lw">' + html + "</div>";
+    d.addEventListener("click", function (e) { var b = e.target.closest("[data-mini]"); if (!b) return; if (b.dataset.mini === "close") { d.close(); d.remove(); } else onAct(b.dataset.mini, d); });
+    try { d.showModal(); } catch (_) { d.setAttribute("open", ""); }
+    return d;
+  }
+  function supportBox(note) {
+    var s = st || {}, email = (s.account && s.account.email) || "";
+    mini('<h2>Talk to us</h2><p class="muted">' + esc(note || "Tell us what’s going on. A real person on our team reads every message and writes back by email.") + '</p><label>Your email<input id="spEmail" type="email" value="' + esc(email) + '"></label><label>About<input id="spSubject" placeholder="Pairing, keys, sound…"></label><label>What’s going on?<textarea id="spMsg" rows="5"></textarea></label><p class="bad" id="spErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary" data-mini="send">Send</button></div>',
+      async function (a, d) {
+        if (a !== "send") return;
+        try {
+          var r = await call("/support", { email: d.querySelector("#spEmail").value, subject: d.querySelector("#spSubject").value, message: d.querySelector("#spMsg").value, app: NAME_OF[app] || "", version: appVer, platform: navigator.userAgent.slice(0, 120) }, token());
+          d.querySelector(".lw").innerHTML = '<h2>Thanks, we’ve got it</h2><p class="ok">' + esc(r.message) + '</p><div class="row"><button class="primary" data-mini="close">OK</button></div>';
+        } catch (e) { d.querySelector("#spErr").textContent = e.message; }
+      });
+  }
+  function deleteBox() {
+    var s = st || {};
+    mini('<h2>Delete my account</h2><p>This deletes <b>' + esc(s.account && s.account.email) + '</b>: your name, email and phone are removed, your keys are freed, and you’re taken out of your church. It can’t be undone.</p><p class="muted">The main admin hands that role to someone else first (on the website: Account → People → Make main admin).</p><label>Your password<input id="delPw" type="password" autocomplete="current-password"></label><p class="bad" id="delErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary bad-btn" data-mini="del">Delete my account</button></div>',
+      async function (a, d, close) {
+        if (a !== "del" && a !== "delclose") return;
+        try {
+          await call("/account/delete", { password: d.querySelector("#delPw").value, closeChurch: a === "delclose" }, token());
+          var keep = { production: s.production }; st = keep; save(st);
+          d.querySelector(".lw").innerHTML = '<h2>Your account is deleted</h2><p>Your details are gone and your keys are free for others. We’ve emailed you a confirmation. Thanks for being with us.</p><div class="row"><button class="primary" data-mini="close">OK</button></div>';
+          if (opts.onChange) try { opts.onChange(); } catch (_) { }
+          d.addEventListener("close", function () { ui.step = 2; open(); });
+        } catch (e) {
+          d.querySelector("#delErr").textContent = e.message;
+          if (e.status === 409 && /also closes/.test(e.message)) d.querySelector(".row").insertAdjacentHTML("beforeend", '<button class="bad-btn" data-mini="delclose">Delete and close it</button>');
+        }
+      });
+  }
+  async function release() {
+    if (!st || !st.key) return;
+    if (!confirm("Release this key? " + NAME_OF[app] + " on this device stops until a key is entered again, and the key can be used on another device.")) return;
+    if (on()) try { await call("/license/release", { key: st.key, device: deviceId() }); }
+    catch (e) { if (!confirm("The website couldn't be reached (" + e.message + "). Release it here anyway? Then release it on the website too.")) return; }
+    var keep = { production: st.production, account: st.account }; st = keep; save(st);   // (released: this device keeps its name and its account)
+    ui.step = 2; ui.key = ""; ui.msg = "✓ Released. Enter a key to use " + NAME_OF[app] + " here again."; open();
+    if (opts.onChange) try { opts.onChange(); } catch (_) { }
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-lic]"); if (!b) return;
+    var a = b.dataset.lic;
+    if (a === "release") release();
+    else if (a === "enter") { ui.step = 0; open(); }
+    else if (a === "account") { ui.step = 3; open(); }
+    else if (a === "support") supportBox();
+    else if (a === "recheck") { recheck().then(function () { if (opts.onChange) opts.onChange(); }); }
+    else if (a === "delete") deleteBox();
+    else if (a === "signout") { if (st) { delete st.account; save(st); } if (opts.onChange) opts.onChange(); }
+  });
+
+  // ------------------------------------------------------------- settings that follow the account
+  // An app registers what to keep in step (get: its preferences now; apply: preferences from the account). The newest
+  // change wins: a change here goes up a few seconds later, and every few minutes (and when the window comes back) the
+  // account's copy comes down - so the church's device and the one at home, signed in to the same account, match.
+  var syncs = {}, SYNC_LS = "central-license-sync";
+  function syncStamps() { try { return JSON.parse(localStorage.getItem(SYNC_LS) || "{}"); } catch (_) { return {}; } }
+  function setStamp(name, t) { var m = syncStamps(); m[name] = t; try { localStorage.setItem(SYNC_LS, JSON.stringify(m)); } catch (_) { } }
+  function token() { return st && st.account && st.account.token; }
+  function syncSettings(name, o) { syncs[name] = { get: o.get, apply: o.apply, timer: 0, dirty: false }; pull(name); }
+  async function pull(name) {
+    var s = syncs[name]; if (!s || !on() || !token() || s.dirty) return;
+    try {
+      var r = await call("/settings/" + encodeURIComponent(name), undefined, token()), mine = syncStamps()[name] || 0;
+      if (r.data && r.updated > mine) { setStamp(name, r.updated); try { s.apply(r.data); } catch (_) { } }
+      else if (mine > (r.updated || 0) || !r.data) push(name);   // (changed here while offline; or the account has none yet)
+    } catch (e) { if (e.status === 401 && st && st.account) { /* signed out on the website: the wizard asks again at the next check */ } }
+  }
+  async function push(name) {
+    var s = syncs[name]; if (!s || !on() || !token()) return;
+    var t = Date.now(), data; try { data = s.get(); } catch (_) { return; } if (!data) return;
+    setStamp(name, t);
+    try { await call("/settings/" + encodeURIComponent(name), { data: data, updated: t }, token()); s.dirty = false; } catch (_) { s.dirty = false; }
+  }
+  function settingsChanged(name) {
+    var s = syncs[name]; if (!s) return;
+    s.dirty = true; setStamp(name, Date.now()); clearTimeout(s.timer); s.timer = setTimeout(function () { push(name); }, 3000);
+  }
+  function pullAll() { Object.keys(syncs).forEach(pull); }
+  setInterval(pullAll, 3 * 60e3);
+  window.addEventListener("focus", function () { setTimeout(pullAll, 500); });
+
+  // ------------------------------------------------------------- errors: what goes wrong in the app goes to the website
+  // (the support email hears about each new kind of error). The page's own errors, the computer app's (window.CCReportError
+  // from its main process) and the Central Pedal driver's (driverError). At most 20 a run; the same one once.
+  var appVer = "", SRC = { pedal: "central-pedal", "pedal-control": "central-pedal-control", control: "central-control", usage: "central-usage", player: "central-control" };
+  var reported = {}, nReported = 0, early = [];
+  function reportError(message, stack, kind) {
+    if (!message) return;
+    if (!app) { if (early.length < 10) early.push([message, stack, kind]); return; }   // (before init: kept for a moment)
+    var k = String(message).slice(0, 200); if (!on() || reported[k] || nReported >= 20) return; reported[k] = 1; nReported++;
+    try { fetch(base() + "/v1/errors", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: SRC[app] || "central-pedal", version: appVer, message: String(message).slice(0, 500), stack: String(stack || "").slice(0, 4000), kind: kind || "page", device: deviceId(), platform: navigator.userAgent.slice(0, 120), url: location.pathname }) }).catch(function () { }); } catch (_) { }
+  }
+  window.addEventListener("error", function (e) { if (e.message) reportError(e.message, e.error && e.error.stack, "page"); });
+  window.addEventListener("unhandledrejection", function (e) { var x = e.reason || {}; if (x.status) return; reportError("Unhandled: " + (x.message || String(x)), x.stack, "page"); });
+  window.CCReportError = reportError;
+  function learnVersion() {
+    if (opts.version) appVer = String(opts.version);
+    try {
+      if (window.CU && window.CU.version) window.CU.version().then(function (v) { if (v && v.app) appVer = v.app; }).catch(function () { });
+      else if (window.CCDesktop && window.CCDesktop.updates) window.CCDesktop.updates.status().then(function (v) { if (v && v.current) appVer = v.current; }).catch(function () { });
+    } catch (_) { }
+  }
+
+  // ------------------------------------------------------------- start
+  function init(o2) {
+    opts = o2 || {}; app = opts.app; st = load(); learnVersion();
+    early.splice(0).forEach(function (x) { reportError(x[0], x[1], x[2]); });
+    if (window.PPFeatures) window.PPFeatures.on("driverError", function (m) { reportError("Driver: " + m.message, m.stack, "driver"); });
+    if (!st && opts.saved && opts.saved.key) { st = opts.saved; try { localStorage.setItem(LS, JSON.stringify(st)); } catch (_) { } }   // (this browser forgot it: the Central Pedal's driver kept a copy)
+    pkStart();
+    if (!KIND_OF[app] || !keysOn() || app === "pedal") { markReady(); return; }   // (the player window inside Central Control; licensing off; the Central Pedal itself needs no key - only packages)
+    if (st && st.app && KIND_OF[st.app] !== KIND_OF[app]) st = { production: st.production };   // (a key for another app)
+    if (complete()) { markReady(); recheck(); tellUpdater(); }
+    else open();
+    learnEveryone(); setInterval(learnEveryone, 6 * 3600e3);
+    setInterval(function () { if (st && st.expiresAt && trialOver() && !el) open(); plansChanged(); }, 60e3);   // (the trial ends while it's open; a plan ends at its date)
+    plansChanged();
+    setInterval(recheck, 6 * 3600e3);
+    if (window.PPFeatures) { window.PPFeatures.on("systemStatus", function (m) { if (m.wifi) { ui.wifi = m.wifi; if (el && ui.step === 0) draw(); } }); window.PPFeatures.on("wifiResult", function (m) { if (el && ui.step === 0 && m.ok) setTimeout(checkNet, 2500); }); }
+  }
+  // packages: from the Central Pedal's driver (on the pedal and in Pedal Control), checked now and every few hours
+  var pkStarted = false;
+  function pkStart() {
+    if (pkStarted) return; pkStarted = true;
+    if (onPedal() && Array.isArray(opts.packages)) pkFromDriver(opts.packages);
+    if (window.PPFeatures) window.PPFeatures.on("packages", function (m) { pkFromDriver(m.packages); });
+    if (onPedal() && window.PPFeatures) window.PPFeatures.on("hello", function (m) { if (m && Array.isArray(m.packages)) pkFromDriver(m.packages); });
+    setTimeout(checkPackages, 4000); setInterval(checkPackages, 6 * 3600e3);
+    window.addEventListener("online", function () { setTimeout(checkPackages, 3000); });
+    setInterval(plansChanged, 60e3);   // (a plan ends at its date, or 14 days offline)
+  }
+  // the driver's hello came late (a Central Pedal still starting): the key on its card, its id, its saved copy
+  function update(o2) {
+    if (o2 && Array.isArray(o2.packages) && onPedal()) pkFromDriver(o2.packages);
+    Object.keys(o2 || {}).forEach(function (k) { if (o2[k] != null && o2[k] !== "") opts[k] = o2[k]; });
+    if (opts.version) appVer = String(opts.version);
+    if (!st || !st.key) { if (o2 && o2.saved && o2.saved.key) { st = o2.saved; try { localStorage.setItem(LS, JSON.stringify(st)); } catch (_) { } if (complete()) { close(); recheck(); return; } } }
+    if (el) draw();
+  }
+  // (10.0) the Downloads page people are sent to: the website's own, once it's open (until then the Motion Audio download
+  // page the releases keep)
+  function downloadsUrl() { return base() ? base() + "/#downloads" : "https://motionaudio.github.io/Central-Apps/"; }
+  window.PPLicense = { downloadsUrl: downloadsUrl, init: init, update: update, complete: function () { return complete(); }, on: on, licensed: licensed, state: function () { return st; }, server: base, settingsHtml: settingsHtml, release: release, recheck: recheck, open: open,
+    whenReady: function (f) { if (ready) f(); else waiters.push(f); }, deviceId: deviceId, pretty: pretty, app: function () { return app; },
+    plans: plans, hasPlan: hasPlan, planName: function (id) { return PLAN_NAMES[id] || id; }, tracksUnlimited: tracksUnlimited,
+    packages: function () { return pk.list.slice(); }, packagesHtml: packagesHtml, checkPackages: checkPackages, addPackage: pkActivate, removePackage: pkRelease,
+    syncSettings: syncSettings, settingsChanged: settingsChanged, syncNow: pullAll, reportError: reportError, support: supportBox,
+    coverage: function () { return st ? { updatesUntil: st.updatesUntil != null ? st.updatesUntil : null, text: st.updatesUntilText || "", trial: !!st.trial, expiresAt: st.expiresAt || null } : null; } };
+})();

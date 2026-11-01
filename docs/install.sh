@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Install (or update) a Central app on Linux with one line:
 #   curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control
-# Apps: control (Central Control), usage (Central Usage), pedal-control (Central Pedal Control), services (Central Services).
+# Apps: control (Central Control), usage (Central Usage), pedal-control (Central Pedal Control), services (Central Services),
+# production (Central Production).
 # No app named: it asks. Ubuntu, Debian, Mint, Pop!_OS…: the newest .deb, installed with apt (it brings what the app needs).
 # Other Linux: the AppImage in ~/Applications, with a menu entry. Every download is checked against the release's SHA256SUMS.
 set -euo pipefail
@@ -20,16 +21,18 @@ if [ -z "$APP" ]; then
     echo "  2) Central Usage          musicians and singers: chord chart, instrument, lyrics, your in-ear mix"
     echo "  3) Central Pedal Control  get the Central Pedal ready: songs, tracks, pads"
     echo "  4) Central Services       the church's schedule"
-    printf "Type 1-4: "; read -r n < /dev/tty
-    case "$n" in 1) APP=control ;; 2) APP=usage ;; 3) APP=pedal-control ;; 4) APP=services ;; *) fail "Nothing installed." ;; esac
-  else fail "Say which app: ... | bash -s control   (or usage, pedal-control, services)"; fi
+    echo "  5) Central Production     make tracks, loops, samples, pads, instruments and plugins"
+    printf "Type 1-5: "; read -r n < /dev/tty
+    case "$n" in 1) APP=control ;; 2) APP=usage ;; 3) APP=pedal-control ;; 4) APP=services ;; 5) APP=production ;; *) fail "Nothing installed." ;; esac
+  else fail "Say which app: ... | bash -s control   (or usage, pedal-control, services, production)"; fi
 fi
 case "$APP" in
   control|central-control)         NAME="Central Control";       PREFIXES="CentralControl central-usage"; ICON=central-control; BIN=central-control ;;
   usage|central-usage)             NAME="Central Usage";         PREFIXES="CentralUsage";                 ICON=central-usage;   BIN=centralusage ;;
   pedal-control|central-pedal-control) NAME="Central Pedal Control"; PREFIXES="central-pedal-control";    ICON=central-pedal-control; BIN=central-pedal-control ;;
   services|central-services)       NAME="Central Services";      PREFIXES="central-services";             ICON=central-services; BIN=central-services ;;
-  *) fail "Unknown app \"$APP\": use control, usage, pedal-control or services." ;;
+  production|central-production)   NAME="Central Production";    PREFIXES="central-production";           ICON=central-production; BIN=central-production ;;
+  *) fail "Unknown app \"$APP\": use control, usage, pedal-control, services or production." ;;
 esac
 
 # ---- this computer

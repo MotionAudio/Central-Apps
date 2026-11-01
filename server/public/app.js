@@ -715,14 +715,18 @@ async function showDownloads(thanks) {
   const servicesCard = `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(sv.icon)}.svg" alt=""><div><h3>${esc(sv.name)}</h3><span class="muted">${esc(sv.runsOn)}</span></div></div>
     <div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(sv.note)}</span></div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">${PLATFORM !== "ipad" && dlLink(sv) ? `<a class="btn" href="${esc(dlLink(sv))}">Download ${esc(sv.name)}</a>` : ""}<a class="btn ghost" href="${esc(sv.web)}">Open it in the browser</a></div>${otherFiles(sv)}</div>`;
+  const pr = pub.production;
+  const productionCard = pr ? `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(pr.icon)}.svg" alt=""><div><h3>${esc(pr.name)}</h3><span class="muted">${esc(pr.runsOn)}</span></div></div>
+    <div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(pr.note)}</span></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">${PLATFORM !== "ipad" && dlLink(pr) ? `<a class="btn" href="${esc(dlLink(pr))}">Download ${esc(pr.name)}</a>` : ""}<a class="btn ghost" href="${esc(pr.web)}">Open it in the browser</a></div>${otherFiles(pr)}</div>` : "";
   const pkgCard = d && d.packages.length ? `<div class="dl-card"><div class="dl-head"><div><h3>Sound plans</h3><span class="muted">Package keys</span></div></div>
     <div class="dl-keys">${d.packages.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)} <span class="muted">· ${esc(k.plans)}${k.church ? " · from " + esc(k.church) : ""} · until ${esc(longDate(k.until))}</span></div>`).join("")}</div>
     <p style="margin:0">In any app (Central Pedal, Central Pedal Control, Central Control, Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 3} of your devices at a time, each a different app (say Central Usage, Central Control and a Central Pedal).</p></div>` : "";
   const libSection = librariesHtml(libs, d);
   const mine = d ? d.apps : [], kinds = mine.map((a) => a.kind), rest = pub.apps.filter((a) => kinds.indexOf(a.kind) < 0);
   const yours = d && (mine.length || d.pedals.length || d.packages.length);
-  const all = `<div class="dl-grid">${d && d.pedals.length ? "" : pedalPublic}${rest.map(appCard).join("")}${servicesCard}</div>`;
-  el.innerHTML = `<div class="sec-head"><h2>Downloads</h2><p>${esc(thanks || (me ? "Your apps and keys first, then every other app." : "Download any of the apps. Each one asks for its key the first time it opens: after you buy, your keys are on your Account page and in your email. Central Pedal and Central Services need no key."))}</p></div>
+  const all = `<div class="dl-grid">${d && d.pedals.length ? "" : pedalPublic}${rest.map(appCard).join("")}${servicesCard}${productionCard}</div>`;
+  el.innerHTML = `<div class="sec-head"><h2>Downloads</h2><p>${esc(thanks || (me ? "Your apps and keys first, then every other app." : "Download any of the apps. Each one asks for its key the first time it opens: after you buy, your keys are on your Account page and in your email. Central Pedal, Central Services and Central Production need no key."))}</p></div>
     ${!me ? `<p style="margin:0 0 1rem"><a class="btn small" href="#account">Sign in to see your keys here</a></p>` : ""}
     ${yours ? `<h3 class="dl-h">Yours</h3><div class="dl-grid">${d.pedals.map(pedalCard).join("")}${mine.map(appCard).join("")}${pkgCard}</div><h3 class="dl-h">Every other app</h3>` : me ? `<p class="muted">No keys here yet. Keys your church gives you come by email; keys you buy for yourself ("Just me") show up here and in your email. <a href="#store">Visit the store</a>.</p>` : ""}
     ${all}

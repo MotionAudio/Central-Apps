@@ -22,7 +22,7 @@ const https = require("node:https");
 const http = require("node:http");
 
 const PLANS = ["keys", "instrument", "plugins", "pedals", "pads"];
-const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin"];
+const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "fx"];   // (10.2 fx: a plugin made in Central Production, .cmfx.json)
 const PLUGIN_FORMATS = ["lv2", "vst3", "clap", "component"], MAX_PLUGIN = 300 * 1024 * 1024;
 const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
@@ -236,7 +236,8 @@ class Libraries {
     let man;
     if (!z.has("manifest.json")) throw new Error("that zip isn't a sound library (no manifest.json)");
     try { man = JSON.parse(z.read("manifest.json").toString("utf8")); } catch (_) { throw new Error("that library's manifest.json can't be read"); }
-    if (!man || !ID_RE.test(man.id || "") || !PLANS.includes(man.plan) || !VERSION_RE.test(String(man.version || ""))) throw new Error("that library's manifest.json is missing its id, plan or version");
+    const personal = !!(man && man.personal === true && man.plan === "free");   // (10.2: something you made in Central Production - yours, open with no plan)
+    if (!man || !ID_RE.test(man.id || "") || !(PLANS.includes(man.plan) || personal) || !VERSION_RE.test(String(man.version || ""))) throw new Error("that library's manifest.json is missing its id, plan or version");
     if ((Number(man.format) || 1) > 1) throw new Error("that library needs a newer version of the app - update it first");
     if (!Array.isArray(man.items) || !man.items.length) throw new Error("that library has nothing in it");
     let total = 0;
@@ -252,7 +253,8 @@ class Libraries {
     const id = man.id, tier = man.plan;
     if (this.record(id)) this.remove(id, true);
     const rec = { id, plan: tier, version: String(man.version), title: String(man.title || id).slice(0, 80), summary: String(man.summary || "").slice(0, 400), installedAt: new Date().toISOString().slice(0, 19),
-      source: source === "file" ? "file" : "website", sounds: [], irs: [], clicks: [], pads: [], loops: [], boards: [], presets: [], plugins: [], tier };
+      source: source === "file" ? "file" : source === "personal" ? "personal" : "website", sounds: [], irs: [], clicks: [], pads: [], loops: [], boards: [], presets: [], plugins: [], fx: [], tier };
+    if (man.personal === true) rec.personal = true;
     if (man.community && typeof man.community === "object") rec.community = { item: man.community.item, creator: String(man.community.creator || "").slice(0, 80), kind: String(man.community.kind || "").slice(0, 20) };   // (10.1: from Make & sell)
     const soundLines = [], irLines = [], sounds = [], irs = [];
     for (const it of man.items) {
@@ -290,6 +292,11 @@ class Libraries {
         ["bpm", "meter", "bars", "seconds"].forEach((k) => { if (typeof it[k] === "number" && it[k] > 0 && it[k] < 1000) e[k] = it[k]; });
         if (PAD_KEYS.includes(it.key)) e.key = it.key;
         rec.loops.push(e);
+      } else if (it.kind === "fx") {   // (10.2: a plugin made in Central Production - one .cmfx.json, no program files)
+        let fx; try { fx = JSON.parse(data.toString("utf8")); } catch (_) { throw new Error("a plugin in that library can't be read"); }
+        if (!fx || fx.format !== "central-fx") throw new Error("a plugin in that library isn't a Central Production plugin");
+        const dir = path.join(this.root, id, "fx"); fs.mkdirSync(dir, { recursive: true });
+        const f = path.join(dir, safeName(it.file, "plugin.cmfx.json")); fs.writeFileSync(f, data); rec.fx.push({ name: String(fx.name || it.name || "Plugin").slice(0, 60), file: f, tier });
       } else if (it.kind === "plugin") {   // (10.1: a community plugin - only with the switch on)
         rec.plugins.push(this._unpackPlugin(id, it, data));
       }
@@ -302,6 +309,7 @@ class Libraries {
     rec.counts = { sound: rec.sounds.length, ir: rec.irs.length, board: rec.boards.length, preset: rec.presets.length, click: rec.clicks.length, pad: new Set(rec.pads.map((x) => x.name)).size,
       loop: new Set(rec.loops.map((x) => x.set + "/" + x.name)).size };
     if (rec.plugins.length) rec.counts.plugin = rec.plugins.length;   // (10.1: community plugins)
+    if (rec.fx.length) rec.counts.fx = rec.fx.length;   // (10.2: plugins made in Central Production)
     const rf = path.join(this.root, id + ".json"); fs.writeFileSync(rf + ".part", JSON.stringify(rec, null, 1)); fs.renameSync(rf + ".part", rf);
     this.send({ type: "instrument", action: "rescan" }); this.send({ type: "instrument", action: "status" });
     return rec;

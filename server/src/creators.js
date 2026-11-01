@@ -215,6 +215,13 @@ async function build(item, files, blocked) {
     for (const f0 of src) {
       if (seen.has(f0.platform)) throw bad("Upload one zip per platform (two for " + f0.platform + ").");
       seen.add(f0.platform);
+      if (f0.platform === "any") {   // (10.2) a plugin made in Central Production: one .cmfx.json for every system
+        const f = await read(f0), r = CF.checkCentralFx(f.name, f.data);
+        checks.push(...r.checks);
+        const body = Buffer.from(JSON.stringify(Object.assign({}, r.fx, { name: item.title.slice(0, 60) })));
+        packages.push({ platform: "", binaries: [], data: zipOf([entry("fx", "fx/" + safeFile(item.title, "plugin").replace(/\s+/g, "-") + ".cmfx.json", body, { name: item.title, format: "central-fx" })]) });
+        continue;
+      }
       const f = await read(f0), r = CF.checkPlugin(f.platform, f.name, f.data, blocked);
       checks.push(...r.checks.map((c) => ({ ok: c.ok, text: CF.PLATFORMS[f.platform] + ": " + c.text })));
       packages.push({ platform: f.platform, binaries: r.binaries, data: zipOf([entry("plugin", "plugin/" + r.bundle + ".zip", f.data, { name: item.title, platform: f.platform, format: r.format, bundle: r.bundle, binaries: r.binaries })]) });
@@ -264,7 +271,8 @@ export function routes(api, app, { wrap, requireUser }) {
     if (role === "demo" && size > 60 * 1024 ** 2) throw bad("A demo clip can be up to 60 MB.");
     if (role === "source" && size > k.max) throw bad("That's too big for a " + k.name.toLowerCase() + " (up to " + Math.round(k.max / 1024 ** 2) + " MB).");
     const platform = it.kind === "plugin" && role === "source" ? String(b.platform || "") : "";
-    if (it.kind === "plugin" && role === "source" && !CF.PLATFORMS[platform]) throw bad("Pick the platform this plugin zip is for.");
+    const cmfx = it.kind === "plugin" && role === "source" && platform === "any" && /\.cmfx\.json$/i.test(name);   // (10.2: made in Central Production - every system)
+    if (it.kind === "plugin" && role === "source" && !CF.PLATFORMS[platform] && !cmfx) throw bad("Pick the platform this plugin zip is for.");
     if (role === "demo") await q("DELETE FROM community_files WHERE item_id=$1 AND role='demo'", [it.id]);
     if (role === "source" && it.kind === "plugin") await q("DELETE FROM community_files WHERE item_id=$1 AND role='source' AND platform=$2", [it.id, platform]);
     else if (role === "source" && (it.kind !== "loop" || b.replace)) await q("DELETE FROM community_files WHERE item_id=$1 AND role='source'", [it.id]);   // (loops: several files; the first of a new set replaces the old ones)

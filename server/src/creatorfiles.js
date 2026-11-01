@@ -266,6 +266,25 @@ export function buildBoard(buf) {
   return { board: { name: String(b.name || "Board").slice(0, 60), kind: b.kind || null, chain: b.chain, sound: typeof b.sound === "string" ? b.sound : null }, checks: [{ ok: true, text: "A board with " + b.chain.length + " pedals" }] };
 }
 
+// ---------------------------------------------------------------- (10.2) plugins made in Central Production
+// A plugin built in Central Production's plugin builder is one .cmfx.json file (format "central-fx"): blocks, wires,
+// knobs and optional code. It has no program files, so it runs in every app on every system (platform "any").
+export function checkCentralFx(fileName, buf) {
+  const checks = [];
+  if (!/\.cmfx\.json$/i.test(fileName)) throw bad("a plugin from Central Production is a .cmfx.json file");
+  if (buf.length > 2 * 1024 ** 2) throw bad("a Central Production plugin can be up to 2 MB");
+  let fx; try { fx = JSON.parse(buf.toString("utf8")); } catch { throw bad("that plugin file isn't readable - save it again from Central Production"); }
+  if (!fx || fx.format !== "central-fx" || Number(fx.version) !== 1) throw bad("that isn't a Central Production plugin (format central-fx, version 1)");
+  const g = fx.graph || {}, blocks = Array.isArray(g.blocks) ? g.blocks : [], wires = Array.isArray(g.wires) ? g.wires : [];
+  if (!blocks.length && !(typeof fx.code === "string" && fx.code.trim())) throw bad("that plugin has no blocks and no code");
+  if (blocks.length > 256 || wires.length > 1024) throw bad("that plugin has too many blocks or wires (up to 256 and 1024)");
+  if (fx.code != null && (typeof fx.code !== "string" || fx.code.length > 64 * 1024)) throw bad("the plugin's code can be up to 64 KB of text");
+  if (fx.params != null && (!Array.isArray(fx.params) || fx.params.length > 64)) throw bad("a plugin can have up to 64 knobs");
+  check(checks, true, "A Central Production plugin: " + blocks.length + " block" + (blocks.length === 1 ? "" : "s") + (fx.code ? ", with code" : "") + ", " + ((fx.params || []).length) + " knob" + ((fx.params || []).length === 1 ? "" : "s"));
+  check(checks, true, "No program files: it runs inside the apps' own sound engine, on every system");
+  return { fx, checks };
+}
+
 // ---------------------------------------------------------------- plugins
 const ELF_MACHINE = { "linux-x64": 62, "linux-arm64": 183 };
 function binKind(b) {

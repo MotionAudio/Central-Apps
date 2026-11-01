@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Central Production · Motion Audio</title>
+<meta name="description" content="Make tracks, loops, samples, pads, instruments, plugins and pedal boards for your church's apps, in your browser or in the Central Production app.">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<link rel="stylesheet" href="../daw/daw.css">
+<link rel="stylesheet" href="production.css">
+<meta name="theme-color" content="#111317">
+<script>
+  // the website itself is the Motion Audio website (package keys are checked there); the app sets its own (preload)
+  window.PP_LICENSE_CONFIG = window.CPDesktop ? { server: window.CPDesktop.server() } : (location.protocol === "file:" ? {} : { server: location.origin });
+  window.CP_VERSION = "10.1.0";
+</script>
+</head>
+<body>
+<header class="cp-top">
+  <a class="cp-home" href="../" title="Motion Audio"><img src="../brand/glyph-central-production.svg" alt=""><span>Central Production</span></a>
+  <button id="cpFile" class="cp-menu-btn" aria-haspopup="true">File ▾</button>
+  <span class="cp-proj"><input id="cpName" class="cp-name" aria-label="Project name" hidden><span id="cpTypeChip" class="cp-chip" hidden></span><span id="cpSaved" class="cp-saved"></span></span>
+  <span class="cp-undo"><button id="cpUndo" title="Undo" aria-label="Undo">↶</button><button id="cpRedo" title="Redo" aria-label="Redo">↷</button></span>
+  <span class="cp-right"><button id="cpSettings" title="Settings">Settings</button><button id="cpAccount">Sign in</button></span>
+</header>
+<main id="cpMain">
+  <section id="cpStart" class="cp-start"></section>
+  <section id="cpEditor" class="cp-editor" hidden>
+    <div id="cpTypeBar" class="cp-typebar"></div>
+    <div id="cpTypeBody" class="cp-typebody"></div>
+  </section>
+</main>
+<div id="cpMenu" class="cp-menu" hidden></div>
+<div id="cpModal" class="cp-modal" hidden></div>
+<div id="cpBusy" class="cp-busy" hidden><i></i><span>Working…</span></div>
+<div id="cpToast" class="cp-toast" role="status" aria-live="polite"></div>
+
+<script src="shared/pedals.js"></script>
+<script src="shared/license.js"></script>
+<script>if (window.CPDesktop) document.write('<script src="shared/libraries.js"><\/script>');</script>
+<script src="../daw/daw-midi.js"></script>
+<script src="../daw/daw-sf2.js"></script>
+<script src="../daw/daw-sounds.js"></script>
+<script src="../daw/daw-stretch.js"></script>
+<script src="../daw/daw-engine.js"></script>
+<script src="../daw/daw-ui.js"></script>
+<script src="../daw/daw-ui-arrange.js"></script>
+<script src="../daw/daw-ui-editors.js"></script>
+<script src="../daw/daw-ui-mixer.js"></script>
+<script src="../daw/daw-ui-browser.js"></script>
+<script src="vendor/lame.min.js"></script>
+<script src="cmproj.js"></script>
+<script src="prod-audio.js"></script>
+<script src="sampler.js"></script>
+<script src="prod-host.js"></script>
+<script src="prod-core.js"></script>
+<script src="types/daw.js"></script>
+<script src="types/sample.js"></script>
+<script src="types/pad.js"></script>
+<script src="types/instrument.js"></script>
+<script src="types/plugin.js"></script>
+<script src="types/board.js"></script>
+<script src="prod-publish.js"></script>
+<script src="prod-settings.js"></script>
+<script>
+  if (window.PPLicense) window.PPLicense.init({ app: "production" });
+  window.CP.start();
+</script>
+</body>
+</html>

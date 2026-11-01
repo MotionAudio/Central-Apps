@@ -10,6 +10,7 @@
  * The mixer: every track has gate, EQ, compressor, reverb and delay (the same effects as the Central Pedal's 9.8 tracks:
  * js/fx-dsp.js; the better ones with Central Plugins), pan, volume, mute and solo; the master has a safety limiter.
  * Exports render the timeline offline (faster than real time) to a WAV mix, or one WAV per track.
+ * Automation (10.2, drawn in Central Production): a track's volume and pan follow points on the timeline (t.auto).
  *
  *   CUStudio.project() / newProject(opts) / load(json) / edit(label, fn) / undo() / redo()
  *   CUStudio.play() / stop() / record() / setPos(beat) / launch(trackId, slot) / launchScene(i) / stopTrack(id) / stopAll()
@@ -187,7 +188,8 @@
     p.tracks.forEach(function (t) {
       ids[t.id] = 1;
       var s = self.strips[t.id] || (self.strips[t.id] = new Strip(self.c, self.master, self.gateOk)), now = self.c.currentTime;
-      s.pan.pan.setTargetAtTime(clamp(t.pan, -1, 1), now, 0.01); s.fader.gain.setTargetAtTime(clamp(t.volume, 0, 2), now, 0.01);
+      if (!(self.autoLive && hasAuto(t, "pan"))) s.pan.pan.setTargetAtTime(clamp(t.pan, -1, 1), now, 0.01);
+      if (!(self.autoLive && hasAuto(t, "volume"))) s.fader.gain.setTargetAtTime(clamp(t.volume, 0, 2), now, 0.01);
       s.mute.gain.setTargetAtTime(t.mute || (anySolo && !t.solo) ? 0 : 1, now, 0.005);
       s.setFx(t.fx, p.bpm);
       if (t.kind !== "audio") { var sig = JSON.stringify(t.layers); if (self.instSig[t.id] !== sig) { if (self.insts[t.id]) self.insts[t.id].allOff(); self.insts[t.id] = SND.instrument(self.c, t.layers); self.instSig[t.id] = sig; } }
@@ -208,6 +210,26 @@
   function syncGraph() { if (rt) rt.sync(proj).catch(function () { }); }
   function latency() { if (!ctx) return null; return { base: ctx.baseLatency || 0, output: ctx.outputLatency || 0, total: (ctx.baseLatency || 0) + (ctx.outputLatency || 0) }; }
 
+  // ------------------------------------------------------------- automation (10.2): a track's volume and pan drawn over
+  // the timeline - t.auto = { volume: [{ b: beat, v }], pan: [{ b, v }] } (volume as the fader's gain 0..2, pan -1..1),
+  // a straight line between points, the first point's value before it and the last one's after it
+  function hasAuto(t, what) { return !!(t && t.auto && Array.isArray(t.auto[what]) && t.auto[what].length); }
+  function autoAt(list, beat) {
+    if (!list || !list.length) return null;
+    if (beat <= list[0].b) return list[0].v;
+    for (var i = 1; i < list.length; i++) if (beat <= list[i].b) { var a = list[i - 1], z = list[i], k = z.b > a.b ? (beat - a.b) / (z.b - a.b) : 1; return a.v + (z.v - a.v) * k; }
+    return list[list.length - 1].v;
+  }
+  function autoParam(strip, what) { return what === "pan" ? strip.pan.pan : strip.fader.gain; }
+  function autoClamp(what, v) { return what === "pan" ? clamp(v, -1, 1) : clamp(v, 0, 2); }
+  // from a beat at a time: the value now, then each point ahead as a ramp
+  function autoStart(g, p, beat, when) {
+    p.tracks.forEach(function (t) { var st = g.strips[t.id]; if (!st) return; ["volume", "pan"].forEach(function (w) { if (!hasAuto(t, w)) return; var prm = autoParam(st, w); try { prm.cancelScheduledValues(when); prm.setValueAtTime(autoClamp(w, autoAt(t.auto[w], beat)), when); } catch (_) { } }); });
+  }
+  function autoRange(g, p, a, b, timeOf) {
+    p.tracks.forEach(function (t) { var st = g.strips[t.id]; if (!st) return; ["volume", "pan"].forEach(function (w) { if (!hasAuto(t, w)) return; var prm = autoParam(st, w); t.auto[w].forEach(function (pt) { if (pt.b >= a && pt.b < b) try { prm.linearRampToValueAtTime(autoClamp(w, pt.v), timeOf(pt.b)); } catch (_) { } }); }); });
+  }
+
   // ------------------------------------------------------------- transport + scheduler
   var T = { playing: false, recording: false, t0: 0, b0: 0, cursor: 0, pos: 0, pass: 0, timer: 0, countIn: 0, recStart: 0 };
   var session = {};      // trackId -> { clip, slot, start (transport beat of the clip's beat 0), stopAt } - grid clips playing
@@ -227,6 +249,7 @@
     var start = opts.from != null ? opts.from : T.pos, ci = opts.countIn != null ? opts.countIn : (T.recording || opts.record ? proj.metronome.countIn || 0 : 0);
     T.countIn = ci * beatsPerBar(); T.countEnd = start;
     T.t0 = c.currentTime + 0.06; T.b0 = start - T.countIn; T.cursor = T.b0; T.playing = true; T.pass++; T.started = {}; T.lat = latency() ? latency().total : 0;
+    if (rt) { rt.autoLive = true; autoStart(rt, proj, start, T.t0); }
     clearInterval(T.timer); T.timer = setInterval(tick, 25); tick();
     fire("transport", state());
     return true;
@@ -238,6 +261,7 @@
     scheduled.forEach(function (s) { if (s.at > now + 0.005) { s.voice.parts.forEach(function (p) { p.kill(now); }); } else s.inst.noteOff(s.voice, now); }); scheduled = [];
     audioSrcs.forEach(function (a) { try { a.g.gain.setTargetAtTime(0, now, 0.01); a.src.stop(now + 0.05); } catch (_) { } }); audioSrcs = [];
     session = {}; queued = {}; fire("clip", gridState());
+    if (rt && rt.autoLive) { rt.autoLive = false; Object.keys(rt.strips).forEach(function (id) { var st = rt.strips[id]; try { st.fader.gain.cancelScheduledValues(now); st.pan.pan.cancelScheduledValues(now); } catch (_) { } }); syncGraph(); }
     if (opts && opts.home) T.pos = 0;
     fire("transport", state());
   }
@@ -248,7 +272,7 @@
     if (!T.playing || !ctx) return;
     var ahead = ctx.currentTime + 0.12, to = beatAt(ahead), from = T.cursor, L = proj.loop;
     if (L.on && L.end > L.start && !T.recordingAudio) {
-      while (to > L.end && from < L.end) { scheduleRange(from, L.end); var tEnd = timeAt(L.end); T.t0 = tEnd; T.b0 = L.start; from = L.start; to = beatAt(ahead); T.pass++; T.started = {}; T.countIn = 0; Object.keys(session).forEach(function (id) { var s = session[id]; s.start = s.start - (L.end - L.start); }); }
+      while (to > L.end && from < L.end) { scheduleRange(from, L.end); var tEnd = timeAt(L.end); T.t0 = tEnd; T.b0 = L.start; from = L.start; if (rt && rt.autoLive) autoStart(rt, proj, L.start, tEnd); to = beatAt(ahead); T.pass++; T.started = {}; T.countIn = 0; Object.keys(session).forEach(function (id) { var s = session[id]; s.start = s.start - (L.end - L.start); }); }
     }
     if (to > from) scheduleRange(from, to);
     T.cursor = to;
@@ -258,6 +282,7 @@
   }
   function scheduleRange(a, b) {
     var bpb = beatsPerBar();
+    if (rt && rt.autoLive) autoRange(rt, proj, a, b, timeAt);
     // the click (and the count-in)
     if (proj.metronome.on || (T.countIn > 0 && a < T.countEnd)) {
       for (var beat = Math.ceil(a - 1e-9); beat < b; beat++) {
@@ -513,9 +538,10 @@
     var rate = 48000, tail = 3, secs = (to - from) * spb() + tail, oc = new OfflineAudioContext(2, Math.ceil(secs * rate), rate);
     var p = clone(proj); if (o.tracks) p.tracks.forEach(function (t) { t.solo = o.tracks.indexOf(t.id) >= 0; t.mute = o.tracks.indexOf(t.id) < 0 ? true : t.mute && !o.ignoreMute; });
     return addWorklets(oc).then(function (gateOk) {
-      var g = new Graph(oc, gateOk, true);
+      var g = new Graph(oc, gateOk, true); g.autoLive = true;
       return g.sync(p).then(function () {
         var t0 = 0.05, sp = spb(), at = function (b) { return t0 + (b - from) * sp; };
+        autoStart(g, p, from, t0); autoRange(g, p, from, to + 1e-6, at);
         p.arrangement.forEach(function (it) {
           var t = p.tracks.filter(function (x) { return x.id === it.track; })[0], c = p.clips[it.clip], strip = g.strips[it.track]; if (!t || !c || !strip) return;
           var end = Math.min(it.start + it.len, to);
@@ -619,7 +645,8 @@
     play: play, stop: stop, setPos: setPos, position: position, state: state, record: record, launch: launch, launchScene: launchScene, stopTrack: stopTrack, stopAll: stopAll, backToTimeline: backToTimeline,
     gridState: gridState, clipProgress: clipProgress, live: live, quantizeNotes: quantizeNotes, Q: Q, KEYS: KEYS, COLORS: COLORS, beatsPerBar: beatsPerBar,
     PRESETS: PRESETS, applyPreset: applyPreset, defaultFx: defaultFx, pro: pro, bounce: bounce, wav: wav, exportMix: exportMix, exportStems: exportStems, scenesToTimeline: scenesToTimeline, arrangementEnd: arrangementEnd,
-    importAudio: importAudio, buffers: buffers, save: save, open: open, list: list, remove: remove, fresh: fresh, load: load, isDirty: function () { return dirty; },
+    importAudio: importAudio, buffers: buffers, save: save, open: open, list: list, remove: remove, fresh: fresh, load: load, isDirty: function () { return dirty; }, markSaved: function () { dirty = false; fire("change", "saved"); },
+    autoAt: autoAt, hasAuto: hasAuto,
     ctx: ensureCtx, latency: latency, monitor: function () { return monitor; }, startMonitor: startMonitor, graph: function () { return rt; }, uid: uid
   };
 })();
