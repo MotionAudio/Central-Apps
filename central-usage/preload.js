@@ -3,6 +3,7 @@ contextBridge.exposeInMainWorld("CU", {
   discover: () => ipcRenderer.invoke("discover"),
   version: () => ipcRenderer.invoke("version"),
   health: () => ipcRenderer.invoke("sys-health"),
+  sysCheck: (opts) => ipcRenderer.invoke("sys-check", opts),   // (10.2: the pre-service check - disk space, Wi-Fi, a newer version)
   onMenu: (fn) => ipcRenderer.on("menu", (_e, name, arg) => fn(name, arg)),
   platform: process.platform,
   arch: process.arch,   // (10.1: which build of a community plugin to download)
@@ -34,7 +35,8 @@ contextBridge.exposeInMainWorld("CU", {
     exportFile: () => ipcRenderer.invoke("mixer-export"), importFile: () => ipcRenderer.invoke("mixer-import"),
     onOp: (fn) => ipcRenderer.on("mixer-op", (_e, op, by) => fn(op, by)), onState: (fn) => ipcRenderer.on("mixer-state", (_e, st) => fn(st)), onMeters: (fn) => ipcRenderer.on("mixer-meters", (_e, m) => fn(m)),
     onPi: (fn) => ipcRenderer.on("mixer-pi", (_e, names) => fn(names)), onAudio: (fn) => ipcRenderer.on("listen-audio", (_e, tap, frames, pcm) => fn(tap, frames, pcm)),
-    tempo: (bpm) => ipcRenderer.invoke("mixer-tempo", bpm)
+    tempo: (bpm) => ipcRenderer.invoke("mixer-tempo", bpm),
+    testTone: (o) => ipcRenderer.invoke("mixer-testtone", o)   // (10.2: the pre-service check)
   },
   // the stream mix out of the audio host (streamout.js): { action: "virtual" | "live" | "config" | "picture", ... } -> status
   streamOut: { call: (a) => ipcRenderer.invoke("stream-out", a), on: (fn) => ipcRenderer.on("stream-out", (_e, s) => fn(s)) },
@@ -45,6 +47,9 @@ contextBridge.exposeInMainWorld("CU", {
   // talkback (talk.js) when this computer is the audio host: start({ kind, targets, dim, src, ch }), the mic's "TKA1" frames, stop()
   talk: { start: (o) => ipcRenderer.invoke("talk-start", o), stop: () => ipcRenderer.invoke("talk-stop"), audio: (frame) => ipcRenderer.send("talk-audio", frame), state: () => ipcRenderer.invoke("talk-state"),
     on: (fn) => ipcRenderer.on("talk-event", (_e, ev) => fn(ev)), onDesk: (fn) => ipcRenderer.on("talk-desk-audio", (_e, frames, rate, pcm, name) => fn(pcm, frames, rate, name)) },
+  // (10.2) the confidence monitor (the band's screen): its own screen window and NDI sender; show({ state, message })
+  confidence: { screen: (opt) => ipcRenderer.invoke("confidence-screen", opt), ndi: (opt) => ipcRenderer.invoke("confidence-ndi", opt), status: () => ipcRenderer.invoke("confidence-status"),
+    show: (m) => ipcRenderer.send("confidence", m), onStatus: (fn) => ipcRenderer.on("confidence-status", (_e, st) => fn(st)) },
   slides: { open: () => ipcRenderer.invoke("slides-open"), readFile: (f) => ipcRenderer.invoke("read-file", f), show: (slide) => ipcRenderer.send("slide", slide), screens: () => ipcRenderer.invoke("screens"),
     outputScreen: (opt) => ipcRenderer.invoke("output-screen", opt), outputNdi: (opt) => ipcRenderer.invoke("output-ndi", opt), outputs: () => ipcRenderer.invoke("outputs-status"), onOutputs: (fn) => ipcRenderer.on("outputs", (_e, st) => fn(st)) },
   inst: { start: () => ipcRenderer.invoke("inst-start"), send: (m) => ipcRenderer.send("inst-send", m), stop: () => ipcRenderer.invoke("inst-stop"), on: (fn) => ipcRenderer.on("inst-msg", (_e, m) => fn(m)) },

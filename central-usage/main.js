@@ -203,6 +203,38 @@ ipcMain.handle("sys-health", () => {
   let cpu = null; if (lastCpu && t.all > lastCpu.all) cpu = Math.round(100 * (1 - (t.idle - lastCpu.idle) / (t.all - lastCpu.all))); lastCpu = t;
   return { app: app.getVersion(), platform: process.platform, cpu, memFree: Math.round(os.freemem() / 1048576), memTotal: Math.round(os.totalmem() / 1048576), uptime: Math.round(os.uptime()) };
 });
+// (10.2) the pre-service check's questions this computer answers itself: free disk space where recordings go, the
+// Wi-Fi it's on and how strong, and whether a newer version of the app is out
+function wifiInfo() {
+  const { execFile } = require("node:child_process");
+  const run = (cmd, args) => new Promise((res) => { try { execFile(cmd, args, { timeout: 3000, windowsHide: true }, (err, out) => res(err ? "" : String(out || ""))); } catch (_) { res(""); } });
+  return (async () => {
+    if (process.platform === "linux") {
+      const out = await run("nmcli", ["-t", "-f", "ACTIVE,SSID,SIGNAL", "dev", "wifi"]), line = out.split("\n").find((l) => /^yes:/.test(l));
+      if (line) { const p = line.split(":"); return { wifi: true, ssid: p.slice(1, -1).join(":"), signal: Number(p[p.length - 1]) || null }; }
+      const dev = await run("nmcli", ["-t", "-f", "TYPE,STATE", "dev"]); if (/^ethernet:connected/m.test(dev)) return { wifi: false, wired: true };
+      return out || dev ? { wifi: false } : null;
+    }
+    if (process.platform === "win32") {
+      const out = await run("netsh", ["wlan", "show", "interfaces"]), sig = /Signal\s*:\s*(\d+)%/i.exec(out), ss = /^\s*SSID\s*:\s*(.+)$/im.exec(out);
+      return sig ? { wifi: true, ssid: ss ? ss[1].trim() : "", signal: Number(sig[1]) } : { wifi: false };
+    }
+    if (process.platform === "darwin") {
+      const out = await run("/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport", ["-I"]), rssi = /agrCtlRSSI:\s*(-?\d+)/.exec(out), ss = /\sSSID:\s*(.+)/.exec(out);
+      if (rssi) { const dbm = Number(rssi[1]); return { wifi: true, ssid: ss ? ss[1].trim() : "", signal: Math.max(0, Math.min(100, 2 * (dbm + 100))) }; }
+      return null;
+    }
+    return null;
+  })();
+}
+ipcMain.handle("sys-check", async (_e, opts) => {
+  const out = { platform: process.platform, app: app.getVersion() };
+  const dirs = [(opts && opts.dir) || "", app.getPath("music"), app.getPath("userData")].filter(Boolean);
+  for (const d of dirs) { try { const s = fs.statfsSync(d); out.disk = { dir: d, free: s.bavail * s.bsize, total: s.blocks * s.bsize }; break; } catch (_) { } }
+  try { out.net = await wifiInfo(); } catch (_) { out.net = null; }
+  try { const u = updater && updater.status(); if (u) out.update = { latest: u.latest || null, available: !!u.available }; } catch (_) { }
+  return out;
+});
 
 app.whenReady().then(() => {
   updater = new Updater({ product: EDITION === "usage" ? "CentralUsage" : ["CentralControl", "central-usage"], current: app.getVersion(), dir: app.getPath("userData") });   // (Central Control's files are CentralControl-* since 9.2.1; releases also carry the old central-usage-* names for apps from before)

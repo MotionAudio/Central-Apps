@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Band's screen · Central Control confidence monitor</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { cursor: none; }
+  #screen { position: fixed; inset: 0; }
+  #conn { position: fixed; right: 12px; bottom: 10px; font: 600 12px Inter, system-ui, sans-serif; color: rgba(255,255,255,.45); }
+</style>
+</head>
+<body>
+<div id="screen"></div><div id="conn"></div>
+<script src="confidence-view.js"></script>
+<script>
+// The confidence monitor (the band's screen). Two ways in:
+//  - a window Central Control opens on a monitor facing the stage: what to show comes from the app (window.CUOut)
+//  - any browser on the church Wi-Fi (a tablet on a mic stand): http://<main admin>:8095/cu/confidence.html - it watches
+//    the center, which has what the lyrics computer sends. Nothing to pair: it only shows.
+(function () {
+  var el = document.getElementById("screen"), conn = document.getElementById("conn");
+  var st = null, look = null, msg = null, offset = 0;
+  function draw() { CUConfView.render(el, st && Object.assign({}, st, { left: st.left != null && st.at ? Math.max(0, st.left - (st.playing ? (Date.now() + offset - st.at) / 1000 : 0)) : st.left, nextItem: st.nextItem && st.nextItem.in != null && st.at ? Object.assign({}, st.nextItem, { in: st.nextItem.in - (Date.now() + offset - st.at) / 1000 }) : st.nextItem }), look, msg); }
+  function take(s) { if (!s) return; st = s; look = s.look || look; draw(); }
+  setInterval(draw, 500);
+  if (window.CUOut && window.CUOut.onConfidence) {
+    window.CUOut.onConfidence(function (m) { if (m.state !== undefined) take(m.state); if (m.message !== undefined) msg = m.message; draw(); });
+    return;
+  }
+  var q = new URLSearchParams(location.search), host = q.get("center") || location.host;
+  var ws = null;
+  function open() {
+    try { ws = new WebSocket("ws://" + host); } catch (_) { setTimeout(open, 3000); return; }
+    ws.onopen = function () { conn.textContent = ""; ws.send(JSON.stringify({ type: "confidence", action: "watch" })); };
+    ws.onmessage = function (e) {
+      var m; try { m = JSON.parse(e.data); } catch (_) { return; }
+      if (m.type === "confidence") { if (m.now) offset = m.now - Date.now(); if (m.state) take(m.state); msg = m.message || null; draw(); }
+      else if (m.type === "confidenceMessage") { msg = m.message; draw(); }
+    };
+    ws.onclose = function () { conn.textContent = "Looking for Central Control…"; setTimeout(open, 2500); };
+  }
+  open();
+  // a tap goes full screen on a tablet
+  document.addEventListener("click", function () { var d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen().catch(function () { }); });
+})();
+</script>
+</body>
+</html>
