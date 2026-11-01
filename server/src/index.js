@@ -30,6 +30,8 @@ import * as purchases from "./purchases.js";
 import * as hymns from "./hymns.js";
 import * as setlists from "./setlists.js";
 import * as creators from "./creators.js";
+import * as pco from "./pco.js";
+import * as ccli from "./ccli.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -96,6 +98,8 @@ downloads.routes(api, { wrap, requireUser });
 purchases.routes(api, { wrap, requireUser });   // (10.0: the account icon → Purchases)
 libraries.routes(api, { wrap });
 creators.routes(api, app, { wrap, requireUser });   // (10.1: makers and their uploads, the community items, the review site)
+pco.routes(api, app, { wrap, requireUser });   // (10.2: Planning Center plans -> setlists)
+ccli.routes(api, { wrap, requireUser });       // (10.2: CCLI settings, song usage and the report)
 // a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first
 setlists.routes(api, { wrap, requireUser, addTrack: async (u, id) => {
   const t = await liveTrack(id);

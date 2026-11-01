@@ -43,6 +43,8 @@
       mixCard() +
       (admin ? aiCard() : "") +   // (the lighting's AI model and the lyrics-from-the-vocal model are admin work: not in Central Usage)
       (admin && window.CULyricsListen ? window.CULyricsListen.card() : "") +
+      (admin && window.PPPlanningCenter ? window.PPPlanningCenter.settingsHtml("card") : "") +   // (10.2: Planning Center plans as setlists - the main admin connects it)
+      (!usage && window.PPCcli ? window.PPCcli.settingsHtml("card") : "") +                      // (10.2: CCLI numbers, the copyright line, the report)
       '<section class="card"><h3>Updates</h3><p class="muted">' + esc(CU.appName) + ' looks for a new version once a day and installs it only when you say so.</p><button data-st="updates">Check for updates…</button></section>' +
       '<section class="card"><h3>About</h3><p>' + esc(CU.appName) + " " + esc(version && version.app || "") + '</p><p class="muted small">' + (usage ? "For the musicians and singers on the team: your chord chart, your instrument, the lyrics and your own in-ear mix." : "For the people running the service: lights, slides and lyrics, the tracks mixer, the in-ear mixes and the cameras.") + "</p></section></div>";
     // redraw only when something changed, and never under someone typing (a half-typed package key or name stays)

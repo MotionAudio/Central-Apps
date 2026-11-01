@@ -596,7 +596,7 @@ async function renderAccount(note) {
     ${me.reviewer ? `<div class="card wide" id="reviewCard"><h3>Review site · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); renderMyRenewals(); if (me.reviewer) renderReviewCard(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); renderDefaultKeys(); }
+  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); renderMyRenewals(); if (window.MAWorship) window.MAWorship.render(); if (me.reviewer) renderReviewCard(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); renderDefaultKeys(); }
   if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "You're already confirmed." : "Sent! Check your inbox, and your spam folder just in case."); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;

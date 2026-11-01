@@ -59,11 +59,14 @@
   // the lyrics, as the Central Pedal moves through the song
   function lyricsSlide() {
     var d = CU.state.display, ls = d && d.lyrics || {}, lines = ls.lines || [];
-    return { kind: "lyrics", text: lines.join("\n"), title: st.lyrics.showSection ? (ls.section || (d && d.section ? d.section.name : "")) : "", size: st.lyrics.size, color: st.lyrics.color, align: st.lyrics.align, bgPath: st.lyricsBg, fade: 0.3 };
+    return { kind: "lyrics", text: lines.join("\n"), title: st.lyrics.showSection ? (ls.section || (d && d.section ? d.section.name : "")) : "", size: st.lyrics.size, color: st.lyrics.color, align: st.lyrics.align, bgPath: st.lyricsBg, fade: 0.3,
+      credit: lines.length && d && d.credit ? d.credit : null };   // (10.2: the CCLI copyright line, worked out by the player)
   }
   function pushLyrics(force) {
     if (!lyricsLive) return; var s = lyricsSlide(), key = JSON.stringify(s);
     if (!force && key === lastLyricsKey) return; lastLyricsKey = key; show(s, "lyrics");
+    // (10.2) the words went up on the screens: noted for the CCLI report (once per song and day)
+    var d = CU.state.display; if (s.text && d && d.song && window.PPCcli && (outStatus.screen || outStatus.ndi && outStatus.ndi.on || st.outputs.pi.on)) window.PPCcli.log({ title: d.song.name, ccli: d.song.ccli, author: d.song.author, copyright: d.song.copyright }, "display", { device: CU.appName });
   }
   function setLyricsLive(on) { lyricsLive = !!on; lastLyricsKey = null; if (on) pushLyrics(true); syncLyricsBox(); renderHead(); }
   function syncLyricsBox() { var b = $("#lyricsLive"); if (b) b.checked = lyricsLive; var i = $("#lyricsOutInfo"); if (i) i.textContent = outputsText(); }

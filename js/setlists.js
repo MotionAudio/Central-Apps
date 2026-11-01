@@ -114,6 +114,7 @@
       } else {
         html += '<p class="muted small">Sign in to Central Tracks (Add songs → Central Tracks) to see your church\'s setlists from every device. <button data-sl="signin">Sign in</button></p>';
       }
+      if (online() && window.PPPlanningCenter) html += window.PPPlanningCenter.inlineHtml();   // (10.2: a setlist from a Planning Center plan)
       html += "<h3>On this device</h3>" + (loc.length ? '<div class="sync-list">' + loc.map(function (x) {
         var cur = x.id === p.setlistId;
         return '<div class="sync-row' + (cur ? " current" : "") + '"><div><b>' + esc(x.name) + "</b><small>" + x.count + " song" + (x.count === 1 ? "" : "s") + " · made on " + esc(x.by) + " · " + ago(x.ts) + "</small></div>" +
@@ -194,16 +195,22 @@
   async function bringIn(s, firstTime) {
     var p = PP.project(), c = cloud(); if (!c || String(c.id) !== String(s.id)) return;
     var lib = firstTime && driverOn() ? ((await dget("/sync/songs")) || {}).songs || [] : null, notHere = 0;
+    // (10.2) a song from a Planning Center plan is found by its CCLI number or its title (without "(Live)" and the like)
+    var plain = function (t) { return window.PPCcli ? window.PPCcli.normTitle(t) : String(t || "").toLowerCase().trim(); };
+    var same = function (x, y) { return (x.trackId && y.ctId === x.trackId) || (x.localId && y.id === x.localId) || (x.pcoItem && y.pcoItem === x.pcoItem) || (x.ccli && String(y.ccli || "") === String(x.ccli)); };
+    var tag = function (song, x) { if (!song) return; if (x.ccli && !song.ccli) song.ccli = String(x.ccli); if (x.author && !song.author) song.author = x.author; if (x.fromPco && x.pcoItem) song.pcoItem = x.pcoItem; };
     for (var i = 0; i < (s.songs || []).length; i++) {
       var x = s.songs[i];
-      if (p.songs.some(function (y) { return (x.trackId && y.ctId === x.trackId) || (x.localId && y.id === x.localId); })) continue;
+      var inSet = p.songs.filter(function (y) { return same(x, y) || (x.fromPco && plain(y.name) === plain(x.title)); })[0];
+      if (inSet) { tag(inSet, x); continue; }
       var have = x.trackId && known[x.trackId] ? JSON.parse(JSON.stringify(known[x.trackId])) : null;
       if (!have && lib) {
-        var hit = lib.filter(function (y) { return (x.localId && y.id === x.localId) || y.name === x.title; })[0];
+        var hit = lib.filter(function (y) { return (x.localId && y.id === x.localId) || y.name === x.title || (x.ccli && String(y.ccli || "") === String(x.ccli)); })[0] ||
+          lib.filter(function (y) { return plain(y.name) === plain(x.title); })[0];
         if (hit) have = await dget("/sync/song/" + encodeURIComponent(hit.id));
       }
-      if (have) { p.songs.push(have); continue; }
-      if (x.trackId) { await download(x); continue; }
+      if (have) { tag(have, x); p.songs.push(have); continue; }
+      if (x.trackId) { await download(x); tag(p.songs.filter(function (y) { return y.ctId === x.trackId; })[0], x); continue; }
       notHere++;
     }
     st.notHere = notHere;
@@ -245,7 +252,7 @@
     var before = pushed[c.id] ? JSON.parse(pushed[c.id]) : [], ids = PP.project().songs.map(function (s) { return s.ctId; }).filter(Boolean);
     var removed = before.map(function (b) { return b[0]; }).filter(function (t) { return t && ids.indexOf(t) < 0; });
     pushed[c.id] = now;
-    try { await api("POST", "/setlists/" + encodeURIComponent(c.id), { songs: PP.project().songs.map(function (s) { return { title: s.name, key: s.key, bpm: s.bpm, trackId: s.ctId || undefined, localId: s.id }; }), removed: removed }); }
+    try { await api("POST", "/setlists/" + encodeURIComponent(c.id), { songs: PP.project().songs.map(function (s) { return { title: s.name, key: s.key, bpm: s.bpm, trackId: s.ctId || undefined, localId: s.id, ccli: s.ccli || undefined, author: s.author || undefined, fromPco: s.pcoItem ? true : undefined, pcoItem: s.pcoItem || undefined }; }), removed: removed }); }
     catch (e) { pushed[c.id] = null; }
   }, 5000);
 
@@ -281,5 +288,5 @@
     line();
   }
   wireSetlistDialog();
-  window.PPSetlists = { open: open, cloud: cloud, check: check, where: whereText, state: st, bringIn: bringIn };
+  window.PPSetlists = { open: open, cloud: cloud, check: check, where: whereText, state: st, bringIn: bringIn, openCloud: openCloud, reload: function () { if (isOpen() && st.view === "load") loadLists(); } };
 })();

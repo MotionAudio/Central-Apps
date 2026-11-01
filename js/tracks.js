@@ -1027,6 +1027,13 @@
   }
   function lyricsStep(delta, opts) { var ls = lyricsState(), stay = opts && opts.stay && state.playing; if (!ls.pages) { if (stay) return; if (delta > 0) nextSection(); else prevSection(); return; } var p = ls.page + delta; if (p >= ls.pages) { if (!stay) nextSection(); return; } if (p < 0) { if (!stay) prevSection(); return; } state.lyricsManual = p; sendDisplay(); renderPosition(); }
 
+  // (10.2) is this the song's first slide with words (no words in the sections before it), or its last?
+  function creditWhere(s, t, secs, x, ls) {
+    if (!s || !x) return { first: false, last: false };
+    var per = clamp(t.lyricsLines || 4, 1, 12), before = 0, after = 0;
+    secs.forEach(function (q, i) { if (i === x.index) return; var n = lyricsPages(q.sec, per).length; if (i < x.index) before += n; else after += n; });
+    return { first: before === 0 && (ls.page || 0) === 0, last: after === 0 && (ls.page || 0) >= Math.max(0, (ls.pages || 1) - 1) };
+  }
   // ------------------------------------------------------------- display state (satellites)
   var displayTimer = 0, lastDisplayAt = 0;
   function throttleDisplay() { var now = performance.now(); if (now - lastDisplayAt > 240) sendDisplay(); }
@@ -1038,7 +1045,11 @@
       var bar = s ? timeToBar(s, state.pos) : { bar: 1, beat: 1, frac: 0 };
       var msg = {
         type: "display", t: Date.now(),
-        song: s ? { name: s.name, key: s.key, bpm: Math.round(s.bpm), index: p.songIndex, count: p.songs.length, chart: s.chart || null, hasTracks: !!t.stems.length } : null,
+        song: s ? { name: s.name, key: s.key, bpm: Math.round(s.bpm), index: p.songIndex, count: p.songs.length, chart: s.chart || null, hasTracks: !!t.stems.length,
+          ccli: s.ccli || (s.pco && s.pco.ccli) || null, author: s.author || (s.pco && s.pco.author) || "", copyright: s.copyright || "" } : null,
+        // (10.2) the CCLI copyright line for this slide (null when it's off, or not on this slide of the song)
+        credit: s && window.PPCcli ? window.PPCcli.credit({ title: s.name, ccli: s.ccli || (s.pco && s.pco.ccli), author: s.author || (s.pco && s.pco.author), copyright: s.copyright },
+          creditWhere(s, t, secs, x, ls)) : null,
         songs: p.songs.map(function (q) { return { id: q.id, name: q.name, key: q.key, chart: q.chart ? q.chart.id : null, hasTracks: !!(q.tracks && q.tracks.stems && q.tracks.stems.length) }; }),
         tracksMode: !!p.tracksMode, playing: state.playing, pos: Math.round(state.pos * 100) / 100, duration: t ? t.duration : 0, countIn: state.countIn, loop: state.loop,
         bpm: s ? Math.round(s.bpm) : Math.round(p.tempo.bpm), key: PP.playKeyFor(PP.currentPad()), bar: bar.bar, beat: bar.beat, bpb: g ? g.bpb : 4, speed: t ? t.tempoPercent / 100 : 1,
@@ -1066,6 +1077,7 @@
       if (shKey !== lastSheetKey) { lastSheetKey = shKey; msg.sheet = s && window.PPSheets ? window.PPSheets.sheetOf(s, t, g) : null; }
       send(msg);
       if (window.PPSatellite) window.PPSatellite.local(msg);
+      if (window.PPCcli) window.PPCcli.onDisplay(msg);   // (10.2: the words on this pedal's own lyric screen count for the CCLI report)
     }, 20);
   }
   var lastHeavyKey = null, lastSheetKey = null;
@@ -1276,7 +1288,7 @@
     $("#seBpm").value = Math.round(t.grid.bpm * 10) / 10; $("#seFirst").value = Math.round((t.grid.first || 0) * 1000) / 1000; $("#seBpb").value = t.grid.bpb || 4; $("#seGridMode").value = t.grid.mode === "detected" ? "detected" : "fitted";
     clickOptions(); $("#seCountIn").value = t.countIn; $("#seClickSound").value = t.click.sound; $("#seClickSub").value = t.click.sub; $("#seClickLevel").value = t.click.level; $("#seCueLevel").value = t.cues.level; $("#seCueLead").value = t.cues.leadBars; $("#seCountVoice").checked = !!t.cues.countVoice; $("#seClickStems").checked = t.click.stems !== false;
     var fl = follow(t); $("#seSongPad").innerHTML = '<option value="-1">the selected pad</option>' + project().pads.map(function (pd, i) { return '<option value="' + i + '"' + (s.pad === i ? " selected" : "") + ">" + (i + 1) + " · " + esc(pd.name) + "</option>"; }).join(""); $("#seFollowStart").checked = fl.start; $("#seFollowStop").checked = fl.stop; $("#seFollowSwell").checked = fl.swell;
-    $("#seTransition").value = t.transition.type; $("#seTransitionSec").value = t.transition.seconds; $("#seJump").value = t.jump; $("#seLyricsLines").value = t.lyricsLines; $("#seAutoHits").checked = !!t.autoHits; $("#sePresentation").value = s.presentation || ""; $("#seAfter").value = afterMode(t); $("#seGap").value = t.gap; $("#seOverlap").value = t.overlap; $("#seGap").parentNode.hidden = afterMode(t) !== "play"; $("#seOverlap").parentNode.hidden = afterMode(t) !== "segue"; $("#seProgram").value = s.midiProgram == null ? "" : s.midiProgram;
+    $("#seTransition").value = t.transition.type; $("#seTransitionSec").value = t.transition.seconds; $("#seJump").value = t.jump; $("#seLyricsLines").value = t.lyricsLines; $("#seAutoHits").checked = !!t.autoHits; $("#sePresentation").value = s.presentation || ""; if ($("#seCcli")) { $("#seCcli").value = s.ccli || (s.pco && s.pco.ccli) || ""; $("#seAuthor").value = s.author || (s.pco && s.pco.author) || ""; $("#seCopyright").value = s.copyright || ""; } $("#seAfter").value = afterMode(t); $("#seGap").value = t.gap; $("#seOverlap").value = t.overlap; $("#seGap").parentNode.hidden = afterMode(t) !== "play"; $("#seOverlap").parentNode.hidden = afterMode(t) !== "segue"; $("#seProgram").value = s.midiProgram == null ? "" : s.midiProgram;
     renderGuesses(s, t);
     $("#seAnalysis").textContent = t.analysis ? "Detected: " + Math.round(t.analysis.bpm * 10) / 10 + " BPM · " + keyName(t.analysis.key) + " " + t.analysis.mode + " (" + Math.round(t.analysis.keyConfidence * 100) + "% sure) · grid " + (t.analysis.grid && t.analysis.grid.steady ? "steady (±" + t.analysis.grid.residualMs + " ms)" : "varies, following the drums") + " · " + t.hits.length + " big hits" : "Not analyzed yet.";
     $("#seStems").innerHTML = t.stems.length ? t.stems.map(function (st) { return '<div class="se-stem" data-stem="' + st.id + '"><input data-sef="name" value="' + esc(st.name) + '"><select data-sef="role">' + ["music", "drums", "bass", "keys", "guitar", "vocals", "guide", "click"].map(function (r) { return '<option' + (r === st.role ? " selected" : "") + ">" + r + "</option>"; }).join("") + '</select><select data-sef="bus"><option value="music"' + (st.bus !== "click" ? " selected" : "") + '>main out</option><option value="click"' + (st.bus === "click" ? " selected" : "") + '>click out</option></select><button data-sef="del" class="danger">✕</button></div>'; }).join("") : '<p class="muted">No tracks yet.</p>';
@@ -1305,6 +1317,7 @@
     else if (f === "cueLevel") t.cues.level = Number(el.value); else if (f === "cueLead") t.cues.leadBars = Number(el.value); else if (f === "countVoice") t.cues.countVoice = el.checked;
     else if (f === "transition") t.transition.type = el.value; else if (f === "transitionSec") t.transition.seconds = clamp(Number(el.value) || 2, .2, 20);
     else if (f === "jump") t.jump = el.value; else if (f === "lyricsLines") t.lyricsLines = clamp(Number(el.value) || 4, 1, 12); else if (f === "autoHits") { t.autoHits = el.checked; if (t.autoHits && t.analysis) t.hits = t.analysis.hits.slice(); }
+    else if (f === "ccli") { s.ccli = el.value.replace(/[^0-9]/g, "").slice(0, 10) || null; el.value = s.ccli || ""; sendDisplay(); } else if (f === "author") { s.author = el.value.trim().slice(0, 200); sendDisplay(); } else if (f === "copyright") { s.copyright = el.value.trim().slice(0, 200); sendDisplay(); }   // (10.2: the copyright line and the CCLI report)
     else if (f === "presentation") s.presentation = el.value.trim(); else if (f === "after") { t.after = el.value; t.autoNext = el.value === "play"; $("#seGap").parentNode.hidden = el.value !== "play"; $("#seOverlap").parentNode.hidden = el.value !== "segue"; } else if (f === "gap") t.gap = clamp(Number(el.value) || 0, 0, 30); else if (f === "overlap") t.overlap = clamp(Number(el.value) || 0, 0, 30); else if (f === "program") s.midiProgram = el.value === "" ? null : clamp(Number(el.value), 0, 127);
     else if (f === "songPad") s.pad = Number(el.value);
     else if (f === "followStart" || f === "followStop" || f === "followSwell") { t.padFollow = t.padFollow || {}; t.padFollow[f.slice(6).toLowerCase()] = el.checked; }
@@ -1551,7 +1564,23 @@
     window.addEventListener("resize", drawTimeline);
     document.body.classList.toggle("tracks-mode", !!project().tracksMode);
   }
+  // (10.2) a file from CCLI SongSelect (.txt lyrics, .usr) or ChordPro: the song's title, writers, copyright and CCLI
+  // number come with it (the copyright line, the CCLI report), and its sections, words and chords become the chart
+  async function songSelectFile(file) {
+    var SF = window.PPSongFiles; if (!SF || !/\.(txt|usr|cho|chopro|chordpro|crd|pro)$/i.test(file.name) || file.size > 400000) return false;
+    var text = await file.text(), kind = SF.detect(file.name, text);
+    if (kind === "text") return false;
+    var parsed = SF.parse(file.name, text), s = song(); if (!s || !parsed.sections.length) return false;
+    var m = SF.meta(parsed);
+    if (m.ccli) s.ccli = m.ccli; if (m.author) s.author = m.author; if (m.copyright) s.copyright = m.copyright;
+    await textChart(parsed.title || file.name.replace(/\.[^.]+$/, ""), SF.toChart(parsed));
+    if (!driverOn()) data(s).chartText = SF.toChart(parsed);   // (the chart screens draw the chords from it; on the pedal the driver keeps it)
+    PP.persistSoon(); renderEditor(); sendDisplay();
+    PP.setStatus("Brought in " + (parsed.title || file.name) + (m.ccli ? " · CCLI Song # " + m.ccli : "") + " · " + parsed.sections.length + " section" + (parsed.sections.length === 1 ? "" : "s"));
+    return true;
+  }
   async function uploadChart(file) {
+    try { if (await songSelectFile(file)) return; } catch (e) { PP.setStatus("Couldn't read " + file.name + ": " + e.message); return; }
     if (!driverOn()) { if (/\.(txt|cho|chopro|crd|pro|lrc)$/i.test(file.name)) { await textChart(file.name.replace(/\.[^.]+$/, ""), await file.text()); return; } PP.setStatus("PDF charts are processed on the Central Pedal itself (or upload them over Wi-Fi)."); return; }
     PP.setStatus("Uploading " + file.name + "…");
     try { var r = await fetch(MEDIA + "/upload?kind=charts&name=" + encodeURIComponent(file.name) + "&song=" + encodeURIComponent(song() ? song().name : ""), { method: "PUT", body: file }); var j = await r.json(); if (j.chart) { await refreshCharts(); await applyChart(song(), j.chart); renderEditor(); PP.setStatus("Chart added: " + j.chart.name); } else PP.setStatus(j.error || "Chart upload failed"); } catch (error) { PP.setStatus("Chart upload failed: " + error.message); }
@@ -1560,7 +1589,7 @@
     if (driverOn()) { try { var r = await fetch(MEDIA + "/chart/text", { method: "POST", body: JSON.stringify({ name: name, text: text }) }); var j = await r.json(); if (j.id) { await refreshCharts(); await applyChart(song(), j); renderEditor(); return; } } catch (_) { } }
     // no driver: parse the sections and lyrics here (no page images)
     var secs = [], cur = null;
-    text.split("\n").forEach(function (line) { var m = line.match(/^\s*[\[\(]?\s*(intro|verse|pre[- ]?chorus|chorus|bridge|tag|outro|ending|interlude|instrumental|turnaround|vamp|refrain|hook)\s*([0-9]+|[a-d])?\s*[\]\)]?\s*:?\s*$/i); if (m) { cur = { name: m[1].replace(/\b\w/g, function (c) { return c.toUpperCase(); }) + (m[2] ? " " + m[2].toUpperCase() : ""), lines: [] }; secs.push(cur); return; } var clean = line.replace(/\[[^\]]*\]/g, "").trim(); if (!clean) return; var toks = clean.split(/\s+/), chordy = toks.filter(function (t) { return /^[A-G](#|b)?(m|maj|min|dim|aug|sus|add)?[0-9]*(\/[A-G](#|b)?)?$/.test(t); }).length; if (chordy / toks.length >= .7) return; if (!cur) { cur = { name: "Verse 1", lines: [] }; secs.push(cur); } cur.lines.push(clean); });
+    text.split("\n").forEach(function (line) { var m = line.match(/^\s*[\[\(]?\s*(intro|verse|pre[- ]?chorus|post[- ]?chorus|chorus|bridge|tag|outro|ending|interlude|instrumental|turnaround|vamp|refrain|hook|solo|breakdown|build|coda|channel)\s*([0-9]+|[a-d])?\s*[\]\)]?\s*:?\s*$/i); if (m) { cur = { name: m[1].replace(/\b\w/g, function (c) { return c.toUpperCase(); }) + (m[2] ? " " + m[2].toUpperCase() : ""), lines: [] }; secs.push(cur); return; } if (/^\s*\{[^}]*\}\s*$/.test(line)) return; var clean = line.replace(/\[[^\]]*\]/g, "").trim(); if (!clean) return; var toks = clean.split(/\s+/), chordy = toks.filter(function (t) { return /^[A-G](#|b)?(m|maj|min|dim|aug|sus|add)?[0-9]*(\/[A-G](#|b)?)?$/.test(t); }).length; if (chordy / toks.length >= .7) return; if (!cur) { cur = { name: "Verse 1", lines: [] }; secs.push(cur); } cur.lines.push(clean); });
     await applyChart(song(), { id: null, name: name, pageCount: 1, sections: secs, key: null, bpm: null });
     renderEditor();
   }
