@@ -1,0 +1,44 @@
+{
+ "translations": [
+  {
+   "id": "kjv",
+   "name": "King James Version",
+   "short": "KJV",
+   "lang": "en",
+   "license": "Public domain",
+   "source": "scrollmapper/bible_databases (KJV, 1769 text)",
+   "file": "kjv.js",
+   "verses": 31102
+  },
+  {
+   "id": "web",
+   "name": "World English Bible",
+   "short": "WEB",
+   "lang": "en",
+   "license": "Public domain",
+   "source": "ebible.org/web (npm: world-english-bible)",
+   "file": "web.js",
+   "verses": 31103
+  },
+  {
+   "id": "asv",
+   "name": "American Standard Version",
+   "short": "ASV",
+   "lang": "en",
+   "license": "Public domain",
+   "source": "scrollmapper/bible_databases (ASV, 1901)",
+   "file": "asv.js",
+   "verses": 31102
+  },
+  {
+   "id": "rv1909",
+   "name": "Reina-Valera 1909",
+   "short": "RV1909",
+   "lang": "es",
+   "license": "Public domain",
+   "source": "scrollmapper/bible_databases (SpaRV, Reina-Valera 1909)",
+   "file": "rv1909.js",
+   "verses": 31102
+  }
+ ]
+}

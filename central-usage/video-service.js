@@ -212,7 +212,9 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
     if (!on) { if (slides.win && !slides.win.isDestroyed()) slides.win.close(); slides.win = null; return; }
     if (slides.win && !slides.win.isDestroyed()) return;
     const [w, h] = hiSize();
-    const win = slides.win = new BrowserWindow({ width: w, height: h, show: false, frame: false, backgroundColor: "#000000", webPreferences: { offscreen: true, backgroundThrottling: false, preload: path.join(__dirname, "preload-output.js"), contextIsolation: true, sandbox: false } });
+    // (10.2: see-through, so a lower third - a slide with no background - keeps its transparency for the switcher;
+    // every other slide paints its own black)
+    const win = slides.win = new BrowserWindow({ width: w, height: h, show: false, frame: false, transparent: true, backgroundColor: "#00000000", webPreferences: { offscreen: true, backgroundThrottling: false, preload: path.join(__dirname, "preload-output.js"), contextIsolation: true, sandbox: false } });
     win.webContents.setFrameRate(30);
     const keep = setInterval(() => { if (win.isDestroyed()) return clearInterval(keep); win.webContents.invalidate(); }, 1000);   // a still slide is sent again now and then
     win.loadFile(path.join(appDir, "output.html"));
