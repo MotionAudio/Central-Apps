@@ -14,7 +14,7 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   var D2R = Math.PI / 180;
-  var ok = false, renderer = null, scene, camera, roomGroup, fixGroup, fixtures = {}, roomKey = "", fixKey = "", selected = null, showNames = false;
+  var ok = false, renderer = null, scene, camera, roomGroup, fixGroup, fixtures = {}, roomKey = "", fixKey = "", selected = null, multi = [], showNames = false;
   try { var store = JSON.parse(localStorage.getItem("cu-lx3d") || "{}"); showNames = !!store.names; } catch (_) { store = {}; }
   function keep() { try { localStorage.setItem("cu-lx3d", JSON.stringify({ names: showNames, cam: cam, big: big })); } catch (_) { } }
 
@@ -41,6 +41,9 @@
   var hemi = new T.HemisphereLight(0xaab4c8, 0x0b0c0f, 0.6); scene.add(hemi);
   var key = new T.DirectionalLight(0xffffff, 0.45); key.position.set(4, 12, 10); scene.add(key);
   roomGroup = new T.Group(); fixGroup = new T.Group(); scene.add(roomGroup); scene.add(fixGroup);
+  // (10.2) what the screens and projectors (lights3d-screens.js) and the room and seats (lights3d-room.js) hang on to:
+  // they add to the room as it's built, run each frame, can be picked and dragged, and get a button on the bar
+  var EXT = { roomHooks: [], frameHooks: [], pickables: [], emitList: [], selectHooks: [] };
 
   // ------------------------------------------------------------- materials and textures
   function canvasTex(w, h, draw) { var c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); var t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; return t; }
@@ -77,10 +80,11 @@
   function stage() { return L.rig().stage; }
   var screenMesh = null;
   function buildRoom() {
-    var st = stage(), k = JSON.stringify(st); if (k === roomKey) return; roomKey = k;
+    var st = stage(), k = JSON.stringify(st, function (key, v) { return key === "screens" || key === "projectors" || key === "props" || key === "trace" ? undefined : v; }); if (k === roomKey) return; roomKey = k;
+    var hall = !!(st.hall && st.hall.outline && st.hall.outline.length >= 3);   // (10.2) the room drawn in Room & seats: its own floor, walls and seats
     while (roomGroup.children.length) { var c = roomGroup.children.pop(); if (c.geometry && c.geometry !== planeGeo) c.geometry.dispose(); }
     var W = st.width, D = st.depth, deck = Math.max(0, st.deck), R = Math.max(4, st.room || 14), roomW = W + 10;
-    var floor = new T.Mesh(new T.PlaneGeometry(roomW, D + R + 3), M.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, (R - D - 3) / 2 + 0); roomGroup.add(floor);
+    if (!hall) { var floor = new T.Mesh(new T.PlaneGeometry(roomW, D + R + 3), M.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, (R - D - 3) / 2 + 0); roomGroup.add(floor); }
     if (deck > 0.001) { var box = new T.Mesh(new T.BoxGeometry(W, deck, D), [M.deckSide, M.deckSide, M.deck, M.deckSide, M.deckSide, M.deckSide]); box.position.set(0, deck / 2, -D / 2); M.deck.map.repeat.set(W / 4, D / 4); roomGroup.add(box); }
     else { var top = new T.Mesh(new T.PlaneGeometry(W, D), M.deck); top.rotation.x = -Math.PI / 2; top.position.set(0, 0.002, -D / 2); roomGroup.add(top); }
     var shape = st.shape || "rect", hdeck = Math.max(deck, 0.02);
@@ -92,21 +96,30 @@
       var fr = new T.Mesh(new T.BoxGeometry(sw + 0.16, sh + 0.16, 0.05), M.screenFrame); fr.position.set(sx, sy, -D - 0.57); roomGroup.add(fr);
       var scr = new T.Mesh(new T.PlaneGeometry(sw, sh), M.screen); scr.position.set(sx, sy, -D - 0.54); roomGroup.add(scr); screenMesh = scr; } else screenMesh = null;
     var wall = new T.Mesh(new T.PlaneGeometry(roomW, 9), M.wall); wall.position.set(0, 4.5, -D - 0.6); roomGroup.add(wall);
-    // the audience: rows of seats
-    var cols = Math.max(4, Math.floor((W + 2) / 0.6)), rows = Math.max(1, Math.floor((R - 3) / 1.0)), seat = new T.BoxGeometry(0.46, 0.45, 0.46);
-    var inst = new T.InstancedMesh(seat, M.seat, cols * rows), m4 = new T.Matrix4(), n = 0;
-    for (var r = 0; r < rows; r++) for (var c2 = 0; c2 < cols; c2++) { if (Math.abs(c2 - (cols - 1) / 2) < 0.8) continue; m4.makeTranslation((c2 - (cols - 1) / 2) * 0.6, 0.225, 2.6 + r * 1.0); inst.setMatrixAt(n++, m4); }
-    inst.count = n; roomGroup.add(inst);
+    // the audience: rows of seats (or the seats laid out in the room drawn under Room & seats)
+    if (!hall) {
+      var cols = Math.max(4, Math.floor((W + 2) / 0.6)), rows = Math.max(1, Math.floor((R - 3) / 1.0)), seat = new T.BoxGeometry(0.46, 0.45, 0.46);
+      var inst = new T.InstancedMesh(seat, M.seat, cols * rows), m4 = new T.Matrix4(), n = 0;
+      for (var r = 0; r < rows; r++) for (var c2 = 0; c2 < cols; c2++) { if (Math.abs(c2 - (cols - 1) / 2) < 0.8) continue; m4.makeTranslation((c2 - (cols - 1) / 2) * 0.6, 0.225, 2.6 + r * 1.0); inst.setMatrixAt(n++, m4); }
+      inst.count = n; roomGroup.add(inst);
+    }
     (st.trusses || []).forEach(function (t) { roomGroup.add(trussMesh(t)); });
+    EXT.roomHooks.forEach(function (fn) { try { fn(roomGroup, st); } catch (e) { console.warn("3D room", e); } });
   }
-  function trussMesh(t) {   // a 30 cm box truss: four chords and the zig-zag braces
-    var g = new T.Group(), w = Math.max(1, t.width || 8), s = 0.3, chord = new T.CylinderGeometry(0.024, 0.024, w, 8); chord.rotateZ(Math.PI / 2);
+  // (10.2) a truss or pipe runs across (turn 0) or at any angle (turn 90 = front to back, a side truss); x is its middle
+  function trussDir(t) { var a = (t.yaw || 0) * D2R; return { x: Math.cos(a), z: -Math.sin(a) }; }
+  function trussPoint(t, along) { var d = trussDir(t); return { x: (t.x || 0) + d.x * along, z: -t.d + d.z * along }; }
+  function trussAlong(t, x, z) { var d = trussDir(t); return (x - (t.x || 0)) * d.x + (z + t.d) * d.z; }
+  function trussMesh(t) {   // a 30 cm box truss: four chords and the zig-zag braces (a pipe: one tube)
+    var g = new T.Group(), w = Math.max(1, t.width || 8), s = 0.3;
+    if (t.kind === "pipe") { var pg = new T.CylinderGeometry(0.024, 0.024, w, 10); pg.rotateZ(Math.PI / 2); g.add(new T.Mesh(pg, M.truss)); g.position.set(t.x || 0, t.h, -t.d); g.rotation.y = (t.yaw || 0) * D2R; return g; }
+    var chord = new T.CylinderGeometry(0.024, 0.024, w, 8); chord.rotateZ(Math.PI / 2);
     [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(function (q) { var m = new T.Mesh(chord, M.truss); m.position.set(0, q[0] * s / 2, q[1] * s / 2); g.add(m); });
     var pts = [], steps = Math.round(w / 0.5);
     for (var i = 0; i < steps; i++) { var x0 = -w / 2 + i * w / steps, x1 = x0 + w / steps; pts.push(x0, -s / 2, s / 2, x1, s / 2, s / 2, x0, -s / 2, -s / 2, x1, s / 2, -s / 2, x0, s / 2, -s / 2, x1, s / 2, s / 2, x0, -s / 2, -s / 2, x1, -s / 2, s / 2); }
     var lg = new T.BufferGeometry(); lg.setAttribute("position", new T.Float32BufferAttribute(pts, 3));
     g.add(new T.LineSegments(lg, new T.LineBasicMaterial({ color: 0x8a919b, transparent: true, opacity: 0.7 })));
-    g.position.set(0, t.h, -t.d); return g;
+    g.position.set(t.x || 0, t.h, -t.d); g.rotation.y = (t.yaw || 0) * D2R; return g;
   }
 
   // ------------------------------------------------------------- the lights
@@ -203,7 +216,7 @@
   function frame() {
     if (!ok || !L.isShowing()) return;
     resize(); buildRoom(); buildFixtures();
-    var rig = L.rig(), live = L.live, haze = hazeLevel(), beamK = 0.26 + 0.6 * haze;
+    var rig = L.rig(), live = L.live, haze = hazeLevel(), beamK = 0.26 + 0.6 * haze, emits = EXT.emitList; emits.length = 0; EXT.hazeNow = haze;
     rig.fixtures.forEach(function (f) {
       var o = fixtures[f.id]; if (!o) return;
       var sts = (live.cellColor && live.cellColor[f.id]) || (live.fixtureColor[f.id] ? [live.fixtureColor[f.id]] : null); if (!sts) return;
@@ -221,6 +234,7 @@
         e.lens.getWorldPosition(tmpV); var origin = tmpV.clone();
         var dir = (o.kind === "mover" ? up.clone() : fwd.clone()).transformDirection(o.kind === "mover" ? o.head.matrixWorld : o.root.matrixWorld).normalize();
         var h = hit(origin, dir), len = Math.min(h.t, 30), half = e.spread / 2 * D2R, r = len * Math.tan(half);
+        if (k > 0.004 && f.group !== "haze") emits.push({ x: origin.x, y: origin.y, z: origin.z, dx: dir.x, dy: dir.y, dz: dir.z, spread: f.group === "house" ? Math.max(e.spread, 70) : e.spread, r: c.r, g: c.g, b: c.b, k: k * (e.kind === "cell" ? 0.35 : e.kind === "strobe" ? 0.6 : 1), group: f.group, surf: h.surf, t: h.t });
         var level = k * (e.kind === "strobe" ? 0.35 : e.kind === "cell" ? 0.6 : 1) * beamK;
         e.beam.visible = level > 0.004; e.beam.position.copy(origin); e.beam.quaternion.setFromUnitVectors(down, dir); e.beam.scale.set(Math.max(0.01, r), len, Math.max(0.01, r));
         e.beam.material.uniforms.level.value = level; e.beam.material.uniforms.color.value.setRGB(c.r, c.g, c.b);
@@ -240,7 +254,10 @@
     rig.fixtures.forEach(function (f) { if (f.group !== "back" && f.group !== "beam") return; var st = live.fixtureColor[f.id]; if (!st) return; var c = colourOf(st, f); wr += c.r * c.k; wg += c.g * c.k; wb += c.b * c.k; wn++; });
     if (wn) { var wk = 0.03 / Math.max(1, wn * 0.5); M.wall.emissive.setRGB(wr * wk, wg * wk, wb * wk); } else M.wall.emissive.setRGB(0, 0, 0);
     if (screenMesh) { var tnow = performance.now() / 1000; screenMesh.material.color.setRGB(0.05 + 0.02 * Math.sin(tnow * 0.4), 0.09 + 0.02 * Math.sin(tnow * 0.31 + 1), 0.16 + 0.03 * Math.sin(tnow * 0.27 + 2)); }
-    placeCamera(); renderer.render(scene, camera); drawLabels();
+    placeCamera();
+    var nowMs = performance.now(); EXT.frameHooks.forEach(function (fn) { try { fn(nowMs); } catch (e) { console.warn("3D frame", e); } });
+    renderer.render(scene, camera); drawLabels();
+    if (EXT.afterRender) { var ar = EXT.afterRender; EXT.afterRender = null; ar(); }
   }
 
   // ------------------------------------------------------------- the camera: turn, slide, zoom; views
@@ -286,34 +303,59 @@
   }
   function onPlane(e, y) { var r = canvas.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); var pl = new T.Plane(new T.Vector3(0, 1, 0), -y), out = new T.Vector3(); return ray.ray.intersectPlane(pl, out) ? out : null; }
   canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  // (10.2) a screen, a projector or a piece of the room under the pointer: { obj, ext } (ext: select, y, drag, end)
+  function pickExt(e) {
+    if (!EXT.pickables.length) return null;
+    var r = canvas.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera);
+    var hits = ray.intersectObjects(EXT.pickables.map(function (p) { return p.obj; }), true); if (!hits.length) return null;
+    var o = hits[0].object; while (o && !o.userData.ext) o = o.parent; return o ? o.userData.ext : null;
+  }
   canvas.addEventListener("pointerdown", function (e) {
     canvas.setPointerCapture(e.pointerId);
-    var id = e.button === 0 && !e.shiftKey ? pickAt(e) : null;
+    var id = e.button === 0 && !e.shiftKey ? pickAt(e) : null, ex = !id && e.button === 0 && !e.shiftKey ? pickExt(e) : null;
+    if (ex) {
+      if (selected) { selected = null; paintSelection(); renderPanel(); }
+      var sp1 = $("#lx3dStage"); if (sp1) sp1.hidden = true; roomy(); ex.select();
+      var y0 = ex.y ? ex.y() : 0, p0 = onPlane(e, y0); drag = { mode: "ext", ext: ex, y: y0, start: p0, from: ex.from ? ex.from() : null, moved: false, x: e.clientX, y0: e.clientY };
+      return;
+    }
     if (id) {
-      if (selected !== id) { selected = id; paintSelection(); roomy(); var sp0 = $("#lx3dStage"); if (sp0) sp0.hidden = true; renderPanel(); }
+      EXT.selectHooks.forEach(function (fn) { fn(null); });
+      if (e.ctrlKey || e.metaKey) {   // (10.2) Ctrl / ⌘-click: pick several
+        var set = multi.length ? multi.slice() : selected ? [selected] : [], mi = set.indexOf(id);
+        if (mi >= 0) set.splice(mi, 1); else set.push(id);
+        if (set.length > 1) { selected = null; multi = set; } else { selected = set[0] || null; multi = []; }
+        paintSelection(); renderPanel(); frame(); return;
+      }
+      if (multi.indexOf(id) < 0) multi = [];
+      if (selected !== id && !multi.length) { selected = id; paintSelection(); roomy(); var sp0 = $("#lx3dStage"); if (sp0) sp0.hidden = true; renderPanel(); }
       var f = fixtureById(id), p = onPlane(e, f.pos.y);
-      drag = { mode: "fixture", f: f, start: p, from: Object.assign({}, f.pos), moved: false, x: e.clientX, y: e.clientY };
+      drag = { mode: "fixture", f: f, start: p, from: Object.assign({}, f.pos), moved: false, x: e.clientX, y: e.clientY, group: multi.length > 1 ? multi.map(function (m) { var g = fixtureById(m); return g ? { f: g, from: Object.assign({}, g.pos) } : null; }).filter(Boolean) : null };
     } else drag = { mode: e.button === 2 || e.shiftKey ? "slide" : "turn", x: e.clientX, y: e.clientY, cam: Object.assign({}, cam), moved: false };
   });
   canvas.addEventListener("pointermove", function (e) {
-    if (!drag) { var h2 = pickAt(e); if (h2 !== hover) { hover = h2; canvas.style.cursor = h2 ? "grab" : "default"; frame(); } return; }
+    if (!drag) { var h2 = pickAt(e); if (h2 !== hover) { hover = h2; canvas.style.cursor = h2 ? "grab" : "default"; frame(); } if (!h2 && EXT.pickables.length) canvas.style.cursor = pickExt(e) ? "grab" : "default"; return; }
+    if (drag.mode === "ext") {
+      if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y0) > 3) drag.moved = true;
+      var pe = drag.start && onPlane(e, drag.y); if (drag.moved && pe && drag.ext.drag) { canvas.style.cursor = "grabbing"; drag.ext.drag(pe.x - drag.start.x, pe.z - drag.start.z, drag.from); }
+      frame(); return;
+    }
     var dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
     if (drag.mode === "turn") { cam.yaw = drag.cam.yaw - dx * 0.006; cam.pitch = clamp(drag.cam.pitch + dy * 0.005, 0.02, 1.55); }
     else if (drag.mode === "slide") { var s = cam.dist * 0.0016, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw); cam.tx = drag.cam.tx - (dx * cy) * s; cam.tz = drag.cam.tz + (dx * sy) * s; cam.ty = clamp(drag.cam.ty + dy * s, 0, 8); }
     else if (drag.mode === "fixture" && drag.start && drag.moved) {
-      var f = drag.f, p = onPlane(e, drag.from.y); if (!p) return; canvas.style.cursor = "grabbing";
-      var st = stage(), nx = Math.round((drag.from.x + p.x - drag.start.x) * 20) / 20, nz = Math.round((drag.from.z + p.z - drag.start.z) * 20) / 20, t = L.trussById(f.mount);
-      f.pos.x = clamp(nx, -(t ? (t.width || st.width) : st.width + 8) / 2, (t ? (t.width || st.width) : st.width + 8) / 2);
-      if (!t) f.pos.z = clamp(nz, -st.depth - 0.3, Math.max(4, st.room || 14) - 0.5);
-      if (!t && f.mount !== "house") f.pos.y = surfaceAt(f.pos.x, f.pos.z);
-      f.x = clamp(f.pos.x / st.width + 0.5, 0, 1);   // (the flat plot, if 3D isn't available)
-      place(fixtures[f.id]); renderPanelValues();
+      var p = onPlane(e, drag.from.y); if (!p) return; canvas.style.cursor = "grabbing";
+      if (!drag.remembered) { drag.remembered = true; remember(); }
+      var ddx = p.x - drag.start.x, ddz = p.z - drag.start.z;
+      (drag.group || [{ f: drag.f, from: drag.from }]).forEach(function (it) { moveFixtureTo(it.f, it.from.x + ddx, it.from.z + ddz); });
+      renderPanelValues();
     }
     frame();
   });
   canvas.addEventListener("pointerup", function () {
+    if (drag && drag.mode === "ext") { if (drag.moved && drag.ext.end) drag.ext.end(); drag = null; canvas.style.cursor = "default"; frame(); return; }
     if (drag && drag.mode === "fixture" && drag.moved) L.saveRig();
-    else if (drag && !drag.moved && drag.mode !== "fixture") { selected = null; paintSelection(); renderPanel(); }
+    else if (drag && !drag.moved && drag.mode !== "fixture") { selected = null; paintSelection(); renderPanel(); EXT.selectHooks.forEach(function (fn) { fn(null); }); }
     if (drag && (drag.mode === "turn" || drag.mode === "slide")) keep();
     drag = null; canvas.style.cursor = hover ? "grab" : "default"; frame();
   });
@@ -326,56 +368,191 @@
   }
   function surfaceAt(x, z) { var st = stage(), deck = Math.max(0, st.deck); if (!onDeck(x, z)) return 0; var top = deck; (st.risers || []).forEach(function (r) { var rz = -(r.z != null ? r.z : st.depth * 0.7); if (Math.abs(x - (r.x || 0)) <= (r.w || 2.4) / 2 && Math.abs(z - rz) <= (r.d || 2.4) / 2) top = Math.max(top, deck + (r.h || 0.4)); }); return top; }
   function fixtureById(id) { return L.rig().fixtures.filter(function (f) { return f.id === id; })[0] || null; }
-  function paintSelection() { Object.keys(fixtures).forEach(function (id) { fixtures[id].sel.visible = id === selected; }); }
+  function paintSelection() { Object.keys(fixtures).forEach(function (id) { fixtures[id].sel.visible = id === selected || multi.indexOf(id) >= 0; }); }
 
   // ------------------------------------------------------------- the overlay: views, names, stage, the light's panel
   ui.innerHTML = '<div class="lx3d-bar"><div class="lx3d-views" role="group" aria-label="View">' +
     [["audience", "Audience"], ["corner", "Corner"], ["top", "Top"], ["side", "Side"]].map(function (v) { return '<button data-v3="' + v[0] + '">' + v[1] + "</button>"; }).join("") + '</div>' +
-    '<label class="toggle lx3d-names"><input type="checkbox" data-n3' + (showNames ? " checked" : "") + '> Names</label><button data-stage3>Stage &amp; trusses</button><span class="lx3d-views" role="group" aria-label="Size"><button data-size3="-1" title="Make the 3D stage smaller">−</button><button data-size3="0" title="The 3D stage\'s height (click for the standard size)" class="lx3d-sizev">Size</button><button data-size3="1" title="Make the 3D stage bigger">+</button></span></div>' +
+    '<label class="toggle lx3d-names"><input type="checkbox" data-n3' + (showNames ? " checked" : "") + '> Names</label><button data-stage3>Stage &amp; trusses</button><span class="lx3d-views lx3d-ext" role="group" aria-label="Add"></span><span class="lx3d-views" role="group" aria-label="Undo"><button data-undo3 title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button><button data-redo3 title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button></span><span class="lx3d-views" role="group" aria-label="Size"><button data-size3="-1" title="Make the 3D stage smaller">−</button><button data-size3="0" title="The 3D stage\'s height (click for the standard size)" class="lx3d-sizev">Size</button><button data-size3="1" title="Make the 3D stage bigger">+</button></span></div>' +
     '<div class="lx3d-panel" id="lx3dPanel" hidden></div><div class="lx3d-stage" id="lx3dStage" hidden></div>' +
-    '<p class="lx3d-hint">Drag to turn · right-drag to slide · wheel to zoom · click a light to place it</p>';
+    '<p class="lx3d-hint">Drag to turn · right-drag to slide · wheel to zoom · click a light to place it · Ctrl-click to pick several</p>';
   ui.addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;
     if (b.dataset.v3) view(b.dataset.v3);
     else if (b.dataset.size3 != null) { var d0 = Number(b.dataset.size3), h0 = L.rig().stageH || 440; L.stageSize(d0 === 0 ? 440 : h0 + d0 * 80); applyBig(); lastW = 0; frame(); }
-    else if (b.hasAttribute("data-stage3")) { var sp = $("#lx3dStage"); sp.hidden = !sp.hidden; if (!sp.hidden) { roomy(); selected = null; paintSelection(); renderPanel(); renderStage(); } }
-    else if (b.dataset.p3) panelAction(b.dataset.p3);
+    else if (b.hasAttribute("data-stage3")) { var sp = $("#lx3dStage"); sp.hidden = !sp.hidden; if (!sp.hidden) { roomy(); selected = null; multi = []; paintSelection(); renderPanel(); renderStage(); EXT.selectHooks.forEach(function (fn) { fn("stage"); }); } }
+    else if (b.dataset.p3) panelAction(b.dataset.p3, b);
+    else if (b.dataset.put3) putAction(b.dataset.put3);
+    else if (b.hasAttribute("data-undo3")) undo();
+    else if (b.hasAttribute("data-redo3")) redo();
+    else if (b.dataset.ext3 && EXT.bar[b.dataset.ext3]) EXT.bar[b.dataset.ext3](b);
     else if (b.dataset.s3) stageAction(b.dataset.s3, b);
   });
   ui.addEventListener("change", function (e) { if (e.target.hasAttribute("data-n3")) { showNames = e.target.checked; keep(); frame(); } });
   ui.addEventListener("input", function (e) { var el = e.target; if (el.dataset.pf) panelField(el); else if (el.dataset.sf) stageField(el); });
   ["pointerdown", "wheel"].forEach(function (ev) { ui.addEventListener(ev, function (e) { if (e.target.closest(".lx3d-panel,.lx3d-stage,.lx3d-bar")) e.stopPropagation(); }, { passive: true }); });
 
+  // ------------------------------------------------------------- (10.2) units, the grid, undo, several lights at once
+  // Feet by default (Stage & trusses → Units); everything is kept in metres and only shown in the units picked.
+  var FT = 3.28084;
+  function units() { return L.rig().units === "m" ? "m" : "ft"; }
+  function ul() { return units(); }
+  function toU(m, dp) { var v = units() === "ft" ? m * FT : m, k = Math.pow(10, dp == null ? 2 : dp); return Math.round(v * k) / k; }
+  function fromU(v) { v = Number(v) || 0; return units() === "ft" ? v / FT : v; }
+  function stepU() { return units() === "ft" ? 0.5 : 0.25; }
+  function gridStep() { return L.rig().snap === false ? 0.05 : units() === "ft" ? 0.1524 : 0.25; }   // half a foot, or 25 cm
+  function snapV(v) { var g = gridStep(); return Math.round(v / g) * g; }
+  function uid() { return Math.random().toString(36).slice(2, 9); }
+  // undo / redo: the lights' places and the stage, before each change
+  var undoStack = [], redoStack = [], lastRem = 0;
+  function snapshot() { var r = L.rig(); return JSON.stringify({ fixtures: r.fixtures, stage: r.stage }); }
+  function remember(force) {
+    var now = performance.now(); if (!force && now - lastRem < 700) { lastRem = now; return; }
+    lastRem = now; undoStack.push(snapshot()); if (undoStack.length > 80) undoStack.shift(); redoStack = []; paintUndo();
+  }
+  function restoreSnap(s) {
+    var j = JSON.parse(s), r = L.rig(); r.fixtures.length = 0; Array.prototype.push.apply(r.fixtures, j.fixtures); r.stage = j.stage;
+    fixKey = ""; roomKey = ""; L.saveRig(); if (L.renderAll) L.renderAll(); selected = null; multi = []; paintSelection(); renderPanel();
+    var sp = $("#lx3dStage"); if (sp && !sp.hidden) renderStage(); EXT.selectHooks.forEach(function (fn) { fn(null); }); if (EXT.changed) EXT.changed(); frame();
+  }
+  function undo() { if (!undoStack.length) return; redoStack.push(snapshot()); restoreSnap(undoStack.pop()); paintUndo(); }
+  function redo() { if (!redoStack.length) return; undoStack.push(snapshot()); restoreSnap(redoStack.pop()); paintUndo(); }
+  function paintUndo() { var u = ui.querySelector("[data-undo3]"), r = ui.querySelector("[data-redo3]"); if (u) u.disabled = !undoStack.length; if (r) r.disabled = !redoStack.length; }
+  function roomBounds() {
+    var st = stage(), h = st.hall;
+    if (h && h.outline && h.outline.length >= 3) { var xs = h.outline.map(function (p) { return p[0]; }), zs = h.outline.map(function (p) { return p[1]; }); return { x0: Math.min.apply(null, xs), x1: Math.max.apply(null, xs), z0: Math.min.apply(null, zs), z1: Math.max.apply(null, zs) }; }
+    var W = st.width + 10; return { x0: -W / 2, x1: W / 2, z0: -st.depth - 0.6, z1: Math.max(4, st.room || 14) - 0.5 };
+  }
+  function moveFixtureTo(f, nx, nz) {
+    var st = stage(), t = L.trussById(f.mount); nx = snapV(nx); nz = snapV(nz);
+    if (t) { var tw0 = (t.width || st.width) / 2, tp = trussPoint(t, clamp(snapV(trussAlong(t, nx, nz)), -tw0, tw0)); f.pos.x = tp.x; f.pos.z = tp.z; f.pos.y = t.h - 0.35; }
+    else { var rb = roomBounds(); f.pos.x = clamp(nx, rb.x0, rb.x1); f.pos.z = clamp(nz, -st.depth - 0.5, rb.z1); if (f.mount === "floor") f.pos.y = surfaceAt(f.pos.x, f.pos.z); }
+    f.x = clamp(f.pos.x / st.width + 0.5, 0, 1);   // (the flat plot, if 3D isn't available)
+    if (fixtures[f.id]) place(fixtures[f.id]);
+  }
+  // copies: the next free DMX address (after the last light in the universe; the next universe when it's full)
+  function chCount(f) { var p = L.profileOf(f); return (p && p.ch && p.ch.length) || 1; }
+  function nextAddress(uni, need) {
+    var end = 0; L.rig().fixtures.forEach(function (g) { if ((g.universe || 1) === uni) end = Math.max(end, (g.address || 1) + chCount(g) - 1); });
+    return end + need <= 512 ? { universe: uni, address: end + 1 } : nextAddress(uni + 1, need);
+  }
+  function nextName(name, mirror) {
+    if (mirror) { if (/\bL\b|Left/.test(name)) return name.replace(/\bL\b/, "R").replace(/Left/, "Right"); if (/\bR\b|Right/.test(name)) return name.replace(/\bR\b/, "L").replace(/Right/, "Left"); }
+    var base = String(name).replace(/\s*\d+$/, ""), n = 1, names = {}; L.rig().fixtures.forEach(function (g) { names[g.name] = 1; });
+    while (names[base + " " + n]) n++; return base + " " + n;
+  }
+  function addCopy(src, mirror) {
+    var f = JSON.parse(JSON.stringify(src)), at = nextAddress(src.universe || 1, chCount(src));
+    f.id = uid(); f.name = nextName(src.name, mirror); f.universe = at.universe; f.address = at.address; f.pos = Object.assign({}, src.pos); f.aim = Object.assign({}, src.aim || {});
+    if (mirror) { f.pos.x = -src.pos.x; if (f.aim.yaw) f.aim.yaw = -f.aim.yaw; } else { f.pos.x = src.pos.x + 0.5; }
+    L.rig().fixtures.push(f); return f;
+  }
+  var clip = null;
+  function picked() { return (multi.length ? multi : selected ? [selected] : []).map(fixtureById).filter(Boolean); }
+  function copyPicked() { clip = picked().map(function (f) { return JSON.parse(JSON.stringify(f)); }); return clip.length; }
+  function pastePicked() {
+    if (!clip || !clip.length) return 0; remember(true);
+    var made = clip.map(function (src) { var f = addCopy(src); moveFixtureTo(f, src.pos.x + 0.5, src.pos.z); return f.id; });
+    fixKey = ""; L.saveRig(); if (L.renderAll) L.renderAll(); multi = made.length > 1 ? made : []; selected = made.length === 1 ? made[0] : null; paintSelection(); renderPanel(); frame(); return made.length;
+  }
+  // "spread N lights evenly along this truss": its lights move to even spacing; copies are added if there are too few
+  function spreadOnTruss(t, n, template) {
+    n = clamp(Math.round(n) || 0, 1, 64); var st = stage(), w = (t.width || st.width) * 0.9;
+    var on = L.rig().fixtures.filter(function (f) { return f.mount === t.id; }).sort(function (a, b) { return trussAlong(t, a.pos.x, a.pos.z) - trussAlong(t, b.pos.x, b.pos.z); });
+    var tpl = template || on[0]; if (!tpl) return "Pick a light first: it is copied along the truss.";
+    remember(true);
+    while (on.length < n) { var c = addCopy(tpl); c.mount = t.id; on.push(c); }
+    on.slice(0, n).forEach(function (f, i) { var a = n === 1 ? 0 : -w / 2 + i * w / (n - 1), p = trussPoint(t, a); f.mount = t.id; f.pos = { x: p.x, y: t.h - 0.35, z: p.z }; f.x = clamp(p.x / st.width + 0.5, 0, 1); });
+    fixKey = ""; L.saveRig(); if (L.renderAll) L.renderAll(); frame(); return "";
+  }
+  function alignPicked(how) {
+    var list = picked(); if (list.length < 2) return; remember(true);
+    if (how === "height") { var y = list[0].pos.y; list.forEach(function (f) { if (!L.trussById(f.mount)) f.pos.y = y; }); }
+    else if (how === "row") { var z = list.reduce(function (s, f) { return s + f.pos.z; }, 0) / list.length; list.forEach(function (f) { moveFixtureTo(f, f.pos.x, z); }); }
+    else if (how === "space") { list.sort(function (a, b) { return a.pos.x - b.pos.x; }); var x0 = list[0].pos.x, x1 = list[list.length - 1].pos.x; list.forEach(function (f, i) { moveFixtureTo(f, x0 + (x1 - x0) * i / (list.length - 1), f.pos.z); }); }
+    else if (how === "mirror") { var made = list.map(function (f) { return addCopy(f, true).id; }); fixKey = ""; multi = list.map(function (f) { return f.id; }).concat(made); }
+    list.forEach(function (f) { if (fixtures[f.id]) place(fixtures[f.id]); }); L.saveRig(); if (L.renderAll) L.renderAll(); renderPanel(); frame();
+  }
+  // which group a light usually belongs to from where it hangs (the auto lights and the AI work by group)
+  function suggestGroup(f) {
+    var st = stage(), p = f.pos || { x: 0, y: 0, z: 0 }, k = L.kindOf(f), t = L.trussById(f.mount), pitch = (f.aim && f.aim.pitch) || 0;
+    if (k === "mover") return "beam"; if (k === "haze") return "haze"; if (k === "strobe" || k === "blinder") return f.group === "fx" || k === "strobe" ? "fx" : f.group;
+    var overAud = p.z > 0.6 && p.y > 2.5;
+    if (overAud && pitch > 55) return "house";
+    if (f.mount === "balcony" || overAud) return "front";
+    if (p.z < -st.depth * 0.55 || (t && t.d > st.depth * 0.5)) return "back";
+    if (p.z > -0.8) return "front";
+    return null;
+  }
+  // "Put it…": the usual places a light goes in a church
+  function placeAt(f, where) {
+    var st = stage(), W = st.width, D = st.depth, deck = Math.max(0, st.deck), tr = st.trusses || [], rb = roomBounds(), x = f.pos.x || 0, h = st.hall;
+    var overStage = tr.filter(function (t) { return t.d >= 0 && t.d <= D; })[0], overAud = tr.filter(function (t) { return t.d < 0; }).sort(function (a, b) { return a.d - b.d; })[0];   // (the one furthest out)
+    if (where === "over-stage") { if (overStage) { f.mount = overStage.id; var a = trussPoint(overStage, clamp(trussAlong(overStage, x, f.pos.z), -(overStage.width || W) / 2, (overStage.width || W) / 2)); f.pos = { x: a.x, y: overStage.h - 0.35, z: a.z }; } else { f.mount = "house"; f.pos = { x: x, y: 6, z: -D / 2 }; } f.aim = L.aimAt(f.pos, { x: f.pos.x * 0.7, y: deck + 1.4, z: -D * 0.4 }); }
+    else if (where === "over-aud") { if (overAud) { f.mount = overAud.id; var b = trussPoint(overAud, clamp(x, -(overAud.width || W) / 2, (overAud.width || W) / 2)); f.pos = { x: b.x, y: overAud.h - 0.35, z: b.z }; } else { f.mount = "house"; f.pos = { x: x, y: Math.max(5, (tr[0] || {}).h || 5.5) + 0.5, z: 4 }; } f.aim = L.aimAt(f.pos, { x: f.pos.x * 0.6, y: deck + 1.6, z: -D * 0.35 }); }
+    else if (where === "house") { f.mount = "house"; f.pos = { x: x, y: h && h.ceiling ? h.ceiling - 0.3 : 6, z: Math.max(2, f.pos.z > 1 ? f.pos.z : 5) }; f.aim = { yaw: 0, pitch: 90 }; }
+    else if (where === "behind") { f.mount = "floor"; f.pos = { x: x, y: deck, z: -D + 0.4 }; f.aim = L.aimAt(f.pos, { x: x * 0.8, y: deck + 2.2, z: 0.5 }); }
+    else if (where === "side-l" || where === "side-r") { var sx = (where === "side-l" ? -1 : 1) * (W / 2 + 0.6); f.mount = "floor"; f.pos = { x: sx, y: 0, z: -D / 2 }; f.pos.y = 1.6; f.aim = L.aimAt(f.pos, { x: 0, y: deck + 1.4, z: -D / 2 }); }
+    else if (where === "foh") { f.mount = "house"; f.pos = { x: x, y: 4, z: clamp((rb.z1 || 14) * 0.6, 4, 40) }; f.aim = L.aimAt(f.pos, { x: x * 0.5, y: deck + 1.6, z: -D * 0.3 }); }
+    else if (where === "balcony" && h && h.balcony && h.balcony.on) { f.mount = "balcony"; f.pos = { x: x, y: (h.balcony.height || 3.5) + 1.1, z: rb.z1 - (h.balcony.depth || 6) }; f.aim = L.aimAt(f.pos, { x: x * 0.5, y: deck + 1.6, z: -D * 0.35 }); }
+    else if (where === "wall") { f.mount = "wall"; f.pos = { x: x >= 0 ? rb.x1 - 0.2 : rb.x0 + 0.2, y: 3, z: Math.max(1, f.pos.z) }; f.aim = L.aimAt(f.pos, { x: 0, y: deck + 1.5, z: -D * 0.4 }); }
+    else if (where === "floor") { f.mount = "floor"; f.pos.y = surfaceAt(f.pos.x, f.pos.z); }
+    if (L.kindOf(f) === "mover") f.aim.hang = f.mount === "floor" ? "up" : "down";
+    f.x = clamp(f.pos.x / W + 0.5, 0, 1);
+  }
+
   function mountOptions(f) {
-    var st = stage(); return [["floor", "On the floor (stage or room)"]].concat((st.trusses || []).map(function (t) { return [t.id, "On the " + t.name]; })).concat([["house", "Over the audience"]])
+    var st = stage(), h = st.hall;
+    return [["floor", "On the floor (stage, behind it or the room)"]].concat((st.trusses || []).map(function (t) { return [t.id, "On the " + t.name]; })).concat([["house", "Hung over the room"], ["wall", "On a wall"]]).concat(h && h.balcony && h.balcony.on ? [["balcony", "On the balcony rail"]] : [])
       .map(function (o) { return '<option value="' + esc(o[0]) + '"' + (f.mount === o[0] ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("");
   }
+  function num(attr, m, opt) { opt = opt || {}; return '<input type="number" step="' + (opt.step || stepU()) + '"' + (opt.min != null ? ' min="' + toU(opt.min) + '"' : "") + ' data-' + attr + ' value="' + toU(m) + '">'; }
   function renderPanel() {
     var el = $("#lx3dPanel"); if (!el) return; var f = selected && fixtureById(selected);
+    if (!f && multi.length > 1) {   // several lights picked
+      el.hidden = false;
+      el.innerHTML = '<div class="lx3d-ph"><b>' + multi.length + ' lights picked</b><button class="mini" data-p3="close" title="Close" aria-label="Close">✕</button></div>' +
+        '<p class="muted small">Ctrl-click (⌘ on a Mac) to pick more or fewer. Drag one to move them all.</p>' +
+        '<div class="lx3d-aims"><button data-p3="al-height">Same height</button><button data-p3="al-row">In a row</button><button data-p3="al-space">Space evenly across</button><button data-p3="al-mirror">Mirror copies to the other side</button></div>' +
+        '<div class="lx3d-row"><button data-p3="copy">Copy</button><button data-p3="paste"' + (clip && clip.length ? "" : " disabled") + ">Paste</button></div>";
+      return;
+    }
     if (!f) { el.hidden = true; return; }
     var kind = L.kindOf(f), aim = f.aim || {}, t = L.trussById(f.mount), g = (L.groups.filter(function (x) { return x[0] === f.group; })[0] || ["", f.group])[1];
+    var sug = suggestGroup(f), sugName = sug && sug !== f.group ? (L.groups.filter(function (x) { return x[0] === sug; })[0] || ["", sug])[1] : "";
     el.hidden = false;
     el.innerHTML = '<div class="lx3d-ph"><b>' + esc(f.name) + '</b><span class="muted small">' + esc(g) + " · " + esc({ mover: "moving head", bar: L.cellsOf(f) + "-cell bar", strobe: "strobe", blinder: "blinder", haze: "hazer", par: "light" }[kind] || kind) + '</span><button class="mini" data-p3="close" title="Close" aria-label="Close">✕</button></div>' +
+      (sugName ? '<p class="small lx3d-sug">Lights here are usually in the ' + esc(sugName) + ' group. <button class="mini" data-p3="use-group" data-g="' + esc(sug) + '">Use ' + esc(sugName) + "</button></p>" : "") +
       '<label>Hangs<select data-pf="mount">' + mountOptions(f) + "</select></label>" +
-      '<div class="lx3d-row"><label>Across (m)<input type="number" step="0.05" data-pf="x" value="' + f.pos.x + '"></label>' +
-      (t ? "" : '<label>From the front edge (m)<input type="number" step="0.05" data-pf="z" value="' + (-f.pos.z).toFixed(2) + '" title="Positive: upstage. Negative: out over the audience."></label>') +
-      (t ? "" : '<label>Height (m)<input type="number" step="0.05" min="0" max="12" data-pf="y" value="' + f.pos.y.toFixed(2) + '"></label>') + "</div>" +
+      '<div class="lx3d-put" aria-label="Put it">' + [["over-stage", "Over the stage"], ["over-aud", "Over the audience"], ["house", "House light"], ["behind", "Behind the stage"], ["side-l", "Side, left"], ["side-r", "Side, right"], ["foh", "Front of house"], ["wall", "On a wall"]].concat(stage().hall && stage().hall.balcony && stage().hall.balcony.on ? [["balcony", "Balcony rail"]] : []).map(function (p) { return '<button class="mini" data-put3="' + p[0] + '">' + p[1] + "</button>"; }).join("") + "</div>" +
+      '<div class="lx3d-row"><label>Across (' + ul() + ")" + num('pf="x"', f.pos.x) + "</label>" +
+      (t ? "" : '<label title="Positive: upstage. Negative: out over the audience.">From the front edge (' + ul() + ")" + num('pf="z"', -f.pos.z) + "</label>") +
+      (t ? "" : '<label>Height (' + ul() + ")" + num('pf="y"', f.pos.y, { min: 0 }) + "</label>") + "</div>" +
       (kind === "mover" ? '<div class="lx3d-row"><label>Mounted<select data-pf="hang"><option value="down"' + ((aim.hang || "down") === "down" ? " selected" : "") + '>Hung (head down)</option><option value="up"' + (aim.hang === "up" ? " selected" : "") + '>Standing (head up)</option></select></label><label>Turns to<select data-pf="yaw0"><option value="0"' + (!aim.yaw ? " selected" : "") + ">Face the audience</option><option value=\"180\"" + (aim.yaw === 180 ? " selected" : "") + '>Face upstage</option></select></label></div><div class="lx3d-row"><label>Pan range (°)<input type="number" min="90" max="720" step="10" data-pf="panRange" value="' + (f.panRange || 540) + '"></label><label>Tilt range (°)<input type="number" min="90" max="360" step="10" data-pf="tiltRange" value="' + (f.tiltRange || 270) + '"></label></div><p class="muted small">Where it points comes from the presets (pan and tilt).</p>' :
         kind === "haze" ? "" :
         '<div class="lx3d-row"><label>Points (°)<input type="range" min="-180" max="180" step="1" data-pf="yaw" value="' + (aim.yaw || 0) + '"><output>' + dirName(aim.yaw || 0) + '</output></label><label>Tilt down (°)<input type="range" min="-90" max="90" step="1" data-pf="pitch" value="' + (aim.pitch || 0) + '"><output>' + (aim.pitch || 0) + "°</output></label></div>" +
         '<div class="lx3d-aims"><button data-p3="aim-stage">At the stage</button><button data-p3="aim-audience">At the audience</button><button data-p3="aim-down">Straight down</button><button data-p3="aim-up">Straight up</button><button data-p3="aim-wall">Back wall</button></div>' +
+        '<details class="lx3d-aimat"><summary>Point at a spot</summary><div class="lx3d-row"><label>Across (' + ul() + ")" + num('pa="x"', 0) + '</label><label>From the front (' + ul() + ")" + num('pa="z"', stage().depth * 0.4) + '</label><label>Height (' + ul() + ")" + num('pa="y"', Math.max(0, stage().deck) + 1.5) + '</label></div><button class="mini" data-p3="aim-at">Point it there</button></details>' +
         (kind === "bar" || kind === "strobe" || kind === "blinder" ? '<label class="toggle"><input type="checkbox" data-pf="roll"' + (f.roll ? " checked" : "") + "> Stood on end (vertical)</label>" : "")) +
-      '<div class="lx3d-row"><button data-p3="find">Find</button><button data-p3="restore" title="Back to where this group usually goes">Put back</button></div>';
+      '<div class="lx3d-row"><button data-p3="find">Find</button><button data-p3="restore" title="Back to where this group usually goes">Put back</button><button data-p3="copy" title="Ctrl+C">Copy</button><button data-p3="paste" title="Ctrl+V"' + (clip && clip.length ? "" : " disabled") + '>Paste</button><button data-p3="mirror" title="A copy on the other side">Mirror</button></div>';
   }
   function dirName(y) { y = ((y % 360) + 540) % 360 - 180; var a = Math.abs(y); return a < 23 ? "the audience" : a > 157 ? "upstage" : a < 68 ? (y > 0 ? "audience, stage left" : "audience, stage right") : a <= 112 ? (y > 0 ? "stage left" : "stage right") : (y > 0 ? "upstage left" : "upstage right"); }
-  function renderPanelValues() { var el = $("#lx3dPanel"), f = selected && fixtureById(selected); if (!el || !f) return; ["x", "y", "z"].forEach(function (k) { var i = el.querySelector('[data-pf="' + k + '"]'); if (i && document.activeElement !== i) i.value = k === "z" ? (-f.pos.z).toFixed(2) : Number(f.pos[k]).toFixed(2); }); }
+  function renderPanelValues() { var el = $("#lx3dPanel"), f = selected && fixtureById(selected); if (!el || !f) return; ["x", "y", "z"].forEach(function (k) { var i = el.querySelector('[data-pf="' + k + '"]'); if (i && document.activeElement !== i) i.value = toU(k === "z" ? -f.pos.z : f.pos[k]); }); }
   function panelField(el) {
     var f = selected && fixtureById(selected); if (!f) return; var k = el.dataset.pf, v = el.type === "checkbox" ? el.checked : el.value, st = stage();
-    f.aim = f.aim || {};
-    if (k === "mount") { f.mount = v; var t = L.trussById(v); if (t) { f.pos.y = t.h - 0.35; f.pos.z = -t.d; } else if (v === "house") { f.pos.y = Math.max(5, (st.trusses[0] || {}).h || 5.5) + 0.5; f.pos.z = Math.max(2, f.pos.z); } else f.pos.y = surfaceAt(f.pos.x, f.pos.z); if (L.kindOf(f) === "mover") f.aim.hang = v === "floor" ? "up" : "down"; fixKey = ""; renderPanel(); }
-    else if (k === "x") f.pos.x = Number(v) || 0;
-    else if (k === "z") { f.pos.z = -(Number(v) || 0); if (f.mount === "floor") f.pos.y = surfaceAt(f.pos.x, f.pos.z); }
-    else if (k === "y") f.pos.y = clamp(Number(v) || 0, 0, 12);
+    if (!k) return; remember(); f.aim = f.aim || {};
+    if (k === "mount") {
+      f.mount = v; var t = L.trussById(v), rb = roomBounds();
+      if (t) { var a = trussPoint(t, clamp(trussAlong(t, f.pos.x, f.pos.z), -(t.width || st.width) / 2, (t.width || st.width) / 2)); f.pos = { x: a.x, y: t.h - 0.35, z: a.z }; }
+      else if (v === "house") { f.pos.y = Math.max(5, (st.trusses[0] || {}).h || 5.5) + 0.5; f.pos.z = Math.max(2, f.pos.z); }
+      else if (v === "wall") { f.pos.x = f.pos.x >= 0 ? rb.x1 - 0.2 : rb.x0 + 0.2; f.pos.y = Math.max(2, f.pos.y); }
+      else if (v === "balcony") placeAt(f, "balcony");
+      else f.pos.y = surfaceAt(f.pos.x, f.pos.z);
+      if (L.kindOf(f) === "mover") f.aim.hang = v === "floor" ? "up" : "down"; fixKey = ""; renderPanel();
+    }
+    else if (k === "x") { var t2 = L.trussById(f.mount); if (t2) { var p2 = trussPoint(t2, clamp(fromU(v) - (t2.x || 0), -(t2.width || st.width) / 2, (t2.width || st.width) / 2)); f.pos.x = p2.x; f.pos.z = p2.z; } else f.pos.x = fromU(v); }
+    else if (k === "z") { f.pos.z = -fromU(v); if (f.mount === "floor") f.pos.y = surfaceAt(f.pos.x, f.pos.z); }
+    else if (k === "y") f.pos.y = clamp(fromU(v), 0, 30);
     else if (k === "hang") { f.aim.hang = v; fixKey = ""; }
     else if (k === "yaw0") f.aim.yaw = Number(v);
     else if (k === "panRange" || k === "tiltRange") f[k] = clamp(Number(v) || (k === "panRange" ? 540 : 270), 90, 720);
@@ -384,61 +561,129 @@
     f.x = clamp(f.pos.x / st.width + 0.5, 0, 1);
     L.saveRig(); frame();
   }
-  function panelAction(a) {
-    var f = selected && fixtureById(selected); if (a === "close") { selected = null; paintSelection(); renderPanel(); frame(); return; } if (!f) return;
+  function panelAction(a, b) {
+    if (a === "close") { selected = null; multi = []; paintSelection(); renderPanel(); frame(); return; }
+    if (a === "copy") { copyPicked(); renderPanel(); return; }
+    if (a === "paste") { pastePicked(); return; }
+    if (a.indexOf("al-") === 0) { alignPicked(a.slice(3)); return; }
+    var f = selected && fixtureById(selected); if (!f) return;
     var st = stage(), p = f.pos, deck = Math.max(0, st.deck);
+    remember(true);
     var targets = { "aim-stage": { x: p.x * 0.5, y: deck + 1.4, z: -st.depth * 0.4 }, "aim-audience": { x: p.x * 0.6, y: 1.2, z: 4 }, "aim-wall": { x: p.x, y: 3, z: -st.depth - 0.6 } };
     if (targets[a]) f.aim = Object.assign(f.aim || {}, L.aimAt(p, targets[a]));
     else if (a === "aim-down") f.aim = Object.assign(f.aim || {}, { pitch: 90 });
     else if (a === "aim-up") f.aim = Object.assign(f.aim || {}, { pitch: -90 });
+    else if (a === "aim-at") { var pe = $("#lx3dPanel"), q = function (k) { return fromU(pe.querySelector('[data-pa="' + k + '"]').value); }; f.aim = Object.assign(f.aim || {}, L.aimAt(p, { x: q("x"), y: q("y"), z: -q("z") })); }
     else if (a === "find") { L.identify(f.id); return; }
+    else if (a === "use-group") { f.group = b.dataset.g; fixKey = ""; if (L.dirty) L.dirty(); if (L.renderAll) L.renderAll(); }
+    else if (a === "mirror") { var m = addCopy(f, true); fixKey = ""; selected = m.id; if (L.renderAll) L.renderAll(); }
     else if (a === "restore") { delete f.mount; delete f.pos; L.placeFixture(f, 0, 1); f.pos.x = (f.x != null ? (f.x - 0.5) * st.width * 0.9 : 0); fixKey = ""; }
     L.saveRig(); renderPanel(); frame();
   }
+  function putAction(where) { var f = selected && fixtureById(selected); if (!f) return; remember(true); placeAt(f, where); fixKey = ""; L.saveRig(); renderPanel(); frame(); }
   function renderStage() {
-    var el = $("#lx3dStage"), st = stage();
+    var el = $("#lx3dStage"), st = stage(), u = ul();
     el.innerHTML = '<div class="lx3d-ph"><b>Stage &amp; trusses</b><button class="mini" data-s3="close" title="Close" aria-label="Close">✕</button></div>' +
-      '<div class="lx3d-row"><label>Stage width (m)<input type="number" min="2" max="40" step="0.5" data-sf="width" value="' + st.width + '"></label><label>Stage depth (m)<input type="number" min="1" max="25" step="0.5" data-sf="depth" value="' + st.depth + '"></label></div>' +
-      '<div class="lx3d-row"><label>Stage height (m)<input type="number" min="0" max="2" step="0.05" data-sf="deck" value="' + st.deck + '"></label><label>Room in front (m)<input type="number" min="4" max="60" step="1" data-sf="room" value="' + (st.room || 14) + '"></label></div>' +
+      '<div class="lx3d-row"><label>Units<select data-sf="units"><option value="ft"' + (u === "ft" ? " selected" : "") + '>Feet</option><option value="m"' + (u === "m" ? " selected" : "") + '>Metres</option></select></label><label class="toggle"><input type="checkbox" data-sf="snap"' + (L.rig().snap === false ? "" : " checked") + "> Snap to a " + (u === "ft" ? "half-foot" : "25 cm") + " grid</label></div>" +
+      '<div class="lx3d-row"><label>Stage width (' + u + ")" + num('sf="width"', st.width, { min: 2 }) + '</label><label>Stage depth (' + u + ")" + num('sf="depth"', st.depth, { min: 1 }) + "</label></div>" +
+      '<div class="lx3d-row"><label>Stage height (' + u + ')<input type="number" min="0" step="' + (u === "ft" ? 0.25 : 0.05) + '" data-sf="deck" value="' + toU(st.deck) + '"></label><label>Room in front (' + u + ")" + num('sf="room"', st.room || 14, { min: 4 }) + "</label></div>" +
       '<div class="lx3d-row"><label>Shape<select data-sf="shape">' + [["rect", "Rectangle"], ["thrust", "Thrust (a runway out front)"], ["round", "Round front"]].map(function (o) { return '<option value="' + o[0] + '"' + ((st.shape || "rect") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label></div>" + '<div class="lx3d-row">' +
-      (st.shape === "thrust" ? '<label>Thrust width (m)<input type="number" min="1" max="40" step="0.5" data-sf="thrustW" value="' + (st.thrustW || Math.round(st.width * 0.4 * 2) / 2) + '"></label><label>Thrust length (m)<input type="number" min="0.5" max="12" step="0.5" data-sf="thrustD" value="' + (st.thrustD || 2.5) + '"></label>' : st.shape === "round" ? '<label>Round front depth (m)<input type="number" min="0.5" max="10" step="0.25" data-sf="apronD" value="' + (st.apronD || Math.round(st.width * 0.22 * 4) / 4) + '"></label>' : "") + "</div>" +
-      '<b class="small">Risers</b><table class="lx3d-trusses"><thead><tr><th>Riser</th><th title="From stage centre (m): negative = stage right">Across</th><th title="From the front edge, upstage (m)">Back</th><th title="Width (m)">W</th><th title="Depth (m)">D</th><th title="Height (m)">H</th><th></th></tr></thead><tbody>' +
-      (st.risers || []).map(function (r, i) { return '<tr data-ri="' + i + '"><td><input data-sf="r-name" value="' + esc(r.name || "Riser") + '"></td><td><input type="number" step="0.25" data-sf="r-x" value="' + (r.x || 0) + '"></td><td><input type="number" step="0.25" data-sf="r-z" value="' + (r.z != null ? r.z : Math.round(st.depth * 0.7 * 4) / 4) + '"></td><td><input type="number" min="0.5" step="0.25" data-sf="r-w" value="' + (r.w || 2.4) + '"></td><td><input type="number" min="0.5" step="0.25" data-sf="r-d" value="' + (r.d || 2.4) + '"></td><td><input type="number" min="0.1" step="0.05" data-sf="r-h" value="' + (r.h || 0.4) + '"></td><td><button class="mini" data-s3="r-del" title="Remove this riser" aria-label="Remove this riser">✕</button></td></tr>'; }).join("") + "</tbody></table>" +
+      (st.shape === "thrust" ? '<label>Thrust width (' + u + ")" + num('sf="thrustW"', st.thrustW || Math.round(st.width * 0.4 * 2) / 2) + '</label><label>Thrust length (' + u + ")" + num('sf="thrustD"', st.thrustD || 2.5) + "</label>" : st.shape === "round" ? '<label>Round front depth (' + u + ")" + num('sf="apronD"', st.apronD || Math.round(st.width * 0.22 * 4) / 4) + "</label>" : "") + "</div>" +
+      '<b class="small">Risers</b><table class="lx3d-trusses"><thead><tr><th>Riser</th><th title="From stage centre: negative = stage right">Across</th><th title="From the front edge, upstage">Back</th><th>W</th><th>D</th><th>H</th><th></th></tr></thead><tbody>' +
+      (st.risers || []).map(function (r, i) { return '<tr data-ri="' + i + '"><td><input data-sf="r-name" value="' + esc(r.name || "Riser") + '"></td><td>' + num('sf="r-x"', r.x || 0) + "</td><td>" + num('sf="r-z"', r.z != null ? r.z : Math.round(st.depth * 0.7 * 4) / 4) + "</td><td>" + num('sf="r-w"', r.w || 2.4) + "</td><td>" + num('sf="r-d"', r.d || 2.4) + "</td><td>" + num('sf="r-h"', r.h || 0.4) + '</td><td><button class="mini" data-s3="r-del" title="Remove this riser" aria-label="Remove this riser">✕</button></td></tr>'; }).join("") + "</tbody></table>" +
       '<div class="lx3d-row"><button data-s3="r-add">+ Riser</button><button data-s3="r-drums">+ Drum riser</button></div>' +
-      '<div class="lx3d-row"><label class="toggle"><input type="checkbox" data-sf="screen-on"' + (st.screen && st.screen.on ? " checked" : "") + "> A screen on the back wall</label>" + (st.screen && st.screen.on ? '<label>Screen width (m)<input type="number" min="1" max="30" step="0.25" data-sf="screen-w" value="' + (st.screen.w || Math.round(st.width * 0.5 * 4) / 4) + '"></label><label>Bottom edge (m)<input type="number" min="0" max="12" step="0.1" data-sf="screen-y" value="' + (st.screen.y != null ? st.screen.y : Math.round((st.deck + 2.2) * 10) / 10) + '"></label>' : "") + "</div>" +
       '<div class="lx3d-row"><label>3D view height (px)<input type="number" min="240" max="900" step="20" data-sf="view-h" value="' + (L.rig().stageH || 440) + '"></label></div>' +
-      '<table class="lx3d-trusses"><thead><tr><th>Truss</th><th title="From the stage\'s front edge. Negative: out over the audience.">From the front (m)</th><th>Height (m)</th><th>Width (m)</th><th></th></tr></thead><tbody>' +
-      (st.trusses || []).map(function (t, i) { return '<tr data-ti="' + i + '"><td><input data-sf="t-name" value="' + esc(t.name) + '"></td><td><input type="number" step="0.25" data-sf="t-d" value="' + t.d + '"></td><td><input type="number" min="1" max="15" step="0.25" data-sf="t-h" value="' + t.h + '"></td><td><input type="number" min="1" max="40" step="0.5" data-sf="t-width" value="' + (t.width || st.width) + '"></td><td><button class="mini" data-s3="t-del" title="Remove this truss" aria-label="Remove this truss">✕</button></td></tr>'; }).join("") + "</tbody></table>" +
-      '<div class="lx3d-row"><button data-s3="t-add">+ Truss</button><button data-s3="reset">Standard stage</button></div><p class="muted small">Lights on a truss move with it.</p>';
+      '<b class="small">Trusses and pipes</b><table class="lx3d-trusses"><thead><tr><th>Name</th><th title="From the stage\'s front edge: negative = out over the audience">From the front</th><th title="Its middle, from the stage centre">Across</th><th>Height</th><th>Length</th><th title="0 = runs across; 90 = front to back (a side truss)">Turn °</th><th>Kind</th><th title="Spread this many lights evenly along it">Spread</th><th></th></tr></thead><tbody>' +
+      (st.trusses || []).map(function (t, i) { return '<tr data-ti="' + i + '"><td><input data-sf="t-name" value="' + esc(t.name) + '"></td><td>' + num('sf="t-d"', t.d) + "</td><td>" + num('sf="t-x"', t.x || 0) + "</td><td>" + num('sf="t-h"', t.h, { min: 1 }) + "</td><td>" + num('sf="t-width"', t.width || st.width, { min: 1 }) + '</td><td><input type="number" step="15" data-sf="t-yaw" value="' + (t.yaw || 0) + '"></td><td><select data-sf="t-kind"><option value="truss"' + (t.kind !== "pipe" ? " selected" : "") + '>Truss</option><option value="pipe"' + (t.kind === "pipe" ? " selected" : "") + '>Pipe</option></select></td><td class="lx3d-spread"><input type="number" min="1" max="64" value="' + Math.max(1, L.rig().fixtures.filter(function (f) { return f.mount === t.id; }).length || 4) + '" data-spread-n><button class="mini" data-s3="t-spread" title="Spread this many lights evenly along it (the picked light is copied if more are needed)">Spread</button></td><td><button class="mini" data-s3="t-del" title="Remove it" aria-label="Remove it">✕</button></td></tr>'; }).join("") + "</tbody></table>" +
+      '<div class="lx3d-row lx3d-wrap"><button data-s3="t-add" data-tk="stage">+ Truss over the stage</button><button data-s3="t-add" data-tk="aud">+ Truss over the audience</button><button data-s3="t-add" data-tk="up">+ Upstage truss</button><button data-s3="t-add" data-tk="sides">+ Side trusses</button><button data-s3="t-add" data-tk="pipe">+ Pipe</button><button data-s3="reset">Standard stage</button></div><p class="muted small" id="lx3dStageMsg">Lights on a truss move with it. Screens and projectors: + Screen on the bar.</p>';
   }
   function stageField(el) {
-    var st = stage(), k = el.dataset.sf, v = el.value;
+    var st = stage(), k = el.dataset.sf, v = el.value; if (!k) return;
+    if (k === "units") { L.rig().units = v; L.saveRig(); renderStage(); renderPanel(); if (EXT.changed) EXT.changed(); return; }
+    if (k === "snap") { L.rig().snap = el.checked; L.saveRig(); return; }
+    remember();
+    var lens = { width: 1, depth: 1, deck: 1, room: 1, thrustW: 1, thrustD: 1, apronD: 1 };
     if (k === "shape") { st.shape = v; renderStage(); }
     else if (k === "view-h") { L.stageSize(Number(v) || 440); applyBig(); lastW = 0; frame(); return; }
-    else if (k.indexOf("screen-") === 0) { st.screen = st.screen || { on: false }; var sk = k.slice(7); st.screen[sk] = sk === "on" ? el.checked : Number(v) || 0; if (sk === "on") renderStage(); }
-    else if (k.indexOf("r-") === 0) { var r0 = (st.risers || [])[Number(el.closest("[data-ri]").dataset.ri)], rk = k.slice(2); if (!r0) return; r0[rk] = rk === "name" ? v : Number(v) || 0; }
+    else if (k.indexOf("r-") === 0) { var r0 = (st.risers || [])[Number(el.closest("[data-ri]").dataset.ri)], rk = k.slice(2); if (!r0) return; r0[rk] = rk === "name" ? v : fromU(v); }
     else if (k.indexOf("t-") === 0) {
       var t = st.trusses[Number(el.closest("[data-ti]").dataset.ti)], f2 = k.slice(2); if (!t) return;
-      t[f2] = f2 === "name" ? v : Number(v) || 0;
-      L.rig().fixtures.forEach(function (f) { if (f.mount === t.id) { f.pos.y = t.h - 0.35; f.pos.z = -t.d; } });
-    } else if (k !== "shape" && k.indexOf("screen-") !== 0 && k.indexOf("r-") !== 0) st[k] = Number(v) || 0;
+      var on = L.rig().fixtures.filter(function (f) { return f.mount === t.id; }).map(function (f) { return { f: f, a: trussAlong(t, f.pos.x, f.pos.z) }; });   // (where each light is along it, kept)
+      t[f2] = f2 === "name" ? v : f2 === "kind" ? v : f2 === "yaw" ? (Number(v) || 0) : fromU(v);
+      on.forEach(function (o) { var p = trussPoint(t, clamp(o.a, -(t.width || st.width) / 2, (t.width || st.width) / 2)); o.f.pos.x = p.x; o.f.pos.z = p.z; o.f.pos.y = t.h - 0.35; });
+    } else if (lens[k]) st[k] = fromU(v);
     L.rig().fixtures.forEach(function (f) { if (f.mount === "floor") f.pos.y = surfaceAt(f.pos.x, f.pos.z); });
-    L.saveRig(); roomKey = ""; frame();
+    L.saveRig(); roomKey = ""; fixKey = ""; frame();
   }
   function stageAction(a, b) {
     var st = stage();
     if (a === "close") { $("#lx3dStage").hidden = true; return; }
+    remember(true);
     if (a === "r-add" || a === "r-drums") { st.risers = st.risers || []; st.risers.push(a === "r-drums" ? { name: "Drum riser", x: 0, z: Math.round(st.depth * 0.72 * 4) / 4, w: 2.4, d: 2.4, h: 0.4 } : { name: "Riser " + (st.risers.length + 1), x: st.risers.length % 2 ? 2.5 : -2.5, z: Math.round(st.depth * 0.6 * 4) / 4, w: 2, d: 1.2, h: 0.2 }); }
     else if (a === "r-del") { st.risers.splice(Number(b.closest("[data-ri]").dataset.ri), 1); }
-    if (a === "t-add") { var last = st.trusses[st.trusses.length - 1]; st.trusses.push({ id: "t" + Math.random().toString(36).slice(2, 7), name: "Truss " + (st.trusses.length + 1), d: last ? Math.round((last.d + 1.5) * 4) / 4 : 2, h: last ? last.h : 5, width: st.width }); }
+    if (a === "t-add") {
+      var tk = b.dataset.tk || "stage", hh = (st.trusses[0] || {}).h || 5.5, add = function (t) { t.id = "t" + uid().slice(0, 5); st.trusses.push(t); };
+      if (tk === "stage") add({ name: "Truss " + (st.trusses.length + 1), d: Math.round(st.depth * 0.5 * 4) / 4, h: hh, width: st.width });
+      else if (tk === "aud") add({ name: "Audience truss", d: -Math.round((st.room || 14) * 0.35), h: hh + 0.5, width: st.width + 2 });
+      else if (tk === "up") add({ name: "Upstage truss", d: Math.round((st.depth - 0.3) * 4) / 4, h: hh, width: st.width });
+      else if (tk === "sides") { add({ name: "Side truss left", d: st.depth / 2, x: -st.width / 2 - 0.8, h: hh, width: st.depth + 2, yaw: 90 }); add({ name: "Side truss right", d: st.depth / 2, x: st.width / 2 + 0.8, h: hh, width: st.depth + 2, yaw: 90 }); }
+      else if (tk === "pipe") add({ name: "Pipe " + (st.trusses.length + 1), d: Math.round(st.depth * 0.3 * 4) / 4, h: hh - 0.5, width: st.width, kind: "pipe" });
+    }
+    else if (a === "t-spread") { var t0 = st.trusses[Number(b.closest("[data-ti]").dataset.ti)], n = Number(b.parentNode.querySelector("[data-spread-n]").value) || 1, msg = spreadOnTruss(t0, n, selected ? fixtureById(selected) : null); if (msg) { var m = $("#lx3dStageMsg"); if (m) m.textContent = msg; return; } }
     else if (a === "t-del") { var i = Number(b.closest("[data-ti]").dataset.ti), t = st.trusses[i], used = L.rig().fixtures.filter(function (f) { return f.mount === t.id; }); if (used.length && !confirm(used.length + " light" + (used.length === 1 ? " hangs" : "s hang") + " on the " + t.name + ". Remove it? They go to the floor.")) return; used.forEach(function (f) { f.mount = "floor"; f.pos.y = surfaceAt(f.pos.x, f.pos.z); }); st.trusses.splice(i, 1); fixKey = ""; }
-    else if (a === "reset") { if (!confirm("Go back to a standard 10 × 6 m stage with three trusses? Lights on trusses that go away move to the floor.")) return; var keepT = L.defaultStage(); L.rig().stage = keepT; L.rig().fixtures.forEach(function (f) { var t = L.trussById(f.mount); if (t) { f.pos.y = t.h - 0.35; f.pos.z = -t.d; } else if (f.mount !== "house") { f.mount = "floor"; f.pos.y = surfaceAt(f.pos.x, f.pos.z); } }); fixKey = ""; }
+    else if (a === "reset") { if (!confirm("Go back to a standard 33 × 20 ft (10 × 6 m) stage with three trusses? Lights on trusses that go away move to the floor.")) return; var keepT = L.defaultStage(); ["hall", "screens", "projectors", "props", "trace"].forEach(function (k) { if (st[k]) keepT[k] = st[k]; }); L.rig().stage = keepT; L.rig().fixtures.forEach(function (f) { var t2 = L.trussById(f.mount); if (t2) { f.pos.y = t2.h - 0.35; f.pos.z = -t2.d; } else if (f.mount !== "house") { f.mount = "floor"; f.pos.y = surfaceAt(f.pos.x, f.pos.z); } }); fixKey = ""; }
     L.saveRig(); roomKey = ""; renderStage(); renderPanel(); frame();
   }
+  // keys on the lights page: undo / redo, copy / paste, arrows nudge the picked lights one grid step
+  document.addEventListener("keydown", function (e) {
+    if (!L.isShowing() || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || "") || (e.target && e.target.isContentEditable)) return;
+    var mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+    if (mod && k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if (mod && (k === "y" || (k === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
+    else if (mod && k === "c" && picked().length) { e.preventDefault(); copyPicked(); renderPanel(); }
+    else if (mod && k === "v" && clip && clip.length) { e.preventDefault(); pastePicked(); }
+    else if (/^arrow/.test(k) && picked().length) {
+      e.preventDefault(); remember(); var g = Math.max(gridStep(), 0.05), dx = k === "arrowleft" ? -g : k === "arrowright" ? g : 0, dz = k === "arrowup" ? -g : k === "arrowdown" ? g : 0;
+      picked().forEach(function (f) { moveFixtureTo(f, f.pos.x + dx, f.pos.z + dz); }); L.saveRig(); renderPanelValues(); frame();
+    }
+  });
+
+  // ------------------------------------------------------------- (10.2) what the other 3D modules use
+  EXT.bar = {};
+  EXT.barButton = function (id, label, title, fn) {   // a button on the bar (screens, the room, the stage builder)
+    EXT.bar[id] = fn; var box = ui.querySelector(".lx3d-ext"); if (!box || box.querySelector('[data-ext3="' + id + '"]')) return;
+    var b = document.createElement("button"); b.dataset.ext3 = id; b.textContent = label; if (title) b.title = title; box.appendChild(b);
+  };
+  EXT.panel = function (id) {   // an overlay panel of its own, styled like the light's panel
+    var el = document.getElementById(id); if (el) return el;
+    el = document.createElement("div"); el.className = "lx3d-panel lx3d-xpanel"; el.id = id; el.hidden = true; ui.appendChild(el);
+    ["pointerdown", "wheel"].forEach(function (ev) { el.addEventListener(ev, function (e) { e.stopPropagation(); }, { passive: true }); });
+    return el;
+  };
+  EXT.closeOthers = function (keep) {   // one overlay at a time
+    if (keep !== "fixture") { selected = null; multi = []; paintSelection(); renderPanel(); }
+    if (keep !== "stage") { var sp = $("#lx3dStage"); if (sp) sp.hidden = true; }
+    EXT.selectHooks.forEach(function (fn) { fn(keep); });
+  };
+  Object.assign(EXT, { T: T, L: L, scene: scene, camera: camera, renderer: renderer, canvas: canvas, ui: ui, host: host, M: M, planeGeo: planeGeo, stage: stage, surfaceAt: surfaceAt, onDeck: onDeck, roomBounds: roomBounds,
+    units: units, toU: toU, fromU: fromU, stepU: stepU, snapV: snapV, num: num, esc: esc, uid: uid, remember: remember, frame: frame, roomy: roomy, trussPoint: trussPoint, trussAlong: trussAlong, placeAt: placeAt, suggestGroup: suggestGroup,
+    spreadOnTruss: spreadOnTruss, addCopy: addCopy, nextAddress: nextAddress, moveFixtureTo: moveFixtureTo, undo: undo, redo: redo, view: view,
+    rebuildRoom: function () { roomKey = ""; }, rebuildFixtures: function () { fixKey = ""; }, renderStagePanel: function () { var sp = $("#lx3dStage"); if (sp && !sp.hidden) renderStage(); } });
+  // a pixel of the 3D picture where a point in the room lands (the tests read the screens' pictures this way)
+  EXT.sample = function (x, y, z) {
+    return new Promise(function (res) {
+      EXT.afterRender = function () {
+        var v = new T.Vector3(x, y, z).project(camera), gl = renderer.getContext(), w = renderer.domElement.width, h = renderer.domElement.height, px = new Uint8Array(4);
+        gl.readPixels(Math.round((v.x + 1) / 2 * w), Math.round((v.y + 1) / 2 * h), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); res(Array.from(px));
+      };
+      frame();
+    });
+  };
 
   // ------------------------------------------------------------- start
   applyBig();
   if (window.ResizeObserver) new ResizeObserver(function () { if (L.isShowing()) frame(); }).observe(host);
   window.CULights3D = { active: function () { return ok; }, frame: frame, rebuild: function () { fixKey = ""; roomKey = ""; if (L.isShowing()) frame(); }, view: view, select: function (id) { selected = id; paintSelection(); if (id) roomy(); renderPanel(); frame(); }, big: function () { return big; },
-    selected: function () { return selected; }, sizeLabel: applyBig, count: function () { return Object.keys(fixtures).length; }, emitters: function (id) { var o = fixtures[id]; return o ? o.emitters.length : 0; }, camera: function () { return cam; } };
+    selected: function () { return selected; }, sizeLabel: applyBig, count: function () { return Object.keys(fixtures).length; }, emitters: function (id) { var o = fixtures[id]; return o ? o.emitters.length : 0; }, camera: function () { return cam; },
+    ext: EXT, picked: function () { return multi.length ? multi.slice() : selected ? [selected] : []; }, pick: function (ids) { ids = ids || []; if (ids.length > 1) { selected = null; multi = ids.slice(); } else { selected = ids[0] || null; multi = []; } paintSelection(); renderPanel(); frame(); } };
 })();
