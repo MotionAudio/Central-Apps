@@ -472,6 +472,12 @@ module.exports = function services(app, getWin) {
     // the stream mix for the Video tab on this computer: true when this computer is the audio host (its engine's tap)
     streamTap(fn, on) { if (!engine.wanted && on) return false; engine.tap(65, fn, !!on); return true; },
     stop() { try { center && center.stop(); } catch (_) { } try { streamOut.stop(); } catch (_) { } try { recorder.stop().catch(() => { }); } catch (_) { } talk.close(); host.stop(); engine.stop(); pi.close(); ndiStop(); if (inst) inst.kill(); if (ai.proc) ai.proc.kill(); if (outputs.screen && !outputs.screen.isDestroyed()) outputs.screen.close(); },
-    cfg: () => cfg
+    cfg: () => cfg,
+    // (10.2) for the shorts (shorts/index.js): the recorder, whose computer this is, the AI model
+    recorder,
+    isMain: () => cfg.role === "main",
+    recordDir: () => cfg.recordDir,
+    churchName: () => String(cfg.production || cfg.church || "").slice(0, 80),
+    ai: { ensure: async () => ((await aiStart()) ? ai.port : null), available: () => !!aiServer() && fs.existsSync(aiModelFile()) }
   };
 };

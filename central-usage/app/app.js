@@ -28,7 +28,7 @@
   function fire(type, a, b) { (bus[type] || []).forEach(function (fn) { try { fn(a, b); } catch (e) { console.warn("listener", type, e); } }); }
   // ---- this computer's role: the main admin (one), admins, User 1 and User 2 - which tabs it has.
   // mode() is the side (admin / user) the tab modules check; role() is the exact role.
-  var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"],
+  var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "shorts", "io", "controls", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"],
     user1: ["chart", "instrument", "studio", "lyrics", "inears", "io", "controls", "settings"], user2: ["lyrics", "chart", "inears", "controls", "settings"] };
   // (10.0) what this computer does - picked when it's set up (Settings → This computer changes it; the main admin can
   // too): any of seven jobs, or all of them (General). One computer can do all seven, or seven computers one each.
@@ -57,7 +57,7 @@
     // admins - and the main admin too - work by their jobs: everything (production manager), or only lighting, mix…
     var j = jobs(); if (j[0] === "general") return keep(MODES[r]);
     var want = {}; j.forEach(function (x) { JOB_TABS[x].forEach(function (t) { want[t] = 1; }); });
-    return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "controls" || t === "settings" || t === "devices" || t === "service"; }));
+    return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "controls" || t === "settings" || t === "devices" || t === "service" || t === "shorts"; }));   // (10.2: shorts stay on the main admin's computer whatever its jobs)
   }
   var ROLE_NAMES = { main: "Main admin", admin: "Admin", user1: "User 1", user2: "User 2" };
   // which app this is: Central Control (the main admin and admins) or Central Usage (musicians: User 1 / User 2 -

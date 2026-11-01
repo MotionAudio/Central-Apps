@@ -573,5 +573,5 @@ module.exports.setup = function setup({ ipcMain, getWin, userData, binDir, app, 
   }
   if (app && app.on) app.on("will-quit", stop);
   if (cfg.phones.on) phonesStart();
-  return { windowOpen, stop, status: streamStatus };
+  return { windowOpen, stop, status: streamStatus, recordDir: () => cfg.record.dir };
 };
