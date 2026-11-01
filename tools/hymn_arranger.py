@@ -385,8 +385,8 @@ class Band:
             ok = opts.get("min", 0) <= b["e"] <= opts.get("max", 3)
             if opts.get("only") == "instrumental":
                 ok = b["inst"] or b["kind"] == "tag"
-            if b["final"]:
-                ok = ok or opts.get("only") != "instrumental"
+            if b["final"]:   # (the last chord: everyone who'd play at this energy or one above - a quiet ending stays quiet)
+                ok = opts.get("min", 0) <= max(1, b["e"] + 1)
             want.append(ok)
         play(mid, channel, want, opts)
         return mid
@@ -1193,8 +1193,11 @@ class Band:
             e = b["e"]
             t0 = b["i"] * self.m
             if b["final"]:
-                mid.note(t0, 1, CRASH, 104, ch)
-                mid.note(t0, 1, K, 108, ch)
+                if e == 0:           # (a quiet ending: just a soft wash on the cymbal)
+                    mid.note(t0, 1, CRASH, 58, ch)
+                else:
+                    mid.note(t0, 1, CRASH, 96 + 4 * e, ch)
+                    mid.note(t0, 1, K, 100 + 4 * e, ch)
                 continue
             if e == 0:
                 continue
@@ -1341,24 +1344,43 @@ def _pc(name):
 
 
 # ---------------------------------------------------------------- mixing
+def fast_len(n):
+    """The smallest length >= n made of 2s, 3s and 5s (the FFT is quick there)."""
+    best = 1 << (n - 1).bit_length()
+    p5 = 1
+    while p5 < best:
+        p35 = p5
+        while p35 < best:
+            p = p35
+            while p < n:
+                p *= 2
+            best = min(best, p)
+            p35 *= 3
+        p5 *= 5
+    return best
+
+
+def eq_curve(f, hp=None, low=0.0, mid=None, presence=0.0, air=0.0):
+    """A stem's EQ as a gain per frequency (zero phase): a high-pass, a low shelf at 200 Hz, one bell, presence at
+    3 kHz, air at 10 kHz."""
+    f = np.maximum(f, 1.0)
+    lf = np.log2(f)
+    g = low / (1 + np.exp((lf - np.log2(200)) * 4))
+    g = g + presence * np.exp(-0.5 * ((lf - np.log2(3000)) / 0.7) ** 2)
+    g = g + air / (1 + np.exp(-(lf - np.log2(10000)) * 4))
+    if mid:
+        g = g + mid[1] * np.exp(-0.5 * ((lf - np.log2(mid[0])) / 0.6) ** 2)
+    gain = 10 ** (g / 20)
+    if hp:
+        gain = gain / np.sqrt(1 + (hp / f) ** 4)
+    return gain
+
+
 def eq(x, hp=None, low=0.0, mid=None, presence=0.0, air=0.0):
-    """A whole-stem EQ (zero phase): a high-pass, a low shelf at 200 Hz, one bell, presence at 3 kHz, air at 10 kHz."""
     n = len(x)
     if n == 0:
         return x
-    f = np.fft.rfftfreq(n, 1 / SR)
-    f[0] = 1.0
-    lf = np.log2(f)
-    g = np.zeros_like(f)
-    g += low / (1 + np.exp((lf - np.log2(200)) * 4))
-    g += presence * np.exp(-0.5 * ((lf - np.log2(3000)) / 0.7) ** 2)
-    g += air / (1 + np.exp(-(lf - np.log2(10000)) * 4))
-    if mid:
-        g += mid[1] * np.exp(-0.5 * ((lf - np.log2(mid[0])) / 0.6) ** 2)
-    gain = 10 ** (g / 20)
-    if hp:
-        gain /= np.sqrt(1 + (hp / f) ** 4)
-    return np.fft.irfft(np.fft.rfft(x) * gain, n).astype(np.float32)
+    return np.fft.irfft(np.fft.rfft(x) * eq_curve(np.fft.rfftfreq(n, 1 / SR), hp, low, mid, presence, air), n).astype(np.float32)
 
 
 def compress(x, ratio, block=0.01):
@@ -1384,21 +1406,25 @@ def compress(x, ratio, block=0.01):
     return (x * gain).astype(np.float32)
 
 
-def echo(x, seconds, feedback, wet, repeats=7):
-    """Echoes after the stem, each quieter and a little darker than the one before."""
-    d = int(seconds * SR)
-    if d <= 0 or len(x) == 0:
-        return x
-    out = x.astype(np.float32).copy()
-    fr = np.fft.rfftfreq(len(x), 1 / SR)
-    dark = 1 / np.sqrt(1 + (fr / 3500.0) ** 2)
-    tail = x.astype(np.float32)
+def echo_curve(f, seconds, feedback, wet, repeats=7):
+    """Echoes as a frequency response: each repeat later, quieter and a little darker than the one before."""
+    dark = 1 / np.sqrt(1 + (f / 3500.0) ** 2)
+    h = np.ones(len(f), np.complex128)
+    w = np.exp(-2j * np.pi * f * seconds)
+    step = np.ones(len(f), np.complex128)
     for k in range(1, repeats + 1):
-        if d * k >= len(x):
-            break
-        tail = np.fft.irfft(np.fft.rfft(tail) * dark, len(x)).astype(np.float32)
-        out[d * k:] += wet * feedback ** (k - 1) * tail[:len(x) - d * k]
-    return out
+        step = step * w * dark
+        h = h + wet * feedback ** (k - 1) * step
+    return h
+
+
+def echo(x, seconds, feedback, wet, repeats=7):
+    n = len(x)
+    if n == 0 or seconds <= 0:
+        return x
+    size = fast_len(n + int(seconds * SR * repeats))
+    f = np.fft.rfftfreq(size, 1 / SR)
+    return np.fft.irfft(np.fft.rfft(x, size) * echo_curve(f, seconds, feedback, wet, repeats), size)[:n].astype(np.float32)
 
 
 def reverb_ir(kind, side=0):
@@ -1428,12 +1454,15 @@ def mix_stem(stem, x, style, bpm):
         return x, 0.0
     _level, _pan, eqs, ratio, ech, send = m
     hp, low, mid, presence, air = eqs
-    y = eq(x, hp, low, mid, presence, air)
-    y = compress(y, ratio)
-    if ech:
+    n = len(x)
+    size = fast_len(n)
+    f = np.fft.rfftfreq(size, 1 / SR)
+    h = eq_curve(f, hp, low, mid, presence, air)
+    if ech:          # (the EQ and the echo in one pass; the echo's tail past the song's end is let go)
         beats, fb, wet = ech
-        y = echo(y, beats * 60.0 / bpm, fb, wet)
-    return y, send
+        h = h * echo_curve(f, beats * 60.0 / bpm, fb, wet)
+    y = np.fft.irfft(np.fft.rfft(x, size) * h, size)[:n].astype(np.float32)
+    return compress(y, ratio), send
 
 
 def level_db(style, stem):

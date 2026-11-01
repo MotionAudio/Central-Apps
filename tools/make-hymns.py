@@ -283,11 +283,21 @@ def guide_stem(hymn, secs, length):
 
 
 # ---------------------------------------------------------------- audio
-def convolve(x, ir):
-    n = len(x) + len(ir) - 1
-    size = 1 << (n - 1).bit_length()
-    y = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)[:len(x)]
-    return y.astype(np.float32)
+_IR_SPECTRA = {}
+
+
+def convolve(x, ir, *more):
+    """x through the impulse response(s): one result per response (one FFT of x for all of them)."""
+    size = HA.fast_len(len(x) + max(len(r) for r in (ir,) + more) - 1)
+    spec = np.fft.rfft(x, size)
+    out = []
+    for r in (ir,) + more:
+        key = (id(r), size)
+        if key not in _IR_SPECTRA:
+            _IR_SPECTRA.clear() if len(_IR_SPECTRA) > 8 else None
+            _IR_SPECTRA[key] = np.fft.rfft(r, size)
+        out.append(np.fft.irfft(spec * _IR_SPECTRA[key], size)[:len(x)].astype(np.float32))
+    return out[0] if not more else out
 
 
 def active_rms(x):
@@ -429,8 +439,9 @@ def render_hymn(hymn, opt, out_dir, srcs):
         mix[:, 1] += x * math.sin((p + 1) * math.pi / 4)
         bus += sends[stem] * x
     back = HA.room_return(room)
-    mix[:, 0] += back * convolve(bus, ir_l)
-    mix[:, 1] += back * convolve(bus, ir_r)
+    wet_l, wet_r = convolve(bus, ir_l, ir_r)
+    mix[:, 0] += back * wet_l
+    mix[:, 1] += back * wet_r
     mix = master(mix)
     wav = os.path.join(d, "mix.wav")
     M.write_wav(wav, mix, SR)
