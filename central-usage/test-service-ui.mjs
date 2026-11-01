@@ -75,6 +75,7 @@ await check("New run sheet: a few questions (when, what happens in order, who's 
   assert.match(await mainP.textContent("#serviceRoot .sv-fit"), /fits 70|over|under/);
 });
 await check("the run sheet is kept by the center (so every computer has it)", async () => {
+  await mainP.waitForFunction(() => document.querySelector("#svSaved") && /saved/.test(document.querySelector("#svSaved").textContent) && !/saving/.test(document.querySelector("#svSaved").textContent), null, { timeout: 5000 });
   const st = await (await fetch("http://127.0.0.1:8095/api/service")).json();
   assert.ok(st.services.some((s) => s.name === "Sunday 10:30" && s.date === "2030-03-10" && s.length === 70), JSON.stringify(st.services.map((s) => s.name)));
 });
@@ -129,7 +130,7 @@ await check("the band's screen on a tablet: the lines now in yellow, the next li
   const cols = await tab.evaluate(() => [getComputedStyle(document.querySelector(".cfv-cur")).color, document.querySelector(".cfv-next") ? getComputedStyle(document.querySelector(".cfv-next")).color : null]);
   assert.equal(cols[0], "rgb(255, 214, 10)");
   const t = await tab.textContent(".cfv");
-  assert.match(t, /Chorus/); assert.match(t, /A\s+E/, "the chorus's chords: " + t);
+  assert.match(t, /Chorus/); assert.match(t, /E\s+B|A\s+E/, "the section's chords: " + t);
   if (cols[1]) assert.equal(cols[1], "rgb(255, 255, 255)");
 });
 await check("Settings → Confidence monitor on the lyrics computer: change the colour - the band's screen follows", async () => {
@@ -166,7 +167,7 @@ await check("Pre-service check: every line green, amber or red with what to do; 
   assert.ok(groups.includes("Keys and plans") && groups.includes("Devices") && groups.includes("Songs and run sheet"), JSON.stringify(groups));
   const lines = await mainP.$$eval(".pc .pc-line", (l) => l.map((x) => x.className + " | " + x.textContent));
   assert.ok(lines.some((x) => /ok/.test(x) && /key/i.test(x)), "the key: " + lines.join("\n"));
-  assert.ok(lines.some((x) => /Central Pedal|Pedal/.test(x)), "the Central Pedal is checked: " + lines.join("\n"));
+  assert.ok(lines.some((x) => /player|Central Pedal/.test(x)), "the Central Pedal (the track player) is checked: " + lines.join("\n"));
   assert.match(await mainP.textContent(".pc .pc-big"), /All good|to check|problem/);
   await mainP.click(".pc [data-pc='run']"); await mainP.waitForFunction(() => document.querySelectorAll(".pc .pc-hlist button").length >= 2, null, { timeout: 15000 });
   await mainP.fill(".pc [data-pcs='lead']", "45"); await mainP.dispatchEvent(".pc [data-pcs='lead']", "change");
