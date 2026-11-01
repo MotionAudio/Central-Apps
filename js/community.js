@@ -152,6 +152,7 @@
       if (!rec && open && !blocked && !noBuild) btns += '<button class="primary" data-cm-install="' + it.id + '"' + (busy ? " disabled" : "") + ">" + (st.busy === String(it.id) ? "Installing…" : "Install") + "</button>";
       if (rec) btns += '<button data-cm-remove="' + lid + '"' + (busy ? " disabled" : "") + ">Remove</button>";
     }
+    if ((it.preview || it.demo) && window.PPPreview) btns = window.PPPreview.button({ url: it.preview || it.demo }, "Listen") + btns;   // (10.2: 30 seconds of it, before installing)
     btns += '<button class="small" data-cm-report="' + it.id + '">Report</button>';
     var why = blocked && !rec && !winOff ? '<span class="muted small">Switch on Allow community plugins to install it.</span>' : noBuild ? '<span class="muted small">' + (winOff ? "Community plugins can't run walled off on Windows yet." : "Not made for this device.") + "</span>" : !open ? '<span class="bad">Needs ' + esc(planName(it.pack)) + "</span>" : "";
     var rep = st.report === String(it.id) ? '<div class="row"><input data-cm-why="' + it.id + '" placeholder="What\'s wrong with it?" maxlength="500"><button data-cm-send="' + it.id + '">Send</button><button data-cm-cancel>Cancel</button></div>' : "";

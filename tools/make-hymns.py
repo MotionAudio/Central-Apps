@@ -8,7 +8,8 @@ Each hymn in hymns/hymns.json becomes (in <out>/<id>/ and, flat, in <out>/releas
   Click, Guide                                a click and spoken section cues (the apps mute these two: they make their
                                               own, which follow tempo and key changes; they're there for other players)
   song.json                                   key, tempo, meter, sections (bar + lyrics), chords (bar + beat), chord chart
-  <id>-mix.mp3, <id>-preview.mp3              the whole song mixed, and a 45-second preview from the second verse
+  <id>-mix.mp3, <id>-preview.mp3              the whole song mixed, and a 30-second preview of its best part (10.2: the
+                                               chorus - the second one, once the song has built - else its loudest 30 seconds)
 and <out>/release/hymns-index.json (what the website lists in Central Tracks) + SHA256SUMS.
 
 The arrangement is made here from the hymn's chords and form: each section has an energy (0 keys and pad, 1 + bass and
@@ -605,6 +606,28 @@ def sources(opt):
     return out
 
 
+PREVIEW_SECONDS = 30
+
+
+def preview_start(secs, bar_s, mix):
+    """(10.2) Where the 30-second preview starts (a frame): the chorus or refrain - the second one when there are two, once
+    the song has built - else the loudest 30 seconds of the mix. Held so the whole 30 seconds fit."""
+    n = PREVIEW_SECONDS * SR
+    last = max(0, len(mix) - n)
+    choruses = [s for s in secs if re.match(r"(chorus|refrain)\b", s["name"].lower())]
+    if choruses:
+        pick = choruses[1] if len(choruses) > 1 else choruses[0]
+        return min(last, max(0, int((pick["start"] - 1) * bar_s * SR)))
+    mono = np.abs(np.asarray(mix, np.float32)).mean(axis=1) if np.ndim(mix) > 1 else np.abs(np.asarray(mix, np.float32))
+    if len(mono) <= n:
+        return 0
+    step = SR
+    energy = np.add.reduceat(mono ** 2, np.arange(0, len(mono), step))
+    win = PREVIEW_SECONDS
+    sums = np.convolve(energy, np.ones(win), "valid")
+    return min(last, int(np.argmax(sums)) * step)
+
+
 def render_hymn(hymn, opt, out_dir, srcs):
     secs = layout(hymn)
     nbars = sum(len(s["bars"]) for s in secs)
@@ -639,7 +662,7 @@ def render_hymn(hymn, opt, out_dir, srcs):
         out = mp3(wav, os.path.join(d, stem + ".mp3"), 64 if stem in ("Click", "Guide") else 128, 1)
         os.remove(wav)
         files.append({"name": stem + ".mp3", "role": ROLES[stem], "mute": stem in ("Click", "Guide"), "path": out})
-    # the mix (stereo, the stems panned) and a 45-second preview from the second verse
+    # the mix (stereo, the stems panned) and a 30-second preview of the best part (preview_start)
     mix = np.zeros((length, 2), np.float32)
     for stem, x in stems.items():
         if stem in ("Click", "Guide"):
@@ -652,9 +675,8 @@ def render_hymn(hymn, opt, out_dir, srcs):
     wav = os.path.join(d, "mix.wav")
     M.write_wav(wav, mix, SR)
     mix_mp3 = mp3(wav, os.path.join(d, hymn["id"] + "-mix.mp3"), 160, 2)
-    v2 = next((s for s in secs if s["name"].lower() == "verse 2"), secs[min(1, len(secs) - 1)])
-    a = int((v2["start"] - 1) * bar_s * SR)
-    clip = mix[a:a + 45 * SR].copy()
+    a = preview_start(secs, bar_s, mix)
+    clip = mix[a:a + PREVIEW_SECONDS * SR].copy()
     fade = int(2 * SR)
     if len(clip) > 2 * fade:
         clip[:fade] *= np.linspace(0, 1, fade)[:, None]

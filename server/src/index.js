@@ -28,6 +28,7 @@ import * as demo from "./demo.js";
 import * as getfile from "./getfile.js";
 import * as purchases from "./purchases.js";
 import * as hymns from "./hymns.js";
+import * as previews from "./previews.js";
 import * as setlists from "./setlists.js";
 import * as creators from "./creators.js";
 
@@ -95,6 +96,7 @@ plans.routes(api, { wrap, requireUser });
 downloads.routes(api, { wrap, requireUser });
 purchases.routes(api, { wrap, requireUser });   // (10.0: the account icon → Purchases)
 libraries.routes(api, { wrap });
+previews.routes(api, { wrap, bad });   // (10.2: GET /tracks/:id/preview.mp3 - 30 seconds of a track before buying)
 creators.routes(api, app, { wrap, requireUser });   // (10.1: makers and their uploads, the community items, the review site)
 // a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first
 setlists.routes(api, { wrap, requireUser, addTrack: async (u, id) => {
@@ -165,7 +167,7 @@ api.get("/config", wrap(async (req, res) => {
 function trackOut(t) {
   const item = !!ITEM_KINDS[t.kind];
   return { id: String(t.id), title: t.title, artist: t.artist, kind: t.kind, key: t.song_key, bpm: Number(t.bpm) || 0, stars: t.stars, price: t.price_cents / 100, owned: !!t.owned, mine: !!t.mine,
-    item, format: item ? t.item_format || null : undefined, demo: item || undefined };
+    item, format: item ? t.item_format || null : undefined, demo: item || undefined, preview: "/v1/tracks/" + t.id + "/preview.mp3" };   // (10.2: 30 seconds of it - previews.js)
 }
 api.get("/tracks", wrap(async (req, res) => {   // ?kind=Sound, or several: ?kind=Sound,Board,Click
   const uid = req.user ? req.user.id : 0, text = String(req.query.q || "").trim().slice(0, 100), kinds = String(req.query.kind || "").split(",").map((k) => k.trim()).filter((k) => TRACK_KINDS.includes(k));

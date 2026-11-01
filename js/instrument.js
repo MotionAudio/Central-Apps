@@ -378,6 +378,26 @@
     var list = PED.pedals.filter(function (p) { return (addCat === "all" || p.category === addCat) && (!q || (p.name + " " + (PED.CATEGORIES[p.category] || {}).name).toLowerCase().indexOf(q) > -1); });
     return '<section class="in-add"><div class="row spread"><h3>Add a pedal' + (host ? "" : ' <small class="muted">' + PED.pedals.length + " to choose from</small>") + "</h3>" + tabs + "<input id=\"pbSearch\" placeholder=\"Search pedals…\" value=\"" + esc(addQuery) + '"><button id="pbAddClose">Close</button></div><div class="st-nav">' + ['<button class="st-chip' + (addCat === "all" ? " on" : "") + '" data-cat="all">All</button>'].concat(cats.map(function (cid) { return '<button class="st-chip' + (addCat === cid ? " on" : "") + '" data-cat="' + cid + '">' + esc(PED.CATEGORIES[cid].name) + "</button>"; })).join("") + '</div><div class="pb-list">' + list.map(function (p) { var ok = !catalog.ready || catalog.plugins[p.uri] || p.opts.ladspa || p.opts.builtin; var lk = PED.pedalLocked && PED.pedalLocked(p); return '<button class="pb-item' + (ok ? "" : " missing") + (lk ? " locked" : "") + '" data-add="' + p.id + '" style="--pc:' + (PED.CATEGORIES[p.category] || {}).color + '"><i></i><b>' + (lk ? LOCK : "") + esc(p.name) + "</b><small>" + (lk ? esc(lockText(p.tier)) : esc((PED.CATEGORIES[p.category] || {}).name) + (ok ? "" : " · not installed")) + "</small></button>"; }).join("") + "</div></section>";
   }
+  // (10.2) Listen before you download: the sound plans' instruments that aren't playable here yet (not installed, or
+  // locked) - 30 seconds of each, streamed (js/previews.js), matching the search
+  function moreSounds(q) {
+    var L = window.PPLibraries, P = window.PPPreview; if (!L || !P) return "";
+    var st = L.state();
+    if (!st.list && !st.loading && !moreSounds.asked) { moreSounds.asked = true; L.load(false).then(function () { try { render(); } catch (_) { } }); }
+    var here = catalog.keys.filter(function (k) { return !tierLocked(k.tier); });
+    var out = [];
+    (st.list || []).forEach(function (lib) {
+      (lib.previews || []).forEach(function (pv) {
+        if (pv.kind !== "sound" || out.length >= 60) return;
+        if (q && (pv.preset + " " + pv.name).toLowerCase().indexOf(q) < 0) return;
+        if (here.some(function (k) { return P.same(k.name, pv.preset); })) return;
+        out.push({ pv: pv, plan: lib.plan });
+      });
+    });
+    if (!out.length) return "";
+    return '<details class="keys-hear"><summary class="small">Hear more sounds from the sound plans (' + out.length + (out.length >= 60 ? "+" : "") + ', 30 seconds each, before you download them)</summary><div class="pv-items">' +
+      out.map(function (o) { return '<span class="pv-item">' + P.button(o.pv, "Listen") + '<span class="pv-name">' + esc(o.pv.preset) + ' <small class="muted">' + esc(planName(o.plan)) + "</small></span></span>"; }).join("") + "</div></details>";
+  }
   function keysPanel(c) {
     var cats = {}; catalog.keys.forEach(function (p) { cats[p.category] = (cats[p.category] || 0) + 1; });
     var q = keysQuery.toLowerCase(), list = catalog.keys.filter(function (p) { return (keysCat === "all" || p.category === keysCat) && (!q || (p.name + " " + p.bank).toLowerCase().indexOf(q) > -1); }).slice(0, 400), cur = (layers(c)[layerSel] || {}).patch;
@@ -387,7 +407,7 @@
     return '<section class="in-keys"><div class="row spread"><div><h3>Sounds</h3><p class="muted">' + (catalog.keys.length ? catalog.keys.length + " sounds: grand and upright pianos, electric pianos, organs, pads, strings, leads, bells… Add your own: .sf2 SoundFonts or a folder of WAVs named by note (C4.wav, F#3.wav…) from a USB stick, or send an .sf2 from a phone or computer (Settings → Companion devices → Upload)." : connected() ? "No sound banks found yet." : "The sound list comes from the Pi.") + '</p></div><div class="row"><input id="keysSearch" placeholder="Search sounds…" value="' + esc(keysQuery) + '"><button id="keysAdd" title="Add a .sf2 SoundFont or a folder of WAV samples from a USB stick or SD card">+ Add sounds…</button></div></div>' +
       '<div class="st-nav">' + (host ? '<button class="st-chip plug-chip' + (keysCat === "__plug" ? " on" : "") + '" data-kcat="__plug">Your instruments <small>' + (plugs.scanned ? instr.length : "…") + "</small></button>" : "") + ['<button class="st-chip' + (keysCat === "all" ? " on" : "") + '" data-kcat="all">All</button>'].concat(Object.keys(cats).sort().map(function (cid) { return '<button class="st-chip' + (keysCat === cid ? " on" : "") + '" data-kcat="' + esc(cid) + '">' + esc(cid) + " <small>" + cats[cid] + "</small></button>"; })).join("") + "</div>" +
       (plist ? '<div class="keys-list">' + (plist.length ? plist.map(function (p) { return '<button class="keys-item plug-item' + (cur && cur.id === "plug:" + p.key ? " on" : "") + '" data-kplug="' + esc(p.key) + '"><b>' + esc(p.name) + "</b><small>" + esc([p.vendor, fmtName(p.format)].filter(Boolean).join(" · ")) + "</small></button>"; }).join("") : '<p class="muted">' + (plugs.scan || !plugs.scanned ? "Looking for your instrument plugins…" : instr.length ? "Nothing matches." : "No instrument plugins found on this computer yet (Kontakt, Keyscape, Pianoteq, Vital…). Install them the usual way, then Scan again in Add pedal → Your plugins.") + "</p>") + "</div>" :
-      '<div class="keys-list">' + (list.length ? list.map(function (p) { var lk = tierLocked(p.tier); return '<button class="keys-item' + (cur && cur.id === p.id ? " on" : "") + (lk ? " locked" : "") + '" data-patch="' + esc(p.id) + '"><b>' + (lk ? LOCK : "") + esc(p.name) + "</b><small>" + esc(lk ? lockText(p.tier) : p.bankName) + "</small></button>"; }).join("") : '<p class="muted">Nothing matches.</p>') + "</div>") +
+      '<div class="keys-list">' + (list.length ? list.map(function (p) { var lk = tierLocked(p.tier); return '<button class="keys-item' + (cur && cur.id === p.id ? " on" : "") + (lk ? " locked" : "") + '" data-patch="' + esc(p.id) + '"><b>' + (lk ? LOCK : "") + esc(p.name) + "</b><small>" + esc(lk ? lockText(p.tier) : p.bankName) + "</small></button>"; }).join("") : '<p class="muted">Nothing matches.</p>') + "</div>" + moreSounds(q)) +
       layersPanel(c) +
       '<div class="keys-extra"><label>Synth volume <span class="control-line"><input type="range" id="keysVolume" min="0" max="100" value="' + Math.round((c.keys.volume != null ? c.keys.volume : 0.8) * 100) + '"><output>' + Math.round((c.keys.volume != null ? c.keys.volume : 0.8) * 100) + '</output></span></label><label class="toggle"><input type="checkbox" id="keysSustain"' + (c.keys.sustain !== false ? " checked" : "") + '> Sustain pedal</label><span class="muted">Reverb, delay, chorus, compression: add them as pedals below.</span></div>' +
       '<div class="keys-kbd" id="keysKbd">' + kbd + "</div></section>";

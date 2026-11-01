@@ -132,6 +132,8 @@
   }
 
   // ------------------------------------------------------------- the panel
+  // (10.2) 30 seconds of each pad, loop, instrument, preset and IR, streamed - before anything is downloaded (js/previews.js)
+  function previews(lib) { return window.PPPreview && lib && lib.previews && lib.previews.length ? window.PPPreview.listHtml(lib) : ""; }
   function rowHtml(lib, rec) {
     var be = st.backend, job = st.jobs[lib.id], open = hasPlan(lib.plan), id = esc(lib.id);
     var status = rec ? "Installed · version " + esc(rec.version) : lib.ready === false ? (st.source.indexOf("built-in") === 0 ? "Not installed - waiting for the library list" : "Coming soon - you can install it here once it's out") : "Not installed";
@@ -147,7 +149,7 @@
     var what = rec && rec.counts ? [["sound", "sound bank"], ["pad", "pad style"], ["preset", "preset"], ["board", "board"], ["ir", "impulse response"]].filter(function (k) { return rec.counts[k[0]]; }).map(function (k) { return rec.counts[k[0]] + " " + k[1] + (rec.counts[k[0]] === 1 ? "" : "s"); }).join(", ") : "";
     return '<li data-lib="' + id + '"><b>' + esc(lib.title || planName(lib.plan) + " Library") + '</b> <span class="muted">· ' + esc(planName(lib.plan)) + (lib.size ? " · " + (lib.approximate ? "about " : "") + size(lib.size) : "") + "</span><br>" +
       '<span class="' + (rec ? "ok" : "muted") + '">' + status + "</span>" + (what ? ' <span class="muted small">(' + esc(what) + ")</span>" : "") + (rec && !open ? ' <span class="bad">· locked: needs ' + esc(planName(lib.plan)) + "</span>" : "") +
-      (lib.summary && !rec ? '<details class="lib-what"><summary>What\'s in it</summary><span class="muted small">' + esc(lib.summary) + "</span></details>" : "") + (btns ? '<div class="row">' + btns + "</div>" : "") + "</li>";
+      (lib.summary && !rec ? '<details class="lib-what"><summary>What\'s in it</summary><span class="muted small">' + esc(lib.summary) + "</span></details>" : "") + previews(lib) + (btns ? '<div class="row">' + btns + "</div>" : "") + "</li>";
   }
   function html(cls) {
     if (!st.list && !st.loading) setTimeout(function () { load(false); }, 0);
@@ -155,10 +157,14 @@
     var mine = (st.list || []).filter(function (x) { return hasPlan(x.plan) || st.installed.some(function (r) { return r.id === x.id; }); });
     st.installed.forEach(function (r) { if (!mine.some(function (x) { return x.id === r.id; })) mine.push({ id: r.id, plan: r.plan, title: r.title, version: r.version, ready: false }); });
     var rows = mine.map(function (lib) { return rowHtml(lib, st.installed.filter(function (r) { return r.id === lib.id; })[0] || null); }).join("");
-    var others = (st.list || []).filter(function (x) { return mine.indexOf(x) < 0; }).map(function (x) { return esc(x.title) + " (" + esc(planName(x.plan)) + ")"; });
+    var otherLibs = (st.list || []).filter(function (x) { return mine.indexOf(x) < 0; });
+    var others = otherLibs.map(function (x) { return esc(x.title) + " (" + esc(planName(x.plan)) + ")"; });
+    var otherRows = otherLibs.filter(function (x) { return x.previews && x.previews.length; }).map(function (x) {
+      return '<li data-lib-other="' + esc(x.id) + '"><b>' + esc(x.title) + '</b> <span class="muted">· comes with ' + esc(planName(x.plan)) + "</span>" + previews(x) + "</li>";
+    }).join("");
     var intro = '<p class="muted">Sounds, presets, boards and impulse responses for your sound plans. Each downloads from online and opens with its plan key' + (be ? " - press Install." : ": install them on the Central Pedal or in Central Control / Central Usage on a computer.") + "</p>";
     var body = !st.list ? '<p class="muted">Loading the libraries…</p>' : (rows ? '<ul class="plain pkg-list lib-list">' + rows + "</ul>" : '<p class="muted">No libraries for this device\'s plans yet. Add a package above to see yours.</p>');
-    var foot = (others.length ? '<p class="muted small">With other plans: ' + others.join(", ") + ".</p>" : "") +
+    var foot = (otherRows ? '<p class="muted small">Hear what the other plans have before you get them:</p><ul class="plain pkg-list lib-list lib-others">' + otherRows + "</ul>" : others.length ? '<p class="muted small">With other plans: ' + others.join(", ") + ".</p>" : "") +
       (st.source.indexOf("built-in") === 0 ? '<p class="muted small">The library list didn\'t come (no internet?): this is the list that came with the app. Press Check for new versions to try again.</p>' : "") +
       (be ? '<div class="row"><button data-lib-refresh' + (st.busy ? " disabled" : "") + '>Check for new versions</button> <button class="linkish small" data-lib-file' + (st.busy ? " disabled" : "") + ' title="A library zip you already have">Install from a file…</button></div>' : "") + (st.msg ? '<p class="small">' + esc(st.msg) + "</p>" : "");
     return '<section class="' + (cls || "") + '" data-st="libraries" id="libSettings"><h3>Libraries</h3>' + intro + body + foot + "</section>";

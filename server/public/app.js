@@ -202,14 +202,26 @@ const chargedPlans = () => planCart.plans.filter((id) => !(id === "pads" && pads
 const ownPlanCents = () => (planCart.plans.includes("all") ? cfg.planAll.cents : chargedPlans().reduce((a, id) => a + ((cfg.plans[id] || {}).cents || 0), 0));
 const longDate = (d) => new Date(d).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 const firstYear = (c) => (cfg.sale ? Math.round((c * (100 - cfg.sale.percent)) / 100) : c);   // (a sale is off a plan's first year)
+// (10.2) the sound libraries (with their 30-second previews), asked for once: the plan cards let people hear a few
+let planLibs = null;
+function loadPlanLibs() { if (planLibs) return; planLibs = []; api("GET", "/libraries").then((r) => { planLibs = (r && r.libraries) || []; renderPlans(); }).catch(() => { }); }
+function planListen(id) {
+  if (!window.PPPreview || !planLibs || !planLibs.length) return "";
+  const lib = planLibs.find((l) => l.plan === id); if (!lib || !(lib.previews || []).length) return "";
+  const pick = [], kinds = id === "pedals" ? ["ir"] : id === "pads" ? ["pad", "loops"] : ["sound", "preset", "pad", "loops", "ir"];
+  for (const k of kinds) for (const pv of lib.previews) if (pv.kind === k && pick.length < 3 && !pick.some((x) => x.kind === pv.kind && (x.preset || x.name).split(" ")[0] === (pv.preset || pv.name).split(" ")[0])) pick.push(pv);
+  if (!pick.length) return "";
+  return `<div class="plan-listen"><span class="muted">Hear it:</span>${pick.map((pv) => PPPreview.button(pv, pv.kind === "sound" ? pv.preset : pv.name, "btn small ghost")).join("")}<a href="#downloads" class="muted" data-dl-libs="${esc(id)}">${lib.previews.length} more</a></div>`;
+}
 function renderPlans() {
   if (!cfg.plans || !$("#planCards")) return;
+  loadPlanLibs();
   const inCart = (id) => planCart.plans.includes(id) || planCart.plans.includes("all"), ids = planIds(), padsWith = (id) => id === "pads" && padsIncluded();
   $("#planCards").style.setProperty("--n", ids.length);
   $("#planCards").innerHTML = ids.map((id) => {
     const p = cfg.plans[id], k = "plan." + id;
     return `<div class="tier"><div class="tier-head"><h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3></div><p class="who" ${ed(k + ".what")}>${T(k + ".what", p.what)}</p>
-      <div class="price">${cfg.sale ? `<s>${dollars(p.cents / 100)}</s> <span class="now">${dollars(firstYear(p.cents) / 100)}</span><small>the first year</small>` : `<span data-price="plan-${id}">${dollars(p.cents / 100)}</span><small>a year</small>`}</div>${id === "pads" ? `<p class="muted" style="margin:0;font-size:.85rem" ${ed("plan.pads.note")}>${T("plan.pads.note", "Included in every other plan.")}</p>` : ""}<button class="btn ghost" data-plan="${id}"${inCart(id) || padsWith(id) ? " disabled" : ""}>${padsWith(id) ? "Included" : inCart(id) ? "In your cart" : "Add to cart"}</button></div>`;
+      <div class="price">${cfg.sale ? `<s>${dollars(p.cents / 100)}</s> <span class="now">${dollars(firstYear(p.cents) / 100)}</span><small>the first year</small>` : `<span data-price="plan-${id}">${dollars(p.cents / 100)}</span><small>a year</small>`}</div>${id === "pads" ? `<p class="muted" style="margin:0;font-size:.85rem" ${ed("plan.pads.note")}>${T("plan.pads.note", "Included in every other plan.")}</p>` : ""}${planListen(id)}<button class="btn ghost" data-plan="${id}"${inCart(id) || padsWith(id) ? " disabled" : ""}>${padsWith(id) ? "Included" : inCart(id) ? "In your cart" : "Add to cart"}</button></div>`;
   }).join("");
   const sum = mainPlanIds().reduce((a, id) => a + cfg.plans[id].cents, 0), all = planCart.plans.includes("all");
   $("#planAll").innerHTML = `<div class="plan-all"><div><b ${ed("plan.all.name")}>${T("plan.all.name", "All plans")}</b><span ${ed("plan.all.what")}>${T("plan.all.what", "Central Keys, Central Plugins, Central Instrument, Central Pedals and Central Pads on one package key.")}</span></div>
@@ -383,7 +395,7 @@ function renderTracks() {
     const act = t.owned ? `<span class="added">${t.mine ? "Yours" : "In storage"}</span>`
       : sub ? `<button class="btn small" data-store="${esc(t.id)}">Add to storage</button>`
       : `<button class="btn small ghost" data-buy="${esc(t.id)}">Buy ${money(t.price)}</button>`;
-    return `<tr><td><div style="font-weight:600">${esc(t.title)}${t.demo ? ` <button class="btn small ghost demo-btn" data-demo="${esc(t.id)}" aria-label="Play the demo of ${esc(t.title)}">▶ Demo</button>` : ""}</div><div class="muted" style="font-size:.85rem">${esc(t.artist)}</div></td>
+    return `<tr><td><div style="font-weight:600">${esc(t.title)}${t.preview && window.PPPreview ? " " + PPPreview.button({ url: t.preview }, "Listen", "btn small ghost demo-btn") : t.demo ? ` <button class="btn small ghost demo-btn" data-demo="${esc(t.id)}" aria-label="Play the demo of ${esc(t.title)}">▶ Demo</button>` : ""}</div><div class="muted" style="font-size:.85rem">${esc(t.artist)}</div></td>
       <td><span class="kind">${esc(t.kind)}</span></td><td>${starHtml(t.stars)}</td><td class="num">${esc(t.key || "—")}</td><td class="num">${t.bpm || "—"}</td><td class="act">${act}</td></tr>`;
   }).join("");
 }
@@ -748,6 +760,7 @@ function librariesHtml(libs, d) {
     const opened = have ? (have.has(l.plan) ? `<span class="ok" style="font-size:.9rem">✓ Your ${esc(l.planName)} plan opens this library.</span>` : `<span class="muted" style="font-size:.9rem">Not in your plans yet. <a href="#plans">Get ${esc(l.planName)}</a></span>`) : "";
     return `<div class="dl-card lib-card" data-lib="${esc(l.id)}"><div class="dl-head"><div><h3>${esc(l.title)}</h3><span class="muted">Version ${esc(l.version)} · ${l.approximate ? "about " : ""}${esc(libSize(l.size || 0))}</span></div></div>
       ${l.summary ? `<p style="margin:0">${esc(l.summary)}</p>` : ""}
+      ${window.PPPreview ? PPPreview.listHtml(l) : ""}
       <details><summary>What's in it</summary>${sounds}${list("Presets", c.presets)}${list("Boards", c.boards)}${list("Impulse responses (IR loader)", c.irs)}${list("Pads (every key)", c.pads)}${(l.credits || []).length ? `<p class="muted" style="font-size:.82rem;margin:.6rem 0 0">${l.credits.map(esc).join("<br>")}</p>` : ""}</details>
       <div class="dl-keys"><span class="muted" style="font-size:.9rem">Needs ${esc(l.planName)} (${esc(price)} a year${l.plan === "pads" ? ", or any other plan: they all include it" : ""}) - your package key comes by email and is on your Account page. In any app: <b>Settings → Packages</b>, add the key, then <b>Libraries → Install</b> (or download it here and use <b>Install from a file…</b>).</span>${opened ? "<br>" + opened : ""}</div>
       ${l.ready ? `<a class="btn" href="/download/library/${encodeURIComponent(l.id)}">Download ${esc(l.title)}</a>` : `<span class="muted" style="font-size:.9rem">Coming soon: this library is being built.</span>`}</div>`;

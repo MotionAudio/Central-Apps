@@ -69,6 +69,8 @@ export async function sync(fetcher = fetch) {
     const files = h.stems.map((f) => [f.name, f.role, f.url, false]).concat([[h.song.name, "song", h.song.url, false]]);   // (song.json says which stems start muted)
     if (h.mix) files.push([h.mix.name, "", h.mix.url, true]);
     for (const [name, role, url, isMix] of files) await q("INSERT INTO track_files (track_id,name,role,storage_key,is_mix) VALUES ($1,$2,$3,$4,$5)", [t.id, name, role, url, isMix]);
+    if (h.preview) await q("INSERT INTO previews (owner, storage_key, source, made_at) VALUES ($1,$2,$2,now()) ON CONFLICT (owner) DO UPDATE SET storage_key=EXCLUDED.storage_key, source=EXCLUDED.source", ["track:" + t.id, h.preview.url]);   // (10.2: the 30 seconds the build picked)
+    else await q("DELETE FROM previews WHERE owner=$1 AND storage_key LIKE 'https:%'", ["track:" + t.id]);
   }
   return { source: "index", hymns: list.length, added, updated };
 }

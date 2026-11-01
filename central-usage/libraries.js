@@ -28,6 +28,13 @@ const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
 const INDEX_URL = process.env.CC_LIBRARIES_INDEX || "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/libraries-index.json";
 const ID_RE = /^[a-z0-9-]{3,60}$/, VERSION_RE = /^\d+(\.\d+){0,3}$/, SHA_RE = /^[0-9a-f]{64}$/;
+// (10.2) a library's 30-second previews, next to its zip in the release: [{kind, name, preset?, set?, url, seconds}]
+const PREVIEW_KINDS = ["pad", "loops", "loop", "sound", "preset", "ir"];
+function previewsOf(l, base) {
+  return (Array.isArray(l.previews) ? l.previews : []).slice(0, 600).filter((p) => p && PREVIEW_KINDS.includes(p.kind) && /^preview--[\w.-]{3,200}\.mp3$/.test(p.file || ""))
+    .map((p) => Object.assign({ kind: p.kind, name: String(p.name || "").slice(0, 80), url: String(base).replace(/\/$/, "") + "/" + encodeURIComponent(p.file), seconds: 30 },
+      p.preset != null ? { preset: String(p.preset).slice(0, 80) } : {}, p.set != null ? { set: String(p.set).slice(0, 40) } : {}));
+}
 
 // ---------------------------------------------------------------- a small zip reader (stored / deflated entries)
 function readZip(file) {
@@ -162,6 +169,7 @@ class Libraries {
     return msg;
   }
 
+  // ----- (10.2) a library's 30-second previews, next to its zip: [{kind, name, preset?, set?, url, seconds}]
   // ----- (10.0.1) the published list: while the website isn't open, straight from the "libraries" release (its index has
   // each zip's size and sha256); the website's own list wins once it's open (js/libraries.js asks it first)
   index(url) {
@@ -179,7 +187,7 @@ class Libraries {
             let j; try { j = JSON.parse(Buffer.concat(parts).toString("utf8")); } catch (_) { return reject(new Error("the library list can't be read")); }
             const base = String(j.base || u.replace(/[?#].*$/, "").replace(/\/[^/]*$/, ""));   // (the zips sit next to the index, where the redirect ended)
             const list = (Array.isArray(j.libraries) ? j.libraries : []).filter((l) => l && ID_RE.test(l.id || "") && PLANS.includes(l.plan) && SHA_RE.test(String(l.sha256 || "").toLowerCase()) && l.file)
-              .map((l) => ({ id: l.id, plan: l.plan, title: l.title || l.id, version: String(l.version || ""), summary: l.summary || "", file: l.file, size: Number(l.size) || 0, sha256: String(l.sha256).toLowerCase(), url: base.replace(/\/$/, "") + "/" + encodeURIComponent(l.file), ready: true }));
+              .map((l) => ({ id: l.id, plan: l.plan, title: l.title || l.id, version: String(l.version || ""), summary: l.summary || "", file: l.file, size: Number(l.size) || 0, sha256: String(l.sha256).toLowerCase(), url: base.replace(/\/$/, "") + "/" + encodeURIComponent(l.file), ready: true, previews: previewsOf(l, base) }));
             const data = { ok: true, source: "release", built: j.built || "", libraries: list };
             this._index = { url, at: Date.now(), data }; resolve(data);
           });

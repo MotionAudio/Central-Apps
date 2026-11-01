@@ -633,3 +633,11 @@ ALTER TABLE tracks ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
 ALTER TABLE tracks ADD COLUMN IF NOT EXISTS review_note TEXT;
 -- the Central Tracks Unlimited pool is weighted by stars too (adds x stars)
 ALTER TABLE pool_shares ADD COLUMN IF NOT EXISTS weight INTEGER;
+-- (10.2) 30-second previews made on the website (previews.js): owner "track:<id>" or "community:<id>", where the MP3
+-- is kept (a storage key, or an https address - a hymn's preview on the release) and what it was made from
+CREATE TABLE IF NOT EXISTS previews (
+  owner       TEXT PRIMARY KEY,
+  storage_key TEXT NOT NULL,
+  source      TEXT NOT NULL DEFAULT '',
+  made_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -9,11 +9,15 @@ tools/make-pads.py made (default: <sounds>/pad-loops); --loops: the loops tools/
 (default: <sounds>/loops; 10.0).
 --base-url: where the zips will be downloaded from (written into the index; default: the GitHub release "libraries").
 --allow-missing: leave out a sound that wasn't built (tests) instead of stopping.
+--no-previews: skip the 30-second previews (10.2; tools/make-previews.py makes them from the sounds just built).
 
 Writes to --out:
   <id>-<version>.zip       manifest.json + sounds/*.sf2, irs/*.wav, pads/<style>/<key>.wav, presets/*.json, boards/*.json, CREDITS.txt
   libraries-index.json     what the website's /v1/libraries and the apps read: each library, its size, sha256, url and contents
-  SHA256SUMS               sha256sum format, for the zips and the index
+  SHA256SUMS               sha256sum format, for the zips, the previews and the index
+  preview--<library>--<kind>--<name>.mp3   (10.2) 30 seconds of each pad style, loop set and loop, instrument preset,
+                           keys preset and IR - what people hear before they download; listed in the index ("previews",
+                           each with its url) and on the manifest's items ("preview", or "previews" [[preset, file]] on a SoundFont)
 
 manifest.json: {format, id, plan, version, title, summary, items: [{kind: sound|board|preset|ir|click|pad, name, file,
 tier, size, sha256, license, credit, presets?, key? (a pad: its key, C..B)}], credits: [..]}. Every item keeps its library's plan as its tier: anyone can
@@ -117,8 +121,9 @@ def load_definitions(path=DEFINITIONS):
     return libs
 
 
-def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=print, pads_dir=None, loops_dir=None):
-    """Writes <id>-<version>.zip; returns its index entry (without the url)."""
+def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=print, pads_dir=None, loops_dir=None, previews=False):
+    """Writes <id>-<version>.zip (and, with previews, its 30-second previews beside it); returns its index entry (without
+    the urls)."""
     tier = lib["plan"]
     items, files, credits, missing = [], [], [], []
     pads_dir = pads_dir or os.path.join(sounds_dir or "", "pad-loops")
@@ -196,9 +201,16 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
             blobs.append((arc, data))
     if not items:
         raise ValueError("%s: nothing to pack" % lib["id"])
+    made = []
+    if previews:   # (10.2: before the manifest is written - its items name their previews)
+        try:
+            made = _load("tools/make-previews.py", "make_previews").make_library_previews(lib, items, out_dir, sounds_dir, pads_dir, loops_dir, irs_dir, pad_loop_file, log=log)
+        except Exception as e:   # (no ffmpeg here, say: the library still builds, without previews)
+            log("    (no previews for %s: %s)" % (lib["id"], e))
     sources = source_lines(lib, missing)
     manifest = {"format": FORMAT, "id": lib["id"], "plan": tier, "planName": PLANS[tier], "version": str(lib["version"]), "title": lib["title"],
-                "summary": lib.get("summary", ""), "items": items, "credits": credits, "sources": sources, "built": datetime.date.today().isoformat()}
+                "summary": lib.get("summary", ""), "items": items, "credits": credits, "sources": sources, "built": datetime.date.today().isoformat(),
+                "previews": [{k: p[k] for k in ("kind", "name", "preset", "set", "file", "seconds") if k in p} for p in made]}
     credit_txt = "%s %s - part of %s\n\n%s\n\nEverything here opens with %s: anyone can download it, the plan's package key unlocks it.\n\n%s\n\nSources (license, where it is):\n%s\n" % (
         lib["title"], lib["version"], PLANS[tier], lib.get("summary", ""), PLANS[tier], "\n".join("- " + c for c in credits) or "",
         "\n".join("- %s: %s - %s - %s" % (s["item"], s["text"], s["license"], s["url"]) for s in sources) or "- (all made by Motion Audio)")
@@ -244,7 +256,7 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
     }
     return {"id": lib["id"], "plan": tier, "planName": PLANS[tier], "title": lib["title"], "version": str(lib["version"]), "summary": lib.get("summary", ""),
             "file": name, "size": os.path.getsize(path), "sha256": sha256_file(path), "contents": contents, "counts": count, "credits": credits,
-            "sources": sources, "unpacked": sum(i["size"] for i in items)}
+            "sources": sources, "unpacked": sum(i["size"] for i in items), "previews": made}
 
 
 def source_lines(lib, missing=()):
@@ -298,21 +310,56 @@ def builtin_list(definitions=DEFINITIONS, base_url=DEFAULT_BASE):
         count = {"sound": len(sounds), "board": len(contents["boards"]), "preset": len(contents["presets"]), "ir": len(contents["irs"]), "click": 0, "pad": len(contents["pads"]),
                  "loop": len(contents["loops"])}
         name = "%s-%s.zip" % (lib["id"], lib["version"])
+        pv = expected_previews(lib, banks, base_url)
         out.append({"id": lib["id"], "plan": lib["plan"], "planName": PLANS[lib["plan"]], "title": lib["title"], "version": str(lib["version"]), "summary": lib.get("summary", ""),
                     "file": name, "size": int(lib.get("approxMB", 1) * 1e6), "approximate": True, "sha256": None, "url": base_url.rstrip("/") + "/" + name,
                     "contents": contents, "counts": count, "credits": sorted({s.get("credit", "") for s in (lib.get("sounds") or []) + (lib.get("irs") or []) + (lib.get("pads") or []) + (lib.get("loops") or []) if s.get("credit")}),
-                    "sources": source_lines(lib)})
+                    "sources": source_lines(lib), "previews": pv, "previewsExpected": True})
     return out
 
 
-def build_all(sounds_dir, irs_dir, out_dir, base_url=DEFAULT_BASE, only=None, allow_missing=False, definitions=DEFINITIONS, log=print, pads_dir=None, loops_dir=None):
+def expected_previews(lib, banks, base_url=DEFAULT_BASE):
+    """The previews a build of this library makes (their names come from tools/make-previews.py) - for the built-in list,
+    before a published libraries-index.json says which ones really are there."""
+    mp = _load("tools/make-previews.py", "make_previews")
+    base = base_url.rstrip("/") + "/"
+    out, used = [], set()
+
+    def add(kind, name, preset=None, **extra):
+        fn = mp.unique_name(lib["id"], kind, name, preset, used)
+        e = dict({"kind": kind, "name": name, "file": fn, "url": base + fn, "seconds": mp.SECONDS}, **extra)
+        if preset is not None:
+            e["preset"] = preset
+        out.append(e)
+    for p in lib.get("pads") or []:
+        add("pad", p["name"])
+    ml = _load("tools/make-loops.py", "make_loops")
+    names = {"drums": list(dict.fromkeys(g[0] for g in ml.GROOVES)), "ambient": list(ml.AMBIENT)}
+    for ls in lib.get("loops") or []:
+        add("loops", ls["name"], set=ls["set"])
+        for n in names.get(ls["set"], []):
+            add("loop", n, set=ls["set"])
+    for snd in lib.get("sounds") or []:
+        for pr in banks.get(snd["name"], []):
+            add("sound", snd["name"], pr)
+    for b in lib.get("presets") or []:
+        if b.get("sound"):
+            add("preset", b["name"])
+    for ir in lib.get("irs") or []:
+        add("ir", ir["name"])
+    return out
+
+
+def build_all(sounds_dir, irs_dir, out_dir, base_url=DEFAULT_BASE, only=None, allow_missing=False, definitions=DEFINITIONS, log=print, pads_dir=None, loops_dir=None, previews=False):
     libs = load_definitions(definitions)
     entries = []
     for lib in libs:
         if only and lib["id"] != only:
             continue
-        e = build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=allow_missing, log=log, pads_dir=pads_dir, loops_dir=loops_dir)
+        e = build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=allow_missing, log=log, pads_dir=pads_dir, loops_dir=loops_dir, previews=previews)
         e["url"] = base_url.rstrip("/") + "/" + e["file"]
+        for p in e["previews"]:
+            p["url"] = base_url.rstrip("/") + "/" + p["file"]
         entries.append(e)
     index = {"format": FORMAT, "base": base_url.rstrip("/"), "built": datetime.date.today().isoformat(), "libraries": entries}
     with open(os.path.join(out_dir, "libraries-index.json"), "w", encoding="utf-8") as handle:
@@ -320,16 +367,22 @@ def build_all(sounds_dir, irs_dir, out_dir, base_url=DEFAULT_BASE, only=None, al
     with open(os.path.join(out_dir, "SHA256SUMS"), "w", encoding="utf-8") as handle:
         for e in entries:
             handle.write("%s  %s\n" % (e["sha256"], e["file"]))
+            for p in e["previews"]:
+                handle.write("%s  %s\n" % (p["sha256"], p["file"]))
         handle.write("%s  %s\n" % (sha256_file(os.path.join(out_dir, "libraries-index.json")), "libraries-index.json"))
     return index
 
 
 def main(argv):
-    opt, i = {}, 0
+    opt, i = {"previews": True}, 0
     while i < len(argv):
         a = argv[i]
         if a == "--allow-missing":
             opt["allow_missing"] = True
+            i += 1
+            continue
+        if a == "--no-previews":
+            opt["previews"] = False
             i += 1
             continue
         if a in ("--sounds", "--irs", "--pads", "--loops", "--out", "--base-url", "--only", "--definitions", "--write-builtin") and i + 1 < len(argv):
@@ -348,7 +401,7 @@ def main(argv):
         print(__doc__)
         return 2
     build_all(opt.get("sounds"), opt.get("irs"), opt["out"], opt.get("base_url") or DEFAULT_BASE, opt.get("only"), opt.get("allow_missing", False), opt.get("definitions") or DEFINITIONS,
-              pads_dir=opt.get("pads"), loops_dir=opt.get("loops"))
+              pads_dir=opt.get("pads"), loops_dir=opt.get("loops"), previews=opt["previews"])
     return 0
 
 

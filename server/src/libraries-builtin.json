@@ -187,7 +187,594 @@
      "license": "Motion Audio - sold with Central Keys",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-synths.py"
     }
-   ]
+   ],
+   "previews": [
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--upright-piano.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pianos--upright-piano.mp3",
+     "seconds": 30,
+     "preset": "Upright Piano"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--soft-upright.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pianos--soft-upright.mp3",
+     "seconds": 30,
+     "preset": "Soft Upright"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--fm-piano.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pianos--fm-piano.mp3",
+     "seconds": 30,
+     "preset": "FM Piano"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--fm-piano-upright.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pianos--fm-piano-upright.mp3",
+     "seconds": 30,
+     "preset": "FM Piano & Upright"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--clavisynth.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pianos--clavisynth.mp3",
+     "seconds": 30,
+     "preset": "Clavisynth"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--harpsichord.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pianos--harpsichord.mp3",
+     "seconds": 30,
+     "preset": "Harpsichord"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Organs",
+     "file": "preview--central-keys--sound--organs--pipe-organ.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--organs--pipe-organ.mp3",
+     "seconds": 30,
+     "preset": "Pipe Organ"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Organs",
+     "file": "preview--central-keys--sound--organs--pipe-organ-manual.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--organs--pipe-organ-manual.mp3",
+     "seconds": 30,
+     "preset": "Pipe Organ (manual only)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Organs",
+     "file": "preview--central-keys--sound--organs--quiet-organ.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--organs--quiet-organ.mp3",
+     "seconds": 30,
+     "preset": "Quiet Organ"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Organs",
+     "file": "preview--central-keys--sound--organs--organ-swell.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--organs--organ-swell.mp3",
+     "seconds": 30,
+     "preset": "Organ Swell"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Organs",
+     "file": "preview--central-keys--sound--organs--positive-organ.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--organs--positive-organ.mp3",
+     "seconds": 30,
+     "preset": "Positive Organ"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--vibraphone.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--vibraphone.mp3",
+     "seconds": 30,
+     "preset": "Vibraphone"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--vibraphone-hard-ma.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--vibraphone-hard-ma.mp3",
+     "seconds": 30,
+     "preset": "Vibraphone (hard mallets)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--marimba.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--marimba.mp3",
+     "seconds": 30,
+     "preset": "Marimba"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--glockenspiel.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--glockenspiel.mp3",
+     "seconds": 30,
+     "preset": "Glockenspiel"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--tubular-bells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--tubular-bells.mp3",
+     "seconds": 30,
+     "preset": "Tubular Bells"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--hand-chimes.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--hand-chimes.mp3",
+     "seconds": 30,
+     "preset": "Hand Chimes"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--chime-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--chime-pad.mp3",
+     "seconds": 30,
+     "preset": "Chime Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--vibes-chimes.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--vibes-chimes.mp3",
+     "seconds": 30,
+     "preset": "Vibes & Chimes"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--xylophone.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--xylophone.mp3",
+     "seconds": 30,
+     "preset": "Xylophone"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Mallets",
+     "file": "preview--central-keys--sound--mallets--church-bells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--mallets--church-bells.mp3",
+     "seconds": 30,
+     "preset": "Church Bells"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Grand Pianos",
+     "file": "preview--central-keys--sound--grand-pianos--concert-grand-stei.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--grand-pianos--concert-grand-stei.mp3",
+     "seconds": 30,
+     "preset": "Concert Grand (Steinway B)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Grand Pianos",
+     "file": "preview--central-keys--sound--grand-pianos--studio-grand-kawai.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--grand-pianos--studio-grand-kawai.mp3",
+     "seconds": 30,
+     "preset": "Studio Grand (Kawai)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Grand Pianos",
+     "file": "preview--central-keys--sound--grand-pianos--soft-grand.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--grand-pianos--soft-grand.mp3",
+     "seconds": 30,
+     "preset": "Soft Grand"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Grand Pianos",
+     "file": "preview--central-keys--sound--grand-pianos--grand-fm-piano.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--grand-pianos--grand-fm-piano.mp3",
+     "seconds": 30,
+     "preset": "Grand & FM Piano"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Grand Pianos",
+     "file": "preview--central-keys--sound--grand-pianos--fm-piano-2.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--grand-pianos--fm-piano-2.mp3",
+     "seconds": 30,
+     "preset": "FM Piano 2"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--warm-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--warm-pad.mp3",
+     "seconds": 30,
+     "preset": "Warm Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--air-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--air-pad.mp3",
+     "seconds": 30,
+     "preset": "Air Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--choir-aah.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--choir-aah.mp3",
+     "seconds": 30,
+     "preset": "Choir Aah"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--choir-ooh.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--choir-ooh.mp3",
+     "seconds": 30,
+     "preset": "Choir Ooh"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--shimmer-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--shimmer-pad.mp3",
+     "seconds": 30,
+     "preset": "Shimmer Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--string-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--string-pad.mp3",
+     "seconds": 30,
+     "preset": "String Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--glass-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--glass-pad.mp3",
+     "seconds": 30,
+     "preset": "Glass Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--swell-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--swell-pad.mp3",
+     "seconds": 30,
+     "preset": "Swell Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--worship-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--worship-pad.mp3",
+     "seconds": 30,
+     "preset": "Worship Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--saw-lead.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--saw-lead.mp3",
+     "seconds": 30,
+     "preset": "Saw Lead"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--square-lead.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--square-lead.mp3",
+     "seconds": 30,
+     "preset": "Square Lead"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--soft-lead.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--soft-lead.mp3",
+     "seconds": 30,
+     "preset": "Soft Lead"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--synth-brass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--synth-brass.mp3",
+     "seconds": 30,
+     "preset": "Synth Brass"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--super-saw.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--super-saw.mp3",
+     "seconds": 30,
+     "preset": "Super Saw"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--string-machine.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--string-machine.mp3",
+     "seconds": 30,
+     "preset": "String Machine"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--sub-bass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--sub-bass.mp3",
+     "seconds": 30,
+     "preset": "Sub Bass"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--synth-bass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--synth-bass.mp3",
+     "seconds": 30,
+     "preset": "Synth Bass"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--pluck.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--pluck.mp3",
+     "seconds": 30,
+     "preset": "Pluck"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-keys--sound--synths--electric-bells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--electric-bells.mp3",
+     "seconds": 30,
+     "preset": "Electric Bells"
+    },
+    {
+     "kind": "preset",
+     "name": "Upright Ballad",
+     "file": "preview--central-keys--preset--upright-ballad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--upright-ballad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Felt Upright Ambient",
+     "file": "preview--central-keys--preset--felt-upright-ambient.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--felt-upright-ambient.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "FM Ballad EP",
+     "file": "preview--central-keys--preset--fm-ballad-ep.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--fm-ballad-ep.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Harpsichord Chamber",
+     "file": "preview--central-keys--preset--harpsichord-chamber.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--harpsichord-chamber.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Sanctuary Organ",
+     "file": "preview--central-keys--preset--sanctuary-organ.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--sanctuary-organ.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Quiet Prayer Organ",
+     "file": "preview--central-keys--preset--quiet-prayer-organ.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--quiet-prayer-organ.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Organ Swell Pad",
+     "file": "preview--central-keys--preset--organ-swell-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--organ-swell-pad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Vibes Lounge",
+     "file": "preview--central-keys--preset--vibes-lounge.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--vibes-lounge.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Marimba Groove",
+     "file": "preview--central-keys--preset--marimba-groove.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--marimba-groove.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Glock Sparkle",
+     "file": "preview--central-keys--preset--glock-sparkle.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--glock-sparkle.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Christmas Bells",
+     "file": "preview--central-keys--preset--christmas-bells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--christmas-bells.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Chime Pad",
+     "file": "preview--central-keys--preset--chime-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--chime-pad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Sunday Grand",
+     "file": "preview--central-keys--preset--sunday-grand.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--sunday-grand.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Intimate Grand",
+     "file": "preview--central-keys--preset--intimate-grand.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--intimate-grand.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Studio Grand Bright",
+     "file": "preview--central-keys--preset--studio-grand-bright.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--studio-grand-bright.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Warm Worship Pad",
+     "file": "preview--central-keys--preset--warm-worship-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--warm-worship-pad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Air Pad Wash",
+     "file": "preview--central-keys--preset--air-pad-wash.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--air-pad-wash.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Choir Aah",
+     "file": "preview--central-keys--preset--choir-aah.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--choir-aah.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Choir Ooh (soft)",
+     "file": "preview--central-keys--preset--choir-ooh-soft.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--choir-ooh-soft.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Shimmer Pad Bed",
+     "file": "preview--central-keys--preset--shimmer-pad-bed.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--shimmer-pad-bed.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "String Pad Swell",
+     "file": "preview--central-keys--preset--string-pad-swell.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--string-pad-swell.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Glass Pad",
+     "file": "preview--central-keys--preset--glass-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--glass-pad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Slow Swell Pad",
+     "file": "preview--central-keys--preset--slow-swell-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--slow-swell-pad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Xylophone Bright",
+     "file": "preview--central-keys--preset--xylophone-bright.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--xylophone-bright.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Church Bells",
+     "file": "preview--central-keys--preset--church-bells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--church-bells.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Worship Saw Lead",
+     "file": "preview--central-keys--preset--worship-saw-lead.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--worship-saw-lead.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Big Synth Brass",
+     "file": "preview--central-keys--preset--big-synth-brass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--big-synth-brass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Super Saw Anthem",
+     "file": "preview--central-keys--preset--super-saw-anthem.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--super-saw-anthem.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "String Machine Pad",
+     "file": "preview--central-keys--preset--string-machine-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--string-machine-pad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Sub Bass (keys left hand)",
+     "file": "preview--central-keys--preset--sub-bass-keys-left-hand.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--sub-bass-keys-left-hand.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Plucky Arp",
+     "file": "preview--central-keys--preset--plucky-arp.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--plucky-arp.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Electric Bells",
+     "file": "preview--central-keys--preset--electric-bells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--electric-bells.mp3",
+     "seconds": 30
+    }
+   ],
+   "previewsExpected": true
   },
   {
    "id": "central-instrument-library",
@@ -445,7 +1032,612 @@
      "license": "CC0 1.0",
      "url": "https://github.com/sfzinstruments"
     }
-   ]
+   ],
+   "previews": [
+    {
+     "kind": "loops",
+     "name": "Drum loops",
+     "file": "preview--central-instrument--loops--drum-loops.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loops--drum-loops.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Worship Eighths",
+     "file": "preview--central-instrument--loop--worship-eighths.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--worship-eighths.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Big Ride",
+     "file": "preview--central-instrument--loop--big-ride.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--big-ride.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Rim and Hat",
+     "file": "preview--central-instrument--loop--rim-and-hat.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--rim-and-hat.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Half-Time",
+     "file": "preview--central-instrument--loop--half-time.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--half-time.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Four on the Floor",
+     "file": "preview--central-instrument--loop--four-on-the-floor.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--four-on-the-floor.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Driving Sixteenths",
+     "file": "preview--central-instrument--loop--driving-sixteenths.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--driving-sixteenths.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Toms Build",
+     "file": "preview--central-instrument--loop--toms-build.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--toms-build.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Brushes Ballad",
+     "file": "preview--central-instrument--loop--brushes-ballad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--brushes-ballad.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Waltz",
+     "file": "preview--central-instrument--loop--waltz.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--waltz.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Brushes Waltz",
+     "file": "preview--central-instrument--loop--brushes-waltz.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--brushes-waltz.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Harps",
+     "file": "preview--central-instrument--sound--harps--folk-harp.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--harps--folk-harp.mp3",
+     "seconds": 30,
+     "preset": "Folk Harp"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Harps",
+     "file": "preview--central-instrument--sound--harps--concert-harp.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--harps--concert-harp.mp3",
+     "seconds": 30,
+     "preset": "Concert Harp"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Harps",
+     "file": "preview--central-instrument--sound--harps--harp-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--harps--harp-pad.mp3",
+     "seconds": 30,
+     "preset": "Harp Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Harps",
+     "file": "preview--central-instrument--sound--harps--kalimba.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--harps--kalimba.mp3",
+     "seconds": 30,
+     "preset": "Kalimba"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Harps",
+     "file": "preview--central-instrument--sound--harps--strumstick.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--harps--strumstick.mp3",
+     "seconds": 30,
+     "preset": "Strumstick"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--alto-recorder.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--winds--alto-recorder.mp3",
+     "seconds": 30,
+     "preset": "Alto Recorder"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--tenor-recorder.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--winds--tenor-recorder.mp3",
+     "seconds": 30,
+     "preset": "Tenor Recorder"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--recorder-consort.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--winds--recorder-consort.mp3",
+     "seconds": 30,
+     "preset": "Recorder Consort"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--harmonica.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--winds--harmonica.mp3",
+     "seconds": 30,
+     "preset": "Harmonica"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--tenor-sax.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--winds--tenor-sax.mp3",
+     "seconds": 30,
+     "preset": "Tenor Sax"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--ocarina.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--winds--ocarina.mp3",
+     "seconds": 30,
+     "preset": "Ocarina"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--chromatic-harmonica.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--winds--chromatic-harmonica.mp3",
+     "seconds": 30,
+     "preset": "Chromatic Harmonica"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--saxello.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--winds--saxello.mp3",
+     "seconds": 30,
+     "preset": "Saxello"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Percussion",
+     "file": "preview--central-instrument--sound--percussion--hand-percussion.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--percussion--hand-percussion.mp3",
+     "seconds": 30,
+     "preset": "Hand Percussion"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Percussion",
+     "file": "preview--central-instrument--sound--percussion--orchestral-percussi.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--percussion--orchestral-percussi.mp3",
+     "seconds": 30,
+     "preset": "Orchestral Percussion"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument World",
+     "file": "preview--central-instrument--sound--world--dan-tranh-zither.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--world--dan-tranh-zither.mp3",
+     "seconds": 30,
+     "preset": "Dan Tranh (zither)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument World",
+     "file": "preview--central-instrument--sound--world--dan-tranh-tremolo.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--world--dan-tranh-tremolo.mp3",
+     "seconds": 30,
+     "preset": "Dan Tranh Tremolo"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument World",
+     "file": "preview--central-instrument--sound--world--bowed-psaltery.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--world--bowed-psaltery.mp3",
+     "seconds": 30,
+     "preset": "Bowed Psaltery"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument World",
+     "file": "preview--central-instrument--sound--world--plucked-psaltery.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--world--plucked-psaltery.mp3",
+     "seconds": 30,
+     "preset": "Plucked Psaltery"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument World",
+     "file": "preview--central-instrument--sound--world--balafon.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--world--balafon.mp3",
+     "seconds": 30,
+     "preset": "Balafon"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument World",
+     "file": "preview--central-instrument--sound--world--mbira.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--world--mbira.mp3",
+     "seconds": 30,
+     "preset": "Mbira"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument World",
+     "file": "preview--central-instrument--sound--world--kalimba-kenya.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--world--kalimba-kenya.mp3",
+     "seconds": 30,
+     "preset": "Kalimba (Kenya)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Drum Kits",
+     "file": "preview--central-instrument--sound--drum-kits--studio-kit.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--drum-kits--studio-kit.mp3",
+     "seconds": 30,
+     "preset": "Studio Kit"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Drum Kits",
+     "file": "preview--central-instrument--sound--drum-kits--rusty-rock-kit.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--drum-kits--rusty-rock-kit.mp3",
+     "seconds": 30,
+     "preset": "Rusty Rock Kit"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Drum Kits",
+     "file": "preview--central-instrument--sound--drum-kits--unruly-kit.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--drum-kits--unruly-kit.mp3",
+     "seconds": 30,
+     "preset": "Unruly Kit"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Drum Kits",
+     "file": "preview--central-instrument--sound--drum-kits--brushes-kit.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--drum-kits--brushes-kit.mp3",
+     "seconds": 30,
+     "preset": "Brushes Kit"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Guitars and Basses",
+     "file": "preview--central-instrument--sound--guitars-and-basses--hollowbody-guitar.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--guitars-and-basses--hollowbody-guitar.mp3",
+     "seconds": 30,
+     "preset": "Hollowbody Guitar (Gretsch)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Guitars and Basses",
+     "file": "preview--central-instrument--sound--guitars-and-basses--archtop-guitar-hof.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--guitars-and-basses--archtop-guitar-hof.mp3",
+     "seconds": 30,
+     "preset": "Archtop Guitar (Hofner)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Guitars and Basses",
+     "file": "preview--central-instrument--sound--guitars-and-basses--electric-guitar-cle.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--guitars-and-basses--electric-guitar-cle.mp3",
+     "seconds": 30,
+     "preset": "Electric Guitar Clean"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Guitars and Basses",
+     "file": "preview--central-instrument--sound--guitars-and-basses--upright-bass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--guitars-and-basses--upright-bass.mp3",
+     "seconds": 30,
+     "preset": "Upright Bass"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Guitars and Basses",
+     "file": "preview--central-instrument--sound--guitars-and-basses--upright-bass-bowed.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--guitars-and-basses--upright-bass-bowed.mp3",
+     "seconds": 30,
+     "preset": "Upright Bass (bowed)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Guitars and Basses",
+     "file": "preview--central-instrument--sound--guitars-and-basses--jazz-bass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--guitars-and-basses--jazz-bass.mp3",
+     "seconds": 30,
+     "preset": "Jazz Bass"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Guitars and Basses",
+     "file": "preview--central-instrument--sound--guitars-and-basses--acoustic-bass-holl.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--guitars-and-basses--acoustic-bass-holl.mp3",
+     "seconds": 30,
+     "preset": "Acoustic Bass (hollowbody)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Guitars and Basses",
+     "file": "preview--central-instrument--sound--guitars-and-basses--electric-upright-ba.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--guitars-and-basses--electric-upright-ba.mp3",
+     "seconds": 30,
+     "preset": "Electric Upright Bass"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Guitars and Basses",
+     "file": "preview--central-instrument--sound--guitars-and-basses--electric-upright-ba-2.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--guitars-and-basses--electric-upright-ba-2.mp3",
+     "seconds": 30,
+     "preset": "Electric Upright Bass (bowed)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Saxophones",
+     "file": "preview--central-instrument--sound--saxophones--alto-sax.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--saxophones--alto-sax.mp3",
+     "seconds": 30,
+     "preset": "Alto Sax"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Saxophones",
+     "file": "preview--central-instrument--sound--saxophones--baritone-sax.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--saxophones--baritone-sax.mp3",
+     "seconds": 30,
+     "preset": "Baritone Sax"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Saxophones",
+     "file": "preview--central-instrument--sound--saxophones--sax-section.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--sound--saxophones--sax-section.mp3",
+     "seconds": 30,
+     "preset": "Sax Section"
+    },
+    {
+     "kind": "preset",
+     "name": "Worship Harp",
+     "file": "preview--central-instrument--preset--worship-harp.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--worship-harp.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Harp Pad Swell",
+     "file": "preview--central-instrument--preset--harp-pad-swell.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--harp-pad-swell.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Celtic Folk Harp",
+     "file": "preview--central-instrument--preset--celtic-folk-harp.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--celtic-folk-harp.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Kalimba Lullaby",
+     "file": "preview--central-instrument--preset--kalimba-lullaby.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--kalimba-lullaby.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Strumstick Folk",
+     "file": "preview--central-instrument--preset--strumstick-folk.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--strumstick-folk.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Recorder Consort",
+     "file": "preview--central-instrument--preset--recorder-consort.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--recorder-consort.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Harmonica Folk",
+     "file": "preview--central-instrument--preset--harmonica-folk.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--harmonica-folk.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Tenor Sax Ballad",
+     "file": "preview--central-instrument--preset--tenor-sax-ballad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--tenor-sax-ballad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Ocarina Air",
+     "file": "preview--central-instrument--preset--ocarina-air.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--ocarina-air.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Hand Percussion",
+     "file": "preview--central-instrument--preset--hand-percussion.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--hand-percussion.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Orchestral Percussion",
+     "file": "preview--central-instrument--preset--orchestral-percussion.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--orchestral-percussion.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Worship Kit (brushes)",
+     "file": "preview--central-instrument--preset--worship-kit-brushes.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--worship-kit-brushes.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Studio Kit",
+     "file": "preview--central-instrument--preset--studio-kit.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--studio-kit.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Rock Kit",
+     "file": "preview--central-instrument--preset--rock-kit.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--rock-kit.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Unruly Kit",
+     "file": "preview--central-instrument--preset--unruly-kit.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--unruly-kit.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Upright Jazz Bass",
+     "file": "preview--central-instrument--preset--upright-jazz-bass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--upright-jazz-bass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Bowed Bass Drone",
+     "file": "preview--central-instrument--preset--bowed-bass-drone.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--bowed-bass-drone.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Fingerstyle Jazz Bass",
+     "file": "preview--central-instrument--preset--fingerstyle-jazz-bass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--fingerstyle-jazz-bass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Hollowbody Bass",
+     "file": "preview--central-instrument--preset--hollowbody-bass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--hollowbody-bass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Clean Hollowbody",
+     "file": "preview--central-instrument--preset--clean-hollowbody.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--clean-hollowbody.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Archtop Jazz Guitar",
+     "file": "preview--central-instrument--preset--archtop-jazz-guitar.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--archtop-jazz-guitar.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Clean Electric Strums",
+     "file": "preview--central-instrument--preset--clean-electric-strums.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--clean-electric-strums.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Alto Sax Ballad",
+     "file": "preview--central-instrument--preset--alto-sax-ballad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--alto-sax-ballad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Baritone Sax Groove",
+     "file": "preview--central-instrument--preset--baritone-sax-groove.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--baritone-sax-groove.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Sax Section",
+     "file": "preview--central-instrument--preset--sax-section.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--sax-section.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Chromatic Harmonica",
+     "file": "preview--central-instrument--preset--chromatic-harmonica.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--chromatic-harmonica.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Saxello",
+     "file": "preview--central-instrument--preset--saxello.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--saxello.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Dan Tranh Meditation",
+     "file": "preview--central-instrument--preset--dan-tranh-meditation.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--dan-tranh-meditation.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Bowed Psaltery Air",
+     "file": "preview--central-instrument--preset--bowed-psaltery-air.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--bowed-psaltery-air.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Balafon & Mbira",
+     "file": "preview--central-instrument--preset--balafon-mbira.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--preset--balafon-mbira.mp3",
+     "seconds": 30
+    }
+   ],
+   "previewsExpected": true
   },
   {
    "id": "central-plugins-library",
@@ -527,7 +1719,40 @@
      "license": "CC0 1.0",
      "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
     }
-   ]
+   ],
+   "previews": [
+    {
+     "kind": "sound",
+     "name": "Central Plugins Textures",
+     "file": "preview--central-plugins--sound--textures--ambient-drone.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-plugins--sound--textures--ambient-drone.mp3",
+     "seconds": 30,
+     "preset": "Ambient Drone"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Plugins Textures",
+     "file": "preview--central-plugins--sound--textures--transitions-risers.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-plugins--sound--textures--transitions-risers.mp3",
+     "seconds": 30,
+     "preset": "Transitions (risers, swells, reverse cymbals)"
+    },
+    {
+     "kind": "preset",
+     "name": "Plugins: Ambient Drone Bed",
+     "file": "preview--central-plugins--preset--plugins-ambient-drone-bed.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-plugins--preset--plugins-ambient-drone-bed.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Plugins: Transitions (risers and swells)",
+     "file": "preview--central-plugins--preset--plugins-transitions-risers-and-swells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-plugins--preset--plugins-transitions-risers-and-swells.mp3",
+     "seconds": 30
+    }
+   ],
+   "previewsExpected": true
   },
   {
    "id": "central-pedals-library",
@@ -786,7 +2011,206 @@
      "license": "Motion Audio - sold with Central Pedals",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
     }
-   ]
+   ],
+   "previews": [
+    {
+     "kind": "ir",
+     "name": "Central 1x12 Open Back",
+     "file": "preview--central-pedals--ir--central-1x12-open-back.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-1x12-open-back.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 2x12 Closed Back",
+     "file": "preview--central-pedals--ir--central-2x12-closed-back.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-2x12-closed-back.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 2x12 Worship Smooth",
+     "file": "preview--central-pedals--ir--central-2x12-worship-smooth.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-2x12-worship-smooth.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 4x12 Vintage",
+     "file": "preview--central-pedals--ir--central-4x12-vintage.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-4x12-vintage.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 4x12 Modern Tight",
+     "file": "preview--central-pedals--ir--central-4x12-modern-tight.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-4x12-modern-tight.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 1x10 Small Combo",
+     "file": "preview--central-pedals--ir--central-1x10-small-combo.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-1x10-small-combo.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 2x10 Tweed",
+     "file": "preview--central-pedals--ir--central-2x10-tweed.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-2x10-tweed.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Bass 4x10",
+     "file": "preview--central-pedals--ir--central-bass-4x10.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-bass-4x10.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Bass 1x15",
+     "file": "preview--central-pedals--ir--central-bass-1x15.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-bass-1x15.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Bass 8x10",
+     "file": "preview--central-pedals--ir--central-bass-8x10.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-bass-8x10.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Acoustic Dreadnought Body",
+     "file": "preview--central-pedals--ir--central-acoustic-dreadnought-body.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-acoustic-dreadnought-body.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Acoustic Jumbo Body",
+     "file": "preview--central-pedals--ir--central-acoustic-jumbo-body.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-acoustic-jumbo-body.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Acoustic Parlor Body",
+     "file": "preview--central-pedals--ir--central-acoustic-parlor-body.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-acoustic-parlor-body.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Acoustic Nylon Body",
+     "file": "preview--central-pedals--ir--central-acoustic-nylon-body.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-acoustic-nylon-body.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 1x12 Open Back Edge",
+     "file": "preview--central-pedals--ir--central-1x12-open-back-edge.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-1x12-open-back-edge.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 1x12 Open Back Room",
+     "file": "preview--central-pedals--ir--central-1x12-open-back-room.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-1x12-open-back-room.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 2x12 Closed Back Edge",
+     "file": "preview--central-pedals--ir--central-2x12-closed-back-edge.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-2x12-closed-back-edge.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 2x12 Closed Back Room",
+     "file": "preview--central-pedals--ir--central-2x12-closed-back-room.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-2x12-closed-back-room.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 2x12 Worship Smooth Edge",
+     "file": "preview--central-pedals--ir--central-2x12-worship-smooth-edge.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-2x12-worship-smooth-edge.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 2x12 Worship Smooth Room",
+     "file": "preview--central-pedals--ir--central-2x12-worship-smooth-room.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-2x12-worship-smooth-room.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 4x12 Vintage Edge",
+     "file": "preview--central-pedals--ir--central-4x12-vintage-edge.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-4x12-vintage-edge.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 4x12 Vintage Room",
+     "file": "preview--central-pedals--ir--central-4x12-vintage-room.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-4x12-vintage-room.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 4x12 Modern Tight Edge",
+     "file": "preview--central-pedals--ir--central-4x12-modern-tight-edge.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-4x12-modern-tight-edge.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 4x12 Modern Tight Room",
+     "file": "preview--central-pedals--ir--central-4x12-modern-tight-room.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-4x12-modern-tight-room.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 1x10 Small Combo Edge",
+     "file": "preview--central-pedals--ir--central-1x10-small-combo-edge.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-1x10-small-combo-edge.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 1x10 Small Combo Room",
+     "file": "preview--central-pedals--ir--central-1x10-small-combo-room.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-1x10-small-combo-room.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 2x10 Tweed Edge",
+     "file": "preview--central-pedals--ir--central-2x10-tweed-edge.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-2x10-tweed-edge.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central 2x10 Tweed Room",
+     "file": "preview--central-pedals--ir--central-2x10-tweed-room.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pedals--ir--central-2x10-tweed-room.mp3",
+     "seconds": 30
+    }
+   ],
+   "previewsExpected": true
   },
   {
    "id": "central-pads-library",
@@ -973,7 +2397,182 @@
      "license": "Motion Audio - sold with Central Pads",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-loops.py"
     }
-   ]
+   ],
+   "previews": [
+    {
+     "kind": "pad",
+     "name": "Warm",
+     "file": "preview--central-pads--pad--warm.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--warm.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Air",
+     "file": "preview--central-pads--pad--air.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--air.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Choir Aah",
+     "file": "preview--central-pads--pad--choir-aah.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--choir-aah.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Choir Ooh",
+     "file": "preview--central-pads--pad--choir-ooh.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--choir-ooh.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Shimmer",
+     "file": "preview--central-pads--pad--shimmer.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--shimmer.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Strings",
+     "file": "preview--central-pads--pad--strings.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--strings.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Glass",
+     "file": "preview--central-pads--pad--glass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--glass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Swell",
+     "file": "preview--central-pads--pad--swell.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--swell.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Worship",
+     "file": "preview--central-pads--pad--worship.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--worship.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Ambient Drone",
+     "file": "preview--central-pads--pad--ambient-drone.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--ambient-drone.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Deep",
+     "file": "preview--central-pads--pad--deep.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--deep.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Heaven",
+     "file": "preview--central-pads--pad--heaven.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--heaven.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Felt",
+     "file": "preview--central-pads--pad--felt.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--felt.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Organ",
+     "file": "preview--central-pads--pad--organ.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--organ.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Analog",
+     "file": "preview--central-pads--pad--analog.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--analog.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Bowed",
+     "file": "preview--central-pads--pad--bowed.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--bowed.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Bells",
+     "file": "preview--central-pads--pad--bells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--bells.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Choir Hum",
+     "file": "preview--central-pads--pad--choir-hum.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--choir-hum.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Cinematic",
+     "file": "preview--central-pads--pad--cinematic.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--cinematic.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Morning",
+     "file": "preview--central-pads--pad--morning.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--pad--morning.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "loops",
+     "name": "Ambient loops",
+     "file": "preview--central-pads--loops--ambient-loops.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loops--ambient-loops.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Sparkle",
+     "file": "preview--central-pads--loop--sparkle.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loop--sparkle.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Drift",
+     "file": "preview--central-pads--loop--drift.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loop--drift.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Breath",
+     "file": "preview--central-pads--loop--breath.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loop--breath.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    }
+   ],
+   "previewsExpected": true
   }
  ]
 }

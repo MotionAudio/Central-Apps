@@ -1,6 +1,8 @@
 # Builds the sound libraries - one zip per plan (Central Keys, Central Instrument, Central Plugins, Central Pedals) - and
 # publishes them on the GitHub release tagged "libraries" (made if it isn't there, its files replaced if it is), with
-# libraries-index.json (what the website's /v1/libraries and the apps read) and SHA256SUMS.
+# libraries-index.json (what the website's /v1/libraries and the apps read) and SHA256SUMS - and (10.2) a 30-second
+# preview MP3 of each pad, loop, instrument preset, keys preset and IR (tools/make-previews.py), so people can hear them
+# before they download.
 #
 # Runs by hand (Actions -> Sound libraries -> Run workflow) and whenever a library's sources change on main or on
 # release/9.8.0 (so the files are built before that release).
@@ -45,6 +47,7 @@ on:
       - tools/vcsl-names.txt
       - tools/make-irs.py
       - tools/build-libraries.py
+      - tools/make-previews.py
       - tools/build-libraries.sh
       - sounds-vsco.py
       - .github/workflows/libraries.yml
@@ -107,6 +110,8 @@ jobs:
               f.write("%s  libraries-index.json\n" % hashlib.sha256(open(os.path.join(out, "libraries-index.json"), "rb").read()).hexdigest())
           PY
           fi
+          # (10.2: the 30-second previews go up before the index that lists them)
+          ls "$OUT"/preview--*.mp3 >/dev/null 2>&1 && gh release upload libraries "$OUT"/preview--*.mp3 --clobber
           gh release upload libraries "$OUT"/*.zip "$OUT/libraries-index.json" "$OUT/SHA256SUMS" --clobber
           echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/libraries"
           ls -l "$OUT"
@@ -145,6 +150,9 @@ jobs:
           ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           for f in "$OUT"/*.zip; do
             aws s3 cp "$f" "s3://${R2_BUCKET}/$(basename "$f")" --endpoint-url "$ENDPOINT" --content-type application/zip
+          done
+          for f in "$OUT"/preview--*.mp3; do
+            [ -f "$f" ] && aws s3 cp "$f" "s3://${R2_BUCKET}/$(basename "$f")" --endpoint-url "$ENDPOINT" --content-type audio/mpeg --cache-control "max-age=86400"
           done
           aws s3 cp "$OUT/SHA256SUMS" "s3://${R2_BUCKET}/SHA256SUMS" --endpoint-url "$ENDPOINT" --content-type text/plain
           # (the index last: the apps only see a new version once its zip is there)

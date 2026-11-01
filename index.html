@@ -124,7 +124,7 @@
         <div class="editor-head"><div><h2 id="padTitle">Pad 1</h2><div class="status" id="status" aria-live="polite">Ready</div></div><div class="transport"><button id="keyboardButton">⌘K Keyboard</button><button class="danger" id="stopButton">Stop</button><button class="primary" id="startButton">Start Pad Sound</button></div></div>
         <div class="form-grid">
           <label class="input-only toggle big-toggle"><input id="inputEnabled" type="checkbox"> Audio input on</label>
-          <label>Name<input id="padName" data-path="name" maxlength="48"></label><label class="pad-only">Saved play key<select id="padKey" data-path="key"></select></label><label class="pad-only">Sample root key<select id="rootKey" data-path="rootKey"></select></label><label class="pad-only">Sound (built-in or imported)<select id="voice"></select></label><label class="pad-only">Chord<select id="padChord" data-path="chord"></select></label>
+          <label>Name<input id="padName" data-path="name" maxlength="48"></label><label class="pad-only">Saved play key<select id="padKey" data-path="key"></select></label><label class="pad-only">Sample root key<select id="rootKey" data-path="rootKey"></select></label><label class="pad-only">Sound (built-in or imported)<select id="voice"></select></label><div class="pad-only pad-hear" id="voiceHear"></div><label class="pad-only">Chord<select id="padChord" data-path="chord"></select></label>
           <label>Output volume<span class="control-line"><input id="level" data-path="level" type="range" min="0" max="100" step="1"><output id="levelOut"></output></span></label><label class="pad-only">Crossfade<span class="control-line"><input id="crossfade" data-path="crossfade" type="range" min="40" max="600" step="10"><output id="crossfadeOut"></output></span></label>
           <label class="pad-only">Sub octave layer<span class="control-line"><input data-path="octaves.sub" type="range" min="0" max="100" step="1"><output></output></span></label><label class="pad-only">Octave-up layer<span class="control-line"><input data-path="octaves.up" type="range" min="0" max="100" step="1"><output></output></span></label>
           <label class="pad-only">Auto-swell (fade-in time)<span class="control-line"><input data-path="swell.attack" type="range" min="0" max="12" step=".1"><output></output></span></label><label>Breathe (slow movement)<span class="control-line"><input data-path="swell.breathe" type="range" min="0" max="100" step="1"><output></output></span></label><label>Breathe speed<span class="control-line"><input data-path="swell.rate" type="range" min=".02" max=".6" step=".01"><output></output></span></label>
@@ -387,6 +387,7 @@
   <script src="js/structure.js"></script>
   <script src="js/stemsplit.js"></script>
   <script src="js/license.js"></script>
+  <script src="js/previews.js"></script>
   <script src="js/libraries.js"></script>
   <script src="js/community.js"></script>
   <script src="js/soundtest.js"></script>

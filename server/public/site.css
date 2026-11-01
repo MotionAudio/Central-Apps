@@ -481,3 +481,7 @@ table.tracks .stars{font-size:.92rem;letter-spacing:0}
 .sl-songs{margin:0 0 1rem;padding-left:1.4rem;display:grid;gap:.35rem}
 .sl-songs li{line-height:1.5}
 .sl-songs .btn{margin-left:.5rem}
+
+/* (10.2) Listen before you buy: the plan cards' previews */
+.plan-listen{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;font-size:.85rem}.plan-listen .pv-btn{min-width:0}.plan-listen a{font-size:.85rem}
+.lib-card .pv-list{margin:.2rem 0}
