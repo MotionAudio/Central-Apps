@@ -201,7 +201,7 @@ def card_names():
     return out
 
 
-def config_text(planned, positions, own=()):
+def config_text(planned, positions, own=(), cfg=None):
     rules = []
     for kind, name, desc, ch, poss in planned:
         card_pos = ["FL", "FR"] if ch == 2 else [("AUX%d" % i) for i in range(ch)]
@@ -228,18 +228,35 @@ context.properties = {
     }
   }
 ]
-""" % {"n": len(positions), "positions": " ".join(positions), "rules": "\n".join(rules), "objects": own_objects([o for o in own if any(p[1] == o[1] for p in planned)])}
+""" % {"n": len(positions), "positions": " ".join(positions), "rules": "\n".join(rules), "objects": own_objects([o for o in own if any(p[1] == o[1] for p in planned)], cfg)}
 
 
-def own_objects(own):
-    """A sink on each card's ALSA device (the jack, the DAC): PipeWire opens them straight, the same way every time."""
+# (10.1.1) the headphone jack's buffer. The Pi's jack is a "batch" device that moves sound in big chunks: with the small
+# buffer the rest of the outputs use, it runs dry many times a second and all you hear is crackling. Settings → Output
+# device → Headphone jack buffer; "safe" is the default.
+JACK_BUFFERS = {"low": (512, 512), "safe": (1024, 2048), "max": (2048, 8192)}   # (period size, headroom) in samples
+
+
+def jack_buffer(cfg=None):
+    name = str((cfg or {}).get("jackBuffer") or "safe")
+    return JACK_BUFFERS.get(name, JACK_BUFFERS["safe"])
+
+
+def own_objects(own, cfg=None):
+    """A sink on each card's ALSA device (the jack, the DAC): PipeWire opens them straight, the same way every time.
+    Neither is ever suspended when quiet (each suspend and wake-up is a click), and the jack gets its bigger buffer."""
     if not own:
         return ""
     items = []
     for kind, node, desc, cid, *_ in own:
+        extra = "session.suspend-timeout-seconds = 0 node.pause-on-idle = false"
+        if kind == "jack":
+            period, headroom = jack_buffer(cfg)
+            extra += " audio.format = \"S16LE\" audio.rate = 48000 api.alsa.period-size = %d api.alsa.headroom = %d" % (period, headroom)
         items.append("""  { factory = adapter
     args = { factory.name = api.alsa.pcm.sink node.name = "%s" node.description = "%s" media.class = "Audio/Sink"
-             api.alsa.path = "hw:CARD=%s,DEV=0" audio.channels = 2 audio.position = [ FL FR ] priority.session = 100 } }""" % (node, desc, cid))
+             api.alsa.path = "hw:CARD=%s,DEV=0" audio.channels = 2 audio.position = [ FL FR ] priority.session = 100
+             %s } }""" % (node, desc, cid, extra))
     return "context.objects = [\n" + "\n".join(items) + "\n]\n"
 
 
@@ -315,10 +332,22 @@ wireplumber.settings = {
 """
 
 
-def wp_conf(own):
+def wp_jack_rule(cfg=None):
+    """(10.1.1) When WirePlumber opens the jack itself (the fallback), it gets the same bigger buffer and no suspending."""
+    period, headroom = jack_buffer(cfg)
+    return """monitor.alsa.rules = [
+  { matches = [ { node.name = "~alsa_output.*bcm2835.*" } { node.name = "~alsa_output.*[Hh]eadphones.*" } ]
+    actions = { update-props = { api.alsa.period-size = %d api.alsa.headroom = %d session.suspend-timeout-seconds = 0 node.pause-on-idle = false } } }
+]
+""" % (period, headroom)
+
+
+def wp_conf(own, cfg=None):
     """WirePlumber's settings: no remembered outputs, and hands off the cards this script opens itself (both opening
     one device makes it busy for one of them)."""
     text = WP_CONF
+    if not own:
+        return text + wp_jack_rule(cfg)
     if own:
         cn = card_names()
         matches = []
@@ -462,7 +491,7 @@ def apply():
     target = os.path.join(home, ".config", "pipewire", "pipewire.conf.d")
     os.makedirs(target, exist_ok=True)
     path = os.path.join(target, "padpedal.conf")
-    text = config_text(planned, positions, own)
+    text = config_text(planned, positions, own, cfg)
     old = ""
     try:
         with open(path) as handle:
@@ -474,7 +503,7 @@ def apply():
     os.makedirs(DATA, exist_ok=True)
     with open(os.path.join(DATA, "audio-channels.json"), "w") as handle:
         json.dump({"channels": channel_names(planned, positions), "cards": [{"kind": p[0], "name": p[1], "desc": p[2], "channels": p[3]} for p in planned]}, handle)
-    if forget_stream_targets(home, wp_conf([o for o in own if any(p[1] == o[1] for p in planned)])) or old != text:
+    if forget_stream_targets(home, wp_conf([o for o in own if any(p[1] == o[1] for p in planned)], cfg)) or old != text:
         subprocess.run(["systemctl", "--user", "restart", "pipewire.service", "pipewire-pulse.service", "wireplumber.service"], env=env, timeout=30)
     for _ in range(30):
         result = subprocess.run(["pactl", "set-default-sink", "padpedal_out"], env=env, capture_output=True, text=True)

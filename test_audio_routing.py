@@ -173,5 +173,29 @@ check("instrument: an output that isn't there plays on 1-2", t_fit_channel)
 check("the DAC's card listed before the jack: the jack is still 1-2, the DAC 3-4, both opened straight on ALSA", t_dac_listed_first)
 check("no DAC board (switched off, overlay still loaded): nothing goes to the DAC, the jack is 1-2", t_no_dac)
 check("no headphone jack card: the DAC board is first", t_no_jack_card)
+
+
+def t_jack_buffer():
+    """(10.1.1) The jack's sink gets a bigger buffer and never suspends; the DAC's sink only never suspends."""
+    own = [("jack", "padpedal_jack", "Headphone jack", "Headphones", 0), ("i2s", "padpedal_dac", "DAC board", "sndrpihifiberry", 3)]
+    text = cfgmod.own_objects(own, {})
+    jack = text.split("padpedal_dac")[0]
+    assert "api.alsa.period-size = 1024" in jack and "api.alsa.headroom = 2048" in jack, jack
+    assert "session.suspend-timeout-seconds = 0" in jack and "node.pause-on-idle = false" in jack
+    dac = text.split("padpedal_dac")[1]
+    assert "api.alsa.headroom" not in dac and "session.suspend-timeout-seconds = 0" in dac
+    assert "api.alsa.period-size = 2048" in cfgmod.own_objects(own[:1], {"jackBuffer": "max"})
+    assert "api.alsa.period-size = 512" in cfgmod.own_objects(own[:1], {"jackBuffer": "low"})
+    assert "api.alsa.period-size = 1024" in cfgmod.own_objects(own[:1], {"jackBuffer": "nonsense"})
+    # the fallback (WirePlumber opens the jack): the same buffer through a rule
+    wp = cfgmod.wp_conf([], {"jackBuffer": "max"})
+    assert "bcm2835" in wp and "api.alsa.period-size = 2048" in wp and "api.alsa.headroom = 8192" in wp, wp
+    # the full config carries it
+    planned, pos = cfgmod.plan([("padpedal_jack", "Headphone jack", 2, "Headphones"), HDMI0], {"hdmi": False})   # (as apply plans it: our own sink stands in for the jack)
+    full = cfgmod.config_text(planned, pos, own[:1], {"jackBuffer": "max"})
+    assert "api.alsa.headroom = 8192" in full
+
+
+check("the headphone jack gets a bigger buffer (safe by default, low / max by setting) and never suspends - crackles with no sound", t_jack_buffer)
 print("%d passed, %d failed" % (passed, failed))
 sys.exit(1 if failed else 0)

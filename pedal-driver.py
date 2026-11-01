@@ -689,9 +689,49 @@ def jack_mixer():
     return None
 
 
+JACK_BUFFERS = ["low", "safe", "max"]   # (10.1.1) the headphone jack's buffer sizes, smallest to biggest (pad-pedal-audio-config has the numbers)
+
+
+def jack_xruns():
+    """(10.1.1) How many times the headphone jack's output ran dry since PipeWire started (each one is a crackle), from
+    pw-top's ERR column; None when it can't be read."""
+    code, out, _ = run(["pw-top", "-b", "-n", "2"], timeout=8, env=pulse_env())
+    if code != 0:
+        return None
+    worst = None
+    for line in out.splitlines():
+        if not re.search(r"padpedal_jack|bcm2835|[Hh]eadphones", line):
+            continue
+        cols = line.split()
+        # S ID QUANT RATE WAIT BUSY W/Q B/Q ERR FORMAT NAME: ERR is the number before the format
+        nums = [c for c in cols if re.match(r"^\d+$", c)]
+        if len(nums) >= 4:
+            try:
+                err = int(nums[-1])
+                worst = err if worst is None else max(worst, err)
+            except ValueError:
+                pass
+    return worst
+
+
 def audio_path_check(data_root, fix=True):
     """Where the sound goes, in plain words, for Settings → Audio → Test sound (and the problems found / fixed)."""
     found, fixed = [], []
+    # (10.1.1) crackling with no sound: the jack's output running dry. A bigger buffer for it, one step at a time.
+    xruns = jack_xruns()
+    if xruns:
+        acfg = read_json(os.path.join(data_root, "audio.json"), {}) or {}
+        cur = str(acfg.get("jackBuffer") or "safe")
+        nxt = JACK_BUFFERS[min(JACK_BUFFERS.index(cur) + 1, len(JACK_BUFFERS) - 1)] if cur in JACK_BUFFERS else "safe"
+        found.append("The headphone jack's sound ran dry %d times since the pedal started: that's the crackling." % xruns)
+        if fix and nxt != cur:
+            acfg["jackBuffer"] = nxt
+            write_json(os.path.join(data_root, "audio.json"), acfg)
+            ok, _text = reapply_audio()
+            if ok:
+                fixed.append("Gave the headphone jack a bigger buffer (%s). Press Test sound again; if it still crackles, pick the biggest under Settings → Output device." % {"safe": "safe", "max": "the biggest"}.get(nxt, nxt))
+        elif fix:
+            found.append("Its buffer is already the biggest. A USB sound card or the DAC board gives cleaner sound than the Pi's own jack.")
     cards = sound_cards()
     has_jack = any(re.match(r"(?i)headphones|bcm2835", c) for c in cards)
     cfg_txt = ""
@@ -10914,6 +10954,8 @@ class PedalDriver:
             elif action == "audio":
                 path = os.path.join(self.config["data_root"], "audio.json")
                 cfg = dict(read_json(path, {}) or {}, hdmi=bool(message.get("hdmi")), usbFirst=bool(message.get("usbFirst")))   # (keeps "dac")
+                if message.get("jackBuffer") in JACK_BUFFERS:
+                    cfg["jackBuffer"] = message["jackBuffer"]   # (10.1.1) the headphone jack's buffer
                 write_json(path, cfg)
                 run_privileged(SYSTEM_SCRIPT, "audio", "hdmi" if cfg["hdmi"] else "nohdmi", "usbfirst" if cfg["usbFirst"] else "jackfirst")
             if action in ("audio", "reapplyAudio"):   # the outputs made again now (a USB interface came or went, a setting changed)
