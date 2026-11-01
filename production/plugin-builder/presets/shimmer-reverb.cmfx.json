@@ -1,0 +1,27 @@
+{
+  "format": "central-fx", "version": 1, "name": "Shimmer Reverb", "author": "Motion Audio",
+  "description": "A big, airy reverb with a soft octave above. Lovely on keys, pads and clean guitar in slow songs.",
+  "params": [
+    { "id": "amount", "name": "Amount", "min": 0, "max": 1, "default": 0.35 },
+    { "id": "shimmer", "name": "Shimmer", "min": 0, "max": 1, "default": 0.45 },
+    { "id": "size", "name": "Size", "min": 0, "max": 1, "default": 0.88 },
+    { "id": "tone", "name": "Tone", "min": 1500, "max": 12000, "default": 6000, "unit": "Hz", "curve": "log" }
+  ],
+  "graph": {
+    "blocks": [
+      { "id": "in", "type": "input", "x": 40, "y": 160 },
+      { "id": "lowcut", "type": "filter", "x": 200, "y": 60, "props": { "mode": "highpass", "freq": 220, "q": 0.7 } },
+      { "id": "room", "type": "reverb", "x": 360, "y": 60, "props": { "size": 0.7, "damp": 0.35, "mix": 1, "predelay": 20 } },
+      { "id": "octave", "type": "pitch", "x": 520, "y": 60, "props": { "semitones": 12, "mix": { "param": "shimmer" }, "window": 60 } },
+      { "id": "hall", "type": "reverb", "x": 680, "y": 60, "props": { "size": { "param": "size" }, "damp": 0.3, "mix": 1, "width": 1 } },
+      { "id": "air", "type": "filter", "x": 840, "y": 60, "props": { "mode": "lowpass", "freq": { "param": "tone" }, "q": 0.6 } },
+      { "id": "blend", "type": "mix", "x": 1000, "y": 160, "props": { "mix": { "param": "amount" }, "law": "equal" } },
+      { "id": "out", "type": "output", "x": 1160, "y": 160 }
+    ],
+    "wires": [
+      { "from": "in.out", "to": "lowcut.in" }, { "from": "lowcut.out", "to": "room.in" }, { "from": "room.out", "to": "octave.in" },
+      { "from": "octave.out", "to": "hall.in" }, { "from": "hall.out", "to": "air.in" },
+      { "from": "in.out", "to": "blend.dry" }, { "from": "air.out", "to": "blend.wet" }, { "from": "blend.out", "to": "out.in" }
+    ]
+  }
+}

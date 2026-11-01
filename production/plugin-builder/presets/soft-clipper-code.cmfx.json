@@ -1,0 +1,10 @@
+{
+  "format": "central-fx", "version": 1, "name": "Soft Clipper (code)", "author": "Motion Audio",
+  "description": "A whole plugin written in the code language: rounds off peaks smoothly. Open the Code tab to see how it works.",
+  "params": [
+    { "id": "drive", "name": "Drive", "min": 0, "max": 24, "default": 6, "unit": "dB" },
+    { "id": "output", "name": "Output", "min": -24, "max": 6, "default": 0, "unit": "dB" }
+  ],
+  "graph": { "blocks": [], "wires": [] },
+  "code": "// Soft clipper: push the sound into a tanh curve, then bring the level back.\n@sample\nd = db2gain(drive)\nback = db2gain(output) / tanh(d)\noutL = tanh(inL * d) * back\noutR = tanh(inR * d) * back\n"
+}
