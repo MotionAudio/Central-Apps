@@ -7,7 +7,7 @@
     every stem, the song file, the mix and preview, hymns-index.json and SHA256SUMS; the band comes in with the energy;
   * tools/make-synths.py: ten synths, held ones exact loops, struck ones dying away;
   * tools/make-pad-loops.py: the eight 10.0 styles are exact loops in their key;
-  * tools/make-loops.py: drum loops of two bars at their tempo, ambient loops of 12 s in every key, all seamless;
+  * tools/make-loops.py: drum loops of four bars at their own tempos, ambient loops of 12 s in every key, all seamless;
   * the loops in a library zip install on the Pi (libraries.py): listed per groove with its files, each file found only
     inside its library; a kind the installer doesn't know is left out, not refused;
   * js/pedals.js: the 30 new pedals, every knob a control of its plugin, studio tools Central Plugins, the rest Central Pedals.
@@ -80,6 +80,12 @@ def main():
         check(len(hymns) >= 5 and MH.check(hymns) == [], "%d hymns, every verse fits its bars, every chord on a beat of its bar" % len(hymns), MH.check(hymns))
         check(all(h["public_domain"]["words"] < 1929 and h["public_domain"]["music"] < 1929 and h["public_domain"]["writers_died"] < 1955 for h in hymns),
               "every hymn is public domain: words and tune published before 1929, every writer dead more than 70 years")
+        import hymn_arranger as HA
+        styles = [h.get("style") for h in hymns]
+        check(all(st in HA.STYLES for st in styles) and len(set(styles)) == len(styles)
+              and all(snd in HA.SOUNDS and hasattr(HA.Band, "p_" + player) for st in HA.STYLES.values() for layers in st["stems"].values() for snd, player, _ in layers)
+              and len({(h["key"], h["bpm"], h["meter"]) for h in hymns}) == len(hymns),
+              "each hymn has its own style (band, feel and mix) and its own key and tempo; every style's instruments and players exist", styles)
         bad_chart, bad_lyrics = [], []
         for h in hymns:
             for s in MH.layout(h):
@@ -99,11 +105,11 @@ def main():
         ag = next(h for h in hymns if h["id"] == "amazing-grace")
         secs = MH.layout(ag)
         v1 = MH.chordpro_section(secs[1])
-        check(v1[0] == "A[G]mazing grace how [C]sweet the [G]sound" and v1[3] == "was [Em]blind but [D]now I [G]see.", "a pickup and a chord inside a word: 'A[G]mazing grace how [C]sweet the [G]sound'", v1)
+        check(v1[0] == "A[F]mazing grace how [Bb]sweet the [F]sound" and v1[3] == "was [Dm]blind but [C]now I [F]see.", "a pickup and a chord inside a word: 'A[F]mazing grace how [Bb]sweet the [F]sound'", v1)
         song = MH.song_file(ag, secs, 260.0, list(MH.ROLES))
         v = next(x for x in song["sections"] if x["name"] == "Verse 1")
         check(song["kind"] == "central-tracks-song" and song["bpb"] == 3 and v["bar"] == 9 and v["lyrics"].startswith("Amazing grace how sweet the sound\nthat saved a wretch like me.")
-              and song["chords"][0] == {"label": "G", "bass": None, "bar": 1, "beat": 1.0} and {s["name"]: s["mute"] for s in song["stems"]}["Click"] is True,
+              and song["chords"][0] == {"label": "F", "bass": None, "bar": 1, "beat": 1.0} and {s["name"]: s["mute"] for s in song["stems"]}["Click"] is True,
               "the song file: meter, sections at their bars with lyrics, chords at bar and beat, click and guide muted", {k: song[k] for k in ("bpb", "duration")})
         if shutil.which("node"):
             js = ("const C=require(%s); const out={};" % json.dumps(os.path.join(HERE, "js", "chords.js")) +
@@ -180,13 +186,14 @@ def main():
             for e in drums:
                 x, sr = read_wav(os.path.join(lout, "drums", e["file"]))
                 okd &= abs(len(x) / sr - e["bars"] * e["meter"] * 60.0 / e["bpm"]) < 0.002 and seamless(x) and float(np.max(np.abs(x))) > 0.5
-            check(okd, "ten grooves at 70 and 100 BPM, each exactly two bars long and seamless", [e["file"] for e in drums[:3]])
-        amb = ML.build_ambient(lout, pdir, log=lambda *a: None)
-        oka = len(amb) == 36 and {e["key"] for e in amb} == set(ML.KEYS)
+            check(okd and len({e["name"] for e in drums}) == len(ML.GROOVES) and len({e["bpm"] for e in drums}) > 10, "%d grooves, each at two tempos of its own, exactly four bars long and seamless" % len(ML.GROOVES), [e["file"] for e in drums[:3]])
+        styles = ML.ambient_styles(gm=GM if AUDIO else None)
+        amb = ML.build_ambient(lout, pdir, gm=GM if AUDIO else None, log=lambda *a: None)
+        oka = len(amb) == 12 * len(styles) and len(styles) >= 3 and {e["key"] for e in amb} == set(ML.KEYS)
         for e in amb[::5]:
             x, sr = read_wav(os.path.join(lout, "ambient", e["file"]))
             oka &= abs(len(x) / sr - 12.0) < 0.001 and seamless(x)
-        check(oka, "three ambient styles in all 12 keys, 12 s each, seamless")
+        check(oka, "%d ambient styles in all 12 keys, 12 s each, seamless" % len(styles), styles)
 
         print("\nLoops in a library, installed on the Pi (libraries.py):")
         if not AUDIO:   # (no drums rendered: a tiny one for the zip)

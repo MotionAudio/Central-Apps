@@ -687,9 +687,9 @@
    "id": "central-instrument-library",
    "approxMB": 560,
    "plan": "instrument",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Instrument Library",
-   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and ten drum loops for the texture channels (worship eighths, big ride, half-time, four on the floor, sixteenths, toms, brushes, waltz) at 70 and 100 BPM.",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell.",
    "sounds": [
     {
      "name": "Central Instrument Harps",
@@ -1330,7 +1330,7 @@
      "set": "drums",
      "name": "Drum loops",
      "license": "Motion Audio + CC0 1.0",
-     "credit": "Drum loops played by Motion Audio (tools/make-loops.py) on the library's drum kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums - CC0 1.0)",
+     "credit": "Drum and percussion loops played by Motion Audio (tools/make-loops.py) on the library's own kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums, VCSL hand and orchestral percussion - CC0 1.0)",
      "sources": [
       {
        "text": "Grooves written and rendered by Motion Audio (tools/make-loops.py)",
@@ -1341,6 +1341,11 @@
        "text": "Drum samples: sfzinstruments / Karoryfer kits (see the Drum Kits bank)",
        "license": "CC0 1.0",
        "url": "https://github.com/sfzinstruments"
+      },
+      {
+       "text": "Hand and orchestral percussion: Versilian Community Sample Library (VCSL) by Versilian Studios (see the Percussion bank)",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL"
       }
      ]
     }
@@ -3196,9 +3201,9 @@
    "id": "central-pads-library",
    "approxMB": 240,
    "plan": "pads",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Pads Library",
-   "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is a seamless stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too Plus three ambient loops for the texture channels - Sparkle, Drift and Breath - in every key.",
+   "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is a seamless stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too Plus eight ambient loops for the texture channels in every key, each its own colour - Sparkle (bells), Drift (two pads trading places), Breath (air), Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain.",
    "pads": [
     {
      "name": "Warm",
@@ -3445,13 +3450,28 @@
     {
      "set": "ambient",
      "name": "Ambient loops",
-     "license": "Motion Audio",
-     "credit": "Ambient loops made by Motion Audio (tools/make-loops.py: synthesised, no recording)",
+     "license": "Motion Audio + CC0 1.0",
+     "credit": "Ambient loops made by Motion Audio (tools/make-loops.py) from our synthesised pads and bells and the libraries' own instruments (piano, harp: VCSL; guitar and bowed bass: Karoryfer; cello: VSCO 2 CE - all CC0 1.0)",
      "sources": [
       {
-       "text": "Made by Motion Audio (tools/make-loops.py: synthesised, no recording)",
+       "text": "Made by Motion Audio (tools/make-loops.py)",
        "license": "Motion Audio - sold with Central Pads",
        "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-loops.py"
+      },
+      {
+       "text": "Piano and harp: Versilian Community Sample Library (VCSL) by Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL"
+      },
+      {
+       "text": "Guitar and bowed bass: Karoryfer Samples (Black And Green Guitars, Meatbass)",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments"
+      },
+      {
+       "text": "Cello: Versilian Studios Chamber Orchestra 2 Community Edition (VSCO 2 CE)",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VSCO-2-CE"
       }
      ]
     }
