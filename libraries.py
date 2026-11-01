@@ -38,7 +38,8 @@ log = logging.getLogger("pedal-driver.libraries")
 
 PLANS = ("keys", "instrument", "plugins", "pedals", "pads")
 KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "plugin")
-PLUGIN_FORMATS = ("lv2", "vst3", "clap", "component")
+PLUGIN_FORMATS = ("lv2", "vst3", "clap", "component", "cmfx")   # (10.2) cmfx: a Central FX plugin, one .cmfx.json file
+MAX_CMFX = 512 * 1024
 MAX_PLUGIN = 300 * 1024 * 1024    # a community plugin bundle, unpacked
 PAD_KEYS = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 MAX_DOWNLOAD = 2 * 1024 ** 3        # a library zip
@@ -200,6 +201,21 @@ class LibraryStore:
         dest = os.path.join(self.plugins_dir(), lib_id)
         shutil.rmtree(dest, ignore_errors=True)
         os.makedirs(dest, exist_ok=True)
+        if fmt == "cmfx":   # (10.2) a Central FX plugin: the .cmfx.json itself (our own core plays it, no program in it)
+            try:
+                plugin = json.loads(data.decode("utf-8")) if len(data) <= MAX_CMFX else None
+            except (ValueError, UnicodeDecodeError):
+                plugin = None
+            if not isinstance(plugin, dict) or plugin.get("format") != "central-fx" or not bundle.endswith(".cmfx.json"):
+                shutil.rmtree(dest, ignore_errors=True)
+                raise LibraryError("a Central FX plugin in that library isn't a valid plugin file")
+            if want.get(bundle) != sha256_bytes(data):
+                shutil.rmtree(dest, ignore_errors=True)
+                raise LibraryError("a plugin's file doesn't match what Motion Audio checked - nothing was installed")
+            with open(os.path.join(dest, bundle), "wb") as handle:
+                handle.write(data)
+            return {"name": str(it.get("name") or plugin.get("name") or bundle)[:80], "format": fmt, "platform": "all", "bundle": bundle,
+                    "path": os.path.join(dest, bundle), "binaries": [{"name": bundle, "sha256": want[bundle]}]}
         real_dest = os.path.realpath(dest)
         total, seen = 0, {}
         try:
