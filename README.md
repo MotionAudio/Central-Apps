@@ -221,6 +221,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 10.1.1:** Sound on the Pi's headphone jack without crackles (a bigger buffer, chosen under Settings → Output device; Test sound steps it up by itself); Central Services says plainly when the website isn't reachable.
+
 **New in version 10.1.0:** A new lighting page with the stage full width, Pause, quick slots and setlists; Talk into the in-ears from Central Control and Central Usage; libraries download from inside the apps; an admin code for changing a computer's job; sounds, plugins and pedals made by the community, checked by Motion Audio and included in the yearly packs, with their makers paid.
 
 **New in version 10.0.1:** Sound on the Central Pedal's headphone jack (always outputs 1-2); settings apply without turning the pedal off; the pedal updates itself; each HDMI port shows its own choice; Settings one group at a time; the 3.5" screen follows mouse clicks; Linux updates wait instead of failing; Central Usage is back to its normal size.
