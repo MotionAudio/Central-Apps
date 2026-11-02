@@ -300,7 +300,9 @@ class Instrument:
             seg[:, 0] *= gl
             seg[:, 1] *= gr
             i0 = int(round(v["t"] * SR))
-            i1 = min(n_out, i0 + m)
+            if i0 < 0:                       # (a note played a hair before the song's first beat)
+                seg, i0 = seg[-i0:], 0
+            i1 = min(n_out, i0 + len(seg))
             if i1 > i0:
                 out[i0:i1] += seg[:i1 - i0]
         return out

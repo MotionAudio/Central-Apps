@@ -108,11 +108,11 @@ def main():
         ag = next(h for h in hymns if h["id"] == "amazing-grace")
         secs = MH.layout(ag)
         v1 = MH.chordpro_section(secs[1])
-        check(v1[0] == "A[F]mazing grace how [Bb]sweet the [F]sound" and v1[3] == "was [Dm]blind but [C]now I [F]see.", "a pickup and a chord inside a word: 'A[F]mazing grace how [Bb]sweet the [F]sound'", v1)
+        check(v1[0] == "A[G]mazing grace how [C]sweet the [G]sound" and v1[3] == "was [Em]blind but [D]now I [G]see.", "a pickup and a chord inside a word: 'A[G]mazing grace how [C]sweet the [G]sound'", v1)
         song = MH.song_file(ag, secs, 260.0, list(MH.ROLES))
         v = next(x for x in song["sections"] if x["name"] == "Verse 1")
         check(song["kind"] == "central-tracks-song" and song["bpb"] == 3 and v["bar"] == 9 and v["lyrics"].startswith("Amazing grace how sweet the sound\nthat saved a wretch like me.")
-              and song["chords"][0] == {"label": "F", "bass": None, "bar": 1, "beat": 1.0} and {s["name"]: s["mute"] for s in song["stems"]}["Click"] is True,
+              and song["chords"][0] == {"label": "G", "bass": None, "bar": 1, "beat": 1.0} and {s["name"]: s["mute"] for s in song["stems"]}["Click"] is True,
               "the song file: meter, sections at their bars with lyrics, chords at bar and beat, click and guide muted", {k: song[k] for k in ("bpb", "duration")})
         if shutil.which("node"):
             js = ("const C=require(%s); const out={};" % json.dumps(os.path.join(HERE, "js", "chords.js")) +
