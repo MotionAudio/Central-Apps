@@ -44,6 +44,16 @@ contextBridge.exposeInMainWorld("CU", {
   // on(fn(state, event)) - events: starting, started, stopping, stopped, error, mp3, repaired, tick
   recorder: { start: (opts) => ipcRenderer.invoke("rec-start", opts), stop: () => ipcRenderer.invoke("rec-stop"), state: () => ipcRenderer.invoke("rec-state"),
     on: (fn) => ipcRenderer.on("rec-event", (_e, st, ev) => fn(st, ev)), chooseDir: () => ipcRenderer.invoke("rec-choose-dir"), open: (which) => ipcRenderer.invoke("rec-open", which) },
+  // (10.2) shorts from the service recordings (shorts/index.js) - the main admin's computer
+  shorts: {
+    status: () => ipcRenderer.invoke("shorts-status"), recordings: () => ipcRenderer.invoke("shorts-recordings"), settings: (patch) => ipcRenderer.invoke("shorts-settings", patch), resetSettings: () => ipcRenderer.invoke("shorts-settings-reset"),
+    make: (id) => ipcRenderer.invoke("shorts-make", id), cancel: () => ipcRenderer.invoke("shorts-cancel"), list: (id) => ipcRenderer.invoke("shorts-list", id),
+    update: (id, shortId, patch) => ipcRenderer.invoke("shorts-update", id, shortId, patch), remove: (id, shortId) => ipcRenderer.invoke("shorts-delete", id, shortId), add: (id, at) => ipcRenderer.invoke("shorts-add", id, at),
+    reveal: (id) => ipcRenderer.invoke("shorts-reveal", id), download: (id, shortId) => ipcRenderer.invoke("shorts-download", id, shortId), pickFile: (kind) => ipcRenderer.invoke("shorts-pick-file", kind),
+    social: (acct) => ipcRenderer.invoke("shorts-social", acct), connect: (platform, acct) => ipcRenderer.invoke("shorts-connect", platform, acct), disconnect: (platform, acct) => ipcRenderer.invoke("shorts-disconnect", platform, acct),
+    post: (id, shortId, platform, acct) => ipcRenderer.invoke("shorts-post", id, shortId, platform, acct), history: () => ipcRenderer.invoke("shorts-history"), openUrl: (url) => ipcRenderer.invoke("shorts-open-url", url),
+    mark: (d) => ipcRenderer.send("shorts-mark", d), on: (fn) => ipcRenderer.on("shorts-event", (_e, m) => fn(m))
+  },
   // talkback (talk.js) when this computer is the audio host: start({ kind, targets, dim, src, ch }), the mic's "TKA1" frames, stop()
   talk: { start: (o) => ipcRenderer.invoke("talk-start", o), stop: () => ipcRenderer.invoke("talk-stop"), audio: (frame) => ipcRenderer.send("talk-audio", frame), state: () => ipcRenderer.invoke("talk-state"),
     on: (fn) => ipcRenderer.on("talk-event", (_e, ev) => fn(ev)), onDesk: (fn) => ipcRenderer.on("talk-desk-audio", (_e, frames, rate, pcm, name) => fn(pcm, frames, rate, name)) },

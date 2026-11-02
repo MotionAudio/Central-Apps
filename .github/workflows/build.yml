@@ -77,6 +77,7 @@ jobs:
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
           bash tools/ci-run.sh "lights auto test" node central-usage/test-lights-auto.mjs
           bash tools/ci-run.sh "lights room test (seats, the light on them)" node central-usage/test-lights-room.mjs
+          bash tools/ci-run.sh "shorts test (picking the moments, captions, a whole made-up service through the pinned ffmpeg)" node central-usage/test-shorts.mjs central-usage/native/build/ffmpeg
           python3 -c "import numpy" 2>/dev/null || python3 -m pip install --quiet numpy
           bash tools/ci-run.sh "library test (pedals, plans, the orchestra builder)" python3 test_library.py
           bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py

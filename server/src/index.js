@@ -33,6 +33,7 @@ import * as setlists from "./setlists.js";
 import * as creators from "./creators.js";
 import * as pco from "./pco.js";
 import * as ccli from "./ccli.js";
+import * as social from "./social.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -102,6 +103,7 @@ previews.routes(api, { wrap, bad });   // (10.2: GET /tracks/:id/preview.mp3 - 3
 creators.routes(api, app, { wrap, requireUser });   // (10.1: makers and their uploads, the community items, the review site)
 pco.routes(api, app, { wrap, requireUser });   // (10.2: Planning Center plans -> setlists)
 ccli.routes(api, { wrap, requireUser });       // (10.2: CCLI settings, song usage and the report)
+social.routes(api, { wrap, requireUser });   // (10.2: the church's YouTube / Facebook / Instagram / TikTok, for posting shorts)
 // a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first
 setlists.routes(api, { wrap, requireUser, addTrack: async (u, id) => {
   const t = await liveTrack(id);

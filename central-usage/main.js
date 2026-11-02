@@ -213,6 +213,10 @@ const videoSvc = require("./video-service").setup({
 });
 if (process.platform === "darwin") app.whenReady().then(() => { try { require("electron").systemPreferences.askForMediaAccess("camera"); } catch (_) { } });
 require("./asr").setupAsr({ ipcMain, app, getWin: () => win });
+// (10.2) shorts: the good parts of each service recording, made into vertical videos (main admin's computer)
+const shortsSvc = require("./shorts").setup({ ipcMain, app, getWin: () => win, svc, shell: require("electron").shell, dialog: require("electron").dialog,
+  videoDir: () => videoSvc.recordDir(), ffmpeg: () => require("./video-service").findFfmpeg(app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native", "build")) });
+app.on("will-quit", () => { try { shortsSvc.stop(); } catch (_) { } });
 require("./studio").setup({ ipcMain, app, getWin: () => win, binDir: app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native", "build"),   // the Studio tab: sounds, projects, the low-delay player
   soundsDir: app.isPackaged ? path.join(process.resourcesPath, "sounds") : path.join(__dirname, "native", "sounds") });   // lyrics from a vocal track (speech model on this computer)
 app.on("before-quit", () => { try { dmx.blackout(); } catch (_) { } try { svc.stop(); } catch (_) { } });

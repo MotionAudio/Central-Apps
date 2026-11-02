@@ -686,3 +686,17 @@ CREATE TABLE IF NOT EXISTS ccli_usage (
   UNIQUE (scope, song_key, kind, day)
 );
 CREATE INDEX IF NOT EXISTS ccli_usage_scope_day ON ccli_usage (scope, day);
+
+-- ---------------------------------------------------------------- shorts (10.2)
+-- a church's YouTube / Meta (Facebook + Instagram) / TikTok connection for posting its shorts. scope: 'c:<church id>'
+-- (or 'u:<user id>' for someone without a church); the tokens are encrypted with TOKEN_SECRET
+CREATE TABLE IF NOT EXISTS social_accounts (
+  scope        TEXT NOT NULL,
+  platform     TEXT NOT NULL CHECK (platform IN ('youtube','meta','tiktok')),
+  account      TEXT NOT NULL DEFAULT '',
+  data_enc     TEXT NOT NULL,
+  connected_by TEXT NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (scope, platform)
+);

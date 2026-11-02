@@ -45,6 +45,19 @@ services:
         sync: false
       - key: TWILIO_FROM         # the Twilio phone number the codes come from, e.g. +15125550100
         sync: false
+      # posting shorts from Central Control (docs/SHORTS.md): each platform stays off until its app keys are here
+      - key: YOUTUBE_CLIENT_ID   # Google Cloud → APIs & Services → Credentials → OAuth client (YouTube Data API v3)
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: META_APP_ID         # Meta for Developers → your app (Facebook Login, Pages, Instagram Graph API)
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: TIKTOK_CLIENT_KEY   # TikTok for Developers → your app (Login Kit, Content Posting API)
+        sync: false
+      - key: TIKTOK_CLIENT_SECRET
+        sync: false
   - type: cron
     name: motion-audio-payouts
     runtime: docker
