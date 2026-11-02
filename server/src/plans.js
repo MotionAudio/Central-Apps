@@ -29,7 +29,7 @@ function newPackageKey() { let s = "S"; for (let i = 0; i < 15; i++) s += ABC[cr
 const day = (d) => new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: config.timeZone || "America/Chicago" });
 const APPS = { pedal: "Central Pedal", "pedal-control": "Central Pedal Control", control: "Central Control", usage: "Central Usage" };
 const MAIN_PLANS = PLAN_IDS.filter((id) => id !== PADS_PLAN);
-const planNames = (plans0) => { const plans = withPads(plans0); return MAIN_PLANS.every((id) => plans.includes(id)) ? "all the sound plans" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(" and "); };
+const planNames = (plans0) => { const plans = withPads(plans0); return MAIN_PLANS.every((id) => plans.includes(id)) ? "all the plans" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(" and "); };
 export const devicesRule = () => PACKAGE_DEVICES + " of your devices at a time, each a different app (for example Central Usage, Central Control and a Central Pedal)";
 
 // a subscription counts while Stripe says it's on and it's paid through a date still ahead. A renewal that didn't go

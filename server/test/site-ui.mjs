@@ -50,8 +50,8 @@ try {
   await page.goto(base + "/", { waitUntil: "networkidle" }); await page.waitForTimeout(400);
   ok(await page.$eval("h1", (e) => e.textContent.length > 10), "the page opens");
   ok(await page.$$eval("#pedalBuy [data-add=pedal]", (x) => x.length) === 1 && await page.$$eval("#packs .tier", (x) => x.length) === 4 && await page.$$eval("#rack .pl-row", (x) => x.length) >= 4 && /1 main admin \+ 2 admins/.test(await page.textContent("#packs .tier")), "the store: the pedal, four packs (Lite: 1 main admin + 2 admins…), the apps and Central Services slots");
-  ok(await page.$$eval("#planCards .tier", (x) => x.length) === 5 && /Central Keys/.test(await page.textContent("#planCards")) && /\$70/.test(await page.textContent("#planCards")) && /Central Pads/.test(await page.textContent("#planCards")) && /\$40/.test(await page.textContent("#planCards")) && /Included in every other plan/.test(await page.textContent("#planCards")) && /\$240/.test(await page.textContent("#planAll")) && await page.$$eval("#planBundles .bundle-row", (x) => x.length) === 5 && /package key/.test(await page.textContent("#plans")),
-    "the store: sound plans (five with Central Pads, all of them for $240, five church bundles), each a package key");
+  ok(await page.$$eval("#planCards .tier", (x) => x.length) === 6 && /Central Utility/.test(await page.textContent("#planCards")) && /\$50/.test(await page.textContent("#planCards")) && /Central Keys/.test(await page.textContent("#planCards")) && /\$70/.test(await page.textContent("#planCards")) && /Central Pads/.test(await page.textContent("#planCards")) && /\$40/.test(await page.textContent("#planCards")) && /Included in every sound plan/.test(await page.textContent("#planCards")) && /\$270/.test(await page.textContent("#planAll")) && await page.$$eval("#planBundles .bundle-row", (x) => x.length) === 5 && /package key/.test(await page.textContent("#plans")),
+    "the store: the plans (four sound plans with Central Pads, Central Pads, 10.2: Central Utility $50; all of them for $270, five church bundles), each a package key");
   ok((await page.$$eval(".keydefs dt", (d) => d.map((x) => x.textContent))).join() === "P,A,U,S,Slots", "the key legend: P, A, U, S (sound plan packages) and Slots (Central Services)");
   // Downloads is public: anyone gets every app (no keys shown until signed in; keys come by email and on Account)
   await page.evaluate(() => { location.hash = "downloads"; }); await page.waitForSelector("#downloads:not([hidden]) .dl-card", { timeout: 6000 }).catch(() => {});
@@ -110,14 +110,14 @@ try {
   await page.click(".modal [data-close]"); await page.waitForTimeout(800);
   ok(/Free trial \(7FREE\)/.test(await page.textContent("#churchCard")), "the church page shows the trial");
   await page.waitForFunction(() => /S[A-Z0-9]{3}-/.test((document.querySelector("#pkgCard") || {}).textContent || ""), null, { timeout: 5000 }).catch(() => {});
-  ok(/All sound plans/.test(await page.textContent("#pkgCard")) && /free trial/.test(await page.textContent("#pkgCard")) && /Settings → Packages/.test(await page.textContent("#pkgCard")), "Sound plans on the Account page: the trial's package key, and where to paste it", await page.textContent("#pkgCard"));
+  ok(/All plans/.test(await page.textContent("#pkgCard")) && /free trial/.test(await page.textContent("#pkgCard")) && /Settings → Packages/.test(await page.textContent("#pkgCard")), "Sound plans on the Account page: the trial's package key, and where to paste it", await page.textContent("#pkgCard"));
   ok(!!(await waitMail(OWNER, /package key/i)), "...and it came by email");
   // sound plans in the cart: they check out on their own (yearly)
   await page.click("#planAll [data-plan=all]"); await page.click("#planBundles [data-bundle='8']");
   ok((await page.textContent("#cartBtn")).includes("2"), "all the plans and a bundle for 8 in the cart");
   await page.click("#cartBtn"); await page.waitForSelector(".modal .cart-plans");
   const pc = await page.textContent(".modal");
-  ok(/Sound plans/.test(pc) && /All sound plans/.test(pc) && /\$240\.00 a year/.test(pc) && /Sound plans for 8 people/.test(pc) && /\$1,?380\.00 a year/.test(pc) && await page.$("#plGo") && await page.$("#bnGo") && !(await page.$("#checkout")), "the cart: the plans with their own Check out buttons", pc.replace(/\s+/g, " "));
+  ok(/Sound plans/.test(pc) && /All plans/.test(pc) && /\$270\.00 a year/.test(pc) && /Sound plans for 8 people/.test(pc) && /\$1,?410\.00 a year/.test(pc) && await page.$("#plGo") && await page.$("#bnGo") && !(await page.$("#checkout")), "the cart: the plans with their own Check out buttons", pc.replace(/\s+/g, " "));
   await shot("cart-plans");
   await page.click("#clear"); await page.waitForTimeout(200);
   // who it's for: Just me, or a church or team

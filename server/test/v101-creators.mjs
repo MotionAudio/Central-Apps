@@ -243,7 +243,8 @@ try {
   ok((await C.sharePacks(M)).already === true, "a month is worked out once (safe to run twice)");
   ok(C.splitPayment(24000, ["keys", "plugins", "instrument", "pedals", "pads"]).pads === 24000 * 4000 / 42000, "a bundle splits by the plans' prices");
   await C.reversePlanPayment("in_keys");
-  ok((await C.packIncome("2026-10")).keys === 0 && (await one("SELECT reversed FROM plan_payments WHERE invoice_id='in_keys'")).reversed, "a refund or chargeback: the payment stops counting from then on (months already shared stay as they were)");
+  const nowM = new Date().toISOString().slice(0, 7);   // (refunded today: this month on no longer counts it - in_keys, paid in August, would still be counting)
+  ok((await C.packIncome(nowM < "2027-08" ? nowM : "2027-07")).keys === 0 && (await one("SELECT reversed FROM plan_payments WHERE invoice_id='in_keys'")).reversed, "a refund or chargeback: the payment stops counting from then on (months already shared stay as they were)");
   await C.recordPlanPayment({ id: "in_hook", amount_paid: 7000, status_transitions: { paid_at: Math.floor(Date.parse("2026-08-10") / 1000) } }, null, ["keys"]);
   ok((await one("SELECT plans FROM plan_payments WHERE invoice_id='in_hook'")).plans.join() === "keys,pads", "a plan's invoice.paid is kept with its plans (Central Pads with every plan)");
 

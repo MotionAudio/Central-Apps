@@ -477,6 +477,30 @@
     },
     {
      "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--analog-sweep-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--analog-sweep-pad.mp3",
+     "seconds": 30,
+     "preset": "Analog Sweep Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--dark-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--dark-pad.mp3",
+     "seconds": 30,
+     "preset": "Dark Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--bell-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--bell-pad.mp3",
+     "seconds": 30,
+     "preset": "Bell Pad"
+    },
+    {
+     "kind": "sound",
      "name": "Central Keys Synths",
      "file": "preview--central-keys--sound--synths--saw-lead.mp3",
      "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--saw-lead.mp3",
@@ -714,6 +738,27 @@
      "name": "Slow Swell Pad",
      "file": "preview--central-keys--preset--slow-swell-pad.mp3",
      "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--slow-swell-pad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Analog Sweep",
+     "file": "preview--central-keys--preset--analog-sweep.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--analog-sweep.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Dark Pad Bed",
+     "file": "preview--central-keys--preset--dark-pad-bed.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--dark-pad-bed.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Bell Pad Sparkle",
+     "file": "preview--central-keys--preset--bell-pad-sparkle.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--bell-pad-sparkle.mp3",
      "seconds": 30
     },
     {
@@ -1141,6 +1186,86 @@
      "name": "Brushes Waltz",
      "file": "preview--central-instrument--loop--brushes-waltz.mp3",
      "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--brushes-waltz.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Gospel Shuffle",
+     "file": "preview--central-instrument--loop--gospel-shuffle.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--gospel-shuffle.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Brushes Swing",
+     "file": "preview--central-instrument--loop--brushes-swing.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--brushes-swing.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "6/8 Ballad",
+     "file": "preview--central-instrument--loop--6-8-ballad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--6-8-ballad.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "6/8 Celtic Toms",
+     "file": "preview--central-instrument--loop--6-8-celtic-toms.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--6-8-celtic-toms.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Train Beat",
+     "file": "preview--central-instrument--loop--train-beat.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--train-beat.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Kick and Clap",
+     "file": "preview--central-instrument--loop--kick-and-clap.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--kick-and-clap.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Cajon Groove",
+     "file": "preview--central-instrument--loop--cajon-groove.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--cajon-groove.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Shaker and Congas",
+     "file": "preview--central-instrument--loop--shaker-and-congas.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--shaker-and-congas.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Frame Drum 6/8",
+     "file": "preview--central-instrument--loop--frame-drum-6-8.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--frame-drum-6-8.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Cinematic Swell",
+     "file": "preview--central-instrument--loop--cinematic-swell.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-instrument--loop--cinematic-swell.mp3",
      "seconds": 30,
      "set": "drums"
     },
@@ -2242,7 +2367,7 @@
    "version": "1.2",
    "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is built its own way (its own voices, movement, stereo and reverb) and is a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too. Plus eight ambient loops for the texture channels in every key, each its own colour - Sparkle (bells), Drift (two pads trading places), Breath (air), Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain.",
    "file": "central-pads-library-1.2.zip",
-   "size": 480000000,
+   "size": 420000000,
    "approximate": true,
    "sha256": null,
    "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pads-library-1.2.zip",
@@ -2615,8 +2740,125 @@
      "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loop--breath.mp3",
      "seconds": 30,
      "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Felt Piano",
+     "file": "preview--central-pads--loop--felt-piano.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loop--felt-piano.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Guitar Swells",
+     "file": "preview--central-pads--loop--guitar-swells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loop--guitar-swells.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Cello Drone",
+     "file": "preview--central-pads--loop--cello-drone.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loop--cello-drone.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Choir Air",
+     "file": "preview--central-pads--loop--choir-air.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loop--choir-air.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Harp Rain",
+     "file": "preview--central-pads--loop--harp-rain.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads--loop--harp-rain.mp3",
+     "seconds": 30,
+     "set": "ambient"
     }
    ],
+   "previewsExpected": true
+  },
+  {
+   "id": "central-utility-library",
+   "plan": "utility",
+   "planName": "Central Utility",
+   "title": "Central Utility Library",
+   "version": "1.0",
+   "summary": "Fourteen metronome click sets (wood block, rim, hi-hat, cowbell, clave, shaker, side stick, triangle, mechanical tick, beeps, square blip, low tom, finger snap), each with its own accent, for a song's Click sound; and 24 lighting looks for the lights page (sunrise, ocean, candlelight, backlit cross, royal purple, gospel celebration, hymn rock, communion, baptism, Christmas, Easter, sermon, kids, youth and more). Slide templates, lyric backgrounds and graphics come next. All made by Motion Audio.",
+   "file": "central-utility-library-1.0.zip",
+   "size": 2000000,
+   "approximate": true,
+   "sha256": null,
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-utility-library-1.0.zip",
+   "contents": {
+    "sounds": [],
+    "presets": [],
+    "boards": [],
+    "irs": [],
+    "pads": [],
+    "loops": [],
+    "clicks": [
+     "Wood block",
+     "Rim click",
+     "Closed hi-hat",
+     "Cowbell",
+     "Clave",
+     "Shaker",
+     "Side stick",
+     "Triangle",
+     "Mechanical tick",
+     "Digital beep",
+     "Soft beep",
+     "Square blip",
+     "Low tom",
+     "Finger snap"
+    ],
+    "looks": [
+     "Sunrise",
+     "Ocean",
+     "Candlelight",
+     "Cross (backlit)",
+     "Royal purple",
+     "Forest",
+     "Embers",
+     "Ice",
+     "Gospel celebration",
+     "Hymn rock",
+     "Reflection",
+     "Communion",
+     "Baptism (water)",
+     "Christmas",
+     "Easter morning",
+     "Sermon (clean front light)",
+     "Announcements",
+     "Kids' worship",
+     "Youth night",
+     "Walk-out",
+     "Slow dawn",
+     "Starry night",
+     "Revival",
+     "Silent prayer"
+    ]
+   },
+   "counts": {
+    "sound": 0,
+    "board": 0,
+    "preset": 0,
+    "ir": 0,
+    "click": 14,
+    "pad": 0,
+    "loop": 0,
+    "look": 24
+   },
+   "credits": [],
+   "sources": [],
+   "previews": [],
    "previewsExpected": true
   }
  ]

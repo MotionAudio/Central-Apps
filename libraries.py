@@ -36,8 +36,11 @@ import zipfile
 
 log = logging.getLogger("pedal-driver.libraries")
 
-PLANS = ("keys", "instrument", "plugins", "pedals", "pads")
-KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "plugin")
+PLANS = ("keys", "instrument", "plugins", "pedals", "pads", "utility")
+# (10.2) Central Utility adds lighting looks, slide templates, lyric backgrounds and graphics: kept here as files and
+# records (Central Control shows them); its clicks join the click sounds a song can pick.
+KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic")
+EXTRA_KINDS = {"look": "looks", "slide": "slides", "background": "backgrounds", "graphic": "graphics"}
 PLUGIN_FORMATS = ("lv2", "vst3", "clap", "component", "cmfx")   # (10.2) cmfx: a Central FX plugin, one .cmfx.json file
 MAX_CMFX = 512 * 1024
 MAX_PLUGIN = 300 * 1024 * 1024    # a community plugin bundle, unpacked
@@ -339,6 +342,36 @@ class LibraryStore:
                 return real if real.startswith(base + os.sep) and os.path.isfile(real) else None
         return None
 
+    def clicks(self):
+        """(10.2) The installed click sets: [{"id": "<library>/<name>", "name", "library", "tier", "accent": file id, "beat": file id}] -
+        a file id is its name in the library (what /libraries/click takes). A click without a role is both."""
+        out = {}
+        for r in self.installed():
+            for c in r.get("clicks") or []:
+                if not os.path.isfile(c.get("file") or ""):
+                    continue
+                k = "%s/%s" % (r["id"], c.get("name"))
+                e = out.setdefault(k, {"id": k, "name": c.get("name"), "library": r["id"], "tier": r.get("plan")})
+                fid = os.path.basename(c["file"])
+                if c.get("role") in ("accent", "beat"):
+                    e[c["role"]] = fid
+                else:
+                    e.setdefault("accent", fid)
+                    e.setdefault("beat", fid)
+        return [e for e in out.values() if e.get("beat") or e.get("accent")]
+
+    def click_file(self, lib_id, file_id):
+        """(10.2) One click's WAV - only a file this library installed - or None."""
+        if not ID_RE.match(str(lib_id or "")) or not re.match(r"^[\w.-]{1,120}$", str(file_id or "")):
+            return None
+        rec = self.record(lib_id) or {}
+        base = os.path.realpath(os.path.join(self.root, lib_id, "clicks"))
+        for c in rec.get("clicks") or []:
+            if os.path.basename(c.get("file") or "") == file_id:
+                real = os.path.realpath(c.get("file") or "")
+                return real if real.startswith(base + os.sep) and os.path.isfile(real) else None
+        return None
+
     def pad_file(self, lib_id, style, key):
         """The loop of one pad style in one key - only a file this library installed - or None."""
         if not ID_RE.match(str(lib_id or "")) or key not in PAD_KEYS:
@@ -513,7 +546,10 @@ class LibraryStore:
                 p = os.path.join(folder, safe_name(it["file"], "click.wav"))
                 with open(p, "wb") as handle:
                     handle.write(data)
-                rec["clicks"].append({"name": str(it.get("name") or "")[:60], "file": p, "tier": tier})
+                c = {"name": str(it.get("name") or "")[:60], "file": p, "tier": tier}
+                if it.get("role") in ("accent", "beat"):
+                    c["role"] = it["role"]   # (10.2: a click set is two clicks with the same name, the accent and the beat)
+                rec["clicks"].append(c)
             elif kind == "pad":
                 key = str(it.get("key") or "")
                 if key not in PAD_KEYS or not data[:4] == b"RIFF":
@@ -543,6 +579,13 @@ class LibraryStore:
                 rec["loops"].append(entry)
             elif kind == "plugin":
                 rec["plugins"].append(self._unpack_plugin(lib_id, it, data))
+            elif kind in EXTRA_KINDS:   # (10.2: Central Utility's looks, slide templates, backgrounds, graphics)
+                folder = os.path.join(self.root, lib_id, EXTRA_KINDS[kind])
+                os.makedirs(folder, exist_ok=True)
+                p = os.path.join(folder, safe_name(it["file"], kind + ".json"))
+                with open(p, "wb") as handle:
+                    handle.write(data)
+                rec.setdefault(EXTRA_KINDS[kind], []).append({"name": str(it.get("name") or kind)[:60], "file": p, "tier": tier})
         # the plan lines first (a host that looks at the folder as a sound arrives already sees it locked), then the files
         if sounds:
             tiers_lines_set(inst.sf2_user_dir, lib_id, sound_lines)
@@ -562,6 +605,9 @@ class LibraryStore:
                          "pad": len({x["name"] for x in rec["pads"]}), "loop": len({(x["set"], x["name"]) for x in rec["loops"]})}
         if rec["plugins"]:
             rec["counts"]["plugin"] = len(rec["plugins"])   # (10.1: community plugins)
+        for kind, key in EXTRA_KINDS.items():
+            if rec.get(key):
+                rec["counts"][kind] = len(rec[key])
         self._write_record(rec)
         log.info("library %s %s installed (%s)", lib_id, rec["version"], rec["counts"])
         return rec

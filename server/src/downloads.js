@@ -39,7 +39,7 @@ export const PEDAL_SETUP = [
   "Press Upload. The pedal joins the Wi-Fi and is ready.",
 ];
 const address = (s) => { if (!s) return null; const a = s.address || {}; return [s.name, a.line1, a.line2, [a.city, a.state, a.postal_code].filter(Boolean).join(" "), a.country].filter(Boolean).join(", "); };
-const planNames = (plans0) => { const plans = withPads(plans0); return PLAN_IDS.filter((id) => id !== PADS_PLAN).every((id) => plans.includes(id)) ? "All sound plans (with Central Pads)" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(", "); };
+const planNames = (plans0) => { const plans = withPads(plans0); return PLAN_IDS.filter((id) => id !== PADS_PLAN).every((id) => plans.includes(id)) ? "All plans (with Central Pads and Central Utility)" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(", "); };
 
 // everything for one person (onlyOrder: just what that order gave - the email after a purchase)
 export async function downloadsFor(user, onlyOrder) {

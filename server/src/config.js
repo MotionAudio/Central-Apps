@@ -74,8 +74,8 @@ export const DEFAULT_KEYS = { P: "PDEF-AULT-KEY0-2026", A: "ADEF-AULT-KEY0-2026"
 // to a church. The plan keys open their own plan (and Central Pads, like the real plans).
 export const DEMO_CHURCH = "Riverstone Church (demo)";
 export const DEMO_KEYS = { P: "PDMO-RVST-PCTL-2026", A: "ADMO-RVST-ADMN-2026", U: "UDMO-RVST-USER-2026" };
-export const DEMO_PACKAGES = { "SDMO-RVST-ALL0-2026": ["keys", "plugins", "instrument", "pedals", "pads"], "SDMO-RVST-KEYS-2026": ["keys", "pads"], "SDMO-RVST-PLUG-2026": ["plugins", "pads"],
-  "SDMO-RVST-INST-2026": ["instrument", "pads"], "SDMO-RVST-PEDL-2026": ["pedals", "pads"], "SDMO-RVST-PADS-2026": ["pads"] };
+export const DEMO_PACKAGES = { "SDMO-RVST-ALL0-2026": ["keys", "plugins", "instrument", "pedals", "pads", "utility"], "SDMO-RVST-KEYS-2026": ["keys", "pads"], "SDMO-RVST-PLUG-2026": ["plugins", "pads"],
+  "SDMO-RVST-INST-2026": ["instrument", "pads"], "SDMO-RVST-PEDL-2026": ["pedals", "pads"], "SDMO-RVST-PADS-2026": ["pads"], "SDMO-RVST-UTIL-2026": ["utility"] };
 export const DEMO_ACCOUNT = { email: "riverstone-demo@motionaudio.org", password: "Riverstone-Demo-2026", name: "Riverstone demo" };
 export const MAIN_ADMINS_MAX = 2;
 // Central Services: slots bought once (packs come with some). Each person on the church's teams takes one.
@@ -94,14 +94,22 @@ export const PLANS = {
   instrument: { name: "Central Instrument", cents: 10000, what: "Instrument sounds other than keys: bass and guitar sounds, and what the play-anything input turns your instrument into, plus Central Pads" },
   pedals: { name: "Central Pedals", cents: 7000, what: "Guitar pedals for anything with a 1/4\" or 1/8\" input: electric, bass, acoustic, keys, cello, plus Central Pads" },
   pads: { name: "Central Pads", cents: 4000, what: "Pads in every key for the pad pedal: warm, air, choir, shimmer, strings and more" },
+  utility: { name: "Central Utility", cents: 5000, what: "More metronome clicks, lighting looks, slide templates, lyric backgrounds and graphics (lower thirds, countdowns, stage overlays) in Central Control, Central Usage and the Central Pedal" },
 };
-export const PLAN_IDS = ["keys", "plugins", "instrument", "pedals", "pads"];
+export const PLAN_IDS = ["keys", "plugins", "instrument", "pedals", "pads", "utility"];
+// (10.2) the sound plans: each one comes with Central Pads. Central Utility doesn't (it isn't a sound plan).
+export const SOUND_PLANS = ["keys", "plugins", "instrument", "pedals"];
+export const UTILITY_PLAN = "utility";
 // (9.8) Central Pads comes with every other plan: a key with any of the four opens the pads too
 export const PADS_PLAN = "pads";
-export const withPads = (plans) => { const l = (plans || []).filter((id) => PLAN_IDS.includes(id)); return l.some((id) => id !== PADS_PLAN) && !l.includes(PADS_PLAN) ? l.concat(PADS_PLAN) : l; };
-export const PLAN_ALL = { name: "All sound plans", cents: 24000 };
-// church bundles: all the plans for this many people, a year (a package key each, given and taken back on Teams)
-export const PLAN_BUNDLES = { 4: 70000, 8: 138000, 12: 186000, 16: 259000, 20: 292000 };
+export const withPads = (plans) => { const l = (plans || []).filter((id) => PLAN_IDS.includes(id)); return l.some((id) => SOUND_PLANS.includes(id)) && !l.includes(PADS_PLAN) ? l.concat(PADS_PLAN) : l; };
+// (10.2) "all plans" includes Central Utility: $270 a year (it was $240 for the sound plans)
+export const PLAN_ALL = { name: "All plans", cents: 27000 };
+// church bundles: all the plans (with Central Utility since 10.2) for this many people, a year (a package key each,
+// given and taken back on Teams). 10.2: each bundle went up $30 (per bundle, not per person) for Central Utility.
+export const PLAN_BUNDLES = { 4: 73000, 8: 141000, 12: 189000, 16: 262000, 20: 295000 };
+// the 9.8 prices (before Central Utility): a price list saved with exactly these moves to today's
+export const PLANS_98 = { all: 24000, bundles: { 4: 70000, 8: 138000, 12: 186000, 16: 259000, 20: 292000 } };
 // the 9.5 prices (before Central Pads): a price list saved with exactly these moves to today's
 export const PLANS_95 = { keys: 5000, plugins: 12000, instrument: 8000, pedals: 5000, all: 22000, bundles: { 4: 68000, 8: 136000, 12: 184000, 16: 257000, 20: 290000 } };
 export const PLAN_INTERVAL = "year";

@@ -3,7 +3,7 @@
 // site_settings and laid over config.js's defaults - the same objects everything else uses, so a change takes effect
 // at once (and on every start).
 import { q, one } from "./db.js";
-import { PRODUCTS, SUBSCRIPTION, STAR_PRICE_CENTS, RENEWAL, DISCOUNTS, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PLANS_95 } from "./config.js";
+import { PRODUCTS, SUBSCRIPTION, STAR_PRICE_CENTS, RENEWAL, DISCOUNTS, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PLANS_95, PLANS_98 } from "./config.js";
 import { isAdmin } from "./auth.js";
 import { requireStep } from "./signin.js";
 
@@ -26,8 +26,15 @@ function upgrade95(d) {
   if (d.PLAN_BUNDLES && JSON.stringify(Object.entries(d.PLAN_BUNDLES).map(([n, c]) => [Number(n), c])) === JSON.stringify(Object.entries(PLANS_95.bundles).map(([n, c]) => [Number(n), c]))) d.PLAN_BUNDLES = DEFAULTS.PLAN_BUNDLES;
   return d;
 }
+// (10.2) a list saved with the 9.8 "all plans" and bundle prices still on it: today's (Central Utility in them, +$30)
+const sameBundles = (a, b) => JSON.stringify(Object.entries(a || {}).map(([n, c]) => [Number(n), c])) === JSON.stringify(Object.entries(b).map(([n, c]) => [Number(n), c]));
+function upgrade98(d) {
+  if ((d.PLAN_ALL || {}).cents === PLANS_98.all) d.PLAN_ALL = DEFAULTS.PLAN_ALL;
+  if (d.PLAN_BUNDLES && sameBundles(d.PLAN_BUNDLES, PLANS_98.bundles)) d.PLAN_BUNDLES = DEFAULTS.PLAN_BUNDLES;
+  return d;
+}
 function apply(data) {
-  const d = upgrade95(Object.assign({}, DEFAULTS, data || {}));
+  const d = upgrade98(upgrade95(Object.assign({}, DEFAULTS, data || {})));
   replaceInto(PRODUCTS, d.PRODUCTS, DEFAULTS.PRODUCTS); replaceInto(SUBSCRIPTION, d.SUBSCRIPTION); replaceInto(STAR_PRICE_CENTS, d.STAR_PRICE_CENTS);
   replaceInto(RENEWAL, d.RENEWAL); replaceInto(DISCOUNTS, d.DISCOUNTS, DEFAULTS.DISCOUNTS);
   replaceInto(PLANS, d.PLANS, DEFAULTS.PLANS); replaceInto(PLAN_ALL, d.PLAN_ALL); replaceInto(PLAN_BUNDLES, d.PLAN_BUNDLES);   // (a price list from before 9.5: the plans' starting prices)

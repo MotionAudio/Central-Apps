@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld("CU", {
     frame: (universes) => ipcRenderer.send("dmx-frame", { universes }),
     blackout: () => ipcRenderer.invoke("dmx-blackout")
   },
-  fixtures: { scan: () => ipcRenderer.invoke("fixtures-scan"), read: (file) => ipcRenderer.invoke("fixtures-read", file), open: () => ipcRenderer.invoke("fixtures-open") },
+  fixtures: { scan: () => ipcRenderer.invoke("fixtures-scan"), read: (file) => ipcRenderer.invoke("fixtures-read", file), open: () => ipcRenderer.invoke("fixtures-open"), library: () => ipcRenderer.invoke("fixtures-library"), update: () => ipcRenderer.invoke("fixtures-update"), save: (name, text) => ipcRenderer.invoke("fixtures-save", name, text) },
   remote: { config: (cfg) => ipcRenderer.invoke("remote-config", cfg), status: () => ipcRenderer.invoke("remote-status"), state: (st) => ipcRenderer.send("remote-state", st), onCommand: (fn) => ipcRenderer.on("remote-cmd", (_e, cmd) => fn(cmd)) },
   updates: { status: () => ipcRenderer.invoke("update-status"), config: (cfg) => ipcRenderer.invoke("update-config", cfg), check: () => ipcRenderer.invoke("update-check"), install: () => ipcRenderer.invoke("update-install"), on: (fn) => ipcRenderer.on("update", (_e, st) => fn(st)) },
   player: { open: () => ipcRenderer.invoke("player-open"), status: () => ipcRenderer.invoke("player-status"), stop: () => ipcRenderer.invoke("player-stop"), on: (fn) => ipcRenderer.on("player-status", (_e, st) => fn(st)) },

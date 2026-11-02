@@ -92,7 +92,7 @@ export async function packIncome(month) {
   const start = prevMonth(month, 11) + "-01", endNext = prevMonth(month, -1) + "-01";
   const rows = await q("SELECT cents, plans FROM plan_payments WHERE paid_at >= $1::date AND paid_at < $2::date AND (NOT reversed OR reversed_at >= $2::date)", [start, endNext]);
   const out = Object.fromEntries(PACKS.map((p) => [p, 0]));
-  for (const r of rows) { const s = splitPayment(r.cents, r.plans); for (const p of Object.keys(s)) out[p] += s[p] / 12; }
+  for (const r of rows) { const s = splitPayment(r.cents, r.plans); for (const p of Object.keys(s)) if (p in out) out[p] += s[p] / 12; }   // (10.2: Central Utility's part isn't a creators' pack)
   for (const p of PACKS) out[p] = Math.floor(out[p]);
   return out;
 }
