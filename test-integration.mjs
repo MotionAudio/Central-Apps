@@ -7,6 +7,7 @@
  *   pip install gpiozero websockets pillow     node: npm i playwright && npx playwright install chromium
  *   node test-integration.mjs
  */
+import "./test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -91,7 +92,10 @@ fs.writeFileSync(fakeSep, [
   "    v = (lambda i: 9000 * math.exp(-((i / 22050.0 - hit[0]) % 0.5) / hit[2]) * math.sin(2 * math.pi * hit[1] * i / 22050)) if hit else (lambda i: 5000 * math.sin(2 * math.pi * (150 * (k + 2)) * i / 22050))",
   "    w.writeframes(b''.join(struct.pack('<hh', int(v(i)), int(v(i))) for i in range(22050 * 2))); w.close()",
   ""].join("\n"));
-const driver = spawn("python3", [path.join(here, "pedal-driver.py"), "--simulate", tmp, "--app-root", here], { stdio: ["ignore", "pipe", "pipe"], env: Object.assign({}, process.env, { CC_UPDATE_API: "http://127.0.0.1:9", CC_PCO_BASE: "http://127.0.0.1:" + pco.address().port, CC_DEMUCS_CMD: "python3 " + fakeDemucs, CC_SEPARATOR_CMD: "python3 " + fakeSep, CC_STEMTOOL_PYTHON: "python3" }) });
+// the instrument: a Pi plays it through PipeWire; a machine without PipeWire uses the built-in rig (cu-rig), as Central
+// Pedal Control does on Windows and macOS - the one built here (central-usage/native/build) when there is one
+function rigEnv() { if (process.env.CC_RIG_BIN) return {}; const b = path.join(here, "central-usage", "native", "build", "cu-rig" + (process.platform === "win32" ? ".exe" : "")); return fs.existsSync(b) ? { CC_RIG_BIN: b, CC_RIG_BACKEND: process.env.CC_RIG_BACKEND || "null" } : {}; }   // (no sound card needed: the null backend)
+const driver = spawn("python3", [path.join(here, "pedal-driver.py"), "--simulate", tmp, "--app-root", here], { stdio: ["ignore", "pipe", "pipe"], env: Object.assign({}, process.env, { CC_UPDATE_API: "http://127.0.0.1:9", CC_PCO_BASE: "http://127.0.0.1:" + pco.address().port, CC_DEMUCS_CMD: "python3 " + fakeDemucs, CC_SEPARATOR_CMD: "python3 " + fakeSep, CC_STEMTOOL_PYTHON: "python3" }, rigEnv()) });
 let driverLog = "";
 driver.stdout.on("data", (d) => { driverLog += d; }); driver.stderr.on("data", (d) => { driverLog += d; });
 await until(() => /listening on ws/.test(driverLog), 15000, 100);
@@ -423,7 +427,7 @@ await check("the Instrument tab shows the electric board with real plugin knobs 
 });
 await check("the driver receives the chain (apply) and reports instrument status; knob changes go out as set messages", async () => {
   const sent = await T(() => PPInstrument.hostConfig()); assert.equal(sent.kind, "electric"); assert.ok(sent.chain.length >= 5 && sent.chain.every((c) => c.uri && c.uid && Object.keys(c.values).length), JSON.stringify(sent.chain[0]));
-  await until(() => T(() => /running|Problem|Starting|Preview/.test(document.querySelector(".in-status").textContent)), 6000);
+  await until(() => T(() => / · out channel |Problem|Starting|Preview/.test(document.querySelector(".in-status").textContent)   /* (running: "In: <its input> · out channel N") */), 6000);
   await page.click("#pbChain svg.pedal:first-child"); await page.waitForSelector(".in-controls input[type=range]", { timeout: 4000 });
   await T(() => { window.__sent = []; const b = window.__pedalBridge, orig = b.send; b.send = function (m) { window.__sent.push(m); return orig.call(b, m); }; });
   await page.$eval(".in-controls input[type=range]", (el) => { el.value = 900; el.dispatchEvent(new Event("input", { bubbles: true })); }); await wait(300);
@@ -624,6 +628,9 @@ await check("plans: a saved board keeps a locked pedal, bypassed with a lock and
   assert.deepEqual(r.dis, { modern: true, clean: false, cur: false }); assert.ok(/Part of Central Pedals · \$70 a year/.test(r.addText), r.addText); assert.equal(r.lenAfterAdd, 3, "a locked pedal isn't added");
   assert.deepEqual(r.seen, ["ambient-swell", "clean-worship"], "stepping lands only on open boards");
 });
+// (the plans checks hand the page a made-up sound list; the driver's own instrument - a real rig now - keeps sending its
+//  status, which would replace that list half-way through: its instrument status waits until they're done)
+await T(() => { const b = window.__pedalBridge, h = b.handleMessage; window.__realHandle = h; b.handleMessage = function (m) { if (m && m.type === "instrumentStatus") return; return h.apply(this, arguments); }; });
 await check("plans: keys sounds carry their bank's tier (or by what they are); a locked sound is listed with its plan, muted in a saved layer and skipped by patch stepping", async () => {
   const r = await T(async () => {
     PPInstrument.setKind("keys");
@@ -667,6 +674,7 @@ await check("plans: with Central Keys back, \"Worship Grand\" brings its grand p
   assert.equal(r.board, "worship-grand"); assert.equal(r.patch, "Salamander Grand"); assert.equal(r.on, true);
   assert.deepEqual(r.mini, { locked: "Part of Central Pedals · $70 a year", board: "Part of Central Pedals · $70 a year" });
 });
+await T(() => { window.__pedalBridge.handleMessage = window.__realHandle; });
 await check("Central Tracks: a Board installs as one of your boards, a Click (zip of two WAVs) as a click sound - both straight from the download", async () => {
   const r = await T(async () => {
     // a zip made here: the board stored, the WAVs deflated (CompressionStream), as the site would send them
@@ -1112,8 +1120,9 @@ await check("touch select: pick-up - the knob far below the setting only shows a
   await sim({ sim: "knob", id: "k3", value: 0.3 });
   await until(() => T(() => Math.abs(PP.currentPad().level - 30) <= 1));   // the knob reading is smoothed: within a step
   // (the slider follows on the next frame: wait for it rather than reading both in the middle of a step)
-  await until(() => T(() => Number(document.querySelector("#level").value) === PP.currentPad().level), 3000);
-  assert.equal(await T(() => Number(document.querySelector("#level").value)), await T(() => PP.currentPad().level));
+  // (read together: the smoothed reading can still settle by a step between two separate reads)
+  const same = await until(() => T(() => { const a = Number(document.querySelector("#level").value), b = PP.currentPad().level; return a === b ? [a, b] : null; }), 3000).catch(() => null);
+  assert.ok(same, "the slider follows the level: " + JSON.stringify(await T(() => [Number(document.querySelector("#level").value), PP.currentPad().level])));
 });
 await check("touch select: it stays until another setting is tapped; tapping that one again lets it go", async () => {
   await sim({ sim: "knob", id: "k3", value: 0.45 }); await until(() => T(() => Math.abs(PP.currentPad().level - 45) <= 1));

@@ -9,6 +9,7 @@
  *   npm i playwright && npx playwright install chromium   (once, on a PC)
  *   node test-headless.mjs [path/to/index.html] [screenshot-dir]
  */
+import "./test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -28,12 +29,29 @@ async function check(label, fn) {
 }
 
 const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
+// (every page here is kept away from a real Central Pedal driver on this machine - see isolate() below - except the
+//  driver this test starts itself for the USB / SD checks: ownDriver)
+let ownDriver = false;
+async function isolate(p) {
+  await p.addInitScript(() => {
+  const Real = window.WebSocket, driver = /^wss?:\/\/(127\.0\.0\.1|localhost):876[56](\/|$)/;
+  const WS = function (url, protocols) { let ok = false; try { ok = sessionStorage.getItem("__ownDriver") === "1"; } catch (_) { } return new Real(driver.test(String(url)) && !ok ? "ws://127.0.0.1:1/" : url, protocols); };
+  WS.prototype = Real.prototype; ["CONNECTING", "OPEN", "CLOSING", "CLOSED"].forEach((k) => { WS[k] = Real[k]; });
+  window.WebSocket = WS;
+});
+  await p.route(/^https?:\/\/(127\.0\.0\.1|localhost):876[56]\//, (r) => ownDriver ? r.continue() : r.abort("connectionrefused"));
+}
+const newPage = async (o) => { const p = await browser.newPage(o); await isolate(p); return p; };
 const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
 // (opened from a file this is Central Pedal Control, which needs a key: the default P key, as a church would enter it today)
 await page.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "PDEF-AULT-KEY0-2026", kind: "P", app: "pedal-control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });
 // The app tries ws://127.0.0.1:8765 (the pedal driver). On a machine without the
 // driver that connection is refused; the app handles it, Chrome still logs it.
-const benign = /127\.0\.0\.1:876[56]|ERR_CONNECTION_REFUSED/;  // the pedal driver is not running on a PC
+const benign = /127\.0\.0\.1:(876[56]|1\/)|ERR_CONNECTION_REFUSED|ERR_FAILED/;  // the pedal driver is not running on a PC
+// ...and if one is (another test's driver left running, a Central Pedal Control on this computer), this page still
+// mustn't reach it: its knob positions, routing and project would land in the middle of these checks. Its socket goes
+// to a closed port (refused, as with no driver) and its web requests are refused.
+await isolate(page);
 const errors = [];
 page.on("console", (m) => { if (m.type() === "error" && !benign.test(m.text())) errors.push(m.text()); });
 page.on("pageerror", (e) => errors.push(String(e)));
@@ -538,6 +556,7 @@ fs.mkdirSync(path.join(mediaDir, "media", "usb-sda1", "Pads"), { recursive: true
 }
 fs.writeFileSync(path.join(mediaDir, "code-chosen"), "1");
 const py = spawn("python3", [driverPath, "--simulate", mediaDir, "--app-root", path.dirname(pagePath)], { stdio: ["pipe", "pipe", "pipe"] });
+ownDriver = true; await T(() => sessionStorage.setItem("__ownDriver", "1"));
 await new Promise((resolve) => { const up = (b) => { if (String(b).includes("USB/SD browser on")) resolve(); }; py.stdout.on("data", up); py.stderr.on("data", up); setTimeout(resolve, 8000); });
 await wait(300);
 await check("Import Sound opens the USB browser; tapping a file imports it into the pad", async () => {
@@ -553,7 +572,7 @@ await check("Import Sound opens the USB browser; tapping a file imports it into 
   const r = await T(() => [PP.currentPad().sampleId ? PP.sampleFor(PP.currentPad().sampleId).name : null, document.querySelector("#usbDialog").open]);
   assert.deepEqual(r, ["Test Pad D", false]);
 });
-py.kill();
+py.kill(); ownDriver = false; await T(() => sessionStorage.removeItem("__ownDriver"));
 await T(() => document.querySelectorAll("dialog[open]").forEach((d) => d.close()));
 
 console.log("\nSystem menu:");
@@ -674,7 +693,7 @@ await check("old saved routing: the click's old default 'off' becomes 'heard on 
   assert.deepEqual(r, { migrated: "mix", kept: "off" });
 });
 await check("a page older than its Central Pedal reloads once to the version just installed (not again for the same version)", async () => {
-  const p5 = await browser.newPage(); await p5.goto("file://" + pagePath); await p5.waitForFunction(() => window.__pedalBridge && window.PPShell);
+  const p5 = await newPage(); await p5.goto("file://" + pagePath); await p5.waitForFunction(() => window.__pedalBridge && window.PPShell);
   const same = await p5.evaluate(() => { window.__pedalBridge.handleMessage({ type: "hello", appVersion: PP.appVersion }); return new Promise((ok) => setTimeout(() => ok(location.search), 900)); });
   assert.equal(same, "", "same version: no reload");
   await Promise.all([p5.waitForNavigation({ timeout: 5000 }), p5.evaluate(() => window.__pedalBridge.handleMessage({ type: "hello", appVersion: "99.1.0" }))]);
@@ -739,6 +758,8 @@ await check("Settings → Colours: a preset sets every screen colour, track colo
   await page.evaluate(() => { const el = document.querySelector('[data-clr-trk="drums"]'); el.value = "#00ff00"; el.dispatchEvent(new Event("input", { bubbles: true })); });
   const trk = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--trk-drums").trim());
   assert.equal(trk, "#00ff00");
+  // (the 3.5" screen is sent its colours a moment after the last change: wait for that message, not a set time)
+  await page.waitForFunction(() => { const m = window.__mini.slice(-1)[0]; return m && m.colors && String(m.colors.bg).toLowerCase() === "#f2f5f8"; }, null, { timeout: 5000 }).catch(() => null);
   const mini = await page.evaluate(() => window.__mini.slice(-1)[0]);
   assert.ok(mini && mini.colors && mini.colors.bg.toLowerCase() === "#f2f5f8", JSON.stringify(mini));
   page.once("dialog", (d) => d.accept());
@@ -755,7 +776,7 @@ await check("no errors during the whole run", () => assert.deepEqual(errors, [])
 // only the default P key works; it survives a reload; Settings → License says it's the default key
 console.log("\nLicense keys with no website (default keys):");
 {
-  const p3 = await browser.newPage({ viewport: { width: 1100, height: 800 } }); const errs3 = []; p3.on("pageerror", (e) => errs3.push(String(e)));
+  const p3 = await newPage({ viewport: { width: 1100, height: 800 } }); const errs3 = []; p3.on("pageerror", (e) => errs3.push(String(e)));
   await p3.addInitScript(() => { window.CP_CONTROL = true; });   // (Central Pedal Control, as its app and /control/ mark it)
   await p3.goto("file://" + pagePath); await p3.waitForFunction(() => window.PPLicense && window.PPShell);
   await check("Central Pedal Control opens on the setup with no website: the production's name, then the key (no internet or account steps)", async () => {
@@ -811,7 +832,7 @@ window.__pedalBridge = { connected: true, info: { deviceId: "pedal-0123456789ab"
 window.addEventListener("pp-plans", function () { window.__plansEvents++; });</script>
 <script src="${pathToFileURLish(path.join(here, "js", "license.js"))}"></script><script src="${pathToFileURLish(path.join(here, "js", "pedals.js"))}"></script>`);
   function pathToFileURLish(p) { return "file://" + p.split(path.sep).map(encodeURIComponent).join("/"); }
-  const p2 = await browser.newPage();
+  const p2 = await newPage();
   const errs = []; p2.on("pageerror", (e) => errs.push(String(e)));
   await p2.goto("file://" + tmpPage);
   const R = (fn, arg) => p2.evaluate(fn, arg);
@@ -854,7 +875,7 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     assert.deepEqual(errs, []);
   });
   await check("with no website the Central Pedal still needs no key; Settings → Packages takes only the default package key (every plan)", async () => {
-    const p4 = await browser.newPage(); const html = fs.readFileSync(tmpPage, "utf8").replace('server: "http://127.0.0.1:18893", ', "");
+    const p4 = await newPage(); const html = fs.readFileSync(tmpPage, "utf8").replace('server: "http://127.0.0.1:18893", ', "");
     const tmp4 = tmpPage.replace(/\.html$/, "-nosite.html"); fs.writeFileSync(tmp4, html);
     await p4.goto("file://" + tmp4); await p4.evaluate(() => { localStorage.clear(); PPLicense.init({ app: "pedal", packages: [] }); document.getElementById("set").innerHTML = PPLicense.settingsHtml(); }); await wait(200);
     const wiz = await p4.$("dialog#licWiz"), open = await p4.evaluate(() => PPLicense.hasPlan("pedals"));
@@ -863,7 +884,7 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     await p4.fill("#pkgKey", "SDEF-AULT-KEY0-2026"); await p4.click('[data-pkg="add"]'); await wait(200);
     const r = await p4.evaluate(() => ({ list: PPLicense.packages(), text: document.getElementById("pkgSettings").textContent, saved: window.__sent.filter((m) => m.type === "packages").pop() }));
     assert.equal(wiz, null); assert.equal(open, true); assert.match(refused, /website isn't open\. Use the default key for now/);
-    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pads", "pedals", "plugins"]); assert.match(r.text, /Default package \(temporary\)/);
+    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pads", "pedals", "plugins", "utility"]); assert.match(r.text, /Default package \(temporary\)/);
     assert.ok(r.saved && r.saved.packages[0].key === "SDEF-AULT-KEY0-2026", "kept with the pedal's driver");
     await p4.close(); fs.rmSync(tmp4, { force: true });
   });

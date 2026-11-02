@@ -2,6 +2,7 @@
 // booth's messages), the pre-service check, and the confidence monitor (the Lyrics tab's two outputs, the band's
 // screen in a tablet's browser, its colours). Against the simulated Central Pedal and the center, like test-usage.mjs.
 //   xvfb-run -a node test-service-ui.mjs        (use the shared lock: flock /tmp/central-app-tests.lock …)
+import "../test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url"; const here = path.dirname(fileURLToPath(import.meta.url));

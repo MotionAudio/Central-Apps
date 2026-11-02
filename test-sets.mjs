@@ -7,6 +7,7 @@
  * way changes nothing on the pedal and carries on when Upload is pressed again. Edits made on the pedal are flagged.
  *   node test-sets.mjs
  */
+import "./test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";

@@ -6,6 +6,7 @@
  * it; then a fresh editor downloading it all back.
  *   node test-transfer.mjs
  */
+import "./test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";

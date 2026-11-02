@@ -6,6 +6,7 @@
 // Ports: the audio host listens on CU_TEST_HOST_PORT (default 18092); the simulated Central Pedal uses its
 // usual ports (8765/8766/8080/8081). To run beside another copy on the same machine, give the whole run its
 // own network:  sudo bash ../tools/netns-run.sh xvfb-run -a node test-host.mjs
+import "../test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { _electron as electron, chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url";
