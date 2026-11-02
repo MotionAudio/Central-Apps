@@ -45,6 +45,7 @@ on:
       - tools/pad_voices.py
       - tools/make-loops.py
       - tools/make-hymns.py
+      - tools/hymn_arranger.py
       - tools/midi_render.py
       - tools/vcsl-names.txt
       - tools/make-irs.py

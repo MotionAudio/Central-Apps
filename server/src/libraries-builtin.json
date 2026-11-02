@@ -788,7 +788,7 @@
    "planName": "Central Instrument",
    "title": "Central Instrument Library",
    "version": "1.2",
-   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and ten drum loops for the texture channels (worship eighths, big ride, half-time, four on the floor, sixteenths, toms, brushes, waltz) at 70 and 100 BPM.",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell.",
    "file": "central-instrument-library-1.2.zip",
    "size": 560000000,
    "approximate": true,
@@ -922,7 +922,17 @@
      "Drum loops: Toms Build",
      "Drum loops: Brushes Ballad",
      "Drum loops: Waltz",
-     "Drum loops: Brushes Waltz"
+     "Drum loops: Brushes Waltz",
+     "Drum loops: Gospel Shuffle",
+     "Drum loops: Brushes Swing",
+     "Drum loops: 6/8 Ballad",
+     "Drum loops: 6/8 Celtic Toms",
+     "Drum loops: Train Beat",
+     "Drum loops: Kick and Clap",
+     "Drum loops: Cajon Groove",
+     "Drum loops: Shaker and Congas",
+     "Drum loops: Frame Drum 6/8",
+     "Drum loops: Cinematic Swell"
     ]
    },
    "counts": {
@@ -932,11 +942,11 @@
     "ir": 0,
     "click": 0,
     "pad": 0,
-    "loop": 10
+    "loop": 20
    },
    "credits": [
     "Black And Green Guitars, Emily Guitar, Meatbass, Growlybass, Big Little Bass by Karoryfer Samples - CC0 1.0",
-    "Drum loops played by Motion Audio (tools/make-loops.py) on the library's drum kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums - CC0 1.0)",
+    "Drum and percussion loops played by Motion Audio (tools/make-loops.py) on the library's own kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums, VCSL hand and orchestral percussion - CC0 1.0)",
     "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
     "Virtuosity Drums; Big Rusty Drums and Unruly Drums by Karoryfer Samples - CC0 1.0",
     "Weresax and Bear Sax by Karoryfer Samples - CC0 1.0"
@@ -1037,6 +1047,12 @@
      "text": "Drum samples: sfzinstruments / Karoryfer kits (see the Drum Kits bank)",
      "license": "CC0 1.0",
      "url": "https://github.com/sfzinstruments"
+    },
+    {
+     "item": "Drum loops",
+     "text": "Hand and orchestral percussion: Versilian Community Sample Library (VCSL) by Versilian Studios (see the Percussion bank)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL"
     }
    ],
    "previews": [
@@ -2224,9 +2240,9 @@
    "planName": "Central Pads",
    "title": "Central Pads Library",
    "version": "1.2",
-   "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is built its own way (its own voices, movement, stereo and reverb) and is a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too. Plus three ambient loops for the texture channels - Sparkle, Drift and Breath - in every key.",
+   "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is built its own way (its own voices, movement, stereo and reverb) and is a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too. Plus eight ambient loops for the texture channels in every key, each its own colour - Sparkle (bells), Drift (two pads trading places), Breath (air), Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain.",
    "file": "central-pads-library-1.2.zip",
-   "size": 420000000,
+   "size": 480000000,
    "approximate": true,
    "sha256": null,
    "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pads-library-1.2.zip",
@@ -2260,7 +2276,12 @@
     "loops": [
      "Ambient loops: Sparkle",
      "Ambient loops: Drift",
-     "Ambient loops: Breath"
+     "Ambient loops: Breath",
+     "Ambient loops: Felt Piano",
+     "Ambient loops: Guitar Swells",
+     "Ambient loops: Cello Drone",
+     "Ambient loops: Choir Air",
+     "Ambient loops: Harp Rain"
     ]
    },
    "counts": {
@@ -2270,10 +2291,10 @@
     "ir": 0,
     "click": 0,
     "pad": 20,
-    "loop": 3
+    "loop": 8
    },
    "credits": [
-    "Ambient loops made by Motion Audio (tools/make-loops.py: synthesised, no recording)",
+    "Ambient loops made by Motion Audio (tools/make-loops.py) from our synthesised pads and bells and the libraries' own instruments (piano, harp: VCSL; guitar and bowed bass: Karoryfer; cello: VSCO 2 CE - all CC0 1.0)",
     "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)"
    ],
    "sources": [
@@ -2399,9 +2420,27 @@
     },
     {
      "item": "Ambient loops",
-     "text": "Made by Motion Audio (tools/make-loops.py: synthesised, no recording)",
+     "text": "Made by Motion Audio (tools/make-loops.py)",
      "license": "Motion Audio - sold with Central Pads",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-loops.py"
+    },
+    {
+     "item": "Ambient loops",
+     "text": "Piano and harp: Versilian Community Sample Library (VCSL) by Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL"
+    },
+    {
+     "item": "Ambient loops",
+     "text": "Guitar and bowed bass: Karoryfer Samples (Black And Green Guitars, Meatbass)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments"
+    },
+    {
+     "item": "Ambient loops",
+     "text": "Cello: Versilian Studios Chamber Orchestra 2 Community Edition (VSCO 2 CE)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE"
     }
    ],
    "previews": [
