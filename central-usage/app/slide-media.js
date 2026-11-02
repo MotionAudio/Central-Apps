@@ -25,11 +25,11 @@
   }
   function tx(mode, fn) { return db().then(function (d) { if (!d) return null; return new Promise(function (res) { var t = d.transaction("media", mode), s = t.objectStore("media"), out = fn(s); t.oncomplete = function () { res(out && out.result !== undefined ? out.result : null); }; t.onerror = function () { res(null); }; }); }); }
   async function sha(buf) { var h = await crypto.subtle.digest("SHA-256", buf); return Array.prototype.map.call(new Uint8Array(h), function (b) { return ("0" + b.toString(16)).slice(-2); }).join(""); }
-  // a picture larger than the screen is made screen-sized (2560 px across at most) so decks stay light
+  // a picture larger than a 4K screen is made 3840 px on its longest side at most, so decks stay light
   async function shrink(blob) {
     if (!/^image\/(png|jpeg|webp|bmp)/.test(blob.type) || typeof createImageBitmap !== "function") return blob;
     try {
-      var bm = await createImageBitmap(blob), max = 2560; if (bm.width <= max && bm.height <= max) return blob;
+      var bm = await createImageBitmap(blob), max = 3840; if (bm.width <= max && bm.height <= max) return blob;
       var k = max / Math.max(bm.width, bm.height), c = document.createElement("canvas"); c.width = Math.round(bm.width * k); c.height = Math.round(bm.height * k);
       c.getContext("2d").drawImage(bm, 0, 0, c.width, c.height);
       return await new Promise(function (res) { c.toBlob(function (b) { res(b || blob); }, blob.type === "image/png" ? "image/png" : "image/jpeg", 0.9); });

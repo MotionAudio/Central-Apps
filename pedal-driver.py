@@ -2319,7 +2319,7 @@ class CompanionServer:
                         self.body()
                         return self.send_json(403, {"error": "wrong code"})
                     name = safe_name((query.get("name") or ["slide"])[0])
-                    if not re.search(r"\.(png|jpe?g|gif|webp|bmp|svg|mp4|webm|mov|m4v|ogv)$", name, re.I):
+                    if not re.search(r"\.(png|jpe?g|gif|webp|bmp|avif|svg|mp4|webm|mov|m4v|ogv)$", name, re.I):
                         self.body()
                         return self.send_json(400, {"error": "pictures and videos only"})
                     data = self.body(1 << 30)

@@ -474,21 +474,90 @@
   function setPath(o, p, v) { var ks = p.split("."), last = ks.pop(), t = ks.reduce(function (a, k) { if (a[k] == null || typeof a[k] !== "object") a[k] = {}; return a[k]; }, o); t[last] = v; }
   function addEl(e) { var s = curSlide(); if (!s) return; snap(); s.els.push(e); sel = [e.id]; touch(); paintEditor(); renderInspector(); renderStrip(); }
   async function pickMedia(accept) {
-    if (NAT && accept !== "doc") {
-      var files = await NAT.open(); var out = [];
-      for (var i = 0; i < files.length; i++) {
-        var f = files[i], isV = VIDEO.test(f.name);
-        if (isV || !M) out.push({ id: M ? M.addPath(f.path, f.name) : "path:" + f.path, video: isV, name: f.name });
-        else { var buf = await NAT.readFile(f.path); var ext = (f.name.split(".").pop() || "").toLowerCase(); out.push({ id: await M.put(new Blob([buf], { type: ext === "svg" ? "image/svg+xml" : "image/" + (ext === "jpg" ? "jpeg" : ext) }), f.name), video: false, name: f.name }); }
-      }
-      return out;
-    }
+    if (NAT && accept !== "doc") return takeFiles(await NAT.open() || []);
     return await new Promise(function (resolve) {
-      var inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = accept === "doc" ? ".pdf,.pptx" : "image/*,video/*";
-      inp.onchange = async function () { var out = []; for (var i = 0; i < inp.files.length; i++) { var f = inp.files[i]; if (accept === "doc") out.push(f); else out.push({ id: await M.put(f, f.name), video: /^video\//.test(f.type), name: f.name }); } resolve(out); };
+      var inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = accept === "doc" ? ".pdf,.pptx" : P ? P.ACCEPT : "image/*,video/*";
+      inp.onchange = async function () { if (accept === "doc") return resolve(Array.prototype.slice.call(inp.files)); resolve(await takeFiles(Array.prototype.slice.call(inp.files))); };
       inp.click();
     });
   }
+  // (10.2) pictures and videos coming in - the open dialog, a drop or the clipboard - made ready by CUPictures (turned
+  // upright, at most 3840 px, TIFF / HEIC converted by the app's ffmpeg), in name order; what we can't use is said plainly
+  var P = window.CUPictures;
+  function tell(msg) {
+    if (!msg) return; if (window.CURoles && window.CURoles.toast) return window.CURoles.toast(msg);
+    var n = document.createElement("div"); n.className = "sl-toast"; n.setAttribute("role", "status"); n.textContent = msg; document.body.appendChild(n); setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, 9000);
+  }
+  function tellErrors(bad) { if (bad.length) tell(bad.length === 1 ? bad[0].name + ": " + bad[0].error : bad.length + " files couldn't be added. " + bad.map(function (x) { return x.name + ": " + x.error; }).join(" · ")); }
+  function conv(bytes, kind) { return NAT && NAT.convertPicture ? NAT.convertPicture(bytes, kind) : Promise.resolve(null); }
+  async function readIn(it) {   // { name, path } from the dialog, or a File (a drop, the clipboard)
+    var name = it.name || "picture", path = it.path || null;
+    if (P && P.isOtherVideo(name)) return { ok: false, error: P.ERR.video };
+    if (path && P && P.isVideoName(name)) return { ok: true, video: true, name: name, path: path };
+    if (path && NAT && !(it instanceof Blob)) { var buf = await NAT.readFile(path); if (!buf) return { ok: false, error: "Couldn't open that file." }; return P ? P.prepare({ name: name, bytes: buf }, { convert: conv }) : { ok: true, name: name, blob: new Blob([buf]) }; }
+    if (it.size > M.MAX_STORE && path && P && P.isVideoName(name)) return { ok: true, video: true, name: name, path: path };
+    return P ? P.prepare({ name: name, blob: it }, { convert: conv }) : { ok: true, name: name, blob: it, video: /^video\//.test(it.type || "") };
+  }
+  function pathOf(it) { if (it && it.path) return it.path; try { return NAT && NAT.pathOf && it instanceof Blob ? NAT.pathOf(it) : null; } catch (_) { return null; } }
+  async function takeFiles(list) {   // -> [{ id, video, name }] for slides (pictures kept in the deck's media store)
+    var out = [], bad = []; list = P ? P.byName(list) : list;
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i]; if (!it.path && pathOf(it)) it = Object.assign(it, { path: pathOf(it) });
+      var r = await readIn(it); if (!r.ok) { bad.push({ name: it.name, error: r.error }); continue; }
+      var label = String(it.name || r.name).replace(/\.[a-z0-9]+$/i, "");
+      if (r.video && (r.path || it.path) && (!r.blob || r.blob.size > M.MAX_STORE)) out.push({ id: M.addPath(r.path || it.path, it.name), video: true, name: label });
+      else out.push({ id: await M.put(r.blob, r.name), video: !!r.video, name: label });
+    }
+    tellErrors(bad); return out;
+  }
+  // lyric backgrounds are kept by their path: a picture that had to change (turned, smaller, converted) is saved first
+  async function takeBgFiles(list) {
+    var bad = [], last = null; list = P ? P.byName(list) : list;
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i], ip = pathOf(it), r = await readIn(ip && !it.path ? Object.assign(it, { path: ip }) : it); if (!r.ok) { bad.push({ name: it.name, error: r.error }); continue; }
+      var p = null;
+      if (r.video) p = r.path || ip || null;
+      else if (!r.changed && ip && r.name === it.name) p = ip;
+      else if (NAT && NAT.savePicture) { var sv = await NAT.savePicture(new Uint8Array(await r.blob.arrayBuffer()), r.name); p = sv && sv.path; if (!p) { bad.push({ name: it.name, error: (sv && sv.error) || "Couldn't save it." }); continue; } }
+      if (!p) { bad.push({ name: it.name, error: "Your own pictures as backgrounds work in the Central Control app." }); continue; }
+      addBgFile({ path: p, name: it.name }); last = p;
+    }
+    tellErrors(bad); return last;
+  }
+  function newSlidesFrom(ms) {
+    if (!ms.length) return; if (!deck()) newDeck("custom"); var dd = deck(); snap();
+    ms.forEach(function (m) { var s2 = { id: uid(), kind: "design", name: m.name, bg: { type: "color", color: "#000000" }, els: [Object.assign(mediaEl(m, dd), { x: 0, y: 0, w: dd.size.w, h: dd.size.h })], advance: null, notes: "" }; dd.slides.push(s2); previewId = s2.id; });
+    touch(dd); renderAll();
+  }
+  // a drop or a paste: onto the slides list -> a slide each; onto the slide being designed -> on it; the background picker -> backgrounds
+  async function filesIn(files, where) {
+    files = Array.prototype.slice.call(files || []).filter(function (f) { return f && (f.size || f.path); }); if (!files.length) return false;
+    if (where === "bg") { var last = await takeBgFiles(files); if (last) setBg(bgPick.scope, last); else renderBgPicker(); return true; }
+    var ms = await takeFiles(files); if (!ms.length) return true;
+    if (where === "slide" && curSlide()) ms.forEach(function (m) { addEl(mediaEl(m, deck())); }); else newSlidesFrom(ms);
+    return true;
+  }
+  function dropZone(t) {
+    if (!t || !t.closest) return null;
+    if (t.closest("#lyricsBgPanel")) return "bg";
+    if (t.closest("#slStage")) return "slide";
+    if (t.closest(".sl-thumbs, .sl-strip, #slidesRoot")) return "slides";
+    return null;
+  }
+  document.addEventListener("dragover", function (e) { var z = dropZone(e.target); if (!z || !e.dataTransfer || Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") < 0) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; var el = e.target.closest(z === "bg" ? "#lyricsBgPanel" : z === "slide" ? "#slStage" : ".sl-thumbs, #slidesRoot"); if (el) el.classList.add("sl-drop"); });
+  document.addEventListener("dragleave", function (e) { if (e.target && e.target.classList) e.target.classList.remove("sl-drop"); });
+  document.addEventListener("drop", function (e) {
+    var z = dropZone(e.target); if (!z || !e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return; e.preventDefault();
+    document.querySelectorAll(".sl-drop").forEach(function (x) { x.classList.remove("sl-drop"); });
+    filesIn(e.dataTransfer.files, z);
+  });
+  document.addEventListener("paste", function (e) {
+    var a = document.activeElement; if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
+    var files = e.clipboardData && e.clipboardData.files; if (!files || !files.length) return;
+    var bgOpen = document.getElementById("lyricsBgPanel") && !document.getElementById("lyricsBgPanel").hidden && CU.prefs.tab === "lyrics";
+    if (!bgOpen && !visible()) return; e.preventDefault();
+    filesIn(files, bgOpen ? "bg" : st.mode === "design" && curSlide() ? "slide" : "slides");
+  });
   function mediaEl(m, d) { return { id: uid(), type: m.video ? "video" : "image", x: d.size.w * 0.15, y: d.size.h * 0.15, w: d.size.w * 0.7, h: d.size.h * 0.7, rot: 0, opacity: 1, media: m.id, fit: "contain", loop: true, muted: true, in: { type: "none", dur: 0.5, delay: 0 } }; }
   function order(how) {
     var s = curSlide(); if (!s || !sel.length) return; snap();
@@ -744,7 +813,7 @@
     else if (a === "scrAdd" && found && found.parts && d) { snap(); var add = scriptureSlides(d); d.slides = d.slides.concat(add); previewId = add[0].id; touch(d); renderAll(); }
     else if (a === "scrKeep" && found && found.passage && d) { d.scriptures = d.scriptures || []; if (d.scriptures.indexOf(found.passage.label) < 0) d.scriptures.push(found.passage.label); touch(d); renderSermon(); }
     else if (a === "readAdd" && d) { var inp = $("#slReadAdd"), v = inp.value.trim(); if (!v) return; if (SC && !SC.parse(v).refs.length) { setInfo("\"" + v + "\" doesn't look like a Bible reference."); return; } d.scriptures = d.scriptures || []; d.scriptures.push(v); touch(d); renderSermon(); }
-    else if (a === "lyricsBg" && NAT) { var fs = await NAT.open(); if (fs[0]) { addBgFile(fs[0]); setBg("all", fs[0].path); } }
+    else if (a === "lyricsBg" && NAT) { var lp = await takeBgFiles(await NAT.open() || []); if (lp) setBg("all", lp); }
     else if (a === "lyricsBgOff") setBg("all", null);
     // the designer
     else if (ed === "text" && d) { var t = R.textEl(d, "body", "Type here", { y: d.size.h * 0.35, h: d.size.h * 0.3 }); addEl(t); }
@@ -817,7 +886,7 @@
     else if (t.dataset.sl === "newDeck" && t.value) newDeck(t.value);
     else if (t.dataset.sl === "addSlide" && t.value && d && tplLocked(t.value)) { t.value = ""; lockedMsg(t.closest(".sl-st-head") || root); }
     else if (t.dataset.sl === "addSlide" && t.value && d) { snap(); var s = t.value === "lower" ? R.newLower(d) : R.newSlide(d, t.value), i = d.slides.findIndex(function (x) { return x.id === previewId; }); d.slides.splice(i < 0 ? d.slides.length : i + 1, 0, s); previewId = s.id; sel = []; touch(d); renderAll(); }
-    else if (t.dataset.sl === "importExport" && t.value) { var v = t.value; t.value = ""; if (v === "pics") { if (!d) newDeck("custom"); var ms = await pickMedia(), dd = deck(); snap(); ms.forEach(function (m) { var s2 = { id: uid(), kind: "design", name: m.name, bg: { type: "color", color: "#000000" }, els: [Object.assign(mediaEl(m, dd), { x: 0, y: 0, w: dd.size.w, h: dd.size.h })], advance: null, notes: "" }; dd.slides.push(s2); previewId = s2.id; }); touch(dd); renderAll(); } else if (v === "pdf" || v === "pptx") importDocs(); else if (v === "exportPdf") exportDeck("pdf"); else if (v === "exportPng") exportDeck("png"); }
+    else if (t.dataset.sl === "importExport" && t.value) { var v = t.value; t.value = ""; if (v === "pics") newSlidesFrom(await pickMedia()); else if (v === "pdf" || v === "pptx") importDocs(); else if (v === "exportPdf") exportDeck("pdf"); else if (v === "exportPng") exportDeck("png"); }
     else if (t.dataset.sl === "loop" && d) { d.loop = Object.assign({ seconds: 8 }, d.loop, { on: t.checked }); touch(d); renderDecks(); if (live.deckId === d.id) scheduleAdvance(); }
     else if (t.dataset.sl === "loopSecs" && d) { d.loop = Object.assign({ on: false }, d.loop, { seconds: clamp(Number(t.value) || 8, 2, 600) }); touch(d); if (live.deckId === d.id) scheduleAdvance(); }
     else if (t.dataset.ed === "shape" && t.value && d) { var kind = t.value; t.value = ""; addEl({ id: uid(), type: "shape", x: d.size.w * 0.3, y: d.size.h * 0.3, w: d.size.w * 0.4, h: kind === "line" ? 20 : d.size.h * 0.3, rot: 0, opacity: 1, shape: { kind: kind, fill: kind === "line" ? "" : "#4f8cff", stroke: kind === "line" ? "#ffffff" : "", strokeW: kind === "line" ? 8 : 0, radius: 24 }, in: { type: "none", dur: 0.5, delay: 0 } }); }
@@ -940,7 +1009,7 @@
       var b = e.target.closest("button"); if (!b) return;
       if (b.dataset.lb === "close") openBgPicker(false);
       else if (b.dataset.lb === "inherit") setBg(bgPick.scope, undefined);
-      else if (b.dataset.lb === "add") { if (!NAT) return alert("Adding pictures and videos works in the Central Control app."); var files = await NAT.open(); var last = null; (files || []).forEach(function (f) { addBgFile(f); last = f.path; }); if (last) setBg(bgPick.scope, last); else renderBgPicker(); }
+      else if (b.dataset.lb === "add") { if (!NAT) return tell("Adding your own pictures and videos as backgrounds works in the Central Control app."); var last = await takeBgFiles(await NAT.open() || []); if (last) setBg(bgPick.scope, last); else renderBgPicker(); }
       else if (b.dataset.lbf) { bgPick.filter = b.dataset.lbf; renderBgPicker(); }
       else if (b.dataset.lbseason) { bgPick.season = b.dataset.lbseason; renderBgPicker(); }
       else if (b.dataset.locked) lockedMsg(panel);
@@ -983,7 +1052,11 @@
     var s = R.newLower(d, parts[0] || "", parts.slice(1).join(" · "));
     lyricsLive = false; syncLyricsBox(); show(await designMsg(d, s), null, null, null); return s;
   }
-  window.CUSlides = { findByName: findByName, names: names, lowerThird: lowerThird, goLiveSlide: goLiveSlide, bgFor: bgFor, setBg: setBg, lyricsSlide: lyricsSlide, lyricsLive: function () { return lyricsLive; }, blank: blank, blanked: function () { return !!blanked; }, openBgPicker: openBgPicker, piOn: function () { return !!st.outputs.pi.on; }, show: show, goLive: goLive, goLiveSlide: goLiveSlide, black: black, clear: clearLower, next: function () { step(1); }, prev: function () { step(-1); }, setLyricsLive: setLyricsLive,
+  // (10.2) for the tests and the run sheet: pictures in as if picked ([{ name, bytes } | File]) - slides, or lyric backgrounds
+  function asFiles(items) { return (items || []).map(function (x) { return x instanceof Blob ? x : new File([x.bytes], x.name); }); }
+  async function importPictures(items, where) { var ms = await takeFiles(asFiles(items)); if (where === "slide" && curSlide()) ms.forEach(function (m) { addEl(mediaEl(m, deck())); }); else newSlidesFrom(ms); return ms; }
+  async function addBackgroundFiles(items) { return takeBgFiles(asFiles(items)); }
+  window.CUSlides = { importPictures: importPictures, addBackgroundFiles: addBackgroundFiles, findByName: findByName, names: names, lowerThird: lowerThird, goLiveSlide: goLiveSlide, bgFor: bgFor, setBg: setBg, lyricsSlide: lyricsSlide, lyricsLive: function () { return lyricsLive; }, blank: blank, blanked: function () { return !!blanked; }, openBgPicker: openBgPicker, piOn: function () { return !!st.outputs.pi.on; }, show: show, goLive: goLive, goLiveSlide: goLiveSlide, black: black, clear: clearLower, next: function () { step(1); }, prev: function () { step(-1); }, setLyricsLive: setLyricsLive,
     state: function () { return st; }, live: function () { return live; }, decks: function () { return st.decks; }, deck: deck, outputsText: outputsText, render: render,
     newDeck: newDeck, scripture: scripture, forRunItem: function (id) { return st.decks.filter(function (x) { return x.runItem === id; })[0] || null; },
     onShow: function (fn) { showFns.push(fn); }, designMsg: designMsg, toBlob: toBlob, select: function (ids) { sel = ids.slice(); if (st.mode === "design") { drawOverlay(); renderInspector(); } }, selection: function () { return sel.slice(); },

@@ -461,3 +461,7 @@ input[type=checkbox] { accent-color: var(--accent); }
 .lb-mv, .lb-lock { position: absolute; top: 4px; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, .6); color: #fff; } .lb-mv { left: 4px; } .lb-lock { right: 4px; }
 .lb-tile.locked img { filter: saturate(.6) brightness(.75); }
 @media (max-width: 720px) { .lb-top { grid-template-columns: 1fr; } }
+
+/* (10.2) pictures in: a plain message, and where a drop will land */
+.sl-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: min(680px, 92vw); background: #2a1c1c; color: #fff; border: 1px solid #a33; border-radius: 10px; padding: 10px 14px; z-index: 9999; box-shadow: 0 6px 24px rgba(0, 0, 0, .5); font-size: 14px; }
+.sl-drop { outline: 2px dashed var(--accent, #e2c27e); outline-offset: -4px; }

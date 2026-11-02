@@ -78,6 +78,8 @@ jobs:
           bash tools/ci-run.sh "lights auto test" node central-usage/test-lights-auto.mjs
           bash tools/ci-run.sh "lights room test (seats, the light on them)" node central-usage/test-lights-room.mjs
           bash tools/ci-run.sh "shorts test (picking the moments, captions, a whole made-up service through the pinned ffmpeg)" node central-usage/test-shorts.mjs central-usage/native/build/ffmpeg
+          CU_SKIP_NATIVE=1 bash central-usage/prepare-shared.sh
+          bash tools/ci-run.sh "pictures in (JPEG turned upright, PNG, WebP, animated GIF, BMP, AVIF, SVG, TIFF and HEIC through the pinned ffmpeg, 3840 px, ten at once in order, drop and paste)" node central-usage/test-pictures.mjs
           python3 -c "import numpy" 2>/dev/null || python3 -m pip install --quiet numpy
           bash tools/ci-run.sh "library test (pedals, plans, the orchestra builder)" python3 test_library.py
           bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py

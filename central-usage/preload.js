@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 contextBridge.exposeInMainWorld("CU", {
   discover: () => ipcRenderer.invoke("discover"),
   version: () => ipcRenderer.invoke("version"),
@@ -60,7 +60,7 @@ contextBridge.exposeInMainWorld("CU", {
   // (10.2) the confidence monitor (the band's screen): its own screen window and NDI sender; show({ state, message })
   confidence: { screen: (opt) => ipcRenderer.invoke("confidence-screen", opt), ndi: (opt) => ipcRenderer.invoke("confidence-ndi", opt), status: () => ipcRenderer.invoke("confidence-status"),
     show: (m) => ipcRenderer.send("confidence", m), onStatus: (fn) => ipcRenderer.on("confidence-status", (_e, st) => fn(st)) },
-  slides: { open: () => ipcRenderer.invoke("slides-open"), readFile: (f) => ipcRenderer.invoke("read-file", f), show: (slide) => ipcRenderer.send("slide", slide), screens: () => ipcRenderer.invoke("screens"),
+  slides: { open: () => ipcRenderer.invoke("slides-open"), readFile: (f) => ipcRenderer.invoke("read-file", f), convertPicture: (bytes, kind) => ipcRenderer.invoke("picture-convert", bytes, kind), savePicture: (bytes, name) => ipcRenderer.invoke("picture-save", bytes, name), pathOf: (f) => { try { return webUtils.getPathForFile(f) || null; } catch (_) { return null; } }, show: (slide) => ipcRenderer.send("slide", slide), screens: () => ipcRenderer.invoke("screens"),
     outputScreen: (opt) => ipcRenderer.invoke("output-screen", opt), outputNdi: (opt) => ipcRenderer.invoke("output-ndi", opt), outputs: () => ipcRenderer.invoke("outputs-status"), onOutputs: (fn) => ipcRenderer.on("outputs", (_e, st) => fn(st)) },
   inst: { start: () => ipcRenderer.invoke("inst-start"), send: (m) => ipcRenderer.send("inst-send", m), stop: () => ipcRenderer.invoke("inst-stop"), on: (fn) => ipcRenderer.on("inst-msg", (_e, m) => fn(m)) },
   ai: { status: () => ipcRenderer.invoke("ai-status"), download: () => ipcRenderer.invoke("ai-download"), remove: () => ipcRenderer.invoke("ai-remove"), ask: (system, user, schema) => ipcRenderer.invoke("ai-ask", system, user, schema), on: (fn) => ipcRenderer.on("ai-status", (_e, st) => fn(st)) },

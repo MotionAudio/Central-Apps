@@ -384,8 +384,12 @@ module.exports = function services(app, getWin) {
   ipcMain.handle("confidence-status", () => ({ screen: !!(conf.win && !conf.win.isDestroyed()), display: conf.display, ndi: conf.ndiStatus || { on: false } }));
   ipcMain.on("confidence", (_e, m) => { if (!m || typeof m !== "object") return; Object.assign(conf.last, m); [conf.win, conf.ndi].forEach((w) => { if (w && !w.isDestroyed()) w.webContents.send("confidence", m); }); });
   ipcMain.on("slide", (_e, slide) => { outputs.last = slide; [outputs.screen, outputs.ndi].forEach((w) => { if (w && !w.isDestroyed()) w.webContents.send("slide", slide); }); });
-  ipcMain.handle("slides-open", async () => { const r = await dialog.showOpenDialog(getWin(), { title: "Add pictures or videos", properties: ["openFile", "multiSelections"], filters: [{ name: "Pictures and videos", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "mp4", "webm", "mov", "m4v", "ogv"] }] }); if (r.canceled) return []; return r.filePaths.map((f) => ({ path: f, name: path.basename(f), size: fs.statSync(f).size })); });
+  ipcMain.handle("slides-open", async () => { const r = await dialog.showOpenDialog(getWin(), { title: "Add pictures or videos", properties: ["openFile", "multiSelections"], filters: [{ name: "Pictures and videos", extensions: ["jpg", "jpeg", "jfif", "png", "webp", "gif", "bmp", "avif", "svg", "tif", "tiff", "heic", "heif", "mp4", "mov", "webm", "m4v"] }, { name: "All files", extensions: ["*"] }] }); if (r.canceled) return []; return r.filePaths.map((f) => ({ path: f, name: path.basename(f), size: fs.statSync(f).size })); });
   ipcMain.handle("read-file", (_e, f) => { try { return fs.readFileSync(f); } catch (_) { return null; } });
+  // (10.2) pictures the page can't read itself (TIFF, HEIC) through the app's ffmpeg; a prepared picture saved by its path
+  const pictures = require("./pictures-native");
+  ipcMain.handle("picture-convert", (_e, bytes, kind) => (kind === "tiff" || kind === "heic") && bytes ? pictures.convert(findFfmpeg(binDir), bytes, kind) : { error: pictures.NOT_READ });
+  ipcMain.handle("picture-save", (_e, bytes, name) => { try { return { path: pictures.save(path.join(userData, "pictures"), bytes, name) }; } catch (e) { return { error: "Couldn't save the picture: " + (e && e.message || e) }; } });
 
   // ------------------------------------------------------------------ the Instrument tab (runs the Central Pedal's instrument host here)
   let inst = null, instBuf = "", instKind = "", instAlt = "", instLastApply = null, instRestarts = [], instStopping = false;
