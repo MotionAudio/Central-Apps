@@ -321,6 +321,7 @@
     }
     if (id) {
       EXT.selectHooks.forEach(function (fn) { fn(null); });
+      try { document.dispatchEvent(new CustomEvent("cu-fixture-pick", { detail: { id: id, add: !!(e.ctrlKey || e.metaKey) } })); } catch (_) { }   // (10.2: the scene programmer picks it too)
       if (e.ctrlKey || e.metaKey) {   // (10.2) Ctrl / ⌘-click: pick several
         var set = multi.length ? multi.slice() : selected ? [selected] : [], mi = set.indexOf(id);
         if (mi >= 0) set.splice(mi, 1); else set.push(id);
