@@ -67,6 +67,7 @@ let libs = null;
 function libsHere() { if (!libs) libs = new Libraries({ dir: userData() }); return libs; }
 const libOut = (installed) => ({ ok: true, installed: libsHere().listing(), last: installed && installed.id });
 ipcMain.handle("lib-list", () => ({ ok: true, installed: libsHere().listing(), progress: libsHere().progress }));
+ipcMain.handle("lib-cmfx", () => libsHere().centralFx());
 ipcMain.handle("lib-index", async () => { try { return await libsHere().index(); } catch (e) { return { ok: false, error: e.message, libraries: [] }; } });
 ipcMain.handle("lib-install", async (_e, a) => { a = a || {}; try { return libOut(await libsHere().installUrl(String(a.url || ""), String(a.sha256 || ""), String(a.id || "library"), Number(a.size) || 0, (p) => win && win.webContents.send("lib-progress", { id: a.id, done: p.done, total: p.total, state: p.state }))); } catch (e) { return { ok: false, error: e.message, installed: libsHere().listing() }; } });
 ipcMain.handle("lib-install-file", async () => { const r = await dialog.showOpenDialog(win, { properties: ["openFile"], filters: [{ name: "Sound library", extensions: ["zip"] }] }); if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true, installed: libsHere().listing() }; try { return libOut(libsHere().installFile(r.filePaths[0], null, "file")); } catch (e) { return { ok: false, error: e.message, installed: libsHere().listing() }; } });

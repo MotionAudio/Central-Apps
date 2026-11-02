@@ -41,7 +41,7 @@
         if (b.loops) { b.loops.forEach(function (l, i) { files.push({ role: "source", name: Z.slug(l.name, "loop") + ".wav", blob: A.wavBlob(l.buf, 24) }); }); meta.bpm = b.bpm; meta.key = b.key; meta.bars = b.bars; }
         if (b.zip) files.push({ role: "source", name: b.zipName, blob: new Blob([b.zip], { type: "application/zip" }) });
         if (b.board) files.push({ role: "source", name: b.board.name, blob: new Blob([b.board.data], { type: "application/json" }) });
-        if (b.fx) files.push({ role: "source", platform: "any", name: b.fx.name, blob: new Blob([b.fx.data], { type: "application/json" }) });
+        if (b.fx) files.push({ role: "source", platform: "all", name: b.fx.name, blob: new Blob([b.fx.data], { type: "application/json" }) });
         if (b.demo) files.push({ role: "demo", name: Z.slug(meta.title, "demo") + "-demo.wav", blob: A.wavBlob(A.demo(b.demo, 30), 16) });
         return send(meta, files, step);
       }).then(function (item) {

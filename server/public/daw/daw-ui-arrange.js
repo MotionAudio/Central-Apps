@@ -19,19 +19,19 @@
   function autoRange(t, key) {
     if (AUTO_RANGE[key]) return AUTO_RANGE[key];
     if (key.indexOf("send:") === 0) return [-60, 6, "dB"];
-    var parts = key.split(":"), fx = (t.inserts || []).filter(function (f) { return f.id === parts[1]; })[0], def = fx && D.FX[fx.type], prm = def && def.params.filter(function (q) { return q[0] === parts[2]; })[0];
+    var parts = key.split(":"), fx = (t.inserts || []).filter(function (f) { return f.id === parts[1]; })[0], def = fx && D.fxDef(fx), prm = def && def.params.filter(function (q) { return q[0] === parts[2]; })[0];
     return prm ? [prm[2], prm[3], prm[5]] : [0, 1, ""];
   }
   function autoName(t, key) {
     if (key === "volume") return "Volume"; if (key === "pan") return "Pan";
     if (key.indexOf("send:") === 0) { var b = D.track(key.slice(5)); return "Send to " + (b ? b.name : "bus"); }
-    var parts = key.split(":"), fx = (t.inserts || []).filter(function (f) { return f.id === parts[1]; })[0], def = fx && D.FX[fx.type], prm = def && def.params.filter(function (q) { return q[0] === parts[2]; })[0];
+    var parts = key.split(":"), fx = (t.inserts || []).filter(function (f) { return f.id === parts[1]; })[0], def = fx && D.fxDef(fx), prm = def && def.params.filter(function (q) { return q[0] === parts[2]; })[0];
     return (def ? def.name : "Effect") + " " + (prm ? prm[1] : parts[2]);
   }
   function autoParams(t) {
     var out = [["volume", "Volume"], ["pan", "Pan"]];
     (t.sends || []).forEach(function (s) { out.push(["send:" + s.to, autoName(t, "send:" + s.to)]); });
-    (t.inserts || []).forEach(function (f) { var def = D.FX[f.type]; if (!def) return; def.params.forEach(function (q) { if (!q[7]) out.push(["fx:" + f.id + ":" + q[0], def.name + " " + q[1]]); }); });
+    (t.inserts || []).forEach(function (f) { var def = D.fxDef(f); if (!def || f.type === "cmfx") return; def.params.forEach(function (q) { if (!q[7]) out.push(["fx:" + f.id + ":" + q[0], def.name + " " + q[1]]); }); });
     return out;
   }
   UI.autoParams = autoParams; UI.autoName = autoName;

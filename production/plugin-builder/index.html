@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plugin Builder</title>
+<link rel="stylesheet" href="plugin-builder.css">
+<style>
+  :root { --bg: #121417; --bg2: #16191D; --panel: #1A1D22; --line: #2A2F37; --line2: #3A414C; --text: #E8EAED; --dim: #9AA3AE; --accent: #E2C27E; --accentText: #1A1408; --well: #0B0D10; color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: var(--bg); }
+  #builder { height: 100vh; }
+</style>
+</head>
+<body>
+<!-- The plugin builder on its own (Central Production embeds the same files). -->
+<div id="builder"></div>
+<script src="../cmfx/cmfx.js"></script>
+<script src="presets.js"></script>
+<script src="plugin-builder.js"></script>
+<script>
+  (function () {
+    var start = null;
+    try { start = JSON.parse(localStorage.getItem("cpb-draft") || "null"); } catch (_) { }
+    window.builder = CPPluginBuilder.mount(document.getElementById("builder"), start || CPPluginBuilder.blank(), {
+      onChange: function (p) { try { localStorage.setItem("cpb-draft", JSON.stringify(p)); } catch (_) { } }
+    });
+  })();
+</script>
+</body>
+</html>

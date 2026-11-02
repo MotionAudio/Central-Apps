@@ -399,6 +399,7 @@ module.exports = function services(app, getWin) {
   const libOut = (r) => ({ ok: true, installed: libs.listing(), record: r && r.id ? { id: r.id, version: r.version, counts: r.counts } : undefined });
   const libErr = (e) => ({ ok: false, error: e.message || String(e), installed: libs.listing() });
   ipcMain.handle("lib-list", () => ({ ok: true, installed: libs.listing(), progress: libs.progress }));
+  ipcMain.handle("lib-cmfx", () => libs.centralFx());   // (10.2) Central FX plugins for the Studio's inserts and the effects
   ipcMain.handle("lib-index", async () => { try { return await libs.index(); } catch (e) { return { ok: false, error: e.message || String(e), libraries: [] }; } });
   ipcMain.handle("lib-install", async (_e, a) => {
     a = a || {};

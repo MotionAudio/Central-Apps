@@ -2,6 +2,8 @@
 #   cu-mixer  the audio engine (JACK on Linux; Windows / macOS / Linux audio devices through miniaudio)
 #   cu-studio the Studio tab's live sound: notes played on a MIDI keyboard, at low latency (SoundFonts, miniaudio)
 #   cu-ndi    the NDI sender (the NDI runtime is loaded at run time)
+#   cmfx-cli  (10.2) Central FX plugins (the plugin builder's, cmfx/) checked or rendered: the tests; the same core is in
+#             cu-rig and cm-pwnode, and in the browsers as WebAssembly (tools/build-cmfx.sh)
 #   cu-rig    the instrument rig for Windows / macOS (built-in effects + SoundFont keys), and the musician's own
 #             plugins on every computer (plughost/: VST3, CLAP; Audio Units on macOS; LV2 on Linux) - C++
 #   test-plugins/  test CLAP and VST3 plugins for test-rig.mjs (never shipped)
@@ -18,9 +20,11 @@ UNAME := $(shell uname -s)
 EXE :=
 CXXFLAGS ?= -O2 -std=c++17 -Wall -Wno-unused-parameter -Wno-missing-field-initializers -Wno-misleading-indentation -Wno-unknown-warning-option
 VST3 := vendor/vst3sdk/pluginterfaces/base/funknown.cpp vendor/vst3sdk/pluginterfaces/base/coreiids.cpp vendor/vst3sdk/public.sdk/source/vst/vstinitiids.cpp vendor/vst3sdk/public.sdk/source/common/commoniids.cpp
-PHSRC := plughost/host.cpp plughost/fmt_clap.cpp plughost/fmt_vst3.cpp plughost/fmt_remote.cpp $(VST3)
+PHSRC := plughost/host.cpp plughost/fmt_clap.cpp plughost/fmt_vst3.cpp plughost/fmt_remote.cpp plughost/fmt_cmfx.cpp $(VST3)
 # (10.1) community plugins: the rig's side of the bridge (C), and cm-plugbridge - one community plugin, walled off
 PHCSRC := plughost/bridge_client.c plughost/sha256.c
+# (10.2) Central FX: the plugin builder's core (cmfx/), in the rig, the community stage and cmfx-cli
+CMFXSRC := cmfx/cmfx.c cmfx/cmfx_code.c cmfx/cmfx_util.c
 PHFLAGS := -Ivendor/vst3sdk -DPH_VST3
 ifeq ($(TARGET),win)
   ifneq (,$(findstring MINGW,$(UNAME))$(findstring MSYS,$(UNAME)))
@@ -75,7 +79,7 @@ endif
 ifeq ($(PLAT),mac)
   BRIDGE := $(OUT)/cm-plugbridge
 endif
-all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/cu-studio$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY) $(BRIDGE)
+all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cmfx-cli$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/cu-studio$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY) $(BRIDGE)
 $(OUT)/cu-mixer$(EXE): cu-mixer.c plat.h
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-mixer.c $(LIBS)
 $(OUT)/cu-studio$(EXE): cu-studio.c plat.h $(OUT)/obj/cJSON.o
@@ -94,9 +98,18 @@ $(OUT)/obj/cJSON.o: vendor/cJSON.c
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ vendor/cJSON.c
 $(OUT)/obj/playany.o: playany/playany.c playany/playany.h
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ playany/playany.c
-PHCOBJ := $(patsubst %,$(OUT)/obj/%.o,$(PHCSRC))
+CMFXOBJ := $(patsubst %,$(OUT)/obj/%.o,$(CMFXSRC))
+PHCOBJ := $(patsubst %,$(OUT)/obj/%.o,$(PHCSRC)) $(CMFXOBJ)
 $(OUT)/obj/plughost/%.c.o: plughost/%.c plughost/bridge.h plughost/sha256.h
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ $<
+# (the same maths on every processor and in WebAssembly: no fused multiply-adds)
+$(OUT)/obj/cmfx/%.c.o: cmfx/%.c cmfx/cmfx.h cmfx/cmfx_int.h
+	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -ffp-contract=off -c -o $@ $<
+$(OUT)/obj/plughost/fmt_cmfx.cpp.o: cmfx/cmfx.h
+# cmfx-cli: a Central FX plugin checked or rendered on the command line (the tests)
+$(OUT)/cmfx-cli$(EXE): cmfx/cmfx-cli.c $(CMFXOBJ)
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -ffp-contract=off -o $@ cmfx/cmfx-cli.c $(CMFXOBJ) -lm
+cmfx: $(OUT)/cmfx-cli$(EXE)
 $(OUT)/cu-rig$(EXE): $(OUT)/obj/cu-rig.o $(OUT)/obj/cJSON.o $(OUT)/obj/playany.o $(PHOBJ) $(PHCOBJ)
 	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) -o $@ $^ $(RIGLIBS)
 # cm-plugbridge: the plugin host without windows (gui_none.cpp) + the child's side of the bridge (bridge_main.cpp)
@@ -116,6 +129,9 @@ $(OUT)/test-bridge: plughost/test/test-bridge.cpp plughost/bridge.h plughost/ph.
 	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) $(PHFLAGS) -o $@ plughost/test/test-bridge.cpp $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o $(RIGLIBS)
 test-wall: all $(OUT)/test-bridge
 	node plughost/test/test-plugin-wall.mjs $(OUT)
+# (10.2) Central FX: the core (native = WebAssembly) and in the rig / the Pi's stage
+test-cmfx: all
+	node ../../test-cmfx.mjs && node cmfx/test-rig-cmfx.mjs $(OUT)
 $(OUT)/test-plugins/central-test.clap: plughost/test/test-plugins.c plughost/test/test-vst3.cpp plughost/test/make-test-plugins.sh
 	CC="$(CC)" CXX="$(CXX)" bash plughost/test/make-test-plugins.sh $(OUT) $(PLAT) "$(ARCH)"
 # play any sound: its test (synthetic guitar notes, lead lines, chords), and on Linux the plugin for PipeWire

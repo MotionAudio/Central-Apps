@@ -2,29 +2,18 @@
  * The builder itself is its own part of the app (plugin-builder/: window.CPPluginBuilder draws it, window.CMFx plays
  * it); this page loads it when it's in this build and keeps the plugin file:
  *   { format: "central-fx", version: 1, name, params: [...], graph: { blocks, wires }, code? }
- * It exports as a .cmfx.json, installs into your apps and publishes to Make & sell as a Plugin for every system. */
+ * Its own projects show in the DAW's insert picker (window.CDawPlugins, prod-core.js). It exports as a .cmfx.json, installs into your apps and publishes to Make & sell as a Plugin for every system. */
 (function () {
   "use strict";
   var A = window.CPAudio, Z = window.CMProj, H = window.CPHost, S = window.CDaw;
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(s) { return window.CP.esc(s); }
-  var ui = { el: null, loading: null, test: null };
+  var ui = { el: null, test: null, b: null };
   function D() { return window.CP.project().data; }
-  // the builder: plugin-builder/manifest.json lists its scripts and styles (or plugin-builder/index.js on its own)
-  function base() { var s = document.querySelector('script[src*="types/plugin.js"]'); return s ? s.src.replace(/types\/plugin\.js.*$/, "") : ""; }
-  function addScript(src) { return new Promise(function (ok, bad) { var s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = function () { bad(new Error("missing " + src)); }; document.head.appendChild(s); }); }
-  function addCss(href) { var l = document.createElement("link"); l.rel = "stylesheet"; l.href = href; document.head.appendChild(l); }
-  function loadBuilder() {
-    if (window.CPPluginBuilder) return Promise.resolve(true);
-    if (ui.loading) return ui.loading;
-    var root = base() + "plugin-builder/";
-    ui.loading = fetch(root + "manifest.json").then(function (r) { if (!r.ok) throw new Error("no manifest"); return r.json(); })
-      .then(function (m) { (m.styles || []).forEach(function (c) { addCss(root + c); }); return (m.scripts || []).reduce(function (p, s) { return p.then(function () { return addScript(root + s); }); }, Promise.resolve()); })
-      .catch(function () { return addScript(root + "index.js").catch(function () { }); })
-      .then(function () { return !!window.CPPluginBuilder; });
-    return ui.loading;
-  }
-  function blank(name) { return { format: "central-fx", version: 1, name: name || "My effect", params: [], graph: { blocks: [], wires: [] }, code: "" }; }
+  // the builder (production/plugin-builder/, copied to the website by tools/build-cmfx.sh): window.CPPluginBuilder draws it,
+  // window.CMFx (cmfx/cmfx.js) plays it. Both load with the page; a build without them shows the plugin file instead.
+  function loadBuilder() { return Promise.resolve(!!window.CPPluginBuilder); }
+  function blank(name) { if (window.CPPluginBuilder) return window.CPPluginBuilder.blank(name || "My effect"); return { format: "central-fx", version: 1, name: name || "My effect", params: [], graph: { blocks: [], wires: [] } }; }
 
   function mount(el) {
     ui.el = el;
@@ -43,8 +32,16 @@
       return;
     }
     host.innerHTML = "";
-    try { window.CPPluginBuilder.mount(host, D(), { onChange: function (plugin) { window.CP.edit("Edit the plugin", function (d) { if (plugin && plugin !== d) { Object.keys(d).forEach(function (k) { delete d[k]; }); Object.assign(d, JSON.parse(JSON.stringify(plugin))); } }); if (ui.test) ui.test.update(D()); } }); }
-    catch (e) { host.innerHTML = '<p class="err">The plugin builder couldn\'t open: ' + esc(e.message || e) + "</p>"; }
+    if (ui.b) try { ui.b.unmount(); } catch (_) { }
+    try {
+      ui.b = window.CPPluginBuilder.mount(host, JSON.parse(JSON.stringify(D())), {
+        onChange: function (plugin) {
+          if (JSON.stringify(plugin) === JSON.stringify(D())) return;
+          window.CP.edit("Edit the plugin", function (d) { Object.keys(d).forEach(function (k) { delete d[k]; }); Object.assign(d, JSON.parse(JSON.stringify(plugin))); });
+          if (ui.test) ui.test.update(D());
+        }
+      });
+    } catch (e) { host.innerHTML = '<p class="err">The plugin builder couldn\'t open: ' + esc(e.message || e) + "</p>"; }
   }
   // a test sound through the plugin (window.CMFx makes the plugin's sound node)
   function testSource(c, kind) {
@@ -61,28 +58,36 @@
     var kind = $("#pgSrc", ui.el).value;
     var src = kind === "file" ? H.pickFiles(null, false).then(function (fs) { if (!fs[0]) throw { canceled: true }; return Z.decode(c, fs[0].bytes); }) : testSource(c, kind);
     src.then(function (buf) {
-      var node = window.CMFx.create(c, D()), s = c.createBufferSource(), dry = c.createGain(), wet = c.createGain(); s.buffer = buf; s.loop = true;
-      var input = node.input || node, output = node.output || node;
-      s.connect(input); output.connect(wet).connect(c.destination); s.connect(dry).connect(c.destination); dry.gain.value = 0;
+      var s = c.createBufferSource(), dry = c.createGain(), wet = c.createGain(), fx = null, upd = null; s.buffer = buf; s.loop = true;
+      function make(p) { var old = fx; fx = window.CMFx.create(c, p, { onError: function (e) { window.CP.toast("The plugin can't play: " + e, "bad"); } }); s.connect(fx.node); fx.node.connect(wet); if (old) fx.ready.then(function () { try { s.disconnect(old.node); } catch (_) { } old.dispose(); }); }
+      make(D()); wet.connect(c.destination); s.connect(dry).connect(c.destination); dry.gain.value = 0;
       s.start();
-      ui.test = { stop: function () { try { s.stop(); } catch (_) { } try { output.disconnect(); } catch (_) { } if (node.dispose) node.dispose(); },
+      ui.test = { stop: function () { clearTimeout(upd); try { s.stop(); } catch (_) { } if (fx) fx.dispose(); },
         bypass: function (on) { dry.gain.value = on ? 1 : 0; wet.gain.value = on ? 0 : 1; },
-        update: function (p) { if (node.update) node.update(p); else if (node.setPlugin) node.setPlugin(p); } };
+        update: function (p) { clearTimeout(upd); upd = setTimeout(function () { if (window.CMFx.check(p).ok) make(p); }, 250); } };
       if ($("#pgBypass", ui.el).checked) ui.test.bypass(true);
     }).catch(function (e) { if (e && e.canceled) return; window.CP.toast("It couldn't play: " + (e.message || e), "bad"); });
   }
   function stopTry() { if (ui.test) { ui.test.stop(); ui.test = null; } }
   function file() { var d = JSON.parse(JSON.stringify(D())); d.name = window.CP.project().name; return { name: Z.slug(d.name, "plugin") + ".cmfx.json", data: new TextEncoder().encode(JSON.stringify(d, null, 1)), plugin: d }; }
+  // your plugin projects, in the DAW's insert picker (projects kept on this computer or in this browser)
+  if (window.CDawPlugins) window.CDawPlugins.add(function () {
+    return H.local.list().then(function (list) {
+      return Promise.all((list || []).filter(function (e) { return e.type === "plugin"; }).slice(0, 40).map(function (e) {
+        return H.local.open(e.id).then(function (r) { return Z.unpack(r.bytes); }).then(function (u) { var pj = u.project; var d = pj && pj.data; if (!d || d.format !== "central-fx") return null; d = JSON.parse(JSON.stringify(d)); d.name = pj.name || d.name; return { name: d.name, from: "mine", plugin: d }; }).catch(function () { return null; });
+      }));
+    }).then(function (a) { return a.filter(Boolean); });
+  });
   window.CP.type({
     id: "plugin", name: "Plugin", blurb: "Your own effect: blocks and wires, or code",
     long: "Build an effect from blocks (filters, delays, drive, modulation, knobs) wired together, or write it as code. It runs inside the apps' own sound engine, so it works on every computer and on the pedal, and it publishes to Make & sell as a Plugin.",
     create: function (opts) { return blank(opts.name); },
     load: function () { return loadBuilder(); },
-    mount: mount, unmount: function () { stopTry(); if (window.CPPluginBuilder && window.CPPluginBuilder.unmount) try { window.CPPluginBuilder.unmount(); } catch (_) { } ui.el = null; },
+    mount: mount, unmount: function () { stopTry(); if (ui.b) try { ui.b.unmount(); } catch (_) { } ui.b = null; ui.el = null; },
     changed: function (label) { if (label === "undo" || label === "redo") drawHost(); },
     collect: function (project) { return { data: project.data, files: {} }; },
     exports: [["Export the plugin (.cmfx.json)", function () { var f = file(); return H.exportFiles(window.CP.project().name, [{ name: f.name, data: f.data }]); }, "Opens in Central Production on any computer"]],
-    publish: { store: "make", kind: "plugin", build: function () { var f = file(); var g = f.plugin.graph || {}; if (!(g.blocks && g.blocks.length) && !(f.plugin.code && f.plugin.code.trim())) throw new Error("The plugin is empty: add some blocks (or code) first."); return { fx: f }; } },
+    publish: { store: "make", kind: "plugin", build: function () { var f = file(); var g = f.plugin.graph || {}; if (!(g.blocks || []).some(function (b) { return b.type !== "input" && b.type !== "output"; }) && !(f.plugin.code && f.plugin.code.trim())) throw new Error("The plugin is empty: add some blocks (or code) first."); if (window.CMFx) { var r = window.CMFx.check(f.plugin); if (!r.ok) throw new Error("Fix the plugin first: " + r.error); } return { fx: f }; } },
     install: function () { return { fx: file() }; }
   });
 })();

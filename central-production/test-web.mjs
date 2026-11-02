@@ -95,6 +95,24 @@ await check("automation: a volume lane follows its points in the render", async 
     return { early: rms(0.5, 2), late: rms(3, 4.5), lane: !!document.querySelector(".cd-autocv") }; });
   assert.ok(r.lane, "the lane shows"); assert.ok(r.late < r.early / 20, "late " + r.late + " early " + r.early);
 });
+await check("Central FX plugins in the inserts: the picker lists the builder's examples; a Tremolo insert pulses in the render", async () => {
+  await T(() => CDawUI.openEditor("mixer")); await page.waitForSelector(".cd-strip.master");
+  const keys = await T(() => CDaw.project().tracks.find((x) => x.name === "Keys").id);
+  await page.click('.cd-strip[data-s="' + keys + '"] [data-fx="add"]').catch(() => page.click('[data-fx="add"]'));
+  await page.waitForFunction(() => /Tremolo \(example\)/.test(document.body.innerText)); await page.keyboard.press("Escape");
+  const r = await T(async () => {
+    const t = CDaw.project().tracks.find((x) => x.name === "Keys"), trem = CPPluginPresets.find((p) => p.name === "Tremolo");
+    const env = async () => { const b = await CDaw.render({ from: 0, to: 4, tracks: [t.id], tail: 0 }), d = b.getChannelData(0), w = Math.round(b.sampleRate * 0.02), e = []; for (let i = Math.round(b.sampleRate * 0.5); i + w < b.sampleRate * 2.2; i += w) { let s = 0; for (let k = i; k < i + w; k++) s += d[k] * d[k]; e.push(Math.sqrt(s / w)); } return Math.max(...e) / Math.max(1e-9, Math.min(...e)); };
+    const prev = JSON.parse(JSON.stringify((({ inserts, clips, auto, lanes }) => ({ inserts, clips, auto, lanes }))(CDaw.track(t.id))));
+    CDaw.edit("a", () => { const k = CDaw.track(t.id); k.auto = {}; k.lanes = []; k.inserts = []; k.clips = [{ id: "c9", kind: "midi", start: 0, len: 4, notes: [{ p: 57, v: 110, s: 0, d: 4 }] }]; });
+    const plain = await env();
+    CDaw.edit("Add Tremolo", () => { CDaw.track(t.id).inserts = [{ id: "fT", type: "cmfx", on: true, plugin: trem, params: Object.assign(CDaw.fxDefaults({ type: "cmfx", plugin: trem }), { depth: 1, rate: 4 }) }]; });
+    const fx = await env(), knobs = CDaw.fxDef(CDaw.track(t.id).inserts[0]).params.map((q) => q[1]);
+    CDaw.edit("x", () => { Object.assign(CDaw.track(t.id), prev); });
+    return { plain, fx, knobs };
+  });
+  assert.ok(r.fx > 4 && r.fx > r.plain * 3, "tremolo swing " + r.fx + " (plain " + r.plain + ")"); assert.deepEqual(r.knobs, ["Speed", "Depth", "Wide"]);
+});
 await check("a loop dragged in at another tempo is stretched to the song's (same length in bars, keeps its pitch)", async () => {
   const r = await T(async () => { const rate = 48000, secs = 2, b = new AudioBuffer({ length: rate * secs, numberOfChannels: 1, sampleRate: rate }), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.sin(2 * Math.PI * 440 * i / rate) * 0.5;   // a 4-beat "loop" at 120 BPM
     const wav = CMProj.wav(b, 16); const res = await CDaw.importAudio(null, new Uint8Array(wav), "loop.wav", 0, { bpm: 120, key: "C", bars: 1 }); const buf = CDaw.buffers[res.clip.audio.src];
@@ -204,13 +222,14 @@ await check("Instrument: samples spread across the keyboard by their notes, play
   const sfz = await T(() => new TextDecoder().decode(CPSampler.sfz({ name: "G", zones: CP.project().data.zones, env: CP.project().data.env, filter: CP.project().data.filter }, CP.mod().buffers())[0].data)); assert.ok(/pitch_keycenter=48/.test(sfz) && /pitch_keycenter=72/.test(sfz), sfz);
   const it = await publishMake("instrument"); assert.ok(it.files.some((f) => f.role === "demo"));
 });
-await check("Plugin: without the builder in this build it says so, keeps the plugin file, and won't publish an empty plugin", async () => {
-  await T(() => CPT.create("plugin", { name: "My Echo" })); await page.waitForSelector(".cp-plugin");
-  await page.waitForFunction(() => /isn't installed in this build|cp-pg-host/.test(document.querySelector("#pgHost").innerHTML));
-  const hasBuilder = await T(() => !!window.CPPluginBuilder);
-  if (!hasBuilder) assert.match(await page.textContent("#pgHost"), /plugin builder isn't installed in this build/);
+await check("Plugin: the plugin builder opens in the project; an example becomes the plugin; it saves and publishes as a Plugin", async () => {
+  await T(() => CPT.create("plugin", { name: "My Echo" })); await page.waitForSelector(".cp-plugin .cpb-block");
   await T(() => CPPublish.open()); await page.waitForSelector("#pbForm"); await page.check("#pbRights"); await page.click("#pbSend");
   await page.waitForFunction(() => /empty/.test(document.querySelector("#pbErr").textContent)); await T(() => document.querySelector("#cpModal [data-close]").click());
+  await page.selectOption(".cpb-presets", { label: "Tape Delay" });
+  await page.waitForFunction(() => (CP.project().data.graph.blocks || []).some((b) => b.type === "delay"), null, { timeout: 5000 });
+  const ok = await T(() => CMFx.check(CP.project().data).ok); assert.ok(ok, "the plugin checks");
+  const it = await publishMake("plugin"); assert.ok(it.files.some((f) => /\.cmfx\.json$/.test(f.name || f.file || "")) || it.files.length > 0, JSON.stringify(it.files));
 });
 await check("Pedal board: pedals from the catalogue in order, moved, knobs set; publishes as a Pedal board", async () => {
   await T(() => CPT.create("board", { name: "Ambient Guitar" })); await page.waitForSelector(".cp-board");

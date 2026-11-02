@@ -283,7 +283,7 @@ try {
     ok(/\$4\.73/.test(await pg2.locator("main").innerText()), "Earnings: paid so far and the statements");
     if (shots) await pg2.screenshot({ path: path.join(shots, "create-earnings.png"), fullPage: true });
     await pg2.click("[data-tab=upload]"); await pg2.click("[data-kind=plugin]");
-    ok((await pg2.locator("input[type=file][data-platform]").count()) === 4, "Upload: a plugin takes one zip per platform");
+    ok((await pg2.locator("input[type=file][data-platform]").count()) === 5, "Upload: a plugin takes one zip per platform (and a Central FX .cmfx.json for every device)");
     if (shots) await pg2.screenshot({ path: path.join(shots, "create-upload-plugin.png"), fullPage: true });
     await pg2.click("[data-kind=loop]");
     if (shots) await pg2.screenshot({ path: path.join(shots, "create-upload-loop.png"), fullPage: true });

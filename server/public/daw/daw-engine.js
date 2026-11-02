@@ -99,15 +99,23 @@
     limiter: { name: "Limiter", pro: true, params: [["ceiling", "Ceiling", -12, 0, -1, "dB"], ["gain", "Input gain", 0, 18, 0, "dB"]],
       make: function (c) { var u = { input: G(c), output: G(c) }, ig = G(c), k = c.createDynamicsCompressor(), out = G(c); k.knee.value = 0; k.ratio.value = 20; k.attack.value = 0.001; k.release.value = 0.08; u.input.connect(ig).connect(k).connect(out).connect(u.output); u.node = k;
         u.set = function (p, now) { k.threshold.setTargetAtTime(p.ceiling - 0.5, now, 0.02); ig.gain.setTargetAtTime(dbToGain(p.gain), now, 0.02); }; u.param = function () { return null; }; return u; } },
-    cmfx: { name: "Plugin", params: [], make: function (c, fx) {   // a plugin from Central Production's builder (window.CMFx)
-      var u = { input: G(c), output: G(c) }, node = null;
-      try { if (window.CMFx && fx && fx.plugin) node = window.CMFx.create(c, fx.plugin); } catch (e) { console.warn("plugin", e); }
-      if (node) { u.input.connect(node.input || node); (node.output || node).connect(u.output); } else u.input.connect(u.output);
-      u.set = function (p) { if (node && node.setParams) node.setParams(p); else if (node && node.set) node.set(p); }; u.param = function (k) { return node && node.param ? node.param(k) : null; }; u.dispose = function () { if (node && node.dispose) node.dispose(); }; return u; } }
+    cmfx: { name: "Plugin", params: [], make: function (c, fx) {   // a Central FX plugin (the plugin builder's .cmfx.json, played by window.CMFx)
+      var u = { input: G(c), output: G(c) }, api = null, last = {};
+      try { if (window.CMFx && fx && fx.plugin) api = window.CMFx.create(c, fx.plugin, { values: fxPlay(fx) || {}, onError: function (e) { console.warn("Central FX: " + e); } }); } catch (e) { console.warn("Central FX", e); }
+      if (api && api.node) { u.input.connect(api.node); api.node.connect(u.output); (c.__cdawPending = c.__cdawPending || []).push(api.ready); } else u.input.connect(u.output);
+      u.api = api;
+      u.set = function (p) { if (!api) return; Object.keys(p || {}).forEach(function (k) { if (last[k] !== p[k]) { last[k] = p[k]; api.setParam(k, p[k]); } }); };
+      u.param = function () { return null; }; u.dispose = function () { if (api) api.dispose(); }; return u; } }
   };
-  function fxDefaults(type) { var d = {}; (FX[type] ? FX[type].params : []).forEach(function (p) { d[p[0]] = p[4]; }); return d; }
+  // an effect's description: the built-in ones from FX; a Central FX plugin's knobs come from its own file
+  function fxDef(fx) {
+    var t = typeof fx === "string" ? fx : fx && fx.type, def = FX[t]; if (t !== "cmfx" || !fx || typeof fx === "string") return def;
+    var pl = fx.plugin || {};
+    return { name: pl.name || "Plugin", plugin: true, make: def.make, params: (pl.params || []).map(function (q) { var lo = q.min != null ? +q.min : 0, hi = q.max != null ? +q.max : 1; return [q.id, q.name || q.id, lo, hi, q.default != null ? +q.default : lo, q.unit || "", false, q.choices || null]; }) };
+  }
+  function fxDefaults(fx) { var d = {}, def = fxDef(fx); (def ? def.params : []).forEach(function (p) { d[p[0]] = p[4]; }); return d; }
   // the params as they play: without Central Plugins the full-version knobs stay at their defaults (and pro effects pass through)
-  function fxPlay(fx) { var def = FX[fx.type]; if (!def) return null; var p = Object.assign(fxDefaults(fx.type), fx.params || {}); if (!pro()) def.params.forEach(function (q) { if (q[6]) p[q[0]] = q[4]; }); return p; }
+  function fxPlay(fx) { var def = fxDef(fx); if (!def) return null; var p = Object.assign(fxDefaults(fx), fx.params || {}); if (!pro()) def.params.forEach(function (q) { if (q[6]) p[q[0]] = q[4]; }); return p; }
   function fxUsable(fx) { var def = FX[fx.type]; return !!def && fx.on !== false && !(def.pro && !pro()); }
   var GATE_SRC = "class G extends AudioWorkletProcessor{constructor(){super();this.p={threshold:-45,range:-60,release:120};this.e=0;this.g=1;this.port.onmessage=e=>{Object.assign(this.p,e.data)}}process(i,o){const a=i[0],b=o[0];if(!a||!a.length)return true;const th=Math.pow(10,this.p.threshold/20),fl=Math.pow(10,this.p.range/20),rel=Math.exp(-1/(sampleRate*this.p.release/1000)),att=Math.exp(-1/(sampleRate*0.001));for(let n=0;n<a[0].length;n++){let x=0;for(let c=0;c<a.length;c++)x=Math.max(x,Math.abs(a[c][n]));this.e=x>this.e?x:this.e*0.9995;const t=this.e>th?1:fl;this.g=t>this.g?t+(this.g-t)*att:t+(this.g-t)*rel;for(let c=0;c<b.length;c++)b[c][n]=(a[c]||a[0])[n]*this.g}return true}}registerProcessor('cdaw-gate',G);" +
     "class R extends AudioWorkletProcessor{constructor(){super();this.on=false;this.port.onmessage=e=>{this.on=!!e.data.on}}process(i){const a=i[0];if(this.on&&a&&a.length){this.port.postMessage({t:currentTime,ch:a.map(x=>x.slice(0))})}return true}}registerProcessor('cdaw-rec',R);";
@@ -544,7 +552,7 @@
     if (o.tracks) proj.tracks.forEach(function (t) { if (t.kind === "bus") return; t.solo = o.tracks.indexOf(t.id) >= 0; if (t.solo) t.mute = false; });
     proj.metronome = Object.assign({}, proj.metronome, { on: false });
     var g = new Graph(oc, true); g.auto = true; var p2 = proj;
-    return worklets(oc).then(function () { return g.sync(p2); }).then(function () {
+    return worklets(oc).then(function () { return g.sync(p2); }).then(function () { return Promise.all(oc.__cdawPending || []); }).then(function () {   // (Central FX plugins load before it renders)
       var t0 = 0.02, sink = { graph: g, time: function (b) { return t0 + beatToSec(b) - beatToSec(from); }, started: {}, sources: [], notes: [], pass: 1, from: from, first: true, offline: true };
       autoStart(g, from, t0); schedule(sink, from, to + 1e-6);
       proj = keep; return oc.startRendering();
@@ -614,6 +622,6 @@
     render: render, stems: stems, songEnd: songEnd, buffers: buffers, addAudio: addAudio, decode: decode, importAudio: importAudio, usedAudio: usedAudio, rewarp: rewarp, keyShift: keyShift,
     split: split, cutRange: cutRange, quantize: quantize, humanize: humanize, snapBeat: snapBeat, autoAt: autoAt, clipSrc: clipSrc,
     tempo: { beatToSec: beatToSec, secToBeat: secToBeat, barToBeat: barToBeat, beatToBar: beatToBar, bpmAt: bpmAt, bpb: function (b) { return beatToBar(b || 0).per; } },
-    FX: FX, fxDefaults: fxDefaults, pro: pro, ctx: ensureCtx, graph: function () { return rt; }, latency: latency, recovery: recovery, uid: uid, COLORS: COLORS, KEYS: KEYS, SNAP: SNAP, dbToGain: dbToGain, clamp: clamp, clone: clone
+    FX: FX, fxDef: fxDef, fxDefaults: fxDefaults, pro: pro, ctx: ensureCtx, graph: function () { return rt; }, latency: latency, recovery: recovery, uid: uid, COLORS: COLORS, KEYS: KEYS, SNAP: SNAP, dbToGain: dbToGain, clamp: clamp, clone: clone
   };
 })();

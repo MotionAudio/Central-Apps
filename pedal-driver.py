@@ -1592,6 +1592,9 @@ class LocalServer:
                         return self.send_json(200, sound_libraries.release_index())
                     except Exception as error:  # noqa: BLE001
                         return self.send_json(200, {"ok": False, "error": "the library list didn't come (%s) - check the internet" % error, "libraries": []})
+                if p == "/libraries/central-fx":   # (10.2) the Central FX plugins installed here, for the app's track / pad effects
+                    st = library_store(driver)
+                    return self.send_json(200, {"plugins": st.central_fx() if st and hasattr(st, "central_fx") else []})
                 if p == "/libraries/pads":   # Central Pads: the pad styles installed here (the pad pedal's voice list)
                     st = library_store(driver)
                     return self.send_json(200, {"pads": st.pads() if st else []})

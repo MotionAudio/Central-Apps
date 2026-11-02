@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld("CPDesktop", {
 });
 // the same names the shared code uses in Central Usage (js/libraries.js, the DAW's sounds and low-delay player)
 contextBridge.exposeInMainWorld("CU", {
-  libraries: { list: inv("lib-list"), index: inv("lib-index"), install: inv("lib-install"), installFile: inv("lib-install-file"), remove: inv("lib-remove"), community: inv("lib-community"), onProgress: (fn) => ipcRenderer.on("lib-progress", (_e, p) => fn(p)) },
+  libraries: { list: inv("lib-list"), index: inv("lib-index"), install: inv("lib-install"), installFile: inv("lib-install-file"), remove: inv("lib-remove"), community: inv("lib-community"), centralFx: inv("lib-cmfx"), onProgress: (fn) => ipcRenderer.on("lib-progress", (_e, p) => fn(p)) },
   studio: { catalog: inv("studio-catalog"), read: inv("studio-read"), exportFiles: inv("studio-export"),
     monitor: { start: inv("studio-monitor-start"), send: (m) => ipcRenderer.send("studio-monitor-send", m), stop: inv("studio-monitor-stop"), on: (fn) => ipcRenderer.on("studio-monitor", (_e, m) => fn(m)) } }
 });

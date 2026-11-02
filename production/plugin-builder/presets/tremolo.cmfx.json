@@ -1,0 +1,17 @@
+{
+  "format": "central-fx", "version": 1, "name": "Tremolo", "author": "Motion Audio",
+  "description": "The classic amp pulse. Slow and deep for a swell, quick and light for a shimmer. Wide spreads it across left and right.",
+  "params": [
+    { "id": "rate", "name": "Speed", "min": 0.5, "max": 12, "default": 4.5, "unit": "Hz", "curve": "log" },
+    { "id": "depth", "name": "Depth", "min": 0, "max": 1, "default": 0.55 },
+    { "id": "wide", "name": "Wide", "min": 0, "max": 180, "default": 0, "unit": "°" }
+  ],
+  "graph": {
+    "blocks": [
+      { "id": "in", "type": "input", "x": 40, "y": 120 },
+      { "id": "trem", "type": "tremolo", "x": 240, "y": 120, "props": { "rate": { "param": "rate" }, "depth": { "param": "depth" }, "stereo": { "param": "wide" }, "shape": "sine" } },
+      { "id": "out", "type": "output", "x": 440, "y": 120 }
+    ],
+    "wires": [ { "from": "in.out", "to": "trem.in" }, { "from": "trem.out", "to": "out.in" } ]
+  }
+}

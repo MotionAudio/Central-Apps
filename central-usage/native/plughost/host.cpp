@@ -127,6 +127,7 @@ static std::string findPath(const std::string &format, const std::string &id) {
   return "";
 }
 static Plug *openAny(const std::string &format, const std::string &id, const std::string &path, std::string &err) {
+  if (format == "cmfx") return openCmfx(path, err);
   if (format == "clap") return openClap(path, id, err);
 #ifdef PH_VST3
   if (format == "vst3") return openVst3(path, id, err);
@@ -185,6 +186,15 @@ PhPlug *ph_get(const char *slot, const char *format, const char *id, const char 
   if (it != pool.end()) {
     if (it->second->format == f && it->second->id == i) { it->second->refs++; return reinterpret_cast<PhPlug *>(it->second); }
     Plug *old = it->second; saveSlot(old); pool.erase(it); if (--old->refs == 0) destroy(old);
+  }
+  if (f == "cmfx") {   // (10.2) a Central FX plugin: our own core plays it here (a community one is checked first)
+    std::string e; Plug *p = openCmfx(pa, e);
+    if (!p) { if (err) snprintf(err, (size_t)errLen, "%s", e.c_str()); return nullptr; }
+    p->format = f; p->id = i; p->path = pa; p->slot = s; p->sampleRate = sr; p->maxBlock = maxBlock;
+    if (!p->start(sr, maxBlock, e)) { if (err) snprintf(err, (size_t)errLen, "%s", e.c_str()); delete p; return nullptr; }
+    std::vector<uint8_t> st;
+    if (readState(s, f, i, st) || (stateFrom && stateFrom[0] && readState(stateFrom, f, i, st))) { if (!p->loadState(st)) log("%s: its saved state did not load", p->name.c_str()); else if (!readState(s, f, i, st)) p->dirty = true; }
+    p->refs = 2; pool[s] = p; return reinterpret_cast<PhPlug *>(p);
   }
   if (isCommunity(pa)) {   // (10.1) someone else's program: in its own walled-off process, never in this one
     std::string e; Plug *p = openRemote(f, i, pa, e);
@@ -261,7 +271,7 @@ int ph_copy_state(const char *fromSlot, const char *toName) {
 }
 
 const char *ph_formats(void) {
-  return "clap"
+  return "cmfx,clap"
 #ifdef PH_VST3
          ",vst3"
 #endif
@@ -308,6 +318,9 @@ static std::vector<std::pair<std::string, std::string>> defaultFolders() {   // 
   d.push_back({ "clap", h + "/.clap" }); d.push_back({ "clap", "/usr/lib/clap" }); d.push_back({ "clap", "/usr/local/lib/clap" }); d.push_back({ "clap", "/usr/lib64/clap" });
 #endif
   for (auto &e : envList("CLAP_PATH")) d.push_back({ "clap", e });
+  // (10.2) Central FX plugins: the app's own folder for them, and CENTRAL_FX_PATH
+  d.push_back({ "cmfx", U(P(gData) / "central-fx") });
+  for (auto &e : envList("CENTRAL_FX_PATH")) d.push_back({ "cmfx", e });
   for (auto &e : envList("VST3_PATH")) d.push_back({ "vst3", e });
   return d;
 }
@@ -318,6 +331,7 @@ static void walk(const fs::path &dir, int depth, std::vector<Cand> &out, std::se
     std::string name = U(it->path().filename()), full = U(it->path());
     bool isDir = it->is_directory(ec);
     if (endsWith(name, ".vst3") || endsWith(name, ".clap")) { std::string canon = lower(full); if (!seen.count(canon)) { seen.insert(canon); out.push_back({ endsWith(name, ".vst3") ? "vst3" : "clap", full }); } continue; }
+    if (!isDir && endsWith(lower(name), ".cmfx.json")) { std::string canon = lower(full); if (!seen.count(canon)) { seen.insert(canon); out.push_back({ "cmfx", full }); } continue; }
     if (isDir && name[0] != '.') walk(it->path(), depth + 1, out, seen);
   }
 }
@@ -390,7 +404,13 @@ static void scanWorker(std::vector<std::string> extra, bool force) {
       size_t i = next++; if (i >= cands.size()) return; const Cand &c = cands[i]; int64_t st = stamp(c.path);
       { std::lock_guard<std::mutex> g(m); cJSON *e = cJSON_GetObjectItem(entries, c.path.c_str()); if (e && (int64_t)cJSON_GetNumberValue(cJSON_GetObjectItem(e, "stamp")) == st) { results[i] = cJSON_Duplicate(e, 1); done++; continue; } }
       progress(baseName(c.path));
-      std::string out; bool ok = runChild(c.format, c.path, 60000, out);
+      std::string out; bool ok;
+      if (c.format == "cmfx") {   // (only reads our own JSON: no need for a child process)
+        std::vector<ClassInfo> cl; std::string e; cJSON *r = cJSON_CreateObject();
+        if (scanCmfx(c.path, cl, e)) { cJSON *a = cJSON_AddArrayToObject(r, "classes"); for (auto &ci : cl) { cJSON *o = cJSON_CreateObject(); cJSON_AddStringToObject(o, "id", ci.id.c_str()); cJSON_AddStringToObject(o, "name", ci.name.c_str()); cJSON_AddStringToObject(o, "vendor", ci.vendor.c_str()); cJSON_AddStringToObject(o, "version", ci.version.c_str()); cJSON_AddStringToObject(o, "kind", ci.kind.c_str()); cJSON_AddItemToArray(a, o); } }
+        else cJSON_AddStringToObject(r, "error", e.c_str());
+        char *j = cJSON_PrintUnformatted(r); out = j ? j : ""; free(j); cJSON_Delete(r); ok = true;
+      } else ok = runChild(c.format, c.path, 60000, out);
       cJSON *r = ok ? cJSON_Parse(out.c_str()) : nullptr; cJSON *e = cJSON_CreateObject(); cJSON_AddNumberToObject(e, "stamp", (double)st); cJSON_AddStringToObject(e, "format", c.format.c_str());
       if (r && cJSON_IsArray(cJSON_GetObjectItem(r, "classes"))) cJSON_AddItemToObject(e, "classes", cJSON_Duplicate(cJSON_GetObjectItem(r, "classes"), 1));
       else { std::string why = r && cJSON_GetStringValue(cJSON_GetObjectItem(r, "error")) ? cJSON_GetStringValue(cJSON_GetObjectItem(r, "error")) : out == "timeout" ? "it took too long to load" : "it crashed while loading"; cJSON_AddStringToObject(e, "error", why.c_str()); }

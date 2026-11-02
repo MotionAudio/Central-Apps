@@ -8,6 +8,8 @@
 //   plugins: a zip per platform holding one plugin bundle (LV2 on Linux / the Pi, VST3 / CLAP / AU on Mac and Windows)
 import crypto from "node:crypto";
 import path from "node:path";
+import fs from "node:fs";
+import vm from "node:vm";
 import { listZip, readEntry, ZipError } from "./zipfile.js";
 
 export class CheckError extends Error { constructor(m) { super(m); this.status = 400; } }
@@ -170,9 +172,11 @@ export const KINDS = {
   loop: { name: "Loops", packs: ["pads"], what: "WAV files, or a zip of WAVs", max: 500 * 1024 ** 2 },
   pad: { name: "Pad", packs: ["pads"], what: "a zip of 12 WAV loops, one per key, named by key (C.wav, C#.wav ... B.wav)", max: 800 * 1024 ** 2 },
   board: { name: "Pedal board", packs: ["pedals"], what: "a pedal board preset (.json) exported from the pedal board", max: 1024 ** 2 },
-  plugin: { name: "Plugin", packs: ["plugins"], what: "a zip per platform with one plugin bundle", max: 300 * 1024 ** 2 },
+  plugin: { name: "Plugin", packs: ["plugins"], what: "a zip per platform with one plugin bundle, or one .cmfx.json made in the plugin builder (it plays on every device)", max: 300 * 1024 ** 2 },
 };
 export const PLATFORMS = { "linux-x64": "Linux (64-bit PC)", "linux-arm64": "Central Pedal (Raspberry Pi) / Linux ARM", mac: "Mac", "win-x64": "Windows (64-bit)" };
+// (10.2) a Central FX plugin (made in Central Production's plugin builder) is one .cmfx.json that plays on every device
+PLATFORMS.all = "Every device (a Central FX plugin from the plugin builder)";
 
 function check(list, ok, text) { list.push({ ok: !!ok, text }); return !!ok; }
 
@@ -298,8 +302,31 @@ function binKind(b) {
 }
 const SCRIPT_EXT = /\.(sh|bash|zsh|command|py|pl|rb|js|bat|cmd|ps1|vbs|scr|exe|msi|app|pkg|dmg|jar|desktop|service|plist)$/i;
 
+// (10.2) a Central FX plugin: the .cmfx.json, checked by the same core the apps play it with (cmfx.js)
+let CMFx = null;
+function cmfx() {   // (the browser file, run in a context of its own: it works whatever kind of module this folder is)
+  if (!CMFx) { const sb = { WebAssembly, Buffer, TextEncoder, TextDecoder, console }; sb.globalThis = sb; vm.runInNewContext(fs.readFileSync(new URL("../public/production/cmfx/cmfx.js", import.meta.url), "utf8"), sb, { filename: "cmfx.js" }); CMFx = sb.CMFx; }
+  return CMFx;
+}
+export const MAX_CMFX = 512 * 1024;
+export function checkCmfx(fileName, buf, blocked) {
+  const checks = [];
+  if (!/\.json$/i.test(fileName)) throw bad("upload a Central FX plugin as its .cmfx.json file (Save a copy in the plugin builder)");
+  if (buf.length > MAX_CMFX) throw bad("a Central FX plugin can be up to " + MAX_CMFX / 1024 + " KB");
+  const whole = sha256(buf);
+  if (blocked && blocked.has(whole)) throw bad("this file is on our list of known harmful files");
+  let plugin; try { plugin = JSON.parse(buf.toString("utf8")); } catch (_) { throw bad("that file isn't a Central FX plugin (it isn't valid JSON)"); }
+  const r = cmfx().check(plugin, 48000);
+  if (!r.ok) throw bad("the plugin doesn't load: " + r.error);
+  check(checks, true, "A Central FX plugin: " + String(plugin.name).slice(0, 60) + " (" + (plugin.graph && plugin.graph.blocks ? plugin.graph.blocks.length : 0) + " blocks" + (plugin.code ? ", with code" : "") + ", " + (plugin.params || []).length + " knobs)");
+  check(checks, true, "Only our own blocks and the safe code language: it can't reach files, the internet or the system, on any device");
+  const bundle = (String(plugin.name || "plugin").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "plugin") + ".cmfx.json";
+  return { checks, bundle, format: "cmfx", binaries: [{ name: bundle, sha256: whole, bytes: buf.length }], sha256: whole };
+}
+
 // one platform's zip -> { checks, bundle, format, binaries: [{ name, sha256 }] }; blocked: Set of banned sha256
 export function checkPlugin(platform, fileName, buf, blocked) {
+  if (platform === "all") return checkCmfx(fileName, buf, blocked);
   const checks = [];
   if (!PLATFORMS[platform]) throw bad("unknown platform " + platform);
   if (buf.length > KINDS.plugin.max) throw bad("a plugin zip can be up to " + Math.round(KINDS.plugin.max / 1024 ** 2) + " MB");

@@ -44,34 +44,43 @@
       $$("[data-fx]", s).forEach(function (b) { b.onclick = function () {
         var k = b.dataset.fx, f = b.closest("[data-f]") && b.closest("[data-f]").dataset.f;
         function list(p) { return master ? p.master.inserts : D.track(id).inserts; }
-        if (k === "add") return addFx(b, function (fx) { D.edit("Add " + (D.FX[fx.type] || {}).name, function (p) { list(p).push(fx); }); mx.open = id + ":" + fx.id; });
+        if (k === "add") return addFx(b, function (fx) { D.edit("Add " + (D.fxDef(fx) || {}).name, function (p) { list(p).push(fx); }); mx.open = id + ":" + fx.id; });
         if (k === "power") return D.edit("Effect on / off", function (p) { var x = list(p).filter(function (q) { return q.id === f; })[0]; x.on = x.on === false; });
         if (k === "open") { mx.open = mx.open === id + ":" + f ? null : id + ":" + f; return draw(mx.body); }
         if (k === "menu") UI.menu(b, [["Move up", function () { D.edit("Move effect", function (p) { var l = list(p), i = l.findIndex(function (q) { return q.id === f; }); if (i > 0) l.splice(i - 1, 0, l.splice(i, 1)[0]); }); }], ["Move down", function () { D.edit("Move effect", function (p) { var l = list(p), i = l.findIndex(function (q) { return q.id === f; }); if (i < l.length - 1) l.splice(i + 1, 0, l.splice(i, 1)[0]); }); }],
-          ["Reset its knobs", function () { D.edit("Reset effect", function (p) { var x = list(p).filter(function (q) { return q.id === f; })[0]; x.params = D.fxDefaults(x.type); }); }], null, ["Remove", function () { D.edit("Remove effect", function (p) { var l = list(p), i = l.findIndex(function (q) { return q.id === f; }); if (i >= 0) l.splice(i, 1); }); if (mx.open === id + ":" + f) mx.open = null; }]]);
+          ["Reset its knobs", function () { D.edit("Reset effect", function (p) { var x = list(p).filter(function (q) { return q.id === f; })[0]; x.params = D.fxDefaults(x); }); }], null, ["Remove", function () { D.edit("Remove effect", function (p) { var l = list(p), i = l.findIndex(function (q) { return q.id === f; }); if (i >= 0) l.splice(i, 1); }); if (mx.open === id + ":" + f) mx.open = null; }]]);
       }; });
     });
     var ab = $("[data-addbus]", body); if (ab) ab.onclick = function () { D.edit("Add a bus", function (p) { var t = D.newTrack("bus", ["Reverb", "Delay", "Group"][p.tracks.filter(function (x) { return x.kind === "bus"; }).length % 3]); t.color = "#6E7680"; if (/Delay/.test(t.name)) t.inserts = [{ id: D.uid("f"), type: "delay", on: true, params: { time: 3, feedback: 0.35, mix: 1 } }]; if (/Group/.test(t.name)) t.inserts = []; p.tracks.push(t); }); };
   }
   function addFx(btn, done) {
     var items = Object.keys(D.FX).filter(function (k) { return k !== "cmfx"; }).map(function (k) { var def = D.FX[k], locked = def.pro && !D.pro(); return [def.name + (locked ? " (Central Plugins)" : def.pro ? "" : ""), function () { done({ id: D.uid("f"), type: k, on: true, params: D.fxDefaults(k) }); }, !locked]; });
-    var mine = (window.CDawPlugins && window.CDawPlugins.list && window.CDawPlugins.list()) || [];
-    if (mine.length) { items.push(null); mine.forEach(function (pl) { items.push([pl.name + " (your plugin)", function () { done({ id: D.uid("f"), type: "cmfx", on: true, params: {}, plugin: pl }); }]); }); }
-    items.push(null, ["A plugin file (.cmfx.json)…", function () { var i = document.createElement("input"); i.type = "file"; i.accept = ".json"; i.onchange = function () { var file = i.files[0]; if (!file) return; file.text().then(function (txt) { var pl = JSON.parse(txt); if (pl.format !== "central-fx") throw new Error(); done({ id: D.uid("f"), type: "cmfx", on: true, params: {}, plugin: pl }); if (!window.CMFx) UI.say("That plugin is in the chain; it plays once the plugin engine is in this build.", true); }).catch(function () { UI.say("That isn't a Central Production plugin.", true); }); }; i.click(); }]);
-    UI.menu(btn, items);
+    // Central FX plugins: the builder's examples, your own (made in Central Production) and installed community ones
+    function cm(pl, tag) { return [pl.name + (tag ? " (" + tag + ")" : ""), function () { done({ id: D.uid("f"), type: "cmfx", on: true, params: D.fxDefaults({ type: "cmfx", plugin: pl }), plugin: pl }); }, !!window.CMFx]; }
+    var ex = window.CPPluginPresets || [], src = window.CDawPlugins && window.CDawPlugins.list ? window.CDawPlugins.list() : [];
+    Promise.resolve(src).catch(function () { return []; }).then(function (more) {
+      more = (more || []).filter(function (x) { return x && x.plugin; });
+      var mine = more.filter(function (x) { return x.from === "mine"; }), inst = more.filter(function (x) { return x.from !== "mine"; });
+      if (mine.length) { items.push(null); mine.forEach(function (x) { items.push(cm(x.plugin, "yours")); }); }
+      if (inst.length) { items.push(null); inst.forEach(function (x) { items.push(cm(x.plugin, x.author ? "by " + x.author : "installed")); }); }
+      if (ex.length) { items.push(null); ex.forEach(function (pl) { items.push(cm(pl, "example")); }); }
+      items.push(null, ["A plugin file (.cmfx.json)…", function () { var i = document.createElement("input"); i.type = "file"; i.accept = ".json"; i.onchange = function () { var file = i.files[0]; if (!file) return; file.text().then(function (txt) { var pl = JSON.parse(txt); if (pl.format !== "central-fx") throw new Error(); if (window.CMFx) { var r = window.CMFx.check(pl); if (!r.ok) return UI.say("That plugin has a problem: " + r.error, true); } cm(pl)[1](); }).catch(function () { UI.say("That isn't a Central FX plugin.", true); }); }; i.click(); }]);
+      if (!window.CMFx) items.push(["(Central FX plugins need the plugin engine, which isn't in this build)", null, false]);
+      UI.menu(btn, items);
+    });
   }
   function drawFx(body) {
     var panel = $(".cd-fxpanel", body); if (!mx.open) { panel.hidden = true; return; }
     var parts = mx.open.split(":"), id = parts[0], fid = parts[1], master = id === "master", t = master ? null : D.track(id), list = master ? P().master.inserts : t && t.inserts, f = list && list.filter(function (x) { return x.id === fid; })[0];
     if (!f) { mx.open = null; panel.hidden = true; return; }
-    var def = D.FX[f.type], p = Object.assign(D.fxDefaults(f.type), f.params || {}), pro = D.pro(), locked = def.pro && !pro;
+    var def = D.fxDef(f), p = Object.assign(D.fxDefaults(f), f.params || {}), pro = D.pro(), locked = def.pro && !pro;
     panel.hidden = false;
     panel.innerHTML = '<div class="cd-fxhead"><b>' + esc(def.name) + "</b> · " + esc(master ? "Main mix" : t.name) + (locked ? ' <span class="cd-lock">Part of Central Plugins: add your package key in Settings to use it</span>' : !pro && def.params.some(function (q) { return q[6]; }) ? ' <span class="cd-lock">The basic version: Central Plugins opens the rest of its knobs</span>' : "") + '<button class="ghost" data-close>✕</button></div>' +
       '<div class="cd-knobs">' + def.params.map(function (q) {
         var off = locked || (q[6] && !pro), v = p[q[0]], key = "fx:" + f.id + ":" + q[0];
         if (q[7]) return '<label class="cd-knob' + (off ? " off" : "") + '"><span>' + esc(q[1]) + '</span><select data-k="' + q[0] + '"' + (off ? " disabled" : "") + ">" + q[7].map(function (o, i) { return '<option value="' + i + '"' + (Math.round(v) === i ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select></label>";
-        return '<label class="cd-knob' + (off ? " off" : "") + '"><span>' + esc(q[1]) + '</span><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + ((q[3] - q[2]) / 400) + '" value="' + v + '" data-k="' + q[0] + '"' + (off ? " disabled" : "") + '><output>' + fmt(v, q) + "</output>" + (!master && !off ? '<button class="cd-autobtn" data-auto="' + key + '" title="Automate it">A</button>' : "") + "</label>";
-      }).join("") + (f.type === "cmfx" ? '<p class="cd-dim">' + (window.CMFx ? "Its knobs are in Central Production's plugin builder." : "A plugin from Central Production's builder. It plays once the plugin engine is in this build.") + "</p>" : "") + "</div>";
+        return '<label class="cd-knob' + (off ? " off" : "") + '"><span>' + esc(q[1]) + '</span><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + ((q[3] - q[2]) / 400) + '" value="' + v + '" data-k="' + q[0] + '"' + (off ? " disabled" : "") + '><output>' + fmt(v, q) + "</output>" + (!master && !off && f.type !== "cmfx" ? '<button class="cd-autobtn" data-auto="' + key + '" title="Automate it">A</button>' : "") + "</label>";
+      }).join("") + (f.type === "cmfx" ? '<p class="cd-dim">' + (!window.CMFx ? "A Central FX plugin. It plays once the plugin engine is in this build." : !def.params.length ? "This plugin has no knobs." : "A Central FX plugin" + (f.plugin && f.plugin.author ? " by " + esc(f.plugin.author) : "") + ".") + "</p>" : "") + "</div>";
     panel.onclick = function (e) { if (e.target.closest("[data-close]")) { mx.open = null; draw(mx.body); } var a = e.target.closest("[data-auto]"); if (a) { var key = a.dataset.auto; D.edit("Automation lane", function () { var tt = D.track(id); if (tt.lanes.indexOf(key) < 0) tt.lanes.push(key); }); UI.say("An automation lane is under the track: click it to add points."); } };
     $$("[data-k]", panel).forEach(function (inp) {
       var q = def.params.filter(function (x) { return x[0] === inp.dataset.k; })[0];
@@ -85,4 +94,11 @@
     $$(".cd-meter", mx.body).forEach(function (cv) { var id = cv.dataset.m, s = id === "master" ? g.master : g.strips[id]; if (s) UI.meterDraw(cv, UI.level("m" + id, s.meter), true); });
   }
   UI.parts.mixer = { draw: draw, meters: meters };
+  // Central FX plugins for the insert picker: CDawPlugins.list() -> Promise [{ name, from: "mine"|"installed", author, plugin }].
+  // The apps' installed ones come from CU.libraries.centralFx(); a host adds its own with CDawPlugins.add(fn -> Promise list).
+  if (!window.CDawPlugins) window.CDawPlugins = { sources: [], add: function (fn) { this.sources.push(fn); },
+    list: function () {
+      var cu = window.CU && window.CU.libraries && window.CU.libraries.centralFx, all = this.sources.slice(); if (cu) all.unshift(function () { return window.CU.libraries.centralFx(); });
+      return Promise.all(all.map(function (fn) { return Promise.resolve().then(fn).catch(function () { return []; }); })).then(function (r) { return [].concat.apply([], r); });
+    } };
 })();

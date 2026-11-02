@@ -23,7 +23,7 @@ const http = require("node:http");
 
 const PLANS = ["keys", "instrument", "plugins", "pedals", "pads"];
 const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "fx"];   // (10.2 fx: a plugin made in Central Production, .cmfx.json)
-const PLUGIN_FORMATS = ["lv2", "vst3", "clap", "component"], MAX_PLUGIN = 300 * 1024 * 1024;
+const PLUGIN_FORMATS = ["lv2", "vst3", "clap", "component", "cmfx"], MAX_PLUGIN = 300 * 1024 * 1024, MAX_CMFX = 512 * 1024;   // (10.2) cmfx: a Central FX plugin, one .cmfx.json
 const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
 const INDEX_URL = process.env.CC_LIBRARIES_INDEX || "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/libraries-index.json";
@@ -107,6 +107,16 @@ class Libraries {
   }
   record(id) { try { return JSON.parse(fs.readFileSync(path.join(this.root, id + ".json"), "utf8")); } catch (_) { return null; } }
   installed() { return fs.readdirSync(this.root).filter((f) => f.endsWith(".json")).map((f) => this.record(f.slice(0, -5))).filter((r) => r && r.id); }
+  // (10.2) the Central FX plugins on this computer, for the DAW's insert picker and the pedal app: the ones you made in
+  // Central Production (personal libraries) and installed community ones (only while community plugins are allowed)
+  centralFx() {
+    const out = [], read = (f) => { try { const st = fs.statSync(f); if (st.size > MAX_CMFX) return null; const j = JSON.parse(fs.readFileSync(f, "utf8")); return j && j.format === "central-fx" ? j : null; } catch (_) { return null; } };
+    for (const r of this.installed()) {
+      for (const x of r.fx || []) { const p = read(x.file); if (p) out.push({ name: x.name || p.name, from: r.source === "personal" ? "mine" : "installed", library: r.title, plugin: p }); }
+      if (this.pluginsAllowed()) for (const x of r.plugins || []) if (x.format === "cmfx") { const p = read(x.path); if (p) out.push({ name: x.name || p.name, from: "installed", author: p.author || "", library: r.title, plugin: p }); }
+    }
+    return out;
+  }
   listing() { return this.installed().map((r) => ({ id: r.id, plan: r.plan, version: r.version, title: r.title, summary: r.summary, installedAt: r.installedAt, counts: r.counts, boards: r.boards, presets: r.presets, source: r.source, community: r.community, plugins: r.plugins })); }
 
   // ----- (10.1) community plugins: this computer's switch, and the website's revoke list
@@ -129,6 +139,13 @@ class Libraries {
     if (!want.size) throw new Error("a plugin in that library has no checked program files");
     const dest = path.join(this.pluginsDir(), id), tmp = path.join(this.root, ".plugin-" + crypto.randomBytes(6).toString("hex") + ".zip");
     fs.rmSync(dest, { recursive: true, force: true }); fs.mkdirSync(dest, { recursive: true });
+    if (fmt === "cmfx") {   // (10.2) a Central FX plugin: the .cmfx.json itself (our own core plays it, no program in it)
+      let plugin = null; try { plugin = data.length <= MAX_CMFX ? JSON.parse(Buffer.from(data).toString("utf8")) : null; } catch (_) { }
+      if (!plugin || plugin.format !== "central-fx" || !bundle.endsWith(".cmfx.json")) { fs.rmSync(dest, { recursive: true, force: true }); throw new Error("a Central FX plugin in that library isn't a valid plugin file"); }
+      if (want.get(bundle) !== sha256(data)) { fs.rmSync(dest, { recursive: true, force: true }); throw new Error("a plugin's file doesn't match what Motion Audio checked - nothing was installed"); }
+      fs.writeFileSync(path.join(dest, bundle), data);
+      return { name: String(it.name || plugin.name || bundle).slice(0, 80), format: fmt, platform: "all", bundle, path: path.join(dest, bundle), binaries: [{ name: bundle, sha256: want.get(bundle) }] };
+    }
     const real = fs.realpathSync(dest), seen = new Map();
     fs.writeFileSync(tmp, data);
     let z = null;

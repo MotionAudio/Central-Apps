@@ -67,8 +67,8 @@ try {
   ok((await j("GET", "/projects/" + id, null, ann.tok))._status === 404 && !fs.existsSync(path.join(files, "projects", "u" + ann.u.id, id, left[0])), "...it's gone, and so is its file");
   // the plugin's own platform: a Central Production plugin publishes as one file for every system
   const it = await j("POST", "/creator/items", { kind: "plugin", title: "My Echo", rights: true }, ann.tok);
-  const up = await j("POST", "/creator/items/" + it.item.id + "/upload", { role: "source", platform: "any", name: "my-echo.cmfx.json", size: 100, type: "application/json" }, ann.tok);
-  await put(up.url, Buffer.from(JSON.stringify({ format: "central-fx", version: 1, name: "My Echo", params: [], graph: { blocks: [{ id: "b1", type: "delay" }], wires: [] } })));
+  const up = await j("POST", "/creator/items/" + it.item.id + "/upload", { role: "source", platform: "all", name: "my-echo.cmfx.json", size: 100, type: "application/json" }, ann.tok);
+  await put(up.url, Buffer.from(JSON.stringify({ format: "central-fx", version: 1, name: "My Echo", params: [], graph: { blocks: [{ id: "in", type: "input" }, { id: "b1", type: "delay" }, { id: "out", type: "output" }], wires: [{ from: "in.out", to: "b1.in" }, { from: "b1.out", to: "out.in" }] } })));
   const sub = await j("POST", "/creator/items/" + it.item.id + "/submit", {}, ann.tok);
   ok(sub.item && sub.item.status === "waiting", "a Central Production plugin (.cmfx.json, every system) goes in for review", sub);
 } catch (e) { console.log(e); fails++; }
