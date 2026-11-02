@@ -842,6 +842,7 @@ def sound_cards():
 # what a Central Control computer may ask the Central Pedal to do: page the lyrics. Starting, stopping and
 # moving the tracks is only done on the Central Pedal.
 CU_ACTIONS = ("lyricsNext", "lyricsPrev")
+CU_ADMIN_ACTIONS = ("loadSong",)   # (10.2) a run sheet's song cue from an admin computer: the next song, ready (never play / stop)
 DISPLAY_KEYS = ("hdmi1", "hdmi2", "cursor", "mode1", "mode2", "scale", "inset1", "inset2", "touchKind")
 
 
@@ -10174,7 +10175,8 @@ class PedalDriver:
                     authed = self.lan_clients[ws]["auth"] or self.code_ok(message.get("code"))
                     if not authed:
                         await ws.send(json.dumps({"type": "auth", "ok": False}))
-                    elif self.lan_clients[ws].get("app") == "central-usage" and message.get("name") not in CU_ACTIONS:
+                    elif self.lan_clients[ws].get("app") == "central-usage" and message.get("name") not in CU_ACTIONS and not (
+                            message.get("name") in CU_ADMIN_ACTIONS and self.cu_roles.admin_ok(ws)):
                         # only the Central Pedal itself starts, stops and moves the tracks
                         await ws.send(json.dumps({"type": "refused", "action": message.get("name"), "error": "Only the Central Pedal plays, stops and skips the tracks."}))
                     else:

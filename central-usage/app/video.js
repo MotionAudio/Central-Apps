@@ -745,5 +745,15 @@
   var start0 = start; start = function () { return start0().catch(function (e) { S.error = "The Video tab could not start: " + (e && e.message || e); console.error("video start", e); paintView(); }); };
   if (visible()) start();
   window.CUVideoTab = { state: S, G: G, seen: seen, cut: cut, auto: auto, take: take, setPreview: setPreview, start: start, mainOpen: mainOpen, outs: outs, tick: tick,
-    previewTo: previewTo, previewNote: previewNote, ftb: ftb, ready: function () { return !!S.ready; }, srcName: function (id) { return S.init ? srcName(id) : ""; } };
+    previewTo: previewTo, previewNote: previewNote, ftb: ftb, ready: function () { return !!S.ready; }, srcName: function (id) { return S.init ? srcName(id) : ""; },
+    // (10.2) a run sheet's "stream scene": the source with that name (a camera, the slides, a video…) goes to the Stream
+    // output - Main too when it has no output of its own. false when nothing is called that.
+    scene: function (name) {
+      if (!S.cfg || !S.cfg.sources) return false;
+      var n = function (x) { return String(x || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }, want = n(name), list = S.cfg.sources;
+      var src = list.filter(function (x) { return n(x.name) === want; })[0] || list.filter(function (x) { return n(x.name).indexOf(want) === 0 || want.indexOf(n(x.name)) === 0; })[0];
+      if (!src) return false;
+      try { take(src.id, "stream"); } catch (_) { take(src.id); }
+      return true;
+    } };
 })();

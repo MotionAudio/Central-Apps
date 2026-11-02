@@ -111,7 +111,9 @@
     var sv = services.filter(function (s) { return s.id === run.service; })[0], it = sv && sv.items[run.item]; if (!it || it.id === lastRunItem) return; lastRunItem = it.id;
     var d = st.decks.filter(function (x) { return x.runItem === it.id; })[0];
     if (d) { st.activeDeck = d.id; previewId = d.slides[0] ? d.slides[0].id : null; save(); if (visible()) renderAll(); return; }
-    if (SC && it.note && SC.parse(it.note).refs.length) { var box = $("#slScrRef"); if (box) { box.value = it.note; scriptureFind(); } }   // a reading in the item's note: ready in the Scripture box
+    // a reading in the item (its note, its slide cue, or a scripture item's title "Scripture: John 3:16"): ready in the Scripture box
+    var reading = [it.note, it.cues && it.cues.slide, it.kind === "scripture" ? String(it.title || "").replace(/^scripture:\s*/i, "") : ""].filter(function (x) { return x && SC && SC.parse(x).refs.length; })[0];
+    if (reading) { var box = $("#slScrRef"); if (box) { box.value = reading; scriptureFind(); } }
   }
 
   // ---------------------------------------------------------------- legacy slides (lyrics), and going live
@@ -902,7 +904,29 @@
     opts = opts || {}; var passage = await SC.lookup(ref, opts.translation || st.scripture.translation), parts = SC.split(passage, { maxChars: +st.scripture.maxChars, verseNumbers: st.scripture.verseNumbers });
     found = { passage: passage, parts: parts }; var d = scriptureDeck(); if (opts.live) await goLiveSlide(d.id, d.slides[0].id); if (visible()) renderAll(); return d;
   }
-  window.CUSlides = { bgFor: bgFor, setBg: setBg, lyricsSlide: lyricsSlide, lyricsLive: function () { return lyricsLive; }, blank: blank, blanked: function () { return !!blanked; }, openBgPicker: openBgPicker, piOn: function () { return !!st.outputs.pi.on; }, show: show, goLive: goLive, goLiveSlide: goLiveSlide, black: black, clear: clearLower, next: function () { step(1); }, prev: function () { step(-1); }, setLyricsLive: setLyricsLive,
+  // (10.2) the run sheet's cues: a slide or a deck by its name, and a lower third from a line of text
+  function nm(x) { return String(x || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
+  function findByName(v) {
+    var want = nm(v); if (!want) return null;
+    var exact = null, start = null;
+    st.decks.forEach(function (d) {
+      if (!exact && nm(d.name) === want && d.slides.length) exact = { deckId: d.id, slideId: d.slides[0].id, name: d.name };
+      d.slides.forEach(function (s) {
+        var n = nm(s.name || slideTitle(s));
+        if (!exact && n === want) exact = { deckId: d.id, slideId: s.id, name: s.name || slideTitle(s) };
+        if (!start && n.indexOf(want) === 0) start = { deckId: d.id, slideId: s.id, name: s.name || slideTitle(s) };
+      });
+      if (!start && nm(d.name).indexOf(want) === 0 && d.slides.length) start = { deckId: d.id, slideId: d.slides[0].id, name: d.name };
+    });
+    return exact || start;
+  }
+  function names() { var out = []; st.decks.forEach(function (d) { out.push(d.name); d.slides.forEach(function (s) { if (s.name) out.push(s.name); }); }); return out.filter(function (x, i, a) { return x && a.indexOf(x) === i; }); }
+  async function lowerThird(text) {   // "Pastor Dan · Grace that finds us" (or "Name | Title", "Name - Title"): on nothing, over the camera
+    var parts = String(text || "").split(/\s+[·|–—-]\s+|\s*\|\s*|\s*·\s*/), d = deck() || R.newDeck({ name: "Lower thirds", kind: "lower" });
+    var s = R.newLower(d, parts[0] || "", parts.slice(1).join(" · "));
+    lyricsLive = false; syncLyricsBox(); show(await designMsg(d, s), null, null, null); return s;
+  }
+  window.CUSlides = { findByName: findByName, names: names, lowerThird: lowerThird, goLiveSlide: goLiveSlide, bgFor: bgFor, setBg: setBg, lyricsSlide: lyricsSlide, lyricsLive: function () { return lyricsLive; }, blank: blank, blanked: function () { return !!blanked; }, openBgPicker: openBgPicker, piOn: function () { return !!st.outputs.pi.on; }, show: show, goLive: goLive, goLiveSlide: goLiveSlide, black: black, clear: clearLower, next: function () { step(1); }, prev: function () { step(-1); }, setLyricsLive: setLyricsLive,
     state: function () { return st; }, live: function () { return live; }, decks: function () { return st.decks; }, deck: deck, outputsText: outputsText, render: render,
     newDeck: newDeck, scripture: scripture, forRunItem: function (id) { return st.decks.filter(function (x) { return x.runItem === id; })[0] || null; },
     onShow: function (fn) { showFns.push(fn); }, designMsg: designMsg, toBlob: toBlob, select: function (ids) { sel = ids.slice(); if (st.mode === "design") { drawOverlay(); renderInspector(); } }, selection: function () { return sel.slice(); },

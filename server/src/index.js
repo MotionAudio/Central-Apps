@@ -32,6 +32,7 @@ import * as previews from "./previews.js";
 import * as setlists from "./setlists.js";
 import * as creators from "./creators.js";
 import * as pco from "./pco.js";
+import { runSheetFromPlan } from "./runsheet-from-plan.js";
 import * as ccli from "./ccli.js";
 import * as social from "./social.js";
 
@@ -102,6 +103,7 @@ libraries.routes(api, { wrap });
 previews.routes(api, { wrap, bad });   // (10.2: GET /tracks/:id/preview.mp3 - 30 seconds of a track before buying)
 creators.routes(api, app, { wrap, requireUser });   // (10.1: makers and their uploads, the community items, the review site)
 pco.routes(api, app, { wrap, requireUser });   // (10.2: Planning Center plans -> setlists)
+pco.setRunSheetMaker(runSheetFromPlan);         // (10.2: ... and a run sheet draft, which Central Control's Service tab adds)
 ccli.routes(api, { wrap, requireUser });       // (10.2: CCLI settings, song usage and the report)
 social.routes(api, { wrap, requireUser });   // (10.2: the church's YouTube / Facebook / Instagram / TikTok, for posting shorts)
 // a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first

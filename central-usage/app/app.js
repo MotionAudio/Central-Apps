@@ -120,7 +120,7 @@
   var FROM_CENTER_ONLY = { cuRoles: 1, cuRoleReply: 1, cuRoleAssigned: 1, services: 1, serviceReply: 1, pairCodeChanged: 1 };
   function send(m) { if (socket && socket.readyState === 1) { socket.send(JSON.stringify(m)); return true; } return false; }
   // Only the Central Pedal plays, stops and moves the tracks: from here only the lyrics can be paged
-  function action(name, args) { if (["lyricsNext", "lyricsPrev"].indexOf(name) < 0) return; if (!state.authed && !prefs.code) { askCode(); if (!prefs.code) return; } send({ type: "action", name: name, args: args || {}, code: prefs.code }); }
+  function action(name, args) { if (["lyricsNext", "lyricsPrev"].indexOf(name) < 0 && !(name === "loadSong" && ["main", "admin"].indexOf(role()) >= 0)) return;   /* (10.2: an admin's run sheet readies the next song) */ if (!state.authed && !prefs.code) { askCode(); if (!prefs.code) return; } send({ type: "action", name: name, args: args || {}, code: prefs.code }); }
   // a small text question in the page (Electron has no window.prompt)
   function askText(label, value) {
     return new Promise(function (resolve) {

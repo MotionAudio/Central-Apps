@@ -115,7 +115,7 @@
   function suggestions() {
     var L = window.CULights, looks = [], slides = [], cams = [];
     try { looks = ((L && L.show && L.rig && L.rig().looks) || []).map(function (l) { return l.name; }).filter(Boolean); } catch (_) { }
-    try { slides = ((window.CUSlides && window.CUSlides.state().items) || []).map(function (x) { return x.kind === "text" ? x.title : x.name; }).filter(Boolean); } catch (_) { }
+    try { slides = window.CUSlides && window.CUSlides.names ? window.CUSlides.names() : []; } catch (_) { }   // (10.2: the decks and named slides)
     try { var V = window.CUVideoTab && window.CUVideoTab.state; cams = ((V && V.cfg && V.cfg.sources) || []).map(function (x) { return x.name; }).filter(Boolean); } catch (_) { }
     return { looks: uniq(looks.concat(["Walk-in", "Stage wash", "Speaker", "Prayer", "Video", "Baptism", "Follow the song"])), slides: uniq(slides.concat(["Countdown", "Welcome", "Announcements", "Offering", "Communion", "Thanks for coming"])), cams: uniq(cams.concat(["Wide", "Pulpit", "Band", "Baptism"])), scenes: ["Countdown", "Worship", "Sermon", "Video", "Closing"] };
   }
@@ -175,6 +175,27 @@
     S.services.push(n); sel = n.id; CU.store.set("svcSel", sel); saveSoon(); render();
   }
   function addSheet(sv) { if (S.services.length >= S.max) { toast("Up to " + S.max + " run sheets. Delete an old one first."); return; } S.services.push(sv); sel = sv.id; CU.store.set("svcSel", sel); saveSoon(); render(); }
+  // (10.2) a Planning Center plan's order of service (server runsheet-from-plan.js) -> a run sheet with each part's
+  // usual cues; importing the same plan again replaces the run sheet made from it before
+  function addFromPlan(rs, setlist) {
+    if (!rs || !Array.isArray(rs.items)) return null;
+    var list = songs(), items = rs.items.map(function (p) {
+      var it = item(p.kind === "song" ? "song" : p.kind, p.title);
+      if (p.minutes > 0) it.minutes = p.minutes;
+      if (p.note) it.note = p.note;
+      if (p.kind === "song") { var q = list.filter(function (x) { return String(x.name || "").toLowerCase() === String(p.title || "").toLowerCase(); })[0]; var ref = q ? (q.id || q.name) : p.title; it.song = ref; it.cues = it.cues || {}; it.cues.song = ref; if (!(p.minutes > 0) && q && q.duration) it.minutes = Math.round(q.duration / 60 * 100) / 100; }
+      if (p.kind === "scripture" && p.title) { it.cues = it.cues || {}; var ref2 = String(p.title).replace(/^scripture( reading)?:?\s*/i, ""); if (window.CUScripture && window.CUScripture.parse(ref2).refs.length) { it.cues.slide = ref2; it.cues.lowerThird = ref2; } }
+      return it;
+    });
+    var date = /^\d{4}-\d{2}-\d{2}$/.test(rs.date || "") ? rs.date : "", d = date.split("-").map(Number);
+    var sv = { id: uid("sv"), name: String(rs.name || "Planning Center plan").slice(0, 80), date: date, day: date ? new Date(d[0], d[1] - 1, d[2]).getDay() : 0, time: /^\d{1,2}:\d{2}$/.test(rs.time || "") ? rs.time : "09:00",
+      length: 0, countdown: 5, team: { leader: (rs.team && rs.team.leader) || "", speaker: (rs.team && rs.team.speaker) || "", tech: (rs.team && rs.team.tech) || [] },
+      setlist: setlist ? String(setlist.id || "") : "", notes: "From Planning Center", roles: ALL.slice(), record: false, items: items, pcoPlan: rs.plan || null };
+    var old = rs.plan ? S.services.filter(function (x) { return x.pcoPlan === rs.plan; })[0] : null;
+    if (old) { sv.id = old.id; S.services[S.services.indexOf(old)] = sv; sel = sv.id; saveSoon(); render(); return sv; }
+    if (S.services.length >= S.max) { toast("Up to " + S.max + " run sheets. Delete an old one first."); return null; }
+    addSheet(sv); return sv;
+  }
   function print(sv) {
     var html = G && G.printHtml ? G.printHtml(sv, { songs: songs() }) : "<pre>" + esc(JSON.stringify(sv, null, 1)) + "</pre>";
     var f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
@@ -254,5 +275,5 @@
   document.addEventListener("dragend", function () { dragFrom = -1; document.querySelectorAll("#serviceRoot .dragging, #serviceRoot .dropat").forEach(function (x) { x.classList.remove("dragging", "dropat"); }); });
   CU.on("tab", function (t) { if (t === "service") { ask(); render(); } });
   CU.on("precheck", paintNav);
-  window.CUServices = { state: function () { return S; }, ROLE_LABEL: ROLE_LABEL, KIND_LABEL: KIND_LABEL, CUE_LABEL: CUE_LABEL, DAYS: DAYS, render: render, fmt: fmt, drift: drift, move: function (from, to) { var sv = cur(); if (!sv) return; sv.items.splice(to, 0, sv.items.splice(from, 1)[0]); saveSoon(); render(); }, addSheet: addSheet, view: function (v) { if (v) { view = v; CU.store.set("svView", v); render(); } return view; } };
+  window.CUServices = { state: function () { return S; }, ROLE_LABEL: ROLE_LABEL, KIND_LABEL: KIND_LABEL, CUE_LABEL: CUE_LABEL, DAYS: DAYS, render: render, fmt: fmt, drift: drift, move: function (from, to) { var sv = cur(); if (!sv) return; sv.items.splice(to, 0, sv.items.splice(from, 1)[0]); saveSoon(); render(); }, addSheet: addSheet, addFromPlan: addFromPlan, view: function (v) { if (v) { view = v; CU.store.set("svView", v); render(); } return view; } };
 })();

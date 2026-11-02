@@ -72,6 +72,11 @@
   function done(r, how) {
     st.msg = "<p>" + how + " <b>" + esc(r.setlist.name) + "</b>: " + r.songs + " song" + (r.songs === 1 ? "" : "s") + (r.matched ? ", " + r.matched + " from Central Tracks" : "") + '. <button data-pco-open="' + esc(r.setlist.id) + '">Open it</button></p>' + missingHtml(r.missing);
     st.err = ""; if (root.PPSetlists && root.PPSetlists.reload) root.PPSetlists.reload();
+    // (10.2) on the main admin's Central Control: the plan's order of service becomes a run sheet too (Service tab)
+    var SV = root.CUServices, CUa = root.CentralUsage;
+    if (r.runSheet && SV && SV.addFromPlan && CUa && CUa.role && CUa.role() === "main") {
+      try { var made = SV.addFromPlan(r.runSheet, r.setlist); if (made) st.msg += "<p>Made a run sheet from it too: <b>" + esc(made.name) + "</b> (Service tab).</p>"; } catch (e) { st.msg += "<p>The run sheet couldn't be made: " + esc(e.message) + "</p>"; }
+    }
   }
   document.addEventListener("click", async function (e) {
     var b = e.target.closest && e.target.closest("[data-pco],[data-pco-import],[data-pco-open]"); if (!b || b.tagName !== "BUTTON") return;
