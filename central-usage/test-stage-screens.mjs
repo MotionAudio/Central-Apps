@@ -62,6 +62,37 @@ await check("lyric backgrounds: Lyrics → Background lists 40+ of ours; picking
   assert.equal(await p.evaluate(() => CUSlides.bgFor()), "bg:forest"); assert.equal(await p.evaluate(() => CUSlides.bgFor("Another song", "")), "bg:ember", "other songs keep the one for everything");
   await p.evaluate(() => { document.querySelector('[data-tab="lights"]').click(); });
 });
+await check("(10.2) Central Utility's seasonal set: Seasons opens on This Sunday's season, search finds by name and tag, locked without the plan and usable with it", async () => {
+  await p.evaluate(() => { window.__hp = PPLicense.hasPlan; PPLicense.hasPlan = (t) => t !== "utility" && window.__hp(t);   // a plan without Central Utility
+    document.querySelector('[data-tab="lyrics"]').click(); if (document.querySelector("#lyricsBgPanel").hidden) document.querySelector("#lyricsBgBtn").click(); document.querySelector('#lyricsBgPanel [data-lbf="seasons"]').click(); });
+  try {
+  const r = await p.evaluate(() => ({ sun: (document.querySelector("#lyricsBgPanel .lb-sun") || {}).textContent || "", want: CUSeasons.NAMES[CUSeasons.thisSunday().season], on: (document.querySelector("#lyricsBgPanel .lb-seasons button.on") || {}).dataset, n: document.querySelectorAll("#lyricsBgPanel .lb-tile[data-lbv]").length, locked: document.querySelectorAll("#lyricsBgPanel .lb-tile.locked").length }));
+  assert.ok(r.sun.indexOf("This Sunday") === 0 && r.sun.indexOf(r.want) > 0, JSON.stringify(r)); assert.ok(r.n >= 2 && r.locked === r.n, "this season's tiles, all locked here " + JSON.stringify(r));
+  await p.evaluate(() => document.querySelector('#lyricsBgPanel [data-lbseason="any"]').click());
+  await p.fill("#lyricsBgPanel [data-lbq]", "empty tomb"); const one = await p.evaluate(() => Array.from(document.querySelectorAll("#lyricsBgPanel .lb-tile[data-lbv]")).map((t) => t.dataset.lbv));
+  assert.deepEqual(one, ["bg:s-easter-tomb"]);
+  await p.fill("#lyricsBgPanel [data-lbq]", "dove"); const doves = await p.evaluate(() => document.querySelectorAll("#lyricsBgPanel .lb-tile[data-lbv]").length); assert.ok(doves >= 2, "tag search: doves " + doves);
+  const before = await p.evaluate(() => CUSlides.bgFor());
+  await p.evaluate(() => document.querySelector('#lyricsBgPanel [data-lbv="bg:s-pent-dove"]').click());
+  const lk = await p.evaluate(() => ({ bg: CUSlides.bgFor(), msg: (document.querySelector("#lyricsBgPanel .lb-lock-msg") || {}).textContent || "" }));
+  assert.equal(lk.bg, before, "not used without Central Utility"); assert.match(lk.msg, /comes with Central Utility/);
+  await p.evaluate(() => { PPLicense.hasPlan = (t) => t === "utility" || window.__hp(t); CUSlides.openBgPicker(true); document.querySelector('#lyricsBgPanel [data-lbv="bg:s-pent-dove"]').click(); });
+  assert.equal(await p.evaluate(() => CUSlides.bgFor()), "bg:s-pent-dove", "with Central Utility it goes up");
+  const off = await p.evaluate(() => { PPLicense.hasPlan = (t) => t !== "utility" && window.__hp(t); return CUSlides.bgFor(); }); assert.notEqual(off, "bg:s-pent-dove", "the plan gone: back off the screens");
+  } finally {
+  await p.evaluate(() => { PPLicense.hasPlan = window.__hp; CUSlides.setBg("song", undefined); const q = document.querySelector("#lyricsBgPanel [data-lbq]"); q.value = ""; q.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector('#lyricsBgPanel [data-lbf="all"]').click(); document.querySelector('#lyricsBgPanel [data-lbs="song"]').click(); document.querySelector('#lyricsBgPanel [data-lbv="bg:forest"]').click(); document.querySelector('[data-tab="lights"]').click(); });
+  }
+});
+await check("(10.2) Central Utility's graphics: a countdown ticks ({countdown}), seasonal themes and Utility templates are listed", async () => {
+  const r = await p.evaluate(() => {
+    const R = CUSlideRender, d = R.newDeck({}), s = R.newSlide(d, "u-count"), c = document.createElement("canvas"); c.width = 480; c.height = 270;
+    R.render(c.getContext("2d"), s, d, { time: 10, clock: 10 });
+    return { left: R.clockText(R.countdownLeft(s.countdown, 10)), anim: R.animated(s, 999), at: R.countdownLeft({ at: "10:30" }, 0, new Date(2026, 10, 1, 10, 29, 0).getTime()), lower: R.newSlide(d, "u-lower-pill").kind, transparent: R.isTransparent(R.newSlide(d, "u-ov-live")),
+      themes: R.themes().filter((t) => t.tier === "utility").length, tpls: R.TEMPLATES.filter((t) => t.tier === "utility").map((t) => t.group) };
+  });
+  assert.equal(r.left, "4:50"); assert.equal(r.anim, true); assert.equal(r.at, 60); assert.equal(r.lower, "lower"); assert.equal(r.transparent, true);
+  assert.ok(r.themes >= 12 && r.themes <= 20, "themes " + r.themes); for (const g of ["Countdowns", "Lower thirds", "Overlays"]) assert.ok(r.tpls.includes(g), g);
+});
 await check("the 3D screen's picture follows: its pixels change when the background changes", async () => {
   await p.evaluate(() => { CULights3D.view("audience"); });
   await p.evaluate(() => document.querySelector('[data-tab="lyrics"]').click()); await p.evaluate(() => document.querySelector('#lyricsBgPanel [data-lbv="bg:snowfall"]').click()); await p.evaluate(() => document.querySelector('[data-tab="lights"]').click());

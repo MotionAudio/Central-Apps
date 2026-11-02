@@ -28,7 +28,15 @@
     { id: "plain", name: "Plain black", bg: { type: "color", color: "#000000" }, title: { font: "Inter", size: 90, weight: 800, color: "#ffffff" }, body: { font: "Inter", size: 60, weight: 700, color: "#ffffff" }, ref: { font: "Inter", size: 34, weight: 600, color: "#bbbbbb", upper: true, letter: 4 }, lower: { box: "#000000", boxOpacity: 0.75, accent: "#ffffff" }, sub: { font: "Inter", size: 34, weight: 500, color: "#dddddd" } }
   ];
   var userThemes = [];   // the church's own themes (the designer saves them in the deck store)
-  function themes() { return THEMES.concat(userThemes); }
+  // (10.2) Central Utility's seasonal looks (backgrounds-seasons.js sets window.CUSeasonThemes): the free themes' shape,
+  // a moving seasonal background, and lower thirds in the same colours. tier "utility" - the designer offers them with that plan.
+  function seasonThemes() {
+    return (root.CUSeasonThemes || []).map(function (s) {
+      return { id: s.id, name: s.name, tier: s.tier, season: s.season, bg: s.bg, title: s.title, body: s.body,
+        ref: Object.assign({ upper: true, letter: 4 }, s.ref), lower: Object.assign({ boxOpacity: 0.82 }, s.lower), sub: { font: "Inter", size: 34, weight: 500, color: s.body.color } };
+    });
+  }
+  function themes() { return THEMES.concat(seasonThemes(), userThemes); }
   function setUserThemes(list) { userThemes = Array.isArray(list) ? list : []; }
   function theme(id) { return themes().filter(function (t) { return t.id === id; })[0] || THEMES[0]; }
   function merge(a, b) { var o = Object.assign({}, a); for (var k in b) { if (b[k] == null) continue; if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k]) && a[k] && typeof a[k] === "object") o[k] = Object.assign({}, a[k], b[k]); else o[k] = b[k]; } return o; }
@@ -58,11 +66,39 @@
     { id: "announce", name: "Announcement", make: function (d) { return [textEl(d, "ref", "This week", { y: d.size.h * 0.16, h: d.size.h * 0.08 }), textEl(d, "title", "Event name", { y: d.size.h * 0.28, h: d.size.h * 0.22 }), textEl(d, "sub", "Day · time · place", { y: d.size.h * 0.56, h: d.size.h * 0.1 })]; } },
     { id: "welcome", name: "Welcome", make: function (d) { return [textEl(d, "title", "Welcome", { y: d.size.h * 0.34, h: d.size.h * 0.22 }), textEl(d, "sub", "We're glad you're here", { y: d.size.h * 0.58, h: d.size.h * 0.1 })]; } },
     { id: "offering", name: "Offering", make: function (d) { return [textEl(d, "title", "Giving", { y: d.size.h * 0.3, h: d.size.h * 0.2 }), textEl(d, "sub", "Give online, text, or in the box at the back", { y: d.size.h * 0.54, h: d.size.h * 0.12 })]; } },
-    { id: "blank", name: "Blank", make: function () { return []; } }
+    { id: "blank", name: "Blank", make: function () { return []; } },
+    // (10.2) Central Utility's graphics: countdowns, lower-third styles and overlays for the stream ({countdown} in a text
+    // box counts down to the slide's countdown: { seconds } from when it goes up, or { at: "10:30" } a clock time)
+    { id: "u-count", name: "Countdown: starting soon", group: "Countdowns", tier: "utility", countdown: { seconds: 300 }, make: function (d) { return [textEl(d, "ref", "We're starting in", { y: d.size.h * 0.3, h: d.size.h * 0.08 }), textEl(d, "title", "{countdown}", { y: d.size.h * 0.4, h: d.size.h * 0.26, text: { size: 220, weight: 900 } }), textEl(d, "sub", "Grab a seat - we're glad you're here", { y: d.size.h * 0.7, h: d.size.h * 0.08 })]; } },
+    { id: "u-count-ring", name: "Countdown: ring", group: "Countdowns", tier: "utility", countdown: { seconds: 300 }, make: function (d) { var W = d.size.w, H = d.size.h, r = H * 0.26; return [{ id: uid(), type: "shape", x: W / 2 - r, y: H * 0.46 - r, w: r * 2, h: r * 2, rot: 0, opacity: 1, shape: { kind: "ellipse", fill: "", stroke: "@lowerAccent", strokeW: 14 }, in: { type: "none", dur: 0.5, delay: 0 } }, textEl(d, "title", "{countdown}", { y: H * 0.36, h: H * 0.2, text: { size: 170, weight: 900 } }), textEl(d, "ref", "Service starts soon", { y: H * 0.82, h: H * 0.07 })]; } },
+    { id: "u-count-clock", name: "Countdown: to a time", group: "Countdowns", tier: "utility", countdown: { at: "10:30" }, make: function (d) { return [textEl(d, "title", "{countdown}", { y: d.size.h * 0.32, h: d.size.h * 0.26, text: { size: 200, weight: 900 } }), textEl(d, "sub", "until the service starts at {at}", { y: d.size.h * 0.6, h: d.size.h * 0.08 })]; } },
+    { id: "u-count-corner", name: "Countdown: in the corner", group: "Countdowns", tier: "utility", countdown: { seconds: 300 }, bg: { type: "none" }, make: function (d) { var W = d.size.w, H = d.size.h; return [{ id: uid(), type: "shape", x: W * 0.8, y: H * 0.06, w: W * 0.15, h: H * 0.1, rot: 0, opacity: 1, shape: { kind: "round", fill: "@lowerBox", stroke: "", strokeW: 0, radius: 16 }, in: { type: "fade", dur: 0.4, delay: 0 } }, textEl(d, "lower", "{countdown}", { x: W * 0.8, y: H * 0.065, w: W * 0.15, h: H * 0.09, text: { size: 56, weight: 800, shadow: { blur: 0 } } })]; } },
+    { id: "u-lower-pill", name: "Lower third: centred pill", group: "Lower thirds", tier: "utility", bg: { type: "none" }, make: function (d) { var W = d.size.w, H = d.size.h; return [{ id: uid(), type: "shape", x: W * 0.25, y: H * 0.8, w: W * 0.5, h: H * 0.11, rot: 0, opacity: 1, shape: { kind: "round", fill: "@lowerBox", stroke: "@lowerAccent", strokeW: 4, radius: 200 }, in: { type: "zoom", dur: 0.45, delay: 0 } }, textEl(d, "lower", "Name · Title", { x: W * 0.27, y: H * 0.81, w: W * 0.46, h: H * 0.09, text: { size: 48, weight: 700, shadow: { blur: 0 } } })]; } },
+    { id: "u-lower-line", name: "Lower third: line", group: "Lower thirds", tier: "utility", bg: { type: "none" }, make: function (d) { var W = d.size.w, H = d.size.h; return [textEl(d, "lower", "Name", { x: W * 0.06, y: H * 0.76, w: W * 0.6, h: H * 0.08, text: { size: 58, weight: 800, align: "left", shadow: { blur: 12, color: "rgba(0,0,0,.7)" } } }), { id: uid(), type: "shape", x: W * 0.06, y: H * 0.85, w: W * 0.22, h: 8, rot: 0, opacity: 1, shape: { kind: "rect", fill: "@lowerAccent", stroke: "", strokeW: 0 }, in: { type: "slide", dur: 0.5, delay: 0.1 } }, textEl(d, "sub", "Title", { x: W * 0.06, y: H * 0.865, w: W * 0.6, h: H * 0.06, text: { align: "left", shadow: { blur: 10, color: "rgba(0,0,0,.7)" } } })]; } },
+    { id: "u-lower-verse", name: "Lower third: scripture", group: "Lower thirds", tier: "utility", bg: { type: "none" }, make: function (d) { var W = d.size.w, H = d.size.h; return [{ id: uid(), type: "shape", x: 0, y: H * 0.72, w: W, h: H * 0.2, rot: 0, opacity: 1, shape: { kind: "rect", fill: "@lowerBox", stroke: "", strokeW: 0 }, in: { type: "fade", dur: 0.5, delay: 0 } }, textEl(d, "lower", "For God so loved the world…", { x: W * 0.08, y: H * 0.735, w: W * 0.84, h: H * 0.11, text: { size: 46, weight: 600, shadow: { blur: 0 } } }), textEl(d, "ref", "John 3:16", { x: W * 0.08, y: H * 0.85, w: W * 0.84, h: H * 0.05, text: { size: 30 } })]; } },
+    { id: "u-lower-song", name: "Lower third: song credit", group: "Lower thirds", tier: "utility", bg: { type: "none" }, make: function (d) { var W = d.size.w, H = d.size.h; return [{ id: uid(), type: "shape", x: W * 0.62, y: H * 0.84, w: W * 0.34, h: H * 0.09, rot: 0, opacity: 1, shape: { kind: "round", fill: "@lowerBox", stroke: "", strokeW: 0, radius: 12 }, in: { type: "slide", dur: 0.45, delay: 0 } }, textEl(d, "lower", "Song title", { x: W * 0.64, y: H * 0.845, w: W * 0.3, h: H * 0.045, text: { size: 34, weight: 800, align: "right", shadow: { blur: 0 } } }), textEl(d, "sub", "Writers · CCLI #", { x: W * 0.64, y: H * 0.885, w: W * 0.3, h: H * 0.04, text: { size: 24, align: "right", shadow: { blur: 0 } } })]; } },
+    { id: "u-ov-live", name: "Overlay: live", group: "Overlays", tier: "utility", bg: { type: "none" }, make: function (d) { var W = d.size.w, H = d.size.h; return [{ id: uid(), type: "shape", x: W * 0.86, y: H * 0.05, w: W * 0.1, h: H * 0.06, rot: 0, opacity: 1, shape: { kind: "round", fill: "#d62839", stroke: "", strokeW: 0, radius: 10 }, in: { type: "fade", dur: 0.4, delay: 0 } }, textEl(d, "lower", "● LIVE", { x: W * 0.86, y: H * 0.05, w: W * 0.1, h: H * 0.06, text: { size: 34, weight: 900, color: "#ffffff", shadow: { blur: 0 }, letter: 2 } })]; } },
+    { id: "u-ov-welcome", name: "Overlay: welcome banner", group: "Overlays", tier: "utility", bg: { type: "none" }, make: function (d) { var W = d.size.w, H = d.size.h; return [{ id: uid(), type: "shape", x: 0, y: H * 0.9, w: W, h: H * 0.1, rot: 0, opacity: 1, shape: { kind: "rect", fill: "@lowerBox", stroke: "", strokeW: 0 }, in: { type: "slide", dur: 0.5, delay: 0 } }, { id: uid(), type: "shape", x: 0, y: H * 0.9, w: W, h: 6, rot: 0, opacity: 1, shape: { kind: "rect", fill: "@lowerAccent", stroke: "", strokeW: 0 }, in: { type: "slide", dur: 0.5, delay: 0 } }, textEl(d, "lower", "Welcome! Say hi in the chat and tell us where you're watching from", { x: W * 0.04, y: H * 0.91, w: W * 0.92, h: H * 0.08, text: { size: 38, weight: 600, shadow: { blur: 0 } } })]; } },
+    { id: "u-ov-prayer", name: "Overlay: prayer", group: "Overlays", tier: "utility", bg: { type: "none" }, make: function (d) { var W = d.size.w, H = d.size.h; return [{ id: uid(), type: "shape", x: W * 0.04, y: H * 0.05, w: W * 0.3, h: H * 0.11, rot: 0, opacity: 1, shape: { kind: "round", fill: "@lowerBox", stroke: "", strokeW: 0, radius: 14 }, in: { type: "fade", dur: 0.5, delay: 0 } }, textEl(d, "lower", "Want prayer?", { x: W * 0.055, y: H * 0.055, w: W * 0.28, h: H * 0.05, text: { size: 36, weight: 800, align: "left", shadow: { blur: 0 } } }), textEl(d, "sub", "Text PRAY to 555-0100", { x: W * 0.055, y: H * 0.105, w: W * 0.28, h: H * 0.045, text: { size: 26, align: "left", shadow: { blur: 0 } } })]; } },
+    { id: "u-ov-social", name: "Overlay: find us online", group: "Overlays", tier: "utility", bg: { type: "none" }, make: function (d) { var W = d.size.w, H = d.size.h; return [{ id: uid(), type: "shape", x: W * 0.04, y: H * 0.86, w: W * 0.26, h: H * 0.08, rot: 0, opacity: 1, shape: { kind: "round", fill: "@lowerBox", stroke: "", strokeW: 0, radius: 200 }, in: { type: "slide", dur: 0.45, delay: 0 } }, textEl(d, "lower", "@yourchurch", { x: W * 0.06, y: H * 0.865, w: W * 0.22, h: H * 0.07, text: { size: 38, weight: 700, shadow: { blur: 0 } } })]; } }
   ];
   function newSlide(deck, tpl) {
     var t = TEMPLATES.filter(function (x) { return x.id === tpl; })[0] || TEMPLATES[1];
-    return { id: uid(), kind: "design", name: "", bg: { type: "theme" }, els: t.make(deck), advance: null, notes: "" };
+    var s = { id: uid(), kind: t.bg && t.bg.type === "none" ? "lower" : "design", name: t.tier ? t.name.replace(/^[^:]+: /, "") : "", bg: t.bg ? Object.assign({}, t.bg) : { type: "theme" }, els: t.make(deck), advance: null, notes: "" };
+    if (t.countdown) s.countdown = Object.assign({}, t.countdown);
+    return s;
+  }
+  // (10.2) what a countdown shows now: { seconds } counts from when the slide went up (t), { at: "HH:MM" } to that clock time
+  function countdownLeft(cd, t, now) {
+    if (!cd) return null;
+    if (cd.at) { var m = /^(\d{1,2}):(\d{2})/.exec(cd.at); if (!m) return 0; var d = new Date(now || Date.now()), at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), +m[1], +m[2], 0); return Math.max(0, (at - d) / 1000); }
+    return Math.max(0, (Number(cd.seconds) || 0) - (t || 0));
+  }
+  function clockText(sec) { sec = Math.ceil(sec); var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (h ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (s < 10 ? "0" : "") + s; }
+  function fillTokens(v, slide, opts) {
+    if (typeof v !== "string" || v.indexOf("{") < 0) return v;
+    var cd = slide.countdown, left = countdownLeft(cd, opts.time, opts.now);
+    return v.replace(/\{countdown\}/g, cd ? (left <= 0 && cd.done ? cd.done : clockText(left)) : "0:00").replace(/\{at\}/g, cd && cd.at ? cd.at : "");
   }
   // a lower third for the stream: name / title, or a scripture reference, on nothing (transparent)
   function newLower(deck, line1, line2) {
@@ -208,7 +244,7 @@
       ctx.save(); ctx.globalAlpha = (el.opacity == null ? 1 : el.opacity) * e.a;
       var cx = el.x + el.w / 2, cy = el.y + el.h / 2;
       ctx.translate(cx + e.dx, cy + e.dy); if (el.rot) ctx.rotate(el.rot * Math.PI / 180); if (e.k !== 1) ctx.scale(e.k, e.k); ctx.translate(-cx, -cy);
-      if (el.type === "text") drawText(ctx, el, th);
+      if (el.type === "text") { var tv = el.text && el.text.value, fv = fillTokens(tv, slide, opts); drawText(ctx, fv === tv ? el : Object.assign({}, el, { text: Object.assign({}, el.text, { value: fv }) }), th); }
       else if (el.type === "shape") drawShape(ctx, el, th);
       else if (el.type === "image" || el.type === "video") {
         var m = opts.media && opts.media(el.media, el.type);
@@ -223,6 +259,7 @@
   function animated(slide, t) {
     if (!slide) return false;
     if (slide.bg && (slide.bg.type === "video" || slide.bg.type === "lyricbg")) return true;
+    if (slide.countdown) return true;   // (10.2) a countdown ticks
     return (slide.els || []).some(function (el) { return !el.hidden && (el.type === "video" || (el.in && el.in.type && el.in.type !== "none" && (t == null || t < (el.in.delay || 0) + (el.in.dur || 0.5) + 0.05))); });
   }
   function mediaIds(slide) { var ids = []; if (!slide) return ids; if (slide.bg && slide.bg.media) ids.push(slide.bg.media); (slide.els || []).forEach(function (e) { if (e.media) ids.push(e.media); }); return ids; }
@@ -234,5 +271,5 @@
   }
 
   root.CUSlideRender = { render: render, layoutText: layoutText, textStyle: textStyle, themes: themes, theme: theme, setUserThemes: setUserThemes, THEMES: THEMES, TEMPLATES: TEMPLATES, FONTS: FONTS,
-    newDeck: newDeck, newSlide: newSlide, newLower: newLower, textEl: textEl, isTransparent: isTransparent, animated: animated, mediaIds: mediaIds, hit: hit, uid: uid, gradient: gradient };
+    newDeck: newDeck, newSlide: newSlide, newLower: newLower, countdownLeft: countdownLeft, clockText: clockText, textEl: textEl, isTransparent: isTransparent, animated: animated, mediaIds: mediaIds, hit: hit, uid: uid, gradient: gradient };
 })(typeof window !== "undefined" ? window : globalThis);

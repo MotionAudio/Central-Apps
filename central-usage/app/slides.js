@@ -139,11 +139,15 @@
   function secName() { var d = CU.state.display, ls = d && d.lyrics || {}; return ls.section || (d && d.section ? d.section.name : "") || ""; }
   function bgFor(song, sec) {
     var sb = st.songBg[song == null ? songKey() : song]; sec = sec == null ? secName() : sec;
-    if (sb && sb.sections && sec && sb.sections[sec] !== undefined) return sb.sections[sec];
-    if (sb && sb.all !== undefined) return sb.all;
-    return st.lyricsBg;
+    if (sb && sb.sections && sec && sb.sections[sec] !== undefined) return usable(sb.sections[sec]);
+    if (sb && sb.all !== undefined) return usable(sb.all);
+    return usable(st.lyricsBg);
   }
+  // (10.2) a Central Utility background only goes up while the plan has Central Utility
+  function locked(p) { return !!(BG && BG.isBg(p) && BG.allowed && !BG.allowed(BG.idOf(p))); }
+  function usable(p) { return locked(p) ? null : p; }
   function setBg(scope, value) {   // scope: "all" | "song" | "section"; value null = black, undefined = use the one above it
+    if (locked(value)) { lockedMsg(document.getElementById("lyricsBgPanel")); return false; }
     var k = songKey(), sec = secName();
     if (scope === "all") st.lyricsBg = value || null;
     else if (scope === "song" && k) { st.songBg[k] = st.songBg[k] || { sections: {} }; if (value === undefined) delete st.songBg[k].all; else st.songBg[k].all = value; }
@@ -295,7 +299,7 @@
     var e = $("#slStrip"); if (!e) return; var d = deck();
     if (!d) { e.innerHTML = ""; return; }
     var where = st.mode;
-    e.innerHTML = '<div class="sl-st-head"><b>' + esc(d.name) + '</b><span><select data-sl="addSlide"><option value="">+ Slide…</option>' + R.TEMPLATES.map(function (t) { return '<option value="' + t.id + '">' + esc(t.name) + "</option>"; }).join("") + '<option value="lower">Lower third</option></select>' +
+    e.innerHTML = '<div class="sl-st-head"><b>' + esc(d.name) + '</b><span><select data-sl="addSlide"><option value="">+ Slide…</option>' + templateOpts() + '</select>' +
       '<select data-sl="importExport"><option value="">Import / export…</option><option value="pics">Add pictures or videos</option><option value="pdf">Import a PDF</option><option value="pptx">Import PowerPoint (.pptx)</option><option value="exportPdf">Export as PDF</option><option value="exportPng">Export as pictures (.zip)</option></select></span></div>' +
       '<div class="sl-thumbs ' + where + '">' + (d.slides.length ? d.slides.map(function (s, k) {
         return '<div class="sl-tile" data-slide="' + s.id + '" draggable="true"><canvas data-th="' + s.id + '" data-where="' + where + '"></canvas><span class="sl-tn">' + (k + 1) + ". " + esc(s.name || slideTitle(s)) + (s.kind === "lower" ? " · lower third" : "") + (s.advance > 0 ? " · " + s.advance + " s" : "") + '</span><span class="sl-tb"><button data-sl-go="' + s.id + '" title="Go live">▶</button><button data-sl-dup="' + s.id + '" title="Duplicate">⧉</button><button data-sl-del="' + s.id + '" title="Delete">✕</button></span></div>';
@@ -325,7 +329,7 @@
     if (!SC) return "";
     var o = st.scripture;
     return '<div class="card sl-scr"><h3>Scripture</h3><div class="row sl-scr-row"><input id="slScrRef" placeholder="John 3:16 · Ps 23:1-4 · 1 Cor 13 · or words to search" autocomplete="off"><select data-scr="translation">' + SC.translations().map(function (t) { return '<option value="' + t.id + '"' + (t.id === o.translation ? " selected" : "") + ">" + esc(t.short) + " · " + esc(t.name) + "</option>"; }).join("") + '</select><button data-sl="scrFind" class="primary">Find</button></div>' +
-      '<div class="row small"><label>Theme <select data-scr="theme">' + R.themes().map(function (t) { return '<option value="' + t.id + '"' + (t.id === o.theme ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("") + '</select></label><label>Words per slide <select data-scr="maxChars">' + [[160, "Fewer (big words)"], [260, "Normal"], [380, "More"]].map(function (x) { return '<option value="' + x[0] + '"' + (+o.maxChars === x[0] ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + '</select></label><label class="toggle"><input type="checkbox" data-scr="verseNumbers"' + (o.verseNumbers ? " checked" : "") + '> Verse numbers</label><label class="toggle"><input type="checkbox" data-scr="lower"' + (o.lower ? " checked" : "") + "> A lower third too</label></div>" +
+      '<div class="row small"><label>Theme <select data-scr="theme">' + themeOpts(o.theme) + '</select></label><label>Words per slide <select data-scr="maxChars">' + [[160, "Fewer (big words)"], [260, "Normal"], [380, "More"]].map(function (x) { return '<option value="' + x[0] + '"' + (+o.maxChars === x[0] ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + '</select></label><label class="toggle"><input type="checkbox" data-scr="verseNumbers"' + (o.verseNumbers ? " checked" : "") + '> Verse numbers</label><label class="toggle"><input type="checkbox" data-scr="lower"' + (o.lower ? " checked" : "") + "> A lower third too</label></div>" +
       '<div id="slScrOut" class="sl-scr-out"><p class="muted small">Bundled, offline: KJV, WEB, ASV and the Reina-Valera 1909 (all public domain).</p></div></div>';
   }
   async function scriptureFind() {
@@ -383,7 +387,7 @@
       '<span class="sl-sep"></span><button data-ed="al" title="Align left">⇤</button><button data-ed="ac" title="Align centre">↔</button><button data-ed="ar" title="Align right">⇥</button><button data-ed="at" title="Align top">⤒︎</button><button data-ed="am" title="Align middle">↕</button><button data-ed="ab" title="Align bottom">⤓︎</button>' +
       '<span class="sl-sep"></span><button data-ed="dup" title="Duplicate (Ctrl+D)">⧉</button><button data-ed="del" title="Delete">🗑</button><button data-ed="undo" title="Undo (Ctrl+Z)"' + (hist.undo.length ? "" : " disabled") + '>↶</button><button data-ed="redo" title="Redo"' + (hist.redo.length ? "" : " disabled") + ">↷</button>" +
       '<label class="toggle"><input type="checkbox" data-ed="snap"' + (snapOn ? " checked" : "") + "> Snap</label></div>" +
-      '<div class="sl-tb-row"><label>Theme <select data-deck-f="theme">' + R.themes().map(function (t) { return '<option value="' + t.id + '"' + (t.id === d.theme ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("") + '</select></label><button data-ed="themeCopy" title="Make an editable copy of this theme for the church">Edit theme…</button>' +
+      '<div class="sl-tb-row"><label>Theme <select data-deck-f="theme">' + themeOpts(d.theme) + '</select></label><button data-ed="themeCopy" title="Make an editable copy of this theme for the church">Edit theme…</button>' +
       '<label>Size <select data-ed="size">' + SIZES.map(function (z) { return '<option value="' + z[1] + "x" + z[2] + '"' + (sizeVal === z ? " selected" : "") + ">" + z[0] + "</option>"; }).join("") + '<option value="custom"' + (sizeVal ? "" : " selected") + '>Custom…</option></select></label>' + (sizeVal ? "" : '<span class="small">' + d.size.w + "×" + d.size.h + "</span>") +
       (s ? '<button data-sl-go="' + s.id + '" class="primary">Go live ▶</button>' : "") + "</div>";
   }
@@ -444,8 +448,11 @@
         (bg.type === "color" ? fld("Colour", '<input type="color" data-s="bg.color" value="' + esc(bg.color || "#000000") + '">') : "") +
         (bg.type === "gradient" ? '<div class="sl-fs">' + fld("From", '<input type="color" data-s="bg.color" value="' + esc(bg.color || "#0f1a2b") + '">') + fld("To", '<input type="color" data-s="bg.color2" value="' + esc(bg.color2 || "#1d3557") + '">') + fld("Angle", '<input type="number" data-s="bg.angle" min="0" max="360" value="' + (bg.angle == null ? 135 : bg.angle) + '">') + "</div>" : "") +
         (bg.type === "image" || bg.type === "video" ? '<button data-ed="bgMedia">' + (bg.media ? "Change: " + esc(M ? M.name(bg.media) : "") : "Pick…") + "</button>" + fld("Fit", '<select data-s="bg.fit">' + opt([["cover", "Fill the screen"], ["contain", "Whole picture"]], bg.fit || "cover") + "</select>") : "") +
-        (bg.type === "lyricbg" ? fld("Which", '<select data-s="bg.bgId">' + lbg.map(function (b) { return '<option value="' + esc(b.id) + '"' + (b.id === bg.bgId ? " selected" : "") + ">" + esc(b.name) + "</option>"; }).join("") + "</select>") : "") +
+        (bg.type === "lyricbg" ? fld("Which", '<select data-s="bg.bgId">' + lbg.map(function (b) { return '<option value="' + esc(b.id) + '"' + (b.id === bg.bgId ? " selected" : "") + ">" + esc(b.name + (BG.allowed && !BG.allowed(b.id) ? " 🔒 Utility" : "")) + "</option>"; }).join("") + "</select>") : "") +
         (bg.type !== "none" ? fld("Darken", '<input type="range" min="0" max="0.8" step="0.05" data-s="bg.dim" value="' + (bg.dim || 0) + '">') : "") +
+        (s.countdown ? "<h4>Countdown</h4>" + '<div class="sl-fs">' + fld("Counts", '<select data-cd="mode">' + opt([["for", "For a number of minutes"], ["at", "To a time of day"]], s.countdown.at ? "at" : "for") + "</select>") +
+          (s.countdown.at ? fld("Until", '<input type="time" data-cd="at" value="' + esc(s.countdown.at) + '">') : fld("Minutes", '<input type="number" min="0.5" max="180" step="0.5" data-cd="minutes" value="' + ((Number(s.countdown.seconds) || 300) / 60) + '">')) +
+          fld("At zero show", '<input data-cd="done" value="' + esc(s.countdown.done || "") + '" placeholder="0:00">') + '</div><p class="muted small">Type {countdown} in any text box to show the time left.</p>' : "") +
         "<h4>On screen</h4>" + '<div class="sl-fs">' + fld("Transition in", '<select data-s="transition.type"><option value="">The deck\'s</option>' + opt(TRANS, (s.transition || {}).type || "") + "</select>") + fld("Stays (s)", '<input type="number" min="0" max="3600" step="1" data-s="advance" value="' + (s.advance || 0) + '" title="0: until someone moves on">') + "</div>" +
         fld("Notes (only you see these)", '<textarea data-s="notes" rows="2">' + esc(s.notes || "") + "</textarea>");
     }
@@ -776,18 +783,27 @@
       d.updatedAt = Date.now(); paintEditor(); if (live1) { touch(); renderStrip(); if (/^(text\.role|shape\.noFill|shape\.kind)$/.test(t.dataset.f)) renderInspector(); }
       return;
     }
+    if (t.dataset.cd && s && s.countdown) {
+      var kc = t.dataset.cd;
+      if (kc === "mode") s.countdown = t.value === "at" ? { at: s.countdown.at || "10:30", done: s.countdown.done } : { seconds: s.countdown.seconds || 300, done: s.countdown.done };
+      else if (kc === "at") s.countdown.at = t.value; else if (kc === "minutes") s.countdown.seconds = Math.round((Number(t.value) || 5) * 60); else if (kc === "done") s.countdown.done = t.value;
+      paintEditor(); if (live1) { touch(); renderStrip(); if (kc === "mode") renderInspector(); } return;
+    }
     if (t.dataset.s && s) {
       var ks = t.dataset.s, vs = t.type === "number" || t.type === "range" ? Number(t.value) : t.value;
+      if (ks === "bg.bgId" && BG && BG.allowed && !BG.allowed(vs)) { t.value = (s.bg || {}).bgId || ""; lockedMsg(document.getElementById("slInspect") || root); return; }
       if (ks === "transition.type") { s.transition = vs ? { type: vs, dur: (d.transition || {}).dur || 0.5 } : null; } else setPath(s, ks, vs);
       paintEditor(); if (live1) { touch(); renderStrip(); if (ks === "bg.type") renderInspector(); } return;
     }
     if (t.dataset.deckF && d) {
       var kd = t.dataset.deckF, vd = t.type === "number" ? Number(t.value) : t.value;
+      if (kd === "theme" && themeLocked(vd)) { t.value = d.theme; lockedMsg(t.closest(".card, section, div") || root); return; }
       if (kd === "runItem") vd = vd || null; setPath(d, kd, vd);
       if (live1) { touch(d); if (kd === "theme" || kd === "name" || kd === "kind") { renderDecks(); renderStrip(); if (st.mode === "design") { renderTools(); paintEditor(); renderInspector(); } } }
       return;
     }
     if (t.dataset.th && d) { var ut = st.themes.filter(function (q) { return q.id === d.theme; })[0]; if (!ut) return; setPath(ut, t.dataset.th, t.value); R.setUserThemes(st.themes); paintEditor(); if (live1) { pushThemes(); touch(d); renderStrip(); renderTools(); } return; }
+    if (t.dataset.scr === "theme" && themeLocked(t.value)) { t.value = st.scripture.theme; lockedMsg(t.closest(".card, section, div") || root); return; }
     if (t.dataset.scr) { var kk = t.dataset.scr; st.scripture[kk] = t.type === "checkbox" ? t.checked : t.value; save(); if (found && $("#slScrRef").value.trim()) scriptureFind(); return; }
     if (t.dataset.sll) { var kl = t.dataset.sll; st.lyrics[kl] = t.type === "checkbox" ? t.checked : t.type === "range" ? Number(t.value) : t.value; save(); pushLyrics(true); return; }
   }
@@ -799,6 +815,7 @@
     var t = e.target; onField(e); var d = deck();
     if (t.dataset.sl === "lyrics") setLyricsLive(t.checked);
     else if (t.dataset.sl === "newDeck" && t.value) newDeck(t.value);
+    else if (t.dataset.sl === "addSlide" && t.value && d && tplLocked(t.value)) { t.value = ""; lockedMsg(t.closest(".sl-st-head") || root); }
     else if (t.dataset.sl === "addSlide" && t.value && d) { snap(); var s = t.value === "lower" ? R.newLower(d) : R.newSlide(d, t.value), i = d.slides.findIndex(function (x) { return x.id === previewId; }); d.slides.splice(i < 0 ? d.slides.length : i + 1, 0, s); previewId = s.id; sel = []; touch(d); renderAll(); }
     else if (t.dataset.sl === "importExport" && t.value) { var v = t.value; t.value = ""; if (v === "pics") { if (!d) newDeck("custom"); var ms = await pickMedia(), dd = deck(); snap(); ms.forEach(function (m) { var s2 = { id: uid(), kind: "design", name: m.name, bg: { type: "color", color: "#000000" }, els: [Object.assign(mediaEl(m, dd), { x: 0, y: 0, w: dd.size.w, h: dd.size.h })], advance: null, notes: "" }; dd.slides.push(s2); previewId = s2.id; }); touch(dd); renderAll(); } else if (v === "pdf" || v === "pptx") importDocs(); else if (v === "exportPdf") exportDeck("pdf"); else if (v === "exportPng") exportDeck("png"); }
     else if (t.dataset.sl === "loop" && d) { d.loop = Object.assign({ seconds: 8 }, d.loop, { on: t.checked }); touch(d); renderDecks(); if (live.deckId === d.id) scheduleAdvance(); }
@@ -858,19 +875,53 @@
     var el = document.getElementById("lyricsBgPanel"); if (!el || el.hidden) return;
     var k = songKey(), sec = secName(), v = scopeVal(bgPick.scope), shown = v === undefined ? bgFor() : v;
     var scopes = [["all", "Every song"], ["song", k ? "This song: " + k : "This song (no song yet)"], ["section", sec ? "This part: " + sec : "This part (no part yet)"]];
-    var tiles = [];
-    if (bgPick.filter !== "yours") tiles.push({ v: null, name: "None (black)", img: "" });
-    if (BG && bgPick.filter !== "yours") BG.list.forEach(function (b) { if (bgPick.filter === "motion" && b.kind !== "motion") return; if (bgPick.filter === "still" && b.kind !== "still") return; tiles.push({ v: "bg:" + b.id, name: b.name, img: thumbOf(b.id), motion: b.kind === "motion" }); });
-    if (bgPick.filter === "all" || bgPick.filter === "yours") st.bgFiles.forEach(function (x) { tiles.push({ v: x.path, name: x.name, file: x }); });
+    var tiles = [], SEA = window.CUSeasons, q = nm(bgPick.q), sun = SEA ? SEA.thisSunday() : null;
+    if (bgPick.filter === "seasons" && !bgPick.season && sun) bgPick.season = sun.season;
+    function hit(b) { if (!q) return true; var hay = nm([b.name, b.group, (b.tags || []).join(" "), SEA && b.season ? SEA.NAMES[b.season] : ""].join(" ")); return q.split(" ").every(function (w) { return hay.indexOf(w) >= 0; }); }
+    if (bgPick.filter !== "yours" && bgPick.filter !== "seasons" && !q) tiles.push({ v: null, name: "None (black)", img: "" });
+    if (BG && bgPick.filter !== "yours") BG.list.forEach(function (b) {
+      if (bgPick.filter === "motion" && b.kind !== "motion") return; if (bgPick.filter === "still" && b.kind !== "still") return;
+      if (bgPick.filter === "seasons" && (!b.season || (bgPick.season !== "any" && b.season !== bgPick.season))) return;
+      if (!hit(b)) return;
+      tiles.push({ v: "bg:" + b.id, name: b.name, img: thumbOf(b.id), motion: b.kind === "motion", locked: BG.allowed && !BG.allowed(b.id), season: b.season });
+    });
+    if (bgPick.filter === "all" || bgPick.filter === "yours") st.bgFiles.forEach(function (x) { if (!q || nm(x.name).indexOf(q) >= 0) tiles.push({ v: x.path, name: x.name, file: x }); });
+    var seasonRow = bgPick.filter !== "seasons" || !SEA ? "" : '<div class="lb-seasons">' + (sun ? '<button data-lbseason="' + sun.season + '" class="lb-sun' + (bgPick.season === sun.season ? " on" : "") + '">This Sunday (' + esc(sun.date.toLocaleDateString(undefined, { month: "short", day: "numeric" })) + "): " + esc(SEA.NAMES[sun.season]) + "</button>" : "") +
+      [["any", "Every season"]].concat(SEA.ORDER).map(function (o) { return '<button data-lbseason="' + o[0] + '" class="' + (bgPick.season === o[0] ? "on" : "") + '">' + esc(o[1]) + "</button>"; }).join("") + "</div>" +
+      (BG.allowed && BG.list.some(function (b) { return b.season && !BG.allowed(b.id); }) ? '<p class="muted small lb-lock-note">🔒 The seasonal backgrounds come with Central Utility. You can look at them here; to put one on the screens, add Central Utility to your plan.</p>' : "");
     el.innerHTML = '<div class="row spread"><b>Lyrics background</b><button class="mini" data-lb="close" aria-label="Close">✕</button></div>' +
       '<div class="lb-top"><div class="lb-prev"><div class="sl-screen">' + slideHtml(Object.assign(lyricsSlide(), { bgPath: shown })) + '</div><p class="muted small">' + esc(lyricsLive ? "On the outputs now: " + outputsText().replace(/^→ /, "") : "Not on the outputs (tick Lyrics to the outputs)") + "</p></div>" +
       '<div class="lb-side"><div class="lb-scopes" role="radiogroup" aria-label="Use it for">' + scopes.map(function (sc) { var dis = (sc[0] === "song" && !k) || (sc[0] === "section" && (!k || !sec)); return '<label class="toggle"><input type="radio" name="lbScope" data-lbs="' + sc[0] + '"' + (bgPick.scope === sc[0] ? " checked" : "") + (dis ? " disabled" : "") + "> " + esc(sc[1]) + "</label>"; }).join("") + "</div>" +
       '<p class="muted small">' + (bgPick.scope === "all" ? "Now: " + esc(bgName(st.lyricsBg)) : v === undefined ? "Uses the one above: " + esc(bgName(bgFor())) : "Now: " + esc(bgName(v)) + ' <button class="mini" data-lb="inherit">Use the one above</button>') + "</p>" +
       '<label>Crossfade (s) <input type="range" min="0" max="5" step="0.25" data-lb-fade value="' + st.bgFade + '"><output>' + st.bgFade + "</output></label>" +
-      '<div class="lb-filter" role="group" aria-label="Show">' + [["all", "All"], ["motion", "Moving"], ["still", "Still"], ["yours", "Yours"]].map(function (f) { return '<button data-lbf="' + f[0] + '" class="' + (bgPick.filter === f[0] ? "on" : "") + '">' + f[1] + "</button>"; }).join("") + "</div></div></div>" +
-      '<div class="lb-grid">' + tiles.map(function (t) { var sel = (t.v || null) === (shown || null); return '<button class="lb-tile' + (sel ? " sel" : "") + '" data-lbv="' + esc(t.v == null ? "" : t.v) + '" title="' + esc(t.name) + '">' + (t.img ? '<img src="' + t.img + '" alt="">' : t.file ? (t.file.kind === "video" ? '<video src="' + fileUrl(t.file.path) + '" muted></video>' : '<img src="' + fileUrl(t.file.path) + '" alt="">') : '<span class="lb-black"></span>') + (t.motion ? '<span class="lb-mv">moving</span>' : "") + '<span class="lb-nm">' + esc(t.name) + "</span></button>"; }).join("") +
+      '<div class="lb-filter" role="group" aria-label="Show">' + [["all", "All"], ["motion", "Moving"], ["still", "Still"], ["seasons", "Seasons"], ["yours", "Yours"]].map(function (f) { return '<button data-lbf="' + f[0] + '" class="' + (bgPick.filter === f[0] ? "on" : "") + '">' + f[1] + "</button>"; }).join("") +
+      '<input type="search" data-lbq placeholder="Search: cross, snow, Easter…" value="' + esc(bgPick.q || "") + '" aria-label="Search the backgrounds"></div></div></div>' + seasonRow +
+      '<div class="lb-grid">' + tiles.map(function (t) { var sel = (t.v || null) === (shown || null); return '<button class="lb-tile' + (sel ? " sel" : "") + (t.locked ? " locked" : "") + '" data-lbv="' + esc(t.v == null ? "" : t.v) + '"' + (t.locked ? ' data-locked="1"' : "") + ' title="' + esc(t.name + (t.locked ? " - comes with Central Utility" : "")) + '">' + (t.img ? '<img src="' + t.img + '" alt="">' : t.file ? (t.file.kind === "video" ? '<video src="' + fileUrl(t.file.path) + '" muted></video>' : '<img src="' + fileUrl(t.file.path) + '" alt="">') : '<span class="lb-black"></span>') + (t.motion ? '<span class="lb-mv">moving</span>' : "") + (t.locked ? '<span class="lb-lock" aria-label="Central Utility">🔒 Utility</span>' : "") + '<span class="lb-nm">' + esc(t.name) + "</span></button>"; }).join("") +
+      (!tiles.length ? '<p class="muted small">Nothing matches "' + esc(bgPick.q || "") + '".</p>' : "") +
       '<button class="lb-tile lb-add" data-lb="add"><span class="lb-black">+</span><span class="lb-nm">Add a picture or video</span></button></div>';
     var pv = el.querySelector(".lb-prev .sl-screen"); if (pv) { var html = pv.innerHTML; setHtml(pv, html); }
+  }
+  // (10.2) Central Utility's looks and graphics: offered to everyone, usable with the plan
+  function hasUtility() { var L = window.PPLicense; return !!(L && L.hasPlan && L.hasPlan("utility")); }
+  function themeLocked(id) { var th = R.themes().filter(function (x) { return x.id === id; })[0]; return !!(th && th.tier && !hasUtility()); }
+  function tplLocked(id) { var tp = R.TEMPLATES.filter(function (x) { return x.id === id; })[0]; return !!(tp && tp.tier && !hasUtility()); }
+  function themeOpts(cur) {
+    var all = R.themes(), lock = hasUtility() ? "" : " 🔒", o = function (t) { return '<option value="' + esc(t.id) + '"' + (t.id === cur ? " selected" : "") + ">" + esc(t.name) + (t.tier ? lock : "") + "</option>"; };
+    var free = all.filter(function (t) { return !t.tier && !/^church-/.test(t.id); }), sea = all.filter(function (t) { return t.tier; }), ours = all.filter(function (t) { return /^church-/.test(t.id); });
+    return free.map(o).join("") + (sea.length ? '<optgroup label="Seasons (Central Utility)">' + sea.map(o).join("") + "</optgroup>" : "") + (ours.length ? '<optgroup label="Your themes">' + ours.map(o).join("") + "</optgroup>" : "");
+  }
+  function templateOpts() {
+    var lock = hasUtility() ? "" : " 🔒", groups = {};
+    var free = R.TEMPLATES.filter(function (t) { return !t.tier; }).map(function (t) { return '<option value="' + t.id + '">' + esc(t.name) + "</option>"; }).join("") + '<option value="lower">Lower third</option>';
+    R.TEMPLATES.forEach(function (t) { if (t.tier) (groups[t.group] = groups[t.group] || []).push(t); });
+    return free + Object.keys(groups).map(function (g) { return '<optgroup label="' + esc(g) + ' (Central Utility)">' + groups[g].map(function (t) { return '<option value="' + t.id + '">' + esc(t.name.replace(/^[^:]+: /, "")) + lock + "</option>"; }).join("") + "</optgroup>"; }).join("");
+  }
+  // (10.2) a Central Utility background or look tapped on a plan without it: say so, plainly, in the panel
+  function lockedMsg(where) {
+    var n = where && where.querySelector(".lb-lock-msg"); if (!where) return;
+    if (!n) { n = document.createElement("p"); n.className = "lb-lock-msg warn small"; where.insertBefore(n, where.children[1] || null); }
+    n.textContent = "That one comes with Central Utility. Your plan doesn't have it yet, so it can't go on the screens. The free backgrounds and your own pictures still work.";
+    clearTimeout(n._t); n._t = setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, 7000);
   }
   function openBgPicker(on) {
     var el = document.getElementById("lyricsBgPanel"); if (!el) return;
@@ -891,10 +942,15 @@
       else if (b.dataset.lb === "inherit") setBg(bgPick.scope, undefined);
       else if (b.dataset.lb === "add") { if (!NAT) return alert("Adding pictures and videos works in the Central Control app."); var files = await NAT.open(); var last = null; (files || []).forEach(function (f) { addBgFile(f); last = f.path; }); if (last) setBg(bgPick.scope, last); else renderBgPicker(); }
       else if (b.dataset.lbf) { bgPick.filter = b.dataset.lbf; renderBgPicker(); }
+      else if (b.dataset.lbseason) { bgPick.season = b.dataset.lbseason; renderBgPicker(); }
+      else if (b.dataset.locked) lockedMsg(panel);
       else if (b.dataset.lbv != null) setBg(bgPick.scope, b.dataset.lbv || null);
     });
     panel.addEventListener("change", function (e) { if (e.target.dataset.lbs) { bgPick.scope = e.target.dataset.lbs; renderBgPicker(); } });
-    panel.addEventListener("input", function (e) { if (e.target.hasAttribute("data-lb-fade")) { st.bgFade = Number(e.target.value) || 0; e.target.nextElementSibling.textContent = st.bgFade; save(); } });
+    panel.addEventListener("input", function (e) {
+      if (e.target.hasAttribute("data-lb-fade")) { st.bgFade = Number(e.target.value) || 0; e.target.nextElementSibling.textContent = st.bgFade; save(); }
+      else if (e.target.hasAttribute("data-lbq")) { bgPick.q = e.target.value; renderBgPicker(); var qi = panel.querySelector("[data-lbq]"); if (qi) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); } }
+    });
   })();
   var lastBgKey = "";
   CU.on("message", function (m) { if (m.type !== "display") return; var key = songKey() + "|" + secName(); if (key !== lastBgKey) { lastBgKey = key; CU.fire("lyricsBg", bgFor()); renderBgPicker(); } });
