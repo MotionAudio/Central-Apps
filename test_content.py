@@ -82,12 +82,15 @@ def main():
         check(len(hymns) >= 5 and MH.check(hymns) == [], "%d hymns, every verse fits its bars, every chord on a beat of its bar" % len(hymns), MH.check(hymns))
         check(all(h["public_domain"]["words"] < 1929 and h["public_domain"]["music"] < 1929 and h["public_domain"]["writers_died"] < 1955 for h in hymns),
               "every hymn is public domain: words and tune published before 1929, every writer dead more than 70 years")
-        import hymn_arranger as HA
-        styles = [h.get("style") for h in hymns]
-        check(all(st in HA.STYLES for st in styles) and len(set(styles)) == len(styles)
-              and all(snd in HA.SOUNDS and hasattr(HA.Band, "p_" + player) for st in HA.STYLES.values() for layers in st["stems"].values() for snd, player, _ in layers)
-              and len({(h["key"], h["bpm"], h["meter"]) for h in hymns}) == len(hymns),
-              "each hymn has its own style (band, feel and mix) and its own key and tempo; every style's instruments and players exist", styles)
+        import worship_band as WB
+        roles = set(WB.ROLE_E)
+        check(all(h.get("style") in WB.FLAVORS for h in hymns) and all(f.get("role") in roles for h in hymns for f in h["form"])
+              and all({"verse", "final", "bridge"} <= {f["role"] for f in h["form"]} for h in hymns),
+              "each hymn has a modern worship form (sparse verse, a bridge that builds, a final chorus) and a band flavour", [h.get("style") for h in hymns])
+        old_keys = {"amazing-grace": ("G", 72), "joyful-joyful": ("G", 100), "come-thou-fount": ("D", 84), "be-thou-my-vision": ("D", 72), "doxology": ("G", 76)}
+        check(all((h["key"], h["bpm"]) == old_keys[h["id"]] for h in hymns if h["id"] in old_keys), "the first five hymns are in their original keys and tempos")
+        cues = os.path.join(HERE, "hymns", "guide")
+        check(all(os.path.isfile(os.path.join(cues, w + ".wav")) for w in ("chorus", "verse-1", "bridge", "all-in", "build", "down", "tag")), "the guide's spoken cues are there (Chorus, Verse 1, Bridge, All in, Build, Down, Tag)")
         bad_chart, bad_lyrics = [], []
         for h in hymns:
             for s in MH.layout(h):
@@ -107,11 +110,11 @@ def main():
         ag = next(h for h in hymns if h["id"] == "amazing-grace")
         secs = MH.layout(ag)
         v1 = MH.chordpro_section(secs[1])
-        check(v1[0] == "A[F]mazing grace how [Bb]sweet the [F]sound" and v1[3] == "was [Dm]blind but [C]now I [F]see.", "a pickup and a chord inside a word: 'A[F]mazing grace how [Bb]sweet the [F]sound'", v1)
+        check(v1[0] == "A[G]mazing grace how [C]sweet the [G]sound" and v1[3] == "was [Em]blind but [D]now I [G]see.", "a pickup and a chord inside a word: 'A[G]mazing grace how [C]sweet the [G]sound'", v1)
         song = MH.song_file(ag, secs, 260.0, list(MH.ROLES))
         v = next(x for x in song["sections"] if x["name"] == "Verse 1")
         check(song["kind"] == "central-tracks-song" and song["bpb"] == 3 and v["bar"] == 9 and v["lyrics"].startswith("Amazing grace how sweet the sound\nthat saved a wretch like me.")
-              and song["chords"][0] == {"label": "F", "bass": None, "bar": 1, "beat": 1.0} and {s["name"]: s["mute"] for s in song["stems"]}["Click"] is True,
+              and song["chords"][0] == {"label": "G", "bass": None, "bar": 1, "beat": 1.0} and {s["name"]: s["mute"] for s in song["stems"]}["Click"] is True,
               "the song file: meter, sections at their bars with lyrics, chords at bar and beat, click and guide muted", {k: song[k] for k in ("bpb", "duration")})
         if shutil.which("node"):
             js = ("const C=require(%s); const out={};" % json.dumps(os.path.join(HERE, "js", "chords.js")) +
@@ -129,11 +132,11 @@ def main():
             rc = MH.main(["--gm", GM, "--out", out, "--only", "doxology", "--seconds", "75", "--base-url", "https://cdn.example.test/ct"])
             rel = os.path.join(out, "release")
             files = sorted(os.listdir(rel)) if os.path.isdir(rel) else []
-            want = ["doxology--%s.mp3" % s for s in ("Drums", "Bass", "Keys", "Pad", "Electric", "Strings", "Click", "Guide")] + ["doxology--song.json", "doxology--doxology-mix.mp3", "doxology--doxology-preview.mp3", "hymns-index.json", "SHA256SUMS"]
+            want = ["doxology--%s.mp3" % s.replace(" ", "-") for s in MH.STEM_ORDER] + ["doxology--song.json", "doxology--doxology-mix.mp3", "doxology--doxology-preview.mp3", "hymns-index.json", "SHA256SUMS", "CREDITS.txt"]
             check(rc == 0 and sorted(want) == files, "every stem, the song file, the mix and preview, hymns-index.json and SHA256SUMS", files)
             idx = json.load(open(os.path.join(rel, "hymns-index.json")))
             e = idx["hymns"][0]
-            okidx = (e["id"] == "doxology" and len(e["stems"]) == 8 and e["song"]["url"] == "https://cdn.example.test/ct/doxology--song.json" and all(s.get("sha256") and s.get("size") for s in e["stems"])
+            okidx = (e["id"] == "doxology" and len(e["stems"]) == len(MH.STEM_ORDER) and e["song"]["url"] == "https://cdn.example.test/ct/doxology--song.json" and all(s.get("sha256") and s.get("size") for s in e["stems"])
                      and {s["name"]: s.get("mute", False) for s in e["stems"]}["Guide.mp3"] is True)
             check(okidx, "hymns-index.json: each file with its address, size and sha256; click and guide marked to start muted", e["stems"][:2])
             sums = dict(reversed(l.split("  ")) for l in open(os.path.join(rel, "SHA256SUMS")).read().splitlines())
@@ -146,8 +149,9 @@ def main():
                 return 20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-9)
             dox = next(h for h in hymns if h["id"] == "doxology")
             bar = 60.0 / dox["bpm"] * dox["meter"]
-            intro = (0, 8 * bar - 0.5)          # (energy 0: keys and pad)
-            v2 = (18 * bar, 18 * bar + 7 * bar)  # (Verse 2, energy 2: the band)
+            secs = {x["name"]: x for x in MH.layout(dox)}
+            intro = (0, len(secs["Intro"]["bars"]) * bar - 0.5)                                     # (the intro: pad and piano)
+            v2 = ((secs["Verse 2"]["start"] - 1) * bar + bar, (secs["Verse 2"]["start"] - 1) * bar + 6 * bar)    # (Verse 2: all in)
             d0, d2, k0 = rms_db("Drums", *intro), rms_db("Drums", *v2), rms_db("Keys", *intro)
             check(d0 < -60 and d2 > -40 and k0 > -45, "the band follows the energy: no drums in the quiet intro (keys and pad), drums in the second verse", (round(d0, 1), round(d2, 1), round(k0, 1)))
         else:

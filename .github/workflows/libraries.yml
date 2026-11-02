@@ -47,6 +47,9 @@ on:
       - tools/make-loops.py
       - tools/make-hymns.py
       - tools/hymn_arranger.py
+      - tools/worship_band.py
+      - tools/sampler.py
+      - hymns/guide/**
       - tools/midi_render.py
       - tools/vcsl-names.txt
       - tools/make-irs.py
@@ -136,11 +139,19 @@ jobs:
           gh release upload libraries dist/fixture-library.json.gz --clobber
 
       # ---- Central Tracks hymns (10.0): public-domain hymns in our arrangements, played on the sounds built above
+      - name: Cache the hymns' instrument samples
+        if: ${{ env.ONLY == '' }}
+        uses: actions/cache@v4
+        with:
+          path: work/samples
+          key: hymn-samples-${{ hashFiles('tools/sampler.py') }}
       - name: Central Tracks hymns (stems, song files, previews)
         if: ${{ env.ONLY == '' }}
         run: |
-          python3 sounds-vsco.py work/cache work/orchestra || echo "(no orchestra: the strings stem uses the String Pad)"
-          python3 tools/make-hymns.py --sounds work/sounds --orchestra work/orchestra --out dist/hymns --base-url "$HYMNS_BASE_URL"
+          # (10.2: played on the sampled instruments themselves - Salamander piano, Virtuosity drums, Growlybass, the
+          #  Black And Green guitars, VSCO 2 strings - fetched from their repositories by tools/sampler.py and cached)
+          pip install --quiet soundfile pyloudnorm scipy
+          python3 tools/make-hymns.py --samples work/samples --out dist/hymns --base-url "$HYMNS_BASE_URL"
       - name: Publish the hymns on the "central-tracks" release
         if: ${{ env.ONLY == '' }}
         env:

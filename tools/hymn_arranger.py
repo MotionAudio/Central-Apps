@@ -1,7 +1,8 @@
 """Central Tracks hymns (10.2): each hymn's own band, feel and mix. Used by tools/make-hymns.py.
 
 A hymn names its style in hymns/hymns.json ("style"); STYLES says, for each of the eight stems the apps know (Drums,
-Bass, Keys, Pad, Electric, Strings, plus the Click and Guide make-hymns.py makes itself), which instruments play in it
+Percussion, Bass, Keys, Synth, Electric 1, Electric 2, Strings - tools/worship_band.py plays them - plus the Click and Guide
+make-hymns.py makes itself), which instruments play in it
 and how (a "player"), and how the stem is mixed (level, pan, EQ, compression, echo, the room). The players follow the
 hymn's chords and form: each section's energy (0 the quietest .. 3 everything) decides who plays and how hard, the
 last bars of a section lean into a bigger one (fills, swells, a crescendo), and the time and touch are a player's,

@@ -1,5 +1,5 @@
 {
- "_about": "Central Tracks hymns: public-domain words and tunes (published before 1929, and every writer dead more than 70 years, so they're free to use in the US and abroad), in our own arrangements, each with its own style, key and tempo (\"style\" picks the band, the feel and the mix in tools/make-hymns.py). tools/make-hymns.py renders each into stems (drums, bass, keys, pad, electric guitar, strings, click, guide), a song file (sections, lyrics, chords, chart) and a preview mix. Format: chords = one entry per bar (\"G\", or several chords with the beat they start on: \"G D@4\"); a section's progression is a name or \"name:from-to\" (bars, 1-based); lyrics = the pickup, then one entry per bar, split by |; ~ joins a word across bars, / ends a lyric line, ^ marks where a bar's next chord falls.",
+ "_about": "Central Tracks hymns: public-domain words and tunes (published before 1929, and every writer dead more than 70 years, so they're free to use in the US and abroad), in our own arrangements. 10.2: played as a modern worship band would (tools/worship_band.py): each section has a role (intro, verse, verse2, pre, chorus, interlude, drop, bridge, final, tag, outro) and \"style\" picks the band's flavour. Format: chords = one entry per bar (\"G\", or several chords with the beat they start on: \"G D@4\"); a section's progression is a name or \"name:from-to\" (bars, 1-based); lyrics = the pickup, then one entry per bar, split by |; ~ joins a word across bars, / ends a lyric line, ^ marks where a bar's next chord falls. A section's chords may repeat (\"intro*2\") and its lyrics may be part of a verse (\"Verse 5@9-16\": its bars 9 to 16).",
  "hymns": [
   {
    "id": "amazing-grace",
@@ -7,11 +7,11 @@
    "words": "John Newton (1779); last verse anonymous (1829)",
    "music": "NEW BRITAIN, American folk melody (1829)",
    "public_domain": {"words": 1829, "music": 1829, "writers_died": 1807},
-   "key": "F", "bpm": 66, "meter": 3, "style": "soul-ballad",
+   "key": "G", "bpm": 72, "meter": 3, "style": "ballad-68",
    "chords": {
-    "verse": ["F", "F", "Bb", "F", "F", "Dm", "C", "C", "F", "F7", "Bb", "F", "Dm", "C", "F", "F"],
-    "intro": ["F", "F", "Bb", "F", "Dm", "C", "F", "F"],
-    "outro": ["F", "F", "Bb", "F", "Dm", "C", "F", "F"]
+    "verse": ["G", "G", "C", "G", "G", "Em", "D", "D", "G", "G7", "C", "G", "Em", "D", "G", "G"],
+    "intro": ["G", "G", "C", "G", "Em", "D", "G", "G"],
+    "outro": ["G", "G", "C", "G", "Em", "D", "G", "G"]
    },
    "lyrics": {
     "Verse 1": "A~|mazing|grace how|sweet the|sound / that|saved a|wretch like|me. /|I|once was|lost but|now am|found, / was|blind but|now I|see. /|",
@@ -21,14 +21,16 @@
     "Verse 5": "When|we've been|there ten|thousand|years, / bright|shining|as the|sun, /|we've|no less|days to|sing God's|praise / than|when we'd|first be~|gun. /|"
    },
    "form": [
-    {"name": "Intro", "chords": "intro", "energy": 0},
-    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 0},
-    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 1},
-    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 2},
-    {"name": "Interlude", "chords": "intro", "energy": 2},
-    {"name": "Verse 4", "chords": "verse", "lyrics": "Verse 4", "energy": 1},
-    {"name": "Verse 5", "chords": "verse", "lyrics": "Verse 5", "energy": 3},
-    {"name": "Outro", "chords": "outro", "energy": 0}
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "drop", "lyrics": "Verse 4", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 5", "chords": "verse", "role": "final", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Tag", "chords": "verse:9-16", "role": "tag", "lyrics": "Verse 5@9-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
   },
   {
@@ -37,11 +39,11 @@
    "words": "Henry van Dyke (1907)",
    "music": "HYMN TO JOY, Ludwig van Beethoven (1824), adapted by Edward Hodges",
    "public_domain": {"words": 1907, "music": 1824, "writers_died": 1933},
-   "key": "Ab", "bpm": 116, "meter": 4, "style": "gospel-shuffle",
+   "key": "G", "bpm": 100, "meter": 4, "style": "anthem-drive",
    "chords": {
-    "verse": ["Ab", "Ab Eb@4", "Ab", "Ab Eb@3", "Ab", "Ab Eb@4", "Ab", "Eb Ab@3", "Eb Ab@3", "Eb Ab@3", "Eb Ab@3", "Db Eb@3", "Ab", "Ab Eb@4", "Ab", "Eb Ab@3"],
-    "intro": ["Ab", "Db", "Ab", "Eb", "Ab", "Db", "Eb", "Ab"],
-    "outro": ["Ab", "Db", "Ab", "Eb", "Ab", "Db", "Eb Ab@3", "Ab"]
+    "verse": ["G", "G D@4", "G", "G D@3", "G", "G D@4", "G", "D G@3", "D G@3", "D G@3", "D G@3", "C D@3", "G", "G D@4", "G", "D G@3"],
+    "intro": ["G", "C", "G", "D", "G", "C", "D", "G"],
+    "outro": ["G", "C", "G", "D", "G", "C", "D G@3", "G"]
    },
    "lyrics": {
     "Verse 1": "|Joyful, joyful,|we adore ^Thee, /|God of glory,|Lord of ^love; /|Hearts unfold like|flowers before ^Thee, /|opening to the|sun a^bove. /|Melt the ^clouds of|sin and ^sadness; /|drive the ^dark of|doubt a^way; /|Giver of im~|mortal glad^ness, /|fill us with the|light of ^day! /",
@@ -50,13 +52,15 @@
     "Verse 4": "|Mortals, join the|happy cho^rus /|which the morning|stars be^gan; /|Father love is|reigning o'er ^us, /|brother love binds|man to ^man. /|Ever ^singing,|march we ^onward, /|victors ^in the|midst of ^strife; /|joyful music|leads us sun^ward /|in the triumph|song of ^life. /"
    },
    "form": [
-    {"name": "Intro", "chords": "intro", "energy": 1},
-    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 1},
-    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 2},
-    {"name": "Interlude", "chords": "intro", "energy": 3},
-    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 1},
-    {"name": "Verse 4", "chords": "verse", "lyrics": "Verse 4", "energy": 3},
-    {"name": "Outro", "chords": "outro", "energy": 2}
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:9-16", "role": "tag", "lyrics": "Verse 4@9-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
   },
   {
@@ -65,7 +69,7 @@
    "words": "Robert Robinson (1758)",
    "music": "NETTLETON, Wyeth's Repository of Sacred Music (1813)",
    "public_domain": {"words": 1758, "music": 1813, "writers_died": 1858},
-   "key": "D", "bpm": 96, "meter": 3, "style": "folk-waltz",
+   "key": "D", "bpm": 84, "meter": 3, "style": "folk-68",
    "chords": {
     "verse": ["D", "D", "G", "D", "D", "D", "A", "D", "D", "D", "G", "D", "D", "D", "A", "D", "G", "D", "Em", "A", "G", "D", "A", "A", "D", "D", "G", "D", "D", "D", "A", "D"],
     "intro": ["D", "D", "G", "D", "D", "D", "A", "D"],
@@ -78,13 +82,14 @@
     "Tag": "|here's my|heart, O|take and|seal it, /|seal it|for Thy|courts a~|bove. /"
    },
    "form": [
-    {"name": "Intro", "chords": "intro", "energy": 0},
-    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 1},
-    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 2},
-    {"name": "Interlude", "chords": "intro", "energy": 2},
-    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 3},
-    {"name": "Tag", "chords": "verse:25-32", "lyrics": "Tag", "energy": 1},
-    {"name": "Outro", "chords": "outro", "energy": 0}
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Tag", "chords": "verse:25-32", "role": "tag", "lyrics": "Tag", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
   },
   {
@@ -93,11 +98,11 @@
    "words": "Irish, 8th century; translated by Mary E. Byrne (1905), put into verse by Eleanor H. Hull (1912)",
    "music": "SLANE, Irish folk melody",
    "public_domain": {"words": 1912, "music": 1909, "writers_died": 1935},
-   "key": "Eb", "bpm": 63, "meter": 3, "style": "celtic",
+   "key": "D", "bpm": 72, "meter": 3, "style": "celtic-68",
    "chords": {
-    "verse": ["Eb", "Ab", "Eb", "Bb", "Ab", "Eb", "Cm", "Bb", "Eb", "Ab", "Bb", "Cm", "Ab", "Eb", "Bb", "Eb"],
-    "intro": ["Eb", "Ab", "Eb", "Bb", "Ab", "Eb", "Bb", "Eb"],
-    "outro": ["Ab", "Eb", "Bb", "Eb", "Ab", "Eb", "Bb", "Eb"]
+    "verse": ["D", "G", "D", "A", "G", "D", "Bm", "A", "D", "G", "A", "Bm", "G", "D", "A", "D"],
+    "intro": ["D", "G", "D", "A", "G", "D", "A", "D"],
+    "outro": ["G", "D", "A", "D", "G", "D", "A", "D"]
    },
    "lyrics": {
     "Verse 1": "|Be Thou my|Vision, O|Lord of my|heart; /|naught be all|else to me,|save that Thou|art. /|Thou my best|Thought, by|day or by|night, /|waking or|sleeping, Thy|presence my|light. /",
@@ -106,13 +111,15 @@
     "Verse 4": "|High King of|Heaven, my|victory|won, /|may I reach|Heaven's joys,|O bright Heaven's|Sun! /|Heart of my|own heart, what~|ever be~|fall, /|still be my|Vision, O|Ruler of|all. /"
    },
    "form": [
-    {"name": "Intro", "chords": "intro", "energy": 0},
-    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 0},
-    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 1},
-    {"name": "Interlude", "chords": "intro", "energy": 2},
-    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 2},
-    {"name": "Verse 4", "chords": "verse", "lyrics": "Verse 4", "energy": 3},
-    {"name": "Outro", "chords": "outro", "energy": 0}
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:9-16", "role": "tag", "lyrics": "Verse 4@9-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
   },
   {
@@ -121,25 +128,26 @@
    "words": "Thomas Ken (1674)",
    "music": "OLD HUNDREDTH, Genevan Psalter (1551), attributed to Louis Bourgeois",
    "public_domain": {"words": 1674, "music": 1551, "writers_died": 1711},
-   "key": "A", "bpm": 86, "meter": 4, "style": "hymn-rock",
+   "key": "G", "bpm": 76, "meter": 4, "style": "anthem-half",
    "chords": {
-    "verse": ["A E@4", "F#m E@3", "A", "A E@3", "D E@3", "A E@4", "F#m E@3", "A", "F#m E@3", "A E@2 A@3"],
-    "amen": ["D", "A"],
-    "intro": ["A", "D", "A", "E", "F#m", "D", "E", "A"],
-    "outro": ["A", "D", "A", "D", "A", "A"]
+    "verse": ["G D@4", "Em D@3", "G", "G D@3", "C D@3", "G D@4", "Em D@3", "G", "Em D@3", "G D@2 G@3"],
+    "amen": ["C", "G"],
+    "intro": ["G", "C", "G", "D", "Em", "C", "D", "G"],
+    "outro": ["G", "C", "G", "C", "G", "G"]
    },
    "lyrics": {
     "Doxology": "|Praise God, ^from|whom all ^blessings|flow; / Praise|Him, all ^creatures|here be^low; /|Praise Him ^a~|bove, ye ^heavenly|host; / Praise|Father, ^Son, and|Ho^ly ^Ghost. /",
     "Amen": "|A~|men. /"
    },
    "form": [
-    {"name": "Intro", "chords": "intro", "energy": 0},
-    {"name": "Verse 1", "chords": "verse", "lyrics": "Doxology", "energy": 0},
-    {"name": "Verse 2", "chords": "verse", "lyrics": "Doxology", "energy": 2},
-    {"name": "Interlude", "chords": "intro", "energy": 2},
-    {"name": "Verse 3", "chords": "verse", "lyrics": "Doxology", "energy": 3},
-    {"name": "Tag", "chords": "amen", "lyrics": "Amen", "energy": 1},
-    {"name": "Outro", "chords": "outro", "energy": 0}
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Doxology", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Doxology", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Doxology", "energy": 3},
+    {"name": "Tag", "chords": "amen", "role": "tag", "lyrics": "Amen", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
   },
   {
@@ -148,7 +156,7 @@
    "words": "Horatio G. Spafford (1873)",
    "music": "VILLE DU HAVRE, Philip P. Bliss (1876)",
    "public_domain": {"words": 1873, "music": 1876, "writers_died": 1888},
-   "key": "C", "bpm": 74, "meter": 4, "style": "piano-strings",
+   "key": "C", "bpm": 74, "meter": 4, "style": "piano-anthem",
    "chords": {
     "verse": ["C", "F C@3", "Am D7@3", "G", "C F@3", "C Am@3", "C G7@3", "C"],
     "refrain": ["G7", "C", "F C@3 G7@4", "C"],
@@ -166,18 +174,18 @@
     "Tag": "It is|well, it is ^well ^with my|soul. /"
    },
    "form": [
-    {"name": "Intro", "chords": "intro", "energy": 0},
-    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 0},
-    {"name": "Refrain 1", "chords": "refrain", "lyrics": "Refrain", "energy": 1},
-    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 1},
-    {"name": "Refrain 2", "chords": "refrain", "lyrics": "Refrain", "energy": 2},
-    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 2},
-    {"name": "Refrain 3", "chords": "refrain", "lyrics": "Refrain", "energy": 3},
-    {"name": "Interlude", "chords": "interlude", "energy": 2},
-    {"name": "Verse 4", "chords": "verse", "lyrics": "Verse 4", "energy": 0},
-    {"name": "Refrain 4", "chords": "refrain", "lyrics": "Refrain", "energy": 3},
-    {"name": "Tag", "chords": "tag", "lyrics": "Tag", "energy": 1},
-    {"name": "Outro", "chords": "outro", "energy": 0}
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Refrain 4", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "tag", "role": "tag", "lyrics": "Tag", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
   },
   {
@@ -186,7 +194,7 @@
    "words": "Reginald Heber (1826)",
    "music": "NICAEA, John B. Dykes (1861)",
    "public_domain": {"words": 1826, "music": 1861, "writers_died": 1876},
-   "key": "D", "bpm": 84, "meter": 4, "style": "cathedral",
+   "key": "D", "bpm": 84, "meter": 4, "style": "cathedral-anthem",
    "chords": {
     "verse": ["D", "Bm", "G", "D", "G", "D", "A E7@3", "A", "D", "Bm", "G", "D", "Bm", "G D@3", "A7", "D"],
     "amen": ["G", "D"],
@@ -202,14 +210,15 @@
     "Amen": "|A~|men. /"
    },
    "form": [
-    {"name": "Intro", "chords": "intro", "energy": 0},
-    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 0},
-    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 1},
-    {"name": "Interlude", "chords": "interlude", "energy": 2},
-    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 1},
-    {"name": "Verse 4", "chords": "verse", "lyrics": "Verse 4", "energy": 3},
-    {"name": "Tag", "chords": "amen", "lyrics": "Amen", "energy": 2},
-    {"name": "Outro", "chords": "outro", "energy": 0}
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "amen", "role": "tag", "lyrics": "Amen", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
   },
   {
@@ -218,7 +227,7 @@
    "words": "Fanny J. Crosby (1873)",
    "music": "ASSURANCE, Phoebe P. Knapp (1873)",
    "public_domain": {"words": 1873, "music": 1873, "writers_died": 1915},
-   "key": "E", "bpm": 60, "meter": 3, "style": "gospel-68",
+   "key": "E", "bpm": 60, "meter": 3, "style": "gospel-98",
    "chords": {
     "verse": ["E A@3", "A E@3", "E", "F#7 B@3", "E A@3", "E B@3", "E A@3", "E B7@2 E@3"],
     "refrain": ["E A@3", "E", "E", "B B7@3", "E A@3", "E", "E A@3", "E B7@2 E@3"],
@@ -234,17 +243,18 @@
     "Tag": "|praising my ^Savior|all the ^day ^long. /"
    },
    "form": [
-    {"name": "Intro", "chords": "intro", "energy": 0},
-    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 0},
-    {"name": "Refrain 1", "chords": "refrain", "lyrics": "Refrain", "energy": 1},
-    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 2},
-    {"name": "Refrain 2", "chords": "refrain", "lyrics": "Refrain", "energy": 2},
-    {"name": "Interlude", "chords": "intro", "energy": 2},
-    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 1},
-    {"name": "Refrain 3", "chords": "refrain", "lyrics": "Refrain", "energy": 3},
-    {"name": "Refrain 4", "chords": "refrain", "lyrics": "Refrain", "energy": 3},
-    {"name": "Tag", "chords": "tag", "lyrics": "Tag", "energy": 1},
-    {"name": "Outro", "chords": "outro", "energy": 0}
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Refrain 3", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Refrain 4", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "tag", "role": "tag", "lyrics": "Tag", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
   },
   {
@@ -253,7 +263,7 @@
    "words": "Robert Lowry (1876)",
    "music": "PLAINFIELD, Robert Lowry (1876)",
    "public_domain": {"words": 1876, "music": 1876, "writers_died": 1899},
-   "key": "G", "bpm": 100, "meter": 4, "style": "country-train",
+   "key": "G", "bpm": 100, "meter": 4, "style": "country-drive",
    "chords": {
     "verse": ["G C@3", "G D@3", "G C@3", "G D@3 G@4"],
     "refrain": ["G", "G C@2 G@4", "G", "G D@3 G@4"],
@@ -270,19 +280,20 @@
     "Refrain": "|Oh! precious is the flow /|that makes me ^white as ^snow; /|no other fount I know, /|nothing but the ^blood of ^Jesus. /"
    },
    "form": [
-    {"name": "Intro", "chords": "intro", "energy": 1},
-    {"name": "Verse 1", "chords": "verse", "lyrics": "Verse 1", "energy": 1},
-    {"name": "Refrain 1", "chords": "refrain", "lyrics": "Refrain", "energy": 1},
-    {"name": "Verse 2", "chords": "verse", "lyrics": "Verse 2", "energy": 2},
-    {"name": "Refrain 2", "chords": "refrain", "lyrics": "Refrain", "energy": 2},
-    {"name": "Interlude", "chords": "interlude", "energy": 2},
-    {"name": "Verse 3", "chords": "verse", "lyrics": "Verse 3", "energy": 1},
-    {"name": "Refrain 3", "chords": "refrain", "lyrics": "Refrain", "energy": 2},
-    {"name": "Verse 4", "chords": "verse", "lyrics": "Verse 4", "energy": 2},
-    {"name": "Refrain 4", "chords": "refrain", "lyrics": "Refrain", "energy": 3},
-    {"name": "Verse 5", "chords": "verse", "lyrics": "Verse 5", "energy": 3},
-    {"name": "Refrain 5", "chords": "refrain", "lyrics": "Refrain", "energy": 3},
-    {"name": "Outro", "chords": "outro", "energy": 2}
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "verse", "lyrics": "Refrain", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Refrain 3", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "drop", "lyrics": "Verse 4", "energy": 1},
+    {"name": "Refrain 4", "chords": "refrain", "role": "bridge", "lyrics": "Refrain", "energy": 2},
+    {"name": "Verse 5", "chords": "verse", "role": "final", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Refrain 5", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain", "role": "tag", "lyrics": "Refrain", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
   }
  ]
