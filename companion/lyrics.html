@@ -19,6 +19,7 @@
   .sub { color:var(--dim); font-size:3vh; margin-top:2vh; }
   .status { position:fixed; right:1.2vh; bottom:1vh; font-size:1.6vh; color:var(--dim); opacity:.7; }
   .left { text-align:left; align-items:flex-start; }
+  .credit { position:fixed; left:4vw; right:4vw; bottom:1.6vh; font-size:1.7vh; line-height:1.3; color:var(--dim); text-align:center; text-wrap:balance; }   /* (10.2: the CCLI copyright line) */
 </style>
 </head>
 <body>
@@ -40,7 +41,7 @@
     document.body.classList.toggle("light", p.theme === "light");
     stage.classList.toggle("blank", !!p.blank);
     stage.classList.toggle("left", p.align === "left");
-    var key = JSON.stringify([d.song && d.song.name, ls.lines, ls.next, ls.section, p.showNext, p.showSection]);
+    var key = JSON.stringify([d.song && d.song.name, ls.lines, ls.next, ls.section, p.showNext, p.showSection, d.credit]);
     if (key === lastKey) return; lastKey = key;
     if (!d.song) { stage.innerHTML = ""; return; }
     if (!ls.lines.length) {
@@ -49,16 +50,17 @@
     }
     stage.innerHTML = (p.showSection !== false ? '<div class="section">' + esc(ls.section) + (ls.pages > 1 ? "  " + (ls.page + 1) + "/" + ls.pages : "") + "</div>" : "") +
       '<div class="lines">' + ls.lines.map(function (l) { return "<div>" + esc(l) + "</div>"; }).join("") + "</div>" +
-      (p.showNext !== false && ls.next && ls.next.length ? '<div class="next">' + ls.next.map(function (l) { return "<div>" + esc(l) + "</div>"; }).join("") + "</div>" : "");
+      (p.showNext !== false && ls.next && ls.next.length ? '<div class="next">' + ls.next.map(function (l) { return "<div>" + esc(l) + "</div>"; }).join("") + "</div>" : "") +
+      (d.credit ? '<div class="credit">' + esc(d.credit) + "</div>" : "");
     fit();
   }
   // the lines always fit the screen, under the section name: smaller when there are many of them (or a small screen)
   function fit() {
     var root = document.documentElement, st = $("#stage"), lines = st.querySelector(".lines"); root.style.setProperty("--fit", "1"); if (!lines) return;
-    var sec = st.querySelector(".section"), next = st.querySelector(".next"), f = 1;
+    var sec = st.querySelector(".section"), next = st.querySelector(".next"), cr = st.querySelector(".credit"), low = cr ? cr.getBoundingClientRect().top - 6 : innerHeight - 4, f = 1;
     for (var i = 0; i < 14; i++) {
       var a = lines.getBoundingClientRect(), b = next ? next.getBoundingClientRect() : a, top = Math.min(a.top, b.top), bottom = Math.max(a.bottom, b.bottom), lim = sec ? sec.getBoundingClientRect().bottom + 6 : 4;
-      if (top >= lim && bottom <= innerHeight - 4 && lines.scrollWidth <= lines.clientWidth + 1) break;
+      if (top >= lim && bottom <= low && lines.scrollWidth <= lines.clientWidth + 1) break;
       f *= 0.9; root.style.setProperty("--fit", f.toFixed(3));
     }
   }

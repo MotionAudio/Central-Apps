@@ -17,6 +17,7 @@
   .bgl img, .bgl video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.55; }
   .text { padding:5vh 7vw; font-weight:700; font-size:var(--size,7vh); line-height:1.25; text-wrap:balance; white-space:pre-line; text-shadow:0 2px 12px rgba(0,0,0,.6); }
   .text small { display:block; font-size:2.6vh; letter-spacing:.2em; text-transform:uppercase; opacity:.5; margin-bottom:3vh; font-weight:600; }
+  .credit { position:fixed; left:0; right:0; bottom:2.2vh; text-align:center; font-size:1.7vh; opacity:.7; padding:0 4vw; text-shadow:0 1px 6px rgba(0,0,0,.8); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .over { position:fixed; inset:0; display:flex; align-items:flex-end; justify-content:center; padding-bottom:8vh; pointer-events:none; }
 </style>
 </head>
@@ -40,7 +41,8 @@
     var text = (s.kind === "text" || s.kind === "lyrics") && (s.text || s.title) ? '<div class="text" style="--size:' + (Number(s.size) || 7) + 'vh;color:' + esc(s.color || "#fff") + ';text-align:' + esc(s.align || "center") + '">' + (s.title ? "<small>" + esc(s.title) + "</small>" : "") + esc(s.text || "") + "</div>" : "";
     if (s.kind === "image") return '<img src="' + fileUrl(s.path) + '" alt="">';
     if (s.kind === "video") return '<video src="' + fileUrl(s.path) + '" autoplay playsinline' + (s.loop !== false ? " loop" : "") + (s.muted === false ? "" : " muted") + "></video>";
-    return text ? '<div style="position:relative">' + text + "</div>" : "";
+    var credit = s.credit && (s.kind === "lyrics" || s.kind === "text") ? '<div class="credit">' + esc(s.credit) + "</div>" : "";   // (10.2: the CCLI copyright line)
+    return (text ? '<div style="position:relative">' + text + "</div>" : "") + credit;
   }
   function setBg(path, fade) {
     if (path === bgPath) return; bgPath = path;

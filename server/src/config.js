@@ -33,6 +33,14 @@ export const config = {
   },
   // the sound libraries (libraries.js): where their zips and libraries-index.json are downloaded from. Today the GitHub
   // release "libraries" (the apps repository's CI publishes it); later the Cloudflare R2 bucket's public address.
+  // (10.2) Planning Center: Motion Audio's app on api.planningcenteronline.com (Developer, My Apps, New Application;
+  // its callback is <PUBLIC_URL>/pco/callback). Empty: the apps and the website say "Planning Center isn't connected
+  // yet" and import a plan from a file instead. PCO_BASE is only changed by the tests (a stand-in Planning Center).
+  pco: { clientId: (env.PCO_CLIENT_ID || "").trim(), clientSecret: (env.PCO_CLIENT_SECRET || "").trim(), base: (env.PCO_BASE || "https://api.planningcenteronline.com").trim().replace(/\/+$/, ""),
+    refreshMinutes: env.PCO_REFRESH_MINUTES == null || env.PCO_REFRESH_MINUTES === "" ? 15 : Number(env.PCO_REFRESH_MINUTES) },
+  // (10.2) CCLI partner access (SongSelect search and import, sending the report): given by CCLI to approved partners.
+  // Empty until then: SongSelect files are imported and the report is a file to enter on CCLI's site (ccli-partner.js).
+  ccli: { partnerId: (env.CCLI_PARTNER_ID || "").trim(), clientId: (env.CCLI_CLIENT_ID || "").trim(), clientSecret: (env.CCLI_CLIENT_SECRET || "").trim() },
   librariesBaseUrl: (env.LIBRARIES_BASE_URL || "https://github.com/MotionAudio/central-apps/releases/download/libraries").trim().replace(/\/+$/, ""),
 };
 
