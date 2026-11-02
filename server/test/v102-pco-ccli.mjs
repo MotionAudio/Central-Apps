@@ -23,6 +23,9 @@ const ok = (c, m, d) => { console.log((c ? "  ✓ " : "  ✗ ") + m + (c || d ==
 const base = "http://127.0.0.1:" + port;
 
 // ------------------------------------------------------------------ a stand-in Planning Center
+// (the plan is a week from today, so it counts as an upcoming service whenever the test runs)
+const soonDate = new Date(Date.now() + 7 * 86400e3); soonDate.setUTCHours(15, 0, 0, 0);
+const SOON = soonDate.toISOString(), SOON_TEXT = soonDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 const pco = { access: null, refresh: null, firstExpires: 60, grants: [], revoked: [], hits: [], changed: false };
 function itemsBody(pageNo) {
   const songs = [
@@ -64,8 +67,8 @@ const mock = http.createServer((req, res) => {
     pco.hits.push(u.pathname);
     if (u.pathname === "/services/v2") return send(200, { data: { type: "Organization", id: "1", attributes: { name: "Grace Church" } } });
     if (u.pathname === "/services/v2/service_types") return send(200, { data: [{ type: "ServiceType", id: "11", attributes: { name: "Sunday Morning" } }, { type: "ServiceType", id: "12", attributes: { name: "Youth" } }] });
-    if (u.pathname === "/services/v2/service_types/11/plans") return send(200, { data: [{ type: "Plan", id: "501", attributes: { title: "Gratitude", dates: "November 1, 2026", sort_date: "2026-11-01T15:00:00Z", items_count: 8, updated_at: "2026-10-30T10:00:00Z" } }] });
-    if (u.pathname === "/services/v2/service_types/11/plans/501") return send(200, { data: { type: "Plan", id: "501", attributes: { title: "Gratitude", dates: "November 1, 2026", sort_date: "2026-11-01T15:00:00Z" } } });
+    if (u.pathname === "/services/v2/service_types/11/plans") return send(200, { data: [{ type: "Plan", id: "501", attributes: { title: "Gratitude", dates: SOON_TEXT, sort_date: SOON, items_count: 8, updated_at: "2026-10-30T10:00:00Z" } }] });
+    if (u.pathname === "/services/v2/service_types/11/plans/501") return send(200, { data: { type: "Plan", id: "501", attributes: { title: "Gratitude", dates: SOON_TEXT, sort_date: SOON } } });
     if (u.pathname === "/services/v2/service_types/11/plans/501/items") return send(200, itemsBody(u.searchParams.get("page") === "2" ? 2 : 1));
     if (u.pathname === "/services/v2/service_types/11/plans/501/team_members") return send(200, { data: [
       { type: "PlanPerson", id: "1", attributes: { name: "Kim Keys", team_position_name: "Keys", status: "C" }, relationships: { team: { data: { type: "Team", id: "5" } } } },
@@ -219,7 +222,7 @@ try {
   ok(r._status === 200 && r.serviceTypes.length === 2 && r.serviceTypes[0].name === "Sunday Morning", "the service types", r);
   ok(pco.grants.includes("refresh_token"), "the 1-minute token was refreshed before use", pco.grants);
   r = await j("GET", "/pco/plans?serviceType=11", null, adm.tok);
-  ok(r._status === 200 && r.plans.length === 1 && r.plans[0].id === "501" && r.plans[0].dates === "November 1, 2026" && r.plans[0].setlistId === null, "the upcoming plans", r);
+  ok(r._status === 200 && r.plans.length === 1 && r.plans[0].id === "501" && r.plans[0].dates === SOON_TEXT && r.plans[0].setlistId === null, "the upcoming plans", r);
   r = await j("GET", "/pco/plan?serviceType=11&plan=501", null, adm.tok);
   ok(r._status === 200 && r.items.length === 8 && r.items[3].type === "song" && r.items[3].key === "G" && r.items[3].ccli === "22025" && r.items[3].arrangement === "Default" && r.items[3].bpm === 72 && r.items[1].type === "media" && r.items[1].length === 300 && r.items[7].description === "Pastor Kim" && r.team.length === 2 && r.team[0].team === "Band" && r.team[1].status === "not answered yet",
     "a plan: every item over two pages (headers, media, songs with key/arrangement/CCLI, notes) and the team", r);
@@ -227,7 +230,7 @@ try {
   ok(r._status === 400, "a bad service type is refused", r);
   r = await j("POST", "/pco/import", { serviceType: "11", plan: "501" }, lead.tok);
   const ps = r.setlist;
-  ok(r._status === 200 && ps && ps.name === "Sunday Morning · November 1, 2026" && ps.songs.map((s) => s.title).join("|") === "Amazing Grace|It Is Well with My Soul|Brand New Song" && ps.songs[0].trackId === String(tGrace.id) && !ps.songs[1].trackId && ps.songs[2].key === "A#" && ps.serviceAt && ps.serviceAt.startsWith("2026-11-01"),
+  ok(r._status === 200 && ps && ps.name === "Sunday Morning · " + SOON_TEXT && ps.songs.map((s) => s.title).join("|") === "Amazing Grace|It Is Well with My Soul|Brand New Song" && ps.songs[0].trackId === String(tGrace.id) && !ps.songs[1].trackId && ps.songs[2].key === "A#" && ps.serviceAt && ps.serviceAt.startsWith(SOON.slice(0, 10)),
     "Import: a setlist named for the service, its songs in order (keys too), the owned one with its track", r);
   ok(r.matched === 1 && r.missing.length === 2 && r.missing.some((m) => /It Is Well/.test(m.title) && m.trackId === String(tWell.id)) && r.missing.some((m) => m.title === "Brand New Song" && /Not in Central Tracks/.test(m.why)), "it says which songs it found and which are missing", r.missing);
   ok(ps.pco && ps.pco.source === "api" && ps.pco.plan === "501" && ps.pco.items.length === 8 && ps.pco.team.length === 2, "the order of service and the team are kept with it", ps.pco);
