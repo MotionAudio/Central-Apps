@@ -719,8 +719,12 @@ def render(hymn, secs, opt, seed=7, log=print):
     perc, swell_at = percussion(song)
     p = P.play("drums", perc, secs_len, seed=1)
     crash = P.play("drums", [(0.0, 3.0, CRASH, 100, None)], 4.0, seed=2)
-    p = eq(p, hp=300, air=1.5) + reverse_cymbal(crash, swell_at, n, 2.2 * beat * song.m / 2 + 1.0) * 0.3 + riser(song, n) * 0.5
-    p = p + 0.18 * fft_conv(p, hall)
+    p = eq(p, hp=300, air=1.5)
+    p = level(p + 0.18 * fft_conv(p, hall), LEVELS["Percussion"])          # (the shaker and tambourine set the stem's level...)
+    rc = reverse_cymbal(crash, swell_at, n, 2.2 * beat * song.m / 2 + 1.0)
+    rs = riser(song, n)
+    peak = lambda y: float(np.max(np.abs(y))) or 1.0
+    p = p + rc * (0.22 / peak(rc)) + rs * (0.16 / peak(rs))              # (...and the swells sit on top at a set level)
     stems["Percussion"] = width(p, 1.3)
 
     b = P.play("bass", bass(song, kicks), secs_len)
@@ -745,7 +749,7 @@ def render(hymn, secs, opt, seed=7, log=print):
     g1 = P.play("gretsch", picked, secs_len)
     gs = P.play("gretsch", sw, secs_len, seed=3)
     gs = gs * swell_curve(n, [t for t, *_ in sw], 0.9 * beat * 2)[:, None]
-    g1 = amp_clean(g1 + gs * 1.4)
+    g1 = amp_clean(g1 + gs * 3.0)
     g1 = delay(g1, 0.75 * beat, 0.42, 0.65)                           # (the dotted eighth)
     g1 = delay(g1, 2.0 * beat, 0.3, 0.25, pingpong=False)             # (and a long half-note echo behind it)
     sh = octave_up(g1 * 0.5)
@@ -775,7 +779,10 @@ def render(hymn, secs, opt, seed=7, log=print):
         x = stems[name][:n]
         if len(x) < n:
             x = np.pad(x, ((0, n - len(x)), (0, 0)))
-        stems[name] = level(x, LEVELS[name] + (10 * math.log10(song.fl["strings"]) if name == "Strings" else 0))
+        if name != "Percussion":
+            stems[name] = level(x, LEVELS[name] + (10 * math.log10(song.fl["strings"]) if name == "Strings" else 0))
+        else:
+            stems[name] = x
         log("    %-10s peak %.2f" % (name, float(np.max(np.abs(stems[name])))))
     top = max(float(np.max(np.abs(stems[k]))) for k in STEMS)
     if top > 0.9:                        # (all the stems down together: no clipping, the balance kept)
