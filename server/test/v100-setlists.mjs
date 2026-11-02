@@ -16,6 +16,7 @@ async function sql(text) { const c = new pg.Client({ connectionString: admin });
 await sql("CREATE DATABASE " + dbName);
 process.env.DATABASE_URL = db;
 
+const SOON = (() => { const d = new Date(Date.now() + 7 * 86400e3); d.setUTCHours(15, 0, 0, 0); return d.toISOString(); })();   // (a service a week from today: always upcoming)
 let fails = 0;
 const ok = (c, m, d) => { console.log((c ? "  ✓ " : "  ✗ ") + m + (c || d === undefined ? "" : "   -- " + JSON.stringify(d).slice(0, 700))); if (!c) fails++; };
 const base = "http://127.0.0.1:" + port;
@@ -54,7 +55,7 @@ try {
   ok(r._status === 400 && /isn't on your church's teams/.test(r.error), "someone who isn't on the teams can't be added", r);
   r = await j("POST", "/setlists", { name: "  ", team: [] }, lead.tok);
   ok(r._status === 400, "a setlist needs a name", r);
-  r = await j("POST", "/setlists", { name: "Sunday Nov 1", team: [{ email: "KEYS@grace100.test" }, { email: "drums@grace100.test", role: "Drums + click" }], serviceAt: "2026-11-01T15:00:00Z" }, lead.tok);
+  r = await j("POST", "/setlists", { name: "Sunday Nov 1", team: [{ email: "KEYS@grace100.test" }, { email: "drums@grace100.test", role: "Drums + click" }], serviceAt: SOON }, lead.tok);
   const sid = r.setlist && r.setlist.id;
   ok(r._status === 200 && sid && r.setlist.team.length === 2 && r.setlist.team[0].name === "Kim Keys" && r.setlist.team[1].role === "Drums + click" && r.setlist.serviceAt && r.setlist.songs.length === 0, "Create new: a name, the day and two people (their names from the teams)", r);
   r = await j("GET", "/setlists", null, keys.tok);
@@ -136,7 +137,7 @@ try {
     console.log("Central Services shows the setlists (10.0.1):");
     r = await j("GET", "/setlists?full=1", null, keys.tok);
     ok(r.setlists[0].songs && r.setlists[0].songs.length === 2, "the list can carry each setlist's songs (?full=1)", r.setlists[0]);
-    await q("INSERT INTO services (church_id,title,starts_at) VALUES ($1,'Sunday 9:00','2026-11-01T15:00:00Z')", [church.id]);
+    await q("INSERT INTO services (church_id,title,starts_at) VALUES ($1,'Sunday 9:00',$2)", [church.id, SOON]);
     const cs = await browser.newPage(); const csErr = []; cs.on("pageerror", (e) => csErr.push(e.message));
     await cs.goto(base + "/services/"); await cs.evaluate((t) => localStorage.setItem("cs-token", t), keys.tok); await cs.reload();
     await cs.waitForSelector("nav [data-tab=setlists]", { timeout: 15000 });

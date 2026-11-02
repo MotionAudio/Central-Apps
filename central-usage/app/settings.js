@@ -47,7 +47,10 @@
       (admin && window.PPPlanningCenter ? window.PPPlanningCenter.settingsHtml("card") : "") +   // (10.2: Planning Center plans as setlists - the main admin connects it)
       (!usage && window.PPCcli ? window.PPCcli.settingsHtml("card") : "") +                      // (10.2: CCLI numbers, the copyright line, the report)
       '<section class="card"><h3>Updates</h3><p class="muted">' + esc(CU.appName) + ' looks for a new version once a day and installs it only when you say so.</p><button data-st="updates">Check for updates…</button></section>' +
-      '<section class="card"><h3>About</h3><p>' + esc(CU.appName) + " " + esc(version && version.app || "") + '</p><p class="muted small">' + (usage ? "For the musicians and singers on the team: your chord chart, your instrument, the lyrics and your own in-ear mix." : "For the people running the service: lights, slides and lyrics, the tracks mixer, the in-ear mixes and the cameras.") + "</p></section></div>";
+      '<section class="card"><h3>About</h3><p>' + esc(CU.appName) + " " + esc(version && version.app || "") + '</p><p class="muted small">' + (usage ? "For the musicians and singers on the team: your chord chart, your instrument, the lyrics and your own in-ear mix." : "For the people running the service: lights, slides and lyrics, the tracks mixer, the in-ear mixes and the cameras.") + "</p>" +
+        '<details class="small"><summary>Credits</summary><p class="muted small">Real light profiles from the Open Fixture Library (MIT licence) and the QLC+ fixture definitions (Apache 2.0 licence). ' +
+        "Sounds from the Versilian Community Sample Library and VSCO 2 Community Edition (CC0). Bibles: King James, World English Bible, American Standard and Reina-Valera 1909 (public domain). " +
+        "PDF reading by pdf.js (Apache 2.0). The lighting and shorts AI: Qwen2.5 (Apache 2.0) run by llama.cpp (MIT). The full list is in CREDITS.md with the apps' source.</p></details></section></div>";
     // redraw only when something changed, and never under someone typing (a half-typed package key or name stays)
     if (root.__h === html) return;
     var f = document.activeElement; if (f && root.contains(f) && /^(INPUT|TEXTAREA)$/.test(f.tagName) && f.type !== "checkbox" && f.type !== "radio" && f.type !== "range") return;

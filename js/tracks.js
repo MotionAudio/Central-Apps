@@ -373,9 +373,27 @@
     p.clickSets = clickSets().concat([{ id: id, name: String(name || "Click").slice(0, 40), rate: rate || 48000, hi: f32ToB64(hi.subarray(0, max)), lo: f32ToB64((lo || hi).subarray(0, max)) }]).slice(-12);
     PP.persistSoon(); sendClickSets(); clickOptions(); return id;
   }
+  // (10.2) the click sets installed with a sound library (Central Utility's fourteen): listed by the driver; picking one
+  // brings its two sounds into the project as a click set, once (its id stays the same after that)
+  var DRIVER = "http://127.0.0.1:8766", libClicks = [];
+  function loadLibClicks() {
+    if (!window.fetch || !/^(127\.0\.0\.1|localhost)$/.test(location.hostname)) return;
+    fetch(DRIVER + "/libraries/clicks", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : { clicks: [] }; }).then(function (j) { libClicks = (j && j.clicks) || []; clickOptions(); }).catch(function () { });
+  }
+  async function useLibClick(id) {
+    var c = libClicks.filter(function (x) { return x.id === id; })[0]; if (!c) return null;
+    var L = window.PPLicense; if (c.tier && L && L.hasPlan && !L.hasPlan(c.tier)) { PP.setStatus(c.name + " is part of " + (L.planName ? L.planName(c.tier) : c.tier) + " - add its package in Settings → Packages"); return null; }
+    var name = c.name, have = clickSets().filter(function (x) { return x.name === name; })[0]; if (have) return have.id;
+    var ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 48000);
+    async function get(file) { var r = await fetch(DRIVER + "/libraries/click?lib=" + encodeURIComponent(c.library) + "&file=" + encodeURIComponent(file)); if (!r.ok) throw new Error("click " + r.status); return (await ctx.decodeAudioData(await r.arrayBuffer())).getChannelData(0); }
+    var hi = await get(c.accent || c.beat), lo = await get(c.beat || c.accent);
+    return addClickSet(name, hi, lo, ctx.sampleRate);
+  }
+  setTimeout(loadLibClicks, 2500);
   function clickOptions() {
     var sel = document.getElementById("seClickSound"); if (!sel) return; var cur = sel.value;
-    sel.innerHTML = [["wood", "Wood"], ["sticks", "Sticks"], ["beep", "Beep"]].concat(clickSets().map(function (c) { return [c.id, c.name]; })).map(function (o) { return '<option value="' + PP.escapeHtml(o[0]) + '">' + PP.escapeHtml(o[1]) + "</option>"; }).join("");
+    var own = clickSets().map(function (c) { return c.name; });
+    sel.innerHTML = [["wood", "Wood"], ["sticks", "Sticks"], ["beep", "Beep"]].concat(clickSets().map(function (c) { return [c.id, c.name]; })).concat(libClicks.filter(function (c) { return own.indexOf(c.name) < 0; }).map(function (c) { return ["lib:" + c.id, c.name + " (" + (c.tier === "utility" ? "Central Utility" : "library") + ")"]; })).map(function (o) { return '<option value="' + PP.escapeHtml(o[0]) + '">' + PP.escapeHtml(o[1]) + "</option>"; }).join("");
     if (cur) sel.value = cur;
   }
   // the player's whole output (tracks, click, cues, direct and network outs): the backup player follows a song
@@ -1314,6 +1332,7 @@
     else if (f === "bpb") { t.grid.bpb = clamp(Number(el.value) || 4, 2, 12); }
     else if (f === "gridMode") { t.grid.mode = el.value; }
     else if (f === "countIn") t.countIn = clamp(Number(el.value) || 0, 0, 4);
+    else if (f === "clickSound" && /^lib:/.test(el.value)) { var pickEl = el, songT = t; useLibClick(el.value.slice(4)).then(function (id) { if (id) { songT.click.sound = id; PP.persistSoon(); } clickOptions(); pickEl.value = songT.click.sound || "wood"; }, function (e) { PP.setStatus("Couldn't load that click: " + e.message); pickEl.value = songT.click.sound || "wood"; }); }   // (10.2: a library's click set)
     else if (f === "clickSound") t.click.sound = el.value; else if (f === "clickSub") t.click.sub = Number(el.value); else if (f === "clickLevel") t.click.level = Number(el.value); else if (f === "clickStems") t.click.stems = el.checked;
     else if (f === "cueLevel") t.cues.level = Number(el.value); else if (f === "cueLead") t.cues.leadBars = Number(el.value); else if (f === "countVoice") t.cues.countVoice = el.checked;
     else if (f === "transition") t.transition.type = el.value; else if (f === "transitionSec") t.transition.seconds = clamp(Number(el.value) || 2, .2, 20);
