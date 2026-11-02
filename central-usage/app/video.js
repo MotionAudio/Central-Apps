@@ -190,7 +190,11 @@
       else { drawSource(o.trans.from, f, 1); drawSource(o.trans.to, f, p); }
     } else if (o.pgm != null) drawSource(o.pgm, f, 1);
     if (!overlays) return d;
-    if (o.slidesA > 0 && o.slides !== "off" && live(S.init.slidesId)) drawSource(S.init.slidesId, f, o.slidesA, o.slides === "overlay" ? { mode: 1, keyLo: S.cfg.lyrics.keyLo || 0.04, keyHi: S.cfg.lyrics.keyHi || 0.16 } : null);
+    if (o.slidesA > 0 && o.slides !== "off" && live(S.init.slidesId)) {
+      // a lower third (10.2: a slide with no background) is laid over the camera by its own transparency; any other slide over the camera drops its black
+      var ls = window.CUSlides && window.CUSlides.live && window.CUSlides.live().slide, see = !!(ls && ls.transparent);
+      drawSource(S.init.slidesId, f, o.slidesA, o.slides === "overlay" ? (see ? { mode: 2 } : { mode: 1, keyLo: S.cfg.lyrics.keyLo || 0.04, keyHi: S.cfg.lyrics.keyHi || 0.16 }) : null);
+    }
     if (o.lyricsA > 0 && LY.cur) {
       var ca = LY.dip ? Math.max(0, LY.x * 2 - 1) : LY.x, pa = LY.dip ? Math.max(0, 1 - LY.x * 2) : 1 - LY.x;
       if (LY.prev && pa > 0) quad(LY.prev.tex, d.w, d.h, [0, 0, d.w, d.h], { a: o.lyricsA * pa, mode: 2, flip: d.flip });

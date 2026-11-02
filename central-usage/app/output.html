@@ -5,10 +5,15 @@
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
   html,body { margin:0; height:100%; background:#000; color:#fff; font-family:Inter,ui-sans-serif,system-ui,sans-serif; overflow:hidden; cursor:none; }
-  .layer { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity var(--fade,.45s); }
+  body.see-through, html.see-through { background:transparent; }
+  .layer { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity var(--fade,.45s), transform var(--fade,.45s); will-change:opacity, transform; }
   .layer.on { opacity:1; }
+  .layer.t-slide { transform:translateX(100%); opacity:1; } .layer.t-slide.on { transform:none; } .layer.t-slide.off { transform:translateX(-100%); }
+  .layer.t-zoom { transform:scale(1.08); } .layer.t-zoom.on { transform:none; }
+  .layer.t-cut { transition:none; }
   .layer img, .layer video { width:100%; height:100%; object-fit:contain; }
   .layer.cover img, .layer.cover video { object-fit:cover; }
+  .layer canvas { width:100%; height:100%; display:block; }
   .bgl img, .bgl video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.55; }
   .text { padding:5vh 7vw; font-weight:700; font-size:var(--size,7vh); line-height:1.25; text-wrap:balance; white-space:pre-line; text-shadow:0 2px 12px rgba(0,0,0,.6); }
   .text small { display:block; font-size:2.6vh; letter-spacing:.2em; text-transform:uppercase; opacity:.5; margin-bottom:3vh; font-weight:600; }
@@ -19,16 +24,19 @@
 <div class="layer bgl" id="bgA"></div><div class="layer bgl" id="bgB"></div>
 <div class="layer" id="a"></div><div class="layer" id="b"></div>
 <script src="backgrounds.js"></script>
+<script src="slide-render.js"></script>
 <script>
-// Central Control's slides / lyrics output: a second screen, or the off-screen page NDI sends.
-// The background (a picture, a video or one of ours) sits on its own layer: the words change over it without the
+// Central Control's slides / lyrics output: a second screen, or the off-screen page NDI and the video switcher use.
+// A designed slide (10.2) is drawn by slide-render.js - the same code the Slides tab draws with. A lower third (a slide
+// with no background) is drawn on nothing, so the video switcher can lay it over the camera.
+// The lyrics' background (a picture, a video or one of ours) sits on its own layer: the words change over it without the
 // background starting again, and a new background crossfades in by itself (the slide's bgFade, in seconds).
 (function () {
   var B = window.CUBackgrounds;
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function fileUrl(p) { return /^(https?|file|data):/.test(p) ? p : "file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F"); }
-  var cur = "a", bgCur = "bgA", bgPath = null, mounts = {};
-  function textHtml(s) {
+  function fileUrl(p) { return /^(https?|file|data|blob):/.test(p) ? p : "file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F"); }
+  var cur = "a", media = {}, anim = { a: null, b: null }, bgCur = "bgA", bgPath = null, mounts = {};
+  function html(s) {
     var text = (s.kind === "text" || s.kind === "lyrics") && (s.text || s.title) ? '<div class="text" style="--size:' + (Number(s.size) || 7) + 'vh;color:' + esc(s.color || "#fff") + ';text-align:' + esc(s.align || "center") + '">' + (s.title ? "<small>" + esc(s.title) + "</small>" : "") + esc(s.text || "") + "</div>" : "";
     if (s.kind === "image") return '<img src="' + fileUrl(s.path) + '" alt="">';
     if (s.kind === "video") return '<video src="' + fileUrl(s.path) + '" autoplay playsinline' + (s.loop !== false ? " loop" : "") + (s.muted === false ? "" : " muted") + "></video>";
@@ -47,13 +55,56 @@
     });
     bgCur = next;
   }
+  // the pictures and videos of designed slides, by their id (the Slides tab sends where each one is)
+  function mediaEl(id, kind, assets, repaint) {
+    var m = media[id];
+    if (!m) {
+      var u = assets && assets[id]; if (!u) return null;
+      var v = kind === "video" || /^data:video|\.(mp4|webm|mov|m4v|ogv)(\?|$)/i.test(u);
+      var el = v ? document.createElement("video") : new Image();
+      m = media[id] = { el: el, ready: false };
+      if (v) { el.muted = true; el.loop = true; el.playsInline = true; el.autoplay = true; el.addEventListener("loadeddata", function () { m.ready = true; el.play().catch(function () { }); repaint(); }, { once: true }); }
+      else el.onload = function () { m.ready = true; repaint(); };
+      el.src = u;
+    }
+    return m.ready ? m.el : null;
+  }
+  function drawDesign(layer, s) {
+    var R = window.CUSlideRender; if (!R) return;
+    var c = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = Math.round(innerWidth * dpr); c.height = Math.round(innerHeight * dpr);
+    // keep the deck's shape: letterbox inside the window
+    var dw = s.deck && s.deck.size ? s.deck.size.w : 1920, dh = s.deck && s.deck.size ? s.deck.size.h : 1080, k = Math.min(c.width / dw, c.height / dh);
+    c.width = Math.round(dw * k); c.height = Math.round(dh * k);
+    layer.appendChild(c);
+    var ctx = c.getContext("2d"), t0 = performance.now(), key = layer.id, stopped = false;
+    function frame() {
+      if (stopped) return;
+      var t = (performance.now() - t0) / 1000;
+      R.render(ctx, s.design, s.deck, { time: t, clock: t, transparent: !!s.transparent, media: function (id, kind) { return mediaEl(id, kind, s.assets, function () { if (!R.animated(s.design, t)) once(); }); } });
+      if (R.animated(s.design, t)) anim[key] = requestAnimationFrame(frame);
+    }
+    function once() { if (!stopped) requestAnimationFrame(frame); }
+    frame();
+    return function () { stopped = true; cancelAnimationFrame(anim[key]); };
+  }
+  var stopFns = {};
   function show(s) {
     var words = s.kind === "text" || s.kind === "lyrics";
     setBg(words ? (s.bgPath || null) : null, s.bgFade);
     var next = cur === "a" ? "b" : "a", el = document.getElementById(next), old = document.getElementById(cur);
-    el.className = "layer" + (s.fit === "cover" ? " cover" : ""); el.style.background = words ? "transparent" : (s.background || "#000"); el.style.setProperty("--fade", (s.fade == null ? 0.45 : s.fade) + "s");
-    el.innerHTML = s.kind === "none" || s.kind === "black" ? "" : textHtml(s);
-    requestAnimationFrame(function () { el.classList.add("on"); old.classList.remove("on"); setTimeout(function () { if (!old.classList.contains("on")) { var v = old.querySelector("video"); if (v) v.pause(); old.innerHTML = ""; } }, 700); });
+    var tr = (s.transition && s.transition.type) || "fade", dur = s.transition && s.transition.dur != null ? s.transition.dur : (s.fade == null ? 0.45 : s.fade);
+    if (stopFns[next]) { stopFns[next](); stopFns[next] = null; }
+    el.className = "layer" + (s.fit === "cover" ? " cover" : "") + (tr === "slide" ? " t-slide" : tr === "zoom" ? " t-zoom" : tr === "cut" || dur <= 0 ? " t-cut" : "");
+    var see = !!s.transparent; document.body.classList.toggle("see-through", see); document.documentElement.classList.toggle("see-through", see);
+    el.style.background = see || (words && bgPath) ? "transparent" : (s.background || "#000"); el.style.setProperty("--fade", dur + "s"); el.innerHTML = "";
+    if (s.kind === "design") stopFns[next] = drawDesign(el, s);
+    else el.innerHTML = s.kind === "none" || s.kind === "black" ? "" : html(s);
+    if (tr === "slide") old.classList.add("t-slide");
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      el.classList.add("on"); old.classList.remove("on"); if (tr === "slide") old.classList.add("off");
+      setTimeout(function () { if (!old.classList.contains("on")) { var v = old.querySelector("video"); if (v) v.pause(); if (stopFns[old.id]) { stopFns[old.id](); stopFns[old.id] = null; } old.innerHTML = ""; old.className = "layer"; } }, dur * 1000 + 250);
+    }); });
     cur = next;
   }
   if (window.CUOut) window.CUOut.onSlide(show);

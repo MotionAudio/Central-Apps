@@ -87,6 +87,11 @@ class Center {
     this.gen = Math.max(1, Number(j.gen) || 1);
     this.standby = j.standby && j.standby.id && j.standby.secretHash ? j.standby : null;   // the other main admin's computer, kept in sync: { id, secretSalt, secretHash, since }
     this.lastMsg = {};
+    // 10.2: the church's slide decks (the Slides tab's designer), shared by every admin computer: slides.json, and the
+    // pictures in them by sha-256 in slides-media/ (hubsync.js copies both to the in-sync computer)
+    this.slidesFile = path.join(this.opts.dataDir, "slides.json");
+    let sj = {}; try { sj = JSON.parse(fs.readFileSync(this.slidesFile, "utf8")); } catch (_) { }
+    this.slides = { decks: Array.isArray(sj.decks) ? sj.decks : [], removed: sj.removed && typeof sj.removed === "object" ? sj.removed : {}, themes: Array.isArray(sj.themes) ? sj.themes : [], media: sj.media && typeof sj.media === "object" ? sj.media : {} };
     this.clients = new Map();                       // ws -> { id, auth, main, ip }
     this.health = {};                               // id -> {..., at}
     this.fails = {};
@@ -184,6 +189,7 @@ class Center {
         else if (m.type === "screenPreviewWant") reply = this.handlePreviewWant(ws, info, m);
         else if (m.type === "screenPreview") reply = this.handlePreview(ws, info, m);
         else if (m.type === "stageShare") reply = this.handleStageShare(ws, info, m);
+        else if (m.type === "slides") reply = this.handleSlides(ws, info, m);
       } catch (e) { reply = { type: "cuRoleReply", ok: false, action: m.action, error: "center: " + e.message }; }
       if (reply) this.sendTo(ws, reply);
     });
@@ -662,6 +668,56 @@ class Center {
   }
   serviceState() { return { type: "services", from: "center", services: this.services, run: this.run, now: Date.now(), roles: SERVICE_ROLES, kinds: SERVICE_KINDS, max: MAX_SERVICES }; }
   broadcastServices() { const st = this.serviceState(); for (const [ws, c] of this.clients) if (c.id || c.auth) this.sendTo(ws, st); this.emit({ type: "services", state: st }); }
+  // ---- 10.2: slide decks shared between the church's computers (the Slides tab). Everyone paired can read them (an
+  // admin computer with the slides job runs them); the main admin and admins change them. A deck is replaced by a newer
+  // copy (updatedAt); a deleted one is remembered so a computer that was off doesn't bring it back.
+  saveSlides() {
+    clearTimeout(this.slidesTimer);
+    this.slidesTimer = setTimeout(() => { try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.slidesFile + ".part"; fs.writeFileSync(tmp, JSON.stringify(this.slides)); fs.renameSync(tmp, this.slidesFile); } catch (_) { } }, 300);
+  }
+  slidesBroadcast(m, except) { for (const [ws, c] of this.clients) if ((c.id || c.auth) && ws !== except) this.sendTo(ws, m); }
+  handleSlides(ws, info, m) {
+    if (!(info.id || info.auth)) return { type: "auth", ok: false, for: "center" };
+    const S = this.slides, R = (extra) => Object.assign({ type: "slidesReply", action: m.action }, extra);
+    if (m.action === "get") return { type: "slidesDecks", full: true, decks: S.decks, removed: S.removed, themes: S.themes };
+    if (m.action === "mediaGet") {
+      const id = String(m.id || ""); if (!/^media:[0-9a-f]{64}$/.test(id)) return R({ ok: false, error: "bad id" });
+      const f = path.join(this.opts.dataDir, "slides-media", id.slice(6)); let data;
+      try { data = fs.readFileSync(f); } catch (_) { return R({ ok: false, error: "The hub doesn't have that picture." }); }
+      const meta = S.media[id] || {}; return { type: "slidesMedia", id, mime: meta.mime || "application/octet-stream", name: meta.name || "", data: data.toString("base64") };
+    }
+    const d = this.devices[info.id] || {}, admin = this.isMain(info) || ADMIN_TIER.includes(d.role) || (info.auth && !info.id);
+    if (!admin) return R({ ok: false, error: "Only the main admin and admins change slides." });
+    if (m.action === "put") {
+      const deck = m.deck; if (!deck || typeof deck !== "object" || !/^[\w-]{4,40}$/.test(String(deck.id || ""))) return R({ ok: false, error: "That isn't a deck." });
+      const json = JSON.stringify(deck); if (json.length > 3e6) return R({ ok: false, error: "That deck is too big to share (over 3 MB without its pictures)." });
+      const i = S.decks.findIndex((x) => x.id === deck.id), cur = i >= 0 ? S.decks[i] : null;
+      if (cur && (Number(cur.updatedAt) || 0) > (Number(deck.updatedAt) || 0)) return R({ ok: true, older: true });
+      if (!cur && S.decks.length >= 300) return R({ ok: false, error: "The church has 300 decks already. Delete some first." });
+      if (i >= 0) S.decks[i] = deck; else S.decks.push(deck);
+      delete S.removed[deck.id]; this.saveSlides();
+      this.slidesBroadcast({ type: "slidesDecks", decks: [deck] }, ws); return R({ ok: true, id: deck.id });
+    }
+    if (m.action === "del") {
+      const id = String(m.id || ""); S.decks = S.decks.filter((x) => x.id !== id); S.removed[id] = Date.now();
+      const ids = Object.keys(S.removed); if (ids.length > 500) ids.sort((a, b) => S.removed[a] - S.removed[b]).slice(0, ids.length - 500).forEach((k) => delete S.removed[k]);
+      this.saveSlides(); this.slidesBroadcast({ type: "slidesDecks", decks: [], removed: { [id]: S.removed[id] } }, ws); return R({ ok: true });
+    }
+    if (m.action === "themes") {
+      S.themes = (Array.isArray(m.themes) ? m.themes : []).filter((t) => t && typeof t === "object" && t.id).slice(0, 50);
+      this.saveSlides(); this.slidesBroadcast({ type: "slidesDecks", decks: [], themes: S.themes }, ws); return R({ ok: true });
+    }
+    if (m.action === "mediaPut") {
+      const id = String(m.id || ""); if (!/^media:[0-9a-f]{64}$/.test(id)) return R({ ok: false, error: "bad id" });
+      const data = Buffer.from(String(m.data || ""), "base64"); if (!data.length || data.length > 25 * 1024 * 1024) return R({ ok: false, error: "That file is too big to share (25 MB at most)." });
+      if (crypto.createHash("sha256").update(data).digest("hex") !== id.slice(6)) return R({ ok: false, error: "The file didn't arrive whole." });
+      try { const dir = path.join(this.opts.dataDir, "slides-media"); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, id.slice(6)), data); } catch (e) { return R({ ok: false, error: e.message }); }
+      S.media[id] = { mime: String(m.mime || "").slice(0, 80), name: String(m.name || "").slice(0, 120), size: data.length, at: Date.now() }; this.saveSlides();
+      return R({ ok: true, id });
+    }
+    return R({ ok: false, error: "unknown action" });
+  }
+
   handleService(ws, info, m) {
     const R = (extra) => Object.assign({ type: "serviceReply", action: m.action }, extra);
     if (!(info.id || info.auth)) return { type: "auth", ok: false, for: "center" };
