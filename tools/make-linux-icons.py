@@ -16,6 +16,7 @@ SETS = {   # website logo -> the app's icon folder
     "central-usage": "central-usage/build/icons/usage",
     "central-pedal-control": "central-pedal-control/build/icons",
     "central-services": "central-services/build/icons",
+    "central-production": "central-production/build/icons",
 }
 
 for logo, out in SETS.items():

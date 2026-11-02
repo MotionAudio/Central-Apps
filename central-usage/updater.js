@@ -231,7 +231,7 @@ Updater.prototype.installDeb = async function (pk, file, onProgress) {
 // program is central-control since 9.3.1; it was central-usage)
 function debExec(cur) {
   try { if (fs.existsSync(cur) && fs.statSync(cur).isFile()) return cur; } catch (_) { }
-  const dir = path.dirname(cur), names = ["central-control", "central-pedal-control", "central-services", "centralusage"];
+  const dir = path.dirname(cur), names = ["central-control", "central-pedal-control", "central-services", "central-production", "centralusage"];
   for (const d of [dir, "/opt/Central Control"]) for (const n of names) { const f = path.join(d, n); try { if (fs.statSync(f).isFile()) return f; } catch (_) { } }
   return null;
 }
@@ -262,7 +262,7 @@ Updater.prototype.installMac = async function (dmg) {
   } catch (e) {
     // can't write where the app is (or something else went wrong): show the disk image - drag the app to Applications
     spawn("open", [dmg], { detached: true, stdio: "ignore" }).unref();
-    this.error = "Drag " + ({ CentralControl: "Central Control", "central-usage": "Central Control", CentralUsage: "Central Usage", "central-pedal-control": "Central Pedal Control" }[this.product] || "the app") + " from the window that opened into Applications (replace the old one). (" + e.message + ")";
+    this.error = "Drag " + ({ CentralControl: "Central Control", "central-usage": "Central Control", CentralUsage: "Central Usage", "central-pedal-control": "Central Pedal Control", "central-production": "Central Production" }[this.product] || "the app") + " from the window that opened into Applications (replace the old one). (" + e.message + ")";
     return "opened";
   } finally { if (mount) { try { await run("hdiutil", ["detach", "-quiet", mount]); } catch (_) { } } }
 };

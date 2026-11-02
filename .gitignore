@@ -27,3 +27,9 @@ central-usage/player-src/
 central-usage/driver-dist/
 /bin/linux-*/
 /build/libraries-work/
+
+# (10.2) Central Production: made by central-production/prepare.sh
+central-production/src/
+central-production/updater.js
+central-production/libraries.js
+central-production/studio.js

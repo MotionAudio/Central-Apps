@@ -1,0 +1,153 @@
+{
+  "name": "central-production",
+  "productName": "Central Production",
+  "version": "10.1.0",
+  "description": "Central Production: make tracks, loops, samples, pads, instruments, plugins and pedal boards for your church's apps.",
+  "homepage": "https://motionaudio.github.io/Central-Apps/",
+  "main": "main.js",
+  "author": {
+    "name": "MotionAudio",
+    "email": "central-control@localhost"
+  },
+  "license": "MIT",
+  "scripts": {
+    "prestart": "bash prepare.sh",
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dmg --arm64 --x64",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:linux": "electron-builder --linux deb AppImage --x64"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "org.centralcontrol.production",
+    "productName": "Central Production",
+    "files": [
+      "main.js",
+      "preload.js",
+      "updater.js",
+      "libraries.js",
+      "studio.js",
+      "build/icon.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "src",
+        "to": "app-src",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../central-usage/native/build",
+        "to": "native",
+        "filter": [
+          "cu-studio",
+          "cu-studio.exe"
+        ]
+      },
+      {
+        "from": "../central-usage/native/sounds",
+        "to": "sounds",
+        "filter": [
+          "*.sf2",
+          "*.txt"
+        ]
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "cmproj",
+        "name": "Central Production project",
+        "description": "Central Production project",
+        "mimeType": "application/x-central-production",
+        "role": "Editor"
+      }
+    ],
+    "publish": null,
+    "afterPack": "build/after-pack.js",
+    "mac": {
+      "category": "public.app-category.music",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "artifactName": "central-production-${version}-mac-${arch}.${ext}",
+      "extendInfo": {
+        "CFBundleDisplayName": "Central Production",
+        "CFBundleName": "Central Production",
+        "NSMicrophoneUsageDescription": "Central Production records from your microphone or audio interface."
+      }
+    },
+    "dmg": {
+      "artifactName": "central-production-${version}-mac-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "central-production-${version}-win-x64.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "central-production-${version}-win-x64.${ext}",
+      "shortcutName": "Central Production",
+      "uninstallDisplayName": "Central Production"
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icons",
+      "synopsis": "Make tracks, loops, samples, pads, instruments and plugins",
+      "desktop": {
+        "Name": "Central Production",
+        "Comment": "Make tracks, loops, samples, pads, instruments, plugins and pedal boards",
+        "Categories": "AudioVideo;Audio;Music;",
+        "StartupWMClass": "Central Production",
+        "MimeType": "application/x-central-production;"
+      },
+      "maintainer": "Central Control <central-control@localhost>",
+      "artifactName": "central-production-${version}-${arch}.${ext}",
+      "executableName": "central-production"
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0 | libgtk-3-0t64",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0 | libatspi2.0-0t64",
+        "libuuid1",
+        "libsecret-1-0",
+        "libasound2 | libasound2t64"
+      ],
+      "afterInstall": "build/after-install.sh",
+      "afterRemove": "build/after-remove.sh"
+    }
+  }
+}
