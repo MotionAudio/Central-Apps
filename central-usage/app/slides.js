@@ -161,7 +161,8 @@
   async function toPi(slide, d, s) {
     if (!st.outputs.pi.on || !CU.state.connected) return;
     var code = CU.prefs.code; if (!code) { CU.askCode(); return; }
-    var msg = { type: "slide", code: code, kind: slide.kind, fit: slide.fit, loop: slide.loop, muted: slide.muted, text: slide.text, title: slide.title, size: slide.size, color: slide.color, align: slide.align };
+    var msg = { type: "slide", code: code, kind: slide.kind, fit: slide.fit, loop: slide.loop, muted: slide.muted, text: slide.text, title: slide.title, size: slide.size, color: slide.color, align: slide.align, credit: slide.credit || "" };
+    if (slide.bgPath && BG && BG.isBg(slide.bgPath)) { msg.bgId = BG.idOf(slide.bgPath); msg.bgFade = slide.bgFade; }   // (10.2: the Pi draws ours itself, moving)
     async function upload(name, data) {
       var r = await fetch(CU.api("/slides?code=" + encodeURIComponent(code) + "&name=" + encodeURIComponent(name)), { method: "POST", body: data }); var j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j.file;
     }

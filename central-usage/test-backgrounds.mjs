@@ -48,5 +48,9 @@ await check("they all look different from each other (no two closer than a clear
   assert.deepEqual(close, []);
 });
 await check("quick enough: each motion background draws a 960 x 540 frame in under 30 ms here", () => assert.deepEqual(r.slow, []));
+await check("the Central Pedal's slides page has the same backgrounds (companion/backgrounds.js is a copy of app/backgrounds.js)", async () => {
+  const fs = await import("node:fs");
+  assert.equal(fs.readFileSync(path.join(here, "..", "companion", "backgrounds.js"), "utf8"), fs.readFileSync(path.join(here, "app", "backgrounds.js"), "utf8"), "copy app/backgrounds.js to companion/ after changing it");
+});
 await browser.close();
 console.log(failures ? "\n" + failures + " FAILED" : "\nall passed"); process.exit(failures ? 1 : 0);

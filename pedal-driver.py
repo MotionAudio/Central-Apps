@@ -10262,9 +10262,11 @@ class PedalDriver:
     def set_slide(self, message):
         """Slides / lyrics from Central Control for a screen on the Pi (HDMI 2 set to "Slides")."""
         slide = {"type": "slide", "kind": message.get("kind") if message.get("kind") in ("none", "image", "video", "text", "lyrics", "black") else "none"}
-        for key in ("file", "bgFile", "text", "title", "fit", "loop", "background", "color", "size", "align", "muted"):
+        for key in ("file", "bgFile", "text", "title", "fit", "loop", "background", "color", "size", "align", "muted", "credit", "bgFade"):
             if key in message:
                 slide[key] = message[key] if not isinstance(message[key], str) else message[key][:4000]
+        if message.get("bgId"):   # (10.2) one of Central Control's moving lyric backgrounds, drawn by the page itself (backgrounds.js)
+            slide["bgId"] = re.sub(r"[^a-z0-9_-]", "", str(message["bgId"]).lower())[:48]
         for key in ("file", "bgFile"):
             if slide.get(key):
                 slide[key] = safe_name(str(slide[key]))
