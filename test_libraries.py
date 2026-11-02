@@ -89,7 +89,7 @@ def main():
 def run(tmp):
     print("The library definitions:")
     defs = BUILD.load_definitions()
-    check("five libraries, one for each plan (Central Pads too)", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pedals", "plugins"], [l["plan"] for l in defs])
+    check("six libraries, one for each plan (Central Pads, and Central Utility since 10.2)", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pedals", "plugins", "utility"], [l["plan"] for l in defs])
     node = subprocess.run(["node", "-e", "const P=require('./js/pedals.js');console.log(JSON.stringify(P.pedals.map(p=>[p.id,p.tier,Object.keys(p.knobs),!!p.opts.irFile])))"], cwd=HERE, capture_output=True, text=True)
     pedals = {p[0]: p for p in json.loads(node.stdout)}
     bad = []
@@ -232,6 +232,8 @@ def run(tmp):
             LOOPS.loop_wav(os.path.join(snd, "loops", ls["set"], "one.wav"), np.zeros(64, np.float32), np.zeros(64, np.float32))
             with open(os.path.join(snd, "loops", ls["set"], "index.json"), "w") as handle:
                 json.dump([{"name": "One", "file": "one.wav", "bpm": 90, "meter": 4, "bars": 2}], handle)
+    import runpy   # (10.2: Central Utility's click sets and lighting looks, made the real way - it takes a second)
+    runpy.run_path(os.path.join(HERE, "tools", "make-utility.py"), run_name="make_utility")["main"]([os.path.join(snd, "utility")])
     out = os.path.join(tmp, "out")
     index = BUILD.build_all(snd, ir_dir, out, base_url="https://example.test/libs", log=lambda *a: None)
     zips = sorted(f for f in os.listdir(out) if f.endswith(".zip"))

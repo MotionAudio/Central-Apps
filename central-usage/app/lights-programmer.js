@@ -249,7 +249,8 @@
       var k = Number(tr.dataset.sc), cue = scenes[k], sel = tr.querySelector('[data-scf="look"]'); if (!sel || !cue) return;
       var n = cue.prog ? Object.keys(cue.prog).length : 0, btn = tr.querySelector("[data-lp-open]");
       if (!btn) { btn = document.createElement("button"); btn.type = "button"; btn.className = "lp-open"; btn.dataset.lpOpen = String(k); sel.parentNode.appendChild(btn); }
-      btn.textContent = n ? "Program lights (" + n + ")" : "Program lights"; btn.title = n ? n + " light" + (n === 1 ? " is" : "s are") + " programmed on top of the preset" : "Set each light's colour, level, position and more for this scene";
+      var label = n ? "Program lights (" + n + ")" : "Program lights"; if (btn.textContent !== label) btn.textContent = label;   // (only when it changes: the observer below would see its own change forever)
+      btn.title = n ? n + " light" + (n === 1 ? " is" : "s are") + " programmed on top of the preset" : "Set each light's colour, level, position and more for this scene";
     });
   }
   document.addEventListener("click", function (e) { var b = e.target.closest("[data-lp-open]"); if (!b) return; e.preventDefault(); openScene(Number(b.dataset.lpOpen)); });

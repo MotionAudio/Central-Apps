@@ -90,7 +90,7 @@ const completed = (session, sub) => hook("checkout.session.completed", { id: ses
 const subEvent = (type, sub, status, md, end, extra) => hook(type, Object.assign({ id: sub, object: "subscription", status, metadata: md, items: { data: [{ id: "si_" + sub, current_period_end: end }] }, cancel_at_period_end: false }, extra || {}));
 const day = 864e5, yearOn = () => Math.floor((Date.now() + 365 * day) / 1000);
 const near = (iso, ms, slack) => !!iso && Math.abs(new Date(iso).getTime() - ms) < (slack || 120e3);
-const ALL = ["keys", "plugins", "instrument", "pedals", "pads"];   // (9.8: Central Pads, in every plan)
+const ALL = ["keys", "plugins", "instrument", "pedals", "pads", "utility"];   // (9.8: Central Pads, in every plan; 10.2: Central Utility)
 let keyN = 0;
 const KEYABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const newKeyStr = (kind) => kind + Array.from({ length: 15 }, (_, i) => KEYABC[(S + i * 7 + ++keyN * 13) % KEYABC.length]).join("");
@@ -106,10 +106,10 @@ try {
 
   // ---------------------------------------------------------------- the prices
   const cfg = await j("GET", "/config");
-  ok(cfg.plans.keys.cents === 7000 && cfg.plans.plugins.cents === 14000 && cfg.plans.instrument.cents === 10000 && cfg.plans.pedals.cents === 7000 && cfg.plans.pads.cents === 4000 && cfg.planAll.cents === 24000
+  ok(cfg.plans.keys.cents === 7000 && cfg.plans.plugins.cents === 14000 && cfg.plans.instrument.cents === 10000 && cfg.plans.pedals.cents === 7000 && cfg.plans.pads.cents === 4000 && cfg.planAll.cents === 27000 && cfg.plans.utility.cents === 5000
     && cfg.plans.keys.name === "Central Keys" && cfg.plans.pedals.name === "Central Pedals" && cfg.plans.pads.name === "Central Pads" && cfg.planIds.join() === ALL.join() && cfg.packageDevices === 3,
-    "the plans (9.8): Central Keys $70, Central Plugins $140, Central Instrument $100, Central Pedals $70, Central Pads $40 a year; all of them $240; a package works on 3 devices", { plans: cfg.plans, all: cfg.planAll });
-  ok(JSON.stringify(cfg.planBundles) === JSON.stringify({ 4: 70000, 8: 138000, 12: 186000, 16: 259000, 20: 292000 }), "church bundles: 4 $700, 8 $1,380, 12 $1,860, 16 $2,590, 20 $2,920 a year", cfg.planBundles);
+    "the plans (9.8): Central Keys $70, Central Plugins $140, Central Instrument $100, Central Pedals $70, Central Pads $40 a year; Central Utility $50; all of them $270 (10.2); a package works on 3 devices", { plans: cfg.plans, all: cfg.planAll });
+  ok(JSON.stringify(cfg.planBundles) === JSON.stringify({ 4: 73000, 8: 141000, 12: 189000, 16: 262000, 20: 295000 }), "church bundles: 4 $730, 8 $1,410, 12 $1,890, 16 $2,620, 20 $2,950 a year (10.2: +$30 each, with Central Utility)", cfg.planBundles);
   ok(["Sound", "Board", "Click"].every((k) => cfg.trackKinds.includes(k)) && cfg.itemKinds.Board.ext.join() === "json", "Central Tracks takes Sound, Board and Click too", cfg.trackKinds);
 
   // ---------------------------------------------------------------- a person's own plans: a package key
@@ -201,9 +201,9 @@ try {
   // all four, with BETATEST off the first year
   const co2 = await j("POST", "/checkout/plans", { plans: "all", code: "betatest" }, pat), s2 = lastSession();
   const coupon = calls.filter((c) => c.path === "/v1/coupons").pop();
-  ok(co2.clientSecret && s2.line_items.length === 1 && s2.line_items[0].price_data.unit_amount === "24000" && s2.line_items[0].price_data.product_data.name === "All sound plans"
+  ok(co2.clientSecret && s2.line_items.length === 1 && s2.line_items[0].price_data.unit_amount === "27000" && s2.line_items[0].price_data.product_data.name === "All plans"
     && s2.discounts[0].coupon === "MA-BETATEST-50-FIRST-YEAR" && coupon.body.percent_off === "50" && coupon.body.duration === "once",
-    "all of them: one $240 line; BETATEST is 50% off the first year (a coupon that applies once)", { s2, coupon: coupon.body });
+    "all of them: one $270 line; BETATEST is 50% off the first year (a coupon that applies once)", { s2, coupon: coupon.body });
   await completed(co2.session, "sub_pat_all_" + S);
   const allKey = mailedKey(E("pat")), aa = await pkg(allKey, "usage");
   ok(allKey && allKey !== patPkg.key && aa.ok && ALL.every((id) => aa.plans[id]), "a new package key with all four plans", aa);
@@ -231,8 +231,8 @@ try {
   const noBundle = await j("POST", "/church/packages/give", { email: E("ula") }, O);
   ok(noBundle._status === 402, "no bundle yet: no keys to give", noBundle);
   const b8 = await j("POST", "/checkout/plan-bundle", { seats: 8 }, O), s3 = lastSession(), md3 = s3.subscription_data.metadata;
-  ok(b8.clientSecret && s3.line_items[0].price_data.unit_amount === "138000" && s3.line_items[0].price_data.recurring.interval === "year" && /^Sound plans for 8 people - Grace 95/.test(s3.line_items[0].price_data.product_data.name)
-    && md3.kind === "plans" && md3.church_id === String(cid) && md3.seats === "8", "a bundle for 8: $1,380 a year, billed to the church", s3);
+  ok(b8.clientSecret && s3.line_items[0].price_data.unit_amount === "141000" && s3.line_items[0].price_data.recurring.interval === "year" && /^Sound plans for 8 people - Grace 95/.test(s3.line_items[0].price_data.product_data.name)
+    && md3.kind === "plans" && md3.church_id === String(cid) && md3.seats === "8", "a bundle for 8: $1,410 a year, billed to the church", s3);
   ok(calls.some((c) => c.path === "/v1/customers" && c.body.metadata && c.body.metadata.church_id === String(cid)), "...on the church's own Stripe customer");
   await completed(b8.session, "sub_b8_" + S);
   let tp = await j("GET", "/church/packages", null, O);
@@ -376,7 +376,7 @@ try {
   // ---------------------------------------------------------------- the price page
   const st = (await finish(await j("POST", "/signup", { email: STAFF, password: "password123" }), STAFF)).token;
   const pp = await j("GET", "/admin/prices", null, st);
-  ok(pp.prices.PLANS.keys.cents === 7000 && pp.prices.PLANS.pads.cents === 4000 && pp.prices.PLAN_BUNDLES[16] === 259000 && pp.defaults.PLAN_ALL.cents === 24000, "staff see the plan prices on the price page", pp.prices.PLAN_ALL);
+  ok(pp.prices.PLANS.keys.cents === 7000 && pp.prices.PLANS.pads.cents === 4000 && pp.prices.PLAN_BUNDLES[16] === 262000 && pp.defaults.PLAN_ALL.cents === 27000, "staff see the plan prices on the price page", pp.prices.PLAN_ALL);
   const np = JSON.parse(JSON.stringify(pp.prices));
   np.PLANS.keys.cents = 6000; np.PLAN_ALL.cents = 23000; np.PLAN_BUNDLES = { 4: 70000, 8: 136000 }; np.DISCOUNTS.BETATEST.plans = false;
   ok((await j("POST", "/admin/prices", { prices: np }, st)).ok, "staff change Central Keys to $60, all four to $230, two bundle sizes, and BETATEST off plans");
@@ -389,7 +389,7 @@ try {
   ok((await j("GET", "/config")).plans.keys.cents === 6000, "saving a price list without the plans keeps them as they are");
   await j("POST", "/admin/prices", { reset: true }, st);
   const c3 = await j("GET", "/config");
-  ok(c3.plans.keys.cents === 7000 && c3.planAll.cents === 24000 && c3.planBundles[20] === 292000, "Back to the starting prices");
+  ok(c3.plans.keys.cents === 7000 && c3.planAll.cents === 27000 && c3.planBundles[20] === 295000, "Back to the starting prices");
   // (9.8) a price list saved with the 9.5 prices moves to today's (each plan +$20, with Central Pads)
   const old95 = JSON.parse(JSON.stringify(pp.prices)); delete old95.PLANS.pads;
   Object.assign(old95.PLANS.keys, { cents: 5000 }); Object.assign(old95.PLANS.plugins, { cents: 12000 }); Object.assign(old95.PLANS.instrument, { cents: 8000 }); Object.assign(old95.PLANS.pedals, { cents: 5000 });
@@ -397,7 +397,11 @@ try {
   await q("INSERT INTO site_settings (name, data) VALUES ('prices', $1) ON CONFLICT (name) DO UPDATE SET data=EXCLUDED.data", [old95]);
   const { loadPrices } = await import("../src/prices.js"); await loadPrices();
   const { PLANS: P98, PLAN_ALL: A98, PLAN_BUNDLES: B98 } = await import("../src/config.js");
-  ok(P98.keys.cents === 7000 && P98.pads && P98.pads.cents === 4000 && A98.cents === 24000 && B98[4] === 70000, "a price list saved with the 9.5 prices moves to the 9.8 ones", { P98, A98, B98 });
+  ok(P98.keys.cents === 7000 && P98.pads && P98.pads.cents === 4000 && A98.cents === 27000 && B98[4] === 73000, "a price list saved with the 9.5 prices moves to today's", { P98, A98, B98 });
+  // (10.2) one saved with the 9.8 prices ($240, the old bundles, no Central Utility) moves to today's: $270 and each bundle +$30
+  const old98 = JSON.parse(JSON.stringify(pp.prices)); delete old98.PLANS.utility; old98.PLAN_ALL.cents = 24000; old98.PLAN_BUNDLES = { 4: 70000, 8: 138000, 12: 186000, 16: 259000, 20: 292000 };
+  await q("INSERT INTO site_settings (name, data) VALUES ('prices', $1) ON CONFLICT (name) DO UPDATE SET data=EXCLUDED.data", [old98]); await loadPrices();
+  ok(P98.utility && P98.utility.cents === 5000 && A98.cents === 27000 && JSON.stringify(B98) === JSON.stringify({ 4: 73000, 8: 141000, 12: 189000, 16: 262000, 20: 295000 }), "(10.2) a price list saved with the 9.8 prices gets Central Utility: all plans $270, each bundle +$30", { u: P98.utility, A98, B98 });
   await j("POST", "/admin/prices", { reset: true }, st);
 
   // ---------------------------------------------------------------- a sale on the website: off a plan's first year too
@@ -408,8 +412,8 @@ try {
   ok(sc.ok && sc.percent === 20 && sc.sale === "Spring sale", "a live sale comes off a plan with no code typed", sc);
   await j("POST", "/checkout/plans", { plans: "all" }, sp);
   const ss = lastSession(), sCoupon = calls.filter((c) => c.path === "/v1/coupons").pop().body;
-  ok(ss.discounts[0].coupon === "MA-SALE-SPRINGSALE-20-FIRST-YEAR" && sCoupon.percent_off === "20" && sCoupon.duration === "once" && /Spring sale: 20% off the first year/.test(sCoupon.name) && ss.line_items[0].price_data.unit_amount === "24000",
-    "...as a coupon on the first year (the yearly price stays $240)", { d: ss.discounts, sCoupon });
+  ok(ss.discounts[0].coupon === "MA-SALE-SPRINGSALE-20-FIRST-YEAR" && sCoupon.percent_off === "20" && sCoupon.duration === "once" && /Spring sale: 20% off the first year/.test(sCoupon.name) && ss.line_items[0].price_data.unit_amount === "27000",
+    "...as a coupon on the first year (the yearly price stays $270)", { d: ss.discounts, sCoupon });
   const sb = await j("POST", "/checkout/plans/check", { plans: ["keys"], code: "BETATEST" }, sp);
   ok(sb.percent === 50 && !sb.sale, "a typed code wins over the sale (they don't stack)", sb);
   ok((await j("POST", "/checkout/plan-bundle/check", { seats: 4 }, O)).percent === 20, "the sale is off a church bundle's first year too");

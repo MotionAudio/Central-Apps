@@ -57,7 +57,7 @@
   }
   function slug(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
   function entry(fx, modeIdx) {
-    var m = fx.md[modeIdx || 0], ch = m.c.split(" "), maker = lib.makers[fx.m];
+    var m = fx.md[modeIdx > 0 && modeIdx < fx.md.length ? modeIdx : 0], ch = m.c.split(" "), maker = lib.makers[fx.m];
     var mover = ch.indexOf("pan") >= 0 || ch.indexOf("tilt") >= 0;
     return { id: "lib:" + (fx.s === "o" ? "ofl" : "qlc") + "-" + slug(maker + "-" + fx.n + "-" + m.n).slice(0, 90), maker: maker, model: fx.n, mode: m.n,
       name: maker + " " + fx.n + " — " + m.n + " (" + ch.length + " ch)", ch: ch, cv: m.v || {}, mover: mover, type: fx.t || "",

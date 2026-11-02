@@ -31,7 +31,7 @@ await check("it opens offline: over 2,000 real lights from over 200 makers, in t
 });
 await check("known lights map right: a Chauvet SlimPAR Pro H (RGBAW+UV) and a Martin MAC Aura (shutter, zoom, 16-bit pan and tilt)", async () => {
   const r = await p.evaluate(() => {
-    const sp = CUFixtureCatalog.search("chauvet slimpar pro h usb", 5)[0], aura = CUFixtureCatalog.search("martin mac aura", 5).filter((h) => h.fx.n === "MAC Aura")[0];
+    const sp = CUFixtureCatalog.search("chauvet slimpar pro h usb", 20).filter((h) => h.fx.n === "SlimPAR Pro H USB" && h.fx.s === "o")[0], aura = CUFixtureCatalog.search("martin mac aura", 5).filter((h) => h.fx.n === "MAC Aura")[0];
     return { sp: sp && CUFixtureCatalog.entry(sp.fx, sp.fx.md.findIndex((m) => m.n === "7-channel")), aura: aura && CUFixtureCatalog.entry(aura.fx, 0) };
   });
   assert.ok(r.sp, "SlimPAR found"); assert.deepEqual(r.sp.ch, ["dim", "r", "g", "b", "a", "w", "uv"]); assert.equal(r.sp.mover, false);
@@ -102,11 +102,12 @@ await check("a scene's row has Program lights; two lights get a colour and a pos
     const X = CULights; X.rig().fixtures = []; X.saveRig();
     window.CUFixturePicker.addLights("mhwash14", 2, 1, 1, "beam", "Wash");
     X.rig().fixtures.forEach((f) => { delete f.movable; }); X.saveRig();
-    X.programSong && X.rig().localSongs && null;
+    X.rig().localSongs = (X.rig().localSongs || []).filter((s) => s.id !== "cu-test").concat([{ id: "cu-test", name: "Test song", bpm: 120, bpb: 4 }]); X.saveRig();
   });
   // a song of our own with one scene
-  await p.evaluate(() => { CULights.showSub("songs"); });
-  await p.waitForTimeout(300);
+  await p.evaluate(() => { CULights.showSub("songs"); CULights.renderSongs(); });
+  await p.waitForSelector('#lxSongs [data-ls-pick="cu-test"]', { timeout: 4000 }); await p.click('#lxSongs [data-ls-pick="cu-test"]');
+  await p.waitForFunction(() => { const t = CULights.editTarget(); return t && !t.loading && Array.isArray(t.cues); }, null, { timeout: 4000 });
   const has = await p.evaluate(() => !!document.querySelector('#lxSongs [data-ls="new"]'));
   assert.ok(has, "the songs page");
   await p.evaluate(() => { const X = CULights, t = X.editTarget(); if (t && !t.cues.some((c) => c.kind === "look")) X.addScene("worship"); });
