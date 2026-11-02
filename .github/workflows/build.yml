@@ -213,6 +213,7 @@ jobs:
           bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --linux deb AppImage --x64 --publish never
           test -f dist/linux-unpacked/resources/app-src/production/index.html && test -f dist/linux-unpacked/resources/app-src/daw/daw-engine.js || { echo "::error::the Central Production page is missing"; exit 1; }
           test -x dist/linux-unpacked/resources/native/cu-studio || { echo "::error::the low-delay player is missing"; exit 1; }
+          test -x dist/linux-unpacked/resources/native/cu-rig || { echo "::error::the plugin host (VST3 / CLAP inserts) is missing"; exit 1; }
           [ "$(dpkg-deb -f dist/central-production-*-amd64.deb Package)" = central-production ] || { echo "::error::wrong .deb package name"; exit 1; }
           bash ../tools/check-linux-deb.sh dist/central-production-*-amd64.deb "Central Production"
           ls -la dist/ | grep -E "deb|AppImage"

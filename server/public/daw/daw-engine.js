@@ -15,7 +15,10 @@
  *   Clip: { id, kind: audio | midi, start, len (beats), name, color, mute,
  *     audio: { src, offset (s), gain (dB), fadeIn, fadeOut (s), loop, warp: { from (bpm), orig, semis } }, takes: [{ id, src, name }],
  *     notes: [{ p, v, s, d }] (MIDI: beats from the clip's start), loopLen (beats: a MIDI clip repeats its first loopLen beats) }
- *   Fx: { id, type, on, params: {} }   (types in FX below; "cmfx" = a plugin made in Central Production's builder)
+ *   Fx: { id, type, on, params: {} }   (types in FX below; "cmfx" = a plugin made in Central Production's builder;
+ *       "native" = a VST3 / CLAP plugin on this computer: { plugin: {format, id, path, name, vendor}, v } - see "native
+ *       plugins" below: heard live through the rig while monitoring, and in playback / exports from the frozen track)
+ *   Track.frozen: { src, sig, len, at, latency } - the track played through its native plugins (CDaw.native.freeze)
  * Automation params: "volume", "pan", "send:<busId>", "fx:<fxId>:<param>".
  *
  *   CDaw.project() / fresh(opts) / load(project, buffers) / edit(label, fn) / undo() / redo() / canUndo() / canRedo()
@@ -109,10 +112,13 @@
   };
   // an effect's description: the built-in ones from FX; a Central FX plugin's knobs come from its own file
   function fxDef(fx) {
-    var t = typeof fx === "string" ? fx : fx && fx.type, def = FX[t]; if (t !== "cmfx" || !fx || typeof fx === "string") return def;
+    var t = typeof fx === "string" ? fx : fx && fx.type, def = FX[t];
+    if (t === "native" && fx && typeof fx !== "string") return { name: (fx.plugin && fx.plugin.name) || "Native plugin", native: true, make: def.make, params: [] };
+    if (t !== "cmfx" || !fx || typeof fx === "string") return def;
     var pl = fx.plugin || {};
     return { name: pl.name || "Plugin", plugin: true, make: def.make, params: (pl.params || []).map(function (q) { var lo = q.min != null ? +q.min : 0, hi = q.max != null ? +q.max : 1; return [q.id, q.name || q.id, lo, hi, q.default != null ? +q.default : lo, q.unit || "", false, q.choices || null]; }) };
   }
+  FX.native = { name: "Native plugin", params: [], make: function (c) { var u = { input: G(c), output: G(c) }; u.input.connect(u.output); u.set = function () { }; u.param = function () { return null; }; return u; } };   // (live it passes the sound: see "native plugins")
   function fxDefaults(fx) { var d = {}, def = fxDef(fx); (def ? def.params : []).forEach(function (p) { d[p[0]] = p[4]; }); return d; }
   // the params as they play: without Central Plugins the full-version knobs stay at their defaults (and pro effects pass through)
   function fxPlay(fx) { var def = fxDef(fx); if (!def) return null; var p = Object.assign(fxDefaults(fx), fx.params || {}); if (!pro()) def.params.forEach(function (q) { if (q[6]) p[q[0]] = q[4]; }); return p; }
@@ -359,7 +365,7 @@
     var p = proj, g = sink.graph, anySolo = p.tracks.some(function (t) { return t.solo && t.kind !== "bus"; });
     p.tracks.forEach(function (t) {
       var strip = g.strips[t.id]; if (!strip || t.kind === "bus") return;
-      t.clips.forEach(function (cl) {
+      clipsFor(t).forEach(function (cl) {
         if (cl.mute || cl.start >= b || cl.start + cl.len <= a) return;
         if (cl.kind === "audio") {
           var key = cl.id + "@" + sink.pass; if (sink.started[key]) return;
@@ -602,6 +608,9 @@
   var mon = { src: null, split: null, conns: {} };
   function syncInputMonitor() {
     var want = proj.tracks.filter(function (t) { return t.kind === "audio" && (t.monitor === "in" || (t.monitor === "auto" && t.arm)); });
+    var viaRig = NH.host && NH.host.monitor ? want.filter(function (t) { return natives(t).length; })[0] || null : null;   // (one track at a time through the rig)
+    if (NH.host && NH.host.monitor) { var mk = viaRig ? viaRig.id + ":" + viaRig.input + ":" + natives(viaRig).map(function (f) { return nativeSlot(f) + (f.plugin.key || f.plugin.id); }).join(",") : ""; if (mk !== NH.monKey) { NH.monKey = mk; NH.host.monitor(viaRig ? { track: viaRig.id, input: viaRig.input || "1", plugins: natives(viaRig).map(nativeJob) } : null); } }
+    if (viaRig) want = want.filter(function (t) { return t !== viaRig; });
     if (!want.length) { Object.keys(mon.conns).forEach(function (id) { try { mon.conns[id].g.disconnect(); } catch (_) { } }); mon.conns = {}; return; }
     ensureCtx(); inputStream().then(function (s) {
       var nch = Math.max(2, rec.chs || 2);
@@ -612,6 +621,57 @@
     }).catch(function () { });
   }
   on("change", function (w) { if (w !== "nudge") syncInputMonitor(); });
+
+  // ------------------------------------------------------------- native plugins (10.2): VST3 / CLAP on a track, through the rig
+  // A browser engine can't run a VST3 or CLAP plugin, so the app's rig (cu-rig, the plugin host the pedal boards use) does:
+  //   live     while an armed audio track with native plugins is monitored, its input plays through them in the rig
+  //            (you hear it from the rig, with its own low delay); what's recorded is the dry input.
+  //   offline  "Freeze": the track (its clips through its instrument) is rendered dry, played through its native plugins
+  //            in the rig (cu-rig --process, their latency taken off) and the result plays instead, through the rest of
+  //            the track's chain. Bounces and exports freeze what's changed first. A change to the clips, the plugins or
+  //            the tempo (or closing a plugin's window: f.v) means it's frozen again.
+  // Native plugins come first on the track, before its other effects. NH.host (set by the app):
+  //   { list(scan) -> Promise [{format,id,path,name,vendor}], process(job) -> Promise {ok, data, frames, latency, error},
+  //     monitor({track, input, plugins} | null), editor(slot, plugins, open) }
+  var NH = { host: null, busy: {}, monKey: null };
+  function natives(t) { return (t && t.inserts || []).filter(function (f) { return f.type === "native" && f.on !== false && f.plugin; }); }
+  function nativeSlot(f) { return ("dw" + String(f.id).replace(/[^A-Za-z0-9]/g, "")).slice(0, 12); }
+  function nativeJob(f) { return { slot: nativeSlot(f), format: f.plugin.format, id: f.plugin.id, path: f.plugin.path, name: f.plugin.name || "" }; }
+  function strHash(str) { var h = 5381; for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
+  function freezeSig(t) {
+    var n = natives(t); if (!n.length) return "";
+    var x = clone(t); ["volume", "pan", "mute", "solo", "arm", "monitor", "sends", "auto", "lanes", "height", "color", "name", "frozen", "output", "inserts"].forEach(function (k) { delete x[k]; });
+    return strHash(JSON.stringify([x, n.map(function (f) { return [f.id, f.plugin.format, f.plugin.id, f.plugin.path, f.v || 0]; }), proj.bpm, proj.tempos || [], proj.sigs || []]));
+  }
+  function frozenOK(t) { return !!(t && t.frozen && t.frozen.sig && buffers[t.frozen.src] && t.frozen.sig === freezeSig(t)); }
+  function clipsFor(t) { return frozenOK(t) ? [{ id: "fz" + t.id, kind: "audio", start: 0, len: t.frozen.len, audio: { src: t.frozen.src, offset: 0, gain: 0, fadeIn: 0, fadeOut: 0.01 } }] : t.clips; }
+  function trackEnd(t) { var e = 0; t.clips.forEach(function (c) { if (!c.mute) e = Math.max(e, c.start + c.len); }); return e; }
+  function freeze(id) {
+    var t = track(id); if (!t) return Promise.reject(new Error("no such track"));
+    var n = natives(t); if (!n.length) { if (t.frozen) edit("Unfreeze", function () { track(id).frozen = null; }); return Promise.resolve(null); }
+    if (!NH.host) return Promise.reject(new Error("VST3 and CLAP plugins play in the Central Production and Central Usage apps on a computer."));
+    if (NH.busy[id]) return NH.busy[id];
+    var sig = freezeSig(t), rate = ensureCtx() ? ctx.sampleRate : 48000, to = trackEnd(t) + 2 * beatsPerBarAt(trackEnd(t)), name = t.name;
+    fire("message", "Freezing " + name + " through " + n.map(function (f) { return f.plugin.name; }).join(", ") + "…"); fire("freeze", { track: id, busy: true });
+    NH.busy[id] = renderRaw({ from: 0, to: to, tracks: [id], dry: id, exact: true, rate: rate }).then(function (buf) {
+      var L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L, N = buf.length, data = new Float32Array(N * 2);
+      for (var i = 0; i < N; i++) { data[2 * i] = L[i]; data[2 * i + 1] = R[i]; }
+      return NH.host.process({ rate: rate, frames: N, data: data, tail: 0, plugins: n.map(nativeJob) });
+    }).then(function (r) {
+      if (!r || !r.ok) throw new Error(r && r.error || "the plugins didn't play");
+      var d = new Float32Array(r.data.buffer ? r.data.buffer.slice(r.data.byteOffset || 0, (r.data.byteOffset || 0) + r.data.byteLength) : r.data), M = Math.min(r.frames, d.length >> 1), out = new AudioBuffer({ numberOfChannels: 2, length: Math.max(1, M), sampleRate: rate }), oL = out.getChannelData(0), oR = out.getChannelData(1);
+      for (var i = 0; i < M; i++) { oL[i] = d[2 * i]; oR[i] = d[2 * i + 1]; }
+      var src = addAudio(out);
+      edit("Freeze " + name, function () { var x = track(id); if (x) x.frozen = { src: src, sig: sig, len: secToBeat(M / rate), at: Date.now(), latency: r.latency || 0 }; });
+      fire("message", name + " is frozen" + (r.latency ? " (its plugins' delay of " + Math.round(r.latency / rate * 10000) / 10 + " ms is taken off)" : "") + ".");
+      return track(id) && track(id).frozen;
+    });
+    NH.busy[id].catch(function (e) { fire("message", "Couldn't freeze " + name + ": " + (e && e.message || e)); }).then(function () { delete NH.busy[id]; fire("freeze", { track: id, busy: false }); });
+    return NH.busy[id];
+  }
+  function beatsPerBarAt(b) { try { return beatToBar(b).per || 4; } catch (_) { return 4; } }
+  function unfreeze(id) { var t = track(id); if (t && t.frozen) edit("Unfreeze", function () { track(id).frozen = null; }); }
+  function nativeState(t) { var n = natives(t); return !n.length ? "none" : NH.busy[t.id] ? "freezing" : frozenOK(t) ? "frozen" : t.frozen ? "stale" : "unfrozen"; }
 
   // ------------------------------------------------------------- audio in
   function addAudio(buf, id) { id = id || uid("au"); buffers[id] = buf; return id; }
@@ -639,15 +699,24 @@
     return jobs;
   }
   function insertTrack(t) { var i = proj.tracks.findIndex(function (x) { return x.kind === "bus"; }); if (i < 0) proj.tracks.push(t); else proj.tracks.splice(i, 0, t); }
-  function usedAudio() { var used = {}; proj.tracks.forEach(function (t) { t.clips.forEach(function (c) { if (c.kind !== "audio") return; if (c.audio && c.audio.src) used[c.audio.src] = 1; (c.takes || []).forEach(function (k) { used[k.src] = 1; }); if (c.audio && c.audio.warp && c.audio.warp.orig) used[c.audio.warp.orig] = 1; }); }); return Object.keys(used).filter(function (id) { return buffers[id]; }); }
+  function usedAudio() { var used = {}; proj.tracks.forEach(function (t) { if (t.frozen && t.frozen.src) used[t.frozen.src] = 1; t.clips.forEach(function (c) { if (c.kind !== "audio") return; if (c.audio && c.audio.src) used[c.audio.src] = 1; (c.takes || []).forEach(function (k) { used[k.src] = 1; }); if (c.audio && c.audio.warp && c.audio.warp.orig) used[c.audio.warp.orig] = 1; }); }); return Object.keys(used).filter(function (id) { return buffers[id]; }); }
 
   // ------------------------------------------------------------- render (exports, faster than real time)
   function songEnd() { var e = 0; proj.tracks.forEach(function (t) { t.clips.forEach(function (c) { if (!c.mute) e = Math.max(e, c.start + c.len); }); }); return e; }
   function render(o) {
+    o = o || {};
+    if (o.raw) return renderRaw(o);
+    var stale = proj.tracks.filter(function (t) { return natives(t).length && !frozenOK(t) && (!o.tracks || o.tracks.indexOf(t.id) >= 0); });
+    if (stale.length && !NH.host) fire("message", "VST3 / CLAP plugins aren't in this mix: they play in the apps on a computer.");
+    if (!stale.length || !NH.host) return renderRaw(o);
+    return stale.reduce(function (p, t) { return p.then(function () { return freeze(t.id); }); }, Promise.resolve()).then(function () { return renderRaw(o); });
+  }
+  function renderRaw(o) {
     o = o || {}; var from = o.from || 0, to = o.to != null ? o.to : songEnd(); if (!(to > from)) return Promise.reject(new Error("There's nothing on the timeline yet: record or put clips on it first."));
     var rate = o.rate || 48000, tail = o.tail == null ? 3 : o.tail, secs = beatToSec(to) - beatToSec(from) + tail, oc = new OfflineAudioContext(2, Math.ceil(secs * rate), rate);
     var keep = proj; proj = clone(proj);
     if (o.tracks) proj.tracks.forEach(function (t) { if (t.kind === "bus") return; t.solo = o.tracks.indexOf(t.id) >= 0; if (t.solo) t.mute = false; });
+    if (o.dry) { proj.tracks.forEach(function (t) { if (t.id !== o.dry) return; t.inserts = []; t.volume = 0; t.pan = 0; t.sends = []; t.auto = {}; t.output = "master"; t.frozen = null; t.mute = false; t.solo = true; }); proj.master = { volume: 0, inserts: [] }; }
     proj.metronome = Object.assign({}, proj.metronome, { on: false });
     var g = new Graph(oc, true); g.auto = true; var p2 = proj;
     return worklets(oc).then(function () { return g.sync(p2); }).then(function () { return Promise.all(oc.__cdawPending || []); }).then(function () {   // (Central FX plugins load before it renders)
@@ -687,7 +756,7 @@
       restore: function (id) {
         return tx("work", "readonly", function (st) { return st.get(id); }).then(function (w) {
           if (!w) throw new Error("That work isn't there any more.");
-          var p = JSON.parse(w.json), need = []; p.tracks.forEach(function (t) { t.clips.forEach(function (c) { if (c.audio) { need.push(c.audio.src); if (c.audio.warp) need.push(c.audio.warp.orig); } (c.takes || []).forEach(function (k) { need.push(k.src); }); }); });
+          var p = JSON.parse(w.json), need = []; p.tracks.forEach(function (t) { if (t.frozen && t.frozen.src) need.push(t.frozen.src); t.clips.forEach(function (c) { if (c.audio) { need.push(c.audio.src); if (c.audio.warp) need.push(c.audio.warp.orig); } (c.takes || []).forEach(function (k) { need.push(k.src); }); }); });
           var bufs = {}, c = ensureCtx();
           return Promise.all(need.map(function (aid) { return tx("audio", "readonly", function (st) { return st.get(id + "/" + aid); }).then(function (x) { if (!x) return; var b = c.createBuffer(x.ch.length, x.ch[0].length, x.rate); x.ch.forEach(function (d, i) { b.copyToChannel(d, i); }); bufs[aid] = b; savedAudio[aid] = 1; }); }))
             .then(function () { load(p, bufs); dirty = true; fire("change", "recovered"); return p; });
@@ -721,6 +790,7 @@
     split: split, cutRange: cutRange, quantize: quantize, humanize: humanize, snapBeat: snapBeat, autoAt: autoAt, clipSrc: clipSrc,
     tempo: { beatToSec: beatToSec, secToBeat: secToBeat, barToBeat: barToBeat, beatToBar: beatToBar, bpmAt: bpmAt, bpb: function (b) { return beatToBar(b || 0).per; } },
     FX: FX, fxDef: fxDef, fxDefaults: fxDefaults, pro: pro, ctx: ensureCtx, graph: function () { return rt; }, latency: latency, recovery: recovery,
+    native: { setHost: function (h) { NH.host = h || null; NH.monKey = null; syncInputMonitor(); }, host: function () { return NH.host; }, list: natives, slot: nativeSlot, freeze: freeze, unfreeze: unfreeze, state: nativeState, frozen: frozenOK, sig: freezeSig },
     audio: { settings: audioSettings, set: setAudio, devices: devices, info: inputInfo, measure: measureLatency, choices: inputChoices, channelsOf: chansOf, findDelay: findDelay, compensation: compensation }, uid: uid, COLORS: COLORS, KEYS: KEYS, SNAP: SNAP, dbToGain: dbToGain, clamp: clamp, clone: clone
   };
 })();

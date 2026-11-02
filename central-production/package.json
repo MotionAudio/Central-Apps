@@ -46,7 +46,12 @@
         "to": "native",
         "filter": [
           "cu-studio",
-          "cu-studio.exe"
+          "cu-studio.exe",
+          "cu-rig",
+          "cu-rig.exe",
+          "cm-plugbridge",
+          "cm-plugbridge.exe",
+          "rig-map.json"
         ]
       },
       {

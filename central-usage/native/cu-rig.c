@@ -16,6 +16,14 @@
  * instrument-plugins.json by tools/make-rig-map.js). Keys: TinySoundFont plays .sf2 banks, up to 8 layers.
  *
  *   cu-rig --data <folder> [--sounds <bundled sf2 folder>] [--map rig-map.json] [--backend auto|null] [--block 128]
+ *
+ * (10.2) The DAW's native inserts, offline (freezing a track, bouncing, exporting):
+ *   cu-rig --data <folder> --process <job.json>
+ *   job: {"rate", "frames", "in": <raw stereo float32, interleaved>, "out": <path>, "tail": seconds,
+ *         "plugins": [{"slot", "format", "id", "path"}]}   (each slot's saved state, the one its window set)
+ *   It plays the sound through the plugins in order, takes their reported latency off (so the result lines up with the
+ *   input), writes frames + tail of stereo float32 to out and prints one line:
+ *   {"type":"processed","ok":true,"latency":<frames>,"frames":<n>,"names":[...]} or {"type":"processed","ok":false,"error"}
  */
 #ifndef _WIN32
 #define _GNU_SOURCE
@@ -882,10 +890,45 @@ static void handle(cJSON *m) {
 }
 
 static char *read_file(const char *path) { FILE *f = fopen(path, "rb"); if (!f) return NULL; fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET); char *s = malloc((size_t)n + 1); if (fread(s, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(s); return NULL; } s[n] = 0; fclose(f); return s; }
+/* (10.2) the DAW's native inserts, offline: see the top of this file */
+static int process_main(const char *jobPath) {
+  char *txt = read_file(jobPath); cJSON *job = txt ? cJSON_Parse(txt) : NULL; free(txt);
+  cJSON *res = cJSON_CreateObject(); cJSON_AddStringToObject(res, "type", "processed");
+  char why[300] = ""; PhPlug *pl[16]; int np = 0; float *in = NULL, *out = NULL; long frames = 0, outN = 0; int lat = 0;
+  if (!job) { snprintf(why, sizeof why, "the job can't be read"); goto done; }
+  FS = num(job, "rate", 48000); if (FS < 8000 || FS > 384000) FS = 48000;
+  frames = (long)num(job, "frames", 0); if (frames < 0 || frames > 384000L * 60 * 60) { snprintf(why, sizeof why, "the sound is too long"); goto done; }
+  in = calloc((size_t)frames * 2 + 2, sizeof(float));
+  { FILE *f = fopen(str(job, "in", ""), "rb"); if (!f || !in) { if (f) fclose(f); snprintf(why, sizeof why, "the sound to play through the plugins isn't there"); goto done; }
+    size_t got = fread(in, sizeof(float), (size_t)frames * 2, f); fclose(f); if (got < (size_t)frames * 2) frames = (long)(got / 2); }
+  cJSON *ps = cJSON_GetObjectItem(job, "plugins"), *it, *names = cJSON_AddArrayToObject(res, "names");
+  cJSON_ArrayForEach(it, ps) {
+    if (np >= 16) break; char slot[24], err[200] = ""; clean_uid(str(it, "slot", "p"), slot);
+    PhPlug *p = ph_get(slot, str(it, "format", ""), str(it, "id", ""), str(it, "path", ""), "", FS, 512, err, sizeof err);
+    if (!p) { snprintf(why, sizeof why, "%s didn't load: %s", str(it, "name", str(it, "id", "a plugin")), err[0] ? err : "no reason given"); goto done; }
+    if (ph_is_instrument(p)) { snprintf(why, sizeof why, "%s is an instrument, not an effect", ph_name(p)); ph_release(p); goto done; }
+    pl[np++] = p; lat += ph_latency(p); cJSON_AddItemToArray(names, cJSON_CreateString(ph_name(p)));
+  }
+  { double tail = num(job, "tail", 0); if (tail < 0) tail = 0; if (tail > 30) tail = 30; outN = frames + (long)(tail * FS); }
+  out = calloc((size_t)outN * 2 + 2, sizeof(float)); if (!out) { snprintf(why, sizeof why, "not enough memory"); goto done; }
+  { static float aL[512], aR[512], bL[512], bR[512]; long total = outN + lat;
+    for (long pos = 0; pos < total; pos += 512) {
+      int n = (int)(total - pos < 512 ? total - pos : 512);
+      for (int k = 0; k < n; k++) { long i = pos + k; aL[k] = i < frames ? in[2 * i] : 0; aR[k] = i < frames ? in[2 * i + 1] : 0; }
+      for (int j = 0; j < np; j++) { ph_process(pl[j], aL, aR, bL, bR, n, NULL, 0); memcpy(aL, bL, n * sizeof(float)); memcpy(aR, bR, n * sizeof(float)); }
+      for (int k = 0; k < n; k++) { long o = pos + k - lat; if (o >= 0 && o < outN) { out[2 * o] = isfinite(aL[k]) ? aL[k] : 0; out[2 * o + 1] = isfinite(aR[k]) ? aR[k] : 0; } }
+    } }
+  { FILE *f = fopen(str(job, "out", ""), "wb"); if (!f) { snprintf(why, sizeof why, "the result can't be written"); goto done; } fwrite(out, sizeof(float), (size_t)outN * 2, f); fclose(f); }
+done:
+  for (int j = 0; j < np; j++) ph_release(pl[j]);
+  cJSON_AddBoolToObject(res, "ok", !why[0]); if (why[0]) cJSON_AddStringToObject(res, "error", why); else { cJSON_AddNumberToObject(res, "latency", lat); cJSON_AddNumberToObject(res, "frames", (double)outN); }
+  emit_json(res); cJSON_Delete(res); cJSON_Delete(job); free(in); free(out);
+  return why[0] ? 1 : 0;
+}
 static void on_line(char *line) { cJSON *m = cJSON_Parse(line); if (!m) return; handle(m); cJSON_Delete(m); }
 static void on_quit(void) { ph_save_all(); dev_stop(); chain_swap(NULL); keys_drop_plugins(); ph_keep_only(NULL, 0); if (ctxOk) ma_context_uninit(&ctx); }
 int main(int argc, char **argv) {
-  const char *scanFormat = NULL, *scanPath = NULL;
+  const char *scanFormat = NULL, *scanPath = NULL, *jobPath = NULL;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--data") && i + 1 < argc) snprintf(dataDir, sizeof dataDir, "%s", argv[++i]);
     else if (!strcmp(argv[i], "--sounds") && i + 1 < argc) snprintf(soundsDir, sizeof soundsDir, "%s", argv[++i]);
@@ -894,6 +937,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--block") && i + 1 < argc) BLOCK = atoi(argv[++i]);
     else if (!strcmp(argv[i], "--version")) { puts("cu-rig 2"); return 0; }
     else if (!strcmp(argv[i], "--scan-one") && i + 2 < argc) { scanFormat = argv[i + 1]; scanPath = argv[i + 2]; i += 2; }
+    else if (!strcmp(argv[i], "--process") && i + 1 < argc) jobPath = argv[++i];
   }
   /* our own copy of stdout for the app; whatever else prints (plugins) goes to stderr */
 #ifdef _WIN32
@@ -905,6 +949,7 @@ int main(int argc, char **argv) {
   pl_mutex_init(&outLock);
   ph_init(dataDir, emit_raw);
   if (scanFormat) return ph_scan_one_main(scanFormat, scanPath);
+  if (jobPath) { int r = process_main(jobPath); fflush(proto); _Exit(r); }   /* (no saving, no unloading dance: the states stay as the window left them) */
   if (BLOCK < 32) BLOCK = 32; if (BLOCK > 2048) BLOCK = 2048;
   if (mapPath[0]) { char *s = read_file(mapPath); if (s) { rigMap = cJSON_Parse(s); free(s); } }
   status();

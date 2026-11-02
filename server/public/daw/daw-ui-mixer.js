@@ -64,10 +64,21 @@
       if (mine.length) { items.push(null); mine.forEach(function (x) { items.push(cm(x.plugin, "yours")); }); }
       if (inst.length) { items.push(null); inst.forEach(function (x) { items.push(cm(x.plugin, x.author ? "by " + x.author : "installed")); }); }
       if (ex.length) { items.push(null); ex.forEach(function (pl) { items.push(cm(pl, "example")); }); }
+      if (D.native.host()) items.push(null, ["Your VST3 / CLAP plugins…", function () { nativeMenu(btn, done, false); }]);
       items.push(null, ["A plugin file (.cmfx.json)…", function () { var i = document.createElement("input"); i.type = "file"; i.accept = ".json"; i.onchange = function () { var file = i.files[0]; if (!file) return; file.text().then(function (txt) { var pl = JSON.parse(txt); if (pl.format !== "central-fx") throw new Error(); if (window.CMFx) { var r = window.CMFx.check(pl); if (!r.ok) return UI.say("That plugin has a problem: " + r.error, true); } cm(pl)[1](); }).catch(function () { UI.say("That isn't a Central FX plugin.", true); }); }; i.click(); }]);
       if (!window.CMFx) items.push(["(Central FX plugins need the plugin engine, which isn't in this build)", null, false]);
       UI.menu(btn, items);
     });
+  }
+  // (10.2) VST3 / CLAP plugins on this computer (the rig hosts them): pick one; "Look for plugins" scans for new ones
+  function nativeMenu(btn, done, scan) {
+    UI.say(scan ? "Looking for VST3 and CLAP plugins on this computer…" : "Getting your plugins…");
+    D.native.host().list(scan).then(function (list) {
+      var items = (list || []).filter(function (p) { return p.format !== "cmfx"; }).map(function (p) { return [p.name + (p.vendor ? " · " + p.vendor : "") + " (" + String(p.format).toUpperCase() + ")", function () { done({ id: D.uid("f"), type: "native", on: true, params: {}, plugin: { format: p.format, id: p.id, path: p.path, name: p.name, vendor: p.vendor || "", key: p.key || "" }, v: 0 }); UI.say(p.name + " is on the track. It plays live while you monitor an armed audio track, and in playback once the track is frozen (it freezes before an export)."); }]; });
+      if (!items.length) items.push(["(none found yet)", null, false]);
+      items.push(null, ["Look for plugins again", function () { nativeMenu(btn, done, true); }]);
+      UI.menu(btn, items);
+    }).catch(function (e) { UI.say(e.message || String(e), true); });
   }
   function drawFx(body) {
     var panel = $(".cd-fxpanel", body); if (!mx.open) { panel.hidden = true; return; }
@@ -80,13 +91,29 @@
         var off = locked || (q[6] && !pro), v = p[q[0]], key = "fx:" + f.id + ":" + q[0];
         if (q[7]) return '<label class="cd-knob' + (off ? " off" : "") + '"><span>' + esc(q[1]) + '</span><select data-k="' + q[0] + '"' + (off ? " disabled" : "") + ">" + q[7].map(function (o, i) { return '<option value="' + i + '"' + (Math.round(v) === i ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select></label>";
         return '<label class="cd-knob' + (off ? " off" : "") + '"><span>' + esc(q[1]) + '</span><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + ((q[3] - q[2]) / 400) + '" value="' + v + '" data-k="' + q[0] + '"' + (off ? " disabled" : "") + '><output>' + fmt(v, q) + "</output>" + (!master && !off && f.type !== "cmfx" ? '<button class="cd-autobtn" data-auto="' + key + '" title="Automate it">A</button>' : "") + "</label>";
-      }).join("") + (f.type === "cmfx" ? '<p class="cd-dim">' + (!window.CMFx ? "A Central FX plugin. It plays once the plugin engine is in this build." : !def.params.length ? "This plugin has no knobs." : "A Central FX plugin" + (f.plugin && f.plugin.author ? " by " + esc(f.plugin.author) : "") + ".") + "</p>" : "") + "</div>";
-    panel.onclick = function (e) { if (e.target.closest("[data-close]")) { mx.open = null; draw(mx.body); } var a = e.target.closest("[data-auto]"); if (a) { var key = a.dataset.auto; D.edit("Automation lane", function () { var tt = D.track(id); if (tt.lanes.indexOf(key) < 0) tt.lanes.push(key); }); UI.say("An automation lane is under the track: click it to add points."); } };
+      }).join("") + (f.type === "native" ? nativeInfo(t, f) : "") + (f.type === "cmfx" ? '<p class="cd-dim">' + (!window.CMFx ? "A Central FX plugin. It plays once the plugin engine is in this build." : !def.params.length ? "This plugin has no knobs." : "A Central FX plugin" + (f.plugin && f.plugin.author ? " by " + esc(f.plugin.author) : "") + ".") + "</p>" : "") + "</div>";
+    panel.onclick = function (e) { if (e.target.closest("[data-close]")) { mx.open = null; draw(mx.body); }
+      var nb = e.target.closest("[data-native]"); if (nb && t) {
+        var k = nb.dataset.native;
+        if (k === "freeze") D.native.freeze(t.id).then(function () { draw(mx.body); }).catch(function (er) { UI.say(er.message || String(er), true); });
+        if (k === "unfreeze") { D.native.unfreeze(t.id); draw(mx.body); }
+        if (k === "window") { var host = D.native.host(); if (!host) return; D.nudge("Plugin window", function () { var x = D.track(t.id).inserts.filter(function (q) { return q.id === f.id; })[0]; if (x) x.v = (x.v || 0) + 1; });   // (its settings may change in its window: freeze again after)
+          host.editor(D.native.slot(f), D.native.list(t).map(function (q) { return { slot: D.native.slot(q), format: q.plugin.format, id: q.plugin.id, path: q.plugin.path, name: q.plugin.name }; }), true).then(function (r) { if (r && r.error) UI.say(r.error, true); else UI.say("Its window is open. Freeze the track again when you're done (an export does it for you)."); }); }
+      } var a = e.target.closest("[data-auto]"); if (a) { var key = a.dataset.auto; D.edit("Automation lane", function () { var tt = D.track(id); if (tt.lanes.indexOf(key) < 0) tt.lanes.push(key); }); UI.say("An automation lane is under the track: click it to add points."); } };
     $$("[data-k]", panel).forEach(function (inp) {
       var q = def.params.filter(function (x) { return x[0] === inp.dataset.k; })[0];
       inp.oninput = function () { var v = +inp.value; if (inp.nextElementSibling && inp.nextElementSibling.tagName === "OUTPUT") inp.nextElementSibling.textContent = fmt(v, q); D.nudge(def.name + " " + q[1], function (pp) { var l = master ? pp.master.inserts : D.track(id).inserts, x = l.filter(function (z) { return z.id === fid; })[0]; x.params = x.params || {}; x.params[q[0]] = v; }); };
       inp.onchange = inp.oninput;
     });
+  }
+  function nativeInfo(t, f) {
+    if (!t) return '<p class="cd-dim">VST3 and CLAP plugins go on tracks (not the main mix).</p>';
+    var st = D.native.state(t), host = !!D.native.host(), fz = t.frozen;
+    var what = { frozen: "Frozen " + (fz && fz.at ? new Date(fz.at).toLocaleTimeString() : "") + (fz && fz.latency ? " · its delay (" + fz.latency + " samples) taken off" : "") + ": playback and exports use it.", stale: "Changed since it was frozen: it plays without its plugins until it's frozen again (exports freeze it first).", unfrozen: "Not frozen yet: playback is without it until you freeze the track (exports freeze it first).", freezing: "Freezing…" }[st] || "";
+    return '<div class="cd-native"><p><b>' + esc(f.plugin.name) + "</b> · " + esc(String(f.plugin.format).toUpperCase()) + (f.plugin.vendor ? " · " + esc(f.plugin.vendor) : "") + "</p>" +
+      (host ? '<p class="cd-dim">Live: while this audio track is armed and monitored, you hear its input through it (from the plugin host, with its own low delay); the recording is the dry input. ' + esc(what) + "</p>" +
+        '<div class="cd-line"><button data-native="window">Open its window</button><button data-native="freeze" class="primary"' + (st === "freezing" ? " disabled" : "") + ">" + (st === "frozen" ? "Freeze again" : "Freeze the track") + "</button>" + (fz ? '<button data-native="unfreeze">Unfreeze</button>' : "") + "</div>"
+        : '<p class="cd-dim">This VST3 / CLAP plugin plays in the Central Production and Central Usage apps on a computer. Here the track plays without it' + (st === "frozen" ? ", except its frozen sound, which plays as it was." : ".") + "</p>") + "</div>";
   }
   function fmt(v, q) { var u = q[5]; return (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 100) / 100) + (u ? " " + u : ""); }
   function meters() {

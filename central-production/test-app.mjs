@@ -16,6 +16,7 @@ const env = Object.assign({}, process.env, { HOME: home, XDG_DOCUMENTS_DIR: docs
 fs.mkdirSync(docs, { recursive: true });
 // a Central Control here, to receive what's installed into "my apps"
 fs.mkdirSync(path.join(home, ".config", "Central Usage"), { recursive: true });
+env.CLAP_PATH = path.join(here, "..", "central-usage", "native", "build", "test-plugins");   // (the plugin host's test plugins)
 let app = await electron.launch({ executablePath: exe, args: [here, "--no-sandbox", "--user-data-dir=" + userData], env });
 let win = await app.firstWindow(); const errs = []; win.on("pageerror", (e) => errs.push(String(e)));
 const T = (fn, a) => win.evaluate(fn, a);
@@ -50,6 +51,31 @@ await check("Install into my apps: a personal library in this app and in Central
 await check("the sound list has the built-in sounds (and the computer's banks when it has them)", async () => {
   await T(() => window.CUStudioSounds.refresh()); await win.waitForTimeout(500);
   assert.ok(await T(() => CUStudioSounds.list().length >= 5));
+});
+const rigBin = path.join(here, "..", "central-usage", "native", "build", "cu-rig"), testPlugs = path.join(here, "..", "central-usage", "native", "build", "test-plugins");
+if (fs.existsSync(rigBin) && fs.existsSync(path.join(testPlugs, "central-test.clap"))) await check("(10.2) VST3 / CLAP on a track: the rig finds them; freezing plays the track through one (with its saved settings), exports use it", async () => {
+  const list = await T(() => CDaw.native.host().list(true).then((l) => l.map((p) => ({ id: p.id, format: p.format, path: p.path, name: p.name }))));
+  const gain = list.find((p) => p.id === "audio.motion.test-gain"); assert.ok(gain, "found: " + JSON.stringify(list.map((p) => p.name)));
+  assert.ok(!list.some((p) => p.id === "audio.motion.test-synth"), "instruments aren't offered as inserts");
+  // its settings, as its window would leave them: +12 dB in the slot's saved state (the rig on its own, then quit)
+  const slot = "dwfN1", q = (await import("node:child_process")).spawn(rigBin, ["--data", path.join(userData, "daw-rig"), "--backend", "null"], { stdio: ["pipe", "pipe", "ignore"] });
+  const say = (m) => q.stdin.write(JSON.stringify(m) + "\n");
+  say({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [{ uid: slot, id: "plug", plugin: gain, on: true, mix: 1, levelDb: 0 }], levelDb: 0, routing: {} } });
+  await new Promise((r) => setTimeout(r, 1500)); say({ action: "pluginParams", uid: slot }); await new Promise((r) => setTimeout(r, 500));
+  say({ action: "pluginSet", uid: slot, id: 1, value: 0.75 }); await new Promise((r) => setTimeout(r, 400)); say({ action: "pluginSave" }); await new Promise((r) => setTimeout(r, 400)); q.stdin.end(); await new Promise((r) => q.on("close", r));
+  const r = await T(async (g) => {
+    CP.setDirty(false); CDaw.markSaved(); await CP.create("track", { name: "Native" }); const t = CDaw.project().tracks.find((x) => x.name === "Keys");
+    CDaw.edit("n", () => { const k = CDaw.track(t.id); k.clips = [{ id: "cn", kind: "midi", start: 0, len: 4, notes: [{ p: 57, v: 100, s: 0, d: 3 }] }]; k.inserts = []; });
+    const peak = (b) => { let m = 0; const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) m = Math.max(m, Math.abs(d[i])); return m; };
+    const dry = peak(await CDaw.render({ from: 0, to: 4, tracks: [t.id], tail: 0 }));
+    CDaw.edit("add", () => { CDaw.track(t.id).inserts.unshift({ id: "fN1", type: "native", on: true, params: {}, plugin: g, v: 0 }); });
+    const before = CDaw.native.state(CDaw.track(t.id)), wet = peak(await CDaw.render({ from: 0, to: 4, tracks: [t.id], tail: 0 }));   // (an export freezes it first)
+    const after = CDaw.native.state(CDaw.track(t.id));
+    CDaw.edit("move", () => { CDaw.track(t.id).clips[0].notes[0].p = 60; }); const stale = CDaw.native.state(CDaw.track(t.id));
+    return { dry, wet, before, after, stale, audio: CDaw.usedAudio().length };
+  }, gain);
+  assert.equal(r.before, "unfrozen"); assert.equal(r.after, "frozen"); assert.equal(r.stale, "stale"); assert.ok(r.audio >= 1, "the frozen sound is saved with the project");
+  assert.ok(r.wet > r.dry * 3.2 && r.wet < r.dry * 4.8, "+12 dB through the plugin: dry " + r.dry + ", frozen " + r.wet);
 });
 await win.evaluate(() => { CP.setDirty(false); CDaw.markSaved(); }).catch(() => { }); await app.close();
 await check("a .cmproj given to the app (double-clicked) opens by itself", async () => {

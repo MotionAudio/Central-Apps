@@ -170,3 +170,5 @@
 .cd-audio h4 { margin: 8px 0 0; }
 .cd-auinfo { line-height: 1.6; }
 .cd-dialog.cd-wide { max-width: 680px; }
+.cd-native { display: flex; flex-direction: column; gap: 6px; padding: 6px 2px; flex-basis: 100%; }
+.cd-native p { margin: 0; }

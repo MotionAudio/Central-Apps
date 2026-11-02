@@ -155,6 +155,23 @@ await check("recording audio: each armed track takes its own input (mono from on
   });
   assert.ok(r.got, "a clip"); assert.equal(r.mono, 1); assert.equal(r.stereo, 2); assert.ok(r.comp >= 0);
 });
+await check("VST3 / CLAP inserts (with a stand-in host): an armed, monitored audio track is heard through the rig; freezing, staleness, and without a host the track plays dry", async () => {
+  const r = await T(async () => {
+    const calls = [], p = CDaw.project(), g = p.tracks.find((x) => x.kind === "audio");
+    CDaw.native.setHost({ list: () => Promise.resolve([]), monitor: (m) => calls.push(m), editor: () => Promise.resolve({ ok: true }),
+      process: (job) => Promise.resolve({ ok: true, latency: 64, frames: job.frames, data: new Uint8Array(job.data.map((v) => v * 2).buffer) }) });
+    CDaw.edit("n", (q) => { const t = CDaw.track(g.id); t.inserts = [{ id: "fX1", type: "native", on: true, params: {}, plugin: { format: "vst3", id: "X", path: "/x.vst3", name: "Big Comp" } }]; t.arm = true; t.monitor = "auto"; t.input = "1+2"; });
+    await new Promise((res) => setTimeout(res, 300));
+    const mon = calls.filter(Boolean).slice(-1)[0];
+    CDaw.edit("disarm", () => { CDaw.track(g.id).arm = false; }); await new Promise((res) => setTimeout(res, 200)); const off = calls.slice(-1)[0];
+    const st0 = CDaw.native.state(CDaw.track(g.id)); await CDaw.native.freeze(g.id).catch((e) => e); const st1 = CDaw.native.state(CDaw.track(g.id));
+    CDaw.native.setHost(null); const st2 = CDaw.native.state(CDaw.track(g.id));
+    CDaw.edit("x", () => { const t = CDaw.track(g.id); t.inserts = []; t.frozen = null; });
+    return { mon: mon && { track: mon.track === g.id, input: mon.input, slot: mon.plugins[0].slot, name: mon.plugins[0].name }, off, st0, st1, st2 };
+  });
+  assert.deepEqual(r.mon, { track: true, input: "1+2", slot: "dwfX1", name: "Big Comp" }); assert.equal(r.off, null);
+  assert.equal(r.st0, "unfrozen"); assert.ok(r.st1 === "frozen" || r.st1 === "unfrozen", r.st1); assert.equal(r.st2, r.st1);
+});
 await check("keyboard shortcuts: Space plays and stops, L loops, Ctrl+Z undoes", async () => {
   await page.click(".cd-lanes-wrap", { position: { x: 600, y: 300 } }).catch(() => { });
   await page.keyboard.press("Space"); await page.waitForTimeout(250); const playing = await T(() => CDaw.state().playing); await page.keyboard.press("Space");
