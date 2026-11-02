@@ -1039,7 +1039,8 @@
       var msg = {
         type: "display", t: Date.now(),
         song: s ? { name: s.name, key: s.key, bpm: Math.round(s.bpm), index: p.songIndex, count: p.songs.length, chart: s.chart || null, hasTracks: !!t.stems.length } : null,
-        songs: p.songs.map(function (q) { return { id: q.id, name: q.name, key: q.key, chart: q.chart ? q.chart.id : null, hasTracks: !!(q.tracks && q.tracks.stems && q.tracks.stems.length) }; }),
+        // (10.2: each song's length and whether it has words - for the run sheets and the pre-service check)
+        songs: p.songs.map(function (q) { var qt = q.tracks || {}; return { id: q.id, name: q.name, key: q.key, chart: q.chart ? q.chart.id : null, hasTracks: !!(qt.stems && qt.stems.length), duration: Math.round(Number(qt.duration) || 0), hasLyrics: !!(qt.chartText || (qt.sections || []).some(function (x) { return x && x.lyrics; }) || (q.chart && q.chart.id)) }; }),
         tracksMode: !!p.tracksMode, playing: state.playing, pos: Math.round(state.pos * 100) / 100, duration: t ? t.duration : 0, countIn: state.countIn, loop: state.loop,
         bpm: s ? Math.round(s.bpm) : Math.round(p.tempo.bpm), key: PP.playKeyFor(PP.currentPad()), bar: bar.bar, beat: bar.beat, bpb: g ? g.bpb : 4, speed: t ? t.tempoPercent / 100 : 1,
         beatFrac: g ? Math.max(0, Math.min(.999, (bar.frac * g.bpb) % 1)) : 0, tab: window.PPShell ? window.PPShell.currentTab() : "pads",

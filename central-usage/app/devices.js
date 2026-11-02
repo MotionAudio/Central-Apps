@@ -23,6 +23,7 @@
     var ie = window.CUInEarStats && window.CUInEarStats(); if (ie) { h.ieBuf = ie.bufferMs; h.ieDrops = ie.underruns; }
     if (navigator.connection && navigator.connection.effectiveType) h.net = navigator.connection.effectiveType;
     var sy = window.CUHubStandby && window.CUHubStandby.health(); if (sy) Object.assign(h, sy);   // (the second main admin's computer: how its copy of the hub is doing)
+    h.clock = Date.now();   // (10.2: the pre-service check compares each device's clock with the main admin's)
     var R0 = R(); CU.send({ type: "cuRole", action: "health", id: R0 ? R0.devId() : undefined, health: h });
   }
   setInterval(report, 5000); CU.on("center", function (on) { if (on) setTimeout(report, 1500); });

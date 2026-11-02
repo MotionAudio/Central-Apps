@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run sheet · Central Control</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  body { margin: 0; background: #fafaf7; }
+  .bar { position: sticky; top: 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 16px; background: #1a1d22; color: #ece7dd; font: 14px Inter, system-ui, sans-serif; }
+  .bar select, .bar button { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid #454c58; background: #23272e; color: #ece7dd; }
+  .bar .now { margin-left: auto; color: #e2c27e; font-weight: 650; }
+  #sheet { max-width: 900px; margin: 0 auto; }
+  @media print { .bar { display: none; } }
+  @media (max-width: 600px) { #sheet td:nth-child(3) { display: none; } }
+</style>
+</head>
+<body>
+<div class="bar"><b>Run sheet</b><select id="pick"></select><button id="print">Print</button><span class="now" id="now"></span></div>
+<div id="sheet"></div>
+<script src="runsheet-gen.js"></script>
+<script>
+// The run sheet on any phone or computer on the church Wi-Fi: http://<main admin>:8095/cu/runsheet.html - read only,
+// it follows the running service (the item now on is marked) and prints.
+(function () {
+  var G = window.CURunsheetGen, pick = document.getElementById("pick"), sheet = document.getElementById("sheet"), nowEl = document.getElementById("now");
+  var st = null, chosen = new URLSearchParams(location.search).get("sheet") || "";
+  var style = document.createElement("style"); style.textContent = G.PRINT_CSS.replace(/body\{[^}]*\}/, "#sheet{font:14px/1.45 Inter,system-ui,sans-serif;color:#111;padding:16px}"); document.head.appendChild(style);
+  function draw() {
+    if (!st) return;
+    var list = st.services || [];
+    var opts = list.map(function (s) { return '<option value="' + s.id + '">' + s.name.replace(/</g, "&lt;") + "</option>"; }).join("");
+    if (pick.dataset.o !== opts) { pick.dataset.o = opts; pick.innerHTML = opts; }
+    var run = st.run, sv = list.filter(function (s) { return s.id === (chosen || (run && run.service)); })[0] || list[0];
+    if (!sv) { sheet.innerHTML = '<p style="padding:24px;font:16px Inter,sans-serif">No run sheets yet. The main admin makes them on the Service tab.</p>'; return; }
+    pick.value = sv.id;
+    sheet.innerHTML = G.sheetHtml(sv, { live: run && run.service === sv.id ? run.item : null });
+    nowEl.textContent = run && run.service === sv.id ? "Now: " + ((sv.items[run.item] || {}).title || "") : "";
+  }
+  async function load() { try { st = await (await fetch("/api/service", { cache: "no-store" })).json(); draw(); } catch (_) { nowEl.textContent = "Can't reach Central Control"; } }
+  pick.addEventListener("change", function () { chosen = pick.value; draw(); });
+  document.getElementById("print").addEventListener("click", function () { window.print(); });
+  load(); setInterval(load, 5000);
+})();
+</script>
+</body>
+</html>
