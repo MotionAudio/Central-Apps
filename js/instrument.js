@@ -112,7 +112,7 @@
   function isComm(item) { return !!(item && item.plugin && item.plugin.community); }
   function playsHere(item) { return isComm(item) ? commHost() : plugHost(); }
   var BYPASS = { crashed: "It crashed, so it’s bypassed – the sound goes on without it.", hung: "It stopped responding, so it’s bypassed – the sound goes on without it.", heavy: "It’s too heavy for this device, so it’s bypassed – the sound goes on without it.", revoked: "Motion Audio took it down, so it’s off and has come off this device.", off: "Community plugins are switched off on this device (Settings → Packages → Community).", stopped: "It stopped, so it’s bypassed." };
-  function commLabel(pl) { return "Community plugin - made by " + (pl.creator || pl.vendor || "a creator") + ", checked by Motion Audio"; }
+  function commLabel(pl) { return pl.mine ? "Your plugin - made in Central Production" : "Community plugin - made by " + (pl.creator || pl.vendor || "a creator") + ", checked by Motion Audio"; }
 
   // ------------------------------------------------------------- plugin port info (generated from the OS image: js/plugin-ports.js; the Pi's live scan wins when present)
   var PORTS = window.PP_PLUGIN_PORTS || {}, KNOBS = window.PP_PEDAL_KNOBS || {};
@@ -228,7 +228,7 @@
   function plugSvg(item, pedal, idx, sel) {
     var pl = pedal.plugin, w = 150, h = 190, on = item.on !== false, info = slotInfo(item.uid), err = slotError(item.uid), host = playsHere(item), cm = !!pl.community, byp = info && info.bypassed;
     var state = !host ? (cm ? "not on this device" : "here: preview") : err ? "didn’t load" : byp ? "bypassed" : info ? (info.instrument ? "instrument" : "ready") : "loading…";
-    var vendor = cm ? "by " + String(pl.creator || pl.vendor || "a creator") : String(pl.vendor || ""), nm = pedal.name, chip = cm ? "Community" : fmtName(pl.format);
+    var vendor = cm ? (pl.mine ? "made by you" : "by " + String(pl.creator || pl.vendor || "a creator")) : String(pl.vendor || ""), nm = pedal.name, chip = cm ? (pl.mine ? "Yours" : "Community") : fmtName(pl.format);
     return '<svg class="pedal plug' + (cm ? " community" : "") + (sel ? " selected" : "") + (on ? "" : " off") + (err || byp ? " err" : "") + '" viewBox="0 0 ' + w + " " + h + '" data-uid="' + item.uid + '" role="button" tabindex="0" aria-label="' + esc(nm + (cm ? " (community plugin, walled off)" : " (" + fmtName(pl.format) + " plugin)") + (byp ? ", bypassed" : "")) + '">' +
       '<defs><linearGradient id="g' + item.uid + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + (cm ? "#47b9a8" : "#8d80e6") + '"/><stop offset="1" stop-color="' + (cm ? "#1f6d63" : "#4b3f9e") + '"/></linearGradient></defs>' +
       '<rect x="3" y="3" width="' + (w - 6) + '" height="' + (h - 6) + '" rx="12" fill="url(#g' + item.uid + ')" stroke="' + (sel ? "#fff" : "rgba(0,0,0,.5)") + '" stroke-width="' + (sel ? 3 : 1.5) + '"/>' +
@@ -366,7 +366,7 @@
   }
   function addPanel() {
     var host = plugHost(), nPlug = plugs.list.filter(function (p) { return p.kind === "effect"; }).length, ch = commHost() && comm.list.length > 0;
-    var tabs = host || ch ? '<div class="add-tabs"><button class="st-chip' + (addTab !== "plugins" && addTab !== "community" ? " on" : "") + '" data-addtab="pedals">Built-in pedals <small>' + PED.pedals.length + "</small></button>" + (host ? '<button class="st-chip' + (addTab === "plugins" ? " on" : "") + '" data-addtab="plugins">Your plugins <small>' + (plugs.scanned ? nPlug : "…") + "</small></button>" : "") + (ch ? '<button class="st-chip' + (addTab === "community" ? " on" : "") + '" data-addtab="community">Community <small>' + comm.list.length + "</small></button>" : "") + "</div>" : "";
+    var tabs = host || ch ? '<div class="add-tabs"><button class="st-chip' + (addTab !== "plugins" && addTab !== "community" ? " on" : "") + '" data-addtab="pedals">Built-in pedals <small>' + PED.pedals.length + "</small></button>" + (host ? '<button class="st-chip' + (addTab === "plugins" ? " on" : "") + '" data-addtab="plugins">Your plugins <small>' + (plugs.scanned ? nPlug : "…") + "</small></button>" : "") + (ch ? '<button class="st-chip' + (addTab === "community" ? " on" : "") + '" data-addtab="community">' + (comm.list.some(function (p) { return p.mine; }) ? "Yours &amp; community" : "Community") + ' <small>' + comm.list.length + "</small></button>" : "") + "</div>" : "";
     if (ch && addTab === "community") {
       var cq = addQuery.toLowerCase(), cl = comm.list.map(function (p, i) { return [p, i]; }).filter(function (x) { return !cq || (x[0].name + " " + x[0].creator).toLowerCase().indexOf(cq) > -1; });
       return '<section class="in-add"><div class="row spread"><h3>Add a pedal</h3>' + tabs + '<input id="pbSearch" placeholder="Search community plugins…" value="' + esc(addQuery) + '"><button id="pbAddClose">Close</button></div>' +
@@ -530,7 +530,7 @@
       // the musician's own plugins
       if (b.dataset.addtab) { addTab = b.dataset.addtab; addCat = "all"; if (addTab === "plugins" && !plugs.scanned && !plugs.scan) scanPlugins(false); render(); var s2 = $("#pbSearch"); if (s2) s2.focus(); return; }
       if (b.dataset.addplug) { var pp = plugs.list.filter(function (q) { return q.key === b.dataset.addplug; })[0]; if (pp) { var pit = { uid: uid(), pedal: "plug", plugin: plugRef(pp), on: true, values: {} }; chain.push(pit); selected = pit.uid; showAdd = false; apply("add"); render(); PP.setStatus("Loading " + pp.name + "…"); } return; }
-      if (b.dataset.addcomm) { var cp = comm.list[Number(b.dataset.addcomm)]; if (cp) { var cit = { uid: uid(), pedal: "plug", plugin: { format: cp.format, id: "", path: cp.path, name: cp.name, vendor: cp.creator, community: true, creator: cp.creator, library: cp.library }, on: true, values: {} }; chain.push(cit); selected = cit.uid; showAdd = false; apply("add"); render(); PP.setStatus("Starting " + cp.name + " (walled off)…"); } return; }
+      if (b.dataset.addcomm) { var cp = comm.list[Number(b.dataset.addcomm)]; if (cp) { var cit = { uid: uid(), pedal: "plug", plugin: { format: cp.format, id: "", path: cp.path, name: cp.name, vendor: cp.mine ? "You" : cp.creator, community: true, creator: cp.creator, library: cp.library, mine: !!cp.mine }, on: true, values: {} }; chain.push(cit); selected = cit.uid; showAdd = false; apply("add"); render(); PP.setStatus("Starting " + cp.name + " (walled off)…"); } return; }
       if (b.dataset.plugretry) { send({ type: "instrument", action: "pluginRestart", uid: b.dataset.plugretry }); PP.setStatus("Trying it again…"); return; }
       if (b.dataset.plugwin || b.dataset.klwin) { var wid = b.dataset.plugwin || b.dataset.klwin, si = slotInfo(wid), isOpen = !!(plugs.open[wid] || (si && si.open)); send({ type: "instrument", action: "pluginEditor", uid: wid, open: !isOpen }); plugs.open[wid] = !isOpen; render(); return; }
       if (b.id === "plugScan") { scanPlugins(true); return; }
@@ -786,6 +786,8 @@
     // (10.1) the community plugins installed with them (Add pedal → Community); one whose library is gone (removed, or taken
     // down by Motion Audio) comes off every board - the engine has already stopped it live
     comm.list = [];
+    // (10.2) and the plugins you made in Central Production (a personal library's Central FX): yours, on the same stage
+    Object.keys(want).forEach(function (id) { var l = want[id]; (Array.isArray(l.fx) ? l.fx : []).forEach(function (x) { if (x && x.file) comm.list.push({ name: String(x.name || "My plugin"), format: "cmfx", path: x.file, creator: "you", library: id, mine: true }); }); });
     Object.keys(want).forEach(function (id) { var l = want[id]; if (!l.community || !Array.isArray(l.plugins)) return; l.plugins.forEach(function (p) { if (p && p.path && p.format) comm.list.push({ name: String(p.name || p.bundle || "Plugin"), format: p.format, path: p.path, creator: String(l.community.creator || ""), library: id }); }); });
     var gone = 0; Object.keys(c.chains || {}).forEach(function (kk) { var ch = c.chains[kk]; if (!Array.isArray(ch)) return; var keep = ch.filter(function (it) { return !(isComm(it) && it.plugin.library && !want[it.plugin.library] && c.libs[it.plugin.library] !== undefined); }); gone += ch.length - keep.length; c.chains[kk] = keep; });
     if (gone) { changed++; if (kind() !== "off") apply("community"); PP.setStatus(gone === 1 ? "A community plugin came off your board (it isn’t installed here any more)." : gone + " community plugins came off your boards (they aren’t installed here any more)."); }

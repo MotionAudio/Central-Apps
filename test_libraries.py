@@ -376,6 +376,43 @@ def run(tmp):
     left = [f for f in os.listdir(rig.sf2_user_dir) if f.endswith(".sf2")] + [f for f in os.listdir(rig.ir_dir) if f.endswith(".wav")]
     check("Remove takes every file and plan line the libraries added away", not left and not store.installed() and "central-" not in open(os.path.join(rig.sf2_user_dir, "tiers.txt")).read(), left)
 
+    # (10.2) a plugin you made in Central Production: its personal library (plan "free", personal) installs on the Central
+    # Pedal too, and the plugin is listed as yours - for the pedalboard and the effects - without the community switch
+    fxzip = os.path.join(tmp, "my-tremolo.zip")
+    fxjson = json.dumps({"format": "central-fx", "version": 1, "name": "My Tremolo", "blocks": [], "wires": []}).encode()
+    with zipfile.ZipFile(fxzip, "w") as z:
+        z.writestr("manifest.json", json.dumps({"format": 1, "id": "my-tremolo-abc123", "plan": "free", "personal": True, "version": "1.1790000000", "title": "My Tremolo",
+                                                "items": [{"kind": "fx", "file": "fx/My Tremolo.cmfx.json", "name": "My Tremolo", "format": "central-fx", "sha256": hashlib.sha256(fxjson).hexdigest()}]}))
+        z.writestr("fx/My Tremolo.cmfx.json", fxjson)
+    store.set_plugins_allowed(False)
+    frec = store.install_file(fxzip)
+    mine = store.central_fx()
+    lst = [x for x in store.listing() if x["id"] == "my-tremolo-abc123"]
+    check("(10.2) your own Central FX plugin (a personal library) installs here and is listed as yours, the community switch off",
+          frec["source"] == "personal" and frec["counts"].get("fx") == 1 and os.path.isfile(frec["fx"][0]["file"]) and frec["fx"][0]["file"].endswith(".cmfx.json")
+          and [(m["name"], m["from"]) for m in mine] == [("My Tremolo", "mine")] and lst and lst[0]["fx"] and lst[0]["personal"], (frec, mine))
+    try:
+        bad = os.path.join(tmp, "not-fx.zip")
+        with zipfile.ZipFile(bad, "w") as z:
+            z.writestr("manifest.json", json.dumps({"format": 1, "id": "my-bad-abc123", "plan": "free", "personal": True, "version": "1.1", "items": [{"kind": "fx", "file": "fx/x.cmfx.json"}]}))
+            z.writestr("fx/x.cmfx.json", "{\"format\": \"lv2\"}")
+        store.install_file(bad)
+        bad_refused = False
+    except libraries.LibraryError:
+        bad_refused = True
+    try:
+        sneak = os.path.join(tmp, "sneak.zip")
+        with zipfile.ZipFile(sneak, "w") as z:
+            z.writestr("manifest.json", json.dumps({"format": 1, "id": "sneaky-lib", "plan": "free", "version": "1.1", "items": [{"kind": "fx", "file": "fx/x.cmfx.json"}]}))
+            z.writestr("fx/x.cmfx.json", fxjson)
+        store.install_file(sneak)
+        sneak_refused = False
+    except libraries.LibraryError:
+        sneak_refused = True
+    check("(10.2) ...a file that isn't a Central FX plugin is refused, and plan \"free\" is only for your own (personal) libraries", bad_refused and sneak_refused)
+    store.remove("my-tremolo-abc123")
+    check("(10.2) ...and Remove takes it away", not store.central_fx() and not os.path.exists(frec["fx"][0]["file"]))
+
     print("\nDownloads:")
     payload = open(kzip, "rb").read()
 

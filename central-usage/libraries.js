@@ -126,7 +126,7 @@ class Libraries {
     }
     return out;
   }
-  listing() { return this.installed().map((r) => ({ id: r.id, plan: r.plan, version: r.version, title: r.title, summary: r.summary, installedAt: r.installedAt, counts: r.counts, boards: r.boards, presets: r.presets, source: r.source, community: r.community, plugins: r.plugins, looks: r.looks || [] })); }
+  listing() { return this.installed().map((r) => ({ id: r.id, plan: r.plan, version: r.version, title: r.title, summary: r.summary, installedAt: r.installedAt, counts: r.counts, boards: r.boards, presets: r.presets, source: r.source, community: r.community, plugins: r.plugins, looks: r.looks || [], fx: r.fx || [], personal: !!r.personal })); }
 
   // ----- (10.1) community plugins: this computer's switch, and the website's revoke list
   pluginsDir() { return path.join(this.root, "community-plugins"); }
