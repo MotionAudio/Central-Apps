@@ -161,3 +161,12 @@
 /* (a mixer strip keeps its parts; the fader takes what's left, and the mixer scrolls when the dock is short) */
 .cd-strip>*{flex-shrink:0}.cd-strip>.cd-faderrow{flex:1 1 auto;min-height:96px}
 .cd-strips{overflow:auto}.cd-ins{min-height:0}.cd-sends{min-height:0}
+
+/* Settings → Audio */
+.cd-audio { display: flex; flex-direction: column; gap: 8px; min-width: min(560px, 90vw); }
+.cd-audio .cd-line { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.cd-audio label.cd-line select { flex: 1; min-width: 0; }
+.cd-audio label { display: flex; gap: 6px; align-items: center; }
+.cd-audio h4 { margin: 8px 0 0; }
+.cd-auinfo { line-height: 1.6; }
+.cd-dialog.cd-wide { max-width: 680px; }

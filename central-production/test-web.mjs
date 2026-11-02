@@ -113,6 +113,24 @@ await check("Central FX plugins in the inserts: the picker lists the builder's e
   });
   assert.ok(r.fx > 4 && r.fx > r.plain * 3, "tremolo swing " + r.fx + " (plain " + r.plain + ")"); assert.deepEqual(r.knobs, ["Speed", "Depth", "Wide"]);
 });
+await check("Settings → Audio: devices, sample rate and buffer (the sound restarts), input channels per track, the loopback measurement's maths", async () => {
+  await page.click('[data-a="audio"]'); await page.waitForSelector(".cd-modal .cd-audio select[data-au=rate]");
+  await page.waitForFunction(() => /Input delay/.test((document.querySelector(".cd-auinfo") || {}).textContent || ""), null, { timeout: 10000 });
+  await page.selectOption(".cd-modal select[data-au=rate]", "44100"); await page.waitForFunction(() => CDaw.ctx().sampleRate === 44100);
+  await page.selectOption(".cd-modal select[data-au=buffer]", "512");
+  const r = await T(() => {
+    const a = CDaw.audio.settings(), rate = 48000, chunks = [], t0 = 1.0, times = [1.2, 1.6, 2.0, 2.4, 2.8, 3.2], n = rate * 3, x = new Float32Array(n);
+    times.forEach((t) => { const i = Math.round((t - t0 + 0.0125) * rate); for (let k = 0; k < 40; k++) x[i + k] = Math.sin(k) * 0.6; });
+    for (let o = 0; o < n; o += 128) chunks.push([x.slice(o, o + 128), new Float32Array(128)]);
+    return { rate: a.rate, buffer: a.buffer, ctxRate: CDaw.ctx().sampleRate, delay: CDaw.audio.findDelay(times, chunks, t0, rate), none: CDaw.audio.findDelay(times, [[new Float32Array(rate)]], t0, rate), choices: CDaw.audio.choices(4).map((c) => c.id), ch: [CDaw.audio.channelsOf("3"), CDaw.audio.channelsOf("3+4")] };
+  });
+  assert.equal(r.rate, 44100); assert.equal(r.buffer, 512); assert.equal(r.ctxRate, 44100);
+  assert.equal(r.delay, 12.5); assert.equal(r.none, null);
+  assert.deepEqual(r.choices, ["1", "2", "3", "4", "1+2", "3+4"]); assert.deepEqual(r.ch, [[2], [2, 3]]);
+  await page.selectOption(".cd-modal select[data-au=rate]", "48000"); await page.selectOption(".cd-modal select[data-au=buffer]", "256");
+  await page.waitForFunction(() => CDaw.ctx().sampleRate === 48000);
+  await shot("05b-audio"); await page.click('.cd-modal [data-r="close"]');
+});
 await check("a loop dragged in at another tempo is stretched to the song's (same length in bars, keeps its pitch)", async () => {
   const r = await T(async () => { const rate = 48000, secs = 2, b = new AudioBuffer({ length: rate * secs, numberOfChannels: 1, sampleRate: rate }), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.sin(2 * Math.PI * 440 * i / rate) * 0.5;   // a 4-beat "loop" at 120 BPM
     const wav = CMProj.wav(b, 16); const res = await CDaw.importAudio(null, new Uint8Array(wav), "loop.wav", 0, { bpm: 120, key: "C", bars: 1 }); const buf = CDaw.buffers[res.clip.audio.src];
@@ -122,6 +140,20 @@ await check("a loop dragged in at another tempo is stretched to the song's (same
 await check("recording MIDI from a keyboard (count-in off) makes a clip on the armed track", async () => {
   const n = await T(async () => { const t = CDaw.project().tracks.find((x) => x.name === "Bass"); CDaw.edit("arm", (p) => { p.tracks.forEach((x) => { x.arm = x.id === t.id; }); p.metronome.countIn = 0; }); CDaw.setPos(8); CDaw.record(); await new Promise((r) => setTimeout(r, 400)); CDaw.live(t.id, [0x90, 40, 100]); await new Promise((r) => setTimeout(r, 300)); CDaw.live(t.id, [0x80, 40, 0]); await new Promise((r) => setTimeout(r, 200)); CDaw.stop(); return CDaw.track(t.id).clips.reduce((a, c) => a + (c.notes || []).length, 0); });
   assert.ok(n >= 1, "notes " + n);
+});
+await check("recording audio: each armed track takes its own input (mono from one channel, stereo from a pair), lined up by the compensation", async () => {
+  const r = await T(async () => {
+    const p = CDaw.project(), g = p.tracks.find((x) => x.name === "Guide") || p.tracks.find((x) => x.kind === "audio");
+    let s2 = p.tracks.find((x) => x.name === "Stereo in"); if (!s2) CDaw.edit("add", (q) => { const t = CDaw.newTrack("audio", "Stereo in"); q.tracks.push(t); }); s2 = CDaw.project().tracks.find((x) => x.name === "Stereo in");
+    CDaw.edit("arm", (q) => { q.tracks.forEach((x) => { x.arm = x.id === g.id || x.id === s2.id; }); CDaw.track(g.id).input = "1"; CDaw.track(s2.id).input = "1+2"; q.metronome.countIn = 0; });
+    const before = (id) => CDaw.track(id).clips.length, b1 = before(g.id), b2 = before(s2.id);
+    CDaw.setPos(16); CDaw.record(); await new Promise((r) => setTimeout(r, 1500)); CDaw.stop();
+    await new Promise((r) => setTimeout(r, 300));
+    const last = (id) => { const c = CDaw.track(id).clips.filter((x) => x.kind === "audio").slice(-1)[0]; return c ? CDaw.buffers[c.audio.src] : null; }, m = last(g.id), st = last(s2.id);
+    CDaw.edit("disarm", (q) => { q.tracks.forEach((x) => { x.arm = false; }); q.tracks = q.tracks.filter((x) => x.id !== s2.id); });
+    return { got: CDaw.track(g.id).clips.length > b1, mono: m && m.numberOfChannels, stereo: st && st.numberOfChannels, comp: CDaw.audio.compensation() };
+  });
+  assert.ok(r.got, "a clip"); assert.equal(r.mono, 1); assert.equal(r.stereo, 2); assert.ok(r.comp >= 0);
 });
 await check("keyboard shortcuts: Space plays and stops, L loops, Ctrl+Z undoes", async () => {
   await page.click(".cd-lanes-wrap", { position: { x: 600, y: 300 } }).catch(() => { });

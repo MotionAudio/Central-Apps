@@ -243,10 +243,103 @@
     if (key.indexOf("fx:") === 0) { var parts = key.split(":"), u = s.chain.filter(function (x) { return x.id === parts[1]; })[0], prm = u && u.param && u.param(parts[2]); if (!prm) return null; var isDb = /makeup|level/.test(parts[2]); return { param: prm, val: function (v) { return isDb ? dbToGain(v) : v; } }; }
     return null;
   };
+  // ------------------------------------------------------------- the audio device (Settings → Audio), kept on this computer
+  // { input, output: device ids ("" = the system's), rate, buffer (frames), channels (how many inputs to open),
+  //   loopbackMs: the measured round trip (output → cable → input) that recordings are lined up by, or null }
+  var AUDIO_KEY = "cdaw-audio";
+  function audioSettings() {
+    var a = {}; try { a = JSON.parse(localStorage.getItem(AUDIO_KEY) || "{}") || {}; } catch (_) { }
+    if (a.input == null) try { a.input = localStorage.getItem("cdaw-input-device") || ""; } catch (_) { }
+    return Object.assign({ input: "", output: "", rate: 48000, buffer: 256, channels: 2, loopbackMs: null }, a);
+  }
+  function setAudio(patch) {
+    var old = audioSettings(), a = Object.assign({}, old, patch || {});
+    a.rate = [44100, 48000, 88200, 96000].indexOf(+a.rate) >= 0 ? +a.rate : 48000; a.buffer = clamp(Math.round(+a.buffer) || 256, 32, 4096); a.channels = clamp(Math.round(+a.channels) || 2, 1, 32);
+    var devChanged = a.input !== old.input || a.output !== old.output || a.rate !== old.rate || a.buffer !== old.buffer;
+    if (devChanged && !(patch && "loopbackMs" in patch)) a.loopbackMs = null;   // (a new route: the old measurement no longer holds)
+    try { localStorage.setItem(AUDIO_KEY, JSON.stringify(a)); } catch (_) { }
+    if (a.input !== old.input || a.channels !== old.channels) closeInput();
+    if (ctx && (a.rate !== old.rate || a.buffer !== old.buffer)) restartCtx();
+    else if (ctx && a.output !== old.output) applyOutput();
+    fire("audio", a); return a;
+  }
+  function applyOutput() {
+    var a = audioSettings(); if (!ctx || !ctx.setSinkId) return Promise.resolve(false);
+    return ctx.setSinkId(a.output || "").then(function () { return true; }).catch(function () { fire("message", "That output isn't connected: playing through the computer's default one."); return false; });
+  }
+  function restartCtx() {   // a new sample rate or buffer size: a new audio context (the project and its audio stay)
+    if (T.playing) stop(); closeInput(); var old = ctx; ctx = null; rt = null;
+    try { old.close(); } catch (_) { }
+    ensureCtx(); fire("transport", state());
+  }
+  function closeInput() {
+    if (rec.stream) { try { rec.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (_) { } rec.stream = null; }
+    if (mon.src) { try { mon.src.disconnect(); } catch (_) { } Object.keys(mon.conns).forEach(function (id) { try { mon.conns[id].g.disconnect(); } catch (_) { } }); }
+    mon.src = null; mon.split = null; mon.conns = {}; rec.chs = 0;
+    if (ctx) setTimeout(syncInputMonitor, 0);
+  }
+  function devices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return Promise.resolve({ inputs: [], outputs: [], names: false });
+    return navigator.mediaDevices.enumerateDevices().then(function (l) {
+      var pick = function (k) { return l.filter(function (d) { return d.kind === k && d.deviceId !== "default" && d.deviceId !== "communications"; }).map(function (d, i) { return { id: d.deviceId, name: d.label || (k === "audioinput" ? "Input " : "Output ") + (i + 1) }; }); };
+      return { inputs: pick("audioinput"), outputs: pick("audiooutput"), names: l.some(function (d) { return !!d.label; }), canPickOutput: !!(window.AudioContext && AudioContext.prototype.setSinkId) };
+    });
+  }
+  // the input channels a track can record from: each one alone (mono) and each pair (stereo)
+  function inputChoices(n) {
+    n = n || rec.chs || audioSettings().channels || 2; var out = [];
+    for (var i = 1; i <= n; i++) out.push({ id: String(i), name: "Input " + i + " (mono)" });
+    for (var j = 1; j + 1 <= n; j += 2) out.push({ id: j + "+" + (j + 1), name: "Inputs " + j + " + " + (j + 1) + " (stereo)" });
+    return out;
+  }
+  function chansOf(spec) { var m = /^(\d+)(?:\+(\d+))?$/.exec(String(spec || "1")); if (!m) return [0]; return m[2] ? [+m[1] - 1, +m[2] - 1] : [+m[1] - 1]; }
+  // what the input is doing: its channels and its delay, the output's delay, and the measured round trip if there is one
+  function inputInfo() {
+    var a = audioSettings(), l = latency();
+    return inputStream().then(function (st) {
+      var tr = st.getAudioTracks()[0], set = tr && tr.getSettings ? tr.getSettings() : {};
+      return { device: tr ? tr.label : "", channels: rec.chs || set.channelCount || 2, rate: ctx ? ctx.sampleRate : a.rate, inputMs: Math.round((set.latency || 0) * 10000) / 10, outputMs: Math.round(l.total * 10000) / 10,
+        bufferMs: Math.round(a.buffer / (ctx ? ctx.sampleRate : a.rate) * 10000) / 10, measuredMs: a.loopbackMs, usedMs: Math.round(compensation() * 10000) / 10 };
+    });
+  }
+  function compensation() { var a = audioSettings(), l = latency(); return a.loopbackMs != null ? a.loopbackMs / 1000 : l.total + (rec.inLat || 0); }
+  // Loopback: six clicks out, listened for on the input (a cable from an output to an input, or a mic by a speaker).
+  // The time from each click to where it comes back is the round trip recordings are moved back by.
+  function measureLatency(opts) {
+    opts = opts || {}; var c = ensureCtx(); if (!c) return Promise.reject(new Error("no audio here")); if (c.state === "suspended") c.resume();
+    return Promise.all([inputStream(), worklets(c)]).then(function (r) {
+      if (!r[1]) throw new Error("this browser can't measure it");
+      var src = c.createMediaStreamSource(r[0]), node = new AudioWorkletNode(c, "cdaw-rec", { numberOfInputs: 1, numberOfOutputs: 0, channelCount: Math.max(1, rec.chs || 2), channelCountMode: "explicit" }), chunks = [], t0 = null;
+      node.port.onmessage = function (e) { if (t0 == null) t0 = e.data.t; chunks.push(e.data.ch); };
+      src.connect(node); node.port.postMessage({ on: true });
+      var out = G(c, opts.level || 0.5), start = c.currentTime + 0.4, times = [], gap = 0.4; out.connect(c.destination);
+      for (var i = 0; i < 6; i++) { var t = start + i * gap, o = c.createOscillator(), e = G(c, 0); times.push(t); o.frequency.value = 2000; o.connect(e).connect(out); e.gain.setValueAtTime(1, t); e.gain.setValueAtTime(0, t + 0.003); o.start(t); o.stop(t + 0.01); }
+      return new Promise(function (res) { setTimeout(res, (0.4 + 6 * gap + 0.5) * 1000); }).then(function () {
+        node.port.postMessage({ on: false }); try { src.disconnect(); out.disconnect(); } catch (_) { }
+        var ms = findDelay(times, chunks, t0, c.sampleRate);
+        if (ms == null) throw new Error("No clicks came back. Connect an output of your interface to an input with a cable (or hold a mic by a speaker), turn it up, and try again.");
+        if (opts.save !== false) setAudio({ loopbackMs: ms });
+        return ms;
+      });
+    });
+  }
+  function findDelay(times, chunks, t0, rate) {
+    if (!chunks.length || t0 == null) return null;
+    var n = chunks.reduce(function (a, ch) { return a + ch[0].length; }, 0), x = new Float32Array(n), o = 0, peak = 0;
+    chunks.forEach(function (ch) { for (var k = 0; k < ch[0].length; k++) { var v = 0; for (var c2 = 0; c2 < ch.length; c2++) v = Math.max(v, Math.abs(ch[c2][k])); x[o + k] = v; if (v > peak) peak = v; } o += ch[0].length; });
+    if (peak < 0.01) return null;
+    var thr = Math.max(0.01, peak * 0.35), ds = [];
+    times.forEach(function (t) { var i0 = Math.max(0, Math.round((t - t0) * rate)), lim = Math.min(n, i0 + Math.round(0.35 * rate)); for (var i = i0; i < lim; i++) if (x[i] > thr) { ds.push((i - i0) / rate * 1000); break; } });
+    if (ds.length < 4) return null;
+    ds.sort(function (a, b) { return a - b; }); var med = ds[ds.length >> 1], good = ds.filter(function (d) { return Math.abs(d - med) < 1.5; });
+    return good.length >= 4 ? Math.round(med * 10) / 10 : null;
+  }
   function ensureCtx() {
     if (ctx) return ctx;
     var C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
-    try { ctx = new C({ latencyHint: "interactive", sampleRate: 48000 }); } catch (_) { ctx = new C({ latencyHint: "interactive" }); }
+    var a = audioSettings();
+    try { ctx = new C({ latencyHint: a.buffer / a.rate, sampleRate: a.rate }); } catch (_) { try { ctx = new C({ latencyHint: "interactive", sampleRate: 48000 }); } catch (__) { ctx = new C({ latencyHint: "interactive" }); } }
+    if (a.output) applyOutput();
     rt = new Graph(ctx, false); worklets(ctx).then(function () { rt.strips && Object.keys(rt.strips).forEach(function (id) { rt.strips[id].chainSig = "x"; }); syncGraph(); });
     syncGraph(); return ctx;
   }
@@ -391,14 +484,16 @@
   function inputStream() {
     if (rec.stream && rec.stream.active) return Promise.resolve(rec.stream);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.reject(new Error("recording isn't available here"));
-    var dev = null; try { dev = localStorage.getItem("cdaw-input-device"); } catch (_) { }
-    return navigator.mediaDevices.getUserMedia({ audio: Object.assign({ echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 }, latency: { ideal: 0.003 } }, dev ? { deviceId: { exact: dev } } : {}) }).then(function (s) { rec.stream = s; return s; });
+    var a = audioSettings(), dev = a.input;
+    var want = function (exact) { return { audio: Object.assign({ echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: a.channels }, sampleRate: { ideal: a.rate }, latency: { ideal: 0.003 } }, dev && exact ? { deviceId: { exact: dev } } : {}) }; };
+    return navigator.mediaDevices.getUserMedia(want(true)).catch(function (e) { if (!dev || e.name !== "OverconstrainedError" && e.name !== "NotFoundError") throw e; fire("message", "The chosen input isn't connected: using the computer's default one."); return navigator.mediaDevices.getUserMedia(want(false)); })
+      .then(function (s) { rec.stream = s; var tr = s.getAudioTracks()[0], st = tr && tr.getSettings ? tr.getSettings() : {}; rec.chs = Math.max(1, Math.min(32, st.channelCount || a.channels || 2)); return s; });
   }
   function startAudio(tracks) {
     return Promise.all([inputStream(), worklets(ctx)]).then(function (r) {
       var stream = r[0]; if (!r[1]) throw new Error("this browser can't record here");
       rec.inLat = 0; try { var st = stream.getAudioTracks()[0].getSettings(); rec.inLat = st.latency || 0; } catch (_) { }
-      var src = ctx.createMediaStreamSource(stream), node = new AudioWorkletNode(ctx, "cdaw-rec", { numberOfInputs: 1, numberOfOutputs: 0, channelCount: 2, channelCountMode: "explicit" });
+      var src = ctx.createMediaStreamSource(stream), node = new AudioWorkletNode(ctx, "cdaw-rec", { numberOfInputs: 1, numberOfOutputs: 0, channelCount: Math.max(1, rec.chs || 2), channelCountMode: "explicit", channelInterpretation: "discrete" });
       src.connect(node); var r2 = { node: node, src: src, chunks: [], t0: null, tracks: tracks };
       node.port.onmessage = function (e) { if (r2.t0 == null) r2.t0 = e.data.t; r2.chunks.push(e.data.ch); };
       node.port.postMessage({ on: true }); rec.nodes = [r2];
@@ -406,14 +501,14 @@
   }
   function finishRecording(endBeat) {
     if (!T.recording) return;
-    T.recording = false; var lat = latency(), comp = lat.total + (rec.inLat || 0) + (proj.recordOffsetMs || 0) / 1000, wraps = T.wraps.slice(), loopOn = proj.loop.on && proj.loop.end > proj.loop.start;
+    T.recording = false; var comp = compensation() + (proj.recordOffsetMs || 0) / 1000, wraps = T.wraps.slice(), loopOn = proj.loop.on && proj.loop.end > proj.loop.start;
     var punchA = proj.punch.on ? proj.punch.start : rec.from, punchB = proj.punch.on ? proj.punch.end : endBeat;
     var midiIds = Object.keys(rec.midi).filter(function (id) { return rec.midi[id].length; });
     var audioDone = [];
     rec.nodes.forEach(function (r) {
       try { r.node.port.postMessage({ on: false }); r.src.disconnect(); } catch (_) { }
       if (!r.chunks.length || r.t0 == null) return;
-      var chs = r.chunks[0].length, n = r.chunks.reduce(function (a, c) { return a + c[0].length; }, 0), all = []; for (var ch = 0; ch < Math.min(2, chs); ch++) all.push(new Float32Array(n));
+      var chs = r.chunks[0].length, n = r.chunks.reduce(function (a, c) { return a + c[0].length; }, 0), all = []; for (var ch = 0; ch < Math.min(32, chs); ch++) all.push(new Float32Array(n));
       var o = 0; r.chunks.forEach(function (c) { all.forEach(function (d, ch) { d.set(c[ch] || c[0], o); }); o += c[0].length; });
       audioDone.push({ r: r, data: all, t0: r.t0 - comp });
     });
@@ -444,8 +539,9 @@
           var takes = [];
           segs.forEach(function (sg) {
             var i0 = Math.round((sg.t - d.t0) * rate), n = Math.round(sg.len * rate); if (n < rate * 0.05) return;
-            var buf = new AudioBuffer({ numberOfChannels: d.data.length, length: n, sampleRate: rate });
-            d.data.forEach(function (arr, ch) { var out = buf.getChannelData(ch); for (var k = 0; k < n; k++) out[k] = arr[i0 + k] || 0; });
+            var pick = chansOf(t.input).map(function (ch) { return d.data[ch] || d.data[0]; });   // (the track's own input channel, or its stereo pair)
+            var buf = new AudioBuffer({ numberOfChannels: pick.length, length: n, sampleRate: rate });
+            pick.forEach(function (arr, ch) { var out = buf.getChannelData(ch); for (var k = 0; k < n; k++) out[k] = arr[i0 + k] || 0; });
             var aid = uid("au"); buffers[aid] = buf; takes.push({ id: uid("k"), src: aid, name: sg.name, beat: sg.beat, len: sg.len });
           });
           if (!takes.length) return;
@@ -506,11 +602,13 @@
   var mon = { src: null, split: null, conns: {} };
   function syncInputMonitor() {
     var want = proj.tracks.filter(function (t) { return t.kind === "audio" && (t.monitor === "in" || (t.monitor === "auto" && t.arm)); });
-    if (!want.length) { Object.keys(mon.conns).forEach(function (id) { try { mon.conns[id].disconnect(); } catch (_) { } }); mon.conns = {}; return; }
+    if (!want.length) { Object.keys(mon.conns).forEach(function (id) { try { mon.conns[id].g.disconnect(); } catch (_) { } }); mon.conns = {}; return; }
     ensureCtx(); inputStream().then(function (s) {
-      if (!mon.src || mon.src.mediaStream !== s) { mon.src = ctx.createMediaStreamSource(s); mon.split = ctx.createChannelSplitter(2); mon.src.connect(mon.split); }
-      var ids = {}; want.forEach(function (t) { ids[t.id] = 1; var strip = rt.strips[t.id]; if (!strip || mon.conns[t.id]) return; var g = G(ctx, 1), m = ctx.createChannelMerger(2); if (t.input === "2") { mon.split.connect(m, 1, 0); mon.split.connect(m, 1, 1); } else if (t.input === "1+2") { mon.split.connect(m, 0, 0); mon.split.connect(m, 1, 1); } else { mon.split.connect(m, 0, 0); mon.split.connect(m, 0, 1); } m.connect(g).connect(strip.input); mon.conns[t.id] = g; });
-      Object.keys(mon.conns).forEach(function (id) { if (!ids[id]) { try { mon.conns[id].disconnect(); } catch (_) { } delete mon.conns[id]; } });
+      var nch = Math.max(2, rec.chs || 2);
+      if (!mon.src || mon.src.mediaStream !== s) { mon.src = ctx.createMediaStreamSource(s); mon.src.channelCount = nch; mon.src.channelInterpretation = "discrete"; mon.split = ctx.createChannelSplitter(nch); mon.src.connect(mon.split); mon.conns = {}; }
+      var ids = {}; want.forEach(function (t) { ids[t.id] = 1; var strip = rt.strips[t.id], c0 = mon.conns[t.id]; if (!strip || (c0 && c0.input === t.input)) return; if (c0) try { c0.g.disconnect(); } catch (_) { }
+        var g = G(ctx, 1), m = ctx.createChannelMerger(2), ch = chansOf(t.input).map(function (c2) { return Math.min(c2, nch - 1); }); mon.split.connect(m, ch[0], 0); mon.split.connect(m, ch[1] != null ? ch[1] : ch[0], 1); m.connect(g).connect(strip.input); mon.conns[t.id] = { g: g, input: t.input }; });
+      Object.keys(mon.conns).forEach(function (id) { if (!ids[id]) { try { mon.conns[id].g.disconnect(); } catch (_) { } delete mon.conns[id]; } });
     }).catch(function () { });
   }
   on("change", function (w) { if (w !== "nudge") syncInputMonitor(); });
@@ -622,6 +720,7 @@
     render: render, stems: stems, songEnd: songEnd, buffers: buffers, addAudio: addAudio, decode: decode, importAudio: importAudio, usedAudio: usedAudio, rewarp: rewarp, keyShift: keyShift,
     split: split, cutRange: cutRange, quantize: quantize, humanize: humanize, snapBeat: snapBeat, autoAt: autoAt, clipSrc: clipSrc,
     tempo: { beatToSec: beatToSec, secToBeat: secToBeat, barToBeat: barToBeat, beatToBar: beatToBar, bpmAt: bpmAt, bpb: function (b) { return beatToBar(b || 0).per; } },
-    FX: FX, fxDef: fxDef, fxDefaults: fxDefaults, pro: pro, ctx: ensureCtx, graph: function () { return rt; }, latency: latency, recovery: recovery, uid: uid, COLORS: COLORS, KEYS: KEYS, SNAP: SNAP, dbToGain: dbToGain, clamp: clamp, clone: clone
+    FX: FX, fxDef: fxDef, fxDefaults: fxDefaults, pro: pro, ctx: ensureCtx, graph: function () { return rt; }, latency: latency, recovery: recovery,
+    audio: { settings: audioSettings, set: setAudio, devices: devices, info: inputInfo, measure: measureLatency, choices: inputChoices, channelsOf: chansOf, findDelay: findDelay, compensation: compensation }, uid: uid, COLORS: COLORS, KEYS: KEYS, SNAP: SNAP, dbToGain: dbToGain, clamp: clamp, clone: clone
   };
 })();

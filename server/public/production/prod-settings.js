@@ -1,6 +1,7 @@
 /* Central Production - Settings: your sound plan packages (the same package key as the other apps: it opens the better
  * sounds, effects and pedals here) and, in the app, the sound libraries to download; the Motion Audio website's address
- * (the app); MIDI devices; updates (the app). */
+ * (the app); Audio (devices, sample rate, buffer, input channels, lining up recordings: the DAW's panel); MIDI devices;
+ * updates (the app). */
 (function () {
   "use strict";
   var H = window.CPHost;
@@ -9,7 +10,7 @@
   var tab = "packages";
   function open(which) {
     tab = which || tab;
-    var d = window.CP.modal('<div class="cp-set"><nav class="cp-set-nav"><button data-st="packages">Sound plans</button>' + (H.kind === "desktop" ? '<button data-st="website">Website</button><button data-st="updates">Updates</button>' : "") + '<button data-st="midi">MIDI &amp; sound</button><button data-st="about">About</button></nav><div class="cp-set-body" id="setBody"></div></div><div class="cp-row end"><button class="primary" data-close>Done</button></div>', { wide: true });
+    var d = window.CP.modal('<div class="cp-set"><nav class="cp-set-nav"><button data-st="packages">Sound plans</button>' + (H.kind === "desktop" ? '<button data-st="website">Website</button><button data-st="updates">Updates</button>' : "") + '<button data-st="audio">Audio</button><button data-st="midi">MIDI &amp; sound</button><button data-st="about">About</button></nav><div class="cp-set-body" id="setBody"></div></div><div class="cp-row end"><button class="primary" data-close>Done</button></div>', { wide: true });
     d.querySelector(".cp-set-nav").onclick = function (e) { var b = e.target.closest("[data-st]"); if (b) { tab = b.dataset.st; draw(d); } };
     draw(d);
   }
@@ -35,6 +36,9 @@
       $("#upCheck", d).onclick = function () { $("#upState", d).textContent = "Looking…"; U.check().then(show); };
       $("#upInstall", d).onclick = function () { U.install().then(function (r) { if (r && !r.ok) $("#upState", d).textContent = r.error; }); };
       $("#upAuto", d).onchange = function () { U.config({ auto: this.checked }).then(show); };
+    } else if (tab === "audio") {
+      body.innerHTML = '<h3>Audio</h3><div id="auPanel"></div>';
+      if (window.CDawUI && window.CDawUI.audioPanel) window.CDawUI.audioPanel($("#auPanel", d));
     } else if (tab === "midi") {
       body.innerHTML = '<h3>MIDI keyboards and pads</h3><div id="miList" class="muted">Looking…</div><p class="muted small">Any keyboard plugged in plays the selected track on the timeline, and plays the sampler in an Instrument project. Set which device plays which track in the timeline\'s MIDI devices tab.</p>' +
         "<h3>Sound</h3><p class=\"muted\">" + (H.kind === "desktop" ? "What you play goes through the low-delay player when it's installed (about 3 ms), and the rest plays through this computer's sound output." : "In the browser there's a little more delay when you play live. The app on a computer plays with almost none.") + "</p>";

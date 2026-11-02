@@ -49,7 +49,7 @@
         '<div class="cd-g"><label class="cd-f">Snap<select class="cd-snap"><option value="bar">Bar</option><option value="1/2">1/2</option><option value="1/4">1/4</option><option value="1/8">1/8</option><option value="1/16">1/16</option><option value="1/32">1/32</option><option value="1/8T">1/8 T</option><option value="1/16T">1/16 T</option><option value="off">Off</option></select></label>' +
         '<button data-a="zout" title="Zoom out (−)">−</button><button data-a="zin" title="Zoom in (+)">+</button><button data-a="zfit" title="Show the whole song (Z)">Fit</button></div>' +
         '<div class="cd-g"><button data-a="undo" title="Undo (Ctrl+Z)">↶</button><button data-a="redo" title="Redo (Ctrl+Shift+Z)">↷</button></div>' +
-        '<div class="cd-g cd-views"><button data-a="browser" class="cd-t" title="Sounds, loops and files (B)">' + (c ? "Sounds" : "Browser") + '</button><button data-a="editor" class="cd-t" title="Editor (E)">Editor</button><button data-a="mixer" class="cd-t" title="Mixer (X)">Mixer</button><button data-a="keys" class="cd-t" title="Play with the computer keys (K): A W S E D F T G Y H U J K, Z / X octave">Keys</button>' +
+        '<div class="cd-g cd-views"><button data-a="browser" class="cd-t" title="Sounds, loops and files (B)">' + (c ? "Sounds" : "Browser") + '</button><button data-a="editor" class="cd-t" title="Editor (E)">Editor</button><button data-a="mixer" class="cd-t" title="Mixer (X)">Mixer</button><button data-a="keys" class="cd-t" title="Play with the computer keys (K): A W S E D F T G Y H U J K, Z / X octave">Keys</button><button data-a="audio" title="Audio: the input and output, sample rate, buffer, and lining up recordings">Audio</button>' +
         (c && U.opts.openInProduction ? '<button data-a="production" class="cd-prod" title="The same song in Central Production, with everything">Open in Central Production</button>' : "") + "</div>" +
         '<div class="cd-status"><span class="cd-lat"></span><span class="cd-msg"></span></div>' +
       "</div>" +
@@ -90,6 +90,7 @@
     else if (a === "zfit") { var w = ($(".cd-lanes-wrap", U.root) || U.root).clientWidth - 40, end = Math.max(D.songEnd(), D.tempo.bpb() * 8); U.zoom = D.clamp(w / end, 2, 400); keep("zoom", U.zoom); UI.draw(); }
     else if (a === "browser") { U.browser = !U.browser; keep("browser", U.browser); layout(); if (U.browser && UI.parts.browser) UI.parts.browser.draw(); }
     else if (a === "editor" || a === "mixer") { if (U.dockOpen && U.dock === a) U.dockOpen = false; else { U.dock = a; U.dockOpen = true; keep("dock", a); } layout(); drawDock(); }
+    else if (a === "audio") UI.audioDialog();
     else if (a === "keys") { U.keys = !U.keys; UI.say(U.keys ? "The computer keys play the selected track: A W S E D F T G Y H U J K (Z / X: octave)." : "Computer keys off."); drawTop(); }
     else if (a === "tap") { var now = performance.now(); taps = taps.filter(function (t) { return now - t < 2500; }); taps.push(now); if (taps.length >= 3) { var avg = (taps[taps.length - 1] - taps[0]) / (taps.length - 1), v = Math.round(60000 / avg * 10) / 10; D.edit("Tempo", function (q) { q.bpm = D.clamp(v, 30, 300); }); } }
     else if (a === "production" && U.opts.openInProduction) U.opts.openInProduction();
@@ -217,6 +218,51 @@
     to.forEach(function (t) { D.live(t.id, m.data, m.time); });
     if (UI.parts.editors && UI.parts.editors.midi) UI.parts.editors.midi(m);
   }
+
+  // ------------------------------------------------------------- Settings → Audio (the same panel in both apps)
+  // The input and output devices, sample rate, buffer size, how many input channels to open, and lining recordings up:
+  // the delay the system reports, or a loopback measurement (clicks out of an output, back into an input).
+  UI.audioPanel = function (el) {
+    var A = D.audio, a = A.settings();
+    function ms(v) { return v == null ? "-" : (Math.round(v * 10) / 10) + " ms"; }
+    function opt(list, cur, none) { return '<option value="">' + none + "</option>" + list.map(function (d) { return '<option value="' + esc(d.id) + '"' + (d.id === cur ? " selected" : "") + ">" + esc(d.name) + "</option>"; }).join(""); }
+    el.innerHTML = '<div class="cd-audio"><p class="cd-dim">Looking for your audio devices…</p></div>';
+    A.devices().then(function (dv) {
+      a = A.settings();
+      el.innerHTML = '<div class="cd-audio">' +
+        '<label class="cd-line">Input<select data-au="input">' + opt(dv.inputs, a.input, "The computer's default input") + "</select></label>" +
+        '<label class="cd-line">Output<select data-au="output"' + (dv.canPickOutput ? "" : " disabled") + ">" + opt(dv.outputs, a.output, "The computer's default output") + "</select></label>" +
+        (dv.names ? "" : '<p class="cd-dim">The device names show once you allow the input. <button data-au-names>Show their names</button></p>') +
+        '<div class="cd-line"><label>Sample rate<select data-au="rate">' + [44100, 48000, 88200, 96000].map(function (r) { return '<option value="' + r + '"' + (r === a.rate ? " selected" : "") + ">" + (r / 1000) + " kHz</option>"; }).join("") + "</select></label>" +
+        '<label>Buffer<select data-au="buffer">' + [64, 128, 256, 512, 1024, 2048].map(function (b) { return '<option value="' + b + '"' + (b === a.buffer ? " selected" : "") + ">" + b + " (" + ms(b / a.rate * 1000) + ")</option>"; }).join("") + "</select></label>" +
+        '<label>Input channels<select data-au="channels">' + [1, 2, 4, 6, 8, 10, 12, 16, 18, 24, 32].map(function (n) { return '<option value="' + n + '"' + (n === a.channels ? " selected" : "") + ">" + n + "</option>"; }).join("") + "</select></label></div>" +
+        '<p class="cd-dim">A smaller buffer plays with less delay but needs a faster computer. Each audio track records from one input (mono) or a pair (stereo): choose it in the track\'s menu (right-click its name).</p>' +
+        '<h4>Lining up recordings</h4><div class="cd-auinfo cd-dim">Opening the input…</div>' +
+        '<div class="cd-line"><button data-au-measure class="primary">Measure it (loopback)</button><button data-au-clear' + (a.loopbackMs == null ? " hidden" : "") + '>Use the reported delay</button></div>' +
+        '<p class="cd-dim">Loopback: connect an output of your interface to one of its inputs with a cable (or hold a mic by a speaker) and turn it up. Six clicks play and the time they take to come back lines up everything you record.</p></div>';
+      function info() {
+        A.info().then(function (i) {
+          var box = $(".cd-auinfo", el); if (!box) return;
+          box.innerHTML = "Input: " + esc(i.device || "the default") + " · " + i.channels + " channel" + (i.channels === 1 ? "" : "s") + " · " + (i.rate / 1000) + " kHz<br>" +
+            "Input delay (reported) " + ms(i.inputMs) + " · output delay " + ms(i.outputMs) + " · buffer " + ms(i.bufferMs) + "<br>" +
+            (i.measuredMs != null ? "<b>Measured round trip " + ms(i.measuredMs) + "</b>: recordings are moved back by that." : "Recordings are moved back by " + ms(i.usedMs) + " (what the system reports). Measuring it is more exact.");
+        }).catch(function (e) { var box = $(".cd-auinfo", el); if (box) box.textContent = "The input isn't open: " + (e && e.message || e); });
+      }
+      info();
+      el.onchange = function (e) { var k = e.target.dataset.au; if (!k) return; var v = e.target.value, patch = {}; patch[k] = k === "input" || k === "output" ? v : +v; A.set(patch); UI.say("Audio: " + (k === "rate" || k === "buffer" ? "the sound restarted with the new setting." : "changed.")); UI.audioPanel(el); };
+      el.onclick = function (e) {
+        if (e.target.closest("[data-au-names]")) { A.info().then(function () { UI.audioPanel(el); }).catch(function (er) { UI.say("The input wasn't allowed: " + (er.message || er), true); }); }
+        if (e.target.closest("[data-au-clear]")) { A.set({ loopbackMs: null }); UI.audioPanel(el); }
+        var mb = e.target.closest("[data-au-measure]"); if (mb) { mb.disabled = true; mb.textContent = "Listening…"; A.measure().then(function (v) { UI.say("Round trip: " + ms(v) + ". Recordings line up with it."); UI.audioPanel(el); }).catch(function (er) { mb.disabled = false; mb.textContent = "Measure it (loopback)"; UI.say(er.message || String(er), true); }); }
+      };
+    });
+  };
+  UI.audioDialog = function () {
+    var m = $(".cd-modal", U.root); if (!m) return;
+    m.innerHTML = '<div class="cd-dialog cd-wide"><h3>Audio</h3><div class="cd-aubody"></div><div class="cd-line end"><button class="primary" data-r="close">Done</button></div></div>'; m.hidden = false;
+    UI.audioPanel($(".cd-aubody", m));
+    m.onclick = function (e) { if (e.target.closest("[data-r=close]") || e.target === m) { m.hidden = true; m.innerHTML = ""; } };
+  };
 
   // ------------------------------------------------------------- recovering work after a crash
   UI.offerRecovery = function (host, onRestored) {
