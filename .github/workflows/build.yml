@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: Compilers
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix gcc-aarch64-linux-gnu p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev g++-aarch64-linux-gnu libpipewire-0.3-dev bubblewrap   # (C++ for the plugin host; the X11, lilv and suil headers for Linux; arm64 C / C++ for the Pi's play-any plugin and community stage; PipeWire's headers; bubblewrap for the community plugin wall's test)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix gcc-aarch64-linux-gnu p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev g++-aarch64-linux-gnu libpipewire-0.3-dev bubblewrap clang lld   # (clang + lld: Central FX's WebAssembly build, checked against the C; C++ for the plugin host; the X11, lilv and suil headers for Linux; arm64 C / C++ for the Pi's play-any plugin and community stage; PipeWire's headers; bubblewrap for the community plugin wall's test)
       - name: Build (Linux x64, Windows x64) - the rig map comes from js/pedals.js here
         run: |
           bash tools/ci-run.sh "native build (Linux)" make -C central-usage/native -j4
@@ -67,6 +67,9 @@ jobs:
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
           make -C central-usage/native build/test-bridge
           bash tools/ci-run.sh "community plugin wall test (round trip, crash / hang / heavy bypass, no network or files, revoke live)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
+          bash tools/ci-run.sh "Central FX core test (native = WebAssembly for every block, the code language, hostile scripts, presets)" node test-cmfx.mjs
+          bash tools/ci-run.sh "Central FX in the rig and on the Central Pedal's stage" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
+          file central-usage/native/build-linux-arm64/cm-pwnode | grep -q aarch64 || { echo "::error::the arm64 cm-pwnode (with Central FX) is not arm64"; exit 1; }
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           make -C central-usage/native build/test-playany-plugin
@@ -83,6 +86,11 @@ jobs:
           bash tools/ci-run.sh "Pi sound set-up test (the jack is never left out, outputs that aren't there play on 1-2)" python3 test_audio_routing.py
           bash tools/ci-run.sh "sound library installer test (computers)" node central-usage/test-libraries.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
+      - name: The plugin builder in a browser (Central Production)
+        timeout-minutes: 10
+        run: |
+          npm i --no-save --no-package-lock playwright@1.48.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null
+          bash tools/ci-run.sh "plugin builder test (blocks, wires, knobs, code errors, live test, AudioWorklet = direct)" node test-plugin-builder.mjs
       - name: Built-in sounds
         run: bash tools/fetch-builtin-sounds.sh central-usage/native/sounds
       - uses: actions/upload-artifact@v4
@@ -232,6 +240,7 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer.exe
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig.exe
+          bash tools/ci-run.sh "Central FX in the rig (Windows: no wall needed)" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio.exe
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany.exe
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
@@ -337,6 +346,8 @@ jobs:
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
           make -C central-usage/native build/test-bridge ARCH="-arch ${{ matrix.cpu }}"
           bash tools/ci-run.sh "community plugin wall test (sandbox-exec)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
+          bash tools/ci-run.sh "Central FX core test (native = WebAssembly)" node test-cmfx.mjs
+          bash tools/ci-run.sh "Central FX in the rig" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build

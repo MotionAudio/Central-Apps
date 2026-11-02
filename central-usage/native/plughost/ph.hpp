@@ -73,6 +73,12 @@ bool scanVst3(const std::string &path, std::vector<ClassInfo> &out, std::string 
 Plug *openLv2(const std::string &uri, std::string &err);
 bool listLv2(std::vector<ClassInfo> &out, std::vector<std::string> &paths);   // in process (reads the plugins' descriptions only)
 Plug *openAu(const std::string &id, std::string &err);
+// (10.2) Central FX plugins (.cmfx.json, cmfx/): our own core plays them in this process, on every system
+Plug *openCmfx(const std::string &path, std::string &err);
+bool scanCmfx(const std::string &path, std::vector<ClassInfo> &out, std::string &err);
+// a community item's checks (fmt_remote.cpp): the device's switch, the library's record, each listed file's sha256
+bool vetCommunity(const std::string &format, const std::string &path, std::string &root, std::string &err);
+bool communityOn(const std::string &root);
 bool listAu(std::vector<ClassInfo> &out);                                      // in process (the system's list)
 
 // ---- the main loop: timers and (Linux) file descriptors for plugins' editors

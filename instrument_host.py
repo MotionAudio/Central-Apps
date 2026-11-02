@@ -466,9 +466,12 @@ COMMUNITY_NODE = "cm-community"
 def community_items(chain):
     """The board's community plugins (installed from Make & sell): {id: "plug", plugin: {format, id, path}} items whose
     file is inside a library's community-plugins folder. They never load into the filter-chain: they play in the
-    community stage (cm-pwnode), each walled off in its own cm-plugbridge process, after the board's own pedals."""
-    return [it for it in chain or [] if isinstance(it, dict) and it.get("id") == "plug"
-            and COMMUNITY_MARK in str((it.get("plugin") or {}).get("path") or "").replace("\\", "/")]
+    community stage (cm-pwnode), each walled off in its own cm-plugbridge process, after the board's own pedals.
+    (10.2) Central FX plugins (format "cmfx", made in the plugin builder) play there too, in our own core."""
+    def wanted(it):
+        pl = it.get("plugin") or {}
+        return pl.get("format") == "cmfx" or COMMUNITY_MARK in str(pl.get("path") or "").replace("\\", "/")
+    return [it for it in chain or [] if isinstance(it, dict) and it.get("id") == "plug" and wanted(it)]
 
 
 class CommunityStage:

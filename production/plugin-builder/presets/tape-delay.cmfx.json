@@ -1,0 +1,29 @@
+{
+  "format": "central-fx", "version": 1, "name": "Tape Delay", "author": "Motion Audio",
+  "description": "Warm repeats that get darker as they fade, with a little tape wobble. Try it on a lead line or a vocal throw.",
+  "params": [
+    { "id": "time", "name": "Time", "min": 60, "max": 1200, "default": 420, "unit": "ms", "curve": "log" },
+    { "id": "feedback", "name": "Repeats", "min": 0, "max": 0.9, "default": 0.45 },
+    { "id": "mix", "name": "Mix", "min": 0, "max": 1, "default": 0.3 },
+    { "id": "wow", "name": "Wobble", "min": 0, "max": 1, "default": 0.3 }
+  ],
+  "graph": {
+    "blocks": [
+      { "id": "in", "type": "input", "x": 40, "y": 200 },
+      { "id": "time", "type": "param", "x": 40, "y": 40, "props": { "param": "time" } },
+      { "id": "wobble", "type": "lfo", "x": 200, "y": 120, "props": { "rate": 0.55, "from": -2.5, "to": 2.5, "shape": "sine" } },
+      { "id": "amount", "type": "param", "x": 200, "y": 260, "props": { "param": "wow" } },
+      { "id": "scaled", "type": "math", "x": 360, "y": 140, "props": { "op": "multiply" } },
+      { "id": "timeplus", "type": "math", "x": 520, "y": 60, "props": { "op": "add" } },
+      { "id": "echo", "type": "delay", "x": 680, "y": 200, "props": { "feedback": { "param": "feedback" }, "mix": { "param": "mix" }, "tone": 3200, "maxTime": 1400 } },
+      { "id": "warmth", "type": "drive", "x": 840, "y": 200, "props": { "mode": "tube", "drive": 4, "tone": 9000, "level": -2, "mix": 0.6 } },
+      { "id": "out", "type": "output", "x": 1000, "y": 200 }
+    ],
+    "wires": [
+      { "from": "wobble.out", "to": "scaled.a" }, { "from": "amount.out", "to": "scaled.b" },
+      { "from": "time.out", "to": "timeplus.a" }, { "from": "scaled.out", "to": "timeplus.b" },
+      { "from": "timeplus.out", "to": "echo.time" }, { "from": "in.out", "to": "echo.in" },
+      { "from": "echo.out", "to": "warmth.in" }, { "from": "warmth.out", "to": "out.in" }
+    ]
+  }
+}

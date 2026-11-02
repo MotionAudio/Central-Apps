@@ -1,5 +1,7 @@
 /* cm-pwnode - the Central Pedal's community stage (10.1): one PipeWire node that plays the board's community plugins,
- * in series, each one walled off in its own cm-plugbridge process (plughost/bridge.h). Our own pedals keep running in
+ * in series, each one walled off in its own cm-plugbridge process (plughost/bridge.h). (10.2) It also plays Central FX
+ * plugins (.cmfx.json, made in Central Production's plugin builder: cmfx/) - those run in this process, in our own
+ * core, with no program of anyone's own in them. Our own pedals keep running in
  * the PipeWire filter-chain as before; instrument_host.py starts this only when a board has community plugins on it,
  * and links it after the chain:  guitar -> padpedal-<chain> -> cm-community -> outputs.
  *
@@ -10,7 +12,7 @@
  *   {"action":"pluginSave"}  {"action":"status"}
  * stdout: JSON lines - {"type":"communityStatus","running":true,"node":"cm-community","slots":{...},"errors":{uid:why}},
  *   {"type":"pluginParams",...}, {"type":"pluginBypassed","uid","reason"} (crashed / hung / heavy / revoked / off)
- * Light on the Pi 4: no plugin runs in this process (only community plugins are accepted here), the audio thread
+ * Light on the Pi 4: no plugin binary runs in this process (only community plugins and Central FX are accepted), the audio thread
  * only copies blocks to and from shared memory, and libpipewire is loaded at run time (only its headers are needed
  * to build this). */
 #ifndef _GNU_SOURCE
@@ -137,7 +139,9 @@ static void build(cJSON *items) {
     if (c->n >= MAXITEMS) break;
     cJSON *pl = cJSON_GetObjectItem(it, "plugin"); char uid[40]; clean(str(it, "uid", ""), uid, sizeof uid); if (!uid[0] || !cJSON_IsObject(pl)) continue;
     const char *path = str(pl, "path", "");
-    if (!strstr(path, "/community-plugins/")) { cJSON_AddStringToObject(errors, uid, "only community plugins play in the community stage"); continue; }
+    /* (10.2) Central FX plugins (.cmfx.json: our own core, any of them) play here too, in this process */
+    int cmfx = !strcmp(str(pl, "format", ""), "cmfx");
+    if (!cmfx && !strstr(path, "/community-plugins/")) { cJSON_AddStringToObject(errors, uid, "only community plugins and Central FX plugins play in the community stage"); continue; }
     char err[300] = ""; PhPlug *p = ph_get(uid, str(pl, "format", ""), str(pl, "id", ""), path, str(it, "stateFrom", ""), rate, block, err, sizeof err);
     if (!p) { cJSON_AddStringToObject(errors, uid, err[0] ? err : "it didn't start"); continue; }
     Item *x = &c->it[c->n++]; x->p = p; x->on = !cJSON_IsFalse(cJSON_GetObjectItem(it, "on")); x->mix = (float)fmin(1, fmax(0, num(it, "mix", 1))); snprintf(x->uid, sizeof x->uid, "%s", uid); slots[ns++] = x->uid;
