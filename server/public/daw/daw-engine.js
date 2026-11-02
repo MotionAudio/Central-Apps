@@ -64,9 +64,18 @@
     eq: { name: "EQ", params: [["low", "Low", -15, 15, 0, "dB"], ["mid", "Mid", -15, 15, 0, "dB"], ["midFreq", "Mid freq", 200, 5000, 1000, "Hz"], ["high", "High", -15, 15, 0, "dB"], ["hpf", "Low cut", 20, 400, 20, "Hz", true], ["mid2", "Mid 2", -15, 15, 0, "dB", true], ["mid2Freq", "Mid 2 freq", 800, 12000, 3500, "Hz", true], ["lpf", "High cut", 2000, 20000, 20000, "Hz", true]],
       make: function (c) { var u = { input: G(c), output: G(c) }, hp = c.createBiquadFilter(), lo = c.createBiquadFilter(), m1 = c.createBiquadFilter(), m2 = c.createBiquadFilter(), hi = c.createBiquadFilter(), lp = c.createBiquadFilter();
         hp.type = "highpass"; lo.type = "lowshelf"; lo.frequency.value = 120; m1.type = "peaking"; m1.Q.value = 0.9; m2.type = "peaking"; m2.Q.value = 1.1; hi.type = "highshelf"; hi.frequency.value = 8000; lp.type = "lowpass";
-        u.input.connect(hp).connect(lo).connect(m1).connect(m2).connect(hi).connect(lp).connect(u.output);
         var map = { hpf: hp.frequency, low: lo.gain, mid: m1.gain, midFreq: m1.frequency, mid2: m2.gain, mid2Freq: m2.frequency, high: hi.gain, lpf: lp.frequency };
-        u.set = function (p, now) { Object.keys(map).forEach(function (k) { if (p[k] != null) map[k].setTargetAtTime(p[k], now, 0.015); }); }; u.param = function (k) { return map[k] || null; }; return u; } },
+        // only the bands that do something are in the path (a flat band costs as much as a working one): rewired when that changes
+        var bands = [[hp, "hpf", function (p) { return p.hpf > 20.5; }], [lo, "low", function (p) { return Math.abs(p.low) > 0.05; }], [m1, "mid", function (p) { return Math.abs(p.mid) > 0.05; }], [m2, "mid2", function (p) { return Math.abs(p.mid2) > 0.05; }], [hi, "high", function (p) { return Math.abs(p.high) > 0.05; }], [lp, "lpf", function (p) { return p.lpf < 19900; }]], on = null, forced = {};
+        function wire(p) {
+          var want = bands.map(function (b) { return !!(forced[b[1]] || b[2](p)); }), key = want.join();
+          if (key === on) return; on = key;
+          [u.input].concat(bands.map(function (b) { return b[0]; })).forEach(function (n) { try { n.disconnect(); } catch (_) { } });
+          var last = u.input; bands.forEach(function (b, i) { if (want[i]) { last.connect(b[0]); last = b[0]; } }); last.connect(u.output);
+        }
+        var lastP = { hpf: 20, low: 0, mid: 0, mid2: 0, high: 0, lpf: 20000 }; wire(lastP);
+        u.set = function (p, now) { lastP = p; Object.keys(map).forEach(function (k) { if (p[k] != null) map[k].setTargetAtTime(p[k], now, 0.015); }); wire(p); };
+        u.param = function (k) { if (!map[k]) return null; var b = { midFreq: "mid", mid2Freq: "mid2" }[k] || k; if (!forced[b]) { forced[b] = 1; wire(lastP); } return map[k]; }; return u; } },
     comp: { name: "Compressor", params: [["threshold", "Threshold", -60, 0, -18, "dB"], ["ratio", "Ratio", 1, 20, 3, ":1"], ["attack", "Attack", 0.1, 100, 10, "ms", true], ["release", "Release", 10, 1000, 150, "ms", true], ["knee", "Knee", 0, 30, 6, "dB", true], ["makeup", "Makeup", 0, 24, 0, "dB"]],
       make: function (c) { var u = { input: G(c), output: G(c) }, k = c.createDynamicsCompressor(), mk = G(c); u.input.connect(k).connect(mk).connect(u.output); u.node = k;
         u.set = function (p, now) { k.threshold.setTargetAtTime(p.threshold, now, 0.02); k.ratio.setTargetAtTime(p.ratio, now, 0.02); k.attack.setTargetAtTime(p.attack / 1000, now, 0.02); k.release.setTargetAtTime(p.release / 1000, now, 0.02); k.knee.setTargetAtTime(p.knee, now, 0.02); mk.gain.setTargetAtTime(dbToGain(p.makeup), now, 0.02); };
@@ -200,7 +209,7 @@
 
   // ------------------------------------------------------------- the mixer graph
   var ctx = null, rt = null, buffers = {};
-  function Strip(c, master) { this.c = c; this.input = G(c); this.fader = G(c, 1); this.pan = c.createStereoPanner(); this.mute = G(c, 1); this.meter = c.createAnalyser(); this.meter.fftSize = 1024; this.preOut = G(c); this.chain = []; this.chainSig = ""; this.sends = {}; this.input.connect(this.preOut); this.preOut.connect(this.fader); this.fader.connect(this.pan).connect(this.mute); this.mute.connect(this.meter); this.out = null; }
+  function Strip(c, master) { this.c = c; this.input = G(c); this.fader = G(c, 1); this.pan = c.createStereoPanner(); this.mute = G(c, 1); this.meter = c instanceof (window.OfflineAudioContext || Object) ? G(c) : c.createAnalyser(); if (this.meter.fftSize) this.meter.fftSize = 1024; /* (no meters in an export) */ this.preOut = G(c); this.chain = []; this.chainSig = ""; this.sends = {}; this.input.connect(this.preOut); this.preOut.connect(this.fader); this.fader.connect(this.pan).connect(this.mute); this.mute.connect(this.meter); this.out = null; }
   Strip.prototype.route = function (dest) { if (this.out === dest) return; try { this.mute.disconnect(); } catch (_) { } this.mute.connect(this.meter); if (dest) this.mute.connect(dest); this.out = dest; };
   Strip.prototype.setInserts = function (list, bpm, now, ctxObj) {
     var self = this, use = (list || []).filter(fxUsable), sig = use.map(function (f) { return f.id + f.type + (f.type === "cmfx" ? JSON.stringify(f.plugin || {}).length : ""); }).join("|");
@@ -721,7 +730,16 @@
     var g = new Graph(oc, true); g.auto = true; var p2 = proj;
     return worklets(oc).then(function () { return g.sync(p2); }).then(function () { return Promise.all(oc.__cdawPending || []); }).then(function () {   // (Central FX plugins load before it renders)
       var t0 = 0.02, sink = { graph: g, time: function (b) { return t0 + beatToSec(b) - beatToSec(from); }, started: {}, sources: [], notes: [], pass: 1, from: from, first: true, offline: true };
-      autoStart(g, from, t0); schedule(sink, from, to + 1e-6);
+      // scheduled a few seconds at a time (the render pauses to take the next part): everything up front would keep every
+      // note of the song in the graph from the start, and an export of a busy song would get slower and slower
+      autoStart(g, from, t0); var CH = 2, end = to + 1e-6, seen = {};
+      schedule(sink, from, Math.min(end, from + CH)); sink.first = false;
+      for (var b = from + CH; b < end; b += CH) (function (a) {
+        var at = Math.floor((sink.time(a) - 0.3) * rate / 128) * 128 / rate;
+        if (at <= 0.05 || seen[at]) { schedule(sink, a, Math.min(end, a + CH)); return; }
+        seen[at] = 1;
+        oc.suspend(at).then(function () { var k = proj; proj = p2; try { schedule(sink, a, Math.min(end, a + CH)); } catch (e) { console.warn("render", e); } proj = k; oc.resume(); });
+      })(b);
       proj = keep; return oc.startRendering();
     }).catch(function (e) { proj = keep; throw e; }).then(function (buf) {
       if (o.tail === 0 || o.exact) { var n = Math.round((beatToSec(to) - beatToSec(from)) * rate), out = new AudioBuffer({ numberOfChannels: 2, length: n, sampleRate: rate }); for (var ch = 0; ch < 2; ch++) out.copyToChannel(buf.getChannelData(ch).subarray(Math.round(0.02 * rate), Math.round(0.02 * rate) + n), ch); return out; }
