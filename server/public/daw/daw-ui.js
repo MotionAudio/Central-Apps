@@ -225,7 +225,7 @@
       list = list.filter(function (x) { return !host || !x.host || x.host === host; }).filter(function (x) { return Date.now() - x.at < 14 * 864e5; });
       if (!list.length || !U.root) return;
       var x = list[0], m = $(".cd-modal", U.root);
-      m.innerHTML = '<div class="cd-dialog"><h3>Bring back your unsaved work?</h3><p>“' + esc(x.name) + "” had changes that weren't saved (" + esc(new Date(x.at).toLocaleString()) + '). The app keeps your work every few seconds, so this is close to where you were.</p><div class="cd-row end"><button data-r="no">Throw it away</button><button class="primary" data-r="yes">Bring it back</button></div></div>';
+      m.innerHTML = '<div class="cd-dialog"><h3>Bring back your unsaved work?</h3><p>“' + esc(x.name) + "” had changes that weren't saved (" + esc(new Date(x.at).toLocaleString()) + '). The app keeps your work every few seconds, so this is close to where you were.</p><div class="cd-line end"><button data-r="no">Throw it away</button><button class="primary" data-r="yes">Bring it back</button></div></div>';
       m.hidden = false;
       m.onclick = function (e) { var b = e.target.closest("[data-r]"); if (!b) return; m.hidden = true; if (b.dataset.r === "yes") D.recovery.restore(x.id).then(function (p) { UI.say("Brought back “" + p.name + "”."); if (onRestored) onRestored(p); }).catch(function (er) { UI.say(er.message, true); }); else D.recovery.forget(x.id); };
     });

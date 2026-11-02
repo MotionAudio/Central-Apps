@@ -83,7 +83,7 @@
   }
   function clipHtml(t, c) {
     var sel = U.clips.indexOf(c.id) >= 0, col = c.color || t.color, tk = c.takes && c.takes.length > 1 ? '<span class="cd-takes">' + (c.takes.findIndex(function (k) { return k.id === c.take; }) + 1) + "/" + c.takes.length + "</span>" : "";
-    return '<div class="cd-clip ' + c.kind + (sel ? " sel" : "") + (c.mute ? " muted" : "") + '" data-c="' + c.id + '" style="left:' + bx(c.start) + "px;width:" + Math.max(3, bx(c.len)) + "px;--cc:" + col + '"><span class="cd-cname">' + esc(c.name || (c.kind === "audio" ? "Audio" : "MIDI")) + (c.audio && c.audio.loop || c.loopLen ? " ↻" : "") + "</span>" + tk + '<canvas class="cd-ccv"></canvas><i class="cd-hl"></i><i class="cd-hr"></i>' + (c.kind === "audio" ? '<i class="cd-fi" title="Fade in"></i><i class="cd-fo" title="Fade out"></i>' : "") + "</div>";
+    return '<div class="cd-clip ' + c.kind + (sel ? " sel" : "") + (c.mute ? " muted" : "") + '" data-c="' + c.id + '" style="left:' + bx(c.start) + "px;width:" + Math.max(3, bx(c.len)) + "px;--cc:" + col + '"><span class="cd-cname">' + esc(c.name || t.name || (c.kind === "audio" ? "Audio" : "MIDI")) + (c.audio && c.audio.loop || c.loopLen ? " ↻" : "") + "</span>" + tk + '<canvas class="cd-ccv"></canvas><i class="cd-hl"></i><i class="cd-hr"></i>' + (c.kind === "audio" ? '<i class="cd-fi" title="Fade in"></i><i class="cd-fo" title="Fade out"></i>' : "") + "</div>";
   }
   function peaksOf(id) {
     var b = D.buffers[id]; if (!b) return null; if (peaks[id] && peaks[id].b === b) return peaks[id];
@@ -265,7 +265,7 @@
     });
   }
   function modal(title, body, ok) {
-    var m = $(".cd-modal", U.root); m.innerHTML = '<div class="cd-dialog"><h3>' + esc(title) + '</h3><div class="cd-form">' + body + '</div><div class="cd-row end"><button data-m="no">Cancel</button><button class="primary" data-m="ok">OK</button></div></div>'; m.hidden = false;
+    var m = $(".cd-modal", U.root); m.innerHTML = '<div class="cd-dialog"><h3>' + esc(title) + '</h3><div class="cd-form">' + body + '</div><div class="cd-line end"><button data-m="no">Cancel</button><button class="primary" data-m="ok">OK</button></div></div>'; m.hidden = false;
     var f = m.querySelector("input,select"); if (f) { f.focus(); if (f.select) f.select(); }
     m.onclick = function (e) { var b = e.target.closest("[data-m]"); if (!b) return; m.hidden = true; if (b.dataset.m === "ok") ok(m); };
     m.onkeydown = function (e) { if (e.key === "Enter") { m.hidden = true; ok(m); } if (e.key === "Escape") m.hidden = true; };
