@@ -35,9 +35,10 @@
     var sc = $(".cd-roll-scroll", body), cv = $(".cd-roll-cv", body), vel = $(".cd-vel-cv", body);
     var H = 88 * ed.rowH, W = 60 + Math.max(c.len, (c.loopLen || 0)) * ed.zoom + 40;
     cv.style.width = W + "px"; cv.style.height = H + "px";
-    if (!ed.scrolled || ed.clip !== c.id) { ed.clip = c.id; ed.sel = []; var ps = (c.notes || []).map(function (n) { return n.p; }), mid = ps.length ? (Math.min.apply(null, ps) + Math.max.apply(null, ps)) / 2 : 60; setTimeout(function () { sc.scrollTop = (108 - mid) * ed.rowH - sc.clientHeight / 2; }, 0); ed.scrolled = true; }
+    if (ed.clip !== c.id) { ed.clip = c.id; ed.sel = []; var ps = (c.notes || []).map(function (n) { return n.p; }), mid = ps.length ? (Math.min.apply(null, ps) + Math.max.apply(null, ps)) / 2 : 60; ed.scroll = null; ed.mid = mid; }
+    requestAnimationFrame(function () { if (ed.scroll) { sc.scrollTop = ed.scroll[0]; sc.scrollLeft = ed.scroll[1]; } else sc.scrollTop = Math.max(0, (108 - ed.mid) * ed.rowH - sc.clientHeight / 2); });
     paintRoll(cv, f); paintVel(vel, f, sc);
-    sc.onscroll = function () { paintVel(vel, f, sc); };
+    sc.onscroll = function () { ed.scroll = [sc.scrollTop, sc.scrollLeft]; paintVel(vel, f, sc); };
     rollEvents(cv, vel, sc, f);
   }
   function L(c) { return c.loopLen > 0 ? c.loopLen : c.len; }

@@ -15,7 +15,7 @@
   function store(k, d) { try { var v = localStorage.getItem("cdaw-" + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } }
   function keep(k, v) { try { localStorage.setItem("cdaw-" + k, JSON.stringify(v)); } catch (_) { } }
   // the shared screen state
-  var U = { root: null, opts: {}, sel: null, clips: [], zoom: store("zoom", 32), dock: store("dock", "editor"), dockH: store("dockH", 300), browser: store("browser", true), mixer: false, keys: false, keyOct: 4, msg: "", rafOn: false, clipboard: null, editorMode: null };
+  var U = { root: null, opts: {}, sel: null, clips: [], zoom: store("zoom", 32), dock: store("dock", "editor"), dockH: store("dockH", 260), browser: store("browser", true), mixer: false, keys: false, keyOct: 4, msg: "", rafOn: false, clipboard: null, editorMode: null };
   var UI = window.CDawUI = { U: U, $: $, $$: $$, esc: esc, store: store, keep: keep, parts: {} };
   function P() { return D.project(); }
   UI.track = function () { var t = D.track(U.sel); if (!t) { t = P().tracks.filter(function (x) { return x.kind !== "bus"; })[0] || null; U.sel = t && t.id; } return t; };
@@ -233,7 +233,7 @@
 
   // ------------------------------------------------------------- mount
   UI.mount = function (el, opts) {
-    U.root = el; U.opts = opts || {}; el.classList.add("cdaw"); U.dockOpen = store("dockOpen", true);
+    U.root = el; U.opts = opts || {}; el.classList.add("cdaw"); U.dockOpen = store("dockOpen", false);
     if (UI.compact()) { U.browser = store("browser-compact", false); }
     frame(); layout(); UI.draw();
     D.ctx();

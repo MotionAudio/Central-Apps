@@ -19,7 +19,8 @@
   <link rel="stylesheet" href="lights3d.css">
   <link rel="stylesheet" href="lights-layout.css">
   <link rel="stylesheet" href="fit.css">
-  <link rel="stylesheet" href="studio.css">
+  <link rel="stylesheet" href="shared/daw/daw.css">
+  <link rel="stylesheet" href="studio-tab.css">
 </head>
 <body>
   <header class="top">
@@ -202,11 +203,18 @@
   <script src="shared/streamdeck.js"></script>
   <script src="shared/pedals.js"></script>
   <script src="shared/fx-dsp.js"></script>
-  <script src="studio-midi.js"></script>
-  <script src="studio-sf2.js"></script>
-  <script src="studio-sounds.js"></script>
-  <script src="studio-engine.js"></script>
-  <script src="studio-ui.js"></script>
+  <script src="shared/daw/daw-midi.js"></script>
+  <script src="shared/daw/daw-sf2.js"></script>
+  <script src="shared/daw/daw-sounds.js"></script>
+  <script src="shared/daw/daw-stretch.js"></script>
+  <script src="shared/daw/daw-engine.js"></script>
+  <script src="shared/daw/daw-ui.js"></script>
+  <script src="shared/daw/daw-ui-arrange.js"></script>
+  <script src="shared/daw/daw-ui-editors.js"></script>
+  <script src="shared/daw/daw-ui-mixer.js"></script>
+  <script src="shared/daw/daw-ui-browser.js"></script>
+  <script src="shared/daw/cmproj.js"></script>
+  <script src="studio-tab.js"></script>
   <dialog id="updDialog"><h2>Updates</h2><p class="muted" id="updInfo"></p>
     <input type="hidden" id="updRepo"><p class="muted">Updates come from Motion Audio.</p>
     <label class="toggle"><input type="checkbox" id="updAuto" checked> Look for updates every time the app opens (and once a day)</label>

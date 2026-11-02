@@ -1,0 +1,7 @@
+/* Central Usage - the Studio tab around the shared DAW (shared/daw/daw.css) */
+#view-studio.active{display:flex;flex-direction:column;min-height:0}
+#view-studio{position:relative}
+.cu-studio-bar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#13161A;border-bottom:1px solid #000;flex-wrap:wrap}
+.cu-studio-bar .cu-st-name{font-weight:650;width:220px}
+.cu-st-saved{color:#9AA1AB;font-size:12px}
+.cu-studio-daw{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}

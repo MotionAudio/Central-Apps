@@ -54,7 +54,7 @@ contextBridge.exposeInMainWorld("CU", {
   // the Studio tab (studio.js): sound banks, projects, exports, and cu-studio (what you play, with almost no delay)
   studio: { catalog: () => ipcRenderer.invoke("studio-catalog"), read: (file, offset, length) => ipcRenderer.invoke("studio-read", file, offset, length),
     list: () => ipcRenderer.invoke("studio-list"), load: (id) => ipcRenderer.invoke("studio-load", id), save: (id, json, audio) => ipcRenderer.invoke("studio-save", id, json, audio),
-    audio: (id, name) => ipcRenderer.invoke("studio-audio", id, name), remove: (id) => ipcRenderer.invoke("studio-remove", id), exportFiles: (suggested, files) => ipcRenderer.invoke("studio-export", suggested, files),
+    audio: (id, name) => ipcRenderer.invoke("studio-audio", id, name), openInProduction: (name, bytes) => ipcRenderer.invoke("studio-open-production", name, bytes), loops: () => ipcRenderer.invoke("studio-loops"), readLoop: (file) => ipcRenderer.invoke("studio-read-loop", file), remove: (id) => ipcRenderer.invoke("studio-remove", id), exportFiles: (suggested, files) => ipcRenderer.invoke("studio-export", suggested, files),
     monitor: { start: () => ipcRenderer.invoke("studio-monitor-start"), send: (m) => ipcRenderer.send("studio-monitor-send", m), stop: () => ipcRenderer.invoke("studio-monitor-stop"), on: (fn) => ipcRenderer.on("studio-monitor", (_e, m) => fn(m)) } },
   saveFile: (name, text) => ipcRenderer.invoke("save-file", name, text),
   openFile: () => ipcRenderer.invoke("open-file")

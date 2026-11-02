@@ -107,6 +107,23 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
     return dir;
   });
 
+  // ---- (10.2) Open in Central Production: the song as a .cmproj, opened by the app the computer has for it (Central
+  // Production registers .cmproj); without it, the file is kept and the website's /production/ is offered instead
+  ipcMain.handle("studio-open-production", async (_e, name, bytes) => {
+    const { shell } = require("electron"), dir = path.join(userData, "studio-handoff"); fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, safe(String(name || "song")).replace(/\.cmproj$/i, "") + ".cmproj"); fs.writeFileSync(f, Buffer.from(bytes));
+    let err = ""; try { err = await shell.openPath(f); } catch (e) { err = e.message || "no app"; }
+    return err ? { ok: false, path: f, error: err } : { ok: true, path: f };
+  });
+  // the loops of the installed sound libraries (Central Pads' loops, and loops made in Central Production)
+  const allowedLoops = new Set();
+  ipcMain.handle("studio-loops", () => {
+    const lr = path.join(userData, "libraries"), out = []; let names = []; try { names = fs.readdirSync(lr).filter((n) => n.endsWith(".json")); } catch (_) { }
+    for (const n of names) { let r; try { r = JSON.parse(fs.readFileSync(path.join(lr, n), "utf8")); } catch (_) { continue; } for (const l of r.loops || []) if (l && l.file) { out.push({ id: r.id + ":" + path.basename(l.file), name: l.name, group: (r.title || r.id) + (l.group && l.group !== "Loops" ? " · " + l.group : ""), bpm: l.bpm || 0, key: l.key || "", bars: l.bars || 0, file: l.file, tier: l.tier || r.plan }); allowedLoops.add(path.resolve(l.file)); } }
+    return out;
+  });
+  ipcMain.handle("studio-read-loop", (_e, file) => { const f = path.resolve(String(file || "")); if (!allowedLoops.has(f)) throw new Error("not a library loop"); return fs.readFileSync(f); });
+
   // ---- cu-studio: the live sound
   let mon = null, monBuf = "";
   function monStart() {

@@ -13,11 +13,11 @@
   function data() { return window.CP.project().data; }
   function bpb(b) { return D.tempo.bpb(b || 0); }
   function guessRole(t) { var n = (t.name || "").toLowerCase(); if (t.kind === "drums" || /drum|kit|perc/.test(n)) return "drums"; if (/bass/.test(n)) return "bass"; if (/guide|cue/.test(n)) return "guide"; if (/vox|vocal|sing/.test(n)) return "vocals"; if (/guitar|gtr/.test(n)) return "guitar"; if (/key|piano|pad|organ|synth/.test(n)) return "keys"; return "music"; }
-  var strip = { el: null, open: true };
+  var strip = { el: null, open: false };
 
   function frame(el, kind) {
     var wrap = document.createElement("div"); wrap.className = "cp-daw";
-    wrap.innerHTML = '<div class="cp-strip" id="cpStrip"><div class="cp-strip-h"><b>' + (kind === "track" ? "The song" : "The loop") + '</b><span class="muted small" id="cpStripSum"></span><button class="ghost small" id="cpStripT">Hide</button></div><div class="cp-strip-b" id="cpStripB"></div></div><div class="cp-daw-host" id="cpDawHost"></div>';
+    wrap.innerHTML = '<div class="cp-strip" id="cpStrip"><div class="cp-strip-h"><b>' + (kind === "track" ? "The song" : "The loop") + '</b><span class="muted small" id="cpStripSum"></span><button class="ghost small" id="cpStripT">Show</button></div><div class="cp-strip-b" id="cpStripB"></div></div><div class="cp-daw-host" id="cpDawHost"></div>';
     el.appendChild(wrap); strip.el = wrap;
     window.CP.showStudio($("#cpDawHost", wrap));
     $("#cpStripT", wrap).onclick = function () { strip.open = !strip.open; drawStrip(); };
@@ -25,7 +25,7 @@
   }
   function drawStrip() {
     if (!strip.el) return; var p = window.CP.project(), b = $("#cpStripB", strip.el);
-    $("#cpStripT", strip.el).textContent = strip.open ? "Hide" : "Show"; b.hidden = !strip.open;
+    $("#cpStripT", strip.el).textContent = strip.open ? "Hide" : (p.type === "track" ? "Edit the song" : "Edit the loop"); b.hidden = !strip.open;
     if (p.type === "track") drawSong(b); else drawLoop(b);
   }
 
