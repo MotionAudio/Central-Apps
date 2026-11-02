@@ -59,7 +59,7 @@ jobs:
       - name: Make the release files
         run: |
           mkdir -p central-usage/dist
-          find staging -type f \( -name 'CentralControl-*' -o -name 'central-usage-*' -o -name 'CentralUsage-*' -o -name 'central-pedal-control-*' -o -name 'central-services-*' \) -exec mv {} central-usage/dist/ \;
+          find staging -type f \( -name 'CentralControl-*' -o -name 'central-usage-*' -o -name 'CentralUsage-*' -o -name 'central-pedal-control-*' -o -name 'central-services-*' -o -name 'central-production-*' \) -exec mv {} central-usage/dist/ \;
           ls bin/linux-aarch64/central-playany.lv2/central-playany.so >/dev/null || { echo "::error::the Pi's play-any plugin is missing"; exit 1; }
           ls bin/linux-aarch64/cm-plugbridge bin/linux-aarch64/cm-pwnode >/dev/null || { echo "::error::the Pi's community plugin host (cm-plugbridge, cm-pwnode) is missing"; exit 1; }
           bash make-release.sh "$VER"
@@ -69,7 +69,8 @@ jobs:
                       "CentralUsage-*-amd64.deb" "CentralUsage-*-x86_64.AppImage" "central-pedal-control-*-win-x64.exe" "central-pedal-control-*-amd64.deb" \
                       "central-pedal-control-*-x86_64.AppImage" "central-pedal-control-*-android.apk" \
                       "central-services-*-mac-arm64.dmg" "central-services-*-mac-x64.dmg" "central-services-*-win-x64.exe" "central-services-*-amd64.deb" \
-                      "central-services-*-x86_64.AppImage" "central-services-*-android.apk"; do
+                      "central-services-*-x86_64.AppImage" "central-services-*-android.apk" \
+                      "central-production-*-mac-arm64.dmg" "central-production-*-mac-x64.dmg" "central-production-*-win-x64.exe" "central-production-*-amd64.deb" "central-production-*-x86_64.AppImage"; do
             ls release/$VER/$want >/dev/null 2>&1 || { echo "missing from the release: $want"; exit 1; }
           done
       - name: Publish
