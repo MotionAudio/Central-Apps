@@ -108,9 +108,9 @@ await check("lighting: light bars (each cell its own colour), strobes (button, b
   // the 3D stage: click a light to pick it, its panel shows; the stage settings change the stage
   const pick = await cu.evaluate(() => { const f = CULights.rig().fixtures.find((x) => x.name === "Mover L"); CULights3D.select(f.id); return !!document.querySelector("#lx3dPanel:not([hidden]) [data-pf='mount']"); });
   assert.ok(pick, "the light's panel");
-  await cu.evaluate(() => { CULights3D.select(null); document.querySelector("[data-stage3]").click(); const w = document.querySelector("[data-sf='width']"); w.value = "12"; w.dispatchEvent(new Event("input", { bubbles: true })); });
+  await cu.evaluate(() => { CULights.rig().units = "m"; CULights3D.select(null); document.querySelector("[data-stage3]").click(); const w = document.querySelector("[data-sf='width']"); w.value = "12"; w.dispatchEvent(new Event("input", { bubbles: true })); });
   assert.equal(await cu.evaluate(() => CULights.rig().stage.width), 12);
-  await cu.evaluate(() => { const w = document.querySelector("[data-sf='width']"); w.value = "10"; w.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector("[data-stage3]").click(); });
+  await cu.evaluate(() => { const w = document.querySelector("[data-sf='width']"); w.value = "10"; w.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector("[data-stage3]").click(); delete CULights.rig().units; });   // (10.2: feet by default; metres here)
 });
   // (the Classic Auto here - a preset per section name; the smart Auto is checked after the drum hits)
   await cu.evaluate(() => { CULights.rig().auto.smart = false; CULights.dirty(); });

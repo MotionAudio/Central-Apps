@@ -10,7 +10,9 @@
   function uid() { return Math.random().toString(36).slice(2, 9); }
   function fileUrl(p) { return /^(https?|file|data):/.test(p) ? p : "file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F"); }
   var VIDEO = /\.(mp4|webm|mov|m4v|ogv)$/i;
-  var st = Object.assign({ items: [], outputs: { screen: { on: false, displayId: null }, pi: { on: false }, ndi: { on: false, name: "" } }, lyricsBg: null, lyrics: { size: 7, color: "#ffffff", align: "center", showSection: false } }, CU.store.get("slides", {}));
+  var BG = window.CUBackgrounds;
+  var st = Object.assign({ items: [], outputs: { screen: { on: false, displayId: null }, pi: { on: false }, ndi: { on: false, name: "" } }, lyricsBg: null, songBg: {}, bgFade: 1, lyrics: { size: 7, color: "#ffffff", align: "center", showSection: false } }, CU.store.get("slides", {}));
+  if (!st.songBg || typeof st.songBg !== "object") st.songBg = {}; if (st.bgFade == null) st.bgFade = 1;
   var live = { id: null, slide: null }, previewId = null, outStatus = { screen: false, ndi: { on: false } }, screens = [], uploaded = {}, lyricsLive = false, lastLyricsKey = null;
   function save() { CU.store.set("slides", st); }
   function visible() { return CU.prefs.tab === "slides"; }
@@ -22,12 +24,50 @@
     if (!s || s.kind === "none" || s.kind === "black") return "";
     if (s.kind === "image") return '<img src="' + fileUrl(s.path) + '" style="object-fit:' + (s.fit === "cover" ? "cover" : "contain") + '">';
     if (s.kind === "video") return '<video src="' + fileUrl(s.path) + '" muted autoplay loop playsinline style="object-fit:' + (s.fit === "cover" ? "cover" : "contain") + '"></video>';
-    var bg = s.bgPath ? (VIDEO.test(s.bgPath) ? '<video class="sl-bg" src="' + fileUrl(s.bgPath) + '" muted autoplay loop playsinline></video>' : '<img class="sl-bg" src="' + fileUrl(s.bgPath) + '">') : "";
-    return bg + '<div class="sl-text" style="font-size:' + (Number(s.size) || 7) + unit + ";color:" + esc(s.color || "#fff") + ";text-align:" + esc(s.align || "center") + '">' + (s.title ? "<small>" + esc(s.title) + "</small>" : "") + esc(s.text || "") + "</div>";
+    return bgHtml(s.bgPath) + '<div class="sl-text" style="font-size:' + (Number(s.size) || 7) + unit + ";color:" + esc(s.color || "#fff") + ";text-align:" + esc(s.align || "center") + '">' + (s.title ? "<small>" + esc(s.title) + "</small>" : "") + esc(s.text || "") + "</div>";
+  }
+  // a background in a preview box: a picture, a video, or one of ours (a canvas, started by setHtml)
+  function bgHtml(p) {
+    if (!p) return "";
+    if (BG && BG.isBg(p)) return '<div class="sl-bg sl-bgc" data-bg="' + esc(BG.idOf(p)) + '"></div>';
+    return VIDEO.test(p) ? '<video class="sl-bg" src="' + fileUrl(p) + '" muted autoplay loop playsinline></video>' : '<img class="sl-bg" src="' + fileUrl(p) + '">';
+  }
+  function setHtml(el, html) {
+    if (!el) return; (el._bgs || []).forEach(function (m) { m.stop(); }); el._bgs = [];
+    el.innerHTML = html;
+    if (BG) el.querySelectorAll("[data-bg]").forEach(function (d) { var m = BG.mount(d, d.dataset.bg, { scale: 0.5, fps: 24 }); if (m) el._bgs.push(m); });
+  }
+  function bgName(p) { if (!p) return "None (black)"; if (BG && BG.isBg(p)) return BG.nameOf(p) || "Background"; var it = st.items.filter(function (x) { return x.path === p; })[0]; return it ? it.name : String(p).split(/[\\/]/).pop(); }
+  // the choices for a Background list: ours, then your pictures and videos
+  function bgOptions(sel, noneLabel) {
+    var o = '<option value="">' + esc(noneLabel || "none") + "</option>";
+    if (BG) {
+      var groups = {}; BG.list.forEach(function (b) { var g = b.group + (b.kind === "still" ? " (still)" : ""); (groups[g] = groups[g] || []).push(b); });
+      Object.keys(groups).forEach(function (g) { o += '<optgroup label="' + esc(g) + '">' + groups[g].map(function (b) { var v = "bg:" + b.id; return '<option value="' + v + '"' + (v === sel ? " selected" : "") + ">" + esc(b.name) + "</option>"; }).join("") + "</optgroup>"; });
+    }
+    var mine = st.items.filter(function (x) { return x.kind !== "text"; });
+    if (mine.length) o += '<optgroup label="Your pictures and videos">' + mine.map(function (x) { return '<option value="' + esc(x.path) + '"' + (x.path === sel ? " selected" : "") + ">" + esc(x.name) + "</option>"; }).join("") + "</optgroup>";
+    return o;
+  }
+  // which background the lyrics use now: this part's, then this song's, then the one for everything
+  function songKey() { var d = CU.state.display, sg = d && d.song; return sg ? String(typeof sg === "string" ? sg : sg.name || sg.title || "") : ""; }
+  function secName() { var d = CU.state.display, ls = d && d.lyrics || {}; return ls.section || (d && d.section ? d.section.name : "") || ""; }
+  function bgFor(song, sec) {
+    var sb = st.songBg[song == null ? songKey() : song]; sec = sec == null ? secName() : sec;
+    if (sb && sb.sections && sec && sb.sections[sec] !== undefined) return sb.sections[sec];
+    if (sb && sb.all !== undefined) return sb.all;
+    return st.lyricsBg;
+  }
+  function setBg(scope, value) {   // scope: "all" | "song" | "section"; value null = black, undefined = use the one above it
+    var k = songKey(), sec = secName();
+    if (scope === "all") st.lyricsBg = value || null;
+    else if (scope === "song" && k) { st.songBg[k] = st.songBg[k] || { sections: {} }; if (value === undefined) delete st.songBg[k].all; else st.songBg[k].all = value; }
+    else if (scope === "section" && k && sec) { st.songBg[k] = st.songBg[k] || { sections: {} }; st.songBg[k].sections = st.songBg[k].sections || {}; if (value === undefined) delete st.songBg[k].sections[sec]; else st.songBg[k].sections[sec] = value; }
+    save(); pushLyrics(true); renderBgPicker(); renderLook(); CU.fire("lyricsBg", bgFor());
   }
   function slideFor(it) {
     if (!it) return { kind: "none" };
-    if (it.kind === "text") return { kind: "text", text: it.text || "", title: it.title || "", size: it.size || st.lyrics.size, color: it.color || st.lyrics.color, align: it.align || st.lyrics.align, bgPath: it.bg || null, fade: it.fade == null ? 0.45 : it.fade };
+    if (it.kind === "text") return { kind: "text", text: it.text || "", title: it.title || "", size: it.size || st.lyrics.size, color: it.color || st.lyrics.color, align: it.align || st.lyrics.align, bgPath: it.bg || null, bgFade: st.bgFade, fade: it.fade == null ? 0.45 : it.fade };
     return { kind: it.kind, path: it.path, name: it.name, fit: it.fit || "contain", loop: it.loop !== false, muted: it.muted !== false, fade: it.fade == null ? 0.45 : it.fade };
   }
   // ---------------------------------------------------------------- going live (to every output that is on)
@@ -44,7 +84,7 @@
     }
     try {
       if ((slide.kind === "image" || slide.kind === "video") && slide.path) msg.file = await upload(slide.path);
-      if (slide.bgPath) msg.bgFile = await upload(slide.bgPath);
+      if (slide.bgPath && !(BG && BG.isBg(slide.bgPath))) msg.bgFile = await upload(slide.bgPath);   // (ours are drawn here, not files)
     } catch (e) { setInfo("Could not send it to the Central Pedal: " + e.message); return; }
     CU.send(msg);
   }
@@ -56,10 +96,18 @@
   }
   function goLive(id) { var it = item(id); if (!it) return; lyricsLive = false; syncLyricsBox(); show(slideFor(it), id); }
   function black() { lyricsLive = false; syncLyricsBox(); show({ kind: "black" }, null); }
+  // blank the screens (Stream Deck / MIDI): black on every output, then back to what was up
+  var blanked = null;
+  function blank(on) {
+    if (on == null) on = !blanked;
+    if (on && !blanked) { blanked = { live: live, lyrics: lyricsLive }; lyricsLive = false; syncLyricsBox(); show({ kind: "black", fade: 0.6 }, null); }
+    else if (!on && blanked) { var b = blanked; blanked = null; if (b.lyrics) setLyricsLive(true); else if (b.live && b.live.slide) show(b.live.slide, b.live.id); else show({ kind: "black" }, null); }
+    renderLive(); CU.fire("screensBlank", !!blanked); return !!blanked;
+  }
   // the lyrics, as the Central Pedal moves through the song
   function lyricsSlide() {
     var d = CU.state.display, ls = d && d.lyrics || {}, lines = ls.lines || [];
-    return { kind: "lyrics", text: lines.join("\n"), title: st.lyrics.showSection ? (ls.section || (d && d.section ? d.section.name : "")) : "", size: st.lyrics.size, color: st.lyrics.color, align: st.lyrics.align, bgPath: st.lyricsBg, fade: 0.3 };
+    return { kind: "lyrics", text: lines.join("\n"), title: st.lyrics.showSection ? (ls.section || (d && d.section ? d.section.name : "")) : "", size: st.lyrics.size, color: st.lyrics.color, align: st.lyrics.align, bgPath: bgFor(), bgFade: st.bgFade, fade: 0.3 };
   }
   function pushLyrics(force) {
     if (!lyricsLive) return; var s = lyricsSlide(), key = JSON.stringify(s);
@@ -92,22 +140,77 @@
     var el = $("#slPreview"); if (!el) return; var it = item(previewId);
     if (!it) { el.innerHTML = '<div class="sl-screen"></div><p class="muted">Click a slide to see it here.</p>'; return; }
     var s = slideFor(it);
-    el.innerHTML = '<div class="sl-screen">' + slideHtml(s) + "</div>" +
+    setHtml(el, '<div class="sl-screen">' + slideHtml(s) + "</div>" +
       (it.kind === "text" ? '<label>Title (small, above)<input data-sli="title" value="' + esc(it.title || "") + '"></label><label>Text<textarea data-sli="text" rows="4">' + esc(it.text || "") + "</textarea></label>" +
-        '<div class="row"><label>Size <input type="range" min="3" max="14" step="0.5" data-sli="size" value="' + (it.size || st.lyrics.size) + '"></label><label>Colour <input type="color" data-sli="color" value="' + esc(it.color || st.lyrics.color) + '"></label><label>Align <select data-sli="align">' + ["center", "left", "right"].map(function (a) { return '<option' + ((it.align || st.lyrics.align) === a ? " selected" : "") + ">" + a + "</option>"; }).join("") + '</select></label><label>Background <select data-sli="bg"><option value="">none</option>' + st.items.filter(function (x) { return x.kind !== "text"; }).map(function (x) { return '<option value="' + esc(x.path) + '"' + (x.path === it.bg ? " selected" : "") + ">" + esc(x.name) + "</option>"; }).join("") + "</select></label></div>"
+        '<div class="row"><label>Size <input type="range" min="3" max="14" step="0.5" data-sli="size" value="' + (it.size || st.lyrics.size) + '"></label><label>Colour <input type="color" data-sli="color" value="' + esc(it.color || st.lyrics.color) + '"></label><label>Align <select data-sli="align">' + ["center", "left", "right"].map(function (a) { return '<option' + ((it.align || st.lyrics.align) === a ? " selected" : "") + ">" + a + "</option>"; }).join("") + '</select></label><label>Background <select data-sli="bg">' + bgOptions(it.bg || "") + "</select></label></div>"
         : '<div class="row"><label>Fit <select data-sli="fit"><option value="contain"' + (it.fit !== "cover" ? " selected" : "") + '>Whole picture</option><option value="cover"' + (it.fit === "cover" ? " selected" : "") + ">Fill the screen</option></select></label>" + (it.kind === "video" ? '<label class="toggle"><input type="checkbox" data-sli="loop"' + (it.loop !== false ? " checked" : "") + '> Loop</label><label class="toggle"><input type="checkbox" data-sli="sound"' + (it.muted === false ? " checked" : "") + "> Sound</label>" : "") + "</div>") +
-      '<div class="row"><label>Fade (s) <input type="number" min="0" max="5" step="0.1" data-sli="fade" value="' + (it.fade == null ? 0.45 : it.fade) + '" style="width:70px"></label><button class="primary" data-sl-go="' + it.id + '">▶ Go live</button></div>';
+      '<div class="row"><label>Fade (s) <input type="number" min="0" max="5" step="0.1" data-sli="fade" value="' + (it.fade == null ? 0.45 : it.fade) + '" style="width:70px"></label><button class="primary" data-sl-go="' + it.id + '">▶ Go live</button></div>');
   }
-  function renderLive() { var el = $("#slLive"); if (!el) return; el.innerHTML = '<div class="sl-screen live">' + slideHtml(live.slide) + '</div><p class="muted small">' + (live.id === "lyrics" ? "Lyrics (following the Central Pedal)" : live.id ? esc((item(live.id) || {}).name || "Text slide") : live.slide && live.slide.kind === "black" ? "Black" : "Nothing yet") + "</p>"; }
+  function renderLive() { var el = $("#slLive"); if (!el) return; setHtml(el, '<div class="sl-screen live">' + slideHtml(live.slide) + '</div><p class="muted small">' + (live.id === "lyrics" ? "Lyrics (following the Central Pedal)" : live.id ? esc((item(live.id) || {}).name || "Text slide") : live.slide && live.slide.kind === "black" ? (blanked ? "Screens blanked" : "Black") : "Nothing yet") + "</p>"); }
   function renderLook() {
     var el = $("#slLook"); if (!el) return; var l = st.lyrics;
-    el.innerHTML = '<h3>Lyrics look</h3><div class="row"><label>Size <input type="range" min="3" max="14" step="0.5" data-sll="size" value="' + l.size + '"></label><label>Colour <input type="color" data-sll="color" value="' + esc(l.color) + '"></label><label>Align <select data-sll="align">' + ["center", "left", "right"].map(function (a) { return '<option' + (l.align === a ? " selected" : "") + ">" + a + "</option>"; }).join("") + '</select></label><label class="toggle"><input type="checkbox" data-sll="showSection"' + (l.showSection ? " checked" : "") + '> Section name</label><label>Background <select data-sll="bg"><option value="">none (black)</option>' + st.items.filter(function (x) { return x.kind !== "text"; }).map(function (x) { return '<option value="' + esc(x.path) + '"' + (x.path === st.lyricsBg ? " selected" : "") + ">" + esc(x.name) + "</option>"; }).join("") + "</select></label></div>";
+    el.innerHTML = '<h3>Lyrics look</h3><div class="row"><label>Size <input type="range" min="3" max="14" step="0.5" data-sll="size" value="' + l.size + '"></label><label>Colour <input type="color" data-sll="color" value="' + esc(l.color) + '"></label><label>Align <select data-sll="align">' + ["center", "left", "right"].map(function (a) { return '<option' + (l.align === a ? " selected" : "") + ">" + a + "</option>"; }).join("") + '</select></label><label class="toggle"><input type="checkbox" data-sll="showSection"' + (l.showSection ? " checked" : "") + '> Section name</label><label>Background <select data-sll="bg">' + bgOptions(st.lyricsBg || "", "none (black)") + "</select></label></div>" +
+      '<p class="muted small">More backgrounds, one for a single song or one part of a song, and your own pictures: the Lyrics tab → Background.</p>';
   }
   function render() {
     var root = $("#slidesRoot"); if (!root || !visible()) return;
     if (!root.querySelector("#slHead")) root.innerHTML = '<div class="card" id="slHead"></div><div class="sl-grid"><div class="card sl-listcard"><div class="row"><button data-sl="add" class="primary">+ Pictures / videos</button><button data-sl="text">+ Text slide</button></div><div class="sl-list" id="slList"></div></div><div class="card"><h3>Preview</h3><div id="slPreview"></div></div><div class="card"><h3>Live</h3><div id="slLive"></div></div></div><div class="card" id="slLook"></div>' + (NAT ? "" : '<p class="muted">Second screen and NDI work in the Central Control app.</p>');
     renderHead(); renderList(); renderPreview(); renderLive(); renderLook();
   }
+  // ---------------------------------------------------------------- the Lyrics tab's Background picker
+  // ours (moving and still), your pictures and videos, or black; for everything, this song, or this part of it
+  var bgPick = { scope: "all", filter: "all", open: false }, thumbs = {};
+  function thumbOf(id) { return thumbs[id] || (thumbs[id] = BG ? BG.thumb(id, 192, 108, 14) : ""); }
+  function scopeVal(scope) {
+    var k = songKey(), sec = secName(), sb = st.songBg[k];
+    if (scope === "section") return sb && sb.sections && sec && sb.sections[sec] !== undefined ? sb.sections[sec] : undefined;
+    if (scope === "song") return sb && sb.all !== undefined ? sb.all : undefined;
+    return st.lyricsBg || null;
+  }
+  function renderBgPicker() {
+    var el = document.getElementById("lyricsBgPanel"); if (!el || el.hidden) return;
+    var k = songKey(), sec = secName(), v = scopeVal(bgPick.scope), shown = v === undefined ? bgFor() : v;
+    var scopes = [["all", "Every song"], ["song", k ? "This song: " + k : "This song (no song yet)"], ["section", sec ? "This part: " + sec : "This part (no part yet)"]];
+    var tiles = [];
+    if (bgPick.filter !== "yours") tiles.push({ v: null, name: "None (black)", img: "" });
+    if (BG && bgPick.filter !== "yours") BG.list.forEach(function (b) { if (bgPick.filter === "motion" && b.kind !== "motion") return; if (bgPick.filter === "still" && b.kind !== "still") return; tiles.push({ v: "bg:" + b.id, name: b.name, img: thumbOf(b.id), motion: b.kind === "motion" }); });
+    if (bgPick.filter === "all" || bgPick.filter === "yours") st.items.filter(function (x) { return x.kind !== "text"; }).forEach(function (x) { tiles.push({ v: x.path, name: x.name, file: x }); });
+    el.innerHTML = '<div class="row spread"><b>Lyrics background</b><button class="mini" data-lb="close" aria-label="Close">✕</button></div>' +
+      '<div class="lb-top"><div class="lb-prev"><div class="sl-screen">' + slideHtml(Object.assign(lyricsSlide(), { bgPath: shown })) + '</div><p class="muted small">' + esc(lyricsLive ? "On the outputs now: " + outputsText().replace(/^→ /, "") : "Not on the outputs (tick Lyrics to the outputs)") + "</p></div>" +
+      '<div class="lb-side"><div class="lb-scopes" role="radiogroup" aria-label="Use it for">' + scopes.map(function (s) { var dis = (s[0] === "song" && !k) || (s[0] === "section" && (!k || !sec)); return '<label class="toggle"><input type="radio" name="lbScope" data-lbs="' + s[0] + '"' + (bgPick.scope === s[0] ? " checked" : "") + (dis ? " disabled" : "") + "> " + esc(s[1]) + "</label>"; }).join("") + "</div>" +
+      '<p class="muted small">' + (bgPick.scope === "all" ? "Now: " + esc(bgName(st.lyricsBg)) : v === undefined ? "Uses the one above: " + esc(bgName(bgFor())) : "Now: " + esc(bgName(v)) + ' <button class="mini" data-lb="inherit">Use the one above</button>') + "</p>" +
+      '<label>Crossfade (s) <input type="range" min="0" max="5" step="0.25" data-lb-fade value="' + st.bgFade + '"><output>' + st.bgFade + "</output></label>" +
+      '<div class="lb-filter" role="group" aria-label="Show">' + [["all", "All"], ["motion", "Moving"], ["still", "Still"], ["yours", "Yours"]].map(function (f) { return '<button data-lbf="' + f[0] + '" class="' + (bgPick.filter === f[0] ? "on" : "") + '">' + f[1] + "</button>"; }).join("") + "</div></div></div>" +
+      '<div class="lb-grid">' + tiles.map(function (t) { var sel = (t.v || null) === (shown || null); return '<button class="lb-tile' + (sel ? " sel" : "") + '" data-lbv="' + esc(t.v == null ? "" : t.v) + '" title="' + esc(t.name) + '">' + (t.img ? '<img src="' + t.img + '" alt="">' : t.file ? (t.file.kind === "video" ? '<video src="' + fileUrl(t.file.path) + '#t=1" muted preload="metadata"></video>' : '<img src="' + fileUrl(t.file.path) + '" alt="" loading="lazy">') : '<span class="lb-black"></span>') + '<span class="lb-nm">' + esc(t.name) + (t.motion ? " ·  moving" : "") + "</span></button>"; }).join("") +
+      '<button class="lb-tile lb-add" data-lb="add"><span class="lb-black">+</span><span class="lb-nm">Add a picture or video</span></button></div>';
+    var pv = el.querySelector(".lb-prev .sl-screen"); if (pv) { var html = pv.innerHTML; setHtml(pv, html); }
+  }
+  function openBgPicker(on) {
+    var el = document.getElementById("lyricsBgPanel"); if (!el) return;
+    el.hidden = on == null ? !el.hidden : !on;
+    if (el.hidden) { (el.querySelectorAll(".sl-screen") || []).forEach(function (s) { setHtml(s, ""); }); return; }
+    renderBgPicker();
+  }
+  (function () {
+    var view = document.getElementById("view-lyrics"); if (!view || document.getElementById("lyricsBgPanel")) return;
+    var out = view.querySelector(".lyr-out"), btn = document.createElement("button"); btn.id = "lyricsBgBtn"; btn.textContent = "Background…"; btn.title = "The picture behind the lyrics on the screens";
+    if (out) out.insertBefore(btn, out.firstChild); else view.querySelector(".bar").appendChild(btn);
+    var panel = document.createElement("div"); panel.id = "lyricsBgPanel"; panel.className = "card lyr-bg admin-only"; panel.hidden = true;
+    var lyr = document.getElementById("lyrics"); view.insertBefore(panel, lyr);
+    btn.addEventListener("click", function () { openBgPicker(); });
+    panel.addEventListener("click", async function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.lb === "close") openBgPicker(false);
+      else if (b.dataset.lb === "inherit") setBg(bgPick.scope, undefined);
+      else if (b.dataset.lb === "add") { if (!NAT) return alert("Adding pictures and videos works in the Central Control app."); var files = await NAT.open(); var last = null; files.forEach(function (f) { last = { id: uid(), kind: VIDEO.test(f.name) ? "video" : "image", path: f.path, name: f.name, size: f.size, fit: "cover" }; st.items.push(last); }); save(); if (last) setBg(bgPick.scope, last.path); else renderBgPicker(); }
+      else if (b.dataset.lbf) { bgPick.filter = b.dataset.lbf; renderBgPicker(); }
+      else if (b.dataset.lbv != null) setBg(bgPick.scope, b.dataset.lbv || null);
+    });
+    panel.addEventListener("change", function (e) { if (e.target.dataset.lbs) { bgPick.scope = e.target.dataset.lbs; renderBgPicker(); } });
+    panel.addEventListener("input", function (e) { if (e.target.hasAttribute("data-lb-fade")) { st.bgFade = Number(e.target.value) || 0; e.target.nextElementSibling.textContent = st.bgFade; save(); } });
+  })();
+  var lastBgKey = "";
+  CU.on("message", function (m) { if (m.type !== "display") return; var key = songKey() + "|" + secName(); if (key !== lastBgKey) { lastBgKey = key; CU.fire("lyricsBg", bgFor()); renderBgPicker(); } });
   // ---------------------------------------------------------------- events
   var root = $("#slidesRoot");
   root.addEventListener("click", async function (e) {
@@ -126,8 +229,8 @@
   root.addEventListener("drop", function (e) { var el = e.target.closest(".sl-item"); if (!el) return; e.preventDefault(); var from = e.dataTransfer.getData("text/plain"), a = st.items.findIndex(function (x) { return x.id === from; }), b = st.items.findIndex(function (x) { return x.id === el.dataset.id; }); if (a < 0 || b < 0 || a === b) return; var moved = st.items.splice(a, 1)[0]; st.items.splice(b, 0, moved); save(); renderList(); });
   function onField(e) {
     var t = e.target, it = item(previewId);
-    if (t.dataset.sli && it) { var k = t.dataset.sli, v = t.type === "checkbox" ? t.checked : t.type === "range" || t.type === "number" ? Number(t.value) : t.value; if (k === "sound") it.muted = !v; else it[k] = v; save(); if (e.type === "change" || k === "text" || k === "title") { var scr = $("#slPreview .sl-screen"); if (scr) scr.innerHTML = slideHtml(slideFor(it)); } if (e.type === "change" && k !== "text" && k !== "title") renderPreview(); if (live.id === it.id) show(slideFor(it), it.id); if (k === "title" || k === "text") { var nm = document.querySelector('.sl-item[data-id="' + it.id + '"] .sl-tht > span'); if (nm) nm.textContent = ((it.title ? it.title + " · " : "") + (it.text || "Text")).slice(0, 80); } return; }
-    if (t.dataset.sll) { var kk = t.dataset.sll; if (kk === "bg") st.lyricsBg = t.value || null; else st.lyrics[kk] = t.type === "checkbox" ? t.checked : t.type === "range" ? Number(t.value) : t.value; save(); pushLyrics(true); return; }
+    if (t.dataset.sli && it) { var k = t.dataset.sli, v = t.type === "checkbox" ? t.checked : t.type === "range" || t.type === "number" ? Number(t.value) : t.value; if (k === "sound") it.muted = !v; else it[k] = v; save(); if (e.type === "change" || k === "text" || k === "title") { var scr = $("#slPreview .sl-screen"); if (scr) setHtml(scr, slideHtml(slideFor(it))); } if (e.type === "change" && k !== "text" && k !== "title") renderPreview(); if (live.id === it.id) show(slideFor(it), it.id); if (k === "title" || k === "text") { var nm = document.querySelector('.sl-item[data-id="' + it.id + '"] .sl-tht > span'); if (nm) nm.textContent = ((it.title ? it.title + " · " : "") + (it.text || "Text")).slice(0, 80); } return; }
+    if (t.dataset.sll) { var kk = t.dataset.sll; if (kk === "bg") { setBg("all", t.value || null); return; } else st.lyrics[kk] = t.type === "checkbox" ? t.checked : t.type === "range" ? Number(t.value) : t.value; save(); pushLyrics(true); return; }
   }
   root.addEventListener("input", onField);
   root.addEventListener("change", async function (e) {
@@ -147,5 +250,7 @@
     setTimeout(function () { if (CU.mode() !== "admin") return; if (st.outputs.screen.on) NAT.outputScreen({ on: true, displayId: st.outputs.screen.displayId }).then(function (r) { outStatus.screen = r.on; }); if (st.outputs.ndi.on) NAT.outputNdi({ on: true, name: st.outputs.ndi.name }).then(function (r) { outStatus.ndi = r; }); }, 1500);
   }
   CU.on("tab", function (t) { if (t === "slides") setTimeout(render, 0); if (t === "lyrics") syncLyricsBox(); });
-  window.CUSlides = { show: show, goLive: goLive, black: black, setLyricsLive: setLyricsLive, state: function () { return st; }, live: function () { return live; }, slideFor: slideFor, outputsText: outputsText, render: render };
+  window.CUSlides = { show: show, goLive: goLive, black: black, setLyricsLive: setLyricsLive, state: function () { return st; }, live: function () { return live; }, slideFor: slideFor, outputsText: outputsText, render: render,
+    // (10.2) backgrounds and the screens on the 3D stage
+    bgFor: bgFor, setBg: setBg, lyricsSlide: lyricsSlide, lyricsLive: function () { return lyricsLive; }, blank: blank, blanked: function () { return !!blanked; }, openBgPicker: openBgPicker, piOn: function () { return !!st.outputs.pi.on; } };
 })();

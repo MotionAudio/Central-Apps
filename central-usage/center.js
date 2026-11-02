@@ -181,13 +181,46 @@ class Center {
         else if (m.type === "service") reply = this.handleService(ws, info, m);
         else if (m.type === "audioHost") reply = this.handleAudioHost(ws, info, m);
         else if (m.type === "talk") reply = this.handleTalk(ws, info, m);
+        else if (m.type === "screenPreviewWant") reply = this.handlePreviewWant(ws, info, m);
+        else if (m.type === "screenPreview") reply = this.handlePreview(ws, info, m);
+        else if (m.type === "stageShare") reply = this.handleStageShare(ws, info, m);
       } catch (e) { reply = { type: "cuRoleReply", ok: false, action: m.action, error: "center: " + e.message }; }
       if (reply) this.sendTo(ws, reply);
     });
-    ws.on("close", () => { if (info.talk) this.talkEnd(ws, info); if (this.audioHost && this.audioHost.ws === ws) { this.audioHost = null; this.broadcastAudioHost(); } if (info.id && this.devices[info.id]) { this.devices[info.id].lastSeen = Date.now(); this.save(); } this.clients.delete(ws); this.push(); });
+    ws.on("close", () => { if (info.previewWants && info.previewWants.length) setImmediate(() => this.pushPreviewWants()); if (info.talk) this.talkEnd(ws, info); if (this.audioHost && this.audioHost.ws === ws) { this.audioHost = null; this.broadcastAudioHost(); } if (info.id && this.devices[info.id]) { this.devices[info.id].lastSeen = Date.now(); this.save(); } this.clients.delete(ws); this.push(); });
     ws.on("error", () => { });
   }
   sendTo(ws, m) { try { if (ws.readyState === 1) ws.send(JSON.stringify(m)); } catch (_) { } }
+  // ---- (10.2) screen previews for the 3D stage: a computer whose lights page shows a screen made on another computer
+  // asks for it (screenPreviewWant); the computer making that output sends small JPEGs (screenPreview) a few times a
+  // second, only while someone asks, and the center passes them on to the computers that asked
+  previewOk(info) { return !!(info.auth || info.loopback); }
+  handlePreviewWant(ws, info, m) {
+    if (!this.previewOk(info)) return null;
+    info.previewWants = (Array.isArray(m.links) ? m.links : []).slice(0, 8).map((l) => String(l).slice(0, 40));
+    this.pushPreviewWants(); return null;
+  }
+  pushPreviewWants() {
+    const all = new Set(); for (const [, c] of this.clients) (c.previewWants || []).forEach((l) => all.add(l));
+    const msg = { type: "screenPreviewWanted", links: [...all] };
+    for (const [w, c] of this.clients) if (this.previewOk(c)) this.sendTo(w, msg);
+  }
+  // (10.2) a stage (the lights page's stage, room and lights) sent to the church's other computers: each one asks first
+  handleStageShare(ws, info, m) {
+    if (!this.previewOk(info) || !m.stage || typeof m.stage !== "object") return null;
+    const out = JSON.stringify({ type: "stageShare", stage: m.stage, from: info.id || null });
+    if (out.length > 8 * 1024 * 1024) return { type: "stageShareReply", ok: false, error: "That stage is too big to send (its traced picture?). Export a stage file instead." };
+    let n = 0; for (const [w, c] of this.clients) if (w !== ws && this.previewOk(c) && w.readyState === 1) { try { w.send(out); n++; } catch (_) { } }
+    return { type: "stageShareReply", ok: true, sentTo: n };
+  }
+  handlePreview(ws, info, m) {
+    if (!this.previewOk(info)) return null;
+    const link = String(m.link || "").slice(0, 40), jpeg = String(m.jpeg || "");
+    if (!link || !/^data:image\/(jpeg|webp);base64,/.test(jpeg) || jpeg.length > 400000) return null;
+    const out = JSON.stringify({ type: "screenPreview", link, jpeg, note: String(m.note || "").slice(0, 120), from: info.id || null, at: Date.now() });
+    for (const [w, c] of this.clients) if (w !== ws && (c.previewWants || []).indexOf(link) >= 0 && w.readyState === 1 && w.bufferedAmount < (1 << 20)) { try { w.send(out); } catch (_) { } }
+    return null;
+  }
   socketsOf(id) { const out = []; for (const [ws, c] of this.clients) if (c.id === id) out.push(ws); return out; }
   online(id) { return this.socketsOf(id).length > 0; }
   isMain(info) { return !!(this.main && info.main && info.id === this.main.id); }
