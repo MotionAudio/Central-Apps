@@ -68,7 +68,10 @@ await check("the engine hears it: the Kick and Keys inputs move their meters", a
 });
 await check("Mix tab: a strip per track; a fader move and the EQ go to the engine and stick", async () => {
   await cu.evaluate(() => CentralUsage.showTab("mix")); await cu.waitForSelector(".mx-strip", { timeout: 5000 });
-  const n = await cu.evaluate(() => document.querySelectorAll(".mx-strip").length); assert.ok(n >= 3, n + " strips");
+  // a strip for each of the song's tracks (Kick, Keys) - and the Pi's own instrument when it sends one (that needs
+  // PipeWire on the Pi: pw-record of its output, so a machine without it sends the two tracks only)
+  const st = await cu.evaluate(() => ({ strips: Array.from(document.querySelectorAll(".mx-strip input[data-mxs=name], .mx-strip .mx-name, .mx-strip")).map((e) => (e.value || e.textContent || "").trim()), n: document.querySelectorAll(".mx-strip").length, inst: CUMix.pi.some((x) => /^instrument/i.test(x.name)) }));
+  assert.ok(st.n === 2 + (st.inst ? 1 : 0) && ["Kick", "Keys"].every((t) => st.strips.some((x) => x.indexOf(t) === 0)), JSON.stringify(st));
   const k = await cu.evaluate(() => CUMix.state.inputs.findIndex((x) => x.name === "Keys"));
   await cu.evaluate((k) => { CUMix.op({ op: "input", i: k, patch: { fader: -12, eq: { on: true, hg: 4 } } }); }, k);
   await until(() => cu.evaluate((k) => CUMix.state.inputs[k].fader === -12 && CUMix.state.inputs[k].eq.on, k), 3000);
