@@ -418,7 +418,7 @@ await check("first launch: Main admin / Admin / User 1 / User 2; the main admin'
   assert.equal(keys.pair, code); assert.equal(keys.pin, "9876");
   assert.match(await mainP.textContent("#modePick .rp-done"), new RegExp(keys.pin)); await mainP.click("#modePick [data-rp='close']");
   await mainP.waitForFunction(() => CURoles.view() && CURoles.view().youAreMain, null, { timeout: 5000 });
-  assert.equal(await tabsShown(mainP), "devices,service,lights,mix,inears,lyrics,slides,video,io,controls,settings");
+  assert.equal(await tabsShown(mainP), "devices,service,lights,mix,inears,lyrics,slides,video,shorts,io,controls,settings");
 });
 await check("the Central Pedal pairs with the main admin; the main admin is told where it is and connects to it (songs, charts, lyrics, tracks)", async () => {
   try { await mainP.waitForFunction(() => CURoles.view() && CURoles.view().pedal && CURoles.view().pedal.online, null, { timeout: 15000 }); }

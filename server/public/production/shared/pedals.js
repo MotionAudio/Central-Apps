@@ -346,7 +346,8 @@
     plugins: { name: "Central Plugins", price: "$140 a year", what: "EQ, compressors, reverb, delay and mix effects on tracks, pads, channels and the instrument, with Central Pads" },
     instrument: { name: "Central Instrument", price: "$100 a year", what: "basses, guitars, strings, brass and winds to play from your guitar, with Central Pads" },
     pedals: { name: "Central Pedals", price: "$70 a year", what: "drive, fuzz, wah, modulation, pitch, amps, cabs and acoustic pedals, with Central Pads" },
-    pads: { name: "Central Pads", price: "$40 a year", what: "pads in every key for the pad pedal (also in every other plan)" }
+    pads: { name: "Central Pads", price: "$40 a year", what: "pads in every key for the pad pedal (also in every sound plan)" },
+    utility: { name: "Central Utility", price: "$50 a year", what: "more metronome clicks, lighting looks, slide templates, lyric backgrounds and graphics (also in All plans and church bundles)" }
   };
   var TIER_OF_CATEGORY = { comp: "plugins", eq: "plugins", delay: "plugins", reverb: "plugins", studio: "plugins", util: "plugins",
     boost: "pedals", dist: "pedals", fuzz: "pedals", wah: "pedals", mod: "pedals", trem: "pedals", pitch: "pedals", amp: "pedals", cab: "pedals", acoustic: "pedals" };
