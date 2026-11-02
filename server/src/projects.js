@@ -44,7 +44,9 @@ export function routes(api, { wrap, requireUser }) {
     let p = b.id ? await one("SELECT * FROM production_projects WHERE id=$1 AND user_id=$2", [String(b.id), req.user.id]) : null;
     const used = await usedBy(req.user.id, p && p.id);
     if (used + size > limitBytes()) throw bad("Your account has " + Math.round((limitBytes() - used) / 1048576) + " MB of project space left, and this project is " + Math.round(size / 1048576) + " MB. Delete projects you don't need, or keep this one on your computer.", 413);
-    if (!p) p = await one("INSERT INTO production_projects (id,user_id,name,type) VALUES ($1,$2,$3,$4) RETURNING *", [b.id && /^[A-Za-z0-9_-]{6,40}$/.test(String(b.id)) ? String(b.id) : "p" + crypto.randomBytes(9).toString("hex"), req.user.id, name, type]);
+    // a new one keeps the app's own id when it's free (so the same project saves to the same place), else gets its own
+    const want = b.id && /^[A-Za-z0-9_-]{6,40}$/.test(String(b.id)) && !(await one("SELECT 1 FROM production_projects WHERE id=$1", [String(b.id)])) ? String(b.id) : "p" + crypto.randomBytes(9).toString("hex");
+    if (!p) p = await one("INSERT INTO production_projects (id,user_id,name,type) VALUES ($1,$2,$3,$4) RETURNING *", [want, req.user.id, name, type]);
     else await q("UPDATE production_projects SET name=$1 WHERE id=$2", [name, p.id]);
     const key = "projects/u" + req.user.id + "/" + p.id + "/" + Date.now().toString(36) + "-" + crypto.randomBytes(4).toString("hex") + ".zip";
     await q("UPDATE production_projects SET pending_key=$1, pending_bytes=$2 WHERE id=$3", [key, size, p.id]);
