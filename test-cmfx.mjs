@@ -220,6 +220,34 @@ for (const f of presets) {
 }
 check(presets.length >= 6, presets.length + " presets ship with the builder");
 
+// ---- 5. sharing one: the website's upload check, and the installers on computers and on the Central Pedal
+{
+  const buf = fs.readFileSync(path.join(presetDir, "tape-delay.cmfx.json")), sha = crypto.createHash("sha256").update(buf).digest("hex");
+  try {
+    const CF = await import(path.join(root, "server/src/creatorfiles.js"));
+    const r = CF.checkPlugin("all", "tape-delay.cmfx.json", buf, new Set());
+    let refused = ""; try { CF.checkPlugin("all", "x.cmfx.json", Buffer.from(JSON.stringify(P("x", [{ id: "a", type: "nope" }], []))), new Set()); } catch (e) { refused = e.message; }
+    let blocked = ""; try { CF.checkPlugin("all", "t.cmfx.json", buf, new Set([sha])); } catch (e) { blocked = e.message; }
+    check(r.format === "cmfx" && r.binaries[0].sha256 === sha && /block type/.test(refused) && /harmful/.test(blocked), "the website takes a .cmfx.json as a plugin for every device, checked by the same core (and refuses a broken or blocked one)");
+  } catch (e) { bad("the website's upload check: " + e.message); }
+  const item = { kind: "plugin", format: "cmfx", bundle: "tape-delay.cmfx.json", name: "Tape Delay", binaries: [{ name: "tape-delay.cmfx.json", sha256: sha }] };
+  try {
+    const { Libraries } = require(path.join(root, "central-usage/libraries.js")), dir = path.join(tmp, "libs-js"); fs.mkdirSync(dir);
+    const L = new Libraries({ dir, send() { } }); L.setPluginsAllowed(true);
+    const rec = L._unpackPlugin("community-5", item, buf);
+    let wrong = ""; try { L._unpackPlugin("community-6", Object.assign({}, item, { binaries: [{ name: item.bundle, sha256: "0".repeat(64) }] }), buf); } catch (e) { wrong = e.message; }
+    check(fs.readFileSync(rec.path).equals(buf) && rec.format === "cmfx" && /doesn't match/.test(wrong), "the computers' installer puts a community Central FX plugin in place, and refuses one that isn't the file Motion Audio checked");
+  } catch (e) { bad("the computers' installer: " + e.message); }
+  const py = spawnSync(process.platform === "win32" ? "python" : "python3", ["-c", [
+    "import sys, json, os; sys.path.insert(0, sys.argv[1]); import libraries as L",
+    "s = L.LibraryStore(sys.argv[2]); s.set_plugins_allowed(True); it = json.loads(sys.argv[3]); data = open(sys.argv[4], 'rb').read()",
+    "r = s._unpack_plugin('community-5', it, data); ok = open(r['path'], 'rb').read() == data",
+    "it['binaries'][0]['sha256'] = '0' * 64",
+    "try:\n    s._unpack_plugin('community-6', it, data); ok = False\nexcept L.LibraryError as e:\n    ok = ok and \"doesn't match\" in str(e)",
+    "print('OK' if ok else 'NO')"].join("\n"), root, path.join(tmp, "libs-py"), JSON.stringify(item), path.join(presetDir, "tape-delay.cmfx.json")], { encoding: "utf8" });
+  check(/OK/.test(py.stdout || ""), "the Central Pedal's installer does the same" + (/OK/.test(py.stdout || "") ? "" : ": " + (py.stderr || py.stdout || py.error).slice(-400)));
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(failures ? "\n" + failures + " FAILED" : "\nall passed");
 process.exit(failures ? 1 : 0);
