@@ -618,6 +618,8 @@ class Player:
             if key not in self.insts:
                 self.insts[key] = SM.Instrument(name, self.cache, seed=self.seed + seed)
             x = self.insts[key].play(notes, seconds)
+        if not self.opt.get("gm"):
+            self.insts.pop((name, seed), None) if name != "drums" or seed else None    # (done with it: its samples freed)
         return x[:n] if len(x) >= n else np.pad(x, ((0, n - len(x)), (0, 0)))
 
     def gm(self, name, notes, seconds):

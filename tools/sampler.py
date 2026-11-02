@@ -176,6 +176,7 @@ class Instrument:
         self.rr = {}
         self.audio = {}
         self.resampled = {}
+        self.held = 0
 
     # -- which regions a note plays
     def pick(self, key, vel, cc):
@@ -218,17 +219,20 @@ class Instrument:
             return
         with ThreadPoolExecutor(8) as ex:
             for p, local in zip(todo, ex.map(lambda p: fetch(self.src, p, self.cache), todo)):
-                self.audio[p] = decode(local, self.spec["keep"])
+                x, sr = decode(local, self.spec["keep"])
+                self.audio[p] = (x.astype(np.float16), sr)          # (half the memory: a long song needs hundreds of samples)
 
     def at_rate(self, path, step):
         """The sample read at `step` source samples per output sample (pitch and rate together), cached."""
         k = (path, round(step, 6))
         if k not in self.resampled:
-            x, _ = self.audio[path]
+            x = self.audio[path][0].astype(np.float32)
             n = int((len(x) - 2) / step)
             self.resampled[k] = hermite(x, np.arange(n) * step).astype(np.float32) if abs(step - 1) > 1e-6 else x
-            if len(self.resampled) > 600:
-                self.resampled.pop(next(iter(self.resampled)))
+            self.held += self.resampled[k].nbytes
+            while self.held > 350e6 and len(self.resampled) > 1:     # (at most ~350 MB of ready-to-play samples)
+                old = self.resampled.pop(next(iter(self.resampled)))
+                self.held -= old.nbytes
         return self.resampled[k]
 
     # -- playing
