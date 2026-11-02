@@ -3,11 +3,11 @@
  "libraries": [
   {
    "id": "central-keys-library",
-   "approxMB": 540,
+   "approxMB": 575,
    "plan": "keys",
    "version": "1.2",
    "title": "Central Keys Library",
-   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; twelve stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark and bell) - with worship-ready presets; and ten synths made by us, each its own kind (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells).",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; fifteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, and Ember and Selah Strings - a grand piano and a string section stretched into clouds) - with worship-ready presets; and ten synths made by us, each its own kind (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells).",
    "sounds": [
     {
      "name": "Central Keys Pianos",
@@ -64,13 +64,23 @@
     {
      "name": "Central Keys Pads",
      "source": "make-pads",
-     "license": "Motion Audio - sold with Central Keys",
-     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Keys (recordings in it: CC0 1.0)",
+     "credit": "Made by Motion Audio (tools/make-pads.py); Ember Pad and Selah Strings are made from recordings in VCSL and VSCO 2 CE by Versilian Studios (CC0 1.0)",
      "sources": [
       {
        "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
        "license": "Motion Audio - sold with Central Keys",
        "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      },
+      {
+       "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
       }
      ]
     },
@@ -566,6 +576,48 @@
       ]
      ],
      "sound": "bell pad|glass pad"
+    },
+    {
+     "name": "Sunday Keys Pad",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 6.5,
+        "Late": 36
+       }
+      ]
+     ],
+     "sound": "sunday pad|worship pad"
+    },
+    {
+     "name": "Ember",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 5.5,
+        "Late": 34
+       }
+      ]
+     ],
+     "sound": "ember pad|warm pad"
+    },
+    {
+     "name": "Selah Strings",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 4.5,
+        "Late": 30
+       }
+      ]
+     ],
+     "sound": "selah strings|string pad"
     },
     {
      "name": "Xylophone Bright",
@@ -3247,11 +3299,11 @@
   },
   {
    "id": "central-pads-library",
-   "approxMB": 420,
+   "approxMB": 840,
    "plan": "pads",
    "version": "1.2",
    "title": "Central Pads Library",
-   "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is built its own way (its own voices, movement, stereo and reverb) and is a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too. Plus three ambient loops for the texture channels - Sparkle, Drift and Breath - in every key.",
+   "summary": "41 pads for the pad pedal in all 12 keys, each built its own way (its own voices, movement, stereo and reverb) and each a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting): warm, air, choir aah, ooh and hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning; Sunday Keys (the modern worship pad); nine made from real recordings (Ember, Halo, Selah, Dawn, Frozen Piano, Bowed Glass, Vibes, Harp Wash, Cathedral Organ); and tide, vowels, tape, sparkle, eighties, reed, swell guitar, breathe, tanpura, horns and flute choir. Plus Central Pads Swells - swells, risers, downlifters and an arrival in every key at 4, 8 and 16 seconds, and an air bed for between songs - and three ambient loops for the texture channels (Sparkle, Drift and Breath) in every key. Comes with every other plan too.",
    "pads": [
     {
      "name": "Warm",
@@ -3492,6 +3544,303 @@
        "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
       }
      ]
+    },
+    {
+     "name": "Sunday Keys",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Ember",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a grand piano in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Halo",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from hand chimes in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Selah",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from violins and cellos in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+      }
+     ]
+    },
+    {
+     "name": "Tide",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Dawn",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a grand piano in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Frozen Piano",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a grand piano in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Bowed Glass",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a bowed psaltery in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Vibes",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a vibraphone in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Harp Wash",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a concert harp in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Cathedral Organ",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a pipe organ in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Vowels",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Tape",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Sparkle",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Eighties",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Reed",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Swell Guitar",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Breathe",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Tanpura",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Horns",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Flute Choir",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
     }
    ],
    "loops": [
@@ -3505,6 +3854,21 @@
        "text": "Made by Motion Audio (tools/make-loops.py: synthesised, no recording)",
        "license": "Motion Audio - sold with Central Pads",
        "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-loops.py"
+      }
+     ]
+    }
+   ],
+   "sounds": [
+    {
+     "name": "Central Pads Swells",
+     "source": "make-pads",
+     "license": "Motion Audio - sold with Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
       }
      ]
     }

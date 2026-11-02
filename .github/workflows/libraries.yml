@@ -41,6 +41,7 @@ on:
       - tools/make-synths.py
       - tools/pad_dsp.py
       - tools/pad_voices.py
+      - tools/pad_sources.py
       - tools/make-loops.py
       - tools/make-hymns.py
       - tools/midi_render.py
@@ -73,7 +74,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: work/sounds
-          key: libraries-sounds-${{ hashFiles('tools/sounds-vcsl.py', 'tools/sounds-sfz.py', 'tools/sfz_render.py', 'tools/make-pads.py', 'tools/make-synths.py', 'tools/pad_dsp.py', 'tools/pad_voices.py', 'sounds-vsco.py') }}
+          key: libraries-sounds-${{ hashFiles('tools/sounds-vcsl.py', 'tools/sounds-sfz.py', 'tools/sfz_render.py', 'tools/make-pads.py', 'tools/make-synths.py', 'tools/pad_dsp.py', 'tools/pad_voices.py', 'tools/pad_sources.py', 'sounds-vsco.py') }}
       - name: Build the libraries
         run: bash tools/build-libraries.sh "$OUT"
       - name: Check every SoundFont plays (FluidSynth loads it)

@@ -23,6 +23,29 @@ Each style is built its own way, so no two sound alike:
   Choir Hum  closed-mouth humming: warm, intimate, near
   Cinematic  low strings, a swelling brass-like layer, a drone, a shimmer and a breath of wind - huge and wide
   Morning    felt, glass and air on an add9 chord: light and gentle, with soft echoes
+ 10.2, more:
+  Sunday Keys    the modern worship pad: lush detuned saws and soft octaves, slowly opening, a long shimmer, very wide,
+                 with room left for the singer (a gentle dip where the voice sits)
+  Ember          a grand piano (recorded) stretched into a warm cloud, some of it backwards, under a frozen low piano, dark hall
+  Halo           hand chimes (recorded) stretched into a high glistening cloud in a shimmer
+  Selah          violins and cellos (recorded) stretched into a slow-breathing string cloud
+  Tide           saws washing in and out like waves, with surf
+  Dawn           piano notes (recorded) played backwards, blooming up at uneven moments, on an add9 chord
+  Frozen Piano   a grand piano's sound (recorded) held still forever, clear and close
+  Bowed Glass    a bowed psaltery (recorded) stretched into a high glassy cloud
+  Vibes          a vibraphone (recorded) held, its motor turning
+  Harp Wash      a concert harp (recorded) plucking slowly through the chord into a long hall
+  Cathedral Organ a pipe organ (recorded) held in a cathedral
+  Vowels         a singing synth whose vowel keeps changing
+  Tape           saws on worn tape: wow, flutter, hiss, narrow
+  Sparkle        a cloud of tiny glints over a soft bed, echoing
+  Eighties       the 80s string-synth pad, pulse waves and a thick chorus
+  Reed           a musette reed, its three reeds beating
+  Swell Guitar   ambient electric guitar swells with long echoes
+  Breathe        a pad that breathes in and out, three slow breaths a loop
+  Tanpura        a buzzing drone, its brightness sweeping with each pluck
+  Horns          soft french horns, dark and warm
+  Flute Choir    a section of breathy flutes
 
   voice(name, lp, note, rng) -> stereo dry voice;  STYLES[name] -> {"layers": [(voice, octave, gain)], "fx": fn, "chord"}
 Needs numpy (and pad_dsp.py, next to this file)."""
@@ -228,7 +251,7 @@ def fx_air(lp, x, rng, f0):
 
 
 def fx_choir_a(lp, x, rng, f0):
-    return D.reverb(lp, x, rng, 5.0, mix=0.42, damp=5500, predelay=0.035, width=1.1)
+    return D.width(D.reverb(lp, x, rng, 6.0, mix=0.48, damp=5500, predelay=0.035, width=1.2), 1.15)
 
 
 def fx_choir_o(lp, x, rng, f0):
@@ -237,12 +260,14 @@ def fx_choir_o(lp, x, rng, f0):
 
 
 def fx_shimmer(lp, x, rng, f0):
-    return D.shimmer(lp, x, rng, 7.0, mix=0.72, amount=0.7, octaves=2)
+    x = D.sweep(lp, x, lp_curve(lp, 0.4, 0.9, 1), lp4, f0 * 3, f0 * 24)   # (the bed under the halo breathes)
+    return D.width(D.shimmer(lp, x, rng, 8.0, mix=0.72, amount=0.7, octaves=2), 1.2)
 
 
 def fx_strings(lp, x, rng, f0):
-    x = D.tremolo(lp, x, 1 / lp.L, 0.25)          # (the section leans into the bow and eases off)
-    return D.reverb(lp, x, rng, 2.8, mix=0.3, damp=5000, predelay=0.02, width=1.0)
+    x = D.tremolo(lp, x, 1 / lp.L, 0.3)          # (the section leans into the bow and eases off)
+    x = D.chorus(lp, x, rate=0.25, depth_ms=2.0, mix=0.25)
+    return D.reverb(lp, x, rng, 3.4, mix=0.36, damp=5000, predelay=0.02, width=1.15)
 
 
 def fx_glass(lp, x, rng, f0):
@@ -334,12 +359,12 @@ def fx_morning(lp, x, rng, f0):
 # name -> layers [(voice spec, octave, gain)], effects, chord (semitones over the root)
 FIFTH = (0, 7, 12)
 STYLES = {
-    "Warm": {"layers": [(("saws", {"n": 5, "detune": 14}), 0, 1.0), ("sub", -1, 0.25)], "fx": fx_warm, "chord": FIFTH},
+    "Warm": {"layers": [(("saws", {"n": 7, "detune": 16}), 0, 1.0), (("saws", {"n": 3, "detune": 9, "spread": 0.5}), 1, 0.25), ("sub", -1, 0.25)], "fx": fx_warm, "chord": FIFTH},
     "Air": {"layers": [("air", 0, 1.0), (("sines", {"ratios": ((1, 1.0),), "spread": 1.0}), 1, 0.15)], "fx": fx_air, "chord": FIFTH},
-    "Choir Aah": {"layers": [(("choir", {"vowel": "a", "singers": 8}), 0, 1.0)], "fx": fx_choir_a, "chord": FIFTH},
+    "Choir Aah": {"layers": [(("choir", {"vowel": "a", "singers": 12}), 0, 1.0), (("choir", {"vowel": "o", "singers": 6, "vib_cents": 16}), -1, 0.45)], "fx": fx_choir_a, "chord": FIFTH},
     "Choir Ooh": {"layers": [(("choir", {"vowel": "u", "singers": 6, "vib_cents": 16, "breath": 0.08, "to_vowel": "o"}), 0, 1.0)], "fx": fx_choir_o, "chord": FIFTH},
     "Shimmer": {"layers": [(("sines", {"ratios": ((1, 1.0), (2, 0.25))}), 0, 0.7), ("tri", 1, 0.45)], "fx": fx_shimmer, "chord": FIFTH},
-    "Strings": {"layers": [(("strings", {"players": 12}), 0, 1.0)], "fx": fx_strings, "chord": FIFTH},
+    "Strings": {"layers": [(("strings", {"players": 16}), 0, 1.0), (("strings", {"players": 8, "low": True}), -1, 0.5)], "fx": fx_strings, "chord": FIFTH},
     "Glass": {"layers": [("glass", 1, 1.0), (("sines", {"ratios": ((1, 1.0),)}), 0, 0.3)], "fx": fx_glass, "chord": FIFTH},
     "Swell": {"layers": [("tri", 0, 1.0), (("sines", {"ratios": ((1, 1.0), (2, 0.5), (3, 0.25))}), 0, 0.8), (("saws", {"n": 3, "detune": 6, "spread": 0.4}), 0, 0.35)], "fx": fx_swell, "chord": FIFTH},
     "Worship": {"layers": [(("saws", {"n": 6, "detune": 18, "spread": 1.0}), 0, 0.8), (("sines", {"ratios": ((1, 1.0), (1.5, 0.3))}), 1, 0.45), ("sub", -1, 0.4)],
@@ -356,6 +381,379 @@ STYLES = {
     "Cinematic": {"layers": [(("strings", {"players": 8, "low": True}), -1, 0.8), ("brass", 0, 0.5), ("sub", -1, 0.4), ("air", 1, 0.15)], "fx": fx_cinematic, "chord": FIFTH},
     "Morning": {"layers": [("felt", 0, 0.8), ("glass", 1, 0.3), ("air", 1, 0.1)], "fx": fx_morning, "chord": (0, 7, 12, 14)},
 }
+
+
+# ---------------------------------------------------------------- 10.2, more: pads made from real recordings (CC0)
+# Recordings come from pad_sources.py (VCSL and VSCO 2 CE, both CC0): set_sources(Sources(cache)) before rendering
+# these styles (make-pad-loops.py and make-pads.py do, with their download cache; tests use pad_sources.Stand()).
+SRC = None
+RECORDED = {"ember": "piano", "frozen": "piano", "blooms": "piano", "halo": "chimes", "selah_hi": "violins", "selah_lo": "cellos",
+            "glassbow": "psaltery", "vibes": "vibes", "harp": "harp", "pipes": "organ"}
+
+
+def set_sources(sources):
+    global SRC
+    SRC = sources
+
+
+def _src(name, note, sr):
+    """The recording nearest the note, moved to the note's pitch (resampled), mono."""
+    if SRC is None:
+        raise RuntimeError("this pad is made from recordings: give the download cache (--cache)")
+    n, x = min(SRC.notes(name), key=lambda p: abs(p[0] - note))
+    ratio = 2 ** ((note - n) / 12.0) * 32000.0 / sr
+    m = int(len(x) / ratio)
+    return np.interp(np.arange(m) * ratio, np.arange(len(x)), x)
+
+
+def v_gran(lp, note, rng, src="piano", density=36, grain=0.28, region=(0.12, 1.6), rev=0.0, spread=0.95):
+    """A recording stretched into a cloud: short overlapping pieces (grains) of the note's sustain, taken at random from
+    `region` (seconds), some played backwards, scattered round the loop and across the stereo field."""
+    y = _src(src, note, lp.sr)
+    g = int(grain * lp.sr)
+    a = min(int(region[0] * lp.sr), max(0, len(y) - g - 1))
+    b = max(a + 1, min(int(region[1] * lp.sr), len(y) - g))
+    win = np.hanning(g)
+    out = np.zeros((lp.n, 2))
+    for _ in range(int(density * lp.L)):
+        p = int(rng.integers(a, b))
+        seg = y[p:p + g]
+        if len(seg) < g:
+            continue
+        if rng.random() < rev:
+            seg = seg[::-1]
+        seg = seg * win * rng.uniform(0.5, 1.0)
+        idx = (int(rng.integers(0, lp.n)) + np.arange(g)) % lp.n
+        ang = (rng.uniform(-spread, spread) + 1) * math.pi / 4
+        out[idx, 0] += seg * math.cos(ang)
+        out[idx, 1] += seg * math.sin(ang)
+    return out
+
+
+def v_freeze(lp, note, rng, src="piano", at=(0.15, 0.9), at2=(0.9, 2.2)):
+    """A recording frozen: the sound of a moment of the note held forever (its spectrum with fresh phases, round the
+    loop), two moments - the bright start and the mellower ring - slowly trading places."""
+    y = _src(src, note, lp.sr)
+    f = D.freqs(lp)
+    outs = []
+    for w0, w1 in (at, at2):
+        seg = y[int(w0 * lp.sr):int(w1 * lp.sr)]
+        if len(seg) < 2048:
+            seg = y[:max(2048, len(y))]
+        S = np.abs(np.fft.rfft(seg * np.hanning(len(seg))))
+        M = np.interp(f, np.fft.rfftfreq(len(seg), 1 / lp.sr), S)
+        o = np.stack([np.fft.irfft(M * np.exp(1j * rng.uniform(0, 2 * math.pi, len(f))), lp.n) for _ in (0, 1)], 1)
+        outs.append(o / D.rms(o))
+    g = (0.5 + 0.5 * lp.lfo(1 / lp.L, rng.uniform(0, 6.28)))[:, None]
+    return outs[0] * g + outs[1] * (1 - g)
+
+
+def v_blooms(lp, note, rng, src="piano", every=2.2):
+    """Notes played backwards: each one swells up out of nothing and stops - blooming at uneven moments round the loop."""
+    y = _src(src, note, lp.sr)
+    m = min(len(y), int(2.6 * lp.sr))
+    r = (y[:m] * np.linspace(1, 0, m) ** 0.5)[::-1]
+    out = np.zeros((lp.n, 2))
+    at = rng.uniform(0, every)
+    while at < lp.L:
+        idx = (int(at * lp.sr) + np.arange(m)) % lp.n
+        ang = (rng.uniform(-0.8, 0.8) + 1) * math.pi / 4
+        amp = rng.uniform(0.6, 1.0)
+        out[idx, 0] += r * amp * math.cos(ang)
+        out[idx, 1] += r * amp * math.sin(ang)
+        at += every * rng.uniform(0.7, 1.3)
+    return out
+
+
+def v_plucks(lp, note, rng, src="harp", every=1.6):
+    """A recording's notes plucked at uneven moments round the loop (each ringing on across the loop's end)."""
+    y = _src(src, note, lp.sr)
+    m = min(len(y), lp.n)
+    r = y[:m] * np.linspace(1, 0, m) ** 0.3
+    out = np.zeros((lp.n, 2))
+    at = rng.uniform(0, every)
+    while at < lp.L:
+        idx = (int(at * lp.sr) + np.arange(m)) % lp.n
+        ang = (rng.uniform(-0.9, 0.9) + 1) * math.pi / 4
+        amp = rng.uniform(0.5, 1.0)
+        out[idx, 0] += r * amp * math.cos(ang)
+        out[idx, 1] += r * amp * math.sin(ang)
+        at += every * rng.uniform(0.6, 1.4)
+    return out
+
+
+# ---------------------------------------------------------------- 10.2, more synthesised voices
+def v_vowels(lp, note, rng):
+    """A singing synth whose vowel keeps changing: ah - eh - ee - oh - oo and back round, once a loop."""
+    f = D.freqs(lp)
+    src = v_saws(lp, note, rng, n=3, detune=8, spread=0.6, vib=10)
+    src = D.filt(src, D.tilt(f, -3.0, 300))
+    order = ["a", "e", "i", "o", "u"]
+    ys = [D.filt(src, D.formant(f, D.VOWELS[v]) * D.highpass(f, 90, 0.7, 2)) for v in order]
+    pos = (lp.t / lp.L * len(order)) % len(order)
+    out = np.zeros_like(src)
+    for i, y in enumerate(ys):
+        d = np.minimum(np.abs(pos - i), len(order) - np.abs(pos - i))
+        out += y * np.clip(1 - d, 0, 1)[:, None]
+    return out
+
+
+def v_tape(lp, note, rng):
+    """Two saws on worn tape: strong wow (slow pitch wander) and flutter."""
+    f0 = D.hz(note)
+    out = np.zeros((lp.n, 2))
+    wow = 16 * lp.lfo(0.4, rng.uniform(0, 6.28)) + 5 * lp.lfo(5.8, 0.0) + lp.drift(rng, 6.0)
+    for i, c in enumerate((-4.0, 4.0)):
+        out += D.pan(D.saw(lp, f0, wow + c, rng.uniform(0, 1)) * 0.6 + D.tri(lp, f0 * 2, wow + c) * 0.3, (i - 0.5) * 0.4)
+    return out
+
+
+def v_glints(lp, note, rng, per_second=5.0):
+    """A cloud of tiny sine glints on the note and its octaves, scattered round the loop."""
+    f0 = D.hz(note)
+    out = np.zeros((lp.n, 2))
+    for _ in range(int(per_second * lp.L)):
+        f = lp.q(f0 * rng.choice([1, 2, 2, 4]))
+        if f > 0.4 * lp.sr:
+            continue
+        g = int(rng.uniform(0.08, 0.35) * lp.sr)
+        t = np.arange(g) / lp.sr
+        seg = np.sin(2 * math.pi * f * t + rng.uniform(0, 6.28)) * np.hanning(g) * rng.uniform(0.3, 1.0)
+        idx = (int(rng.integers(0, lp.n)) + np.arange(g)) % lp.n
+        ang = (rng.uniform(-1, 1) + 1) * math.pi / 4
+        out[idx, 0] += seg * math.cos(ang)
+        out[idx, 1] += seg * math.sin(ang)
+    return out
+
+
+def v_reed(lp, note, rng):
+    """A musette reed: two narrow pulse waves tuned apart (they beat), through a reed's resonances."""
+    f0 = D.hz(note)
+    f = D.freqs(lp)
+    x = sum(D.pulse(lp, f0, 0.28, c + lp.drift(rng, 1.5), rng.uniform(0, 1)) for c in (-11.0, 0.0, 11.0))
+    x = D.filt(x, D.peak(f, 900, 7, 1.5) * D.peak(f, 2100, 5, 2.0) * D.lowpass(f, 5000, 0.7, 2))
+    return D.stereo(x)
+
+
+def v_eguitar(lp, note, rng):
+    """An electric guitar note swelled in with the volume knob (no pick attack), again and again, each string its own
+    time - the ambient worship guitar."""
+    f0 = D.hz(note)
+    f = D.freqs(lp)
+    x = D.saw(lp, f0, lp.drift(rng, 3.0) + 7 * lp.lfo(5.0, rng.uniform(0, 6.28)), rng.uniform(0, 1))
+    x = D.filt(x, D.highpass(f, 90, 0.7, 2) * D.peak(f, 2400, 6, 1.4) * D.lowpass(f, 4200, 0.9, 4))
+    period = lp.L / 3
+    ph = (lp.t / period + rng.uniform(0, 1)) % 1.0
+    env = np.where(ph < 0.45, (ph / 0.45) ** 2, np.exp(-(ph - 0.45) / 0.22))
+    return D.pan(D.saturate(x / D.rms(x) * 0.5, 1.8) * env, rng.uniform(-0.4, 0.4))
+
+
+def v_tanpura(lp, note, rng):
+    """A tanpura-like drone: a bright buzzing band (the bridge's 'jawari') sweeping up through the harmonics each time
+    the string is plucked, four times round the loop."""
+    f0 = D.hz(note)
+    out = np.zeros((lp.n, 2))
+    ph0 = rng.uniform(0, 1)
+    cycle = ((lp.t / (lp.L / 4)) + ph0) % 1.0
+    centre = 3 + 22 * cycle ** 0.7
+    for k in range(1, 34):
+        fk = f0 * k
+        if fk > 0.42 * lp.sr:
+            break
+        amp = (1 / k ** 0.6) * (0.25 + 0.75 * np.exp(-((k - centre) / 3.5) ** 2)) * (0.6 + 0.4 * np.exp(-cycle * 3))
+        for side in (0, 1):
+            out[:, side] += amp * D.sine(lp, fk + (side - 0.5) * 0.2, None, rng.uniform(0, 1))
+    return out
+
+
+def v_horns(lp, note, rng):
+    """Soft french horns: a few saws with a slow vibrato, dark, with the horn's warm resonance."""
+    f = D.freqs(lp)
+    y = v_saws(lp, note, rng, n=3, detune=6, spread=0.5, vib=6)
+    return D.filt(y, D.peak(f, 600, 7, 1.0) * D.lowpass(f, 2200, 0.7, 4) * D.highpass(f, 150, 0.7, 2))
+
+
+def v_flutes(lp, note, rng, players=5):
+    """A section of flutes: each player a soft sine voice with breath and their own vibrato."""
+    f0 = D.hz(note)
+    f = D.freqs(lp)
+    out = np.zeros((lp.n, 2))
+    for i in range(players):
+        vib = rng.uniform(12, 22) * lp.lfo(rng.uniform(4.6, 5.6), rng.uniform(0, 6.28)) + rng.uniform(-6, 6)
+        x = D.sine(lp, f0, vib, rng.uniform(0, 1)) + 0.2 * D.sine(lp, f0 * 2, vib) + 0.06 * D.sine(lp, f0 * 3, vib)
+        out += D.pan(x, rng.uniform(-0.9, 0.9))
+    comb = sum((1 / k) / (1 + ((f - f0 * k) / (10 + f0 * k * 0.01)) ** 2) for k in (1, 2, 3))
+    breath = np.stack([D.filt(D.noise(lp, rng, "white"), comb * D.highpass(f, 300, 0.7, 2)) for _ in (0, 1)], 1)
+    return out / D.rms(out) + 0.12 * breath / D.rms(breath)
+
+
+def v_eighties(lp, note, rng):
+    """The 80s string-synth pad: three pulse waves whose widths sweep quickly, bright and open."""
+    f0 = D.hz(note)
+    out = np.zeros((lp.n, 2))
+    for i, c in enumerate((-6.0, 0.0, 6.0)):
+        w = 0.5 + 0.4 * lp.lfo(rng.choice([0.9, 1.1, 1.3]), rng.uniform(0, 6.28))
+        out += D.pan(D.pulse(lp, f0, w, c + lp.drift(rng, 1.5), rng.uniform(0, 1)), (i - 1) * 0.7)
+    return out
+
+
+VOICES.update({"gran": v_gran, "freeze": v_freeze, "blooms": v_blooms, "plucks": v_plucks, "vowels": v_vowels, "tape": v_tape, "glints": v_glints,
+               "reed": v_reed, "eguitar": v_eguitar, "tanpura": v_tanpura, "horns": v_horns, "flutes": v_flutes, "eighties": v_eighties})
+
+
+def needs_sources(style):
+    """True when a style is (partly) made from recordings."""
+    return any((spec if isinstance(spec, str) else spec[0]) in ("gran", "freeze", "blooms", "plucks") for spec, _o, _g in STYLES[style]["layers"])
+
+
+# ---------------------------------------------------------------- 10.2, more effects
+def vocal_space(lp, x, lo=110.0):
+    """Room for the singer: the lows below the band's bass cleared, a gentle dip where the voice sits (1.5-3 kHz)."""
+    f = D.freqs(lp)
+    return D.filt(x, D.highpass(f, lo, 0.7, 2) * D.peak(f, 2200, -5.0, 0.7))
+
+
+def fx_sunday(lp, x, rng, f0):
+    x = D.sweep(lp, x, lp_curve(lp, 0.35, 0.7, 1), lp4, f0 * 3, f0 * 30)
+    x = D.chorus(lp, vocal_space(lp, x), rate=0.15, depth_ms=4.0, mix=0.45, voices=3)
+    x = D.shimmer(lp, x, rng, 9.0, mix=0.6, amount=0.45, octaves=2)
+    return D.width(x, 1.45)
+
+
+def fx_ember(lp, x, rng, f0):
+    x = D.filt(x, D.lowpass(D.freqs(lp), 2600, 0.7, 2) * D.highpass(D.freqs(lp), 70, 0.7, 2))
+    return D.width(D.reverb(lp, x, rng, 7.5, mix=0.55, damp=2500, predelay=0.04, width=1.2), 1.2)
+
+
+def fx_halo(lp, x, rng, f0):
+    x = D.filt(x, D.highpass(D.freqs(lp), 450, 0.7, 2))
+    return D.width(D.shimmer(lp, x, rng, 8.0, mix=0.65, amount=0.6, octaves=2), 1.5)
+
+
+def fx_selah(lp, x, rng, f0):
+    x = x * (0.5 + 0.5 * (0.5 + 0.5 * lp.lfo(2 / lp.L, 0.7)))[:, None]
+    x = vocal_space(lp, x, 80)
+    return D.width(D.reverb(lp, x, rng, 6.0, mix=0.45, damp=4500, predelay=0.03, width=1.3), 1.3)
+
+
+def fx_tide(lp, x, rng, f0):
+    wave = (0.5 - 0.5 * np.cos(2 * math.pi * 3 * lp.t / lp.L)) ** 2      # (three waves round the loop)
+    x = D.sweep(lp, x, 0.2 + 0.7 * wave, lp4, f0 * 2, f0 * 24)
+    x = x * (0.45 + 0.55 * wave)[:, None]
+    surf = np.stack([D.noise(lp, rng, "pink", 200, 9000) for _ in (0, 1)], 1) * (0.1 + wave)[:, None]
+    x = x / D.rms(x) + 0.25 * surf
+    return D.width(D.reverb(lp, x, rng, 4.0, mix=0.35, damp=5000), 1.3)
+
+
+def fx_dawn(lp, x, rng, f0):
+    x = D.delay(lp, x, lp.L / 12, feedback=0.3, mix=0.25, tone=4000)
+    return D.reverb(lp, x, rng, 5.0, mix=0.5, damp=5000, width=1.2)
+
+
+def fx_frozen(lp, x, rng, f0):
+    return D.reverb(lp, x, rng, 1.8, mix=0.25, damp=9000, bright=1.2, predelay=0.01)
+
+
+def fx_glassbow(lp, x, rng, f0):
+    x = D.filt(x, D.highpass(D.freqs(lp), 300, 0.7, 2) * D.lowpass(D.freqs(lp), 8000, 0.7, 2))
+    x = D.delay(lp, x, lp.L / 20, feedback=0.3, mix=0.25, tone=8000)
+    return D.reverb(lp, x, rng, 3.5, mix=0.4, damp=9000, bright=1.3)
+
+
+def fx_vibes(lp, x, rng, f0):
+    x = D.tremolo(lp, x, 5.2, 0.55, math.pi / 2)        # (the vibraphone's motor)
+    return D.reverb(lp, x, rng, 2.2, mix=0.3, damp=7000)
+
+
+def fx_harp(lp, x, rng, f0):
+    return D.width(D.reverb(lp, x, rng, 6.0, mix=0.55, damp=6000, predelay=0.02, width=1.3), 1.2)
+
+
+def fx_vowels(lp, x, rng, f0):
+    x = D.chorus(lp, x, rate=0.3, depth_ms=3.0, mix=0.35)
+    return D.reverb(lp, x, rng, 3.0, mix=0.35, damp=5000)
+
+
+def fx_tape(lp, x, rng, f0):
+    f = D.freqs(lp)
+    x = D.saturate(D.filt(x, D.highpass(f, 180, 0.7, 2) * D.lowpass(f, 3600, 0.7, 2)) / D.rms(x) * 0.4, 2.2)
+    hiss = np.stack([D.noise(lp, rng, "pink", 1500, 9000) for _ in (0, 1)], 1)
+    x = x / D.rms(x) + 0.03 * hiss
+    return D.width(D.reverb(lp, x, rng, 0.8, mix=0.15, damp=3000), 0.3)
+
+
+def fx_sparkle(lp, x, rng, f0):
+    x = D.delay(lp, x, lp.L / 24, feedback=0.45, mix=0.35, tone=7000)
+    return D.width(D.reverb(lp, x, rng, 4.5, mix=0.5, damp=9000, bright=1.3), 1.4)
+
+
+def fx_eighties(lp, x, rng, f0):
+    x = D.filt(x, D.lowpass(D.freqs(lp), 5500, 0.7, 2))
+    x = D.chorus(lp, x, rate=0.7, depth_ms=6.0, base_ms=8, mix=0.85, voices=3)
+    return D.reverb(lp, x, rng, 2.0, mix=0.25, damp=8000)
+
+
+def fx_cathedral(lp, x, rng, f0):
+    return D.width(D.reverb(lp, x, rng, 9.0, mix=0.6, damp=3000, predelay=0.08, width=1.3), 1.2)
+
+
+def fx_reed(lp, x, rng, f0):
+    return D.width(D.reverb(lp, x, rng, 1.0, mix=0.2, damp=4000, predelay=0.006), 0.5)
+
+
+def fx_swellgtr(lp, x, rng, f0):
+    x = D.delay(lp, x, lp.L / 16, feedback=0.5, mix=0.45, tone=3500)
+    return D.reverb(lp, x, rng, 5.0, mix=0.45, damp=4000, width=1.2)
+
+
+def fx_breathe(lp, x, rng, f0):
+    breath = (0.5 - 0.5 * np.cos(2 * math.pi * 3 * lp.t / lp.L)) ** 1.5   # (three slow breaths round the loop)
+    x = D.sweep(lp, x, 0.15 + 0.8 * breath, lp4, f0 * 2, f0 * 16)
+    x = x * (0.3 + 0.7 * breath)[:, None]
+    return D.reverb(lp, x, rng, 3.5, mix=0.35, damp=5000)
+
+
+def fx_tanpura(lp, x, rng, f0):
+    return D.width(D.reverb(lp, x, rng, 3.0, mix=0.3, damp=4000), 0.8)
+
+
+def fx_horns(lp, x, rng, f0):
+    return D.reverb(lp, x, rng, 4.5, mix=0.4, damp=3000, predelay=0.03)
+
+
+def fx_flutes(lp, x, rng, f0):
+    return D.width(D.reverb(lp, x, rng, 3.5, mix=0.4, damp=7000, bright=1.1), 1.2)
+
+
+STYLES.update({
+    # the Sunday-keys worship pads: lush, slow, wide, long tails, out of the singer's way
+    "Sunday Keys": {"layers": [("tri", 0, 0.8), (("sines", {"ratios": ((1, 1.0), (2, 0.3), (3, 0.12)), "spread": 1.0}), 0, 0.8), (("sines", {"ratios": ((1, 1.0), (1.5, 0.4))}), 1, 0.5),
+                               ("air", 1, 0.25), ("sub", -1, 0.3)],
+                    "fx": fx_sunday, "chord": FIFTH},
+    "Ember": {"layers": [(("gran", {"src": "piano", "rev": 0.5, "density": 30}), 0, 1.0), (("freeze", {"src": "piano"}), -1, 0.5)], "fx": fx_ember, "chord": FIFTH},
+    "Halo": {"layers": [(("gran", {"src": "chimes", "grain": 0.4, "density": 24, "region": (0.05, 2.5)}), 1, 1.0)], "fx": fx_halo, "chord": FIFTH},
+    "Selah": {"layers": [(("gran", {"src": "violins", "grain": 0.5, "density": 26, "region": (0.4, 2.8)}), 0, 1.0),
+                         (("gran", {"src": "cellos", "grain": 0.5, "density": 18, "region": (0.4, 2.8)}), -1, 0.7)], "fx": fx_selah, "chord": FIFTH},
+    "Tide": {"layers": [(("saws", {"n": 4, "detune": 12, "spread": 0.9}), 0, 1.0), ("sub", -1, 0.25)], "fx": fx_tide, "chord": FIFTH},
+    "Dawn": {"layers": [(("blooms", {"src": "piano"}), 0, 1.0), (("sines", {"ratios": ((1, 1.0),)}), 0, 0.25)], "fx": fx_dawn, "chord": (0, 7, 12, 14)},
+    "Frozen Piano": {"layers": [(("freeze", {"src": "piano"}), 0, 1.0)], "fx": fx_frozen, "chord": FIFTH},
+    "Bowed Glass": {"layers": [(("gran", {"src": "psaltery", "grain": 0.35, "density": 30, "region": (0.3, 2.5)}), 0, 1.0)], "fx": fx_glassbow, "chord": FIFTH},
+    "Vibes": {"layers": [(("freeze", {"src": "vibes", "at": (0.05, 0.6), "at2": (0.6, 1.8)}), 0, 1.0)], "fx": fx_vibes, "chord": FIFTH},
+    "Harp Wash": {"layers": [(("plucks", {"src": "harp"}), 0, 1.0), (("plucks", {"src": "harp", "every": 2.4}), 1, 0.5)], "fx": fx_harp, "chord": (0, 7, 12, 14)},
+    "Cathedral Organ": {"layers": [(("freeze", {"src": "organ", "at": (0.4, 1.4), "at2": (1.4, 2.6)}), 0, 1.0), (("freeze", {"src": "organ", "at": (0.4, 1.4), "at2": (1.4, 2.6)}), -1, 0.6)],
+                        "fx": fx_cathedral, "chord": FIFTH},
+    # synthesised, each its own kind
+    "Vowels": {"layers": [("vowels", 0, 1.0)], "fx": fx_vowels, "chord": FIFTH},
+    "Tape": {"layers": [("tape", 0, 1.0)], "fx": fx_tape, "chord": FIFTH},
+    "Sparkle": {"layers": [("glints", 1, 1.0), (("sines", {"ratios": ((1, 1.0),)}), 0, 0.35)], "fx": fx_sparkle, "chord": (0, 7, 12, 14)},
+    "Eighties": {"layers": [("eighties", 0, 1.0)], "fx": fx_eighties, "chord": FIFTH},
+    "Reed": {"layers": [("reed", 0, 1.0)], "fx": fx_reed, "chord": FIFTH},
+    "Swell Guitar": {"layers": [("eguitar", 0, 1.0)], "fx": fx_swellgtr, "chord": (0, 7, 12, 19)},
+    "Breathe": {"layers": [(("saws", {"n": 4, "detune": 10, "spread": 0.8}), 0, 1.0), (("sines", {"ratios": ((1, 1.0),)}), 1, 0.3)], "fx": fx_breathe, "chord": FIFTH},
+    "Tanpura": {"layers": [("tanpura", -1, 1.0)], "fx": fx_tanpura, "chord": (0, 7, 12)},
+    "Horns": {"layers": [("horns", 0, 1.0), ("horns", 1, 0.35)], "fx": fx_horns, "chord": FIFTH},
+    "Flute Choir": {"layers": [("flutes", 1, 1.0)], "fx": fx_flutes, "chord": FIFTH},
+})
 
 
 def render(style, lp, root, rng, notes=None, fx=True):

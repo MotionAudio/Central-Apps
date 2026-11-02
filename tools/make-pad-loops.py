@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Central Pedal - Central Pads: the pad pedal's pads, synthesised here (no one else's recording).
 
-  <out>/<Style>/<Key>.wav - 20 styles in all 12 keys, each a stereo chord (root, fifth, octave - Morning adds the 9th)
+  <out>/<Style>/<Key>.wav - 41 styles in all 12 keys, each a stereo chord (root, fifth, octave - Morning adds the 9th)
   LOOP seconds long that repeats without a seam. The pad pedal plays the file of the song's key as it is (no pitch
   shifting). C# is "Cs" in a file name (no # in a file name or a web address).
 
-    python3 tools/make-pad-loops.py <out folder> [--style NAME]... [--key C#]...
+    python3 tools/make-pad-loops.py <out folder> [--cache DIR] [--style NAME]... [--key C#]...
+--cache: the download cache (the styles made from recordings - tools/pad_sources.py, all CC0 - need it).
 
 10.2: every style is built its own way - its own voices (saws, pulse waves, a choir through vowel formants, a bowed
 section, FM glass, bells, drawbars, tuned breath...), its own movement (a breathing or sweeping filter, swells, a rotary
@@ -22,13 +23,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import pad_dsp as D  # noqa: E402
 import pad_voices as PV  # noqa: E402
+import pad_sources as PS  # noqa: E402
 
 SR = D.SR
-LOOP = 12.0        # seconds: long enough that the movement doesn't feel like it repeats (and 12 s loops tile into the ambient loops)
+LOOP = 12.0        # seconds: slow movement that doesn't feel like it repeats (and 12 s loops tile exactly into the 12 s ambient loops)
 KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 LOW = 48           # (each key's root in the octave from C3: C3..B3)
 NAMES = ["Warm", "Air", "Choir Aah", "Choir Ooh", "Shimmer", "Strings", "Glass", "Swell", "Worship", "Ambient Drone", "Deep", "Heaven",
-         "Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning"]
+         "Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning",
+         # 10.2, more: the worship pads first, then the ones made from recordings, then more synthesised ones
+         "Sunday Keys", "Ember", "Halo", "Selah", "Tide", "Dawn", "Frozen Piano", "Bowed Glass", "Vibes", "Harp Wash", "Cathedral Organ",
+         "Vowels", "Tape", "Sparkle", "Eighties", "Reed", "Swell Guitar", "Breathe", "Tanpura", "Horns", "Flute Choir"]
+RECORDED = [n for n in NAMES if PV.needs_sources(n)]   # (made from CC0 recordings: they need the download cache)
 STYLES = [(n, PV.STYLES[n]) for n in NAMES]
 
 
@@ -62,8 +68,10 @@ def render(style, key, seed=21):
     return x / (float(np.max(np.abs(x))) or 1.0) * 0.5
 
 
-def build(out_dir, styles=None, keys=None, seed=21, log=say):
+def build(out_dir, styles=None, keys=None, seed=21, log=say, cache=None):
     """Every style in every key (or the ones named) into out_dir. Returns out_dir."""
+    if cache:
+        PV.set_sources(PS.Sources(cache))
     log("Central Pads (synthesised, %d styles x %d keys) -> %s" % (len(styles or NAMES), len(keys or KEYS), out_dir))
     for style in NAMES:
         if styles and style not in styles:
@@ -80,8 +88,12 @@ def build(out_dir, styles=None, keys=None, seed=21, log=say):
 
 
 def main(argv):
-    styles, keys, args, i = [], [], [], 0
+    styles, keys, args, i, cache = [], [], [], 0, None
     while i < len(argv):
+        if argv[i] == "--cache" and i + 1 < len(argv):
+            cache = argv[i + 1]
+            i += 2
+            continue
         if argv[i] in ("--style", "--key") and i + 1 < len(argv):
             (styles if argv[i] == "--style" else keys).append(argv[i + 1])
             i += 2
@@ -91,7 +103,7 @@ def main(argv):
     if len(args) != 1:
         print(__doc__)
         return 2
-    build(args[0], styles or None, keys or None)
+    build(args[0], styles or None, keys or None, cache=cache)
     return 0
 
 
