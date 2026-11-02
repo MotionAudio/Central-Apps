@@ -62,7 +62,7 @@
   var cA = new T.Color(), RAMP = [[0, [0.05, 0.08, 0.35]], [0.08, [0.1, 0.4, 0.9]], [0.2, [0.1, 0.8, 0.4]], [0.45, [0.95, 0.85, 0.15]], [0.8, [1, 0.3, 0.1]]];
   function ramp(v) { for (var i = RAMP.length - 1; i >= 0; i--) if (v >= RAMP[i][0]) { var a = RAMP[i], b = RAMP[Math.min(RAMP.length - 1, i + 1)], t = b === a ? 0 : clamp((v - a[0]) / (b[0] - a[0]), 0, 1); return [a[1][0] + (b[1][0] - a[1][0]) * t, a[1][1] + (b[1][1] - a[1][1]) * t, a[1][2] + (b[1][2] - a[1][2]) * t]; } return RAMP[0][1]; }
   X.frameHooks.push(function (now) {
-    if (!seatMesh || now - lastLight < 125) return; lastLight = now;
+    if (!seatMesh || now - lastLight < Math.max(125, layout.seats.length / 8)) return;   // (fewer times a second for a big room) lastLight = now;
     var seats = layout.seats, n = seats.length;
     levels = RM.lightOnSeats(seats, X.emitList, st());
     for (var i = 0; i < n; i++) {
