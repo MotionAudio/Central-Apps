@@ -162,12 +162,23 @@
   // the best fixture profile for "Chauvet SlimPAR Pro H USB (12ch)": the built-in ones, then your library (the fixture files you imported)
   function matchProfile(text) {
     var q = norm(text), words = q.split(" ").filter(function (w) { return w.length > 1; }), best = null, bestScore = 0, chN = (/(\d+)\s*(ch|channel)/i.exec(text) || [])[1];
-    var cands = Object.keys(L.profiles).map(function (id) { return { id: id, name: L.profiles[id].name, ch: L.profiles[id].ch }; }).concat((L.rig().library || []).map(function (e) { return { id: e.id, name: e.name, ch: e.ch, lib: true }; }));
+    var cands = Object.keys(L.profiles).map(function (id) { return { id: id, name: L.profiles[id].name, ch: L.profiles[id].ch }; }).concat((L.rig().library || []).map(function (e) { return { id: e.id, name: e.name, ch: e.ch, lib: true, e: e }; }));
     cands.forEach(function (c) {
       var n = norm(c.name), score = 0; words.forEach(function (w) { if (n.indexOf(w) >= 0) score += w.length > 3 ? 2 : 1; });
       if (chN && c.ch && c.ch.length === Number(chN)) score += 2; if (c.lib) score += 0.5; if (score > bestScore) { bestScore = score; best = c; }
     });
-    if (best && bestScore >= 2) return { id: best.id, name: best.name, sure: bestScore >= 4 };
+    if (best && bestScore >= 4) return { id: best.id, name: best.name, sure: true, entry: best.e || null };
+    // (10.2) the real fixture library (Open Fixture Library + QLC+): the model, and the mode with that many channels
+    var C = window.CUFixtureCatalog;
+    if (C && C.loaded && C.loaded() && words.length) {
+      var hits = C.search(words.filter(function (w) { return !/^\d+(ch)?$|^(ch|channel|channels|mode)$/.test(w); }).join(" "), 6);
+      for (var h = 0; h < hits.length; h++) {
+        var fx = hits[h].fx, mi = 0;
+        if (chN) { mi = -1; fx.md.forEach(function (m, k) { if (mi < 0 && m.c.split(" ").length === Number(chN)) mi = k; }); if (mi < 0) continue; }
+        var e = C.entry(fx, mi); return { id: e.id, name: e.name, sure: true, entry: e };
+      }
+    }
+    if (best && bestScore >= 2) return { id: best.id, name: best.name, sure: false, entry: best.e || null };
     // a guess from the words
     var g = /mover|moving|spot|beam|wash.*head|head/.test(q) ? "mhmini9" : /strobe/.test(q) ? "strobe2" : /blinder/.test(q) ? "blinder2" : /haz|fog/.test(q) ? "hazer2" : /bar|batten|strip/.test(q) ? "bar8rgb" : /dimmer|fresnel|leko|ellipsoidal|source four|conventional|par ?64|house/.test(q) ? "dimmer" : "rgbwd5";
     return { id: g, name: L.profiles[g] ? L.profiles[g].name : g, sure: false, guessed: true };
@@ -206,18 +217,21 @@
   function previewPatch(list) {
     var used = {}; L.rig().fixtures.forEach(function (f) { var n = (L.profileOf(f).ch || []).length || 1; for (var i = 0; i < n; i++) used[(f.universe || 1) + ":" + ((f.address || 1) + i)] = f.name; });
     return list.map(function (r) {
-      var prof = matchProfile(r.type || r.name), p = L.profiles[prof.id] || ((L.rig().library || []).filter(function (e) { return e.id === prof.id; })[0]) || { ch: ["dim"] }, n = p.ch.length, clash = null, bad = !(r.address >= 1 && r.address + n - 1 <= 512);
+      var prof = matchProfile(r.type || r.name), p = L.profiles[prof.id] || prof.entry || ((L.rig().library || []).filter(function (e) { return e.id === prof.id; })[0]) || { ch: ["dim"] }, n = p.ch.length, clash = null, bad = !(r.address >= 1 && r.address + n - 1 <= 512);
       if (!bad) for (var i = 0; i < n; i++) { var k = r.universe + ":" + (r.address + i); if (used[k]) { clash = used[k]; break; } }
       var grp = r.group ? norm(r.group) : "", g = ["front", "back", "beam", "house", "fx", "haze"].indexOf(grp) >= 0 ? grp : null;
-      if (!g && /^mh/.test(prof.id)) g = "beam"; if (!g && /^(strobe|blinder)/.test(prof.id)) g = "fx"; if (!g && /^(hazer|fog)/.test(prof.id)) g = "haze";
+      if (!g && (/^mh/.test(prof.id) || (prof.entry && prof.entry.mover))) g = "beam";   // (a moving head, built-in or from the fixture library) if (!g && /^(strobe|blinder)/.test(prof.id)) g = "fx"; if (!g && /^(hazer|fog)/.test(prof.id)) g = "haze";
       if (!g) { var hay = norm(r.group + " " + r.position + " " + r.name + " " + r.type); GROUPS_BY_WORD.some(function (w) { if (w[0].test(hay)) { g = w[1]; return true; } return false; }); }
       if (!g) g = /mh|mover/.test(prof.id) ? "beam" : prof.id === "dimmer" ? "house" : "front";
-      return Object.assign({}, r, { profile: prof.id, profileName: prof.name, sure: prof.sure, guessed: prof.guessed, channels: n, bad: bad, clash: clash, group: g, mount: mountFor(r.position) });
+      return Object.assign({}, r, { profile: prof.id, profileName: prof.name, sure: prof.sure, guessed: prof.guessed, entry: prof.entry || null, channels: n, bad: bad, clash: clash, group: g, mount: mountFor(r.position) });
     });
   }
   function importPatch(rows, replace) {
     X.remember(true); var rig = L.rig(), s = st(), W = s.width, added = [];
     if (replace) rig.fixtures.length = 0;
+    // (10.2) the real lights found in the fixture library join the rig's library first, so their profiles are there
+    var ents = {}; rows.forEach(function (r) { if (!r.bad && r.entry && !(rig.library || []).some(function (e) { return e.id === r.entry.id; })) ents[r.entry.id] = r.entry; });
+    if (Object.keys(ents).length && L.addToLibrary) L.addToLibrary(Object.keys(ents).map(function (k) { return ents[k]; }));
     var byMount = {};
     rows.filter(function (r) { return !r.bad; }).forEach(function (r, i) {
       var f = { id: X.uid(), name: r.name || r.profileName + " " + (i + 1), profile: r.profile, group: r.group, universe: r.universe, address: r.address };
@@ -316,7 +330,8 @@
   });
   panel.addEventListener("change", function (e) {
     var t = e.target, f = t.files && t.files[0]; if (!f) return;
-    f.text().then(function (text) {
+    var C = window.CUFixtureCatalog, ready = t.hasAttribute("data-bd-file") && C && C.load ? C.load().catch(function () { }) : Promise.resolve();   // (10.2: the real fixture library, to match the types)
+    Promise.all([f.text(), ready]).then(function (got) { var text = got[0];
       if (t.hasAttribute("data-bd-file")) { var list = readPatch(text, f.name); importRows = list.length ? previewPatch(list) : null; importMsg = list.length ? "" : "No lights found: the file needs at least an address column."; render(); }
       else if (t.hasAttribute("data-bd-stage")) { try { useStageFile(JSON.parse(text)); } catch (err) { alert(err.message); } render(); }
     });

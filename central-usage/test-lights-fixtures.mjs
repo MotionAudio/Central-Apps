@@ -154,6 +154,18 @@ await check("Save as a new preset keeps the programmed lights in one of the chur
   await p.click('#lpPanel [data-lpa="close"]');
 });
 
+await check("a light list (CSV) naming real lights: matched in the fixture library (the mode by its channel count) and added with those profiles", async () => {
+  const r = await p.evaluate(async () => {
+    await CUFixtureCatalog.load(); const B = window.CULightsBuild; if (!B) return { none: true };
+    const rows = B.previewPatch(B.readPatch("name,type,universe,address,position\nWash L,Chauvet SlimPAR Pro H USB 7ch,1,301,front truss\nSpot 1,Martin MAC Aura,1,320,back truss\n", "lights.csv"));
+    const before = CULights.rig().fixtures.length; B.importPatch(rows, false);
+    const added = CULights.rig().fixtures.slice(before), prof = added.map((f) => CULights.profileOf(f));
+    return { ids: rows.map((x) => x.profile), sure: rows.map((x) => x.sure), ch: prof.map((x) => (x.ch || []).length), lib: added.every((f) => (CULights.rig().library || []).some((e) => e.id === f.profile)), group: rows.map((x) => x.group) };
+  });
+  assert.ok(!r.none, "the stage builder is there");
+  assert.ok(r.ids.every((x) => /^lib:/.test(x)) && r.sure.every(Boolean), JSON.stringify(r));
+  assert.equal(r.ch[0], 7, "the 7-channel mode"); assert.ok(r.lib, "their profiles joined the rig's library"); assert.equal(r.group[1], "beam", "a moving head goes with the beams");
+});
 await check("no page errors", async () => { assert.deepEqual(errs, []); });
 await b.close();
 console.log(failures ? "\n" + failures + " FAILED" : "\nall passed");
