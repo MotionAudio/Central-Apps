@@ -20,6 +20,11 @@
 name: Build
 on:
   workflow_call:
+    inputs:
+      skip_ios_check:
+        description: "Leave out the iPhone / iPad simulator build check (the release does its own iOS job after publishing)"
+        type: boolean
+        default: false
   workflow_dispatch:
   push:
     branches: [platforms, v8.1]
@@ -403,6 +408,9 @@ jobs:
 
   ios:
     name: iPhone / iPad projects (simulator builds, unsigned)
+    # (10.1.1) a release leaves this check out: when GitHub has no Mac free it got cancelled and held the release
+    # back, though it makes nothing that's published. It still runs on the work branches and by hand.
+    if: ${{ !inputs.skip_ios_check }}
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
