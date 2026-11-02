@@ -68,8 +68,10 @@ def read_wav(path):
 
 
 def seamless(x):
-    """The jump from the last sample to the first is no bigger than the loop's own steps (a seam would stand out)."""
-    return float(np.max(np.abs(x[0] - x[-1]))) <= float(np.max(np.abs(np.diff(x, axis=0)))) + 1e-4
+    """Where the loop runs round, its curve bends no more than anywhere inside it (a seam would be a kink there)."""
+    if len(x) < 8:
+        return True
+    return float(np.max(np.abs(np.diff(np.concatenate([x[-3:], x[:3]]), 2, axis=0)))) <= float(np.max(np.abs(np.diff(x, 2, axis=0)))) + 1e-4
 
 
 def main():
@@ -167,8 +169,12 @@ def main():
               (rms(bell[:n3]) / rms(bell[-2 * n3:-n3]), rms(pluck[:n3]) / (rms(pluck[-2 * n3:-n3]) or 1e-9)))
 
         print("\nThe 10.0 pad styles (tools/make-pad-loops.py):")
-        new = ["Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning"]
-        pdir = PL.build(os.path.join(tmp, "pads"), styles=new + ["Warm", "Shimmer", "Air"], keys=None, log=lambda *a: None)
+        new = ["Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning", "Sunday Keys", "Ember", "Tide", "Vowels", "Tanpura", "Swell Guitar"]
+        import pad_voices as PV
+        import pad_sources as PS
+        PV.set_sources(PS.Stand())   # (no internet here: stand-in recordings for the styles made from them)
+        pdir = PL.build(os.path.join(tmp, "pads"), styles=["Warm", "Shimmer", "Air"], keys=None, log=lambda *a: None)   # (every key: the ambient loops use them)
+        PL.build(pdir, styles=new, keys=["D"], log=lambda *a: None)
         loops_ok, keys_ok = True, True
         for style in new:
             x, sr = read_wav(os.path.join(pdir, PL.loop_file(style, "D")))
