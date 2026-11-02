@@ -166,5 +166,5 @@
     if (b.dataset.dk === "live") { OUT.call({ action: "live", id: id, on: !d.on }).then(function (s) { out = s; paintOut(); }); return; }
     if (b.dataset.dk === "del") { if (d.on && !confirm("This destination is live. Stop it and remove it?")) return; OUT.call({ action: "live", id: id, on: false }).then(function () { return OUT.call({ action: "config", patch: { destinations: out.destinations.filter(function (x) { return x.id !== id; }).map(function (x) { return { id: x.id, kind: x.kind, url: x.url }; }) } }); }).then(function (s) { out = s; paintOut(); }); }
   });
-  window.CUMixStream = { render: render, update: update, meters: meters, cable: function () { return cable; } };
+  window.CUMixStream = { render: render, update: update, meters: meters, cable: function () { return cable; }, live: function () { return local() ? !!(out && out.live) : !!(remoteOut && remoteOut.live); } };
 })();

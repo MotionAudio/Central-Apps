@@ -35,6 +35,7 @@ import * as pco from "./pco.js";
 import { runSheetFromPlan } from "./runsheet-from-plan.js";
 import * as ccli from "./ccli.js";
 import * as social from "./social.js";
+import * as alerts from "./alerts.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -106,6 +107,7 @@ pco.routes(api, app, { wrap, requireUser });   // (10.2: Planning Center plans -
 pco.setRunSheetMaker(runSheetFromPlan);         // (10.2: ... and a run sheet draft, which Central Control's Service tab adds)
 ccli.routes(api, { wrap, requireUser });       // (10.2: CCLI settings, song usage and the report)
 social.routes(api, { wrap, requireUser });   // (10.2: the church's YouTube / Facebook / Instagram / TikTok, for posting shorts)
+alerts.routes(api, { wrap, requireUser });   // (10.2: the pre-service check's alerts to the main admins)
 // a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first
 setlists.routes(api, { wrap, requireUser, addTrack: async (u, id) => {
   const t = await liveTrack(id);

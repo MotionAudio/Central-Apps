@@ -700,3 +700,18 @@ CREATE TABLE IF NOT EXISTS social_accounts (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (scope, platform)
 );
+
+-- (10.2) a church's alerts from its own computers (the pre-service check): kept, and emailed to the main admins
+CREATE TABLE IF NOT EXISTS church_alerts (
+  id          BIGSERIAL PRIMARY KEY,
+  church_id   BIGINT NOT NULL REFERENCES churches(id) ON DELETE CASCADE,
+  license_key TEXT NOT NULL DEFAULT '',
+  device_id   TEXT NOT NULL DEFAULT '',
+  kind        TEXT NOT NULL DEFAULT 'precheck',
+  subject     TEXT NOT NULL DEFAULT '',
+  body        TEXT NOT NULL DEFAULT '',
+  service     TEXT NOT NULL DEFAULT '',
+  mailed      BOOLEAN NOT NULL DEFAULT FALSE,
+  sent_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS church_alerts_church ON church_alerts (church_id, sent_at DESC);
