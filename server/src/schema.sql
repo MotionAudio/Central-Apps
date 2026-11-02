@@ -715,3 +715,18 @@ CREATE TABLE IF NOT EXISTS church_alerts (
   sent_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS church_alerts_church ON church_alerts (church_id, sent_at DESC);
+-- (10.2) Central Production projects saved to the account: one .cmproj file each (projects.js)
+CREATE TABLE IF NOT EXISTS production_projects (
+  id            TEXT PRIMARY KEY,
+  user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  type          TEXT NOT NULL,
+  storage_key   TEXT,
+  bytes         BIGINT NOT NULL DEFAULT 0,
+  pending_key   TEXT,
+  pending_bytes BIGINT,
+  version       INTEGER NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS production_projects_user ON production_projects (user_id, updated_at DESC);

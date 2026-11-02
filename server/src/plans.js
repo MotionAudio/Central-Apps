@@ -27,7 +27,7 @@ export const canon = (k) => String(k || "").toUpperCase().replace(/[^A-Z0-9]/g, 
 export const pretty = (k) => { const c = canon(k); return c.length === 16 ? c.match(/.{4}/g).join("-") : String(k); };
 function newPackageKey() { let s = "S"; for (let i = 0; i < 15; i++) s += ABC[crypto.randomInt(ABC.length)]; return s; }
 const day = (d) => new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: config.timeZone || "America/Chicago" });
-const APPS = { pedal: "Central Pedal", "pedal-control": "Central Pedal Control", control: "Central Control", usage: "Central Usage" };
+const APPS = { pedal: "Central Pedal", "pedal-control": "Central Pedal Control", control: "Central Control", usage: "Central Usage", production: "Central Production" };   // (10.2: Central Production counts as an app of its own)
 const MAIN_PLANS = PLAN_IDS.filter((id) => id !== PADS_PLAN);
 const planNames = (plans0) => { const plans = withPads(plans0); return MAIN_PLANS.every((id) => plans.includes(id)) ? "all the plans" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(" and "); };
 export const devicesRule = () => PACKAGE_DEVICES + " of your devices at a time, each a different app (for example Central Usage, Central Control and a Central Pedal)";

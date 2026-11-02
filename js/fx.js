@@ -10,6 +10,9 @@
  * high cut, every compressor and gate control, hall / plate / cathedral reverbs, dotted and ping-pong delays with
  * darker repeats, and the "pro" presets.
  * Tracks still play without pads and pads without tracks: nothing here ties one to the other.
+ * (10.2) Central FX plugins (made in Central Production's plugin builder, docs/PLUGIN-BUILDER.md) go after those on a
+ * track or a pad: fx.plugins / pad.cmfx = [{ name, plugin, values, on }]. On a track they're rendered into the
+ * processed copy with the rest (window.CMFx.Direct); on a pad they play live (CMFx.create), after its gate.
  */
 (function () {
   "use strict";
@@ -31,7 +34,7 @@
       eq: { on: true, lowCut: 0, low: 0, mid: 0, midFreq: 1000, high: 0, highCut: 20000, bands: [{ on: false, freq: 250, gain: 0, q: 1 }, { on: false, freq: 2500, gain: 0, q: 1 }] },
       comp: { on: false, amount: 35, mode: "basic", threshold: -18, ratio: 3, attack: 10, release: 150, knee: 6, makeup: 0 },
       reverb: { on: false, type: "room", send: 15, size: 0 },
-      delay: { on: false, time: "1/8", send: 12, feedback: 25, pingpong: false, tone: 6000 } };
+      delay: { on: false, time: "1/8", send: 12, feedback: 25, pingpong: false, tone: 6000 }, plugins: [] };
   }
   function merge(base, over) {
     if (!over || typeof over !== "object") return base;
@@ -107,6 +110,7 @@
     var g = e.gate || {};
     fx.gate = { on: !!g.enabled, threshold: g.threshold == null ? -45 : g.threshold, mode: g.mode === "full" ? "full" : "basic", range: g.range == null ? -80 : g.range, attack: g.attack == null ? 1 : g.attack, hold: g.hold == null ? 40 : g.hold, release: g.release == null ? 120 : g.release };
     fx.preset = pad.fxPreset || "";
+    fx.plugins = JSON.parse(JSON.stringify(pad.cmfx || []));
     return fx;
   }
   function fxToPad(fx, pad, extra) {
@@ -138,6 +142,7 @@
     var g = e.gate = e.gate || {}; g.enabled = !!fx.gate.on; g.threshold = clamp(fx.gate.threshold, -80, 0);
     if (isPro) { g.mode = fx.gate.mode === "full" ? "full" : "basic"; g.range = fx.gate.range; g.attack = fx.gate.attack; g.hold = fx.gate.hold; g.release = fx.gate.release; }
     pad.fxPreset = fx.preset || "";
+    if (fx.plugins && fx.plugins.length) pad.cmfx = JSON.parse(JSON.stringify(fx.plugins)); else delete pad.cmfx;
   }
 
   // ------------------------------------------------------------- pads without Central Plugins: what is heard
@@ -166,10 +171,53 @@
     if (g) { g.mode = "basic"; g.range = -80; g.attack = 1; g.hold = 40; g.release = 120; }
     return x;
   }
+  // ------------------------------------------------------------- Central FX plugins (10.2)
+  function cmOn(list) { return (list || []).filter(function (x) { return x && x.plugin && x.on !== false; }); }
+  function cmDefaults(pl) { var v = {}; (pl.params || []).forEach(function (q) { v[q.id] = q.default != null ? +q.default : q.min != null ? +q.min : 0; }); return v; }
+  // the plugins you can add: installed ones (yours from Central Production, and community ones) and the builder's examples
+  function cmfxList() {
+    var ex = (window.CPPluginPresets || []).map(function (p) { return { name: p.name, from: "example", plugin: p }; }), more = [];
+    var be = window.PPLibraries && window.PPLibraries.backend ? window.PPLibraries.backend() : null;
+    if (window.CU && window.CU.libraries && window.CU.libraries.centralFx) more = window.CU.libraries.centralFx();
+    else if (be === "driver") more = fetch("http://127.0.0.1:8766/libraries/central-fx", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { return j.plugins || []; });
+    return Promise.resolve(more).catch(function () { return []; }).then(function (m) { return (m || []).filter(function (x) { return x && x.plugin; }).concat(ex); });
+  }
+  // a pad's plugins: between its gate and its tone / EQ, rebuilt only when the plugins themselves change
+  function padPlugins(voice) {
+    if (!voice.toneFilter || !window.CMFx) return;
+    var list = cmOn(voice.pad && voice.pad.cmfx), sig = list.map(function (x) { return hash(JSON.stringify(x.plugin)); }).join(",");
+    if (sig !== (voice.__cmSig || "")) {
+      var old = voice.__cm || [];
+      try { voice.gateGain.disconnect(); } catch (_) { }
+      var last = voice.gateGain; voice.__cm = list.map(function (x) { var a = window.CMFx.create(voice.ctx, x.plugin, { values: x.values || {} }); last.connect(a.node); last = a.node; return a; });
+      last.connect(voice.toneFilter); voice.__cmSig = sig;
+      old.forEach(function (a) { try { a.dispose(); } catch (_) { } });
+    }
+    (voice.__cm || []).forEach(function (a, i) { var v = list[i] && list[i].values || {}; Object.keys(v).forEach(function (k) { a.setParam(k, v[k]); }); });
+  }
+  // a track's plugins, into its processed copy: a couple of seconds at a time so the page stays smooth
+  async function cmfxStem(out, list, rate, name) {
+    var n = out.length, k = 1 / 32768, L16 = new Int16Array(out.L), R16 = out.R ? new Int16Array(out.R) : L16, L = new Float32Array(n), R = new Float32Array(n), i;
+    for (i = 0; i < n; i++) { L[i] = L16[i] * k; R[i] = R16[i] * k; }
+    for (var j = 0; j < list.length; j++) {
+      var d = new window.CMFx.Direct(list[j].plugin, rate); if (d.error) { console.warn("Central FX: " + d.error); continue; }
+      var v = list[j].values || {}; Object.keys(v).forEach(function (q) { d.setParam(q, v[q]); }); d.reset();
+      for (var off = 0, step = rate * 2; off < n; off += step) {
+        var e = Math.min(n, off + step); d.process(L.subarray(off, e), R.subarray(off, e), L.subarray(off, e), R.subarray(off, e));
+        PP.setStatus("Effects on " + name + ": " + (list[j].name || "plugin") + " " + Math.round(e / n * 100) + "%");
+        await new Promise(function (r) { setTimeout(r, 0); });
+      }
+    }
+    var oL = new Int16Array(n), oR = new Int16Array(n);
+    for (i = 0; i < n; i++) { oL[i] = Math.max(-32768, Math.min(32767, Math.round(L[i] * 32767))); oR[i] = Math.max(-32768, Math.min(32767, Math.round(R[i] * 32767))); }
+    return Object.assign({}, out, { L: oL.buffer, R: oR.buffer });
+  }
+
   // a pad's gate (most useful on the audio input pad): one shared timer looks at each gated voice every 10 ms
   var gated = [], gateTimer = null;
   function padGate(voice, g) {
     if (!voice || !voice.gateGain) return;
+    padPlugins(voice);
     var c = voice.ctx, now = c.currentTime;
     if (!g || !g.enabled) {
       if (voice.__gate) { voice.__gate = null; gated = gated.filter(function (v) { return v !== voice; }); voice.gateGain.gain.setTargetAtTime(1, now, 0.005); }
@@ -253,7 +301,12 @@
   }
   function hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
   function songBpm(s) { return (s && s.bpm) || (project().tempo && project().tempo.bpm) || 72; }
-  function stemPlan(s, st) { return st.fx && st.fx.on ? core.plan(fxOf(st), pro(), songBpm(s)) : null; }
+  function stemPlan(s, st) {
+    if (!st.fx || !st.fx.on) return null;
+    var p = core.plan(fxOf(st), pro(), songBpm(s)), cm = window.CMFx ? cmOn(st.fx.plugins) : [];
+    if (!cm.length) return p;
+    return Object.assign(p || { gate: null, eq: [], comp: null, reverb: null, delay: null, out: 1 }, { cmfx: cm.map(function (x) { return { name: x.name, plugin: x.plugin, values: x.values || {} }; }) });
+  }
   function keyFor(st, plan, rate) { return "fx:" + st.id + ":" + hash(JSON.stringify(plan) + "|" + rate); }
   var stats = { renders: 0, ms: 0, seconds: 0 };
   function render(s, st, rec, plan, key) {
@@ -266,6 +319,7 @@
         jobs[id] = { resolve: resolve, reject: reject, progress: function (f) { PP.setStatus("Effects on " + st.name + ": " + Math.round(f * 100) + "%"); } };
         w.postMessage({ id: id, L: L, R: R, length: rec.length, rate: rec.rate || 48000, plan: plan }, transfer);
       }).then(async function (out) {
+        if (plan.cmfx && plan.cmfx.length) out = await cmfxStem(out, plan.cmfx, rec.rate || out.rate || 48000, st.name);
         stats.renders++; stats.ms += out.ms; stats.seconds += rec.length / (rec.rate || 48000);
         var done = { L: out.L, R: out.R, length: rec.length, rate: rec.rate || out.rate };
         if (T() && T().putStem) await T().putStem(key, done);
@@ -400,10 +454,22 @@
         select("Time (follows the tempo)", "delay.time", [["1/4", "1/4"], ["1/8", "1/8"], ["1/4.", "1/4 dotted", true], ["1/8.", "1/8 dotted", true], ["1/2", "1/2", true], ["1/16", "1/16", true]]) +
         row("Send", "delay.send", 0, 100, 1, "%") + row("Repeats", "delay.feedback", 0, isPro ? 90 : 60, 1, "%") +
         (isPro ? toggle("Ping-pong", "delay.pingpong") : '<span class="fx-lockline">' + LOCK + "Ping-pong</span>") + row("Repeat tone", "delay.tone", 800, 16000, 100, "Hz", { pro: true }) + "</section>" +
+      (kind !== "bus" ? cmSection(fx) : "") +
       "</div>" + proNote() +
       '<p class="muted small fx-foot">' + (kind === "stem" ? "Made once into a processed copy of the track (a few seconds; the Pi does no extra work while it plays). The tracks still play on their own, with or without pads." : kind === "pad" ? 'The pad\'s own chain. <button class="link" data-fx-full-editor>Full pad editor…</button>' : "On every " + (target.bus === "tracks" ? "track of every song" : "pad") + ", live.") + "</p>";
   }
-  function open(t) { target = t; draw(); var d = dialog(); if (!d.open) { try { d.showModal(); } catch (_) { d.setAttribute("open", ""); } } }
+  var cmChoices = [];
+  function cmSection(fx) {
+    var list = fx.plugins || [];
+    return '<section class="fx-plugins"><header><b>Plugins</b> <span class="muted small">made in Central Production\'s plugin builder</span></header>' +
+      list.map(function (x, i) {
+        var pl = x.plugin || {}, ps = pl.params || [];
+        return '<div class="fx-band">' + toggle(x.name || pl.name || "Plugin", "plugins." + i + ".on") + ' <button class="link" data-fx-cm-del="' + i + '">Remove</button>' +
+          ps.map(function (q) { var lo = q.min != null ? +q.min : 0, hi = q.max != null ? +q.max : 1; return row(q.name || q.id, "plugins." + i + ".values." + q.id, lo, hi, (hi - lo) / 200, q.unit === "dB" || q.unit === "Hz" || q.unit === "ms" || q.unit === "%" ? q.unit : ""); }).join("") + "</div>";
+      }).join("") +
+      (!window.CMFx ? '<p class="muted small">The plugin engine isn\'t in this version of the app.</p>' : '<div class="row"><select data-fx-cm-pick><option value="">+ Add a plugin…</option>' + cmChoices.map(function (c, i) { return '<option value="' + i + '">' + esc(c.name + (c.from === "mine" ? " (yours)" : c.from === "example" ? " (example)" : c.author ? " (by " + c.author + ")" : " (installed)")) + "</option>"; }).join("") + "</select></div>") + "</section>";
+  }
+  function open(t) { target = t; draw(); if (window.CMFx && t.kind !== "bus") cmfxList().then(function (l) { cmChoices = l; if (target === t) draw(); }); var d = dialog(); if (!d.open) { try { d.showModal(); } catch (_) { d.setAttribute("open", ""); } } }
   function commitTo(t) {
     var fx = t.fx;
     if (t.kind === "stem") { t.stem.fx = fx; PP.persistSoon(); stemChanged(t.song, t.stem); }
@@ -417,6 +483,11 @@
   }
   function onInput(e) {
     var el = e.target; if (!target) return;
+    if (el.hasAttribute && el.hasAttribute("data-fx-cm-pick")) {
+      if (e.type !== "change" || el.value === "") return; var c = cmChoices[+el.value]; if (!c) return;
+      var pl = JSON.parse(JSON.stringify(c.plugin)); target.fx.plugins = target.fx.plugins || [];
+      target.fx.plugins.push({ name: c.name || pl.name || "Plugin", plugin: pl, values: cmDefaults(pl), on: true }); target.fx.on = true; commit(true); return;
+    }
     if (el.dataset.fxFull) { set(el.dataset.fxFull + ".mode", el.checked ? "full" : "basic"); commit(true); return; }
     var path = el.dataset.fx; if (!path) return;
     var v = el.type === "checkbox" ? el.checked : el.tagName === "SELECT" ? el.value : Number(el.value);
@@ -426,6 +497,7 @@
   }
   function onClick(e) {
     if (e.target.closest("[data-fx-close]")) { dialog().close(); return; }
+    var del = e.target.closest("[data-fx-cm-del]"); if (del) { (target.fx.plugins || []).splice(+del.dataset.fxCmDel, 1); commit(true); return; }
     if (e.target.closest("[data-fx-full-editor]")) { var i = target.padIndex; dialog().close(); var tab = document.querySelector('[data-tab="pads"]'); if (tab) tab.click(); try { if (PP.setPerformMode) PP.setPerformMode(false); PP.setSelectedPad(i); } catch (_) { } var eqp = document.querySelector('[data-panel="eq"]'); if (eqp) eqp.click(); return; }
     var pb = e.target.closest("[data-fx-preset]"); if (!pb) return;
     var p = presetsFor(target.kind).filter(function (q) { return q.name === pb.dataset.fxPreset; })[0]; if (!p) return;
@@ -452,7 +524,7 @@
   }, true);
   document.addEventListener("keydown", function (e) { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches(".fx-chip")) { e.preventDefault(); e.stopPropagation(); openFor(e.target); } }, true);
 
-  function padFxOn(pad) { var e = pad.effects || {}; return !!pad.fxPreset || !!(e.compressor && e.compressor.enabled) || !!(e.delay && e.delay.enabled); }   // (every pad has its reverb on: that alone is not lit)
+  function padFxOn(pad) { var e = pad.effects || {}; return !!pad.fxPreset || cmOn(pad.cmfx).length > 0 || !!(e.compressor && e.compressor.enabled) || !!(e.delay && e.delay.enabled); }   // (every pad has its reverb on: that alone is not lit)
   var decorating = false;
   function decorate() {
     if (decorating) return; decorating = true;
@@ -579,6 +651,6 @@
 
   window.PPFx = { stemFor: stemFor, open: open, openStem: function (id) { var t = stemTarget(id); if (t) open(t); return !!t; }, openPad: function (i) { var t = padTarget(i); if (t) open(t); return !!t; }, openBus: function (b) { open(busTarget(b)); },
     defaults: defaultFx, presets: { stem: STEM_PRESETS, pad: PAD_PRESETS, bus: BUS_PRESETS }, plan: function (s, st) { return stemPlan(s, st); }, busFx: busFx, setBusFx: function (b, fx) { setBusFx(b, fx); busApply(b); }, busChain: function (b) { return buses[b] || null; },
-    padToFx: padToFx, fxToPad: fxToPad, padEffects: padEffects, padGate: padGate, lockEditor: lockEditor, planCheck: planCheck, stats: function () { return stats; }, pending: function () { return Object.keys(busy).length; }, decorate: decorate, isPro: pro, applyPreset: applyPreset,
+    plugins: cmfxList, padToFx: padToFx, fxToPad: fxToPad, padEffects: padEffects, padGate: padGate, lockEditor: lockEditor, planCheck: planCheck, stats: function () { return stats; }, pending: function () { return Object.keys(busy).length; }, decorate: decorate, isPro: pro, applyPreset: applyPreset,
     mini: { targets: miniTargets, state: miniState, presets: miniPresets, apply: miniApply } };
 })();

@@ -2,6 +2,7 @@
 #   Central Pedal          the Raspberry Pi (its update is central-control-source.zip, made by make-release.sh)
 #   Central Pedal Control  Mac, Windows, Linux, Android + the iPhone / iPad project   central-pedal-control-*, central-pedal-control-mobile
 #   Central Services       Mac, Windows, Linux, Android + the iPhone / iPad project   central-services-*, central-services-mobile
+#   Central Production     Mac, Windows, Linux (10.2: the DAW; the same page as the website's /production/)  central-production-*
 #   Central Control        Linux, Windows, Mac - the main admin and admins       CentralControl-* (the release adds central-usage-* copies)
 #   Central Usage          Mac, Windows, Linux, Android + the iPhone / iPad project  CentralUsage-*, central-usage-mobile
 # Central Control and Central Usage are one code base (central-usage/; usage-builder.js packs Central Usage), with
@@ -212,6 +213,22 @@ jobs:
           [ "$(dpkg-deb -f dist/central-services-*-amd64.deb Package)" = central-services ] || { echo "::error::wrong .deb package name"; exit 1; }
           bash ../tools/check-linux-deb.sh dist/central-services-*-amd64.deb "Central Services"
           ls -la dist/ | grep -E "deb|AppImage"
+      - name: Central Production (Linux) - the web page's tests, the app's, then the installers
+        run: |
+          chmod +x central-usage/native/build/cu-* || true
+          bash central-production/prepare.sh
+          cd central-production
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.49.1 && npx playwright install --with-deps chromium
+          bash ../tools/ci-run.sh "Central Production in the browser" node test-web.mjs
+          bash ../tools/ci-run.sh "Central Production app" xvfb-run -a node test-app.mjs
+          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --linux deb AppImage --x64 --publish never
+          test -f dist/linux-unpacked/resources/app-src/production/index.html && test -f dist/linux-unpacked/resources/app-src/daw/daw-engine.js || { echo "::error::the Central Production page is missing"; exit 1; }
+          test -x dist/linux-unpacked/resources/native/cu-studio || { echo "::error::the low-delay player is missing"; exit 1; }
+          test -x dist/linux-unpacked/resources/native/cu-rig || { echo "::error::the plugin host (VST3 / CLAP inserts) is missing"; exit 1; }
+          [ "$(dpkg-deb -f dist/central-production-*-amd64.deb Package)" = central-production ] || { echo "::error::wrong .deb package name"; exit 1; }
+          bash ../tools/check-linux-deb.sh dist/central-production-*-amd64.deb "Central Production"
+          ls -la dist/ | grep -E "deb|AppImage"
       - uses: actions/upload-artifact@v4
         with:
           name: installers-linux
@@ -223,6 +240,8 @@ jobs:
             central-pedal-control/dist/*.AppImage
             central-services/dist/*.deb
             central-services/dist/*.AppImage
+            central-production/dist/*.deb
+            central-production/dist/*.AppImage
 
   windows:
     name: Windows (x64 installer)
@@ -313,6 +332,14 @@ jobs:
           bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder --win nsis --x64 --publish never
           test -f dist/win-unpacked/resources/app/services.js || { echo "::error::the Central Services page is missing"; exit 1; }
           ls -la dist/*.exe
+      - name: Central Production (Windows)
+        run: |
+          bash central-production/prepare.sh
+          cd central-production
+          npm install --no-audit --no-fund
+          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --win nsis --x64 --publish never
+          test -f dist/win-unpacked/resources/app-src/production/index.html || { echo "::error::the Central Production page is missing"; exit 1; }
+          ls -la dist/*.exe
       - uses: actions/upload-artifact@v4
         with:
           name: installers-win
@@ -321,6 +348,7 @@ jobs:
             central-usage/dist/*.exe
             central-pedal-control/dist/*.exe
             central-services/dist/*.exe
+            central-production/dist/*.exe
 
   macos:
     name: macOS (${{ matrix.arch }})
@@ -416,6 +444,15 @@ jobs:
           P=$(ls -d dist/mac*/"Central Services.app")
           codesign --verify --deep "$P" && ls "$P/Contents/Resources/app/services.js" > /dev/null && echo "Central Services: $P"
           ls -la dist/*.dmg
+      - name: Central Production (Mac)
+        run: |
+          bash central-production/prepare.sh
+          cd central-production
+          npm install --no-audit --no-fund
+          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          P=$(ls -d dist/mac*/"Central Production.app")
+          codesign --verify --deep "$P" && ls "$P/Contents/Resources/app-src/production/index.html" > /dev/null && echo "Central Production: $P"
+          ls -la dist/*.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: installers-mac-${{ matrix.arch }}
@@ -424,6 +461,7 @@ jobs:
             central-usage/dist/*.dmg
             central-pedal-control/dist/*.dmg
             central-services/dist/*.dmg
+            central-production/dist/*.dmg
 
   ios:
     name: iPhone / iPad projects (simulator builds, unsigned)
@@ -524,6 +562,7 @@ jobs:
           CU=$(node -p "require('./central-usage/package.json').version")
           PC=$(node -p "require('./central-pedal-control/package.json').version")
           CS=$(node -p "require('./central-services/package.json').version")
+          CP=$(node -p "require('./central-production/package.json').version")
           missing=0; sizes=""
           for f in CentralControl-$CU-win-x64.exe CentralControl-$CU-mac-arm64.dmg CentralControl-$CU-mac-x64.dmg CentralControl-$CU-amd64.deb CentralControl-$CU-x86_64.AppImage \
                    CentralUsage-$CU-win-x64.exe CentralUsage-$CU-mac-arm64.dmg CentralUsage-$CU-mac-x64.dmg CentralUsage-$CU.apk \
@@ -531,7 +570,8 @@ jobs:
                    central-pedal-control-$PC-mac-arm64.dmg central-pedal-control-$PC-mac-x64.dmg central-pedal-control-$PC-win-x64.exe \
                    central-pedal-control-$PC-amd64.deb central-pedal-control-$PC-x86_64.AppImage central-pedal-control-$PC-android.apk \
                    central-services-$CS-mac-arm64.dmg central-services-$CS-mac-x64.dmg central-services-$CS-win-x64.exe \
-                   central-services-$CS-amd64.deb central-services-$CS-x86_64.AppImage central-services-$CS-android.apk; do
+                   central-services-$CS-amd64.deb central-services-$CS-x86_64.AppImage central-services-$CS-android.apk \
+                   central-production-$CP-mac-arm64.dmg central-production-$CP-mac-x64.dmg central-production-$CP-win-x64.exe central-production-$CP-amd64.deb central-production-$CP-x86_64.AppImage; do
             p=$(find staging -type f -name "$f" | head -1)
             if [ -n "$p" ]; then s=$(( $(stat -c %s "$p") / 1048576 )); echo "ok  $f  ${s} MB"; sizes="$sizes$f ${s} MB%0A"; echo "| $f | ${s} MB |" >> sizes.md; else echo "::error::missing $f"; missing=1; fi
           done

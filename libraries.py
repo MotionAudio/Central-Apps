@@ -300,6 +300,27 @@ class LibraryStore:
         """What the app's Libraries panel shows: each installed library with its boards and presets (to add as boards)."""
         return [{k: r.get(k) for k in ("id", "plan", "version", "title", "summary", "installedAt", "counts", "boards", "presets", "source", "community", "plugins")} for r in self.installed()]
 
+    def central_fx(self):
+        """(10.2) The installed Central FX plugins, for the app's track / pad effect pickers: [{"name", "from", "author", "plugin"}]
+        (community ones only while community plugins are allowed)."""
+        out = []
+        if not self.plugins_allowed():
+            return out
+        for r in self.installed():
+            for pl in r.get("plugins") or []:
+                if pl.get("format") != "cmfx":
+                    continue
+                try:
+                    if os.path.getsize(pl.get("path") or "") > MAX_CMFX:
+                        continue
+                    with open(pl["path"], encoding="utf-8") as handle:
+                        j = json.load(handle)
+                except (OSError, ValueError, KeyError):
+                    continue
+                if isinstance(j, dict) and j.get("format") == "central-fx":
+                    out.append({"name": pl.get("name") or j.get("name"), "from": "mine" if r.get("source") == "personal" else "installed", "author": j.get("author") or "", "plugin": j})
+        return out
+
     def pads(self):
         """The installed pad styles (Central Pads): [{"id": "<library>/<style>", "name", "library", "tier", "keys": [..]}]."""
         out = []

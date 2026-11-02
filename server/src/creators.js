@@ -267,7 +267,7 @@ export function routes(api, app, { wrap, requireUser }) {
     const role = b.role === "demo" ? "demo" : "source", name = String(b.name || "file").slice(0, 160), size = Number(b.size) || 0;
     if (role === "demo" && size > 60 * 1024 ** 2) throw bad("A demo clip can be up to 60 MB.");
     if (role === "source" && size > k.max) throw bad("That's too big for a " + k.name.toLowerCase() + " (up to " + Math.round(k.max / 1024 ** 2) + " MB).");
-    const platform = it.kind === "plugin" && role === "source" ? String(b.platform || "") : "";
+    const platform = it.kind === "plugin" && role === "source" ? (b.platform === "any" ? "all" : String(b.platform || "")) : "";   // ("any": Central Production before 10.2 - every device)
     if (it.kind === "plugin" && role === "source" && !CF.PLATFORMS[platform]) throw bad("Pick the platform this plugin zip is for (or Every device for a Central FX plugin).");
     if (role === "demo") await q("DELETE FROM community_files WHERE item_id=$1 AND role='demo'", [it.id]);
     if (role === "source" && it.kind === "plugin") await q("DELETE FROM community_files WHERE item_id=$1 AND role='source' AND platform=$2", [it.id, platform]);

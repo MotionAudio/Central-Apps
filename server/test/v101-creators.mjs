@@ -266,10 +266,9 @@ try {
   ok(transfers.length === 1, "running it again pays nothing twice");
 
   console.log("the pages:");
-  for (const p of ["/create/", "/studio/", "/create/maker.css", "/create/upload.js", "/studio/studio-publish.js", "/studio/lib/studio-engine.js", "/studio/lib/fx-dsp.js"]) ok((await fetch(base + p)).status === 200, p);
-  const studioSrc = (f) => fs.readFileSync(path.join(here, "..", "..", f));
-  ok(["central-usage/app/studio-engine.js", "central-usage/app/studio-ui.js", "central-usage/app/studio-midi.js", "central-usage/app/studio-sf2.js", "central-usage/app/studio-sounds.js", "central-usage/app/studio.css", "js/fx-dsp.js"]
-    .every((f) => studioSrc(f).equals(fs.readFileSync(path.join(here, "..", "public", "studio", "lib", path.basename(f))))), "the web studio's files are the app's own (copy them again when the app's change: server/public/studio/lib)");
+  for (const p of ["/create/", "/studio/", "/production/", "/create/maker.css", "/create/upload.js", "/daw/daw-engine.js", "/production/prod-core.js"]) ok((await fetch(base + p)).status === 200, p);
+  // (10.2) Central Production's copies of the shared files are the apps' own
+  ok(["pedals.js", "license.js"].every((f) => fs.readFileSync(path.join(here, "..", "..", "js", f)).equals(fs.readFileSync(path.join(here, "..", "public", "production", "shared", f)))), "Central Production's shared/ files are the apps' own (copy js/pedals.js and js/license.js again when they change)");
 
   // the pages in a real browser: the creator page, the studio's Publish, the review site
   try { browser = await createRequire(import.meta.url)("playwright").chromium.launch(); } catch (e) { console.log("  (no Playwright: the page checks are skipped) " + e.message); }
@@ -286,23 +285,24 @@ try {
     ok(/\$4\.73/.test(await pg2.locator("main").innerText()), "Earnings: paid so far and the statements");
     if (shots) await pg2.screenshot({ path: path.join(shots, "create-earnings.png"), fullPage: true });
     await pg2.click("[data-tab=upload]"); await pg2.click("[data-kind=plugin]");
-    ok((await pg2.locator("input[type=file][data-platform]").count()) === 4, "Upload: a plugin takes one zip per platform");
+    ok((await pg2.locator("input[type=file][data-platform]").count()) === 5, "Upload: a plugin takes one zip per platform (and a Central FX .cmfx.json for every device)");
     if (shots) await pg2.screenshot({ path: path.join(shots, "create-upload-plugin.png"), fullPage: true });
     await pg2.click("[data-kind=loop]");
     if (shots) await pg2.screenshot({ path: path.join(shots, "create-upload-loop.png"), fullPage: true });
-    // the studio: a clip on the timeline, rendered and published as a loop
+    // Central Production in the browser (the old /studio/ sends people there): a loop made on the timeline, rendered and
+    // published to Make & sell (waiting for review)
     await pg2.goto(base + "/studio/");
-    await pg2.waitForSelector("#view-studio .st-top");
-    await pg2.evaluate(() => { const S = window.CUStudio; S.edit("test clip", (p) => { const c = S.newClip("midi", 4); c.notes = [{ p: 60, v: 100, s: 0, d: 1 }, { p: 64, v: 100, s: 1, d: 1 }, { p: 67, v: 100, s: 2, d: 2 }]; p.clips[c.id] = c; p.arrangement.push({ track: p.tracks[0].id, clip: c.id, start: 0, len: 8 }); }); });
-    await pg2.fill("#pName", "Studio Sketch"); await pg2.check("#pRights");
-    await pg2.evaluate(() => window.scrollTo(0, 0));
-    if (shots) await pg2.screenshot({ path: path.join(shots, "studio.png"), fullPage: true });
-    await pg2.click("#pSend");
-    await pg2.waitForFunction(() => /waiting for review|Sent|didn't|isn't|error/i.test(document.getElementById("pErr").textContent), null, { timeout: 60000 });
-    const said = await pg2.locator("#pErr").innerText();
+    await pg2.waitForFunction(() => window.CP && window.CDaw && document.querySelector("#npForm"), null, { timeout: 20000 });
+    await pg2.fill("#npName", "Studio Sketch"); await pg2.selectOption("#npBars", "2"); await pg2.click("#npForm .primary");
+    await pg2.waitForSelector(".cdaw .cd-tname");
+    await pg2.evaluate(() => { const D = window.CDaw, t = D.project().tracks.find((x) => x.name === "Keys"); D.edit("test clip", () => { D.track(t.id).clips.push({ id: "c1", kind: "midi", start: 0, len: 8, notes: [{ p: 60, v: 100, s: 0, d: 1 }, { p: 64, v: 100, s: 1, d: 1 }, { p: 67, v: 100, s: 2, d: 2 }] }); }); });
+    if (shots) await pg2.screenshot({ path: path.join(shots, "production-loop.png") });
+    await pg2.evaluate(() => window.CPPublish.open()); await pg2.waitForSelector("#pbForm"); await pg2.check("#pbRights"); await pg2.click("#pbSend");
+    await pg2.waitForFunction(() => /Sent for review/.test(document.querySelector("#cpModal").textContent) || (document.getElementById("pbErr") || {}).textContent, null, { timeout: 90000 });
+    const said = await pg2.evaluate(() => document.querySelector("#cpModal").textContent);
     const made = await one("SELECT * FROM community_items WHERE title='Studio Sketch'");
-    ok(/waiting for review/.test(said) && made && made.made_in_studio && made.kind === "loop" && made.status === "waiting" && Number(made.bpm) === 100 && made.bars === 2, "the studio's Publish renders the timeline to a WAV loop and sends it into the upload flow (waiting for review)", { said, made });
-    if (shots) await pg2.screenshot({ path: path.join(shots, "studio-published.png"), fullPage: true });
+    ok(/Sent for review/.test(said) && made && made.made_in_studio && made.kind === "loop" && made.status === "waiting" && Number(made.bpm) === 100 && made.bars === 2, "Central Production's Publish renders the timeline to a WAV loop and sends it into the upload flow (waiting for review)", { said, made });
+    if (shots) await pg2.screenshot({ path: path.join(shots, "production-published.png") });
     // the review site, as the review admin
     const pg3 = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     pg3.on("pageerror", (e) => errs.push(String(e)));

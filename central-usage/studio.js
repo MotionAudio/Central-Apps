@@ -107,6 +107,23 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
     return dir;
   });
 
+  // ---- (10.2) Open in Central Production: the song as a .cmproj, opened by the app the computer has for it (Central
+  // Production registers .cmproj); without it, the file is kept and the website's /production/ is offered instead
+  ipcMain.handle("studio-open-production", async (_e, name, bytes) => {
+    const { shell } = require("electron"), dir = path.join(userData, "studio-handoff"); fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, safe(String(name || "song")).replace(/\.cmproj$/i, "") + ".cmproj"); fs.writeFileSync(f, Buffer.from(bytes));
+    let err = ""; try { err = await shell.openPath(f); } catch (e) { err = e.message || "no app"; }
+    return err ? { ok: false, path: f, error: err } : { ok: true, path: f };
+  });
+  // the loops of the installed sound libraries (Central Pads' loops, and loops made in Central Production)
+  const allowedLoops = new Set();
+  ipcMain.handle("studio-loops", () => {
+    const lr = path.join(userData, "libraries"), out = []; let names = []; try { names = fs.readdirSync(lr).filter((n) => n.endsWith(".json")); } catch (_) { }
+    for (const n of names) { let r; try { r = JSON.parse(fs.readFileSync(path.join(lr, n), "utf8")); } catch (_) { continue; } for (const l of r.loops || []) if (l && l.file) { out.push({ id: r.id + ":" + path.basename(l.file), name: l.name, group: (r.title || r.id) + (l.group && l.group !== "Loops" ? " · " + l.group : ""), bpm: l.bpm || 0, key: l.key || "", bars: l.bars || 0, file: l.file, tier: l.tier || r.plan }); allowedLoops.add(path.resolve(l.file)); } }
+    return out;
+  });
+  ipcMain.handle("studio-read-loop", (_e, file) => { const f = path.resolve(String(file || "")); if (!allowedLoops.has(f)) throw new Error("not a library loop"); return fs.readFileSync(f); });
+
   // ---- cu-studio: the live sound
   let mon = null, monBuf = "";
   function monStart() {
@@ -124,5 +141,58 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
   ipcMain.on("studio-monitor-send", (_e, m) => { if (mon && mon.stdin.writable) try { mon.stdin.write(JSON.stringify(m) + "\n"); } catch (_) { } });
   ipcMain.handle("studio-monitor-stop", () => { if (mon) { try { mon.stdin.write('{"action":"quit"}\n'); } catch (_) { } const m = mon; setTimeout(() => { try { m.kill(); } catch (_) { } }, 800); mon = null; } return true; });
   app.on("before-quit", () => { if (mon) try { mon.kill(); } catch (_) { } });
+
+  // ---- (10.2) the DAW's native plugins (VST3 / CLAP): the rig (cu-rig, the pedal boards' plugin host) hosts them.
+  // Live: an armed audio track's input through its plugins (the rig's own audio, low delay). Offline: cu-rig --process
+  // plays a rendered track through them (freezing, bounces, exports). Their states live in <userData>/daw-rig.
+  const rigData = path.join(userData, "daw-rig"), rigBin = path.join(binDir, "cu-rig" + EXE);
+  let rig = null, rigBuf = "", rigWait = [], rigMon = null;
+  function rigStart() {
+    if (rig && rig.exitCode == null) return { ok: true };
+    if (!fs.existsSync(rigBin)) return { ok: false, error: "The plugin host (cu-rig) isn't installed with this app." };
+    fs.mkdirSync(rigData, { recursive: true }); try { fs.chmodSync(rigBin, 0o755); } catch (_) { }
+    const args = ["--data", rigData, "--block", "128"], map = path.join(binDir, "rig-map.json"); if (fs.existsSync(map)) args.push("--map", map);
+    rig = spawn(rigBin, args, { stdio: ["pipe", "pipe", "ignore"] }); rigBuf = "";
+    rig.stdout.on("data", (b) => { rigBuf += b; let i; while ((i = rigBuf.indexOf("\n")) >= 0) { const line = rigBuf.slice(0, i); rigBuf = rigBuf.slice(i + 1); let m; try { m = JSON.parse(line); } catch (_) { continue; } send("studio-native", m); rigWait = rigWait.filter((w) => !w(m)); } });
+    rig.on("exit", () => { rig = null; rigMon = null; send("studio-native", { type: "rigStopped" }); }); rig.on("error", () => { rig = null; });
+    return { ok: true };
+  }
+  const rigSend = (m) => { if (rig && rig.stdin.writable) try { rig.stdin.write(JSON.stringify(m) + "\n"); } catch (_) { } };
+  const rigAsk = (m, match, ms) => new Promise((res) => { const f = (x) => { if (!match(x)) return false; clearTimeout(t); res(x); return true; }, t = setTimeout(() => { rigWait = rigWait.filter((w) => w !== f); res(null); }, ms || 8000); rigWait.push(f); rigSend(m); });
+  const chainOf = (plugins, levelDb, input) => ({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: input === "2" ? "R" : /\+/.test(String(input || "")) ? "stereo" : "L", gainDb: 0, gateOn: false },
+    chain: (plugins || []).slice(0, 16).map((p) => ({ uid: p.slot, id: "plug", plugin: { format: p.format, id: p.id, path: p.path, name: p.name }, on: true, mix: 1, levelDb: 0 })), levelDb, routing: {} } });
+  ipcMain.handle("studio-native-plugins", async (_e, scan) => {
+    const r = rigStart(); if (!r.ok) return r; let seen = 0;
+    const l = await rigAsk({ action: "plugins", scan: !!scan }, (m) => m.type === "pluginList" && ++seen >= (scan ? 2 : 1), scan ? 300000 : 8000);
+    return l ? { ok: true, plugins: (l.plugins || []).filter((p) => p.kind !== "instrument"), formats: l.formats || "", failed: (l.failed || []).length } : { ok: false, error: "The plugin host didn't answer." };
+  });
+  ipcMain.handle("studio-native-process", async (_e, job) => {
+    if (!fs.existsSync(rigBin)) return { ok: false, error: "The plugin host (cu-rig) isn't installed with this app." };
+    if (rig && rig.exitCode == null) { rigSend({ action: "pluginSave" }); await new Promise((r) => setTimeout(r, 300)); }
+    fs.mkdirSync(rigData, { recursive: true }); try { fs.chmodSync(rigBin, 0o755); } catch (_) { }
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cp-native-")), inF = path.join(tmp, "in.f32"), outF = path.join(tmp, "out.f32"), jf = path.join(tmp, "job.json");
+    try {
+      const d = job && job.data; if (!d || !d.byteLength) return { ok: false, error: "there's no sound to play through the plugins" };
+      fs.writeFileSync(inF, Buffer.from(d.buffer, d.byteOffset, d.byteLength));
+      fs.writeFileSync(jf, JSON.stringify({ rate: +job.rate || 48000, frames: +job.frames || 0, in: inF, out: outF, tail: +job.tail || 0, plugins: (job.plugins || []).slice(0, 16) }));
+      const out = await new Promise((res) => { const p = spawn(rigBin, ["--data", rigData, "--process", jf], { stdio: ["ignore", "pipe", "ignore"] }); let o = ""; p.stdout.on("data", (b) => { o += b; }); p.on("close", () => res(o)); p.on("error", (e) => res(JSON.stringify({ type: "processed", ok: false, error: e.message }))); });
+      let line = null; try { line = JSON.parse(String(out).trim().split("\n").pop()); } catch (_) { }
+      if (!line) return { ok: false, error: "The plugin host stopped (a plugin may have crashed)." };
+      if (!line.ok) return line;
+      return Object.assign(line, { data: new Uint8Array(fs.readFileSync(outF)) });
+    } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  });
+  ipcMain.on("studio-native-monitor", (_e, m) => {
+    rigMon = m && m.plugins && m.plugins.length ? m : null;
+    if (!rigMon) { if (rig) rigSend({ action: "apply", config: { kind: "off" } }); return; }
+    if (rigStart().ok) rigSend(chainOf(rigMon.plugins, 0, rigMon.input));
+  });
+  ipcMain.handle("studio-native-editor", async (_e, slot, plugins, open) => {
+    const r = rigStart(); if (!r.ok) return r;
+    if (!(rigMon && rigMon.plugins.some((p) => p.slot === slot))) await rigAsk(chainOf(plugins, -120, "1"), (m) => m.type === "instrumentStatus", 8000);   // (loaded, silent: just for its window)
+    const a = await rigAsk({ action: "pluginEditor", uid: slot, open: open !== false }, (m) => m.type === "pluginEditor", 8000);
+    return a ? { ok: !!a.open || open === false, open: !!a.open, error: a.error || "" } : { ok: false, error: "The plugin host didn't answer." };
+  });
+  app.on("before-quit", () => { if (rig) { rigSend({ action: "pluginSave" }); const p = rig; setTimeout(() => { try { p.kill(); } catch (_) { } }, 300); } });
 };
 module.exports.sf2Presets = sf2Presets;

@@ -28,7 +28,9 @@ const h = crypto.createHash("sha256");
 for (const f of ["cmfx.h", "cmfx_int.h", "cmfx.c", "cmfx_code.c", "cmfx_util.c", "cmfx_wasm.c"]) h.update(fs.readFileSync(path.join(src, f)));
 const rt = fs.readFileSync(path.join(root, "production/cmfx/cmfx.js"));
 check(rt.includes('source: "' + h.digest("hex") + '"'), "production/cmfx/cmfx.js was built from the current C (else run tools/build-cmfx.sh)");
-for (const c of ["central-usage/app/cmfx.js", "js/cmfx.js", "server/public/studio/lib/cmfx.js"]) check(fs.existsSync(path.join(root, c)) && fs.readFileSync(path.join(root, c)).equals(rt), c + " is the same file");
+check(fs.readFileSync(path.join(root, "js/cmfx-presets.js")).equals(fs.readFileSync(path.join(root, "production/plugin-builder/presets.js"))), "js/cmfx-presets.js is the same file");
+for (const c of ["production/plugin-builder/plugin-builder.js", "production/plugin-builder/plugin-builder.css", "production/plugin-builder/presets.js"]) { const w = c.replace("production/", "server/public/production/"); check(fs.existsSync(path.join(root, w)) && fs.readFileSync(path.join(root, w)).equals(fs.readFileSync(path.join(root, c))), w + " is the same file (tools/build-cmfx.sh copies it)"); }
+for (const c of ["central-usage/app/cmfx.js", "js/cmfx.js", "server/public/production/cmfx/cmfx.js"]) check(fs.existsSync(path.join(root, c)) && fs.readFileSync(path.join(root, c)).equals(rt), c + " is the same file");
 const CMFx = require(path.join(root, "production/cmfx/cmfx.js"));
 
 // ---- the native build

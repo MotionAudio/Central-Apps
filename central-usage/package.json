@@ -164,6 +164,8 @@
           "cu-ndi.exe",
           "cu-rig",
           "cu-rig.exe",
+          "cu-studio",
+          "cu-studio.exe",
           "cm-plugbridge",
           "cm-pwnode",
           "rig-map.json",
