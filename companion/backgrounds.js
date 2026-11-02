@@ -382,7 +382,21 @@
     return "";
   }
 
-  var api = { list: LIST, draw: draw, mount: mount, thumb: thumb, isBg: isBg, idOf: idOf, nameOf: nameOf, isMotion: isMotion, has: function (id) { return !!BY[id]; } };
+  // (10.2) more backgrounds from another file (Central Utility's seasonal set, backgrounds-seasons.js): each def is
+  // { id, name, kind, group, season?, tags?, tier?, fn(g, w, h, t, seed) }. A tier ("utility") says which plan uses it.
+  function register(defs) {
+    (defs || []).forEach(function (d) {
+      if (!d || !d.id || BY[d.id] || typeof d.fn !== "function") return;
+      var e = { id: d.id, name: d.name, kind: d.kind === S ? S : M, group: d.group || "More" };
+      if (d.season) e.season = d.season; if (d.tags) e.tags = d.tags.slice(); if (d.tier) e.tier = d.tier;
+      BY[d.id] = { e: e, fn: d.fn, seed: hash(d.id) }; LIST.push(e);
+    });
+  }
+  // usable here: no tier, or this device has its plan (PPLicense)
+  function allowed(id) { var b = BY[id]; if (!b || !b.e.tier) return true; var L = root.PPLicense; return !!(L && L.hasPlan && L.hasPlan(b.e.tier)); }
+  var api = { list: LIST, draw: draw, mount: mount, thumb: thumb, isBg: isBg, idOf: idOf, nameOf: nameOf, isMotion: isMotion, has: function (id) { return !!BY[id]; },
+    register: register, allowed: allowed, entry: function (id) { return BY[id] ? BY[id].e : null; },
+    _kit: { TAU: TAU, hash: hash, rng: rng, rgb: rgb, rgba: rgba, lerp: lerp, mixc: mixc, fill: fill, made: made, canvasOf: canvasOf, noiseTile: noiseTile, glowAt: glowAt, vignette: vignette, stars: stars } };
   root.CUBackgrounds = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : this);
