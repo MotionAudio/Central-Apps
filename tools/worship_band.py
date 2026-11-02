@@ -594,7 +594,8 @@ def riser(song, n):
                 seg = noise[s0:s1]
                 y[s0:s1] = bell(seg, f, 18, q=1.2) * 0.12
             y *= (np.linspace(0, 1, m) ** 2.2)[:, None]
-            out[a:e] += y
+            if a < n:
+                out[a:min(n, e)] += y[:min(n, e) - a]
     return out
 
 
@@ -607,14 +608,17 @@ class Player:
         self.seed = seed
 
     def play(self, name, notes, seconds, seed=0):
+        n = int(round(seconds * SR))
         if not notes:
-            return np.zeros((int(seconds * SR) + 1, 2), np.float32)
+            return np.zeros((n, 2), np.float32)
         if self.opt.get("gm"):
-            return self.gm(name, notes, seconds)
-        key = (name, seed)
-        if key not in self.insts:
-            self.insts[key] = SM.Instrument(name, self.cache, seed=self.seed + seed)
-        return self.insts[key].play(notes, seconds)
+            x = self.gm(name, notes, seconds)
+        else:
+            key = (name, seed)
+            if key not in self.insts:
+                self.insts[key] = SM.Instrument(name, self.cache, seed=self.seed + seed)
+            x = self.insts[key].play(notes, seconds)
+        return x[:n] if len(x) >= n else np.pad(x, ((0, n - len(x)), (0, 0)))
 
     def gm(self, name, notes, seconds):
         import tempfile
@@ -713,14 +717,14 @@ def render(hymn, secs, opt, seed=7, log=print):
     perc, swell_at = percussion(song)
     p = P.play("drums", perc, secs_len, seed=1)
     crash = P.play("drums", [(0.0, 3.0, CRASH, 100, None)], 4.0, seed=2)
-    p = eq(p, hp=300, air=1.5) + reverse_cymbal(crash, swell_at, n, 2.2 * beat * song.m / 2 + 1.0) * 0.8 + riser(song, n)
+    p = eq(p, hp=300, air=1.5) + reverse_cymbal(crash, swell_at, n, 2.2 * beat * song.m / 2 + 1.0) * 0.3 + riser(song, n) * 0.5
     p = p + 0.18 * fft_conv(p, hall)
     stems["Percussion"] = width(p, 1.3)
 
     b = P.play("bass", bass(song, kicks), secs_len)
     b = eq(b, hp=35, low=2.5, mid=(250, -2.5), presence=1.0, air=-8)
     b = glue(b, 4.0)
-    b = 0.85 * b + 0.15 * np.tanh(b * 3) / 3 * 3                       # (a little grit, so it speaks on small speakers)
+    b = 0.8 * b + 0.2 * np.tanh(b * 4) / 4 * 2                        # (a little grit, so it speaks on small speakers)
     stems["Bass"] = width(b, 0.0)
 
     k = P.play("piano", keys(song), secs_len)
@@ -771,5 +775,9 @@ def render(hymn, secs, opt, seed=7, log=print):
             x = np.pad(x, ((0, n - len(x)), (0, 0)))
         stems[name] = level(x, LEVELS[name] + (10 * math.log10(song.fl["strings"]) if name == "Strings" else 0))
         log("    %-10s peak %.2f" % (name, float(np.max(np.abs(stems[name])))))
+    top = max(float(np.max(np.abs(stems[k]))) for k in STEMS)
+    if top > 0.9:                        # (all the stems down together: no clipping, the balance kept)
+        for k in STEMS:
+            stems[k] = (stems[k] * (0.9 / top)).astype(np.float32)
     mix = sum(stems[k] for k in STEMS)
     return stems, mix, song

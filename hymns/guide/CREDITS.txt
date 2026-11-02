@@ -1,0 +1,1 @@
+The guide cues are spoken by Piper's LJSpeech voice (high): the voice model is MIT-licensed (https://huggingface.co/rhasspy/piper-voices), trained on the LJ Speech dataset, which is in the public domain (https://keithito.com/LJ-Speech-Dataset/). Made by tools/make-guide-cues.py.
