@@ -94,6 +94,7 @@
     return '<div class="item"><h3>' + esc(it.title) + ' <span class="st ' + it.status + '">' + esc(STATUS[it.status] || it.status) + "</span> " + starsRo(it.status === "live" ? it.stars : 0) + "</h3>" +
       '<div class="meta"><span>' + esc(it.kindName) + "</span><span>" + esc(it.packName) + "</span>" + (it.key ? "<span>Key " + esc(it.key) + "</span>" : "") + (it.bpm ? "<span>" + it.bpm + " BPM</span>" : "") + "<span>" + it.downloads + " download" + (it.downloads === 1 ? "" : "s") + "</span>" + (it.madeInStudio ? "<span>Made in the studio</span>" : "") + "</div>" +
       (it.kind === "plugin" && it.status === "live" ? '<span class="label-plugin">' + esc(it.label) + "</span>" : "") +
+      (it.preview && window.PPPreview ? '<div class="row">' + PPPreview.button({ url: it.preview }, "Listen to its preview", "btn small ghost") + ' <span class="muted small">the 30 seconds people hear before they download</span></div>' : "") +
       (it.reason ? '<p class="err" style="margin:0">' + (it.status === "rejected" ? "The reviewer said: " : "") + esc(it.reason) + "</p>" : "") +
       (it.checks && it.checks.length && it.status !== "live" ? '<ul class="checks">' + it.checks.map(function (c) { return '<li class="' + (c.ok ? "" : "bad") + '">' + esc(c.text) + "</li>"; }).join("") + "</ul>" : "") +
       (it.demo ? '<audio controls preload="none" src="' + esc(it.demo) + '"></audio>' : "") +

@@ -27,6 +27,7 @@ import { defaultKind, defaultKeysOn, demoPlans } from "./defaultkeys.js";
 import { writeZip } from "./zipfile.js";
 import * as CF from "./creatorfiles.js";
 import { libraries } from "./libraries.js";
+import * as previews from "./previews.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
@@ -163,6 +164,7 @@ async function itemOut(r, opts = {}) {
     creator: r.creator_name || "", status: r.status, version: r.version, madeInStudio: !!r.made_in_studio, downloads: Number(r.downloads) || 0, created: r.created_at,
     label: r.kind === "plugin" ? "Community plugin - made by " + (r.creator_name || "a creator") + ", checked by Motion Audio" : "Community - made by " + (r.creator_name || "a creator"),
     demo: demo ? await store.downloadUrl(demo.storage_key, demo.name) : null,
+    preview: await previews.communityUrl(r.id, demo && demo.storage_key).catch(() => null),   // (10.2: 30 seconds before downloading)
     packages: Object.fromEntries(pkgs.map((f) => [f.platform || "all", { size: Number(f.bytes), sha256: f.sha256 }])),
   };
   if (opts.private) Object.assign(o, { reason: r.reason, checks: r.checks, autoStars: r.auto_stars, submitted: r.submitted_at, reviewed: r.reviewed_at, reviewedBy: opts.staff ? r.reviewed_by : undefined });
@@ -280,7 +282,7 @@ export function routes(api, app, { wrap, requireUser }) {
     for (const f of files) if (f.role !== "package" && !(await store.exists(f.storage_key))) throw bad(f.name + " didn't finish uploading. Upload it again.");
     const needsDemo = !["plugin", "board"].includes(it.kind);
     const demo = files.find((f) => f.role === "demo");
-    if (needsDemo && !demo) throw bad("Add a short demo clip (MP3 or WAV, up to 2 minutes): it's what people hear before they download, and what the reviewer listens to.");
+    if (needsDemo && !demo && !["loop", "pad", "sample", "instrument"].includes(it.kind)) throw bad("Add a short demo clip (MP3 or WAV, up to 2 minutes): it's what people hear before they download, and what the reviewer listens to.");
     const blocked = new Set((await q("SELECT sha256 FROM blocked_hashes")).map((r) => r.sha256));
     let built, auto = null;
     try { built = await build(Object.assign({}, it), files, blocked); }
@@ -292,6 +294,13 @@ export function routes(api, app, { wrap, requireUser }) {
       catch (e) { if (e.status) throw e; throw bad("The demo clip isn't audio we can read (" + e.message + "). Upload an MP3 or WAV."); }
       finally { fs.rm(path.dirname(tmp), { recursive: true, force: true }, () => { }); }
     }
+    // (10.2) the 30 seconds people hear before they download: the demo clip's best part, or - with no demo clip - made
+    // from the files themselves (loops back to back, a pad through a few keys, samples named by note played up and down)
+    let pv = null;
+    try { pv = await previews.forCommunityItem(it, files, readStored); } catch (e) { pv = { error: e.message }; }
+    if (needsDemo && !demo && !(pv && pv.key)) throw bad("Add a short demo clip (MP3 or WAV, up to 2 minutes). We make the preview from loops, pads and samples named by note (C4.wav) ourselves, but not from a SoundFont or an SFZ. It's what people hear before they download, and what the reviewer listens to.");
+    if (pv && pv.key) built.checks.push({ ok: true, text: "Preview: 30 seconds " + (pv.from === "demo" ? "from the demo clip" : "made from the files") });
+    else if (pv && pv.error) built.checks.push({ ok: false, text: "Preview: we couldn't make one (" + pv.error + ")" + (demo ? " - people hear the demo clip instead" : "") });
     await q("DELETE FROM community_files WHERE item_id=$1 AND role='package'", [it.id]);
     for (const p of built.packages) {
       const key = "community/" + it.id + "/v" + it.version + "/" + (p.platform || "all") + ".zip";

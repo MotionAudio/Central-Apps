@@ -76,10 +76,28 @@ def release_index(url=None, timeout=20, max_age=600):
             continue
         out.append({"id": lib["id"], "plan": lib["plan"], "title": lib.get("title") or lib["id"], "version": str(lib.get("version") or ""),
                     "summary": lib.get("summary") or "", "file": lib["file"], "size": int(lib.get("size") or 0), "sha256": sha,
-                    "url": base + "/" + urllib.parse.quote(str(lib["file"])), "ready": True})
+                    "url": base + "/" + urllib.parse.quote(str(lib["file"])), "ready": True, "previews": previews_of(lib, base)})
     data = {"ok": True, "source": "release", "built": j.get("built") or "", "libraries": out}
     _index_cache[url] = (time.time(), data)
     return data
+
+
+PREVIEW_KINDS = ("pad", "loops", "loop", "sound", "preset", "ir")
+PREVIEW_RE = re.compile(r"^preview--[\w.-]{3,200}\.mp3$")
+
+
+def previews_of(lib, base):
+    """(10.2) a library's 30-second previews, next to its zip: [{kind, name, preset?, set?, url, seconds}]."""
+    out = []
+    for p in (lib.get("previews") or [])[:600]:
+        if not isinstance(p, dict) or p.get("kind") not in PREVIEW_KINDS or not PREVIEW_RE.match(str(p.get("file") or "")):
+            continue
+        e = {"kind": p["kind"], "name": str(p.get("name") or "")[:80], "url": base + "/" + urllib.parse.quote(p["file"]), "seconds": 30}
+        for k in ("preset", "set"):
+            if p.get(k) is not None:
+                e[k] = str(p[k])[:80]
+        out.append(e)
+    return out
 
 
 def version_key(v):

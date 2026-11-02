@@ -78,6 +78,8 @@ jobs:
           bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py
           bash tools/ci-run.sh "community items test (plugin switch, revoke list, the wall)" python3 test_community.py
           bash tools/ci-run.sh "10.0 content test (hymns, synths, pads, loops, new pedals)" python3 test_content.py
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg fluidsynth >/dev/null
+          bash tools/ci-run.sh "10.2 previews test (30 seconds of each pad, loop, instrument and IR before downloading)" python3 test_previews.py
           bash tools/ci-run.sh "Pi sound set-up test (the jack is never left out, outputs that aren't there play on 1-2)" python3 test_audio_routing.py
           bash tools/ci-run.sh "sound library installer test (computers)" node central-usage/test-libraries.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build

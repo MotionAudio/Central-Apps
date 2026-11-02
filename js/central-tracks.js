@@ -11,13 +11,15 @@
   "use strict";
   var PP = window.PP, F = window.PPFeatures, T = window.PPTracks; if (!PP || !F || !T) return;
   var esc = PP.escapeHtml, LS = "central-tracks";
-  // (10.0: the preview shows Motion Audio's own hymn multitracks - public-domain hymns in our arrangements, hymns/hymns.json)
+  // (10.0: the preview shows Motion Audio's own hymn multitracks - public-domain hymns in our arrangements, hymns/hymns.json;
+  // 10.2: each with its 30-second preview from the "central-tracks" release, so they can be heard before a server is set)
+  var HYMN = "https://github.com/MotionAudio/Central-Apps/releases/download/central-tracks/";
   var PREVIEW = [
-    { id: "p1", title: "Amazing Grace", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 72, price: 20 },
-    { id: "p2", title: "Joyful, Joyful, We Adore Thee", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 100, price: 20 },
-    { id: "p3", title: "Come, Thou Fount of Every Blessing", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 84, price: 20 },
-    { id: "p4", title: "Be Thou My Vision", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 72, price: 20 },
-    { id: "p5", title: "Doxology (Praise God, from Whom All Blessings Flow)", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 76, price: 20 },
+    { id: "p1", title: "Amazing Grace", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 72, price: 20 , preview: HYMN + "amazing-grace--amazing-grace-preview.mp3" },
+    { id: "p2", title: "Joyful, Joyful, We Adore Thee", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 100, price: 20 , preview: HYMN + "joyful-joyful--joyful-joyful-preview.mp3" },
+    { id: "p3", title: "Come, Thou Fount of Every Blessing", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 84, price: 20 , preview: HYMN + "come-thou-fount--come-thou-fount-preview.mp3" },
+    { id: "p4", title: "Be Thou My Vision", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 72, price: 20 , preview: HYMN + "be-thou-my-vision--be-thou-my-vision-preview.mp3" },
+    { id: "p5", title: "Doxology (Praise God, from Whom All Blessings Flow)", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 76, price: 20 , preview: HYMN + "doxology--doxology-preview.mp3" },
     { id: "p6", title: "Warm Swell Pad (all 12 keys)", artist: "Motion Audio", kind: "Pad", key: "", bpm: 0, price: 9.99 },
     { id: "p7", title: "Felt Upright (sampled)", artist: "Grace Hill Keys", kind: "Sound", key: "", bpm: 0, price: 4.99, stars: 4 },
     { id: "p8", title: "Worship Lead Board (ambient)", artist: "M. Ortiz", kind: "Board", key: "", bpm: 0, price: 1.99, stars: 3 },
@@ -224,6 +226,12 @@
     st.busy = false; rerender();
   }
 
+  // a track's 30-second preview: the server's /v1/tracks/<id>/preview.mp3 (any track), or the hymns' own on the release
+  function listenUrl(t) {
+    var p = t && t.preview; if (!p) return "";
+    if (/^https?:\/\//.test(p)) return p;
+    return base() ? base() + (p.charAt(0) === "/" ? "" : "/") + p : "";
+  }
   function render() {
     if (st.tracks === null) { if (!st.loading) { st.loading = true; setTimeout(function () { refresh().then(function () { st.loading = false; }); }, 0); } return '<p class="muted">Loading Central Tracks…</p>'; }
     var c = cfg(), sub = st.me && st.me.subscribed;
@@ -238,7 +246,8 @@
       var act = t.owned ? '<button data-ct-add="' + esc(String(t.id)) + '"' + (st.busy ? " disabled" : "") + ">" + addLabel(t) + "</button>"
         : sub || preview() ? '<button class="primary" data-ct-add="' + esc(String(t.id)) + '"' + (st.busy ? " disabled" : "") + ">" + addLabel(t) + "</button>"
         : '<button class="primary" data-ct-buy="' + esc(String(t.id)) + '"' + (st.busy ? " disabled" : "") + ">Buy " + money(t.price) + "</button>";
-      return '<div class="add-row"><span class="tag">' + esc(t.kind || "") + "</span><span><b>" + esc(t.title) + "</b><small>" + [t.artist, t.key ? "Key " + String(t.key).replace("#", "♯") : "", t.bpm ? t.bpm + " BPM" : "", t.stars ? t.stars + "-star" : "", money(t.price)].filter(Boolean).map(esc).join(" · ") + "</small></span>" + act + "</div>";
+      var pv = listenUrl(t), listen = pv && window.PPPreview ? window.PPPreview.button({ url: pv }, "Listen") : "";   // (10.2: 30 seconds of it, before adding or buying)
+      return '<div class="add-row"><span class="tag">' + esc(t.kind || "") + "</span><span><b>" + esc(t.title) + "</b><small>" + [t.artist, t.key ? "Key " + String(t.key).replace("#", "♯") : "", t.bpm ? t.bpm + " BPM" : "", t.stars ? t.stars + "-star" : "", money(t.price)].filter(Boolean).map(esc).join(" · ") + "</small></span>" + listen + act + "</div>";
     }).join("") + "</div>" : '<p class="muted">No tracks match that search.</p>';
     var co = st.checkout ? '<div class="add-plan"><p class="small">Finish buying <b>' + esc(st.checkout.title) + "</b> (" + money(st.checkout.price) + ") on the Motion Audio site" + (st.checkout.url ? ': <span style="user-select:all">' + esc(st.checkout.url) + "</span>" : "") + ' - on a Central Pedal open that link on your phone. Then:</p><button class="primary" data-ct-add="' + esc(String(st.checkout.id)) + '">I\'ve paid - add it</button></div>' : "";
     var server = '<details' + (preview() ? " open" : "") + '><summary class="small">Central Tracks server</summary><div class="form"><label>Server address<input id="ctServer" value="' + esc(c.server || "") + '" placeholder="https://tracks.example.com"></label><button data-ct="server">Save</button></div></details>';

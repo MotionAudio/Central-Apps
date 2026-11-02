@@ -25,6 +25,23 @@ Also found with CC0 licenses in 10.0 and not used yet: Ganjo (a six-string banjo
 Squidpipes, Caveman Cosmonaut, Cowsynth and String Cyborgs (Karoryfer). The last four are Sforzando synths whose sound
 depends on its filters and envelopes, which a plain SoundFont render would lose; the first two are good candidates.
 
+## Listen before you download (10.2)
+
+Every library build also makes a 30-second preview MP3 of each pad style, loop set and loop, instrument preset, keys
+preset and impulse response (`tools/make-previews.py`, called by `tools/build-libraries.py`; `--no-previews` skips them).
+They're made from the sounds that build just made, so a new or redesigned sound gets a new preview by itself:
+
+- a pad style: its loops through two keys (D A B G, then C G), crossfaded
+- a loop set: each loop in turn; a groove or ambient style: its tempos or keys back to back
+- an instrument preset: a phrase written for its kind - chords and arpeggios across its range for keys, held chords for
+  pads, strings and organs, a line for basses, a melody for leads and winds, a groove for kits, the hits for transitions
+- a keys preset: its sound's phrase with the preset's reverb or delay (roughly - the apps play the real pedals)
+- an IR: a guitar riff (a bass line for a bass cabinet, strummed chords for an acoustic body) played through it
+
+They sit next to the zips (`preview--<library>--<kind>--<name>.mp3`), listed in `libraries-index.json` ("previews", each
+with its url) and on the manifest's items. The pedal boards aren't previewed: what they do depends on the player's
+guitar. The apps and the website stream them (`js/previews.js`; nothing is downloaded or installed).
+
 ## Central Tracks hymns (10.0)
 
 Not a library: Motion Audio's own multitracks of public-domain hymns, sold in Central Tracks (one track each, and part

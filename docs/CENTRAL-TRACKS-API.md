@@ -15,7 +15,8 @@ The server must allow CORS from the apps (the Pi app runs at `http://127.0.0.1:8
 | POST | `/v1/login/code` `{ticket, code, trust}` | `{token}` (the device is trusted 30 days) |
 | POST | `/v1/login/resend` `{ticket}` | a new code |
 | GET | `/v1/me` | `{email, subscribed}` (`subscribed` = Central Tracks Unlimited, $77/month) |
-| GET | `/v1/tracks?q=&kind=` | `{tracks: [{id, title, artist, kind, key, bpm, price, stars, owned}]}` (`kind`: Pad, Multitrack, Prime) |
+| GET | `/v1/tracks?q=&kind=` | `{tracks: [{id, title, artist, kind, key, bpm, price, stars, owned, preview}]}` (`kind`: Pad, Multitrack, Prime) |
+| GET | `/v1/tracks/{id}/preview.mp3` | (10.2) anyone: a 302 to 30 seconds of the track - the loudest part of its mix (a hymn: the part its build picked); made once and kept |
 | POST | `/v1/tracks/{id}/add` | subscriber or owner: `{files: [{name, url, role}]}` · otherwise **402** `{checkoutUrl}` |
 | POST | `/v1/tracks/{id}/purchase` | `{checkoutUrl}` (or `{files}` if already owned) |
 

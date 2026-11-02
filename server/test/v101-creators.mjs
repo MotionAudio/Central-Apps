@@ -75,12 +75,13 @@ try {
   ok(r._status === 400 && /rights/.test(r.error), "...and the rights confirmed", r);
   r = await j("POST", "/creator/items", { kind: "sample", title: "Felt", rights: true }, ana.tok);
   ok(r._status === 400 && /Central Keys or Central Instrument/.test(r.error), "samples: the creator picks Central Keys or Central Instrument", r);
-  r = await send(ana.tok, { kind: "loop", title: "Ambient Swells", bpm: 72, bars: 2, key: "D", tags: "ambient, warm", rights: true }, [{ role: "source", name: "swells.wav", data: wav(3.3) }]);
-  ok(r._status === 400 && /demo clip/.test(r.error), "a loop without a demo clip isn't sent", r);
+  r = await send(ana.tok, { kind: "loop", title: "Bare Swells", bpm: 72, bars: 2, key: "D", rights: true }, [{ role: "source", name: "bare.wav", data: wav(3.3) }]);
+  ok(r._status === 200 && r.item.status === "waiting" && r.item.checks.some((c) => /Preview: 30 seconds made from the files/.test(c.text)) && /^http/.test(r.item.preview || ""), "a loop without a demo clip (10.2): its 30-second preview is made from the loop itself", r);
+  ok(!!(await one("SELECT 1 FROM previews WHERE owner=$1", ["community:" + r.id])), "...and kept on the website");
+  await j("POST", "/creator/items/" + r.id + "/remove", {}, ana.tok);   // (the rest of this test counts without it)
+  r = await send(ana.tok, { kind: "loop", title: "Ambient Swells", bpm: 72, bars: 2, key: "D", tags: "ambient, warm", rights: true }, [{ role: "source", name: "swells.wav", data: wav(3.3) }, { role: "demo", name: "demo.wav", data: wav(4, 330) }]);
   const loopId = r.id;
-  let u = await j("POST", "/creator/items/" + loopId + "/upload", { role: "demo", name: "demo.wav", size: 1000 }, ana.tok); await put(u.url, wav(4, 330));
-  r = await j("POST", "/creator/items/" + loopId + "/submit", {}, ana.tok);
-  ok(r._status === 200 && r.item.status === "waiting" && r.item.checks.some((c) => /1 WAV loop at 72 BPM in D/.test(c.text)) && r.item.autoStars >= 1, "with the demo it's checked, packaged and waiting for review (the demo's sound quality suggests stars)", r);
+  ok(r._status === 200 && r.item.status === "waiting" && r.item.checks.some((c) => /1 WAV loop at 72 BPM in D/.test(c.text)) && r.item.autoStars >= 1 && r.item.checks.some((c) => /Preview: 30 seconds from the demo clip/.test(c.text)), "with the demo it's checked, packaged and waiting for review (the demo's sound quality suggests stars; the preview is cut from it)", r);
   ok((await j("GET", "/community/" + loopId))._status === 404 && (await j("GET", "/community/" + loopId, null, ana.tok))._status === 200 && (await j("GET", "/community")).items.length === 0, "nothing is in the community list before review");
   r = await j("POST", "/community/" + loopId + "/download", { key: pkey });
   ok(r._status === 410, "...and it can't be downloaded", r);

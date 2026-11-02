@@ -40,7 +40,23 @@ function clean(e, base, own) {
       presets: names(c.presets, 200), boards: names(c.boards, 200), irs: names(c.irs, 200), pads: names(c.pads, 60), loops: names(c.loops, 60),
     },
     credits: names(e.credits, 20),
+    previews: previewsOf(e, base, own),
   };
+}
+// (10.2) the 30-second previews: what people hear before they download - [{kind, name, preset?, set?, url, seconds}].
+// The built-in list names the ones a build makes ("expected": they may not be published yet - the page says so if one
+// doesn't play); the published index lists the ones that were made.
+const PREVIEW_KINDS = ["pad", "loops", "loop", "sound", "preset", "ir"];
+function previewsOf(e, base, own) {
+  return (Array.isArray(e.previews) ? e.previews : []).slice(0, 600).map((p) => {
+    if (!p || !PREVIEW_KINDS.includes(p.kind) || !/^preview--[\w.-]{3,200}\.mp3$/.test(p.file || "")) return null;
+    const url = !own && typeof p.url === "string" && /^https:\/\/[^\s"'<>]+\.mp3$/.test(p.url) ? p.url : base + "/" + p.file;
+    const o = { kind: p.kind, name: str(p.name, 80), url, seconds: Math.min(60, Math.max(1, Number(p.seconds) || 30)) };
+    if (p.preset != null) o.preset = str(p.preset, 80);
+    if (p.set != null) o.set = str(p.set, 40);
+    if (own) o.expected = true;
+    return o;
+  }).filter(Boolean);
 }
 function listFrom(raw, base, own) { return (Array.isArray(raw) ? raw : []).map((e) => clean(e, base, own)).filter(Boolean); }
 
