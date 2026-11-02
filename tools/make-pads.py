@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Central Pedal - makes two banks of the sound libraries, synthesised here (no one else's recording):
 
-  Central Keys Pads (Central Keys): Warm Pad, Air Pad, Choir Aah, Choir Ooh, Shimmer Pad, String Pad, Glass Pad,
-      Swell Pad, Worship Pad - each note an exact loop: every partial (and every slow movement in it) is a whole number
-      of cycles in the loop, so it holds forever without a seam.
-  Central Plugins Textures (Central Plugins): Ambient Drone (a slowly moving pitched drone) and Transitions - risers,
-      a downlifter, a sub drop, swells, reverse cymbals, an impact, wind and a shimmer hit, one per key. The cymbal,
-      gong and drum sounds come from VCSL (Versilian Studios, CC0 1.0); the rest is synthesised.
+  Central Keys Pads (Central Keys): twelve pads, each built its own way (tools/pad_voices.py says how) - Warm Pad (detuned
+      saws, a breathing low-pass), Air Pad (tuned breath), Choir Aah and Choir Ooh (singers through vowel formants), Shimmer
+      Pad (a shimmer reverb's octaves), String Pad (a bowed section), Glass Pad (FM glass), Swell Pad (its filter opens as
+      you hold a note), Worship Pad (layered and very wide), Analog Sweep Pad (a resonant filter sweeping), Dark Pad (a
+      deep, round bed) and Bell Pad (held bells beating). Stereo; each note a seamless loop with its movement and reverb
+      wrapped round it, so it holds forever.
+  Central Plugins Textures (Central Plugins): Ambient Drone (a low drone with a resonant filter wandering through it) and
+      Transitions - risers, a downlifter, a sub drop, swells, reverse cymbals, an impact, wind and a shimmer hit, one per key.
+      The cymbal, gong and drum sounds come from VCSL (Versilian Studios, CC0 1.0); the rest is synthesised.
 
     python3 tools/make-pads.py <download cache> <out folder> [--only BANK]
 Needs python3-numpy (and the internet for the VCSL cymbals and gong). Deterministic: the same files every build."""
@@ -18,6 +21,10 @@ import sys
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import pad_dsp as D  # noqa: E402
+import pad_voices as PV  # noqa: E402
+
 _s = importlib.util.spec_from_file_location("sounds_vsco", os.path.join(os.path.dirname(HERE), "sounds-vsco.py"))
 V = importlib.util.module_from_spec(_s)
 _s.loader.exec_module(V)
@@ -25,9 +32,9 @@ _s2 = importlib.util.spec_from_file_location("sounds_vcsl", os.path.join(HERE, "
 VC = importlib.util.module_from_spec(_s2)
 _s2.loader.exec_module(VC)
 
-SR = 32000            # (pads hold nothing above 12 kHz)
-LOOP = 6.0            # seconds: every partial a whole number of cycles in it
-ROOTS = list(range(24, 100, 4))   # a sample every major third, C1..B7
+SR = D.SR             # 32 kHz (pads hold nothing above 12 kHz)
+LOOP = 6.0            # seconds: a held note's loop
+ROOTS = list(range(24, 103, 6))   # a sample every half octave, C1..F#7 (a pad moved 3 semitones still sounds itself)
 OURS = "Motion Audio - synthesised by tools/make-pads.py"
 
 
@@ -36,99 +43,62 @@ def q(f):
     return max(1, round(f * LOOP)) / LOOP
 
 
-def formant(f, peaks):
-    return sum(a * math.exp(-0.5 * ((f - fc) / bw) ** 2) for fc, bw, a in peaks)
+# (name, how it's built, attack, release): how = (pad_voices style, semitones to render it at, seconds of opening)
+PADS = [("Warm Pad", ("Warm", 0, 0), 1.0, 2.5), ("Air Pad", ("Air", 0, 0), 1.5, 3.5), ("Choir Aah", ("Choir Aah", 0, 0), 0.5, 2.0),
+        ("Choir Ooh", ("Choir Ooh", 0, 0), 0.6, 2.2), ("Shimmer Pad", ("Shimmer", 0, 0), 1.2, 4.0), ("String Pad", ("Strings", 0, 0), 0.4, 1.5),
+        ("Glass Pad", ("Glass", -12, 0), 0.2, 2.5), ("Swell Pad", ("Swell", 0, 3.0), 0.3, 3.0), ("Worship Pad", ("Worship", 0, 0), 1.5, 4.0),
+        ("Analog Sweep Pad", ("Analog", 0, 0), 0.3, 2.0), ("Dark Pad", ("Deep", 12, 0), 1.2, 3.0), ("Bell Pad", ("Bells", -12, 0), 0.05, 3.0)]
 
 
-AAH = [(700, 130, 1.0), (1220, 150, 0.6), (2600, 220, 0.25), (3300, 300, 0.12)]
-OOH = [(300, 80, 1.0), (870, 110, 0.45), (2240, 200, 0.12)]
-
-
-def partials(kind, f0):
-    """[(frequency, amplitude, movement Hz, movement depth)] for one pad voice."""
-    out = []
-    nyq = 0.45 * SR
-    if kind in ("warm", "string", "swell", "worship"):
-        cut = {"warm": 7, "string": 14, "swell": 9, "worship": 10}[kind]
-        for k in range(1, 120):
-            f = f0 * k
-            if f > nyq:
-                break
-            a = (1.0 / k) / (1 + (k / cut) ** 2)
-            out.append((f, a, (k % 5 + 1) / LOOP, 0.25))
-    elif kind == "air":
-        for k in range(1, 80):
-            f = f0 * k
-            if f > nyq:
-                break
-            a = (1.0 / k ** 0.7) / (1 + (k / 24.0) ** 2)
-            out.append((f, a, (k % 7 + 1) / LOOP, 0.45))
-    elif kind in ("aah", "ooh"):
-        peaks = AAH if kind == "aah" else OOH
-        for k in range(1, 100):
-            f = f0 * k
-            if f > nyq:
-                break
-            a = (1.0 / k ** 0.6) * (0.08 + formant(f, peaks))
-            out.append((f, a, (k % 3 + 1) / LOOP, 0.2))
-    elif kind == "shimmer":
-        for r, a in ((1, 1.0), (2, 0.6), (3, 0.35), (4, 0.4), (6, 0.2), (8, 0.25), (12, 0.1), (16, 0.12)):
-            if f0 * r < nyq:
-                out.append((f0 * r, a, (r % 4 + 1) / LOOP, 0.5))
-    elif kind == "glass":
-        for r, a in ((1, 1.0), (2.76, 0.45), (5.40, 0.25), (8.93, 0.12), (2, 0.3)):
-            if f0 * r < nyq:
-                out.append((f0 * r, a, 1 / LOOP, 0.3))
-    elif kind == "drone":
-        for r, a in ((0.5, 0.6), (1, 1.0), (1.5, 0.5), (2, 0.55), (3, 0.3), (4, 0.25), (5, 0.12), (6, 0.12), (8, 0.08)):
-            if f0 * r < nyq:
-                out.append((f0 * r, a, (int(r * 2) % 3 + 1) / LOOP, 0.6))
-    return out
-
-
-VOICES = {"warm": (-6, 0, 6), "string": (-12, -5, 0, 5, 12), "swell": (-8, 0, 8), "worship": (-7, 0, 7), "air": (-4, 4), "aah": (-9, -3, 3, 9), "ooh": (-9, -3, 3, 9),
-          "shimmer": (0, 4), "glass": (0,), "drone": (-5, 5)}
-
-
-def pad_note(kind, note, seed):
-    """One loop (LOOP seconds) of a pad at a MIDI note, as float32 - periodic, so the whole sample loops."""
+def pad_sample(how, note, seed):
+    """One held note of a pad, stereo float32 (frames x 2), and its loop (start, end). Most pads are all loop; the Swell
+    Pad starts with an opening (its low-pass opening wide over a few seconds) before its loop."""
+    style, shift, opening = how
+    lp = D.Loop(LOOP)
     rng = np.random.default_rng(seed + note * 31)
-    n = int(LOOP * SR)
-    t = np.arange(n) / SR
-    x = np.zeros(n)
-    f0 = 440.0 * 2 ** ((note - 69) / 12.0)
-    for cents in VOICES[kind]:
-        fv = f0 * 2 ** (cents / 1200.0)
-        for f, a, mv, depth in partials(kind, fv):
-            fq = q(f)
-            ph = rng.uniform(0, 2 * math.pi)
-            am = 1.0 - depth * 0.5 * (1 + np.sin(2 * math.pi * mv * t + rng.uniform(0, 2 * math.pi)))
-            x += a * am * np.sin(2 * math.pi * fq * t + ph)
-    if kind == "air":   # (a little breath: periodic noise, its spectrum on the loop's own bins)
-        spec = np.zeros(n // 2 + 1, complex)
-        bins = np.arange(len(spec)) / LOOP
-        band = np.exp(-0.5 * ((bins - min(6000, f0 * 8)) / 2500.0) ** 2)
-        spec[1:] = band[1:] * np.exp(1j * rng.uniform(0, 2 * math.pi, len(spec) - 1))
-        noise = np.fft.irfft(spec, n)
-        x = x / (np.max(np.abs(x)) or 1) + 0.25 * noise / (np.max(np.abs(noise)) or 1)
-    x = x / (np.sqrt(np.mean(x ** 2)) or 1.0) * 0.2
-    return x.astype(np.float32)
+    if not opening:
+        x = PV.render(style, lp, note + shift, rng, notes=[(note + shift, 1.0)])
+        return x.astype(np.float32), 0, lp.n
+    # the Swell Pad: its held sound (the filter wide), and before it the same sound with the filter opening up to it
+    dry = PV.render(style, lp, note, rng, notes=[(note, 1.0)], fx=False)
+    f0 = D.hz(note)
+    f = D.freqs(lp)
+    cuts = np.geomspace(f0 * 1.2, f0 * 14, 10)
+    versions = [D.reverb(lp, D.filt(dry, D.lowpass(f, c, 0.9, 4)), np.random.default_rng(seed + 7), 3.5, mix=0.35, damp=5000) for c in cuts]
+    held = versions[-1]
+    a = int(opening * SR)
+    idx = np.arange(-a, 0) % lp.n
+    prog = (np.arange(a) / max(1, a - 1)) ** 0.8 * (len(cuts) - 1)
+    i0 = np.minimum(np.floor(prog).astype(int), len(cuts) - 2)
+    w = (prog - i0)[:, None]
+    head = np.zeros((a, 2))
+    for k in range(len(cuts) - 1):
+        sel = i0 == k
+        head[sel] = versions[k][idx[sel]] * (1 - w[sel]) + versions[k + 1][idx[sel]] * w[sel]
+    head *= np.minimum(1.0, np.arange(a) / (0.6 * a) + 0.25)[:, None]
+    x = np.concatenate([head, held])
+    x = x / D.rms(held) * 0.2
+    return x.astype(np.float32), a, a + lp.n
 
 
-PADS = [("Warm Pad", "warm", 1.2, 2.5), ("Air Pad", "air", 1.5, 3.0), ("Choir Aah", "aah", 0.6, 1.8), ("Choir Ooh", "ooh", 0.7, 2.0), ("Shimmer Pad", "shimmer", 1.8, 3.5),
-        ("String Pad", "string", 0.5, 1.5), ("Glass Pad", "glass", 0.3, 2.5), ("Swell Pad", "swell", 3.5, 3.0), ("Worship Pad", "worship", 2.0, 4.0)]
+def stereo_zones(name, x, s, e, note, keys, samples, extra):
+    """A stereo note as two samples (left and right) on two zones panned hard left and right - every SoundFont player
+    plays that (the pan generator), so the pad stays wide everywhere."""
+    zones = []
+    for side, pan in ((0, -500), (1, 500)):
+        ch = np.concatenate([x[:, side], x[s:s + 32, side]])   # (after the loop's end: its start again, for interpolation)
+        pcm = np.clip(np.round(ch * 32767), -32768, 32767).astype("<i2")
+        samples.append({"name": "%s%d%s_%d" % (name[:8], note, "LR"[side], len(samples)), "pcm": pcm, "sr": SR, "root": note, "s": s, "e": e})
+        zones.append([("keyRange", keys), ("pan", pan)] + extra + [("overridingRootKey", note), ("sampleModes", 1), ("sampleID", len(samples) - 1)])
+    return zones
 
 
-def pad_zones(kind, samples, seed):
+def pad_zones(how, samples, seed, extra=()):
     zones = []
     ranges = VC.key_ranges(ROOTS)
     for note in ROOTS:
-        x = pad_note(kind, note, seed)
-        n = len(x)
-        x = np.concatenate([x, x[:32]])   # (after the loop's end: its start again, for the interpolation)
-        pcm = np.clip(np.round(x * 32767), -32768, 32767).astype("<i2")
-        samples.append({"name": "%s%d_%d" % (kind[:6], note, len(samples)), "pcm": pcm, "sr": SR, "root": note, "s": 0, "e": n})
-        zones.append([("keyRange", ranges[note]), ("overridingRootKey", note), ("sampleModes", 1), ("sampleID", len(samples) - 1)])
+        x, s, e = pad_sample(how, note, seed)
+        zones += stereo_zones(how[0].replace(" ", ""), x, s, e, note, ranges[note], samples, list(extra))
     return zones
 
 
@@ -217,12 +187,13 @@ def build_pads(out_dir, seed=7):
         return out
     V.say(name + " (synthesised)")
     samples, instruments, presets = [], [], []
-    for prog, (pname, kind, att, rel) in enumerate(PADS):
-        zones = pad_zones(kind, samples, seed + prog)
-        env = [("attackVolEnv", V.tc(att)), ("releaseVolEnv", V.tc(rel))]
-        instruments.append({"name": kind + " pad", "zones": [z[:1] + env + [("reverbEffectsSend", 200), ("chorusEffectsSend", 80)] + z[1:] for z in zones]})
+    for prog, (pname, how, att, rel) in enumerate(PADS):
+        V.say("  " + pname)
+        env = [("attackVolEnv", V.tc(att)), ("releaseVolEnv", V.tc(rel)), ("reverbEffectsSend", 60)]
+        zones = pad_zones(how, samples, seed + prog * 101, env)
+        instruments.append({"name": pname.lower()[:19], "zones": zones})
         presets.append({"name": pname, "prog": prog, "zones": [[("keyRange", (0, 127)), ("instrument", len(instruments) - 1)]]})
-    V.write_sf2(out, name, samples, instruments, presets, copyright="Motion Audio (synthesised - sold with Central Keys)", comment="Made by tools/make-pads.py: exact loops, no recordings.")
+    V.write_sf2(out, name, samples, instruments, presets, copyright="Motion Audio (synthesised - sold with Central Keys)", comment="Made by tools/make-pads.py: stereo, seamless loops, no recordings.")
     V.say("  -> %s (%.0f MB, %d samples)" % (os.path.basename(out), os.path.getsize(out) / 1e6, len(samples)))
     return out
 
@@ -234,8 +205,8 @@ def build_textures(cache, out_dir, seed=11):
         return out
     V.say(name + " (synthesised + VCSL cymbals and gong, CC0)")
     samples, instruments, presets = [], [], []
-    zones = pad_zones("drone", samples, seed)
-    instruments.append({"name": "drone", "zones": [z[:1] + [("attackVolEnv", V.tc(3.0)), ("releaseVolEnv", V.tc(5.0)), ("reverbEffectsSend", 250)] + z[1:] for z in zones]})
+    zones = pad_zones(("Ambient Drone", 12, 0), samples, seed, [("attackVolEnv", V.tc(3.0)), ("releaseVolEnv", V.tc(5.0)), ("reverbEffectsSend", 80)])
+    instruments.append({"name": "drone", "zones": zones})
     presets.append({"name": "Ambient Drone", "prog": 0, "zones": [[("keyRange", (0, 127)), ("instrument", 0)]]})
     tz = []
     for key, label, x in transitions(cache):

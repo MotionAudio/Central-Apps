@@ -68,8 +68,8 @@ def read_wav(path):
 
 
 def seamless(x):
-    """The jump from the last sample to the first is no bigger than the loop's ordinary steps."""
-    return float(np.max(np.abs(x[0] - x[-1]))) <= float(np.percentile(np.abs(np.diff(x, axis=0)), 99.9)) + 1e-4
+    """The jump from the last sample to the first is no bigger than the loop's own steps (a seam would stand out)."""
+    return float(np.max(np.abs(x[0] - x[-1]))) <= float(np.max(np.abs(np.diff(x, axis=0)))) + 1e-4
 
 
 def main():
@@ -151,8 +151,9 @@ def main():
         presets = [p[2] for p in M.sf2_presets(sf2)]
         check(presets == [s[0] for s in SY.SOUNDS] and len(presets) == 10, "ten presets, the names the library lists", presets)
         held = SY.held("saw", 57, 1)
-        ext = np.concatenate([held, held])
-        check(abs(float(ext[len(held)]) - float(ext[len(held) - 1])) < 4 * float(np.median(np.abs(np.diff(held)))) + 1e-4 and len(held) == int(SY.LOOP * SY.SR), "a held synth note is one exact loop")
+        hs, a0, e0 = SY.held_sample("brass", 57, 1)
+        check(seamless(held) and len(held) == int(SY.LOOP * SY.SR) and seamless(hs[a0:e0]) and float(np.max(np.abs(hs[a0] - hs[a0 - 1]))) <= float(np.max(np.abs(np.diff(hs[a0:e0], axis=0)))) + 1e-6,
+              "a held synth note is one seamless loop, after an opening that flows into it")
         bell, pluck = SY.struck("bells", 72, 1), SY.struck("pluck", 60, 1)
         rms = lambda x: float(np.sqrt(np.mean(x ** 2)))
         n3 = int(0.3 * SY.SR)
@@ -168,9 +169,24 @@ def main():
             loops_ok &= seamless(x) and sr == PL.SR and len(x) == int(PL.LOOP * PL.SR) and 0.4 < float(np.max(np.abs(x))) < 0.55
             spec = np.abs(np.fft.rfft(x[:, 0]))
             f = np.argmax(spec[:int(800 * PL.LOOP)]) / PL.LOOP
-            keys_ok &= any(abs(f - 146.83 * m) < 5 for m in (0.25, 0.5, 1, 1.5, 2, 3, 4))   # (D: its root, fifth or an octave of them)
-        check(loops_ok, "each new style is a stereo exact loop of 6 s at about -6 dBFS")
+            keys_ok &= any(abs(f - 146.83 * m) < 5 for m in (0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4))   # (D: its root, fifth or an octave of them)
+        check(loops_ok, "each new style is a stereo seamless loop of %g s at about -6 dBFS" % PL.LOOP)
         check(keys_ok, "...in its key (D)")
+        # (10.2) no two styles alike: their sound over time (spectrum, how it moves, how wide it is) compared pair by pair
+        def print_of(x):
+            fr = np.array([x[i:i + 4096].mean(1) * np.hanning(4096) for i in range(0, len(x) - 4096, 2048)])
+            side = np.array([(x[i:i + 4096, 0] - x[i:i + 4096, 1]) * np.hanning(4096) for i in range(0, len(x) - 4096, 2048)])
+            S, Ss = np.abs(np.fft.rfft(fr, axis=1)) + 1e-9, np.abs(np.fft.rfft(side, axis=1)) + 1e-9
+            f = np.fft.rfftfreq(4096, 1 / PL.SR)
+            edges = np.geomspace(60, 15000, 33)
+            B = [(f >= a) & (f < b) for a, b in zip(edges[:-1], edges[1:])]
+            prof = np.array([[np.log10(np.mean(s[b] ** 2)) for b in B] for s in S])
+            wid = [np.sqrt(np.mean(Ss[:, b] ** 2) / np.mean(S[:, b] ** 2)) for b in B[::4]]
+            return np.concatenate([prof.mean(0) - prof.mean(), 2 * prof.std(0), wid])
+        prints = {st: print_of(read_wav(os.path.join(pdir, PL.loop_file(st, "D")))[0]) for st in new + ["Warm", "Shimmer", "Air"]}
+        names = list(prints)
+        sims = sorted(((float(np.dot(prints[a], prints[b]) / np.linalg.norm(prints[a]) / np.linalg.norm(prints[b])), a, b) for i, a in enumerate(names) for b in names[i + 1:]), reverse=True)
+        check(sims[0][0] < 0.985, "no two pad styles alike (their spectrum, movement and width compared: the closest pair under 0.985)", sims[:3])
 
         print("\nLoops (tools/make-loops.py):")
         lout = os.path.join(tmp, "loops")

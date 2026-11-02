@@ -207,7 +207,8 @@ def render_sample(x, sr, kind, gain):
 # ---------------------------------------------------------------- SoundFont writing
 GEN = {"keyRange": 43, "velRange": 44, "instrument": 41, "sampleID": 53, "sampleModes": 54, "overridingRootKey": 58,
        "fineTune": 52, "coarseTune": 51, "attackVolEnv": 34, "releaseVolEnv": 38, "initialAttenuation": 48,
-       "reverbEffectsSend": 16, "chorusEffectsSend": 15}
+       "reverbEffectsSend": 16, "chorusEffectsSend": 15, "pan": 17, "initialFilterFc": 8, "initialFilterQ": 9,
+       "modLfoToVolume": 13, "freqModLFO": 22, "delayModLFO": 21, "vibLfoToPitch": 6, "freqVibLFO": 24, "delayVibLFO": 23}
 
 
 def tc(seconds):

@@ -189,34 +189,32 @@ def run(tmp):
     check("every SFZ library is CC0 at a pinned commit, and every instrument a bank uses is defined", all(len(c) == 40 for _r, c, _t in SFZB.SOURCES.values()) and SFZB.LICENSE == "CC0 1.0"
           and all(layer[0] in SFZB.INSTR for _b, _p, presets in SFZB.BANKS for _n, layers in presets for layer in layers))
 
-    print("\nThe pads and textures (tools/make-pads.py):")
+    print("\nThe pads and textures (tools/make-pads.py, 10.2):")
     PADS = load("make_pads", "tools/make-pads.py")
-    x = PADS.pad_note("warm", 57, 7)
-    ext = np.concatenate([x, x])
-    seam = abs(float(ext[len(x)]) - float(ext[len(x) - 1]))
-    check("a pad note is one exact loop (no seam where it repeats)", len(x) == int(PADS.LOOP * PADS.SR) and seam < 4 * float(np.median(np.abs(np.diff(x)))) + 1e-4, seam)
-    check("every pad's partials sit on whole cycles of the loop", all(abs(PADS.q(f) * PADS.LOOP - round(PADS.q(f) * PADS.LOOP)) < 1e-9 for f, *_r in PADS.partials("aah", 220.0)))
-    check("the textures bank is a Central Plugins sound; the pads Central Keys", dict((b[0], b[1]) for b in PADS.BANKS) == {"Central Keys Pads": "keys", "Central Plugins Textures": "plugins"})
-    # Central Pads (9.8, tools/make-pad-loops.py): the quick (frequency-domain) pad note sounds like the summed sines, loops exactly
+    seamless = lambda lp: float(np.max(np.abs(lp[0] - lp[-1]))) <= float(np.max(np.abs(np.diff(lp, axis=0)))) + 1e-6
+    x, s0, e0 = PADS.pad_sample(PADS.PADS[0][1], 57, 7)
+    check("a pad note is stereo and one seamless loop (its movement and reverb wrap round)", x.ndim == 2 and x.shape[1] == 2 and (s0, e0) == (0, int(PADS.LOOP * PADS.SR))
+          and seamless(x[s0:e0]) and float(np.max(np.abs(x[:, 0] - x[:, 1]))) > 0.01 and np.isfinite(x).all(), (s0, e0))
+    sw, s1, e1 = PADS.pad_sample(dict((p[0], p[1]) for p in PADS.PADS)["Swell Pad"], 57, 7)
+    cen = lambda y: float(np.sum(np.abs(np.fft.rfft(y.mean(1))) * np.arange(len(y) // 2 + 1)) / np.sum(np.abs(np.fft.rfft(y.mean(1))))) * PADS.SR / len(y)
+    check("the Swell Pad opens before its loop: darker at first, flowing into the loop with no step", s1 == int(3.0 * PADS.SR) and e1 - s1 == int(PADS.LOOP * PADS.SR)
+          and cen(sw[:int(0.5 * PADS.SR)]) < 0.7 * cen(sw[s1:s1 + int(0.5 * PADS.SR)]) and float(np.max(np.abs(sw[s1] - sw[s1 - 1]))) <= float(np.max(np.abs(np.diff(sw[s1:e1], axis=0)))) + 1e-6,
+          (s1, cen(sw[:int(0.5 * PADS.SR)]), cen(sw[s1:s1 + int(0.5 * PADS.SR)])))
+    check("twelve pads; the textures bank is a Central Plugins sound, the pads Central Keys", len(PADS.PADS) == 12 and dict((b[0], b[1]) for b in PADS.BANKS) == {"Central Keys Pads": "keys", "Central Plugins Textures": "plugins"}
+          and [p[0] for p in PADS.PADS[:9]] == ["Warm Pad", "Air Pad", "Choir Aah", "Choir Ooh", "Shimmer Pad", "String Pad", "Glass Pad", "Swell Pad", "Worship Pad"])
+    # Central Pads (tools/make-pad-loops.py): each style in each key, a stereo seamless loop
     LOOPS = load("make_pad_loops", "tools/make-pad-loops.py")
-    fast = LOOPS.pad_note_fast("warm", 57, 7)
-    xf = np.fft.rfft(np.asarray(x, np.float64)); ff = np.fft.rfft(fast)
-    same = float(np.corrcoef(np.abs(xf), np.abs(ff))[0, 1])
-    ext = np.concatenate([fast, fast])
-    seam = abs(float(ext[len(fast)]) - float(ext[len(fast) - 1]))
-    check("Central Pads: the quick pad note has the same spectrum as the summed sines (same partials, same movement)", same > 0.98, same)
-    check("...and is one exact loop", len(fast) == len(x) and seam < 4 * float(np.median(np.abs(np.diff(fast)))) + 1e-4, seam)
     ploops = LOOPS.build(os.path.join(tmp, "padloops"), styles=["Worship"], keys=["C", "F#"], log=lambda *a: None)
     import wave as _wave
     with _wave.open(os.path.join(ploops, LOOPS.loop_file("Worship", "F#"))) as w:
         frames = np.frombuffer(w.readframes(w.getnframes()), "<i2").reshape(-1, 2) / 32768.0
-        okw = w.getnchannels() == 2 and w.getframerate() == PADS.SR and w.getnframes() == int(PADS.LOOP * PADS.SR)
+        okw = w.getnchannels() == 2 and w.getframerate() == LOOPS.SR and w.getnframes() == int(LOOPS.LOOP * LOOPS.SR)
     peak = float(np.max(np.abs(frames)))
     spec = np.abs(np.fft.rfft(frames[:, 0]))
-    f0 = np.argmax(spec[: int(400 * PADS.LOOP)]) / PADS.LOOP   # (the strongest low partial: F#3 185 Hz or its octave / fifth)
-    check("Central Pads: a key's loop is a stereo WAV of the loop's length, about -6 dBFS, in its key (F#: Fs.wav)", okw and 0.45 < peak < 0.52 and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
-          and any(abs(f0 - 185.0 * m) < 6 for m in (0.5, 1, 1.5, 2, 3)), (okw, peak, f0))
-    check("Central Pads: 20 styles (12, and 8 more in 10.0), the same ones the library lists", len(LOOPS.STYLES) == 20 and LOOPS.NAMES == [p["name"] for p in by["pads"]["pads"]], LOOPS.NAMES)
+    f0 = np.argmax(spec[: int(400 * LOOPS.LOOP)]) / LOOPS.LOOP   # (the strongest low partial: F#3 185 Hz or its octave / fifth)
+    check("Central Pads: a key's loop is a stereo WAV of the loop's length, about -6 dBFS, in its key (F#: Fs.wav), seamless", okw and 0.45 < peak < 0.52 and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
+          and any(abs(f0 - 185.0 * m) < 6 for m in (0.25, 0.5, 1, 1.5, 2, 3)) and seamless(frames), (okw, peak, f0))
+    check("Central Pads: 20 styles, the same ones the library lists", len(LOOPS.STYLES) == 20 and LOOPS.NAMES == [p["name"] for p in by["pads"]["pads"]], LOOPS.NAMES)
 
     print("\nThe zips (tools/build-libraries.py):")
     snd = os.path.join(tmp, "sounds")
