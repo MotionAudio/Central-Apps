@@ -85,18 +85,33 @@ def parse_bar(text, meter):
 
 
 def progression(hymn, spec):
+    """"verse", "verse:9-16" (its bars 9 to 16) or "intro*2" (twice)."""
+    spec, _, times = spec.partition("*")
     name, _, rng = spec.partition(":")
     bars = hymn["chords"][name]
     if rng:
         a, b = (int(x) for x in rng.split("-"))
         bars = bars[a - 1:b]
-    return [parse_bar(b, hymn["meter"]) for b in bars]
+    return [parse_bar(b, hymn["meter"]) for b in bars] * int(times or 1)
 
 
 def lyric_bars(hymn, name):
-    """(pickup, [bar texts])"""
+    """(pickup, [bar texts]) - "Verse 5@9-16": that verse's bars 9 to 16 (the line before them ends at bar 8)."""
+    name, _, rng = name.partition("@")
     parts = hymn["lyrics"][name].split("|")
-    return parts[0], parts[1:]
+    pickup, texts = parts[0], parts[1:]
+    if rng:
+        a, b = (int(x) for x in rng.split("-"))
+        before = texts[a - 2] if a >= 2 else pickup
+        # (a word sung on the bar before - the pickup into the line - comes along: what follows the last "/")
+        if "/" in before:
+            pickup = before.split("/")[-1].strip()
+        else:     # (a whole bar of pickup: the line before it ended a bar earlier)
+            pickup = before.strip() if a >= 3 and texts[a - 3].rstrip().endswith("/") else ""
+        texts = texts[a - 1:b]
+        if texts and texts[-1].strip() and not texts[-1].rstrip().endswith("/"):
+            texts[-1] = texts[-1].rstrip() + " /"
+    return pickup, texts
 
 
 def join_text(pieces):
