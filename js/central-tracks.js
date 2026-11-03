@@ -12,14 +12,30 @@
   var PP = window.PP, F = window.PPFeatures, T = window.PPTracks; if (!PP || !F || !T) return;
   var esc = PP.escapeHtml, LS = "central-tracks";
   // (10.0: the preview shows Motion Audio's own hymn multitracks - public-domain hymns in our arrangements, hymns/hymns.json;
-  // 10.2: each with its 30-second preview from the "central-tracks" release, so they can be heard before a server is set)
+  // 10.2: each with its 30-second preview from the "central-tracks" release, so they can be heard before a server is set;
+  // 10.3: all 20 of them - the test checks this list against hymns.json)
   var HYMN = "https://github.com/MotionAudio/Central-Apps/releases/download/central-tracks/";
   var PREVIEW = [
-    { id: "p1", title: "Amazing Grace", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 72, price: 20 , preview: HYMN + "amazing-grace--amazing-grace-preview.mp3" },
-    { id: "p2", title: "Joyful, Joyful, We Adore Thee", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 100, price: 20 , preview: HYMN + "joyful-joyful--joyful-joyful-preview.mp3" },
-    { id: "p3", title: "Come, Thou Fount of Every Blessing", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 84, price: 20 , preview: HYMN + "come-thou-fount--come-thou-fount-preview.mp3" },
-    { id: "p4", title: "Be Thou My Vision", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 72, price: 20 , preview: HYMN + "be-thou-my-vision--be-thou-my-vision-preview.mp3" },
-    { id: "p5", title: "Doxology (Praise God, from Whom All Blessings Flow)", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 76, price: 20 , preview: HYMN + "doxology--doxology-preview.mp3" },
+    { id: "p1", title: "Amazing Grace", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 72, price: 20, preview: HYMN + "amazing-grace--amazing-grace-preview.mp3" },
+    { id: "p2", title: "Joyful, Joyful, We Adore Thee", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 100, price: 20, preview: HYMN + "joyful-joyful--joyful-joyful-preview.mp3" },
+    { id: "p3", title: "Come, Thou Fount of Every Blessing", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 84, price: 20, preview: HYMN + "come-thou-fount--come-thou-fount-preview.mp3" },
+    { id: "p4", title: "Be Thou My Vision", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 72, price: 20, preview: HYMN + "be-thou-my-vision--be-thou-my-vision-preview.mp3" },
+    { id: "p5", title: "Doxology (Praise God, from Whom All Blessings Flow)", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 76, price: 20, preview: HYMN + "doxology--doxology-preview.mp3" },
+    { id: "h6", title: "It Is Well with My Soul", artist: "Motion Audio", kind: "Multitrack", key: "C", bpm: 74, price: 20, preview: HYMN + "it-is-well--it-is-well-preview.mp3" },
+    { id: "h7", title: "Holy, Holy, Holy! Lord God Almighty", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 84, price: 20, preview: HYMN + "holy-holy-holy--holy-holy-holy-preview.mp3" },
+    { id: "h8", title: "Blessed Assurance", artist: "Motion Audio", kind: "Multitrack", key: "E", bpm: 60, price: 20, preview: HYMN + "blessed-assurance--blessed-assurance-preview.mp3" },
+    { id: "h9", title: "Nothing but the Blood", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 100, price: 20, preview: HYMN + "nothing-but-the-blood--nothing-but-the-blood-preview.mp3" },
+    { id: "h10", title: "Crown Him with Many Crowns", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 92, price: 20, preview: HYMN + "crown-him--crown-him-preview.mp3" },
+    { id: "h11", title: "What a Friend We Have in Jesus", artist: "Motion Audio", kind: "Multitrack", key: "F", bpm: 74, price: 20, preview: HYMN + "what-a-friend--what-a-friend-preview.mp3" },
+    { id: "h12", title: "To God Be the Glory", artist: "Motion Audio", kind: "Multitrack", key: "Ab", bpm: 104, price: 20, preview: HYMN + "to-god-be-the-glory--to-god-be-the-glory-preview.mp3" },
+    { id: "h13", title: "A Mighty Fortress Is Our God", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 84, price: 20, preview: HYMN + "a-mighty-fortress--a-mighty-fortress-preview.mp3" },
+    { id: "h14", title: "Abide with Me", artist: "Motion Audio", kind: "Multitrack", key: "Eb", bpm: 66, price: 20, preview: HYMN + "abide-with-me--abide-with-me-preview.mp3" },
+    { id: "h15", title: "Rock of Ages", artist: "Motion Audio", kind: "Multitrack", key: "Bb", bpm: 72, price: 20, preview: HYMN + "rock-of-ages--rock-of-ages-preview.mp3" },
+    { id: "h16", title: "O Come, All Ye Faithful", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 88, price: 20, preview: HYMN + "o-come-all-ye-faithful--o-come-all-ye-faithful-preview.mp3" },
+    { id: "h17", title: "It Came Upon the Midnight Clear", artist: "Motion Audio", kind: "Multitrack", key: "Bb", bpm: 80, price: 20, preview: HYMN + "it-came-upon--it-came-upon-preview.mp3" },
+    { id: "h18", title: "The First Noel", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 96, price: 20, preview: HYMN + "first-noel--first-noel-preview.mp3" },
+    { id: "h19", title: "Away in a Manger", artist: "Motion Audio", kind: "Multitrack", key: "F", bpm: 84, price: 20, preview: HYMN + "away-in-a-manger--away-in-a-manger-preview.mp3" },
+    { id: "h20", title: "Jesus Christ Is Risen Today", artist: "Motion Audio", kind: "Multitrack", key: "C", bpm: 100, price: 20, preview: HYMN + "jesus-christ-is-risen--jesus-christ-is-risen-preview.mp3" },
     { id: "p6", title: "Warm Swell Pad (all 12 keys)", artist: "Motion Audio", kind: "Pad", key: "", bpm: 0, price: 9.99 },
     { id: "p7", title: "Felt Upright (sampled)", artist: "Grace Hill Keys", kind: "Sound", key: "", bpm: 0, price: 4.99, stars: 4 },
     { id: "p8", title: "Worship Lead Board (ambient)", artist: "M. Ortiz", kind: "Board", key: "", bpm: 0, price: 1.99, stars: 3 },
