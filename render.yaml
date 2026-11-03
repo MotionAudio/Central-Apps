@@ -13,6 +13,8 @@ services:
         fromDatabase: { name: motion-audio-db, property: connectionString }
       - key: TOKEN_SECRET
         generateValue: true
+      - key: PUBLIC_URL          # (10.3) the website's own address once the domain is pointed here: https://motionaudio.org (links in emails, sign-in callbacks; docs/DOMAIN-AND-EMAIL.md). Empty: Render's onrender.com address
+        sync: false
       - key: ADMIN_EMAILS
         sync: false
       - key: STRIPE_SECRET_KEY
@@ -33,11 +35,11 @@ services:
         sync: false
       - key: RESEND_API_KEY      # email (Teams invites, schedule requests): resend.com → API Keys
         sync: false
-      - key: MAIL_FROM           # e.g. Motion Audio <team@your-domain.com> (a domain verified in Resend)
+      - key: MAIL_FROM           # Motion Audio <noreply@motionaudio.org> (motionaudio.org verified in Resend; docs/DOMAIN-AND-EMAIL.md)
         sync: false
       - key: TIME_ZONE           # the schedule emails' time zone (Central Services reminders: from 9 a.m. the day before)
         value: America/Chicago
-      - key: SUPPORT_EMAIL       # technical support: the Contact support form and the error alerts go here
+      - key: SUPPORT_EMAIL       # support@motionaudio.org: the Help page's contact form, Contact support and the error alerts go here
         sync: false
       - key: TWILIO_ACCOUNT_SID  # text messages for the admins' sign-in codes (twilio.com); until set, codes go by email
         sync: false

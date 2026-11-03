@@ -13,7 +13,7 @@
  * the default keys off there; this device then asks for a real key at its next check). */
 (function () {
   "use strict";
-  var SERVER = "";          // the Motion Audio website, e.g. "https://motion-audio.onrender.com" (empty: not open yet - the default keys)
+  var SERVER = "";          // the Motion Audio website, e.g. "https://motionaudio.org" (empty: not open yet - the default keys). Set it with tools/set-website.sh, then a quick fix release
   var REQUIRED = true;      // (the apps need a key; false turns keys off, e.g. for tests)
   var o = window.PP_LICENSE_CONFIG || {};   // (tests, or a build that points somewhere else)
   if (o.server != null) SERVER = o.server;

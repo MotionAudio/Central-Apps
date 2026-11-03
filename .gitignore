@@ -33,3 +33,6 @@ central-production/src/
 central-production/updater.js
 central-production/libraries.js
 central-production/studio.js
+
+# (10.3) written by tools/signing-config.js on the build machines
+**/build/signing-*.json

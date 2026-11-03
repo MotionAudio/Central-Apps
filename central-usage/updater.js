@@ -237,6 +237,17 @@ function debExec(cur) {
 }
 Updater.debExec = debExec;
 
+// (10.3) an app's Developer ID team, or null when it's unsigned or only ad-hoc signed; strict also checks the
+// signature is intact. codesign prints its details on stderr, so they come back through the error path too.
+Updater.macTeam = async function (run, app, strict) {
+  try {
+    if (strict) await run("codesign", ["--verify", "--deep", "--strict", app]);
+    const out = await run("sh", ["-c", "codesign -dv --verbose=2 \"$1\" 2>&1", "sh", app]);
+    const m = /TeamIdentifier=([A-Z0-9]{10})/.exec(out);
+    return m ? m[1] : null;
+  } catch (_) { return null; }
+};
+
 // macOS: mount the .dmg, put its app in place of this one (the old one is kept until the new one is in), unmount
 Updater.prototype.installMac = async function (dmg) {
   const run = (cmd, args) => new Promise((resolve, reject) => execFile(cmd, args, { maxBuffer: 8 << 20 }, (err, out) => err ? reject(err) : resolve(String(out))));
@@ -252,6 +263,12 @@ Updater.prototype.installMac = async function (dmg) {
     const target = path.join(path.dirname(bundle), app), fresh = target + ".new", old = bundle + ".old";
     fs.rmSync(fresh, { recursive: true, force: true }); fs.rmSync(old, { recursive: true, force: true });
     await run("ditto", [path.join(mount, app), fresh]);
+    // (10.3) a signed app only replaces itself with one signed by the same developer (the SHA256SUMS check came first)
+    const team = await Updater.macTeam(run, bundle);
+    if (team) {
+      const next = await Updater.macTeam(run, fresh, true);
+      if (next !== team) { fs.rmSync(fresh, { recursive: true, force: true }); throw new Error("the new version isn't signed by Motion Audio (" + (next || "unsigned") + ")"); }
+    }
     try { await run("xattr", ["-dr", "com.apple.quarantine", fresh]); } catch (_) { }
     fs.renameSync(bundle, old);
     if (target !== bundle && fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });   // (a copy already under the new name)
