@@ -18,7 +18,11 @@ for (let i = 0; i < 150 && !/Motion Audio server on/.test(log); i++) await new P
 const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
 const issues = new Set(), fatal = new Set(); let clicks = 0, links = 0;
 const note = (s) => { issues.add(s); if (/pageerror|dead link|#anchor/.test(s) && !/dead link \/download\//.test(s)) fatal.add(s); };   // (/download/... comes from GitHub's releases, not this server)
-const PAGES = ["/", "/apps/", "/apps/central-pedal.html", "/apps/central-pedal-control.html", "/apps/central-control.html", "/apps/central-usage.html", "/apps/central-services.html", "/help/", "/help/install.html", "/help/accounts.html", "/create/", "/privacy", "/terms", "/refunds", "/services/"];
+const PAGES = ["/", "/apps/", "/apps/central-pedal.html", "/apps/central-pedal-control.html", "/apps/central-control.html", "/apps/central-usage.html", "/apps/central-services.html", "/help/", "/help/install.html", "/help/accounts.html", "/create/", "/privacy", "/terms", "/refunds", "/services/",
+  // (10.3) the app pages, the sound pages, pricing, a Help Center guide and the status page
+  "/apps/pedal/", "/apps/pedal-control/", "/apps/control/", "/apps/usage/", "/apps/services/", "/apps/production/",
+  "/sounds/", "/sounds/keys/", "/sounds/instrument/", "/sounds/pads/", "/sounds/plugins/", "/sounds/pedals/", "/sounds/utility/", "/sounds/tracks/",
+  "/pricing/", "/help/article.html?a=set-up-the-central-pedal", "/status/"];
 const checked = new Map();
 async function linkOk(url) {
   if (checked.has(url)) return checked.get(url);

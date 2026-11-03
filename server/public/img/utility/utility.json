@@ -1,0 +1,126 @@
+{
+ "backgrounds": [
+  {
+   "id": "s-advent-1",
+   "name": "Advent wreath, first candle · Advent",
+   "file": "bg-s-advent-1.webp",
+   "alt": "Central Utility background: Advent wreath, first candle"
+  },
+  {
+   "id": "s-xmas-star",
+   "name": "Star over Bethlehem · Christmas",
+   "file": "bg-s-xmas-star.webp",
+   "alt": "Central Utility background: Star over Bethlehem"
+  },
+  {
+   "id": "s-epiphany-star",
+   "name": "The wise men's star · Epiphany",
+   "file": "bg-s-epiphany-star.webp",
+   "alt": "Central Utility background: The wise men's star"
+  },
+  {
+   "id": "s-newyear-dawn",
+   "name": "A new dawn · New Year",
+   "file": "bg-s-newyear-dawn.webp",
+   "alt": "Central Utility background: A new dawn"
+  },
+  {
+   "id": "s-ash-cross",
+   "name": "Ashes · Ash Wednesday",
+   "file": "bg-s-ash-cross.webp",
+   "alt": "Central Utility background: Ashes"
+  },
+  {
+   "id": "s-lent-purple",
+   "name": "Lent purple · Lent",
+   "file": "bg-s-lent-purple.webp",
+   "alt": "Central Utility background: Lent purple"
+  },
+  {
+   "id": "s-palm-light",
+   "name": "Palms in the light · Palm Sunday",
+   "file": "bg-s-palm-light.webp",
+   "alt": "Central Utility background: Palms in the light"
+  },
+  {
+   "id": "s-gf-storm",
+   "name": "Three crosses, stormy sky · Good Friday",
+   "file": "bg-s-gf-storm.webp",
+   "alt": "Central Utility background: Three crosses, stormy sky"
+  },
+  {
+   "id": "s-easter-tomb",
+   "name": "The empty tomb · Easter",
+   "file": "bg-s-easter-tomb.webp",
+   "alt": "Central Utility background: The empty tomb"
+  },
+  {
+   "id": "s-pent-flames",
+   "name": "Tongues of fire · Pentecost",
+   "file": "bg-s-pent-flames.webp",
+   "alt": "Central Utility background: Tongues of fire"
+  },
+  {
+   "id": "s-comm-bread",
+   "name": "Bread and cup · Communion",
+   "file": "bg-s-comm-bread.webp",
+   "alt": "Central Utility background: Bread and cup"
+  },
+  {
+   "id": "s-bapt-water",
+   "name": "Water and the dove · Baptism",
+   "file": "bg-s-bapt-water.webp",
+   "alt": "Central Utility background: Water and the dove"
+  }
+ ],
+ "themes": [
+  {
+   "id": "u-advent",
+   "name": "Advent",
+   "file": "theme-u-advent.webp",
+   "alt": "Central Utility slide theme: Advent"
+  },
+  {
+   "id": "u-christmas-red",
+   "name": "Christmas, red and gold",
+   "file": "theme-u-christmas-red.webp",
+   "alt": "Central Utility slide theme: Christmas, red and gold"
+  },
+  {
+   "id": "u-lent",
+   "name": "Lent",
+   "file": "theme-u-lent.webp",
+   "alt": "Central Utility slide theme: Lent"
+  },
+  {
+   "id": "u-easter",
+   "name": "Easter",
+   "file": "theme-u-easter.webp",
+   "alt": "Central Utility slide theme: Easter"
+  },
+  {
+   "id": "u-pentecost",
+   "name": "Pentecost",
+   "file": "theme-u-pentecost.webp",
+   "alt": "Central Utility slide theme: Pentecost"
+  },
+  {
+   "id": "u-communion",
+   "name": "Communion",
+   "file": "theme-u-communion.webp",
+   "alt": "Central Utility slide theme: Communion"
+  },
+  {
+   "id": "u-baptism",
+   "name": "Baptism",
+   "file": "theme-u-baptism.webp",
+   "alt": "Central Utility slide theme: Baptism"
+  },
+  {
+   "id": "u-thanks",
+   "name": "Thanksgiving",
+   "file": "theme-u-thanks.webp",
+   "alt": "Central Utility slide theme: Thanksgiving"
+  }
+ ]
+}

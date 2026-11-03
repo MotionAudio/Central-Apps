@@ -61,7 +61,7 @@ export function routes(api, { wrap, requireUser }) {
       bars.filter((b) => b.service === k && b.ago >= 0 && b.ago < 48).forEach((b) => (h[47 - b.ago] = name[b.worst]));
       const u = up.find((x) => x.service === k);
       return { id: k, label, state: l ? l.state : "unknown", note: l ? l.note : "Not checked yet", ms: l ? l.ms : null, checked: l ? l.checked_at : null, history: h, uptime: u ? Number(u.pct) : null };
-    }), incidents });
+    }), incidents, checked: latest.reduce((a, x) => (!a || x.checked_at > a ? x.checked_at : a), null), everyMin: Math.max(1, Number(process.env.STATUS_EVERY_MIN) || 3) });
   }));
   const staff = async (req) => { if (!isAdmin(req.user)) throw bad("Motion Audio staff only.", 403); await requireStep(req); };
   api.post("/admin/status/incident", requireUser, wrap(async (req, res) => {

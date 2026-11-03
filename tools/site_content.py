@@ -2,6 +2,8 @@
 # tools/make-site.py builds the pages from this. Sources: the release notes (release-notes/10.*.md and before), the
 # manuals (server/public/apps/*.html) and docs/. Keep it in plain words: what a person can do, not how it's built.
 
+SUPPORT_EMAIL = "support@motionaudio.org"   # (the server's SUPPORT_EMAIL default; the Help page shows it)
+
 PLATFORMS = {
     "pedal": "Built in to the Central Pedal",
     "mac": "Mac", "win": "Windows", "linux": "Linux", "ios": "iPhone and iPad", "android": "Android", "web": "Web browser",
@@ -300,4 +302,81 @@ HELP_FAQ = [
         ("It says it can't reach the website.", "Check the device is online, and look at the status page to see if sign-in or downloads are down. The apps keep working offline."),
         ("The pedal shows as offline.", "Make sure it's on and on the same Wi-Fi. Some networks keep devices apart: ask for that to be allowed, use a cable, or type the pedal's address into Connect."),
     ]),
+]
+
+# the best of each plan, each with its 30-second preview (matched by kind and name in the libraries index; the page
+# finds the preview's address at /v1/libraries): (kind, name, preset-or-None, what it is)
+PICKS = {
+    "keys": [
+        ("preset", "Sunday Grand", None, "The Steinway B, warm and even. The piano for most of a worship set."),
+        ("preset", "Intimate Grand", None, "A softer grand for quiet verses, communion and prayer."),
+        ("preset", "Felt Upright Ambient", None, "An upright with felt on the hammers, for close, ambient keys."),
+        ("preset", "Sanctuary Organ", None, "Pipe organ for hymns, processions and big last choruses."),
+        ("preset", "Quiet Prayer Organ", None, "A gentle organ that sits under someone praying."),
+        ("preset", "Sunday Keys Pad", None, "The warm worship pad, to hold under your right hand."),
+        ("preset", "Selah Strings", None, "Strings made from real recordings, for swells into the bridge."),
+        ("preset", "Super Saw Anthem", None, "A wide synth for big choruses and modern worship."),
+        ("preset", "Christmas Bells", None, "Bells for Advent, Christmas Eve and carols."),
+        ("preset", "Electric Bells", None, "FM bells for a little sparkle on top of the band."),
+    ],
+    "instrument": [
+        ("preset", "Upright Jazz Bass", None, "A plucked upright bass, round and woody."),
+        ("preset", "Clean Hollowbody", None, "A clean hollowbody electric for gentle rhythm parts."),
+        ("preset", "Worship Kit (brushes)", None, "A drum kit played with brushes, for quiet songs."),
+        ("preset", "Studio Kit", None, "A tight studio drum kit for full-band songs."),
+        ("preset", "Worship Harp", None, "A concert harp for intros, prayer and reflection."),
+        ("preset", "Alto Sax Ballad", None, "Alto sax for gospel ballads and Christmas."),
+        ("loop", "Worship Eighths", None, "A steady eighth-note groove that sits under most worship songs."),
+        ("loop", "Gospel Shuffle", None, "A shuffle with swing for gospel and old hymns."),
+        ("loop", "6/8 Celtic Toms", None, "Rolling toms in 6/8 for Celtic hymns."),
+        ("preset", "Bowed Psaltery Air", None, "A bowed psaltery, airy and unusual, for meditative moments."),
+    ],
+    "pads": [
+        ("pad", "Warm", None, "The everyday worship pad: soft, wide and warm."),
+        ("pad", "Sunday Keys", None, "Airy keys that fill the room without getting in the way."),
+        ("pad", "Selah", None, "Strings and choir for a pause in the song."),
+        ("pad", "Shimmer", None, "A bright shimmer an octave up, for builds."),
+        ("pad", "Choir Aah", None, "Voices singing \"aah\", for hymns and communion."),
+        ("pad", "Frozen Piano", None, "A piano chord held forever, for prayer times."),
+        ("pad", "Harp Wash", None, "Harp runs that blur into a pad."),
+        ("pad", "Cathedral Organ", None, "A soft pipe organ chord, for liturgy and hymns."),
+        ("loop", "Felt Piano", None, "A felt-piano ambient loop in every key, for between songs."),
+        ("loop", "Cello Drone", None, "A low cello drone in every key."),
+        ("sound", "Central Pads Swells", "Riser to Key 8s", "A riser into the next song's key, eight seconds long."),
+    ],
+    "plugins": [
+        ("sound", "Central Plugins Textures", "Ambient Drone", "An ambient drone, made with the Central Plugins effects."),
+        ("preset", "Plugins: Transitions (risers and swells)", None, "Risers, swells, a downlifter, reverse cymbals and an impact for transitions."),
+        ("preset", "Plugins: Ambient Drone Bed", None, "A drone bed to play under the whole song."),
+    ],
+    "pedals": [
+        ("ir", "Central 2x12 Worship Smooth", None, "A smooth 2x12 cabinet: the worship guitar sound."),
+        ("ir", "Central 1x12 Open Back", None, "An open-back 1x12 combo, airy and clear."),
+        ("ir", "Central 4x12 Vintage", None, "A vintage 4x12 for bigger, crunchier parts."),
+        ("ir", "Central 2x10 Tweed", None, "A tweed 2x10, warm and a little bright."),
+        ("ir", "Central 4x12 Modern Tight", None, "A tight modern 4x12 for drive and rock."),
+        ("ir", "Central Bass 4x10", None, "A 4x10 bass cabinet with punch."),
+        ("ir", "Central Acoustic Dreadnought Body", None, "Makes a pickup sound like a dreadnought acoustic."),
+        ("ir", "Central Acoustic Nylon Body", None, "A nylon-string body for classical and Spanish guitar."),
+    ],
+}
+
+# what's free in every app, with no plan (the badge says "Free")
+FREE = {
+    "keys": ["A grand piano, an electric piano and an organ", "Starter pads and synths", "136 built-in instrument sounds in Central Usage"],
+    "instrument": ["Starter bass, guitar and drum kit", "The click and count-in", "136 built-in instrument sounds in Central Usage"],
+    "pads": ["A starter pad in every key on the pedal", "Swell and fade on the expression pedal"],
+    "plugins": ["A basic EQ, compressor, reverb and delay on every stem, pad and bus", "Plugins you make yourself in Central Production"],
+    "pedals": ["A starter drive, delay and reverb", "Your own VST3, AU, CLAP and LV2 plugins on a computer"],
+    "utility": ["Plain and gradient backgrounds", "The default click", "Lyrics and slides with the built-in themes"],
+}
+
+# Central Utility's parts, in a line each
+UTILITY_PARTS = [
+    ("54 backgrounds", "Moving and still backgrounds for every season of the church year, and for every Sunday."),
+    ("Slide themes and lower thirds", "Each background has a matching slide theme (title, verse and reference) and a lower third for the stream."),
+    ("14 click sounds", "Wood block, rim, hi-hat, cowbell, clave, shaker, side stick, triangle, tick, beeps and more, each with its own accent."),
+    ("24 lighting looks", "Ready-made looks for Central Control's lights: Sunrise, Ocean, Ember and more."),
+    ("Countdowns and stream overlays", "A countdown before service and overlays for the stream."),
+    ("\"This Sunday\"", "Central Control suggests the background and theme for this Sunday from the church year."),
 ]

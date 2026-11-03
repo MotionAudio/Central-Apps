@@ -139,14 +139,18 @@ try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } }), errs = [];
     page.on("pageerror", (e) => errs.push(e.message));
     await page.route("https://cdn.example/**", (route) => route.fulfill({ status: 200, contentType: "audio/wav", body: wav(2, () => [330, 0.4]) }));
-    await page.goto(base + "/");
+    await page.goto(base + "/pricing/");   // (10.3: the store has its own page)
     await page.waitForFunction(() => document.querySelectorAll("#planCards .plan-listen [data-pv]").length > 0, null, { timeout: 10000 });
     ok(await page.evaluate(() => /Hear it/.test(document.querySelector("#planCards .plan-listen").textContent)), "the plan cards: Hear it, with a few of the plan's previews");
     await page.click("#planCards .plan-listen [data-pv]");
     await page.waitForFunction(() => window.PPPreview.playing() !== "", null, { timeout: 6000 });
     ok(true, "...a Listen button plays the preview");
     await page.evaluate(() => PPPreview.stop());
-    await page.evaluate(() => { location.hash = "#downloads"; });
+    // (10.3) the Central Pads page: the picked pads play their previews
+    await page.goto(base + "/sounds/pads/");
+    await page.waitForFunction(() => !!document.querySelector('[data-plan-items="pads"] .item [data-pv]'), null, { timeout: 10000 }).catch(() => null);
+    ok(await page.evaluate(() => !!document.querySelector('[data-plan-items="pads"] .item [data-pv]')), "the Central Pads page: its pads have a 30-second preview");
+    await page.goto(base + "/#downloads");
     await page.waitForFunction(() => document.querySelector('.lib-card[data-lib="central-pads-library"] .pv-list'), null, { timeout: 10000 }).catch(() => null);
     ok(await page.evaluate(() => !!document.querySelector('.lib-card[data-lib="central-pads-library"] .pv-list [data-pv]')), "the Downloads page: each library's Listen fold");
     await page.goto(base + "/#tracks");

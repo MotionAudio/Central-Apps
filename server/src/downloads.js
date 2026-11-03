@@ -44,13 +44,14 @@ const planNames = (plans0) => { const plans = withPads(plans0); return PLAN_IDS.
 // everything for one person (onlyOrder: just what that order gave - the email after a purchase)
 export async function downloadsFor(user, onlyOrder) {
   const email = String(user.email || "").toLowerCase();
-  const keys = await q(`SELECT l.*, (SELECT COUNT(*) FROM license_devices d WHERE d.key=l.key)::int AS devices, COALESCE(c.personal, FALSE) AS personal FROM licenses l LEFT JOIN churches c ON c.id=l.church_id
+  const keys = await q(`SELECT l.*, (SELECT COUNT(*) FROM license_devices d WHERE d.key=l.key)::int AS devices,
+    (SELECT COALESCE(json_agg(d.device_name ORDER BY d.device_name), '[]'::json) FROM license_devices d WHERE d.key=l.key) AS device_names, COALESCE(c.personal, FALSE) AS personal FROM licenses l LEFT JOIN churches c ON c.id=l.church_id
     WHERE (l.user_id=$1 OR l.assigned_email=$2) AND NOT l.revoked AND (l.expires_at IS NULL OR l.expires_at > now())` + (onlyOrder ? " AND l.order_id=$3" : "") + " ORDER BY l.kind, l.created_at", onlyOrder ? [user.id, email, onlyOrder] : [user.id, email]);
   const apps = ["P", "A", "U"].filter((k) => keys.some((l) => l.kind === k)).map((k) => {
     const a = APPS[k];
     return { kind: k, app: APP_OF_KIND[k], name: a.name, icon: a.icon, download: DL_PAGE(), links: linksOf(APP_OF_KIND[k]), runsOn: a.runsOn, devices: a.devices, phone: a.phone,
       steps: steps(a), linuxCommand: installLine(a.linux), guide: config.publicUrl + INSTALL,
-      keys: keys.filter((l) => l.kind === k).map((l) => ({ key: pretty(l.key), trial: l.trial, expiresAt: l.expires_at, inUse: l.devices,
+      keys: keys.filter((l) => l.kind === k).map((l) => ({ key: pretty(l.key), trial: l.trial, expiresAt: l.expires_at, inUse: l.devices, deviceNames: (l.device_names || []).filter(Boolean),   // (10.3: My products releases one device)
         updatesUntil: k === "P" ? "forever" : fmt(l.updates_until), own: !!(l.personal && l.user_id === user.id), renewable: !!(l.personal && l.user_id === user.id && k !== "P" && !l.trial) })) };
   });
   const orders = await q("SELECT id, shipping, status, created_at FROM orders WHERE user_id=$1 AND status IN ('paid','review') AND (items ? 'pedal')" + (onlyOrder ? " AND id=$2" : "") + " ORDER BY created_at DESC", onlyOrder ? [user.id, onlyOrder] : [user.id]);

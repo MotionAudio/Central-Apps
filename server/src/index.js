@@ -392,10 +392,19 @@ app.use("/v1", api);
 getfile.routes(app, { wrap });   // (10.0: /download/<app>/<platform>, /download/library/<id>, /install.sh - our address, GitHub behind it)
 app.get("/health", (_req, res) => { res.setHeader("Access-Control-Allow-Origin", "*"); res.json({ ok: true, payments: !!pay.stripe, storage: store.usingR2 ? "r2" : "local" }); });   // (the apps' "is the internet there?")
 // the home page with the site's own address filled in (the picture a shared link shows needs a full address)
-let homeHtml = null;
-app.get(["/", "/index.html"], (_req, res, next) => {
-  try { if (!homeHtml) homeHtml = fs.readFileSync(path.join(here, "..", "public", "index.html"), "utf8").replace(/%PUBLIC_URL%/g, config.publicUrl); } catch (_) { return next(); }
-  res.setHeader("Content-Type", "text/html; charset=utf-8"); res.setHeader("Cache-Control", "no-cache"); res.send(homeHtml);
+// (10.3: every page of the site, not only the home page - each has its own title, description and picture to share)
+const pubDir = path.join(here, "..", "public"), pageCache = new Map();
+app.get(/^\/(?:[\w-]+\/)*(?:[\w-]+(?:\.html)?)?$/, (req, res, next) => {
+  let rel = req.path.endsWith("/") ? req.path + "index.html" : /\.html$/.test(req.path) ? req.path : req.path + ".html";
+  const file = path.join(pubDir, rel);
+  if (!file.startsWith(pubDir + path.sep)) return next();
+  let html = pageCache.get(file);
+  if (html === undefined) {
+    try { const raw = fs.readFileSync(file, "utf8"); html = raw.includes("%PUBLIC_URL%") ? raw.replace(/%PUBLIC_URL%/g, config.publicUrl) : null; } catch (_) { html = null; }
+    pageCache.set(file, html);
+  }
+  if (html == null) return next();   // (no placeholder, or no such page: the static files answer as before)
+  res.setHeader("Content-Type", "text/html; charset=utf-8"); res.setHeader("Cache-Control", "no-cache"); res.send(html);
 });
 app.use(express.static(path.join(here, "..", "public"), { extensions: ["html"] }));
 // a page that isn't there: our own page, not the bare "Cannot GET" (the API still answers in JSON)

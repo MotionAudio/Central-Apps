@@ -31,7 +31,7 @@ const codeIn = (m) => (m && (m.subject.match(/(\d{6})/) || m.text.match(/(\d{6})
 
 const browser = await pw.chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-const errors = []; page.on("pageerror", (e) => errors.push(e.message)); page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
+const errors = []; page.on("pageerror", (e) => errors.push(page.url().replace(base, "") + " " + e.message + " " + String(e.stack || "").split("\n")[1])); page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
 page.on("dialog", (d) => d.accept());
 let n = 0; const shot = async (name, full) => { if (shots) await page.screenshot({ path: path.join(shots, String(++n).padStart(2, "0") + "-" + name + ".png"), fullPage: !!full }); };
 const toastSeen = async (re) => { try { await page.waitForFunction((src) => [...document.querySelectorAll(".toast")].some((t) => new RegExp(src).test(t.textContent)), re.source, { timeout: 4000 }); return true; } catch (_) { return false; } };
@@ -49,21 +49,24 @@ try {
   // ---------------------------------------------------------------- the store
   await page.goto(base + "/", { waitUntil: "networkidle" }); await page.waitForTimeout(400);
   ok(await page.$eval("h1", (e) => e.textContent.length > 10), "the page opens");
+  ok(await page.$$eval(".system img", (imgs) => imgs.every((i) => i.complete && i.naturalWidth > 0)) && await page.$$eval("#pedalBuy [data-add=pedal]", (x) => x.length) === 1, "the home page: the app icons load, and the pedal is there to buy");
+  // (10.3) the store is on its own page now: Pricing
+  await page.click('header nav a[href="/pricing/"]'); await page.waitForSelector("#packs .tier", { timeout: 6000 }); await page.waitForTimeout(300);
   ok(await page.$$eval("#pedalBuy [data-add=pedal]", (x) => x.length) === 1 && await page.$$eval("#packs .tier", (x) => x.length) === 4 && await page.$$eval("#rack .pl-row", (x) => x.length) >= 4 && /1 main admin \+ 2 admins/.test(await page.textContent("#packs .tier")), "the store: the pedal, four packs (Lite: 1 main admin + 2 admins…), the apps and Central Services slots");
   ok(await page.$$eval("#planCards .tier", (x) => x.length) === 6 && /Central Utility/.test(await page.textContent("#planCards")) && /\$50/.test(await page.textContent("#planCards")) && /Central Keys/.test(await page.textContent("#planCards")) && /\$70/.test(await page.textContent("#planCards")) && /Central Pads/.test(await page.textContent("#planCards")) && /\$40/.test(await page.textContent("#planCards")) && /Included in every sound plan/.test(await page.textContent("#planCards")) && /\$270/.test(await page.textContent("#planAll")) && await page.$$eval("#planBundles .bundle-row", (x) => x.length) === 5 && /package key/.test(await page.textContent("#plans")),
     "the store: the plans (four sound plans with Central Pads, Central Pads, 10.2: Central Utility $50; all of them for $270, five church bundles), each a package key");
   ok((await page.$$eval(".keydefs dt", (d) => d.map((x) => x.textContent))).join() === "P,A,U,S,Slots", "the key legend: P, A, U, S (sound plan packages) and Slots (Central Services)");
   // Downloads is public: anyone gets every app (no keys shown until signed in; keys come by email and on Account)
-  await page.evaluate(() => { location.hash = "downloads"; }); await page.waitForSelector("#downloads:not([hidden]) .dl-card", { timeout: 6000 }).catch(() => {});
+  await page.click('header nav a[href="/#downloads"]'); await page.waitForSelector("#downloads:not([hidden]) .dl-card", { timeout: 6000 }).catch(() => {});
   { const t = await page.textContent("#downloads"), n = await page.$$eval("#downloads .dl-card:not(.lib-card)", (x) => x.length), btns = await page.$$eval("#downloads a.btn", (x) => x.map((b) => b.textContent));
     ok(n === 6 && /Central Production/.test(t) && /Central Pedal Control/.test(t) && /Central Control/.test(t) && /Central Usage/.test(t) && /Central Services/.test(t) && /Central Pedal Setup/.test(t) && !/sd-card|one line/.test(t) && /Account page and in your email/.test(t) && /Sign in to see your keys/.test(t) && !/[PAU][A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(t) && btns.some((b) => /Download Central Usage/.test(b)),
       "Downloads, signed out: every app (pedal, Pedal Control, Control, Usage, Services, Production) with its download and install steps, where the keys come from, no keys", { n, btns }); }
   await shot("downloads-public", true);
-  await page.evaluate(() => { location.hash = ""; }); await page.waitForTimeout(200);
+  await page.goto(base + "/pricing/", { waitUntil: "networkidle" }); await page.waitForTimeout(300);
   // (the subscription card doesn't stick on a phone: a card taller than the screen must scroll away)
   { const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 } }), ph = await ctx2.newPage(); await ph.goto(base + "/#tracks", { waitUntil: "networkidle" });
     ok(await ph.$eval(".plan", (e) => getComputedStyle(e).position) === "static", "on a phone the Central Tracks subscription card scrolls with the page"); await ctx2.close(); }
-  ok(await page.$$eval(".system img", (imgs) => imgs.every((i) => i.complete && i.naturalWidth > 0)) && await page.$eval("#pedalBuy img", (i) => i.naturalWidth > 0), "the app icons load");
+  ok(await page.$eval("#pedalBuy img", (i) => i.naturalWidth > 0) && await page.$$eval("#rack img", (imgs) => imgs.every((i) => i.complete && i.naturalWidth > 0)), "the store's pictures load");
   await shot("store", true);
   ok(!(await page.$("#packs [data-add=ultra-plus10]").then((b) => b.click()).then(() => page.textContent("#cartBtn"))).includes("1"), "Ultra's 10 more slots can't go in the cart without the Ultra pack");
   await page.click("#pedalBuy [data-add=pedal]"); await page.click("#packs [data-add=pack-regular]");
@@ -73,8 +76,9 @@ try {
   const cartText = await page.textContent(".modal");
   ok(/BETATEST/.test(cartText) && /−\$175\.00/.test(cartText) && /\$425\.00/.test(cartText) && /tax included/.test(cartText), "BETATEST: half off the Regular pack ($175), not the pedal: $425 total, tax included", cartText.replace(/\s+/g, " "));
   await shot("cart-code");
-  await page.click("#checkout"); await page.waitForTimeout(300);
-  ok(/Sign in/.test(await page.textContent("#acctTitle")) && !(await page.$(".modal")), "check out while signed out: asks to sign in");
+  await page.click("#checkout"); await page.waitForURL(/\/#account$/, { timeout: 5000 }).catch(() => {}); await page.waitForSelector("#upForm", { timeout: 5000 }).catch(() => {});
+  ok(/Sign in/.test(await page.textContent("#acctTitle")) && !(await page.$(".modal")) && /cart/i.test(await page.textContent("#acctBody")), "check out while signed out: the home page asks to sign in (and says why)");
+  ok((await page.textContent("#cartBtn")).includes("2"), "...and the cart came along (it's kept from page to page)");
 
   // ---------------------------------------------------------------- the main admin makes the church's account
   await page.check('[name=upCh][value=make]');
@@ -85,6 +89,10 @@ try {
   await shot("signup", true);
   await page.click("#upForm .btn");
   await codeStep(OWNER);
+  // (10.3) signed in to check out: back to Pricing, with the cart open as it was
+  await page.waitForURL(/\/pricing\/$/, { timeout: 6000 }).catch(() => {}); await page.waitForSelector(".modal #checkout", { timeout: 6000 }).catch(() => {});
+  ok(/\/pricing\/$/.test(page.url()) && /BETATEST/.test(await page.textContent(".modal").catch(() => "")) && /\$425\.00/.test(await page.textContent(".modal").catch(() => "")), "signed in: back on Pricing with the cart open, the code still on", page.url() + " " + (await page.textContent(".modal").catch(() => "(no cart)")).replace(/\s+/g, " "));
+  await page.goto(base + "/#account"); await page.waitForTimeout(300);
   await page.waitForFunction(() => /Hi, Grace Church/.test(document.querySelector("#acctTitle").textContent), null, { timeout: 6000 }).catch(() => {});
   ok(/Hi, Grace Church/.test(await page.textContent("#acctTitle")), "signed up, added the phone and entered the code: signed in as the church");
   ok(await page.isVisible(".confirm-card"), "the account asks to confirm the email");
@@ -113,7 +121,7 @@ try {
   ok(/All plans/.test(await page.textContent("#pkgCard")) && /free trial/.test(await page.textContent("#pkgCard")) && /Settings → Packages/.test(await page.textContent("#pkgCard")), "Sound plans on the Account page: the trial's package key, and where to paste it", await page.textContent("#pkgCard"));
   ok(!!(await waitMail(OWNER, /package key/i)), "...and it came by email");
   // sound plans in the cart: they check out on their own (yearly)
-  await page.click('header nav a[href="#store"]'); await page.waitForSelector("#planAll [data-plan=all]", { state: "visible" });   // (10.2: from the Account page, back to Pricing as a visitor would)
+  await page.click('header nav a[href="/pricing/"]'); await page.waitForSelector("#planAll [data-plan=all]", { state: "visible" });   // (10.2: from the Account page, back to Pricing as a visitor would; 10.3: its own page)
   await page.click("#planAll [data-plan=all]"); await page.click("#planBundles [data-bundle='8']");
   ok((await page.textContent("#cartBtn")).includes("2"), "all the plans and a bundle for 8 in the cart");
   await page.click("#cartBtn"); await page.waitForSelector(".modal .cart-plans");
@@ -128,6 +136,7 @@ try {
   ok(/The keys are yours/.test(await page.textContent(".modal")) && /Purchases/.test(await page.textContent(".modal")) && !(await page.$("#coChurch")), "Just me: the keys are yours, under Purchases and in your email");
   await shot("cart-just-me");
   await page.click("#clear"); await page.waitForTimeout(200);
+  await page.goto(base + "/#account"); await page.waitForSelector("#keysCard", { timeout: 6000 }).catch(() => {});
   ok(/Open Downloads/.test(await page.textContent("#acctBody")) && /Your keys and downloads/.test(await page.textContent("#acctBody")), "the Account page shows your keys and links to Downloads");
   await page.evaluate(() => { location.hash = "downloads"; }); await page.waitForSelector("#downloads:not([hidden]) .dl-card", { timeout: 6000 }).catch(() => {});
   ok(await page.isVisible("#downloads") && /Downloads/.test(await page.textContent("#downloads")) && /Settings → Packages → Add a package/.test(await page.textContent("#downloads")), "the Downloads page: here, the trial's package key and where to paste it", await page.textContent("#downloads"));
@@ -155,12 +164,14 @@ try {
   await shot("teams", true);
 
   // ---------------------------------------------------------------- support
-  await page.click('footer a[href="#support"]'); await page.waitForSelector("#spForm");
-  await page.fill("#spSubject", "Pairing"); await page.fill("#spMsg", "The pedal won't pair with my laptop.");
+  // (10.3) Contact support is on the Help page (the footer's link); signed in, it knows who you are
+  await page.click('footer a[href="/help/#contact"]'); await page.waitForSelector("#contactForm"); await page.waitForTimeout(400);
+  ok((await page.inputValue("#ctEmail")) === OWNER, "Contact support: your email is filled in");
+  await page.fill("#ctSubject", "Pairing"); await page.fill("#ctMsg", "The pedal won't pair with my laptop.");
   await shot("support");
-  await page.click("#spForm .btn:not(.ghost)"); await page.waitForTimeout(600);
-  ok(/Thanks/.test(await page.textContent(".modal")), "support: the message is sent");
-  await page.click(".modal [data-close]");
+  await page.click("#ctSend"); await page.waitForSelector("#ctDone:not([hidden])", { timeout: 5000 }).catch(() => {});
+  ok(/Sent/.test(await page.textContent("#ctDone")) && !!(await waitMail("help@motion.test", /Pairing/)), "support: the message is sent to support");
+  await page.goto(base + "/#account"); await page.waitForSelector("#signOut:not([hidden])", { timeout: 5000 }).catch(() => {});
 
   // ---------------------------------------------------------------- sign out, forgot password, sign in again
   await page.click("#signOut"); await page.waitForTimeout(400);
