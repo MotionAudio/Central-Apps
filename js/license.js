@@ -115,8 +115,9 @@
   // needs the plan straight away (hasPlan); keeps() is what the audio asks.
   var held = {}, busy = {};
   function anyBusy() { return Object.keys(busy).some(function (k) { return busy[k]; }); }
-  function snapshot() { held = {}; PLAN_IDS.forEach(function (id) { if (hasPlan(id)) held[id] = true; }); }
-  function keeps(id) { return hasPlan(id) || (!!held[id] && anyBusy()); }
+  function current(id) { var L = window.PPLicense; return L && L.hasPlan && L.hasPlan !== current ? L.hasPlan(id) : hasPlan(id); }   // (what the app says now, a stand-in's too)
+  function snapshot() { held = {}; PLAN_IDS.forEach(function (id) { if (current(id)) held[id] = true; }); }
+  function keeps(id) { return current(id) || (!!held[id] && anyBusy()); }
   function setBusy(src, playing) { var was = anyBusy(); busy[String(src)] = !!playing; var now = anyBusy(); if (now && !was) snapshot(); if (now !== was) plansChanged(); }
   function songBoundary() { snapshot(); plansChanged(); }
   function needs(id) { return "needs the " + (PLAN_NAMES[id] || id) + " plan"; }

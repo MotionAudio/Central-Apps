@@ -15,7 +15,6 @@
 import hashlib
 import importlib.util
 import json
-import re
 import os
 import shutil
 import subprocess
@@ -96,7 +95,7 @@ def main():
               "20 hymns or more, with Christmas and Easter hymns; each imported one names its public-domain source score at a pinned commit",
               (len(hymns), len(imported)))
         ct = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "js", "central-tracks.js"), encoding="utf-8").read()
-        listed = re.findall(r'preview: HYMN \+ "([a-z0-9-]+)--\1-preview\.mp3"', ct)
+        listed = __import__("re").findall(r'preview: HYMN \+ "([a-z0-9-]+)--\1-preview\.mp3"', ct)
         check(listed == [h["id"] for h in hymns], "(10.3) Central Tracks offline lists every hymn, in order, each with its preview", (len(listed), len(hymns)))
         fl_of = lambda h: {**dict(keys="chords", amb="dotted", drv="eighths"), **WB.FLAVORS[h["style"]]}
         parts = {(fl_of(h)["groove"], fl_of(h)["keys"], fl_of(h)["amb"], fl_of(h)["drv"]) for h in hymns}
