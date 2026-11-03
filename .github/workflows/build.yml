@@ -108,6 +108,8 @@ jobs:
         run: |
           npm i --no-save --no-package-lock playwright@1.48.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null
           bash tools/ci-run.sh "plugin builder test (blocks, wires, knobs, code errors, live test, AudioWorklet = direct)" node test-plugin-builder.mjs
+          bash tools/ci-run.sh "moving pads in the pad pedal (10.3: the Voice list, the gate in time with the song, it pulses)" node test-moving-pads.mjs
+          bash tools/ci-run.sh "a plan that ends mid-song keeps playing to the end of the song (10.3)" node test-plan-lapse.mjs
       - name: Built-in sounds
         run: bash tools/fetch-builtin-sounds.sh central-usage/native/sounds
       - uses: actions/upload-artifact@v4
@@ -128,6 +130,33 @@ jobs:
         with: { name: sounds, path: central-usage/native/sounds/, retention-days: 7 }
       - uses: actions/upload-artifact@v4
         with: { name: natives-pi, path: bin/, retention-days: 7 }   # (the Pi release: release.yml puts it in central-control-source.zip)
+
+  website:
+    name: Website (the 10.3 pages, Help and a click through every page, on Postgres)
+    runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: ci, POSTGRES_DB: ma }
+        ports: ["55432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: The pages are made from tools/site_content.py
+        run: python3 tools/make-site.py --check
+      - name: Website tests
+        timeout-minutes: 20
+        working-directory: server
+        env: { DB: "postgres://postgres:ci@127.0.0.1:55432/ma" }
+        run: |
+          npm install --no-audit --no-fund
+          npm install -g playwright@1.49.1 >/dev/null && npx -y playwright@1.49.1 install --with-deps chromium >/dev/null
+          export NODE_PATH="$(npm root -g)"
+          bash ../tools/ci-run.sh "10.3 website (every way to buy, the cart, Account, the Help Center, status)" node test/v103-site.mjs "$DB"
+          bash ../tools/ci-run.sh "10.3 Help Center" node test/v103-help.mjs "$DB"
+          bash ../tools/ci-run.sh "click through every page" node test/click-through.mjs "$DB"
 
   linux:
     name: Linux (deb + AppImage)

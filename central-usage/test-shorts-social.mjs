@@ -6,7 +6,8 @@ import { spawnSync, spawn } from "node:child_process";
 import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import http from "node:http"; import assert from "node:assert";
 import { createRequire } from "node:module"; import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url)), require = createRequire(import.meta.url);
-const FF = process.argv[2] || process.env.CU_FFMPEG || "ffmpeg";
+const FFARG = process.argv[2] || process.env.CU_FFMPEG || "ffmpeg";
+const FF = FFARG.includes("/") || FFARG.includes("\\") ? path.resolve(FFARG) : FFARG;   // (a relative path made absolute: the shorts worker runs in another folder)
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.stack || e).split("\n").slice(0, 5).join("\n      ")); } }
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cu-social-"));
 
