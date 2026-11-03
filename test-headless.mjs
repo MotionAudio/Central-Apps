@@ -17,6 +17,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
+import http from "node:http";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pagePath = path.resolve(process.argv[2] || path.join(here, "index.html"));
@@ -56,7 +57,21 @@ const errors = [];
 page.on("console", (m) => { if (m.type() === "error" && !benign.test(m.text())) errors.push(m.text()); });
 page.on("pageerror", (e) => errors.push(String(e)));
 
-await page.goto("file://" + pagePath);
+// The page is served from a local web address that isn't the Central Pedal's own (127.0.0.2: to the app it's Central
+// Pedal Control, as when opened from a file). Opened from file://, headless Chromium now and then never passes the page's
+// saved project on to the browser's storage at all (another page of the same origin keeps seeing none), so a reload
+// came back to the defaults - the knob reload, the ring, Edit and the songs checks failed together.
+const appRoot = path.dirname(pagePath), TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf", ".wasm": "application/wasm", ".wav": "audio/wav", ".mp3": "audio/mpeg" };
+const site = http.createServer((req, res) => {
+  const u = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  if (u === "/__blank.html") { res.writeHead(200, { "Content-Type": "text/html" }); return res.end("<!doctype html><title>storage</title>"); }
+  const f = path.join(appRoot, path.normalize(u).replace(/^([/\\])+/, ""));
+  if (!f.startsWith(appRoot) || !fs.existsSync(f) || !fs.statSync(f).isFile()) { res.writeHead(404); return res.end(); }
+  res.writeHead(200, { "Content-Type": TYPES[path.extname(f).toLowerCase()] || "application/octet-stream", "Cache-Control": "no-store" }); fs.createReadStream(f).pipe(res);
+});
+await new Promise((ok) => site.listen(0, "127.0.0.2", ok));
+const pageUrl = "http://127.0.0.2:" + site.address().port + "/" + path.basename(pagePath);
+await page.goto(pageUrl);
 await page.waitForFunction(() => window.__test && window.__pedalBridge);
 // (no driver here: stop the bridge's reconnect loop - it retries every 250 ms for the page's first 20 s, and a failed
 // try's close event would put back "not connected" or drop the stand-in socket these checks put in its place)
@@ -71,7 +86,7 @@ const blankPage = path.join(os.tmpdir(), "pp-headless-blank.html"); fs.writeFile
 async function savedFor() {
   const want = await T(() => localStorage.getItem("pad-pedal-seamless-v3")); if (!want) return;
   const p2 = await page.context().newPage(); await isolate(p2);
-  try { await p2.goto("file://" + blankPage); await p2.waitForFunction((w) => localStorage.getItem("pad-pedal-seamless-v3") === w, want, { timeout: 8000 }); }
+  try { await p2.goto(new URL("/__blank.html", pageUrl).href); await p2.waitForFunction((w) => localStorage.getItem("pad-pedal-seamless-v3") === w, want, { timeout: 8000 }); }
   finally { await p2.close(); }
 }
 const hw = (msg) => T((m) => window.__pedalBridge.handleMessage(m), msg);
@@ -759,7 +774,7 @@ await check("...a key on the computer's keyboard as a control (its own job wins 
   await page.evaluate(() => { const p = PP.project(); p.inputs = p.inputs.filter((i) => !i.midi && !i.key); p.midiInputs = []; PPConfigure.render(); PPShell.showTab("pads"); });
 });
 await check("Settings → Colours: a preset sets every screen colour, track colours change, the 3.5\" screen gets them, and 'Back to our colours' undoes it all", async () => {
-  await page.evaluate(() => { window.__mini = []; const b = window.__pedalBridge, o = b.send; window.__miniOrig = o; b.connected = true; b.send = function (m) { if (m && m.type === "miniTheme") window.__mini.push(m); return o ? o.call(this, m) : true; }; PPShell.showTab("settings"); });
+  await page.evaluate(() => { window.__mini = []; const b = window.__pedalBridge, o = b.send; window.__miniOrig = o; b.connect = function () { }; Object.defineProperty(b, "connected", { configurable: true, get: function () { return true; }, set: function () { } });   /* (held connected: a reconnect attempt that fails would otherwise say "not connected" half-way) */ b.send = function (m) { if (m && m.type === "miniTheme") window.__mini.push(m); return o ? o.call(this, m) : true; }; PPShell.showTab("settings"); });
   await page.click('#stNav [data-st-group="look"]');   // (Settings shows one group at a time)
   await page.waitForSelector("#themePresets [data-preset]", { state: "visible" });
   await page.click('#themePresets [data-preset="6"]');   // Daylight
@@ -777,7 +792,7 @@ await check("Settings → Colours: a preset sets every screen colour, track colo
   await page.waitForFunction(() => window.__mini.length && window.__mini[window.__mini.length - 1].colors === null, null, { timeout: 3000 }).catch(() => null);
   const back = await page.evaluate(() => ({ t: PP.project().theme, bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(), trk: getComputedStyle(document.documentElement).getPropertyValue("--trk-drums").trim(), mini: window.__mini.map((m) => m.colors && m.colors.bg) }));
   assert.equal(back.bg.toUpperCase(), "#111317"); assert.equal(back.trk, ""); assert.equal(back.mini[back.mini.length - 1], null, "the 3.5\" screen back to its own look: " + JSON.stringify(back));
-  await page.evaluate(() => { window.__pedalBridge.send = window.__miniOrig; window.__pedalBridge.connected = false; PPShell.showTab("pads"); });
+  await page.evaluate(() => { window.__pedalBridge.send = window.__miniOrig; delete window.__pedalBridge.connected; window.__pedalBridge.connected = false; PPShell.showTab("pads"); });
 });
 
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));
@@ -901,6 +916,6 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
   await p2.close(); srv.close(); fs.rmSync(tmpPage, { force: true });
 }
 
-await browser.close();
+await browser.close(); site.close();
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nAll app checks passed.");
 process.exit(failures ? 1 : 0);
