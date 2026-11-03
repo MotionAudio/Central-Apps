@@ -40,21 +40,41 @@ SR = 44100
 STEMS = ("Drums", "Percussion", "Bass", "Keys", "Synth", "Electric 1", "Electric 2", "Strings")
 ROLE_E = {"intro": 0.2, "verse": 0.3, "verse2": 0.5, "pre": 0.55, "chorus": 0.85, "interlude": 0.65, "drop": 0.3, "bridge": 0.5,
           "final": 1.0, "tag": 0.6, "outro": 0.2}
-# each hymn's flavour: the groove, the pad, the motif's rhythm (beats), how wide and how bright
+# each hymn's flavour: the groove, the pad, the motif's rhythm (beats), how wide and how bright, and how the players
+# play it - keys: chords (pushes) / pulse (driving eighths) / arp (broken chords) / gospel (anticipations) / sparse;
+# Electric 1: dotted (dotted-eighth lines) / quarter / arp16 / swell (volume swells only);
+# Electric 2: eighths (power chords) / strum (open chords, down-up) / chug (palm-muted) / whole (ringing chords);
+# bells: the motif an octave up (Christmas)
 FLAVORS = {
-    "ballad-68": dict(groove="six-eight", pad="Worship", motif=(0, 1, 1.5, 2), tone="warm", strings=1.0),
-    "folk-68": dict(groove="six-eight", pad="Warm", motif=(0, 0.5, 1.5, 2.5), tone="bright", strings=0.7),
-    "celtic-68": dict(groove="six-eight-toms", pad="Air", motif=(0, 0.5, 1, 1.5, 2, 2.5), tone="warm", strings=1.0),
-    "anthem-half": dict(groove="half-time", pad="Cinematic", motif=(0, 1.5, 3), tone="warm", strings=1.0),
-    "anthem-drive": dict(groove="drive", pad="Analog", motif=(0, 0.75, 1.5, 2.5, 3), tone="bright", strings=0.6),
-    "piano-anthem": dict(groove="half-time", pad="Warm", motif=(0, 1, 2, 2.5, 3), tone="warm", strings=1.2),
-    "cathedral-anthem": dict(groove="half-time-toms", pad="Heaven", motif=(0, 2, 3), tone="warm", strings=1.3),
-    "gospel-98": dict(groove="nine-eight", pad="Worship", motif=(0, 1 / 3, 1, 2), tone="warm", strings=1.0),
-    "country-drive": dict(groove="train", pad="Analog", motif=(0, 0.5, 1, 2, 2.5), tone="bright", strings=0.6),
+    "ballad-68": dict(groove="six-eight", pad="Worship", motif=(0, 1, 1.5, 2), tone="warm", strings=1.0, keys="chords", amb="dotted", drv="strum"),
+    "folk-68": dict(groove="six-eight", pad="Warm", motif=(0, 0.5, 1.5, 2.5), tone="bright", strings=0.7, keys="pulse", amb="quarter", drv="strum"),
+    "celtic-68": dict(groove="six-eight-toms", pad="Air", motif=(0, 0.5, 1, 1.5, 2, 2.5), tone="warm", strings=1.0, keys="arp", amb="arp16", drv="eighths"),
+    "anthem-half": dict(groove="half-time", pad="Cinematic", motif=(0, 1.5, 3), tone="warm", strings=1.0, keys="chords", amb="dotted", drv="eighths"),
+    "anthem-drive": dict(groove="drive", pad="Analog", motif=(0, 0.75, 1.5, 2.5, 3), tone="bright", strings=0.6, keys="pulse", amb="dotted", drv="eighths"),
+    "piano-anthem": dict(groove="half-time", pad="Warm", motif=(0, 1, 2, 2.5, 3), tone="warm", strings=1.2, keys="arp", amb="swell", drv="whole"),
+    "cathedral-anthem": dict(groove="half-time-toms", pad="Heaven", motif=(0, 2, 3), tone="warm", strings=1.3, keys="chords", amb="swell", drv="eighths"),
+    "gospel-98": dict(groove="nine-eight", pad="Worship", motif=(0, 1 / 3, 1, 2), tone="warm", strings=1.0, keys="gospel", amb="quarter", drv="whole"),
+    "country-drive": dict(groove="train", pad="Analog", motif=(0, 0.5, 1, 2, 2.5), tone="bright", strings=0.6, keys="pulse", amb="quarter", drv="chug"),
+    # 10.3
+    "anthem-ride": dict(groove="ride", pad="Cinematic", motif=(0, 1, 1.5, 3), tone="bright", strings=1.1, keys="chords", amb="dotted", drv="eighths"),
+    "piano-ballad": dict(groove="half-time", pad="Warm", motif=(0, 1.5, 2, 3), tone="warm", strings=1.1, keys="arp", amb="swell", drv="whole"),
+    "gospel-68-up": dict(groove="six-eight", pad="Worship", motif=(0, 0.5, 1, 2), tone="bright", strings=0.8, keys="gospel", amb="quarter", drv="strum"),
+    "fortress": dict(groove="half-time-toms", pad="Cinematic", motif=(0, 2, 3), tone="warm", strings=1.3, keys="chords", amb="swell", drv="chug"),
+    "hall-ballad": dict(groove="half-time", pad="Heaven", motif=(0, 2), tone="warm", strings=1.3, keys="sparse", amb="swell", drv="whole"),
+    "soft-pulse": dict(groove="six-four", pad="Air", motif=(0, 1.5, 3, 4.5), tone="warm", strings=1.0, keys="arp", amb="dotted", drv="whole"),
+    "christmas-anthem": dict(groove="ride", pad="Heaven", motif=(0, 1, 2, 3), tone="bright", strings=1.3, keys="chords", amb="arp16", drv="eighths", bells=True),
+    "christmas-68": dict(groove="six-eight", pad="Air", motif=(0, 0.5, 1.5, 2.5), tone="warm", strings=1.2, keys="arp", amb="dotted", drv="strum", bells=True),
+    "christmas-waltz": dict(groove="waltz", pad="Warm", motif=(0, 1, 2), tone="bright", strings=1.2, keys="pulse", amb="quarter", drv="strum", bells=True),
+    "lullaby": dict(groove="waltz", pad="Air", motif=(0, 1, 2), tone="warm", strings=1.0, keys="sparse", amb="swell", drv="whole", bells=True),
+    "easter-anthem": dict(groove="drive", pad="Analog", motif=(0, 0.5, 1.5, 2, 3), tone="bright", strings=1.2, keys="pulse", amb="dotted", drv="eighths"),
 }
+# the mix's dynamics: each section's level (dB) on every stem - quiet verses, a build, and the final chorus the peak
+DYN = {"intro": -4.0, "verse": -3.0, "verse2": -2.0, "pre": -1.5, "chorus": -0.5, "interlude": -1.0, "drop": -3.5, "bridge": -2.5,
+       "final": 1.0, "tag": -1.5, "outro": -3.5}
 # GM programs for the offline test render
 GM = {"piano": 0, "bass": 33, "gretsch": 27, "hofner": 29, "violins": 48, "violas": 48, "cellos": 48, "basses": 48}
 K, S, X, HH, PEDAL, RIDE, BELL, CRASH, CRASH2, LT, HT, TAMB, SHAKE, XSTICK, CHINA = 36, 38, 37, 42, 44, 51, 53, 49, 57, 41, 48, 54, 70, 88, 55
+JINGLE = 83
 OPEN, CLOSED = {4: 0}, {4: 127}
 
 
@@ -68,8 +88,15 @@ class Song:
         self.bpm, self.m = hymn["bpm"], hymn["meter"]
         self.beat = 60.0 / self.bpm
         self.key = _pc(hymn["key"])
-        self.fl = FLAVORS.get(hymn.get("style"), FLAVORS["ballad-68" if self.m == 3 else "anthem-half"])
+        self.fl = dict(keys="chords", amb="dotted", drv="eighths", bells=False)
+        self.fl.update(FLAVORS.get(hymn.get("style"), FLAVORS["ballad-68" if self.m == 3 else "soft-pulse" if self.m == 6 else "anthem-half"]))
+        if self.m == 6:
+            self.fl["groove"] = "six-four"
         self.sub = 3 if self.fl["groove"] == "nine-eight" else 2
+        # where the backbeats fall, and the chord pushes
+        self.backbeats = {4: [1, 3], 6: [3]}.get(self.m, [1, 2] if self.fl["groove"] == "waltz" else [1.5] if self.sub == 2 else [2])
+        self.pushes = {4: [0, 1.5, 2.5], 6: [0, 1.5, 3, 4.5]}.get(self.m, [0, 1, 2] if self.fl["groove"] == "waltz" or self.sub == 3 else [0, 1.5])
+        self.accent = 3 if (self.m == 3 and self.fl["groove"] != "waltz") else 2       # (eighths per accent)
         self.rng = np.random.default_rng(seed)
         self.bars = []
         for si, s in enumerate(secs):
@@ -167,7 +194,7 @@ def drums(song):
             if role == "verse" and b["pos"] >= b["n"] / 2:                      # (a felt kick on the one, later in the verse)
                 hits.append((0, K, 44 + int(10 * b["pos"] / b["n"]), None))
             elif role == "bridge":                                              # (the floor tom, a heartbeat)
-                hits += [(0, LT, 50 + 4 * b["pos"], None)] + ([(m / 2, LT, 40, None)] if m == 4 else [])
+                hits += [(0, LT, 50 + 4 * b["pos"], None)] + ([(m / 2, LT, 40, None)] if m in (4, 6) else [])
         else:
             hits += groove(song, b, fl)
         # fills into a bigger section, and the build's last bar
@@ -197,14 +224,36 @@ def groove(song, b, fl):
     r = song.rng
     hits = []
     ghost = lambda at: (at, S, int(r.integers(24, 38)), None)
-    if m == 3 and song.sub == 2:                       # 6/8 felt in two: the eighths are half beats
+    if fl == "waltz":                                  # 3/4 in three: the one, and the backbeats on two and three
+        if role == "verse2":
+            hits += [(0, K, 70, None), (1, XSTICK, 58, None), (2, XSTICK, 62, None)] + [(i, HH, 50 if i else 60, CLOSED) for i in range(3)]
+        elif role == "pre":
+            hits += [(0, K, 80, None), (1, LT, 66, None), (2, LT, 72, None)] + [(i / 2, HH, 50 if i % 2 else 62, CLOSED) for i in range(6)]
+        elif role == "tag":
+            hits += [(0, K, 82, None), (2, XSTICK, 66, None)] + [(i, HH, 52, CLOSED) for i in range(3)]
+        else:
+            big = role == "final"
+            hits += [(0, K, 104, None), (1, S, 84, None), (2, S, 106, None)] + ([(1.5, K, 76, None)] if big else [])
+            hits += [(i / 2, RIDE if big else HH, (84 if i % 2 == 0 else 58) if big else (70 if i % 2 == 0 else 48), CLOSED) for i in range(6)]
+            hits += [ghost(2.5)] if r.random() < 0.4 else []
+        if b["first"] and role in ("chorus", "final", "interlude"):
+            hits.append((0, CRASH, 104 if role == "final" else 92, None))
+        elif role == "final" and b["pos"] % 2 == 0:
+            hits.append((0, CRASH2, 96, None))
+        return hits
+    if (m == 3 and song.sub == 2) or m == 6:           # 6/8 felt in two (the eighths are half beats); 6/4 the same, twice as long
+        sc = 2 if m == 6 else 1
         hat = RIDE if role == "final" else HH
         if role in ("verse2",):
             hits += [(0, K, 70, None), (1.5, XSTICK, 64, None)] + [(i / 2, HH, 46 if i % 3 else 58, CLOSED) for i in range(6)]
         elif role == "pre":
             hits += [(0, K, 80, None), (1.5, LT, 74, None), (2.5, LT, 64, None)] + [(i / 2, HH, 52 if i % 3 else 66, CLOSED) for i in range(6)]
-        elif fl == "six-eight-toms" and role in ("chorus", "interlude"):
-            hits += [(0, K, 100, None), (1.5, S, 104, None)] + [(i / 2, LT if i % 3 == 0 else HT, 82 if i % 3 == 0 else 58, None) for i in range(6)] + [(0, RIDE, 70, None)]
+        elif fl == "six-eight-toms" and role in ("chorus", "interlude", "final"):
+            # the toms carry it - and in the final they stay, under the full kit and the ride: the biggest section
+            big = role == "final"
+            hits += [(0, K, 104 if big else 100, None), (1.5, S, 112 if big else 104, None)]
+            hits += [(i / 2, LT if i % 3 == 0 else HT, (90 if big else 82) if i % 3 == 0 else (66 if big else 58), None) for i in range(6)]
+            hits += [(i / 2, RIDE, 86 if i % 3 == 0 else 62, OPEN if i == 2 else CLOSED) for i in range(6)] + [(2.5, K, 82, None)] if big else [(0, RIDE, 70, None)]
         else:
             open_on = role == "final"
             hits += [(0, K, 102, None), (1.5, S, 108, None), (2.5, K, 80, None)]
@@ -216,6 +265,10 @@ def groove(song, b, fl):
             hits.append((0, CRASH, 104 if role == "final" else 92, None))
         elif role == "final" and b["pos"] % 2 == 0:
             hits.append((0, CRASH2, 96, None))
+        if sc != 1:                                    # (6/4: the same groove, each eighth a quarter)
+            hits = [(at * sc, k, v, cc) for at, k, v, cc in hits]
+            if role in ("chorus", "final", "interlude"):
+                hits += [(at + 0.5, HH if role != "final" else RIDE, 44, CLOSED) for at in range(6) if at % 3]
         return hits
     if m == 3:                                         # 9/8: three big beats, each in triplets
         if role in ("verse2", "pre"):
@@ -246,6 +299,11 @@ def groove(song, b, fl):
                 hits += [(i / 2, HH, 70 if i % 2 == 0 else 50, CLOSED if i != 7 else OPEN) for i in range(8)]
         elif fl == "train":
             hits += [(0, K, 96, None), (2, K, 92, None)] + [(i / 4, S, 104 if i in (4, 12) else 58 if i % 2 == 0 else 34, None) for i in range(16)]
+        elif fl == "ride" and role in ("chorus", "interlude"):
+            # four on the floor under the ride's bell and bow: wide and open, saving the crashes for the final
+            hits += [(q, K, 98 if q % 2 == 0 else 84, None) for q in range(4)] + [(1, S, 108, None), (3, S, 110, None)]
+            hits += [(i / 2, RIDE if i % 2 else BELL, 72 if i % 2 else 64, None) for i in range(8)]
+            hits += [ghost(at) for at in (1.75, 3.75) if r.random() < 0.4]
         else:
             hits += [(0, K, 104, None), (1.5, K, 82, None), (2, K, 96, None), (1, S, 110, None), (3, S, 112, None)]
             if fl == "drive" or role == "final":
@@ -256,6 +314,10 @@ def groove(song, b, fl):
             hits += [ghost(at) for at in (0.75, 2.75, 3.25) if r.random() < 0.45]
         if role == "final":
             hits += [(3.5, HH, 66, OPEN)]
+            if fl == "half-time-toms":                 # (the toms that carried the chorus stay in the final, under the full kit)
+                hits += [(q, LT, 78 if q % 2 == 0 else 62, None) for q in range(4)]
+            if b["pos"] >= b["n"] - 2 and not b["last"]:   # (the last line pushes: sixteenth hats)
+                hits += [(i / 4 + 0.25, HH, 46, CLOSED) for i in range(0, 16, 2)]
     if b["first"] and role in ("chorus", "final", "interlude"):
         hits.append((0, CRASH, 106 if role == "final" else 94, None))
     elif role == "final" and b["pos"] % 2 == 0:
@@ -275,8 +337,11 @@ def percussion(song):
                 for k in range(div):
                     notes.append((t0 + (q + k / div) * song.beat + song.loose(6), 0.2, SHAKE, (74 if k == 0 else 50) + (8 if role == "final" else 0), None))
             if role == "final":
-                for bb in ([1, 3] if song.m == 4 else [1.5]):
+                for bb in song.backbeats:
                     notes.append((t0 + bb * song.beat + 0.006, 0.2, TAMB, 86, None))
+            if song.fl.get("bells") and role in ("chorus", "final"):       # (Christmas: sleigh bells on the beats)
+                for q in range(song.m):
+                    notes.append((t0 + q * song.beat + song.loose(5), 0.4, JINGLE, (70 if q == 0 else 56) + (8 if role == "final" else 0), None))
         if b["last"] and b["next_role"] in ("chorus", "final") and b["next_e"] > b["e"]:
             swells.append(song.t(b, song.m))          # (a reversed cymbal ending on the next downbeat)
     return notes, swells
@@ -318,6 +383,12 @@ def bass(song, kicks):
 def keys(song):
     out, prev = [], None
     motif = song.fl["motif"]
+    style = song.fl["keys"]
+    step = 1 / 3 if song.sub == 3 else 0.5             # (the eighth, or the triplet in 9/8)
+
+    def add(t, ln, n, v):
+        out.append((max(0.0, t + song.loose(5)), ln, n - 12 if n > 96 else n, v, None))
+
     for b in song.bars:
         role = b["role"]
         for ch, at, ln in song.segs(b):
@@ -326,40 +397,77 @@ def keys(song):
             prev = rh
             lh = song.near(ch["bass"], 36, 47)
             dur = ln * song.beat
+            if len(rh) < 3:                             # (a dyad or a single note: filled out with octaves)
+                rh = sorted(set(rh + [n + 12 for n in rh] + [n + 24 for n in rh]))[:3]
+            arp = [lh, lh + 7, rh[0] + 12 if rh[0] < 64 else rh[0], rh[1], rh[2], rh[-1]]
             if b["final"]:
                 for k, n in enumerate([lh - 12 if lh >= 36 else lh, lh] + rh + [rh[-1] + 12]):
                     out.append((t0 + k * 0.012, song.m * 3 * song.beat, n, 76, None))
                 continue
             if role in ("intro", "drop", "outro", "interlude") or (role == "bridge" and not b["half"]):
-                # the motif: a few chord notes high up, the hook of the song
-                top = [n + 12 for n in rh[1:]] + [rh[0] + 24]
+                # the motif: a few chord notes high up, the hook of the song (an octave higher again: bells, at Christmas)
+                up = 12 if song.fl.get("bells") and role != "drop" else 0
+                top = [n + 12 + up for n in rh[1:]] + [rh[0] + 24 + up]
                 for k, mt in enumerate(m for m in motif if at <= m < at + ln):
-                    out.append((song.t(b, mt) + song.loose(6), 1.5 * song.beat, top[(k + b["pos"]) % len(top)], song.vel(b, 46, add=-4 * (k % 2)), None))
+                    add(song.t(b, mt), 1.5 * song.beat, top[(k + b["pos"]) % len(top)], song.vel(b, 46 - up // 3, add=-4 * (k % 2)))
                 if role != "interlude":
                     out.append((t0, dur + 0.3, lh, song.vel(b, 40), None))
                     for n in rh[:3]:
                         out.append((t0 + 0.02, dur + 0.3, n, song.vel(b, 30), None))
             elif role == "verse":
+                if style == "arp":                      # (broken chords, rising and falling)
+                    seq = arp + arp[-2:0:-1]
+                    for k in range(int(round(ln / step))):
+                        add(t0 + k * step * song.beat, step * song.beat * 2.5, seq[k % len(seq)], song.vel(b, 40, add=4 if k == 0 else -2 * (k % 2)))
+                    continue
                 out.append((t0, dur + 0.4, lh, song.vel(b, 48), None))
                 out.append((t0 + 0.01, dur + 0.4, lh + 7, song.vel(b, 38), None))
                 for k, n in enumerate(rh):
                     out.append((t0 + 0.03 + 0.015 * k, dur + 0.4, n, song.vel(b, 42, add=-2 * k), None))
-                if ln >= 2:
+                if ln >= 2 and style != "sparse":
                     out.append((song.t(b, at + ln / 2), dur / 2, rh[-1] + (2 if (rh[-1] + 2) % 12 in song.pcs(ch) else 0), song.vel(b, 36), None))
             elif role in ("verse2", "pre", "tag") or (role == "bridge" and b["half"]):
                 out.append((t0, dur, lh, song.vel(b, 50), None))
-                step = 1 if song.sub == 2 or song.m == 4 else 1
-                for q in np.arange(0, ln, step):
+                if style == "arp":
+                    for k in range(int(round(ln / step))):
+                        add(t0 + k * step * song.beat, step * song.beat * 2, arp[2:][k % 4], song.vel(b, 42, add=4 if k == 0 else 0))
+                    continue
+                q_step = step if style == "pulse" else (2 if style == "sparse" and ln >= 2 else 1)
+                for q in np.arange(0, ln, q_step):
                     for n in rh:
-                        out.append((song.t(b, at + q) + song.loose(5), step * song.beat * 0.9, n, song.vel(b, 40, add=6 if q == 0 else 0), None))
-            else:                                       # chorus / final: octaves below, big chords on the pushes
+                        add(song.t(b, at + q), q_step * song.beat * 0.9, n, song.vel(b, 40 if style != "pulse" else 34, add=6 if q == 0 else 0))
+                if style == "gospel" and ln >= 2:         # (a grace into the top note)
+                    add(t0 + 0.5 * song.beat - 0.06, 0.08, rh[-1] - 1, song.vel(b, 30))
+            else:                                       # chorus / final: octaves below, then the flavour's right hand
+                big = role == "final"
                 out.append((t0, dur, lh, song.vel(b, 58), None))
                 out.append((t0, dur, lh - 12 if lh - 12 >= 24 else lh + 12, song.vel(b, 52), None))
-                pushes = [0, 1.5, 2.5] if song.m == 4 else ([0, 1.5] if song.sub == 2 else [0, 1, 2])
-                for p in pushes:
-                    if p < ln:
-                        for n in rh + ([rh[-1] + 12] if role == "final" else []):
-                            out.append((song.t(b, at + p) + song.loose(5), min(ln - p, 1.5) * song.beat, n, song.vel(b, 46, add=6 if p == 0 else -2), None))
+                top = rh + ([rh[-1] + 12] if big else [])
+                if style == "pulse":                    # driving eighth chords
+                    for k in range(int(round(ln / step))):
+                        acc = k % song.accent == 0
+                        for n in top:
+                            add(song.t(b, at + k * step), step * song.beat * 0.8, n, song.vel(b, 40, add=8 if acc else -4))
+                elif style == "arp":                    # a held chord and an eighth line over it
+                    for n in rh:
+                        add(t0 + 0.02, dur, n, song.vel(b, 40))
+                    line = [rh[1] + 12, rh[2] + 12, rh[-1] + 12, rh[2] + 12]
+                    for k in range(int(round(ln / step))):
+                        add(song.t(b, at + k * step), step * song.beat * 1.5, line[k % 4], song.vel(b, 38 if not big else 46, add=4 if k % 2 == 0 else -4))
+                elif style == "sparse":                 # a big chord and a high answer on the backbeat
+                    for n in top:
+                        add(t0 + 0.02, dur, n, song.vel(b, 48))
+                    bb = [p for p in song.backbeats if at <= p < at + ln]
+                    for p in bb[:1]:
+                        add(song.t(b, p), 1.2 * song.beat, rh[-1] + 12, song.vel(b, 38))
+                else:                                   # chords on the pushes; gospel also anticipates the next bar
+                    for p in song.pushes:
+                        if p < ln:
+                            for n in top:
+                                add(song.t(b, at + p), min(ln - p, 1.5) * song.beat, n, song.vel(b, 46, add=6 if p == 0 else -2))
+                    if style == "gospel" and at + ln >= song.m:  # (the and of the last beat, struck short)
+                        for n in top:
+                            add(song.t(b, song.m - step), 0.8 * step * song.beat, n, song.vel(b, 44))
     return out
 
 
@@ -375,15 +483,27 @@ def guitar_ambient(song):
             if b["final"]:
                 swells += [(t0, song.m * 3 * song.beat, n, 80, None) for n in v[1:]]
                 continue
-            if role in ("intro", "drop", "outro", "verse") or (role == "bridge" and not b["half"]):
+            style = song.fl["amb"]
+            if role in ("intro", "drop", "outro", "verse") or (role == "bridge" and not b["half"]) or \
+                    (style == "swell" and role in ("verse2", "pre", "interlude", "tag", "chorus")):
                 if role == "verse" and b["pos"] % 2:
                     continue
-                swells += [(t0, ln * song.beat + 0.6, n, 84, None) for n in v[1:]]
+                hi = 12 if style == "swell" and role in ("chorus", "interlude") else 0
+                swells += [(t0, ln * song.beat + 0.6, n + hi, 84, None) for n in v[1:]]
             elif role in ("verse2", "pre", "interlude", "tag", "chorus"):
-                pat = [v[2], v[1], v[0] + 12 if v[0] + 12 <= 88 else v[0], v[1]] if role in ("chorus", "interlude") else [v[2], v[1], v[2], v[0]]
-                step = 0.5 if song.sub == 2 else 1 / 3
+                big = role in ("chorus", "interlude")
+                oct_ = v[0] + 12 if v[0] + 12 <= 88 else v[0]
+                if style == "quarter":                  # quarter notes, the delay filling the gaps
+                    pat, step = ([oct_, v[2], v[1], v[2]] if big else [v[2], v[1], v[2], v[0]]), 1.0
+                elif style == "arp16":                  # a rolling sixteenth arpeggio (eighths in the builds)
+                    pat, step = ([v[0], v[1], v[2], oct_, v[2], v[1]] if big else [v[0], v[1], v[2], v[1]]), (0.25 if big else 0.5)
+                else:                                   # dotted: eighth lines into the dotted-eighth delay
+                    pat = [v[2], v[1], oct_, v[1]] if big else [v[2], v[1], v[2], v[0]]
+                    step = 0.5
+                step = step if song.sub == 2 else 1 / 3
                 for k in range(int(round(ln / step))):
-                    picked.append((t0 + k * step * song.beat + song.loose(5), step * song.beat * 0.55, pat[k % len(pat)], song.vel(b, 62, add=6 if k % 2 == 0 else -6), None))
+                    picked.append((t0 + k * step * song.beat + song.loose(5), step * song.beat * (0.55 if step < 1 else 0.8), pat[k % len(pat)],
+                                   song.vel(b, 62 if step >= 0.5 else 54, add=6 if k % 2 == 0 else -6), None))
             else:                                       # final and the build: tremolo-picked sixteenths, high
                 hi = v[2] + 12 if v[2] + 12 <= 90 else v[2]
                 for k in range(int(round(ln * 4))):
@@ -408,11 +528,36 @@ def guitar_drive(song):
             if role == "pre" or (role == "bridge" and b["half"] and b["pos"] < b["n"] - 2):
                 out += [(t0 + k * 0.009, ln * song.beat, n, song.vel(b, 60), None) for k, n in enumerate(shape)]
                 continue
+            style = song.fl["drv"]
+            if role == "final" and style in ("whole", "chug"):
+                style = "strum" if style == "whole" else "eighths"    # (the final always drives)
             step = 0.5 if song.sub == 2 else 1 / 3
+            if style == "whole":                        # ringing chords, struck again halfway
+                for p in sorted({0.0, *([ln / 2] if ln >= 2 else [])}):
+                    out += [(t0 + p * song.beat + k * 0.012, (ln - p) * song.beat, n, song.vel(b, 58, add=6 if p == 0 else -4), None) for k, n in enumerate(shape)]
+                continue
+            if style == "strum":                        # open chord, a down-up pattern: down on the beats, ups between
+                third = (ch["root"] + (4 if 4 in ch["ivs"] else 3)) % 12
+                op = sorted({r, r + 7, r + 12, song.near(third, r + 13, r + 20), r + 19 if r + 19 <= 72 else r + 7})
+                pat = {2: [1, 0, 1, 1, 0, 1, 1, 1], 3: [1, 0, 1, 1, 0, 1]}[song.accent]
+                for k in range(int(round(ln / step))):
+                    if not pat[k % len(pat)]:
+                        continue
+                    down = k % 2 == 0
+                    strings_ = op if down else op[::-1][:3]
+                    for j, n in enumerate(strings_):
+                        out.append((t0 + k * step * song.beat + j * 0.011 + song.loose(4), step * song.beat * 1.8, n,
+                                    song.vel(b, 58 if down else 46, add=8 if k % song.accent == 0 else 0), None))
+                continue
             for k in range(int(round(ln / step))):
-                acc = k % (2 if song.m == 4 else 3) == 0
-                for j, n in enumerate(shape[:3]):
-                    out.append((t0 + k * step * song.beat + j * 0.006 + song.loose(4), step * song.beat * (0.9 if acc else 0.6), n, song.vel(b, 62, add=8 if acc else -6), None))
+                acc = k % song.accent == 0
+                if style == "chug":                     # palm-muted root and fifth, the full chord on the accents
+                    notes_ = shape[:3] if (acc and k % (2 * song.accent) == 0) else shape[:2]
+                    ln_ = step * song.beat * (0.9 if len(notes_) == 3 else 0.3)
+                else:
+                    notes_, ln_ = shape[:3], step * song.beat * (0.9 if acc else 0.6)
+                for j, n in enumerate(notes_):
+                    out.append((t0 + k * step * song.beat + j * 0.006 + song.loose(4), ln_, n, song.vel(b, 62 if style != "chug" else 58, add=8 if acc else -6), None))
     return out
 
 
@@ -431,6 +576,8 @@ def strings(song):
             length = (song.m * 3 if b["final"] else ln) * song.beat + 0.15
             vel = song.vel(b, 60)
             out["violins"] += [(t0, length, v[-1], vel, None), (t0, length, v[-2], vel - 6, None)]
+            if role == "final" and v[-1] + 12 <= 93:          # (the final: the violins an octave up on top)
+                out["violins"].append((t0, length, v[-1] + 12, vel - 4, None))
             out["violas"].append((t0, length, song.near(song.pcs(ch, False)[1 % len(song.pcs(ch, False))], 55, 67), vel - 6, None))
             out["cellos"].append((t0, length, song.near(ch["bass"], 36, 50), vel, None))
     return out
@@ -548,6 +695,24 @@ def gain_curve(song, n, level_of):
         g[int(song.t(song.bars[-1], song.m) * SR):] = level_of(song.bars[-1])
     k = max(1, int(song.beat * SR))
     return np.convolve(g, np.ones(k) / k, mode="same").astype(np.float32)
+
+
+def section_db(b):
+    """A bar's level (dB): DYN for its role; a pre and the bridge's second half ramp up, the final's last line lifts."""
+    role, x = b["role"], (b["pos"] + 1) / max(1, b["n"])
+    db = DYN.get(role, -1.0)
+    if role == "pre":
+        db = -2.0 + 1.5 * x
+    elif role == "bridge":
+        db = -3.0 if not b["half"] else -3.0 + 3.0 * (2 * x - 1)
+    elif role == "final" and b["n"] >= 4 and b["pos"] >= b["n"] - 4:
+        db += 0.5
+    return db
+
+
+def dynamics(song, n):
+    """The per-sample gain for the section levels, eased over a beat (so builds rise and drops fall musically)."""
+    return gain_curve(song, n, lambda b: 10 ** (section_db(b) / 20.0))
 
 
 def swell_curve(n, starts, attack):
@@ -783,6 +948,10 @@ def render(hymn, secs, opt, seed=7, log=print):
             stems[name] = level(x, LEVELS[name] + (10 * math.log10(song.fl["strings"]) if name == "Strings" else 0))
         else:
             stems[name] = x
+    # the dynamics: every stem rides the same section levels, so the final chorus is the loudest part of the song
+    dyn = dynamics(song, n)
+    for name in STEMS:
+        stems[name] = (stems[name] * dyn[:, None]).astype(np.float32)
         log("    %-10s peak %.2f" % (name, float(np.max(np.abs(stems[name])))))
     top = max(float(np.max(np.abs(stems[k]))) for k in STEMS)
     if top > 0.9:                        # (all the stems down together: no clipping, the balance kept)
