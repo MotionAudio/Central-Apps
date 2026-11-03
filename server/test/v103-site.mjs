@@ -96,8 +96,10 @@ async function newPage(token, vp) {
 let shotN = 0; const shot = async (p, name, full) => { if (shots) await p.screenshot({ path: path.join(shots, String(++shotN).padStart(2, "0") + "-" + name + ".png"), fullPage: !!full }); };
 // pay in the stand-in form, Stripe says it's paid (the signed webhook), and the browser goes back where Stripe sends it
 async function pay(p, paidObject) {
-  await p.waitForSelector("#stubPay", { timeout: 8000 }); await p.click("#stubPay");
-  await p.waitForFunction(() => !!window.__paid, null, { timeout: 5000 });
+  await p.waitForSelector("#stubPay", { timeout: 8000 });
+  // (on a slow machine the form can be on screen before its Pay handler is ready: press again until it's paid)
+  for (let i = 0; i < 4; i++) { await p.click("#stubPay").catch(() => { }); if (await p.waitForFunction(() => !!window.__paid, null, { timeout: 5000 }).then(() => true, () => false)) break; }
+  await p.waitForFunction(() => !!window.__paid, null, { timeout: 2000 });
   const id = await p.evaluate(() => window.__paid), s = sessions().pop().body;
   const st = await hook("checkout.session.completed", Object.assign({ id, object: "checkout.session", payment_status: "paid", payment_intent: "pi_" + id, amount_total: 1, customer_details: { email: "buyer@grace103.test" } }, paidObject || {}));
   await p.goto(s.return_url.replace("{CHECKOUT_SESSION_ID}", id));
