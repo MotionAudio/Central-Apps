@@ -172,7 +172,8 @@
     return x;
   }
   // ------------------------------------------------------------- Central FX plugins (10.2)
-  function cmOn(list) { return (list || []).filter(function (x) { return x && x.plugin && x.on !== false; }); }
+  function cmLapsed(x) { var P = window.PPPedals, t = x && x.plugin && x.plugin.tier; return !!(t && P && P.keeps && !P.keeps(t)); }   // (10.3) its plan ended and the song is over
+  function cmOn(list) { return (list || []).filter(function (x) { return x && x.plugin && x.on !== false && !cmLapsed(x); }); }
   function cmDefaults(pl) { var v = {}; (pl.params || []).forEach(function (q) { v[q.id] = q.default != null ? +q.default : q.min != null ? +q.min : 0; }); return v; }
   // the plugins you can add: installed ones (yours from Central Production, and community ones) and the builder's examples
   function cmfxList() {
@@ -479,6 +480,7 @@
         var pre = Array.isArray(pl.presets) && pl.presets.length ? ' <select data-fx-cm-preset="' + i + '" aria-label="Starting point"><option value="">Starting point…</option>' + pl.presets.map(function (p, k) { return '<option value="' + k + '">' + esc(p.name) + "</option>"; }).join("") + "</select>" : "";
         if (tempoParam(pl) && x.syncTempo === undefined) x.syncTempo = true;   // (10.3) on by default
         var sync = tempoParam(pl) ? toggle("Sync to song tempo", "plugins." + i + ".syncTempo") : "";
+        if (cmLapsed(x)) sync += '<p class="muted small">' + esc((window.PPPedals && PPPedals.needsText ? PPPedals.needsText(pl.tier) : "needs its plan").replace(/^n/, "N")) + ": it's bypassed until the plan is active.</p>";
         return '<div class="fx-band">' + toggle(x.name || pl.name || "Plugin", "plugins." + i + ".on") + pre + ' <button class="link" data-fx-cm-del="' + i + '">Remove</button>' + sync +
           ps.map(function (q) { var lo = q.min != null ? +q.min : 0, hi = q.max != null ? +q.max : 1; return row(q.name || q.id, "plugins." + i + ".values." + q.id, lo, hi, (hi - lo) / 200, q.unit === "dB" || q.unit === "Hz" || q.unit === "ms" || q.unit === "%" ? q.unit : ""); }).join("") + "</div>";
       }).join("") +

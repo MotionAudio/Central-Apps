@@ -27,7 +27,7 @@
   });
   window.addEventListener("message", function (e) { var d = e.data; if (d && d.cu === "inst-out" && d.msg && d.msg.action === "keys" && d.msg.keys && d.msg.keys.midi) midiWant = d.msg.keys.midi; });
   // the sound plans (Central Keys, Plugins, Instrument, Pedals): which are active, for the locks in the frame
-  function postPlans() { var L = window.PPLicense; post({ type: "plans", on: !!(L && L.on && L.on()), plans: L && L.plans ? L.plans() : {} }); }
+  function postPlans() { var L = window.PPLicense; post({ type: "plans", on: !!(L && L.on && L.on()), plans: L && L.plans ? L.plans() : {}, keeps: L && L.keepsList ? L.keepsList() : {} }); }
   window.addEventListener("pp-plans", postPlans);
   // the sound libraries installed on this computer (Settings → Packages → Libraries): their presets and boards, for the frame
   function postLibraries() { var L = window.CU && window.CU.libraries; if (L && L.list) L.list().then(function (r) { post({ type: "libraries", libraries: (r && r.installed) || [] }); }).catch(function () { }); }

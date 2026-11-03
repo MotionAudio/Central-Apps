@@ -24,13 +24,13 @@
   window.PPFeatures = { on: function (t, fn) { (listeners[t] = listeners[t] || []).push(fn); }, emit: function (m) { (listeners[m.type] || []).forEach(function (fn) { try { fn(m); } catch (e) { console.warn(e); } }); }, openUsb: null, systemStatus: function () { return null; } };
   window.PPShell = { currentTab: function () { return "instrument"; } };
   // the sound plans: the app (the parent window, with the license) tells this frame which are active; until it does, nothing is locked
-  var plans = { on: false, list: {} };
-  window.PPLicense = { hasPlan: function (id) { return !plans.on || !id || id === "free" || !!plans.list[id]; }, plans: function () { return plans.list; }, on: function () { return plans.on; } };
+  var plans = { on: false, list: {}, keeps: {} };
+  window.PPLicense = { hasPlan: function (id) { return !plans.on || !id || id === "free" || !!plans.list[id]; }, keeps: function (id) { return !plans.on || !id || id === "free" || !!plans.list[id] || !!plans.keeps[id]; }, needs: function (id) { var n = { keys: "Central Keys", plugins: "Central Plugins", instrument: "Central Instrument", pedals: "Central Pedals", pads: "Central Pads", utility: "Central Utility" }; return "needs the " + (n[id] || id) + " plan"; }, plans: function () { return plans.list; }, on: function () { return plans.on; } };
   window.__pedalBridge = { connected: true, send: function (m) { parent.postMessage({ cu: "inst-out", msg: m }, "*"); return true; } };
   window.addEventListener("message", function (e) {
     var d = e.data; if (!d || d.cu !== "inst") return; var m = d.msg || {};
     if (m.type === "shown") { if (window.PPInstrument) window.PPInstrument.show(); return; }
-    if (m.type === "plans") { var was = JSON.stringify(plans); plans = { on: !!m.on, list: m.plans || {} }; if (was !== JSON.stringify(plans)) window.dispatchEvent(new CustomEvent("pp-plans")); return; }
+    if (m.type === "plans") { var was = JSON.stringify(plans); plans = { on: !!m.on, list: m.plans || {}, keeps: m.keeps || {} }; if (was !== JSON.stringify(plans)) window.dispatchEvent(new CustomEvent("pp-plans")); return; }
     if (m.type === "libraries") { if (window.PPInstrument && window.PPInstrument.syncLibraries) window.PPInstrument.syncLibraries(m.libraries || []); return; }   // (the sound libraries installed on this computer: their presets and boards)
     window.PPFeatures.emit(m);
   });

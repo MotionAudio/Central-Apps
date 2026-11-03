@@ -82,7 +82,9 @@
     PP.persistSoon(); PP.loadForm(); PP.renderPads(); renderSetlist(); renderPerformExtras();
     PP.setStatus(song ? "Song " + (index + 1) + ": " + song.name + " · key " + song.key.replace("#", "♯") + " · " + song.bpm + " BPM" : "No song: pads use their own keys");
     songHooks.forEach(function (fn) { try { fn(song, index); } catch (error) { console.warn("song hook failed", error); } });
+    if (window.PPLicense && window.PPLicense.songBoundary) window.PPLicense.songBoundary();   // (10.3) a plan that ended in the last song stops here
   }
+  setInterval(function () { var L = window.PPLicense; if (L && L.setBusy) L.setBusy("pads", engine.playingIndexes().length > 0); }, 1000);
   function stepSong(delta) {
     var p = project();
     if (!p.songs.length) { PP.setStatus("The setlist is empty. Add songs with ♫ Setlist."); return; }

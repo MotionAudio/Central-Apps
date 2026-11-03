@@ -510,11 +510,15 @@
   // is a plan active? (PPLicense knows; licensing off, or no license file here: everything is)
   function lic() { var L = global.PPLicense; if (L && typeof L.hasPlan === "function") return L; try { if (global.parent && global.parent !== global && global.parent.PPLicense && global.parent.PPLicense.hasPlan) return global.parent.PPLicense; } catch (_) { } return null; }
   function has(tier) { if (!tier || tier === "free") return true; var L = lic(); return L ? !!L.hasPlan(tier) : true; }
+  function keeps(tier) { if (!tier || tier === "free") return true; var L = lic(); return L ? !!(L.keeps ? L.keeps(tier) : L.hasPlan(tier)) : true; }   // (10.3) still playing: see PPLicense.keeps
+  function needsText(tier) { var L = lic(); return L && L.needs ? L.needs(tier) : "needs the " + (PLANS[tier] ? PLANS[tier].name : tier) + " plan"; }
+  function busy(src, on) { var L = lic(); if (L && L.setBusy) L.setBusy(src, on); }
   function missing(tiers) { return (Array.isArray(tiers) ? tiers : [tiers]).filter(function (t) { return t && t !== "free" && !has(t); }); }
   function planText(tiers) { var m = Array.isArray(tiers) ? tiers : [tiers]; return m.filter(function (t) { return PLANS[t]; }).map(function (t) { return PLANS[t].name + " · " + PLANS[t].price; }).join(" + "); }
   function lockText(tiers) { var t = planText(tiers); return t ? "Part of " + t : ""; }
-  var api = { CATEGORIES: CATEGORIES, pedals: pedals, boards: BOARDS, byId: byId, PLANS: PLANS, FREE: FREE, boardPlans: boardPlans, soundTier: soundTier, has: has, missing: missing, planText: planText, lockText: lockText,
+  var api = { CATEGORIES: CATEGORIES, pedals: pedals, boards: BOARDS, byId: byId, PLANS: PLANS, FREE: FREE, boardPlans: boardPlans, soundTier: soundTier, has: has, keeps: keeps, needsText: needsText, busy: busy, missing: missing, planText: planText, lockText: lockText,
     pedalLocked: function (p) { p = typeof p === "string" ? byId(p) : p; return !!(p && p.tier && !has(p.tier)); },
+    pedalStopped: function (p) { p = typeof p === "string" ? byId(p) : p; return !!(p && p.tier && !keeps(p.tier)); },
     boardLocked: function (b) { return missing(b && (b.plans || boardPlans(b))).length > 0; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   global.PPPedals = api;

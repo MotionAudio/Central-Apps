@@ -96,6 +96,20 @@
   function coll() { return window.CMFxCollection || []; }
   function collOf(id) { return coll().filter(function (p) { return p.id === id; })[0]; }
   function insLocked(p) { var P = window.PPPedals; return p.tier === "plugins" && !!(P && P.has) && !P.has("plugins"); }
+  function needsLine(t) { var L = window.PPLicense, n = L && L.needs ? L.needs(t) : "needs its plan"; return n.charAt(0).toUpperCase() + n.slice(1); }
+  function keepsTier(t) { var L = window.PPLicense; return !t || t === "free" || !L || !L.hasPlan ? true : !!(L.keeps ? L.keeps(t) : L.hasPlan(t)); }
+  // (10.3) a plan that ends during a song: the inserts it covers keep playing until the song is over, then they're
+  // bypassed (and marked) - and come back on by themselves when the plan does. Only the audio host does this.
+  function lapseInserts() {
+    if (X.kind !== "local" || !S()) return;
+    (S().inputs || []).forEach(function (x, i) {
+      var list = JSON.parse(JSON.stringify(x.ins || [])), changed = false;
+      list.forEach(function (q) { var p = collOf(q.id); if (!p || !p.tier) return; var ok = keepsTier(p.tier);
+        if (!ok && q.on !== false) { q.on = false; q.lapsed = true; changed = true; } else if (ok && q.lapsed) { q.on = true; delete q.lapsed; changed = true; } });
+      if (changed) X.op({ op: "inserts", i: i, list: list });
+    });
+  }
+  window.addEventListener("pp-plans", lapseInserts);
   function insertsCol(x) {
     var list = x.ins || [], fams = [];
     coll().forEach(function (p) { if (fams.indexOf(p.family) < 0) fams.push(p.family); });
@@ -109,6 +123,7 @@
       return '<div class="mx-insone"><div class="row"><label class="toggle"><input type="checkbox" data-mxi="on" data-k="' + k + '"' + (q.on !== false ? " checked" : "") + "> <b>" + esc(p.name) + "</b></label>" +
         (p.presets && p.presets.length ? '<select data-mxi="preset" data-k="' + k + '"><option value="">Starting point…</option>' + p.presets.map(function (pr, j) { return '<option value="' + j + '">' + esc(pr.name) + "</option>"; }).join("") + "</select>" : "") +
         '<button data-mxi="del" data-k="' + k + '">Remove</button></div>' + (err ? '<p class="warn small">' + esc(err) + "</p>" : "") +
+        (q.lapsed ? '<p class="warn small" data-lapsed>' + esc(needsLine(p.tier)) + ": it's bypassed until the plan is active.</p>" : "") +
         p.params.map(function (pa) { var v = q.values && q.values[pa.id] != null ? q.values[pa.id] : pa.default, step = (pa.max - pa.min) / 200;
           return '<label class="mx-sl"><span>' + esc(pa.name) + '</span><input type="range" min="' + pa.min + '" max="' + pa.max + '" step="' + step + '" data-mxi="val" data-k="' + k + '" data-id="' + esc(pa.id) + '" value="' + v + '"><output>' + insFmt(v, pa.unit) + "</output></label>"; }).join("") + "</div>";
     }).join("") + add + "</div>";

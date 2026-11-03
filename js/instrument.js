@@ -66,11 +66,13 @@
   // Locked things stay in sight with a lock and the plan that opens them. A saved board with a locked pedal keeps it, bypassed
   // (the engine skips it) until the plan is active again; a keys layer with a locked sound stays, muted. Stepping skips them.
   function tierLocked(tier) { return !!(PED.has && !PED.has(tier)); }
-  function itemLocked(item) { if (!item || isPlug(item)) return false; var p = PED.byId(item.pedal); return !!(p && PED.pedalLocked && PED.pedalLocked(p)) || irLocked(item); }
+  function tierStopped(tier) { return PED.keeps ? !PED.keeps(tier) : tierLocked(tier); }   // (10.3) bypassed: the plan ended and the song it was playing in is over
+  function plugStopped(item) { var pl = item && item.plugin; return !!(pl && pl.collection && pl.tier && tierStopped(pl.tier)); }
+  function itemLocked(item) { if (!item || isPlug(item)) return false; var p = PED.byId(item.pedal); return !!(p && p.tier && tierStopped(p.tier)) || irLocked(item); }
   // impulse responses: a library's IRs keep its plan (status.irs[].tier); a board from a library names its IR ("ir": name)
   function irOf(item) { var f = item && (item.file || irByName(item.irName)); return f ? (status.irs || []).filter(function (x) { return x.file === f; })[0] || null : null; }
   function irByName(name) { if (!name) return null; var n = String(name).toLowerCase(), hit = (status.irs || []).filter(function (x) { return String(x.name || "").toLowerCase() === n || String(x.file || "").toLowerCase().split(/[\\/]/).pop() === n + ".wav"; })[0]; return hit ? hit.file : null; }
-  function irLocked(item) { var ir = irOf(item); return !!(ir && ir.tier && tierLocked(ir.tier)); }
+  function irLocked(item) { var ir = irOf(item); return !!(ir && ir.tier && tierStopped(ir.tier)); }
   function soundOf(patch) { if (!patch || patch.plugin) return null; for (var i = 0; i < catalog.keys.length; i++) if (catalog.keys[i].id === patch.id) return catalog.keys[i]; return null; }
   function soundLocked(patch) { var so = soundOf(patch); return !!(so && tierLocked(so.tier)); }
   function boardLocked(b) { return !!(b && PED.boardLocked && PED.boardLocked(b)); }
@@ -85,7 +87,7 @@
     document.head.appendChild(st);
   }
   function lockedSay(text) { PP.setStatus(text); }
-  function lockedLine(t, what) { return lockText(t) + ": " + what; }
+  function lockedLine(t, what) { var n = PED.needsText ? PED.needsText(t) : lockText(t); return n.charAt(0).toUpperCase() + n.slice(1) + ": " + what; }
   window.addEventListener("pp-plans", function () { if (kind() !== "off") apply("plans"); if (onTab()) render(); });
 
   // ------------------------------------------------------------- the musician's own plugins (VST3, CLAP, Audio Units, LV2: on computers, through the rig's plugin host)
@@ -138,7 +140,7 @@
   function denorm(ctl, n) { n = clamp(n, 0, 1); var v = ctl.log && ctl.min > 0 ? ctl.min * Math.pow(ctl.max / ctl.min, n) : ctl.min + (ctl.max - ctl.min) * n; if (ctl.integer || ctl.enum) v = Math.round(v); if (ctl.toggled) v = n >= 0.5 ? 1 : 0; return v; }
   function fmt(ctl, v) { if (ctl.toggled) return v >= 0.5 ? "on" : "off"; if (ctl.sym === "Ratio" && ctl.min === 0 && ctl.max === 1 && !ctl.unit) return v >= 0.995 ? "∞ : 1" : (1 / (1 - v)).toFixed(1) + " : 1";   /* x42 darc: 0 = 1:1, 1 = limiting */ if (ctl.scale.length) { var sp = ctl.scale.filter(function (s) { return Math.abs(s[0] - v) < 1e-6; })[0]; if (sp) return sp[1]; } var a = Math.abs(v), t = a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2); return t + (ctl.unit ? " " + ctl.unit.replace(/^db$/, "dB").replace(/^hz$/, "Hz") : ""); }
   function resolvedChain(k) {
-    return chainFor(k).map(function (item) { if (isPlug(item)) return playsHere(item) ? { uid: item.uid, id: "plug", name: item.plugin.name, plugin: item.plugin, stateFrom: item.stateFrom || undefined, on: item.on !== false, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0 } : null; var pedal = PED.byId(item.pedal); if (!pedal) return null; var values = {}; controlsOf(pedal).forEach(function (ctl) { values[ctl.sym] = valueOf(item, ctl); }); return { uid: item.uid, id: pedal.id, name: pedal.name, uri: pedal.uri, on: item.on !== false && !itemLocked(item), locked: itemLocked(item) || undefined, values: values, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0, file: item.file || irByName(item.irName) || null }; }).filter(Boolean);
+    return chainFor(k).map(function (item) { if (isPlug(item)) return playsHere(item) ? { uid: item.uid, id: "plug", name: item.plugin.name, plugin: item.plugin, stateFrom: item.stateFrom || undefined, on: item.on !== false && !plugStopped(item), locked: plugStopped(item) || undefined, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0 } : null; var pedal = PED.byId(item.pedal); if (!pedal) return null; var values = {}; controlsOf(pedal).forEach(function (ctl) { values[ctl.sym] = valueOf(item, ctl); }); return { uid: item.uid, id: pedal.id, name: pedal.name, uri: pedal.uri, on: item.on !== false && !itemLocked(item), locked: itemLocked(item) || undefined, values: values, mix: item.mix == null ? 1 : item.mix, levelDb: item.levelDb || 0, file: item.file || irByName(item.irName) || null }; }).filter(Boolean);
   }
   function hostConfig() {
     var c = cfg(), k = kind();
@@ -268,6 +270,7 @@
     return '<section class="in-detail plug-detail' + (cm ? " community" : "") + '" style="--pc:' + (cm ? COMM_CAT.color : PLUG_CAT.color) + '"><div class="row spread"><div><h3>' + esc(pedal.name) + '</h3>' + (cm ? '<p><span class="cm-label">' + esc(commLabel(pl)) + '</span></p><p class="muted small">' + esc(fmtName(pl.format)) + " · runs walled off from the rest of the app</p>" : '<p class="muted">' + esc([pl.vendor, fmtName(pl.format) + " plugin"].filter(Boolean).join(" · ")) + "</p>") + '</div><div class="se-row"><label class="toggle"><input type="checkbox" data-on="' + item.uid + '"' + (item.on !== false ? " checked" : "") + "> On</label>" +
       (host && info && info.editor ? '<button class="primary" data-plugwin="' + item.uid + '">' + (open ? "Close its window" : "Open its window") + "</button>" : "") + "</div></div>" +
       (byp ? '<p class="plug-warn" data-bypassed="' + item.uid + '">' + esc(BYPASS[byp] || BYPASS.stopped) + (/^(crashed|hung|heavy|stopped)$/.test(byp) ? ' <button data-plugretry="' + item.uid + '">Try again</button>' : "") + "</p>" : "") +
+      (plugStopped(item) ? '<p class="plug-warn">' + esc(lockedLine(pl.tier, "it stays bypassed until the plan is active.")) + "</p>" : "") +
       (err ? '<p class="plug-warn">This plugin didn’t load: ' + esc(err) + (cm ? "." : ". Is it still installed? Try Scan again under Add pedal → Your plugins.") + "</p>" : "") +
       (!host ? '<p class="muted">' + (cm ? (window.CU && window.CU.platform === "win32" ? "Community plugins can’t run walled off on Windows yet, so this one stays off here. It plays on the Central Pedal, a Mac or Linux." : "Community plugins play where they’re installed (Settings → Packages → Community), walled off. It stays on this board.") : "Plugins play on the computer they’re installed on, in the Instrument tab of Central Control or Central Usage. It stays on this board.") + "</p>" : !info && !err ? '<p class="muted">Loading ' + esc(pedal.name) + "… big instruments can take a few seconds.</p>" : "") +
       '<div class="in-mixlevel"><label>Mix <small>(dry ↔ plugin)</small><span class="control-line"><input type="range" min="0" max="100" step="1" data-pmix="' + item.uid + '" value="' + Math.round(mix * 100) + '"><output>' + Math.round(mix * 100) + '%</output></span></label><label>Level<span class="control-line"><input type="range" min="-30" max="12" step="0.5" data-plevel="' + item.uid + '" value="' + (item.levelDb || 0) + '"><output>' + (item.levelDb || 0) + " dB</output></span></label></div>" +

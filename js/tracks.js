@@ -825,6 +825,7 @@
     engine.layerState().forEach(function (l) { engine.setLayerLevel(l.pad, prev > .01 ? clamp(l.level * lvl / prev, 0, 1.4) : lvl, secs); });
   }
   function onTransport() {
+    if (window.PPLicense && window.PPLicense.setBusy) window.PPLicense.setBusy("tracks", !!state.playing);   // (10.3) a song playing keeps what it uses
     padsFollowTransport();
     var s = song(), t = s && data(s), mo = project().midiOut || {};
     if (mo.clockOut !== false) send({ type: "midiClock", bpm: s ? s.bpm : project().tempo.bpm, running: state.playing });

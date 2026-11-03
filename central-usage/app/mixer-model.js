@@ -111,7 +111,7 @@
       if (!admin) return false; var xi = s.inputs[op.i | 0]; if (!xi || op.i < 0 || !Array.isArray(op.list)) return false;
       var list = op.list.slice(0, 4).filter(function (q) { return q && /^[a-z0-9-]{1,60}$/.test(String(q.id || "")); }).map(function (q) {
         var v = {}; Object.keys(q.values || {}).slice(0, 32).forEach(function (k) { var n = Number(q.values[k]); if (/^[A-Za-z_]\w{0,30}$/.test(k) && isFinite(n)) v[k] = n; });
-        return { id: String(q.id), on: q.on !== false, values: v };
+        var o = { id: String(q.id), on: q.on !== false, values: v }; if (q.lapsed) o.lapsed = true; return o;
       });
       if (JSON.stringify(list) === JSON.stringify(xi.ins || [])) return false; xi.ins = list; return true;
     }

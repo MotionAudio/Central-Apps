@@ -133,7 +133,8 @@
   function fxDefaults(fx) { var d = {}, def = fxDef(fx); (def ? def.params : []).forEach(function (p) { d[p[0]] = p[4]; }); return d; }
   // the params as they play: without Central Plugins the full-version knobs stay at their defaults (and pro effects pass through)
   function fxPlay(fx) { var def = fxDef(fx); if (!def) return null; var p = Object.assign(fxDefaults(fx), fx.params || {}); if (!pro()) def.params.forEach(function (q) { if (q[6]) p[q[0]] = q[4]; }); return p; }
-  function fxUsable(fx) { var def = FX[fx.type]; return !!def && fx.on !== false && !(def.pro && !pro()); }
+  function keepsTier(t) { var P = window.PPPedals; return !t || t === "free" || !P || !P.keeps ? true : !!P.keeps(t); }   // (10.3) a plan that ends mid-song keeps playing to the stop
+  function fxUsable(fx) { var def = FX[fx.type]; return !!def && fx.on !== false && !(def.pro && !keepsTier("plugins")) && !(fx.type === "cmfx" && fx.plugin && fx.plugin.tier && !keepsTier(fx.plugin.tier)); }
   var GATE_SRC = "class G extends AudioWorkletProcessor{constructor(){super();this.p={threshold:-45,range:-60,release:120};this.e=0;this.g=1;this.port.onmessage=e=>{Object.assign(this.p,e.data)}}process(i,o){const a=i[0],b=o[0];if(!a||!a.length)return true;const th=Math.pow(10,this.p.threshold/20),fl=Math.pow(10,this.p.range/20),rel=Math.exp(-1/(sampleRate*this.p.release/1000)),att=Math.exp(-1/(sampleRate*0.001));for(let n=0;n<a[0].length;n++){let x=0;for(let c=0;c<a.length;c++)x=Math.max(x,Math.abs(a[c][n]));this.e=x>this.e?x:this.e*0.9995;const t=this.e>th?1:fl;this.g=t>this.g?t+(this.g-t)*att:t+(this.g-t)*rel;for(let c=0;c<b.length;c++)b[c][n]=(a[c]||a[0])[n]*this.g}return true}}registerProcessor('cdaw-gate',G);" +
     "class R extends AudioWorkletProcessor{constructor(){super();this.on=false;this.port.onmessage=e=>{this.on=!!e.data.on}}process(i){const a=i[0];if(this.on&&a&&a.length){this.port.postMessage({t:currentTime,ch:a.map(x=>x.slice(0))})}return true}}registerProcessor('cdaw-rec',R);" +
     "class P extends AudioWorkletProcessor{constructor(o){super();const p=o.processorOptions||{};this.c=p.chunk|0;this.skip=p.skip|0;this.total=p.total|0;this.f=0;this.b=null;this.bs=0;this.k=o.numberOfInputs|0}process(ins){for(let i=0;i<128;i++){const fr=this.f+i;if(fr<this.skip||fr>=this.total)continue;const x=fr-this.skip,j=x%this.c;if(j===0){this.b=[];for(let k=0;k<this.k;k++)this.b.push(new Float32Array(this.c*2));this.bs=x}for(let k=0;k<this.k;k++){const a=ins[k]||[],L=a[0],R=a[1]||a[0],o=this.b[k];o[2*j]=L?L[i]:0;o[2*j+1]=R?R[i]:0}if(j===this.c-1||fr===this.total-1){this.port.postMessage({s:this.bs,n:j+1,d:this.b},this.b.map(z=>z.buffer));this.b=null}}this.f+=128;return true}}registerProcessor('cdaw-tap',P);";
@@ -448,6 +449,7 @@
     T.t0 = c.currentTime + 0.08; T.b0 = start - T.countBeats;
     if (T.countBeats) { T.t0 = c.currentTime + 0.08 + T.countBeats * 60 / bpmAt(start); T.b0 = start; T.countFrom = c.currentTime + 0.08; }
     if (opts._live) { var r0 = opts._live.rate; T.t0 = Math.round(T.t0 * r0) / r0; liveBegin(opts._live, T.t0); }
+    if (window.PPPedals && PPPedals.busy) PPPedals.busy("daw", true);
     T.cursor = start; T.playing = true; T.pass++; T.wraps = []; rt.auto = true; syncGraph();
     T.sink = newSink(start, true); autoStart(rt, start, T.t0);
     if (T.countBeats) { for (var k = 0; k < T.countBeats; k++) click(rt, T.countFrom + k * 60 / bpmAt(start), k % beatToBar(start).per === 0); }
@@ -465,6 +467,7 @@
     liveStop(now);
     if (!T.playing) { if (opts && opts.home) { T.pos = 0; fire("transport", state()); } return; }
     var pos = Math.max(0, position()); if (T.recording) finishRecording(pos);
+    if (window.PPPedals && PPPedals.busy) PPPedals.busy("daw", false);
     T.playing = false; clearInterval(T.timer); silence(T.sink, now); T.sink = null; rt.auto = false;
     Object.keys(rt.strips).forEach(function (id) { var s = rt.strips[id]; try { s.fader.gain.cancelScheduledValues(now); s.pan.pan.cancelScheduledValues(now); } catch (_) { } }); syncGraph();
     T.pos = opts && opts.home ? 0 : opts && opts.back ? T.startedAt || 0 : pos;
