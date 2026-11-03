@@ -8,6 +8,8 @@
 //   plugins: a zip per platform holding one plugin bundle (LV2 on Linux / the Pi, VST3 / CLAP / AU on Mac and Windows)
 import crypto from "node:crypto";
 import path from "node:path";
+import fs from "node:fs";
+import vm from "node:vm";
 import { listZip, readEntry, ZipError } from "./zipfile.js";
 
 export class CheckError extends Error { constructor(m) { super(m); this.status = 400; } }
@@ -170,9 +172,11 @@ export const KINDS = {
   loop: { name: "Loops", packs: ["pads"], what: "WAV files, or a zip of WAVs", max: 500 * 1024 ** 2 },
   pad: { name: "Pad", packs: ["pads"], what: "a zip of 12 WAV loops, one per key, named by key (C.wav, C#.wav ... B.wav)", max: 800 * 1024 ** 2 },
   board: { name: "Pedal board", packs: ["pedals"], what: "a pedal board preset (.json) exported from the pedal board", max: 1024 ** 2 },
-  plugin: { name: "Plugin", packs: ["plugins"], what: "a zip per platform with one plugin bundle", max: 300 * 1024 ** 2 },
+  plugin: { name: "Plugin", packs: ["plugins"], what: "a zip per platform with one plugin bundle, or one .cmfx.json made in the plugin builder (it plays on every device)", max: 300 * 1024 ** 2 },
 };
 export const PLATFORMS = { "linux-x64": "Linux (64-bit PC)", "linux-arm64": "Central Pedal (Raspberry Pi) / Linux ARM", mac: "Mac", "win-x64": "Windows (64-bit)" };
+// (10.2) a Central FX plugin (made in Central Production's plugin builder) is one .cmfx.json that plays on every device
+PLATFORMS.all = "Every device (a Central FX plugin from the plugin builder)";
 
 function check(list, ok, text) { list.push({ ok: !!ok, text }); return !!ok; }
 
@@ -266,6 +270,25 @@ export function buildBoard(buf) {
   return { board: { name: String(b.name || "Board").slice(0, 60), kind: b.kind || null, chain: b.chain, sound: typeof b.sound === "string" ? b.sound : null }, checks: [{ ok: true, text: "A board with " + b.chain.length + " pedals" }] };
 }
 
+// ---------------------------------------------------------------- (10.2) plugins made in Central Production
+// A plugin built in Central Production's plugin builder is one .cmfx.json file (format "central-fx"): blocks, wires,
+// knobs and optional code. It has no program files, so it runs in every app on every system (platform "any").
+export function checkCentralFx(fileName, buf) {
+  const checks = [];
+  if (!/\.cmfx\.json$/i.test(fileName)) throw bad("a plugin from Central Production is a .cmfx.json file");
+  if (buf.length > 2 * 1024 ** 2) throw bad("a Central Production plugin can be up to 2 MB");
+  let fx; try { fx = JSON.parse(buf.toString("utf8")); } catch { throw bad("that plugin file isn't readable - save it again from Central Production"); }
+  if (!fx || fx.format !== "central-fx" || Number(fx.version) !== 1) throw bad("that isn't a Central Production plugin (format central-fx, version 1)");
+  const g = fx.graph || {}, blocks = Array.isArray(g.blocks) ? g.blocks : [], wires = Array.isArray(g.wires) ? g.wires : [];
+  if (!blocks.length && !(typeof fx.code === "string" && fx.code.trim())) throw bad("that plugin has no blocks and no code");
+  if (blocks.length > 256 || wires.length > 1024) throw bad("that plugin has too many blocks or wires (up to 256 and 1024)");
+  if (fx.code != null && (typeof fx.code !== "string" || fx.code.length > 64 * 1024)) throw bad("the plugin's code can be up to 64 KB of text");
+  if (fx.params != null && (!Array.isArray(fx.params) || fx.params.length > 64)) throw bad("a plugin can have up to 64 knobs");
+  check(checks, true, "A Central Production plugin: " + blocks.length + " block" + (blocks.length === 1 ? "" : "s") + (fx.code ? ", with code" : "") + ", " + ((fx.params || []).length) + " knob" + ((fx.params || []).length === 1 ? "" : "s"));
+  check(checks, true, "No program files: it runs inside the apps' own sound engine, on every system");
+  return { fx, checks };
+}
+
 // ---------------------------------------------------------------- plugins
 const ELF_MACHINE = { "linux-x64": 62, "linux-arm64": 183 };
 function binKind(b) {
@@ -279,8 +302,31 @@ function binKind(b) {
 }
 const SCRIPT_EXT = /\.(sh|bash|zsh|command|py|pl|rb|js|bat|cmd|ps1|vbs|scr|exe|msi|app|pkg|dmg|jar|desktop|service|plist)$/i;
 
+// (10.2) a Central FX plugin: the .cmfx.json, checked by the same core the apps play it with (cmfx.js)
+let CMFx = null;
+function cmfx() {   // (the browser file, run in a context of its own: it works whatever kind of module this folder is)
+  if (!CMFx) { const sb = { WebAssembly, Buffer, TextEncoder, TextDecoder, console }; sb.globalThis = sb; vm.runInNewContext(fs.readFileSync(new URL("../public/production/cmfx/cmfx.js", import.meta.url), "utf8"), sb, { filename: "cmfx.js" }); CMFx = sb.CMFx; }
+  return CMFx;
+}
+export const MAX_CMFX = 512 * 1024;
+export function checkCmfx(fileName, buf, blocked) {
+  const checks = [];
+  if (!/\.json$/i.test(fileName)) throw bad("upload a Central FX plugin as its .cmfx.json file (Save a copy in the plugin builder)");
+  if (buf.length > MAX_CMFX) throw bad("a Central FX plugin can be up to " + MAX_CMFX / 1024 + " KB");
+  const whole = sha256(buf);
+  if (blocked && blocked.has(whole)) throw bad("this file is on our list of known harmful files");
+  let plugin; try { plugin = JSON.parse(buf.toString("utf8")); } catch (_) { throw bad("that file isn't a Central FX plugin (it isn't valid JSON)"); }
+  const r = cmfx().check(plugin, 48000);
+  if (!r.ok) throw bad("the plugin doesn't load: " + r.error);
+  check(checks, true, "A Central FX plugin: " + String(plugin.name).slice(0, 60) + " (" + (plugin.graph && plugin.graph.blocks ? plugin.graph.blocks.length : 0) + " blocks" + (plugin.code ? ", with code" : "") + ", " + (plugin.params || []).length + " knobs)");
+  check(checks, true, "Only our own blocks and the safe code language: it can't reach files, the internet or the system, on any device");
+  const bundle = (String(plugin.name || "plugin").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "plugin") + ".cmfx.json";
+  return { checks, bundle, format: "cmfx", binaries: [{ name: bundle, sha256: whole, bytes: buf.length }], sha256: whole };
+}
+
 // one platform's zip -> { checks, bundle, format, binaries: [{ name, sha256 }] }; blocked: Set of banned sha256
 export function checkPlugin(platform, fileName, buf, blocked) {
+  if (platform === "all") return checkCmfx(fileName, buf, blocked);
   const checks = [];
   if (!PLATFORMS[platform]) throw bad("unknown platform " + platform);
   if (buf.length > KINDS.plugin.max) throw bad("a plugin zip can be up to " + Math.round(KINDS.plugin.max / 1024 ** 2) + " MB");

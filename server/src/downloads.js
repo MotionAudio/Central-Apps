@@ -39,7 +39,7 @@ export const PEDAL_SETUP = [
   "Press Upload. The pedal joins the Wi-Fi and is ready.",
 ];
 const address = (s) => { if (!s) return null; const a = s.address || {}; return [s.name, a.line1, a.line2, [a.city, a.state, a.postal_code].filter(Boolean).join(" "), a.country].filter(Boolean).join(", "); };
-const planNames = (plans0) => { const plans = withPads(plans0); return PLAN_IDS.filter((id) => id !== PADS_PLAN).every((id) => plans.includes(id)) ? "All sound plans (with Central Pads)" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(", "); };
+const planNames = (plans0) => { const plans = withPads(plans0); return PLAN_IDS.filter((id) => id !== PADS_PLAN).every((id) => plans.includes(id)) ? "All plans (with Central Pads and Central Utility)" : PLAN_IDS.filter((id) => plans.includes(id)).map((id) => PLANS[id].name).join(", "); };
 
 // everything for one person (onlyOrder: just what that order gave - the email after a purchase)
 export async function downloadsFor(user, onlyOrder) {
@@ -98,7 +98,10 @@ export function publicDownloads() {
   });
   const services = { name: "Central Services", icon: "central-services", app: "services", download: DL_PAGE(), links: linksOf("services"), runsOn: "Windows, Mac, Linux, Android and any web browser",
     web: config.publicUrl + "/services/", note: "No key: sign in with your Motion Audio account. Your church gives you a slot." };
-  return { apps, services, pedalSetup: PEDAL_SETUP, appsUrl: DL_PAGE(), platformNames: PLATFORM_NAMES, guide: config.publicUrl + INSTALL };
+  // (10.2) Central Production: free, no key - the sound plans' packages open the better sounds in it
+  const production = { name: "Central Production", icon: "central-production", app: "production", download: DL_PAGE(), links: linksOf("production"), runsOn: "Windows, Mac, Linux and any web browser",
+    web: config.publicUrl + "/production/", linuxCommand: installLine("production"), note: "Free, no key. Make tracks, loops, samples, pads, instruments, plugins and pedal boards. Your sound plan's package key opens the better sounds in it." };
+  return { apps, services, production, pedalSetup: PEDAL_SETUP, appsUrl: DL_PAGE(), platformNames: PLATFORM_NAMES, guide: config.publicUrl + INSTALL };
 }
 
 export function routes(api, { wrap, requireUser }) {

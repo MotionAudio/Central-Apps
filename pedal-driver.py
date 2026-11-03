@@ -95,7 +95,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "10.1.1"
+APP_VERSION = "10.2.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -842,6 +842,7 @@ def sound_cards():
 # what a Central Control computer may ask the Central Pedal to do: page the lyrics. Starting, stopping and
 # moving the tracks is only done on the Central Pedal.
 CU_ACTIONS = ("lyricsNext", "lyricsPrev")
+CU_ADMIN_ACTIONS = ("loadSong",)   # (10.2) a run sheet's song cue from an admin computer: the next song, ready (never play / stop)
 DISPLAY_KEYS = ("hdmi1", "hdmi2", "cursor", "mode1", "mode2", "scale", "inset1", "inset2", "touchKind")
 
 
@@ -869,7 +870,7 @@ def read_json(path, default):
         return default
 
 
-PLAN_NAMES = {"keys": "Central Keys", "plugins": "Central Plugins", "instrument": "Central Instrument", "pedals": "Central Pedals", "pads": "Central Pads"}
+PLAN_NAMES = {"keys": "Central Keys", "plugins": "Central Plugins", "instrument": "Central Instrument", "pedals": "Central Pedals", "pads": "Central Pads", "utility": "Central Utility"}
 
 
 def clean_packages(items):
@@ -903,7 +904,7 @@ def package_lines(items, now=None):
                 ends.append(datetime.datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp())
             except Exception:
                 pass
-        names = ", ".join(PLAN_NAMES[k] for k in ("keys", "plugins", "instrument", "pedals", "pads") if k in plans) or "no plans"
+        names = ", ".join(PLAN_NAMES[k] for k in ("keys", "plugins", "instrument", "pedals", "pads", "utility") if k in plans) or "no plans"
         stale = p.get("okAt") and now - p["okAt"] / 1000.0 > 14 * 86400
         if p.get("ok") is False:
             state = p.get("error") or "not valid"
@@ -1632,6 +1633,9 @@ class LocalServer:
                         return self.send_json(200, sound_libraries.release_index())
                     except Exception as error:  # noqa: BLE001
                         return self.send_json(200, {"ok": False, "error": "the library list didn't come (%s) - check the internet" % error, "libraries": []})
+                if p == "/libraries/central-fx":   # (10.2) the Central FX plugins installed here, for the app's track / pad effects
+                    st = library_store(driver)
+                    return self.send_json(200, {"plugins": st.central_fx() if st and hasattr(st, "central_fx") else []})
                 if p == "/libraries/pads":   # Central Pads: the pad styles installed here (the pad pedal's voice list)
                     st = library_store(driver)
                     return self.send_json(200, {"pads": st.pads() if st else []})
@@ -1643,6 +1647,14 @@ class LocalServer:
                     qs = urllib.parse.parse_qs(url.query)
                     f = st.loop_file((qs.get("lib") or [""])[0], (qs.get("file") or [""])[0]) if st and hasattr(st, "loop_file") else None
                     return self.send_file(f, "audio/wav", cache=True) if f else self.send_json(404, {"error": "no such loop"})
+                if p == "/libraries/clicks":   # 10.2: the click sets installed here (Central Utility) for the songs' Click sound
+                    st = library_store(driver)
+                    return self.send_json(200, {"clicks": st.clicks() if st and hasattr(st, "clicks") else []})
+                if p == "/libraries/click":   # one click's WAV: ?lib=<library id>&file=<file>
+                    st = library_store(driver)
+                    qs = urllib.parse.parse_qs(url.query)
+                    f = st.click_file((qs.get("lib") or [""])[0], (qs.get("file") or [""])[0]) if st and hasattr(st, "click_file") else None
+                    return self.send_file(f, "audio/wav", cache=True) if f else self.send_json(404, {"error": "no such click"})
                 if p == "/libraries/pad":   # one pad style's loop in one key: ?lib=<library id>&style=<name>&key=C#
                     st = library_store(driver)
                     qs = urllib.parse.parse_qs(url.query)
@@ -2310,7 +2322,7 @@ class CompanionServer:
                         self.body()
                         return self.send_json(403, {"error": "wrong code"})
                     name = safe_name((query.get("name") or ["slide"])[0])
-                    if not re.search(r"\.(png|jpe?g|gif|webp|bmp|svg|mp4|webm|mov|m4v|ogv)$", name, re.I):
+                    if not re.search(r"\.(png|jpe?g|gif|webp|bmp|avif|svg|mp4|webm|mov|m4v|ogv)$", name, re.I):
                         self.body()
                         return self.send_json(400, {"error": "pictures and videos only"})
                     data = self.body(1 << 30)
@@ -3456,10 +3468,11 @@ class MiniScreen:
 
     # ----- the look (the same colours as the app's "Copy of the small touch screen" page) -------------------------
     COL = {"bg": (17, 19, 23), "bar": (26, 29, 34), "text": (236, 231, 221), "muted": (154, 161, 171), "accent": (226, 194, 126),
-           "idle": (22, 42, 66), "selected": (31, 68, 110), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (52, 58, 68),
+           "idle": (30, 34, 41), "selected": (60, 51, 33), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (52, 58, 68),
+           "pad_play": (96, 79, 42),   # (10.2: a playing pad is warm brass, as in the app; "playing" stays green for "in tune" / "good")
            "btn": (35, 39, 46), "on": (226, 194, 126), "ontext": (26, 20, 8), "warn": (255, 190, 110), "track": (46, 51, 60),
            "lp_rec": (229, 72, 77), "lp_dub": (245, 165, 36), "lp_play": (48, 164, 108), "lp_stop": (141, 181, 222)}
-    TABS = [("pads", "PADS"), ("tracks", "TRACKS"), ("instrument", "INSTRUMENT"), ("looper", "LOOPER"), ("settings", "SETTINGS")]
+    TABS = [("pads", "Pads"), ("tracks", "Tracks"), ("instrument", "Instrument"), ("looper", "Looper"), ("settings", "Settings")]   # (10.2: sentence case, as in every app)
     SUBS = {"pads": [("pads", "Pads"), ("key", "Key"), ("sound", "Sound"), ("fx", "Effects")],
             "tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist"), ("fx", "Effects"), ("scenes", "Scenes"), ("tempo", "Tempo")],
             "instrument": [("sound", "Sound"), ("pedals", "Pedals"), ("eq", "EQ · Comp"), ("tune", "Tuner · Level")],
@@ -3554,6 +3567,13 @@ class MiniScreen:
             rgb = self._rgb(v)
             if k in col and rgb:
                 col[k] = rgb
+        # (10.2) the selected and playing pads follow the church's accent: a quarter / two fifths of it over the background
+        if colors and self._rgb(colors.get("accent")):
+            mix = lambda a, b, t: tuple(int(round(a[i] * t + b[i] * (1 - t))) for i in range(3))
+            if not self._rgb(colors.get("selected")):
+                col["selected"] = mix(col["accent"], col["bg"], 0.25)
+            if not self._rgb(colors.get("pad_play")):
+                col["pad_play"] = mix(col["accent"], col["bg"], 0.42)
         changed = col != self.COL
         self.COL = col
         return changed
@@ -3666,7 +3686,7 @@ class MiniScreen:
             on = sid == cur
             g.rounded_rectangle(box, 13, fill=C["accent"] if on else C["bar"], outline=C["accent"] if on else C["line"])
             self.text(g, ((box[0] + box[2]) / 2, (y0 + y1) / 2), name, self.F["label"], C["ontext"] if on else C["text"], "mm", cw - 8)
-            hits.append(([int(b) for b in box], {"local": "sub", "tab": tab, "value": sid}))
+            hits.append(([int(box[0]), int(y0) - 8, int(box[2]), int(y1) + 6], {"local": "sub", "tab": tab, "value": sid}))   # (10.2: a taller touch area than the pill, about 40px)
         if pager:
             key, page, pages = pager
             self.button(g, hits, [W - 98, y0, W - 66, y1], "‹", {"local": "page", "key": key, "d": -1} if page > 0 else None, radius=13, color=C["text"] if page > 0 else C["line"])
@@ -3858,7 +3878,7 @@ class MiniScreen:
                 continue
             pad = pads[i] if i < len(pads) else {"name": "Pad %d" % (i + 1)}
             state = "playing" if pad.get("playing") else "selected" if pad.get("selected") else "idle"
-            g.rounded_rectangle(box, 10, fill=C[state], outline=C["accent"] if state == "playing" else C["line"])
+            g.rounded_rectangle(box, 10, fill=C["pad_play" if state == "playing" else state], outline=C["accent"] if state != "idle" else C["line"], width=2 if state == "playing" else 1)
             self.text(g, (x0 + 8, y0 + 5), str(i + 1), self.F["sub"], C["accent"] if state == "playing" else C["muted"])
             self.text(g, (x0 + 8, y0 + ch - 16), pad.get("name"), self.F["label"], C["text"], "ld", cw - 14)
             self.pad_volume(g, hits, [x0 + 8, y0 + ch - 12, x0 + cw - 8, y0 + ch - 3], i, pad.get("level"))   # (before the pad: a drag here never plays it)
@@ -4456,7 +4476,7 @@ class MiniScreen:
         if lp.get("on") is False:
             self.chips(g, hits, "looper")
             self.text(g, (self.w / 2, 160), "The looper is off", self.F["title"], self.COL["text"], "mm")
-            self.text(g, (self.w / 2, 186), "Turn it on in the app's LOOPER tab (Looper on)", self.F["sub"], self.COL["muted"], "mm")
+            self.text(g, (self.w / 2, 186), "Turn it on in the app's Looper tab (Looper on)", self.F["sub"], self.COL["muted"], "mm")
             return
         getattr(self, "looper_" + sub)(g, hits, d, lp)
 
@@ -10166,7 +10186,8 @@ class PedalDriver:
                     authed = self.lan_clients[ws]["auth"] or self.code_ok(message.get("code"))
                     if not authed:
                         await ws.send(json.dumps({"type": "auth", "ok": False}))
-                    elif self.lan_clients[ws].get("app") == "central-usage" and message.get("name") not in CU_ACTIONS:
+                    elif self.lan_clients[ws].get("app") == "central-usage" and message.get("name") not in CU_ACTIONS and not (
+                            message.get("name") in CU_ADMIN_ACTIONS and self.cu_roles.admin_ok(ws)):
                         # only the Central Pedal itself starts, stops and moves the tracks
                         await ws.send(json.dumps({"type": "refused", "action": message.get("name"), "error": "Only the Central Pedal plays, stops and skips the tracks."}))
                     else:
@@ -10252,9 +10273,11 @@ class PedalDriver:
     def set_slide(self, message):
         """Slides / lyrics from Central Control for a screen on the Pi (HDMI 2 set to "Slides")."""
         slide = {"type": "slide", "kind": message.get("kind") if message.get("kind") in ("none", "image", "video", "text", "lyrics", "black") else "none"}
-        for key in ("file", "bgFile", "text", "title", "fit", "loop", "background", "color", "size", "align", "muted"):
+        for key in ("file", "bgFile", "text", "title", "fit", "loop", "background", "color", "size", "align", "muted", "credit", "bgFade"):
             if key in message:
                 slide[key] = message[key] if not isinstance(message[key], str) else message[key][:4000]
+        if message.get("bgId"):   # (10.2) one of Central Control's moving lyric backgrounds, drawn by the page itself (backgrounds.js)
+            slide["bgId"] = re.sub(r"[^a-z0-9_-]", "", str(message["bgId"]).lower())[:48]
         for key in ("file", "bgFile"):
             if slide.get(key):
                 slide[key] = safe_name(str(slide[key]))

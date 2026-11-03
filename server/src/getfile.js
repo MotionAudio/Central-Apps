@@ -21,6 +21,7 @@ export const APP_FILES = {
   "pedal-control": { name: "Central Pedal Control", files: { windows: /^central-pedal-control-.*-win-x64\.exe$/, mac: /^central-pedal-control-.*-mac-arm64\.dmg$/, "mac-intel": /^central-pedal-control-.*-mac-x64\.dmg$/, linux: /^central-pedal-control-.*-x86_64\.AppImage$/, "linux-deb": /^central-pedal-control-.*-amd64\.deb$/, android: /^central-pedal-control-.*\.apk$/ } },
   "pedal": { name: "Central Pedal update", files: { usb: /^central-control-source\.zip$/ } },   // (for a pedal with no internet: Settings → Update software from USB…)
   "services": { name: "Central Services", files: { windows: /^central-services-.*-win-x64\.exe$/, mac: /^central-services-.*-mac-arm64\.dmg$/, "mac-intel": /^central-services-.*-mac-x64\.dmg$/, linux: /^central-services-.*-x86_64\.AppImage$/, "linux-deb": /^central-services-.*-amd64\.deb$/, android: /^central-services-.*\.apk$/ } },
+  "production": { name: "Central Production", files: { windows: /^central-production-.*-win-x64\.exe$/, mac: /^central-production-.*-mac-arm64\.dmg$/, "mac-intel": /^central-production-.*-mac-x64\.dmg$/, linux: /^central-production-.*-x86_64\.AppImage$/, "linux-deb": /^central-production-.*-amd64\.deb$/ } },   // (10.2)
 };
 // key kinds and the app names the rest of the site uses
 export const APP_OF_KIND = { A: "control", U: "usage", P: "pedal-control" };

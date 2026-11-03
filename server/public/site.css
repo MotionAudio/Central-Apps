@@ -481,3 +481,102 @@ table.tracks .stars{font-size:.92rem;letter-spacing:0}
 .sl-songs{margin:0 0 1rem;padding-left:1.4rem;display:grid;gap:.35rem}
 .sl-songs li{line-height:1.5}
 .sl-songs .btn{margin-left:.5rem}
+
+/* (10.2) Listen before you buy: the plan cards' previews */
+.plan-listen{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;font-size:.85rem}.plan-listen .pv-btn{min-width:0}.plan-listen a{font-size:.85rem}
+.lib-card .pv-list{margin:.2rem 0}
+
+/* ===================================================================================================================
+   10.2: the redesign (docs/DESIGN-SYSTEM.md). Shared tokens come from central-tokens.css; this page keeps its light
+   paper-and-ink palette for the public pages and uses the apps' graphite stage for the hero, footer and account.
+   =================================================================================================================== */
+/* header: six links, then sign in and the cart */
+.nav-main{display:flex;align-items:center;gap:.25rem 1.3rem;flex-wrap:wrap}
+@media (max-width:760px){.nav-main{gap:0 1.1rem;width:100%}}
+
+/* the first screen: words on the left, the apps on the right */
+.hero .wrap.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:var(--s6);align-items:center;padding-block:clamp(2.5rem,6vw,5rem) clamp(2rem,5vw,4rem)}
+.hero h1{max-width:14ch;font-size:clamp(2.3rem,4.6vw,3.7rem)}
+.hero-note{margin-top:1.4rem;font-size:.92rem;color:var(--on-stage-2)}
+.hero-shot{position:relative;margin:0;aspect-ratio:16/11;min-width:0}
+.hero-shot img{position:absolute;display:block;border-radius:var(--r);border:1px solid var(--stage-line);box-shadow:0 30px 60px -20px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.03);background:var(--stage-2);object-fit:cover}
+.hero-shot .shot-back{top:0;right:0;width:84%;height:auto;opacity:.92}
+.hero-shot .shot-front{left:0;bottom:0;width:74%;height:auto}
+.hero-shot .shot-side{right:2%;bottom:-4%;width:26%;aspect-ratio:9/16;height:auto;object-position:top left}
+@media (max-width:900px){.hero .wrap.hero-grid{grid-template-columns:1fr}.hero-shot{max-width:640px;width:100%}}
+@media (max-width:520px){.hero-shot .shot-side{display:none}.hero-shot{aspect-ratio:16/12}}
+canvas#wave{display:none}
+.system{grid-template-columns:repeat(6,1fr)}
+@media (max-width:1180px){.system{grid-template-columns:repeat(3,1fr)}.system a:nth-child(3n){border-right:0}.system a{border-bottom:1px solid var(--stage-line);padding-left:1rem}.system a:nth-child(3n+1){padding-left:0}}
+@media (max-width:640px){.system{grid-template-columns:1fr}.system a{border-right:0;padding-left:0}}
+
+/* pricing: a short menu, church packs first, how keys work folded away */
+.store-nav{display:flex;gap:.4rem;flex-wrap:wrap;margin:-.6rem 0 1.6rem;position:sticky;top:72px;z-index:3;padding:.5rem 0;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.store-nav a{text-decoration:none;font-size:.9rem;font-weight:500;padding:.4rem .85rem;border:1px solid var(--line-2);border-radius:var(--r-pill);color:var(--ink-2);background:var(--surface)}
+.store-nav a:hover{border-color:var(--ink);color:var(--ink)}
+@media (max-width:760px){.store-nav{position:static;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-20px;padding-inline:20px}.store-nav::-webkit-scrollbar{display:none}.store-nav a{white-space:nowrap}}
+#packsTop{margin-top:.5rem}
+.keyhelp{margin:1.4rem 0 0;border-top:1px solid var(--line);padding-top:1rem}
+.keyhelp summary{cursor:pointer;font-weight:600;color:var(--ink-2);list-style-position:outside}
+.keyhelp[open] summary{margin-bottom:.4rem}
+.keyhelp .keydefs{border-top:0;padding-top:.6rem;margin-top:0}
+.store-sub{margin:3.5rem 0 1.1rem;display:grid;gap:.3rem}
+.store-sub h3{font-size:1.5rem}
+.store-sub p{max-width:56ch}
+
+/* Central Tracks and publishing */
+.lib-pub{margin:.9rem 0 0;font-size:.92rem}
+.pub-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:-.8rem 0 1.2rem}
+#pubForm.pub-closed{display:none}
+#pubForm.pub-closed+.payout{grid-column:1/-1;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+
+/* #account, #purchases and #downloads read as pages of their own: the shop steps aside */
+body.view-account:not(.editing) .hero,body.view-account:not(.editing) #store,body.view-account:not(.editing) #tracks,body.view-account:not(.editing) #publish{display:none}
+body.view-account #account{border-top:0}
+
+/* the account: a sidebar of sections, each with its cards */
+.acct-shell{display:grid;grid-template-columns:220px minmax(0,1fr);gap:var(--s6);align-items:start}
+.acct-side{position:sticky;top:84px;display:grid;gap:2px;padding:var(--s2);border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface)}
+.acct-side a{display:block;padding:.5rem .75rem;border-radius:var(--r-sm);text-decoration:none;color:var(--ink-2);font-size:.92rem;font-weight:500}
+.acct-side a:hover{background:var(--paper);color:var(--ink)}
+.acct-side a.on{background:var(--brass-wash);color:var(--brass-ink);font-weight:600}
+.acct-main{display:grid;gap:var(--s6);min-width:0}
+.acct-sec{scroll-margin-top:90px;display:grid;gap:var(--s3)}
+.acct-sec-h{font-size:.84rem;font-weight:600;font-stretch:var(--narrow);color:var(--ink-3);letter-spacing:.01em;padding-bottom:.4rem;border-bottom:1px solid var(--line)}
+.acct-cards{display:grid;gap:1.2rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));align-items:start}
+.acct-cards>.card.wide{grid-column:1/-1}
+@media (max-width:900px){
+  .acct-shell{grid-template-columns:1fr;gap:var(--s4)}
+  .acct-side{top:auto;position:static;display:flex;overflow-x:auto;scrollbar-width:none;padding:var(--s1);gap:var(--s1)}
+  .acct-side::-webkit-scrollbar{display:none}
+  .acct-side a{white-space:nowrap;flex:none}
+}
+.acct-summary h3{font-size:1.35rem;font-stretch:var(--wide)}
+.sum-row{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;color:var(--ink-2)}
+.sum-links{display:flex;gap:.5rem;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;font-size:.8rem;font-weight:500;padding:.15rem .6rem;border-radius:var(--r-pill);border:1px solid var(--line-2);color:var(--ink-2);background:var(--paper)}
+.chip.on{border-color:var(--brass);color:var(--brass-ink);background:var(--brass-wash)}
+.chip.off{color:var(--ink-3)}
+.conns{display:grid;gap:.4rem}
+.conn{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.35rem 0;border-bottom:1px solid var(--line)}
+.conn:last-child{border-bottom:0}
+.proj{display:grid;gap:2px}
+.proj a{display:flex;justify-content:space-between;gap:.6rem;padding:.45rem .2rem;text-decoration:none;border-bottom:1px solid var(--line)}
+.proj a:hover b{text-decoration:underline}
+/* (10.2) nav elements that aren't the header's own links */
+.store-nav,.acct-side{margin-left:0}
+@media (max-width:900px){.acct-side{flex-wrap:nowrap}}
+/* phones: the six links scroll in one row; sign in / account sits next to the cart */
+@media (max-width:760px){
+  .nav-main{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-20px;padding-inline:20px;width:calc(100% + 40px)}
+  .nav-main::-webkit-scrollbar{display:none}
+  .nav-main a{white-space:nowrap;flex:none}
+  nav #acctLink,nav .acct-menu{position:absolute;top:.55rem;right:calc(max(20px,env(safe-area-inset-right,0px)) + 92px);min-height:40px;display:inline-flex;align-items:center}
+  nav .acct-menu[hidden],nav #acctLink[hidden]{display:none}
+}
+/* (10.2) the same header on every page: the six links, then Account */
+nav a.on{color:var(--ink);border-bottom-color:var(--ink)}
+.nav-acct{font-weight:600;color:var(--ink)!important}
+@media (max-width:760px){nav .nav-acct{position:absolute;top:.55rem;right:max(20px,env(safe-area-inset-right,0px));min-height:44px;display:inline-flex;align-items:center}}
+.doc-links{font-size:.92rem;color:var(--ink-3);margin:0 0 1.6rem}
+.doc-links b{color:var(--ink)}

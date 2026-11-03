@@ -13,30 +13,46 @@
   .layer .bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.55; }
   .text { position:relative; padding:5vh 7vw; text-align:center; font-weight:700; font-size:var(--size,7vh); line-height:1.25; text-wrap:balance; white-space:pre-line; text-shadow:0 2px 12px rgba(0,0,0,.6); }
   .text small { display:block; font-size:2.6vh; letter-spacing:.2em; text-transform:uppercase; opacity:.5; margin-bottom:3vh; font-weight:600; }
+  .bgl { position:fixed; inset:0; opacity:0; transition:opacity var(--fade,1s); } .bgl.on { opacity:1; } .bgl canvas { width:100%; height:100%; display:block; opacity:.55; }
+  .credit { position:fixed; left:0; right:0; bottom:2.2vh; text-align:center; font-size:1.7vh; opacity:.7; padding:0 4vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 6px rgba(0,0,0,.8); }
   .status { position:fixed; right:1.2vh; bottom:1vh; font-size:1.6vh; opacity:.4; }
 </style>
 </head>
 <body>
+<div class="bgl" id="bgA"></div><div class="bgl" id="bgB"></div>
 <div class="layer" id="a"></div><div class="layer" id="b"></div>
 <div class="status" id="status"></div>
 <script src="common.js"></script>
+<script src="backgrounds.js"></script>
+<script src="backgrounds-seasons.js"></script>
 <script>
 // The Pi's slides screen: pictures, videos and lyrics sent by Central Control (Slides tab). Cross-fades
 // between two layers; video plays muted unless Central Control asks for sound.
 (function () {
-  var C = window.PPCompanion, esc = C.esc, cur = "a", lastT = null;
+  var C = window.PPCompanion, esc = C.esc, cur = "a", lastT = null, B = window.CUBackgrounds, bgCur = "bgA", bgId = null, mounts = {};
+  // (10.2) one of the moving backgrounds behind the words: crossfades in on its own layer, drawn at half size and 24 frames a second
+  function setBg(id, fade) {
+    if (id === bgId) return; bgId = id;
+    var next = bgCur === "bgA" ? "bgB" : "bgA", el = document.getElementById(next), old = document.getElementById(bgCur);
+    if (mounts[next]) { mounts[next].stop(); mounts[next] = null; } el.innerHTML = ""; el.style.setProperty("--fade", (fade == null ? 1 : fade) + "s");
+    if (id && B && B.has(id)) mounts[next] = B.mount(el, id, { scale: 0.5, fps: 24 });
+    requestAnimationFrame(function () { if (id) el.classList.add("on"); old.classList.remove("on"); setTimeout(function () { if (old.classList.contains("on")) return; if (mounts[old.id]) { mounts[old.id].stop(); mounts[old.id] = null; } old.innerHTML = ""; }, (fade == null ? 1 : fade) * 1000 + 300); });
+    bgCur = next;
+  }
   function html(s) {
     if (s.kind === "image") return '<img src="' + C.api("/slides/" + encodeURIComponent(s.file)) + '" alt="">';
     if (s.kind === "video") return '<video src="' + C.api("/slides/" + encodeURIComponent(s.file)) + '" autoplay playsinline' + (s.loop !== false ? " loop" : "") + (s.muted === false ? "" : " muted") + "></video>";
     var bg = s.bgFile ? (/\.(mp4|webm|mov|m4v|ogv)$/i.test(s.bgFile) ? '<video class="bg" src="' + C.api("/slides/" + encodeURIComponent(s.bgFile)) + '" autoplay muted loop playsinline></video>' : '<img class="bg" src="' + C.api("/slides/" + encodeURIComponent(s.bgFile)) + '" alt="">') : "";
-    if (s.kind === "text" || s.kind === "lyrics") return bg + '<div class="text" style="--size:' + (Number(s.size) || 7) + 'vh;color:' + esc(s.color || "#fff") + ';text-align:' + esc(s.align || "center") + '">' + (s.title ? "<small>" + esc(s.title) + "</small>" : "") + esc(s.text || "") + "</div>";
+    var credit = s.credit ? '<div class="credit">' + esc(s.credit) + "</div>" : "";
+    if (s.kind === "text" || s.kind === "lyrics") return credit + bg + '<div class="text" style="--size:' + (Number(s.size) || 7) + 'vh;color:' + esc(s.color || "#fff") + ';text-align:' + esc(s.align || "center") + '">' + (s.title ? "<small>" + esc(s.title) + "</small>" : "") + esc(s.text || "") + "</div>";
     return "";
   }
   C.on(function (st) {
     document.getElementById("status").textContent = st.connected ? "" : "reconnecting…";
     var s = st.slide; if (!s || s.t === lastT) return; lastT = s.t;
     var next = cur === "a" ? "b" : "a", el = document.getElementById(next), old = document.getElementById(cur);
-    el.className = "layer" + (s.fit === "cover" ? " cover" : ""); el.style.background = s.background || "#000"; el.innerHTML = html(s);
+    var words = s.kind === "text" || s.kind === "lyrics"; setBg(words && s.bgId ? s.bgId : null, s.bgFade);
+    el.className = "layer" + (s.fit === "cover" ? " cover" : ""); el.style.background = words && s.bgId && !s.bgFile ? "transparent" : (s.background || "#000"); el.innerHTML = html(s);
     requestAnimationFrame(function () { el.classList.add("on"); old.classList.remove("on"); setTimeout(function () { if (!old.classList.contains("on")) { var v = old.querySelector("video"); if (v) v.pause(); old.innerHTML = ""; } }, 600); });
     cur = next;
   });

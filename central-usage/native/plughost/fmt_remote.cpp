@@ -199,6 +199,8 @@ struct RemotePlug : Plug {
   }
 };
 
+bool vetCommunity(const std::string &format, const std::string &path, std::string &root, std::string &err) { std::string libDir, rest; return vet(format, path, root, libDir, rest, err); }
+bool communityOn(const std::string &root) { return switchOn(root); }
 Plug *openRemote(const std::string &format, const std::string &id, const std::string &path, std::string &err) {
   std::string root, libDir, rest;
   if (!vet(format, path, root, libDir, rest, err)) return nullptr;

@@ -92,7 +92,7 @@ module.exports = function services(app, getWin) {
   async function applyCenter() {
     const want = cfg.role === "main";
     if (want && !center) {
-      center = new Center({ port: centerPort, dataDir: userData, appDir: path.join(__dirname, "app"), name: cfg.name || os.hostname(), beacon: !process.env.CU_NO_BEACON,
+      center = new Center({ port: centerPort, dataDir: userData, appDir: path.join(__dirname, "app"), name: cfg.name || os.hostname(), beacon: !process.env.CU_NO_BEACON, appVersion: require("electron").app.getVersion(),
         mirror: (req, res, c) => hubsync.serveMirror(req, res, { dataDir: userData, check: (sec) => c.checkMirror(sec), before: () => c.save(),
           info: () => ({ hub: c.hubKey, gen: c.gen, name: c.mainName() }), handover: (sec, from) => stepDown("handover", { secret: sec, hub: c.hubKey, hubName: (c.devices[c.standby && c.standby.id] || {}).name || "", host: from && from.host, port: from && from.port }) }) });
       center.on((ev) => { if (ev.type === "status" || ev.type === "error") send("center-status", centerStatus()); });
@@ -247,6 +247,9 @@ module.exports = function services(app, getWin) {
   ipcMain.handle("pi-target", (_e, t) => { piTarget = Object.assign(piTarget, t || {}); applyHost(); return pi.status(); });
   ipcMain.handle("mixer-get", () => ({ state: engine.state, pi: engine.pi.names, info: engine.info() }));
   ipcMain.handle("mixer-op", (_e, op) => engine.apply(op, { role: "host" }));
+  // (10.2) the pre-service check's test tone: a quiet 1 kHz tone on one input for a moment, so the meters show whether
+  // the mix reaches the main outputs (the room hears a short beep)
+  ipcMain.handle("mixer-testtone", (_e, o) => { o = o || {}; if (!engine.proc) return { ok: false, error: "The mixer isn't running on this computer." }; const ch = Math.max(0, Math.min(63, Number(o.ch) || 0)); engine.cmd({ cmd: "testgen", ch, freq: Number(o.freq) || 1000, level: o.on ? Math.min(0.3, Number(o.level) || 0.08) : 0 }); return { ok: true, ch }; });
   ipcMain.handle("mixer-replace", (_e, st) => { engine.replaceState(st); return true; });
   const listeners = new Map();
   ipcMain.handle("mixer-listen", (_e, tap, on) => {
@@ -341,9 +344,52 @@ module.exports = function services(app, getWin) {
     return outputs.ndiStatus;
   });
   ipcMain.handle("outputs-status", () => ({ screen: !!(outputs.screen && !outputs.screen.isDestroyed()), ndi: outputs.ndiStatus || { on: false } }));
+
+  // ------------------------------------------------------------------ (10.2) the confidence monitor: the band's screen
+  // its own full-screen window on any screen of this computer, and its own NDI sender; the page (app/confidence.html)
+  // gets what to show from the Lyrics tab (confidence.js) through "confidence"
+  const conf = { win: null, display: null, ndi: null, ndiProc: null, ndiStatus: null, last: {} };
+  function confPage(win) { win.loadFile(path.join(__dirname, "app", "confidence.html")); win.webContents.on("did-finish-load", () => { win.webContents.send("confidence", conf.last); }); }
+  ipcMain.handle("confidence-screen", (_e, opt) => {
+    opt = opt || {};
+    if (!opt.on) { if (conf.win && !conf.win.isDestroyed()) conf.win.close(); conf.win = null; conf.display = null; return { on: false }; }
+    const all = screen.getAllDisplays(), d = all.find((x) => x.id === opt.displayId) || all.find((x) => x.id !== screen.getPrimaryDisplay().id) || screen.getPrimaryDisplay();
+    if (!conf.win || conf.win.isDestroyed()) {
+      conf.win = new BrowserWindow({ x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, frame: false, fullscreen: true, backgroundColor: "#000000", title: "Band's screen", autoHideMenuBar: true, skipTaskbar: true, webPreferences: { preload: path.join(__dirname, "preload-output.js"), contextIsolation: true, sandbox: false } });
+      confPage(conf.win); conf.win.on("closed", () => { conf.win = null; conf.display = null; send("confidence-status", { screen: false }); });
+    } else { conf.win.setFullScreen(false); conf.win.setBounds(d.bounds); conf.win.setFullScreen(true); }
+    conf.display = d.id;
+    return { on: true, display: d.id };
+  });
+  function confNdiStop() { if (conf.ndiProc) { try { const h = Buffer.alloc(5); h[0] = 81; conf.ndiProc.stdin.write(h); conf.ndiProc.kill(); } catch (_) { } } conf.ndiProc = null; if (conf.ndi && !conf.ndi.isDestroyed()) conf.ndi.close(); conf.ndi = null; }
+  ipcMain.handle("confidence-ndi", (_e, opt) => {
+    opt = opt || {}; confNdiStop();
+    if (!opt.on) { conf.ndiStatus = { on: false }; return conf.ndiStatus; }
+    const bin = path.join(binDir, "cu-ndi" + EXE); if (!fs.existsSync(bin)) return (conf.ndiStatus = { on: false, error: "The NDI sender (cu-ndi) is missing from this installation." });
+    const w = 1920, h = 1080, fps = 15;   // (words: 15 frames a second is plenty)
+    const proc = spawn(bin, [opt.name || "Band's screen"], { stdio: ["pipe", "pipe", "ignore"] }); conf.ndiProc = proc; conf.ndiStatus = { on: true, starting: true };
+    proc.stdin.on("error", () => { });
+    proc.stdout.on("data", (b) => { String(b).split("\n").filter(Boolean).forEach((line) => { try { const m = JSON.parse(line); if (m.ev === "status") conf.ndiStatus = m.ok ? { on: true, name: m.name } : { on: false, error: m.error }; else if (m.ev === "stats") conf.ndiStatus.receivers = m.receivers; send("confidence-status", { ndi: conf.ndiStatus }); } catch (_) { } }); });
+    proc.on("exit", () => { if (conf.ndiProc === proc) { conf.ndiProc = null; if (conf.ndi && !conf.ndi.isDestroyed()) conf.ndi.close(); conf.ndi = null; if (conf.ndiStatus && conf.ndiStatus.on) conf.ndiStatus = { on: false, error: conf.ndiStatus.error || "the NDI sender stopped" }; send("confidence-status", { ndi: conf.ndiStatus }); } });
+    const win = conf.ndi = new BrowserWindow({ width: w, height: h, show: false, frame: false, backgroundColor: "#000000", webPreferences: { offscreen: true, preload: path.join(__dirname, "preload-output.js"), contextIsolation: true, sandbox: false } });
+    win.webContents.setFrameRate(fps); confPage(win);
+    win.webContents.on("paint", (_ev, _dirty, image) => {
+      if (!conf.ndiProc || !conf.ndiProc.stdin.writable || conf.ndiProc.stdin.writableLength > 32 << 20) return;
+      const size = image.getSize(), bmp = image.toBitmap(), hd = Buffer.alloc(13);   // BGRA
+      hd[0] = 86; hd.writeUInt32LE(8 + bmp.length, 1); hd.writeUInt16LE(size.width, 5); hd.writeUInt16LE(size.height, 7); hd.writeUInt16LE(fps, 9); hd.writeUInt16LE(0, 11);
+      conf.ndiProc.stdin.write(Buffer.concat([hd, bmp]));
+    });
+    return conf.ndiStatus;
+  });
+  ipcMain.handle("confidence-status", () => ({ screen: !!(conf.win && !conf.win.isDestroyed()), display: conf.display, ndi: conf.ndiStatus || { on: false } }));
+  ipcMain.on("confidence", (_e, m) => { if (!m || typeof m !== "object") return; Object.assign(conf.last, m); [conf.win, conf.ndi].forEach((w) => { if (w && !w.isDestroyed()) w.webContents.send("confidence", m); }); });
   ipcMain.on("slide", (_e, slide) => { outputs.last = slide; [outputs.screen, outputs.ndi].forEach((w) => { if (w && !w.isDestroyed()) w.webContents.send("slide", slide); }); });
-  ipcMain.handle("slides-open", async () => { const r = await dialog.showOpenDialog(getWin(), { title: "Add pictures or videos", properties: ["openFile", "multiSelections"], filters: [{ name: "Pictures and videos", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "mp4", "webm", "mov", "m4v", "ogv"] }] }); if (r.canceled) return []; return r.filePaths.map((f) => ({ path: f, name: path.basename(f), size: fs.statSync(f).size })); });
+  ipcMain.handle("slides-open", async () => { const r = await dialog.showOpenDialog(getWin(), { title: "Add pictures or videos", properties: ["openFile", "multiSelections"], filters: [{ name: "Pictures and videos", extensions: ["jpg", "jpeg", "jfif", "png", "webp", "gif", "bmp", "avif", "svg", "tif", "tiff", "heic", "heif", "mp4", "mov", "webm", "m4v"] }, { name: "All files", extensions: ["*"] }] }); if (r.canceled) return []; return r.filePaths.map((f) => ({ path: f, name: path.basename(f), size: fs.statSync(f).size })); });
   ipcMain.handle("read-file", (_e, f) => { try { return fs.readFileSync(f); } catch (_) { return null; } });
+  // (10.2) pictures the page can't read itself (TIFF, HEIC) through the app's ffmpeg; a prepared picture saved by its path
+  const pictures = require("./pictures-native");
+  ipcMain.handle("picture-convert", (_e, bytes, kind) => (kind === "tiff" || kind === "heic") && bytes ? pictures.convert(findFfmpeg(binDir), bytes, kind) : { error: pictures.NOT_READ });
+  ipcMain.handle("picture-save", (_e, bytes, name) => { try { return { path: pictures.save(path.join(userData, "pictures"), bytes, name) }; } catch (e) { return { error: "Couldn't save the picture: " + (e && e.message || e) }; } });
 
   // ------------------------------------------------------------------ the Instrument tab (runs the Central Pedal's instrument host here)
   let inst = null, instBuf = "", instKind = "", instAlt = "", instLastApply = null, instRestarts = [], instStopping = false;
@@ -399,6 +445,7 @@ module.exports = function services(app, getWin) {
   const libOut = (r) => ({ ok: true, installed: libs.listing(), record: r && r.id ? { id: r.id, version: r.version, counts: r.counts } : undefined });
   const libErr = (e) => ({ ok: false, error: e.message || String(e), installed: libs.listing() });
   ipcMain.handle("lib-list", () => ({ ok: true, installed: libs.listing(), progress: libs.progress }));
+  ipcMain.handle("lib-cmfx", () => libs.centralFx());   // (10.2) Central FX plugins for the Studio's inserts and the effects
   ipcMain.handle("lib-index", async () => { try { return await libs.index(); } catch (e) { return { ok: false, error: e.message || String(e), libraries: [] }; } });
   ipcMain.handle("lib-install", async (_e, a) => {
     a = a || {};
@@ -472,6 +519,12 @@ module.exports = function services(app, getWin) {
     // the stream mix for the Video tab on this computer: true when this computer is the audio host (its engine's tap)
     streamTap(fn, on) { if (!engine.wanted && on) return false; engine.tap(65, fn, !!on); return true; },
     stop() { try { center && center.stop(); } catch (_) { } try { streamOut.stop(); } catch (_) { } try { recorder.stop().catch(() => { }); } catch (_) { } talk.close(); host.stop(); engine.stop(); pi.close(); ndiStop(); if (inst) inst.kill(); if (ai.proc) ai.proc.kill(); if (outputs.screen && !outputs.screen.isDestroyed()) outputs.screen.close(); },
-    cfg: () => cfg
+    cfg: () => cfg,
+    // (10.2) for the shorts (shorts/index.js): the recorder, whose computer this is, the AI model
+    recorder,
+    isMain: () => cfg.role === "main",
+    recordDir: () => cfg.recordDir,
+    churchName: () => String(cfg.production || cfg.church || "").slice(0, 80),
+    ai: { ensure: async () => ((await aiStart()) ? ai.port : null), available: () => !!aiServer() && fs.existsSync(aiModelFile()) }
   };
 };

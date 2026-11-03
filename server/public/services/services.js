@@ -73,9 +73,9 @@
       (su ? '<label>Name<input id="sName" autocomplete="name"></label>' : "") +
       '<label>Email<input id="sEmail" type="email" autocomplete="username" value="' + esc(st.email || "") + '"></label><label>Password' + (su ? " (8+ characters)" : "") + '<input id="sPass" type="password" autocomplete="' + (su ? "new-password" : "current-password") + '"></label>' +
       (su ? '<label>Church code (from your main admin - optional if they added you)<input id="sCode"></label>' : "") +
-      '<div class="row"><button class="primary" data-a="' + (su ? "signup" : "login") + '">' + (su ? "Make my account" : "Sign in") + '</button><button data-a="toggle">' + (su ? "I have an account" : "Make an account") + "</button>" + (su ? "" : '<button class="small" data-a="forgot">Forgot password?</button>') + "</div>" +
+      '<div class="row"><button class="primary" data-a="' + (su ? "signup" : "login") + '">' + (su ? "Make my account" : "Sign in") + '</button><button class="link" data-a="toggle">' + (su ? "I have an account" : "Make an account") + "</button>" + (su ? "" : '<button class="link" data-a="forgot">Forgot password?</button>') + "</div>" +
       (st.note ? '<div class="okmsg">' + esc(st.note) + "</div>" : "") +
-      '<p class="muted small" style="margin:0">' + (su ? "Making an account means you agree to the " + policy("terms", "Terms") + " and the " + policy("privacy", "Privacy policy") + ". " : "") + '<button class="small" data-a="support">Contact support</button></p>' + (st.tab === "support" ? supportCard() : "") +
+      '<p class="muted small" style="margin:0">' + (su ? "Making an account means you agree to the " + policy("terms", "Terms") + " and the " + policy("privacy", "Privacy policy") + ". " : "") + 'Need help? <button class="link" data-a="support">Contact support</button></p>' + (st.tab === "support" ? supportCard() : "") +
       (st.err ? '<div class="err">' + esc(st.err) + "</div>" : "") + (APP ? '<button class="small" data-tab="app">⚙ App settings</button>' + (st.tab === "app" ? appSettings() : "") : "") + "</div>";
   }
   // ⚙ App (the apps only): the website's address, and on a computer the updates
@@ -90,8 +90,8 @@
   }
   function header() {
     var m = st.me, sched = m.role === "scheduler", who = { church: "Church account", owner: "Main admin", admin: "Admin", user: "User" }[m.churchRole] || "Team member";
-    return '<header><h1>' + esc(m.church || "Central Services") + '</h1><span class="muted small">Central Services</span><div class="who"><span>' + esc(m.name || m.email) + '</span><span class="badge' + (m.churchRole === "church" || m.churchRole === "owner" || m.churchRole === "admin" ? " adm" : "") + '" data-role="' + esc(m.churchRole || "") + '">' + who + "</span>" + (sched ? '<span class="badge sched">Scheduler</span>' : "") + '<button class="small" data-a="refresh" title="Refresh">↻</button><button class="small" data-a="logout">Sign out</button></div></header>' +
-      '<nav>' + [["mine", "My requests"], ["schedule", "Schedule"], ["setlists", "Setlists"], ["away", "Away"], ["teams", "Teams"]].concat(sched ? [["new", "+ New service"]] : []).concat([["account", "Account"]]).concat(APP ? [["app", "⚙ App"]] : []).map(function (t) { return '<button class="' + (st.tab === t[0] ? "on" : "") + '" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</nav>";
+    return '<header><h1>' + esc(m.church || "Central Services") + '</h1><span class="muted small">Central Services</span><div class="who"><span>' + esc(m.name || m.email) + '</span><span class="badge' + (m.churchRole === "church" || m.churchRole === "owner" || m.churchRole === "admin" ? " adm" : "") + '" data-role="' + esc(m.churchRole || "") + '">' + who + "</span>" + (sched ? '<span class="badge sched">Scheduler</span>' : "") + '<button class="small icon" data-a="refresh" title="Refresh" aria-label="Refresh">↻</button><button class="small quiet" data-a="logout">Sign out</button></div></header>' +
+      '<nav>' + (st.board ? [["mine", "My requests"], ["schedule", "Schedule"], ["setlists", "Setlists"], ["away", "Away"], ["teams", "Teams"]] : []).concat(sched && st.board ? [["new", "+ New service"]] : []).concat([["account", "Account"]]).concat(APP ? [["app", "⚙ App"]] : []).map(function (t) { return '<button class="' + (st.tab === t[0] ? "on" : "") + '" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</nav>";
   }
   function mine() {
     var b = st.board, list = [];
@@ -268,8 +268,9 @@
     var root = $("#root"), a = document.activeElement, keepId = a && a.id && a.tagName !== "BUTTON" ? a.id : null, keepVal = keepId ? a.value : null;
     if (!st.me) { root.innerHTML = signIn(); return; }
     var h = header() + "<main>";
-    if (!st.me.church) h += '<div class="card"><h2>Not in a church yet</h2><p style="margin:0">Ask your main admin to add you on the Teams page of the Motion Audio website, or join with your church\'s code when you make your account.</p></div>';
-    else if (!st.me.hasServices) h += '<div class="card"><h2>' + esc(st.me.church) + '</h2><p style="margin:0">Your church doesn\'t have Central Services yet. A main admin or admin gets it on the Motion Audio website: every pack comes with slots for your team, or add them for $5 a person, once.</p></div>';
+    var site = BASE || (location.protocol.indexOf("http") === 0 ? location.origin : "");
+    if (!st.me.church) h += '<div class="card empty"><h2>You\'re not in a church yet</h2><p style="margin:0">Ask your main admin to add you on the Teams page of the Motion Audio website, or join with your church\'s code when you make your account.</p>' + (site ? '<div class="row"><a class="btn primary" href="' + esc(site) + '/#account" target="_blank" rel="noopener">Open your account</a></div>' : "") + "</div>";
+    else if (!st.me.hasServices && st.tab !== "account" && st.tab !== "support" && st.tab !== "app") h += '<div class="card empty"><h2>' + esc(st.me.church) + ' doesn\'t have Central Services yet</h2><p style="margin:0">Every church pack comes with slots for your team, or add them for $5 a person, once. A main admin or admin gets them on the Motion Audio website.</p>' + (site ? '<div class="row"><a class="btn primary" href="' + esc(site) + '/#store" target="_blank" rel="noopener">See church packs</a><a class="btn" href="' + esc(site) + '/#account" target="_blank" rel="noopener">Open your account</a></div>' : "") + "</div>";
     if (st.tab === "app") h += appSettings();
     else if (st.tab === "account" || st.tab === "support") h += accountCard() + (st.tab === "support" ? supportCard() : "");
     else if (st.board) h += st.tab === "schedule" ? schedule() : st.tab === "setlists" ? setlistsView() : st.tab === "teams" ? teams() : st.tab === "away" ? awayView() : st.tab === "new" ? newService() : st.tab.indexOf("ask-") === 0 ? newService(st.tab.slice(4)) : mine();

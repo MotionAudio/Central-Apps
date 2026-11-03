@@ -2,6 +2,7 @@
 #   Central Pedal          the Raspberry Pi (its update is central-control-source.zip, made by make-release.sh)
 #   Central Pedal Control  Mac, Windows, Linux, Android + the iPhone / iPad project   central-pedal-control-*, central-pedal-control-mobile
 #   Central Services       Mac, Windows, Linux, Android + the iPhone / iPad project   central-services-*, central-services-mobile
+#   Central Production     Mac, Windows, Linux (10.2: the DAW; the same page as the website's /production/)  central-production-*
 #   Central Control        Linux, Windows, Mac - the main admin and admins       CentralControl-* (the release adds central-usage-* copies)
 #   Central Usage          Mac, Windows, Linux, Android + the iPhone / iPad project  CentralUsage-*, central-usage-mobile
 # Central Control and Central Usage are one code base (central-usage/; usage-builder.js packs Central Usage), with
@@ -39,7 +40,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: Compilers
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix gcc-aarch64-linux-gnu p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev g++-aarch64-linux-gnu libpipewire-0.3-dev bubblewrap   # (C++ for the plugin host; the X11, lilv and suil headers for Linux; arm64 C / C++ for the Pi's play-any plugin and community stage; PipeWire's headers; bubblewrap for the community plugin wall's test)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix gcc-aarch64-linux-gnu p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev g++-aarch64-linux-gnu libpipewire-0.3-dev bubblewrap clang lld espeak-ng   # (clang + lld: Central FX's WebAssembly build, checked against the C; C++ for the plugin host; the X11, lilv and suil headers for Linux; arm64 C / C++ for the Pi's play-any plugin and community stage; PipeWire's headers; bubblewrap for the community plugin wall's test; espeak-ng: a voice for the lyrics test)
       - name: Build (Linux x64, Windows x64) - the rig map comes from js/pedals.js here
         run: |
           bash tools/ci-run.sh "native build (Linux)" make -C central-usage/native -j4
@@ -61,26 +62,47 @@ jobs:
         run: |
           bash tools/fetch-ffmpeg.sh linux-x64 central-usage/native/build
           bash tools/fetch-ffmpeg.sh win-x64 central-usage/native/build-win
+      - name: Cache the lyrics test's speech model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/cu-asr
+          key: cu-asr-fast-${{ hashFiles('central-usage/asr.js') }}
       - name: Test the engine, the rig, the video helpers (Linux)
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
           make -C central-usage/native build/test-bridge
           bash tools/ci-run.sh "community plugin wall test (round trip, crash / hang / heavy bypass, no network or files, revoke live)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
+          bash tools/ci-run.sh "Central FX core test (native = WebAssembly for every block, the code language, hostile scripts, presets)" node test-cmfx.mjs
+          bash tools/ci-run.sh "Central FX in the rig and on the Central Pedal's stage" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
+          file central-usage/native/build-linux-arm64/cm-pwnode | grep -q aarch64 || { echo "::error::the arm64 cm-pwnode (with Central FX) is not arm64"; exit 1; }
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           make -C central-usage/native build/test-playany-plugin
           bash tools/ci-run.sh "play any sound: plugin test" central-usage/native/build/test-playany-plugin central-usage/native/build/central-playany.lv2/central-playany.so central-usage/native/playany/central-playany.lv2/central-playany.ttl
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
           bash tools/ci-run.sh "lights auto test" node central-usage/test-lights-auto.mjs
+          bash tools/ci-run.sh "lights room test (seats, the light on them)" node central-usage/test-lights-room.mjs
+          bash tools/ci-run.sh "shorts test (picking the moments, captions, a whole made-up service through the pinned ffmpeg)" node central-usage/test-shorts.mjs central-usage/native/build/ffmpeg
+          CU_SKIP_NATIVE=1 bash central-usage/prepare-shared.sh
+          bash tools/ci-run.sh "pictures in (JPEG turned upright, PNG, WebP, animated GIF, BMP, AVIF, SVG, TIFF and HEIC through the pinned ffmpeg, 3840 px, ten at once in order, drop and paste)" node central-usage/test-pictures.mjs
+          bash tools/ci-run.sh "CCLI: songs streamed while the Video tab is on air, Print chart" node central-usage/test-ccli-usage.mjs
+          ASR_MODEL=fast ASR_MODELS_DIR="$HOME/.cache/cu-asr" bash tools/ci-run.sh "lyrics heard in a vocal track (espeak-ng's voice through the speech model)" node central-usage/test-lyrics.mjs
           python3 -c "import numpy" 2>/dev/null || python3 -m pip install --quiet numpy
           bash tools/ci-run.sh "library test (pedals, plans, the orchestra builder)" python3 test_library.py
           bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py
           bash tools/ci-run.sh "community items test (plugin switch, revoke list, the wall)" python3 test_community.py
           bash tools/ci-run.sh "10.0 content test (hymns, synths, pads, loops, new pedals)" python3 test_content.py
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg fluidsynth >/dev/null
+          bash tools/ci-run.sh "10.2 previews test (30 seconds of each pad, loop, instrument and IR before downloading)" python3 test_previews.py
           bash tools/ci-run.sh "Pi sound set-up test (the jack is never left out, outputs that aren't there play on 1-2)" python3 test_audio_routing.py
           bash tools/ci-run.sh "sound library installer test (computers)" node central-usage/test-libraries.mjs
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
+      - name: The plugin builder in a browser (Central Production)
+        timeout-minutes: 10
+        run: |
+          npm i --no-save --no-package-lock playwright@1.48.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null
+          bash tools/ci-run.sh "plugin builder test (blocks, wires, knobs, code errors, live test, AudioWorklet = direct)" node test-plugin-builder.mjs
       - name: Built-in sounds
         run: bash tools/fetch-builtin-sounds.sh central-usage/native/sounds
       - uses: actions/upload-artifact@v4
@@ -140,6 +162,7 @@ jobs:
           bash prepare-player.sh
           npm install --no-audit --no-fund
           bash ../tools/ci-run.sh "center test" node test-center.mjs
+          bash ../tools/ci-run.sh "run sheets, pre-service check, band's screen (center)" node test-service.mjs
           bash ../tools/ci-run.sh "hub sync test" node test-hubsync.mjs
           bash ../tools/ci-run.sh "pedal audio test" node test-piaudio.mjs
           node ../tools/prune-onnx.js .
@@ -197,6 +220,22 @@ jobs:
           [ "$(dpkg-deb -f dist/central-services-*-amd64.deb Package)" = central-services ] || { echo "::error::wrong .deb package name"; exit 1; }
           bash ../tools/check-linux-deb.sh dist/central-services-*-amd64.deb "Central Services"
           ls -la dist/ | grep -E "deb|AppImage"
+      - name: Central Production (Linux) - the web page's tests, the app's, then the installers
+        run: |
+          chmod +x central-usage/native/build/cu-* || true
+          bash central-production/prepare.sh
+          cd central-production
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.49.1 && npx playwright install --with-deps chromium
+          bash ../tools/ci-run.sh "Central Production in the browser" node test-web.mjs
+          bash ../tools/ci-run.sh "Central Production app" xvfb-run -a node test-app.mjs
+          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --linux deb AppImage --x64 --publish never
+          test -f dist/linux-unpacked/resources/app-src/production/index.html && test -f dist/linux-unpacked/resources/app-src/daw/daw-engine.js || { echo "::error::the Central Production page is missing"; exit 1; }
+          test -x dist/linux-unpacked/resources/native/cu-studio || { echo "::error::the low-delay player is missing"; exit 1; }
+          test -x dist/linux-unpacked/resources/native/cu-rig || { echo "::error::the plugin host (VST3 / CLAP inserts) is missing"; exit 1; }
+          [ "$(dpkg-deb -f dist/central-production-*-amd64.deb Package)" = central-production ] || { echo "::error::wrong .deb package name"; exit 1; }
+          bash ../tools/check-linux-deb.sh dist/central-production-*-amd64.deb "Central Production"
+          ls -la dist/ | grep -E "deb|AppImage"
       - uses: actions/upload-artifact@v4
         with:
           name: installers-linux
@@ -208,6 +247,8 @@ jobs:
             central-pedal-control/dist/*.AppImage
             central-services/dist/*.deb
             central-services/dist/*.AppImage
+            central-production/dist/*.deb
+            central-production/dist/*.AppImage
 
   windows:
     name: Windows (x64 installer)
@@ -230,6 +271,7 @@ jobs:
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer.exe
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig.exe
+          bash tools/ci-run.sh "Central FX in the rig (Windows: no wall needed)" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio.exe
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany.exe
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
@@ -255,6 +297,7 @@ jobs:
           bash prepare-player.sh
           npm install --no-audit --no-fund
           bash ../tools/ci-run.sh "center test" node test-center.mjs
+          bash ../tools/ci-run.sh "run sheets, pre-service check, band's screen (center)" node test-service.mjs
           bash ../tools/ci-run.sh "hub sync test" node test-hubsync.mjs
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --win nsis --x64 --publish never
@@ -296,6 +339,14 @@ jobs:
           bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder --win nsis --x64 --publish never
           test -f dist/win-unpacked/resources/app/services.js || { echo "::error::the Central Services page is missing"; exit 1; }
           ls -la dist/*.exe
+      - name: Central Production (Windows)
+        run: |
+          bash central-production/prepare.sh
+          cd central-production
+          npm install --no-audit --no-fund
+          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --win nsis --x64 --publish never
+          test -f dist/win-unpacked/resources/app-src/production/index.html || { echo "::error::the Central Production page is missing"; exit 1; }
+          ls -la dist/*.exe
       - uses: actions/upload-artifact@v4
         with:
           name: installers-win
@@ -304,6 +355,7 @@ jobs:
             central-usage/dist/*.exe
             central-pedal-control/dist/*.exe
             central-services/dist/*.exe
+            central-production/dist/*.exe
 
   macos:
     name: macOS (${{ matrix.arch }})
@@ -335,6 +387,8 @@ jobs:
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
           make -C central-usage/native build/test-bridge ARCH="-arch ${{ matrix.cpu }}"
           bash tools/ci-run.sh "community plugin wall test (sandbox-exec)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
+          bash tools/ci-run.sh "Central FX core test (native = WebAssembly)" node test-cmfx.mjs
+          bash tools/ci-run.sh "Central FX in the rig" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
@@ -397,6 +451,15 @@ jobs:
           P=$(ls -d dist/mac*/"Central Services.app")
           codesign --verify --deep "$P" && ls "$P/Contents/Resources/app/services.js" > /dev/null && echo "Central Services: $P"
           ls -la dist/*.dmg
+      - name: Central Production (Mac)
+        run: |
+          bash central-production/prepare.sh
+          cd central-production
+          npm install --no-audit --no-fund
+          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          P=$(ls -d dist/mac*/"Central Production.app")
+          codesign --verify --deep "$P" && ls "$P/Contents/Resources/app-src/production/index.html" > /dev/null && echo "Central Production: $P"
+          ls -la dist/*.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: installers-mac-${{ matrix.arch }}
@@ -405,6 +468,7 @@ jobs:
             central-usage/dist/*.dmg
             central-pedal-control/dist/*.dmg
             central-services/dist/*.dmg
+            central-production/dist/*.dmg
 
   ios:
     name: iPhone / iPad projects (simulator builds, unsigned)
@@ -505,6 +569,7 @@ jobs:
           CU=$(node -p "require('./central-usage/package.json').version")
           PC=$(node -p "require('./central-pedal-control/package.json').version")
           CS=$(node -p "require('./central-services/package.json').version")
+          CP=$(node -p "require('./central-production/package.json').version")
           missing=0; sizes=""
           for f in CentralControl-$CU-win-x64.exe CentralControl-$CU-mac-arm64.dmg CentralControl-$CU-mac-x64.dmg CentralControl-$CU-amd64.deb CentralControl-$CU-x86_64.AppImage \
                    CentralUsage-$CU-win-x64.exe CentralUsage-$CU-mac-arm64.dmg CentralUsage-$CU-mac-x64.dmg CentralUsage-$CU.apk \
@@ -512,7 +577,8 @@ jobs:
                    central-pedal-control-$PC-mac-arm64.dmg central-pedal-control-$PC-mac-x64.dmg central-pedal-control-$PC-win-x64.exe \
                    central-pedal-control-$PC-amd64.deb central-pedal-control-$PC-x86_64.AppImage central-pedal-control-$PC-android.apk \
                    central-services-$CS-mac-arm64.dmg central-services-$CS-mac-x64.dmg central-services-$CS-win-x64.exe \
-                   central-services-$CS-amd64.deb central-services-$CS-x86_64.AppImage central-services-$CS-android.apk; do
+                   central-services-$CS-amd64.deb central-services-$CS-x86_64.AppImage central-services-$CS-android.apk \
+                   central-production-$CP-mac-arm64.dmg central-production-$CP-mac-x64.dmg central-production-$CP-win-x64.exe central-production-$CP-amd64.deb central-production-$CP-x86_64.AppImage; do
             p=$(find staging -type f -name "$f" | head -1)
             if [ -n "$p" ]; then s=$(( $(stat -c %s "$p") / 1048576 )); echo "ok  $f  ${s} MB"; sizes="$sizes$f ${s} MB%0A"; echo "| $f | ${s} MB |" >> sizes.md; else echo "::error::missing $f"; missing=1; fi
           done

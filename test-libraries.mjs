@@ -140,8 +140,8 @@ try {
   const p3 = await browser.newPage();
   await p3.goto(settingsPage("offline", `window.PP_LICENSE_CONFIG = { server: "", required: true }; window.CU = { libraries: { list: function () { return Promise.resolve({ installed: [] }); } } };`));
   await p3.evaluate(() => { PPLicense.init({ app: "control" }); document.getElementById("set").innerHTML = PPLicense.packagesHtml(); });
-  await p3.waitForFunction(() => document.querySelectorAll("#libSettings li[data-lib]").length === 5, null, { timeout: 5000 });
-  await check("no list from online either (no internet): the built-in list, the five libraries (Central Pads too), no Install button; Install from a file… stays", async () => {
+  await p3.waitForFunction(() => document.querySelectorAll("#libSettings li[data-lib]").length === 6, null, { timeout: 5000 });
+  await check("no list from online either (no internet): the built-in list, the six libraries (Central Pads and Central Utility too), no Install button; Install from a file… stays", async () => {
     const r = await p3.evaluate(() => ({ dis: [...document.querySelectorAll("[data-lib-install]")].every((b) => b.disabled), n: document.querySelectorAll("[data-lib-install]").length, text: document.getElementById("libSettings").textContent, file: !!document.querySelector("[data-lib-file]") }));
     assert.ok(r.n === 0 && /Central Pads Library/.test(r.text) && r.file && /waiting for the library list/.test(r.text) && /Install from a file/.test(r.text), r.text);   // (no list: no Install button at all)
   });
@@ -260,6 +260,30 @@ try {
     assert.ok(/Community/.test(r.svg) && /by Ben Pads/.test(r.svg) && /ready/.test(r.svg), r.svg);
     assert.ok(/It crashed, so it’s bypassed/.test(r.notice) && /Try again/.test(r.notice) && /bypassed/.test(r.svg2), r.notice + " | " + r.svg2);
     assert.ok(r.retried, "Try again asks the engine to load it afresh");
+    assert.equal(r.after, 0, "its library taken away: it comes off the board");
+  });
+  await check("(10.2) your own Central FX plugin (made in Central Production) goes on the pedalboard: Add pedal → Yours & community, labelled yours, played on the board's own stage, off with its library", async () => {
+    const MINE = { id: "my-tremolo-abc123", plan: "free", personal: true, source: "personal", version: "1.1790000000", presets: [], boards: [], plugins: [],
+      fx: [{ name: "My Tremolo", file: "/u/libraries/my-tremolo-abc123/fx/My Tremolo.cmfx.json", tier: "free" }] };
+    const r = await p4.evaluate(async (libs) => {
+      const tick = (ms) => new Promise((ok) => setTimeout(ok, ms || 60));
+      // (the Central Pedal: no plugin host of its own - the board's community stage plays it)
+      PPFeatures.emit({ type: "instrumentStatus", available: true, running: true, engine: "pipewire", pluginSlots: {}, pluginErrors: {}, inputs: [], midiInputs: [], keysCatalog: [] });
+      PPInstrument.syncLibraries(libs); PPInstrument.setKind("electric"); PPInstrument.config().chains.electric = []; PPInstrument.render(); await tick();
+      document.querySelector("#pbAdd").click(); await tick();
+      const tab = document.querySelector('[data-addtab="community"]'); const tabText = tab ? tab.textContent : ""; if (tab) tab.click(); await tick();
+      const item = [...document.querySelectorAll("[data-addcomm]")].find((b) => /My Tremolo/.test(b.textContent)); const itemText = item ? item.textContent : ""; if (item) item.click(); await tick();
+      const it = PPInstrument.config().chains.electric[0] || {}, host = PPInstrument.resolvedChain("electric")[0] || {};
+      PPFeatures.emit({ type: "instrumentStatus", available: true, running: true, engine: "pipewire", pluginSlots: { [it.uid]: { name: "My Tremolo", community: true } }, pluginErrors: {}, inputs: [], midiInputs: [], keysCatalog: [] }); await tick();
+      const svg = (document.querySelector('svg.pedal[data-uid="' + it.uid + '"]') || {}).textContent || "";
+      PPInstrument.syncLibraries(libs.filter((l) => l.id !== "my-tremolo-abc123")); await tick();
+      return { tabText, itemText, plugin: it.plugin, host, svg, after: PPInstrument.config().chains.electric.length };
+    }, LIBS.concat([MINE]));
+    assert.ok(/Yours & community\s*1/.test(r.tabText), r.tabText);
+    assert.ok(/My Tremolo/.test(r.itemText) && /Your plugin - made in Central Production/.test(r.itemText), r.itemText);
+    assert.deepEqual([r.plugin.format, r.plugin.path, r.plugin.mine, r.plugin.library], ["cmfx", MINE.fx[0].file, true, MINE.id]);
+    assert.ok(r.host.id === "plug" && r.host.plugin.format === "cmfx", "the Central Pedal gets it (its community stage plays every .cmfx.json): " + JSON.stringify(r.host));
+    assert.ok(/Yours/.test(r.svg) && /made by you/.test(r.svg), r.svg);
     assert.equal(r.after, 0, "its library taken away: it comes off the board");
   });
   await check("no page errors on the Instrument page", async () => { assert.deepEqual(e4, []); });

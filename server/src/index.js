@@ -28,8 +28,15 @@ import * as demo from "./demo.js";
 import * as getfile from "./getfile.js";
 import * as purchases from "./purchases.js";
 import * as hymns from "./hymns.js";
+import * as previews from "./previews.js";
 import * as setlists from "./setlists.js";
 import * as creators from "./creators.js";
+import * as pco from "./pco.js";
+import { runSheetFromPlan } from "./runsheet-from-plan.js";
+import * as ccli from "./ccli.js";
+import * as social from "./social.js";
+import * as alerts from "./alerts.js";
+import * as projects from "./projects.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -95,7 +102,14 @@ plans.routes(api, { wrap, requireUser });
 downloads.routes(api, { wrap, requireUser });
 purchases.routes(api, { wrap, requireUser });   // (10.0: the account icon → Purchases)
 libraries.routes(api, { wrap });
+previews.routes(api, { wrap, bad });   // (10.2: GET /tracks/:id/preview.mp3 - 30 seconds of a track before buying)
 creators.routes(api, app, { wrap, requireUser });   // (10.1: makers and their uploads, the community items, the review site)
+pco.routes(api, app, { wrap, requireUser });   // (10.2: Planning Center plans -> setlists)
+pco.setRunSheetMaker(runSheetFromPlan);         // (10.2: ... and a run sheet draft, which Central Control's Service tab adds)
+ccli.routes(api, { wrap, requireUser });       // (10.2: CCLI settings, song usage and the report)
+social.routes(api, { wrap, requireUser });   // (10.2: the church's YouTube / Facebook / Instagram / TikTok, for posting shorts)
+alerts.routes(api, { wrap, requireUser });   // (10.2: the pre-service check's alerts to the main admins)
+projects.routes(api, { wrap, requireUser });   // (10.2: Central Production projects saved to the account)
 // a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first
 setlists.routes(api, { wrap, requireUser, addTrack: async (u, id) => {
   const t = await liveTrack(id);
@@ -165,7 +179,7 @@ api.get("/config", wrap(async (req, res) => {
 function trackOut(t) {
   const item = !!ITEM_KINDS[t.kind];
   return { id: String(t.id), title: t.title, artist: t.artist, kind: t.kind, key: t.song_key, bpm: Number(t.bpm) || 0, stars: t.stars, price: t.price_cents / 100, owned: !!t.owned, mine: !!t.mine,
-    item, format: item ? t.item_format || null : undefined, demo: item || undefined };
+    item, format: item ? t.item_format || null : undefined, demo: item || undefined, preview: "/v1/tracks/" + t.id + "/preview.mp3" };   // (10.2: 30 seconds of it - previews.js)
 }
 api.get("/tracks", wrap(async (req, res) => {   // ?kind=Sound, or several: ?kind=Sound,Board,Click
   const uid = req.user ? req.user.id : 0, text = String(req.query.q || "").trim().slice(0, 100), kinds = String(req.query.kind || "").split(",").map((k) => k.trim()).filter((k) => TRACK_KINDS.includes(k));

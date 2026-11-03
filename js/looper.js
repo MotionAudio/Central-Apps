@@ -331,7 +331,7 @@
   function post(cmd, i, extra) { if (node) node.port.postMessage(Object.assign({ cmd: cmd, t: i }, extra || {})); }
   async function main(i) {  // record → play → overdub → play …
     i = idx(i);
-    if (cfg().enabled === false) { PP.setStatus("The looper is off (LOOPER tab → Looper on)."); return stateOf(i); }
+    if (cfg().enabled === false) { PP.setStatus("The looper is off (Looper tab → Looper on)."); return stateOf(i); }
     var s = stateOf(i);
     if (s === "empty") return record(i);
     await ensure();
@@ -428,14 +428,14 @@
       '<p class="muted small lp-help">' + esc(MODES.filter(function (x) { return x[0] === m; })[0][2]) + ". The first loop sets the length and the others stay in step with it. Your tracks and pads keep playing.</p>" +
       '<div class="lp-tracks">' + [0, 1, 2].map(trackCard).join("") + "</div>" +
       '<div class="lp-all"><button class="lp-allbtn" data-lp="playAll">▶ PLAY ALL</button><button class="lp-allbtn" data-lp="stopAll">■ STOP ALL</button><button class="lp-allbtn danger" data-lp="clearAll">CLEAR ALL</button></div>' +
-      '<p class="muted small">To run it from one footswitch like a looper pedal, give a button the "Looper pedal" job on the Configure tab: tap to record, play and overdub, double-tap to stop, hold to clear. Each loop also has its own jobs for buttons, knobs and sliders. The loops play on the instrument\'s output unless you pick another one in Settings → Output routing.</p>';
+      '<p class="muted small">To run it from one footswitch like a looper pedal, give a button the "Looper pedal" job on the Controls tab: tap to record, play and overdub, double-tap to stop, hold to clear. Each loop also has its own jobs for buttons, knobs and sliders. The loops play on the instrument\'s output unless you pick another one in Settings → Output routing.</p>';
   }
   function renderTab() { var root = $("#looperRoot"); if (root) root.innerHTML = tabHtml(); }
   // the strip on the Instrument tab: the main switch of the selected loop, and the way to the LOOPER tab
   function html() {
     var c = cfg(), i = c.sel, t = st.tracks[i] || { s: "empty" };
-    if (c.enabled === false) return '<section class="looper off" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">off</small></h3><button data-lp="goTab">LOOPER tab ›</button></div></section>';
-    return '<section class="looper" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">' + (st.tracks.every(function (x) { return x.s === "empty"; }) ? "all three loops are empty" : st.tracks.map(function (x, j) { return "loop " + (j + 1) + ": " + (x.s === "empty" ? "empty" : x.s); }).join(" · ")) + '</small></h3><button data-lp="goTab">LOOPER tab ›</button></div>' +
+    if (c.enabled === false) return '<section class="looper off" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">off</small></h3><button data-lp="goTab">Looper tab ›</button></div></section>';
+    return '<section class="looper" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">' + (st.tracks.every(function (x) { return x.s === "empty"; }) ? "all three loops are empty" : st.tracks.map(function (x, j) { return "loop " + (j + 1) + ": " + (x.s === "empty" ? "empty" : x.s); }).join(" · ")) + '</small></h3><button data-lp="goTab">Looper tab ›</button></div>' +
       '<div class="lp-btns"><button class="pf-btn lp-main st-' + t.s + '" id="lpMain" data-lp="main" data-i="' + i + '"><small>LOOP ' + (i + 1) + " · REC / PLAY / DUB</small><b>" + LABEL[t.s] + '</b></button><button class="pf-btn" data-lp="stopAll"><small>EVERY LOOP</small><b>STOP</b></button><button class="pf-btn" data-lp="undo" data-i="' + i + '"' + (t.u ? "" : " disabled") + '><small>LAST DUB</small><b>UNDO</b></button><button class="pf-btn" data-lp="clear" data-i="' + i + '"><small>LOOP ' + (i + 1) + "</small><b>CLEAR</b></button></div></section>";
   }
   function render() {

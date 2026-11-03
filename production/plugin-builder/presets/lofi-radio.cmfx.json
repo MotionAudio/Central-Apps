@@ -1,0 +1,24 @@
+{
+  "format": "central-fx", "version": 1, "name": "Lo-Fi Radio", "author": "Motion Audio",
+  "description": "Thin, crunchy and small, like an old radio. Great for an intro or a breakdown before the band comes in.",
+  "params": [
+    { "id": "crunch", "name": "Crunch", "min": 4, "max": 16, "default": 10, "unit": "bits" },
+    { "id": "drive", "name": "Drive", "min": 0, "max": 24, "default": 8, "unit": "dB" },
+    { "id": "mix", "name": "Mix", "min": 0, "max": 1, "default": 1 }
+  ],
+  "graph": {
+    "blocks": [
+      { "id": "in", "type": "input", "x": 40, "y": 100 },
+      { "id": "thin", "type": "filter", "x": 200, "y": 100, "props": { "mode": "highpass", "freq": 450, "q": 0.8, "slope": 24 } },
+      { "id": "small", "type": "filter", "x": 360, "y": 100, "props": { "mode": "lowpass", "freq": 3200, "q": 0.9, "slope": 24 } },
+      { "id": "bits", "type": "bitcrush", "x": 520, "y": 100, "props": { "bits": { "param": "crunch" }, "rate": 16000 } },
+      { "id": "grit", "type": "drive", "x": 680, "y": 100, "props": { "mode": "soft", "drive": { "param": "drive" }, "tone": 4000, "level": -3, "mix": { "param": "mix" } } },
+      { "id": "mono", "type": "stereo", "x": 840, "y": 100, "props": { "mode": "mono" } },
+      { "id": "out", "type": "output", "x": 1000, "y": 100 }
+    ],
+    "wires": [
+      { "from": "in.out", "to": "thin.in" }, { "from": "thin.out", "to": "small.in" }, { "from": "small.out", "to": "bits.in" },
+      { "from": "bits.out", "to": "grit.in" }, { "from": "grit.out", "to": "mono.in" }, { "from": "mono.out", "to": "out.in" }
+    ]
+  }
+}

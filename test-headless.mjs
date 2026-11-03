@@ -9,6 +9,7 @@
  *   npm i playwright && npx playwright install chromium   (once, on a PC)
  *   node test-headless.mjs [path/to/index.html] [screenshot-dir]
  */
+import "./test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -16,6 +17,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
+import http from "node:http";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pagePath = path.resolve(process.argv[2] || path.join(here, "index.html"));
@@ -28,17 +30,48 @@ async function check(label, fn) {
 }
 
 const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
-const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+// (every page here is kept away from a real Central Pedal driver on this machine - see isolate() below - except the
+//  driver this test starts itself for the USB / SD checks: ownDriver)
+let ownDriver = false;
+async function isolate(p) {
+  await p.addInitScript(() => {
+  const Real = window.WebSocket, driver = /^wss?:\/\/(127\.0\.0\.1|localhost):876[56](\/|$)/;
+  const WS = function (url, protocols) { let ok = false; try { ok = sessionStorage.getItem("__ownDriver") === "1"; } catch (_) { } return new Real(driver.test(String(url)) && !ok ? "ws://127.0.0.1:1/" : url, protocols); };
+  WS.prototype = Real.prototype; ["CONNECTING", "OPEN", "CLOSING", "CLOSED"].forEach((k) => { WS[k] = Real[k]; });
+  window.WebSocket = WS;
+});
+  await p.route(/^https?:\/\/(127\.0\.0\.1|localhost):876[56]\//, (r) => ownDriver ? r.continue() : r.abort("connectionrefused"));
+}
+const newPage = async (o) => { const p = await browser.newPage(o); await isolate(p); return p; };
+const page = await (await browser.newContext({ viewport: { width: 1280, height: 860 } })).newPage();   // (a context of its own: savedFor() opens a second page in it)
 // (opened from a file this is Central Pedal Control, which needs a key: the default P key, as a church would enter it today)
 await page.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "PDEF-AULT-KEY0-2026", kind: "P", app: "pedal-control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });
 // The app tries ws://127.0.0.1:8765 (the pedal driver). On a machine without the
 // driver that connection is refused; the app handles it, Chrome still logs it.
-const benign = /127\.0\.0\.1:876[56]|ERR_CONNECTION_REFUSED/;  // the pedal driver is not running on a PC
+const benign = /127\.0\.0\.1:(876[56]|1\/)|ERR_CONNECTION_REFUSED|ERR_FAILED/;  // the pedal driver is not running on a PC
+// ...and if one is (another test's driver left running, a Central Pedal Control on this computer), this page still
+// mustn't reach it: its knob positions, routing and project would land in the middle of these checks. Its socket goes
+// to a closed port (refused, as with no driver) and its web requests are refused.
+await isolate(page);
 const errors = [];
 page.on("console", (m) => { if (m.type() === "error" && !benign.test(m.text())) errors.push(m.text()); });
 page.on("pageerror", (e) => errors.push(String(e)));
 
-await page.goto("file://" + pagePath);
+// The page is served from a local web address that isn't the Central Pedal's own (127.0.0.2: to the app it's Central
+// Pedal Control, as when opened from a file). Opened from file://, headless Chromium now and then never passes the page's
+// saved project on to the browser's storage at all (another page of the same origin keeps seeing none), so a reload
+// came back to the defaults - the knob reload, the ring, Edit and the songs checks failed together.
+const appRoot = path.dirname(pagePath), TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf", ".wasm": "application/wasm", ".wav": "audio/wav", ".mp3": "audio/mpeg" };
+const site = http.createServer((req, res) => {
+  const u = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  if (u === "/__blank.html") { res.writeHead(200, { "Content-Type": "text/html" }); return res.end("<!doctype html><title>storage</title>"); }
+  const f = path.join(appRoot, path.normalize(u).replace(/^([/\\])+/, ""));
+  if (!f.startsWith(appRoot) || !fs.existsSync(f) || !fs.statSync(f).isFile()) { res.writeHead(404); return res.end(); }
+  res.writeHead(200, { "Content-Type": TYPES[path.extname(f).toLowerCase()] || "application/octet-stream", "Cache-Control": "no-store" }); fs.createReadStream(f).pipe(res);
+});
+await new Promise((ok) => site.listen(0, "127.0.0.2", ok));
+const pageUrl = "http://127.0.0.2:" + site.address().port + "/" + path.basename(pagePath);
+await page.goto(pageUrl);
 await page.waitForFunction(() => window.__test && window.__pedalBridge);
 // (no driver here: stop the bridge's reconnect loop - it retries every 250 ms for the page's first 20 s, and a failed
 // try's close event would put back "not connected" or drop the stand-in socket these checks put in its place)
@@ -46,6 +79,16 @@ await page.evaluate(() => { window.__pedalBridge.connect = function () { }; });
 await page.waitForTimeout(400);
 await page.evaluate(() => { if (window.PPShell) window.PPShell.showTab("pads"); });   // (it opens on LIVE; these checks are about the Pad tab)
 const T = (fn, arg) => page.evaluate(fn, arg);
+// Before a reload: wait until the project the page just saved is in the browser's own storage, as another page of the
+// same app sees it. (A reload straight after a save can otherwise come back to what was stored before it - here, more
+// than once, to no project at all: the page then starts from the defaults.)
+const blankPage = path.join(os.tmpdir(), "pp-headless-blank.html"); fs.writeFileSync(blankPage, "<!doctype html><title>storage</title>");
+async function savedFor() {
+  const want = await T(() => localStorage.getItem("pad-pedal-seamless-v3")); if (!want) return;
+  const p2 = await page.context().newPage(); await isolate(p2);
+  try { await p2.goto(new URL("/__blank.html", pageUrl).href); await p2.waitForFunction((w) => localStorage.getItem("pad-pedal-seamless-v3") === w, want, { timeout: 8000 }); }
+  finally { await p2.close(); }
+}
 const hw = (msg) => T((m) => window.__pedalBridge.handleMessage(m), msg);
 const wait = (ms) => page.waitForTimeout(ms);
 
@@ -268,7 +311,7 @@ await check("key + button changes the key display", async () => {
 });
 await check("knob settings survive a reload", async () => {
   await hw({ type: "knob", id: "volume", value: 0.66 }); await wait(250); await T(() => PP.persistNow());   // (saved before the reload, not on a timer that can lose the race)
-  await page.reload(); await page.waitForFunction(() => window.__test);
+  await savedFor(); await page.reload(); await page.waitForFunction(() => window.__test);
   assert.equal(await T(() => __test.performance().volume), 0.66);
   assert.equal(await T(() => __test.isPerforming()), true, "should reopen in Perform mode");
 });
@@ -519,7 +562,7 @@ await check("output meters move while sound plays", async () => {
   assert.ok(cover < 95, "meter cover " + cover + "% " + JSON.stringify(info));
 });
 await check("songs, tempo and new pad settings survive a reload", async () => {
-  await T(() => PP.persistNow()); await page.reload(); await page.waitForFunction(() => window.PPFeatures);
+  await T(() => PP.persistNow()); await savedFor(); await page.reload(); await page.waitForFunction(() => window.PPFeatures);
   const r = await T(() => [PP.project().songs.length, PP.project().songIndex, Math.round(PP.project().tempo.bpm), PP.project().pads[0].octaves.sub]);
   assert.deepEqual(r, [2, 1, 100, 80]);
 });
@@ -538,6 +581,7 @@ fs.mkdirSync(path.join(mediaDir, "media", "usb-sda1", "Pads"), { recursive: true
 }
 fs.writeFileSync(path.join(mediaDir, "code-chosen"), "1");
 const py = spawn("python3", [driverPath, "--simulate", mediaDir, "--app-root", path.dirname(pagePath)], { stdio: ["pipe", "pipe", "pipe"] });
+ownDriver = true; await T(() => sessionStorage.setItem("__ownDriver", "1"));
 await new Promise((resolve) => { const up = (b) => { if (String(b).includes("USB/SD browser on")) resolve(); }; py.stdout.on("data", up); py.stderr.on("data", up); setTimeout(resolve, 8000); });
 await wait(300);
 await check("Import Sound opens the USB browser; tapping a file imports it into the pad", async () => {
@@ -553,7 +597,7 @@ await check("Import Sound opens the USB browser; tapping a file imports it into 
   const r = await T(() => [PP.currentPad().sampleId ? PP.sampleFor(PP.currentPad().sampleId).name : null, document.querySelector("#usbDialog").open]);
   assert.deepEqual(r, ["Test Pad D", false]);
 });
-py.kill();
+py.kill(); ownDriver = false; await T(() => sessionStorage.removeItem("__ownDriver"));
 await T(() => document.querySelectorAll("dialog[open]").forEach((d) => d.close()));
 
 console.log("\nSystem menu:");
@@ -674,7 +718,7 @@ await check("old saved routing: the click's old default 'off' becomes 'heard on 
   assert.deepEqual(r, { migrated: "mix", kept: "off" });
 });
 await check("a page older than its Central Pedal reloads once to the version just installed (not again for the same version)", async () => {
-  const p5 = await browser.newPage(); await p5.goto("file://" + pagePath); await p5.waitForFunction(() => window.__pedalBridge && window.PPShell);
+  const p5 = await newPage(); await p5.goto("file://" + pagePath); await p5.waitForFunction(() => window.__pedalBridge && window.PPShell);
   const same = await p5.evaluate(() => { window.__pedalBridge.handleMessage({ type: "hello", appVersion: PP.appVersion }); return new Promise((ok) => setTimeout(() => ok(location.search), 900)); });
   assert.equal(same, "", "same version: no reload");
   await Promise.all([p5.waitForNavigation({ timeout: 5000 }), p5.evaluate(() => window.__pedalBridge.handleMessage({ type: "hello", appVersion: "99.1.0" }))]);
@@ -730,7 +774,7 @@ await check("...a key on the computer's keyboard as a control (its own job wins 
   await page.evaluate(() => { const p = PP.project(); p.inputs = p.inputs.filter((i) => !i.midi && !i.key); p.midiInputs = []; PPConfigure.render(); PPShell.showTab("pads"); });
 });
 await check("Settings → Colours: a preset sets every screen colour, track colours change, the 3.5\" screen gets them, and 'Back to our colours' undoes it all", async () => {
-  await page.evaluate(() => { window.__mini = []; const b = window.__pedalBridge, o = b.send; window.__miniOrig = o; b.connected = true; b.send = function (m) { if (m && m.type === "miniTheme") window.__mini.push(m); return o ? o.call(this, m) : true; }; PPShell.showTab("settings"); });
+  await page.evaluate(() => { window.__mini = []; const b = window.__pedalBridge, o = b.send; window.__miniOrig = o; b.connect = function () { }; Object.defineProperty(b, "connected", { configurable: true, get: function () { return true; }, set: function () { } });   /* (held connected: a reconnect attempt that fails would otherwise say "not connected" half-way) */ b.send = function (m) { if (m && m.type === "miniTheme") window.__mini.push(m); return o ? o.call(this, m) : true; }; PPShell.showTab("settings"); });
   await page.click('#stNav [data-st-group="look"]');   // (Settings shows one group at a time)
   await page.waitForSelector("#themePresets [data-preset]", { state: "visible" });
   await page.click('#themePresets [data-preset="6"]');   // Daylight
@@ -739,6 +783,8 @@ await check("Settings → Colours: a preset sets every screen colour, track colo
   await page.evaluate(() => { const el = document.querySelector('[data-clr-trk="drums"]'); el.value = "#00ff00"; el.dispatchEvent(new Event("input", { bubbles: true })); });
   const trk = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--trk-drums").trim());
   assert.equal(trk, "#00ff00");
+  // (the 3.5" screen is sent its colours a moment after the last change: wait for that message, not a set time)
+  await page.waitForFunction(() => { const m = window.__mini.slice(-1)[0]; return m && m.colors && String(m.colors.bg).toLowerCase() === "#f2f5f8"; }, null, { timeout: 5000 }).catch(() => null);
   const mini = await page.evaluate(() => window.__mini.slice(-1)[0]);
   assert.ok(mini && mini.colors && mini.colors.bg.toLowerCase() === "#f2f5f8", JSON.stringify(mini));
   page.once("dialog", (d) => d.accept());
@@ -746,16 +792,50 @@ await check("Settings → Colours: a preset sets every screen colour, track colo
   await page.waitForFunction(() => window.__mini.length && window.__mini[window.__mini.length - 1].colors === null, null, { timeout: 3000 }).catch(() => null);
   const back = await page.evaluate(() => ({ t: PP.project().theme, bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(), trk: getComputedStyle(document.documentElement).getPropertyValue("--trk-drums").trim(), mini: window.__mini.map((m) => m.colors && m.colors.bg) }));
   assert.equal(back.bg.toUpperCase(), "#111317"); assert.equal(back.trk, ""); assert.equal(back.mini[back.mini.length - 1], null, "the 3.5\" screen back to its own look: " + JSON.stringify(back));
-  await page.evaluate(() => { window.__pedalBridge.send = window.__miniOrig; window.__pedalBridge.connected = false; PPShell.showTab("pads"); });
+  await page.evaluate(() => { window.__pedalBridge.send = window.__miniOrig; delete window.__pedalBridge.connected; window.__pedalBridge.connected = false; PPShell.showTab("pads"); });
 });
 
+await check("10.2 design: Ctrl+K finds a song, a setting and an action; picking a setting opens Settings at its group and highlights it; the Settings search does the same", async () => {
+  await page.evaluate(() => PPShell.showTab("pads"));
+  await page.keyboard.press("Control+k"); await page.waitForSelector("dialog.cmd[open]");
+  await page.fill("#cmdInput", "wi-fi"); await wait(80);
+  const found = await T(() => [...document.querySelectorAll("#cmdList [data-i]")].map((b) => b.textContent));
+  assert.ok(found.some((t) => /Wi-Fi/i.test(t)), "a Wi-Fi result: " + found.slice(0, 6).join(" / "));
+  await page.fill("#cmdInput", "sample rate"); await wait(80);
+  const hit = await T(() => { const b = [...document.querySelectorAll("#cmdList [data-i]")].find((x) => /Sample rate/i.test(x.textContent)); return b ? b.dataset.i : null; });
+  assert.ok(hit != null, "Sample rate is found as a setting");
+  await page.click('#cmdList [data-i="' + hit + '"]'); await wait(200);
+  assert.equal(await T(() => PPShell.currentTab()), "settings");
+  assert.equal(await T(() => document.querySelector("#stNav .st-chip.on").dataset.stGroup), "audio");
+  await page.fill("#stFind", "colours of everything"); await wait(120);
+  const rows = await T(() => document.querySelectorAll("#stFound [data-st-found]").length); assert.ok(rows > 0, "the Settings search lists the colours card: " + await T(() => document.querySelector("#stFound").outerHTML.slice(0, 200) + " | open: " + [...document.querySelectorAll("dialog[open]")].map((d) => d.id || d.className).join() + " | value: " + document.querySelector("#stFind").value + " | n: " + document.querySelectorAll("#stFind").length));
+  await page.keyboard.press("Enter"); await wait(200);
+  assert.equal(await T(() => document.querySelector("#stNav .st-chip.on").dataset.stGroup), "look", "Enter opens the first match's group");
+  await page.fill("#stFind", ""); await page.evaluate(() => PPShell.showTab("pads"));
+  await page.keyboard.press("Control+k"); await page.waitForSelector("dialog.cmd[open]"); await page.fill("#cmdInput", "start pad"); await wait(80);
+  assert.ok(await T(() => [...document.querySelectorAll("#cmdList [data-i]")].some((b) => /Start pad sound/.test(b.textContent))), "an action");
+  await page.keyboard.press("Escape"); await wait(50);
+  assert.equal(await T(() => !!document.querySelector("dialog.cmd[open]")), false, "Esc closes it");
+});
+await T(() => { document.querySelectorAll("dialog.cmd[open]").forEach((d) => d.close()); });
+await check("10.2 design: Settings is the gear on the right of the top bar, lit while open; the Tracks page's less-used actions sit in More", async () => {
+  await page.click("#systemButton"); await wait(150);
+  assert.equal(await T(() => PPShell.currentTab()), "settings");
+  assert.equal(await T(() => document.querySelector("#systemButton").classList.contains("active")), true);
+  await page.evaluate(() => PPShell.showTab("tracks")); await wait(150);
+  const inMore = await T(() => [...document.querySelectorAll("#trMore .more-pop > button")].map((b) => b.id));
+  assert.ok(inMore.includes("trPractice") && inMore.includes("trSplit"), "Practice mixes and Stem splitter are in More: " + inMore.join());
+  await page.click("#trMore .more-btn"); assert.equal(await T(() => document.querySelector("#trMore .more-pop").hidden), false);
+  await page.keyboard.press("Escape"); assert.equal(await T(() => document.querySelector("#trMore .more-pop").hidden), true);
+  await page.evaluate(() => PPShell.showTab("pads"));
+});
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));
 
 // ---- the license keys before the website opens: Central Pedal Control asks for its key (production name, then the key);
 // only the default P key works; it survives a reload; Settings → License says it's the default key
 console.log("\nLicense keys with no website (default keys):");
 {
-  const p3 = await browser.newPage({ viewport: { width: 1100, height: 800 } }); const errs3 = []; p3.on("pageerror", (e) => errs3.push(String(e)));
+  const p3 = await newPage({ viewport: { width: 1100, height: 800 } }); const errs3 = []; p3.on("pageerror", (e) => errs3.push(String(e)));
   await p3.addInitScript(() => { window.CP_CONTROL = true; });   // (Central Pedal Control, as its app and /control/ mark it)
   await p3.goto("file://" + pagePath); await p3.waitForFunction(() => window.PPLicense && window.PPShell);
   await check("Central Pedal Control opens on the setup with no website: the production's name, then the key (no internet or account steps)", async () => {
@@ -811,7 +891,7 @@ window.__pedalBridge = { connected: true, info: { deviceId: "pedal-0123456789ab"
 window.addEventListener("pp-plans", function () { window.__plansEvents++; });</script>
 <script src="${pathToFileURLish(path.join(here, "js", "license.js"))}"></script><script src="${pathToFileURLish(path.join(here, "js", "pedals.js"))}"></script>`);
   function pathToFileURLish(p) { return "file://" + p.split(path.sep).map(encodeURIComponent).join("/"); }
-  const p2 = await browser.newPage();
+  const p2 = await newPage();
   const errs = []; p2.on("pageerror", (e) => errs.push(String(e)));
   await p2.goto("file://" + tmpPage);
   const R = (fn, arg) => p2.evaluate(fn, arg);
@@ -854,7 +934,7 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     assert.deepEqual(errs, []);
   });
   await check("with no website the Central Pedal still needs no key; Settings → Packages takes only the default package key (every plan)", async () => {
-    const p4 = await browser.newPage(); const html = fs.readFileSync(tmpPage, "utf8").replace('server: "http://127.0.0.1:18893", ', "");
+    const p4 = await newPage(); const html = fs.readFileSync(tmpPage, "utf8").replace('server: "http://127.0.0.1:18893", ', "");
     const tmp4 = tmpPage.replace(/\.html$/, "-nosite.html"); fs.writeFileSync(tmp4, html);
     await p4.goto("file://" + tmp4); await p4.evaluate(() => { localStorage.clear(); PPLicense.init({ app: "pedal", packages: [] }); document.getElementById("set").innerHTML = PPLicense.settingsHtml(); }); await wait(200);
     const wiz = await p4.$("dialog#licWiz"), open = await p4.evaluate(() => PPLicense.hasPlan("pedals"));
@@ -863,13 +943,13 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     await p4.fill("#pkgKey", "SDEF-AULT-KEY0-2026"); await p4.click('[data-pkg="add"]'); await wait(200);
     const r = await p4.evaluate(() => ({ list: PPLicense.packages(), text: document.getElementById("pkgSettings").textContent, saved: window.__sent.filter((m) => m.type === "packages").pop() }));
     assert.equal(wiz, null); assert.equal(open, true); assert.match(refused, /website isn't open\. Use the default key for now/);
-    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pads", "pedals", "plugins"]); assert.match(r.text, /Default package \(temporary\)/);
+    assert.equal(r.list.length, 1); assert.deepEqual(Object.keys(r.list[0].plans).sort(), ["instrument", "keys", "pads", "pedals", "plugins", "utility"]); assert.match(r.text, /Default package \(temporary\)/);
     assert.ok(r.saved && r.saved.packages[0].key === "SDEF-AULT-KEY0-2026", "kept with the pedal's driver");
     await p4.close(); fs.rmSync(tmp4, { force: true });
   });
   await p2.close(); srv.close(); fs.rmSync(tmpPage, { force: true });
 }
 
-await browser.close();
+await browser.close(); site.close();
 console.log(failures ? `\n${failures} check(s) FAILED` : "\nAll app checks passed.");
 process.exit(failures ? 1 : 0);

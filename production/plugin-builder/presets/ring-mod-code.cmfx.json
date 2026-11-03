@@ -1,0 +1,10 @@
+{
+  "format": "central-fx", "version": 1, "name": "Ring Modulator (code)", "author": "Motion Audio",
+  "description": "Multiplies the sound by a sine wave for bell-like, metallic tones. A code example with its own oscillator.",
+  "params": [
+    { "id": "freq", "name": "Frequency", "min": 20, "max": 2000, "default": 220, "unit": "Hz", "curve": "log" },
+    { "id": "amount", "name": "Amount", "min": 0, "max": 1, "default": 0.7 }
+  ],
+  "graph": { "blocks": [], "wires": [] },
+  "code": "// Ring modulator: a sine oscillator multiplied with the input.\n@sample\nph += freq / srate\nph -= floor(ph)\nm = sin(2 * pi * ph)\noutL = mix(inL, inL * m, amount)\noutR = mix(inR, inR * m, amount)\n"
+}

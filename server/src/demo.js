@@ -42,7 +42,7 @@ export function demoPurchase() {
   const packages = Object.entries(DEMO_PACKAGES).map(([key, plans]) => {
     const ids = PLAN_IDS.filter((id) => withPads(plans).includes(id));
     const all = PLAN_IDS.every((id) => ids.includes(id));
-    return { key: pretty(key), planIds: ids, plans: all ? "All sound plans (with Central Pads)" : ids.map((id) => PLANS[id].name).join(", ") };
+    return { key: pretty(key), planIds: ids, plans: all ? "All plans (with Central Pads and Central Utility)" : ids.map((id) => PLANS[id].name).join(", ") };
   });
   return { church: DEMO_CHURCH, apps, packages };
 }

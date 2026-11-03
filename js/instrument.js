@@ -112,7 +112,7 @@
   function isComm(item) { return !!(item && item.plugin && item.plugin.community); }
   function playsHere(item) { return isComm(item) ? commHost() : plugHost(); }
   var BYPASS = { crashed: "It crashed, so it’s bypassed – the sound goes on without it.", hung: "It stopped responding, so it’s bypassed – the sound goes on without it.", heavy: "It’s too heavy for this device, so it’s bypassed – the sound goes on without it.", revoked: "Motion Audio took it down, so it’s off and has come off this device.", off: "Community plugins are switched off on this device (Settings → Packages → Community).", stopped: "It stopped, so it’s bypassed." };
-  function commLabel(pl) { return "Community plugin - made by " + (pl.creator || pl.vendor || "a creator") + ", checked by Motion Audio"; }
+  function commLabel(pl) { return pl.mine ? "Your plugin - made in Central Production" : "Community plugin - made by " + (pl.creator || pl.vendor || "a creator") + ", checked by Motion Audio"; }
 
   // ------------------------------------------------------------- plugin port info (generated from the OS image: js/plugin-ports.js; the Pi's live scan wins when present)
   var PORTS = window.PP_PLUGIN_PORTS || {}, KNOBS = window.PP_PEDAL_KNOBS || {};
@@ -182,7 +182,7 @@
       '<label>Dry guitar <span class="control-line"><input type="range" id="paDry" min="0" max="100" step="1" value="' + Math.round((pa.dry || 0) * 100) + '"><output>' + Math.round((pa.dry || 0) * 100) + "%</output></span></label>" +
       '<label>Sensitivity <span class="control-line"><input type="range" id="paSens" min="0" max="100" step="1" value="' + Math.round((pa.sensitivity == null ? 0.5 : pa.sensitivity) * 100) + '"><output>' + Math.round((pa.sensitivity == null ? 0.5 : pa.sensitivity) * 100) + "</output></span></label>" +
       '<label>Level <span class="control-line"><input type="range" id="paVol" min="0" max="150" step="1" value="' + Math.round((pa.volume == null ? 1 : pa.volume) * 100) + '"><output>' + Math.round((pa.volume == null ? 1 : pa.volume) * 100) + "%</output></span></label></div>" +
-      '<p class="muted small">Footswitch: Configure → "Play any sound on / off". Play cleanly for the best tracking: higher Sensitivity hears softer playing, lower ignores string noise.</p></section>';
+      '<p class="muted small">Footswitch: set one to "Play any sound on / off" under Controls. Play cleanly for the best tracking: higher Sensitivity hears softer playing, lower ignores string noise.</p></section>';
   }
   // ---- keys layers: up to 8 sounds at once (piano + pad + strings…), each with its own volume, pan, octave, key range and velocity range
   var MAX_LAYERS = 8;
@@ -228,7 +228,7 @@
   function plugSvg(item, pedal, idx, sel) {
     var pl = pedal.plugin, w = 150, h = 190, on = item.on !== false, info = slotInfo(item.uid), err = slotError(item.uid), host = playsHere(item), cm = !!pl.community, byp = info && info.bypassed;
     var state = !host ? (cm ? "not on this device" : "here: preview") : err ? "didn’t load" : byp ? "bypassed" : info ? (info.instrument ? "instrument" : "ready") : "loading…";
-    var vendor = cm ? "by " + String(pl.creator || pl.vendor || "a creator") : String(pl.vendor || ""), nm = pedal.name, chip = cm ? "Community" : fmtName(pl.format);
+    var vendor = cm ? (pl.mine ? "made by you" : "by " + String(pl.creator || pl.vendor || "a creator")) : String(pl.vendor || ""), nm = pedal.name, chip = cm ? (pl.mine ? "Yours" : "Community") : fmtName(pl.format);
     return '<svg class="pedal plug' + (cm ? " community" : "") + (sel ? " selected" : "") + (on ? "" : " off") + (err || byp ? " err" : "") + '" viewBox="0 0 ' + w + " " + h + '" data-uid="' + item.uid + '" role="button" tabindex="0" aria-label="' + esc(nm + (cm ? " (community plugin, walled off)" : " (" + fmtName(pl.format) + " plugin)") + (byp ? ", bypassed" : "")) + '">' +
       '<defs><linearGradient id="g' + item.uid + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + (cm ? "#47b9a8" : "#8d80e6") + '"/><stop offset="1" stop-color="' + (cm ? "#1f6d63" : "#4b3f9e") + '"/></linearGradient></defs>' +
       '<rect x="3" y="3" width="' + (w - 6) + '" height="' + (h - 6) + '" rx="12" fill="url(#g' + item.uid + ')" stroke="' + (sel ? "#fff" : "rgba(0,0,0,.5)") + '" stroke-width="' + (sel ? 3 : 1.5) + '"/>' +
@@ -339,7 +339,7 @@
         '<div class="in-meter"><small>IN</small><div class="vu-bar"><i id="inVu" style="width:100%"></i></div><b id="inTuner">–</b></div><button class="pf-btn" id="inAuto" title="Sets input gain and gate from what you play and detects the instrument"><small>SET UP</small><b>AUTO</b></button><button class="pf-btn' + (tunerOn ? " on" : "") + '" id="inTunerBtn" title="Full-screen tuner for the instrument input"><small>' + (cfg().tunerMute === false ? "LIVE" : "MUTE &amp;") + '</small><b>TUNE</b></button></div>' +
         (k === "keys" ? keysPanel(c) : "") + (GUITARS[k] ? playAnyPanel(c) : "") +
         '<div class="in-boardwrap"><div class="pb-chain" id="pbChain">' + chain.map(function (item, i) { var pedal = pedalOf(item); return pedal ? '<div class="pb-slot" data-slot="' + item.uid + '">' + pedalSvg(item, pedal, i, selected === item.uid) + '<div class="pb-tools"><button data-move="' + item.uid + ':-1" title="Move left">◀</button><button data-del="' + item.uid + '" title="Remove">✕</button><button data-move="' + item.uid + ':1" title="Move right">▶</button></div></div>' : ""; }).join("") + '<button class="pb-add" id="pbAdd">＋<small>Add pedal</small></button></div></div>' +
-        (selected ? detailPanel(chain.filter(function (i) { return i.uid === selected; })[0]) : '<p class="muted">Tap a pedal to edit its knobs; tap its footswitch to bypass it. Footswitches on the board can do the same (Configure tab → "Pedal 1…8 on / off").</p>') +
+        (selected ? detailPanel(chain.filter(function (i) { return i.uid === selected; })[0]) : '<p class="muted">Tap a pedal to edit its knobs; tap its footswitch to bypass it. Footswitches on the board can do the same (set them to "Pedal 1…8 on / off" under Controls).</p>') +
         (showAdd ? addPanel() : "") + (window.PPLooper ? window.PPLooper.html() : "") +
         '<div class="in-foot muted">' + (connected() ? (status.pluginCount ? status.pluginCount + " plugins installed on this Pi · " : "") + (status.latencyMs != null ? "about " + Math.round(status.latencyMs) + " ms in to out · " : "") + (status.error ? '<b class="warn">' + esc(errText(status.error)) + '</b> <details class="in-err"><summary>Details</summary><code>' + esc(status.error) + "</code></details>" : (status.running ? "the instrument is running" : "the instrument is resting")) : "On the Central Pedal the board runs on the pedal itself. Here on a computer you can set it up and hear a preview.") +
         (status.engineAlt === "rig" ? ' · <button class="link" id="engineSwitch" data-engine="rig">Use your own plugins (VST3, CLAP, LV2): switch to the computer engine</button>' : status.engineAlt === "pedal" ? ' · <button class="link" id="engineSwitch" data-engine="pedal">Switch to the Central Pedal engine (its own LV2 pedals; your plugins rest)</button>' : "") + "</div>");
@@ -366,7 +366,7 @@
   }
   function addPanel() {
     var host = plugHost(), nPlug = plugs.list.filter(function (p) { return p.kind === "effect"; }).length, ch = commHost() && comm.list.length > 0;
-    var tabs = host || ch ? '<div class="add-tabs"><button class="st-chip' + (addTab !== "plugins" && addTab !== "community" ? " on" : "") + '" data-addtab="pedals">Built-in pedals <small>' + PED.pedals.length + "</small></button>" + (host ? '<button class="st-chip' + (addTab === "plugins" ? " on" : "") + '" data-addtab="plugins">Your plugins <small>' + (plugs.scanned ? nPlug : "…") + "</small></button>" : "") + (ch ? '<button class="st-chip' + (addTab === "community" ? " on" : "") + '" data-addtab="community">Community <small>' + comm.list.length + "</small></button>" : "") + "</div>" : "";
+    var tabs = host || ch ? '<div class="add-tabs"><button class="st-chip' + (addTab !== "plugins" && addTab !== "community" ? " on" : "") + '" data-addtab="pedals">Built-in pedals <small>' + PED.pedals.length + "</small></button>" + (host ? '<button class="st-chip' + (addTab === "plugins" ? " on" : "") + '" data-addtab="plugins">Your plugins <small>' + (plugs.scanned ? nPlug : "…") + "</small></button>" : "") + (ch ? '<button class="st-chip' + (addTab === "community" ? " on" : "") + '" data-addtab="community">' + (comm.list.some(function (p) { return p.mine; }) ? "Yours &amp; community" : "Community") + ' <small>' + comm.list.length + "</small></button>" : "") + "</div>" : "";
     if (ch && addTab === "community") {
       var cq = addQuery.toLowerCase(), cl = comm.list.map(function (p, i) { return [p, i]; }).filter(function (x) { return !cq || (x[0].name + " " + x[0].creator).toLowerCase().indexOf(cq) > -1; });
       return '<section class="in-add"><div class="row spread"><h3>Add a pedal</h3>' + tabs + '<input id="pbSearch" placeholder="Search community plugins…" value="' + esc(addQuery) + '"><button id="pbAddClose">Close</button></div>' +
@@ -378,6 +378,26 @@
     var list = PED.pedals.filter(function (p) { return (addCat === "all" || p.category === addCat) && (!q || (p.name + " " + (PED.CATEGORIES[p.category] || {}).name).toLowerCase().indexOf(q) > -1); });
     return '<section class="in-add"><div class="row spread"><h3>Add a pedal' + (host ? "" : ' <small class="muted">' + PED.pedals.length + " to choose from</small>") + "</h3>" + tabs + "<input id=\"pbSearch\" placeholder=\"Search pedals…\" value=\"" + esc(addQuery) + '"><button id="pbAddClose">Close</button></div><div class="st-nav">' + ['<button class="st-chip' + (addCat === "all" ? " on" : "") + '" data-cat="all">All</button>'].concat(cats.map(function (cid) { return '<button class="st-chip' + (addCat === cid ? " on" : "") + '" data-cat="' + cid + '">' + esc(PED.CATEGORIES[cid].name) + "</button>"; })).join("") + '</div><div class="pb-list">' + list.map(function (p) { var ok = !catalog.ready || catalog.plugins[p.uri] || p.opts.ladspa || p.opts.builtin; var lk = PED.pedalLocked && PED.pedalLocked(p); return '<button class="pb-item' + (ok ? "" : " missing") + (lk ? " locked" : "") + '" data-add="' + p.id + '" style="--pc:' + (PED.CATEGORIES[p.category] || {}).color + '"><i></i><b>' + (lk ? LOCK : "") + esc(p.name) + "</b><small>" + (lk ? esc(lockText(p.tier)) : esc((PED.CATEGORIES[p.category] || {}).name) + (ok ? "" : " · not installed")) + "</small></button>"; }).join("") + "</div></section>";
   }
+  // (10.2) Listen before you download: the sound plans' instruments that aren't playable here yet (not installed, or
+  // locked) - 30 seconds of each, streamed (js/previews.js), matching the search
+  function moreSounds(q) {
+    var L = window.PPLibraries, P = window.PPPreview; if (!L || !P) return "";
+    var st = L.state();
+    if (!st.list && !st.loading && !moreSounds.asked) { moreSounds.asked = true; L.load(false).then(function () { try { render(); } catch (_) { } }); }
+    var here = catalog.keys.filter(function (k) { return !tierLocked(k.tier); });
+    var out = [];
+    (st.list || []).forEach(function (lib) {
+      (lib.previews || []).forEach(function (pv) {
+        if (pv.kind !== "sound" || out.length >= 60) return;
+        if (q && (pv.preset + " " + pv.name).toLowerCase().indexOf(q) < 0) return;
+        if (here.some(function (k) { return P.same(k.name, pv.preset); })) return;
+        out.push({ pv: pv, plan: lib.plan });
+      });
+    });
+    if (!out.length) return "";
+    return '<details class="keys-hear"><summary class="small">Hear more sounds from the sound plans (' + out.length + (out.length >= 60 ? "+" : "") + ', 30 seconds each, before you download them)</summary><div class="pv-items">' +
+      out.map(function (o) { return '<span class="pv-item">' + P.button(o.pv, "Listen") + '<span class="pv-name">' + esc(o.pv.preset) + ' <small class="muted">' + esc(planName(o.plan)) + "</small></span></span>"; }).join("") + "</div></details>";
+  }
   function keysPanel(c) {
     var cats = {}; catalog.keys.forEach(function (p) { cats[p.category] = (cats[p.category] || 0) + 1; });
     var q = keysQuery.toLowerCase(), list = catalog.keys.filter(function (p) { return (keysCat === "all" || p.category === keysCat) && (!q || (p.name + " " + p.bank).toLowerCase().indexOf(q) > -1); }).slice(0, 400), cur = (layers(c)[layerSel] || {}).patch;
@@ -387,7 +407,7 @@
     return '<section class="in-keys"><div class="row spread"><div><h3>Sounds</h3><p class="muted">' + (catalog.keys.length ? catalog.keys.length + " sounds: grand and upright pianos, electric pianos, organs, pads, strings, leads, bells… Add your own: .sf2 SoundFonts or a folder of WAVs named by note (C4.wav, F#3.wav…) from a USB stick, or send an .sf2 from a phone or computer (Settings → Companion devices → Upload)." : connected() ? "No sound banks found yet." : "The sound list comes from the Pi.") + '</p></div><div class="row"><input id="keysSearch" placeholder="Search sounds…" value="' + esc(keysQuery) + '"><button id="keysAdd" title="Add a .sf2 SoundFont or a folder of WAV samples from a USB stick or SD card">+ Add sounds…</button></div></div>' +
       '<div class="st-nav">' + (host ? '<button class="st-chip plug-chip' + (keysCat === "__plug" ? " on" : "") + '" data-kcat="__plug">Your instruments <small>' + (plugs.scanned ? instr.length : "…") + "</small></button>" : "") + ['<button class="st-chip' + (keysCat === "all" ? " on" : "") + '" data-kcat="all">All</button>'].concat(Object.keys(cats).sort().map(function (cid) { return '<button class="st-chip' + (keysCat === cid ? " on" : "") + '" data-kcat="' + esc(cid) + '">' + esc(cid) + " <small>" + cats[cid] + "</small></button>"; })).join("") + "</div>" +
       (plist ? '<div class="keys-list">' + (plist.length ? plist.map(function (p) { return '<button class="keys-item plug-item' + (cur && cur.id === "plug:" + p.key ? " on" : "") + '" data-kplug="' + esc(p.key) + '"><b>' + esc(p.name) + "</b><small>" + esc([p.vendor, fmtName(p.format)].filter(Boolean).join(" · ")) + "</small></button>"; }).join("") : '<p class="muted">' + (plugs.scan || !plugs.scanned ? "Looking for your instrument plugins…" : instr.length ? "Nothing matches." : "No instrument plugins found on this computer yet (Kontakt, Keyscape, Pianoteq, Vital…). Install them the usual way, then Scan again in Add pedal → Your plugins.") + "</p>") + "</div>" :
-      '<div class="keys-list">' + (list.length ? list.map(function (p) { var lk = tierLocked(p.tier); return '<button class="keys-item' + (cur && cur.id === p.id ? " on" : "") + (lk ? " locked" : "") + '" data-patch="' + esc(p.id) + '"><b>' + (lk ? LOCK : "") + esc(p.name) + "</b><small>" + esc(lk ? lockText(p.tier) : p.bankName) + "</small></button>"; }).join("") : '<p class="muted">Nothing matches.</p>') + "</div>") +
+      '<div class="keys-list">' + (list.length ? list.map(function (p) { var lk = tierLocked(p.tier); return '<button class="keys-item' + (cur && cur.id === p.id ? " on" : "") + (lk ? " locked" : "") + '" data-patch="' + esc(p.id) + '"><b>' + (lk ? LOCK : "") + esc(p.name) + "</b><small>" + esc(lk ? lockText(p.tier) : p.bankName) + "</small></button>"; }).join("") : '<p class="muted">Nothing matches.</p>') + "</div>" + moreSounds(q)) +
       layersPanel(c) +
       '<div class="keys-extra"><label>Synth volume <span class="control-line"><input type="range" id="keysVolume" min="0" max="100" value="' + Math.round((c.keys.volume != null ? c.keys.volume : 0.8) * 100) + '"><output>' + Math.round((c.keys.volume != null ? c.keys.volume : 0.8) * 100) + '</output></span></label><label class="toggle"><input type="checkbox" id="keysSustain"' + (c.keys.sustain !== false ? " checked" : "") + '> Sustain pedal</label><span class="muted">Reverb, delay, chorus, compression: add them as pedals below.</span></div>' +
       '<div class="keys-kbd" id="keysKbd">' + kbd + "</div></section>";
@@ -510,7 +530,7 @@
       // the musician's own plugins
       if (b.dataset.addtab) { addTab = b.dataset.addtab; addCat = "all"; if (addTab === "plugins" && !plugs.scanned && !plugs.scan) scanPlugins(false); render(); var s2 = $("#pbSearch"); if (s2) s2.focus(); return; }
       if (b.dataset.addplug) { var pp = plugs.list.filter(function (q) { return q.key === b.dataset.addplug; })[0]; if (pp) { var pit = { uid: uid(), pedal: "plug", plugin: plugRef(pp), on: true, values: {} }; chain.push(pit); selected = pit.uid; showAdd = false; apply("add"); render(); PP.setStatus("Loading " + pp.name + "…"); } return; }
-      if (b.dataset.addcomm) { var cp = comm.list[Number(b.dataset.addcomm)]; if (cp) { var cit = { uid: uid(), pedal: "plug", plugin: { format: cp.format, id: "", path: cp.path, name: cp.name, vendor: cp.creator, community: true, creator: cp.creator, library: cp.library }, on: true, values: {} }; chain.push(cit); selected = cit.uid; showAdd = false; apply("add"); render(); PP.setStatus("Starting " + cp.name + " (walled off)…"); } return; }
+      if (b.dataset.addcomm) { var cp = comm.list[Number(b.dataset.addcomm)]; if (cp) { var cit = { uid: uid(), pedal: "plug", plugin: { format: cp.format, id: "", path: cp.path, name: cp.name, vendor: cp.mine ? "You" : cp.creator, community: true, creator: cp.creator, library: cp.library, mine: !!cp.mine }, on: true, values: {} }; chain.push(cit); selected = cit.uid; showAdd = false; apply("add"); render(); PP.setStatus("Starting " + cp.name + " (walled off)…"); } return; }
       if (b.dataset.plugretry) { send({ type: "instrument", action: "pluginRestart", uid: b.dataset.plugretry }); PP.setStatus("Trying it again…"); return; }
       if (b.dataset.plugwin || b.dataset.klwin) { var wid = b.dataset.plugwin || b.dataset.klwin, si = slotInfo(wid), isOpen = !!(plugs.open[wid] || (si && si.open)); send({ type: "instrument", action: "pluginEditor", uid: wid, open: !isOpen }); plugs.open[wid] = !isOpen; render(); return; }
       if (b.id === "plugScan") { scanPlugins(true); return; }
@@ -766,6 +786,8 @@
     // (10.1) the community plugins installed with them (Add pedal → Community); one whose library is gone (removed, or taken
     // down by Motion Audio) comes off every board - the engine has already stopped it live
     comm.list = [];
+    // (10.2) and the plugins you made in Central Production (a personal library's Central FX): yours, on the same stage
+    Object.keys(want).forEach(function (id) { var l = want[id]; (Array.isArray(l.fx) ? l.fx : []).forEach(function (x) { if (x && x.file) comm.list.push({ name: String(x.name || "My plugin"), format: "cmfx", path: x.file, creator: "you", library: id, mine: true }); }); });
     Object.keys(want).forEach(function (id) { var l = want[id]; if (!l.community || !Array.isArray(l.plugins)) return; l.plugins.forEach(function (p) { if (p && p.path && p.format) comm.list.push({ name: String(p.name || p.bundle || "Plugin"), format: p.format, path: p.path, creator: String(l.community.creator || ""), library: id }); }); });
     var gone = 0; Object.keys(c.chains || {}).forEach(function (kk) { var ch = c.chains[kk]; if (!Array.isArray(ch)) return; var keep = ch.filter(function (it) { return !(isComm(it) && it.plugin.library && !want[it.plugin.library] && c.libs[it.plugin.library] !== undefined); }); gone += ch.length - keep.length; c.chains[kk] = keep; });
     if (gone) { changed++; if (kind() !== "off") apply("community"); PP.setStatus(gone === 1 ? "A community plugin came off your board (it isn’t installed here any more)." : gone + " community plugins came off your boards (they aren’t installed here any more)."); }

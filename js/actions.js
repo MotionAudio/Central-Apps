@@ -185,10 +185,10 @@
   def("stepVolume", "Encoder: master volume", "Pads", "step", function (a, d) { PP.setPerformance("volume", project().performance.volume + d * .03); });
 
   // ---- tabs: next / previous, or straight to one (the top row: LIVE · PAD · TRACKS · INSTRUMENT · … · SETTINGS)
-  var TAB_NAMES = { live: "LIVE", pads: "Pad", tracks: "Tracks", instrument: "Instrument", looper: "Looper", configure: "Configure", learn: "Learn", io: "I/O", settings: "Settings" };
+  var TAB_NAMES = { live: "Live", pads: "Pad", tracks: "Tracks", instrument: "Instrument", looper: "Looper", configure: "Controls", learn: "Learn", io: "I/O", settings: "Settings" };
   function curTab() { return window.PPShell ? window.PPShell.currentTab() : "pads"; }
   function showTab(t) { if (window.PPShell) window.PPShell.showTab(t); }
-  function tabOrder() { var list = Array.prototype.map.call(document.querySelectorAll(".nav-tab[data-tab]"), function (b) { return b.getClientRects().length ? b.dataset.tab : null; }).filter(Boolean); return list.length ? list : Object.keys(TAB_NAMES); }
+  function tabOrder() { var list = Array.prototype.map.call(document.querySelectorAll(".nav-tab[data-tab]"), function (b) { return b.getClientRects().length || b.classList.contains("nav-settings-tab") ? b.dataset.tab : null; }).filter(Boolean); return list.length ? list : Object.keys(TAB_NAMES); }   // (10.2: Settings is the ⚙ button, its tab hidden, still in the order)
   function stepTab(d) { var o = tabOrder(), i = o.indexOf(curTab()); showTab(o[((i < 0 ? 0 : i) + (d < 0 ? -1 : 1) + o.length) % o.length]); }
   def("tabNext", "Tabs: next tab", "Tabs", "trigger", function () { stepTab(1); });
   def("tabPrev", "Tabs: previous tab", "Tabs", "trigger", function () { stepTab(-1); });

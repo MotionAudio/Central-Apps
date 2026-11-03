@@ -75,12 +75,13 @@ try {
   ok(r._status === 400 && /rights/.test(r.error), "...and the rights confirmed", r);
   r = await j("POST", "/creator/items", { kind: "sample", title: "Felt", rights: true }, ana.tok);
   ok(r._status === 400 && /Central Keys or Central Instrument/.test(r.error), "samples: the creator picks Central Keys or Central Instrument", r);
-  r = await send(ana.tok, { kind: "loop", title: "Ambient Swells", bpm: 72, bars: 2, key: "D", tags: "ambient, warm", rights: true }, [{ role: "source", name: "swells.wav", data: wav(3.3) }]);
-  ok(r._status === 400 && /demo clip/.test(r.error), "a loop without a demo clip isn't sent", r);
+  r = await send(ana.tok, { kind: "loop", title: "Bare Swells", bpm: 72, bars: 2, key: "D", rights: true }, [{ role: "source", name: "bare.wav", data: wav(3.3) }]);
+  ok(r._status === 200 && r.item.status === "waiting" && r.item.checks.some((c) => /Preview: 30 seconds made from the files/.test(c.text)) && /^http/.test(r.item.preview || ""), "a loop without a demo clip (10.2): its 30-second preview is made from the loop itself", r);
+  ok(!!(await one("SELECT 1 FROM previews WHERE owner=$1", ["community:" + r.id])), "...and kept on the website");
+  await j("POST", "/creator/items/" + r.id + "/remove", {}, ana.tok);   // (the rest of this test counts without it)
+  r = await send(ana.tok, { kind: "loop", title: "Ambient Swells", bpm: 72, bars: 2, key: "D", tags: "ambient, warm", rights: true }, [{ role: "source", name: "swells.wav", data: wav(3.3) }, { role: "demo", name: "demo.wav", data: wav(4, 330) }]);
   const loopId = r.id;
-  let u = await j("POST", "/creator/items/" + loopId + "/upload", { role: "demo", name: "demo.wav", size: 1000 }, ana.tok); await put(u.url, wav(4, 330));
-  r = await j("POST", "/creator/items/" + loopId + "/submit", {}, ana.tok);
-  ok(r._status === 200 && r.item.status === "waiting" && r.item.checks.some((c) => /1 WAV loop at 72 BPM in D/.test(c.text)) && r.item.autoStars >= 1, "with the demo it's checked, packaged and waiting for review (the demo's sound quality suggests stars)", r);
+  ok(r._status === 200 && r.item.status === "waiting" && r.item.checks.some((c) => /1 WAV loop at 72 BPM in D/.test(c.text)) && r.item.autoStars >= 1 && r.item.checks.some((c) => /Preview: 30 seconds from the demo clip/.test(c.text)), "with the demo it's checked, packaged and waiting for review (the demo's sound quality suggests stars; the preview is cut from it)", r);
   ok((await j("GET", "/community/" + loopId))._status === 404 && (await j("GET", "/community/" + loopId, null, ana.tok))._status === 200 && (await j("GET", "/community")).items.length === 0, "nothing is in the community list before review");
   r = await j("POST", "/community/" + loopId + "/download", { key: pkey });
   ok(r._status === 410, "...and it can't be downloaded", r);
@@ -242,7 +243,8 @@ try {
   ok((await C.sharePacks(M)).already === true, "a month is worked out once (safe to run twice)");
   ok(C.splitPayment(24000, ["keys", "plugins", "instrument", "pedals", "pads"]).pads === 24000 * 4000 / 42000, "a bundle splits by the plans' prices");
   await C.reversePlanPayment("in_keys");
-  ok((await C.packIncome("2026-10")).keys === 0 && (await one("SELECT reversed FROM plan_payments WHERE invoice_id='in_keys'")).reversed, "a refund or chargeback: the payment stops counting from then on (months already shared stay as they were)");
+  const nowM = new Date().toISOString().slice(0, 7);   // (refunded today: this month on no longer counts it - in_keys, paid in August, would still be counting)
+  ok((await C.packIncome(nowM < "2027-08" ? nowM : "2027-07")).keys === 0 && (await one("SELECT reversed FROM plan_payments WHERE invoice_id='in_keys'")).reversed, "a refund or chargeback: the payment stops counting from then on (months already shared stay as they were)");
   await C.recordPlanPayment({ id: "in_hook", amount_paid: 7000, status_transitions: { paid_at: Math.floor(Date.parse("2026-08-10") / 1000) } }, null, ["keys"]);
   ok((await one("SELECT plans FROM plan_payments WHERE invoice_id='in_hook'")).plans.join() === "keys,pads", "a plan's invoice.paid is kept with its plans (Central Pads with every plan)");
 
@@ -264,10 +266,9 @@ try {
   ok(transfers.length === 1, "running it again pays nothing twice");
 
   console.log("the pages:");
-  for (const p of ["/create/", "/studio/", "/create/maker.css", "/create/upload.js", "/studio/studio-publish.js", "/studio/lib/studio-engine.js", "/studio/lib/fx-dsp.js"]) ok((await fetch(base + p)).status === 200, p);
-  const studioSrc = (f) => fs.readFileSync(path.join(here, "..", "..", f));
-  ok(["central-usage/app/studio-engine.js", "central-usage/app/studio-ui.js", "central-usage/app/studio-midi.js", "central-usage/app/studio-sf2.js", "central-usage/app/studio-sounds.js", "central-usage/app/studio.css", "js/fx-dsp.js"]
-    .every((f) => studioSrc(f).equals(fs.readFileSync(path.join(here, "..", "public", "studio", "lib", path.basename(f))))), "the web studio's files are the app's own (copy them again when the app's change: server/public/studio/lib)");
+  for (const p of ["/create/", "/studio/", "/production/", "/create/maker.css", "/create/upload.js", "/daw/daw-engine.js", "/production/prod-core.js"]) ok((await fetch(base + p)).status === 200, p);
+  // (10.2) Central Production's copies of the shared files are the apps' own
+  ok(["pedals.js", "license.js"].every((f) => fs.readFileSync(path.join(here, "..", "..", "js", f)).equals(fs.readFileSync(path.join(here, "..", "public", "production", "shared", f)))), "Central Production's shared/ files are the apps' own (copy js/pedals.js and js/license.js again when they change)");
 
   // the pages in a real browser: the creator page, the studio's Publish, the review site
   try { browser = await createRequire(import.meta.url)("playwright").chromium.launch(); } catch (e) { console.log("  (no Playwright: the page checks are skipped) " + e.message); }
@@ -284,23 +285,24 @@ try {
     ok(/\$4\.73/.test(await pg2.locator("main").innerText()), "Earnings: paid so far and the statements");
     if (shots) await pg2.screenshot({ path: path.join(shots, "create-earnings.png"), fullPage: true });
     await pg2.click("[data-tab=upload]"); await pg2.click("[data-kind=plugin]");
-    ok((await pg2.locator("input[type=file][data-platform]").count()) === 4, "Upload: a plugin takes one zip per platform");
+    ok((await pg2.locator("input[type=file][data-platform]").count()) === 5, "Upload: a plugin takes one zip per platform (and a Central FX .cmfx.json for every device)");
     if (shots) await pg2.screenshot({ path: path.join(shots, "create-upload-plugin.png"), fullPage: true });
     await pg2.click("[data-kind=loop]");
     if (shots) await pg2.screenshot({ path: path.join(shots, "create-upload-loop.png"), fullPage: true });
-    // the studio: a clip on the timeline, rendered and published as a loop
+    // Central Production in the browser (the old /studio/ sends people there): a loop made on the timeline, rendered and
+    // published to Make & sell (waiting for review)
     await pg2.goto(base + "/studio/");
-    await pg2.waitForSelector("#view-studio .st-top");
-    await pg2.evaluate(() => { const S = window.CUStudio; S.edit("test clip", (p) => { const c = S.newClip("midi", 4); c.notes = [{ p: 60, v: 100, s: 0, d: 1 }, { p: 64, v: 100, s: 1, d: 1 }, { p: 67, v: 100, s: 2, d: 2 }]; p.clips[c.id] = c; p.arrangement.push({ track: p.tracks[0].id, clip: c.id, start: 0, len: 8 }); }); });
-    await pg2.fill("#pName", "Studio Sketch"); await pg2.check("#pRights");
-    await pg2.evaluate(() => window.scrollTo(0, 0));
-    if (shots) await pg2.screenshot({ path: path.join(shots, "studio.png"), fullPage: true });
-    await pg2.click("#pSend");
-    await pg2.waitForFunction(() => /waiting for review|Sent|didn't|isn't|error/i.test(document.getElementById("pErr").textContent), null, { timeout: 60000 });
-    const said = await pg2.locator("#pErr").innerText();
+    await pg2.waitForFunction(() => window.CP && window.CDaw && document.querySelector("#npForm"), null, { timeout: 20000 });
+    await pg2.fill("#npName", "Studio Sketch"); await pg2.selectOption("#npBars", "2"); await pg2.click("#npForm .primary");
+    await pg2.waitForSelector(".cdaw .cd-tname");
+    await pg2.evaluate(() => { const D = window.CDaw, t = D.project().tracks.find((x) => x.name === "Keys"); D.edit("test clip", () => { D.track(t.id).clips.push({ id: "c1", kind: "midi", start: 0, len: 8, notes: [{ p: 60, v: 100, s: 0, d: 1 }, { p: 64, v: 100, s: 1, d: 1 }, { p: 67, v: 100, s: 2, d: 2 }] }); }); });
+    if (shots) await pg2.screenshot({ path: path.join(shots, "production-loop.png") });
+    await pg2.evaluate(() => window.CPPublish.open()); await pg2.waitForSelector("#pbForm"); await pg2.check("#pbRights"); await pg2.click("#pbSend");
+    await pg2.waitForFunction(() => /Sent for review/.test(document.querySelector("#cpModal").textContent) || (document.getElementById("pbErr") || {}).textContent, null, { timeout: 90000 });
+    const said = await pg2.evaluate(() => document.querySelector("#cpModal").textContent);
     const made = await one("SELECT * FROM community_items WHERE title='Studio Sketch'");
-    ok(/waiting for review/.test(said) && made && made.made_in_studio && made.kind === "loop" && made.status === "waiting" && Number(made.bpm) === 100 && made.bars === 2, "the studio's Publish renders the timeline to a WAV loop and sends it into the upload flow (waiting for review)", { said, made });
-    if (shots) await pg2.screenshot({ path: path.join(shots, "studio-published.png"), fullPage: true });
+    ok(/Sent for review/.test(said) && made && made.made_in_studio && made.kind === "loop" && made.status === "waiting" && Number(made.bpm) === 100 && made.bars === 2, "Central Production's Publish renders the timeline to a WAV loop and sends it into the upload flow (waiting for review)", { said, made });
+    if (shots) await pg2.screenshot({ path: path.join(shots, "production-published.png") });
     // the review site, as the review admin
     const pg3 = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     pg3.on("pageerror", (e) => errs.push(String(e)));

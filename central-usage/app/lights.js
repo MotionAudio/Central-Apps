@@ -475,6 +475,7 @@
       for (var c = 0; c < cells; c++) {
         var st = base.p >= 1 ? stateFor(base.to, f, idx, n, beats, c, cells) : mix(stateFor(base.from, f, idx, n, beats, c, cells), stateFor(base.to, f, idx, n, beats, c, cells), base.p);
         if (cueOver[f.id]) st = mix(st, overState(st, cueOver[f.id]), cueOver[f.id].p);
+        if (window.CULightsProg) st = window.CULightsProg.apply(st, f, base, beats, t, idx);   // (10.2: what the scene programmed for this light - lights-programmer.js)
         if (live.over[f.id]) st = overState(st, live.over[f.id]);
         if (mods) { var kf = kindOf(f), mk = (kf === "mover" || kf === "bar" || kf === "strobe" || kf === "blinder") && f.group !== "front" && f.group !== "house" ? kf : f.group; st.dim *= mods[mk] == null ? 1 : mods[mk]; }
         else if (lvl != null && f.group !== "house" && f.group !== "haze") st.dim *= (1 - amt) + amt * (0.35 + 0.65 * lvl);
@@ -486,6 +487,7 @@
         var gl = rig.groupLevel[f.group] == null ? 1 : rig.groupLevel[f.group], m = live.blackout ? 0 : (rig.master == null ? 1 : rig.master) * gl;
         st.dim *= m; st.haze *= live.blackout ? 0 : gl;
         if (live.identify && now < live.identify.until) { var on = f.id === live.identify.id && Math.floor(now / 250) % 2 === 0; st = { dim: on ? 1 : 0, r: 1, g: 1, b: 1, w: 1, a: 0, uv: 0, strobe: 0, pan: 0.5, tilt: 0.5, haze: 0 }; }
+        if (window.CULightsProg) st = window.CULightsProg.limit(st, f);   // (10.2: the light's own settings - movable, limits, curve, calibration)
         states.push(st);
       }
       colors[f.id] = cells === 1 ? states[0] : average(states); cellColors[f.id] = states;
@@ -519,6 +521,7 @@
       var src = cells > 1 && count[type] === cells ? per[nth - 1] : whole;   // (repeated once per cell: that cell's; otherwise the whole light's)
       if (type === "pan") v = pan16 >> 8; else if (type === "panf") v = pan16 & 255; else if (type === "tilt") v = tilt16 >> 8; else if (type === "tiltf") v = tilt16 & 255;
       else v = Math.round(clamp(src[type] == null ? 0 : src[type], 0, 1) * 255);
+      if (window.CUFixtureMap) v = window.CUFixtureMap.channel(f, p, i, type, src, v);   // (10.2: what a real light's channel needs - fixture-map.js)
       data[addr] = v;
     }
   }
@@ -1320,7 +1323,7 @@
     lt.addEventListener("click", function (e) {
       var b = e.target.closest("button"); if (!b) return; var row = b.closest("[data-lt-id]"), id = row && row.dataset.ltId;
       if (b.dataset.lt === "follow" && id) { delete live.over[id]; renderLights(); }
-      else if (b.dataset.lt === "find" && id) live.identify = { id: id, until: performance.now() + 2500 };
+      else if (b.dataset.lt === "find" && id) { live.identify = { id: id, until: performance.now() + 2500 }; flashed(b); }
       else if (b.dataset.lt === "clear") { live.over = {}; renderLights(); }
       else if (b.dataset.lt === "cue") { var ids = Object.keys(live.over); if (!ids.length) return alert("Change a light's colour or level first."); if (!show.song) return; var at = snapTime(playingNow() ? posNow() : 0), fx = {}; ids.forEach(function (i2) { fx[i2] = Object.assign({}, live.over[i2]); }); var cue = { id: uid(), bar: at.bar, beat: at.beat, kind: "fixture", fixtures: fx, fade: 0.5 }; show.cues.push(cue); sortCues(show.cues); selectedCue = cue; if (show.mode === "auto") show.mode = "semi"; live.over = {}; renderLights(); changed(); }
     });
@@ -1398,10 +1401,12 @@
       else { f[k] = e.target.value; if (k === "profile" && f.profile === "custom" && !f.channels) f.channels = ["dim", "r", "g", "b"]; }
       saveRig(); renderFixtures(); $("#lxPlot").dataset.n = "";
     });
+    // "Find" flashes the light for 2.5 s; the button says so, so it never looks like nothing happened
+    function flashed(btn) { if (!btn || btn.dataset.was) return; btn.dataset.was = btn.textContent; btn.textContent = "Flashing…"; setTimeout(function () { btn.textContent = btn.dataset.was; delete btn.dataset.was; }, 2500); }
     $("#lxFixTable").addEventListener("click", function (e) {
       var row = e.target.closest("[data-fx]"), f = row && rig.fixtures.filter(function (q) { return q.id === row.dataset.fx; })[0], k = e.target.dataset.ff; if (!f) return;
       if (k === "del") { rig.fixtures.splice(rig.fixtures.indexOf(f), 1); saveRig(); renderFixtures(); $("#lxPlot").dataset.n = ""; }
-      else if (k === "identify") { live.identify = { id: f.id, until: performance.now() + 2500 }; }
+      else if (k === "identify") { live.identify = { id: f.id, until: performance.now() + 2500 }; flashed(e.target); }
     });
     $("#lxRigSave").addEventListener("click", function () { var text = JSON.stringify({ format: "central-usage-rig", version: 3, fixtures: rig.fixtures, looks: rig.looks, outputs: rig.outputs, library: rig.library || [], stage: rig.stage }, null, 1); if (window.CU && window.CU.saveFile) window.CU.saveFile("lighting-rig.json", text); else { var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = "lighting-rig.json"; a.click(); } });
     $("#lxRigOpen").addEventListener("click", async function () { var text = window.CU && window.CU.openFile ? await window.CU.openFile() : null; if (!text) return; try { var j = JSON.parse(text); if (j.format !== "central-usage-rig") throw new Error("not a Central Control rig"); rig.fixtures = j.fixtures || []; rig.looks = j.looks && j.looks.length ? j.looks : BUILTIN(); if (Array.isArray(j.outputs)) rig.outputs = j.outputs; else if (j.output) rig.outputs = [Object.assign({ universe: 1 }, j.output)]; if (j.library) rig.library = j.library; if (j.stage) rig.stage = Object.assign(defaultStage(), j.stage); ensurePlaced(); saveRig(); applyOutput(); renderAll(); if (window.CULights3D) window.CULights3D.rebuild(); } catch (err) { alert("Could not open it: " + err.message); } });
@@ -1499,4 +1504,6 @@
     // 10.0.1
     pause: pauseShow, paused: function () { return paused; }, quick: function () { return rig.quick.slice(); }, setQuick: setQuick, sets: function () { return show.sets; }, secPresetIds: secPresetIds, nowSecKey: nowSecKey, renderSecPresets: renderSecPresets,
     importSetlist: importSetlist, useSet: useSet, saveSet: saveSet, curSet: curSet, addScene: function (lookId) { addScene(editTarget(), lookId); }, stageSize: stageSize, remoteCommand: remoteCommand, faderIds: faderIds };
+  // (10.2) for the fixture picker, the scene programmer and the fixture settings (fixture-picker.js, lights-programmer.js)
+  Object.assign(window.CULights, { editTarget: editTarget, saveEdit: saveEdit, dirty: dirty, renderSongs: renderSongs, renderFixtures: renderFixtures, renderLooks: renderLooks, cueTime: cueTime, lookById: lookById, saveRig: saveRig, kindOf: kindOf, fillAddProfiles: fillAddProfiles, GROUPS: GROUPS, FX: FX, selectedSong: function () { return songSel; } });
 })();

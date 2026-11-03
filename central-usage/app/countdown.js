@@ -26,6 +26,7 @@
   function mine(it, roles) { return it.roles.filter(function (r) { return roles.indexOf(r) >= 0; }); }
   // the next time a service starts (its weekday and time, this week or next)
   function nextStart(sv, t) {
+    if (sv.date) { var ds = sv.date.split("-").map(Number), tp = sv.time.split(":").map(Number); return new Date(ds[0], ds[1] - 1, ds[2], tp[0], tp[1], 0, 0).getTime(); }   // (10.2: a run sheet for one date)
     var d = new Date(t), p = sv.time.split(":").map(Number), c = new Date(d.getFullYear(), d.getMonth(), d.getDate(), p[0], p[1], 0, 0);
     var add = (sv.day - d.getDay() + 7) % 7; c.setDate(c.getDate() + add);
     if (c.getTime() < t - 60000) c.setDate(c.getDate() + 7);
@@ -50,6 +51,7 @@
     var best = null;
     st.services.forEach(function (sv) {
       var at = nextStart(sv, t), uses = sv.roles.some(function (r) { return roles.indexOf(r) >= 0; });
+      if (at < t - 3 * 3600000) return;   // (a run sheet for a date that's gone)
       if (!best || (uses && !best.uses) || (uses === best.uses && at < best.at)) best = { sv: sv, at: at, uses: uses };
     });
     if (!best) return null;
@@ -87,18 +89,18 @@
   function toast(t) { if (window.CURoles && window.CURoles.toast) window.CURoles.toast(t); }
   // the whole run order, this computer's parts marked
   function pop(refresh) {
-    var o = compute(), p = $(".cd-pop");
+    var o = compute(), p = $(".cdn-pop");
     if (!o) { if (p) p.remove(); popOpen = false; return; }
-    if (!p) { if (refresh) return; p = document.createElement("div"); p.className = "cd-pop"; document.body.appendChild(p); }
+    if (!p) { if (refresh) return; p = document.createElement("div"); p.className = "cdn-pop"; document.body.appendChild(p); }
     var acc = 0, roles = myRoles();
-    p.innerHTML = "<b>" + esc(o.sv.name) + "</b> <small class=\"muted\">" + (window.CUServices ? window.CUServices.DAYS[o.sv.day] : "") + " " + esc(o.sv.time) + "</small><table>" + o.sv.items.map(function (it, i) {
+    p.innerHTML = "<b>" + esc(o.sv.name) + "</b> <small class=\"muted\">" + (o.sv.date ? esc(o.sv.date) : window.CUServices ? window.CUServices.DAYS[o.sv.day] : "") + " " + esc(o.sv.time) + "</small><table>" + o.sv.items.map(function (it, i) {
       var row = '<tr class="' + (o.running && i === o.curIdx ? "now " : "") + (mine(it, roles).length ? "mine" : "") + '"><td>+' + fmt(acc) + "</td><td>" + esc(it.title) + "</td><td>" + esc(roleTag(it)) + "</td><td>" + it.minutes + " min</td></tr>"; acc += it.minutes * 60; return row;
     }).join("") + "</table>";
     popOpen = true;
   }
   document.addEventListener("click", function (e) {
-    if (e.target.closest && e.target.closest("#cdChip")) { if ($(".cd-pop")) { $(".cd-pop").remove(); popOpen = false; } else pop(false); return; }
-    if (!(e.target.closest && e.target.closest(".cd-pop")) && $(".cd-pop")) { $(".cd-pop").remove(); popOpen = false; }
+    if (e.target.closest && e.target.closest("#cdChip")) { if ($(".cdn-pop")) { $(".cdn-pop").remove(); popOpen = false; } else pop(false); return; }
+    if (!(e.target.closest && e.target.closest(".cdn-pop")) && $(".cdn-pop")) { $(".cdn-pop").remove(); popOpen = false; }
   });
   // recording a service: on the audio host, when a service with "Record it" starts / ends
   function recorder() { return (CU.recorder) || (window.CU && window.CU.recorder) || window.CURecorder || null; }

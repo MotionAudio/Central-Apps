@@ -11,7 +11,7 @@
 (function () {
   "use strict";
   var CU = window.CentralUsage, NAT = window.CU; if (!CU) return;
-  var ROUTED = { cuRole: 1, service: 1 };              // these go to the center only
+  var ROUTED = { cuRole: 1, service: 1, precheck: 1, confidence: 1 };   // these go to the center only (10.2: the pre-service check, the confidence monitor)
   var BOTH = { audioHost: 1 };                         // these go to both (phones opened from the Central Pedal find the audio host there)
   var sock = null, target = null, retry = 0, pinger = 0, finding = false, rtt = null, lastView = null, pedalTried = "";
   var fromCenter = CU.web && location.port && location.port !== "8080";   // this page came from the main admin's computer

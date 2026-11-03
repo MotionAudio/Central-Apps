@@ -22,7 +22,7 @@
   <div class="card">
     <h2>3. Chord chart / lyrics</h2>
     <div class="dropzone" id="dzChart">Drop a PDF, a photo of the chart, or a text / ChordPro file here, or <button id="pickChart">choose a file</button><br><small>Section names (Verse, Chorus, Bridge…) become sections; chord lines are dropped for the projector lyrics.</small></div>
-    <input type="file" id="fileChart" accept=".pdf,.png,.jpg,.jpeg,.txt,.cho,.chopro,.crd,.pro,.onsong,image/*,application/pdf,text/plain" hidden>
+    <input type="file" id="fileChart" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.avif,.heic,.heif,.tif,.tiff,.txt,.cho,.chopro,.crd,.pro,.onsong,image/*,application/pdf,text/plain" hidden>
     <details style="margin-top:10px"><summary class="muted">Or paste the chart text</summary><textarea id="chartText" rows="8" style="width:100%;margin-top:8px;background:#0E1013;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px" placeholder="[Verse 1]&#10;G        C&#10;Amazing grace…"></textarea><div class="row" style="margin-top:8px"><button class="primary" id="sendText">Send text chart</button></div></details>
   </div>
   <div class="card">
@@ -38,6 +38,7 @@
   <div class="card"><h2>Uploads</h2><div id="log"><p class="muted">Nothing sent yet.</p></div></div>
 </div>
 <script src="common.js"></script>
+<script src="pictures.js"></script>
 <script>
 (function () {
   var C = window.PPCompanion, esc = C.esc, $ = function (s) { return document.querySelector(s); };
@@ -54,7 +55,18 @@
       xhr.send(file);
     });
   }
-  async function sendAll(kind, files) { var song = songName(); for (var i = 0; i < files.length; i++) await upload(kind, files[i], song || (kind === "charts" ? "" : files[i].name.replace(/\.[^.]+$/, "").replace(/[-_ ]*(click|guide|drums|bass|keys|gtr|guitar|vox|vocals|pad|loop|perc|stem)\d*$/i, ""))); }
+  // (10.2) a chart that's a picture: this browser makes it a JPEG or PNG first (turned upright, at most 3840 px), so the
+  // Central Pedal can show any common picture - a WebP, a phone's HEIC (where this browser opens it), a TIFF
+  async function asChart(file) {
+    var P = window.CUPictures; if (!P || !/^image\//.test(file.type || "") && !P.isPictureName(file.name) || /\.(pdf|txt|cho|chopro|crd|pro|onsong)$/i.test(file.name)) return file;
+    var r = await P.prepare({ name: file.name, blob: file }); if (!r.ok) { var ui = logRow(file.name); ui.st.textContent = r.error; ui.bar.style.width = "0"; return null; }
+    return r.changed || !/\.(png|jpe?g)$/i.test(file.name) ? (/^image\/(png|jpeg)$/.test(r.mime) ? new File([r.blob], r.name, { type: r.mime }) : await jpegOf(r)) : file;
+  }
+  async function jpegOf(r) {   // a WebP / GIF kept as it was: the chart page wants a JPEG or PNG
+    var bm = await createImageBitmap(r.blob), c = document.createElement("canvas"); c.width = bm.width; c.height = bm.height; c.getContext("2d").drawImage(bm, 0, 0);
+    var b = await new Promise(function (res) { c.toBlob(res, "image/png"); }); return new File([b], r.name.replace(/\.[a-z0-9]+$/i, "") + ".png", { type: "image/png" });
+  }
+  async function sendAll(kind, files) { var song = songName(); for (var i = 0; i < files.length; i++) { var f = kind === "charts" ? await asChart(files[i]) : files[i]; if (f) await upload(kind, f, song || (kind === "charts" ? "" : f.name.replace(/\.[^.]+$/, "").replace(/[-_ ]*(click|guide|drums|bass|keys|gtr|guitar|vox|vocals|pad|loop|perc|stem)\d*$/i, ""))); } }
   function wire(zone, input, kind) {
     var dz = $(zone), inp = $(input);
     ["dragenter", "dragover"].forEach(function (t) { dz.addEventListener(t, function (e) { e.preventDefault(); dz.classList.add("over"); }); });

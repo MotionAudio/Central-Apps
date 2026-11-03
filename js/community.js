@@ -146,12 +146,14 @@
   function stars(n) { return n ? '<span class="muted" title="' + n + ' of 5 stars">' + "★★★★★".slice(0, n) + "</span>" : ""; }
   function rowHtml(it) {
     var lid = libId(it), rec = (st.installed || []).filter(function (r) { return r.id === lid; })[0], open = hasPlan(it.pack), be = backend(), busy = !!st.busy;
-    var plugin = it.kind === "plugin", winOff = plugin && platform() === "win-x64", blocked = plugin && !st.pluginsAllowed, noBuild = plugin && (winOff || (it.packages && platform() && !it.packages[platform()]));   // (Windows: no wall for plugins yet - docs/COMMUNITY-PLUGINS.md)
+    var plugin = it.kind === "plugin", fx = plugin && !!(it.packages && it.packages.all);   // (10.2: a Central FX plugin plays on every device, Windows included - no wall needed)
+    var winOff = plugin && !fx && platform() === "win-x64", blocked = plugin && !st.pluginsAllowed, noBuild = plugin && !fx && (winOff || (it.packages && platform() && !it.packages[platform()]));   // (Windows: no wall for plugins yet - docs/COMMUNITY-PLUGINS.md)
     var btns = "";
     if (be) {
       if (!rec && open && !blocked && !noBuild) btns += '<button class="primary" data-cm-install="' + it.id + '"' + (busy ? " disabled" : "") + ">" + (st.busy === String(it.id) ? "Installing…" : "Install") + "</button>";
       if (rec) btns += '<button data-cm-remove="' + lid + '"' + (busy ? " disabled" : "") + ">Remove</button>";
     }
+    if ((it.preview || it.demo) && window.PPPreview) btns = window.PPPreview.button({ url: it.preview || it.demo }, "Listen") + btns;   // (10.2: 30 seconds of it, before installing)
     btns += '<button class="small" data-cm-report="' + it.id + '">Report</button>';
     var why = blocked && !rec && !winOff ? '<span class="muted small">Switch on Allow community plugins to install it.</span>' : noBuild ? '<span class="muted small">' + (winOff ? "Community plugins can't run walled off on Windows yet." : "Not made for this device.") + "</span>" : !open ? '<span class="bad">Needs ' + esc(planName(it.pack)) + "</span>" : "";
     var rep = st.report === String(it.id) ? '<div class="row"><input data-cm-why="' + it.id + '" placeholder="What\'s wrong with it?" maxlength="500"><button data-cm-send="' + it.id + '">Send</button><button data-cm-cancel>Cancel</button></div>' : "";
@@ -167,7 +169,7 @@
     var body = !st.items ? '<p class="muted">Loading the community items…</p>' : !base() ? '<p class="muted">Community items come from the Motion Audio website, once it\'s open.</p>' :
       (groups.length ? groups.map(function (p) { return "<h4>" + esc(planName(p)) + '</h4><ul class="plain pkg-list cm-list">' + items.filter(function (x) { return x.pack === p; }).map(rowHtml).join("") + "</ul>"; }).join("")
         : '<p class="muted">' + (PACKS.some(hasPlan) ? "Nothing yet for your plans." : "Add a package above to see the community items for your plans.") + "</p>");
-    var sw = be && platform() !== "win-x64" ? '<label class="toggle cm-switch"><input type="checkbox" data-cm-plugins' + (st.pluginsAllowed ? " checked" : "") + '> Allow community plugins on this device</label><p class="muted small">Off unless you switch it on. Community plugins are checked and reviewed by Motion Audio, run walled off from the rest of the app, and come off this device if Motion Audio takes one down.</p>' : "";
+    var sw = be && (platform() !== "win-x64" || items.some(function (x) { return x.kind === "plugin" && x.packages && x.packages.all; })) ? '<label class="toggle cm-switch"><input type="checkbox" data-cm-plugins' + (st.pluginsAllowed ? " checked" : "") + '> Allow community plugins on this device</label><p class="muted small">Off unless you switch it on. Community plugins are checked and reviewed by Motion Audio, run walled off from the rest of the app, and come off this device if Motion Audio takes one down.</p>' : "";
     return '<section class="' + (cls || "") + '" data-st="community" id="cmSettings"><h3>Community</h3><p class="muted">Sounds, loops, pads, boards and plugins made by other musicians (on the website\'s Make &amp; sell), checked by Motion Audio. They\'re part of your plans: install them here.</p>' +
       sw + body + (st.error ? '<p class="small bad">' + esc(st.error) + "</p>" : "") + (st.msg ? '<p class="small">' + esc(st.msg) + "</p>" : "") +
       (be && st.items ? '<div class="row"><button data-cm-refresh' + (st.busy ? " disabled" : "") + ">Check for new items</button></div>" : "") + "</section>";

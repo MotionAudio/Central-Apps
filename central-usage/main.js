@@ -132,6 +132,27 @@ ipcMain.handle("fixtures-open", async () => {
   return r.filePaths.slice(0, 200).map((f) => { try { return { name: path.basename(f), text: fs.readFileSync(f, "utf8").slice(0, 2 * 1024 * 1024) }; } catch (_) { return null; } }).filter(Boolean);
 });
 
+// ---- (10.2) the fixture library of real lights: the copy that came with the app, or a newer one downloaded by "Update
+// the fixture library" (published with the libraries; tools/make-fixture-library.py makes it)
+const FIXTURE_LIB_URL = "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/fixture-library.json.gz";
+const fixtureLibFile = () => path.join(app.getPath("userData"), "fixture-library.json.gz");
+function bundledFixtureBuilt() { try { const m = /built: "(\d{4}-\d{2}-\d{2})"/.exec(fs.readFileSync(path.join(__dirname, "app", "fixtures", "fixture-library.js"), "utf8").slice(0, 600)); return m ? m[1] : ""; } catch (_) { return ""; } }
+function readFixtureLib(buf) { const j = JSON.parse(require("node:zlib").gunzipSync(buf).toString("utf8")); if (!j || j.format !== "central-fixtures" || !Array.isArray(j.fixtures) || j.fixtures.length < 100) throw new Error("that isn't a fixture library"); return j; }
+ipcMain.handle("fixtures-library", () => {   // the downloaded one, when it's newer than the app's own (else null: the page loads its own)
+  try { const buf = fs.readFileSync(fixtureLibFile()), j = readFixtureLib(buf); return String(j.built || "") > bundledFixtureBuilt() ? JSON.stringify(j) : null; } catch (_) { return null; }
+});
+ipcMain.handle("fixtures-update", async () => {
+  try {
+    const { net } = require("electron"), r = await net.fetch(FIXTURE_LIB_URL, { cache: "no-store" });
+    if (!r.ok) return { ok: false, error: "the fixture library didn't download (" + r.status + ")" };
+    const buf = Buffer.from(await r.arrayBuffer()), j = readFixtureLib(buf);
+    if (String(j.built || "") <= bundledFixtureBuilt()) return { ok: true, fresh: false, built: bundledFixtureBuilt(), fixtures: j.fixtures.length };
+    fs.writeFileSync(fixtureLibFile() + ".part", buf); fs.renameSync(fixtureLibFile() + ".part", fixtureLibFile());
+    return { ok: true, fresh: true, built: j.built, fixtures: j.fixtures.length };
+  } catch (e) { return { ok: false, error: "the fixture library didn't download (" + (e && e.message || e) + ")" }; }
+});
+ipcMain.handle("fixtures-save", async (_e, name, text) => { const r = await dialog.showSaveDialog(win, { defaultPath: name, filters: [{ name: "Open Fixture Library file", extensions: ["json"] }] }); if (r.canceled || !r.filePath) return null; fs.writeFileSync(r.filePath, text); return r.filePath; });
+
 // ---- phone remote for the lights: a small page on this computer, opened from a phone on the same Wi-Fi
 const remote = { server: null, port: 8091, pin: "", state: { looks: [] }, fails: 0, lockUntil: 0 };
 const remoteFile = () => path.join(app.getPath("userData"), "remote.json");
@@ -192,6 +213,10 @@ const videoSvc = require("./video-service").setup({
 });
 if (process.platform === "darwin") app.whenReady().then(() => { try { require("electron").systemPreferences.askForMediaAccess("camera"); } catch (_) { } });
 require("./asr").setupAsr({ ipcMain, app, getWin: () => win });
+// (10.2) shorts: the good parts of each service recording, made into vertical videos (main admin's computer)
+const shortsSvc = require("./shorts").setup({ ipcMain, app, getWin: () => win, svc, shell: require("electron").shell, dialog: require("electron").dialog,
+  videoDir: () => videoSvc.recordDir(), ffmpeg: () => require("./video-service").findFfmpeg(app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native", "build")) });
+app.on("will-quit", () => { try { shortsSvc.stop(); } catch (_) { } });
 require("./studio").setup({ ipcMain, app, getWin: () => win, binDir: app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(__dirname, "native", "build"),   // the Studio tab: sounds, projects, the low-delay player
   soundsDir: app.isPackaged ? path.join(process.resourcesPath, "sounds") : path.join(__dirname, "native", "sounds") });   // lyrics from a vocal track (speech model on this computer)
 app.on("before-quit", () => { try { dmx.blackout(); } catch (_) { } try { svc.stop(); } catch (_) { } });
@@ -202,6 +227,38 @@ ipcMain.handle("sys-health", () => {
   const os = require("node:os"), cpus = os.cpus(), t = cpus.reduce((a, c) => { const x = c.times; a.idle += x.idle; a.all += x.user + x.nice + x.sys + x.idle + x.irq; return a; }, { idle: 0, all: 0 });
   let cpu = null; if (lastCpu && t.all > lastCpu.all) cpu = Math.round(100 * (1 - (t.idle - lastCpu.idle) / (t.all - lastCpu.all))); lastCpu = t;
   return { app: app.getVersion(), platform: process.platform, cpu, memFree: Math.round(os.freemem() / 1048576), memTotal: Math.round(os.totalmem() / 1048576), uptime: Math.round(os.uptime()) };
+});
+// (10.2) the pre-service check's questions this computer answers itself: free disk space where recordings go, the
+// Wi-Fi it's on and how strong, and whether a newer version of the app is out
+function wifiInfo() {
+  const { execFile } = require("node:child_process");
+  const run = (cmd, args) => new Promise((res) => { try { execFile(cmd, args, { timeout: 3000, windowsHide: true }, (err, out) => res(err ? "" : String(out || ""))); } catch (_) { res(""); } });
+  return (async () => {
+    if (process.platform === "linux") {
+      const out = await run("nmcli", ["-t", "-f", "ACTIVE,SSID,SIGNAL", "dev", "wifi"]), line = out.split("\n").find((l) => /^yes:/.test(l));
+      if (line) { const p = line.split(":"); return { wifi: true, ssid: p.slice(1, -1).join(":"), signal: Number(p[p.length - 1]) || null }; }
+      const dev = await run("nmcli", ["-t", "-f", "TYPE,STATE", "dev"]); if (/^ethernet:connected/m.test(dev)) return { wifi: false, wired: true };
+      return out || dev ? { wifi: false } : null;
+    }
+    if (process.platform === "win32") {
+      const out = await run("netsh", ["wlan", "show", "interfaces"]), sig = /Signal\s*:\s*(\d+)%/i.exec(out), ss = /^\s*SSID\s*:\s*(.+)$/im.exec(out);
+      return sig ? { wifi: true, ssid: ss ? ss[1].trim() : "", signal: Number(sig[1]) } : { wifi: false };
+    }
+    if (process.platform === "darwin") {
+      const out = await run("/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport", ["-I"]), rssi = /agrCtlRSSI:\s*(-?\d+)/.exec(out), ss = /\sSSID:\s*(.+)/.exec(out);
+      if (rssi) { const dbm = Number(rssi[1]); return { wifi: true, ssid: ss ? ss[1].trim() : "", signal: Math.max(0, Math.min(100, 2 * (dbm + 100))) }; }
+      return null;
+    }
+    return null;
+  })();
+}
+ipcMain.handle("sys-check", async (_e, opts) => {
+  const out = { platform: process.platform, app: app.getVersion() };
+  const dirs = [(opts && opts.dir) || "", app.getPath("music"), app.getPath("userData")].filter(Boolean);
+  for (const d of dirs) { try { const s = fs.statfsSync(d); out.disk = { dir: d, free: s.bavail * s.bsize, total: s.blocks * s.bsize }; break; } catch (_) { } }
+  try { out.net = await wifiInfo(); } catch (_) { out.net = null; }
+  try { const u = updater && updater.status(); if (u) out.update = { latest: u.latest || null, available: !!u.available }; } catch (_) { }
+  return out;
 });
 
 app.whenReady().then(() => {

@@ -51,8 +51,8 @@
   // its plan (and Central Pads, like the real plans). Staff switch them off with the default keys.
   var DEMO_CHURCH = "Riverstone Church (demo)";
   var DEMO_KEYS = { P: "PDMO-RVST-PCTL-2026", A: "ADMO-RVST-ADMN-2026", U: "UDMO-RVST-USER-2026" };
-  var DEMO_PACKAGES = { "SDMO-RVST-ALL0-2026": ["keys", "plugins", "instrument", "pedals", "pads"], "SDMO-RVST-KEYS-2026": ["keys", "pads"], "SDMO-RVST-PLUG-2026": ["plugins", "pads"],
-    "SDMO-RVST-INST-2026": ["instrument", "pads"], "SDMO-RVST-PEDL-2026": ["pedals", "pads"], "SDMO-RVST-PADS-2026": ["pads"] };
+  var DEMO_PACKAGES = { "SDMO-RVST-ALL0-2026": ["keys", "plugins", "instrument", "pedals", "pads", "utility"], "SDMO-RVST-KEYS-2026": ["keys", "pads"], "SDMO-RVST-PLUG-2026": ["plugins", "pads"],
+    "SDMO-RVST-INST-2026": ["instrument", "pads"], "SDMO-RVST-PEDL-2026": ["pedals", "pads"], "SDMO-RVST-PADS-2026": ["pads"], "SDMO-RVST-UTIL-2026": ["utility"] };
   function isDemo(key) { var c = pretty(key); return Object.keys(DEMO_KEYS).some(function (k) { return DEMO_KEYS[k] === c; }) || !!DEMO_PACKAGES[c]; }
   async function call(path, body, token) {
     var h = { "Content-Type": "application/json" }; if (token) h.Authorization = "Bearer " + token;
@@ -89,15 +89,16 @@
   // 14 days after its last good check (never past its end date). The Central Pedal keeps them with its driver (packages.json),
   // so the app, Pedal Control and both small screens see the same ones; the computers keep their own.
   // With licensing off (no website set) every plan is open.
-  var PLAN_IDS = ["keys", "plugins", "instrument", "pedals", "pads"], PK_LS = "cc-packages", OFFLINE_DAYS = 14;
-  var PLAN_NAMES = { keys: "Central Keys", plugins: "Central Plugins", instrument: "Central Instrument", pedals: "Central Pedals", pads: "Central Pads" };
+  var PLAN_IDS = ["keys", "plugins", "instrument", "pedals", "pads", "utility"], PK_LS = "cc-packages", OFFLINE_DAYS = 14;
+  var PLAN_NAMES = { keys: "Central Keys", plugins: "Central Plugins", instrument: "Central Instrument", pedals: "Central Pedals", pads: "Central Pads", utility: "Central Utility" };
+  var SOUND_PLANS = ["keys", "plugins", "instrument", "pedals"];   // (10.2: these come with Central Pads; Central Utility doesn't)
   var pk = { list: [], msg: "", busy: false };
   try { pk.list = JSON.parse(localStorage.getItem(PK_LS) || "[]") || []; } catch (_) { pk.list = []; }
   function onPedal() { return app === "pedal" || app === "pedal-control"; }   // (the packages belong to the Central Pedal)
   function pkDevice() { var b = window.__pedalBridge, id = onPedal() && b && b.info && b.info.deviceId; return id && /^[A-Za-z0-9-]{8,80}$/.test(id) ? id : deviceId(); }
   function cleanPlans(p) {
     var out = {}; if (p && typeof p === "object") PLAN_IDS.forEach(function (id) { if (p[id]) out[id] = String(p[id]); });
-    if (!out.pads) { var last = ""; PLAN_IDS.forEach(function (id) { if (id !== "pads" && out[id] && (!last || pkTime(out[id]) > pkTime(last))) last = out[id]; }); if (last) out.pads = last; }   // (Central Pads comes with every plan)
+    if (!out.pads) { var last = ""; SOUND_PLANS.forEach(function (id) { if (out[id] && (!last || pkTime(out[id]) > pkTime(last))) last = out[id]; }); if (last) out.pads = last; }   // (Central Pads comes with every sound plan)
     return out;
   }
   function pkTime(iso) { var t = new Date(iso).getTime(); return isNaN(t) ? Infinity : t; }

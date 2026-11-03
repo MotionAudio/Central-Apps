@@ -278,9 +278,9 @@ html[data-web] .admin-only, html[data-web] #findBtn, html[data-web] #connectBtn,
 .cd-chip b { font-family: ui-monospace, monospace; } .cd-chip b.over { color: var(--bad); } .cd-chip.soon { border-color: var(--warn); animation: cdpulse 1s ease-in-out infinite; } .cd-chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 80%); }
 .cd-you { color: var(--accent); font-weight: 800; }
 @keyframes cdpulse { 50% { background: rgba(240, 180, 41, .25); } }
-.cd-pop { position: fixed; top: 58px; right: 16px; z-index: 80; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.5); max-height: 70vh; overflow: auto; min-width: 320px; }
-.cd-pop table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13px; } .cd-pop td { padding: 4px 6px; border-top: 1px solid var(--line); } .cd-pop td:first-child { color: var(--muted); font-family: ui-monospace, monospace; }
-.cd-pop tr.mine td { color: var(--accent); font-weight: 700; } .cd-pop tr.now td { background: color-mix(in srgb, var(--accent), transparent 82%); }
+.cdn-pop { position: fixed; top: 58px; right: 16px; z-index: 80; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.5); max-height: 70vh; overflow: auto; min-width: 320px; }
+.cdn-pop table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13px; } .cdn-pop td { padding: 4px 6px; border-top: 1px solid var(--line); } .cdn-pop td:first-child { color: var(--muted); font-family: ui-monospace, monospace; }
+.cdn-pop tr.mine td { color: var(--accent); font-weight: 700; } .cdn-pop tr.now td { background: color-mix(in srgb, var(--accent), transparent 82%); }
 
 /* ---- locks */
 .ml-btn { font-size: 16px; padding: 5px 9px; } .ml-btn.on { background: var(--live); border-color: var(--live); } .ml-btn.holding { box-shadow: 0 0 0 3px var(--warn); transition: box-shadow 2s linear; }
@@ -444,3 +444,24 @@ input[type=checkbox] { accent-color: var(--accent); }
 .rl-ask { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 60; max-width: min(760px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 14px; border: 1px solid var(--accent); background: var(--panel); box-shadow: 0 12px 40px rgba(0,0,0,.5); }
 .rl-ask span { flex: 1 1 280px; }
 .lx-run-banner { margin: 0 0 10px; padding: 9px 12px; border-radius: 10px; border: 1px dashed var(--line2); color: var(--muted); } .lx-run-banner span { flex: 1 1 260px; } .lx-run-banner b { color: var(--text); }
+/* (10.2) lyric backgrounds: ours draw on a canvas; the Lyrics tab's Background picker */
+.sl-bgc { opacity: 1; } .sl-bgc canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lyr-bg { margin: 8px 0; display: grid; gap: 10px; }
+.lb-top { display: grid; grid-template-columns: minmax(220px, 420px) 1fr; gap: 14px; align-items: start; }
+.lb-side { display: grid; gap: 8px; align-content: start; } .lb-scopes { display: grid; gap: 4px; }
+.lb-filter { display: inline-flex; gap: 4px; flex-wrap: wrap; } .lb-filter button.on { background: var(--accent, #e2c27e); color: #111; }
+.lb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; max-height: 46vh; overflow: auto; padding: 2px; }
+.lb-tile { position: relative; padding: 0; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 8px; border: 2px solid transparent; background: #000; display: block; }
+.lb-tile img, .lb-tile video, .lb-tile .lb-black { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: grid; place-items: center; font-size: 28px; color: #888; background: #000; }
+.lb-tile.sel { border-color: var(--accent, #e2c27e); }
+.lb-nm { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 6px; font-size: 11px; text-align: left; background: linear-gradient(transparent, rgba(0, 0, 0, .75)); color: #fff; }
+.lb-filter input[type=search] { flex: 1 1 160px; min-width: 120px; }
+.lb-seasons { display: flex; gap: 4px; flex-wrap: wrap; margin: 8px 0; } .lb-seasons button { font-size: 12px; padding: 3px 8px; } .lb-seasons button.on { background: var(--accent, #e2c27e); color: #111; }
+.lb-seasons .lb-sun { font-weight: 600; border: 1px solid var(--accent, #e2c27e); }
+.lb-mv, .lb-lock { position: absolute; top: 4px; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, .6); color: #fff; } .lb-mv { left: 4px; } .lb-lock { right: 4px; }
+.lb-tile.locked img { filter: saturate(.6) brightness(.75); }
+@media (max-width: 720px) { .lb-top { grid-template-columns: 1fr; } }
+
+/* (10.2) pictures in: a plain message, and where a drop will land */
+.sl-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: min(680px, 92vw); background: #2a1c1c; color: #fff; border: 1px solid #a33; border-radius: 10px; padding: 10px 14px; z-index: 9999; box-shadow: 0 6px 24px rgba(0, 0, 0, .5); font-size: 14px; }
+.sl-drop { outline: 2px dashed var(--accent, #e2c27e); outline-offset: -4px; }

@@ -62,3 +62,14 @@ Accepting the browser's warning instead also works on most phones. Phones need t
 - **Untested here:** NDI receive and send (no runtime in the test container), hardware encoders other than x264, Windows/macOS device names for `getUserMedia`, and Dante Virtual Soundcard. The paths follow the SDK and platform documentation.
 - **Program sources:** 48 full-HD cameras can be on the multiview at once. Only a handful are full-size at a time, by design: what is in Preview or on a Program.
 - **Phone codec:** the test container's Chromium may fall back to JPEG for the phone. Safari 16.4+ and Chrome on phones use H.264.
+
+## Screens on the lights page's 3D stage (10.2)
+The lights page can show the room's screens and projectors in 3D, each with what its output shows, live (`app/screen-feed.js`, `app/lights3d-screens.js`).
+- **Links:** a screen or projector shows one output: the Video tab's **Main** or **Stream**, the **Slides & lyrics** output (second screen and NDI), or the Central Pedal's **HDMI 1** or **HDMI 2**. The names match the Video and Slides tabs.
+- **Main and Stream:** copied from the compositor at 15 fps into a 384 × 216 canvas (`CUVideoTab.previewTo`), only while a screen on the 3D stage asks for it.
+- **Slides & lyrics, HDMI 1 and 2:** drawn on the lights computer the way `output.html` draws them: the live slide, or the lyrics on their background.
+- **Another computer has the job:** when Cameras or Slides runs on another computer, the lights computer asks the center (`screenPreviewWant`), and the computer with the job sends small JPEGs about 4 times a second (`screenPreview`), only while asked.
+- **Rehearsal:** while the lights page plays a song on its own, HDMI 2 and the Slides output step through the song's words or its parts.
+
+## Lyric backgrounds (10.2)
+`app/backgrounds.js`: 45 backgrounds drawn by the app itself (no downloads, nobody else's pictures): 32 moving (gradients, light leaks, rays, dust, snow, fireflies, bokeh, clouds, aurora, stars, water, waves, shapes) and 13 still (colours, gradients, textures). A slide names one as `bg:<id>`. The Lyrics tab → **Background…** picks one for every song, this song, or this part of the song, or your own picture or video, with a crossfade. The output page draws it on its own layer, so the words change without the background restarting. The Central Pedal's HDMI 2 doesn't draw these yet: it shows the lyrics on black, or on a picture background.

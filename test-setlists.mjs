@@ -7,6 +7,7 @@
  * this device already has. A stand-in for the Motion Audio website answers /v1/... here.
  *   node test-setlists.mjs
  */
+import "./test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";

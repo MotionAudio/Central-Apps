@@ -25,29 +25,32 @@
 | <img src="docs/brand/central-control.png" width="44" alt=""> | **Central Control** | The main admin and admins | Lights, slides, lyrics, cameras, in-ear mixes, the tracks and the mix, for the whole team. |
 | <img src="docs/brand/central-usage.png" width="44" alt=""> | **Central Usage** | Musicians and singers | Your chord chart, your instrument, the lyrics and your own in-ear mix. |
 | <img src="docs/brand/central-services.png" width="44" alt=""> | **Central Services** | Everyone in the church | The schedule: services, who's asked to serve, and everyone's yes or no. Admins see the whole schedule; users see their own requests. |
+| <img src="docs/brand/central-production.png" width="44" alt=""> | **Central Production** | Anyone who makes sounds | A DAW and sampler: make tracks, loops, samples, pads, instruments, plugins and pedal boards for your own apps, or sell them through Make & sell. Free; your sound plan opens the better sounds. On a computer or in the browser, with the same projects. |
 
 ## Versions and updates
 
-All five apps share one version number: **9.0, 9.1 … 9.9, then 10.0**. A fix is the third number (9.1.1).
+All the apps share one version number: **9.0, 9.1 … 9.9, then 10.0**. A fix is the third number (9.1.1).
 - **Central Pedal and Central Pedal Control:** updates forever.
 - **Central Control and Central Usage:** each key gets ten full releases of updates from when it was bought (bought at
   9.4, through 10.4). Renew a key for $20 for ten more. The apps never stop working without it.
 - **Central Services:** a monthly plan, always up to date.
+- **Central Production:** free, updates forever.
 
 ## Platforms
 
-| | Central Pedal | Central Pedal Control | Central Control | Central Usage | Central Services |
-|---|:-:|:-:|:-:|:-:|:-:|
-| **Raspberry Pi 4** | ✅ | | | | |
-| **macOS** (Apple Silicon, Intel) | | ✅ | ✅ | ✅ | ✅ |
-| **Windows** 10 / 11 | | ✅ | ✅ | ✅ | ✅ |
-| **Linux** (.deb, AppImage) | | ✅ | ✅ | ✅ | ✅ |
-| **iPadOS** | | ✅ ¹ | | ✅ ¹ | ✅ ¹ |
-| **iOS** (iPhone) | | ✅ ¹ | | ✅ ¹ | ✅ ¹ |
-| **Android** | | ✅ | | ✅ | ✅ |
+| | Central Pedal | Central Pedal Control | Central Control | Central Usage | Central Services | Central Production |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| **Raspberry Pi 4** | ✅ | | | | | |
+| **macOS** (Apple Silicon, Intel) | | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Windows** 10 / 11 | | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Linux** (.deb, AppImage) | | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **iPadOS** | | ✅ ¹ | | ✅ ¹ | ✅ ¹ | ✅ ² |
+| **iOS** (iPhone) | | ✅ ¹ | | ✅ ¹ | ✅ ¹ | |
+| **Android** | | ✅ | | ✅ | ✅ | |
 
 ¹ iPhone and iPad: through TestFlight and the App Store once the Apple developer account is set up ([IOS-APP-STORE.md](IOS-APP-STORE.md)).
 Central Usage also runs in Safari today, served by the main admin's computer.
+² Central Production in the browser (the website's /production/ page), with the same projects as the app.
 
 Every release is built and tested for every system by GitHub Actions. Every installed app looks for a new version
 every time it opens and installs it by itself after a 10-second notice (Android: it downloads, then one tap on
@@ -220,6 +223,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
+
+**New in version 10.2.0:** Central Production (a free studio for tracks, loops, samples, pads, instruments and plugins, on computers and the website); make your own plugins; 41 pads, swells and modern worship hymn tracks; 30-second previews; run sheets, a pre-service check, the band's screen, a slide designer and scripture in seconds; automatic shorts; Planning Center and CCLI; 2,272 real lights, a scene programmer, screens, rooms and seats on the 3D stage; the Central Utility pack; and one new look across every app with Ctrl+K search.
 
 **New in version 10.1.1:** Sound on the Pi's headphone jack without crackles (a bigger buffer, chosen under Settings → Output device; Test sound steps it up by itself); Central Services says plainly when the website isn't reachable.
 

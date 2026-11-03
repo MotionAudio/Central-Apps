@@ -4,24 +4,30 @@ multitrack stems with our own sound libraries, plus everything the apps need to 
 chords and a chord chart.
 
 Each hymn in hymns/hymns.json becomes (in <out>/<id>/ and, flat, in <out>/release/ for the GitHub release):
-  Drums, Bass, Keys, Pad, Electric, Strings   the band, one mono MP3 each (128 kbit/s)
+  Drums, Percussion, Bass, Keys, Synth,       the band (tools/worship_band.py), one stereo MP3 each (192 kbit/s); the
+  Electric 1, Electric 2, Strings             release names them <id>--Electric-1.mp3 and so on
   Click, Guide                                a click and spoken section cues (the apps mute these two: they make their
                                               own, which follow tempo and key changes; they're there for other players)
   song.json                                   key, tempo, meter, sections (bar + lyrics), chords (bar + beat), chord chart
-  <id>-mix.mp3, <id>-preview.mp3              the whole song mixed, and a 45-second preview from the second verse
-and <out>/release/hymns-index.json (what the website lists in Central Tracks) + SHA256SUMS.
+  <id>-mix.mp3, <id>-preview.mp3              the whole song mixed, and a 30-second preview of its best part (10.2: the
+                                               chorus - the second one, once the song has built - else its loudest 30 seconds)
+and <out>/release/hymns-index.json (what the website lists in Central Tracks) + SHA256SUMS, and CREDITS.txt (the
+sampled instruments' credits: the Salamander piano is CC-BY, so the credit goes where the tracks are).
 
-The arrangement is made here from the hymn's chords and form: each section has an energy (0 keys and pad, 1 + bass and
-light drums, 2 the band, 3 everything with strings and cymbals), the parts follow the chords with simple voice leading,
-fills lead into bigger sections, and the song ends on a held chord. No melody stem: the people sing the melody.
+10.2: each hymn has its own arrangement - its own key, tempo, feel, band and mix ("style" in hymns.json; the styles,
+their players and their mixes are in tools/hymn_arranger.py): a soul ballad, a gospel shuffle, a folk waltz, a Celtic
+lilt, hymn-rock, piano and strings, a cathedral organ and orchestra, a 6/8-style gospel ballad and a country train
+beat. The parts follow the hymn's chords and form: each section has an energy (0 the quietest .. 3 everything) that
+decides who plays and how hard, the last bars of a section lean into a bigger one, the timing and touch are human, and
+the song ends on a held chord. No melody stem: the people sing the melody.
 
     python3 tools/make-hymns.py --sounds DIR [--orchestra DIR] --out DIR [--only ID] [--base-url URL] [--seconds N]
     python3 tools/make-hymns.py --gm FILE.sf2 --out DIR ...       (a test with any General MIDI SoundFont)
     python3 tools/make-hymns.py --check                            (the data only: bar counts, lyrics, chords)
     python3 tools/make-hymns.py --write-builtin server/src/hymns-builtin.json
 
---sounds: the SoundFonts tools/build-libraries.sh built (Central Instrument Drum Kits / Guitars and Basses, Central Keys
-Grand Pianos / Pads); --orchestra: where sounds-vsco.py wrote VSCO Strings (else the strings stem uses the String Pad).
+--sounds: the SoundFonts tools/build-libraries.sh built (Central Keys and Central Instrument banks); --orchestra: where
+sounds-vsco.py wrote VSCO Strings, Brass and Woodwinds (without it each falls back to the nearest library sound).
 Needs fluidsynth, ffmpeg and python3-numpy. Deterministic: the same hymn renders the same way every time."""
 import hashlib
 import json
@@ -37,9 +43,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import midi_render as M  # noqa: E402
+import hymn_arranger as HA  # noqa: E402
+import worship_band as WB  # noqa: E402
 
 DATA = os.path.join(ROOT, "hymns", "hymns.json")
-CUES = os.path.join(ROOT, "cues")
+CUES = os.path.join(ROOT, "hymns", "guide")   # (10.2: spoken by Piper's LJSpeech voice - tools/make-guide-cues.py)
 DEFAULT_BASE = "https://github.com/MotionAudio/central-apps/releases/download/central-tracks"
 SR = 44100
 ARTIST = "Motion Audio"
@@ -48,24 +56,13 @@ QUALITIES = {"": (0, 4, 7), "m": (0, 3, 7), "7": (0, 4, 7, 10), "maj7": (0, 4, 7
              "sus2": (0, 2, 7), "2": (0, 2, 4, 7), "add9": (0, 4, 7, 14), "6": (0, 4, 7, 9), "m6": (0, 3, 7, 9), "dim": (0, 3, 6), "aug": (0, 4, 8)}
 CHORD_RE = re.compile(r"^([A-G][#b]?)([^/]*)(?:/([A-G][#b]?))?$")
 
-# stem -> (bank, preset words) in the built libraries; (GM program, channel) for --gm tests
-STEMS = {
-    "Drums": ("Central Instrument Drum Kits", ["Studio Kit"], (0, 9)),
-    "Bass": ("Central Instrument Guitars and Basses", ["Jazz Bass"], (33, 0)),
-    "Keys": ("Central Keys Grand Pianos", ["Concert Grand"], (0, 0)),
-    "Pad": ("Central Keys Pads", ["Worship Pad"], (89, 0)),
-    "Electric": ("Central Instrument Guitars and Basses", ["Electric Guitar Clean"], (27, 0)),
-    "Strings": ("VSCO Strings", ["Worship Strings"], (48, 0)),
-}
-STRINGS_FALLBACK = ("Central Keys Pads", ["String Pad"])
-ROLES = {"Drums": "drums", "Bass": "bass", "Keys": "keys", "Pad": "keys", "Electric": "guitar", "Strings": "music", "Click": "click", "Guide": "guide"}
-# loudness of each stem (RMS dBFS over the parts where it plays): summed at unity they make a balanced mix with headroom
-LEVELS = {"Drums": -18.0, "Bass": -23.0, "Keys": -22.0, "Pad": -25.0, "Electric": -26.0, "Strings": -25.0, "Click": -22.0, "Guide": -18.0}
-PANS = {"Drums": 0.0, "Bass": 0.0, "Keys": -0.1, "Pad": 0.0, "Electric": 0.35, "Strings": -0.3}
-REVERB = {"Keys": 0.18, "Pad": 0.25, "Electric": 0.3, "Strings": 0.3, "Drums": 0.06}
-CUE_WORDS = {"intro": "intro", "interlude": "interlude", "instrumental": "instrumental", "tag": "tag", "outro": "outro", "ending": "ending",
-             "chorus": "chorus", "refrain": "refrain", "bridge": "bridge", "turnaround": "turnaround"}
-VEL = [52, 64, 80, 96]   # (by energy)
+# the stems, the way churches expect them (no acoustic guitar: no sampled one we may sell recordings of is good enough yet)
+STEM_ORDER = ("Click", "Guide") + WB.STEMS
+ROLES = {"Drums": "drums", "Percussion": "drums", "Bass": "bass", "Keys": "keys", "Synth": "keys", "Electric 1": "guitar", "Electric 2": "guitar",
+         "Strings": "music", "Click": "click", "Guide": "guide"}
+LEVELS = {"Click": -20.0, "Guide": -16.0}
+MIX_LUFS = -14.0
+PREVIEW_SECONDS = 30
 
 
 def say(*a):
@@ -93,18 +90,33 @@ def parse_bar(text, meter):
 
 
 def progression(hymn, spec):
+    """"verse", "verse:9-16" (its bars 9 to 16) or "intro*2" (twice)."""
+    spec, _, times = spec.partition("*")
     name, _, rng = spec.partition(":")
     bars = hymn["chords"][name]
     if rng:
         a, b = (int(x) for x in rng.split("-"))
         bars = bars[a - 1:b]
-    return [parse_bar(b, hymn["meter"]) for b in bars]
+    return [parse_bar(b, hymn["meter"]) for b in bars] * int(times or 1)
 
 
 def lyric_bars(hymn, name):
-    """(pickup, [bar texts])"""
+    """(pickup, [bar texts]) - "Verse 5@9-16": that verse's bars 9 to 16 (the line before them ends at bar 8)."""
+    name, _, rng = name.partition("@")
     parts = hymn["lyrics"][name].split("|")
-    return parts[0], parts[1:]
+    pickup, texts = parts[0], parts[1:]
+    if rng:
+        a, b = (int(x) for x in rng.split("-"))
+        before = texts[a - 2] if a >= 2 else pickup
+        # (a word sung on the bar before - the pickup into the line - comes along: what follows the last "/")
+        if "/" in before:
+            pickup = before.split("/")[-1].strip()
+        else:     # (a whole bar of pickup: the line before it ended a bar earlier)
+            pickup = before.strip() if a >= 3 and texts[a - 3].rstrip().endswith("/") else ""
+        texts = texts[a - 1:b]
+        if texts and texts[-1].strip() and not texts[-1].rstrip().endswith("/"):
+            texts[-1] = texts[-1].rstrip() + " /"
+    return pickup, texts
 
 
 def join_text(pieces):
@@ -132,7 +144,7 @@ def layout(hymn):
     for sec in hymn["form"]:
         bars = progression(hymn, sec["chords"])
         lyr = lyric_bars(hymn, sec["lyrics"]) if sec.get("lyrics") else None
-        out.append({"name": sec["name"], "start": bar, "bars": bars, "energy": int(sec.get("energy", 1)), "lyrics": lyr})
+        out.append({"name": sec["name"], "start": bar, "bars": bars, "energy": int(sec.get("energy", 1)), "lyrics": lyr, "role": sec.get("role")})
         bar += len(bars)
     return out
 
@@ -234,311 +246,102 @@ def song_file(hymn, secs, duration, stems):
         "sections": [{"name": s["name"], "bar": s["start"], "bars": len(s["bars"]), "lyrics": lyrics_text(*s["lyrics"]) if s["lyrics"] else ""} for s in secs],
         "chords": chords, "chartText": chart_text(hymn, secs),
         "stems": [{"name": n, "role": ROLES[n], "mute": n in ("Click", "Guide")} for n in stems],
-        "credits": {"words": hymn["words"], "music": hymn["music"], "arrangement": "Arranged and recorded by Motion Audio. The words and tune are in the public domain; this arrangement and recording are Motion Audio's."},
+        "credits": {"words": hymn["words"], "music": hymn["music"], "arrangement": "Arranged and recorded by Motion Audio. The words and tune are in the public domain; this arrangement and recording are Motion Audio's.",
+                    "instruments": [c for c, _ in WB.SM.credits(["piano", "drums", "bass", "gretsch", "hofner", "violins"])] + ["Synth pad: Motion Audio (tools/pad_voices.py)", "Guide voice: Piper LJSpeech (MIT; LJ Speech, public domain)"]},
     }
 
 
-# ---------------------------------------------------------------- arrangement
-class Arranger:
-    def __init__(self, hymn, secs, seed):
-        self.h, self.secs = hymn, secs
-        self.m = hymn["meter"]
-        self.rng = np.random.default_rng(seed)
-        self.bars = []   # (bar index 0-based, section, chords [(chord, beat)], first?, last?, next energy)
-        for si, s in enumerate(secs):
-            nxt = secs[si + 1]["energy"] if si + 1 < len(secs) else -1
-            for i, b in enumerate(s["bars"]):
-                self.bars.append({"i": s["start"] - 1 + i, "sec": s, "si": si, "chords": b, "first": i == 0, "last": i == len(s["bars"]) - 1, "next": nxt,
-                                  "final": si == len(secs) - 1 and i == len(s["bars"]) - 1})
-
-    def jitter(self, beats=0.012):
-        return float(self.rng.normal(0, beats))
-
-    def vel(self, e, spread=6, add=0):
-        return int(max(20, min(127, VEL[e] + add + self.rng.integers(-spread, spread + 1))))
-
-    def segments(self, bar):
-        """[(chord, start beat in the song (0-based), length in beats)] for one bar"""
-        out = []
-        cs = bar["chords"]
-        for j, (ch, beat) in enumerate(cs):
-            end = cs[j + 1][1] if j + 1 < len(cs) else self.m + 1
-            out.append((ch, bar["i"] * self.m + beat - 1, end - beat))
-        return out
-
-    @staticmethod
-    def voicings(ch, lo, hi, count):
-        pcs = []
-        for iv in ch["ivs"]:
-            pc = (ch["root"] + iv) % 12
-            if pc not in pcs:
-                pcs.append(pc)
-        pcs = pcs[:count]
-        out = []
-        for start in range(lo, hi + 1):
-            if start % 12 not in pcs:
-                continue
-            k = pcs.index(start % 12)
-            seq = pcs[k:] + pcs[:k]
-            notes = [start]
-            for pc in seq[1:]:
-                n = notes[-1] + 1
-                while n % 12 != pc:
-                    n += 1
-                notes.append(n)
-            if notes[-1] <= hi:
-                out.append(notes)
-        return out
-
-    def voice(self, ch, lo, hi, count, prev, center):
-        cands = self.voicings(ch, lo, hi, count) or [[lo + (ch["root"] - lo) % 12]]
-        if prev and len(prev) == len(cands[0]):
-            return min(cands, key=lambda v: sum(abs(a - b) for a, b in zip(v, prev)) + 0.1 * abs(np.mean(v) - center))
-        return min(cands, key=lambda v: abs(np.mean(v) - center))
-
-    def bass_note(self, ch, prev):
-        cands = [n for n in range(28, 52) if n % 12 == ch["bass"]]
-        return min(cands, key=lambda n: abs(n - (prev or 38)) + (0 if n >= 31 else 4))
-
-    # -- parts (each returns a Midi on channel ch)
-    def drums(self, prog, channel, bank=0):
-        mid = M.Midi(self.h["bpm"])
-        if channel != 9:
-            mid.program(channel, prog, bank)
-        K, S, X, HC, HP, HO, RIDE, CRASH = 36, 38, 37, 42, 44, 46, 51, 49
-        TOMS = [50, 47, 43, 41]
-        m = self.m
-        for b in self.bars:
-            e = b["sec"]["energy"]
-            t0 = b["i"] * m
-            if b["final"]:
-                if e >= 1 or b["sec"]["energy"] >= 0:
-                    mid.note(t0, 1, CRASH, 100, channel)
-                    mid.note(t0, 1, K, 105, channel)
-                continue
-            if e == 0:
-                continue
-            hits = []
-            if m == 4:
-                if e == 1:
-                    hits += [(0, K, 70), (2, X, 55)] + [(q, HC, 45) for q in (0, 1, 2, 3)]
-                elif e == 2:
-                    hits += [(0, K, 92), (1.5, K, 70), (2, K, 85), (1, S, 95), (3, S, 98)] + [(q / 2, HC, 70 if q % 2 == 0 else 52) for q in range(8)]
-                else:
-                    hits += [(0, K, 108), (1.5, K, 85), (2, K, 100), (2.5, K, 70), (1, S, 112), (3, S, 115)] + [(q / 2, RIDE, 82 if q % 2 == 0 else 64) for q in range(8)]
-            else:
-                if e == 1:
-                    hits += [(0, K, 70), (1, HP, 45), (2, HP, 45)]
-                elif e == 2:
-                    hits += [(0, K, 92), (1.5, K, 66), (2, S, 92)] + [(q / 2, HC, 70 if q % 2 == 0 else 50) for q in range(6)]
-                else:
-                    hits += [(0, K, 108), (1.5, K, 85), (2, S, 112)] + [(q / 2, RIDE, 84 if q % 2 == 0 else 62) for q in range(6)]
-            if b["first"] and e >= 2:
-                hits.append((0, CRASH, 100 if e == 3 else 84))
-            fill = b["last"] and b["next"] >= 2 and b["next"] >= e and e >= 1
-            if fill:   # the last beat: snare and toms in 16ths, the kick under the last one
-                cut = m - 1
-                hits = [hh for hh in hits if hh[0] < cut]
-                seq = [S, S, TOMS[0], TOMS[1]] if e == 1 else [S, TOMS[0], TOMS[1], TOMS[3]]
-                for k, note in enumerate(seq):
-                    hits.append((cut + k / 4, note, 80 + 8 * k))
-            for at, note, v in hits:
-                mid.note(t0 + at + self.jitter(0.006), 0.25, note, max(1, min(127, v + int(self.rng.integers(-5, 6)))), channel)
-        return mid
-
-    def bass(self, prog, channel, bank=0):
-        mid = M.Midi(self.h["bpm"])
-        mid.program(channel, prog, bank)
-        prev = None
-        for b in self.bars:
-            e = b["sec"]["energy"]
-            if e == 0 and not b["final"]:
-                continue
-            for ch, at, ln in self.segments(b):
-                n = self.bass_note(ch, prev)
-                prev = n
-                if b["final"]:
-                    mid.note(at, self.m * 2, n, 90, channel)
-                elif e == 1:
-                    mid.note(at + self.jitter(), ln - 0.15, n, self.vel(1), channel)
-                elif e == 2:
-                    if ln >= 3 and self.m == 4:
-                        mid.note(at, 1.4, n, self.vel(2, add=4), channel)
-                        mid.note(at + 1.5, 0.45, n, self.vel(2, add=-8), channel)
-                        mid.note(at + 2, ln - 2.15, n, self.vel(2), channel)
-                    elif ln >= 3:
-                        mid.note(at, 1.9, n, self.vel(2, add=4), channel)
-                        fifth = n + 7 if n + 7 <= 52 else n - 5
-                        mid.note(at + 2, 0.9, fifth, self.vel(2, add=-6), channel)
-                    else:
-                        mid.note(at, ln - 0.1, n, self.vel(2), channel)
-                else:
-                    steps = int(ln * 2)
-                    for k in range(steps):
-                        note = n + 12 if (k == steps - 1 and steps >= 6) else n
-                        mid.note(at + k / 2 + self.jitter(0.005), 0.42, note, self.vel(3, add=6 if k % 2 == 0 else -6), channel)
-        return mid
-
-    def keys(self, prog, channel, bank=0):
-        mid = M.Midi(self.h["bpm"])
-        mid.program(channel, prog, bank)
-        prev = None
-        for b in self.bars:
-            e = b["sec"]["energy"]
-            for ch, at, ln in self.segments(b):
-                rh = self.voice(ch, 60, 79, 3, prev, 69)
-                prev = rh
-                lh = [n for n in range(36, 49) if n % 12 == ch["bass"]][0]
-                mid.cc(at, 64, 0, channel)
-                mid.cc(at + 0.02, 64, 127, channel)
-                if b["final"]:
-                    for n in [lh, lh + 12] + rh:
-                        mid.note(at, self.m * 2, n, 80, channel)
-                    continue
-                if e <= 1:      # broken chord in eighths: bass, then up and down the chord
-                    arp = [lh, lh + 7 if lh + 7 < rh[0] else lh + 12] + rh + rh[-2:0:-1]
-                    steps = int(ln * 2)
-                    for k in range(steps):
-                        mid.note(at + k / 2 + self.jitter(0.008), 1.0, arp[k % len(arp)], self.vel(e, add=-4 if k % 2 else 2), channel)
-                elif e == 2:
-                    mid.note(at, ln, lh, self.vel(2), channel)
-                    mid.note(at, ln, lh + 12, self.vel(2, add=-10), channel)
-                    hits = [0, 2] if self.m == 4 else [0, 1.5]
-                    for hpos in hits:
-                        if hpos < ln:
-                            for n in rh:
-                                mid.note(at + hpos + self.jitter(0.006), min(1.8, ln - hpos), n, self.vel(2, add=-6 if hpos else 0), channel)
-                else:
-                    mid.note(at, ln, lh, self.vel(3), channel)
-                    mid.note(at, ln, lh - 12 if lh - 12 >= 28 else lh + 12, self.vel(3, add=-8), channel)
-                    for qn in range(int(ln)):
-                        for n in rh + [rh[0] + 12]:
-                            mid.note(at + qn + self.jitter(0.005), 0.9, n, self.vel(3, add=4 if qn == 0 else -8), channel)
-        mid.cc(self.bars[-1]["i"] * self.m + self.m * 2 + 1, 64, 0, channel)
-        return mid
-
-    def pad(self, prog, channel, bank=0):
-        mid = M.Midi(self.h["bpm"])
-        mid.program(channel, prog, bank)
-        prev, held, held_at, held_v = None, None, 0, 60
-        for b in self.bars:
-            e = b["sec"]["energy"]
-            for ch, at, ln in self.segments(b):
-                v = self.voice(ch, 52, 74, 4, prev, 63)
-                if v != held:
-                    if held:
-                        for n in held:
-                            mid.note(held_at, at - held_at + 0.05, n, held_v, channel)
-                    held, held_at, held_v = v, at, 58 + 8 * e
-                prev = v
-        end = self.bars[-1]["i"] * self.m + self.m * 3
-        for n in held or []:
-            mid.note(held_at, end - held_at, n, held_v, channel)
-        return mid
-
-    def strings(self, prog, channel, bank=0):
-        mid = M.Midi(self.h["bpm"])
-        mid.program(channel, prog, bank)
-        prev = None
-        for b in self.bars:
-            e = b["sec"]["energy"]
-            if e < 2 and not b["final"]:
-                prev = None
-                continue
-            for ch, at, ln in self.segments(b):
-                v = self.voice(ch, 50, 76, 4, prev, 64)
-                prev = v
-                notes = v + ([v[-1] + 12] if e == 3 else [])
-                length = self.m * 2 if b["final"] else ln + 0.02
-                for n in notes:
-                    mid.note(at, length, n, self.vel(e, add=-10), channel)
-        return mid
-
-    def electric(self, prog, channel, bank=0):
-        mid = M.Midi(self.h["bpm"])
-        mid.program(channel, prog, bank)
-        prev = None
-        for b in self.bars:
-            e = b["sec"]["energy"]
-            if e < 2 or b["final"]:
-                continue
-            for ch, at, ln in self.segments(b):
-                v = self.voice(ch, 62, 81, 3, prev, 71)
-                prev = v
-                pattern = [v[0], v[1], v[2], v[1]] if e == 2 else [v[0], v[2], v[1] + 12 if v[1] + 12 <= 86 else v[1], v[2]]
-                for k in range(int(ln * 2)):
-                    mid.note(at + k / 2 + self.jitter(0.006), 0.9, pattern[k % 4], self.vel(e, add=-12 if k % 2 else -4), channel)
-        return mid
-
-
-def click_stem(hymn, nbars, length):
+# ---------------------------------------------------------------- click and guide
+def click_stem(hymn, nbars, length, sub=1):
+    """A clean click: a short, bright tick on each beat (higher on the one), stereo-centred."""
     m, beat = hymn["meter"], 60.0 / hymn["bpm"]
     x = np.zeros(length, np.float32)
-    t = np.arange(int(0.03 * SR)) / SR
-    hi = (np.sin(2 * np.pi * 1600 * t) * np.exp(-t / 0.008)).astype(np.float32)
-    lo = (np.sin(2 * np.pi * 1000 * t) * np.exp(-t / 0.008)).astype(np.float32) * 0.7
+    n = int(0.018 * SR)
+    t = np.arange(n) / SR
+    env = np.exp(-t / 0.0035)
+    tick = lambda f: ((np.sin(2 * np.pi * f * t) + 0.35 * np.sin(2 * np.pi * 2.01 * f * t)) * env).astype(np.float32)
+    hi, lo = tick(2000) * 1.0, tick(1250) * 0.65
     for b in range(nbars):
         for k in range(m):
             i = int(round((b * m + k) * beat * SR))
             snd = hi if k == 0 else lo
-            if i + len(snd) <= length:
-                x[i:i + len(snd)] += snd
+            if i + n <= length:
+                x[i:i + n] += snd
     return x
 
 
-def cue_word(name):
-    n = name.lower()
-    m = re.match(r"^verse\s*(\d+)$", n)
-    if m:
-        return "verse-%s" % m.group(1) if int(m.group(1)) <= 4 else "verse"
-    for k, w in CUE_WORDS.items():
-        if n.startswith(k):
-            return w
-    return None
+def _cue(word):
+    path = os.path.join(CUES, word + ".wav")
+    if not os.path.isfile(path):
+        return None
+    w = M.read_wav(path).mean(axis=1)
+    with open(path, "rb") as f:
+        sr_in = int.from_bytes(f.read(28)[24:28], "little") or 22050
+    return np.interp(np.arange(int(len(w) * SR / sr_in)) * sr_in / SR, np.arange(len(w)), w).astype(np.float32)
+
+
+def cue_words(sec, prev):
+    """What the guide says before a section: its name, and what the band does ("All in", "Build", "Down")."""
+    n = sec["name"].lower()
+    m = re.match(r"^verse\s*(\d+)", n)
+    name = "verse-%s" % m.group(1) if m and int(m.group(1)) <= 5 else next((w for w in ("chorus", "refrain", "bridge", "interlude", "tag", "outro") if n.startswith(w)), "verse" if n.startswith("verse") else None)
+    if sec.get("role") == "outro":
+        name = "outro"
+    role, before = sec.get("role"), (prev or {}).get("role")
+    mod = None
+    if role == "final" and before != "final":
+        mod = "all-in"
+    elif role == "chorus" and before in ("verse", "verse2", "pre", "drop", "intro"):
+        mod = "all-in"
+    elif role in ("pre",):
+        mod = "build"
+    elif role == "drop" or (role == "bridge"):
+        mod = "down"
+    elif role == "verse2" and before in ("verse", "intro"):
+        mod = "band-in"
+    return [w for w in (name, mod) if w]
 
 
 def guide_stem(hymn, secs, length):
-    """Each section's name, spoken on the first beat of the bar before it."""
-    bar = 60.0 / hymn["bpm"] * hymn["meter"]
+    """Each section's cue, spoken from the first beat of the bar before it - and "Build" again halfway through a bridge."""
+    beat = 60.0 / hymn["bpm"]
+    bar = beat * hymn["meter"]
     x = np.zeros(length, np.float32)
-    for s in secs[1:]:
-        word = cue_word(s["name"])
-        path = os.path.join(CUES, (word or "") + ".wav")
-        if not word or not os.path.isfile(path):
+
+    def put(at, words):
+        i = int(round(at * SR))
+        for w in words:
+            snd = _cue(w)
+            if snd is None:
+                continue
+            if 0 <= i and i + len(snd) <= length:
+                x[i:i + len(snd)] += snd
+            i += len(snd) + int(0.12 * SR)
+    for k, s in enumerate(secs):
+        if k == 0:
             continue
-        w = M.read_wav(path).mean(axis=1)
-        sr_in = 16000
-        with open(path, "rb") as f:
-            hdr = f.read(44)
-        try:
-            sr_in = int.from_bytes(hdr[24:28], "little")
-        except Exception:  # noqa: BLE001
-            pass
-        w = np.interp(np.arange(int(len(w) * SR / sr_in)) * sr_in / SR, np.arange(len(w)), w).astype(np.float32)
-        i = int(round((s["start"] - 2) * bar * SR))
-        if 0 <= i and i + len(w) <= length:
-            x[i:i + len(w)] += w
+        put((s["start"] - 2) * bar, cue_words(s, secs[k - 1]))
+        if s.get("role") == "bridge" and len(s["bars"]) >= 4:
+            put((s["start"] - 2 + len(s["bars"]) // 2) * bar, ["build"])
     return x
 
 
 # ---------------------------------------------------------------- audio
-def reverb_ir(seconds=2.4, seed=3):
-    rng = np.random.default_rng(seed)
-    n = int(seconds * SR)
-    t = np.arange(n) / SR
-    ir = rng.normal(0, 1, n) * np.exp(-6.9 * t / seconds)
-    spec = np.fft.rfft(ir)
-    f = np.fft.rfftfreq(n, 1 / SR)
-    ir = np.fft.irfft(spec / (1 + (f / 6000.0) ** 2), n)          # (a darker tail)
-    ir[:int(0.02 * SR)] = 0                                         # (20 ms pre-delay)
-    return (ir / np.sqrt(np.sum(ir ** 2))).astype(np.float32)
+_IR_SPECTRA = {}
 
 
-def convolve(x, ir):
-    n = len(x) + len(ir) - 1
-    size = 1 << (n - 1).bit_length()
-    y = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)[:len(x)]
-    return y.astype(np.float32)
+def convolve(x, ir, *more):
+    """x through the impulse response(s): one result per response (one FFT of x for all of them)."""
+    size = HA.fast_len(len(x) + max(len(r) for r in (ir,) + more) - 1)
+    spec = np.fft.rfft(x, size)
+    out = []
+    for r in (ir,) + more:
+        key = (id(r), size)
+        if key not in _IR_SPECTRA:
+            _IR_SPECTRA.clear() if len(_IR_SPECTRA) > 8 else None
+            _IR_SPECTRA[key] = np.fft.rfft(r, size)
+        out.append(np.fft.irfft(spec * _IR_SPECTRA[key], size)[:len(x)].astype(np.float32))
+    return out[0] if not more else out
 
 
 def active_rms(x):
@@ -558,6 +361,40 @@ def level(x, target_db):
     y = x * (10 ** (target_db / 20.0) / r)
     peak = float(np.max(np.abs(y)))
     return y * (0.95 / peak) if peak > 0.95 else y
+
+
+def loudness(x):
+    import pyloudnorm
+    return pyloudnorm.Meter(SR).integrated_loudness(x.astype(np.float64))
+
+
+def limit(x, ceiling=0.84, look=0.004, release=0.08):
+    """A look-ahead peak limiter (the peaks found at 4x, so the true peak stays under the ceiling)."""
+    from scipy.ndimage import maximum_filter1d
+    from scipy.signal import lfilter, resample_poly
+    peak = np.max(np.abs(resample_poly(x, 4, 1, axis=0)), axis=1).reshape(-1, 4).max(axis=1)[:len(x)] if len(x) else np.zeros(0)
+    if len(peak) < len(x):
+        peak = np.pad(peak, (0, len(x) - len(peak)))
+    need = np.minimum(1.0, ceiling / np.maximum(peak, 1e-9))
+    w = int(look * SR)
+    need = -maximum_filter1d(-need, size=2 * w + 1)                       # (the gain reaches its low point before the peak)
+    a = math.exp(-1.0 / (release * SR))
+    gr = 1.0 - need
+    smooth = lfilter([1 - a], [1, -a], gr)                               # (released slowly)
+    gr = np.maximum(gr, smooth)
+    return (x * (1.0 - gr)[:, None]).astype(np.float32)
+
+
+def master(mix):
+    """The mix bus: glue, about -14 LUFS, true peaks under -1 dBFS."""
+    mix = WB.glue(mix, 1.8)
+    mix = WB.eq(mix, hp=25, air=0.8)
+    for _ in range(2):
+        lufs = loudness(mix)
+        if not np.isfinite(lufs):
+            break
+        mix = limit(mix * 10 ** ((MIX_LUFS - lufs) / 20.0))
+    return mix.astype(np.float32)
 
 
 def mp3(wav_path, out, kbps, channels):
@@ -585,90 +422,97 @@ def find_bank(dirs, bank):
     return None
 
 
+class Sources:
+    """sound name (hymn_arranger.SOUNDS) -> (sf2 path, bank, program, channel), found once and kept."""
+    def __init__(self, opt):
+        self.opt, self.cache = opt, {}
+
+    def __call__(self, sound):
+        if sound in self.cache:
+            return self.cache[sound]
+        bank, words, fallbacks, gm = HA.SOUNDS[sound]
+        if self.opt.get("gm"):
+            got = (self.opt["gm"], 128, 0, 9) if gm == "drums" else (self.opt["gm"], 0, gm, 0)
+        else:
+            got = None
+            for b, w in [(bank, words)] + list(fallbacks):
+                path = find_bank([self.opt.get("sounds"), self.opt.get("orchestra")], b)
+                pr = M.find_preset(path, *w) if path else None
+                if pr:
+                    got = (path, pr[0], pr[1], 0)
+                    break
+            if not got:
+                raise SystemExit("no %s %r SoundFont preset in %s (build the libraries first)" % (bank, words, self.opt.get("sounds")))
+        self.cache[sound] = got
+        return got
+
+
 def sources(opt):
-    """stem -> (sf2 path, bank, program, channel)"""
-    out = {}
-    for stem, (bank, words, gm) in STEMS.items():
-        if opt.get("gm"):
-            out[stem] = (opt["gm"], 128 if gm[1] == 9 else 0, gm[0], gm[1])
-            continue
-        path = find_bank([opt.get("sounds"), opt.get("orchestra")], bank)
-        if not path and stem == "Strings":
-            bank, words = STRINGS_FALLBACK
-            path = find_bank([opt.get("sounds")], bank)
-        if not path:
-            raise SystemExit("no %s SoundFont in %s (build the libraries first)" % (bank, opt.get("sounds")))
-        pr = M.find_preset(path, *words)
-        if not pr:
-            raise SystemExit("no preset %r in %s" % (words, path))
-        out[stem] = (path, pr[0], pr[1], 0)
-    return out
+    return Sources(opt)
+
+
+PREVIEW_SECONDS = 30
+
+
+def preview_start(secs, bar_s, mix):
+    """(10.2) Where the 30-second preview starts (a frame): the chorus or refrain - the second one when there are two, once
+    the song has built - else the loudest 30 seconds of the mix. Held so the whole 30 seconds fit."""
+    n = PREVIEW_SECONDS * SR
+    last = max(0, len(mix) - n)
+    choruses = [s for s in secs if re.match(r"(chorus|refrain)\b", s["name"].lower())]
+    if choruses:
+        pick = choruses[1] if len(choruses) > 1 else choruses[0]
+        return min(last, max(0, int((pick["start"] - 1) * bar_s * SR)))
+    mono = np.abs(np.asarray(mix, np.float32)).mean(axis=1) if np.ndim(mix) > 1 else np.abs(np.asarray(mix, np.float32))
+    if len(mono) <= n:
+        return 0
+    step = SR
+    energy = np.add.reduceat(mono ** 2, np.arange(0, len(mono), step))
+    win = PREVIEW_SECONDS
+    sums = np.convolve(energy, np.ones(win), "valid")
+    return min(last, int(np.argmax(sums)) * step)
 
 
 def render_hymn(hymn, opt, out_dir, srcs):
     secs = layout(hymn)
     nbars = sum(len(s["bars"]) for s in secs)
     bar_s = 60.0 / hymn["bpm"] * hymn["meter"]
-    length = int((nbars + 2) * bar_s * SR + 3 * SR)
-    if opt.get("seconds"):
-        length = min(length, int(float(opt["seconds"]) * SR))
-    duration = length / SR
-    seed = int(hashlib.sha1(hymn["id"].encode()).hexdigest()[:8], 16)
-    arr = Arranger(hymn, secs, seed)
+    seed = int(hashlib.sha1(hymn["id"].encode()).hexdigest()[:8], 16) % (2 ** 31)
     d = os.path.join(out_dir, hymn["id"])
     os.makedirs(d, exist_ok=True)
-    ir = reverb_ir()
-    stems = {}
-    for stem in ("Drums", "Bass", "Keys", "Pad", "Electric", "Strings"):
-        sf2, bank, prog, channel = srcs[stem]
-        mid = getattr(arr, stem.lower())(prog, channel, bank)
-        mp = os.path.join(d, stem + ".mid")
-        mid.save(mp)
-        x = M.render(sf2, mp, sr=SR).mean(axis=1)
-        x = np.pad(x, (0, max(0, length - len(x))))[:length]
-        if stem in REVERB:
-            x = x + REVERB[stem] * convolve(x, ir)
-        stems[stem] = level(x, LEVELS[stem])
-        say("    %-8s %.1f s, peak %.2f" % (stem, len(x) / SR, float(np.max(np.abs(stems[stem])))))
-    stems["Click"] = level(click_stem(hymn, nbars, length), LEVELS["Click"])
-    stems["Guide"] = level(guide_stem(hymn, secs, length), LEVELS["Guide"])
+    band, mix, _song = WB.render(hymn, secs, opt, seed=seed, log=say)
+    length = len(mix)
+    duration = length / SR
+    stems = {"Click": level(click_stem(hymn, nbars, length), LEVELS["Click"]), "Guide": level(guide_stem(hymn, secs, length), LEVELS["Guide"])}
+    stems.update(band)
     files = []
-    for stem, x in stems.items():
+    for stem in STEM_ORDER:
+        x = stems[stem]
         wav = os.path.join(d, stem + ".wav")
         M.write_wav(wav, x, SR)
-        out = mp3(wav, os.path.join(d, stem + ".mp3"), 64 if stem in ("Click", "Guide") else 128, 1)
+        mono = stem in ("Click", "Guide")
+        out = mp3(wav, os.path.join(d, stem + ".mp3"), 64 if mono else 192, 1 if mono else 2)
         os.remove(wav)
-        files.append({"name": stem + ".mp3", "role": ROLES[stem], "mute": stem in ("Click", "Guide"), "path": out})
-    # the mix (stereo, the stems panned) and a 45-second preview from the second verse
-    mix = np.zeros((length, 2), np.float32)
-    for stem, x in stems.items():
-        if stem in ("Click", "Guide"):
-            continue
-        p = PANS.get(stem, 0.0)
-        mix[:, 0] += x * math.cos((p + 1) * math.pi / 4)
-        mix[:, 1] += x * math.sin((p + 1) * math.pi / 4)
-    mix = np.tanh(mix * 1.2) / 1.2
-    mix *= 0.89 / (float(np.max(np.abs(mix))) or 1.0)
+        files.append({"name": stem + ".mp3", "role": ROLES[stem], "mute": mono, "path": out})
+    # the mix (the stems at unity, then glue and the limiter) and a 30-second preview of the best part (preview_start: the second chorus or refrain)
+    mix = master(mix)
+    say("    mix: %.1f LUFS, peak %.2f" % (loudness(mix), float(np.max(np.abs(mix)))))
     wav = os.path.join(d, "mix.wav")
     M.write_wav(wav, mix, SR)
-    mix_mp3 = mp3(wav, os.path.join(d, hymn["id"] + "-mix.mp3"), 160, 2)
-    v2 = next((s for s in secs if s["name"].lower() == "verse 2"), secs[min(1, len(secs) - 1)])
-    a = int((v2["start"] - 1) * bar_s * SR)
-    clip = mix[a:a + 45 * SR].copy()
-    fade = int(2 * SR)
+    mix_mp3 = mp3(wav, os.path.join(d, hymn["id"] + "-mix.mp3"), 192, 2)
+    a = preview_start(secs, bar_s, mix)
+    clip = mix[a:a + PREVIEW_SECONDS * SR].copy()
+    fade = int(1.5 * SR)
     if len(clip) > 2 * fade:
-        clip[:fade] *= np.linspace(0, 1, fade)[:, None]
+        clip[:int(0.05 * SR)] *= np.linspace(0, 1, int(0.05 * SR))[:, None]
         clip[-fade:] *= np.linspace(1, 0, fade)[:, None]
     M.write_wav(wav, clip, SR)
-    prev_mp3 = mp3(wav, os.path.join(d, hymn["id"] + "-preview.mp3"), 128, 2)
+    prev_mp3 = mp3(wav, os.path.join(d, hymn["id"] + "-preview.mp3"), 160, 2)
     os.remove(wav)
-    song = song_file(hymn, secs, duration, list(stems))
+    song = song_file(hymn, secs, duration, list(STEM_ORDER))
     song_path = os.path.join(d, "song.json")
     with open(song_path, "w") as f:
         json.dump(song, f, indent=1, ensure_ascii=False)
-    for f in os.listdir(d):
-        if f.endswith(".mid"):
-            os.remove(os.path.join(d, f))
     return {"files": files, "song": song_path, "mix": mix_mp3, "preview": prev_mp3, "duration": duration}
 
 
@@ -680,7 +524,7 @@ def index_entry(hymn, base, built=None):
     secs = layout(hymn)
     nbars = sum(len(s["bars"]) for s in secs)
     dur = round((nbars + 2) * 60.0 / hymn["bpm"] * hymn["meter"] + 3, 1)
-    names = [("%s.mp3" % s, ROLES[s]) for s in ("Drums", "Bass", "Keys", "Pad", "Electric", "Strings", "Click", "Guide")]
+    names = [("%s.mp3" % s, ROLES[s]) for s in STEM_ORDER]
 
     def entry(name, role=None, path=None, mute=False):
         e = {"name": name, "file": release_name(hymn["id"], name), "url": base + "/" + release_name(hymn["id"], name)}
@@ -697,7 +541,7 @@ def index_entry(hymn, base, built=None):
         "id": hymn["id"], "title": hymn["title"], "artist": ARTIST, "kind": "Multitrack", "key": hymn["key"], "bpm": hymn["bpm"], "meter": hymn["meter"],
         "duration": round((built or {}).get("duration", dur), 1), "words": hymn["words"], "music": hymn["music"], "publicDomain": True,
         "sections": [s["name"] for s in secs],
-        "stems": [entry(n, r, paths.get(n), n in ("Click.mp3", "Guide.mp3")) for n, r in names],
+        "stems": [entry(n, r, paths.get(n), n in ("Click.mp3", "Guide.mp3")) for n, r in names], "style": hymn.get("style"),
         "song": entry("song.json", "song", (built or {}).get("song")),
         "mix": entry(hymn["id"] + "-mix.mp3", None, (built or {}).get("mix")),
         "preview": entry(hymn["id"] + "-preview.mp3", None, (built or {}).get("preview")),
@@ -714,7 +558,7 @@ def main(argv):
     opt, i = {}, 0
     while i < len(argv):
         a = argv[i]
-        if a in ("--sounds", "--orchestra", "--out", "--only", "--base-url", "--seconds", "--gm", "--write-builtin"):
+        if a in ("--sounds", "--orchestra", "--samples", "--out", "--only", "--base-url", "--seconds", "--gm", "--write-builtin"):
             opt[a[2:].replace("-", "_")] = argv[i + 1]
             i += 2
         elif a == "--check":
@@ -741,7 +585,7 @@ def main(argv):
             f.write("\n")
         print("wrote", opt["write_builtin"])
         return 0
-    if not opt.get("out") or not (opt.get("sounds") or opt.get("gm")):
+    if not opt.get("out"):
         print(__doc__)
         return 2
     srcs = sources(opt)
@@ -759,6 +603,11 @@ def main(argv):
     idx = {"format": 1, "base": base, "hymns": index}
     with open(os.path.join(rel, "hymns-index.json"), "w") as f:
         json.dump(idx, f, indent=1, ensure_ascii=False)
+    with open(os.path.join(rel, "CREDITS.txt"), "w") as f:   # (the Salamander piano is CC-BY: it must be credited where the tracks are)
+        f.write("Central Tracks hymns - arranged and recorded by Motion Audio. The words and tunes are in the public domain.\n\nInstruments:\n")
+        for credit, lic in WB.SM.credits(["piano", "drums", "bass", "gretsch", "violins"]):
+            f.write("  - %s [%s]\n" % (credit, lic))
+        f.write("  - Synth pads: Motion Audio (tools/pad_voices.py)\n  - Guide voice: Piper LJSpeech voice (MIT), trained on LJ Speech (public domain)\n")
     with open(os.path.join(rel, "SHA256SUMS"), "w") as f:
         for fn in sorted(os.listdir(rel)):
             if fn != "SHA256SUMS":

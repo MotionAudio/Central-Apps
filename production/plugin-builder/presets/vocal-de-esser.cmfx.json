@@ -1,0 +1,21 @@
+{
+  "format": "central-fx", "version": 1, "name": "Vocal De-esser", "author": "Motion Audio",
+  "description": "Tames sharp S and T sounds in a vocal without dulling it. Lower the threshold until the S's sit back.",
+  "params": [
+    { "id": "threshold", "name": "Threshold", "min": -50, "max": 0, "default": -28, "unit": "dB" },
+    { "id": "freq", "name": "Listen above", "min": 3000, "max": 10000, "default": 5500, "unit": "Hz", "curve": "log" },
+    { "id": "amount", "name": "Amount", "min": 1, "max": 12, "default": 6, "unit": ":1" }
+  ],
+  "graph": {
+    "blocks": [
+      { "id": "in", "type": "input", "x": 40, "y": 140 },
+      { "id": "listen", "type": "filter", "x": 220, "y": 40, "props": { "mode": "highpass", "freq": { "param": "freq" }, "q": 0.7, "slope": 24 } },
+      { "id": "duck", "type": "compressor", "x": 420, "y": 140, "props": { "threshold": { "param": "threshold" }, "ratio": { "param": "amount" }, "attack": 0.5, "release": 60, "knee": 4 } },
+      { "id": "out", "type": "output", "x": 620, "y": 140 }
+    ],
+    "wires": [
+      { "from": "in.out", "to": "listen.in" }, { "from": "listen.out", "to": "duck.key" },
+      { "from": "in.out", "to": "duck.in" }, { "from": "duck.out", "to": "out.in" }
+    ]
+  }
+}

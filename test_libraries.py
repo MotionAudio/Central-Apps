@@ -89,7 +89,7 @@ def main():
 def run(tmp):
     print("The library definitions:")
     defs = BUILD.load_definitions()
-    check("five libraries, one for each plan (Central Pads too)", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pedals", "plugins"], [l["plan"] for l in defs])
+    check("six libraries, one for each plan (Central Pads, and Central Utility since 10.2)", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pedals", "plugins", "utility"], [l["plan"] for l in defs])
     node = subprocess.run(["node", "-e", "const P=require('./js/pedals.js');console.log(JSON.stringify(P.pedals.map(p=>[p.id,p.tier,Object.keys(p.knobs),!!p.opts.irFile])))"], cwd=HERE, capture_output=True, text=True)
     pedals = {p[0]: p for p in json.loads(node.stdout)}
     bad = []
@@ -189,34 +189,46 @@ def run(tmp):
     check("every SFZ library is CC0 at a pinned commit, and every instrument a bank uses is defined", all(len(c) == 40 for _r, c, _t in SFZB.SOURCES.values()) and SFZB.LICENSE == "CC0 1.0"
           and all(layer[0] in SFZB.INSTR for _b, _p, presets in SFZB.BANKS for _n, layers in presets for layer in layers))
 
-    print("\nThe pads and textures (tools/make-pads.py):")
+    print("\nThe pads and textures (tools/make-pads.py, 10.2):")
     PADS = load("make_pads", "tools/make-pads.py")
-    x = PADS.pad_note("warm", 57, 7)
-    ext = np.concatenate([x, x])
-    seam = abs(float(ext[len(x)]) - float(ext[len(x) - 1]))
-    check("a pad note is one exact loop (no seam where it repeats)", len(x) == int(PADS.LOOP * PADS.SR) and seam < 4 * float(np.median(np.abs(np.diff(x)))) + 1e-4, seam)
-    check("every pad's partials sit on whole cycles of the loop", all(abs(PADS.q(f) * PADS.LOOP - round(PADS.q(f) * PADS.LOOP)) < 1e-9 for f, *_r in PADS.partials("aah", 220.0)))
-    check("the textures bank is a Central Plugins sound; the pads Central Keys", dict((b[0], b[1]) for b in PADS.BANKS) == {"Central Keys Pads": "keys", "Central Plugins Textures": "plugins"})
-    # Central Pads (9.8, tools/make-pad-loops.py): the quick (frequency-domain) pad note sounds like the summed sines, loops exactly
+    # (seamless: where the loop runs round, its curve bends no more than anywhere inside it - a seam would be a kink)
+    seamless = lambda lp: float(np.max(np.abs(np.diff(np.concatenate([lp[-3:], lp[:3]]), 2, axis=0)))) <= float(np.max(np.abs(np.diff(lp, 2, axis=0)))) + 1e-6
+    x, s0, e0 = PADS.pad_sample(PADS.PADS[0][1], 57, 7)
+    check("a pad note is stereo and one seamless loop (its movement and reverb wrap round)", x.ndim == 2 and x.shape[1] == 2 and (s0, e0) == (0, int(PADS.LOOP * PADS.SR))
+          and seamless(x[s0:e0]) and float(np.max(np.abs(x[:, 0] - x[:, 1]))) > 0.01 and np.isfinite(x).all(), (s0, e0))
+    sw, s1, e1 = PADS.pad_sample(dict((p[0], p[1]) for p in PADS.PADS)["Swell Pad"], 57, 7)
+    cen = lambda y: float(np.sum(np.abs(np.fft.rfft(y.mean(1))) * np.arange(len(y) // 2 + 1)) / np.sum(np.abs(np.fft.rfft(y.mean(1))))) * PADS.SR / len(y)
+    check("the Swell Pad opens before its loop: darker at first, flowing into the loop with no step", s1 == int(3.0 * PADS.SR) and e1 - s1 == int(PADS.LOOP * PADS.SR)
+          and cen(sw[:int(0.5 * PADS.SR)]) < 0.7 * cen(sw[s1:s1 + int(0.5 * PADS.SR)]) and float(np.max(np.abs(sw[s1] - sw[s1 - 1]))) <= float(np.max(np.abs(np.diff(sw[s1:e1], axis=0)))) + 1e-6,
+          (s1, cen(sw[:int(0.5 * PADS.SR)]), cen(sw[s1:s1 + int(0.5 * PADS.SR)])))
+    check("fifteen pads; the textures bank is a Central Plugins sound, the pads Central Keys, the swells Central Pads", len(PADS.PADS) == 15
+          and dict((b[0], b[1]) for b in PADS.BANKS) == {"Central Keys Pads": "keys", "Central Plugins Textures": "plugins", "Central Pads Swells": "pads"}
+          and [p[0] for p in PADS.PADS[:9]] == ["Warm Pad", "Air Pad", "Choir Aah", "Choir Ooh", "Shimmer Pad", "String Pad", "Glass Pad", "Swell Pad", "Worship Pad"])
+    SW = dict((x[0], x[1:]) for x in PADS.SWELLS)
+    sw, ri, dn = PADS.swell_sound("swell", 2, 4), PADS.swell_sound("riser", 2, 4), PADS.swell_sound("down", 2, 4)
+    rms = lambda y: float(np.sqrt(np.mean(y ** 2)))
+    q = PADS.SW_SR // 4
+    seg = ri[-q - 720:-720].mean(1)
+    spec = np.abs(np.fft.rfft(seg * np.hanning(len(seg))))
+    fr = np.fft.rfftfreq(len(seg), 1 / PADS.SW_SR)
+    lo = fr[np.argmax(spec * (fr < 700) * (fr > 200))]
+    check("Central Pads Swells: swells and risers in every key at 4, 8 and 16 s: a swell grows into its end, a riser ends in its key (D), a downlifter fades out",
+          {SW[n][1] for n in SW if SW[n][0] in ("swell", "riser")} == {4, 8, 16} and len(sw) == 4 * PADS.SW_SR and rms(sw[:q]) < 0.05 * rms(sw[-2 * q:-q])
+          and min(abs(lo - f) for f in (293.66, 440.0, 587.33)) < 8 and rms(dn[-q:]) < 0.1 * rms(dn[:q]), (lo, rms(sw[:q]), rms(sw[-2 * q:-q])))
+
+    # Central Pads (tools/make-pad-loops.py): each style in each key, a stereo seamless loop
     LOOPS = load("make_pad_loops", "tools/make-pad-loops.py")
-    fast = LOOPS.pad_note_fast("warm", 57, 7)
-    xf = np.fft.rfft(np.asarray(x, np.float64)); ff = np.fft.rfft(fast)
-    same = float(np.corrcoef(np.abs(xf), np.abs(ff))[0, 1])
-    ext = np.concatenate([fast, fast])
-    seam = abs(float(ext[len(fast)]) - float(ext[len(fast) - 1]))
-    check("Central Pads: the quick pad note has the same spectrum as the summed sines (same partials, same movement)", same > 0.98, same)
-    check("...and is one exact loop", len(fast) == len(x) and seam < 4 * float(np.median(np.abs(np.diff(fast)))) + 1e-4, seam)
     ploops = LOOPS.build(os.path.join(tmp, "padloops"), styles=["Worship"], keys=["C", "F#"], log=lambda *a: None)
     import wave as _wave
     with _wave.open(os.path.join(ploops, LOOPS.loop_file("Worship", "F#"))) as w:
         frames = np.frombuffer(w.readframes(w.getnframes()), "<i2").reshape(-1, 2) / 32768.0
-        okw = w.getnchannels() == 2 and w.getframerate() == PADS.SR and w.getnframes() == int(PADS.LOOP * PADS.SR)
+        okw = w.getnchannels() == 2 and w.getframerate() == LOOPS.SR and w.getnframes() == int(LOOPS.LOOP * LOOPS.SR)
     peak = float(np.max(np.abs(frames)))
     spec = np.abs(np.fft.rfft(frames[:, 0]))
-    f0 = np.argmax(spec[: int(400 * PADS.LOOP)]) / PADS.LOOP   # (the strongest low partial: F#3 185 Hz or its octave / fifth)
-    check("Central Pads: a key's loop is a stereo WAV of the loop's length, about -6 dBFS, in its key (F#: Fs.wav)", okw and 0.45 < peak < 0.52 and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
-          and any(abs(f0 - 185.0 * m) < 6 for m in (0.5, 1, 1.5, 2, 3)), (okw, peak, f0))
-    check("Central Pads: 20 styles (12, and 8 more in 10.0), the same ones the library lists", len(LOOPS.STYLES) == 20 and LOOPS.NAMES == [p["name"] for p in by["pads"]["pads"]], LOOPS.NAMES)
+    f0 = np.argmax(spec[: int(400 * LOOPS.LOOP)]) / LOOPS.LOOP   # (the strongest low partial: F#3 185 Hz or its octave / fifth)
+    check("Central Pads: a key's loop is a stereo WAV of the loop's length, about -6 dBFS, in its key (F#: Fs.wav), seamless", okw and 0.45 < peak < 0.52 and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
+          and any(abs(f0 - 185.0 * m) < 6 for m in (0.25, 0.5, 1, 1.5, 2, 3)) and seamless(frames), (okw, peak, f0))
+    check("Central Pads: 41 styles, the same ones the library lists", len(LOOPS.STYLES) == 41 and len(set(LOOPS.NAMES)) == 41 and LOOPS.NAMES == [p["name"] for p in by["pads"]["pads"]], LOOPS.NAMES)
 
     print("\nThe zips (tools/build-libraries.py):")
     snd = os.path.join(tmp, "sounds")
@@ -232,6 +244,8 @@ def run(tmp):
             LOOPS.loop_wav(os.path.join(snd, "loops", ls["set"], "one.wav"), np.zeros(64, np.float32), np.zeros(64, np.float32))
             with open(os.path.join(snd, "loops", ls["set"], "index.json"), "w") as handle:
                 json.dump([{"name": "One", "file": "one.wav", "bpm": 90, "meter": 4, "bars": 2}], handle)
+    import runpy   # (10.2: Central Utility's click sets and lighting looks, made the real way - it takes a second)
+    runpy.run_path(os.path.join(HERE, "tools", "make-utility.py"), run_name="make_utility")["main"]([os.path.join(snd, "utility")])
     out = os.path.join(tmp, "out")
     index = BUILD.build_all(snd, ir_dir, out, base_url="https://example.test/libs", log=lambda *a: None)
     zips = sorted(f for f in os.listdir(out) if f.endswith(".zip"))
@@ -305,11 +319,11 @@ def run(tmp):
     check("Central Plugins' textures bank keeps the plugins plan (a sound bank can belong to any plan)", gcat and all(b.get("tier") == "plugins" for b in gcat), gcat)
     store.remove("central-plugins-library")
     pads_e = [e for e in index["libraries"] if e["plan"] == "pads"][0]
-    check("Central Pads' zip: all 20 styles in all 12 keys, with the pads plan", pads_e["counts"]["pad"] == len(by["pads"]["pads"]) == 20 and len(pads_e["contents"]["pads"]) == 20, pads_e["counts"])
+    check("Central Pads' zip: all 41 styles in all 12 keys, with the pads plan", pads_e["counts"]["pad"] == len(by["pads"]["pads"]) == 41 and len(pads_e["contents"]["pads"]) == 41, pads_e["counts"])
     drec = store.install_file(os.path.join(out, pads_e["file"]), expected_sha256=pads_e["sha256"])
     styles = store.pads()
     f_fs = store.pad_file("central-pads-library", "Worship", "F#")
-    check("Central Pads installs: 20 pad styles, each in all 12 keys, with the pads plan", drec["counts"]["pad"] == 20 and len(styles) == 20 and all(len(x["keys"]) == 12 and x["tier"] == "pads" for x in styles), [(x["name"], len(x["keys"])) for x in styles])
+    check("Central Pads installs: 41 pad styles, each in all 12 keys, with the pads plan", drec["counts"]["pad"] == 41 and len(styles) == 41 and all(len(x["keys"]) == 12 and x["tier"] == "pads" for x in styles), [(x["name"], len(x["keys"])) for x in styles])
     check("...a style's loop in a key is found (F# -> Fs.wav, inside the library's own folder)", f_fs and f_fs.endswith(os.path.join("Worship", "Fs.wav")) and os.path.isfile(f_fs), f_fs)
     check("...nothing outside it is (a made-up library, style or key)", not store.pad_file("../x", "Worship", "C") and not store.pad_file("central-pads-library", "Nope", "C") and not store.pad_file("central-pads-library", "Worship", "H"))
     store.remove("central-pads-library")
@@ -361,6 +375,43 @@ def run(tmp):
     store.remove("central-pedals-library")
     left = [f for f in os.listdir(rig.sf2_user_dir) if f.endswith(".sf2")] + [f for f in os.listdir(rig.ir_dir) if f.endswith(".wav")]
     check("Remove takes every file and plan line the libraries added away", not left and not store.installed() and "central-" not in open(os.path.join(rig.sf2_user_dir, "tiers.txt")).read(), left)
+
+    # (10.2) a plugin you made in Central Production: its personal library (plan "free", personal) installs on the Central
+    # Pedal too, and the plugin is listed as yours - for the pedalboard and the effects - without the community switch
+    fxzip = os.path.join(tmp, "my-tremolo.zip")
+    fxjson = json.dumps({"format": "central-fx", "version": 1, "name": "My Tremolo", "blocks": [], "wires": []}).encode()
+    with zipfile.ZipFile(fxzip, "w") as z:
+        z.writestr("manifest.json", json.dumps({"format": 1, "id": "my-tremolo-abc123", "plan": "free", "personal": True, "version": "1.1790000000", "title": "My Tremolo",
+                                                "items": [{"kind": "fx", "file": "fx/My Tremolo.cmfx.json", "name": "My Tremolo", "format": "central-fx", "sha256": hashlib.sha256(fxjson).hexdigest()}]}))
+        z.writestr("fx/My Tremolo.cmfx.json", fxjson)
+    store.set_plugins_allowed(False)
+    frec = store.install_file(fxzip)
+    mine = store.central_fx()
+    lst = [x for x in store.listing() if x["id"] == "my-tremolo-abc123"]
+    check("(10.2) your own Central FX plugin (a personal library) installs here and is listed as yours, the community switch off",
+          frec["source"] == "personal" and frec["counts"].get("fx") == 1 and os.path.isfile(frec["fx"][0]["file"]) and frec["fx"][0]["file"].endswith(".cmfx.json")
+          and [(m["name"], m["from"]) for m in mine] == [("My Tremolo", "mine")] and lst and lst[0]["fx"] and lst[0]["personal"], (frec, mine))
+    try:
+        bad = os.path.join(tmp, "not-fx.zip")
+        with zipfile.ZipFile(bad, "w") as z:
+            z.writestr("manifest.json", json.dumps({"format": 1, "id": "my-bad-abc123", "plan": "free", "personal": True, "version": "1.1", "items": [{"kind": "fx", "file": "fx/x.cmfx.json"}]}))
+            z.writestr("fx/x.cmfx.json", "{\"format\": \"lv2\"}")
+        store.install_file(bad)
+        bad_refused = False
+    except libraries.LibraryError:
+        bad_refused = True
+    try:
+        sneak = os.path.join(tmp, "sneak.zip")
+        with zipfile.ZipFile(sneak, "w") as z:
+            z.writestr("manifest.json", json.dumps({"format": 1, "id": "sneaky-lib", "plan": "free", "version": "1.1", "items": [{"kind": "fx", "file": "fx/x.cmfx.json"}]}))
+            z.writestr("fx/x.cmfx.json", fxjson)
+        store.install_file(sneak)
+        sneak_refused = False
+    except libraries.LibraryError:
+        sneak_refused = True
+    check("(10.2) ...a file that isn't a Central FX plugin is refused, and plan \"free\" is only for your own (personal) libraries", bad_refused and sneak_refused)
+    store.remove("my-tremolo-abc123")
+    check("(10.2) ...and Remove takes it away", not store.central_fx() and not os.path.exists(frec["fx"][0]["file"]))
 
     print("\nDownloads:")
     payload = open(kzip, "rb").read()

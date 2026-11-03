@@ -13,7 +13,7 @@
 //  - Identity: publishers verify their ID once before their first upload.
 //  - Tax: off (automatic_tax false) until it's set up; every price already includes tax and carries a tax code.
 import Stripe from "stripe";
-import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE, DISCOUNTS, RENEWAL, TAX_CODES, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PLAN_INTERVAL, PADS_PLAN, withPads } from "./config.js";
+import { config, PRODUCTS, SUBSCRIPTION, PUBLISHER_SHARE, DISCOUNTS, RENEWAL, TAX_CODES, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PLAN_INTERVAL, PADS_PLAN, SOUND_PLANS, withPads } from "./config.js";
 import { q, one, pool } from "./db.js";
 import { churchOf, createChurch, personalChurch, issueKeys, canon, pretty } from "./licenses.js";
 import { sendDownloadsEmail } from "./downloads.js";
@@ -254,8 +254,9 @@ export async function planCheckout(user, want, code, only) {
   if (!user) throw err("Sign in first: a sound plan is yours, in every app you sign in to.", 401);
   const list = (Array.isArray(want) ? want : [want]).map((x) => String(x || ""));
   let ids = list.includes("all") ? PLAN_IDS.slice() : PLAN_IDS.filter((id) => list.includes(id));
-  if (ids.some((id) => id !== PADS_PLAN)) ids = ids.filter((id) => id !== PADS_PLAN);   // (Central Pads comes with every other plan)
-  if (!ids.length) throw err("Pick a sound plan.");
+  if (SOUND_PLANS.every((id) => ids.includes(id))) ids = PLAN_IDS.slice();   // (10.2: every sound plan is "all plans" - less, and Central Utility comes with it)
+  if (ids.some((id) => SOUND_PLANS.includes(id))) ids = ids.filter((id) => id !== PADS_PLAN);   // (Central Pads comes with every sound plan)
+  if (!ids.length) throw err("Pick a plan.");
   const all = PLAN_IDS.filter((id) => id !== PADS_PLAN).every((id) => ids.includes(id));
   const held = await q(`SELECT plans, ${PLAN_END} AS ends FROM plan_subs WHERE kind='person' AND user_id=$1 AND ${PLAN_LIVE}`, [user.id]);
   const dup = ids.filter((id) => held.some((h) => withPads(h.plans).includes(id)));

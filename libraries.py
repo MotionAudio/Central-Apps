@@ -36,9 +36,13 @@ import zipfile
 
 log = logging.getLogger("pedal-driver.libraries")
 
-PLANS = ("keys", "instrument", "plugins", "pedals", "pads")
-KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "plugin")
-PLUGIN_FORMATS = ("lv2", "vst3", "clap", "component")
+PLANS = ("keys", "instrument", "plugins", "pedals", "pads", "utility")
+# (10.2) Central Utility adds lighting looks, slide templates, lyric backgrounds and graphics: kept here as files and
+# records (Central Control shows them); its clicks join the click sounds a song can pick.
+KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic", "fx")   # (10.2 fx: a plugin you made in Central Production, .cmfx.json)
+EXTRA_KINDS = {"look": "looks", "slide": "slides", "background": "backgrounds", "graphic": "graphics"}
+PLUGIN_FORMATS = ("lv2", "vst3", "clap", "component", "cmfx")   # (10.2) cmfx: a Central FX plugin, one .cmfx.json file
+MAX_CMFX = 512 * 1024
 MAX_PLUGIN = 300 * 1024 * 1024    # a community plugin bundle, unpacked
 PAD_KEYS = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 MAX_DOWNLOAD = 2 * 1024 ** 3        # a library zip
@@ -76,10 +80,28 @@ def release_index(url=None, timeout=20, max_age=600):
             continue
         out.append({"id": lib["id"], "plan": lib["plan"], "title": lib.get("title") or lib["id"], "version": str(lib.get("version") or ""),
                     "summary": lib.get("summary") or "", "file": lib["file"], "size": int(lib.get("size") or 0), "sha256": sha,
-                    "url": base + "/" + urllib.parse.quote(str(lib["file"])), "ready": True})
+                    "url": base + "/" + urllib.parse.quote(str(lib["file"])), "ready": True, "previews": previews_of(lib, base)})
     data = {"ok": True, "source": "release", "built": j.get("built") or "", "libraries": out}
     _index_cache[url] = (time.time(), data)
     return data
+
+
+PREVIEW_KINDS = ("pad", "loops", "loop", "sound", "preset", "ir")
+PREVIEW_RE = re.compile(r"^preview--[\w.-]{3,200}\.mp3$")
+
+
+def previews_of(lib, base):
+    """(10.2) a library's 30-second previews, next to its zip: [{kind, name, preset?, set?, url, seconds}]."""
+    out = []
+    for p in (lib.get("previews") or [])[:600]:
+        if not isinstance(p, dict) or p.get("kind") not in PREVIEW_KINDS or not PREVIEW_RE.match(str(p.get("file") or "")):
+            continue
+        e = {"kind": p["kind"], "name": str(p.get("name") or "")[:80], "url": base + "/" + urllib.parse.quote(p["file"]), "seconds": 30}
+        for k in ("preset", "set"):
+            if p.get(k) is not None:
+                e[k] = str(p[k])[:80]
+        out.append(e)
+    return out
 
 
 def version_key(v):
@@ -200,6 +222,21 @@ class LibraryStore:
         dest = os.path.join(self.plugins_dir(), lib_id)
         shutil.rmtree(dest, ignore_errors=True)
         os.makedirs(dest, exist_ok=True)
+        if fmt == "cmfx":   # (10.2) a Central FX plugin: the .cmfx.json itself (our own core plays it, no program in it)
+            try:
+                plugin = json.loads(data.decode("utf-8")) if len(data) <= MAX_CMFX else None
+            except (ValueError, UnicodeDecodeError):
+                plugin = None
+            if not isinstance(plugin, dict) or plugin.get("format") != "central-fx" or not bundle.endswith(".cmfx.json"):
+                shutil.rmtree(dest, ignore_errors=True)
+                raise LibraryError("a Central FX plugin in that library isn't a valid plugin file")
+            if want.get(bundle) != sha256_bytes(data):
+                shutil.rmtree(dest, ignore_errors=True)
+                raise LibraryError("a plugin's file doesn't match what Motion Audio checked - nothing was installed")
+            with open(os.path.join(dest, bundle), "wb") as handle:
+                handle.write(data)
+            return {"name": str(it.get("name") or plugin.get("name") or bundle)[:80], "format": fmt, "platform": "all", "bundle": bundle,
+                    "path": os.path.join(dest, bundle), "binaries": [{"name": bundle, "sha256": want[bundle]}]}
         real_dest = os.path.realpath(dest)
         total, seen = 0, {}
         try:
@@ -261,7 +298,43 @@ class LibraryStore:
 
     def listing(self):
         """What the app's Libraries panel shows: each installed library with its boards and presets (to add as boards)."""
-        return [{k: r.get(k) for k in ("id", "plan", "version", "title", "summary", "installedAt", "counts", "boards", "presets", "source", "community", "plugins")} for r in self.installed()]
+        return [{k: r.get(k) for k in ("id", "plan", "version", "title", "summary", "installedAt", "counts", "boards", "presets", "source", "community", "plugins", "fx", "personal")} for r in self.installed()]
+
+    def central_fx(self):
+        """(10.2) The installed Central FX plugins, for the app's track / pad effect pickers: [{"name", "from", "author", "plugin"}]
+        - the ones you made in Central Production (always: they're yours, and our own core plays them), and community ones
+        (only while community plugins are allowed)."""
+        out = []
+        def read(path):
+            try:
+                if os.path.getsize(path or "") > MAX_CMFX:
+                    return None
+                with open(path, encoding="utf-8") as handle:
+                    j = json.load(handle)
+            except (OSError, ValueError, TypeError):
+                return None
+            return j if isinstance(j, dict) and j.get("format") == "central-fx" else None
+        for r in self.installed():
+            for x in r.get("fx") or []:
+                j = read(x.get("file"))
+                if j:
+                    out.append({"name": x.get("name") or j.get("name"), "from": "mine" if r.get("source") == "personal" else "installed", "author": j.get("author") or "", "plugin": j, "path": x.get("file"), "library": r.get("id")})
+        if not self.plugins_allowed():
+            return out
+        for r in self.installed():
+            for pl in r.get("plugins") or []:
+                if pl.get("format") != "cmfx":
+                    continue
+                try:
+                    if os.path.getsize(pl.get("path") or "") > MAX_CMFX:
+                        continue
+                    with open(pl["path"], encoding="utf-8") as handle:
+                        j = json.load(handle)
+                except (OSError, ValueError, KeyError):
+                    continue
+                if isinstance(j, dict) and j.get("format") == "central-fx":
+                    out.append({"name": pl.get("name") or j.get("name"), "from": "mine" if r.get("source") == "personal" else "installed", "author": j.get("author") or "", "plugin": j})
+        return out
 
     def pads(self):
         """The installed pad styles (Central Pads): [{"id": "<library>/<style>", "name", "library", "tier", "keys": [..]}]."""
@@ -302,6 +375,36 @@ class LibraryStore:
         for lp in rec.get("loops") or []:
             if "%s/%s" % (lp.get("set"), os.path.basename(lp.get("file") or "")) == file_id:
                 real = os.path.realpath(lp.get("file") or "")
+                return real if real.startswith(base + os.sep) and os.path.isfile(real) else None
+        return None
+
+    def clicks(self):
+        """(10.2) The installed click sets: [{"id": "<library>/<name>", "name", "library", "tier", "accent": file id, "beat": file id}] -
+        a file id is its name in the library (what /libraries/click takes). A click without a role is both."""
+        out = {}
+        for r in self.installed():
+            for c in r.get("clicks") or []:
+                if not os.path.isfile(c.get("file") or ""):
+                    continue
+                k = "%s/%s" % (r["id"], c.get("name"))
+                e = out.setdefault(k, {"id": k, "name": c.get("name"), "library": r["id"], "tier": r.get("plan")})
+                fid = os.path.basename(c["file"])
+                if c.get("role") in ("accent", "beat"):
+                    e[c["role"]] = fid
+                else:
+                    e.setdefault("accent", fid)
+                    e.setdefault("beat", fid)
+        return [e for e in out.values() if e.get("beat") or e.get("accent")]
+
+    def click_file(self, lib_id, file_id):
+        """(10.2) One click's WAV - only a file this library installed - or None."""
+        if not ID_RE.match(str(lib_id or "")) or not re.match(r"^[\w.-]{1,120}$", str(file_id or "")):
+            return None
+        rec = self.record(lib_id) or {}
+        base = os.path.realpath(os.path.join(self.root, lib_id, "clicks"))
+        for c in rec.get("clicks") or []:
+            if os.path.basename(c.get("file") or "") == file_id:
+                real = os.path.realpath(c.get("file") or "")
                 return real if real.startswith(base + os.sep) and os.path.isfile(real) else None
         return None
 
@@ -406,7 +509,8 @@ class LibraryStore:
             raise LibraryError("that zip isn't a sound library (no manifest.json)")
         except (ValueError, UnicodeDecodeError):
             raise LibraryError("that library's manifest.json can't be read")
-        if not isinstance(man, dict) or not ID_RE.match(str(man.get("id") or "")) or man.get("plan") not in PLANS or not VERSION_RE.match(str(man.get("version") or "")):
+        personal = isinstance(man, dict) and man.get("personal") is True and man.get("plan") == "free"   # (10.2: made in Central Production - yours, no plan)
+        if not isinstance(man, dict) or not ID_RE.match(str(man.get("id") or "")) or not (man.get("plan") in PLANS or personal) or not VERSION_RE.match(str(man.get("version") or "")):
             raise LibraryError("that library's manifest.json is missing its id, plan or version")
         if int(man.get("format") or 1) > 1:
             raise LibraryError("that library needs a newer version of the app - update it first")
@@ -434,7 +538,10 @@ class LibraryStore:
             self.remove(lib_id, keep_record=True)
         rec = {"id": lib_id, "plan": tier, "version": str(man["version"]), "title": str(man.get("title") or lib_id)[:80], "summary": str(man.get("summary") or "")[:400],
                "installedAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "source": source if source == "file" else "website", "sounds": [], "irs": [], "clicks": [], "pads": [],
-               "loops": [], "boards": [], "presets": [], "plugins": [], "tier": tier}
+               "loops": [], "boards": [], "presets": [], "plugins": [], "fx": [], "tier": tier}
+        if man.get("personal") is True:   # (10.2: something you made in Central Production)
+            rec["personal"] = True
+            rec["source"] = "personal"
         if isinstance(man.get("community"), dict):   # (10.1: an item from Make & sell - who made it, for the label)
             rec["community"] = {"item": man["community"].get("item"), "creator": str(man["community"].get("creator") or "")[:80], "kind": str(man["community"].get("kind") or "")[:20]}
         sound_lines, ir_lines = [], []
@@ -479,7 +586,10 @@ class LibraryStore:
                 p = os.path.join(folder, safe_name(it["file"], "click.wav"))
                 with open(p, "wb") as handle:
                     handle.write(data)
-                rec["clicks"].append({"name": str(it.get("name") or "")[:60], "file": p, "tier": tier})
+                c = {"name": str(it.get("name") or "")[:60], "file": p, "tier": tier}
+                if it.get("role") in ("accent", "beat"):
+                    c["role"] = it["role"]   # (10.2: a click set is two clicks with the same name, the accent and the beat)
+                rec["clicks"].append(c)
             elif kind == "pad":
                 key = str(it.get("key") or "")
                 if key not in PAD_KEYS or not data[:4] == b"RIFF":
@@ -509,6 +619,29 @@ class LibraryStore:
                 rec["loops"].append(entry)
             elif kind == "plugin":
                 rec["plugins"].append(self._unpack_plugin(lib_id, it, data))
+            elif kind == "fx":   # (10.2: a plugin you made in Central Production - one .cmfx.json, played by our own core)
+                try:
+                    fx = json.loads(data.decode("utf-8"))
+                except (ValueError, UnicodeDecodeError):
+                    raise LibraryError("a plugin in that library can't be read")
+                if not isinstance(fx, dict) or fx.get("format") != "central-fx" or len(data) > MAX_CMFX:
+                    raise LibraryError("a plugin in that library isn't a Central Production plugin")
+                folder = os.path.join(self.root, lib_id, "fx")
+                os.makedirs(folder, exist_ok=True)
+                fname = safe_name(os.path.basename(it["file"]), "plugin.cmfx.json")
+                if not fname.endswith(".cmfx.json"):
+                    fname = re.sub(r"\.json$", "", fname) + ".cmfx.json"
+                p = os.path.join(folder, fname)
+                with open(p, "wb") as handle:
+                    handle.write(data)
+                rec["fx"].append({"name": str(fx.get("name") or it.get("name") or "Plugin")[:60], "file": p, "tier": tier})
+            elif kind in EXTRA_KINDS:   # (10.2: Central Utility's looks, slide templates, backgrounds, graphics)
+                folder = os.path.join(self.root, lib_id, EXTRA_KINDS[kind])
+                os.makedirs(folder, exist_ok=True)
+                p = os.path.join(folder, safe_name(it["file"], kind + ".json"))
+                with open(p, "wb") as handle:
+                    handle.write(data)
+                rec.setdefault(EXTRA_KINDS[kind], []).append({"name": str(it.get("name") or kind)[:60], "file": p, "tier": tier})
         # the plan lines first (a host that looks at the folder as a sound arrives already sees it locked), then the files
         if sounds:
             tiers_lines_set(inst.sf2_user_dir, lib_id, sound_lines)
@@ -528,6 +661,11 @@ class LibraryStore:
                          "pad": len({x["name"] for x in rec["pads"]}), "loop": len({(x["set"], x["name"]) for x in rec["loops"]})}
         if rec["plugins"]:
             rec["counts"]["plugin"] = len(rec["plugins"])   # (10.1: community plugins)
+        if rec["fx"]:
+            rec["counts"]["fx"] = len(rec["fx"])   # (10.2: plugins made in Central Production)
+        for kind, key in EXTRA_KINDS.items():
+            if rec.get(key):
+                rec["counts"][kind] = len(rec[key])
         self._write_record(rec)
         log.info("library %s %s installed (%s)", lib_id, rec["version"], rec["counts"])
         return rec

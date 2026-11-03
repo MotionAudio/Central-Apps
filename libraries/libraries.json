@@ -1,13 +1,13 @@
 {
- "_about": "The sound libraries, one per plan. tools/build-libraries.py turns each into <id>-<version>.zip with a manifest.json (sounds: tools/sounds-vcsl.py, IRs: tools/make-irs.py, pad loops: tools/make-pads.py); .github/workflows/libraries.yml builds and publishes them. Raise a library's version when its content changes.",
+ "_about": "The sound libraries, one per plan. tools/build-libraries.py turns each into <id>-<version>.zip with a manifest.json (sounds: tools/sounds-vcsl.py, IRs: tools/make-irs.py, pad loops: tools/make-pads.py, Central Utility's clicks and lighting looks: tools/make-utility.py); .github/workflows/libraries.yml builds and publishes them. Raise a library's version when its content changes.",
  "libraries": [
   {
    "id": "central-keys-library",
-   "approxMB": 450,
+   "approxMB": 575,
    "plan": "keys",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Keys Library",
-   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; nine pads (warm, air, choir aah / ooh, shimmer, strings, glass, swell, worship) - with worship-ready presets; and ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, pluck, electric bells).",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; fifteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, and Ember and Selah Strings - a grand piano and a string section stretched into clouds) - with worship-ready presets; and ten synths made by us, each its own kind (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells).",
    "sounds": [
     {
      "name": "Central Keys Pianos",
@@ -64,13 +64,23 @@
     {
      "name": "Central Keys Pads",
      "source": "make-pads",
-     "license": "Motion Audio - sold with Central Keys",
-     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Keys (recordings in it: CC0 1.0)",
+     "credit": "Made by Motion Audio (tools/make-pads.py); Ember Pad and Selah Strings are made from recordings in VCSL and VSCO 2 CE by Versilian Studios (CC0 1.0)",
      "sources": [
       {
        "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
        "license": "Motion Audio - sold with Central Keys",
        "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      },
+      {
+       "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
       }
      ]
     },
@@ -515,6 +525,101 @@
      "sound": "swell pad"
     },
     {
+     "name": "Analog Sweep",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.2
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.0
+       }
+      ]
+     ],
+     "sound": "analog sweep pad|warm pad"
+    },
+    {
+     "name": "Dark Pad Bed",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 4.5,
+        "Late": 30
+       }
+      ]
+     ],
+     "sound": "dark pad|warm pad"
+    },
+    {
+     "name": "Bell Pad Sparkle",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 40,
+        "Mix": 25
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 5
+       }
+      ]
+     ],
+     "sound": "bell pad|glass pad"
+    },
+    {
+     "name": "Sunday Keys Pad",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 6.5,
+        "Late": 36
+       }
+      ]
+     ],
+     "sound": "sunday pad|worship pad"
+    },
+    {
+     "name": "Ember",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 5.5,
+        "Late": 34
+       }
+      ]
+     ],
+     "sound": "ember pad|warm pad"
+    },
+    {
+     "name": "Selah Strings",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 4.5,
+        "Late": 30
+       }
+      ]
+     ],
+     "sound": "selah strings|string pad"
+    },
+    {
      "name": "Xylophone Bright",
      "kind": "keys",
      "chain": [
@@ -687,9 +792,9 @@
    "id": "central-instrument-library",
    "approxMB": 560,
    "plan": "instrument",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Instrument Library",
-   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and ten drum loops for the texture channels (worship eighths, big ride, half-time, four on the floor, sixteenths, toms, brushes, waltz) at 70 and 100 BPM.",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell.",
    "sounds": [
     {
      "name": "Central Instrument Harps",
@@ -1330,7 +1435,7 @@
      "set": "drums",
      "name": "Drum loops",
      "license": "Motion Audio + CC0 1.0",
-     "credit": "Drum loops played by Motion Audio (tools/make-loops.py) on the library's drum kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums - CC0 1.0)",
+     "credit": "Drum and percussion loops played by Motion Audio (tools/make-loops.py) on the library's own kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums, VCSL hand and orchestral percussion - CC0 1.0)",
      "sources": [
       {
        "text": "Grooves written and rendered by Motion Audio (tools/make-loops.py)",
@@ -1341,6 +1446,11 @@
        "text": "Drum samples: sfzinstruments / Karoryfer kits (see the Drum Kits bank)",
        "license": "CC0 1.0",
        "url": "https://github.com/sfzinstruments"
+      },
+      {
+       "text": "Hand and orchestral percussion: Versilian Community Sample Library (VCSL) by Versilian Studios (see the Percussion bank)",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL"
       }
      ]
     }
@@ -1348,9 +1458,9 @@
   },
   {
    "id": "central-plugins-library",
-   "approxMB": 12,
+   "approxMB": 18,
    "plan": "plugins",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Plugins Library",
    "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish.",
    "sounds": [
@@ -2024,7 +2134,7 @@
    "id": "central-pedals-library",
    "approxMB": 0.2,
    "plan": "pedals",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Pedals Library",
    "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies.",
    "sounds": [],
@@ -3194,11 +3304,11 @@
   },
   {
    "id": "central-pads-library",
-   "approxMB": 240,
+   "approxMB": 840,
    "plan": "pads",
-   "version": "1.1",
+   "version": "1.2",
    "title": "Central Pads Library",
-   "summary": "20 pads for the pad pedal in all 12 keys - warm, air, choir aah, choir ooh, choir hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning. Each is a seamless stereo loop of the key's chord, played as recorded (no pitch shifting). Comes with every other plan too Plus three ambient loops for the texture channels - Sparkle, Drift and Breath - in every key.",
+   "summary": "41 pads for the pad pedal in all 12 keys, each built its own way (its own voices, movement, stereo and reverb) and each a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting): warm, air, choir aah, ooh and hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning; Sunday Keys (the modern worship pad); nine made from real recordings (Ember, Halo, Selah, Dawn, Frozen Piano, Bowed Glass, Vibes, Harp Wash, Cathedral Organ); and tide, vowels, tape, sparkle, eighties, reed, swell guitar, breathe, tanpura, horns and flute choir. Plus Central Pads Swells - swells, risers, downlifters and an arrival in every key at 4, 8 and 16 seconds, and an air bed for between songs - and eight ambient loops for the texture channels in every key (Sparkle, Drift, Breath, Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain). Comes with every other plan too.",
    "pads": [
     {
      "name": "Warm",
@@ -3439,23 +3549,517 @@
        "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
       }
      ]
+    },
+    {
+     "name": "Sunday Keys",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Ember",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a grand piano in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Halo",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from hand chimes in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Selah",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from violins and cellos in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+      }
+     ]
+    },
+    {
+     "name": "Tide",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Dawn",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a grand piano in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Frozen Piano",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a grand piano in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Bowed Glass",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a bowed psaltery in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Vibes",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a vibraphone in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Harp Wash",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a concert harp in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Cathedral Organ",
+     "license": "Motion Audio - sold as Central Pads (made from a CC0 1.0 recording)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a pipe organ in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Vowels",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Tape",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Sparkle",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Eighties",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Reed",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Swell Guitar",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Breathe",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Tanpura",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Horns",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
+    },
+    {
+     "name": "Flute Choir",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+      }
+     ]
     }
    ],
    "loops": [
     {
      "set": "ambient",
      "name": "Ambient loops",
-     "license": "Motion Audio",
-     "credit": "Ambient loops made by Motion Audio (tools/make-loops.py: synthesised, no recording)",
+     "license": "Motion Audio + CC0 1.0",
+     "credit": "Ambient loops made by Motion Audio (tools/make-loops.py) from our synthesised pads and bells and the libraries' own instruments (piano, harp: VCSL; guitar and bowed bass: Karoryfer; cello: VSCO 2 CE - all CC0 1.0)",
      "sources": [
       {
-       "text": "Made by Motion Audio (tools/make-loops.py: synthesised, no recording)",
+       "text": "Made by Motion Audio (tools/make-loops.py)",
        "license": "Motion Audio - sold with Central Pads",
        "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-loops.py"
+      },
+      {
+       "text": "Piano and harp: Versilian Community Sample Library (VCSL) by Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL"
+      },
+      {
+       "text": "Guitar and bowed bass: Karoryfer Samples (Black And Green Guitars, Meatbass)",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments"
+      },
+      {
+       "text": "Cello: Versilian Studios Chamber Orchestra 2 Community Edition (VSCO 2 CE)",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VSCO-2-CE"
+      }
+     ]
+    }
+   ],
+   "sounds": [
+    {
+     "name": "Central Pads Swells",
+     "source": "make-pads",
+     "license": "Motion Audio - sold with Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+       "license": "Motion Audio - sold with Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
       }
      ]
     }
    ]
+  },
+  {
+   "id": "central-utility-library",
+   "approxMB": 2,
+   "plan": "utility",
+   "version": "1.0",
+   "title": "Central Utility Library",
+   "summary": "Fourteen metronome click sets (wood block, rim, hi-hat, cowbell, clave, shaker, side stick, triangle, mechanical tick, beeps, square blip, low tom, finger snap), each with its own accent, for a song's Click sound; and 24 lighting looks for the lights page (sunrise, ocean, candlelight, backlit cross, royal purple, gospel celebration, hymn rock, communion, baptism, Christmas, Easter, sermon, kids, youth and more). Built into the apps and unlocked by this plan: 54 seasonal lyric backgrounds (Advent, Christmas, Epiphany, Lent, Palm Sunday, Good Friday, Easter, Pentecost, communion, baptism, Mother's and Father's Day, Thanksgiving, New Year and every Sunday) with a This Sunday suggestion from the church calendar; 18 seasonal slide themes with lower thirds in the same colours; and countdowns, lower-third styles and stream overlays for the slide designer. All made by Motion Audio.",
+   "clicks": [
+    {
+     "set": "woodblock",
+     "name": "Wood block"
+    },
+    {
+     "set": "rim",
+     "name": "Rim click"
+    },
+    {
+     "set": "hihat",
+     "name": "Closed hi-hat"
+    },
+    {
+     "set": "cowbell",
+     "name": "Cowbell"
+    },
+    {
+     "set": "clave",
+     "name": "Clave"
+    },
+    {
+     "set": "shaker",
+     "name": "Shaker"
+    },
+    {
+     "set": "sidestick",
+     "name": "Side stick"
+    },
+    {
+     "set": "triangle",
+     "name": "Triangle"
+    },
+    {
+     "set": "tick",
+     "name": "Mechanical tick"
+    },
+    {
+     "set": "beep",
+     "name": "Digital beep"
+    },
+    {
+     "set": "softbeep",
+     "name": "Soft beep"
+    },
+    {
+     "set": "blip",
+     "name": "Square blip"
+    },
+    {
+     "set": "tom",
+     "name": "Low tom"
+    },
+    {
+     "set": "snap",
+     "name": "Finger snap"
+    }
+   ],
+   "looks": [
+    {
+     "file": "sunrise",
+     "name": "Sunrise"
+    },
+    {
+     "file": "ocean",
+     "name": "Ocean"
+    },
+    {
+     "file": "candlelight",
+     "name": "Candlelight"
+    },
+    {
+     "file": "cross",
+     "name": "Cross (backlit)"
+    },
+    {
+     "file": "royal",
+     "name": "Royal purple"
+    },
+    {
+     "file": "forest",
+     "name": "Forest"
+    },
+    {
+     "file": "embers",
+     "name": "Embers"
+    },
+    {
+     "file": "ice",
+     "name": "Ice"
+    },
+    {
+     "file": "gospel",
+     "name": "Gospel celebration"
+    },
+    {
+     "file": "rock",
+     "name": "Hymn rock"
+    },
+    {
+     "file": "reflection",
+     "name": "Reflection"
+    },
+    {
+     "file": "communion",
+     "name": "Communion"
+    },
+    {
+     "file": "baptism",
+     "name": "Baptism (water)"
+    },
+    {
+     "file": "christmas",
+     "name": "Christmas"
+    },
+    {
+     "file": "easter",
+     "name": "Easter morning"
+    },
+    {
+     "file": "sermon",
+     "name": "Sermon (clean front light)"
+    },
+    {
+     "file": "announce",
+     "name": "Announcements"
+    },
+    {
+     "file": "kids",
+     "name": "Kids' worship"
+    },
+    {
+     "file": "youth",
+     "name": "Youth night"
+    },
+    {
+     "file": "walkout",
+     "name": "Walk-out"
+    },
+    {
+     "file": "dawn",
+     "name": "Slow dawn"
+    },
+    {
+     "file": "starry",
+     "name": "Starry night"
+    },
+    {
+     "file": "revival",
+     "name": "Revival"
+    },
+    {
+     "file": "silent",
+     "name": "Silent prayer"
+    }
+   ],
+   "slides": [],
+   "backgrounds": [],
+   "graphics": []
   }
  ]
 }

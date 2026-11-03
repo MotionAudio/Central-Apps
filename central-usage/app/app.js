@@ -28,7 +28,7 @@
   function fire(type, a, b) { (bus[type] || []).forEach(function (fn) { try { fn(a, b); } catch (e) { console.warn("listener", type, e); } }); }
   // ---- this computer's role: the main admin (one), admins, User 1 and User 2 - which tabs it has.
   // mode() is the side (admin / user) the tab modules check; role() is the exact role.
-  var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"],
+  var MODES = { main: ["devices", "service", "lights", "mix", "inears", "lyrics", "slides", "video", "shorts", "io", "controls", "settings"], admin: ["lights", "mix", "inears", "lyrics", "slides", "video", "io", "controls", "settings"],
     user1: ["chart", "instrument", "studio", "lyrics", "inears", "io", "controls", "settings"], user2: ["lyrics", "chart", "inears", "controls", "settings"] };
   // (10.0) what this computer does - picked when it's set up (Settings → This computer changes it; the main admin can
   // too): any of seven jobs, or all of them (General). One computer can do all seven, or seven computers one each.
@@ -57,7 +57,7 @@
     // admins - and the main admin too - work by their jobs: everything (production manager), or only lighting, mix…
     var j = jobs(); if (j[0] === "general") return keep(MODES[r]);
     var want = {}; j.forEach(function (x) { JOB_TABS[x].forEach(function (t) { want[t] = 1; }); });
-    return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "controls" || t === "settings" || t === "devices" || t === "service"; }));
+    return keep(MODES[r].filter(function (t) { return want[t] || t === "io" || t === "controls" || t === "settings" || t === "devices" || t === "service" || t === "shorts"; }));   // (10.2: shorts stay on the main admin's computer whatever its jobs)
   }
   var ROLE_NAMES = { main: "Main admin", admin: "Admin", user1: "User 1", user2: "User 2" };
   // which app this is: Central Control (the main admin and admins) or Central Usage (musicians: User 1 / User 2 -
@@ -120,7 +120,7 @@
   var FROM_CENTER_ONLY = { cuRoles: 1, cuRoleReply: 1, cuRoleAssigned: 1, services: 1, serviceReply: 1, pairCodeChanged: 1 };
   function send(m) { if (socket && socket.readyState === 1) { socket.send(JSON.stringify(m)); return true; } return false; }
   // Only the Central Pedal plays, stops and moves the tracks: from here only the lyrics can be paged
-  function action(name, args) { if (["lyricsNext", "lyricsPrev"].indexOf(name) < 0) return; if (!state.authed && !prefs.code) { askCode(); if (!prefs.code) return; } send({ type: "action", name: name, args: args || {}, code: prefs.code }); }
+  function action(name, args) { if (["lyricsNext", "lyricsPrev"].indexOf(name) < 0 && !(name === "loadSong" && ["main", "admin"].indexOf(role()) >= 0)) return;   /* (10.2: an admin's run sheet readies the next song) */ if (!state.authed && !prefs.code) { askCode(); if (!prefs.code) return; } send({ type: "action", name: name, args: args || {}, code: prefs.code }); }
   // a small text question in the page (Electron has no window.prompt)
   function askText(label, value) {
     return new Promise(function (resolve) {
@@ -196,6 +196,25 @@
       root.innerHTML = html + "</div>"; $("#written").textContent = "PDF chart: shown as is (text charts can be transposed)";
     } else root.innerHTML = '<div class="empty">Empty chart.</div>';
     lastSectionKey = null; highlightSection();
+  }
+  // (10.2) Print chart: the chart as it's shown (key, instrument, numbers, size) on paper or as a PDF (the print dialog's
+  // "Save as PDF"), with the song's name, key and copyright line - and noted for the CCLI report as printed
+  function printChart() {
+    var s = currentSong(), root = $("#chart"); if (!s || !chartInfo || !root || root.querySelector(".empty")) { alert("Pick a song with a chord chart first."); return; }
+    var css = Array.prototype.map.call(document.querySelectorAll('link[rel="stylesheet"]'), function (l) { return '<link rel="stylesheet" href="' + l.href + '">'; }).join("");
+    var song = { title: s.name, ccli: s.ccli, author: s.author || s.writers, copyright: s.copyright }, line = window.PPCcli && window.PPCcli.credit ? window.PPCcli.credit(song) : null;
+    var credit = line || [song.author, song.copyright, s.ccli ? "CCLI Song # " + s.ccli : ""].filter(Boolean).join(" · "), lic = "";
+    var html = "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + esc(s.name || "Chart") + "</title>" + css +
+      "<style>body{background:#fff!important;color:#000!important;margin:12mm;font-size:" + (prefs.fontSize || 18) + "px}.chart{max-height:none!important;overflow:visible!important;color:#000}.chart *{color:#000!important;background:transparent!important}" +
+      "h1{font:700 22px Archivo,Inter,sans-serif;margin:0 0 4px}.meta{font:13px Inter,sans-serif;margin:0 0 14px;color:#444!important}.foot{font:11px Inter,sans-serif;margin-top:18px;color:#555!important}.csec{break-inside:avoid}.pg img{max-width:100%;page-break-after:always}</style></head><body>" +
+      "<h1>" + esc(s.name || "") + "</h1><p class=\"meta\">" + esc($("#written").textContent || "") + "</p><div class=\"chart\">" + root.innerHTML + "</div>" +
+      (credit || lic ? "<p class=\"foot\">" + esc(credit) + (credit && lic ? "<br>" : "") + esc(lic) + "</p>" : "") + "</body></html>";
+    var f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
+    f.contentDocument.open(); f.contentDocument.write(html); f.contentDocument.close();
+    var done = false, go = function () { if (done) return; done = true; try { f.contentWindow.focus(); f.contentWindow.print(); } catch (_) { } setTimeout(function () { f.remove(); }, 60000); };
+    f.onload = go; setTimeout(go, 800);
+    if (window.PPCcli && window.PPCcli.log) window.PPCcli.log(song, "print", { device: window.CentralUsage && window.CentralUsage.appName });
+    fire("chartPrinted", s.name);
   }
   function highlightSection() {
     var d = state.display; if (!d || !prefs.follow) return;
@@ -293,6 +312,7 @@
     $("#follow").addEventListener("change", function (e) { prefs.follow = e.target.checked; render(); }); $("#songPick").addEventListener("change", function (e) { state.pickedSong = Number(e.target.value); prefs.follow = state.pickedSong < 0; $("#follow").checked = prefs.follow; render(); });
     $("#instrument").addEventListener("change", function (e) { prefs.instrument = e.target.value; store.set("instrument", prefs.instrument); fillShapes(); renderChart(); });
     $("#shapes").addEventListener("change", function (e) { prefs.shapes = e.target.value; store.set("shapes", prefs.shapes); renderChart(); });
+    if ($("#printChart")) $("#printChart").addEventListener("click", printChart);   // (10.2)
     $("#nashville").addEventListener("change", function (e) { prefs.nashville = e.target.checked; store.set("nashville", prefs.nashville); renderChart(); });
     $("#chordsOnly").addEventListener("change", function (e) { prefs.chordsOnly = e.target.checked; store.set("chordsOnly", prefs.chordsOnly); renderChart(); });
     $("#fontSize").addEventListener("input", function (e) { prefs.fontSize = Number(e.target.value); store.set("fontSize", prefs.fontSize); document.documentElement.style.setProperty("--chart-size", prefs.fontSize + "px"); });
@@ -326,7 +346,7 @@
     } catch (_) { }
     fire("prefsSynced", d);
   }
-  window.CentralUsage = { state: state, prefs: prefs, syncedPrefs: syncedPrefs, applySyncedPrefs: applySyncedPrefs, syncName: syncName, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, edition: function () { return EDITION; }, appName: EDITION === "usage" ? "Central Usage" : "Central Control", roleAllowed: roleAllowed, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, jobList: JOB_LIST, jobTabs: JOB_TABS, normJobs: normJobs, jobsAt: function () { return cuCfg.jobsAt || 0; }, runs: runs, runners: function () { return runners; }, setRunners: setRunners, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
+  window.CentralUsage = { printChart: function () { printChart(); }, state: state, prefs: prefs, syncedPrefs: syncedPrefs, applySyncedPrefs: applySyncedPrefs, syncName: syncName, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, edition: function () { return EDITION; }, appName: EDITION === "usage" ? "Central Usage" : "Central Control", roleAllowed: roleAllowed, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, jobList: JOB_LIST, jobTabs: JOB_TABS, normJobs: normJobs, jobsAt: function () { return cuCfg.jobsAt || 0; }, runs: runs, runners: function () { return runners; }, setRunners: setRunners, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
     midiSend: function (d, at) { midiSend(d, at); }, midiSysex: function (d) { if (midi && midi.sysexEnabled) midiSend(d); } };
   (function () { var hb = document.querySelector(".brand b"); if (hb) hb.textContent = window.CentralUsage.appName; if (EDITION === "usage") document.title = "Central Usage"; })();   // (the header says which app this is)
 })();

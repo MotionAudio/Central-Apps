@@ -70,7 +70,7 @@ try {
   ok(indexHits === hits, "the index is read again only every few minutes (cached)", { before: hits, after: indexHits });
   const b = await get(port + 1, "/libraries");
   const bk = b.libraries && b.libraries.find((x) => x.id === "central-keys-library");
-  ok(b.source === "built-in" && b.libraries.length === 5 && b.libraries.some((l) => l.id === "central-pads-library" && l.plan === "pads" && l.contents.pads.length >= 12) && bk && bk.ready === false && bk.sha256 === null && bk.approximate === true && /^http:\/\/127\.0\.0\.1:1\/nothing-here\/central-keys-library-\d+\.\d+\.zip$/.test(bk.url),
+  ok(b.source === "built-in" && b.libraries.length === 6 && b.libraries.some((l) => l.id === "central-pads-library" && l.plan === "pads" && l.contents.pads.length >= 12) && bk && bk.ready === false && bk.sha256 === null && bk.approximate === true && /^http:\/\/127\.0\.0\.1:1\/nothing-here\/central-keys-library-\d+\.\d+\.zip$/.test(bk.url),
     "no index (not published yet, or unreachable): the built-in list - not ready, no sha256, an estimated size, at LIBRARIES_BASE_URL", bk);
   ok(bk && bk.contents.sounds.length >= 3 && bk.contents.sounds[0].presets.includes("Upright Piano") && b.libraries.find((x) => x.id === "central-pedals-library").contents.irs.length >= 14,
     "the built-in list still says what's in each (sounds with their presets, boards, IRs)", bk && bk.contents);
@@ -106,7 +106,7 @@ try {
     await page2.goto("http://127.0.0.1:" + (port + 1) + "/#downloads");
     await page2.waitForSelector("#libraries", { timeout: 8000 }).catch(() => {});
     const t2 = await page2.$$eval(".lib-card", (els) => els.map((e) => ({ text: e.textContent.replace(/\s+/g, " "), btn: !!e.querySelector("a.btn") })));
-    ok(t2.length === 5 && t2.every((c) => !c.btn && /Coming soon/.test(c.text)) && /about \d+ MB/.test(t2[0].text), "not published yet: the cards say what's coming (an estimated size), no Download button", t2.map((c) => c.text.slice(0, 80)));
+    ok(t2.length === 6 && t2.every((c) => !c.btn && /Coming soon/.test(c.text)) && /about \d+ MB/.test(t2[0].text), "not published yet: the cards say what's coming (an estimated size), no Download button", t2.map((c) => c.text.slice(0, 80)));
     ok(!errors.length, "no page errors", errors);
   }
 } catch (e) {

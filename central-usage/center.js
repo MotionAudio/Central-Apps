@@ -7,9 +7,13 @@
  *
  *   ws://<main admin>:8095            the same messages the Central Pedal used to answer:
  *                                     {type:"cuRole", action: hello|join|set|forget|assign|rename|remove|jobs|approve|health|myJobs|setPair|lock}
- *                                     {type:"service", action: get|save|start|next|prev|goto|stop}
+ *                                     {type:"service", action: get|save|start|next|prev|goto|stop|saveTemplate|deleteTemplate}
+ *                                     {type:"precheck", action: get|run|report|settings}   (10.2: the pre-service check)
+ *                                     {type:"confidence", action: watch|state|message|clear}   (10.2: the band's screen)
  *   http://<main admin>:8095/cu/      Central Control for phones and tablets (User 1 / User 2)
  *   http://<main admin>:8095/api/service   the run order + countdown (stage displays)
+ *   http://<main admin>:8095/cu/confidence.html   (10.2) the confidence monitor in any browser (a tablet on stage)
+ *   http://<main admin>:8095/cu/runsheet.html     (10.2) the run sheet to read or print, on any phone or computer
  *   UDP broadcast on 8097             "here is the center" every 2 s, so devices find it by themselves
  *   talkback (binary "TKA1" mic frames after {type:"talk", on:true, to:"main"|"group"}): everyone talks to the main
  *     admin's headphones; the main admin talks to the Band or the Production group (each device is in one - the
@@ -49,9 +53,14 @@ const PEDAL_JOBS = ["player", "controller", "instrument", "backup", "standby"];
 const PLAYER_GONE_MS = 1500;   // the track player's heartbeat (every 0.5 s) stopped this long: a backup may take over
 const TALK_GROUPS = ["band", "production"];
 const SERVICE_ROLES = ["lighting", "production", "slides", "lyrics", "mix", "inears", "band"];
-const SERVICE_KINDS = ["song", "prayer", "welcome", "announcements", "offering", "sermon", "communion", "video", "other"];
+const SERVICE_KINDS = ["song", "prayer", "welcome", "announcements", "offering", "sermon", "communion", "video", "other", "countdown", "scripture", "baptism", "closing"];
 const BEACON_PORT = 8097;
-const MAX_SERVICES = 4;
+const MAX_SERVICES = 12;      // (10.2: run sheets for this week's services and the next; before 10.2 it was 4)
+const MAX_TEMPLATES = 20;
+const CUE_KEYS = ["song", "lyrics", "look", "slide", "camera", "scene", "lowerThird"];
+// (10.2) the pre-service check: how long the center waits for every computer's own report, how many past checks it keeps
+const PRECHECK_WAIT_MS = 7000;
+const PRECHECK_HISTORY = 30;
 
 function salted(secret, salt) { return crypto.createHash("sha256").update(String(salt) + ":" + String(secret)).digest("hex"); }
 function clean(s, n) { return String(s == null ? "" : s).replace(/[\u0000-\u001f]/g, "").trim().slice(0, n || 40); }
@@ -75,6 +84,13 @@ class Center {
     this.lock = { all: !!(j.lock && j.lock.all), devices: Object.assign({}, (j.lock && j.lock.devices) || {}) };
     this.services = Array.isArray(j.services) ? j.services.map((s) => this.cleanService(s)).slice(0, MAX_SERVICES) : [];
     this.run = j.run || null;
+    this.templates = Array.isArray(j.templates) ? j.templates.map((s) => this.cleanService(s, true)).slice(0, MAX_TEMPLATES) : [];
+    // (10.2) the pre-service check: settings, the last checks, the one running now (not saved)
+    const pc = j.precheck || {};
+    this.precheck = { settings: Object.assign({ auto: true, lead: 30, tone: false, alert: true }, pc.settings || {}), history: Array.isArray(pc.history) ? pc.history.slice(0, PRECHECK_HISTORY) : [], autoDone: pc.autoDone || "" };
+    this.checking = null;
+    // (10.2) the confidence monitor: what the lyrics computer last sent, and the booth's message
+    this.conf = { state: null, message: null };
     // the main admin's player window: while a Central Pedal plays, it is the backup player (follows silently, takes over)
     this.backup = Object.assign({ localIsBackup: true }, j.backup || {});
     // 10.0: where the tracks run. "computer": the main admin's player window keeps the songs and plays them, and the
@@ -87,6 +103,11 @@ class Center {
     this.gen = Math.max(1, Number(j.gen) || 1);
     this.standby = j.standby && j.standby.id && j.standby.secretHash ? j.standby : null;   // the other main admin's computer, kept in sync: { id, secretSalt, secretHash, since }
     this.lastMsg = {};
+    // 10.2: the church's slide decks (the Slides tab's designer), shared by every admin computer: slides.json, and the
+    // pictures in them by sha-256 in slides-media/ (hubsync.js copies both to the in-sync computer)
+    this.slidesFile = path.join(this.opts.dataDir, "slides.json");
+    let sj = {}; try { sj = JSON.parse(fs.readFileSync(this.slidesFile, "utf8")); } catch (_) { }
+    this.slides = { decks: Array.isArray(sj.decks) ? sj.decks : [], removed: sj.removed && typeof sj.removed === "object" ? sj.removed : {}, themes: Array.isArray(sj.themes) ? sj.themes : [], media: sj.media && typeof sj.media === "object" ? sj.media : {} };
     this.clients = new Map();                       // ws -> { id, auth, main, ip }
     this.health = {};                               // id -> {..., at}
     this.fails = {};
@@ -96,7 +117,7 @@ class Center {
   on(fn) { this.listeners.push(fn); }
   emit(ev) { for (const fn of this.listeners) { try { fn(ev); } catch (_) { } } }
   save() {
-    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run, backup: this.backup, hubKey: this.hubKey, gen: this.gen, standby: this.standby, jobRunner: this.jobRunner, tracksHost: this.tracksHost })); fs.renameSync(tmp, this.file); } catch (_) { }
+    try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.file + ".part"; fs.writeFileSync(tmp, JSON.stringify({ main: this.main, pair: this.pair, devices: this.devices, lock: this.lock, services: this.services, run: this.run, templates: this.templates, precheck: { settings: this.precheck.settings, history: this.precheck.history, autoDone: this.precheck.autoDone }, backup: this.backup, hubKey: this.hubKey, gen: this.gen, standby: this.standby, jobRunner: this.jobRunner, tracksHost: this.tracksHost })); fs.renameSync(tmp, this.file); } catch (_) { }
   }
 
   // ----------------------------------------------------------------------------- the server
@@ -145,6 +166,7 @@ class Center {
     const url = new URL(req.url, "http://x"), p = decodeURIComponent(url.pathname);
     const send = (code, body, type) => { res.writeHead(code, { "Content-Type": type || "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" }); res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body)); };
     if (p === "/api/service") return send(200, this.serviceState());
+    if (p === "/api/confidence") return send(200, { type: "confidence", from: "center", state: this.conf.state, message: this.liveMessage() });
     if (p.startsWith("/api/mirror/") && this.opts.mirror) return this.opts.mirror(req, res, this);   // (hubsync.js: the in-sync computer)
     if (p === "/api/center") return send(200, { app: "central-control-center", name: this.mainName(), port: this.port, pedal: this.pedalInfo() });
     if (p === "/" ) { res.writeHead(302, { Location: "/cu/" }); return res.end(); }
@@ -179,15 +201,51 @@ class Center {
         else if (m.type === "ping") reply = { type: "centerPong", t: m.t, serverT: Date.now() };
         else if (m.type === "cuRole") reply = this.handle(ws, info, m);
         else if (m.type === "service") reply = this.handleService(ws, info, m);
+        else if (m.type === "precheck") reply = this.handlePrecheck(ws, info, m);
+        else if (m.type === "confidence") reply = this.handleConfidence(ws, info, m);
         else if (m.type === "audioHost") reply = this.handleAudioHost(ws, info, m);
         else if (m.type === "talk") reply = this.handleTalk(ws, info, m);
+        else if (m.type === "screenPreviewWant") reply = this.handlePreviewWant(ws, info, m);
+        else if (m.type === "screenPreview") reply = this.handlePreview(ws, info, m);
+        else if (m.type === "stageShare") reply = this.handleStageShare(ws, info, m);
+        else if (m.type === "slides") reply = this.handleSlides(ws, info, m);
       } catch (e) { reply = { type: "cuRoleReply", ok: false, action: m.action, error: "center: " + e.message }; }
       if (reply) this.sendTo(ws, reply);
     });
-    ws.on("close", () => { if (info.talk) this.talkEnd(ws, info); if (this.audioHost && this.audioHost.ws === ws) { this.audioHost = null; this.broadcastAudioHost(); } if (info.id && this.devices[info.id]) { this.devices[info.id].lastSeen = Date.now(); this.save(); } this.clients.delete(ws); this.push(); });
+    ws.on("close", () => { if (info.previewWants && info.previewWants.length) setImmediate(() => this.pushPreviewWants()); if (info.talk) this.talkEnd(ws, info); if (this.audioHost && this.audioHost.ws === ws) { this.audioHost = null; this.broadcastAudioHost(); } if (info.id && this.devices[info.id]) { this.devices[info.id].lastSeen = Date.now(); this.save(); } this.clients.delete(ws); this.push(); });
     ws.on("error", () => { });
   }
   sendTo(ws, m) { try { if (ws.readyState === 1) ws.send(JSON.stringify(m)); } catch (_) { } }
+  // ---- (10.2) screen previews for the 3D stage: a computer whose lights page shows a screen made on another computer
+  // asks for it (screenPreviewWant); the computer making that output sends small JPEGs (screenPreview) a few times a
+  // second, only while someone asks, and the center passes them on to the computers that asked
+  previewOk(info) { return !!(info.auth || info.loopback); }
+  handlePreviewWant(ws, info, m) {
+    if (!this.previewOk(info)) return null;
+    info.previewWants = (Array.isArray(m.links) ? m.links : []).slice(0, 8).map((l) => String(l).slice(0, 40));
+    this.pushPreviewWants(); return null;
+  }
+  pushPreviewWants() {
+    const all = new Set(); for (const [, c] of this.clients) (c.previewWants || []).forEach((l) => all.add(l));
+    const msg = { type: "screenPreviewWanted", links: [...all] };
+    for (const [w, c] of this.clients) if (this.previewOk(c)) this.sendTo(w, msg);
+  }
+  // (10.2) a stage (the lights page's stage, room and lights) sent to the church's other computers: each one asks first
+  handleStageShare(ws, info, m) {
+    if (!this.previewOk(info) || !m.stage || typeof m.stage !== "object") return null;
+    const out = JSON.stringify({ type: "stageShare", stage: m.stage, from: info.id || null });
+    if (out.length > 8 * 1024 * 1024) return { type: "stageShareReply", ok: false, error: "That stage is too big to send (its traced picture?). Export a stage file instead." };
+    let n = 0; for (const [w, c] of this.clients) if (w !== ws && this.previewOk(c) && w.readyState === 1) { try { w.send(out); n++; } catch (_) { } }
+    return { type: "stageShareReply", ok: true, sentTo: n };
+  }
+  handlePreview(ws, info, m) {
+    if (!this.previewOk(info)) return null;
+    const link = String(m.link || "").slice(0, 40), jpeg = String(m.jpeg || "");
+    if (!link || !/^data:image\/(jpeg|webp);base64,/.test(jpeg) || jpeg.length > 400000) return null;
+    const out = JSON.stringify({ type: "screenPreview", link, jpeg, note: String(m.note || "").slice(0, 120), from: info.id || null, at: Date.now() });
+    for (const [w, c] of this.clients) if (w !== ws && (c.previewWants || []).indexOf(link) >= 0 && w.readyState === 1 && w.bufferedAmount < (1 << 20)) { try { w.send(out); } catch (_) { } }
+    return null;
+  }
   socketsOf(id) { const out = []; for (const [ws, c] of this.clients) if (c.id === id) out.push(ws); return out; }
   online(id) { return this.socketsOf(id).length > 0; }
   isMain(info) { return !!(this.main && info.main && info.id === this.main.id); }
@@ -322,6 +380,7 @@ class Center {
     this.pushMainSoon();
     const now = Date.now();
     for (const [ws, c] of this.clients) if (c.talk && now - c.talk.last > 6000) this.talkEnd(ws, c);   // (a computer that went quiet mid-talk)
+    this.autoPrecheck(now);
   }
   locked(id) { const c = this.fails[id]; return !!(c && c[1] > Date.now()); }
   wrong(id) { const c = this.fails[id] || (this.fails[id] = [0, 0]); c[0]++; if (c[0] >= 5) { c[0] = 0; c[1] = Date.now() + 60000; } }
@@ -613,47 +672,271 @@ class Center {
     this.broadcastAudioHost(); return null;
   }
 
-  // ----------------------------------------------------------------------------- services
-  cleanService(sv) {
+  // ----------------------------------------------------------------------------- services (run sheets)
+  // A service is a run sheet: its weekday and time (every week) or one date, how long it should run, the countdown
+  // before it, who's on, and its items - each with minutes, the roles it uses, a note, who leads it and the cues it fires
+  // (a song, lyrics on or off, a lighting look, a slide, a camera, a stream scene, a lower third).
+  cleanService(sv, template) {
     sv = sv && typeof sv === "object" ? sv : {};
     const roles = Array.isArray(sv.roles) ? sv.roles.filter((r) => SERVICE_ROLES.includes(r)) : SERVICE_ROLES.slice();
-    const out = { id: idOf(sv.id) || "sv" + crypto.randomBytes(4).toString("hex"), name: clean(sv.name) || "Service", day: Math.max(0, Math.min(6, parseInt(sv.day, 10) || 0)),
-      time: /^\d{1,2}:\d{2}$/.test(String(sv.time || "")) ? String(sv.time) : "09:00", roles, record: !!sv.record, items: [] };
+    const team = sv.team && typeof sv.team === "object" ? sv.team : {};
+    const out = { id: idOf(sv.id) || (template ? "tp" : "sv") + crypto.randomBytes(4).toString("hex"), name: clean(sv.name) || (template ? "Template" : "Service"), day: Math.max(0, Math.min(6, parseInt(sv.day, 10) || 0)),
+      time: /^\d{1,2}:\d{2}$/.test(String(sv.time || "")) ? String(sv.time) : "09:00", roles, record: !!sv.record,
+      date: /^\d{4}-\d{2}-\d{2}$/.test(String(sv.date || "")) && !template ? String(sv.date) : "",
+      length: Math.max(0, Math.min(600, Math.round(Number(sv.length) || 0))), countdown: Math.max(0, Math.min(60, Math.round(Number(sv.countdown) || 0))),
+      team: { leader: clean(team.leader, 60), speaker: clean(team.speaker, 60), tech: (Array.isArray(team.tech) ? team.tech : []).map((x) => clean(x, 60)).filter(Boolean).slice(0, 12) },
+      notes: clean(sv.notes, 600), setlist: clean(sv.setlist, 80), items: [] };
     for (const it of (Array.isArray(sv.items) ? sv.items : []).slice(0, 80)) {
       if (!it || typeof it !== "object") continue;
       let mins = Number(it.minutes); if (!isFinite(mins)) mins = 5; mins = Math.max(0, Math.min(240, mins));
+      const cues = {}, ci = it.cues && typeof it.cues === "object" ? it.cues : {};
+      for (const k of CUE_KEYS) { const v = clean(ci[k], k === "lowerThird" ? 120 : 80); if (v) cues[k] = v; }
       out.items.push({ id: idOf(it.id) || "it" + crypto.randomBytes(4).toString("hex"), title: clean(it.title, 60) || "Item", kind: SERVICE_KINDS.includes(it.kind) ? it.kind : "other",
-        minutes: Math.round(mins * 100) / 100, roles: (it.roles || []).filter((r) => SERVICE_ROLES.includes(r) && roles.includes(r)), song: clean(it.song, 64), note: clean(it.note, 120) });
+        minutes: Math.round(mins * 100) / 100, roles: (it.roles || []).filter((r) => SERVICE_ROLES.includes(r) && roles.includes(r)), song: clean(it.song, 64), note: clean(it.note, 300), who: clean(it.who, 60), cues });
     }
     return out;
   }
-  serviceState() { return { type: "services", from: "center", services: this.services, run: this.run, now: Date.now(), roles: SERVICE_ROLES, kinds: SERVICE_KINDS, max: MAX_SERVICES }; }
+  serviceState() { return { type: "services", from: "center", services: this.services, run: this.run, templates: this.templates, now: Date.now(), roles: SERVICE_ROLES, kinds: SERVICE_KINDS, cueKeys: CUE_KEYS, max: MAX_SERVICES, maxTemplates: MAX_TEMPLATES }; }
   broadcastServices() { const st = this.serviceState(); for (const [ws, c] of this.clients) if (c.id || c.auth) this.sendTo(ws, st); this.emit({ type: "services", state: st }); }
+  // ---- 10.2: slide decks shared between the church's computers (the Slides tab). Everyone paired can read them (an
+  // admin computer with the slides job runs them); the main admin and admins change them. A deck is replaced by a newer
+  // copy (updatedAt); a deleted one is remembered so a computer that was off doesn't bring it back.
+  saveSlides() {
+    clearTimeout(this.slidesTimer);
+    this.slidesTimer = setTimeout(() => { try { fs.mkdirSync(this.opts.dataDir, { recursive: true }); const tmp = this.slidesFile + ".part"; fs.writeFileSync(tmp, JSON.stringify(this.slides)); fs.renameSync(tmp, this.slidesFile); } catch (_) { } }, 300);
+  }
+  slidesBroadcast(m, except) { for (const [ws, c] of this.clients) if ((c.id || c.auth) && ws !== except) this.sendTo(ws, m); }
+  handleSlides(ws, info, m) {
+    if (!(info.id || info.auth)) return { type: "auth", ok: false, for: "center" };
+    const S = this.slides, R = (extra) => Object.assign({ type: "slidesReply", action: m.action }, extra);
+    if (m.action === "get") return { type: "slidesDecks", full: true, decks: S.decks, removed: S.removed, themes: S.themes };
+    if (m.action === "mediaGet") {
+      const id = String(m.id || ""); if (!/^media:[0-9a-f]{64}$/.test(id)) return R({ ok: false, error: "bad id" });
+      const f = path.join(this.opts.dataDir, "slides-media", id.slice(6)); let data;
+      try { data = fs.readFileSync(f); } catch (_) { return R({ ok: false, error: "The hub doesn't have that picture." }); }
+      const meta = S.media[id] || {}; return { type: "slidesMedia", id, mime: meta.mime || "application/octet-stream", name: meta.name || "", data: data.toString("base64") };
+    }
+    const d = this.devices[info.id] || {}, admin = this.isMain(info) || ADMIN_TIER.includes(d.role) || (info.auth && !info.id);
+    if (!admin) return R({ ok: false, error: "Only the main admin and admins change slides." });
+    if (m.action === "put") {
+      const deck = m.deck; if (!deck || typeof deck !== "object" || !/^[\w-]{4,40}$/.test(String(deck.id || ""))) return R({ ok: false, error: "That isn't a deck." });
+      const json = JSON.stringify(deck); if (json.length > 3e6) return R({ ok: false, error: "That deck is too big to share (over 3 MB without its pictures)." });
+      const i = S.decks.findIndex((x) => x.id === deck.id), cur = i >= 0 ? S.decks[i] : null;
+      if (cur && (Number(cur.updatedAt) || 0) > (Number(deck.updatedAt) || 0)) return R({ ok: true, older: true });
+      if (!cur && S.decks.length >= 300) return R({ ok: false, error: "The church has 300 decks already. Delete some first." });
+      if (i >= 0) S.decks[i] = deck; else S.decks.push(deck);
+      delete S.removed[deck.id]; this.saveSlides();
+      this.slidesBroadcast({ type: "slidesDecks", decks: [deck] }, ws); return R({ ok: true, id: deck.id });
+    }
+    if (m.action === "del") {
+      const id = String(m.id || ""); S.decks = S.decks.filter((x) => x.id !== id); S.removed[id] = Date.now();
+      const ids = Object.keys(S.removed); if (ids.length > 500) ids.sort((a, b) => S.removed[a] - S.removed[b]).slice(0, ids.length - 500).forEach((k) => delete S.removed[k]);
+      this.saveSlides(); this.slidesBroadcast({ type: "slidesDecks", decks: [], removed: { [id]: S.removed[id] } }, ws); return R({ ok: true });
+    }
+    if (m.action === "themes") {
+      S.themes = (Array.isArray(m.themes) ? m.themes : []).filter((t) => t && typeof t === "object" && t.id).slice(0, 50);
+      this.saveSlides(); this.slidesBroadcast({ type: "slidesDecks", decks: [], themes: S.themes }, ws); return R({ ok: true });
+    }
+    if (m.action === "mediaPut") {
+      const id = String(m.id || ""); if (!/^media:[0-9a-f]{64}$/.test(id)) return R({ ok: false, error: "bad id" });
+      const data = Buffer.from(String(m.data || ""), "base64"); if (!data.length || data.length > 25 * 1024 * 1024) return R({ ok: false, error: "That file is too big to share (25 MB at most)." });
+      if (crypto.createHash("sha256").update(data).digest("hex") !== id.slice(6)) return R({ ok: false, error: "The file didn't arrive whole." });
+      try { const dir = path.join(this.opts.dataDir, "slides-media"); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, id.slice(6)), data); } catch (e) { return R({ ok: false, error: e.message }); }
+      S.media[id] = { mime: String(m.mime || "").slice(0, 80), name: String(m.name || "").slice(0, 120), size: data.length, at: Date.now() }; this.saveSlides();
+      return R({ ok: true, id });
+    }
+    return R({ ok: false, error: "unknown action" });
+  }
+
   handleService(ws, info, m) {
     const R = (extra) => Object.assign({ type: "serviceReply", action: m.action }, extra);
     if (!(info.id || info.auth)) return { type: "auth", ok: false, for: "center" };
     if (m.action === "get") return this.serviceState();
     if (!this.isMain(info)) return R({ ok: false, error: "Only the main admin plans and runs services." });
-    const now = Date.now();
+    const now = Date.now(), seq = ((this.run && this.run.seq) || 0) + 1;
     if (m.action === "save") {
       const list = (Array.isArray(m.services) ? m.services : []).map((s) => this.cleanService(s));
-      if (list.length > MAX_SERVICES) return R({ ok: false, error: "Up to " + MAX_SERVICES + " services." });
+      if (list.length > MAX_SERVICES) return R({ ok: false, error: "Up to " + MAX_SERVICES + " run sheets. Delete an old one first." });
       this.services = list; if (this.run && !list.some((s) => s.id === this.run.service)) this.run = null;
+    } else if (m.action === "saveTemplate") {
+      const t = this.cleanService(m.template, true), i = this.templates.findIndex((x) => x.id === t.id);
+      if (i >= 0) this.templates[i] = t; else { if (this.templates.length >= MAX_TEMPLATES) return R({ ok: false, error: "Up to " + MAX_TEMPLATES + " templates. Delete one first." }); this.templates.push(t); }
+    } else if (m.action === "deleteTemplate") {
+      this.templates = this.templates.filter((x) => x.id !== idOf(m.id));
     } else if (m.action === "start") {
       const sv = this.services.find((s) => s.id === m.service); if (!sv || !sv.items.length) return R({ ok: false, error: "Pick a service with items in it." });
-      this.run = { service: sv.id, item: 0, itemStart: now, startedAt: now };
+      this.run = { service: sv.id, item: 0, itemStart: now, startedAt: now, seq };
     } else if (["next", "prev", "goto"].includes(m.action)) {
       if (!this.run) return R({ ok: false, error: "No service is running." });
       const sv = this.services.find((s) => s.id === this.run.service), n = sv ? sv.items.length : 0;
       const i = m.action === "goto" ? parseInt(m.item, 10) || 0 : this.run.item + (m.action === "next" ? 1 : -1);
-      if (i >= n) this.run = null; else { this.run.item = Math.max(0, i); this.run.itemStart = now; }
+      if (i >= n) this.run = null; else { this.run.item = Math.max(0, i); this.run.itemStart = now; this.run.seq = seq; }
     } else if (m.action === "stop") this.run = null;
     else return R({ ok: false, error: "Unknown action." });
     this.save(); this.broadcastServices(); return R({ ok: true });
   }
+  // when a service next starts: its date, or its weekday and time this week or next (local time of this computer)
+  nextStart(sv, t) {
+    const p = sv.time.split(":").map(Number);
+    if (sv.date) { const d = sv.date.split("-").map(Number); return new Date(d[0], d[1] - 1, d[2], p[0], p[1], 0, 0).getTime(); }
+    const d = new Date(t), c = new Date(d.getFullYear(), d.getMonth(), d.getDate(), p[0], p[1], 0, 0);
+    c.setDate(c.getDate() + (sv.day - d.getDay() + 7) % 7);
+    if (c.getTime() < t - 60000) c.setDate(c.getDate() + 7);
+    return c.getTime();
+  }
+
+  // ----------------------------------------------------------------------------- the pre-service check (10.2)
+  // The main admin presses "Check now" (or it runs by itself a set time before each service). The center asks every
+  // computer on the team to check itself (its key, its outputs, inputs, lights, cameras, screens, stream, disk, Wi-Fi…),
+  // adds what it knows itself (who's online, versions, batteries, clocks, the Central Pedal), and keeps the result.
+  precheckState(full) {
+    const pc = this.precheck;
+    return { type: "precheck", from: "center", settings: pc.settings, running: this.checking ? { id: this.checking.id, at: this.checking.at, auto: this.checking.auto } : null,
+      last: pc.history[0] || null, history: full ? pc.history : pc.history.slice(0, 12).map((h) => ({ id: h.id, at: h.at, auto: h.auto, counts: h.counts, service: h.service })) };
+  }
+  toMains(m) { for (const [ws, c] of this.clients) if (this.main && c.id === this.main.id) this.sendTo(ws, m); }
+  handlePrecheck(ws, info, m) {
+    const R = (extra) => Object.assign({ type: "precheckReply", action: m.action }, extra);
+    if (!(info.id || info.auth)) return { type: "auth", ok: false, for: "center" };
+    if (m.action === "report") {   // a computer's own checks, for the check running now
+      const ck = this.checking; if (!ck || m.id !== ck.id || !info.id) return null;
+      ck.reports[info.id] = this.cleanReport(m.items);
+      if (this.precheckTargets().every((k) => ck.reports[k])) this.finishPrecheck();
+      return null;
+    }
+    if (!this.isMain(info)) return R({ ok: false, error: "Only the main admin runs the pre-service check." });
+    if (m.action === "get") return Object.assign(this.precheckState(!!m.full), { full: !!m.full });
+    if (m.action === "settings") {
+      const s = m.settings || {}, cur = this.precheck.settings;
+      if (s.auto != null) cur.auto = !!s.auto;
+      if (s.lead != null) cur.lead = Math.max(5, Math.min(180, Math.round(Number(s.lead) || 30)));
+      if (s.tone != null) cur.tone = !!s.tone;
+      if (s.alert != null) cur.alert = !!s.alert;
+      this.save(); this.toMains(this.precheckState()); return R({ ok: true });
+    }
+    if (m.action === "run") { const id = this.runPrecheck({ auto: false, tone: m.tone != null ? !!m.tone : this.precheck.settings.tone }); return R({ ok: true, id }); }
+    return R({ ok: false, error: "Unknown action." });
+  }
+  cleanReport(items) {
+    const out = [];
+    for (const x of (Array.isArray(items) ? items : []).slice(0, 40)) {
+      if (!x || typeof x !== "object") continue;
+      out.push({ key: clean(x.key, 40), group: clean(x.group, 30), label: clean(x.label, 80), status: ["ok", "warn", "bad", "info"].includes(x.status) ? x.status : "info", detail: clean(x.detail, 200), fix: clean(x.fix, 240) });
+    }
+    return out;
+  }
+  // the computers asked: every paired Central Control and phone that's online now (the Central Pedal answers through its health)
+  precheckTargets() { return Object.keys(this.devices).filter((k) => this.devices[k].role && this.devices[k].role !== "pedal" && this.online(k)); }
+  runPrecheck(opts) {
+    if (this.checking) return this.checking.id;
+    const id = "pc" + Date.now().toString(36) + crypto.randomBytes(2).toString("hex"), now = Date.now();
+    const sv = this.nextService(now);
+    this.checking = { id, at: now, auto: !!opts.auto, service: sv ? { id: sv.sv.id, name: sv.sv.name, at: sv.at } : null, reports: {}, timer: null };
+    const ask = { type: "precheckRequest", from: "center", id, tone: !!opts.tone, service: sv ? sv.sv : null };
+    const targets = this.precheckTargets();
+    for (const k of targets) for (const w of this.socketsOf(k)) this.sendTo(w, ask);
+    this.checking.timer = setTimeout(() => this.finishPrecheck(), targets.length ? (opts.wait || PRECHECK_WAIT_MS) : 200);
+    this.toMains(this.precheckState());
+    return id;
+  }
+  // the soonest service from now (or one that started in the last 3 hours)
+  nextService(now) {
+    let best = null;
+    for (const sv of this.services) { const at = this.nextStart(sv, now); if (at < now - 3 * 3600000) continue; if (!best || at < best.at) best = { sv, at }; }
+    return best;
+  }
+  // what the center knows itself, as check lines
+  centerChecks(now) {
+    const items = [], add = (group, key, label, status, detail, fix) => items.push({ group, key, label, status, detail: detail || "", fix: fix || "", from: "center" });
+    const versions = [];
+    if (this.opts.appVersion) versions.push(String(this.opts.appVersion));
+    for (const k of Object.keys(this.devices)) { const h = this.health[k], v = (h && h.app) || (this.devices[k].pedal && this.devices[k].pedal.app); if (v && /^\d+\.\d+/.test(String(v))) versions.push(String(v)); }
+    const newest = versions.sort(cmpVersion).pop() || null;
+    const behind = (v) => !!(v && newest && /^\d/.test(String(v)) && cmpVersion(String(v), newest) < 0);
+    const pedals = this.pedalIds();
+    if (!pedals.length) add("devices", "pedal", "Central Pedal", "info", "No Central Pedal is paired. The tracks play from the main admin's computer.");
+    for (const k of pedals) {
+      const d = this.devices[k], pv = this.pedalView(k), nm = d.name || "Central Pedal";
+      if (!pv.online) { add("devices", "pedal:" + k, nm, pv.job === "player" ? "bad" : "warn", "Offline" + (d.lastSeen ? " since " + new Date(d.lastSeen).toLocaleString() : ""), nm + " is offline: check it's switched on and on the church Wi-Fi."); continue; }
+      const h = pv.health || {}, v = (pv.app && /^\d/.test(pv.app) ? pv.app : h.app) || null;
+      add("devices", "pedal:" + k, nm, behind(v) ? "warn" : "ok", "Online" + (pv.job ? " · " + pv.job : "") + (v ? " · version " + v : ""), behind(v) ? "Update " + nm + " (Settings → Software updates → Check now) before the service." : "");
+    }
+    for (const k of Object.keys(this.devices)) {
+      const d = this.devices[k]; if (d.role === "pedal" || (this.main && k === this.main.id)) continue;
+      const nm = d.name || "A device", on = this.online(k), h = this.health[k] && now - this.health[k].at < 30000 ? this.health[k] : null;
+      if (!on) { if (d.lastSeen && now - d.lastSeen < 14 * 86400000) add("devices", "dev:" + k, nm, "warn", "Offline (last seen " + new Date(d.lastSeen).toLocaleString() + ")", nm + " is offline: if it's needed today, switch it on and open " + (d.edition === "usage" ? "Central Usage" : "Central Control") + "."); continue; }
+      const v = h && h.app, old = behind(v);
+      const bits = ["Online"]; if (v) bits.push("version " + v); if (h && h.rtt != null) bits.push(h.rtt + " ms to the main admin");
+      let st = old ? "warn" : "ok", fix = old ? "Update " + nm + " to " + newest + " (Settings → Updates)." : "";
+      if (h && h.rtt != null && h.rtt > 150) { st = "warn"; fix = (fix ? fix + " " : "") + nm + "'s connection is slow: move it closer to the Wi-Fi or use a cable."; }
+      add("devices", "dev:" + k, nm, st, bits.join(" · "), fix);
+      if (h && h.battery != null && !h.charging) add("power", "bat:" + k, nm + " battery", h.battery < 20 ? "bad" : h.battery < 40 ? "warn" : "ok", h.battery + "%", h.battery < 40 ? "Plug " + nm + " in to charge before the service." : "");
+      if (h && h.clock != null && h.at) { const drift = Math.abs(Number(h.clock) - h.at); if (drift > 2000) add("time", "clock:" + k, nm + " clock", drift > 30000 ? "bad" : "warn", "Off by " + Math.round(drift / 1000) + " s", "Turn on \"Set time automatically\" in " + nm + "'s date and time settings."); }
+    }
+    return items;
+  }
+  finishPrecheck() {
+    const ck = this.checking; if (!ck) return; this.checking = null; clearTimeout(ck.timer);
+    const now = Date.now(), items = this.centerChecks(now);
+    for (const k of Object.keys(ck.reports)) { const nm = (this.devices[k] && this.devices[k].name) || "A computer"; for (const x of ck.reports[k]) items.push(Object.assign({}, x, { from: nm, device: k })); }
+    for (const k of this.precheckTargets()) if (!ck.reports[k] && this.devices[k].role !== "user1" && this.devices[k].role !== "user2") { const nm = (this.devices[k] && this.devices[k].name) || "A computer"; items.push({ group: "devices", key: "noreply:" + k, label: nm, status: "warn", detail: "Didn't answer the check (an older version, or busy)", fix: "Update " + nm + " and press Check again.", from: "center" }); }
+    const counts = { ok: 0, warn: 0, bad: 0, info: 0 }; items.forEach((x) => { counts[x.status] = (counts[x.status] || 0) + 1; });
+    const res = { id: ck.id, at: ck.at, done: now, auto: ck.auto, service: ck.service, counts, items };
+    this.precheck.history.unshift(res); this.precheck.history = this.precheck.history.slice(0, PRECHECK_HISTORY);
+    this.save();
+    this.toMains({ type: "precheckResult", from: "center", result: res, alert: !!(counts.bad && this.precheck.settings.alert) });
+    this.toMains(this.precheckState());
+    this.emit({ type: "precheck", result: res });
+  }
+  // a set time before each service (default 30 minutes), once per service
+  autoPrecheck(now) {
+    const st = this.precheck.settings; if (!st.auto || !this.main || this.checking) return;
+    for (const sv of this.services) {
+      if (!sv.items.length) continue;
+      const at = this.nextStart(sv, now), lead = st.lead * 60000, key = sv.id + "@" + at;
+      if (now >= at - lead && now < at - lead + 10 * 60000 && this.precheck.autoDone !== key && !(this.run && this.run.service === sv.id)) {
+        this.precheck.autoDone = key; this.save(); this.runPrecheck({ auto: true, tone: false }); return;
+      }
+    }
+  }
+
+  // ----------------------------------------------------------------------------- the confidence monitor (10.2)
+  // The computer running the lyrics sends what the band's screen shows (the lines now, the next lines, the section,
+  // the chords, the song's time); the center keeps it for every confidence monitor - a window on that computer, or a
+  // browser on a tablet on stage (/cu/confidence.html, no pairing needed to read it). Admins send the booth's messages
+  // ("one more chorus", "wrap it up", or typed text) that flash on the band's screen.
+  liveMessage() { const mm = this.conf.message; return mm && (!mm.until || mm.until > Date.now()) ? mm : null; }
+  handleConfidence(ws, info, m) {
+    if (m.action === "watch") { info.confWatch = true; return { type: "confidence", from: "center", state: this.conf.state, message: this.liveMessage(), now: Date.now() }; }
+    if (!(info.id || info.auth)) return { type: "auth", ok: false, for: "center" };
+    const role = info.id && this.devices[info.id] ? this.devices[info.id].role : null;
+    if (!ADMIN_TIER.includes(role) && !this.isMain(info)) return { type: "refused", for: "confidence", error: "Only an admin can do that." };
+    if (m.action === "state") {
+      const st = m.state && typeof m.state === "object" ? m.state : null;
+      this.conf.state = st ? JSON.parse(JSON.stringify(st, (k, v) => (typeof v === "string" ? v.slice(0, 400) : v))) : null;
+      if (this.conf.state) this.conf.state.from = (this.devices[info.id] && this.devices[info.id].name) || "";
+      const out = { type: "confidence", from: "center", state: this.conf.state, message: this.liveMessage(), now: Date.now() };
+      for (const [w, c] of this.clients) if (c.confWatch && w !== ws) this.sendTo(w, out);
+      return null;
+    }
+    if (m.action === "message" || m.action === "clear") {
+      const text = m.action === "clear" ? "" : clean(m.text, 120);
+      this.conf.message = text ? { text, by: (this.devices[info.id] && this.devices[info.id].name) || "The booth", at: Date.now(), until: Date.now() + Math.max(5, Math.min(600, Number(m.seconds) || 20)) * 1000, flash: m.flash !== false } : null;
+      const out = { type: "confidenceMessage", from: "center", message: this.conf.message };
+      for (const [w, c] of this.clients) if (c.confWatch || c.id || c.auth) this.sendTo(w, out);
+      return { type: "confidenceReply", ok: true };
+    }
+    return null;
+  }
+}
+// "10.1.0" < "10.2.0" (missing parts count as 0; anything after a - is ignored)
+function cmpVersion(a, b) {
+  const pa = String(a).split("-")[0].split(".").map((x) => parseInt(x, 10) || 0), pb = String(b).split("-")[0].split(".").map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) { const d = (pa[i] || 0) - (pb[i] || 0); if (d) return d < 0 ? -1 : 1; }
+  return 0;
 }
 
-module.exports = { Center, BEACON_PORT, PEDAL_JOBS, TALK_GROUPS, salted };
+module.exports = { Center, BEACON_PORT, PEDAL_JOBS, TALK_GROUPS, salted, cmpVersion };
 
 // on its own: node center.js --port 8095 --data <folder> [--app <folder>] [--no-beacon]
 if (require.main === module) {

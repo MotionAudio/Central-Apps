@@ -633,3 +633,100 @@ ALTER TABLE tracks ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
 ALTER TABLE tracks ADD COLUMN IF NOT EXISTS review_note TEXT;
 -- the Central Tracks Unlimited pool is weighted by stars too (adds x stars)
 ALTER TABLE pool_shares ADD COLUMN IF NOT EXISTS weight INTEGER;
+-- (10.2) 30-second previews made on the website (previews.js): owner "track:<id>" or "community:<id>", where the MP3
+-- is kept (a storage key, or an https address - a hymn's preview on the release) and what it was made from
+CREATE TABLE IF NOT EXISTS previews (
+  owner       TEXT PRIMARY KEY,
+  storage_key TEXT NOT NULL,
+  source      TEXT NOT NULL DEFAULT '',
+  made_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------- Planning Center and CCLI (10.2)
+-- A church's Planning Center sign-in (OAuth): the tokens are sealed with TOKEN_SECRET (pco.js). One per church, or per
+-- person without a church ("scope": c:<church id> or u:<user id>).
+CREATE TABLE IF NOT EXISTS pco_links (
+  scope        TEXT PRIMARY KEY,
+  access_enc   TEXT NOT NULL,
+  refresh_enc  TEXT NOT NULL,
+  expires_at   TIMESTAMPTZ NOT NULL,
+  organization TEXT NOT NULL DEFAULT '',
+  connected_by TEXT NOT NULL DEFAULT '',
+  last_error   TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- a setlist made from a Planning Center plan: { source: api|file, serviceType, plan, title, dates, items, team, hash, importedAt, refreshedAt }
+ALTER TABLE setlists ADD COLUMN IF NOT EXISTS pco JSONB;
+CREATE INDEX IF NOT EXISTS setlists_pco_plan ON setlists ((pco->>'plan')) WHERE pco IS NOT NULL;
+-- a Central Tracks song's CCLI number (matching a plan's songs; the copyright line)
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS ccli TEXT;
+-- CCLI: the church's licence numbers and how the copyright line on the lyric slides reads
+CREATE TABLE IF NOT EXISTS ccli_settings (
+  scope        TEXT PRIMARY KEY,
+  data         JSONB NOT NULL DEFAULT '{}',
+  updated_by   TEXT NOT NULL DEFAULT '',
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- every use of a song for the CCLI report, once per song, kind and day: display (shown on a screen), print, record,
+-- translate (Church Copyright Licence) and stream (Streaming Licence). song_key: ccli:<number> or t:<plain title>.
+CREATE TABLE IF NOT EXISTS ccli_usage (
+  id           BIGSERIAL PRIMARY KEY,
+  scope        TEXT NOT NULL,
+  song_key     TEXT NOT NULL,
+  title        TEXT NOT NULL,
+  ccli         TEXT,
+  authors      TEXT NOT NULL DEFAULT '',
+  copyright    TEXT NOT NULL DEFAULT '',
+  kind         TEXT NOT NULL CHECK (kind IN ('display','print','record','stream','translate')),
+  day          DATE NOT NULL,
+  first_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  device       TEXT NOT NULL DEFAULT '',
+  by_email     TEXT NOT NULL DEFAULT '',
+  UNIQUE (scope, song_key, kind, day)
+);
+CREATE INDEX IF NOT EXISTS ccli_usage_scope_day ON ccli_usage (scope, day);
+
+-- ---------------------------------------------------------------- shorts (10.2)
+-- a church's YouTube / Meta (Facebook + Instagram) / TikTok connection for posting its shorts. scope: 'c:<church id>'
+-- (or 'u:<user id>' for someone without a church); the tokens are encrypted with TOKEN_SECRET
+CREATE TABLE IF NOT EXISTS social_accounts (
+  scope        TEXT NOT NULL,
+  platform     TEXT NOT NULL CHECK (platform IN ('youtube','meta','tiktok')),
+  account      TEXT NOT NULL DEFAULT '',
+  data_enc     TEXT NOT NULL,
+  connected_by TEXT NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (scope, platform)
+);
+
+-- (10.2) a church's alerts from its own computers (the pre-service check): kept, and emailed to the main admins
+CREATE TABLE IF NOT EXISTS church_alerts (
+  id          BIGSERIAL PRIMARY KEY,
+  church_id   BIGINT NOT NULL REFERENCES churches(id) ON DELETE CASCADE,
+  license_key TEXT NOT NULL DEFAULT '',
+  device_id   TEXT NOT NULL DEFAULT '',
+  kind        TEXT NOT NULL DEFAULT 'precheck',
+  subject     TEXT NOT NULL DEFAULT '',
+  body        TEXT NOT NULL DEFAULT '',
+  service     TEXT NOT NULL DEFAULT '',
+  mailed      BOOLEAN NOT NULL DEFAULT FALSE,
+  sent_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS church_alerts_church ON church_alerts (church_id, sent_at DESC);
+-- (10.2) Central Production projects saved to the account: one .cmproj file each (projects.js)
+CREATE TABLE IF NOT EXISTS production_projects (
+  id            TEXT PRIMARY KEY,
+  user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  type          TEXT NOT NULL,
+  storage_key   TEXT,
+  bytes         BIGINT NOT NULL DEFAULT 0,
+  pending_key   TEXT,
+  pending_bytes BIGINT,
+  version       INTEGER NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS production_projects_user ON production_projects (user_id, updated_at DESC);

@@ -21,13 +21,22 @@ const zlib = require("node:zlib");
 const https = require("node:https");
 const http = require("node:http");
 
-const PLANS = ["keys", "instrument", "plugins", "pedals", "pads"];
-const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin"];
-const PLUGIN_FORMATS = ["lv2", "vst3", "clap", "component"], MAX_PLUGIN = 300 * 1024 * 1024;
+const PLANS = ["keys", "instrument", "plugins", "pedals", "pads", "utility"];
+// (10.2) Central Utility: lighting looks (the lights page lists them), slide templates, lyric backgrounds and graphics
+const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic", "fx"];   // (10.2 fx: a plugin made in Central Production, .cmfx.json)
+const EXTRA_KINDS = { look: "looks", slide: "slides", background: "backgrounds", graphic: "graphics" };
+const PLUGIN_FORMATS = ["lv2", "vst3", "clap", "component", "cmfx"], MAX_PLUGIN = 300 * 1024 * 1024, MAX_CMFX = 512 * 1024;   // (10.2) cmfx: a Central FX plugin, one .cmfx.json
 const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
 const INDEX_URL = process.env.CC_LIBRARIES_INDEX || "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/libraries-index.json";
 const ID_RE = /^[a-z0-9-]{3,60}$/, VERSION_RE = /^\d+(\.\d+){0,3}$/, SHA_RE = /^[0-9a-f]{64}$/;
+// (10.2) a library's 30-second previews, next to its zip in the release: [{kind, name, preset?, set?, url, seconds}]
+const PREVIEW_KINDS = ["pad", "loops", "loop", "sound", "preset", "ir"];
+function previewsOf(l, base) {
+  return (Array.isArray(l.previews) ? l.previews : []).slice(0, 600).filter((p) => p && PREVIEW_KINDS.includes(p.kind) && /^preview--[\w.-]{3,200}\.mp3$/.test(p.file || ""))
+    .map((p) => Object.assign({ kind: p.kind, name: String(p.name || "").slice(0, 80), url: String(base).replace(/\/$/, "") + "/" + encodeURIComponent(p.file), seconds: 30 },
+      p.preset != null ? { preset: String(p.preset).slice(0, 80) } : {}, p.set != null ? { set: String(p.set).slice(0, 40) } : {}));
+}
 
 // ---------------------------------------------------------------- a small zip reader (stored / deflated entries)
 function readZip(file) {
@@ -107,7 +116,17 @@ class Libraries {
   }
   record(id) { try { return JSON.parse(fs.readFileSync(path.join(this.root, id + ".json"), "utf8")); } catch (_) { return null; } }
   installed() { return fs.readdirSync(this.root).filter((f) => f.endsWith(".json")).map((f) => this.record(f.slice(0, -5))).filter((r) => r && r.id); }
-  listing() { return this.installed().map((r) => ({ id: r.id, plan: r.plan, version: r.version, title: r.title, summary: r.summary, installedAt: r.installedAt, counts: r.counts, boards: r.boards, presets: r.presets, source: r.source, community: r.community, plugins: r.plugins })); }
+  // (10.2) the Central FX plugins on this computer, for the DAW's insert picker and the pedal app: the ones you made in
+  // Central Production (personal libraries) and installed community ones (only while community plugins are allowed)
+  centralFx() {
+    const out = [], read = (f) => { try { const st = fs.statSync(f); if (st.size > MAX_CMFX) return null; const j = JSON.parse(fs.readFileSync(f, "utf8")); return j && j.format === "central-fx" ? j : null; } catch (_) { return null; } };
+    for (const r of this.installed()) {
+      for (const x of r.fx || []) { const p = read(x.file); if (p) out.push({ name: x.name || p.name, from: r.source === "personal" ? "mine" : "installed", library: r.title, plugin: p }); }
+      if (this.pluginsAllowed()) for (const x of r.plugins || []) if (x.format === "cmfx") { const p = read(x.path); if (p) out.push({ name: x.name || p.name, from: "installed", author: p.author || "", library: r.title, plugin: p }); }
+    }
+    return out;
+  }
+  listing() { return this.installed().map((r) => ({ id: r.id, plan: r.plan, version: r.version, title: r.title, summary: r.summary, installedAt: r.installedAt, counts: r.counts, boards: r.boards, presets: r.presets, source: r.source, community: r.community, plugins: r.plugins, looks: r.looks || [], fx: r.fx || [], personal: !!r.personal })); }
 
   // ----- (10.1) community plugins: this computer's switch, and the website's revoke list
   pluginsDir() { return path.join(this.root, "community-plugins"); }
@@ -129,6 +148,13 @@ class Libraries {
     if (!want.size) throw new Error("a plugin in that library has no checked program files");
     const dest = path.join(this.pluginsDir(), id), tmp = path.join(this.root, ".plugin-" + crypto.randomBytes(6).toString("hex") + ".zip");
     fs.rmSync(dest, { recursive: true, force: true }); fs.mkdirSync(dest, { recursive: true });
+    if (fmt === "cmfx") {   // (10.2) a Central FX plugin: the .cmfx.json itself (our own core plays it, no program in it)
+      let plugin = null; try { plugin = data.length <= MAX_CMFX ? JSON.parse(Buffer.from(data).toString("utf8")) : null; } catch (_) { }
+      if (!plugin || plugin.format !== "central-fx" || !bundle.endsWith(".cmfx.json")) { fs.rmSync(dest, { recursive: true, force: true }); throw new Error("a Central FX plugin in that library isn't a valid plugin file"); }
+      if (want.get(bundle) !== sha256(data)) { fs.rmSync(dest, { recursive: true, force: true }); throw new Error("a plugin's file doesn't match what Motion Audio checked - nothing was installed"); }
+      fs.writeFileSync(path.join(dest, bundle), data);
+      return { name: String(it.name || plugin.name || bundle).slice(0, 80), format: fmt, platform: "all", bundle, path: path.join(dest, bundle), binaries: [{ name: bundle, sha256: want.get(bundle) }] };
+    }
     const real = fs.realpathSync(dest), seen = new Map();
     fs.writeFileSync(tmp, data);
     let z = null;
@@ -162,6 +188,7 @@ class Libraries {
     return msg;
   }
 
+  // ----- (10.2) a library's 30-second previews, next to its zip: [{kind, name, preset?, set?, url, seconds}]
   // ----- (10.0.1) the published list: while the website isn't open, straight from the "libraries" release (its index has
   // each zip's size and sha256); the website's own list wins once it's open (js/libraries.js asks it first)
   index(url) {
@@ -179,7 +206,7 @@ class Libraries {
             let j; try { j = JSON.parse(Buffer.concat(parts).toString("utf8")); } catch (_) { return reject(new Error("the library list can't be read")); }
             const base = String(j.base || u.replace(/[?#].*$/, "").replace(/\/[^/]*$/, ""));   // (the zips sit next to the index, where the redirect ended)
             const list = (Array.isArray(j.libraries) ? j.libraries : []).filter((l) => l && ID_RE.test(l.id || "") && PLANS.includes(l.plan) && SHA_RE.test(String(l.sha256 || "").toLowerCase()) && l.file)
-              .map((l) => ({ id: l.id, plan: l.plan, title: l.title || l.id, version: String(l.version || ""), summary: l.summary || "", file: l.file, size: Number(l.size) || 0, sha256: String(l.sha256).toLowerCase(), url: base.replace(/\/$/, "") + "/" + encodeURIComponent(l.file), ready: true }));
+              .map((l) => ({ id: l.id, plan: l.plan, title: l.title || l.id, version: String(l.version || ""), summary: l.summary || "", file: l.file, size: Number(l.size) || 0, sha256: String(l.sha256).toLowerCase(), url: base.replace(/\/$/, "") + "/" + encodeURIComponent(l.file), ready: true, previews: previewsOf(l, base) }));
             const data = { ok: true, source: "release", built: j.built || "", libraries: list };
             this._index = { url, at: Date.now(), data }; resolve(data);
           });
@@ -236,7 +263,8 @@ class Libraries {
     let man;
     if (!z.has("manifest.json")) throw new Error("that zip isn't a sound library (no manifest.json)");
     try { man = JSON.parse(z.read("manifest.json").toString("utf8")); } catch (_) { throw new Error("that library's manifest.json can't be read"); }
-    if (!man || !ID_RE.test(man.id || "") || !PLANS.includes(man.plan) || !VERSION_RE.test(String(man.version || ""))) throw new Error("that library's manifest.json is missing its id, plan or version");
+    const personal = !!(man && man.personal === true && man.plan === "free");   // (10.2: something you made in Central Production - yours, open with no plan)
+    if (!man || !ID_RE.test(man.id || "") || !(PLANS.includes(man.plan) || personal) || !VERSION_RE.test(String(man.version || ""))) throw new Error("that library's manifest.json is missing its id, plan or version");
     if ((Number(man.format) || 1) > 1) throw new Error("that library needs a newer version of the app - update it first");
     if (!Array.isArray(man.items) || !man.items.length) throw new Error("that library has nothing in it");
     let total = 0;
@@ -252,7 +280,8 @@ class Libraries {
     const id = man.id, tier = man.plan;
     if (this.record(id)) this.remove(id, true);
     const rec = { id, plan: tier, version: String(man.version), title: String(man.title || id).slice(0, 80), summary: String(man.summary || "").slice(0, 400), installedAt: new Date().toISOString().slice(0, 19),
-      source: source === "file" ? "file" : "website", sounds: [], irs: [], clicks: [], pads: [], loops: [], boards: [], presets: [], plugins: [], tier };
+      source: source === "file" ? "file" : source === "personal" ? "personal" : "website", sounds: [], irs: [], clicks: [], pads: [], loops: [], boards: [], presets: [], plugins: [], fx: [], tier };
+    if (man.personal === true) rec.personal = true;
     if (man.community && typeof man.community === "object") rec.community = { item: man.community.item, creator: String(man.community.creator || "").slice(0, 80), kind: String(man.community.kind || "").slice(0, 20) };   // (10.1: from Make & sell)
     const soundLines = [], irLines = [], sounds = [], irs = [];
     for (const it of man.items) {
@@ -276,7 +305,7 @@ class Libraries {
         rec[it.kind === "board" ? "boards" : "presets"].push({ name: String(b.name || it.name || "Board").slice(0, 60), kind: b.kind, chain: b.chain.slice(0, 24), sound: typeof b.sound === "string" ? b.sound : null, library: id, tier });
       } else if (it.kind === "click") {
         const dir = path.join(this.root, id, "clicks"); fs.mkdirSync(dir, { recursive: true });
-        const f = path.join(dir, safeName(it.file, "click.wav")); fs.writeFileSync(f, data); rec.clicks.push({ name: String(it.name || "").slice(0, 60), file: f, tier });
+        const f = path.join(dir, safeName(it.file, "click.wav")); fs.writeFileSync(f, data); rec.clicks.push(Object.assign({ name: String(it.name || "").slice(0, 60), file: f, tier }, it.role === "accent" || it.role === "beat" ? { role: it.role } : {}));
       } else if (it.kind === "pad") {   // (Central Pads: one loop per style and key, for the pad pedal)
         const key = String(it.key || ""), style = String(it.name || "Pad").slice(0, 60);
         if (!PAD_KEYS.includes(key) || data.slice(0, 4).toString() !== "RIFF") throw new Error("a pad in that library isn't a key's WAV loop");
@@ -290,8 +319,21 @@ class Libraries {
         ["bpm", "meter", "bars", "seconds"].forEach((k) => { if (typeof it[k] === "number" && it[k] > 0 && it[k] < 1000) e[k] = it[k]; });
         if (PAD_KEYS.includes(it.key)) e.key = it.key;
         rec.loops.push(e);
+      } else if (it.kind === "fx") {   // (10.2: a plugin made in Central Production - one .cmfx.json, no program files)
+        let fx; try { fx = JSON.parse(data.toString("utf8")); } catch (_) { throw new Error("a plugin in that library can't be read"); }
+        if (!fx || fx.format !== "central-fx") throw new Error("a plugin in that library isn't a Central Production plugin");
+        const dir = path.join(this.root, id, "fx"); fs.mkdirSync(dir, { recursive: true });
+        const f = path.join(dir, safeName(it.file, "plugin.cmfx.json")); fs.writeFileSync(f, data); rec.fx.push({ name: String(fx.name || it.name || "Plugin").slice(0, 60), file: f, tier });
       } else if (it.kind === "plugin") {   // (10.1: a community plugin - only with the switch on)
         rec.plugins.push(this._unpackPlugin(id, it, data));
+      } else if (it.kind === "look") {   // (10.2: a lighting look - kept in the record for the lights page)
+        let l; try { l = JSON.parse(data.toString("utf8")); } catch (_) { throw new Error("a lighting look in that library can't be read"); }
+        if (!l || typeof l !== "object" || !l.g || typeof l.g !== "object") throw new Error("a lighting look in that library has no groups");
+        (rec.looks = rec.looks || []).push({ name: String(l.name || it.name || "Look").slice(0, 60), look: l, library: id, tier });
+      } else if (EXTRA_KINDS[it.kind]) {   // (10.2: slide templates, lyric backgrounds, graphics - files, for the slides and lyrics pages)
+        const dir = path.join(this.root, id, EXTRA_KINDS[it.kind]); fs.mkdirSync(dir, { recursive: true });
+        const f = path.join(dir, safeName(it.file, it.kind + ".json")); fs.writeFileSync(f, data);
+        (rec[EXTRA_KINDS[it.kind]] = rec[EXTRA_KINDS[it.kind]] || []).push({ name: String(it.name || it.kind).slice(0, 60), file: f, tier });
       }
     }
     if (sounds.length) tiersSet(this.sf2Dir, id, soundLines);   // (the plans first: the engine sees each sound locked as it arrives)
@@ -302,6 +344,8 @@ class Libraries {
     rec.counts = { sound: rec.sounds.length, ir: rec.irs.length, board: rec.boards.length, preset: rec.presets.length, click: rec.clicks.length, pad: new Set(rec.pads.map((x) => x.name)).size,
       loop: new Set(rec.loops.map((x) => x.set + "/" + x.name)).size };
     if (rec.plugins.length) rec.counts.plugin = rec.plugins.length;   // (10.1: community plugins)
+    for (const [kind, key] of Object.entries(EXTRA_KINDS)) if (rec[key] && rec[key].length) rec.counts[kind] = rec[key].length;
+    if (rec.fx.length) rec.counts.fx = rec.fx.length;   // (10.2: plugins made in Central Production)
     const rf = path.join(this.root, id + ".json"); fs.writeFileSync(rf + ".part", JSON.stringify(rec, null, 1)); fs.renameSync(rf + ".part", rf);
     this.send({ type: "instrument", action: "rescan" }); this.send({ type: "instrument", action: "status" });
     return rec;

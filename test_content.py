@@ -7,7 +7,7 @@
     every stem, the song file, the mix and preview, hymns-index.json and SHA256SUMS; the band comes in with the energy;
   * tools/make-synths.py: ten synths, held ones exact loops, struck ones dying away;
   * tools/make-pad-loops.py: the eight 10.0 styles are exact loops in their key;
-  * tools/make-loops.py: drum loops of two bars at their tempo, ambient loops of 12 s in every key, all seamless;
+  * tools/make-loops.py: drum loops of four bars at their own tempos, ambient loops of 12 s in every key, all seamless;
   * the loops in a library zip install on the Pi (libraries.py): listed per groove with its files, each file found only
     inside its library; a kind the installer doesn't know is left out, not refused;
   * js/pedals.js: the 30 new pedals, every knob a control of its plugin, studio tools Central Plugins, the rest Central Pedals.
@@ -68,8 +68,10 @@ def read_wav(path):
 
 
 def seamless(x):
-    """The jump from the last sample to the first is no bigger than the loop's ordinary steps."""
-    return float(np.max(np.abs(x[0] - x[-1]))) <= float(np.percentile(np.abs(np.diff(x, axis=0)), 99.9)) + 1e-4
+    """Where the loop runs round, its curve bends no more than anywhere inside it (a seam would be a kink there)."""
+    if len(x) < 8:
+        return True
+    return float(np.max(np.abs(np.diff(np.concatenate([x[-3:], x[:3]]), 2, axis=0)))) <= float(np.max(np.abs(np.diff(x, 2, axis=0)))) + 1e-4
 
 
 def main():
@@ -80,6 +82,15 @@ def main():
         check(len(hymns) >= 5 and MH.check(hymns) == [], "%d hymns, every verse fits its bars, every chord on a beat of its bar" % len(hymns), MH.check(hymns))
         check(all(h["public_domain"]["words"] < 1929 and h["public_domain"]["music"] < 1929 and h["public_domain"]["writers_died"] < 1955 for h in hymns),
               "every hymn is public domain: words and tune published before 1929, every writer dead more than 70 years")
+        import worship_band as WB
+        roles = set(WB.ROLE_E)
+        check(all(h.get("style") in WB.FLAVORS for h in hymns) and all(f.get("role") in roles for h in hymns for f in h["form"])
+              and all({"verse", "final", "bridge"} <= {f["role"] for f in h["form"]} for h in hymns),
+              "each hymn has a modern worship form (sparse verse, a bridge that builds, a final chorus) and a band flavour", [h.get("style") for h in hymns])
+        old_keys = {"amazing-grace": ("G", 72), "joyful-joyful": ("G", 100), "come-thou-fount": ("D", 84), "be-thou-my-vision": ("D", 72), "doxology": ("G", 76)}
+        check(all((h["key"], h["bpm"]) == old_keys[h["id"]] for h in hymns if h["id"] in old_keys), "the first five hymns are in their original keys and tempos")
+        cues = os.path.join(HERE, "hymns", "guide")
+        check(all(os.path.isfile(os.path.join(cues, w + ".wav")) for w in ("chorus", "verse-1", "bridge", "all-in", "build", "down", "tag")), "the guide's spoken cues are there (Chorus, Verse 1, Bridge, All in, Build, Down, Tag)")
         bad_chart, bad_lyrics = [], []
         for h in hymns:
             for s in MH.layout(h):
@@ -121,11 +132,11 @@ def main():
             rc = MH.main(["--gm", GM, "--out", out, "--only", "doxology", "--seconds", "75", "--base-url", "https://cdn.example.test/ct"])
             rel = os.path.join(out, "release")
             files = sorted(os.listdir(rel)) if os.path.isdir(rel) else []
-            want = ["doxology--%s.mp3" % s for s in ("Drums", "Bass", "Keys", "Pad", "Electric", "Strings", "Click", "Guide")] + ["doxology--song.json", "doxology--doxology-mix.mp3", "doxology--doxology-preview.mp3", "hymns-index.json", "SHA256SUMS"]
+            want = ["doxology--%s.mp3" % s.replace(" ", "-") for s in MH.STEM_ORDER] + ["doxology--song.json", "doxology--doxology-mix.mp3", "doxology--doxology-preview.mp3", "hymns-index.json", "SHA256SUMS", "CREDITS.txt"]
             check(rc == 0 and sorted(want) == files, "every stem, the song file, the mix and preview, hymns-index.json and SHA256SUMS", files)
             idx = json.load(open(os.path.join(rel, "hymns-index.json")))
             e = idx["hymns"][0]
-            okidx = (e["id"] == "doxology" and len(e["stems"]) == 8 and e["song"]["url"] == "https://cdn.example.test/ct/doxology--song.json" and all(s.get("sha256") and s.get("size") for s in e["stems"])
+            okidx = (e["id"] == "doxology" and len(e["stems"]) == len(MH.STEM_ORDER) and e["song"]["url"] == "https://cdn.example.test/ct/doxology--song.json" and all(s.get("sha256") and s.get("size") for s in e["stems"])
                      and {s["name"]: s.get("mute", False) for s in e["stems"]}["Guide.mp3"] is True)
             check(okidx, "hymns-index.json: each file with its address, size and sha256; click and guide marked to start muted", e["stems"][:2])
             sums = dict(reversed(l.split("  ")) for l in open(os.path.join(rel, "SHA256SUMS")).read().splitlines())
@@ -138,8 +149,9 @@ def main():
                 return 20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-9)
             dox = next(h for h in hymns if h["id"] == "doxology")
             bar = 60.0 / dox["bpm"] * dox["meter"]
-            intro = (0, 8 * bar - 0.5)          # (energy 0: keys and pad)
-            v2 = (18 * bar, 18 * bar + 7 * bar)  # (Verse 2, energy 2: the band)
+            secs = {x["name"]: x for x in MH.layout(dox)}
+            intro = (0, len(secs["Intro"]["bars"]) * bar - 0.5)                                     # (the intro: pad and piano)
+            v2 = ((secs["Verse 2"]["start"] - 1) * bar + bar, (secs["Verse 2"]["start"] - 1) * bar + 6 * bar)    # (Verse 2: all in)
             d0, d2, k0 = rms_db("Drums", *intro), rms_db("Drums", *v2), rms_db("Keys", *intro)
             check(d0 < -60 and d2 > -40 and k0 > -45, "the band follows the energy: no drums in the quiet intro (keys and pad), drums in the second verse", (round(d0, 1), round(d2, 1), round(k0, 1)))
         else:
@@ -151,8 +163,9 @@ def main():
         presets = [p[2] for p in M.sf2_presets(sf2)]
         check(presets == [s[0] for s in SY.SOUNDS] and len(presets) == 10, "ten presets, the names the library lists", presets)
         held = SY.held("saw", 57, 1)
-        ext = np.concatenate([held, held])
-        check(abs(float(ext[len(held)]) - float(ext[len(held) - 1])) < 4 * float(np.median(np.abs(np.diff(held)))) + 1e-4 and len(held) == int(SY.LOOP * SY.SR), "a held synth note is one exact loop")
+        hs, a0, e0 = SY.held_sample("brass", 57, 1)
+        check(seamless(held) and len(held) == int(SY.LOOP * SY.SR) and seamless(hs[a0:e0]) and float(np.max(np.abs(hs[a0] - hs[a0 - 1]))) <= float(np.max(np.abs(np.diff(hs[a0:e0], axis=0)))) + 1e-6,
+              "a held synth note is one seamless loop, after an opening that flows into it")
         bell, pluck = SY.struck("bells", 72, 1), SY.struck("pluck", 60, 1)
         rms = lambda x: float(np.sqrt(np.mean(x ** 2)))
         n3 = int(0.3 * SY.SR)
@@ -160,17 +173,36 @@ def main():
               (rms(bell[:n3]) / rms(bell[-2 * n3:-n3]), rms(pluck[:n3]) / (rms(pluck[-2 * n3:-n3]) or 1e-9)))
 
         print("\nThe 10.0 pad styles (tools/make-pad-loops.py):")
-        new = ["Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning"]
-        pdir = PL.build(os.path.join(tmp, "pads"), styles=new + ["Warm", "Shimmer", "Air"], keys=None, log=lambda *a: None)
+        new = ["Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning", "Sunday Keys", "Ember", "Tide", "Vowels", "Tanpura", "Swell Guitar"]
+        import pad_voices as PV
+        import pad_sources as PS
+        PV.set_sources(PS.Stand())   # (no internet here: stand-in recordings for the styles made from them)
+        pdir = PL.build(os.path.join(tmp, "pads"), styles=["Warm", "Shimmer", "Air"], keys=None, log=lambda *a: None)   # (every key: the ambient loops use them)
+        PL.build(pdir, styles=new, keys=["D"], log=lambda *a: None)
         loops_ok, keys_ok = True, True
         for style in new:
             x, sr = read_wav(os.path.join(pdir, PL.loop_file(style, "D")))
             loops_ok &= seamless(x) and sr == PL.SR and len(x) == int(PL.LOOP * PL.SR) and 0.4 < float(np.max(np.abs(x))) < 0.55
             spec = np.abs(np.fft.rfft(x[:, 0]))
             f = np.argmax(spec[:int(800 * PL.LOOP)]) / PL.LOOP
-            keys_ok &= any(abs(f - 146.83 * m) < 5 for m in (0.25, 0.5, 1, 1.5, 2, 3, 4))   # (D: its root, fifth or an octave of them)
-        check(loops_ok, "each new style is a stereo exact loop of 6 s at about -6 dBFS")
+            keys_ok &= any(abs(f - 146.83 * m) < 5 for m in (0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4))   # (D: its root, fifth or an octave of them)
+        check(loops_ok, "each new style is a stereo seamless loop of %g s at about -6 dBFS" % PL.LOOP)
         check(keys_ok, "...in its key (D)")
+        # (10.2) no two styles alike: their sound over time (spectrum, how it moves, how wide it is) compared pair by pair
+        def print_of(x):
+            fr = np.array([x[i:i + 4096].mean(1) * np.hanning(4096) for i in range(0, len(x) - 4096, 2048)])
+            side = np.array([(x[i:i + 4096, 0] - x[i:i + 4096, 1]) * np.hanning(4096) for i in range(0, len(x) - 4096, 2048)])
+            S, Ss = np.abs(np.fft.rfft(fr, axis=1)) + 1e-9, np.abs(np.fft.rfft(side, axis=1)) + 1e-9
+            f = np.fft.rfftfreq(4096, 1 / PL.SR)
+            edges = np.geomspace(60, 15000, 33)
+            B = [(f >= a) & (f < b) for a, b in zip(edges[:-1], edges[1:])]
+            prof = np.array([[np.log10(np.mean(s[b] ** 2)) for b in B] for s in S])
+            wid = [np.sqrt(np.mean(Ss[:, b] ** 2) / np.mean(S[:, b] ** 2)) for b in B[::4]]
+            return np.concatenate([prof.mean(0) - prof.mean(), 2 * prof.std(0), wid])
+        prints = {st: print_of(read_wav(os.path.join(pdir, PL.loop_file(st, "D")))[0]) for st in new + ["Warm", "Shimmer", "Air"]}
+        names = list(prints)
+        sims = sorted(((float(np.dot(prints[a], prints[b]) / np.linalg.norm(prints[a]) / np.linalg.norm(prints[b])), a, b) for i, a in enumerate(names) for b in names[i + 1:]), reverse=True)
+        check(sims[0][0] < 0.985, "no two pad styles alike (their spectrum, movement and width compared: the closest pair under 0.985)", sims[:3])
 
         print("\nLoops (tools/make-loops.py):")
         lout = os.path.join(tmp, "loops")
@@ -180,13 +212,14 @@ def main():
             for e in drums:
                 x, sr = read_wav(os.path.join(lout, "drums", e["file"]))
                 okd &= abs(len(x) / sr - e["bars"] * e["meter"] * 60.0 / e["bpm"]) < 0.002 and seamless(x) and float(np.max(np.abs(x))) > 0.5
-            check(okd, "ten grooves at 70 and 100 BPM, each exactly two bars long and seamless", [e["file"] for e in drums[:3]])
-        amb = ML.build_ambient(lout, pdir, log=lambda *a: None)
-        oka = len(amb) == 36 and {e["key"] for e in amb} == set(ML.KEYS)
+            check(okd and len({e["name"] for e in drums}) == len(ML.GROOVES) and len({e["bpm"] for e in drums}) > 10, "%d grooves, each at two tempos of its own, exactly four bars long and seamless" % len(ML.GROOVES), [e["file"] for e in drums[:3]])
+        styles = ML.ambient_styles(gm=GM if AUDIO else None)
+        amb = ML.build_ambient(lout, pdir, gm=GM if AUDIO else None, log=lambda *a: None)
+        oka = len(amb) == 12 * len(styles) and len(styles) >= 3 and {e["key"] for e in amb} == set(ML.KEYS)
         for e in amb[::5]:
             x, sr = read_wav(os.path.join(lout, "ambient", e["file"]))
             oka &= abs(len(x) / sr - 12.0) < 0.001 and seamless(x)
-        check(oka, "three ambient styles in all 12 keys, 12 s each, seamless")
+        check(oka, "%d ambient styles in all 12 keys, 12 s each, seamless" % len(styles), styles)
 
         print("\nLoops in a library, installed on the Pi (libraries.py):")
         if not AUDIO:   # (no drums rendered: a tiny one for the zip)

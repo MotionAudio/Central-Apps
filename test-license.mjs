@@ -6,6 +6,7 @@
  * Central Usage (U key): set up, wrong keys, Release key, released on the website, 30 days offline.
  *   MA_DATABASE_URL=postgres://... MA_SERVER_DIR=path/to/server (with node_modules) node test-license.mjs
  */
+import "./test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";

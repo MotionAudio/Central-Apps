@@ -47,3 +47,19 @@
 .lx-showmain.lx-big { grid-template-rows: max-content max-content 150px max-content max-content; }
 .lx-big .lx-top { grid-template-columns: minmax(0, 1fr) !important; }
 .lx-big .lx-stage3d { height: clamp(380px, 60vh, 620px); }
+/* (10.2) screens, projectors, the room, the stage builder: panels of their own (right side), the plan, the seats summary */
+.lx3d-xpanel { justify-self: end; width: min(470px, calc(100% - 16px)); }
+.lx3d-xpanel label { display: grid; gap: 3px; align-items: start; } .lx3d-xpanel label.toggle { display: inline-flex; align-items: center; }
+.lx3d-xpanel select, .lx3d-xpanel input[type=number], .lx3d-xpanel input:not([type]) { width: 100%; box-sizing: border-box; min-width: 0; }
+.lx3d-put { display: flex; flex-wrap: wrap; gap: 4px; } .lx3d-put .mini { font-size: 11px; }
+.lx3d-sug { margin: 0; color: var(--accent, #e2c27e); } .lx3d-aimat summary, .lx3d-trace summary { cursor: pointer; font-size: 12px; }
+.lx3d-wrap { display: flex; flex-wrap: wrap; gap: 4px; } .lx3d-spread { display: flex; gap: 2px; } .lx3d-spread input { width: 46px !important; }
+.lx-planwrap { overflow: auto; border-radius: 8px; border: 1px solid var(--line); } .lx-plan { display: block; max-width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+.lx-plan[data-mode="edit"] { cursor: default; } .lx-corner { fill: #e2c27e; stroke: #111; stroke-width: 2; cursor: grab; } .lx-corner.sel { fill: #fff; } .lx-mid { fill: rgba(226,194,126,.25); stroke: #e2c27e; cursor: copy; }
+.lx-warn { color: var(--danger, #ff7a6b); } .lx-bad td { color: var(--danger, #ff7a6b); } .lx-clash td { color: #ffcf6b; }
+.lx3d-seatsum { position: absolute; left: 8px; bottom: 8px; font-size: 11px; padding: 3px 8px; border-radius: 8px; background: rgba(11,13,16,.8); color: var(--text); pointer-events: none; max-width: 60%; }
+.lx-btabs { flex-wrap: wrap; } .lx-btabs button.on { background: var(--panel2); color: var(--text); }
+.lx-wiz { margin: 0; padding-left: 18px; display: grid; gap: 10px; } .lx-wiz li > b { display: block; margin-bottom: 4px; }
+.lx-wizl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; } .lx-wizl label { grid-template-columns: 1fr 64px; align-items: center; font-size: 12px; }
+.lx-tpls { display: grid; gap: 8px; } .lx-tpl { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; } .lx-tpl p { margin: 4px 0 6px; }
+.lx-patch { max-height: 220px; overflow: auto; } .lx-patch td { font-size: 11px; padding: 2px 4px; }

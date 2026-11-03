@@ -1,6 +1,8 @@
 # Builds the sound libraries - one zip per plan (Central Keys, Central Instrument, Central Plugins, Central Pedals) - and
 # publishes them on the GitHub release tagged "libraries" (made if it isn't there, its files replaced if it is), with
-# libraries-index.json (what the website's /v1/libraries and the apps read) and SHA256SUMS.
+# libraries-index.json (what the website's /v1/libraries and the apps read) and SHA256SUMS - and (10.2) a 30-second
+# preview MP3 of each pad, loop, instrument preset, keys preset and IR (tools/make-previews.py), so people can hear them
+# before they download.
 #
 # Runs by hand (Actions -> Sound libraries -> Run workflow) and whenever a library's sources change on main or on
 # release/9.8.0 (so the files are built before that release).
@@ -39,12 +41,22 @@ on:
       - tools/make-pads.py
       - tools/make-pad-loops.py
       - tools/make-synths.py
+      - tools/pad_dsp.py
+      - tools/pad_voices.py
+      - tools/pad_sources.py
       - tools/make-loops.py
       - tools/make-hymns.py
+      - tools/hymn_arranger.py
+      - tools/worship_band.py
+      - tools/sampler.py
+      - hymns/guide/**
       - tools/midi_render.py
       - tools/vcsl-names.txt
       - tools/make-irs.py
+      - tools/make-utility.py
+      - tools/make-fixture-library.py
       - tools/build-libraries.py
+      - tools/make-previews.py
       - tools/build-libraries.sh
       - sounds-vsco.py
       - .github/workflows/libraries.yml
@@ -71,7 +83,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: work/sounds
-          key: libraries-sounds-${{ hashFiles('tools/sounds-vcsl.py', 'tools/sounds-sfz.py', 'tools/sfz_render.py', 'tools/make-pads.py', 'sounds-vsco.py') }}
+          key: libraries-sounds-${{ hashFiles('tools/sounds-vcsl.py', 'tools/sounds-sfz.py', 'tools/sfz_render.py', 'tools/make-pads.py', 'tools/make-synths.py', 'tools/pad_dsp.py', 'tools/pad_voices.py', 'tools/pad_sources.py', 'sounds-vsco.py') }}
       - name: Build the libraries
         run: bash tools/build-libraries.sh "$OUT"
       - name: Check every SoundFont plays (FluidSynth loads it)
@@ -84,7 +96,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES="Sound libraries for Central Keys, Central Instrument, Central Plugins, Central Pedals and Central Pads. Anyone can download them; they open with the plan's package key (Settings -> Packages in any app). libraries-index.json lists what's in each. Built from ${GITHUB_SHA::7}."
+          NOTES="Libraries for Central Keys, Central Instrument, Central Plugins, Central Pedals, Central Pads and Central Utility, and the lights page's fixture library. Anyone can download them; they open with the plan's package key (Settings -> Packages in any app). libraries-index.json lists what's in each. Built from ${GITHUB_SHA::7}."
           if gh release view libraries >/dev/null 2>&1; then
             gh release edit libraries --prerelease --latest=false --title "Sound libraries" --notes "$NOTES"
           else
@@ -107,16 +119,39 @@ jobs:
               f.write("%s  libraries-index.json\n" % hashlib.sha256(open(os.path.join(out, "libraries-index.json"), "rb").read()).hexdigest())
           PY
           fi
+          # (10.2: the 30-second previews go up before the index that lists them)
+          ls "$OUT"/preview--*.mp3 >/dev/null 2>&1 && gh release upload libraries "$OUT"/preview--*.mp3 --clobber
           gh release upload libraries "$OUT"/*.zip "$OUT/libraries-index.json" "$OUT/SHA256SUMS" --clobber
           echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/libraries"
           ls -l "$OUT"
 
+      # ---- (10.2) the fixture library: the Open Fixture Library (MIT) and the QLC+ fixture definitions (Apache 2.0), as
+      # one file the lights page's "Update the fixture library" downloads (the apps carry a copy too)
+      - name: The fixture library
+        if: ${{ env.ONLY == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone -q --depth 1 https://github.com/OpenLightingProject/open-fixture-library work/ofl
+          git clone -q --depth 1 https://github.com/mcallegari/qlcplus work/qlcplus
+          python3 tools/make-fixture-library.py --ofl work/ofl --qlc work/qlcplus --out dist/fixture-library.json.gz \
+            --ofl-commit "$(git -C work/ofl rev-parse HEAD)" --qlc-commit "$(git -C work/qlcplus rev-parse HEAD)"
+          gh release upload libraries dist/fixture-library.json.gz --clobber
+
       # ---- Central Tracks hymns (10.0): public-domain hymns in our arrangements, played on the sounds built above
+      - name: Cache the hymns' instrument samples
+        if: ${{ env.ONLY == '' }}
+        uses: actions/cache@v4
+        with:
+          path: work/samples
+          key: hymn-samples-${{ hashFiles('tools/sampler.py') }}
       - name: Central Tracks hymns (stems, song files, previews)
         if: ${{ env.ONLY == '' }}
         run: |
-          python3 sounds-vsco.py work/cache work/orchestra || echo "(no orchestra: the strings stem uses the String Pad)"
-          python3 tools/make-hymns.py --sounds work/sounds --orchestra work/orchestra --out dist/hymns --base-url "$HYMNS_BASE_URL"
+          # (10.2: played on the sampled instruments themselves - Salamander piano, Virtuosity drums, Growlybass, the
+          #  Black And Green guitars, VSCO 2 strings - fetched from their repositories by tools/sampler.py and cached)
+          pip install --quiet soundfile pyloudnorm scipy
+          python3 tools/make-hymns.py --samples work/samples --out dist/hymns --base-url "$HYMNS_BASE_URL"
       - name: Publish the hymns on the "central-tracks" release
         if: ${{ env.ONLY == '' }}
         env:
@@ -145,6 +180,9 @@ jobs:
           ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           for f in "$OUT"/*.zip; do
             aws s3 cp "$f" "s3://${R2_BUCKET}/$(basename "$f")" --endpoint-url "$ENDPOINT" --content-type application/zip
+          done
+          for f in "$OUT"/preview--*.mp3; do
+            [ -f "$f" ] && aws s3 cp "$f" "s3://${R2_BUCKET}/$(basename "$f")" --endpoint-url "$ENDPOINT" --content-type audio/mpeg --cache-control "max-age=86400"
           done
           aws s3 cp "$OUT/SHA256SUMS" "s3://${R2_BUCKET}/SHA256SUMS" --endpoint-url "$ENDPOINT" --content-type text/plain
           # (the index last: the apps only see a new version once its zip is there)

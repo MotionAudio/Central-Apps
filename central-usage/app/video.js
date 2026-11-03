@@ -32,7 +32,7 @@
   function newOut(name) { var o = CU.store.get("vidOut-" + name, null) || {}; return { name: name, pgm: o.pgm || null, pvw: o.pvw || null, trans: null, lyrics: false, lyricsA: 0, slides: o.slides || "off", slidesA: 0, ftb: false, ftbA: 0 }; }
   function saveOut(o) { CU.store.set("vidOut-" + o.name, { pgm: o.pgm, pvw: o.pvw, slides: o.slides }); }
   function cfgSources() { return (S.cfg && S.cfg.sources) || []; }
-  function srcName(id) { if (id === S.init.slidesId) return "Slides"; var s = cfgSources().find(function (x) { return x.id === id; }); return s ? s.name : "—"; }
+  function srcName(id) { if (id === S.init.slidesId) return "Slides & lyrics"; var s = cfgSources().find(function (x) { return x.id === id; }); return s ? s.name : "—"; }
 
   /* ================================================================== GPU compositor */
   var G = { canvas: null, gl: null, W: 1920, H: 1080, tex: new Map(), fb: {}, progs: {}, pbo: [], pboAt: 0, lyrics: null };
@@ -190,7 +190,11 @@
       else { drawSource(o.trans.from, f, 1); drawSource(o.trans.to, f, p); }
     } else if (o.pgm != null) drawSource(o.pgm, f, 1);
     if (!overlays) return d;
-    if (o.slidesA > 0 && o.slides !== "off" && live(S.init.slidesId)) drawSource(S.init.slidesId, f, o.slidesA, o.slides === "overlay" ? { mode: 1, keyLo: S.cfg.lyrics.keyLo || 0.04, keyHi: S.cfg.lyrics.keyHi || 0.16 } : null);
+    if (o.slidesA > 0 && o.slides !== "off" && live(S.init.slidesId)) {
+      // a lower third (10.2: a slide with no background) is laid over the camera by its own transparency; any other slide over the camera drops its black
+      var ls = window.CUSlides && window.CUSlides.live && window.CUSlides.live().slide, see = !!(ls && ls.transparent);
+      drawSource(S.init.slidesId, f, o.slidesA, o.slides === "overlay" ? (see ? { mode: 2 } : { mode: 1, keyLo: S.cfg.lyrics.keyLo || 0.04, keyHi: S.cfg.lyrics.keyHi || 0.16 }) : null);
+    }
     if (o.lyricsA > 0 && LY.cur) {
       var ca = LY.dip ? Math.max(0, LY.x * 2 - 1) : LY.x, pa = LY.dip ? Math.max(0, 1 - LY.x * 2) : 1 - LY.x;
       if (LY.prev && pa > 0) quad(LY.prev.tex, d.w, d.h, [0, 0, d.w, d.h], { a: o.lyricsA * pa, mode: 2, flip: d.flip });
@@ -316,7 +320,7 @@
   // what each source must deliver: "hi" on a program / preview, "lo" on the multiview page, otherwise off
   var wantKey = "", wantTimer = 0;
   function changed() { clearTimeout(wantTimer); wantTimer = setTimeout(applyWants, 60); paintControls(); }
-  function mvSources() { return cfgSources().filter(function (s) { return s.mv !== false; }).concat(S.cfg.multiview.slides !== false ? [{ id: S.init.slidesId, name: "Slides", kind: "slides" }] : []); }
+  function mvSources() { return cfgSources().filter(function (s) { return s.mv !== false; }).concat(S.cfg.multiview.slides !== false ? [{ id: S.init.slidesId, name: "Slides & lyrics", kind: "slides" }] : []); }
   function grid(n) { var g = S.cfg.multiview.grid; if (g && g !== "auto") { var p = g.split("x").map(Number); return { c: p[0], r: p[1] }; } return fitGrid(n); }
   // Auto: every camera on one screen (up to 48 + the slides), in the columns × rows that make the tiles biggest in the space there is
   function fitGrid(n) {
@@ -363,11 +367,11 @@
     if (LY.x < 1) LY.x = clamp(LY.x + dt / 1000 / Math.max(0.05, (Number(S.cfg.lyrics.fade) || 0.4) * (LY.dip ? 2 : 1)), 0, 1);
     animate(S.out.main, dt); animate(S.out.stream, dt);
     var preset = S.init.presets[S.cfg.stream.preset] || [1920, 1080, 30], st = S.stream || {};
-    var streamNeeded = (st.encoder && st.encoder.on) || (st.ndi && st.ndi.stream && st.ndi.stream.on) || visible();
+    var streamNeeded = (st.encoder && st.encoder.on) || (st.ndi && st.ndi.stream && st.ndi.stream.on) || visible() || PV.to.stream.length > 0;
     var fs = target("stream", preset[0], preset[1]);
     if (streamNeeded) { renderOutput(S.out.stream, fs, true); if ((st.encoder && st.encoder.on) || (st.ndi && st.ndi.stream && st.ndi.stream.on)) readI420("stream", fs, preset[2]); }
     var mainOpenNow = MW.win && !MW.win.closed, ms = mainSize(), fm = target("main", ms[0], ms[1]);
-    if (mainOpenNow || visible() || (st.ndi && st.ndi.main && st.ndi.main.on)) {
+    if (mainOpenNow || visible() || (st.ndi && st.ndi.main && st.ndi.main.on) || PV.to.main.length > 0) {
       renderOutput(S.out.main, fm, true);
       if (st.ndi && st.ndi.main && st.ndi.main.on) readI420("main", fm, preset[2]);
       if (mainOpenNow) {
@@ -377,8 +381,31 @@
     } else if (MW.win && MW.win.closed) { MW.win = null; paintControls(); }
     collect("stream", 10); collect("main", 11);
     if (visible() && S.view === "switch" && now - monAt > 1000 / 20) { monAt = now; drawMonitors(fm, fs); drawMultiview(); }
+    if ((PV.to.main.length || PV.to.stream.length) && now - PV.at > 1000 / PV.fps) { PV.at = now; drawPreviews(fm, fs); }
     if (now - statAt > 1000) { statAt = now; paintStatus(); }
   }
+  // (10.2) small live copies of Main and Stream for the screens on the lights page's 3D stage (screen-feed.js): drawn in
+  // a corner of the compositor's own picture under the monitors' row, then copied into each canvas that asked
+  var PV = { to: { main: [], stream: [] }, at: 0, fps: 15 };
+  function drawPreviews(fm, fs) {
+    [["main", fm], ["stream", fs]].forEach(function (m, i) {
+      var list = PV.to[m[0]]; if (!list.length) return;
+      var tw = 384, th = 216, x = i * tw, y = 300;
+      bindTargetCached = bindTarget(null); var gl = G.gl; gl.enable(gl.SCISSOR_TEST); gl.scissor(x, G.H - y - th, tw, th); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.SCISSOR_TEST);
+      var r = fit(m[1].w, m[1].h, x, y, tw, th); blit(m[1], r[0], r[1], r[2], r[3]);
+      list.forEach(function (cv) { var ctx = cv._pvctx || (cv._pvctx = cv.getContext("2d", { alpha: false })); ctx.drawImage(G.canvas, x, y, tw, th, 0, 0, cv.width, cv.height); cv._pvAt = performance.now(); });
+    });
+  }
+  function previewTo(which, canvas, on) {
+    var list = PV.to[which === "stream" ? "stream" : "main"], i = list.indexOf(canvas);
+    if (on && i < 0) list.push(canvas); else if (!on && i >= 0) list.splice(i, 1);
+  }
+  function previewNote(which) {
+    if (!S.ready) return "The Video tab isn't running on this computer";
+    if (which === "stream") { var st = S.stream || {}; return (st.encoder && st.encoder.on) || (st.ndi && st.ndi.stream && st.ndi.stream.on) ? "" : "The stream isn't on"; }
+    return MW.win && !MW.win.closed ? "" : "Main isn't on a screen right now";
+  }
+  function ftb(bus, on) { outs(bus || "both").forEach(function (o) { o.ftb = on == null ? !o.ftb : !!on; }); changed(); return S.out.main.ftb; }
   function drawMonitors(fm, fs) {
     var mons = [["main-pvw", S.out.main, false], ["main-pgm", fm, true], ["stream-pvw", S.out.stream, false], ["stream-pgm", fs, true]];
     var tw = 480, th = 270;
@@ -478,7 +505,17 @@
     var ty = $('[data-tr="type"]'); if (ty) ty.value = (S.cfg.transition || {}).type || "fade";
     var pi = pageItems(), pg = $("#vdPages"); if (pg) pg.innerHTML = pi.pages > 1 ? '<button data-page="-1">‹</button> ' + (S.page + 1) + " / " + pi.pages + ' <button data-page="1">›</button>' : "";
   }
+  // (10.2) on air: any destination live. Started and stopped are told to the rest of the app ("videoStreaming"); while
+  // it's on, each song shown is noted for the CCLI report as streamed (ccli-usage.js) - and the one up when it starts
+  var onAirWas = false;
+  function onAir() { var st = S.stream || {}; return (st.destinations || []).some(function (d) { return d.status === "live"; }); }
+  function airCheck() {
+    var on = onAir(); if (on === onAirWas) return; onAirWas = on;
+    try { CU.fire("videoStreaming", on); } catch (_) { }
+    if (on && window.CUCcliUsage) window.CUCcliUsage.note();
+  }
   function paintStatus() {
+    airCheck();
     var st = S.stream || {}, enc = st.encoder || {}, dests = st.destinations || [], liveN = dests.filter(function (d) { return d.status === "live"; }).length, onN = dests.filter(function (d) { return d.on; }).length;
     var chips = $("#vdChips");
     if (chips) chips.innerHTML = '<span class="vd-chip' + (MW.win && !MW.win.closed ? " on" : "") + '">MAIN ' + (MW.win && !MW.win.closed ? "on screen" : "off") + "</span>" +
@@ -717,5 +754,17 @@
   }
   var start0 = start; start = function () { return start0().catch(function (e) { S.error = "The Video tab could not start: " + (e && e.message || e); console.error("video start", e); paintView(); }); };
   if (visible()) start();
-  window.CUVideoTab = { state: S, G: G, seen: seen, cut: cut, auto: auto, take: take, setPreview: setPreview, start: start, mainOpen: mainOpen, outs: outs, tick: tick };
+  window.CUVideoTab = { state: S, G: G, seen: seen, cut: cut, auto: auto, take: take, setPreview: setPreview, start: start, mainOpen: mainOpen, outs: outs, tick: tick,
+    previewTo: previewTo, previewNote: previewNote, ftb: ftb, ready: function () { return !!S.ready; }, srcName: function (id) { return S.init ? srcName(id) : ""; },
+    // (10.2) a run sheet's "stream scene": the source with that name (a camera, the slides, a video…) goes to the Stream
+    // output - Main too when it has no output of its own. false when nothing is called that.
+    scene: function (name) {
+      if (!S.cfg || !S.cfg.sources) return false;
+      var n = function (x) { return String(x || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }, want = n(name), list = S.cfg.sources;
+      var src = list.filter(function (x) { return n(x.name) === want; })[0] || list.filter(function (x) { return n(x.name).indexOf(want) === 0 || want.indexOf(n(x.name)) === 0; })[0];
+      if (!src) return false;
+      try { take(src.id, "stream"); } catch (_) { take(src.id); }
+      return true;
+    },
+    streaming: onAir };
 })();

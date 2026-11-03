@@ -60,12 +60,12 @@ try {
   const chk = await j("POST", "/license/check", { key: DEMO.A, device: dev(77) });
   ok(chk.ok && chk.church === "Riverstone Church (demo)" && chk.demoKey === true, "the check: ok, with the demo church", chk);
   const pk = {};
-  for (const [k, want] of [["SDMO-RVST-ALL0-2026", ["keys", "plugins", "instrument", "pedals", "pads"]], ["SDMO-RVST-KEYS-2026", ["keys", "pads"]], ["SDMO-RVST-PLUG-2026", ["plugins", "pads"]],
+  for (const [k, want] of [["SDMO-RVST-ALL0-2026", ["keys", "plugins", "instrument", "pedals", "pads", "utility"]], ["SDMO-RVST-UTIL-2026", ["utility"]], ["SDMO-RVST-KEYS-2026", ["keys", "pads"]], ["SDMO-RVST-PLUG-2026", ["plugins", "pads"]],
     ["SDMO-RVST-INST-2026", ["instrument", "pads"]], ["SDMO-RVST-PEDL-2026", ["pedals", "pads"]], ["SDMO-RVST-PADS-2026", ["pads"]]]) {
     const r = await j("POST", "/package/activate", { key: k, deviceId: dev(5), app: "usage" });
     pk[k] = r.ok && r.church === "Riverstone Church (demo)" && r.demoKey === true && JSON.stringify(Object.keys(r.plans).sort()) === JSON.stringify(want.slice().sort()) ? "ok" : r;
   }
-  ok(Object.values(pk).every((x) => x === "ok"), "the six demo package keys: all plans, then one plan each (with Central Pads) - only their own plans", pk);
+  ok(Object.values(pk).every((x) => x === "ok"), "the seven demo package keys: all plans, then one plan each (the sound plans with Central Pads, 10.2: Central Utility on its own) - only their own plans", pk);
   const pc = await j("POST", "/package/check", { keys: ["SDMO-RVST-KEYS-2026"], deviceId: dev(99) });
   ok(pc.packages[0].ok && pc.packages[0].plans.keys && pc.packages[0].plans.pads && !pc.packages[0].plans.plugins, "the package check: the Central Keys demo key opens Keys and Pads, not Plugins", pc);
   ok(!(await q("SELECT 1 FROM licenses WHERE regexp_replace(key,'-','','g') LIKE '%RVST%'")).length && !(await q("SELECT 1 FROM package_keys WHERE key LIKE '%RVST%'")).length, "no rows: the demo keys are built in");
@@ -77,8 +77,8 @@ try {
   const me = await j("GET", "/me", null, li.token);
   ok(me.email === DEMO_EMAIL && me.subscribed === true && me.church && me.church.name === "Riverstone Church (demo)" && me.emailConfirmed === true, "...its church is Riverstone Church (demo), with Central Tracks Unlimited", me);
   const pu = await j("GET", "/purchases", null, li.token), demo = (pu.purchases || []).find((x) => x.type === "demo");
-  ok(demo && demo.apps.length === 3 && demo.apps.map((x) => x.keys[0].key).sort().join() === Object.values(DEMO).sort().join() && demo.packages.length === 6 && demo.libraries.length === 5
-    && demo.apps.every((x) => x.links.windows && x.links.windows.startsWith("https://motion.test/download/")), "Purchases: the demo keys (3 apps, 6 packages), the libraries and our own download links", demo);
+  ok(demo && demo.apps.length === 3 && demo.apps.map((x) => x.keys[0].key).sort().join() === Object.values(DEMO).sort().join() && demo.packages.length === 7 && demo.libraries.length === 6
+    && demo.apps.every((x) => x.links.windows && x.links.windows.startsWith("https://motion.test/download/")), "Purchases: the demo keys (3 apps, 7 packages), the libraries and our own download links", demo);
   const del = await j("POST", "/account/delete", { password: DEMO_PW }, li.token), fg = await j("POST", "/password/forgot", { email: DEMO_EMAIL }), ph = await j("POST", "/account/phone", { password: DEMO_PW, phone: "555-111-2222" }, li.token);
   ok(del._status === 403 && fg._status === 403 && ph._status === 403, "it can't be deleted, have its password reset or get a phone", { del, fg, ph });
   const before = mails.length;
@@ -138,7 +138,7 @@ try {
       ok(!(await page.isVisible("#acctLink")) && await page.isVisible("#acctIcon"), "signed in: an account icon instead of the Sign in link");
       await page.click("#acctIcon");
       const items = await page.$$eval("#acctDrop a, #acctDrop button", (x) => x.map((e) => e.textContent.trim()));
-      ok(JSON.stringify(items) === JSON.stringify(["Account", "Purchases", "Downloads", "Sign out"]) && /Bea/.test(await page.textContent("#acctWho")), "its menu: Account, Purchases, Downloads, Sign out (with who's signed in)", items);
+      ok(JSON.stringify(items) === JSON.stringify(["Account", "Purchases", "Downloads", "Central Services", "Central Production", "Sign out"]) && /Bea/.test(await page.textContent("#acctWho")), "its menu: Account, Purchases, Downloads, Central Services, Central Production, Sign out (with who's signed in)", items);
       await page.click('#acctDrop a[href="#purchases"]'); await page.waitForSelector("#purchases:not([hidden]) .pu-card", { timeout: 8000 });
       const t = await page.textContent("#purchases"), dl = await page.$$eval("#purchases a.btn", (x) => x.map((e) => e.getAttribute("href")));
       ok(/Central Usage key/.test(t) && /Package key/.test(t) && /One key opens everything/.test(t) && /Next renewal/.test(t) && /UWEB/.test(t) && dl.some((h) => /\/download\/(usage|pedal-control)\//.test(h)) && dl.some((h) => /\/download\/library\/keys$/.test(h)) && dl.every((h) => !/github/i.test(h)),
@@ -155,7 +155,7 @@ try {
   console.log("\nThe switch:");
   const st = (await finish(await j("POST", "/signup", { email: STAFF, password: "password123" }), STAFF)).token;
   const g = await j("GET", "/admin/default-keys", null, st);
-  ok(g.demo && g.demo.church === "Riverstone Church (demo)" && g.demo.keys.A === DEMO.A && Object.keys(g.demo.packages).length === 6, "the staff card lists the demo keys", g.demo);
+  ok(g.demo && g.demo.church === "Riverstone Church (demo)" && g.demo.keys.A === DEMO.A && Object.keys(g.demo.packages).length === 7, "the staff card lists the demo keys", g.demo);
   await j("POST", "/admin/default-keys", { on: false }, st);
   const off1 = await j("POST", "/license/check", { key: DEMO.A, device: dev(1) }), off2 = await j("POST", "/package/activate", { key: "SDMO-RVST-ALL0-2026", deviceId: dev(6), app: "usage" }), off3 = await j("POST", "/login", { email: DEMO_EMAIL, password: DEMO_PW, device: "b2-" + S });
   ok(off1.ok === false && off2.ok === false && off3._status === 403, "off: the demo keys stop and the demo account can't sign in", { off1, off2, off3 });

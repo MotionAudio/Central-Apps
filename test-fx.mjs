@@ -4,6 +4,7 @@
  *   node test-fx.mjs [path/to/index.html]
  */
 import { chromium } from "playwright";
+import { serveApp } from "./test-serve.mjs";   // (saved and reloaded: served, not from file:// - see test-serve.mjs)
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import assert from "node:assert/strict";
@@ -27,7 +28,8 @@ const T = (fn, arg) => page.evaluate(fn, arg);
 const wait = (ms) => page.waitForTimeout(ms);
 async function until(fn, ms = 20000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await fn()) return true; await wait(100); } throw new Error("timed out"); }
 
-await page.goto("file://" + pagePath);
+const site = await serveApp(path.dirname(pagePath));
+await page.goto(site.url(path.basename(pagePath)));
 await page.waitForFunction(() => window.__test && window.PPTracks && window.PPFx);
 
 console.log("Track effects:");
@@ -50,7 +52,7 @@ await T(() => { window.__fxMsgs = []; (PPTracks.netDecks() || []).forEach((d) =>
 await check("FX on a track opens its panel (gate, EQ, compressor, reverb, delay)", async () => {
   await page.click("#trStems [data-fx-stem]");
   const s = await T(() => ({ open: document.getElementById("fxDialog").open, title: document.querySelector("#fxDialog h3").textContent, sections: [...document.querySelectorAll("#fxDialog .fx-body header")].map((h) => h.textContent.trim().split(" ")[0]) }));
-  assert.ok(s.open); assert.match(s.title, /Vocals/); assert.deepEqual(s.sections, ["Gate", "EQ", "Compressor", "Reverb", "Delay"]);
+  assert.ok(s.open); assert.match(s.title, /Vocals/); assert.deepEqual(s.sections, ["Gate", "EQ", "Compressor", "Reverb", "Delay", "Plugins"]);
 });
 await check("a preset turns the effects on and the processed track goes to the player", async () => {
   await page.click('#fxDialog [data-fx-preset="Vocal stem"]');
@@ -62,6 +64,16 @@ await check("a preset turns the effects on and the processed track goes to the p
     return { same: a.length === b.length, diff, stereo: !!fx.R, btn: document.querySelector('#trStems [data-fx-stem="' + st.id + '"]').classList.contains("on") };
   });
   assert.ok(r.same, "same length"); assert.ok(r.diff > 1000, "processed"); assert.ok(r.stereo, "reverb makes it stereo"); assert.ok(r.btn, "FX button lit");
+});
+await check("a Central FX plugin (the builder's Tremolo example) goes on the track after its effects and is rendered into its copy", async () => {
+  await until(() => T(() => !!document.querySelector("#fxDialog [data-fx-cm-pick] option[value='0']")));
+  const before = await T(async () => { const k = PPTracks.data(PPTracks.song()).stems[0].fxKey; window.__before = new Int16Array((await PPTracks.getStemLocal(k)).L); return k; });
+  await T(() => { const sel = document.querySelector("#fxDialog [data-fx-cm-pick]"), o = [...sel.options].find((x) => /^Tremolo/.test(x.textContent)); sel.value = o.value; sel.dispatchEvent(new Event("change", { bubbles: true })); });
+  await until(() => T((b) => { const st = PPTracks.data(PPTracks.song()).stems[0]; return st.fx.plugins.length === 1 && st.fxKey && st.fxKey !== b && PPFx.pending() === 0; }, before), 60000);
+  const r = await T(async (b) => { const st = PPTracks.data(PPTracks.song()).stems[0], x = window.__before, y = new Int16Array((await PPTracks.getStemLocal(st.fxKey)).L); let d = 0; for (let i = 0; i < x.length; i += 7) d += Math.abs(x[i] - y[i]); return { d, knobs: document.querySelectorAll('#fxDialog [data-fx^="plugins.0.values."]').length }; }, before);
+  assert.ok(r.d > 1000, "the plugin changed the copy (" + r.d + ")"); assert.equal(r.knobs, 3, "its three knobs in the panel");
+  await T(() => document.querySelector("#fxDialog [data-fx-cm-del='0']").click());
+  await until(() => T(() => PPTracks.data(PPTracks.song()).stems[0].fx.plugins.length === 0 && PPFx.pending() === 0), 60000);
 });
 await check("tracks play with no pad playing", async () => {
   await T(() => { PP.engine.stop(); PPTracks.data(PPTracks.song()).padFollow = { start: false, stop: false, swell: false }; PPTracks.play({ countIn: false }); });   // (the song's "pads follow the tracks" off)
@@ -135,6 +147,15 @@ await check("pads play with no tracks playing", async () => {
   await T(() => { PPTracks.stop(); PP.triggerPad(1); }); await wait(250);
   assert.equal(await T(() => __test.playingIndex()), 1); assert.equal(await T(() => PPTracks.isPlaying()), false);
   await T(() => PP.engine.stop());
+});
+await check("a Central FX plugin on a pad plays live, after its gate", async () => {
+  await page.click('#pfPads [data-fx-pad="1"]');
+  await until(() => T(() => !!document.querySelector("#fxDialog [data-fx-cm-pick] option[value='0']")));
+  await T(() => { const sel = document.querySelector("#fxDialog [data-fx-cm-pick]"), o = [...sel.options].find((x) => /^Tremolo/.test(x.textContent)); sel.value = o.value; sel.dispatchEvent(new Event("change", { bubbles: true })); });
+  await T(() => { document.getElementById("fxDialog").close(); PP.triggerPad(1); }); await wait(400);
+  const r = await T(() => ({ saved: (PP.project().pads[1].cmfx || []).length, live: (PP.engine.voices ? PP.engine.voices() : []).some((v) => v.__cm && v.__cm.length === 1) }));
+  await T(() => PP.engine.stop());
+  assert.equal(r.saved, 1); assert.ok(r.live, "the pad's voice plays through it");
 });
 await check("the pads bus chain sits between the pads and the mix", async () => {
   await page.screenshot({ path: process.env.FX_SHOT || "/tmp/fx-perform.png" });
@@ -222,6 +243,6 @@ await check("a pad's gate closes when the sound is under its threshold", async (
 
 await check("no page errors", () => assert.deepEqual(errors, []));
 
-await browser.close();
+await browser.close(); site.close();
 if (failures) { console.error("\n" + failures + " failed"); process.exit(1); }
 console.log("\nall passed");

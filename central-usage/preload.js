@@ -1,8 +1,9 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 contextBridge.exposeInMainWorld("CU", {
   discover: () => ipcRenderer.invoke("discover"),
   version: () => ipcRenderer.invoke("version"),
   health: () => ipcRenderer.invoke("sys-health"),
+  sysCheck: (opts) => ipcRenderer.invoke("sys-check", opts),   // (10.2: the pre-service check - disk space, Wi-Fi, a newer version)
   onMenu: (fn) => ipcRenderer.on("menu", (_e, name, arg) => fn(name, arg)),
   platform: process.platform,
   arch: process.arch,   // (10.1: which build of a community plugin to download)
@@ -15,7 +16,7 @@ contextBridge.exposeInMainWorld("CU", {
     frame: (universes) => ipcRenderer.send("dmx-frame", { universes }),
     blackout: () => ipcRenderer.invoke("dmx-blackout")
   },
-  fixtures: { scan: () => ipcRenderer.invoke("fixtures-scan"), read: (file) => ipcRenderer.invoke("fixtures-read", file), open: () => ipcRenderer.invoke("fixtures-open") },
+  fixtures: { scan: () => ipcRenderer.invoke("fixtures-scan"), read: (file) => ipcRenderer.invoke("fixtures-read", file), open: () => ipcRenderer.invoke("fixtures-open"), library: () => ipcRenderer.invoke("fixtures-library"), update: () => ipcRenderer.invoke("fixtures-update"), save: (name, text) => ipcRenderer.invoke("fixtures-save", name, text) },
   remote: { config: (cfg) => ipcRenderer.invoke("remote-config", cfg), status: () => ipcRenderer.invoke("remote-status"), state: (st) => ipcRenderer.send("remote-state", st), onCommand: (fn) => ipcRenderer.on("remote-cmd", (_e, cmd) => fn(cmd)) },
   updates: { status: () => ipcRenderer.invoke("update-status"), config: (cfg) => ipcRenderer.invoke("update-config", cfg), check: () => ipcRenderer.invoke("update-check"), install: () => ipcRenderer.invoke("update-install"), on: (fn) => ipcRenderer.on("update", (_e, st) => fn(st)) },
   player: { open: () => ipcRenderer.invoke("player-open"), status: () => ipcRenderer.invoke("player-status"), stop: () => ipcRenderer.invoke("player-stop"), on: (fn) => ipcRenderer.on("player-status", (_e, st) => fn(st)) },
@@ -34,7 +35,8 @@ contextBridge.exposeInMainWorld("CU", {
     exportFile: () => ipcRenderer.invoke("mixer-export"), importFile: () => ipcRenderer.invoke("mixer-import"),
     onOp: (fn) => ipcRenderer.on("mixer-op", (_e, op, by) => fn(op, by)), onState: (fn) => ipcRenderer.on("mixer-state", (_e, st) => fn(st)), onMeters: (fn) => ipcRenderer.on("mixer-meters", (_e, m) => fn(m)),
     onPi: (fn) => ipcRenderer.on("mixer-pi", (_e, names) => fn(names)), onAudio: (fn) => ipcRenderer.on("listen-audio", (_e, tap, frames, pcm) => fn(tap, frames, pcm)),
-    tempo: (bpm) => ipcRenderer.invoke("mixer-tempo", bpm)
+    tempo: (bpm) => ipcRenderer.invoke("mixer-tempo", bpm),
+    testTone: (o) => ipcRenderer.invoke("mixer-testtone", o)   // (10.2: the pre-service check)
   },
   // the stream mix out of the audio host (streamout.js): { action: "virtual" | "live" | "config" | "picture", ... } -> status
   streamOut: { call: (a) => ipcRenderer.invoke("stream-out", a), on: (fn) => ipcRenderer.on("stream-out", (_e, s) => fn(s)) },
@@ -42,20 +44,34 @@ contextBridge.exposeInMainWorld("CU", {
   // on(fn(state, event)) - events: starting, started, stopping, stopped, error, mp3, repaired, tick
   recorder: { start: (opts) => ipcRenderer.invoke("rec-start", opts), stop: () => ipcRenderer.invoke("rec-stop"), state: () => ipcRenderer.invoke("rec-state"),
     on: (fn) => ipcRenderer.on("rec-event", (_e, st, ev) => fn(st, ev)), chooseDir: () => ipcRenderer.invoke("rec-choose-dir"), open: (which) => ipcRenderer.invoke("rec-open", which) },
+  // (10.2) shorts from the service recordings (shorts/index.js) - the main admin's computer
+  shorts: {
+    status: () => ipcRenderer.invoke("shorts-status"), recordings: () => ipcRenderer.invoke("shorts-recordings"), settings: (patch) => ipcRenderer.invoke("shorts-settings", patch), resetSettings: () => ipcRenderer.invoke("shorts-settings-reset"),
+    make: (id) => ipcRenderer.invoke("shorts-make", id), cancel: () => ipcRenderer.invoke("shorts-cancel"), list: (id) => ipcRenderer.invoke("shorts-list", id),
+    update: (id, shortId, patch) => ipcRenderer.invoke("shorts-update", id, shortId, patch), remove: (id, shortId) => ipcRenderer.invoke("shorts-delete", id, shortId), add: (id, at) => ipcRenderer.invoke("shorts-add", id, at),
+    reveal: (id) => ipcRenderer.invoke("shorts-reveal", id), download: (id, shortId) => ipcRenderer.invoke("shorts-download", id, shortId), pickFile: (kind) => ipcRenderer.invoke("shorts-pick-file", kind),
+    social: (acct) => ipcRenderer.invoke("shorts-social", acct), connect: (platform, acct) => ipcRenderer.invoke("shorts-connect", platform, acct), disconnect: (platform, acct) => ipcRenderer.invoke("shorts-disconnect", platform, acct),
+    post: (id, shortId, platform, acct) => ipcRenderer.invoke("shorts-post", id, shortId, platform, acct), history: () => ipcRenderer.invoke("shorts-history"), openUrl: (url) => ipcRenderer.invoke("shorts-open-url", url),
+    mark: (d) => ipcRenderer.send("shorts-mark", d), on: (fn) => ipcRenderer.on("shorts-event", (_e, m) => fn(m))
+  },
   // talkback (talk.js) when this computer is the audio host: start({ kind, targets, dim, src, ch }), the mic's "TKA1" frames, stop()
   talk: { start: (o) => ipcRenderer.invoke("talk-start", o), stop: () => ipcRenderer.invoke("talk-stop"), audio: (frame) => ipcRenderer.send("talk-audio", frame), state: () => ipcRenderer.invoke("talk-state"),
     on: (fn) => ipcRenderer.on("talk-event", (_e, ev) => fn(ev)), onDesk: (fn) => ipcRenderer.on("talk-desk-audio", (_e, frames, rate, pcm, name) => fn(pcm, frames, rate, name)) },
-  slides: { open: () => ipcRenderer.invoke("slides-open"), readFile: (f) => ipcRenderer.invoke("read-file", f), show: (slide) => ipcRenderer.send("slide", slide), screens: () => ipcRenderer.invoke("screens"),
+  // (10.2) the confidence monitor (the band's screen): its own screen window and NDI sender; show({ state, message })
+  confidence: { screen: (opt) => ipcRenderer.invoke("confidence-screen", opt), ndi: (opt) => ipcRenderer.invoke("confidence-ndi", opt), status: () => ipcRenderer.invoke("confidence-status"),
+    show: (m) => ipcRenderer.send("confidence", m), onStatus: (fn) => ipcRenderer.on("confidence-status", (_e, st) => fn(st)) },
+  slides: { open: () => ipcRenderer.invoke("slides-open"), readFile: (f) => ipcRenderer.invoke("read-file", f), convertPicture: (bytes, kind) => ipcRenderer.invoke("picture-convert", bytes, kind), savePicture: (bytes, name) => ipcRenderer.invoke("picture-save", bytes, name), pathOf: (f) => { try { return webUtils.getPathForFile(f) || null; } catch (_) { return null; } }, show: (slide) => ipcRenderer.send("slide", slide), screens: () => ipcRenderer.invoke("screens"),
     outputScreen: (opt) => ipcRenderer.invoke("output-screen", opt), outputNdi: (opt) => ipcRenderer.invoke("output-ndi", opt), outputs: () => ipcRenderer.invoke("outputs-status"), onOutputs: (fn) => ipcRenderer.on("outputs", (_e, st) => fn(st)) },
   inst: { start: () => ipcRenderer.invoke("inst-start"), send: (m) => ipcRenderer.send("inst-send", m), stop: () => ipcRenderer.invoke("inst-stop"), on: (fn) => ipcRenderer.on("inst-msg", (_e, m) => fn(m)) },
   ai: { status: () => ipcRenderer.invoke("ai-status"), download: () => ipcRenderer.invoke("ai-download"), remove: () => ipcRenderer.invoke("ai-remove"), ask: (system, user, schema) => ipcRenderer.invoke("ai-ask", system, user, schema), on: (fn) => ipcRenderer.on("ai-status", (_e, st) => fn(st)) },
   asr: { status: () => ipcRenderer.invoke("asr-status"), config: (patch) => ipcRenderer.invoke("asr-config", patch), download: () => ipcRenderer.invoke("asr-download"), remove: () => ipcRenderer.invoke("asr-remove"), run: (job) => ipcRenderer.invoke("asr-run", job), on: (fn) => ipcRenderer.on("asr-event", (_e, m) => fn(m)) },
-  libraries: { list: () => ipcRenderer.invoke("lib-list"), index: () => ipcRenderer.invoke("lib-index"), install: (lib) => ipcRenderer.invoke("lib-install", lib), installFile: (o) => ipcRenderer.invoke("lib-install-file", o), remove: (id) => ipcRenderer.invoke("lib-remove", id), community: (o) => ipcRenderer.invoke("lib-community", o), onProgress: (fn) => ipcRenderer.on("lib-progress", (_e, p) => fn(p)) },
+  libraries: { list: () => ipcRenderer.invoke("lib-list"), index: () => ipcRenderer.invoke("lib-index"), install: (lib) => ipcRenderer.invoke("lib-install", lib), installFile: (o) => ipcRenderer.invoke("lib-install-file", o), remove: (id) => ipcRenderer.invoke("lib-remove", id), community: (o) => ipcRenderer.invoke("lib-community", o), centralFx: () => ipcRenderer.invoke("lib-cmfx"), onProgress: (fn) => ipcRenderer.on("lib-progress", (_e, p) => fn(p)) },
   // the Studio tab (studio.js): sound banks, projects, exports, and cu-studio (what you play, with almost no delay)
   studio: { catalog: () => ipcRenderer.invoke("studio-catalog"), read: (file, offset, length) => ipcRenderer.invoke("studio-read", file, offset, length),
     list: () => ipcRenderer.invoke("studio-list"), load: (id) => ipcRenderer.invoke("studio-load", id), save: (id, json, audio) => ipcRenderer.invoke("studio-save", id, json, audio),
-    audio: (id, name) => ipcRenderer.invoke("studio-audio", id, name), remove: (id) => ipcRenderer.invoke("studio-remove", id), exportFiles: (suggested, files) => ipcRenderer.invoke("studio-export", suggested, files),
-    monitor: { start: () => ipcRenderer.invoke("studio-monitor-start"), send: (m) => ipcRenderer.send("studio-monitor-send", m), stop: () => ipcRenderer.invoke("studio-monitor-stop"), on: (fn) => ipcRenderer.on("studio-monitor", (_e, m) => fn(m)) } },
+    audio: (id, name) => ipcRenderer.invoke("studio-audio", id, name), openInProduction: (name, bytes) => ipcRenderer.invoke("studio-open-production", name, bytes), loops: () => ipcRenderer.invoke("studio-loops"), readLoop: (file) => ipcRenderer.invoke("studio-read-loop", file), remove: (id) => ipcRenderer.invoke("studio-remove", id), exportFiles: (suggested, files) => ipcRenderer.invoke("studio-export", suggested, files),
+    monitor: { start: () => ipcRenderer.invoke("studio-monitor-start"), send: (m) => ipcRenderer.send("studio-monitor-send", m), stop: () => ipcRenderer.invoke("studio-monitor-stop"), on: (fn) => ipcRenderer.on("studio-monitor", (_e, m) => fn(m)) },
+    native: { plugins: (scan) => ipcRenderer.invoke("studio-native-plugins", scan), process: (job) => ipcRenderer.invoke("studio-native-process", job), monitor: (m) => ipcRenderer.send("studio-native-monitor", m), editor: (slot, plugins, open) => ipcRenderer.invoke("studio-native-editor", slot, plugins, open), on: (fn) => ipcRenderer.on("studio-native", (_e, m) => fn(m)) } },
   saveFile: (name, text) => ipcRenderer.invoke("save-file", name, text),
   openFile: () => ipcRenderer.invoke("open-file")
 });

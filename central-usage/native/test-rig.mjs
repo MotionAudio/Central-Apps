@@ -198,6 +198,19 @@ if (havePlugins) {
     send(electric([plugFx("pg2", { stateFrom: "pg1" })])); await sleep(500); near((await meters()).out, 0.3 * 3.98, 0.1, "a new slot started from pg1's state");
     send({ action: "pluginCopyState", from: "pg1", to: "board1" }); const cp = await next((m) => m.type === "pluginCopyState"); assert.equal(cp.ok, true);
   });
+  await check("(10.2) the DAW's native inserts, offline: --process plays a sound through the slot's saved state, lines it up and reports the latency", async () => {
+    send({ action: "pluginSave" }); await sleep(200);
+    const rate = 48000, n = rate, buf = new Float32Array(n * 2); for (let i = 0; i < n; i++) { buf[2 * i] = buf[2 * i + 1] = 0.25 * Math.sin(2 * Math.PI * 220 * i / rate); }
+    const inF = path.join(tmp, "daw-in.f32"), outF = path.join(tmp, "daw-out.f32"), job = path.join(tmp, "daw-job.json"); fs.writeFileSync(inF, Buffer.from(buf.buffer));
+    fs.writeFileSync(job, JSON.stringify({ rate, frames: n, in: inF, out: outF, tail: 0.5, plugins: [Object.assign({ slot: "pg1" }, gainPlug)] }));
+    const r = spawnSync(bin, ["--data", path.join(tmp, "data"), "--process", job], { encoding: "utf8", timeout: 60000 }), line = JSON.parse(r.stdout.trim().split("\n").pop());
+    assert.ok(line.ok, JSON.stringify(line)); assert.equal(line.frames, n + rate / 2); assert.equal(line.latency, 0); assert.deepEqual(line.names, ["Central Test Gain"]);
+    const o = new Float32Array(fs.readFileSync(outF).buffer.slice(0)); let pk = 0; for (let i = 1000; i < n - 1000; i++) pk = Math.max(pk, Math.abs(o[2 * i]));
+    near(pk, 0.25 * 3.98, 0.05, "+12 dB from the saved state");
+    fs.writeFileSync(job, JSON.stringify({ rate, frames: n, in: inF, out: outF, plugins: [{ slot: "zz", format: "clap", id: "no.such", path: testClap, name: "Nothing" }] }));
+    const bad = JSON.parse(spawnSync(bin, ["--data", path.join(tmp, "data"), "--process", job], { encoding: "utf8", timeout: 60000 }).stdout.trim().split("\n").pop());
+    assert.equal(bad.ok, false); assert.match(bad.error, /Nothing didn't load/);
+  });
   await check("a plugin that is missing says why, and the rest of the board still plays", async () => {
     send(electric([plugFx("pgx", { plugin: { format: "clap", id: "no.such.plugin", path: testClap } }), item("ts9", {}, { uid: "drv" })]));
     const s = await next((m) => m.type === "instrumentStatus" && m.pluginErrors && m.pluginErrors.pgx); assert.ok(s.pluginErrors.pgx.length > 3, s.pluginErrors.pgx);

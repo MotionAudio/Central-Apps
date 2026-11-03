@@ -34,6 +34,9 @@ export function setlistOut(r, full) {
   const o = { id: String(r.id), name: r.name, count: songs.length, team: team.map((t) => ({ email: t.email, name: t.name || "", role: t.role || "" })),
     serviceAt: r.service_at || null, createdBy: r.created_by || "", updatedAt: r.updated_at, createdAt: r.created_at };
   if (full) o.songs = songs; else o.titles = songs.slice(0, 6).map((x) => x.title);
+  // (10.2) made from a Planning Center plan: where from, the whole order of service and who's on
+  if (r.pco) { const p = r.pco; o.pco = { source: p.source || "api", plan: p.plan || null, serviceType: p.serviceType || null, title: p.title || "", dates: p.dates || "", refreshedAt: p.refreshedAt || p.importedAt || null };
+    if (full) { o.pco.items = Array.isArray(p.items) ? p.items : []; o.pco.team = Array.isArray(p.team) ? p.team : []; o.pco.missing = Array.isArray(p.missing) ? p.missing : []; } }
   return o;
 }
 // the people a setlist's team is picked from: the church's Central Services teams and its members
@@ -63,7 +66,7 @@ async function cleanTeam(c, list) {
   if (out.length > max) throw bad("Your church has " + max + " Central Services slot" + (max === 1 ? "" : "s") + ", so a setlist can have up to " + max + " people.", 402);
   return out;
 }
-function cleanSongs(list) {
+export function cleanSongs(list) {
   return (Array.isArray(list) ? list : []).slice(0, SETLIST_LIMITS.songs).map((x) => {
     const s = { title: text(x && x.title, 120) };
     if (x && x.trackId != null && String(x.trackId).match(/^\d{1,12}$/)) s.trackId = String(x.trackId);
@@ -74,6 +77,13 @@ function cleanSongs(list) {
     if (x && x.tracks) s.tracks = true;   // (10.0.1: an app's own song that has multitracks - Central Services shows it)
     if (x && x.addedBy) s.addedBy = text(x.addedBy, 200);
     if (x && x.at) s.at = text(x.at, 40);
+    // (10.2) a song from a Planning Center plan: its CCLI number, writers, arrangement and length (the apps find the
+    // church's own copy by the number or the title; the copyright line and the CCLI report use the number)
+    if (x && x.ccli && String(x.ccli).replace(/[^0-9]/g, "")) s.ccli = String(x.ccli).replace(/[^0-9]/g, "").slice(0, 10);
+    if (x && x.author) s.author = text(x.author, 200);
+    if (x && x.arrangement) s.arrangement = text(x.arrangement, 80);
+    const len = Math.round(Number(x && x.length) || 0); if (len > 0 && len < 36000) s.length = len;
+    if (x && x.fromPco) { s.fromPco = true; if (x.pcoItem) s.pcoItem = text(x.pcoItem, 40); }
     return s;
   }).filter((s) => s.title);
 }
@@ -113,8 +123,12 @@ export function routes(api, { wrap, requireUser, addTrack }) {
     if (req.body.team != null) { args.push(JSON.stringify(await cleanTeam(s.c, req.body.team))); sets.push("team=$" + args.length); }
     if (req.body.songs != null) {
       // songs added on the website since the app last looked stay, after the app's own list
-      const next = cleanSongs(req.body.songs), have = new Set(next.filter((x) => x.trackId).map((x) => x.trackId));
-      const keep = (Array.isArray(row.songs) ? row.songs : []).filter((x) => x.trackId && !have.has(x.trackId) && x.fromWeb && !(req.body.removed || []).map(String).includes(x.trackId));
+      const next = cleanSongs(req.body.songs), have = new Set(next.filter((x) => x.trackId).map((x) => x.trackId)), removed = (req.body.removed || []).map(String);
+      // (10.2) a Planning Center plan's song stays too while the plan has it, even when this device doesn't have it yet
+      const plain = (t) => String(t || "").toLowerCase().replace(/\([^)]*\)/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+      const inNext = (x) => next.some((y) => (x.pcoItem && y.pcoItem === x.pcoItem) || (x.trackId && y.trackId === x.trackId) || (x.ccli && y.ccli === x.ccli) || plain(y.title) === plain(x.title));
+      const keep = (Array.isArray(row.songs) ? row.songs : []).filter((x) => (x.trackId && !have.has(x.trackId) && x.fromWeb && !removed.includes(x.trackId)) ||
+        (x.fromPco && !inNext(x) && !(x.trackId && removed.includes(x.trackId))));
       args.push(JSON.stringify(next.concat(keep).slice(0, SETLIST_LIMITS.songs))); sets.push("songs=$" + args.length);
     }
     if (req.body.serviceAt !== undefined) { const at = req.body.serviceAt ? new Date(req.body.serviceAt) : null; args.push(at && !isNaN(at) ? at : null); sets.push("service_at=$" + args.length); }

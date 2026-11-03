@@ -62,4 +62,4 @@ for _ in $(seq 1 30); do xdotool getwindowname "$(win)" 2>/dev/null | grep -qiE 
 ok "touch screen on the pins: HDMI 1 shows a copy of it (the /mini page)" 'grep -q "screen 1: touch" "$T/log2" && xdotool getwindowname "$(win)" | grep -qiE "mini|live"'
 kill $DP $XP 2>/dev/null; pkill -P $SP 2>/dev/null
 [ "$FAIL" = 0 ] && echo "ALL SESSION CHECKS PASSED" || { echo "$FAIL CHECK(S) FAILED - log: $T/log"; exit 1; }
-rm -rf "$T"
+for _ in 1 2 3 4 5; do rm -rf "$T" 2>/dev/null && break; sleep 1; done   # (a browser closing may still be writing its profile)

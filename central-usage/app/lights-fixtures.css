@@ -1,0 +1,84 @@
+/* Central Control (10.2) - the fixture picker, the profile maker, a light's settings (fixture-picker.js) and the scene
+   programmer (lights-programmer.js). Same tokens as style.css. */
+.fp-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(0, 0, 0, .5); padding: 16px; }
+.fp-modal[hidden] { display: none; }
+.fp-box { width: min(980px, 100%); max-height: min(88vh, 860px); overflow: auto; display: grid; gap: 10px; align-content: start; padding: 16px 18px; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line2, var(--line)); border-radius: 14px; box-shadow: 0 24px 60px rgba(0, 0, 0, .55); }
+.fp-box.fp-set { width: min(760px, 100%); }
+.fp-box h3 { margin: 0; font-size: 1.15rem; }
+.fp-box h4 { margin: 6px 0 0; font-size: .95rem; color: var(--accentHi, var(--accent)); }
+.fp-head { display: flex; gap: 12px; align-items: baseline; }
+.fp-head h3 { flex: 0 0 auto; }
+.fp-head .muted { flex: 1; }
+.fp-head button { margin-left: auto; }
+.fp-search input { width: 100%; font-size: 1.05rem; padding: 10px 12px; }
+.fp-cols { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(300px, 1.3fr); gap: 14px; min-height: 340px; }
+.fp-hits { display: grid; gap: 4px; align-content: start; max-height: 52vh; overflow: auto; padding-right: 4px; }
+.fp-hits button { display: grid; text-align: left; gap: 2px; padding: 8px 10px; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; color: var(--text); }
+.fp-hits button small { color: var(--muted); }
+.fp-hits button.sel { border-color: var(--accent); background: var(--panel3); }
+.fp-detail { display: grid; gap: 8px; align-content: start; padding: 10px 12px; background: var(--well); border: 1px solid var(--line); border-radius: 10px; }
+.fp-detail h4 { margin: 0; color: var(--text); font-size: 1.05rem; }
+.fp-chans { margin: 0; color: var(--muted); line-height: 1.5; }
+.fp-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.fp-row label { display: grid; gap: 3px; font-size: .85rem; color: var(--muted); }
+.fp-row label.toggle { display: flex; align-items: center; gap: 6px; color: var(--text); }
+.fp-row input[type=number] { width: 84px; }
+.fp-foot { display: flex; gap: 8px; align-items: center; justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 10px; }
+.fp-foot .muted { margin-right: auto; }
+.fp-chlist { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.fp-chlist li { display: grid; grid-template-columns: 34px minmax(190px, 230px) 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; }
+.fp-chn { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
+.fp-vals { display: flex; gap: 8px; flex-wrap: wrap; }
+.fp-vals label { display: grid; gap: 2px; font-size: .78rem; color: var(--muted); }
+.fp-vals input[type=number] { width: 70px; }
+.fp-vals .fp-slots input { width: 280px; }
+.fp-chbtn { display: flex; gap: 4px; }
+.fp-chbtn button { min-width: 30px; padding: 4px 6px; }
+.fp-cal span { align-self: center; color: var(--muted); font-size: .85rem; }
+.fp-setbtn { margin-right: 4px; }
+.fp-util { margin-top: 8px; }
+.fp-locked { opacity: .55; }
+.fp-locked::after { content: "Utility"; position: absolute; right: 6px; top: 4px; font-size: .62rem; color: var(--accent); }
+@media (max-width: 720px) { .fp-cols { grid-template-columns: 1fr; } .fp-chlist li { grid-template-columns: 28px 1fr; } .fp-vals, .fp-chbtn { grid-column: 2; } }
+
+/* the scene programmer: docked on the right, so the stage stays in view */
+.lp-panel { position: fixed; top: 64px; right: 12px; bottom: 12px; width: min(560px, calc(100vw - 24px)); z-index: 55; display: grid; grid-template-rows: auto 1fr auto; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line2, var(--line)); border-radius: 14px; box-shadow: 0 24px 60px rgba(0, 0, 0, .55); overflow: hidden; }
+.lp-panel[hidden] { display: none; }
+.lp-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel2); }
+.lp-head b { display: block; font-size: 1.05rem; }
+.lp-head small { color: var(--muted); }
+.lp-head-btns { display: flex; gap: 6px; }
+.lp-body { display: grid; grid-template-columns: 200px 1fr; overflow: hidden; }
+.lp-pick { border-right: 1px solid var(--line); overflow: auto; padding: 10px; display: grid; gap: 8px; align-content: start; }
+.lp-groups { display: flex; flex-wrap: wrap; gap: 4px; }
+.lp-groups button { padding: 3px 8px; font-size: .8rem; }
+.lp-map { position: relative; height: 120px; background: var(--well); border: 1px solid var(--line); border-radius: 8px; }
+.lp-map i { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--line2); border: 2px solid var(--panel3); cursor: pointer; }
+.lp-map i.prog { background: var(--brass, var(--accent)); }
+.lp-map i.sel { border-color: var(--accentHi, var(--accent)); box-shadow: 0 0 0 3px rgba(226, 194, 126, .35); }
+.lp-list { display: grid; gap: 2px; }
+.lp-fx { display: grid; grid-template-columns: auto 1fr; gap: 0 6px; align-items: center; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+.lp-fx small { grid-column: 2; color: var(--muted); font-size: .72rem; }
+.lp-fx.prog span { color: var(--accentHi, var(--accent)); }
+.lp-fx:hover { background: var(--panel2); }
+.lp-ctl { overflow: auto; padding: 10px 14px; display: grid; gap: 8px; align-content: start; }
+.lp-ctl h4 { margin: 6px 0 0; font-size: .85rem; color: var(--accentHi, var(--accent)); }
+.lp-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lp-sl { display: grid; grid-template-columns: 1fr 1.6fr 44px; gap: 8px; align-items: center; font-size: .85rem; color: var(--muted); }
+.lp-sl output { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.lp-sw { display: flex; flex-wrap: wrap; gap: 4px; }
+.lp-sw button, .lp-wheel button { width: 22px; height: 22px; min-width: 0; padding: 0; border-radius: 50%; border: 2px solid var(--line); }
+.lp-wheel button.on { border-color: var(--accentHi, var(--accent)); }
+.lp-wheel .lp-wh-auto { width: auto; height: auto; border-radius: 6px; padding: 2px 8px; }
+.lp-xy { position: relative; width: 150px; height: 120px; flex: 0 0 auto; background: var(--well); border: 1px solid var(--line); border-radius: 8px; cursor: crosshair; touch-action: none;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 25% 25%; }
+.lp-xy i { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(226, 194, 126, .3); pointer-events: none; }
+.lp-col { flex: 1; display: grid; gap: 6px; min-width: 200px; }
+.lp-pos { display: flex; flex-wrap: wrap; gap: 4px; }
+.lp-pos button { padding: 2px 8px; font-size: .78rem; }
+.lp-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); background: var(--panel2); }
+.lp-note { flex-basis: 100%; }
+.lp-open { margin-left: 6px; padding: 3px 8px; font-size: .8rem; }
+@media (max-width: 760px) { .lp-panel { top: 8px; } .lp-body { grid-template-columns: 1fr; } .lp-pick { border-right: 0; border-bottom: 1px solid var(--line); max-height: 34vh; } }
