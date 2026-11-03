@@ -34,6 +34,7 @@ function features(c, settings) {
     strong: p.strong || 0, you: p.you || 0, contrast: p.contrast || 0, story: p.story || 0, question: p.question || 0, scripture: p.scripture || 0, admin: p.admin || 0, punchy: p.punchy || 0, weakStart: p.weakStart || 0,
     peak: w ? (p.peak || 0) - 0.5 : 0, late: w ? (p.late || 0) - 0.5 : 0, room: w ? p.room || 0 : 0,
     chorus: p.chorus || 0, bridge: p.bridge || 0, lastChorus: p.lastChorus || 0, tag: p.tag || 0,
+    point: p.point || 0, bigIdea: p.bigIdea || 0, action: p.action || 0, explain: p.explain || 0, payoff: p.payoff || 0, firstLift: p.firstLift || 0, build: p.build || 0, spontaneous: p.spontaneous || 0,
     lenDev: Math.min(2, Math.abs(len - mid) / 20)
   };
   return FEATURES.map((k) => Number.isFinite(v[k]) ? v[k] : 0);
