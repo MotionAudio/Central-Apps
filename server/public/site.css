@@ -574,3 +574,9 @@ body.view-account #account{border-top:0}
   nav #acctLink,nav .acct-menu{position:absolute;top:.55rem;right:calc(max(20px,env(safe-area-inset-right,0px)) + 92px);min-height:40px;display:inline-flex;align-items:center}
   nav .acct-menu[hidden],nav #acctLink[hidden]{display:none}
 }
+/* (10.2) the same header on every page: the six links, then Account */
+nav a.on{color:var(--ink);border-bottom-color:var(--ink)}
+.nav-acct{font-weight:600;color:var(--ink)!important}
+@media (max-width:760px){nav .nav-acct{position:absolute;top:.55rem;right:max(20px,env(safe-area-inset-right,0px));min-height:44px;display:inline-flex;align-items:center}}
+.doc-links{font-size:.92rem;color:var(--ink-3);margin:0 0 1.6rem}
+.doc-links b{color:var(--ink)}
