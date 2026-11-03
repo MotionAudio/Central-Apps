@@ -75,7 +75,7 @@ typedef struct { float env, gr, ms, slow, hp[2], hx[2]; } StComp;
 typedef struct { float g, r; int L, W, D, pos, qh, qn, apos, hpos; long cnt; double sum; } StLimit;
 typedef struct { float env, g; int hold; } StGate;
 typedef struct { double phase; } StTrem;
-typedef struct { long len; int pos; double ph[4]; float wl[4]; unsigned rng; } StPitch;   /* 4 grains, each with its own window length */
+typedef struct { long len; int pos, S; double ph[2]; float off[2]; } StPitch;   /* 2 grains, each starting where it lines up with the other */
 typedef struct { double phase; float cur, target; unsigned rng; } StLfo;
 typedef struct { float env; } StEnv;
 typedef struct { float sm[2]; } StMath;
@@ -149,7 +149,7 @@ static void planBuffers(CmFx *fx, Block *b) {
     }
     case B_ROTARY: b->st.ro.len = (long)(0.006f * sr) + 8; b->bufLen = 2 * b->st.ro.len; break;
     case B_CHORUS: b->st.c.len = (long)(0.06f * sr) + 4; b->bufLen = 2 * b->st.c.len; break;
-    case B_PITCH: { float w = b->num[0] > 0 ? b->num[0] : 50; if (w < 10) w = 10; if (w > 200) w = 200; b->num[0] = w; b->st.p.len = (long)(w * sr / 1000 * 1.4f) + 8; b->bufLen = 2 * b->st.p.len; break; }
+    case B_PITCH: { float w = b->num[0] > 0 ? b->num[0] : 50; if (w < 10) w = 10; if (w > 200) w = 200; b->num[0] = w; b->st.p.S = (int)(0.012f * sr); b->st.p.len = (long)(w * sr / 1000) + 2 * b->st.p.S + 300; b->bufLen = 2 * b->st.p.len; break; }
     default: b->bufLen = 0;
   }
   b->bufOff = b->bufLen ? poolTake(fx, (unsigned long)b->bufLen) : 0;
@@ -326,7 +326,7 @@ static void resetBlock(CmFx *fx, Block *b) {
     case B_LIMIT: { StLimit *l = &b->st.lm; l->g = 1; l->r = 1; l->pos = l->qh = l->qn = l->apos = l->hpos = 0; l->cnt = 0; l->sum = l->L + 1; float *a = b->buf ? b->buf + 2 * (l->D + 1) + 2 * (l->W + 1) : 0; if (a) for (int k = 0; k <= l->L; k++) a[k] = 1; break; }
     case B_GATE: b->st.g.env = -120; b->st.g.g = 0; b->st.g.hold = 0; break;
     case B_TREMOLO: b->st.t.phase = 0; break;
-    case B_PITCH: { StPitch *q = &b->st.p; q->pos = 0; q->rng = 0x2545F491u; for (int k = 0; k < 4; k++) { q->ph[k] = k * 0.25; q->wl[k] = 1; } break; }
+    case B_PITCH: { StPitch *q = &b->st.p; q->pos = 0; q->ph[0] = 0; q->ph[1] = 0.5; q->off[0] = q->off[1] = 0; break; }
     case B_LFO: b->st.l.phase = 0; b->st.l.rng = 0x12345u; for (const char *c = b->id; *c; c++) b->st.l.rng = b->st.l.rng * 31u + (unsigned char)*c; b->st.l.cur = 0; b->st.l.target = 0; break;
     case B_ENV: b->st.e.env = 0; break;
     case B_MATH: b->st.m.sm[0] = b->st.m.sm[1] = 0; break;
@@ -658,29 +658,45 @@ static void runTremolo(CmFx *fx, Block *b, int n) {
     }
   }
 }
+/* the offset (0..S samples) that lines a new grain up with the one playing: the best match of the 256 samples before
+ * each read point (every 2nd sample, then refined) */
+static float pitchAlign(const float *L, const float *R, long len, int pos, float dOther, float dBase, int S) {
+  float best = -1e30f; int bo = 0;
+  for (int pass = 0; pass < 2; pass++) {
+    int from = pass ? bo - 2 : 0, to = pass ? bo + 2 : S, step = pass ? 1 : 2;
+    for (int o = from; o <= to; o += step) {
+      if (o < 0 || o > S) continue;
+      float c = 0, e = 1e-9f; long i0 = pos - 1 - (long)dOther, i1 = pos - 1 - (long)(dBase + o);
+      for (int j = 0; j < 256; j += 2) {
+        long a = i0 - j, b2 = i1 - j; while (a < 0) a += len; while (b2 < 0) b2 += len;
+        float x = L[a] + R[a], y = L[b2] + R[b2]; c += x * y; e += y * y;
+      }
+      float sc = c / (float)cm_sqrt(e); if (sc > best) { best = sc; bo = o; }
+    }
+  }
+  return (float)bo;
+}
 static void runPitch(CmFx *fx, Block *b, int n) {
-  /* (10.3) four overlapping grains, each its own (slightly varied) window length and normalized together: smoother than two,
-   * without the fluttering comb sound - good for shimmer */
+  /* (10.3) two grains crossfading (raised cosine), and each new grain starts where its waveform lines up with the grain
+   * that is playing (like SOLA): steady tones stay steady, without the beating of a plain two-tap shifter's crossfades */
   StPitch *p = &b->st.p; float *L = b->buf, *R = b->buf + p->len; float W = b->num[0] * fx->sr * 0.001f;
   for (int i = 0; i < n; i++) {
     float semi = clampf(sg(&b->in[1], 0, i), -24, 24) + clampf(sg(&b->in[2], 0, i), -100, 100) * 0.01f;
     double ratio = cm_exp(semi * 0.05776226504666210911);   /* 2^(semi/12) */
     L[p->pos] = sg(&b->in[0], 0, i); R[p->pos] = sg(&b->in[0], 1, i); if (++p->pos >= p->len) p->pos = 0;
-    float yl = 0, yr = 0, ws = 0, mm0 = clampf(sg(&b->in[3], 0, i), 0, 1), mm1 = clampf(sg(&b->in[3], 1, i), 0, 1);
-    if (mm0 <= 0 && mm1 <= 0) { b->out[0][i] = sg(&b->in[0], 0, i); b->out[1][i] = sg(&b->in[0], 1, i); continue; }   /* (off: costs nothing) */
-    for (int k = 0; k < 4; k++) {
-      float wk = W * p->wl[k]; double old = p->ph[k];
-      p->ph[k] += (1 - ratio) / wk;
-      if (p->ph[k] >= 1 || p->ph[k] < 0) {   /* a new grain: a new length (85% to 115%) */
-        p->ph[k] -= cm_floor(p->ph[k]); unsigned r = p->rng; r ^= r << 13; r ^= r >> 17; r ^= r << 5; p->rng = r;
-        p->wl[k] = 0.85f + 0.3f * (float)(r >> 8) * (1.0f / 16777216.0f);
-      }
-      (void)old;
-      float sh = cm_tsin(0.5 * p->ph[k]), g = sh * sh, d = (float)(p->ph[k] * W * p->wl[k]);
-      yl += g * rd(L, p->len, p->pos, d); yr += g * rd(R, p->len, p->pos, d); ws += g;
-    }
-    float norm = ws > 0.6f ? 1.0f / ws : 1.0f / 0.6f; yl *= norm; yr *= norm;
     float m0 = clampf(sg(&b->in[3], 0, i), 0, 1), m1 = clampf(sg(&b->in[3], 1, i), 0, 1);
+    if (m0 <= 0 && m1 <= 0) { b->out[0][i] = sg(&b->in[0], 0, i); b->out[1][i] = sg(&b->in[0], 1, i); continue; }   /* (off: costs nothing) */
+    float yl = 0, yr = 0;
+    for (int k = 0; k < 2; k++) {
+      p->ph[k] += (1 - ratio) / W;
+      if (p->ph[k] >= 1 || p->ph[k] < 0) {   /* a new grain: line it up with the other one */
+        p->ph[k] -= cm_floor(p->ph[k]);
+        float dOther = p->off[1 - k] + (float)(p->ph[1 - k] * W), dBase = (float)(p->ph[k] * W);
+        p->off[k] = pitchAlign(L, R, p->len, p->pos, dOther, dBase, p->S);
+      }
+      float sh = cm_tsin(0.5 * p->ph[k]), g = sh * sh, d = p->off[k] + (float)(p->ph[k] * W);
+      yl += g * rd(L, p->len, p->pos, d); yr += g * rd(R, p->len, p->pos, d);
+    }
     b->out[0][i] = sg(&b->in[0], 0, i) * (1 - m0) + yl * m0; b->out[1][i] = sg(&b->in[0], 1, i) * (1 - m1) + yr * m1;
   }
 }

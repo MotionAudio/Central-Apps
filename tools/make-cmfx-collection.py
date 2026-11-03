@@ -161,14 +161,13 @@ g.preset("Gentle", threshold=-16, ratio=2, attack=20, release=200, makeup=2); g.
 P.append(g.done())
 
 g = G("fet-compressor", "FET Compressor", "compressor", "plugins", "A fast, punchy compressor in the style of the classic 1176: drive the input, set the output. Bold on vocals, drums and bass.")
-inp = g.knob("input", "Input", 0, 36, 12, "dB"); out = g.knob("output", "Output", -12, 18, 0, "dB"); at = g.knob("attack", "Attack", 0.02, 0.8, 0.2, "ms", True)
+inp = g.knob("input", "Input", 0, 36, 12, "dB"); out = g.knob("output", "Output", -12, 24, 8, "dB"); at = g.knob("attack", "Attack", 0.02, 0.8, 0.2, "ms", True)
 rl = g.knob("release", "Release", 50, 1100, 250, "ms", True); ra = g.knob("ratio", "Ratio", 4, 20, 4, ":1"); mix = g.knob("mix", "Mix", 0, 1, 1)
 g.chain(g.block("in", "input"), g.block("drive", "gain", {"gain": inp}),
         g.block("fet", "compressor", {"style": "fet", "threshold": -24, "ratio": ra, "attack": at, "release": rl, "knee": 2, "makeup": out, "mix": 1}))
-g.block("trim", "gain", {"gain": -12}); g.wire("fet", "trim"); g.col += 0
-mixed(g, "trim", mix, "linear")
-g.preset("Vocal grab", input=14, output=2, attack=0.3, release=200, ratio=4); g.preset("Drum smash", input=26, output=-4, attack=0.05, release=100, ratio=20, mix=0.5)
-g.preset("Bass control", input=12, output=2, attack=0.6, release=400, ratio=8); g.preset("Parallel punch", input=24, output=4, attack=0.02, release=150, ratio=20, mix=0.35)
+mixed(g, "fet", mix, "linear")
+g.preset("Vocal grab", input=14, output=8, attack=0.3, release=200, ratio=4); g.preset("Drum smash", input=26, output=10, attack=0.05, release=100, ratio=20, mix=0.5)
+g.preset("Bass control", input=12, output=8, attack=0.6, release=400, ratio=8); g.preset("Parallel punch", input=24, output=12, attack=0.02, release=150, ratio=20, mix=0.35)
 P.append(g.done())
 
 g = G("opto-leveler", "Opto Leveler", "compressor", "plugins", "Smooth, musical levelling in the style of the LA-2A: one knob for how much, one for how loud. The release slows the harder it works.")
