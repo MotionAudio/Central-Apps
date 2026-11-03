@@ -22,7 +22,7 @@ const path = require("node:path");
 const http = require("node:http");
 const crypto = require("node:crypto");
 
-const FILES = ["center.json", "mixer.json", "video.json", "hub-state.json", "slides.json"];   // the hub's own files that move with it
+const FILES = ["center.json", "mixer.json", "video.json", "hub-state.json", "slides.json", "shorts-learning.json"];   // (10.3: what the shorts have learned)   // the hub's own files that move with it
 const DIRS = ["player", "slides-media"];                                                     // ...and its folders (the song library and tracks, the slides' pictures)
 const SKIP = /(\.log|\.part|\.tmp|~)$/i;
 // what the hub's window keeps that belongs to the church, not to that computer: the lighting rig and cues, the slides,

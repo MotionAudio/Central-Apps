@@ -31,9 +31,15 @@ async function rate(port, cands, onEach) {
 
 const TITLE_SYS = "You write the title and description for a church's short vertical video (YouTube Shorts, Instagram Reels, TikTok, Facebook Reels). Title: under 70 characters, plain and honest, no clickbait, no emojis, no quotes around it. Description: one or two sentences inviting people to watch, under 220 characters. Up to 4 hashtags without spaces. Reply with JSON only.";
 const TITLE_SCHEMA = { type: "object", properties: { title: { type: "string" }, description: { type: "string" }, hashtags: { type: "array", items: { type: "string" }, maxItems: 4 } }, required: ["title", "description"], additionalProperties: false };
-async function titles(port, clip, church) {
+/* examples: titles this church wrote or posted (learn.js) - the model writes in their style */
+function fewShot(examples) {
+  const ex = (examples || []).filter((e) => e && e.title).slice(-4);
+  if (!ex.length) return "";
+  return "\nTitles this church wrote for earlier shorts (match their style, length and tone, but don't copy them):\n" + ex.map((e) => "- " + String(e.title).slice(0, 90) + (e.before ? " (instead of: " + String(e.before).slice(0, 60) + ")" : "")).join("\n");
+}
+async function titles(port, clip, church, examples) {
   const what = clip.kind === "worship" ? "A moment of worship from the song \"" + (clip.song || "worship") + "\"" + (clip.text ? ", lyrics: \"" + clip.text.slice(0, 600) + "\"" : "") : "A sermon clip: \"" + String(clip.text || "").slice(0, 1400) + "\"";
-  const r = await ask(port, TITLE_SYS, what + (church ? "\nChurch: " + church : ""), TITLE_SCHEMA, 260);
+  const r = await ask(port, TITLE_SYS, what + (church ? "\nChurch: " + church : "") + fewShot(examples), TITLE_SCHEMA, 260);
   return r && r.title ? { title: String(r.title).replace(/^["“]|["”]$/g, "").slice(0, 90), description: String(r.description || "").slice(0, 400), hashtags: (r.hashtags || []).map((h) => "#" + String(h).replace(/^#/, "").replace(/\s+/g, "")).slice(0, 4) } : null;
 }
 
@@ -45,4 +51,4 @@ function plainTitle(clip, church) {
   return { title: best.length > 80 ? best.slice(0, 77).replace(/\s+\S*$/, "") + "…" : best, description: "From Sunday's message" + (church ? " at " + church : "") + ".", hashtags: ["#sermon", "#church"] };
 }
 
-module.exports = { ask, rate, titles, plainTitle };
+module.exports = { ask, rate, titles, plainTitle, fewShot };

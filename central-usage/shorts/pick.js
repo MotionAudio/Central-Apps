@@ -121,6 +121,19 @@ function textScore(text, sents) {
   return Math.max(0, Math.min(1, s));
 }
 
+/* (10.3) the same signals one by one (0..1), for the learning (learn.js): which of them a church's picks lean on */
+function textParts(text, sents) {
+  const t = String(text || "").trim(), words = t ? t.split(/\s+/).length : 0, per = Math.max(1, words / 100);
+  const short = sents && sents.length ? sents.filter((x) => x.text.split(/\s+/).length <= 12).length / sents.length : 0;
+  const first = sents && sents.length ? sents[0].text : t;
+  return {
+    strong: Math.min(1, ((t.match(STRONG) || []).length) / (6 * per)), you: Math.min(1, ((t.match(YOU) || []).length) / (8 * per)),
+    contrast: CONTRAST.test(t) ? 1 : 0, story: PAYOFF.test(t) || /\b(i was|i remember|years ago|one day|there was a|my (father|mother|dad|mom|wife|husband|son|daughter|friend))\b/i.test(t) ? 1 : 0,
+    question: /\?/.test(t) ? 1 : 0, scripture: /\b(verse|chapter|scripture|it is written|the bible|says the lord|genesis|exodus|psalms?|proverbs|isaiah|matthew|mark|luke|john|romans|corinthians|galatians|ephesians|hebrews|revelation)\b/i.test(t) ? 1 : 0,
+    admin: Math.min(1, ((t.match(ADMIN) || []).length) / 2), punchy: short, weakStart: WEAK_START.test(first) ? 1 : 0
+  };
+}
+
 // ------------------------------------------------------------------ the sound of a moment
 function at(f, t) { return Math.max(0, Math.min(f.rms.length - 1, Math.round(t / f.hop))); }
 function meanDb(f, a, b) { const i = at(f, a), j = Math.max(i + 1, at(f, b)); let s = 0; for (let k = i; k < j; k++) s += f.rms[k]; return s / (j - i); }
@@ -137,7 +150,45 @@ function audioScore(f, start, end, ref) {
   return { energy, response: response(f, end, end + 5), pause: pauseAfter(f, end) };
 }
 
+/* (10.3) the shape of a sermon, from its words: the main points (the headings it moves through), the big idea (the line
+ * it keeps coming back to), the call to action, the scripture explained, an illustration's payoff. Each sentence gets
+ * its roles; the sermon gets its chapters (for the full sermon video) and its key moments (for the shorts). */
+const POINT = /\b(first(ly)?|second(ly)?|third(ly)?|fourth|finally|lastly|number (one|two|three|four)|point (one|two|three|number)|the (first|second|third|next|last|final) (thing|point|truth|lesson|key|principle|step|reason)|here'?s (the|my) (first|second|third|next|last|big|main) (point|idea|thing))\b/i;
+const BIGIDEA = /\b(the big idea|the main (thing|point|idea)|if you (remember|forget|get) (one|only one|nothing else)|here'?s the bottom line|the bottom line is|the point (of this|is this)|(this|today) is what (i want|god wants)|what i want you to (see|know|hear|remember))\b/i;
+const ACTION = /\b(i want (to challenge|to invite|you to)|this week,?|starting today|will you|would you|i challenge you|let'?s (pray|go|do|be|stand|commit)|^go and|come forward|take (a|the) (step|moment)|respond|today you can|it'?s time to|don'?t leave here|before you leave|so what (do we|does this)|what does this mean for (you|us))\b/i;
+const EXPLAIN = /\b(the word (here|for|translated|used)|in the (greek|hebrew|original)|literally means|what (paul|jesus|peter|john|david|moses|god) (is saying|means|meant)|the context|notice (that|what|how)|look at verse|in verse \d+|this verse|that word)\b/i;
+function words(t) { return String(t || "").toLowerCase().replace(/[^a-z' ]+/g, " ").split(/\s+/).filter((w) => w.length > 2); }
+const STOP = new Set("good morning evening open bibles bible turn page chapter welcome the and that this with you your for are was but not have has his her him they them their what when who will just can all one our out about from into than then there these those were been being would could should said says say its it's i'm you're don't can't".split(" "));
+function structure(sents) {
+  // the big idea: a 3-4 word phrase (not filler) the preacher keeps coming back to, spread across the sermon
+  const grams = {};
+  sents.forEach((s, i) => { const w = words(s.text); for (let n = 3; n <= 4; n++) for (let k = 0; k + n <= w.length; k++) { const g = w.slice(k, k + n); if (g.filter((x) => !STOP.has(x)).length < 2) continue; const key = g.join(" "); (grams[key] = grams[key] || []).push(i); } });
+  let theme = null, best = 0;
+  for (const [g, at] of Object.entries(grams)) { const uniq = [...new Set(at)]; if (uniq.length < 3) continue; const spread = (uniq[uniq.length - 1] - uniq[0]) / Math.max(1, sents.length); const sc = uniq.length * (0.5 + spread); if (sc > best) { best = sc; theme = g; } }
+  const roles = sents.map((s) => {
+    const t = s.text, r = {};
+    if (POINT.test(t)) r.point = 1; if (BIGIDEA.test(t) || (theme && words(t).join(" ").includes(theme))) r.bigIdea = 1;
+    if (ACTION.test(t)) r.action = 1; if (EXPLAIN.test(t)) r.explain = 1;
+    return r;
+  });
+  // an illustration's payoff: a story (I / my / one day / years ago...) then, within a minute, the turn ("that's when",
+  // "and that's what", "that's grace", a contrast)
+  const STORYISH = /\b(i was|i remember|years ago|one day|when i was|there was a|my (father|mother|dad|mom|wife|husband|son|daughter|friend|grandmother|grandfather)|a man|a woman|a little (boy|girl))\b/i;
+  const TURN = /\b(that'?s when|and that'?s (what|why|how|the)|that'?s (grace|the gospel|what god)|in that moment|it hit me|i realized|i'?ll never forget|here'?s the thing)\b/i;
+  sents.forEach((s, i) => { if (TURN.test(s.text) && sents.slice(Math.max(0, i - 8), i).some((x) => STORYISH.test(x.text) && s.start - x.start < 75)) roles[i].payoff = 1; });
+  // chapters: the main points in order (at least 3, 10 s apart), else the big idea's moments and the call to action
+  const chapters = [];
+  sents.forEach((s, i) => { const r = roles[i]; if (!(r.point || (r.bigIdea && BIGIDEA.test(s.text)) || r.action)) return; if (chapters.length && s.start - chapters[chapters.length - 1].start < 30) return; const lead = (s.text.match(POINT) || [""])[0].toLowerCase(); if (lead && chapters.some((c) => c.lead === lead)) return; chapters.push({ start: s.start, title: chapterTitle(s.text, r), lead: (s.text.match(POINT) || [""])[0].toLowerCase() }); });
+  return { theme, roles, chapters };
+}
+function chapterTitle(t, r) {
+  let x = String(t).replace(/^(and|so|now|okay|well|but)\s*,?\s*/i, "").replace(/\s+/g, " ").trim();
+  if (x.length > 60) x = x.slice(0, 57).replace(/\s+\S*$/, "") + "…";
+  return (r.action ? "Our response: " : "") + x.charAt(0).toUpperCase() + x.slice(1);
+}
+
 function sermonCandidates(sents, f, settings) {
+  const st = structure(sents);
   const o = Object.assign({}, DEFAULTS, settings || {}), out = [];
   const ref = f ? median(Array.from(f.rms).filter((v) => v > -70)) : 0;
   for (let i = 0; i < sents.length; i++) {
@@ -149,8 +200,11 @@ function sermonCandidates(sents, f, settings) {
       if (len < o.minLen) continue;
       const part = sents.slice(i, j + 1), text = part.map((x) => x.text).join(" ");
       const ts = textScore(text, part), as = f ? audioScore(f, start, end, ref) : { energy: 0.5, response: 0, pause: 0.5 };
-      const score = ts * 0.6 + as.energy * 0.15 + as.response * 0.15 + as.pause * 0.1;
-      out.push({ kind: "sermon", start: round(start), end: round(end), text, words: [].concat(...part.map((x) => x.words)), score, parts: { text: ts, energy: as.energy, response: as.response, pause: as.pause } });
+      // the key moments (10.3): a main point, the big idea, the call to action, the scripture explained, a story's payoff
+      const R = st.roles.slice(i, j + 1), has = (k) => (R.some((r) => r[k]) ? 1 : 0), key = { point: has("point"), bigIdea: has("bigIdea"), action: has("action"), explain: has("explain"), payoff: has("payoff") };
+      const keyBonus = Math.min(0.2, key.point * 0.06 + key.bigIdea * 0.1 + key.action * 0.06 + key.explain * 0.04 + key.payoff * 0.1);
+      const score = Math.min(1, ts * 0.6 + as.energy * 0.15 + as.response * 0.15 + as.pause * 0.1 + keyBonus);
+      out.push({ kind: "sermon", start: round(start), end: round(end), text, words: [].concat(...part.map((x) => x.words)), score, rule: score, key: Object.keys(key).filter((k) => key[k]), parts: Object.assign({ text: ts, energy: as.energy, response: as.response, pause: as.pause }, textParts(text, part), key) });
     }
   }
   return out;
@@ -164,13 +218,17 @@ function breath(f, t, r) {
 }
 function worshipCandidates(songs, f, settings) {
   const o = Object.assign({}, DEFAULTS, settings || {}), out = [];
-  const target = Math.min(o.maxLen, Math.max(o.minLen, (o.minLen + o.maxLen) / 2));
+  const target = Math.min(o.maxLen, Math.max(o.minLen, o.targetLen || (o.minLen + o.maxLen) / 2));   // (10.3: the church's preferred length, once learned)
   (songs || []).forEach((s, si) => {
     const songDb = meanDb(f, s.start, s.end), starts = [];
     if (s.sections && s.sections.length) {
       s.sections.forEach((sec, k) => {
         const n = String(sec.name || "").toLowerCase(), last = !s.sections.slice(k + 1).some((x) => /chorus/i.test(x.name));
-        if (/chorus|bridge|tag|refrain|vamp/.test(n)) starts.push({ t: sec.start, bonus: /bridge/.test(n) ? 0.12 : /chorus/.test(n) && last ? 0.18 : /tag|vamp/.test(n) ? 0.1 : 0.05, label: sec.name });
+        const firstChorus = /chorus/.test(n) && !s.sections.slice(0, k).some((x) => /chorus/i.test(x.name)), prev = s.sections[k - 1];
+        const lift = prev ? meanDb(f, sec.start, Math.min(sec.end, sec.start + 12)) - meanDb(f, Math.max(prev.start, sec.start - 12), sec.start) : 0;   // how much louder it gets as it comes in
+        const build = /bridge/.test(n) ? meanDb(f, Math.max(sec.start, sec.end - 10), sec.end) - meanDb(f, sec.start, Math.min(sec.end, sec.start + 10)) : 0;   // a bridge that grows
+        const spont = !/verse|chorus|bridge|pre|intro|outro|tag|refrain|instrumental|interlude|turn/.test(n) && n.length > 0;   // a part that isn't in the arrangement (a vamp, "spontaneous", "free worship")
+        if (/chorus|bridge|tag|refrain|vamp/.test(n) || spont) starts.push({ t: sec.start, bonus: /bridge/.test(n) ? 0.12 : /chorus/.test(n) && last ? 0.18 : /tag|vamp/.test(n) ? 0.1 : spont ? 0.12 : 0.05, label: sec.name, firstLift: firstChorus && lift > 2 ? Math.min(1, lift / 6) : 0, build: build > 1.5 ? Math.min(1, build / 6) : 0, spontaneous: spont || /vamp|spontaneous|free/.test(n) ? 1 : 0 });
       });
     }
     if (!starts.length) for (let t = s.start + 10; t + o.minLen <= s.end; t += 8) starts.push({ t, bonus: 0, label: "" });
@@ -186,7 +244,10 @@ function worshipCandidates(songs, f, settings) {
       const late = (a - s.start) / Math.max(1, s.end - s.start);   // later in the song builds more
       const room = response(f, a, b) * 0.5;   // the room singing along / clapping
       const score = 0.3 + peak * 0.35 + late * 0.15 + st.bonus + room * 0.1;
-      out.push({ kind: "worship", song: s.name, songIndex: si, label: st.label, start: round(a), end: round(b), text: "", score: Math.min(1, score), parts: { peak, late, bonus: st.bonus, room } });
+      const lab = String(st.label || "").toLowerCase();
+      const extra = (st.firstLift || 0) * 0.08 + (st.build || 0) * 0.1 + (st.spontaneous || 0) * 0.06 + (room > 0.25 ? 0.05 : 0);   // (10.3) the first chorus lift, the bridge build, a spontaneous moment, the room singing
+      const key = [st.firstLift ? "firstLift" : "", st.build ? "build" : "", st.bonus >= 0.18 ? "lastChorus" : "", st.spontaneous ? "spontaneous" : "", room > 0.25 ? "congregation" : ""].filter(Boolean);
+      out.push({ kind: "worship", song: s.name, songIndex: si, label: st.label, start: round(a), end: round(b), text: "", score: Math.min(1, score + extra), rule: Math.min(1, score + extra), key, parts: { peak, late, bonus: st.bonus, room, chorus: /chorus|refrain/.test(lab) ? 1 : 0, bridge: /bridge/.test(lab) ? 1 : 0, lastChorus: st.bonus >= 0.18 ? 1 : 0, tag: /tag|vamp/.test(lab) ? 1 : 0, firstLift: st.firstLift || 0, build: st.build || 0, spontaneous: st.spontaneous || 0 } });
     });
   });
   return out;
@@ -227,4 +288,4 @@ function fromHere(sents, t, settings) {
 }
 function round(x) { return Math.round(x * 100) / 100; }
 
-module.exports = { DEFAULTS, windows, classify, regions, sentences, textScore, response, audioScore, sermonCandidates, worshipCandidates, select, wordsIn, fromHere, breath, overlaps, median, percentile };
+module.exports = { DEFAULTS, windows, classify, regions, sentences, textScore, textParts, structure, chapterTitle, response, audioScore, sermonCandidates, worshipCandidates, select, wordsIn, fromHere, breath, overlaps, median, percentile };

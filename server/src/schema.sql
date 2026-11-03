@@ -700,6 +700,7 @@ CREATE TABLE IF NOT EXISTS social_accounts (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (scope, platform)
 );
+ALTER TABLE social_accounts ADD COLUMN IF NOT EXISTS avatar TEXT NOT NULL DEFAULT '';   -- (10.3) the account's picture, for the app
 
 -- (10.2) a church's alerts from its own computers (the pre-service check): kept, and emailed to the main admins
 CREATE TABLE IF NOT EXISTS church_alerts (

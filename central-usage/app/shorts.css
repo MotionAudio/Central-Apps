@@ -59,3 +59,27 @@ dialog.sh-dlg label.sh-inline { display: flex; align-items: center; gap: 8px; }
 dialog.sh-dlg .row { padding-top: 12px; }
 .sh-accts { display: grid; gap: 8px; margin: 10px 0; } .sh-acct { display: grid; grid-template-columns: 150px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
 @media (max-width: 600px) { .sh-acct { grid-template-columns: 1fr; } }
+/* (10.3) learning */
+.sh-stats { color: var(--accentHi); }
+.sh-why { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; } .sh-why button.on { background: color-mix(in srgb, var(--danger), transparent 75%); border-color: var(--danger); }
+.sh-learned ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; } .sh-learned li { line-height: 1.4; }
+/* (10.3) social media */
+.sh-count { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--accentText); font-size: 11px; font-weight: 700; margin-left: 4px; }
+.sh-full { margin: 4px 0 16px; } .sh-full h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.sh-fullrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.sh-fcard { display: grid; gap: 6px; padding: 0; border: 0; background: none; text-align: left; } .sh-fcard:hover { background: none; } .sh-fcard:hover .sh-fthumb { border-color: var(--accent); }
+.sh-fcard.empty { padding: 14px; border: 1px dashed var(--line2); border-radius: 12px; align-content: start; justify-items: start; }
+.sh-fthumb { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: var(--well); border: 1px solid var(--line); display: block; } .sh-fthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sh-fulldlg video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; }
+.sh-inlineform section { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); } .sh-inlineform label { display: grid; gap: 4px; } .sh-inlineform label.toggle { display: flex; gap: 8px; } .sh-inlineform h3 { margin: 0 0 4px; font-size: 14px; color: var(--accentHi); }
+.sh-times { display: grid; gap: 6px; } .sh-time { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .sh-days { display: flex; gap: 2px; flex-wrap: wrap; }
+.sh-day { display: inline-flex !important; gap: 3px; align-items: center; padding: 3px 7px; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; color: var(--text); } .sh-day input { width: 13px; height: 13px; }
+.sh-plsched { display: grid; gap: 8px; } .sh-plrow { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; } .sh-plrow > label { display: flex !important; }
+.sh-fullset { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.sh-av { width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; margin-right: 8px; object-fit: cover; display: inline-block; } .sh-av.none { background: var(--panel3); }
+.sh-qt { width: 100%; border-collapse: collapse; font-size: 13px; } .sh-qt th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 4px 6px; } .sh-qt td { padding: 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+.sh-qthumb { width: 34px; height: 60px; object-fit: cover; border-radius: 4px; display: block; } .sh-qacts { white-space: nowrap; } .sh-qacts button { margin-left: 4px; }
+.sh-qt a { color: var(--accentHi); } .sh-socialcard { grid-column: 1 / -1; } .sh-socialcard h3 { margin-top: 6px; }
+.sh-socialcard .sh-inlineform label:not(.toggle):not(.sh-day):not(.sh-mix) { display: grid; gap: 4px; justify-items: stretch; }
+.sh-socialcard .sh-inlineform textarea, .sh-socialcard .sh-inlineform input[type=text], .sh-socialcard .sh-inlineform input:not([type]), .sh-socialcard .sh-inlineform select { width: 100%; }
+.sh-socialcard .sh-acct { grid-template-columns: 200px 1fr auto; }
