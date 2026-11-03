@@ -62,14 +62,8 @@ jobs:
         run: |
           bash tools/fetch-ffmpeg.sh linux-x64 central-usage/native/build
           bash tools/fetch-ffmpeg.sh win-x64 central-usage/native/build-win
-      - name: Cache the lyrics test's speech model
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/cu-asr
-          key: cu-asr-fast-${{ hashFiles('central-usage/asr.js') }}
       - name: Test the engine, the rig, the video helpers (Linux)
         run: |
-          npm i --no-save --no-package-lock playwright@1.48.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null   # (the pictures and CCLI tests drive a browser)
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
           make -C central-usage/native build/test-bridge
@@ -86,9 +80,6 @@ jobs:
           bash tools/ci-run.sh "lights room test (seats, the light on them)" node central-usage/test-lights-room.mjs
           bash tools/ci-run.sh "shorts test (picking the moments, captions, a whole made-up service through the pinned ffmpeg)" node central-usage/test-shorts.mjs central-usage/native/build/ffmpeg
           CU_SKIP_NATIVE=1 bash central-usage/prepare-shared.sh
-          bash tools/ci-run.sh "pictures in (JPEG turned upright, PNG, WebP, animated GIF, BMP, AVIF, SVG, TIFF and HEIC through the pinned ffmpeg, 3840 px, ten at once in order, drop and paste)" node central-usage/test-pictures.mjs
-          bash tools/ci-run.sh "CCLI: songs streamed while the Video tab is on air, Print chart" node central-usage/test-ccli-usage.mjs
-          ASR_MODEL=fast ASR_MODELS_DIR="$HOME/.cache/cu-asr" bash tools/ci-run.sh "lyrics heard in a vocal track (espeak-ng's voice through the speech model)" node central-usage/test-lyrics.mjs
           python3 -m pip install --quiet numpy scipy soundfile pyloudnorm   # (the 10.2 hymns and pads: the sampler, loudness, filters)
           bash tools/ci-run.sh "library test (pedals, plans, the orchestra builder)" python3 test_library.py
           bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py
@@ -154,6 +145,11 @@ jobs:
           bash tools/ci-run.sh "lights AI model" bash tools/fetch-lights-ai.sh central-usage/native/ai
           [ -x central-usage/native/ai/llama-server ] || bash tools/ci-run.sh "build llama-server" bash tools/build-llama-server.sh central-usage/native/ai
           ls -la central-usage/native/ai
+      - name: Cache the lyrics test's speech model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/cu-asr
+          key: cu-asr-fast-${{ hashFiles('central-usage/asr.js') }}
       - name: Central Control
         working-directory: central-usage
         run: |
@@ -166,6 +162,11 @@ jobs:
           bash ../tools/ci-run.sh "run sheets, pre-service check, band's screen (center)" node test-service.mjs
           bash ../tools/ci-run.sh "hub sync test" node test-hubsync.mjs
           bash ../tools/ci-run.sh "pedal audio test" node test-piaudio.mjs
+          npm install --no-save --no-audit --no-fund playwright@1.49.1 && npx playwright install --with-deps chromium >/dev/null   # (the pictures and CCLI tests drive a browser)
+          bash ../tools/ci-run.sh "pictures in (JPEG turned upright, PNG, WebP, animated GIF, BMP, AVIF, SVG, TIFF and HEIC through the pinned ffmpeg, 3840 px, ten at once in order, drop and paste)" node test-pictures.mjs
+          bash ../tools/ci-run.sh "CCLI: songs streamed while the Video tab is on air, Print chart" node test-ccli-usage.mjs
+          command -v espeak-ng >/dev/null || sudo apt-get install -y -qq --no-install-recommends espeak-ng >/dev/null   # (a voice for the lyrics test)
+          ASR_MODEL=fast ASR_MODELS_DIR="$HOME/.cache/cu-asr" bash ../tools/ci-run.sh "lyrics heard in a vocal track (espeak-ng's voice through the speech model)" node test-lyrics.mjs
           node ../tools/prune-onnx.js .
           bash ../tools/ci-run.sh "electron-builder" npx electron-builder --linux deb AppImage --x64 --publish never -c.extraMetadata.name=central-control
           node ../tools/check-packaged.js dist/linux-unpacked/resources/app.asar
