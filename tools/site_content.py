@@ -31,7 +31,7 @@ APPS = [
                 ("Tracks or pads, or both", "Tracks play without pads, and pads play without tracks."),
             ]),
             ("Pads and effects", [
-                ("Pads in every key", "41 pad styles in Central Pads, warm, airy, choir, strings, shimmer and more, in all 12 keys."),
+                ("Pads in every key", "82 pads in all 12 keys with Central Pads and Central Pads Extra: warm, airy, choir, strings, shimmer and more, and six that move in time with the song."),
                 ("Morph, freeze and swell", "Blend between two pads with the expression pedal, freeze the sound, or swell into the next section."),
                 ("Effects on every stem and pad", "EQ, compressor, reverb and delay come free; the plans add better ones. Plugins you make yourself play here too."),
                 ("A volume for every pad", "A slider on each pad, plus bus levels and mutes from the footswitches."),
@@ -105,7 +105,7 @@ APPS = [
                 ("Quick slots, setlists and simulate", "10 quick slots, the worship leader's setlist, and a simulation that plays it without the real lights."),
             ]),
             ("Lyrics, slides and video", [
-                ("Lyrics that follow the track", "With 45 backgrounds, moving and still, per song or per section."),
+                ("Lyrics that follow the track", "With 61 backgrounds, moving and still, per song or per section, and 118 with Central Utility."),
                 ("The band's screen", "A confidence monitor: current lines in yellow, next in white, with chords, a clock and booth messages."),
                 ("A slide designer", "Themes, templates, transitions and lower thirds. Import pictures, PDFs and PowerPoint."),
                 ("Scripture in seconds", "Type \"John 3:16\" and it's slides and a stream caption. Four Bibles built in."),
@@ -222,25 +222,25 @@ PLANS = [
      "highlights": ["Real basses and guitars", "Orchestral strings and brass", "20 drum grooves, from gospel shuffle to 6/8 Celtic toms", "Ambient loops in all 12 keys: felt piano, guitar swells, cello drone, choir air, harp rain"],
      "kinds": ["preset", "sound", "loops", "loop"]},
     {"id": "pads", "name": "Central Pads", "tag": "Pads in every key for the pad pedal",
-     "lede": "41 pad styles in all 12 keys, every one in real stereo and looping without a seam, plus swells, risers and transitions. Included with every other plan.",
-     "highlights": ["Sunday Keys: the warm, airy worship pad", "Pads made from real piano, strings, harp and organ recordings", "Swells, risers, downlifters and an arrival hit in every key", "Ambient loops and a room bed for between songs"],
+     "lede": "82 pads in all 12 keys: 41 in Central Pads, and 35 more plus six moving pads in Central Pads Extra. Every one is in real stereo and loops without a seam, with swells, risers and transitions. Included with every other plan.",
+     "highlights": ["Sunday Keys: the warm, airy worship pad", "Pads made from real piano, strings, harp and organ recordings", "Six moving pads that pulse in time with the song", "Swells, risers, downlifters and an arrival hit in every key", "Ambient loops and a room bed for between songs"],
      "kinds": ["pad", "loop", "loops", "sound"]},
     {"id": "plugins", "name": "Central Plugins", "tag": "Better effects on every track, pad and bus",
-     "lede": "EQ, compressors, reverbs, delays and more for every stem, every pad and both buses, in every app. A basic version of each comes free; the plan gives you the good ones. With Central Pads.",
-     "highlights": ["Studio EQ, compressor, limiter and de-esser", "Halls, plates and shimmer reverbs", "Tempo-synced delays", "Works in Central Control, Central Usage and on the pedal"],
+     "lede": "32 plugins: EQ, compressors, reverbs, delays and more for every stem, every pad, both buses and the mixer's channels, in every app. A basic one of each kind comes free; the plan gives you the better ones. With Central Pads.",
+     "highlights": ["Studio EQ, compressor, limiter and de-esser", "Halls, plates and shimmer reverbs", "Delays that follow the song's tempo", "Works in Central Control, Central Usage and on the pedal"],
      "kinds": ["preset", "sound"]},
     {"id": "pedals", "name": "Central Pedals", "tag": "Guitar pedals and amp cabinets",
-     "lede": "Guitar pedals for anything with a 1/4\" or 1/8\" input, with real cabinet impulse responses for the amp sound. With Central Pads.",
-     "highlights": ["Drives, fuzzes, modulation and ambient pedals", "28 cabinet and room impulse responses", "Ready-made boards for worship guitar", "Play through it on the pedal or in Central Usage"],
+     "lede": "Guitar pedals for anything with a 1/4\" or 1/8\" input, including 55 new pedals of our own, and 68 ready-made boards, with real cabinet impulse responses for the amp sound. With Central Pads.",
+     "highlights": ["Drives, fuzzes, modulation and ambient pedals", "28 cabinet and room impulse responses", "68 ready-made boards, five of them amps with cabinets", "Play through it on the pedal or in Central Usage"],
      "kinds": ["ir"]},
     {"id": "utility", "name": "Central Utility", "tag": "Backgrounds, slide themes, clicks and looks",
-     "lede": "54 seasonal and Christian backgrounds with matching slide themes and lower thirds, 14 click sounds, 24 lighting looks, countdowns and stream overlays. Included in All plans and every church bundle.",
+     "lede": "118 seasonal and Christian backgrounds with 51 matching slide themes and lower thirds, 14 click sounds, 24 lighting looks, countdowns and stream overlays. Included in All plans and every church bundle.",
      "highlights": ["Advent, Christmas, Easter, Pentecost and every Sunday", "A \"This Sunday\" suggestion that knows the church year", "14 click sounds, each with its own accent", "24 lighting looks, countdowns and stream overlays"],
      "kinds": []},
 ]
 
 TRACKS = {"id": "tracks", "name": "Central Tracks Unlimited", "tag": "Every track in the library, every month",
-          "lede": "Pads, multitracks, Prime tracks and our own hymn arrangements, plus other teams' sounds, pedal boards and clicks. Everything lands in your setlist with its chart and lyrics."}
+          "lede": "Pads, multitracks, Prime tracks and our own arrangements of 20 hymns, plus other teams' sounds, pedal boards and clicks. Everything lands in your setlist with its chart and lyrics."}
 
 # the FAQ on the Pricing page
 PRICING_FAQ = [
@@ -249,7 +249,7 @@ PRICING_FAQ = [
     ("Which sound plan do I need?", "Keys players: Central Keys. Other musicians: Central Instrument. The pad pedal: Central Pads (it comes with every other plan). Better effects: Central Plugins. Guitarists: Central Pedals. Lyrics backgrounds and slide themes: Central Utility. The helper above picks for you."),
     ("How many devices does a sound plan work on?", "One package key works on three of your devices at once, each a different app: for example Central Usage, Central Control and your pedal."),
     ("What does a church bundle give us?", "A package key with every sound plan, Central Pads and Central Utility for each person, for a year. You hand them out on the Teams page and can move one to someone else at any time."),
-    ("Do the apps stop working if we don't renew?", "No. Keys you bought keep working. Central Control keys include ten releases of updates; renew for $20 whenever you like. Sound plans keep their sounds working while the plan is active."),
+    ("Do the apps stop working if we don't renew?", "No. Keys you bought keep working. Central Control keys include ten releases of updates; renew for $20 whenever you like. Sound plans keep their sounds working while the plan is active. If one ends during a service, whatever is playing finishes the song first."),
     ("Can we try it first?", "Yes. Type a trial code in the cart, or use the demo church's keys from the Help Center to try every app."),
     ("What about refunds?", "See our refund policy. In short: tell us within 30 days if something isn't right and we'll make it right."),
 ]
@@ -268,11 +268,12 @@ HELP_FAQ = [
         ("How do renewals work?", "Central Control keys include ten releases of updates (buy during 10.x and you're covered to 11.0); renew for $20 any time. Sound plans and Central Utility renew yearly, and Central Tracks Unlimited monthly, until you cancel."),
     ]),
     ("Plans and billing", [
-        ("What does each plan include?", "Central Keys: pianos, organs, mallets, pads and synths. Central Instrument: basses, guitars, strings, brass, drums and loops. Central Pads: 41 pad styles in every key. Central Plugins: the better effects. Central Pedals: guitar pedals and cabinets. Every plan includes Central Pads."),
-        ("What is Central Utility?", "54 seasonal and Christian backgrounds with matching slide themes and lower thirds, 14 click sounds, 24 lighting looks, countdowns and stream overlays. $50 a year, and included in All plans ($270) and every church bundle."),
+        ("What does each plan include?", "Central Keys: pianos, organs, mallets, pads and synths. Central Instrument: basses, guitars, strings, brass, drums and loops. Central Pads: 82 pads in every key, with Central Pads Extra. Central Plugins: 32 better effects. Central Pedals: 55 new pedals, cabinets and 68 boards. Every plan includes Central Pads."),
+        ("What is Central Utility?", "118 seasonal and Christian backgrounds with 51 matching slide themes and lower thirds, 14 click sounds, 24 lighting looks, countdowns and stream overlays. $50 a year, and included in All plans ($270) and every church bundle."),
         ("What are church bundles?", "Every sound plan plus Central Utility for each person on your team, at a lower price per person: 4, 8, 12, 16 or 20 people."),
         ("Can I get a refund?", "Tell us within 30 days if something isn't right. Our refund policy page has the details."),
         ("How do I cancel?", "Account → Billing opens Stripe's billing page, where you can cancel a plan or subscription. It stays active until the end of what you paid for."),
+        ("What happens if a plan ends in the middle of a service?", "Nothing stops mid-song. A pad, pedal, plugin or sound that's already playing with that plan keeps going until the song ends: the music stops or the setlist moves to the next song. Then it shows that it needs the plan and is bypassed, on the pedal, in Central Usage, in Central Control's mixer and in the Studio. You can't add anything new from that plan in the meantime. Renew it and everything comes back on by itself."),
     ]),
     ("Sound and audio", [
         ("I hear crackles but no music on the pedal's headphone jack.", "Set Settings → Output device → Headphone jack buffer to Biggest. The Pi's own jack needs a bigger buffer than a sound card. Test sound also steps it up by itself when it finds dropouts."),
@@ -373,8 +374,8 @@ FREE = {
 
 # Central Utility's parts, in a line each
 UTILITY_PARTS = [
-    ("54 backgrounds", "Moving and still backgrounds for every season of the church year, and for every Sunday."),
-    ("Slide themes and lower thirds", "Each background has a matching slide theme (title, verse and reference) and a lower third for the stream."),
+    ("118 backgrounds", "Moving and still backgrounds for every season of the church year, for every Sunday, and for youth and kids."),
+    ("51 slide themes and lower thirds", "Themes (title, verse and reference) that match the backgrounds, and a lower third for the stream."),
     ("14 click sounds", "Wood block, rim, hi-hat, cowbell, clave, shaker, side stick, triangle, tick, beeps and more, each with its own accent."),
     ("24 lighting looks", "Ready-made looks for Central Control's lights: Sunrise, Ocean, Ember and more."),
     ("Countdowns and stream overlays", "A countdown before service and overlays for the stream."),
