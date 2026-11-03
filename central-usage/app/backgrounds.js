@@ -334,7 +334,23 @@
     ["linen", "Linen", S, "Textures", grain("#2c2824", 0.35, true, 11)],
     ["paper", "Paper", S, "Textures", grain("#e9e3d6", 0.25, false, 12)],
     ["marble", "Marble", S, "Textures", marble("#e8e6e1", "#5a5a60")],
-    ["watercolour", "Watercolour", S, "Textures", wash(["#6aa7d8", "#d88aa7", "#a7d86a"])]
+    ["watercolour", "Watercolour", S, "Textures", wash(["#6aa7d8", "#d88aa7", "#a7d86a"])],
+    // (10.3) fifteen more - the free set stays a sampler; Central Utility has the full church year
+    ["teal-dawn", "Teal dawn", M, "Gradients", flow({ base: "#03100f", cols: ["#1aa0a0", "#4ad0c0", "#2a6aa0"] })],
+    ["rose-gold", "Rose gold", M, "Gradients", flow({ base: "#140a0a", cols: ["#e8907a", "#f0c0a0", "#b05a6a"], ph: 0.7 })],
+    ["leaks-rose", "Light leaks, rose", M, "Light", leaks({ base: "#0c0608", cols: ["#ff7aa0", "#ffc0a0", "#c05aff"] })],
+    ["rays-blue", "Rays, morning blue", M, "Light", rays({ top: "#2a4a6a", bottom: "#0a1420", ray: "#e0f0ff" })],
+    ["embers", "Embers", M, "Particles", motes({ base: "#0a0302", cols: ["#ff7a2a", "#ffb04a"], glow: "#3a0e04", n: 120 })],
+    ["bokeh-white", "Bokeh, warm white", M, "Bokeh", bokeh({ base: "#0c0a0c", cols: ["#fff4e0", "#ffe0b0", "#ffffff"] })],
+    ["clouds-pastel", "Pastel clouds", M, "Sky", clouds({ top: "#b8a0e0", bottom: "#ffd8c8", cols: ["#ffffff"], a: 1.0 })],
+    ["aurora-teal", "Aurora, teal", M, "Sky", aurora({ base: "#020a0c", cols: ["#2affd8", "#2a8aff", "#8affb0"] })],
+    ["water-sunlit", "Sunlit water", M, "Water", water({ deep: "#0a2438", light: "#ffd89a", bright: 0.75 })],
+    ["waves-sunset", "Sunset waves", M, "Water", waves({ top: "#3a1a3a", bottom: "#0a0410", cols: ["#8a2a4a", "#c8503a", "#f0903a"] })],
+    ["hexagons-gold", "Hexagons, gold", M, "Shapes", hexes({ base: "#0a0806", line: "#ffcf7a" })],
+    ["silk-gold", "Silk, gold", M, "Shapes", silk({ base: "#070504", a: "#ffcf7a", b: "#ff8a5a" })],
+    ["forest-green", "Forest green", S, "Colours", solid("#0e2a1e")],
+    ["twilight", "Twilight", S, "Gradients", linear("#1a2a5a", "#7a3a6a")],
+    ["spotlight-warm", "Warm spotlight", S, "Light", spot("#0a0604", "#ffd8a0")]
   ];
   var BY = {}, LIST = DEFS.map(function (d) { var e = { id: d[0], name: d[1], kind: d[2], group: d[3] }; BY[d[0]] = { e: e, fn: d[4], seed: hash(d[0]) }; return e; });
 
