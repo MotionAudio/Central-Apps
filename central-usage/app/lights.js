@@ -1323,7 +1323,7 @@
     lt.addEventListener("click", function (e) {
       var b = e.target.closest("button"); if (!b) return; var row = b.closest("[data-lt-id]"), id = row && row.dataset.ltId;
       if (b.dataset.lt === "follow" && id) { delete live.over[id]; renderLights(); }
-      else if (b.dataset.lt === "find" && id) live.identify = { id: id, until: performance.now() + 2500 };
+      else if (b.dataset.lt === "find" && id) { live.identify = { id: id, until: performance.now() + 2500 }; flashed(b); }
       else if (b.dataset.lt === "clear") { live.over = {}; renderLights(); }
       else if (b.dataset.lt === "cue") { var ids = Object.keys(live.over); if (!ids.length) return alert("Change a light's colour or level first."); if (!show.song) return; var at = snapTime(playingNow() ? posNow() : 0), fx = {}; ids.forEach(function (i2) { fx[i2] = Object.assign({}, live.over[i2]); }); var cue = { id: uid(), bar: at.bar, beat: at.beat, kind: "fixture", fixtures: fx, fade: 0.5 }; show.cues.push(cue); sortCues(show.cues); selectedCue = cue; if (show.mode === "auto") show.mode = "semi"; live.over = {}; renderLights(); changed(); }
     });
@@ -1401,10 +1401,12 @@
       else { f[k] = e.target.value; if (k === "profile" && f.profile === "custom" && !f.channels) f.channels = ["dim", "r", "g", "b"]; }
       saveRig(); renderFixtures(); $("#lxPlot").dataset.n = "";
     });
+    // "Find" flashes the light for 2.5 s; the button says so, so it never looks like nothing happened
+    function flashed(btn) { if (!btn || btn.dataset.was) return; btn.dataset.was = btn.textContent; btn.textContent = "Flashing…"; setTimeout(function () { btn.textContent = btn.dataset.was; delete btn.dataset.was; }, 2500); }
     $("#lxFixTable").addEventListener("click", function (e) {
       var row = e.target.closest("[data-fx]"), f = row && rig.fixtures.filter(function (q) { return q.id === row.dataset.fx; })[0], k = e.target.dataset.ff; if (!f) return;
       if (k === "del") { rig.fixtures.splice(rig.fixtures.indexOf(f), 1); saveRig(); renderFixtures(); $("#lxPlot").dataset.n = ""; }
-      else if (k === "identify") { live.identify = { id: f.id, until: performance.now() + 2500 }; }
+      else if (k === "identify") { live.identify = { id: f.id, until: performance.now() + 2500 }; flashed(e.target); }
     });
     $("#lxRigSave").addEventListener("click", function () { var text = JSON.stringify({ format: "central-usage-rig", version: 3, fixtures: rig.fixtures, looks: rig.looks, outputs: rig.outputs, library: rig.library || [], stage: rig.stage }, null, 1); if (window.CU && window.CU.saveFile) window.CU.saveFile("lighting-rig.json", text); else { var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = "lighting-rig.json"; a.click(); } });
     $("#lxRigOpen").addEventListener("click", async function () { var text = window.CU && window.CU.openFile ? await window.CU.openFile() : null; if (!text) return; try { var j = JSON.parse(text); if (j.format !== "central-usage-rig") throw new Error("not a Central Control rig"); rig.fixtures = j.fixtures || []; rig.looks = j.looks && j.looks.length ? j.looks : BUILTIN(); if (Array.isArray(j.outputs)) rig.outputs = j.outputs; else if (j.output) rig.outputs = [Object.assign({ universe: 1 }, j.output)]; if (j.library) rig.library = j.library; if (j.stage) rig.stage = Object.assign(defaultStage(), j.stage); ensurePlaced(); saveRig(); applyOutput(); renderAll(); if (window.CULights3D) window.CULights3D.rebuild(); } catch (err) { alert("Could not open it: " + err.message); } });

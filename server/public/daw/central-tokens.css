@@ -1,0 +1,45 @@
+/* Motion Audio Central: the shared design tokens (10.2). Every app and the website load this first and build on it, so
+ * the six apps look like one family. See docs/DESIGN-SYSTEM.md for how to use them.
+ *
+ * Copied into each app by its own prepare step (central-usage, central-production, server/public, central-services).
+ * Change it here only.
+ *
+ * The names on the left of each pair keep working: the colour presets from 10.0 (Settings → Look) write --accent,
+ * --bg, --panel... and everything below is defined from them, so a church's own colours still reach every screen. */
+:root {
+  /* ---- colour: graphite stage, brass accent, warm white text -------------------------------------------------- */
+  --bg: #111317;            /* the room behind everything */
+  --bg2: #0B0D10;           /* wells: meters, waveforms, text fields */
+  --panel: #1A1D22;         /* a card or a panel */
+  --panel2: #23272E;        /* a raised control on a panel (buttons, chips) */
+  --panel3: #2C313A;        /* hover / pressed */
+  --line: #343A44;          /* hairlines between things */
+  --line2: #454C58;         /* a stronger edge (focus-within, selected outline) */
+  --text: #ECE7DD;          /* warm white */
+  --muted: #9AA1AB;         /* secondary text */
+  --dim: #6E7682;           /* hints, disabled */
+  --accent: #E2C27E;        /* brass: the one thing to press, the selected tab, what's live */
+  --accentHi: #F0D9A4;
+  --accentText: #1A1408;    /* text on brass */
+  --ok: #6FCF97; --warn: #F0B429; --danger: #EF6B63; --live: #D92F35; --info: #8DB5DE;
+  --chord: #F5CF72;
+
+  /* ---- type: one family, Archivo; wide for titles, normal for text, narrow for dense labels ---------------------- */
+  --font: Archivo, Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace;   /* chord charts only, so chords line up */
+  --fs-xs: 12px; --fs-sm: 13px; --fs: 15px; --fs-md: 17px; --fs-lg: 21px; --fs-xl: 28px; --fs-2xl: 40px;
+  --lh: 1.45; --lh-tight: 1.15;
+  --wide: 112%;   /* font-stretch for titles */
+  --narrow: 88%;  /* font-stretch for dense labels and table heads */
+
+  /* ---- space, shape, depth ------------------------------------------------------------------------------------ */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+  --r-sm: 6px; --r: 10px; --r-lg: 16px; --r-pill: 999px;
+  --shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 8px 24px rgba(0,0,0,.35);
+  --hit: 40px;        /* the smallest thing a finger presses (computer); the touch screens use --hit-touch */
+  --hit-touch: 52px;
+  --dur: 140ms; --ease: cubic-bezier(.2,.7,.2,1);
+
+  color-scheme: dark;
+}
+@media (prefers-reduced-motion: reduce) { :root { --dur: 0ms; } }

@@ -26,8 +26,10 @@ const feedStats = (link) => p.evaluate((link) => { CUScreenFeed._tick(); const c
 
 console.log("Screens and projectors:");
 let scr = null, proj = null;
+// (10.2) the 3D stage's add buttons live in its Stage menu: open it, then click
+const stageMenu = async (sel) => { await p.evaluate(() => document.querySelectorAll(".lx3d-menu").forEach((d) => { d.open = d.querySelector("summary").textContent.trim() === "Stage"; })); await p.click(sel); };
 await check("+ Screen adds an LED wall on the back wall, + Projector a projector; both are on the 3D stage and saved with the stage", async () => {
-  await p.click('[data-ext3="screen"]'); await p.click('[data-ext3="projector"]');
+  await stageMenu('[data-ext3="screen"]'); await stageMenu('[data-ext3="projector"]');
   const r = await p.evaluate(() => ({ n: CULightsScreens.count(), s: CULights.rig().stage.screens, pr: CULights.rig().stage.projectors, saved: JSON.parse(localStorage.getItem("cu-rig")).stage.screens.length, panel: !document.querySelector("#lx3dScreenPanel").hidden }));
   assert.deepEqual([r.n, r.s.length, r.pr.length, r.saved, r.panel], [2, 1, 1, 1, true], JSON.stringify(r));
   scr = r.s[0].id; proj = r.pr[0].id; assert.equal(r.s[0].kind, "led"); assert.equal(r.pr[0].target, "wall");
@@ -108,7 +110,7 @@ await check("Blank screens (Stream Deck / MIDI) blacks the lyrics out and brings
 
 console.log("\nThe room and the seats:");
 await check("draw a room (corners one by one), ask for 800 seats: 800 laid out facing the stage, drawn in 3D", async () => {
-  await p.click('[data-ext3="room"]'); await p.click('#lx3dRoom [data-tpl="rect"]');
+  await stageMenu('[data-ext3="room"]'); await p.click('#lx3dRoom [data-tpl="rect"]');
   await p.evaluate(() => { CULightsRoom.mode("draw"); [[-14, -6.6], [14, -6.6], [14, 30], [-14, 30]].forEach((q) => CULightsRoom.planClick(q[0], q[1])); document.querySelector('#lx3dRoom [data-rm="done"]').click(); });
   await p.evaluate(() => { const i = document.querySelector('#lx3dRoom [data-rf="count"]'); i.value = "800"; i.dispatchEvent(new Event("input", { bubbles: true })); CULights3D.frame(); });
   const r = await p.evaluate(() => ({ outline: CULights.rig().stage.hall.outline.length, l: CULightsRoom.layout(), msg: document.querySelector("#lxRoomFit").textContent }));

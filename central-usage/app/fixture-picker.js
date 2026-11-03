@@ -219,6 +219,7 @@
   async function utilityLooks() {
     var LIB = global.CU && global.CU.libraries; if (!LIB || !LIB.list) return { looks: [], installed: false };
     var list = []; try { list = await LIB.list(); } catch (_) { }
+    if (list && !Array.isArray(list)) list = list.installed || [];   // the app answers { installed: [...] }
     var looks = []; (list || []).forEach(function (r) { (r.looks || []).forEach(function (l) { looks.push(Object.assign({ library: r.id, tier: r.plan }, l)); }); });
     return { looks: looks, installed: (list || []).some(function (r) { return r.plan === "utility"; }) };
   }

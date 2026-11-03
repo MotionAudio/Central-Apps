@@ -51,7 +51,7 @@
   }
   // while it is on, nothing that changes a setting gets the event
   var INTERACTIVE = "input, select, textarea, button, a, label, canvas, [contenteditable], [draggable=true], [role=button], .tab-like, svg";
-  function allowed(t) { return !t || !t.closest || !!t.closest("#tabs, #mlBtn, [data-ml-ok], .role-toast, #modePick, #updAsk, #cdChip, .cd-pop"); }
+  function allowed(t) { return !t || !t.closest || !!t.closest("#tabs, #mlBtn, [data-ml-ok], .role-toast, #modePick, #updAsk, #cdChip, .cdn-pop"); }
   function block(e) {
     if (!manual) return;
     var t = e.target;

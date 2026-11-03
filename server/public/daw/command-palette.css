@@ -1,0 +1,19 @@
+/* the command search (Ctrl+K / ⌘K) - shared by Central Control, Central Usage and Central Production */
+.cmdk { position: fixed; inset: 0; z-index: 2000; background: rgba(6, 7, 9, .55); backdrop-filter: blur(3px); display: grid; justify-items: center; align-items: start; padding-top: 12vh; }
+.cmdk[hidden] { display: none; }
+.cmdk-box { width: min(640px, calc(100vw - 32px)); background: var(--panel, #1A1D22); border: 1px solid var(--line2, #454C58); border-radius: var(--r-lg, 16px); box-shadow: 0 40px 100px -30px rgba(0,0,0,.85); overflow: hidden; color: var(--text, #ECE7DD); font-family: var(--font, sans-serif); }
+.cmdk-in { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line, #343A44); }
+.cmdk-in svg { width: 20px; height: 20px; color: var(--muted, #9AA1AB); flex: none; }
+.cmdk-in input { flex: 1; min-width: 0; border: 0; background: none; box-shadow: none; outline: none; font-size: 17px; color: inherit; padding: 4px 0; }
+.cmdk-in input:focus { box-shadow: none; }
+.cmdk kbd { font: 600 11px/1 var(--font, sans-serif); padding: 3px 6px; border: 1px solid var(--line, #343A44); border-bottom-width: 2px; border-radius: 5px; color: var(--muted, #9AA1AB); margin-right: 3px; }
+.cmdk-list { max-height: min(56vh, 520px); overflow: auto; padding: 6px; }
+.cmdk-group { font-size: 12px; font-stretch: var(--narrow, 88%); color: var(--dim, #6E7682); padding: 10px 10px 4px; }
+.cmdk-row { display: flex; align-items: baseline; gap: 10px; padding: 9px 10px; border-radius: var(--r-sm, 6px); cursor: pointer; min-height: 38px; }
+.cmdk-row b { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdk-row span { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdk-row.on { background: color-mix(in srgb, var(--accent, #E2C27E), transparent 84%); box-shadow: inset 2px 0 0 var(--accent, #E2C27E); }
+.cmdk-empty { padding: 22px 12px; color: var(--muted, #9AA1AB); }
+.cmdk-foot { display: flex; gap: 16px; padding: 8px 14px; border-top: 1px solid var(--line, #343A44); }
+@media (prefers-reduced-motion: no-preference) { .cmdk:not([hidden]) .cmdk-box { animation: cmdk-in .14s var(--ease, ease-out); } }
+@keyframes cmdk-in { from { transform: translateY(-6px); opacity: .6; } }

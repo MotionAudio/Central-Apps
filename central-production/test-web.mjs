@@ -8,6 +8,7 @@ import http from "node:http"; import fs from "node:fs"; import os from "node:os"
 import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url)), pub = path.join(here, "..", "server", "public");
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.stack || e).split("\n").slice(0, 6).join("\n      ")); } }
+await check("the family look: server/public/daw/central-tokens.css is the same as css/central-tokens.css (copy it across after changing the tokens)", () => assert.equal(fs.readFileSync(path.join(pub, "daw", "central-tokens.css"), "utf8"), fs.readFileSync(path.join(here, "..", "css", "central-tokens.css"), "utf8")));
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".json": "application/json" };
 // the website: its files, and a stand-in API (projects, creator uploads, Central Tracks) that keeps what it's sent
 const api = { projects: {}, files: {}, items: [], published: [], uploads: 0 };

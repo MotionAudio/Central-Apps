@@ -1,0 +1,119 @@
+/* Central Control / Central Usage - the 10.2 shell (docs/DESIGN-SYSTEM.md). Loaded last: it sets the top bar, the
+ * tabs, the connection chip, Settings as one page with its groups, and the ⋯ menus. Colours come from the tokens
+ * (shared/central-tokens.css) so Settings → Look still changes every one of them. */
+
+/* ---------------------------------------------------------------- the top bar: one row, the same order everywhere */
+header.top { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--s2); padding: 6px var(--s3); min-height: 56px; row-gap: 6px; }
+header.top::before { display: none; content: none; }
+header.top > * { margin-left: 0; }
+header.top > .brand { order: 1; } header.top > .tabs { order: 2; } header.top > .cmdk-open { order: 3; } header.top > .cd-chip { order: 4; }
+header.top > .song { order: 5; } header.top > .tb-top { order: 6; } header.top > .conn-wrap { order: 7; } header.top > .role-chip { order: 8; margin-left: 0; }
+header.top > .ml-btn { order: 9; } header.top > .tab-icon { order: 10; } header.top > .acct-btn { order: 11; }
+.top > .brand { flex: none; margin-right: var(--s2); }
+.top > .brand b { font-size: 15px; }
+.brand .brand-sub { color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.brand .brand-sub:empty { display: none; }
+.top > .tabs { flex: 1 1 auto; min-width: 0; overflow: hidden; flex-wrap: nowrap; }
+.tabs .tab { flex: none; white-space: nowrap; }
+.tabs .tab.gs { margin-left: 9px; position: relative; }
+.tabs .tab.gs::before { content: ""; position: absolute; left: -6px; top: 22%; bottom: 22%; width: 1px; background: var(--line2); }
+.tab-more { position: relative; flex: none; display: flex; }
+.tab-more[hidden] { display: none; }
+.tab-menu { position: fixed; z-index: 400; display: grid; min-width: 190px; padding: 6px; background: var(--panel); border: 1px solid var(--line2); border-radius: var(--r); box-shadow: var(--shadow); margin-top: 6px; }
+.tab-menu { margin-top: 0; }
+.tab-menu .tab { text-align: left; border-radius: var(--r-sm); padding: 9px 12px; color: var(--text); }
+.tab-menu .tab.active { background: color-mix(in srgb, var(--accent), transparent 82%); color: var(--accentHi); }
+.tab-morebtn span { font-size: 10px; margin-left: 2px; }
+/* the compact things on the right */
+.top > .cmdk-open { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; color: var(--muted); border-radius: var(--r); }
+.cmdk-open svg { width: 16px; height: 16px; } .cmdk-open kbd { font: 600 10px/1 var(--font); padding: 3px 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--dim); }
+@media (max-width: 1500px) { .cmdk-open span, .cmdk-open kbd { display: none; } }
+.top > .song { flex: 0 1 170px; min-width: 0; }
+@media (max-width: 1400px) { .brand .brand-sub { display: none; } .top > .brand b { font-size: 14px; } }
+#view-chart .bar select#instrument { max-width: 240px; } #view-chart .bar #songPick { max-width: 200px; }
+@media (max-width: 1500px) { body[data-mode=admin] .top > .song { display: none; } body[data-mode=admin] .top > .role-chip { display: none; } }
+.top > .song b { font-size: 14px; }
+.top > .cd-chip { flex: none; }
+.top > .tb-top { flex: none; }
+.top > .role-chip { flex: none; }
+.top > .ml-btn { flex: none; padding: 6px 9px; }
+.tab-icon { flex: none; display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0; border-radius: var(--r); border: 1px solid transparent; background: none; color: var(--muted); }
+.tab-icon svg { width: 20px; height: 20px; }
+.tab-icon:hover { color: var(--text); background: var(--panel2); }
+.tab-icon.active { color: var(--accentText); background: var(--accent); border-color: var(--accent); }
+.acct-btn { flex: none; width: 34px; height: 34px; padding: 0; border-radius: 50%; display: inline-grid; place-items: center; font: 650 12px/1 var(--font); letter-spacing: .02em; color: var(--accentHi); background: color-mix(in srgb, var(--accent), transparent 85%); border: 1px solid color-mix(in srgb, var(--accent), transparent 55%); }
+.acct-btn:hover { background: color-mix(in srgb, var(--accent), transparent 72%); }
+/* the Central Pedal's connection: a chip that opens the address, Find and the pairing code */
+.conn-wrap { position: relative; flex: none; }
+.conn-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 150px; padding: 6px 12px; border-radius: var(--r-pill); font-size: var(--fs-sm); color: var(--muted); }
+.conn-chip span#connInfo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conn-chip.ok { color: var(--text); }
+.conn-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 450; width: 360px; display: grid; gap: var(--s3); padding: var(--s4); background: var(--panel); border: 1px solid var(--line2); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.conn-pop[hidden] { display: none; }
+.conn-pop .conn-field { display: grid; gap: 6px; color: var(--muted); font-size: var(--fs-sm); }
+.conn-pop .conn-field input { width: 100%; font-size: var(--fs); padding: 9px 11px; }
+.conn-pop .row button { min-height: var(--hit); }
+@media (max-width: 1100px) { .top > .song { display: none; } }
+@media (max-width: 760px) {
+  header.top { flex-wrap: wrap; }
+  .top > .tabs { order: 10; flex-basis: 100%; overflow-x: auto; }
+  .top > .brand .brand-sub { display: none; }
+}
+
+/* ---------------------------------------------------------------- buttons: one brass action, the rest quiet */
+.bar { gap: var(--s3); padding: var(--s2) var(--s3); }
+.bar label, .lx-showbar label { font-size: var(--fs-sm); }
+button { min-height: 34px; }
+button.danger:not(.on) { background: none; }
+
+/* ---------------------------------------------------------------- ⋯ menus (rare options kept next to what they change) */
+details.ux-menu { position: relative; display: inline-block; }
+details.ux-menu > summary { list-style: none; cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); color: var(--text); font-weight: 500; }
+details.ux-menu > summary::-webkit-details-marker { display: none; }
+details.ux-menu > summary::after { content: "▾"; font-size: 10px; color: var(--muted); }
+details.ux-menu > summary[aria-label]::after, details.ux-menu > summary:empty::after { content: none; }
+details.ux-menu > summary:hover { border-color: var(--line2); background: var(--panel3); }
+details.ux-menu[open] > summary { border-color: var(--accent); }
+details.ux-menu > .ux-pop { position: absolute; left: 0; top: calc(100% + 6px); z-index: 300; min-width: 220px; display: flex; flex-wrap: wrap; gap: var(--s2); padding: var(--s3); background: var(--panel); border: 1px solid var(--line2); border-radius: var(--r); box-shadow: var(--shadow); }
+details.ux-menu.ux-right > .ux-pop { left: auto; right: 0; }
+.ux-pop.ux-col, .ux-col { display: flex; flex-direction: column; align-items: stretch; gap: var(--s2); }
+.ux-pop.ux-col > button, .ux-col > button { text-align: left; justify-content: flex-start; }
+.ux-pop label { color: var(--text); white-space: nowrap; }
+.lx3d-bar details.ux-menu > .ux-pop { min-width: 200px; }
+.lx3d-bar .lx3d-views { display: flex; flex-wrap: wrap; gap: 4px; }
+.lx3d-bar .lx3d-ext { display: flex; }
+
+/* ---------------------------------------------------------------- Settings: one page, its groups on the left */
+#settingsRoot { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.st-page { flex: 1; min-height: 0; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
+.st-side { border-right: 1px solid var(--line); padding: var(--s4) var(--s3); display: grid; align-content: start; gap: var(--s3); overflow: auto; background: color-mix(in srgb, var(--bg), #000 18%); }
+.st-search { width: 100%; padding: 9px 11px; font-size: var(--fs); }
+.st-nav { display: grid; gap: 2px; }
+.st-nav button { text-align: left; border: 0; background: none; color: var(--muted); padding: 9px 12px; border-radius: var(--r-sm); font-weight: 500; min-height: 38px; }
+.st-nav button:hover { background: var(--panel2); color: var(--text); }
+.st-nav button.on { background: color-mix(in srgb, var(--accent), transparent 85%); color: var(--accentHi); box-shadow: inset 2px 0 0 var(--accent); }
+.st-nav button.st-miss { opacity: .35; }
+.st-main { overflow: auto; padding: var(--s4) var(--s5) 40vh; scroll-behavior: smooth; }
+.st-group { margin: 0 0 var(--s6); }
+.st-group > h2 { font-size: var(--fs-lg); margin: 0 0 var(--s3); font-stretch: var(--wide); }
+.st-group.st-miss, .st-group .st-miss { display: none !important; }
+.st-group .io-grid { padding: 0; }
+.st-link button { justify-self: start; }
+.st-none { padding: var(--s5) 0; }
+@keyframes st-flash { 0%, 60% { box-shadow: 0 0 0 2px var(--accent); } 100% { box-shadow: 0 0 0 2px transparent; } }
+.st-flash { animation: st-flash 1.6s var(--ease); }
+@media (max-width: 760px) { .st-page { grid-template-columns: 1fr; } .st-side { border-right: 0; border-bottom: 1px solid var(--line); } .st-nav { display: flex; overflow-x: auto; } }
+
+/* ---------------------------------------------------------------- calmer type in the tabs */
+.card h3 { font-size: var(--fs-md); }
+.card .muted { line-height: var(--lh); }
+.empty { font-size: var(--fs-md); max-width: 560px; margin: 0 auto; line-height: var(--lh); }
+/* a card with nothing in it yet (the slide strip before a deck is picked) takes no room */
+.card:empty { display: none; }
+/* the song box: one line each for the name and the details, cut short rather than wrapping */
+.top > .song { display: grid; line-height: 1.25; }
+.top > .song #songName, .top > .song #songMeta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top > .song #songMeta { font-size: var(--fs-xs); color: var(--muted); }
+/* laptop widths: the connection chip keeps its dot (its words are in the pop-over and the tooltip), the chart bar its one row */
+@media (max-width: 1400px) { .conn-chip #connInfo { display: none; } .conn-chip { padding: 6px 11px; } #view-chart .bar select#instrument { max-width: 180px; } #view-chart .bar #songPick { max-width: 150px; } .top > .song { flex-basis: 150px; } }
+@media (max-width: 1400px) { #partPick { max-width: 140px; } #view-chart .bar { gap: var(--s2); } }

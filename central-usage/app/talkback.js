@@ -292,8 +292,8 @@
     return '<div class="tb-row"><button class="tb-talk" data-tb-talk="group" title="Hold to talk · a quick tap keeps it on (tap again to stop)">🎙 TALK</button>' +
       '<div class="tb-side"><div class="tb-line"><b>To</b>' + groupButtons(false) + '<span class="tb-to muted small"></span></div>' +
       '<div class="tb-line muted small">' + (gp.names.length ? esc(gp.names.join(", ")) + (gp.mixes.length ? " · " + gp.mixes.length + " hear it in their in-ear mix" : "") + (gp.play.length ? " · " + gp.play.length + " on their headphones" : "") : "Nobody in this group is online - put devices in it on the Devices tab.") + "</div>" +
-      '<div class="tb-line"><label class="toggle"><input type="checkbox" data-tb="dim"' + (prefs.dim.on ? " checked" : "") + '> Dim the music in their in-ears</label><select data-tb="dimdb">' + [-6, -12, -18, -24].map(function (d) { return '<option value="' + d + '"' + (Number(prefs.dim.db) === d ? " selected" : "") + ">" + d + " dB</option>"; }).join("") + "</select>" +
-      '<label>Mic <select data-tb="mic">' + micOptions() + '</select></label><select data-tb="micdev" title="Which microphone of this computer"' + (prefs.mic !== "mic" ? " hidden" : "") + '><option value="">Default microphone</option></select><span class="tb-level" title="Mic level"><i></i></span></div>' +
+      '<details class="ux-menu ux-stay tb-setup"><summary>Mic &amp; dimming</summary><div class="ux-pop">' + '<div class="tb-line"><label class="toggle"><input type="checkbox" data-tb="dim"' + (prefs.dim.on ? " checked" : "") + '> Dim the music in their in-ears</label><select data-tb="dimdb">' + [-6, -12, -18, -24].map(function (d) { return '<option value="' + d + '"' + (Number(prefs.dim.db) === d ? " selected" : "") + ">" + d + " dB</option>"; }).join("") + "</select>" +
+      '<label>Mic <select data-tb="mic">' + micOptions() + '</select></label><select data-tb="micdev" title="Which microphone of this computer"' + (prefs.mic !== "mic" ? " hidden" : "") + '><option value="">Default microphone</option></select><span class="tb-level" title="Mic level"><i></i></span></div></div></details>' +
       '<div class="tb-line"><span class="tb-msg"></span><span class="tb-others muted small"></span></div></div></div>';
   }
   function modeLine() {
@@ -306,7 +306,7 @@
   }
   function teamPanel() {
     return '<div class="tb-row"><button class="tb-talk" data-tb-talk="team" title="Hold to talk · a quick tap keeps it on (tap again to stop)"' + (micAllowed() ? "" : " disabled") + '>🎙 TALK</button>' +
-      '<div class="tb-side">' + modeLine() + micLine() + '<div class="tb-line"><span class="tb-msg"></span><span class="tb-others muted small"></span></div></div></div>';
+      '<div class="tb-side">' + modeLine() + '<details class="ux-menu ux-stay tb-setup"><summary>Mic &amp; dimming</summary><div class="ux-pop">' + micLine() + "</div></details>" + '<div class="tb-line"><span class="tb-msg"></span><span class="tb-others muted small"></span></div></div></div>';
   }
   // Settings -> Talk (the same controls as the In-ears panel)
   function card() {

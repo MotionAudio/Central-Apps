@@ -175,4 +175,24 @@ kbd{margin-left:auto;padding-left:1.2rem;color:var(--dim);font:inherit;font-size
 .cp-set-body ul.plain{list-style:none;padding:0}.cp-set-body .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
 .cp-set-body .ok{color:var(--ok)}.cp-set-body .bad{color:var(--no)}.cp-set-body button.link{background:none;border:0;color:var(--accentHi);padding:0 .2rem;text-decoration:underline}
 @media (prefers-reduced-motion:reduce){.cp-busy i{animation:none}.cp-toast{transition:none}}
+
+/* ---- (10.2) the family look (docs/DESIGN-SYSTEM.md): the same top bar order as the other apps, one brass action per
+   screen (Publish), the exports in one Export menu, Ctrl+K search */
+.cp-top{background:var(--panel);border-bottom:1px solid var(--line);min-height:56px}
+.cp-search{display:inline-flex;align-items:center;gap:.4rem;color:var(--muted)}
+.cp-search svg{width:16px;height:16px}.cp-search kbd{margin:0;padding:2px 5px;border:1px solid var(--line);border-radius:4px;font-size:10px;color:var(--dim)}
+@media (max-width:1100px){.cp-search span,.cp-search kbd{display:none}}
+.cp-typebar{min-height:52px}
+.cp-tb-acts{align-items:center}
+.cp-xmenu{position:relative}
+.cp-xmenu>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:.38rem .75rem;user-select:none}
+.cp-xmenu>summary::-webkit-details-marker{display:none}
+.cp-xmenu>summary::after{content:"▾";font-size:10px;color:var(--muted)}
+.cp-xmenu>summary:hover{border-color:var(--line2);background:var(--panel3)}
+.cp-xmenu[open]>summary{border-color:var(--accent)}
+.cp-xpop{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:240px;display:flex;flex-direction:column;gap:2px;padding:6px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.cp-xpop button{text-align:left;background:none;border-color:transparent}
+.cp-xpop button:hover:not(:disabled){background:var(--panel3)}
+.cp-kind{min-height:72px;border-radius:12px}
+.cp-hero h1{font-stretch:var(--wide,112%)}
 @media (max-width:900px){.cp-inst-grid,.cp-board-grid{grid-template-columns:1fr}.cp-sec{grid-template-columns:1fr 1fr}.cp-set{grid-template-columns:1fr}.cp-set-nav{flex-direction:row;flex-wrap:wrap}.cp-keys12{grid-template-columns:repeat(6,1fr)}}

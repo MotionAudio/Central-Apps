@@ -26,10 +26,12 @@
     var m = $("#cpModal"); m.innerHTML = '<div class="cp-dialog' + (opts.wide ? " wide" : "") + '" role="dialog" aria-modal="true">' + html + "</div>"; m.hidden = false;
     var d = m.firstChild; setTimeout(function () { var f = d.querySelector("[autofocus], input, select, textarea, button.primary"); if (f) f.focus(); }, 30);
     m.onclick = function (e) { if (e.target === m && !opts.sticky) close(); if (e.target.closest("[data-close]")) close(); };
-    function close() { m.hidden = true; m.innerHTML = ""; if (opts.onClose) opts.onClose(); }
-    d.close = close; return d;
+    function close() { if (openClose === close) openClose = null; m.hidden = true; m.innerHTML = ""; if (opts.onClose) opts.onClose(); }
+    openClose = close; d.close = close; return d;
   }
-  function closeModal() { var m = $("#cpModal"); if (m && !m.hidden) { m.hidden = true; m.innerHTML = ""; } }
+  // Escape (or a new screen) closes the open box the same way its Cancel does, so a question waiting on it gets its answer
+  var openClose = null;
+  function closeModal() { var m = $("#cpModal"); if (openClose) { openClose(); return; } if (m && !m.hidden) { m.hidden = true; m.innerHTML = ""; } }
   function ask(title, text, yes, no) {
     return new Promise(function (res) {
       var d = modal("<h2>" + esc(title) + "</h2><p>" + esc(text) + '</p><div class="cp-row end"><button data-a="no">' + esc(no || "Cancel") + '</button><button class="primary" data-a="yes">' + esc(yes || "OK") + "</button></div>", { onClose: function () { res(false); } });
@@ -223,12 +225,15 @@
   function drawTypeBar() {
     var bar = $("#cpTypeBar"); if (!bar || !cur) return;
     var d = types[cur.type];
+    // (10.2) one brass action (publish); the exports and "install into my apps" in one Export menu next to it
     bar.innerHTML = '<span class="cp-tb-what">' + esc(d.blurb) + '</span><span class="cp-tb-acts">' +
-      (d.exports || []).slice(0, 2).map(function (x, i) { return '<button data-exp="' + i + '">' + esc(x[0]) + "</button>"; }).join("") +
-      '<button data-act="install" title="Put it in Central Control, Central Usage and this app, on this computer">Install into my apps</button>' +
+      '<details class="cp-xmenu"><summary>Export</summary><div class="cp-xpop">' +
+      (d.exports || []).map(function (x, i) { return '<button data-exp="' + i + '">' + esc(x[0]) + "</button>"; }).join("") +
+      '<button data-act="install" title="Put it in Central Control, Central Usage and this app, on this computer">Install into my apps</button></div></details>' +
       '<button class="primary" data-act="publish">' + (d.publish && d.publish.store === "tracks" ? "Publish to Central Tracks" : "Publish to Make &amp; sell") + "</button></span>";
     bar.onclick = function (e) {
       var x = e.target.closest("[data-exp]"), a = e.target.closest("[data-act]");
+      var dm = bar.querySelector("details"); if (dm && (x || a)) dm.open = false;
       if (x) runExport(d.exports[+x.dataset.exp]);
       if (a && a.dataset.act === "publish") window.CPPublish.open();
       if (a && a.dataset.act === "install") window.CPPublish.install();
