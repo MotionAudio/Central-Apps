@@ -1,0 +1,119 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "limiter",
+ "name": "Limiter",
+ "author": "Motion Audio",
+ "family": "limiter",
+ "tier": "free",
+ "description": "Never lets the sound go over the ceiling. The basic limiter.",
+ "params": [
+  {
+   "id": "input",
+   "name": "Input",
+   "min": 0,
+   "max": 18,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "ceiling",
+   "name": "Ceiling",
+   "min": -12,
+   "max": 0,
+   "default": -1,
+   "unit": "dB"
+  },
+  {
+   "id": "release",
+   "name": "Release",
+   "min": 10,
+   "max": 800,
+   "default": 80,
+   "unit": "ms",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Safety",
+   "values": {
+    "input": 0,
+    "ceiling": -1
+   }
+  },
+  {
+   "name": "Louder",
+   "values": {
+    "input": 4,
+    "ceiling": -1,
+    "release": 60
+   }
+  },
+  {
+   "name": "Stream",
+   "values": {
+    "input": 3,
+    "ceiling": -2,
+    "release": 120
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "g",
+    "type": "gain",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "gain": {
+      "param": "input"
+     }
+    }
+   },
+   {
+    "id": "lim",
+    "type": "limiter",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "ceiling": {
+      "param": "ceiling"
+     },
+     "release": {
+      "param": "release"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "g.in"
+   },
+   {
+    "from": "g.out",
+    "to": "lim.in"
+   },
+   {
+    "from": "lim.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

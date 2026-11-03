@@ -1,0 +1,136 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "rotary-speaker",
+ "name": "Rotary Speaker",
+ "author": "Motion Audio",
+ "family": "modulation",
+ "tier": "plugins",
+ "description": "The spinning organ speaker: horn and drum at their own speeds, speeding up and slowing down with weight. Turn Speed for chorale or tremolo.",
+ "params": [
+  {
+   "id": "speed",
+   "name": "Speed (slow ↔ fast)",
+   "min": 0,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "id": "drive",
+   "name": "Drive",
+   "min": 0,
+   "max": 24,
+   "default": 6,
+   "unit": "dB"
+  },
+  {
+   "id": "depth",
+   "name": "Depth",
+   "min": 0,
+   "max": 1,
+   "default": 0.9
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Chorale (slow)",
+   "values": {
+    "speed": 0
+   }
+  },
+  {
+   "name": "Tremolo (fast)",
+   "values": {
+    "speed": 1
+   }
+  },
+  {
+   "name": "Gospel organ",
+   "values": {
+    "speed": 1,
+    "drive": 12
+   }
+  },
+  {
+   "name": "Gentle Wurli",
+   "values": {
+    "speed": 0.2,
+    "drive": 2,
+    "depth": 0.6,
+    "mix": 0.7
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "amp",
+    "type": "drive",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "tube",
+     "drive": {
+      "param": "drive"
+     },
+     "tone": 7000,
+     "level": -4,
+     "mix": 1,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "rot",
+    "type": "rotary",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "speed": {
+      "param": "speed"
+     },
+     "depth": {
+      "param": "depth"
+     },
+     "mix": {
+      "param": "mix"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "amp.in"
+   },
+   {
+    "from": "amp.out",
+    "to": "rot.in"
+   },
+   {
+    "from": "rot.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

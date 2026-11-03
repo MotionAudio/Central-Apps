@@ -1,0 +1,146 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "deesser-pro",
+ "name": "De-esser Pro",
+ "author": "Motion Audio",
+ "family": "compressor",
+ "tier": "plugins",
+ "description": "A split-band de-esser: only the sharp S range is turned down, so the rest of the voice stays untouched.",
+ "params": [
+  {
+   "id": "freq",
+   "name": "Frequency",
+   "min": 3000,
+   "max": 11000,
+   "default": 5500,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "threshold",
+   "name": "Threshold",
+   "min": -50,
+   "max": 0,
+   "default": -28,
+   "unit": "dB"
+  },
+  {
+   "id": "amount",
+   "name": "Amount",
+   "min": 2,
+   "max": 12,
+   "default": 6,
+   "unit": ":1"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Female vocal",
+   "values": {
+    "freq": 7000,
+    "threshold": -30,
+    "amount": 6
+   }
+  },
+  {
+   "name": "Male vocal",
+   "values": {
+    "freq": 5000,
+    "threshold": -28,
+    "amount": 5
+   }
+  },
+  {
+   "name": "Strong",
+   "values": {
+    "freq": 6000,
+    "threshold": -38,
+    "amount": 10
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "body",
+    "type": "crossover",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "band": "low",
+     "low": {
+      "param": "freq"
+     },
+     "high": 20000
+    }
+   },
+   {
+    "id": "ess",
+    "type": "crossover",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "band": "high",
+     "low": 20,
+     "high": {
+      "param": "freq"
+     }
+    }
+   },
+   {
+    "id": "duck",
+    "type": "compressor",
+    "x": 440,
+    "y": 420,
+    "props": {
+     "threshold": {
+      "param": "threshold"
+     },
+     "ratio": {
+      "param": "amount"
+     },
+     "attack": 0.3,
+     "release": 60,
+     "knee": 4
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "body.in"
+   },
+   {
+    "from": "in.out",
+    "to": "ess.in"
+   },
+   {
+    "from": "ess.out",
+    "to": "duck.in"
+   },
+   {
+    "from": "body.out",
+    "to": "out.in"
+   },
+   {
+    "from": "duck.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

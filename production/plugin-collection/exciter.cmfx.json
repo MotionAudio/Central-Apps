@@ -1,0 +1,161 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "exciter",
+ "name": "Exciter",
+ "author": "Motion Audio",
+ "family": "saturation",
+ "tier": "plugins",
+ "description": "Adds fresh harmonics on top for presence and air, without simply turning up the treble.",
+ "params": [
+  {
+   "id": "freq",
+   "name": "Frequency",
+   "min": 1000,
+   "max": 10000,
+   "default": 3500,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "amount",
+   "name": "Amount",
+   "min": -40,
+   "max": 0,
+   "default": -14,
+   "unit": "dB"
+  },
+  {
+   "id": "color",
+   "name": "Colour",
+   "min": 0,
+   "max": 30,
+   "default": 14,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal presence",
+   "values": {
+    "freq": 3500,
+    "amount": -14,
+    "color": 12
+   }
+  },
+  {
+   "name": "Air",
+   "values": {
+    "freq": 8000,
+    "amount": -12,
+    "color": 10
+   }
+  },
+  {
+   "name": "Acoustic sparkle",
+   "values": {
+    "freq": 5000,
+    "amount": -16,
+    "color": 18
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "freq"
+     },
+     "q": 0.7,
+     "slope": 24
+    }
+   },
+   {
+    "id": "gen",
+    "type": "drive",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "tube",
+     "drive": {
+      "param": "color"
+     },
+     "tone": 18000,
+     "level": 0,
+     "mix": 1,
+     "oversample": 4
+    }
+   },
+   {
+    "id": "hp2",
+    "type": "filter",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "freq"
+     },
+     "q": 0.7
+    }
+   },
+   {
+    "id": "amt",
+    "type": "gain",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "gain": {
+      "param": "amount"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "gen.in"
+   },
+   {
+    "from": "gen.out",
+    "to": "hp2.in"
+   },
+   {
+    "from": "hp2.out",
+    "to": "amt.in"
+   },
+   {
+    "from": "in.out",
+    "to": "out.in"
+   },
+   {
+    "from": "amt.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

@@ -1,0 +1,245 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "worship-shimmer",
+ "name": "Worship Shimmer",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "plugins",
+ "description": "The worship shimmer: a huge reverb with soft octaves blooming above. Keys, pads, clean guitar.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.35
+  },
+  {
+   "id": "shimmer",
+   "name": "Shimmer",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  },
+  {
+   "id": "decay",
+   "name": "Decay",
+   "min": 0.5,
+   "max": 1,
+   "default": 0.9
+  },
+  {
+   "id": "fifth",
+   "name": "Fifth",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "group": "Shimmer"
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 2000,
+   "max": 14000,
+   "default": 6500,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "lowcut",
+   "name": "Low cut",
+   "min": 100,
+   "max": 800,
+   "default": 300,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Shimmer pad",
+   "values": {
+    "mix": 0.45,
+    "shimmer": 0.6,
+    "decay": 0.95
+   }
+  },
+  {
+   "name": "Subtle air",
+   "values": {
+    "mix": 0.25,
+    "shimmer": 0.3,
+    "decay": 0.8,
+    "tone": 8000
+   }
+  },
+  {
+   "name": "Octave and fifth",
+   "values": {
+    "mix": 0.4,
+    "shimmer": 0.5,
+    "fifth": 0.35,
+    "decay": 0.92
+   }
+  },
+  {
+   "name": "Ambient guitar",
+   "values": {
+    "mix": 0.5,
+    "shimmer": 0.45,
+    "decay": 0.9,
+    "lowcut": 400
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "lowcut"
+     },
+     "q": 0.7,
+     "slope": 24
+    }
+   },
+   {
+    "id": "early",
+    "type": "reverb",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "size": 0.7,
+     "damp": 0.3,
+     "mix": 1,
+     "predelay": 20,
+     "mod": 0.6
+    }
+   },
+   {
+    "id": "octave",
+    "type": "pitch",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "semitones": 12,
+     "mix": {
+      "param": "shimmer"
+     },
+     "window": 90
+    }
+   },
+   {
+    "id": "fifthup",
+    "type": "pitch",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "semitones": 19,
+     "mix": {
+      "param": "fifth"
+     },
+     "window": 90
+    }
+   },
+   {
+    "id": "hall",
+    "type": "reverb",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "size": {
+      "param": "decay"
+     },
+     "damp": 0.28,
+     "mix": 1,
+     "width": 1,
+     "mod": 0.8
+    }
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 1040,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "tone"
+     },
+     "q": 0.6
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 1240,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "early.in"
+   },
+   {
+    "from": "early.out",
+    "to": "octave.in"
+   },
+   {
+    "from": "octave.out",
+    "to": "fifthup.in"
+   },
+   {
+    "from": "fifthup.out",
+    "to": "hall.in"
+   },
+   {
+    "from": "hall.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

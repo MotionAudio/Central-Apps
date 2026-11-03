@@ -1,0 +1,198 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "lush-hall",
+ "name": "Lush Hall",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "plugins",
+ "description": "A big, wide, softly moving hall. For pads, keys and slow songs.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.28
+  },
+  {
+   "id": "decay",
+   "name": "Decay",
+   "min": 0.4,
+   "max": 1,
+   "default": 0.8
+  },
+  {
+   "id": "predelay",
+   "name": "Pre-delay",
+   "min": 0,
+   "max": 200,
+   "default": 35,
+   "unit": "ms"
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 1500,
+   "max": 16000,
+   "default": 7000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "width",
+   "name": "Width",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  },
+  {
+   "id": "motion",
+   "name": "Motion",
+   "min": 0,
+   "max": 1,
+   "default": 0.7
+  }
+ ],
+ "presets": [
+  {
+   "name": "Concert hall",
+   "values": {
+    "mix": 0.25,
+    "decay": 0.75,
+    "predelay": 30,
+    "tone": 8000
+   }
+  },
+  {
+   "name": "Cathedral",
+   "values": {
+    "mix": 0.35,
+    "decay": 0.95,
+    "predelay": 60,
+    "tone": 5000,
+    "motion": 0.6
+   }
+  },
+  {
+   "name": "Pad wash",
+   "values": {
+    "mix": 0.5,
+    "decay": 0.9,
+    "predelay": 10,
+    "tone": 6000,
+    "motion": 0.9
+   }
+  },
+  {
+   "name": "Dark hall",
+   "values": {
+    "mix": 0.3,
+    "decay": 0.8,
+    "tone": 3000
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": 140,
+     "q": 0.7
+    }
+   },
+   {
+    "id": "hall",
+    "type": "reverb",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "size": {
+      "param": "decay"
+     },
+     "damp": 0.35,
+     "mix": 1,
+     "predelay": {
+      "param": "predelay"
+     },
+     "width": {
+      "param": "width"
+     },
+     "mod": {
+      "param": "motion"
+     }
+    }
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "tone"
+     },
+     "q": 0.6
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "hall.in"
+   },
+   {
+    "from": "hall.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

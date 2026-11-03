@@ -6,7 +6,7 @@
 #include "cmfx_int.h"
 
 enum { B_INPUT, B_OUTPUT, B_GAIN, B_MIX, B_FILTER, B_EQ, B_DELAY, B_REVERB, B_CHORUS, B_PHASER, B_DRIVE, B_CRUSH, B_COMP, B_LIMIT,
-  B_GATE, B_TREMOLO, B_PITCH, B_LFO, B_ENV, B_MATH, B_PARAM, B_CODE, B_STEREO, B_NTYPES };
+  B_GATE, B_TREMOLO, B_PITCH, B_LFO, B_ENV, B_MATH, B_PARAM, B_CODE, B_STEREO, B_XOVER, B_TRANS, B_ROTARY, B_NTYPES };
 typedef struct { const char *name; int audio; float def, lo, hi; } PortSpec;
 typedef struct {
   const char *type; int nPorts; PortSpec ports[CM_MAXPORTS]; int hasOut;
@@ -17,7 +17,11 @@ static const char *const EQ_MODES[] = { "peak", "lowshelf", "highshelf", "lowpas
 static const char *const MIX_LAW[] = { "linear", "equal", 0 };
 static const char *const DELAY_MODES[] = { "normal", "pingpong", 0 };
 static const char *const CHORUS_MODES[] = { "chorus", "flanger", 0 };
-static const char *const DRIVE_MODES[] = { "soft", "hard", "tube", "fuzz", "fold", 0 };
+static const char *const DRIVE_MODES[] = { "soft", "hard", "tube", "fuzz", "fold", "tape", 0 };
+static const char *const COMP_STYLES[] = { "clean", "fet", "opto", "glue", 0 };
+static const char *const DETECT[] = { "peak", "rms", 0 };
+static const char *const LIMIT_DETECT[] = { "sample", "truepeak", 0 };
+static const char *const BANDS[] = { "low", "mid", "high", 0 };
 static const char *const TREM_MODES[] = { "tremolo", "autopan", 0 };
 static const char *const SHAPES[] = { "sine", "triangle", "saw", "ramp", "square", "random", 0 };
 static const char *const MATH_OPS[] = { "add", "subtract", "multiply", "divide", "min", "max", "abs", "negate", "clamp", "map", "db2gain", "gain2db", "sin", "tanh", "value", "smooth", 0 };
@@ -31,13 +35,13 @@ static const TypeSpec TYPES[B_NTYPES] = {
   { "filter", 4, { A("in"), { "freq", 0, 1000, 10, 22000 }, { "q", 0, 0.707f, 0.1f, 30 }, { "gain", 0, 0, -24, 24 } }, 1, "mode", FILTER_MODES, 0, 0 },
   { "eq", 4, { A("in"), { "freq", 0, 1000, 10, 22000 }, { "q", 0, 1, 0.1f, 30 }, { "gain", 0, 0, -24, 24 } }, 1, "mode", EQ_MODES, 0, 0 },
   { "delay", 5, { A("in"), { "time", 0, 350, 1, 10000 }, { "feedback", 0, 0.35f, 0, 0.98f }, { "mix", 0, 0.35f, 0, 1 }, { "tone", 0, 6000, 200, 20000 } }, 1, "mode", DELAY_MODES, 0, 0 },
-  { "reverb", 6, { A("in"), { "size", 0, 0.6f, 0, 1 }, { "damp", 0, 0.4f, 0, 1 }, { "mix", 0, 0.3f, 0, 1 }, { "predelay", 0, 10, 0, 250 }, { "width", 0, 1, 0, 1 } }, 1, 0, 0, 0, 0 },
+  { "reverb", 7, { A("in"), { "size", 0, 0.6f, 0, 1 }, { "damp", 0, 0.4f, 0, 1 }, { "mix", 0, 0.3f, 0, 1 }, { "predelay", 0, 10, 0, 250 }, { "width", 0, 1, 0, 1 }, { "mod", 0, 0.4f, 0, 1 } }, 1, 0, 0, 0, 0 },
   { "chorus", 5, { A("in"), { "rate", 0, 0.8f, 0.01f, 10 }, { "depth", 0, 0.5f, 0, 1 }, { "feedback", 0, 0, -0.95f, 0.95f }, { "mix", 0, 0.5f, 0, 1 } }, 1, "mode", CHORUS_MODES, 0, 0 },
   { "phaser", 5, { A("in"), { "rate", 0, 0.5f, 0.01f, 10 }, { "depth", 0, 0.7f, 0, 1 }, { "feedback", 0, 0.3f, -0.95f, 0.95f }, { "mix", 0, 0.5f, 0, 1 } }, 1, 0, 0, 0, 0 },
   { "drive", 5, { A("in"), { "drive", 0, 12, 0, 48 }, { "tone", 0, 8000, 200, 20000 }, { "level", 0, -6, -48, 12 }, { "mix", 0, 1, 0, 1 } }, 1, "mode", DRIVE_MODES, 0, 0 },
   { "bitcrush", 4, { A("in"), { "bits", 0, 8, 1, 24 }, { "rate", 0, 12000, 200, 48000 }, { "mix", 0, 1, 0, 1 } }, 1, 0, 0, 0, 0 },
-  { "compressor", 9, { A("in"), A("key"), { "threshold", 0, -18, -60, 0 }, { "ratio", 0, 4, 1, 30 }, { "attack", 0, 10, 0.1f, 200 }, { "release", 0, 120, 5, 2000 }, { "knee", 0, 6, 0, 24 }, { "makeup", 0, 0, -12, 24 }, { "mix", 0, 1, 0, 1 } }, 1, 0, 0, 0, 0 },
-  { "limiter", 3, { A("in"), { "ceiling", 0, -1, -24, 0 }, { "release", 0, 80, 5, 1000 } }, 1, 0, 0, 0, 0 },
+  { "compressor", 10, { A("in"), A("key"), { "threshold", 0, -18, -60, 0 }, { "ratio", 0, 4, 1, 30 }, { "attack", 0, 10, 0.02f, 200 }, { "release", 0, 120, 5, 5000 }, { "knee", 0, 6, 0, 24 }, { "makeup", 0, 0, -12, 24 }, { "mix", 0, 1, 0, 1 }, { "schpf", 0, 10, 10, 500 } }, 1, "style", COMP_STYLES, "detect", DETECT },
+  { "limiter", 3, { A("in"), { "ceiling", 0, -1, -24, 0 }, { "release", 0, 80, 5, 1000 } }, 1, "detect", LIMIT_DETECT, 0, 0 },
   { "gate", 7, { A("in"), A("key"), { "threshold", 0, -50, -90, 0 }, { "range", 0, -80, -90, 0 }, { "attack", 0, 1, 0.1f, 50 }, { "hold", 0, 40, 0, 500 }, { "release", 0, 120, 5, 2000 } }, 1, 0, 0, 0, 0 },
   { "tremolo", 4, { A("in"), { "rate", 0, 4, 0.05f, 20 }, { "depth", 0, 0.6f, 0, 1 }, { "stereo", 0, 0, 0, 180 } }, 1, "mode", TREM_MODES, "shape", SHAPES },
   { "pitch", 4, { A("in"), { "semitones", 0, 12, -24, 24 }, { "fine", 0, 0, -100, 100 }, { "mix", 0, 1, 0, 1 } }, 1, 0, 0, 0, 0 },
@@ -47,6 +51,9 @@ static const TypeSpec TYPES[B_NTYPES] = {
   { "param", 0, { { 0 } }, 1, 0, 0, 0, 0 },
   { "code", 5, { A("in"), { "c1", 0, 0, -1e9f, 1e9f }, { "c2", 0, 0, -1e9f, 1e9f }, { "c3", 0, 0, -1e9f, 1e9f }, { "c4", 0, 0, -1e9f, 1e9f } }, 1, 0, 0, 0, 0 },
   { "stereo", 3, { A("in"), { "width", 0, 1, 0, 2 }, { "pan", 0, 0, -1, 1 } }, 1, "mode", STEREO_MODES, 0, 0 },
+  { "crossover", 3, { A("in"), { "low", 0, 200, 20, 20000 }, { "high", 0, 2500, 20, 20000 } }, 1, "band", BANDS, 0, 0 },
+  { "transient", 4, { A("in"), { "attack", 0, 0, -100, 100 }, { "sustain", 0, 0, -100, 100 }, { "level", 0, 0, -24, 12 } }, 1, 0, 0, 0, 0 },
+  { "rotary", 4, { A("in"), { "speed", 0, 0, 0, 1 }, { "depth", 0, 1, 0, 1 }, { "mix", 0, 1, 0, 1 } }, 1, 0, 0, 0, 0 },
 };
 
 typedef struct { const float *p[2]; float k; } Sig;
@@ -55,21 +62,26 @@ static inline int sconst(const Sig *s) { return !s->p[0]; }
 #define UND(x) do { if ((x) < 1e-18f && (x) > -1e-18f) (x) = 0; } while (0)
 static inline float clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 
-typedef struct { float ic1[2][2], ic2[2][2]; double a1[2], a2[2], a3[2], m0[2], m1[2], m2[2]; float lf[2], lq[2], lg[2]; int stages, ok; } StFilter;
+typedef struct { float ic1[2][2], ic2[2][2]; double a1[2], a2[2], a3[2], m0[2], m1[2], m2[2]; float lf[2], lq[2], lg[2]; int stages, ok, okm[2]; } StFilter;
 typedef struct { long len; int pos; float lp[2], ts[2]; int init; } StDelay;
-typedef struct { int cl[2][8], cp[2][8], al[2][4], ap[2][4]; long co[2][8], ao[2][4]; float cs[2][8]; long pdLen, pdOff; int pdPos; } StReverb;
+/* (10.3) the reverb: 4 diffusers, then an 8-line feedback delay network with a Householder matrix, damping in the loop and
+ * slowly moving delay times (no metallic ringing) */
+typedef struct { int len[8], pos[8], dl[4], dp[4]; long off[8], doff[4], pdLen, pdOff; int pdPos; float damp[8], g[8], lastSize, m[4]; double ph[4]; } StReverb;
 typedef struct { long len; int pos; double phase; } StChorus;
 typedef struct { float z[2][12], fb[2]; double a[2]; double phase; int stages; } StPhaser;
-typedef struct { float lp[2], x1[2], y1[2]; } StDrive;
+typedef struct { float lp[2], x1[2], y1[2]; int pos[12]; } StDrive;   /* pos: the oversampling rings' write positions */
 typedef struct { float hold[2]; double phase; } StCrush;
-typedef struct { float env; } StComp;
-typedef struct { float g; } StLimit;
+typedef struct { float env, gr, ms, slow, hp[2], hx[2]; } StComp;
+typedef struct { float g, r; int L, W, D, pos, qh, qn, apos, hpos; long cnt; double sum; } StLimit;
 typedef struct { float env, g; int hold; } StGate;
 typedef struct { double phase; } StTrem;
-typedef struct { long len; int pos; double phase; } StPitch;
+typedef struct { long len; int pos; double ph[4]; float wl[4]; unsigned rng; } StPitch;   /* 4 grains, each with its own window length */
 typedef struct { double phase; float cur, target; unsigned rng; } StLfo;
 typedef struct { float env; } StEnv;
 typedef struct { float sm[2]; } StMath;
+typedef struct { float ic1[2][4], ic2[2][4]; double c[4][6]; float f1, f2; int ok; } StXover;
+typedef struct { float ef, es, esr, g; } StTrans;
+typedef struct { long len; int pos; double hp, dp; float hr, dr, lp[2], hpz[2]; } StRotary;
 
 typedef struct {
   int type, mode, mode2; char id[32]; float num[2];
@@ -80,7 +92,7 @@ typedef struct {
   float out[2][CM_CHUNK];
   int prog, param;
   long bufOff; long bufLen; float *buf;
-  union { StFilter f; StDelay d; StReverb r; StChorus c; StPhaser ph; StDrive dr; StCrush cr; StComp cp; StLimit lm; StGate g; StTrem t; StPitch p; StLfo l; StEnv e; StMath m; } st;
+  union { StFilter f; StDelay d; StReverb r; StChorus c; StPhaser ph; StDrive dr; StCrush cr; StComp cp; StLimit lm; StGate g; StTrem t; StPitch p; StLfo l; StEnv e; StMath m; StXover x; StTrans tr; StRotary ro; } st;
 } Block;
 typedef struct { char id[32], name[48], unit[16]; float min, max, def; int log; volatile float target; float cur; float buf[CM_CHUNK]; } Param;
 
@@ -123,16 +135,21 @@ static void planBuffers(CmFx *fx, Block *b) {
   switch (b->type) {
     case B_DELAY: { float mx = b->num[0] > 0 ? b->num[0] : 2000; if (mx > 10000) mx = 10000; b->st.d.len = (long)(mx * sr / 1000) + 4; b->bufLen = 2 * b->st.d.len; break; }
     case B_REVERB: {
-      static const int comb[8] = { 1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617 }, ap[4] = { 556, 441, 341, 225 };
-      double sc = sr / 44100.0; long total = 0;
-      for (int ch = 0; ch < 2; ch++) {
-        for (int j = 0; j < 8; j++) { int l = (int)((comb[j] + ch * 23) * sc); if (l < 2) l = 2; b->st.r.cl[ch][j] = l; b->st.r.co[ch][j] = total; total += l; }
-        for (int j = 0; j < 4; j++) { int l = (int)((ap[j] + ch * 23) * sc); if (l < 2) l = 2; b->st.r.al[ch][j] = l; b->st.r.ao[ch][j] = total; total += l; }
-      }
+      static const int lines[8] = { 1433, 1601, 1867, 2053, 2251, 2399, 2617, 2797 }, dif[4] = { 142, 107, 379, 277 };
+      double sc = sr / 48000.0; long total = 0;
+      for (int j = 0; j < 8; j++) { int l = (int)(lines[j] * sc) + 24; b->st.r.len[j] = l; b->st.r.off[j] = total; total += l; }
+      for (int j = 0; j < 4; j++) { int l = (int)(dif[j] * sc); if (l < 2) l = 2; b->st.r.dl[j] = l; b->st.r.doff[j] = total; total += l; }
       b->st.r.pdLen = (long)(0.25f * sr) + 4; b->st.r.pdOff = total; total += b->st.r.pdLen; b->bufLen = total; break;
     }
+    case B_DRIVE: { float o = b->num[0]; b->num[0] = o >= 3 ? 4 : o >= 1.5f ? 2 : o > 0 ? 1 : 2; b->bufLen = b->num[0] > 1 ? 2 * 6 * 32 : 0; break; }
+    case B_LIMIT: {
+      float la = b->num[0] < 0 ? 0 : b->num[0] > 10 ? 10 : b->num[0]; if (b->mode == 1 && la < 1.5f) la = 1.5f; b->num[0] = la;
+      StLimit *l = &b->st.lm; l->L = (int)(la * sr * 0.001f + 0.5f); l->D = l->L + (b->mode == 1 ? 4 : 0); l->W = l->L + 1;
+      b->bufLen = l->L > 0 || b->mode == 1 ? 2 * (l->D + 1) + 2 * (l->W + 1) + (l->L + 1) + 2 * 8 : 0; break;
+    }
+    case B_ROTARY: b->st.ro.len = (long)(0.006f * sr) + 8; b->bufLen = 2 * b->st.ro.len; break;
     case B_CHORUS: b->st.c.len = (long)(0.06f * sr) + 4; b->bufLen = 2 * b->st.c.len; break;
-    case B_PITCH: { float w = b->num[0] > 0 ? b->num[0] : 50; if (w < 10) w = 10; if (w > 200) w = 200; b->num[0] = w; b->st.p.len = (long)(w * sr / 1000 * 1.2f) + 8; b->bufLen = 2 * b->st.p.len; break; }
+    case B_PITCH: { float w = b->num[0] > 0 ? b->num[0] : 50; if (w < 10) w = 10; if (w > 200) w = 200; b->num[0] = w; b->st.p.len = (long)(w * sr / 1000 * 1.4f) + 8; b->bufLen = 2 * b->st.p.len; break; }
     default: b->bufLen = 0;
   }
   b->bufOff = b->bufLen ? poolTake(fx, (unsigned long)b->bufLen) : 0;
@@ -141,6 +158,7 @@ static void planBuffers(CmFx *fx, Block *b) {
 static int fail(char *err, int errLen, const char *m, const char *a) { cm_fmt(err, errLen, m, a); return -1; }
 
 int cmfx_load(CmFx *fx, const char *text, int len, float sr, char *err, int errLen) {
+  cm_tables_init();
   if (err && errLen) err[0] = 0;
   /* (keep the JSON area: it is big and only needed here) */
   Json *j = &fx->json;
@@ -223,6 +241,8 @@ int cmfx_load(CmFx *fx, const char *text, int len, float sr, char *err, int errL
       if (t == B_DELAY) b->num[0] = (float)json_num(j, json_get(j, props, "maxTime"), 2000);
       if (t == B_PHASER) b->num[0] = (float)json_num(j, json_get(j, props, "stages"), 4);
       if (t == B_PITCH) b->num[0] = (float)json_num(j, json_get(j, props, "window"), 50);
+      if (t == B_DRIVE) b->num[0] = (float)json_num(j, json_get(j, props, "oversample"), 2);
+      if (t == B_LIMIT) b->num[0] = (float)json_num(j, json_get(j, props, "lookahead"), 0);
       if (t == B_PARAM) {
         int v = json_get(j, props, "param"); const char *pid = json_str(j, v);
         if (!pid && v >= 0 && j->nodes[v].type == JN_OBJ) pid = json_str(j, json_get(j, v, "param"));
@@ -291,18 +311,22 @@ static void resetBlock(CmFx *fx, Block *b) {
   long bl = b->bufLen; float *buf = b->buf;
   if (buf && bl) cm_memset(buf, 0, sizeof(float) * (unsigned long)bl);
   switch (b->type) {
-    case B_FILTER: case B_EQ: cm_memset(b->st.f.ic1, 0, sizeof b->st.f.ic1); cm_memset(b->st.f.ic2, 0, sizeof b->st.f.ic2); b->st.f.ok = 0; break;
+    case B_FILTER: case B_EQ: cm_memset(b->st.f.ic1, 0, sizeof b->st.f.ic1); cm_memset(b->st.f.ic2, 0, sizeof b->st.f.ic2); b->st.f.ok = 0; b->st.f.okm[0] = b->st.f.okm[1] = 0; break;
     case B_DELAY: b->st.d.pos = 0; b->st.d.lp[0] = b->st.d.lp[1] = 0; b->st.d.init = 0; break;
-    case B_REVERB: cm_memset(b->st.r.cp, 0, sizeof b->st.r.cp); cm_memset(b->st.r.ap, 0, sizeof b->st.r.ap); cm_memset(b->st.r.cs, 0, sizeof b->st.r.cs); b->st.r.pdPos = 0; break;
+    case B_REVERB: cm_memset(b->st.r.pos, 0, sizeof b->st.r.pos); cm_memset(b->st.r.dp, 0, sizeof b->st.r.dp); cm_memset(b->st.r.damp, 0, sizeof b->st.r.damp); b->st.r.pdPos = 0; b->st.r.lastSize = -1; cm_memset(b->st.r.m, 0, sizeof b->st.r.m);
+      for (int k = 0; k < 4; k++) b->st.r.ph[k] = k * 0.25; break;
     case B_CHORUS: b->st.c.pos = 0; b->st.c.phase = 0; break;
     case B_PHASER: cm_memset(b->st.ph.z, 0, sizeof b->st.ph.z); b->st.ph.fb[0] = b->st.ph.fb[1] = 0; b->st.ph.phase = 0; break;
     case B_DRIVE: cm_memset(&b->st.dr, 0, sizeof b->st.dr); break;
+    case B_XOVER: cm_memset(&b->st.x, 0, sizeof b->st.x); break;
+    case B_TRANS: cm_memset(&b->st.tr, 0, sizeof b->st.tr); b->st.tr.g = 1; break;
+    case B_ROTARY: { long len = b->st.ro.len; cm_memset(&b->st.ro, 0, sizeof b->st.ro); b->st.ro.len = len; break; }
     case B_CRUSH: cm_memset(&b->st.cr, 0, sizeof b->st.cr); break;
-    case B_COMP: b->st.cp.env = -120; break;
-    case B_LIMIT: b->st.lm.g = 1; break;
+    case B_COMP: cm_memset(&b->st.cp, 0, sizeof b->st.cp); b->st.cp.env = -120; break;
+    case B_LIMIT: { StLimit *l = &b->st.lm; l->g = 1; l->r = 1; l->pos = l->qh = l->qn = l->apos = l->hpos = 0; l->cnt = 0; l->sum = l->L + 1; float *a = b->buf ? b->buf + 2 * (l->D + 1) + 2 * (l->W + 1) : 0; if (a) for (int k = 0; k <= l->L; k++) a[k] = 1; break; }
     case B_GATE: b->st.g.env = -120; b->st.g.g = 0; b->st.g.hold = 0; break;
     case B_TREMOLO: b->st.t.phase = 0; break;
-    case B_PITCH: b->st.p.pos = 0; b->st.p.phase = 0; break;
+    case B_PITCH: { StPitch *q = &b->st.p; q->pos = 0; q->rng = 0x2545F491u; for (int k = 0; k < 4; k++) { q->ph[k] = k * 0.25; q->wl[k] = 1; } break; }
     case B_LFO: b->st.l.phase = 0; b->st.l.rng = 0x12345u; for (const char *c = b->id; *c; c++) b->st.l.rng = b->st.l.rng * 31u + (unsigned char)*c; b->st.l.cur = 0; b->st.l.target = 0; break;
     case B_ENV: b->st.e.env = 0; break;
     case B_MATH: b->st.m.sm[0] = b->st.m.sm[1] = 0; break;
@@ -355,7 +379,10 @@ static void runFilter(CmFx *fx, Block *b, int n) {
       if (!f->ok || fc != f->lf[ch] || q != f->lq[ch] || g != f->lg[ch]) { filterCoefs(f, ch, mode, fc, q, g, fx->sr); f->lf[ch] = fc; f->lq[ch] = q; f->lg[ch] = g; }
     }
     for (int i = 0; i < n; i++) {
-      if (moving && (i & 7) == 0) filterCoefs(f, ch, mode, sg(&b->in[1], ch, i), sg(&b->in[2], ch, i), sg(&b->in[3], ch, i), fx->sr);
+      if (moving && (i & 7) == 0) {   /* (only when a value really moved: a knob that sits still costs nothing) */
+        float fc = sg(&b->in[1], ch, i), q = sg(&b->in[2], ch, i), g = sg(&b->in[3], ch, i);
+        if (fc != f->lf[ch] || q != f->lq[ch] || g != f->lg[ch] || !f->okm[ch]) { filterCoefs(f, ch, mode, fc, q, g, fx->sr); f->lf[ch] = fc; f->lq[ch] = q; f->lg[ch] = g; f->okm[ch] = 1; }
+      }
       float x = sg(&b->in[0], ch, i);
       for (int s = 0; s < stages; s++) {
         double v0 = x, v3 = v0 - f->ic2[s][ch], v1 = f->a1[ch] * f->ic1[s][ch] + f->a2[ch] * v3, v2 = f->ic2[s][ch] + f->a2[ch] * f->ic1[s][ch] + f->a3[ch] * v3;
@@ -365,7 +392,7 @@ static void runFilter(CmFx *fx, Block *b, int n) {
       b->out[ch][i] = x;
     }
   }
-  if (!moving) f->ok = 1; else f->ok = 0;
+  if (!moving) { f->ok = 1; f->okm[0] = f->okm[1] = 0; } else f->ok = 0;
 }
 static inline float rd(const float *buf, long len, int pos, float d) {   /* d samples behind the newest (pos - 1) */
   if (d < 0) d = 0; if (d > (float)(len - 3)) d = (float)(len - 3);
@@ -389,29 +416,39 @@ static void runDelay(CmFx *fx, Block *b, int n) {
   }
 }
 static void runReverb(CmFx *fx, Block *b, int n) {
-  StReverb *r = &b->st.r; float *buf = b->buf; float *pd = buf + r->pdOff;
+  StReverb *r = &b->st.r; float *buf = b->buf, *pd = buf + r->pdOff, sr = fx->sr;
+  static const float SL[8] = { 1, -1, 1, -1, 1, -1, 1, -1 }, SR[8] = { 1, 1, -1, -1, 1, 1, -1, -1 };
   for (int i = 0; i < n; i++) {
-    float size = clampf(sg(&b->in[1], 0, i), 0, 1), damp = clampf(sg(&b->in[2], 0, i), 0, 1) * 0.4f, fbk = 0.7f + size * 0.28f;
-    float pre = clampf(sg(&b->in[4], 0, i), 0, 250) * fx->sr * 0.001f, width = clampf(sg(&b->in[5], 0, i), 0, 1);
-    float inL = sg(&b->in[0], 0, i), inR = sg(&b->in[0], 1, i);
-    pd[r->pdPos] = (inL + inR) * 0.015f; if (++r->pdPos >= r->pdLen) r->pdPos = 0;
-    float x = pre < 1 ? pd[(r->pdPos + r->pdLen - 1) % r->pdLen] : rd(pd, r->pdLen, r->pdPos, pre);
-    float acc[2];
-    for (int ch = 0; ch < 2; ch++) {
-      float a = 0;
-      for (int j = 0; j < 8; j++) {
-        float *c = buf + r->co[ch][j]; int p = r->cp[ch][j]; float y = c[p];
-        r->cs[ch][j] = y * (1 - damp) + r->cs[ch][j] * damp; UND(r->cs[ch][j]);
-        c[p] = x + r->cs[ch][j] * fbk; UND(c[p]); if (++p >= r->cl[ch][j]) p = 0; r->cp[ch][j] = p; a += y;
-      }
-      for (int j = 0; j < 4; j++) {
-        float *c = buf + r->ao[ch][j]; int p = r->ap[ch][j]; float bo = c[p], y = -a + bo;
-        c[p] = a + bo * 0.5f; UND(c[p]); if (++p >= r->al[ch][j]) p = 0; r->ap[ch][j] = p; a = y;
-      }
-      acc[ch] = a;
+    float size = clampf(sg(&b->in[1], 0, i), 0, 1), damp = clampf(sg(&b->in[2], 0, i), 0, 1) * 0.85f;
+    float pre = clampf(sg(&b->in[4], 0, i), 0, 250) * sr * 0.001f, width = clampf(sg(&b->in[5], 0, i), 0, 1), mod = clampf(sg(&b->in[6], 0, i), 0, 1);
+    if (size != r->lastSize) {   /* the decay time: 0.25 s (size 0) to 12 s (size 1); each line loses 60 dB in that time */
+      double rt = 0.25 * cm_exp(size * 3.8712010109078907);
+      for (int k = 0; k < 8; k++) r->g[k] = (float)cm_exp(-6.907755278982137 * (r->len[k] - 12) / (rt * sr));
+      r->lastSize = size;
     }
-    float w1 = width * 0.5f + 0.5f, w2 = (1 - width) * 0.5f;   /* (Freeverb's wet at 1/3 of its scale: about as loud as the dry sound) */
-    float wl = acc[0] * w1 + acc[1] * w2, wr = acc[1] * w1 + acc[0] * w2;
+    float inL = sg(&b->in[0], 0, i), inR = sg(&b->in[0], 1, i);
+    pd[r->pdPos] = (inL + inR) * 0.5f; if (++r->pdPos >= r->pdLen) r->pdPos = 0;
+    float x = pre < 1 ? pd[(r->pdPos + r->pdLen - 1) % r->pdLen] : rd(pd, r->pdLen, r->pdPos, pre);
+    for (int k = 0; k < 4; k++) {   /* diffusion: the first reflections already dense */
+      float *d = buf + r->doff[k], gk = k < 2 ? 0.72f : 0.62f; int p = r->dp[k]; float z = d[p], v = x + gk * z;
+      d[p] = v; UND(d[p]); if (++p >= r->dl[k]) p = 0; r->dp[k] = p; x = z - gk * v;
+    }
+    float y[8], sum = 0;
+    for (int k = 0; k < 8; k++) {
+      float *ln = buf + r->off[k]; int L = r->len[k]; float dd = (float)(L - 12);
+      if (k < 4) { if ((r->pdPos & 15) == 0) { r->ph[k] += 16 * (0.31 + 0.13 * k) / sr; if (r->ph[k] >= 1) r->ph[k] -= 1; r->m[k] = mod * 9.0f * cm_tsin(r->ph[k]); } dd += r->m[k]; }
+      float v = rd(ln, L, r->pos[k], dd);
+      r->damp[k] = v * (1 - damp) + r->damp[k] * damp; UND(r->damp[k]);
+      y[k] = r->damp[k]; sum += y[k];
+    }
+    float f = sum * 0.25f, oL = 0, oR = 0;
+    for (int k = 0; k < 8; k++) {
+      float *ln = buf + r->off[k]; float w = (k & 1 ? inR : inL) * 0.12f + x * 0.35f + (y[k] - f) * r->g[k];
+      ln[r->pos[k]] = w; UND(ln[r->pos[k]]); if (++r->pos[k] >= r->len[k]) r->pos[k] = 0;
+      oL += SL[k] * y[k]; oR += SR[k] * y[k];
+    }
+    oL *= 0.42f; oR *= 0.42f;
+    float w1 = width * 0.5f + 0.5f, w2 = (1 - width) * 0.5f, wl = oL * w1 + oR * w2, wr = oR * w1 + oL * w2;
     float m0 = clampf(sg(&b->in[3], 0, i), 0, 1), m1 = clampf(sg(&b->in[3], 1, i), 0, 1);
     b->out[0][i] = inL * (1 - m0) + wl * m0; b->out[1][i] = inR * (1 - m1) + wr * m1;
   }
@@ -423,7 +460,7 @@ static void runChorus(CmFx *fx, Block *b, int n) {
     float rate = clampf(sg(&b->in[1], 0, i), 0.01f, 10); c->phase += rate / sr; if (c->phase >= 1) c->phase -= 1;
     float rv[2];
     for (int ch = 0; ch < 2; ch++) {
-      float lfo = (float)cm_sin(2 * CM_PI * (c->phase + ch * 0.25)), depth = clampf(sg(&b->in[2], ch, i), 0, 1);
+      float lfo = cm_tsin(c->phase + ch * 0.25), depth = clampf(sg(&b->in[2], ch, i), 0, 1);
       float dms = base + depth * range * (0.5f + 0.5f * lfo); rv[ch] = rd(ch ? R : L, c->len, c->pos, dms * sr * 0.001f);
     }
     for (int ch = 0; ch < 2; ch++) {
@@ -451,18 +488,48 @@ static void runPhaser(CmFx *fx, Block *b, int n) {
     }
   }
 }
+/* 2x up / down with a halfband filter: rings of 32 floats. up: x -> (y0, y1); down: (v0, v1) -> z */
+static const float HB[24] = { -2.183676393374e-04f, 6.844984101220e-04f, -1.512583897726e-03f, 3.054227325005e-03f, -5.504437380565e-03f, 9.203187808299e-03f, -1.463479463205e-02f, 2.262417791187e-02f, -3.485541751218e-02f, 5.567291181793e-02f, -1.011390078020e-01f, 3.166256055907e-01f, 3.166256055907e-01f, -1.011390078020e-01f, 5.567291181793e-02f, -3.485541751218e-02f, 2.262417791187e-02f, -1.463479463205e-02f, 9.203187808299e-03f, -5.504437380565e-03f, 3.054227325005e-03f, -1.512583897726e-03f, 6.844984101220e-04f, -2.183676393374e-04f };
+static inline void up2(float *ring, int *pos, float x, float *y0, float *y1) {
+  int p = *pos = (*pos + 1) & 31; ring[p] = x; float a = 0;
+  for (int i = 0; i < 12; i++) a += HB[i] * (ring[(p - i) & 31] + ring[(p - 23 + i) & 31]);   /* (the taps are symmetric) */
+  *y0 = 2 * a; *y1 = ring[(p - 11) & 31];
+}
+static inline float down2(float *ev, float *od, int *pos, float v0, float v1) {
+  int p = *pos = (*pos + 1) & 31; ev[p] = v0; od[p] = v1; float a = 0;
+  for (int i = 0; i < 12; i++) a += HB[i] * (ev[(p - i) & 31] + ev[(p - 23 + i) & 31]);
+  return a + 0.5f * od[(p - 12) & 31];
+}
+static const float TP[3][8] = {
+  { -9.665249175292e-03f, 4.054956531601e-02f, -1.331709339684e-01f, 8.794562592960e-01f, 2.931520864320e-01f, -9.512209569174e-02f, 3.317691707674e-02f, -8.376549285253e-03f },
+  { -1.259553384845e-02f, 5.121732831401e-02f, -1.557458227880e-01f, 6.171240283224e-01f, 6.171240283224e-01f, -1.557458227880e-01f, 5.121732831401e-02f, -1.259553384845e-02f },
+  { -8.376549285253e-03f, 3.317691707674e-02f, -9.512209569174e-02f, 2.931520864320e-01f, 8.794562592960e-01f, -1.331709339684e-01f, 4.054956531601e-02f, -9.665249175292e-03f }
+};
+static inline float shape(int mode, float x) {
+  switch (mode) {
+    case 1: return clampf(x, -1, 1);
+    case 2: return cm_ftanh(x + 0.25f) - 0.24489795918367346f;
+    case 3: { float ax = x < 0 ? -x : x, y = (float)(1 - cm_exp(-ax * 1.5)); return x < 0 ? -y * 0.8f : y; }
+    case 4: return (float)cm_sin(x);
+    case 5: { float y = cm_ftanh(x * 0.9f + 0.08f * x * x); return y * 0.9f + 0.1f * x / (1 + (x < 0 ? -x : x)); }   /* tape: soft, a little uneven */
+    default: return cm_ftanh(x);
+  }
+}
 static void runDrive(CmFx *fx, Block *b, int n) {
   StDrive *d = &b->st.dr; float sr = fx->sr;
   for (int ch = 0; ch < 2; ch++) { float ta = (float)(1 - cm_exp(-2 * CM_PI * clampf(sg(&b->in[2], ch, 0), 200, 20000) / sr)); for (int i = 0; i < n; i++) {
     float x0 = sg(&b->in[0], ch, i), pre = cm_db2lin(clampf(sg(&b->in[1], ch, i), 0, 48)), x = x0 * pre, y;
-    switch (b->mode) {
-      case 1: y = clampf(x, -1, 1); break;
-      case 2: y = (float)(cm_tanh(x + 0.25) - 0.24491866240370913); break;
-      case 3: { float ax = x < 0 ? -x : x; y = (float)(1 - cm_exp(-ax * 1.5)); if (x < 0) y = -y * 0.8f; break; }
-      case 4: y = (float)cm_sin(x); break;
-      default: y = (float)cm_tanh(x);
+    if (b->num[0] <= 1 || !b->buf) y = shape(b->mode, x);
+    else {   /* (10.3) at 2x or 4x the rate, so the harmonics it makes don't fold back as harsh aliasing */
+      float *rg = b->buf + ch * 6 * 32; int *ps = d->pos + ch * 6; float u0, u1;
+      up2(rg, ps, x, &u0, &u1);
+      if (b->num[0] >= 4) {
+        float a0, a1, c0, c1; up2(rg + 32, ps + 1, u0, &a0, &a1); up2(rg + 32, ps + 1, u1, &c0, &c1);
+        u0 = down2(rg + 64, rg + 96, ps + 2, shape(b->mode, a0), shape(b->mode, a1)); u1 = down2(rg + 64, rg + 96, ps + 2, shape(b->mode, c0), shape(b->mode, c1));
+      } else { u0 = shape(b->mode, u0); u1 = shape(b->mode, u1); }
+      y = down2(rg + 128, rg + 160, ps + 3, u0, u1);
     }
-    if (b->mode == 2 || b->mode == 3) { float o = y - d->x1[ch] + 0.995f * d->y1[ch]; d->x1[ch] = y; d->y1[ch] = o; UND(d->y1[ch]); y = o; }
+    if (b->mode == 2 || b->mode == 3 || b->mode == 5) { float o = y - d->x1[ch] + 0.995f * d->y1[ch]; d->x1[ch] = y; d->y1[ch] = o; UND(d->y1[ch]); y = o; }
     d->lp[ch] += (y - d->lp[ch]) * ta; UND(d->lp[ch]);
     float out = d->lp[ch] * cm_db2lin(clampf(sg(&b->in[3], ch, i), -48, 12)), m = clampf(sg(&b->in[4], ch, i), 0, 1);
     b->out[ch][i] = x0 * (1 - m) + out * m;
@@ -482,32 +549,77 @@ static void runCrush(CmFx *fx, Block *b, int n) {
   }
 }
 static void runComp(CmFx *fx, Block *b, int n) {
-  StComp *c = &b->st.cp; int keyed = b->srcCount[1] > 0; float sr = fx->sr;
-  float att = clampf(sg(&b->in[4], 0, 0), 0.1f, 200), rel = clampf(sg(&b->in[5], 0, 0), 5, 2000);
-  float aa = (float)cm_exp(-1.0 / (att * sr * 0.001)), ar = (float)cm_exp(-1.0 / (rel * sr * 0.001));
+  /* (10.3) the gain computer works on the level (peak, or RMS over ~10 ms), through a soft knee; the gain reduction is then
+   * smoothed (attack / release). Styles: clean; fet (very fast, a little colour); opto (the release slows the longer and
+   * harder it works, like an optical leveler); glue (a bus compressor: gentle knee, RMS) */
+  StComp *c = &b->st.cp; int keyed = b->srcCount[1] > 0, style = b->mode, rms = b->mode2 == 1 || style == 3; float sr = fx->sr;
+  float att = clampf(sg(&b->in[4], 0, 0), 0.02f, 200), rel = clampf(sg(&b->in[5], 0, 0), 5, 5000), hpf = clampf(sg(&b->in[9], 0, 0), 10, 500);
+  if (style == 2 && att < 10) att = 10;
+  float aa = (float)cm_exp(-1.0 / (att * sr * 0.001)), km = (float)cm_exp(-1.0 / (0.01 * sr)), ks = (float)cm_exp(-1.0 / (1.5 * sr));
+  float hc = hpf > 20 ? (float)cm_exp(-6.283185307179586 * hpf / sr) : 0;
   for (int i = 0; i < n; i++) {
     float l = sg(&b->in[0], 0, i), r = sg(&b->in[0], 1, i);
     float dl = keyed ? sg(&b->in[1], 0, i) : l, dr = keyed ? sg(&b->in[1], 1, i) : r;
-    float det = dl < 0 ? -dl : dl, d2 = dr < 0 ? -dr : dr; if (d2 > det) det = d2;
-    float db = cm_lin2db(det);
-    c->env = db > c->env ? aa * c->env + (1 - aa) * db : ar * c->env + (1 - ar) * db; if (c->env < -120) c->env = -120;
-    float thr = sg(&b->in[2], 0, i), ratio = clampf(sg(&b->in[3], 0, i), 1, 30), knee = clampf(sg(&b->in[6], 0, i), 0, 24), over = c->env - thr, gr;
+    if (hc > 0) { float yl = hc * (c->hp[0] + dl - c->hx[0]), yr = hc * (c->hp[1] + dr - c->hx[1]); c->hx[0] = dl; c->hx[1] = dr; c->hp[0] = yl; c->hp[1] = yr; UND(c->hp[0]); UND(c->hp[1]); dl = yl; dr = yr; }
+    float al = dl < 0 ? -dl : dl, ar2 = dr < 0 ? -dr : dr, det = al > ar2 ? al : ar2;
+    if (rms) { c->ms = km * c->ms + (1 - km) * det * det; UND(c->ms); det = (float)cm_sqrt(c->ms * 2); }
+    float lev = cm_fdb(det);
+    float thr = sg(&b->in[2], 0, i), ratio = clampf(sg(&b->in[3], 0, i), 1, 30), knee = clampf(sg(&b->in[6], 0, i), 0, 24), over = lev - thr, gr;
+    if (style == 3 && knee < 6) knee = 6;
     float slope = 1.0f / ratio - 1.0f;
     if (knee > 0 && 2 * over > -knee && 2 * over < knee) gr = slope * (over + knee * 0.5f) * (over + knee * 0.5f) / (2 * knee);
     else gr = over > 0 ? slope * over : 0;
-    float g = cm_db2lin(gr + sg(&b->in[7], 0, i)), m = clampf(sg(&b->in[8], 0, i), 0, 1);
-    b->out[0][i] = l * (1 - m) + l * g * m; b->out[1][i] = r * (1 - m) + r * g * m;
+    float relMs = rel;
+    if (style == 2) { relMs = rel * (1 + c->slow * 0.35f); if (relMs > 5000) relMs = 5000; }
+    float ar = (float)cm_exp(-1.0 / (relMs * sr * 0.001));
+    c->gr = gr < c->gr ? aa * c->gr + (1 - aa) * gr : ar * c->gr + (1 - ar) * gr; UND(c->gr);
+    c->slow = ks * c->slow + (1 - ks) * (-c->gr); UND(c->slow);
+    c->env = lev;
+    float g = cm_fgain(c->gr + sg(&b->in[7], 0, i)), m = clampf(sg(&b->in[8], 0, i), 0, 1), ol = l * g, orr = r * g;
+    if (style == 1) { ol = cm_ftanh(ol * 1.15f) * 0.8696f * 0.35f + ol * 0.65f; orr = cm_ftanh(orr * 1.15f) * 0.8696f * 0.35f + orr * 0.65f; }
+    b->out[0][i] = l * (1 - m) + ol * m; b->out[1][i] = r * (1 - m) + orr * m;
   }
 }
 static void runLimit(CmFx *fx, Block *b, int n) {
   StLimit *s = &b->st.lm; float rel = clampf(sg(&b->in[2], 0, 0), 5, 1000), rc = (float)(1 - cm_exp(-1.0 / (rel * fx->sr * 0.001)));
+  if (!b->buf) {   /* no look-ahead: as before */
+    for (int i = 0; i < n; i++) {
+      float l = sg(&b->in[0], 0, i), r = sg(&b->in[0], 1, i), c = cm_db2lin(clampf(sg(&b->in[1], 0, i), -24, 0));
+      float pk = l < 0 ? -l : l, p2 = r < 0 ? -r : r; if (p2 > pk) pk = p2;
+      float target = pk > c ? c / pk : 1;
+      if (target < s->g) s->g = target; else s->g += (target - s->g) * rc;
+      b->out[0][i] = clampf(l * s->g, -c, c); b->out[1][i] = clampf(r * s->g, -c, c);
+    }
+    return;
+  }
+  /* (10.3) look-ahead: the sound is delayed, the gain it will need is known in time and lowered smoothly (a running minimum
+   * of the targets, then a moving average over the look-ahead), so peaks are caught without clicks. truepeak: the peaks
+   * between the samples (estimated at 4x) count too, for a true-peak ceiling */
+  int D = s->D, W = s->W, L = s->L; float *dl = b->buf, *dr = dl + D + 1, *qv = dr + D + 1, *qi = qv + W + 1, *av = qi + W + 1, *th = av + L + 1;
+  const long M = 1 << 20;
   for (int i = 0; i < n; i++) {
     float l = sg(&b->in[0], 0, i), r = sg(&b->in[0], 1, i), c = cm_db2lin(clampf(sg(&b->in[1], 0, i), -24, 0));
     float pk = l < 0 ? -l : l, p2 = r < 0 ? -r : r; if (p2 > pk) pk = p2;
-    float target = pk > c ? c / pk : 1;
-    if (target < s->g) s->g = target; else s->g += (target - s->g) * rc;
-    b->out[0][i] = clampf(l * s->g, -c, c); b->out[1][i] = clampf(r * s->g, -c, c);
+    if (b->mode == 1) {   /* the samples between: from the last 8 of each side */
+      int hp = s->hpos = (s->hpos + 1) & 7; th[hp] = l; th[8 + hp] = r;
+      for (int ch = 0; ch < 2; ch++) for (int f = 0; f < 3; f++) {
+        float a = 0; for (int k = 0; k < 8; k++) a += TP[f][k] * th[ch * 8 + ((hp - 7 + k) & 7)];
+        if (a < 0) a = -a; if (a > pk) pk = a;
+      }
+    }
+    float t = pk > c ? c / pk : 1;
+    s->r = t < s->r + (1 - s->r) * rc ? t : s->r + (1 - s->r) * rc;
+    /* the running minimum over the last W targets (a queue that keeps only the ones that can still be the minimum) */
+    while (s->qn > 0 && qv[(s->qh + s->qn - 1) % (W + 1)] >= s->r) s->qn--;
+    int at = (s->qh + s->qn) % (W + 1); qv[at] = s->r; qi[at] = (float)(s->cnt % M); s->qn++;
+    while (s->qn > 0 && ((s->cnt - (long)qi[s->qh] + M) % M) >= W) { s->qh = (s->qh + 1) % (W + 1); s->qn--; }
+    float h = qv[s->qh]; s->cnt++;
+    s->sum += h - av[s->apos]; av[s->apos] = h; if (++s->apos > L) s->apos = 0;
+    float g = (float)(s->sum / (L + 1)); if (g > 1) g = 1;
+    dl[s->pos] = l; dr[s->pos] = r; int rp = s->pos - D; if (rp < 0) rp += D + 1; if (++s->pos > D) s->pos = 0;
+    s->g = g; b->out[0][i] = clampf(dl[rp] * g, -c, c); b->out[1][i] = clampf(dr[rp] * g, -c, c);
   }
+  if ((s->cnt & 65535) < (unsigned)n) { double t2 = 0; for (int k = 0; k <= L; k++) t2 += av[k]; s->sum = t2; }   /* (the running sum, refreshed) */
 }
 static void runGate(CmFx *fx, Block *b, int n) {
   StGate *g = &b->st.g; int keyed = b->srcCount[1] > 0; float sr = fx->sr;
@@ -517,7 +629,7 @@ static void runGate(CmFx *fx, Block *b, int n) {
     float l = sg(&b->in[0], 0, i), r = sg(&b->in[0], 1, i);
     float dl = keyed ? sg(&b->in[1], 0, i) : l, dr = keyed ? sg(&b->in[1], 1, i) : r;
     float det = dl < 0 ? -dl : dl, d2 = dr < 0 ? -dr : dr; if (d2 > det) det = d2;
-    float db = cm_lin2db(det); g->env += (db - g->env) * (db > g->env ? 1.0f : ce);
+    float db = cm_fdb(det); g->env += (db - g->env) * (db > g->env ? 1.0f : ce);
     float thr = sg(&b->in[2], 0, i), range = cm_db2lin(clampf(sg(&b->in[3], 0, i), -90, 0)); int holdS = (int)(clampf(sg(&b->in[5], 0, i), 0, 500) * sr * 0.001f);
     int open = g->env > thr; if (open) g->hold = holdS; else if (g->hold > 0) { g->hold--; open = 1; }
     float target = open ? 1.0f : range; g->g += (target - g->g) * (target > g->g ? ca : cr);
@@ -532,7 +644,7 @@ static float wave(int shape, double ph, StLfo *l) {
     case 3: return (float)(1 - 2 * ph);
     case 4: return ph < 0.5 ? 1.0f : -1.0f;
     case 5: return l ? l->cur + (l->target - l->cur) * (float)ph : 0;
-    default: return (float)cm_sin(2 * CM_PI * ph);
+    default: return cm_tsin(ph);
   }
 }
 static void runTremolo(CmFx *fx, Block *b, int n) {
@@ -547,19 +659,29 @@ static void runTremolo(CmFx *fx, Block *b, int n) {
   }
 }
 static void runPitch(CmFx *fx, Block *b, int n) {
+  /* (10.3) four overlapping grains, each its own (slightly varied) window length and normalized together: smoother than two,
+   * without the fluttering comb sound - good for shimmer */
   StPitch *p = &b->st.p; float *L = b->buf, *R = b->buf + p->len; float W = b->num[0] * fx->sr * 0.001f;
   for (int i = 0; i < n; i++) {
     float semi = clampf(sg(&b->in[1], 0, i), -24, 24) + clampf(sg(&b->in[2], 0, i), -100, 100) * 0.01f;
     double ratio = cm_exp(semi * 0.05776226504666210911);   /* 2^(semi/12) */
     L[p->pos] = sg(&b->in[0], 0, i); R[p->pos] = sg(&b->in[0], 1, i); if (++p->pos >= p->len) p->pos = 0;
-    p->phase += (1 - ratio) / W; p->phase -= cm_floor(p->phase);
-    double ph2 = p->phase + 0.5; ph2 -= cm_floor(ph2);
-    float g1 = (float)(0.5 - 0.5 * cm_cos(2 * CM_PI * p->phase)), g2 = 1 - g1;
-    for (int ch = 0; ch < 2; ch++) {
-      float *buf = ch ? R : L;
-      float y = g1 * rd(buf, p->len, p->pos, (float)(p->phase * W)) + g2 * rd(buf, p->len, p->pos, (float)(ph2 * W));
-      float m = clampf(sg(&b->in[3], ch, i), 0, 1); b->out[ch][i] = sg(&b->in[0], ch, i) * (1 - m) + y * m;
+    float yl = 0, yr = 0, ws = 0, mm0 = clampf(sg(&b->in[3], 0, i), 0, 1), mm1 = clampf(sg(&b->in[3], 1, i), 0, 1);
+    if (mm0 <= 0 && mm1 <= 0) { b->out[0][i] = sg(&b->in[0], 0, i); b->out[1][i] = sg(&b->in[0], 1, i); continue; }   /* (off: costs nothing) */
+    for (int k = 0; k < 4; k++) {
+      float wk = W * p->wl[k]; double old = p->ph[k];
+      p->ph[k] += (1 - ratio) / wk;
+      if (p->ph[k] >= 1 || p->ph[k] < 0) {   /* a new grain: a new length (85% to 115%) */
+        p->ph[k] -= cm_floor(p->ph[k]); unsigned r = p->rng; r ^= r << 13; r ^= r >> 17; r ^= r << 5; p->rng = r;
+        p->wl[k] = 0.85f + 0.3f * (float)(r >> 8) * (1.0f / 16777216.0f);
+      }
+      (void)old;
+      float sh = cm_tsin(0.5 * p->ph[k]), g = sh * sh, d = (float)(p->ph[k] * W * p->wl[k]);
+      yl += g * rd(L, p->len, p->pos, d); yr += g * rd(R, p->len, p->pos, d); ws += g;
     }
+    float norm = ws > 0.6f ? 1.0f / ws : 1.0f / 0.6f; yl *= norm; yr *= norm;
+    float m0 = clampf(sg(&b->in[3], 0, i), 0, 1), m1 = clampf(sg(&b->in[3], 1, i), 0, 1);
+    b->out[0][i] = sg(&b->in[0], 0, i) * (1 - m0) + yl * m0; b->out[1][i] = sg(&b->in[0], 1, i) * (1 - m1) + yr * m1;
   }
 }
 static void runLfo(CmFx *fx, Block *b, int n) {
@@ -605,6 +727,75 @@ static void runStereo(Block *b, int n) {
     float w = clampf(sg(&b->in[1], 0, i), 0, 2), m = (l + r) * 0.5f, s = (l - r) * 0.5f * w; l = m + s; r = m - s;
     float pan = clampf(sg(&b->in[2], 0, i), -1, 1); l *= pan > 0 ? 1 - pan : 1; r *= pan < 0 ? 1 + pan : 1;
     b->out[0][i] = l; b->out[1][i] = r;
+  }
+}
+/* a state-variable stage (lowpass / highpass / allpass, Q 0.7071): c = {a1, a2, a3, m0, m1, m2} */
+static void svfSet(double *c, int kind, float fc, float sr) {
+  fc = clampf(fc, 10, 0.49f * sr); double g = cm_tan(CM_PI * fc / sr), k = 1.4142135623730951, a1 = 1.0 / (1.0 + g * (g + k));
+  c[0] = a1; c[1] = g * a1; c[2] = g * g * a1;
+  if (kind == 0) { c[3] = 0; c[4] = 0; c[5] = 1; } else if (kind == 1) { c[3] = 1; c[4] = -k; c[5] = -1; } else { c[3] = 1; c[4] = -2 * k; c[5] = 0; }
+}
+static inline float svf(const double *c, float *ic1, float *ic2, float x) {
+  double v0 = x, v3 = v0 - *ic2, v1 = c[0] * *ic1 + c[1] * v3, v2 = *ic2 + c[1] * *ic1 + c[2] * v3;
+  *ic1 = (float)(2 * v1 - *ic1); *ic2 = (float)(2 * v2 - *ic2); UND(*ic1); UND(*ic2);
+  return (float)(c[3] * v0 + c[4] * v1 + c[5] * v2);
+}
+static void runXover(CmFx *fx, Block *b, int n) {
+  /* one band of a 3-way Linkwitz-Riley crossover (24 dB / octave): low + mid + high add back up to the input's level */
+  StXover *x = &b->st.x; float f1 = clampf(sg(&b->in[1], 0, 0), 20, 20000), f2 = clampf(sg(&b->in[2], 0, 0), 20, 20000);
+  if (f2 < f1 * 1.05f) f2 = f1 * 1.05f;
+  static const int ST[3][4] = { { 0, 0, 2, -1 }, { 1, 1, 0, 0 }, { 1, 1, 2, -1 } };   /* kinds per band (0 lp, 1 hp, 2 ap) */
+  static const int FQ[3][4] = { { 1, 1, 2, 0 }, { 1, 1, 2, 2 }, { 2, 2, 1, 0 } };
+  int band = b->mode; if (band < 0 || band > 2) band = 0;
+  if (!x->ok || f1 != x->f1 || f2 != x->f2) { for (int k = 0; k < 4; k++) if (ST[band][k] >= 0) svfSet(x->c[k], ST[band][k], FQ[band][k] == 1 ? f1 : f2, fx->sr); x->f1 = f1; x->f2 = f2; x->ok = 1; }
+  for (int ch = 0; ch < 2; ch++) for (int i = 0; i < n; i++) {
+    float v = sg(&b->in[0], ch, i);
+    for (int k = 0; k < 4; k++) if (ST[band][k] >= 0) v = svf(x->c[k], &x->ic1[ch][k], &x->ic2[ch][k], v);
+    b->out[ch][i] = v;
+  }
+}
+static void runTrans(CmFx *fx, Block *b, int n) {
+  /* a transient shaper: a fast and a slow follower of the level; where the fast is above the slow it's an attack, where the
+   * slow release is above the fast it's the sustain. Attack / sustain (-100..100 %) turn each up or down, up to 18 dB */
+  StTrans *t = &b->st.tr; float sr = fx->sr;
+  float fa = (float)cm_exp(-1.0 / (0.0005 * sr)), sa = (float)cm_exp(-1.0 / (0.02 * sr)), r1 = (float)cm_exp(-1.0 / (0.05 * sr)), r2 = (float)cm_exp(-1.0 / (0.35 * sr)), gs = (float)cm_exp(-1.0 / (0.001 * sr));
+  for (int i = 0; i < n; i++) {
+    float l = sg(&b->in[0], 0, i), r = sg(&b->in[0], 1, i), al = l < 0 ? -l : l, ar = r < 0 ? -r : r, x = al > ar ? al : ar;
+    t->ef = x > t->ef ? fa * t->ef + (1 - fa) * x : r1 * t->ef + (1 - r1) * x;
+    t->es = x > t->es ? sa * t->es + (1 - sa) * x : r1 * t->es + (1 - r1) * x;
+    t->esr = x > t->esr ? sa * t->esr + (1 - sa) * x : r2 * t->esr + (1 - r2) * x;
+    UND(t->ef); UND(t->es); UND(t->esr);
+    float d1 = cm_fdb(t->ef + 1e-9f) - cm_fdb(t->es + 1e-9f), d2 = cm_fdb(t->esr + 1e-9f) - cm_fdb(t->ef + 1e-9f);
+    d1 = clampf(d1, 0, 24); d2 = clampf(d2, 0, 24);
+    float gdb = clampf(sg(&b->in[1], 0, i), -100, 100) * 0.01f * d1 * 0.75f + clampf(sg(&b->in[2], 0, i), -100, 100) * 0.01f * d2 * 0.75f;
+    gdb = clampf(gdb, -18, 18) + clampf(sg(&b->in[3], 0, i), -24, 12);
+    t->g = gs * t->g + (1 - gs) * cm_fgain(gdb);
+    b->out[0][i] = l * t->g; b->out[1][i] = r * t->g;
+  }
+}
+static void runRotary(CmFx *fx, Block *b, int n) {
+  /* a rotating speaker: the horn (above 800 Hz) and the drum spin at their own speeds (slow ~0.8 Hz, fast ~6.7 Hz) and
+   * speed up / slow down with their own weight; two mics hear them come and go (pitch and level) */
+  StRotary *o = &b->st.ro; float sr = fx->sr, *H = b->buf, *Dm = b->buf + o->len;
+  float xo = (float)(1 - cm_exp(-6.283185307179586 * 800 / sr)), kh = (float)(1 - cm_exp(-1.0 / (0.6 * sr))), kd = (float)(1 - cm_exp(-1.0 / (2.8 * sr)));
+  for (int i = 0; i < n; i++) {
+    float sp = clampf(sg(&b->in[1], 0, i), 0, 1), depth = clampf(sg(&b->in[2], 0, i), 0, 1), m = clampf(sg(&b->in[3], 0, i), 0, 1);
+    float th = 0.8f + sp * 5.9f, td = 0.66f + sp * 5.1f; o->hr += (th - o->hr) * kh; o->dr += (td - o->dr) * kd;
+    if (o->hr < 0.1f) o->hr = 0.8f; if (o->dr < 0.1f) o->dr = 0.66f;
+    o->hp += o->hr / sr; if (o->hp >= 1) o->hp -= 1; o->dp += o->dr / sr; if (o->dp >= 1) o->dp -= 1;
+    float l = sg(&b->in[0], 0, i), r = sg(&b->in[0], 1, i), x = (l + r) * 0.5f;
+    o->lp[0] += (x - o->lp[0]) * xo; o->lp[1] += (o->lp[0] - o->lp[1]) * xo; UND(o->lp[0]); UND(o->lp[1]);
+    float lo = o->lp[1], hi = x - lo;
+    H[o->pos] = hi; Dm[o->pos] = lo; if (++o->pos >= o->len) o->pos = 0;
+    float out[2];
+    for (int ch = 0; ch < 2; ch++) {
+      double a = o->hp + ch * 0.25, ad = o->dp + ch * 0.25;
+      float sh = cm_tsin(a), ch2 = cm_tsin(a + 0.25), sd = cm_tsin(ad), cd = cm_tsin(ad + 0.25);
+      float hd = (1.3f + 0.45f * depth * sh) * sr * 0.001f, ddl = (1.0f + 0.15f * depth * sd) * sr * 0.001f;
+      float hv = rd(H, o->len, o->pos, hd) * (1 - 0.42f * depth * (0.5f + 0.5f * ch2)), dv = rd(Dm, o->len, o->pos, ddl) * (1 - 0.22f * depth * (0.5f + 0.5f * cd));
+      out[ch] = (hv * 1.1f + dv) * 1.05f;
+    }
+    b->out[0][i] = l * (1 - m) + out[0] * m; b->out[1][i] = r * (1 - m) + out[1] * m;
   }
 }
 static void runCode(CmFx *fx, Block *b, int n) {
@@ -676,6 +867,9 @@ static void chunk(CmFx *fx, const float *inL, const float *inR, float *outL, flo
       case B_PARAM: for (int i = 0; i < n; i++) b->out[0][i] = b->out[1][i] = fx->params[b->param].buf[i]; break;
       case B_CODE: runCode(fx, b, n); break;
       case B_STEREO: runStereo(b, n); break;
+      case B_XOVER: runXover(fx, b, n); break;
+      case B_TRANS: runTrans(fx, b, n); break;
+      case B_ROTARY: runRotary(fx, b, n); break;
     }
   }
   for (int i = 0; i < n; i++) { outL[i] = 0; if (outR) outR[i] = 0; }

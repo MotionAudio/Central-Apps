@@ -1,0 +1,118 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "phaser",
+ "name": "Phaser",
+ "author": "Motion Audio",
+ "family": "modulation",
+ "tier": "plugins",
+ "description": "A smooth, sweeping phaser from subtle movement to deep swirl.",
+ "params": [
+  {
+   "id": "rate",
+   "name": "Speed",
+   "min": 0.05,
+   "max": 6,
+   "default": 0.4,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "depth",
+   "name": "Depth",
+   "min": 0,
+   "max": 1,
+   "default": 0.7
+  },
+  {
+   "id": "feedback",
+   "name": "Resonance",
+   "min": -0.9,
+   "max": 0.9,
+   "default": 0.3
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  }
+ ],
+ "presets": [
+  {
+   "name": "Slow swirl",
+   "values": {
+    "rate": 0.2,
+    "depth": 0.8,
+    "feedback": 0.4
+   }
+  },
+  {
+   "name": "Funky",
+   "values": {
+    "rate": 1.2,
+    "depth": 0.6,
+    "feedback": 0.5
+   }
+  },
+  {
+   "name": "Subtle",
+   "values": {
+    "rate": 0.3,
+    "depth": 0.4,
+    "feedback": 0.1,
+    "mix": 0.35
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "ph",
+    "type": "phaser",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "rate": {
+      "param": "rate"
+     },
+     "depth": {
+      "param": "depth"
+     },
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": {
+      "param": "mix"
+     },
+     "stages": 6
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "ph.in"
+   },
+   {
+    "from": "ph.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

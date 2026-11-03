@@ -25,7 +25,7 @@ double cm_exp(double x) {
   if (x < -745.0) return 0;
   double k = rnd(x / LN2), r = (x - k * LN2HI) - k * LN2LO;
   double t = 1, s = 1;
-  for (int i = 1; i <= 13; i++) { t *= r / i; s += t; }
+  for (int i = 1; i <= 11; i++) { t *= r / i; s += t; }
   return scale2(s, (int)k);
 }
 double cm_log(double x) {
@@ -41,8 +41,11 @@ double cm_log(double x) {
 }
 #define PIO2_1 1.57079632673412561417e+00
 #define PIO2_1T 6.07710050650619224932e-11
-static double sinp(double r) { double r2 = r * r, t = r, s = r; for (int i = 1; i <= 8; i++) { t *= -r2 / ((2 * i) * (2 * i + 1)); s += t; } return s; }
-static double cosp(double r) { double r2 = r * r, t = 1, s = 1; for (int i = 1; i <= 8; i++) { t *= -r2 / ((2 * i - 1) * (2 * i)); s += t; } return s; }
+static double sinp(double r) { double r2 = r * r, t = r, s = r; for (int i = 1; i <= 7; i++) { t *= -r2 / ((2 * i) * (2 * i + 1)); s += t; } return s; }
+static double cosp(double r) { double r2 = r * r, t = 1, s = 1; for (int i = 1; i <= 7; i++) { t *= -r2 / ((2 * i - 1) * (2 * i)); s += t; } return s; }
+static float SINT[4097]; static int sintReady;
+void cm_tables_init(void) { if (sintReady) return; for (int i = 0; i <= 4096; i++) SINT[i] = (float)cm_sin(6.283185307179586 * i / 4096.0); sintReady = 1; }
+float cm_tsin(double c) { c -= cm_floor(c); double x = c * 4096.0; int i = (int)x; float f = (float)(x - i); if (i > 4095) { i = 4095; f = 1; } return SINT[i] + (SINT[i + 1] - SINT[i]) * f; }
 static int reduce(double x, double *r) {
   double n = rnd(x * 0.63661977236758134308); *r = (x - n * PIO2_1) - n * PIO2_1T;
   long long q = (long long)n; return (int)(q & 3);
@@ -88,6 +91,21 @@ double cm_pow(double a, double b) {
   return 0;
 }
 double cm_fmod(double a, double b) { if (b == 0) return 0; double q = a / b; q = q < 0 ? -cm_floor(-q) : cm_floor(q); return a - b * q; }
+/* (10.3) quicker level <-> dB for the dynamics (per sample): a few multiplies on the float's own exponent and mantissa,
+ * within 0.001 dB; the same bits on every processor */
+float cm_fdb(float g) {
+  if (!(g > 1e-10f)) return -200.0f;
+  FU v; v.f = g; int e = (int)((v.u >> 23) & 0xff) - 127; v.u = (v.u & 0x007fffffu) | 0x3f800000u;
+  float m = v.f, t = (m - 1) / (m + 1), t2 = t * t;
+  float l2 = e + t * (2.8853900817779268f + t2 * (0.9617966939259756f + t2 * (0.5770780163555854f + t2 * (0.41219858311827f + t2 * 0.3205988f))));
+  return 6.020599913279624f * l2;
+}
+float cm_fgain(float db) {
+  if (db < -200) return 0; if (db > 200) db = 200;
+  float x = db * 0.16609640474436813f, fl = (float)cm_floor(x), f = x - fl;   /* 2^x */
+  float q = 1 + f * (0.6931471805599453f + f * (0.2402265069591007f + f * (0.0555041086648216f + f * (0.0096181291076285f + f * (0.0013333558146428f + f * 0.000154035303933816f)))));
+  FU v; v.f = q; v.u += (unsigned)((int)fl) << 23; return v.f;
+}
 float cm_db2lin(float db) { return (float)cm_exp(db * 0.11512925464970228420); }
 float cm_lin2db(float g) { return g <= 1e-10f ? -200.0f : (float)(8.68588963806503655302 * cm_log(g)); }
 int cm_isfinite(float x) { FU v; v.f = x; return ((v.u >> 23) & 0xff) != 0xff; }

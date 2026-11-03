@@ -1,0 +1,321 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "multiband-compressor",
+ "name": "Multiband Compressor",
+ "author": "Motion Audio",
+ "family": "compressor",
+ "tier": "plugins",
+ "description": "Three bands, each with its own compressor: control the low end, the body and the top separately.",
+ "params": [
+  {
+   "id": "xlow",
+   "name": "Low / mid split",
+   "min": 60,
+   "max": 600,
+   "default": 200,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Bands"
+  },
+  {
+   "id": "xhigh",
+   "name": "Mid / high split",
+   "min": 1200,
+   "max": 9000,
+   "default": 3000,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Bands"
+  },
+  {
+   "id": "lowThr",
+   "name": "Low threshold",
+   "min": -50,
+   "max": 0,
+   "default": -20,
+   "unit": "dB",
+   "group": "Low"
+  },
+  {
+   "id": "lowGain",
+   "name": "Low gain",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "group": "Low"
+  },
+  {
+   "id": "midThr",
+   "name": "Mid threshold",
+   "min": -50,
+   "max": 0,
+   "default": -20,
+   "unit": "dB",
+   "group": "Mid"
+  },
+  {
+   "id": "midGain",
+   "name": "Mid gain",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "group": "Mid"
+  },
+  {
+   "id": "highThr",
+   "name": "High threshold",
+   "min": -50,
+   "max": 0,
+   "default": -22,
+   "unit": "dB",
+   "group": "High"
+  },
+  {
+   "id": "highGain",
+   "name": "High gain",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "group": "High"
+  },
+  {
+   "id": "ratio",
+   "name": "Ratio",
+   "min": 1,
+   "max": 10,
+   "default": 3,
+   "unit": ":1"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Mix polish",
+   "values": {
+    "lowThr": -18,
+    "midThr": -20,
+    "highThr": -24,
+    "ratio": 2
+   }
+  },
+  {
+   "name": "Tame the low end",
+   "values": {
+    "lowThr": -28,
+    "lowGain": 2,
+    "ratio": 4
+   }
+  },
+  {
+   "name": "Vocal smoother",
+   "values": {
+    "xlow": 250,
+    "xhigh": 4000,
+    "midThr": -24,
+    "highThr": -28,
+    "ratio": 3,
+    "highGain": 1
+   }
+  },
+  {
+   "name": "Loud and even",
+   "values": {
+    "lowThr": -26,
+    "midThr": -26,
+    "highThr": -26,
+    "ratio": 4,
+    "output": 4
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "low",
+    "type": "crossover",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "band": "low",
+     "low": {
+      "param": "xlow"
+     },
+     "high": {
+      "param": "xhigh"
+     }
+    }
+   },
+   {
+    "id": "lowC",
+    "type": "compressor",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "detect": "rms",
+     "threshold": {
+      "param": "lowThr"
+     },
+     "ratio": {
+      "param": "ratio"
+     },
+     "attack": 30,
+     "release": 220,
+     "knee": 6,
+     "makeup": {
+      "param": "lowGain"
+     }
+    }
+   },
+   {
+    "id": "mid",
+    "type": "crossover",
+    "x": 240,
+    "y": 230,
+    "props": {
+     "band": "mid",
+     "low": {
+      "param": "xlow"
+     },
+     "high": {
+      "param": "xhigh"
+     }
+    }
+   },
+   {
+    "id": "midC",
+    "type": "compressor",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "detect": "rms",
+     "threshold": {
+      "param": "midThr"
+     },
+     "ratio": {
+      "param": "ratio"
+     },
+     "attack": 10,
+     "release": 140,
+     "knee": 6,
+     "makeup": {
+      "param": "midGain"
+     }
+    }
+   },
+   {
+    "id": "high",
+    "type": "crossover",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "band": "high",
+     "low": {
+      "param": "xlow"
+     },
+     "high": {
+      "param": "xhigh"
+     }
+    }
+   },
+   {
+    "id": "highC",
+    "type": "compressor",
+    "x": 440,
+    "y": 420,
+    "props": {
+     "detect": "rms",
+     "threshold": {
+      "param": "highThr"
+     },
+     "ratio": {
+      "param": "ratio"
+     },
+     "attack": 3,
+     "release": 90,
+     "knee": 6,
+     "makeup": {
+      "param": "highGain"
+     }
+    }
+   },
+   {
+    "id": "outg",
+    "type": "gain",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "gain": {
+      "param": "output"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "low.in"
+   },
+   {
+    "from": "low.out",
+    "to": "lowC.in"
+   },
+   {
+    "from": "lowC.out",
+    "to": "outg.in"
+   },
+   {
+    "from": "in.out",
+    "to": "mid.in"
+   },
+   {
+    "from": "mid.out",
+    "to": "midC.in"
+   },
+   {
+    "from": "midC.out",
+    "to": "outg.in"
+   },
+   {
+    "from": "in.out",
+    "to": "high.in"
+   },
+   {
+    "from": "high.out",
+    "to": "highC.in"
+   },
+   {
+    "from": "highC.out",
+    "to": "outg.in"
+   },
+   {
+    "from": "outg.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

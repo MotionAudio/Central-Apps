@@ -1,0 +1,138 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "simple-compressor",
+ "name": "Compressor",
+ "author": "Motion Audio",
+ "family": "compressor",
+ "tier": "free",
+ "description": "Evens out the level. The basic compressor.",
+ "params": [
+  {
+   "id": "threshold",
+   "name": "Threshold",
+   "min": -50,
+   "max": 0,
+   "default": -18,
+   "unit": "dB"
+  },
+  {
+   "id": "ratio",
+   "name": "Ratio",
+   "min": 1,
+   "max": 20,
+   "default": 3,
+   "unit": ":1"
+  },
+  {
+   "id": "attack",
+   "name": "Attack",
+   "min": 0.5,
+   "max": 100,
+   "default": 10,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "release",
+   "name": "Release",
+   "min": 20,
+   "max": 1500,
+   "default": 150,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "makeup",
+   "name": "Make-up",
+   "min": 0,
+   "max": 18,
+   "default": 3,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Gentle",
+   "values": {
+    "threshold": -16,
+    "ratio": 2,
+    "attack": 20,
+    "release": 200,
+    "makeup": 2
+   }
+  },
+  {
+   "name": "Vocal",
+   "values": {
+    "threshold": -20,
+    "ratio": 4,
+    "attack": 5,
+    "release": 120,
+    "makeup": 5
+   }
+  },
+  {
+   "name": "Bass",
+   "values": {
+    "threshold": -22,
+    "ratio": 5,
+    "attack": 15,
+    "release": 180,
+    "makeup": 4
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "comp",
+    "type": "compressor",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "threshold": {
+      "param": "threshold"
+     },
+     "ratio": {
+      "param": "ratio"
+     },
+     "attack": {
+      "param": "attack"
+     },
+     "release": {
+      "param": "release"
+     },
+     "makeup": {
+      "param": "makeup"
+     },
+     "knee": 6
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "comp.in"
+   },
+   {
+    "from": "comp.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

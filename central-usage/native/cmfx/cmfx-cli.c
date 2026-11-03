@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "cmfx.h"
 
 static char *slurp(const char *path, long *len) {
@@ -44,12 +45,14 @@ int main(int argc, char **argv) {
     cmfx_reset(fx);
     long frames = ilen / 8; const float *src = (const float *)in; float *out = (float *)malloc((size_t)frames * 8 + 8);
     float *l = (float *)malloc(sizeof(float) * (size_t)block), *r = (float *)malloc(sizeof(float) * (size_t)block), *ol = (float *)malloc(sizeof(float) * (size_t)block), *orr = (float *)malloc(sizeof(float) * (size_t)block);
+    clock_t c0 = clock();
     for (long off = 0; off < frames; off += block) {
       int n = (int)(frames - off < block ? frames - off : block);
       for (int i = 0; i < n; i++) { l[i] = src[2 * (off + i)]; r[i] = src[2 * (off + i) + 1]; }
       cmfx_process(fx, l, r, ol, orr, n);
       for (int i = 0; i < n; i++) { out[2 * (off + i)] = ol[i]; out[2 * (off + i) + 1] = orr[i]; }
     }
+    if (getenv("CMFX_TIME")) fprintf(stderr, "cpu: %.3f ms for %.3f s of sound\n", (double)(clock() - c0) * 1000.0 / CLOCKS_PER_SEC, frames / sr);
     FILE *f = fopen(argv[5], "wb"); if (!f) return 2; fwrite(out, 8, (size_t)frames, f); fclose(f);
     const char *st = cmfx_status(fx); if (st) fprintf(stderr, "status: %s\n", st);
     return 0;
