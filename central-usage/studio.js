@@ -153,14 +153,16 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
     fs.mkdirSync(rigData, { recursive: true }); try { fs.chmodSync(rigBin, 0o755); } catch (_) { }
     const args = ["--data", rigData, "--block", "128"], map = path.join(binDir, "rig-map.json"); if (fs.existsSync(map)) args.push("--map", map);
     rig = spawn(rigBin, args, { stdio: ["pipe", "pipe", "ignore"] }); rigBuf = "";
-    rig.stdout.on("data", (b) => { rigBuf += b; let i; while ((i = rigBuf.indexOf("\n")) >= 0) { const line = rigBuf.slice(0, i); rigBuf = rigBuf.slice(i + 1); let m; try { m = JSON.parse(line); } catch (_) { continue; } send("studio-native", m); rigWait = rigWait.filter((w) => !w(m)); } });
-    rig.on("exit", () => { rig = null; rigMon = null; send("studio-native", { type: "rigStopped" }); }); rig.on("error", () => { rig = null; });
+    rig.stdout.on("data", (b) => { rigBuf += b; let i; while ((i = rigBuf.indexOf("\n")) >= 0) { const line = rigBuf.slice(0, i); rigBuf = rigBuf.slice(i + 1); let m; try { m = JSON.parse(line); } catch (_) { continue; }
+      if (m.type === "dawProcessed") { const w = dawWait.get(m.seq); if (w) { dawWait.delete(m.seq); w(m); } continue; }   // (10.3: straight back to the DAW that asked)
+      send("studio-native", m); rigWait = rigWait.filter((w) => !w(m)); } });
+    rig.on("exit", () => { rig = null; rigMon = null; dawWait.forEach((w) => w(null)); dawWait.clear(); send("studio-native", { type: "rigStopped" }); }); rig.on("error", () => { rig = null; });
     return { ok: true };
   }
   const rigSend = (m) => { if (rig && rig.stdin.writable) try { rig.stdin.write(JSON.stringify(m) + "\n"); } catch (_) { } };
   const rigAsk = (m, match, ms) => new Promise((res) => { const f = (x) => { if (!match(x)) return false; clearTimeout(t); res(x); return true; }, t = setTimeout(() => { rigWait = rigWait.filter((w) => w !== f); res(null); }, ms || 8000); rigWait.push(f); rigSend(m); });
   const chainOf = (plugins, levelDb, input) => ({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: input === "2" ? "R" : /\+/.test(String(input || "")) ? "stereo" : "L", gainDb: 0, gateOn: false },
-    chain: (plugins || []).slice(0, 16).map((p) => ({ uid: p.slot, id: "plug", plugin: { format: p.format, id: p.id, path: p.path, name: p.name }, on: true, mix: 1, levelDb: 0 })), levelDb, routing: {} } });
+    chain: (plugins || []).slice(0, 16).map((p) => ({ uid: p.slot, stateFrom: p.stateFrom || "", id: "plug", plugin: { format: p.format, id: p.id, path: p.path, name: p.name }, on: true, mix: 1, levelDb: 0 })), levelDb, routing: {} } });
   ipcMain.handle("studio-native-plugins", async (_e, scan) => {
     const r = rigStart(); if (!r.ok) return r; let seen = 0;
     const l = await rigAsk({ action: "plugins", scan: !!scan }, (m) => m.type === "pluginList" && ++seen >= (scan ? 2 : 1), scan ? 300000 : 8000);
@@ -187,9 +189,26 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
     if (!rigMon) { if (rig) rigSend({ action: "apply", config: { kind: "off" } }); return; }
     if (rigStart().ok) rigSend(chainOf(rigMon.plugins, 0, rigMon.input));
   });
+  // (10.3) live: every track with native plugins is streamed through them in the rig a little ahead of the playhead
+  // (cu-rig.c: "the DAW's native plugins, live"). The audio goes as base64 inside the rig's JSON lines.
+  let dawSeq = 0; const dawWait = new Map();
+  ipcMain.handle("studio-daw-chain", async (_e, stream, rate, plugins) => {
+    const r = rigStart(); if (!r.ok) return Object.assign(r, { errors: [r.error] });
+    const a = await rigAsk({ action: "dawChain", stream, rate, plugins: (plugins || []).slice(0, 16) }, (m) => m.type === "dawChain" && m.stream === stream, 60000);
+    return a || { ok: false, latency: 0, errors: ["The plugin host didn't answer."] };
+  });
+  ipcMain.handle("studio-daw-process", (_e, batch) => new Promise((res) => {
+    if (!rig || rig.exitCode != null) return res(null);
+    const seq = ++dawSeq, t = setTimeout(() => { dawWait.delete(seq); res(null); }, 4000);
+    dawWait.set(seq, (m) => { clearTimeout(t); res(m ? { streams: (m.streams || []).map((x) => ({ s: x.s, lat: x.lat, d: new Uint8Array(Buffer.from(x.d || "", "base64")) })) } : null); });
+    rigSend({ action: "dawProcess", seq, frames: batch.frames, streams: (batch.streams || []).map((x) => ({ s: x.s, d: Buffer.from(x.d.buffer, x.d.byteOffset, x.d.byteLength).toString("base64"), a: x.a && x.a.length ? x.a : undefined, reset: !!x.reset })) });
+  }));
+  ipcMain.on("studio-daw-param", (_e, stream, plug, id, value) => rigSend({ action: "dawParam", stream, plug, id, value }));
+  ipcMain.on("studio-daw-drop", (_e, stream) => rigSend({ action: "dawDrop", stream }));
+  ipcMain.handle("studio-daw-params", async (_e, slot) => { if (!rig) return []; const a = await rigAsk({ action: "pluginParams", uid: slot, max: 24 }, (m) => m.type === "pluginParams" && m.uid === slot, 8000); return a ? a.params || [] : []; });
   ipcMain.handle("studio-native-editor", async (_e, slot, plugins, open) => {
     const r = rigStart(); if (!r.ok) return r;
-    if (!(rigMon && rigMon.plugins.some((p) => p.slot === slot))) await rigAsk(chainOf(plugins, -120, "1"), (m) => m.type === "instrumentStatus", 8000);   // (loaded, silent: just for its window)
+    if (!(rigMon && rigMon.plugins.some((p) => p.slot === slot)) && !(plugins && plugins.loaded)) await rigAsk(chainOf(plugins, -120, "1"), (m) => m.type === "instrumentStatus", 8000);   // (loaded, silent: just for its window)
     const a = await rigAsk({ action: "pluginEditor", uid: slot, open: open !== false }, (m) => m.type === "pluginEditor", 8000);
     return a ? { ok: !!a.open || open === false, open: !!a.open, error: a.error || "" } : { ok: false, error: "The plugin host didn't answer." };
   });

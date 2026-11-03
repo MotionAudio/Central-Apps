@@ -215,6 +215,26 @@ if (havePlugins) {
     send(electric([plugFx("pg2", { stateFrom: "pg1" })])); await sleep(500); near((await meters()).out, 0.3 * 3.98, 0.1, "a new slot started from pg1's state");
     send({ action: "pluginCopyState", from: "pg1", to: "board1" }); const cp = await next((m) => m.type === "pluginCopyState"); assert.equal(cp.ok, true);
   });
+  await check("(10.3) the DAW's native plugins, live: a chain with its latency, blocks streamed through it, automation inside a block, a reset plays out what's left", async () => {
+    const dly = { slot: "dwlive1", format: "clap", id: "audio.motion.test-delay", path: testClap, name: "Central Test Delay" }, gn = { slot: "dwlive2", format: "clap", id: "audio.motion.test-gain", path: testClap, name: "Central Test Gain" };
+    send({ action: "dawChain", stream: 3, rate: 48000, plugins: [dly, Object.assign({ params: [[1, 0.75]] }, gn)] });
+    const ch = await next((m) => m.type === "dawChain" && m.stream === 3, 20000); assert.ok(ch.ok, JSON.stringify(ch)); assert.equal(ch.latency, 480); assert.deepEqual(ch.names, ["Central Test Delay", "Central Test Gain"]);
+    const F = 4096, enc = (f) => Buffer.from(f.buffer).toString("base64"), dec = (b) => new Float32Array(Buffer.from(b, "base64").buffer.slice(0));
+    const imp = new Float32Array(F * 2); imp[2 * 100] = imp[2 * 100 + 1] = 0.25;
+    send({ action: "dawProcess", seq: 1, frames: F, streams: [{ s: 3, d: enc(imp), reset: true }, { s: 9, d: enc(imp) }] });
+    const r1 = await next((m) => m.type === "dawProcessed" && m.seq === 1, 20000), o = dec(r1.streams[0].d), thru = dec(r1.streams[1].d);
+    assert.equal(r1.streams[0].lat, 480); let at = -1; for (let i = 0; i < F; i++) if (Math.abs(o[2 * i]) > 0.1) { at = i; break; }
+    assert.equal(at, 580, "the impulse comes out 480 samples later"); near(o[2 * 580], 0.25 * 3.98, 0.02, "+12 dB from the knob given with the chain");
+    assert.equal(thru[200], 0.25, "a stream without plugins passes through");
+    const sine = new Float32Array(F * 2); for (let i = 0; i < F; i++) sine[2 * i] = sine[2 * i + 1] = 0.1;
+    send({ action: "dawProcess", seq: 2, frames: F, streams: [{ s: 3, d: enc(sine), a: [[2048, 1, 1, 0.5]] }] });
+    const o2 = dec((await next((m) => m.type === "dawProcessed" && m.seq === 2, 20000)).streams[0].d);
+    near(o2[2 * 1000], 0.1 * 3.98, 0.02, "before the automation point"); near(o2[2 * (2048 + 480 + 200)], 0.1, 0.01, "after it (0 dB), the delay's latency later");
+    send({ action: "dawProcess", seq: 3, frames: F, streams: [{ s: 3, d: enc(new Float32Array(F * 2)), reset: true }] });
+    const o3 = dec((await next((m) => m.type === "dawProcessed" && m.seq === 3, 20000)).streams[0].d); let mx = 0; for (let i = 0; i < F; i++) mx = Math.max(mx, Math.abs(o3[2 * i]));
+    assert.ok(mx < 1e-6, "after a reset nothing old comes out: " + mx);
+    send({ action: "dawDrop", stream: 3 });
+  });
   await check("(10.2) the DAW's native inserts, offline: --process plays a sound through the slot's saved state, lines it up and reports the latency", async () => {
     send({ action: "pluginSave" }); await sleep(200);
     const rate = 48000, n = rate, buf = new Float32Array(n * 2); for (let i = 0; i < n; i++) { buf[2 * i] = buf[2 * i + 1] = 0.25 * Math.sin(2 * Math.PI * 220 * i / rate); }
