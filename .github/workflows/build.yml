@@ -71,6 +71,7 @@ jobs:
           bash tools/ci-run.sh "community plugin wall test (round trip, crash / hang / heavy bypass, no network or files, revoke live)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
           bash tools/ci-run.sh "Central FX core test (native = WebAssembly for every block, the code language, hostile scripts, presets)" node test-cmfx.mjs
           bash tools/ci-run.sh "Central FX in the rig and on the Central Pedal's stage" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
+          CMFX_BUDGET_PCT=6 bash tools/ci-run.sh "Central FX collection (every plugin and starting point, native = WebAssembly, CPU, the engine's quality)" node test-cmfx-collection.mjs   # (6%: a shared CI machine is slower than a desk one)
           file central-usage/native/build-linux-arm64/cm-pwnode | grep -q aarch64 || { echo "::error::the arm64 cm-pwnode (with Central FX) is not arm64"; exit 1; }
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
