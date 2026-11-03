@@ -515,6 +515,10 @@ $("#pKind").addEventListener("change", () => {
   if (w) { $("#pItemT").textContent = w[0]; $("#pItem").accept = w[1]; }
   $("#pFileT").textContent = w ? "A short demo clip (MP3 or WAV, under 2 minutes): we grade it, and its stars set the price" : "Full mix (MP3 or WAV), the file we grade";
 });
+function openPublish() { const f = $("#pubForm"); if (!f) return; f.classList.remove("pub-closed"); const b = $("#pubOpen"); if (b) b.hidden = true; }
+if ($("#pubOpen")) $("#pubOpen").onclick = () => { openPublish(); const t = $("#pTitle"); if (t) t.focus(); };
+if ($("#libPub")) $("#libPub").addEventListener("click", openPublish);
+if (location.hash === "#publish") openPublish();
 $("#pubForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!me) return needSignIn("Sign in to publish tracks.");
@@ -601,16 +605,16 @@ async function renderAccount(note) {
   }
   $("#acctTitle").textContent = me.name ? "Hi, " + me.name : "Your account";
   body.innerHTML = `<div class="acct">${me.emailConfirmed ? "" : `<div class="card wide confirm-card"><h3>Confirm your email</h3><p style="margin:0">We sent a link to <b>${esc(me.email)}</b>. Your receipts, keys, invites and password resets go there, so checkout waits until it's confirmed.</p><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="cfAgain">Send it again</button></div></div>`}
-    <div class="card wide dl-link"><h3>Your keys and downloads</h3><p class="muted" style="margin:0">Your keys (they're in your email too), and every app with how to install it.</p><div id="myRenew"></div><div style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn small" href="#purchases">Purchases</a><a class="btn small ghost" href="#downloads">Open Downloads</a></div></div>
+    <div class="card wide dl-link" id="keysCard"><h3>Your keys and downloads</h3><p class="muted" style="margin:0">Your keys (they're in your email too), and every app with how to install it.</p><div id="myRenew"></div><div style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn small" href="#purchases">Purchases</a><a class="btn small ghost" href="#downloads">Open Downloads</a></div></div>
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
     ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
-    <div class="card"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
+    <div class="card" id="tracksCard"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
       <a class="btn ghost small" href="#downloads" style="justify-self:start">Download the apps</a></div>
     <div class="card wide" id="pkgCard"><h3>Sound plans</h3><div class="muted">Loading…</div></div>
     ${me.church ? `<div class="card" id="slotsCard"><h3>Central Services</h3><div class="muted">Loading…</div></div>` : ""}
-    <div class="card"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
-    <div class="card"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
+    <div class="card" id="libCard"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
+    <div class="card" id="pubCard"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.reviewer ? `<div class="card wide" id="reviewCard"><h3>Review site · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
@@ -1219,8 +1223,12 @@ async function refreshMe() {
 function renderAll() { renderSub(); renderPayout(); renderAccount(); loadTracks(); renderRack(); }
 
 // ---------------------------------------------------------------- returning from Stripe
-async function handleHash() {
+function setView() {   // (10.2) #account, #purchases and #downloads read as their own pages
   const h = location.hash.slice(1);
+  document.body.classList.toggle("view-account", h === "account" || h.startsWith("account-") || h === "purchases" || h === "downloads");
+}
+async function handleHash() {
+  const h = location.hash.slice(1); setView();
   if (h === "downloads") { if ($("#purchases")) $("#purchases").hidden = true; return showDownloads(); }
   if (h === "purchases") { if ($("#downloads")) $("#downloads").hidden = true; return showPurchases(); }
   if (!h.startsWith("order-done-") && $("#downloads")) $("#downloads").hidden = true;   // (the Downloads view shows only when it's asked for)

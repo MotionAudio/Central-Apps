@@ -7,6 +7,7 @@
 <link rel="icon" href="icon.png">
 <link rel="stylesheet" href="fonts/fonts.css">
 <meta name="theme-color" content="#111317">
+<link rel="stylesheet" href="central-tokens.css">
 <style>
 /* Central Services in the Motion Audio studio look: graphite, brass, warm white; Archivo */
 :root{--bg:#111317;--panel:#1A1D22;--panel2:#23272E;--fg:#ECE7DD;--muted:#9AA1AB;--line:#343A44;--line2:#454C58;--accent:#E2C27E;--accent-hi:#F0D9A4;--accent-fg:#1A1408;--ok:#6FCF97;--no:#EF8A6B;--wait:#F5CF72;--chip:#23272E;--well:#0E1013;color-scheme:dark}
@@ -55,6 +56,16 @@ nav{max-width:920px}main{max-width:calc(920px + 2rem)}
   .p button,.row button{min-height:36px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* 10.2 (docs/DESIGN-SYSTEM.md): the shared tokens; quiet links for the minor actions; empty states that point somewhere */
+button.link{background:none;border:0;padding:0;color:var(--accent-hi);font-weight:500;text-decoration:underline;text-underline-offset:.18em;min-height:0}
+button.link:hover{color:var(--accent)}
+button.quiet{background:none;border-color:transparent;color:var(--muted)}button.quiet:hover{color:var(--fg);border-color:var(--line)}
+button.icon{min-width:36px}
+a.btn{display:inline-flex;align-items:center;justify-content:center;padding:.5rem .95rem;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);text-decoration:none;font-weight:500}
+a.btn.primary{background:linear-gradient(180deg,var(--accent-hi),var(--accent));color:var(--accent-fg);border-color:var(--accent);font-weight:650}
+.card.empty{padding:1.4rem 1.3rem;gap:.8rem}.card.empty h2{font-size:1.2rem}
+nav:empty{display:none}
+.center .row{align-items:center;gap:.4rem 1rem}
 </style>
 </head>
 <body>
