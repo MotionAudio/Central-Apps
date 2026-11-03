@@ -69,6 +69,7 @@ else
   PLAT := linux
 endif
 OUT ?= build
+CMFXOBJ := $(patsubst %,$(OUT)/obj/%.o,$(CMFXSRC))
 PLAYANY :=
 BRIDGE :=
 ifeq ($(PLAT),linux)
@@ -79,9 +80,9 @@ endif
 ifeq ($(PLAT),mac)
   BRIDGE := $(OUT)/cm-plugbridge
 endif
-all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cmfx-cli$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/cu-studio$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY) $(BRIDGE)
-$(OUT)/cu-mixer$(EXE): cu-mixer.c plat.h
-	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-mixer.c $(LIBS)
+all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cmfx-cli$(EXE) $(OUT)/central-fx/.stamp $(OUT)/cu-rig$(EXE) $(OUT)/cu-studio$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY) $(BRIDGE)
+$(OUT)/cu-mixer$(EXE): cu-mixer.c plat.h $(CMFXOBJ)
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-mixer.c $(CMFXOBJ) $(LIBS)
 $(OUT)/cu-studio$(EXE): cu-studio.c plat.h $(OUT)/obj/cJSON.o
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-studio.c $(OUT)/obj/cJSON.o $(LIBS)
 $(OUT)/cu-ndi$(EXE): cu-ndi.c plat.h
@@ -98,7 +99,6 @@ $(OUT)/obj/cJSON.o: vendor/cJSON.c
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ vendor/cJSON.c
 $(OUT)/obj/playany.o: playany/playany.c playany/playany.h
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ playany/playany.c
-CMFXOBJ := $(patsubst %,$(OUT)/obj/%.o,$(CMFXSRC))
 PHCOBJ := $(patsubst %,$(OUT)/obj/%.o,$(PHCSRC)) $(CMFXOBJ)
 $(OUT)/obj/plughost/%.c.o: plughost/%.c plughost/bridge.h plughost/sha256.h
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ $<
@@ -110,6 +110,11 @@ $(OUT)/obj/plughost/fmt_cmfx.cpp.o: cmfx/cmfx.h
 $(OUT)/cmfx-cli$(EXE): cmfx/cmfx-cli.c $(CMFXOBJ)
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -ffp-contract=off -o $@ cmfx/cmfx-cli.c $(CMFXOBJ) -lm
 cmfx: $(OUT)/cmfx-cli$(EXE)
+# (10.3) the Central FX collection (tools/make-cmfx-collection.py), next to the rig and the Pi's stage: "collection:<id>"
+COLLECTION := $(wildcard ../../production/plugin-collection/*.cmfx.json)
+$(OUT)/central-fx/.stamp: $(COLLECTION)
+	mkdir -p $(OUT)/central-fx && cp $(COLLECTION) $(OUT)/central-fx/ && touch $@
+collection: $(OUT)/central-fx/.stamp
 $(OUT)/cu-rig$(EXE): $(OUT)/obj/cu-rig.o $(OUT)/obj/cJSON.o $(OUT)/obj/playany.o $(PHOBJ) $(PHCOBJ)
 	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) -o $@ $^ $(RIGLIBS)
 # cm-plugbridge: the plugin host without windows (gui_none.cpp) + the child's side of the bridge (bridge_main.cpp)
@@ -123,7 +128,7 @@ $(OUT)/cm-plugbridge: $(BRIDGEOBJ) $(OUT)/obj/cJSON.o $(PHCOBJ)
 PWFLAGS := $(shell pkg-config --cflags libpipewire-0.3 2>/dev/null || echo -I/usr/include/pipewire-0.3 -I/usr/include/spa-0.2)
 $(OUT)/cm-pwnode: cm-pwnode.c plughost/bridge.h plughost/plughost.h $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -Wno-missing-field-initializers -Wno-unused-parameter $(PWFLAGS) -c -o $(OUT)/obj/cm-pwnode.o cm-pwnode.c && $(CXX) $(CXXFLAGS) -o $@ $(OUT)/obj/cm-pwnode.o $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o $(RIGLIBS) $(BRIDGELD)
-bridge: $(BRIDGE)
+bridge: $(BRIDGE) $(OUT)/central-fx/.stamp
 # the wall's checks (never shipped): test-bridge drives the plugin host's API; test-plugin-wall.mjs sets up and runs it
 $(OUT)/test-bridge: plughost/test/test-bridge.cpp plughost/bridge.h plughost/ph.hpp $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o
 	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) $(PHFLAGS) -o $@ plughost/test/test-bridge.cpp $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o $(RIGLIBS)

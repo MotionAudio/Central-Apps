@@ -1,0 +1,192 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "fet-compressor",
+ "name": "FET Compressor",
+ "author": "Motion Audio",
+ "family": "compressor",
+ "tier": "plugins",
+ "description": "A fast, punchy compressor in the style of the classic 1176: drive the input, set the output. Bold on vocals, drums and bass.",
+ "params": [
+  {
+   "id": "input",
+   "name": "Input",
+   "min": 0,
+   "max": 36,
+   "default": 12,
+   "unit": "dB"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 24,
+   "default": 8,
+   "unit": "dB"
+  },
+  {
+   "id": "attack",
+   "name": "Attack",
+   "min": 0.02,
+   "max": 0.8,
+   "default": 0.2,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "release",
+   "name": "Release",
+   "min": 50,
+   "max": 1100,
+   "default": 250,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "ratio",
+   "name": "Ratio",
+   "min": 4,
+   "max": 20,
+   "default": 4,
+   "unit": ":1"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal grab",
+   "values": {
+    "input": 14,
+    "output": 8,
+    "attack": 0.3,
+    "release": 200,
+    "ratio": 4
+   }
+  },
+  {
+   "name": "Drum smash",
+   "values": {
+    "input": 26,
+    "output": 10,
+    "attack": 0.05,
+    "release": 100,
+    "ratio": 20,
+    "mix": 0.5
+   }
+  },
+  {
+   "name": "Bass control",
+   "values": {
+    "input": 12,
+    "output": 8,
+    "attack": 0.6,
+    "release": 400,
+    "ratio": 8
+   }
+  },
+  {
+   "name": "Parallel punch",
+   "values": {
+    "input": 24,
+    "output": 12,
+    "attack": 0.02,
+    "release": 150,
+    "ratio": 20,
+    "mix": 0.35
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "drive",
+    "type": "gain",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "gain": {
+      "param": "input"
+     }
+    }
+   },
+   {
+    "id": "fet",
+    "type": "compressor",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "style": "fet",
+     "threshold": -24,
+     "ratio": {
+      "param": "ratio"
+     },
+     "attack": {
+      "param": "attack"
+     },
+     "release": {
+      "param": "release"
+     },
+     "knee": 2,
+     "makeup": {
+      "param": "output"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "drive.in"
+   },
+   {
+    "from": "drive.out",
+    "to": "fet.in"
+   },
+   {
+    "from": "fet.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

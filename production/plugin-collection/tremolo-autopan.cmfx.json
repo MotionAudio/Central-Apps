@@ -1,0 +1,106 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "tremolo-autopan",
+ "name": "Tremolo / Auto-pan",
+ "author": "Motion Audio",
+ "family": "modulation",
+ "tier": "free",
+ "description": "Pulses the volume, or spreads it so it moves left and right. The basic tremolo.",
+ "params": [
+  {
+   "id": "rate",
+   "name": "Speed",
+   "min": 0.5,
+   "max": 12,
+   "default": 4.5,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "depth",
+   "name": "Depth",
+   "min": 0,
+   "max": 1,
+   "default": 0.55
+  },
+  {
+   "id": "spread",
+   "name": "Left ↔ right",
+   "min": 0,
+   "max": 180,
+   "default": 0,
+   "unit": "°"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Amp tremolo",
+   "values": {
+    "rate": 5,
+    "depth": 0.5
+   }
+  },
+  {
+   "name": "Slow pulse",
+   "values": {
+    "rate": 1.5,
+    "depth": 0.7
+   }
+  },
+  {
+   "name": "Auto-pan",
+   "values": {
+    "rate": 1,
+    "depth": 0.9,
+    "spread": 180
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "t",
+    "type": "tremolo",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "rate": {
+      "param": "rate"
+     },
+     "depth": {
+      "param": "depth"
+     },
+     "stereo": {
+      "param": "spread"
+     },
+     "shape": "sine"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "t.in"
+   },
+   {
+    "from": "t.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

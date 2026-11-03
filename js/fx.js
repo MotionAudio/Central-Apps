@@ -177,6 +177,9 @@
   // the plugins you can add: installed ones (yours from Central Production, and community ones) and the builder's examples
   function cmfxList() {
     var ex = (window.CPPluginPresets || []).map(function (p) { return { name: p.name, from: "example", plugin: p }; }), more = [];
+    // (10.3) the Central FX collection: the basic one of each family free, the better ones with Central Plugins
+    var coll = (window.CMFxCollection || []).map(function (p) { return { name: p.name, from: "collection", plugin: p, tier: p.tier, family: p.family }; });
+    ex = coll.concat(ex);
     var be = window.PPLibraries && window.PPLibraries.backend ? window.PPLibraries.backend() : null;
     if (window.CU && window.CU.libraries && window.CU.libraries.centralFx) more = window.CU.libraries.centralFx();
     else if (be === "driver") more = fetch("http://127.0.0.1:8766/libraries/central-fx", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { return j.plugins || []; });
@@ -459,15 +462,17 @@
       '<p class="muted small fx-foot">' + (kind === "stem" ? "Made once into a processed copy of the track (a few seconds; the Pi does no extra work while it plays). The tracks still play on their own, with or without pads." : kind === "pad" ? 'The pad\'s own chain. <button class="link" data-fx-full-editor>Full pad editor…</button>' : "On every " + (target.bus === "tracks" ? "track of every song" : "pad") + ", live.") + "</p>";
   }
   var cmChoices = [];
+  function cmLocked(c) { return c.from === "collection" && c.tier === "plugins" && !pro(); }
   function cmSection(fx) {
     var list = fx.plugins || [];
     return '<section class="fx-plugins"><header><b>Plugins</b> <span class="muted small">made in Central Production\'s plugin builder</span></header>' +
       list.map(function (x, i) {
         var pl = x.plugin || {}, ps = pl.params || [];
-        return '<div class="fx-band">' + toggle(x.name || pl.name || "Plugin", "plugins." + i + ".on") + ' <button class="link" data-fx-cm-del="' + i + '">Remove</button>' +
+        var pre = Array.isArray(pl.presets) && pl.presets.length ? ' <select data-fx-cm-preset="' + i + '" aria-label="Starting point"><option value="">Starting point…</option>' + pl.presets.map(function (p, k) { return '<option value="' + k + '">' + esc(p.name) + "</option>"; }).join("") + "</select>" : "";
+        return '<div class="fx-band">' + toggle(x.name || pl.name || "Plugin", "plugins." + i + ".on") + pre + ' <button class="link" data-fx-cm-del="' + i + '">Remove</button>' +
           ps.map(function (q) { var lo = q.min != null ? +q.min : 0, hi = q.max != null ? +q.max : 1; return row(q.name || q.id, "plugins." + i + ".values." + q.id, lo, hi, (hi - lo) / 200, q.unit === "dB" || q.unit === "Hz" || q.unit === "ms" || q.unit === "%" ? q.unit : ""); }).join("") + "</div>";
       }).join("") +
-      (!window.CMFx ? '<p class="muted small">The plugin engine isn\'t in this version of the app.</p>' : '<div class="row"><select data-fx-cm-pick><option value="">+ Add a plugin…</option>' + cmChoices.map(function (c, i) { return '<option value="' + i + '">' + esc(c.name + (c.from === "mine" ? " (yours)" : c.from === "example" ? " (example)" : c.author ? " (by " + c.author + ")" : " (installed)")) + "</option>"; }).join("") + "</select></div>") + "</section>";
+      (!window.CMFx ? '<p class="muted small">The plugin engine isn\'t in this version of the app.</p>' : '<div class="row"><select data-fx-cm-pick><option value="">+ Add a plugin…</option>' + cmChoices.map(function (c, i) { var locked = cmLocked(c); return '<option value="' + i + '"' + (locked ? " disabled" : "") + ">" + esc((locked ? LOCK : "") + c.name + (c.from === "collection" ? (locked ? " (" + lockText() + ")" : "") : c.from === "mine" ? " (yours)" : c.from === "example" ? " (example)" : c.author ? " (by " + c.author + ")" : " (installed)")) + "</option>"; }).join("") + "</select></div>") + "</section>";
   }
   function open(t) { target = t; draw(); if (window.CMFx && t.kind !== "bus") cmfxList().then(function (l) { cmChoices = l; if (target === t) draw(); }); var d = dialog(); if (!d.open) { try { d.showModal(); } catch (_) { d.setAttribute("open", ""); } } }
   function commitTo(t) {
@@ -484,9 +489,13 @@
   function onInput(e) {
     var el = e.target; if (!target) return;
     if (el.hasAttribute && el.hasAttribute("data-fx-cm-pick")) {
-      if (e.type !== "change" || el.value === "") return; var c = cmChoices[+el.value]; if (!c) return;
+      if (e.type !== "change" || el.value === "") return; var c = cmChoices[+el.value]; if (!c || cmLocked(c)) return;
       var pl = JSON.parse(JSON.stringify(c.plugin)); target.fx.plugins = target.fx.plugins || [];
       target.fx.plugins.push({ name: c.name || pl.name || "Plugin", plugin: pl, values: cmDefaults(pl), on: true }); target.fx.on = true; commit(true); return;
+    }
+    if (el.hasAttribute && el.hasAttribute("data-fx-cm-preset")) {   /* (10.3) a plugin's starting points */
+      if (e.type !== "change" || el.value === "") return; var it = (target.fx.plugins || [])[+el.dataset.fxCmPreset], pr = it && it.plugin && (it.plugin.presets || [])[+el.value]; if (!pr) return;
+      it.values = Object.assign(cmDefaults(it.plugin), pr.values || {}); commit(true); return;
     }
     if (el.dataset.fxFull) { set(el.dataset.fxFull + ".mode", el.checked ? "full" : "basic"); commit(true); return; }
     var path = el.dataset.fx; if (!path) return;

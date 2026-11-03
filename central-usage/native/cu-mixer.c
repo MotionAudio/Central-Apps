@@ -50,6 +50,9 @@
  *    {"cmd":"fx","rev":[on,decay s,predelay ms,damping 0-1,low cut Hz,width 0-1,return dB],
  *                "dly":[on,left ms,right ms,feedback 0-0.95,high cut Hz,low cut Hz,return dB,ping-pong]}
  *    {"cmd":"stream","level":0,"mute":0,"outL":4,"outR":5,"tap":1,"used":1,"comp":[on,thr,ratio,att,rel,makeup],"rRev":-90,"rDly":-90}
+ *    (10.3) channel inserts: Central FX plugins (the plugin builder's .cmfx.json; cmfx/) after a channel's compressor, up to 4:
+ *    {"cmd":"insert","i":3,"slot":0,"path":"/x/central-fx/vocal-plate.cmfx.json"}  ("path":"" takes it out)
+ *    {"cmd":"insertParam","i":3,"slot":0,"id":"mix","value":0.3}      -> {"ev":"insert","i","slot","name"|"error"}
  *    {"cmd":"ssend","i":3,"level":-6,"pan":0,"on":1}      a channel's level in the stream mix
  *    "mix" also takes "rRev" / "rDly": that in-ear mix's reverb / delay return levels (dB)
  *
@@ -178,6 +181,14 @@ typedef struct {
 } Net;
 
 static Input in[MAXIN];
+/* (10.3) the channel inserts: loaded on the reader thread, handed to the audio thread by one atomic pointer each; an old one
+ * is freed a second later (the audio thread is long done with it by then) */
+#include "cmfx/cmfx.h"
+#define MAXINS 4
+typedef struct { CmFx *fx; float *pool; } Insert;
+static Insert *_Atomic inserts[MAXIN][MAXINS];
+static float insL[MAXBLOCK], insR[MAXBLOCK];
+static struct { Insert *x; uint64_t at; } insGrave[64]; static int nGrave;
 static Send sends[MAXIN][MAXMIX];
 static int nsends[MAXIN];
 static Mix mix[MAXMIX], mainb;          /* mainb: the main mix */
@@ -298,6 +309,35 @@ static struct {
 } REC;
 static void pan_gains(float g, float pan, float *L, float *R) { double a = (pan + 1) * M_PI / 4; *L = (float)(g * cos(a) * M_SQRT2); *R = (float)(g * sin(a) * M_SQRT2); if (*L > g) *L = g; if (*R > g) *R = g; }
 
+static void put_json(const char *s);
+static void insert_event(int i, int k, const char *key, const char *val) {
+  char b[700], e[400]; size_t n = 0; for (const char *q = val; *q && n < sizeof e - 2; q++) { if (*q == '"' || *q == '\\') e[n++] = '\\'; e[n++] = (unsigned char)*q < 32 ? ' ' : *q; } e[n] = 0;
+  snprintf(b, sizeof b, "{\"ev\":\"insert\",\"i\":%d,\"slot\":%d,\"%s\":\"%s\"}", i, k, key, e); put_json(b);
+}
+static void insert_command(const char *cmd, const char *js) {
+  int i = (int)jnum(js, "i", -1), k = (int)jnum(js, "slot", -1); if (i < 0 || i >= MAXIN || k < 0 || k >= MAXINS) return;
+  uint64_t now = pl_now_ns();
+  for (int g = 0; g < nGrave; g++) if (now - insGrave[g].at > 1000000000ull) { free(insGrave[g].x->fx); free(insGrave[g].x->pool); free(insGrave[g].x); insGrave[g--] = insGrave[--nGrave]; }
+  if (!strcmp(cmd, "insertParam")) {
+    Insert *x = atomic_load(&inserts[i][k]); char id[40] = ""; jstr(js, "id", id, sizeof id); if (!x) return;
+    int pi = cmfx_param_index(x->fx, id); if (pi >= 0) cmfx_set_param(x->fx, pi, (float)jnum(js, "value", 0)); return;
+  }
+  char path[1100] = ""; jstr(js, "path", path, sizeof path);
+  Insert *nx = NULL;
+  if (path[0]) {
+    size_t pl = strlen(path); FILE *f = pl > 10 && !strcmp(path + pl - 10, ".cmfx.json") ? fopen(path, "rb") : NULL;
+    if (!f) { insert_event(i, k, "error", "the plugin file isn't there"); return; }
+    char *t = malloc(512 * 1024 + 1); size_t len = t ? fread(t, 1, 512 * 1024, f) : 0; fclose(f);
+    if (!t) return;
+    nx = calloc(1, sizeof *nx); nx->fx = malloc(cmfx_struct_size()); char err[300] = "";
+    if (cmfx_load(nx->fx, t, (int)len, (float)FS, err, sizeof err) != 0) { free(t); free(nx->fx); free(nx); insert_event(i, k, "error", err); return; }
+    free(t);
+    nx->pool = calloc(cmfx_pool_floats(nx->fx), sizeof(float)); cmfx_attach(nx->fx, nx->pool);
+    insert_event(i, k, "name", cmfx_name(nx->fx));
+  }
+  Insert *old = atomic_exchange(&inserts[i][k], nx);
+  if (old) { if (nGrave < 64) { insGrave[nGrave].x = old; insGrave[nGrave].at = now; nGrave++; } }   /* (64 waiting: the next ones leak rather than risk the audio thread) */
+}
 static void command(const char *js) {
   char cmd[32] = ""; jstr(js, "cmd", cmd, sizeof cmd);
   Cmd c; memset(&c, 0, sizeof c);
@@ -365,6 +405,7 @@ static void command(const char *js) {
     c.kind = C_TALK; c.a = (int)jnum(js, "slot", -1); if (c.a < 0 || c.a >= TALKS) return;
     c.b = (int)jnum(js, "src", 2); c.f[0] = (float)jnum(js, "ch", 0); c.f[1] = db2lin(jnum(js, "gain", 0)); c.f[2] = db2lin(jnum(js, "dim", 0)); c.f[3] = (float)jnum(js, "on", 0); c.f[4] = (float)jnum(js, "all", 0);
     float mx[MAXMIX]; int n = jarr(js, "mixes", mx, MAXMIX); for (int k = 0; k < n; k++) if (mx[k] >= 0 && mx[k] < MAXMIX) c.mask |= 1ULL << (int)mx[k];
+  } else if (!strcmp(cmd, "insert") || !strcmp(cmd, "insertParam")) { insert_command(cmd, js); return;
   } else if (!strcmp(cmd, "rec")) { rec_command(js); return;   /* set up here (files, buffers); the audio thread only sees a flag */
   } else if (!strcmp(cmd, "quit")) { running = 0; return;
   } else return;
@@ -502,6 +543,11 @@ static void process(int frames, float **insDev, float **outs) {
         v *= x->makeup;
       }
       strip[f] = v; float av = fabsf(v); if (av > pk) pk = av;
+    }
+    for (int k = 0; k < MAXINS; k++) {   /* (10.3) the inserts: mono in, the two sides averaged back to the channel */
+      Insert *ix = atomic_load(&inserts[i][k]); if (!ix) continue;
+      cmfx_process(ix->fx, strip, NULL, insL, insR, frames);
+      pk = 0; for (int f = 0; f < frames; f++) { float v = 0.5f * (insL[f] + insR[f]); strip[f] = v; float av = fabsf(v); if (av > pk) pk = av; }
     }
     x->peak = pk; x->gr = grMax > x->gr ? grMax : x->gr * 0.9f;
     { float gd = x->gateOn && gMin < 1 ? -20 * log10f(gMin > 1e-5f ? gMin : 1e-5f) : 0; x->gt = gd > x->gt ? gd : x->gt * 0.9f; }

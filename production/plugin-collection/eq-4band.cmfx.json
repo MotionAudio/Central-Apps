@@ -1,0 +1,221 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "eq-4band",
+ "name": "4-Band EQ",
+ "author": "Motion Audio",
+ "family": "eq",
+ "tier": "free",
+ "description": "Low and high shelves with two mids. The basic EQ.",
+ "params": [
+  {
+   "id": "lowF",
+   "name": "Low frequency",
+   "min": 30,
+   "max": 400,
+   "default": 100,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Low"
+  },
+  {
+   "id": "lowG",
+   "name": "Low gain",
+   "min": -15,
+   "max": 15,
+   "default": 0,
+   "unit": "dB",
+   "group": "Low"
+  },
+  {
+   "id": "mid1F",
+   "name": "Low mid frequency",
+   "min": 150,
+   "max": 2000,
+   "default": 400,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Low mid"
+  },
+  {
+   "id": "mid1G",
+   "name": "Low mid gain",
+   "min": -15,
+   "max": 15,
+   "default": 0,
+   "unit": "dB",
+   "group": "Low mid"
+  },
+  {
+   "id": "mid2F",
+   "name": "High mid frequency",
+   "min": 800,
+   "max": 8000,
+   "default": 2500,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "High mid"
+  },
+  {
+   "id": "mid2G",
+   "name": "High mid gain",
+   "min": -15,
+   "max": 15,
+   "default": 0,
+   "unit": "dB",
+   "group": "High mid"
+  },
+  {
+   "id": "highF",
+   "name": "High frequency",
+   "min": 2500,
+   "max": 16000,
+   "default": 8000,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "High"
+  },
+  {
+   "id": "highG",
+   "name": "High gain",
+   "min": -15,
+   "max": 15,
+   "default": 0,
+   "unit": "dB",
+   "group": "High"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal clarity",
+   "values": {
+    "mid1G": -2,
+    "mid2G": 2,
+    "highG": 2
+   }
+  },
+  {
+   "name": "Warm keys",
+   "values": {
+    "lowG": 2,
+    "mid2G": -1.5,
+    "highG": -2
+   }
+  },
+  {
+   "name": "Kick",
+   "values": {
+    "lowF": 60,
+    "lowG": 4,
+    "mid1F": 350,
+    "mid1G": -5,
+    "mid2F": 3500,
+    "mid2G": 3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "low",
+    "type": "eq",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "lowshelf",
+     "freq": {
+      "param": "lowF"
+     },
+     "gain": {
+      "param": "lowG"
+     },
+     "q": 0.7
+    }
+   },
+   {
+    "id": "m1",
+    "type": "eq",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": {
+      "param": "mid1F"
+     },
+     "gain": {
+      "param": "mid1G"
+     },
+     "q": 0.9
+    }
+   },
+   {
+    "id": "m2",
+    "type": "eq",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": {
+      "param": "mid2F"
+     },
+     "gain": {
+      "param": "mid2G"
+     },
+     "q": 0.9
+    }
+   },
+   {
+    "id": "high",
+    "type": "eq",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mode": "highshelf",
+     "freq": {
+      "param": "highF"
+     },
+     "gain": {
+      "param": "highG"
+     },
+     "q": 0.7
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "low.in"
+   },
+   {
+    "from": "low.out",
+    "to": "m1.in"
+   },
+   {
+    "from": "m1.out",
+    "to": "m2.in"
+   },
+   {
+    "from": "m2.out",
+    "to": "high.in"
+   },
+   {
+    "from": "high.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

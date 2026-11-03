@@ -1,0 +1,173 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "opto-leveler",
+ "name": "Opto Leveler",
+ "author": "Motion Audio",
+ "family": "compressor",
+ "tier": "plugins",
+ "description": "Smooth, musical levelling in the style of the LA-2A: one knob for how much, one for how loud. The release slows the harder it works.",
+ "params": [
+  {
+   "id": "reduction",
+   "name": "Peak reduction",
+   "min": 0,
+   "max": 100,
+   "default": 40,
+   "unit": "%"
+  },
+  {
+   "id": "gain",
+   "name": "Gain",
+   "min": 0,
+   "max": 30,
+   "default": 6,
+   "unit": "dB"
+  },
+  {
+   "id": "ratio",
+   "name": "Compress ↔ limit",
+   "min": 3,
+   "max": 10,
+   "default": 3,
+   "unit": ":1"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Smooth vocal",
+   "values": {
+    "reduction": 45,
+    "gain": 8
+   }
+  },
+  {
+   "name": "Bass leveler",
+   "values": {
+    "reduction": 55,
+    "gain": 9,
+    "ratio": 4
+   }
+  },
+  {
+   "name": "Gentle bus",
+   "values": {
+    "reduction": 25,
+    "gain": 3
+   }
+  },
+  {
+   "name": "Limit",
+   "values": {
+    "reduction": 60,
+    "gain": 10,
+    "ratio": 10
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "red",
+    "type": "param",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "param": "reduction"
+    }
+   },
+   {
+    "id": "thr",
+    "type": "math",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "op": "map",
+     "inLo": 0,
+     "inHi": 100,
+     "outLo": -6,
+     "outHi": -42
+    }
+   },
+   {
+    "id": "opto",
+    "type": "compressor",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "style": "opto",
+     "detect": "rms",
+     "ratio": {
+      "param": "ratio"
+     },
+     "attack": 10,
+     "release": 80,
+     "knee": 10,
+     "makeup": {
+      "param": "gain"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "red.out",
+    "to": "thr.a"
+   },
+   {
+    "from": "in.out",
+    "to": "opto.in"
+   },
+   {
+    "from": "thr.out",
+    "to": "opto.threshold"
+   },
+   {
+    "from": "opto.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

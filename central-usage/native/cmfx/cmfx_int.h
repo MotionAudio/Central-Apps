@@ -33,6 +33,13 @@ double cm_atan2(double y, double x);
 double cm_pow(double a, double b);
 double cm_fmod(double a, double b);
 float cm_db2lin(float db);
+float cm_fdb(float g);      /* level -> dB, quick */
+float cm_fgain(float db);   /* dB -> level, quick */
+/* (10.3) cheap, exact-everywhere helpers for the audio loops: sine of a phase in cycles (a 4096-point table, filled by
+ * cm_tables_init), and a smooth tanh-like curve (reaches +-1 at +-3 with a flat slope) */
+void cm_tables_init(void);
+float cm_tsin(double cycles);
+static inline float cm_ftanh(float x) { if (x >= 3) return 1; if (x <= -3) return -1; float x2 = x * x; return x * (27 + x2) / (27 + 9 * x2); }
 float cm_lin2db(float g);
 #define CM_PI 3.14159265358979323846
 int cm_isfinite(float x);

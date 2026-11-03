@@ -63,6 +63,13 @@
       var mine = more.filter(function (x) { return x.from === "mine"; }), inst = more.filter(function (x) { return x.from !== "mine"; });
       if (mine.length) { items.push(null); mine.forEach(function (x) { items.push(cm(x.plugin, "yours")); }); }
       if (inst.length) { items.push(null); inst.forEach(function (x) { items.push(cm(x.plugin, x.author ? "by " + x.author : "installed")); }); }
+      // (10.3) the Central FX collection, by family: the basic ones free, the better ones with Central Plugins
+      var coll = window.CMFxCollection || [], fams = [];
+      coll.forEach(function (pl) { if (fams.indexOf(pl.family) < 0) fams.push(pl.family); });
+      fams.forEach(function (fam) {
+        items.push(null);
+        coll.filter(function (pl) { return pl.family === fam; }).forEach(function (pl) { var locked = pl.tier === "plugins" && !D.pro(); var it = cm(pl, locked ? "Central Plugins" : ""); if (locked) it[2] = false; items.push(it); });
+      });
       if (ex.length) { items.push(null); ex.forEach(function (pl) { items.push(cm(pl, "example")); }); }
       if (D.native.host()) items.push(null, ["Your VST3 / CLAP plugins…", function () { nativeMenu(btn, done, false); }]);
       items.push(null, ["A plugin file (.cmfx.json)…", function () { var i = document.createElement("input"); i.type = "file"; i.accept = ".json"; i.onchange = function () { var file = i.files[0]; if (!file) return; file.text().then(function (txt) { var pl = JSON.parse(txt); if (pl.format !== "central-fx") throw new Error(); if (window.CMFx) { var r = window.CMFx.check(pl); if (!r.ok) return UI.say("That plugin has a problem: " + r.error, true); } cm(pl)[1](); }).catch(function () { UI.say("That isn't a Central FX plugin.", true); }); }; i.click(); }]);

@@ -701,7 +701,7 @@ class InstrumentHost:
         src = next((d for d in [os.path.join(r, "central-usage", "native") for r in roots] + roots if os.path.isfile(os.path.join(d, "cm-pwnode.c"))), None)
         if not src or not shutil.which("make") or not (shutil.which("g++") or shutil.which("c++")):
             return None
-        r = run(["make", "-C", src, "OUT=" + built, os.path.join(built, "cm-plugbridge"), os.path.join(built, "cm-pwnode")], timeout=900)
+        r = run(["make", "-C", src, "OUT=" + built, os.path.join(built, "cm-plugbridge"), os.path.join(built, "cm-pwnode"), os.path.join(built, "central-fx", ".stamp")], timeout=900)   # (10.3: and the Central FX collection beside them)
         if r.returncode != 0 or not os.path.isfile(os.path.join(built, "cm-pwnode")):
             log.warning("community plugins: building the community stage failed: %s", (r.stderr or r.stdout or "").strip()[-300:])
             return None

@@ -34,19 +34,23 @@
     param: ["Knob", "Sends one of your plugin's knobs into the wiring."],
     code: ["Code", "Your own code, for anything the other blocks can't do."],
     stereo: ["Stereo", "Width, pan, mono or swap left and right."],
+    crossover: ["Band split", "One band of a 3-way split (low, mid or high); the three add back up to the original."],
+    transient: ["Transient shaper", "More or less attack and sustain, at any level."],
+    rotary: ["Rotary speaker", "The spinning organ speaker: horn and drum, slow or fast."],
   };
-  var GROUPS = [["In and out", ["input", "output"]], ["Tone", ["filter", "eq"]], ["Space", ["delay", "reverb"]], ["Movement", ["chorus", "phaser", "tremolo", "pitch"]],
-    ["Grit", ["drive", "bitcrush"]], ["Dynamics", ["compressor", "limiter", "gate"]], ["Mixing", ["gain", "mix", "stereo"]], ["Control", ["lfo", "envelope", "math", "param"]], ["Code", ["code"]]];
+  var GROUPS = [["In and out", ["input", "output"]], ["Tone", ["filter", "eq"]], ["Space", ["delay", "reverb"]], ["Movement", ["chorus", "phaser", "tremolo", "pitch", "rotary"]],
+    ["Grit", ["drive", "bitcrush"]], ["Dynamics", ["compressor", "limiter", "gate", "transient"]], ["Mixing", ["gain", "mix", "stereo", "crossover"]], ["Control", ["lfo", "envelope", "math", "param"]], ["Code", ["code"]]];
   var PORTS = { freq: ["Frequency", "Hz", 1], q: ["Width (Q)", "", 1], gain: ["Gain", "dB"], mix: ["Mix", "%"], time: ["Time", "ms", 1], feedback: ["Feedback", "%"], tone: ["Tone", "Hz", 1],
     size: ["Size", "%"], damp: ["Damping", "%"], predelay: ["Pre-delay", "ms"], width: ["Width", ""], rate: ["Speed", "Hz", 1], depth: ["Depth", "%"], drive: ["Drive", "dB"], level: ["Level", "dB"],
     bits: ["Bits", ""], threshold: ["Threshold", "dB"], ratio: ["Ratio", ":1"], attack: ["Attack", "ms", 1], release: ["Release", "ms", 1], knee: ["Knee", "dB"], makeup: ["Make-up", "dB"],
     ceiling: ["Ceiling", "dB"], range: ["Range", "dB"], hold: ["Hold", "ms"], stereo: ["Stereo spread", "°"], semitones: ["Semitones", "st"], fine: ["Fine", "cents"],
     from: ["From", ""], to: ["To", ""], phase: ["Phase", "°"], sensitivity: ["Sensitivity", "dB"], a: ["A", ""], b: ["B", ""], lo: ["Low", ""], hi: ["High", ""],
     inLo: ["In low", ""], inHi: ["In high", ""], outLo: ["Out low", ""], outHi: ["Out high", ""], pan: ["Pan", ""], c1: ["c1", ""], c2: ["c2", ""], c3: ["c3", ""], c4: ["c4", ""],
-    in: ["Sound", ""], key: ["Key (listen to)", ""], dry: ["Dry", ""], wet: ["Wet", ""] };
+    in: ["Sound", ""], key: ["Key (listen to)", ""], dry: ["Dry", ""], wet: ["Wet", ""],
+    mod: ["Motion", ""], schpf: ["Side-chain low cut", "Hz", 1], low: ["Low / mid split", "Hz", 1], high: ["Mid / high split", "Hz", 1], speed: ["Speed (slow / fast)", ""], sustain: ["Sustain", "%"] };
   var PERCENT = { mix: 1, feedback: 1, size: 1, damp: 1, depth: 1 };
-  var NUMPROPS = { filter: [["slope", "Slope", [12, 24], "dB per octave"]], eq: [], delay: [["maxTime", "Longest time", [100, 10000], "ms"]], phaser: [["stages", "Stages", [2, 12], ""]], pitch: [["window", "Smoothness", [10, 200], "ms"]] };
-  var NUMDEF = { slope: 12, maxTime: 2000, stages: 4, window: 50 };
+  var NUMPROPS = { filter: [["slope", "Slope", [12, 24], "dB per octave"]], eq: [], delay: [["maxTime", "Longest time", [100, 10000], "ms"]], phaser: [["stages", "Stages", [2, 12], ""]], pitch: [["window", "Smoothness", [10, 200], "ms"]], drive: [["oversample", "Oversampling (1, 2 or 4)", [1, 4], "x"]], limiter: [["lookahead", "Look-ahead", [0, 10], "ms"]] };
+  var NUMDEF = { slope: 12, maxTime: 2000, stages: 4, window: 50, oversample: 2, lookahead: 0 };
   var CHOICE_NAMES = { lowpass: "Lowpass", highpass: "Highpass", bandpass: "Bandpass", notch: "Notch", peak: "Peak", lowshelf: "Low shelf", highshelf: "High shelf", allpass: "Allpass",
     linear: "Straight", equal: "Equal power", normal: "Normal", pingpong: "Ping-pong", chorus: "Chorus", flanger: "Flanger", soft: "Soft", hard: "Hard", tube: "Tube", fuzz: "Fuzz", fold: "Fold",
     tremolo: "Tremolo", autopan: "Auto-pan", sine: "Sine", triangle: "Triangle", saw: "Saw up", ramp: "Saw down", square: "Square", random: "Random", mono: "Mono", swap: "Swap",
@@ -430,7 +434,7 @@
       P.params.push(q); return id;
     }
     function portControl(b, p) {
-      var meta = PORTS[p.name] || [p.name, ""], unit = meta[1], logScale = meta[2] && p.min > 0, wrap = el("div", { class: "cpb-ctl-row" });
+      var meta = PORTS[p.name] || [p.name, ""], unit = b.type === "transient" && p.name === "attack" ? "%" : meta[1], logScale = meta[2] && p.min > 0, wrap = el("div", { class: "cpb-ctl-row" });
       var wired = P.graph.wires.filter(function (w) { var to = wireParts(w.to); return to[0] === b.id && to[1] === p.name; })[0];
       wrap.appendChild(el("div", { class: "cpb-ctl-name", text: meta[0] }));
       if (wired) {

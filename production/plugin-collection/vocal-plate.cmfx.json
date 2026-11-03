@@ -1,0 +1,195 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "vocal-plate",
+ "name": "Vocal Plate",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "plugins",
+ "description": "A bright, smooth plate made for vocals: sits behind the voice without clouding the words.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.2
+  },
+  {
+   "id": "decay",
+   "name": "Decay",
+   "min": 0.2,
+   "max": 0.9,
+   "default": 0.55
+  },
+  {
+   "id": "predelay",
+   "name": "Pre-delay",
+   "min": 0,
+   "max": 150,
+   "default": 25,
+   "unit": "ms"
+  },
+  {
+   "id": "bright",
+   "name": "Brightness",
+   "min": -6,
+   "max": 6,
+   "default": 2,
+   "unit": "dB"
+  },
+  {
+   "id": "lowcut",
+   "name": "Low cut",
+   "min": 80,
+   "max": 800,
+   "default": 220,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Lead vocal",
+   "values": {
+    "mix": 0.2,
+    "decay": 0.5,
+    "predelay": 30,
+    "bright": 2.5,
+    "lowcut": 250
+   }
+  },
+  {
+   "name": "Ballad",
+   "values": {
+    "mix": 0.3,
+    "decay": 0.7,
+    "predelay": 45,
+    "bright": 1,
+    "lowcut": 200
+   }
+  },
+  {
+   "name": "Backing vocals",
+   "values": {
+    "mix": 0.28,
+    "decay": 0.55,
+    "predelay": 10,
+    "bright": 0,
+    "lowcut": 350
+   }
+  },
+  {
+   "name": "Snare plate",
+   "values": {
+    "mix": 0.25,
+    "decay": 0.45,
+    "predelay": 0,
+    "bright": 3,
+    "lowcut": 300
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "lowcut"
+     },
+     "q": 0.7,
+     "slope": 24
+    }
+   },
+   {
+    "id": "plate",
+    "type": "reverb",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "size": {
+      "param": "decay"
+     },
+     "damp": 0.18,
+     "mix": 1,
+     "predelay": {
+      "param": "predelay"
+     },
+     "width": 1,
+     "mod": 0.55
+    }
+   },
+   {
+    "id": "air",
+    "type": "eq",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "highshelf",
+     "freq": 6000,
+     "q": 0.7,
+     "gain": {
+      "param": "bright"
+     }
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "plate.in"
+   },
+   {
+    "from": "plate.out",
+    "to": "air.in"
+   },
+   {
+    "from": "air.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

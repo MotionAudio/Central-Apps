@@ -1,0 +1,186 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "dimension-chorus",
+ "name": "Dimension Chorus",
+ "author": "Motion Audio",
+ "family": "modulation",
+ "tier": "plugins",
+ "description": "Two choruses against each other for a wide, still, shimmering width, with no wobble. Lovely on keys, pads and clean guitar.",
+ "params": [
+  {
+   "id": "rate",
+   "name": "Speed",
+   "min": 0.1,
+   "max": 2,
+   "default": 0.45,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "depth",
+   "name": "Depth",
+   "min": 0,
+   "max": 1,
+   "default": 0.45
+  },
+  {
+   "id": "width",
+   "name": "Width",
+   "min": 0,
+   "max": 2,
+   "default": 1.5
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  }
+ ],
+ "presets": [
+  {
+   "name": "Mode 1",
+   "values": {
+    "depth": 0.3,
+    "rate": 0.35,
+    "mix": 0.4
+   }
+  },
+  {
+   "name": "Mode 2",
+   "values": {
+    "depth": 0.45,
+    "rate": 0.45,
+    "mix": 0.5
+   }
+  },
+  {
+   "name": "Mode 3",
+   "values": {
+    "depth": 0.65,
+    "rate": 0.6,
+    "mix": 0.55
+   }
+  },
+  {
+   "name": "Mode 4",
+   "values": {
+    "depth": 0.85,
+    "rate": 0.8,
+    "mix": 0.6,
+    "width": 1.8
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "a",
+    "type": "chorus",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "rate": {
+      "param": "rate"
+     },
+     "depth": {
+      "param": "depth"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "sw",
+    "type": "stereo",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "swap"
+    }
+   },
+   {
+    "id": "b",
+    "type": "chorus",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "rate": 0.63,
+     "depth": {
+      "param": "depth"
+     },
+     "mix": 0.5
+    }
+   },
+   {
+    "id": "sw2",
+    "type": "stereo",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mode": "swap",
+     "width": {
+      "param": "width"
+     }
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 1040,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1240,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "a.in"
+   },
+   {
+    "from": "a.out",
+    "to": "sw.in"
+   },
+   {
+    "from": "sw.out",
+    "to": "b.in"
+   },
+   {
+    "from": "b.out",
+    "to": "sw2.in"
+   },
+   {
+    "from": "sw2.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

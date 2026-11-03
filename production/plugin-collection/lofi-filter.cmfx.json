@@ -1,0 +1,210 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "lofi-filter",
+ "name": "Lo-Fi Filter",
+ "author": "Motion Audio",
+ "family": "saturation",
+ "tier": "plugins",
+ "description": "Thin, crunchy and small: fewer bits, a lower sample rate and a narrow band. For intros and breakdowns.",
+ "params": [
+  {
+   "id": "bits",
+   "name": "Bits",
+   "min": 4,
+   "max": 16,
+   "default": 10,
+   "unit": "bits"
+  },
+  {
+   "id": "rate",
+   "name": "Sample rate",
+   "min": 2000,
+   "max": 24000,
+   "default": 11000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "lowcut",
+   "name": "Low cut",
+   "min": 100,
+   "max": 1500,
+   "default": 350,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "highcut",
+   "name": "High cut",
+   "min": 1500,
+   "max": 12000,
+   "default": 4000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "drive",
+   "name": "Drive",
+   "min": 0,
+   "max": 24,
+   "default": 6,
+   "unit": "dB"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "AM radio",
+   "values": {
+    "lowcut": 500,
+    "highcut": 3200,
+    "bits": 12,
+    "rate": 16000
+   }
+  },
+  {
+   "name": "Old sampler",
+   "values": {
+    "bits": 12,
+    "rate": 9000,
+    "lowcut": 120,
+    "highcut": 8000,
+    "drive": 3
+   }
+  },
+  {
+   "name": "Crushed",
+   "values": {
+    "bits": 6,
+    "rate": 5000,
+    "drive": 12
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "lowcut"
+     },
+     "q": 0.8,
+     "slope": 24
+    }
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "highcut"
+     },
+     "q": 1.1,
+     "slope": 24
+    }
+   },
+   {
+    "id": "crush",
+    "type": "bitcrush",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "bits": {
+      "param": "bits"
+     },
+     "rate": {
+      "param": "rate"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "grit",
+    "type": "drive",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mode": "soft",
+     "drive": {
+      "param": "drive"
+     },
+     "tone": 9000,
+     "level": -3,
+     "mix": 1,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 1040,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1240,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "crush.in"
+   },
+   {
+    "from": "crush.out",
+    "to": "grit.in"
+   },
+   {
+    "from": "grit.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

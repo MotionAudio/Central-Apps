@@ -1,0 +1,174 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "tape-saturation",
+ "name": "Tape Saturation",
+ "author": "Motion Audio",
+ "family": "saturation",
+ "tier": "plugins",
+ "description": "The warmth of tape: soft saturation (4x oversampled, no harsh aliasing), a little low-end bump and a gentle top.",
+ "params": [
+  {
+   "id": "drive",
+   "name": "Drive",
+   "min": 0,
+   "max": 24,
+   "default": 8,
+   "unit": "dB"
+  },
+  {
+   "id": "bump",
+   "name": "Low bump",
+   "min": 0,
+   "max": 4,
+   "default": 1.5,
+   "unit": "dB"
+  },
+  {
+   "id": "tone",
+   "name": "Top",
+   "min": 6000,
+   "max": 20000,
+   "default": 15000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -18,
+   "max": 6,
+   "default": -4,
+   "unit": "dB"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Warm mix bus",
+   "values": {
+    "drive": 4,
+    "bump": 1,
+    "output": -2
+   }
+  },
+  {
+   "name": "Vocal glow",
+   "values": {
+    "drive": 8,
+    "bump": 0.5,
+    "tone": 16000,
+    "output": -4
+   }
+  },
+  {
+   "name": "Hot drums",
+   "values": {
+    "drive": 16,
+    "bump": 2.5,
+    "tone": 12000,
+    "output": -9
+   }
+  },
+  {
+   "name": "Lo-fi tape",
+   "values": {
+    "drive": 20,
+    "tone": 7000,
+    "output": -10
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "hb",
+    "type": "eq",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": 90,
+     "q": 1.1,
+     "gain": {
+      "param": "bump"
+     }
+    }
+   },
+   {
+    "id": "tape",
+    "type": "drive",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "tape",
+     "drive": {
+      "param": "drive"
+     },
+     "tone": {
+      "param": "tone"
+     },
+     "level": {
+      "param": "output"
+     },
+     "mix": 1,
+     "oversample": 4
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hb.in"
+   },
+   {
+    "from": "hb.out",
+    "to": "tape.in"
+   },
+   {
+    "from": "tape.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

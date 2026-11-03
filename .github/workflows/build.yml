@@ -57,6 +57,7 @@ jobs:
           cp -r central-usage/native/build/central-playany.lv2 bin/linux-x86_64/
           cp central-usage/native/build-linux-arm64/cm-plugbridge central-usage/native/build-linux-arm64/cm-pwnode bin/linux-aarch64/
           cp central-usage/native/build/cm-plugbridge central-usage/native/build/cm-pwnode bin/linux-x86_64/
+          make -C central-usage/native OUT=build-linux-arm64 collection && cp -r central-usage/native/build-linux-arm64/central-fx bin/linux-aarch64/ && cp -r central-usage/native/build/central-fx bin/linux-x86_64/   # (10.3: the Central FX collection next to the Pi's stage)
           node -e 'const m=require("./central-usage/native/build/rig-map.json"),P=require("./js/pedals.js");const miss=P.pedals.filter(p=>!m[p.id]).map(p=>p.id);if(miss.length){console.log("::error::pedals missing from the rig map: "+miss.join(", "));process.exit(1)}console.log("rig map: "+Object.keys(m).length+" pedals, all of js/pedals.js")'
       - name: ffmpeg (pinned, checksum-checked)
         run: |
@@ -70,6 +71,7 @@ jobs:
           bash tools/ci-run.sh "community plugin wall test (round trip, crash / hang / heavy bypass, no network or files, revoke live)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
           bash tools/ci-run.sh "Central FX core test (native = WebAssembly for every block, the code language, hostile scripts, presets)" node test-cmfx.mjs
           bash tools/ci-run.sh "Central FX in the rig and on the Central Pedal's stage" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
+          CMFX_BUDGET_PCT=6 bash tools/ci-run.sh "Central FX collection (every plugin and starting point, native = WebAssembly, CPU, the engine's quality)" node test-cmfx-collection.mjs   # (6%: a shared CI machine is slower than a desk one)
           file central-usage/native/build-linux-arm64/cm-pwnode | grep -q aarch64 || { echo "::error::the arm64 cm-pwnode (with Central FX) is not arm64"; exit 1; }
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany

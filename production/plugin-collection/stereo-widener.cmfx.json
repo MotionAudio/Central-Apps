@@ -1,0 +1,168 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "stereo-widener",
+ "name": "Stereo Widener",
+ "author": "Motion Audio",
+ "family": "stereo",
+ "tier": "plugins",
+ "description": "Makes the sound wider, while keeping the bass in the middle so it stays solid (and safe in mono).",
+ "params": [
+  {
+   "id": "width",
+   "name": "Width",
+   "min": 0,
+   "max": 2,
+   "default": 1.5
+  },
+  {
+   "id": "bassMono",
+   "name": "Bass mono below",
+   "min": 40,
+   "max": 400,
+   "default": 140,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Wider",
+   "values": {
+    "width": 1.4
+   }
+  },
+  {
+   "name": "Very wide",
+   "values": {
+    "width": 1.9,
+    "bassMono": 180
+   }
+  },
+  {
+   "name": "Narrow",
+   "values": {
+    "width": 0.6
+   }
+  },
+  {
+   "name": "Mono check",
+   "values": {
+    "width": 0
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "lowb",
+    "type": "crossover",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "band": "low",
+     "low": {
+      "param": "bassMono"
+     },
+     "high": 20000
+    }
+   },
+   {
+    "id": "mono",
+    "type": "stereo",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "mono"
+    }
+   },
+   {
+    "id": "highb",
+    "type": "crossover",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "band": "high",
+     "low": 20,
+     "high": {
+      "param": "bassMono"
+     }
+    }
+   },
+   {
+    "id": "wide",
+    "type": "stereo",
+    "x": 440,
+    "y": 420,
+    "props": {
+     "width": {
+      "param": "width"
+     }
+    }
+   },
+   {
+    "id": "o",
+    "type": "gain",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "gain": {
+      "param": "output"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "lowb.in"
+   },
+   {
+    "from": "lowb.out",
+    "to": "mono.in"
+   },
+   {
+    "from": "in.out",
+    "to": "highb.in"
+   },
+   {
+    "from": "highb.out",
+    "to": "wide.in"
+   },
+   {
+    "from": "mono.out",
+    "to": "o.in"
+   },
+   {
+    "from": "wide.out",
+    "to": "o.in"
+   },
+   {
+    "from": "o.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}
