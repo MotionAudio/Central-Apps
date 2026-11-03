@@ -4,6 +4,7 @@
  *   node test-fx.mjs [path/to/index.html]
  */
 import { chromium } from "playwright";
+import { serveApp } from "./test-serve.mjs";   // (saved and reloaded: served, not from file:// - see test-serve.mjs)
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import assert from "node:assert/strict";
@@ -27,7 +28,8 @@ const T = (fn, arg) => page.evaluate(fn, arg);
 const wait = (ms) => page.waitForTimeout(ms);
 async function until(fn, ms = 20000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await fn()) return true; await wait(100); } throw new Error("timed out"); }
 
-await page.goto("file://" + pagePath);
+const site = await serveApp(path.dirname(pagePath));
+await page.goto(site.url(path.basename(pagePath)));
 await page.waitForFunction(() => window.__test && window.PPTracks && window.PPFx);
 
 console.log("Track effects:");
@@ -241,6 +243,6 @@ await check("a pad's gate closes when the sound is under its threshold", async (
 
 await check("no page errors", () => assert.deepEqual(errors, []));
 
-await browser.close();
+await browser.close(); site.close();
 if (failures) { console.error("\n" + failures + " failed"); process.exit(1); }
 console.log("\nall passed");
