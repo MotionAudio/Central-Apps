@@ -278,9 +278,9 @@ html[data-web] .admin-only, html[data-web] #findBtn, html[data-web] #connectBtn,
 .cd-chip b { font-family: ui-monospace, monospace; } .cd-chip b.over { color: var(--bad); } .cd-chip.soon { border-color: var(--warn); animation: cdpulse 1s ease-in-out infinite; } .cd-chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 80%); }
 .cd-you { color: var(--accent); font-weight: 800; }
 @keyframes cdpulse { 50% { background: rgba(240, 180, 41, .25); } }
-.cd-pop { position: fixed; top: 58px; right: 16px; z-index: 80; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.5); max-height: 70vh; overflow: auto; min-width: 320px; }
-.cd-pop table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13px; } .cd-pop td { padding: 4px 6px; border-top: 1px solid var(--line); } .cd-pop td:first-child { color: var(--muted); font-family: ui-monospace, monospace; }
-.cd-pop tr.mine td { color: var(--accent); font-weight: 700; } .cd-pop tr.now td { background: color-mix(in srgb, var(--accent), transparent 82%); }
+.cdn-pop { position: fixed; top: 58px; right: 16px; z-index: 80; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.5); max-height: 70vh; overflow: auto; min-width: 320px; }
+.cdn-pop table { border-collapse: collapse; margin-top: 8px; width: 100%; font-size: 13px; } .cdn-pop td { padding: 4px 6px; border-top: 1px solid var(--line); } .cdn-pop td:first-child { color: var(--muted); font-family: ui-monospace, monospace; }
+.cdn-pop tr.mine td { color: var(--accent); font-weight: 700; } .cdn-pop tr.now td { background: color-mix(in srgb, var(--accent), transparent 82%); }
 
 /* ---- locks */
 .ml-btn { font-size: 16px; padding: 5px 9px; } .ml-btn.on { background: var(--live); border-color: var(--live); } .ml-btn.holding { box-shadow: 0 0 0 3px var(--warn); transition: box-shadow 2s linear; }

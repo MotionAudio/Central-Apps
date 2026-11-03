@@ -89,9 +89,9 @@
   function toast(t) { if (window.CURoles && window.CURoles.toast) window.CURoles.toast(t); }
   // the whole run order, this computer's parts marked
   function pop(refresh) {
-    var o = compute(), p = $(".cd-pop");
+    var o = compute(), p = $(".cdn-pop");
     if (!o) { if (p) p.remove(); popOpen = false; return; }
-    if (!p) { if (refresh) return; p = document.createElement("div"); p.className = "cd-pop"; document.body.appendChild(p); }
+    if (!p) { if (refresh) return; p = document.createElement("div"); p.className = "cdn-pop"; document.body.appendChild(p); }
     var acc = 0, roles = myRoles();
     p.innerHTML = "<b>" + esc(o.sv.name) + "</b> <small class=\"muted\">" + (o.sv.date ? esc(o.sv.date) : window.CUServices ? window.CUServices.DAYS[o.sv.day] : "") + " " + esc(o.sv.time) + "</small><table>" + o.sv.items.map(function (it, i) {
       var row = '<tr class="' + (o.running && i === o.curIdx ? "now " : "") + (mine(it, roles).length ? "mine" : "") + '"><td>+' + fmt(acc) + "</td><td>" + esc(it.title) + "</td><td>" + esc(roleTag(it)) + "</td><td>" + it.minutes + " min</td></tr>"; acc += it.minutes * 60; return row;
@@ -99,8 +99,8 @@
     popOpen = true;
   }
   document.addEventListener("click", function (e) {
-    if (e.target.closest && e.target.closest("#cdChip")) { if ($(".cd-pop")) { $(".cd-pop").remove(); popOpen = false; } else pop(false); return; }
-    if (!(e.target.closest && e.target.closest(".cd-pop")) && $(".cd-pop")) { $(".cd-pop").remove(); popOpen = false; }
+    if (e.target.closest && e.target.closest("#cdChip")) { if ($(".cdn-pop")) { $(".cdn-pop").remove(); popOpen = false; } else pop(false); return; }
+    if (!(e.target.closest && e.target.closest(".cdn-pop")) && $(".cdn-pop")) { $(".cdn-pop").remove(); popOpen = false; }
   });
   // recording a service: on the audio host, when a service with "Record it" starts / ends
   function recorder() { return (CU.recorder) || (window.CU && window.CU.recorder) || window.CURecorder || null; }
