@@ -96,3 +96,11 @@ input, select, textarea { border-radius: var(--r-sm, 6px); }
 
 /* section labels in the Live / Perform panels read in sentence case at a readable size */
 #tabLive h3, #tabLive .lv-panel > header b { letter-spacing: .02em; }
+
+/* ---- empty states: one clear next step (rule 8) ------------------------------------------------------------- */
+.empty-state { display: grid; gap: var(--s3, 12px); justify-items: start; padding: var(--s6, 32px); margin-bottom: var(--s4, 16px); border: 1px dashed var(--line2, #454C58); border-radius: var(--r-lg, 16px); background: color-mix(in srgb, var(--panel), transparent 30%); }
+.empty-state[hidden] { display: none; }
+.empty-state h3 { font-size: var(--fs-lg, 21px); font-stretch: var(--wide, 112%); }
+.empty-state p { max-width: 60ch; }
+body.tr-nosongs #tabTracks #trTimeline, body.tr-nosongs #tabTracks .tr-pos, body.tr-nosongs #tabTracks .tr-transport, body.tr-nosongs #tabTracks #trSections { display: none; }
+body.tr-nosongs #tabTracks .tr-mixcard { display: none; }
