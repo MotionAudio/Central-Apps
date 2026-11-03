@@ -795,6 +795,40 @@ await check("Settings → Colours: a preset sets every screen colour, track colo
   await page.evaluate(() => { window.__pedalBridge.send = window.__miniOrig; delete window.__pedalBridge.connected; window.__pedalBridge.connected = false; PPShell.showTab("pads"); });
 });
 
+await check("10.2 design: Ctrl+K finds a song, a setting and an action; picking a setting opens Settings at its group and highlights it; the Settings search does the same", async () => {
+  await page.evaluate(() => PPShell.showTab("pads"));
+  await page.keyboard.press("Control+k"); await page.waitForSelector("dialog.cmd[open]");
+  await page.fill("#cmdInput", "wi-fi"); await wait(80);
+  const found = await T(() => [...document.querySelectorAll("#cmdList [data-i]")].map((b) => b.textContent));
+  assert.ok(found.some((t) => /Wi-Fi/i.test(t)), "a Wi-Fi result: " + found.slice(0, 6).join(" / "));
+  await page.fill("#cmdInput", "sample rate"); await wait(80);
+  const hit = await T(() => { const b = [...document.querySelectorAll("#cmdList [data-i]")].find((x) => /Sample rate/i.test(x.textContent)); return b ? b.dataset.i : null; });
+  assert.ok(hit != null, "Sample rate is found as a setting");
+  await page.click('#cmdList [data-i="' + hit + '"]'); await wait(200);
+  assert.equal(await T(() => PPShell.currentTab()), "settings");
+  assert.equal(await T(() => document.querySelector("#stNav .st-chip.on").dataset.stGroup), "audio");
+  await page.fill("#stFind", "colours of everything"); await wait(120);
+  const rows = await T(() => document.querySelectorAll("#stFound [data-st-found]").length); assert.ok(rows > 0, "the Settings search lists the colours card: " + await T(() => document.querySelector("#stFound").outerHTML.slice(0, 200) + " | open: " + [...document.querySelectorAll("dialog[open]")].map((d) => d.id || d.className).join() + " | value: " + document.querySelector("#stFind").value + " | n: " + document.querySelectorAll("#stFind").length));
+  await page.keyboard.press("Enter"); await wait(200);
+  assert.equal(await T(() => document.querySelector("#stNav .st-chip.on").dataset.stGroup), "look", "Enter opens the first match's group");
+  await page.fill("#stFind", ""); await page.evaluate(() => PPShell.showTab("pads"));
+  await page.keyboard.press("Control+k"); await page.waitForSelector("dialog.cmd[open]"); await page.fill("#cmdInput", "start pad"); await wait(80);
+  assert.ok(await T(() => [...document.querySelectorAll("#cmdList [data-i]")].some((b) => /Start pad sound/.test(b.textContent))), "an action");
+  await page.keyboard.press("Escape"); await wait(50);
+  assert.equal(await T(() => !!document.querySelector("dialog.cmd[open]")), false, "Esc closes it");
+});
+await T(() => { document.querySelectorAll("dialog.cmd[open]").forEach((d) => d.close()); });
+await check("10.2 design: Settings is the gear on the right of the top bar, lit while open; the Tracks page's less-used actions sit in More", async () => {
+  await page.click("#systemButton"); await wait(150);
+  assert.equal(await T(() => PPShell.currentTab()), "settings");
+  assert.equal(await T(() => document.querySelector("#systemButton").classList.contains("active")), true);
+  await page.evaluate(() => PPShell.showTab("tracks")); await wait(150);
+  const inMore = await T(() => [...document.querySelectorAll("#trMore .more-pop > button")].map((b) => b.id));
+  assert.ok(inMore.includes("trPractice") && inMore.includes("trSplit"), "Practice mixes and Stem splitter are in More: " + inMore.join());
+  await page.click("#trMore .more-btn"); assert.equal(await T(() => document.querySelector("#trMore .more-pop").hidden), false);
+  await page.keyboard.press("Escape"); assert.equal(await T(() => document.querySelector("#trMore .more-pop").hidden), true);
+  await page.evaluate(() => PPShell.showTab("pads"));
+});
 await check("no errors during the whole run", () => assert.deepEqual(errors, []));
 
 // ---- the license keys before the website opens: Central Pedal Control asks for its key (production name, then the key);
