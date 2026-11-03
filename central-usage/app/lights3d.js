@@ -372,9 +372,13 @@
   function paintSelection() { Object.keys(fixtures).forEach(function (id) { fixtures[id].sel.visible = id === selected || multi.indexOf(id) >= 0; }); }
 
   // ------------------------------------------------------------- the overlay: views, names, stage, the light's panel
-  ui.innerHTML = '<div class="lx3d-bar"><div class="lx3d-views" role="group" aria-label="View">' +
+  // (10.2) two menus instead of a row of nine buttons: View (where you look from, names) and Stage (the stage, screens,
+  // the room and the stage builder - the other modules add theirs with EXT.barButton)
+  ui.innerHTML = '<div class="lx3d-bar"><details class="ux-menu lx3d-menu"><summary>View</summary><div class="ux-pop"><div class="lx3d-views" role="group" aria-label="View">' +
     [["audience", "Audience"], ["corner", "Corner"], ["top", "Top"], ["side", "Side"]].map(function (v) { return '<button data-v3="' + v[0] + '">' + v[1] + "</button>"; }).join("") + '</div>' +
-    '<label class="toggle lx3d-names"><input type="checkbox" data-n3' + (showNames ? " checked" : "") + '> Names</label><button data-stage3>Stage &amp; trusses</button><span class="lx3d-views lx3d-ext" role="group" aria-label="Add"></span><span class="lx3d-views" role="group" aria-label="Undo"><button data-undo3 title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button><button data-redo3 title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button></span><span class="lx3d-views" role="group" aria-label="Size"><button data-size3="-1" title="Make the 3D stage smaller">−</button><button data-size3="0" title="The 3D stage\'s height (click for the standard size)" class="lx3d-sizev">Size</button><button data-size3="1" title="Make the 3D stage bigger">+</button></span></div>' +
+    '<label class="toggle lx3d-names"><input type="checkbox" data-n3' + (showNames ? " checked" : "") + '> Show the lights\' names</label></div></details>' +
+    '<details class="ux-menu lx3d-menu"><summary>Stage</summary><div class="ux-pop ux-col"><button data-stage3>Stage &amp; trusses</button><span class="lx3d-ext ux-col" role="group" aria-label="Add"></span></div></details>' +
+    '<span class="lx3d-views" role="group" aria-label="Undo"><button data-undo3 title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button><button data-redo3 title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button></span><span class="lx3d-views" role="group" aria-label="Size"><button data-size3="-1" title="Make the 3D stage smaller">−</button><button data-size3="0" title="The 3D stage\'s height (click for the standard size)" class="lx3d-sizev">Size</button><button data-size3="1" title="Make the 3D stage bigger">+</button></span></div>' +
     '<div class="lx3d-panel" id="lx3dPanel" hidden></div><div class="lx3d-stage" id="lx3dStage" hidden></div>' +
     '<p class="lx3d-hint">Drag to turn · right-drag to slide · wheel to zoom · click a light to place it · Ctrl-click to pick several</p>';
   ui.addEventListener("click", function (e) {
