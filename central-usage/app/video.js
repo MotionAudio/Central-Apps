@@ -505,7 +505,17 @@
     var ty = $('[data-tr="type"]'); if (ty) ty.value = (S.cfg.transition || {}).type || "fade";
     var pi = pageItems(), pg = $("#vdPages"); if (pg) pg.innerHTML = pi.pages > 1 ? '<button data-page="-1">‹</button> ' + (S.page + 1) + " / " + pi.pages + ' <button data-page="1">›</button>' : "";
   }
+  // (10.2) on air: any destination live. Started and stopped are told to the rest of the app ("videoStreaming"); while
+  // it's on, each song shown is noted for the CCLI report as streamed (ccli-usage.js) - and the one up when it starts
+  var onAirWas = false;
+  function onAir() { var st = S.stream || {}; return (st.destinations || []).some(function (d) { return d.status === "live"; }); }
+  function airCheck() {
+    var on = onAir(); if (on === onAirWas) return; onAirWas = on;
+    try { CU.fire("videoStreaming", on); } catch (_) { }
+    if (on && window.CUCcliUsage) window.CUCcliUsage.note();
+  }
   function paintStatus() {
+    airCheck();
     var st = S.stream || {}, enc = st.encoder || {}, dests = st.destinations || [], liveN = dests.filter(function (d) { return d.status === "live"; }).length, onN = dests.filter(function (d) { return d.on; }).length;
     var chips = $("#vdChips");
     if (chips) chips.innerHTML = '<span class="vd-chip' + (MW.win && !MW.win.closed ? " on" : "") + '">MAIN ' + (MW.win && !MW.win.closed ? "on screen" : "off") + "</span>" +
@@ -755,5 +765,6 @@
       if (!src) return false;
       try { take(src.id, "stream"); } catch (_) { take(src.id); }
       return true;
-    } };
+    },
+    streaming: onAir };
 })();

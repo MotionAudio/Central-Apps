@@ -197,6 +197,25 @@
     } else root.innerHTML = '<div class="empty">Empty chart.</div>';
     lastSectionKey = null; highlightSection();
   }
+  // (10.2) Print chart: the chart as it's shown (key, instrument, numbers, size) on paper or as a PDF (the print dialog's
+  // "Save as PDF"), with the song's name, key and copyright line - and noted for the CCLI report as printed
+  function printChart() {
+    var s = currentSong(), root = $("#chart"); if (!s || !chartInfo || !root || root.querySelector(".empty")) { alert("Pick a song with a chord chart first."); return; }
+    var css = Array.prototype.map.call(document.querySelectorAll('link[rel="stylesheet"]'), function (l) { return '<link rel="stylesheet" href="' + l.href + '">'; }).join("");
+    var song = { title: s.name, ccli: s.ccli, author: s.author || s.writers, copyright: s.copyright }, line = window.PPCcli && window.PPCcli.credit ? window.PPCcli.credit(song) : null;
+    var credit = line || [song.author, song.copyright, s.ccli ? "CCLI Song # " + s.ccli : ""].filter(Boolean).join(" · "), lic = "";
+    var html = "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + esc(s.name || "Chart") + "</title>" + css +
+      "<style>body{background:#fff!important;color:#000!important;margin:12mm;font-size:" + (prefs.fontSize || 18) + "px}.chart{max-height:none!important;overflow:visible!important;color:#000}.chart *{color:#000!important;background:transparent!important}" +
+      "h1{font:700 22px Archivo,Inter,sans-serif;margin:0 0 4px}.meta{font:13px Inter,sans-serif;margin:0 0 14px;color:#444!important}.foot{font:11px Inter,sans-serif;margin-top:18px;color:#555!important}.csec{break-inside:avoid}.pg img{max-width:100%;page-break-after:always}</style></head><body>" +
+      "<h1>" + esc(s.name || "") + "</h1><p class=\"meta\">" + esc($("#written").textContent || "") + "</p><div class=\"chart\">" + root.innerHTML + "</div>" +
+      (credit || lic ? "<p class=\"foot\">" + esc(credit) + (credit && lic ? "<br>" : "") + esc(lic) + "</p>" : "") + "</body></html>";
+    var f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
+    f.contentDocument.open(); f.contentDocument.write(html); f.contentDocument.close();
+    var done = false, go = function () { if (done) return; done = true; try { f.contentWindow.focus(); f.contentWindow.print(); } catch (_) { } setTimeout(function () { f.remove(); }, 60000); };
+    f.onload = go; setTimeout(go, 800);
+    if (window.PPCcli && window.PPCcli.log) window.PPCcli.log(song, "print", { device: window.CentralUsage && window.CentralUsage.appName });
+    fire("chartPrinted", s.name);
+  }
   function highlightSection() {
     var d = state.display; if (!d || !prefs.follow) return;
     var cur = d.section ? d.section.index : -1, page = d.chart ? d.chart.page : 0, key = cur + ":" + page; if (key === lastSectionKey) return; lastSectionKey = key;
@@ -293,6 +312,7 @@
     $("#follow").addEventListener("change", function (e) { prefs.follow = e.target.checked; render(); }); $("#songPick").addEventListener("change", function (e) { state.pickedSong = Number(e.target.value); prefs.follow = state.pickedSong < 0; $("#follow").checked = prefs.follow; render(); });
     $("#instrument").addEventListener("change", function (e) { prefs.instrument = e.target.value; store.set("instrument", prefs.instrument); fillShapes(); renderChart(); });
     $("#shapes").addEventListener("change", function (e) { prefs.shapes = e.target.value; store.set("shapes", prefs.shapes); renderChart(); });
+    if ($("#printChart")) $("#printChart").addEventListener("click", printChart);   // (10.2)
     $("#nashville").addEventListener("change", function (e) { prefs.nashville = e.target.checked; store.set("nashville", prefs.nashville); renderChart(); });
     $("#chordsOnly").addEventListener("change", function (e) { prefs.chordsOnly = e.target.checked; store.set("chordsOnly", prefs.chordsOnly); renderChart(); });
     $("#fontSize").addEventListener("input", function (e) { prefs.fontSize = Number(e.target.value); store.set("fontSize", prefs.fontSize); document.documentElement.style.setProperty("--chart-size", prefs.fontSize + "px"); });
@@ -326,7 +346,7 @@
     } catch (_) { }
     fire("prefsSynced", d);
   }
-  window.CentralUsage = { state: state, prefs: prefs, syncedPrefs: syncedPrefs, applySyncedPrefs: applySyncedPrefs, syncName: syncName, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, edition: function () { return EDITION; }, appName: EDITION === "usage" ? "Central Usage" : "Central Control", roleAllowed: roleAllowed, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, jobList: JOB_LIST, jobTabs: JOB_TABS, normJobs: normJobs, jobsAt: function () { return cuCfg.jobsAt || 0; }, runs: runs, runners: function () { return runners; }, setRunners: setRunners, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
+  window.CentralUsage = { printChart: function () { printChart(); }, state: state, prefs: prefs, syncedPrefs: syncedPrefs, applySyncedPrefs: applySyncedPrefs, syncName: syncName, connect: connect, render: render, onMessage: onMessage, piToLocal: piToLocal, action: action, send: send, api: api, askCode: askCode, on: on, fire: fire, mode: mode, role: role, roleName: function (r) { return ROLE_NAMES[r || role()] || ""; }, edition: function () { return EDITION; }, appName: EDITION === "usage" ? "Central Usage" : "Central Control", roleAllowed: roleAllowed, setRole: setRole, setMode: setMode, isAdmin: function () { return mode() === "admin"; }, web: WEB, jobs: jobs, setJobs: setJobs, jobNames: JOB_NAMES, jobList: JOB_LIST, jobTabs: JOB_TABS, normJobs: normJobs, jobsAt: function () { return cuCfg.jobsAt || 0; }, runs: runs, runners: function () { return runners; }, setRunners: setRunners, tabsFor: tabsFor, applyMode: applyMode, config: function () { return cuCfg; }, setConfig: function (c) { cuCfg = c || cuCfg; applyMode(); }, showTab: showTab, store: store, askText: askText,
     midiSend: function (d, at) { midiSend(d, at); }, midiSysex: function (d) { if (midi && midi.sysexEnabled) midiSend(d); } };
   (function () { var hb = document.querySelector(".brand b"); if (hb) hb.textContent = window.CentralUsage.appName; if (EDITION === "usage") document.title = "Central Usage"; })();   // (the header says which app this is)
 })();

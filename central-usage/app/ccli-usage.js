@@ -20,5 +20,8 @@
     if (recording()) C.log(song, "record", opts);
   }
   CU.on("message", function (m) { if (m && m.type === "display") note(m); });
+  // (the stream going on air with a song already up: that one counts too - the Video tab and the Stream mix say so)
+  CU.on("videoStreaming", function (on) { if (on) note(CU.state.display); });
+  var wasLive = false; setInterval(function () { var on = streaming(); if (on && !wasLive) note(CU.state.display); wasLive = on; }, 2000);   // (the Stream mix going on air)
   window.CUCcliUsage = { note: function () { note(CU.state.display); }, streaming: streaming, recording: recording };
 })();

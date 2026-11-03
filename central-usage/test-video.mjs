@@ -194,6 +194,8 @@ await sleep(3000);
 await check("stopping one destination leaves the other live", async () => {
   const id = await cu.evaluate(() => CUVideoTab.state.cfg.destinations[1].id); await cu.evaluate((i) => CUVideo.dest(i, false), id); await sleep(1500);
   const st = await cu.evaluate(() => CUVideo.status()); assert.equal(st.destinations[0].status, "live"); assert.equal(st.destinations[1].status, "off");
+  // (10.2) the Video tab tells the rest of the app it's on air (the CCLI report notes each song shown as streamed)
+  assert.equal(await until(() => cu.evaluate(() => window.CUVideoTab.streaming() || null), 4000), true, "CUVideoTab.streaming() while a destination is live");
 });
 await cu.evaluate(() => CUVideo.record(false)); await cu.evaluate(() => CUVideo.streamAll(false)); await sleep(3500);
 // ffprobe: next to the ffmpeg used (a full install), else the system's - the app's own pinned ffmpeg comes without one
