@@ -37,6 +37,7 @@ const MpDef *mp_find(const char *id);
 int mp_ctl_index(const MpDef *d, const char *sym);   /* -1 when the pedal has no such control */
 
 MpFx *mp_new(const MpDef *d, double fs);   /* NULL when out of memory */
+MpFx *mp_new_side(const MpDef *d, double fs, int side);   /* side 1: the right of a stereo pair (reverb lines, LFOs a little apart) */
 void mp_free(MpFx *x);
 void mp_set(MpFx *x, int ctl, float value);  /* any thread; picked up at the next mp_run */
 float mp_get(const MpFx *x, int ctl);

@@ -214,9 +214,11 @@ struct MpFx {
 
 static float val(const MpFx *x, const char *sym, float def) { int k = mp_ctl_index(x->d, sym); return k < 0 ? def : x->cur[k]; }
 
-MpFx *mp_new(const MpDef *d, double fs) {
+MpFx *mp_new(const MpDef *d, double fs) { return mp_new_side(d, fs, 0); }
+MpFx *mp_new_side(const MpDef *d, double fs, int side) {
   if (!d) return NULL; MpFx *x = calloc(1, sizeof *x); if (!x) return NULL;
-  x->d = d; x->fs = fs > 1000 ? fs : 48000; x->rnd = 22222;
+  x->d = d; x->fs = fs > 1000 ? fs : 48000; x->rnd = side ? 91919 : 22222;
+  if (side) { x->lfo = 0.25f; x->lfo2 = 0.4f; }   /* (the right side's LFOs a quarter turn on: a wider chorus, phaser, rotary) */
   for (int k = 0; k < d->nctl; k++) x->v[k] = x->cur[k] = d->ctl[k].def;
   int ok = 1;
   switch (d->kind) {
@@ -226,7 +228,7 @@ MpFx *mp_new(const MpDef *d, double fs) {
     case K_REVDELAY: ok = dl_init(&x->dl, (int)(x->fs * 3.2)); break;
     case K_SPRING: ok = dl_init(&x->dl, (int)(x->fs * 0.08)) && dl_init(&x->dl2, (int)(x->fs * 0.02)); break;
     case K_VERB:
-      x->verb = calloc(1, sizeof(Verb)); ok = x->verb && verb_init(x->verb, x->fs, d->voice == 0 ? 0.7f : d->voice == 1 ? 1.6f : 2.0f);
+      x->verb = calloc(1, sizeof(Verb)); ok = x->verb && verb_init(x->verb, x->fs, (d->voice == 0 ? 0.7f : d->voice == 1 ? 1.6f : 2.0f) * (side ? 1.07f : 1.f));
       if (ok && d->voice == 2) ok = dl_init(&x->dl, (int)(x->fs * 0.1));
       break;
     default: break;

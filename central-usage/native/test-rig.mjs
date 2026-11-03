@@ -64,6 +64,23 @@ await check("every pedal of the catalogue alone stays finite and audible-or-sile
   }
   assert.equal(bad.length, 0, bad.join(", "));
 });
+await check("Central Pedals (our own DSP, the same as the Pi's central-pedals.so): each one alone is audible, tuner mute is silent, a knob turns live", async () => {
+  const own = P.pedals.filter((q) => q.opts.own), bad = [];
+  assert.ok(own.length >= 40, "only " + own.length + " Central Pedals");
+  send({ action: "testtone", freq: 196, level: 0.3 });
+  for (const ped of own) {
+    assert.ok(R[ped.id] && Object.keys(R[ped.id].controls).length === Object.keys(ped.knobs).length, ped.id + ": the rig map should list every knob");
+    send({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [item(ped.id, ped.id === "ma-whammy" ? { position: 1 } : {})], levelDb: 0, routing: {} } });
+    await sleep(150); send({ action: "meters" }); await sleep(150); send({ action: "meters" });
+    const m = await next((x) => x.type === "instrumentMeters");
+    if (ped.id === "ma-mute" ? !(m.out < 0.001) : !(isFinite(m.out) && m.out > 0.005 && m.out < 20)) bad.push(ped.id + "=" + m.out);
+  }
+  assert.equal(bad.length, 0, bad.join(", "));
+  send({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [item("ma-boost", { gain: 0 }, { uid: "mab" })], levelDb: 0, routing: {} } });
+  await sleep(300); const flat = await meters();
+  send({ action: "set", uid: "mab", sym: "gain", value: 12 }); await sleep(400); const up = await meters();
+  assert.ok(up.out > flat.out * 2.5, "Clean Boost +12 dB: " + flat.out + " -> " + up.out);
+});
 await check("bypass and a knob change take effect live", async () => {
   send({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [item("ts9", {}, { uid: "drv" })], levelDb: 0, routing: {} } });
   await sleep(300); const on = await meters();
