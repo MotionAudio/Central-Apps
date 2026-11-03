@@ -7,7 +7,8 @@ import fs from "node:fs"; import os from "node:os"; import path from "node:path"
 import { createRequire } from "node:module"; import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url)), require = createRequire(import.meta.url);
 const P = require("./shorts/pick.js"), C = require("./shorts/captions.js"), R = require("./shorts/render.js"), A = require("./shorts/audio.js"), AI = require("./shorts/ai.js");
-const FF = process.argv[2] || process.env.CU_FFMPEG || "ffmpeg";
+const FFARG = process.argv[2] || process.env.CU_FFMPEG || "ffmpeg";
+const FF = FFARG.includes("/") || FFARG.includes("\\") ? path.resolve(FFARG) : FFARG;   // (a relative path made absolute: the shorts worker runs in another folder)
 let failures = 0; const ok = (l) => console.log("  ✓ " + l), bad = (l, e) => { failures++; console.error("  ✗ " + l + (e ? "\n      " + String(e && e.stack || e).split("\n").slice(0, 4).join("\n      ") : "")); };
 async function check(label, fn) { try { await fn(); ok(label); } catch (e) { bad(label, e); } }
 
