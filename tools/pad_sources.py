@@ -98,12 +98,12 @@ def pitch_offset(x, note):
 
 
 def in_tune(name, note, x):
-    """A recording moved onto its note's exact pitch when it sits 10 cents or more off (a pad in a key must be in tune).
+    """A recording moved onto its note's exact pitch when it sits more than 10 cents off (a pad in a key must be in tune).
     Bells and chimes are left as they are: their partials aren't harmonic, so their pitch can't be read this way."""
     if name in UNPITCHED or name in ("tubular", "chimes", "glock"):
         return x
     off = pitch_offset(np.asarray(x, np.float64), note)
-    if abs(off) < 10:
+    if abs(off) <= 10:   # (10 cents or less: left as it is - the 10.2 pads made from these recordings stay exactly as they were)
         return x
     ratio = 2 ** (-off / 1200.0)        # (read faster or slower: off cents back to the note)
     return np.interp(np.arange(int(len(x) / ratio)) * ratio, np.arange(len(x)), x).astype(np.float32)
