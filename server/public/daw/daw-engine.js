@@ -670,8 +670,8 @@
     if (!NH.host) return Promise.reject(new Error("VST3 and CLAP plugins play in the Central Production and Central Usage apps on a computer."));
     if (NH.busy[id] && !opts.temp) return NH.busy[id];
     var sig = freezeSig(t), rate = ensureCtx() ? ctx.sampleRate : 48000, to = trackEnd(t) + 2 * beatsPerBarAt(trackEnd(t)), name = t.name;
-    fire("message", "Freezing " + name + " through " + n.map(function (f) { return f.plugin.name; }).join(", ") + "…"); fire("freeze", { track: id, busy: true });
-    NH.busy[id] = renderRaw({ from: 0, to: to, tracks: [id], dry: id, exact: true, rate: rate }).then(function (buf) {
+    if (!opts.temp) { fire("message", "Freezing " + name + " through " + n.map(function (f) { return f.plugin.name; }).join(", ") + "…"); fire("freeze", { track: id, busy: true }); }
+    var job = renderRaw({ from: 0, to: to, tracks: [id], dry: id, exact: true, rate: rate }).then(function (buf) {
       var L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L, N = buf.length, data = new Float32Array(N * 2);
       for (var i = 0; i < N; i++) { data[2 * i] = L[i]; data[2 * i + 1] = R[i]; }
       return NH.host.process({ rate: rate, frames: N, data: data, tail: 0, plugins: n.map(function (f) { return Object.assign(nativeJob(f), { params: knobList(f) }); }) });
@@ -685,8 +685,10 @@
       fire("message", name + " is frozen" + (r.latency ? " (its plugins' delay of " + Math.round(r.latency / rate * 10000) / 10 + " ms is taken off)" : "") + ".");
       return track(id) && track(id).frozen;
     });
-    NH.busy[id].catch(function (e) { fire("message", "Couldn't freeze " + name + ": " + (e && e.message || e)); }).then(function () { delete NH.busy[id]; fire("freeze", { track: id, busy: false }); });
-    return NH.busy[id];
+    var done = function () { if (!opts.temp) { delete NH.busy[id]; fire("freeze", { track: id, busy: false }); } };   // (cleared before it resolves: "frozen" straight after)
+    job = job.then(function (v) { done(); return v; }, function (e) { done(); fire("message", "Couldn't " + (opts.temp ? "play " + name + " through its plugins" : "freeze " + name) + ": " + (e && e.message || e)); throw e; });
+    if (!opts.temp) NH.busy[id] = job;
+    return job;
   }
   function beatsPerBarAt(b) { try { return beatToBar(b).per || 4; } catch (_) { return 4; } }
   function unfreeze(id) { var t = track(id); if (t && t.frozen) edit("Unfreeze", function () { track(id).frozen = null; }); }
@@ -702,7 +704,7 @@
   // at its frame; a knob turned (here or in the plugin's window) is heard about NL.ahead later. A loop or a seek starts
   // new windows; a start or a seek resets the plugins (what a delay line still held is played out), an edit while it
   // plays carries on without. Freezing a track still saves CPU: a frozen track plays its frozen sound instead.
-  var NL = { ahead: 0.6, chunk: 4096, win: 12, S: null, idx: {}, next: 0, chains: {}, knobs: {}, n: 0, stats: { late: 0, chunks: 0, worstMs: 0, batches: 0 } };
+  var NL = { ahead: 0.6, chunk: 8192, win: 12, S: null, idx: {}, next: 0, chains: {}, knobs: {}, n: 0, stats: { late: 0, chunks: 0, worstMs: 0, batches: 0 } };
   function liveHost() { return NH.host && NH.host.stream ? NH.host.stream : null; }
   function liveTracks() { return liveHost() && ctx ? proj.tracks.filter(function (t) { return t.kind !== "bus" && natives(t).length && !frozenOK(t); }) : []; }
   function liveIdx(id) { if (NL.idx[id] == null) NL.idx[id] = NL.next++ % 64; return NL.idx[id]; }
@@ -732,7 +734,7 @@
     var S = { from: fromBeat, cur: fromBeat, t0: null, rate: ctx.sampleRate, ids: tracks.map(function (t) { return t.id; }), sigs: tracks.map(chainSig).join("|"), srcs: [], pending: [], dead: false, base: 0, got: 0, reset: !opts.carryOn, autoLast: {}, done: false };
     S.idx = S.ids.map(liveIdx); S.t0want = opts.t0;
     var ok; S.first = new Promise(function (r) { ok = r; }); S.firstOK = function () { if (ok) { var o = ok; ok = null; o(); } }; setTimeout(S.firstOK, 4000);
-    NL.S = S;
+    NL.S = S; NL.stats.sessions = (NL.stats.sessions || 0) + 1;
     liveChains(tracks).then(function () { if (!S.dead) return liveFeed(S); }).catch(function (e) { fire("message", "The plugins couldn't play live: " + (e && e.message || e)); S.firstOK(); });
     return S;
   }
@@ -763,12 +765,13 @@
     p2.tracks = p2.tracks.filter(function (t) { return S.ids.indexOf(t.id) >= 0; });
     p2.tracks.forEach(function (t) { t.inserts = []; t.volume = 0; t.pan = 0; t.sends = []; t.auto = {}; t.output = "master"; t.frozen = null; t.mute = false; t.solo = false; });
     p2.master = { volume: 0, inserts: [] }; p2.metronome = Object.assign({}, p2.metronome, { on: false });
-    var oc = new OfflineAudioContext(1, preF + frames, rate), g = new Graph(oc, true);
+    var oc = new OfflineAudioContext(1, preF + frames, rate), g = new Graph(oc, true), tw = performance.now();
     return worklets(oc).then(function () { return g.sync(p2); }).then(function () {
       if (S.dead) return;
       var tap = new AudioWorkletNode(oc, "cdaw-tap", { numberOfInputs: S.ids.length, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 2, channelCountMode: "explicit", processorOptions: { chunk: NL.chunk, skip: preF, total: preF + frames } });
       S.ids.forEach(function (id, k) { var st = g.strips[id]; if (!st) return; try { st.input.disconnect(); } catch (_) { } st.input.connect(tap, 0, k); });
       tap.connect(oc.destination);
+      NL.stats.setupMs = Math.max(NL.stats.setupMs || 0, performance.now() - tw);
       tap.port.onmessage = function (e) { if (!S.dead) liveChunk(S, base + e.data.s, e.data.n, e.data.d, secA, base); };
       var sink = { graph: g, time: function (x) { return beatToSec(x) - beatToSec(from); }, started: {}, sources: [], notes: [], pass: 1, from: from, first: true, offline: true }, acts = {};
       function at(sec, fn, hold) { var q = Math.round(sec * rate / 128) * 128; if (q <= 0 || q >= preF + frames) { if (fn) fn(); return; } var x = acts[q] = acts[q] || { fns: [], hold: null }; if (fn) x.fns.push(fn); if (hold != null) x.hold = hold; }
@@ -809,8 +812,9 @@
       var au = liveAuto(S, track(id), sf, n, secA, sfA); if (au.length) st.a = au;
       streams.push(st);
     });
-    S.reset = false; NL.stats.batches++;
+    S.reset = false; NL.stats.batches++; var tq = performance.now();
     return H.process({ frames: n, streams: streams }).then(function (r) {
+      var rt = performance.now() - tq; NL.stats.rtMax = Math.max(NL.stats.rtMax || 0, rt); NL.stats.rtSum = (NL.stats.rtSum || 0) + rt;
       if (!r || S.dead) return;
       r.streams.forEach(function (x) { var k = S.idx.indexOf(x.s); if (k >= 0) liveOut(S, S.ids[k], sf, x.d, x.lat || 0); });
       S.got += n; if (S.got >= Math.min(NL.ahead * S.rate * 0.75, S.base)) S.firstOK();
@@ -823,8 +827,9 @@
     var b = ctx.createBuffer(2, n - skip, S.rate), L = b.getChannelData(0), R = b.getChannelData(1);
     for (var i = skip; i < n; i++) { L[i - skip] = f[2 * i]; R[i - skip] = f[2 * i + 1]; }
     var when = S.t0 + (start + skip) / S.rate, now = ctx.currentTime, src = ctx.createBufferSource(); src.buffer = b; src.connect(strip.input); src.onended = function () { try { src.disconnect(); } catch (_) { } };
-    NL.stats.chunks++;
-    if (when < now + 0.003) { var late = now + 0.005 - when; NL.stats.late++; NL.stats.worstMs = Math.max(NL.stats.worstMs, late * 1000); if (late >= b.duration) return; src.start(now + 0.005, late); }
+    NL.stats.chunks++; var pt = NL.stats.per = NL.stats.per || {}; pt[tid] = (pt[tid] || 0) + 1;
+    if (when < now + 0.003) { var late = now + 0.005 - when; NL.stats.late++; NL.stats.worstMs = Math.max(NL.stats.worstMs, late * 1000);
+      if (NL.ahead < 3 && !S.grew) { S.grew = true; NL.ahead = Math.min(3, NL.ahead + 0.3); fire("message", "This computer is busy: the plugins now play " + Math.round(NL.ahead * 1000) + " ms ahead."); }   /* (a slow or busy computer: more in hand from now on) */ if (late >= b.duration) return; src.start(now + 0.005, late); }
     else src.start(when);
     S.srcs = S.srcs.filter(function (x) { return x.end > now - 0.2; }); S.srcs.push({ src: src, end: when + b.duration });
   }

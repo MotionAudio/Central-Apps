@@ -860,10 +860,9 @@ static void daw_run(cJSON *m) {   /* the worker: one job */
     daw_block(c, buf, F, cJSON_GetObjectItem(st, "a"));
     char *enc = b64_enc((const unsigned char *)buf, (size_t)F * 2 * sizeof(float)); cJSON *r = cJSON_CreateObject();
     cJSON_AddNumberToObject(r, "s", i); cJSON_AddItemToObject(r, "d", cJSON_CreateStringReference(enc)); cJSON_AddNumberToObject(r, "lat", c ? c->lat : 0); cJSON_AddItemToArray(arr, r);
-    cJSON_AddItemToObject(r, "_e", cJSON_CreateStringReference(enc));   /* (freed after printing, below) */
   }
   emit_json(o);
-  cJSON_ArrayForEach(st, arr) free((void *)cJSON_GetStringValue(cJSON_GetObjectItem(st, "_e")));
+  cJSON_ArrayForEach(st, arr) free((void *)cJSON_GetStringValue(cJSON_GetObjectItem(st, "d")));   /* (the encoded blocks were references) */
   cJSON_Delete(o); free(buf);
 }
 static void *daw_worker(void *arg) {

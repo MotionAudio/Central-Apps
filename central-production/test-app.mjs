@@ -69,12 +69,12 @@ if (fs.existsSync(rigBin) && fs.existsSync(path.join(testPlugs, "central-test.cl
     const peak = (b) => { let m = 0; const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) m = Math.max(m, Math.abs(d[i])); return m; };
     const dry = peak(await CDaw.render({ from: 0, to: 4, tracks: [t.id], tail: 0 }));
     CDaw.edit("add", () => { CDaw.track(t.id).inserts.unshift({ id: "fN1", type: "native", on: true, params: {}, plugin: g, v: 0 }); });
-    const before = CDaw.native.state(CDaw.track(t.id)), wet = peak(await CDaw.render({ from: 0, to: 4, tracks: [t.id], tail: 0 }));   // (an export freezes it first)
-    const after = CDaw.native.state(CDaw.track(t.id));
+    const before = CDaw.native.state(CDaw.track(t.id)), wet = peak(await CDaw.render({ from: 0, to: 4, tracks: [t.id], tail: 0 }));   // (an export plays it through the plugins, for that export only)
+    const kept = CDaw.native.state(CDaw.track(t.id)); await CDaw.native.freeze(t.id); const after = CDaw.native.state(CDaw.track(t.id));   // (10.3: freezing is optional, to save CPU)
     CDaw.edit("move", () => { CDaw.track(t.id).clips[0].notes[0].p = 60; }); const stale = CDaw.native.state(CDaw.track(t.id));
-    return { dry, wet, before, after, stale, audio: CDaw.usedAudio().length };
+    return { dry, wet, before, kept, after, stale, audio: CDaw.usedAudio().length };
   }, gain);
-  assert.equal(r.before, "unfrozen"); assert.equal(r.after, "frozen"); assert.equal(r.stale, "stale"); assert.ok(r.audio >= 1, "the frozen sound is saved with the project");
+  assert.equal(r.before, "unfrozen"); assert.equal(r.kept, "unfrozen", "an export leaves the track live"); assert.equal(r.after, "frozen"); assert.equal(r.stale, "stale"); assert.ok(r.audio >= 1, "the frozen sound is saved with the project");
   assert.ok(r.wet > r.dry * 3.2 && r.wet < r.dry * 4.8, "+12 dB through the plugin: dry " + r.dry + ", frozen " + r.wet);
 });
 await win.evaluate(() => { CP.setDirty(false); CDaw.markSaved(); }).catch(() => { }); await app.close();
