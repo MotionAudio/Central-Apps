@@ -66,7 +66,7 @@
   function surfaceCard() {
     var map = window.PPActions && window.PPActions.mapping ? window.PPActions.mapping() : {}, used = Object.keys(map || {}).filter(function (k) { return map[k] && (map[k].action || map[k].press); }).length;
     return '<section class="io-card"><h3>Control surface</h3><p>12 buttons · 6 knobs · 2 sliders · expression pedal · encoder <br><span class="muted">' + used + " controls have a job.</span></p>" +
-      '<div class="row"><button data-io-go="configure">Configure</button><button data-io-go="learn">Learn</button></div></section>';
+      '<div class="row"><button data-io-go="configure">Controls</button><button data-io-go="learn">Learn</button></div></section>';
   }
   function devicesCard() {
     var st = F.systemStatus() || {}, cus = st.centralUsage || [], host = st.audioHost;

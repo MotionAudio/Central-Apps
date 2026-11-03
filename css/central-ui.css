@@ -84,3 +84,15 @@ input, select, textarea { border-radius: var(--r-sm, 6px); }
 #tabSettings .st-side .st-chip { background: transparent; border-color: transparent; font-weight: 500; }
 #tabSettings .st-side .st-chip:hover { background: var(--panel2); border-color: var(--line); }
 #tabSettings .st-side .st-chip.on { background: color-mix(in srgb, var(--accent), var(--panel) 84%); border-color: color-mix(in srgb, var(--accent), transparent 40%); box-shadow: inset 3px 0 0 var(--accent); font-weight: 700; }
+
+/* ---- Live: PLAY is the one brass action (it was green, the only green big button in any app); Stop reads as danger,
+   not as "on air" (red is kept for live / recording / streaming) ------------------------------------------------- */
+#tabLive .lv-btn.play { background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent), #000 55%), color-mix(in srgb, var(--accent), #000 75%)); border-color: color-mix(in srgb, var(--accent), #000 30%); border-bottom-color: #0A0B0D; }
+#tabLive .lv-btn.play b { color: var(--accentHi, #F0D9A4); text-shadow: 0 0 18px color-mix(in srgb, var(--accent), transparent 55%); }
+#tabLive .lv-btn.play.on { background: radial-gradient(120% 90% at 50% 0%, var(--accentHi, #F0D9A4), var(--accent)); border-color: var(--accentHi, #F0D9A4); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 3px 0 color-mix(in srgb, var(--accent), #000 60%), 0 0 40px -6px color-mix(in srgb, var(--accent), transparent 35%); }
+#tabLive .lv-btn.play.on b, #tabLive .lv-btn.play.on small { color: var(--accentText); text-shadow: none; }
+#tabLive .lv-btn.stop { background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--danger), #000 62%), color-mix(in srgb, var(--danger), #000 78%)); border-color: color-mix(in srgb, var(--danger), #000 35%); }
+#tabLive .lv-btn.stop b { color: #FFE9E6; }
+
+/* section labels in the Live / Perform panels read in sentence case at a readable size */
+#tabLive h3, #tabLive .lv-panel > header b { letter-spacing: .02em; }

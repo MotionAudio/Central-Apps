@@ -3468,10 +3468,11 @@ class MiniScreen:
 
     # ----- the look (the same colours as the app's "Copy of the small touch screen" page) -------------------------
     COL = {"bg": (17, 19, 23), "bar": (26, 29, 34), "text": (236, 231, 221), "muted": (154, 161, 171), "accent": (226, 194, 126),
-           "idle": (22, 42, 66), "selected": (31, 68, 110), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (52, 58, 68),
+           "idle": (30, 34, 41), "selected": (60, 51, 33), "playing": (34, 128, 92), "stop": (96, 34, 46), "line": (52, 58, 68),
+           "pad_play": (96, 79, 42),   # (10.2: a playing pad is warm brass, as in the app; "playing" stays green for "in tune" / "good")
            "btn": (35, 39, 46), "on": (226, 194, 126), "ontext": (26, 20, 8), "warn": (255, 190, 110), "track": (46, 51, 60),
            "lp_rec": (229, 72, 77), "lp_dub": (245, 165, 36), "lp_play": (48, 164, 108), "lp_stop": (141, 181, 222)}
-    TABS = [("pads", "PADS"), ("tracks", "TRACKS"), ("instrument", "INSTRUMENT"), ("looper", "LOOPER"), ("settings", "SETTINGS")]
+    TABS = [("pads", "Pads"), ("tracks", "Tracks"), ("instrument", "Instrument"), ("looper", "Looper"), ("settings", "Settings")]   # (10.2: sentence case, as in every app)
     SUBS = {"pads": [("pads", "Pads"), ("key", "Key"), ("sound", "Sound"), ("fx", "Effects")],
             "tracks": [("play", "Play"), ("mix", "Mixer"), ("songs", "Setlist"), ("fx", "Effects"), ("scenes", "Scenes"), ("tempo", "Tempo")],
             "instrument": [("sound", "Sound"), ("pedals", "Pedals"), ("eq", "EQ · Comp"), ("tune", "Tuner · Level")],
@@ -3566,6 +3567,13 @@ class MiniScreen:
             rgb = self._rgb(v)
             if k in col and rgb:
                 col[k] = rgb
+        # (10.2) the selected and playing pads follow the church's accent: a quarter / two fifths of it over the background
+        if colors and self._rgb(colors.get("accent")):
+            mix = lambda a, b, t: tuple(int(round(a[i] * t + b[i] * (1 - t))) for i in range(3))
+            if not self._rgb(colors.get("selected")):
+                col["selected"] = mix(col["accent"], col["bg"], 0.25)
+            if not self._rgb(colors.get("pad_play")):
+                col["pad_play"] = mix(col["accent"], col["bg"], 0.42)
         changed = col != self.COL
         self.COL = col
         return changed
@@ -3678,7 +3686,7 @@ class MiniScreen:
             on = sid == cur
             g.rounded_rectangle(box, 13, fill=C["accent"] if on else C["bar"], outline=C["accent"] if on else C["line"])
             self.text(g, ((box[0] + box[2]) / 2, (y0 + y1) / 2), name, self.F["label"], C["ontext"] if on else C["text"], "mm", cw - 8)
-            hits.append(([int(b) for b in box], {"local": "sub", "tab": tab, "value": sid}))
+            hits.append(([int(box[0]), int(y0) - 8, int(box[2]), int(y1) + 6], {"local": "sub", "tab": tab, "value": sid}))   # (10.2: a taller touch area than the pill, about 40px)
         if pager:
             key, page, pages = pager
             self.button(g, hits, [W - 98, y0, W - 66, y1], "‹", {"local": "page", "key": key, "d": -1} if page > 0 else None, radius=13, color=C["text"] if page > 0 else C["line"])
@@ -3870,7 +3878,7 @@ class MiniScreen:
                 continue
             pad = pads[i] if i < len(pads) else {"name": "Pad %d" % (i + 1)}
             state = "playing" if pad.get("playing") else "selected" if pad.get("selected") else "idle"
-            g.rounded_rectangle(box, 10, fill=C[state], outline=C["accent"] if state == "playing" else C["line"])
+            g.rounded_rectangle(box, 10, fill=C["pad_play" if state == "playing" else state], outline=C["accent"] if state != "idle" else C["line"], width=2 if state == "playing" else 1)
             self.text(g, (x0 + 8, y0 + 5), str(i + 1), self.F["sub"], C["accent"] if state == "playing" else C["muted"])
             self.text(g, (x0 + 8, y0 + ch - 16), pad.get("name"), self.F["label"], C["text"], "ld", cw - 14)
             self.pad_volume(g, hits, [x0 + 8, y0 + ch - 12, x0 + cw - 8, y0 + ch - 3], i, pad.get("level"))   # (before the pad: a drag here never plays it)

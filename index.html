@@ -219,7 +219,7 @@
       <button class="pf-btn" id="trUseTracks" title="When ON: tracks play, pads follow the song key and sections, buttons use the Tracks layout"><small>USE TRACKS</small><b>OFF</b></button>
       <div class="tr-title"><b id="trSongName">No song</b><span id="trSongMeta"></span></div>
       <select id="trSongSelect" aria-label="Song"></select>
-      <button id="trMixer" title="Every track: faders, meters, mute / solo, scenes">🎚 Mixer</button><button id="trNewSong" title="Your songs, then: your own stems, the whole song split, MultiTracks.com / Prime, or Central Tracks">+ Add song</button><button id="trSetlist">♫ Setlist</button><button id="trEdit">✎ Song editor</button>
+      <button id="trMixer" title="Every track: faders, meters, mute / solo, scenes">🎚 Mixer</button><button id="trNewSong" title="Your songs, then: your own stems, the whole song split, MultiTracks.com / Prime, or Central Tracks">+ Add song</button><button id="trSetlist">♫ Setlist</button><button id="trEdit">✎ Song editor</button><div class="more-wrap" id="trMore" hidden><button class="more-btn" aria-haspopup="menu" aria-expanded="false" title="Practice mixes, stem splitter">More ⋯</button><div class="more-pop" role="menu" hidden></div></div>
     </div>
     <div class="tr-body">
       <div class="tr-main">
@@ -261,7 +261,7 @@
   <section id="tabInstrument" class="toptab hidden" aria-label="Instrument"><div id="instrumentRoot"></div></section>
   <section id="tabLooper" class="toptab hidden" aria-label="Looper"><div id="looperRoot" class="looper-tab"></div></section>
   <section id="tabConfigure" class="toptab hidden" aria-label="Configure">
-    <div class="cf-head"><h2>Configure</h2><p class="muted">Pick what each button, knob, slider and pedal does. Tip: give a knob the <b>Touch select</b> job, then tap any setting on the screen and that knob changes it.</p></div>
+    <div class="cf-head"><h2>Controls</h2><p class="muted">Pick what each button, knob, slider and pedal does. Tip: give a knob the <b>Touch select</b> job, then tap any setting on the screen and that knob changes it.</p></div>
     <div class="cf-head"><span class="muted" id="cfNow">Each button, knob and slider does the same job in every song. A button can also do a second job when you hold it.</span><span style="flex:1"></span><button id="cfReset">Reset to the default layout</button></div>
     <div class="cf-head" id="cfSetup"></div>
     <div class="cf-rows" id="cfRows"></div>
@@ -375,6 +375,7 @@
   <script src="js/autorestart.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/command-search.js"></script>
+  <script src="js/more-menu.js"></script>
   <script src="js/sources.js"></script>
   <script src="js/central-tracks.js"></script>
   <script src="js/integrations.js"></script>
