@@ -155,10 +155,10 @@ function audioScore(f, start, end, ref) {
  * its roles; the sermon gets its chapters (for the full sermon video) and its key moments (for the shorts). */
 const POINT = /\b(first(ly)?|second(ly)?|third(ly)?|fourth|finally|lastly|number (one|two|three|four)|point (one|two|three|number)|the (first|second|third|next|last|final) (thing|point|truth|lesson|key|principle|step|reason)|here'?s (the|my) (first|second|third|next|last|big|main) (point|idea|thing))\b/i;
 const BIGIDEA = /\b(the big idea|the main (thing|point|idea)|if you (remember|forget|get) (one|only one|nothing else)|here'?s the bottom line|the bottom line is|the point (of this|is this)|(this|today) is what (i want|god wants)|what i want you to (see|know|hear|remember))\b/i;
-const ACTION = /\b(i want (to challenge|to invite|you to)|this week,?|starting today|will you|would you|i challenge you|let'?s (pray|go|do|be|stand|commit)|go and|come forward|take (a|the) (step|moment)|respond|today you can|it'?s time to|don'?t leave here|before you leave|so what (do we|does this)|what does this mean for (you|us))\b/i;
+const ACTION = /\b(i want (to challenge|to invite|you to)|this week,?|starting today|will you|would you|i challenge you|let'?s (pray|go|do|be|stand|commit)|^go and|come forward|take (a|the) (step|moment)|respond|today you can|it'?s time to|don'?t leave here|before you leave|so what (do we|does this)|what does this mean for (you|us))\b/i;
 const EXPLAIN = /\b(the word (here|for|translated|used)|in the (greek|hebrew|original)|literally means|what (paul|jesus|peter|john|david|moses|god) (is saying|means|meant)|the context|notice (that|what|how)|look at verse|in verse \d+|this verse|that word)\b/i;
 function words(t) { return String(t || "").toLowerCase().replace(/[^a-z' ]+/g, " ").split(/\s+/).filter((w) => w.length > 2); }
-const STOP = new Set("the and that this with you your for are was but not have has his her him they them their what when who will just can all one our out about from into than then there these those were been being would could should said says say its it's i'm you're don't can't".split(" "));
+const STOP = new Set("good morning evening open bibles bible turn page chapter welcome the and that this with you your for are was but not have has his her him they them their what when who will just can all one our out about from into than then there these those were been being would could should said says say its it's i'm you're don't can't".split(" "));
 function structure(sents) {
   // the big idea: a 3-4 word phrase (not filler) the preacher keeps coming back to, spread across the sermon
   const grams = {};
@@ -178,7 +178,7 @@ function structure(sents) {
   sents.forEach((s, i) => { if (TURN.test(s.text) && sents.slice(Math.max(0, i - 8), i).some((x) => STORYISH.test(x.text) && s.start - x.start < 75)) roles[i].payoff = 1; });
   // chapters: the main points in order (at least 3, 10 s apart), else the big idea's moments and the call to action
   const chapters = [];
-  sents.forEach((s, i) => { const r = roles[i]; if (!(r.point || (r.bigIdea && BIGIDEA.test(s.text)) || r.action)) return; if (chapters.length && s.start - chapters[chapters.length - 1].start < 60) return; chapters.push({ start: s.start, title: chapterTitle(s.text, r) }); });
+  sents.forEach((s, i) => { const r = roles[i]; if (!(r.point || (r.bigIdea && BIGIDEA.test(s.text)) || r.action)) return; if (chapters.length && s.start - chapters[chapters.length - 1].start < 30) return; const lead = (s.text.match(POINT) || [""])[0].toLowerCase(); if (lead && chapters.some((c) => c.lead === lead)) return; chapters.push({ start: s.start, title: chapterTitle(s.text, r), lead: (s.text.match(POINT) || [""])[0].toLowerCase() }); });
   return { theme, roles, chapters };
 }
 function chapterTitle(t, r) {

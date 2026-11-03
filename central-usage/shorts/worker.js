@@ -180,7 +180,7 @@ function why(p) {
 
 function day(t) { const x = new Date(t || Date.now()); return x.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }); }
 async function makeFull(d, f, reg, sents, FS, prog) {
-  const c = FULL.cuts(reg, f, sents, {}), when = job.recordedAt || Date.now(), out = d.full || {};
+  const c = FULL.cuts(reg, f, sents, { minSermon: (Number(FS.minSermonMinutes) || 5) * 60, minSet: (Number(FS.minWorshipMinutes) || 2) * 60 }), when = job.recordedAt || Date.now(), out = d.full || {};
   const v = { date: day(when), speaker: FS.speaker || "", scripture: FS.scripture || "", church: job.church || "", theme: c.sermon && c.sermon.theme ? c.sermon.theme.replace(/^./, (x) => x.toUpperCase()) : "" };
   const todo = [];
   if (FS.worship && FS.worship.on && c.worship) todo.push(["worship", c.worship]);
@@ -192,7 +192,7 @@ async function makeFull(d, f, reg, sents, FS, prog) {
     if (kind === "sermon" && job.aiPort) { const txt = (sents || []).filter((x) => x.start >= cut.start && x.end <= cut.end).map((x) => x.text).join(" "); const t = await AI.titles(job.aiPort, { kind: "sermon", text: txt.slice(0, 1400) }, job.church).catch(() => null); if (t && t.title) sermonTitle = t.title; }
     const opts = FS[kind] || {}, title = FULL.title(opts.title || (kind === "worship" ? "Worship - {date}" : "{sermon} - {speaker}"), Object.assign({ sermon: sermonTitle || "Sunday's message" }, v));
     prog(k / todo.length, "Making the full " + kind + " video");
-    await R.renderFull({ bin, out: base + ".mp4", work, start: cut.start, end: cut.end, video: d.source.video, audio: d.source.audio, settings: d.settings, progress: (q) => prog((k + q * 0.9) / todo.length, "Making the full " + kind + " video") });
+    await R.renderFull({ bin, out: base + ".mp4", work, start: cut.start, end: cut.end, video: d.source.video, audio: d.source.audio, settings: d.settings, height: FS.height, progress: (q) => prog((k + q * 0.9) / todo.length, "Making the full " + kind + " video") });
     await R.titleThumb(bin, base + ".mp4", base + ".jpg", Math.min(30, (cut.end - cut.start) / 3), title, job.fonts, work);
     fs.rmSync(work, { recursive: true, force: true });
     const was = out[kind] || {};

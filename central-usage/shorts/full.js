@@ -30,7 +30,7 @@ function cuts(reg, f, sents, opts) {
     const inside = (sents || []).filter((s) => s.start >= reg.sermon.start - 5 && s.end <= reg.sermon.end + 5);
     const start = Math.max(0, (inside.length ? inside[0].start : reg.sermon.start) - 1), end = Math.min(f.dur, (inside.length ? inside[inside.length - 1].end : reg.sermon.end) + 1.5);
     const st = P.structure(inside), ch = st.chapters.map((c) => ({ at: Math.max(0, Math.round(c.start - start)), title: c.title }));
-    if (ch.length && ch[0].at > 0) ch.unshift({ at: 0, title: "Introduction" }); else if (ch.length) ch[0].at = 0;
+    if (ch.length && ch[0].at > 15) ch.unshift({ at: 0, title: "Introduction" }); else if (ch.length) ch[0].at = 0;   // (a first point in the opening seconds starts the video)
     const ok = ch.filter((c, i) => i === 0 || c.at - ch[i - 1].at >= 10);
     out.sermon = { start, end, chapters: ok.length >= 3 ? ok : [], theme: st.theme };
   }

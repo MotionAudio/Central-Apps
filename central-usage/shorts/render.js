@@ -106,11 +106,12 @@ async function renderFull(o) {
   const s = Object.assign({}, DEFAULTS, o.settings || {}), dur = num(o.end - o.start); if (!(dur > 5)) throw new Error("That part of the service is too short.");
   fs.mkdirSync(o.work, { recursive: true });
   const args = ["-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-y"], fg = []; let n = 0, vIn = -1, aIn = -1;
+  const VH = o.height === 720 ? 720 : 1080, VW = VH === 720 ? 1280 : 1920;
   if (o.video && o.video.file) { args.push("-ss", String(num(Math.max(0, o.start - (o.video.lag || 0)))), "-t", String(dur), "-i", o.video.file); vIn = n++; }
   if (o.audio && o.audio.file) { args.push("-ss", String(num(Math.max(0, o.start - (o.audio.lag || 0)))), "-t", String(dur), "-i", o.audio.file); aIn = n++; } else aIn = vIn;
   if (aIn < 0) throw new Error("No sound to make the video from.");
-  if (vIn >= 0) fg.push("[" + vIn + ":v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30[pv]");
-  else { args.push("-f", "lavfi", "-t", String(dur), "-i", "color=c=0x" + hex(s.background, "16181d") + ":s=1920x1080:r=30"); const bg = n++; fg.push("[" + aIn + ":a]asplit[aw][am];[aw]showwaves=s=1920x360:mode=cline:rate=30:colors=0x" + hex(s.accent, "ffd23f") + ",format=rgba[wv];[" + bg + ":v][wv]overlay=0:(H-h)/2:shortest=1,setsar=1[pv]"); }
+  if (vIn >= 0) fg.push("[" + vIn + ":v]scale=" + VW + ":" + VH + ":force_original_aspect_ratio=decrease,pad=" + VW + ":" + VH + ":(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30[pv]");
+  else { args.push("-f", "lavfi", "-t", String(dur), "-i", "color=c=0x" + hex(s.background, "16181d") + ":s=" + VW + "x" + VH + ":r=30"); const bg = n++; fg.push("[" + aIn + ":a]asplit[aw][am];[aw]showwaves=s=" + VW + "x" + Math.round(VH / 3) + ":mode=cline:rate=30:colors=0x" + hex(s.accent, "ffd23f") + ",format=rgba[wv];[" + bg + ":v][wv]overlay=0:(H-h)/2:shortest=1,setsar=1[pv]"); }
   fg.push("[pv]fade=t=in:st=0:d=1,fade=t=out:st=" + num(Math.max(0, dur - 1.5)) + ":d=1.5,format=yuv420p[v]");
   fg.push((vIn < 0 ? "[am]" : "[" + aIn + ":a]") + "aresample=48000,aformat=channel_layouts=stereo,loudnorm=I=" + (Number(s.loudness) || -14) + ":TP=-1.5:LRA=11,afade=t=in:st=0:d=1,afade=t=out:st=" + num(Math.max(0, dur - 2)) + ":d=2[a]");
   args.push("-filter_complex", fg.join(";"), "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", path.resolve(o.out) + ".part.mp4");

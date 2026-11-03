@@ -111,7 +111,7 @@ function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
       let markers = []; if (r.audio) { try { const m = JSON.parse(fs.readFileSync(markersFile(path.dirname(r.audio)), "utf8")); markers = (m.marks || []).map((x) => ({ t: (x.at - m.started) / 1000, song: x.song, section: x.section, playing: x.playing })); } catch (_) { } }
       const church = (svc && svc.churchName && svc.churchName()) || "";
       const jobFile = path.join(r.dir, ".job.json");
-      fs.writeFileSync(jobFile, JSON.stringify({ mode: j.mode, id: j.shortId, at: j.at, out: r.dir, audio: r.audio, video: r.video, markers, settings, ffmpeg: bin, fonts, asr: asrInfo(), aiPort, church, recordingName: r.name, recordedAt: r.when, only: j.only || null, learningFile: settings.learn !== false ? learnFile : null }));
+      fs.writeFileSync(jobFile, JSON.stringify({ mode: j.mode, id: j.shortId, at: j.at, out: r.dir, audio: r.audio, video: r.video, markers, settings, ffmpeg: bin, fonts, asr: asrInfo(), aiPort, church, recordingName: r.name, recordedAt: r.when, only: j.only || null, fakeWords: process.env.CU_SHORTS_FAKE_WORDS || undefined, learningFile: settings.learn !== false ? learnFile : null }));
       await new Promise((resolve) => {
         const p = fork(path.join(__dirname, "worker.js"), [jobFile], { env: Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: "1" }), stdio: ["ignore", "ignore", "pipe", "ipc"] });
         running.proc = p; let err = ""; p.stderr.on("data", (b) => { err = (err + b).slice(-2000); });
@@ -155,7 +155,7 @@ function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
   function fullNorm(f) {
     f = Object.assign({}, FULL_DEFAULTS, f || {}); const str = (x, n) => String(x == null ? "" : x).slice(0, n);
     for (const k of ["speaker", "scripture", "links", "hashtags", "ccli"]) f[k] = str(f[k], 1000);
-    f.when = f.when === "now" ? "now" : "slot";
+    f.when = f.when === "now" ? "now" : "slot"; f.height = Number(f.height) === 720 ? 720 : 1080; f.minSermonMinutes = Math.max(1, Math.min(90, Number(f.minSermonMinutes) || 5)); f.minWorshipMinutes = Math.max(1, Math.min(90, Number(f.minWorshipMinutes) || 2));
     for (const k of ["worship", "sermon"]) { const x = Object.assign({}, FULL_DEFAULTS[k], f[k] || {}); f[k] = { on: !!x.on, auto: !!x.auto, title: str(x.title, 120) || FULL_DEFAULTS[k].title, privacy: ["public", "unlisted", "private"].includes(x.privacy) ? x.privacy : "unlisted", playlist: str(x.playlist, 150), platforms: { youtube: !!(x.platforms || {}).youtube, facebook: !!(x.platforms || {}).facebook } }; }
     return f;
   }
