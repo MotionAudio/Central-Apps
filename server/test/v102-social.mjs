@@ -25,9 +25,15 @@ const fake = http.createServer((req, res) => {
   let b = []; req.on("data", (c) => b.push(c)); req.on("end", () => {
     const u = new URL(req.url, "http://x"), body = Buffer.concat(b).toString(), J = (o, st) => { res.writeHead(st || 200, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
     seen.push(req.method + " " + u.pathname);
-    if (u.pathname === "/google/token") { const p = new URLSearchParams(body); if (p.get("grant_type") === "refresh_token") { refreshes++; return J({ access_token: "yt-access-2", expires_in: 3600 }); } return J({ access_token: "yt-access-1", refresh_token: "yt-refresh", expires_in: 1 }); }
+    if (u.pathname === "/google/token") { const p = new URLSearchParams(body); if (p.get("grant_type") === "refresh_token") { refreshes++; return J({ access_token: "yt-access-2", expires_in: 3600 }); } return J({ access_token: "yt-access-1", refresh_token: "yt-refresh", expires_in: 1, scope: "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/yt-analytics.readonly" }); }
     if (u.pathname === "/google/channels") return J({ items: [{ snippet: { title: "Grace Church" } }] });
     if (u.pathname === "/meta/token") return J({ access_token: u.searchParams.get("grant_type") ? "meta-long" : "meta-short" });
+    if (u.pathname === "/meta/graph/me/permissions") return J({ data: [{ permission: "read_insights", status: "granted" }, { permission: "instagram_manage_insights", status: "declined" }] });
+    // (10.3) how posted shorts did
+    if (u.pathname === "/yta/v2/reports") { seen.push("yta " + u.searchParams.get("filters") + " " + u.searchParams.get("metrics") + " " + req.headers.authorization); return J({ columnHeaders: [{ name: "video" }, { name: "views" }, { name: "averageViewDuration" }, { name: "likes" }, { name: "shares" }], rows: [["ytvidA", 1200, 31, 80, 9]] }); }
+    if (u.pathname === "/graph/igm1/insights") return J({ data: [{ name: "views", values: [{ value: 640 }] }, { name: "likes", values: [{ value: 41 }] }, { name: "shares", values: [{ value: 3 }] }, { name: "ig_reels_avg_watch_time", values: [{ value: 14500 }] }] });
+    if (u.pathname === "/graph/fbv1/video_insights") return J({ data: [{ name: "blue_reels_play_count", values: [{ value: 300 }] }, { name: "post_video_avg_time_watched", values: [{ value: 9000 }] }, { name: "post_video_social_actions", values: [{ value: { share: 2, comment: 5 } }] }] });
+    if (u.pathname === "/graph/gone/insights") return J({ error: { message: "Unsupported get request" } }, 400);
     if (u.pathname === "/meta/graph/me/accounts") return J({ data: [{ id: "page1", name: "Grace Church", access_token: "page-token", instagram_business_account: { id: "ig1", username: "gracechurch" } }] });
     if (u.pathname === "/tiktok/token") return J({ access_token: "tt-access", refresh_token: "tt-refresh", expires_in: 86400, open_id: "o1" });
     if (u.pathname === "/tiktok/api/v2/user/info/") return J({ data: { user: { display_name: "gracechurch" } } });
@@ -115,6 +121,7 @@ try {
   ok(res.status === 200 && /Grace Church · @gracechurch/.test(await res.text()), "Meta connects the Page and its Instagram account");
   r = await j("GET", "/social/status", null, lead.tok);
   ok(r.platforms.facebook.connected && r.platforms.facebook.account === "Grace Church" && r.platforms.instagram.connected && r.platforms.instagram.account === "@gracechurch", "the status: Facebook (the Page) and Instagram (@account)", r.platforms);
+  ok(r.platforms.youtube.numbers === true && r.platforms.facebook.numbers === true && r.platforms.instagram.numbers === false, "(10.3) it says which can read back how shorts did (Instagram's insights were declined)", r.platforms);
   r = await j("POST", "/social/facebook/token", {}, lead.tok);
   ok(r.accessToken === "page-token" && r.pageId === "page1" && r.igUserId === "ig1", "the Page's token, the Page and the Instagram account to post to", r);
   r = await j("POST", "/social/tiktok/start", {}, lead.tok);
@@ -140,6 +147,17 @@ try {
   p = await POST.post("tiktok", Object.assign({ token: "tt-access" }, o)).catch((e) => ({ error: e.message }));
   ok(p.id === "ttp1" && /TikTok app's inbox/.test(p.note), "TikTok: into the account's inbox to finish (until the app is approved)", p);
   fs.rmSync(tmp, { recursive: true, force: true });
+
+  console.log("how the posted shorts did (shorts/analytics.js):");
+  const ST = require(path.join(here, "..", "..", "central-usage", "shorts", "analytics.js"));
+  let st = await ST.stats("youtube", { token: "yt-access-2", ids: ["ytvidA", "ytvidB"] }).catch((e) => ({ error: e.message }));
+  ok(st.ytvidA && st.ytvidA.views === 1200 && st.ytvidA.avgSeconds === 31 && st.ytvidA.shares === 9 && st.ytvidB && st.ytvidB.views === 0 && seen.some((x) => x === "yta video==ytvidA,ytvidB views,averageViewDuration,likes,shares Bearer yt-access-2"), "YouTube Analytics: views, average view duration, likes, shares per video (none yet: 0)", st);
+  st = await ST.stats("instagram", { token: "page-token", ids: ["igm1", "gone"] }).catch((e) => ({ error: e.message }));
+  ok(st.igm1 && st.igm1.views === 640 && st.igm1.avgSeconds === 14.5 && st.igm1.likes === 41 && !st.gone, "Instagram insights: views, likes, shares, average watch time; a deleted post is skipped", st);
+  st = await ST.stats("facebook", { token: "page-token", ids: ["fbv1"] }).catch((e) => ({ error: e.message }));
+  ok(st.fbv1 && st.fbv1.views === 300 && st.fbv1.avgSeconds === 9 && st.fbv1.shares === 7, "Facebook reel insights: plays, average watch time", st);
+  st = await ST.stats("tiktok", { token: "x", ids: ["a"] });
+  ok(Object.keys(st).length === 0, "TikTok: nothing to read yet (its posts go through the TikTok inbox)", st);
 
   r = await j("POST", "/social/youtube/disconnect", {}, lead.tok);
   const left = await one("SELECT count(*)::int AS n FROM social_accounts WHERE platform='youtube'");

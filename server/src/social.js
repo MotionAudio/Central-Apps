@@ -24,10 +24,10 @@ const u = (real, path) => T ? T + path : real;
 export const PLATFORMS = {
   youtube: { label: "YouTube", id: () => env.YOUTUBE_CLIENT_ID, secret: () => env.YOUTUBE_CLIENT_SECRET,
     auth: u("https://accounts.google.com/o/oauth2/v2/auth", "/google/auth"), token: u("https://oauth2.googleapis.com/token", "/google/token"),
-    scope: "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly", extra: { access_type: "offline", prompt: "consent", include_granted_scopes: "true" } },
+    scope: "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly", extra: { access_type: "offline", prompt: "consent", include_granted_scopes: "true" } },
   meta: { label: "Facebook and Instagram", id: () => env.META_APP_ID, secret: () => env.META_APP_SECRET,
     auth: u("https://www.facebook.com/v21.0/dialog/oauth", "/meta/auth"), token: u("https://graph.facebook.com/v21.0/oauth/access_token", "/meta/token"), graph: u("https://graph.facebook.com/v21.0", "/meta/graph"),
-    scope: "pages_show_list,pages_read_engagement,pages_manage_posts,publish_video,instagram_basic,instagram_content_publish,business_management", extra: {} },
+    scope: "pages_show_list,pages_read_engagement,pages_manage_posts,publish_video,instagram_basic,instagram_content_publish,instagram_manage_insights,read_insights,business_management", extra: {} },
   tiktok: { label: "TikTok", id: () => env.TIKTOK_CLIENT_KEY, secret: () => env.TIKTOK_CLIENT_SECRET,
     auth: u("https://www.tiktok.com/v2/auth/authorize/", "/tiktok/auth"), token: u("https://open.tiktokapis.com/v2/oauth/token/", "/tiktok/token"), api: u("https://open.tiktokapis.com", "/tiktok/api"),
     scope: "user.info.basic,video.upload,video.publish", extra: {} }
@@ -59,7 +59,7 @@ async function exchange(k, code) {
   if (k === "youtube") {
     const t = await form(P.token, { code, client_id: P.id(), client_secret: P.secret(), redirect_uri: redirect(k), grant_type: "authorization_code" });
     let account = "YouTube channel"; try { const ch = await getJson(u("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", "/google/channels"), { Authorization: "Bearer " + t.access_token }); if (ch.items && ch.items[0]) account = ch.items[0].snippet.title; } catch (_) { }
-    return { account, data: { access: t.access_token, refresh: t.refresh_token, expires: Date.now() + (Number(t.expires_in) || 3600) * 1000 } };
+    return { account, data: { access: t.access_token, refresh: t.refresh_token, expires: Date.now() + (Number(t.expires_in) || 3600) * 1000, scopes: String(t.scope || "") } };
   }
   if (k === "meta") {
     const short = await getJson(P.token + "?" + new URLSearchParams({ client_id: P.id(), client_secret: P.secret(), redirect_uri: redirect(k), code }));
@@ -67,7 +67,8 @@ async function exchange(k, code) {
     const pages = await getJson(P.graph + "/me/accounts?" + new URLSearchParams({ fields: "id,name,access_token,instagram_business_account{id,username}", access_token: long.access_token }));
     const pg = (pages.data || [])[0]; if (!pg) throw bad("That Facebook account doesn't manage a Facebook Page. Shorts post to a Page (and its Instagram professional account).");
     const ig = pg.instagram_business_account || null;
-    return { account: pg.name + (ig && ig.username ? " · @" + ig.username : ""), data: { user: long.access_token, page: pg.id, pageName: pg.name, pageToken: pg.access_token, ig: ig ? ig.id : null, igName: ig ? ig.username : null, pages: (pages.data || []).map((p) => ({ id: p.id, name: p.name })) } };
+    let granted = ""; try { const pm = await getJson(P.graph + "/me/permissions?" + new URLSearchParams({ access_token: long.access_token })); granted = (pm.data || []).filter((x) => x.status === "granted").map((x) => x.permission).join(","); } catch (_) { }
+    return { account: pg.name + (ig && ig.username ? " · @" + ig.username : ""), data: { scopes: granted, user: long.access_token, page: pg.id, pageName: pg.name, pageToken: pg.access_token, ig: ig ? ig.id : null, igName: ig ? ig.username : null, pages: (pages.data || []).map((p) => ({ id: p.id, name: p.name })) } };
   }
   const t = await form(P.token, { client_key: P.id(), client_secret: P.secret(), code, grant_type: "authorization_code", redirect_uri: redirect(k) });
   let account = "TikTok account"; try { const me = await getJson(P.api + "/v2/user/info/?fields=display_name", { Authorization: "Bearer " + t.access_token }); if (me.data && me.data.user) account = me.data.user.display_name; } catch (_) { }
@@ -96,12 +97,14 @@ export function routes(api, { wrap, requireUser }) {
     const scope = await scopeOf(req.user.id), rows = await q("SELECT platform, account, connected_by, updated_at FROM social_accounts WHERE scope=$1", [scope]);
     const row = (k) => rows.find((r) => r.platform === k);
     const meta = row("meta"); let metaData = null; if (meta) { try { metaData = open((await one("SELECT data_enc FROM social_accounts WHERE scope=$1 AND platform='meta'", [scope])).data_enc); } catch (_) { } }
+    let ytData = null; if (row("youtube")) { try { ytData = open((await one("SELECT data_enc FROM social_accounts WHERE scope=$1 AND platform='youtube'", [scope])).data_enc); } catch (_) { } }
+    const numbers = { youtube: !!(ytData && /yt-analytics\.readonly/.test(ytData.scopes || "")), facebook: !!(metaData && /read_insights/.test(metaData.scopes || "")), instagram: !!(metaData && /instagram_manage_insights/.test(metaData.scopes || "")) };
     const one_ = (k, extra) => Object.assign({ available: available(k), connected: !!row(k), account: row(k) ? row(k).account : null, by: row(k) ? row(k).connected_by : null }, extra || {});
     res.json({ platforms: {
-      youtube: one_("youtube"),
-      facebook: Object.assign(one_("meta"), { account: metaData ? metaData.pageName : null }),
-      instagram: Object.assign(one_("meta"), { connected: !!(metaData && metaData.ig), account: metaData && metaData.igName ? "@" + metaData.igName : null, why: meta && metaData && !metaData.ig ? "The Facebook Page has no Instagram professional account linked to it." : null }),
-      tiktok: one_("tiktok")
+      youtube: one_("youtube", { numbers: numbers.youtube }),
+      facebook: Object.assign(one_("meta"), { account: metaData ? metaData.pageName : null, numbers: numbers.facebook }),
+      instagram: Object.assign(one_("meta"), { connected: !!(metaData && metaData.ig), account: metaData && metaData.igName ? "@" + metaData.igName : null, why: meta && metaData && !metaData.ig ? "The Facebook Page has no Instagram professional account linked to it." : null, numbers: numbers.instagram }),
+      tiktok: one_("tiktok", { numbers: false })
     } });
   }));
   api.post("/social/:platform/start", requireUser, wrap(async (req, res) => {
