@@ -173,7 +173,8 @@ def main():
               (rms(bell[:n3]) / rms(bell[-2 * n3:-n3]), rms(pluck[:n3]) / (rms(pluck[-2 * n3:-n3]) or 1e-9)))
 
         print("\nThe 10.0 pad styles (tools/make-pad-loops.py):")
-        new = ["Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning", "Sunday Keys", "Ember", "Tide", "Vowels", "Tanpura", "Swell Guitar"]
+        new = ["Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning", "Sunday Keys", "Ember", "Tide", "Vowels", "Tanpura", "Swell Guitar",
+               "Sunday Warm", "Synth Swell", "Lo-fi Keys", "Phaser Pad", "Pluck Cloud", "Wide Fifths", "Christmas Bells"]   # (10.3: some of Central Pads Extra)
         import pad_voices as PV
         import pad_sources as PS
         PV.set_sources(PS.Stand())   # (no internet here: stand-in recordings for the styles made from them)

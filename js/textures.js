@@ -320,8 +320,34 @@
     return p.files.slice().sort(function (a, b) { return Math.abs(Math.log((bpm || 90) / a.bpm)) - Math.abs(Math.log((bpm || 90) / b.bpm)); })[0];
   }
   function loopRate(f, bpm) { return f && f.bpm ? clamp((bpm || f.bpm) / f.bpm, 0.6, 1.6) : 1; }
+  // (10.3) a moving pad's gate - 16 steps a bar, each 0-9 ("~" first: glide from step to step) - as one bar of levels at
+  // a tempo, looped into the bed's volume and started on the song's beat, so the pad pulses in time with the song
+  function gateBuffer(ctx, gate, tempo) {
+    var smooth = gate.charAt(0) === "~", steps = (smooth ? gate.slice(1) : gate).split("").map(function (c) { return (+c || 0) / 9; });
+    var rate = ctx.sampleRate, bar = 240 / (tempo || 90), len = Math.max(64, Math.round(bar * rate)), stepLen = len / steps.length;
+    var buf = ctx.createBuffer(1, len, rate), d = buf.getChannelData(0), atk = Math.round(0.004 * rate);
+    for (var i = 0; i < len; i++) {
+      var si = Math.floor(i / stepLen), pos = i - si * stepLen, lv = steps[si % steps.length];
+      if (smooth) { var nx = steps[(si + 1) % steps.length]; d[i] = lv + (nx - lv) * (pos / stepLen); continue; }
+      var rel = stepLen * 0.75;   // (open quickly, hold, close before the next step - no clicks)
+      d[i] = lv * (pos < atk ? pos / atk : pos < rel ? 1 : Math.max(0, 1 - (pos - rel) / (stepLen - rel)));
+    }
+    return buf;
+  }
   function makeLibLoop(ctx, p, out, root, bpm) {
-    var state = { nodes: [], file: null, dead: false, bpm: bpm };
+    var state = { nodes: [], file: null, dead: false, bpm: bpm }, gateFile = (p.files || []).filter(function (f) { return f.gate; })[0];
+    if (gateFile) {   // (10.3) the bed plays into a volume the gate opens and closes on the beat
+      var gated = ctx.createGain(); gated.gain.value = 0; gated.connect(out); out = gated;
+      state.gateSrc = null;
+      state.startGate = function (t) {
+        var src = ctx.createBufferSource(); src.buffer = gateBuffer(ctx, gateFile.gate, t); src.loop = true; src.connect(gated.gain);
+        var now = ctx.currentTime; src.start(now, PP.tracksBeatPhase ? (PP.tracksBeatPhase(src.buffer.duration) || 0) : 0);
+        if (state.gateSrc) try { state.gateSrc.stop(now + 0.02); } catch (_) { }
+        state.gateSrc = src;
+      };
+      state.startGate(bpm || 90);
+      state.nodes.push({ stop: function () { if (state.gateSrc) try { state.gateSrc.stop(); } catch (_) { } } });
+    }
     var L = window.PPLicense;
     if (p.tier && L && L.hasPlan && !L.hasPlan(p.tier)) { PP.setStatus(p.name + " is part of " + (L.planName ? L.planName(p.tier) : p.tier) + " - add its package in Settings → Packages"); return state; }
     state.nodes.push({ stop: function () { state.dead = true; } });   // (stopping before the file arrives: it never starts)
@@ -340,6 +366,7 @@
     play(loopFile(p, root, bpm));
     state.setRoot = function (r) { if (p.keyed) play(loopFile(p, r, state.bpm)); };
     state.setTempo = function (t) {
+      if (state.startGate && t && t !== state.bpm) { state.bpm = t; state.startGate(t); return; }
       if (p.keyed || !t) return; state.bpm = t;
       var f = loopFile(p, 0, t);
       if (state.file && f.file !== state.file.file) play(f);
@@ -362,7 +389,7 @@
       list.forEach(function (lp) {
         var files = (lp.files || []).filter(function (f) { return f && f.file; }); if (!files.length) return;
         var keyed = files.some(function (f) { return f.key; }), plan = L && L.planName ? L.planName(lp.tier) : lp.tier;
-        var t = { id: "lib:" + lp.id, name: lp.name + (keyed ? "" : " (" + files.map(function (f) { return f.bpm; }).join(" / ") + " BPM)"), cat: (lp.group || "Library loops") + " - " + plan, family: "libloop",
+        var t = { id: "lib:" + lp.id, name: lp.name + (files.some(function (f) { return f.gate; }) ? " (follows the tempo)" : keyed ? "" : " (" + files.map(function (f) { return f.bpm; }).join(" / ") + " BPM)"), cat: (lp.group || "Library loops") + " - " + plan, family: "libloop",
           p: { lib: lp.library, name: lp.name, tier: lp.tier, keyed: keyed, files: files, base: 48 } };
         LIBRARY.push(t); BY_ID[t.id] = t;
       });
