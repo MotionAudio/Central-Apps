@@ -295,6 +295,364 @@
     {"name": "Tag", "chords": "refrain", "role": "tag", "lyrics": "Refrain", "energy": 1},
     {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
+  },
+  {
+   "id": "crown-him",
+   "title": "Crown Him with Many Crowns",
+   "words": "Matthew Bridges (1851), Godfrey Thring (1874)",
+   "music": "DIADEMATA, George J. Elvey (1868)",
+   "public_domain": {"words": 1874, "music": 1868, "writers_died": 1903},
+   "key": "D", "bpm": 92, "meter": 4, "style": "anthem-ride",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/Crown_Him_With_Many_Crowns/Crown_Him_With_Many_Crowns-Diademata.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["D Bm@3", "G", "D", "A", "D", "E G@4", "A E@3", "A A7@4", "D", "G B7@4", "E E7@4", "A A7@4", "D", "Em D@3", "G A7@4", "D"],
+    "intro": ["D", "Em D@3", "G A7@4", "D"],
+    "outro": ["D", "Em D@3", "G A7@4", "D"]
+   },
+   "lyrics": {
+    "Verse 1": "|1. Crown Him with ^many|crowns, / the|Lamb upon His|throne. / Hark! /|How the heav'nly|anthem drowns ^all|music ^but its|own. / ^A~|wake, my soul, and|sing ^of|Him who died ^for|thee, / ^And|hail Him as thy|matchless ^King through|all eter^ni~|ty. /",
+    "Verse 2": "|2. Crown Him the ^virgin's|Son, / the|God incarnate|born, / Whose|arm those crimson|trophies won ^which|now His ^brow a~|dorn; / ^Fruit|of the mystic|rose, / ^as|of that rose ^the|stem; / ^The|root whence mercy|ever ^flows, the|Babe of Beth^le~|hem. /",
+    "Verse 3": "|3. Crown Him the ^Son of|God, / be~|fore the worlds be~|gan, / And|ye who tread where|He hath trod, ^crown|Him the ^Son of|Man; / ^Who|every grief hath|known ^that|wrings the hu^man|breast, / ^And|takes and bears them|for His ^own, that|all in Him ^may|rest. /",
+    "Verse 4": "|4. Crown Him the ^Lord of|life, / who|triumphed o'er the|grave, / And|rose victorious|in the strife ^for|those He ^came to|save. / ^His|glories now we|sing, / ^Who|died, and rose ^on|high, / ^Who|died eternal|life to ^bring, and|lives that death ^may|die. /",
+    "Verse 5": "|5. Crown Him the ^Lord of|peace, / Whose|pow'r a scepter|sways From|pole to pole, that|wars may cease, ^and|all be ^prayer and|praise. / ^His|reign shall know no|end, / ^and|round His pierc^ed|feet ^Fair|flow'rs of para~|dise ex^tend their|fragrance ev^er|sweet. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 5", "chords": "verse", "role": "final", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 5@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "what-a-friend",
+   "title": "What a Friend We Have in Jesus",
+   "words": "Joseph M. Scriven (1855)",
+   "music": "Charles C. Converse (1868)",
+   "public_domain": {"words": 1855, "music": 1868, "writers_died": 1918},
+   "key": "F", "bpm": 74, "meter": 4, "style": "piano-ballad",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/What_A_Friend_We_Have_In_Jesus/What_A_Friend_We_Have_In_Jesus-untitled.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["F", "Bb", "F", "C", "F", "Bb", "F C@4", "F", "C C7@4", "F", "Bb C7@4", "C", "F", "Bb", "F C@4", "F"],
+    "intro": ["F", "Bb", "F C@4", "F"],
+    "outro": ["F", "Bb", "F C@4", "F"]
+   },
+   "lyrics": {
+    "Verse 1": "|1. What a Friend we have in|Jesus, /|all our sins and griefs to|bear! /|What a privilege to|carry|everything to ^God in|prayer! /|O what peace we ^often|forfeit, /|O what needless ^pain we|bear, /|All because we do not|carry|everything to ^God in|prayer. /",
+    "Verse 2": "|2. Have we trials and temp~|tations? /|Is there trouble any~|where? /|We should never be dis~|couraged; /|take it to the ^Lord in|prayer. /|Can we find a ^friend so|faithful|who will all our ^sorrows|share? /|Jesus knows our every|weakness; /|take it to the ^Lord in|prayer. /",
+    "Verse 3": "|3. Are we weak and heavy|laden, /|cumbered with a load of|care? /|Precious Savior, still our|refuge, /|take it to the ^Lord in|prayer. /|Do your friends des^pise, for~|sake you? /|Take it to the ^Lord in|prayer! /|In His arms He'll take and|shield you; /|you will find a ^solace|there. /",
+    "Verse 4": "|4. Blessed Savior, Thou hast|promised|Thou wilt all our burdens|bear|May we ever, Lord, be|bringing|all to Thee in ^earnest|prayer. /|Soon in glory ^bright un~|clouded|there will be no ^need for|prayer|Rapture, praise and endless|worship|will be our sweet ^portion|there. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "to-god-be-the-glory",
+   "title": "To God Be the Glory",
+   "words": "Fanny J. Crosby (1875)",
+   "music": "William H. Doane (1875)",
+   "public_domain": {"words": 1875, "music": 1875, "writers_died": 1915},
+   "key": "Ab", "bpm": 104, "meter": 3, "style": "gospel-68-up",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/To_God_Be_the_Glory/To_God_Be_the_Glory-To_God_Be_the_Glory.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["Ab Eb7@3", "Ab", "Eb", "Ab", "Db", "Ab", "Bb Bb7@3", "Eb Eb7@3", "Ab Eb7@3", "Ab", "Eb", "Ab Ab7@3", "Db Bbm@2", "Ab", "Ab Eb7@3", "Ab"],
+    "refrain": ["Ab", "Ab", "Ab", "Eb", "Eb7 Eb@3", "Eb7", "Ab Eb7@3", "Ab Eb7@3", "Ab Eb7@3", "Ab", "Eb", "Ab Ab7@3", "Db Bbm@2", "Ab", "Ab Eb7@3", "Ab"],
+    "intro": ["Db Bbm@2", "Ab", "Ab Eb7@3", "Ab"],
+    "outro": ["Db Bbm@2", "Ab", "Ab Eb7@3", "Ab"]
+   },
+   "lyrics": {
+    "Verse 1": "1. To|God ^be the|glory, great|things He has|done; / So|loved He the|world that He|gave us ^His|Son ^Who|yield^ed His|life an a~|tonement for|sin, / ^And|o^pened the|life gate that|all may ^go|in. /",
+    "Verse 2": "2. O|per^fect re~|demption, the|purchase of|blood, / To|every be~|liever the|promise ^of|God; / ^The|vil^est o~|ffender who|truly be~|lieves, / ^That|mo^ment from|Jesus a|pardon ^re~|ceives. /",
+    "Verse 3": "3. Great|things ^He has|taught us, great|things He has|done, / And|great our re~|joicing through|Jesus ^the|Son; / ^But|pur^er, and|higher, and|greater will|be ^Our|won^der, our|transport, when|Jesus ^we|see. /",
+    "Refrain": "Praise the|Lord, / praise the|Lord, / Let the|earth hear His|voice! / Praise the|Lord, / ^praise the|Lord, / Let the|people ^re~|joice! / ^O|come ^to the|Father, through|Jesus the|Son, / ^And|give ^Him the|glory, great|things He ^has|done. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Refrain 3", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Refrain 4", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:11-16", "role": "tag", "lyrics": "Refrain@11-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "a-mighty-fortress",
+   "title": "A Mighty Fortress Is Our God",
+   "words": "Martin Luther (1529), translated by Frederic H. Hedge (1853)",
+   "music": "EIN FESTE BURG, Martin Luther (1529)",
+   "public_domain": {"words": 1853, "music": 1529, "writers_died": 1890},
+   "key": "D", "bpm": 84, "meter": 4, "style": "fortress",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/A_Mighty_Fortress_Is_Our_God/A_Mighty_Fortress_Is_Our_God-Ein_Feste_Burg_Isorhythmic.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["D A@3", "Bm", "F#m Bm@4", "Em D@3", "D A@3", "Bm", "F#m Bm@4", "Em D@3", "D E@4", "A D@4", "G F#m@4", "Bm E7@4", "A D7@4", "B Bm@4", "F#m B@4", "Em D@3"],
+    "intro": ["A D7@4", "B Bm@4", "F#m B@4", "Em D@3"],
+    "outro": ["A D7@4", "B Bm@4", "F#m B@4", "Em D@3"]
+   },
+   "lyrics": {
+    "Verse 1": "1. A|mighty ^fortress|is our God, a|bulwark nev^er|fail^ing; / Our|helper ^He, a~|mid the flood of|mortal ills ^pre~|vail^ing: / For|still our an^cient|foe doth seek ^to|work us woe; / ^His|craft and pow'r ^are|great, and, armed ^with|cruel hate, ^On|earth is not ^his|e^qual. /",
+    "Verse 2": "2. Did|we in ^our own|strength confide, our|striving would ^be|lo^sing; / Were|not the ^right Man|on our side, the|Man of God's ^own|choos^ing: / Dost|ask who that ^may|be? / Christ Je^sus, /|it is He; / ^Lord|Sabaoth, ^His|name, from age ^to|age the same, ^And|He must win ^the|bat^tle. /",
+    "Verse 3": "3. And|though this ^world, with|devils filled, should|threaten to ^un~|do ^us, We|will not ^fear, for|God hath willed His|truth to tri^umph|through ^us: / The|Prince of Dark^ness|grim, we trem^ble|not for him; / ^His|rage we can ^en~|dure, for lo, ^his|doom is sure, ^One|little word ^shall|fell ^him. /",
+    "Verse 4": "4. That|word a^bove all|earthly pow'rs, no|thanks to them, ^a~|bid^eth; / The|Spirit ^and the|gifts are ours through|Him who with ^us|si^deth: / Let|goods and kin^dred|go, this mor^tal|life also; / ^The|body they ^may|kill: / God's truth ^a~|bideth still, ^His|kingdom is ^for~|ev^er. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "abide-with-me",
+   "title": "Abide with Me",
+   "words": "Henry F. Lyte (1847)",
+   "music": "EVENTIDE, William H. Monk (1861)",
+   "public_domain": {"words": 1847, "music": 1861, "writers_died": 1889},
+   "key": "Eb", "bpm": 66, "meter": 4, "style": "hall-ballad",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/Abide_With_Me/Abide_With_Me-Eventide.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["Eb Bb7@4", "Cm Eb@3", "Ab Bb7@4", "Eb", "Eb", "Ab Eb@3", "Fm Adim@4", "Bb", "Eb Bb7@4", "Cm Gm@4", "Ab C7@4", "Fm", "Bb7", "Eb Fm@4", "Eb Bb7@4", "Eb"],
+    "intro": ["Bb7", "Eb Fm@4", "Eb Bb7@4", "Eb"],
+    "outro": ["Bb7", "Eb Fm@4", "Eb Bb7@4", "Eb"]
+   },
+   "lyrics": {
+    "Verse 1": "|1. Abide ^with|me; / ^fast|falls the ev^en~|tide; /|The darkness|deep^ens; /|Lord with me ^a~|bide. /|When o^ther|helpers|fail and com^forts|flee, /|Help of the|helpless, O ^a~|bide with|me. /",
+    "Verse 2": "|2. Swift to ^its|close ^ebbs|out life's lit^tle|day; /|Earth's joys grow|dim; / ^its|glories pass ^a~|way; /|Change and ^de~|cay in|all around ^I|see; /|O Thou who|changest not, ^a~|bide with|me. /",
+    "Verse 3": "|3. Not a ^brief|glance ^I|beg, a pass^ing|word; /|But as Thou|dwell'st ^with|Thy disci^ples, /|Lord, /|Famil^iar, /|condes~|cending, pa^tient, /|free. /|Come not to|sojourn, but ^a~|bide with|me. /",
+    "Verse 4": "|4. Come not ^in|ter^rors, /|as the King ^of|kings, /|But kind and|good, / ^with|healing in ^Thy|wings, /|Tears for ^all|woes, / a|heart for ev^ery|plea? /|Come, / Friend of|sinners, and ^thus|bide with|me. /",
+    "Verse 5": "|5. Thou on ^my|head ^in|early youth ^didst|smile; /|And, / though re~|bell^ious|and perverse ^mean~|while, /|Thou hast ^not|left me, /|oft as I ^left|Thee, /|On to the|close, O Lord, ^a~|bide with|me. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 5", "chords": "verse", "role": "final", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 5@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "rock-of-ages",
+   "title": "Rock of Ages",
+   "words": "Augustus M. Toplady (1776)",
+   "music": "TOPLADY, Thomas Hastings (1830)",
+   "public_domain": {"words": 1776, "music": 1830, "writers_died": 1872},
+   "key": "Bb", "bpm": 72, "meter": 6, "style": "soft-pulse",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/Rock_of_Ages/Rock_of_Ages-Toplady.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["Bb", "Bb", "Bb F@6", "Bb F@5", "F7", "Bb F@5", "F7", "Bb", "Bb", "Bb", "Bb F@6", "Bb"],
+    "intro": ["Bb", "Bb", "Bb F@6", "Bb"],
+    "outro": ["Bb", "Bb", "Bb F@6", "Bb"]
+   },
+   "lyrics": {
+    "Verse 1": "1. Rock of|Ages, / cleft for|me, / Let me|hide myself ^in|Thee; / ^Let the|water and the|blood, / ^From Thy|wounded side which|flowed, / Be of|sin the double|cure; / Save from|wrath and make ^me|pure. /",
+    "Verse 2": "2. Not the|labor of my|hands Can ful~|fill Thy law's ^de~|mands; / ^Could my|zeal no respite|know, / ^Could my|tears forever|flow, / All for|sin could not a~|tone; / Thou must|save, / and Thou ^a~|lone. /",
+    "Verse 3": "3. Nothing|in my hand I|bring, / Simply|to the cross ^I|cling; / ^Naked,|come to Thee for|dress; / ^Helpless|look to Thee for|grace; / Foul, / I|to the fountain|fly; / Wash me,|Savior, or ^I|die. /",
+    "Verse 4": "4. While I|draw this fleeting|breath, / When mine|eyes shall close ^in|death, / ^When I|soar to worlds un~|known, / ^See Thee|on Thy judgment|throne, / Rock of|Ages, / cleft for|me, / Let me|hide myself ^in|Thee. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:9-12", "role": "tag", "lyrics": "Verse 4@9-12", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "o-come-all-ye-faithful",
+   "title": "O Come, All Ye Faithful",
+   "words": "John F. Wade (c. 1743), translated by Frederick Oakeley (1841) and William T. Brooke",
+   "music": "ADESTE FIDELES, John F. Wade (c. 1743)",
+   "public_domain": {"words": 1841, "music": 1751, "writers_died": 1917},
+   "key": "G", "bpm": 88, "meter": 4, "style": "christmas-anthem", "season": "christmas",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/O_Come_All_Ye_Faithful/O_Come_All_Ye_Faithful-Adeste_Fideles-Portugese_Hymn.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["G", "D", "G C@4", "G Em@4", "Em A@4", "D G@4", "D A7@3", "D", "Bm G@4", "Am G@3", "D Am@4", "D G@4", "G D7@4"],
+    "refrain": ["G", "G D7@4", "G", "D7 A7@4", "D C@4", "G", "G"],
+    "intro": ["G", "G D7@4", "G", "D7 A7@4", "D C@4", "G", "G"],
+    "outro": ["G", "G D7@4", "G", "D7 A7@4", "D C@4", "G", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "1. O|come, / all ye|faithful, /|joyful and ^tri~|umphant, ^O|come ye, ^O|come ye, ^to|Beth^le~|hem. /|Come and ^be~|hold ^Him, /|born the King ^of|angels; / ^O|come, let us ^a~ /",
+    "Verse 2": "2.|True God of|true God, /|Light from Light ^E~|ternal, /|Lo, / He|shuns not ^the|Vir^gin's|womb; /|Son of ^the|Fa^ther, /|begotten, ^not|created; /| /",
+    "Verse 3": "3.|Sing, / choirs of|angels, /|sing in ex^ul~|tation; / ^O|sing, / all ^ye|citizens ^of|heav'n ^a~|bove! /|Glory ^to|God, /|glory in ^the|highest; /| /",
+    "Verse 4": "4.|See how the|shepherds, /|summoned to ^His|cradle, /|Leaving ^their|flocks, draw|nigh ^to|gaze; /|We too ^will|thi^ther|bend our joy^ful|footsteps; /| /",
+    "Verse 5": "5.|Lo! / star led|chieftains, /|Magi, Christ ^a~|doring, /|Offer ^Him|incense, /|gold, / ^and|myrrh; /|We to ^the|Christ ^Child|bring our hearts' ^ob~|lations. /| /",
+    "Refrain": "|dore Him, O|come, let us ^a~|dore Him, O|come, let us ^a~|dore Him, /|Christ the|Lord. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "drop", "lyrics": "Verse 4", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 5", "chords": "verse", "role": "final", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Refrain 5", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:4-7", "role": "tag", "lyrics": "Refrain@4-7", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "it-came-upon",
+   "title": "It Came Upon the Midnight Clear",
+   "words": "Edmund H. Sears (1849)",
+   "music": "CAROL, Richard S. Willis (1850)",
+   "public_domain": {"words": 1849, "music": 1850, "writers_died": 1900},
+   "key": "Bb", "bpm": 80, "meter": 3, "style": "christmas-68", "season": "christmas",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/It_Came_Upon_A_Midnight_Clear/It_Came_Upon_A_Midnight_Clear-Carol.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["Bb Eb@2.5", "Bb", "Eb C7@2.5", "F", "Bb Eb@2.5", "Bb", "Eb F7@2.5", "Bb", "D D7@2.5", "Gm", "F C7@2.5", "F F7@2.5", "Bb Eb@2.5", "Bb", "Eb F7@2.5", "Bb"],
+    "intro": ["Bb Eb@2.5", "Bb", "Eb F7@2.5", "Bb"],
+    "outro": ["Bb Eb@2.5", "Bb", "Eb F7@2.5", "Bb"]
+   },
+   "lyrics": {
+    "Verse 1": "1. It|came up^on the|midnight clear, That|glorious ^song of|old, / From|angels ^bending|near the earth, To|touch their ^harps of|gold; / \"Peace|on the ^earth, good|will to men, From|Heaven's all ^gracious|King.\" / ^The|world in ^solemn|stillness lay, To|hear the ^angels|sing. /",
+    "Verse 2": "2. Still|through the ^cloven|skies they come With|peaceful ^wings un~|furled, / And|still their ^heavenly|music floats O'er|all the ^weary|world; / A~|bove its ^sad and|lowly plains, They|bend on ^hov'ring|wing, / ^And|ever ^over its|Babel sounds The|blessèd ^angels|sing. /",
+    "Verse 3": "3. Yet|with the ^woes of|sin and strife The|world has ^suffered|long; / Be~|neath the ^angel|strain have rolled Two|thousand ^years of|wrong; / And|man, at ^war with|man, hears not The|love- song ^which they|bring; / ^O|hush the ^noise, ye|men of strife And|hear the ^angels|sing. /",
+    "Verse 4": "4. And|ye, be^neath life's|crushing load, Whose|forms are ^bending|low, / Who|toil a^long the|climbing way With|painful ^steps and|slow, / Look|now! / for ^glad and|golden hours Come|swiftly ^on the|wing. / ^O|rest be^side the|weary road, And|hear the ^angels|sing! /",
+    "Verse 5": "5. For|lo! / the ^days are|hast'ning on, By|prophet- ^bards fore~|told, / When|with the ^ever|circling years Comes|round the ^age of|gold; / When|peace shall ^over|all the earth Its|ancient ^splendors|fling, / ^And|the whole ^world send|back the song Which|now the ^angels|sing. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 5", "chords": "verse", "role": "final", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Tag", "chords": "verse:11-16", "role": "tag", "lyrics": "Verse 5@11-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "first-noel",
+   "title": "The First Noel",
+   "words": "traditional English carol",
+   "music": "THE FIRST NOEL, traditional English carol (setting 1911)",
+   "public_domain": {"words": 1823, "music": 1833, "writers_died": 1901},
+   "key": "D", "bpm": 96, "meter": 3, "style": "christmas-waltz", "season": "christmas",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/The_First_Noel/The_First_Noel-The_First_Noel.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["D Bm@3", "A Em@3", "D G@3", "D G@3", "D Em@3", "D C#dim@3", "D A7@3", "D A7@3", "D Bm@3", "A Em@3", "D G@3", "D G@3", "D Em@3", "D C#dim@3", "D A7@3", "D A7@3"],
+    "refrain": ["D Bm@3", "F#m D@3", "G", "D A@3", "Bm G@3", "D C#dim@3", "D A7@3", "D"],
+    "intro": ["Bm G@3", "D C#dim@3", "D A7@3", "D"],
+    "outro": ["Bm G@3", "D C#dim@3", "D A7@3", "D"]
+   },
+   "lyrics": {
+    "Verse 1": "1. The|first ^No~|el ^the|angel ^did|say ^Was to|certain ^poor|shepherds ^in|fields as ^they|lay; / ^In|fields ^where|they ^lay|tending ^their|sheep, / ^On a|cold win^ter's|night ^that|was ^so|deep. /",
+    "Verse 2": "2. They|look^èd|up ^and|saw ^a|star ^Shining|in ^the|east, ^be~|yond ^them|far; / ^And|to ^the|earth ^it|gave ^great|light, / ^And|so it ^con~|tinued ^both|day ^and|night. /",
+    "Verse 3": "3. And|by ^the|light ^of|that ^same|star ^Three|Wise ^Men|came ^from|coun^try|far; / ^To|seek ^for a|King ^was|their ^in~|tent, / ^And to|follow ^the|star ^wher~|ever ^it|went. /",
+    "Verse 4": "4. This|star ^drew|nigh ^to|the ^north~|west, / ^Over|Beth^le~|hem ^it|took ^its|rest; / ^And|there ^it|did ^both|stop ^and|stay, / ^Right|over ^the|place ^where|Je^sus|lay. /",
+    "Verse 5": "5. Then|did ^they|know ^as~|sur^ed~|ly ^With~|in ^that|house ^the|King ^did|lie; / ^One|en^tered|it ^them|for ^to|see, / ^And|found ^the|Babe ^in|pov^er~|ty. /",
+    "Refrain": "No~|el, / ^No~|el, / ^No~|el, / No~|el, /|Born is ^the|King ^of|Is^ra~|el. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "drop", "lyrics": "Verse 4", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 5", "chords": "verse", "role": "final", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Refrain 5", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:3-8", "role": "tag", "lyrics": "Refrain@3-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "away-in-a-manger",
+   "title": "Away in a Manger",
+   "words": "anonymous (1885); stanza 3 John T. McFarland",
+   "music": "MUELLER, James R. Murray (1887)",
+   "public_domain": {"words": 1885, "music": 1887, "writers_died": 1913},
+   "key": "F", "bpm": 84, "meter": 3, "style": "lullaby", "season": "christmas",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/Away_In_A_Manger/Away_In_A_Manger-Mueller.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["F", "F", "Bb", "F", "C7", "C7", "Bb F@2", "F", "F", "F", "Bb", "F", "C7 C@3", "F", "Gm C@3", "F"],
+    "intro": ["C7 C@3", "F", "Gm C@3", "F"],
+    "outro": ["C7 C@3", "F", "Gm C@3", "F"]
+   },
+   "lyrics": {
+    "Verse 1": "1. A~|way in a|manger, no|crib for a|bed, / The|little Lord|Jesus laid|down ^His sweet|head. / The|stars in the|sky looked|down where He|lay, / The|little ^Lord|Jesus, a~|sleep on ^the|hay. /",
+    "Verse 2": "2. The|cattle are|lowing, the|Baby a~|wakes, / But|little Lord|Jesus, no|cry^ing He|makes; / I|love Thee, Lord|Jesus, look|down from the|sky And|stay by ^my|cradle til|morning ^is|nigh. /",
+    "Verse 3": "3. Be|near me, Lord|Jesus, I|ask Thee to|stay Close|by me for~|ever, and|love ^me, I|pray; / Bless|all the dear|children in|Thy tender|care, / And|fit us ^for|Heaven to|live with ^Thee|there. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Tag", "chords": "verse:11-16", "role": "tag", "lyrics": "Verse 3@11-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "jesus-christ-is-risen",
+   "title": "Jesus Christ Is Risen Today",
+   "words": "14th-century Latin carol, translated in Lyra Davidica (1708) and The Compleat Psalmist (1749); stanza 4 Charles Wesley (1740)",
+   "music": "EASTER HYMN, Lyra Davidica (1708)",
+   "public_domain": {"words": 1749, "music": 1708, "writers_died": 1788},
+   "key": "C", "bpm": 100, "meter": 4, "style": "easter-anthem", "season": "easter",
+   "source": {"repository": "github.com/mzealey/openhymnal", "commit": "d35811b2d5c9b0bbc5887d60a2936454815416e8", "score": "Complete/Jesus_Christ_Is_Risen_Today/Jesus_Christ_Is_Risen_Today-Easter_Hymn.abc", "copyright": "public domain (score: \"copyright: public domain\"; words and tune published before 1929)"},
+   "chords": {
+    "verse": ["C", "F C@4", "C F@4", "C", "F C@4", "Dm G@4", "C F@4", "C", "G G7@4", "C", "G C@4", "G", "G C@3", "F C@4", "C E7@4", "C"],
+    "intro": ["G C@3", "F C@4", "C E7@4", "C"],
+    "outro": ["G C@3", "F C@4", "C E7@4", "C"]
+   },
+   "lyrics": {
+    "Verse 1": "|1. Jesus Christ is|ris'n today, /|Al^le~|luia! /|Our trium^phant|holy day, /|Al^le~|luia! /|Who did once, ^up~|on the cross, /|Al^le~|luia! /|Suffer ^to re~|deem our loss, /|Al^le~|luia! /",
+    "Verse 2": "|2. Hymns of praise then|let us sing, /|Al^le~|luia! /|Unto Christ, ^our|heav'nly King, /|Al^le~|luia! /|Who endured ^the|cross and grave, /|Al^le~|luia! /|Sinners ^to re~|deem and save, /|Al^le~|luia! /",
+    "Verse 3": "|3. But the pain which|He endured, /|Al^le~|luia! /|Our salva^tion|hath procured, /|Al^le~|luia! /|Now above ^the|sky He's king, /|Al^le~|luia! /|Where the ^angels|ever sing, /|Al^le~|luia! /",
+    "Verse 4": "|4. Sing we to our|God above, /|Al^le~|luia! /|Praise eter^nal|as His love, /|Al^le~|luia! /|Praise Him, all ^you|heav'nly host, /|Al^le~|luia! /|Father, ^Son, and|Holy Ghost, /|Al^le~|luia! /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "intro", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Bridge", "chords": "intro*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
   }
  ]
 }
