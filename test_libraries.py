@@ -90,7 +90,7 @@ def main():
 def run(tmp):
     print("The library definitions:")
     defs = BUILD.load_definitions()
-    check("six libraries, one for each plan (Central Pads, and Central Utility since 10.2)", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pedals", "plugins", "utility"], [l["plan"] for l in defs])
+    check("seven libraries: one for each plan (Central Pads, and Central Utility since 10.2), and Central Pads Extra (10.3) - a second for the pads plan", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pads", "pedals", "plugins", "utility"] and sorted(l["id"] for l in defs if l["plan"] == "pads") == ["central-pads-extra", "central-pads-library"], [l["plan"] for l in defs])
     node = subprocess.run(["node", "-e", "const P=require('./js/pedals.js');console.log(JSON.stringify(P.pedals.map(p=>[p.id,p.tier,Object.keys(p.knobs),!!p.opts.irFile])))"], cwd=HERE, capture_output=True, text=True)
     pedals = {p[0]: p for p in json.loads(node.stdout)}
     bad = []

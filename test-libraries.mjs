@@ -140,10 +140,10 @@ try {
   const p3 = await browser.newPage();
   await p3.goto(settingsPage("offline", `window.PP_LICENSE_CONFIG = { server: "", required: true }; window.CU = { libraries: { list: function () { return Promise.resolve({ installed: [] }); } } };`));
   await p3.evaluate(() => { PPLicense.init({ app: "control" }); document.getElementById("set").innerHTML = PPLicense.packagesHtml(); });
-  await p3.waitForFunction(() => document.querySelectorAll("#libSettings li[data-lib]").length === 6, null, { timeout: 5000 });
-  await check("no list from online either (no internet): the built-in list, the six libraries (Central Pads and Central Utility too), no Install button; Install from a file… stays", async () => {
+  await p3.waitForFunction(() => document.querySelectorAll("#libSettings li[data-lib]").length === 7, null, { timeout: 5000 });
+  await check("no list from online either (no internet): the built-in list, the seven libraries (Central Pads, Central Pads Extra and Central Utility too), no Install button; Install from a file… stays", async () => {
     const r = await p3.evaluate(() => ({ dis: [...document.querySelectorAll("[data-lib-install]")].every((b) => b.disabled), n: document.querySelectorAll("[data-lib-install]").length, text: document.getElementById("libSettings").textContent, file: !!document.querySelector("[data-lib-file]") }));
-    assert.ok(r.n === 0 && /Central Pads Library/.test(r.text) && r.file && /waiting for the library list/.test(r.text) && /Install from a file/.test(r.text), r.text);   // (no list: no Install button at all)
+    assert.ok(r.n === 0 && /Central Pads Library/.test(r.text) && /Central Pads Extra/.test(r.text) && r.file && /waiting for the library list/.test(r.text) && /Install from a file/.test(r.text), r.text);   // (no list: no Install button at all)
   });
 
   // ------------------------------------------------------------- (10.0.1) no website yet: straight from the published "libraries" release
