@@ -586,27 +586,38 @@ def strings(song):
 # ---------------------------------------------------------------- sound: DSP
 def fft_conv(x, ir):
     """x (frames, 2) through a stereo impulse response (frames, 2)."""
+    # (single precision throughout, a channel at a time: a whole song's stem fits in a few hundred MB)
     n = len(x) + len(ir) - 1
     size = HA.fast_len(n)
-    out = np.zeros_like(x)
+    out = np.zeros(x.shape, np.float32)
     for c in range(2):
-        out[:, c] = np.fft.irfft(np.fft.rfft(x[:, c], size) * np.fft.rfft(ir[:, c], size), size)[:len(x)]
+        spec = np.fft.rfft(np.ascontiguousarray(x[:, c], np.float32), size)
+        spec *= np.fft.rfft(np.ascontiguousarray(ir[:, c], np.float32), size)
+        out[:, c] = np.fft.irfft(spec, size)[:len(x)]
+        del spec
+    return out
+
+
+def _filter(x, gain_of):
+    """x through a zero-phase gain per frequency (gain_of(freqs)), a channel at a time in single precision."""
+    n = len(x)
+    size = HA.fast_len(n)
+    g = gain_of(np.fft.rfftfreq(size, 1 / SR)).astype(np.float32)
+    out = np.empty((n, 2), np.float32)
+    for c in range(2):
+        spec = np.fft.rfft(np.ascontiguousarray(x[:, c], np.float32), size)
+        spec *= g
+        out[:, c] = np.fft.irfft(spec, size)[:n]
+        del spec
     return out
 
 
 def eq(x, **kw):
-    n = len(x)
-    size = HA.fast_len(n)
-    h = HA.eq_curve(np.fft.rfftfreq(size, 1 / SR), **kw)
-    return np.stack([np.fft.irfft(np.fft.rfft(x[:, c], size) * h, size)[:n] for c in range(2)], axis=1).astype(np.float32)
+    return _filter(x, lambda fr: HA.eq_curve(fr, **kw))
 
 
 def bell(x, f, db, q=1.0):
-    n = len(x)
-    size = HA.fast_len(n)
-    fr = np.maximum(np.fft.rfftfreq(size, 1 / SR), 1.0)
-    g = 10 ** (db * np.exp(-0.5 * (np.log2(fr / f) / (0.5 / q)) ** 2) / 20)
-    return np.stack([np.fft.irfft(np.fft.rfft(x[:, c], size) * g, size)[:n] for c in range(2)], axis=1).astype(np.float32)
+    return _filter(x, lambda fr: 10 ** (db * np.exp(-0.5 * (np.log2(np.maximum(fr, 1.0) / f) / (0.5 / q)) ** 2) / 20))
 
 
 def glue(x, ratio):
@@ -639,10 +650,9 @@ def delay(x, seconds, feedback, mix, pingpong=True, taps=8, dark=4500.0):
             ir[d * k, :] += g
     wet = fft_conv(x, ir)
     wet = eq(wet, hp=250, air=-6)
-    fr_n = HA.fast_len(len(wet))
-    lp = 1 / np.sqrt(1 + (np.fft.rfftfreq(fr_n, 1 / SR) / dark) ** 2)
-    wet = np.stack([np.fft.irfft(np.fft.rfft(wet[:, c], fr_n) * lp, fr_n)[:len(wet)] for c in range(2)], axis=1)
-    return (x + wet).astype(np.float32)
+    wet = _filter(wet, lambda fr: 1 / np.sqrt(1 + (fr / dark) ** 2))
+    wet += x
+    return wet
 
 
 def octave_up(x):
@@ -765,6 +775,18 @@ def riser(song, n):
 
 
 # ---------------------------------------------------------------- playing the parts
+def _trim():
+    """Return freed memory to the system. The samples are thousands of small arrays; once freed, glibc keeps their
+    space for reuse, so a song would hold every instrument's samples at once without this."""
+    import gc
+    gc.collect()
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):
+        pass
+
+
 class Player:
     def __init__(self, opt, seed):
         self.opt = opt
@@ -784,7 +806,8 @@ class Player:
                 self.insts[key] = SM.Instrument(name, self.cache, seed=self.seed + seed)
             x = self.insts[key].play(notes, seconds)
         if not self.opt.get("gm"):
-            self.insts.pop((name, seed), None) if name != "drums" or seed else None    # (done with it: its samples freed)
+            self.insts.pop((name, seed), None)                     # (done with it: its samples freed...)
+            _trim()                                                # (...and handed back, not kept by the allocator)
         return x[:n] if len(x) >= n else np.pad(x, ((0, n - len(x)), (0, 0)))
 
     def gm(self, name, notes, seconds):

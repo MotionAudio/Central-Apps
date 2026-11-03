@@ -486,8 +486,9 @@ def render_hymn(hymn, opt, out_dir, srcs):
     stems = {"Click": level(click_stem(hymn, nbars, length), LEVELS["Click"]), "Guide": level(guide_stem(hymn, secs, length), LEVELS["Guide"])}
     stems.update(band)
     files = []
+    del band
     for stem in STEM_ORDER:
-        x = stems[stem]
+        x = stems.pop(stem)                           # (each stem freed once it's written: less memory at once)
         wav = os.path.join(d, stem + ".wav")
         M.write_wav(wav, x, SR)
         mono = stem in ("Click", "Guide")
@@ -542,6 +543,7 @@ def index_entry(hymn, base, built=None):
         "duration": round((built or {}).get("duration", dur), 1), "words": hymn["words"], "music": hymn["music"], "publicDomain": True,
         "sections": [s["name"] for s in secs],
         "stems": [entry(n, r, paths.get(n), n in ("Click.mp3", "Guide.mp3")) for n, r in names], "style": hymn.get("style"),
+        **({"season": hymn["season"]} if hymn.get("season") else {}),
         "song": entry("song.json", "song", (built or {}).get("song")),
         "mix": entry(hymn["id"] + "-mix.mp3", None, (built or {}).get("mix")),
         "preview": entry(hymn["id"] + "-preview.mp3", None, (built or {}).get("preview")),
