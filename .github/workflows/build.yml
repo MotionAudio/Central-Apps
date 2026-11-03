@@ -40,7 +40,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: Compilers
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix gcc-aarch64-linux-gnu p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev g++-aarch64-linux-gnu libpipewire-0.3-dev bubblewrap clang lld   # (clang + lld: Central FX's WebAssembly build, checked against the C; C++ for the plugin host; the X11, lilv and suil headers for Linux; arm64 C / C++ for the Pi's play-any plugin and community stage; PipeWire's headers; bubblewrap for the community plugin wall's test)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64-posix gcc-aarch64-linux-gnu p7zip-full libx11-dev liblilv-dev libsuil-dev lv2-dev g++-aarch64-linux-gnu libpipewire-0.3-dev bubblewrap clang lld espeak-ng   # (clang + lld: Central FX's WebAssembly build, checked against the C; C++ for the plugin host; the X11, lilv and suil headers for Linux; arm64 C / C++ for the Pi's play-any plugin and community stage; PipeWire's headers; bubblewrap for the community plugin wall's test; espeak-ng: a voice for the lyrics test)
       - name: Build (Linux x64, Windows x64) - the rig map comes from js/pedals.js here
         run: |
           bash tools/ci-run.sh "native build (Linux)" make -C central-usage/native -j4
@@ -62,6 +62,11 @@ jobs:
         run: |
           bash tools/fetch-ffmpeg.sh linux-x64 central-usage/native/build
           bash tools/fetch-ffmpeg.sh win-x64 central-usage/native/build-win
+      - name: Cache the lyrics test's speech model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/cu-asr
+          key: cu-asr-fast-${{ hashFiles('central-usage/asr.js') }}
       - name: Test the engine, the rig, the video helpers (Linux)
         run: |
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
@@ -81,6 +86,8 @@ jobs:
           bash tools/ci-run.sh "shorts test (picking the moments, captions, a whole made-up service through the pinned ffmpeg)" node central-usage/test-shorts.mjs central-usage/native/build/ffmpeg
           CU_SKIP_NATIVE=1 bash central-usage/prepare-shared.sh
           bash tools/ci-run.sh "pictures in (JPEG turned upright, PNG, WebP, animated GIF, BMP, AVIF, SVG, TIFF and HEIC through the pinned ffmpeg, 3840 px, ten at once in order, drop and paste)" node central-usage/test-pictures.mjs
+          bash tools/ci-run.sh "CCLI: songs streamed while the Video tab is on air, Print chart" node central-usage/test-ccli-usage.mjs
+          ASR_MODEL=fast ASR_MODELS_DIR="$HOME/.cache/cu-asr" bash tools/ci-run.sh "lyrics heard in a vocal track (espeak-ng's voice through the speech model)" node central-usage/test-lyrics.mjs
           python3 -c "import numpy" 2>/dev/null || python3 -m pip install --quiet numpy
           bash tools/ci-run.sh "library test (pedals, plans, the orchestra builder)" python3 test_library.py
           bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py
