@@ -1,6 +1,7 @@
 // The lyric backgrounds (app/backgrounds.js): every one draws, none is blank, motion ones move and stills don't,
 // they all look different from each other, and drawing is quick enough for an output at 30 fps.
 //   node test-backgrounds.mjs
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import { chromium } from "playwright";
 import { createRequire } from "node:module"; import path from "node:path"; import assert from "node:assert"; import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url)), require = createRequire(import.meta.url);
@@ -14,7 +15,7 @@ await check("the list: at least 40, motion and stills, unique ids and names, pla
   assert.ok(B.isBg("bg:royal") && !B.isBg("/home/x.png") && B.idOf("bg:royal") === "royal" && B.nameOf("bg:royal") === "Royal");
 });
 
-const browser = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium" });
+const browser = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)) });
 const page = await browser.newPage();
 await page.goto("file://" + path.join(here, "app", "output.html"));
 await page.addScriptTag({ path: path.join(here, "app", "backgrounds.js") });

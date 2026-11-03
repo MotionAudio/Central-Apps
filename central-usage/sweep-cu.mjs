@@ -3,6 +3,7 @@
 // windows) it opens every tab at three window sizes, screenshots it, clicks every visible control, and records page
 // errors, console errors, controls that change nothing and controls something else covers.
 //   SHOTS=/tmp/cu-shots ONLY="main-all,user1" CLICK=1 xvfb-run -a node sweep-cu.mjs
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import { chromium, _electron as electron } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +18,7 @@ let log = ""; drv.stderr.on("data", (b) => { log += b; }); drv.stdout.on("data",
 await new Promise((r) => { const t = setInterval(() => { if (log.includes("USB/SD browser on")) { clearInterval(t); r(); } }, 100); setTimeout(r, 10000); });
 const code = fs.readFileSync(path.join(tmp, "code"), "utf8").trim();
 // the Pi app with a song, a track and a chart
-const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required"] });
+const b = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)), args: ["--autoplay-policy=no-user-gesture-required"] });
 const pi = await (await b.newContext()).newPage();
 await pi.goto("http://127.0.0.1:8766/app/#tracks"); await pi.waitForFunction(() => window.PPTracks && window.PPShell); await pi.waitForTimeout(600);
 await pi.evaluate(async () => {

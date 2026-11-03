@@ -2,6 +2,7 @@
 // thirds (transparent), import / export helpers, the hub sharing decks between computers, and Scripture in seconds
 // (references, the bundled Bibles, splitting into slides, search).
 //   node central-usage/test-slides.mjs
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { createRequire } from "node:module"; import { fileURLToPath } from "node:url";
@@ -88,7 +89,7 @@ ctr.kill();
 
 // ---------------------------------------------------------------- the designer and the output, in the app's page
 console.log("The Slides tab:");
-const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required", "--allow-file-access-from-files"] });
+const b = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)), args: ["--autoplay-policy=no-user-gesture-required", "--allow-file-access-from-files"] });
 const ctx = await b.newContext({ viewport: { width: 1500, height: 1000 } });
 const page = await ctx.newPage(); const errs = [];
 page.on("pageerror", (e) => errs.push(String(e))); page.on("console", (m) => { if (m.type() === "error" && !/favicon|ERR_|net::|Failed to load resource|WebSocket/.test(m.text())) errs.push("console: " + m.text()); });

@@ -2,6 +2,7 @@
 // Stream mix) each song shown is noted once as streamed - the one already up when it starts too; Print chart on the
 // Chord chart tab prints the chart as shown (or saves a PDF) and notes the song as printed.
 //   node central-usage/test-ccli-usage.mjs
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import "../test-reap.mjs";
 import { chromium } from "playwright";
 import path from "node:path"; import assert from "node:assert"; import { fileURLToPath } from "node:url";
@@ -9,7 +10,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 let failures = 0;
 async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.stack || e).split("\n").slice(0, 5).join("\n      ")); } }
 
-const b = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium" });
+const b = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)) });
 const page = await (await b.newContext({ viewport: { width: 1300, height: 900 } })).newPage(); const errs = [];
 page.on("pageerror", (e) => errs.push(String(e)));
 await page.addInitScript(() => {

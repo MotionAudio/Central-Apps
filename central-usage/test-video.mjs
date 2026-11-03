@@ -3,6 +3,7 @@
 // cut and fade; the lyrics lower third and the slides; the Main window; streaming to a local RTMP and a local SRT
 // server at once; recording; the stream's audio helper; a phone camera from Chromium over HTTPS; NDI's absence.
 //   (cd native/video && make) && xvfb-run -a node test-video.mjs          ports: 1934x / 1844x (set VIDEO_TEST_BASE)
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import { _electron as electron, chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url";
@@ -148,7 +149,7 @@ await check("the phone start page (http) offers the certificate and the camera p
   const r = await fetch("http://127.0.0.1:" + phoneInfo.httpPort + "/"); const t = await r.text(); assert.ok(t.includes("/ca.crt") && t.includes("https://"), t.slice(0, 200));
   const c = await fetch("http://127.0.0.1:" + phoneInfo.httpPort + "/ca.crt"); assert.ok((await c.text()).includes("BEGIN CERTIFICATE"));
 });
-const browser = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium", args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
+const browser = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)), args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
 const phoneCtx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 390, height: 800 } });
 const phone = await phoneCtx.newPage(); phone.on("pageerror", (e) => errs.push("phone: " + e));
 await phone.goto("https://127.0.0.1:" + phoneInfo.port + "/?name=Balcony&code=" + phoneInfo.code);

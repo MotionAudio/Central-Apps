@@ -2,6 +2,7 @@
 // the shorts as cards, one short opened: play, title, trim, captions, approve, post, make another from here, delete;
 // the settings and the accounts; the progress of a job; another computer than the main admin's.
 //   node central-usage/test-shorts-ui.mjs [ffmpeg]
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import { chromium } from "playwright";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert"; import { fileURLToPath } from "node:url";
@@ -52,7 +53,7 @@ window.__emit = (m) => fn && fn(m);
 </script><script src="${path.join(here, "app", "shorts.js")}"></script></body></html>`;
 fs.writeFileSync(path.join(tmp, "harness.html"), harness);
 
-const b = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required", "--allow-file-access-from-files"] });
+const b = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)), args: ["--autoplay-policy=no-user-gesture-required", "--allow-file-access-from-files"] });
 const page = await b.newPage({ viewport: { width: 1280, height: 900 } }); const errs = []; page.on("pageerror", (e) => errs.push(String(e)));
 await page.goto("file://" + path.join(tmp, "harness.html")); await page.waitForSelector(".sh-card");
 const calls = async (name) => (await page.evaluate(() => window.calls)).filter((c) => c[0] === name);

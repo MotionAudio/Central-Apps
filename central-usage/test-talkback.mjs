@@ -9,6 +9,7 @@
 //   events), an admin elsewhere starting it, and a recording a crash left behind repaired on the next start.
 //   npm install && (cd native && make) && xvfb-run -a node test-talkback.mjs
 // Ports: the audio host listens on CU_TEST_TALK_PORT (default 18094). Beside another copy: sudo bash ../tools/netns-run.sh xvfb-run -a node test-talkback.mjs
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import { _electron as electron, chromium } from "playwright";
 import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url";
@@ -47,7 +48,7 @@ await cu.evaluate(() => CUTalk.setMode("groups"));   // (10.0.1: the party line 
 await until(() => cu.evaluate(() => CUMix.kind === "local" && CUMix.state && CUMix.hostStatus && CUMix.hostStatus.engine && CUMix.hostStatus.engine.status && CUMix.hostStatus.engine.status.inputs === 4), 15000);
 // two mixes that go somewhere (wired to the test outputs): Mix 3 and Mix 5
 await cu.evaluate(() => { CUMix.op({ op: "mix", m: 2, patch: { wired: true, outL: 0, outR: 1 } }); CUMix.op({ op: "mix", m: 4, patch: { wired: true, outL: 2, outR: 3, name: "Bass" } }); });
-const browser = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium", args: FAKE });
+const browser = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)), args: FAKE });
 async function cuPage(label, store) {   // the app's page in a browser (another computer), set up through its local storage
   const c = await browser.newContext({ viewport: { width: 1280, height: 800 } }); await c.grantPermissions(["microphone"]).catch(() => { });
   await c.addInitScript((s) => { Object.keys(s).forEach((k) => localStorage.setItem("cu-" + k, JSON.stringify(s[k]))); }, Object.assign({ tbMode: "groups", jobsPicked: true }, store));

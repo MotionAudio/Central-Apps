@@ -6,6 +6,7 @@
 // Ports: the audio host listens on CU_TEST_HOST_PORT (default 18092); the simulated Central Pedal uses its
 // usual ports (8765/8766/8080/8081). To run beside another copy on the same machine, give the whole run its
 // own network:  sudo bash ../tools/netns-run.sh xvfb-run -a node test-host.mjs
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import "../test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { _electron as electron, chromium } from "playwright";
 import { spawn, spawnSync } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
@@ -20,7 +21,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cu-host-")); fs.mkdirSync(pat
 const drv = spawn("python3", [path.join(root, "pedal-driver.py"), "--simulate", tmp, "--app-root", root], { stdio: ["pipe", "pipe", "pipe"] });
 let dlog = ""; drv.stderr.on("data", (b) => { dlog += b; }); drv.stdout.on("data", (b) => { dlog += b; });
 await until(() => dlog.includes("USB/SD browser on"), 15000);
-const browser = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required"] });
+const browser = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)), args: ["--autoplay-policy=no-user-gesture-required"] });
 const pi = await browser.newPage(); const errs = []; pi.on("pageerror", (e) => errs.push("pi: " + e));
 await pi.goto("http://127.0.0.1:8766/app/#tracks"); await pi.waitForFunction(() => window.PPNetSend && window.__pedalBridge && __pedalBridge.connected);
 await pi.evaluate(async () => {

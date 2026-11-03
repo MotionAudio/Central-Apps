@@ -3,6 +3,7 @@
 // HEIC (converted by the app's ffmpeg), a picture too big (made 3840), plain errors, ten pictures at once in name order,
 // a drop onto the slides list and a paste.
 //   CU_FFMPEG=<the app's ffmpeg 9.x> node central-usage/test-pictures.mjs      (the test pictures: test-pictures/, made by tools/make-test-pictures.py)
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import { chromium } from "playwright";
 import fs from "node:fs"; import path from "node:path"; import assert from "node:assert";
 import { createRequire } from "node:module"; import { fileURLToPath } from "node:url";
@@ -13,7 +14,7 @@ const native = require("./pictures-native.js"), { findFfmpeg } = require("./vide
 const ffmpeg = findFfmpeg(path.join(here, "native", "build"));
 const shared = path.join(here, "app", "shared", "pictures.js"); fs.mkdirSync(path.dirname(shared), { recursive: true }); fs.copyFileSync(path.join(here, "..", "js", "pictures.js"), shared);
 
-const b = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium" });
+const b = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)) });
 const ctx = await b.newContext({ viewport: { width: 1400, height: 900 } });
 const page = await ctx.newPage(); const errs = [];
 page.on("pageerror", (e) => errs.push(String(e))); page.on("console", (m) => { if (m.type() === "error" && !/favicon|ERR_|net::|Failed to load resource|WebSocket/.test(m.text())) errs.push("console: " + m.text()); });

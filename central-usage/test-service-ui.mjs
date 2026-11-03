@@ -2,6 +2,7 @@
 // booth's messages), the pre-service check, and the confidence monitor (the Lyrics tab's two outputs, the band's
 // screen in a tablet's browser, its colours). Against the simulated Central Pedal and the center, like test-usage.mjs.
 //   xvfb-run -a node test-service-ui.mjs        (use the shared lock: flock /tmp/central-app-tests.lock …)
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import "../test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
@@ -16,7 +17,7 @@ const drv = spawn("python3", [path.join(here, "..", "pedal-driver.py"), "--simul
 let log = ""; drv.stderr.on("data", (b) => { log += b; }); drv.stdout.on("data", (b) => { log += b; });
 await new Promise((r) => { const t = setInterval(() => { if (log.includes("USB/SD browser on")) { clearInterval(t); r(); } }, 100); setTimeout(r, 8000); });
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 8).join("\n      ")); } }
-const b = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required"] });
+const b = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)), args: ["--autoplay-policy=no-user-gesture-required"] });
 const errs = [];
 // the Central Pedal's app: a song with a chart (lyrics, chords) and a short track
 const piCtx = await b.newContext({ viewport: { width: 1200, height: 800 } });

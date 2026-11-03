@@ -3,12 +3,13 @@
 // the stage), and building a stage quickly (the wizard, tracing a plan, spreading lights, a patch from a CSV).
 // Runs the Central Control page in Chromium on its own (no Central Pedal: its messages are given to the page).
 //   node test-stage-screens.mjs
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import { chromium } from "playwright";
 import os from "node:os"; import path from "node:path"; import assert from "node:assert"; import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 8).join("\n      ")); } }
 const errs = [];
-const b = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium" });
+const b = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)) });
 const ctx = await b.newContext({ viewport: { width: 1500, height: 1000 } });
 const p = await ctx.newPage(); p.on("pageerror", (e) => errs.push("page: " + e)); p.on("console", (m) => { if (m.type() === "error" && !/favicon|NAME_NOT_RESOLVED|padpedal\.local|ERR_CONNECTION_REFUSED|ERR_FILE_NOT_FOUND|WebSocket|8095/.test(m.text())) errs.push("console: " + m.text()); });
 await p.addInitScript(() => { localStorage.setItem("cu-mode", JSON.stringify("admin")); localStorage.setItem("cc-license", JSON.stringify({ key: "ADEF-AULT-KEY0-2026", kind: "A", app: "control", okAt: Date.now(), production: "Test church", isDefault: true })); });

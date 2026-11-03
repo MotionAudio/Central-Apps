@@ -4,10 +4,11 @@
 //   Library file, a light's own settings (movable or not, limits, curve), and the scene programmer (two lights' colour
 //   and position recorded into a scene, recalled on the DMX output).
 //     node test-lights-fixtures.mjs
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import { chromium } from "playwright";
 import path from "node:path"; import assert from "node:assert"; import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
-const CHROME = process.env.CHROME || "/opt/pw-browsers/chromium-1243/chrome-linux64/chrome";
+const CHROME = [process.env.CHROME, "/opt/pw-browsers/chromium-1243/chrome-linux64/chrome"].find((p) => p && require_fs_exists(p));
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 6).join("\n      ")); } }
 
 const b = await chromium.launch({ executablePath: CHROME, args: ["--autoplay-policy=no-user-gesture-required"] });

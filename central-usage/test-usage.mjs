@@ -1,4 +1,5 @@
 // Central Control renderer against the simulated driver: chart transposition, sections, lyrics, MIDI relay timing
+import { existsSync as require_fs_exists } from "node:fs";   // (a local browser path only when it exists; CI uses Playwright's own)
 import "../test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
@@ -15,7 +16,7 @@ let log = ""; drv.stderr.on("data", (b) => { log += b; }); drv.stdout.on("data",
 await new Promise((r) => { const t = setInterval(() => { if (log.includes("USB/SD browser on")) { clearInterval(t); r(); } }, 100); setTimeout(r, 8000); });
 let code = null;
 let failures = 0; async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 6).join("\n      ")); } }
-const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
+const b = await chromium.launch({ executablePath: [process.env.CHROME, "/opt/pw-browsers/chromium"].find((p) => p && require_fs_exists(p)), args: ["--autoplay-policy=no-user-gesture-required", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
 const ctx = await b.newContext({ viewport: { width: 1200, height: 800 } });
 // the Pi app (so the driver has a song + chart + display state)
 const pi = await ctx.newPage(); const errs = []; pi.on("pageerror", (e) => errs.push("pi:" + e));
