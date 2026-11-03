@@ -26,10 +26,12 @@
     var m = $("#cpModal"); m.innerHTML = '<div class="cp-dialog' + (opts.wide ? " wide" : "") + '" role="dialog" aria-modal="true">' + html + "</div>"; m.hidden = false;
     var d = m.firstChild; setTimeout(function () { var f = d.querySelector("[autofocus], input, select, textarea, button.primary"); if (f) f.focus(); }, 30);
     m.onclick = function (e) { if (e.target === m && !opts.sticky) close(); if (e.target.closest("[data-close]")) close(); };
-    function close() { m.hidden = true; m.innerHTML = ""; if (opts.onClose) opts.onClose(); }
-    d.close = close; return d;
+    function close() { if (openClose === close) openClose = null; m.hidden = true; m.innerHTML = ""; if (opts.onClose) opts.onClose(); }
+    openClose = close; d.close = close; return d;
   }
-  function closeModal() { var m = $("#cpModal"); if (m && !m.hidden) { m.hidden = true; m.innerHTML = ""; } }
+  // Escape (or a new screen) closes the open box the same way its Cancel does, so a question waiting on it gets its answer
+  var openClose = null;
+  function closeModal() { var m = $("#cpModal"); if (openClose) { openClose(); return; } if (m && !m.hidden) { m.hidden = true; m.innerHTML = ""; } }
   function ask(title, text, yes, no) {
     return new Promise(function (res) {
       var d = modal("<h2>" + esc(title) + "</h2><p>" + esc(text) + '</p><div class="cp-row end"><button data-a="no">' + esc(no || "Cancel") + '</button><button class="primary" data-a="yes">' + esc(yes || "OK") + "</button></div>", { onClose: function () { res(false); } });

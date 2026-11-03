@@ -30,7 +30,10 @@
     var r = anchor ? anchor.getBoundingClientRect() : { left: x, bottom: y }, rr = U.root.getBoundingClientRect();
     m.hidden = false; m.style.left = Math.max(4, Math.min((x != null ? x : r.left) - rr.left, rr.width - 260)) + "px"; m.style.top = ((y != null ? y : r.bottom + 2) - rr.top) + "px";
     m.onclick = function (e) { var b = e.target.closest("[data-i]"); if (!b) return; m.hidden = true; items[+b.dataset.i][1](); };
-    setTimeout(function () { document.addEventListener("pointerdown", function off(e) { if (!m.contains(e.target)) { m.hidden = true; document.removeEventListener("pointerdown", off, true); } }, true); }, 0);
+    function done() { m.hidden = true; document.removeEventListener("pointerdown", off, true); document.removeEventListener("keydown", esc2, true); }
+    function off(e) { if (!m.contains(e.target)) done(); }
+    function esc2(e) { if (e.key === "Escape" && !m.hidden) { e.stopPropagation(); e.preventDefault(); done(); } }
+    setTimeout(function () { document.addEventListener("pointerdown", off, true); document.addEventListener("keydown", esc2, true); }, 0);
   };
   UI.compact = function () { return U.opts.layout === "compact"; };
 
