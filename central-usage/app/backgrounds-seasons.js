@@ -715,8 +715,9 @@
   ];
   function darkWords(c) { var v = K.rgb(c); return v[0] * 0.299 + v[1] * 0.587 + v[2] * 0.114 < 128; }
   root.CUSeasonThemes = THEMES.map(function (x) {
-    return { id: x[0], name: x[1], tier: U, season: (DEFS.filter(function (d) { return d[0] === x[2]; })[0] || [])[3], bg: { type: "lyricbg", bgId: x[2], dim: darkWords(x[3]) ? 0.06 : 0.25 },   // (dark words on a light picture: barely dimmed)
-      title: { font: "Archivo", size: 96, weight: 800, color: x[3] }, body: { font: "Inter", size: 60, weight: 600, color: x[4] }, ref: { font: "Inter", size: 40, weight: 600, color: x[5] },
+    var dk = darkWords(x[3]), sh = dk ? { color: "rgba(255,255,255,0.55)", blur: 14, x: 0, y: 0 } : undefined;   // (dark words get a soft light halo, not a dark drop shadow)
+    return { id: x[0], name: x[1], tier: U, season: (DEFS.filter(function (d) { return d[0] === x[2]; })[0] || [])[3], bg: { type: "lyricbg", bgId: x[2], dim: dk ? 0.06 : 0.25 },   // (dark words on a light picture: barely dimmed)
+      title: { font: "Archivo", size: 96, weight: 800, color: x[3], shadow: sh }, body: { font: "Inter", size: 60, weight: 600, color: x[4], shadow: sh }, ref: { font: "Inter", size: 40, weight: 600, color: x[5], shadow: sh },
       lower: { box: x[6], accent: x[5], text: x[3] } };
   });
   root.CUSeasons = { ORDER: ORDER, NAMES: SEASON_NAME, seasonOf: seasonOf, thisSunday: thisSunday, easter: easter, adventStart: adventStart, list: function (season) { return B.list.filter(function (b) { return b.season && (!season || b.season === season); }); } };
