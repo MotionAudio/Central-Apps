@@ -88,7 +88,7 @@ ctr.kill();
 
 // ---------------------------------------------------------------- the designer and the output, in the app's page
 console.log("The Slides tab:");
-const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required"] });
+const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required", "--allow-file-access-from-files"] });
 const ctx = await b.newContext({ viewport: { width: 1500, height: 1000 } });
 const page = await ctx.newPage(); const errs = [];
 page.on("pageerror", (e) => errs.push(String(e))); page.on("console", (m) => { if (m.type() === "error" && !/favicon|ERR_|net::|Failed to load resource|WebSocket/.test(m.text())) errs.push("console: " + m.text()); });
