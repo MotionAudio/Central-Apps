@@ -225,7 +225,7 @@ await check("the audio helper opens a source, meters it and reports", async () =
 
 await check("the Stream mix as the stream's sound: the sound desk's mix (here pushed by the page) goes into the stream, delayed by the A/V offset", async () => {
   const before = fs.existsSync(recDir) ? fs.readdirSync(recDir).filter((f) => f.endsWith(".mp4")) : [];
-  const changed = Date.now(); await cu.evaluate(() => CUVideo.config({ audio: { use: 2, delay: 200 } }).then((c) => { CUVideoTab.state.cfg = c; }));
+  const changed = Date.now(); await cu.evaluate(() => CUVideo.config({ audio: { use: 2, delay: 500 } }).then((c) => { CUVideoTab.state.cfg = c; }));   // (half a second held: a busy test machine runs the page's 20 ms timer late now and then, as a network does)
   // (the encoder restarts to take its sound from the stream mix: wait until the new one is up and encoding - a busy
   //  machine takes a few seconds, and a tone sent before it is listening goes nowhere)
   await until(() => cu.evaluate((t) => CUVideo.status().then((s) => s.encoder && s.encoder.on && s.encoder.since > t && s.encoder.fps > 0 ? true : null), changed), 30000);

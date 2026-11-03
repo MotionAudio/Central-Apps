@@ -29,7 +29,9 @@ try {
   await check("the hub (A) runs the center; its lighting rig and slides are in its window", async () => {
     keysA = await until(() => winA.evaluate(() => window.CUCenter.connected() && window.CURoles.keys()), 20000, "A's center");
     assert.ok(/^\d{4}$/.test(keysA.pin) && /^\d{4}$/.test(keysA.pair));
-    await winA.evaluate(() => { localStorage.setItem("cu-rig", JSON.stringify({ fixtures: [{ name: "Wash 1" }] })); localStorage.setItem("cu-slides", JSON.stringify(["Welcome to Grace Church"])); localStorage.setItem("cu-fontSize", "31"); });
+    await winA.evaluate(() => { localStorage.setItem("cu-rig", JSON.stringify({ fixtures: [{ name: "Wash 1" }] })); localStorage.setItem("cu-slides", JSON.stringify({ version: 2, decks: [{ id: "d-welcome", name: "Welcome to Grace Church", kind: "custom", size: { w: 1920, h: 1080 }, theme: "classic", slides: [], updatedAt: Date.now() }], activeDeck: "d-welcome", mode: "show", themes: [] }));   /* (the Slides tab's own shape, 10.2) */ localStorage.setItem("cu-fontSize", "31"); });
+    // (the Slides tab keeps its own state and writes it back: what's put under a running page is read when the page loads)
+    await winA.reload(); await until(() => winA.evaluate(() => window.CUSlides && CUSlides.state().decks.some((d) => /Welcome/.test(d.name))), 20000, "A's slides");
   });
   await check("the second main admin's laptop (B) pairs with the hub as an admin", async () => {
     await winB.evaluate(() => { localStorage.setItem("cu-centerHost", JSON.stringify("127.0.0.1:18195")); window.CUCenter.setAddress("127.0.0.1:18195"); });
