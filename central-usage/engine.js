@@ -62,6 +62,7 @@ class Engine extends EventEmitter {
     else if (e.ev === "meters") { this.meters = e; this.emit("meters", e); }
     else if (e.ev === "error") { this.error = e.error; this.emit("status", this.info()); }
     else if (e.ev === "rec") this.emit("rec", e);   // recording (recorder.js)
+    else if (e.ev === "insert") { this.insertInfo = this.insertInfo || {}; this.insertInfo[e.i + ":" + e.slot] = e; this.emit("insert", e); }   // (10.3) a channel insert loaded, or why not
   }
   // ---------------------------------------------------------------- state -> engine
   inputCmd(i) {
@@ -95,12 +96,24 @@ class Engine extends EventEmitter {
   mainCmd() { const s = this.state, b = s.main, tapped = (this.taps.get(0) || new Set()).size > 0, direct = s.trackOut === "direct"; return { cmd: "main", level: b.level, mute: b.mute ? 1 : 0, outL: direct ? -1 : b.outL, outR: direct ? -1 : b.outR, stereo: 1, tap: tapped ? 1 : 0, used: 1 }; }
   sendCmd(m, i) { const sd = this.state.mixes[m].sends[i]; return sd ? { cmd: "send", m, i, level: sd.level, pan: sd.pan, on: sd.on === false ? 0 : 1 } : { cmd: "send", m, i, level: -90, pan: 0, on: 0 }; }
   pushNet() { Object.keys(this.pi.sources).filter((k) => Number(k) < 4).forEach((k) => { const src = this.pi.sources[k]; this.cmd({ cmd: "net", src: Number(k), channels: Math.min(NETCH, (src.channels || []).length), rate: src.rate || 48000, latency: this.latency || 60 }); }); }
+  // (10.3) a channel's inserts: the Central FX collection beside this engine (central-fx/); a plugin is loaded only when it
+  // changes, its knobs are sent on their own
+  insertCmds(i, force) {
+    const x = this.state.inputs[i], list = (x && x.ins) || []; this.insLoaded = this.insLoaded || {};
+    for (let k = 0; k < 4; k++) {
+      const q = list[k], want = q && q.on !== false ? path.join(path.dirname(this.bin || ""), "central-fx", q.id + ".cmfx.json") : "", key = i + ":" + k;
+      if (force || (this.insLoaded[key] || "") !== want) { if (want || this.insLoaded[key]) this.cmd({ cmd: "insert", i, slot: k, path: want }); this.insLoaded[key] = want; if (this.insertInfo && this.insertInfo[key]) { delete this.insertInfo[key]; this.emit("insert", { i, slot: k, cleared: true }); } }
+      if (want) Object.keys(q.values || {}).forEach((id) => this.cmd({ cmd: "insertParam", i, slot: k, id, value: q.values[id] }));
+    }
+  }
   pushAll() {
+    this.insLoaded = {};
     if (!this.proc) return;
     this.pushNet();
     for (let i = 0; i < M.MAXIN; i++) this.cmd(this.inputCmd(i));
     this.cmd(this.mainCmd());
     for (let m = 0; m < M.MAXMIX; m++) { this.cmd(this.mixCmd(m)); Object.keys(this.state.mixes[m].sends).forEach((i) => this.cmd(this.sendCmd(m, Number(i)))); }
+    for (let i = 0; i < M.MAXIN; i++) if ((this.state.inputs[i].ins || []).length) this.insertCmds(i, true);
     this.cmd(this.fxCmd()); this.cmd(this.streamCmd()); Object.keys(this.state.stream.sends).forEach((i) => this.cmd(this.ssendCmd(Number(i))));
     this.cmd({ cmd: "analysis", src: this.analysis === "main" ? 1 : 0 });
     this.emit("pushed");   // (talkback sets its slots up again)
@@ -116,6 +129,7 @@ class Engine extends EventEmitter {
   }
   sync(op, deviceBefore) {
     if (op.op === "input") { if (op.patch && (op.patch.group || op.patch.direct != null || op.patch.src) && this.state.trackOut === "direct") { for (let i = 0; i < M.MAXIN; i++) this.cmd(this.inputCmd(i)); } else this.cmd(this.inputCmd(op.i)); }
+    else if (op.op === "inserts") this.insertCmds(op.i | 0, false);
     else if (op.op === "main") this.cmd(this.mainCmd());
     else if (op.op === "trackOut") { for (let i = 0; i < M.MAXIN; i++) this.cmd(this.inputCmd(i)); this.cmd(this.mainCmd()); }
     else if (op.op === "mix" || op.op === "claim" || op.op === "release") this.cmd(this.mixCmd(op.m));

@@ -1,0 +1,113 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "low-high-cut",
+ "name": "Low & High Cut",
+ "author": "Motion Audio",
+ "family": "eq",
+ "tier": "free",
+ "description": "Takes away rumble at the bottom and hiss at the top. The basic filter.",
+ "params": [
+  {
+   "id": "lowcut",
+   "name": "Low cut",
+   "min": 20,
+   "max": 800,
+   "default": 80,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "highcut",
+   "name": "High cut",
+   "min": 1500,
+   "max": 20000,
+   "default": 18000,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal",
+   "values": {
+    "lowcut": 100,
+    "highcut": 18000
+   }
+  },
+  {
+   "name": "Clean up guitar",
+   "values": {
+    "lowcut": 120,
+    "highcut": 10000
+   }
+  },
+  {
+   "name": "Radio",
+   "values": {
+    "lowcut": 500,
+    "highcut": 3500
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "lowcut"
+     },
+     "q": 0.7,
+     "slope": 24
+    }
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "highcut"
+     },
+     "q": 0.7,
+     "slope": 24
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

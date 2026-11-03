@@ -107,6 +107,14 @@
       if (p.src && typeof p.src === "object") { var src = p.src.kind === "pi" ? { kind: "pi", key: String(p.src.key || "").toLowerCase().slice(0, 40) } : p.src.kind === "in" ? { kind: "in", ch: clamp(p.src.ch, 0, MAXIN - 1) | 0 } : { kind: "none" }; if (JSON.stringify(src) !== JSON.stringify(x.src)) { x.src = src; ch = true; } }
       return ch;
     }
+    if (op.op === "inserts") {   // (10.3) a channel's inserts: Central FX plugins after its compressor, up to 4
+      if (!admin) return false; var xi = s.inputs[op.i | 0]; if (!xi || op.i < 0 || !Array.isArray(op.list)) return false;
+      var list = op.list.slice(0, 4).filter(function (q) { return q && /^[a-z0-9-]{1,60}$/.test(String(q.id || "")); }).map(function (q) {
+        var v = {}; Object.keys(q.values || {}).slice(0, 32).forEach(function (k) { var n = Number(q.values[k]); if (/^[A-Za-z_]\w{0,30}$/.test(k) && isFinite(n)) v[k] = n; });
+        var o = { id: String(q.id), on: q.on !== false, values: v }; if (q.lapsed) o.lapsed = true; return o;
+      });
+      if (JSON.stringify(list) === JSON.stringify(xi.ins || [])) return false; xi.ins = list; return true;
+    }
     if (op.op === "main") { if (!admin) return false; return put(s.main, { level: [-90, 10], mute: "b", outL: [-1, MAXOUT - 1], outR: [-1, MAXOUT - 1] }, op.patch); }
     if (op.op === "fx") {   // the shared reverb / delay
       if (!admin) return false; var fp = op.patch || {}, fc = false;

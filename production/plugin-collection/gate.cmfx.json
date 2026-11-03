@@ -1,0 +1,122 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "gate",
+ "name": "Gate",
+ "author": "Motion Audio",
+ "family": "dynamics",
+ "tier": "free",
+ "description": "Quiets the sound when it drops under the threshold: spill, hum and noise between notes. The basic gate.",
+ "params": [
+  {
+   "id": "threshold",
+   "name": "Threshold",
+   "min": -80,
+   "max": 0,
+   "default": -45,
+   "unit": "dB"
+  },
+  {
+   "id": "range",
+   "name": "Range",
+   "min": -90,
+   "max": 0,
+   "default": -60,
+   "unit": "dB"
+  },
+  {
+   "id": "hold",
+   "name": "Hold",
+   "min": 0,
+   "max": 400,
+   "default": 40,
+   "unit": "ms"
+  },
+  {
+   "id": "release",
+   "name": "Release",
+   "min": 10,
+   "max": 1500,
+   "default": 150,
+   "unit": "ms",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Tom",
+   "values": {
+    "threshold": -30,
+    "range": -40,
+    "hold": 60,
+    "release": 200
+   }
+  },
+  {
+   "name": "Guitar noise",
+   "values": {
+    "threshold": -55,
+    "range": -80,
+    "hold": 20,
+    "release": 120
+   }
+  },
+  {
+   "name": "Gentle",
+   "values": {
+    "threshold": -50,
+    "range": -15,
+    "release": 300
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "gate",
+    "type": "gate",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "threshold": {
+      "param": "threshold"
+     },
+     "range": {
+      "param": "range"
+     },
+     "attack": 0.5,
+     "hold": {
+      "param": "hold"
+     },
+     "release": {
+      "param": "release"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "gate.in"
+   },
+   {
+    "from": "gate.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

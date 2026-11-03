@@ -70,6 +70,13 @@ try {
     R.send(electric([{ uid: "cf1", id: "plug", plugin: { format: "cmfx", id: "Test Volume", path: gainFile }, on: true, mix: 1, levelDb: 0 }])); await R.sleep(700);
     near((await R.meters()).out, 0.3 * 3.98, 0.12, "+12 dB after reloading");
   });
+  await check("(10.3) one of the Central FX collection plays by its name (collection:<id>, the files beside the rig); a made-up one is refused", async () => {
+    assert.ok(fs.existsSync(path.join(out, "central-fx", "vocal-plate.cmfx.json")), "make copies the collection into " + path.join(out, "central-fx"));
+    R.send(electric([{ uid: "cl1", id: "plug", plugin: { format: "cmfx", id: "Vocal Plate", path: "collection:vocal-plate" }, on: true, mix: 1, levelDb: 0 }, { uid: "cl2", id: "plug", plugin: { format: "cmfx", id: "x", path: "collection:../../etc/passwd" }, on: true, mix: 1, levelDb: 0 }]));
+    const st = await R.waitFor((m) => m.type === "instrumentStatus" && m.kind === "electric" && m.pluginSlots && (m.pluginSlots.cl1 || (m.pluginErrors || {}).cl1) && (m.pluginErrors || {}).cl2);
+    assert.ok(st.pluginSlots.cl1 && st.pluginSlots.cl1.name === "Vocal Plate", JSON.stringify(st.pluginErrors)); assert.match(st.pluginErrors.cl2, /isn't one of the Central FX/);
+    await R.sleep(400); const m = await R.meters(); assert.ok(m.out > 0.05 && m.out < 2, "out " + m.out);
+  });
   await check("a plugin written in code plays on a board", async () => {
     R.send(electric([{ uid: "cf2", id: "plug", plugin: { format: "cmfx", id: "Ring Modulator (code)", path: ringFile }, on: true, mix: 1, levelDb: 0 }]));
     const st = await R.waitFor((m) => m.type === "instrumentStatus" && m.kind === "electric" && m.pluginSlots && (m.pluginSlots.cf2 || (m.pluginErrors || {}).cf2));

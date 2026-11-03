@@ -13,6 +13,8 @@
 # Play any sound (central-usage/native/playany/) is built into cu-rig everywhere; the natives job also builds it as
 # the Raspberry Pi's plugin (central-playany.so, LADSPA + LV2) for Linux arm64 and x64 into bin/linux-<arch>/,
 # which the Pi release (central-control-source.zip, release.yml) carries.
+# (10.3) Central Pedals (central-usage/native/mapedals/), our own pedals, the same way: built into cu-rig everywhere, and
+# central-pedals.so (LADSPA) for the Pi, arm64 and x64, into bin/linux-<arch>/.
 # Adding a native helper for every system: build it in the "natives" job (Linux, Windows cross-compiled) and in
 # the macos jobs, put it in central-usage/native/build/, list it in central-usage/package.json ->
 # build.extraResources[0].filter, and check it in the "packed apps" steps.
@@ -50,13 +52,18 @@ jobs:
           mv central-usage/native/build/cu-video.exe central-usage/native/build-win/
           bash tools/ci-run.sh "play any sound: the Pi's plugin (Linux arm64)" make -C central-usage/native CC=aarch64-linux-gnu-gcc OUT=build-linux-arm64 playany
           file central-usage/native/build-linux-arm64/central-playany.lv2/central-playany.so | grep -q aarch64 || { echo "::error::the arm64 play-any plugin is not arm64"; exit 1; }
+          bash tools/ci-run.sh "Central Pedals: the Pi's plugin library (Linux arm64)" make -C central-usage/native CC=aarch64-linux-gnu-gcc OUT=build-linux-arm64 build-linux-arm64/central-pedals.so
+          file central-usage/native/build-linux-arm64/central-pedals.so | grep -q aarch64 || { echo "::error::the arm64 central-pedals.so is not arm64"; exit 1; }
           bash tools/ci-run.sh "community plugins: the Pi's walled-off host and stage (Linux arm64)" make -C central-usage/native CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ OUT=build-linux-arm64 bridge
           file central-usage/native/build-linux-arm64/cm-plugbridge | grep -q aarch64 || { echo "::error::the arm64 cm-plugbridge is not arm64"; exit 1; }
           mkdir -p bin/linux-aarch64 bin/linux-x86_64
           cp -r central-usage/native/build-linux-arm64/central-playany.lv2 bin/linux-aarch64/
           cp -r central-usage/native/build/central-playany.lv2 bin/linux-x86_64/
+          cp central-usage/native/build-linux-arm64/central-pedals.so bin/linux-aarch64/
+          cp central-usage/native/build/central-pedals.so bin/linux-x86_64/
           cp central-usage/native/build-linux-arm64/cm-plugbridge central-usage/native/build-linux-arm64/cm-pwnode bin/linux-aarch64/
           cp central-usage/native/build/cm-plugbridge central-usage/native/build/cm-pwnode bin/linux-x86_64/
+          make -C central-usage/native OUT=build-linux-arm64 collection && cp -r central-usage/native/build-linux-arm64/central-fx bin/linux-aarch64/ && cp -r central-usage/native/build/central-fx bin/linux-x86_64/   # (10.3: the Central FX collection next to the Pi's stage)
           node -e 'const m=require("./central-usage/native/build/rig-map.json"),P=require("./js/pedals.js");const miss=P.pedals.filter(p=>!m[p.id]).map(p=>p.id);if(miss.length){console.log("::error::pedals missing from the rig map: "+miss.join(", "));process.exit(1)}console.log("rig map: "+Object.keys(m).length+" pedals, all of js/pedals.js")'
       - name: ffmpeg (pinned, checksum-checked)
         run: |
@@ -70,14 +77,20 @@ jobs:
           bash tools/ci-run.sh "community plugin wall test (round trip, crash / hang / heavy bypass, no network or files, revoke live)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
           bash tools/ci-run.sh "Central FX core test (native = WebAssembly for every block, the code language, hostile scripts, presets)" node test-cmfx.mjs
           bash tools/ci-run.sh "Central FX in the rig and on the Central Pedal's stage" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
+          CMFX_BUDGET_PCT=6 bash tools/ci-run.sh "Central FX collection (every plugin and starting point, native = WebAssembly, CPU, the engine's quality)" node test-cmfx-collection.mjs   # (6%: a shared CI machine is slower than a desk one)
           file central-usage/native/build-linux-arm64/cm-pwnode | grep -q aarch64 || { echo "::error::the arm64 cm-pwnode (with Central FX) is not arm64"; exit 1; }
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           make -C central-usage/native build/test-playany-plugin
+          bash tools/ci-run.sh "Central Pedals: every pedal alone, each family does what it says, the plugin list, the Pi's LADSPA library" make -C central-usage/native test-mapedals
+          make -s -C central-usage/native pedals-cpu   # (what each pedal costs at the rig's block of 128, for the log)
           bash tools/ci-run.sh "play any sound: plugin test" central-usage/native/build/test-playany-plugin central-usage/native/build/central-playany.lv2/central-playany.so central-usage/native/playany/central-playany.lv2/central-playany.ttl
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
           bash tools/ci-run.sh "lights auto test" node central-usage/test-lights-auto.mjs
           bash tools/ci-run.sh "lights room test (seats, the light on them)" node central-usage/test-lights-room.mjs
+          bash tools/ci-run.sh "signing set-up test (unsigned without the secrets; signed, hardened and notarized with them)" node tools/test-signing.mjs
+          bash tools/ci-run.sh "social media test (schedule, queue, retry, the full worship and sermon videos, the service link)" node central-usage/test-shorts-social.mjs central-usage/native/build/ffmpeg
+          bash tools/ci-run.sh "shorts learning test (synthetic churches' feedback moves the picks; reset)" node central-usage/test-shorts-learn.mjs
           bash tools/ci-run.sh "shorts test (picking the moments, captions, a whole made-up service through the pinned ffmpeg)" node central-usage/test-shorts.mjs central-usage/native/build/ffmpeg
           CU_SKIP_NATIVE=1 bash central-usage/prepare-shared.sh
           python3 -m pip install --quiet numpy scipy soundfile pyloudnorm   # (the 10.2 hymns and pads: the sampler, loudness, filters)
@@ -95,6 +108,8 @@ jobs:
         run: |
           npm i --no-save --no-package-lock playwright@1.48.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null
           bash tools/ci-run.sh "plugin builder test (blocks, wires, knobs, code errors, live test, AudioWorklet = direct)" node test-plugin-builder.mjs
+          bash tools/ci-run.sh "moving pads in the pad pedal (10.3: the Voice list, the gate in time with the song, it pulses)" node test-moving-pads.mjs
+          bash tools/ci-run.sh "a plan that ends mid-song keeps playing to the end of the song (10.3)" node test-plan-lapse.mjs
       - name: Built-in sounds
         run: bash tools/fetch-builtin-sounds.sh central-usage/native/sounds
       - uses: actions/upload-artifact@v4
@@ -115,6 +130,33 @@ jobs:
         with: { name: sounds, path: central-usage/native/sounds/, retention-days: 7 }
       - uses: actions/upload-artifact@v4
         with: { name: natives-pi, path: bin/, retention-days: 7 }   # (the Pi release: release.yml puts it in central-control-source.zip)
+
+  website:
+    name: Website (the 10.3 pages, Help and a click through every page, on Postgres)
+    runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: ci, POSTGRES_DB: ma }
+        ports: ["55432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: The pages are made from tools/site_content.py
+        run: python3 tools/make-site.py --check
+      - name: Website tests
+        timeout-minutes: 20
+        working-directory: server
+        env: { DB: "postgres://postgres:ci@127.0.0.1:55432/ma" }
+        run: |
+          npm install --no-audit --no-fund
+          npm install -g playwright@1.49.1 >/dev/null && npx -y playwright@1.49.1 install --with-deps chromium >/dev/null
+          export NODE_PATH="$(npm root -g)"
+          bash ../tools/ci-run.sh "10.3 website (every way to buy, the cart, Account, the Help Center, status)" node test/v103-site.mjs "$DB"
+          bash ../tools/ci-run.sh "10.3 Help Center" node test/v103-help.mjs "$DB"
+          bash ../tools/ci-run.sh "click through every page" node test/click-through.mjs "$DB"
 
   linux:
     name: Linux (deb + AppImage)
@@ -231,6 +273,7 @@ jobs:
           npm install --no-save --no-audit --no-fund playwright@1.49.1 && npx playwright install --with-deps chromium
           bash ../tools/ci-run.sh "Central Production in the browser" node test-web.mjs
           bash ../tools/ci-run.sh "Central Production app" xvfb-run -a node test-app.mjs
+          LIVE_AHEAD=1.5 bash ../tools/ci-run.sh "VST3 / CLAP plugins live (the rig, the test plugins: tracks together, delay compensation, automation, start / stop, seek)" xvfb-run -a node test-live.mjs
           bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --linux deb AppImage --x64 --publish never
           test -f dist/linux-unpacked/resources/app-src/production/index.html && test -f dist/linux-unpacked/resources/app-src/daw/daw-engine.js || { echo "::error::the Central Production page is missing"; exit 1; }
           test -x dist/linux-unpacked/resources/native/cu-studio || { echo "::error::the low-delay player is missing"; exit 1; }
@@ -256,6 +299,17 @@ jobs:
     name: Windows (x64 installer)
     needs: natives
     runs-on: windows-latest
+    env:   # (10.3: signing - only when these GitHub Secrets exist; without them the installers stay unsigned. docs/SIGNING.md)
+      WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TS_ENDPOINT: ${{ secrets.AZURE_TS_ENDPOINT }}
+      AZURE_TS_ACCOUNT: ${{ secrets.AZURE_TS_ACCOUNT }}
+      AZURE_TS_PROFILE: ${{ secrets.AZURE_TS_PROFILE }}
+      AZURE_TS_PUBLISHER: ${{ secrets.AZURE_TS_PUBLISHER }}
+      WIN_SIGN_COMMAND: ${{ secrets.WIN_SIGN_COMMAND }}
     defaults:
       run: { shell: bash }
     steps:
@@ -302,7 +356,7 @@ jobs:
           bash ../tools/ci-run.sh "run sheets, pre-service check, band's screen (center)" node test-service.mjs
           bash ../tools/ci-run.sh "hub sync test" node test-hubsync.mjs
           node ../tools/prune-onnx.js .
-          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --win nsis --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder" npx electron-builder $(node ../tools/signing-config.js .) --win nsis --x64 --publish never
           node ../tools/check-asar-lean.js dist/win-unpacked/resources/app.asar
       - name: Smoke test - the packed app (helpers, video, the player, sounds, the speech model's runtime)
         timeout-minutes: 10
@@ -319,7 +373,7 @@ jobs:
         working-directory: central-usage
         run: |
           rm -rf dist/win-unpacked
-          bash ../tools/ci-run.sh "electron-builder (Central Usage)" npx electron-builder --config usage-builder.js --win nsis --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder (Central Usage)" npx electron-builder $(node ../tools/signing-config.js . usage-builder.js) --win nsis --x64 --publish never
           ls dist/win-unpacked/CentralUsage.exe > /dev/null && ! ls dist/win-unpacked/resources/player > /dev/null 2>&1 && echo "Central Usage: no player window, as it should be"
           node ../tools/check-asar-lean.js dist/win-unpacked/resources/app.asar --no-ai dist/win-unpacked/resources
           ls -la dist/*.exe
@@ -328,7 +382,7 @@ jobs:
           bash central-pedal-control/prepare.sh
           cd central-pedal-control
           npm install --no-audit --no-fund
-          bash ../tools/ci-run.sh "electron-builder (Central Pedal Control)" npx electron-builder --win nsis --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder (Central Pedal Control)" npx electron-builder $(node ../tools/signing-config.js .) --win nsis --x64 --publish never
           test -f dist/win-unpacked/resources/app/js/transfer.js || { echo "::error::the app is missing"; exit 1; }
           dist/win-unpacked/resources/driver/pedal-driver/pedal-driver.exe --help > /dev/null || { echo "::error::the bundled driver doesn't run"; exit 1; }
           echo "Central Pedal Control: app + driver"
@@ -338,7 +392,7 @@ jobs:
           bash central-services/prepare.sh
           cd central-services
           npm install --no-audit --no-fund
-          bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder --win nsis --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder $(node ../tools/signing-config.js .) --win nsis --x64 --publish never
           test -f dist/win-unpacked/resources/app/services.js || { echo "::error::the Central Services page is missing"; exit 1; }
           ls -la dist/*.exe
       - name: Central Production (Windows)
@@ -346,7 +400,7 @@ jobs:
           bash central-production/prepare.sh
           cd central-production
           npm install --no-audit --no-fund
-          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --win nsis --x64 --publish never
+          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder $(node ../tools/signing-config.js .) --win nsis --x64 --publish never
           test -f dist/win-unpacked/resources/app-src/production/index.html || { echo "::error::the Central Production page is missing"; exit 1; }
           ls -la dist/*.exe
       - uses: actions/upload-artifact@v4
@@ -369,6 +423,13 @@ jobs:
           - { arch: arm64, cpu: arm64, runner: macos-14 }   # (10.1.1: GitHub stopped handing out macos-15 Apple-chip Macs to this repo - jobs waited 15 min and were cancelled)
           - { arch: x64, cpu: x86_64, runner: macos-15-intel }
     runs-on: ${{ matrix.runner }}
+    env:   # (10.3: signing and notarization - only when these GitHub Secrets exist; without them the apps stay unsigned. docs/SIGNING.md)
+      CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"   # (never pick up some other certificate from the runner's keychain)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -391,6 +452,7 @@ jobs:
           bash tools/ci-run.sh "community plugin wall test (sandbox-exec)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
           bash tools/ci-run.sh "Central FX core test (native = WebAssembly)" node test-cmfx.mjs
           bash tools/ci-run.sh "Central FX in the rig" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
+          bash tools/ci-run.sh "Central Pedals: every pedal alone, each family" make -C central-usage/native test-mapedals ARCH="-arch ${{ matrix.cpu }}"
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build
@@ -414,13 +476,18 @@ jobs:
           bash prepare-player.sh
           npm install --no-audit --no-fund
           node ../tools/prune-onnx.js .
-          bash ../tools/ci-run.sh "electron-builder" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          bash ../tools/ci-run.sh "electron-builder" npx electron-builder $(node ../tools/signing-config.js .) --mac dmg --${{ matrix.arch }} --publish never
           node ../tools/check-asar-lean.js "$(ls -d dist/mac*/"Central Control.app")/Contents/Resources/app.asar"
       - name: Smoke test - the packed app (signed, helpers, video, the player, the speech model's runtime)
         timeout-minutes: 10
         run: |
           U=$(ls -d central-usage/dist/mac*/"Central Control.app")
           codesign --verify --deep "$U" && echo "signed: $U"
+          if [ -n "$CSC_LINK" ]; then   # (10.3: with the Developer ID certificate - every helper inside signed, hardened, and Gatekeeper accepts it)
+            codesign --verify --deep --strict --verbose=2 "$U"
+            codesign -dv --verbose=4 "$U/Contents/Resources/native/cu-rig" 2>&1 | grep -E "Authority=Developer ID|flags=.*runtime" || { echo "::error::a helper inside the app isn't signed with the Developer ID and the hardened runtime"; exit 1; }
+            if [ -n "$APPLE_ID" ]; then xcrun stapler validate "$U" && spctl -a -vv -t exec "$U"; fi
+          fi
           "$U/Contents/Resources/native/cu-mixer" --version
           bash tools/ci-run.sh "packed video" bash tools/smoke-video.sh "$U/Contents/Resources/native"
           ls "$U/Contents/Resources/player/pedal-driver.py" > /dev/null && "$U/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "the player is in the app"
@@ -431,7 +498,7 @@ jobs:
         working-directory: central-usage
         run: |
           rm -rf dist/mac*
-          bash ../tools/ci-run.sh "electron-builder (Central Usage)" npx electron-builder --config usage-builder.js --mac dmg --${{ matrix.arch }} --publish never
+          bash ../tools/ci-run.sh "electron-builder (Central Usage)" npx electron-builder $(node ../tools/signing-config.js . usage-builder.js) --mac dmg --${{ matrix.arch }} --publish never
           U=$(ls -d dist/mac*/CentralUsage.app); codesign --verify --deep "$U" && plutil -p "$U/Contents/Info.plist" | grep -q '"CFBundleDisplayName" => "Central Usage"' && echo "Central Usage: $U"
           node ../tools/check-asar-lean.js "$U/Contents/Resources/app.asar" --no-ai "$U/Contents/Resources"
           ls -la dist/*.dmg
@@ -440,7 +507,7 @@ jobs:
           bash central-pedal-control/prepare.sh
           cd central-pedal-control
           npm install --no-audit --no-fund
-          bash ../tools/ci-run.sh "electron-builder (Central Pedal Control)" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          bash ../tools/ci-run.sh "electron-builder (Central Pedal Control)" npx electron-builder $(node ../tools/signing-config.js .) --mac dmg --${{ matrix.arch }} --publish never
           P=$(ls -d dist/mac*/"Central Pedal Control.app")
           codesign --verify --deep "$P" && ls "$P/Contents/Resources/app/js/transfer.js" > /dev/null && "$P/Contents/Resources/driver/pedal-driver/pedal-driver" --help > /dev/null && echo "Central Pedal Control: app + driver"
           ls -la dist/*.dmg
@@ -449,7 +516,7 @@ jobs:
           bash central-services/prepare.sh
           cd central-services
           npm install --no-audit --no-fund
-          bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          bash ../tools/ci-run.sh "electron-builder (Central Services)" npx electron-builder $(node ../tools/signing-config.js .) --mac dmg --${{ matrix.arch }} --publish never
           P=$(ls -d dist/mac*/"Central Services.app")
           codesign --verify --deep "$P" && ls "$P/Contents/Resources/app/services.js" > /dev/null && echo "Central Services: $P"
           ls -la dist/*.dmg
@@ -458,7 +525,7 @@ jobs:
           bash central-production/prepare.sh
           cd central-production
           npm install --no-audit --no-fund
-          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+          bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder $(node ../tools/signing-config.js .) --mac dmg --${{ matrix.arch }} --publish never
           P=$(ls -d dist/mac*/"Central Production.app")
           codesign --verify --deep "$P" && ls "$P/Contents/Resources/app-src/production/index.html" > /dev/null && echo "Central Production: $P"
           ls -la dist/*.dmg

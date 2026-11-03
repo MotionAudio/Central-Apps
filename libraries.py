@@ -360,7 +360,7 @@ class LibraryStore:
                 k = "%s/%s/%s" % (r["id"], lp.get("set"), lp.get("name"))
                 e = out.setdefault(k, {"id": k, "name": lp.get("name"), "group": lp.get("group"), "set": lp.get("set"), "library": r["id"], "tier": r.get("plan"), "files": []})
                 f = {"file": "%s/%s" % (lp.get("set"), os.path.basename(lp["file"]))}
-                for x in ("bpm", "meter", "bars", "key", "seconds"):
+                for x in ("bpm", "meter", "bars", "key", "seconds", "gate"):
                     if x in lp:
                         f[x] = lp[x]
                 e["files"].append(f)
@@ -616,6 +616,8 @@ class LibraryStore:
                         entry[k] = it[k]
                 if it.get("key") in PAD_KEYS:
                     entry["key"] = it["key"]
+                if isinstance(it.get("gate"), str) and re.match(r"^~?[0-9]{4,32}$", it["gate"]):   # (10.3: a moving pad's gate, 16 steps a bar)
+                    entry["gate"] = it["gate"]
                 rec["loops"].append(entry)
             elif kind == "plugin":
                 rec["plugins"].append(self._unpack_plugin(lib_id, it, data))

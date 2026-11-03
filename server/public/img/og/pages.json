@@ -1,0 +1,110 @@
+[
+ {
+  "id": "apps",
+  "title": "The Central apps for worship teams",
+  "kicker": "Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Production: what each does, who it's for and which ones a church needs.",
+  "shot": "cc-lights"
+ },
+ {
+  "id": "app-pedal",
+  "title": "Central Pedal: the pedal at the worship leader's feet",
+  "kicker": "Pads, multitracks, chord charts, lyrics, a looper and a guitar and keys rig, in one floor unit with 12 footswitches, knobs, a touch screen and two HDMI por",
+  "shot": "pedal-live"
+ },
+ {
+  "id": "app-pedal-control",
+  "title": "Central Pedal Control: get the pedal ready from home",
+  "kicker": "Build setlists, add songs and tracks, set up pads, effects and the instrument, and choose what every button does. Then press Upload and it's all on the ped",
+  "shot": "pc-tracks"
+ },
+ {
+  "id": "app-control",
+  "title": "Central Control: the desk runs the whole service",
+  "kicker": "Lights, lyrics, slides, cameras, the stream, in-ears, the mix and the run sheet, from the computers at the desk. Each computer picks its jobs, and they sha",
+  "shot": "cc-lights"
+ },
+ {
+  "id": "app-usage",
+  "title": "Central Usage: each musician's chart, sound and mix",
+  "kicker": "Every musician and singer gets their own chord chart, the lyrics, their instrument sound and their own in-ear mix, at church and at home.",
+  "shot": "cu-chart"
+ },
+ {
+  "id": "app-services",
+  "title": "Central Services: who's serving, sorted",
+  "kicker": "The schedule for the whole church: services, who's asked, who said yes, who's away and what's being played, on everyone's phone.",
+  "shot": "cs-schedule"
+ },
+ {
+  "id": "app-production",
+  "title": "Central Production: make tracks, pads, sounds and plugins",
+  "kicker": "A free studio and sampler. Make tracks, loops, samples, pads, instruments, plugins and pedal boards, then put them in your own apps or sell them on Make & ",
+  "shot": "production"
+ },
+ {
+  "id": "sounds",
+  "title": "Sounds and packs: keys, instruments, pads, plugins, pedals",
+  "kicker": "Central Keys, Central Instrument, Central Pads, Central Plugins, Central Pedals, Central Utility and Central Tracks Unlimited, with 30-second previews.",
+  "shot": "cu-instrument"
+ },
+ {
+  "id": "sounds-keys",
+  "title": "Central Keys: pianos, organs, mallets, pads and synths",
+  "kicker": "Two grand pianos, an upright and FM pianos; pipe, quiet and positive organs; vibraphone, marimba and bells; fifteen stereo pads with their own character, a",
+  "shot": "cu-instrument"
+ },
+ {
+  "id": "sounds-instrument",
+  "title": "Central Instrument: bass, guitar, strings, brass, drums and loops",
+  "kicker": "Instrument sounds beyond keys, for every musician: basses, guitars, strings, brass, woodwinds and drum kits, plus 20 drum grooves and 8 ambient loops in ev",
+  "shot": "cu-instrument"
+ },
+ {
+  "id": "sounds-pads",
+  "title": "Central Pads: pads in every key for the pad pedal",
+  "kicker": "82 pads in all 12 keys: 41 in Central Pads, and 35 more plus six moving pads in Central Pads Extra. Every one is in real stereo and loops without a seam, w",
+  "shot": "pedal-pads"
+ },
+ {
+  "id": "sounds-plugins",
+  "title": "Central Plugins: better effects on every track, pad and bus",
+  "kicker": "32 plugins: EQ, compressors, reverbs, delays and more for every stem, every pad, both buses and the mixer's channels, in every app. A basic one of each kin",
+  "shot": "pc-pads"
+ },
+ {
+  "id": "sounds-pedals",
+  "title": "Central Pedals: guitar pedals and amp cabinets",
+  "kicker": "Guitar pedals for anything with a 1/4\" or 1/8\" input, including 55 new pedals of our own, and 68 ready-made boards, with real cabinet impulse responses for",
+  "shot": "pc-io"
+ },
+ {
+  "id": "sounds-utility",
+  "title": "Central Utility: backgrounds, slide themes, clicks and looks",
+  "kicker": "118 seasonal and Christian backgrounds with 51 matching slide themes and lower thirds, 14 click sounds, 24 lighting looks, countdowns and stream overlays. ",
+  "shot": "cc-lyrics"
+ },
+ {
+  "id": "sounds-tracks",
+  "title": "Central Tracks Unlimited: every track, every month",
+  "kicker": "Pads, multitracks, Prime tracks and our own arrangements of 20 hymns, plus other teams' sounds, pedal boards and clicks. Everything lands in your setlist w",
+  "shot": "pc-tracks"
+ },
+ {
+  "id": "pricing",
+  "title": "Pricing: church packs, sound plans and Central Tracks",
+  "kicker": "Church packs and app keys you buy once, sound plans by the year and Central Tracks Unlimited by the month. Every price includes tax.",
+  "shot": "cc-service"
+ },
+ {
+  "id": "help",
+  "title": "Your support ticket",
+  "kicker": "Your conversation with Motion Audio support.",
+  "shot": "cc-devices"
+ },
+ {
+  "id": "status",
+  "title": "Status",
+  "kicker": "Is the Motion Audio website, sign-in, downloads, payments or Central Tracks storage working? Checked every few minutes.",
+  "shot": "cc-devices"
+ }
+]

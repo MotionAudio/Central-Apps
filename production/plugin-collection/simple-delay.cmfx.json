@@ -1,0 +1,108 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "simple-delay",
+ "name": "Delay",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "free",
+ "description": "A clean delay: set the time, how many repeats and how loud they are. The basic delay.",
+ "params": [
+  {
+   "id": "time",
+   "name": "Time",
+   "min": 40,
+   "max": 1500,
+   "default": 380,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.9,
+   "default": 0.35
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.25
+  }
+ ],
+ "presets": [
+  {
+   "name": "Slapback",
+   "values": {
+    "time": 110,
+    "feedback": 0.1,
+    "mix": 0.25
+   }
+  },
+  {
+   "name": "Quarter at 80",
+   "values": {
+    "time": 750,
+    "feedback": 0.35,
+    "mix": 0.22
+   }
+  },
+  {
+   "name": "Long trails",
+   "values": {
+    "time": 600,
+    "feedback": 0.6,
+    "mix": 0.3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "echo",
+    "type": "delay",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "time": {
+      "param": "time"
+     },
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": {
+      "param": "mix"
+     },
+     "tone": 7000,
+     "maxTime": 1600
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "echo.in"
+   },
+   {
+    "from": "echo.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

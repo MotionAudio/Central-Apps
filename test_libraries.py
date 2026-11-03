@@ -16,6 +16,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -89,7 +90,7 @@ def main():
 def run(tmp):
     print("The library definitions:")
     defs = BUILD.load_definitions()
-    check("six libraries, one for each plan (Central Pads, and Central Utility since 10.2)", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pedals", "plugins", "utility"], [l["plan"] for l in defs])
+    check("seven libraries: one for each plan (Central Pads, and Central Utility since 10.2), and Central Pads Extra (10.3) - a second for the pads plan", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pads", "pedals", "plugins", "utility"] and sorted(l["id"] for l in defs if l["plan"] == "pads") == ["central-pads-extra", "central-pads-library"], [l["plan"] for l in defs])
     node = subprocess.run(["node", "-e", "const P=require('./js/pedals.js');console.log(JSON.stringify(P.pedals.map(p=>[p.id,p.tier,Object.keys(p.knobs),!!p.opts.irFile])))"], cwd=HERE, capture_output=True, text=True)
     pedals = {p[0]: p for p in json.loads(node.stdout)}
     bad = []
@@ -111,7 +112,10 @@ def run(tmp):
                         bad.append("%s: the IR %s isn't in %s" % (b["name"], it[2]["ir"], lib["id"]))
     check("every preset and board is made of real pedals and knobs, and names IRs its library has", not bad, bad)
     plans_of = lambda lib: {pedals[it[0]][1] for b in (lib.get("presets") or []) + (lib.get("boards") or []) for it in b["chain"]} - {"free"}
-    by = {l["plan"]: l for l in defs}
+    by = {}
+    for l in defs:   # (each plan's first library; Central Pads Extra - 10.3 - is the pads plan's second, by its id)
+        by.setdefault(l["plan"], l)
+    extra = next(l for l in defs if l["id"] == "central-pads-extra")
     check("Keys and Instrument presets use only free pedals (they need just their own plan)", not plans_of(by["keys"]) and not plans_of(by["instrument"]), (plans_of(by["keys"]), plans_of(by["instrument"])))
     check("Plugins boards need nothing but Central Plugins; Pedals boards nothing but Central Pedals", plans_of(by["plugins"]) <= {"plugins"} and plans_of(by["pedals"]) <= {"pedals"}, (plans_of(by["plugins"]), plans_of(by["pedals"])))
     with open(os.path.join(HERE, "server", "src", "libraries-builtin.json"), encoding="utf-8") as handle:
@@ -201,8 +205,8 @@ def run(tmp):
     check("the Swell Pad opens before its loop: darker at first, flowing into the loop with no step", s1 == int(3.0 * PADS.SR) and e1 - s1 == int(PADS.LOOP * PADS.SR)
           and cen(sw[:int(0.5 * PADS.SR)]) < 0.7 * cen(sw[s1:s1 + int(0.5 * PADS.SR)]) and float(np.max(np.abs(sw[s1] - sw[s1 - 1]))) <= float(np.max(np.abs(np.diff(sw[s1:e1], axis=0)))) + 1e-6,
           (s1, cen(sw[:int(0.5 * PADS.SR)]), cen(sw[s1:s1 + int(0.5 * PADS.SR)])))
-    check("fifteen pads; the textures bank is a Central Plugins sound, the pads Central Keys, the swells Central Pads", len(PADS.PADS) == 15
-          and dict((b[0], b[1]) for b in PADS.BANKS) == {"Central Keys Pads": "keys", "Central Plugins Textures": "plugins", "Central Pads Swells": "pads"}
+    check("eighteen pads; the textures bank is a Central Plugins sound, the pads Central Keys, the swells Central Pads", len(PADS.PADS) == 18
+          and dict((b[0], b[1]) for b in PADS.BANKS) == {"Central Keys Pads": "keys", "Central Plugins Textures": "plugins", "Central Pads Swells": "pads", "Central Pads Swells Extra": "pads"}
           and [p[0] for p in PADS.PADS[:9]] == ["Warm Pad", "Air Pad", "Choir Aah", "Choir Ooh", "Shimmer Pad", "String Pad", "Glass Pad", "Swell Pad", "Worship Pad"])
     SW = dict((x[0], x[1:]) for x in PADS.SWELLS)
     sw, ri, dn = PADS.swell_sound("swell", 2, 4), PADS.swell_sound("riser", 2, 4), PADS.swell_sound("down", 2, 4)
@@ -228,14 +232,21 @@ def run(tmp):
     f0 = np.argmax(spec[: int(400 * LOOPS.LOOP)]) / LOOPS.LOOP   # (the strongest low partial: F#3 185 Hz or its octave / fifth)
     check("Central Pads: a key's loop is a stereo WAV of the loop's length, about -6 dBFS, in its key (F#: Fs.wav), seamless", okw and 0.45 < peak < 0.52 and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
           and any(abs(f0 - 185.0 * m) < 6 for m in (0.25, 0.5, 1, 1.5, 2, 3)) and seamless(frames), (okw, peak, f0))
-    check("Central Pads: 41 styles, the same ones the library lists", len(LOOPS.STYLES) == 41 and len(set(LOOPS.NAMES)) == 41 and LOOPS.NAMES == [p["name"] for p in by["pads"]["pads"]], LOOPS.NAMES)
+    check("Central Pads: 41 styles, the same ones the library lists; Central Pads Extra: 35 more, none the same", len(LOOPS.MAIN_NAMES) == 41 and len(set(LOOPS.NAMES)) == 76
+          and LOOPS.MAIN_NAMES == [p["name"] for p in by["pads"]["pads"]] and LOOPS.NAMES[41:] == [p["name"] for p in extra["pads"]] and extra["plan"] == "pads", LOOPS.NAMES)
+    pdir2 = LOOPS.build_pulse(os.path.join(tmp, "pulse"), keys=["D"], log=lambda *a: None)
+    gw = [e for e in pdir2 if e["key"] == "D"]
+    with _wave.open(os.path.join(tmp, "pulse", gw[0]["file"])) as w:
+        okp = w.getnchannels() == 2 and abs(w.getnframes() / w.getframerate() - LOOPS.PULSE_SECONDS) < 1e-3
+    check("the moving pads: six, each in all 12 keys, a 4-second stereo bed with its gate (16 steps, 0-9, '~' to glide)", len({e["name"] for e in pdir2}) == 6 and len(pdir2) == 72 and okp
+          and all(re.match(r"^~?[0-9]{16}$", e["gate"]) for e in pdir2), gw[:2])
 
     print("\nThe zips (tools/build-libraries.py):")
     snd = os.path.join(tmp, "sounds")
     os.makedirs(snd)
     for s in want:
         tiny_sf2(os.path.join(snd, BUILD.sound_file(s)), s)
-    for pd in by["pads"]["pads"]:   # (Central Pads: a tiny loop per style and key)
+    for pd in by["pads"]["pads"] + extra["pads"]:   # (Central Pads and Extra: a tiny loop per style and key)
         for k in BUILD.PAD_KEYS:
             LOOPS.loop_wav(os.path.join(snd, "pad-loops", BUILD.pad_loop_file(pd["name"], k)), np.zeros(64, np.float32), np.zeros(64, np.float32))
     for lib in defs:   # (10.0: the loops - a tiny one per set; tools/make-loops.py's own checks are in test_content.py)
@@ -318,7 +329,10 @@ def run(tmp):
     gcat = native_rig.bank_plans([{"file": p, "name": "x"} for p in grec["sounds"]])
     check("Central Plugins' textures bank keeps the plugins plan (a sound bank can belong to any plan)", gcat and all(b.get("tier") == "plugins" for b in gcat), gcat)
     store.remove("central-plugins-library")
-    pads_e = [e for e in index["libraries"] if e["plan"] == "pads"][0]
+    pads_e = [e for e in index["libraries"] if e["id"] == "central-pads-library"][0]
+    extra_e = [e for e in index["libraries"] if e["id"] == "central-pads-extra"][0]
+    check("Central Pads Extra's zip: 35 styles, the moving pads with their gates, the extra swells - all with the pads plan, as a second library", extra_e["plan"] == "pads"
+          and extra_e["counts"]["pad"] == 35 and extra_e["counts"]["loop"] >= 1 and "Central Pads Swells Extra" in json.dumps(extra_e["contents"]), extra_e["counts"])
     check("Central Pads' zip: all 41 styles in all 12 keys, with the pads plan", pads_e["counts"]["pad"] == len(by["pads"]["pads"]) == 41 and len(pads_e["contents"]["pads"]) == 41, pads_e["counts"])
     drec = store.install_file(os.path.join(out, pads_e["file"]), expected_sha256=pads_e["sha256"])
     styles = store.pads()

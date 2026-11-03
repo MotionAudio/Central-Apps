@@ -203,7 +203,7 @@ await check("a U key works on two devices with the same account, and the person'
 });
 await check("the website: packs and keys in the store, a new account makes the church, its page shows the codes and how many keys are left", async () => {
   const w = await ctx.newPage(); w.on("pageerror", (e) => errors.push("web:" + e)); w.on("dialog", (d) => d.accept());
-  await w.goto(WEB + "/"); await w.waitForFunction(() => document.querySelectorAll("#packs .tier").length === 4);
+  await w.goto(WEB + "/pricing/"); await w.waitForFunction(() => document.querySelectorAll("#packs .tier").length === 4);   // (10.3: the store is on the Pricing page)
   const store = await w.evaluate(() => { const priced = (sel) => Array.from(document.querySelectorAll(sel)).map((p) => p.querySelector("h3").textContent + " " + (p.querySelector(".price").textContent.match(/\$\d+/) || [""])[0]);
     return { packs: priced("#packs .tier"), rack: priced("#pedalBuy .pedal-row").concat(priced("#rack .pl-row")) }; });
   assert.deepEqual(store.packs, ["Lite $250", "Regular $350", "Plus $500", "Ultra $700"]);

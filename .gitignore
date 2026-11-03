@@ -8,7 +8,8 @@ __pycache__/
 *.img.xz
 *.img.tmp
 .cache/
-sounds/
+/sounds/
+central-usage/native/sounds/
 wheels/
 central-control-source.zip
 central-control-desktop/src/
@@ -33,3 +34,6 @@ central-production/src/
 central-production/updater.js
 central-production/libraries.js
 central-production/studio.js
+
+# (10.3) written by tools/signing-config.js on the build machines
+**/build/signing-*.json

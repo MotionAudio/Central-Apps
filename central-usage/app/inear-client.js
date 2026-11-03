@@ -105,6 +105,7 @@
         else if (m.type === "op") emit("op", m.op, m.by);
         else if (m.type === "state") emit("state", m.state);
         else if (m.type === "pi") emit("pi", m.names);
+        else if (m.type === "insert") emit("insert", m.insert);
         else if (m.type === "meters") emit("meters", m);
         else if (m.type === "talking") emit("talking", m.names || []);
         else if (m.type === "talkers") emit("talkers", m.talkers || []);

@@ -1,0 +1,419 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "eq-8band",
+ "name": "8-Band Parametric EQ",
+ "author": "Motion Audio",
+ "family": "eq",
+ "tier": "plugins",
+ "description": "A full parametric EQ: low and high cut, shelves and four fully adjustable bells.",
+ "params": [
+  {
+   "id": "hpF",
+   "name": "Low cut",
+   "min": 20,
+   "max": 500,
+   "default": 20,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Cuts"
+  },
+  {
+   "id": "lpF",
+   "name": "High cut",
+   "min": 2000,
+   "max": 20000,
+   "default": 20000,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Cuts"
+  },
+  {
+   "id": "lsF",
+   "name": "Low shelf frequency",
+   "min": 30,
+   "max": 500,
+   "default": 100,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Low shelf"
+  },
+  {
+   "id": "lsG",
+   "name": "Low shelf gain",
+   "min": -15,
+   "max": 15,
+   "default": 0,
+   "unit": "dB",
+   "group": "Low shelf"
+  },
+  {
+   "id": "b1F",
+   "name": "Band 1 frequency",
+   "min": 30,
+   "max": 18000,
+   "default": 200,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Band 1"
+  },
+  {
+   "id": "b1G",
+   "name": "Band 1 gain",
+   "min": -18,
+   "max": 18,
+   "default": 0,
+   "unit": "dB",
+   "group": "Band 1"
+  },
+  {
+   "id": "b1Q",
+   "name": "Band 1 width (Q)",
+   "min": 0.2,
+   "max": 12,
+   "default": 1,
+   "curve": "log",
+   "group": "Band 1"
+  },
+  {
+   "id": "b2F",
+   "name": "Band 2 frequency",
+   "min": 30,
+   "max": 18000,
+   "default": 800,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Band 2"
+  },
+  {
+   "id": "b2G",
+   "name": "Band 2 gain",
+   "min": -18,
+   "max": 18,
+   "default": 0,
+   "unit": "dB",
+   "group": "Band 2"
+  },
+  {
+   "id": "b2Q",
+   "name": "Band 2 width (Q)",
+   "min": 0.2,
+   "max": 12,
+   "default": 1,
+   "curve": "log",
+   "group": "Band 2"
+  },
+  {
+   "id": "b3F",
+   "name": "Band 3 frequency",
+   "min": 30,
+   "max": 18000,
+   "default": 2500,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Band 3"
+  },
+  {
+   "id": "b3G",
+   "name": "Band 3 gain",
+   "min": -18,
+   "max": 18,
+   "default": 0,
+   "unit": "dB",
+   "group": "Band 3"
+  },
+  {
+   "id": "b3Q",
+   "name": "Band 3 width (Q)",
+   "min": 0.2,
+   "max": 12,
+   "default": 1,
+   "curve": "log",
+   "group": "Band 3"
+  },
+  {
+   "id": "b4F",
+   "name": "Band 4 frequency",
+   "min": 30,
+   "max": 18000,
+   "default": 6000,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Band 4"
+  },
+  {
+   "id": "b4G",
+   "name": "Band 4 gain",
+   "min": -18,
+   "max": 18,
+   "default": 0,
+   "unit": "dB",
+   "group": "Band 4"
+  },
+  {
+   "id": "b4Q",
+   "name": "Band 4 width (Q)",
+   "min": 0.2,
+   "max": 12,
+   "default": 1,
+   "curve": "log",
+   "group": "Band 4"
+  },
+  {
+   "id": "hsF",
+   "name": "High shelf frequency",
+   "min": 2000,
+   "max": 18000,
+   "default": 9000,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "High shelf"
+  },
+  {
+   "id": "hsG",
+   "name": "High shelf gain",
+   "min": -15,
+   "max": 15,
+   "default": 0,
+   "unit": "dB",
+   "group": "High shelf"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal",
+   "values": {
+    "hpF": 90,
+    "b1F": 300,
+    "b1G": -3,
+    "b1Q": 1.2,
+    "b3F": 3200,
+    "b3G": 2.5,
+    "hsG": 2
+   }
+  },
+  {
+   "name": "Acoustic guitar",
+   "values": {
+    "hpF": 80,
+    "b1F": 200,
+    "b1G": -4,
+    "b2F": 900,
+    "b2G": -1.5,
+    "b4F": 7000,
+    "b4G": 2.5
+   }
+  },
+  {
+   "name": "Snare",
+   "values": {
+    "hpF": 70,
+    "b1F": 220,
+    "b1G": 3,
+    "b2F": 900,
+    "b2G": -4,
+    "b2Q": 2,
+    "b3F": 5000,
+    "b3G": 3
+   }
+  },
+  {
+   "name": "Telephone",
+   "values": {
+    "hpF": 400,
+    "lpF": 3500,
+    "b2F": 1500,
+    "b2G": 6,
+    "b2Q": 0.8
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "hpF"
+     },
+     "q": 0.7,
+     "slope": 24
+    }
+   },
+   {
+    "id": "ls",
+    "type": "eq",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "lowshelf",
+     "freq": {
+      "param": "lsF"
+     },
+     "gain": {
+      "param": "lsG"
+     },
+     "q": 0.7
+    }
+   },
+   {
+    "id": "b1",
+    "type": "eq",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": {
+      "param": "b1F"
+     },
+     "gain": {
+      "param": "b1G"
+     },
+     "q": {
+      "param": "b1Q"
+     }
+    }
+   },
+   {
+    "id": "b2",
+    "type": "eq",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": {
+      "param": "b2F"
+     },
+     "gain": {
+      "param": "b2G"
+     },
+     "q": {
+      "param": "b2Q"
+     }
+    }
+   },
+   {
+    "id": "b3",
+    "type": "eq",
+    "x": 1040,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": {
+      "param": "b3F"
+     },
+     "gain": {
+      "param": "b3G"
+     },
+     "q": {
+      "param": "b3Q"
+     }
+    }
+   },
+   {
+    "id": "b4",
+    "type": "eq",
+    "x": 1240,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": {
+      "param": "b4F"
+     },
+     "gain": {
+      "param": "b4G"
+     },
+     "q": {
+      "param": "b4Q"
+     }
+    }
+   },
+   {
+    "id": "hs",
+    "type": "eq",
+    "x": 1440,
+    "y": 40,
+    "props": {
+     "mode": "highshelf",
+     "freq": {
+      "param": "hsF"
+     },
+     "gain": {
+      "param": "hsG"
+     },
+     "q": 0.7
+    }
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 1640,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "lpF"
+     },
+     "q": 0.7,
+     "slope": 24
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "ls.in"
+   },
+   {
+    "from": "ls.out",
+    "to": "b1.in"
+   },
+   {
+    "from": "b1.out",
+    "to": "b2.in"
+   },
+   {
+    "from": "b2.out",
+    "to": "b3.in"
+   },
+   {
+    "from": "b3.out",
+    "to": "b4.in"
+   },
+   {
+    "from": "b4.out",
+    "to": "hs.in"
+   },
+   {
+    "from": "hs.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

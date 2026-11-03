@@ -8,6 +8,9 @@
 #             plugins on every computer (plughost/: VST3, CLAP; Audio Units on macOS; LV2 on Linux) - C++
 #   test-plugins/  test CLAP and VST3 plugins for test-rig.mjs (never shipped)
 #   rig-map.json  which built-in effect plays each pedal (made from js/pedals.js)
+#   mapedals/     (10.3) Central Pedals: our own pedals (drives, amps, modulation, pitch, delays, reverbs...), C, built
+#                 into cu-rig; on Linux also central-pedals.so - the same pedals as LADSPA plugins for the Pi
+#                 (make pedals builds them, make test-mapedals checks them)
 #   playany/      play any sound: the guitar plays any keys sound (C, built into cu-rig); on Linux also
 #                 central-playany.so - the same as a LADSPA / LV2 plugin for PipeWire's filter-chain (the Raspberry Pi)
 #                 and test-playany / test-playany-plugin (make test runs them)
@@ -69,19 +72,22 @@ else
   PLAT := linux
 endif
 OUT ?= build
+CMFXOBJ := $(patsubst %,$(OUT)/obj/%.o,$(CMFXSRC))
 PLAYANY :=
+PEDALS_SO :=
 BRIDGE :=
 ifeq ($(PLAT),linux)
   PLAYANY := $(OUT)/central-playany.lv2/central-playany.so
+  PEDALS_SO := $(OUT)/central-pedals.so
   BRIDGE := $(OUT)/cm-plugbridge $(OUT)/cm-pwnode
   BRIDGELD ?= -static-libstdc++ -static-libgcc
 endif
 ifeq ($(PLAT),mac)
   BRIDGE := $(OUT)/cm-plugbridge
 endif
-all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cmfx-cli$(EXE) $(OUT)/cu-rig$(EXE) $(OUT)/cu-studio$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY) $(BRIDGE)
-$(OUT)/cu-mixer$(EXE): cu-mixer.c plat.h
-	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-mixer.c $(LIBS)
+all: $(OUT)/cu-mixer$(EXE) $(OUT)/cu-ndi$(EXE) $(OUT)/cmfx-cli$(EXE) $(OUT)/central-fx/.stamp $(OUT)/cu-rig$(EXE) $(OUT)/cu-studio$(EXE) $(OUT)/rig-map.json $(OUT)/test-plugins/central-test.clap $(OUT)/test-playany$(EXE) $(PLAYANY) $(PEDALS_SO) $(BRIDGE)
+$(OUT)/cu-mixer$(EXE): cu-mixer.c plat.h $(CMFXOBJ)
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-mixer.c $(CMFXOBJ) $(LIBS)
 $(OUT)/cu-studio$(EXE): cu-studio.c plat.h $(OUT)/obj/cJSON.o
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ cu-studio.c $(OUT)/obj/cJSON.o $(LIBS)
 $(OUT)/cu-ndi$(EXE): cu-ndi.c plat.h
@@ -92,13 +98,12 @@ $(OUT)/obj/%.cpp.o: %.cpp plughost/ph.hpp plughost/plughost.h
 	mkdir -p $(dir $@) && $(CXX) $(CXXFLAGS) $(PHFLAGS) -c -o $@ $<
 $(OUT)/obj/%.mm.o: %.mm plughost/ph.hpp plughost/plughost.h
 	mkdir -p $(dir $@) && $(CXX) $(CXXFLAGS) $(PHFLAGS) -ObjC++ -c -o $@ $<
-$(OUT)/obj/cu-rig.o: cu-rig.c plat.h plughost/plughost.h playany/playany.h
+$(OUT)/obj/cu-rig.o: cu-rig.c plat.h plughost/plughost.h playany/playany.h mapedals/mapedals.h
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ cu-rig.c
 $(OUT)/obj/cJSON.o: vendor/cJSON.c
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ vendor/cJSON.c
 $(OUT)/obj/playany.o: playany/playany.c playany/playany.h
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ playany/playany.c
-CMFXOBJ := $(patsubst %,$(OUT)/obj/%.o,$(CMFXSRC))
 PHCOBJ := $(patsubst %,$(OUT)/obj/%.o,$(PHCSRC)) $(CMFXOBJ)
 $(OUT)/obj/plughost/%.c.o: plughost/%.c plughost/bridge.h plughost/sha256.h
 	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ $<
@@ -110,7 +115,14 @@ $(OUT)/obj/plughost/fmt_cmfx.cpp.o: cmfx/cmfx.h
 $(OUT)/cmfx-cli$(EXE): cmfx/cmfx-cli.c $(CMFXOBJ)
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -ffp-contract=off -o $@ cmfx/cmfx-cli.c $(CMFXOBJ) -lm
 cmfx: $(OUT)/cmfx-cli$(EXE)
-$(OUT)/cu-rig$(EXE): $(OUT)/obj/cu-rig.o $(OUT)/obj/cJSON.o $(OUT)/obj/playany.o $(PHOBJ) $(PHCOBJ)
+# (10.3) the Central FX collection (tools/make-cmfx-collection.py), next to the rig and the Pi's stage: "collection:<id>"
+COLLECTION := $(wildcard ../../production/plugin-collection/*.cmfx.json)
+$(OUT)/central-fx/.stamp: $(COLLECTION)
+	mkdir -p $(OUT)/central-fx && cp $(COLLECTION) $(OUT)/central-fx/ && touch $@
+collection: $(OUT)/central-fx/.stamp
+$(OUT)/obj/mapedals.o: mapedals/mapedals.c mapedals/mapedals.h
+	mkdir -p $(dir $@) && $(CC) $(CFLAGS) -c -o $@ mapedals/mapedals.c
+$(OUT)/cu-rig$(EXE): $(OUT)/obj/cu-rig.o $(OUT)/obj/cJSON.o $(OUT)/obj/playany.o $(OUT)/obj/mapedals.o $(PHOBJ) $(PHCOBJ)
 	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) -o $@ $^ $(RIGLIBS)
 # cm-plugbridge: the plugin host without windows (gui_none.cpp) + the child's side of the bridge (bridge_main.cpp)
 BRIDGESRC := $(filter-out plughost/gui_x11.cpp plughost/gui_mac.mm plughost/gui_win.cpp,$(PHSRC)) plughost/gui_none.cpp plughost/bridge_main.cpp cm-plugbridge.cpp
@@ -123,7 +135,7 @@ $(OUT)/cm-plugbridge: $(BRIDGEOBJ) $(OUT)/obj/cJSON.o $(PHCOBJ)
 PWFLAGS := $(shell pkg-config --cflags libpipewire-0.3 2>/dev/null || echo -I/usr/include/pipewire-0.3 -I/usr/include/spa-0.2)
 $(OUT)/cm-pwnode: cm-pwnode.c plughost/bridge.h plughost/plughost.h $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -Wno-missing-field-initializers -Wno-unused-parameter $(PWFLAGS) -c -o $(OUT)/obj/cm-pwnode.o cm-pwnode.c && $(CXX) $(CXXFLAGS) -o $@ $(OUT)/obj/cm-pwnode.o $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o $(RIGLIBS) $(BRIDGELD)
-bridge: $(BRIDGE)
+bridge: $(BRIDGE) $(OUT)/central-fx/.stamp
 # the wall's checks (never shipped): test-bridge drives the plugin host's API; test-plugin-wall.mjs sets up and runs it
 $(OUT)/test-bridge: plughost/test/test-bridge.cpp plughost/bridge.h plughost/ph.hpp $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o
 	mkdir -p $(OUT) && $(CXX) $(CXXFLAGS) $(PHFLAGS) -o $@ plughost/test/test-bridge.cpp $(PHOBJ) $(PHCOBJ) $(OUT)/obj/cJSON.o $(RIGLIBS)
@@ -142,10 +154,22 @@ $(OUT)/central-playany.lv2/central-playany.so: playany/playany-plugin.c playany/
 $(OUT)/test-playany-plugin: playany/test-playany-plugin.c
 	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ playany/test-playany-plugin.c -ldl -lpthread -lm
 playany: $(OUT)/test-playany$(EXE) $(PLAYANY)
+# (10.3) Central Pedals: the tests (every pedal alone, each family, the CPU table), and on Linux the LADSPA library
+$(OUT)/test-mapedals$(EXE): mapedals/mapedals-test.c mapedals/mapedals.c mapedals/mapedals.h
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ mapedals/mapedals-test.c mapedals/mapedals.c -lm
+$(OUT)/central-pedals.so: mapedals/mapedals-ladspa.c mapedals/mapedals.c mapedals/mapedals.h
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -fPIC -shared -o $@ mapedals/mapedals-ladspa.c mapedals/mapedals.c -lm
+$(OUT)/test-mapedals-ladspa: mapedals/test-mapedals-ladspa.c
+	mkdir -p $(OUT) && $(CC) $(CFLAGS) -o $@ mapedals/test-mapedals-ladspa.c -ldl -lm
+pedals: $(OUT)/test-mapedals$(EXE) $(PEDALS_SO)
+test-mapedals: $(OUT)/test-mapedals$(EXE) $(if $(PEDALS_SO),$(PEDALS_SO) $(OUT)/test-mapedals-ladspa)
+	$(OUT)/test-mapedals$(EXE) && $(OUT)/test-mapedals$(EXE) --json > $(OUT)/mapedals.json && python3 ../../tools/make-pedal-plugins.py $(OUT)/mapedals.json --check --ports $(OUT)/mapedals-ports.txt $(if $(PEDALS_SO),&& $(OUT)/test-mapedals-ladspa $(PEDALS_SO) $(OUT)/mapedals-ports.txt)
+pedals-cpu: $(OUT)/test-mapedals$(EXE)
+	$(OUT)/test-mapedals$(EXE) --cpu
 $(OUT)/rig-map.json: ../../js/pedals.js ../../instrument-plugins.json ../../tools/make-rig-map.js
 	mkdir -p $(OUT) && node ../../tools/make-rig-map.js $@
 test: all $(if $(PLAYANY),$(OUT)/test-playany-plugin)
 	$(OUT)/test-playany$(EXE) && $(if $(PLAYANY),$(OUT)/test-playany-plugin $(PLAYANY) playany/central-playany.lv2/central-playany.ttl &&) node test-mixer.mjs $(OUT)/cu-mixer$(EXE) && node test-rig.mjs $(OUT)/cu-rig$(EXE) && node test-studio-native.mjs $(OUT)/cu-studio$(EXE)
 clean:
 	rm -rf build build-*
-.PHONY: all test clean playany bridge test-wall
+.PHONY: all test clean playany bridge test-wall pedals test-mapedals pedals-cpu

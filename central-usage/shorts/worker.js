@@ -14,6 +14,8 @@ const A = require("./audio");
 const P = require("./pick");
 const R = require("./render");
 const AI = require("./ai");
+const LEARN = require("./learn");
+const FULL = require("./full");
 
 const job = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 try { require("node:os").setPriority(19); } catch (_) { }
@@ -71,7 +73,10 @@ async function makeOne(d, sh, onPct) {
 }
 
 async function make() {
-  const S = Object.assign({}, P.DEFAULTS, job.settings || {});
+  let S = Object.assign({}, P.DEFAULTS, job.settings || {});
+  // (10.3) what this church's reviews taught: the scoring model, its usual length, its trims, its caption habits
+  const L = job.learningFile && S.learn !== false ? LEARN.load(job.learningFile) : null;
+  const LP = L ? L.prefs(S) : null; if (LP) S = LP.settings;
   fs.mkdirSync(job.out, { recursive: true });
   step("read", 0, "Reading the recording");
   const src = { audio: null, video: null };
@@ -131,7 +136,17 @@ async function make() {
     const top = []; for (const c of sermonC.slice().sort((a, b) => b.score - a.score)) { if (top.length >= 24) break; if (top.some((x) => Math.min(x.end, c.end) - Math.max(x.start, c.start) > 0.5 * (c.end - c.start))) continue; top.push(c); }
     await AI.rate(job.aiPort, top, (i, n) => step("pick", 0.66 + 0.08 * (i / n), "The AI is reading the best parts (" + i + " of " + n + ")"));
   }
-  const picks = P.select(sermonC.concat(worshipC), S);
+  // the church's model scores every moment (it starts as the rules plus the AI's rating, then leans toward what this
+  // church keeps and posts)
+  const all = sermonC.concat(worshipC);
+  if (L) { const learned = L.model().lessons > 0; for (const c of all) { const base = LEARN.baseScore(c, S); c.score = L.score(c, S); if (learned && c.score - base > 0.1) c.learnedBoost = true; } }
+  const picks = P.select(all, S);
+  // the lead-in and run-out it usually adds when it trims (within the recording, the song, the sermon's words)
+  if (LP) for (const p of picks) {
+    const pad = LP.pad[p.kind] || { start: 0, end: 0 }, lo = p.kind === "worship" ? (reg.songs[p.songIndex] || {}).start || 0 : 0, hi = p.kind === "worship" ? (reg.songs[p.songIndex] || {}).end || f.dur : f.dur;
+    const a = Math.max(lo, p.start + Math.max(-5, Math.min(5, pad.start))), b = Math.min(hi, p.end + Math.max(-5, Math.min(5, pad.end)));
+    if (b - a >= Math.max(5, S.minLen - 5)) { p.start = Math.round(a * 100) / 100; p.end = Math.round(b * 100) / 100; }
+  }
   // captions for the worship shorts: the sung words
   for (const p of picks) if (p.kind === "worship" && (job.asr || job.fakeWords) && S.captions && S.captions.on !== false) { try { p.words = await transcribe(src.audio.file, p.start, p.end - p.start); p.text = p.words.map((w) => w.text).join(" "); } catch (_) { p.words = []; } }
   const d = { version: 1, recording: job.recordingName || path.basename(job.out), created: Date.now(), settings: S, source: src, songs: reg.songs.map((s) => ({ name: s.name, start: s.start, end: s.end })), sermon: reg.sermon, hasWords: words.length > 0, note: wordsError || (!job.asr && !job.fakeWords ? "The speech model isn't downloaded on this computer (Settings → Lyrics), so these shorts were picked by their sound alone and have no captions." : null), shorts: [] };
@@ -140,12 +155,17 @@ async function make() {
   let i = 0;
   for (const p of picks) {
     i++;
-    const t = job.aiPort ? (await AI.titles(job.aiPort, p, job.church)) || AI.plainTitle(p, job.church) : AI.plainTitle(p, job.church);
-    const sh = { id: "s" + Date.now().toString(36) + i, n: i, kind: p.kind, song: p.song || null, label: p.label || "", start: p.start, end: p.end, score: Math.round(p.score * 100) / 100, why: why(p), title: t.title, description: t.description, hashtags: t.hashtags || [], words: P.wordsIn(p.words || words, p.start, p.end), status: "new", posts: [], file: shortName(i).replace(" ", "-").toLowerCase() + ".mp4" };
+    const ex = L ? L.titleExamples() : [];
+    const t = job.aiPort ? (await AI.titles(job.aiPort, p, job.church, ex)) || AI.plainTitle(p, job.church) : AI.plainTitle(p, job.church);
+    const sh = { id: "s" + Date.now().toString(36) + i, n: i, kind: p.kind, song: p.song || null, label: p.label || "", start: p.start, end: p.end, score: Math.round(p.score * 100) / 100, why: why(p), title: t.title, description: t.description, hashtags: t.hashtags || [], words: P.wordsIn(p.words || words, p.start, p.end), status: "new", posts: [], file: shortName(i).replace(" ", "-").toLowerCase() + ".mp4", features: LEARN.features(p, S), learned: !!(L && L.model().lessons) };
+    if (LP && LP.captionsOff) sh.captions = false;
     step("make", 0.75 + 0.25 * ((i - 1) / picks.length), "Making short " + i + " of " + picks.length);
     await makeOne(d, sh, (q) => step("make", 0.75 + 0.25 * ((i - 1 + q) / picks.length), "Making short " + i + " of " + picks.length));
     d.shorts.push(sh); save(d); say({ type: "short", short: sh });
   }
+  // (10.3) the full-length videos: just the worship set, just the sermon (each if it's switched on)
+  const FS = S.full || {};
+  if ((FS.worship && FS.worship.on) || (FS.sermon && FS.sermon.on)) await makeFull(d, f, reg, sents, FS, (q, t) => step("full", 0.9 + 0.1 * q, t));
   d.finished = Date.now(); save(d);
   step("done", 1, picks.length ? "Made " + picks.length + " short" + (picks.length > 1 ? "s" : "") : "Didn't find anything to make a short from");
 }
@@ -153,10 +173,45 @@ function why(p) {
   if (p.kind === "worship") return [p.label ? "the " + p.label.toLowerCase() : "a peak of the song", p.parts && p.parts.peak > 0.6 ? "louder than the rest of the song" : "", p.parts && p.parts.room > 0.3 ? "the room joins in" : ""].filter(Boolean).join(", ");
   const x = p.parts || {}, out = [];
   if (p.ai != null) out.push("the AI rated it " + Math.round(1 + p.ai * 9) + "/10");
+  if (p.learnedBoost) out.push("like the ones you keep");
   if (x.text > 0.6) out.push("a strong, complete thought"); if (x.response > 0.3) out.push("the room responded"); if (x.energy > 0.6) out.push("spoken with energy"); if (x.pause > 0.5) out.push("ends on a pause");
   return out.join(", ") || "a complete thought";
 }
 
+function day(t) { const x = new Date(t || Date.now()); return x.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }); }
+async function makeFull(d, f, reg, sents, FS, prog) {
+  const c = FULL.cuts(reg, f, sents, { minSermon: (Number(FS.minSermonMinutes) || 5) * 60, minSet: (Number(FS.minWorshipMinutes) || 2) * 60 }), when = job.recordedAt || Date.now(), out = d.full || {};
+  const v = { date: day(when), speaker: FS.speaker || "", scripture: FS.scripture || "", church: job.church || "", theme: c.sermon && c.sermon.theme ? c.sermon.theme.replace(/^./, (x) => x.toUpperCase()) : "" };
+  const todo = [];
+  if (FS.worship && FS.worship.on && c.worship) todo.push(["worship", c.worship]);
+  if (FS.sermon && FS.sermon.on && c.sermon) todo.push(["sermon", c.sermon]);
+  let k = 0;
+  for (const [kind, cut] of todo) {
+    const name = kind === "worship" ? "full-worship" : "full-sermon", base = path.join(job.out, name), work = path.join(job.out, ".work", name);
+    let sermonTitle = v.theme;
+    if (kind === "sermon" && job.aiPort) { const txt = (sents || []).filter((x) => x.start >= cut.start && x.end <= cut.end).map((x) => x.text).join(" "); const t = await AI.titles(job.aiPort, { kind: "sermon", text: txt.slice(0, 1400) }, job.church).catch(() => null); if (t && t.title) sermonTitle = t.title; }
+    const opts = FS[kind] || {}, title = FULL.title(opts.title || (kind === "worship" ? "Worship - {date}" : "{sermon} - {speaker}"), Object.assign({ sermon: sermonTitle || "Sunday's message" }, v));
+    prog(k / todo.length, "Making the full " + kind + " video");
+    await R.renderFull({ bin, out: base + ".mp4", work, start: cut.start, end: cut.end, video: d.source.video, audio: d.source.audio, settings: d.settings, height: FS.height, progress: (q) => prog((k + q * 0.9) / todo.length, "Making the full " + kind + " video") });
+    await R.titleThumb(bin, base + ".mp4", base + ".jpg", Math.min(30, (cut.end - cut.start) / 3), title, job.fonts, work);
+    fs.rmSync(work, { recursive: true, force: true });
+    const was = out[kind] || {};
+    out[kind] = { kind, title: was.edited ? was.title : title, description: was.edited ? was.description : kind === "worship" ? FULL.worshipDescription(cut, { links: FS.links || "", hashtags: FS.hashtags || "", ccli: FS.ccli || "" }) : FULL.sermonDescription(cut, { speaker: v.speaker, scripture: v.scripture, links: FS.links || "", hashtags: FS.hashtags || "" }),
+      start: cut.start, end: cut.end, seconds: Math.round(cut.end - cut.start), songs: cut.songs || null, chapters: cut.chapters || null, file: name + ".mp4", thumb: name + ".jpg", rendered: Date.now(), status: was.status === "posted" ? "posted" : "new", posts: was.posts || [], edited: !!was.edited };
+    d.full = out; save(d); k++;
+  }
+  const missing = [FS.worship && FS.worship.on && !c.worship ? "worship set" : "", FS.sermon && FS.sermon.on && !c.sermon ? "sermon" : ""].filter(Boolean);
+  d.full = out; d.fullNote = missing.length ? "No " + missing.join(" or ") + " long enough was found for a full video." : null;
+}
+async function fullOnly() {
+  const d = load(); if (!d) throw new Error("Make the shorts of this recording first.");
+  const f = await A.analyze(bin, d.source.audio.file, {});
+  let all = []; try { all = JSON.parse(fs.readFileSync(path.join(job.out, "transcript.json"), "utf8")).words || []; } catch (_) { }
+  const reg = P.regions(f, job.markers || []), FS = Object.assign({}, (job.settings || {}).full || {});
+  FS.worship = Object.assign({}, FS.worship, { on: !job.only || job.only === "worship" }); FS.sermon = Object.assign({}, FS.sermon, { on: !job.only || job.only === "sermon" });
+  await makeFull(d, f, reg, P.sentences(all), FS, (q, t) => step("full", q, t));
+  save(d); step("done", 1, "Done");
+}
 async function renderOne() {
   const d = load(); if (!d) throw new Error("The shorts list for this recording is missing.");
   const sh = d.shorts.find((x) => x.id === job.id); if (!sh) throw new Error("That short isn't in the list any more.");
@@ -177,14 +232,14 @@ async function addOne() {
   const clipWords = song && (job.asr || job.fakeWords) ? await transcribe(d.source.audio.file, clip.start, clip.end - clip.start).catch(() => []) : P.wordsIn(words, clip.start, clip.end);
   const p = { kind, song: song ? song.name : null, start: clip.start, end: clip.end, text: clipWords.map((w) => w.text).join(" "), words: clipWords };
   const tt = job.aiPort ? (await AI.titles(job.aiPort, p, job.church)) || AI.plainTitle(p, job.church) : AI.plainTitle(p, job.church);
-  const sh = { id: "s" + Date.now().toString(36) + n, n, kind, song: p.song, label: "", start: clip.start, end: clip.end, score: null, why: "made by hand", title: tt.title, description: tt.description, hashtags: tt.hashtags || [], words: clipWords, status: "new", posts: [], file: "short-" + String(n).padStart(2, "0") + ".mp4" };
+  const sh = { id: "s" + Date.now().toString(36) + n, n, kind, song: p.song, label: "", start: clip.start, end: clip.end, score: null, why: "made by hand", title: tt.title, description: tt.description, hashtags: tt.hashtags || [], words: clipWords, status: "new", posts: [], file: "short-" + String(n).padStart(2, "0") + ".mp4", byHand: true };
   step("make", 0, "Making a new short");
   await makeOne(d, sh, (q) => step("make", q, "Making a new short"));
   const now = load() || d; now.shorts.push(sh); now.shorts.sort((a, b) => a.start - b.start); save(now); say({ type: "short", short: sh }); step("done", 1, "Done");
 }
 
 (async () => {
-  try { if (job.mode === "render") await renderOne(); else if (job.mode === "add") await addOne(); else await make(); say({ type: "done", file: dataFile }); }
+  try { if (job.mode === "render") await renderOne(); else if (job.mode === "add") await addOne(); else if (job.mode === "full") await fullOnly(); else await make(); say({ type: "done", file: dataFile }); }
   catch (e) { say({ type: "error", error: String(e && e.message || e) }); process.exitCode = 1; }
   finally { if (process.send) setTimeout(() => process.exit(), 50); }
 })();

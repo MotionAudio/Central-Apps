@@ -80,7 +80,18 @@ struct CmfxPlug : Plug {
   }
 };
 
-Plug *openCmfx(const std::string &path, std::string &err) {
+// (10.3) "collection:<id>": one of Motion Audio's own Central FX plugins, shipped next to this program (central-fx/), or in
+// CENTRAL_FX_COLLECTION (tests, development)
+static std::string collectionPath(const std::string &id) {
+  if (id.empty() || id.size() > 60) return "";
+  for (char c : id) if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')) return "";
+  const char *env = getenv("CENTRAL_FX_COLLECTION");
+  fs::path dir = env && env[0] ? fs::u8path(env) : fs::u8path(exePath()).parent_path() / "central-fx";
+  return (dir / (id + ".cmfx.json")).u8string();
+}
+Plug *openCmfx(const std::string &pathIn, std::string &err) {
+  std::string path = pathIn;
+  if (path.compare(0, 11, "collection:") == 0) { path = collectionPath(path.substr(11)); if (path.empty()) { err = "that isn't one of the Central FX plugins"; return nullptr; } }
   auto *p = new CmfxPlug();
   if (isCommunity(path)) {
     std::string root;

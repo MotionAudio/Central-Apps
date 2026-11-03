@@ -16,5 +16,6 @@ contextBridge.exposeInMainWorld("CU", {
   libraries: { list: inv("lib-list"), index: inv("lib-index"), install: inv("lib-install"), installFile: inv("lib-install-file"), remove: inv("lib-remove"), community: inv("lib-community"), centralFx: inv("lib-cmfx"), onProgress: (fn) => ipcRenderer.on("lib-progress", (_e, p) => fn(p)) },
   studio: { catalog: inv("studio-catalog"), read: inv("studio-read"), exportFiles: inv("studio-export"),
     monitor: { start: inv("studio-monitor-start"), send: (m) => ipcRenderer.send("studio-monitor-send", m), stop: inv("studio-monitor-stop"), on: (fn) => ipcRenderer.on("studio-monitor", (_e, m) => fn(m)) },
-    native: { plugins: inv("studio-native-plugins"), process: inv("studio-native-process"), monitor: (m) => ipcRenderer.send("studio-native-monitor", m), editor: inv("studio-native-editor"), on: (fn) => ipcRenderer.on("studio-native", (_e, m) => fn(m)) } }
+    native: { stream: { chain: inv("studio-daw-chain"), process: inv("studio-daw-process"), param: (i, k, id, v) => ipcRenderer.send("studio-daw-param", i, k, id, v), drop: (i) => ipcRenderer.send("studio-daw-drop", i), params: inv("studio-daw-params") },
+      plugins: inv("studio-native-plugins"), process: inv("studio-native-process"), monitor: (m) => ipcRenderer.send("studio-native-monitor", m), editor: inv("studio-native-editor"), on: (fn) => ipcRenderer.on("studio-native", (_e, m) => fn(m)) } }
 });

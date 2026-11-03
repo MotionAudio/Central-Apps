@@ -89,6 +89,37 @@ def main():
               "each hymn has a modern worship form (sparse verse, a bridge that builds, a final chorus) and a band flavour", [h.get("style") for h in hymns])
         old_keys = {"amazing-grace": ("G", 72), "joyful-joyful": ("G", 100), "come-thou-fount": ("D", 84), "be-thou-my-vision": ("D", 72), "doxology": ("G", 76)}
         check(all((h["key"], h["bpm"]) == old_keys[h["id"]] for h in hymns if h["id"] in old_keys), "the first five hymns are in their original keys and tempos")
+        imported = [h for h in hymns if h.get("source")]
+        check(len(hymns) >= 20 and sum(h.get("season") == "christmas" for h in hymns) >= 3 and sum(h.get("season") == "easter" for h in hymns) >= 1
+              and all(h["source"].get("repository") and len(h["source"].get("commit", "")) == 40 and h["source"].get("score") for h in imported),
+              "20 hymns or more, with Christmas and Easter hymns; each imported one names its public-domain source score at a pinned commit",
+              (len(hymns), len(imported)))
+        ct = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "js", "central-tracks.js"), encoding="utf-8").read()
+        listed = __import__("re").findall(r'preview: HYMN \+ "([a-z0-9-]+)--\1-preview\.mp3"', ct)
+        check(listed == [h["id"] for h in hymns], "(10.3) Central Tracks offline lists every hymn, in order, each with its preview", (len(listed), len(hymns)))
+        fl_of = lambda h: {**dict(keys="chords", amb="dotted", drv="eighths"), **WB.FLAVORS[h["style"]]}
+        parts = {(fl_of(h)["groove"], fl_of(h)["keys"], fl_of(h)["amb"], fl_of(h)["drv"]) for h in hymns}
+        check(len(parts) >= 15 and len({fl_of(h)["keys"] for h in hymns}) >= 5 and len({fl_of(h)["amb"] for h in hymns}) >= 4 and len({fl_of(h)["drv"] for h in hymns}) >= 4,
+              "the band plays the songs differently: grooves, keys parts, ambient and rhythm guitar parts vary between hymns", len(parts))
+        flat = []
+        for h in hymns:
+            song = WB.Song(h, MH.layout(h), 7)
+            kit, kicks = WB.drums(song)
+            per = {}
+            for notes in (kit, WB.bass(song, kicks), WB.keys(song), WB.guitar_drive(song), *WB.strings(song).values()):
+                for t, ln, k, v, cc in notes:
+                    bar = int(t / (song.m * song.beat))
+                    per.setdefault(bar, 0)
+                    per[bar] += v
+            by_role = {}
+            for b in song.bars:
+                if not b["final"]:
+                    by_role.setdefault(b["role"], []).append((per.get(b["i"], 0), WB.section_db(b)))
+            busy = {r: sum(x for x, _ in v) / len(v) for r, v in by_role.items()}
+            level = {r: max(d for _, d in v) for r, v in by_role.items()}
+            if max(busy, key=busy.get) != "final" or max(level, key=level.get) != "final":
+                flat.append((h["id"], max(busy, key=busy.get), max(level, key=level.get)))
+        check(not flat, "in every hymn the final chorus is the biggest moment: the most played and the loudest section", flat)
         cues = os.path.join(HERE, "hymns", "guide")
         check(all(os.path.isfile(os.path.join(cues, w + ".wav")) for w in ("chorus", "verse-1", "bridge", "all-in", "build", "down", "tag")), "the guide's spoken cues are there (Chorus, Verse 1, Bridge, All in, Build, Down, Tag)")
         bad_chart, bad_lyrics = [], []
@@ -173,7 +204,8 @@ def main():
               (rms(bell[:n3]) / rms(bell[-2 * n3:-n3]), rms(pluck[:n3]) / (rms(pluck[-2 * n3:-n3]) or 1e-9)))
 
         print("\nThe 10.0 pad styles (tools/make-pad-loops.py):")
-        new = ["Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning", "Sunday Keys", "Ember", "Tide", "Vowels", "Tanpura", "Swell Guitar"]
+        new = ["Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning", "Sunday Keys", "Ember", "Tide", "Vowels", "Tanpura", "Swell Guitar",
+               "Sunday Warm", "Synth Swell", "Lo-fi Keys", "Phaser Pad", "Pluck Cloud", "Wide Fifths", "Christmas Bells"]   # (10.3: some of Central Pads Extra)
         import pad_voices as PV
         import pad_sources as PS
         PV.set_sources(PS.Stand())   # (no internet here: stand-in recordings for the styles made from them)

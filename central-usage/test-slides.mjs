@@ -218,6 +218,26 @@ await check("decks and their slides stay after a reload (this computer's copy)",
   const n = await page.evaluate(() => CUSlides.decks().length); await page.reload(); await page.waitForFunction(() => window.CUSlides);
   assert.equal(await page.evaluate(() => CUSlides.decks().length), n);
 });
+await check("(10.3) Central Utility's slides: about double the templates and themes, each draws inside the frame, QR places, kids on their own pictures", async () => {
+  const r = await page.evaluate(() => {
+    const R = CUSlideRender, d = R.newDeck({}), c = document.createElement("canvas"); c.width = 192; c.height = 108; const g = c.getContext("2d", { willReadFrequently: true });
+    const ut = R.TEMPLATES.filter((t) => t.tier === "utility"), out = { n: ut.length, free: R.TEMPLATES.filter((t) => !t.tier).length, groups: [...new Set(ut.map((t) => t.group))], outside: [], blank: [], qr: [], kidsBg: [], notes: [], countdowns: 0 };
+    for (const t of ut) {
+      const s = R.newSlide(d, t.id); if (s.countdown) out.countdowns++; if (s.notes) out.notes.push(t.id);
+      for (const e of s.els) if (e.x < -1 || e.y < -1 || e.x + e.w > d.size.w + 1 || e.y + e.h > d.size.h + 1) out.outside.push(t.id);
+      if (s.els.some((e) => e.placeholder === "qr")) out.qr.push(t.id);
+      if (t.group === "Kids") out.kidsBg.push(s.bg.type === "lyricbg" && CUBackgrounds.has(s.bg.bgId));
+      g.clearRect(0, 0, 192, 108); R.render(g, s, d, { time: null, clock: 5, now: Date.now() }); const px = g.getImageData(0, 0, 192, 108).data; let lit = 0; for (let i = 3; i < px.length; i += 4) if (px[i] > 0) lit++; if (!lit) out.blank.push(t.id);
+    }
+    out.themes = R.themes().filter((t) => t.tier === "utility").length; out.freeThemes = R.themes().filter((t) => !t.tier).length;
+    return out;
+  });
+  assert.ok(r.n >= 45, "Utility templates " + r.n); assert.ok(r.themes >= 36, "Utility themes " + r.themes); assert.equal(r.free, 8, "the free templates stay as they were"); assert.equal(r.freeThemes, 8);
+  for (const gname of ["Countdowns", "Lower thirds", "Overlays", "Announcements", "Sermon", "Scripture", "Giving", "Welcome", "Baptism, communion, prayer", "Kids"]) assert.ok(r.groups.includes(gname), "no " + gname);
+  assert.deepEqual(r.outside, [], "boxes outside the frame"); assert.deepEqual(r.blank, [], "templates that draw nothing");
+  for (const id of ["u-ann-signup", "u-give-qr", "u-wel-new", "u-kids-checkin", "u-ov-give"]) assert.ok(r.qr.includes(id), id + " has no QR place");
+  assert.ok(r.kidsBg.length >= 4 && r.kidsBg.every(Boolean), "kids slides on a kids picture"); assert.ok(r.notes.includes("u-ser-blank"), "the fill-in-the-blank says how to reveal"); assert.ok(r.countdowns >= 8, "countdowns " + r.countdowns);
+});
 await check("no errors on the page", () => { assert.deepEqual(errs, []); });
 await b.close();
 fs.rmSync(ctrDir, { recursive: true, force: true });

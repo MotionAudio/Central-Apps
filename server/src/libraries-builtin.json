@@ -6,13 +6,13 @@
    "plan": "keys",
    "planName": "Central Keys",
    "title": "Central Keys Library",
-   "version": "1.2",
-   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; fifteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, and Ember and Selah Strings - a grand piano and a string section stretched into clouds) - with worship-ready presets; and ten synths made by us, each its own kind (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells).",
-   "file": "central-keys-library-1.2.zip",
-   "size": 575000000,
+   "version": "1.3",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; eighteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, Ember and Selah Strings - a grand piano and a string section stretched into clouds - and Sunday Bright, Easter Brass and Christmas Bells) - with worship-ready presets; and ten synths made by us, each its own kind (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells).",
+   "file": "central-keys-library-1.3.zip",
+   "size": 610000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-keys-library-1.2.zip",
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-keys-library-1.3.zip",
    "contents": {
     "sounds": [
      {
@@ -82,7 +82,10 @@
        "Bell Pad",
        "Sunday Pad",
        "Ember Pad",
-       "Selah Strings"
+       "Selah Strings",
+       "Sunday Bright Pad",
+       "Easter Brass Pad",
+       "Christmas Bells Pad"
       ],
       "license": "Motion Audio - sold with Central Keys (recordings in it: CC0 1.0)"
      },
@@ -133,6 +136,8 @@
      "Sunday Keys Pad",
      "Ember",
      "Selah Strings",
+     "Sunday Bright",
+     "Easter Brass Swell",
      "Xylophone Bright",
      "Church Bells",
      "Worship Saw Lead",
@@ -151,7 +156,7 @@
    "counts": {
     "sound": 6,
     "board": 0,
-    "preset": 38,
+    "preset": 40,
     "ir": 0,
     "click": 0,
     "pad": 0,
@@ -543,6 +548,30 @@
     },
     {
      "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--sunday-bright-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--sunday-bright-pad.mp3",
+     "seconds": 30,
+     "preset": "Sunday Bright Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--easter-brass-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--easter-brass-pad.mp3",
+     "seconds": 30,
+     "preset": "Easter Brass Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pads",
+     "file": "preview--central-keys--sound--pads--christmas-bells-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--pads--christmas-bells-pad.mp3",
+     "seconds": 30,
+     "preset": "Christmas Bells Pad"
+    },
+    {
+     "kind": "sound",
      "name": "Central Keys Synths",
      "file": "preview--central-keys--sound--synths--saw-lead.mp3",
      "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--sound--synths--saw-lead.mp3",
@@ -822,6 +851,20 @@
      "name": "Selah Strings",
      "file": "preview--central-keys--preset--selah-strings.mp3",
      "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--selah-strings.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Sunday Bright",
+     "file": "preview--central-keys--preset--sunday-bright.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--sunday-bright.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Easter Brass Swell",
+     "file": "preview--central-keys--preset--easter-brass-swell.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-keys--preset--easter-brass-swell.mp3",
      "seconds": 30
     },
     {
@@ -2428,7 +2471,7 @@
    "planName": "Central Pads",
    "title": "Central Pads Library",
    "version": "1.2",
-   "summary": "41 pads for the pad pedal in all 12 keys, each built its own way (its own voices, movement, stereo and reverb) and each a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting): warm, air, choir aah, ooh and hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning; Sunday Keys (the modern worship pad); nine made from real recordings (Ember, Halo, Selah, Dawn, Frozen Piano, Bowed Glass, Vibes, Harp Wash, Cathedral Organ); and tide, vowels, tape, sparkle, eighties, reed, swell guitar, breathe, tanpura, horns and flute choir. Plus Central Pads Swells - swells, risers, downlifters and an arrival in every key at 4, 8 and 16 seconds, and an air bed for between songs - and eight ambient loops for the texture channels in every key (Sparkle, Drift, Breath, Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain). Comes with every other plan too.",
+   "summary": "41 pads for the pad pedal in all 12 keys, each built its own way (its own voices, movement, stereo and reverb) and each a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting): warm, air, choir aah, ooh and hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning; Sunday Keys (the modern worship pad); nine made from real recordings (Ember, Halo, Selah, Dawn, Frozen Piano, Bowed Glass, Vibes, Harp Wash, Cathedral Organ); and tide, vowels, tape, sparkle, eighties, reed, swell guitar, breathe, tanpura, horns and flute choir. Plus Central Pads Swells - swells, risers, downlifters and an arrival in every key at 4, 8 and 16 seconds, and an air bed for between songs - and eight ambient loops for the texture channels in every key (Sparkle, Drift, Breath, Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain). Comes with every other plan too. 35 more pads, moving pads and more swells come in Central Pads Extra, a second download with the same key.",
    "file": "central-pads-library-1.2.zip",
    "size": 840000000,
    "approximate": true,
@@ -3306,12 +3349,914 @@
    "previewsExpected": true
   },
   {
+   "id": "central-pads-extra",
+   "plan": "pads",
+   "planName": "Central Pads",
+   "title": "Central Pads Extra",
+   "version": "1.0",
+   "summary": "35 more pads for the pad pedal in all 12 keys, each built its own way: Sunday Keys in five more colours (warm, bright, dark, air, cinematic), Ambient Guitar and Synth Swell; Christmas Bells, Music Box, Easter Brass, Advent Glass and Candlelight; pads made from real recordings - oboe, clarinet, bassoon, flute, trumpet, trombone, violas, contrabasses, marimba, kalimba, mbira, ocarina, recorders, harmonica, sax, zither, a Renaissance organ and wine glasses; and Granular Choir, Pluck Cloud, Phaser Pad, Lo-fi Keys and Wide Fifths. Plus six moving pads for the texture channels that pulse in time with the song (eighths, sixteenths, heartbeat, trance gate, pump, bar swell) and Central Pads Swells Extra - choir, brass and breath swells, shimmer rises, an outro wash and a tape stop in every key, noise uplifters and a sub drop. A second download with the same Pads key: comes with every plan.",
+   "file": "central-pads-extra-1.0.zip",
+   "size": 750000000,
+   "approximate": true,
+   "sha256": null,
+   "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/central-pads-extra-1.0.zip",
+   "contents": {
+    "sounds": [
+     {
+      "name": "Central Pads Swells Extra",
+      "presets": [
+       "Choir Swell to Key 8s",
+       "Brass Swell to Key 8s",
+       "Breath Swell to Key 4s",
+       "Shimmer Rise to Key 8s",
+       "Shimmer Rise to Key 16s",
+       "Outro Wash 8s",
+       "Tape Stop 2s",
+       "Noise Uplifter 8s (no key)",
+       "Noise Uplifter 16s (no key)",
+       "Sub Drop 4s (no key)"
+      ],
+      "license": "Motion Audio - sold with Central Pads (recordings in it: CC0 1.0)"
+     }
+    ],
+    "presets": [],
+    "boards": [],
+    "irs": [],
+    "pads": [
+     "Sunday Warm",
+     "Sunday Bright",
+     "Sunday Dark",
+     "Sunday Air",
+     "Sunday Cinematic",
+     "Ambient Guitar",
+     "Synth Swell",
+     "Christmas Bells",
+     "Music Box",
+     "Easter Brass",
+     "Advent Glass",
+     "Candlelight",
+     "Oboe Bloom",
+     "Clarinet Mist",
+     "Bassoon Deep",
+     "Flute Breath",
+     "Trumpet Halo",
+     "Trombone Floor",
+     "Viola Cloud",
+     "Contrabass Drone",
+     "Marimba Rain",
+     "Kalimba Drift",
+     "Mbira Glow",
+     "Ocarina Wind",
+     "Recorder Consort",
+     "Harmonica Haze",
+     "Sax Smoke",
+     "Zither Tremolo",
+     "Renaissance Organ",
+     "Glass Harmonica",
+     "Granular Choir",
+     "Pluck Cloud",
+     "Phaser Pad",
+     "Lo-fi Keys",
+     "Wide Fifths"
+    ],
+    "loops": [
+     "Moving pads: Pulse Eighths",
+     "Moving pads: Gated Sixteenths",
+     "Moving pads: Heartbeat",
+     "Moving pads: Trance Gate",
+     "Moving pads: Offbeat Pump",
+     "Moving pads: Bar Swell"
+    ]
+   },
+   "counts": {
+    "sound": 1,
+    "board": 0,
+    "preset": 0,
+    "ir": 0,
+    "click": 0,
+    "pad": 35,
+    "loop": 6
+   },
+   "credits": [
+    "Made by Motion Audio (tools/make-pad-loops.py) from a Dan Tranh zither in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from a Kawai grand in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from a Renaissance organ in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from a chromatic harmonica in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from a glockenspiel in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from a kalimba in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from a marimba in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from a tenor recorder in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from a tenor sax in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from an FM piano in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from an mbira in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from an ocarina in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from bassoons in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from cellos and violas in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from clarinets in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from contrabasses in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from flutes in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from french horns and trombones and trumpets in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from french horns and violins in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from oboes in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from trombones in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from trumpets in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from tubular bells and a glockenspiel and sleigh bells in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from violas in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py) from wine glasses in VCSL by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pads.py); the choir is synthesised, the brass swell is made from VSCO 2 CE french horns, trombones and trumpets by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+    "Moving pads made by Motion Audio (tools/make-pad-loops.py: synthesised, no recording)"
+   ],
+   "sources": [
+    {
+     "item": "Central Pads Swells Extra",
+     "text": "Made by Motion Audio (tools/make-pads.py)",
+     "license": "Motion Audio - sold with Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Central Pads Swells Extra",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Sunday Warm",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Sunday Bright",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Sunday Bright",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Sunday Dark",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Sunday Dark",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Sunday Air",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Sunday Air",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Sunday Cinematic",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Sunday Cinematic",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Ambient Guitar",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Ambient Guitar",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Synth Swell",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Christmas Bells",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Christmas Bells",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Music Box",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Music Box",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Easter Brass",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Easter Brass",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Advent Glass",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Advent Glass",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Candlelight",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Candlelight",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Oboe Bloom",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Oboe Bloom",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Clarinet Mist",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Clarinet Mist",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Bassoon Deep",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Bassoon Deep",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Flute Breath",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Flute Breath",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Trumpet Halo",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Trumpet Halo",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Trombone Floor",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Trombone Floor",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Viola Cloud",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Viola Cloud",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Contrabass Drone",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Contrabass Drone",
+     "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+    },
+    {
+     "item": "Marimba Rain",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Marimba Rain",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Kalimba Drift",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Kalimba Drift",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Mbira Glow",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Mbira Glow",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Ocarina Wind",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Ocarina Wind",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Recorder Consort",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Recorder Consort",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Harmonica Haze",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Harmonica Haze",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Sax Smoke",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Sax Smoke",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Zither Tremolo",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Zither Tremolo",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Renaissance Organ",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Renaissance Organ",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Glass Harmonica",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Glass Harmonica",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Granular Choir",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Pluck Cloud",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Phaser Pad",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Lo-fi Keys",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Wide Fifths",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Moving pads",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py: synthesised, no recording)",
+     "license": "Motion Audio - sold with Central Pads",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pad-loops.py"
+    }
+   ],
+   "previews": [
+    {
+     "kind": "pad",
+     "name": "Sunday Warm",
+     "file": "preview--central-pads-extra--pad--sunday-warm.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--sunday-warm.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Sunday Bright",
+     "file": "preview--central-pads-extra--pad--sunday-bright.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--sunday-bright.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Sunday Dark",
+     "file": "preview--central-pads-extra--pad--sunday-dark.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--sunday-dark.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Sunday Air",
+     "file": "preview--central-pads-extra--pad--sunday-air.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--sunday-air.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Sunday Cinematic",
+     "file": "preview--central-pads-extra--pad--sunday-cinematic.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--sunday-cinematic.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Ambient Guitar",
+     "file": "preview--central-pads-extra--pad--ambient-guitar.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--ambient-guitar.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Synth Swell",
+     "file": "preview--central-pads-extra--pad--synth-swell.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--synth-swell.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Christmas Bells",
+     "file": "preview--central-pads-extra--pad--christmas-bells.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--christmas-bells.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Music Box",
+     "file": "preview--central-pads-extra--pad--music-box.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--music-box.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Easter Brass",
+     "file": "preview--central-pads-extra--pad--easter-brass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--easter-brass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Advent Glass",
+     "file": "preview--central-pads-extra--pad--advent-glass.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--advent-glass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Candlelight",
+     "file": "preview--central-pads-extra--pad--candlelight.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--candlelight.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Oboe Bloom",
+     "file": "preview--central-pads-extra--pad--oboe-bloom.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--oboe-bloom.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Clarinet Mist",
+     "file": "preview--central-pads-extra--pad--clarinet-mist.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--clarinet-mist.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Bassoon Deep",
+     "file": "preview--central-pads-extra--pad--bassoon-deep.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--bassoon-deep.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Flute Breath",
+     "file": "preview--central-pads-extra--pad--flute-breath.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--flute-breath.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Trumpet Halo",
+     "file": "preview--central-pads-extra--pad--trumpet-halo.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--trumpet-halo.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Trombone Floor",
+     "file": "preview--central-pads-extra--pad--trombone-floor.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--trombone-floor.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Viola Cloud",
+     "file": "preview--central-pads-extra--pad--viola-cloud.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--viola-cloud.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Contrabass Drone",
+     "file": "preview--central-pads-extra--pad--contrabass-drone.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--contrabass-drone.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Marimba Rain",
+     "file": "preview--central-pads-extra--pad--marimba-rain.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--marimba-rain.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Kalimba Drift",
+     "file": "preview--central-pads-extra--pad--kalimba-drift.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--kalimba-drift.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Mbira Glow",
+     "file": "preview--central-pads-extra--pad--mbira-glow.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--mbira-glow.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Ocarina Wind",
+     "file": "preview--central-pads-extra--pad--ocarina-wind.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--ocarina-wind.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Recorder Consort",
+     "file": "preview--central-pads-extra--pad--recorder-consort.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--recorder-consort.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Harmonica Haze",
+     "file": "preview--central-pads-extra--pad--harmonica-haze.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--harmonica-haze.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Sax Smoke",
+     "file": "preview--central-pads-extra--pad--sax-smoke.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--sax-smoke.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Zither Tremolo",
+     "file": "preview--central-pads-extra--pad--zither-tremolo.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--zither-tremolo.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Renaissance Organ",
+     "file": "preview--central-pads-extra--pad--renaissance-organ.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--renaissance-organ.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Glass Harmonica",
+     "file": "preview--central-pads-extra--pad--glass-harmonica.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--glass-harmonica.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Granular Choir",
+     "file": "preview--central-pads-extra--pad--granular-choir.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--granular-choir.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Pluck Cloud",
+     "file": "preview--central-pads-extra--pad--pluck-cloud.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--pluck-cloud.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Phaser Pad",
+     "file": "preview--central-pads-extra--pad--phaser-pad.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--phaser-pad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Lo-fi Keys",
+     "file": "preview--central-pads-extra--pad--lo-fi-keys.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--lo-fi-keys.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Wide Fifths",
+     "file": "preview--central-pads-extra--pad--wide-fifths.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--pad--wide-fifths.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "loops",
+     "name": "Moving pads",
+     "file": "preview--central-pads-extra--loops--moving-pads.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--loops--moving-pads.mp3",
+     "seconds": 30,
+     "set": "pulse"
+    },
+    {
+     "kind": "loop",
+     "name": "Pulse Eighths",
+     "file": "preview--central-pads-extra--loop--pulse-eighths.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--loop--pulse-eighths.mp3",
+     "seconds": 30,
+     "set": "pulse"
+    },
+    {
+     "kind": "loop",
+     "name": "Gated Sixteenths",
+     "file": "preview--central-pads-extra--loop--gated-sixteenths.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--loop--gated-sixteenths.mp3",
+     "seconds": 30,
+     "set": "pulse"
+    },
+    {
+     "kind": "loop",
+     "name": "Heartbeat",
+     "file": "preview--central-pads-extra--loop--heartbeat.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--loop--heartbeat.mp3",
+     "seconds": 30,
+     "set": "pulse"
+    },
+    {
+     "kind": "loop",
+     "name": "Trance Gate",
+     "file": "preview--central-pads-extra--loop--trance-gate.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--loop--trance-gate.mp3",
+     "seconds": 30,
+     "set": "pulse"
+    },
+    {
+     "kind": "loop",
+     "name": "Offbeat Pump",
+     "file": "preview--central-pads-extra--loop--offbeat-pump.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--loop--offbeat-pump.mp3",
+     "seconds": 30,
+     "set": "pulse"
+    },
+    {
+     "kind": "loop",
+     "name": "Bar Swell",
+     "file": "preview--central-pads-extra--loop--bar-swell.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--loop--bar-swell.mp3",
+     "seconds": 30,
+     "set": "pulse"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--choir-swell-to-key.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--choir-swell-to-key.mp3",
+     "seconds": 30,
+     "preset": "Choir Swell to Key 8s"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--brass-swell-to-key.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--brass-swell-to-key.mp3",
+     "seconds": 30,
+     "preset": "Brass Swell to Key 8s"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--breath-swell-to-key.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--breath-swell-to-key.mp3",
+     "seconds": 30,
+     "preset": "Breath Swell to Key 4s"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--shimmer-rise-to-key.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--shimmer-rise-to-key.mp3",
+     "seconds": 30,
+     "preset": "Shimmer Rise to Key 8s"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--shimmer-rise-to-key-2.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--shimmer-rise-to-key-2.mp3",
+     "seconds": 30,
+     "preset": "Shimmer Rise to Key 16s"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--outro-wash-8s.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--outro-wash-8s.mp3",
+     "seconds": 30,
+     "preset": "Outro Wash 8s"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--tape-stop-2s.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--tape-stop-2s.mp3",
+     "seconds": 30,
+     "preset": "Tape Stop 2s"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--noise-uplifter-8s.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--noise-uplifter-8s.mp3",
+     "seconds": 30,
+     "preset": "Noise Uplifter 8s (no key)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--noise-uplifter-16s.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--noise-uplifter-16s.mp3",
+     "seconds": 30,
+     "preset": "Noise Uplifter 16s (no key)"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Pads Swells Extra",
+     "file": "preview--central-pads-extra--sound--central-pads-swells-extra--sub-drop-4s-no-key.mp3",
+     "url": "https://github.com/MotionAudio/central-apps/releases/download/libraries/preview--central-pads-extra--sound--central-pads-swells-extra--sub-drop-4s-no-key.mp3",
+     "seconds": 30,
+     "preset": "Sub Drop 4s (no key)"
+    }
+   ],
+   "previewsExpected": true
+  },
+  {
    "id": "central-utility-library",
    "plan": "utility",
    "planName": "Central Utility",
    "title": "Central Utility Library",
    "version": "1.0",
-   "summary": "Fourteen metronome click sets (wood block, rim, hi-hat, cowbell, clave, shaker, side stick, triangle, mechanical tick, beeps, square blip, low tom, finger snap), each with its own accent, for a song's Click sound; and 24 lighting looks for the lights page (sunrise, ocean, candlelight, backlit cross, royal purple, gospel celebration, hymn rock, communion, baptism, Christmas, Easter, sermon, kids, youth and more). Built into the apps and unlocked by this plan: 54 seasonal lyric backgrounds (Advent, Christmas, Epiphany, Lent, Palm Sunday, Good Friday, Easter, Pentecost, communion, baptism, Mother's and Father's Day, Thanksgiving, New Year and every Sunday) with a This Sunday suggestion from the church calendar; 18 seasonal slide themes with lower thirds in the same colours; and countdowns, lower-third styles and stream overlays for the slide designer. All made by Motion Audio.",
+   "summary": "Fourteen metronome click sets (wood block, rim, hi-hat, cowbell, clave, shaker, side stick, triangle, mechanical tick, beeps, square blip, low tom, finger snap), each with its own accent, for a song's Click sound; and 24 lighting looks for the lights page (sunrise, ocean, candlelight, backlit cross, royal purple, gospel celebration, hymn rock, communion, baptism, Christmas, Easter, sermon, kids, youth and more). Built into the apps and unlocked by this plan: 118 lyric backgrounds for the church year (Advent, Christmas, Epiphany, Lent, Palm Sunday, Good Friday, Easter, Pentecost, communion, baptism, Mother's and Father's Day, Thanksgiving, New Year), for every Sunday (worship lights, nature, stained glass, calm textures for scripture) and in youth and kids styles, with a This Sunday suggestion from the church calendar; 51 slide themes with lower thirds in the same colours; and 52 slide layouts and graphics for the slide designer - announcements with a sign-up QR, sermon series and points, fill-in-the-blank, scripture, giving with a QR, welcome loops, baptism, communion, prayer and kids' ministry, plus countdowns, lower thirds and stream overlays. All made by Motion Audio.",
    "file": "central-utility-library-1.0.zip",
    "size": 2000000,
    "approximate": true,

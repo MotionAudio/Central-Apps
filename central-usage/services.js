@@ -79,6 +79,7 @@ module.exports = function services(app, getWin) {
   engine.on("op", (op, who) => send("mixer-op", op, who && who.role));
   engine.on("state", (st) => send("mixer-state", st));
   engine.on("pi", (p) => send("mixer-pi", p.names));
+  engine.on("insert", (e) => send("mixer-insert", e));   // (10.3) an insert loaded, or why it didn't
   engine.on("meters", (m) => send("mixer-meters", m));
   pi.on("status", () => send("host-status", hostStatus())); pi2.on("status", () => send("host-status", hostStatus()));
   host.onClients = () => send("host-status", hostStatus());
@@ -245,7 +246,7 @@ module.exports = function services(app, getWin) {
   });
   ipcMain.handle("host-status", () => hostStatus());
   ipcMain.handle("pi-target", (_e, t) => { piTarget = Object.assign(piTarget, t || {}); applyHost(); return pi.status(); });
-  ipcMain.handle("mixer-get", () => ({ state: engine.state, pi: engine.pi.names, info: engine.info() }));
+  ipcMain.handle("mixer-get", () => ({ state: engine.state, pi: engine.pi.names, info: engine.info(), inserts: engine.insertInfo || {} }));
   ipcMain.handle("mixer-op", (_e, op) => engine.apply(op, { role: "host" }));
   // (10.2) the pre-service check's test tone: a quiet 1 kHz tone on one input for a moment, so the meters show whether
   // the mix reaches the main outputs (the room hears a short beep)

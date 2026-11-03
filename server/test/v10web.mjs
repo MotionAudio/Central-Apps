@@ -77,7 +77,7 @@ try {
   const me = await j("GET", "/me", null, li.token);
   ok(me.email === DEMO_EMAIL && me.subscribed === true && me.church && me.church.name === "Riverstone Church (demo)" && me.emailConfirmed === true, "...its church is Riverstone Church (demo), with Central Tracks Unlimited", me);
   const pu = await j("GET", "/purchases", null, li.token), demo = (pu.purchases || []).find((x) => x.type === "demo");
-  ok(demo && demo.apps.length === 3 && demo.apps.map((x) => x.keys[0].key).sort().join() === Object.values(DEMO).sort().join() && demo.packages.length === 7 && demo.libraries.length === 6
+  ok(demo && demo.apps.length === 3 && demo.apps.map((x) => x.keys[0].key).sort().join() === Object.values(DEMO).sort().join() && demo.packages.length === 7 && demo.libraries.length === 7
     && demo.apps.every((x) => x.links.windows && x.links.windows.startsWith("https://motion.test/download/")), "Purchases: the demo keys (3 apps, 7 packages), the libraries and our own download links", demo);
   const del = await j("POST", "/account/delete", { password: DEMO_PW }, li.token), fg = await j("POST", "/password/forgot", { email: DEMO_EMAIL }), ph = await j("POST", "/account/phone", { password: DEMO_PW, phone: "555-111-2222" }, li.token);
   ok(del._status === 403 && fg._status === 403 && ph._status === 403, "it can't be deleted, have its password reset or get a phone", { del, fg, ph });
@@ -99,7 +99,7 @@ try {
   ok(ord && /Central Usage key/.test(ord.title) && ord.apps.length === 2 && ord.apps.find((x) => x.kind === "U").keys[0].updatesUntil === "10.4" && ord.apps.find((x) => x.kind === "P").links.android === "https://motion.test/download/pedal-control/android"
     && ord.apps.every((x) => x.steps.windows && /install\.sh \| bash -s/.test(x.linuxCommand) && x.linuxCommand.startsWith("curl -fsSL https://motion.test/install.sh")),
     "an order: what it was, each app's keys, download links on our address, install steps and the Linux line", ord);
-  ok(plan && /Central Keys/.test(plan.title) && plan.packages.length === 1 && plan.libraries.map((x) => x.plan).join() === "keys,pads" && plan.libraries[0].link === "https://motion.test/download/library/keys" && plan.renews && /One key opens everything/.test(plan.oneKey),
+  ok(plan && /Central Keys/.test(plan.title) && plan.packages.length === 1 && plan.libraries.map((x) => x.plan).join() === "keys,pads,pads" && plan.libraries.some((x) => /Central Pads Extra/.test(x.name)) && plan.libraries[0].link === "https://motion.test/download/library/keys" && plan.renews && /One key opens everything/.test(plan.oneKey),
     "a sound plan: ONE key opens the whole plan, its libraries (with Central Pads), when it renews", plan);
   const anon = await j("GET", "/purchases");
   ok(anon._status === 401, "Purchases needs signing in", anon._status);
@@ -138,8 +138,8 @@ try {
       ok(!(await page.isVisible("#acctLink")) && await page.isVisible("#acctIcon"), "signed in: an account icon instead of the Sign in link");
       await page.click("#acctIcon");
       const items = await page.$$eval("#acctDrop a, #acctDrop button", (x) => x.map((e) => e.textContent.trim()));
-      ok(JSON.stringify(items) === JSON.stringify(["Account", "Purchases", "Downloads", "Central Services", "Central Production", "Sign out"]) && /Bea/.test(await page.textContent("#acctWho")), "its menu: Account, Purchases, Downloads, Central Services, Central Production, Sign out (with who's signed in)", items);
-      await page.click('#acctDrop a[href="#purchases"]'); await page.waitForSelector("#purchases:not([hidden]) .pu-card", { timeout: 8000 });
+      ok(JSON.stringify(items) === JSON.stringify(["Account", "My products", "Purchases", "Downloads", "Help & tickets", "Central Services", "Central Production", "Sign out"]) && /Bea/.test(await page.textContent("#acctWho")), "its menu: Account, My products, Purchases, Downloads, Help & tickets (10.3), Central Services, Central Production, Sign out (with who's signed in)", items);
+      await page.click('#acctDrop a[href="/#purchases"]'); await page.waitForSelector("#purchases:not([hidden]) .pu-card", { timeout: 8000 });
       const t = await page.textContent("#purchases"), dl = await page.$$eval("#purchases a.btn", (x) => x.map((e) => e.getAttribute("href")));
       ok(/Central Usage key/.test(t) && /Package key/.test(t) && /One key opens everything/.test(t) && /Next renewal/.test(t) && /UWEB/.test(t) && dl.some((h) => /\/download\/(usage|pedal-control)\//.test(h)) && dl.some((h) => /\/download\/library\/keys$/.test(h)) && dl.every((h) => !/github/i.test(h)),
         "Purchases: the order and the plan, their keys, our own download buttons, the library, the renewal date", { dl });

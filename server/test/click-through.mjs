@@ -18,7 +18,12 @@ for (let i = 0; i < 150 && !/Motion Audio server on/.test(log); i++) await new P
 const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
 const issues = new Set(), fatal = new Set(); let clicks = 0, links = 0;
 const note = (s) => { issues.add(s); if (/pageerror|dead link|#anchor/.test(s) && !/dead link \/download\//.test(s)) fatal.add(s); };   // (/download/... comes from GitHub's releases, not this server)
-const PAGES = ["/", "/apps/", "/apps/central-pedal.html", "/apps/central-pedal-control.html", "/apps/central-control.html", "/apps/central-usage.html", "/apps/central-services.html", "/help/", "/help/install.html", "/help/accounts.html", "/create/", "/privacy", "/terms", "/refunds", "/services/"];
+const PAGES = ["/", "/apps/", "/apps/central-pedal.html", "/apps/central-control.html", "/help/", "/help/install.html", "/create/", "/privacy", "/services/", "/pricing/"];
+// (10.3) the rest: the same for everyone, so a visitor checks them (signed in, the cart and the header are the same)
+const VISITOR = ["/apps/central-pedal-control.html", "/apps/central-usage.html", "/apps/central-services.html", "/help/accounts.html", "/terms", "/refunds",
+  "/apps/pedal/", "/apps/pedal-control/", "/apps/control/", "/apps/usage/", "/apps/services/", "/apps/production/",
+  "/sounds/", "/sounds/keys/", "/sounds/instrument/", "/sounds/pads/", "/sounds/plugins/", "/sounds/pedals/", "/sounds/utility/", "/sounds/tracks/",
+  "/help/article.html?a=set-up-the-central-pedal", "/status/"];
 const checked = new Map();
 async function linkOk(url) {
   if (checked.has(url)) return checked.get(url);
@@ -26,7 +31,8 @@ async function linkOk(url) {
 }
 async function crawl(ctx, who, extra) {
   for (const u of PAGES.concat(extra || [])) {
-    const p = await ctx.newPage(); let errs = [];
+    const p = await ctx.newPage(), t0 = Date.now(); let errs = [];
+    p.on("close", () => { if (process.env.CRAWL_TIMES) console.log(`    ${who} ${u}: ${((Date.now() - t0) / 1000).toFixed(1)} s`); });
     p.on("console", (m) => { if (m.type() === "error" && !/stripe|Failed to load resource: net::ERR_/.test(m.text())) errs.push("console: " + m.text().slice(0, 160)); });
     p.on("pageerror", (e) => errs.push("pageerror: " + e.message.slice(0, 160)));
     p.on("response", (r) => { const x = r.url(); if (r.status() >= 400 && x.startsWith(base) && !/favicon/.test(x)) errs.push(r.status() + " " + x.replace(base, "")); });
@@ -49,7 +55,8 @@ async function crawl(ctx, who, extra) {
     const n = await p.$$eval("button", (bs) => bs.length);
     for (let i = 0; i < n; i++) {
       const b = (await p.$$("button"))[i]; if (!b) continue;
-      const info = await b.evaluate((x) => ({ vis: !!(x.offsetParent) && !x.disabled, t: (x.textContent || x.getAttribute("aria-label") || "").trim().slice(0, 40), id: x.id }));
+      const info = await b.evaluate((x) => ({ vis: !!(x.offsetParent) && !x.disabled, t: (x.textContent || x.getAttribute("aria-label") || "").trim().slice(0, 40), id: x.id, pv: x.hasAttribute("data-pv") }));
+      if (info.pv) continue;   // (a 30-second preview streams from the libraries' release, which isn't here: v102-previews plays them)
       if (!info.vis || /sign out|delete|remove|log ?out|revoke|close the church|hand|step down|disconnect|reset|clear|pay|checkout|subscribe|buy|renew|send it again/i.test(info.t) || /signOut|acctOut/.test(info.id)) continue;
       clicks++;
       await b.click({ timeout: 2500, trial: false }).catch(() => {});
@@ -62,7 +69,7 @@ async function crawl(ctx, who, extra) {
   }
 }
 const visitor = await browser.newContext({ viewport: { width: 1280, height: 860 } });
-await crawl(visitor, "visitor"); await visitor.close();
+await crawl(visitor, "visitor", VISITOR); await visitor.close();
 async function signedIn(email, password, who, extra) {
   const r = await (await fetch(base + "/v1/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, device: "crawl-" + who }) })).json();
   if (!r.token) { note(`[${who}] sign-in failed: ${JSON.stringify(r).slice(0, 160)}`); return; }

@@ -17,7 +17,8 @@ for (const n of ["short-01", "short-02"]) {
   spawnSync(FF, ["-hide_banner", "-loglevel", "error", "-y", "-i", path.join(dir, n + ".mp4"), "-frames:v", "1", path.join(dir, n + ".jpg")]);
 }
 const words = "You are loved more than you know grace is not earned".split(" ").map((t, i) => ({ text: t, start: 600 + i * 0.4, end: 600 + i * 0.4 + 0.35 }));
-const data = { version: 1, recording: "2026-11-01 10.30 - Sunday", created: Date.now() - 3600e3, finished: Date.now() - 3000e3, settings: {}, hasWords: true, shorts: [
+const data = { version: 1, recording: "2026-11-01 10.30 - Sunday", created: Date.now() - 3600e3, finished: Date.now() - 3000e3, settings: {}, hasWords: true,
+  full: { worship: { kind: "worship", title: "Worship - November 1, 2026", description: "Songs:\n0:00 Amazing Grace\n4:10 Be Thou My Vision", file: "short-02.mp4", thumb: "short-02.jpg", seconds: 600, status: "new", posts: [], rendered: 1 } }, shorts: [
   { id: "sA", n: 1, kind: "sermon", start: 600, end: 640, seconds: 40, score: 0.8, why: "the AI rated it 9/10, the room responded", title: "You are loved more than you know", description: "From Sunday's message.", hashtags: ["#sermon"], words, status: "new", posts: [], file: "short-01.mp4", thumb: "short-01.jpg", rendered: 1 },
   { id: "sB", n: 2, kind: "worship", song: "Amazing Grace", label: "Chorus", start: 120, end: 155, seconds: 35, score: 0.7, why: "the chorus", title: "Amazing Grace (chorus) - live", description: "Worship.", hashtags: [], words: [], status: "new", posts: [], file: "short-02.mp4", thumb: "short-02.jpg", rendered: 1 }
 ] };
@@ -25,7 +26,10 @@ const recs = [
   { id: "/rec/2026-11-01 10.30 - Sunday", name: "2026-11-01 10.30 - Sunday", when: Date.now() - 7200e3, seconds: 5400, audio: "/rec/a/Stream mix.wav", video: "/v/Stream.mp4", markers: true, dir, shorts: 2 },
   { id: "/rec/2026-10-25 10.30 - Sunday", name: "2026-10-25 10.30 - Sunday", when: Date.now() - 8 * 864e5, seconds: 5000, audio: "/rec/b/Program.wav", video: null, markers: false, dir: path.join(tmp, "Shorts", "x"), shorts: 0 }
 ];
-const settings = { auto: true, useAI: true, minRecording: 10, count: 5, minLen: 30, maxLen: 60, sermonShare: 0.6, framing: "auto", background: "#16181d", accent: "#ffd23f", logo: "", logoCorner: "top-right", logoSize: 16, intro: "", outro: "", privacy: "public", hashtags: "", tiktokDirect: false, captions: { on: true, font: "Archivo SemiBold", size: 4.6, color: "#ffffff", highlight: "#ffd23f", outline: "#000000", position: "bottom", upper: false, words: 4, box: false } };
+const settings = { schedule: { auto: true, start: "", gapHours: 3, spreadMinutes: 10, times: [{ days: [0, 1, 2, 3, 4, 5, 6], time: "11:00" }], platforms: { youtube: { on: true, times: null }, instagram: { on: true, times: null }, facebook: { on: false, times: null }, tiktok: { on: false, times: null } } },
+  template: "{description}\n\nWatch the whole service: {link}\n\n{links}\n\n{hashtags}", linkMode: "live", linkUrl: "", links: "",
+  full: { speaker: "", scripture: "", links: "", hashtags: "", ccli: "", when: "slot", height: 1080, worship: { on: true, title: "Worship - {date}", privacy: "unlisted", playlist: "Worship", platforms: { youtube: true, facebook: false }, auto: false }, sermon: { on: false, title: "{sermon} - {speaker}", privacy: "public", playlist: "Sermons", platforms: { youtube: true, facebook: false }, auto: false } },
+  auto: true, useAI: true, minRecording: 10, count: 5, minLen: 30, maxLen: 60, sermonShare: 0.6, framing: "auto", background: "#16181d", accent: "#ffd23f", logo: "", logoCorner: "top-right", logoSize: 16, intro: "", outro: "", privacy: "public", hashtags: "", tiktokDirect: false, captions: { on: true, font: "Archivo SemiBold", size: 4.6, color: "#ffffff", highlight: "#ffd23f", outline: "#000000", position: "bottom", upper: false, words: 4, box: false } };
 // the stand-in for window.CU.shorts (the main process); every call is recorded
 const harness = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${path.join(here, "app", "style.css")}"><link rel="stylesheet" href="${path.join(here, "app", "shorts.css")}"></head>
 <body><section class="view active" id="view-shorts"><div id="shortsRoot" class="pad-view"></div></section><script>
@@ -41,13 +45,22 @@ window.CU = { shorts: {
   make: async (id) => (call("make", [id]), { isMain: true, settings: D.settings, job: { id, mode: "make", step: "start", pct: 0, text: "Starting" }, queued: [] }),
   cancel: async () => (call("cancel", []), { isMain: true, settings: D.settings, job: null, queued: [] }),
   update: async (id, sid, p) => { call("update", [id, sid, p]); const s = D.data.shorts.find((x) => x.id === sid); Object.assign(s, p.status ? { status: p.status } : {}, p.title ? { title: p.title } : {}, p.start != null ? { start: p.start, end: p.end } : {}); return s; },
-  remove: async (id, sid) => { call("remove", [id, sid]); D.data.shorts = D.data.shorts.filter((x) => x.id !== sid); return { ok: true }; },
+  remove: async (id, sid, why) => { call("remove", [id, sid, why]); D.data.shorts = D.data.shorts.filter((x) => x.id !== sid); return { ok: true }; },
   add: async (id, at) => (call("add", [id, at]), { isMain: true, settings: D.settings, job: null, queued: [] }),
   reveal: async (id) => call("reveal", [id]), download: async (id, sid) => (call("download", [id, sid]), { saved: "/home/me/Downloads/short.mp4" }), pickFile: async (k) => (call("pickFile", [k]), "/pics/logo.png"),
-  social: async (a) => (call("social", [a]), { platforms: { youtube: { available: true, connected: true, account: "Grace Church" }, facebook: { available: true, connected: false }, instagram: { available: true, connected: false }, tiktok: { available: false, connected: false } } }),
+  social: async (a) => (call("social", [a]), { platforms: { youtube: { available: true, connected: true, account: "Grace Church", avatar: "data:image/gif;base64,R0lGODlhAQABAAAAACw=" }, facebook: { available: true, connected: false }, instagram: { available: true, connected: false }, tiktok: { available: false, connected: false } } }),
   connect: async (p, a) => (call("connect", [p, a]), { opened: true }), disconnect: async (p, a) => (call("disconnect", [p, a]), { ok: true }),
   post: async (id, sid, p, a) => { call("post", [id, sid, p, a]); const s = D.data.shorts.find((x) => x.id === sid); const e = { platform: p, at: Date.now(), ok: true, id: "yt1", url: "https://www.youtube.com/shorts/yt1" }; s.posts.push(e); s.status = "posted"; return e; },
-  history: async () => [], openUrl: async (u) => call("openUrl", [u]), mark: (d) => call("mark", [d]), on: (f) => { fn = f; }
+  history: async () => [],
+  account: async (a) => (call("account", [a]), true),
+  queue: async () => (call("queue", []), { signedIn: true, items: [{ id: "q1", ref: "x#sA", shortId: "sA", platform: "youtube", title: "You are loved more than you know", dueAt: Date.now() + 864e5, status: "queued" }, { id: "q2", ref: "x#sA", shortId: "sA", platform: "instagram", title: "You are loved more than you know", dueAt: Date.now() - 600e3, status: "failed", error: "Instagram: Temporary problem", nextTry: Date.now() + 300e3 }, { id: "q3", ref: "x#sB", shortId: "sB", platform: "youtube", title: "Amazing Grace", status: "posted", postedAt: Date.now() - 3600e3, dueAt: Date.now() - 4000e3, result: { url: "https://www.youtube.com/shorts/x" } }] }),
+  queueAction: async (id, a) => (call("queueAction", [id, a]), true),
+  fullUpdate: async (id, k, p) => { call("fullUpdate", [id, k, p]); if (p.status) D.data.full[k].status = p.status; if (p.title) D.data.full[k].title = p.title; return D.data.full[k]; },
+  fullMake: async (id, k) => (call("fullMake", [id, k]), { isMain: true, settings: D.settings, job: null, queued: [] }),
+  stats: async (a, f) => { call("stats", [a, f]); const s = D.data.shorts.find((x) => x.id === "sB"); if (s && !s.posts.length) s.status = "posted", s.posts.push({ platform: "youtube", at: Date.now() - 864e5, ok: true, id: "ytB", url: "https://www.youtube.com/shorts/ytB", stats: { views: 1234, avgSeconds: 22.4, likes: 51, shares: 4 } }); return { checked: 1, updated: 1, errors: [] }; },
+  learned: async () => (call("learned", []), window.__learned || { lessons: 6, lines: ["Sermon shorts you keep run about 38 seconds.", "Likes stories and their payoff."] }),
+  resetLearning: async () => (call("resetLearning", []), (window.__learned = { lessons: 0, lines: ["Nothing yet. Every short you approve, trim, fix, delete or post teaches it what your church likes."] })),
+  openUrl: async (u) => call("openUrl", [u]), mark: (d) => call("mark", [d]), on: (f) => { fn = f; }
 } };
 window.__emit = (m) => fn && fn(m);
 </script><script src="${path.join(here, "app", "shorts.js")}"></script></body></html>`;
@@ -116,6 +129,18 @@ await check("Delete asks first, then the card is gone", async () => {
   await page.click('[data-ed="delete"]'); await page.click('dialog.ask [data-a="yes"]'); await page.waitForFunction(() => document.querySelectorAll(".sh-card").length === 1);
   assert.equal((await calls("remove")).pop()[2], "sA");
 });
+await check("(10.3) the posted short shows how it did; deleting another asks why (one tap, optional) and passes it on", async () => {
+  await page.click('.sh-card[data-open="sB"]'); await page.waitForSelector(".sh-ed");
+  await page.waitForFunction(() => /1,234 views · 22 s watched on average · 51 likes · 4 shares/.test((document.querySelector(".sh-hist") || {}).textContent || ""));
+  await page.click('[data-ed="delete"]'); assert.ok(!(await page.$("dialog.sh-del [data-why]")), "a posted short isn't a lesson: no reasons");
+  await page.click('dialog.ask [data-a="no"]');
+  await page.evaluate(() => { const s = window.CUShorts.state().data.shorts.find((x) => x.id === "sB"); s.status = "approved"; window.CUShorts.render(); });
+  await page.click('[data-ed="delete"]'); await page.click('dialog.sh-del [data-why="cutoff"]');
+  assert.ok(await page.$eval('dialog.sh-del [data-why="cutoff"]', (b) => b.classList.contains("on")));
+  await page.click('dialog.sh-del [data-a="yes"]'); await page.waitForFunction(() => window.calls.filter((c) => c[0] === "remove").length === 2);
+  const r = (await calls("remove")).pop(); assert.equal(r[2], "sB"); assert.equal(r[3], "cutoff");
+  assert.ok((await calls("stats")).length >= 1, "it read the numbers when the tab opened");
+});
 await check("Settings: how many, how long, the mix, the captions' look (with a preview), saved together", async () => {
   await page.click('[data-sh="settings"]'); await page.waitForSelector("dialog.sh-dlg");
   await page.fill('dialog.sh-dlg [name="count"]', "7"); await page.fill('dialog.sh-dlg [name="maxLen"]', "45");
@@ -125,7 +150,15 @@ await check("Settings: how many, how long, the mix, the captions' look (with a p
   if (process.env.SHORTS_SHOTS) await page.screenshot({ path: path.join(process.env.SHORTS_SHOTS, "shorts-settings.png") });
   await page.click('dialog.sh-dlg [data-pick="logo"]'); await page.waitForFunction(() => /logo\.png/.test(document.querySelector('[data-shown="logo"]').textContent));
   await page.click('dialog.sh-dlg button[value="save"]'); await page.waitForFunction(() => window.calls.some((c) => c[0] === "settings"));
-  const s = (await calls("settings")).pop()[1]; assert.equal(s.count, 7); assert.equal(s.maxLen, 45); assert.equal(s.sermonShare, 0.4); assert.equal(s.captions.highlight, "#ff3366"); assert.equal(s.captions.position, "top"); assert.equal(s.logo, "/pics/logo.png");
+  const s = (await calls("settings")).pop()[1]; assert.equal(s.learn, true); assert.equal(s.count, 7); assert.equal(s.maxLen, 45); assert.equal(s.sermonShare, 0.4); assert.equal(s.captions.highlight, "#ff3366"); assert.equal(s.captions.position, "top"); assert.equal(s.logo, "/pics/logo.png");
+});
+await check("(10.3) Settings → What the AI has learned: in plain words, and Reset learning (after asking)", async () => {
+  await page.click('[data-sh="settings"]'); await page.waitForFunction(() => /run about 38 seconds/.test((document.querySelector("[data-learned]") || {}).textContent || ""));
+  assert.match(await page.textContent("[data-lessons]"), /6 shorts to learn from/);
+  await page.click('dialog.sh-dlg [data-a="unlearn"]'); await page.click('dialog.ask [data-a="yes"]');
+  await page.waitForFunction(() => /Nothing yet/.test(document.querySelector("[data-learned]").textContent)); assert.equal((await calls("resetLearning")).length, 1);
+  await page.click('dialog.sh-dlg [name="learn"]'); await page.click('dialog.sh-dlg button[value="save"]');
+  await page.waitForFunction(() => window.calls.filter((c) => c[0] === "settings").length >= 2); assert.equal((await calls("settings")).pop()[1].learn, false);
 });
 await check("Accounts: YouTube connected, Facebook / Instagram to connect (one sign-in), TikTok not switched on yet", async () => {
   await page.click('[data-sh="accounts"]'); await page.waitForFunction(() => /Connected: Grace Church/.test((document.querySelector("dialog.sh-dlg") || {}).textContent || ""));
@@ -133,6 +166,39 @@ await check("Accounts: YouTube connected, Facebook / Instagram to connect (one s
   await page.click('dialog.sh-dlg [data-con="meta"]'); assert.equal((await calls("connect")).pop()[1], "meta");
   await page.click('dialog.sh-dlg [data-a="close"]');
 });
+await check("(10.3) the full worship video: a card above the shorts; Approve puts it in the queue", async () => {
+  await page.evaluate(() => window.CUShorts.refresh(true)); await page.waitForSelector('.sh-fcard[data-full="worship"]');
+  assert.match(await page.textContent(".sh-full"), /Worship - November 1, 2026/);
+  await page.click('.sh-fcard[data-full="worship"]'); await page.waitForSelector(".sh-fulldlg video");
+  await page.fill('.sh-fulldlg [data-f="title"]', "Sunday worship"); await page.click('.sh-fulldlg [data-a="approve"]');
+  await page.waitForFunction(() => window.calls.some((c) => c[0] === "fullUpdate")); const u = (await calls("fullUpdate")).pop(); assert.equal(u[2], "worship"); assert.equal(u[3].status, "approved"); assert.equal(u[3].title, "Sunday worship");
+});
+await check("(10.3) the posting queue: when each goes, Post now, a failure with Try again, the posted one's link", async () => {
+  await page.click('[data-sh="queue"]'); await page.waitForSelector(".sh-qt");
+  const t = await page.textContent(".sh-qt"); assert.match(t, /Tomorrow|[A-Z][a-z]{2}, [A-Z][a-z]{2} \d+/); assert.match(t, /Temporary problem/); assert.match(t, /trying again/); assert.match(t, /Posted/);
+  await page.click('[data-q="now"][data-id="q1"]'); await page.click('[data-q="retry"][data-id="q2"]');
+  const a = await calls("queueAction"); assert.deepEqual(a.map((x) => x.slice(1)), [["q1", "now"], ["q2", "retry"]]);
+  await page.click('.sh-qdlg [data-a="close"]');
+});
+await check("(10.3) Settings → Social media: the accounts with their pictures, the schedule (days and times, per platform), the description and its link, the full videos, saved together", async () => {
+  await page.evaluate(() => { const h = document.createElement("div"); h.innerHTML = window.CUShorts.socialCard(); document.body.appendChild(h); });
+  await page.waitForSelector("[data-social] [data-form] form"); await page.waitForSelector("[data-social] .sh-av");
+  const box = "[data-social] ";
+  await page.click(box + '[data-addtime="all"]'); const rows = await page.$$(box + '[data-times="all"] .sh-time'); assert.equal(rows.length, 2);
+  await page.$eval(box + '[data-times="all"] .sh-time:nth-child(2) [data-time]', (i) => { i.value = "18:30"; });
+  for (const d of [0, 1, 2, 3, 4, 5, 6]) { const c = await page.$(box + '[data-times="all"] .sh-time:nth-child(2) [data-day="' + d + '"]'); if ([1, 3, 5].includes(d) !== (await c.isChecked())) await c.click(); }
+  await page.click(box + '[data-pl="tiktok"] [data-plon]'); await page.click(box + '[data-pl="tiktok"] [data-plown]');
+  assert.equal(await page.$eval(box + '[data-pl="tiktok"] .sh-owntimes', (e) => e.hidden), false);
+  await page.fill(box + '[name="s_links"]', "gracechurch.org"); await page.selectOption(box + '[name="s_linkMode"]', "sermon");
+  await page.click(box + '[data-fullset="sermon"] [data-fk="on"]'); await page.click(box + '[data-fullset="sermon"] [data-fp="facebook"]'); await page.fill(box + '[name="f_speaker"]', "Pastor Ann");
+  await page.click(box + '[data-a="save"]'); await page.waitForFunction(() => window.calls.filter((c) => c[0] === "settings").length >= 3);
+  const sv = (await calls("settings")).pop()[1];
+  assert.deepEqual(sv.schedule.times, [{ days: [0, 1, 2, 3, 4, 5, 6], time: "11:00" }, { days: [1, 3, 5], time: "18:30" }]);
+  assert.equal(sv.schedule.platforms.tiktok.on, true); assert.ok(Array.isArray(sv.schedule.platforms.tiktok.times)); assert.equal(sv.schedule.platforms.youtube.times, null);
+  assert.equal(sv.links, "gracechurch.org"); assert.equal(sv.linkMode, "sermon"); assert.equal(sv.full.sermon.on, true); assert.equal(sv.full.sermon.platforms.facebook, true); assert.equal(sv.full.speaker, "Pastor Ann"); assert.equal(sv.full.worship.on, true);
+  if (process.env.SHORTS_SHOTS) await page.screenshot({ path: path.join(process.env.SHORTS_SHOTS, "social-settings.png"), fullPage: true });
+});
+await check("(10.3) the page hands the website sign-in to the posting queue", async () => { await page.waitForFunction(() => window.calls.some((c) => c[0] === "account"), null, { timeout: 8000 }); const a = (await calls("account")).pop()[1]; assert.deepEqual(a, { server: "https://example.test", token: "tok-1" }); });
 await check("on another computer than the main admin's it says where shorts are made", async () => {
   await page.evaluate(async () => { window.__isMain = false; await window.CUShorts.refresh(); }); assert.match(await page.textContent("#shortsRoot"), /made on the main admin's computer/);
 });

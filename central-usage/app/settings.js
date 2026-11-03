@@ -34,7 +34,7 @@
   // (10.2) Settings is one page: the groups on the left (in the same order in every app), a search box over them, and
   // every group's options down the right - the list jumps to a group and the search shows only what matches.
   var GROUPS = [["sound", "Sound"], ["screens", "Screens & displays"], ["look", "Look"], ["controls", "Controls"], ["network", "This computer & devices"],
-    ["planning", "Planning Center & CCLI"], ["lights", "Lights"], ["packages", "Packages & key"], ["updates", "Software updates"], ["about", "About"]];
+    ["planning", "Planning Center & CCLI"], ["lights", "Lights"], ["social", "Social media"], ["packages", "Packages & key"], ["updates", "Software updates"], ["about", "About"]];
   function link(title, text, tab, label) { return '<section class="card st-link"><h3>' + esc(title) + '</h3><p class="muted">' + esc(text) + '</p><button data-st-tab="' + tab + '">' + esc(label) + " →</button></section>"; }
   function shell(root) {
     if (root.querySelector(".st-page")) return;
@@ -58,6 +58,7 @@
         (admin && CU.role && CU.role() === "main" ? link("Every device on the team", "Computers, Central Pedals and phones: what each one does and whether it's online.", "devices", "Open Devices") : ""),
       planning: (admin && window.PPPlanningCenter ? window.PPPlanningCenter.settingsHtml("card") : "") + (!usage && window.PPCcli ? window.PPCcli.settingsHtml("card") : ""),
       lights: admin ? aiCard() : "",
+      social: admin && CU.role && CU.role() === "main" && window.CUShorts && window.CUShorts.socialCard ? window.CUShorts.socialCard() : "",   // (10.3: shorts, posting, full videos)
       packages: window.PPLicense ? window.PPLicense.settingsHtml("card") : "",
       updates: '<section class="card"><h3>Updates</h3><p class="muted">' + esc(CU.appName) + ' looks for a new version once a day and installs it only when you say so.</p><button data-st="updates">Check for updates…</button></section>',
       about: '<section class="card"><h3>About</h3><p>' + esc(CU.appName) + " " + esc(version && version.app || "") + '</p><p class="muted small">' + (usage ? "For the musicians and singers on the team: your chord chart, your instrument, the lyrics and your own in-ear mix." : "For the people running the service: lights, slides and lyrics, the tracks mixer, the in-ear mixes and the cameras.") + '</p>' +

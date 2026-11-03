@@ -86,11 +86,51 @@
       slider("High", "eq.hg", -18, 18, 0.5, e.hg, dbs) + slider("High freq", "eq.hf", 1000, 20000, 100, e.hf, hz) + '<button data-mxd="eqflat">Flat</button></div>' +
       '<div class="mx-dcol"><h4><label class="toggle"><input type="checkbox" data-mxd="comp.on"' + (c.on ? " checked" : "") + '> Compressor</label></h4><div class="mx-gr"><i></i><span>gain reduction</span></div>' +
       slider("Threshold", "comp.thr", -60, 0, 0.5, c.thr, dbs) + slider("Ratio", "comp.ratio", 1, 20, 0.5, c.ratio, function (v) { return Number(v).toFixed(1) + ":1"; }) + slider("Attack", "comp.att", 0.1, 200, 0.1, c.att, function (v) { return Number(v).toFixed(1) + " ms"; }) + slider("Release", "comp.rel", 5, 2000, 5, c.rel, function (v) { return Math.round(v) + " ms"; }) + slider("Make-up", "comp.makeup", 0, 24, 0.5, c.makeup, dbs) + "</div>" +
+      insertsCol(x) +
       '<div class="mx-dcol"><h4>FX sends <small class="muted">after the fader</small></h4>' + slider("Reverb", "fx.rev", -90, 10, 0.5, fx.rev, fxdb) + slider("Delay", "fx.dly", -90, 10, 0.5, fx.dly, fxdb) +
       '<p class="muted small">The reverb and delay are shared by every channel, like on a sound desk. Set them up under "Reverb & delay" below.</p>' +
       '<h4 class="mx-h4">In the stream mix</h4>' + slider("Level", "ss.level", -90, 10, 0.5, sd.level, fxdb) + slider("Pan", "ss.pan", -1, 1, 0.05, sd.pan, function (v) { v = Number(v); return Math.abs(v) < 0.02 ? "C" : (v < 0 ? "L " : "R ") + Math.round(Math.abs(v) * 100); }) +
       '<label class="toggle"><input type="checkbox" data-mxd="ss.on"' + (sd.on !== false ? " checked" : "") + "> On in the stream</label></div></div>";
   }
+  // (10.3) the channel's inserts: Motion Audio's Central FX plugins after its compressor (the better ones with Central Plugins)
+  function coll() { return window.CMFxCollection || []; }
+  function collOf(id) { return coll().filter(function (p) { return p.id === id; })[0]; }
+  function insLocked(p) { var P = window.PPPedals; return p.tier === "plugins" && !!(P && P.has) && !P.has("plugins"); }
+  function needsLine(t) { var L = window.PPLicense, n = L && L.needs ? L.needs(t) : "needs its plan"; return n.charAt(0).toUpperCase() + n.slice(1); }
+  function keepsTier(t) { var L = window.PPLicense; return !t || t === "free" || !L || !L.hasPlan ? true : !!(L.keeps ? L.keeps(t) : L.hasPlan(t)); }
+  // (10.3) a plan that ends during a song: the inserts it covers keep playing until the song is over, then they're
+  // bypassed (and marked) - and come back on by themselves when the plan does. Only the audio host does this.
+  function lapseInserts() {
+    if (X.kind !== "local" || !S()) return;
+    (S().inputs || []).forEach(function (x, i) {
+      var list = JSON.parse(JSON.stringify(x.ins || [])), changed = false;
+      list.forEach(function (q) { var p = collOf(q.id); if (!p || !p.tier) return; var ok = keepsTier(p.tier);
+        if (!ok && q.on !== false) { q.on = false; q.lapsed = true; changed = true; } else if (ok && q.lapsed) { q.on = true; delete q.lapsed; changed = true; } });
+      if (changed) X.op({ op: "inserts", i: i, list: list });
+    });
+  }
+  window.addEventListener("pp-plans", lapseInserts);
+  function insertsCol(x) {
+    var list = x.ins || [], fams = [];
+    coll().forEach(function (p) { if (fams.indexOf(p.family) < 0) fams.push(p.family); });
+    var add = list.length >= 4 ? '<p class="muted small">Up to 4 on a channel.</p>' : '<select data-mxi="add"><option value="">+ Add an insert…</option>' + fams.map(function (f) {
+      return '<optgroup label="' + esc(f[0].toUpperCase() + f.slice(1)) + '">' + coll().filter(function (p) { return p.family === f; }).map(function (p) { var lk = insLocked(p); return '<option value="' + esc(p.id) + '"' + (lk ? " disabled" : "") + ">" + (lk ? "🔒 " : "") + esc(p.name) + "</option>"; }).join("") + "</optgroup>";
+    }).join("") + "</select>";
+    var info = X.insertInfo || {};
+    return '<div class="mx-dcol mx-ins"><h4>Inserts <small class="muted">after the compressor</small></h4>' + list.map(function (q, k) {
+      var p = collOf(q.id), err = info[sel + ":" + k] && info[sel + ":" + k].error;
+      if (!p) return '<div class="mx-insone"><b>' + esc(q.id) + '</b> <span class="muted small">(not in this version)</span> <button data-mxi="del" data-k="' + k + '">Remove</button></div>';
+      return '<div class="mx-insone"><div class="row"><label class="toggle"><input type="checkbox" data-mxi="on" data-k="' + k + '"' + (q.on !== false ? " checked" : "") + "> <b>" + esc(p.name) + "</b></label>" +
+        (p.presets && p.presets.length ? '<select data-mxi="preset" data-k="' + k + '"><option value="">Starting point…</option>' + p.presets.map(function (pr, j) { return '<option value="' + j + '">' + esc(pr.name) + "</option>"; }).join("") + "</select>" : "") +
+        '<button data-mxi="del" data-k="' + k + '">Remove</button></div>' + (err ? '<p class="warn small">' + esc(err) + "</p>" : "") +
+        (q.lapsed ? '<p class="warn small" data-lapsed>' + esc(needsLine(p.tier)) + ": it's bypassed until the plan is active.</p>" : "") +
+        p.params.map(function (pa) { var v = q.values && q.values[pa.id] != null ? q.values[pa.id] : pa.default, step = (pa.max - pa.min) / 200;
+          return '<label class="mx-sl"><span>' + esc(pa.name) + '</span><input type="range" min="' + pa.min + '" max="' + pa.max + '" step="' + step + '" data-mxi="val" data-k="' + k + '" data-id="' + esc(pa.id) + '" value="' + v + '"><output>' + insFmt(v, pa.unit) + "</output></label>"; }).join("") + "</div>";
+    }).join("") + add + "</div>";
+  }
+  function insFmt(v, u) { v = Number(v); var a = Math.abs(v), t = u === "Hz" && a >= 1000 ? (v / 1000).toFixed(1) + " kHz" : (a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2)) + (u && u !== "Hz" ? " " + u : u === "Hz" ? " Hz" : ""); return t; }
+  function insList() { return JSON.parse(JSON.stringify((S().inputs[sel] && S().inputs[sel].ins) || [])); }
+  function insOp(list) { X.op({ op: "inserts", i: sel, list: list }); }
   function render(force) {
     var root = $("#mixRoot"); if (!root || !visible()) return;
     if (!(CU.isAdmin ? CU.isAdmin() : CU.mode() === "admin" || CU.mode() === "main")) { root.innerHTML = '<div class="card"><p>The Online mix tab is on admin computers.</p></div>'; return; }
@@ -194,6 +234,11 @@
     if (t.dataset.mx === "fader") { var d = Math.round(M.faderToDb(Number(t.value)) * 10) / 10; strip.querySelector(".mx-db").textContent = db(d); if (onStream()) send("sf" + i, { op: "streamSend", i: i, patch: { level: d } }); else send("f" + i, { op: "input", i: i, patch: { fader: d } }); }
     else if (t.dataset.mx === "pan") { var pv = strip.querySelector(".mx-panv"); if (pv) pv.textContent = panText(t.value); if (onStream()) send("sp" + i, { op: "streamSend", i: i, patch: { pan: Number(t.value) } }); else send("p" + i, { op: "input", i: i, patch: { pan: Number(t.value) } }); }
     else if (t.dataset.mxMain === "level") { var d2 = Math.round(M.faderToDb(Number(t.value)) * 10) / 10; $(".mx-mdb").textContent = db(d2); send("main", { op: "main", patch: { level: d2 } }); }
+    else if (t.dataset.mxi === "val") {
+      var il = insList(), q = il[Number(t.dataset.k)]; if (!q) return; q.values = q.values || {}; q.values[t.dataset.id] = Number(t.value);
+      var pa = (collOf(q.id) || { params: [] }).params.filter(function (z) { return z.id === t.dataset.id; })[0], o2 = t.parentNode.querySelector("output"); if (o2) o2.textContent = insFmt(t.value, pa && pa.unit);
+      send("ins" + sel + ":" + t.dataset.k, { op: "inserts", i: sel, list: il });
+    }
     else if (t.dataset.mxd && t.type === "range") {
       var k = t.dataset.mxd, v = Number(t.value), out = t.parentNode.querySelector("output"), patch = {};
       if (k.indexOf(".") > 0) { var p = k.split("."); patch[p[0]] = {}; patch[p[0]][p[1]] = v; } else patch[k] = v;
@@ -212,6 +257,9 @@
     if (t.dataset.mxListen === "sink") { window.CUListen.setSink(t.value); return; }
     if (t.dataset.mxListen === "tap") { if (listen.tap != null) startListen(tapOf(t.value)); return; }
     if (t.dataset.mxd === "preset") { var pr = (M.PRESETS || []).find(function (q) { return q.id === t.value; }); if (pr && sel >= 0) X.op({ op: "input", i: sel, patch: JSON.parse(JSON.stringify(pr.patch)) }); t.value = ""; return; }
+    if (t.dataset.mxi === "add") { var ad = collOf(t.value); if (ad && !insLocked(ad) && sel >= 0) { var la = insList(); la.push({ id: ad.id, on: true, values: {} }); insOp(la); } t.value = ""; return; }
+    if (t.dataset.mxi === "on") { var lo = insList(), qo = lo[Number(t.dataset.k)]; if (qo) { qo.on = t.checked; insOp(lo); } return; }
+    if (t.dataset.mxi === "preset") { var lp = insList(), qp = lp[Number(t.dataset.k)], pp2 = qp && collOf(qp.id), pr2 = pp2 && pp2.presets[Number(t.value)]; if (pr2) { qp.values = JSON.parse(JSON.stringify(pr2.values)); insOp(lp); } t.value = ""; return; }
     if (t.dataset.mxd === "ss.on") { X.op({ op: "streamSend", i: sel, patch: { on: t.checked } }); return; }
     if (t.hasAttribute("data-mx-all")) { showAll = t.checked; CU.store.set("mxAll", showAll); render(true); return; }
     if (t.dataset.mxd && t.type !== "range") {
@@ -223,6 +271,7 @@
     }
   });
   root.addEventListener("click", function (e) {
+    var di = e.target.closest && e.target.closest('[data-mxi="del"]'); if (di) { var ld = insList(); ld.splice(Number(di.dataset.k), 1); insOp(ld); return; }
     var b = e.target.closest("button,.mx-name"); if (!b) return; var s = S();
     if (b.dataset.mxGo) { CU.showTab(b.dataset.mxGo); return; }
     if (!s) return;
@@ -242,6 +291,7 @@
   // the delay follows the song's tempo (the Central Pedal's BPM) - the audio host passes it to its engine
   setInterval(function () { var d = CU.state && CU.state.display; if (X.kind === "local" && window.CU && window.CU.mixer && window.CU.mixer.tempo && d && d.bpm) window.CU.mixer.tempo(Number(d.bpm)); }, 1000);
   X.on("pi", function () { render(); });
+  X.on("insert", function (e) { if (visible() && e && e.i === sel) render(true); });   // (10.3) an insert that didn't load says why
   CU.on("tab", function (t) { if (t === "mix") setTimeout(function () { render(true); }, 0); });
   window.CUMixTab = { render: render };
 })();

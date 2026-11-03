@@ -1,0 +1,122 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "truepeak-limiter",
+ "name": "True-Peak Limiter",
+ "author": "Motion Audio",
+ "family": "limiter",
+ "tier": "plugins",
+ "description": "A transparent mastering limiter: it looks ahead to catch peaks smoothly and counts the peaks between samples, so the ceiling holds after any conversion.",
+ "params": [
+  {
+   "id": "input",
+   "name": "Input",
+   "min": 0,
+   "max": 18,
+   "default": 3,
+   "unit": "dB"
+  },
+  {
+   "id": "ceiling",
+   "name": "Ceiling",
+   "min": -12,
+   "max": 0,
+   "default": -1,
+   "unit": "dB"
+  },
+  {
+   "id": "release",
+   "name": "Release",
+   "min": 10,
+   "max": 800,
+   "default": 100,
+   "unit": "ms",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Streaming (-1 dBTP)",
+   "values": {
+    "input": 3,
+    "ceiling": -1,
+    "release": 100
+   }
+  },
+  {
+   "name": "Loud master",
+   "values": {
+    "input": 8,
+    "ceiling": -1,
+    "release": 60
+   }
+  },
+  {
+   "name": "Broadcast",
+   "values": {
+    "input": 4,
+    "ceiling": -2,
+    "release": 150
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "g",
+    "type": "gain",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "gain": {
+      "param": "input"
+     }
+    }
+   },
+   {
+    "id": "lim",
+    "type": "limiter",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "detect": "truepeak",
+     "lookahead": 5,
+     "ceiling": {
+      "param": "ceiling"
+     },
+     "release": {
+      "param": "release"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "g.in"
+   },
+   {
+    "from": "g.out",
+    "to": "lim.in"
+   },
+   {
+    "from": "lim.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

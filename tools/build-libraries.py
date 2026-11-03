@@ -172,7 +172,7 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
             arc = "loops/%s/%s" % (ls["set"], e["file"])
             item = {"kind": "loop", "name": e["name"], "set": ls["set"], "group": ls["name"], "file": arc, "tier": tier, "size": os.path.getsize(src), "sha256": sha256_file(src),
                     "license": ls.get("license", ""), "credit": ls.get("credit", "")}
-            for k in ("bpm", "meter", "bars", "key", "seconds"):
+            for k in ("bpm", "meter", "bars", "key", "seconds", "gate"):
                 if e.get(k) is not None:
                     item[k] = e[k]
             items.append(item)
@@ -330,7 +330,7 @@ def vcsl_presets():
 def loop_names(lib):
     """What a library's loops will be, before they're made (tools/make-loops.py's lists)."""
     ml = _load("tools/make-loops.py", "make_loops")
-    names = {"drums": [g[0] for g in ml.GROOVES], "ambient": list(ml.AMBIENT)}
+    names = {"drums": [g[0] for g in ml.GROOVES], "ambient": list(ml.AMBIENT), "pulse": [p[0] for p in _load("tools/pad_voices.py", "pad_voices").PULSES]}
     return ["%s: %s" % (ls["name"], n) for ls in lib.get("loops") or [] for n in names.get(ls["set"], [])]
 
 
@@ -376,7 +376,7 @@ def expected_previews(lib, banks, base_url=DEFAULT_BASE):
     for p in lib.get("pads") or []:
         add("pad", p["name"])
     ml = _load("tools/make-loops.py", "make_loops")
-    names = {"drums": list(dict.fromkeys(g[0] for g in ml.GROOVES)), "ambient": list(ml.AMBIENT)}
+    names = {"drums": list(dict.fromkeys(g[0] for g in ml.GROOVES)), "ambient": list(ml.AMBIENT), "pulse": [p[0] for p in _load("tools/pad_voices.py", "pad_voices").PULSES]}
     for ls in lib.get("loops") or []:
         add("loops", ls["name"], set=ls["set"])
         for n in names.get(ls["set"], []):

@@ -9,6 +9,14 @@ const starHtml = (n) => `<span class="stars" aria-label="${n} of 5 stars">${"★
 let token = null; try { token = localStorage.getItem("ma-token"); } catch {}
 let me = null, cfg = { payments: false }, tracks = [];
 const cart = {};
+// (10.3) every page of the site has the cart: this script runs on all of them. The home page has the account, the
+// library and publishing; /pricing/ has the store; the app and sound pages have buttons that add to the cart.
+const PAGE = document.body.dataset.page || (location.pathname === "/" || location.pathname === "/index.html" ? "home" : "page");
+const on = (sel, ev, fn) => { const el = document.querySelector(sel); if (el) el.addEventListener(ev, fn); return el; };
+let restoredCart = null;
+try { restoredCart = JSON.parse(localStorage.getItem("ma-cart") || "null"); if (restoredCart && Date.now() - (restoredCart.t || 0) > 30 * 864e5) restoredCart = null; } catch { restoredCart = null; }
+let pendingPromo = null;   // (the code from the last page, while it's checked again)
+if (restoredCart && restoredCart.cart) for (const k of Object.keys(restoredCart.cart)) { const n = Math.floor(+restoredCart.cart[k]); if (/^[\w-]{1,40}$/.test(k) && n > 0 && n <= 50) cart[k] = n; }
 
 async function api(method, path, body) {
   const h = { "Content-Type": "application/json" }; if (token) h.Authorization = "Bearer " + token;
@@ -20,7 +28,12 @@ async function api(method, path, body) {
 }
 function setToken(t) { token = t; try { t ? localStorage.setItem("ma-token", t) : localStorage.removeItem("ma-token"); } catch {} if (window.SiteContent && window.SiteContent.checkEditor) window.SiteContent.checkEditor(); }
 
-function toast(m) { document.querySelectorAll(".toast").forEach((t) => t.remove()); const d = document.createElement("div"); d.className = "toast"; d.setAttribute("role", "status"); d.textContent = m; document.body.appendChild(d); setTimeout(() => d.remove(), 3200); }   // (one at a time: a new one replaces the last)
+function toast(m, action) {   // (one at a time: a new one replaces the last; 10.3: with a button, such as View cart)
+  document.querySelectorAll(".toast").forEach((t) => t.remove()); const d = document.createElement("div"); d.className = "toast"; d.setAttribute("role", "status"); d.textContent = m;
+  if (action) { const b = document.createElement("button"); b.type = "button"; b.className = "btn small brass"; b.style.marginLeft = ".8rem"; b.textContent = action.label; b.onclick = () => { d.remove(); action.fn(); }; d.appendChild(b); }
+  document.body.appendChild(d); setTimeout(() => d.remove(), action ? 5000 : 3200);
+}
+const viewCart = { label: "View cart", fn: () => openCart() };
 function modal(html) {
   $("#modalHost").innerHTML = `<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
   $("#modalHost .modal-bg").addEventListener("click", (e) => { if (e.target.classList.contains("modal-bg") || e.target.closest("[data-close]")) closeModal(); });
@@ -83,7 +96,13 @@ function supportForm(note) {
     catch (err) { $("#spErr").textContent = err.message; }
   };
 }
-function needSignIn(why) { location.hash = "account"; renderAccount(why || "Sign in or make an account to continue."); }
+function needSignIn(why) {
+  if (!$("#acctBody")) {   // (10.3: another page - sign in on the home page, then come back here with the cart as it was)
+    try { sessionStorage.setItem("ma-after-signin", location.pathname); sessionStorage.setItem("ma-signin-why", why || ""); if (cartCount()) sessionStorage.setItem("ma-open-cart", "1"); } catch {}
+    location.href = "/#account"; return;
+  }
+  location.hash = "account"; renderAccount(why || "Sign in or make an account to continue.");
+}
 
 // ---------------------------------------------------------------- the payment form (Stripe, on this page)
 // Checkout Studio's embedded form (ui_mode "form"): the server starts a Checkout Session and answers its client secret;
@@ -174,19 +193,34 @@ function rowCard(p) {   // an app on its own: a row of the price list
 function renderSale() {   // the strip under the header while a sale is on
   const el = $("#saleBar"), x = cfg.sale; if (!el) return;
   el.hidden = !x;
-  if (x) el.innerHTML = `<div class="wrap"><b>${esc(x.name)}: ${x.percent}% off</b><span>${esc(x.banner || "Everything but the built pedal.")}${x.endsAt ? " Until " + new Date(x.endsAt).toLocaleDateString(undefined, { month: "long", day: "numeric" }) + "." : ""}</span>${x.preview ? `<span class="pv">Preview: only staff see this</span>` : ""}<a href="#store">Shop the sale</a></div>`;
+  if (x) el.innerHTML = `<div class="wrap"><b>${esc(x.name)}: ${x.percent}% off</b><span>${esc(x.banner || "Everything but the built pedal.")}${x.endsAt ? " Until " + new Date(x.endsAt).toLocaleDateString(undefined, { month: "long", day: "numeric" }) + "." : ""}</span>${x.preview ? `<span class="pv">Preview: only staff see this</span>` : ""}<a href="/pricing/">Shop the sale</a></div>`;
+}
+// (10.3) a price anywhere on the site: <span data-price-of="pedal | plan-keys | plan-all | subscription">
+function priceCents(id) {
+  if (id === "subscription") return cfg.subscription && cfg.subscription.cents ? cfg.subscription.cents : 7700;
+  if (id === "plan-all") return cfg.planAll ? cfg.planAll.cents : 0;
+  if (id.startsWith("plan-")) return cfg.plans && cfg.plans[id.slice(5)] ? cfg.plans[id.slice(5)].cents : 0;
+  return P_(id) ? P_(id).cents : 0;
+}
+function fillPrices() {
+  if (!cfg.products) return;
+  document.querySelectorAll("[data-price-of]").forEach((el) => {
+    const id = el.dataset.priceOf, c = priceCents(id); if (!c) return;
+    const sale = cfg.sale && (id.startsWith("plan-") ? true : id === "subscription" ? false : saleOn(id));
+    el.innerHTML = sale ? `<s>${dollars(c / 100)}</s> ${dollars((id.startsWith("plan-") ? firstYear(c) : Math.round(c * (100 - cfg.sale.percent)) / 100) / 100)}` : dollars(c / 100);
+  });
 }
 function renderRack() {
   if (!cfg.products) return;
   if (window.SiteContent && window.SiteContent.editing()) return;   // (not while the page is being edited)
   const shown = (p) => P_(p.id) && !P_(p.id).hidden;
-  renderSale();
-  $("#pedalBuy").innerHTML = products.filter((p) => p.id === "pedal" && shown(p)).map(pedalCard).join("");
-  $("#packs").innerHTML = packs.filter(shown).map(packCard).join("");
-  $("#packs").hidden = !$("#packs").innerHTML;
-  $("#packs").style.setProperty("--n", packs.filter(shown).length);
-  $("#rack").innerHTML = products.filter((p) => p.id !== "pedal" && shown(p)).map(rowCard).join("");
-  renderPlanPrice(); renderPlans();
+  renderSale(); fillPrices();
+  const pb = $("#pedalBuy"), pk = $("#packs"), rk = $("#rack");
+  if (pb) pb.innerHTML = products.filter((p) => p.id === "pedal" && shown(p)).map(pedalCard).join("");
+  if (pk) { pk.innerHTML = packs.filter(shown).map(packCard).join(""); pk.hidden = !pk.innerHTML; pk.style.setProperty("--n", packs.filter(shown).length); }
+  if (rk) rk.innerHTML = products.filter((p) => p.id !== "pedal" && shown(p)).map(rowCard).join("");
+  renderPlanPrice(); renderPlans(); markPlanButtons();
+  if (typeof window.onShopRender === "function") window.onShopRender();
 }
 // ---------------------------------------------------------------- sound plans (yearly, as package keys)
 // Your own plans (one package key, emailed to you) or a church bundle (a key for each person, given out on Teams).
@@ -213,7 +247,7 @@ function planListen(id) {
   const pick = [], kinds = id === "pedals" ? ["ir"] : id === "pads" ? ["pad", "loops"] : ["sound", "preset", "pad", "loops", "ir"];
   for (const k of kinds) for (const pv of lib.previews) if (pv.kind === k && pick.length < 3 && !pick.some((x) => x.kind === pv.kind && (x.preset || x.name).split(" ")[0] === (pv.preset || pv.name).split(" ")[0])) pick.push(pv);
   if (!pick.length) return "";
-  return `<div class="plan-listen"><span class="muted">Hear it:</span>${pick.map((pv) => PPPreview.button(pv, pv.kind === "sound" ? pv.preset : pv.name, "btn small ghost")).join("")}<a href="#downloads" class="muted" data-dl-libs="${esc(id)}">${lib.previews.length} more</a></div>`;
+  return `<div class="plan-listen"><span class="muted">Hear it:</span>${pick.map((pv) => PPPreview.button(pv, pv.kind === "sound" ? pv.preset : pv.name, "btn small ghost")).join("")}<a href="/sounds/${esc(id)}/" class="muted" data-dl-libs="${esc(id)}">${lib.previews.length} more</a></div>`;
 }
 function renderPlans() {
   if (!cfg.plans || !$("#planCards")) return;
@@ -232,15 +266,31 @@ function renderPlans() {
   $("#planBundles").innerHTML = Object.entries(cfg.planBundles || {}).map(([n, c]) => `<div class="bundle-row"><b>${n} people</b><span class="muted">${usd(Math.round(c / n))} a person</span><div class="price">${cfg.sale ? `<s>${usd(c)}</s> <span class="now">${usd(firstYear(c))}</span><small>the first year</small>` : `${usd(c)}<small>a year</small>`}</div>
     <button class="btn small ghost" data-bundle="${n}"${planCart.bundle === Number(n) ? " disabled" : ""}>${planCart.bundle === Number(n) ? "In your cart" : "Add to cart"}</button></div>`).join("");
 }
-$("#store").addEventListener("click", (e) => {
+// (10.3) any page: a [data-plan] or [data-bundle] button adds it (the plan pages, the store, the "which plan" helper)
+function addPlan(id, quiet) {
+  if (!cfg.plans || (id !== "all" && !cfg.plans[id])) return false;
+  if (planCart.plans.includes(id) || (planCart.plans.includes("all") && id !== "all")) { if (!quiet) toast(planCart.plans.includes("all") ? "All plans is in your cart: it has that one" : "It's in your cart", viewCart); return false; }
+  planCart.plans = id === "all" ? ["all"] : planCart.plans.filter((x) => x !== "all" && !(soundPlan(id) && x === "pads")).concat(id);
+  const every = id !== "all" && planIds().filter(soundPlan).every((x) => planCart.plans.includes(x));   // (10.2: every sound plan costs more than All plans, which has Central Utility too)
+  if (every) planCart.plans = ["all"];
+  updateCartBtn(); renderPlans(); markPlanButtons();
+  if (!quiet) toast(every ? "That's every sound plan: All plans costs less and has Central Utility too, so it's in your cart instead" : soundPlan(id) ? "Added to cart (with Central Pads)" : "Added to cart", viewCart);
+  return true;
+}
+function addBundle(n, quiet) { if (!cfg.planBundles || !cfg.planBundles[n]) return false; planCart.bundle = Number(n); updateCartBtn(); renderPlans(); if (!quiet) toast("Added to cart (one bundle at a time)", viewCart); return true; }
+// buttons outside the store say when they're in the cart
+function markPlanButtons() {
+  document.querySelectorAll("[data-plan]:not(#planCards [data-plan]):not(#planAll [data-plan])").forEach((b) => {
+    const id = b.dataset.plan, inCart = planCart.plans.includes(id) || (id !== "all" && planCart.plans.includes("all")) || (id === "pads" && padsIncluded());
+    if (!b.dataset.label) b.dataset.label = b.textContent;
+    b.textContent = id === "pads" && padsIncluded() && !planCart.plans.includes("pads") ? "Included with your plan" : inCart ? "In your cart" : b.dataset.label;
+  });
+}
+document.addEventListener("click", (e) => {
+  if (window.SiteContent && window.SiteContent.editing && window.SiteContent.editing()) return;
   const p = e.target.closest("[data-plan]"), b = e.target.closest("[data-bundle]");
-  if (p && !p.disabled) {
-    const id = p.dataset.plan; planCart.plans = id === "all" ? ["all"] : planCart.plans.filter((x) => x !== "all" && !(soundPlan(id) && x === "pads")).concat(id);
-    const every = id !== "all" && planIds().filter(soundPlan).every((x) => planCart.plans.includes(x));   // (10.2: every sound plan costs more than All plans, which has Central Utility too)
-    if (every) planCart.plans = ["all"];
-    updateCartBtn(); renderPlans(); toast(every ? "That's every sound plan: All plans costs less and has Central Utility too, so it's in your cart instead" : soundPlan(id) ? "Added to cart (with Central Pads)" : "Added to cart");
-  }
-  if (b && !b.disabled) { planCart.bundle = Number(b.dataset.bundle); updateCartBtn(); renderPlans(); toast("Added to cart (one bundle at a time)"); }
+  if (p && !p.disabled) { e.preventDefault(); addPlan(p.dataset.plan); }
+  if (b && !b.disabled) { e.preventDefault(); addBundle(b.dataset.bundle); }
 });
 // the plans' part of the cart
 function planCartHtml() {
@@ -285,17 +335,31 @@ function renderPlanPrice() {
 }
 const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0) + planCart.plans.length + (planCart.bundle ? 1 : 0);
 const storeCount = () => Object.values(cart).reduce((a, b) => a + b, 0);
-function updateCartBtn() { const n = cartCount(); $("#cartBtn").innerHTML = `Cart <span class="count">${n}</span>`; $("#cartBtn").classList.toggle("has", n > 0); }
+function updateCartBtn() {
+  const n = cartCount(), b = $("#cartBtn");
+  if (b) { b.innerHTML = `Cart <span class="count">${n}</span>`; b.classList.toggle("has", n > 0); b.setAttribute("aria-label", "Cart, " + n + " item" + (n === 1 ? "" : "s")); }
+  // (10.3) the cart follows you from page to page (this browser, 30 days)
+  try { if (n || promo) localStorage.setItem("ma-cart", JSON.stringify({ t: Date.now(), cart, plans: planCart.plans, bundle: planCart.bundle, promo: promo ? promo.code : pendingPromo })); else localStorage.removeItem("ma-cart"); } catch {}
+}
 function onAdd(e) {
   const a = e.target.closest("[data-add]"); if (!a || a.disabled) return;
+  if (window.SiteContent && window.SiteContent.editing && window.SiteContent.editing()) return;
   const id = a.dataset.add, base = P_(id) && P_(id).addonFor;
+  if (!cfg.products) return toast("One moment: the prices are still loading.");
+  if (!P_(id) || P_(id).hidden) return toast("That isn't for sale right now.");
   if (base && (cart[id] || 0) >= (cart[base] || 0) + ownedOf(base) - ownedOf(id)) return toast(cart[id] ? "One for each " + nameOf(base) + "." : "Add " + nameOf(base) + " first: these slots go with it.");
-  cart[id] = (cart[id] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart");
+  cart[id] = (cart[id] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart: " + (cart[id] > 1 ? cart[id] + " × " : "") + nameOf(id), viewCart);
 }
-$("#rack").addEventListener("click", onAdd); $("#packs").addEventListener("click", onAdd); $("#pedalBuy").addEventListener("click", onAdd);
+document.addEventListener("click", onAdd);
 let promo = null;   // the code in the cart: { code, percent } or { code, trial, days }
 let forWho = null;  // the store items: "me" (Just me) or "church" (a church or team)
-$("#cartBtn").onclick = () => openCart();
+on("#cartBtn", "click", () => openCart());
+let promoReady = Promise.resolve();
+if (restoredCart) {   // (the plans and the code from the last page)
+  const ps = Array.isArray(restoredCart.plans) ? restoredCart.plans.filter((x) => /^[a-z]{2,20}$/.test(x)) : [];
+  planCart.plans = ps; planCart.bundle = Number(restoredCart.bundle) || 0;
+  if (restoredCart.promo && /^[\w-]{1,40}$/.test(restoredCart.promo)) { pendingPromo = restoredCart.promo; promoReady = api("GET", "/discount/" + encodeURIComponent(restoredCart.promo)).then((d) => { if (!d.used) promo = d; }).catch(() => {}).then(() => { pendingPromo = null; updateCartBtn(); }); }
+}
 const nameOf = (id) => (P_(id) ? P_(id).name : id);
 const ownedOf = (id) => (me && me.church && me.church.owned ? me.church.owned[id] || 0 : 0);
 function fitAddons() {   // an add-on can't outnumber its pack (in the cart, or bought before)
@@ -353,7 +417,7 @@ function openCart(note) {
         return modal(`<h3>Your free trial has started!</h3><p style="margin:0"><b>${esc(t.church)}</b> has everything until <b>${new Date(t.until).toLocaleDateString()}</b>: unlimited keys, Central Services, Central Tracks Unlimited and all four sound plans.</p>
           ${t.packageKey ? `<p style="margin:0">Your sound plans package key (it's in your email too): <code style="user-select:all;font-weight:600">${esc(t.packageKey)}</code>. In any app: <b>Settings → Packages → Add a package</b>, and paste it. Give your team theirs on the <b>Teams</b> card.</p>` : ""}
           <p style="margin:0">Make keys as you need them: on the <b>Teams</b> card add your admins, users and Pedal Control people (each gets an email with their key), or press <b>+ Admin key</b>, <b>+ User key</b> or <b>+ Pedal Control key</b> on your church's page.</p>
-          <p class="muted" style="margin:0;font-size:.9rem">Get the apps on the <a href="#downloads" data-close>Downloads</a> page.</p><a class="btn" href="#account" data-close>Go to my church</a>`);
+          <p class="muted" style="margin:0;font-size:.9rem">Get the apps on the <a href="/#downloads" data-close>Downloads</a> page.</p><a class="btn" href="/#account" data-close>Go to my church</a>`);
       } catch (e) { $("#coErr").textContent = e.message; $("#checkout").disabled = false; return; }
     }
     const body = { items: cart, for: forMe ? "me" : "church", church: needChurch && $("#coChurch") ? $("#coChurch").value.trim() : undefined, code: promo && promo.percent ? promo.code : undefined };
@@ -367,30 +431,34 @@ function wirePromo() {
     try {
       const d = await api("GET", "/discount/" + encodeURIComponent(c));
       if (d.used) throw new Error(d.trial ? "Your church already had its free trial." : "Your church already used " + d.code + ".");
-      promo = d; openCart("✓ " + d.code + ": " + d.label);
+      promo = d; updateCartBtn(); openCart("✓ " + d.code + ": " + d.label);   // (10.3: saved with the cart, for the next page)
     } catch (e) { $("#pcErr").className = "err"; $("#pcErr").textContent = e.message; }
   };
   if ($("#pcApply")) $("#pcApply").onclick = apply;
   if ($("#pcCode")) $("#pcCode").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); apply(); } };
-  if ($("#pcClear")) $("#pcClear").onclick = () => { promo = null; openCart(); };
+  if ($("#pcClear")) $("#pcClear").onclick = () => { promo = null; updateCartBtn(); openCart(); };
 }
 
 // ---------------------------------------------------------------- subscription + library
 function renderSub() {
-  const on = !!(me && me.subscribed);
-  $("#subStatus").textContent = on ? "Subscribed · unlimited adds" : "Not subscribed";
-  $("#subStatus").classList.toggle("on", on);
-  $("#subBtn").textContent = on ? "Manage subscription" : "Subscribe for " + dollars(subPrice()) + " a month";
+  const subbed = !!(me && me.subscribed);
+  document.querySelectorAll("[data-subscribe]").forEach((b) => (b.textContent = subbed ? "Manage subscription" : "Subscribe for " + dollars(subPrice()) + " a month"));
+  if (!$("#subStatus")) return;
+  $("#subStatus").textContent = subbed ? "Subscribed · unlimited adds" : "Not subscribed";
+  $("#subStatus").classList.toggle("on", subbed);
+  $("#subBtn").textContent = subbed ? "Manage subscription" : "Subscribe for " + dollars(subPrice()) + " a month";
 }
-$("#subBtn").onclick = async () => {
+document.addEventListener("click", (e) => { const b = e.target.closest("#subBtn,[data-subscribe]"); if (b) { e.preventDefault(); subscribe(); } });
+async function subscribe() {
   if (!me) return needSignIn("Sign in to subscribe to Central Tracks Unlimited.");
   if (!cfg.payments) return paymentsSoon();
   if (me.subscribed) { try { go((await api("POST", "/billing")).url); } catch (e) { toast(e.message); } return; }
   const forChurch = me.church && isMainRole(me.church.role);
   openCheckout("Central Tracks Unlimited", dollars(subPrice()) + " a month, tax included" + (forChurch ? " · for everyone in " + esc(me.church.name) : "") + ". Cancel any time.", () => api("POST", "/checkout/subscription"));
-};
+}
 let searchTimer = 0;
 async function loadTracks() {
+  if (!$("#tbody")) return;
   try { tracks = (await api("GET", "/tracks?q=" + encodeURIComponent($("#q").value.trim()) + "&kind=" + encodeURIComponent($("#kindF").value))).tracks; }
   catch (e) { tracks = []; $("#tbody").innerHTML = `<tr><td colspan="6" class="muted">${esc(e.message)}</td></tr>`; return; }
   renderTracks();
@@ -406,8 +474,8 @@ function renderTracks() {
       <td><span class="kind">${esc(t.kind)}</span></td><td>${starHtml(t.stars)}</td><td class="num">${esc(t.key || "—")}</td><td class="num">${t.bpm || "—"}</td><td class="act">${act}</td></tr>`;
   }).join("");
 }
-$("#q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadTracks, 250); });
-$("#kindF").onchange = loadTracks;
+on("#q", "input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadTracks, 250); });
+on("#kindF", "change", loadTracks);
 let demoAudio = null;   // a Sound, Board or Click's demo clip (anyone can listen)
 async function playDemo(btn) {
   if (demoAudio) { demoAudio.pause(); const was = demoAudio.dataset.id; document.querySelectorAll("[data-demo]").forEach((x) => (x.textContent = "▶ Demo")); demoAudio = null; if (was === btn.dataset.demo) return; }
@@ -418,7 +486,7 @@ async function playDemo(btn) {
     await demoAudio.play();
   } catch (e) { btn.textContent = "▶ Demo"; toast(e.message || "The demo couldn't play."); }
 }
-$("#tbody").addEventListener("click", async (e) => {
+on("#tbody", "click", async (e) => {
   const dm = e.target.closest("[data-demo]"); if (dm) return playDemo(dm);
   const s = e.target.closest("[data-store]"), b = e.target.closest("[data-buy]");
   if (!s && !b) return;
@@ -446,13 +514,15 @@ async function buyFromLink(id) {
 
 // ---------------------------------------------------------------- publishing
 let grade = 0;
-function renderTiers() { $("#tiers").innerHTML = [1, 2, 3, 4, 5].map((n) => `<div class="${n === grade ? "on" : ""}">${n}★<br>$${TIER[n]}</div>`).join(""); }
-function setPrice() { $("#pPrice").value = grade ? money(TIER[grade]) : ""; $("#pubBtn").disabled = !grade; calc(); }
+const HAS_PUBLISH = !!document.querySelector("#pubForm");   // (the home page's Publish a track)
+function renderTiers() { if (!HAS_PUBLISH) return; $("#tiers").innerHTML = [1, 2, 3, 4, 5].map((n) => `<div class="${n === grade ? "on" : ""}">${n}★<br>$${TIER[n]}</div>`).join(""); }
+function setPrice() { if (!HAS_PUBLISH) return; $("#pPrice").value = grade ? money(TIER[grade]) : ""; $("#pubBtn").disabled = !grade; calc(); }
 function calc() {
+  if (!HAS_PUBLISH) return;
   const per = (grade ? TIER[grade] : 0) * 0.75; $("#perBuy").textContent = money(per);
   $("#exTotal").textContent = money(per * (+$("#exBuys").value || 0) + subPrice() * 100 * 0.5 * Math.min(100, Math.max(0, +$("#exAdds").value || 0)) / 100);
 }
-["#exBuys", "#exAdds"].forEach((s) => $(s).addEventListener("input", calc));
+["#exBuys", "#exAdds"].forEach((s) => on(s, "input", calc));
 
 // quick estimate in the browser; the server sets the final grade
 async function estimateGrade(file) {
@@ -486,7 +556,7 @@ async function estimateGrade(file) {
   return { stars: Math.max(1, Math.min(5, score)), checks };
 }
 function showChecks(list, key) { $("#gChecks").innerHTML = list.map((c) => `<div class="${c.ok ? "" : "bad"}">${c.ok ? "✓" : "✗"} ${esc(c[key])}</div>`).join(""); }
-$("#pFile").addEventListener("change", async (e) => {
+on("#pFile", "change", async (e) => {
   const f = e.target.files[0]; if (!f) return; grade = 0; renderTiers(); setPrice();
   $("#gLabel").textContent = "Quality grade · estimate"; $("#gStars").textContent = "Grading…"; $("#gChecks").innerHTML = "<div>Listening to " + esc(f.name) + "…</div>";
   try { const g = await estimateGrade(f); grade = g.stars; $("#gStars").innerHTML = starHtml(grade); showChecks(g.checks, "txt"); }
@@ -509,7 +579,7 @@ function uploadFile(file, onProgress) {  // signed link → straight to storage,
 // Sound, Board and Click: the file the apps install, plus a short demo clip (graded: its stars set the price)
 const ITEM_WHAT = { Sound: ["The sound itself: an .sf2, or a zip of samples", ".sf2,.zip"], Board: ["The pedal board preset (.json)", ".json"], Click: ["The click and count-in set: a zip of WAVs", ".zip"] };
 const isItem = () => !!ITEM_WHAT[$("#pKind").value];
-$("#pKind").addEventListener("change", () => {
+on("#pKind", "change", () => {
   const w = ITEM_WHAT[$("#pKind").value];
   $("#pItemL").hidden = !w; $("#pStemsL").hidden = !!w; $("#pItem").required = !!w;
   if (w) { $("#pItemT").textContent = w[0]; $("#pItem").accept = w[1]; }
@@ -519,7 +589,7 @@ function openPublish() { const f = $("#pubForm"); if (!f) return; f.classList.re
 if ($("#pubOpen")) $("#pubOpen").onclick = () => { openPublish(); const t = $("#pTitle"); if (t) t.focus(); };
 if ($("#libPub")) $("#libPub").addEventListener("click", openPublish);
 if (location.hash === "#publish") openPublish();
-$("#pubForm").addEventListener("submit", async (e) => {
+on("#pubForm", "submit", async (e) => {
   e.preventDefault();
   if (!me) return needSignIn("Sign in to publish tracks.");
   const mix = $("#pFile").files[0], stems = isItem() ? [] : Array.from($("#pStems").files || []), item = isItem() ? $("#pItem").files[0] : null, msg = $("#pubMsg");
@@ -540,15 +610,16 @@ $("#pubForm").addEventListener("submit", async (e) => {
     toast(r.waiting ? "Sent! A reviewer checks every upload before it goes into Central Tracks." : "You're published! Your track is in Central Tracks.");   // (10.1: when staff hold new uploads for review) e.target.reset(); $("#pKind").dispatchEvent(new Event("change")); grade = 0; $("#pubBtn").disabled = true; loadTracks(); refreshMe();
   } catch (err) { msg.textContent = err.message; $("#pubBtn").disabled = false; }
 });
-$("#payoutBtn").onclick = async () => {
+on("#payoutBtn", "click", async () => {
   if (!cfg.payments) return paymentsSoon();
   try { go((await api("POST", "/connect")).url); } catch (e) { toast(e.message); }
-};
-$("#idBtn").onclick = async () => {
+});
+on("#idBtn", "click", async () => {
   if (!cfg.payments) return paymentsSoon();
   try { const r = await api("POST", "/identity"); if (r.verified) { toast("You're verified."); return refreshMe(); } go(r.url); } catch (e) { toast(e.message); }
-};
+});
 function renderPayout() {
+  if (!$("#payoutText")) return;
   const t = $("#payoutText"), b = $("#payoutBtn"), it = $("#idText"), ib = $("#idBtn"), box = $("#idBox");
   const needId = !!(me && me.idRequired), idOk = !!(me && me.idStatus === "verified");
   box.hidden = !needId;
@@ -582,8 +653,11 @@ function signInForm(note) {
 }
 async function renderAccount(note) {
   const body = $("#acctBody");
-  $("#signOut").hidden = !me; $("#acctLink").textContent = me ? "Account" : "Sign in";
-  $("#acctLink").hidden = !!me; if ($("#acctMenu")) { $("#acctMenu").hidden = !me; $("#acctWho").textContent = me ? (me.name ? me.name + " · " : "") + me.email : ""; }
+  if ($("#signOut")) $("#signOut").hidden = !me;
+  if ($("#acctLink")) { $("#acctLink").textContent = me ? "Account" : "Sign in"; $("#acctLink").hidden = !!me; }
+  if ($("#acctMenu")) { $("#acctMenu").hidden = !me; $("#acctWho").textContent = me ? (me.name ? me.name + " · " : "") + me.email : ""; }
+  if (!body) return;   // (10.3: the account itself is on the home page)
+  if (!me && !note) { try { note = sessionStorage.getItem("ma-signin-why") || ""; sessionStorage.removeItem("ma-signin-why"); } catch {} }
   if (!me) {
     $("#acctTitle").textContent = "Sign in";
     body.innerHTML = signInForm(note);
@@ -605,12 +679,12 @@ async function renderAccount(note) {
   }
   $("#acctTitle").textContent = me.name ? "Hi, " + me.name : "Your account";
   body.innerHTML = `<div class="acct">${me.emailConfirmed ? "" : `<div class="card wide confirm-card"><h3>Confirm your email</h3><p style="margin:0">We sent a link to <b>${esc(me.email)}</b>. Your receipts, keys, invites and password resets go there, so checkout waits until it's confirmed.</p><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn small" id="cfAgain">Send it again</button></div></div>`}
-    <div class="card wide dl-link" id="keysCard"><h3>Your keys and downloads</h3><p class="muted" style="margin:0">Your keys (they're in your email too), and every app with how to install it.</p><div id="myRenew"></div><div style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn small" href="#purchases">Purchases</a><a class="btn small ghost" href="#downloads">Open Downloads</a></div></div>
+    <div class="card wide dl-link" id="keysCard"><h3>Your keys and downloads</h3><p class="muted" style="margin:0">Your keys (they're in your email too), and every app with how to install it.</p><div id="myRenew"></div><div style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn small" href="/#purchases">Purchases</a><a class="btn small ghost" href="/#downloads">Open Downloads</a></div></div>
     <div class="card wide" id="churchCard"><h3>Your church</h3><div class="muted">Loading…</div></div>
     ${me.church && me.church.role !== "user" ? `<div class="card wide" id="teamsCard"><h3>Teams</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card" id="tracksCard"><h3>Central Tracks</h3><div class="status ${me.subscribed ? "on" : ""}" style="font:500 .85rem var(--mono)">${me.subscribed ? "Unlimited, " + dollars(subPrice()) + " a month" : "Not subscribed"}</div>
       <p class="muted" style="margin:0;font-size:.92rem">In Central Pedal or Central Pedal Control: <b>+ Add songs → Central Tracks</b>. Set the server to <code style="user-select:all">${esc(location.origin)}</code> and sign in with ${esc(me.email)}.</p>
-      <a class="btn ghost small" href="#downloads" style="justify-self:start">Download the apps</a></div>
+      <a class="btn ghost small" href="/#downloads" style="justify-self:start">Download the apps</a></div>
     <div class="card wide" id="pkgCard"><h3>Sound plans</h3><div class="muted">Loading…</div></div>
     ${me.church ? `<div class="card" id="slotsCard"><h3>Central Services</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card" id="libCard"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
@@ -627,8 +701,8 @@ async function renderAccount(note) {
     const p = await api("GET", "/publisher");
     $("#myPub").innerHTML = `<div><b>${money(p.unpaid)}</b> waiting to be paid · ${money(p.paid)} paid so far</div><div class="muted" style="font-size:.9rem">${p.addsThisMonth} subscriber adds this month · your pool share is worked out on the 1st</div>` +
       (p.tracks.length ? p.tracks.map((t) => `<div>${starHtml(t.stars)} <b>${esc(t.title)}</b> <span class="muted">· ${money(t.price)} · ${t.sales} sold · ${t.adds} subscriber adds${t.status !== "live" ? " · " + esc(t.status) : ""}</span></div>`).join("") : '<div>No tracks published yet. <a href="#publish">Publish one</a>.</div>');
-  } catch (err) { $("#myPub").textContent = err.message; }
-  if (me.payoutsStarted && cfg.publishableKey) mountConnect();
+  } catch (err) { const el = $("#myPub"); if (el) el.textContent = err.message; }   // (the page may have been redrawn meanwhile: signed out)
+  if (me && me.payoutsStarted && cfg.publishableKey) mountConnect();
 }
 // the payout settings and Stripe's notices, on this page (Connect embedded components)
 function loadScript(src) { return new Promise((ok, bad) => { if (document.querySelector(`script[src="${src}"]`)) return ok(); const x = document.createElement("script"); x.src = src; x.onload = ok; x.onerror = bad; document.head.appendChild(x); }); }
@@ -679,7 +753,7 @@ function dlButtons(a) {
 function puSection(on) { const s = $("#purchases"); if (!s) return null; s.hidden = !on; return $("#puBody"); }
 async function showPurchases(thanks) {
   const el = puSection(true); if (!el) return;
-  if (!me) { el.innerHTML = `<div class="sec-head"><h2>Purchases</h2><p>Sign in to see what you've bought, your keys and your downloads.</p></div><a class="btn" href="#account">Sign in</a>`; return; }
+  if (!me) { el.innerHTML = `<div class="sec-head"><h2>Purchases</h2><p>Sign in to see what you've bought, your keys and your downloads.</p></div><a class="btn" href="/#account">Sign in</a>`; return; }
   el.innerHTML = `<h2>Purchases</h2><p class="muted">Loading…</p>`; $("#purchases").scrollIntoView({ behavior: "smooth" });
   let d; try { d = await api("GET", "/purchases"); } catch (e) { el.innerHTML = `<h2>Purchases</h2><p class="err">${esc(e.message)}</p>`; return; }
   const date = (x) => (x ? new Date(x).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "");
@@ -698,8 +772,8 @@ async function showPurchases(thanks) {
     ${p.renewText ? `<p class="muted" style="margin:0;font-size:.92rem">${esc(p.renewText)}${p.renews ? " Next renewal: " + esc(date(p.renews)) + "." : ""}</p>` : ""}
     ${p.pedal ? pedalPart(p.pedal) : ""}${(p.apps || []).map(appPart).join("")}${(p.packages || []).length ? pkgPart(p) : ""}</div>`;
   el.innerHTML = `<div class="sec-head"><h2>Purchases</h2><p>${esc(thanks || "Everything you've bought, with its keys and downloads. Keys your church gave you are here too.")}</p></div>
-    ${d.purchases.length ? `<div class="pu-list">${d.purchases.map(card).join("")}</div>` : `<p class="muted">Nothing here yet. Keys your church gives you come by email and show up here; things you buy for yourself too. <a href="#store">Visit the store</a>.</p>`}
-    <p class="muted" style="font-size:.9rem;margin-top:1rem">Every app is free to download on the <a href="#downloads">Downloads</a> page. <a href="${esc(d.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.</p>`;
+    ${d.purchases.length ? `<div class="pu-list">${d.purchases.map(card).join("")}</div>` : `<p class="muted">Nothing here yet. Keys your church gives you come by email and show up here; things you buy for yourself too. <a href="/pricing/">Visit the store</a>.</p>`}
+    <p class="muted" style="font-size:.9rem;margin-top:1rem">Every app is free to download on the <a href="/#downloads">Downloads</a> page. <a href="${esc(d.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.</p>`;
   wireCopies(el);
 }
 // the account icon's menu (signed in)
@@ -710,7 +784,7 @@ async function showPurchases(thanks) {
   drop.addEventListener("click", (e) => { if (e.target.closest("a,button")) close(); });
   document.addEventListener("click", (e) => { if (!e.target.closest("#acctMenu")) close(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !drop.hidden) { close(); icon.focus(); } });
-  const out = $("#acctOut"); if (out) out.addEventListener("click", () => { const so = $("#signOut"); if (so) so.click(); });
+  const out = $("#acctOut"); if (out) out.addEventListener("click", () => { const so = $("#signOut"); if (so) so.click(); else signOutNow(); });
 })();
 async function showDownloads(thanks) {
   const el = dlSection(true); if (!el) return;
@@ -721,7 +795,7 @@ async function showDownloads(thanks) {
   const libs = await libsP;
   const renewal = (d && d.renewalCents) || 2000;
   const others = (a) => Object.keys(PLATFORM_NAME).filter((p) => p !== PLATFORM && (p !== "android" || a.steps.android) && (p !== "ipad" || a.phone));
-  const keyNote = (a) => `<div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(a.name)} asks for its key (it starts with <b>${esc(a.kind)}</b>) the first time it opens. Buy one in the <a href="#store">store</a>, or your church sends you yours by email. Your keys are always on your Account page and in your email.</span></div>`;
+  const keyNote = (a) => `<div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(a.name)} asks for its key (it starts with <b>${esc(a.kind)}</b>) the first time it opens. Buy one in the <a href="/pricing/">store</a>, or your church sends you yours by email. Your keys are always on your Account page and in your email.</span></div>`;
   const appCard = (a) => `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(a.icon)}.svg" alt=""><div><h3>${esc(a.name)}</h3><span class="muted">${esc(a.runsOn)}${a.phone ? " · " + (a.kind === "U" ? "iPhone and iPad in Safari" : "iPad in Safari") : ""}</span></div></div>
     ${a.keys.length ? `<div class="dl-keys">${a.keys.map((k) => `<div class="dl-key"><code>${esc(k.key)}</code>${copyBtn(k.key)}${k.inUse ? ` <span class="muted">· on ${k.inUse} device${k.inUse === 1 ? "" : "s"}</span> <button class="btn small ghost" data-dlrel="${esc(k.key)}">Release</button>` : ""}
       ${k.updatesUntil && k.updatesUntil !== "forever" ? `<span class="muted" style="font-size:.88rem;flex-basis:100%">Updates through ${esc(k.updatesUntil)}${k.renewable ? ` · <button class="btn small ghost" data-renewme="${esc(k.key)}">Renew: ten more releases, ${dollars(renewal / 100)}</button>` : ""}</span>` : ""}</div>`).join("")}
@@ -750,11 +824,11 @@ async function showDownloads(thanks) {
   const yours = d && (mine.length || d.pedals.length || d.packages.length);
   const all = `<div class="dl-grid">${d && d.pedals.length ? "" : pedalPublic}${rest.map(appCard).join("")}${servicesCard}${productionCard}</div>`;
   el.innerHTML = `<div class="sec-head"><h2>Downloads</h2><p>${esc(thanks || (me ? "Your apps and keys first, then every other app." : "Download any of the apps. Each one asks for its key the first time it opens: after you buy, your keys are on your Account page and in your email. Central Pedal, Central Services and Central Production need no key."))}</p></div>
-    ${!me ? `<p style="margin:0 0 1rem"><a class="btn small" href="#account">Sign in to see your keys here</a></p>` : ""}
-    ${yours ? `<h3 class="dl-h">Yours</h3><div class="dl-grid">${d.pedals.map(pedalCard).join("")}${mine.map(appCard).join("")}${pkgCard}</div><h3 class="dl-h">Every other app</h3>` : me ? `<p class="muted">No keys here yet. Keys your church gives you come by email; keys you buy for yourself ("Just me") show up here and in your email. <a href="#store">Visit the store</a>.</p>` : ""}
+    ${!me ? `<p style="margin:0 0 1rem"><a class="btn small" href="/#account">Sign in to see your keys here</a></p>` : ""}
+    ${yours ? `<h3 class="dl-h">Yours</h3><div class="dl-grid">${d.pedals.map(pedalCard).join("")}${mine.map(appCard).join("")}${pkgCard}</div><h3 class="dl-h">Every other app</h3>` : me ? `<p class="muted">No keys here yet. Keys your church gives you come by email; keys you buy for yourself ("Just me") show up here and in your email. <a href="/pricing/">Visit the store</a>.</p>` : ""}
     ${all}
     ${libSection}
-    <p class="muted" style="font-size:.9rem"><a href="${esc(pub.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.${me ? ' Your keys, with what each one is for, are under <a href="#purchases">Purchases</a>.' : ""}</p><div class="err" id="dlErr"></div>`;
+    <p class="muted" style="font-size:.9rem"><a href="${esc(pub.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.${me ? ' Your keys, with what each one is for, are under <a href="/#purchases">Purchases</a>.' : ""}</p><div class="err" id="dlErr"></div>`;
   wireCopies(el);
   el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], renewal)));
   el.querySelectorAll("[data-dlrel]").forEach((b) => (b.onclick = async () => {
@@ -772,7 +846,7 @@ function librariesHtml(libs, d) {
   const card = (l) => {
     const price = dollars((l.planCents || 0) / 100), c = l.contents || {};
     const sounds = (c.sounds || []).map((s) => `<div style="margin-top:.4rem"><b style="font-size:.9rem">${esc(s.name)}</b> <span class="muted" style="font-size:.82rem">${esc(s.license || "")}</span><div class="muted" style="font-size:.88rem">${(s.presets || []).map(esc).join(" · ")}</div></div>`).join("");
-    const opened = have ? (have.has(l.plan) ? `<span class="ok" style="font-size:.9rem">✓ Your ${esc(l.planName)} plan opens this library.</span>` : `<span class="muted" style="font-size:.9rem">Not in your plans yet. <a href="#plans">Get ${esc(l.planName)}</a></span>`) : "";
+    const opened = have ? (have.has(l.plan) ? `<span class="ok" style="font-size:.9rem">✓ Your ${esc(l.planName)} plan opens this library.</span>` : `<span class="muted" style="font-size:.9rem">Not in your plans yet. <a href="/pricing/#plans">Get ${esc(l.planName)}</a></span>`) : "";
     return `<div class="dl-card lib-card" data-lib="${esc(l.id)}"><div class="dl-head"><div><h3>${esc(l.title)}</h3><span class="muted">Version ${esc(l.version)} · ${l.approximate ? "about " : ""}${esc(libSize(l.size || 0))}</span></div></div>
       ${l.summary ? `<p style="margin:0">${esc(l.summary)}</p>` : ""}
       ${window.PPPreview ? PPPreview.listHtml(l) : ""}
@@ -801,12 +875,15 @@ function showNext(o) {
   const el = dlSection(true); if (!el) return;
   const kinds = {}; for (const l of o.licenses || []) kinds[l.kind] = (kinds[l.kind] || 0) + 1;
   const kindText = Object.entries(kinds).map(([k, n]) => n + " " + ({ A: "Central Control (A)", U: "Central Usage (U)", P: "Central Pedal Control (P)" }[k] || k) + " key" + (n === 1 ? "" : "s")).join(", ");
-  el.innerHTML = `<div class="sec-head"><h2>Thank you! Next: add your people</h2><p>${esc(o.church || "Your church")} has what you bought. Stripe has emailed the receipt.</p></div>
+  const keys = (o.licenses || []).map((l) => `<div class="tm"><span><b>${esc(l.product)}</b> <code style="user-select:all">${esc(l.key)}</code></span>${copyBtn(l.key)}</div>`).join("");
+  el.innerHTML = `<div class="sec-head" id="thanks"><h2>Thank you! Next: add your people</h2><p>${esc(o.church || "Your church")} has what you bought. Stripe has emailed the receipt.</p></div>
     <div class="dl-grid"><div class="dl-card"><h3>What you bought</h3><ul style="margin:0">${(o.itemNames || []).map((x) => `<li>${x.n > 1 ? x.n + " × " : ""}${esc(x.name)}</li>`).join("")}</ul>
-      ${kindText ? `<p class="muted" style="margin:0">${esc(kindText)}${o.slots ? " · " + o.slots + " Central Services slots" : ""}</p>` : ""}${o.shipping ? `<p class="muted" style="margin:0">The pedal ships to the address you gave.</p>` : ""}</div>
+      ${kindText ? `<p class="muted" style="margin:0">${esc(kindText)}${o.slots ? " · " + o.slots + " Central Services slots" : ""}</p>` : ""}${o.shipping ? `<p class="muted" style="margin:0">The pedal ships to the address you gave.</p>` : ""}
+      ${keys ? `<details class="thanks-keys"><summary>The keys (${(o.licenses || []).length})</summary><div style="display:grid;gap:.3rem;margin-top:.5rem">${keys}</div><p class="muted" style="margin:.4rem 0 0;font-size:.9rem">You don't need to copy them: the Teams page sends each person theirs. They're always under Account → My products.</p></details>` : ""}
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn ghost small" href="/#downloads">Download the apps</a><a class="btn ghost small" href="/#account-products">My products</a></div></div>
     <div class="dl-card"><h3>Add your people on the Teams page</h3><p style="margin:0">Add your admins, users and Pedal Control people with their name and email. Each one gets an email with a link to make their account, their app's download link, how to install it, and their own key.</p>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="goTeams">Open Teams</button><a class="btn ghost" href="#downloads">Your own downloads</a></div></div></div>`;
-  $("#downloads").scrollIntoView({ behavior: "smooth" });
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn" id="goTeams">Open Teams</button><a class="btn ghost" href="/#downloads">Your own downloads</a></div></div></div>`;
+  wireCopies(el); $("#downloads").scrollIntoView({ behavior: "smooth" });
   $("#goTeams").onclick = () => { location.hash = "account"; setTimeout(() => { const t = $("#teamsCard"); if (t) t.scrollIntoView({ behavior: "smooth" }); }, 700); };
 }
 // ---------------------------------------------------------------- sound plans: my package keys
@@ -814,13 +891,13 @@ async function renderPackages() {
   const el = $("#pkgCard"); if (!el) return;
   let r; try { r = await api("GET", "/packages/mine"); } catch (e) { el.innerHTML = `<h3>Sound plans</h3><div class="err">${esc(e.message)}</div>`; return; }
   const how = `<p class="muted" style="margin:0;font-size:.9rem">On each device (Central Pedal, Central Pedal Control, Central Control or Central Usage): <b>Settings → Packages → Add a package</b>, and paste the key. A key works on ${cfg.packageDevices || 3} of your devices at a time, each a different app (say Central Usage, Central Control and a Central Pedal; never two of the same).</p>`;
-  if (!r.packages.length) { el.innerHTML = `<h3>Sound plans</h3><p class="muted" style="margin:0">No sound plans yet. <a href="#plans">See the plans</a>: you get a package key by email, then paste it in any app's Settings → Packages.</p>`; return; }
+  if (!r.packages.length) { el.innerHTML = `<h3>Sound plans</h3><p class="muted" style="margin:0">No sound plans yet. <a href="/pricing/#plans">See the plans</a>: you get a package key by email, then paste it in any app's Settings → Packages.</p>`; return; }
   el.innerHTML = `<h3>Sound plans</h3><div class="pkgs">${r.packages.map((p) => `<div class="pkg${p.ok ? "" : " ended"}">
       <div class="pkg-top"><code style="user-select:all">${esc(p.key)}</code><button class="btn small ghost" data-pkcopy="${esc(p.key)}">Copy</button></div>
       <div><b>${esc(planListText(p.plans))}</b> <span class="muted">· ${p.from === "church" ? "from " + esc(p.church || "your church") : p.from === "trial" ? "free trial" : "yours"}</span></div>
       <div class="${p.ok ? "muted" : "err"}" style="font-size:.9rem">${p.ok ? (p.renews ? "Renews " : "Until ") + esc(longDate(p.end)) + (p.pastDue ? " · the last payment didn't go through: update your card" : "") : esc(p.error)}</div>
       ${p.devices.length ? p.devices.map((d) => `<div class="tm"><span>${esc(d.name)} <span class="muted">· ${esc(d.app)}</span></span><button class="btn small ghost" data-pkrel="${esc(p.key)}" data-pkdev="${esc(d.id)}">Release</button></div>`).join("") : `<div class="muted" style="font-size:.88rem">Not on a device yet.</div>`}</div>`).join("")}</div>
-    ${how}${r.packages.some((p) => p.from === "own") ? `<div><button class="btn small ghost" id="pkBill">Renewal and card</button> <a class="btn small ghost" href="#plans">More plans</a></div>` : ""}<div class="err" id="pkMineErr"></div>`;
+    ${how}${r.packages.some((p) => p.from === "own") ? `<div><button class="btn small ghost" id="pkBill">Renewal and card</button> <a class="btn small ghost" href="/pricing/#plans">More plans</a></div>` : ""}<div class="err" id="pkMineErr"></div>`;
   el.querySelectorAll("[data-pkcopy]").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.pkcopy); toast("Key copied"); } catch (_) { prompt("Copy this key:", b.dataset.pkcopy); } }));
   el.querySelectorAll("[data-pkrel]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Release this package from that device? Its sounds stop there until the key is added again.")) return;
@@ -833,14 +910,14 @@ async function renderTeamPackages() {
   const el = $("#teamPkgs"); if (!el) return;
   let r; try { r = await api("GET", "/church/packages"); } catch (e) { el.innerHTML = `<div class="err">${esc(e.message)}</div>`; return; }
   const head = `<h4>Sound plan package keys <span class="muted">${r.trialUntil ? "free trial: one for anyone, until " + esc(longDate(r.trialUntil)) : r.total ? r.given + " of " + r.total + " given · " + r.free + " free" : "none yet"}</span></h4>`;
-  if (!r.keys.length && !r.trialUntil) { el.innerHTML = `<section class="team">${head}<p class="muted" style="margin:0">A bundle gives you a package key with all the plans (Central Pads and Central Utility too) for each person, a year. <a href="#plans">See the bundles</a>.</p></section>`; return; }
+  if (!r.keys.length && !r.trialUntil) { el.innerHTML = `<section class="team">${head}<p class="muted" style="margin:0">A bundle gives you a package key with all the plans (Central Pads and Central Utility too) for each person, a year. <a href="/pricing/#plans">See the bundles</a>.</p></section>`; return; }
   const given = r.keys.filter((k) => k.holder), canGive = (r.free > 0 || r.trialUntil) && r.people.length;
   el.innerHTML = `<section class="team">${head}
     <p class="muted" style="margin:0;font-size:.9rem">Give someone a key: they get it by email and paste it in Settings → Packages on their devices (${cfg.packageDevices || 3} at a time, each a different app). Take it back and their copy stops working; a new key takes its place for the next person.</p>
     ${given.map((k) => `<div class="tm tmem"><div class="tmwho"><div class="tmname"><b>${esc(k.holder.name || k.holder.email)}</b>${k.trial ? ' <span class="muted">· trial</span>' : ""}</div><div class="tmsub muted">${esc(k.holder.email)} · <code>${esc(k.key)}</code> · ${k.devices.length ? k.devices.map((d) => esc(d.name)).join(", ") : "not added yet"}</div></div>
       <div class="tacts"><button class="btn small ghost" data-pkres="${esc(k.key)}">Resend</button><button class="btn small ghost" data-pkback="${esc(k.key)}" data-pkname="${esc(k.holder.name || k.holder.email)}">Take back</button></div></div>`).join("")}
     ${canGive ? `<div class="codeline"><label>Give a package key to<select id="pkWho">${r.people.map((p) => `<option value="${esc(p.email)}">${esc(p.name ? p.name + " · " + p.email : p.email)}</option>`).join("")}</select></label><button class="btn small" id="pkGive">Give and email it</button></div>`
-      : r.free > 0 ? `<p class="muted" style="margin:0">Add people to a team first, then give them a key.</p>` : `<p class="muted" style="margin:0">All given. <a href="#plans">Add another bundle</a>, or take one back.</p>`}
+      : r.free > 0 ? `<p class="muted" style="margin:0">Add people to a team first, then give them a key.</p>` : `<p class="muted" style="margin:0">All given. <a href="/pricing/#plans">Add another bundle</a>, or take one back.</p>`}
     <div class="err" id="pkErr" style="white-space:pre-line"></div></section>`;
   if ($("#pkGive")) $("#pkGive").onclick = async () => {
     const who = r.people.find((p) => p.email === $("#pkWho").value);
@@ -1028,9 +1105,9 @@ async function renderChurch() {
     <div class="kcount">${counts}</div>
     ${c.adminCode || c.userCode ? `<p style="margin:.2rem 0">${c.adminCode ? `Admin code <code style="user-select:all">${esc(c.adminCode)}</code> · ` : ""}User code <code style="user-select:all">${esc(c.userCode)}</code> <span class="muted" style="font-size:.9rem">· people join with these when they make an account. Admins can all share one account; each user has their own.</span></p>` : ""}
     ${T.active ? `<div class="card" style="border-color:var(--accent);display:grid;gap:.4rem"><b>Free trial (${esc(T.code)}) until ${new Date(T.until).toLocaleDateString()}</b><span class="muted" style="font-size:.9rem">As many keys as you like, Central Services and Central Tracks Unlimited. Afterwards the trial keys stop and the apps ask for a key you bought; songs and settings stay.</span>
-      ${staff ? `<div style="display:flex;gap:.4rem;flex-wrap:wrap"><button class="btn small ghost" data-mk="A">+ Admin key</button><button class="btn small ghost" data-mk="U">+ User key</button><button class="btn small ghost" data-mk="P">+ Pedal Control key</button></div>` : ""}</div>` : T.used ? `<p class="muted" style="margin:0;font-size:.9rem">Your free trial (${esc(T.code)}) has ended. <a href="#store">Get keys</a> to keep going.</p>` : ""}
+      ${staff ? `<div style="display:flex;gap:.4rem;flex-wrap:wrap"><button class="btn small ghost" data-mk="A">+ Admin key</button><button class="btn small ghost" data-mk="U">+ User key</button><button class="btn small ghost" data-mk="P">+ Pedal Control key</button></div>` : ""}</div>` : T.used ? `<p class="muted" style="margin:0;font-size:.9rem">Your free trial (${esc(T.code)}) has ended. <a href="/pricing/">Get keys</a> to keep going.</p>` : ""}
     ${r.keys.length ? `<table class="ktable keytable"><tr><th></th><th>Key</th><th>On</th><th>Updates</th><th></th></tr>${rows}</table>
-      ${staff && r.keys.some((k) => k.renewable) ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><button class="btn small" id="renewBtn">Renew the ticked keys ($${((cfg.renewal || {}).cents || 2000) / 100} each)</button><label style="font-size:.85rem">Code<input id="renewCode" style="width:120px;text-transform:uppercase" placeholder="optional"></label><span class="muted" style="font-size:.85rem">Admin and user keys get ten releases of updates (bought at 9.0: through 10.0); renewing adds ten more. The apps keep working without it. Pedal Control keys: forever. Now: ${esc(cur)}.</span></div>` : ""}` : `<p class="muted" style="margin:0">No keys yet. <a href="#store">Get a pack or keys</a>, or start a free trial with a code in the cart.</p>`}
+      ${staff && r.keys.some((k) => k.renewable) ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><button class="btn small" id="renewBtn">Renew the ticked keys ($${((cfg.renewal || {}).cents || 2000) / 100} each)</button><label style="font-size:.85rem">Code<input id="renewCode" style="width:120px;text-transform:uppercase" placeholder="optional"></label><span class="muted" style="font-size:.85rem">Admin and user keys get ten releases of updates (bought at 9.0: through 10.0); renewing adds ten more. The apps keep working without it. Pedal Control keys: forever. Now: ${esc(cur)}.</span></div>` : ""}` : `<p class="muted" style="margin:0">No keys yet. <a href="/pricing/">Get a pack or keys</a>, or start a free trial with a code in the cart.</p>`}
     <p class="muted" style="margin:0;font-size:.9rem">Release frees a key from a lost or broken device${staff ? "" : " (yours)"}. On a working device, use Settings → License → Release key in the app.</p>
     ${main ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="btn small" id="billBtn">Billing: card &amp; receipts</button><span class="muted" style="font-size:.9rem">In ${esc(c.name)}'s name. It stays with the church when main admins change.</span></div>` : ""}
     ${c.role === "church" && !mains ? `<div class="card" style="border-color:var(--accent);display:grid;gap:.3rem"><b>Next: your main admins</b><span class="muted" style="font-size:.9rem">The main admin runs Central Control on the desk computer (the hub). Invite up to ${maxMain} on the Teams card below with their own email, or make one of your admins a main admin under People.</span></div>` : ""}
@@ -1213,14 +1290,18 @@ async function renderStaff(qs) {
   let t = 0; $("#mkQ").oninput = (e) => { clearTimeout(t); t = setTimeout(() => renderStaff(e.target.value), 300); };
   el.querySelectorAll("[data-sk]").forEach((b) => (b.onclick = async () => { try { await api("POST", "/admin/keys/" + encodeURIComponent(b.dataset.k) + "/" + b.dataset.sk); renderStaff(qs); } catch (e) { toast(e.message); } }));
 }
-$("#signOut").onclick = () => { setToken(null); me = null; renderAll(); toast("You're signed out. See you soon."); };
+function signOutNow() { setToken(null); me = null; renderAll(); toast("You're signed out. See you soon."); }
+on("#signOut", "click", signOutNow);
 
 async function refreshMe() {
   if (!token) { me = null; } else { try { me = await api("GET", "/me"); } catch { me = null; } }
   renderAll();
-  if (me) { let back = null; try { back = sessionStorage.getItem("ma-after-signin"); sessionStorage.removeItem("ma-after-signin"); } catch {} if (back && /^\/[\w-]+\/$/.test(back)) { location.href = back; return; } if (back) { history.replaceState(null, "", back); handleHash(); } }   // (signed in to buy a track the apps sent; 10.1: or back to Make & sell, the studio or the review site)
+  // (signed in to buy a track the apps sent; 10.1: or back to Make & sell, the studio or the review site; 10.3: or any page of the site, with its cart)
+  if (me) { let back = null; try { back = sessionStorage.getItem("ma-after-signin"); sessionStorage.removeItem("ma-after-signin"); } catch {} if (back && /^\/(?!\/)[\w\/.-]*$/.test(back) && back !== "/") { location.href = back; return; } if (back && back[0] === "#") { history.replaceState(null, "", back); handleHash(); } }
+  document.dispatchEvent(new CustomEvent("ma-me", { detail: me }));
+  if (me && !$("#acctBody")) { let again = null; try { again = sessionStorage.getItem("ma-open-cart"); sessionStorage.removeItem("ma-open-cart"); } catch {} if (again && cartCount()) { let n = 0; const tryOpen = () => (cfg.products ? openCart() : ++n < 40 && setTimeout(tryOpen, 150)); promoReady.then(tryOpen); } }   // (10.3: signed in to check out: the cart again, here)
 }
-function renderAll() { renderSub(); renderPayout(); renderAccount(); loadTracks(); renderRack(); }
+function renderAll() { renderSub(); renderPayout(); renderAccount(); loadTracks(); renderRack(); updateCartBtn(); }
 
 // ---------------------------------------------------------------- returning from Stripe
 function setView() {   // (10.2) #account, #purchases and #downloads read as their own pages
@@ -1228,7 +1309,9 @@ function setView() {   // (10.2) #account, #purchases and #downloads read as the
   document.body.classList.toggle("view-account", h === "account" || h.startsWith("account-") || h === "purchases" || h === "downloads");
 }
 async function handleHash() {
-  const h = location.hash.slice(1); setView();
+  const h = location.hash.slice(1);
+  if (!$("#acctBody")) { if (h === "support") { history.replaceState(null, "", location.pathname); supportForm(); } return; }   // (10.3: the other pages keep their own #links)
+  setView();
   if (h === "downloads") { if ($("#purchases")) $("#purchases").hidden = true; return showDownloads(); }
   if (h === "purchases") { if ($("#downloads")) $("#downloads").hidden = true; return showPurchases(); }
   if (!h.startsWith("order-done-") && $("#downloads")) $("#downloads").hidden = true;   // (the Downloads view shows only when it's asked for)
@@ -1252,7 +1335,7 @@ async function handleHash() {
     modal(`<h3>Thank you!</h3><p class="muted" style="margin:0">Your payment went through. Your keys are on their way: refresh this page in a minute and you'll see them.</p><button class="btn" data-close>OK</button>`);
   } else if (h === "plans-done") {
     const bundle = !!planCart.bundle; planCart.plans = []; planCart.bundle = 0; updateCartBtn(); renderPlans(); history.replaceState(null, "", "#account");
-    modal(`<h3>Thank you!</h3><p style="margin:0">${bundle ? "Your church's package keys are on the <b>Teams</b> card: give one to each person, and they get it by email." : "Your package key is on its way by email. It's also under your account icon → <a href=\"#purchases\" data-close>Purchases</a>, with the plan's sound library to download."}</p>
+    modal(`<h3>Thank you!</h3><p style="margin:0">${bundle ? "Your church's package keys are on the <b>Teams</b> card: give one to each person, and they get it by email." : "Your package key is on its way by email. It's also under your account icon → <a href=\"/#purchases\" data-close>Purchases</a>, with the plan's sound library to download."}</p>
       <p class="muted" style="margin:0">On each device: <b>Settings → Packages → Add a package</b>, and paste the key. It works on ${cfg.packageDevices || 3} of your devices at a time, each a different app, and renews every year.</p><button class="btn" data-close>OK</button>`);
     setTimeout(refreshMe, 2500);
   } else if (h === "subscribed") { toast("Welcome to Central Tracks Unlimited! Add anything you like."); setTimeout(refreshMe, 2500); }

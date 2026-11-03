@@ -64,6 +64,23 @@ await check("every pedal of the catalogue alone stays finite and audible-or-sile
   }
   assert.equal(bad.length, 0, bad.join(", "));
 });
+await check("Central Pedals (our own DSP, the same as the Pi's central-pedals.so): each one alone is audible, tuner mute is silent, a knob turns live", async () => {
+  const own = P.pedals.filter((q) => q.opts.own), bad = [];
+  assert.ok(own.length >= 40, "only " + own.length + " Central Pedals");
+  send({ action: "testtone", freq: 196, level: 0.3 });
+  for (const ped of own) {
+    assert.ok(R[ped.id] && Object.keys(R[ped.id].controls).length === Object.keys(ped.knobs).length, ped.id + ": the rig map should list every knob");
+    send({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [item(ped.id, ped.id === "ma-whammy" ? { position: 1 } : {})], levelDb: 0, routing: {} } });
+    await sleep(150); send({ action: "meters" }); await sleep(150); send({ action: "meters" });
+    const m = await next((x) => x.type === "instrumentMeters");
+    if (ped.id === "ma-mute" ? !(m.out < 0.001) : !(isFinite(m.out) && m.out > 0.005 && m.out < 20)) bad.push(ped.id + "=" + m.out);
+  }
+  assert.equal(bad.length, 0, bad.join(", "));
+  send({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [item("ma-boost", { gain: 0 }, { uid: "mab" })], levelDb: 0, routing: {} } });
+  await sleep(300); const flat = await meters();
+  send({ action: "set", uid: "mab", sym: "gain", value: 12 }); await sleep(400); const up = await meters();
+  assert.ok(up.out > flat.out * 2.5, "Clean Boost +12 dB: " + flat.out + " -> " + up.out);
+});
 await check("bypass and a knob change take effect live", async () => {
   send({ action: "apply", config: { kind: "electric", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, chain: [item("ts9", {}, { uid: "drv" })], levelDb: 0, routing: {} } });
   await sleep(300); const on = await meters();
@@ -197,6 +214,26 @@ if (havePlugins) {
     send(electric([plugFx("pg1")])); await sleep(500); near((await meters()).out, 0.3 * 3.98, 0.1, "+12 dB restored from the saved state");
     send(electric([plugFx("pg2", { stateFrom: "pg1" })])); await sleep(500); near((await meters()).out, 0.3 * 3.98, 0.1, "a new slot started from pg1's state");
     send({ action: "pluginCopyState", from: "pg1", to: "board1" }); const cp = await next((m) => m.type === "pluginCopyState"); assert.equal(cp.ok, true);
+  });
+  await check("(10.3) the DAW's native plugins, live: a chain with its latency, blocks streamed through it, automation inside a block, a reset plays out what's left", async () => {
+    const dly = { slot: "dwlive1", format: "clap", id: "audio.motion.test-delay", path: testClap, name: "Central Test Delay" }, gn = { slot: "dwlive2", format: "clap", id: "audio.motion.test-gain", path: testClap, name: "Central Test Gain" };
+    send({ action: "dawChain", stream: 3, rate: 48000, plugins: [dly, Object.assign({ params: [[1, 0.75]] }, gn)] });
+    const ch = await next((m) => m.type === "dawChain" && m.stream === 3, 20000); assert.ok(ch.ok, JSON.stringify(ch)); assert.equal(ch.latency, 480); assert.deepEqual(ch.names, ["Central Test Delay", "Central Test Gain"]);
+    const F = 4096, enc = (f) => Buffer.from(f.buffer).toString("base64"), dec = (b) => new Float32Array(Buffer.from(b, "base64").buffer.slice(0));
+    const imp = new Float32Array(F * 2); imp[2 * 100] = imp[2 * 100 + 1] = 0.25;
+    send({ action: "dawProcess", seq: 1, frames: F, streams: [{ s: 3, d: enc(imp), reset: true }, { s: 9, d: enc(imp) }] });
+    const r1 = await next((m) => m.type === "dawProcessed" && m.seq === 1, 20000), o = dec(r1.streams[0].d), thru = dec(r1.streams[1].d);
+    assert.equal(r1.streams[0].lat, 480); let at = -1; for (let i = 0; i < F; i++) if (Math.abs(o[2 * i]) > 0.1) { at = i; break; }
+    assert.equal(at, 580, "the impulse comes out 480 samples later"); near(o[2 * 580], 0.25 * 3.98, 0.02, "+12 dB from the knob given with the chain");
+    assert.equal(thru[200], 0.25, "a stream without plugins passes through");
+    const sine = new Float32Array(F * 2); for (let i = 0; i < F; i++) sine[2 * i] = sine[2 * i + 1] = 0.1;
+    send({ action: "dawProcess", seq: 2, frames: F, streams: [{ s: 3, d: enc(sine), a: [[2048, 1, 1, 0.5]] }] });
+    const o2 = dec((await next((m) => m.type === "dawProcessed" && m.seq === 2, 20000)).streams[0].d);
+    near(o2[2 * 1000], 0.1 * 3.98, 0.02, "before the automation point"); near(o2[2 * (2048 + 480 + 200)], 0.1, 0.01, "after it (0 dB), the delay's latency later");
+    send({ action: "dawProcess", seq: 3, frames: F, streams: [{ s: 3, d: enc(new Float32Array(F * 2)), reset: true }] });
+    const o3 = dec((await next((m) => m.type === "dawProcessed" && m.seq === 3, 20000)).streams[0].d); let mx = 0; for (let i = 0; i < F; i++) mx = Math.max(mx, Math.abs(o3[2 * i]));
+    assert.ok(mx < 1e-6, "after a reset nothing old comes out: " + mx);
+    send({ action: "dawDrop", stream: 3 });
   });
   await check("(10.2) the DAW's native inserts, offline: --process plays a sound through the slot's saved state, lines it up and reports the latency", async () => {
     send({ action: "pluginSave" }); await sleep(200);

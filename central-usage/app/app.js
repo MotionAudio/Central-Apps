@@ -283,6 +283,7 @@
   // MIDI clock: 24 ppq generated here from the Pi's tempo + transport, on the local clock
   function onClock(c) {
     if (!c) return; var was = clock.running; clock.bpm = c.bpm || clock.bpm; clock.running = !!c.running; clock.piT = c.t;
+    if (window.PPLicense && window.PPLicense.setBusy) window.PPLicense.setBusy("song", clock.running);   // (10.3) a song playing keeps what it uses
     $("#liveBpm").textContent = clock.bpm ? Math.round(clock.bpm) : "–";
     if (clock.running && !was) startClock(); else if (!clock.running && was) stopClock();
   }

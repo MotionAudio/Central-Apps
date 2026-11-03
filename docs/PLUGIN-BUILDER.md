@@ -113,6 +113,38 @@ The builder ships with these, under **Examples…**:
 | Soft Clipper (code) | a whole plugin in code |
 | Ring Modulator (code) | a whole plugin in code |
 
+## The Central FX collection (10.3)
+
+Motion Audio's own effects are built on the same engine: 32 of them, in `production/plugin-collection/`, made by `tools/make-cmfx-collection.py`. The basic one of each kind is free. The others come with the Central Plugins plan.
+
+| Kind | Free | With Central Plugins |
+|---|---|---|
+| Reverb | Room Reverb | Vocal Plate, Lush Hall, Worship Shimmer |
+| Delay | Delay | Dotted Eighth (follows the song's tempo), Ping-Pong, Tape Echo |
+| Compressor | Compressor | FET (1176-style), Opto Leveler (LA-2A-style), Bus Glue, Multiband, De-esser Pro |
+| Dynamics | Gate | Transient Shaper |
+| EQ | 4-Band EQ, Low & High Cut | 8-Band Parametric, Tilt EQ |
+| Character | Chorus, Tremolo / Auto-pan | Dimension Chorus, Rotary Speaker, Phaser, Flanger, Tape Saturation, Exciter, Lo-Fi Filter |
+| Stereo and level | Limiter | Stereo Widener, True-Peak Limiter |
+
+Each one has its knobs and three or four starting points. They're in every place effects go:
+- the track, pad and stem effects;
+- the Studio and Central Production (Add effect);
+- pedal boards (Add pedal → Central FX);
+- Central Control's channel inserts (up to 4 a channel, after the compressor).
+
+The locked ones show which plan they need.
+
+**What the engine gained for them:**
+- **Reverb:** an 8-line feedback network with slowly moving delays, so it's dense and doesn't ring.
+- **Pitch shift:** each new grain lines up with the one playing, so steady notes stay steady (better shimmer).
+- **Compressor:** styles (clean, fet, opto, glue), RMS or peak detection, and a side-chain low cut.
+- **Drive:** 2x or 4x oversampling, so the harmonics it makes don't alias.
+- **Limiter:** look-ahead and true-peak detection.
+- **New blocks:** band split, transient shaper and rotary speaker.
+
+`node test-cmfx-collection.mjs` checks every plugin and starting point (native and WebAssembly sound the same) and its CPU use, and measures the engine against reference behaviour.
+
 ## For developers
 
 **Where the code lives:**

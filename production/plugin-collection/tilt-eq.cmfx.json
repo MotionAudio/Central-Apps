@@ -1,0 +1,168 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "tilt-eq",
+ "name": "Tilt EQ",
+ "author": "Motion Audio",
+ "family": "eq",
+ "tier": "plugins",
+ "description": "One knob tips the whole sound darker or brighter around a centre point. Fast, musical tone shaping.",
+ "params": [
+  {
+   "id": "tilt",
+   "name": "Tilt",
+   "min": -6,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "pivot",
+   "name": "Centre",
+   "min": 250,
+   "max": 4000,
+   "default": 900,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Brighter",
+   "values": {
+    "tilt": 2.5
+   }
+  },
+  {
+   "name": "Warmer",
+   "values": {
+    "tilt": -2.5
+   }
+  },
+  {
+   "name": "Air on top",
+   "values": {
+    "tilt": 4,
+    "pivot": 2500
+   }
+  },
+  {
+   "name": "Darken cymbals",
+   "values": {
+    "tilt": -4,
+    "pivot": 3000
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "t",
+    "type": "param",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "param": "tilt"
+    }
+   },
+   {
+    "id": "neg",
+    "type": "math",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "op": "negate"
+    }
+   },
+   {
+    "id": "lo",
+    "type": "eq",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "mode": "lowshelf",
+     "freq": {
+      "param": "pivot"
+     },
+     "q": 0.5
+    }
+   },
+   {
+    "id": "hi",
+    "type": "eq",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "mode": "highshelf",
+     "freq": {
+      "param": "pivot"
+     },
+     "q": 0.5
+    }
+   },
+   {
+    "id": "o",
+    "type": "gain",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "gain": {
+      "param": "output"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "t.out",
+    "to": "neg.a"
+   },
+   {
+    "from": "in.out",
+    "to": "lo.in"
+   },
+   {
+    "from": "neg.out",
+    "to": "lo.gain"
+   },
+   {
+    "from": "lo.out",
+    "to": "hi.in"
+   },
+   {
+    "from": "t.out",
+    "to": "hi.gain"
+   },
+   {
+    "from": "hi.out",
+    "to": "o.in"
+   },
+   {
+    "from": "o.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

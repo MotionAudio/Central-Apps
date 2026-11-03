@@ -34,7 +34,7 @@ contextBridge.exposeInMainWorld("CU", {
     listen: (tap, on) => ipcRenderer.invoke("mixer-listen", tap, on), record: (opt) => ipcRenderer.invoke("mixer-record", opt), openRecordings: () => ipcRenderer.invoke("open-recordings"),
     exportFile: () => ipcRenderer.invoke("mixer-export"), importFile: () => ipcRenderer.invoke("mixer-import"),
     onOp: (fn) => ipcRenderer.on("mixer-op", (_e, op, by) => fn(op, by)), onState: (fn) => ipcRenderer.on("mixer-state", (_e, st) => fn(st)), onMeters: (fn) => ipcRenderer.on("mixer-meters", (_e, m) => fn(m)),
-    onPi: (fn) => ipcRenderer.on("mixer-pi", (_e, names) => fn(names)), onAudio: (fn) => ipcRenderer.on("listen-audio", (_e, tap, frames, pcm) => fn(tap, frames, pcm)),
+    onPi: (fn) => ipcRenderer.on("mixer-pi", (_e, names) => fn(names)), onInsert: (fn) => ipcRenderer.on("mixer-insert", (_e, e) => fn(e)), onAudio: (fn) => ipcRenderer.on("listen-audio", (_e, tap, frames, pcm) => fn(tap, frames, pcm)),
     tempo: (bpm) => ipcRenderer.invoke("mixer-tempo", bpm),
     testTone: (o) => ipcRenderer.invoke("mixer-testtone", o)   // (10.2: the pre-service check)
   },
@@ -48,10 +48,10 @@ contextBridge.exposeInMainWorld("CU", {
   shorts: {
     status: () => ipcRenderer.invoke("shorts-status"), recordings: () => ipcRenderer.invoke("shorts-recordings"), settings: (patch) => ipcRenderer.invoke("shorts-settings", patch), resetSettings: () => ipcRenderer.invoke("shorts-settings-reset"),
     make: (id) => ipcRenderer.invoke("shorts-make", id), cancel: () => ipcRenderer.invoke("shorts-cancel"), list: (id) => ipcRenderer.invoke("shorts-list", id),
-    update: (id, shortId, patch) => ipcRenderer.invoke("shorts-update", id, shortId, patch), remove: (id, shortId) => ipcRenderer.invoke("shorts-delete", id, shortId), add: (id, at) => ipcRenderer.invoke("shorts-add", id, at),
+    update: (id, shortId, patch) => ipcRenderer.invoke("shorts-update", id, shortId, patch), remove: (id, shortId, reason) => ipcRenderer.invoke("shorts-delete", id, shortId, reason), add: (id, at) => ipcRenderer.invoke("shorts-add", id, at),
     reveal: (id) => ipcRenderer.invoke("shorts-reveal", id), download: (id, shortId) => ipcRenderer.invoke("shorts-download", id, shortId), pickFile: (kind) => ipcRenderer.invoke("shorts-pick-file", kind),
     social: (acct) => ipcRenderer.invoke("shorts-social", acct), connect: (platform, acct) => ipcRenderer.invoke("shorts-connect", platform, acct), disconnect: (platform, acct) => ipcRenderer.invoke("shorts-disconnect", platform, acct),
-    post: (id, shortId, platform, acct) => ipcRenderer.invoke("shorts-post", id, shortId, platform, acct), history: () => ipcRenderer.invoke("shorts-history"), openUrl: (url) => ipcRenderer.invoke("shorts-open-url", url),
+    post: (id, shortId, platform, acct) => ipcRenderer.invoke("shorts-post", id, shortId, platform, acct), history: () => ipcRenderer.invoke("shorts-history"), stats: (acct, force) => ipcRenderer.invoke("shorts-stats", acct, force), learned: () => ipcRenderer.invoke("shorts-learned"), account: (acct) => ipcRenderer.invoke("shorts-account", acct), queue: () => ipcRenderer.invoke("shorts-queue"), queueAction: (id, action) => ipcRenderer.invoke("shorts-queue-action", id, action), fullUpdate: (id, kind, patch) => ipcRenderer.invoke("shorts-full-update", id, kind, patch), fullMake: (id, only) => ipcRenderer.invoke("shorts-full-make", id, only), resetLearning: () => ipcRenderer.invoke("shorts-learned-reset"), openUrl: (url) => ipcRenderer.invoke("shorts-open-url", url),
     mark: (d) => ipcRenderer.send("shorts-mark", d), on: (fn) => ipcRenderer.on("shorts-event", (_e, m) => fn(m))
   },
   // talkback (talk.js) when this computer is the audio host: start({ kind, targets, dim, src, ch }), the mic's "TKA1" frames, stop()
@@ -71,7 +71,8 @@ contextBridge.exposeInMainWorld("CU", {
     list: () => ipcRenderer.invoke("studio-list"), load: (id) => ipcRenderer.invoke("studio-load", id), save: (id, json, audio) => ipcRenderer.invoke("studio-save", id, json, audio),
     audio: (id, name) => ipcRenderer.invoke("studio-audio", id, name), openInProduction: (name, bytes) => ipcRenderer.invoke("studio-open-production", name, bytes), loops: () => ipcRenderer.invoke("studio-loops"), readLoop: (file) => ipcRenderer.invoke("studio-read-loop", file), remove: (id) => ipcRenderer.invoke("studio-remove", id), exportFiles: (suggested, files) => ipcRenderer.invoke("studio-export", suggested, files),
     monitor: { start: () => ipcRenderer.invoke("studio-monitor-start"), send: (m) => ipcRenderer.send("studio-monitor-send", m), stop: () => ipcRenderer.invoke("studio-monitor-stop"), on: (fn) => ipcRenderer.on("studio-monitor", (_e, m) => fn(m)) },
-    native: { plugins: (scan) => ipcRenderer.invoke("studio-native-plugins", scan), process: (job) => ipcRenderer.invoke("studio-native-process", job), monitor: (m) => ipcRenderer.send("studio-native-monitor", m), editor: (slot, plugins, open) => ipcRenderer.invoke("studio-native-editor", slot, plugins, open), on: (fn) => ipcRenderer.on("studio-native", (_e, m) => fn(m)) } },
+    native: { stream: { chain: (i, rate, plugins) => ipcRenderer.invoke("studio-daw-chain", i, rate, plugins), process: (b) => ipcRenderer.invoke("studio-daw-process", b), param: (i, k, id, v) => ipcRenderer.send("studio-daw-param", i, k, id, v), drop: (i) => ipcRenderer.send("studio-daw-drop", i), params: (slot) => ipcRenderer.invoke("studio-daw-params", slot) },
+      plugins: (scan) => ipcRenderer.invoke("studio-native-plugins", scan), process: (job) => ipcRenderer.invoke("studio-native-process", job), monitor: (m) => ipcRenderer.send("studio-native-monitor", m), editor: (slot, plugins, open) => ipcRenderer.invoke("studio-native-editor", slot, plugins, open), on: (fn) => ipcRenderer.on("studio-native", (_e, m) => fn(m)) } },
   saveFile: (name, text) => ipcRenderer.invoke("save-file", name, text),
   openFile: () => ipcRenderer.invoke("open-file")
 });

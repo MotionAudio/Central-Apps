@@ -23,13 +23,16 @@
     NATIVE.onState(function (st) { if (L.kind === "local") { L.state = M.normalize(st); emit("state", L.state); } });
     NATIVE.onMeters(function (m) { if (L.kind === "local") { L.meters = m; emit("meters", m); } });
     NATIVE.onPi(function (names) { if (L.kind === "local") { L.pi = names; emit("pi", names); } });
+    if (NATIVE.onInsert) NATIVE.onInsert(function (e) { if (L.kind === "local") gotInsert(e); });
     NATIVE.onAudio(function (tap, frames, pcm) { if (L.kind === "local") emit("audio", new Int16Array(pcm.buffer, pcm.byteOffset, frames * 2), frames, 2, 48000, tap); });
   }
+  // (10.3) what the engine said about each channel insert ("i:slot" -> {name} or {error}), for the mixer screen
+  function gotInsert(e) { if (!e) return; L.inserts = L.inserts || {}; var key = e.i + ":" + e.slot; if (e.cleared) delete L.inserts[key]; else L.inserts[key] = e; emit("insert", e); }
   if (HOST) HOST.on(function (st) { L.hostStatus = st; emit("status", st); if (L.kind === "local" && st.engine) L.info = st.engine; });
   async function useLocal() {
     if (L.link) { L.link.close(); L.link = null; }
     L.kind = "local"; L.error = null; counts = {};
-    try { var r = await NATIVE.get(); L.state = M.normalize(r.state); L.pi = r.pi || []; L.info = r.info; } catch (e) { L.error = e.message; }
+    try { var r = await NATIVE.get(); L.state = M.normalize(r.state); L.pi = r.pi || []; L.info = r.info; L.inserts = r.inserts || {}; } catch (e) { L.error = e.message; }
     try { L.hostStatus = await HOST.status(); } catch (_) { }
     emit("state", L.state); emit("status", L.hostStatus);
   }
@@ -41,11 +44,12 @@
     if (!addr) { L.error = "No audio host yet: one admin computer turns on \"This computer is the audio host\" (I/O tab)."; emit("state", null); return; }
     if (!code) { L.error = "Enter the audio host's admin code (I/O tab) to mix from this computer."; emit("state", null); return; }
     var link = L.link = IE.link({ url: "ws://" + addr + "/ws", role: "admin", code: code, id: "admin-" + IE.deviceId(), name: (CU.config() || {}).name || "Admin", hello: function () { return { cuRole: CU.role ? CU.role() : "admin", jobs: CU.jobs ? CU.jobs() : [] }; } });
-    link.on("welcome", function (st, m) { L.state = M.normalize(st); L.pi = m.pi || []; L.info = m.engine; L.error = null; emit("state", L.state); });
+    link.on("welcome", function (st, m) { L.state = M.normalize(st); L.pi = m.pi || []; L.info = m.engine; L.inserts = m.inserts || {}; L.error = null; emit("state", L.state); });
     link.on("op", function (op) { if (L.state) { M.apply(L.state, op, { role: "host" }); emit("op", op); } });
     link.on("state", function (st) { L.state = M.normalize(st); emit("state", L.state); });
     link.on("meters", function (m) { L.meters = m; emit("meters", m); });
     link.on("pi", function (names) { L.pi = names || []; emit("pi", L.pi); });
+    link.on("insert", gotInsert);
     link.on("refused", function (err) { L.error = err; emit("state", L.state); });
     link.on("status", function (s) { L.linkStatus = s; emit("status", L.hostStatus); });
     link.on("audio", function (pcm, frames, ch, rate, tap) { emit("audio", pcm, frames, ch, rate, tap); });
@@ -72,7 +76,7 @@
   // the engine's tap numbers: 0 main, 1..64 mixes, 65 the stream mix; the remote link uses "main", the mix index or "stream"
   function tapNumber(tap) { return tap === "main" ? 0 : tap === "stream" ? M.MAXMIX + 1 : Number(tap) + 1; }
   window.CUMix = { on: on, op: op, listen: listen, tapNumber: tapNumber, choose: choose, refresh: function () { L.remoteAddr = ""; choose(); },
-    get state() { return L.state; }, get pi() { return L.pi; }, get meters() { return L.meters; }, get kind() { return L.kind; }, get error() { return L.error; }, get hostStatus() { return L.hostStatus; }, get info() { return L.info; },
+    get state() { return L.state; }, get pi() { return L.pi; }, get meters() { return L.meters; }, get kind() { return L.kind; }, get error() { return L.error; }, get hostStatus() { return L.hostStatus; }, get info() { return L.info; }, get insertInfo() { return L.inserts || {}; },
     link: function () { return L.link; },
     connected: function () { return L.kind === "local" ? !!L.state : !!(L.link && L.link.connected()); }, isHost: isHost, hostAddress: hostAddress,
     live: function () { var o = {}; (L.pi || []).forEach(function (n) { o[n.key] = true; }); return o; } };

@@ -100,4 +100,36 @@ async function thumb(bin, file, out, at) {
   return r.code === 0 && fs.existsSync(out) ? out : null;
 }
 
-module.exports = { render, thumb, cropX, DEFAULTS, W, H };
+/* (10.3) a full-length video (the worship set, the sermon): the camera's picture as it is (16:9, up to 1080p) or, without
+ * a camera, the waveform on the church's colour; the sound brought to -14 LUFS; a short fade in and out */
+async function renderFull(o) {
+  const s = Object.assign({}, DEFAULTS, o.settings || {}), dur = num(o.end - o.start); if (!(dur > 5)) throw new Error("That part of the service is too short.");
+  fs.mkdirSync(o.work, { recursive: true });
+  const args = ["-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-y"], fg = []; let n = 0, vIn = -1, aIn = -1;
+  const VH = o.height === 720 ? 720 : 1080, VW = VH === 720 ? 1280 : 1920;
+  if (o.video && o.video.file) { args.push("-ss", String(num(Math.max(0, o.start - (o.video.lag || 0)))), "-t", String(dur), "-i", o.video.file); vIn = n++; }
+  if (o.audio && o.audio.file) { args.push("-ss", String(num(Math.max(0, o.start - (o.audio.lag || 0)))), "-t", String(dur), "-i", o.audio.file); aIn = n++; } else aIn = vIn;
+  if (aIn < 0) throw new Error("No sound to make the video from.");
+  if (vIn >= 0) fg.push("[" + vIn + ":v]scale=" + VW + ":" + VH + ":force_original_aspect_ratio=decrease,pad=" + VW + ":" + VH + ":(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30[pv]");
+  else { args.push("-f", "lavfi", "-t", String(dur), "-i", "color=c=0x" + hex(s.background, "16181d") + ":s=" + VW + "x" + VH + ":r=30"); const bg = n++; fg.push("[" + aIn + ":a]asplit[aw][am];[aw]showwaves=s=" + VW + "x" + Math.round(VH / 3) + ":mode=cline:rate=30:colors=0x" + hex(s.accent, "ffd23f") + ",format=rgba[wv];[" + bg + ":v][wv]overlay=0:(H-h)/2:shortest=1,setsar=1[pv]"); }
+  fg.push("[pv]fade=t=in:st=0:d=1,fade=t=out:st=" + num(Math.max(0, dur - 1.5)) + ":d=1.5,format=yuv420p[v]");
+  fg.push((vIn < 0 ? "[am]" : "[" + aIn + ":a]") + "aresample=48000,aformat=channel_layouts=stereo,loudnorm=I=" + (Number(s.loudness) || -14) + ":TP=-1.5:LRA=11,afade=t=in:st=0:d=1,afade=t=out:st=" + num(Math.max(0, dur - 2)) + ":d=2[a]");
+  args.push("-filter_complex", fg.join(";"), "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", path.resolve(o.out) + ".part.mp4");
+  let lastT = 0;
+  const r = await run(o.bin, args, (b) => { const m = /out_time_us=(\d+)/.exec(String(b)); if (m && o.progress) { const t = Number(m[1]) / 1e6; if (t - lastT > 5) { lastT = t; o.progress(Math.min(1, t / dur)); } } }, { cwd: o.work, low: true, signal: o.signal });
+  if (r.code !== 0) throw new Error("ffmpeg couldn't make the video: " + (r.err.trim().split("\n").slice(-2).join(" ") || "exit " + r.code));
+  fs.renameSync(path.resolve(o.out) + ".part.mp4", o.out);
+  return { file: o.out, seconds: dur };
+}
+/* the video's thumbnail: a frame with its title across the bottom (1280 x 720, under 2 MB for YouTube) */
+async function titleThumb(bin, file, out, at, text, fontsDir, work) {
+  fs.mkdirSync(work, { recursive: true });
+  const fdir = path.join(work, "fonts"); fs.mkdirSync(fdir, { recursive: true });
+  if (fontsDir && fs.existsSync(fontsDir)) for (const f of fs.readdirSync(fontsDir)) if (/\.(ttf|otf)$/i.test(f)) fs.copyFileSync(path.join(fontsDir, f), path.join(fdir, f));
+  const ass = "[Script Info]\nScriptType: v4.00+\nPlayResX: 1280\nPlayResY: 720\nWrapStyle: 0\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: T,Archivo SemiBold,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,4,2,1,60,60,56,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:10.00,T,,0,0,0,," + String(text || "").replace(/[{}\\]/g, "").slice(0, 80) + "\n";
+  fs.writeFileSync(path.join(work, "thumb.ass"), ass);
+  const r = await run(bin, ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(at || 5), "-i", file, "-frames:v", "1", "-vf", "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,eq=brightness=-0.06,ass=thumb.ass:fontsdir=fonts", "-q:v", "3", path.resolve(out)], null, { cwd: work, low: true });
+  return r.code === 0 && fs.existsSync(out) ? out : null;
+}
+
+module.exports = { render, renderFull, thumb, titleThumb, cropX, DEFAULTS, W, H };

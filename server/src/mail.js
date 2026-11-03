@@ -1,4 +1,4 @@
-// Email through Resend (https://resend.com): RESEND_API_KEY and MAIL_FROM ("Motion Audio <team@your-domain.com>",
+// Email through Resend (https://resend.com): RESEND_API_KEY and MAIL_FROM ("Motion Audio <noreply@motionaudio.org>",
 // a domain verified in Resend). Without them nothing is sent: the website shows the invite link to copy or text instead.
 const KEY = process.env.RESEND_API_KEY || "", FROM = process.env.MAIL_FROM || "";
 export const mailOn = !!(KEY && FROM);

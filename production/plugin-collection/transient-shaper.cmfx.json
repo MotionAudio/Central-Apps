@@ -1,0 +1,112 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "transient-shaper",
+ "name": "Transient Shaper",
+ "author": "Motion Audio",
+ "family": "dynamics",
+ "tier": "plugins",
+ "description": "More or less attack and more or less sustain, at any level: punch up drums, soften a pick, tighten a room.",
+ "params": [
+  {
+   "id": "attack",
+   "name": "Attack",
+   "min": -100,
+   "max": 100,
+   "default": 30,
+   "unit": "%"
+  },
+  {
+   "id": "sustain",
+   "name": "Sustain",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "%"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Drum punch",
+   "values": {
+    "attack": 60,
+    "sustain": -10
+   }
+  },
+  {
+   "name": "Tighten the room",
+   "values": {
+    "attack": 10,
+    "sustain": -60
+   }
+  },
+  {
+   "name": "Soften the pick",
+   "values": {
+    "attack": -50,
+    "sustain": 10
+   }
+  },
+  {
+   "name": "Long sustain",
+   "values": {
+    "attack": 0,
+    "sustain": 60,
+    "output": -3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "shape",
+    "type": "transient",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "attack": {
+      "param": "attack"
+     },
+     "sustain": {
+      "param": "sustain"
+     },
+     "level": {
+      "param": "output"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "shape.in"
+   },
+   {
+    "from": "shape.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

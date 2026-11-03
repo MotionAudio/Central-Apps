@@ -599,7 +599,7 @@ await check("plans: with licensing off everything is open; every pedal and board
   const r = await T(() => ({ off: ["keys", "plugins", "instrument", "pedals"].every((id) => PPLicense.hasPlan(id)), noTier: PPPedals.pedals.filter((p) => !p.tier).length,
     free: PPPedals.pedals.filter((p) => p.tier === "free").length, freeBoards: PPPedals.boards.filter((b) => !b.plans.length).map((b) => b.id),
     muff: PPPedals.byId("muff").tier, reverb: PPPedals.byId("zitarev").tier, lock: PPPedals.lockText("instrument"), pkgs: !!document.querySelector("#pkgSettings") || PPLicense.packagesHtml().includes("no packages needed") }));
-  assert.ok(r.off, "licensing off: all plans open"); assert.equal(r.noTier, 0); assert.ok(r.free >= 12 && r.free <= 16, "free pedals " + r.free);
+  assert.ok(r.off, "licensing off: all plans open"); assert.equal(r.noTier, 0); assert.ok(r.free >= 12 && r.free <= 20, "free pedals " + r.free);   // (10.3: Central Pedals adds four free ones - boost, gate, volume, mute)
   // (four free boards; the 9.6 orchestra boards are Central Instrument's)
   assert.deepEqual(r.freeBoards, ["clean-worship", "acoustic-dry", "bass-di", "keys-stage"]); assert.equal(r.muff, "pedals"); assert.equal(r.reverb, "plugins");
   assert.equal(r.lock, "Part of Central Instrument · $100 a year"); assert.ok(r.pkgs, "Settings → Packages says no packages are needed");

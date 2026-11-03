@@ -1,0 +1,106 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "room-reverb",
+ "name": "Room Reverb",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "free",
+ "description": "A natural room around the sound. The basic reverb: small to medium spaces.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.22
+  },
+  {
+   "id": "size",
+   "name": "Size",
+   "min": 0,
+   "max": 0.6,
+   "default": 0.3
+  },
+  {
+   "id": "damp",
+   "name": "Darkness",
+   "min": 0,
+   "max": 1,
+   "default": 0.45
+  }
+ ],
+ "presets": [
+  {
+   "name": "Small room",
+   "values": {
+    "mix": 0.18,
+    "size": 0.15,
+    "damp": 0.5
+   }
+  },
+  {
+   "name": "Live room",
+   "values": {
+    "mix": 0.25,
+    "size": 0.35,
+    "damp": 0.35
+   }
+  },
+  {
+   "name": "Wooden hall",
+   "values": {
+    "mix": 0.3,
+    "size": 0.55,
+    "damp": 0.55
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "room",
+    "type": "reverb",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "size": {
+      "param": "size"
+     },
+     "damp": {
+      "param": "damp"
+     },
+     "mix": {
+      "param": "mix"
+     },
+     "predelay": 6,
+     "mod": 0.3
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "room.in"
+   },
+   {
+    "from": "room.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

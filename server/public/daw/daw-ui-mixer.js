@@ -63,6 +63,13 @@
       var mine = more.filter(function (x) { return x.from === "mine"; }), inst = more.filter(function (x) { return x.from !== "mine"; });
       if (mine.length) { items.push(null); mine.forEach(function (x) { items.push(cm(x.plugin, "yours")); }); }
       if (inst.length) { items.push(null); inst.forEach(function (x) { items.push(cm(x.plugin, x.author ? "by " + x.author : "installed")); }); }
+      // (10.3) the Central FX collection, by family: the basic ones free, the better ones with Central Plugins
+      var coll = window.CMFxCollection || [], fams = [];
+      coll.forEach(function (pl) { if (fams.indexOf(pl.family) < 0) fams.push(pl.family); });
+      fams.forEach(function (fam) {
+        items.push(null);
+        coll.filter(function (pl) { return pl.family === fam; }).forEach(function (pl) { var locked = pl.tier === "plugins" && !D.pro(); var it = cm(pl, locked ? "Central Plugins" : ""); if (locked) it[2] = false; items.push(it); });
+      });
       if (ex.length) { items.push(null); ex.forEach(function (pl) { items.push(cm(pl, "example")); }); }
       if (D.native.host()) items.push(null, ["Your VST3 / CLAP plugins…", function () { nativeMenu(btn, done, false); }]);
       items.push(null, ["A plugin file (.cmfx.json)…", function () { var i = document.createElement("input"); i.type = "file"; i.accept = ".json"; i.onchange = function () { var file = i.files[0]; if (!file) return; file.text().then(function (txt) { var pl = JSON.parse(txt); if (pl.format !== "central-fx") throw new Error(); if (window.CMFx) { var r = window.CMFx.check(pl); if (!r.ok) return UI.say("That plugin has a problem: " + r.error, true); } cm(pl)[1](); }).catch(function () { UI.say("That isn't a Central FX plugin.", true); }); }; i.click(); }]);
@@ -84,6 +91,7 @@
     var panel = $(".cd-fxpanel", body); if (!mx.open) { panel.hidden = true; return; }
     var parts = mx.open.split(":"), id = parts[0], fid = parts[1], master = id === "master", t = master ? null : D.track(id), list = master ? P().master.inserts : t && t.inserts, f = list && list.filter(function (x) { return x.id === fid; })[0];
     if (!f) { mx.open = null; panel.hidden = true; return; }
+    if (f.type === "native" && !f.plist && D.native.host() && t && !mx.fetching) { mx.fetching = true; D.liveFx.params(t.id, f.id).then(function () { mx.fetching = false; if (mx.open === id + ":" + f.id) draw(mx.body); }).catch(function () { mx.fetching = false; }); }
     var def = D.fxDef(f), p = Object.assign(D.fxDefaults(f), f.params || {}), pro = D.pro(), locked = def.pro && !pro;
     panel.hidden = false;
     panel.innerHTML = '<div class="cd-fxhead"><b>' + esc(def.name) + "</b> · " + esc(master ? "Main mix" : t.name) + (locked ? ' <span class="cd-lock">Part of Central Plugins: add your package key in Settings to use it</span>' : !pro && def.params.some(function (q) { return q[6]; }) ? ' <span class="cd-lock">The basic version: Central Plugins opens the rest of its knobs</span>' : "") + '<button class="ghost" data-close>✕</button></div>' +
@@ -91,15 +99,16 @@
         var off = locked || (q[6] && !pro), v = p[q[0]], key = "fx:" + f.id + ":" + q[0];
         if (q[7]) return '<label class="cd-knob' + (off ? " off" : "") + '"><span>' + esc(q[1]) + '</span><select data-k="' + q[0] + '"' + (off ? " disabled" : "") + ">" + q[7].map(function (o, i) { return '<option value="' + i + '"' + (Math.round(v) === i ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select></label>";
         return '<label class="cd-knob' + (off ? " off" : "") + '"><span>' + esc(q[1]) + '</span><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + ((q[3] - q[2]) / 400) + '" value="' + v + '" data-k="' + q[0] + '"' + (off ? " disabled" : "") + '><output>' + fmt(v, q) + "</output>" + (!master && !off && f.type !== "cmfx" ? '<button class="cd-autobtn" data-auto="' + key + '" title="Automate it">A</button>' : "") + "</label>";
-      }).join("") + (f.type === "native" ? nativeInfo(t, f) : "") + (f.type === "cmfx" ? '<p class="cd-dim">' + (!window.CMFx ? "A Central FX plugin. It plays once the plugin engine is in this build." : !def.params.length ? "This plugin has no knobs." : "A Central FX plugin" + (f.plugin && f.plugin.author ? " by " + esc(f.plugin.author) : "") + ".") + "</p>" : "") + "</div>";
+      }).join("") + (f.type === "cmfx" && ((f.plugin && f.plugin.params) || []).some(function (q) { return (q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"); }) ? '<label class="cd-sync"><input type="checkbox" data-synctempo' + (f.syncTempo !== false ? " checked" : "") + '> Sync to song tempo</label>' : "") + (f.type === "native" ? nativeInfo(t, f) : "") + (f.type === "cmfx" ? '<p class="cd-dim">' + (!window.CMFx ? "A Central FX plugin. It plays once the plugin engine is in this build." : !def.params.length ? "This plugin has no knobs." : "A Central FX plugin" + (f.plugin && f.plugin.author ? " by " + esc(f.plugin.author) : "") + ".") + "</p>" : "") + "</div>";
     panel.onclick = function (e) { if (e.target.closest("[data-close]")) { mx.open = null; draw(mx.body); }
       var nb = e.target.closest("[data-native]"); if (nb && t) {
         var k = nb.dataset.native;
         if (k === "freeze") D.native.freeze(t.id).then(function () { draw(mx.body); }).catch(function (er) { UI.say(er.message || String(er), true); });
         if (k === "unfreeze") { D.native.unfreeze(t.id); draw(mx.body); }
-        if (k === "window") { var host = D.native.host(); if (!host) return; D.nudge("Plugin window", function () { var x = D.track(t.id).inserts.filter(function (q) { return q.id === f.id; })[0]; if (x) x.v = (x.v || 0) + 1; });   // (its settings may change in its window: freeze again after)
-          host.editor(D.native.slot(f), D.native.list(t).map(function (q) { return { slot: D.native.slot(q), format: q.plugin.format, id: q.plugin.id, path: q.plugin.path, name: q.plugin.name }; }), true).then(function (r) { if (r && r.error) UI.say(r.error, true); else UI.say("Its window is open. Freeze the track again when you're done (an export does it for you)."); }); }
+        if (k === "window") D.liveFx.openWindow(t.id, f.id).then(function (r) { if (r && r.error) UI.say(r.error, true); else if (r && r.ok) UI.say("Its window is open: what you change there is heard as it plays."); });
+        if (k === "params") D.liveFx.params(t.id, f.id).then(function () { draw(mx.body); });
       } var a = e.target.closest("[data-auto]"); if (a) { var key = a.dataset.auto; D.edit("Automation lane", function () { var tt = D.track(id); if (tt.lanes.indexOf(key) < 0) tt.lanes.push(key); }); UI.say("An automation lane is under the track: click it to add points."); } };
+    var st = $("[data-synctempo]", panel); if (st) st.onchange = function () { var on = st.checked; D.edit(on ? "Sync to song tempo" : "Own tempo", function (pp) { var l = master ? pp.master.inserts : D.track(id).inserts, x = l.filter(function (z) { return z.id === fid; })[0]; if (x) x.syncTempo = on; }); };   // (10.3)
     $$("[data-k]", panel).forEach(function (inp) {
       var q = def.params.filter(function (x) { return x[0] === inp.dataset.k; })[0];
       inp.oninput = function () { var v = +inp.value; if (inp.nextElementSibling && inp.nextElementSibling.tagName === "OUTPUT") inp.nextElementSibling.textContent = fmt(v, q); D.nudge(def.name + " " + q[1], function (pp) { var l = master ? pp.master.inserts : D.track(id).inserts, x = l.filter(function (z) { return z.id === fid; })[0]; x.params = x.params || {}; x.params[q[0]] = v; }); };
@@ -108,12 +117,14 @@
   }
   function nativeInfo(t, f) {
     if (!t) return '<p class="cd-dim">VST3 and CLAP plugins go on tracks (not the main mix).</p>';
-    var st = D.native.state(t), host = !!D.native.host(), fz = t.frozen;
-    var what = { frozen: "Frozen " + (fz && fz.at ? new Date(fz.at).toLocaleTimeString() : "") + (fz && fz.latency ? " · its delay (" + fz.latency + " samples) taken off" : "") + ": playback and exports use it.", stale: "Changed since it was frozen: it plays without its plugins until it's frozen again (exports freeze it first).", unfrozen: "Not frozen yet: playback is without it until you freeze the track (exports freeze it first).", freezing: "Freezing…" }[st] || "";
+    var st = D.native.state(t), host = !!D.native.host(), live = host && D.liveFx.tracks().some(function (x) { return x.id === t.id; }), fz = t.frozen;
+    var lat = (D.liveFx.chains()[Object.keys(D.liveFx.chains()).filter(function (i) { return D.liveFx.chains()[i].sig && D.liveFx.chains()[i].sig.indexOf('"' + f.id + '"') >= 0; })[0]] || {}).lat;
     return '<div class="cd-native"><p><b>' + esc(f.plugin.name) + "</b> · " + esc(String(f.plugin.format).toUpperCase()) + (f.plugin.vendor ? " · " + esc(f.plugin.vendor) : "") + "</p>" +
-      (host ? '<p class="cd-dim">Live: while this audio track is armed and monitored, you hear its input through it (from the plugin host, with its own low delay); the recording is the dry input. ' + esc(what) + "</p>" +
-        '<div class="cd-line"><button data-native="window">Open its window</button><button data-native="freeze" class="primary"' + (st === "freezing" ? " disabled" : "") + ">" + (st === "frozen" ? "Freeze again" : "Freeze the track") + "</button>" + (fz ? '<button data-native="unfreeze">Unfreeze</button>' : "") + "</div>"
-        : '<p class="cd-dim">This VST3 / CLAP plugin plays in the Central Production and Central Usage apps on a computer. Here the track plays without it' + (st === "frozen" ? ", except its frozen sound, which plays as it was." : ".") + "</p>") + "</div>";
+      (host ? '<p class="cd-dim">' + (st === "frozen" ? "Frozen (saving CPU): playback uses the frozen sound until something changes or you unfreeze it." : "Plays live as the song plays" + (lat ? " · the track's plugins' delay (" + lat + " samples) is made up for" : "") + ". A knob turned here or in its window is heard about " + Math.round(D.liveFx.ahead() * 1000) + " ms later.") +
+          " While the track is armed and monitored, its input plays through it too.</p>" +
+        '<div class="cd-line"><button data-native="window">Open its window</button>' + (f.plist ? "" : '<button data-native="params">Show its knobs</button>') +
+        '<button data-native="freeze"' + (st === "freezing" ? " disabled" : "") + ' title="Optional: plays the track from a rendered copy to save CPU">' + (st === "frozen" ? "Freeze again" : "Freeze (saves CPU)") + "</button>" + (fz ? '<button data-native="unfreeze">Unfreeze</button>' : "") + "</div>"
+        : '<p class="cd-dim">This VST3 / CLAP plugin plays in the Central Production and Central Usage apps on a computer. Here the track plays without it' + (st === "frozen" ? ", except its frozen sound, which plays as it was." : ". Central FX plugins play here live.") + "</p>") + "</div>";
   }
   function fmt(v, q) { var u = q[5]; return (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 100) / 100) + (u ? " " + u : ""); }
   function meters() {

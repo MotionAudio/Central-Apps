@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Central Pedal - makes two banks of the sound libraries, synthesised here (no one else's recording):
 
-  Central Keys Pads (Central Keys): fifteen pads, each built its own way (tools/pad_voices.py says how) - Warm Pad (detuned
+  Central Keys Pads (Central Keys): eighteen pads, each built its own way (tools/pad_voices.py says how) - Warm Pad (detuned
       saws, a breathing low-pass), Air Pad (tuned breath), Choir Aah and Choir Ooh (singers through vowel formants), Shimmer
       Pad (a shimmer reverb's octaves), String Pad (a bowed section), Glass Pad (FM glass), Swell Pad (its filter opens as
       you hold a note), Worship Pad (layered and very wide), Analog Sweep Pad (a resonant filter sweeping), Dark Pad (a
@@ -14,6 +14,8 @@
       The cymbal, gong and drum sounds come from VCSL (Versilian Studios, CC0 1.0); the rest is synthesised.
   Central Pads Swells (Central Pads, so every plan has it): swells, risers, downlifters and an arrival in every key, at
       4, 8 and 16 seconds, and an air bed for between songs (build_swells, below).
+  Central Pads Swells Extra (10.3, Central Pads Extra): choir, brass and breath swells, shimmer rises, an outro wash and a
+      tape stop in every key; noise uplifters and a sub drop with no key.
 
     python3 tools/make-pads.py <download cache> <out folder> [--only BANK]
 Needs python3-numpy (and the internet for the VCSL cymbals and gong). Deterministic: the same files every build."""
@@ -54,7 +56,10 @@ PADS = [("Warm Pad", ("Warm", 0, 0), 1.0, 2.5), ("Air Pad", ("Air", 0, 0), 1.5, 
         ("Glass Pad", ("Glass", -12, 0), 0.2, 2.5), ("Swell Pad", ("Swell", 0, 3.0), 0.3, 3.0), ("Worship Pad", ("Worship", 0, 0), 1.5, 4.0),
         ("Analog Sweep Pad", ("Analog", 0, 0), 0.3, 2.0), ("Dark Pad", ("Deep", 12, 0), 1.2, 3.0), ("Bell Pad", ("Bells", -12, 0), 0.05, 3.0),
         # 10.2, more: the Sunday-keys worship pad, and two made from CC0 recordings (tools/pad_sources.py)
-        ("Sunday Pad", ("Sunday Keys", 0, 0), 1.5, 4.5), ("Ember Pad", ("Ember", 0, 0), 1.2, 4.0), ("Selah Strings", ("Selah", 0, 0), 0.8, 3.0)]
+        ("Sunday Pad", ("Sunday Keys", 0, 0), 1.5, 4.5), ("Ember Pad", ("Ember", 0, 0), 1.2, 4.0), ("Selah Strings", ("Selah", 0, 0), 0.8, 3.0),
+        # 10.3, more: a bright Sunday-keys pad, an Easter brass swell and Christmas bells (from CC0 recordings)
+        ("Sunday Bright Pad", ("Sunday Bright", 0, 0), 1.0, 4.0), ("Easter Brass Pad", ("Easter Brass", 0, 0), 1.2, 3.5),
+        ("Christmas Bells Pad", ("Christmas Bells", 0, 0), 0.05, 4.0)]
 
 
 def pad_sample(how, note, seed):
@@ -259,14 +264,23 @@ def _tail(x, seconds, rng, decay, mix, shimmer=False):
     return y[:int(seconds * SW_SR)]
 
 
-def swell_sound(kind, key, seconds, seed=41):
+NOKEY = {"air", "noiseup", "subdrop"}   # (the same sound on every key)
+# 10.3: Central Pads Swells Extra (in Central Pads Extra) - (name, kind, seconds, the pad style it's made of)
+SWELLS_EXTRA = [("Choir Swell to Key 8s", "swell", 8, "Choir Aah"), ("Brass Swell to Key 8s", "swell", 8, "Easter Brass"),
+                ("Breath Swell to Key 4s", "swell", 4, "Air"), ("Shimmer Rise to Key 8s", "shimmerrise", 8, "Sunday Keys"),
+                ("Shimmer Rise to Key 16s", "shimmerrise", 16, "Sunday Keys"), ("Outro Wash 8s", "outro", 8, "Sunday Keys"),
+                ("Tape Stop 2s", "tapestop", 2, "Warm"), ("Noise Uplifter 8s (no key)", "noiseup", 8, None),
+                ("Noise Uplifter 16s (no key)", "noiseup", 16, None), ("Sub Drop 4s (no key)", "subdrop", 4, None)]
+
+
+def swell_sound(kind, key, seconds, seed=41, style="Sunday Keys"):
     rng = np.random.default_rng(seed + key * 13 + seconds)
     root = 48 + key
     n = int(seconds * SW_SR)
     p = np.arange(n) / n
     if kind == "swell":        # the key's chord struck, its reverb played backwards: it rises out of nothing into the downbeat
         lp = D.Loop(1.6, SW_SR)
-        hit = PV.render("Sunday Keys", lp, root, rng, fx=False) * np.exp(-np.arange(lp.n) / SW_SR / 0.45)[:, None]
+        hit = PV.render(style, lp, root, rng, fx=False) * np.exp(-np.arange(lp.n) / SW_SR / 0.45)[:, None]
         big = D.Loop(seconds + 2.0, SW_SR)
         canvas = np.zeros((big.n, 2))
         canvas[:lp.n] = hit
@@ -306,6 +320,34 @@ def swell_sound(kind, key, seconds, seed=41):
         x = chord / D.rms(chord) * 0.2 + D.stereo(boom * 0.5 + burst * 0.15)
         x = _tail(x, seconds, rng, 5.0, 0.5, shimmer=True)
         x = x * np.minimum(1, (seconds - t) / 1.0)[:, None]
+    elif kind == "shimmerrise":   # (10.3) the key's chord held, opening from dark to bright and growing into a shimmer
+        lp = D.Loop(seconds, SW_SR)
+        chord = PV.render(style, lp, root, rng, fx=False)
+        chord = D.fsweep(chord, p ** 1.3, lambda f, c: D.lowpass(f, c, 1.0, 4), D.hz(root) * 1.5, 12000, SW_SR) * (p ** 1.6)[:, None]
+        x = _tail(chord, seconds, rng, 6.0, 0.55, shimmer=True)
+    elif kind == "outro":       # (10.3) the key's chord fading into a long shimmer wash: the end of a song
+        lp = D.Loop(seconds, SW_SR)
+        t = np.arange(n) / SW_SR
+        chord = PV.render(style, lp, root, rng, fx=False) * (np.minimum(1, t / 0.3) * np.exp(-t / (seconds * 0.25)))[:, None]
+        x = _tail(chord, seconds, rng, seconds * 0.9, 0.7, shimmer=True)
+        x = x * np.minimum(1, (seconds - t) / (seconds * 0.4))[:, None]
+    elif kind == "tapestop":    # (10.3) the key's chord slowing to a stop, like a tape machine switched off
+        lp = D.Loop(seconds * 2, SW_SR)
+        chord = PV.render(style, lp, root, rng)
+        speed = (1 - p) ** 1.5                                   # (from full speed to nothing)
+        pos = np.cumsum(speed)
+        x = np.stack([np.interp(pos, np.arange(lp.n), chord[:, c]) for c in (0, 1)], 1)
+        x = x * np.minimum(1, (1 - p) / 0.3)[:, None] ** 2
+    elif kind == "noiseup":     # (10.3) white noise rising and sweeping through a flanger - no key
+        noise = D.fsweep(rng.normal(0, 1, n), p ** 1.3, lambda f, c: D.highpass(f, c, 0.9, 2), 150, 6000, SW_SR)
+        d = (0.002 + 0.004 * (0.5 + 0.5 * np.sin(2 * math.pi * 0.25 * np.arange(n) / SW_SR))) * SW_SR
+        fl = noise + np.interp(np.arange(n) - d, np.arange(n), noise)
+        x = D.width(np.stack([fl, np.roll(fl, int(0.009 * SW_SR))], 1), 1.3) * (p ** 2.2)[:, None]
+        x = _tail(x, seconds, rng, 2.5, 0.3)
+    elif kind == "subdrop":     # (10.3) a deep pitch drop, felt more than heard - no key
+        t = np.arange(n) / SW_SR
+        f = 80 * (25 / 80) ** np.minimum(1, t / (seconds * 0.8))
+        x = D.stereo(np.sin(2 * math.pi * np.cumsum(f) / SW_SR) * np.exp(-t / (seconds * 0.45)) * np.minimum(1, t / 0.005))
     else:                      # air: breath and room tone with slow movement, a seamless loop, no key
         lp = D.Loop(seconds, SW_SR)
         x = np.stack([D.noise(lp, rng, "pink", 60, 9000) for _ in (0, 1)], 1)
@@ -318,19 +360,19 @@ def swell_sound(kind, key, seconds, seed=41):
     return (x / (np.max(np.abs(x)) or 1) * 0.8).astype(np.float32)
 
 
-def build_swells(out_dir, seed=41, log=None):
-    name = "Central Pads Swells"
+def build_swells(out_dir, seed=41, log=None, name="Central Pads Swells", table=None):
+    table = [t if len(t) == 4 else tuple(t) + ("Sunday Keys",) for t in (table or SWELLS)]
     out = os.path.join(out_dir, "%s - %s.sf2" % (name, name.lower().replace(" ", "-")))
     if os.path.isfile(out):
         return out
     V.say(name + " (synthesised)")
     samples, instruments, presets = [], [], []
-    for prog, (pname, kind, seconds) in enumerate(SWELLS):
+    for prog, (pname, kind, seconds, style) in enumerate(table):
         V.say("  " + pname)
-        keys = [0] if kind == "air" else range(12)
+        keys = [0] if kind in NOKEY else range(12)
         ids = {}
         for k in keys:
-            x = swell_sound(kind, k, seconds, seed)
+            x = swell_sound(kind, k, seconds, seed, style or "Sunday Keys")
             ids[k] = []
             for side in (0, 1):
                 ch = x[:, side]
@@ -343,7 +385,7 @@ def build_swells(out_dir, seed=41, log=None):
                 ids[k].append(len(samples) - 1)
         zones = []
         for note in range(24, 97):   # every key of the keyboard plays its own key's sound, as made
-            k = 0 if kind == "air" else note % 12
+            k = 0 if kind in NOKEY else note % 12
             for side, pan in ((0, -500), (1, 500)):
                 z = [("keyRange", (note, note)), ("pan", pan), ("attackVolEnv", V.tc(0.001)), ("releaseVolEnv", V.tc(2.0 if kind == "air" else 1.2)), ("overridingRootKey", note)]
                 if kind == "air":
@@ -352,7 +394,7 @@ def build_swells(out_dir, seed=41, log=None):
         instruments.append({"name": pname.lower()[:19], "zones": zones})
         presets.append({"name": pname, "prog": prog, "zones": [[("keyRange", (0, 127)), ("instrument", len(instruments) - 1)]]})
     V.write_sf2(out, name, samples, instruments, presets, copyright="Motion Audio (synthesised - sold with Central Pads)",
-                comment="Made by tools/make-pads.py: swells, risers, downlifters and arrivals in every key (each key of the keyboard plays its own), and an air bed.")
+                comment="Made by tools/make-pads.py: transitions in every key (each key of the keyboard plays its own), and ones with no key.")
     V.say("  -> %s (%.0f MB, %d samples)" % (os.path.basename(out), os.path.getsize(out) / 1e6, len(samples)))
     return out
 
@@ -360,7 +402,7 @@ def build_swells(out_dir, seed=41, log=None):
 TRANSITION_KEYS = [(48, "Riser 4s"), (50, "Riser 8s"), (52, "Downlifter"), (53, "Reverse Cymbal"), (55, "Reverse Crash (long)"), (57, "Cymbal Swell"), (59, "Cymbal Swell (long)"),
                    (60, "Impact"), (62, "Sub Drop"), (64, "Reverse Gong"), (65, "Wind"), (67, "Shimmer Hit")]
 BANKS = [("Central Keys Pads", "keys", [p[0] for p in PADS]), ("Central Plugins Textures", "plugins", ["Ambient Drone", "Transitions (risers, swells, reverse cymbals)"]),
-         ("Central Pads Swells", "pads", [s[0] for s in SWELLS])]
+         ("Central Pads Swells", "pads", [s[0] for s in SWELLS]), ("Central Pads Swells Extra", "pads", [s[0] for s in SWELLS_EXTRA])]
 
 
 def main(argv):
@@ -374,6 +416,8 @@ def main(argv):
     PV.set_sources(PS.Sources(cache))   # (the pads made from recordings)
     if not only or only == "Central Pads Swells":
         build_swells(out_dir)
+    if not only or only == "Central Pads Swells Extra":
+        build_swells(out_dir, name="Central Pads Swells Extra", table=SWELLS_EXTRA)
     if not only or only == "Central Keys Pads":
         build_pads(out_dir)
     if not only or only == "Central Plugins Textures":

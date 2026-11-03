@@ -1,0 +1,267 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "tape-echo",
+ "name": "Tape Echo",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "plugins",
+ "description": "Warm, wobbly repeats that darken and saturate as they fade, like a tape machine.",
+ "params": [
+  {
+   "id": "time",
+   "name": "Time",
+   "min": 60,
+   "max": 1200,
+   "default": 420,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.9,
+   "default": 0.45
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "wobble",
+   "name": "Wobble",
+   "min": 0,
+   "max": 1,
+   "default": 0.35
+  },
+  {
+   "id": "age",
+   "name": "Tape age",
+   "min": 1200,
+   "max": 9000,
+   "default": 3200,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "saturation",
+   "name": "Saturation",
+   "min": 0,
+   "max": 18,
+   "default": 6,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Space echo",
+   "values": {
+    "time": 380,
+    "feedback": 0.55,
+    "mix": 0.32,
+    "wobble": 0.4
+   }
+  },
+  {
+   "name": "Old cassette",
+   "values": {
+    "time": 300,
+    "feedback": 0.4,
+    "wobble": 0.8,
+    "age": 1800,
+    "saturation": 10
+   }
+  },
+  {
+   "name": "Rockabilly slap",
+   "values": {
+    "time": 120,
+    "feedback": 0.15,
+    "mix": 0.3,
+    "wobble": 0.15,
+    "age": 5000
+   }
+  },
+  {
+   "name": "Dub",
+   "values": {
+    "time": 600,
+    "feedback": 0.78,
+    "mix": 0.4,
+    "wobble": 0.3,
+    "age": 2200
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "tm",
+    "type": "param",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "param": "time"
+    }
+   },
+   {
+    "id": "w",
+    "type": "lfo",
+    "x": 40,
+    "y": 420,
+    "props": {
+     "rate": 0.6,
+     "from": -3,
+     "to": 3,
+     "shape": "sine"
+    }
+   },
+   {
+    "id": "wa",
+    "type": "param",
+    "x": 40,
+    "y": 610,
+    "props": {
+     "param": "wobble"
+    }
+   },
+   {
+    "id": "ws",
+    "type": "math",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "op": "multiply"
+    }
+   },
+   {
+    "id": "tt",
+    "type": "math",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "op": "add"
+    }
+   },
+   {
+    "id": "echo",
+    "type": "delay",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": 1,
+     "tone": {
+      "param": "age"
+     },
+     "maxTime": 1400
+    }
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "mode": "highpass",
+     "freq": 120,
+     "q": 0.6
+    }
+   },
+   {
+    "id": "tape",
+    "type": "drive",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "mode": "tape",
+     "drive": {
+      "param": "saturation"
+     },
+     "tone": 9000,
+     "level": -2,
+     "mix": 0.7,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 1040,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1240,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "w.out",
+    "to": "ws.a"
+   },
+   {
+    "from": "wa.out",
+    "to": "ws.b"
+   },
+   {
+    "from": "tm.out",
+    "to": "tt.a"
+   },
+   {
+    "from": "ws.out",
+    "to": "tt.b"
+   },
+   {
+    "from": "in.out",
+    "to": "echo.in"
+   },
+   {
+    "from": "tt.out",
+    "to": "echo.time"
+   },
+   {
+    "from": "echo.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "tape.in"
+   },
+   {
+    "from": "tape.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

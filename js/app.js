@@ -1,6 +1,6 @@
   (function () {
     "use strict";
-    var APP_VERSION="10.2.0"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
+    var APP_VERSION="10.3.0"; // (tools/bump-version.sh keeps this in step with pedal-driver.py: a page older than its driver reloads itself)
     var STORAGE="pad-pedal-seamless-v3", DB_NAME="pad-pedal-samples-v3", DB_STORE="samples", KEYS=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"], STOCK_VOICES=["Warm Pad","Ambient Pad","Worship Swell","Dream Choir","Heavenly Pad","Soft Strings","Shimmer Pad","Gentle Pluck"], EQ_COLORS=["#61e7b2","#7caeff","#ffcf66","#ff8b8b","#d998ff","#64e5f0"];
     var PAD_COUNT=8;
     var selected=0, editingInput=false, editingBand=0, currentWaveBuffer=null, waveDrag=null, wavePeaks=new Map(), saveTimer=0, trimRestartTimer=0, project;
@@ -231,12 +231,20 @@
     // (9.8) Central Pads: the library's pad loops - one per style and key, installed on this Central Pedal - as voices
     // "cpad:<library id>/<style>". A pad plays the loop of the song's key as it is (no pitch shifting). Without the plan
     // (Central Pads, or any plan - they all include it) the pad plays the Warm Pad voice instead.
-    var CPAD="cpad:",cpads=[],FLAT_TO_SHARP={Db:"C#",Eb:"D#",Gb:"F#",Ab:"G#",Bb:"A#",Cb:"B",Fb:"E"};
+    var CPAD="cpad:",cpads=[],cmoves=[],FLAT_TO_SHARP={Db:"C#",Eb:"D#",Gb:"F#",Ab:"G#",Bb:"A#",Cb:"B",Fb:"E"};
     function isCpad(v){return typeof v==="string"&&v.indexOf(CPAD)===0;}
-    function voiceLabel(v){return isCpad(v)?"Central Pads · "+v.slice(v.indexOf("/")+1):v;}
-    function cpadLocked(){var L=window.PPLicense;return !!(L&&typeof L.hasPlan==="function"&&!L.hasPlan("pads"));}
+    function voiceLabel(v){return isCpad(v)?"Central Pads · "+v.slice(v.indexOf("/")+1).replace(/^~(.*)$/,"$1 (moving)"):v;}
+    // (10.3) Central Pads Extra's moving pads (loops with a gate, one bed per key) are voices too: "cpad:<library>/~<name>".
+    // The bed loops at its own pitch and a gate opens and closes it 16 steps a bar at the song's tempo.
+    function isMoving(v){return isCpad(v)&&v.indexOf("/~")>0;}
+    function moveOf(v){var id=v.slice(CPAD.length),slash=id.indexOf("/~"),lib=id.slice(0,slash),name=id.slice(slash+2);return cmoves.filter(function(m){return m.library===lib&&m.name===name;})[0]||null;}
+    function gateCurve(ctx,gate,bpm){var smooth=gate.charAt(0)==="~",steps=(smooth?gate.slice(1):gate).split("").map(function(c){return(+c||0)/9;}),rate=ctx.sampleRate,len=Math.max(64,Math.round(240/(bpm||90)*rate)),stepLen=len/steps.length,buf=ctx.createBuffer(1,len,rate),d=buf.getChannelData(0),atk=Math.round(.004*rate);
+      for(var i=0;i<len;i++){var si=Math.floor(i/stepLen),pos=i-si*stepLen,lv=steps[si%steps.length];if(smooth){var nx=steps[(si+1)%steps.length];d[i]=lv+(nx-lv)*(pos/stepLen);continue;}var rel=stepLen*.75;d[i]=lv*(pos<atk?pos/atk:pos<rel?1:Math.max(0,1-(pos-rel)/(stepLen-rel)));}
+      return buf;}
+    function cpadLocked(){var L=window.PPLicense;return !!(L&&typeof L.hasPlan==="function"&&!(L.keeps?L.keeps("pads"):L.hasPlan("pads")));}
     function cpadKey(key){var m=/^([A-G])([#b♯♭]?)/.exec(String(key||"C").trim());if(!m)return "C";var k=m[1]+(m[2]==="♯"?"#":m[2]==="♭"?"b":m[2]);return FLAT_TO_SHARP[k]||k;}
-    function loadCpads(){if(!/^(127\.0\.0\.1|localhost)$/.test(location.hostname)||!window.fetch)return;fetch("http://127.0.0.1:8766/libraries/pads",{cache:"no-store"}).then(function(r){return r.ok?r.json():{pads:[]};}).then(function(j){var next=Array.isArray(j&&j.pads)?j.pads:[];if(JSON.stringify(next)===JSON.stringify(cpads))return;cpads=next;try{refreshVoiceOptions();}catch(_){}}).catch(function(){});}
+    function loadCpads(){if(!/^(127\.0\.0\.1|localhost)$/.test(location.hostname)||!window.fetch)return;fetch("http://127.0.0.1:8766/libraries/pads",{cache:"no-store"}).then(function(r){return r.ok?r.json():{pads:[]};}).then(function(j){var next=Array.isArray(j&&j.pads)?j.pads:[];if(JSON.stringify(next)===JSON.stringify(cpads))return;cpads=next;try{refreshVoiceOptions();}catch(_){}}).catch(function(){});
+      fetch("http://127.0.0.1:8766/libraries/loops",{cache:"no-store"}).then(function(r){return r.ok?r.json():{loops:[]};}).then(function(j){var next=(Array.isArray(j&&j.loops)?j.loops:[]).filter(function(l){return(l.files||[]).some(function(f){return f.gate&&f.key;});}).map(function(l){return{id:l.library+"/~"+l.name,library:l.library,name:l.name,tier:l.tier,files:l.files.filter(function(f){return f.gate&&f.key;})};});if(JSON.stringify(next)===JSON.stringify(cmoves))return;cmoves=next;try{refreshVoiceOptions();}catch(_){}}).catch(function(){});}
     function chordFor(pad){var name=pad.chord&&pad.chord!=="auto"?pad.chord:profileFor(pad.voice).chord;return CHORDS[name]||CHORDS.fifth;}
     function activeSong(){return project.songs[project.songIndex]||null;}
     function playKeyFor(pad){var song=activeSong();return song?song.key:pad.key;}
@@ -374,6 +382,9 @@
       if(cpadLocked()){setStatus("Central Pads opens with a sound plan (every plan includes it): playing Warm Pad");return null;}
       var id=voice.slice(CPAD.length),slash=id.indexOf("/"),k=cpadKey(key),memo=voice+"|"+k;if(slash<1)return null;
       if(decodedSamples.has(memo))return decodedSamples.get(memo);
+      if(isMoving(voice)){var mv=moveOf(voice),mf=mv&&(mv.files.filter(function(f){return f.key===k;})[0]||mv.files[0]);if(!mf){setStatus(voiceLabel(voice)+" isn't installed on this Central Pedal (Settings → Packages → Libraries): playing Warm Pad");return null;}
+        try{var mr=await fetch("http://127.0.0.1:8766/libraries/loop?lib="+encodeURIComponent(mv.library)+"&file="+encodeURIComponent(mf.file));if(!mr.ok)throw new Error(mr.status);var mb=await this.context().decodeAudioData(await mr.arrayBuffer());mb.__fixedKey=true;mb.__gate=mf.gate;decodedSamples.set(memo,mb);return mb;}
+        catch(_){setStatus(voiceLabel(voice)+" didn't load: playing Warm Pad");return null;}}
       try{var r=await fetch("http://127.0.0.1:8766/libraries/pad?lib="+encodeURIComponent(id.slice(0,slash))+"&style="+encodeURIComponent(id.slice(slash+1))+"&key="+encodeURIComponent(k));if(!r.ok)throw new Error(r.status);
         var buffer=await this.context().decodeAudioData(await r.arrayBuffer());buffer.__fixedKey=true;decodedSamples.set(memo,buffer);return buffer;}
       catch(_){setStatus(voiceLabel(voice)+" isn't installed on this Central Pedal (Settings → Packages → Libraries): playing Warm Pad");return null;}};
@@ -624,9 +635,15 @@
         if(profile.air){var air=c.createBufferSource(),bp=c.createBiquadFilter(),ag=c.createGain();air.buffer=this.engine.noiseBuffer("rain");air.loop=true;bp.type="bandpass";bp.frequency.value=7000;bp.Q.value=.7;ag.gain.value=profile.air*.12;air.connect(bp).connect(ag).connect(this.eqFilters[0][0]);this.sources.push(air);air.start(time);}}
       this.oscillators.forEach(function(o){try{o.start(time);}catch(_){}});
       if(this.shifter)this.shifter.start(time);
-      this.textureSource.start(time);this.textureStarted=true;};
+      this.textureSource.start(time);this.textureStarted=true;
+      if(this.buffer&&this.buffer.__gate)this.startGate(time);};
+    // (10.3) a moving pad: the bed goes through a volume that its gate opens and closes in time with the song
+    Voice.prototype.startGate=function(time){var c=this.ctx;if(!this.moveGain){var g=c.createGain();g.gain.value=0;try{this.input.disconnect(this.gateGain);}catch(_){}this.input.connect(g).connect(this.gateGain);this.moveGain=g;}
+      if(this.gateSrc){try{this.gateSrc.stop(time+.02);}catch(_){}}var bpm=tempoBpm(),src=c.createBufferSource();src.buffer=gateCurve(c,this.buffer.__gate,bpm);src.loop=true;src.connect(this.moveGain.gain);
+      var off=window.PP&&PP.tracksBeatPhase?(PP.tracksBeatPhase(src.buffer.duration)||0):0;src.start(Math.max(time,c.currentTime),off);this.sources.push(src);this.gateSrc=src;this.gateBpm=bpm;};
     Voice.prototype.fadeIn=function(time,seconds){this.fade.gain.cancelScheduledValues(time);this.fade.gain.setValueAtTime(.0001,time);this.fade.gain.exponentialRampToValueAtTime(1,time+Math.max(.02,seconds));};
     Voice.prototype.fadeOut=function(time,seconds){if(this.stopped)return;this.fade.gain.cancelScheduledValues(time);this.fade.gain.setValueAtTime(Math.max(.0001,this.fade.gain.value),time);this.fade.gain.exponentialRampToValueAtTime(.0001,time+Math.max(.02,seconds));};
+    (function(){var plain=Voice.prototype.apply;Voice.prototype.apply=function(pad){plain.call(this,pad);if(this.gateSrc&&!this.stopped&&Math.abs(tempoBpm()-this.gateBpm)>.01)this.startGate(this.ctx.currentTime);};})();   // (a new tempo: the gate follows)
     Voice.prototype.allNodes=function(){return this.sources.concat(this.oscillators,this.shifter?this.shifter.nodes:[],[this.textureSource]);};
     Voice.prototype.stopTimers=function(){this.layerTimers.forEach(function(l){clearTimeout(l.timer);});};
     // Keeps looping samples going for the whole of a long fade.
@@ -635,7 +652,7 @@
     var engine=new AudioEngine();
 
     function sampleFor(sampleId){return project.library.find(function(sample){return sample.id===sampleId;})||null;}
-    function refreshVoiceOptions(){var select=document.querySelector("#voice"),pad=currentPad(),options=STOCK_VOICES.map(function(voice){return '<option value="'+voice+'">'+voice+"</option>";});if(cpads.length||isCpad(pad.voice)){var lk=cpadLocked();options.push('<optgroup label="Central Pads'+(lk?" (needs a sound plan)":"")+'">');cpads.forEach(function(c){options.push('<option value="'+escapeHtml(CPAD+c.id)+'">'+(lk?"🔒 ":"")+escapeHtml(c.name)+"</option>");});if(isCpad(pad.voice)&&!cpads.some(function(c){return CPAD+c.id===pad.voice;}))options.push('<option value="'+escapeHtml(pad.voice)+'">'+escapeHtml(voiceLabel(pad.voice))+" (not installed)</option>");options.push("</optgroup>");}if(project.library.length){options.push('<optgroup label="Imported voices">');project.library.forEach(function(sample){options.push('<option value="sample:'+sample.id+'">'+escapeHtml(sample.name)+"</option>");});options.push("</optgroup>");}select.innerHTML=options.join("");select.value=pad.sampleId?"sample:"+pad.sampleId:pad.voice;if(select.value==="")select.value=pad.voice||"Warm Pad";renderVoiceHear();}
+    function refreshVoiceOptions(){var select=document.querySelector("#voice"),pad=currentPad(),options=STOCK_VOICES.map(function(voice){return '<option value="'+voice+'">'+voice+"</option>";});if(cpads.length||cmoves.length||isCpad(pad.voice)){var lk=cpadLocked();options.push('<optgroup label="Central Pads'+(lk?" (needs a sound plan)":"")+'">');cpads.forEach(function(c){options.push('<option value="'+escapeHtml(CPAD+c.id)+'">'+(lk?"🔒 ":"")+escapeHtml(c.name)+"</option>");});cmoves.forEach(function(c){options.push('<option value="'+escapeHtml(CPAD+c.id)+'">'+(lk?"🔒 ":"")+escapeHtml(c.name)+" (moving)</option>");});if(isCpad(pad.voice)&&!cpads.concat(cmoves).some(function(c){return CPAD+c.id===pad.voice;}))options.push('<option value="'+escapeHtml(pad.voice)+'">'+escapeHtml(voiceLabel(pad.voice))+" (not installed)</option>");options.push("</optgroup>");}if(project.library.length){options.push('<optgroup label="Imported voices">');project.library.forEach(function(sample){options.push('<option value="sample:'+sample.id+'">'+escapeHtml(sample.name)+"</option>");});options.push("</optgroup>");}select.innerHTML=options.join("");select.value=pad.sampleId?"sample:"+pad.sampleId:pad.voice;if(select.value==="")select.value=pad.voice||"Warm Pad";renderVoiceHear();}
     // (10.2) Listen before you download: 30 seconds of each Central Pads style, from the library list (js/previews.js)
     function renderVoiceHear(){var el=document.querySelector("#voiceHear");if(!el)return;var L=window.PPLibraries,P=window.PPPreview;if(!L||!P){el.innerHTML="";return;}var st=L.state();if(!st.list&&!st.loading&&!renderVoiceHear.asked){renderVoiceHear.asked=true;L.load(false).then(renderVoiceHear);}var lib=(st.list||[]).filter(function(x){return x.plan==="pads";})[0],pv=lib&&lib.previews?lib.previews.filter(function(x){return x.kind==="pad";}):[];if(!pv.length){el.innerHTML="";return;}var have={};cpads.forEach(function(c){have[String(c.name||"").toLowerCase()]=1;});var open=el.querySelector("details")&&el.querySelector("details").open;el.innerHTML='<details'+(open?" open":"")+'><summary class="small">Hear the Central Pads styles (30 seconds each, before you download them)</summary><div class="pv-items">'+pv.map(function(x){return '<span class="pv-item">'+P.button(x,"Listen")+'<span class="pv-name">'+escapeHtml(x.name)+(have[String(x.name).toLowerCase()]?' <small class="muted">· installed</small>':"")+"</span></span>";}).join("")+"</div></details>";}
     function renderPads(){renderPerform();if(window.__pedalBridge)window.__pedalBridge.sendState();var playing=engine.active?engine.active.pad.id:null;document.querySelector("#padList").innerHTML=project.pads.map(function(pad,index){var cls="pad"+(index===selected?" active":"")+(pad.id===playing?" playing":""),source=pad.sampleId?(sampleFor(pad.sampleId)||{}).name||"Imported audio":voiceLabel(pad.voice);return '<button class="'+cls+'" data-pad="'+index+'"><b>PAD '+(index+1)+'</b><span>'+escapeHtml(pad.name)+" · "+pad.key.replace("#","♯")+(source&&source!==pad.name?" · "+escapeHtml(source):"")+"</span></button>";}).join("");}
